@@ -1259,6 +1259,116 @@ const docTemplate = `{
                 }
             }
         },
+        "/v1/responses": {
+            "post": {
+                "summary": "Create a response using the Open Responses API",
+                "parameters": [
+                    {
+                        "description": "Request body",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.OpenResponsesRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ORResponseResource"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/responses/{id}": {
+            "get": {
+                "description": "Retrieve a response by ID. Can be used for polling background responses or resuming streaming responses.",
+                "summary": "Get a response by ID",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Response ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Set to 'true' to resume streaming",
+                        "name": "stream",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Sequence number to resume from (for streaming)",
+                        "name": "starting_after",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ORResponseResource"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/responses/{id}/cancel": {
+            "post": {
+                "description": "Cancel a background response if it's still in progress",
+                "summary": "Cancel a response",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Response ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ORResponseResource"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/v1/sound-generation": {
             "post": {
                 "summary": "Generates audio from the input text.",
@@ -2507,6 +2617,322 @@ const docTemplate = `{
                 }
             }
         },
+        "schema.ORError": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "param": {
+                    "type": "string"
+                },
+                "type": {
+                    "description": "invalid_request|not_found|server_error|model_error|too_many_requests",
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ORFunctionTool": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "parameters": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "strict": {
+                    "description": "Always include in response",
+                    "type": "boolean"
+                },
+                "type": {
+                    "description": "always \"function\"",
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ORIncompleteDetails": {
+            "type": "object",
+            "properties": {
+                "reason": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ORInputTokensDetails": {
+            "type": "object",
+            "properties": {
+                "cached_tokens": {
+                    "description": "Always include, even if 0",
+                    "type": "integer"
+                }
+            }
+        },
+        "schema.ORItemField": {
+            "type": "object",
+            "properties": {
+                "arguments": {
+                    "type": "string"
+                },
+                "call_id": {
+                    "description": "Function call fields",
+                    "type": "string"
+                },
+                "content": {
+                    "description": "string or []ORContentPart for messages"
+                },
+                "id": {
+                    "description": "Present for all output items",
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "output": {
+                    "description": "Function call output fields"
+                },
+                "role": {
+                    "description": "Message fields",
+                    "type": "string"
+                },
+                "status": {
+                    "description": "in_progress|completed|incomplete",
+                    "type": "string"
+                },
+                "type": {
+                    "description": "message|function_call|function_call_output|reasoning|item_reference",
+                    "type": "string"
+                }
+            }
+        },
+        "schema.OROutputTokensDetails": {
+            "type": "object",
+            "properties": {
+                "reasoning_tokens": {
+                    "description": "Always include, even if 0",
+                    "type": "integer"
+                }
+            }
+        },
+        "schema.ORReasoning": {
+            "type": "object",
+            "properties": {
+                "effort": {
+                    "type": "string"
+                },
+                "summary": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ORReasoningParam": {
+            "type": "object",
+            "properties": {
+                "effort": {
+                    "description": "\"none\"|\"low\"|\"medium\"|\"high\"|\"xhigh\"",
+                    "type": "string"
+                },
+                "summary": {
+                    "description": "\"auto\"|\"concise\"|\"detailed\"",
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ORResponseResource": {
+            "type": "object",
+            "properties": {
+                "background": {
+                    "type": "boolean"
+                },
+                "completed_at": {
+                    "description": "Required: present as number or null",
+                    "type": "integer"
+                },
+                "created_at": {
+                    "type": "integer"
+                },
+                "error": {
+                    "description": "Always present, null if no error",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ORError"
+                        }
+                    ]
+                },
+                "frequency_penalty": {
+                    "type": "number"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "incomplete_details": {
+                    "description": "Always present, null if complete",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ORIncompleteDetails"
+                        }
+                    ]
+                },
+                "instructions": {
+                    "type": "string"
+                },
+                "max_output_tokens": {
+                    "type": "integer"
+                },
+                "max_tool_calls": {
+                    "description": "nullable",
+                    "type": "integer"
+                },
+                "metadata": {
+                    "description": "Metadata and operational flags",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "model": {
+                    "type": "string"
+                },
+                "object": {
+                    "description": "always \"response\"",
+                    "type": "string"
+                },
+                "output": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ORItemField"
+                    }
+                },
+                "parallel_tool_calls": {
+                    "type": "boolean"
+                },
+                "presence_penalty": {
+                    "type": "number"
+                },
+                "previous_response_id": {
+                    "type": "string"
+                },
+                "prompt_cache_key": {
+                    "description": "nullable",
+                    "type": "string"
+                },
+                "reasoning": {
+                    "description": "nullable",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ORReasoning"
+                        }
+                    ]
+                },
+                "safety_identifier": {
+                    "description": "Safety and caching",
+                    "type": "string"
+                },
+                "service_tier": {
+                    "type": "string"
+                },
+                "status": {
+                    "description": "in_progress|completed|failed|incomplete",
+                    "type": "string"
+                },
+                "store": {
+                    "type": "boolean"
+                },
+                "temperature": {
+                    "description": "Sampling parameters (always required)",
+                    "type": "number"
+                },
+                "text": {
+                    "description": "Text format configuration",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ORTextConfig"
+                        }
+                    ]
+                },
+                "tool_choice": {},
+                "tools": {
+                    "description": "Tool-related fields",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ORFunctionTool"
+                    }
+                },
+                "top_logprobs": {
+                    "description": "Default to 0",
+                    "type": "integer"
+                },
+                "top_p": {
+                    "type": "number"
+                },
+                "truncation": {
+                    "description": "Truncation and reasoning",
+                    "type": "string"
+                },
+                "usage": {
+                    "description": "Usage statistics",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ORUsage"
+                        }
+                    ]
+                }
+            }
+        },
+        "schema.ORTextConfig": {
+            "type": "object",
+            "properties": {
+                "format": {
+                    "$ref": "#/definitions/schema.ORTextFormat"
+                }
+            }
+        },
+        "schema.ORTextFormat": {
+            "type": "object",
+            "properties": {
+                "type": {
+                    "description": "\"text\" or \"json_schema\"",
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ORUsage": {
+            "type": "object",
+            "properties": {
+                "input_tokens": {
+                    "type": "integer"
+                },
+                "input_tokens_details": {
+                    "description": "Always present",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ORInputTokensDetails"
+                        }
+                    ]
+                },
+                "output_tokens": {
+                    "type": "integer"
+                },
+                "output_tokens_details": {
+                    "description": "Always present",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.OROutputTokensDetails"
+                        }
+                    ]
+                },
+                "total_tokens": {
+                    "type": "integer"
+                }
+            }
+        },
         "schema.OpenAIModel": {
             "type": "object",
             "properties": {
@@ -2778,6 +3204,114 @@ const docTemplate = `{
                 },
                 "total_tokens": {
                     "type": "integer"
+                }
+            }
+        },
+        "schema.OpenResponsesRequest": {
+            "type": "object",
+            "properties": {
+                "allowed_tools": {
+                    "description": "Restrict which tools can be invoked",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "background": {
+                    "description": "Run request in background",
+                    "type": "boolean"
+                },
+                "frequency_penalty": {
+                    "description": "Frequency penalty (-2.0 to 2.0)",
+                    "type": "number"
+                },
+                "include": {
+                    "description": "What to include in response",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "input": {
+                    "description": "string or []ORItemParam"
+                },
+                "instructions": {
+                    "type": "string"
+                },
+                "logit_bias": {
+                    "description": "OpenAI-compatible extensions (not in Open Responses spec)",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "number",
+                        "format": "float64"
+                    }
+                },
+                "max_output_tokens": {
+                    "type": "integer"
+                },
+                "max_tool_calls": {
+                    "description": "Maximum number of tool calls",
+                    "type": "integer"
+                },
+                "metadata": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "model": {
+                    "type": "string"
+                },
+                "parallel_tool_calls": {
+                    "description": "Allow parallel tool calls",
+                    "type": "boolean"
+                },
+                "presence_penalty": {
+                    "description": "Presence penalty (-2.0 to 2.0)",
+                    "type": "number"
+                },
+                "previous_response_id": {
+                    "type": "string"
+                },
+                "reasoning": {
+                    "$ref": "#/definitions/schema.ORReasoningParam"
+                },
+                "service_tier": {
+                    "description": "\"auto\"|\"default\"|priority hint",
+                    "type": "string"
+                },
+                "store": {
+                    "description": "Whether to store the response",
+                    "type": "boolean"
+                },
+                "stream": {
+                    "type": "boolean"
+                },
+                "temperature": {
+                    "type": "number"
+                },
+                "text_format": {
+                    "description": "Additional parameters from spec"
+                },
+                "tool_choice": {
+                    "description": "\"auto\"|\"required\"|\"none\"|{type:\"function\",name:\"...\"}"
+                },
+                "tools": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ORFunctionTool"
+                    }
+                },
+                "top_logprobs": {
+                    "description": "Number of top logprobs to return",
+                    "type": "integer"
+                },
+                "top_p": {
+                    "type": "number"
+                },
+                "truncation": {
+                    "description": "\"auto\"|\"disabled\"",
+                    "type": "string"
                 }
             }
         },
