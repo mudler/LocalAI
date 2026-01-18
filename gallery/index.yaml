@@ -1,4 +1,29 @@
 ---
+- name: "kageai-7b-v1.2-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/KageAI-7B-v1.2-i1-GGUF
+  description: |
+    The model is **KageAI-7B-v1.2**, a large language model (7B parameters) optimized for text generation. It is based on the base model **kagelabs/KageAI-7B-v1.2** and is quantized using techniques like IQ3_XXS, Q2_K, and Q4_K_S to balance efficiency and performance. It supports GGUF format for deployment and is designed for tasks such as code generation, translation, and dialogue. The model offers multiple quantized variants with varying trade-offs between speed, memory usage, and accuracy.
+  overrides:
+    parameters:
+      model: llama-cpp/models/KageAI-7B-v1.2.i1-Q4_K_M.gguf
+    name: KageAI-7B-v1.2-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/KageAI-7B-v1.2-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/KageAI-7B-v1.2.i1-Q4_K_M.gguf
+      sha256: ec483b462c58c607c26afc19999e3f602a30254faab3e279f0eab752d3f0d244
+      uri: https://huggingface.co/mradermacher/KageAI-7B-v1.2-i1-GGUF/resolve/main/KageAI-7B-v1.2.i1-Q4_K_M.gguf
 - name: "qwen3-vl-reranker-8b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
