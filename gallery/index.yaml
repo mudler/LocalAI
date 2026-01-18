@@ -1,4 +1,29 @@
 ---
+- name: "texasholdem-llama-3.2-1b-instruct-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/TexasHoldEm-Llama-3.2-1B-Instruct-i1-GGUF
+  description: |
+    The model `TexasHoldEm-Llama-3.2-1B-Instruct` is a quantized version of the Llama-3.2-1B model, optimized for deployment via the GGUF format. It retains the core capabilities of the original Llama-3.2-1B model, including instruction tuning for specific tasks like Texas Hold'em gameplay. The quantization reduces memory usage while maintaining performance, making it suitable for applications requiring efficient inference. The model is designed for low-latency, high-performance tasks with a 1B parameter scale.
+  overrides:
+    parameters:
+      model: llama-cpp/models/TexasHoldEm-Llama-3.2-1B-Instruct.i1-Q4_K_M.gguf
+    name: TexasHoldEm-Llama-3.2-1B-Instruct-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/TexasHoldEm-Llama-3.2-1B-Instruct-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/TexasHoldEm-Llama-3.2-1B-Instruct.i1-Q4_K_M.gguf
+      sha256: 83486a36141f075bd0de8c0d21ba2e5df278cc269e05c48816dc9ffafc127bc8
+      uri: https://huggingface.co/mradermacher/TexasHoldEm-Llama-3.2-1B-Instruct-i1-GGUF/resolve/main/TexasHoldEm-Llama-3.2-1B-Instruct.i1-Q4_K_M.gguf
 - name: "qwen3-vl-reranker-8b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
