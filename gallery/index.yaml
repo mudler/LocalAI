@@ -1,4 +1,33 @@
 ---
+- name: "audiogemma-3n-finetune"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Audiogemma-3N-finetune-GGUF
+  description: |
+    The **Audiogemma-3N-finetune-GGUF** is a fine-tuned version of the **EpistemeAI/Audiogemma-3N-finetune** model, optimized for text generation with quantized parameters. It supports multiple quantization levels (e.g., Q8_0, Q4_K_S, Q6_K) to balance efficiency and performance, with the highest quality being **Q8_0 (7.5 GB)**. The model is designed for efficient deployment in applications requiring low-latency text generation, with options for fast inference (e.g., Q4_K_S, Q4_K_M) or reduced memory usage (e.g., Q2_K). It is compatible with Hugging Face's GGUF format and includes multi-modal supplement files for extended use. The model is not quantized by the original author but is optimized for real-world deployment.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Audiogemma-3N-finetune.Q4_K_M.gguf
+    name: Audiogemma-3N-finetune-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    mmproj: llama-cpp/mmproj/Audiogemma-3N-finetune.mmproj-f16.gguf
+    description: Imported from https://huggingface.co/mradermacher/Audiogemma-3N-finetune-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Audiogemma-3N-finetune.Q4_K_M.gguf
+      sha256: 4e05e84eaf8cf84639dc81b8210655720ce7b2360a2edb6b86453066d9e854e2
+      uri: https://huggingface.co/mradermacher/Audiogemma-3N-finetune-GGUF/resolve/main/Audiogemma-3N-finetune.Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/Audiogemma-3N-finetune.mmproj-f16.gguf
+      sha256: 4b42a7cdfa3504c0f82914f279ad08a2794e3b2a3c0b01fb08377e6f83865bbf
+      uri: https://huggingface.co/mradermacher/Audiogemma-3N-finetune-GGUF/resolve/main/Audiogemma-3N-finetune.mmproj-f16.gguf
 - name: "qwen3-vl-reranker-8b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
