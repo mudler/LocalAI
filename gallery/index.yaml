@@ -1,4 +1,29 @@
 ---
+- name: "muse-mell-12b-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Muse-Mell-12B-i1-GGUF
+  description: |
+    The model is a 12-billion parameter language model (Muse-Mell-12B) optimized for efficiency with quantized weights. It is based on the original Muse-12B model but uses quantization to reduce memory usage and improve inference speed. The GGUF format (compressed binary) is used for storage, making it suitable for deployment in resource-constrained environments. It maintains strong performance on tasks like text generation, reasoning, and translation.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Muse-Mell-12B.i1-Q4_K_M.gguf
+    name: Muse-Mell-12B-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Muse-Mell-12B-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Muse-Mell-12B.i1-Q4_K_M.gguf
+      sha256: 7ac027966a164c2d651ca11b6f12d483add049d1d982f0915f7e1f222b8bb131
+      uri: https://huggingface.co/mradermacher/Muse-Mell-12B-i1-GGUF/resolve/main/Muse-Mell-12B.i1-Q4_K_M.gguf
 - name: "qwen3-vl-reranker-8b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
