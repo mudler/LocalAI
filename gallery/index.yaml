@@ -1,4 +1,29 @@
 ---
+- name: "hybrid_play_32b-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/hybrid_play_32b-i1-GGUF
+  description: |
+    The model is a large language model based on the base model `synthetic-code-training/hybrid_play_32b`. It is quantized for efficient deployment using the GGUF format, with the quantized version being a modified version of the base model by `mradermacher`. The quantized model (e.g., `i1-Q4_K_M.gguf`) is optimized for speed and memory efficiency, suitable for use in applications requiring reduced resource usage. The base model is a high-quality, large-scale language model, while the quantized version is tailored for GGUF format compatibility.
+  overrides:
+    parameters:
+      model: llama-cpp/models/hybrid_play_32b.i1-Q4_K_M.gguf
+    name: hybrid_play_32b-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/hybrid_play_32b-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/hybrid_play_32b.i1-Q4_K_M.gguf
+      sha256: 3a75e3274b258dcd94a8d81cdf88299e93e9f50103c2124da0216ef118c16b34
+      uri: https://huggingface.co/mradermacher/hybrid_play_32b-i1-GGUF/resolve/main/hybrid_play_32b.i1-Q4_K_M.gguf
 - name: "qwen3-vl-reranker-8b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
