@@ -1,4 +1,29 @@
 ---
+- name: "sdxs-512-tinysddistilled"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/concedo/sdxs-512-tinySDdistilled-GGUF
+  description: |
+    The model is a quantized version of a small-scale SD (Stable Diffusion) model, specifically tailored for text-to-image generation. It is distilled to reduce computational requirements while retaining key capabilities. The license is openrail++. For detailed technical specifications or further details, additional context would be needed.
+  overrides:
+    parameters:
+      model: llama-cpp/models/sdxs-512-tinySDdistilled_Q8_0.gguf
+    name: sdxs-512-tinySDdistilled-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/concedo/sdxs-512-tinySDdistilled-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/sdxs-512-tinySDdistilled_Q8_0.gguf
+      sha256: 409ab23582ee074c6b9d5395784fc0741b0599fb9d138686c69087c71678eb6a
+      uri: https://huggingface.co/concedo/sdxs-512-tinySDdistilled-GGUF/resolve/main/sdxs-512-tinySDdistilled_Q8_0.gguf
 - name: "qwen3-vl-reranker-8b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
