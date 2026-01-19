@@ -1,4 +1,39 @@
 ---
+- name: "vensa-1.1b"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/prawinn04/vensa-1.1b-gguf
+  description: |
+    **Vensa 1.1B (GGUF)**
+    A lightweight, Llama-based model (1.1B parameters) optimized for efficient inference on local machines and edge devices using `llama.cpp`. Designed for Flutter Development and Dart Programming, it focuses on mobile app architecture, widget trees, and UI/UX patterns.
+
+    **Key Features:**
+      - **Quantized:** Q4_K_M (high efficiency with minimal quality loss)
+      - **Format:** GGUF (optimized for CPU & mobile)
+      - **Focus:** Flutter/Dart syntax, state management (Provider, Riverpod, Bloc), and mobile UI/UX patterns
+      - **License:** MIT
+      - **API:** Private service for specialized integrations (contact developer for collaboration)
+
+    **Use Case:** Lightweight, high-performance model for mobile app development tasks.
+  overrides:
+    parameters:
+      model: llama-cpp/models/vensa-1.1b.gguf
+    name: vensa-1.1b-gguf
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/prawinn04/vensa-1.1b-gguf
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/vensa-1.1b.gguf
+      sha256: c32c90e7959c006e41089051f2b78750ce0d92d7872b30320b0798311bb34572
+      uri: https://huggingface.co/prawinn04/vensa-1.1b-gguf/resolve/main/vensa-1.1b.gguf
 - name: "qwen3-vl-reranker-8b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
