@@ -1,4 +1,37 @@
 ---
+- name: "phi-4-mini-instruct-q4k_m"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/keisuke-miyako/Phi-4-mini-instruct-gguf-q4k_m
+  description: |
+    Phi-4-mini-instruct is a lightweight, multilingual language model (3.8B parameters) optimized for reasoning, logic, and code tasks. It supports 128K tokens, with a focus on high-quality reasoning data. Key features include:
+      - **Multilingual support**: Arabic, Chinese, Czech, Danish, Dutch, English, Finnish, French, German, Hebrew, Hungarian, Italian, Japanese, Korean, Norwegian, Polish, Portuguese, Russian, Spanish, Swedish, Thai, Turkish, Ukrainian.
+      - **Efficiency**: Designed for memory-constrained and latency-bound scenarios, with flash attention for fast inference.
+      - **Reasoning capabilities**: Excels in math, logic, and code tasks (e.g., solving equations, generating code).
+      - **Use cases**: General AI systems, research, and applications requiring precise instruction adherence.
+      - **License**: MIT.
+      - **Training**: Trained on 5T tokens, with synthetic and filtered data for reasoning.
+
+    Ideal for low-resource languages and scenarios requiring strong reasoning, it balances efficiency with performance.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Phi-4-mini-instruct-Q4_K_M.gguf
+    name: Phi-4-mini-instruct-gguf-q4k_m
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/keisuke-miyako/Phi-4-mini-instruct-gguf-q4k_m
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Phi-4-mini-instruct-Q4_K_M.gguf
+      sha256: 55239fbd0dc947146be056e7850d2fa3a55d0091aa2cc873767e686c3b15eeed
+      uri: https://huggingface.co/keisuke-miyako/Phi-4-mini-instruct-gguf-q4k_m/resolve/main/Phi-4-mini-instruct-Q4_K_M.gguf
 - name: "qwen3-vl-reranker-8b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
