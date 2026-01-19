@@ -29,6 +29,7 @@
 
     This description emphasizes its capabilities, efficiency, and versatility for multimodal search tasks.
   overrides:
+    reranking: true
     parameters:
       model: llama-cpp/models/Qwen3-VL-Reranker-8B.Q4_K_M.gguf
     name: Qwen3-VL-Reranker-8B-GGUF
