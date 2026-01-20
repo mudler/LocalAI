@@ -1,4 +1,4 @@
-package functions
+package reasoning
 
 import (
 	"strings"
@@ -17,14 +17,6 @@ var thinkingOpenTags = []string{
 	"[THINK]",
 }
 
-// ReasoningOptions configures how reasoning extraction behaves
-type ReasoningOptions struct {
-	// ThinkingForcedOpen indicates that the model outputs reasoning without an opening tag.
-	// When true, all content from the start is treated as reasoning until a closing tag is found.
-	// This is useful for models like GLM-4 that output reasoning without <think> but end with </think>.
-	ThinkingForcedOpen bool
-}
-
 // DetectThinkingForcedOpen checks if a prompt ends with a thinking opening tag.
 // This is used to automatically detect when the model template has already added
 // the opening thinking tag, meaning the model will output reasoning content directly.
@@ -38,31 +30,35 @@ func DetectThinkingForcedOpen(prompt string) bool {
 	return false
 }
 
-// ExtractReasoning extracts reasoning content from thinking tags and returns
+// Extract extracts reasoning content from thinking tags and returns
 // both the extracted reasoning and the cleaned content (with tags removed).
 // It handles <thinking>...</thinking> and <think>...</think> tags.
 // Multiple reasoning blocks are concatenated with newlines.
 // It also handles the case where only a closing tag is present (no opening tag),
 // in which case everything before the closing tag is treated as reasoning.
 //
-// When opts.ThinkingForcedOpen is true, all content from the start is treated as reasoning
-// until a closing tag (</think> or </thinking>) is found. This is useful for models
-// whose templates add the opening tag, so the model outputs reasoning directly.
-func ExtractReasoning(content string, opts ReasoningOptions) (reasoning string, cleanedContent string) {
+// Use WithThinkingForcedOpen() option when all content from the start should be
+// treated as reasoning until a closing tag is found.
+func Extract(content string, opts ...Option) (reasoning string, cleanedContent string) {
 	if content == "" {
 		return "", content
 	}
 
-	if opts.ThinkingForcedOpen {
-		return extractReasoningForcedOpen(content)
+	cfg := &options{}
+	for _, opt := range opts {
+		opt(cfg)
 	}
 
-	return extractReasoningFromTags(content)
+	if cfg.thinkingForcedOpen {
+		return extractForcedOpen(content)
+	}
+
+	return extractFromTags(content)
 }
 
-// extractReasoningForcedOpen handles the case where reasoning starts without an opening tag.
+// extractForcedOpen handles the case where reasoning starts without an opening tag.
 // All content from the start is treated as reasoning until a closing tag is found.
-func extractReasoningForcedOpen(content string) (reasoning string, cleanedContent string) {
+func extractForcedOpen(content string) (reasoning string, cleanedContent string) {
 	// Look for the earliest closing tag
 	closingTags := []string{"</thinking>", "</think>"}
 
@@ -88,7 +84,7 @@ func extractReasoningForcedOpen(content string) (reasoning string, cleanedConten
 
 	// Continue processing the rest for any additional reasoning blocks
 	if cleanedContent != "" {
-		additionalReasoning, finalContent := extractReasoningFromTags(cleanedContent)
+		additionalReasoning, finalContent := extractFromTags(cleanedContent)
 		if additionalReasoning != "" {
 			if reasoning != "" {
 				reasoning = reasoning + "\n\n" + additionalReasoning
@@ -102,9 +98,9 @@ func extractReasoningForcedOpen(content string) (reasoning string, cleanedConten
 	return reasoning, cleanedContent
 }
 
-// extractReasoningFromTags extracts reasoning content from thinking tags.
+// extractFromTags extracts reasoning content from thinking tags.
 // This is the core implementation that handles standard tag-based extraction.
-func extractReasoningFromTags(content string) (reasoning string, cleanedContent string) {
+func extractFromTags(content string) (reasoning string, cleanedContent string) {
 	if content == "" {
 		return "", content
 	}

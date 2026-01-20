@@ -13,6 +13,7 @@ import (
 	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/pkg/functions"
+	"github.com/mudler/LocalAI/pkg/reasoning"
 
 	"github.com/mudler/LocalAI/core/templates"
 	"github.com/mudler/LocalAI/pkg/model"
@@ -44,17 +45,18 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 		lastEmittedCleanedContent := ""
 
 		// Configure reasoning extraction options
-		// Auto-detect if prompt ends with thinking tag (like llama.cpp does)
+		// Auto-detect if prompt ends with thinking tag
 		// or use explicit config setting
-		thinkingForcedOpen := config.FunctionsConfig.ThinkingForcedOpen || functions.DetectThinkingForcedOpen(s)
-		reasoningOpts := functions.ReasoningOptions{
-			ThinkingForcedOpen: thinkingForcedOpen,
-		}
+		thinkingForcedOpen := config.ReasoningConfig.ThinkingForcedOpen || reasoning.DetectThinkingForcedOpen(s)
 
 		_, _, err := ComputeChoices(req, s, config, cl, startupOptions, loader, func(s string, c *[]schema.Choice) {}, func(s string, tokenUsage backend.TokenUsage) bool {
 			accumulatedContent += s
-			// Extract reasoning from accumulated content with options
-			currentReasoning, cleanedContent := functions.ExtractReasoning(accumulatedContent, reasoningOpts)
+			// Extract reasoning from accumulated content
+			opts := []reasoning.Option{}
+			if thinkingForcedOpen {
+				opts = append(opts, reasoning.WithThinkingForcedOpen())
+			}
+			currentReasoning, cleanedContent := reasoning.Extract(accumulatedContent, opts...)
 
 			// Calculate new reasoning delta (what we haven't emitted yet)
 			var reasoningDelta *string
@@ -239,11 +241,12 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 		}
 		// Extract reasoning before processing tool calls
 		// Auto-detect if prompt ends with thinking tag or use explicit config
-		toolsThinkingForcedOpen := config.FunctionsConfig.ThinkingForcedOpen || functions.DetectThinkingForcedOpen(prompt)
-		toolsReasoningOpts := functions.ReasoningOptions{
-			ThinkingForcedOpen: toolsThinkingForcedOpen,
+		toolsThinkingForcedOpen := config.ReasoningConfig.ThinkingForcedOpen || reasoning.DetectThinkingForcedOpen(prompt)
+		opts := []reasoning.Option{}
+		if toolsThinkingForcedOpen {
+			opts = append(opts, reasoning.WithThinkingForcedOpen())
 		}
-		reasoning, cleanedResult := functions.ExtractReasoning(result, toolsReasoningOpts)
+		extractedReasoning, cleanedResult := reasoning.Extract(result, opts...)
 		result = cleanedResult
 
 		textContentToReturn = functions.ParseTextContent(result, config.FunctionsConfig)
@@ -279,8 +282,8 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 			}
 
 			var deltaReasoning *string
-			if reasoning != "" {
-				deltaReasoning = &reasoning
+			if extractedReasoning != "" {
+				deltaReasoning = &extractedReasoning
 			}
 			delta := &schema.Message{Content: &result}
 			if deltaReasoning != nil {
@@ -632,22 +635,23 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 		default:
 
 			// Auto-detect if prompt ends with thinking tag for non-streaming mode
-			nonStreamThinkingForcedOpen := config.FunctionsConfig.ThinkingForcedOpen || functions.DetectThinkingForcedOpen(predInput)
+			nonStreamThinkingForcedOpen := config.ReasoningConfig.ThinkingForcedOpen || reasoning.DetectThinkingForcedOpen(predInput)
 
 			tokenCallback := func(s string, c *[]schema.Choice) {
 				// Extract reasoning from the response
-				nonStreamReasoningOpts := functions.ReasoningOptions{
-					ThinkingForcedOpen: nonStreamThinkingForcedOpen,
+				var extractedReasoning string
+				opts := []reasoning.Option{}
+				if nonStreamThinkingForcedOpen {
+					opts = append(opts, reasoning.WithThinkingForcedOpen())
 				}
-				reasoning, cleanedS := functions.ExtractReasoning(s, nonStreamReasoningOpts)
-				s = cleanedS
+				extractedReasoning, s = reasoning.Extract(s, opts...)
 
 				if !shouldUseFn {
 					// no function is called, just reply and use stop as finish reason
 					stopReason := FinishReasonStop
 					message := &schema.Message{Role: "assistant", Content: &s}
-					if reasoning != "" {
-						message.Reasoning = &reasoning
+					if extractedReasoning != "" {
+						message.Reasoning = &extractedReasoning
 					}
 					*c = append(*c, schema.Choice{FinishReason: &stopReason, Index: 0, Message: message})
 					return
@@ -669,8 +673,8 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 
 					stopReason := FinishReasonStop
 					message := &schema.Message{Role: "assistant", Content: &result}
-					if reasoning != "" {
-						message.Reasoning = &reasoning
+					if extractedReasoning != "" {
+						message.Reasoning = &extractedReasoning
 					}
 					*c = append(*c, schema.Choice{
 						FinishReason: &stopReason,
@@ -683,8 +687,8 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 							Role: "assistant",
 						},
 					}
-					if reasoning != "" {
-						toolChoice.Message.Reasoning = &reasoning
+					if extractedReasoning != "" {
+						toolChoice.Message.Reasoning = &extractedReasoning
 					}
 
 					for _, ss := range results {
@@ -714,8 +718,8 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 									"arguments": args,
 								},
 							}
-							if reasoning != "" {
-								message.Reasoning = &reasoning
+							if extractedReasoning != "" {
+								message.Reasoning = &extractedReasoning
 							}
 							*c = append(*c, schema.Choice{
 								FinishReason: &functionCallReason,
