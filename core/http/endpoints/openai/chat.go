@@ -13,6 +13,7 @@ import (
 	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/pkg/functions"
+	reason "github.com/mudler/LocalAI/pkg/reasoning"
 
 	"github.com/mudler/LocalAI/core/templates"
 	"github.com/mudler/LocalAI/pkg/model"
@@ -38,6 +39,16 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 		}
 		responses <- initialMessage
 
+		// Detect if thinking token is already in prompt or template
+		// When UseTokenizerTemplate is enabled, predInput is empty, so we check the template
+		var template string
+		if config.TemplateConfig.UseTokenizerTemplate {
+			template = config.GetModelTemplate()
+		} else {
+			template = s
+		}
+		thinkingStartToken := reason.DetectThinkingStartToken(template)
+
 		// Track accumulated content for reasoning extraction
 		accumulatedContent := ""
 		lastEmittedReasoning := ""
@@ -45,8 +56,12 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 
 		_, _, err := ComputeChoices(req, s, config, cl, startupOptions, loader, func(s string, c *[]schema.Choice) {}, func(s string, tokenUsage backend.TokenUsage) bool {
 			accumulatedContent += s
-			// Extract reasoning from accumulated content
-			currentReasoning, cleanedContent := functions.ExtractReasoning(accumulatedContent)
+			content := accumulatedContent
+			// Prepend thinking token if needed, then extract reasoning
+			if config.ReasoningConfig.DisableReasoningTagPrefill == nil || !*config.ReasoningConfig.DisableReasoningTagPrefill {
+				content = reason.PrependThinkingTokenIfNeeded(content, thinkingStartToken)
+			}
+			currentReasoning, cleanedContent := reason.ExtractReasoning(content)
 
 			// Calculate new reasoning delta (what we haven't emitted yet)
 			var reasoningDelta *string
@@ -118,6 +133,15 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 		return err
 	}
 	processTools := func(noAction string, prompt string, req *schema.OpenAIRequest, config *config.ModelConfig, loader *model.ModelLoader, responses chan schema.OpenAIResponse, extraUsage bool) error {
+		// Detect if thinking token is already in prompt or template
+		var template string
+		if config.TemplateConfig.UseTokenizerTemplate {
+			template = config.GetModelTemplate()
+		} else {
+			template = prompt
+		}
+		thinkingStartToken := reason.DetectThinkingStartToken(template)
+
 		result := ""
 		lastEmittedCount := 0
 		_, tokenUsage, err := ComputeChoices(req, prompt, config, cl, startupOptions, loader, func(s string, c *[]schema.Choice) {}, func(s string, usage backend.TokenUsage) bool {
@@ -229,8 +253,12 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 		if err != nil {
 			return err
 		}
-		// Extract reasoning before processing tool calls
-		reasoning, cleanedResult := functions.ExtractReasoning(result)
+		// Prepend thinking token if needed, then extract reasoning before processing tool calls
+		resultWithToken := result
+		if config.ReasoningConfig.DisableReasoningTagPrefill == nil || !*config.ReasoningConfig.DisableReasoningTagPrefill {
+			resultWithToken = reason.PrependThinkingTokenIfNeeded(result, thinkingStartToken)
+		}
+		reasoning, cleanedResult := reason.ExtractReasoning(resultWithToken)
 		result = cleanedResult
 
 		textContentToReturn = functions.ParseTextContent(result, config.FunctionsConfig)
@@ -617,10 +645,24 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 
 		// no streaming mode
 		default:
+			// Detect if thinking token is already in prompt or template
+			var template string
+			if config.TemplateConfig.UseTokenizerTemplate {
+				template = config.GetModelTemplate() // TODO: this should be the parsed jinja template. But for now this is the best we can do.
+			} else {
+				template = predInput
+			}
+			thinkingStartToken := reason.DetectThinkingStartToken(template)
+
+			xlog.Debug("Thinking start token", "thinkingStartToken", thinkingStartToken, "template", template)
 
 			tokenCallback := func(s string, c *[]schema.Choice) {
-				// Extract reasoning from the response
-				reasoning, cleanedS := functions.ExtractReasoning(s)
+				// Prepend thinking token if needed, then extract reasoning from the response
+				sWithToken := s
+				if config.ReasoningConfig.DisableReasoningTagPrefill == nil || !*config.ReasoningConfig.DisableReasoningTagPrefill {
+					sWithToken = reason.PrependThinkingTokenIfNeeded(s, thinkingStartToken)
+				}
+				reasoning, cleanedS := reason.ExtractReasoning(sWithToken)
 				s = cleanedS
 
 				if !shouldUseFn {

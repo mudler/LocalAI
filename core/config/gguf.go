@@ -62,16 +62,23 @@ func guessGGUFFromFile(cfg *ModelConfig, f *gguf.GGUFFile, defaultCtx int) {
 		cfg.NGPULayers = &defaultHigh
 	}
 
-	xlog.Debug("guessDefaultsFromFile: NGPULayers set", "NGPULayers", cfg.NGPULayers)
+	xlog.Debug("[gguf] guessDefaultsFromFile: NGPULayers set", "NGPULayers", cfg.NGPULayers, "modelName", f.Metadata().Name)
+
+	// identify from well known templates first, otherwise use the raw jinja template
+	chatTemplate, found := f.Header.MetadataKV.Get("tokenizer.chat_template")
+	if found {
+		// fill jinja template
+		cfg.modelTemplate = chatTemplate.ValueString()
+	}
 
 	// template estimations
 	if cfg.HasTemplate() {
 		// nothing to guess here
-		xlog.Debug("guessDefaultsFromFile: template already set", "name", cfg.Name)
+		xlog.Debug("[gguf] guessDefaultsFromFile: template already set", "name", cfg.Name, "modelName", f.Metadata().Name)
 		return
 	}
 
-	xlog.Debug("Model file loaded", "file", cfg.ModelFileName(), "eosTokenID", f.Tokenizer().EOSTokenID, "bosTokenID", f.Tokenizer().BOSTokenID, "modelName", f.Metadata().Name, "architecture", f.Architecture().Architecture)
+	xlog.Debug("[gguf] Model file loaded", "file", cfg.ModelFileName(), "eosTokenID", f.Tokenizer().EOSTokenID, "bosTokenID", f.Tokenizer().BOSTokenID, "modelName", f.Metadata().Name, "architecture", f.Architecture().Architecture)
 
 	// guess the name
 	if cfg.Name == "" {
@@ -83,4 +90,5 @@ func guessGGUFFromFile(cfg *ModelConfig, f *gguf.GGUFFile, defaultCtx int) {
 	cfg.FunctionsConfig.GrammarConfig.NoGrammar = true
 	cfg.Options = append(cfg.Options, "use_jinja:true")
 	cfg.KnownUsecaseStrings = append(cfg.KnownUsecaseStrings, "FLAG_CHAT")
+
 }
