@@ -56,9 +56,12 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 
 		_, _, err := ComputeChoices(req, s, config, cl, startupOptions, loader, func(s string, c *[]schema.Choice) {}, func(s string, tokenUsage backend.TokenUsage) bool {
 			accumulatedContent += s
+			content := accumulatedContent
 			// Prepend thinking token if needed, then extract reasoning
-			contentWithToken := reason.PrependThinkingTokenIfNeeded(accumulatedContent, thinkingStartToken)
-			currentReasoning, cleanedContent := reason.ExtractReasoning(contentWithToken)
+			if config.ReasoningConfig.DisableReasoningTagPrefill == nil || !*config.ReasoningConfig.DisableReasoningTagPrefill {
+				content = reason.PrependThinkingTokenIfNeeded(content, thinkingStartToken)
+			}
+			currentReasoning, cleanedContent := reason.ExtractReasoning(content)
 
 			// Calculate new reasoning delta (what we haven't emitted yet)
 			var reasoningDelta *string
@@ -251,7 +254,10 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 			return err
 		}
 		// Prepend thinking token if needed, then extract reasoning before processing tool calls
-		resultWithToken := reason.PrependThinkingTokenIfNeeded(result, thinkingStartToken)
+		resultWithToken := result
+		if config.ReasoningConfig.DisableReasoningTagPrefill == nil || !*config.ReasoningConfig.DisableReasoningTagPrefill {
+			resultWithToken = reason.PrependThinkingTokenIfNeeded(result, thinkingStartToken)
+		}
 		reasoning, cleanedResult := reason.ExtractReasoning(resultWithToken)
 		result = cleanedResult
 
@@ -642,7 +648,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 			// Detect if thinking token is already in prompt or template
 			var template string
 			if config.TemplateConfig.UseTokenizerTemplate {
-				template = config.GetModelTemplate()
+				template = config.GetModelTemplate() // TODO: this should be the parsed jinja template. But for now this is the best we can do.
 			} else {
 				template = predInput
 			}
@@ -652,7 +658,10 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 
 			tokenCallback := func(s string, c *[]schema.Choice) {
 				// Prepend thinking token if needed, then extract reasoning from the response
-				sWithToken := reason.PrependThinkingTokenIfNeeded(s, thinkingStartToken)
+				sWithToken := s
+				if config.ReasoningConfig.DisableReasoningTagPrefill == nil || !*config.ReasoningConfig.DisableReasoningTagPrefill {
+					sWithToken = reason.PrependThinkingTokenIfNeeded(s, thinkingStartToken)
+				}
 				reasoning, cleanedS := reason.ExtractReasoning(sWithToken)
 				s = cleanedS
 
