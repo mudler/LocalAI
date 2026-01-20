@@ -111,6 +111,11 @@ type FunctionsConfig struct {
 	// XMLFormat is an optional custom XML format configuration
 	// If set, only this format will be tried (overrides XMLFormatPreset)
 	XMLFormat *XMLToolCallFormat `yaml:"xml_format,omitempty" json:"xml_format,omitempty"`
+
+	// ThinkingForcedOpen indicates that the model outputs reasoning without an opening tag.
+	// When true, all content from the start is treated as reasoning until a closing tag is found.
+	// This is useful for models like GLM-4 that output reasoning without <think> but end with </think>.
+	ThinkingForcedOpen bool `yaml:"thinking_forced_open,omitempty" json:"thinking_forced_open,omitempty"`
 }
 
 // @Description ReplaceResult defines a key-value replacement for function results

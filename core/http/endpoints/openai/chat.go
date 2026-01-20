@@ -43,10 +43,18 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 		lastEmittedReasoning := ""
 		lastEmittedCleanedContent := ""
 
+		// Configure reasoning extraction options
+		// Auto-detect if prompt ends with thinking tag (like llama.cpp does)
+		// or use explicit config setting
+		thinkingForcedOpen := config.FunctionsConfig.ThinkingForcedOpen || functions.DetectThinkingForcedOpen(s)
+		reasoningOpts := functions.ReasoningOptions{
+			ThinkingForcedOpen: thinkingForcedOpen,
+		}
+
 		_, _, err := ComputeChoices(req, s, config, cl, startupOptions, loader, func(s string, c *[]schema.Choice) {}, func(s string, tokenUsage backend.TokenUsage) bool {
 			accumulatedContent += s
-			// Extract reasoning from accumulated content
-			currentReasoning, cleanedContent := functions.ExtractReasoning(accumulatedContent)
+			// Extract reasoning from accumulated content with options
+			currentReasoning, cleanedContent := functions.ExtractReasoning(accumulatedContent, reasoningOpts)
 
 			// Calculate new reasoning delta (what we haven't emitted yet)
 			var reasoningDelta *string
@@ -230,7 +238,12 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 			return err
 		}
 		// Extract reasoning before processing tool calls
-		reasoning, cleanedResult := functions.ExtractReasoning(result)
+		// Auto-detect if prompt ends with thinking tag or use explicit config
+		toolsThinkingForcedOpen := config.FunctionsConfig.ThinkingForcedOpen || functions.DetectThinkingForcedOpen(prompt)
+		toolsReasoningOpts := functions.ReasoningOptions{
+			ThinkingForcedOpen: toolsThinkingForcedOpen,
+		}
+		reasoning, cleanedResult := functions.ExtractReasoning(result, toolsReasoningOpts)
 		result = cleanedResult
 
 		textContentToReturn = functions.ParseTextContent(result, config.FunctionsConfig)
@@ -618,9 +631,15 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 		// no streaming mode
 		default:
 
+			// Auto-detect if prompt ends with thinking tag for non-streaming mode
+			nonStreamThinkingForcedOpen := config.FunctionsConfig.ThinkingForcedOpen || functions.DetectThinkingForcedOpen(predInput)
+
 			tokenCallback := func(s string, c *[]schema.Choice) {
 				// Extract reasoning from the response
-				reasoning, cleanedS := functions.ExtractReasoning(s)
+				nonStreamReasoningOpts := functions.ReasoningOptions{
+					ThinkingForcedOpen: nonStreamThinkingForcedOpen,
+				}
+				reasoning, cleanedS := functions.ExtractReasoning(s, nonStreamReasoningOpts)
 				s = cleanedS
 
 				if !shouldUseFn {
