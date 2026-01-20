@@ -1,4 +1,29 @@
 ---
+- name: "functiongemma-270m-it"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/keisuke-miyako/functiongemma-270m-it-gguf-q4_k_m
+  description: |
+    The model is a quantized version of the original **google/functiongemma-270m-it** model, optimized for efficient deployment. It uses the **q4_k_m** quantization scheme, which reduces memory usage while maintaining accuracy. This variant is tailored for lightweight applications, leveraging the original model's capabilities while adapting to practical deployment needs.
+  overrides:
+    parameters:
+      model: llama-cpp/models/functiongemma-270m-it-Q4_K_M.gguf
+    name: functiongemma-270m-it-gguf-q4_k_m
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/keisuke-miyako/functiongemma-270m-it-gguf-q4_k_m
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/functiongemma-270m-it-Q4_K_M.gguf
+      sha256: 65daeffafd42a233da9c28c2db244af18aebcec5835db7239761740d71422b0a
+      uri: https://huggingface.co/keisuke-miyako/functiongemma-270m-it-gguf-q4_k_m/resolve/main/functiongemma-270m-it-Q4_K_M.gguf
 - name: "qwen3-vl-reranker-8b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
