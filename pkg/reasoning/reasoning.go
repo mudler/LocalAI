@@ -17,12 +17,12 @@ import (
 // - <think>    (DeepSeek, Granite, ExaOne models)
 // - <|think|>               (Solar Open models)
 // - <thinking>              (General thinking tag)
-// - <think>                 (GLM models)
 // - [THINK]                 (Magistral models)
-func DetectThinkingStartToken(prompt string) string {
+// Custom tokens from config are checked first, then default tokens.
+func DetectThinkingStartToken(prompt string, config *Config) string {
 	// Common thinking start tokens (in order of specificity - longer first)
 	// Based on llama.cpp's chat-parser.cpp implementations
-	thinkingStartTokens := []string{
+	defaultTokens := []string{
 		"<|START_THINKING|>", // Command-R models
 		"<|inner_prefix|>",   // Apertus models
 		"<seed:think>",       // Seed models
@@ -31,6 +31,13 @@ func DetectThinkingStartToken(prompt string) string {
 		"<thinking>",         // General thinking tag
 		"[THINK]",            // Magistral models
 	}
+
+	// Merge custom tokens with default tokens (custom tokens first for priority)
+	var thinkingStartTokens []string
+	if config != nil && len(config.ThinkingStartTokens) > 0 {
+		thinkingStartTokens = append(thinkingStartTokens, config.ThinkingStartTokens...)
+	}
+	thinkingStartTokens = append(thinkingStartTokens, defaultTokens...)
 
 	// Check if prompt ends with any of these tokens (allowing for trailing whitespace/newlines)
 	trimmedPrompt := strings.TrimRight(prompt, " \t\n\r")
@@ -56,6 +63,28 @@ func DetectThinkingStartToken(prompt string) string {
 	}
 
 	return ""
+}
+
+// ExtractReasoningWithConfig extracts reasoning from content with the given config.
+// If reasoning is disabled, it returns the original content.
+// If thinking start token prefill is enabled, it prepends the thinking start token to the content.
+// It returns the extracted reasoning and the cleaned content.
+func ExtractReasoningWithConfig(content, thinkingStartToken string, config Config) (reasoning string, cleanedContent string) {
+	cleanedContent = content
+	// If reasoning is not disabled, prepend the thinking start token if needed and extract reasoning
+	if config.DisableReasoning == nil || !*config.DisableReasoning {
+		// If thinking start token prefill is not disabled, prepend the thinking start token
+		if config.DisableReasoningTagPrefill == nil || !*config.DisableReasoningTagPrefill {
+			cleanedContent = PrependThinkingTokenIfNeeded(cleanedContent, thinkingStartToken)
+		}
+		// Extract reasoning from the cleaned content
+		reasoning, cleanedContent = ExtractReasoning(cleanedContent, &config)
+		if config.StripReasoningOnly != nil && *config.StripReasoningOnly {
+			reasoning = ""
+		}
+	}
+
+	return reasoning, cleanedContent
 }
 
 // PrependThinkingTokenIfNeeded prepends the thinking start token to content if it was
@@ -97,7 +126,8 @@ func PrependThinkingTokenIfNeeded(content string, startToken string) string {
 // both the extracted reasoning and the cleaned content (with tags removed).
 // It handles <thinking>...</thinking> and <think>...</think> tags.
 // Multiple reasoning blocks are concatenated with newlines.
-func ExtractReasoning(content string) (reasoning string, cleanedContent string) {
+// Custom tag pairs from config are checked first, then default tag pairs.
+func ExtractReasoning(content string, config *Config) (reasoning string, cleanedContent string) {
 	if content == "" {
 		return "", content
 	}
@@ -106,8 +136,8 @@ func ExtractReasoning(content string) (reasoning string, cleanedContent string) 
 	var cleanedParts []string
 	remaining := content
 
-	// Define tag pairs to look for (matching llama.cpp's chat-parser.cpp)
-	tagPairs := []struct {
+	// Define default tag pairs to look for (matching llama.cpp's chat-parser.cpp)
+	defaultTagPairs := []struct {
 		start string
 		end   string
 	}{
@@ -118,6 +148,26 @@ func ExtractReasoning(content string) (reasoning string, cleanedContent string) 
 		{"<|think|>", "<|end|><|begin|>assistant<|content|>"}, // Solar Open models (complex end)
 		{"<thinking>", "</thinking>"},                         // General thinking tag
 		{"[THINK]", "[/THINK]"},                               // Magistral models
+	}
+
+	// Merge custom tag pairs with default tag pairs (custom pairs first for priority)
+	var tagPairs []struct {
+		start string
+		end   string
+	}
+	if config != nil && len(config.TagPairs) > 0 {
+		for _, pair := range config.TagPairs {
+			if pair.Start != "" && pair.End != "" {
+				tagPairs = append(tagPairs, struct {
+					start string
+					end   string
+				}{pair.Start, pair.End})
+			}
+		}
+	}
+	// Add default tag pairs
+	for _, pair := range defaultTagPairs {
+		tagPairs = append(tagPairs, pair)
 	}
 
 	// Track the last position we've processed

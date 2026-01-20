@@ -397,6 +397,83 @@ Agent/autonomous agent configuration:
 | `agent.enable_mcp_prompts` | bool | Enable MCP prompts |
 | `agent.enable_plan_re_evaluator` | bool | Enable plan re-evaluation |
 
+## Reasoning Configuration
+
+Configure how reasoning tags are extracted and processed from model output. Reasoning tags are used by models like DeepSeek, Command-R, and others to include internal reasoning steps in their responses.
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `reasoning.disable` | bool | `false` | When `true`, disables reasoning extraction entirely. The original content is returned without any processing. |
+| `reasoning.disable_reasoning_tag_prefill` | bool | `false` | When `true`, disables automatic prepending of thinking start tokens. Use this when your model already includes reasoning tags in its output format. |
+| `reasoning.strip_reasoning_only` | bool | `false` | When `true`, extracts and removes reasoning tags from content but discards the reasoning text. Useful when you want to clean reasoning tags from output without storing the reasoning content. |
+| `reasoning.thinking_start_tokens` | array | `[]` | List of custom thinking start tokens to detect in prompts. Custom tokens are checked before default tokens. |
+| `reasoning.tag_pairs` | array | `[]` | List of custom tag pairs for reasoning extraction. Each entry has `start` and `end` fields. Custom pairs are checked before default pairs. |
+
+### Reasoning Tag Formats
+
+The reasoning extraction supports multiple tag formats used by different models:
+
+- `<thinking>...</thinking>` - General thinking tag
+- `<think>...</think>` - DeepSeek, Granite, ExaOne, GLM models
+- `<|START_THINKING|>...<|END_THINKING|>` - Command-R models
+- `<|inner_prefix|>...<|inner_suffix|>` - Apertus models
+- `<seed:think>...</seed:think>` - Seed models
+- `<|think|>...<|end|><|begin|>assistant<|content|>` - Solar Open models
+- `[THINK]...[/THINK]` - Magistral models
+
+### Examples
+
+**Disable reasoning extraction:**
+```yaml
+reasoning:
+  disable: true
+```
+
+**Extract reasoning but don't prepend tags:**
+```yaml
+reasoning:
+  disable_reasoning_tag_prefill: true
+```
+
+**Strip reasoning tags without storing reasoning content:**
+```yaml
+reasoning:
+  strip_reasoning_only: true
+```
+
+**Complete example with reasoning configuration:**
+```yaml
+name: deepseek-model
+backend: llama-cpp
+parameters:
+  model: deepseek.gguf
+
+reasoning:
+  disable: false
+  disable_reasoning_tag_prefill: false
+  strip_reasoning_only: false
+```
+
+**Example with custom tokens and tag pairs:**
+```yaml
+name: custom-reasoning-model
+backend: llama-cpp
+parameters:
+  model: custom.gguf
+
+reasoning:
+  thinking_start_tokens:
+    - "<custom:think>"
+    - "<my:reasoning>"
+  tag_pairs:
+    - start: "<custom:think>"
+      end: "</custom:think>"
+    - start: "<my:reasoning>"
+      end: "</my:reasoning>"
+```
+
+**Note:** Custom tokens and tag pairs are checked before the default ones, giving them priority. This allows you to override default behavior or add support for new reasoning tag formats.
+
 ## Pipeline Configuration
 
 Define pipelines for audio-to-audio processing:
