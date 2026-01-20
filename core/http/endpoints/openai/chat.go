@@ -13,6 +13,7 @@ import (
 	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/pkg/functions"
+	reason "github.com/mudler/LocalAI/pkg/reasoning"
 
 	"github.com/mudler/LocalAI/core/templates"
 	"github.com/mudler/LocalAI/pkg/model"
@@ -46,7 +47,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 		_, _, err := ComputeChoices(req, s, config, cl, startupOptions, loader, func(s string, c *[]schema.Choice) {}, func(s string, tokenUsage backend.TokenUsage) bool {
 			accumulatedContent += s
 			// Extract reasoning from accumulated content
-			currentReasoning, cleanedContent := functions.ExtractReasoning(accumulatedContent)
+			currentReasoning, cleanedContent := reason.ExtractReasoning(accumulatedContent)
 
 			// Calculate new reasoning delta (what we haven't emitted yet)
 			var reasoningDelta *string
@@ -230,7 +231,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 			return err
 		}
 		// Extract reasoning before processing tool calls
-		reasoning, cleanedResult := functions.ExtractReasoning(result)
+		reasoning, cleanedResult := reason.ExtractReasoning(result)
 		result = cleanedResult
 
 		textContentToReturn = functions.ParseTextContent(result, config.FunctionsConfig)
@@ -620,7 +621,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 
 			tokenCallback := func(s string, c *[]schema.Choice) {
 				// Extract reasoning from the response
-				reasoning, cleanedS := functions.ExtractReasoning(s)
+				reasoning, cleanedS := reason.ExtractReasoning(s)
 				s = cleanedS
 
 				if !shouldUseFn {
