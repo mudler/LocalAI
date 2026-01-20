@@ -72,6 +72,9 @@ func ExtractReasoningWithConfig(content, thinkingStartToken string, config Confi
 		}
 		// Extract reasoning from the cleaned content
 		reasoning, cleanedContent = ExtractReasoning(cleanedContent)
+		if config.StripReasoningOnly != nil && *config.StripReasoningOnly {
+			reasoning = ""
+		}
 	}
 
 	return reasoning, cleanedContent

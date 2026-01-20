@@ -743,6 +743,186 @@ var _ = Describe("ExtractReasoningWithConfig", func() {
 			Expect(cleaned).To(Equal(content))
 		})
 	})
+
+	Context("when StripReasoningOnly is enabled", func() {
+		It("should strip reasoning but keep cleaned content when StripReasoningOnly is true", func() {
+			content := "Some text <thinking>Reasoning content</thinking> More text"
+			config := Config{StripReasoningOnly: boolPtr(true)}
+			reasoning, cleaned := ExtractReasoningWithConfig(content, "<thinking>", config)
+			Expect(reasoning).To(BeEmpty())
+			Expect(cleaned).To(Equal("Some text  More text"))
+		})
+
+		It("should strip reasoning from multiple blocks when StripReasoningOnly is true", func() {
+			content := "A <thinking>First</thinking> B <thinking>Second</thinking> C"
+			config := Config{StripReasoningOnly: boolPtr(true)}
+			reasoning, cleaned := ExtractReasoningWithConfig(content, "<thinking>", config)
+			Expect(reasoning).To(BeEmpty())
+			Expect(cleaned).To(Equal("A  B  C"))
+		})
+
+		It("should strip reasoning from different tag types when StripReasoningOnly is true", func() {
+			content := "Before <thinking>One</thinking> Middle <think>Two</think> After"
+			config := Config{StripReasoningOnly: boolPtr(true)}
+			reasoning, cleaned := ExtractReasoningWithConfig(content, "<thinking>", config)
+			Expect(reasoning).To(BeEmpty())
+			Expect(cleaned).To(Equal("Before  Middle  After"))
+		})
+
+		It("should strip reasoning but preserve content when StripReasoningOnly is true", func() {
+			content := "Regular content <thinking>Reasoning</thinking>"
+			config := Config{StripReasoningOnly: boolPtr(true)}
+			reasoning, cleaned := ExtractReasoningWithConfig(content, "<thinking>", config)
+			Expect(reasoning).To(BeEmpty())
+			Expect(cleaned).To(Equal("Regular content "))
+		})
+
+		It("should strip reasoning from unclosed tags when StripReasoningOnly is true", func() {
+			content := "Text <thinking>Unclosed reasoning"
+			config := Config{StripReasoningOnly: boolPtr(true)}
+			reasoning, cleaned := ExtractReasoningWithConfig(content, "<thinking>", config)
+			Expect(reasoning).To(BeEmpty())
+			Expect(cleaned).To(Equal("Text "))
+		})
+
+		It("should strip reasoning from Command-R tags when StripReasoningOnly is true", func() {
+			content := "Before <|START_THINKING|>Command-R reasoning<|END_THINKING|> After"
+			config := Config{StripReasoningOnly: boolPtr(true)}
+			reasoning, cleaned := ExtractReasoningWithConfig(content, "<|START_THINKING|>", config)
+			Expect(reasoning).To(BeEmpty())
+			Expect(cleaned).To(Equal("Before  After"))
+		})
+
+		It("should strip reasoning from Apertus tags when StripReasoningOnly is true", func() {
+			content := "Text <|inner_prefix|>Apertus reasoning<|inner_suffix|> More"
+			config := Config{StripReasoningOnly: boolPtr(true)}
+			reasoning, cleaned := ExtractReasoningWithConfig(content, "<|inner_prefix|>", config)
+			Expect(reasoning).To(BeEmpty())
+			Expect(cleaned).To(Equal("Text  More"))
+		})
+
+		It("should strip reasoning from Seed tags when StripReasoningOnly is true", func() {
+			content := "Before <seed:think>Seed reasoning</seed:think> After"
+			config := Config{StripReasoningOnly: boolPtr(true)}
+			reasoning, cleaned := ExtractReasoningWithConfig(content, "<seed:think>", config)
+			Expect(reasoning).To(BeEmpty())
+			Expect(cleaned).To(Equal("Before  After"))
+		})
+
+		It("should strip reasoning from Magistral tags when StripReasoningOnly is true", func() {
+			content := "Text [THINK]Magistral reasoning[/THINK] More"
+			config := Config{StripReasoningOnly: boolPtr(true)}
+			reasoning, cleaned := ExtractReasoningWithConfig(content, "[THINK]", config)
+			Expect(reasoning).To(BeEmpty())
+			Expect(cleaned).To(Equal("Text  More"))
+		})
+
+		It("should strip reasoning with multiline content when StripReasoningOnly is true", func() {
+			content := "Start <thinking>Line 1\nLine 2\nLine 3</thinking> End"
+			config := Config{StripReasoningOnly: boolPtr(true)}
+			reasoning, cleaned := ExtractReasoningWithConfig(content, "<thinking>", config)
+			Expect(reasoning).To(BeEmpty())
+			Expect(cleaned).To(Equal("Start  End"))
+		})
+
+		It("should handle content with only reasoning tags when StripReasoningOnly is true", func() {
+			content := "<thinking>Only reasoning</thinking>"
+			config := Config{StripReasoningOnly: boolPtr(true)}
+			reasoning, cleaned := ExtractReasoningWithConfig(content, "<thinking>", config)
+			Expect(reasoning).To(BeEmpty())
+			Expect(cleaned).To(BeEmpty())
+		})
+
+		It("should handle empty reasoning blocks when StripReasoningOnly is true", func() {
+			content := "Text <thinking></thinking> More"
+			config := Config{StripReasoningOnly: boolPtr(true)}
+			reasoning, cleaned := ExtractReasoningWithConfig(content, "<thinking>", config)
+			Expect(reasoning).To(BeEmpty())
+			Expect(cleaned).To(Equal("Text  More"))
+		})
+
+		It("should handle content without reasoning tags when StripReasoningOnly is true", func() {
+			content := "Regular content without tags"
+			config := Config{StripReasoningOnly: boolPtr(true)}
+			reasoning, cleaned := ExtractReasoningWithConfig(content, "<thinking>", config)
+			Expect(reasoning).To(BeEmpty())
+			Expect(cleaned).To(Equal(content))
+		})
+
+		It("should strip reasoning when StripReasoningOnly is true and tag prefill is enabled", func() {
+			content := "Reasoning content"
+			config := Config{
+				StripReasoningOnly:         boolPtr(true),
+				DisableReasoningTagPrefill: boolPtr(false),
+			}
+			reasoning, cleaned := ExtractReasoningWithConfig(content, "<thinking>", config)
+			Expect(reasoning).To(BeEmpty())
+			Expect(cleaned).To(BeEmpty())
+		})
+
+		It("should strip reasoning when StripReasoningOnly is true and tag prefill is disabled", func() {
+			content := "Text <thinking>Reasoning</thinking> More"
+			config := Config{
+				StripReasoningOnly:         boolPtr(true),
+				DisableReasoningTagPrefill: boolPtr(true),
+			}
+			reasoning, cleaned := ExtractReasoningWithConfig(content, "<thinking>", config)
+			Expect(reasoning).To(BeEmpty())
+			Expect(cleaned).To(Equal("Text  More"))
+		})
+
+		It("should not strip reasoning when StripReasoningOnly is false", func() {
+			content := "Text <thinking>Reasoning</thinking> More"
+			config := Config{StripReasoningOnly: boolPtr(false)}
+			reasoning, cleaned := ExtractReasoningWithConfig(content, "<thinking>", config)
+			Expect(reasoning).To(Equal("Reasoning"))
+			Expect(cleaned).To(Equal("Text  More"))
+		})
+
+		It("should not strip reasoning when StripReasoningOnly is nil", func() {
+			content := "Text <thinking>Reasoning</thinking> More"
+			config := Config{StripReasoningOnly: nil}
+			reasoning, cleaned := ExtractReasoningWithConfig(content, "<thinking>", config)
+			Expect(reasoning).To(Equal("Reasoning"))
+			Expect(cleaned).To(Equal("Text  More"))
+		})
+
+		It("should strip reasoning but not affect DisableReasoning behavior", func() {
+			content := "Text <thinking>Reasoning</thinking> More"
+			config := Config{
+				DisableReasoning:   boolPtr(true),
+				StripReasoningOnly: boolPtr(true),
+			}
+			reasoning, cleaned := ExtractReasoningWithConfig(content, "<thinking>", config)
+			// When DisableReasoning is true, reasoning extraction doesn't happen at all
+			Expect(reasoning).To(BeEmpty())
+			Expect(cleaned).To(Equal(content))
+		})
+
+		It("should handle complex content with reasoning and regular text when StripReasoningOnly is true", func() {
+			content := "Start <thinking>Reasoning</thinking> Middle <think>More reasoning</think> End"
+			config := Config{StripReasoningOnly: boolPtr(true)}
+			reasoning, cleaned := ExtractReasoningWithConfig(content, "<thinking>", config)
+			Expect(reasoning).To(BeEmpty())
+			Expect(cleaned).To(Equal("Start  Middle  End"))
+		})
+
+		It("should handle reasoning with special characters when StripReasoningOnly is true", func() {
+			content := "Before <thinking>Reasoning with ```code``` and {\"json\": true}</thinking> After"
+			config := Config{StripReasoningOnly: boolPtr(true)}
+			reasoning, cleaned := ExtractReasoningWithConfig(content, "<thinking>", config)
+			Expect(reasoning).To(BeEmpty())
+			Expect(cleaned).To(Equal("Before  After"))
+		})
+
+		It("should handle reasoning with unicode when StripReasoningOnly is true", func() {
+			content := "Text <thinking>Reasoning with 中文 and emoji 🧠</thinking> More"
+			config := Config{StripReasoningOnly: boolPtr(true)}
+			reasoning, cleaned := ExtractReasoningWithConfig(content, "<thinking>", config)
+			Expect(reasoning).To(BeEmpty())
+			Expect(cleaned).To(Equal("Text  More"))
+		})
+	})
 })
 
 // Helper function to create bool pointers for test configs
