@@ -4,16 +4,23 @@ import (
 	"strings"
 )
 
-// Common thinking/reasoning opening tags used by various models
+// Common thinking/reasoning opening tags used by various models.
+// These match the tags detected by llama.cpp in common/chat.cpp
 var thinkingOpenTags = []string{
+	// DeepSeek R1, V3.1, Nemotron V2, MiniMax M2, Hermes 2 Pro, Granite, Exaone MOE
 	"<think>\n",
 	"<think>",
+	// Generic thinking tags
 	"<thinking>\n",
 	"<thinking>",
-	"<|inner_prefix|>",   // Apertus
-	"<|START_THINKING|>", // Command R7B
-	"<seed:think>",       // Seed
-	"[THINK]\n",          // Magistral
+	// Apertus
+	"<|inner_prefix|>",
+	// Command R7B
+	"<|START_THINKING|>",
+	// Seed
+	"<seed:think>",
+	// Magistral (not in llama.cpp but common)
+	"[THINK]\n",
 	"[THINK]",
 }
 
@@ -60,7 +67,15 @@ func Extract(content string, opts ...Option) (reasoning string, cleanedContent s
 // All content from the start is treated as reasoning until a closing tag is found.
 func extractForcedOpen(content string) (reasoning string, cleanedContent string) {
 	// Look for the earliest closing tag
-	closingTags := []string{"</thinking>", "</think>"}
+	// These match the closing tags used by llama.cpp for various models
+	closingTags := []string{
+		"</thinking>",
+		"</think>",
+		"<|END_THINKING|>", // Command R7B
+		"<|inner_suffix|>", // Apertus
+		"</seed:think>",    // Seed
+		"[/THINK]",         // Magistral
+	}
 
 	earliestCloseIdx := -1
 	var matchedCloseTag string
@@ -110,12 +125,17 @@ func extractFromTags(content string) (reasoning string, cleanedContent string) {
 	remaining := content
 
 	// Define tag pairs to look for
+	// These match the tags used by llama.cpp for various models
 	tagPairs := []struct {
 		start string
 		end   string
 	}{
 		{"<thinking>", "</thinking>"},
 		{"<think>", "</think>"},
+		{"<|START_THINKING|>", "<|END_THINKING|>"}, // Command R7B
+		{"<|inner_prefix|>", "<|inner_suffix|>"},   // Apertus
+		{"<seed:think>", "</seed:think>"},          // Seed
+		{"[THINK]", "[/THINK]"},                    // Magistral
 	}
 
 	// Track the last position we've processed

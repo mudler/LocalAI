@@ -381,5 +381,119 @@ var _ = Describe("Extract", func() {
 			Expect(reasoning).To(Equal("Reasoning"))
 			Expect(cleaned).To(Equal("content</thinking>more"))
 		})
+
+		It("should handle Command R7B closing tag", func() {
+			content := "Reasoning content<|END_THINKING|>actual response"
+			reasoning, cleaned := Extract(content, WithThinkingForcedOpen())
+			Expect(reasoning).To(Equal("Reasoning content"))
+			Expect(cleaned).To(Equal("actual response"))
+		})
+
+		It("should handle Apertus closing tag", func() {
+			content := "Reasoning content<|inner_suffix|>actual response"
+			reasoning, cleaned := Extract(content, WithThinkingForcedOpen())
+			Expect(reasoning).To(Equal("Reasoning content"))
+			Expect(cleaned).To(Equal("actual response"))
+		})
+
+		It("should handle Seed closing tag", func() {
+			content := "Reasoning content</seed:think>actual response"
+			reasoning, cleaned := Extract(content, WithThinkingForcedOpen())
+			Expect(reasoning).To(Equal("Reasoning content"))
+			Expect(cleaned).To(Equal("actual response"))
+		})
+
+		It("should handle Magistral closing tag", func() {
+			content := "Reasoning content[/THINK]actual response"
+			reasoning, cleaned := Extract(content, WithThinkingForcedOpen())
+			Expect(reasoning).To(Equal("Reasoning content"))
+			Expect(cleaned).To(Equal("actual response"))
+		})
+	})
+
+	Context("with model-specific tag pairs", func() {
+		It("should extract Command R7B reasoning tags", func() {
+			content := "Before <|START_THINKING|>reasoning here<|END_THINKING|> After"
+			reasoning, cleaned := Extract(content)
+			Expect(reasoning).To(Equal("reasoning here"))
+			Expect(cleaned).To(Equal("Before  After"))
+		})
+
+		It("should extract Apertus reasoning tags", func() {
+			content := "Before <|inner_prefix|>reasoning here<|inner_suffix|> After"
+			reasoning, cleaned := Extract(content)
+			Expect(reasoning).To(Equal("reasoning here"))
+			Expect(cleaned).To(Equal("Before  After"))
+		})
+
+		It("should extract Seed reasoning tags", func() {
+			content := "Before <seed:think>reasoning here</seed:think> After"
+			reasoning, cleaned := Extract(content)
+			Expect(reasoning).To(Equal("reasoning here"))
+			Expect(cleaned).To(Equal("Before  After"))
+		})
+
+		It("should extract Magistral reasoning tags", func() {
+			content := "Before [THINK]reasoning here[/THINK] After"
+			reasoning, cleaned := Extract(content)
+			Expect(reasoning).To(Equal("reasoning here"))
+			Expect(cleaned).To(Equal("Before  After"))
+		})
+
+		It("should handle unclosed Command R7B tag", func() {
+			content := "Before <|START_THINKING|>reasoning still streaming"
+			reasoning, cleaned := Extract(content)
+			Expect(reasoning).To(Equal("reasoning still streaming"))
+			Expect(cleaned).To(Equal("Before "))
+		})
+
+		It("should handle unclosed Apertus tag", func() {
+			content := "Before <|inner_prefix|>reasoning still streaming"
+			reasoning, cleaned := Extract(content)
+			Expect(reasoning).To(Equal("reasoning still streaming"))
+			Expect(cleaned).To(Equal("Before "))
+		})
+
+		It("should handle unclosed Seed tag", func() {
+			content := "Before <seed:think>reasoning still streaming"
+			reasoning, cleaned := Extract(content)
+			Expect(reasoning).To(Equal("reasoning still streaming"))
+			Expect(cleaned).To(Equal("Before "))
+		})
+
+		It("should handle unclosed Magistral tag", func() {
+			content := "Before [THINK]reasoning still streaming"
+			reasoning, cleaned := Extract(content)
+			Expect(reasoning).To(Equal("reasoning still streaming"))
+			Expect(cleaned).To(Equal("Before "))
+		})
+
+		It("should handle closing-only Command R7B tag", func() {
+			content := "Reasoning content<|END_THINKING|>actual response"
+			reasoning, cleaned := Extract(content)
+			Expect(reasoning).To(Equal("Reasoning content"))
+			Expect(cleaned).To(Equal("actual response"))
+		})
+
+		It("should handle closing-only Apertus tag", func() {
+			content := "Reasoning content<|inner_suffix|>actual response"
+			reasoning, cleaned := Extract(content)
+			Expect(reasoning).To(Equal("Reasoning content"))
+			Expect(cleaned).To(Equal("actual response"))
+		})
+
+		It("should handle closing-only Seed tag", func() {
+			content := "Reasoning content</seed:think>actual response"
+			reasoning, cleaned := Extract(content)
+			Expect(reasoning).To(Equal("Reasoning content"))
+			Expect(cleaned).To(Equal("actual response"))
+		})
+
+		It("should handle closing-only Magistral tag", func() {
+			content := "Reasoning content[/THINK]actual response"
+			reasoning, cleaned := Extract(content)
+			Expect(reasoning).To(Equal("Reasoning content"))
+			Expect(cleaned).To(Equal("actual response"))
+		})
 	})
 })
