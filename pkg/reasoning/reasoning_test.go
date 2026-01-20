@@ -1,9 +1,9 @@
-package functions_test
+package reasoning_test
 
 import (
 	"strings"
 
-	. "github.com/mudler/LocalAI/pkg/functions"
+	. "github.com/mudler/LocalAI/pkg/reasoning"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -256,6 +256,251 @@ var _ = Describe("ExtractReasoning", func() {
 			reasoning, cleaned := ExtractReasoning(content)
 			Expect(reasoning).To(Equal("Reasoning with 中文 and emoji 🧠"))
 			Expect(cleaned).To(Equal("Text  More"))
+		})
+	})
+
+	Context("when content has <|START_THINKING|> tags (Command-R)", func() {
+		It("should extract reasoning from START_THINKING block", func() {
+			content := "Text <|START_THINKING|>Command-R reasoning<|END_THINKING|> More"
+			reasoning, cleaned := ExtractReasoning(content)
+			Expect(reasoning).To(Equal("Command-R reasoning"))
+			Expect(cleaned).To(Equal("Text  More"))
+		})
+
+		It("should handle unclosed START_THINKING block", func() {
+			content := "Before <|START_THINKING|>Incomplete reasoning"
+			reasoning, cleaned := ExtractReasoning(content)
+			Expect(reasoning).To(Equal("Incomplete reasoning"))
+			Expect(cleaned).To(Equal("Before "))
+		})
+	})
+
+	Context("when content has <|inner_prefix|> tags (Apertus)", func() {
+		It("should extract reasoning from inner_prefix block", func() {
+			content := "Text <|inner_prefix|>Apertus reasoning<|inner_suffix|> More"
+			reasoning, cleaned := ExtractReasoning(content)
+			Expect(reasoning).To(Equal("Apertus reasoning"))
+			Expect(cleaned).To(Equal("Text  More"))
+		})
+	})
+
+	Context("when content has <seed:think> tags (Seed)", func() {
+		It("should extract reasoning from seed:think block", func() {
+			content := "Text <seed:think>Seed reasoning</seed:think> More"
+			reasoning, cleaned := ExtractReasoning(content)
+			Expect(reasoning).To(Equal("Seed reasoning"))
+			Expect(cleaned).To(Equal("Text  More"))
+		})
+	})
+
+	Context("when content has <|think|> tags (Solar Open)", func() {
+		It("should extract reasoning from Solar Open think block", func() {
+			content := "Text <|think|>Solar reasoning<|end|><|begin|>assistant<|content|> More"
+			reasoning, cleaned := ExtractReasoning(content)
+			Expect(reasoning).To(Equal("Solar reasoning"))
+			Expect(cleaned).To(Equal("Text  More"))
+		})
+	})
+
+	Context("when content has [THINK] tags (Magistral)", func() {
+		It("should extract reasoning from THINK block", func() {
+			content := "Text [THINK]Magistral reasoning[/THINK] More"
+			reasoning, cleaned := ExtractReasoning(content)
+			Expect(reasoning).To(Equal("Magistral reasoning"))
+			Expect(cleaned).To(Equal("Text  More"))
+		})
+
+		It("should handle unclosed THINK block", func() {
+			content := "Before [THINK]Incomplete reasoning"
+			reasoning, cleaned := ExtractReasoning(content)
+			Expect(reasoning).To(Equal("Incomplete reasoning"))
+			Expect(cleaned).To(Equal("Before "))
+		})
+	})
+})
+
+var _ = Describe("DetectThinkingStartToken", func() {
+	Context("when prompt contains thinking start tokens", func() {
+		It("should detect <|START_THINKING|> at the end", func() {
+			prompt := "Some prompt text <|START_THINKING|>"
+			token := DetectThinkingStartToken(prompt)
+			Expect(token).To(Equal("<|START_THINKING|>"))
+		})
+
+		It("should detect <think> at the end", func() {
+			prompt := "Prompt with <think>"
+			token := DetectThinkingStartToken(prompt)
+			Expect(token).To(Equal("<think>"))
+		})
+
+		It("should detect <thinking> at the end", func() {
+			prompt := "Some text <thinking>"
+			token := DetectThinkingStartToken(prompt)
+			Expect(token).To(Equal("<thinking>"))
+		})
+
+		It("should detect <|inner_prefix|> at the end", func() {
+			prompt := "Prompt <|inner_prefix|>"
+			token := DetectThinkingStartToken(prompt)
+			Expect(token).To(Equal("<|inner_prefix|>"))
+		})
+
+		It("should detect <seed:think> at the end", func() {
+			prompt := "Text <seed:think>"
+			token := DetectThinkingStartToken(prompt)
+			Expect(token).To(Equal("<seed:think>"))
+		})
+
+		It("should detect <|think|> at the end", func() {
+			prompt := "Prompt <|think|>"
+			token := DetectThinkingStartToken(prompt)
+			Expect(token).To(Equal("<|think|>"))
+		})
+
+		It("should detect [THINK] at the end", func() {
+			prompt := "Text [THINK]"
+			token := DetectThinkingStartToken(prompt)
+			Expect(token).To(Equal("[THINK]"))
+		})
+
+		It("should handle trailing whitespace", func() {
+			prompt := "Prompt <|START_THINKING|>   \n\t  "
+			token := DetectThinkingStartToken(prompt)
+			Expect(token).To(Equal("<|START_THINKING|>"))
+		})
+
+		It("should detect token near the end (within last 100 chars)", func() {
+			prefix := strings.Repeat("x", 50)
+			prompt := prefix + "<|START_THINKING|>"
+			token := DetectThinkingStartToken(prompt)
+			Expect(token).To(Equal("<|START_THINKING|>"))
+		})
+
+		It("should detect token when followed by only whitespace", func() {
+			prompt := "Text <think>   \n  "
+			token := DetectThinkingStartToken(prompt)
+			Expect(token).To(Equal("<think>"))
+		})
+	})
+
+	Context("when prompt does not contain thinking tokens", func() {
+		It("should return empty string for regular prompt", func() {
+			prompt := "This is a regular prompt without thinking tokens"
+			token := DetectThinkingStartToken(prompt)
+			Expect(token).To(BeEmpty())
+		})
+
+		It("should return empty string for empty prompt", func() {
+			prompt := ""
+			token := DetectThinkingStartToken(prompt)
+			Expect(token).To(BeEmpty())
+		})
+
+		It("should detect token even when far from end (Contains check)", func() {
+			prefix := strings.Repeat("x", 150)
+			prompt := prefix + "<|START_THINKING|>"
+			token := DetectThinkingStartToken(prompt)
+			// Current implementation uses Contains, so it finds tokens anywhere
+			Expect(token).To(Equal("<|START_THINKING|>"))
+		})
+
+		It("should detect token even when followed by non-whitespace (Contains check)", func() {
+			prompt := "Text <|START_THINKING|>more text"
+			token := DetectThinkingStartToken(prompt)
+			// Current implementation uses Contains, so it finds tokens anywhere
+			Expect(token).To(Equal("<|START_THINKING|>"))
+		})
+	})
+
+	Context("when multiple tokens are present", func() {
+		It("should return the first matching token (most specific)", func() {
+			prompt := "Text <|START_THINKING|> <thinking>"
+			token := DetectThinkingStartToken(prompt)
+			// Should return the first one found (order matters)
+			Expect(token).To(Equal("<|START_THINKING|>"))
+		})
+	})
+})
+
+var _ = Describe("PrependThinkingTokenIfNeeded", func() {
+	Context("when startToken is empty", func() {
+		It("should return content unchanged", func() {
+			content := "Some content"
+			result := PrependThinkingTokenIfNeeded(content, "")
+			Expect(result).To(Equal(content))
+		})
+	})
+
+	Context("when content already starts with token", func() {
+		It("should not prepend if content starts with token", func() {
+			content := "<|START_THINKING|>Reasoning content"
+			result := PrependThinkingTokenIfNeeded(content, "<|START_THINKING|>")
+			Expect(result).To(Equal(content))
+		})
+
+		It("should not prepend if content starts with token after whitespace", func() {
+			content := "   <think>Reasoning"
+			result := PrependThinkingTokenIfNeeded(content, "<think>")
+			Expect(result).To(Equal(content))
+		})
+
+		It("should not prepend if token appears anywhere in content", func() {
+			content := "Some text <thinking>Reasoning</thinking>"
+			result := PrependThinkingTokenIfNeeded(content, "<thinking>")
+			// With Contains check, it should not prepend
+			Expect(result).To(Equal(content))
+		})
+	})
+
+	Context("when content does not contain token", func() {
+		It("should prepend token to content", func() {
+			content := "Reasoning content"
+			result := PrependThinkingTokenIfNeeded(content, "<|START_THINKING|>")
+			Expect(result).To(Equal("<|START_THINKING|>Reasoning content"))
+		})
+
+		It("should prepend token after leading whitespace", func() {
+			content := "   \n  Reasoning content"
+			result := PrependThinkingTokenIfNeeded(content, "<think>")
+			Expect(result).To(Equal("   \n  <think>Reasoning content"))
+		})
+
+		It("should handle empty content", func() {
+			content := ""
+			result := PrependThinkingTokenIfNeeded(content, "<thinking>")
+			Expect(result).To(Equal("<thinking>"))
+		})
+
+		It("should handle content with only whitespace", func() {
+			content := "   \n\t  "
+			result := PrependThinkingTokenIfNeeded(content, "<|START_THINKING|>")
+			Expect(result).To(Equal("   \n\t  <|START_THINKING|>"))
+		})
+	})
+
+	Context("with different token types", func() {
+		It("should prepend <|START_THINKING|>", func() {
+			content := "Reasoning"
+			result := PrependThinkingTokenIfNeeded(content, "<|START_THINKING|>")
+			Expect(result).To(Equal("<|START_THINKING|>Reasoning"))
+		})
+
+		It("should prepend <think>", func() {
+			content := "Reasoning"
+			result := PrependThinkingTokenIfNeeded(content, "<think>")
+			Expect(result).To(Equal("<think>Reasoning"))
+		})
+
+		It("should prepend <thinking>", func() {
+			content := "Reasoning"
+			result := PrependThinkingTokenIfNeeded(content, "<thinking>")
+			Expect(result).To(Equal("<thinking>Reasoning"))
+		})
+
+		It("should prepend [THINK]", func() {
+			content := "Reasoning"
+			result := PrependThinkingTokenIfNeeded(content, "[THINK]")
+			Expect(result).To(Equal("[THINK]Reasoning"))
 		})
 	})
 })

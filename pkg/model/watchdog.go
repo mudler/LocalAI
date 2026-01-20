@@ -393,7 +393,7 @@ func (wd *WatchDog) checkMemory() {
 		memoryType = "RAM"
 	}
 
-	xlog.Debug("[WatchDog] Memory check", "type", memoryType, "usage_percent", aggregate.UsagePercent, "threshold_percent", thresholdPercent, "loaded_models", modelCount)
+	//xlog.Debug("[WatchDog] Memory check", "type", memoryType, "usage_percent", aggregate.UsagePercent, "threshold_percent", thresholdPercent, "loaded_models", modelCount)
 
 	// Check if usage exceeds threshold
 	if aggregate.UsagePercent > thresholdPercent {

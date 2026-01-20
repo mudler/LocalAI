@@ -10,6 +10,7 @@ import (
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/pkg/downloader"
 	"github.com/mudler/LocalAI/pkg/functions"
+	"github.com/mudler/LocalAI/pkg/reasoning"
 	"github.com/mudler/cogito"
 	"gopkg.in/yaml.v3"
 )
@@ -30,6 +31,7 @@ type TTSConfig struct {
 // @Description ModelConfig represents a model configuration
 type ModelConfig struct {
 	modelConfigFile          string `yaml:"-" json:"-"`
+	modelTemplate            string `yaml:"-" json:"-"`
 	schema.PredictionOptions `yaml:"parameters,omitempty" json:"parameters,omitempty"`
 	Name                     string `yaml:"name,omitempty" json:"name,omitempty"`
 
@@ -51,6 +53,7 @@ type ModelConfig struct {
 	ResponseFormatMap                          map[string]interface{} `yaml:"-" json:"-"`
 
 	FunctionsConfig functions.FunctionsConfig `yaml:"function,omitempty" json:"function,omitempty"`
+	ReasoningConfig reasoning.Config          `yaml:"reasoning,omitempty" json:"reasoning,omitempty"`
 
 	FeatureFlag FeatureFlag `yaml:"feature_flags,omitempty" json:"feature_flags,omitempty"` // Feature Flag registry. We move fast, and features may break on a per model/backend basis. Registry for (usually temporary) flags that indicate aborting something early.
 	// LLM configs (GPT4ALL, Llama.cpp, ...)
@@ -519,6 +522,11 @@ func (c *ModelConfig) HasTemplate() bool {
 
 func (c *ModelConfig) GetModelConfigFile() string {
 	return c.modelConfigFile
+}
+
+// GetModelTemplate returns the model's chat template if available
+func (c *ModelConfig) GetModelTemplate() string {
+	return c.modelTemplate
 }
 
 type ModelConfigUsecase int
