@@ -1339,7 +1339,7 @@ func handleOpenResponsesNonStream(c echo.Context, responseID string, createdAt i
 	} else {
 		template = predInput
 	}
-	thinkingStartToken := reason.DetectThinkingStartToken(template)
+	thinkingStartToken := reason.DetectThinkingStartToken(template, &cfg.ReasoningConfig)
 
 	// Extract reasoning from result before cleaning
 	reasoningContent, cleanedResult := reason.ExtractReasoningWithConfig(result, thinkingStartToken, cfg.ReasoningConfig)
@@ -1538,7 +1538,7 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 	} else {
 		template = predInput
 	}
-	thinkingStartToken := reason.DetectThinkingStartToken(template)
+	thinkingStartToken := reason.DetectThinkingStartToken(template, &cfg.ReasoningConfig)
 
 	// Track state for streaming
 	var currentMessageID string

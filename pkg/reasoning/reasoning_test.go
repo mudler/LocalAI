@@ -12,21 +12,21 @@ var _ = Describe("ExtractReasoning", func() {
 	Context("when content has no reasoning tags", func() {
 		It("should return empty reasoning and original content", func() {
 			content := "This is regular content without any tags."
-			reasoning, cleaned := ExtractReasoning(content)
+			reasoning, cleaned := ExtractReasoning(content, nil)
 			Expect(reasoning).To(BeEmpty())
 			Expect(cleaned).To(Equal(content))
 		})
 
 		It("should handle empty string", func() {
 			content := ""
-			reasoning, cleaned := ExtractReasoning(content)
+			reasoning, cleaned := ExtractReasoning(content, nil)
 			Expect(reasoning).To(BeEmpty())
 			Expect(cleaned).To(BeEmpty())
 		})
 
 		It("should handle content with only whitespace", func() {
 			content := "   \n\t  "
-			reasoning, cleaned := ExtractReasoning(content)
+			reasoning, cleaned := ExtractReasoning(content, nil)
 			Expect(reasoning).To(BeEmpty())
 			Expect(cleaned).To(Equal(content))
 		})
@@ -35,42 +35,42 @@ var _ = Describe("ExtractReasoning", func() {
 	Context("when content has <thinking> tags", func() {
 		It("should extract reasoning from single thinking block", func() {
 			content := "Some text <thinking>This is my reasoning</thinking> More text"
-			reasoning, cleaned := ExtractReasoning(content)
+			reasoning, cleaned := ExtractReasoning(content, nil)
 			Expect(reasoning).To(Equal("This is my reasoning"))
 			Expect(cleaned).To(Equal("Some text  More text"))
 		})
 
 		It("should extract reasoning and preserve surrounding content", func() {
 			content := "Before <thinking>Reasoning here</thinking> After"
-			reasoning, cleaned := ExtractReasoning(content)
+			reasoning, cleaned := ExtractReasoning(content, nil)
 			Expect(reasoning).To(Equal("Reasoning here"))
 			Expect(cleaned).To(Equal("Before  After"))
 		})
 
 		It("should handle thinking block at the start", func() {
 			content := "<thinking>Start reasoning</thinking> Regular content"
-			reasoning, cleaned := ExtractReasoning(content)
+			reasoning, cleaned := ExtractReasoning(content, nil)
 			Expect(reasoning).To(Equal("Start reasoning"))
 			Expect(cleaned).To(Equal(" Regular content"))
 		})
 
 		It("should handle thinking block at the end", func() {
 			content := "Regular content <thinking>End reasoning</thinking>"
-			reasoning, cleaned := ExtractReasoning(content)
+			reasoning, cleaned := ExtractReasoning(content, nil)
 			Expect(reasoning).To(Equal("End reasoning"))
 			Expect(cleaned).To(Equal("Regular content "))
 		})
 
 		It("should handle only thinking block", func() {
 			content := "<thinking>Only reasoning</thinking>"
-			reasoning, cleaned := ExtractReasoning(content)
+			reasoning, cleaned := ExtractReasoning(content, nil)
 			Expect(reasoning).To(Equal("Only reasoning"))
 			Expect(cleaned).To(BeEmpty())
 		})
 
 		It("should trim whitespace from reasoning content", func() {
 			content := "Text <thinking>  \n  Reasoning with spaces  \n  </thinking> More"
-			reasoning, cleaned := ExtractReasoning(content)
+			reasoning, cleaned := ExtractReasoning(content, nil)
 			Expect(reasoning).To(Equal("Reasoning with spaces"))
 			Expect(cleaned).To(Equal("Text  More"))
 		})
@@ -79,21 +79,21 @@ var _ = Describe("ExtractReasoning", func() {
 	Context("when content has <think> tags", func() {
 		It("should extract reasoning from redacted_reasoning block", func() {
 			content := "Text <think>Redacted reasoning</think> More"
-			reasoning, cleaned := ExtractReasoning(content)
+			reasoning, cleaned := ExtractReasoning(content, nil)
 			Expect(reasoning).To(Equal("Redacted reasoning"))
 			Expect(cleaned).To(Equal("Text  More"))
 		})
 
 		It("should handle redacted_reasoning with multiline content", func() {
 			content := "Before <think>Line 1\nLine 2\nLine 3</think> After"
-			reasoning, cleaned := ExtractReasoning(content)
+			reasoning, cleaned := ExtractReasoning(content, nil)
 			Expect(reasoning).To(Equal("Line 1\nLine 2\nLine 3"))
 			Expect(cleaned).To(Equal("Before  After"))
 		})
 
 		It("should handle redacted_reasoning with complex content", func() {
 			content := "Start <think>Complex reasoning\nwith\nmultiple\nlines</think> End"
-			reasoning, cleaned := ExtractReasoning(content)
+			reasoning, cleaned := ExtractReasoning(content, nil)
 			Expect(reasoning).To(Equal("Complex reasoning\nwith\nmultiple\nlines"))
 			Expect(cleaned).To(Equal("Start  End"))
 		})
@@ -102,14 +102,14 @@ var _ = Describe("ExtractReasoning", func() {
 	Context("when content has multiple reasoning blocks", func() {
 		It("should concatenate multiple thinking blocks with newlines", func() {
 			content := "Text <thinking>First</thinking> Middle <thinking>Second</thinking> End"
-			reasoning, cleaned := ExtractReasoning(content)
+			reasoning, cleaned := ExtractReasoning(content, nil)
 			Expect(reasoning).To(Equal("First\n\nSecond"))
 			Expect(cleaned).To(Equal("Text  Middle  End"))
 		})
 
 		It("should handle multiple different tag types", func() {
 			content := "A <thinking>One</thinking> B <think>Two</think> C <think>Three</think> D"
-			reasoning, cleaned := ExtractReasoning(content)
+			reasoning, cleaned := ExtractReasoning(content, nil)
 			Expect(reasoning).To(ContainSubstring("One"))
 			Expect(reasoning).To(ContainSubstring("Two"))
 			Expect(reasoning).To(ContainSubstring("Three"))
@@ -118,7 +118,7 @@ var _ = Describe("ExtractReasoning", func() {
 
 		It("should handle nested tags correctly (extracts first match)", func() {
 			content := "Text <thinking>Outer <think>Inner</think></thinking> More"
-			reasoning, cleaned := ExtractReasoning(content)
+			reasoning, cleaned := ExtractReasoning(content, nil)
 			// Should extract the outer thinking block
 			Expect(reasoning).To(ContainSubstring("Outer"))
 			Expect(reasoning).To(ContainSubstring("Inner"))
@@ -129,28 +129,28 @@ var _ = Describe("ExtractReasoning", func() {
 	Context("when content has unclosed reasoning tags", func() {
 		It("should extract unclosed thinking block", func() {
 			content := "Text <thinking>Unclosed reasoning"
-			reasoning, cleaned := ExtractReasoning(content)
+			reasoning, cleaned := ExtractReasoning(content, nil)
 			Expect(reasoning).To(Equal("Unclosed reasoning"))
 			Expect(cleaned).To(Equal("Text "))
 		})
 
 		It("should extract unclosed think block", func() {
 			content := "Before <think>Incomplete"
-			reasoning, cleaned := ExtractReasoning(content)
+			reasoning, cleaned := ExtractReasoning(content, nil)
 			Expect(reasoning).To(Equal("Incomplete"))
 			Expect(cleaned).To(Equal("Before "))
 		})
 
 		It("should extract unclosed redacted_reasoning block", func() {
 			content := "Start <think>Partial reasoning content"
-			reasoning, cleaned := ExtractReasoning(content)
+			reasoning, cleaned := ExtractReasoning(content, nil)
 			Expect(reasoning).To(Equal("Partial reasoning content"))
 			Expect(cleaned).To(Equal("Start "))
 		})
 
 		It("should handle unclosed tag at the end", func() {
 			content := "Regular content <thinking>Unclosed at end"
-			reasoning, cleaned := ExtractReasoning(content)
+			reasoning, cleaned := ExtractReasoning(content, nil)
 			Expect(reasoning).To(Equal("Unclosed at end"))
 			Expect(cleaned).To(Equal("Regular content "))
 		})
@@ -159,14 +159,14 @@ var _ = Describe("ExtractReasoning", func() {
 	Context("when content has empty reasoning blocks", func() {
 		It("should ignore empty thinking block", func() {
 			content := "Text <thinking></thinking> More"
-			reasoning, cleaned := ExtractReasoning(content)
+			reasoning, cleaned := ExtractReasoning(content, nil)
 			Expect(reasoning).To(BeEmpty())
 			Expect(cleaned).To(Equal("Text  More"))
 		})
 
 		It("should ignore thinking block with only whitespace", func() {
 			content := "Text <thinking>   \n\t  </thinking> More"
-			reasoning, cleaned := ExtractReasoning(content)
+			reasoning, cleaned := ExtractReasoning(content, nil)
 			Expect(reasoning).To(BeEmpty())
 			Expect(cleaned).To(Equal("Text  More"))
 		})
@@ -175,28 +175,28 @@ var _ = Describe("ExtractReasoning", func() {
 	Context("when content has reasoning tags with special characters", func() {
 		It("should handle reasoning with newlines", func() {
 			content := "Before <thinking>Line 1\nLine 2\nLine 3</thinking> After"
-			reasoning, cleaned := ExtractReasoning(content)
+			reasoning, cleaned := ExtractReasoning(content, nil)
 			Expect(reasoning).To(Equal("Line 1\nLine 2\nLine 3"))
 			Expect(cleaned).To(Equal("Before  After"))
 		})
 
 		It("should handle reasoning with code blocks", func() {
 			content := "Text <thinking>Reasoning with ```code``` blocks</thinking> More"
-			reasoning, cleaned := ExtractReasoning(content)
+			reasoning, cleaned := ExtractReasoning(content, nil)
 			Expect(reasoning).To(Equal("Reasoning with ```code``` blocks"))
 			Expect(cleaned).To(Equal("Text  More"))
 		})
 
 		It("should handle reasoning with JSON", func() {
 			content := "Before <think>{\"key\": \"value\"}</think> After"
-			reasoning, cleaned := ExtractReasoning(content)
+			reasoning, cleaned := ExtractReasoning(content, nil)
 			Expect(reasoning).To(Equal("{\"key\": \"value\"}"))
 			Expect(cleaned).To(Equal("Before  After"))
 		})
 
 		It("should handle reasoning with HTML-like content", func() {
 			content := "Text <thinking>Reasoning with <tags> inside</thinking> More"
-			reasoning, cleaned := ExtractReasoning(content)
+			reasoning, cleaned := ExtractReasoning(content, nil)
 			Expect(reasoning).To(Equal("Reasoning with <tags> inside"))
 			Expect(cleaned).To(Equal("Text  More"))
 		})
@@ -205,7 +205,7 @@ var _ = Describe("ExtractReasoning", func() {
 	Context("when content has reasoning mixed with regular content", func() {
 		It("should preserve content order correctly", func() {
 			content := "Start <thinking>Reasoning</thinking> Middle <think>More reasoning</think> End"
-			reasoning, cleaned := ExtractReasoning(content)
+			reasoning, cleaned := ExtractReasoning(content, nil)
 			Expect(reasoning).To(ContainSubstring("Reasoning"))
 			Expect(reasoning).To(ContainSubstring("More reasoning"))
 			Expect(cleaned).To(Equal("Start  Middle  End"))
@@ -213,7 +213,7 @@ var _ = Describe("ExtractReasoning", func() {
 
 		It("should handle reasoning in the middle of a sentence", func() {
 			content := "This is a <thinking>reasoning</thinking> sentence."
-			reasoning, cleaned := ExtractReasoning(content)
+			reasoning, cleaned := ExtractReasoning(content, nil)
 			Expect(reasoning).To(Equal("reasoning"))
 			Expect(cleaned).To(Equal("This is a  sentence."))
 		})
@@ -222,21 +222,21 @@ var _ = Describe("ExtractReasoning", func() {
 	Context("edge cases", func() {
 		It("should handle content with only opening tag", func() {
 			content := "<thinking>"
-			reasoning, cleaned := ExtractReasoning(content)
+			reasoning, cleaned := ExtractReasoning(content, nil)
 			Expect(reasoning).To(BeEmpty())
 			Expect(cleaned).To(Equal(""))
 		})
 
 		It("should handle content with only closing tag", func() {
 			content := "</thinking>"
-			reasoning, cleaned := ExtractReasoning(content)
+			reasoning, cleaned := ExtractReasoning(content, nil)
 			Expect(reasoning).To(BeEmpty())
 			Expect(cleaned).To(Equal("</thinking>"))
 		})
 
 		It("should handle mismatched tags", func() {
 			content := "<thinking>Content</think>"
-			reasoning, cleaned := ExtractReasoning(content)
+			reasoning, cleaned := ExtractReasoning(content, nil)
 			// Should extract unclosed thinking block
 			Expect(reasoning).To(ContainSubstring("Content"))
 			Expect(cleaned).To(Equal(""))
@@ -245,7 +245,7 @@ var _ = Describe("ExtractReasoning", func() {
 		It("should handle very long reasoning content", func() {
 			longReasoning := strings.Repeat("This is reasoning content. ", 100)
 			content := "Text <thinking>" + longReasoning + "</thinking> More"
-			reasoning, cleaned := ExtractReasoning(content)
+			reasoning, cleaned := ExtractReasoning(content, nil)
 			// TrimSpace is applied, so we need to account for that
 			Expect(reasoning).To(Equal(strings.TrimSpace(longReasoning)))
 			Expect(cleaned).To(Equal("Text  More"))
@@ -253,7 +253,7 @@ var _ = Describe("ExtractReasoning", func() {
 
 		It("should handle reasoning with unicode characters", func() {
 			content := "Text <thinking>Reasoning with 中文 and emoji 🧠</thinking> More"
-			reasoning, cleaned := ExtractReasoning(content)
+			reasoning, cleaned := ExtractReasoning(content, nil)
 			Expect(reasoning).To(Equal("Reasoning with 中文 and emoji 🧠"))
 			Expect(cleaned).To(Equal("Text  More"))
 		})
@@ -262,14 +262,14 @@ var _ = Describe("ExtractReasoning", func() {
 	Context("when content has <|START_THINKING|> tags (Command-R)", func() {
 		It("should extract reasoning from START_THINKING block", func() {
 			content := "Text <|START_THINKING|>Command-R reasoning<|END_THINKING|> More"
-			reasoning, cleaned := ExtractReasoning(content)
+			reasoning, cleaned := ExtractReasoning(content, nil)
 			Expect(reasoning).To(Equal("Command-R reasoning"))
 			Expect(cleaned).To(Equal("Text  More"))
 		})
 
 		It("should handle unclosed START_THINKING block", func() {
 			content := "Before <|START_THINKING|>Incomplete reasoning"
-			reasoning, cleaned := ExtractReasoning(content)
+			reasoning, cleaned := ExtractReasoning(content, nil)
 			Expect(reasoning).To(Equal("Incomplete reasoning"))
 			Expect(cleaned).To(Equal("Before "))
 		})
@@ -278,7 +278,7 @@ var _ = Describe("ExtractReasoning", func() {
 	Context("when content has <|inner_prefix|> tags (Apertus)", func() {
 		It("should extract reasoning from inner_prefix block", func() {
 			content := "Text <|inner_prefix|>Apertus reasoning<|inner_suffix|> More"
-			reasoning, cleaned := ExtractReasoning(content)
+			reasoning, cleaned := ExtractReasoning(content, nil)
 			Expect(reasoning).To(Equal("Apertus reasoning"))
 			Expect(cleaned).To(Equal("Text  More"))
 		})
@@ -287,7 +287,7 @@ var _ = Describe("ExtractReasoning", func() {
 	Context("when content has <seed:think> tags (Seed)", func() {
 		It("should extract reasoning from seed:think block", func() {
 			content := "Text <seed:think>Seed reasoning</seed:think> More"
-			reasoning, cleaned := ExtractReasoning(content)
+			reasoning, cleaned := ExtractReasoning(content, nil)
 			Expect(reasoning).To(Equal("Seed reasoning"))
 			Expect(cleaned).To(Equal("Text  More"))
 		})
@@ -296,7 +296,7 @@ var _ = Describe("ExtractReasoning", func() {
 	Context("when content has <|think|> tags (Solar Open)", func() {
 		It("should extract reasoning from Solar Open think block", func() {
 			content := "Text <|think|>Solar reasoning<|end|><|begin|>assistant<|content|> More"
-			reasoning, cleaned := ExtractReasoning(content)
+			reasoning, cleaned := ExtractReasoning(content, nil)
 			Expect(reasoning).To(Equal("Solar reasoning"))
 			Expect(cleaned).To(Equal("Text  More"))
 		})
@@ -305,14 +305,14 @@ var _ = Describe("ExtractReasoning", func() {
 	Context("when content has [THINK] tags (Magistral)", func() {
 		It("should extract reasoning from THINK block", func() {
 			content := "Text [THINK]Magistral reasoning[/THINK] More"
-			reasoning, cleaned := ExtractReasoning(content)
+			reasoning, cleaned := ExtractReasoning(content, nil)
 			Expect(reasoning).To(Equal("Magistral reasoning"))
 			Expect(cleaned).To(Equal("Text  More"))
 		})
 
 		It("should handle unclosed THINK block", func() {
 			content := "Before [THINK]Incomplete reasoning"
-			reasoning, cleaned := ExtractReasoning(content)
+			reasoning, cleaned := ExtractReasoning(content, nil)
 			Expect(reasoning).To(Equal("Incomplete reasoning"))
 			Expect(cleaned).To(Equal("Before "))
 		})
@@ -323,62 +323,62 @@ var _ = Describe("DetectThinkingStartToken", func() {
 	Context("when prompt contains thinking start tokens", func() {
 		It("should detect <|START_THINKING|> at the end", func() {
 			prompt := "Some prompt text <|START_THINKING|>"
-			token := DetectThinkingStartToken(prompt)
+			token := DetectThinkingStartToken(prompt, nil)
 			Expect(token).To(Equal("<|START_THINKING|>"))
 		})
 
 		It("should detect <think> at the end", func() {
 			prompt := "Prompt with <think>"
-			token := DetectThinkingStartToken(prompt)
+			token := DetectThinkingStartToken(prompt, nil)
 			Expect(token).To(Equal("<think>"))
 		})
 
 		It("should detect <thinking> at the end", func() {
 			prompt := "Some text <thinking>"
-			token := DetectThinkingStartToken(prompt)
+			token := DetectThinkingStartToken(prompt, nil)
 			Expect(token).To(Equal("<thinking>"))
 		})
 
 		It("should detect <|inner_prefix|> at the end", func() {
 			prompt := "Prompt <|inner_prefix|>"
-			token := DetectThinkingStartToken(prompt)
+			token := DetectThinkingStartToken(prompt, nil)
 			Expect(token).To(Equal("<|inner_prefix|>"))
 		})
 
 		It("should detect <seed:think> at the end", func() {
 			prompt := "Text <seed:think>"
-			token := DetectThinkingStartToken(prompt)
+			token := DetectThinkingStartToken(prompt, nil)
 			Expect(token).To(Equal("<seed:think>"))
 		})
 
 		It("should detect <|think|> at the end", func() {
 			prompt := "Prompt <|think|>"
-			token := DetectThinkingStartToken(prompt)
+			token := DetectThinkingStartToken(prompt, nil)
 			Expect(token).To(Equal("<|think|>"))
 		})
 
 		It("should detect [THINK] at the end", func() {
 			prompt := "Text [THINK]"
-			token := DetectThinkingStartToken(prompt)
+			token := DetectThinkingStartToken(prompt, nil)
 			Expect(token).To(Equal("[THINK]"))
 		})
 
 		It("should handle trailing whitespace", func() {
 			prompt := "Prompt <|START_THINKING|>   \n\t  "
-			token := DetectThinkingStartToken(prompt)
+			token := DetectThinkingStartToken(prompt, nil)
 			Expect(token).To(Equal("<|START_THINKING|>"))
 		})
 
 		It("should detect token near the end (within last 100 chars)", func() {
 			prefix := strings.Repeat("x", 50)
 			prompt := prefix + "<|START_THINKING|>"
-			token := DetectThinkingStartToken(prompt)
+			token := DetectThinkingStartToken(prompt, nil)
 			Expect(token).To(Equal("<|START_THINKING|>"))
 		})
 
 		It("should detect token when followed by only whitespace", func() {
 			prompt := "Text <think>   \n  "
-			token := DetectThinkingStartToken(prompt)
+			token := DetectThinkingStartToken(prompt, nil)
 			Expect(token).To(Equal("<think>"))
 		})
 	})
@@ -386,27 +386,27 @@ var _ = Describe("DetectThinkingStartToken", func() {
 	Context("when prompt does not contain thinking tokens", func() {
 		It("should return empty string for regular prompt", func() {
 			prompt := "This is a regular prompt without thinking tokens"
-			token := DetectThinkingStartToken(prompt)
+			token := DetectThinkingStartToken(prompt, nil)
 			Expect(token).To(BeEmpty())
 		})
 
 		It("should return empty string for empty prompt", func() {
 			prompt := ""
-			token := DetectThinkingStartToken(prompt)
+			token := DetectThinkingStartToken(prompt, nil)
 			Expect(token).To(BeEmpty())
 		})
 
 		It("should detect token even when far from end (Contains check)", func() {
 			prefix := strings.Repeat("x", 150)
 			prompt := prefix + "<|START_THINKING|>"
-			token := DetectThinkingStartToken(prompt)
+			token := DetectThinkingStartToken(prompt, nil)
 			// Current implementation uses Contains, so it finds tokens anywhere
 			Expect(token).To(Equal("<|START_THINKING|>"))
 		})
 
 		It("should detect token even when followed by non-whitespace (Contains check)", func() {
 			prompt := "Text <|START_THINKING|>more text"
-			token := DetectThinkingStartToken(prompt)
+			token := DetectThinkingStartToken(prompt, nil)
 			// Current implementation uses Contains, so it finds tokens anywhere
 			Expect(token).To(Equal("<|START_THINKING|>"))
 		})
@@ -415,7 +415,7 @@ var _ = Describe("DetectThinkingStartToken", func() {
 	Context("when multiple tokens are present", func() {
 		It("should return the first matching token (most specific)", func() {
 			prompt := "Text <|START_THINKING|> <thinking>"
-			token := DetectThinkingStartToken(prompt)
+			token := DetectThinkingStartToken(prompt, nil)
 			// Should return the first one found (order matters)
 			Expect(token).To(Equal("<|START_THINKING|>"))
 		})
@@ -843,10 +843,43 @@ var _ = Describe("ExtractReasoningWithConfig", func() {
 
 		It("should handle content without reasoning tags when StripReasoningOnly is true", func() {
 			content := "Regular content without tags"
-			config := Config{StripReasoningOnly: boolPtr(true)}
+			config := Config{
+				StripReasoningOnly:         boolPtr(true),
+				DisableReasoningTagPrefill: boolPtr(true),
+			}
 			reasoning, cleaned := ExtractReasoningWithConfig(content, "<thinking>", config)
 			Expect(reasoning).To(BeEmpty())
 			Expect(cleaned).To(Equal(content))
+		})
+
+		It("should handle content without reasoning tags when StripReasoningOnly is true", func() {
+			content := "Regular content without tags"
+			config := Config{
+				StripReasoningOnly: boolPtr(true),
+			}
+			reasoning, cleaned := ExtractReasoningWithConfig(content, "", config)
+			Expect(reasoning).To(BeEmpty())
+			Expect(cleaned).To(Equal(content))
+		})
+
+		It("should handle content without reasoning tags when StripReasoningOnly is true", func() {
+			content := "Regular content without tags"
+			config := Config{
+				StripReasoningOnly: boolPtr(true),
+			}
+			thinkingStartToken := DetectThinkingStartToken("template_without_thinking_tag", &config)
+			reasoning, cleaned := ExtractReasoningWithConfig(content, thinkingStartToken, config)
+			Expect(reasoning).To(BeEmpty())
+			Expect(cleaned).To(Equal(content))
+		})
+
+		It("should handle content without reasoning tags when StripReasoningOnly is true", func() {
+			content := "foo</think>Regular content without tags"
+			config := Config{}
+			thinkingStartToken := DetectThinkingStartToken("<think>", &config)
+			reasoning, cleaned := ExtractReasoningWithConfig(content, thinkingStartToken, config)
+			Expect(reasoning).To(Equal("foo"))
+			Expect(cleaned).To(Equal("Regular content without tags"))
 		})
 
 		It("should strip reasoning when StripReasoningOnly is true and tag prefill is enabled", func() {
@@ -920,6 +953,186 @@ var _ = Describe("ExtractReasoningWithConfig", func() {
 			config := Config{StripReasoningOnly: boolPtr(true)}
 			reasoning, cleaned := ExtractReasoningWithConfig(content, "<thinking>", config)
 			Expect(reasoning).To(BeEmpty())
+			Expect(cleaned).To(Equal("Text  More"))
+		})
+	})
+})
+
+var _ = Describe("Custom Thinking Start Tokens", func() {
+	Context("when custom thinking start tokens are provided", func() {
+		It("should detect custom thinking start token", func() {
+			prompt := "Some prompt <custom:think>"
+			config := &Config{ThinkingStartTokens: []string{"<custom:think>"}}
+			token := DetectThinkingStartToken(prompt, config)
+			Expect(token).To(Equal("<custom:think>"))
+		})
+
+		It("should prioritize custom tokens over default tokens", func() {
+			prompt := "Text <thinking> <custom:think>"
+			config := &Config{ThinkingStartTokens: []string{"<custom:think>"}}
+			token := DetectThinkingStartToken(prompt, config)
+			// Custom token should be found first even if default token appears later
+			Expect(token).To(Equal("<custom:think>"))
+		})
+
+		It("should detect multiple custom tokens (first match)", func() {
+			prompt := "Prompt <token1> <token2>"
+			config := &Config{ThinkingStartTokens: []string{"<token1>", "<token2>"}}
+			token := DetectThinkingStartToken(prompt, config)
+			Expect(token).To(Equal("<token1>"))
+		})
+
+		It("should fall back to default tokens if custom tokens not found", func() {
+			prompt := "Text <thinking>"
+			config := &Config{ThinkingStartTokens: []string{"<custom:think>"}}
+			token := DetectThinkingStartToken(prompt, config)
+			Expect(token).To(Equal("<thinking>"))
+		})
+
+		It("should handle empty custom tokens list", func() {
+			prompt := "Text <thinking>"
+			config := &Config{ThinkingStartTokens: []string{}}
+			token := DetectThinkingStartToken(prompt, config)
+			Expect(token).To(Equal("<thinking>"))
+		})
+
+		It("should handle nil config (use defaults only)", func() {
+			prompt := "Text <thinking>"
+			token := DetectThinkingStartToken(prompt, nil)
+			Expect(token).To(Equal("<thinking>"))
+		})
+	})
+})
+
+var _ = Describe("Custom Tag Pairs", func() {
+	Context("when custom tag pairs are provided", func() {
+		It("should extract reasoning from custom tag pair", func() {
+			content := "Text <custom:think>Custom reasoning</custom:think> More"
+			config := &Config{TagPairs: []TagPair{{Start: "<custom:think>", End: "</custom:think>"}}}
+			reasoning, cleaned := ExtractReasoning(content, config)
+			Expect(reasoning).To(Equal("Custom reasoning"))
+			Expect(cleaned).To(Equal("Text  More"))
+		})
+
+		It("should prioritize custom tag pairs over default pairs", func() {
+			content := "Text <custom:think>Custom</custom:think> <thinking>Default</thinking> More"
+			config := &Config{TagPairs: []TagPair{{Start: "<custom:think>", End: "</custom:think>"}}}
+			reasoning, cleaned := ExtractReasoning(content, config)
+			// Should extract both, but custom comes first
+			Expect(reasoning).To(ContainSubstring("Custom"))
+			Expect(reasoning).To(ContainSubstring("Default"))
+			Expect(cleaned).To(Equal("Text   More"))
+		})
+
+		It("should handle multiple custom tag pairs", func() {
+			content := "A <tag1>First</tag1> B <tag2>Second</tag2> C"
+			config := &Config{
+				TagPairs: []TagPair{
+					{Start: "<tag1>", End: "</tag1>"},
+					{Start: "<tag2>", End: "</tag2>"},
+				},
+			}
+			reasoning, cleaned := ExtractReasoning(content, config)
+			Expect(reasoning).To(ContainSubstring("First"))
+			Expect(reasoning).To(ContainSubstring("Second"))
+			Expect(cleaned).To(Equal("A  B  C"))
+		})
+
+		It("should handle custom tag pairs with complex end tags", func() {
+			content := "Text <start>Reasoning<end><begin>assistant</begin> More"
+			config := &Config{TagPairs: []TagPair{{Start: "<start>", End: "<end><begin>assistant</begin>"}}}
+			reasoning, cleaned := ExtractReasoning(content, config)
+			Expect(reasoning).To(Equal("Reasoning"))
+			Expect(cleaned).To(Equal("Text  More"))
+		})
+
+		It("should handle unclosed custom tag pairs", func() {
+			content := "Text <custom:think>Unclosed reasoning"
+			config := &Config{TagPairs: []TagPair{{Start: "<custom:think>", End: "</custom:think>"}}}
+			reasoning, cleaned := ExtractReasoning(content, config)
+			Expect(reasoning).To(Equal("Unclosed reasoning"))
+			Expect(cleaned).To(Equal("Text "))
+		})
+
+		It("should ignore invalid tag pairs (empty start or end)", func() {
+			content := "Text <valid>Content</valid> More"
+			config := &Config{
+				TagPairs: []TagPair{
+					{Start: "", End: "</invalid>"},      // Invalid: empty start
+					{Start: "<invalid>", End: ""},       // Invalid: empty end
+					{Start: "<valid>", End: "</valid>"}, // Valid
+				},
+			}
+			reasoning, cleaned := ExtractReasoning(content, config)
+			Expect(reasoning).To(Equal("Content"))
+			Expect(cleaned).To(Equal("Text  More"))
+		})
+
+		It("should fall back to default tag pairs if custom pairs not found", func() {
+			content := "Text <thinking>Default reasoning</thinking> More"
+			config := &Config{TagPairs: []TagPair{{Start: "<custom:think>", End: "</custom:think>"}}}
+			reasoning, cleaned := ExtractReasoning(content, config)
+			Expect(reasoning).To(Equal("Default reasoning"))
+			Expect(cleaned).To(Equal("Text  More"))
+		})
+
+		It("should handle empty custom tag pairs list", func() {
+			content := "Text <thinking>Reasoning</thinking> More"
+			config := &Config{TagPairs: []TagPair{}}
+			reasoning, cleaned := ExtractReasoning(content, config)
+			Expect(reasoning).To(Equal("Reasoning"))
+			Expect(cleaned).To(Equal("Text  More"))
+		})
+
+		It("should handle nil config (use defaults only)", func() {
+			content := "Text <thinking>Reasoning</thinking> More"
+			reasoning, cleaned := ExtractReasoning(content, nil)
+			Expect(reasoning).To(Equal("Reasoning"))
+			Expect(cleaned).To(Equal("Text  More"))
+		})
+
+		It("should handle custom tag pairs with special characters", func() {
+			content := "Text <[think]>Reasoning</[think]> More"
+			config := &Config{TagPairs: []TagPair{{Start: "<[think]>", End: "</[think]>"}}}
+			reasoning, cleaned := ExtractReasoning(content, config)
+			Expect(reasoning).To(Equal("Reasoning"))
+			Expect(cleaned).To(Equal("Text  More"))
+		})
+
+		It("should handle custom tag pairs with multiline content", func() {
+			content := "Before <custom>Line 1\nLine 2\nLine 3</custom> After"
+			config := &Config{TagPairs: []TagPair{{Start: "<custom>", End: "</custom>"}}}
+			reasoning, cleaned := ExtractReasoning(content, config)
+			Expect(reasoning).To(Equal("Line 1\nLine 2\nLine 3"))
+			Expect(cleaned).To(Equal("Before  After"))
+		})
+	})
+})
+
+var _ = Describe("Custom Tokens and Tag Pairs Integration", func() {
+	Context("when both custom tokens and tag pairs are provided", func() {
+		It("should use custom thinking start token and custom tag pair together", func() {
+			content := "Reasoning content"
+			config := Config{
+				ThinkingStartTokens: []string{"<custom:think>"},
+				TagPairs:            []TagPair{{Start: "<custom:think>", End: "</custom:think>"}},
+			}
+			// First detect the token
+			token := DetectThinkingStartToken("Prompt <custom:think>", &config)
+			Expect(token).To(Equal("<custom:think>"))
+			// Then extract with the custom tag pair
+			reasoning, cleaned := ExtractReasoningWithConfig(content, token, config)
+			Expect(reasoning).To(Equal("Reasoning content"))
+			Expect(cleaned).To(BeEmpty())
+		})
+
+		It("should work with ExtractReasoningWithConfig and custom config", func() {
+			content := "Text <custom:think>Reasoning</custom:think> More"
+			config := Config{
+				TagPairs: []TagPair{{Start: "<custom:think>", End: "</custom:think>"}},
+			}
+			reasoning, cleaned := ExtractReasoningWithConfig(content, "", config)
+			Expect(reasoning).To(Equal("Reasoning"))
 			Expect(cleaned).To(Equal("Text  More"))
 		})
 	})

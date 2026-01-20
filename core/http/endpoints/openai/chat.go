@@ -47,7 +47,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 		} else {
 			template = s
 		}
-		thinkingStartToken := reason.DetectThinkingStartToken(template)
+		thinkingStartToken := reason.DetectThinkingStartToken(template, &config.ReasoningConfig)
 
 		// Track accumulated content for reasoning extraction
 		accumulatedContent := ""
@@ -136,7 +136,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 		} else {
 			template = prompt
 		}
-		thinkingStartToken := reason.DetectThinkingStartToken(template)
+		thinkingStartToken := reason.DetectThinkingStartToken(template, &config.ReasoningConfig)
 
 		result := ""
 		lastEmittedCount := 0
@@ -643,7 +643,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 			} else {
 				template = predInput
 			}
-			thinkingStartToken := reason.DetectThinkingStartToken(template)
+			thinkingStartToken := reason.DetectThinkingStartToken(template, &config.ReasoningConfig)
 
 			xlog.Debug("Thinking start token", "thinkingStartToken", thinkingStartToken, "template", template)
 
