@@ -72,6 +72,359 @@ You can list all the models available with:
 curl http://localhost:8080/v1/models
 ```
 
+### Anthropic Messages API
+
+LocalAI supports the Anthropic Messages API, which is compatible with Claude clients. This endpoint provides a structured way to send messages and receive responses, with support for tools, streaming, and multimodal content.
+
+**Endpoint:** `POST /v1/messages` or `POST /messages`
+
+**Reference:** https://docs.anthropic.com/claude/reference/messages_post
+
+#### Basic Usage
+
+```bash
+curl http://localhost:8080/v1/messages \
+  -H "Content-Type: application/json" \
+  -H "anthropic-version: 2023-06-01" \
+  -d '{
+    "model": "ggml-koala-7b-model-q4_0-r2.bin",
+    "max_tokens": 1024,
+    "messages": [
+      {"role": "user", "content": "Say this is a test!"}
+    ]
+  }'
+```
+
+#### Request Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `model` | string | Yes | The model identifier |
+| `messages` | array | Yes | Array of message objects with `role` and `content` |
+| `max_tokens` | integer | Yes | Maximum number of tokens to generate (must be > 0) |
+| `system` | string | No | System message to set the assistant's behavior |
+| `temperature` | float | No | Sampling temperature (0.0 to 1.0) |
+| `top_p` | float | No | Nucleus sampling parameter |
+| `top_k` | integer | No | Top-k sampling parameter |
+| `stop_sequences` | array | No | Array of strings that will stop generation |
+| `stream` | boolean | No | Enable streaming responses |
+| `tools` | array | No | Array of tool definitions for function calling |
+| `tool_choice` | string/object | No | Tool choice strategy: "auto", "any", "none", or specific tool |
+| `metadata` | object | No | Custom metadata to attach to the request |
+
+#### Message Format
+
+Messages can contain text or structured content blocks:
+
+```bash
+curl http://localhost:8080/v1/messages \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "ggml-koala-7b-model-q4_0-r2.bin",
+    "max_tokens": 1024,
+    "messages": [
+      {
+        "role": "user",
+        "content": [
+          {
+            "type": "text",
+            "text": "What is in this image?"
+          },
+          {
+            "type": "image",
+            "source": {
+              "type": "base64",
+              "media_type": "image/jpeg",
+              "data": "base64_encoded_image_data"
+            }
+          }
+        ]
+      }
+    ]
+  }'
+```
+
+#### Tool Calling
+
+The Anthropic API supports function calling through tools:
+
+```bash
+curl http://localhost:8080/v1/messages \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "ggml-koala-7b-model-q4_0-r2.bin",
+    "max_tokens": 1024,
+    "tools": [
+      {
+        "name": "get_weather",
+        "description": "Get the current weather",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "location": {
+              "type": "string",
+              "description": "The city and state"
+            }
+          },
+          "required": ["location"]
+        }
+      }
+    ],
+    "tool_choice": "auto",
+    "messages": [
+      {"role": "user", "content": "What is the weather in San Francisco?"}
+    ]
+  }'
+```
+
+#### Streaming
+
+Enable streaming responses by setting `stream: true`:
+
+```bash
+curl http://localhost:8080/v1/messages \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "ggml-koala-7b-model-q4_0-r2.bin",
+    "max_tokens": 1024,
+    "stream": true,
+    "messages": [
+      {"role": "user", "content": "Tell me a story"}
+    ]
+  }'
+```
+
+Streaming responses use Server-Sent Events (SSE) format with event types: `message_start`, `content_block_start`, `content_block_delta`, `content_block_stop`, `message_delta`, and `message_stop`.
+
+#### Response Format
+
+```json
+{
+  "id": "msg_abc123",
+  "type": "message",
+  "role": "assistant",
+  "content": [
+    {
+      "type": "text",
+      "text": "This is a test!"
+    }
+  ],
+  "model": "ggml-koala-7b-model-q4_0-r2.bin",
+  "stop_reason": "end_turn",
+  "usage": {
+    "input_tokens": 10,
+    "output_tokens": 5
+  }
+}
+```
+
+### Open Responses API
+
+LocalAI supports the Open Responses API specification, which provides a standardized interface for AI model interactions with support for background processing, streaming, tool calling, and advanced features like reasoning.
+
+**Endpoint:** `POST /v1/responses` or `POST /responses`
+
+**Reference:** https://www.openresponses.org/specification
+
+#### Basic Usage
+
+```bash
+curl http://localhost:8080/v1/responses \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "ggml-koala-7b-model-q4_0-r2.bin",
+    "input": "Say this is a test!",
+    "max_output_tokens": 1024
+  }'
+```
+
+#### Request Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `model` | string | Yes | The model identifier |
+| `input` | string/array | Yes | Input text or array of input items |
+| `max_output_tokens` | integer | No | Maximum number of tokens to generate |
+| `temperature` | float | No | Sampling temperature |
+| `top_p` | float | No | Nucleus sampling parameter |
+| `instructions` | string | No | System instructions |
+| `tools` | array | No | Array of tool definitions |
+| `tool_choice` | string/object | No | Tool choice: "auto", "required", "none", or specific tool |
+| `stream` | boolean | No | Enable streaming responses |
+| `background` | boolean | No | Run request in background (returns immediately) |
+| `store` | boolean | No | Whether to store the response |
+| `reasoning` | object | No | Reasoning configuration with `effort` and `summary` |
+| `parallel_tool_calls` | boolean | No | Allow parallel tool calls |
+| `max_tool_calls` | integer | No | Maximum number of tool calls |
+| `presence_penalty` | float | No | Presence penalty (-2.0 to 2.0) |
+| `frequency_penalty` | float | No | Frequency penalty (-2.0 to 2.0) |
+| `top_logprobs` | integer | No | Number of top logprobs to return |
+| `truncation` | string | No | Truncation mode: "auto" or "disabled" |
+| `text_format` | object | No | Text format configuration |
+| `metadata` | object | No | Custom metadata |
+
+#### Input Format
+
+Input can be a simple string or an array of structured items:
+
+```bash
+curl http://localhost:8080/v1/responses \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "ggml-koala-7b-model-q4_0-r2.bin",
+    "input": [
+      {
+        "type": "message",
+        "role": "user",
+        "content": "What is the weather?"
+      }
+    ],
+    "max_output_tokens": 1024
+  }'
+```
+
+#### Background Processing
+
+Run requests in the background for long-running tasks:
+
+```bash
+curl http://localhost:8080/v1/responses \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "ggml-koala-7b-model-q4_0-r2.bin",
+    "input": "Generate a long story",
+    "max_output_tokens": 4096,
+    "background": true
+  }'
+```
+
+The response will include a response ID that can be used to poll for completion:
+
+```json
+{
+  "id": "resp_abc123",
+  "object": "response",
+  "status": "in_progress",
+  "created_at": 1234567890
+}
+```
+
+#### Retrieving Background Responses
+
+Use the GET endpoint to retrieve background responses:
+
+```bash
+# Get response by ID
+curl http://localhost:8080/v1/responses/resp_abc123
+
+# Resume streaming with query parameters
+curl "http://localhost:8080/v1/responses/resp_abc123?stream=true&starting_after=10"
+```
+
+#### Canceling Background Responses
+
+Cancel a background response that's still in progress:
+
+```bash
+curl -X POST http://localhost:8080/v1/responses/resp_abc123/cancel
+```
+
+#### Tool Calling
+
+Open Responses API supports function calling with tools:
+
+```bash
+curl http://localhost:8080/v1/responses \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "ggml-koala-7b-model-q4_0-r2.bin",
+    "input": "What is the weather in San Francisco?",
+    "tools": [
+      {
+        "type": "function",
+        "name": "get_weather",
+        "description": "Get the current weather",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "location": {
+              "type": "string",
+              "description": "The city and state"
+            }
+          },
+          "required": ["location"]
+        }
+      }
+    ],
+    "tool_choice": "auto",
+    "max_output_tokens": 1024
+  }'
+```
+
+#### Reasoning Configuration
+
+Configure reasoning effort and summary style:
+
+```bash
+curl http://localhost:8080/v1/responses \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "ggml-koala-7b-model-q4_0-r2.bin",
+    "input": "Solve this complex problem step by step",
+    "reasoning": {
+      "effort": "high",
+      "summary": "detailed"
+    },
+    "max_output_tokens": 2048
+  }'
+```
+
+#### Response Format
+
+```json
+{
+  "id": "resp_abc123",
+  "object": "response",
+  "created_at": 1234567890,
+  "completed_at": 1234567895,
+  "status": "completed",
+  "model": "ggml-koala-7b-model-q4_0-r2.bin",
+  "output": [
+    {
+      "type": "message",
+      "id": "msg_001",
+      "role": "assistant",
+      "content": [
+        {
+          "type": "output_text",
+          "text": "This is a test!",
+          "annotations": [],
+          "logprobs": []
+        }
+      ],
+      "status": "completed"
+    }
+  ],
+  "error": null,
+  "incomplete_details": null,
+  "temperature": 0.7,
+  "top_p": 1.0,
+  "presence_penalty": 0.0,
+  "frequency_penalty": 0.0,
+  "usage": {
+    "input_tokens": 10,
+    "output_tokens": 5,
+    "total_tokens": 15,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    }
+  }
+}
+```
+
 ## Backends
 
 ### RWKV
