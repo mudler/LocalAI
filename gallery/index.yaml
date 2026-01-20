@@ -1,4 +1,22 @@
 ---
+- name: "persona_model_gguf"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/ravidevops/persona_model_gguf
+  description: |
+    AI model: persona_model_gguf
+  overrides:
+    parameters:
+      model: https://huggingface.co/ravidevops/persona_model_gguf
+    name: persona_model_gguf
+    backend: vllm
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    description: Imported from https://huggingface.co/ravidevops/persona_model_gguf
+  files:
+    null
 - name: "qwen3-vl-reranker-8b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
