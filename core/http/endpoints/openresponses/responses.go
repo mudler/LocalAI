@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -18,6 +19,7 @@ import (
 	"github.com/mudler/LocalAI/core/templates"
 	"github.com/mudler/LocalAI/pkg/functions"
 	"github.com/mudler/LocalAI/pkg/model"
+	reason "github.com/mudler/LocalAI/pkg/reasoning"
 	"github.com/mudler/LocalAI/pkg/utils"
 	"github.com/mudler/cogito"
 	"github.com/mudler/xlog"
@@ -1330,13 +1332,43 @@ func handleOpenResponsesNonStream(c echo.Context, responseID string, createdAt i
 	result := backend.Finetune(*cfg, predInput, prediction.Response)
 	xlog.Debug("Open Responses - Raw model result", "result", result, "shouldUseFn", shouldUseFn)
 
+	// Detect if thinking token is already in prompt or template
+	var template string
+	if cfg.TemplateConfig.UseTokenizerTemplate {
+		template = cfg.GetModelTemplate()
+	} else {
+		template = predInput
+	}
+	thinkingStartToken := reason.DetectThinkingStartToken(template)
+
+	// Extract reasoning from result before cleaning
+	var reasoningContent string
+	var cleanedResult string
+	resultWithToken := result
+	if cfg.ReasoningConfig.DisableReasoningTagPrefill == nil || !*cfg.ReasoningConfig.DisableReasoningTagPrefill {
+		resultWithToken = reason.PrependThinkingTokenIfNeeded(result, thinkingStartToken)
+	}
+	reasoningContent, cleanedResult = reason.ExtractReasoning(resultWithToken)
+
 	// Parse tool calls if using functions
 	var outputItems []schema.ORItemField
 	var toolCalls []schema.ToolCall
 
+	// Add reasoning item if reasoning was found (reasoning comes first per spec)
+	if reasoningContent != "" {
+		reasoningItem := schema.ORItemField{
+			Type:    "reasoning",
+			ID:      fmt.Sprintf("reasoning_%s", uuid.New().String()),
+			Status:  "completed",
+			Content: []schema.ORContentPart{makeOutputTextPart(reasoningContent)},
+		}
+		outputItems = append(outputItems, reasoningItem)
+		xlog.Debug("Open Responses - Extracted reasoning", "reasoning_length", len(reasoningContent))
+	}
+
 	if shouldUseFn {
-		// Clean up the result first (handle reasoning tags, etc.)
-		cleanedResult := functions.CleanupLLMResult(result, cfg.FunctionsConfig)
+		// Clean up the result (already extracted reasoning above)
+		cleanedResult = functions.CleanupLLMResult(cleanedResult, cfg.FunctionsConfig)
 		xlog.Debug("Open Responses - Cleaned result", "cleanedResult", cleanedResult)
 
 		funcCallResults := functions.ParseFunctionCall(cleanedResult, cfg.FunctionsConfig)
@@ -1398,28 +1430,46 @@ func handleOpenResponsesNonStream(c echo.Context, responseID string, createdAt i
 			})
 		}
 
-		// If we have no output items but the model did produce output, include the raw result as a message
+		// If we have no output items but the model did produce output, include the cleaned result as a message
 		// This handles cases where the function call parsing failed but we still have model output
-		if len(outputItems) == 0 && result != "" {
-			xlog.Debug("Open Responses - No parsed output, falling back to raw result")
+		// Note: reasoning item may already be added above
+		hasMessageItem := false
+		for _, item := range outputItems {
+			if item.Type == "message" {
+				hasMessageItem = true
+				break
+			}
+		}
+		if !hasMessageItem && cleanedResult != "" {
+			xlog.Debug("Open Responses - No parsed output, falling back to cleaned result")
 			outputItems = append(outputItems, schema.ORItemField{
 				Type:    "message",
 				ID:      fmt.Sprintf("msg_%s", uuid.New().String()),
 				Status:  "completed",
 				Role:    "assistant",
-				Content: []schema.ORContentPart{makeOutputTextPartWithLogprobs(result, prediction.Logprobs)},
+				Content: []schema.ORContentPart{makeOutputTextPartWithLogprobs(cleanedResult, prediction.Logprobs)},
 			})
 		}
 	} else {
 		// Simple text response (include logprobs if available)
-		outputItems = []schema.ORItemField{
-			{
-				Type:    "message",
-				ID:      fmt.Sprintf("msg_%s", uuid.New().String()),
-				Status:  "completed",
-				Role:    "assistant",
-				Content: []schema.ORContentPart{makeOutputTextPartWithLogprobs(result, prediction.Logprobs)},
-			},
+		// Note: reasoning item may already be added above
+		messageItem := schema.ORItemField{
+			Type:    "message",
+			ID:      fmt.Sprintf("msg_%s", uuid.New().String()),
+			Status:  "completed",
+			Role:    "assistant",
+			Content: []schema.ORContentPart{makeOutputTextPartWithLogprobs(cleanedResult, prediction.Logprobs)},
+		}
+		outputItems = append(outputItems, messageItem)
+	}
+
+	// Calculate reasoning tokens (approximate: character count / 4)
+	reasoningTokens := 0
+	if reasoningContent != "" {
+		// Simple estimation: ~4 characters per token
+		reasoningTokens = len(reasoningContent) / 4
+		if reasoningTokens == 0 && len(reasoningContent) > 0 {
+			reasoningTokens = 1
 		}
 	}
 
@@ -1429,6 +1479,9 @@ func handleOpenResponsesNonStream(c echo.Context, responseID string, createdAt i
 		InputTokens:  prediction.Usage.Prompt,
 		OutputTokens: prediction.Usage.Completion,
 		TotalTokens:  prediction.Usage.Prompt + prediction.Usage.Completion,
+		OutputTokensDetails: &schema.OROutputTokensDetails{
+			ReasoningTokens: reasoningTokens,
+		},
 	}, shouldStore)
 
 	// Store response for future reference (if enabled)
@@ -1484,6 +1537,15 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 		}
 	}
 
+	// Detect if thinking token is already in prompt or template
+	var template string
+	if cfg.TemplateConfig.UseTokenizerTemplate {
+		template = cfg.GetModelTemplate()
+	} else {
+		template = predInput
+	}
+	thinkingStartToken := reason.DetectThinkingStartToken(template)
+
 	// Track state for streaming
 	var currentMessageID string
 	var currentContentIndex int
@@ -1491,6 +1553,14 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 	var lastEmittedToolCallCount int
 	outputIndex := 0
 	inToolCallMode := false
+
+	// Track reasoning state for streaming
+	var currentReasoningID string
+	var currentReasoningContentIndex int
+	var accumulatedContent string
+	var lastEmittedReasoning string
+	var lastEmittedCleanedContent string
+	var reasoningTokens int
 
 	// Collect all output items for storage
 	var collectedOutputItems []schema.ORItemField
@@ -1646,52 +1716,138 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 				return true
 			}
 
-			// If no tool calls detected yet, emit text delta
+			// If no tool calls detected yet, handle reasoning and text
 			if !inToolCallMode {
-				if currentMessageID == "" {
-					// Emit output_item.added for message
-					currentMessageID = fmt.Sprintf("msg_%s", uuid.New().String())
-					messageItem := &schema.ORItemField{
-						Type:    "message",
-						ID:      currentMessageID,
-						Status:  "in_progress",
-						Role:    "assistant",
-						Content: []schema.ORContentPart{},
-					}
-					sendSSEEvent(c, &schema.ORStreamEvent{
-						Type:           "response.output_item.added",
-						SequenceNumber: sequenceNumber,
-						OutputIndex:    &outputIndex,
-						Item:           messageItem,
-					})
-					sequenceNumber++
+				accumulatedContent += token
+				content := accumulatedContent
+				// Prepend thinking token if needed, then extract reasoning
+				if cfg.ReasoningConfig.DisableReasoningTagPrefill == nil || !*cfg.ReasoningConfig.DisableReasoningTagPrefill {
+					content = reason.PrependThinkingTokenIfNeeded(content, thinkingStartToken)
+				}
+				currentReasoning, cleanedContent := reason.ExtractReasoning(content)
 
-					// Emit content_part.added
-					currentContentIndex = 0
-					emptyPart := makeOutputTextPart("")
+				// Handle reasoning item
+				if currentReasoning != "" {
+					// Check if we need to create reasoning item
+					if currentReasoningID == "" {
+						outputIndex++
+						currentReasoningID = fmt.Sprintf("reasoning_%s", uuid.New().String())
+						reasoningItem := &schema.ORItemField{
+							Type:   "reasoning",
+							ID:     currentReasoningID,
+							Status: "in_progress",
+						}
+						sendSSEEvent(c, &schema.ORStreamEvent{
+							Type:           "response.output_item.added",
+							SequenceNumber: sequenceNumber,
+							OutputIndex:    &outputIndex,
+							Item:           reasoningItem,
+						})
+						sequenceNumber++
+
+						// Emit content_part.added for reasoning
+						currentReasoningContentIndex = 0
+						emptyPart := makeOutputTextPart("")
+						sendSSEEvent(c, &schema.ORStreamEvent{
+							Type:           "response.content_part.added",
+							SequenceNumber: sequenceNumber,
+							ItemID:         currentReasoningID,
+							OutputIndex:    &outputIndex,
+							ContentIndex:   &currentReasoningContentIndex,
+							Part:           &emptyPart,
+						})
+						sequenceNumber++
+					}
+
+					// Calculate reasoning delta
+					var reasoningDelta string
+					if len(currentReasoning) > len(lastEmittedReasoning) && strings.HasPrefix(currentReasoning, lastEmittedReasoning) {
+						reasoningDelta = currentReasoning[len(lastEmittedReasoning):]
+						lastEmittedReasoning = currentReasoning
+					} else if currentReasoning != lastEmittedReasoning {
+						reasoningDelta = currentReasoning
+						lastEmittedReasoning = currentReasoning
+					}
+
+					// Emit reasoning delta if there's new content
+					if reasoningDelta != "" {
+						sendSSEEvent(c, &schema.ORStreamEvent{
+							Type:           "response.output_text.delta",
+							SequenceNumber: sequenceNumber,
+							ItemID:         currentReasoningID,
+							OutputIndex:    &outputIndex,
+							ContentIndex:   &currentReasoningContentIndex,
+							Delta:          strPtr(reasoningDelta),
+							Logprobs:       emptyLogprobs(),
+						})
+						sequenceNumber++
+						c.Response().Flush()
+					}
+				}
+
+				// Handle message content (cleaned content without reasoning tags)
+				var deltaContent string
+				if len(cleanedContent) > len(lastEmittedCleanedContent) && strings.HasPrefix(cleanedContent, lastEmittedCleanedContent) {
+					deltaContent = cleanedContent[len(lastEmittedCleanedContent):]
+					lastEmittedCleanedContent = cleanedContent
+				} else if cleanedContent != lastEmittedCleanedContent {
+					if lastEmittedCleanedContent == "" {
+						deltaContent = cleanedContent
+						lastEmittedCleanedContent = cleanedContent
+					} else {
+						deltaContent = cleanedContent
+						lastEmittedCleanedContent = cleanedContent
+					}
+				}
+
+				// Only emit message content if there's actual content (not just reasoning)
+				if deltaContent != "" {
+					if currentMessageID == "" {
+						// Emit output_item.added for message
+						outputIndex++
+						currentMessageID = fmt.Sprintf("msg_%s", uuid.New().String())
+						messageItem := &schema.ORItemField{
+							Type:    "message",
+							ID:      currentMessageID,
+							Status:  "in_progress",
+							Role:    "assistant",
+							Content: []schema.ORContentPart{},
+						}
+						sendSSEEvent(c, &schema.ORStreamEvent{
+							Type:           "response.output_item.added",
+							SequenceNumber: sequenceNumber,
+							OutputIndex:    &outputIndex,
+							Item:           messageItem,
+						})
+						sequenceNumber++
+
+						// Emit content_part.added
+						currentContentIndex = 0
+						emptyPart := makeOutputTextPart("")
+						sendSSEEvent(c, &schema.ORStreamEvent{
+							Type:           "response.content_part.added",
+							SequenceNumber: sequenceNumber,
+							ItemID:         currentMessageID,
+							OutputIndex:    &outputIndex,
+							ContentIndex:   &currentContentIndex,
+							Part:           &emptyPart,
+						})
+						sequenceNumber++
+					}
+
+					// Emit text delta
 					sendSSEEvent(c, &schema.ORStreamEvent{
-						Type:           "response.content_part.added",
+						Type:           "response.output_text.delta",
 						SequenceNumber: sequenceNumber,
 						ItemID:         currentMessageID,
 						OutputIndex:    &outputIndex,
 						ContentIndex:   &currentContentIndex,
-						Part:           &emptyPart,
+						Delta:          strPtr(deltaContent),
+						Logprobs:       emptyLogprobs(),
 					})
 					sequenceNumber++
+					c.Response().Flush()
 				}
-
-				// Emit text delta
-				sendSSEEvent(c, &schema.ORStreamEvent{
-					Type:           "response.output_text.delta",
-					SequenceNumber: sequenceNumber,
-					ItemID:         currentMessageID,
-					OutputIndex:    &outputIndex,
-					ContentIndex:   &currentContentIndex,
-					Delta:          strPtr(token),
-					Logprobs:       emptyLogprobs(),
-				})
-				sequenceNumber++
-				c.Response().Flush()
 			}
 			return true
 		}
@@ -1754,7 +1910,66 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 		}
 
 		result := backend.Finetune(*cfg, predInput, prediction.Response)
-		cleanedResult := functions.CleanupLLMResult(result, cfg.FunctionsConfig)
+		
+		// Extract reasoning from final result
+		resultWithToken := result
+		if cfg.ReasoningConfig.DisableReasoningTagPrefill == nil || !*cfg.ReasoningConfig.DisableReasoningTagPrefill {
+			resultWithToken = reason.PrependThinkingTokenIfNeeded(result, thinkingStartToken)
+		}
+		finalReasoning, finalCleanedResult := reason.ExtractReasoning(resultWithToken)
+		
+		// Close reasoning item if it exists and wasn't closed yet
+		if currentReasoningID != "" && finalReasoning != "" {
+			// Emit output_text.done for reasoning
+			sendSSEEvent(c, &schema.ORStreamEvent{
+				Type:           "response.output_text.done",
+				SequenceNumber: sequenceNumber,
+				ItemID:         currentReasoningID,
+				OutputIndex:    &outputIndex,
+				ContentIndex:   &currentReasoningContentIndex,
+				Text:           strPtr(finalReasoning),
+				Logprobs:       emptyLogprobs(),
+			})
+			sequenceNumber++
+
+			// Emit content_part.done for reasoning
+			reasoningPart := makeOutputTextPart(finalReasoning)
+			sendSSEEvent(c, &schema.ORStreamEvent{
+				Type:           "response.content_part.done",
+				SequenceNumber: sequenceNumber,
+				ItemID:         currentReasoningID,
+				OutputIndex:    &outputIndex,
+				ContentIndex:   &currentReasoningContentIndex,
+				Part:           &reasoningPart,
+			})
+			sequenceNumber++
+
+			// Emit output_item.done for reasoning
+			reasoningItem := &schema.ORItemField{
+				Type:    "reasoning",
+				ID:      currentReasoningID,
+				Status:  "completed",
+				Content: []schema.ORContentPart{reasoningPart},
+			}
+			sendSSEEvent(c, &schema.ORStreamEvent{
+				Type:           "response.output_item.done",
+				SequenceNumber: sequenceNumber,
+				OutputIndex:    &outputIndex,
+				Item:           reasoningItem,
+			})
+			sequenceNumber++
+
+			// Collect reasoning item for storage
+			collectedOutputItems = append(collectedOutputItems, *reasoningItem)
+			
+			// Calculate reasoning tokens
+			reasoningTokens = len(finalReasoning) / 4
+			if reasoningTokens == 0 && len(finalReasoning) > 0 {
+				reasoningTokens = 1
+			}
+		}
+
+		cleanedResult := functions.CleanupLLMResult(finalCleanedResult, cfg.FunctionsConfig)
 		xlog.Debug("Open Responses Stream - Cleaned result", "cleanedResult", cleanedResult)
 
 		parsedToolCalls := functions.ParseFunctionCall(cleanedResult, cfg.FunctionsConfig)
@@ -1789,10 +2004,10 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 		// Convert prediction logprobs for streaming events
 		streamEventLogprobs := convertLogprobsForStreaming(prediction.Logprobs)
 
-		// If we have no output but the model did produce something, use the raw result
-		if textContent == "" && len(toolCalls) == 0 && result != "" {
-			xlog.Debug("Open Responses Stream - No parsed output, using raw result")
-			textContent = result
+		// If we have no output but the model did produce something, use the cleaned result (without reasoning tags)
+		if textContent == "" && len(toolCalls) == 0 && finalCleanedResult != "" {
+			xlog.Debug("Open Responses Stream - No parsed output, using cleaned result")
+			textContent = finalCleanedResult
 		}
 
 		// Close message if we have text content
@@ -1875,8 +2090,18 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 			collectedOutputItems = append(collectedOutputItems, *functionCallItem)
 		}
 
-		// Build final response with all items (include logprobs)
+		// Build final response with all items (include reasoning first, then messages, then tool calls)
 		var allOutputItems []schema.ORItemField
+		// Add reasoning item if it exists
+		if currentReasoningID != "" && finalReasoning != "" {
+			allOutputItems = append(allOutputItems, schema.ORItemField{
+				Type:    "reasoning",
+				ID:      currentReasoningID,
+				Status:  "completed",
+				Content: []schema.ORContentPart{makeOutputTextPart(finalReasoning)},
+			})
+		}
+		// Add message item
 		if currentMessageID != "" && textContent != "" {
 			allOutputItems = append(allOutputItems, schema.ORItemField{
 				Type:    "message",
@@ -1886,6 +2111,7 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 				Content: []schema.ORContentPart{makeOutputTextPartWithLogprobs(textContent, prediction.Logprobs)},
 			})
 		}
+		// Add tool call items
 		for _, tc := range toolCalls {
 			toolCallID := fmt.Sprintf("fc_%s", uuid.New().String())
 			allOutputItems = append(allOutputItems, schema.ORItemField{
@@ -1904,6 +2130,9 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 			InputTokens:  prediction.Usage.Prompt,
 			OutputTokens: prediction.Usage.Completion,
 			TotalTokens:  prediction.Usage.Prompt + prediction.Usage.Completion,
+			OutputTokensDetails: &schema.OROutputTokensDetails{
+				ReasoningTokens: reasoningTokens,
+			},
 		}, shouldStore)
 
 		sendSSEEvent(c, &schema.ORStreamEvent{
@@ -1956,22 +2185,106 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 	})
 	sequenceNumber++
 
-	// Stream text deltas
+	// Stream text deltas with reasoning extraction
 	tokenCallback := func(token string, tokenUsage backend.TokenUsage) bool {
 		accumulatedText += token
+		accumulatedContent += token
+		content := accumulatedContent
+		// Prepend thinking token if needed, then extract reasoning
+		if cfg.ReasoningConfig.DisableReasoningTagPrefill == nil || !*cfg.ReasoningConfig.DisableReasoningTagPrefill {
+			content = reason.PrependThinkingTokenIfNeeded(content, thinkingStartToken)
+		}
+		currentReasoning, cleanedContent := reason.ExtractReasoning(content)
 
-		// Emit text delta
-		sendSSEEvent(c, &schema.ORStreamEvent{
-			Type:           "response.output_text.delta",
-			SequenceNumber: sequenceNumber,
-			ItemID:         currentMessageID,
-			OutputIndex:    &outputIndex,
-			ContentIndex:   &currentContentIndex,
-			Delta:          strPtr(token),
-			Logprobs:       emptyLogprobs(),
-		})
-		sequenceNumber++
-		c.Response().Flush()
+		// Handle reasoning item
+		if currentReasoning != "" {
+			// Check if we need to create reasoning item
+			if currentReasoningID == "" {
+				outputIndex++
+				currentReasoningID = fmt.Sprintf("reasoning_%s", uuid.New().String())
+				reasoningItem := &schema.ORItemField{
+					Type:   "reasoning",
+					ID:     currentReasoningID,
+					Status: "in_progress",
+				}
+				sendSSEEvent(c, &schema.ORStreamEvent{
+					Type:           "response.output_item.added",
+					SequenceNumber: sequenceNumber,
+					OutputIndex:    &outputIndex,
+					Item:           reasoningItem,
+				})
+				sequenceNumber++
+
+				// Emit content_part.added for reasoning
+				currentReasoningContentIndex = 0
+				emptyPart := makeOutputTextPart("")
+				sendSSEEvent(c, &schema.ORStreamEvent{
+					Type:           "response.content_part.added",
+					SequenceNumber: sequenceNumber,
+					ItemID:         currentReasoningID,
+					OutputIndex:    &outputIndex,
+					ContentIndex:   &currentReasoningContentIndex,
+					Part:           &emptyPart,
+				})
+				sequenceNumber++
+			}
+
+			// Calculate reasoning delta
+			var reasoningDelta string
+			if len(currentReasoning) > len(lastEmittedReasoning) && strings.HasPrefix(currentReasoning, lastEmittedReasoning) {
+				reasoningDelta = currentReasoning[len(lastEmittedReasoning):]
+				lastEmittedReasoning = currentReasoning
+			} else if currentReasoning != lastEmittedReasoning {
+				reasoningDelta = currentReasoning
+				lastEmittedReasoning = currentReasoning
+			}
+
+			// Emit reasoning delta if there's new content
+			if reasoningDelta != "" {
+				sendSSEEvent(c, &schema.ORStreamEvent{
+					Type:           "response.output_text.delta",
+					SequenceNumber: sequenceNumber,
+					ItemID:         currentReasoningID,
+					OutputIndex:    &outputIndex,
+					ContentIndex:   &currentReasoningContentIndex,
+					Delta:          strPtr(reasoningDelta),
+					Logprobs:       emptyLogprobs(),
+				})
+				sequenceNumber++
+				c.Response().Flush()
+			}
+		}
+
+		// Handle message content (cleaned content without reasoning tags)
+		var deltaContent string
+		if len(cleanedContent) > len(lastEmittedCleanedContent) && strings.HasPrefix(cleanedContent, lastEmittedCleanedContent) {
+			deltaContent = cleanedContent[len(lastEmittedCleanedContent):]
+			lastEmittedCleanedContent = cleanedContent
+		} else if cleanedContent != lastEmittedCleanedContent {
+			if lastEmittedCleanedContent == "" {
+				deltaContent = cleanedContent
+				lastEmittedCleanedContent = cleanedContent
+			} else {
+				deltaContent = cleanedContent
+				lastEmittedCleanedContent = cleanedContent
+			}
+		}
+
+		// Only emit message content if there's actual content (not just reasoning)
+		if deltaContent != "" {
+			// Emit text delta
+			sendSSEEvent(c, &schema.ORStreamEvent{
+				Type:           "response.output_text.delta",
+				SequenceNumber: sequenceNumber,
+				ItemID:         currentMessageID,
+				OutputIndex:    &outputIndex,
+				ContentIndex:   &currentContentIndex,
+				Delta:          strPtr(deltaContent),
+				Logprobs:       emptyLogprobs(),
+			})
+			sequenceNumber++
+			c.Response().Flush()
+		}
 		return true
 	}
 
@@ -2033,6 +2346,66 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 	}
 
 	result := backend.Finetune(*cfg, predInput, prediction.Response)
+	
+	// Extract reasoning from final result for non-tool-call path
+	resultWithToken := result
+	if cfg.ReasoningConfig.DisableReasoningTagPrefill == nil || !*cfg.ReasoningConfig.DisableReasoningTagPrefill {
+		resultWithToken = reason.PrependThinkingTokenIfNeeded(result, thinkingStartToken)
+	}
+	finalReasoning, finalCleanedResult := reason.ExtractReasoning(resultWithToken)
+	
+	// Close reasoning item if it exists and wasn't closed yet
+	if currentReasoningID != "" && finalReasoning != "" {
+		// Emit output_text.done for reasoning
+		sendSSEEvent(c, &schema.ORStreamEvent{
+			Type:           "response.output_text.done",
+			SequenceNumber: sequenceNumber,
+			ItemID:         currentReasoningID,
+			OutputIndex:    &outputIndex,
+			ContentIndex:   &currentReasoningContentIndex,
+			Text:           strPtr(finalReasoning),
+			Logprobs:       emptyLogprobs(),
+		})
+		sequenceNumber++
+
+		// Emit content_part.done for reasoning
+		reasoningPart := makeOutputTextPart(finalReasoning)
+		sendSSEEvent(c, &schema.ORStreamEvent{
+			Type:           "response.content_part.done",
+			SequenceNumber: sequenceNumber,
+			ItemID:         currentReasoningID,
+			OutputIndex:    &outputIndex,
+			ContentIndex:   &currentReasoningContentIndex,
+			Part:           &reasoningPart,
+		})
+		sequenceNumber++
+
+		// Emit output_item.done for reasoning
+		reasoningItem := &schema.ORItemField{
+			Type:    "reasoning",
+			ID:      currentReasoningID,
+			Status:  "completed",
+			Content: []schema.ORContentPart{reasoningPart},
+		}
+		sendSSEEvent(c, &schema.ORStreamEvent{
+			Type:           "response.output_item.done",
+			SequenceNumber: sequenceNumber,
+			OutputIndex:    &outputIndex,
+			Item:           reasoningItem,
+		})
+		sequenceNumber++
+
+		// Collect reasoning item for storage
+		collectedOutputItems = append(collectedOutputItems, *reasoningItem)
+		
+		// Calculate reasoning tokens
+		reasoningTokens = len(finalReasoning) / 4
+		if reasoningTokens == 0 && len(finalReasoning) > 0 {
+			reasoningTokens = 1
+		}
+	}
+	
+	result = finalCleanedResult
 
 	// Convert prediction logprobs for streaming events
 	mcpStreamLogprobs := convertLogprobsForStreaming(prediction.Logprobs)
@@ -2075,17 +2448,35 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 	// Emit response.completed
 	now := time.Now().Unix()
 
-	// Collect final output items (use collected items if available, otherwise use messageItem)
+	// Collect final output items (reasoning first, then message)
 	var finalOutputItems []schema.ORItemField
+	// Add reasoning item if it exists
+	if currentReasoningID != "" && finalReasoning != "" {
+		finalOutputItems = append(finalOutputItems, schema.ORItemField{
+			Type:    "reasoning",
+			ID:      currentReasoningID,
+			Status:  "completed",
+			Content: []schema.ORContentPart{makeOutputTextPart(finalReasoning)},
+		})
+	}
+	// Add message item
 	if len(collectedOutputItems) > 0 {
-		finalOutputItems = collectedOutputItems
+		// Use collected items (may include reasoning already)
+		for _, item := range collectedOutputItems {
+			if item.Type == "message" {
+				finalOutputItems = append(finalOutputItems, item)
+			}
+		}
 	} else {
-		finalOutputItems = []schema.ORItemField{*messageItem}
+		finalOutputItems = append(finalOutputItems, *messageItem)
 	}
 	responseCompleted := buildORResponse(responseID, createdAt, &now, "completed", input, finalOutputItems, &schema.ORUsage{
 		InputTokens:  prediction.Usage.Prompt,
 		OutputTokens: prediction.Usage.Completion,
 		TotalTokens:  prediction.Usage.Prompt + prediction.Usage.Completion,
+		OutputTokensDetails: &schema.OROutputTokensDetails{
+			ReasoningTokens: reasoningTokens,
+		},
 	}, shouldStore)
 	sendSSEEvent(c, &schema.ORStreamEvent{
 		Type:           "response.completed",

@@ -93,7 +93,12 @@ type ORItemParam struct {
 	// Function call output fields
 	Output interface{} `json:"output,omitempty"` // string or []ORContentPart
 
+	// Reasoning fields (for type == "reasoning")
+	Summary         []ORContentPart `json:"summary,omitempty"`          // Array of summary parts
+	EncryptedContent *string        `json:"encrypted_content,omitempty"` // Provider-specific encrypted content
+
 	// Note: For item_reference type, use the ID field above to reference the item
+	// Note: For reasoning type, Content field (from message fields) contains the raw reasoning content
 }
 
 // ORContentPart represents a content block (discriminated union by type)
