@@ -58,6 +58,25 @@ func DetectThinkingStartToken(prompt string) string {
 	return ""
 }
 
+// ExtractReasoningWithConfig extracts reasoning from content with the given config.
+// If reasoning is disabled, it returns the original content.
+// If thinking start token prefill is enabled, it prepends the thinking start token to the content.
+// It returns the extracted reasoning and the cleaned content.
+func ExtractReasoningWithConfig(content, thinkingStartToken string, config Config) (reasoning string, cleanedContent string) {
+	cleanedContent = content
+	// If reasoning is not disabled, prepend the thinking start token if needed and extract reasoning
+	if config.DisableReasoning == nil || !*config.DisableReasoning {
+		// If thinking start token prefill is not disabled, prepend the thinking start token
+		if config.DisableReasoningTagPrefill == nil || !*config.DisableReasoningTagPrefill {
+			cleanedContent = PrependThinkingTokenIfNeeded(cleanedContent, thinkingStartToken)
+		}
+		// Extract reasoning from the cleaned content
+		reasoning, cleanedContent = ExtractReasoning(cleanedContent)
+	}
+
+	return reasoning, cleanedContent
+}
+
 // PrependThinkingTokenIfNeeded prepends the thinking start token to content if it was
 // detected in the prompt. This allows the standard extraction logic to work correctly
 // for models where the thinking token is already in the prompt.

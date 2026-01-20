@@ -504,3 +504,248 @@ var _ = Describe("PrependThinkingTokenIfNeeded", func() {
 		})
 	})
 })
+
+var _ = Describe("ExtractReasoningWithConfig", func() {
+	Context("when reasoning is disabled", func() {
+		It("should return original content when DisableReasoning is true", func() {
+			content := "Some text <thinking>Reasoning</thinking> More text"
+			config := Config{DisableReasoning: boolPtr(true)}
+			reasoning, cleaned := ExtractReasoningWithConfig(content, "<thinking>", config)
+			Expect(reasoning).To(BeEmpty())
+			Expect(cleaned).To(Equal(content))
+		})
+
+		It("should return original content even with thinking start token when DisableReasoning is true", func() {
+			content := "Reasoning content"
+			config := Config{DisableReasoning: boolPtr(true)}
+			reasoning, cleaned := ExtractReasoningWithConfig(content, "<|START_THINKING|>", config)
+			Expect(reasoning).To(BeEmpty())
+			Expect(cleaned).To(Equal(content))
+		})
+
+		It("should return original content even with tag prefill disabled when DisableReasoning is true", func() {
+			content := "Some content"
+			config := Config{
+				DisableReasoning:           boolPtr(true),
+				DisableReasoningTagPrefill: boolPtr(false),
+			}
+			reasoning, cleaned := ExtractReasoningWithConfig(content, "<thinking>", config)
+			Expect(reasoning).To(BeEmpty())
+			Expect(cleaned).To(Equal(content))
+		})
+	})
+
+	Context("when reasoning is enabled (DisableReasoning is nil or false)", func() {
+		Context("when tag prefill is enabled (DisableReasoningTagPrefill is nil or false)", func() {
+			It("should prepend token and extract reasoning when both configs are nil", func() {
+				content := "Reasoning content"
+				config := Config{}
+				reasoning, cleaned := ExtractReasoningWithConfig(content, "<thinking>", config)
+				// Token is prepended, then extracted
+				Expect(reasoning).To(Equal("Reasoning content"))
+				Expect(cleaned).To(BeEmpty())
+			})
+
+			It("should prepend token and extract reasoning when DisableReasoning is false", func() {
+				content := "Some reasoning"
+				config := Config{DisableReasoning: boolPtr(false)}
+				reasoning, cleaned := ExtractReasoningWithConfig(content, "<think>", config)
+				Expect(reasoning).To(Equal("Some reasoning"))
+				Expect(cleaned).To(BeEmpty())
+			})
+
+			It("should prepend token and extract reasoning when DisableReasoningTagPrefill is false", func() {
+				content := "My reasoning"
+				config := Config{DisableReasoningTagPrefill: boolPtr(false)}
+				reasoning, cleaned := ExtractReasoningWithConfig(content, "<|START_THINKING|>", config)
+				Expect(reasoning).To(Equal("My reasoning"))
+				Expect(cleaned).To(BeEmpty())
+			})
+
+			It("should prepend token to content with existing tags and extract", func() {
+				content := "Before <thinking>Existing reasoning</thinking> After"
+				config := Config{}
+				reasoning, cleaned := ExtractReasoningWithConfig(content, "<thinking>", config)
+				// Should extract existing reasoning, token prepend doesn't affect already tagged content
+				Expect(reasoning).To(Equal("Existing reasoning"))
+				Expect(cleaned).To(Equal("Before  After"))
+			})
+
+			It("should prepend token and extract from content that becomes tagged", func() {
+				content := "Pure reasoning without tags"
+				config := Config{}
+				reasoning, cleaned := ExtractReasoningWithConfig(content, "<thinking>", config)
+				// Token is prepended, making it <thinking>Pure reasoning without tags</thinking>
+				// But since there's no closing tag, it extracts as unclosed
+				Expect(reasoning).To(Equal("Pure reasoning without tags"))
+				Expect(cleaned).To(BeEmpty())
+			})
+
+			It("should handle empty token when tag prefill is enabled", func() {
+				content := "Some content <thinking>Reasoning</thinking> More"
+				config := Config{}
+				reasoning, cleaned := ExtractReasoningWithConfig(content, "", config)
+				// No token to prepend, just extract existing reasoning
+				Expect(reasoning).To(Equal("Reasoning"))
+				Expect(cleaned).To(Equal("Some content  More"))
+			})
+
+			It("should prepend token after leading whitespace", func() {
+				content := "   \n  Reasoning content"
+				config := Config{}
+				reasoning, cleaned := ExtractReasoningWithConfig(content, "<thinking>", config)
+				Expect(reasoning).To(Equal("Reasoning content"))
+				Expect(cleaned).To(Equal("   \n  "))
+			})
+		})
+
+		Context("when tag prefill is disabled (DisableReasoningTagPrefill is true)", func() {
+			It("should extract reasoning without prepending token when DisableReasoningTagPrefill is true", func() {
+				content := "Some text <thinking>Reasoning</thinking> More text"
+				config := Config{DisableReasoningTagPrefill: boolPtr(true)}
+				reasoning, cleaned := ExtractReasoningWithConfig(content, "<thinking>", config)
+				Expect(reasoning).To(Equal("Reasoning"))
+				Expect(cleaned).To(Equal("Some text  More text"))
+			})
+
+			It("should not prepend token to content without tags when DisableReasoningTagPrefill is true", func() {
+				content := "Pure content without tags"
+				config := Config{DisableReasoningTagPrefill: boolPtr(true)}
+				reasoning, cleaned := ExtractReasoningWithConfig(content, "<thinking>", config)
+				// No token prepended, no tags to extract
+				Expect(reasoning).To(BeEmpty())
+				Expect(cleaned).To(Equal(content))
+			})
+
+			It("should extract multiple reasoning blocks without prepending when DisableReasoningTagPrefill is true", func() {
+				content := "A <thinking>First</thinking> B <think>Second</think> C"
+				config := Config{DisableReasoningTagPrefill: boolPtr(true)}
+				reasoning, cleaned := ExtractReasoningWithConfig(content, "<thinking>", config)
+				Expect(reasoning).To(ContainSubstring("First"))
+				Expect(reasoning).To(ContainSubstring("Second"))
+				Expect(cleaned).To(Equal("A  B  C"))
+			})
+
+			It("should handle empty token when tag prefill is disabled", func() {
+				content := "Text <thinking>Reasoning</thinking> More"
+				config := Config{DisableReasoningTagPrefill: boolPtr(true)}
+				reasoning, cleaned := ExtractReasoningWithConfig(content, "", config)
+				Expect(reasoning).To(Equal("Reasoning"))
+				Expect(cleaned).To(Equal("Text  More"))
+			})
+		})
+	})
+
+	Context("edge cases", func() {
+		It("should handle empty content with default config", func() {
+			content := ""
+			config := Config{}
+			reasoning, cleaned := ExtractReasoningWithConfig(content, "<thinking>", config)
+			Expect(reasoning).To(BeEmpty())
+			Expect(cleaned).To(BeEmpty())
+		})
+
+		It("should handle empty content when reasoning is disabled", func() {
+			content := ""
+			config := Config{DisableReasoning: boolPtr(true)}
+			reasoning, cleaned := ExtractReasoningWithConfig(content, "<thinking>", config)
+			Expect(reasoning).To(BeEmpty())
+			Expect(cleaned).To(BeEmpty())
+		})
+
+		It("should handle empty token with content containing tags", func() {
+			content := "Text <thinking>Reasoning</thinking> More"
+			config := Config{}
+			reasoning, cleaned := ExtractReasoningWithConfig(content, "", config)
+			Expect(reasoning).To(Equal("Reasoning"))
+			Expect(cleaned).To(Equal("Text  More"))
+		})
+
+		It("should handle content with only whitespace when reasoning is enabled", func() {
+			content := "   \n\t  "
+			config := Config{}
+			reasoning, cleaned := ExtractReasoningWithConfig(content, "<thinking>", config)
+			// Token is prepended after whitespace, then extracted as unclosed
+			Expect(reasoning).To(BeEmpty())
+			Expect(cleaned).To(Equal("   \n\t  "))
+		})
+
+		It("should handle content with only whitespace when reasoning is disabled", func() {
+			content := "   \n\t  "
+			config := Config{DisableReasoning: boolPtr(true)}
+			reasoning, cleaned := ExtractReasoningWithConfig(content, "<thinking>", config)
+			Expect(reasoning).To(BeEmpty())
+			Expect(cleaned).To(Equal(content))
+		})
+
+		It("should handle unclosed reasoning tags with tag prefill enabled", func() {
+			content := "Some text <thinking>Unclosed"
+			config := Config{}
+			reasoning, cleaned := ExtractReasoningWithConfig(content, "<thinking>", config)
+			Expect(reasoning).To(Equal("Unclosed"))
+			Expect(cleaned).To(Equal("Some text "))
+		})
+
+		It("should handle different token types with config", func() {
+			content := "Reasoning content"
+			config := Config{}
+			reasoning, cleaned := ExtractReasoningWithConfig(content, "<|START_THINKING|>", config)
+			Expect(reasoning).To(Equal("Reasoning content"))
+			Expect(cleaned).To(BeEmpty())
+		})
+
+		It("should handle content that already contains the token", func() {
+			content := "<thinking>Already tagged</thinking>"
+			config := Config{}
+			reasoning, cleaned := ExtractReasoningWithConfig(content, "<thinking>", config)
+			// Token already present, should not prepend, just extract
+			Expect(reasoning).To(Equal("Already tagged"))
+			Expect(cleaned).To(BeEmpty())
+		})
+
+		It("should handle complex reasoning with multiline content and tag prefill", func() {
+			content := "Before\n<thinking>Line 1\nLine 2\nLine 3</thinking>\nAfter"
+			config := Config{}
+			reasoning, cleaned := ExtractReasoningWithConfig(content, "<thinking>", config)
+			Expect(reasoning).To(Equal("Line 1\nLine 2\nLine 3"))
+			Expect(cleaned).To(Equal("Before\n\nAfter"))
+		})
+	})
+
+	Context("config combinations", func() {
+		It("should handle nil DisableReasoning and nil DisableReasoningTagPrefill", func() {
+			content := "Reasoning"
+			config := Config{}
+			reasoning, cleaned := ExtractReasoningWithConfig(content, "<thinking>", config)
+			Expect(reasoning).To(Equal("Reasoning"))
+			Expect(cleaned).To(BeEmpty())
+		})
+
+		It("should handle false DisableReasoning and true DisableReasoningTagPrefill", func() {
+			content := "Text <thinking>Reasoning</thinking> More"
+			config := Config{
+				DisableReasoning:           boolPtr(false),
+				DisableReasoningTagPrefill: boolPtr(true),
+			}
+			reasoning, cleaned := ExtractReasoningWithConfig(content, "<thinking>", config)
+			Expect(reasoning).To(Equal("Reasoning"))
+			Expect(cleaned).To(Equal("Text  More"))
+		})
+
+		It("should handle true DisableReasoning regardless of DisableReasoningTagPrefill", func() {
+			content := "Some content <thinking>Reasoning</thinking>"
+			config := Config{
+				DisableReasoning:           boolPtr(true),
+				DisableReasoningTagPrefill: boolPtr(false),
+			}
+			reasoning, cleaned := ExtractReasoningWithConfig(content, "<thinking>", config)
+			Expect(reasoning).To(BeEmpty())
+			Expect(cleaned).To(Equal(content))
+		})
+	})
+})
+
+// Helper function to create bool pointers for test configs
+func boolPtr(b bool) *bool {
+	return &b
+}

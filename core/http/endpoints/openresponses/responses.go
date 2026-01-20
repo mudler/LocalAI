@@ -1342,13 +1342,7 @@ func handleOpenResponsesNonStream(c echo.Context, responseID string, createdAt i
 	thinkingStartToken := reason.DetectThinkingStartToken(template)
 
 	// Extract reasoning from result before cleaning
-	var reasoningContent string
-	var cleanedResult string
-	resultWithToken := result
-	if cfg.ReasoningConfig.DisableReasoningTagPrefill == nil || !*cfg.ReasoningConfig.DisableReasoningTagPrefill {
-		resultWithToken = reason.PrependThinkingTokenIfNeeded(result, thinkingStartToken)
-	}
-	reasoningContent, cleanedResult = reason.ExtractReasoning(resultWithToken)
+	reasoningContent, cleanedResult := reason.ExtractReasoningWithConfig(result, thinkingStartToken, cfg.ReasoningConfig)
 
 	// Parse tool calls if using functions
 	var outputItems []schema.ORItemField
@@ -1719,12 +1713,7 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 			// If no tool calls detected yet, handle reasoning and text
 			if !inToolCallMode {
 				accumulatedContent += token
-				content := accumulatedContent
-				// Prepend thinking token if needed, then extract reasoning
-				if cfg.ReasoningConfig.DisableReasoningTagPrefill == nil || !*cfg.ReasoningConfig.DisableReasoningTagPrefill {
-					content = reason.PrependThinkingTokenIfNeeded(content, thinkingStartToken)
-				}
-				currentReasoning, cleanedContent := reason.ExtractReasoning(content)
+				currentReasoning, cleanedContent := reason.ExtractReasoningWithConfig(accumulatedContent, thinkingStartToken, cfg.ReasoningConfig)
 
 				// Handle reasoning item
 				if currentReasoning != "" {
@@ -1910,14 +1899,10 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 		}
 
 		result := backend.Finetune(*cfg, predInput, prediction.Response)
-		
+
 		// Extract reasoning from final result
-		resultWithToken := result
-		if cfg.ReasoningConfig.DisableReasoningTagPrefill == nil || !*cfg.ReasoningConfig.DisableReasoningTagPrefill {
-			resultWithToken = reason.PrependThinkingTokenIfNeeded(result, thinkingStartToken)
-		}
-		finalReasoning, finalCleanedResult := reason.ExtractReasoning(resultWithToken)
-		
+		finalReasoning, finalCleanedResult := reason.ExtractReasoningWithConfig(result, thinkingStartToken, cfg.ReasoningConfig)
+
 		// Close reasoning item if it exists and wasn't closed yet
 		if currentReasoningID != "" && finalReasoning != "" {
 			// Emit output_text.done for reasoning
@@ -1961,7 +1946,7 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 
 			// Collect reasoning item for storage
 			collectedOutputItems = append(collectedOutputItems, *reasoningItem)
-			
+
 			// Calculate reasoning tokens
 			reasoningTokens = len(finalReasoning) / 4
 			if reasoningTokens == 0 && len(finalReasoning) > 0 {
@@ -2189,12 +2174,8 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 	tokenCallback := func(token string, tokenUsage backend.TokenUsage) bool {
 		accumulatedText += token
 		accumulatedContent += token
-		content := accumulatedContent
 		// Prepend thinking token if needed, then extract reasoning
-		if cfg.ReasoningConfig.DisableReasoningTagPrefill == nil || !*cfg.ReasoningConfig.DisableReasoningTagPrefill {
-			content = reason.PrependThinkingTokenIfNeeded(content, thinkingStartToken)
-		}
-		currentReasoning, cleanedContent := reason.ExtractReasoning(content)
+		currentReasoning, cleanedContent := reason.ExtractReasoningWithConfig(accumulatedContent, thinkingStartToken, cfg.ReasoningConfig)
 
 		// Handle reasoning item
 		if currentReasoning != "" {
@@ -2346,14 +2327,10 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 	}
 
 	result := backend.Finetune(*cfg, predInput, prediction.Response)
-	
+
 	// Extract reasoning from final result for non-tool-call path
-	resultWithToken := result
-	if cfg.ReasoningConfig.DisableReasoningTagPrefill == nil || !*cfg.ReasoningConfig.DisableReasoningTagPrefill {
-		resultWithToken = reason.PrependThinkingTokenIfNeeded(result, thinkingStartToken)
-	}
-	finalReasoning, finalCleanedResult := reason.ExtractReasoning(resultWithToken)
-	
+	finalReasoning, finalCleanedResult := reason.ExtractReasoningWithConfig(result, thinkingStartToken, cfg.ReasoningConfig)
+
 	// Close reasoning item if it exists and wasn't closed yet
 	if currentReasoningID != "" && finalReasoning != "" {
 		// Emit output_text.done for reasoning
@@ -2397,14 +2374,14 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 
 		// Collect reasoning item for storage
 		collectedOutputItems = append(collectedOutputItems, *reasoningItem)
-		
+
 		// Calculate reasoning tokens
 		reasoningTokens = len(finalReasoning) / 4
 		if reasoningTokens == 0 && len(finalReasoning) > 0 {
 			reasoningTokens = 1
 		}
 	}
-	
+
 	result = finalCleanedResult
 
 	// Convert prediction logprobs for streaming events
