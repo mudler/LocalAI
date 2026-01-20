@@ -112,6 +112,66 @@ curl http://localhost:8080/v1/chat/completions \
 
 </details>
 
+### Anthropic Messages API
+
+LocalAI supports the Anthropic Messages API for Claude-compatible models. [Anthropic documentation](https://docs.anthropic.com/claude/reference/messages_post).
+
+<details>
+
+```bash
+curl http://localhost:8080/v1/messages \
+  -H "Content-Type: application/json" \
+  -H "anthropic-version: 2023-06-01" \
+  -d '{
+    "model": "gpt-4",
+    "max_tokens": 1024,
+    "messages": [
+      {"role": "user", "content": "How are you doing?"}
+    ],
+    "temperature": 0.7
+  }'
+```
+
+</details>
+
+### Open Responses API
+
+LocalAI supports the Open Responses API specification with support for background processing, streaming, and advanced features. [Open Responses documentation](https://www.openresponses.org/specification).
+
+<details>
+
+```bash
+curl http://localhost:8080/v1/responses \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "gpt-4",
+    "input": "Say this is a test!",
+    "max_output_tokens": 1024,
+    "temperature": 0.7
+  }'
+```
+
+For background processing:
+
+```bash
+curl http://localhost:8080/v1/responses \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "gpt-4",
+    "input": "Generate a long story",
+    "max_output_tokens": 4096,
+    "background": true
+  }'
+```
+
+Then retrieve the response:
+
+```bash
+curl http://localhost:8080/v1/responses/<response_id>
+```
+
+</details>
+
 ### Image Generation
 
 Creates an image given a prompt. [OpenAI documentation](https://platform.openai.com/docs/api-reference/images/create).
