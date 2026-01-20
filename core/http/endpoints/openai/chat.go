@@ -47,7 +47,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 		} else {
 			template = s
 		}
-		thinkingStartToken := reason.DetectThinkingStartToken(template)
+		thinkingStartToken := reason.DetectThinkingStartToken(template, &config.ReasoningConfig)
 
 		// Track accumulated content for reasoning extraction
 		accumulatedContent := ""
@@ -56,12 +56,8 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 
 		_, _, err := ComputeChoices(req, s, config, cl, startupOptions, loader, func(s string, c *[]schema.Choice) {}, func(s string, tokenUsage backend.TokenUsage) bool {
 			accumulatedContent += s
-			content := accumulatedContent
-			// Prepend thinking token if needed, then extract reasoning
-			if config.ReasoningConfig.DisableReasoningTagPrefill == nil || !*config.ReasoningConfig.DisableReasoningTagPrefill {
-				content = reason.PrependThinkingTokenIfNeeded(content, thinkingStartToken)
-			}
-			currentReasoning, cleanedContent := reason.ExtractReasoning(content)
+
+			currentReasoning, cleanedContent := reason.ExtractReasoningWithConfig(accumulatedContent, thinkingStartToken, config.ReasoningConfig)
 
 			// Calculate new reasoning delta (what we haven't emitted yet)
 			var reasoningDelta *string
@@ -140,7 +136,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 		} else {
 			template = prompt
 		}
-		thinkingStartToken := reason.DetectThinkingStartToken(template)
+		thinkingStartToken := reason.DetectThinkingStartToken(template, &config.ReasoningConfig)
 
 		result := ""
 		lastEmittedCount := 0
@@ -254,12 +250,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 			return err
 		}
 		// Prepend thinking token if needed, then extract reasoning before processing tool calls
-		resultWithToken := result
-		if config.ReasoningConfig.DisableReasoningTagPrefill == nil || !*config.ReasoningConfig.DisableReasoningTagPrefill {
-			resultWithToken = reason.PrependThinkingTokenIfNeeded(result, thinkingStartToken)
-		}
-		reasoning, cleanedResult := reason.ExtractReasoning(resultWithToken)
-		result = cleanedResult
+		reasoning, result := reason.ExtractReasoningWithConfig(result, thinkingStartToken, config.ReasoningConfig)
 
 		textContentToReturn = functions.ParseTextContent(result, config.FunctionsConfig)
 		result = functions.CleanupLLMResult(result, config.FunctionsConfig)
@@ -652,18 +643,13 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 			} else {
 				template = predInput
 			}
-			thinkingStartToken := reason.DetectThinkingStartToken(template)
+			thinkingStartToken := reason.DetectThinkingStartToken(template, &config.ReasoningConfig)
 
 			xlog.Debug("Thinking start token", "thinkingStartToken", thinkingStartToken, "template", template)
 
 			tokenCallback := func(s string, c *[]schema.Choice) {
 				// Prepend thinking token if needed, then extract reasoning from the response
-				sWithToken := s
-				if config.ReasoningConfig.DisableReasoningTagPrefill == nil || !*config.ReasoningConfig.DisableReasoningTagPrefill {
-					sWithToken = reason.PrependThinkingTokenIfNeeded(s, thinkingStartToken)
-				}
-				reasoning, cleanedS := reason.ExtractReasoning(sWithToken)
-				s = cleanedS
+				reasoning, s := reason.ExtractReasoningWithConfig(s, thinkingStartToken, config.ReasoningConfig)
 
 				if !shouldUseFn {
 					// no function is called, just reply and use stop as finish reason
