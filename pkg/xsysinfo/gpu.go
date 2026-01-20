@@ -569,7 +569,7 @@ func getIntelGPUTop() []GPUMemoryInfo {
 	cmd.Stderr = &stderr
 
 	if err := cmd.Run(); err != nil {
-		xlog.Debug("intel_gpu_top failed", "error", err, "stderr", stderr.String())
+		xlog.Debug("intel_gpu_top failed", "error", err, "stderr", stderr.String(), "stdout", stdout.String())
 		return nil
 	}
 

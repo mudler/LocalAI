@@ -30,6 +30,7 @@ type TTSConfig struct {
 // @Description ModelConfig represents a model configuration
 type ModelConfig struct {
 	modelConfigFile          string `yaml:"-" json:"-"`
+	modelTemplate            string `yaml:"-" json:"-"`
 	schema.PredictionOptions `yaml:"parameters,omitempty" json:"parameters,omitempty"`
 	Name                     string `yaml:"name,omitempty" json:"name,omitempty"`
 
@@ -519,6 +520,11 @@ func (c *ModelConfig) HasTemplate() bool {
 
 func (c *ModelConfig) GetModelConfigFile() string {
 	return c.modelConfigFile
+}
+
+// GetModelTemplate returns the model's chat template if available
+func (c *ModelConfig) GetModelTemplate() string {
+	return c.modelTemplate
 }
 
 type ModelConfigUsecase int
