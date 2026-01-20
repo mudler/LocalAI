@@ -83,8 +83,8 @@ static void start_llama_server(server_context& ctx_server) {
 
     // print sample chat example to make it clear which template is used
     // LOG_INF("%s: chat template, chat_template: %s, example_format: '%s'\n", __func__,
-    //     common_chat_templates_source(ctx_server.impl->chat_templates.get()),
-    //     common_chat_format_example(ctx_server.impl->chat_templates.get(), ctx_server.impl->params_base.use_jinja).c_str(), ctx_server.impl->params_base.default_template_kwargs);
+    //     common_chat_templates_source(ctx_server.impl->chat_params.tmpls.get()),
+    //     common_chat_format_example(ctx_server.impl->chat_params.tmpls.get(), ctx_server.impl->params_base.use_jinja).c_str(), ctx_server.impl->params_base.default_template_kwargs);
 
     // Keep the chat templates initialized in load_model() so they can be used when UseTokenizerTemplate is enabled
     // Templates will only be used conditionally in Predict/PredictStream when UseTokenizerTemplate is true and Messages are provided
@@ -882,7 +882,7 @@ public:
             std::string prompt_str;
             std::vector<raw_buffer> files; // Declare files early so it's accessible in both branches
             // Handle chat templates when UseTokenizerTemplate is enabled and Messages are provided
-            if (request->usetokenizertemplate() && request->messages_size() > 0 && ctx_server.impl->chat_templates != nullptr) {
+            if (request->usetokenizertemplate() && request->messages_size() > 0 && ctx_server.impl->chat_params.tmpls != nullptr) {
                 // Convert proto Messages to JSON format compatible with oaicompat_chat_params_parse
                 json body_json;
                 json messages_json = json::array();
@@ -1261,12 +1261,7 @@ public:
                 // Use the same approach as server.cpp: call oaicompat_chat_params_parse
                 // This handles all template application, grammar merging, etc. automatically
                 // Files extracted from multimodal content in messages will be added to the files vector
-                // Create parser options with current chat_templates to ensure tmpls is not null
-                oaicompat_parser_options parser_opt = ctx_server.impl->oai_parser_opt;
-                parser_opt.tmpls = ctx_server.impl->chat_templates.get(); // Ensure tmpls is set to current chat_templates
-                // Update allow_image and allow_audio based on current mctx state
-                parser_opt.allow_image = ctx_server.impl->mctx ? mtmd_support_vision(ctx_server.impl->mctx) : false;
-                parser_opt.allow_audio = ctx_server.impl->mctx ? mtmd_support_audio(ctx_server.impl->mctx) : false;
+                // chat_params already contains tmpls, allow_image, and allow_audio set during model loading
 
                 // Debug: Log tools before template processing
                 if (body_json.contains("tools")) {
@@ -1312,7 +1307,7 @@ public:
                     }
                 }
 
-                json parsed_data = oaicompat_chat_params_parse(body_json, parser_opt, files);
+                json parsed_data = oaicompat_chat_params_parse(body_json, ctx_server.impl->chat_params, files);
 
                 // Debug: Log tools after template processing
                 if (parsed_data.contains("tools")) {
@@ -1365,7 +1360,7 @@ public:
 
             // If not using chat templates, extract files from image_data/audio_data fields
             // (If using chat templates, files were already extracted by oaicompat_chat_params_parse)
-            if (!request->usetokenizertemplate() || request->messages_size() == 0 || ctx_server.impl->chat_templates == nullptr) {
+            if (!request->usetokenizertemplate() || request->messages_size() == 0 || ctx_server.impl->chat_params.tmpls == nullptr) {
                 const auto &images_data = data.find("image_data");
                 if (images_data != data.end() && images_data->is_array())
                 {
@@ -1593,7 +1588,7 @@ public:
             std::string prompt_str;
             std::vector<raw_buffer> files; // Declare files early so it's accessible in both branches
             // Handle chat templates when UseTokenizerTemplate is enabled and Messages are provided
-            if (request->usetokenizertemplate() && request->messages_size() > 0 && ctx_server.impl->chat_templates != nullptr) {
+            if (request->usetokenizertemplate() && request->messages_size() > 0 && ctx_server.impl->chat_params.tmpls != nullptr) {
                 // Convert proto Messages to JSON format compatible with oaicompat_chat_params_parse
                 json body_json;
                 json messages_json = json::array();
@@ -1997,12 +1992,7 @@ public:
                 // Use the same approach as server.cpp: call oaicompat_chat_params_parse
                 // This handles all template application, grammar merging, etc. automatically
                 // Files extracted from multimodal content in messages will be added to the files vector
-                // Create parser options with current chat_templates to ensure tmpls is not null
-                oaicompat_parser_options parser_opt = ctx_server.impl->oai_parser_opt;
-                parser_opt.tmpls = ctx_server.impl->chat_templates.get(); // Ensure tmpls is set to current chat_templates
-                // Update allow_image and allow_audio based on current mctx state
-                parser_opt.allow_image = ctx_server.impl->mctx ? mtmd_support_vision(ctx_server.impl->mctx) : false;
-                parser_opt.allow_audio = ctx_server.impl->mctx ? mtmd_support_audio(ctx_server.impl->mctx) : false;
+                // chat_params already contains tmpls, allow_image, and allow_audio set during model loading
 
                 // Debug: Log tools before template processing
                 if (body_json.contains("tools")) {
@@ -2048,7 +2038,7 @@ public:
                     }
                 }
 
-                json parsed_data = oaicompat_chat_params_parse(body_json, parser_opt, files);
+                json parsed_data = oaicompat_chat_params_parse(body_json, ctx_server.impl->chat_params, files);
 
                 // Debug: Log tools after template processing
                 if (parsed_data.contains("tools")) {
@@ -2101,7 +2091,7 @@ public:
 
             // If not using chat templates, extract files from image_data/audio_data fields
             // (If using chat templates, files were already extracted by oaicompat_chat_params_parse)
-            if (!request->usetokenizertemplate() || request->messages_size() == 0 || ctx_server.impl->chat_templates == nullptr) {
+            if (!request->usetokenizertemplate() || request->messages_size() == 0 || ctx_server.impl->chat_params.tmpls == nullptr) {
                 const auto &images_data = data.find("image_data");
                 if (images_data != data.end() && images_data->is_array())
                 {
