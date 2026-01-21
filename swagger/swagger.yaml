@@ -742,6 +742,52 @@ definitions:
       tunnelAddress:
         type: string
     type: object
+  schema.ORAnnotation:
+    properties:
+      end_index:
+        type: integer
+      start_index:
+        type: integer
+      title:
+        type: string
+      type:
+        description: url_citation
+        type: string
+      url:
+        type: string
+    type: object
+  schema.ORContentPart:
+    properties:
+      annotations:
+        description: REQUIRED for output_text - must always be present (use [])
+        items:
+          $ref: '#/definitions/schema.ORAnnotation'
+        type: array
+      detail:
+        description: low|high|auto for images
+        type: string
+      file_data:
+        type: string
+      file_url:
+        type: string
+      filename:
+        type: string
+      image_url:
+        type: string
+      logprobs:
+        description: REQUIRED for output_text - must always be present (use [])
+        items:
+          $ref: '#/definitions/schema.ORLogProb'
+        type: array
+      refusal:
+        type: string
+      text:
+        description: REQUIRED for output_text - must always be present (even if empty)
+        type: string
+      type:
+        description: input_text|input_image|input_file|output_text|refusal
+        type: string
+    type: object
   schema.ORError:
     properties:
       code:
@@ -790,6 +836,9 @@ definitions:
         type: string
       content:
         description: string or []ORContentPart for messages
+      encrypted_content:
+        description: Provider-specific encrypted content
+        type: string
       id:
         description: Present for all output items
         type: string
@@ -803,9 +852,29 @@ definitions:
       status:
         description: in_progress|completed|incomplete
         type: string
+      summary:
+        description: Reasoning fields (for type == "reasoning")
+        items:
+          $ref: '#/definitions/schema.ORContentPart'
+        type: array
       type:
         description: message|function_call|function_call_output|reasoning|item_reference
         type: string
+    type: object
+  schema.ORLogProb:
+    properties:
+      bytes:
+        items:
+          type: integer
+        type: array
+      logprob:
+        type: number
+      token:
+        type: string
+      top_logprobs:
+        items:
+          $ref: '#/definitions/schema.ORTopLogProb'
+        type: array
     type: object
   schema.OROutputTokensDetails:
     properties:
@@ -929,6 +998,17 @@ definitions:
     properties:
       type:
         description: '"text" or "json_schema"'
+        type: string
+    type: object
+  schema.ORTopLogProb:
+    properties:
+      bytes:
+        items:
+          type: integer
+        type: array
+      logprob:
+        type: number
+      token:
         type: string
     type: object
   schema.ORUsage:
