@@ -36,6 +36,7 @@ type APIExchange struct {
 var traceBuffer *circularbuffer.Queue[APIExchange]
 var mu sync.Mutex
 var logChan = make(chan APIExchange, 100)
+var initOnce sync.Once
 
 type bodyWriter struct {
 	http.ResponseWriter
@@ -53,25 +54,36 @@ func (w *bodyWriter) Flush() {
 	}
 }
 
-// TraceMiddleware intercepts and logs JSON API requests and responses
-func TraceMiddleware(app *application.Application) echo.MiddlewareFunc {
-	if app.ApplicationConfig().EnableTracing && traceBuffer == nil {
-		traceBuffer = circularbuffer.New[APIExchange](app.ApplicationConfig().TracingMaxItems)
+func initializeTracing(maxItems int) {
+	initOnce.Do(func() {
+		if maxItems <= 0 {
+			maxItems = 100
+		}
+		mu.Lock()
+		traceBuffer = circularbuffer.New[APIExchange](maxItems)
+		mu.Unlock()
 
 		go func() {
 			for exchange := range logChan {
 				mu.Lock()
-				traceBuffer.Enqueue(exchange)
+				if traceBuffer != nil {
+					traceBuffer.Enqueue(exchange)
+				}
 				mu.Unlock()
 			}
 		}()
-	}
+	})
+}
 
+// TraceMiddleware intercepts and logs JSON API requests and responses
+func TraceMiddleware(app *application.Application) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
 			if !app.ApplicationConfig().EnableTracing {
 				return next(c)
 			}
+
+			initializeTracing(app.ApplicationConfig().TracingMaxItems)
 
 			if c.Request().Header.Get("Content-Type") != "application/json" {
 				return next(c)
@@ -138,6 +150,10 @@ func TraceMiddleware(app *application.Application) echo.MiddlewareFunc {
 // GetTraces returns a copy of the logged API exchanges for display
 func GetTraces() []APIExchange {
 	mu.Lock()
+	if traceBuffer == nil {
+		mu.Unlock()
+		return []APIExchange{}
+	}
 	traces := traceBuffer.Values()
 	mu.Unlock()
 
@@ -151,6 +167,8 @@ func GetTraces() []APIExchange {
 // ClearTraces clears the in-memory logs
 func ClearTraces() {
 	mu.Lock()
-	traceBuffer.Clear()
+	if traceBuffer != nil {
+		traceBuffer.Clear()
+	}
 	mu.Unlock()
 }
