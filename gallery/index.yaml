@@ -1,4 +1,48 @@
 ---
+- name: "zai-org_glm-4.7-flash"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/bartowski/zai-org_GLM-4.7-Flash-GGUF
+  description: |
+    The model is a **quantized version of the GLM-4.7-Flash base model**, optimized for efficient inference using the **llama.cpp** framework. It uses the **imatrix** quantization method with various levels of compression (e.g., bf16, Q8_0, Q6_K_L, etc.), tailored for deployment on hardware like GPUs or CPUs.
+
+    ### Key Features:
+      - **Base Model**: `zai-org/GLM-4.7-Flash` (original model).
+      - **Quantization**: Achieves performance trade-offs between speed and accuracy, with options like:
+      - **bf16**: Full BF16 weights (59.91GB).
+      - **Q6_K_L**: High-quality (24.98GB) with Q8_0 for embeddings and outputs.
+      - **Q4_K_M**: Recommended default (18.47GB) for most use cases.
+      - **Performance**: Optimized for GPU VRAM (e.g., 1-2GB smaller than VRAM), with options for full system RAM + GPU VRAM for maximum quality.
+      - **Use Cases**: Text generation, code completion, and other NLP tasks.
+
+    ### Recommended Files:
+      - **Q4_K_M**: 18.47GB (default, best balance of quality and size).
+      - **Q6_K_L**: 24.98GB (near-perfect quality, ideal for most scenarios).
+
+    ### Notes:
+      - Quantized files are not the original author's work (bartowski is the quantizer).
+      - Download via Hugging Face CLI or via the provided links (e.g., `zai-org_GLM-4.7-Flash-Q4_K_M.gguf`).
+
+    This model is a compact, efficient version of the GLM-4.7-Flash, designed for deployment on modern hardware with customizable trade-offs between performance and memory usage.
+  overrides:
+    parameters:
+      model: llama-cpp/models/zai-org_GLM-4.7-Flash-Q4_K_M.gguf
+    name: zai-org_GLM-4.7-Flash-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/bartowski/zai-org_GLM-4.7-Flash-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/zai-org_GLM-4.7-Flash-Q4_K_M.gguf
+      sha256: 42c0c1a30fe2f30097ffedd554a94c2d6abc5f95b8a35ce99cd523f78ef6711b
+      uri: https://huggingface.co/bartowski/zai-org_GLM-4.7-Flash-GGUF/resolve/main/zai-org_GLM-4.7-Flash-Q4_K_M.gguf
 - name: "glm-4.7-flash"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
