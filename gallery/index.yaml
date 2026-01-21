@@ -4,6 +4,51 @@
   urls:
     - https://huggingface.co/unsloth/GLM-4.7-Flash-GGUF
   description: |
+    **Model Description:**
+    The GLM-4.7-Flash is a 30B-A3B MoE (Model Organism Ensemble) model, designed as the leading 30B-class model. It balances performance and efficiency for lightweight deployment, ideal for applications requiring high accuracy without excessive computational resources.
+
+    **Key Features:**
+      - **Scale:** 30B parameters (A3B quantization).
+      - **Performance:** Excels in benchmarks like AIME 25, GPQA, and τ²-Bench, outperforming competitors in the 30B range.
+      - **Deployment:** Supports local inference via frameworks like vLLM and SGLang, with optimized tuning for efficient use.
+      - **Use Cases:** Suitable for tasks requiring strong reasoning, coding, and generation, with adaptive scaling for diverse applications.
+
+    **Citation:**
+    For research use, cite:
+    @misc{5team2025glm45agenticreasoningcoding,
+    title={GLM-4.5: Agentic, Reasoning, and Coding (ARC) Foundation Models},
+    author={GLM Team and Aohan Zeng et al.},
+    year={2025},
+    eprint={2508.06471},
+    archivePrefix={arXiv},
+    primaryClass={cs.CL},
+    url={https://arxiv.org/abs/2508.06471} }
+
+    This model is ideal for deploying high-performance AI solutions with minimal resource overhead.
+  overrides:
+    parameters:
+      model: llama-cpp/models/GLM-4.7-Flash-Q4_K_M.gguf
+    name: GLM-4.7-Flash-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/unsloth/GLM-4.7-Flash-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/GLM-4.7-Flash-Q4_K_M.gguf
+      sha256: 73ba18480e06ccda453a26263c0e2be2bd86294e827b1812ddea2f88bba2d924
+      uri: https://huggingface.co/unsloth/GLM-4.7-Flash-GGUF/resolve/main/GLM-4.7-Flash-Q4_K_M.gguf
+- name: "glm-4.7-flash"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/unsloth/GLM-4.7-Flash-GGUF
+  description: |
     **GLM-4.7-Flash** is a 30B-A3B MoE (Model Organism Ensemble) model designed for efficient deployment. It outperforms competitors in benchmarks like AIME 25, GPQA, and τ²-Bench, offering strong accuracy while balancing performance and efficiency. Optimized for lightweight use cases, it supports inference via frameworks like vLLM and SGLang, with detailed deployment instructions in the official repository. Ideal for applications requiring high-quality text generation with minimal resource consumption.
   overrides:
     parameters:
