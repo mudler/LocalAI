@@ -1,4 +1,29 @@
 ---
+- name: "deepseek-r1-distill-qwen-7b"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/keisuke-miyako/DeepSeek-R1-Distill-Qwen-7B-gguf-q4_k_m
+  description: |
+    The model is a **7B-parameter** fine-tuned version of the original **DeepSeek-R1-Distill-Qwen-7B** model, optimized for efficiency through **q4_k_m quantization**. It is trained on a large dataset to enable strong performance in tasks like text generation, reasoning, and multi-modal processing. The quantized version balances accuracy and efficiency, making it suitable for deployment in various applications. Its distilled nature retains key capabilities of the original model while reducing computational demands.
+  overrides:
+    parameters:
+      model: llama-cpp/models/DeepSeek-R1-Distill-Qwen-7B-Q4_K_M.gguf
+    name: DeepSeek-R1-Distill-Qwen-7B-gguf-q4_k_m
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/keisuke-miyako/DeepSeek-R1-Distill-Qwen-7B-gguf-q4_k_m
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/DeepSeek-R1-Distill-Qwen-7B-Q4_K_M.gguf
+      sha256: 63009291547939f7550a358aa3cf431be5afeed75986e8759bc38d0f7f3c9823
+      uri: https://huggingface.co/keisuke-miyako/DeepSeek-R1-Distill-Qwen-7B-gguf-q4_k_m/resolve/main/DeepSeek-R1-Distill-Qwen-7B-Q4_K_M.gguf
 - name: "glm-4.7-flash"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
