@@ -2617,6 +2617,73 @@ const docTemplate = `{
                 }
             }
         },
+        "schema.ORAnnotation": {
+            "type": "object",
+            "properties": {
+                "end_index": {
+                    "type": "integer"
+                },
+                "start_index": {
+                    "type": "integer"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "type": {
+                    "description": "url_citation",
+                    "type": "string"
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ORContentPart": {
+            "type": "object",
+            "properties": {
+                "annotations": {
+                    "description": "REQUIRED for output_text - must always be present (use [])",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ORAnnotation"
+                    }
+                },
+                "detail": {
+                    "description": "low|high|auto for images",
+                    "type": "string"
+                },
+                "file_data": {
+                    "type": "string"
+                },
+                "file_url": {
+                    "type": "string"
+                },
+                "filename": {
+                    "type": "string"
+                },
+                "image_url": {
+                    "type": "string"
+                },
+                "logprobs": {
+                    "description": "REQUIRED for output_text - must always be present (use [])",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ORLogProb"
+                    }
+                },
+                "refusal": {
+                    "type": "string"
+                },
+                "text": {
+                    "description": "REQUIRED for output_text - must always be present (even if empty)",
+                    "type": "string"
+                },
+                "type": {
+                    "description": "input_text|input_image|input_file|output_text|refusal",
+                    "type": "string"
+                }
+            }
+        },
         "schema.ORError": {
             "type": "object",
             "properties": {
@@ -2688,6 +2755,10 @@ const docTemplate = `{
                 "content": {
                     "description": "string or []ORContentPart for messages"
                 },
+                "encrypted_content": {
+                    "description": "Provider-specific encrypted content",
+                    "type": "string"
+                },
                 "id": {
                     "description": "Present for all output items",
                     "type": "string"
@@ -2706,9 +2777,39 @@ const docTemplate = `{
                     "description": "in_progress|completed|incomplete",
                     "type": "string"
                 },
+                "summary": {
+                    "description": "Reasoning fields (for type == \"reasoning\")",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ORContentPart"
+                    }
+                },
                 "type": {
                     "description": "message|function_call|function_call_output|reasoning|item_reference",
                     "type": "string"
+                }
+            }
+        },
+        "schema.ORLogProb": {
+            "type": "object",
+            "properties": {
+                "bytes": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "logprob": {
+                    "type": "number"
+                },
+                "token": {
+                    "type": "string"
+                },
+                "top_logprobs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ORTopLogProb"
+                    }
                 }
             }
         },
@@ -2899,6 +3000,23 @@ const docTemplate = `{
             "properties": {
                 "type": {
                     "description": "\"text\" or \"json_schema\"",
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ORTopLogProb": {
+            "type": "object",
+            "properties": {
+                "bytes": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "logprob": {
+                    "type": "number"
+                },
+                "token": {
                     "type": "string"
                 }
             }
