@@ -3,6 +3,7 @@ package openai
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"strconv"
 	"strings"
 
@@ -20,14 +21,30 @@ func VideoEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfi
 		if !ok || input == nil {
 			return echo.ErrBadRequest
 		}
+
+		// Try to get raw body - the middleware may have already consumed it
+		// Try GetBody() first (for requests that support it)
 		var raw map[string]interface{}
-		body := make([]byte, 0)
-		if c.Request().Body != nil {
-			c.Request().Body.Read(body)
+		if c.Request().GetBody != nil {
+			if body, err := c.Request().GetBody(); err == nil {
+				if bodyData, err := io.ReadAll(body); err == nil && len(bodyData) > 0 {
+					_ = json.Unmarshal(bodyData, &raw)
+				}
+			}
 		}
-		if len(body) > 0 {
-			_ = json.Unmarshal(body, &raw)
+
+		// If we didn't get raw data, try to extract from request body directly
+		// (may be nil if already consumed)
+		if len(raw) == 0 && c.Request().Body != nil {
+			if bodyData, err := io.ReadAll(c.Request().Body); err == nil && len(bodyData) > 0 {
+				_ = json.Unmarshal(bodyData, &raw)
+				// Restore body for potential downstream use
+				c.Request().Body = io.NopCloser(strings.NewReader(string(bodyData)))
+			}
 		}
+
+		fmt.Printf("MapOpenAIToVideo: Raw map has %d keys: %v\n", len(raw), raw)
+
 		// Build VideoRequest using shared mapper
 		vr := MapOpenAIToVideo(input, raw)
 		// Place VideoRequest into context so localai.VideoEndpoint can consume it
@@ -89,15 +106,7 @@ func MapOpenAIToVideo(input *schema.OpenAIRequest, raw map[string]interface{}) *
 		}
 	}
 
-	// seconds -> num frames
-	secondsStr := ""
-	if raw != nil {
-		if v, ok := raw["seconds"].(string); ok {
-			secondsStr = v
-		} else if v, ok := raw["seconds"].(float64); ok {
-			secondsStr = fmt.Sprintf("%v", int(v))
-		}
-	}
+	// FPS parsing
 	fps := int32(30)
 	if raw != nil {
 		if rawFPS, ok := raw["fps"]; ok {
@@ -111,15 +120,88 @@ func MapOpenAIToVideo(input *schema.OpenAIRequest, raw map[string]interface{}) *
 			}
 		}
 	}
-	if secondsStr != "" {
-		if secF, err := strconv.Atoi(secondsStr); err == nil {
-			vr.FPS = fps
-			vr.NumFrames = int32(secF) * fps
+	vr.FPS = fps
+
+	// num_frames parsing (direct or calculated from seconds)
+	if raw != nil {
+		if rawNumFrames, ok := raw["num_frames"]; ok {
+			switch nf := rawNumFrames.(type) {
+			case float64:
+				vr.NumFrames = int32(nf)
+			case string:
+				if nfi, err := strconv.Atoi(nf); err == nil {
+					vr.NumFrames = int32(nfi)
+				}
+			}
 		}
 	}
 
-	// input_reference
+	// seconds -> num frames (if num_frames not already set)
+	secondsStr := ""
+	if raw != nil && vr.NumFrames == 0 {
+		if v, ok := raw["seconds"].(string); ok {
+			secondsStr = v
+		} else if v, ok := raw["seconds"].(float64); ok {
+			secondsStr = fmt.Sprintf("%v", int(v))
+		}
+		if secondsStr != "" {
+			if secF, err := strconv.Atoi(secondsStr); err == nil {
+				vr.NumFrames = int32(secF) * fps
+			}
+		}
+	}
+
+	// negative_prompt
 	if raw != nil {
+		if v, ok := raw["negative_prompt"].(string); ok {
+			vr.NegativePrompt = v
+		}
+	}
+
+	// cfg_scale
+	if raw != nil {
+		if rawCFGScale, ok := raw["cfg_scale"]; ok {
+			switch cs := rawCFGScale.(type) {
+			case float64:
+				vr.CFGScale = float32(cs)
+			case string:
+				if csf, err := strconv.ParseFloat(cs, 32); err == nil {
+					vr.CFGScale = float32(csf)
+				}
+			}
+		}
+	}
+
+	// seed
+	if raw != nil {
+		if rawSeed, ok := raw["seed"]; ok {
+			switch s := rawSeed.(type) {
+			case float64:
+				vr.Seed = int32(s)
+			case string:
+				if si, err := strconv.Atoi(s); err == nil {
+					vr.Seed = int32(si)
+				}
+			}
+		}
+	}
+
+	// start_image
+	if raw != nil {
+		if v, ok := raw["start_image"].(string); ok {
+			vr.StartImage = v
+		}
+	}
+
+	// end_image
+	if raw != nil {
+		if v, ok := raw["end_image"].(string); ok {
+			vr.EndImage = v
+		}
+	}
+
+	// input_reference (alias for start_image)
+	if raw != nil && vr.StartImage == "" {
 		if v, ok := raw["input_reference"].(string); ok {
 			vr.StartImage = v
 		}
@@ -134,7 +216,23 @@ func MapOpenAIToVideo(input *schema.OpenAIRequest, raw map[string]interface{}) *
 
 	if input.Step != 0 {
 		vr.Step = int32(input.Step)
+	} else if raw != nil {
+		// Also check raw for step
+		if rawStep, ok := raw["step"]; ok {
+			switch st := rawStep.(type) {
+			case float64:
+				vr.Step = int32(st)
+			case string:
+				if sti, err := strconv.Atoi(st); err == nil {
+					vr.Step = int32(sti)
+				}
+			}
+		}
 	}
+
+	// Debug: Log the parsed values
+	fmt.Printf("MapOpenAIToVideo: Parsed values - num_frames: %d, fps: %d, cfg_scale: %f, step: %d, seed: %d, negative_prompt: %s\n",
+		vr.NumFrames, vr.FPS, vr.CFGScale, vr.Step, vr.Seed, vr.NegativePrompt)
 
 	return vr
 }
