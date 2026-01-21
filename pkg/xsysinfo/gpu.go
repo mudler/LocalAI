@@ -344,8 +344,6 @@ func getNVIDIAGPUMemory() []GPUMemoryInfo {
 			if totalBytes > 0 {
 				usagePercent = float64(usedBytes) / float64(totalBytes) * 100
 			}
-
-			xlog.Debug("using system RAM for unified memory GPU", "device", name, "system_ram_bytes", totalBytes)
 		} else if isNA {
 			// Unknown device with N/A values - skip memory info
 			xlog.Debug("nvidia-smi returned N/A for unknown device", "device", name)
