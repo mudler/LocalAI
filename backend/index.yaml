@@ -428,6 +428,28 @@
     nvidia-l4t-cuda-12: "nvidia-l4t-vibevoice"
     nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-vibevoice"
   icon: https://avatars.githubusercontent.com/u/6154722?s=200&v=4
+- &qwen-tts
+  urls:
+    - https://github.com/QwenLM/Qwen3-TTS
+  description: |
+    Qwen3-TTS is a high-quality text-to-speech model supporting custom voice, voice design, and voice cloning.
+  tags:
+    - text-to-speech
+    - TTS
+  license: apache-2.0
+  name: "qwen-tts"
+  alias: "qwen-tts"
+  capabilities:
+    nvidia: "cuda12-qwen-tts"
+    intel: "intel-qwen-tts"
+    amd: "rocm-qwen-tts"
+    nvidia-l4t: "nvidia-l4t-qwen-tts"
+    default: "cpu-qwen-tts"
+    nvidia-cuda-13: "cuda13-qwen-tts"
+    nvidia-cuda-12: "cuda12-qwen-tts"
+    nvidia-l4t-cuda-12: "nvidia-l4t-qwen-tts"
+    nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-qwen-tts"
+  icon: https://avatars.githubusercontent.com/u/6154722?s=200&v=4
 - &pocket-tts
   urls:
     - https://github.com/kyutai-labs/pocket-tts
@@ -1613,6 +1635,89 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-cuda-13-arm64-vibevoice"
   mirrors:
     - localai/localai-backends:master-nvidia-l4t-cuda-13-arm64-vibevoice
+## qwen-tts
+- !!merge <<: *qwen-tts
+  name: "qwen-tts-development"
+  capabilities:
+    nvidia: "cuda12-qwen-tts-development"
+    intel: "intel-qwen-tts-development"
+    amd: "rocm-qwen-tts-development"
+    nvidia-l4t: "nvidia-l4t-qwen-tts-development"
+    default: "cpu-qwen-tts-development"
+    nvidia-cuda-13: "cuda13-qwen-tts-development"
+    nvidia-cuda-12: "cuda12-qwen-tts-development"
+    nvidia-l4t-cuda-12: "nvidia-l4t-qwen-tts-development"
+    nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-qwen-tts-development"
+- !!merge <<: *qwen-tts
+  name: "cpu-qwen-tts"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-qwen-tts"
+  mirrors:
+    - localai/localai-backends:latest-cpu-qwen-tts
+- !!merge <<: *qwen-tts
+  name: "cpu-qwen-tts-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-cpu-qwen-tts"
+  mirrors:
+    - localai/localai-backends:master-cpu-qwen-tts
+- !!merge <<: *qwen-tts
+  name: "cuda12-qwen-tts"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-qwen-tts"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-12-qwen-tts
+- !!merge <<: *qwen-tts
+  name: "cuda12-qwen-tts-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-qwen-tts"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-12-qwen-tts
+- !!merge <<: *qwen-tts
+  name: "cuda13-qwen-tts"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-13-qwen-tts"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-13-qwen-tts
+- !!merge <<: *qwen-tts
+  name: "cuda13-qwen-tts-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-qwen-tts"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-13-qwen-tts
+- !!merge <<: *qwen-tts
+  name: "intel-qwen-tts"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-qwen-tts"
+  mirrors:
+    - localai/localai-backends:latest-gpu-intel-qwen-tts
+- !!merge <<: *qwen-tts
+  name: "intel-qwen-tts-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-qwen-tts"
+  mirrors:
+    - localai/localai-backends:master-gpu-intel-qwen-tts
+- !!merge <<: *qwen-tts
+  name: "rocm-qwen-tts"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-rocm-hipblas-qwen-tts"
+  mirrors:
+    - localai/localai-backends:latest-gpu-rocm-hipblas-qwen-tts
+- !!merge <<: *qwen-tts
+  name: "rocm-qwen-tts-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-rocm-hipblas-qwen-tts"
+  mirrors:
+    - localai/localai-backends:master-gpu-rocm-hipblas-qwen-tts
+- !!merge <<: *qwen-tts
+  name: "nvidia-l4t-qwen-tts"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-nvidia-l4t-qwen-tts"
+  mirrors:
+    - localai/localai-backends:latest-nvidia-l4t-qwen-tts
+- !!merge <<: *qwen-tts
+  name: "nvidia-l4t-qwen-tts-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-qwen-tts"
+  mirrors:
+    - localai/localai-backends:master-nvidia-l4t-qwen-tts
+- !!merge <<: *qwen-tts
+  name: "cuda13-nvidia-l4t-arm64-qwen-tts"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-nvidia-l4t-cuda-13-arm64-qwen-tts"
+  mirrors:
+    - localai/localai-backends:latest-nvidia-l4t-cuda-13-arm64-qwen-tts
+- !!merge <<: *qwen-tts
+  name: "cuda13-nvidia-l4t-arm64-qwen-tts-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-cuda-13-arm64-qwen-tts"
+  mirrors:
+    - localai/localai-backends:master-nvidia-l4t-cuda-13-arm64-qwen-tts
 ## pocket-tts
 - !!merge <<: *pocket-tts
   name: "pocket-tts-development"
