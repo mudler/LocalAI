@@ -167,6 +167,16 @@ func VideoEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfi
 
 		baseURL := middleware.BaseURL(c)
 
+		xlog.Debug("VideoEndpoint: Calling VideoGeneration",
+			"num_frames", input.NumFrames,
+			"fps", input.FPS,
+			"cfg_scale", input.CFGScale,
+			"step", input.Step,
+			"seed", input.Seed,
+			"width", width,
+			"height", height,
+			"negative_prompt", input.NegativePrompt)
+
 		fn, err := backend.VideoGeneration(
 			height,
 			width,
