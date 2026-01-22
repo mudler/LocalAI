@@ -246,6 +246,17 @@ func (bcl *ModelConfigLoader) RemoveModelConfig(m string) {
 	delete(bcl.configs, m)
 }
 
+// UpdateModelConfig updates an existing model config in the loader.
+// This is useful for updating runtime-detected properties like thinking support.
+func (bcl *ModelConfigLoader) UpdateModelConfig(m string, updater func(*ModelConfig)) {
+	bcl.Lock()
+	defer bcl.Unlock()
+	if cfg, exists := bcl.configs[m]; exists {
+		updater(&cfg)
+		bcl.configs[m] = cfg
+	}
+}
+
 // Preload prepare models if they are not local but url or huggingface repositories
 func (bcl *ModelConfigLoader) Preload(modelPath string) error {
 	bcl.Lock()

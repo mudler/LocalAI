@@ -99,6 +99,10 @@ func (e *embedBackend) VAD(ctx context.Context, in *pb.VADRequest, opts ...grpc.
 	return e.s.VAD(ctx, in)
 }
 
+func (e *embedBackend) ModelMetadata(ctx context.Context, in *pb.ModelOptions, opts ...grpc.CallOption) (*pb.ModelMetadataResponse, error) {
+	return e.s.ModelMetadata(ctx, in)
+}
+
 func (e *embedBackend) GetTokenMetrics(ctx context.Context, in *pb.MetricsRequest, opts ...grpc.CallOption) (*pb.MetricsResponse, error) {
 	return e.s.GetMetrics(ctx, in)
 }

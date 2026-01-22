@@ -263,6 +263,18 @@ func (s *server) VAD(ctx context.Context, in *pb.VADRequest) (*pb.VADResponse, e
 	return &res, nil
 }
 
+func (s *server) ModelMetadata(ctx context.Context, in *pb.ModelOptions) (*pb.ModelMetadataResponse, error) {
+	if s.llm.Locking() {
+		s.llm.Lock()
+		defer s.llm.Unlock()
+	}
+	res, err := s.llm.ModelMetadata(in)
+	if err != nil {
+		return nil, err
+	}
+	return res, nil
+}
+
 func StartServer(address string, model AIModel) error {
 	lis, err := net.Listen("tcp", address)
 	if err != nil {

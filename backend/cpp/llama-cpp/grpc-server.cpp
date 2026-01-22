@@ -2478,6 +2478,47 @@ public:
 
         return grpc::Status::OK;
     }
+
+    grpc::Status ModelMetadata(ServerContext* /*context*/, const backend::ModelOptions* /*request*/, backend::ModelMetadataResponse* response) override {
+        // Check if model is loaded
+        if (params_base.model.path.empty()) {
+            return grpc::Status(grpc::StatusCode::FAILED_PRECONDITION, "Model not loaded");
+        }
+
+        // Check if chat templates are initialized
+        if (ctx_server.impl->chat_params.tmpls == nullptr) {
+            // If templates are not initialized, we can't detect thinking support
+            // Return false as default
+            response->set_supports_thinking(false);
+            response->set_rendered_template("");
+            return grpc::Status::OK;
+        }
+
+        // Detect thinking support using llama.cpp's function
+        bool supports_thinking = common_chat_templates_support_enable_thinking(ctx_server.impl->chat_params.tmpls.get());
+        response->set_supports_thinking(supports_thinking);
+
+        // Render the template with enable_thinking=true so Go code can detect thinking tokens
+        // This allows reusing existing detection functions in Go
+        std::string rendered_template = "";
+        if (params_base.use_jinja) {
+            // Render the template with enable_thinking=true to see what the actual prompt looks like
+            common_chat_templates_inputs dummy_inputs;
+            common_chat_msg msg;
+            msg.role = "user";
+            msg.content = "test";
+            dummy_inputs.messages = {msg};
+            dummy_inputs.enable_thinking = true;
+            dummy_inputs.use_jinja = params_base.use_jinja;
+            
+            const auto rendered = common_chat_templates_apply(ctx_server.impl->chat_params.tmpls.get(), dummy_inputs);
+            rendered_template = rendered.prompt;
+        }
+        
+        response->set_rendered_template(rendered_template);
+
+        return grpc::Status::OK;
+    }
 };
 
 
