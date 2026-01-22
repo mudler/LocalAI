@@ -1,4 +1,29 @@
 ---
+- name: "gemma-3-27b-it-gemini-extreme-deep-reasoning-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Gemma-3-27b-it-Gemini-Extreme-Deep-Reasoning-i1-GGUF
+  description: |
+    The model is a large language model (LLM) developed by Google, with 327 billion parameters. It is designed for advanced reasoning and deep understanding tasks, such as complex problem-solving, logical deduction, and knowledge-based inference. The model is optimized for performance and efficiency, making it suitable for applications requiring high-level cognitive abilities. It is a quantized version of the original Gemini-3-27b model, stored in the GGUF format for efficient deployment. For detailed specifications, refer to the official documentation or the model's repository.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Gemma-3-27b-it-Gemini-Extreme-Deep-Reasoning.i1-Q4_K_M.gguf
+    name: Gemma-3-27b-it-Gemini-Extreme-Deep-Reasoning-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Gemma-3-27b-it-Gemini-Extreme-Deep-Reasoning-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Gemma-3-27b-it-Gemini-Extreme-Deep-Reasoning.i1-Q4_K_M.gguf
+      sha256: af9bffc739473d3ed327eb3fee1f4052c2d54ee634ebfb4ae015c62e4a9b574f
+      uri: https://huggingface.co/mradermacher/Gemma-3-27b-it-Gemini-Extreme-Deep-Reasoning-i1-GGUF/resolve/main/Gemma-3-27b-it-Gemini-Extreme-Deep-Reasoning.i1-Q4_K_M.gguf
 - name: "mox-small-1-i1"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
