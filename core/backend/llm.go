@@ -61,6 +61,18 @@ func ModelInference(ctx context.Context, s string, messages schema.Messages, ima
 		return nil, err
 	}
 
+	// Detect thinking support after model load (only if not already detected)
+	// This needs to happen after LoadModel succeeds so the backend can render templates
+	if (c.ReasoningConfig.DisableReasoning == nil && c.ReasoningConfig.DisableReasoningTagPrefill == nil) && c.TemplateConfig.UseTokenizerTemplate {
+		modelOpts := grpcModelOpts(*c, o.SystemState.Model.ModelsPath)
+		config.DetectThinkingSupportFromBackend(ctx, c, inferenceModel, modelOpts)
+		// Update the config in the loader so it persists for future requests
+		cl.UpdateModelConfig(c.Name, func(cfg *config.ModelConfig) {
+			cfg.ReasoningConfig.DisableReasoning = c.ReasoningConfig.DisableReasoning
+			cfg.ReasoningConfig.DisableReasoningTagPrefill = c.ReasoningConfig.DisableReasoningTagPrefill
+		})
+	}
+
 	var protoMessages []*proto.Message
 	// if we are using the tokenizer template, we need to convert the messages to proto messages
 	// unless the prompt has already been tokenized (non-chat endpoints + functions)

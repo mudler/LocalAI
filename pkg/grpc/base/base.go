@@ -77,6 +77,10 @@ func (llm *Base) TokenizeString(opts *pb.PredictOptions) (pb.TokenizationRespons
 	return pb.TokenizationResponse{}, fmt.Errorf("unimplemented")
 }
 
+func (llm *Base) ModelMetadata(opts *pb.ModelOptions) (*pb.ModelMetadataResponse, error) {
+	return nil, fmt.Errorf("unimplemented")
+}
+
 // backends may wish to call this to capture the gopsutil info, then enhance with additional memory usage details?
 func (llm *Base) Status() (pb.StatusResponse, error) {
 	return pb.StatusResponse{

@@ -28,6 +28,8 @@ type AIModel interface {
 	StoresFind(*pb.StoresFindOptions) (pb.StoresFindResult, error)
 
 	VAD(*pb.VADRequest) (pb.VADResponse, error)
+
+	ModelMetadata(*pb.ModelOptions) (*pb.ModelMetadataResponse, error)
 }
 
 func newReply(s string) *pb.Reply {
