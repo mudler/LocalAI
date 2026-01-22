@@ -1,4 +1,29 @@
 ---
+- name: "mox-small-1-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/mox-small-1-i1-GGUF
+  description: |
+    The model, **vanta-research/mox-small-1**, is a small-scale text-generation model optimized for conversational AI tasks. It supports chat, persona research, and chatbot applications. The quantized versions (e.g., i1-Q4_K_M, i1-Q4_K_S) are available for efficient deployment, with the i1-Q4_K_S variant offering the best balance of size, speed, and quality. The model is designed for lightweight inference and is compatible with frameworks like HuggingFace Transformers.
+  overrides:
+    parameters:
+      model: llama-cpp/models/mox-small-1.i1-Q4_K_M.gguf
+    name: mox-small-1-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/mox-small-1-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/mox-small-1.i1-Q4_K_M.gguf
+      sha256: f25e9612e985adf01869f412f997a7aaace65e1ee0c97d4975070febdcbbb978
+      uri: https://huggingface.co/mradermacher/mox-small-1-i1-GGUF/resolve/main/mox-small-1.i1-Q4_K_M.gguf
 - name: "glm-4.7-flash"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
