@@ -152,27 +152,6 @@ func RegisterOpenAIRoutes(app *echo.Echo,
 	app.POST("/v1/images/inpainting", inpaintingHandler, imageMiddleware...)
 	app.POST("/images/inpainting", inpaintingHandler, imageMiddleware...)
 
-	// videos (OpenAI-compatible endpoints mapped to LocalAI video handler)
-	videoHandler := openai.VideoEndpoint(application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig())
-	videoMiddleware := []echo.MiddlewareFunc{
-		traceMiddleware,
-		re.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_VIDEO)),
-		re.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.OpenAIRequest) }),
-		func(next echo.HandlerFunc) echo.HandlerFunc {
-			return func(c echo.Context) error {
-				if err := re.SetOpenAIRequest(c); err != nil {
-					return err
-				}
-				return next(c)
-			}
-		},
-	}
-
-	// OpenAI-style create video endpoint
-	app.POST("/v1/videos", videoHandler, videoMiddleware...)
-	app.POST("/v1/videos/generations", videoHandler, videoMiddleware...)
-	app.POST("/videos", videoHandler, videoMiddleware...)
-
 	// List models
 	app.GET("/v1/models", openai.ListModelsEndpoint(application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig()))
 	app.GET("/models", openai.ListModelsEndpoint(application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig()))

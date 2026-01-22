@@ -135,9 +135,9 @@ async function promptVideo() {
     return;
   }
 
-  // Make API request
+  // Make API request to LocalAI endpoint
   try {
-    const response = await fetch("v1/videos/generations", {
+    const response = await fetch("video", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

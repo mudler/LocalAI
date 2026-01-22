@@ -42,15 +42,8 @@ from transformers import T5EncoderModel
 from safetensors.torch import load_file
 
 # Import LTX-2 specific utilities
-try:
-    from diffusers.pipelines.ltx2.export_utils import encode_video as ltx2_encode_video
-    from diffusers import LTX2VideoTransformer3DModel, GGUFQuantizationConfig
-    LTX2_AVAILABLE = True
-except ImportError:
-    LTX2_AVAILABLE = False
-    ltx2_encode_video = None
-    LTX2VideoTransformer3DModel = None
-    GGUFQuantizationConfig = None
+from diffusers.pipelines.ltx2.export_utils import encode_video as ltx2_encode_video
+from diffusers import LTX2VideoTransformer3DModel, GGUFQuantizationConfig
 
 _ONE_DAY_IN_SECONDS = 60 * 60 * 24
 COMPEL = os.environ.get("COMPEL", "0") == "1"
@@ -307,7 +300,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             self.ltx2_pipeline = True
             
             # Check if loading from single file (GGUF)
-            if fromSingleFile and LTX2_AVAILABLE and LTX2VideoTransformer3DModel is not None:
+            if fromSingleFile and LTX2VideoTransformer3DModel is not None:
                 _, single_file_ext = os.path.splitext(modelFile)
                 if single_file_ext == ".gguf":
                     # Load transformer from single GGUF file with quantization
@@ -356,7 +349,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             self.ltx2_pipeline = True
             
             # Check if loading from single file (GGUF)
-            if fromSingleFile and LTX2_AVAILABLE and LTX2VideoTransformer3DModel is not None:
+            if fromSingleFile and LTX2VideoTransformer3DModel is not None:
                 _, single_file_ext = os.path.splitext(modelFile)
                 if single_file_ext == ".gguf":
                     # Load transformer from single GGUF file with quantization
@@ -765,6 +758,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         try:
             prompt = request.prompt
             if not prompt:
+                print(f"GenerateVideo: No prompt provided for video generation.", file=sys.stderr)
                 return backend_pb2.Result(success=False, message="No prompt provided for video generation")
 
             # Debug: Print raw request values
@@ -808,9 +802,6 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             # Generate video frames based on pipeline type
             if self.ltx2_pipeline or self.PipelineType in ["LTX2Pipeline", "LTX2ImageToVideoPipeline"]:
                 # LTX-2 generation with audio (supports both text-to-video and image-to-video)
-                if not LTX2_AVAILABLE:
-                    return backend_pb2.Result(success=False, message="LTX-2 pipeline requires diffusers.pipelines.ltx2.export_utils")
-                
                 # Determine if this is text-to-video (no image) or image-to-video (has image)
                 has_image = bool(request.start_image)
                 
@@ -845,9 +836,13 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 
                 # Generate video and audio
                 print(f"LTX-2: Generating with kwargs: {kwargs}", file=sys.stderr)
-                video, audio = self.pipe(**kwargs)
-                
-                print(f"LTX-2: Generated video shape: {video.shape}, audio shape: {audio.shape}", file=sys.stderr)
+                try:
+                    video, audio = self.pipe(**kwargs)
+                    print(f"LTX-2: Generated video shape: {video.shape}, audio shape: {audio.shape}", file=sys.stderr)
+                except Exception as e:
+                    print(f"LTX-2: Error during pipe() call: {e}", file=sys.stderr)
+                    traceback.print_exc()
+                    return backend_pb2.Result(success=False, message=f"Error generating video with LTX-2 pipeline: {e}")
                 
                 # Convert video to uint8 format
                 video = (video * 255).round().astype("uint8")
