@@ -1,4 +1,34 @@
 ---
+- name: "medgemma-4b-it-fine-tuned"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/2kfi/medgemma-4B-it-fine-tuned-gguf
+  description: |
+    The model is a fine-tuned version of **Med-Gemma-4B** (a large language model) optimized for specific tasks. It uses **GGUF** quantization to reduce file size while maintaining performance. The model is not the original base model but a variant tailored for specific applications. For model gallery purposes, it can be described as:
+    **"Fine-tuned Med-Gemma-4B with GGUF quantization for specialized tasks."**
+  overrides:
+    parameters:
+      model: llama-cpp/models/MedGemma-3b-it-Q4_K_M.gguf
+    name: medgemma-4B-it-fine-tuned-gguf
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    mmproj: llama-cpp/mmproj/MedGemma-mmproj.gguf
+    description: Imported from https://huggingface.co/2kfi/medgemma-4B-it-fine-tuned-gguf
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/MedGemma-3b-it-Q4_K_M.gguf
+      sha256: f3095b44577f9e9e1780af799b091b5224261955910f7fdf04261b1b15332268
+      uri: https://huggingface.co/2kfi/medgemma-4B-it-fine-tuned-gguf/resolve/main/MedGemma-3b-it-Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/MedGemma-mmproj.gguf
+      sha256: 409dcbcf46898d90a0b8cde0b683c96e83106217cff6868370c0f733a097ab99
+      uri: https://huggingface.co/2kfi/medgemma-4B-it-fine-tuned-gguf/resolve/main/MedGemma-mmproj.gguf
 - name: "mox-small-1-i1"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
