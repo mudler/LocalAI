@@ -32,6 +32,8 @@ service Backend {
   rpc GetMetrics(MetricsRequest) returns (MetricsResponse);
 
   rpc VAD(VADRequest) returns (VADResponse) {}
+
+  rpc ModelMetadata(ModelOptions) returns (ModelMetadataResponse) {}
 }
 
 // Define the empty request
@@ -409,4 +411,9 @@ message Detection {
 
 message DetectResponse {
   repeated Detection Detections = 1;
+}
+
+message ModelMetadataResponse {
+  bool supports_thinking = 1;
+  string rendered_template = 2;  // The rendered chat template with enable_thinking=true (empty if not applicable)
 }
