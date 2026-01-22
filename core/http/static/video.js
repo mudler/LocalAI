@@ -135,9 +135,9 @@ async function promptVideo() {
     return;
   }
 
-  // Make API request
+  // Make API request to LocalAI endpoint
   try {
-    const response = await fetch("v1/videos/generations", {
+    const response = await fetch("video", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -219,9 +219,13 @@ async function promptVideo() {
         `;
         captionDiv.appendChild(detailsDiv);
 
+        // Button container
+        const buttonContainer = document.createElement("div");
+        buttonContainer.className = "mt-1.5 flex gap-2";
+
         // Copy prompt button
         const copyBtn = document.createElement("button");
-        copyBtn.className = "mt-1.5 px-2 py-0.5 text-[10px] bg-[var(--color-primary)] text-white rounded hover:opacity-80";
+        copyBtn.className = "px-2 py-0.5 text-[10px] bg-[var(--color-primary)] text-white rounded hover:opacity-80";
         copyBtn.innerHTML = '<i class="fas fa-copy mr-1"></i>Copy Prompt';
         copyBtn.onclick = () => {
           navigator.clipboard.writeText(prompt).then(() => {
@@ -231,7 +235,18 @@ async function promptVideo() {
             }, 2000);
           });
         };
-        captionDiv.appendChild(copyBtn);
+        buttonContainer.appendChild(copyBtn);
+
+        // Download video button
+        const downloadBtn = document.createElement("button");
+        downloadBtn.className = "px-2 py-0.5 text-[10px] bg-[var(--color-primary)] text-white rounded hover:opacity-80";
+        downloadBtn.innerHTML = '<i class="fas fa-download mr-1"></i>Download Video';
+        downloadBtn.onclick = () => {
+          downloadVideo(item, downloadBtn);
+        };
+        buttonContainer.appendChild(downloadBtn);
+
+        captionDiv.appendChild(buttonContainer);
 
         videoContainer.appendChild(captionDiv);
         resultDiv.appendChild(videoContainer);
@@ -267,6 +282,67 @@ function escapeHtml(text) {
   const div = document.createElement("div");
   div.textContent = text;
   return div.innerHTML;
+}
+
+// Helper function to download video
+function downloadVideo(item, button) {
+  try {
+    let videoUrl;
+    let filename = "generated-video.mp4";
+
+    if (item.url) {
+      // If we have a URL, use it directly
+      videoUrl = item.url;
+      // Extract filename from URL if possible
+      const urlParts = item.url.split("/");
+      if (urlParts.length > 0) {
+        const lastPart = urlParts[urlParts.length - 1];
+        if (lastPart && lastPart.includes(".")) {
+          filename = lastPart;
+        }
+      }
+    } else if (item.b64_json) {
+      // Convert base64 to blob
+      const byteCharacters = atob(item.b64_json);
+      const byteNumbers = new Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+      const byteArray = new Uint8Array(byteNumbers);
+      const blob = new Blob([byteArray], { type: "video/mp4" });
+      videoUrl = URL.createObjectURL(blob);
+    } else {
+      console.error("No video data available for download");
+      return;
+    }
+
+    // Create a temporary anchor element to trigger download
+    const link = document.createElement("a");
+    link.href = videoUrl;
+    link.download = filename;
+    link.style.display = "none";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    // Clean up object URL if we created one
+    if (item.b64_json && videoUrl.startsWith("blob:")) {
+      setTimeout(() => URL.revokeObjectURL(videoUrl), 100);
+    }
+
+    // Show feedback
+    const originalHTML = button.innerHTML;
+    button.innerHTML = '<i class="fas fa-check mr-1"></i>Downloaded!';
+    setTimeout(() => {
+      button.innerHTML = originalHTML;
+    }, 2000);
+  } catch (error) {
+    console.error("Error downloading video:", error);
+    button.innerHTML = '<i class="fas fa-exclamation-triangle mr-1"></i>Error';
+    setTimeout(() => {
+      button.innerHTML = '<i class="fas fa-download mr-1"></i>Download Video';
+    }, 2000);
+  }
 }
 
 // Initialize
