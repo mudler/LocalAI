@@ -1,4 +1,29 @@
 ---
+- name: "mn-darkest-universe-infinity-claude-high-reasoning-29b-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/MN-DARKEST-Universe-Infinity-Claude-High-Reasoning-29B-i1-GGUF
+  description: |
+    This model is a large language model (LLM) optimized for reasoning, creative writing, and storytelling. It is based on the base model *DavidAU/MN-DARKEST-Universe-Infinity-Claude-High-Reasoning-29B*, and is quantized for efficient deployment using GGUF format. The quantized versions support various precision levels (e.g., i1-IQ2_M, i1-Q4_K_S, i1-Q6_K) and are tailored for tasks like plot generation, story continuation, and creative writing. The model is designed for deep reasoning, roleplaying, and generating vivid prose across genres. Downloadable quantized files are available for different performance and quality trade-offs.
+  overrides:
+    parameters:
+      model: llama-cpp/models/MN-DARKEST-Universe-Infinity-Claude-High-Reasoning-29B.i1-Q4_K_M.gguf
+    name: MN-DARKEST-Universe-Infinity-Claude-High-Reasoning-29B-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/MN-DARKEST-Universe-Infinity-Claude-High-Reasoning-29B-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/MN-DARKEST-Universe-Infinity-Claude-High-Reasoning-29B.i1-Q4_K_M.gguf
+      sha256: 4de5aa41c0d5ab6d269f1b20e947c9937d1f3744ec5dcef2a1f581c527c3991b
+      uri: https://huggingface.co/mradermacher/MN-DARKEST-Universe-Infinity-Claude-High-Reasoning-29B-i1-GGUF/resolve/main/MN-DARKEST-Universe-Infinity-Claude-High-Reasoning-29B.i1-Q4_K_M.gguf
 - name: "mox-small-1-i1"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
