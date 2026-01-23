@@ -1,4 +1,51 @@
 ---
+- name: "tina-3.1-8b-reasoning"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Tina-3.1-8B-Reasoning-GGUF
+  description: |
+    **Model Name:** Tina-3.1-8B-Reasoning-GGUF
+    **Base Model:** ShubhamGTiwari/Tina-3.1-8B-Reasoning
+    **Size:** 8B parameters
+    **Purpose:** Reasoning and general-purpose language modeling
+    **Quantization:** This model is a quantized version of the base model, optimized for efficiency (e.g., Q4_K_S, Q8_0).
+    **Features:**
+      - GGUF format for efficient storage and inference
+      - Supports multi-part file concatenation (as per TheBloke's README)
+      - Tags: unsloth, trl, grpo
+    **Quantized Versions:**
+      - Q2_K (3.3GB)
+      - Q3_K_S (3.8GB)
+      - Q3_K_M (4.1GB)
+      - Q3_K_L (4.4GB)
+      - Q4_K_S (4.8GB)
+      - Q4_K_M (5.0GB)
+      - Q5_K_S (5.7GB)
+      - Q5_K_M (5.8GB)
+      - Q6_K (6.7GB)
+      - Q8_0 (8.6GB)
+    **Download:** [Link to GGUF files](https://huggingface.co/mradermacher/Tina-3.1-8B-Reasoning-GGUF)
+
+    **Note:** This is a quantized version of the base model. For original details, refer to the base model's README.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Tina-3.1-8B-Reasoning.Q4_K_M.gguf
+    name: Tina-3.1-8B-Reasoning-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Tina-3.1-8B-Reasoning-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Tina-3.1-8B-Reasoning.Q4_K_M.gguf
+      sha256: d368a2e60aadbe590043ee9e276c3867e182072c78d4b33ac4b6f305afce0129
+      uri: https://huggingface.co/mradermacher/Tina-3.1-8B-Reasoning-GGUF/resolve/main/Tina-3.1-8B-Reasoning.Q4_K_M.gguf
 - name: "huihui-glm-4.7-flash-abliterated-i1"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
