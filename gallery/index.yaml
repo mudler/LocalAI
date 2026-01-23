@@ -1,4 +1,24 @@
 ---
+- &qwen-tts
+  urls:
+    - https://huggingface.co/Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice
+  description: |
+    Qwen3-TTS is a high-quality text-to-speech model supporting custom voice, voice design, and voice cloning.
+  tags:
+    - text-to-speech
+    - TTS
+  license: apache-2.0
+  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/620760a26e3b7210c2ff1943/-s1gyJfvbE1RgO5iBeNOi.png
+  name: "qwen3-tts-1.7b-custom-voice"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  overrides:
+    backend: qwen-tts
+    known_usecases:
+      - tts
+    tts:
+      voice: Aiden # Available speakers: Vivian, Serena, Uncle_Fu, Dylan, Eric, Ryan, Aiden, Ono_Anna, Sohee
+    parameters:
+      model: Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice
 - name: "huihui-glm-4.7-flash-abliterated-i1"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
