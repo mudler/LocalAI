@@ -1,4 +1,41 @@
 ---
+- name: "valkyrie-49b-v2.1-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Valkyrie-49B-v2.1-i1-GGUF
+  description: |
+    **Model Name:** Valkyrie-49B-v2.1
+    **Size:** 49 billion parameters
+    **Quantization:** GGUF (optimized for speed and efficiency)
+    **Base Model:** TheDrummer/Valkyrie-49B-v2.1
+    **Features:**
+      - A large language model (49B parameters) designed for versatile text generation and reasoning.
+      - Quantized in GGUF format for efficient deployment, with multiple tuning options (e.g., i1-Q4_K_M, i1-IQ3_M, etc.) to balance quality and performance.
+      - Available in various quantization variants (e.g., i1-IQ2_M, i1-Q4_K_S) for different use cases (e.g., inference, streaming).
+      - Optimized for speed and memory efficiency, suitable for deployment on edge devices or in cloud environments.
+
+    **Use Case:** Ideal for tasks like content generation, code writing, or multi-turn dialogue, with support for custom quantization to suit specific needs.
+
+    *Contributors:* Thanks to nethype GmbH and nicoboss for enabling high-quality quantization.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Valkyrie-49B-v2.1.i1-Q4_K_M.gguf
+    name: Valkyrie-49B-v2.1-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Valkyrie-49B-v2.1-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Valkyrie-49B-v2.1.i1-Q4_K_M.gguf
+      sha256: 412a964181ae20082a4ba4e82c99eeab5126962af1cdf8dd63f49897cb687bdd
+      uri: https://huggingface.co/mradermacher/Valkyrie-49B-v2.1-i1-GGUF/resolve/main/Valkyrie-49B-v2.1.i1-Q4_K_M.gguf
 - name: "mox-small-1-i1"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
