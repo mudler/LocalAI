@@ -1,4 +1,58 @@
 ---
+- name: "qwen3-1.7b-instruct"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/leuconoe/Qwen3-1.7B-Instruct-GGUF
+  description: |
+    **Qwen3-1.7B Model Description**
+
+    **Model Type**: Causal Language Model
+    **Parameters**: 1.7B (1.4B non-embedding)
+    **Training Stage**: Pretraining & Posttraining
+    **Architecture**: 28 layers, 16 attention heads (Q), 8 attention heads (KV)
+    **Context Length**: 32,768 tokens
+
+    **Key Features**:
+      - **Thinking Mode**: Seamless switching between reasoning (for complex tasks) and non-thinking (efficient dialogue) modes.
+      - **Reasoning Capabilities**: Outperforms previous models in math, coding, and logical reasoning.
+      - **Multilingual Support**: 100+ languages with strong translation and instruction-following capabilities.
+      - **Efficiency**: Optimized for inference with GGUF format (via llama.cpp).
+
+    **Base Model**:
+      - Official base model: `Qwen/Qwen3-1.7B-Base` (see [Hugging Face readme](https://huggingface.co/Qwen/Qwen3-1.7B)).
+
+    **Use Cases**:
+      - Code generation, math problem solving, creative writing, and multilingual dialogue.
+      - Deployable via frameworks like SGLang, vLLM, or local tools (e.g., Ollama, LMStudio).
+
+    **Best Practices**:
+      - Use `Temperature=0.6` (thinking mode) or `0.7` (non-thinking mode).
+      - Output length: 32,768 tokens for most tasks; 38,912 for complex benchmarks.
+
+    **Quantized Version**:
+      - GGUF format (via `llama.cpp`), optimized for efficient inference.
+
+    **Availability**:
+      - Access via Hugging Face: [Qwen3-1.7B](https://huggingface.co/Qwen/Qwen3-1.7B).
+  overrides:
+    parameters:
+      model: llama-cpp/models/Qwen3-1.7B-Q4_K_M-Instruct.gguf
+    name: Qwen3-1.7B-Instruct-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/leuconoe/Qwen3-1.7B-Instruct-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Qwen3-1.7B-Q4_K_M-Instruct.gguf
+      sha256: b047d6617eba56dcfa3357566b06807f54b15816faf6182aabd12d7e2378e537
+      uri: https://huggingface.co/leuconoe/Qwen3-1.7B-Instruct-GGUF/resolve/main/Qwen3-1.7B-Q4_K_M-Instruct.gguf
 - name: "huihui-glm-4.7-flash-abliterated-i1"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
