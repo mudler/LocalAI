@@ -1,4 +1,29 @@
 ---
+- name: "sp3f-7b-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/SP3F-7B-i1-GGUF
+  description: |
+    SP3F-7B is a multilingual large language model trained with Self-Play with Privileged Pairwise Feedback, built on the Qwen2.5-7B base model. It supports over 40 languages and excels in tasks like MT Math100, Belebele, and Global MMLU Lite, achieving state-of-the-art performance. The model demonstrates strong generalization and robustness across diverse linguistic contexts, making it suitable for applications requiring multilingual capabilities.
+  overrides:
+    parameters:
+      model: llama-cpp/models/SP3F-7B.i1-Q4_K_M.gguf
+    name: SP3F-7B-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/SP3F-7B-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/SP3F-7B.i1-Q4_K_M.gguf
+      sha256: 7fbc8066d8f1436e9da4738793e0ca4d9b70b02eabc3eb649b76ff20adc7eeb6
+      uri: https://huggingface.co/mradermacher/SP3F-7B-i1-GGUF/resolve/main/SP3F-7B.i1-Q4_K_M.gguf
 - name: "mox-small-1-i1"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
