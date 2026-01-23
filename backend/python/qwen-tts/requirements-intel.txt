@@ -1,7 +1,5 @@
 --extra-index-url https://download.pytorch.org/whl/xpu
 torch
 torchaudio
-optimum[openvino]
-setuptools
-transformers
-accelerate
+qwen-tts
+sox
