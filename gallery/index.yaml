@@ -1,4 +1,41 @@
 ---
+- name: "blight_qwen_7b_gguf"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/xiaohaoy/blight_qwen_7b_gguf
+  description: |
+    This model is a quantized version of the Qwen2.5 Vision-Language Model (7B parameter) fine-tuned and converted to GGUF format using **Unsloth**. It supports text and multimodal tasks with different quantization levels (e.g., Q5_K_M, Q8_0, BF16-mmproj).
+
+    **Key Features:**
+      - **Base Model**: Qwen2.5-vl-7B-instruct (original model)
+      - **Quantization**: Available in multiple formats (F16, Q5_K_M, Q8_0, Q4_K_M, BF16-mmproj)
+      - **Usage**: For text tasks with `llama-cli` or multimodal tasks with `llama-mtmd-cli`
+      - **Training**: Optimized with Unsloth for faster training
+
+    **Note**: Requires a `Modelfile` for Ollama compatibility with vision models.
+  overrides:
+    parameters:
+      model: llama-cpp/models/qwen2.5-vl-7b-instruct.Q4_K_M.gguf
+    name: blight_qwen_7b_gguf
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    mmproj: llama-cpp/mmproj/qwen2.5-vl-7b-instruct.BF16-mmproj.gguf
+    description: Imported from https://huggingface.co/xiaohaoy/blight_qwen_7b_gguf
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/qwen2.5-vl-7b-instruct.Q4_K_M.gguf
+      sha256: ce80b1ebd55f47e9450d868c60ced4b52f6293b474028dc9ce65f2523817f607
+      uri: https://huggingface.co/xiaohaoy/blight_qwen_7b_gguf/resolve/main/qwen2.5-vl-7b-instruct.Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/qwen2.5-vl-7b-instruct.BF16-mmproj.gguf
+      sha256: d5d611f90f69ce843bfc27ba2ccc5bf5f88059cf26dc95cbe76bbe60ae161bcb
+      uri: https://huggingface.co/xiaohaoy/blight_qwen_7b_gguf/resolve/main/qwen2.5-vl-7b-instruct.BF16-mmproj.gguf
 - name: "huihui-glm-4.7-flash-abliterated-i1"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
