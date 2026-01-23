@@ -398,7 +398,7 @@ function runProtogen() {
 # NOTE: for BUILD_PROFILE==intel, this function does NOT automatically use the Intel python package index.
 # you may want to add the following line to a requirements-intel.txt if you use one:
 #
-# --index-url https://pytorch-extension.intel.com/release-whl/stable/xpu/us/
+# --index-url https://download.pytorch.org/whl/xpu
 #
 # If you need to add extra flags into the pip install command you can do so by setting the variable EXTRA_PIP_INSTALL_FLAGS
 # before calling installRequirements.  For example:

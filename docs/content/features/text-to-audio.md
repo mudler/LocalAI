@@ -215,50 +215,90 @@ curl http://localhost:8080/tts -H "Content-Type: application/json" -d '{
    }' | aplay
 ```
 
-### Vall-E-X
+### Qwen3-TTS
 
-[VALL-E-X](https://github.com/Plachtaa/VALL-E-X) is an open source implementation of Microsoft's VALL-E X zero-shot TTS model.
+[Qwen3-TTS](https://github.com/QwenLM/Qwen3-TTS) is a high-quality text-to-speech model that supports three modes: custom voice (predefined speakers), voice design (natural language instructions), and voice cloning (from reference audio).
 
 #### Setup
 
-The backend will automatically download the required files in order to run the model.
-
-This is an extra backend - in the container is already available and there is nothing to do for the setup. If you are building manually, you need to install Vall-E-X manually first.
+Install the `qwen-tts` model in the Model gallery or run `local-ai run models install qwen-tts`.
 
 #### Usage
 
-Use the tts endpoint by specifying the vall-e-x backend:
+Use the tts endpoint by specifying the qwen-tts backend:
 
 ```
 curl http://localhost:8080/tts -H "Content-Type: application/json" -d '{         
-     "backend": "vall-e-x",
-     "input":"Hello!"
+     "model": "qwen-tts",
+     "input":"Hello world, this is a test."
    }' | aplay
 ```
 
-#### Voice cloning
+#### Custom Voice Mode
 
-In order to use voice cloning capabilities you must create a `YAML` configuration file to setup a model:
+Qwen3-TTS supports predefined speakers. You can specify a speaker using the `voice` parameter:
 
 ```yaml
-name: cloned-voice
-backend: vall-e-x
+name: qwen-tts
+backend: qwen-tts
 parameters:
-  model: "cloned-voice"
+  model: Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice
 tts:
-    vall-e:
-      # The path to the audio file to be cloned
-      # relative to the models directory
-      # Max 15s
-      audio_path: "audio-sample.wav"
+  voice: "Vivian"  # Available speakers: Vivian, Serena, Uncle_Fu, Dylan, Eric, Ryan, Aiden, Ono_Anna, Sohee
 ```
 
-Then you can specify the model name in the requests:
+Available speakers:
+- **Chinese**: Vivian, Serena, Uncle_Fu, Dylan, Eric
+- **English**: Ryan, Aiden
+- **Japanese**: Ono_Anna
+- **Korean**: Sohee
+
+#### Voice Design Mode
+
+Voice Design allows you to create custom voices using natural language instructions. Configure the model with an `instruct` option:
+
+```yaml
+name: qwen-tts-design
+backend: qwen-tts
+parameters:
+  model: Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign
+options:
+  - "instruct:体现撒娇稚嫩的萝莉女声，音调偏高且起伏明显，营造出黏人、做作又刻意卖萌的听觉效果。"
+```
+
+Then use the model:
 
 ```
 curl http://localhost:8080/tts -H "Content-Type: application/json" -d '{         
-     "model": "cloned-voice",
-     "input":"Hello!"
+     "model": "qwen-tts-design",
+     "input":"Hello world, this is a test."
+   }' | aplay
+```
+
+#### Voice Clone Mode
+
+Voice Clone allows you to clone a voice from reference audio. Configure the model with an `AudioPath` and optional `ref_text`:
+
+```yaml
+name: qwen-tts-clone
+backend: qwen-tts
+parameters:
+  model: Qwen/Qwen3-TTS-12Hz-1.7B-Base
+tts:
+  audio_path: "path/to/reference_audio.wav"  # Reference audio file
+options:
+  - "ref_text:This is the transcript of the reference audio."
+  - "x_vector_only_mode:false"  # Set to true to use only speaker embedding (ref_text not required)
+```
+
+You can also use URLs or base64 strings for the reference audio. The backend automatically detects the mode based on available parameters (AudioPath → VoiceClone, instruct option → VoiceDesign, voice parameter → CustomVoice).
+
+Then use the model:
+
+```
+curl http://localhost:8080/tts -H "Content-Type: application/json" -d '{         
+     "model": "qwen-tts-clone",
+     "input":"Hello world, this is a test."
    }' | aplay
 ```
 
