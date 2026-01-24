@@ -278,7 +278,6 @@ LocalAI supports a comprehensive range of AI backends with multiple acceleration
 | **llama.cpp** | LLM inference in C/C++ | CUDA 12/13, ROCm, Intel SYCL, Vulkan, Metal, CPU |
 | **vLLM** | Fast LLM inference with PagedAttention | CUDA 12/13, ROCm, Intel |
 | **transformers** | HuggingFace transformers framework | CUDA 12/13, ROCm, Intel, CPU |
-| **exllama2** | GPTQ inference library | CUDA 12/13 |
 | **MLX** | Apple Silicon LLM inference | Metal (M1/M2/M3+) |
 | **MLX-VLM** | Apple Silicon Vision-Language Models | Metal (M1/M2/M3+) |
 
@@ -321,7 +320,7 @@ LocalAI supports a comprehensive range of AI backends with multiple acceleration
 | **NVIDIA CUDA 12** | All CUDA-compatible backends | Nvidia hardware |
 | **NVIDIA CUDA 13** | All CUDA-compatible backends | Nvidia hardware |
 | **AMD ROCm** | llama.cpp, whisper, vllm, transformers, diffusers, rerankers, coqui, kokoro, bark, neutts, vibevoice, pocket-tts, qwen-tts | AMD Graphics |
-| **Intel oneAPI** | llama.cpp, whisper, stablediffusion, vllm, transformers, diffusers, rfdetr, rerankers, exllama2, coqui, kokoro, bark, vibevoice, pocket-tts, qwen-tts | Intel Arc, Intel iGPUs |
+| **Intel oneAPI** | llama.cpp, whisper, stablediffusion, vllm, transformers, diffusers, rfdetr, rerankers, coqui, kokoro, bark, vibevoice, pocket-tts, qwen-tts | Intel Arc, Intel iGPUs |
 | **Apple Metal** | llama.cpp, whisper, diffusers, MLX, MLX-VLM, bark-cpp | Apple M1/M2/M3+ |
 | **Vulkan** | llama.cpp, whisper, stablediffusion | Cross-platform GPUs |
 | **NVIDIA Jetson (CUDA 12)** | llama.cpp, whisper, stablediffusion, diffusers, rfdetr | ARM64 embedded AI (AGX Orin, etc.) |

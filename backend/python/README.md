@@ -16,7 +16,6 @@ The Python backends use a unified build system based on `libbackend.sh` that pro
 - **transformers** - Hugging Face Transformers framework (PyTorch-based)
 - **vllm** - High-performance LLM inference engine
 - **mlx** - Apple Silicon optimized ML framework
-- **exllama2** - ExLlama2 quantized models
 
 ### Audio & Speech
 - **bark** - Text-to-speech synthesis

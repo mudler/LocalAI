@@ -318,19 +318,6 @@ jobs:
             cuda-minor-version: "9"
             platforms: 'linux/amd64'
             tag-latest: 'auto'
-            tag-suffix: '-gpu-nvidia-cuda-12-exllama2'
-            runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:24.04"
-            skip-drivers: 'false'
-            backend: "exllama2"
-            dockerfile: "./backend/Dockerfile.python"
-            context: "./"
-            ubuntu-version: '2404'
-          - build-type: 'cublas'
-            cuda-major-version: "12"
-            cuda-minor-version: "9"
-            platforms: 'linux/amd64'
-            tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-neutts'
             runs-on: 'ubuntu-latest'
             base-image: "ubuntu:24.04"
@@ -1301,46 +1288,6 @@ jobs:
             dockerfile: "./backend/Dockerfile.python"
             context: "./"
             ubuntu-version: '2204'
-          # exllama2
-          - build-type: ''
-            cuda-major-version: ""
-            cuda-minor-version: ""
-            platforms: 'linux/amd64'
-            tag-latest: 'auto'
-            tag-suffix: '-cpu-exllama2'
-            runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:24.04"
-            skip-drivers: 'false'
-            backend: "exllama2"
-            dockerfile: "./backend/Dockerfile.python"
-            context: "./"
-            ubuntu-version: '2404'
-          - build-type: 'intel'
-            cuda-major-version: ""
-            cuda-minor-version: ""
-            platforms: 'linux/amd64'
-            tag-latest: 'auto'
-            tag-suffix: '-gpu-intel-exllama2'
-            runs-on: 'ubuntu-latest'
-            base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
-            skip-drivers: 'false'
-            backend: "exllama2"
-            dockerfile: "./backend/Dockerfile.python"
-            context: "./"
-            ubuntu-version: '2404'
-          - build-type: 'hipblas'
-            cuda-major-version: ""
-            cuda-minor-version: ""
-            platforms: 'linux/amd64'
-            skip-drivers: 'true'
-            tag-latest: 'auto'
-            tag-suffix: '-gpu-hipblas-exllama2'
-            base-image: "rocm/dev-ubuntu-24.04:6.4.4"
-            runs-on: 'ubuntu-latest'
-            backend: "exllama2"
-            dockerfile: "./backend/Dockerfile.python"
-            context: "./"
-            ubuntu-version: '2404'
           - build-type: 'l4t'
             cuda-major-version: "12"
             cuda-minor-version: "0"

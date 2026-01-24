@@ -159,12 +159,8 @@ The devices in the following list have been tested with `hipblas` images running
 | bark | no | none |
 | coqui | no | none |
 | transformers | no | none |
-| exllama | no | none |
-| exllama2 | no | none |
-| mamba | no | none |
 | sentencetransformers | no | none |
 | transformers-musicgen | no | none |
-| vall-e-x | no | none |
 | vllm | no | none |
 
 **You can help by expanding this list.**

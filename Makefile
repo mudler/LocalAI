@@ -450,7 +450,6 @@ BACKEND_TRANSFORMERS = transformers|python|.|false|true
 BACKEND_FASTER_WHISPER = faster-whisper|python|.|false|true
 BACKEND_COQUI = coqui|python|.|false|true
 BACKEND_BARK = bark|python|.|false|true
-BACKEND_EXLLAMA2 = exllama2|python|.|false|true
 BACKEND_RFDETR = rfdetr|python|.|false|true
 BACKEND_KITTEN_TTS = kitten-tts|python|.|false|true
 BACKEND_NEUTTS = neutts|python|.|false|true
@@ -497,7 +496,6 @@ $(eval $(call generate-docker-build-target,$(BACKEND_TRANSFORMERS)))
 $(eval $(call generate-docker-build-target,$(BACKEND_FASTER_WHISPER)))
 $(eval $(call generate-docker-build-target,$(BACKEND_COQUI)))
 $(eval $(call generate-docker-build-target,$(BACKEND_BARK)))
-$(eval $(call generate-docker-build-target,$(BACKEND_EXLLAMA2)))
 $(eval $(call generate-docker-build-target,$(BACKEND_RFDETR)))
 $(eval $(call generate-docker-build-target,$(BACKEND_KITTEN_TTS)))
 $(eval $(call generate-docker-build-target,$(BACKEND_NEUTTS)))
@@ -514,7 +512,7 @@ $(eval $(call generate-docker-build-target,$(BACKEND_QWEN_TTS)))
 docker-save-%: backend-images
 	docker save local-ai-backend:$* -o backend-images/$*.tar
 
-docker-build-backends: docker-build-llama-cpp docker-build-rerankers docker-build-vllm docker-build-transformers docker-build-diffusers docker-build-kokoro docker-build-faster-whisper docker-build-coqui docker-build-bark docker-build-chatterbox docker-build-vibevoice docker-build-exllama2 docker-build-moonshine docker-build-pocket-tts docker-build-qwen-tts
+docker-build-backends: docker-build-llama-cpp docker-build-rerankers docker-build-vllm docker-build-transformers docker-build-diffusers docker-build-kokoro docker-build-faster-whisper docker-build-coqui docker-build-bark docker-build-chatterbox docker-build-vibevoice docker-build-moonshine docker-build-pocket-tts docker-build-qwen-tts
 
 ########################################################
 ### END Backends
