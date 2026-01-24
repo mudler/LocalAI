@@ -51,34 +51,16 @@
 **LocalAI** is the free, Open Source OpenAI alternative. LocalAI act as a drop-in replacement REST API that's compatible with OpenAI (Elevenlabs, Anthropic... ) API specifications for local AI inferencing. It allows you to run LLMs, generate images, audio (and not only) locally or on-prem with consumer grade hardware, supporting multiple model families. Does not require GPU. It is created and maintained by [Ettore Di Giacinto](https://github.com/mudler).
 
 
-## 📚🆕 Local Stack Family
+## Local Stack Family
 
-🆕 LocalAI is now part of a comprehensive suite of AI tools designed to work together:
+LocalAI is part of an integrated suite of AI infrastructure tools:
 
-<table>
-  <tr>
-    <td width="50%" valign="top">
-      <a href="https://github.com/mudler/LocalAGI">
-        <img src="https://raw.githubusercontent.com/mudler/LocalAGI/refs/heads/main/webui/react-ui/public/logo_2.png" width="300" alt="LocalAGI Logo">
-      </a>
-    </td>
-    <td width="50%" valign="top">
-      <h3><a href="https://github.com/mudler/LocalAGI">LocalAGI</a></h3>
-      <p>A powerful Local AI agent management platform that serves as a drop-in replacement for OpenAI's Responses API, enhanced with advanced agentic capabilities.</p>
-    </td>
-  </tr>
-  <tr>
-    <td width="50%" valign="top">
-      <a href="https://github.com/mudler/LocalRecall">
-        <img src="https://raw.githubusercontent.com/mudler/LocalRecall/refs/heads/main/static/localrecall_horizontal.png" width="300" alt="LocalRecall Logo">
-      </a>
-    </td>
-    <td width="50%" valign="top">
-      <h3><a href="https://github.com/mudler/LocalRecall">LocalRecall</a></h3>
-      <p>A REST-ful API and knowledge base management system that provides persistent memory and storage capabilities for AI agents.</p>
-    </td>
-  </tr>
-</table>
+- **[LocalAGI](https://github.com/mudler/LocalAGI)** - AI agent orchestration platform with OpenAI Responses API compatibility and advanced agentic capabilities
+- **[LocalRecall](https://github.com/mudler/LocalRecall)** - MCP/REST API knowledge base system providing persistent memory and storage for AI agents
+- 🆕 **[Cogito](https://github.com/mudler/cogito)** - Go library for building intelligent, co-operative agentic software and LLM-powered workflows, focusing on improving results for small, open source language models that scales to any LLM. Powers LocalAGI and LocalAI MCP/Agentic capabilities
+- 🆕 **[Wiz](https://github.com/mudler/wiz)** - Terminal-based AI agent accessible via Ctrl+Space keybinding. Portable, local-LLM friendly shell assistant with TUI/CLI modes, tool execution with approval, MCP protocol support, and multi-shell compatibility (zsh, bash, fish)
+- 🆕 **[SkillServer](https://github.com/mudler/skillserver)** - Simple, centralized skills database for AI agents via MCP. Manages skills as Markdown files with MCP server integration, web UI for editing, Git synchronization, and full-text search capabilities
+
 
 ## Screenshots / Video
 
