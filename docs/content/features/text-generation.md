@@ -539,36 +539,6 @@ options:
 - [llama](https://github.com/ggerganov/llama.cpp)
 
 
-### exllama/2
-
-[Exllama](https://github.com/turboderp/exllama) is a "A more memory-efficient rewrite of the HF transformers implementation of Llama for use with quantized weights". Both `exllama` and `exllama2` are supported.
-
-#### Model setup
-
-Download the model as a folder inside the `model ` directory and create a YAML file specifying the `exllama` backend. For instance with the `TheBloke/WizardLM-7B-uncensored-GPTQ` model:
-
-```
-$ git lfs install
-$ cd models && git clone https://huggingface.co/TheBloke/WizardLM-7B-uncensored-GPTQ
-$ ls models/                                                                 
-.keep                        WizardLM-7B-uncensored-GPTQ/ exllama.yaml
-$ cat models/exllama.yaml                                                     
-name: exllama
-parameters:
-  model: WizardLM-7B-uncensored-GPTQ
-backend: exllama
-```
-
-Test with:
-
-```bash
-curl http://localhost:8080/v1/chat/completions -H "Content-Type: application/json" -d '{                                                                                                         
-   "model": "exllama",
-   "messages": [{"role": "user", "content": "How are you?"}],
-   "temperature": 0.1
- }'
-```
-
 ### vLLM
 
 [vLLM](https://github.com/vllm-project/vllm) is a fast and easy-to-use library for LLM inference.
