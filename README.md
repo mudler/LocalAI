@@ -53,7 +53,7 @@
 
 ## Local Stack Family
 
-LocalAI is part of an integrated suite of AI infrastructure tools:
+Liking LocalAI? LocalAI is part of an integrated suite of AI infrastructure tools, you might also like:
 
 - **[LocalAGI](https://github.com/mudler/LocalAGI)** - AI agent orchestration platform with OpenAI Responses API compatibility and advanced agentic capabilities
 - **[LocalRecall](https://github.com/mudler/LocalRecall)** - MCP/REST API knowledge base system providing persistent memory and storage for AI agents
@@ -324,6 +324,10 @@ Agentic Libraries:
 
 MCPs:
 - https://github.com/mudler/MCPs
+
+OS Assistant:
+
+- https://github.com/mudler/Keygeist - Keygeist is an AI-powered keyboard operator that listens for key combinations and responds with AI-generated text typed directly into your Linux box.
 
 Model galleries
 - https://github.com/go-skynet/model-gallery
