@@ -14115,6 +14115,1137 @@
     - filename: voice-zh_CN-huayan-medium.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-zh_CN-huayan-medium.tar.gz
       sha256: 0299a5e7f481ba853404e9f0e1515a94d5409585d76963fa4d30c64bd630aa99
+- !!merge <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  name: voice-ca_ES-upc_ona-medium
+  overrides:
+    parameters:
+      model: ca_ES-upc_ona-medium.onnx
+  files:
+    - filename: ca_ES-upc_ona-medium.onnx
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/ca/ca_ES/upc_ona/medium/ca_ES-upc_ona-medium.onnx
+      sha256: fdb652db8c11a4475527346cf3241cb064d1ba393cf370f3f2ec09a872d118fd
+    - filename: ca_ES-upc_ona-medium.onnx.json
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/ca/ca_ES/upc_ona/medium/ca_ES-upc_ona-medium.onnx.json
+      sha256: 7f76acc9c06f4eda9e6aef2997b75782d97855aab48d4b401eb956a6e655eddc
+- !!merge <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  name: voice-cs_CZ-jirka-low
+  overrides:
+    parameters:
+      model: cs_CZ-jirka-low.onnx
+  files:
+    - filename: cs_CZ-jirka-low.onnx
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/cs/cs_CZ/jirka/low/cs_CZ-jirka-low.onnx
+      sha256: 72e73fb306a165b41927d2c9d882f71e9f1c86ac5edf37c5441370a6e4e6ef7d
+    - filename: cs_CZ-jirka-low.onnx.json
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/cs/cs_CZ/jirka/low/cs_CZ-jirka-low.onnx.json
+      sha256: fc32d8cdd23a6461fdd355de422daad6271cbf15033b754343b8a9262cca1f76
+- !!merge <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  name: voice-cs_CZ-jirka-medium
+  overrides:
+    parameters:
+      model: cs_CZ-jirka-medium.onnx
+  files:
+    - filename: cs_CZ-jirka-medium.onnx
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/cs/cs_CZ/jirka/medium/cs_CZ-jirka-medium.onnx
+      sha256: cbd5c900acacc8e8cbecd64347abb8de39c00a9d3104bed06fee92e4f319efc8
+    - filename: cs_CZ-jirka-medium.onnx.json
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/cs/cs_CZ/jirka/medium/cs_CZ-jirka-medium.onnx.json
+      sha256: fb38b1799b7354808227c065efa97b1ffa2b0cde59505babb56a36d35af9c637
+- !!merge <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  name: voice-cy_GB-bu_tts-medium
+  overrides:
+    parameters:
+      model: cy_GB-bu_tts-medium.onnx
+  files:
+    - filename: cy_GB-bu_tts-medium.onnx
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/cy/cy_GB/bu_tts/medium/cy_GB-bu_tts-medium.onnx
+      sha256: 411b513cd35975b4248cbaa8e3e5a9d9a3b8db6b77680b821e37b75d984be329
+    - filename: cy_GB-bu_tts-medium.onnx.json
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/cy/cy_GB/bu_tts/medium/cy_GB-bu_tts-medium.onnx.json
+      sha256: c318e3b8700b8eb4ed5deb276872b036dcb67e2882cc8dfb2d59d4a64018b285
+- !!merge <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  name: voice-cy_GB-gwryw_gogleddol-medium
+  overrides:
+    parameters:
+      model: cy_GB-gwryw_gogleddol-medium.onnx
+  files:
+    - filename: cy_GB-gwryw_gogleddol-medium.onnx
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/cy/cy_GB/gwryw_gogleddol/medium/cy_GB-gwryw_gogleddol-medium.onnx
+      sha256: a7d87df65e2c67ddee49829906ec51982fe123d418472731dab696f4dcefe8c6
+    - filename: cy_GB-gwryw_gogleddol-medium.onnx.json
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/cy/cy_GB/gwryw_gogleddol/medium/cy_GB-gwryw_gogleddol-medium.onnx.json
+      sha256: b31d2cfa51cd5709371a2346860b409b24eceec1a290235cb9299cff8a9c34c0
+- !!merge <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  name: voice-de_DE-thorsten-high
+  overrides:
+    parameters:
+      model: de_DE-thorsten-high.onnx
+  files:
+    - filename: de_DE-thorsten-high.onnx
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/de/de_DE/thorsten/high/de_DE-thorsten-high.onnx
+      sha256: 9df1c43c61149ef9b39e618e2b861fbe41e1fcea9390b2dac62e8761573ea4f1
+    - filename: de_DE-thorsten-high.onnx.json
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/de/de_DE/thorsten/high/de_DE-thorsten-high.onnx.json
+      sha256: 6de734444e4c3f9e33b7ebe2746dbc19b71e85f613e79c65acf623200b99a76a
+- !!merge <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  name: voice-de_DE-thorsten-medium
+  overrides:
+    parameters:
+      model: de_DE-thorsten-medium.onnx
+  files:
+    - filename: de_DE-thorsten-medium.onnx
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/de/de_DE/thorsten/medium/de_DE-thorsten-medium.onnx
+      sha256: 7e64762d8e5118bb578f2eea6207e1a35a8e0c30595010b666f983fc87bb7819
+    - filename: de_DE-thorsten-medium.onnx.json
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/de/de_DE/thorsten/medium/de_DE-thorsten-medium.onnx.json
+      sha256: 974adee790533adb273a1ac88f49027d2a1b8f0f2cf4905954a4791e79264e85
+- !!merge <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  name: voice-de_DE-thorsten_emotional-medium
+  overrides:
+    parameters:
+      model: de_DE-thorsten_emotional-medium.onnx
+  files:
+    - filename: de_DE-thorsten_emotional-medium.onnx
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/de/de_DE/thorsten_emotional/medium/de_DE-thorsten_emotional-medium.onnx
+      sha256: c1764e652266cd6dcebf1b95c61973df5970a5f5272e94b655ff1ddf9a99d1ff
+    - filename: de_DE-thorsten_emotional-medium.onnx.json
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/de/de_DE/thorsten_emotional/medium/de_DE-thorsten_emotional-medium.onnx.json
+      sha256: 92895b9e99f7cfc13f4a9879da615c3d6e0baa4d660e26d7b685abdd27a6d1d3
+- !!merge <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  name: voice-el_GR-rapunzelina-medium
+  overrides:
+    parameters:
+      model: el_GR-rapunzelina-medium.onnx
+  files:
+    - filename: el_GR-rapunzelina-medium.onnx
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/el/el_GR/rapunzelina/medium/el_GR-rapunzelina-medium.onnx
+      sha256: 3ca9fb3092215ee92edfc019b43feb0115ff4dfe638eb34474833ab1de840952
+    - filename: el_GR-rapunzelina-medium.onnx.json
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/el/el_GR/rapunzelina/medium/el_GR-rapunzelina-medium.onnx.json
+      sha256: 3a6182ec7c7550e14ef15e5d9badbb18f973a434086ac9658a1b10991fd192f8
+- !!merge <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  name: voice-en_GB-alan-medium
+  overrides:
+    parameters:
+      model: en_GB-alan-medium.onnx
+  files:
+    - filename: en_GB-alan-medium.onnx
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_GB/alan/medium/en_GB-alan-medium.onnx
+      sha256: 0a309668932205e762801f1efc2736cd4b0120329622adf62be09e56339d3330
+    - filename: en_GB-alan-medium.onnx.json
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_GB/alan/medium/en_GB-alan-medium.onnx.json
+      sha256: c0f0d124e5895c00e7c03b35dcc8287f319a6998a365b182deb5c8e752ee8c1e
+- !!merge <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  name: voice-en_GB-alba-medium
+  overrides:
+    parameters:
+      model: en_GB-alba-medium.onnx
+  files:
+    - filename: en_GB-alba-medium.onnx
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_GB/alba/medium/en_GB-alba-medium.onnx
+      sha256: 401369c4a81d09fdd86c32c5c864440811dbdcc66466cde2d64f7133a66ad03b
+    - filename: en_GB-alba-medium.onnx.json
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_GB/alba/medium/en_GB-alba-medium.onnx.json
+      sha256: aa965a2f02ecced632c2694e1fc72bbff6d65f265fab567ca945918c73dd89f4
+- !!merge <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  name: voice-en_GB-aru-medium
+  overrides:
+    parameters:
+      model: en_GB-aru-medium.onnx
+  files:
+    - filename: en_GB-aru-medium.onnx
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_GB/aru/medium/en_GB-aru-medium.onnx
+      sha256: 9e74d089a8563f8b2446426d01becb046cd3c3bfbafe1a20fd03a9a79bd82619
+    - filename: en_GB-aru-medium.onnx.json
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_GB/aru/medium/en_GB-aru-medium.onnx.json
+      sha256: 00529fabf0e79f29a9cb10fda5b60f9b7cf80671faac2b316e13af20e7816d5e
+- !!merge <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  name: voice-en_GB-cori-high
+  overrides:
+    parameters:
+      model: en_GB-cori-high.onnx
+  files:
+    - filename: en_GB-cori-high.onnx
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_GB/cori/high/en_GB-cori-high.onnx
+      sha256: 470b4dd634c98f8a4850d7626ffc3dfc90774628eeef6605a6dd8f88f30a5903
+    - filename: en_GB-cori-high.onnx.json
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_GB/cori/high/en_GB-cori-high.onnx.json
+      sha256: 9e7fb5b5671612c22f3c81cbe46c1ae87b031a4632bcb509e499dad6f1e2adec
+- !!merge <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  name: voice-en_GB-cori-medium
+  overrides:
+    parameters:
+      model: en_GB-cori-medium.onnx
+  files:
+    - filename: en_GB-cori-medium.onnx
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_GB/cori/medium/en_GB-cori-medium.onnx
+      sha256: 1899f98e5fb8310154f3c2973f4b8a929ba7245e722b3d3a85680b833d95f10d
+    - filename: en_GB-cori-medium.onnx.json
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_GB/cori/medium/en_GB-cori-medium.onnx.json
+      sha256: e262c16d7f192f69d4edd6b4ef8a5915379e67495fcc402f1ab15eeb33da3d36
+- !!merge <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  name: voice-en_GB-jenny_dioco-medium
+  overrides:
+    parameters:
+      model: en_GB-jenny_dioco-medium.onnx
+  files:
+    - filename: en_GB-jenny_dioco-medium.onnx
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_GB/jenny_dioco/medium/en_GB-jenny_dioco-medium.onnx
+      sha256: 469c630d209e139dd392a66bf4abde4ab86390a0269c1e47b4e5d7ce81526b01
+    - filename: en_GB-jenny_dioco-medium.onnx.json
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_GB/jenny_dioco/medium/en_GB-jenny_dioco-medium.onnx.json
+      sha256: a9a7a93a317c9a3cb6563e37eb057df9ef09c06188a8a4341b0fcb58cba54dd4
+- !!merge <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  name: voice-en_GB-northern_english_male-medium
+  overrides:
+    parameters:
+      model: en_GB-northern_english_male-medium.onnx
+  files:
+    - filename: en_GB-northern_english_male-medium.onnx
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_GB/northern_english_male/medium/en_GB-northern_english_male-medium.onnx
+      sha256: 57a219ae8e638873db7d18893304be5069c42868f392bb95c3ff17f0690d0689
+    - filename: en_GB-northern_english_male-medium.onnx.json
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_GB/northern_english_male/medium/en_GB-northern_english_male-medium.onnx.json
+      sha256: 69557ed3d974463453e9b0c09dd99a7ed0e52b8b87b64b357dbeeb2540a97d47
+- !!merge <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  name: voice-en_GB-semaine-medium
+  overrides:
+    parameters:
+      model: en_GB-semaine-medium.onnx
+  files:
+    - filename: en_GB-semaine-medium.onnx
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_GB/semaine/medium/en_GB-semaine-medium.onnx
+      sha256: d6dab6f3b92db43ea3f78c7f20dc8eadb47a1f15d8a1c9d451cf3ccd201a2f66
+    - filename: en_GB-semaine-medium.onnx.json
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_GB/semaine/medium/en_GB-semaine-medium.onnx.json
+      sha256: 6425dcb878684043b77d772b173ae006d86a583b110303edda48b8438ecee5ee
+- !!merge <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  name: voice-en_GB-vctk-medium
+  overrides:
+    parameters:
+      model: en_GB-vctk-medium.onnx
+  files:
+    - filename: en_GB-vctk-medium.onnx
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_GB/vctk/medium/en_GB-vctk-medium.onnx
+      sha256: 4e9fc85ab9009385319fc6bae7f55577f8a2d7ee77fd9159a5500eb6531f41e6
+    - filename: en_GB-vctk-medium.onnx.json
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_GB/vctk/medium/en_GB-vctk-medium.onnx.json
+      sha256: 7f85e6391ed0f7f46e4abd19345929a16be931a0c9945086f96692dce2087fa8
+- !!merge <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  name: voice-en_US-amy-medium
+  overrides:
+    parameters:
+      model: en_US-amy-medium.onnx
+  files:
+    - filename: en_US-amy-medium.onnx
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/amy/medium/en_US-amy-medium.onnx
+      sha256: b3a6e47b57b8c7fbe6a0ce2518161a50f59a9cdd8a50835c02cb02bdd6206c18
+    - filename: en_US-amy-medium.onnx.json
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/amy/medium/en_US-amy-medium.onnx.json
+      sha256: 95a23eb4d42909d38df73bb9ac7f45f597dbfcde2d1bf9526fdeaf5466977d77
+- !!merge <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  name: voice-en_US-arctic-medium
+  overrides:
+    parameters:
+      model: en_US-arctic-medium.onnx
+  files:
+    - filename: en_US-arctic-medium.onnx
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/arctic/medium/en_US-arctic-medium.onnx
+      sha256: 483303e294947a3ec2f910ea96093d876e1640f5772e9d89e511d6c82c667286
+    - filename: en_US-arctic-medium.onnx.json
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/arctic/medium/en_US-arctic-medium.onnx.json
+      sha256: db2ca1a55db01cdd3ce28ae63037ac525133e9e00ca557430dec572643235efe
+- !!merge <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  name: voice-en_US-bryce-medium
+  overrides:
+    parameters:
+      model: en_US-bryce-medium.onnx
+  files:
+    - filename: en_US-bryce-medium.onnx
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/bryce/medium/en_US-bryce-medium.onnx
+      sha256: dc9caa6c313199ffb5ac698b6e542fa6cba388aeaf2731e25262e33b9810aef1
+    - filename: en_US-bryce-medium.onnx.json
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/bryce/medium/en_US-bryce-medium.onnx.json
+      sha256: 7ceb1bc4af6d4e41b6d1edbb86c67e91e01eaa71f66db4cd0ae92ac704d415be
+- !!merge <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  name: voice-en_US-hfc_female-medium
+  overrides:
+    parameters:
+      model: en_US-hfc_female-medium.onnx
+  files:
+    - filename: en_US-hfc_female-medium.onnx
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/hfc_female/medium/en_US-hfc_female-medium.onnx
+      sha256: 914c473788fc1fa8b63ace1cdcdb44588f4ae523d3ab37df1536616835a140b7
+    - filename: en_US-hfc_female-medium.onnx.json
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/hfc_female/medium/en_US-hfc_female-medium.onnx.json
+      sha256: 03f1fa0622b80463283592d97aca9f6e89aec345a5c56b7257723e0093c58b6c
+- !!merge <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  name: voice-en_US-hfc_male-medium
+  overrides:
+    parameters:
+      model: en_US-hfc_male-medium.onnx
+  files:
+    - filename: en_US-hfc_male-medium.onnx
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/hfc_male/medium/en_US-hfc_male-medium.onnx
+      sha256: d11e403a02bdf5a670c877b3dc56e0e1c8cece6fb30289586314dffdc0a78cb0
+    - filename: en_US-hfc_male-medium.onnx.json
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/hfc_male/medium/en_US-hfc_male-medium.onnx.json
+      sha256: f66847424aed0bf99ecbb5d7cfde47c0a906f426a0daf7c46f305e7d21afd886
+- !!merge <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  name: voice-en_US-joe-medium
+  overrides:
+    parameters:
+      model: en_US-joe-medium.onnx
+  files:
+    - filename: en_US-joe-medium.onnx
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/joe/medium/en_US-joe-medium.onnx
+      sha256: 58afce0321b8d9c46d7cdf9c16500cc55a793b4220212dba6b70fb788b3baf06
+    - filename: en_US-joe-medium.onnx.json
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/joe/medium/en_US-joe-medium.onnx.json
+      sha256: 3d6d5410b3795cb1950595247ef8f06190719e6fdbfa3a2356d8ec368e1aad33
+- !!merge <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  name: voice-en_US-john-medium
+  overrides:
+    parameters:
+      model: en_US-john-medium.onnx
+  files:
+    - filename: en_US-john-medium.onnx
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/john/medium/en_US-john-medium.onnx
+      sha256: 789c6c875726e627ddee93d51d8727859abe9c091c3d141591f4b83c2072e988
+    - filename: en_US-john-medium.onnx.json
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/john/medium/en_US-john-medium.onnx.json
+      sha256: af60f177b6b550f3d7a302720c0fb89e7f94a82b5dca464775ef63b1c69ba09a
+- !!merge <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  name: voice-en_US-kristin-medium
+  overrides:
+    parameters:
+      model: en_US-kristin-medium.onnx
+  files:
+    - filename: en_US-kristin-medium.onnx
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/kristin/medium/en_US-kristin-medium.onnx
+      sha256: 5849957f929cbf720c258f8458692d6103fff2f0e3d3b19c8259474bb06a18d4
+    - filename: en_US-kristin-medium.onnx.json
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/kristin/medium/en_US-kristin-medium.onnx.json
+      sha256: 5681426d4aead22195de70531eeeeddb46493cfaffc5764b2ea3db73428b651c
+- !!merge <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  name: voice-en_US-kusal-medium
+  overrides:
+    parameters:
+      model: en_US-kusal-medium.onnx
+  files:
+    - filename: en_US-kusal-medium.onnx
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/kusal/medium/en_US-kusal-medium.onnx
+      sha256: 438ae25bb305b2a7f6d632327d6102df25011f793e8222fa9db876e7321df8f3
+    - filename: en_US-kusal-medium.onnx.json
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/kusal/medium/en_US-kusal-medium.onnx.json
+      sha256: ddd3c4dfd8b4f568150c934fb94912dd788d44db87f4f0a328c469d7a6761f41
+- !!merge <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  name: voice-en_US-l2arctic-medium
+  overrides:
+    parameters:
+      model: en_US-l2arctic-medium.onnx
+  files:
+    - filename: en_US-l2arctic-medium.onnx
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/l2arctic/medium/en_US-l2arctic-medium.onnx
+      sha256: d89f6f124bf1e7735b2179d2141b8001c3e19169d5e743ed6e35624f4c76f044
+    - filename: en_US-l2arctic-medium.onnx.json
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/l2arctic/medium/en_US-l2arctic-medium.onnx.json
+      sha256: a97e2ba653e9efcdc1bdcec64a398c8beb19ae5e8dfdbfe4ad6841983e56c07c
+- !!merge <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  name: voice-en_US-lessac-high
+  overrides:
+    parameters:
+      model: en_US-lessac-high.onnx
+  files:
+    - filename: en_US-lessac-high.onnx
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/lessac/high/en_US-lessac-high.onnx
+      sha256: 4cabf7c3a638017137f34a1516522032d4fe3f38228a843cc9b764ddcbcd9e09
+    - filename: en_US-lessac-high.onnx.json
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/lessac/high/en_US-lessac-high.onnx.json
+      sha256: db42b97d9859f257bc1561b8ed980e7fb2398402050a74ddd6cbec931a92412f
+- !!merge <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  name: voice-en_US-libritts_r-medium
+  overrides:
+    parameters:
+      model: en_US-libritts_r-medium.onnx
+  files:
+    - filename: en_US-libritts_r-medium.onnx
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/libritts_r/medium/en_US-libritts_r-medium.onnx
+      sha256: 10bb85e071d616fcf4071f369f1799d0491492ab3c5d552ec19fb548fac13195
+    - filename: en_US-libritts_r-medium.onnx.json
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/libritts_r/medium/en_US-libritts_r-medium.onnx.json
+      sha256: b471dc60d2d8335e819c393d196d6fbf792817f40051257b269878505bc9afb3
+- !!merge <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  name: voice-en_US-ljspeech-high
+  overrides:
+    parameters:
+      model: en_US-ljspeech-high.onnx
+  files:
+    - filename: en_US-ljspeech-high.onnx
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/ljspeech/high/en_US-ljspeech-high.onnx
+      sha256: 5d4f08ba6a2a48c44592eed3ce56bf85e9de3dd4e20df90541ae68a8310c029a
+    - filename: en_US-ljspeech-high.onnx.json
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/ljspeech/high/en_US-ljspeech-high.onnx.json
+      sha256: 7e1f4634af596d83cca997fb7a931ba80b70f8a316a2655ee69c55365e0ace14
+- !!merge <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  name: voice-en_US-ljspeech-medium
+  overrides:
+    parameters:
+      model: en_US-ljspeech-medium.onnx
+  files:
+    - filename: en_US-ljspeech-medium.onnx
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/ljspeech/medium/en_US-ljspeech-medium.onnx
+      sha256: 6f52a751e2349abe7a76735eb09dc1875298c77ea2342ffd2fef79ff81b87f22
+    - filename: en_US-ljspeech-medium.onnx.json
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/ljspeech/medium/en_US-ljspeech-medium.onnx.json
+      sha256: 141d612cc0a95ed7efc1ca936b845c2364967f2e9217c5dbfcf69fc4d6c65860
+- !!merge <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  name: voice-en_US-norman-medium
+  overrides:
+    parameters:
+      model: en_US-norman-medium.onnx
+  files:
+    - filename: en_US-norman-medium.onnx
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/norman/medium/en_US-norman-medium.onnx
+      sha256: b9739443232a80a59c7d18810dd856899bf16a7964725f5ab81ea49b1351cb71
+    - filename: en_US-norman-medium.onnx.json
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/norman/medium/en_US-norman-medium.onnx.json
+      sha256: 6c2db7f558a4a8deb9fe822583c1c5105f6c4e834dd0f9de8ad17a888ee9fe1d
+- !!merge <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  name: voice-en_US-reza_ibrahim-medium
+  overrides:
+    parameters:
+      model: en_US-reza_ibrahim-medium.onnx
+  files:
+    - filename: en_US-reza_ibrahim-medium.onnx
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/reza_ibrahim/medium/en_US-reza_ibrahim-medium.onnx
+      sha256: 99f0c31464a2120831ca87d079e10a9a2b3e426cc1ee662d80ff9042df15cd3c
+    - filename: en_US-reza_ibrahim-medium.onnx.json
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/reza_ibrahim/medium/en_US-reza_ibrahim-medium.onnx.json
+      sha256: 465ddf1702917fe617b7d69ed81301d6a2f39f083a754bd1cf6db8955d09a381
+- !!merge <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  name: voice-en_US-ryan-high
+  overrides:
+    parameters:
+      model: en_US-ryan-high.onnx
+  files:
+    - filename: en_US-ryan-high.onnx
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/ryan/high/en_US-ryan-high.onnx
+      sha256: b3990d7606e183ec8dbfba70a4607074f162de1a0c412e0180d1ff60bb154eca
+    - filename: en_US-ryan-high.onnx.json
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/ryan/high/en_US-ryan-high.onnx.json
+      sha256: c6d3b98f08315cb4bebf0d49d50fc4ff491b503c64b940cd3d5ca28543b48011
+- !!merge <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  name: voice-en_US-sam-medium
+  overrides:
+    parameters:
+      model: en_US-sam-medium.onnx
+  files:
+    - filename: en_US-sam-medium.onnx
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/sam/medium/en_US-sam-medium.onnx
+      sha256: 56417b3b4afe8ec6bb4cabf06e17d67261fdd5bf334592abcfc80052fba11163
+    - filename: en_US-sam-medium.onnx.json
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/sam/medium/en_US-sam-medium.onnx.json
+      sha256: 8c7fb47f19683b0b81037c5564f9a5ad4699a9da685e0e5da0a72fd3c3f5c1c4
+- !!merge <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  name: voice-es_AR-daniela-high
+  overrides:
+    parameters:
+      model: es_AR-daniela-high.onnx
+  files:
+    - filename: es_AR-daniela-high.onnx
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/es/es_AR/daniela/high/es_AR-daniela-high.onnx
+      sha256: 7ceb1fc0dab349418c5b54a639ae9ee595212d7c9ea422220d8419163d5cc985
+    - filename: es_AR-daniela-high.onnx.json
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/es/es_AR/daniela/high/es_AR-daniela-high.onnx.json
+      sha256: aedbf69647e1d754c62ecf8e0366ca5f16af3e768e3c6b5329af6eb6bde3852b
+- !!merge <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  name: voice-es_ES-davefx-medium
+  overrides:
+    parameters:
+      model: es_ES-davefx-medium.onnx
+  files:
+    - filename: es_ES-davefx-medium.onnx
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/es/es_ES/davefx/medium/es_ES-davefx-medium.onnx
+      sha256: 6658b03b1a6c316ee4c265a9896abc1393353c2d9e1bca7d66c2c442e222a917
+    - filename: es_ES-davefx-medium.onnx.json
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/es/es_ES/davefx/medium/es_ES-davefx-medium.onnx.json
+      sha256: 0e0dda87c732f6f38771ff274a6380d9252f327dca77aa2963d5fbdf9ec54842
+- !!merge <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  name: voice-es_ES-sharvard-medium
+  overrides:
+    parameters:
+      model: es_ES-sharvard-medium.onnx
+  files:
+    - filename: es_ES-sharvard-medium.onnx
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/es/es_ES/sharvard/medium/es_ES-sharvard-medium.onnx
+      sha256: 40febfb1679c69a4505ff311dc136e121e3419a13a290ef264fdf43ddedd0fb1
+    - filename: es_ES-sharvard-medium.onnx.json
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/es/es_ES/sharvard/medium/es_ES-sharvard-medium.onnx.json
+      sha256: 7438c9b699c72b0c3388dae1b68d3f364dc66a2150fe554a1c11f03372957b2c
+- !!merge <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  name: voice-es_MX-ald-medium
+  overrides:
+    parameters:
+      model: es_MX-ald-medium.onnx
+  files:
+    - filename: es_MX-ald-medium.onnx
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/es/es_MX/ald/medium/es_MX-ald-medium.onnx
+      sha256: 019b3803293c93e34a206dd2e53a3889209a514e786fd7144f7b70196c579b63
+    - filename: es_MX-ald-medium.onnx.json
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/es/es_MX/ald/medium/es_MX-ald-medium.onnx.json
+      sha256: 5a71498158e04afc8099bfd019c7e87c68eb9d042505a2b1a87e5c1ac2b1a61d
+- !!merge <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  name: voice-es_MX-claude-high
+  overrides:
+    parameters:
+      model: es_MX-claude-high.onnx
+  files:
+    - filename: es_MX-claude-high.onnx
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/es/es_MX/claude/high/es_MX-claude-high.onnx
+      sha256: 3ef40a71ea63852cd8ab7e6fa7d2ecdcfa67a0b47c9c48e3f10e02ee02083ea0
+    - filename: es_MX-claude-high.onnx.json
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/es/es_MX/claude/high/es_MX-claude-high.onnx.json
+      sha256: 1afc81f703c0e4cb3b4d7c0dca096b8b54a98806807f0170cf5eb5557723c12d
+- !!merge <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  name: voice-fa_IR-amir-medium
+  overrides:
+    parameters:
+      model: fa_IR-amir-medium.onnx
+  files:
+    - filename: fa_IR-amir-medium.onnx
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/fa/fa_IR/amir/medium/fa_IR-amir-medium.onnx
+      sha256: fb815380d969ea372b0b21b0de14421f58fe481047e153e69685d079b6e1a9d1
+    - filename: fa_IR-amir-medium.onnx.json
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/fa/fa_IR/amir/medium/fa_IR-amir-medium.onnx.json
+      sha256: 75f918a3bf0f57a9179abe725af529f2a5c79d6c899e2a84aec76c685d5dfb9a
+- !!merge <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  name: voice-fa_IR-ganji-medium
+  overrides:
+    parameters:
+      model: fa_IR-ganji-medium.onnx
+  files:
+    - filename: fa_IR-ganji-medium.onnx
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/fa/fa_IR/ganji/medium/fa_IR-ganji-medium.onnx
+      sha256: 6a98504bb77dc2fd3a863c977d37e67a6a525fdf661917385d569a3ff78e6cae
+    - filename: fa_IR-ganji-medium.onnx.json
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/fa/fa_IR/ganji/medium/fa_IR-ganji-medium.onnx.json
+      sha256: 9d3e0c0cf00156d8bf38fb7f96bdfbcb21911b37e062a328da0632e3c2cbc465
+- !!merge <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  name: voice-fa_IR-ganji_adabi-medium
+  overrides:
+    parameters:
+      model: fa_IR-ganji_adabi-medium.onnx
+  files:
+    - filename: fa_IR-ganji_adabi-medium.onnx
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/fa/fa_IR/ganji_adabi/medium/fa_IR-ganji_adabi-medium.onnx
+      sha256: e9073b41ae65759dcf95778e569c8f3780406dac99549436f6ab8e7d2336ed72
+    - filename: fa_IR-ganji_adabi-medium.onnx.json
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/fa/fa_IR/ganji_adabi/medium/fa_IR-ganji_adabi-medium.onnx.json
+      sha256: aa430ceebaa7c96d9cd6b1e73231a393901cabb23a1b7f53e8d85178a5ae70c9
+- !!merge <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  name: voice-fa_IR-gyro-medium
+  overrides:
+    parameters:
+      model: fa_IR-gyro-medium.onnx
+  files:
+    - filename: fa_IR-gyro-medium.onnx
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/fa/fa_IR/gyro/medium/fa_IR-gyro-medium.onnx
+      sha256: 37dfae43c82ee38ca9e6aac4ffef76a74d6b282ccbc397b27761f35d355c99ba
+    - filename: fa_IR-gyro-medium.onnx.json
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/fa/fa_IR/gyro/medium/fa_IR-gyro-medium.onnx.json
+      sha256: 4cd0ca01824b460f490224e284f9b68ecf07f91f3c654ba3bce59d4eb7646082
+- !!merge <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  name: voice-fa_IR-reza_ibrahim-medium
+  overrides:
+    parameters:
+      model: fa_IR-reza_ibrahim-medium.onnx
+  files:
+    - filename: fa_IR-reza_ibrahim-medium.onnx
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/fa/fa_IR/reza_ibrahim/medium/fa_IR-reza_ibrahim-medium.onnx
+      sha256: 99f0c31464a2120831ca87d079e10a9a2b3e426cc1ee662d80ff9042df15cd3c
+    - filename: fa_IR-reza_ibrahim-medium.onnx.json
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/fa/fa_IR/reza_ibrahim/medium/fa_IR-reza_ibrahim-medium.onnx.json
+      sha256: e9866c88c16245f8b8f4d0eaeaa6eab4f2e193db69a2ab4683d83fe78a30b6ca
+- !!merge <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  name: voice-fi_FI-harri-medium
+  overrides:
+    parameters:
+      model: fi_FI-harri-medium.onnx
+  files:
+    - filename: fi_FI-harri-medium.onnx
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/fi/fi_FI/harri/medium/fi_FI-harri-medium.onnx
+      sha256: a44167faa34caed940e4fcad139fcc35922266b2593bcebe77701774c0fb2389
+    - filename: fi_FI-harri-medium.onnx.json
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/fi/fi_FI/harri/medium/fi_FI-harri-medium.onnx.json
+      sha256: 3f9c9f76f74adf1fbe7279e41eea17d6610757e45effd6808bbea6be74b8916d
+- !!merge <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  name: voice-fr_FR-tom-medium
+  overrides:
+    parameters:
+      model: fr_FR-tom-medium.onnx
+  files:
+    - filename: fr_FR-tom-medium.onnx
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/fr/fr_FR/tom/medium/fr_FR-tom-medium.onnx
+      sha256: bf65074ccdeeeeaa832e75edb1c0a513c01c9a972bdf085ff8a6e71ea234fd41
+    - filename: fr_FR-tom-medium.onnx.json
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/fr/fr_FR/tom/medium/fr_FR-tom-medium.onnx.json
+      sha256: 2f7f885ad5a0aad802e3cc24e4f57239febdcb142b4876de5d238094674361cc
+- !!merge <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  name: voice-fr_FR-upmc-medium
+  overrides:
+    parameters:
+      model: fr_FR-upmc-medium.onnx
+  files:
+    - filename: fr_FR-upmc-medium.onnx
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/fr/fr_FR/upmc/medium/fr_FR-upmc-medium.onnx
+      sha256: 9abb3800c199148897a9ed64e100d224f3de83579f100044174ad19418f1786f
+    - filename: fr_FR-upmc-medium.onnx.json
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/fr/fr_FR/upmc/medium/fr_FR-upmc-medium.onnx.json
+      sha256: e8636ec15dfd5d72db37a02cb5320a20f2b8d339f2a0e4337da64c58a33a5868
+- !!merge <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  name: voice-hi_IN-pratham-medium
+  overrides:
+    parameters:
+      model: hi_IN-pratham-medium.onnx
+  files:
+    - filename: hi_IN-pratham-medium.onnx
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/hi/hi_IN/pratham/medium/hi_IN-pratham-medium.onnx
+      sha256: 169964b0871667f6793416d4b35e97357a68ba1ad01df8580c28048989ee7693
+    - filename: hi_IN-pratham-medium.onnx.json
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/hi/hi_IN/pratham/medium/hi_IN-pratham-medium.onnx.json
+      sha256: b68edd2cd7950dd436314013b7cd12e9699e5a3f6fe5af5af94294cf6aa7b9fd
+- !!merge <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  name: voice-hi_IN-priyamvada-medium
+  overrides:
+    parameters:
+      model: hi_IN-priyamvada-medium.onnx
+  files:
+    - filename: hi_IN-priyamvada-medium.onnx
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/hi/hi_IN/priyamvada/medium/hi_IN-priyamvada-medium.onnx
+      sha256: aa63bcf2cd493b55a450f280e23cf77f03afc9af7015e6e5acd43b652f166c88
+    - filename: hi_IN-priyamvada-medium.onnx.json
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/hi/hi_IN/priyamvada/medium/hi_IN-priyamvada-medium.onnx.json
+      sha256: 5efc0ccf7529f3528996d46e0fac1f969f681d44a8e55bfa6236ff8841b5d52d
+- !!merge <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  name: voice-hi_IN-rohan-medium
+  overrides:
+    parameters:
+      model: hi_IN-rohan-medium.onnx
+  files:
+    - filename: hi_IN-rohan-medium.onnx
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/hi/hi_IN/rohan/medium/hi_IN-rohan-medium.onnx
+      sha256: b65dc80fb34d9dcd1cf684cb297966a34983bbc93bb1696fe207f32b0b33a091
+    - filename: hi_IN-rohan-medium.onnx.json
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/hi/hi_IN/rohan/medium/hi_IN-rohan-medium.onnx.json
+      sha256: 07b9ae19bd0bac7fbbc99f7ee69c91245eb5470e926632c31fc0c50ba653c817
+- !!merge <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  name: voice-hu_HU-anna-medium
+  overrides:
+    parameters:
+      model: hu_HU-anna-medium.onnx
+  files:
+    - filename: hu_HU-anna-medium.onnx
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/hu/hu_HU/anna/medium/hu_HU-anna-medium.onnx
+      sha256: 968c0c3a66cb667811242cc88653bff9247395fc7a0517fbeef7d8c08cdae62a
+    - filename: hu_HU-anna-medium.onnx.json
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/hu/hu_HU/anna/medium/hu_HU-anna-medium.onnx.json
+      sha256: ccf967d8db8018c9d8ffdb0edc8814ffcb6b75273bb0d84337317240f710283a
+- !!merge <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  name: voice-hu_HU-berta-medium
+  overrides:
+    parameters:
+      model: hu_HU-berta-medium.onnx
+  files:
+    - filename: hu_HU-berta-medium.onnx
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/hu/hu_HU/berta/medium/hu_HU-berta-medium.onnx
+      sha256: 4eed05f767573b77fd2c07e6bccaa9b3c77089a55b9239c3099ecd3d17a59be3
+    - filename: hu_HU-berta-medium.onnx.json
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/hu/hu_HU/berta/medium/hu_HU-berta-medium.onnx.json
+      sha256: 3fd75422fcb0da86d54391256607a08d1ee4fb70f031941197e4400b9067b603
+- !!merge <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  name: voice-hu_HU-imre-medium
+  overrides:
+    parameters:
+      model: hu_HU-imre-medium.onnx
+  files:
+    - filename: hu_HU-imre-medium.onnx
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/hu/hu_HU/imre/medium/hu_HU-imre-medium.onnx
+      sha256: af7d98e2031b4f00cf3693cafc47b0b5347f23c28cd6a5957a693f76d7202c2d
+    - filename: hu_HU-imre-medium.onnx.json
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/hu/hu_HU/imre/medium/hu_HU-imre-medium.onnx.json
+      sha256: bb9c31dd8429b1414d486e5d52d52f0790949c63bfaf1345075d42e23ad10c83
+- !!merge <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  name: voice-id_ID-news_tts-medium
+  overrides:
+    parameters:
+      model: id_ID-news_tts-medium.onnx
+  files:
+    - filename: id_ID-news_tts-medium.onnx
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/id/id_ID/news_tts/medium/id_ID-news_tts-medium.onnx
+      sha256: ed8f02aa593f7af6b19acbdb8142e0da0dd72f46194eb33d38e0eb10a52597e8
+    - filename: id_ID-news_tts-medium.onnx.json
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/id/id_ID/news_tts/medium/id_ID-news_tts-medium.onnx.json
+      sha256: 1ef677072668a5e172e0759b1d3871f129009d1167f093325a17607f7add5ad7
+- !!merge <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  name: voice-ka_GE-natia-medium
+  overrides:
+    parameters:
+      model: ka_GE-natia-medium.onnx
+  files:
+    - filename: ka_GE-natia-medium.onnx
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/ka/ka_GE/natia/medium/ka_GE-natia-medium.onnx
+      sha256: 04bdacf188fa24499885f9109b395fe8561a05ec2cd90d55453ec5beed7af460
+    - filename: ka_GE-natia-medium.onnx.json
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/ka/ka_GE/natia/medium/ka_GE-natia-medium.onnx.json
+      sha256: 906436d0f8de79fcd65576470b10c7ea937c750f9b6b6dafc72a27cebd4a88f6
+- !!merge <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  name: voice-lb_LU-marylux-medium
+  overrides:
+    parameters:
+      model: lb_LU-marylux-medium.onnx
+  files:
+    - filename: lb_LU-marylux-medium.onnx
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/lb/lb_LU/marylux/medium/lb_LU-marylux-medium.onnx
+      sha256: 4147ecacdd98932951d0f956555542de358d3ccff708d4996e305c3ce287097a
+    - filename: lb_LU-marylux-medium.onnx.json
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/lb/lb_LU/marylux/medium/lb_LU-marylux-medium.onnx.json
+      sha256: e5c5dec5433d33ff573e76fa567e80dcf636d05de5dcc817b273963f0733d742
+- !!merge <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  name: voice-lv_LV-aivars-medium
+  overrides:
+    parameters:
+      model: lv_LV-aivars-medium.onnx
+  files:
+    - filename: lv_LV-aivars-medium.onnx
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/lv/lv_LV/aivars/medium/lv_LV-aivars-medium.onnx
+      sha256: 9d855a47c22e2b94795be9e0eb9e8c4c02ce251dc89461dede94de20ff08bd8e
+    - filename: lv_LV-aivars-medium.onnx.json
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/lv/lv_LV/aivars/medium/lv_LV-aivars-medium.onnx.json
+      sha256: 08ae2c297be8aa04f15f3f97b7ffeae0146b30b0bd8f7baebcdc46bc2c2f33dc
+- !!merge <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  name: voice-ml_IN-arjun-medium
+  overrides:
+    parameters:
+      model: ml_IN-arjun-medium.onnx
+  files:
+    - filename: ml_IN-arjun-medium.onnx
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/ml/ml_IN/arjun/medium/ml_IN-arjun-medium.onnx
+      sha256: e881130516a874306972a07dcf262e6900140430c5658131121744a80ef3f11b
+    - filename: ml_IN-arjun-medium.onnx.json
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/ml/ml_IN/arjun/medium/ml_IN-arjun-medium.onnx.json
+      sha256: 2804f070954e56545e88101b70331d444402187899d0a6ff03e5d44bee813245
+- !!merge <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  name: voice-ml_IN-meera-medium
+  overrides:
+    parameters:
+      model: ml_IN-meera-medium.onnx
+  files:
+    - filename: ml_IN-meera-medium.onnx
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/ml/ml_IN/meera/medium/ml_IN-meera-medium.onnx
+      sha256: 0c3e730f8294286694cac5d33f4c94d050ed8ea74c5fd6d0d492d38cb57b5102
+    - filename: ml_IN-meera-medium.onnx.json
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/ml/ml_IN/meera/medium/ml_IN-meera-medium.onnx.json
+      sha256: ad51935143f548d139a84c6ad1702b757cbceb52701167c0c1c98bebda7203e6
+- !!merge <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  name: voice-ne_NP-chitwan-medium
+  overrides:
+    parameters:
+      model: ne_NP-chitwan-medium.onnx
+  files:
+    - filename: ne_NP-chitwan-medium.onnx
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/ne/ne_NP/chitwan/medium/ne_NP-chitwan-medium.onnx
+      sha256: f7ba6b0927688f92717e93ca52bc06f5783ce8edc765d5f85365acef1d41822c
+    - filename: ne_NP-chitwan-medium.onnx.json
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/ne/ne_NP/chitwan/medium/ne_NP-chitwan-medium.onnx.json
+      sha256: 18d523b03b201422d14e2892cc750a81208d2e45158a9c6a7e4e06a500930dee
+- !!merge <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  name: voice-nl_BE-nathalie-medium
+  overrides:
+    parameters:
+      model: nl_BE-nathalie-medium.onnx
+  files:
+    - filename: nl_BE-nathalie-medium.onnx
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/nl/nl_BE/nathalie/medium/nl_BE-nathalie-medium.onnx
+      sha256: 49cf48023861f9fd42e13a8632f068fee67d1ce244a6ee38f29595afbf0a6be4
+    - filename: nl_BE-nathalie-medium.onnx.json
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/nl/nl_BE/nathalie/medium/nl_BE-nathalie-medium.onnx.json
+      sha256: 4704af2736022e910a3f32672480d5530dd39da5c2bcc079f315f604166ff0de
+- !!merge <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  name: voice-nl_NL-pim-medium
+  overrides:
+    parameters:
+      model: nl_NL-pim-medium.onnx
+  files:
+    - filename: nl_NL-pim-medium.onnx
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/nl/nl_NL/pim/medium/nl_NL-pim-medium.onnx
+      sha256: 403e58c3675c394f505c2428117bf34cc56e9542dcf6eadbdd3a84706c12e048
+    - filename: nl_NL-pim-medium.onnx.json
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/nl/nl_NL/pim/medium/nl_NL-pim-medium.onnx.json
+      sha256: 08b58456ca00cf77123826b1712758f99d5fd19ddfb7ec7da8e1a715b047f642
+- !!merge <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  name: voice-nl_NL-ronnie-medium
+  overrides:
+    parameters:
+      model: nl_NL-ronnie-medium.onnx
+  files:
+    - filename: nl_NL-ronnie-medium.onnx
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/nl/nl_NL/ronnie/medium/nl_NL-ronnie-medium.onnx
+      sha256: ac9aba346d2088ed1ddea646a843ef97dc8e1514cc75e969c90a0c843bb5cbf5
+    - filename: nl_NL-ronnie-medium.onnx.json
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/nl/nl_NL/ronnie/medium/nl_NL-ronnie-medium.onnx.json
+      sha256: 4329a4deb198d119b7f7364173e388afb8efec9eca10e849f9394aa1a92bb7bc
+- !!merge <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  name: voice-pl_PL-darkman-medium
+  overrides:
+    parameters:
+      model: pl_PL-darkman-medium.onnx
+  files:
+    - filename: pl_PL-darkman-medium.onnx
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/pl/pl_PL/darkman/medium/pl_PL-darkman-medium.onnx
+      sha256: db505438a5364e8e2e0242c4324130a873ed660dfbe8d9689cef428ffb1b645f
+    - filename: pl_PL-darkman-medium.onnx.json
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/pl/pl_PL/darkman/medium/pl_PL-darkman-medium.onnx.json
+      sha256: 70f999f11fa8ad13d3ef779041ee93c9f38be5abdbacdfad42449712fe91c81b
+- !!merge <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  name: voice-pl_PL-gosia-medium
+  overrides:
+    parameters:
+      model: pl_PL-gosia-medium.onnx
+  files:
+    - filename: pl_PL-gosia-medium.onnx
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/pl/pl_PL/gosia/medium/pl_PL-gosia-medium.onnx
+      sha256: 38f66464240ed74f186e6b7dc13c6e3b22e023426299f25c2b3cc9dfa9373fbc
+    - filename: pl_PL-gosia-medium.onnx.json
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/pl/pl_PL/gosia/medium/pl_PL-gosia-medium.onnx.json
+      sha256: 1aefb31a9d53ffe44a8163ff73ec833acb7a6253848f6bb0403d8a66f9c7510d
+- !!merge <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  name: voice-pl_PL-mc_speech-medium
+  overrides:
+    parameters:
+      model: pl_PL-mc_speech-medium.onnx
+  files:
+    - filename: pl_PL-mc_speech-medium.onnx
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/pl/pl_PL/mc_speech/medium/pl_PL-mc_speech-medium.onnx
+      sha256: a6b043358bc81e6c111a5140606a21959ce7f34969b8b7207f62869787cc3907
+    - filename: pl_PL-mc_speech-medium.onnx.json
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/pl/pl_PL/mc_speech/medium/pl_PL-mc_speech-medium.onnx.json
+      sha256: b8bb11228e15c505219846a88fdc129e93f57e774ed7f9bac263156d1aa3d324
+- !!merge <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  name: voice-pt_BR-cadu-medium
+  overrides:
+    parameters:
+      model: pt_BR-cadu-medium.onnx
+  files:
+    - filename: pt_BR-cadu-medium.onnx
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/pt/pt_BR/cadu/medium/pt_BR-cadu-medium.onnx
+      sha256: 765f0809a6ea9035d4a6d0d008dbf8876e68b2dd32029312672fa8f405bdb535
+    - filename: pt_BR-cadu-medium.onnx.json
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/pt/pt_BR/cadu/medium/pt_BR-cadu-medium.onnx.json
+      sha256: 5fe03aa3d4901880554905b12075713cd552598c8a350455a1ec73f8b4e6be19
+- !!merge <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  name: voice-pt_BR-faber-medium
+  overrides:
+    parameters:
+      model: pt_BR-faber-medium.onnx
+  files:
+    - filename: pt_BR-faber-medium.onnx
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/pt/pt_BR/faber/medium/pt_BR-faber-medium.onnx
+      sha256: 858555e3a064209c57088fe6bd70c4c3dc54d03eaa00c45d5ecaf43a33f95aa7
+    - filename: pt_BR-faber-medium.onnx.json
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/pt/pt_BR/faber/medium/pt_BR-faber-medium.onnx.json
+      sha256: 7e694de195ae3fc36dd732c445eb04fb49b649854893cb5506b978f0d50a1d6f
+- !!merge <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  name: voice-pt_BR-jeff-medium
+  overrides:
+    parameters:
+      model: pt_BR-jeff-medium.onnx
+  files:
+    - filename: pt_BR-jeff-medium.onnx
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/pt/pt_BR/jeff/medium/pt_BR-jeff-medium.onnx
+      sha256: 3a6f4c46355813c2b7bbc4d16b6d13d60ed72074b952a393baace82a7d0c94b5
+    - filename: pt_BR-jeff-medium.onnx.json
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/pt/pt_BR/jeff/medium/pt_BR-jeff-medium.onnx.json
+      sha256: 7bf8145b572b36806f5ce0f1d3322b6711975bc7d0473e8d36fced4a9ec0030d
+- !!merge <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  name: voice-pt_PT-tugão-medium
+  overrides:
+    parameters:
+      model: pt_PT-tugão-medium.onnx
+  files:
+    - filename: pt_PT-tugão-medium.onnx
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/pt/pt_PT/tug%C3%A3o/medium/pt_PT-tug%C3%A3o-medium.onnx
+      sha256: 223a7aaca69a155c61897e8ada7c3b13bc306e16c72dbb9c2fed733e2b0927d4
+    - filename: pt_PT-tugão-medium.onnx.json
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/pt/pt_PT/tug%C3%A3o/medium/pt_PT-tug%C3%A3o-medium.onnx.json
+      sha256: fe0918dfc0f1a89264a6eea4afe8e95d8e9fed3cc6c81b5c2f87fcb2b50c7320
+- !!merge <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  name: voice-ro_RO-mihai-medium
+  overrides:
+    parameters:
+      model: ro_RO-mihai-medium.onnx
+  files:
+    - filename: ro_RO-mihai-medium.onnx
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/ro/ro_RO/mihai/medium/ro_RO-mihai-medium.onnx
+      sha256: e0608bbbd53c80267c09ece681b09f5199f54e792356684c8073738e5f15d29f
+    - filename: ro_RO-mihai-medium.onnx.json
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/ro/ro_RO/mihai/medium/ro_RO-mihai-medium.onnx.json
+      sha256: 8cc0c9f077dc0cec3c25a6a055ec8046db8e40a2510591582f2c9c869f4bc47e
+- !!merge <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  name: voice-ru_RU-denis-medium
+  overrides:
+    parameters:
+      model: ru_RU-denis-medium.onnx
+  files:
+    - filename: ru_RU-denis-medium.onnx
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/ru/ru_RU/denis/medium/ru_RU-denis-medium.onnx
+      sha256: 15fab56e11a097858ee115545d0f697fc2a316c41a291a5362349fb870411b0a
+    - filename: ru_RU-denis-medium.onnx.json
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/ru/ru_RU/denis/medium/ru_RU-denis-medium.onnx.json
+      sha256: 831c860dac0b5073eaa81610a0a638ec23d90a6cf8e5f871b4485c2cec3767c8
+- !!merge <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  name: voice-ru_RU-dmitri-medium
+  overrides:
+    parameters:
+      model: ru_RU-dmitri-medium.onnx
+  files:
+    - filename: ru_RU-dmitri-medium.onnx
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/ru/ru_RU/dmitri/medium/ru_RU-dmitri-medium.onnx
+      sha256: f073356ebc4bd0f80c5af58df2953a5988bd5bdab1eb38635ce960b071fbefcb
+    - filename: ru_RU-dmitri-medium.onnx.json
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/ru/ru_RU/dmitri/medium/ru_RU-dmitri-medium.onnx.json
+      sha256: 667ef3117bc642c2892dff7690d8bdc8ca4228aeaa783b2dc1416df632855e0d
+- !!merge <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  name: voice-ru_RU-irina-medium
+  overrides:
+    parameters:
+      model: ru_RU-irina-medium.onnx
+  files:
+    - filename: ru_RU-irina-medium.onnx
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/ru/ru_RU/irina/medium/ru_RU-irina-medium.onnx
+      sha256: 8ff38212d23da300bbe3705c645e6e5b9475f0bfde01558eb17813e22acaaaaa
+    - filename: ru_RU-irina-medium.onnx.json
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/ru/ru_RU/irina/medium/ru_RU-irina-medium.onnx.json
+      sha256: c2ec28bb38e2b59e93b959b3e40348c1afebbd272f30fed5d41205d08e98a9d7
+- !!merge <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  name: voice-ru_RU-ruslan-medium
+  overrides:
+    parameters:
+      model: ru_RU-ruslan-medium.onnx
+  files:
+    - filename: ru_RU-ruslan-medium.onnx
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/ru/ru_RU/ruslan/medium/ru_RU-ruslan-medium.onnx
+      sha256: 72a5f88e0b20928064eb45d88e1daa21f8af62d18613580d32cbb4aed48dcf7f
+    - filename: ru_RU-ruslan-medium.onnx.json
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/ru/ru_RU/ruslan/medium/ru_RU-ruslan-medium.onnx.json
+      sha256: 706a4fb17bc304abd07809b552deae615e64dcbffbfbd09854ba37ca59e88117
+- !!merge <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  name: voice-sk_SK-lili-medium
+  overrides:
+    parameters:
+      model: sk_SK-lili-medium.onnx
+  files:
+    - filename: sk_SK-lili-medium.onnx
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/sk/sk_SK/lili/medium/sk_SK-lili-medium.onnx
+      sha256: d8e21603e0165252849efe0bcb3fbffd1b3193c36bd1f556e1106911e8015526
+    - filename: sk_SK-lili-medium.onnx.json
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/sk/sk_SK/lili/medium/sk_SK-lili-medium.onnx.json
+      sha256: b7c474eba411913f9feb65b9da322463e8698e7b200d2b757f6e684802951333
+- !!merge <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  name: voice-sl_SI-artur-medium
+  overrides:
+    parameters:
+      model: sl_SI-artur-medium.onnx
+  files:
+    - filename: sl_SI-artur-medium.onnx
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/sl/sl_SI/artur/medium/sl_SI-artur-medium.onnx
+      sha256: 9222ed93ef425524ad4be0b083369af8ea8db18455576a6016b154192f4ed38c
+    - filename: sl_SI-artur-medium.onnx.json
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/sl/sl_SI/artur/medium/sl_SI-artur-medium.onnx.json
+      sha256: 741283430f1fa2be5c61717c6f1fe795a7b9f537491927340dd12f90f3b3cc04
+- !!merge <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  name: voice-sr_RS-serbski_institut-medium
+  overrides:
+    parameters:
+      model: sr_RS-serbski_institut-medium.onnx
+  files:
+    - filename: sr_RS-serbski_institut-medium.onnx
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/sr/sr_RS/serbski_institut/medium/sr_RS-serbski_institut-medium.onnx
+      sha256: d7003890cf596e653f660a4fd97fd17f57f1eceb6d9727abad9cd76d2fda0d80
+    - filename: sr_RS-serbski_institut-medium.onnx.json
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/sr/sr_RS/serbski_institut/medium/sr_RS-serbski_institut-medium.onnx.json
+      sha256: 39ad6531b46ac629c0bed10aa9205dd2431e2dab3808b8535808711db87c2bc0
+- !!merge <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  name: voice-sv_SE-lisa-medium
+  overrides:
+    parameters:
+      model: sv_SE-lisa-medium.onnx
+  files:
+    - filename: sv_SE-lisa-medium.onnx
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/sv/sv_SE/lisa/medium/sv_SE-lisa-medium.onnx
+      sha256: 94cae912b31d6e9140d3f5160f1815951588600c7a9e43d539ba1e81a110d131
+    - filename: sv_SE-lisa-medium.onnx.json
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/sv/sv_SE/lisa/medium/sv_SE-lisa-medium.onnx.json
+      sha256: 51e48b65d7427aee9e8e736b370ff4fe6e3e45e47a56e5d8819647b7076ffb0a
+- !!merge <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  name: voice-sv_SE-nst-medium
+  overrides:
+    parameters:
+      model: sv_SE-nst-medium.onnx
+  files:
+    - filename: sv_SE-nst-medium.onnx
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/sv/sv_SE/nst/medium/sv_SE-nst-medium.onnx
+      sha256: df011f56825a59dd1efc080c38a65a1ef70407e60f63050e9246f43a3d7e471e
+    - filename: sv_SE-nst-medium.onnx.json
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/sv/sv_SE/nst/medium/sv_SE-nst-medium.onnx.json
+      sha256: d45dd74cbb4eca58694bf04a97e243044092476f28a55ae26424f0653086980a
+- !!merge <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  name: voice-sw_CD-lanfrica-medium
+  overrides:
+    parameters:
+      model: sw_CD-lanfrica-medium.onnx
+  files:
+    - filename: sw_CD-lanfrica-medium.onnx
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/sw/sw_CD/lanfrica/medium/sw_CD-lanfrica-medium.onnx
+      sha256: 1f195ed12ca5e7875114618e5f00207af364602e21ca78c8a6d3d7674f9259fa
+    - filename: sw_CD-lanfrica-medium.onnx.json
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/sw/sw_CD/lanfrica/medium/sw_CD-lanfrica-medium.onnx.json
+      sha256: 5bd6f6ad659aa8f1f89f414e23a3df84fc753eb9c066e91fe86729da2ad4c1fc
+- !!merge <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  name: voice-te_IN-maya-medium
+  overrides:
+    parameters:
+      model: te_IN-maya-medium.onnx
+  files:
+    - filename: te_IN-maya-medium.onnx
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/te/te_IN/maya/medium/te_IN-maya-medium.onnx
+      sha256: c3518ad4e3ca8ea6059c1e002f3772068f634960f58b237a96ff629db1c6200e
+    - filename: te_IN-maya-medium.onnx.json
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/te/te_IN/maya/medium/te_IN-maya-medium.onnx.json
+      sha256: c07074aadf0a33e230647611af9041e1fb6609b995d017ee95009586a491508f
+- !!merge <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  name: voice-te_IN-padmavathi-medium
+  overrides:
+    parameters:
+      model: te_IN-padmavathi-medium.onnx
+  files:
+    - filename: te_IN-padmavathi-medium.onnx
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/te/te_IN/padmavathi/medium/te_IN-padmavathi-medium.onnx
+      sha256: 414aa5960d91ceb6e45bbdf8c27fdc71af09f205130d7be4e99470f3c2cfa57d
+    - filename: te_IN-padmavathi-medium.onnx.json
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/te/te_IN/padmavathi/medium/te_IN-padmavathi-medium.onnx.json
+      sha256: 6c86e4ee99d379815f78a75f23cdad62ccf50370062dd915c233d6e22de7109f
+- !!merge <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  name: voice-te_IN-venkatesh-medium
+  overrides:
+    parameters:
+      model: te_IN-venkatesh-medium.onnx
+  files:
+    - filename: te_IN-venkatesh-medium.onnx
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/te/te_IN/venkatesh/medium/te_IN-venkatesh-medium.onnx
+      sha256: dfaa5b7833cd48d946f3fe18c9c934aaa4e8590aac6922fddf34783a694c3c87
+    - filename: te_IN-venkatesh-medium.onnx.json
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/te/te_IN/venkatesh/medium/te_IN-venkatesh-medium.onnx.json
+      sha256: 59bad556763d1f24b3434201d7bdee275bb1a70db3e1c65d38e6c3d39b224343
+- !!merge <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  name: voice-tr_TR-dfki-medium
+  overrides:
+    parameters:
+      model: tr_TR-dfki-medium.onnx
+  files:
+    - filename: tr_TR-dfki-medium.onnx
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/tr/tr_TR/dfki/medium/tr_TR-dfki-medium.onnx
+      sha256: 2844717f524ab965d3fe86e60562cbb601d3e456836efcc2196cc3a14112a8fb
+    - filename: tr_TR-dfki-medium.onnx.json
+      uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/tr/tr_TR/dfki/medium/tr_TR-dfki-medium.onnx.json
+      sha256: 13ebd7810f1b61b5027583cf3131a0a233b6ea81c38f2200ebc4ff41c3cca039
 - name: "nomic-embed-text-v1.5"
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
