@@ -142,6 +142,31 @@
     amd: "rocm-vllm"
     intel: "intel-vllm"
     nvidia-cuda-12: "cuda12-vllm"
+- &vllm-omni
+  name: "vllm-omni"
+  license: apache-2.0
+  urls:
+    - https://github.com/vllm-project/vllm-omni
+  tags:
+    - text-to-image
+    - image-generation
+    - text-to-video
+    - video-generation
+    - text-to-speech
+    - TTS
+    - multimodal
+    - LLM
+  icon: https://raw.githubusercontent.com/vllm-project/vllm/main/docs/assets/logos/vllm-logo-text-dark.png
+  description: |
+    vLLM-Omni is a unified interface for multimodal generation with vLLM.
+    It supports image generation (text-to-image, image editing), video generation
+    (text-to-video, image-to-video), text generation with multimodal inputs, and
+    text-to-speech generation. Only supports NVIDIA (CUDA) and ROCm platforms.
+  alias: "vllm-omni"
+  capabilities:
+    nvidia: "cuda12-vllm-omni"
+    amd: "rocm-vllm-omni"
+    nvidia-cuda-12: "cuda12-vllm-omni"
 - &mlx
   name: "mlx"
   uri: "quay.io/go-skynet/local-ai-backends:latest-metal-darwin-arm64-mlx"
@@ -973,6 +998,33 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-vllm"
   mirrors:
     - localai/localai-backends:master-gpu-intel-vllm
+# vllm-omni
+- !!merge <<: *vllm-omni
+  name: "vllm-omni-development"
+  capabilities:
+    nvidia: "cuda12-vllm-omni-development"
+    amd: "rocm-vllm-omni-development"
+    nvidia-cuda-12: "cuda12-vllm-omni-development"
+- !!merge <<: *vllm-omni
+  name: "cuda12-vllm-omni"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-vllm-omni"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-12-vllm-omni
+- !!merge <<: *vllm-omni
+  name: "rocm-vllm-omni"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-rocm-hipblas-vllm-omni"
+  mirrors:
+    - localai/localai-backends:latest-gpu-rocm-hipblas-vllm-omni
+- !!merge <<: *vllm-omni
+  name: "cuda12-vllm-omni-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-vllm-omni"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-12-vllm-omni
+- !!merge <<: *vllm-omni
+  name: "rocm-vllm-omni-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-rocm-hipblas-vllm-omni"
+  mirrors:
+    - localai/localai-backends:master-gpu-rocm-hipblas-vllm-omni
 # rfdetr
 - !!merge <<: *rfdetr
   name: "rfdetr-development"
