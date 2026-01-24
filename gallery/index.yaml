@@ -1,4 +1,29 @@
 ---
+- name: "mira-v1.23.1-27b-dpo"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Mira-v1.23.1-27B-dpo-GGUF
+  description: |
+    The model is a large language model (LLM) based on the Mira framework, with 27 billion parameters. It is trained on a diverse dataset combining internet content and books, with 80% of the data sourced from the internet and 20% from books. The model uses the DPO (DPO) training objective, which focuses on generating responses that are both truthful and helpful. It is quantized for efficiency, with support for multiple precision levels (e.g., Q4_K_S, Q2_K, etc.), and is optimized for deployment in GGUF format. The model is designed for tasks like text generation, reasoning, and translation, and is suitable for applications requiring high performance and low resource usage.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Mira-v1.23.1-27B-dpo.Q4_K_M.gguf
+    name: Mira-v1.23.1-27B-dpo-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Mira-v1.23.1-27B-dpo-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Mira-v1.23.1-27B-dpo.Q4_K_M.gguf
+      sha256: 3c68b4ff275fa7a18f232ae50386aec9bd2e1931fec08f35f9a94059aa75a692
+      uri: https://huggingface.co/mradermacher/Mira-v1.23.1-27B-dpo-GGUF/resolve/main/Mira-v1.23.1-27B-dpo.Q4_K_M.gguf
 - &qwen-tts
   urls:
     - https://huggingface.co/Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice
