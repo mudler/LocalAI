@@ -1,4 +1,55 @@
 ---
+- name: "diamond-swarm-rater-7b"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Diamond-Swarm-Rater-7B-GGUF
+  description: |
+    **Model Name:** Diamond Swarm - VA Claims AI Agents
+    **Base Model:** Qwen2.5-7B-Instruct (fine-tuned with QLoRA)
+    **Purpose:**
+      - **Auditor:** Legal analysis, compliance review, document parsing
+      - **Writer:** Personal statements, nexus letters, buddy statements
+      - **Rater:** VA rating calculations, bilateral factor, TDIU assessment
+
+    **Quantizations:**
+      - **Q4_K_M (4.4GB):** Optimal balance of speed and quality (best for most use cases)
+      - **Q5_K_M (5.1GB):** Higher quality, slightly slower
+
+    **Training Data:**
+      - VA Rating Schedule (38 CFR Part 4)
+      - BVA case decisions
+      - VA claims procedures, nexus letter templates, personal statement examples
+
+    **Usage:**
+      - HuggingFace Transformers: `AutoModelForCausalLM` + `AutoTokenizer`
+      - llama.cpp: Download GGUF file and run a server
+      - Ollama: Create a Modelfile and run the model
+
+    **License:** MIT (free for personal/commercial use)
+    **Disclaimer:** Educational only; NOT legal or medical advice. Always consult accredited VSOs, attorneys, or medical professionals.
+
+    **Credits:**
+      - Vet-Rate.org
+      - Qwen2.5 (HuggingFace)
+  overrides:
+    parameters:
+      model: llama-cpp/models/Diamond-Swarm-Rater-7B.Q4_K_M.gguf
+    name: Diamond-Swarm-Rater-7B-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Diamond-Swarm-Rater-7B-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Diamond-Swarm-Rater-7B.Q4_K_M.gguf
+      sha256: d8e4af8097a1ace03d4cd162e272db0de6e8d44de5b505529ce1f78b9a698a6d
+      uri: https://huggingface.co/mradermacher/Diamond-Swarm-Rater-7B-GGUF/resolve/main/Diamond-Swarm-Rater-7B.Q4_K_M.gguf
 - &qwen-tts
   urls:
     - https://huggingface.co/Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice
