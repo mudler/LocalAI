@@ -1,4 +1,29 @@
 ---
+- name: "glm-4.7-flash-grande-heretic-uncensored-42b-a3b"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/DavidAU/GLM-4.7-Flash-Grande-Heretic-UNCENSORED-42B-A3B-GGUF
+  description: |
+    This model is a 42B parameter, 67-layer fine-tuned version of the GLM-4.7 Flash model, developed by DavidAU. It is an experimental adaptation of the Heretic system, designed to enhance creativity and story generation across diverse genres. The base model is Olafangensan/GLM-4.7-Flash-heretic, and it uses Q4KM quantization (16-bit output tensor) for efficient inference. It supports creative writing, plot generation, and roleplaying, with settings like temperature (0.8), repetition penalty (1.02), and context length up to 202k tokens. The model is MIT-licensed and focuses on high-quality, vivid storytelling with experimental features like shorter "think blocks."
+  overrides:
+    parameters:
+      model: llama-cpp/models/GLM-4.7-30B-A3B-20-2-Heretic-30B-A3B-Q4_K_M.gguf
+    name: GLM-4.7-Flash-Grande-Heretic-UNCENSORED-42B-A3B-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/DavidAU/GLM-4.7-Flash-Grande-Heretic-UNCENSORED-42B-A3B-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/GLM-4.7-30B-A3B-20-2-Heretic-30B-A3B-Q4_K_M.gguf
+      sha256: 95887d93cc493f90c3d8ad9081eddbbc70065f3d133fd8e4e6e4b83364e8bd46
+      uri: https://huggingface.co/DavidAU/GLM-4.7-Flash-Grande-Heretic-UNCENSORED-42B-A3B-GGUF/resolve/main/GLM-4.7-30B-A3B-20-2-Heretic-30B-A3B-Q4_K_M.gguf
 - &qwen-tts
   urls:
     - https://huggingface.co/Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice
