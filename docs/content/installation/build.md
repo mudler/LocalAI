@@ -151,12 +151,10 @@ LocalAI have several backends available for installation in the backend gallery.
 
 Typically each backend include a Makefile which allow to package the backend.
 
-In the LocalAI repository, for instance you can build `bark-cpp` by doing:
+In the LocalAI repository, for instance you can build a backend by doing:
 
 ```
 git clone https://github.com/go-skynet/LocalAI.git
-
-make -C LocalAI/backend/go/bark-cpp build package
 
 make -C LocalAI/backend/python/vllm
 ```
@@ -165,21 +163,21 @@ make -C LocalAI/backend/python/vllm
 
 Building with docker is simpler as abstracts away all the requirement, and focuses on building the final OCI images that are available in the gallery. This allows for instance also to build locally a backend and install it with LocalAI. You can refer to [Backends](https://localai.io/backends/) for general guidance on how to install and develop backends.
 
-In the LocalAI repository, you can build `bark-cpp` by doing:
+In the LocalAI repository, you can build a backend by doing:
 
 ```
 git clone https://github.com/go-skynet/LocalAI.git
 
-make docker-build-bark-cpp
+make docker-build-<backend-name>
 ```
 
 Note that `make` is only by convenience, in reality it just runs a simple `docker` command as:
 
 ```bash
-docker build --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg BASE_IMAGE=$(BASE_IMAGE) -t local-ai-backend:bark-cpp -f LocalAI/backend/Dockerfile.golang --build-arg BACKEND=bark-cpp .               
+docker build --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg BASE_IMAGE=$(BASE_IMAGE) -t local-ai-backend:<backend-name> -f LocalAI/backend/Dockerfile.golang --build-arg BACKEND=<backend-name> .               
 ```
 
 Note:
 
 - BUILD_TYPE can be either: `cublas`, `hipblas`, `sycl_f16`, `sycl_f32`, `metal`.
-- BASE_IMAGE is tested on `ubuntu:22.04` (and defaults to it) and `quay.io/go-skynet/intel-oneapi-base:latest` for intel/sycl
+- BASE_IMAGE is tested on `ubuntu:24.04` (and defaults to it) and `quay.io/go-skynet/intel-oneapi-base:latest` for intel/sycl
