@@ -1,4 +1,29 @@
 ---
+- name: "erudite-1.1b-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Erudite-1.1b-i1-GGUF
+  description: |
+    The **Erudite-1.1b** is a 1.1 billion parameter language model fine-tuned from **TinyLlama**, optimized for enhanced response quality and superior instruction-following capabilities. It is trained 2x faster using **Unsloth** and Huggingface's TRL library, making it efficient for resource-constrained environments. The model is designed to maintain coherence and accuracy while delivering robust performance, with support for text generation and inference via GGUF format.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Erudite-1.1b.i1-Q4_K_M.gguf
+    name: Erudite-1.1b-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Erudite-1.1b-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Erudite-1.1b.i1-Q4_K_M.gguf
+      sha256: 79a7d3052d8d0513829162684bbf0ee296c1931f29f2ab97c887c41bf04f4086
+      uri: https://huggingface.co/mradermacher/Erudite-1.1b-i1-GGUF/resolve/main/Erudite-1.1b.i1-Q4_K_M.gguf
 - &qwen-tts
   urls:
     - https://huggingface.co/Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice
