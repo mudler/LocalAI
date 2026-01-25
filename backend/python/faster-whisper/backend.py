@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-This is an extra gRPC server of LocalAI for Bark TTS
+This is an extra gRPC server of LocalAI for Faster Whisper TTS
 """
 from concurrent import futures
 import time

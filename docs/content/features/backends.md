@@ -94,7 +94,7 @@ Your backend container should:
 For getting started, see the available backends in LocalAI here: https://github.com/mudler/LocalAI/tree/master/backend . 
 
 - For Python based backends there is a template that can be used as starting point: https://github.com/mudler/LocalAI/tree/master/backend/python/common/template . 
-- For Golang based backends, you can see the `bark-cpp` backend as an example: https://github.com/mudler/LocalAI/tree/master/backend/go/bark-cpp
+- For Golang based backends, you can see the `piper` backend as an example: https://github.com/mudler/LocalAI/tree/master/backend/go/piper
 - For C++ based backends, you can see the `llama-cpp` backend as an example: https://github.com/mudler/LocalAI/tree/master/backend/cpp/llama-cpp
 
 ### Publishing Your Backend

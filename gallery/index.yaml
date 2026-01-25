@@ -15300,36 +15300,6 @@
     - filename: ggml-silero-v5.1.2.bin
       uri: https://huggingface.co/ggml-org/whisper-vad/resolve/main/ggml-silero-v5.1.2.bin
       sha256: 29940d98d42b91fbd05ce489f3ecf7c72f0a42f027e4875919a28fb4c04ea2cf
-- &bark
-  name: "bark-cpp"
-  icon: https://avatars.githubusercontent.com/u/99442120
-  url: github:mudler/LocalAI/gallery/virtual.yaml@master
-  license: mit
-  urls:
-    - https://huggingface.co/suno/bark
-    - https://huggingface.co/Green-Sky/bark-ggml
-  description: |
-    Bark is a transformer-based text-to-audio model created by Suno. Bark can generate highly realistic, multilingual speech as well as other audio - including music, background noise and simple sound effects. The model can also produce nonverbal communications like laughing, sighing and crying. To support the research community, we are providing access to pretrained model checkpoints ready for inference.
-  tags:
-    - tts
-    - cpu
-  overrides:
-    backend: bark-cpp
-    parameters:
-      model: bark_weights-f16.bin
-  files:
-    - filename: bark_weights-f16.bin
-      uri: https://huggingface.co/Green-Sky/bark-ggml/resolve/main/bark_weights-f16.bin
-      sha256: ba6fc0e09531e6b8b5a9ef8862be2c9a52a631fc93f34a60b26b879cacf18f62
-- !!merge <<: *bark
-  name: "bark-cpp-small"
-  overrides:
-    parameters:
-      model: bark-small_weights-f16.bin
-  files:
-    - filename: bark-small_weights-f16.bin
-      uri: https://huggingface.co/Green-Sky/bark-ggml/resolve/main/bark-small_weights-f16.bin
-      sha256: de1ece17e8319537b3a7909baebbd28affab23c942d5d57e648d622af4e2feaa
 - !!merge <<: *mistral03
   name: "tlacuilo-12b"
   urls:

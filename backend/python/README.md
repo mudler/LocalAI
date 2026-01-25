@@ -18,7 +18,6 @@ The Python backends use a unified build system based on `libbackend.sh` that pro
 - **mlx** - Apple Silicon optimized ML framework
 
 ### Audio & Speech
-- **bark** - Text-to-speech synthesis
 - **coqui** - Coqui TTS models
 - **faster-whisper** - Fast Whisper speech recognition
 - **kitten-tts** - Lightweight TTS
