@@ -348,51 +348,6 @@
     nvidia-cuda-13: "cuda13-coqui"
     nvidia-cuda-12: "cuda12-coqui"
   icon: https://avatars.githubusercontent.com/u/1338804?s=200&v=4
-- &bark
-  urls:
-    - https://github.com/suno-ai/bark
-  description: |
-    Bark is a transformer-based text-to-audio model created by Suno. Bark can generate highly realistic, multilingual speech as well as other audio - including music, background noise and simple sound effects. The model can also produce nonverbal communications like laughing, sighing and crying. To support the research community, we are providing access to pretrained model checkpoints, which are ready for inference and available for commercial use.
-  tags:
-    - text-to-speech
-    - TTS
-  license: MIT
-  name: "bark"
-  alias: "bark"
-  capabilities:
-    cuda: "cuda12-bark"
-    intel: "intel-bark"
-    rocm: "rocm-bark"
-    nvidia-cuda-13: "cuda13-bark"
-    nvidia-cuda-12: "cuda12-bark"
-  icon: https://avatars.githubusercontent.com/u/99442120?s=200&v=4
-- &barkcpp
-  urls:
-    - https://github.com/PABannier/bark.cpp
-  description: |
-      With bark.cpp, our goal is to bring real-time realistic multilingual text-to-speech generation to the community.
-
-      Plain C/C++ implementation without dependencies
-      AVX, AVX2 and AVX512 for x86 architectures
-      CPU and GPU compatible backends
-      Mixed F16 / F32 precision
-      4-bit, 5-bit and 8-bit integer quantization
-      Metal and CUDA backends
-
-      Models supported
-
-          Bark Small
-          Bark Large
-  tags:
-    - text-to-speech
-    - TTS
-  license: MIT
-  icon: https://github.com/PABannier/bark.cpp/raw/main/assets/banner.png
-  name: "bark-cpp"
-  uri: "quay.io/go-skynet/local-ai-backends:latest-bark-cpp"
-  mirrors:
-    - localai/localai-backends:latest-bark-cpp
-  alias: "bark-cpp"
 - &chatterbox
   urls:
     - https://github.com/resemble-ai/chatterbox
@@ -1459,47 +1414,6 @@
   uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-rocm-hipblas-coqui"
   mirrors:
     - localai/localai-backends:latest-gpu-rocm-hipblas-coqui
-## bark
-- !!merge <<: *bark
-  name: "bark-development"
-  capabilities:
-    nvidia: "cuda12-bark-development"
-    intel: "intel-bark-development"
-    amd: "rocm-bark-development"
-- !!merge <<: *bark
-  name: "rocm-bark-development"
-  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-rocm-hipblas-bark"
-  mirrors:
-    - localai/localai-backends:master-gpu-rocm-hipblas-bark
-- !!merge <<: *bark
-  name: "intel-bark"
-  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-bark"
-  mirrors:
-    - localai/localai-backends:latest-gpu-intel-bark
-- !!merge <<: *bark
-  name: "intel-bark-development"
-  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-bark"
-  mirrors:
-    - localai/localai-backends:master-gpu-intel-bark
-- !!merge <<: *bark
-  name: "cuda12-bark"
-  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-bark"
-  mirrors:
-    - localai/localai-backends:latest-gpu-nvidia-cuda-12-bark
-- !!merge <<: *bark
-  name: "rocm-bark"
-  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-rocm-hipblas-bark"
-  mirrors:
-    - localai/localai-backends:latest-gpu-rocm-hipblas-bark
-- !!merge <<: *bark
-  name: "cuda12-bark-development"
-  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-bark"
-  mirrors:
-    - localai/localai-backends:master-gpu-nvidia-cuda-12-bark
-- !!merge <<: *barkcpp
-  name: "bark-cpp-development"
-  uri: "quay.io/go-skynet/local-ai-backends:master-bark-cpp"
-  alias: "bark-cpp"
 ## chatterbox
 - !!merge <<: *chatterbox
   name: "chatterbox-development"

@@ -1,4 +1,4 @@
-# Creating a separate environment for ttsbark project
+# Creating a separate environment for coqui project
 
 ```
 make coqui

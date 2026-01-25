@@ -46,7 +46,7 @@ The backend system provides language-specific Dockerfiles that handle the build 
 - **vllm**: High-performance LLM inference
 - **mlx**: Apple Silicon optimization
 - **diffusers**: Stable Diffusion models
-- **Audio**: bark, coqui, faster-whisper, kitten-tts
+- **Audio**: coqui, faster-whisper, kitten-tts
 - **Vision**: mlx-vlm, rfdetr
 - **Specialized**: rerankers, chatterbox, kokoro
 
@@ -55,7 +55,6 @@ The backend system provides language-specific Dockerfiles that handle the build 
 - **stablediffusion-ggml**: Stable Diffusion in Go with GGML Cpp backend
 - **huggingface**: Hugging Face model integration
 - **piper**: Text-to-speech synthesis Golang with C bindings using rhaspy/piper
-- **bark-cpp**: Bark TTS models Golang with Cpp bindings
 - **local-store**: Vector storage backend
 
 #### C++ Backends (`cpp/`)
