@@ -1,4 +1,29 @@
 ---
+- name: "marvinizer-experimental-v2-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/marvinizer-experimental-v2-i1-GGUF
+  description: |
+    The model, **marvinizer-experimental-v2-i1-GGUF**, is an experimental variant of the Marvinizer series, designed for text generation tasks. It is quantized using a combination of compression techniques (e.g., Q2_K, IQ3_M, Q4_K_S, etc.), which balance model size and efficiency. The model is not the original author's base model but a derived version optimized for specific use cases. It is tagged as "nicoboss" and is intended for tasks requiring high-performance text generation. The quantized version is tailored for deployment in applications where efficiency and speed are critical, though it may not be suitable for all use cases.
+  overrides:
+    parameters:
+      model: llama-cpp/models/marvinizer-experimental-v2.i1-Q4_K_M.gguf
+    name: marvinizer-experimental-v2-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/marvinizer-experimental-v2-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/marvinizer-experimental-v2.i1-Q4_K_M.gguf
+      sha256: d9f0f2e8e1cf3070206bf6c1c61c419f4c236dc61c2814dfc576252ee6405160
+      uri: https://huggingface.co/mradermacher/marvinizer-experimental-v2-i1-GGUF/resolve/main/marvinizer-experimental-v2.i1-Q4_K_M.gguf
 - &qwen-tts
   urls:
     - https://huggingface.co/Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice
