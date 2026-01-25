@@ -1,4 +1,29 @@
 ---
+- name: "l3-3.3-8b-stheno-maid-mahou-heretic-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/L3-3.3-8B-Stheno-Maid-Mahou-Heretic-i1-GGUF
+  description: |
+    This model is a quantized version of the base model `0xA50C1A1/L3-3.3-8B-Stheno-Maid-Mahou-Heretic`, designed for efficient deployment with GGUF format. It includes various quantization levels (e.g., IQ2_M, IQ3_XXS, Q4_K_M) and is tagged with "heretic," "uncensored," and "decensored" to reflect its use in generating or processing sensitive or controversial content. The model is optimized for performance and memory efficiency, with downloadable GGUF files for different quantization settings. It is suitable for applications requiring low-latency inference with tailored precision levels.
+  overrides:
+    parameters:
+      model: llama-cpp/models/L3-3.3-8B-Stheno-Maid-Mahou-Heretic.i1-Q4_K_M.gguf
+    name: L3-3.3-8B-Stheno-Maid-Mahou-Heretic-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/L3-3.3-8B-Stheno-Maid-Mahou-Heretic-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/L3-3.3-8B-Stheno-Maid-Mahou-Heretic.i1-Q4_K_M.gguf
+      sha256: 825fe854e30ae0d831945faeef2e42fb85d3f0ad4763a13514f6343096b7da4c
+      uri: https://huggingface.co/mradermacher/L3-3.3-8B-Stheno-Maid-Mahou-Heretic-i1-GGUF/resolve/main/L3-3.3-8B-Stheno-Maid-Mahou-Heretic.i1-Q4_K_M.gguf
 - &qwen-tts
   urls:
     - https://huggingface.co/Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice
