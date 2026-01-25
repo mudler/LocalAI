@@ -1,4 +1,29 @@
 ---
+- name: "llama-3.3-8b-stheno-mahou-heretic-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Llama-3.3-8B-Stheno-Mahou-Heretic-i1-GGUF
+  description: |
+    This is a decensored, heretic-optimized version of the Llama-3.3-8B model, designed to enhance response aggression and uncensored content handling. It uses the Heretic framework (v1.1.0) to tweak parameters like attention projection weights and MLP downsampling, resulting in a 0.038 KL divergence from the original model. The quantized version (i1-Q4_1.gguf) offers a balance of speed and quality, with 94/100 refusals in responses. Suitable for tasks requiring aggressive content response and enhanced model behavior.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Llama-3.3-8B-Stheno-Mahou-Heretic.i1-Q4_K_M.gguf
+    name: Llama-3.3-8B-Stheno-Mahou-Heretic-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Llama-3.3-8B-Stheno-Mahou-Heretic-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Llama-3.3-8B-Stheno-Mahou-Heretic.i1-Q4_K_M.gguf
+      sha256: c2ffe8548eee5141927fdd47e45384b82130313fd7679a6a20642bdd103c6442
+      uri: https://huggingface.co/mradermacher/Llama-3.3-8B-Stheno-Mahou-Heretic-i1-GGUF/resolve/main/Llama-3.3-8B-Stheno-Mahou-Heretic.i1-Q4_K_M.gguf
 - &qwen-tts
   urls:
     - https://huggingface.co/Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice
