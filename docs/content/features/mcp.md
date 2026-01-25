@@ -322,7 +322,7 @@ mcp:
         "memory": {
           "command": "docker",
           "env": {
-            "MEMORY_FILE_PATH": "/data/memory.json"
+            "MEMORY_INDEX_PATH": "/data/memory.bleve"
           },
           "args": [
             "run", "-i", "--rm", "-v", "/host/data:/data",
