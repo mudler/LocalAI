@@ -319,6 +319,26 @@ jobs:
           # Install UV
           curl -LsSf https://astral.sh/uv/install.sh | sh
           pip install --user --no-cache-dir grpcio-tools==1.64.1
+      - name: Download voice preset files
+        run: |
+          # Create voices directory structure in backend directory
+          # The backend looks for voices in backend/python/vibevoice/voices/streaming_model/
+          # when ModelPath is not set (which is the case in tests)
+          mkdir -p backend/python/vibevoice/voices/streaming_model
+          # Download voice preset files required for vibevoice TTS
+          # These files are defined in gallery/index.yaml
+          wget -q -O backend/python/vibevoice/voices/streaming_model/en-Frank_man.pt \
+            https://raw.githubusercontent.com/microsoft/VibeVoice/main/demo/voices/streaming_model/en-Frank_man.pt
+          wget -q -O backend/python/vibevoice/voices/streaming_model/en-Grace_woman.pt \
+            https://raw.githubusercontent.com/microsoft/VibeVoice/main/demo/voices/streaming_model/en-Grace_woman.pt
+          wget -q -O backend/python/vibevoice/voices/streaming_model/en-Mike_man.pt \
+            https://raw.githubusercontent.com/microsoft/VibeVoice/main/demo/voices/streaming_model/en-Mike_man.pt
+          wget -q -O backend/python/vibevoice/voices/streaming_model/en-Emma_woman.pt \
+            https://raw.githubusercontent.com/microsoft/VibeVoice/main/demo/voices/streaming_model/en-Emma_woman.pt
+          wget -q -O backend/python/vibevoice/voices/streaming_model/en-Carter_man.pt \
+            https://raw.githubusercontent.com/microsoft/VibeVoice/main/demo/voices/streaming_model/en-Carter_man.pt
+          wget -q -O backend/python/vibevoice/voices/streaming_model/en-Davis_man.pt \
+            https://raw.githubusercontent.com/microsoft/VibeVoice/main/demo/voices/streaming_model/en-Davis_man.pt
       - name: Test vibevoice
         run: |
           make --jobs=5 --output-sync=target -C backend/python/vibevoice
