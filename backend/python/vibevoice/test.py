@@ -12,6 +12,10 @@ import backend_pb2_grpc
 
 import grpc
 
+# Check if we should skip ASR tests (they require large models ~14B parameters total)
+# Skip in CI or if explicitly disabled
+SKIP_ASR_TESTS = os.environ.get("SKIP_ASR_TESTS", "false").lower() == "true"
+
 
 class TestBackendServicer(unittest.TestCase):
     """
@@ -65,6 +69,7 @@ class TestBackendServicer(unittest.TestCase):
         finally:
             self.tearDown()
 
+    @unittest.skipIf(SKIP_ASR_TESTS, "ASR tests require large models (~14B parameters) and are skipped in CI")
     def test_load_asr_model(self):
         """
         This method tests if the ASR model is loaded successfully with asr_mode option
@@ -77,11 +82,15 @@ class TestBackendServicer(unittest.TestCase):
                     Model="microsoft/VibeVoice-ASR",
                     Options=["asr_mode:true"]
                 ))
-                print(response)
-                self.assertTrue(response.success)
+                print(f"LoadModel response: {response}")
+                if not response.success:
+                    print(f"LoadModel failed with message: {response.message}")
+                self.assertTrue(response.success, f"LoadModel failed: {response.message}")
                 self.assertEqual(response.message, "Model loaded successfully")
         except Exception as err:
-            print(err)
+            print(f"Exception during LoadModel: {err}")
+            import traceback
+            traceback.print_exc()
             self.fail("LoadModel service failed for ASR mode")
         finally:
             self.tearDown()
@@ -125,6 +134,7 @@ class TestBackendServicer(unittest.TestCase):
             if os.path.exists(temp_dir):
                 shutil.rmtree(temp_dir)
 
+    @unittest.skipIf(SKIP_ASR_TESTS, "ASR tests require large models (~14B parameters) and are skipped in CI")
     def test_audio_transcription(self):
         """
         This method tests if audio transcription works successfully
@@ -157,7 +167,10 @@ class TestBackendServicer(unittest.TestCase):
                     Model="microsoft/VibeVoice-ASR",
                     Options=["asr_mode:true"]
                 ))
-                self.assertTrue(load_response.success)
+                print(f"LoadModel response: {load_response}")
+                if not load_response.success:
+                    print(f"LoadModel failed with message: {load_response.message}")
+                self.assertTrue(load_response.success, f"LoadModel failed: {load_response.message}")
                 
                 # Perform transcription
                 transcript_request = backend_pb2.TranscriptRequest(dst=audio_file)

@@ -111,6 +111,20 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             else:
                 model_path = "microsoft/VibeVoice-Realtime-0.5B"  # Default TTS model
         
+        default_dtype = torch.bfloat16 if self.device != "cpu" else torch.float32
+        
+        load_dtype = default_dtype
+        if "torch_dtype" in self.options:
+            torch_dtype_str = str(self.options["torch_dtype"]).lower()
+            if torch_dtype_str == "fp16":
+                load_dtype = torch.float16
+            elif torch_dtype_str == "bf16":
+                load_dtype = torch.bfloat16
+            elif torch_dtype_str == "fp32":
+                load_dtype = torch.float32
+            # remove it from options after reading
+            del self.options["torch_dtype"]
+        
         # Get inference steps from options, default to 5 (TTS only)
         self.inference_steps = self.options.get("inference_steps", 5)
         if not isinstance(self.inference_steps, int) or self.inference_steps <= 0:
@@ -144,6 +158,10 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         self.num_beams = self.options.get("num_beams", 1)
         if not isinstance(self.num_beams, int) or self.num_beams < 1:
             self.num_beams = 1
+
+        self.repetition_penalty = self.options.get("repetition_penalty", 1.0)
+        if not isinstance(self.repetition_penalty, (int, float)) or self.repetition_penalty <= 0:
+            self.repetition_penalty = 1.0
 
         # Determine voices directory
         # Priority order:
@@ -209,18 +227,15 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         self.model_file = request.ModelFile if hasattr(request, 'ModelFile') and request.ModelFile else None
         self.model_path = request.ModelPath if hasattr(request, 'ModelPath') and request.ModelPath else None
     
-        # Decide dtype & attention implementation
+        # Decide attention implementation and device_map
         if self.device == "mps":
-            load_dtype = torch.float32  # MPS requires float32
             device_map = None
             attn_impl_primary = "sdpa"  # flash_attention_2 not supported on MPS
         elif self.device == "cuda":
-            load_dtype = torch.bfloat16
             device_map = "cuda"
             attn_impl_primary = "flash_attention_2"
         else:  # cpu
-            load_dtype = torch.float32
-            device_map = "cpu"
+            device_map = None  # Use None and move manually to avoid JSON serialization issues
             attn_impl_primary = "sdpa"
 
         try:
@@ -236,25 +251,20 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
 
                 print(f"Using device: {self.device}, torch_dtype: {load_dtype}, attn_implementation: {attn_impl_primary}", file=sys.stderr)
 
-                # Load ASR model with device-specific logic
+                # Load ASR model - use device_map=None and move manually to avoid JSON serialization issues
+                # Load with dtype to ensure all components are in correct dtype from the start
                 try:
-                    if self.device == "mps":
-                        self.model = VibeVoiceASRForConditionalGeneration.from_pretrained(
-                            model_path,
-                            dtype=load_dtype,
-                            device_map=None,  # load then move
-                            attn_implementation=attn_impl_primary,
-                            trust_remote_code=True
-                        )
-                        self.model.to("mps")
-                    else:  # cpu
-                        self.model = VibeVoiceASRForConditionalGeneration.from_pretrained(
-                            model_path,
-                            dtype=load_dtype,
-                            device_map=device_map,
-                            attn_implementation=attn_impl_primary,
-                            trust_remote_code=True
-                        )
+                    print(f"Using attention implementation: {attn_impl_primary}", file=sys.stderr)
+                    # Load model with dtype to ensure all components are in correct dtype
+                    self.model = VibeVoiceASRForConditionalGeneration.from_pretrained(
+                        model_path,
+                        dtype=load_dtype,
+                        device_map=None,  # Always use None, move manually to avoid JSON serialization issues
+                        attn_implementation=attn_impl_primary,
+                        trust_remote_code=True
+                    )
+                    # Move to device manually
+                    self.model = self.model.to(self.device)
                 except Exception as e:
                     if attn_impl_primary == 'flash_attention_2':
                         print(f"[ERROR] : {type(e).__name__}: {e}", file=sys.stderr)
@@ -263,12 +273,12 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                         self.model = VibeVoiceASRForConditionalGeneration.from_pretrained(
                             model_path,
                             dtype=load_dtype,
-                            device_map=(self.device if self.device in ("cuda", "cpu") else None),
+                            device_map=None,
                             attn_implementation='sdpa',
                             trust_remote_code=True
                         )
-                        if self.device == "mps":
-                            self.model.to("mps")
+                        # Move to device manually
+                        self.model = self.model.to(self.device)
                     else:
                         raise e
 
@@ -334,7 +344,14 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                     print("Warning: No voice presets available. Voice selection will not work.", file=sys.stderr)
 
         except Exception as err:
-            return backend_pb2.Result(success=False, message=f"Unexpected {err=}, {type(err)=}")
+            # Format error message safely, avoiding JSON serialization issues
+            error_msg = str(err)
+            error_type = type(err).__name__
+            # Include traceback for debugging
+            tb_str = traceback.format_exc()
+            print(f"[ERROR] LoadModel failed: {error_type}: {error_msg}", file=sys.stderr)
+            print(tb_str, file=sys.stderr)
+            return backend_pb2.Result(success=False, message=f"{error_type}: {error_msg}")
         
         return backend_pb2.Result(message="Model loaded successfully", success=True)
 
@@ -556,58 +573,52 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             
             print(f"Transcribing audio file: {audio_path}", file=sys.stderr)
             
-            # Process audio with ASR processor
+            # Get context_info from options if available
+            context_info = self.options.get("context_info", None)
+            if context_info and isinstance(context_info, str) and context_info.strip():
+                context_info = context_info.strip()
+            else:
+                context_info = None
+            
+            # Process audio with ASR processor (matching gradio example)
             inputs = self.processor(
                 audio=audio_path,
                 sampling_rate=None,
                 return_tensors="pt",
-                padding=True,
-                add_generation_prompt=True
+                add_generation_prompt=True,
+                context_info=context_info
             )
             
-            # Move tensors to target device
-            for k, v in inputs.items():
-                if torch.is_tensor(v):
-                    inputs[k] = v.to(self._torch_device)
+            # Move to device (matching gradio example)
+            inputs = {k: v.to(self.device) if isinstance(v, torch.Tensor) else v 
+                      for k, v in inputs.items()}
             
-            # Prepare generation config
+            # Prepare generation config (matching gradio example)
             generation_config = {
                 "max_new_tokens": self.max_new_tokens,
+                "temperature": self.temperature if self.temperature > 0 else None,
+                "top_p": self.top_p if self.do_sample else None,
+                "do_sample": self.do_sample,
+                "num_beams": self.num_beams,
+                "repetition_penalty": self.repetition_penalty,
                 "pad_token_id": self.processor.pad_id,
                 "eos_token_id": self.processor.tokenizer.eos_token_id,
             }
             
-            # Beam search vs sampling
-            if self.num_beams > 1:
-                generation_config["num_beams"] = self.num_beams
-                generation_config["do_sample"] = False  # Beam search doesn't use sampling
-            else:
-                generation_config["do_sample"] = self.do_sample
-                # Only set temperature and top_p when sampling is enabled
-                if self.do_sample:
-                    generation_config["temperature"] = self.temperature
-                    generation_config["top_p"] = self.top_p
+            # Remove None values (matching gradio example)
+            generation_config = {k: v for k, v in generation_config.items() if v is not None}
             
-            print(f"Generating transcription with max_new_tokens: {self.max_new_tokens}, temperature: {self.temperature}, do_sample: {self.do_sample}, num_beams: {self.num_beams}", file=sys.stderr)
+            print(f"Generating transcription with max_new_tokens: {self.max_new_tokens}, temperature: {self.temperature}, do_sample: {self.do_sample}, num_beams: {self.num_beams}, repetition_penalty: {self.repetition_penalty}", file=sys.stderr)
             
-            # Generate transcription
+            # Generate transcription (matching gradio example)
             with torch.no_grad():
                 output_ids = self.model.generate(
                     **inputs,
                     **generation_config
                 )
             
-            # Decode outputs
-            input_length = inputs['input_ids'].shape[1]
-            generated_ids = output_ids[0, input_length:]  # Get generated tokens (excluding input)
-            
-            # Remove padding tokens from the end
-            # Find the first eos_token or pad_token
-            eos_positions = (generated_ids == self.processor.tokenizer.eos_token_id).nonzero(as_tuple=True)[0]
-            if len(eos_positions) > 0:
-                generated_ids = generated_ids[:eos_positions[0] + 1]
-            
-            # Decode generated text
+            # Decode output (matching gradio example)
+            generated_ids = output_ids[0, inputs['input_ids'].shape[1]:]
             generated_text = self.processor.decode(generated_ids, skip_special_tokens=True)
             
             # Parse structured output to get segments
