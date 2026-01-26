@@ -227,7 +227,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         self.model_file = request.ModelFile if hasattr(request, 'ModelFile') and request.ModelFile else None
         self.model_path = request.ModelPath if hasattr(request, 'ModelPath') and request.ModelPath else None
     
-        # Decide attention implementation and device_map
+        # Decide attention implementation and device_map (matching upstream example)
         if self.device == "mps":
             device_map = None
             attn_impl_primary = "sdpa"  # flash_attention_2 not supported on MPS
@@ -235,7 +235,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             device_map = "cuda"
             attn_impl_primary = "flash_attention_2"
         else:  # cpu
-            device_map = None  # Use None and move manually to avoid JSON serialization issues
+            device_map = "cpu"  # Match upstream example: use "cpu" for CPU device_map
             attn_impl_primary = "sdpa"
 
         try:
@@ -298,7 +298,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
 
                 print(f"Using device: {self.device}, torch_dtype: {load_dtype}, attn_implementation: {attn_impl_primary}", file=sys.stderr)
 
-                # Load model with device-specific logic (matching upstream example pattern)
+                # Load model with device-specific logic (matching upstream example exactly)
                 try:
                     if self.device == "mps":
                         self.model = VibeVoiceStreamingForConditionalGenerationInference.from_pretrained(
@@ -316,10 +316,11 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                             attn_implementation=attn_impl_primary,
                         )
                     else:  # cpu
+                        # Match upstream example: use device_map="cpu" for CPU
                         self.model = VibeVoiceStreamingForConditionalGenerationInference.from_pretrained(
                             model_path,
                             torch_dtype=load_dtype,
-                            device_map=device_map,
+                            device_map="cpu",
                             attn_implementation=attn_impl_primary,
                         )
                 except Exception as e:
@@ -327,22 +328,15 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                         print(f"[ERROR] : {type(e).__name__}: {e}", file=sys.stderr)
                         print(traceback.format_exc(), file=sys.stderr)
                         print("Error loading the model. Trying to use SDPA. However, note that only flash_attention_2 has been fully tested, and using SDPA may result in lower audio quality.", file=sys.stderr)
+                        # Match upstream example fallback pattern
                         self.model = VibeVoiceStreamingForConditionalGenerationInference.from_pretrained(
                             model_path,
                             torch_dtype=load_dtype,
-                            device_map=None,
+                            device_map=(self.device if self.device in ("cuda", "cpu") else None),
                             attn_implementation='sdpa'
                         )
                         if self.device == "mps":
                             self.model.to("mps")
-                        elif self.device == "cpu":
-                            self.model.to("cpu")
-                        # For CUDA, device_map="cuda" should work, but if it fails, try manual move
-                        elif self.device == "cuda":
-                            try:
-                                self.model.to("cuda")
-                            except:
-                                pass  # Already on CUDA if device_map worked
                     else:
                         raise e
 
