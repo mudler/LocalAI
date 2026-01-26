@@ -16,6 +16,8 @@ import backend_pb2_grpc
 import torch
 from vibevoice.modular.modeling_vibevoice_streaming_inference import VibeVoiceStreamingForConditionalGenerationInference
 from vibevoice.processor.vibevoice_streaming_processor import VibeVoiceStreamingProcessor
+from vibevoice.modular.modeling_vibevoice_asr import VibeVoiceASRForConditionalGeneration
+from vibevoice.processor.vibevoice_asr_processor import VibeVoiceASRProcessor
 
 import grpc
 
@@ -95,20 +97,53 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 value = value.lower() == "true"
             self.options[key] = value
 
+        # Check if ASR mode is enabled
+        self.asr_mode = self.options.get("asr_mode", False)
+        if not isinstance(self.asr_mode, bool):
+            # Handle string "true"/"false" case
+            self.asr_mode = str(self.asr_mode).lower() == "true"
+
         # Get model path from request
         model_path = request.Model
         if not model_path:
-            model_path = "microsoft/VibeVoice-Realtime-0.5B"
+            if self.asr_mode:
+                model_path = "microsoft/VibeVoice-ASR-0.5B"  # Default ASR model
+            else:
+                model_path = "microsoft/VibeVoice-Realtime-0.5B"  # Default TTS model
         
-        # Get inference steps from options, default to 5
+        # Get inference steps from options, default to 5 (TTS only)
         self.inference_steps = self.options.get("inference_steps", 5)
         if not isinstance(self.inference_steps, int) or self.inference_steps <= 0:
             self.inference_steps = 5
 
-        # Get cfg_scale from options, default to 1.5
+        # Get cfg_scale from options, default to 1.5 (TTS only)
         self.cfg_scale = self.options.get("cfg_scale", 1.5)
         if not isinstance(self.cfg_scale, (int, float)) or self.cfg_scale <= 0:
             self.cfg_scale = 1.5
+
+        # Get ASR generation parameters from options
+        self.max_new_tokens = self.options.get("max_new_tokens", 512)
+        if not isinstance(self.max_new_tokens, int) or self.max_new_tokens <= 0:
+            self.max_new_tokens = 512
+
+        self.temperature = self.options.get("temperature", 0.0)
+        if not isinstance(self.temperature, (int, float)) or self.temperature < 0:
+            self.temperature = 0.0
+
+        self.top_p = self.options.get("top_p", 1.0)
+        if not isinstance(self.top_p, (int, float)) or self.top_p <= 0:
+            self.top_p = 1.0
+
+        self.do_sample = self.options.get("do_sample", None)
+        if self.do_sample is None:
+            # Default: use sampling if temperature > 0
+            self.do_sample = self.temperature > 0
+        elif not isinstance(self.do_sample, bool):
+            self.do_sample = str(self.do_sample).lower() == "true"
+
+        self.num_beams = self.options.get("num_beams", 1)
+        if not isinstance(self.num_beams, int) or self.num_beams < 1:
+            self.num_beams = 1
 
         # Determine voices directory
         # Priority order:
@@ -163,88 +198,135 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 else:
                     voices_dir = None
 
+        # Initialize voice-related attributes (TTS only)
         self.voices_dir = voices_dir
         self.voice_presets = {}
         self._voice_cache = {}
         self.default_voice_key = None
-
-        # Load voice presets if directory exists
-        if self.voices_dir and os.path.exists(self.voices_dir):
-            self._load_voice_presets()
-        else:
-            print(f"Warning: Voices directory not found. Voice presets will not be available.", file=sys.stderr)
+    
+        # Decide dtype & attention implementation
+        if self.device == "mps":
+            load_dtype = torch.float32  # MPS requires float32
+            device_map = None
+            attn_impl_primary = "sdpa"  # flash_attention_2 not supported on MPS
+        elif self.device == "cuda":
+            load_dtype = torch.bfloat16
+            device_map = "cuda"
+            attn_impl_primary = "flash_attention_2"
+        else:  # cpu
+            load_dtype = torch.float32
+            device_map = "cpu"
+            attn_impl_primary = "sdpa"
 
         try:
-            print(f"Loading processor & model from {model_path}", file=sys.stderr)
-            self.processor = VibeVoiceStreamingProcessor.from_pretrained(model_path)
+            if self.asr_mode:
+                # Load ASR model and processor
+                print(f"Loading ASR processor & model from {model_path}", file=sys.stderr)
+                
+                # Load ASR processor
+                self.processor = VibeVoiceASRProcessor.from_pretrained(
+                    model_path,
+                    language_model_pretrained_name="Qwen/Qwen2.5-7B"
+                )
 
-            # Decide dtype & attention implementation
-            if self.device == "mps":
-                load_dtype = torch.float32  # MPS requires float32
-                device_map = None
-                attn_impl_primary = "sdpa"  # flash_attention_2 not supported on MPS
-            elif self.device == "cuda":
-                load_dtype = torch.bfloat16
-                device_map = "cuda"
-                attn_impl_primary = "flash_attention_2"
-            else:  # cpu
-                load_dtype = torch.float32
-                device_map = "cpu"
-                attn_impl_primary = "sdpa"
+                print(f"Using device: {self.device}, torch_dtype: {load_dtype}, attn_implementation: {attn_impl_primary}", file=sys.stderr)
 
-            print(f"Using device: {self.device}, torch_dtype: {load_dtype}, attn_implementation: {attn_impl_primary}", file=sys.stderr)
-
-            # Load model with device-specific logic
-            try:
-                if self.device == "mps":
-                    self.model = VibeVoiceStreamingForConditionalGenerationInference.from_pretrained(
-                        model_path,
-                        torch_dtype=load_dtype,
-                        attn_implementation=attn_impl_primary,
-                        device_map=None,  # load then move
-                    )
-                    self.model.to("mps")
-                elif self.device == "cuda":
-                    self.model = VibeVoiceStreamingForConditionalGenerationInference.from_pretrained(
-                        model_path,
-                        torch_dtype=load_dtype,
-                        device_map="cuda",
-                        attn_implementation=attn_impl_primary,
-                    )
-                else:  # cpu
-                    self.model = VibeVoiceStreamingForConditionalGenerationInference.from_pretrained(
-                        model_path,
-                        torch_dtype=load_dtype,
-                        device_map="cpu",
-                        attn_implementation=attn_impl_primary,
-                    )
-            except Exception as e:
-                if attn_impl_primary == 'flash_attention_2':
-                    print(f"[ERROR] : {type(e).__name__}: {e}", file=sys.stderr)
-                    print(traceback.format_exc(), file=sys.stderr)
-                    print("Error loading the model. Trying to use SDPA. However, note that only flash_attention_2 has been fully tested, and using SDPA may result in lower audio quality.", file=sys.stderr)
-                    self.model = VibeVoiceStreamingForConditionalGenerationInference.from_pretrained(
-                        model_path,
-                        torch_dtype=load_dtype,
-                        device_map=(self.device if self.device in ("cuda", "cpu") else None),
-                        attn_implementation='sdpa'
-                    )
+                # Load ASR model with device-specific logic
+                try:
                     if self.device == "mps":
+                        self.model = VibeVoiceASRForConditionalGeneration.from_pretrained(
+                            model_path,
+                            dtype=load_dtype,
+                            device_map=None,  # load then move
+                            attn_implementation=attn_impl_primary,
+                            trust_remote_code=True
+                        )
                         self.model.to("mps")
-                else:
-                    raise e
+                    else:  # cpu
+                        self.model = VibeVoiceASRForConditionalGeneration.from_pretrained(
+                            model_path,
+                            dtype=load_dtype,
+                            device_map=device_map,
+                            attn_implementation=attn_impl_primary,
+                            trust_remote_code=True
+                        )
+                except Exception as e:
+                    if attn_impl_primary == 'flash_attention_2':
+                        print(f"[ERROR] : {type(e).__name__}: {e}", file=sys.stderr)
+                        print(traceback.format_exc(), file=sys.stderr)
+                        print("Error loading the ASR model. Trying to use SDPA.", file=sys.stderr)
+                        self.model = VibeVoiceASRForConditionalGeneration.from_pretrained(
+                            model_path,
+                            dtype=load_dtype,
+                            device_map=(self.device if self.device in ("cuda", "cpu") else None),
+                            attn_implementation='sdpa',
+                            trust_remote_code=True
+                        )
+                        if self.device == "mps":
+                            self.model.to("mps")
+                    else:
+                        raise e
 
-            self.model.eval()
-            self.model.set_ddpm_inference_steps(num_steps=self.inference_steps)
-
-            # Set default voice key
-            if self.voice_presets:
-                # Try to get default from environment or use first available
-                preset_name = os.environ.get("VOICE_PRESET")
-                self.default_voice_key = self._determine_voice_key(preset_name)
-                print(f"Default voice preset: {self.default_voice_key}", file=sys.stderr)
+                self.model.eval()
+                print(f"ASR model loaded successfully", file=sys.stderr)
             else:
-                print("Warning: No voice presets available. Voice selection will not work.", file=sys.stderr)
+                # Load TTS model and processor (existing logic)
+                # Load voice presets if directory exists
+                if self.voices_dir and os.path.exists(self.voices_dir):
+                    self._load_voice_presets()
+                else:
+                    print(f"Warning: Voices directory not found. Voice presets will not be available.", file=sys.stderr)
+
+                print(f"Loading TTS processor & model from {model_path}", file=sys.stderr)
+                self.processor = VibeVoiceStreamingProcessor.from_pretrained(model_path)
+
+
+                print(f"Using device: {self.device}, torch_dtype: {load_dtype}, attn_implementation: {attn_impl_primary}", file=sys.stderr)
+
+                # Load model with device-specific logic
+                try:
+                    if self.device == "mps":
+                        self.model = VibeVoiceStreamingForConditionalGenerationInference.from_pretrained(
+                            model_path,
+                            torch_dtype=load_dtype,
+                            attn_implementation=attn_impl_primary,
+                            device_map=None,  # load then move
+                        )
+                        self.model.to("mps")
+                    else:  # cpu
+                        self.model = VibeVoiceStreamingForConditionalGenerationInference.from_pretrained(
+                            model_path,
+                            torch_dtype=load_dtype,
+                            device_map=device_map,
+                            attn_implementation=attn_impl_primary,
+                        )
+                except Exception as e:
+                    if attn_impl_primary == 'flash_attention_2':
+                        print(f"[ERROR] : {type(e).__name__}: {e}", file=sys.stderr)
+                        print(traceback.format_exc(), file=sys.stderr)
+                        print("Error loading the model. Trying to use SDPA. However, note that only flash_attention_2 has been fully tested, and using SDPA may result in lower audio quality.", file=sys.stderr)
+                        self.model = VibeVoiceStreamingForConditionalGenerationInference.from_pretrained(
+                            model_path,
+                            torch_dtype=load_dtype,
+                            device_map=(self.device if self.device in ("cuda", "cpu") else None),
+                            attn_implementation='sdpa'
+                        )
+                        if self.device == "mps":
+                            self.model.to("mps")
+                    else:
+                        raise e
+
+                self.model.eval()
+                self.model.set_ddpm_inference_steps(num_steps=self.inference_steps)
+
+                # Set default voice key
+                if self.voice_presets:
+                    # Try to get default from environment or use first available
+                    preset_name = os.environ.get("VOICE_PRESET")
+                    self.default_voice_key = self._determine_voice_key(preset_name)
+                    print(f"Default voice preset: {self.default_voice_key}", file=sys.stderr)
+                else:
+                    print("Warning: No voice presets available. Voice selection will not work.", file=sys.stderr)
 
         except Exception as err:
             return backend_pb2.Result(success=False, message=f"Unexpected {err=}, {type(err)=}")
@@ -446,6 +528,153 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             return backend_pb2.Result(success=False, message=f"Unexpected {err=}, {type(err)=}")
         
         return backend_pb2.Result(success=True)
+
+    def AudioTranscription(self, request, context):
+        """Transcribe audio file to text using ASR model."""
+        try:
+            # Validate ASR mode is active
+            if not self.asr_mode:
+                return backend_pb2.TranscriptResult(
+                    segments=[],
+                    text="",
+                )
+                # Note: We return empty result instead of error to match faster-whisper behavior
+            
+            # Get audio file path
+            audio_path = request.dst
+            if not audio_path or not os.path.exists(audio_path):
+                print(f"Error: Audio file not found: {audio_path}", file=sys.stderr)
+                return backend_pb2.TranscriptResult(
+                    segments=[],
+                    text="",
+                )
+            
+            print(f"Transcribing audio file: {audio_path}", file=sys.stderr)
+            
+            # Process audio with ASR processor
+            inputs = self.processor(
+                audio=audio_path,
+                sampling_rate=None,
+                return_tensors="pt",
+                padding=True,
+                add_generation_prompt=True
+            )
+            
+            # Move tensors to target device
+            for k, v in inputs.items():
+                if torch.is_tensor(v):
+                    inputs[k] = v.to(self._torch_device)
+            
+            # Prepare generation config
+            generation_config = {
+                "max_new_tokens": self.max_new_tokens,
+                "pad_token_id": self.processor.pad_id,
+                "eos_token_id": self.processor.tokenizer.eos_token_id,
+            }
+            
+            # Beam search vs sampling
+            if self.num_beams > 1:
+                generation_config["num_beams"] = self.num_beams
+                generation_config["do_sample"] = False  # Beam search doesn't use sampling
+            else:
+                generation_config["do_sample"] = self.do_sample
+                # Only set temperature and top_p when sampling is enabled
+                if self.do_sample:
+                    generation_config["temperature"] = self.temperature
+                    generation_config["top_p"] = self.top_p
+            
+            print(f"Generating transcription with max_new_tokens: {self.max_new_tokens}, temperature: {self.temperature}, do_sample: {self.do_sample}, num_beams: {self.num_beams}", file=sys.stderr)
+            
+            # Generate transcription
+            with torch.no_grad():
+                output_ids = self.model.generate(
+                    **inputs,
+                    **generation_config
+                )
+            
+            # Decode outputs
+            input_length = inputs['input_ids'].shape[1]
+            generated_ids = output_ids[0, input_length:]  # Get generated tokens (excluding input)
+            
+            # Remove padding tokens from the end
+            # Find the first eos_token or pad_token
+            eos_positions = (generated_ids == self.processor.tokenizer.eos_token_id).nonzero(as_tuple=True)[0]
+            if len(eos_positions) > 0:
+                generated_ids = generated_ids[:eos_positions[0] + 1]
+            
+            # Decode generated text
+            generated_text = self.processor.decode(generated_ids, skip_special_tokens=True)
+            
+            # Parse structured output to get segments
+            result_segments = []
+            try:
+                transcription_segments = self.processor.post_process_transcription(generated_text)
+                
+                if transcription_segments:
+                    # Map segments to TranscriptSegment format
+                    for idx, seg in enumerate(transcription_segments):
+                        # Extract timing information (if available)
+                        # Handle both dict and object with attributes
+                        if isinstance(seg, dict):
+                            start_time = seg.get('start_time', 0)
+                            end_time = seg.get('end_time', 0)
+                            text = seg.get('text', '')
+                            speaker_id = seg.get('speaker_id', None)
+                        else:
+                            # Handle object with attributes
+                            start_time = getattr(seg, 'start_time', 0)
+                            end_time = getattr(seg, 'end_time', 0)
+                            text = getattr(seg, 'text', '')
+                            speaker_id = getattr(seg, 'speaker_id', None)
+                        
+                        # Convert time to milliseconds (assuming seconds)
+                        start_ms = int(start_time * 1000) if isinstance(start_time, (int, float)) else 0
+                        end_ms = int(end_time * 1000) if isinstance(end_time, (int, float)) else 0
+                        
+                        # Add speaker info to text if available
+                        if speaker_id is not None:
+                            text = f"[Speaker {speaker_id}] {text}"
+                        
+                        result_segments.append(backend_pb2.TranscriptSegment(
+                            id=idx,
+                            start=start_ms,
+                            end=end_ms,
+                            text=text,
+                            tokens=[]  # Token IDs not extracted for now
+                        ))
+            except Exception as e:
+                print(f"Warning: Failed to parse structured output: {e}", file=sys.stderr)
+                print(traceback.format_exc(), file=sys.stderr)
+                # Fallback: create a single segment with the full text
+                if generated_text:
+                    result_segments.append(backend_pb2.TranscriptSegment(
+                        id=0,
+                        start=0,
+                        end=0,
+                        text=generated_text,
+                        tokens=[]
+                    ))
+            
+            # Combine all segment texts into full transcription
+            if result_segments:
+                full_text = " ".join([seg.text for seg in result_segments])
+            else:
+                full_text = generated_text if generated_text else ""
+            
+            print(f"Transcription completed: {len(result_segments)} segments", file=sys.stderr)
+            
+            return backend_pb2.TranscriptResult(
+                segments=result_segments,
+                text=full_text
+            )
+            
+        except Exception as err:
+            print(f"Error in AudioTranscription: {err}", file=sys.stderr)
+            print(traceback.format_exc(), file=sys.stderr)
+            return backend_pb2.TranscriptResult(
+                segments=[],
+                text="",
+            )
 
 def serve(address):
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=MAX_WORKERS),
