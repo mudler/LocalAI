@@ -1,5 +1,5 @@
 --extra-index-url https://download.pytorch.org/whl/xpu
-torch==2.8.0+xpu
+torch==2.10.0+xpu
 torchaudio==2.8.0+xpu
 optimum[openvino]
 setuptools
