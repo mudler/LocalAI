@@ -25,6 +25,7 @@ import (
 	"github.com/mudler/LocalAI/pkg/functions"
 	"github.com/mudler/LocalAI/pkg/grpc/proto"
 	model "github.com/mudler/LocalAI/pkg/model"
+	"github.com/mudler/LocalAI/pkg/reasoning"
 	"github.com/mudler/LocalAI/pkg/sound"
 
 	"github.com/mudler/xlog"
@@ -906,7 +907,13 @@ func generateResponse(config *config.ModelConfig, session *Session, utt []byte, 
 	}
 	conv.Lock.Unlock()
 
-	audioFilePath, res, err := session.ModelInterface.TTS(context.TODO(), response, session.Voice, session.InputAudioTranscription.Language)
+	// If the user has disabled reasoning in the config, the content will be returned as is.
+	// Note: We pass an empty string as the thinkingStartToken because we can't easily determine it here without re-evaluating the prompt,
+	// but the reasoning extraction logic handles standard tags (<think>, etc.) by default.
+	reasoningText, textToSpeak := reasoning.ExtractReasoningWithConfig(response, "", config.ReasoningConfig)
+	xlog.Debug("LLM Response", "reasoning", reasoningText, "speech", textToSpeak)
+
+	audioFilePath, res, err := session.ModelInterface.TTS(context.TODO(), textToSpeak, session.Voice, session.InputAudioTranscription.Language)
 	if err != nil {
 		xlog.Error("TTS failed", "error", err)
 		sendError(c, "tts_error", fmt.Sprintf("TTS generation failed: %v", err), "", item.Assistant.ID)
