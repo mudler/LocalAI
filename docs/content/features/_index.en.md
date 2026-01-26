@@ -20,6 +20,7 @@ LocalAI provides a comprehensive set of features for running AI models locally. 
 ## Advanced Features
 
 - **[OpenAI Functions](openai-functions/)** - Use function calling and tools API with local models
+- **[Realtime API](openai-realtime/)** - Low-latency multi-modal conversations (voice+text) over WebSocket
 - **[Constrained Grammars](constrained_grammars/)** - Control model output format with BNF grammars
 - **[GPU Acceleration](GPU-acceleration/)** - Optimize performance with GPU support
 - **[Distributed Inference](distributed_inferencing/)** - Scale inference across multiple nodes
