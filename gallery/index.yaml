@@ -1,4 +1,29 @@
 ---
+- name: "kernelgen-lm-32b-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/KernelGen-LM-32B-i1-GGUF
+  description: |
+    The model `mradermacher/KernelGen-LM-32B-i1-GGUF` is a quantized version of the original `AscendKernelGen/KernelGen-LM-32B` model. It is optimized for efficiency and performance, with quantization levels (e.g., Q2_K, IQ3_M, Q4_K_S) tailored for specific use cases. The quantized version is available as GGUF files, with the best trade-off between size, speed, and quality found in `i1-Q4_K_M` (19.9 GB). It is designed for deployment in environments where model size and inference speed are critical.
+  overrides:
+    parameters:
+      model: llama-cpp/models/KernelGen-LM-32B.i1-Q4_K_M.gguf
+    name: KernelGen-LM-32B-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/KernelGen-LM-32B-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/KernelGen-LM-32B.i1-Q4_K_M.gguf
+      sha256: e47d56f9eb164e3445bd320233ecfa58c4e2bd72edd64ece63feb1117b9910ab
+      uri: https://huggingface.co/mradermacher/KernelGen-LM-32B-i1-GGUF/resolve/main/KernelGen-LM-32B.i1-Q4_K_M.gguf
 - &qwen-tts
   urls:
     - https://huggingface.co/Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice
