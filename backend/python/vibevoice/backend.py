@@ -107,7 +107,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         model_path = request.Model
         if not model_path:
             if self.asr_mode:
-                model_path = "microsoft/VibeVoice-ASR-0.5B"  # Default ASR model
+                model_path = "microsoft/VibeVoice-ASR"  # Default ASR model
             else:
                 model_path = "microsoft/VibeVoice-Realtime-0.5B"  # Default TTS model
         

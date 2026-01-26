@@ -304,3 +304,22 @@ jobs:
         run: |
           make --jobs=5 --output-sync=target -C backend/python/qwen-tts
           make --jobs=5 --output-sync=target -C backend/python/qwen-tts test
+  tests-vibevoice:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone
+        uses: actions/checkout@v6
+        with:
+          submodules: true
+      - name: Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install build-essential ffmpeg
+          sudo apt-get install -y ca-certificates cmake curl patch python3-pip wget
+          # Install UV
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          pip install --user --no-cache-dir grpcio-tools==1.64.1
+      - name: Test vibevoice
+        run: |
+          make --jobs=5 --output-sync=target -C backend/python/vibevoice
+          make --jobs=5 --output-sync=target -C backend/python/vibevoice test

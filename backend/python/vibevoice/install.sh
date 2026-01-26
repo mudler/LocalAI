@@ -29,11 +29,13 @@ fi
 
 installRequirements
 
-git clone https://github.com/microsoft/VibeVoice.git
-cd VibeVoice/
+if [ ! -d VibeVoice ]; then
+    git clone https://github.com/microsoft/VibeVoice.git
+    cd VibeVoice/
 
-if [ "x${USE_PIP}" == "xtrue" ]; then
-    pip install ${EXTRA_PIP_INSTALL_FLAGS:-} .
-else
-    uv pip install ${EXTRA_PIP_INSTALL_FLAGS:-} .
+    if [ "x${USE_PIP}" == "xtrue" ]; then
+        pip install ${EXTRA_PIP_INSTALL_FLAGS:-} .
+    else
+        uv pip install ${EXTRA_PIP_INSTALL_FLAGS:-} .
+    fi
 fi
