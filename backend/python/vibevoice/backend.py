@@ -111,7 +111,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             else:
                 model_path = "microsoft/VibeVoice-Realtime-0.5B"  # Default TTS model
         
-        default_dtype = torch.bfloat16 if self.device != "cpu" else torch.float32
+        default_dtype = torch.bfloat16 if self.device == "cuda" else torch.float32
         
         load_dtype = default_dtype
         if "torch_dtype" in self.options:
@@ -298,7 +298,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
 
                 print(f"Using device: {self.device}, torch_dtype: {load_dtype}, attn_implementation: {attn_impl_primary}", file=sys.stderr)
 
-                # Load model with device-specific logic
+                # Load model with device-specific logic (matching upstream example pattern)
                 try:
                     if self.device == "mps":
                         self.model = VibeVoiceStreamingForConditionalGenerationInference.from_pretrained(
@@ -308,6 +308,13 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                             device_map=None,  # load then move
                         )
                         self.model.to("mps")
+                    elif self.device == "cuda":
+                        self.model = VibeVoiceStreamingForConditionalGenerationInference.from_pretrained(
+                            model_path,
+                            torch_dtype=load_dtype,
+                            device_map=device_map,
+                            attn_implementation=attn_impl_primary,
+                        )
                     else:  # cpu
                         self.model = VibeVoiceStreamingForConditionalGenerationInference.from_pretrained(
                             model_path,
@@ -323,11 +330,19 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                         self.model = VibeVoiceStreamingForConditionalGenerationInference.from_pretrained(
                             model_path,
                             torch_dtype=load_dtype,
-                            device_map=(self.device if self.device in ("cuda", "cpu") else None),
+                            device_map=None,
                             attn_implementation='sdpa'
                         )
                         if self.device == "mps":
                             self.model.to("mps")
+                        elif self.device == "cpu":
+                            self.model.to("cpu")
+                        # For CUDA, device_map="cuda" should work, but if it fails, try manual move
+                        elif self.device == "cuda":
+                            try:
+                                self.model.to("cuda")
+                            except:
+                                pass  # Already on CUDA if device_map worked
                     else:
                         raise e
 
