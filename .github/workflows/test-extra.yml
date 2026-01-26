@@ -305,7 +305,7 @@ jobs:
           make --jobs=5 --output-sync=target -C backend/python/qwen-tts
           make --jobs=5 --output-sync=target -C backend/python/qwen-tts test
   tests-vibevoice:
-    runs-on: ubuntu-latest
+    runs-on: bigger-runner
     steps:
       - name: Clone
         uses: actions/checkout@v6
