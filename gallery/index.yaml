@@ -1,4 +1,29 @@
 ---
+- name: "glm-4.7-flash-derestricted"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/GLM-4.7-Flash-Derestricted-GGUF
+  description: |
+    This model is a quantized version of the original GLM-4.7-Flash-Derestricted model, derived from the base model `koute/GLM-4.7-Flash-Derestricted`. It is designed for restricted use, featuring tags like "derestricted," "uncensored," and "unlimited." The quantized versions (e.g., Q2_K, Q4_K_S, Q6_K) offer varying trade-offs between accuracy and efficiency, with the Q4_K_S and Q6_K variants being recommended for balanced performance. The model is optimized for fast inference and supports multiple quantization schemes, though some advanced quantization options (like IQ4_XS) are not available. It is intended for use in environments with specific constraints or restrictions.
+  overrides:
+    parameters:
+      model: llama-cpp/models/GLM-4.7-Flash-Derestricted.Q4_K_M.gguf
+    name: GLM-4.7-Flash-Derestricted-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/GLM-4.7-Flash-Derestricted-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/GLM-4.7-Flash-Derestricted.Q4_K_M.gguf
+      sha256: 93de43daa88211d772de666a33cb890ac23f5780921445f62a4dde6f0e8af540
+      uri: https://huggingface.co/mradermacher/GLM-4.7-Flash-Derestricted-GGUF/resolve/main/GLM-4.7-Flash-Derestricted.Q4_K_M.gguf
 - &qwen-tts
   urls:
     - https://huggingface.co/Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice
