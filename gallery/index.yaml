@@ -1,4 +1,33 @@
 ---
+- name: "qwen3-vl-235b-a22b-thinking-heretic"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Qwen3-VL-235B-A22B-Thinking-heretic-GGUF
+  description: |
+    This model is a quantized version of the Qwen3-VL-235B-A22B-Thinking-heretic base model, optimized for efficient deployment. It supports multi-modal tasks and is available in various quantization formats (e.g., Q8_0, Q4_K_M, Q3_K_S) for different performance and accuracy trade-offs. The model is designed for use with GGUF files, offering flexibility for tasks like text generation, reasoning, and multimodal processing. It is based on the Qwen3-VL-235B-A22B-Thinking-heretic architecture, which is a large language model developed by Alibaba.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Qwen3-VL-235B-A22B-Thinking-heretic.Q4_K_M.gguf
+    name: Qwen3-VL-235B-A22B-Thinking-heretic-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    mmproj: llama-cpp/mmproj/Qwen3-VL-235B-A22B-Thinking-heretic.mmproj-f16.gguf
+    description: Imported from https://huggingface.co/mradermacher/Qwen3-VL-235B-A22B-Thinking-heretic-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Qwen3-VL-235B-A22B-Thinking-heretic.Q4_K_M.gguf
+      sha256: 97ac558fe3d8ad2077ce491ad22c956e1723b7dd2f5f9089f49ef5ec89ba3001
+      uri: https://huggingface.co/mradermacher/Qwen3-VL-235B-A22B-Thinking-heretic-GGUF/resolve/main/Qwen3-VL-235B-A22B-Thinking-heretic.Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/Qwen3-VL-235B-A22B-Thinking-heretic.mmproj-f16.gguf
+      sha256: 092d49454b9a1a4e4e6bf8d6efb880e529e60641ea93e6a4f13b243f536abbab
+      uri: https://huggingface.co/mradermacher/Qwen3-VL-235B-A22B-Thinking-heretic-GGUF/resolve/main/Qwen3-VL-235B-A22B-Thinking-heretic.mmproj-f16.gguf
 - name: "glm-4.7-flash-derestricted"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
