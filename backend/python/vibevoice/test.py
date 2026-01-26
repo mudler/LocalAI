@@ -154,7 +154,7 @@ class TestBackendServicer(unittest.TestCase):
                 stub = backend_pb2_grpc.BackendStub(channel)
                 # Load the ASR model first
                 load_response = stub.LoadModel(backend_pb2.ModelOptions(
-                    Model="microsoft/VibeVoice-ASR-0.5B",
+                    Model="microsoft/VibeVoice-ASR",
                     Options=["asr_mode:true"]
                 ))
                 self.assertTrue(load_response.success)
