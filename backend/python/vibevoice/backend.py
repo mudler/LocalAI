@@ -203,6 +203,11 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         self.voice_presets = {}
         self._voice_cache = {}
         self.default_voice_key = None
+        
+        # Store AudioPath, ModelFile, and ModelPath from LoadModel request for use in TTS
+        self.audio_path = request.AudioPath if hasattr(request, 'AudioPath') and request.AudioPath else None
+        self.model_file = request.ModelFile if hasattr(request, 'ModelFile') and request.ModelFile else None
+        self.model_path = request.ModelPath if hasattr(request, 'ModelPath') and request.ModelPath else None
     
         # Decide dtype & attention implementation
         if self.device == "mps":
@@ -433,17 +438,17 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 voice_path = self._get_voice_path(request.voice)
                 if voice_path:
                     voice_key = request.voice
-            elif request.AudioPath:
-                # Use AudioPath as voice file
-                if os.path.isabs(request.AudioPath):
-                    voice_path = request.AudioPath
-                elif request.ModelFile:
-                    model_file_base = os.path.dirname(request.ModelFile)
-                    voice_path = os.path.join(model_file_base, request.AudioPath)
-                elif hasattr(request, 'ModelPath') and request.ModelPath:
-                    voice_path = os.path.join(request.ModelPath, request.AudioPath)
+            elif self.audio_path:
+                # Use AudioPath from LoadModel as voice file
+                if os.path.isabs(self.audio_path):
+                    voice_path = self.audio_path
+                elif self.model_file:
+                    model_file_base = os.path.dirname(self.model_file)
+                    voice_path = os.path.join(model_file_base, self.audio_path)
+                elif self.model_path:
+                    voice_path = os.path.join(self.model_path, self.audio_path)
                 else:
-                    voice_path = request.AudioPath
+                    voice_path = self.audio_path
             elif self.default_voice_key:
                 voice_path = self._get_voice_path(self.default_voice_key)
                 voice_key = self.default_voice_key
