@@ -11366,13 +11366,13 @@
     - multimodal
   overrides:
     parameters:
-      model: mistralai_Mistral-Small-3.1-24B-Instruct-2503-Q4_K_M.gguf
-    mmproj: mmproj-mistralai_Mistral-Small-3.1-24B-Instruct-2503-f16.gguf
+      model: llama-cpp/models/mistralai_Mistral-Small-3.1-24B-Instruct-2503-Q4_K_M.gguf
+    mmproj: llama-cpp/mmproj/mmproj-mistralai_Mistral-Small-3.1-24B-Instruct-2503-f16.gguf
   files:
-    - filename: mistralai_Mistral-Small-3.1-24B-Instruct-2503-Q4_K_M.gguf
+    - filename: llama-cpp/models/mistralai_Mistral-Small-3.1-24B-Instruct-2503-Q4_K_M.gguf
       sha256: c5743c1bf39db0ae8a5ade5df0374b8e9e492754a199cfdad7ef393c1590f7c0
       uri: huggingface://bartowski/mistralai_Mistral-Small-3.1-24B-Instruct-2503-GGUF/mistralai_Mistral-Small-3.1-24B-Instruct-2503-Q4_K_M.gguf
-    - filename: mmproj-mistralai_Mistral-Small-3.1-24B-Instruct-2503-f16.gguf
+    - filename: llama-cpp/mmproj/mmproj-mistralai_Mistral-Small-3.1-24B-Instruct-2503-f16.gguf
       sha256: f5add93ad360ef6ccba571bba15e8b4bd4471f3577440a8b18785f8707d987ed
       uri: huggingface://bartowski/mistralai_Mistral-Small-3.1-24B-Instruct-2503-GGUF/mmproj-mistralai_Mistral-Small-3.1-24B-Instruct-2503-f16.gguf
 - !!merge <<: *mistral03
