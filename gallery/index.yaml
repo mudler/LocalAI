@@ -1,4 +1,29 @@
 ---
+- name: "qwen-8b-ties-v1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Qwen-8B-Ties-v1-GGUF
+  description: |
+    This model, **Qwen-8B-Ties-v1**, is a merged version of the Qwen3-8B base model with additional components from **Alelcv27/Qwen3-8B-Math-CoT** and **Alelcv27/Qwen3-8B-Code**. It uses the **TIES merge method** and is optimized for tasks requiring mathematical reasoning and code execution. The model is designed for large language understanding, with support for both mathematical and programming-related applications. It is a quantized version of the original Qwen3-8B model, but its core architecture remains based on the Qwen3-8B base model.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Qwen-8B-Ties-v1.Q4_K_M.gguf
+    name: Qwen-8B-Ties-v1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Qwen-8B-Ties-v1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Qwen-8B-Ties-v1.Q4_K_M.gguf
+      sha256: a02c5752838dd95e03172753b26e12616fc0244148a655e5df30526db2cffc6e
+      uri: https://huggingface.co/mradermacher/Qwen-8B-Ties-v1-GGUF/resolve/main/Qwen-8B-Ties-v1.Q4_K_M.gguf
 - name: "glm-4.7-flash-derestricted"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
