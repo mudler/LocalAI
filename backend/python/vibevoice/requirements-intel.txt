@@ -5,7 +5,7 @@ optimum[openvino]
 setuptools
 git+https://github.com/huggingface/diffusers
 opencv-python
-transformers==4.51.3
+transformers>=4.51.3,<5.0.0
 accelerate
 compel
 peft
