@@ -440,14 +440,30 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         if not voice_path or not os.path.exists(voice_path):
             return None
         
+        # Ensure cache exists (should be initialized in LoadModel)
+        if not hasattr(self, '_voice_cache'):
+            self._voice_cache = {}
+        
         # Use path as cache key
         if voice_path not in self._voice_cache:
             print(f"Loading prefilled prompt from {voice_path}", file=sys.stderr)
-            prefilled_outputs = torch.load(
-                voice_path,
-                map_location=self._torch_device,
-                weights_only=False,
-            )
+            # Match self-test.py: use string device name for map_location
+            # Ensure self.device exists (should be set in LoadModel)
+            try:
+                if not hasattr(self, 'device'):
+                    # Fallback to CPU if device not set
+                    device_str = "cpu"
+                else:
+                    device_str = str(self.device)
+            except AttributeError as e:
+                print(f"Error accessing self.device: {e}, falling back to CPU", file=sys.stderr)
+                device_str = "cpu"
+            if device_str != "cpu":
+                map_loc = device_str
+            else:
+                map_loc = "cpu"
+            # Call torch.load with explicit arguments
+            prefilled_outputs = torch.load(voice_path, map_location=map_loc, weights_only=False)
             self._voice_cache[voice_path] = prefilled_outputs
         
         return self._voice_cache[voice_path]
@@ -517,8 +533,9 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 return_attention_mask=True,
             )
 
-            # Move tensors to target device
-            target_device = self._torch_device
+            # Move tensors to target device (matching self-test.py exactly)
+            # Explicitly ensure it's a string to avoid any variable name collisions
+            target_device = str(self.device) if str(self.device) != "cpu" else "cpu"
             for k, v in inputs.items():
                 if torch.is_tensor(v):
                     inputs[k] = v.to(target_device)
