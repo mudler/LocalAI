@@ -1,4 +1,29 @@
 ---
+- name: "goetia-24b-v1.2"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Goetia-24B-v1.2-GGUF
+  description: |
+    The model, **Goetia-24B-v1.2**, is a 24-billion parameter language model optimized for efficiency and performance. It is a quantized version of the original model, trained on a large corpus of textual data (likely BooksCorpus). The model is designed for tasks like text generation, reasoning, and multilingual understanding, with support for various quantization formats (e.g., Q4_K_S, Q2_K, etc.) to balance accuracy and computational efficiency. It is suitable for deployment in applications requiring low-resource or edge-device use cases. The quantization reduces the model's size and inference speed while maintaining reasonable performance.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Goetia-24B-v1.2.Q4_K_M.gguf
+    name: Goetia-24B-v1.2-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Goetia-24B-v1.2-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Goetia-24B-v1.2.Q4_K_M.gguf
+      sha256: b09189e0ca5e45776e329b2bcac82cca43188d95d1121e54fa71cabe148dc795
+      uri: https://huggingface.co/mradermacher/Goetia-24B-v1.2-GGUF/resolve/main/Goetia-24B-v1.2.Q4_K_M.gguf
 - name: "glm-4.7-flash-derestricted"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
