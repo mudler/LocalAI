@@ -1,4 +1,54 @@
 ---
+- name: "z-image-diffusers"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  license: apache-2.0
+  tags:
+    - z-image
+    - text-to-image
+    - image-generation
+    - diffusers
+  urls:
+    - https://huggingface.co/Tongyi-MAI/Z-Image
+  icon: https://huggingface.co/Tongyi-MAI/Z-Image/resolve/main/teaser.jpg
+  description: |
+    Z-Image is the foundation model of the ⚡️-Image family, engineered for good quality, robust generative diversity, broad stylistic coverage, and precise prompt adherence. While Z-Image-Turbo is built for speed, Z-Image is a full-capacity, undistilled transformer designed to be the backbone for creators, researchers, and developers who require the highest level of creative freedom.
+  overrides:
+    cfg_scale: 3.0
+    parameters:
+      model: Tongyi-MAI/Z-Image
+    backend: diffusers
+    known_usecases:
+      - FLAG_IMAGE
+    diffusers:
+      pipeline_type: ZImagePipeline
+    step: 35
+    options:
+      - torch_dtype:bf16
+- name: "z-image-turbo-diffusers"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  license: apache-2.0
+  tags:
+    - z-image-turbo
+    - text-to-image
+    - image-generation
+    - diffusers
+  urls:
+    - https://huggingface.co/Tongyi-MAI/Z-Image-Turbo
+  icon: https://huggingface.co/Tongyi-MAI/Z-Image-Turbo/resolve/main/assets/showcase_realistic.png
+  description: |
+    🚀 Z-Image-Turbo – A distilled version of Z-Image that matches or exceeds leading competitors with only 8 NFEs (Number of Function Evaluations). It offers ⚡️sub-second inference latency⚡️ on enterprise-grade H800 GPUs and fits comfortably within 16G VRAM consumer devices. It excels in photorealistic image generation, bilingual text rendering (English & Chinese), and robust instruction adherence.
+  overrides:
+    cfg_scale: 0
+    parameters:
+      model: Tongyi-MAI/Z-Image-Turbo
+    backend: diffusers
+    known_usecases:
+      - FLAG_IMAGE
+    diffusers:
+      pipeline_type: ZImagePipeline
+    step: 9
+    options:
+      - torch_dtype:bf16
 - name: "glm-4.7-flash-derestricted"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
