@@ -12047,6 +12047,44 @@
     - filename: llama-cpp/mmproj/mmproj-F32.gguf
       sha256: 5861a0938164a7e56cd137a8fcd49a300b9e00861f7f1cb5dfcf2483d765447c
       uri: huggingface://unsloth/Magistral-Small-2509-GGUF/mmproj-F32.gguf
+- !!merge <<: *mistral03
+  name: "mistral-community_pixtral-12b"
+  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/634c17653d11eaedd88b314d/9OgyfKstSZtbmsmuG8MbU.png
+  urls:
+    - https://huggingface.co/mistral-community/pixtral-12b
+    - https://huggingface.co/bartowski/mistral-community_pixtral-12b-GGUF
+  description: |
+    Highlights:
+
+        - Natively multimodal, trained with interleaved image and text data
+        - Strong performance on multimodal tasks, excels in instruction following
+        - Maintains state-of-the-art performance on text-only benchmarks
+
+    Architecture:
+
+        - New 400M parameter vision encoder trained from scratch
+        - 12B parameter multimodal decoder based on Mistral Nemo
+        - Supports variable image sizes and aspect ratios
+        - Supports multiple images in the long context window of 128k tokens
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - mistral
+    - cpu
+    - function-calling
+    - multimodal
+  overrides:
+    parameters:
+      model: llama-cpp/models/mistral-community_pixtral-12b-Q4_K_M.gguf
+    mmproj: llama-cpp/mmproj/mmproj-mistral-community_pixtral-12b-f16.gguf
+  files:
+    - filename: llama-cpp/models/mistral-community_pixtral-12b-Q4_K_M.gguf
+      sha256: de3c1badab1f5d7f4bd16f8ca8d782982d95c05797d75cd416e157635df61233
+      uri: huggingface://bartowski/mistral-community_pixtral-12b-GGUF/mistral-community_pixtral-12b-Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/mmproj-mistral-community_pixtral-12b-f16.gguf
+      sha256: a0b21e5a3b0f9b0b604385c45bb841142e7a5ac7660fa6a397dbc87c66b2083e
+      uri: huggingface://bartowski/mistral-community_pixtral-12b-GGUF/mmproj-mistral-community_pixtral-12b-f16.gguf
 - &mudler
   url: "github:mudler/LocalAI/gallery/mudler.yaml@master" ### START mudler's LocalAI specific-models
   name: "LocalAI-llama3-8b-function-call-v0.2"
