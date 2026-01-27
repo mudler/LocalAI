@@ -1,4 +1,29 @@
 ---
+- name: "scot0401s-gpt-oss-20b"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/RJTPP/scot0401s-gpt-oss-20b-gguf
+  description: |
+    AI model: scot0401s-gpt-oss-20b
+  overrides:
+    parameters:
+      model: llama-cpp/models/model-Q4_K_M.gguf
+    name: scot0401s-gpt-oss-20b-gguf
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/RJTPP/scot0401s-gpt-oss-20b-gguf
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/model-Q4_K_M.gguf
+      sha256: bfc27ef363102fdeac6049be3fd5b9e389cc2d8a700599d073752d61cb21d0cd
+      uri: https://huggingface.co/RJTPP/scot0401s-gpt-oss-20b-gguf/resolve/main/model-Q4_K_M.gguf
 - name: "glm-4.7-flash-derestricted"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
