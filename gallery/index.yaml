@@ -11971,6 +11971,51 @@
     - filename: mistralai_Magistral-Small-2509-Q4_K_M.gguf
       sha256: 1d638bc931de30d29fc73ad439206ff185f76666a096e7ad723866a20f78728d
       uri: huggingface://bartowski/mistralai_Magistral-Small-2509-GGUF/mistralai_Magistral-Small-2509-Q4_K_M.gguf
+- !!merge <<: *mistral03
+  name: "mistralai_magistral-small-2509-multimodal"
+  urls:
+    - https://huggingface.co/mistralai/Magistral-Small-2509
+    - https://huggingface.co/unsloth/Magistral-Small-2509-GGUF
+  description: |
+    Magistral Small 1.2
+    Building upon Mistral Small 3.2 (2506), with added reasoning capabilities, undergoing SFT from Magistral Medium traces and RL on top, it's a small, efficient reasoning model with 24B parameters.
+
+    Magistral Small can be deployed locally, fitting within a single RTX 4090 or a 32GB RAM MacBook once quantized.
+
+    Learn more about Magistral in our blog post.
+
+    The model was presented in the paper Magistral.
+
+    Quantization from unsloth, using their recommended parameters as defaults and including mmproj for multimodality.
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - mistral
+    - cpu
+    - function-calling
+    - multimodal
+  overrides:
+    context_size: 40960
+    parameters:
+      model: llama-cpp/models/Magistral-Small-2509-Q4_K_M.gguf
+      temperature: 0.7
+      repeat_penalty: 1.0
+      top_k: -1
+      top_p: 0.95
+    backend: llama-cpp
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/mmproj-F32.gguf
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Magistral-Small-2509-Q4_K_M.gguf
+      sha256: 6d3e5f2a83ed9d64bd3382fb03be2f6e0bc7596a9de16e107bf22f959891945b
+      uri: huggingface://unsloth/Magistral-Small-2509-GGUF/Magistral-Small-2509-Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/mmproj-F32.gguf
+      sha256: 5861a0938164a7e56cd137a8fcd49a300b9e00861f7f1cb5dfcf2483d765447c
+      uri: huggingface://unsloth/Magistral-Small-2509-GGUF/mmproj-F32.gguf
 - &mudler
   url: "github:mudler/LocalAI/gallery/mudler.yaml@master" ### START mudler's LocalAI specific-models
   name: "LocalAI-llama3-8b-function-call-v0.2"
