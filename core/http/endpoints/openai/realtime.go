@@ -49,7 +49,8 @@ type Session struct {
 	Voice                   string
 	TurnDetection           *types.TurnDetectionUnion // "server_vad", "semantic_vad" or "none"
 	InputAudioTranscription *types.AudioTranscription
-	Functions               functions.Functions
+	Tools                   []types.ToolUnion
+	ToolChoice              *types.ToolChoiceUnion
 	Conversations           map[string]*Conversation
 	InputAudioBuffer        []byte
 	AudioBufferLock         sync.Mutex
@@ -83,6 +84,8 @@ func (s *Session) ToServer() types.SessionUnion {
 				Object:       "realtime.session",
 				Model:        s.Model,
 				Instructions: s.Instructions,
+				Tools:        s.Tools,
+				ToolChoice:   s.ToolChoice,
 				Audio: &types.RealtimeSessionAudio{
 					Input: &types.SessionAudioInput{
 						TurnDetection: s.TurnDetection,
@@ -115,10 +118,6 @@ func (c *Conversation) ToServer() types.Conversation {
 var sessions = make(map[string]*Session)
 var sessionLock sync.Mutex
 
-// TODO: instead of trying to implement these low level methods which are copied from grpc.Backend
-//       we can create a new interface that has methods similar to ModelInference from llm.go.
-//       However this new won't need some arguments like loader *model.ModelLoader, c *config.ModelConfig, cl *config.ModelConfigLoader, o *config.ApplicationConfig
-//       becase these can be kept in wrappedModel in realtime_model.go
 type Model interface {
 	VAD(ctx context.Context, request *schema.VADRequest) (*schema.VADResponse, error)
 	Transcribe(ctx context.Context, audio, language string, translate bool, diarize bool, prompt string) (*schema.TranscriptionResult, error)
@@ -587,6 +586,13 @@ func updateSession(session *Session, update *types.SessionUnion, cl *config.Mode
 		session.Instructions = rt.Instructions
 	}
 
+	if rt.Tools != nil {
+		session.Tools = rt.Tools
+	}
+	if rt.ToolChoice != nil {
+		session.ToolChoice = rt.ToolChoice
+	}
+
 	return nil
 }
 
@@ -759,7 +765,7 @@ func commitUtterance(ctx context.Context, utt []byte, session *Session, conv *Co
 	}
 
 	if !session.TranscriptionOnly {
-		generateResponse(session.ModelConfig, session, utt, transcript, conv, ResponseCreate{}, c, websocket.TextMessage)
+		generateResponse(session.ModelConfig, session, utt, transcript, conv, c, websocket.TextMessage)
 	}
 }
 
@@ -784,7 +790,7 @@ func runVAD(ctx context.Context, session *Session, adata []int16) ([]schema.VADS
 }
 
 // Function to generate a response based on the conversation
-func generateResponse(config *config.ModelConfig, session *Session, utt []byte, transcript string, conv *Conversation, responseCreate ResponseCreate, c *websocket.Conn, mt int) {
+func generateResponse(config *config.ModelConfig, session *Session, utt []byte, transcript string, conv *Conversation, c *websocket.Conn, mt int) {
 	xlog.Debug("Generating realtime response...")
 
 	item := types.MessageItemUnion{
@@ -865,23 +871,29 @@ func generateResponse(config *config.ModelConfig, session *Session, utt []byte, 
 	}
 	conv.Lock.Unlock()
 
-	item = types.MessageItemUnion{
-		Assistant: &types.MessageItemAssistant{
-			ID:     generateItemID(),
-			Status: types.ItemStatusInProgress,
+	responseID := generateUniqueID()
+	sendEvent(c, types.ResponseCreatedEvent{
+		ServerEventBase: types.ServerEventBase{},
+		Response: types.Response{
+			ID:     responseID,
+			Object: "realtime.response",
+			Status: types.ResponseStatusInProgress,
 		},
-	}
-
-	sendEvent(c, types.ConversationItemAddedEvent{
-		Item: item,
 	})
 
-	conv.Lock.Lock()
-	conv.Items = append(conv.Items, &item)
-	conv.Lock.Unlock()
-	// XXX: And from now item must be accessed with conv.Lock held
+	toolsJSON := ""
+	if len(session.Tools) > 0 {
+		b, _ := json.Marshal(session.Tools)
+		toolsJSON = string(b)
+	}
 
-	predFunc, err := session.ModelInterface.Predict(context.TODO(), conversationHistory, nil, nil, nil, nil, "", "", nil, nil, nil)
+	toolChoiceJSON := ""
+	if session.ToolChoice != nil {
+		b, _ := json.Marshal(session.ToolChoice)
+		toolChoiceJSON = string(b)
+	}
+
+	predFunc, err := session.ModelInterface.Predict(context.TODO(), conversationHistory, nil, nil, nil, nil, toolsJSON, toolChoiceJSON, nil, nil, nil)
 	if err != nil {
 		sendError(c, "inference_failed", fmt.Sprintf("backend error: %v", err), "", item.Assistant.ID)
 		return
@@ -892,71 +904,229 @@ func generateResponse(config *config.ModelConfig, session *Session, utt []byte, 
 		sendError(c, "prediction_failed", fmt.Sprintf("backend error: %v", err), "", item.Assistant.ID)
 	}
 
-	response := pred.Response
+	rawResponse := pred.Response
 	if config.TemplateConfig.ReplyPrefix != "" {
-		response = config.TemplateConfig.ReplyPrefix + response
+		rawResponse = config.TemplateConfig.ReplyPrefix + rawResponse
 	}
 
-	conv.Lock.Lock()
-	item.Assistant.Status = types.ItemStatusCompleted
-	item.Assistant.Content = []types.MessageContentOutput{
-		{
-			Type:       types.MessageContentTypeOutputAudio,
-			Transcript: response,
+	reasoningText, responseWithoutReasoning := reasoning.ExtractReasoningWithConfig(rawResponse, "", config.ReasoningConfig)
+	xlog.Debug("LLM Response", "reasoning", reasoningText, "response_without_reasoning", responseWithoutReasoning)
+
+	textContent := functions.ParseTextContent(responseWithoutReasoning, config.FunctionsConfig)
+	cleanedResponse := functions.CleanupLLMResult(responseWithoutReasoning, config.FunctionsConfig)
+	toolCalls := functions.ParseFunctionCall(cleanedResponse, config.FunctionsConfig)
+
+	noActionName := "answer"
+	if config.FunctionsConfig.NoActionFunctionName != "" {
+		noActionName = config.FunctionsConfig.NoActionFunctionName
+	}
+	isNoAction := len(toolCalls) > 0 && toolCalls[0].Name == noActionName
+
+	var finalSpeech string
+	var finalToolCalls []functions.FuncCallResults
+
+	if isNoAction {
+		arg := toolCalls[0].Arguments
+		arguments := map[string]interface{}{}
+		if err := json.Unmarshal([]byte(arg), &arguments); err == nil {
+			if m, exists := arguments["message"]; exists {
+				if message, ok := m.(string); ok {
+					finalSpeech = message
+				}
+			}
+		}
+		if finalSpeech == "" {
+			// Fallback if parsing failed
+			finalSpeech = cleanedResponse
+		}
+	} else {
+		finalToolCalls = toolCalls
+		if len(toolCalls) > 0 {
+			finalSpeech = textContent
+		} else {
+			finalSpeech = cleanedResponse
+		}
+	}
+
+	if finalSpeech != "" {
+		// Create the assistant item now that we have content
+		item := types.MessageItemUnion{
+			Assistant: &types.MessageItemAssistant{
+				ID:     generateItemID(),
+				Status: types.ItemStatusInProgress,
+				Content: []types.MessageContentOutput{
+					{
+						Type:       types.MessageContentTypeOutputAudio,
+						Transcript: finalSpeech,
+					},
+				},
+			},
+		}
+
+		conv.Lock.Lock()
+		conv.Items = append(conv.Items, &item)
+		conv.Lock.Unlock()
+
+		sendEvent(c, types.ResponseOutputItemAddedEvent{
+			ServerEventBase: types.ServerEventBase{},
+			ResponseID:      responseID,
+			OutputIndex:     0,
+			Item:            item,
+		})
+
+		sendEvent(c, types.ResponseContentPartAddedEvent{
+			ServerEventBase: types.ServerEventBase{},
+			ResponseID:      responseID,
+			ItemID:          item.Assistant.ID,
+			OutputIndex:     0,
+			ContentIndex:    0,
+			Part:            item.Assistant.Content[0],
+		})
+
+		audioFilePath, res, err := session.ModelInterface.TTS(context.TODO(), finalSpeech, session.Voice, session.InputAudioTranscription.Language)
+		if err != nil {
+			xlog.Error("TTS failed", "error", err)
+			sendError(c, "tts_error", fmt.Sprintf("TTS generation failed: %v", err), "", item.Assistant.ID)
+			return
+		}
+		if !res.Success {
+			xlog.Error("TTS failed", "message", res.Message)
+			sendError(c, "tts_error", fmt.Sprintf("TTS generation failed: %s", res.Message), "", item.Assistant.ID)
+			return
+		}
+		defer os.Remove(audioFilePath)
+
+		audioBytes, err := os.ReadFile(audioFilePath)
+		if err != nil {
+			xlog.Error("failed to read TTS file", "error", err)
+			sendError(c, "tts_error", fmt.Sprintf("Failed to read TTS audio: %v", err), "", item.Assistant.ID)
+			return
+		}
+		audioString := base64.StdEncoding.EncodeToString(audioBytes)
+
+		sendEvent(c, types.ResponseOutputAudioTranscriptDeltaEvent{
+			ServerEventBase: types.ServerEventBase{},
+			ResponseID:      responseID,
+			ItemID:          item.Assistant.ID,
+			OutputIndex:     0,
+			ContentIndex:    0,
+			Delta:           finalSpeech,
+		})
+		sendEvent(c, types.ResponseOutputAudioTranscriptDoneEvent{
+			ServerEventBase: types.ServerEventBase{},
+			ResponseID:      responseID,
+			ItemID:          item.Assistant.ID,
+			OutputIndex:     0,
+			ContentIndex:    0,
+			Transcript:      finalSpeech,
+		})
+
+		sendEvent(c, types.ResponseOutputAudioDeltaEvent{
+			ServerEventBase: types.ServerEventBase{},
+			ResponseID:      responseID,
+			ItemID:          item.Assistant.ID,
+			OutputIndex:     0,
+			ContentIndex:    0,
+			Delta:           audioString,
+		})
+		sendEvent(c, types.ResponseOutputAudioDoneEvent{
+			ServerEventBase: types.ServerEventBase{},
+			ResponseID:      responseID,
+			ItemID:          item.Assistant.ID,
+			OutputIndex:     0,
+			ContentIndex:    0,
+		})
+
+		sendEvent(c, types.ResponseContentPartDoneEvent{
+			ServerEventBase: types.ServerEventBase{},
+			ResponseID:      responseID,
+			ItemID:          item.Assistant.ID,
+			OutputIndex:     0,
+			ContentIndex:    0,
+			Part:            item.Assistant.Content[0],
+		})
+
+		conv.Lock.Lock()
+		item.Assistant.Status = types.ItemStatusCompleted
+		item.Assistant.Content[0].Audio = audioString
+		conv.Lock.Unlock()
+
+		sendEvent(c, types.ResponseOutputItemDoneEvent{
+			ServerEventBase: types.ServerEventBase{},
+			ResponseID:      responseID,
+			OutputIndex:     0,
+			Item:            item,
+		})
+	}
+
+	// Handle Tool Calls
+	for i, tc := range finalToolCalls {
+		toolCallID := generateItemID()
+		callID := "call_" + generateUniqueID() // OpenAI uses call_xyz
+
+		// Create FunctionCall Item
+		fcItem := types.MessageItemUnion{
+			FunctionCall: &types.MessageItemFunctionCall{
+				ID:        toolCallID,
+				CallID:    callID,
+				Name:      tc.Name,
+				Arguments: tc.Arguments,
+				Status:    types.ItemStatusCompleted,
+			},
+		}
+
+		conv.Lock.Lock()
+		conv.Items = append(conv.Items, &fcItem)
+		conv.Lock.Unlock()
+
+		outputIndex := i
+		if finalSpeech != "" {
+			outputIndex++
+		}
+
+		sendEvent(c, types.ResponseOutputItemAddedEvent{
+			ServerEventBase: types.ServerEventBase{},
+			ResponseID:      responseID,
+			OutputIndex:     outputIndex,
+			Item:            fcItem,
+		})
+
+		sendEvent(c, types.ResponseFunctionCallArgumentsDeltaEvent{
+			ServerEventBase: types.ServerEventBase{},
+			ResponseID:      responseID,
+			ItemID:          toolCallID,
+			OutputIndex:     outputIndex,
+			CallID:          callID,
+			Delta:           tc.Arguments,
+		})
+
+		sendEvent(c, types.ResponseFunctionCallArgumentsDoneEvent{
+			ServerEventBase: types.ServerEventBase{},
+			ResponseID:      responseID,
+			ItemID:          toolCallID,
+			OutputIndex:     outputIndex,
+			CallID:          callID,
+			Arguments:       tc.Arguments,
+			Name:            tc.Name,
+		})
+
+		sendEvent(c, types.ResponseOutputItemDoneEvent{
+			ServerEventBase: types.ServerEventBase{},
+			ResponseID:      responseID,
+			OutputIndex:     outputIndex,
+			Item:            fcItem,
+		})
+	}
+
+	sendEvent(c, types.ResponseDoneEvent{
+		ServerEventBase: types.ServerEventBase{},
+		Response: types.Response{
+			ID:     responseID,
+			Object: "realtime.response",
+			Status: types.ResponseStatusCompleted,
 		},
-	}
-	conv.Lock.Unlock()
-
-	// If the user has disabled reasoning in the config, the content will be returned as is.
-	// Note: We pass an empty string as the thinkingStartToken because we can't easily determine it here without re-evaluating the prompt,
-	// but the reasoning extraction logic handles standard tags (<think>, etc.) by default.
-	reasoningText, textToSpeak := reasoning.ExtractReasoningWithConfig(response, "", config.ReasoningConfig)
-	xlog.Debug("LLM Response", "reasoning", reasoningText, "speech", textToSpeak)
-
-	audioFilePath, res, err := session.ModelInterface.TTS(context.TODO(), textToSpeak, session.Voice, session.InputAudioTranscription.Language)
-	if err != nil {
-		xlog.Error("TTS failed", "error", err)
-		sendError(c, "tts_error", fmt.Sprintf("TTS generation failed: %v", err), "", item.Assistant.ID)
-		return
-	}
-	if !res.Success {
-		xlog.Error("TTS failed", "message", res.Message)
-		sendError(c, "tts_error", fmt.Sprintf("TTS generation failed: %s", res.Message), "", item.Assistant.ID)
-		return
-	}
-	defer os.Remove(audioFilePath)
-
-	audioBytes, err := os.ReadFile(audioFilePath)
-	if err != nil {
-		xlog.Error("failed to read TTS file", "error", err)
-		sendError(c, "tts_error", fmt.Sprintf("Failed to read TTS audio: %v", err), "", item.Assistant.ID)
-		return
-	}
-	audioString := base64.StdEncoding.EncodeToString(audioBytes)
-
-	sendEvent(c, types.ResponseOutputAudioDeltaEvent{
-		ServerEventBase: types.ServerEventBase{},
-		ItemID:          item.Assistant.ID,
-		// TODO: OutputIndex and ContentIndex
-		Delta: audioString,
-	})
-	sendEvent(c, types.ResponseOutputAudioDoneEvent{
-		ServerEventBase: types.ServerEventBase{},
-		ItemID:          item.Assistant.ID,
-		// TODO: Indexs
 	})
 
-	// OpenAI does not send the audio as part of the conversation.
-	// It's sent as audio deltas or the user can request it with conversation.item.retrieve.
-	conv.Lock.Lock()
-	doneEvent := types.ConversationItemDoneEvent{
-		ServerEventBase: types.ServerEventBase{},
-		Item:            item,
-	}
-	item.Assistant.Content[0].Audio = audioString
-	conv.Lock.Unlock()
-
-	sendEvent(c, doneEvent)
 }
 
 // Helper functions to generate unique IDs
@@ -983,12 +1153,4 @@ func generateUniqueID() string {
 	// For simplicity, use a counter or UUID
 	// Implement as needed
 	return "unique_id"
-}
-
-// Structures for 'response.create' messages
-type ResponseCreate struct {
-	Modalities   []string            `json:"modalities,omitempty"`
-	Instructions string              `json:"instructions,omitempty"`
-	Functions    functions.Functions `json:"functions,omitempty"`
-	// Other fields as needed
 }
