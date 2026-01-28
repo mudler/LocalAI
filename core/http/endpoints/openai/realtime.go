@@ -41,10 +41,10 @@ const (
 
 // Session represents a single WebSocket connection and its state
 type Session struct {
-	ID                      string
-	TranscriptionOnly       bool
+	ID                string
+	TranscriptionOnly bool
 	// The pipeline or any-to-any model name (full realtime mode)
-	Model                   string
+	Model string
 	// The voice may be a TTS model name or a parameter passed to a TTS model
 	Voice                   string
 	TurnDetection           *types.TurnDetectionUnion // "server_vad", "semantic_vad" or "none"
@@ -58,7 +58,7 @@ type Session struct {
 	DefaultConversationID   string
 	ModelInterface          Model
 	// The pipeline model config or the config for an any-to-any model
-	ModelConfig             *config.ModelConfig
+	ModelConfig *config.ModelConfig
 }
 
 func (s *Session) FromClient(session *types.SessionUnion) {
@@ -121,8 +121,9 @@ var sessionLock sync.Mutex
 type Model interface {
 	VAD(ctx context.Context, request *schema.VADRequest) (*schema.VADResponse, error)
 	Transcribe(ctx context.Context, audio, language string, translate bool, diarize bool, prompt string) (*schema.TranscriptionResult, error)
-	Predict(ctx context.Context, messages schema.Messages, images, videos, audios []string, tokenCallback func(string, backend.TokenUsage) bool, tools string, toolChoice string, logprobs *int, topLogprobs *int, logitBias map[string]float64) (func() (backend.LLMResponse, error), error)
+	Predict(ctx context.Context, messages schema.Messages, images, videos, audios []string, tokenCallback func(string, backend.TokenUsage) bool, tools []types.ToolUnion, toolChoice *types.ToolChoiceUnion, logprobs *int, topLogprobs *int, logitBias map[string]float64) (func() (backend.LLMResponse, error), error)
 	TTS(ctx context.Context, text, voice, language string) (string, *proto.Result, error)
+	PredictConfig() *config.ModelConfig
 }
 
 var upgrader = websocket.Upgrader{
@@ -765,7 +766,7 @@ func commitUtterance(ctx context.Context, utt []byte, session *Session, conv *Co
 	}
 
 	if !session.TranscriptionOnly {
-		generateResponse(session.ModelConfig, session, utt, transcript, conv, c, websocket.TextMessage)
+		generateResponse(session, utt, transcript, conv, c, websocket.TextMessage)
 	}
 }
 
@@ -790,8 +791,10 @@ func runVAD(ctx context.Context, session *Session, adata []int16) ([]schema.VADS
 }
 
 // Function to generate a response based on the conversation
-func generateResponse(config *config.ModelConfig, session *Session, utt []byte, transcript string, conv *Conversation, c *websocket.Conn, mt int) {
+func generateResponse(session *Session, utt []byte, transcript string, conv *Conversation, c *websocket.Conn, mt int) {
 	xlog.Debug("Generating realtime response...")
+
+	config := session.ModelInterface.PredictConfig()
 
 	item := types.MessageItemUnion{
 		User: &types.MessageItemUser{
@@ -881,19 +884,7 @@ func generateResponse(config *config.ModelConfig, session *Session, utt []byte, 
 		},
 	})
 
-	toolsJSON := ""
-	if len(session.Tools) > 0 {
-		b, _ := json.Marshal(session.Tools)
-		toolsJSON = string(b)
-	}
-
-	toolChoiceJSON := ""
-	if session.ToolChoice != nil {
-		b, _ := json.Marshal(session.ToolChoice)
-		toolChoiceJSON = string(b)
-	}
-
-	predFunc, err := session.ModelInterface.Predict(context.TODO(), conversationHistory, nil, nil, nil, nil, toolsJSON, toolChoiceJSON, nil, nil, nil)
+	predFunc, err := session.ModelInterface.Predict(context.TODO(), conversationHistory, nil, nil, nil, nil, session.Tools, session.ToolChoice, nil, nil, nil)
 	if err != nil {
 		sendError(c, "inference_failed", fmt.Sprintf("backend error: %v", err), "", item.Assistant.ID)
 		return
@@ -902,7 +893,10 @@ func generateResponse(config *config.ModelConfig, session *Session, utt []byte, 
 	pred, err := predFunc()
 	if err != nil {
 		sendError(c, "prediction_failed", fmt.Sprintf("backend error: %v", err), "", item.Assistant.ID)
+		return
 	}
+
+	xlog.Debug("Function config for parsing", "function_name_key", config.FunctionsConfig.FunctionNameKey, "function_arguments_key", config.FunctionsConfig.FunctionArgumentsKey)
 
 	rawResponse := pred.Response
 	if config.TemplateConfig.ReplyPrefix != "" {
@@ -915,6 +909,8 @@ func generateResponse(config *config.ModelConfig, session *Session, utt []byte, 
 	textContent := functions.ParseTextContent(responseWithoutReasoning, config.FunctionsConfig)
 	cleanedResponse := functions.CleanupLLMResult(responseWithoutReasoning, config.FunctionsConfig)
 	toolCalls := functions.ParseFunctionCall(cleanedResponse, config.FunctionsConfig)
+
+	xlog.Debug("Function call parsing", "textContent", textContent, "cleanedResponse", cleanedResponse, "toolCallsCount", len(toolCalls))
 
 	noActionName := "answer"
 	if config.FunctionsConfig.NoActionFunctionName != "" {
@@ -932,15 +928,23 @@ func generateResponse(config *config.ModelConfig, session *Session, utt []byte, 
 			if m, exists := arguments["message"]; exists {
 				if message, ok := m.(string); ok {
 					finalSpeech = message
+				} else {
+					xlog.Warn("NoAction function message field is not a string", "type", fmt.Sprintf("%T", m))
 				}
+			} else {
+				xlog.Warn("NoAction function missing 'message' field in arguments")
 			}
+		} else {
+			xlog.Warn("Failed to unmarshal NoAction function arguments", "error", err, "arguments", arg)
 		}
 		if finalSpeech == "" {
 			// Fallback if parsing failed
+			xlog.Warn("NoAction function did not produce speech, using cleaned response as fallback")
 			finalSpeech = cleanedResponse
 		}
 	} else {
 		finalToolCalls = toolCalls
+		xlog.Debug("Setting finalToolCalls", "count", len(finalToolCalls))
 		if len(toolCalls) > 0 {
 			finalSpeech = textContent
 		} else {
@@ -1060,6 +1064,7 @@ func generateResponse(config *config.ModelConfig, session *Session, utt []byte, 
 	}
 
 	// Handle Tool Calls
+	xlog.Debug("About to handle tool calls", "finalToolCallsCount", len(finalToolCalls))
 	for i, tc := range finalToolCalls {
 		toolCallID := generateItemID()
 		callID := "call_" + generateUniqueID() // OpenAI uses call_xyz
