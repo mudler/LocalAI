@@ -1,4 +1,29 @@
 ---
+- name: "qwen3-30b-a3b-thinking-2507-ft-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Qwen3-30B-A3B-Thinking-2507-FT-i1-GGUF
+  description: |
+    The model described in this repository is **Qwen3-30B**, a large language model developed by Alibaba Cloud. It is optimized for efficiency and performance, designed to handle a wide range of tasks such as text generation, translation, and reasoning. The model is trained on a large dataset and fine-tuned for specific applications. It leverages advanced techniques to ensure accuracy and efficiency, making it suitable for both personal and professional use. The quantized version (A3B-Thinking-2507-FT) is optimized for deployment with specific quantization settings, but the base model (Qwen3-30B) is the original, unquantized version.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Qwen3-30B-A3B-Thinking-2507-FT.i1-Q4_K_M.gguf
+    name: Qwen3-30B-A3B-Thinking-2507-FT-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Qwen3-30B-A3B-Thinking-2507-FT-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Qwen3-30B-A3B-Thinking-2507-FT.i1-Q4_K_M.gguf
+      sha256: 274ef7440208e33af882e06002b0c41d773968d683abc0d9bb615db672270694
+      uri: https://huggingface.co/mradermacher/Qwen3-30B-A3B-Thinking-2507-FT-i1-GGUF/resolve/main/Qwen3-30B-A3B-Thinking-2507-FT.i1-Q4_K_M.gguf
 - name: "glm-4.7-flash-derestricted"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
