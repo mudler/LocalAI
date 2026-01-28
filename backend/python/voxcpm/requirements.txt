@@ -1,0 +1,7 @@
+grpcio==1.76.0
+protobuf
+certifi
+packaging==24.1
+soundfile
+numpy
+voxcpm
