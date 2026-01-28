@@ -491,6 +491,8 @@ func (re *RequestExtractor) SetOpenResponsesRequest(c echo.Context) error {
 		return echo.ErrBadRequest
 	}
 
+	// Convert input items to Messages (this will be done in the endpoint handler)
+	// We store the input in the request for the endpoint to process
 	cfg, ok := c.Get(CONTEXT_LOCALS_KEY_MODEL_CONFIG).(*config.ModelConfig)
 	if !ok || cfg == nil {
 		return echo.ErrBadRequest

@@ -123,6 +123,19 @@ jobs:
             cuda-minor-version: "9"
             platforms: 'linux/amd64'
             tag-latest: 'auto'
+            tag-suffix: '-gpu-nvidia-cuda-12-voxcpm'
+            runs-on: 'ubuntu-latest'
+            base-image: "ubuntu:24.04"
+            skip-drivers: 'false'
+            backend: "voxcpm"
+            dockerfile: "./backend/Dockerfile.python"
+            context: "./"
+            ubuntu-version: '2404'
+          - build-type: 'cublas'
+            cuda-major-version: "12"
+            cuda-minor-version: "9"
+            platforms: 'linux/amd64'
+            tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-pocket-tts'
             runs-on: 'ubuntu-latest'
             base-image: "ubuntu:24.04"
@@ -363,6 +376,19 @@ jobs:
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "qwen-tts"
+            dockerfile: "./backend/Dockerfile.python"
+            context: "./"
+            ubuntu-version: '2404'
+          - build-type: 'cublas'
+            cuda-major-version: "13"
+            cuda-minor-version: "0"
+            platforms: 'linux/amd64'
+            tag-latest: 'auto'
+            tag-suffix: '-gpu-nvidia-cuda-13-voxcpm'
+            runs-on: 'ubuntu-latest'
+            base-image: "ubuntu:24.04"
+            skip-drivers: 'false'
+            backend: "voxcpm"
             dockerfile: "./backend/Dockerfile.python"
             context: "./"
             ubuntu-version: '2404'
@@ -724,6 +750,19 @@ jobs:
             cuda-minor-version: ""
             platforms: 'linux/amd64'
             tag-latest: 'auto'
+            tag-suffix: '-gpu-rocm-hipblas-voxcpm'
+            runs-on: 'arc-runner-set'
+            base-image: "rocm/dev-ubuntu-24.04:6.4.4"
+            skip-drivers: 'false'
+            backend: "voxcpm"
+            dockerfile: "./backend/Dockerfile.python"
+            context: "./"
+            ubuntu-version: '2404'
+          - build-type: 'hipblas'
+            cuda-major-version: ""
+            cuda-minor-version: ""
+            platforms: 'linux/amd64'
+            tag-latest: 'auto'
             tag-suffix: '-gpu-rocm-hipblas-pocket-tts'
             runs-on: 'arc-runner-set'
             base-image: "rocm/dev-ubuntu-24.04:6.4.4"
@@ -939,6 +978,19 @@ jobs:
             base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
             skip-drivers: 'false'
             backend: "qwen-tts"
+            dockerfile: "./backend/Dockerfile.python"
+            context: "./"
+            ubuntu-version: '2404'
+          - build-type: 'intel'
+            cuda-major-version: ""
+            cuda-minor-version: ""
+            platforms: 'linux/amd64'
+            tag-latest: 'auto'
+            tag-suffix: '-gpu-intel-voxcpm'
+            runs-on: 'arc-runner-set'
+            base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
+            skip-drivers: 'false'
+            backend: "voxcpm"
             dockerfile: "./backend/Dockerfile.python"
             context: "./"
             ubuntu-version: '2404'
@@ -1338,6 +1390,19 @@ jobs:
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "qwen-tts"
+            dockerfile: "./backend/Dockerfile.python"
+            context: "./"
+            ubuntu-version: '2404'
+          - build-type: ''
+            cuda-major-version: ""
+            cuda-minor-version: ""
+            platforms: 'linux/amd64'
+            tag-latest: 'auto'
+            tag-suffix: '-cpu-voxcpm'
+            runs-on: 'ubuntu-latest'
+            base-image: "ubuntu:24.04"
+            skip-drivers: 'false'
+            backend: "voxcpm"
             dockerfile: "./backend/Dockerfile.python"
             context: "./"
             ubuntu-version: '2404'
