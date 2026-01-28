@@ -1396,7 +1396,7 @@ jobs:
           - build-type: ''
             cuda-major-version: ""
             cuda-minor-version: ""
-            platforms: 'linux/amd64,linux/arm64'
+            platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-cpu-voxcpm'
             runs-on: 'ubuntu-latest'
