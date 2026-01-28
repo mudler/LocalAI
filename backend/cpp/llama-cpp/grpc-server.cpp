@@ -778,8 +778,8 @@ public:
             if (!params.mmproj.path.empty()) {
                 error_msg += " (with mmproj: " + params.mmproj.path + ")";
             }
-            if (params.has_speculative() && !params.speculative.model.path.empty()) {
-                error_msg += " (with draft model: " + params.speculative.model.path + ")";
+            if (params.speculative.has_dft() && !params.speculative.mparams_dft.path.empty()) {
+                error_msg += " (with draft model: " + params.speculative.mparams_dft.path + ")";
             }
             
             // Add captured error details if available
