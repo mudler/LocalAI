@@ -38,6 +38,7 @@ func TranscriptEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, app
 
 		diarize := c.FormValue("diarize") != "false"
 		prompt := c.FormValue("prompt")
+		responseFormat := c.FormValue("response_format")
 
 		// retrieve the file data from the request
 		file, err := c.FormFile("file")
@@ -70,13 +71,12 @@ func TranscriptEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, app
 
 		xlog.Debug("Audio file copied", "dst", dst)
 
-		tr, err := backend.ModelTranscription(dst, input.Language, input.Translate, diarize, prompt, ml, *config, appConfig)
+		tr, err := backend.ModelTranscription(dst, input.Language, input.Translate, diarize, prompt, responseFormat, ml, *config, appConfig)
 		if err != nil {
 			return err
 		}
 
 		xlog.Debug("Transcribed", "transcription", tr)
-		// TODO: handle different outputs here
 		return c.JSON(http.StatusOK, tr)
 	}
 }

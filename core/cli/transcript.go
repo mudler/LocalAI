@@ -16,14 +16,15 @@ import (
 type TranscriptCMD struct {
 	Filename string `arg:""`
 
-	Backend    string `short:"b" default:"whisper" help:"Backend to run the transcription model"`
-	Model      string `short:"m" required:"" help:"Model name to run the TTS"`
-	Language   string `short:"l" help:"Language of the audio file"`
-	Translate  bool   `short:"c" help:"Translate the transcription to english"`
-	Diarize    bool   `short:"d" help:"Mark speaker turns"`
-	Threads    int    `short:"t" default:"1" help:"Number of threads used for parallel computation"`
-	ModelsPath string `env:"LOCALAI_MODELS_PATH,MODELS_PATH" type:"path" default:"${basepath}/models" help:"Path containing models used for inferencing" group:"storage"`
-	Prompt     string `short:"p" help:"Previous transcribed text or words that hint at what the model should expect"`
+	Backend        string `short:"b" default:"whisper" help:"Backend to run the transcription model"`
+	Model          string `short:"m" required:"" help:"Model name to run the TTS"`
+	Language       string `short:"l" help:"Language of the audio file"`
+	Translate      bool   `short:"c" help:"Translate the transcription to english"`
+	Diarize        bool   `short:"d" help:"Mark speaker turns"`
+	Threads        int    `short:"t" default:"1" help:"Number of threads used for parallel computation"`
+	ModelsPath     string `env:"LOCALAI_MODELS_PATH,MODELS_PATH" type:"path" default:"${basepath}/models" help:"Path containing models used for inferencing" group:"storage"`
+	Prompt         string `short:"p" help:"Previous transcribed text or words that hint at what the model should expect"`
+	ResponseFormat string `short:"f" default:"text" help:"Response format for Whisper models, can be one of (txt, srt)"`
 }
 
 func (t *TranscriptCMD) Run(ctx *cliContext.Context) error {
@@ -58,7 +59,7 @@ func (t *TranscriptCMD) Run(ctx *cliContext.Context) error {
 		}
 	}()
 
-	tr, err := backend.ModelTranscription(t.Filename, t.Language, t.Translate, t.Diarize, t.Prompt, ml, c, opts)
+	tr, err := backend.ModelTranscription(t.Filename, t.Language, t.Translate, t.Diarize, t.Prompt, t.ResponseFormat, ml, c, opts)
 	if err != nil {
 		return err
 	}

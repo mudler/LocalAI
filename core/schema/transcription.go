@@ -13,4 +13,5 @@ type TranscriptionSegment struct {
 type TranscriptionResult struct {
 	Segments []TranscriptionSegment `json:"segments"`
 	Text     string                 `json:"text"`
+	Output   string                 `json:"output"`
 }
