@@ -1,4 +1,29 @@
 ---
+- name: "davinci-dev-32b-mt-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/daVinci-Dev-32B-MT-i1-GGUF
+  description: |
+    The **daVinci-Dev-32B-MT-i1-GGUF** model is a quantized version of the **GAIR/daVinci-Dev-32B-MT** language model, optimized for efficient deployment. It is designed for **chat-based tasks** and supports multiple quantization levels (e.g., IQ3_XXS, Q2_K, Q4_K_S) to balance performance and efficiency. The model is available in various GGUF formats with sizes ranging from 0.1GB to 18.9GB, with the highest-quality quantization (IQ3_XXS) offering optimal speed, size, and accuracy. It is hosted on **nethype GmbH**'s servers and leverages **private supercomputer resources** for advanced quantization. The model is licensed under the **Qwen** license and is compatible with the **transformers** library.
+  overrides:
+    parameters:
+      model: llama-cpp/models/daVinci-Dev-32B-MT.i1-Q4_K_M.gguf
+    name: daVinci-Dev-32B-MT-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/daVinci-Dev-32B-MT-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/daVinci-Dev-32B-MT.i1-Q4_K_M.gguf
+      sha256: 6378a9b1c4944ec59108c35afbc2f3089d88bdd070f5bf9ad39cdaf832815c0f
+      uri: https://huggingface.co/mradermacher/daVinci-Dev-32B-MT-i1-GGUF/resolve/main/daVinci-Dev-32B-MT.i1-Q4_K_M.gguf
 - name: "z-image-diffusers"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   license: apache-2.0
