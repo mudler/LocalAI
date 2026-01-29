@@ -2,8 +2,10 @@ package e2e_test
 
 import (
 	"context"
+	"encoding/json"
 
 	"github.com/anthropics/anthropic-sdk-go"
+	"github.com/anthropics/anthropic-sdk-go/shared/constant"
 	"github.com/anthropics/anthropic-sdk-go/option"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -155,20 +157,22 @@ var _ = Describe("Anthropic API E2E test", func() {
 					Messages: []anthropic.MessageParam{
 						anthropic.NewUserMessage(anthropic.NewTextBlock("What's the weather like in San Francisco?")),
 					},
-					Tools: []anthropic.ToolParam{
-						{
-							Name:        "get_weather",
-							Description: anthropic.F("Get the current weather in a given location"),
-							InputSchema: anthropic.F(map[string]interface{}{
-								"type": "object",
-								"properties": map[string]interface{}{
-									"location": map[string]interface{}{
-										"type":        "string",
-										"description": "The city and state, e.g. San Francisco, CA",
+					Tools: []anthropic.ToolUnionParam{
+						anthropic.ToolUnionParam{
+							OfTool: &anthropic.ToolParam{
+								Name:        "get_weather",
+								Description:  anthropic.Opt("Get the current weather in a given location"),
+								InputSchema: anthropic.ToolInputSchemaParam{
+									Type: constant.ValueOf[constant.Object](),
+									Properties: map[string]interface{}{
+										"location": map[string]interface{}{
+											"type":        "string",
+											"description": "The city and state, e.g. San Francisco, CA",
+										},
 									},
+									Required: []string{"location"},
 								},
-								"required": []string{"location"},
-							}),
+							},
 						},
 					},
 				})
@@ -179,13 +183,14 @@ var _ = Describe("Anthropic API E2E test", func() {
 				// The model must use tools - find the tool use in the response
 				hasToolUse := false
 				for _, block := range message.Content {
-					if block.Type == anthropic.ContentBlockTypeToolUse {
+					if block.Type == "tool_use" {
 						hasToolUse = true
 						Expect(block.Name).To(Equal("get_weather"))
 						Expect(block.ID).ToNot(BeEmpty())
 						// Verify that input contains location
-						inputMap, ok := block.Input.(map[string]interface{})
-						Expect(ok).To(BeTrue())
+						var inputMap map[string]interface{}
+						err := json.Unmarshal(block.Input, &inputMap)
+						Expect(err).ToNot(HaveOccurred())
 						_, hasLocation := inputMap["location"]
 						Expect(hasLocation).To(BeTrue())
 					}
@@ -203,25 +208,27 @@ var _ = Describe("Anthropic API E2E test", func() {
 					Messages: []anthropic.MessageParam{
 						anthropic.NewUserMessage(anthropic.NewTextBlock("Tell me about the weather")),
 					},
-					Tools: []anthropic.ToolParam{
-						{
-							Name:        "get_weather",
-							Description: anthropic.F("Get the current weather"),
-							InputSchema: anthropic.F(map[string]interface{}{
-								"type": "object",
-								"properties": map[string]interface{}{
-									"location": map[string]interface{}{
-										"type": "string",
+					Tools: []anthropic.ToolUnionParam{
+						anthropic.ToolUnionParam{
+							OfTool: &anthropic.ToolParam{
+								Name:        "get_weather",
+								Description: anthropic.Opt("Get the current weather"),
+								InputSchema: anthropic.ToolInputSchemaParam{
+									Type: constant.ValueOf[constant.Object](),
+									Properties: map[string]interface{}{
+										"location": map[string]interface{}{
+											"type": "string",
+										},
 									},
 								},
-							}),
+							},
 						},
 					},
-					ToolChoice: anthropic.F[anthropic.ToolChoiceUnionParam](
-						anthropic.ToolChoiceAutoParam{
-							Type: anthropic.F(anthropic.ToolChoiceAutoTypeAuto),
+					ToolChoice: anthropic.ToolChoiceUnionParam{
+						OfAuto: &anthropic.ToolChoiceAutoParam{
+							Type: constant.ValueOf[constant.Auto](),
 						},
-					),
+					},
 				})
 
 				Expect(err).ToNot(HaveOccurred())
@@ -236,16 +243,18 @@ var _ = Describe("Anthropic API E2E test", func() {
 					Messages: []anthropic.MessageParam{
 						anthropic.NewUserMessage(anthropic.NewTextBlock("What's the weather in SF?")),
 					},
-					Tools: []anthropic.ToolParam{
-						{
-							Name:        "get_weather",
-							Description: anthropic.F("Get weather"),
-							InputSchema: anthropic.F(map[string]interface{}{
-								"type": "object",
-								"properties": map[string]interface{}{
-									"location": map[string]interface{}{"type": "string"},
+					Tools: []anthropic.ToolUnionParam{
+						anthropic.ToolUnionParam{
+							OfTool: &anthropic.ToolParam{
+								Name:        "get_weather",
+								Description: anthropic.Opt("Get weather"),
+								InputSchema: anthropic.ToolInputSchemaParam{
+									Type: constant.ValueOf[constant.Object](),
+									Properties: map[string]interface{}{
+										"location": map[string]interface{}{"type": "string"},
+									},
 								},
-							}),
+							},
 						},
 					},
 				})
@@ -256,7 +265,7 @@ var _ = Describe("Anthropic API E2E test", func() {
 				var toolUseID string
 				var toolUseName string
 				for _, block := range firstMessage.Content {
-					if block.Type == anthropic.ContentBlockTypeToolUse {
+					if block.Type == "tool_use" {
 						toolUseID = block.ID
 						toolUseName = block.Name
 						break
@@ -266,27 +275,44 @@ var _ = Describe("Anthropic API E2E test", func() {
 				// Model must have called the tool
 				Expect(toolUseID).ToNot(BeEmpty(), "Model should have called the get_weather tool")
 
+				// Convert ContentBlockUnion to ContentBlockParamUnion for NewAssistantMessage
+				contentBlocks := make([]anthropic.ContentBlockParamUnion, len(firstMessage.Content))
+				for i, block := range firstMessage.Content {
+					if block.Type == "tool_use" {
+						var inputMap map[string]interface{}
+						if err := json.Unmarshal(block.Input, &inputMap); err == nil {
+							contentBlocks[i] = anthropic.NewToolUseBlock(block.ID, inputMap, block.Name)
+						} else {
+							contentBlocks[i] = anthropic.NewToolUseBlock(block.ID, block.Input, block.Name)
+						}
+					} else if block.Type == "text" {
+						contentBlocks[i] = anthropic.NewTextBlock(block.Text)
+					}
+				}
+
 				// Send back a tool result and verify it's handled correctly
 				secondMessage, err := client.Messages.New(context.TODO(), anthropic.MessageNewParams{
 					Model:     "gpt-4",
 					MaxTokens: 1024,
 					Messages: []anthropic.MessageParam{
 						anthropic.NewUserMessage(anthropic.NewTextBlock("What's the weather in SF?")),
-						anthropic.NewAssistantMessage(firstMessage.Content...),
+						anthropic.NewAssistantMessage(contentBlocks...),
 						anthropic.NewUserMessage(
 							anthropic.NewToolResultBlock(toolUseID, "Sunny, 72°F", false),
 						),
 					},
-					Tools: []anthropic.ToolParam{
-						{
-							Name:        toolUseName,
-							Description: anthropic.F("Get weather"),
-							InputSchema: anthropic.F(map[string]interface{}{
-								"type": "object",
-								"properties": map[string]interface{}{
-									"location": map[string]interface{}{"type": "string"},
+					Tools: []anthropic.ToolUnionParam{
+						anthropic.ToolUnionParam{
+							OfTool: &anthropic.ToolParam{
+								Name:        toolUseName,
+								Description: anthropic.Opt("Get weather"),
+								InputSchema: anthropic.ToolInputSchemaParam{
+									Type: constant.ValueOf[constant.Object](),
+									Properties: map[string]interface{}{
+										"location": map[string]interface{}{"type": "string"},
+									},
 								},
-							}),
+							},
 						},
 					},
 				})
@@ -302,27 +328,28 @@ var _ = Describe("Anthropic API E2E test", func() {
 					Messages: []anthropic.MessageParam{
 						anthropic.NewUserMessage(anthropic.NewTextBlock("What's the weather like in San Francisco?")),
 					},
-					Tools: []anthropic.ToolParam{
-						{
-							Name:        "get_weather",
-							Description: anthropic.F("Get the current weather in a given location"),
-							InputSchema: anthropic.F(map[string]interface{}{
-								"type": "object",
-								"properties": map[string]interface{}{
-									"location": map[string]interface{}{
-										"type":        "string",
-										"description": "The city and state, e.g. San Francisco, CA",
+					Tools: []anthropic.ToolUnionParam{
+						anthropic.ToolUnionParam{
+							OfTool: &anthropic.ToolParam{
+								Name:        "get_weather",
+								Description: anthropic.Opt("Get the current weather in a given location"),
+								InputSchema: anthropic.ToolInputSchemaParam{
+									Type: constant.ValueOf[constant.Object](),
+									Properties: map[string]interface{}{
+										"location": map[string]interface{}{
+											"type":        "string",
+											"description": "The city and state, e.g. San Francisco, CA",
+										},
 									},
+									Required: []string{"location"},
 								},
-								"required": []string{"location"},
-							}),
+							},
 						},
 					},
 				})
 
 				message := anthropic.Message{}
 				eventCount := 0
-				hasToolUseBlock := false
 				hasContentBlockStart := false
 				hasContentBlockDelta := false
 				hasContentBlockStop := false
@@ -337,8 +364,8 @@ var _ = Describe("Anthropic API E2E test", func() {
 					switch e := event.AsAny().(type) {
 					case anthropic.ContentBlockStartEvent:
 						hasContentBlockStart = true
-						if e.ContentBlock.Type == anthropic.ContentBlockTypeToolUse {
-							hasToolUseBlock = true
+						if e.ContentBlock.Type == "tool_use" {
+							// Tool use block detected
 						}
 					case anthropic.ContentBlockDeltaEvent:
 						hasContentBlockDelta = true
@@ -361,7 +388,7 @@ var _ = Describe("Anthropic API E2E test", func() {
 				// Model must have called the tool
 				foundToolUse := false
 				for _, block := range message.Content {
-					if block.Type == anthropic.ContentBlockTypeToolUse {
+					if block.Type == "tool_use" {
 						foundToolUse = true
 						Expect(block.Name).To(Equal("get_weather"))
 						Expect(block.ID).ToNot(BeEmpty())
