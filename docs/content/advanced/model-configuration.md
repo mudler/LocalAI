@@ -476,7 +476,7 @@ reasoning:
 
 ## Pipeline Configuration
 
-Define pipelines for audio-to-audio processing:
+Define pipelines for audio-to-audio processing and the [Realtime API]({{%relref "features/openai-realtime" %}}):
 
 | Field | Type | Description |
 |-------|------|-------------|
