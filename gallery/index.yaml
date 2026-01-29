@@ -1,4 +1,39 @@
 ---
+- name: "richyrichmixpdxl"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/void-gryph/richyrichmixpdxl-GGUF
+  description: |
+    **Model Name:** richyrichMixPDXL (GGUF)
+    **Base Model:** Stability AI Stable Diffusion XL Base (stabilityai/stable-diffusion-xl-base-1.0)
+    **Purpose:** High-quality text-to-image generation for Pony Diffusion, optimized in GGUF format for efficient deployment.
+    **Features:**
+      - Quantized version of the original Stable Diffusion XL base model.
+      - Compatible with ComfyUI via GGUF format.
+      - Available in Q4_K_M, Q5_K_M, and Q8_0 quantization levels.
+      - Supports LoRA tuning and "booru-style" prompts (e.g., "1girl", "solo", "sitting").
+      - Designed for fast inference with efficient memory usage.
+
+    **Use Case:** Ideal for text-to-image tasks requiring high quality and speed, suitable for AI art generation and integration with ComfyUI.
+  overrides:
+    parameters:
+      model: llama-cpp/models/richyrichmixpdxl.Q4_K_M.gguf
+    name: richyrichmixpdxl-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/void-gryph/richyrichmixpdxl-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/richyrichmixpdxl.Q4_K_M.gguf
+      sha256: f525aa5eabddfc2445387c80df8a1f501ea8288b98eec98bea8b256b87cbd07c
+      uri: https://huggingface.co/void-gryph/richyrichmixpdxl-GGUF/resolve/main/richyrichmixpdxl.Q4_K_M.gguf
 - name: "z-image-diffusers"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   license: apache-2.0
