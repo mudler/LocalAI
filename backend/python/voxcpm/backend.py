@@ -207,6 +207,79 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         
         return backend_pb2.Result(success=True)
 
+    def TTSStream(self, request, context):
+        try:
+            # Get generation parameters from options with defaults
+            cfg_value = self.options.get("cfg_value", 2.0)
+            inference_timesteps = self.options.get("inference_timesteps", 10)
+            normalize = self.options.get("normalize", False)
+            denoise = self.options.get("denoise", False)
+            retry_badcase = self.options.get("retry_badcase", True)
+            retry_badcase_max_times = self.options.get("retry_badcase_max_times", 3)
+            retry_badcase_ratio_threshold = self.options.get("retry_badcase_ratio_threshold", 6.0)
+
+            # Handle voice cloning via prompt_wav_path and prompt_text
+            prompt_wav_path = None
+            prompt_text = None
+
+            # Priority: request.voice > AudioPath > options
+            if hasattr(request, 'voice') and request.voice:
+                # If voice is provided, try to use it as a path
+                if os.path.exists(request.voice):
+                    prompt_wav_path = request.voice
+                elif hasattr(request, 'ModelFile') and request.ModelFile:
+                    model_file_base = os.path.dirname(request.ModelFile)
+                    potential_path = os.path.join(model_file_base, request.voice)
+                    if os.path.exists(potential_path):
+                        prompt_wav_path = potential_path
+                elif hasattr(request, 'ModelPath') and request.ModelPath:
+                    potential_path = os.path.join(request.ModelPath, request.voice)
+                    if os.path.exists(potential_path):
+                        prompt_wav_path = potential_path
+
+            if hasattr(request, 'AudioPath') and request.AudioPath:
+                if os.path.isabs(request.AudioPath):
+                    prompt_wav_path = request.AudioPath
+                elif hasattr(request, 'ModelFile') and request.ModelFile:
+                    model_file_base = os.path.dirname(request.ModelFile)
+                    prompt_wav_path = os.path.join(model_file_base, request.AudioPath)
+                elif hasattr(request, 'ModelPath') and request.ModelPath:
+                    prompt_wav_path = os.path.join(request.ModelPath, request.AudioPath)
+                else:
+                    prompt_wav_path = request.AudioPath
+
+            # Get prompt_text from options if available
+            if "prompt_text" in self.options:
+                prompt_text = self.options["prompt_text"]
+
+            # Prepare text
+            text = request.text.strip()
+
+            print(f"Streaming audio with cfg_value: {cfg_value}, inference_timesteps: {inference_timesteps}", file=sys.stderr)
+
+            # Stream audio chunks
+            for chunk in self.model.generate_streaming(
+                text=text,
+                prompt_wav_path=prompt_wav_path,
+                prompt_text=prompt_text,
+                cfg_value=cfg_value,
+                inference_timesteps=inference_timesteps,
+                normalize=normalize,
+                denoise=denoise,
+                retry_badcase=retry_badcase,
+                retry_badcase_max_times=retry_badcase_max_times,
+                retry_badcase_ratio_threshold=retry_badcase_ratio_threshold,
+            ):
+                # Convert numpy array to bytes and yield as Reply
+                chunk_bytes = chunk.tobytes()
+                yield backend_pb2.Reply(audio=chunk_bytes)
+
+        except Exception as err:
+            print(f"Error in TTSStream: {err}", file=sys.stderr)
+            print(traceback.format_exc(), file=sys.stderr)
+            # Yield an error reply
+            yield backend_pb2.Reply(message=bytes(f"Error: {err}", 'utf-8'))
+
 def serve(address):
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=MAX_WORKERS),
         options=[

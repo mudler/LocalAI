@@ -29,6 +29,41 @@ curl http://localhost:8080/tts -H "Content-Type: application/json" -d '{
 
 Returns an `audio/wav` file.
 
+## Streaming TTS
+
+LocalAI supports streaming TTS generation, allowing audio to be played as it's generated. This is useful for real-time applications and reduces latency.
+
+To enable streaming, add `"stream": true` to your request:
+
+```bash
+curl http://localhost:8080/tts -H "Content-Type: application/json" -d '{
+  "input": "Hello world, this is a streaming test",
+  "model": "voxcpm",
+  "stream": true
+}' | aplay
+```
+
+The audio will be streamed chunk-by-chunk as it's generated, allowing playback to start before generation completes. This is particularly useful for long texts or when you want to minimize perceived latency.
+
+You can also pipe the streamed audio directly to audio players like `aplay` (Linux) or save it to a file:
+
+```bash
+# Stream to aplay (Linux)
+curl http://localhost:8080/tts -H "Content-Type: application/json" -d '{
+  "input": "This is a longer text that will be streamed as it is generated",
+  "model": "voxcpm",
+  "stream": true
+}' | aplay
+
+# Stream to a file
+curl http://localhost:8080/tts -H "Content-Type: application/json" -d '{
+  "input": "Streaming audio to file",
+  "model": "voxcpm",
+  "stream": true
+}' > output.wav
+```
+
+Note: Streaming TTS is currently supported by the `voxcpm` backend. Other backends will fall back to non-streaming mode if streaming is not supported.
 
 ## Backends
 

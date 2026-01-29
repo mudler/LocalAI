@@ -55,6 +55,14 @@ func (e *embedBackend) TTS(ctx context.Context, in *pb.TTSRequest, opts ...grpc.
 	return e.s.TTS(ctx, in)
 }
 
+func (e *embedBackend) TTSStream(ctx context.Context, in *pb.TTSRequest, f func(reply *pb.Reply), opts ...grpc.CallOption) error {
+	bs := &embedBackendServerStream{
+		ctx: ctx,
+		fn:  f,
+	}
+	return e.s.TTSStream(in, bs)
+}
+
 func (e *embedBackend) SoundGeneration(ctx context.Context, in *pb.SoundGenerationRequest, opts ...grpc.CallOption) (*pb.Result, error) {
 	return e.s.SoundGeneration(ctx, in)
 }

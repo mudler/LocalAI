@@ -74,3 +74,53 @@ func ModelTTS(
 
 	return filePath, res, err
 }
+
+func ModelTTSStream(
+	text,
+	voice,
+	language string,
+	loader *model.ModelLoader,
+	appConfig *config.ApplicationConfig,
+	modelConfig config.ModelConfig,
+	audioCallback func([]byte) error,
+) error {
+	opts := ModelOptions(modelConfig, appConfig)
+	ttsModel, err := loader.Load(opts...)
+	if err != nil {
+		return err
+	}
+
+	if ttsModel == nil {
+		return fmt.Errorf("could not load tts model %q", modelConfig.Model)
+	}
+
+	// We join the model name to the model path here. This seems to only be done for TTS and is HIGHLY suspect.
+	// This should be addressed in a follow up PR soon.
+	// Copying it over nearly verbatim, as TTS backends are not functional without this.
+	modelPath := ""
+	// Checking first that it exists and is not outside ModelPath
+	// TODO: we should actually first check if the modelFile is looking like
+	// a FS path
+	mp := filepath.Join(loader.ModelPath, modelConfig.Model)
+	if _, err := os.Stat(mp); err == nil {
+		if err := utils.VerifyPath(mp, appConfig.SystemState.Model.ModelsPath); err != nil {
+			return err
+		}
+		modelPath = mp
+	} else {
+		modelPath = modelConfig.Model // skip this step if it fails?????
+	}
+
+	err = ttsModel.TTSStream(context.Background(), &proto.TTSRequest{
+		Text:     text,
+		Model:    modelPath,
+		Voice:    voice,
+		Language: &language,
+	}, func(reply *proto.Reply) {
+		if len(reply.Audio) > 0 {
+			audioCallback(reply.Audio)
+		}
+	})
+
+	return err
+}
