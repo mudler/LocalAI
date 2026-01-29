@@ -1,8 +1,8 @@
 --extra-index-url https://download.pytorch.org/whl/xpu
-torch==2.8.0+xpu
+torch==2.7.1+xpu
 torchaudio==2.8.0+xpu
 optimum[openvino]
 setuptools
-transformers==4.48.3
+transformers==4.53.0
 accelerate
 coqui-tts
