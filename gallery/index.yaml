@@ -35,8 +35,7 @@
   urls:
     - https://huggingface.co/Tongyi-MAI/Z-Image-Turbo
   icon: https://huggingface.co/Tongyi-MAI/Z-Image-Turbo/resolve/main/assets/showcase_realistic.png
-  description: |
-    🚀 Z-Image-Turbo – A distilled version of Z-Image that matches or exceeds leading competitors with only 8 NFEs (Number of Function Evaluations). It offers ⚡️sub-second inference latency⚡️ on enterprise-grade H800 GPUs and fits comfortably within 16G VRAM consumer devices. It excels in photorealistic image generation, bilingual text rendering (English & Chinese), and robust instruction adherence.
+  description: "\U0001F680 Z-Image-Turbo – A distilled version of Z-Image that matches or exceeds leading competitors with only 8 NFEs (Number of Function Evaluations). It offers ⚡️sub-second inference latency⚡️ on enterprise-grade H800 GPUs and fits comfortably within 16G VRAM consumer devices. It excels in photorealistic image generation, bilingual text rendering (English & Chinese), and robust instruction adherence.\n"
   overrides:
     cfg_scale: 0
     parameters:
@@ -4033,8 +4032,8 @@
       model: Qwen3-Coder-30B-A3B-Instruct-Q4_K_M.gguf
   files:
     - filename: Qwen3-Coder-30B-A3B-Instruct-Q4_K_M.gguf
-      sha256: fadc3e5f8d42bf7e894a785b05082e47daee4df26680389817e2093056f088ad
       uri: huggingface://unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF/Qwen3-Coder-30B-A3B-Instruct-Q4_K_M.gguf
+      sha256: 7a1ef701027b9b2b5ebdbd030a8a960d83fd84a686095a12fc688bd3c7de4dce
 - &gemma3
   url: "github:mudler/LocalAI/gallery/gemma.yaml@master"
   name: "gemma-3-27b-it"
