@@ -94,6 +94,34 @@
       voice: Aiden # Available speakers: Vivian, Serena, Uncle_Fu, Dylan, Eric, Ryan, Aiden, Ono_Anna, Sohee
     parameters:
       model: Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice
+- &qwen-asr
+  urls:
+    - https://huggingface.co/Qwen/Qwen3-ASR-1.7B
+  description: |
+    Qwen3-ASR is an automatic speech recognition model supporting multiple languages and batch inference.
+  tags:
+    - speech-recognition
+    - ASR
+  license: apache-2.0
+  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/620760a26e3b7210c2ff1943/-s1gyJfvbE1RgO5iBeNOi.png
+  name: "qwen3-asr-1.7b"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  overrides:
+    backend: qwen-asr
+    known_usecases:
+      - transcript
+    parameters:
+      model: Qwen/Qwen3-ASR-1.7B
+- !!merge <<: *qwen-asr
+  urls:
+    - https://huggingface.co/Qwen/Qwen3-ASR-0.6B
+  name: "qwen3-asr-0.6b"
+  overrides:
+    backend: qwen-asr
+    known_usecases:
+      - transcript
+    parameters:
+      model: Qwen/Qwen3-ASR-0.6B
 - name: "huihui-glm-4.7-flash-abliterated-i1"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
