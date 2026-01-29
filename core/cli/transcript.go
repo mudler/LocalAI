@@ -59,7 +59,7 @@ func (t *TranscriptCMD) Run(ctx *cliContext.Context) error {
 		}
 	}()
 
-	tr, err := backend.ModelTranscription(t.Filename, t.Language, t.Translate, t.Diarize, t.Prompt, t.ResponseFormat, ml, c, opts)
+	tr, err := backend.ModelTranscription(context.Background(), t.Filename, t.Language, t.Translate, t.Diarize, t.Prompt, ml, c, opts)
 	if err != nil {
 		return err
 	}
