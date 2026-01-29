@@ -523,6 +523,19 @@ docker-save-%: backend-images
 docker-build-backends: docker-build-llama-cpp docker-build-rerankers docker-build-vllm docker-build-vllm-omni docker-build-transformers docker-build-diffusers docker-build-kokoro docker-build-faster-whisper docker-build-coqui docker-build-chatterbox docker-build-vibevoice docker-build-moonshine docker-build-pocket-tts docker-build-qwen-tts docker-build-qwen-asr docker-build-voxcpm
 
 ########################################################
+### Mock Backend for E2E Tests
+########################################################
+
+build-mock-backend: protogen-go
+	$(GOCMD) build -o tests/e2e/mock-backend/mock-backend ./tests/e2e/mock-backend
+
+test-e2e-mock-backend: protogen-go build-mock-backend
+	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo -v -r --label-filter="MockBackend" ./tests/e2e
+
+clean-mock-backend:
+	rm -f tests/e2e/mock-backend/mock-backend
+
+########################################################
 ### END Backends
 ########################################################
 
