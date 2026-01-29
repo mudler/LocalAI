@@ -239,6 +239,7 @@ Roadmap items: [List of issues](https://github.com/mudler/LocalAI/issues?q=is%3A
 - 🔈 [Audio to Text](https://localai.io/features/audio-to-text/) (Audio transcription with `whisper.cpp`)
 - 🎨 [Image generation](https://localai.io/features/image-generation)
 - 🔥 [OpenAI-alike tools API](https://localai.io/features/openai-functions/) 
+- ⚡ [Realtime API](https://localai.io/features/openai-realtime/) (Speech-to-speech) 
 - 🧠 [Embeddings generation for vector databases](https://localai.io/features/embeddings/)
 - ✍️ [Constrained grammars](https://localai.io/features/constrained_grammars/)
 - 🖼️ [Download Models directly from Huggingface ](https://localai.io/models/)
