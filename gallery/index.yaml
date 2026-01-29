@@ -1,4 +1,29 @@
 ---
+- name: "qwen2.5-7b-rodion-v2"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Qwen2.5-7B-Rodion-V2-GGUF
+  description: |
+    The model is **Qwen2.5-7B-Rodion-V2** (7 billion parameters), a large language model optimized for text generation. It is a quantized version of the base model **PODR/Qwen2.5-7B-Rodion-V2**, with support for various quantization formats (e.g., Q2_K, Q4_K, Q8_0) to balance performance and efficiency. The model is available as GGUF files, with the highest quality quantization (Q8_0) recommended for optimal performance. It uses the Transformers library and is designed for tasks like natural language understanding and generation.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Qwen2.5-7B-Rodion-V2.Q4_K_M.gguf
+    name: Qwen2.5-7B-Rodion-V2-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Qwen2.5-7B-Rodion-V2-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Qwen2.5-7B-Rodion-V2.Q4_K_M.gguf
+      sha256: 696600051079787923906340453372020f0164832343dfea69bd89d6741392d8
+      uri: https://huggingface.co/mradermacher/Qwen2.5-7B-Rodion-V2-GGUF/resolve/main/Qwen2.5-7B-Rodion-V2.Q4_K_M.gguf
 - name: "z-image-diffusers"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   license: apache-2.0
