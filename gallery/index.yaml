@@ -1,4 +1,40 @@
 ---
+- name: "sera-32b-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/SERA-32B-i1-GGUF
+  description: |
+    The model **SERA-32B** is a 32-billion parameter language model derived from the base model **allenai/SERA-32B**. It is quantized for efficient deployment using GGUF format, with multiple versions available for different performance and quality trade-offs. Key features include:
+
+      - **Size**: 32B parameters
+      - **Quantization**: Supports various quantization methods (e.g., Q2_K, IQ3_M, Q4_K_M, etc.), with the optimal balance of speed, size, and quality being **i1-Q4_K_M** (19.9GB).
+      - **Usage**: Requires GGUF files, with instructions for combining multi-part files.
+      - **Available Quantized Versions**:
+      - **i1-Q4_K_M** (recommended for speed and quality)
+      - **i1-IQ4_XS** (lightweight, high speed)
+      - **i1-Q6_K** (practically static, high quality)
+      - **Downloads**: Accessible via [model page](https://hf.tst.eu/model#SERA-32B-i1-GGUF).
+
+    For detailed specifications, refer to the [model page](https://hf.tst.eu/model#SERA-32B-i1-GGUF).
+  overrides:
+    parameters:
+      model: llama-cpp/models/SERA-32B.i1-Q4_K_M.gguf
+    name: SERA-32B-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/SERA-32B-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/SERA-32B.i1-Q4_K_M.gguf
+      sha256: 360380936ef58a34c18a49c808af36e8b5082eed4a70defed4ac73b7933fca51
+      uri: https://huggingface.co/mradermacher/SERA-32B-i1-GGUF/resolve/main/SERA-32B.i1-Q4_K_M.gguf
 - name: "z-image-diffusers"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   license: apache-2.0
