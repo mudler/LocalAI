@@ -1,4 +1,47 @@
 ---
+- name: "evonet-1.5b-v0.1-alpha"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/EvoNet/EvoNet-1.5B-v0.1-Alpha-GGUF
+  description: |
+    **Model Description (for Model Gallery):**
+    EvoNet-1.5B v0.1 Alpha is a **quantized (GGUF)** version of the EvoNet-1.5B model, optimized for **CPU inference** on low-resource devices. It leverages the robust architecture of Qwen2.5-3B but is tailored for **Vietnamese-English coding tasks** with **3B-level logic**. Key features include:
+
+      - **Vietnamese-Centric Coding**: Natural Vietnamese explanations for Python logic.
+      - **Ultra-Fast CPU Performance**: Runs efficiently on CPUs, laptops, and edge devices.
+      - **Low Memory Usage**: Designed for resource-constrained environments.
+      - **Identity Awareness**: Clearly identifies as EvoNet Technology.
+
+    **Use Cases:**
+      - Code generation for Vietnamese/English developers.
+      - Research/testing in low-power settings.
+      - Educational purposes for coding logic understanding.
+
+    **Technical Notes:**
+      - Base model: EvoNet-1.5B-v0.1-Alpha (GGUF format).
+      - Optimized for Vietnamese and English coding tasks.
+      - Requires `llama.cpp`, `LM Studio`, or `Ollama` for deployment.
+
+    This model balances efficiency and performance, ideal for deploying AI coding assistants in diverse environments.
+  overrides:
+    parameters:
+      model: llama-cpp/models/EvoNet-1.5B-v0.1-fp16.gguf
+    name: EvoNet-1.5B-v0.1-Alpha-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/EvoNet/EvoNet-1.5B-v0.1-Alpha-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/EvoNet-1.5B-v0.1-fp16.gguf
+      sha256: d61ccbfc6e602d54dd81039191c214361e8172b819e3422af456ba7028ce0a4f
+      uri: https://huggingface.co/EvoNet/EvoNet-1.5B-v0.1-Alpha-GGUF/resolve/main/EvoNet-1.5B-v0.1-fp16.gguf
 - name: "z-image-diffusers"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   license: apache-2.0
