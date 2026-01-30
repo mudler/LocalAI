@@ -1,4 +1,29 @@
 ---
+- name: "allwissengpt-7b-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/AllwissenGPT-7B-i1-GGUF
+  description: |
+    The model `mradermacher/AllwissenGPT-7B-i1-GGUF` is a quantized version of the base model `Alex-Linguist/AllwissenGPT-7B`, trained on a diverse dataset encompassing general knowledge, philosophy, religion, and cultural topics. It is designed for broad-scale text generation and reasoning, offering insights into complex ideas, historical contexts, and ethical considerations. The model supports multi-part GGUF file concatenation and is optimized for efficient deployment, suitable for tasks like answering questions, generating creative content, and providing guidance on spiritual, philosophical, and cultural topics. Its quantized variants (e.g., `i1-Q4_K_M` or `i1-Q6_K`) balance speed and accuracy for various use cases.
+  overrides:
+    parameters:
+      model: llama-cpp/models/AllwissenGPT-7B.i1-Q4_K_M.gguf
+    name: AllwissenGPT-7B-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/AllwissenGPT-7B-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/AllwissenGPT-7B.i1-Q4_K_M.gguf
+      sha256: 0d511452bd0c4e4648ea8e38b8573e29740268095020e6a96d97683c4a8cd414
+      uri: https://huggingface.co/mradermacher/AllwissenGPT-7B-i1-GGUF/resolve/main/AllwissenGPT-7B.i1-Q4_K_M.gguf
 - name: "z-image-diffusers"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   license: apache-2.0
