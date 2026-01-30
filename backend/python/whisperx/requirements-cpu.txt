@@ -1,2 +1,3 @@
-torch==2.4.1
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch
 whisperx @ git+https://github.com/m-bain/whisperX.git
