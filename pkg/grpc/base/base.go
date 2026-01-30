@@ -65,6 +65,10 @@ func (llm *Base) TTS(*pb.TTSRequest) error {
 	return fmt.Errorf("unimplemented")
 }
 
+func (llm *Base) TTSStream(*pb.TTSRequest, chan []byte) error {
+	return fmt.Errorf("unimplemented")
+}
+
 func (llm *Base) SoundGeneration(*pb.SoundGenerationRequest) error {
 	return fmt.Errorf("unimplemented")
 }
