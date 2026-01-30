@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 
 	"github.com/anthropics/anthropic-sdk-go"
-	"github.com/anthropics/anthropic-sdk-go/shared/constant"
 	"github.com/anthropics/anthropic-sdk-go/option"
+	"github.com/anthropics/anthropic-sdk-go/shared/constant"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -161,7 +161,7 @@ var _ = Describe("Anthropic API E2E test", func() {
 						anthropic.ToolUnionParam{
 							OfTool: &anthropic.ToolParam{
 								Name:        "get_weather",
-								Description:  anthropic.Opt("Get the current weather in a given location"),
+								Description: anthropic.Opt("Get the current weather in a given location"),
 								InputSchema: anthropic.ToolInputSchemaParam{
 									Type: constant.ValueOf[constant.Object](),
 									Properties: map[string]interface{}{
@@ -384,7 +384,7 @@ var _ = Describe("Anthropic API E2E test", func() {
 
 				// Check accumulated message has tool use
 				Expect(message.Content).ToNot(BeEmpty())
-				
+
 				// Model must have called the tool
 				foundToolUse := false
 				for _, block := range message.Content {
