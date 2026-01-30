@@ -18,6 +18,7 @@ type AIModel interface {
 	Detect(*pb.DetectOptions) (pb.DetectResponse, error)
 	AudioTranscription(*pb.TranscriptRequest) (pb.TranscriptResult, error)
 	TTS(*pb.TTSRequest) error
+	TTSStream(*pb.TTSRequest, chan []byte) error
 	SoundGeneration(*pb.SoundGenerationRequest) error
 	TokenizeString(*pb.PredictOptions) (pb.TokenizationResponse, error)
 	Status() (pb.StatusResponse, error)

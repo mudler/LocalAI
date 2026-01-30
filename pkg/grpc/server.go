@@ -99,6 +99,27 @@ func (s *server) TTS(ctx context.Context, in *pb.TTSRequest) (*pb.Result, error)
 	return &pb.Result{Message: "TTS audio generated", Success: true}, nil
 }
 
+func (s *server) TTSStream(in *pb.TTSRequest, stream pb.Backend_TTSStreamServer) error {
+	if s.llm.Locking() {
+		s.llm.Lock()
+		defer s.llm.Unlock()
+	}
+	audioChan := make(chan []byte)
+
+	done := make(chan bool)
+	go func() {
+		for audioChunk := range audioChan {
+			stream.Send(&pb.Reply{Audio: audioChunk})
+		}
+		done <- true
+	}()
+
+	err := s.llm.TTSStream(in, audioChan)
+	<-done
+
+	return err
+}
+
 func (s *server) SoundGeneration(ctx context.Context, in *pb.SoundGenerationRequest) (*pb.Result, error) {
 	if s.llm.Locking() {
 		s.llm.Lock()

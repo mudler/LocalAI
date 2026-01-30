@@ -50,6 +50,31 @@ func TTSEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig 
 			cfg.Voice = input.Voice
 		}
 
+		// Handle streaming TTS
+		if input.Stream {
+			// Set headers for streaming audio
+			c.Response().Header().Set("Content-Type", "audio/wav")
+			c.Response().Header().Set("Transfer-Encoding", "chunked")
+			c.Response().Header().Set("Cache-Control", "no-cache")
+			c.Response().Header().Set("Connection", "keep-alive")
+
+			// Stream audio chunks as they're generated
+			err := backend.ModelTTSStream(input.Input, cfg.Voice, cfg.Language, ml, appConfig, *cfg, func(audioChunk []byte) error {
+				_, writeErr := c.Response().Write(audioChunk)
+				if writeErr != nil {
+					return writeErr
+				}
+				c.Response().Flush()
+				return nil
+			})
+			if err != nil {
+				return err
+			}
+
+			return nil
+		}
+
+		// Non-streaming TTS (existing behavior)
 		filePath, _, err := backend.ModelTTS(input.Input, cfg.Voice, cfg.Language, ml, appConfig, *cfg)
 		if err != nil {
 			return err

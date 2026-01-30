@@ -270,6 +270,56 @@ func (c *Client) TTS(ctx context.Context, in *pb.TTSRequest, opts ...grpc.CallOp
 	return client.TTS(ctx, in, opts...)
 }
 
+func (c *Client) TTSStream(ctx context.Context, in *pb.TTSRequest, f func(reply *pb.Reply), opts ...grpc.CallOption) error {
+	if !c.parallel {
+		c.opMutex.Lock()
+		defer c.opMutex.Unlock()
+	}
+	c.setBusy(true)
+	defer c.setBusy(false)
+	c.wdMark()
+	defer c.wdUnMark()
+	conn, err := grpc.Dial(c.address, grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithDefaultCallOptions(
+			grpc.MaxCallRecvMsgSize(50*1024*1024), // 50MB
+			grpc.MaxCallSendMsgSize(50*1024*1024), // 50MB
+		))
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+	client := pb.NewBackendClient(conn)
+
+	stream, err := client.TTSStream(ctx, in, opts...)
+	if err != nil {
+		return err
+	}
+
+	for {
+		// Check if context is cancelled before receiving
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
+		reply, err := stream.Recv()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			// Check if error is due to context cancellation
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
+			return err
+		}
+		f(reply)
+	}
+
+	return nil
+}
+
 func (c *Client) SoundGeneration(ctx context.Context, in *pb.SoundGenerationRequest, opts ...grpc.CallOption) (*pb.Result, error) {
 	if !c.parallel {
 		c.opMutex.Lock()
