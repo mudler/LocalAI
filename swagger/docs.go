@@ -3497,6 +3497,10 @@ const docTemplate = `{
                     "description": "(optional) output format",
                     "type": "string"
                 },
+                "stream": {
+                    "description": "(optional) enable streaming TTS",
+                    "type": "boolean"
+                },
                 "voice": {
                     "description": "voice audio file or speaker id",
                     "type": "string"
