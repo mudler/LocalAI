@@ -16,29 +16,16 @@ var _ = Describe("Anthropic API E2E test", func() {
 
 	Context("API with Anthropic SDK", func() {
 		BeforeEach(func() {
-			// Create Anthropic client pointing to LocalAI
 			client = anthropic.NewClient(
-				option.WithBaseURL(localAIURL),
-				option.WithAPIKey("test-api-key"), // LocalAI doesn't require a real API key
+				option.WithBaseURL(anthropicBaseURL),
+				option.WithAPIKey("test-api-key"),
 			)
-
-			// Wait for API to be ready by attempting a simple request
-			Eventually(func() error {
-				_, err := client.Messages.New(context.TODO(), anthropic.MessageNewParams{
-					Model:     "gpt-4",
-					MaxTokens: 10,
-					Messages: []anthropic.MessageParam{
-						anthropic.NewUserMessage(anthropic.NewTextBlock("Hi")),
-					},
-				})
-				return err
-			}, "2m").ShouldNot(HaveOccurred())
 		})
 
 		Context("Non-streaming responses", func() {
 			It("generates a response for a simple message", func() {
 				message, err := client.Messages.New(context.TODO(), anthropic.MessageNewParams{
-					Model:     "gpt-4",
+					Model:     "mock-model",
 					MaxTokens: 1024,
 					Messages: []anthropic.MessageParam{
 						anthropic.NewUserMessage(anthropic.NewTextBlock("How much is 2+2? Reply with just the number.")),
@@ -46,21 +33,19 @@ var _ = Describe("Anthropic API E2E test", func() {
 				})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(message.Content).ToNot(BeEmpty())
-				// Role is a constant type that defaults to "assistant"
 				Expect(string(message.Role)).To(Equal("assistant"))
-				Expect(message.StopReason).To(Equal(anthropic.MessageStopReasonEndTurn))
+				Expect(string(message.StopReason)).To(Equal("end_turn"))
 				Expect(string(message.Type)).To(Equal("message"))
 
-				// Check that content contains text block with expected answer
 				Expect(len(message.Content)).To(BeNumerically(">=", 1))
 				textBlock := message.Content[0]
 				Expect(string(textBlock.Type)).To(Equal("text"))
-				Expect(textBlock.Text).To(Or(ContainSubstring("4"), ContainSubstring("four")))
+				Expect(textBlock.Text).To(ContainSubstring("mocked"))
 			})
 
 			It("handles system prompts", func() {
 				message, err := client.Messages.New(context.TODO(), anthropic.MessageNewParams{
-					Model:     "gpt-4",
+					Model:     "mock-model",
 					MaxTokens: 1024,
 					System: []anthropic.TextBlockParam{
 						{Text: "You are a helpful assistant. Always respond in uppercase letters."},
@@ -76,7 +61,7 @@ var _ = Describe("Anthropic API E2E test", func() {
 
 			It("returns usage information", func() {
 				message, err := client.Messages.New(context.TODO(), anthropic.MessageNewParams{
-					Model:     "gpt-4",
+					Model:     "mock-model",
 					MaxTokens: 100,
 					Messages: []anthropic.MessageParam{
 						anthropic.NewUserMessage(anthropic.NewTextBlock("Hello")),
@@ -91,7 +76,7 @@ var _ = Describe("Anthropic API E2E test", func() {
 		Context("Streaming responses", func() {
 			It("streams tokens for a simple message", func() {
 				stream := client.Messages.NewStreaming(context.TODO(), anthropic.MessageNewParams{
-					Model:     "gpt-4",
+					Model:     "mock-model",
 					MaxTokens: 1024,
 					Messages: []anthropic.MessageParam{
 						anthropic.NewUserMessage(anthropic.NewTextBlock("Count from 1 to 5")),
@@ -127,7 +112,7 @@ var _ = Describe("Anthropic API E2E test", func() {
 
 			It("streams with system prompt", func() {
 				stream := client.Messages.NewStreaming(context.TODO(), anthropic.MessageNewParams{
-					Model:     "gpt-4",
+					Model:     "mock-model",
 					MaxTokens: 1024,
 					System: []anthropic.TextBlockParam{
 						{Text: "You are a helpful assistant."},
@@ -152,7 +137,7 @@ var _ = Describe("Anthropic API E2E test", func() {
 		Context("Tool calling", func() {
 			It("handles tool calls in non-streaming mode", func() {
 				message, err := client.Messages.New(context.TODO(), anthropic.MessageNewParams{
-					Model:     "gpt-4",
+					Model:     "mock-model",
 					MaxTokens: 1024,
 					Messages: []anthropic.MessageParam{
 						anthropic.NewUserMessage(anthropic.NewTextBlock("What's the weather like in San Francisco?")),
@@ -198,12 +183,12 @@ var _ = Describe("Anthropic API E2E test", func() {
 
 				// Model must have called the tool
 				Expect(hasToolUse).To(BeTrue(), "Model should have called the get_weather tool")
-				Expect(message.StopReason).To(Equal(anthropic.MessageStopReasonToolUse))
+				Expect(string(message.StopReason)).To(Equal("tool_use"))
 			})
 
 			It("handles tool_choice parameter", func() {
 				message, err := client.Messages.New(context.TODO(), anthropic.MessageNewParams{
-					Model:     "gpt-4",
+					Model:     "mock-model",
 					MaxTokens: 1024,
 					Messages: []anthropic.MessageParam{
 						anthropic.NewUserMessage(anthropic.NewTextBlock("Tell me about the weather")),
@@ -238,7 +223,7 @@ var _ = Describe("Anthropic API E2E test", func() {
 			It("handles tool results in messages", func() {
 				// First, make a request that should trigger a tool call
 				firstMessage, err := client.Messages.New(context.TODO(), anthropic.MessageNewParams{
-					Model:     "gpt-4",
+					Model:     "mock-model",
 					MaxTokens: 1024,
 					Messages: []anthropic.MessageParam{
 						anthropic.NewUserMessage(anthropic.NewTextBlock("What's the weather in SF?")),
@@ -292,7 +277,7 @@ var _ = Describe("Anthropic API E2E test", func() {
 
 				// Send back a tool result and verify it's handled correctly
 				secondMessage, err := client.Messages.New(context.TODO(), anthropic.MessageNewParams{
-					Model:     "gpt-4",
+					Model:     "mock-model",
 					MaxTokens: 1024,
 					Messages: []anthropic.MessageParam{
 						anthropic.NewUserMessage(anthropic.NewTextBlock("What's the weather in SF?")),
@@ -323,7 +308,7 @@ var _ = Describe("Anthropic API E2E test", func() {
 
 			It("handles tool calls in streaming mode", func() {
 				stream := client.Messages.NewStreaming(context.TODO(), anthropic.MessageNewParams{
-					Model:     "gpt-4",
+					Model:     "mock-model",
 					MaxTokens: 1024,
 					Messages: []anthropic.MessageParam{
 						anthropic.NewUserMessage(anthropic.NewTextBlock("What's the weather like in San Francisco?")),
@@ -395,7 +380,7 @@ var _ = Describe("Anthropic API E2E test", func() {
 					}
 				}
 				Expect(foundToolUse).To(BeTrue(), "Model should have called the get_weather tool in streaming mode")
-				Expect(message.StopReason).To(Equal(anthropic.MessageStopReasonToolUse))
+				Expect(string(message.StopReason)).To(Equal("tool_use"))
 			})
 		})
 	})

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
@@ -37,28 +38,56 @@ func (m *MockBackend) LoadModel(ctx context.Context, in *pb.ModelOptions) (*pb.R
 
 func (m *MockBackend) Predict(ctx context.Context, in *pb.PredictOptions) (*pb.Reply, error) {
 	xlog.Debug("Predict called", "prompt", in.Prompt)
-	response := "This is a mocked response."
+	var response string
+	toolName := mockToolNameFromRequest(in)
+	if toolName != "" {
+		response = fmt.Sprintf(`{"name": "%s", "arguments": {"location": "San Francisco"}}`, toolName)
+	} else {
+		response = "This is a mocked response."
+	}
 	return &pb.Reply{
-		Message:        []byte(response),
-		Tokens:         10,
-		PromptTokens:   5,
-		TimingPromptProcessing: 0.1,
-		TimingTokenGeneration:  0.2,
+		Message:                 []byte(response),
+		Tokens:                  10,
+		PromptTokens:            5,
+		TimingPromptProcessing:  0.1,
+		TimingTokenGeneration:   0.2,
 	}, nil
 }
 
 func (m *MockBackend) PredictStream(in *pb.PredictOptions, stream pb.Backend_PredictStreamServer) error {
 	xlog.Debug("PredictStream called", "prompt", in.Prompt)
-	words := []string{"This", " is", " a", " mocked", " streaming", " response."}
-	for i, word := range words {
+	var toStream string
+	toolName := mockToolNameFromRequest(in)
+	if toolName != "" {
+		toStream = fmt.Sprintf(`{"name": "%s", "arguments": {"location": "San Francisco"}}`, toolName)
+	} else {
+		toStream = "This is a mocked streaming response."
+	}
+	for i, r := range toStream {
 		if err := stream.Send(&pb.Reply{
-			Message: []byte(word),
+			Message: []byte(string(r)),
 			Tokens:  int32(i + 1),
 		}); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// mockToolNameFromRequest returns the first tool name from the request's Tools JSON (same as other endpoints).
+func mockToolNameFromRequest(in *pb.PredictOptions) string {
+	if in.Tools == "" {
+		return ""
+	}
+	var tools []struct {
+		Function struct {
+			Name string `json:"name"`
+		} `json:"function"`
+	}
+	if err := json.Unmarshal([]byte(in.Tools), &tools); err != nil || len(tools) == 0 || tools[0].Function.Name == "" {
+		return ""
+	}
+	return tools[0].Function.Name
 }
 
 func (m *MockBackend) Embedding(ctx context.Context, in *pb.PredictOptions) (*pb.EmbeddingResult, error) {
