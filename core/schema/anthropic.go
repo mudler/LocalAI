@@ -5,16 +5,44 @@ import (
 	"encoding/json"
 )
 
+// AnthropicSystemParam accepts system as string or array of content blocks (SDK sends array).
+type AnthropicSystemParam string
+
+// UnmarshalJSON accepts string or array of blocks with "text" field.
+func (s *AnthropicSystemParam) UnmarshalJSON(data []byte) error {
+	var raw interface{}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	switch v := raw.(type) {
+	case string:
+		*s = AnthropicSystemParam(v)
+		return nil
+	case []interface{}:
+		var out string
+		for _, block := range v {
+			if m, ok := block.(map[string]interface{}); ok && m["type"] == "text" {
+				if t, ok := m["text"].(string); ok {
+					out += t
+				}
+			}
+		}
+		*s = AnthropicSystemParam(out)
+		return nil
+	}
+	return nil
+}
+
 // AnthropicRequest represents a request to the Anthropic Messages API
 // https://docs.anthropic.com/claude/reference/messages_post
 type AnthropicRequest struct {
-	Model         string             `json:"model"`
-	Messages      []AnthropicMessage `json:"messages"`
-	MaxTokens     int                `json:"max_tokens"`
-	Metadata      map[string]string  `json:"metadata,omitempty"`
-	StopSequences []string           `json:"stop_sequences,omitempty"`
-	Stream        bool               `json:"stream,omitempty"`
-	System        string             `json:"system,omitempty"`
+	Model         string                 `json:"model"`
+	Messages      []AnthropicMessage     `json:"messages"`
+	MaxTokens     int                    `json:"max_tokens"`
+	Metadata      map[string]string      `json:"metadata,omitempty"`
+	StopSequences []string               `json:"stop_sequences,omitempty"`
+	Stream        bool                   `json:"stream,omitempty"`
+	System        AnthropicSystemParam   `json:"system,omitempty"`
 	Temperature   *float64           `json:"temperature,omitempty"`
 	TopK          *int               `json:"top_k,omitempty"`
 	TopP          *float64           `json:"top_p,omitempty"`
