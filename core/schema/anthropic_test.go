@@ -27,7 +27,7 @@ var _ = Describe("Anthropic Schema", func() {
 			Expect(req.Model).To(Equal("claude-3-sonnet-20240229"))
 			Expect(req.MaxTokens).To(Equal(1024))
 			Expect(len(req.Messages)).To(Equal(1))
-			Expect(req.System).To(Equal("You are a helpful assistant."))
+			Expect(string(req.System)).To(Equal("You are a helpful assistant."))
 			Expect(*req.Temperature).To(Equal(0.7))
 		})
 

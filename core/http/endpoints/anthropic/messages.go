@@ -88,21 +88,38 @@ func MessagesEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evalu
 		xlog.Debug("Anthropic Messages - Prompt (after templating)", "prompt", predInput)
 
 		if input.Stream {
-			return handleAnthropicStream(c, id, input, cfg, ml, predInput, openAIReq, funcs, shouldUseFn)
+			return handleAnthropicStream(c, id, input, cfg, ml, cl, appConfig, predInput, openAIReq, funcs, shouldUseFn)
 		}
 
-		return handleAnthropicNonStream(c, id, input, cfg, ml, predInput, openAIReq, funcs, shouldUseFn)
+		return handleAnthropicNonStream(c, id, input, cfg, ml, cl, appConfig, predInput, openAIReq, funcs, shouldUseFn)
 	}
 }
 
-func handleAnthropicNonStream(c echo.Context, id string, input *schema.AnthropicRequest, cfg *config.ModelConfig, ml *model.ModelLoader, predInput string, openAIReq *schema.OpenAIRequest, funcs functions.Functions, shouldUseFn bool) error {
+func handleAnthropicNonStream(c echo.Context, id string, input *schema.AnthropicRequest, cfg *config.ModelConfig, ml *model.ModelLoader, cl *config.ModelConfigLoader, appConfig *config.ApplicationConfig, predInput string, openAIReq *schema.OpenAIRequest, funcs functions.Functions, shouldUseFn bool) error {
 	images := []string{}
 	for _, m := range openAIReq.Messages {
 		images = append(images, m.StringImages...)
 	}
 
+	toolsJSON := ""
+	if len(funcs) > 0 {
+		openAITools := make([]functions.Tool, len(funcs))
+		for i, f := range funcs {
+			openAITools[i] = functions.Tool{Type: "function", Function: f}
+		}
+		if toolsBytes, err := json.Marshal(openAITools); err == nil {
+			toolsJSON = string(toolsBytes)
+		}
+	}
+	toolChoiceJSON := ""
+	if input.ToolChoice != nil {
+		if toolChoiceBytes, err := json.Marshal(input.ToolChoice); err == nil {
+			toolChoiceJSON = string(toolChoiceBytes)
+		}
+	}
+
 	predFunc, err := backend.ModelInference(
-		input.Context, predInput, openAIReq.Messages, images, nil, nil, ml, cfg, nil, nil, nil, "", "", nil, nil, nil)
+		input.Context, predInput, openAIReq.Messages, images, nil, nil, ml, cfg, cl, appConfig, nil, toolsJSON, toolChoiceJSON, nil, nil, nil)
 	if err != nil {
 		xlog.Error("Anthropic model inference failed", "error", err)
 		return sendAnthropicError(c, 500, "api_error", fmt.Sprintf("model inference failed: %v", err))
@@ -175,7 +192,7 @@ func handleAnthropicNonStream(c echo.Context, id string, input *schema.Anthropic
 	return c.JSON(200, resp)
 }
 
-func handleAnthropicStream(c echo.Context, id string, input *schema.AnthropicRequest, cfg *config.ModelConfig, ml *model.ModelLoader, predInput string, openAIReq *schema.OpenAIRequest, funcs functions.Functions, shouldUseFn bool) error {
+func handleAnthropicStream(c echo.Context, id string, input *schema.AnthropicRequest, cfg *config.ModelConfig, ml *model.ModelLoader, cl *config.ModelConfigLoader, appConfig *config.ApplicationConfig, predInput string, openAIReq *schema.OpenAIRequest, funcs functions.Functions, shouldUseFn bool) error {
 	c.Response().Header().Set("Content-Type", "text/event-stream")
 	c.Response().Header().Set("Cache-Control", "no-cache")
 	c.Response().Header().Set("Connection", "keep-alive")
@@ -292,8 +309,25 @@ func handleAnthropicStream(c echo.Context, id string, input *schema.AnthropicReq
 		return true
 	}
 
+	toolsJSON := ""
+	if len(funcs) > 0 {
+		openAITools := make([]functions.Tool, len(funcs))
+		for i, f := range funcs {
+			openAITools[i] = functions.Tool{Type: "function", Function: f}
+		}
+		if toolsBytes, err := json.Marshal(openAITools); err == nil {
+			toolsJSON = string(toolsBytes)
+		}
+	}
+	toolChoiceJSON := ""
+	if input.ToolChoice != nil {
+		if toolChoiceBytes, err := json.Marshal(input.ToolChoice); err == nil {
+			toolChoiceJSON = string(toolChoiceBytes)
+		}
+	}
+
 	predFunc, err := backend.ModelInference(
-		input.Context, predInput, openAIMessages, images, nil, nil, ml, cfg, nil, nil, tokenCallback, "", "", nil, nil, nil)
+		input.Context, predInput, openAIMessages, images, nil, nil, ml, cfg, cl, appConfig, tokenCallback, toolsJSON, toolChoiceJSON, nil, nil, nil)
 	if err != nil {
 		xlog.Error("Anthropic stream model inference failed", "error", err)
 		return sendAnthropicError(c, 500, "api_error", fmt.Sprintf("model inference failed: %v", err))
@@ -367,10 +401,11 @@ func convertAnthropicToOpenAIMessages(input *schema.AnthropicRequest) []schema.M
 
 	// Add system message if present
 	if input.System != "" {
+		sysStr := string(input.System)
 		messages = append(messages, schema.Message{
 			Role:          "system",
-			StringContent: input.System,
-			Content:       input.System,
+			StringContent: sysStr,
+			Content:       sysStr,
 		})
 	}
 

@@ -191,9 +191,6 @@ run-e2e-aio: protogen-go
 ########################################################
 
 prepare-e2e:
-	mkdir -p $(TEST_DIR)
-	cp -rfv $(abspath ./tests/e2e-fixtures)/gpu.yaml $(TEST_DIR)/gpu.yaml
-	test -e $(TEST_DIR)/ggllm-test-model.bin || wget -q https://huggingface.co/TheBloke/CodeLlama-7B-Instruct-GGUF/resolve/main/codellama-7b-instruct.Q2_K.gguf -O $(TEST_DIR)/ggllm-test-model.bin
 	docker build \
 		--build-arg IMAGE_TYPE=core \
 		--build-arg BUILD_TYPE=$(BUILD_TYPE) \
@@ -207,14 +204,16 @@ prepare-e2e:
 		-t localai-tests .
 
 run-e2e-image:
-	ls -liah $(abspath ./tests/e2e-fixtures)
-	docker run -p 5390:8080 -e MODELS_PATH=/models -e THREADS=1 -e DEBUG=true -d --rm -v $(TEST_DIR):/models --gpus all --name e2e-tests-$(RANDOM) localai-tests
+	docker run -p 5390:8080 -e MODELS_PATH=/models -e THREADS=1 -e DEBUG=true -d --rm -v $(TEST_DIR):/models --name e2e-tests-$(RANDOM) localai-tests
 
-test-e2e:
+test-e2e: build-mock-backend prepare-e2e run-e2e-image
 	@echo 'Running e2e tests'
 	BUILD_TYPE=$(BUILD_TYPE) \
-	LOCALAI_API=http://$(E2E_BRIDGE_IP):5390/v1 \
+	LOCALAI_API=http://$(E2E_BRIDGE_IP):5390 \
 	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --flake-attempts $(TEST_FLAKES) -v -r ./tests/e2e
+	$(MAKE) clean-mock-backend
+	$(MAKE) teardown-e2e
+	docker rmi localai-tests
 
 teardown-e2e:
 	rm -rf $(TEST_DIR) || true
@@ -521,6 +520,16 @@ docker-save-%: backend-images
 	docker save local-ai-backend:$* -o backend-images/$*.tar
 
 docker-build-backends: docker-build-llama-cpp docker-build-rerankers docker-build-vllm docker-build-vllm-omni docker-build-transformers docker-build-diffusers docker-build-kokoro docker-build-faster-whisper docker-build-coqui docker-build-chatterbox docker-build-vibevoice docker-build-moonshine docker-build-pocket-tts docker-build-qwen-tts docker-build-qwen-asr docker-build-voxcpm
+
+########################################################
+### Mock Backend for E2E Tests
+########################################################
+
+build-mock-backend: protogen-go
+	$(GOCMD) build -o tests/e2e/mock-backend/mock-backend ./tests/e2e/mock-backend
+
+clean-mock-backend:
+	rm -f tests/e2e/mock-backend/mock-backend
 
 ########################################################
 ### END Backends
