@@ -255,7 +255,16 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             # Prepare text
             text = request.text.strip()
 
-            print(f"Streaming audio with cfg_value: {cfg_value}, inference_timesteps: {inference_timesteps}", file=sys.stderr)
+            # Get sample rate from model (needed for WAV header)
+            sample_rate = self.model.tts_model.sample_rate
+
+            print(f"Streaming audio with cfg_value: {cfg_value}, inference_timesteps: {inference_timesteps}, sample_rate: {sample_rate}", file=sys.stderr)
+
+            # Send sample rate as first message (in message field as JSON or string)
+            # Format: "sample_rate:16000" so we can parse it
+            import json
+            sample_rate_info = json.dumps({"sample_rate": int(sample_rate)})
+            yield backend_pb2.Reply(message=bytes(sample_rate_info, 'utf-8'))
 
             # Stream audio chunks
             for chunk in self.model.generate_streaming(
@@ -270,8 +279,10 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 retry_badcase_max_times=retry_badcase_max_times,
                 retry_badcase_ratio_threshold=retry_badcase_ratio_threshold,
             ):
-                # Convert numpy array to bytes and yield as Reply
-                chunk_bytes = chunk.tobytes()
+                # Convert numpy array to int16 PCM and then to bytes
+                # Ensure values are in int16 range
+                chunk_int16 = np.clip(chunk * 32767, -32768, 32767).astype(np.int16)
+                chunk_bytes = chunk_int16.tobytes()
                 yield backend_pb2.Reply(audio=chunk_bytes)
 
         except Exception as err:
