@@ -208,7 +208,7 @@ prepare-e2e:
 
 run-e2e-image:
 	ls -liah $(abspath ./tests/e2e-fixtures)
-	docker run -p 5390:8080 -e MODELS_PATH=/models -e THREADS=1 -e DEBUG=true -d --rm -v $(TEST_DIR):/models --gpus all --name e2e-tests-$(RANDOM) localai-tests
+	docker run -p 5390:8080 -e MODELS_PATH=/models -e THREADS=1 -e DEBUG=true -d --rm -v $(TEST_DIR):/models --name e2e-tests-$(RANDOM) localai-tests
 
 test-e2e:
 	@echo 'Running e2e tests'
