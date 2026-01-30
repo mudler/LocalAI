@@ -1,4 +1,36 @@
 ---
+- name: "rio-2.5-open-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Rio-2.5-Open-i1-GGUF
+  description: |
+    The model is a quantized version of **Rio-2.5-Open**, based on the base model **Qwen/Qwen3-30B-A3B-Thinking-2507**. It is optimized for efficient inference using GGUF format and supports text generation. Key details:
+      - **License**: MIT
+      - **Languages**: English, Portuguese
+      - **Use Case**: Text generation
+      - **Quantization**: Optimized for speed and memory efficiency, with available versions like `i1-Q2_K (11.4 GB)` and `i1-IQ3_M (13.6 GB)`
+      - **Download**: [GGUF files](https://huggingface.co/mradermacher/Rio-2.5-Open-i1-GGUF)
+
+    For more details, refer to the [model page](https://hf.tst.eu/model#Rio-2.5-Open-i1-GGUF).
+  overrides:
+    parameters:
+      model: llama-cpp/models/Rio-2.5-Open.i1-Q4_K_M.gguf
+    name: Rio-2.5-Open-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Rio-2.5-Open-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Rio-2.5-Open.i1-Q4_K_M.gguf
+      sha256: 70c395f30c37c30d8166e0e2de6a06e3666f2c964e4f0a0dc947540ed317e50c
+      uri: https://huggingface.co/mradermacher/Rio-2.5-Open-i1-GGUF/resolve/main/Rio-2.5-Open.i1-Q4_K_M.gguf
 - name: "z-image-diffusers"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   license: apache-2.0
