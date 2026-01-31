@@ -1,4 +1,59 @@
 ---
+- name: "ossas-qwen3-14b"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/OSSAS-Qwen3-14B-GGUF
+  description: |
+    **Model Name:** Paper-Summarizer-Qwen3-14B
+    **Base Model:** Qwen 3-14B
+    **Purpose:** Generates structured, JSON-formatted summaries of scientific research papers.
+
+    **Key Features:**
+      - **Training:** Fine-tuned on 110,000 curated research papers.
+      - **Accuracy:** 73.9% on QA evaluation (comparable to GPT-5).
+      - **Cost:** 98% lower than closed-source alternatives.
+      - **Scale:** Supports up to 131K tokens (ideal for short papers).
+
+    **Output Format:**
+    Structured JSON with fields like title, authors, methodology, results, and limitations.
+
+    **Usage:**
+      - Serve via `vllm` with parameters like `--max-model-len 131072`.
+      - Request via API with a system prompt defining schema (e.g., from `prompt.txt`).
+
+    **Limitations:**
+      - May include hallucinations for detailed facts.
+      - Context limit (131K tokens) may truncate very long documents.
+      - Unified schema may lack domain-specific nuances.
+
+    **Best For:** Rapid, high-quality summaries of scientific papers.
+
+    **Resources:**
+      - [Paper Visualization](https://laion.inference.net)
+      - [Model Repository](https://huggingface.co/mradermacher)
+
+    **License:** Apache-2.0
+
+    This model is designed for efficient, accurate summarization of scientific research, ideal for researchers and AI developers.
+  overrides:
+    parameters:
+      model: llama-cpp/models/OSSAS-Qwen3-14B.Q4_K_M.gguf
+    name: OSSAS-Qwen3-14B-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/OSSAS-Qwen3-14B-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/OSSAS-Qwen3-14B.Q4_K_M.gguf
+      sha256: 7e922c21d2f6f0bfa49bf96aac25b044b29e6ced930812a89b7de0f7ab7c4bba
+      uri: https://huggingface.co/mradermacher/OSSAS-Qwen3-14B-GGUF/resolve/main/OSSAS-Qwen3-14B.Q4_K_M.gguf
 - name: "z-image-diffusers"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   license: apache-2.0
