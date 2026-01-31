@@ -1,4 +1,42 @@
 ---
+- name: "spatialthinker-3b-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/SpatialThinker-3B-i1-GGUF
+  description: |
+    This model, **SpatialThinker-3B-i1-GGUF**, is a vision-language model designed for spatial reasoning and multimodal tasks. It is based on the **OX-PIXL/SpatialThinker-3B** base model, which excels in processing visual and textual data to understand complex scenes and relationships.
+
+    Key features:
+      - **Tasks**: Supports spatial reasoning, scene graph analysis, and multimodal tasks (text + images).
+      - **Quantization**: Offers various IQ-level quantized versions (e.g., IQ4_K_M, IQ6_K) for trade-offs between speed, accuracy, and size.
+      - **Architectures**: Built on a vision transformer (ViT) backbone with mmproj files available in the static repository for custom quantization.
+      - **Usage**: Suitable for applications requiring visual understanding, such as scene understanding, object detection, and cross-modal reasoning.
+
+    Available quantized versions include:
+      - **i1-Q4_K_M**: Recommended for balance of speed and quality (2.2GB).
+      - **i1-IQ4_XS**: Optimal for size/accuracy trade-off (2.0GB).
+      - **i1-IQ3_M**: High-quality quantization for precise visual tasks.
+
+    The model is ideal for researchers and developers needing efficient, high-accuracy vision-language models for spatial reasoning tasks.
+  overrides:
+    parameters:
+      model: llama-cpp/models/SpatialThinker-3B.i1-Q4_K_M.gguf
+    name: SpatialThinker-3B-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/SpatialThinker-3B-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/SpatialThinker-3B.i1-Q4_K_M.gguf
+      sha256: 8c6fa51eda50843e9807dfe81ad02fa729b1fc54f328fe295df41ea4592a7dc0
+      uri: https://huggingface.co/mradermacher/SpatialThinker-3B-i1-GGUF/resolve/main/SpatialThinker-3B.i1-Q4_K_M.gguf
 - name: "z-image-diffusers"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   license: apache-2.0
