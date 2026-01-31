@@ -1,4 +1,47 @@
 ---
+- name: "rp-spectrum-24b"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/RP-Spectrum-24B-GGUF
+  description: |
+    **RP-Spectrum-24B (24B Parameter)**
+    A large language model quantized for efficient deployment, based on the Casual-Autopsy/RP-Spectrum-24B base model.
+
+    **Key Features:**
+      - **Size:** 24 billion parameters
+      - **Quantization:** Optimized for speed and memory efficiency (e.g., Q2_K, Q4_K_S, Q8_0)
+      - **Usage:** Ideal for real-time inference, model compression, or deployment in resource-constrained environments.
+
+    **Download Options:**
+      - [Q2_K](https://huggingface.co/mradermacher/RP-Spectrum-24B-GGUF/resolve/main/RP-Spectrum-24B.Q2_K.gguf)
+      - [Q4_K_S](https://huggingface.co/mradermacher/RP-Spectrum-24B-GGUF/resolve/main/RP-Spectrum-24B.Q4_K_S.gguf) (recommended for balance of quality and speed)
+
+    **Purpose:**
+    Designed for efficient AI tasks requiring low-latency inference, with support for multi-part GGUF files.
+
+    **Base Model:** Casual-Autopsy/RP-Spectrum-24B
+    **Tags:** mergekit, merge, GGUF, quantized model
+
+    Share this description to highlight its efficiency and versatility for model galleries.
+  overrides:
+    parameters:
+      model: llama-cpp/models/RP-Spectrum-24B.Q4_K_M.gguf
+    name: RP-Spectrum-24B-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/RP-Spectrum-24B-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/RP-Spectrum-24B.Q4_K_M.gguf
+      sha256: 1e191a76479c6ea9e38847a4eb8d1c610f01839f8d926cc13792973ecba523fb
+      uri: https://huggingface.co/mradermacher/RP-Spectrum-24B-GGUF/resolve/main/RP-Spectrum-24B.Q4_K_M.gguf
 - name: "z-image-diffusers"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   license: apache-2.0
