@@ -18,10 +18,6 @@ import (
 	"github.com/mudler/xlog"
 )
 
-const (
-	YAML_EXTENSION = ".yaml"
-)
-
 // InstallModels will preload models from the given list of URLs and galleries
 // It will download the model if it is not already present in the model path
 // It will also try to resolve if the model is an embedded model YAML configuration

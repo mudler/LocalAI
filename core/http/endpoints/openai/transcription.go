@@ -1,6 +1,7 @@
 package openai
 
 import (
+	"errors"
 	"io"
 	"net/http"
 	"os"
@@ -12,6 +13,7 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/pkg/format"
 	model "github.com/mudler/LocalAI/pkg/model"
 
 	"github.com/mudler/xlog"
@@ -38,6 +40,7 @@ func TranscriptEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, app
 
 		diarize := c.FormValue("diarize") != "false"
 		prompt := c.FormValue("prompt")
+		responseFormat := schema.TranscriptionResponseFormatType(c.FormValue("response_format"))
 
 		// retrieve the file data from the request
 		file, err := c.FormFile("file")
@@ -76,7 +79,17 @@ func TranscriptEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, app
 		}
 
 		xlog.Debug("Transcribed", "transcription", tr)
-		// TODO: handle different outputs here
-		return c.JSON(http.StatusOK, tr)
+
+		switch responseFormat {
+		case schema.TranscriptionResponseFormatLrc, schema.TranscriptionResponseFormatText, schema.TranscriptionResponseFormatSrt, schema.TranscriptionResponseFormatVtt:
+			return c.String(http.StatusOK, format.TranscriptionResponse(tr, responseFormat))
+		case schema.TranscriptionResponseFormatJson:
+			tr.Segments = nil
+			fallthrough
+		case schema.TranscriptionResponseFormatJsonVerbose, "": // maintain backwards compatibility
+			return c.JSON(http.StatusOK, tr)
+		default:
+			return errors.New("invalid response_format")
+		}
 	}
 }

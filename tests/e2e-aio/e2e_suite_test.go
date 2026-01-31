@@ -11,13 +11,14 @@ import (
 	"github.com/docker/go-connections/nat"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/sashabaranov/go-openai"
+	"github.com/openai/openai-go/v3"
+	"github.com/openai/openai-go/v3/option"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
 )
 
 var container testcontainers.Container
-var client *openai.Client
+var client openai.Client
 
 var containerImage = os.Getenv("LOCALAI_IMAGE")
 var containerImageTag = os.Getenv("LOCALAI_IMAGE_TAG")
@@ -37,26 +38,22 @@ func TestLocalAI(t *testing.T) {
 
 var _ = BeforeSuite(func() {
 
-	var defaultConfig openai.ClientConfig
 	if apiEndpoint == "" {
 		startDockerImage()
-		apiPort, err := container.MappedPort(context.Background(), nat.Port(defaultApiPort))
+		apiPort, err := container.MappedPort(context.Background(), defaultApiPort)
 		Expect(err).To(Not(HaveOccurred()))
 
-		defaultConfig = openai.DefaultConfig(apiKey)
 		apiEndpoint = "http://localhost:" + apiPort.Port() + "/v1" // So that other tests can reference this value safely.
-		defaultConfig.BaseURL = apiEndpoint
 	} else {
 		GinkgoWriter.Printf("docker apiEndpoint set from env: %q\n", apiEndpoint)
-		defaultConfig = openai.DefaultConfig(apiKey)
-		defaultConfig.BaseURL = apiEndpoint
 	}
+	opts := []option.RequestOption{option.WithAPIKey(apiKey), option.WithBaseURL(apiEndpoint)}
 
 	// Wait for API to be ready
-	client = openai.NewClientWithConfig(defaultConfig)
+	client = openai.NewClient(opts...)
 
 	Eventually(func() error {
-		_, err := client.ListModels(context.TODO())
+		_, err := client.Models.List(context.TODO())
 		return err
 	}, "50m").ShouldNot(HaveOccurred())
 })

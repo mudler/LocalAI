@@ -17,7 +17,7 @@ const (
 	LLamaCPP = "llama-cpp"
 )
 
-var Aliases map[string]string = map[string]string{
+var Aliases = map[string]string{
 	"go-llama":               LLamaCPP,
 	"llama":                  LLamaCPP,
 	"embedded-store":         LocalStoreBackend,
@@ -29,7 +29,7 @@ var Aliases map[string]string = map[string]string{
 	"stablediffusion":        StableDiffusionGGMLBackend,
 }
 
-var TypeAlias map[string]string = map[string]string{
+var TypeAlias = map[string]string{
 	"sentencetransformers":   "SentenceTransformer",
 	"huggingface-embeddings": "SentenceTransformer",
 	"mamba":                  "Mamba",
@@ -75,7 +75,7 @@ func (ml *ModelLoader) grpcModel(backend string, o *Options) func(string, string
 		// Check if the backend is provided as external
 		if uri, ok := ml.GetAllExternalBackends(o)[backend]; ok {
 			xlog.Debug("Loading external backend", "uri", uri)
-			// check if uri is a file or a address
+			// check if uri is a file or an address
 			if fi, err := os.Stat(uri); err == nil {
 				xlog.Debug("external backend is file", "file", fi)
 				serverAddress, err := getFreeAddress()

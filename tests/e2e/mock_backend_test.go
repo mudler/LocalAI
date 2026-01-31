@@ -9,22 +9,19 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/sashabaranov/go-openai"
+	"github.com/openai/openai-go/v3"
 )
 
 var _ = Describe("Mock Backend E2E Tests", Label("MockBackend"), func() {
 	Describe("Text Generation APIs", func() {
 		Context("Predict (Chat Completions)", func() {
 			It("should return mocked response", func() {
-				resp, err := client.CreateChatCompletion(
+				resp, err := client.Chat.Completions.New(
 					context.TODO(),
-					openai.ChatCompletionRequest{
+					openai.ChatCompletionNewParams{
 						Model: "mock-model",
-						Messages: []openai.ChatCompletionMessage{
-							{
-								Role:    "user",
-								Content: "Hello",
-							},
+						Messages: []openai.ChatCompletionMessageParamUnion{
+							openai.UserMessage("Hello"),
 						},
 					},
 				)
@@ -36,31 +33,23 @@ var _ = Describe("Mock Backend E2E Tests", Label("MockBackend"), func() {
 
 		Context("PredictStream (Streaming Chat Completions)", func() {
 			It("should stream mocked tokens", func() {
-				stream, err := client.CreateChatCompletionStream(
+				stream := client.Chat.Completions.NewStreaming(
 					context.TODO(),
-					openai.ChatCompletionRequest{
+					openai.ChatCompletionNewParams{
 						Model: "mock-model",
-						Messages: []openai.ChatCompletionMessage{
-							{
-								Role:    "user",
-								Content: "Hello",
-							},
+						Messages: []openai.ChatCompletionMessageParamUnion{
+							openai.UserMessage("Hello"),
 						},
 					},
 				)
-				Expect(err).ToNot(HaveOccurred())
-				defer stream.Close()
-
 				hasContent := false
-				for {
-					response, err := stream.Recv()
-					if err != nil {
-						break
-					}
+				for stream.Next() {
+					response := stream.Current()
 					if len(response.Choices) > 0 && response.Choices[0].Delta.Content != "" {
 						hasContent = true
 					}
 				}
+				Expect(stream.Err()).ToNot(HaveOccurred())
 				Expect(hasContent).To(BeTrue())
 			})
 		})
@@ -68,11 +57,13 @@ var _ = Describe("Mock Backend E2E Tests", Label("MockBackend"), func() {
 
 	Describe("Embeddings API", func() {
 		It("should return mocked embeddings", func() {
-			resp, err := client.CreateEmbeddings(
+			resp, err := client.Embeddings.New(
 				context.TODO(),
-				openai.EmbeddingRequest{
+				openai.EmbeddingNewParams{
 					Model: "mock-model",
-					Input: []string{"test"},
+					Input: openai.EmbeddingNewParamsInputUnion{
+						OfArrayOfStrings: []string{"test"},
+					},
 				},
 			)
 			Expect(err).ToNot(HaveOccurred())

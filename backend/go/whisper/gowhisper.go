@@ -130,8 +130,9 @@ func (w *Whisper) AudioTranscription(opts *pb.TranscriptRequest) (pb.TranscriptR
 	segments := []*pb.TranscriptSegment{}
 	text := ""
 	for i := range int(segsLen) {
-		s := CppGetSegmentStart(i)
-		t := CppGetSegmentEnd(i)
+		// segment start/end conversion factor taken from https://github.com/ggml-org/whisper.cpp/blob/master/examples/cli/cli.cpp#L895
+		s := CppGetSegmentStart(i) * (10000000)
+		t := CppGetSegmentEnd(i) * (10000000)
 		txt := strings.Clone(CppGetSegmentText(i))
 		tokens := make([]int32, CppNTokens(i))
 
