@@ -1,4 +1,29 @@
 ---
+- name: "dolphin-mistral-24b-venice-edition-thinking"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/blinkdotwav/Dolphin-Mistral-24B-Venice-Edition-Thinking-GGUF
+  description: |
+    The model is a quantized version of the Dolphin-Mistral 24B Venice Edition, based on the base model *DavidAU/Dolphin-Mistral-GLM-4.7-Flash-24B-Venice-Edition-Thinking-Uncensored*. It is optimized for text generation and reasoning tasks, supporting conversational and thought processes. The GGUF format enables efficient deployment, and it includes tags like "uncensored," "reasoning," and "thinking" to indicate its use cases. While quantized, it retains the capabilities of a large language model for tasks requiring advanced language understanding and generation.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Dolphin-Mistral-24B-Venice-Edition-Thinking-Q4_K_M.gguf
+    name: Dolphin-Mistral-24B-Venice-Edition-Thinking-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/blinkdotwav/Dolphin-Mistral-24B-Venice-Edition-Thinking-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Dolphin-Mistral-24B-Venice-Edition-Thinking-Q4_K_M.gguf
+      sha256: 8006a1d0af6a2abff55d0fb9ae4d2554bc6826e0f1f6d256809c24046a62564c
+      uri: https://huggingface.co/blinkdotwav/Dolphin-Mistral-24B-Venice-Edition-Thinking-GGUF/resolve/main/Dolphin-Mistral-24B-Venice-Edition-Thinking-Q4_K_M.gguf
 - name: "z-image-diffusers"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   license: apache-2.0
