@@ -1,4 +1,50 @@
 ---
+- name: "her-rm-32b-acl"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/HER-RM-32B-ACL-GGUF
+  description: |
+    **Model Name:** HER-RM-32B-ACL
+    **Size:** 32 billion parameters
+    **Quantization:** High-quality quantized versions (Q8_0, Q4_K_S, Q6_K) for efficient deployment.
+
+    **Key Features:**
+      - A large language model (32B) optimized for text generation and reasoning.
+      - Available in multiple quantization formats (Q2_K, Q3_K_S, Q4_K_S, etc.), with Q8_0 being the fastest and highest quality.
+      - Compatible with GGUF format for efficient storage and inference.
+
+    **Usage:**
+      - Ideal for applications requiring low-latency inference with high accuracy.
+      - Downloadable via the [model page](https://hf.tst.eu/model#HER-RM-32B-ACL-GGUF).
+
+    **Quantization Options:**
+      - Q2_K (12.4 GB)
+      - Q3_K_S (14.5 GB)
+      - Q3_K_M (16.1 GB)
+      - Q4_K_S (18.9 GB, recommended)
+      - Q6_K (27.0 GB, highest quality)
+      - Q8_0 (34.9 GB, best performance)
+
+    **Note:** This model is optimized for efficiency and performance, with support for multi-part file concatenation.
+  overrides:
+    parameters:
+      model: llama-cpp/models/HER-RM-32B-ACL.Q4_K_M.gguf
+    name: HER-RM-32B-ACL-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/HER-RM-32B-ACL-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/HER-RM-32B-ACL.Q4_K_M.gguf
+      sha256: 1d269e9e9c57ed710d9c87d4c9ccd894aea0edb6f785663d75316a1e8d001faa
+      uri: https://huggingface.co/mradermacher/HER-RM-32B-ACL-GGUF/resolve/main/HER-RM-32B-ACL.Q4_K_M.gguf
 - name: "z-image-diffusers"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   license: apache-2.0
