@@ -1,4 +1,29 @@
 ---
+- name: "rpbizkit-v2-12b"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/RicardoEstep/RPBizkit-v2-12B-GGUF
+  description: |
+    This is a 12B parameter model (RicardoEstep/RPBizkit-v2-12B) converted to GGUF format for efficient deployment with llama.cpp. It's a quantized version (not the original model) and uses the GGUF-my-repo tool. Features include support for llama.cpp and kobold.cpp, with tags indicating it's a specialized model for certain use cases.
+  overrides:
+    parameters:
+      model: llama-cpp/models/RPBizkit-v2-12B.Q4_K_M.gguf
+    name: RPBizkit-v2-12B-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/RicardoEstep/RPBizkit-v2-12B-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/RPBizkit-v2-12B.Q4_K_M.gguf
+      sha256: 7878b00c2934f2edc6453dc3742acf033ad9e82d2701c012d55d82f1d91bd57c
+      uri: https://huggingface.co/RicardoEstep/RPBizkit-v2-12B-GGUF/resolve/main/RPBizkit-v2-12B.Q4_K_M.gguf
 - name: "z-image-diffusers"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   license: apache-2.0
