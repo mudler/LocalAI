@@ -984,6 +984,56 @@
     - filename: mmproj/mmproj-Huihui-Qwen3-VL-30B-A3B-F16.gguf
       sha256: 4bfd655851a5609b29201154e0bd4fe5f9274073766b8ab35b3a8acba0dd77a7
       uri: huggingface://noctrex/Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated-GGUF/mmproj-F16.gguf
+- !!merge <<: *qwen3vl
+  name: "qwen3-vl-8b-instruct"
+  urls:
+    - https://huggingface.co/unsloth/Qwen3-VL-8B-Instruct-GGUF
+  description: |
+    Qwen3-VL-8B-Instruct is the 8B parameter model of the Qwen3-VL series.
+
+    Uses recommended default parameters according to Unsloth documentation for Qwen 3 VL.
+  overrides:
+    context_size: 32768
+    mmproj: mmproj/mmproj-Qwen3-VL-8B-Instruct-F16.gguf
+    parameters:
+      model: Qwen3-VL-8B-Instruct-Q4_K_M.gguf
+      temperature: 0.7
+      presence_penalty: 1.5
+      repeat_penalty: 1.0
+      top_k: 20
+      top_p: 0.8
+  files:
+    - filename: Qwen3-VL-8B-Instruct-Q4_K_M.gguf
+      sha256: 108e7ff92b78eefd3db4741885104acba514255c11b617d3c7b197a5f46efe89
+      uri: huggingface://unsloth/Qwen3-VL-8B-Instruct-GGUF/Qwen3-VL-8B-Instruct-Q4_K_M.gguf
+    - filename: mmproj/mmproj-Qwen3-VL-8B-Instruct-F16.gguf
+      sha256: d406d03ebabefdef86a2c86bf0c1b65f9e046f7a81c218f25de4931b46a07fc4
+      uri: huggingface://unsloth/Qwen3-VL-8B-Instruct-GGUF/mmproj-F16.gguf
+- !!merge <<: *qwen3vl
+  name: "qwen3-vl-8b-thinking"
+  urls:
+    - https://huggingface.co/unsloth/Qwen3-VL-8B-Thinking-GGUF
+  description: |
+    Qwen3-VL-8B-Thinking is the 8B parameter model of the Qwen3-VL series that is thinking.
+
+    Uses recommended default parameters according to Unsloth documentation for Qwen 3 VL.
+  overrides:
+    context_size: 40960
+    mmproj: mmproj/mmproj-Qwen3-VL-8B-Thinking-F16.gguf
+    parameters:
+      model: Qwen3-VL-8B-Thinking-Q4_K_M.gguf
+      temperature: 1.0
+      presence_penalty: 0.0
+      repeat_penalty: 1.0
+      top_k: 20
+      top_p: 0.95
+  files:
+    - filename: Qwen3-VL-8B-Thinking-Q4_K_M.gguf
+      sha256: a366c6d7e630c07c1393d29555df67278f9ebd40c2fd6a80659025ff299d0327
+      uri: huggingface://unsloth/Qwen3-VL-8B-Thinking-GGUF/Qwen3-VL-8B-Thinking-Q4_K_M.gguf
+    - filename: mmproj/mmproj-Qwen3-VL-8B-Thinking-F16.gguf
+      sha256: 64d5be3f16fb91cfb451155fe4745266e2169ccbe1f29f57bfab27fb7fec389e
+      uri: huggingface://unsloth/Qwen3-VL-8B-Thinking-GGUF/mmproj-F16.gguf
 - &jamba
   icon: https://cdn-avatars.huggingface.co/v1/production/uploads/65e60c0ed5313c06372446ff/QwehUHgP2HtVAMW5MzJ2j.png
   name: "ai21labs_ai21-jamba-reasoning-3b"
