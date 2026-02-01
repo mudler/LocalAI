@@ -38,30 +38,6 @@ func guessGGUFFromFile(cfg *ModelConfig, f *gguf.GGUFFile, defaultCtx int) {
 		}
 	}
 
-	// vram estimation
-	vram, err := xsysinfo.TotalAvailableVRAM()
-	if err != nil {
-		xlog.Error("guessDefaultsFromFile(TotalAvailableVRAM)", "error", err)
-	} else if vram > 0 {
-		estimate, err := xsysinfo.EstimateGGUFVRAMUsage(f, vram)
-		if err != nil {
-			xlog.Error("guessDefaultsFromFile(EstimateGGUFVRAMUsage)", "error", err)
-		} else {
-			if estimate.IsFullOffload {
-				xlog.Warn("guessDefaultsFromFile: full offload is recommended")
-			}
-
-			if estimate.EstimatedVRAM > vram {
-				xlog.Warn("guessDefaultsFromFile: estimated VRAM usage is greater than available VRAM")
-			}
-
-			if cfg.NGPULayers == nil && estimate.EstimatedLayers > 0 {
-				xlog.Debug("guessDefaultsFromFile: layers estimated", "layers", estimate.EstimatedLayers)
-				cfg.NGPULayers = &estimate.EstimatedLayers
-			}
-		}
-	}
-
 	if cfg.NGPULayers == nil {
 		// we assume we want to offload all layers
 		defaultHigh := defaultNGPULayers
