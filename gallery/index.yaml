@@ -4,6 +4,115 @@
   urls:
     - https://huggingface.co/DevQuasar/deepseek-ai.DeepSeek-V3.2-GGUF
   description: |
+    This model is a quantized version of the original DeepSeek-V3.2 model by deepseek-ai. It is optimized for efficiency and is designed for text-generation tasks. The model is based on the base model `deepseek-ai/DeepSeek-V3.2`, and it includes the "Make knowledge free for everyone" philosophy. The quantized version is hosted on Hugging Face and is available for use in various applications. The model is visually represented by the DevQuasar logo, and donations can be made through the provided link.
+  overrides:
+    parameters:
+      model: llama-cpp/models/deepseek-ai.DeepSeek-V3.2.Q4_K_M-00001-of-00029.gguf
+    name: deepseek-ai.DeepSeek-V3.2-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/DevQuasar/deepseek-ai.DeepSeek-V3.2-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/deepseek-ai.DeepSeek-V3.2.Q4_K_M-00001-of-00029.gguf
+      sha256: 8f740c53add8379f4cd41ad5963022188dfd7e7ae49eadd077fe8303f761fc2d
+      uri: https://huggingface.co/DevQuasar/deepseek-ai.DeepSeek-V3.2-GGUF/resolve/main/deepseek-ai.DeepSeek-V3.2.Q4_K_M-00001-of-00029.gguf
+    - filename: llama-cpp/models/deepseek-ai.DeepSeek-V3.2.Q4_K_M-00002-of-00029.gguf
+      sha256: f0a1a59f1f797128ddcc0c7515fc04f167fdbefb796950b0b21e47db85d469f2
+      uri: https://huggingface.co/DevQuasar/deepseek-ai.DeepSeek-V3.2-GGUF/resolve/main/deepseek-ai.DeepSeek-V3.2.Q4_K_M-00002-of-00029.gguf
+    - filename: llama-cpp/models/deepseek-ai.DeepSeek-V3.2.Q4_K_M-00003-of-00029.gguf
+      sha256: 784c024a3d33eb5fc35aa1cba19dea66f4006e0bba9a8e741c3132f369300257
+      uri: https://huggingface.co/DevQuasar/deepseek-ai.DeepSeek-V3.2-GGUF/resolve/main/deepseek-ai.DeepSeek-V3.2.Q4_K_M-00003-of-00029.gguf
+    - filename: llama-cpp/models/deepseek-ai.DeepSeek-V3.2.Q4_K_M-00004-of-00029.gguf
+      sha256: 1b6bbfe0d7cff0ef28729588b9a059598c56046fb90d4a23c3104f74549d7290
+      uri: https://huggingface.co/DevQuasar/deepseek-ai.DeepSeek-V3.2-GGUF/resolve/main/deepseek-ai.DeepSeek-V3.2.Q4_K_M-00004-of-00029.gguf
+    - filename: llama-cpp/models/deepseek-ai.DeepSeek-V3.2.Q4_K_M-00005-of-00029.gguf
+      sha256: 32a4b7d557c44f47970bee8bed5b0aa3b0c37f0a7e21ee7a99e25de633605aff
+      uri: https://huggingface.co/DevQuasar/deepseek-ai.DeepSeek-V3.2-GGUF/resolve/main/deepseek-ai.DeepSeek-V3.2.Q4_K_M-00005-of-00029.gguf
+    - filename: llama-cpp/models/deepseek-ai.DeepSeek-V3.2.Q4_K_M-00006-of-00029.gguf
+      sha256: 5a3460ff403ef6812ec4127453b7a90fe3dfeeab08ad58e8ec779d9258944d49
+      uri: https://huggingface.co/DevQuasar/deepseek-ai.DeepSeek-V3.2-GGUF/resolve/main/deepseek-ai.DeepSeek-V3.2.Q4_K_M-00006-of-00029.gguf
+    - filename: llama-cpp/models/deepseek-ai.DeepSeek-V3.2.Q4_K_M-00007-of-00029.gguf
+      sha256: 3ca022ecf2e8e77fe6ab00acf40f72bd5c85e5a81294686063b2b42572500a35
+      uri: https://huggingface.co/DevQuasar/deepseek-ai.DeepSeek-V3.2-GGUF/resolve/main/deepseek-ai.DeepSeek-V3.2.Q4_K_M-00007-of-00029.gguf
+    - filename: llama-cpp/models/deepseek-ai.DeepSeek-V3.2.Q4_K_M-00008-of-00029.gguf
+      sha256: 0e4b4c52fe17cc2463d7c94a7af67c617932cdc84d9ce7888f10f31489bc8498
+      uri: https://huggingface.co/DevQuasar/deepseek-ai.DeepSeek-V3.2-GGUF/resolve/main/deepseek-ai.DeepSeek-V3.2.Q4_K_M-00008-of-00029.gguf
+    - filename: llama-cpp/models/deepseek-ai.DeepSeek-V3.2.Q4_K_M-00009-of-00029.gguf
+      sha256: eadcdec32e886a3343da7e27cae613d35d9780b6c7258c8818394c5693e0ecc5
+      uri: https://huggingface.co/DevQuasar/deepseek-ai.DeepSeek-V3.2-GGUF/resolve/main/deepseek-ai.DeepSeek-V3.2.Q4_K_M-00009-of-00029.gguf
+    - filename: llama-cpp/models/deepseek-ai.DeepSeek-V3.2.Q4_K_M-00010-of-00029.gguf
+      sha256: bf8a35cea92949b6102f56ed84aa92a0993df2dfad0e64d62e583f09768369d7
+      uri: https://huggingface.co/DevQuasar/deepseek-ai.DeepSeek-V3.2-GGUF/resolve/main/deepseek-ai.DeepSeek-V3.2.Q4_K_M-00010-of-00029.gguf
+    - filename: llama-cpp/models/deepseek-ai.DeepSeek-V3.2.Q4_K_M-00011-of-00029.gguf
+      sha256: 89dcdea89d6723dc7902a1c54c02d430fb94eb47406da945d9e456bde30b1061
+      uri: https://huggingface.co/DevQuasar/deepseek-ai.DeepSeek-V3.2-GGUF/resolve/main/deepseek-ai.DeepSeek-V3.2.Q4_K_M-00011-of-00029.gguf
+    - filename: llama-cpp/models/deepseek-ai.DeepSeek-V3.2.Q4_K_M-00012-of-00029.gguf
+      sha256: 1f6ce605922d81d57bc24850a14036646df0c83c90e8e5364657a941a5d37169
+      uri: https://huggingface.co/DevQuasar/deepseek-ai.DeepSeek-V3.2-GGUF/resolve/main/deepseek-ai.DeepSeek-V3.2.Q4_K_M-00012-of-00029.gguf
+    - filename: llama-cpp/models/deepseek-ai.DeepSeek-V3.2.Q4_K_M-00013-of-00029.gguf
+      sha256: 9a3c69743fc5b939b53e9cf6c1f4a1b4d2c0bd4fc34d2267cdaf206a47f0020c
+      uri: https://huggingface.co/DevQuasar/deepseek-ai.DeepSeek-V3.2-GGUF/resolve/main/deepseek-ai.DeepSeek-V3.2.Q4_K_M-00013-of-00029.gguf
+    - filename: llama-cpp/models/deepseek-ai.DeepSeek-V3.2.Q4_K_M-00014-of-00029.gguf
+      sha256: 196873de0c64d87550aaf34482efadb1c9e53eaf35c5156f319880f95be54d03
+      uri: https://huggingface.co/DevQuasar/deepseek-ai.DeepSeek-V3.2-GGUF/resolve/main/deepseek-ai.DeepSeek-V3.2.Q4_K_M-00014-of-00029.gguf
+    - filename: llama-cpp/models/deepseek-ai.DeepSeek-V3.2.Q4_K_M-00015-of-00029.gguf
+      sha256: 1b51239977d4a3e296381011300f6704f3e56754a9035822cdb8a83b29562ad6
+      uri: https://huggingface.co/DevQuasar/deepseek-ai.DeepSeek-V3.2-GGUF/resolve/main/deepseek-ai.DeepSeek-V3.2.Q4_K_M-00015-of-00029.gguf
+    - filename: llama-cpp/models/deepseek-ai.DeepSeek-V3.2.Q4_K_M-00016-of-00029.gguf
+      sha256: 77fb5b5f64e4ccb173cf3a92b552ce31ff5c73169fd1c062d15d662500cf6c5c
+      uri: https://huggingface.co/DevQuasar/deepseek-ai.DeepSeek-V3.2-GGUF/resolve/main/deepseek-ai.DeepSeek-V3.2.Q4_K_M-00016-of-00029.gguf
+    - filename: llama-cpp/models/deepseek-ai.DeepSeek-V3.2.Q4_K_M-00017-of-00029.gguf
+      sha256: a5ff8d47c8f5ed190fd37dc999fa0bc9a1c3b4ea8f23c1682c864d146213b4d5
+      uri: https://huggingface.co/DevQuasar/deepseek-ai.DeepSeek-V3.2-GGUF/resolve/main/deepseek-ai.DeepSeek-V3.2.Q4_K_M-00017-of-00029.gguf
+    - filename: llama-cpp/models/deepseek-ai.DeepSeek-V3.2.Q4_K_M-00018-of-00029.gguf
+      sha256: 6decbb089e3bedd62dc2bc4c41a82e916543b57cabad78e71241ea1b8fb4cbbd
+      uri: https://huggingface.co/DevQuasar/deepseek-ai.DeepSeek-V3.2-GGUF/resolve/main/deepseek-ai.DeepSeek-V3.2.Q4_K_M-00018-of-00029.gguf
+    - filename: llama-cpp/models/deepseek-ai.DeepSeek-V3.2.Q4_K_M-00019-of-00029.gguf
+      sha256: 2f8db50454e76d72f8d00715e055522efbc56d0af5667d5eb412f424b98130c3
+      uri: https://huggingface.co/DevQuasar/deepseek-ai.DeepSeek-V3.2-GGUF/resolve/main/deepseek-ai.DeepSeek-V3.2.Q4_K_M-00019-of-00029.gguf
+    - filename: llama-cpp/models/deepseek-ai.DeepSeek-V3.2.Q4_K_M-00020-of-00029.gguf
+      sha256: 98094be614460f802504f8ee389ccc2a412a11d762c4565555b16a39267b2452
+      uri: https://huggingface.co/DevQuasar/deepseek-ai.DeepSeek-V3.2-GGUF/resolve/main/deepseek-ai.DeepSeek-V3.2.Q4_K_M-00020-of-00029.gguf
+    - filename: llama-cpp/models/deepseek-ai.DeepSeek-V3.2.Q4_K_M-00021-of-00029.gguf
+      sha256: a5dc3f7046b1355844f6a3299555a91dc5caaf7c19505f7fb0cde568717fbb1d
+      uri: https://huggingface.co/DevQuasar/deepseek-ai.DeepSeek-V3.2-GGUF/resolve/main/deepseek-ai.DeepSeek-V3.2.Q4_K_M-00021-of-00029.gguf
+    - filename: llama-cpp/models/deepseek-ai.DeepSeek-V3.2.Q4_K_M-00022-of-00029.gguf
+      sha256: 1cf06424d311ff3044159a95961744b0e54042f8b4d392bae148f7f8314d1896
+      uri: https://huggingface.co/DevQuasar/deepseek-ai.DeepSeek-V3.2-GGUF/resolve/main/deepseek-ai.DeepSeek-V3.2.Q4_K_M-00022-of-00029.gguf
+    - filename: llama-cpp/models/deepseek-ai.DeepSeek-V3.2.Q4_K_M-00023-of-00029.gguf
+      sha256: dc1a00c04515adeeb19f71b7fb9e97644d177133deeb5d2d54562122155708dc
+      uri: https://huggingface.co/DevQuasar/deepseek-ai.DeepSeek-V3.2-GGUF/resolve/main/deepseek-ai.DeepSeek-V3.2.Q4_K_M-00023-of-00029.gguf
+    - filename: llama-cpp/models/deepseek-ai.DeepSeek-V3.2.Q4_K_M-00024-of-00029.gguf
+      sha256: 230ed84bbfbe8eb023c9a0810d0df19ed476ccb6813d36f0ba9c612f20c7e9e2
+      uri: https://huggingface.co/DevQuasar/deepseek-ai.DeepSeek-V3.2-GGUF/resolve/main/deepseek-ai.DeepSeek-V3.2.Q4_K_M-00024-of-00029.gguf
+    - filename: llama-cpp/models/deepseek-ai.DeepSeek-V3.2.Q4_K_M-00025-of-00029.gguf
+      sha256: 21fa73fb53d6bd1c1b4541e9b81ca9b890ae764582413ec71a7853e417d04d40
+      uri: https://huggingface.co/DevQuasar/deepseek-ai.DeepSeek-V3.2-GGUF/resolve/main/deepseek-ai.DeepSeek-V3.2.Q4_K_M-00025-of-00029.gguf
+    - filename: llama-cpp/models/deepseek-ai.DeepSeek-V3.2.Q4_K_M-00026-of-00029.gguf
+      sha256: 17bb99a72e0a45a2443974c5004415412cad7c1d956de22ad7686fa73e79f612
+      uri: https://huggingface.co/DevQuasar/deepseek-ai.DeepSeek-V3.2-GGUF/resolve/main/deepseek-ai.DeepSeek-V3.2.Q4_K_M-00026-of-00029.gguf
+    - filename: llama-cpp/models/deepseek-ai.DeepSeek-V3.2.Q4_K_M-00027-of-00029.gguf
+      sha256: e646dad9d4688989193e633eeec4eeaf66659a28b14dd986bc80d07a8b7a0159
+      uri: https://huggingface.co/DevQuasar/deepseek-ai.DeepSeek-V3.2-GGUF/resolve/main/deepseek-ai.DeepSeek-V3.2.Q4_K_M-00027-of-00029.gguf
+    - filename: llama-cpp/models/deepseek-ai.DeepSeek-V3.2.Q4_K_M-00028-of-00029.gguf
+      sha256: 3dec73a68c389e1bb55c011b27cf1a9ce5d8f8839b2331c6c11d9e6e1c8db4a1
+      uri: https://huggingface.co/DevQuasar/deepseek-ai.DeepSeek-V3.2-GGUF/resolve/main/deepseek-ai.DeepSeek-V3.2.Q4_K_M-00028-of-00029.gguf
+    - filename: llama-cpp/models/deepseek-ai.DeepSeek-V3.2.Q4_K_M-00029-of-00029.gguf
+      sha256: 013af4e9d2f84e484f77c7bae2a02652607f0f0179bd2815ffdf401c3ada5184
+      uri: https://huggingface.co/DevQuasar/deepseek-ai.DeepSeek-V3.2-GGUF/resolve/main/deepseek-ai.DeepSeek-V3.2.Q4_K_M-00029-of-00029.gguf
+- name: "deepseek-ai.deepseek-v3.2"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/DevQuasar/deepseek-ai.DeepSeek-V3.2-GGUF
+  description: |
     This is a quantized version of the DeepSeek-V3.2 model by deepseek-ai, optimized for efficient deployment. It is designed for text generation tasks and supports the pipeline tag `text-generation`. The model is based on the original DeepSeek-V3.2 architecture and is available for use in various applications. For more details, refer to the [official repository](https://github.com/DevQuasar/deepseek-ai.DeepSeek-V3.2-GGUF).
   overrides:
     parameters:
