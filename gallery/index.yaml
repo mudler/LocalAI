@@ -12223,14 +12223,14 @@
     backend: llama-cpp
     known_usecases:
       - chat
-    mmproj: llama-cpp/mmproj/mmproj-F32.gguf
+    mmproj: llama-cpp/mmproj/mmproj-Magistral-Small-2509-F32.gguf
     options:
       - use_jinja:true
   files:
     - filename: llama-cpp/models/Magistral-Small-2509-Q4_K_M.gguf
       sha256: 6d3e5f2a83ed9d64bd3382fb03be2f6e0bc7596a9de16e107bf22f959891945b
       uri: huggingface://unsloth/Magistral-Small-2509-GGUF/Magistral-Small-2509-Q4_K_M.gguf
-    - filename: llama-cpp/mmproj/mmproj-F32.gguf
+    - filename: llama-cpp/mmproj/mmproj-Magistral-Small-2509-F32.gguf
       sha256: 5861a0938164a7e56cd137a8fcd49a300b9e00861f7f1cb5dfcf2483d765447c
       uri: huggingface://unsloth/Magistral-Small-2509-GGUF/mmproj-F32.gguf
 - !!merge <<: *mistral03
