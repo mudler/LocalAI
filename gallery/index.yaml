@@ -1,4 +1,41 @@
 ---
+- name: "glotmax-17-14b-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/GlotMAX-17-14B-i1-GGUF
+  description: |
+    The **GlotMAX-17-14B-i1-GGUF** model is a quantized version of the **LLaMAX/GlotMAX-17-14B** base model, optimized for efficiency and deployment. It supports **English** and is designed for tasks like text generation, translation, and language modeling.
+
+    Key features:
+      - **Quantized** version (IQ4_K_M is recommended for balance of size, speed, and quality).
+      - **Tags**: `llama-factory`, `freeze`, `generated_from_trainer`.
+      - **Supported formats**: GGUF (for direct use or quantization).
+      - **Available quantized versions**:
+      - `i1-Q4_K_M` (fast, recommended)
+      - `i1-IQ4_NL` (optimal size/speed/quality)
+      - `i1-IQ3_M` (high quality, larger size).
+      - **License**: MIT.
+
+    For downloads, visit [the model page](https://hf.tst.eu/model#GlotMAX-17-14B-i1-GGUF).
+  overrides:
+    parameters:
+      model: llama-cpp/models/GlotMAX-17-14B.i1-Q4_K_M.gguf
+    name: GlotMAX-17-14B-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/GlotMAX-17-14B-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/GlotMAX-17-14B.i1-Q4_K_M.gguf
+      sha256: 8ea2d724864ee71fe822fb12e892f223018245593ec713dabd461ada5d3e08d8
+      uri: https://huggingface.co/mradermacher/GlotMAX-17-14B-i1-GGUF/resolve/main/GlotMAX-17-14B.i1-Q4_K_M.gguf
 - name: "z-image-diffusers"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   license: apache-2.0
