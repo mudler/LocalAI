@@ -50,11 +50,12 @@ func ModelTranscription(audio, language string, translate bool, diarize bool, pr
 		}
 		tr.Segments = append(tr.Segments,
 			schema.TranscriptionSegment{
-				Text:   s.Text,
-				Id:     int(s.Id),
-				Start:  time.Duration(s.Start),
-				End:    time.Duration(s.End),
-				Tokens: tks,
+				Text:    s.Text,
+				Id:      int(s.Id),
+				Start:   time.Duration(s.Start),
+				End:     time.Duration(s.End),
+				Tokens:  tks,
+				Speaker: s.Speaker,
 			})
 	}
 	return tr, err
