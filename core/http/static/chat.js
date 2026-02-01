@@ -1404,6 +1404,11 @@ async function promptGPT(systemPrompt, input) {
                 case "reasoning":
                   hasReasoningFromAPI = true; // Mark that we're receiving reasoning from API
                   if (eventData.content) {
+                    // Count tokens for rate calculation (thinking/reasoning)
+                    const reasoningRequest = activeRequests.get(chatId);
+                    if (reasoningRequest) {
+                      reasoningRequest.tokensReceived += Math.ceil(eventData.content.length / 4);
+                    }
                     const currentChat = chatStore.getChat(chatId);
                     if (!currentChat) break; // Chat was deleted
                     const isMCPMode = currentChat.mcpMode || false;
@@ -1959,6 +1964,11 @@ async function promptGPT(systemPrompt, input) {
               if (reasoningDelta && reasoningDelta.trim() !== "") {
                 hasReasoningFromAPI = true; // Mark that we're receiving reasoning from API
                 reasoningContent += reasoningDelta;
+                // Count tokens for rate calculation (thinking/reasoning)
+                const reasoningRequest = activeRequests.get(chatId);
+                if (reasoningRequest) {
+                  reasoningRequest.tokensReceived += Math.ceil(reasoningDelta.length / 4);
+                }
                 const currentChat = chatStore.getChat(chatId);
                 if (!currentChat) {
                   // Chat was deleted, skip this line
