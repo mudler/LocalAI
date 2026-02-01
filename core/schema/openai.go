@@ -107,6 +107,17 @@ type ImageGenerationResponseFormat string
 
 type ChatCompletionResponseFormatType string
 
+type TranscriptionResponseFormatType string
+
+const (
+	TranscriptionResponseFormatText        = TranscriptionResponseFormatType("txt")
+	TranscriptionResponseFormatSrt         = TranscriptionResponseFormatType("srt")
+	TranscriptionResponseFormatVtt         = TranscriptionResponseFormatType("vtt")
+	TranscriptionResponseFormatLrc         = TranscriptionResponseFormatType("lrc")
+	TranscriptionResponseFormatJson        = TranscriptionResponseFormatType("json")
+	TranscriptionResponseFormatJsonVerbose = TranscriptionResponseFormatType("json_verbose")
+)
+
 type ChatCompletionResponseFormat struct {
 	Type ChatCompletionResponseFormatType `json:"type,omitempty"`
 }

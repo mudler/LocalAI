@@ -17,14 +17,14 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/phayes/freeport"
-	"github.com/sashabaranov/go-openai"
 	"gopkg.in/yaml.v3"
 
 	"github.com/mudler/xlog"
+	"github.com/openai/openai-go/v3"
+	"github.com/openai/openai-go/v3/option"
 )
 
 var (
-	localAIURL       string
 	anthropicBaseURL string
 	tmpDir           string
 	backendPath    string
@@ -33,7 +33,7 @@ var (
 	app            *echo.Echo
 	appCtx         context.Context
 	appCancel      context.CancelFunc
-	client         *openai.Client
+	client         openai.Client
 	apiPort        int
 	apiURL         string
 	mockBackendPath string
@@ -129,7 +129,6 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 	apiPort = port
 	apiURL = fmt.Sprintf("http://127.0.0.1:%d/v1", apiPort)
-	localAIURL = apiURL
 	// Anthropic SDK appends /v1/messages to base URL; use base without /v1 so requests go to /v1/messages
 	anthropicBaseURL = fmt.Sprintf("http://127.0.0.1:%d", apiPort)
 
@@ -141,12 +140,10 @@ var _ = BeforeSuite(func() {
 	}()
 
 	// Wait for server to be ready
-	defaultConfig := openai.DefaultConfig("")
-	defaultConfig.BaseURL = apiURL
-	client = openai.NewClientWithConfig(defaultConfig)
+	client = openai.NewClient(option.WithBaseURL(apiURL))
 
 	Eventually(func() error {
-		_, err := client.ListModels(context.TODO())
+		_, err := client.Models.List(context.TODO())
 		return err
 	}, "2m").ShouldNot(HaveOccurred())
 })
