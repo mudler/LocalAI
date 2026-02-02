@@ -1,4 +1,29 @@
 ---
+- name: "flv-rl-qwen2.5-7b"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/FLV-RL-Qwen2.5-7B-GGUF
+  description: |
+    The model is a quantized version of the Qwen2.5-7B base model, optimized for efficiency. It uses GGUF format and supports various quantization schemes (e.g., Q4_K_S, Q2_K, etc.). The quantization reduces memory usage while maintaining performance, making it suitable for deployment in resource-constrained environments. The model is tailored for tasks like text generation and reasoning, leveraging the Qwen2.5 foundation.
+  overrides:
+    parameters:
+      model: llama-cpp/models/FLV-RL-Qwen2.5-7B.Q4_K_M.gguf
+    name: FLV-RL-Qwen2.5-7B-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/FLV-RL-Qwen2.5-7B-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/FLV-RL-Qwen2.5-7B.Q4_K_M.gguf
+      sha256: 33eea28114accdd1118173e070529b9d11387583a1d5f8f1df3ed7fcd2c39594
+      uri: https://huggingface.co/mradermacher/FLV-RL-Qwen2.5-7B-GGUF/resolve/main/FLV-RL-Qwen2.5-7B.Q4_K_M.gguf
 - name: "deepseek-ai.deepseek-v3.2"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
