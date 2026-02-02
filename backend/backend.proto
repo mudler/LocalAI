@@ -299,6 +299,7 @@ message TranscriptSegment {
   int64 end = 3;
   string text = 4;
   repeated int32 tokens = 5;
+  string speaker = 6;
 }
 
 message GenerateImageRequest {

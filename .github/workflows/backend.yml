@@ -91,6 +91,19 @@ jobs:
             dockerfile: "./backend/Dockerfile.python"
             context: "./"
             ubuntu-version: '2404'
+          - build-type: ''
+            cuda-major-version: ""
+            cuda-minor-version: ""
+            platforms: 'linux/amd64'
+            tag-latest: 'auto'
+            tag-suffix: '-cpu-whisperx'
+            runs-on: 'ubuntu-latest'
+            base-image: "ubuntu:24.04"
+            skip-drivers: 'true'
+            backend: "whisperx"
+            dockerfile: "./backend/Dockerfile.python"
+            context: "./"
+            ubuntu-version: '2404'
           # CUDA 12 builds
           - build-type: 'cublas'
             cuda-major-version: "12"
@@ -264,6 +277,19 @@ jobs:
           - build-type: 'cublas'
             cuda-major-version: "12"
             cuda-minor-version: "8"
+            platforms: 'linux/amd64'
+            tag-latest: 'auto'
+            tag-suffix: '-gpu-nvidia-cuda-12-whisperx'
+            runs-on: 'ubuntu-latest'
+            base-image: "ubuntu:24.04"
+            skip-drivers: 'false'
+            backend: "whisperx"
+            dockerfile: "./backend/Dockerfile.python"
+            context: "./"
+            ubuntu-version: '2404'
+          - build-type: 'cublas'
+            cuda-major-version: "12"
+            cuda-minor-version: "9"
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-coqui'
@@ -579,6 +605,19 @@ jobs:
             cuda-minor-version: "0"
             platforms: 'linux/amd64'
             tag-latest: 'auto'
+            tag-suffix: '-gpu-nvidia-cuda-13-whisperx'
+            runs-on: 'ubuntu-latest'
+            base-image: "ubuntu:24.04"
+            skip-drivers: 'false'
+            backend: "whisperx"
+            dockerfile: "./backend/Dockerfile.python"
+            context: "./"
+            ubuntu-version: '2404'
+          - build-type: 'cublas'
+            cuda-major-version: "13"
+            cuda-minor-version: "0"
+            platforms: 'linux/amd64'
+            tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-13-chatterbox'
             runs-on: 'ubuntu-latest'
             base-image: "ubuntu:24.04"
@@ -833,6 +872,19 @@ jobs:
             base-image: "rocm/dev-ubuntu-24.04:6.4.4"
             skip-drivers: 'false'
             backend: "faster-whisper"
+            dockerfile: "./backend/Dockerfile.python"
+            context: "./"
+            ubuntu-version: '2404'
+          - build-type: 'hipblas'
+            cuda-major-version: ""
+            cuda-minor-version: ""
+            platforms: 'linux/amd64'
+            tag-latest: 'auto'
+            tag-suffix: '-gpu-rocm-hipblas-whisperx'
+            runs-on: 'bigger-runner'
+            base-image: "rocm/dev-ubuntu-24.04:6.4.4"
+            skip-drivers: 'false'
+            backend: "whisperx"
             dockerfile: "./backend/Dockerfile.python"
             context: "./"
             ubuntu-version: '2404'
