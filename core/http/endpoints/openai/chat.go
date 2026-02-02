@@ -36,6 +36,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 			Created: created,
 			Model:   req.Model, // we have to return what the user sent here, due to OpenAI spec.
 			Choices: []schema.Choice{{Delta: &schema.Message{Role: "assistant"}, Index: 0, FinishReason: nil}},
+			Object:  "chat.completion.chunk",
 		}
 		responses <- initialMessage
 
