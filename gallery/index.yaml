@@ -1,4 +1,36 @@
 ---
+- name: "snowpiercer-15b-v4-absolute-heresy-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Snowpiercer-15B-v4-absolute-heresy-i1-GGUF
+  description: |
+    The **Snowpiercer-15B-v4-absolute-heresy-i1-GGUF** is a large language model (15 billion parameters) quantized for efficiency. It is derived from the base model **MuXodious/Snowpiercer-15B-v4-absolute-heresy**, with advanced quantization (i1-Q4_K_S) that balances speed, size, and quality. Key features include:
+
+      - **Quantization**: i1-Q4_K_S (optimal size/speed/quality)
+      - **Tags**: Heretic, uncensored, decensored, abliterated
+      - **Use Case**: Ideal for tasks requiring high-quality text generation with customized content restrictions.
+      - **Downloads**: Available as GGUF files (e.g., 0.1 GB for the base model, 5.5 GB for i1-IQ2_M).
+
+    This version is optimized for performance while preserving model capabilities, suitable for deployment in various applications.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Snowpiercer-15B-v4-absolute-heresy.imatrix.gguf
+    name: Snowpiercer-15B-v4-absolute-heresy-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Snowpiercer-15B-v4-absolute-heresy-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Snowpiercer-15B-v4-absolute-heresy.imatrix.gguf
+      sha256: bb7eec9d02a2cd62e9a8671a1bc610f11f861cdeaed83aa1dfae5cd1fc557de6
+      uri: https://huggingface.co/mradermacher/Snowpiercer-15B-v4-absolute-heresy-i1-GGUF/resolve/main/Snowpiercer-15B-v4-absolute-heresy.imatrix.gguf
 - name: "deepseek-ai.deepseek-v3.2"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
