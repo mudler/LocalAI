@@ -436,7 +436,7 @@ function installRequirements() {
             if [ "x${USE_PIP}" == "xtrue" ]; then
                 pip install ${EXTRA_PIP_INSTALL_FLAGS:-} --requirement "${reqFile}"
             else
-                uv pip install ${EXTRA_PIP_INSTALL_FLAGS:-} --requirement "${reqFile}"
+                uv pip install --index-strategy unsafe-best-match ${EXTRA_PIP_INSTALL_FLAGS:-} --requirement "${reqFile}"
             fi
             echo "finished requirements install for ${reqFile}"
         fi
