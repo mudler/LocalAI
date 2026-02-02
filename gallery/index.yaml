@@ -1,4 +1,33 @@
 ---
+- name: "borealis-27b-instruct-preview"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/borealis-27b-instruct-preview-GGUF
+  description: |
+    The model is a quantized version of the original **NbAiLab/borealis-27b-instruct-preview** model, designed for efficient deployment. It features 27 billion parameters, instruction tuning, and supports various quantization schemes like Q4_K_S, Q2_K, and Q8_0. The quantized version is optimized for inference with reduced memory usage and faster processing, while retaining the model's capabilities for tasks like text generation and reasoning. It's suitable for applications requiring high performance with minimal resource consumption.
+  overrides:
+    parameters:
+      model: llama-cpp/models/borealis-27b-instruct-preview.Q4_K_M.gguf
+    name: borealis-27b-instruct-preview-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    mmproj: llama-cpp/mmproj/borealis-27b-instruct-preview.mmproj-f16.gguf
+    description: Imported from https://huggingface.co/mradermacher/borealis-27b-instruct-preview-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/borealis-27b-instruct-preview.Q4_K_M.gguf
+      sha256: 3e0361e40c74dcf82e52a57311fb7723784c2d5f6fcd70df2340c97be070a1e2
+      uri: https://huggingface.co/mradermacher/borealis-27b-instruct-preview-GGUF/resolve/main/borealis-27b-instruct-preview.Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/borealis-27b-instruct-preview.mmproj-f16.gguf
+      sha256: 44e7f58f21d5d6ec974b31b6360a04c47bc69f9d7c2f6219d0773952f09590d0
+      uri: https://huggingface.co/mradermacher/borealis-27b-instruct-preview-GGUF/resolve/main/borealis-27b-instruct-preview.mmproj-f16.gguf
 - name: "deepseek-ai.deepseek-v3.2"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
