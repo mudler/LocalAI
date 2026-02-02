@@ -8,4 +8,6 @@ else
     source $backend_dir/../common/libbackend.sh
 fi
 
+EXTRA_PIP_INSTALL_FLAGS+=" --index-strategy unsafe-best-match"
+
 installRequirements
