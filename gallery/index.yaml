@@ -1,4 +1,22 @@
 ---
+- name: "phi-1.5-medical-orpo"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/olusegunola/phi-1.5-medical-orpo-gguf
+  description: |
+    This is a quantized version of the Phi-1.5 model, optimized for efficient deployment on devices with limited resources. It is fine-tuned for medical applications, such as text generation or classification, using specialized medical data. The model is packed in the GGUF format, making it efficient for real-world use cases. It is not the original model but a compressed, optimized version tailored for healthcare-specific tasks.
+  overrides:
+    parameters:
+      model: https://huggingface.co/olusegunola/phi-1.5-medical-orpo-gguf
+    name: phi-1.5-medical-orpo-gguf
+    backend: vllm
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    description: Imported from https://huggingface.co/olusegunola/phi-1.5-medical-orpo-gguf
+  files:
+    null
 - name: "deepseek-ai.deepseek-v3.2"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
