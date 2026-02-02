@@ -302,6 +302,25 @@
     default: "cpu-moonshine"
     nvidia-cuda-13: "cuda13-moonshine"
     nvidia-cuda-12: "cuda12-moonshine"
+- &whisperx
+  description: |
+    WhisperX provides fast automatic speech recognition with word-level timestamps, speaker diarization,
+    and forced alignment. Built on faster-whisper and pyannote-audio for high-accuracy transcription
+    with speaker identification.
+  urls:
+    - https://github.com/m-bain/whisperX
+  tags:
+    - speech-to-text
+    - diarization
+    - whisperx
+  license: BSD-4-Clause
+  name: "whisperx"
+  capabilities:
+    nvidia: "cuda12-whisperx"
+    amd: "rocm-whisperx"
+    default: "cpu-whisperx"
+    nvidia-cuda-13: "cuda13-whisperx"
+    nvidia-cuda-12: "cuda12-whisperx"
 - &kokoro
   icon: https://avatars.githubusercontent.com/u/166769057?v=4
   description: |
@@ -1417,6 +1436,55 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-moonshine"
   mirrors:
     - localai/localai-backends:master-gpu-nvidia-cuda-13-moonshine
+## whisperx
+- !!merge <<: *whisperx
+  name: "whisperx-development"
+  capabilities:
+    nvidia: "cuda12-whisperx-development"
+    amd: "rocm-whisperx-development"
+    default: "cpu-whisperx-development"
+    nvidia-cuda-13: "cuda13-whisperx-development"
+    nvidia-cuda-12: "cuda12-whisperx-development"
+- !!merge <<: *whisperx
+  name: "cpu-whisperx"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-whisperx"
+  mirrors:
+    - localai/localai-backends:latest-cpu-whisperx
+- !!merge <<: *whisperx
+  name: "cpu-whisperx-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-cpu-whisperx"
+  mirrors:
+    - localai/localai-backends:master-cpu-whisperx
+- !!merge <<: *whisperx
+  name: "cuda12-whisperx"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-whisperx"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-12-whisperx
+- !!merge <<: *whisperx
+  name: "cuda12-whisperx-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-whisperx"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-12-whisperx
+- !!merge <<: *whisperx
+  name: "rocm-whisperx"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-rocm-hipblas-whisperx"
+  mirrors:
+    - localai/localai-backends:latest-gpu-rocm-hipblas-whisperx
+- !!merge <<: *whisperx
+  name: "rocm-whisperx-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-rocm-hipblas-whisperx"
+  mirrors:
+    - localai/localai-backends:master-gpu-rocm-hipblas-whisperx
+- !!merge <<: *whisperx
+  name: "cuda13-whisperx"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-13-whisperx"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-13-whisperx
+- !!merge <<: *whisperx
+  name: "cuda13-whisperx-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-whisperx"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-13-whisperx
 ## coqui
 
 - !!merge <<: *coqui
