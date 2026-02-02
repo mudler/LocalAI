@@ -1,4 +1,39 @@
 ---
+- name: "dasd-4b-thinking"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/Mungert/DASD-4B-Thinking-GGUF
+  description: |
+    **DASD-4B-Thinking** is a 4B-parameter dense language model specialized in **long-chain-of-thought (Long-CoT) reasoning** for tasks like mathematics, code generation, and scientific reasoning. It is distilled from the 120B **gpt-oss-120b** model using a **distribution-aligned sequence distillation** pipeline, achieving state-of-the-art performance with **only 448K training samples**—orders of magnitude fewer than larger models.
+
+    Key features:
+      - **Size**: 4B parameters
+      - **Purpose**: Efficient reasoning for complex tasks (math, code, science)
+      - **Training**: Distribution-aligned sequence distillation with temperature-scheduled learning and divergence-aware sampling
+      - **Performance**: Outperforms larger models in benchmarks (e.g., 88.5% on AIME24, 83.3% on LiveCodeBench) with 448K training data
+      - **Open-source**: Available on Hugging Face (https://huggingface.co/Alibaba-Apsara/DASD-4B-Thinking)
+      - **Limitations**: No tool/calling integration; operates strictly within text space
+
+    Ideal for edge devices or resource-constrained environments, this model balances efficiency and effectiveness for reasoning tasks.
+  overrides:
+    parameters:
+      model: llama-cpp/models/DASD-4B-Thinking-q4_k_m.gguf
+    name: DASD-4B-Thinking-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/Mungert/DASD-4B-Thinking-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/DASD-4B-Thinking-q4_k_m.gguf
+      sha256: 4714e2ee530e061c1b9d8e46a7cc31938b00f41a11f75cbd55231a54dc19166e
+      uri: https://huggingface.co/Mungert/DASD-4B-Thinking-GGUF/resolve/main/DASD-4B-Thinking-q4_k_m.gguf
 - name: "deepseek-ai.deepseek-v3.2"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
