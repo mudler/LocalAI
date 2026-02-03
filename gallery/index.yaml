@@ -1,4 +1,39 @@
 ---
+- name: "minimax-m2.1-reap-172b-a10b-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/MiniMax-M2.1-REAP-172B-A10B-i1-GGUF
+  description: |
+    This model is a quantized version of the **cerebras/MiniMax-M2.1-REAP-172B-A10B** base model, optimized for efficiency and deployment. It is designed for tasks requiring large language understanding, with features like **pruning, compression, and quantization** to reduce memory usage while maintaining performance.
+
+    Key characteristics:
+      - **Base model**: `cerebras/MiniMax-M2.1-REAP-172B-A10B` (172B parameters).
+      - **Quantization**: Optimized for speed, size, and quality using techniques like **IQ2, Q2_K, Q4_K_M**, and **Q6_K**.
+      - **Best quantized version**: `i1-Q4_K_M` (fast, recommended, optimal balance of size, speed, and quality).
+      - **Tags**: `minimax`, `MOE`, `pruning`, `compression`.
+
+    Available as GGUF files for various quantization levels, with the best version (`i1-Q4_K_M`) being widely recommended for most use cases.
+
+    **Note**: This is a modified version by `mradermacher` for specific use cases, not the original model's description.
+  overrides:
+    parameters:
+      model: llama-cpp/models/MiniMax-M2.1-REAP-172B-A10B.i1-Q4_K_M.gguf
+    name: MiniMax-M2.1-REAP-172B-A10B-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/MiniMax-M2.1-REAP-172B-A10B-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/MiniMax-M2.1-REAP-172B-A10B.i1-Q4_K_M.gguf
+      sha256: f41f2985452891f24d15ef39f578f7d6ba49b51ae2b1a9f741b616e24bf103dc
+      uri: https://huggingface.co/mradermacher/MiniMax-M2.1-REAP-172B-A10B-i1-GGUF/resolve/main/MiniMax-M2.1-REAP-172B-A10B.i1-Q4_K_M.gguf
 - name: "deepseek-ai.deepseek-v3.2"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
