@@ -1,0 +1,4 @@
+grpcio==1.71.0
+protobuf
+grpcio-tools
+useful-moonshine-onnx@git+https://git@github.com/moonshine-ai/moonshine.git#subdirectory=moonshine-onnx

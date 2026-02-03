@@ -1842,7 +1842,7 @@
     - gpu
     - text-to-speech
   overrides:
-    backend: "transformers"
+    backend: "outetts"
     name: "outetts"
     description: "OuteTTS is a 1.6B parameter text to speech model created by OuteAI."
     parameters:

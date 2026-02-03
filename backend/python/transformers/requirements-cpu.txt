@@ -4,6 +4,5 @@ numba==0.60.0
 accelerate
 transformers
 bitsandbytes
-outetts
 sentence-transformers==5.2.2
 protobuf==6.33.5

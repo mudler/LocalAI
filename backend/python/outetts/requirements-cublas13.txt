@@ -2,7 +2,6 @@
 torch==2.9.0
 llvmlite==0.43.0
 numba==0.60.0
-transformers
 bitsandbytes
-sentence-transformers==5.2.2
+outetts
 protobuf==6.33.5
