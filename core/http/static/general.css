@@ -104,3 +104,97 @@ li:last-child {
   scrollbar-width: thin;
   scrollbar-color: var(--color-bg-secondary) var(--color-bg-primary);
 }
+
+/* Chat message markdown content styles */
+#messages pre {
+  background-color: var(--color-bg-primary);
+  border: 1px solid var(--color-border-subtle, rgba(255,255,255,0.1));
+  border-radius: 0.5rem;
+  padding: 1rem;
+  overflow-x: auto;
+  max-width: 100%;
+  margin: 0.5rem 0;
+  white-space: pre;
+}
+
+#messages pre code {
+  background: transparent;
+  padding: 0;
+  white-space: pre;
+  word-wrap: normal;
+  overflow-wrap: normal;
+}
+
+#messages code:not(pre code) {
+  background-color: var(--color-bg-primary);
+  padding: 0.2em 0.4em;
+  border-radius: 3px;
+  font-size: 0.875em;
+}
+
+#messages table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.5rem 0;
+  display: block;
+  overflow-x: auto;
+}
+
+#messages th,
+#messages td {
+  border: 1px solid var(--color-border-subtle, rgba(255,255,255,0.1));
+  padding: 0.5rem;
+  text-align: left;
+}
+
+#messages th {
+  background-color: var(--color-bg-secondary);
+}
+
+#messages blockquote {
+  border-left: 4px solid var(--color-primary);
+  padding-left: 1rem;
+  margin: 0.5rem 0;
+  color: var(--color-text-secondary);
+}
+
+#messages h1, #messages h2, #messages h3, #messages h4, #messages h5, #messages h6 {
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+#messages h1 { font-size: 1.5rem; }
+#messages h2 { font-size: 1.25rem; }
+#messages h3 { font-size: 1.125rem; }
+#messages h4 { font-size: 1rem; }
+
+#messages p {
+  margin: 0.5rem 0;
+}
+
+#messages ul, #messages ol {
+  margin: 0.5rem 0;
+  padding-left: 1.5rem;
+}
+
+#messages hr {
+  border: none;
+  border-top: 1px solid var(--color-border-subtle, rgba(255,255,255,0.1));
+  margin: 1rem 0;
+}
+
+/* Mobile responsiveness for chat */
+@media (max-width: 768px) {
+  #messages {
+    max-width: 100%;
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+  }
+  
+  #messages pre {
+    max-width: calc(100vw - 3rem);
+    font-size: 0.8rem;
+  }
+}
