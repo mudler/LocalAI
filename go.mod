@@ -9,7 +9,7 @@ require (
 	fyne.io/fyne/v2 v2.7.2
 	github.com/Masterminds/sprig/v3 v3.3.0
 	github.com/alecthomas/kong v1.13.0
-	github.com/anthropics/anthropic-sdk-go v1.19.0
+	github.com/anthropics/anthropic-sdk-go v1.20.0
 	github.com/charmbracelet/glamour v0.10.0
 	github.com/containerd/containerd v1.7.30
 	github.com/ebitengine/purego v0.9.1
@@ -39,6 +39,7 @@ require (
 	github.com/mudler/xlog v0.0.5
 	github.com/onsi/ginkgo/v2 v2.27.5
 	github.com/onsi/gomega v1.39.0
+	github.com/openai/openai-go/v3 v3.17.0
 	github.com/otiai10/copy v1.14.1
 	github.com/otiai10/openaigo v1.7.0
 	github.com/phayes/freeport v0.0.0-20220201140144-74d24b5ae9f5
@@ -67,7 +68,6 @@ require (
 require (
 	github.com/ghodss/yaml v1.0.0 // indirect
 	github.com/labstack/gommon v0.4.2 // indirect
-	github.com/openai/openai-go/v3 v3.17.0 // indirect
 	github.com/swaggo/files/v2 v2.0.2 // indirect
 	github.com/tidwall/gjson v1.18.0 // indirect
 	github.com/tidwall/match v1.2.0 // indirect
