@@ -1,4 +1,29 @@
 ---
+- name: "qwen3-coder-next-mxfp4_moe"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/noctrex/Qwen3-Coder-Next-MXFP4_MOE-GGUF
+  description: |
+    The model is a quantized version of **Qwen/Qwen3-Coder-Next** (base model) using the **MXFP4** quantization scheme. It is optimized for efficiency while retaining performance, suitable for deployment in applications requiring lightweight inference. The quantized version is tailored for specific tasks, with parameters like temperature=1.0 and top_p=0.95 recommended for generation.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Qwen3-Coder-Next-MXFP4_MOE.gguf
+    name: Qwen3-Coder-Next-MXFP4_MOE-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/noctrex/Qwen3-Coder-Next-MXFP4_MOE-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Qwen3-Coder-Next-MXFP4_MOE.gguf
+      sha256: fa356439e87010163778b7eab5f2b07e0e5b7f2cd9aac78b069139f5ae069414
+      uri: https://huggingface.co/noctrex/Qwen3-Coder-Next-MXFP4_MOE-GGUF/resolve/main/Qwen3-Coder-Next-MXFP4_MOE.gguf
 - name: "deepseek-ai.deepseek-v3.2"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
