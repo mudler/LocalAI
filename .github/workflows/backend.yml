@@ -305,6 +305,19 @@ jobs:
             cuda-minor-version: "8"
             platforms: 'linux/amd64'
             tag-latest: 'auto'
+            tag-suffix: '-gpu-nvidia-cuda-12-outetts'
+            runs-on: 'ubuntu-latest'
+            base-image: "ubuntu:24.04"
+            skip-drivers: 'false'
+            backend: "outetts"
+            dockerfile: "./backend/Dockerfile.python"
+            context: "./"
+            ubuntu-version: '2404'
+          - build-type: 'cublas'
+            cuda-major-version: "12"
+            cuda-minor-version: "8"
+            platforms: 'linux/amd64'
+            tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-chatterbox'
             runs-on: 'ubuntu-latest'
             base-image: "ubuntu:24.04"
@@ -1562,6 +1575,19 @@ jobs:
             dockerfile: "./backend/Dockerfile.python"
             context: "./"
             ubuntu-version: '2404'
+          - build-type: ''
+            cuda-major-version: ""
+            cuda-minor-version: ""
+            platforms: 'linux/amd64'
+            tag-latest: 'auto'
+            tag-suffix: '-cpu-outetts'
+            runs-on: 'ubuntu-latest'
+            base-image: "ubuntu:24.04"
+            skip-drivers: 'true'
+            backend: "outetts"
+            dockerfile: "./backend/Dockerfile.python"
+            context: "./"
+            ubuntu-version: '2404'
   backend-jobs-darwin:
     uses: ./.github/workflows/backend_build_darwin.yml
     strategy:
@@ -1588,6 +1614,64 @@ jobs:
             lang: "go"
           - backend: "whisper"
             tag-suffix: "-metal-darwin-arm64-whisper"
+            build-type: "metal"
+            lang: "go"
+          - backend: "vibevoice"
+            tag-suffix: "-metal-darwin-arm64-vibevoice"
+            build-type: "mps"
+          - backend: "qwen-asr"
+            tag-suffix: "-metal-darwin-arm64-qwen-asr"
+            build-type: "mps"
+          - backend: "qwen-tts"
+            tag-suffix: "-metal-darwin-arm64-qwen-tts"
+            build-type: "mps"
+          - backend: "voxcpm"
+            tag-suffix: "-metal-darwin-arm64-voxcpm"
+            build-type: "mps"
+          - backend: "pocket-tts"
+            tag-suffix: "-metal-darwin-arm64-pocket-tts"
+            build-type: "mps"
+          - backend: "moonshine"
+            tag-suffix: "-metal-darwin-arm64-moonshine"
+            build-type: "mps"
+          - backend: "whisperx"
+            tag-suffix: "-metal-darwin-arm64-whisperx"
+            build-type: "mps"
+          - backend: "rerankers"
+            tag-suffix: "-metal-darwin-arm64-rerankers"
+            build-type: "mps"
+          - backend: "transformers"
+            tag-suffix: "-metal-darwin-arm64-transformers"
+            build-type: "mps"
+          - backend: "kokoro"
+            tag-suffix: "-metal-darwin-arm64-kokoro"
+            build-type: "mps"
+          - backend: "faster-whisper"
+            tag-suffix: "-metal-darwin-arm64-faster-whisper"
+            build-type: "mps"
+          - backend: "coqui"
+            tag-suffix: "-metal-darwin-arm64-coqui"
+            build-type: "mps"
+          - backend: "rfdetr"
+            tag-suffix: "-metal-darwin-arm64-rfdetr"
+            build-type: "mps"
+          - backend: "kitten-tts"
+            tag-suffix: "-metal-darwin-arm64-kitten-tts"
+            build-type: "mps"
+          - backend: "piper"
+            tag-suffix: "-metal-darwin-arm64-piper"
+            build-type: "metal"
+            lang: "go"
+          - backend: "silero-vad"
+            tag-suffix: "-metal-darwin-arm64-silero-vad"
+            build-type: "metal"
+            lang: "go"
+          - backend: "local-store"
+            tag-suffix: "-metal-darwin-arm64-local-store"
+            build-type: "metal"
+            lang: "go"
+          - backend: "huggingface"
+            tag-suffix: "-metal-darwin-arm64-huggingface"
             build-type: "metal"
             lang: "go"
     with:
