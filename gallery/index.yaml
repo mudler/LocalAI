@@ -1,4 +1,29 @@
 ---
+- name: "qwen2.5-rp-14b-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Qwen2.5-RP-14b-i1-GGUF
+  description: |
+    This is a quantized version of the Qwen2.5-RP-14b model, optimized for efficient deployment. It is a large language model designed for tasks like text generation, question answering, and code writing. The quantization reduces the model size while maintaining performance, with specific variants like `i1-IQ3_M` (7.0 GB) and `i1-Q2_K` (5.9 GB) available for different use cases. It utilizes the imatrix format for efficient quantization and is compatible with GGUF files for model loading. The model is based on the original Qwen2.5-RP-14b, with additional quantization options for flexibility.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Qwen2.5-RP-14b.i1-Q4_K_M.gguf
+    name: Qwen2.5-RP-14b-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Qwen2.5-RP-14b-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Qwen2.5-RP-14b.i1-Q4_K_M.gguf
+      sha256: 753e6a23b74ff350cbe37bb5b0490072fd98e9184150359aff3e318e9939fe18
+      uri: https://huggingface.co/mradermacher/Qwen2.5-RP-14b-i1-GGUF/resolve/main/Qwen2.5-RP-14b.i1-Q4_K_M.gguf
 - name: "deepseek-ai.deepseek-v3.2"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
