@@ -28,7 +28,7 @@ type wrappedModel struct {
 	TTSConfig           *config.ModelConfig
 	TranscriptionConfig *config.ModelConfig
 	LLMConfig           *config.ModelConfig
-	VADConfig *config.ModelConfig
+	VADConfig           *config.ModelConfig
 
 	appConfig   *config.ApplicationConfig
 	modelLoader *model.ModelLoader
@@ -114,6 +114,35 @@ func (m *wrappedModel) Predict(ctx context.Context, messages schema.Messages, im
 					})
 				}
 			}
+
+			// Add noAction function before templating so it's included in the prompt
+			// Allow the user to set custom actions via config file
+			noActionName := "answer"
+			noActionDescription := "use this action to answer without performing any action"
+
+			if m.LLMConfig.FunctionsConfig.NoActionFunctionName != "" {
+				noActionName = m.LLMConfig.FunctionsConfig.NoActionFunctionName
+			}
+			if m.LLMConfig.FunctionsConfig.NoActionDescriptionName != "" {
+				noActionDescription = m.LLMConfig.FunctionsConfig.NoActionDescriptionName
+			}
+
+			noActionGrammar := functions.Function{
+				Name:        noActionName,
+				Description: noActionDescription,
+				Parameters: map[string]interface{}{
+					"properties": map[string]interface{}{
+						"message": map[string]interface{}{
+							"type":        "string",
+							"description": "The message to reply the user with",
+						},
+					},
+				},
+			}
+
+			if !m.LLMConfig.FunctionsConfig.DisableNoAction {
+				funcs = append(funcs, noActionGrammar)
+			}
 		}
 
 		predInput = m.evaluator.TemplateMessages(input, input.Messages, m.LLMConfig, funcs, len(funcs) > 0)
@@ -124,38 +153,29 @@ func (m *wrappedModel) Predict(ctx context.Context, messages schema.Messages, im
 		}
 	}
 
+	// Handle tool_choice parameter similar to the chat endpoint
+	if toolChoice != nil {
+		if toolChoice.Mode != "" {
+			// String values: "auto", "required", "none"
+			switch toolChoice.Mode {
+			case types.ToolChoiceModeRequired:
+				m.LLMConfig.SetFunctionCallString("required")
+			case types.ToolChoiceModeNone:
+				// Don't use tools
+				m.LLMConfig.SetFunctionCallString("none")
+			case types.ToolChoiceModeAuto:
+				// Default behavior - let model decide
+			}
+		} else if toolChoice.Function != nil {
+			// Specific function specified
+			m.LLMConfig.SetFunctionCallString(toolChoice.Function.Name)
+		}
+	}
+
 	// Generate grammar for function calling if tools are provided and grammar generation is enabled
 	shouldUseFn := len(tools) > 0 && m.LLMConfig.ShouldUseFunctions()
 
 	if !m.LLMConfig.FunctionsConfig.GrammarConfig.NoGrammar && shouldUseFn {
-		// Allow the user to set custom actions via config file
-		noActionName := "answer"
-		noActionDescription := "use this action to answer without performing any action"
-
-		if m.LLMConfig.FunctionsConfig.NoActionFunctionName != "" {
-			noActionName = m.LLMConfig.FunctionsConfig.NoActionFunctionName
-		}
-		if m.LLMConfig.FunctionsConfig.NoActionDescriptionName != "" {
-			noActionDescription = m.LLMConfig.FunctionsConfig.NoActionDescriptionName
-		}
-
-		noActionGrammar := functions.Function{
-			Name:        noActionName,
-			Description: noActionDescription,
-			Parameters: map[string]interface{}{
-				"properties": map[string]interface{}{
-					"message": map[string]interface{}{
-						"type":        "string",
-						"description": "The message to reply the user with",
-					},
-				},
-			},
-		}
-
-		if !m.LLMConfig.FunctionsConfig.DisableNoAction {
-			funcs = append(funcs, noActionGrammar)
-		}
-
 		// Force picking one of the functions by the request
 		if m.LLMConfig.FunctionToCall() != "" {
 			funcs = functions.Functions(funcs).Select(m.LLMConfig.FunctionToCall())
@@ -184,7 +204,7 @@ func (m *wrappedModel) Predict(ctx context.Context, messages schema.Messages, im
 		toolChoiceJSON = string(b)
 	}
 
-	return backend.ModelInference(ctx, predInput, messages, images, videos, audios, m.modelLoader, m.LLMConfig, m.confLoader, m.appConfig, tokenCallback, toolsJSON, toolChoiceJSON, logprobs, topLogprobs, logitBias, )
+	return backend.ModelInference(ctx, predInput, messages, images, videos, audios, m.modelLoader, m.LLMConfig, m.confLoader, m.appConfig, tokenCallback, toolsJSON, toolChoiceJSON, logprobs, topLogprobs, logitBias)
 }
 
 func (m *wrappedModel) TTS(ctx context.Context, text, voice, language string) (string, *proto.Result, error) {
@@ -218,11 +238,11 @@ func newTranscriptionOnlyModel(pipeline *config.Pipeline, cl *config.ModelConfig
 
 	return &transcriptOnlyModel{
 		TranscriptionConfig: cfgSST,
-		VADConfig: cfgVAD,
+		VADConfig:           cfgVAD,
 
-		confLoader: cl,
+		confLoader:  cl,
 		modelLoader: ml,
-		appConfig: appConfig,
+		appConfig:   appConfig,
 	}, cfgSST, nil
 }
 
@@ -297,11 +317,11 @@ func newModel(pipeline *config.Pipeline, cl *config.ModelConfigLoader, ml *model
 		TTSConfig:           cfgTTS,
 		TranscriptionConfig: cfgSST,
 		LLMConfig:           cfgLLM,
-		VADConfig: cfgVAD,
+		VADConfig:           cfgVAD,
 
-		confLoader: cl,
+		confLoader:  cl,
 		modelLoader: ml,
-		appConfig: appConfig,
-		evaluator: evaluator,
+		appConfig:   appConfig,
+		evaluator:   evaluator,
 	}, nil
 }
