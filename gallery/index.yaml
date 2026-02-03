@@ -1,4 +1,29 @@
 ---
+- name: "llama-3.1-nemotron-8b-ultralong-1m-instruct-absolute-heresy-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Llama-3.1-Nemotron-8B-UltraLong-1M-Instruct-absolute-heresy-i1-GGUF
+  description: |
+    This is a quantized version of the **Llama-3.1-Nemotron-8B-UltraLong-1M-Instruct** model, originally developed by **MuXodious**. It is optimized for efficiency and performance using GGUF format, with quantization levels such as **i1-IQ4_K_M** (recommended) or **i1-Q4_K_S** (optimal for speed and quality). The model is designed for instruction tuning and is tagged with **heretic, uncensored, and abliterated** to emphasize its unique characteristics. It is available in multiple quantized variants for different use cases, with the full model details available at [the official Hugging Face page](https://hf.tst.eu/model#Llama-3.1-Nemotron-8B-UltraLong-1M-Instruct-absolute-heresy-i1-GGUF).
+  overrides:
+    parameters:
+      model: llama-cpp/models/Llama-3.1-Nemotron-8B-UltraLong-1M-Instruct-absolute-heresy.i1-Q4_K_M.gguf
+    name: Llama-3.1-Nemotron-8B-UltraLong-1M-Instruct-absolute-heresy-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Llama-3.1-Nemotron-8B-UltraLong-1M-Instruct-absolute-heresy-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Llama-3.1-Nemotron-8B-UltraLong-1M-Instruct-absolute-heresy.i1-Q4_K_M.gguf
+      sha256: 45f7c1a1546a2df918e43fcb20dcb9508e270c83a2c25d0a30ec6ac04b38eaec
+      uri: https://huggingface.co/mradermacher/Llama-3.1-Nemotron-8B-UltraLong-1M-Instruct-absolute-heresy-i1-GGUF/resolve/main/Llama-3.1-Nemotron-8B-UltraLong-1M-Instruct-absolute-heresy.i1-Q4_K_M.gguf
 - name: "deepseek-ai.deepseek-v3.2"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
