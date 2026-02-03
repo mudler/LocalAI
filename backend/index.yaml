@@ -183,6 +183,15 @@
     - text-to-text
     - LLM
     - MLX
+  capabilities:
+    default: "cpu-mlx"
+    nvidia: "cuda12-mlx"
+    metal: "metal-mlx"
+    nvidia-cuda-12: "cuda12-mlx"
+    nvidia-cuda-13: "cuda13-mlx"
+    nvidia-l4t: "nvidia-l4t-mlx"
+    nvidia-l4t-cuda-12: "nvidia-l4t-mlx"
+    nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-mlx"
 - &mlx-vlm
   name: "mlx-vlm"
   uri: "quay.io/go-skynet/local-ai-backends:latest-metal-darwin-arm64-mlx-vlm"
@@ -200,6 +209,15 @@
     - vision-language
     - LLM
     - MLX
+  capabilities:
+    default: "cpu-mlx-vlm"
+    nvidia: "cuda12-mlx-vlm"
+    metal: "metal-mlx-vlm"
+    nvidia-cuda-12: "cuda12-mlx-vlm"
+    nvidia-cuda-13: "cuda13-mlx-vlm"
+    nvidia-l4t: "nvidia-l4t-mlx-vlm"
+    nvidia-l4t-cuda-12: "nvidia-l4t-mlx-vlm"
+    nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-mlx-vlm"
 - &mlx-audio
   name: "mlx-audio"
   uri: "quay.io/go-skynet/local-ai-backends:latest-metal-darwin-arm64-mlx-audio"
@@ -217,6 +235,15 @@
     - text-to-audio
     - LLM
     - MLX
+  capabilities:
+    default: "cpu-mlx-audio"
+    nvidia: "cuda12-mlx-audio"
+    metal: "metal-mlx-audio"
+    nvidia-cuda-12: "cuda12-mlx-audio"
+    nvidia-cuda-13: "cuda13-mlx-audio"
+    nvidia-l4t: "nvidia-l4t-mlx-audio"
+    nvidia-l4t-cuda-12: "nvidia-l4t-mlx-audio"
+    nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-mlx-audio"
 - &rerankers
   name: "rerankers"
   alias: "rerankers"
@@ -678,6 +705,159 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-mlx-audio"
   mirrors:
     - localai/localai-backends:master-metal-darwin-arm64-mlx-audio
+## mlx
+- !!merge <<: *mlx
+  name: "cpu-mlx"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-mlx"
+  mirrors:
+    - localai/localai-backends:latest-cpu-mlx
+- !!merge <<: *mlx
+  name: "cpu-mlx-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-cpu-mlx"
+  mirrors:
+    - localai/localai-backends:master-cpu-mlx
+- !!merge <<: *mlx
+  name: "cuda12-mlx"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-mlx"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-12-mlx
+- !!merge <<: *mlx
+  name: "cuda12-mlx-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-mlx"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-12-mlx
+- !!merge <<: *mlx
+  name: "cuda13-mlx"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-13-mlx"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-13-mlx
+- !!merge <<: *mlx
+  name: "cuda13-mlx-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-mlx"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-13-mlx
+- !!merge <<: *mlx
+  name: "nvidia-l4t-mlx"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-nvidia-l4t-mlx"
+  mirrors:
+    - localai/localai-backends:latest-nvidia-l4t-mlx
+- !!merge <<: *mlx
+  name: "nvidia-l4t-mlx-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-mlx"
+  mirrors:
+    - localai/localai-backends:master-nvidia-l4t-mlx
+- !!merge <<: *mlx
+  name: "cuda13-nvidia-l4t-arm64-mlx"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-nvidia-l4t-cuda-13-arm64-mlx"
+  mirrors:
+    - localai/localai-backends:latest-nvidia-l4t-cuda-13-arm64-mlx
+- !!merge <<: *mlx
+  name: "cuda13-nvidia-l4t-arm64-mlx-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-cuda-13-arm64-mlx"
+  mirrors:
+    - localai/localai-backends:master-nvidia-l4t-cuda-13-arm64-mlx
+## mlx-vlm
+- !!merge <<: *mlx-vlm
+  name: "cpu-mlx-vlm"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-mlx-vlm"
+  mirrors:
+    - localai/localai-backends:latest-cpu-mlx-vlm
+- !!merge <<: *mlx-vlm
+  name: "cpu-mlx-vlm-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-cpu-mlx-vlm"
+  mirrors:
+    - localai/localai-backends:master-cpu-mlx-vlm
+- !!merge <<: *mlx-vlm
+  name: "cuda12-mlx-vlm"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-mlx-vlm"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-12-mlx-vlm
+- !!merge <<: *mlx-vlm
+  name: "cuda12-mlx-vlm-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-mlx-vlm"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-12-mlx-vlm
+- !!merge <<: *mlx-vlm
+  name: "cuda13-mlx-vlm"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-13-mlx-vlm"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-13-mlx-vlm
+- !!merge <<: *mlx-vlm
+  name: "cuda13-mlx-vlm-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-mlx-vlm"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-13-mlx-vlm
+- !!merge <<: *mlx-vlm
+  name: "nvidia-l4t-mlx-vlm"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-nvidia-l4t-mlx-vlm"
+  mirrors:
+    - localai/localai-backends:latest-nvidia-l4t-mlx-vlm
+- !!merge <<: *mlx-vlm
+  name: "nvidia-l4t-mlx-vlm-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-mlx-vlm"
+  mirrors:
+    - localai/localai-backends:master-nvidia-l4t-mlx-vlm
+- !!merge <<: *mlx-vlm
+  name: "cuda13-nvidia-l4t-arm64-mlx-vlm"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-nvidia-l4t-cuda-13-arm64-mlx-vlm"
+  mirrors:
+    - localai/localai-backends:latest-nvidia-l4t-cuda-13-arm64-mlx-vlm
+- !!merge <<: *mlx-vlm
+  name: "cuda13-nvidia-l4t-arm64-mlx-vlm-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-cuda-13-arm64-mlx-vlm"
+  mirrors:
+    - localai/localai-backends:master-nvidia-l4t-cuda-13-arm64-mlx-vlm
+## mlx-audio
+- !!merge <<: *mlx-audio
+  name: "cpu-mlx-audio"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-mlx-audio"
+  mirrors:
+    - localai/localai-backends:latest-cpu-mlx-audio
+- !!merge <<: *mlx-audio
+  name: "cpu-mlx-audio-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-cpu-mlx-audio"
+  mirrors:
+    - localai/localai-backends:master-cpu-mlx-audio
+- !!merge <<: *mlx-audio
+  name: "cuda12-mlx-audio"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-mlx-audio"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-12-mlx-audio
+- !!merge <<: *mlx-audio
+  name: "cuda12-mlx-audio-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-mlx-audio"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-12-mlx-audio
+- !!merge <<: *mlx-audio
+  name: "cuda13-mlx-audio"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-13-mlx-audio"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-13-mlx-audio
+- !!merge <<: *mlx-audio
+  name: "cuda13-mlx-audio-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-mlx-audio"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-13-mlx-audio
+- !!merge <<: *mlx-audio
+  name: "nvidia-l4t-mlx-audio"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-nvidia-l4t-mlx-audio"
+  mirrors:
+    - localai/localai-backends:latest-nvidia-l4t-mlx-audio
+- !!merge <<: *mlx-audio
+  name: "nvidia-l4t-mlx-audio-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-mlx-audio"
+  mirrors:
+    - localai/localai-backends:master-nvidia-l4t-mlx-audio
+- !!merge <<: *mlx-audio
+  name: "cuda13-nvidia-l4t-arm64-mlx-audio"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-nvidia-l4t-cuda-13-arm64-mlx-audio"
+  mirrors:
+    - localai/localai-backends:latest-nvidia-l4t-cuda-13-arm64-mlx-audio
+- !!merge <<: *mlx-audio
+  name: "cuda13-nvidia-l4t-arm64-mlx-audio-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-cuda-13-arm64-mlx-audio"
+  mirrors:
+    - localai/localai-backends:master-nvidia-l4t-cuda-13-arm64-mlx-audio
 - !!merge <<: *kitten-tts
   name: "kitten-tts-development"
   uri: "quay.io/go-skynet/local-ai-backends:master-kitten-tts"

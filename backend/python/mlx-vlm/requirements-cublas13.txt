@@ -1,0 +1,2 @@
+git+https://github.com/Blaizzy/mlx-vlm
+mlx[cuda13]
