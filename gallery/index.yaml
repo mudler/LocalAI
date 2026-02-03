@@ -1,4 +1,33 @@
 ---
+- name: "qwen3-4b-thinking-2507-cp-grpo-v2"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/Legend0fHell/Qwen3-4B-Thinking-2507-CP-GGUF-GRPO-v2
+  description: |
+    **Model Name:** Qwen3-4B-Thinking-2507-CP-GGUF-GRPO-v2
+    **Size:** 4B parameters
+    **Format:** GGUF (optimized for efficient deployment)
+    **Description:**
+    This is a finetuned version of the Qwen3 model, converted to GGUF format using *Unsloth* for faster training. It supports text-only and multimodal tasks, optimized for inference with llama.cpp and jinja. The model is not the original Qwen3 by the author but a tuned variant tailored for specific use cases.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Qwen3-4B-Thinking-2507-CP-Merged-v2.Q8_0.gguf
+    name: Qwen3-4B-Thinking-2507-CP-GGUF-GRPO-v2
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/Legend0fHell/Qwen3-4B-Thinking-2507-CP-GGUF-GRPO-v2
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Qwen3-4B-Thinking-2507-CP-Merged-v2.Q8_0.gguf
+      sha256: 180861e0b40fe3f04bdcd7d96557b9947030641c24aaf745d1f33ada7578cc6b
+      uri: https://huggingface.co/Legend0fHell/Qwen3-4B-Thinking-2507-CP-GGUF-GRPO-v2/resolve/main/Qwen3-4B-Thinking-2507-CP-Merged-v2.Q8_0.gguf
 - name: "deepseek-ai.deepseek-v3.2"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
