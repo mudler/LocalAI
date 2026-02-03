@@ -1,2 +1,2 @@
-torch==2.7.1
+torch
 whisperx @ git+https://github.com/m-bain/whisperX.git
