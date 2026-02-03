@@ -28,7 +28,7 @@ class TestBackendServicer(unittest.TestCase):
             stderr=subprocess.PIPE,
             text=True
         )
-        time.sleep(5)
+        time.sleep(30)
 
     def tearDown(self) -> None:
         """
