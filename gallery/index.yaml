@@ -1,4 +1,41 @@
 ---
+- name: "phind-70b"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Phind-70B-GGUF
+  description: |
+    **Phind-70B** is a fine-tuned version of the **meta-llama/Llama-3.3-70B-Instruct** model, optimized for **code generation, technical problem-solving, and instruction-following tasks**. It is designed to handle multi-turn conversations, debug complex issues, and generate code across programming languages.
+
+    Key features:
+      - **70B parameters** for robust reasoning and general-purpose tasks.
+      - **Context length** up to 128K tokens.
+      - **Quantized versions** (e.g., Q4_K_S, Q8_0) for efficient deployment.
+
+    **Use cases**:
+      - Writing Python functions for palindrome detection.
+      - Debugging code or solving technical challenges.
+      - Generating instructions for complex tasks.
+
+    Ideal for developers, engineers, and AI researchers needing a powerful, versatile model for code and technical workflows.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Phind-70B.Q4_K_M.gguf
+    name: Phind-70B-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Phind-70B-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Phind-70B.Q4_K_M.gguf
+      sha256: c54ecc2c9e467a5fa4e5bb2f73565bdf5a0166fc1dea85cced892a778288b793
+      uri: https://huggingface.co/mradermacher/Phind-70B-GGUF/resolve/main/Phind-70B.Q4_K_M.gguf
 - name: "qwen3-coder-next-mxfp4_moe"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
