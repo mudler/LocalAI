@@ -80,7 +80,7 @@
 
                         <!-- Text: used as description in simple mode, style in advanced mode -->
                         <div class="space-y-4">
-                            <div>
+                            <div id="text-field-container">
                                 <label for="text" class="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5">
                                     <i class="fas fa-align-left text-[var(--color-primary)] mr-1.5"></i>Text <span id="text-label-desc" class="text-[var(--color-text-secondary)]">(description in simple mode)</span>
                                 </label>
@@ -175,10 +175,12 @@
     document.getElementById('mode-simple').addEventListener('change', function() {
         document.getElementById('simple-fields').classList.remove('hidden');
         document.getElementById('advanced-fields').classList.add('hidden');
+        document.getElementById('text-field-container').classList.remove('hidden');
     });
     document.getElementById('mode-advanced').addEventListener('change', function() {
         document.getElementById('simple-fields').classList.add('hidden');
         document.getElementById('advanced-fields').classList.remove('hidden');
+        document.getElementById('text-field-container').classList.add('hidden');
     });
 </script>
 </body>

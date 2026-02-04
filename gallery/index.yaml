@@ -1,4 +1,44 @@
 ---
+- name: "ace-step-turbo"
+  license: mit
+  tags:
+    - music
+    - audio
+    - music-generation
+    - tts
+    - sound-generation
+    - ace-step
+    - ace-step-1.5
+    - ace-step-1.5-turbo
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/ACE-Step/Ace-Step1.5
+  description: |
+    ACE-Step 1.5 Turbo is a music generation model that can create music from text descriptions,
+    lyrics, or audio samples. Supports both simple text-to-music and advanced music generation
+    with metadata like BPM, key scale, and time signature.
+  overrides:
+    name: ace-step-turbo
+    backend: ace-step
+    parameters:
+      model: acestep-v15-turbo
+    known_usecases:
+      - sound_generation
+      - tts
+    options:
+      - "device:auto"
+      - "use_flash_attention:true"
+      - "offload_to_cpu:false"
+      - "offload_dit_to_cpu:false"
+      - "init_lm:true"
+      - "lm_model_path:acestep-5Hz-lm-0.6B" # or acestep-5Hz-lm-4B
+      - "lm_backend:pt"
+      - "temperature:0.85"
+      - "top_p:0.9"
+      - "lm_cfg_scale:2.0"
+      - "inference_steps:8"
+      - "guidance_scale:7.0"
+      - "batch_size:1"
 - name: "qwen3-coder-next-mxfp4_moe"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
