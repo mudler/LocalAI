@@ -1,4 +1,29 @@
 ---
+- name: "asmodeus-24b-v1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Asmodeus-24B-v1-GGUF
+  description: |
+    The model is a quantized version of **Asmodeus-24B**, a large language model with 24 billion parameters. It is optimized for efficiency using quantization techniques (e.g., Q4_K_S, Q2_K, etc.), which reduce memory usage and computation while maintaining performance. The model is saved in the GGUF format and is designed for deployment in applications requiring fast, efficient inference. It is suitable for tasks like text generation, question answering, and multilingual processing.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Asmodeus-24B-v1.Q8_0.gguf
+    name: Asmodeus-24B-v1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Asmodeus-24B-v1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Asmodeus-24B-v1.Q8_0.gguf
+      sha256: fb2689cbc097944e38ec47b56896e2cd6ccff08b78d7b2571f09d1882692e0de
+      uri: https://huggingface.co/mradermacher/Asmodeus-24B-v1-GGUF/resolve/main/Asmodeus-24B-v1.Q8_0.gguf
 - name: "qwen3-coder-next-mxfp4_moe"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
