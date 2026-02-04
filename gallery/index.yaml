@@ -1,4 +1,29 @@
 ---
+- name: "smollm2-135m-instruct-behaviortree-lora"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/unileon-robotics/SmolLM2-135M-Instruct-BehaviorTree-LoRA-GGUF
+  description: |
+    The **SmolLM2-135M-Instruct-BehaviorTree-LoRA-GGUF** model is a lightweight, efficient variant of the SmolLM2-135M base model, optimized for instruction-following tasks. It incorporates **BehaviorTree** and **LoRA** adapters to enable task-specific fine-tuning, while using the **GGUF** format for compact storage. The model is trained on a specialized dataset (ArtemLykov/LLM_BRAIn_dataset) and is designed for low-resource settings, offering a balance between performance and efficiency. Its lightweight architecture makes it suitable for applications requiring rapid inference or constrained environments.
+  overrides:
+    parameters:
+      model: llama-cpp/models/f32.gguf
+    name: SmolLM2-135M-Instruct-BehaviorTree-LoRA-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/unileon-robotics/SmolLM2-135M-Instruct-BehaviorTree-LoRA-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/f32.gguf
+      sha256: 5ff49bde8d7613a444886ce7892bfc3c8509cc80fe01492518fcd4e91fd749fc
+      uri: https://huggingface.co/unileon-robotics/SmolLM2-135M-Instruct-BehaviorTree-LoRA-GGUF/resolve/main/f32.gguf
 - name: "qwen3-coder-next-mxfp4_moe"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
