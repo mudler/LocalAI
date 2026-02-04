@@ -1,4 +1,29 @@
 ---
+- name: "genrm-r-align-8b-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/GenRM-R-Align-8B-i1-GGUF
+  description: |
+    The model `mradermacher/GenRM-R-Align-8B-i1-GGUF` is a quantized version of the original `GenRM-R-Align-8B` model, optimized for efficient deployment. It uses quantized weights (e.g., Q2_K, IQ3_M, Q4_K_S) and is designed for tasks like alignment or text generation. The base model is `GenRM-R-Align-8B`, and the quantization details (e.g., `output_tensor_quantised: 1`) indicate its optimization level. It is tagged under `nicoboss` and is suitable for applications requiring lightweight inference.
+  overrides:
+    parameters:
+      model: llama-cpp/models/GenRM-R-Align-8B.i1-Q4_K_M.gguf
+    name: GenRM-R-Align-8B-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/GenRM-R-Align-8B-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/GenRM-R-Align-8B.i1-Q4_K_M.gguf
+      sha256: a03fad8b7a98ff3b1835b790c465a9b16544941ea2d467df7340bd365783a724
+      uri: https://huggingface.co/mradermacher/GenRM-R-Align-8B-i1-GGUF/resolve/main/GenRM-R-Align-8B.i1-Q4_K_M.gguf
 - name: "qwen3-coder-next-mxfp4_moe"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
