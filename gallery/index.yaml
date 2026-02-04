@@ -1,4 +1,38 @@
 ---
+- name: "qwen.qwen3-coder-next"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/DevQuasar/Qwen.Qwen3-Coder-Next-GGUF
+  description: |
+    This model is a text-generation model (pipeline_tag: text-generation) based on the original Qwen/Qwen3-Coder-Next base model. It is a quantized version of the original model, optimized for efficiency while retaining its capabilities for coding-related tasks. The quantization reduces the model size and computation requirements, making it suitable for deployment in resource-constrained environments.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Qwen.Qwen3-Coder-Next.Q4_K_M-00001-of-00004.gguf
+    name: Qwen.Qwen3-Coder-Next-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/DevQuasar/Qwen.Qwen3-Coder-Next-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Qwen.Qwen3-Coder-Next.Q4_K_M-00001-of-00004.gguf
+      sha256: d235e6158af78fee2567dbeb42a5658e9cc9e8d53da11fea2f5c53e0f191f4c2
+      uri: https://huggingface.co/DevQuasar/Qwen.Qwen3-Coder-Next-GGUF/resolve/main/Qwen.Qwen3-Coder-Next.Q4_K_M-00001-of-00004.gguf
+    - filename: llama-cpp/models/Qwen.Qwen3-Coder-Next.Q4_K_M-00002-of-00004.gguf
+      sha256: 1a904eed72e92cb7b90191b0384c5e2f03f9ef1847a8b7b1d70b2f693e22f72e
+      uri: https://huggingface.co/DevQuasar/Qwen.Qwen3-Coder-Next-GGUF/resolve/main/Qwen.Qwen3-Coder-Next.Q4_K_M-00002-of-00004.gguf
+    - filename: llama-cpp/models/Qwen.Qwen3-Coder-Next.Q4_K_M-00003-of-00004.gguf
+      sha256: c4f3e2b2d8b77aea91bbb51048bec356f689c640894ad187713a7ac5911ad37d
+      uri: https://huggingface.co/DevQuasar/Qwen.Qwen3-Coder-Next-GGUF/resolve/main/Qwen.Qwen3-Coder-Next.Q4_K_M-00003-of-00004.gguf
+    - filename: llama-cpp/models/Qwen.Qwen3-Coder-Next.Q4_K_M-00004-of-00004.gguf
+      sha256: 617232fee42375152742bda23bb1c77127a28ecb24f12bdc2992587528644749
+      uri: https://huggingface.co/DevQuasar/Qwen.Qwen3-Coder-Next-GGUF/resolve/main/Qwen.Qwen3-Coder-Next.Q4_K_M-00004-of-00004.gguf
 - name: "deepseek-ai.deepseek-v3.2"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
