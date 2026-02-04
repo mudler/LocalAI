@@ -1,5 +1,5 @@
 # Disable parallel execution for backend builds
-.NOTPARALLEL: backends/diffusers backends/llama-cpp backends/outetts backends/piper backends/stablediffusion-ggml backends/whisper backends/faster-whisper backends/silero-vad backends/local-store backends/huggingface backends/rfdetr backends/kitten-tts backends/kokoro backends/chatterbox backends/llama-cpp-darwin backends/neutts build-darwin-python-backend build-darwin-go-backend backends/mlx backends/diffuser-darwin backends/mlx-vlm backends/mlx-audio backends/stablediffusion-ggml-darwin backends/vllm backends/vllm-omni backends/moonshine backends/pocket-tts backends/qwen-tts backends/qwen-asr backends/voxcpm backends/whisperx
+.NOTPARALLEL: backends/diffusers backends/llama-cpp backends/outetts backends/piper backends/stablediffusion-ggml backends/whisper backends/faster-whisper backends/silero-vad backends/local-store backends/huggingface backends/rfdetr backends/kitten-tts backends/kokoro backends/chatterbox backends/llama-cpp-darwin backends/neutts build-darwin-python-backend build-darwin-go-backend backends/mlx backends/diffuser-darwin backends/mlx-vlm backends/mlx-audio backends/stablediffusion-ggml-darwin backends/vllm backends/vllm-omni backends/moonshine backends/pocket-tts backends/qwen-tts backends/qwen-asr backends/voxcpm backends/whisperx backends/ace-step
 
 GOCMD=go
 GOTEST=$(GOCMD) test
@@ -320,6 +320,7 @@ prepare-test-extra: protogen-python
 	$(MAKE) -C backend/python/qwen-asr
 	$(MAKE) -C backend/python/voxcpm
 	$(MAKE) -C backend/python/whisperx
+	$(MAKE) -C backend/python/ace-step
 
 test-extra: prepare-test-extra
 	$(MAKE) -C backend/python/transformers test
@@ -335,6 +336,7 @@ test-extra: prepare-test-extra
 	$(MAKE) -C backend/python/qwen-asr test
 	$(MAKE) -C backend/python/voxcpm test
 	$(MAKE) -C backend/python/whisperx test
+	$(MAKE) -C backend/python/ace-step test
 
 DOCKER_IMAGE?=local-ai
 DOCKER_AIO_IMAGE?=local-ai-aio
@@ -520,12 +522,13 @@ $(eval $(call generate-docker-build-target,$(BACKEND_QWEN_TTS)))
 $(eval $(call generate-docker-build-target,$(BACKEND_QWEN_ASR)))
 $(eval $(call generate-docker-build-target,$(BACKEND_VOXCPM)))
 $(eval $(call generate-docker-build-target,$(BACKEND_WHISPERX)))
+$(eval $(call generate-docker-build-target,$(BACKEND_ACE_STEP)))
 
 # Pattern rule for docker-save targets
 docker-save-%: backend-images
 	docker save local-ai-backend:$* -o backend-images/$*.tar
 
-docker-build-backends: docker-build-llama-cpp docker-build-rerankers docker-build-vllm docker-build-vllm-omni docker-build-transformers docker-build-outetts docker-build-diffusers docker-build-kokoro docker-build-faster-whisper docker-build-coqui docker-build-chatterbox docker-build-vibevoice docker-build-moonshine docker-build-pocket-tts docker-build-qwen-tts docker-build-qwen-asr docker-build-voxcpm docker-build-whisperx
+docker-build-backends: docker-build-llama-cpp docker-build-rerankers docker-build-vllm docker-build-vllm-omni docker-build-transformers docker-build-outetts docker-build-diffusers docker-build-kokoro docker-build-faster-whisper docker-build-coqui docker-build-chatterbox docker-build-vibevoice docker-build-moonshine docker-build-pocket-tts docker-build-qwen-tts docker-build-qwen-asr docker-build-voxcpm docker-build-whisperx docker-build-ace-step
 
 ########################################################
 ### Mock Backend for E2E Tests

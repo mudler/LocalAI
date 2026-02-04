@@ -19,6 +19,14 @@ func SoundGeneration(
 	doSample *bool,
 	sourceFile *string,
 	sourceDivisor *int32,
+	think *bool,
+	caption string,
+	lyrics string,
+	bpm *int32,
+	keyscale string,
+	language string,
+	timesignature string,
+	instrumental *bool,
 	loader *model.ModelLoader,
 	appConfig *config.ApplicationConfig,
 	modelConfig config.ModelConfig,
@@ -45,8 +53,11 @@ func SoundGeneration(
 
 	fileName := utils.GenerateUniqueFileName(audioDir, "sound_generation", ".wav")
 	filePath := filepath.Join(audioDir, fileName)
+	if filePath, err = filepath.Abs(filePath); err != nil {
+		return "", nil, fmt.Errorf("failed resolving sound generation path: %w", err)
+	}
 
-	res, err := soundGenModel.SoundGeneration(context.Background(), &proto.SoundGenerationRequest{
+	req := &proto.SoundGenerationRequest{
 		Text:        text,
 		Model:       modelConfig.Model,
 		Dst:         filePath,
@@ -55,12 +66,38 @@ func SoundGeneration(
 		Temperature: temperature,
 		Src:         sourceFile,
 		SrcDivisor:  sourceDivisor,
-	})
-
-	// return RPC error if any
-	if !res.Success {
-		return "", nil, fmt.Errorf("error during sound generation: %s", res.Message)
+	}
+	if think != nil {
+		req.Think = think
+	}
+	if caption != "" {
+		req.Caption = &caption
+	}
+	if lyrics != "" {
+		req.Lyrics = &lyrics
+	}
+	if bpm != nil {
+		req.Bpm = bpm
+	}
+	if keyscale != "" {
+		req.Keyscale = &keyscale
+	}
+	if language != "" {
+		req.Language = &language
+	}
+	if timesignature != "" {
+		req.Timesignature = &timesignature
+	}
+	if instrumental != nil {
+		req.Instrumental = instrumental
 	}
 
-	return filePath, res, err
+	res, err := soundGenModel.SoundGeneration(context.Background(), req)
+	if err != nil {
+		return "", nil, err
+	}
+	if res != nil && !res.Success {
+		return "", nil, fmt.Errorf("error during sound generation: %s", res.Message)
+	}
+	return filePath, res, nil
 }
