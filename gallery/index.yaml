@@ -1,4 +1,29 @@
 ---
+- name: "her-32b-acl-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/HER-32B-ACL-i1-GGUF
+  description: |
+    The model `HER-32B-ACL` is a 32-billion parameter language model fine-tuned for tasks like text generation and reasoning. It is optimized for efficiency with quantization, enabling faster inference while maintaining performance. The model is designed for high accuracy in tasks such as answering questions, generating text, and reasoning about complex inputs. It is not the quantized version (`HER-32B-ACL-i1`) but the original base model, which may have different specifications or capabilities. For detailed technical details, refer to the original model's documentation.
+  overrides:
+    parameters:
+      model: llama-cpp/models/HER-32B-ACL.i1-Q4_K_M.gguf
+    name: HER-32B-ACL-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/HER-32B-ACL-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/HER-32B-ACL.i1-Q4_K_M.gguf
+      sha256: 5b60cfa7bb5636250fcbee067703c1dd6fc08ea2f4c058d03a70222bb393c74b
+      uri: https://huggingface.co/mradermacher/HER-32B-ACL-i1-GGUF/resolve/main/HER-32B-ACL.i1-Q4_K_M.gguf
 - name: "qwen3-coder-next-mxfp4_moe"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
