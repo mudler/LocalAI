@@ -1,4 +1,36 @@
 ---
+- name: "qwen3-coder-next-reap-48b-a3b"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/lovedheart/Qwen3-Coder-Next-REAP-48B-A3B-GGUF
+  description: |
+    **Qwen3-Coder-Next-REAP-48B-A3B** is a 48B-parameter causal language model with 3B activated parameters, designed for efficient text generation. It features 48 layers, a hybrid layout using Mixture of Experts (MoE), and advanced compression via REAP (Router-weighted Expert Activation Pruning) to reduce expert count by 40%. Key specifications include:
+      - **Hidden Dim**: 2048
+      - **Attention Heads**: 16 (Q) / 2 (KV)
+      - **Head Dim**: 256
+      - **Context Length**: 262k natively (extendable to 1M)
+      - **Compression**: 40% expert pruning for efficiency.
+
+    This model balances performance and efficiency, ideal for tasks requiring large-scale text generation.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Qwen3-Coder-Next-REAP-48B-A3B-Q8_0.gguf
+    name: Qwen3-Coder-Next-REAP-48B-A3B-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/lovedheart/Qwen3-Coder-Next-REAP-48B-A3B-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Qwen3-Coder-Next-REAP-48B-A3B-Q8_0.gguf
+      sha256: 623e3f657ff9bfba0d8aa0a94b1c3a7fad1e04d9338a2c631baefcc3e078ecdd
+      uri: https://huggingface.co/lovedheart/Qwen3-Coder-Next-REAP-48B-A3B-GGUF/resolve/main/Qwen3-Coder-Next-REAP-48B-A3B-Q8_0.gguf
 - name: "qwen3-coder-next-mxfp4_moe"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
