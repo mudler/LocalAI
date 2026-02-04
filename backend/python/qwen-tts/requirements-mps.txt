@@ -1,4 +1,4 @@
-torch==2.7.1
-torchaudio==0.22.1
+torch
+torchaudio
 qwen-tts
 sox
