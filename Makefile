@@ -473,6 +473,7 @@ BACKEND_QWEN_TTS = qwen-tts|python|.|false|true
 BACKEND_QWEN_ASR = qwen-asr|python|.|false|true
 BACKEND_VOXCPM = voxcpm|python|.|false|true
 BACKEND_WHISPERX = whisperx|python|.|false|true
+BACKEND_ACE_STEP = ace-step|python|.|false|true
 
 # Helper function to build docker image for a backend
 # Usage: $(call docker-build-backend,BACKEND_NAME,DOCKERFILE_TYPE,BUILD_CONTEXT,PROGRESS_FLAG,NEEDS_BACKEND_ARG)
