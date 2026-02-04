@@ -150,7 +150,7 @@ services:
     ports:
       - 8080:8080
     environment:
-      - DEBUG=true
+      - DEBUG=false
     volumes:
       - ./models:/models:cached
     # For NVIDIA GPUs, uncomment:
