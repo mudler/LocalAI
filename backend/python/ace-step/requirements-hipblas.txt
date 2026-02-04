@@ -20,11 +20,3 @@ vector-quantize-pytorch>=1.27.15
 torchcodec>=0.9.1; sys_platform != 'darwin' or platform_machine == 'arm64'
 torchao
 modelscope
-
-# LoRA Training dependencies (optional)
-peft>=0.7.0
-lightning>=2.0.0
-
-triton>=3.0.0
-flash-attn
-xxhash
