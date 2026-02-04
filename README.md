@@ -308,7 +308,7 @@ LocalAI supports a comprehensive range of AI backends with multiple acceleration
 | **Apple Metal** | llama.cpp, whisper, diffusers, MLX, MLX-VLM, moonshine, ace-step | Apple M1/M2/M3+ |
 | **Vulkan** | llama.cpp, whisper, stablediffusion | Cross-platform GPUs |
 | **NVIDIA Jetson (CUDA 12)** | llama.cpp, whisper, stablediffusion, diffusers, rfdetr, ace-step | ARM64 embedded AI (AGX Orin, etc.) |
-| **NVIDIA Jetson (CUDA 13)** | llama.cpp, whisper, stablediffusion, diffusers, rfdetr, ace-step | ARM64 embedded AI (DGX Spark) |
+| **NVIDIA Jetson (CUDA 13)** | llama.cpp, whisper, stablediffusion, diffusers, rfdetr | ARM64 embedded AI (DGX Spark) |
 | **CPU Optimized** | All backends | AVX/AVX2/AVX512, quantization support |
 
 ### 🔗 Community and integrations

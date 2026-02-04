@@ -32,8 +32,8 @@ function buildRequestBody() {
     const vocal = document.getElementById('vocal_language').value.trim();
     if (vocal) body.vocal_language = vocal;
   } else {
-    const text = document.getElementById('text').value.trim();
-    if (text) body.text = text;
+    // Advanced mode: do NOT send 'text' field - it triggers simple mode in backend
+    // Only send caption, lyrics, and other advanced fields
     const caption = document.getElementById('caption').value.trim();
     if (caption) body.caption = caption;
     const lyrics = document.getElementById('lyrics').value.trim();
@@ -64,11 +64,11 @@ async function generateSound(event) {
       return;
     }
   } else {
-    const text = document.getElementById('text').value.trim();
+    // Advanced mode: only check caption and lyrics (text field is hidden and not used)
     const caption = document.getElementById('caption').value.trim();
     const lyrics = document.getElementById('lyrics').value.trim();
-    if (!text && !caption && !lyrics) {
-      showNotification('error', 'Please enter at least text, caption, or lyrics');
+    if (!caption && !lyrics) {
+      showNotification('error', 'Please enter at least caption or lyrics');
       return;
     }
   }
