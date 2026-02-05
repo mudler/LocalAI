@@ -8,5 +8,5 @@ set -e
 CURDIR=$(dirname "$(realpath $0)")
 
 mkdir -p $CURDIR/package
-cp -avrf $CURDIR/local-store $CURDIR/package/
+cp -avf $CURDIR/local-store $CURDIR/package/
 cp -rfv $CURDIR/run.sh $CURDIR/package/
