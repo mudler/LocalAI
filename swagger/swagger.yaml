@@ -403,15 +403,33 @@ definitions:
     type: object
   schema.ElevenLabsSoundGenerationRequest:
     properties:
+      bpm:
+        type: integer
+      caption:
+        type: string
       do_sample:
         type: boolean
       duration_seconds:
         type: number
+      instrumental:
+        type: boolean
+      keyscale:
+        type: string
+      language:
+        type: string
+      lyrics:
+        type: string
       model_id:
         type: string
       prompt_influence:
         type: number
       text:
+        type: string
+      think:
+        type: boolean
+      timesignature:
+        type: string
+      vocal_language:
         type: string
     type: object
   schema.FunctionCall:

@@ -324,6 +324,11 @@
                                         <i class="fas fa-microphone text-[8px] mr-1"></i>TTS
                                     </a>
                                     {{ end }}
+                                    {{ if eq . "FLAG_SOUND_GENERATION" }}
+                                    <a href="sound/{{$backendCfg.Name}}" class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-[var(--color-primary)]/10 text-[var(--color-primary)] hover:bg-[var(--color-primary)]/20 transition-colors" title="Sound">
+                                        <i class="fas fa-waveform-lines text-[8px] mr-1"></i>Sound
+                                    </a>
+                                    {{ end }}
                                     {{ end }}
                                 </div>
                             </td>

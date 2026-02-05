@@ -296,6 +296,34 @@
     nvidia-cuda-12: "cuda12-diffusers"
     nvidia-l4t-cuda-12: "nvidia-l4t-arm64-diffusers"
     nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-diffusers"
+- &ace-step
+  name: "ace-step"
+  description: |
+    ACE-Step 1.5 is an open-source music generation model. It supports simple mode (natural language description) and advanced mode (caption, lyrics, think, bpm, keyscale, etc.). Uses in-process acestep (LLMHandler for metadata, DiT for audio).
+  urls:
+    - https://github.com/ace-step/ACE-Step-1.5
+  tags:
+    - music-generation
+    - sound-generation
+  alias: "ace-step"
+  capabilities:
+    nvidia: "cuda12-ace-step"
+    intel: "intel-ace-step"
+    amd: "rocm-ace-step"
+    metal: "metal-ace-step"
+    default: "cpu-ace-step"
+    nvidia-cuda-13: "cuda13-ace-step"
+    nvidia-cuda-12: "cuda12-ace-step"
+- !!merge <<: *ace-step
+  name: "ace-step-development"
+  capabilities:
+    nvidia: "cuda12-ace-step-development"
+    intel: "intel-ace-step-development"
+    amd: "rocm-ace-step-development"
+    metal: "metal-ace-step-development"
+    default: "cpu-ace-step-development"
+    nvidia-cuda-13: "cuda13-ace-step-development"
+    nvidia-cuda-12: "cuda12-ace-step-development"
 - &faster-whisper
   icon: https://avatars.githubusercontent.com/u/1520500?s=200&v=4
   description: |
@@ -1593,6 +1621,67 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-diffusers"
   mirrors:
     - localai/localai-backends:master-metal-darwin-arm64-diffusers
+## ace-step
+- !!merge <<: *ace-step
+  name: "cpu-ace-step"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-ace-step"
+  mirrors:
+    - localai/localai-backends:latest-cpu-ace-step
+- !!merge <<: *ace-step
+  name: "cpu-ace-step-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-cpu-ace-step"
+  mirrors:
+    - localai/localai-backends:master-cpu-ace-step
+- !!merge <<: *ace-step
+  name: "cuda12-ace-step"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-ace-step"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-12-ace-step
+- !!merge <<: *ace-step
+  name: "cuda12-ace-step-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-ace-step"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-12-ace-step
+- !!merge <<: *ace-step
+  name: "cuda13-ace-step"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-13-ace-step"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-13-ace-step
+- !!merge <<: *ace-step
+  name: "cuda13-ace-step-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-ace-step"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-13-ace-step
+- !!merge <<: *ace-step
+  name: "rocm-ace-step"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-rocm-hipblas-ace-step"
+  mirrors:
+    - localai/localai-backends:latest-gpu-rocm-hipblas-ace-step
+- !!merge <<: *ace-step
+  name: "rocm-ace-step-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-rocm-hipblas-ace-step"
+  mirrors:
+    - localai/localai-backends:master-gpu-rocm-hipblas-ace-step
+- !!merge <<: *ace-step
+  name: "intel-ace-step"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-ace-step"
+  mirrors:
+    - localai/localai-backends:latest-gpu-intel-ace-step
+- !!merge <<: *ace-step
+  name: "intel-ace-step-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-ace-step"
+  mirrors:
+    - localai/localai-backends:master-gpu-intel-ace-step
+- !!merge <<: *ace-step
+  name: "metal-ace-step"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-metal-darwin-arm64-ace-step"
+  mirrors:
+    - localai/localai-backends:latest-metal-darwin-arm64-ace-step
+- !!merge <<: *ace-step
+  name: "metal-ace-step-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-ace-step"
+  mirrors:
+    - localai/localai-backends:master-metal-darwin-arm64-ace-step
 ## kokoro
 - !!merge <<: *kokoro
   name: "kokoro-development"

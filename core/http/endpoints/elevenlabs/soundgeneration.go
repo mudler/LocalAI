@@ -32,8 +32,22 @@ func SoundGenerationEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader
 
 		xlog.Debug("Sound Generation Request about to be sent to backend", "modelFile", "modelFile", "backend", cfg.Backend)
 
-		// TODO: Support uploading files?
-		filePath, _, err := backend.SoundGeneration(input.Text, input.Duration, input.Temperature, input.DoSample, nil, nil, ml, appConfig, *cfg)
+		language := input.Language
+		if language == "" {
+			language = input.VocalLanguage
+		}
+		var bpm *int32
+		if input.BPM != nil {
+			b := int32(*input.BPM)
+			bpm = &b
+		}
+		filePath, _, err := backend.SoundGeneration(
+			input.Text, input.Duration, input.Temperature, input.DoSample,
+			nil, nil,
+			input.Think, input.Caption, input.Lyrics, bpm, input.Keyscale,
+			language, input.Timesignature,
+			input.Instrumental,
+			ml, appConfig, *cfg)
 		if err != nil {
 			return err
 		}
