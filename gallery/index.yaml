@@ -1,4 +1,29 @@
 ---
+- name: "olmo-v2-stage3-lexifreak-heretic-v2-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/olmo-v2-stage3-lexifreak-heretic-v2-i1-GGUF
+  description: |
+    This is a quantized version of the **BirdToast/olmo-v2-stage3-lexifreak-heretic-v2** model, optimized for efficiency with GGUF format. It is designed for tasks like text generation and reasoning, leveraging advanced language understanding. The quantized version (e.g., i1-Q2_K) offers trade-offs between accuracy and efficiency, with the highest quality (IQ3_XXS) available. For full details, refer to the [model page](https://hf.tst.eu/model#olmo-v2-stage3-lexifreak-heretic-v2-i1-GGUF).
+  overrides:
+    parameters:
+      model: llama-cpp/models/olmo-v2-stage3-lexifreak-heretic-v2.i1-Q4_K_M.gguf
+    name: olmo-v2-stage3-lexifreak-heretic-v2-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/olmo-v2-stage3-lexifreak-heretic-v2-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/olmo-v2-stage3-lexifreak-heretic-v2.i1-Q4_K_M.gguf
+      sha256: 08b245e4ff4830f2e310d3bd0079d1443504f560545680331fd59052fa18f0f6
+      uri: https://huggingface.co/mradermacher/olmo-v2-stage3-lexifreak-heretic-v2-i1-GGUF/resolve/main/olmo-v2-stage3-lexifreak-heretic-v2.i1-Q4_K_M.gguf
 - name: "qwen3-coder-next-mxfp4_moe"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
