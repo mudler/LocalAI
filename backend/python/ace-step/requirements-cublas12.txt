@@ -1,4 +1,4 @@
---extra-index-url https://download.pytorch.org/whl/cu121
+--extra-index-url https://download.pytorch.org/whl/cu128
 torch
 torchaudio
 torchvision
@@ -17,14 +17,6 @@ fastapi>=0.110.0
 uvicorn[standard]>=0.27.0
 numba>=0.63.1
 vector-quantize-pytorch>=1.27.15
-torchcodec>=0.9.1; sys_platform != 'darwin' or platform_machine == 'arm64'
+torchcodec>=0.9.1
 torchao
 modelscope
-
-# LoRA Training dependencies (optional)
-peft>=0.7.0
-lightning>=2.0.0
-
-triton>=3.0.0
-flash-attn
-xxhash

@@ -52,19 +52,6 @@ jobs:
             dockerfile: "./backend/Dockerfile.python"
             context: "./"
             ubuntu-version: '2204'
-          - build-type: 'l4t'
-            cuda-major-version: "12"
-            cuda-minor-version: "0"
-            platforms: 'linux/arm64'
-            tag-latest: 'auto'
-            tag-suffix: '-nvidia-l4t-ace-step'
-            runs-on: 'ubuntu-24.04-arm'
-            base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
-            skip-drivers: 'true'
-            backend: "ace-step"
-            dockerfile: "./backend/Dockerfile.python"
-            context: "./"
-            ubuntu-version: '2204'
           - build-type: ''
             cuda-major-version: ""
             cuda-minor-version: ""
