@@ -318,6 +318,49 @@ func RegisterUIRoutes(app *echo.Echo,
 		return c.Render(200, "views/tts", summary)
 	})
 
+	app.GET("/sound/:model", func(c echo.Context) error {
+		modelConfigs := cl.GetAllModelsConfigs()
+		modelsWithoutConfig, _ := services.ListModels(cl, ml, config.NoFilterFn, services.LOOSE_ONLY)
+
+		summary := map[string]interface{}{
+			"Title":               "LocalAI - Generate sound with " + c.Param("model"),
+			"BaseURL":             middleware.BaseURL(c),
+			"ModelsConfig":        modelConfigs,
+			"ModelsWithoutConfig": modelsWithoutConfig,
+			"Model":               c.Param("model"),
+			"Version":             internal.PrintableVersion(),
+		}
+		return c.Render(200, "views/sound", summary)
+	})
+
+	app.GET("/sound", func(c echo.Context) error {
+		modelConfigs := cl.GetAllModelsConfigs()
+		modelsWithoutConfig, _ := services.ListModels(cl, ml, config.NoFilterFn, services.LOOSE_ONLY)
+
+		if len(modelConfigs)+len(modelsWithoutConfig) == 0 {
+			return c.Redirect(302, middleware.BaseURL(c))
+		}
+
+		modelThatCanBeUsed := ""
+		title := "LocalAI - Generate sound"
+		for _, b := range modelConfigs {
+			if b.HasUsecases(config.FLAG_SOUND_GENERATION) {
+				modelThatCanBeUsed = b.Name
+				title = "LocalAI - Generate sound with " + modelThatCanBeUsed
+				break
+			}
+		}
+		summary := map[string]interface{}{
+			"Title":               title,
+			"BaseURL":             middleware.BaseURL(c),
+			"ModelsConfig":        modelConfigs,
+			"ModelsWithoutConfig": modelsWithoutConfig,
+			"Model":               modelThatCanBeUsed,
+			"Version":             internal.PrintableVersion(),
+		}
+		return c.Render(200, "views/sound", summary)
+	})
+
 	app.GET("/video/:model", func(c echo.Context) error {
 		modelConfigs := cl.GetAllModelsConfigs()
 		modelsWithoutConfig, _ := services.ListModels(cl, ml, config.NoFilterFn, services.LOOSE_ONLY)

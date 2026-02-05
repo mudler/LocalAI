@@ -1,4 +1,69 @@
 ---
+- name: "ace-step-turbo"
+  license: mit
+  tags:
+    - music
+    - audio
+    - music-generation
+    - tts
+    - sound-generation
+    - ace-step
+    - ace-step-1.5
+    - ace-step-1.5-turbo
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/ACE-Step/Ace-Step1.5
+  description: |
+    ACE-Step 1.5 Turbo is a music generation model that can create music from text descriptions,
+    lyrics, or audio samples. Supports both simple text-to-music and advanced music generation
+    with metadata like BPM, key scale, and time signature.
+  overrides:
+    name: ace-step-turbo
+    backend: ace-step
+    parameters:
+      model: acestep-v15-turbo
+    known_usecases:
+      - sound_generation
+      - tts
+    options:
+      - "device:auto"
+      - "use_flash_attention:true"
+      - "offload_to_cpu:false"
+      - "offload_dit_to_cpu:false"
+      - "init_lm:true"
+      - "lm_model_path:acestep-5Hz-lm-0.6B" # or acestep-5Hz-lm-4B
+      - "lm_backend:pt"
+      - "temperature:0.85"
+      - "top_p:0.9"
+      - "lm_cfg_scale:2.0"
+      - "inference_steps:8"
+      - "guidance_scale:7.0"
+      - "batch_size:1"
+- name: "qwen3-coder-next-mxfp4_moe"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/noctrex/Qwen3-Coder-Next-MXFP4_MOE-GGUF
+  description: |
+    The model is a quantized version of **Qwen/Qwen3-Coder-Next** (base model) using the **MXFP4** quantization scheme. It is optimized for efficiency while retaining performance, suitable for deployment in applications requiring lightweight inference. The quantized version is tailored for specific tasks, with parameters like temperature=1.0 and top_p=0.95 recommended for generation.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Qwen3-Coder-Next-MXFP4_MOE.gguf
+    name: Qwen3-Coder-Next-MXFP4_MOE-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/noctrex/Qwen3-Coder-Next-MXFP4_MOE-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Qwen3-Coder-Next-MXFP4_MOE.gguf
+      sha256: fa356439e87010163778b7eab5f2b07e0e5b7f2cd9aac78b069139f5ae069414
+      uri: https://huggingface.co/noctrex/Qwen3-Coder-Next-MXFP4_MOE-GGUF/resolve/main/Qwen3-Coder-Next-MXFP4_MOE.gguf
 - name: "deepseek-ai.deepseek-v3.2"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
@@ -1842,7 +1907,7 @@
     - gpu
     - text-to-speech
   overrides:
-    backend: "transformers"
+    backend: "outetts"
     name: "outetts"
     description: "OuteTTS is a 1.6B parameter text to speech model created by OuteAI."
     parameters:

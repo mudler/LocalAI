@@ -75,24 +75,57 @@ var _ = Describe("Mock Backend E2E Tests", Label("MockBackend"), func() {
 	Describe("TTS APIs", func() {
 		Context("TTS", func() {
 			It("should generate mocked audio", func() {
-				req, err := http.NewRequest("POST", apiURL+"/audio/speech", nil)
+				body := `{"model":"mock-model","input":"Hello world","voice":"default"}`
+				req, err := http.NewRequest("POST", apiURL+"/audio/speech", io.NopCloser(strings.NewReader(body)))
 				Expect(err).ToNot(HaveOccurred())
 				req.Header.Set("Content-Type", "application/json")
 
-				body := `{"model":"mock-model","input":"Hello world","voice":"default"}`
-				req.Body = http.NoBody
-				req.GetBody = func() (io.ReadCloser, error) {
-					return io.NopCloser(strings.NewReader(body)), nil
-				}
-
-				// Use direct HTTP client for TTS endpoint
 				httpClient := &http.Client{Timeout: 30 * time.Second}
 				resp, err := httpClient.Do(req)
-				if err == nil {
-					defer resp.Body.Close()
-					Expect(resp.StatusCode).To(BeNumerically("<", 500))
-				}
+				Expect(err).ToNot(HaveOccurred())
+				defer resp.Body.Close()
+				Expect(resp.StatusCode).To(Equal(200))
+				Expect(resp.Header.Get("Content-Type")).To(HavePrefix("audio/"), "TTS response should set an audio Content-Type")
+				data, err := io.ReadAll(resp.Body)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(len(data)).To(BeNumerically(">", 0), "TTS response body should be non-empty")
 			})
+		})
+	})
+
+	Describe("Sound Generation API", func() {
+		It("should generate mocked sound (simple mode)", func() {
+			body := `{"model_id":"mock-model","text":"a soft Bengali love song for a quiet evening","instrumental":false,"vocal_language":"bn"}`
+			req, err := http.NewRequest("POST", apiURL+"/sound-generation", io.NopCloser(strings.NewReader(body)))
+			Expect(err).ToNot(HaveOccurred())
+			req.Header.Set("Content-Type", "application/json")
+
+			httpClient := &http.Client{Timeout: 30 * time.Second}
+			resp, err := httpClient.Do(req)
+			Expect(err).ToNot(HaveOccurred())
+			defer resp.Body.Close()
+			Expect(resp.StatusCode).To(Equal(200))
+			Expect(resp.Header.Get("Content-Type")).To(HavePrefix("audio/"), "sound-generation response should set an audio Content-Type (pkg/audio normalization)")
+			data, err := io.ReadAll(resp.Body)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(len(data)).To(BeNumerically(">", 0), "sound-generation response body should be non-empty")
+		})
+
+		It("should generate mocked sound (advanced mode)", func() {
+			body := `{"model_id":"mock-model","text":"upbeat pop","caption":"A funky Japanese disco track","lyrics":"[Verse 1]\nTest lyrics","think":true,"bpm":120,"duration_seconds":225,"keyscale":"Ab major","language":"ja","timesignature":"4"}`
+			req, err := http.NewRequest("POST", apiURL+"/sound-generation", io.NopCloser(strings.NewReader(body)))
+			Expect(err).ToNot(HaveOccurred())
+			req.Header.Set("Content-Type", "application/json")
+
+			httpClient := &http.Client{Timeout: 30 * time.Second}
+			resp, err := httpClient.Do(req)
+			Expect(err).ToNot(HaveOccurred())
+			defer resp.Body.Close()
+			Expect(resp.StatusCode).To(Equal(200))
+			Expect(resp.Header.Get("Content-Type")).To(HavePrefix("audio/"), "sound-generation response should set an audio Content-Type (pkg/audio normalization)")
+			data, err := io.ReadAll(resp.Body)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(len(data)).To(BeNumerically(">", 0), "sound-generation response body should be non-empty")
 		})
 	})
 

@@ -7,9 +7,12 @@ url = "/features/audio-to-text/"
 
 Audio to text models are models that can generate text from an audio file.
 
-The transcription endpoint allows to convert audio files to text. The endpoint is based
-on [whisper.cpp](https://github.com/ggerganov/whisper.cpp), a C++ library for audio transcription. The endpoint input
-supports all the audio formats supported by `ffmpeg`.
+The transcription endpoint allows to convert audio files to text. The endpoint supports multiple backends:
+- **[whisper.cpp](https://github.com/ggerganov/whisper.cpp)**: A C++ library for audio transcription (default)
+- **moonshine**: Ultra-fast transcription engine optimized for low-end devices
+- **faster-whisper**: Fast Whisper implementation with CTranslate2
+
+The endpoint input supports all the audio formats supported by `ffmpeg`.
 
 ## Usage
 

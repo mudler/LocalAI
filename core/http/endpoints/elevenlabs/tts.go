@@ -8,6 +8,7 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/pkg/audio"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/xlog"
 )
@@ -38,6 +39,10 @@ func TTSEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig 
 		filePath, _, err := backend.ModelTTS(input.Text, voiceID, input.LanguageCode, ml, appConfig, *cfg)
 		if err != nil {
 			return err
+		}
+		filePath, contentType := audio.NormalizeAudioFile(filePath)
+		if contentType != "" {
+			c.Response().Header().Set("Content-Type", contentType)
 		}
 		return c.Attachment(filePath, filepath.Base(filePath))
 	}
