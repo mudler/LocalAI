@@ -21,9 +21,9 @@ if [ -n "$VOXCPM_PATH" ] && [ -f "$VOXCPM_PATH/modules/minicpm4/model.py" ]; the
     echo "Applying patch to voxcpm at $VOXCPM_PATH/modules/minicpm4/model.py"
     # Replace .contiguous() with .unsqueeze(0) for the three lines in the attention forward_step method
     # This fixes the dimension error in scaled_dot_product_attention
-    sed -i 's/query_states = query_states\.contiguous()/query_states = query_states.unsqueeze(0)/g' "$VOXCPM_PATH/modules/minicpm4/model.py"
-    sed -i 's/key_cache = key_cache\.contiguous()/key_cache = key_cache.unsqueeze(0)/g' "$VOXCPM_PATH/modules/minicpm4/model.py"
-    sed -i 's/value_cache = value_cache\.contiguous()/value_cache = value_cache.unsqueeze(0)/g' "$VOXCPM_PATH/modules/minicpm4/model.py"
+    # Use temp file for in-place edit so it works on both BSD sed (macOS) and GNU sed (Linux)
+    PATCH_FILE="$VOXCPM_PATH/modules/minicpm4/model.py"
+    sed 's/query_states = query_states\.contiguous()/query_states = query_states.unsqueeze(0)/g; s/key_cache = key_cache\.contiguous()/key_cache = key_cache.unsqueeze(0)/g; s/value_cache = value_cache\.contiguous()/value_cache = value_cache.unsqueeze(0)/g' "$PATCH_FILE" > "${PATCH_FILE}.tmp" && mv "${PATCH_FILE}.tmp" "$PATCH_FILE"
     echo "Patch applied successfully"
 else
     echo "Warning: Could not find voxcpm installation to apply patch (path: ${VOXCPM_PATH:-not found})"
