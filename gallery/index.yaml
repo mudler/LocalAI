@@ -1,4 +1,37 @@
 ---
+- name: "magic-llama3.1-8b-instruct-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/MAGIC-Llama3.1-8B-Instruct-i1-GGUF
+  description: |
+    The **MAGIC-Llama3.1-8B-Instruct-i1-GGUF** is a large language model (8B parameters) designed for instruction-following tasks. It is a quantized version of the base model **XiaoyuWen/MAGIC-Llama3.1-8B-Instruct**, optimized for efficiency through techniques like IQ3_XXS and i1-Q2_K. Key features include:
+
+      - **Size**: 8B parameters
+      - **Purpose**: Instruction-following and multi-turn dialogue
+      - **Quantization**: Optimized for deployment with formats like i1-Q2_K (3.3GB) and i1-IQ3_M (3.9GB)
+      - **Tags**: Safety, alignment, adversarial training, defense, and large language model
+      - **Usage**: Requires reference to TheBloke's README for detailed deployment guidance
+
+    The model is available in multiple quantized versions for flexibility, with static quants hosted at [huggingface.co](https://huggingface.co/mradermacher). For full details, see the [model page](https://hf.tst.eu/model#MAGIC-Llama3.1-8B-Instruct-i1-GGUF).
+  overrides:
+    parameters:
+      model: llama-cpp/models/MAGIC-Llama3.1-8B-Instruct.i1-Q4_K_M.gguf
+    name: MAGIC-Llama3.1-8B-Instruct-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/MAGIC-Llama3.1-8B-Instruct-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/MAGIC-Llama3.1-8B-Instruct.i1-Q4_K_M.gguf
+      sha256: a180ac166c5abec6ae353c2392cea042fc7c76b8d5636fccd386d2de5aa70498
+      uri: https://huggingface.co/mradermacher/MAGIC-Llama3.1-8B-Instruct-i1-GGUF/resolve/main/MAGIC-Llama3.1-8B-Instruct.i1-Q4_K_M.gguf
 - name: "qwen3-coder-next-mxfp4_moe"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
