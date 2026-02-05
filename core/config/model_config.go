@@ -481,6 +481,19 @@ func (cfg *ModelConfig) SetDefaults(opts ...ConfigLoaderOption) {
 }
 
 func (c *ModelConfig) Validate() (bool, error) {
+	// Check if this is a pipeline model
+	isPipeline := c.IsPipeline()
+
+	// Pipeline models don't require a backend
+	if !isPipeline && c.Backend == "" {
+		return false, fmt.Errorf("backend is required for non-pipeline models")
+	}
+
+	// Pipeline models must have at least one pipeline component
+	if isPipeline && c.Pipeline.VAD == "" && c.Pipeline.Transcription == "" && c.Pipeline.TTS == "" && c.Pipeline.LLM == "" {
+		return false, fmt.Errorf("pipeline models must have at least one component (vad, transcription, tts, or llm)")
+	}
+
 	downloadedFileNames := []string{}
 	for _, f := range c.DownloadFiles {
 		downloadedFileNames = append(downloadedFileNames, f.Filename)
@@ -514,6 +527,10 @@ func (c *ModelConfig) Validate() (bool, error) {
 	}
 
 	return true, nil
+}
+
+func (c *ModelConfig) IsPipeline() bool {
+	return c.Pipeline.VAD != "" || c.Pipeline.Transcription != "" || c.Pipeline.TTS != "" || c.Pipeline.LLM != ""
 }
 
 func (c *ModelConfig) HasTemplate() bool {

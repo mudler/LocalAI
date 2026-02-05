@@ -67,6 +67,9 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 		// Custom model edit endpoint
 		router.POST("/models/edit/:name", localai.EditModelEndpoint(cl, appConfig))
 
+		// Custom model validate endpoint
+		router.POST("/models/validate", localai.ValidateModelEndpoint(cl, appConfig))
+
 		// Reload models endpoint
 		router.POST("/models/reload", localai.ReloadModelsEndpoint(cl, appConfig))
 	}
