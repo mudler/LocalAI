@@ -7,3 +7,6 @@ package:
 	bash package.sh
 
 build: huggingface package
+
+clean:
+	rm -f huggingface
