@@ -1,4 +1,29 @@
 ---
+- name: "rekabet_modeli_gguf"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/Operasyon/Rekabet_Modeli_GGUF
+  description: |
+    This model is a finetuned GGUF version of the Meta-Llama 3.1-8B, optimized with Unsloth for faster training. It supports both text-only and multimodal tasks, and is designed for efficient deployment using LLaMA.cpp. The model is 8B parameters and achieves 2x faster training speed through Unsloth. Ideal for applications requiring lightweight, high-performance LLMs.
+  overrides:
+    parameters:
+      model: llama-cpp/models/meta-llama-3.1-8b.Q4_K_M.gguf
+    name: Rekabet_Modeli_GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/Operasyon/Rekabet_Modeli_GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/meta-llama-3.1-8b.Q4_K_M.gguf
+      sha256: c11a25c68f906c84a7d0ac728e5c471470e191de653992697deb7cdff7aacf10
+      uri: https://huggingface.co/Operasyon/Rekabet_Modeli_GGUF/resolve/main/meta-llama-3.1-8b.Q4_K_M.gguf
 - name: "ace-step-turbo"
   license: mit
   tags:
