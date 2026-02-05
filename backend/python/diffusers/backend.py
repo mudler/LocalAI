@@ -443,6 +443,47 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
     def Health(self, request, context):
         return backend_pb2.Reply(message=bytes("OK", 'utf-8'))
 
+    def Shutdown(self, request, context):
+        """
+        Shutdown and release GPU memory for the loaded model.
+        This allows dynamic model reloading with different configurations (e.g., different LoRA adapters).
+        """
+        try:
+            print("Shutting down diffusers backend...", file=sys.stderr)
+
+            # Release pipeline
+            if hasattr(self, 'pipe') and self.pipe is not None:
+                del self.pipe
+                self.pipe = None
+
+            # Release controlnet
+            if hasattr(self, 'controlnet') and self.controlnet is not None:
+                del self.controlnet
+                self.controlnet = None
+
+            # Release compel
+            if hasattr(self, 'compel') and self.compel is not None:
+                del self.compel
+                self.compel = None
+
+            # Clear CUDA cache to release GPU memory
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+                torch.cuda.synchronize()
+                print("CUDA cache cleared", file=sys.stderr)
+
+            # Reset state flags
+            self.img2vid = False
+            self.txt2vid = False
+            self.ltx2_pipeline = False
+            self.options = {}
+
+            print("Diffusers backend shutdown complete", file=sys.stderr)
+            return backend_pb2.Result(message="Model unloaded successfully", success=True)
+        except Exception as err:
+            print(f"Error during shutdown: {err}", file=sys.stderr)
+            return backend_pb2.Result(success=False, message=f"Shutdown error: {err}")
+
     def LoadModel(self, request, context):
         try:
             print(f"Loading model {request.Model}...", file=sys.stderr)
