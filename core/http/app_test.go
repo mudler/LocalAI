@@ -843,7 +843,7 @@ parameters:
 			Expect(err).ToNot(HaveOccurred(), fmt.Sprint(resp))
 
 			Expect(resp.StatusCode).To(Equal(200), fmt.Sprint(string(dat)))
-			Expect(resp.Header.Get("Content-Type")).To(Or(Equal("audio/x-wav"), Equal("audio/vnd.wave")))
+			Expect(resp.Header.Get("Content-Type")).To(Or(Equal("audio/x-wav"), Equal("audio/wav"), Equal("audio/vnd.wave")))
 		})
 		It("installs and is capable to generate images", Label("stablediffusion"), func() {
 			if runtime.GOOS != "linux" {
