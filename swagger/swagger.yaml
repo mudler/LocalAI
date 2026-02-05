@@ -412,6 +412,8 @@ definitions:
       duration_seconds:
         type: number
       instrumental:
+        description: 'Simple mode: use text as description; optional instrumental
+          / vocal_language'
         type: boolean
       keyscale:
         type: string
@@ -426,6 +428,7 @@ definitions:
       text:
         type: string
       think:
+        description: Advanced mode
         type: boolean
       timesignature:
         type: string
