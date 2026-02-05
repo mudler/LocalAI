@@ -62,8 +62,8 @@
       - use_jinja:true
   files:
     - filename: llama-cpp/models/Qwen3-Coder-Next-MXFP4_MOE.gguf
-      sha256: fa356439e87010163778b7eab5f2b07e0e5b7f2cd9aac78b069139f5ae069414
       uri: https://huggingface.co/noctrex/Qwen3-Coder-Next-MXFP4_MOE-GGUF/resolve/main/Qwen3-Coder-Next-MXFP4_MOE.gguf
+      sha256: 7c3c1622bb2954cf304dc917a382ee7437f433f703fc28330e632c34ab4bbfdf
 - name: "deepseek-ai.deepseek-v3.2"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
