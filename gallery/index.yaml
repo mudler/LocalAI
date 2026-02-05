@@ -1,4 +1,33 @@
 ---
+- name: "gemma3_12b_mulitmodal_sft_02-01-2026"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/gemma3_12b_mulitmodal_sft_02-01-2026-GGUF
+  description: |
+    This is a quantized version of the **SF-Foundation/Gemma3-12B** multi-modal language model, optimized for efficient inference. It supports tasks like text generation, image understanding, and multimodal reasoning. The model offers multiple quantization options (e.g., Q4_K_S, Q8_0, Q6_K) with varying trade-offs between accuracy and speed. Available as GGUF files for fast deployment, it is designed for use cases requiring efficient large-language model inference. The quantization was done by the model's author.
+  overrides:
+    parameters:
+      model: llama-cpp/models/gemma3_12b_mulitmodal_sft_02-01-2026.Q4_K_M.gguf
+    name: gemma3_12b_mulitmodal_sft_02-01-2026-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    mmproj: llama-cpp/mmproj/gemma3_12b_mulitmodal_sft_02-01-2026.mmproj-f16.gguf
+    description: Imported from https://huggingface.co/mradermacher/gemma3_12b_mulitmodal_sft_02-01-2026-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/gemma3_12b_mulitmodal_sft_02-01-2026.Q4_K_M.gguf
+      sha256: 3dc7d6faf9938b28729012e0bb2f23d3a82578ec026e429ef4520c2bef1cd9c2
+      uri: https://huggingface.co/mradermacher/gemma3_12b_mulitmodal_sft_02-01-2026-GGUF/resolve/main/gemma3_12b_mulitmodal_sft_02-01-2026.Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/gemma3_12b_mulitmodal_sft_02-01-2026.mmproj-f16.gguf
+      sha256: 29b85f9ea8f21e295a5fe5c72ef5958ea4d76d797f683156f9bf8bd5c5192134
+      uri: https://huggingface.co/mradermacher/gemma3_12b_mulitmodal_sft_02-01-2026-GGUF/resolve/main/gemma3_12b_mulitmodal_sft_02-01-2026.mmproj-f16.gguf
 - name: "ace-step-turbo"
   license: mit
   tags:
