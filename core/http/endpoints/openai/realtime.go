@@ -183,14 +183,13 @@ func registerRealtime(application *application.Application, model string) func(c
 		}
 
 		sttModel := cfg.Pipeline.Transcription
-		ttsModel := cfg.Pipeline.TTS
 
 		sessionID := generateSessionID()
 		session := &Session{
 			ID:                sessionID,
 			TranscriptionOnly: false,
 			Model:             model,
-			Voice:             ttsModel,
+			Voice:             cfg.TTSConfig.Voice,
 			ModelConfig:       cfg,
 			TurnDetection: &types.TurnDetectionUnion{
 				ServerVad: &types.ServerVad{
@@ -557,13 +556,13 @@ func updateSession(session *Session, update *types.SessionUnion, cl *config.Mode
 			session.InputAudioTranscription = &types.AudioTranscription{}
 		}
 		session.InputAudioTranscription.Model = cfg.Pipeline.Transcription
-		session.Voice = cfg.Pipeline.TTS
+		session.Voice = cfg.TTSConfig.Voice
 		session.Model = rt.Model
 		session.ModelConfig = cfg
 	}
 
 	if rt.Audio != nil && rt.Audio.Output != nil && rt.Audio.Output.Voice != "" {
-		xlog.Warn("Ignoring voice setting; not implemented", "voice", rt.Audio.Output.Voice)
+		session.Voice = string(rt.Audio.Output.Voice)
 	}
 
 	if rt.Audio != nil && rt.Audio.Input != nil && rt.Audio.Input.Transcription != nil {
