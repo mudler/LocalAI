@@ -1,4 +1,29 @@
 ---
+- name: "devstral-small-2505-deepseek-v3.2-speciale-distill"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Devstral-Small-2505-Deepseek-V3.2-Speciale-Distill-GGUF
+  description: |
+    The model `Devstral-Small-2505-Deepseek-V3.2-Speciale-Distill-GGUF` is a small-scale variant of the Deepseek language model, trained through distillation. It is optimized for efficiency and performance, leveraging quantization techniques (e.g., Q4_K_S, Q2_K) to reduce computational demands while maintaining accuracy. The model is designed for tasks like text generation, reasoning, and multi-modal processing, with a focus on scalability and lightweight deployment. It is not the original model but a quantized version of a larger base model, as indicated by the distillation process.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Devstral-Small-2505-Deepseek-V3.2-Speciale-Distill.Q4_K_M.gguf
+    name: Devstral-Small-2505-Deepseek-V3.2-Speciale-Distill-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Devstral-Small-2505-Deepseek-V3.2-Speciale-Distill-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Devstral-Small-2505-Deepseek-V3.2-Speciale-Distill.Q4_K_M.gguf
+      sha256: 514eba74417c43dd581feac771374dec171a4636b0d325cd5fa9b151c1d5d995
+      uri: https://huggingface.co/mradermacher/Devstral-Small-2505-Deepseek-V3.2-Speciale-Distill-GGUF/resolve/main/Devstral-Small-2505-Deepseek-V3.2-Speciale-Distill.Q4_K_M.gguf
 - name: "ace-step-turbo"
   license: mit
   tags:
