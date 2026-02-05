@@ -120,6 +120,8 @@ var knownModelsNameSuffixToSkip []string = []string{
 	".",
 	".safetensors",
 	".bin",
+	".gguf",
+	".ggml",
 	".partial",
 	".tar.gz",
 }
