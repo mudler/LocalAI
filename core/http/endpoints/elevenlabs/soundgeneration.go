@@ -8,6 +8,7 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/pkg/audio"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/xlog"
 )
@@ -51,7 +52,11 @@ func SoundGenerationEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader
 		if err != nil {
 			return err
 		}
-		return c.Attachment(filePath, filepath.Base(filePath))
 
+		filePath, contentType := audio.NormalizeAudioFile(filePath)
+		if contentType != "" {
+			c.Response().Header().Set("Content-Type", contentType)
+		}
+		return c.Attachment(filePath, filepath.Base(filePath))
 	}
 }

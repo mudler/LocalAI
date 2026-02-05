@@ -7,12 +7,11 @@ import (
 	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/middleware"
-	"github.com/mudler/LocalAI/pkg/model"
-
 	"github.com/mudler/LocalAI/core/schema"
-	"github.com/mudler/xlog"
-
+	"github.com/mudler/LocalAI/pkg/audio"
+	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/utils"
+	"github.com/mudler/xlog"
 )
 
 // TTSEndpoint is the OpenAI Speech API endpoint https://platform.openai.com/docs/api-reference/audio/createSpeech
@@ -86,6 +85,10 @@ func TTSEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig 
 			return err
 		}
 
+		filePath, contentType := audio.NormalizeAudioFile(filePath)
+		if contentType != "" {
+			c.Response().Header().Set("Content-Type", contentType)
+		}
 		return c.Attachment(filePath, filepath.Base(filePath))
 	}
 }

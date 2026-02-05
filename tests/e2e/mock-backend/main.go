@@ -120,7 +120,15 @@ func (m *MockBackend) GenerateVideo(ctx context.Context, in *pb.GenerateVideoReq
 
 func (m *MockBackend) TTS(ctx context.Context, in *pb.TTSRequest) (*pb.Result, error) {
 	xlog.Debug("TTS called", "text", in.Text)
-	// Return success - actual audio would be in the Result message for real backends
+	dst := in.GetDst()
+	if dst != "" {
+		if err := os.MkdirAll(filepath.Dir(dst), 0750); err != nil {
+			return &pb.Result{Message: err.Error(), Success: false}, nil
+		}
+		if err := writeMinimalWAV(dst); err != nil {
+			return &pb.Result{Message: err.Error(), Success: false}, nil
+		}
+	}
 	return &pb.Result{
 		Message: "TTS audio generated successfully (mocked)",
 		Success: true,
