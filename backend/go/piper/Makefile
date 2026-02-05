@@ -35,3 +35,6 @@ package:
 	bash package.sh
 
 build: piper package
+
+clean:
+	rm -f piper

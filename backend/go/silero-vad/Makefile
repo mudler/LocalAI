@@ -45,3 +45,6 @@ package:
 	bash package.sh
 
 build: silero-vad package
+
+clean:
+	rm -f silero-vad
