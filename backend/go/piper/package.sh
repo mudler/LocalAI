@@ -10,8 +10,8 @@ CURDIR=$(dirname "$(realpath $0)")
 # Create lib directory
 mkdir -p $CURDIR/package/lib
 
-cp -avrf $CURDIR/piper $CURDIR/package/
-cp -avrf $CURDIR/espeak-ng-data $CURDIR/package/
+cp -avf $CURDIR/piper $CURDIR/package/
+cp -avf $CURDIR/espeak-ng-data $CURDIR/package/
 cp -rfv $CURDIR/run.sh $CURDIR/package/
 cp -rfLv $CURDIR/sources/go-piper/piper-phonemize/pi/lib/* $CURDIR/package/lib/
 

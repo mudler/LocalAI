@@ -10,8 +10,8 @@ CURDIR=$(dirname "$(realpath $0)")
 # Create lib directory
 mkdir -p $CURDIR/package/lib
 
-cp -avrf $CURDIR/silero-vad $CURDIR/package/
-cp -avrf $CURDIR/run.sh $CURDIR/package/
+cp -avf $CURDIR/silero-vad $CURDIR/package/
+cp -avf $CURDIR/run.sh $CURDIR/package/
 cp -rfLv $CURDIR/backend-assets/lib/* $CURDIR/package/lib/
 
 # Detect architecture and copy appropriate libraries
