@@ -7,3 +7,6 @@ package:
 	bash package.sh
 
 build: local-store package
+
+clean:
+	rm -f local-store
