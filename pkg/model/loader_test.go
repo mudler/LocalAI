@@ -61,11 +61,13 @@ var _ = Describe("ModelLoader", func() {
 	Context("ListFilesInModelPath", func() {
 		It("should list all valid model files in the model path", func() {
 			os.Create(filepath.Join(modelPath, "test.model"))
+			os.Create(filepath.Join(modelPath, "model.gguf"))
 			os.Create(filepath.Join(modelPath, "README.md"))
 
 			files, err := modelLoader.ListFilesInModelPath()
 			Expect(err).To(BeNil())
 			Expect(files).To(ContainElement("test.model"))
+			Expect(files).ToNot(ContainElement("model.gguf"))
 			Expect(files).ToNot(ContainElement("README.md"))
 		})
 	})
