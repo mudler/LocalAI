@@ -8,6 +8,7 @@ on:
 
 jobs:
   stale:
+    if: github.repository == 'mudler/LocalAI'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/stale@997185467fa4f803885201cee163a9f38240193d # v9

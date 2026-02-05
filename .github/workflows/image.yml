@@ -14,6 +14,7 @@
   
   jobs:
     hipblas-jobs:
+      if: github.repository == 'mudler/LocalAI'
       uses: ./.github/workflows/image_build.yml
       with:
         tag-latest: ${{ matrix.tag-latest }}
@@ -50,6 +51,7 @@
               ubuntu-codename: 'noble'
   
     core-image-build:
+      if: github.repository == 'mudler/LocalAI'
       uses: ./.github/workflows/image_build.yml
       with:
         tag-latest: ${{ matrix.tag-latest }}
@@ -136,6 +138,7 @@
               ubuntu-codename: 'noble'
   
     gh-runner:
+      if: github.repository == 'mudler/LocalAI'
       uses: ./.github/workflows/image_build.yml
       with:
         tag-latest: ${{ matrix.tag-latest }}
