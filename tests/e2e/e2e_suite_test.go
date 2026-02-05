@@ -109,11 +109,14 @@ var _ = BeforeSuite(func() {
 	// Create application
 	appCtx, appCancel = context.WithCancel(context.Background())
 
-	// Create application instance
+	// Create application instance (GeneratedContentDir so sound-generation/TTS can write files the handler sends)
+	generatedDir := filepath.Join(tmpDir, "generated")
+	Expect(os.MkdirAll(generatedDir, 0750)).To(Succeed())
 	application, err := application.New(
 		config.WithContext(appCtx),
 		config.WithSystemState(systemState),
 		config.WithDebug(true),
+		config.WithGeneratedContentDir(generatedDir),
 	)
 	Expect(err).ToNot(HaveOccurred())
 

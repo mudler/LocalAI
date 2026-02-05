@@ -109,6 +109,19 @@ jobs:
             cuda-minor-version: ""
             platforms: 'linux/amd64'
             tag-latest: 'auto'
+            tag-suffix: '-cpu-ace-step'
+            runs-on: 'ubuntu-latest'
+            base-image: "ubuntu:24.04"
+            skip-drivers: 'true'
+            backend: "ace-step"
+            dockerfile: "./backend/Dockerfile.python"
+            context: "./"
+            ubuntu-version: '2404'
+          - build-type: ''
+            cuda-major-version: ""
+            cuda-minor-version: ""
+            platforms: 'linux/amd64'
+            tag-latest: 'auto'
             tag-suffix: '-cpu-mlx'
             runs-on: 'ubuntu-latest'
             base-image: "ubuntu:24.04"
@@ -284,6 +297,19 @@ jobs:
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "diffusers"
+            dockerfile: "./backend/Dockerfile.python"
+            context: "./"
+            ubuntu-version: '2404'
+          - build-type: 'cublas'
+            cuda-major-version: "12"
+            cuda-minor-version: "8"
+            platforms: 'linux/amd64'
+            tag-latest: 'auto'
+            tag-suffix: '-gpu-nvidia-cuda-12-ace-step'
+            runs-on: 'ubuntu-latest'
+            base-image: "ubuntu:24.04"
+            skip-drivers: 'false'
+            backend: "ace-step"
             dockerfile: "./backend/Dockerfile.python"
             context: "./"
             ubuntu-version: '2404'
@@ -597,6 +623,19 @@ jobs:
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "diffusers"
+            dockerfile: "./backend/Dockerfile.python"
+            context: "./"
+            ubuntu-version: '2404'
+          - build-type: 'cublas'
+            cuda-major-version: "13"
+            cuda-minor-version: "0"
+            platforms: 'linux/amd64'
+            tag-latest: 'auto'
+            tag-suffix: '-gpu-nvidia-cuda-13-ace-step'
+            runs-on: 'ubuntu-latest'
+            base-image: "ubuntu:24.04"
+            skip-drivers: 'false'
+            backend: "ace-step"
             dockerfile: "./backend/Dockerfile.python"
             context: "./"
             ubuntu-version: '2404'
@@ -952,6 +991,19 @@ jobs:
             dockerfile: "./backend/Dockerfile.python"
             context: "./"
             ubuntu-version: '2404'
+          - build-type: 'hipblas'
+            cuda-major-version: ""
+            cuda-minor-version: ""
+            platforms: 'linux/amd64'
+            tag-latest: 'auto'
+            tag-suffix: '-gpu-rocm-hipblas-ace-step'
+            runs-on: 'arc-runner-set'
+            base-image: "rocm/dev-ubuntu-24.04:6.4.4"
+            skip-drivers: 'false'
+            backend: "ace-step"
+            dockerfile: "./backend/Dockerfile.python"
+            context: "./"
+            ubuntu-version: '2404'
           # ROCm additional backends
           - build-type: 'hipblas'
             cuda-major-version: ""
@@ -1146,6 +1198,19 @@ jobs:
             base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
             skip-drivers: 'false'
             backend: "diffusers"
+            dockerfile: "./backend/Dockerfile.python"
+            context: "./"
+            ubuntu-version: '2404'
+          - build-type: 'intel'
+            cuda-major-version: ""
+            cuda-minor-version: ""
+            platforms: 'linux/amd64'
+            tag-latest: 'auto'
+            tag-suffix: '-gpu-intel-ace-step'
+            runs-on: 'ubuntu-latest'
+            base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
+            skip-drivers: 'false'
+            backend: "ace-step"
             dockerfile: "./backend/Dockerfile.python"
             context: "./"
             ubuntu-version: '2404'
@@ -1790,6 +1855,9 @@ jobs:
         include:
           - backend: "diffusers"
             tag-suffix: "-metal-darwin-arm64-diffusers"
+            build-type: "mps"
+          - backend: "ace-step"
+            tag-suffix: "-metal-darwin-arm64-ace-step"
             build-type: "mps"
           - backend: "mlx"
             tag-suffix: "-metal-darwin-arm64-mlx"

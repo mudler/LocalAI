@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+{{template "views/partials/head" .}}
+<script defer src="static/sound.js"></script>
+
+<body class="bg-[var(--color-bg-primary)] text-[var(--color-text-primary)]">
+<div class="flex flex-col min-h-screen">
+
+    {{template "views/partials/navbar" .}}
+    <div class="container mx-auto px-4 py-8 flex-grow">
+        <!-- Hero Section -->
+        <div class="hero-section">
+            <div class="hero-content">
+                <h1 class="hero-title">
+                    <i class="fas fa-music mr-2"></i>Sound Generation {{ if .Model }} with {{.Model}} {{ end }}
+                </h1>
+                <p class="hero-subtitle">Generate music and audio from descriptions or structured prompts</p>
+            </div>
+        </div>
+
+        <!-- Sound Generation Interface -->
+        <div class="max-w-3xl mx-auto">
+            <div class="card overflow-hidden">
+                <!-- Header with Model Selection -->
+                <div class="border-b border-[var(--color-border)] p-5">
+                    <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
+                        <div class="flex items-center" x-data="{ link : '{{ if .Model }}sound/{{.Model}}{{ end }}' }">
+                            <label for="model-select" class="mr-3 text-[var(--color-text-secondary)] font-medium">
+                                <i class="fas fa-microphone-lines text-[var(--color-primary)] mr-2"></i>Model:
+                            </label>
+                            <select
+                                id="model-select"
+                                x-model="link"
+                                @change="window.location = link"
+                                class="input p-2.5"
+                            >
+                                <option value="" disabled class="text-[var(--color-text-secondary)]">Select a model</option>
+                                {{ $model:=.Model}}
+                                {{ range .ModelsConfig }}
+                                    {{ $cfg := . }}
+                                    {{ range .KnownUsecaseStrings }}
+                                        {{ if eq . "FLAG_SOUND_GENERATION" }}
+                                            <option value="sound/{{$cfg.Name}}" {{ if eq $cfg.Name $model }} selected {{end}} class="bg-[var(--color-bg-primary)] text-[var(--color-text-primary)]">{{$cfg.Name}}</option>
+                                        {{ end }}
+                                    {{ end }}
+                                {{ end }}
+                                {{ range .ModelsWithoutConfig }}
+                                    <option value="sound/{{.}}" {{ if eq . $model }} selected {{ end }} class="bg-[var(--color-bg-primary)] text-[var(--color-text-primary)]">{{.}}</option>
+                                {{end}}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Form -->
+                <div class="p-6">
+                    <div class="bg-[var(--color-primary)]/10 border border-[var(--color-primary-border)]/20 rounded-lg p-4 mb-6">
+                        <div class="flex items-start">
+                            <i class="fas fa-info-circle text-[var(--color-primary)] mt-1 mr-3 flex-shrink-0"></i>
+                            <p class="text-[var(--color-text-secondary)]">
+                                Use <strong>Simple mode</strong> (text as description + vocal language) or switch to <strong>Advanced mode</strong> for caption, lyrics, BPM, key, and more.
+                            </p>
+                        </div>
+                    </div>
+
+                    <input id="sound-model" type="hidden" value="{{.Model}}">
+                    <form id="sound-form" class="space-y-4">
+                        <!-- Mode toggle -->
+                        <div class="flex items-center gap-4">
+                            <span class="text-sm font-medium text-[var(--color-text-secondary)]">Mode:</span>
+                            <label class="inline-flex items-center cursor-pointer">
+                                <input type="radio" name="mode" value="simple" id="mode-simple" class="mr-2" checked>
+                                <span class="text-sm">Simple</span>
+                            </label>
+                            <label class="inline-flex items-center cursor-pointer">
+                                <input type="radio" name="mode" value="advanced" id="mode-advanced" class="mr-2">
+                                <span class="text-sm">Advanced</span>
+                            </label>
+                        </div>
+
+                        <!-- Text: used as description in simple mode, style in advanced mode -->
+                        <div class="space-y-4">
+                            <div id="text-field-container">
+                                <label for="text" class="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5">
+                                    <i class="fas fa-align-left text-[var(--color-primary)] mr-1.5"></i>Text <span id="text-label-desc" class="text-[var(--color-text-secondary)]">(description in simple mode)</span>
+                                </label>
+                                <textarea
+                                    id="text"
+                                    name="text"
+                                    placeholder="e.g. A soft Bengali love song for a quiet evening"
+                                    rows="3"
+                                    class="input w-full p-3"
+                                ></textarea>
+                            </div>
+                        </div>
+
+                        <!-- Simple mode -->
+                        <div id="simple-fields" class="space-y-4">
+                            <div class="flex flex-wrap items-center gap-4">
+                                <label class="inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" id="instrumental" name="instrumental" class="rounded mr-2">
+                                    <span class="text-sm text-[var(--color-text-secondary)]">Instrumental only</span>
+                                </label>
+                                <div class="flex-1 min-w-[140px]">
+                                    <label for="vocal_language" class="block text-sm font-medium text-[var(--color-text-secondary)] mb-1">Vocal language</label>
+                                    <input type="text" id="vocal_language" name="vocal_language" placeholder="e.g. bn, en" class="input w-full p-2">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Advanced mode -->
+                        <div id="advanced-fields" class="hidden space-y-4">
+                            <div>
+                                <label for="caption" class="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5">Caption</label>
+                                <textarea id="caption" name="caption" placeholder="e.g. A funky Japanese disco track" rows="2" class="input w-full p-3"></textarea>
+                            </div>
+                            <div>
+                                <label for="lyrics" class="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5">Lyrics</label>
+                                <textarea id="lyrics" name="lyrics" placeholder="[Verse 1]&#10;..." rows="4" class="input w-full p-3 font-mono text-sm"></textarea>
+                            </div>
+                            <div class="flex flex-wrap items-center gap-4">
+                                <label class="inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" id="think" name="think" class="rounded mr-2">
+                                    <span class="text-sm text-[var(--color-text-secondary)]">Think (reasoning)</span>
+                                </label>
+                                <div>
+                                    <label for="bpm" class="block text-xs text-[var(--color-text-secondary)] mb-0.5">BPM</label>
+                                    <input type="number" id="bpm" name="bpm" min="1" max="300" placeholder="120" class="input p-2 w-24">
+                                </div>
+                                <div>
+                                    <label for="duration_seconds" class="block text-xs text-[var(--color-text-secondary)] mb-0.5">Duration (s)</label>
+                                    <input type="number" id="duration_seconds" name="duration_seconds" min="1" placeholder="225" class="input p-2 w-24">
+                                </div>
+                                <div>
+                                    <label for="keyscale" class="block text-xs text-[var(--color-text-secondary)] mb-0.5">Key</label>
+                                    <input type="text" id="keyscale" name="keyscale" placeholder="e.g. Ab major" class="input p-2 w-28">
+                                </div>
+                                <div>
+                                    <label for="language" class="block text-xs text-[var(--color-text-secondary)] mb-0.5">Language</label>
+                                    <input type="text" id="language" name="language" placeholder="e.g. ja" class="input p-2 w-20">
+                                </div>
+                                <div>
+                                    <label for="timesignature" class="block text-xs text-[var(--color-text-secondary)] mb-0.5">Time sig.</label>
+                                    <input type="text" id="timesignature" name="timesignature" placeholder="4" class="input p-2 w-16">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="pt-4">
+                            <button type="submit" id="generate-btn" class="btn-primary w-full py-3 flex items-center justify-center gap-2">
+                                <i class="fas fa-music"></i>
+                                <span>Generate sound</span>
+                            </button>
+                        </div>
+                    </form>
+
+                    <!-- Loading indicator -->
+                    <div class="flex justify-center my-6">
+                        <div id="loader" class="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-[var(--color-primary)]" style="display: none;"></div>
+                    </div>
+
+                    <!-- Results Area -->
+                    <div class="bg-[var(--color-bg-secondary)]/50 border border-[var(--color-border)] rounded-lg p-4 min-h-[100px] flex items-center justify-center">
+                        <div id="result" class="w-full"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {{template "views/partials/footer" .}}
+</div>
+
+<script>
+    document.getElementById('mode-simple').addEventListener('change', function() {
+        document.getElementById('simple-fields').classList.remove('hidden');
+        document.getElementById('advanced-fields').classList.add('hidden');
+        document.getElementById('text-field-container').classList.remove('hidden');
+    });
+    document.getElementById('mode-advanced').addEventListener('change', function() {
+        document.getElementById('simple-fields').classList.add('hidden');
+        document.getElementById('advanced-fields').classList.remove('hidden');
+        document.getElementById('text-field-container').classList.add('hidden');
+    });
+</script>
+</body>
+</html>

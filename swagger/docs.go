@@ -2123,11 +2123,29 @@ const docTemplate = `{
         "schema.ElevenLabsSoundGenerationRequest": {
             "type": "object",
             "properties": {
+                "bpm": {
+                    "type": "integer"
+                },
+                "caption": {
+                    "type": "string"
+                },
                 "do_sample": {
                     "type": "boolean"
                 },
                 "duration_seconds": {
                     "type": "number"
+                },
+                "instrumental": {
+                    "type": "boolean"
+                },
+                "keyscale": {
+                    "type": "string"
+                },
+                "language": {
+                    "type": "string"
+                },
+                "lyrics": {
+                    "type": "string"
                 },
                 "model_id": {
                     "type": "string"
@@ -2136,6 +2154,15 @@ const docTemplate = `{
                     "type": "number"
                 },
                 "text": {
+                    "type": "string"
+                },
+                "think": {
+                    "type": "boolean"
+                },
+                "timesignature": {
+                    "type": "string"
+                },
+                "vocal_language": {
                     "type": "string"
                 }
             }

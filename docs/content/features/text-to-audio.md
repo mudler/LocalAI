@@ -126,6 +126,64 @@ curl --request POST \
 
 Future versions of LocalAI will expose additional control over audio generation beyond the text prompt.
 
+### ACE-Step
+
+[ACE-Step 1.5](https://github.com/ACE-Step/ACE-Step-1.5) is a music generation model that can create music from text descriptions, lyrics, or audio samples. It supports both simple text-to-music and advanced music generation with metadata like BPM, key scale, and time signature.
+
+#### Setup
+
+Install the `ace-step-turbo` model from the Model gallery or run `local-ai run models install ace-step-turbo`.
+
+#### Usage
+
+ACE-Step supports two modes: **Simple mode** (text description + vocal language) and **Advanced mode** (caption, lyrics, BPM, key, and more).
+
+**Simple mode:**
+```bash
+curl http://localhost:8080/v1/audio/speech -H "Content-Type: application/json" -d '{
+  "model": "ace-step-turbo",
+  "input": "A soft Bengali love song for a quiet evening",
+  "vocal_language": "bn"
+}' --output music.flac
+```
+
+**Advanced mode** (using the `/sound` endpoint):
+```bash
+curl http://localhost:8080/sound -H "Content-Type: application/json" -d '{
+  "model": "ace-step-turbo",
+  "caption": "A funky Japanese disco track",
+  "lyrics": "[Verse 1]\n...",
+  "bpm": 120,
+  "keyscale": "Ab major",
+  "language": "ja",
+  "duration_seconds": 225
+}' --output music.flac
+```
+
+#### Configuration
+
+You can configure ACE-Step models with various options:
+
+```yaml
+name: ace-step-turbo
+backend: ace-step
+parameters:
+  model: acestep-v15-turbo
+known_usecases:
+  - sound_generation
+  - tts
+options:
+  - "device:auto"
+  - "use_flash_attention:true"
+  - "init_lm:true"  # Enable LLM for enhanced generation
+  - "lm_model_path:acestep-5Hz-lm-0.6B"  # or acestep-5Hz-lm-4B
+  - "lm_backend:pt"  # or vllm
+  - "temperature:0.85"
+  - "top_p:0.9"
+  - "inference_steps:8"
+  - "guidance_scale:7.0"
+```
+
 ### VibeVoice
 
 [VibeVoice-Realtime](https://github.com/microsoft/VibeVoice) is a real-time text-to-speech model that generates natural-sounding speech with voice cloning capabilities.

@@ -2,12 +2,14 @@ package main
 
 import (
 	"context"
+	"encoding/binary"
 	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
 	"net"
 	"os"
+	"path/filepath"
 
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"github.com/mudler/xlog"
@@ -142,11 +144,62 @@ func (m *MockBackend) TTSStream(in *pb.TTSRequest, stream pb.Backend_TTSStreamSe
 }
 
 func (m *MockBackend) SoundGeneration(ctx context.Context, in *pb.SoundGenerationRequest) (*pb.Result, error) {
-	xlog.Debug("SoundGeneration called", "text", in.Text)
+	xlog.Debug("SoundGeneration called",
+		"text", in.Text,
+		"caption", in.GetCaption(),
+		"lyrics", in.GetLyrics(),
+		"think", in.GetThink(),
+		"bpm", in.GetBpm(),
+		"keyscale", in.GetKeyscale(),
+		"language", in.GetLanguage(),
+		"timesignature", in.GetTimesignature(),
+		"instrumental", in.GetInstrumental())
+	dst := in.GetDst()
+	if dst != "" {
+		if err := os.MkdirAll(filepath.Dir(dst), 0750); err != nil {
+			return &pb.Result{Message: err.Error(), Success: false}, nil
+		}
+		if err := writeMinimalWAV(dst); err != nil {
+			return &pb.Result{Message: err.Error(), Success: false}, nil
+		}
+	}
 	return &pb.Result{
 		Message: "Sound generated successfully (mocked)",
 		Success: true,
 	}, nil
+}
+
+// writeMinimalWAV writes a minimal valid WAV file (short silence) so the HTTP handler can send it.
+func writeMinimalWAV(path string) error {
+	const sampleRate = 16000
+	const numChannels = 1
+	const bitsPerSample = 16
+	const numSamples = 1600 // 0.1s
+	dataSize := numSamples * numChannels * (bitsPerSample / 8)
+	const headerLen = 44
+	f, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	// RIFF header
+	_, _ = f.Write([]byte("RIFF"))
+	_ = binary.Write(f, binary.LittleEndian, uint32(headerLen-8+dataSize))
+	_, _ = f.Write([]byte("WAVE"))
+	// fmt chunk
+	_, _ = f.Write([]byte("fmt "))
+	_ = binary.Write(f, binary.LittleEndian, uint32(16))
+	_ = binary.Write(f, binary.LittleEndian, uint16(1))
+	_ = binary.Write(f, binary.LittleEndian, uint16(numChannels))
+	_ = binary.Write(f, binary.LittleEndian, uint32(sampleRate))
+	_ = binary.Write(f, binary.LittleEndian, uint32(sampleRate*numChannels*(bitsPerSample/8)))
+	_ = binary.Write(f, binary.LittleEndian, uint16(numChannels*(bitsPerSample/8)))
+	_ = binary.Write(f, binary.LittleEndian, uint16(bitsPerSample))
+	// data chunk
+	_, _ = f.Write([]byte("data"))
+	_ = binary.Write(f, binary.LittleEndian, uint32(dataSize))
+	_, _ = f.Write(make([]byte, dataSize))
+	return nil
 }
 
 func (m *MockBackend) AudioTranscription(ctx context.Context, in *pb.TranscriptRequest) (*pb.TranscriptResult, error) {

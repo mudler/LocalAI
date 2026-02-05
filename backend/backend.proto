@@ -365,6 +365,14 @@ message SoundGenerationRequest {
   optional bool sample = 6;
   optional string src = 7;
   optional int32 src_divisor = 8;
+  optional bool think = 9;
+  optional string caption = 10;
+  optional string lyrics = 11;
+  optional int32 bpm = 12;
+  optional string keyscale = 13;
+  optional string language = 14;
+  optional string timesignature = 15;
+  optional bool instrumental = 17;
 }
 
 message TokenizationResponse {
