@@ -400,6 +400,12 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         # Build kwargs for dynamic loading
         load_kwargs = {"torch_dtype": torchType}
 
+        # For large models (e.g., >80GB), enable low_cpu_mem_usage and device_map
+        # to avoid OOM during loading by distributing across multiple GPUs
+        if request.LowVRAM:
+            load_kwargs["low_cpu_mem_usage"] = True
+            load_kwargs["device_map"] = "balanced"
+
         # Add variant if not loading from single file
         if not fromSingleFile and variant:
             load_kwargs["variant"] = variant
@@ -428,7 +434,8 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             ) from e
 
         # Apply LowVRAM optimization if supported and requested
-        if request.LowVRAM and hasattr(pipe, 'enable_model_cpu_offload'):
+        # Skip if device_map was used (they conflict with each other)
+        if request.LowVRAM and hasattr(pipe, 'enable_model_cpu_offload') and "device_map" not in load_kwargs:
             pipe.enable_model_cpu_offload()
 
         return pipe
@@ -582,9 +589,11 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 self.pipe.set_adapters(adapters_name, adapter_weights=adapters_weights)
 
             if device != "cpu":
-                self.pipe.to(device)
-                if self.controlnet:
-                    self.controlnet.to(device)
+                # Skip .to(device) if device_map was used (they conflict with each other)
+                if not hasattr(self.pipe, "hf_device_map") or self.pipe.hf_device_map is None:
+                    self.pipe.to(device)
+                    if self.controlnet:
+                        self.controlnet.to(device)
 
         except Exception as err:
             return backend_pb2.Result(success=False, message=f"Unexpected {err=}, {type(err)=}")
