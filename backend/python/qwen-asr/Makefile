@@ -1,5 +1,3 @@
-.DEFAULT_GOAL := install
-
 .PHONY: qwen-asr
 qwen-asr:
 	bash install.sh
