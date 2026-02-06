@@ -1,4 +1,5 @@
 name: rwkv_test
+backend: llama-cpp
 parameters:
   model: huggingface://bartowski/rwkv-6-world-7b-GGUF/rwkv-6-world-7b-Q4_K_M.gguf
   top_k: 80

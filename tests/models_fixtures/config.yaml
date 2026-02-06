@@ -1,4 +1,5 @@
 - name: list1
+  backend: llama-cpp
   parameters:
     model: testmodel.ggml
     top_p: 80
@@ -15,6 +16,7 @@
     completion: completion
     chat: ggml-gpt4all-j
 - name: list2
+  backend: llama-cpp
   parameters:
     top_p: 80
     top_k: 0.9

@@ -4,6 +4,7 @@ description: |
 license: "Apache 2.0"
 
 config_file: |
+    backend: llama-cpp
     parameters:
       model: cerebras
       top_k: 80

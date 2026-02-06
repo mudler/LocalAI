@@ -1,4 +1,5 @@
 name: gpt4all-2
+backend: llama-cpp
 parameters:
   model: testmodel.ggml
   top_p: 80
