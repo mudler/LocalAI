@@ -1,4 +1,67 @@
 ---
+- name: "mox-small-1-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/mox-small-1-i1-GGUF
+  description: |
+    **Model Name:** Mox-Small-1
+    **Developer:** VANTA Research
+    **Base Model:** Olmo3.1 32B Instruct
+    **Focus:** Direct, opinionated AI assistant designed for authentic engagement, honesty, and helpfulness.
+
+    **Key Features:**
+      - **Persona-Tuned:** Prioritizes clarity, confidence, and usefulness over agreeableness.
+      - **Constructive Disagreement:** Challenges weak arguments without being combative.
+      - **Epistemic Caliberation:** Distinguishes confident knowledge from uncertainty.
+      - **Humor & Curiosity:** Engages with playful yet professional tone.
+
+    **Training:**
+      - Fine-tuned on ~18,000 curated conversations (17 datasets).
+      - Includes examples like direct opinions, constructive disagreement, and epistemic confidence.
+
+    **Use Cases:**
+      - Complex problem-solving.
+      - Honest feedback.
+      - Technical discussions (programming, architecture).
+      - Intellectual exploration (philosophy, science).
+
+    **Technical Specs:**
+      - Context length: 64K tokens.
+      - Precision: BF16 (full) or Q4_K_M (quantized).
+      - License: Apache 2.0.
+
+    **Limitations:**
+      - English-only training.
+      - Potential conflicts with persona traits.
+      - Base model limitations (knowledge cutoff, hallucinations).
+
+    **Citation:**
+    @misc{mox-small-1-2026, ...}
+
+    **Contact:**
+      - Email: hello@vantaresearch.xyz
+      - Engineering: tyler@vantaresearch.xyz
+
+    This model is a research-driven AI assistant focused on clarity, alignment, and human-AI collaboration.
+  overrides:
+    parameters:
+      model: llama-cpp/models/mox-small-1.i1-Q4_K_M.gguf
+    name: mox-small-1-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/mox-small-1-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/mox-small-1.i1-Q4_K_M.gguf
+      sha256: f25e9612e985adf01869f412f997a7aaace65e1ee0c97d4975070febdcbbb978
+      uri: https://huggingface.co/mradermacher/mox-small-1-i1-GGUF/resolve/main/mox-small-1.i1-Q4_K_M.gguf
 - name: "ace-step-turbo"
   license: mit
   tags:
