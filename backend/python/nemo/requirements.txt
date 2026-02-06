@@ -3,3 +3,4 @@ protobuf
 certifi
 packaging==24.1
 setuptools
+pyarrow==20.0.0
