@@ -1928,6 +1928,34 @@ jobs:
             dockerfile: "./backend/Dockerfile.python"
             context: "./"
             ubuntu-version: '2404'
+          # sherpa-onnx CPU
+          - build-type: ''
+            cuda-major-version: ""
+            cuda-minor-version: ""
+            platforms: 'linux/amd64,linux/arm64'
+            tag-latest: 'auto'
+            tag-suffix: '-cpu-sherpa-onnx'
+            runs-on: 'ubuntu-latest'
+            base-image: "ubuntu:24.04"
+            skip-drivers: 'false'
+            backend: "sherpa-onnx"
+            dockerfile: "./backend/Dockerfile.golang"
+            context: "./"
+            ubuntu-version: '2404'
+          # sherpa-onnx CUDA 12
+          - build-type: 'cublas'
+            cuda-major-version: "12"
+            cuda-minor-version: "8"
+            platforms: 'linux/amd64'
+            tag-latest: 'auto'
+            tag-suffix: '-gpu-nvidia-cuda-12-sherpa-onnx'
+            runs-on: 'ubuntu-latest'
+            base-image: "ubuntu:24.04"
+            skip-drivers: 'false'
+            backend: "sherpa-onnx"
+            dockerfile: "./backend/Dockerfile.golang"
+            context: "./"
+            ubuntu-version: '2404'
   backend-jobs-darwin:
     uses: ./.github/workflows/backend_build_darwin.yml
     strategy:

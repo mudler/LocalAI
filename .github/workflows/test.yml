@@ -204,7 +204,7 @@ jobs:
         run: go version
       - name: Dependencies
         run: |
-          brew install protobuf grpc make protoc-gen-go protoc-gen-go-grpc libomp llvm
+          brew install protobuf grpc make protoc-gen-go protoc-gen-go-grpc libomp llvm ffmpeg
           pip install --user --no-cache-dir grpcio-tools grpcio
       - name: Build llama-cpp-darwin
         run: |
