@@ -1,4 +1,29 @@
 ---
+- name: "olmo-v2-stage3-lexifreak-heretic-v1-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/olmo-v2-stage3-lexifreak-heretic-v1-i1-GGUF
+  description: |
+    The model is a large language model (LLM) based on the OLMO-v2 architecture, optimized for tasks like text generation and multilingual understanding. It is a quantized version of the original model, with parameters tuned for efficiency and performance. The model is designed for use in applications requiring high-quality text generation, potentially with support for multiple languages. The exact base model and additional details can be inferred from the repository name and tags, but it is a variant of the OLMO-v2 series, optimized for specific tasks with quantized parameters.
+  overrides:
+    parameters:
+      model: llama-cpp/models/olmo-v2-stage3-lexifreak-heretic-v1.i1-Q4_K_M.gguf
+    name: olmo-v2-stage3-lexifreak-heretic-v1-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/olmo-v2-stage3-lexifreak-heretic-v1-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/olmo-v2-stage3-lexifreak-heretic-v1.i1-Q4_K_M.gguf
+      sha256: 61d6146375695c197856d4f9f5189e54c9b57c4371abb71df0c069b0e318745c
+      uri: https://huggingface.co/mradermacher/olmo-v2-stage3-lexifreak-heretic-v1-i1-GGUF/resolve/main/olmo-v2-stage3-lexifreak-heretic-v1.i1-Q4_K_M.gguf
 - name: "ace-step-turbo"
   license: mit
   tags:
