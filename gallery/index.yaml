@@ -1,4 +1,29 @@
 ---
+- name: "opsllm-7b-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/OpsLLM-7B-i1-GGUF
+  description: |
+    The model is a 7B parameter language model (OpsLLM-7B) trained on a diverse dataset, optimized for efficient inference using GGUF format. It supports quantization options (e.g., IQ1_M, IQ2_XXS, Q4_K_M) and is designed for deployment in low-resource environments. The quantized version (OpsLLM-7B-i1-GGUF) is a compressed version of the model, with the base model (Heui/OpsLLM-7B) being the actual underlying model. For details on quantization strategies, refer to the model page or the provided files.
+  overrides:
+    parameters:
+      model: llama-cpp/models/OpsLLM-7B.i1-Q4_K_M.gguf
+    name: OpsLLM-7B-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/OpsLLM-7B-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/OpsLLM-7B.i1-Q4_K_M.gguf
+      sha256: 6e945949f7d7e05b9762415dfb16b1fc5f300a5598cc3c5235b88b1a690390f0
+      uri: https://huggingface.co/mradermacher/OpsLLM-7B-i1-GGUF/resolve/main/OpsLLM-7B.i1-Q4_K_M.gguf
 - name: "ace-step-turbo"
   license: mit
   tags:
