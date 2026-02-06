@@ -14,6 +14,7 @@ concurrency:
 
 jobs:
   backend-jobs:
+    if: github.repository == 'mudler/LocalAI'
     uses: ./.github/workflows/backend_build.yml
     with:
       tag-latest: ${{ matrix.tag-latest }}
