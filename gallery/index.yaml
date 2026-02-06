@@ -1,4 +1,50 @@
 ---
+- name: "overthinker_v0.5"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/overthinker_v0.5-GGUF
+  description: |
+    **Model Name:** overthinker_v0.5-GGUF
+    **Base Model:** takenusername32/QA-GPT2_v0.5
+    **Quantization:** Optimized for efficient deployment (Q8_0, Q6_K, Q4_K_S, etc.)
+    **Size:** ~0.2 GB
+    **Features:**
+      - High-quality quantized model for reasoning and generation
+      - Supports fast inference and low memory usage
+      - Available in multiple quantization variants (e.g., Q8_0, Q6_K)
+      - Compatible with GGUF format for efficient storage and deployment
+
+    **Key Highlights:**
+      - Best quality: Q8_0 (0.2 GB)
+      - Recommended: Q4_K_S or Q6_K for balance between accuracy and speed
+      - Suitable for tasks like reasoning, dialogue, and code generation
+
+    **Downloads:**
+    [Q8_0](https://huggingface.co/mradermacher/overthinker_v0.5-GGUF/resolve/main/overthinker_v0.5.Q8_0.gguf)
+    [Q4_K_S](https://huggingface.co/mradermacher/overthinker_v0.5-GGUF/resolve/main/overthinker_v0.5.Q4_K_S.gguf)
+
+    **Use Cases:** Reasoning, dialogue, code generation, and general-purpose AI tasks.
+
+    *Note: This is a quantized version of the QA-GPT2 model. For the original model, see [takenusername32/QA-GPT2_v0.5](https://huggingface.co/takenusername32/QA-GPT2_v0.5).*
+  overrides:
+    parameters:
+      model: llama-cpp/models/overthinker_v0.5.Q4_K_M.gguf
+    name: overthinker_v0.5-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/overthinker_v0.5-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/overthinker_v0.5.Q4_K_M.gguf
+      sha256: ff4d968085d41515029094faa5d6f8924b5bc2fa804d91b08051221ddfa34acb
+      uri: https://huggingface.co/mradermacher/overthinker_v0.5-GGUF/resolve/main/overthinker_v0.5.Q4_K_M.gguf
 - name: "ace-step-turbo"
   license: mit
   tags:
