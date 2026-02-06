@@ -78,7 +78,7 @@ package: whisper
 build: package
 
 clean: purge
-	rm -rf libgowhisper*.so sources/whisper.cpp whisper
+	rm -rf libgowhisper*.so package sources/whisper.cpp whisper
 
 purge:
 	rm -rf build*

@@ -6,6 +6,7 @@ on:
 
 jobs:
   notify-discord:
+    if: github.repository == 'mudler/LocalAI'
     runs-on: ubuntu-latest
     env:
         RELEASE_BODY: ${{ github.event.release.body }}

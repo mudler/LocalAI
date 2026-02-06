@@ -45,8 +45,9 @@ const (
 )
 
 var (
-	cuda13DirExists bool
-	cuda12DirExists bool
+	cuda13DirExists  bool
+	cuda12DirExists  bool
+	capabilityLogged bool
 )
 
 func init() {
@@ -133,7 +134,10 @@ func (s *SystemState) getSystemCapabilities() string {
 		return defaultCapability
 	}
 
-	xlog.Info("Capability automatically detected", "capability", s.GPUVendor, "env", capabilityEnv)
+	if !capabilityLogged {
+		xlog.Info("Capability automatically detected", "capability", s.GPUVendor, "env", capabilityEnv)
+		capabilityLogged = true
+	}
 	// If vram is less than 4GB, let's default to CPU but warn the user that they can override that via env
 	if s.VRAM <= 4*1024*1024*1024 {
 		xlog.Warn("VRAM is less than 4GB, defaulting to CPU", "env", capabilityEnv)

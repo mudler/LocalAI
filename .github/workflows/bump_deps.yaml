@@ -5,6 +5,7 @@ on:
   workflow_dispatch:
 jobs:
   bump-backends:
+    if: github.repository == 'mudler/LocalAI'
     strategy:
       fail-fast: false
       matrix:

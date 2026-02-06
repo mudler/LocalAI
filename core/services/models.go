@@ -197,6 +197,9 @@ func processModelOperation(
 
 	switch {
 	case op.Delete:
+		if err := modelLoader.ShutdownModel(op.GalleryElementName); err != nil {
+			xlog.Warn("Failed to unload model during deletion", "model", op.GalleryElementName, "error", err)
+		}
 		return gallery.DeleteModelFromSystem(systemState, op.GalleryElementName)
 	case op.GalleryElement != nil:
 		installedModel, err := gallery.InstallModel(

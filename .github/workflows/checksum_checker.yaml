@@ -5,6 +5,7 @@ on:
   workflow_dispatch:
 jobs:
   checksum_check:
+    if: github.repository == 'mudler/LocalAI'
     runs-on: ubuntu-latest
     steps:
       - name: Force Install GIT latest

@@ -27,6 +27,7 @@ on:
         type: string
 jobs:
   gallery-agent:
+    if: github.repository == 'mudler/LocalAI'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository

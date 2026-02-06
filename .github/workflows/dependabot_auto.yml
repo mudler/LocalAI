@@ -9,8 +9,8 @@ permissions:
 
 jobs:
   dependabot:
+    if: github.repository == 'mudler/LocalAI' && github.actor == 'dependabot[bot]'
     runs-on: ubuntu-latest
-    if: ${{ github.actor == 'dependabot[bot]' }}
     steps:
       - name: Dependabot metadata
         id: metadata
