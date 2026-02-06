@@ -745,6 +745,10 @@ func commitUtterance(ctx context.Context, utt []byte, session *Session, conv *Co
 		tr, err := session.ModelInterface.Transcribe(ctx, f.Name(), session.InputAudioTranscription.Language, false, false, session.InputAudioTranscription.Prompt)
 		if err != nil {
 			sendError(c, "transcription_failed", err.Error(), "", "event_TODO")
+			return
+		} else if tr == nil {
+			sendError(c, "transcription_failed", "trancribe result is nil", "", "event_TODO")
+			return
 		}
 
 		transcript = tr.Text
