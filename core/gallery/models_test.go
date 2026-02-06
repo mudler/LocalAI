@@ -2,6 +2,7 @@ package gallery_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -14,7 +15,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-const bertEmbeddingsURL = `https://gist.githubusercontent.com/mudler/0a080b166b87640e8644b09c2aee6e3b/raw/f0e8c26bb72edc16d9fbafbfd6638072126ff225/bert-embeddings-gallery.yaml`
+const bertEmbeddingsURL = `https://gist.githubusercontent.com/richiejp/61cbf533d1983a29f79ea53d9e08571a/raw/02401eaee11858e705c186580b765d35a8fc6c17/bert-embeddings.yaml`
 
 var _ = Describe("Model test", func() {
 
@@ -59,6 +60,18 @@ var _ = Describe("Model test", func() {
 			Expect(err).ToNot(HaveOccurred())
 			defer os.RemoveAll(tempdir)
 
+			// Create mock llama-cpp backend
+			backendDir := filepath.Join(tempdir, "backend", "llama-cpp")
+			err = os.MkdirAll(backendDir, 0o750)
+			Expect(err).ToNot(HaveOccurred())
+			backendMeta := &BackendMetadata{Alias: "llama-cpp", Name: "llama-cpp"}
+			metaBytes, err := json.Marshal(backendMeta)
+			Expect(err).ToNot(HaveOccurred())
+			err = os.WriteFile(filepath.Join(backendDir, "metadata.json"), metaBytes, 0o644)
+			Expect(err).ToNot(HaveOccurred())
+			err = os.WriteFile(filepath.Join(backendDir, "run.sh"), []byte("#!/bin/sh\n"), 0o755)
+			Expect(err).ToNot(HaveOccurred())
+
 			gallery := []GalleryModel{{
 				Metadata: Metadata{
 					Name: "bert",
@@ -79,6 +92,7 @@ var _ = Describe("Model test", func() {
 			}
 			systemState, err := system.GetSystemState(
 				system.WithModelPath(tempdir),
+				system.WithBackendPath(filepath.Join(tempdir, "backend")),
 			)
 			Expect(err).ToNot(HaveOccurred())
 
