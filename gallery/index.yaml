@@ -1,4 +1,33 @@
 ---
+- name: "fine-r1-7b"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Fine-R1-7B-GGUF
+  description: |
+    The model is a fine-tuned version of the **Fine-R1-7B** base model, quantized for efficiency. It uses the **GGUF** format for storage and is optimized for deployment. The quantization includes options like **Q4_K_S**, **Q2_K**, and others, balancing precision and computational efficiency. The model is designed for tasks requiring high performance with reduced resource usage.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Fine-R1-7B.Q4_K_M.gguf
+    name: Fine-R1-7B-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    mmproj: llama-cpp/mmproj/Fine-R1-7B.mmproj-f16.gguf
+    description: Imported from https://huggingface.co/mradermacher/Fine-R1-7B-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Fine-R1-7B.Q4_K_M.gguf
+      sha256: bc3238a3ffef9684e3c34b93251043fae7a7ef6c3853688394a27bd84d259163
+      uri: https://huggingface.co/mradermacher/Fine-R1-7B-GGUF/resolve/main/Fine-R1-7B.Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/Fine-R1-7B.mmproj-f16.gguf
+      sha256: bd25690d588ee5f57e0dd4c77df9b446b312723c7ead2fbc5f13e876d0b90f03
+      uri: https://huggingface.co/mradermacher/Fine-R1-7B-GGUF/resolve/main/Fine-R1-7B.mmproj-f16.gguf
 - name: "ace-step-turbo"
   license: mit
   tags:
