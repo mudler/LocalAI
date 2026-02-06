@@ -73,6 +73,33 @@ where `github:mudler/localai/gallery/index.yaml` will be expanded automatically 
 
 Note: the url are expanded automatically for `github` and `huggingface`, however `https://` and `http://` prefix works as well.
 
+#### Using Local Gallery Files
+
+You can also use local gallery index files by using the `file://` prefix. For security reasons, **local gallery files must be located within your models directory** (the directory specified by `MODELS_PATH` or the default `models/` directory).
+
+**Example:**
+
+```json
+GALLERIES=[{"name":"my-local-gallery", "url":"file:///path/to/models/my-gallery-index.yaml"}]
+```
+
+**Important notes:**
+- The `file://` prefix is required for local paths
+- The file path must be absolute (starting with `/` on Unix systems)
+- The resolved path must be within your models directory for security
+- If you try to access files outside the models directory, LocalAI will block the request
+
+**Valid example** (assuming `MODELS_PATH=/opt/localai/models`):
+```json
+GALLERIES=[{"name":"local", "url":"file:///opt/localai/models/galleries/my-gallery.yaml"}]
+```
+
+**Invalid example** (file outside models directory):
+```json
+GALLERIES=[{"name":"local", "url":"file:///home/user/my-gallery.yaml"}]
+```
+This will be rejected with a security error.
+
 {{% notice note %}}
 
 If you want to build your own gallery, there is no documentation yet. However you can find the source of the default gallery in the [LocalAI repository](https://github.com/mudler/LocalAI/tree/master/gallery).
@@ -438,7 +465,12 @@ curl http://localhost:8080/models/apply -H "Content-Type: application/json" -d '
 
 An optional, list of additional files can be specified to be downloaded within `files`. The `name` allows to override the model name. Finally it is possible to override the model config file with `override`.
 
-The `url` is a full URL, or a github url (`github:org/repo/file.yaml`), or a local file (`file:///path/to/file.yaml`).
+The `url` is a full URL, or a github url (`github:org/repo/file.yaml`), or a local file (`file:///path/to/file.yaml`). 
+
+{{% notice warning %}}
+**Local file security restriction:** When using `file://` URLs, the file path must be within your models directory (specified by `MODELS_PATH`). Files outside this directory will be rejected for security reasons.
+{{% /notice %}}
+
 The `id` is a string in the form `<GALLERY>@<MODEL_NAME>`, where `<GALLERY>` is the name of the gallery, and `<MODEL_NAME>` is the name of the model in the gallery. Galleries can be specified during startup with the `GALLERIES` environment variable.
 
 Returns an `uuid` and an `url` to follow up the state of the process:
