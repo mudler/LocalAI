@@ -267,6 +267,18 @@
       voice: Aiden # Available speakers: Vivian, Serena, Uncle_Fu, Dylan, Eric, Ryan, Aiden, Ono_Anna, Sohee
     parameters:
       model: Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice
+- !!merge <<: *qwen-tts
+  urls:
+    - https://huggingface.co/Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice
+  name: "qwen3-tts-0.6b-custom-voice"
+  overrides:
+    backend: qwen-tts
+    known_usecases:
+      - tts
+    tts:
+      voice: Aiden # Available speakers: Vivian, Serena, Uncle_Fu, Dylan, Eric, Ryan, Aiden, Ono_Anna, Sohee
+    parameters:
+      model: Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice
 - &qwen-asr
   urls:
     - https://huggingface.co/Qwen/Qwen3-ASR-1.7B
