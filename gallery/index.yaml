@@ -1,4 +1,45 @@
 ---
+- name: "teacher-8b-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Teacher-8B-i1-GGUF
+  description: |
+    **Model Name:** Teacher-8B
+    **Base Model:** Qwen/Qwen3-8B
+    **Size:** ~8B parameters
+    **Training Framework:** STAR (Similarity-guided Teacher-Assisted Refinement)
+    **Key Features:**
+      - Fine-tuned for **function calling** and **agentic tasks**
+      - Innovates with **Sim-RL** (reinforcement learning via similarity-based rewards) and **CKD** (constrained knowledge distillation) for stability and exploration
+      - Optimized for **32,768 token context** and **efficient deployment**
+
+    **Use Cases:**
+      - Chatbots, reasoning tasks, and tool integration (via STAR's function-calling capabilities)
+      - Compatible with frameworks like Hugging Face `transformers` (ensure `transformers>=4.51.0`)
+
+    **Deployment:**
+      - Supported via SGLang, vLLM, Ollama, LMStudio, etc.
+
+    **Note:** This model is a refined teacher version of Qwen3, designed for real-world agentic applications.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Teacher-8B.i1-Q4_K_M.gguf
+    name: Teacher-8B-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Teacher-8B-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Teacher-8B.i1-Q4_K_M.gguf
+      sha256: 9563aef965738fc6a2fdaeae79528f7a45d833de9c551288f75d107409a5d69c
+      uri: https://huggingface.co/mradermacher/Teacher-8B-i1-GGUF/resolve/main/Teacher-8B.i1-Q4_K_M.gguf
 - name: "ace-step-turbo"
   license: mit
   tags:
