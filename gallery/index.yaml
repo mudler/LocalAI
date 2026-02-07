@@ -1,4 +1,30 @@
 ---
+- name: "eurollm-9b-2512-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/EuroLLM-9B-2512-i1-GGUF
+  description: |
+    **EuroLLM-9B-2512**
+    A 9-billion parameter multilingual transformer language model, developed by multiple research institutions and funded by the European Union. It extends the long-context capability of the EuroLLM-22B model, supporting 33 languages (English, Spanish, French, German, etc.). Licensed under the Apache 2.0 license, it is optimized for versatility in tasks like translation, reasoning, and generation. Ideal for applications requiring multilingual support and efficient inference.
+  overrides:
+    parameters:
+      model: llama-cpp/models/EuroLLM-9B-2512.i1-Q4_K_M.gguf
+    name: EuroLLM-9B-2512-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/EuroLLM-9B-2512-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/EuroLLM-9B-2512.i1-Q4_K_M.gguf
+      sha256: a9471af9c8a1b845a581ab341248c29c8303ed0d79d98c9127b54645f7d7a5bf
+      uri: https://huggingface.co/mradermacher/EuroLLM-9B-2512-i1-GGUF/resolve/main/EuroLLM-9B-2512.i1-Q4_K_M.gguf
 - name: "ace-step-turbo"
   license: mit
   tags:
