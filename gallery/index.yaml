@@ -1,4 +1,29 @@
 ---
+- name: "openai-gpt-oss-20b-instruct-heretic-uncensored-mxfp4-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/OpenAI-gpt-oss-20B-INSTRUCT-Heretic-Uncensored-MXFP4-i1-GGUF
+  description: |
+    This model is a quantized version of the OpenAI GPT-20B model, specifically tailored for instruction-following tasks with features like "heretic," "uncensored," and "ablated" variants. It is available in multiple GGUF formats with varying quantization levels (e.g., IQ1_M, IQ3_XXS, Q4_K_M) and sizes, optimized for performance and efficiency. The model is designed for use in scenarios requiring large-scale language understanding, with tags indicating its purpose and capabilities.
+  overrides:
+    parameters:
+      model: llama-cpp/models/OpenAI-gpt-oss-20B-INSTRUCT-Heretic-Uncensored-MXFP4.i1-Q4_K_M.gguf
+    name: OpenAI-gpt-oss-20B-INSTRUCT-Heretic-Uncensored-MXFP4-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/OpenAI-gpt-oss-20B-INSTRUCT-Heretic-Uncensored-MXFP4-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/OpenAI-gpt-oss-20B-INSTRUCT-Heretic-Uncensored-MXFP4.i1-Q4_K_M.gguf
+      sha256: ac51503400b650ef136c8039bcc03e6cbfbb75a2745cfa43982a16f0b1e669f5
+      uri: https://huggingface.co/mradermacher/OpenAI-gpt-oss-20B-INSTRUCT-Heretic-Uncensored-MXFP4-i1-GGUF/resolve/main/OpenAI-gpt-oss-20B-INSTRUCT-Heretic-Uncensored-MXFP4.i1-Q4_K_M.gguf
 - name: "ace-step-turbo"
   license: mit
   tags:
