@@ -88,19 +88,19 @@ ifeq ($(UNAME_S),Linux)
 libgowhisper-avx.so: sources/whisper.cpp
 	$(MAKE) purge
 	$(info ${GREEN}I whisper build info:avx${RESET})
-	SO_TARGET=libgowhisper-avx.so CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=on -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off" $(MAKE) libgowhisper-custom
+	SO_TARGET=libgowhisper-avx.so CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=on -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off -DGGML_BMI2=off" $(MAKE) libgowhisper-custom
 	rm -rfv build*
 
 libgowhisper-avx2.so: sources/whisper.cpp
 	$(MAKE) purge
 	$(info ${GREEN}I whisper build info:avx2${RESET})
-	SO_TARGET=libgowhisper-avx2.so CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=on -DGGML_AVX2=on -DGGML_AVX512=off -DGGML_FMA=on -DGGML_F16C=on" $(MAKE) libgowhisper-custom
+	SO_TARGET=libgowhisper-avx2.so CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=on -DGGML_AVX2=on -DGGML_AVX512=off -DGGML_FMA=on -DGGML_F16C=on -DGGML_BMI2=on" $(MAKE) libgowhisper-custom
 	rm -rfv build*
 
 libgowhisper-avx512.so: sources/whisper.cpp
 	$(MAKE) purge
 	$(info ${GREEN}I whisper build info:avx512${RESET})
-	SO_TARGET=libgowhisper-avx512.so CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=on -DGGML_AVX2=off -DGGML_AVX512=on -DGGML_FMA=on -DGGML_F16C=on" $(MAKE) libgowhisper-custom
+	SO_TARGET=libgowhisper-avx512.so CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=on -DGGML_AVX2=on -DGGML_AVX512=on -DGGML_FMA=on -DGGML_F16C=on -DGGML_BMI2=on" $(MAKE) libgowhisper-custom
 	rm -rfv build*
 endif
 
@@ -108,7 +108,7 @@ endif
 libgowhisper-fallback.so: sources/whisper.cpp
 	$(MAKE) purge
 	$(info ${GREEN}I whisper build info:fallback${RESET})
-	SO_TARGET=libgowhisper-fallback.so CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=off -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off" $(MAKE) libgowhisper-custom
+	SO_TARGET=libgowhisper-fallback.so CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=off -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off -DGGML_BMI2=off" $(MAKE) libgowhisper-custom
 	rm -rfv build*
 
 libgowhisper-custom: CMakeLists.txt gowhisper.cpp gowhisper.h

@@ -96,19 +96,19 @@ ifeq ($(UNAME_S),Linux)
 libgosd-avx.so: sources/stablediffusion-ggml.cpp
 	$(MAKE) purge
 	$(info ${GREEN}I stablediffusion-ggml build info:avx${RESET})
-	SO_TARGET=libgosd-avx.so CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=on -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off" $(MAKE) libgosd-custom
+	SO_TARGET=libgosd-avx.so CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=on -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off -DGGML_BMI2=off" $(MAKE) libgosd-custom
 	rm -rfv build*
 
 libgosd-avx2.so: sources/stablediffusion-ggml.cpp
 	$(MAKE) purge
 	$(info ${GREEN}I stablediffusion-ggml build info:avx2${RESET})
-	SO_TARGET=libgosd-avx2.so CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=on -DGGML_AVX2=on -DGGML_AVX512=off -DGGML_FMA=on -DGGML_F16C=on" $(MAKE) libgosd-custom
+	SO_TARGET=libgosd-avx2.so CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=on -DGGML_AVX2=on -DGGML_AVX512=off -DGGML_FMA=on -DGGML_F16C=on -DGGML_BMI2=on" $(MAKE) libgosd-custom
 	rm -rfv build*
 
 libgosd-avx512.so: sources/stablediffusion-ggml.cpp
 	$(MAKE) purge
 	$(info ${GREEN}I stablediffusion-ggml build info:avx512${RESET})
-	SO_TARGET=libgosd-avx512.so CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=on -DGGML_AVX2=off -DGGML_AVX512=on -DGGML_FMA=on -DGGML_F16C=on" $(MAKE) libgosd-custom
+	SO_TARGET=libgosd-avx512.so CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=on -DGGML_AVX2=on -DGGML_AVX512=on -DGGML_FMA=on -DGGML_F16C=on -DGGML_BMI2=on" $(MAKE) libgosd-custom
 	rm -rfv build*
 endif
 
@@ -116,7 +116,7 @@ endif
 libgosd-fallback.so: sources/stablediffusion-ggml.cpp
 	$(MAKE) purge
 	$(info ${GREEN}I stablediffusion-ggml build info:fallback${RESET})
-	SO_TARGET=libgosd-fallback.so CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=off -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off" $(MAKE) libgosd-custom
+	SO_TARGET=libgosd-fallback.so CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=off -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off -DGGML_BMI2=off" $(MAKE) libgosd-custom
 	rm -rfv build*
 
 libgosd-custom: CMakeLists.txt gosd.cpp gosd.h
