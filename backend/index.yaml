@@ -536,6 +536,27 @@
     nvidia-l4t-cuda-12: "nvidia-l4t-qwen-asr"
     nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-qwen-asr"
   icon: https://cdn-avatars.huggingface.co/v1/production/uploads/620760a26e3b7210c2ff1943/-s1gyJfvbE1RgO5iBeNOi.png
+- &nemo
+  urls:
+    - https://github.com/NVIDIA/NeMo
+  description: |
+    NVIDIA NEMO Toolkit for ASR provides state-of-the-art automatic speech recognition models including Parakeet models for various languages and use cases.
+  tags:
+    - speech-recognition
+    - ASR
+    - NVIDIA
+  license: apache-2.0
+  name: "nemo"
+  alias: "nemo"
+  capabilities:
+    nvidia: "cuda12-nemo"
+    intel: "intel-nemo"
+    amd: "rocm-nemo"
+    metal: "metal-nemo"
+    default: "cpu-nemo"
+    nvidia-cuda-13: "cuda13-nemo"
+    nvidia-cuda-12: "cuda12-nemo"
+  icon: https://www.nvidia.com/favicon.ico
 - &voxcpm
   urls:
     - https://github.com/ModelBest/VoxCPM
@@ -2337,6 +2358,77 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-qwen-asr"
   mirrors:
     - localai/localai-backends:master-metal-darwin-arm64-qwen-asr
+## nemo
+- !!merge <<: *nemo
+  name: "nemo-development"
+  capabilities:
+    nvidia: "cuda12-nemo-development"
+    intel: "intel-nemo-development"
+    amd: "rocm-nemo-development"
+    metal: "metal-nemo-development"
+    default: "cpu-nemo-development"
+    nvidia-cuda-13: "cuda13-nemo-development"
+    nvidia-cuda-12: "cuda12-nemo-development"
+- !!merge <<: *nemo
+  name: "cpu-nemo"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-nemo"
+  mirrors:
+    - localai/localai-backends:latest-cpu-nemo
+- !!merge <<: *nemo
+  name: "cpu-nemo-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-cpu-nemo"
+  mirrors:
+    - localai/localai-backends:master-cpu-nemo
+- !!merge <<: *nemo
+  name: "cuda12-nemo"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-nemo"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-12-nemo
+- !!merge <<: *nemo
+  name: "cuda12-nemo-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-nemo"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-12-nemo
+- !!merge <<: *nemo
+  name: "cuda13-nemo"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-13-nemo"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-13-nemo
+- !!merge <<: *nemo
+  name: "cuda13-nemo-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-nemo"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-13-nemo
+- !!merge <<: *nemo
+  name: "intel-nemo"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-nemo"
+  mirrors:
+    - localai/localai-backends:latest-gpu-intel-nemo
+- !!merge <<: *nemo
+  name: "intel-nemo-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-nemo"
+  mirrors:
+    - localai/localai-backends:master-gpu-intel-nemo
+- !!merge <<: *nemo
+  name: "rocm-nemo"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-rocm-hipblas-nemo"
+  mirrors:
+    - localai/localai-backends:latest-gpu-rocm-hipblas-nemo
+- !!merge <<: *nemo
+  name: "rocm-nemo-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-rocm-hipblas-nemo"
+  mirrors:
+    - localai/localai-backends:master-gpu-rocm-hipblas-nemo
+- !!merge <<: *nemo
+  name: "metal-nemo"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-metal-darwin-arm64-nemo"
+  mirrors:
+    - localai/localai-backends:latest-metal-darwin-arm64-nemo
+- !!merge <<: *nemo
+  name: "metal-nemo-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-nemo"
+  mirrors:
+    - localai/localai-backends:master-metal-darwin-arm64-nemo
 ## voxcpm
 - !!merge <<: *voxcpm
   name: "voxcpm-development"
