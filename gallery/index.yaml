@@ -1,4 +1,29 @@
 ---
+- name: "gpt-oss-20b-absolute-heresy-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/gpt-oss-20b-absolute-heresy-i1-GGUF
+  description: |
+    This model is a 20-billion parameter GPT-3.5-like language model quantized for efficiency, optimized for deployment on vLLM and other scalable platforms. It features a range of quantized versions (e.g., IQ1_M, IQ4_K_M) with varying trade-offs between speed, memory usage, and accuracy. The "best" quantized version is **i1-Q4_K_M.gguf**, which balances speed and quality for optimal performance. It is a derivative of the original MuXodious/gpt-oss-20b-absolute-heresy model, tailored for specific use cases like uncensored, decensored, and heretic content generation. The model supports flexible quantization options and is designed for low-latency inference.
+  overrides:
+    parameters:
+      model: llama-cpp/models/gpt-oss-20b-absolute-heresy.i1-Q4_K_M.gguf
+    name: gpt-oss-20b-absolute-heresy-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/gpt-oss-20b-absolute-heresy-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/gpt-oss-20b-absolute-heresy.i1-Q4_K_M.gguf
+      sha256: d9150615ae9177890f21fb3bb723f3b1feb986c48c71ec9aebe7babd84859869
+      uri: https://huggingface.co/mradermacher/gpt-oss-20b-absolute-heresy-i1-GGUF/resolve/main/gpt-oss-20b-absolute-heresy.i1-Q4_K_M.gguf
 - name: "ace-step-turbo"
   license: mit
   tags:
