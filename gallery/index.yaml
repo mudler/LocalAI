@@ -1,4 +1,48 @@
 ---
+- name: "gemma-3-12b-it-vl-glm-4.7-flash-polaris-thinking-heretic-uncensored-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/gemma-3-12b-it-vl-GLM-4.7-Flash-Polaris-Thinking-Heretic-Uncensored-i1-GGUF
+  description: |
+    **Model Name:** `mradermacher/gemma-3-12b-it-vl-GLM-4.7-Flash-Polaris-Thinking-Heretic-Uncensored-i1-GGUF`
+    **Base Model:** `DavidAU/gemma-3-12b-it-vl-GLM-4.7-Flash-Polaris-Thinking-Heretic-Uncensored`
+
+    **Description:**
+    A vision-language model optimized for creative writing, storytelling, and fiction generation. Quantized for efficiency, this model supports multiple precision levels (e.g., Q2_K, IQ3_M, Q4_K_S) and is available in GGUF format for fast deployment. Key features include:
+      - **Use Cases:** Plot generation, scene continuation, story writing, and creative content creation.
+      - **Tags:** Uncensored, heretic, abliterated, unsloth, finetune, and creative writing.
+      - **Quantization Options:**
+      - `i1-Q2_K` (4.9 GB, IQ3_XXS)
+      - `i1-IQ3_XXS` (4.9 GB, lower quality)
+      - `i1-IQ3_M` (5.8 GB)
+      - `i1-Q4_K_S` (7.0 GB, optimal size/speed/quality)
+      - **Deployment:** GGUF files for quick use, with mmproj support for custom quantization.
+
+    **Key Notes:**
+      - Based on the original `gemma-3-12b-it-vl` model.
+      - Designed for creative and diverse applications.
+      - Available in multiple quantized versions for flexibility.
+
+    This model is ideal for developers and content creators seeking efficient, high-quality text-generation with creative flexibility.
+  overrides:
+    parameters:
+      model: llama-cpp/models/gemma-3-12b-it-vl-GLM-4.7-Flash-Polaris-Thinking-Heretic-Uncensored.i1-Q4_K_M.gguf
+    name: gemma-3-12b-it-vl-GLM-4.7-Flash-Polaris-Thinking-Heretic-Uncensored-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/gemma-3-12b-it-vl-GLM-4.7-Flash-Polaris-Thinking-Heretic-Uncensored-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/gemma-3-12b-it-vl-GLM-4.7-Flash-Polaris-Thinking-Heretic-Uncensored.i1-Q4_K_M.gguf
+      sha256: ab1068f997f6362d75dce55dbfb18ea5a2179c218027a47746db40f9f1458fa1
+      uri: https://huggingface.co/mradermacher/gemma-3-12b-it-vl-GLM-4.7-Flash-Polaris-Thinking-Heretic-Uncensored-i1-GGUF/resolve/main/gemma-3-12b-it-vl-GLM-4.7-Flash-Polaris-Thinking-Heretic-Uncensored.i1-Q4_K_M.gguf
 - name: "ace-step-turbo"
   license: mit
   tags:
