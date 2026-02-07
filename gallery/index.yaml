@@ -1,4 +1,49 @@
 ---
+- name: "qwen3-embedding-0.6b"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/PeterAM4/Qwen3-Embedding-0.6B-GGUF
+  description: |
+    **Model Name:** Qwen3-Embedding-0.6B (GGUF)
+    **Base Model:** [Qwen/Qwen3-Embedding-0.6B](https://huggingface.co/Qwen/Qwen3-Embedding-0.6B)
+
+    **Description:**
+    A quantized embedding model optimized for financial and technical text retrieval. It compresses the original Qwen3-Embedding-0.6B to 3–4 bits using **importance-matrix calibration**, preserving domain-relevant weights for accurate semantic search and document retrieval.
+
+    **Key Features:**
+      - **Precision:** 3–4 bits (378MB recommended model)
+      - **Use Cases:** RAG pipelines, semantic search, document retrieval
+      - **Performance:** Near-baseline perplexity (406.68 PPL) with 3–4 bit quantization
+      - **Optimization:** Low latency, small memory footprint (378MB), suitable for edge devices
+
+    **Quantization Method:**
+      - Calibrated with an importance matrix on a financial + math corpus (22MB).
+      - Supports 3–5 bit precision (Q4_K_M-imat, Q3_K_M-imat, etc.).
+      - Ternary quantization (TQ2_0, TQ1_0) not supported due to hardware limitations.
+
+    **Download:**
+    [GGUF file](https://huggingface.co/PeterAM4/Qwen3-Embedding-0.6B-GGUF)
+
+    **Note:** This is a quantized version of the original model, not the original Qwen3-Embedding-0.6B.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Qwen3-Embedding-0.6B-Q4_K_M-imat.gguf
+    name: Qwen3-Embedding-0.6B-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/PeterAM4/Qwen3-Embedding-0.6B-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Qwen3-Embedding-0.6B-Q4_K_M-imat.gguf
+      sha256: 4d0f2e6e4132e96a0a0eac04cebfd11ff08cee89d3128aba6b276ae06f808c30
+      uri: https://huggingface.co/PeterAM4/Qwen3-Embedding-0.6B-GGUF/resolve/main/Qwen3-Embedding-0.6B-Q4_K_M-imat.gguf
 - name: "ace-step-turbo"
   license: mit
   tags:
