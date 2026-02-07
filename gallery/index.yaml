@@ -1,4 +1,44 @@
 ---
+- name: "qwen3-vl-30b-a3b-instruct-heretic-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Qwen3-VL-30B-A3B-Instruct-Heretic-i1-GGUF
+  description: |
+    **Model Name:** Qwen3-VL-30B-A3B-Instruct-Heretic
+    **Base Model:** catplusplus/Qwen3-VL-30B-A3B-Instruct-Heretic
+    **Purpose:** A vision-language model designed for tasks requiring both visual understanding (e.g., image captioning, object detection) and instruction-following (e.g., dialogue, reasoning).
+
+    **Key Features:**
+      - **Quantized Version:** This model is quantized (i1-Q4_K_M) for efficient deployment, with the original base model (catplusplus) used as the foundation.
+      - **Tags:** Uncensored, heretic, not-for-all-audiences (indicating restricted use cases).
+      - **Capabilities:** Supports vision processing (e.g., mmproj files in the static repo) and instruction-following tasks.
+
+    **Download Options:**
+      - **GGUF Files:** Available in optimized quantization (i1-Q4_K_M) for balance of speed, size, and quality.
+      - **Static Repo:** For mmproj files (e.g., Qwen3-VL-30B-A3B-Instruct-Heretic.i1-Q4_K_M.gguf).
+
+    **Use Case:** Ideal for applications requiring efficient, vision-enabled language models with restricted accessibility.
+
+    *Note:* This model is not intended for general-purpose use and may require specific licensing or context-aware deployment.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Qwen3-VL-30B-A3B-Instruct-Heretic.i1-Q4_K_M.gguf
+    name: Qwen3-VL-30B-A3B-Instruct-Heretic-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Qwen3-VL-30B-A3B-Instruct-Heretic-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Qwen3-VL-30B-A3B-Instruct-Heretic.i1-Q4_K_M.gguf
+      sha256: 68ff1bf2d95a10d8d38ec8304cbda8715c97e139eb79c15ba3cfceaf79eabccb
+      uri: https://huggingface.co/mradermacher/Qwen3-VL-30B-A3B-Instruct-Heretic-i1-GGUF/resolve/main/Qwen3-VL-30B-A3B-Instruct-Heretic.i1-Q4_K_M.gguf
 - name: "ace-step-turbo"
   license: mit
   tags:
