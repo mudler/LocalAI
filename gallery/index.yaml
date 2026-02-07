@@ -1,4 +1,41 @@
 ---
+- name: "aba3.1-14b-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Aba3.1-14B-i1-GGUF
+  description: |
+    The **Aba3.1-14B** model is a large language model (LLM) with 14 billion parameters, designed for tasks like text generation, reasoning, and language understanding. It is based on the original model hosted at [Aguf/Aba3.1-14B](https://huggingface.co/Aguf/Aba3.1-14B).
+
+    **Key Features:**
+      - **Size:** 14B parameters
+      - **Purpose:** General-purpose language modeling
+      - **License:** Apache-2.0 (open-source)
+      - **Quantized Versions:** Available in multiple formats (e.g., `i1-Q2_K`, `i1-IQ3_XXS`, `i1-Q4_K_S`) for efficient deployment.
+
+    **Usage:**
+      - Compatible with GGUF format for model loading.
+      - Supports multi-part file concatenation via [TheBloke’s README](https://huggingface.co/TheBloke/KafkaLM-70B-German-V0.1-GGUF).
+
+    **Note:** The model is quantized by [mradermacher](https://github.com/mradermacher), but the base model (Aguf/Aba3.1-14B) is the original implementation.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Aba3.1-14B.i1-Q4_K_M.gguf
+    name: Aba3.1-14B-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Aba3.1-14B-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Aba3.1-14B.i1-Q4_K_M.gguf
+      sha256: 376c8ad76d4b9732acf8dbb0d8394191d95417343d8251e161c5ea7ebdce6294
+      uri: https://huggingface.co/mradermacher/Aba3.1-14B-i1-GGUF/resolve/main/Aba3.1-14B.i1-Q4_K_M.gguf
 - name: "ace-step-turbo"
   license: mit
   tags:
