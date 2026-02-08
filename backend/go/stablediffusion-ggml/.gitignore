@@ -2,5 +2,5 @@ package/
 sources/
 .cache/
 build/
-libgosd.so
+*.so
 stablediffusion-ggml
