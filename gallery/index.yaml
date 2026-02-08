@@ -1,4 +1,40 @@
 ---
+- name: "qwen3-vl-30b-a3b-thinking-heretic-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Qwen3-VL-30B-A3B-Thinking-Heretic-i1-GGUF
+  description: |
+    The **Qwen3-VL-30B-A3B-Thinking-Heretic-i1-GGUF** is a vision-language model optimized for tasks like image captioning, reasoning, and multi-modal understanding. It is a quantized version of the base model **catplusplus/Qwen3-VL-30B-A3B-Thinking-Heretic**, with tags including **heretic**, **uncensored**, and **not-for-all-audiences**.
+
+    Key features:
+      - **Vision support**: Designed for image-based tasks, with mmproj files available in the static repository.
+      - **Quantized variants**: Offers multiple compressed versions (e.g., Q4_K_M, i1-Q4_K_M) for trade-offs between quality, speed, and size.
+      - **Usage**: Requires GGUF format, with instructions for combining multi-part files.
+
+    Best recommended quantized versions:
+      - **i1-Q4_K_M** (fast, recommended for most use cases).
+      - **i1-Q6_K** (practically equivalent to static Q6_K).
+
+    For detailed specs, refer to the [model page](https://hf.tst.eu/model#Qwen3-VL-30B-A3B-Thinking-Heretic-i1-GGUF).
+  overrides:
+    parameters:
+      model: llama-cpp/models/Qwen3-VL-30B-A3B-Thinking-Heretic.i1-Q4_K_M.gguf
+    name: Qwen3-VL-30B-A3B-Thinking-Heretic-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Qwen3-VL-30B-A3B-Thinking-Heretic-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Qwen3-VL-30B-A3B-Thinking-Heretic.i1-Q4_K_M.gguf
+      sha256: e79d79f6e9d9670a9725c3c41d478a29dec9691e617f95c8e6ff0c2e0bc53f50
+      uri: https://huggingface.co/mradermacher/Qwen3-VL-30B-A3B-Thinking-Heretic-i1-GGUF/resolve/main/Qwen3-VL-30B-A3B-Thinking-Heretic.i1-Q4_K_M.gguf
 - name: "ace-step-turbo"
   license: mit
   tags:
