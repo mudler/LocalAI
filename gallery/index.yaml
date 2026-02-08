@@ -1,4 +1,29 @@
 ---
+- name: "kilma-v1-base"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/kilma-v1-base-GGUF
+  description: |
+    The model `kilma-v1-base-GGUF` is a large language model optimized for efficiency, with quantized parameters (e.g., Q4_K_S, Q2_K) to reduce memory usage and computation. It is based on the original model from the Hugging Face repository, though the provided README only shows quantization details. For a precise description, refer to the original model's README in the Hugging Face repository.
+  overrides:
+    parameters:
+      model: llama-cpp/models/kilma-v1-base.Q4_K_M.gguf
+    name: kilma-v1-base-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/kilma-v1-base-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/kilma-v1-base.Q4_K_M.gguf
+      sha256: 2b9b748b1aaa311e2cdf397a77c34c0ad1e9f823aa912a1a8736ce2ed425d18d
+      uri: https://huggingface.co/mradermacher/kilma-v1-base-GGUF/resolve/main/kilma-v1-base.Q4_K_M.gguf
 - name: "ace-step-turbo"
   license: mit
   tags:
