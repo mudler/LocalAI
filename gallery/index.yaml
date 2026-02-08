@@ -1,4 +1,29 @@
 ---
+- name: "llama-3.3-8b-casimir-v0.1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Llama-3.3-8B-Casimir-v0.1-GGUF
+  description: |
+    The model is a quantized version of the LLaMA-3.3-8B, optimized for efficiency with specific quantization methods (e.g., Q4_K_S, Q2_K). It's stored as a GGUF file and is not the original model by its author. For the full original model description, refer to the Hugging Face repository's README.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Llama-3.3-8B-Casimir-v0.1.Q4_K_M.gguf
+    name: Llama-3.3-8B-Casimir-v0.1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Llama-3.3-8B-Casimir-v0.1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Llama-3.3-8B-Casimir-v0.1.Q4_K_M.gguf
+      sha256: 6850da46133379e014afd0608c5aa55e1d8d7c37879c9874d67a13902b456c4f
+      uri: https://huggingface.co/mradermacher/Llama-3.3-8B-Casimir-v0.1-GGUF/resolve/main/Llama-3.3-8B-Casimir-v0.1.Q4_K_M.gguf
 - name: "ace-step-turbo"
   license: mit
   tags:
