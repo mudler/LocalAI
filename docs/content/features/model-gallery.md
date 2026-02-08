@@ -14,7 +14,7 @@ LocalAI to ease out installations of models provide a way to preload models on s
 
 
 {{% notice note %}}
-The models in this gallery are not directly maintained by LocalAI. If you find a model that is not working, please open an issue on the model gallery repository.
+The models in this gallery are not directly maintained by LocalAI. If you find a model that is not working, please open an issue on the [main LocalAI repository](https://github.com/mudler/LocalAI/issues).
  {{% /notice %}}
 
 {{% notice note %}}
