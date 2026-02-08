@@ -62,8 +62,8 @@
       - use_jinja:true
   files:
     - filename: llama-cpp/models/Qwen3-Coder-Next-MXFP4_MOE.gguf
-      sha256: fa356439e87010163778b7eab5f2b07e0e5b7f2cd9aac78b069139f5ae069414
       uri: https://huggingface.co/noctrex/Qwen3-Coder-Next-MXFP4_MOE-GGUF/resolve/main/Qwen3-Coder-Next-MXFP4_MOE.gguf
+      sha256: 7c3c1622bb2954cf304dc917a382ee7437f433f703fc28330e632c34ab4bbfdf
 - name: "deepseek-ai.deepseek-v3.2"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
@@ -267,6 +267,18 @@
       voice: Aiden # Available speakers: Vivian, Serena, Uncle_Fu, Dylan, Eric, Ryan, Aiden, Ono_Anna, Sohee
     parameters:
       model: Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice
+- !!merge <<: *qwen-tts
+  urls:
+    - https://huggingface.co/Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice
+  name: "qwen3-tts-0.6b-custom-voice"
+  overrides:
+    backend: qwen-tts
+    known_usecases:
+      - tts
+    tts:
+      voice: Aiden # Available speakers: Vivian, Serena, Uncle_Fu, Dylan, Eric, Ryan, Aiden, Ono_Anna, Sohee
+    parameters:
+      model: Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice
 - &qwen-asr
   urls:
     - https://huggingface.co/Qwen/Qwen3-ASR-1.7B
@@ -1391,7 +1403,7 @@
     - filename: mmproj-OpenGVLab_InternVL3_5-2B-f16.gguf
       sha256: e83ba6e675b747f7801557dc24594f43c17a7850b6129d4972d55e3e9b010359
       uri: huggingface://bartowski/OpenGVLab_InternVL3_5-8B-GGUF/mmproj-OpenGVLab_InternVL3_5-2B-f16.gguf
-- &lfm2
+- &lfm2vl
   url: "github:mudler/LocalAI/gallery/lfm.yaml@master"
   name: "lfm2-vl-450m"
   license: lfm1.0
@@ -1424,7 +1436,7 @@
     - filename: mmproj-LFM2-VL-450M-F16.gguf
       sha256: 416a085c5c7ba0f8d02bb8326c719a6f8f2210c2641c6bf64194a57c11c76e59
       uri: huggingface://LiquidAI/LFM2-VL-450M-GGUF/mmproj-LFM2-VL-450M-F16.gguf
-- !!merge <<: *lfm2
+- !!merge <<: *lfm2vl
   name: "lfm2-vl-1.6b"
   urls:
     - https://huggingface.co/LiquidAI/LFM2-VL-1.6B
@@ -1440,7 +1452,7 @@
     - filename: mmproj-LFM2-VL-1.6B-F16.gguf
       sha256: b637bfa6060be2bc7503ec23ba48b407843d08c2ca83f52be206ea8563ccbae2
       uri: huggingface://LiquidAI/LFM2-VL-1.6B-GGUF/mmproj-LFM2-VL-1.6B-F16.gguf
-- !!merge <<: *lfm2
+- &lfm2
   name: "lfm2-1.2b"
   urls:
     - https://huggingface.co/LiquidAI/LFM2-1.2B

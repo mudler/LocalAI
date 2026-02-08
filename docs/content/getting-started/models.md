@@ -133,10 +133,14 @@ local-ai run oci://localai/phi-2:latest
 
 To run models via URI, specify a URI to a model file or a configuration file when starting LocalAI. Valid syntax includes:
 
-- `file://path/to/model`
+- `file://path/to/model` (absolute path to a file within your models directory)
 - `huggingface://repository_id/model_file` (e.g., `huggingface://TheBloke/phi-2-GGUF/phi-2.Q8_0.gguf`)
 - From OCIs: `oci://container_image:tag`, `ollama://model_id:tag`
 - From configuration files: `https://gist.githubusercontent.com/.../phi-2.yaml`
+
+{{% notice note %}}
+When using `file://` URLs, the path must point to a file within your models directory (specified by `MODELS_PATH`). Files outside this directory are rejected for security reasons.
+{{% /notice %}}
 
 Configuration files can be used to customize the model defaults and settings. For advanced configurations, refer to the [Customize Models section]({{% relref "getting-started/customize-model" %}}).
 

@@ -1,18 +1,18 @@
-.PHONY: qwen-asr
-qwen-asr:
+.PHONY: nemo-asr
+nemo-asr:
 	bash install.sh
 
 .PHONY: run
-run: qwen-asr
-	@echo "Running qwen-asr..."
+run: nemo-asr
+	@echo "Running nemo-asr..."
 	bash run.sh
-	@echo "qwen-asr run."
+	@echo "nemo-asr run."
 
 .PHONY: test
-test: qwen-asr
-	@echo "Testing qwen-asr..."
+test: nemo-asr
+	@echo "Testing nemo-asr..."
 	bash test.sh
-	@echo "qwen-asr tested."
+	@echo "nemo-asr tested."
 
 .PHONY: protogen-clean
 protogen-clean:

@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   notify-discord:
-    if: ${{ (github.event.pull_request.merged == true) && (contains(github.event.pull_request.labels.*.name, 'area/ai-model')) }}
+    if: github.repository == 'mudler/LocalAI' && (github.event.pull_request.merged == true) && (contains(github.event.pull_request.labels.*.name, 'area/ai-model'))
     env:
         MODEL_NAME: gemma-3-12b-it-qat
     runs-on: ubuntu-latest
@@ -90,7 +90,7 @@ jobs:
         connect-timeout-seconds: 180
         limit-access-to-actor: true
   notify-twitter:
-    if: ${{ (github.event.pull_request.merged == true) && (contains(github.event.pull_request.labels.*.name, 'area/ai-model')) }}
+    if: github.repository == 'mudler/LocalAI' && (github.event.pull_request.merged == true) && (contains(github.event.pull_request.labels.*.name, 'area/ai-model'))
     env:
         MODEL_NAME: gemma-3-12b-it-qat
     runs-on: ubuntu-latest

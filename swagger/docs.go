@@ -2136,6 +2136,7 @@ const docTemplate = `{
                     "type": "number"
                 },
                 "instrumental": {
+                    "description": "Simple mode: use text as description; optional instrumental / vocal_language",
                     "type": "boolean"
                 },
                 "keyscale": {
@@ -2157,6 +2158,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "think": {
+                    "description": "Advanced mode",
                     "type": "boolean"
                 },
                 "timesignature": {

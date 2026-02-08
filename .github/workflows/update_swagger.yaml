@@ -5,6 +5,7 @@ on:
   workflow_dispatch:
 jobs:
   swagger:
+    if: github.repository == 'mudler/LocalAI'
     strategy:
       fail-fast: false
     runs-on: ubuntu-latest
