@@ -1,4 +1,33 @@
 ---
+- name: "qwen3-vl-30b-a3b-thinking-heretic"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Qwen3-VL-30B-A3B-Thinking-Heretic-GGUF
+  description: |
+    The model is a large language model (LLM) based on the Qwen3 series, optimized for vision-language tasks. It is quantized with various formats (e.g., Q4_K_S, Q2_K) and stored in the GGUF format. The model incorporates thinking capabilities and is designed for tasks requiring both text generation and visual understanding. It is not the original author's model but a tailored variant for specific use cases.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Qwen3-VL-30B-A3B-Thinking-Heretic.Q4_K_M.gguf
+    name: Qwen3-VL-30B-A3B-Thinking-Heretic-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    mmproj: llama-cpp/mmproj/Qwen3-VL-30B-A3B-Thinking-Heretic.mmproj-f16.gguf
+    description: Imported from https://huggingface.co/mradermacher/Qwen3-VL-30B-A3B-Thinking-Heretic-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Qwen3-VL-30B-A3B-Thinking-Heretic.Q4_K_M.gguf
+      sha256: 6ea1e5ea92882f0c9e01e7b6fb5492f646213d645efbcfba51980acc003b3b21
+      uri: https://huggingface.co/mradermacher/Qwen3-VL-30B-A3B-Thinking-Heretic-GGUF/resolve/main/Qwen3-VL-30B-A3B-Thinking-Heretic.Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/Qwen3-VL-30B-A3B-Thinking-Heretic.mmproj-f16.gguf
+      sha256: ec084a8c57a54de1808a5f1872cfe968bc61bc5f309fbbcf637dbde416966b21
+      uri: https://huggingface.co/mradermacher/Qwen3-VL-30B-A3B-Thinking-Heretic-GGUF/resolve/main/Qwen3-VL-30B-A3B-Thinking-Heretic.mmproj-f16.gguf
 - name: "ace-step-turbo"
   license: mit
   tags:
