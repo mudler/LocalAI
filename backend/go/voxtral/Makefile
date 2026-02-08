@@ -45,13 +45,11 @@ else
 	CMAKE_ARGS+=-DUSE_OPENBLAS=ON
 endif
 
-# Only build CPU variants on Linux; on Darwin build a single dylib
-ifeq ($(UNAME_S),Linux)
-VARIANT_TARGETS = libgovoxtral-avx.so libgovoxtral-avx2.so libgovoxtral-fallback.so
-else ifeq ($(UNAME_S),Darwin)
-VARIANT_TARGETS = libgovoxtral-fallback.dylib
+# Single library target
+ifeq ($(UNAME_S),Darwin)
+VARIANT_TARGETS = libgovoxtral.dylib
 else
-VARIANT_TARGETS = libgovoxtral-fallback.so
+VARIANT_TARGETS = libgovoxtral.so
 endif
 
 sources/voxtral.c:
@@ -72,38 +70,23 @@ package: voxtral
 build: package
 
 clean: purge
-	rm -rf libgovoxtral*.so libgovoxtral*.dylib package sources/voxtral.c voxtral
+	rm -rf libgovoxtral.so libgovoxtral.dylib package sources/voxtral.c voxtral
 
 purge:
 	rm -rf build*
 
-# Build all variants (Linux only)
-ifeq ($(UNAME_S),Linux)
-libgovoxtral-avx.so: sources/voxtral.c
-	$(MAKE) purge
-	$(info Building voxtral: avx)
-	SO_TARGET=libgovoxtral-avx.so CMAKE_ARGS="$(CMAKE_ARGS) -DCMAKE_C_FLAGS='-mavx -mno-avx2 -mno-avx512f -mno-fma -mno-f16c'" $(MAKE) libgovoxtral-custom
-	rm -rfv build*
-
-libgovoxtral-avx2.so: sources/voxtral.c
-	$(MAKE) purge
-	$(info Building voxtral: avx2)
-	SO_TARGET=libgovoxtral-avx2.so CMAKE_ARGS="$(CMAKE_ARGS) -DCMAKE_C_FLAGS='-mavx -mavx2 -mfma -mf16c'" $(MAKE) libgovoxtral-custom
-	rm -rfv build*
-endif
-
-# Build fallback variant
+# Build single library
 ifeq ($(UNAME_S),Darwin)
-libgovoxtral-fallback.dylib: sources/voxtral.c
+libgovoxtral.dylib: sources/voxtral.c
 	$(MAKE) purge
-	$(info Building voxtral: darwin fallback)
-	SO_TARGET=libgovoxtral-fallback.dylib NATIVE=true $(MAKE) libgovoxtral-custom
+	$(info Building voxtral: darwin)
+	SO_TARGET=libgovoxtral.dylib NATIVE=true $(MAKE) libgovoxtral-custom
 	rm -rfv build*
 else
-libgovoxtral-fallback.so: sources/voxtral.c
+libgovoxtral.so: sources/voxtral.c
 	$(MAKE) purge
-	$(info Building voxtral: fallback)
-	SO_TARGET=libgovoxtral-fallback.so CMAKE_ARGS="$(CMAKE_ARGS) -DCMAKE_C_FLAGS='-mno-avx -mno-avx2 -mno-avx512f -mno-fma -mno-f16c'" $(MAKE) libgovoxtral-custom
+	$(info Building voxtral)
+	SO_TARGET=libgovoxtral.so $(MAKE) libgovoxtral-custom
 	rm -rfv build*
 endif
 

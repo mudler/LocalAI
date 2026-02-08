@@ -24,9 +24,9 @@ func main() {
 	libName := os.Getenv("VOXTRAL_LIBRARY")
 	if libName == "" {
 		if runtime.GOOS == "darwin" {
-			libName = "./libgovoxtral-fallback.dylib"
+			libName = "./libgovoxtral.dylib"
 		} else {
-			libName = "./libgovoxtral-fallback.so"
+			libName = "./libgovoxtral.so"
 		}
 	}
 
