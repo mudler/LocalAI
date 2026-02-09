@@ -165,7 +165,7 @@ func InstallBackend(ctx context.Context, systemState *system.SystemState, modelL
 		}
 	} else {
 		xlog.Debug("Downloading backend", "uri", config.URI, "backendPath", backendPath)
-		if err := uri.DownloadFileWithContext(ctx, backendPath, "", 1, 1, downloadStatus); err != nil {
+		if err := uri.DownloadFileWithContext(ctx, backendPath, config.SHA256, 1, 1, downloadStatus); err != nil {
 			success := false
 			// Try to download from mirrors
 			for _, mirror := range config.Mirrors {
@@ -175,7 +175,7 @@ func InstallBackend(ctx context.Context, systemState *system.SystemState, modelL
 					return ctx.Err()
 				default:
 				}
-				if err := downloader.URI(mirror).DownloadFileWithContext(ctx, backendPath, "", 1, 1, downloadStatus); err == nil {
+				if err := downloader.URI(mirror).DownloadFileWithContext(ctx, backendPath, config.SHA256, 1, 1, downloadStatus); err == nil {
 					success = true
 					xlog.Debug("Downloaded backend", "uri", config.URI, "backendPath", backendPath)
 					break
