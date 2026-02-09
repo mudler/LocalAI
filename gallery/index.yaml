@@ -1,4 +1,29 @@
 ---
+- name: "t2sql"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/chatpig/t2sql-gguf
+  description: |
+    The `t2sql-gguf` model is a T2SQL (Text-to-SQL) implementation optimized for GGUF format. It enables users to drag and drop CSV files into a frontend (via `text2sql`) to ask questions, supporting multiple CSV files. The model requires activation with `ggc e4` and is designed for efficient querying of structured data. It integrates with the `text2sql` framework and is licensed under Apache-2.0.
+  overrides:
+    parameters:
+      model: llama-cpp/models/t2sql-596m-q4_k_m.gguf
+    name: t2sql-gguf
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/chatpig/t2sql-gguf
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/t2sql-596m-q4_k_m.gguf
+      sha256: 96640d97eceaa9aa99af35bfe9a3847f2e16e5e030abe94f6693acd92375af67
+      uri: https://huggingface.co/chatpig/t2sql-gguf/resolve/main/t2sql-596m-q4_k_m.gguf
 - name: "ace-step-turbo"
   license: mit
   tags:
