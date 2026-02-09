@@ -1,4 +1,37 @@
 ---
+- name: "qwen3-vl-32b-heretic-v1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Qwen3-VL-32B-Heretic-v1-GGUF
+  description: |
+    The model **Qwen3-VL-32B-Heretic-v1-GGUF** is a quantized version of the base model **rpDungeon/Qwen3-VL-32B-Heretic-v1**, optimized for efficient deployment. It is a GGUF file containing multiple quantized versions (e.g., Q2_K, Q4_K_S, Q6_K, Q8_0) with varying precision and sizes:
+
+      - **Best Quality**: Q8_0 (34.9 GB, fastest and highest quality)
+      - **Recommended**: Q4_K_S (18.9 GB, balanced speed and quality)
+      - **Lower Quality**: Q6_K (27.0 GB, good for general use)
+
+    The model is designed for efficient inference, with options for trade-offs between speed and precision. For detailed usage instructions, refer to [TheBloke's README](https://huggingface.co/TheBloke/KafkaLM-70B-German-V0.1-GGUF).
+
+    This version is not the original model by the author but a quantized version created by the repository owner.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Qwen3-VL-32B-Heretic-v1.Q4_K_M.gguf
+    name: Qwen3-VL-32B-Heretic-v1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Qwen3-VL-32B-Heretic-v1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Qwen3-VL-32B-Heretic-v1.Q4_K_M.gguf
+      sha256: 67cedf831604c831016796c8b0c4b2ec238f77c47f8440206dc566f9c535d74d
+      uri: https://huggingface.co/mradermacher/Qwen3-VL-32B-Heretic-v1-GGUF/resolve/main/Qwen3-VL-32B-Heretic-v1.Q4_K_M.gguf
 - name: "ace-step-turbo"
   license: mit
   tags:
