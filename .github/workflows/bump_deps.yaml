@@ -30,6 +30,10 @@ jobs:
             variable: "PIPER_VERSION"
             branch: "master"
             file: "backend/go/piper/Makefile"
+          - repository: "antirez/voxtral.c"
+            variable: "VOXTRAL_VERSION"
+            branch: "main"
+            file: "backend/go/voxtral/Makefile"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6

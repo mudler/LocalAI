@@ -1674,6 +1674,20 @@ jobs:
             dockerfile: "./backend/Dockerfile.golang"
             context: "./"
             ubuntu-version: '2404'
+          # voxtral
+          - build-type: ''
+            cuda-major-version: ""
+            cuda-minor-version: ""
+            platforms: 'linux/amd64,linux/arm64'
+            tag-latest: 'auto'
+            tag-suffix: '-cpu-voxtral'
+            runs-on: 'ubuntu-latest'
+            base-image: "ubuntu:24.04"
+            skip-drivers: 'false'
+            backend: "voxtral"
+            dockerfile: "./backend/Dockerfile.golang"
+            context: "./"
+            ubuntu-version: '2404'
           #silero-vad
           - build-type: ''
             cuda-major-version: ""
@@ -1943,6 +1957,10 @@ jobs:
             lang: "go"
           - backend: "whisper"
             tag-suffix: "-metal-darwin-arm64-whisper"
+            build-type: "metal"
+            lang: "go"
+          - backend: "voxtral"
+            tag-suffix: "-metal-darwin-arm64-voxtral"
             build-type: "metal"
             lang: "go"
           - backend: "vibevoice"

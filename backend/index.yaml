@@ -56,6 +56,21 @@
     nvidia-cuda-12: "cuda12-whisper"
     nvidia-l4t-cuda-12: "nvidia-l4t-arm64-whisper"
     nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-whisper"
+- &voxtral
+  name: "voxtral"
+  alias: "voxtral"
+  license: mit
+  description: |
+    Voxtral Realtime 4B Pure C speech-to-text inference engine
+  urls:
+    - https://github.com/mudler/voxtral.c
+  tags:
+    - audio-transcription
+    - CPU
+    - Metal
+  capabilities:
+    default: "cpu-voxtral"
+    metal-darwin-arm64: "metal-voxtral"
 - &stablediffusionggml
   name: "stablediffusion-ggml"
   alias: "stablediffusion-ggml"
@@ -2594,3 +2609,24 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-pocket-tts"
   mirrors:
     - localai/localai-backends:master-metal-darwin-arm64-pocket-tts
+## voxtral
+- !!merge <<: *voxtral
+  name: "cpu-voxtral"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-voxtral"
+  mirrors:
+    - localai/localai-backends:latest-cpu-voxtral
+- !!merge <<: *voxtral
+  name: "cpu-voxtral-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-cpu-voxtral"
+  mirrors:
+    - localai/localai-backends:master-cpu-voxtral
+- !!merge <<: *voxtral
+  name: "metal-voxtral"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-metal-darwin-arm64-voxtral"
+  mirrors:
+    - localai/localai-backends:latest-metal-darwin-arm64-voxtral
+- !!merge <<: *voxtral
+  name: "metal-voxtral-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-voxtral"
+  mirrors:
+    - localai/localai-backends:master-metal-darwin-arm64-voxtral
