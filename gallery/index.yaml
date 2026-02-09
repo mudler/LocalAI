@@ -1,4 +1,29 @@
 ---
+- name: "eubiota-planner-8b-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/eubiota-planner-8b-i1-GGUF
+  description: |
+    The **Eubiota/eubiota-planner-8b** is a large language model (8B parameters) designed for scientific reasoning, multi-agent systems, and medical QA. It supports tasks like microbiome analysis, tool-use, and reinforcement learning. The model is quantized into various formats (e.g., IQ1_S, IQ1_M, i1-IQ2_S) for efficiency, with the highest-quality version being `i1-Q4_K_M` (5.1 GB). It is optimized for GGUF format and can be used for tasks requiring efficient inference. Key features include support for biomedical datasets, multi-agent collaboration, and scientific reasoning. Download options are available via the [model page](https://hf.tst.eu/model#eubiota-planner-8b-i1-GGUF).
+  overrides:
+    parameters:
+      model: llama-cpp/models/eubiota-planner-8b.i1-Q4_K_M.gguf
+    name: eubiota-planner-8b-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/eubiota-planner-8b-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/eubiota-planner-8b.i1-Q4_K_M.gguf
+      sha256: 47dbe7c2bdde5d3f0dd937282f93cb5f019f473957f92ee70d428b929e09da22
+      uri: https://huggingface.co/mradermacher/eubiota-planner-8b-i1-GGUF/resolve/main/eubiota-planner-8b.i1-Q4_K_M.gguf
 - name: "ace-step-turbo"
   license: mit
   tags:
