@@ -12398,6 +12398,311 @@
     - filename: llama-cpp/mmproj/mmproj-mistral-community_pixtral-12b-f16.gguf
       sha256: a0b21e5a3b0f9b0b604385c45bb841142e7a5ac7660fa6a397dbc87c66b2083e
       uri: huggingface://bartowski/mistral-community_pixtral-12b-GGUF/mmproj-mistral-community_pixtral-12b-f16.gguf
+- !!merge <<: *mistral03
+  name: "mistralai_ministral-3-14b-instruct-2512-multimodal"
+  urls:
+    - https://huggingface.co/mistralai/Ministral-3-14B-Instruct-2512
+    - https://huggingface.co/unsloth/Ministral-3-14B-Instruct-2512-GGUF
+  description: |
+    The largest model in the Ministral 3 family, Ministral 3 14B offers frontier capabilities and performance comparable to its larger Mistral Small 3.2 24B counterpart. A powerful and efficient language model with vision capabilities.
+
+    The Ministral 3 family is designed for edge deployment, capable of running on a wide range of hardware. Ministral 3 14B can even be deployed locally, capable of fitting in 24GB of VRAM in FP8, and less if further quantized.
+
+    Key Features:
+    Ministral 3 14B consists of two main architectural components:
+
+        - 13.5B Language Model
+        - 0.4B Vision Encoder
+
+    The Ministral 3 14B Instruct model offers the following capabilities:
+
+        - Vision: Enables the model to analyze images and provide insights based on visual content, in addition to text.
+        - Multilingual: Supports dozens of languages, including English, French, Spanish, German, Italian, Portuguese, Dutch, Chinese, Japanese, Korean, Arabic.
+        - System Prompt: Maintains strong adherence and support for system prompts.
+        - Agentic: Offers best-in-class agentic capabilities with native function calling and JSON outputting.
+        - Edge-Optimized: Delivers best-in-class performance at a small scale, deployable anywhere.
+        - Apache 2.0 License: Open-source license allowing usage and modification for both commercial and non-commercial purposes.
+        - Large Context Window: Supports a 256k context window.
+
+    This gallery entry includes mmproj for multimodality and uses Unsloth recommended defaults.
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - mistral
+    - cpu
+    - function-calling
+    - multimodal
+  overrides:
+    context_size: 16384
+    parameters:
+      model: llama-cpp/models/mistralai_Ministral-3-14B-Instruct-2512-Q4_K_M.gguf
+      temperature: 0.15
+    mmproj: llama-cpp/mmproj/mmproj-mistralai_Ministral-3-14B-Instruct-2512-f32.gguf
+  files:
+    - filename: llama-cpp/models/mistralai_Ministral-3-14B-Instruct-2512-Q4_K_M.gguf
+      sha256: 76ce697c065f2e40f1e8e958118b02cab38e2c10a6015f7d7908036a292dc8c8
+      uri: huggingface://unsloth/Ministral-3-14B-Instruct-2512-GGUF/Ministral-3-14B-Instruct-2512-Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/mmproj-mistralai_Ministral-3-14B-Instruct-2512-f32.gguf
+      sha256: 2740ba9e9b30b09be4282a9a9f617ec43dc47b89aed416cb09b5f698f90783b5
+      uri: huggingface://unsloth/Ministral-3-14B-Instruct-2512-GGUF/mmproj-F32.gguf
+- !!merge <<: *mistral03
+  name: "mistralai_ministral-3-14b-reasoning-2512-multimodal"
+  urls:
+    - https://huggingface.co/mistralai/Ministral-3-14B-Reasoning-2512
+    - https://huggingface.co/unsloth/Ministral-3-14B-Reasoning-2512-GGUF
+  description: |
+    The largest model in the Ministral 3 family, Ministral 3 14B offers frontier capabilities and performance comparable to its larger Mistral Small 3.2 24B counterpart. A powerful and efficient language model with vision capabilities.
+
+    This model is the reasoning post-trained version, trained for reasoning tasks, making it ideal for math, coding and stem related use cases.
+
+    The Ministral 3 family is designed for edge deployment, capable of running on a wide range of hardware. Ministral 3 14B can even be deployed locally, capable of fitting in 32GB of VRAM in BF16, and less than 24GB of RAM/VRAM when quantized.
+
+    Key Features:
+    Ministral 3 14B consists of two main architectural components:
+
+
+        - 13.5B Language Model
+        - 0.4B Vision Encoder
+
+    The Ministral 3 14B Reasoning model offers the following capabilities:
+
+
+        - Vision: Enables the model to analyze images and provide insights based on visual content, in addition to text.
+        - Multilingual: Supports dozens of languages, including English, French, Spanish, German, Italian, Portuguese, Dutch, Chinese, Japanese, Korean, Arabic.
+        - System Prompt: Maintains strong adherence and support for system prompts.
+        - Agentic: Offers best-in-class agentic capabilities with native function calling and JSON outputting.
+        - Reasoning: Excels at complex, multi-step reasoning and dynamic problem-solving.
+        - Edge-Optimized: Delivers best-in-class performance at a small scale, deployable anywhere.
+        - Apache 2.0 License: Open-source license allowing usage and modification for both commercial and non-commercial purposes.
+        - Large Context Window: Supports a 256k context window.
+
+
+    This gallery entry includes mmproj for multimodality and uses Unsloth recommended defaults.
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - mistral
+    - cpu
+    - function-calling
+    - multimodal
+  overrides:
+    context_size: 32768
+    parameters:
+      model: llama-cpp/models/mistralai_Ministral-3-14B-Reasoning-2512-Q4_K_M.gguf
+      temperature: 0.7
+      top_p: 0.95
+    mmproj: llama-cpp/mmproj/mmproj-mistralai_Ministral-3-14B-Reasoning-2512-f32.gguf
+  files:
+    - filename: llama-cpp/models/mistralai_Ministral-3-14B-Reasoning-2512-Q4_K_M.gguf
+      sha256: f577390559b89ebdbfe52cc234ea334649c24e6003ffa4b6a2474c5e2a47aa17
+      uri: huggingface://unsloth/Ministral-3-14B-Reasoning-2512-GGUF/Ministral-3-14B-Reasoning-2512-Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/mmproj-mistralai_Ministral-3-14B-Reasoning-2512-f32.gguf
+      sha256: 891bf262a032968f6e5b3d4e9ffc84cf6381890033c2f5204fbdf4817af4ab9b
+      uri: huggingface://unsloth/Ministral-3-14B-Reasoning-2512-GGUF/mmproj-F32.gguf
+- !!merge <<: *mistral03
+  name: "mistralai_ministral-3-8b-instruct-2512-multimodal"
+  urls:
+    - https://huggingface.co/mistralai/Ministral-3-8B-Instruct-2512
+    - https://huggingface.co/unsloth/Ministral-3-8B-Instruct-2512-GGUF
+  description: |
+    A balanced model in the Ministral 3 family, Ministral 3 8B is a powerful, efficient tiny language model with vision capabilities.
+
+    The Ministral 3 family is designed for edge deployment, capable of running on a wide range of hardware. Ministral 3 8B can even be deployed locally, capable of fitting in 12GB of VRAM in FP8, and less if further quantized.
+
+    Key Features:
+    Ministral 3 8B consists of two main architectural components:
+
+        - 8.4B Language Model
+        - 0.4B Vision Encoder
+
+    The Ministral 3 8B Instruct model offers the following capabilities:
+
+        - Vision: Enables the model to analyze images and provide insights based on visual content, in addition to text.
+        - Multilingual: Supports dozens of languages, including English, French, Spanish, German, Italian, Portuguese, Dutch, Chinese, Japanese, Korean, Arabic.
+        - System Prompt: Maintains strong adherence and support for system prompts.
+        - Agentic: Offers best-in-class agentic capabilities with native function calling and JSON outputting.
+        - Edge-Optimized: Delivers best-in-class performance at a small scale, deployable anywhere.
+        - Apache 2.0 License: Open-source license allowing usage and modification for both commercial and non-commercial purposes.
+        - Large Context Window: Supports a 256k context window.
+
+    This gallery entry includes mmproj for multimodality and uses Unsloth recommended defaults.
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - mistral
+    - cpu
+    - function-calling
+    - multimodal
+  overrides:
+    context_size: 16384
+    parameters:
+      model: llama-cpp/models/mistralai_Ministral-3-8B-Instruct-2512-Q4_K_M.gguf
+      temperature: 0.15
+    mmproj: llama-cpp/mmproj/mmproj-mistralai_Ministral-3-8B-Instruct-2512-f32.gguf
+  files:
+    - filename: llama-cpp/models/mistralai_Ministral-3-8B-Instruct-2512-Q4_K_M.gguf
+      sha256: 5dbc3647eb563b9f8d3c70ec3d906cce84b86bb35c5e0b8a36e7df3937ab7174
+      uri: huggingface://unsloth/Ministral-3-8B-Instruct-2512-GGUF/Ministral-3-8B-Instruct-2512-Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/mmproj-mistralai_Ministral-3-8B-Instruct-2512-f32.gguf
+      sha256: 242d11ff65ef844b0aac4e28d4b1318813370608845f17b3ef5826fd7e7fd015
+      uri: huggingface://unsloth/Ministral-3-8B-Instruct-2512-GGUF/mmproj-F32.gguf
+- !!merge <<: *mistral03
+  name: "mistralai_ministral-3-8b-reasoning-2512-multimodal"
+  urls:
+    - https://huggingface.co/mistralai/Ministral-3-8B-Reasoning-2512
+    - https://huggingface.co/unsloth/Ministral-3-8B-Reasoning-2512-GGUF
+  description: |
+    A balanced model in the Ministral 3 family, Ministral 3 8B is a powerful, efficient tiny language model with vision capabilities.
+
+    This model is the reasoning post-trained version, trained for reasoning tasks, making it ideal for math, coding and stem related use cases.
+
+    The Ministral 3 family is designed for edge deployment, capable of running on a wide range of hardware. Ministral 3 8B can even be deployed locally, capable of fitting in 24GB of VRAM in BF16, and less than 12GB of RAM/VRAM when quantized.
+
+    Key Features:
+    Ministral 3 8B consists of two main architectural components:
+
+
+        - 8.4B Language Model
+        - 0.4B Vision Encoder
+
+    The Ministral 3 8B Reasoning model offers the following capabilities:
+
+
+        - Vision: Enables the model to analyze images and provide insights based on visual content, in addition to text.
+        - Multilingual: Supports dozens of languages, including English, French, Spanish, German, Italian, Portuguese, Dutch, Chinese, Japanese, Korean, Arabic.
+        - System Prompt: Maintains strong adherence and support for system prompts.
+        - Agentic: Offers best-in-class agentic capabilities with native function calling and JSON outputting.
+        - Reasoning: Excels at complex, multi-step reasoning and dynamic problem-solving.
+        - Edge-Optimized: Delivers best-in-class performance at a small scale, deployable anywhere.
+        - Apache 2.0 License: Open-source license allowing usage and modification for both commercial and non-commercial purposes.
+        - Large Context Window: Supports a 256k context window.
+
+    This gallery entry includes mmproj for multimodality and uses Unsloth recommended defaults.
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - mistral
+    - cpu
+    - function-calling
+    - multimodal
+  overrides:
+    context_size: 32768
+    parameters:
+      model: llama-cpp/models/mistralai_Ministral-3-8B-Reasoning-2512-Q4_K_M.gguf
+      temperature: 0.7
+      top_p: 0.95
+    mmproj: llama-cpp/mmproj/mmproj-mistralai_Ministral-3-8B-Reasoning-2512-f32.gguf
+  files:
+    - filename: llama-cpp/models/mistralai_Ministral-3-8B-Reasoning-2512-Q4_K_M.gguf
+      sha256: c3d1c5ab7406a0fc9d50ad2f0d15d34d5693db00bf953e8a9cd9a243b81cb1b2
+      uri: huggingface://unsloth/Ministral-3-8B-Reasoning-2512-GGUF/Ministral-3-8B-Reasoning-2512-Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/mmproj-mistralai_Ministral-3-8B-Reasoning-2512-f32.gguf
+      sha256: 92252621cb957949379ff81ee14b15887d37eade3845a6e937e571b98c2c84c2
+      uri: huggingface://unsloth/Ministral-3-8B-Reasoning-2512-GGUF/mmproj-F32.gguf
+- !!merge <<: *mistral03
+  name: "mistralai_ministral-3-3b-instruct-2512-multimodal"
+  urls:
+    - https://huggingface.co/mistralai/Ministral-3-3B-Instruct-2512
+    - https://huggingface.co/unsloth/Ministral-3-3B-Instruct-2512-GGUF
+  description: |
+    The smallest model in the Ministral 3 family, Ministral 3 3B is a powerful, efficient tiny language model with vision capabilities.
+
+    The Ministral 3 family is designed for edge deployment, capable of running on a wide range of hardware. Ministral 3 3B can even be deployed locally, capable of fitting in 8GB of VRAM in FP8, and less if further quantized.
+
+    Key Features:
+    Ministral 3 3B consists of two main architectural components:
+
+        - 3.4B Language Model
+        - 0.4B Vision Encoder
+
+    The Ministral 3 3B Instruct model offers the following capabilities:
+
+        - Vision: Enables the model to analyze images and provide insights based on visual content, in addition to text.
+        - Multilingual: Supports dozens of languages, including English, French, Spanish, German, Italian, Portuguese, Dutch, Chinese, Japanese, Korean, Arabic.
+        - System Prompt: Maintains strong adherence and support for system prompts.
+        - Agentic: Offers best-in-class agentic capabilities with native function calling and JSON outputting.
+        - Edge-Optimized: Delivers best-in-class performance at a small scale, deployable anywhere.
+        - Apache 2.0 License: Open-source license allowing usage and modification for both commercial and non-commercial purposes.
+        - Large Context Window: Supports a 256k context window.
+
+    This gallery entry includes mmproj for multimodality and uses Unsloth recommended defaults.
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - mistral
+    - cpu
+    - function-calling
+    - multimodal
+  overrides:
+    context_size: 16384
+    parameters:
+      model: llama-cpp/models/mistralai_Ministral-3-3B-Instruct-2512-Q4_K_M.gguf
+      temperature: 0.15
+    mmproj: llama-cpp/mmproj/mmproj-mistralai_Ministral-3-3B-Instruct-2512-f32.gguf
+  files:
+    - filename: llama-cpp/models/mistralai_Ministral-3-3B-Instruct-2512-Q4_K_M.gguf
+      sha256: fd46fc371ff0509bfa8657ac956b7de8534d7d9baaa4947975c0648c3aa397f4
+      uri: huggingface://unsloth/Ministral-3-3B-Instruct-2512-GGUF/Ministral-3-3B-Instruct-2512-Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/mmproj-mistralai_Ministral-3-3B-Instruct-2512-f32.gguf
+      sha256: 57bb4e6f01166985ca2fc16061be4023fcb95cb8e60f445b8d0bf1ee30268636
+      uri: huggingface://unsloth/Ministral-3-3B-Instruct-2512-GGUF/mmproj-F32.gguf
+- !!merge <<: *mistral03
+  name: "mistralai_ministral-3-3b-reasoning-2512-multimodal"
+  urls:
+    - https://huggingface.co/mistralai/Ministral-3-3B-Reasoning-2512
+    - https://huggingface.co/unsloth/Ministral-3-3B-Reasoning-2512-GGUF
+  description: |
+    The smallest model in the Ministral 3 family, Ministral 3 3B is a powerful, efficient tiny language model with vision capabilities.
+
+    This model is the reasoning post-trained version, trained for reasoning tasks, making it ideal for math, coding and stem related use cases.
+
+    The Ministral 3 family is designed for edge deployment, capable of running on a wide range of hardware. Ministral 3 3B can even be deployed locally, fitting in 16GB of VRAM in BF16, and less than 8GB of RAM/VRAM when quantized.
+
+    Key Features:
+    Ministral 3 3B consists of two main architectural components:
+
+        - 3.4B Language Model
+        - 0.4B Vision Encoder
+
+    The Ministral 3 3B Reasoning model offers the following capabilities:
+
+        - Vision: Enables the model to analyze images and provide insights based on visual content, in addition to text.
+        - Multilingual: Supports dozens of languages, including English, French, Spanish, German, Italian, Portuguese, Dutch, Chinese, Japanese, Korean, Arabic.
+        - System Prompt: Maintains strong adherence and support for system prompts.
+        - Agentic: Offers best-in-class agentic capabilities with native function calling and JSON outputting.
+        - Reasoning: Excels at complex, multi-step reasoning and dynamic problem-solving.
+        - Edge-Optimized: Delivers best-in-class performance at a small scale, deployable anywhere.
+        - Apache 2.0 License: Open-source license allowing usage and modification for both commercial and non-commercial purposes.
+        - Large Context Window: Supports a 256k context window.
+
+    This gallery entry includes mmproj for multimodality and uses Unsloth recommended defaults.
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - mistral
+    - cpu
+    - function-calling
+    - multimodal
+  overrides:
+    context_size: 32768
+    parameters:
+      model: llama-cpp/models/mistralai_Ministral-3-3B-Reasoning-2512-Q4_K_M.gguf
+      temperature: 0.7
+      top_p: 0.95
+    mmproj: llama-cpp/mmproj/mmproj-mistralai_Ministral-3-3B-Reasoning-2512-f32.gguf
+  files:
+    - filename: llama-cpp/models/mistralai_Ministral-3-3B-Reasoning-2512-Q4_K_M.gguf
+      sha256: a2648395d533b6d1408667d00e0b778f3823f3f3179ba371f89355f2e957e42e
+      uri: huggingface://unsloth/Ministral-3-3B-Reasoning-2512-GGUF/Ministral-3-3B-Reasoning-2512-Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/mmproj-mistralai_Ministral-3-3B-Reasoning-2512-f32.gguf
+      sha256: 8035a6a10dfc6250f50c62764fae3ac2ef6d693fc9252307c7093198aabba812
+      uri: huggingface://unsloth/Ministral-3-3B-Reasoning-2512-GGUF/mmproj-F32.gguf
 - &mudler
   url: "github:mudler/LocalAI/gallery/mudler.yaml@master" ### START mudler's LocalAI specific-models
   name: "LocalAI-llama3-8b-function-call-v0.2"
