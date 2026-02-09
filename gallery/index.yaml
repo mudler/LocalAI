@@ -1,4 +1,29 @@
 ---
+- name: "telelogs-32b"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Telelogs-32B-GGUF
+  description: |
+    The **Telelogs-32B** is a 32 billion parameter language model optimized for efficient inference using quantized versions (e.g., Q2_K, Q4_K_S). It leverages HuggingFace's GGUF format for deployment, with the base model hosted at [RT688/Telelogs-32B](https://huggingface.co/RT688/Telelogs-32B). Quantized variants (e.g., Q2_K, Q4_K_S) offer trade-offs between accuracy and speed, with the latter recommended for faster, lower-latency use cases. The model is designed for tasks like text generation, translation, and dialogue, and is available in multiple quantization levels for flexibility.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Telelogs-32B.Q4_K_M.gguf
+    name: Telelogs-32B-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Telelogs-32B-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Telelogs-32B.Q4_K_M.gguf
+      sha256: 42e1cb73dcc55efbcc2fb688c10299a2e850437b7a0d7fea38a07d3046112a65
+      uri: https://huggingface.co/mradermacher/Telelogs-32B-GGUF/resolve/main/Telelogs-32B.Q4_K_M.gguf
 - name: "ace-step-turbo"
   license: mit
   tags:
