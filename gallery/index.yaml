@@ -1,4 +1,37 @@
 ---
+- name: "rotten.rabbit-1b-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Rotten.Rabbit-1B-i1-GGUF
+  description: |
+    The **Rotten.Rabbit-1B-i1-GGUF** model is a 1-billion parameter language model quantized by mradermacher. It is designed for text generation and is tagged with **uncensored, abliterated, koboldai, sillytavern, 1B, rp, nsfw, roleplay, merge, and not-for-all-audiences**.
+
+    Key features:
+      - **Base model**: *UmbrellaInc/Rotten.Rabbit-1B*
+      - **Quantized versions**: Varies by quality (e.g., Q4_K_M is recommended for speed and balance).
+      - **Use cases**: Roleplay, creative writing, and specific content categories (e.g., nsfw, adult themes).
+      - **Downloads**: Available as GGUF files (e.g., Q4_K_M for optimal size/speed/quality).
+
+    For gallery use, emphasize its 1B parameter size, quantized variants, and specialized tags.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Rotten.Rabbit-1B.i1-Q4_K_M.gguf
+    name: Rotten.Rabbit-1B-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Rotten.Rabbit-1B-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Rotten.Rabbit-1B.i1-Q4_K_M.gguf
+      sha256: 31213ef4bad87913f8c2ca45131efe6487ecdd028f2cebef640056579972d59b
+      uri: https://huggingface.co/mradermacher/Rotten.Rabbit-1B-i1-GGUF/resolve/main/Rotten.Rabbit-1B.i1-Q4_K_M.gguf
 - name: "ace-step-turbo"
   license: mit
   tags:
