@@ -1,4 +1,39 @@
 ---
+- name: "openai-gpt-oss-20b-instruct-heretic-uncensored-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/OpenAI-gpt-oss-20B-INSTRUCT-Heretic-Uncensored-i1-GGUF
+  description: |
+    **Model Description:**
+    This is a quantized version of the **DavidAU/OpenAI-gpt-oss-20B-INSTRUCT-Heretic-Uncensored** model, optimized for efficiency with advanced quantization techniques. It features 20 billion parameters, designed for instruction-following tasks, and includes tags like "heretic," "uncensored," and "instruct." The quantized version offers various trade-offs between accuracy, speed, and memory usage, with the **i1-Q4_K_M** quantization (15.9GB) being the recommended option for balance between speed and quality. It supports multiple quantization levels (e.g., IQ1_M, IQ2_XXS) and is compatible with GGUF format for efficient deployment. The model is designed for tasks requiring high performance, including text generation and reasoning.
+
+    **Key Features:**
+      - 20B parameters
+      - "Heretic" and "uncensored" training
+      - Tags: `instruct`, `heretic`, `uncensored`, `abliterated`
+      - Optimal quantization: **i1-Q4_K_M** (15.9GB, fast & accurate)
+      - Supported formats: GGUF (with multiple quantization options)
+
+    This model is ideal for applications requiring high-performance language modeling with specialized constraints.
+  overrides:
+    parameters:
+      model: llama-cpp/models/OpenAI-gpt-oss-20B-INSTRUCT-Heretic-Uncensored.i1-Q4_K_M.gguf
+    name: OpenAI-gpt-oss-20B-INSTRUCT-Heretic-Uncensored-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/OpenAI-gpt-oss-20B-INSTRUCT-Heretic-Uncensored-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/OpenAI-gpt-oss-20B-INSTRUCT-Heretic-Uncensored.i1-Q4_K_M.gguf
+      sha256: 6875d076ab60611b78ccd2c4469d8fe4dfc25e57e51a02918a12f79dec12dbe0
+      uri: https://huggingface.co/mradermacher/OpenAI-gpt-oss-20B-INSTRUCT-Heretic-Uncensored-i1-GGUF/resolve/main/OpenAI-gpt-oss-20B-INSTRUCT-Heretic-Uncensored.i1-Q4_K_M.gguf
 - name: "ace-step-turbo"
   license: mit
   tags:
