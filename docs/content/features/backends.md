@@ -122,3 +122,4 @@ LocalAI supports various types of backends:
 - **Diffusion Backends**: For image generation
 - **TTS Backends**: For text-to-speech conversion
 - **Whisper Backends**: For speech-to-text conversion
+- **Sound Generation Backends**: For music and audio generation (e.g., ACE-Step)
