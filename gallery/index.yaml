@@ -1,4 +1,29 @@
 ---
+- name: "mistral-v0.1-italian-lapt-instruct"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Mistral-v0.1-Italian-LAPT-instruct-GGUF
+  description: |
+    This model is a quantized version of the Mistral-v0.1 base model, optimized for Italian language understanding and generation. It uses the GGUF format and is designed for efficient deployment. The quantization includes various precision levels (e.g., Q4_K_S, Q2_K, etc.), but the core model architecture remains based on Mistral-v0.1. The Italian version is tailored for language-specific tasks, and the GGUF format ensures efficient storage and inference.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Mistral-v0.1-Italian-LAPT-instruct.Q4_K_M.gguf
+    name: Mistral-v0.1-Italian-LAPT-instruct-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Mistral-v0.1-Italian-LAPT-instruct-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Mistral-v0.1-Italian-LAPT-instruct.Q4_K_M.gguf
+      sha256: 3d9aec505cc672546957688709f7bb210fd626d752580889d145768fdc07193a
+      uri: https://huggingface.co/mradermacher/Mistral-v0.1-Italian-LAPT-instruct-GGUF/resolve/main/Mistral-v0.1-Italian-LAPT-instruct.Q4_K_M.gguf
 - name: "ace-step-turbo"
   license: mit
   tags:
