@@ -76,42 +76,35 @@ func (lo *LoadOptions) Apply(options ...ConfigLoaderOption) {
 	}
 }
 
-// TODO: either in the next PR or the next commit, I want to merge these down into a single function that looks at the first few characters of the file to determine if we need to deserialize to []BackendConfig or BackendConfig
-func readMultipleModelConfigsFromFile(file string, opts ...ConfigLoaderOption) ([]*ModelConfig, error) {
-	c := &[]*ModelConfig{}
+// readModelConfigsFromFile reads a config file that may contain either a single
+// ModelConfig or an array of ModelConfigs. It tries to unmarshal as an array first,
+// then falls back to a single config if that fails.
+func readModelConfigsFromFile(file string, opts ...ConfigLoaderOption) ([]*ModelConfig, error) {
 	f, err := os.ReadFile(file)
 	if err != nil {
-		return nil, fmt.Errorf("readMultipleModelConfigsFromFile cannot read config file %q: %w", file, err)
-	}
-	if err := yaml.Unmarshal(f, c); err != nil {
-		return nil, fmt.Errorf("readMultipleModelConfigsFromFile cannot unmarshal config file %q: %w", file, err)
+		return nil, fmt.Errorf("readModelConfigsFromFile cannot read config file %q: %w", file, err)
 	}
 
-	for _, cc := range *c {
-		cc.modelConfigFile = file
-		cc.SetDefaults(opts...)
+	// Try to unmarshal as array first
+	var configs []*ModelConfig
+	if err := yaml.Unmarshal(f, &configs); err == nil && len(configs) > 0 {
+		for _, cc := range configs {
+			cc.modelConfigFile = file
+			cc.SetDefaults(opts...)
+		}
+		return configs, nil
 	}
 
-	return *c, nil
-}
-
-func readModelConfigFromFile(file string, opts ...ConfigLoaderOption) (*ModelConfig, error) {
-	lo := &LoadOptions{}
-	lo.Apply(opts...)
-
+	// Fall back to single config
 	c := &ModelConfig{}
-	f, err := os.ReadFile(file)
-	if err != nil {
-		return nil, fmt.Errorf("readModelConfigFromFile cannot read config file %q: %w", file, err)
-	}
 	if err := yaml.Unmarshal(f, c); err != nil {
-		return nil, fmt.Errorf("readModelConfigFromFile cannot unmarshal config file %q: %w", file, err)
+		return nil, fmt.Errorf("readModelConfigsFromFile cannot unmarshal config file %q: %w", file, err)
 	}
-
-	c.SetDefaults(opts...)
 
 	c.modelConfigFile = file
-	return c, nil
+	c.SetDefaults(opts...)
+
+	return []*ModelConfig{c}, nil
 }
 
 // Load a config file for a model
@@ -163,7 +156,7 @@ func (bcl *ModelConfigLoader) LoadModelConfigFileByNameDefaultOptions(modelName 
 func (bcl *ModelConfigLoader) LoadMultipleModelConfigsSingleFile(file string, opts ...ConfigLoaderOption) error {
 	bcl.Lock()
 	defer bcl.Unlock()
-	c, err := readMultipleModelConfigsFromFile(file, opts...)
+	c, err := readModelConfigsFromFile(file, opts...)
 	if err != nil {
 		return fmt.Errorf("cannot load config file: %w", err)
 	}
@@ -181,11 +174,18 @@ func (bcl *ModelConfigLoader) LoadMultipleModelConfigsSingleFile(file string, op
 func (bcl *ModelConfigLoader) ReadModelConfig(file string, opts ...ConfigLoaderOption) error {
 	bcl.Lock()
 	defer bcl.Unlock()
-	c, err := readModelConfigFromFile(file, opts...)
+	configs, err := readModelConfigsFromFile(file, opts...)
 	if err != nil {
 		return fmt.Errorf("ReadModelConfig cannot read config file %q: %w", file, err)
 	}
+	if len(configs) == 0 {
+		return fmt.Errorf("ReadModelConfig: no configs found in file %q", file)
+	}
+	if len(configs) > 1 {
+		xlog.Warn("ReadModelConig: read more than one config from file, only using first", "file", file, "configs", len(configs))
+	}
 
+	c := configs[0]
 	if valid, err := c.Validate(); valid {
 		bcl.configs[c.Name] = *c
 	} else {
@@ -375,15 +375,23 @@ func (bcl *ModelConfigLoader) LoadModelConfigsFromPath(path string, opts ...Conf
 			strings.HasPrefix(file.Name(), ".") {
 			continue
 		}
-		c, err := readModelConfigFromFile(filepath.Join(path, file.Name()), opts...)
+
+		filePath := filepath.Join(path, file.Name())
+
+		// Read config(s) - handles both single and array formats
+		configs, err := readModelConfigsFromFile(filePath, opts...)
 		if err != nil {
 			xlog.Error("LoadModelConfigsFromPath cannot read config file", "error", err, "File Name", file.Name())
 			continue
 		}
-		if valid, validationErr := c.Validate(); valid {
-			bcl.configs[c.Name] = *c
-		} else {
-			xlog.Error("config is not valid", "error", validationErr, "Name", c.Name)
+
+		// Validate and store each config
+		for _, c := range configs {
+			if valid, validationErr := c.Validate(); valid {
+				bcl.configs[c.Name] = *c
+			} else {
+				xlog.Error("config is not valid", "error", validationErr, "Name", c.Name)
+			}
 		}
 	}
 

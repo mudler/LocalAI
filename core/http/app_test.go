@@ -968,7 +968,7 @@ parameters:
 		It("returns the models list", func() {
 			models, err := client.ListModels(context.TODO())
 			Expect(err).ToNot(HaveOccurred())
-			Expect(len(models.Models)).To(Equal(7)) // If "config.yaml" should be included, this should be 8?
+			Expect(len(models.Models)).To(Equal(8)) // config.yaml contains 2 models (list1, list2)
 		})
 		It("can generate completions via ggml", func() {
 			if runtime.GOOS != "linux" {
