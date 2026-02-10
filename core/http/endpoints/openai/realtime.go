@@ -1009,7 +1009,16 @@ func generateResponse(session *Session, utt []byte, transcript string, conv *Con
 			sendError(c, "tts_error", fmt.Sprintf("Failed to read TTS audio: %v", err), "", item.Assistant.ID)
 			return
 		}
-		audioString := base64.StdEncoding.EncodeToString(audioBytes)
+
+		// Strip WAV header (44 bytes) to get raw PCM data
+		// The OpenAI Realtime API expects raw PCM, not WAV files
+		const wavHeaderSize = 44
+		pcmData := audioBytes
+		if len(audioBytes) > wavHeaderSize {
+			pcmData = audioBytes[wavHeaderSize:]
+		}
+
+		audioString := base64.StdEncoding.EncodeToString(pcmData)
 
 		sendEvent(c, types.ResponseOutputAudioTranscriptDeltaEvent{
 			ServerEventBase: types.ServerEventBase{},
