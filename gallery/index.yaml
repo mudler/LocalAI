@@ -1,4 +1,29 @@
 ---
+- name: "jinen-v1-bpe-small"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/togatogah/jinen-v1-bpe-small-gguf
+  description: |
+    AI model: jinen-v1-bpe-small
+  overrides:
+    parameters:
+      model: llama-cpp/models/jinen-v1-bpe-small-f16.gguf
+    name: jinen-v1-bpe-small-gguf
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/togatogah/jinen-v1-bpe-small-gguf
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/jinen-v1-bpe-small-f16.gguf
+      sha256: 8473b2df90bc5c2b449aa13da0630a3cd0949d7aef96087201341fc047cb04c1
+      uri: https://huggingface.co/togatogah/jinen-v1-bpe-small-gguf/resolve/main/jinen-v1-bpe-small-f16.gguf
 - name: "ace-step-turbo"
   license: mit
   tags:
