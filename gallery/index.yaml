@@ -1,4 +1,29 @@
 ---
+- name: "proactive-interactive-r1-math-7b-max"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Proactive-Interactive-R1-Math-7B-Max-GGUF
+  description: |
+    The model is a 7B parameter large language model (LLM) developed by Proactive Interactive, specifically tailored for math-related tasks. It is quantized for efficiency, with support for various precision levels (e.g., Q4_K_S, Q2_K, etc.). The base model (without quantization) is "Proactive-Interactive-R1-Math-7B," while the quantized version includes optimizations for deployment. It is designed for tasks requiring mathematical reasoning and precision.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Proactive-Interactive-R1-Math-7B-Max.Q4_K_M.gguf
+    name: Proactive-Interactive-R1-Math-7B-Max-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Proactive-Interactive-R1-Math-7B-Max-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Proactive-Interactive-R1-Math-7B-Max.Q4_K_M.gguf
+      sha256: ae5c9782f22a7aa5f96eeb45d53a83e7c8b03e960f547031c96280dea98ccef6
+      uri: https://huggingface.co/mradermacher/Proactive-Interactive-R1-Math-7B-Max-GGUF/resolve/main/Proactive-Interactive-R1-Math-7B-Max.Q4_K_M.gguf
 - name: "ace-step-turbo"
   license: mit
   tags:
