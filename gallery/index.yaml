@@ -13212,6 +13212,61 @@
     - filename: "phi-2-orange.Q4_0.gguf"
       sha256: "49cb710ae688e1b19b1b299087fa40765a0cd677e3afcc45e5f7ef6750975dcf"
       uri: "huggingface://TheBloke/phi-2-orange-GGUF/phi-2-orange.Q4_0.gguf"
+- url: "github:mudler/LocalAI/gallery/phi-3-chat.yaml@master"
+  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/652feb6b4e527bd115ffd6c8/YFwodyNe6LmUrzQNmrl-D.png
+  license: mit
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - cpu
+    - phi-3
+  name: "npc-llm-3-8b"
+  urls:
+    - https://huggingface.co/Gigax/NPC-LLM-3_8B
+    - https://huggingface.co/bartowski/NPC-LLM-3_8B-GGUF
+  description: |
+    NPC model fined-tuned from Phi-3, using LoRA.
+
+    This model parses a text description of a game scene, and outputs commands like:
+
+        - say <player1> "Hello Adventurer, care to join me on a quest?
+        - greet <player1>
+        - attack <player1>
+        - Any other <action> <param> you add to the prompt! (We call these "skills"!)
+
+    ⚠️ This model has been trained to overfit on specific input prompt format. Follow it closely to reach optimal performance ⚠️
+
+    Input prompt
+
+    Here's a sample input prompt, showing you the format on which the model has been trained:
+
+        - WORLD KNOWLEDGE: A vast open world full of mystery and adventure.
+        - KNOWN LOCATIONS: Old Town
+        - NPCS: John the Brave
+        - CURRENT LOCATION: Old Town: A quiet and peaceful town.
+        - CURRENT LOCATION ITEMS: Sword
+        - LAST EVENTS:
+        Aldren: Say Sword What a fine sword!
+        - PROTAGONIST NAME: Aldren
+        - PROTAGONIST PSYCHOLOGICAL PROFILE: Brave and curious
+        - PROTAGONIST MEMORIES:
+        Saved the village
+        Lost a friend
+        - PROTAGONIST PENDING QUESTS:
+        Find the ancient artifact
+        Defeat the evil warlock
+        - PROTAGONIST ALLOWED ACTIONS:
+        Attack <character> : Deliver a powerful blow
+        Aldren:
+  overrides:
+    context_size: 4096
+    parameters:
+      model: NPC-LLM-3_8B-Q4_K_M.gguf
+  files:
+    - filename: NPC-LLM-3_8B-Q4_K_M.gguf
+      uri: huggingface://bartowski/NPC-LLM-3_8B-GGUF/NPC-LLM-3_8B-Q4_K_M.gguf
+      sha256: 5fcfb314566f0ae9364fe80237f96b12678aafbb8e82f90c6aece5ed2a6b83fd
 ### Internlm2
 - name: "internlm2_5-7b-chat-1m"
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
