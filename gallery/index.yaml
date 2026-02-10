@@ -1,4 +1,29 @@
 ---
+- name: "deepprep-qwen3-14b-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/DeepPrep-Qwen3-14B-i1-GGUF
+  description: |
+    The model is a quantized version of the Qwen3-14B base model, optimized for efficient deployment using GGUF format. It is designed for tasks requiring large-scale language understanding, with reduced computational costs while maintaining performance. The quantization applies to specific layers (e.g., attention heads, linear layers), but the model retains the core capabilities of the Qwen3-14B. For a gallery-ready description, emphasize its efficiency, training size (14B parameters), and use case versatility (e.g., code generation, dialogue, reasoning).
+  overrides:
+    parameters:
+      model: llama-cpp/models/DeepPrep-Qwen3-14B.i1-Q4_K_M.gguf
+    name: DeepPrep-Qwen3-14B-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/DeepPrep-Qwen3-14B-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/DeepPrep-Qwen3-14B.i1-Q4_K_M.gguf
+      sha256: fba4279230cdc8531a4350820446949e434dc86caa79a15de226c5e5ffe94db9
+      uri: https://huggingface.co/mradermacher/DeepPrep-Qwen3-14B-i1-GGUF/resolve/main/DeepPrep-Qwen3-14B.i1-Q4_K_M.gguf
 - name: "ace-step-turbo"
   license: mit
   tags:
