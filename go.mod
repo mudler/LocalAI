@@ -40,7 +40,7 @@ require (
 	github.com/mudler/xlog v0.0.5
 	github.com/onsi/ginkgo/v2 v2.28.1
 	github.com/onsi/gomega v1.39.1
-	github.com/openai/openai-go/v3 v3.17.0
+	github.com/openai/openai-go/v3 v3.19.0
 	github.com/otiai10/copy v1.14.1
 	github.com/otiai10/openaigo v1.7.0
 	github.com/phayes/freeport v0.0.0-20220201140144-74d24b5ae9f5
