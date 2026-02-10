@@ -81,7 +81,6 @@ var _ = Describe("Test cases for config related functions", func() {
 			// create a temporary model
 			model := `name: "test-model"
 description: "test model"
-backend: llama-cpp
 options:
 - foo
 - bar

@@ -299,7 +299,7 @@ func getRequest(url string, header http.Header) (error, int, []byte) {
 	return nil, resp.StatusCode, body
 }
 
-const bertEmbeddingsURL = `https://gist.githubusercontent.com/richiejp/61cbf533d1983a29f79ea53d9e08571a/raw/02401eaee11858e705c186580b765d35a8fc6c17/bert-embeddings.yaml`
+const bertEmbeddingsURL = `https://gist.githubusercontent.com/mudler/0a080b166b87640e8644b09c2aee6e3b/raw/f0e8c26bb72edc16d9fbafbfd6638072126ff225/bert-embeddings-gallery.yaml`
 
 var _ = Describe("API test", func() {
 
@@ -323,20 +323,6 @@ var _ = Describe("API test", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			backendPath := os.Getenv("BACKENDS_PATH")
-			if backendPath == "" {
-				// Create mock backend if BACKENDS_PATH is not set
-				backendPath = filepath.Join(tmpdir, "backend")
-				backendDir := filepath.Join(backendPath, "llama-cpp")
-				err = os.MkdirAll(backendDir, 0o750)
-				Expect(err).ToNot(HaveOccurred())
-				backendMeta := &gallery.BackendMetadata{Alias: "llama-cpp", Name: "llama-cpp"}
-				metaBytes, err := json.Marshal(backendMeta)
-				Expect(err).ToNot(HaveOccurred())
-				err = os.WriteFile(filepath.Join(backendDir, "metadata.json"), metaBytes, 0o644)
-				Expect(err).ToNot(HaveOccurred())
-				err = os.WriteFile(filepath.Join(backendDir, "run.sh"), []byte("#!/bin/sh\n"), 0o755)
-				Expect(err).ToNot(HaveOccurred())
-			}
 
 			modelDir = filepath.Join(tmpdir, "models")
 			err = os.Mkdir(modelDir, 0750)
@@ -358,7 +344,7 @@ var _ = Describe("API test", func() {
 						URL:             bertEmbeddingsURL,
 						AdditionalFiles: []gallery.File{{Filename: "foo.yaml", URI: bertEmbeddingsURL}},
 					},
-					Overrides: map[string]interface{}{"foo": "bar", "backend": "llama-cpp"},
+					Overrides: map[string]interface{}{"foo": "bar"},
 				},
 			}
 			out, err := yaml.Marshal(g)
@@ -968,8 +954,7 @@ parameters:
 		It("returns the models list", func() {
 			models, err := client.ListModels(context.TODO())
 			Expect(err).ToNot(HaveOccurred())
-			// config.yaml contains 2 models (list1, list2), plus 6 other fixture models = 8 total
-			// There may be additional models from other test contexts (e.g., bert from ephemeral models test)
+			// A model called "bert" can be present in the model directory depending on the order of the tests
 			Expect(len(models.Models)).To(BeNumerically(">=", 8))
 		})
 		It("can generate completions via ggml", func() {

@@ -1014,38 +1014,27 @@ parameters:
 `;
         },
         
-        async validateConfig() {
+        validateConfig() {
             try {
                 const yamlContent = this.yamlEditor.getValue();
-                
-                // Basic YAML parsing check
                 const config = jsyaml.load(yamlContent);
+                
                 if (!config || typeof config !== 'object') {
                     throw new Error('Invalid YAML structure');
                 }
                 
-                // Call backend validation endpoint
-                const response = await fetch('/models/validate', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-yaml',
-                    },
-                    body: yamlContent
-                });
-
-                if (!response.ok) {
-                    const errorData = await response.json().catch(() => ({ message: 'Validation failed' }));
-                    let errorMessage = 'Validation failed';
-                    if (errorData.error) {
-                        errorMessage = errorData.error;
-                    } else if (errorData.message) {
-                        errorMessage = errorData.message;
-                    }
-                    throw new Error(errorMessage);
+                if (!config.name) {
+                    throw new Error('Model name is required');
                 }
-
-                const result = await response.json();
-                this.showAlert('success', result.message || 'Configuration is valid!');
+                const isPipeline = config.pipeline && (config.pipeline.vad || config.pipeline.transcription || config.pipeline.tts || config.pipeline.llm);
+                if (!isPipeline && !config.backend) {
+                    throw new Error('Backend is required');
+                }
+                if (!config.parameters || !config.parameters.model) {
+                    throw new Error('Model file/path is required in parameters.model');
+                }
+                
+                this.showAlert('success', 'Configuration is valid!');
             } catch (error) {
                 this.showAlert('error', 'Validation failed: ' + error.message);
             }
@@ -1054,11 +1043,21 @@ parameters:
         async saveConfig() {
             try {
                 const yamlContent = this.yamlEditor.getValue();
-                
-                // Basic YAML parsing check
                 const config = jsyaml.load(yamlContent);
+                
                 if (!config || typeof config !== 'object') {
                     throw new Error('Invalid YAML structure');
+                }
+                
+                if (!config.name) {
+                    throw new Error('Model name is required');
+                }
+                const isPipeline = config.pipeline && (config.pipeline.vad || config.pipeline.transcription || config.pipeline.tts || config.pipeline.llm);
+                if (!isPipeline && !config.backend) {
+                    throw new Error('Backend is required');
+                }
+                if (!config.parameters || !config.parameters.model) {
+                    throw new Error('Model file/path is required in parameters.model');
                 }
                 
                 const endpoint = this.isEditMode ? `/models/edit/{{.ModelName}}` : '/models/import';

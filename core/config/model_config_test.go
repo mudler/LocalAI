@@ -70,11 +70,9 @@ parameters:
 			Expect(config).ToNot(BeNil())
 			// two configs in config.yaml
 			Expect(config.Name).To(Equal("hermes-2-pro-mistral"))
-			// Old config format doesn't have backend field, so validation should fail
 			valid, err = config.Validate()
-			Expect(err).To(HaveOccurred())
-			Expect(valid).To(BeFalse())
-			Expect(err.Error()).To(ContainSubstring("backend is required"))
+			Expect(err).To(BeNil())
+			Expect(valid).To(BeTrue())
 		})
 	})
 	It("Properly handles backend usecase matching", func() {
