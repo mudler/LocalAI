@@ -1,4 +1,35 @@
 ---
+- name: "qwen3-coder-next-reap-40b-a3b"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Qwen3-Coder-Next-REAP-40B-A3B-GGUF
+  description: |
+    The model **Qwen3-Coder-Next-REAP-40B-A3B** is a quantized version of the base model **lovedheart/Qwen3-Coder-Next-REAP-40B-A3B**, optimized for efficient deployment. It supports text generation and is available in GGUF format. Key features include:
+
+      - **Quantized variants**: Q2_K (15.1 GB), Q3_K_M (19.9 GB), Q4_K_S (23.5 GB), Q6_K (33.8 GB), Q8_0 (43.7 GB), with Q4_K_S recommended for balance between speed and quality.
+      - **Format**: GGUF, suitable for inference.
+      - **Usage**: Requires reference documentation for multi-part file handling.
+
+    For gallery use, highlight its purpose, quantized options, and GGUF compatibility.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Qwen3-Coder-Next-REAP-40B-A3B.Q8_0.gguf
+    name: Qwen3-Coder-Next-REAP-40B-A3B-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Qwen3-Coder-Next-REAP-40B-A3B-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Qwen3-Coder-Next-REAP-40B-A3B.Q8_0.gguf
+      sha256: 6f33ede6509335bd57f9ddac529934b27658098552258dc809e96a4834494396
+      uri: https://huggingface.co/mradermacher/Qwen3-Coder-Next-REAP-40B-A3B-GGUF/resolve/main/Qwen3-Coder-Next-REAP-40B-A3B.Q8_0.gguf
 - name: "ace-step-turbo"
   license: mit
   tags:
