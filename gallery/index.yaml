@@ -1,4 +1,29 @@
 ---
+- name: "deepprep-qwen2.5-7b-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/DeepPrep-Qwen2.5-7B-i1-GGUF
+  description: |
+    The model is a quantized version of the Qwen2.5-7B language model, optimized for efficiency. It uses advanced quantization techniques (e.g., Q2_K, IQ3_M, Q4_K_S) to reduce computational requirements while maintaining performance. The model is designed for tasks like text generation, reasoning, and multi-modal processing, with 7 billion parameters. It is a community-maintained, fine-tuned version of the original Qwen2.5 model, tailored for deployment in resource-constrained environments.
+  overrides:
+    parameters:
+      model: llama-cpp/models/DeepPrep-Qwen2.5-7B.i1-Q4_K_M.gguf
+    name: DeepPrep-Qwen2.5-7B-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/DeepPrep-Qwen2.5-7B-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/DeepPrep-Qwen2.5-7B.i1-Q4_K_M.gguf
+      sha256: 08fa98d8d487ee4639501c051d4f43866ff0f09dd542179ac9e05728ea3bd22e
+      uri: https://huggingface.co/mradermacher/DeepPrep-Qwen2.5-7B-i1-GGUF/resolve/main/DeepPrep-Qwen2.5-7B.i1-Q4_K_M.gguf
 - name: "ace-step-turbo"
   license: mit
   tags:
