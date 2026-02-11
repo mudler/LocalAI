@@ -1,4 +1,33 @@
 ---
+- name: "gemma-3-12b-it-vl-gpt-5.1-high-heretic-uncensored-thinking"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/gemma-3-12b-it-vl-GPT-5.1-High-Heretic-Uncensored-Thinking-GGUF
+  description: |
+    The model is a quantized version of the Gemma-3-12B It variant, tuned for high-heretic (explicit, uncensored) thinking. It features 3.12B parameters, optimized for efficiency with various quantization levels (e.g., Q4_K_S, Q2_K, etc.). While the original model is not explicitly listed, this version is a specialized adaptation for tasks requiring explicit, unfiltered responses. It's designed for text generation, code completion, and other general-purpose language tasks.
+  overrides:
+    parameters:
+      model: llama-cpp/models/gemma-3-12b-it-vl-GPT-5.1-High-Heretic-Uncensored-Thinking.Q4_K_M.gguf
+    name: gemma-3-12b-it-vl-GPT-5.1-High-Heretic-Uncensored-Thinking-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    mmproj: llama-cpp/mmproj/gemma-3-12b-it-vl-GPT-5.1-High-Heretic-Uncensored-Thinking.mmproj-f16.gguf
+    description: Imported from https://huggingface.co/mradermacher/gemma-3-12b-it-vl-GPT-5.1-High-Heretic-Uncensored-Thinking-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/gemma-3-12b-it-vl-GPT-5.1-High-Heretic-Uncensored-Thinking.Q4_K_M.gguf
+      sha256: 0846e701314079ce30e06be66c259a84fe302af2cb8c4bfda9fb4708adc7a3be
+      uri: https://huggingface.co/mradermacher/gemma-3-12b-it-vl-GPT-5.1-High-Heretic-Uncensored-Thinking-GGUF/resolve/main/gemma-3-12b-it-vl-GPT-5.1-High-Heretic-Uncensored-Thinking.Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/gemma-3-12b-it-vl-GPT-5.1-High-Heretic-Uncensored-Thinking.mmproj-f16.gguf
+      sha256: 1055e33d2caa0f4dc8a4fafe17fe8378df5072f0bd144e6a4d5a0c13b8c73a3f
+      uri: https://huggingface.co/mradermacher/gemma-3-12b-it-vl-GPT-5.1-High-Heretic-Uncensored-Thinking-GGUF/resolve/main/gemma-3-12b-it-vl-GPT-5.1-High-Heretic-Uncensored-Thinking.mmproj-f16.gguf
 - name: "ace-step-turbo"
   license: mit
   tags:
