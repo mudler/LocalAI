@@ -1026,7 +1026,8 @@ parameters:
                 if (!config.name) {
                     throw new Error('Model name is required');
                 }
-                if (!config.backend) {
+                const isPipeline = config.pipeline && (config.pipeline.vad || config.pipeline.transcription || config.pipeline.tts || config.pipeline.llm);
+                if (!isPipeline && !config.backend) {
                     throw new Error('Backend is required');
                 }
                 if (!config.parameters || !config.parameters.model) {
@@ -1041,7 +1042,6 @@ parameters:
         
         async saveConfig() {
             try {
-                // Validate before saving
                 const yamlContent = this.yamlEditor.getValue();
                 const config = jsyaml.load(yamlContent);
                 
@@ -1052,7 +1052,8 @@ parameters:
                 if (!config.name) {
                     throw new Error('Model name is required');
                 }
-                if (!config.backend) {
+                const isPipeline = config.pipeline && (config.pipeline.vad || config.pipeline.transcription || config.pipeline.tts || config.pipeline.llm);
+                if (!isPipeline && !config.backend) {
                     throw new Error('Backend is required');
                 }
                 if (!config.parameters || !config.parameters.model) {

@@ -16,7 +16,7 @@ var _ = Describe("Test cases for config related functions", func() {
 	Context("Test Read configuration functions", func() {
 		configFile = os.Getenv("CONFIG_FILE")
 		It("Test readConfigFile", func() {
-			config, err := readMultipleModelConfigsFromFile(configFile)
+			config, err := readModelConfigsFromFile(configFile)
 			Expect(err).To(BeNil())
 			Expect(config).ToNot(BeNil())
 			// two configs in config.yaml

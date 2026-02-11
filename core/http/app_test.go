@@ -336,6 +336,7 @@ var _ = Describe("API test", func() {
 						Name: "bert",
 						URL:  bertEmbeddingsURL,
 					},
+					Overrides: map[string]interface{}{"backend": "llama-cpp"},
 				},
 				{
 					Metadata: gallery.Metadata{
@@ -953,7 +954,8 @@ parameters:
 		It("returns the models list", func() {
 			models, err := client.ListModels(context.TODO())
 			Expect(err).ToNot(HaveOccurred())
-			Expect(len(models.Models)).To(Equal(7)) // If "config.yaml" should be included, this should be 8?
+			// A model called "bert" can be present in the model directory depending on the order of the tests
+			Expect(len(models.Models)).To(BeNumerically(">=", 8))
 		})
 		It("can generate completions via ggml", func() {
 			if runtime.GOOS != "linux" {
