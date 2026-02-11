@@ -5,6 +5,7 @@ transformers
 torchvision
 accelerate
 compel
+git+https://github.com/xhinker/sd_embed
 peft
 sentencepiece
 torch
