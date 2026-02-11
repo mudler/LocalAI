@@ -25,7 +25,8 @@ known_usecases:
 - COMPLETION
 `)
 			Expect(err).ToNot(HaveOccurred())
-			config, err := readModelConfigFromFile(tmp.Name())
+			configs, err := readModelConfigsFromFile(tmp.Name())
+			config := configs[0]
 			Expect(err).To(BeNil())
 			Expect(config).ToNot(BeNil())
 			valid, err := config.Validate()
@@ -43,7 +44,8 @@ backend: "foo-bar"
 parameters:
   model: "foo-bar"`)
 			Expect(err).ToNot(HaveOccurred())
-			config, err := readModelConfigFromFile(tmp.Name())
+			configs, err := readModelConfigsFromFile(tmp.Name())
+			config := configs[0]
 			Expect(err).To(BeNil())
 			Expect(config).ToNot(BeNil())
 			// two configs in config.yaml
@@ -62,7 +64,8 @@ parameters:
 			defer os.Remove(tmp.Name())
 			_, err = io.Copy(tmp, resp.Body)
 			Expect(err).To(BeNil())
-			config, err = readModelConfigFromFile(tmp.Name())
+			configs, err = readModelConfigsFromFile(tmp.Name())
+			config = configs[0]
 			Expect(err).To(BeNil())
 			Expect(config).ToNot(BeNil())
 			// two configs in config.yaml
@@ -188,7 +191,8 @@ mcp:
       }
     }`)
 		Expect(err).ToNot(HaveOccurred())
-		config, err := readModelConfigFromFile(tmp.Name())
+		configs, err := readModelConfigsFromFile(tmp.Name())
+		config := configs[0]
 		Expect(err).To(BeNil())
 		Expect(config).ToNot(BeNil())
 		valid, err := config.Validate()
@@ -218,7 +222,8 @@ mcp:
       }
     }`)
 		Expect(err).ToNot(HaveOccurred())
-		config, err := readModelConfigFromFile(tmp.Name())
+		configs, err := readModelConfigsFromFile(tmp.Name())
+		config := configs[0]
 		Expect(err).To(BeNil())
 		Expect(config).ToNot(BeNil())
 		valid, err := config.Validate()

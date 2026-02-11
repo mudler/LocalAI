@@ -183,14 +183,13 @@ func registerRealtime(application *application.Application, model string) func(c
 		}
 
 		sttModel := cfg.Pipeline.Transcription
-		ttsModel := cfg.Pipeline.TTS
 
 		sessionID := generateSessionID()
 		session := &Session{
 			ID:                sessionID,
 			TranscriptionOnly: false,
 			Model:             model,
-			Voice:             ttsModel,
+			Voice:             cfg.TTSConfig.Voice,
 			ModelConfig:       cfg,
 			TurnDetection: &types.TurnDetectionUnion{
 				ServerVad: &types.ServerVad{
@@ -557,13 +556,13 @@ func updateSession(session *Session, update *types.SessionUnion, cl *config.Mode
 			session.InputAudioTranscription = &types.AudioTranscription{}
 		}
 		session.InputAudioTranscription.Model = cfg.Pipeline.Transcription
-		session.Voice = cfg.Pipeline.TTS
+		session.Voice = cfg.TTSConfig.Voice
 		session.Model = rt.Model
 		session.ModelConfig = cfg
 	}
 
 	if rt.Audio != nil && rt.Audio.Output != nil && rt.Audio.Output.Voice != "" {
-		xlog.Warn("Ignoring voice setting; not implemented", "voice", rt.Audio.Output.Voice)
+		session.Voice = string(rt.Audio.Output.Voice)
 	}
 
 	if rt.Audio != nil && rt.Audio.Input != nil && rt.Audio.Input.Transcription != nil {
@@ -746,6 +745,10 @@ func commitUtterance(ctx context.Context, utt []byte, session *Session, conv *Co
 		tr, err := session.ModelInterface.Transcribe(ctx, f.Name(), session.InputAudioTranscription.Language, false, false, session.InputAudioTranscription.Prompt)
 		if err != nil {
 			sendError(c, "transcription_failed", err.Error(), "", "event_TODO")
+			return
+		} else if tr == nil {
+			sendError(c, "transcription_failed", "trancribe result is nil", "", "event_TODO")
+			return
 		}
 
 		transcript = tr.Text
@@ -1006,7 +1009,16 @@ func generateResponse(session *Session, utt []byte, transcript string, conv *Con
 			sendError(c, "tts_error", fmt.Sprintf("Failed to read TTS audio: %v", err), "", item.Assistant.ID)
 			return
 		}
-		audioString := base64.StdEncoding.EncodeToString(audioBytes)
+
+		// Strip WAV header (44 bytes) to get raw PCM data
+		// The OpenAI Realtime API expects raw PCM, not WAV files
+		const wavHeaderSize = 44
+		pcmData := audioBytes
+		if len(audioBytes) > wavHeaderSize {
+			pcmData = audioBytes[wavHeaderSize:]
+		}
+
+		audioString := base64.StdEncoding.EncodeToString(pcmData)
 
 		sendEvent(c, types.ResponseOutputAudioTranscriptDeltaEvent{
 			ServerEventBase: types.ServerEventBase{},
