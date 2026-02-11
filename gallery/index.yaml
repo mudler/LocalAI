@@ -1,4 +1,29 @@
 ---
+- name: "qwen3-coder-next-ream"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Qwen3-Coder-Next-REAM-GGUF
+  description: |
+    The model described is a large language model based on the Qwen3 series, optimized for coding tasks. It employs quantized parameters (e.g., Q4_K_S, Q2_K) to balance efficiency and performance. The model is a variant of Qwen3, designed to enhance coding capabilities through compression while maintaining accuracy. It is intended for use in applications requiring efficient deployment, such as code generation or reasoning tasks.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Qwen3-Coder-Next-REAM.Q4_K_M.gguf
+    name: Qwen3-Coder-Next-REAM-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Qwen3-Coder-Next-REAM-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Qwen3-Coder-Next-REAM.Q4_K_M.gguf
+      sha256: dcd1e0be2e0f9f20074b82cb4c0dbe7c09e2ddf52ab796ccd70ac3df6058e9d9
+      uri: https://huggingface.co/mradermacher/Qwen3-Coder-Next-REAM-GGUF/resolve/main/Qwen3-Coder-Next-REAM.Q4_K_M.gguf
 - name: "ace-step-turbo"
   license: mit
   tags:
