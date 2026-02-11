@@ -1,4 +1,33 @@
 ---
+- name: "p1-vl-30b-a3b"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/P1-VL-30B-A3B-GGUF
+  description: |
+    The model is a large language model with 30 billion parameters, designed for vision-language tasks (e.g., image-text understanding). It is quantized for efficiency, with available versions including `mmproj-Q8_0` (0.8 GB) and `mmproj-f16` (1.2 GB). The base model is **PRIME-RL/P1-VL-30B-A3B**, and the quantized versions are derived from it. For detailed usage and download options, visit the [model page](https://hf.tst.eu/model#P1-VL-30B-A3B-GGUF).
+  overrides:
+    parameters:
+      model: llama-cpp/models/P1-VL-30B-A3B.Q4_K_M.gguf
+    name: P1-VL-30B-A3B-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    mmproj: llama-cpp/mmproj/P1-VL-30B-A3B.mmproj-f16.gguf
+    description: Imported from https://huggingface.co/mradermacher/P1-VL-30B-A3B-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/P1-VL-30B-A3B.Q4_K_M.gguf
+      sha256: e18399d2ad933cec5b90bd3678821ca6393e4393c4855d4c7f390f5ad0b4d739
+      uri: https://huggingface.co/mradermacher/P1-VL-30B-A3B-GGUF/resolve/main/P1-VL-30B-A3B.Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/P1-VL-30B-A3B.mmproj-f16.gguf
+      sha256: 7b46cc11b7dd506ede7f673e548eda14e76933bddefb31bcfd680c32e284844b
+      uri: https://huggingface.co/mradermacher/P1-VL-30B-A3B-GGUF/resolve/main/P1-VL-30B-A3B.mmproj-f16.gguf
 - name: "ace-step-turbo"
   license: mit
   tags:
