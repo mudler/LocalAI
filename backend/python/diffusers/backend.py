@@ -779,7 +779,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 (
                     kwargs["prompt_embeds"],
                     kwargs["pooled_prompt_embeds"],
-                ) = get_weighted_text_embeddings_sd3(
+                ) = get_weighted_text_embeddings_flux1(
                     pipe = self.pipe,
                     prompt = prompt,
                 )
