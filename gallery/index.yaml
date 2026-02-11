@@ -1,4 +1,29 @@
 ---
+- name: "qwen3-coder-next"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/Mungert/Qwen3-Coder-Next-GGUF
+  description: |
+    AI model: qwen3-coder-next
+  overrides:
+    parameters:
+      model: llama-cpp/models/Qwen3-Coder-Next-q6_k_m-q6_k_m-00002-of-00002.gguf
+    name: Qwen3-Coder-Next-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/Mungert/Qwen3-Coder-Next-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Qwen3-Coder-Next-q6_k_m-q6_k_m-00002-of-00002.gguf
+      sha256: 8233dd7f7f09e6b1e5c4b6fcb7b2715637d12441524bc604eb5e9b5ce0349470
+      uri: https://huggingface.co/Mungert/Qwen3-Coder-Next-GGUF/resolve/main/q6-k-m/Qwen3-Coder-Next-q6_k_m-q6_k_m-00002-of-00002.gguf
 - name: "ace-step-turbo"
   license: mit
   tags:
