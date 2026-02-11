@@ -115,6 +115,7 @@ Available pipelines: AnimateDiffPipeline, AnimateDiffVideoToVideoPipeline, ...
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `COMPEL` | `0` | Enable Compel for prompt weighting |
+| `SD_EMBED` | `0` | Enable sd_embed for prompt weighting |
 | `XPU` | `0` | Enable Intel XPU support |
 | `CLIPSKIP` | `1` | Enable CLIP skip support |
 | `SAFETENSORS` | `1` | Use safetensors format |
