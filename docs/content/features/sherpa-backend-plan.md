@@ -838,6 +838,34 @@ That's the complete documentation needed - users just need to know how to config
 
 ---
 
+## Review Observations
+
+### 1. Build Optimization
+Building ONNX Runtime from source is resource-intensive and can take significant time (30-60+ minutes). 
+**Recommendation**: 
+- Configure CI/CD to cache `onnxruntime-builder` images aggressively.
+- Only rebuild the base builder images when dependencies or ONNX Runtime versions change.
+
+### 2. Gallery Integration
+While this plan focuses on the binary backend, the end-to-end user experience requires model definitions.
+**Requirement**:
+- Create `gallery` YAML definitions for popular Sherpa-ONNX models (VITS, Matcha, etc.).
+- Ensure these definitions map correctly to the backend's expected configuration parameters.
+
+### 3. Runtime Library Resolution
+Relying solely on system paths can sometimes be fragile in containerized environments.
+**Best Practice**:
+- In `run.sh` or the entrypoint, explicitly set `LD_LIBRARY_PATH` to include the backend's library directory.
+- This ensures the custom-built shared libraries are found even if standard paths are modified.
+
+### 4. CI Model Selection
+Using production-quality models for CI will make tests slow and flaky due to download sizes and inference times.
+**Action Item**:
+- Prioritize finding or training a "tiny" VITS model (e.g., single utterance overfit) strictly for functional testing.
+- This model should be committed to the repo or hosted in a reliable, low-latency location.
+
+---
+
 ## Summary
 
 ### Key Points
