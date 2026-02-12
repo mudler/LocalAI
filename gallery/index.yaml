@@ -1,4 +1,47 @@
 ---
+- name: "melinoe-glm-30b-a3b-thinking"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Melinoe-GLM-30B-A3B-Thinking-GGUF
+  description: |
+    **Model Name:** Melinoe-GLM-30B-A3B-Thinking
+    **Base Model:** [zai-org/GLM-4.7-Flash](https://huggingface.co/zai-org/GLM-4.7-Flash)
+    **License:** MIT
+
+    **Description:**
+    Melinoe-GLM-30B-A3B-Thinking is a large language model fine-tuned for empathetic, intellectually stimulating conversations. Built on the powerful reasoning foundation of GLM-4.7-Flash, it is designed to support companionship, creative exploration, and role-playing.
+
+    **Key Features:**
+      - **Purpose:** Supports emotional support, brainstorming, and narrative scenarios.
+      - **Use Cases:** Ideal for mature, adult audiences.
+      - **Quantized Version:** A quantized version of the base model (not the original author's version).
+
+    **Ethical Notes:**
+      - May reflect biases from the base model.
+      - Not intended for medical, legal, or high-stakes decisions.
+
+    **License:** MIT.
+
+    *Note: This model is designed for advanced use cases and requires careful consideration of its limitations.*
+  overrides:
+    parameters:
+      model: llama-cpp/models/Melinoe-GLM-30B-A3B-Thinking.Q4_K_M.gguf
+    name: Melinoe-GLM-30B-A3B-Thinking-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Melinoe-GLM-30B-A3B-Thinking-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Melinoe-GLM-30B-A3B-Thinking.Q4_K_M.gguf
+      sha256: ac95a72ccbaaf8288798cedbecadc6f7edcaada213bb11fedcad7a04fbb688ec
+      uri: https://huggingface.co/mradermacher/Melinoe-GLM-30B-A3B-Thinking-GGUF/resolve/main/Melinoe-GLM-30B-A3B-Thinking.Q4_K_M.gguf
 - name: "ace-step-turbo"
   license: mit
   tags:
