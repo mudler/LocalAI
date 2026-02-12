@@ -129,6 +129,111 @@
     backend: neutts
     known_usecases:
       - tts
+- name: vllm-omni-z-image-turbo
+  license: apache-2.0
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  description: |
+    Z-Image-Turbo via vLLM-Omni - A distilled version of Z-Image optimized for speed with only 8 NFEs. Offers sub-second inference latency on enterprise-grade H800 GPUs and fits within 16GB VRAM. Excels in photorealistic image generation, bilingual text rendering (English & Chinese), and robust instruction adherence.
+  urls:
+    - https://huggingface.co/Tongyi-MAI/Z-Image-Turbo
+  tags:
+    - text-to-image
+    - image-generation
+    - vllm-omni
+    - z-image
+    - cpu
+    - gpu
+  overrides:
+    backend: vllm-omni
+    known_usecases:
+      - image_generation
+    parameters:
+      model: Tongyi-MAI/Z-Image-Turbo
+- name: vllm-omni-wan2.2-t2v
+  license: apache-2.0
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  description: |
+    Wan2.2-T2V-A14B via vLLM-Omni - Text-to-video generation model from Wan-AI. Generates high-quality videos from text prompts using a 14B parameter diffusion model.
+  urls:
+    - https://huggingface.co/Wan-AI/Wan2.2-T2V-A14B-Diffusers
+  tags:
+    - text-to-video
+    - video-generation
+    - vllm-omni
+    - wan
+    - cpu
+    - gpu
+  overrides:
+    backend: vllm-omni
+    known_usecases:
+      - video_generation
+    parameters:
+      model: Wan-AI/Wan2.2-T2V-A14B-Diffusers
+- name: vllm-omni-wan2.2-i2v
+  license: apache-2.0
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  description: |
+    Wan2.2-I2V-A14B via vLLM-Omni - Image-to-video generation model from Wan-AI. Generates high-quality videos from images using a 14B parameter diffusion model.
+  urls:
+    - https://huggingface.co/Wan-AI/Wan2.2-I2V-A14B-Diffusers
+  tags:
+    - image-to-video
+    - video-generation
+    - vllm-omni
+    - wan
+    - cpu
+    - gpu
+  overrides:
+    backend: vllm-omni
+    known_usecases:
+      - video_generation
+    parameters:
+      model: Wan-AI/Wan2.2-I2V-A14B-Diffusers
+- name: vllm-omni-qwen3-omni-30b
+  license: apache-2.0
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  description: |
+    Qwen3-Omni-30B-A3B-Instruct via vLLM-Omni - A large multimodal model (30B active, 3B activated per token) from Alibaba Qwen team. Supports text, image, audio, and video understanding with text and speech output. Features native multimodal understanding across all modalities.
+  urls:
+    - https://huggingface.co/Qwen/Qwen3-Omni-30B-A3B-Instruct
+  tags:
+    - llm
+    - multimodal
+    - vision
+    - audio
+    - video
+    - vllm-omni
+    - qwen3
+    - cpu
+    - gpu
+  overrides:
+    backend: vllm-omni
+    known_usecases:
+      - chat
+      - multimodal
+    parameters:
+      model: Qwen/Qwen3-Omni-30B-A3B-Instruct
+- name: vllm-omni-qwen3-tts-custom-voice
+  license: apache-2.0
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  description: |
+    Qwen3-TTS-12Hz-1.7B-CustomVoice via vLLM-Omni - Text-to-speech model from Alibaba Qwen team with custom voice cloning capabilities. Generates natural-sounding speech with voice personalization.
+  urls:
+    - https://huggingface.co/Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice
+  tags:
+    - tts
+    - text-to-speech
+    - voice-cloning
+    - vllm-omni
+    - qwen3
+    - cpu
+    - gpu
+  overrides:
+    backend: vllm-omni
+    known_usecases:
+      - tts
+    parameters:
+      model: Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice
 - name: "ace-step-turbo"
   license: mit
   tags:
