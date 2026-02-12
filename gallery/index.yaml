@@ -1,4 +1,29 @@
 ---
+- name: "swarmmedqa-7b-v1-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/SwarmMedQA-7B-v1-i1-GGUF
+  description: |
+    This model is a fine-tuned medical QA model (7B parameters) designed for answering clinical questions and providing chain-of-thought reasoning. It's based on the base model SwarmOS/SwarmMedQA-7B-v1, optimized for healthcare applications. The model supports quantized versions (e.g., i1-Q2_K, i1-IQ3_XXS) for efficient deployment, and is tagged with clinical, chain-of-thought, and fine-tuned attributes. It's suitable for tasks requiring medical knowledge and logical reasoning.
+  overrides:
+    parameters:
+      model: llama-cpp/models/SwarmMedQA-7B-v1.i1-Q4_K_M.gguf
+    name: SwarmMedQA-7B-v1-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/SwarmMedQA-7B-v1-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/SwarmMedQA-7B-v1.i1-Q4_K_M.gguf
+      sha256: 12d38c2ebe635adb5fc471fdcb905597ddc7b94c7cc726a34c0ae530d3ea7052
+      uri: https://huggingface.co/mradermacher/SwarmMedQA-7B-v1-i1-GGUF/resolve/main/SwarmMedQA-7B-v1.i1-Q4_K_M.gguf
 - name: "ace-step-turbo"
   license: mit
   tags:
