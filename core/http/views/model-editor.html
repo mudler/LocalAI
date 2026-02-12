@@ -1030,7 +1030,7 @@ parameters:
                 if (!isPipeline && !config.backend) {
                     throw new Error('Backend is required');
                 }
-                if (!config.parameters || !config.parameters.model) {
+                if (!isPipeline && (!config.parameters || !config.parameters.model)) {
                     throw new Error('Model file/path is required in parameters.model');
                 }
                 
@@ -1056,10 +1056,9 @@ parameters:
                 if (!isPipeline && !config.backend) {
                     throw new Error('Backend is required');
                 }
-                if (!config.parameters || !config.parameters.model) {
+                if (!isPipeline && (!config.parameters || !config.parameters.model)) {
                     throw new Error('Model file/path is required in parameters.model');
                 }
-                
                 const endpoint = this.isEditMode ? `/models/edit/{{.ModelName}}` : '/models/import';
                 
                 const response = await fetch(endpoint, {
