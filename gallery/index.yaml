@@ -14,7 +14,11 @@
     - cpu
     - metal
     - mistral
+  known_usecases:
+    - sound_generation
+    - tts
   overrides:
+    backend: voxtral
     parameters:
       model: voxtral-model
   files:
