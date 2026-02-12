@@ -1,4 +1,50 @@
 ---
+- name: "qwen2.5-coder-3b-vitest.q4_k_m.gguf"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/recursivecurse/qwen2.5-coder-3b-vitest.Q4_K_M.gguf
+  description: |
+    **Model Name:** Qwen2.5-Coder-3B-Vitest (GGUF)
+    **Description:** A domain-specialized fine-tuned model for generating **Vitest + React Testing Library** unit tests. It focuses on **behavior-faithful testing**, avoiding hallucinated UI/state and prioritizing modern RTL best practices.
+
+    **Key Features:**
+      - Generates tests using React Testing Library (RTL) and Vitest.
+      - Prioritizes: `getByRole`, `userEvent`, `vi.fn()` for interactions.
+      - Avoids: Hallucinated UI, legacy `fireEvent`, and non-essential tests.
+      - Base model: Qwen2.5-Coder-3B (LoRA fine-tuned with MLX on Apple Silicon).
+      - Training: ~3 epochs, ~6.6M trainable params (~0.216% of total).
+      - Dataset: ~800 curated React component ↔ Vitest test pairs.
+
+    **Usage:**
+      - Runs with Ollama via `ollama run` using a `Modelfile`.
+      - Requires clear component context for optimal results.
+
+    **Limitations:**
+      - May overuse `async`/`await` in simple cases.
+      - Redundant tests for trivial components.
+
+    **License:** MIT (same as Qwen2.5-Coder-3B).
+
+    This model is ideal for frontend test engineers needing robust, behavior-aligned test generation.
+  overrides:
+    parameters:
+      model: qwen2.5-coder-3b-vitest.Q4_K_M.gguf
+    name: qwen2.5-coder-3b-vitest.Q4_K_M.gguf
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/recursivecurse/qwen2.5-coder-3b-vitest.Q4_K_M.gguf
+    options:
+      - use_jinja:true
+  files:
+    - filename: qwen2.5-coder-3b-vitest.Q4_K_M.gguf
+      sha256: ""
+      uri: https://huggingface.co/recursivecurse/qwen2.5-coder-3b-vitest.Q4_K_M.gguf
 - name: "ace-step-turbo"
   license: mit
   tags:
