@@ -860,11 +860,18 @@ Relying solely on system paths can sometimes be fragile in containerized environ
 
 ### 4. CI Model Selection
 Using production-quality models for CI will make tests slow and flaky due to download sizes and inference times.
-**Action Item**:
-- Prioritize finding or training a "tiny" VITS model (e.g., single utterance overfit) strictly for functional testing.
-- This model should be committed to the repo or hosted in a reliable, low-latency location.
+**Status**: Resolved (Crush review).
+- Tiny VITS model: `sherpa-onnx-tiny-vits-330k-237m` (45MB) available at https://k2-fsa.github.io/sherpa/onnx/pretrained_models/.
+
+### 5. Crush AI Review (2026-02-12)
+
+- **Versions Confirmed**: ONNX Runtime v1.24.1 commit valid (latest v1.25.0). Sherpa-ONNX v1.12.23 recent.
+- **Build Flags/C API**: All CMake flags, Docker stages, C TTS API (`SherpaOnnxOfflineTtsGenerate`) validated.
+- **GPU**: MIGraphX ROCm stable; ROCm EP beta. ArmNN/DirectML deprecated (N/A).
+- **Plan**: Solid; no major invalidations. Ready for Phase 1.
 
 ---
+
 
 ## Summary
 
@@ -898,8 +905,8 @@ Using production-quality models for CI will make tests slow and flaky due to dow
 
 ### Next Steps
 
-1. Review and approve this plan
-2. Identify or create tiny VITS model for CI testing (< 50MB)
+1. ✅ Plan reviewed/approved (Crush AI, 2026-02-12)
+2. ✅ Tiny model identified: `sherpa-onnx-tiny-vits-330k-237m`
 3. Begin Phase 1: CPU-only TTS implementation
 4. Iterate based on feedback
 
