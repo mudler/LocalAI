@@ -1,97 +1,122 @@
 package main
 
+/*
+#cgo LDFLAGS: -lsherpa-onnx-c-api -lonnxruntime -lstdc++
+#include "c-api.h"
+#include <stdlib.h>
+*/
+import "C"
 import (
 	"fmt"
+	"os"
+	"path/filepath"
+	"strconv"
 	"unsafe"
-    "os"
-    "path/filepath"
 
 	"github.com/mudler/LocalAI/pkg/grpc/base"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 )
 
-// #cgo LDFLAGS: -lsherpa-onnx -lonnxruntime -lstdc++
-// #include <sherpa-onnx/c-api/c-api.h>
-// #include <stdlib.h>
-import "C"
-
 type SherpaBackend struct {
 	base.SingleThread
-	tts unsafe.Pointer 
+	tts *C.SherpaOnnxOfflineTts
 }
 
 func (s *SherpaBackend) Load(opts *pb.ModelOptions) error {
-    if s.tts != nil {
-        return nil
-    }
+	if s.tts != nil {
+		return nil
+	}
 
-    // Default configuration
-    config := C.SherpaOnnxOfflineTtsVitsModelConfig{}
-    config.model = C.CString(opts.ModelFile)
-    defer C.free(unsafe.Pointer(config.model))
-    
-    // Check for sidecar files (tokens.txt, lexicon.txt) in the same directory as the model
-    modelDir := filepath.Dir(opts.ModelFile)
-    tokensPath := filepath.Join(modelDir, "tokens.txt")
-    lexiconPath := filepath.Join(modelDir, "lexicon.txt")
+	var config C.SherpaOnnxOfflineTtsConfig
 
-    if _, err := os.Stat(tokensPath); err == nil {
-        config.tokens = C.CString(tokensPath)
-        defer C.free(unsafe.Pointer(config.tokens))
-    }
-    
-    if _, err := os.Stat(lexiconPath); err == nil {
-        config.lexicon = C.CString(lexiconPath)
-        defer C.free(unsafe.Pointer(config.lexicon))
-    }
+	modelFile := opts.ModelFile
+	modelDir := filepath.Dir(modelFile)
 
-    // Setup TTS config
-    ttsConfig := C.SherpaOnnxOfflineTtsConfig{}
-    ttsConfig.model.vits = config
-    
-    // Defaults
-    ttsConfig.model.num_threads = 1
-    ttsConfig.model.debug = 0
-    ttsConfig.model.provider = C.CString("cpu")
-    defer C.free(unsafe.Pointer(ttsConfig.model.provider))
-    ttsConfig.model.model_type = C.CString("vits")
-    defer C.free(unsafe.Pointer(ttsConfig.model.model_type))
+	cModel := C.CString(modelFile)
+	defer C.free(unsafe.Pointer(cModel))
+	config.model.vits.model = cModel
 
-    // Initialize TTS
-    s.tts = C.SherpaOnnxCreateOfflineTts(&ttsConfig)
-    if s.tts == nil {
-        return fmt.Errorf("failed to create TTS engine")
-    }
+	tokensPath := filepath.Join(modelDir, "tokens.txt")
+	if _, err := os.Stat(tokensPath); err == nil {
+		cTokens := C.CString(tokensPath)
+		defer C.free(unsafe.Pointer(cTokens))
+		config.model.vits.tokens = cTokens
+	}
 
-    return nil
+	lexiconPath := filepath.Join(modelDir, "lexicon.txt")
+	if _, err := os.Stat(lexiconPath); err == nil {
+		cLexicon := C.CString(lexiconPath)
+		defer C.free(unsafe.Pointer(cLexicon))
+		config.model.vits.lexicon = cLexicon
+	}
+
+	dataDir := filepath.Join(modelDir, "espeak-ng-data")
+	if info, err := os.Stat(dataDir); err == nil && info.IsDir() {
+		cDataDir := C.CString(dataDir)
+		defer C.free(unsafe.Pointer(cDataDir))
+		config.model.vits.data_dir = cDataDir
+	}
+
+	config.model.vits.noise_scale = 0.667
+	config.model.vits.noise_scale_w = 0.8
+	config.model.vits.length_scale = 1.0
+
+	threads := C.int(1)
+	if opts.Threads != 0 {
+		threads = C.int(opts.Threads)
+	}
+	config.model.num_threads = C.int32_t(threads)
+	config.model.debug = 0
+
+	cProvider := C.CString("cpu")
+	defer C.free(unsafe.Pointer(cProvider))
+	config.model.provider = cProvider
+
+	config.max_num_sentences = 1
+
+	tts := C.SherpaOnnxCreateOfflineTts(&config)
+	if tts == nil {
+		return fmt.Errorf("failed to create sherpa-onnx TTS engine from %s", modelFile)
+	}
+	s.tts = tts
+
+	return nil
 }
 
-func (s *SherpaBackend) TTS(req *pb.TTSRequest) (*pb.Result, error) {
-    if s.tts == nil {
-        return nil, fmt.Errorf("backend not initialized")
-    }
+func (s *SherpaBackend) TTS(req *pb.TTSRequest) error {
+	if s.tts == nil {
+		return fmt.Errorf("sherpa-onnx backend not loaded")
+	}
 
-    cText := C.CString(req.Text)
-    defer C.free(unsafe.Pointer(cText))
-    
-    sid := 0 // Default speaker ID
-    speed := 1.0 // Default speed
+	cText := C.CString(req.Text)
+	defer C.free(unsafe.Pointer(cText))
 
-    audio := C.SherpaOnnxOfflineTtsGenerate(s.tts, cText, C.int(sid), C.float(speed))
-    defer C.SherpaOnnxDestroyOfflineTtsGeneratedAudio(audio)
-    
-    if audio == nil {
-        return &pb.Result{Success: false, Message: "failed to generate audio"}, nil
-    }
+	sid := C.int32_t(0)
+	if req.Voice != "" {
+		if id, err := strconv.Atoi(req.Voice); err == nil {
+			sid = C.int32_t(id)
+		}
+	}
 
-    // Save to file
-    cDst := C.CString(req.Dst)
-    defer C.free(unsafe.Pointer(cDst))
-    
-    success := C.SherpaOnnxOfflineTtsGeneratedAudioSave(audio, cDst)
-    if success == 0 {
-        return &pb.Result{Success: false, Message: "failed to save audio"}, nil
-    }
-    
-    return &pb.Result{Success: true, Message: "audio generated"}, nil
+	speed := C.float(1.0)
+
+	audio := C.SherpaOnnxOfflineTtsGenerate(s.tts, cText, sid, speed)
+	if audio == nil {
+		return fmt.Errorf("failed to generate audio")
+	}
+	defer C.SherpaOnnxDestroyOfflineTtsGeneratedAudio(audio)
+
+	if audio.n <= 0 {
+		return fmt.Errorf("generated audio has no samples")
+	}
+
+	cDst := C.CString(req.Dst)
+	defer C.free(unsafe.Pointer(cDst))
+
+	ok := C.SherpaOnnxWriteWave(audio.samples, audio.n, audio.sample_rate, cDst)
+	if ok == 0 {
+		return fmt.Errorf("failed to write audio to %s", req.Dst)
+	}
+
+	return nil
 }
