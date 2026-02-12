@@ -52,6 +52,66 @@
     - filename: voxtral-model/tekken.json
       uri: https://huggingface.co/mistralai/Voxtral-Mini-4B-Realtime-2602/resolve/main/tekken.json
       sha256: 8434af1d39eba99f0ef46cf1450bf1a63fa941a26933a1ef5dbbf4adf0d00e44
+- name: moonshine-tiny
+  license: apache-2.0
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  description: |
+    Moonshine Tiny is a lightweight speech-to-text model optimized for fast transcription. It is designed for efficient on-device ASR with high accuracy relative to its size.
+  urls:
+    - https://github.com/moonshine-ai/moonshine
+  tags:
+    - stt
+    - speech-to-text
+    - asr
+    - audio-transcription
+    - cpu
+    - gpu
+  overrides:
+    backend: moonshine
+    known_usecases:
+      - transcript
+    parameters:
+      model: moonshine/tiny
+- name: whisperx-tiny
+  license: mit
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  description: |
+    WhisperX Tiny is a fast and accurate speech recognition model with speaker diarization capabilities. Built on OpenAI's Whisper with additional features for alignment and speaker segmentation.
+  urls:
+    - https://github.com/m-bain/whisperX
+  tags:
+    - stt
+    - speech-to-text
+    - asr
+    - audio-transcription
+    - speaker-diarization
+    - cpu
+    - gpu
+  overrides:
+    backend: whisperx
+    known_usecases:
+      - transcript
+    parameters:
+      model: tiny
+- name: voxcpm-1.5
+  license: apache-2.0
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  description: |
+    VoxCPM 1.5 is an end-to-end text-to-speech (TTS) model from ModelBest. It features zero-shot voice cloning and high-quality speech synthesis capabilities.
+  urls:
+    - https://huggingface.co/openbmb/VoxCPM1.5
+  tags:
+    - tts
+    - text-to-speech
+    - voice-cloning
+    - cpu
+    - gpu
+  overrides:
+    backend: voxcpm
+    known_usecases:
+      - tts
+    parameters:
+      model: openbmb/VoxCPM1.5
 - name: "ace-step-turbo"
   license: mit
   tags:
