@@ -38,14 +38,14 @@ Sherpa-ONNX is a comprehensive speech processing toolkit that provides:
 
 #### 1. ONNX Runtime
 - **Repository**: https://github.com/microsoft/onnxruntime
-- **Version**: v1.24.1
-- **Commit**: `470ae16099a74fe05e31f2530489332c0525edb5`
+- **Version**: v1.24.1 (or version compatible with chosen Sherpa-ONNX release)
 - **Purpose**: Neural network inference engine
-- **Build Strategy**: Build from source with specific commit to ensure reproducibility
+- **Build Strategy**: Download prebuilt upstream release tarballs (following the `silero-vad` backend pattern). The Makefile selects the correct package (CPU, GPU-CUDA, or ROCm) based on `BUILD_TYPE`.
+- **Justification**: Upstream publishes well-tested binaries for all target platforms. Avoids 30-60+ minute source builds. The `silero-vad` backend already uses this approach successfully.
 - **GPU Providers**:
-  - **CUDA**: NVIDIA GPUs (CUDA 11.8+ with cuDNN 8.x, or CUDA 12.x with cuDNN 9.x)
-  - **MIGraphX**: AMD ROCm GPUs (ROCm 5.4-7.2+) - Note: Old ROCm EP deprecated in 1.23
-  - **DirectML**: Windows DirectX 12 GPUs
+  - **CUDA**: NVIDIA GPUs (CUDA 11.8+ with cuDNN 8.x, or CUDA 12.x with cuDNN 9.x) — use `onnxruntime-linux-x64-gpu-*.tgz`
+  - **MIGraphX**: AMD ROCm GPUs (ROCm 5.4-7.2+) - Note: Old ROCm EP deprecated in 1.23 — use `onnxruntime-linux-x64-rocm-*.tgz` if available
+  - **DirectML**: Windows DirectX 12 GPUs (lower priority)
 
 #### 2. Sherpa-ONNX C++ Library
 - **Repository**: https://github.com/k2-fsa/sherpa-onnx
@@ -54,7 +54,7 @@ Sherpa-ONNX is a comprehensive speech processing toolkit that provides:
 - **Purpose**: Core speech processing functionality
 - **Build System**: CMake-based
 - **Language**: C++17
-- **Build Strategy**: Build from source, use pre-installed ONNX Runtime
+- **Build Strategy**: `git clone` + `cmake` build inside `backend/go/sherpa-onnx/Makefile`, linked against the downloaded ONNX Runtime
 
 #### 3. Sherpa-ONNX Go Bindings
 - **Repository**: https://github.com/k2-fsa/sherpa-onnx-go
@@ -67,12 +67,12 @@ Sherpa-ONNX is a comprehensive speech processing toolkit that provides:
 
 ### Dependency Management Strategy
 
-Following LocalAI's pattern (like llama.cpp), we will:
-1. **Build ONNX Runtime ourselves** from a specific commit
-2. **Build Sherpa-ONNX ourselves** from a specific commit, using our ONNX Runtime
-3. **Control all nested dependencies** by either:
-   - Pre-downloading specific versions to avoid FetchContent's automatic fetching
-   - Using Sherpa-ONNX's built-in FetchContent (which uses specific tagged releases)
+We will:
+1. **Download prebuilt ONNX Runtime** from upstream releases (following the `silero-vad` pattern)
+2. **Build Sherpa-ONNX ourselves** via `git clone` + `cmake` from a specific commit/tag, using the downloaded ONNX Runtime
+3. **Let Sherpa-ONNX manage its nested dependencies** via its built-in FetchContent (which uses specific tagged releases)
+
+Both steps happen inside `backend/go/sherpa-onnx/Makefile`, executed by the existing `backend/Dockerfile.golang`.
 
 ### Native C++ Dependencies
 
@@ -142,7 +142,7 @@ cmake -DCMAKE_BUILD_TYPE=Release \
 ## GPU Acceleration Requirements
 
 ### Overview
-GPU acceleration in Sherpa-ONNX is provided through ONNX Runtime execution providers. We must build ONNX Runtime from source with GPU support.
+GPU acceleration in Sherpa-ONNX is provided through ONNX Runtime execution providers. We download the appropriate prebuilt ONNX Runtime package (CPU, GPU-CUDA, or ROCm) based on `BUILD_TYPE`, then build Sherpa-ONNX against it with `SHERPA_ONNX_ENABLE_GPU=ON`.
 
 ### NVIDIA CUDA Support
 
@@ -153,23 +153,18 @@ GPU acceleration in Sherpa-ONNX is provided through ONNX Runtime execution provi
 - **Additional**: Zlib (required for cuDNN 8/9 on Linux)
 
 #### Build Process
-1. **Build ONNX Runtime with CUDA** from commit `470ae16099a74fe05e31f2530489332c0525edb5`:
+1. **Download prebuilt ONNX Runtime with CUDA** (handled by Makefile):
    ```bash
-   git clone https://github.com/microsoft/onnxruntime.git
-   cd onnxruntime
-   git checkout 470ae16099a74fe05e31f2530489332c0525edb5
-   git submodule update --init --recursive
-   ./build.sh --use_cuda --cuda_home /usr/local/cuda --cudnn_home /usr/local/cudnn \
-              --config Release --parallel --skip_tests \
-              --cmake_extra_defines CMAKE_CUDA_ARCHITECTURES="60;70;75;80;86;89;90"
-   make install DESTDIR=/opt/onnxruntime
+   # The Makefile downloads the GPU variant automatically when BUILD_TYPE=cublas
+   curl -L https://github.com/microsoft/onnxruntime/releases/download/v${ONNX_VERSION}/onnxruntime-linux-x64-gpu-${ONNX_VERSION}.tgz \
+     -o sources/onnxruntime/onnxruntime.tgz
+   # Extract headers + libs to sources/onnxruntime/
    ```
 
-2. **Build Sherpa-ONNX with GPU Support** from commit `7e227a529be6c383134a358c5744d0eb1cb5ae1f`:
+2. **Build Sherpa-ONNX with GPU Support** from pinned commit:
    ```bash
-   git clone https://github.com/k2-fsa/sherpa-onnx.git
-   cd sherpa-onnx
-   git checkout 7e227a529be6c383134a358c5744d0eb1cb5ae1f
+   git clone https://github.com/k2-fsa/sherpa-onnx.git sources/sherpa-onnx
+   cd sources/sherpa-onnx && git checkout 7e227a529be6c383134a358c5744d0eb1cb5ae1f
    mkdir build && cd build
    cmake -DCMAKE_BUILD_TYPE=Release \
          -DSHERPA_ONNX_ENABLE_GPU=ON \
@@ -177,10 +172,10 @@ GPU acceleration in Sherpa-ONNX is provided through ONNX Runtime execution provi
          -DSHERPA_ONNX_ENABLE_BINARY=OFF \
          -DBUILD_SHARED_LIBS=ON \
          -DSHERPA_ONNX_USE_PRE_INSTALLED_ONNXRUNTIME_IF_AVAILABLE=ON \
-         -DONNXRUNTIME_DIR=/opt/onnxruntime \
+         -DONNXRUNTIME_DIR=$(pwd)/../../onnxruntime \
          ..
    make -j$(nproc)
-   make install DESTDIR=/opt/sherpa-onnx
+   make install DESTDIR=$(pwd)/../../sherpa-install
    ```
 
 3. **Build Go Backend**:
@@ -200,26 +195,18 @@ GPU acceleration in Sherpa-ONNX is provided through ONNX Runtime execution provi
 - **GPUs**: GCN architecture and newer
 
 #### Build Process
-1. **Install ROCm SDK**:
+1. **ROCm SDK**: Provided by the base image (`rocm/dev-ubuntu-24.04:6.4.4`) via `backend/Dockerfile.golang`.
+
+2. **Download prebuilt ONNX Runtime with ROCm** (handled by Makefile):
    ```bash
-   # Follow AMD's ROCm installation guide
-   wget https://repo.radeon.com/amdgpu-install/latest/ubuntu/jammy/amdgpu-install_*.deb
-   sudo apt install ./amdgpu-install_*.deb
-   sudo amdgpu-install --usecase=rocm
+   # If upstream publishes ROCm binaries for our version:
+   curl -L https://github.com/microsoft/onnxruntime/releases/download/v${ONNX_VERSION}/onnxruntime-linux-x64-rocm-${ONNX_VERSION}.tgz \
+     -o sources/onnxruntime/onnxruntime.tgz
+   # Note: If ROCm prebuilt is unavailable for the chosen version,
+   # fall back to CPU-only ONNX Runtime on ROCm builds.
    ```
 
-2. **Build ONNX Runtime with MIGraphX**:
-   ```bash
-   git clone https://github.com/microsoft/onnxruntime.git
-   cd onnxruntime
-   git checkout 470ae16099a74fe05e31f2530489332c0525edb5
-   git submodule update --init --recursive
-   ./build.sh --use_migraphx --migraphx_home /opt/rocm \
-              --config Release --parallel --skip_tests
-   make install DESTDIR=/opt/onnxruntime
-   ```
-
-3. **Build Sherpa-ONNX**: Same as CUDA but using MIGraphX-enabled ONNX Runtime
+3. **Build Sherpa-ONNX**: Same as CUDA but using ROCm-enabled ONNX Runtime
 
 #### Runtime Configuration
 - Set `provider="migraphx"` in config
@@ -240,107 +227,105 @@ GPU acceleration in Sherpa-ONNX is provided through ONNX Runtime execution provi
 
 ## Build Strategy
 
-### Multi-Stage Docker Build
+### Makefile-Driven Build (using existing `backend/Dockerfile.golang`)
 
-Following LocalAI's pattern (like llama.cpp), we'll use multi-stage builds with pinned commits:
+Instead of a custom multi-stage Dockerfile, we use the existing `backend/Dockerfile.golang` which runs `make -C /LocalAI/backend/go/${BACKEND} build`. All library acquisition and compilation happens in `backend/go/sherpa-onnx/Makefile`, following the pattern established by `backend/go/silero-vad/Makefile`.
 
-#### Stage 1: ONNX Runtime Builder (Per GPU Type)
+The Dockerfile already provides: `git`, `cmake`, `make`, `g++` (build-essential), `curl`, Go toolchain, protoc, and GPU-specific libraries (CUDA, ROCm, Vulkan) based on `BUILD_TYPE`.
 
-**CPU Builder**:
-```dockerfile
-FROM ubuntu:24.04 AS onnxruntime-builder-cpu
-RUN apt-get update && apt-get install -y git cmake build-essential python3
-RUN git clone https://github.com/microsoft/onnxruntime.git /onnxruntime && \
-    cd /onnxruntime && \
-    git checkout 470ae16099a74fe05e31f2530489332c0525edb5 && \
-    git submodule update --init --recursive
-RUN cd /onnxruntime && \
-    ./build.sh --config Release --parallel --skip_tests && \
-    make install DESTDIR=/opt/onnxruntime
-```
+#### Makefile Workflow
 
-**CUDA Builder**:
-```dockerfile
-FROM nvidia/cuda:12.4.0-devel-ubuntu24.04 AS onnxruntime-builder-cuda
-RUN apt-get update && apt-get install -y git cmake build-essential python3 zlib1g-dev wget
-# Install cuDNN 9
-RUN wget https://developer.download.nvidia.com/compute/cudnn/9.0.0/local_installers/cudnn-local-repo-ubuntu2404-9.0.0_1.0-1_amd64.deb && \
-    dpkg -i cudnn-local-repo-ubuntu2404-9.0.0_1.0-1_amd64.deb && \
-    apt-get update && apt-get install -y cudnn
-# Build ONNX Runtime
-RUN git clone https://github.com/microsoft/onnxruntime.git /onnxruntime && \
-    cd /onnxruntime && \
-    git checkout 470ae16099a74fe05e31f2530489332c0525edb5 && \
-    git submodule update --init --recursive
-RUN cd /onnxruntime && \
-    ./build.sh --use_cuda --cuda_home /usr/local/cuda --cudnn_home /usr \
-               --config Release --parallel --skip_tests \
-               --cmake_extra_defines CMAKE_CUDA_ARCHITECTURES="60;70;75;80;86;89;90" && \
-    make install DESTDIR=/opt/onnxruntime
-```
+The `backend/go/sherpa-onnx/Makefile` performs these steps in order:
 
-**ROCm Builder**:
-```dockerfile
-FROM rocm/dev-ubuntu-24.04:6.4.4 AS onnxruntime-builder-rocm
-RUN apt-get update && apt-get install -y git cmake python3
-RUN git clone https://github.com/microsoft/onnxruntime.git /onnxruntime && \
-    cd /onnxruntime && \
-    git checkout 470ae16099a74fe05e31f2530489332c0525edb5 && \
-    git submodule update --init --recursive
-RUN cd /onnxruntime && \
-    ./build.sh --use_migraphx --migraphx_home /opt/rocm \
-               --config Release --parallel --skip_tests && \
-    make install DESTDIR=/opt/onnxruntime
-```
+1. **Detect architecture/OS** (x86_64 vs aarch64, linux vs darwin)
+2. **Download prebuilt ONNX Runtime** from upstream GitHub releases
+   - CPU: `onnxruntime-linux-x64-${ONNX_VERSION}.tgz`
+   - CUDA: `onnxruntime-linux-x64-gpu-${ONNX_VERSION}.tgz`
+   - ROCm: `onnxruntime-linux-x64-rocm-${ONNX_VERSION}.tgz` (if available)
+   - Extract to `sources/onnxruntime/`
+3. **Clone and build Sherpa-ONNX** from pinned commit
+   - `git clone` to `sources/sherpa-onnx/`
+   - `cmake` with `-DSHERPA_ONNX_USE_PRE_INSTALLED_ONNXRUNTIME_IF_AVAILABLE=ON`
+   - `make -j$(nproc)` + `make install`
+4. **Copy runtime libraries** to `backend-assets/lib/`
+5. **Build Go binary** with CGO flags pointing to local headers/libs
+6. **Package** via `package.sh` (bundles binary + shared libs)
 
-#### Stage 2: Sherpa-ONNX Builder
+```makefile
+CURRENT_DIR=$(abspath ./)
+GOCMD=go
 
-```dockerfile
-FROM onnxruntime-builder-${BUILD_TYPE} AS sherpa-builder
-ARG BUILD_TYPE=cpu
-RUN git clone https://github.com/k2-fsa/sherpa-onnx.git /sherpa-onnx && \
-    cd /sherpa-onnx && \
-    git checkout 7e227a529be6c383134a358c5744d0eb1cb5ae1f
-WORKDIR /sherpa-onnx/build
-RUN cmake -DCMAKE_BUILD_TYPE=Release \
-          -DSHERPA_ONNX_ENABLE_GPU=$([[ "$BUILD_TYPE" != "cpu" ]] && echo "ON" || echo "OFF") \
-          -DSHERPA_ONNX_ENABLE_TTS=ON \
-          -DSHERPA_ONNX_ENABLE_BINARY=OFF \
-          -DSHERPA_ONNX_ENABLE_PYTHON=OFF \
-          -DSHERPA_ONNX_ENABLE_TESTS=OFF \
-          -DSHERPA_ONNX_ENABLE_C_API=ON \
-          -DBUILD_SHARED_LIBS=ON \
-          -DSHERPA_ONNX_USE_PRE_INSTALLED_ONNXRUNTIME_IF_AVAILABLE=ON \
-          -DONNXRUNTIME_DIR=/opt/onnxruntime \
-          .. && \
-    make -j$(nproc) && \
-    make install DESTDIR=/opt/sherpa-onnx
-```
+ONNX_VERSION?=1.24.1
+SHERPA_COMMIT?=7e227a529be6c383134a358c5744d0eb1cb5ae1f
+ONNX_ARCH?=x64
+ONNX_OS?=linux
 
-#### Stage 3: Go Backend Builder
+# Detect ARM
+ifneq (,$(findstring aarch64,$(shell uname -m)))
+	ONNX_ARCH=aarch64
+endif
 
-```dockerfile
-FROM sherpa-builder AS backend-builder
-RUN apt-get install -y golang-1.21
-COPY backend/go/sherpa-onnx /build
-WORKDIR /build
-ENV CGO_ENABLED=1
-ENV CGO_CFLAGS="-I/opt/sherpa-onnx/usr/local/include"
-ENV CGO_LDFLAGS="-L/opt/sherpa-onnx/usr/local/lib -L/opt/onnxruntime/usr/local/lib -lsherpa-onnx -lonnxruntime"
-RUN go build -o sherpa-onnx-backend .
-```
+# Determine ONNX Runtime package variant based on BUILD_TYPE
+ifeq ($(BUILD_TYPE),cublas)
+	ONNX_VARIANT=gpu
+	SHERPA_GPU=ON
+else ifeq ($(BUILD_TYPE),hipblas)
+	ONNX_VARIANT=rocm
+	SHERPA_GPU=ON
+else
+	ONNX_VARIANT=
+	SHERPA_GPU=OFF
+endif
 
-#### Stage 4: Runtime Image
+# Download ONNX Runtime (prebuilt, like silero-vad)
+sources/onnxruntime:
+	mkdir -p sources/onnxruntime
+	curl -L https://github.com/microsoft/onnxruntime/releases/download/v$(ONNX_VERSION)/onnxruntime-$(ONNX_OS)-$(ONNX_ARCH)$(if $(ONNX_VARIANT),-$(ONNX_VARIANT),)-$(ONNX_VERSION).tgz \
+	  -o sources/onnxruntime/onnxruntime.tgz
+	cd sources/onnxruntime && tar -xf onnxruntime.tgz --strip-components=1 && rm onnxruntime.tgz
 
-```dockerfile
-FROM ubuntu:24.04 AS runtime
-ARG BUILD_TYPE=cpu
-COPY --from=backend-builder /build/sherpa-onnx-backend /usr/local/bin/
-COPY --from=backend-builder /opt/sherpa-onnx/usr/local/lib/* /usr/local/lib/
-COPY --from=backend-builder /opt/onnxruntime/usr/local/lib/* /usr/local/lib/
-# Copy CUDA/ROCm runtime libraries if GPU build
-RUN ldconfig
-ENTRYPOINT ["/usr/local/bin/sherpa-onnx-backend"]
+# Clone and build Sherpa-ONNX from source
+sources/sherpa-onnx: sources/onnxruntime
+	git clone https://github.com/k2-fsa/sherpa-onnx.git sources/sherpa-onnx
+	cd sources/sherpa-onnx && git checkout $(SHERPA_COMMIT)
+	mkdir -p sources/sherpa-onnx/build
+	cd sources/sherpa-onnx/build && cmake \
+	  -DCMAKE_BUILD_TYPE=Release \
+	  -DSHERPA_ONNX_ENABLE_GPU=$(SHERPA_GPU) \
+	  -DSHERPA_ONNX_ENABLE_TTS=ON \
+	  -DSHERPA_ONNX_ENABLE_BINARY=OFF \
+	  -DSHERPA_ONNX_ENABLE_PYTHON=OFF \
+	  -DSHERPA_ONNX_ENABLE_TESTS=OFF \
+	  -DSHERPA_ONNX_ENABLE_C_API=ON \
+	  -DBUILD_SHARED_LIBS=ON \
+	  -DSHERPA_ONNX_USE_PRE_INSTALLED_ONNXRUNTIME_IF_AVAILABLE=ON \
+	  -DONNXRUNTIME_DIR=$(CURRENT_DIR)/sources/onnxruntime \
+	  ..
+	cd sources/sherpa-onnx/build && make -j$$(nproc)
+
+# Copy libraries to backend-assets
+backend-assets/lib: sources/sherpa-onnx sources/onnxruntime
+	mkdir -p backend-assets/lib
+	cp -rfLv sources/onnxruntime/lib/* backend-assets/lib/
+	cp -rfLv sources/sherpa-onnx/build/lib/*.so* backend-assets/lib/ 2>/dev/null || true
+
+# Build Go binary
+sherpa-onnx: backend-assets/lib
+	CGO_LDFLAGS="$(CGO_LDFLAGS)" \
+	CPATH="$(CPATH):$(CURRENT_DIR)/sources/onnxruntime/include/:$(CURRENT_DIR)/sources/sherpa-onnx/sherpa-onnx/c-api/" \
+	LIBRARY_PATH=$(CURRENT_DIR)/backend-assets/lib \
+	$(GOCMD) build -o sherpa-onnx ./
+
+package:
+	bash package.sh
+
+build: sherpa-onnx package
+
+clean:
+	rm -rf sherpa-onnx sources/ backend-assets/
+
+test:
+	go test -v .
 ```
 
 ### Build Variants
@@ -475,9 +460,8 @@ sherpa-onnx-meta: &sherpa-onnx
 #### Week 1: Backend Structure & Build System
 - Create `backend/go/sherpa-onnx/` directory structure
 - Implement minimal Go backend (main.go, backend.go)
-- Create Dockerfile for CPU-only build
-- Build ONNX Runtime (CPU) from commit `470ae16099a74fe05e31f2530489332c0525edb5`
-- Build Sherpa-ONNX from commit `7e227a529be6c383134a358c5744d0eb1cb5ae1f`
+- Implement Makefile (download prebuilt ONNX Runtime, git clone + cmake Sherpa-ONNX)
+- Verify build via `backend/Dockerfile.golang` (CPU-only)
 - Create CGO wrapper for TTS functionality
 - Verify end-to-end build
 
@@ -497,7 +481,7 @@ sherpa-onnx-meta: &sherpa-onnx
 
 **Deliverables**:
 - ✅ Working TTS backend (CPU-only)
-- ✅ Dockerfile builds successfully
+- ✅ Builds successfully via `backend/Dockerfile.golang`
 - ✅ Basic functionality test passes with small model
 - ✅ Integrated into LocalAI build system
 
@@ -506,9 +490,8 @@ sherpa-onnx-meta: &sherpa-onnx
 **Goal**: Add NVIDIA GPU support, validate GPU inference works.
 
 #### Week 4-5: CUDA Build System
-- Create CUDA builder Dockerfile
-- Build ONNX Runtime with CUDA provider
-- Build Sherpa-ONNX with GPU support
+- Update Makefile to detect `BUILD_TYPE=cublas` and download GPU ONNX Runtime variant
+- Build Sherpa-ONNX with `SHERPA_ONNX_ENABLE_GPU=ON`
 - Update CGO wrapper for GPU libraries
 - Add provider configuration to backend
 - Create CUDA build variant in workflows
@@ -530,10 +513,9 @@ sherpa-onnx-meta: &sherpa-onnx
 **Goal**: Add AMD GPU support via MIGraphX.
 
 #### Week 7-8: ROCm Build System
-- Create ROCm builder Dockerfile
-- Build ONNX Runtime with MIGraphX
+- Update Makefile to detect `BUILD_TYPE=hipblas` and download ROCm ONNX Runtime variant
 - Test on AMD hardware (if available)
-- Add ROCm build variant
+- Add ROCm build variant in workflows
 
 **Deliverables**:
 - ✅ TTS backend with ROCm support
@@ -841,10 +823,10 @@ That's the complete documentation needed - users just need to know how to config
 ## Review Observations
 
 ### 1. Build Optimization
-Building ONNX Runtime from source is resource-intensive and can take significant time (30-60+ minutes). 
+Using prebuilt ONNX Runtime from upstream eliminates the 30-60+ minute source build. Sherpa-ONNX still needs to be built from source (cmake), but this is much faster (a few minutes).
 **Recommendation**: 
-- Configure CI/CD to cache `onnxruntime-builder` images aggressively.
-- Only rebuild the base builder images when dependencies or ONNX Runtime versions change.
+- The Makefile uses `sources/` as a download cache; Docker layer caching handles the rest.
+- Only re-download/rebuild when versions change.
 
 ### 2. Gallery Integration
 While this plan focuses on the binary backend, the end-to-end user experience requires model definitions.
@@ -866,9 +848,16 @@ Using production-quality models for CI will make tests slow and flaky due to dow
 ### 5. Crush AI Review (2026-02-12)
 
 - **Versions Confirmed**: ONNX Runtime v1.24.1 commit valid (latest v1.25.0). Sherpa-ONNX v1.12.23 recent.
-- **Build Flags/C API**: All CMake flags, Docker stages, C TTS API (`SherpaOnnxOfflineTtsGenerate`) validated.
+- **Build Flags/C API**: All CMake flags, C TTS API (`SherpaOnnxOfflineTtsGenerate`) validated.
 - **GPU**: MIGraphX ROCm stable; ROCm EP beta. ArmNN/DirectML deprecated (N/A).
 - **Plan**: Solid; no major invalidations. Ready for Phase 1.
+
+### 6. Build Strategy Revision (2026-02-12)
+
+- **ONNX Runtime**: Switched from building from source to downloading prebuilt upstream release tarballs, following the `silero-vad` backend pattern. This eliminates the 30-60+ minute ONNX Runtime compilation.
+- **Sherpa-ONNX**: Still built from source via `git clone` + `cmake` inside the Makefile. This is necessary because upstream does not publish prebuilt C/C++ libraries with the exact configuration we need (GPU-enabled, C API, no binaries).
+- **Docker**: Uses the existing `backend/Dockerfile.golang` instead of a custom multi-stage Dockerfile. All library acquisition and build logic lives in `backend/go/sherpa-onnx/Makefile`.
+- **Pattern**: Follows the same approach as `backend/go/silero-vad/Makefile` for ONNX Runtime, extended with a Sherpa-ONNX build step.
 
 ---
 
@@ -878,13 +867,14 @@ Using production-quality models for CI will make tests slow and flaky due to dow
 ### Key Points
 
 1. **Pinned Dependencies**:
-   - ONNX Runtime: v1.24.1 (commit `470ae16099a74fe05e31f2530489332c0525edb5`)
-   - Sherpa-ONNX: v1.12.23 (commit `7e227a529be6c383134a358c5744d0eb1cb5ae1f`)
+   - ONNX Runtime: v1.24.1 (prebuilt upstream binaries)
+   - Sherpa-ONNX: v1.12.23 (commit `7e227a529be6c383134a358c5744d0eb1cb5ae1f`, built from source)
    - Nested dependencies: Sherpa-ONNX's CMake uses specific tagged releases (reproducible)
 
 2. **Build Strategy**:
-   - Build ONNX Runtime ourselves from specific commit
-   - Build Sherpa-ONNX ourselves, providing pre-built ONNX Runtime
+   - Download prebuilt ONNX Runtime from upstream GitHub releases (like `silero-vad`)
+   - Build Sherpa-ONNX from source via `git clone` + `cmake` in the Makefile
+   - All build logic in `backend/go/sherpa-onnx/Makefile`, using existing `backend/Dockerfile.golang`
    - Sherpa-ONNX will FetchContent its dependencies at specific versions
    - Create custom CGO wrapper (not using sherpa-onnx-go prebuilts)
 
