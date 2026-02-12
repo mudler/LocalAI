@@ -109,10 +109,10 @@ func API(application *application.Application) (*echo.Echo, error) {
 			res := c.Response()
 			err := next(c)
 
-			// Fix for #7989: Reduce log verbosity of Web UI polling
-			// If the path is /api/operations and the request was successful (200),
+			// Fix for #7989: Reduce log verbosity of Web UI polling and resources API
+			// If the path is /api/operations or /api/resources and the request was successful (200),
 			// we log it at DEBUG level (hidden by default) instead of INFO.
-			if req.URL.Path == "/api/operations" && res.Status == 200 {
+			if (req.URL.Path == "/api/operations" || req.URL.Path == "/api/resources") && res.Status == 200 {
 				xlog.Debug("HTTP request", "method", req.Method, "path", req.URL.Path, "status", res.Status)
 			} else {
 				xlog.Info("HTTP request", "method", req.Method, "path", req.URL.Path, "status", res.Status)
