@@ -1,4 +1,29 @@
 ---
+- name: "nanbeige4.1-3b"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Nanbeige4.1-3B-GGUF
+  description: |
+    The model is a 3B parameter language model (Nanbeige4.1-3B) optimized for efficiency with quantized versions (e.g., Q4_K_S, Q2_K, etc.). It is compressed in GGUF format and designed for deployment on devices with limited memory, offering a balance between performance and computational efficiency. The base model is the original Nanbeige4.1-3B, while the GGUF version is a quantized version for reduced storage and faster inference.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Nanbeige4.1-3B.Q4_K_M.gguf
+    name: Nanbeige4.1-3B-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Nanbeige4.1-3B-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Nanbeige4.1-3B.Q4_K_M.gguf
+      sha256: 0ba28f064c66071646e7959c752851abf02a096f1d37e7d0e443e3502e12ca02
+      uri: https://huggingface.co/mradermacher/Nanbeige4.1-3B-GGUF/resolve/main/Nanbeige4.1-3B.Q4_K_M.gguf
 - name: "ace-step-turbo"
   license: mit
   tags:
