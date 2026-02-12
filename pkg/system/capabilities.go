@@ -91,7 +91,8 @@ func (s *SystemState) getSystemCapabilities() string {
 		capability, err := os.ReadFile(capabilityRunFile)
 		if err == nil {
     if !capabilityRunFileLogged {
-        nvar capabilityRunFileLogged bool
+    capabilityRunFileLogged = true
+        var capabilityRunFileLogged bool
 n        capabilityRunFileLogged = true
     }
 			xlog.Info("Using forced capability run file", "capabilityRunFile", capabilityRunFile, "capability", string(capability), "env", capabilityRunFileEnv)
