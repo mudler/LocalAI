@@ -623,7 +623,7 @@
   files:
     - filename: llama-cpp/models/GLM-4.7-Flash-Q4_K_M.gguf
       uri: https://huggingface.co/unsloth/GLM-4.7-Flash-GGUF/resolve/main/GLM-4.7-Flash-Q4_K_M.gguf
-      sha256: 73ba18480e06ccda453a26263c0e2be2bd86294e827b1812ddea2f88bba2d924
+      sha256: 29837ed2c0fc5f51981adf8ac8083fcf80743c598381f13e9f06cbad0498b174
 - name: "qwen3-vl-reranker-8b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
