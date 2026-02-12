@@ -26,6 +26,7 @@ const (
 	MessageContentTypeTranscript  MessageContentType = "transcript"
 	MessageContentTypeInputText   MessageContentType = "input_text"
 	MessageContentTypeInputAudio  MessageContentType = "input_audio"
+	MessageContentTypeInputImage  MessageContentType = "input_image"
 	MessageContentTypeOutputText  MessageContentType = "output_text"
 	MessageContentTypeOutputAudio MessageContentType = "output_audio"
 )
