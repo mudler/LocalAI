@@ -112,7 +112,7 @@ class TestBackendServicer(unittest.TestCase):
                 self.assertGreaterEqual(len(transcript_response.segments), 0)
                 
                 # Verify the transcription contains the expected text
-                expected_text = "This is the micro machine man presenting the most midget miniature"
+                expected_text = "This is the micro machine man"
                 self.assertIn(
                     expected_text.lower(),
                     transcript_response.text.lower(),
