@@ -1,4 +1,239 @@
 ---
+- name: nemo-parakeet-tdt-0.6b
+  license: apache-2.0
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  description: |
+    NVIDIA NeMo Parakeet TDT 0.6B v3 is an automatic speech recognition (ASR) model from NVIDIA's NeMo toolkit. Parakeet models are state-of-the-art ASR models trained on large-scale English audio data.
+  urls:
+    - https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3
+    - https://github.com/NVIDIA/NeMo
+  tags:
+    - stt
+    - speech-to-text
+    - asr
+    - nvidia
+    - nemo
+    - parakeet
+    - cpu
+    - gpu
+  overrides:
+    backend: nemo
+    known_usecases:
+      - transcript
+    parameters:
+      model: nvidia/parakeet-tdt-0.6b-v3
+- name: voxtral-mini-4b-realtime
+  license: apache-2.0
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  description: |
+    Voxtral Mini 4B Realtime is a speech-to-text model from Mistral AI. It is a 4B parameter model optimized for fast, accurate audio transcription with low latency, making it ideal for real-time applications. The model uses the Voxtral architecture for efficient audio processing.
+  urls:
+    - https://huggingface.co/mistralai/Voxtral-Mini-4B-Realtime-2602
+    - https://github.com/antirez/voxtral.c
+  tags:
+    - stt
+    - speech-to-text
+    - audio-transcription
+    - cpu
+    - metal
+    - mistral
+  overrides:
+    backend: voxtral
+    known_usecases:
+      - transcript
+    parameters:
+      model: voxtral-model
+  files:
+    - filename: voxtral-model/consolidated.safetensors
+      uri: https://huggingface.co/mistralai/Voxtral-Mini-4B-Realtime-2602/resolve/main/consolidated.safetensors
+      sha256: 263f178fe752c90a2ae58f037a95ed092db8b14768b0978b8c48f66979c8345d
+    - filename: voxtral-model/params.json
+      uri: https://huggingface.co/mistralai/Voxtral-Mini-4B-Realtime-2602/resolve/main/params.json
+    - filename: voxtral-model/tekken.json
+      uri: https://huggingface.co/mistralai/Voxtral-Mini-4B-Realtime-2602/resolve/main/tekken.json
+      sha256: 8434af1d39eba99f0ef46cf1450bf1a63fa941a26933a1ef5dbbf4adf0d00e44
+- name: moonshine-tiny
+  license: apache-2.0
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  description: |
+    Moonshine Tiny is a lightweight speech-to-text model optimized for fast transcription. It is designed for efficient on-device ASR with high accuracy relative to its size.
+  urls:
+    - https://github.com/moonshine-ai/moonshine
+  tags:
+    - stt
+    - speech-to-text
+    - asr
+    - audio-transcription
+    - cpu
+    - gpu
+  overrides:
+    backend: moonshine
+    known_usecases:
+      - transcript
+    parameters:
+      model: moonshine/tiny
+- name: whisperx-tiny
+  license: mit
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  description: |
+    WhisperX Tiny is a fast and accurate speech recognition model with speaker diarization capabilities. Built on OpenAI's Whisper with additional features for alignment and speaker segmentation.
+  urls:
+    - https://github.com/m-bain/whisperX
+  tags:
+    - stt
+    - speech-to-text
+    - asr
+    - audio-transcription
+    - speaker-diarization
+    - cpu
+    - gpu
+  overrides:
+    backend: whisperx
+    known_usecases:
+      - transcript
+    parameters:
+      model: tiny
+- name: voxcpm-1.5
+  license: apache-2.0
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  description: |
+    VoxCPM 1.5 is an end-to-end text-to-speech (TTS) model from ModelBest. It features zero-shot voice cloning and high-quality speech synthesis capabilities.
+  urls:
+    - https://huggingface.co/openbmb/VoxCPM1.5
+  tags:
+    - tts
+    - text-to-speech
+    - voice-cloning
+    - cpu
+    - gpu
+  overrides:
+    backend: voxcpm
+    known_usecases:
+      - tts
+    parameters:
+      model: openbmb/VoxCPM1.5
+- name: neutts-air
+  license: apache-2.0
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  description: |
+    NeuTTS Air is the world's first super-realistic, on-device TTS speech language model with instant voice cloning. Built on a 0.5B LLM backbone, it brings natural-sounding speech, real-time performance, and speaker cloning to local devices.
+  urls:
+    - https://github.com/neuphonic/neutts-air
+  tags:
+    - tts
+    - text-to-speech
+    - voice-cloning
+    - cpu
+    - gpu
+  overrides:
+    backend: neutts
+    known_usecases:
+      - tts
+- name: vllm-omni-z-image-turbo
+  license: apache-2.0
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  description: |
+    Z-Image-Turbo via vLLM-Omni - A distilled version of Z-Image optimized for speed with only 8 NFEs. Offers sub-second inference latency on enterprise-grade H800 GPUs and fits within 16GB VRAM. Excels in photorealistic image generation, bilingual text rendering (English & Chinese), and robust instruction adherence.
+  urls:
+    - https://huggingface.co/Tongyi-MAI/Z-Image-Turbo
+  tags:
+    - text-to-image
+    - image-generation
+    - vllm-omni
+    - z-image
+    - cpu
+    - gpu
+  overrides:
+    backend: vllm-omni
+    known_usecases:
+      - image_generation
+    parameters:
+      model: Tongyi-MAI/Z-Image-Turbo
+- name: vllm-omni-wan2.2-t2v
+  license: apache-2.0
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  description: |
+    Wan2.2-T2V-A14B via vLLM-Omni - Text-to-video generation model from Wan-AI. Generates high-quality videos from text prompts using a 14B parameter diffusion model.
+  urls:
+    - https://huggingface.co/Wan-AI/Wan2.2-T2V-A14B-Diffusers
+  tags:
+    - text-to-video
+    - video-generation
+    - vllm-omni
+    - wan
+    - cpu
+    - gpu
+  overrides:
+    backend: vllm-omni
+    known_usecases:
+      - video_generation
+    parameters:
+      model: Wan-AI/Wan2.2-T2V-A14B-Diffusers
+- name: vllm-omni-wan2.2-i2v
+  license: apache-2.0
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  description: |
+    Wan2.2-I2V-A14B via vLLM-Omni - Image-to-video generation model from Wan-AI. Generates high-quality videos from images using a 14B parameter diffusion model.
+  urls:
+    - https://huggingface.co/Wan-AI/Wan2.2-I2V-A14B-Diffusers
+  tags:
+    - image-to-video
+    - video-generation
+    - vllm-omni
+    - wan
+    - cpu
+    - gpu
+  overrides:
+    backend: vllm-omni
+    known_usecases:
+      - video_generation
+    parameters:
+      model: Wan-AI/Wan2.2-I2V-A14B-Diffusers
+- name: vllm-omni-qwen3-omni-30b
+  license: apache-2.0
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  description: |
+    Qwen3-Omni-30B-A3B-Instruct via vLLM-Omni - A large multimodal model (30B active, 3B activated per token) from Alibaba Qwen team. Supports text, image, audio, and video understanding with text and speech output. Features native multimodal understanding across all modalities.
+  urls:
+    - https://huggingface.co/Qwen/Qwen3-Omni-30B-A3B-Instruct
+  tags:
+    - llm
+    - multimodal
+    - vision
+    - audio
+    - video
+    - vllm-omni
+    - qwen3
+    - cpu
+    - gpu
+  overrides:
+    backend: vllm-omni
+    known_usecases:
+      - chat
+      - multimodal
+    parameters:
+      model: Qwen/Qwen3-Omni-30B-A3B-Instruct
+- name: vllm-omni-qwen3-tts-custom-voice
+  license: apache-2.0
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  description: |
+    Qwen3-TTS-12Hz-1.7B-CustomVoice via vLLM-Omni - Text-to-speech model from Alibaba Qwen team with custom voice cloning capabilities. Generates natural-sounding speech with voice personalization.
+  urls:
+    - https://huggingface.co/Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice
+  tags:
+    - tts
+    - text-to-speech
+    - voice-cloning
+    - vllm-omni
+    - qwen3
+    - cpu
+    - gpu
+  overrides:
+    backend: vllm-omni
+    known_usecases:
+      - tts
+    parameters:
+      model: Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice
 - name: "ace-step-turbo"
   license: mit
   tags:
@@ -13212,6 +13447,61 @@
     - filename: "phi-2-orange.Q4_0.gguf"
       sha256: "49cb710ae688e1b19b1b299087fa40765a0cd677e3afcc45e5f7ef6750975dcf"
       uri: "huggingface://TheBloke/phi-2-orange-GGUF/phi-2-orange.Q4_0.gguf"
+- url: "github:mudler/LocalAI/gallery/phi-3-chat.yaml@master"
+  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/652feb6b4e527bd115ffd6c8/YFwodyNe6LmUrzQNmrl-D.png
+  license: mit
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - cpu
+    - phi-3
+  name: "npc-llm-3-8b"
+  urls:
+    - https://huggingface.co/Gigax/NPC-LLM-3_8B
+    - https://huggingface.co/bartowski/NPC-LLM-3_8B-GGUF
+  description: |
+    NPC model fined-tuned from Phi-3, using LoRA.
+
+    This model parses a text description of a game scene, and outputs commands like:
+
+        - say <player1> "Hello Adventurer, care to join me on a quest?
+        - greet <player1>
+        - attack <player1>
+        - Any other <action> <param> you add to the prompt! (We call these "skills"!)
+
+    ⚠️ This model has been trained to overfit on specific input prompt format. Follow it closely to reach optimal performance ⚠️
+
+    Input prompt
+
+    Here's a sample input prompt, showing you the format on which the model has been trained:
+
+        - WORLD KNOWLEDGE: A vast open world full of mystery and adventure.
+        - KNOWN LOCATIONS: Old Town
+        - NPCS: John the Brave
+        - CURRENT LOCATION: Old Town: A quiet and peaceful town.
+        - CURRENT LOCATION ITEMS: Sword
+        - LAST EVENTS:
+        Aldren: Say Sword What a fine sword!
+        - PROTAGONIST NAME: Aldren
+        - PROTAGONIST PSYCHOLOGICAL PROFILE: Brave and curious
+        - PROTAGONIST MEMORIES:
+        Saved the village
+        Lost a friend
+        - PROTAGONIST PENDING QUESTS:
+        Find the ancient artifact
+        Defeat the evil warlock
+        - PROTAGONIST ALLOWED ACTIONS:
+        Attack <character> : Deliver a powerful blow
+        Aldren:
+  overrides:
+    context_size: 4096
+    parameters:
+      model: NPC-LLM-3_8B-Q4_K_M.gguf
+  files:
+    - filename: NPC-LLM-3_8B-Q4_K_M.gguf
+      uri: huggingface://bartowski/NPC-LLM-3_8B-GGUF/NPC-LLM-3_8B-Q4_K_M.gguf
+      sha256: 5fcfb314566f0ae9364fe80237f96b12678aafbb8e82f90c6aece5ed2a6b83fd
 ### Internlm2
 - name: "internlm2_5-7b-chat-1m"
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"

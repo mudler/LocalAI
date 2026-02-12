@@ -676,6 +676,7 @@ func (s *AgentJobService) executeJobInternal(job schema.Job, task schema.Task, c
 	job.Status = schema.JobStatusRunning
 	job.StartedAt = &now
 	s.jobs.Set(job.ID, job)
+	xlog.Info("Job started", "job_id", job.ID, "task_id", job.TaskID)
 
 	// Load model config
 	modelConfig, err := s.configLoader.LoadModelConfigFileByNameDefaultOptions(task.Model, s.appConfig)
@@ -980,6 +981,7 @@ func (s *AgentJobService) executeJobInternal(job schema.Job, task schema.Task, c
 	job.Result = f.LastMessage().Content
 	job.CompletedAt = &completedAt
 	s.jobs.Set(job.ID, job)
+	xlog.Info("Job completed", "job_id", job.ID, "status", job.Status)
 
 	// Save to file (async)
 	go func() {
