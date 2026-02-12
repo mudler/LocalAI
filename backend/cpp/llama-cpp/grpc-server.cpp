@@ -294,6 +294,76 @@ json parse_options(bool streaming, const backend::PredictOptions* predict, const
     return data;
 }
 
+static bool template_uses_arguments_items_filter(const std::string & template_src) {
+    return template_src.find("arguments|items") != std::string::npos ||
+           template_src.find("arguments | items") != std::string::npos ||
+           template_src.find("arguments| items") != std::string::npos ||
+           template_src.find("arguments |items") != std::string::npos;
+}
+
+static void normalize_tool_call_arguments_for_template(
+    json & messages,
+    const std::string & template_src,
+    const char * request_name)
+{
+    if (!messages.is_array() || !template_uses_arguments_items_filter(template_src)) {
+        return;
+    }
+
+    size_t converted = 0;
+    size_t failed = 0;
+
+    for (auto & message : messages) {
+        if (!message.is_object() || !message.contains("tool_calls") || !message["tool_calls"].is_array()) {
+            continue;
+        }
+
+        for (auto & tool_call : message["tool_calls"]) {
+            if (!tool_call.is_object() || !tool_call.contains("function") || !tool_call["function"].is_object()) {
+                continue;
+            }
+
+            auto & function = tool_call["function"];
+            if (!function.contains("arguments")) {
+                continue;
+            }
+
+            auto & arguments = function["arguments"];
+            if (!arguments.is_string()) {
+                continue;
+            }
+
+            const std::string args_str = arguments.get<std::string>();
+            if (args_str.empty()) {
+                arguments = json::object();
+                converted++;
+                continue;
+            }
+
+            try {
+                json parsed_args = json::parse(args_str);
+                if (parsed_args.is_object()) {
+                    arguments = parsed_args;
+                    converted++;
+                }
+            } catch (const json::parse_error &) {
+                failed++;
+            }
+        }
+    }
+
+    if (converted > 0) {
+        SRV_INF("[TOOLS DEBUG] %s: Converted %zu tool call argument strings to JSON objects for arguments|items template compatibility\n",
+                request_name,
+                converted);
+    }
+    if (failed > 0) {
+        SRV_WRN("[TOOLS DEBUG] %s: Failed to parse %zu tool call argument strings as JSON for arguments|items template compatibility\n",
+                request_name,
+                failed);
+    }
+}
+
 
 const std::vector<ggml_type> kv_cache_types = {
     GGML_TYPE_F32,
@@ -1255,6 +1325,11 @@ public:
                     body_json["add_generation_prompt"] = data["add_generation_prompt"];
                 }
 
+                if (body_json.contains("messages") && ctx_server.impl->chat_params.tmpls) {
+                    const auto template_src = common_chat_templates_source(ctx_server.impl->chat_params.tmpls.get());
+                    normalize_tool_call_arguments_for_template(body_json["messages"], template_src, "PredictStream");
+                }
+
                 // Debug: Print full body_json before template processing (includes messages, tools, tool_choice, etc.)
                 SRV_DBG("[CONVERSATION DEBUG] PredictStream: Full body_json before oaicompat_chat_params_parse:\n%s\n", body_json.dump(2).c_str());
 
@@ -1984,6 +2059,11 @@ public:
                 // Pass add_generation_prompt if present (used by oaicompat_chat_params_parse)
                 if (data.contains("add_generation_prompt")) {
                     body_json["add_generation_prompt"] = data["add_generation_prompt"];
+                }
+
+                if (body_json.contains("messages") && ctx_server.impl->chat_params.tmpls) {
+                    const auto template_src = common_chat_templates_source(ctx_server.impl->chat_params.tmpls.get());
+                    normalize_tool_call_arguments_for_template(body_json["messages"], template_src, "Predict");
                 }
 
                 // Debug: Print full body_json before template processing (includes messages, tools, tool_choice, etc.)
