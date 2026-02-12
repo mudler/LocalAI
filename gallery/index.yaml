@@ -1,6 +1,30 @@
 ---
+- name: nemo-parakeet-tdt-0.6b
+  license: apache-2.0
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  description: |
+    NVIDIA NeMo Parakeet TDT 0.6B v3 is an automatic speech recognition (ASR) model from NVIDIA's NeMo toolkit. Parakeet models are state-of-the-art ASR models trained on large-scale English audio data.
+  urls:
+    - https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3
+    - https://github.com/NVIDIA/NeMo
+  tags:
+    - stt
+    - speech-to-text
+    - asr
+    - nvidia
+    - nemo
+    - parakeet
+    - cpu
+    - gpu
+  overrides:
+    backend: nemo
+    known_usecases:
+      - transcript
+    parameters:
+      model: nvidia/parakeet-tdt-0.6b-v3
 - name: voxtral-mini-4b-realtime
   license: apache-2.0
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   description: |
     Voxtral Mini 4B Realtime is a speech-to-text model from Mistral AI. It is a 4B parameter model optimized for fast, accurate audio transcription with low latency, making it ideal for real-time applications. The model uses the Voxtral architecture for efficient audio processing.
   urls:
@@ -13,11 +37,10 @@
     - cpu
     - metal
     - mistral
-  known_usecases:
-    - sound_generation
-    - tts
   overrides:
     backend: voxtral
+    known_usecases:
+      - transcript
     parameters:
       model: voxtral-model
   files:
