@@ -48,6 +48,9 @@ var (
 	cuda13DirExists  bool
 	cuda12DirExists  bool
 	capabilityLogged bool
+
+	forceCapabilityRunFile    string
+	forceCapabilityRunFileSet bool
 )
 
 func init() {
@@ -77,6 +80,74 @@ func (s *SystemState) getSystemCapabilities() string {
 		xlog.Info("Using forced capability from environment variable", "capability", capability, "env", capabilityEnv)
 		return capability
 	}
+
+	capabilityRunFile := defaultRunFile
+	capabilityRunFileEnv := os.Getenv(capabilityRunFileEnv)
+	if capabilityRunFileEnv != "" {
+		capabilityRunFile = capabilityRunFileEnv
+	}
+
+	if !forceCapabilityRunFileSet || forceCapabilityRunFile != capabilityRunFile {
+		forceCapabilityRunFile = capabilityRunFile
+		forceCapabilityRunFileSet = true
+
+		if _, err := os.Stat(capabilityRunFile); err == nil {
+			capability, err := os.ReadFile(capabilityRunFile)
+			if err == nil {
+				xlog.Info("Using forced capability run file", "capabilityRunFile", capabilityRunFile, "capability", string(capability), "env", capabilityRunFileEnv)
+				return strings.Trim(strings.TrimSpace(string(capability)), "\n")
+			}
+		}
+	}
+
+	if runtime.GOOS == "darwin" && runtime.GOARCH == "arm64" {
+		xlog.Info("Using metal capability (arm64 on mac)", "env", capabilityEnv)
+		return metal
+	}
+
+	if runtime.GOOS == "darwin" && runtime.GOARCH == "amd64" {
+		xlog.Info("Using darwin-x86 capability (amd64 on mac)", "env", capabilityEnv)
+		return darwinX86
+	}
+
+	if runtime.GOOS == "linux" && runtime.GOARCH == "arm64" {
+		if s.GPUVendor == Nvidia {
+			xlog.Info("Using nvidia-l4t capability (arm64 on linux)", "env", capabilityEnv)
+			if cuda13DirExists {
+				return nvidiaL4TCuda13
+			}
+			if cuda12DirExists {
+				return nvidiaL4TCuda12
+			}
+			return nvidiaL4T
+		}
+	}
+
+	if cuda13DirExists {
+		return nvidiaCuda13
+	}
+
+	if cuda12DirExists {
+		return nvidiaCuda12
+	}
+
+	if s.GPUVendor == "" {
+		xlog.Info("Default capability (no GPU detected)", "env", capabilityEnv)
+		return defaultCapability
+	}
+
+	if !capabilityLogged {
+		xlog.Info("Capability automatically detected", "capability", s.GPUVendor, "env", capabilityEnv)
+		capabilityLogged = true
+	}
+
+	if s.VRAM <= 4*1024*1024*1024 {
+		xlog.Warn("VRAM is less than 4GB, defaulting to CPU", "env", capabilityEnv)
+		return defaultCapability
+	}
+
+	return s.GPUVendor
+}
 
 	capabilityRunFile := defaultRunFile
 	capabilityRunFileEnv := os.Getenv(capabilityRunFileEnv)
