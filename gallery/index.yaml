@@ -1,4 +1,41 @@
 ---
+- name: "gemma-3-4b-it"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/professorf/gemma-3-4b-it-gguf
+  description: |
+    **Gemma 3-4B Model Description**
+    A lightweight, state-of-the-art multilingual language model designed for text generation and image understanding.
+      - **Size**: 3.4B parameters
+      - **Capabilities**: Handles text and image input, generates coherent text responses.
+      - **Features**:
+      - 128K context window
+      - Multilingual support (140+ languages)
+      - Open weights for pre-trained and instruction-tuned variants
+      - **Use Cases**: Text summarization, code generation, image analysis, and reasoning tasks.
+      - **Performance**: Trained on 14T tokens, excels in reasoning, factuality, and multilingual tasks.
+      - **Ethics**: Safe by design, with content filtering and bias mitigation.
+
+    This model is ideal for deploying in resource-constrained environments while maintaining high performance.
+  overrides:
+    parameters:
+      model: llama-cpp/models/gemma-3-4b-it-q4_k_m.gguf
+    name: gemma-3-4b-it-gguf
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/professorf/gemma-3-4b-it-gguf
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/gemma-3-4b-it-q4_k_m.gguf
+      sha256: ca1392f419395bd4590c0f752f872efdabe6134f0c07d01a340e1022e5ef4638
+      uri: https://huggingface.co/professorf/gemma-3-4b-it-gguf/resolve/main/gemma-3-4b-it-q4_k_m.gguf
 - name: "ace-step-turbo"
   license: mit
   tags:
