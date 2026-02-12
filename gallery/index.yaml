@@ -112,6 +112,23 @@
       - tts
     parameters:
       model: openbmb/VoxCPM1.5
+- name: neutts-air
+  license: apache-2.0
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  description: |
+    NeuTTS Air is the world's first super-realistic, on-device TTS speech language model with instant voice cloning. Built on a 0.5B LLM backbone, it brings natural-sounding speech, real-time performance, and speaker cloning to local devices.
+  urls:
+    - https://github.com/neuphonic/neutts-air
+  tags:
+    - tts
+    - text-to-speech
+    - voice-cloning
+    - cpu
+    - gpu
+  overrides:
+    backend: neutts
+    known_usecases:
+      - tts
 - name: "ace-step-turbo"
   license: mit
   tags:
