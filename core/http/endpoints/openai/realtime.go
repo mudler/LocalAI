@@ -39,6 +39,18 @@ const (
 // A model can be "emulated" that is: transcribe audio to text -> feed text to the LLM -> generate audio as result
 // If the model support instead audio-to-audio, we will use the specific gRPC calls instead
 
+// LockedWebsocket wraps a websocket connection with a mutex for safe concurrent writes
+type LockedWebsocket struct {
+	*websocket.Conn
+	sync.Mutex
+}
+
+func (l *LockedWebsocket) WriteMessage(messageType int, data []byte) error {
+	l.Lock()
+	defer l.Unlock()
+	return l.Conn.WriteMessage(messageType, data)
+}
+
 // Session represents a single WebSocket connection and its state
 type Session struct {
 	ID                string
@@ -162,7 +174,8 @@ func Realtime(application *application.Application) echo.HandlerFunc {
 }
 
 func registerRealtime(application *application.Application, model string) func(c *websocket.Conn) {
-	return func(c *websocket.Conn) {
+	return func(conn *websocket.Conn) {
+		c := &LockedWebsocket{Conn: conn}
 
 		evaluator := application.TemplatesEvaluator()
 		xlog.Debug("Realtime WebSocket connection established", "address", c.RemoteAddr().String(), "model", model)
@@ -455,7 +468,7 @@ func registerRealtime(application *application.Application, model string) func(c
 }
 
 // Helper function to send events to the client
-func sendEvent(c *websocket.Conn, event types.ServerEvent) {
+func sendEvent(c *LockedWebsocket, event types.ServerEvent) {
 	eventBytes, err := json.Marshal(event)
 	if err != nil {
 		xlog.Error("failed to marshal event", "error", err)
@@ -467,7 +480,7 @@ func sendEvent(c *websocket.Conn, event types.ServerEvent) {
 }
 
 // Helper function to send errors to the client
-func sendError(c *websocket.Conn, code, message, param, eventID string) {
+func sendError(c *LockedWebsocket, code, message, param, eventID string) {
 	errorEvent := types.ErrorEvent{
 		ServerEventBase: types.ServerEventBase{
 			EventID: eventID,
@@ -484,7 +497,7 @@ func sendError(c *websocket.Conn, code, message, param, eventID string) {
 	sendEvent(c, errorEvent)
 }
 
-func sendNotImplemented(c *websocket.Conn, message string) {
+func sendNotImplemented(c *LockedWebsocket, message string) {
 	sendError(c, "not_implemented", message, "", "event_TODO")
 }
 
@@ -598,7 +611,7 @@ func updateSession(session *Session, update *types.SessionUnion, cl *config.Mode
 
 // handleVAD is a goroutine that listens for audio data from the client,
 // runs VAD on the audio data, and commits utterances to the conversation
-func handleVAD(session *Session, conv *Conversation, c *websocket.Conn, done chan struct{}) {
+func handleVAD(session *Session, conv *Conversation, c *LockedWebsocket, done chan struct{}) {
 	vadContext, cancel := context.WithCancel(context.Background())
 	go func() {
 		<-done
@@ -712,7 +725,7 @@ func handleVAD(session *Session, conv *Conversation, c *websocket.Conn, done cha
 	}
 }
 
-func commitUtterance(ctx context.Context, utt []byte, session *Session, conv *Conversation, c *websocket.Conn) {
+func commitUtterance(ctx context.Context, utt []byte, session *Session, conv *Conversation, c *LockedWebsocket) {
 	if len(utt) == 0 {
 		return
 	}
@@ -794,7 +807,7 @@ func runVAD(ctx context.Context, session *Session, adata []int16) ([]schema.VADS
 }
 
 // Function to generate a response based on the conversation
-func generateResponse(session *Session, utt []byte, transcript string, conv *Conversation, c *websocket.Conn, mt int) {
+func generateResponse(session *Session, utt []byte, transcript string, conv *Conversation, c *LockedWebsocket, mt int) {
 	xlog.Debug("Generating realtime response...")
 
 	config := session.ModelInterface.PredictConfig()
