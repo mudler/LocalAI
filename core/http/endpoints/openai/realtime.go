@@ -32,8 +32,9 @@ import (
 )
 
 const (
+	// XXX: Presently it seems all ASR/VAD backends use 16Khz. If a backend uses 24Khz then it will likely still work, but have reduced performance
 	localSampleRate  = 16000
-	remoteSampleRate = 24000
+	defaultRemoteSampleRate = 24000
 )
 
 // A model can be "emulated" that is: transcribe audio to text -> feed text to the LLM -> generate audio as result
@@ -70,7 +71,8 @@ type Session struct {
 	DefaultConversationID   string
 	ModelInterface          Model
 	// The pipeline model config or the config for an any-to-any model
-	ModelConfig *config.ModelConfig
+	ModelConfig     *config.ModelConfig
+	InputSampleRate int
 }
 
 func (s *Session) FromClient(session *types.SessionUnion) {
@@ -215,7 +217,8 @@ func registerRealtime(application *application.Application, model string) func(c
 			InputAudioTranscription: &types.AudioTranscription{
 				Model: sttModel,
 			},
-			Conversations: make(map[string]*Conversation),
+			Conversations:   make(map[string]*Conversation),
+			InputSampleRate: defaultRemoteSampleRate,
 		}
 
 		// Create a default conversation
@@ -542,6 +545,12 @@ func updateTransSession(session *Session, update *types.SessionUnion, cl *config
 		session.TurnDetection = update.Transcription.Audio.Input.TurnDetection
 	}
 
+	if update.Transcription.Audio.Input.Format != nil && update.Transcription.Audio.Input.Format.PCM != nil {
+		if update.Transcription.Audio.Input.Format.PCM.Rate > 0 {
+			session.InputSampleRate = update.Transcription.Audio.Input.Format.PCM.Rate
+		}
+	}
+
 	return nil
 }
 
@@ -595,6 +604,12 @@ func updateSession(session *Session, update *types.SessionUnion, cl *config.Mode
 		session.TurnDetection = rt.Audio.Input.TurnDetection
 	}
 
+	if rt.Audio != nil && rt.Audio.Input != nil && rt.Audio.Input.Format != nil && rt.Audio.Input.Format.PCM != nil {
+		if rt.Audio.Input.Format.PCM.Rate > 0 {
+			session.InputSampleRate = rt.Audio.Input.Format.PCM.Rate
+		}
+	}
+
 	if rt.Instructions != "" {
 		session.Instructions = rt.Instructions
 	}
@@ -640,12 +655,12 @@ func handleVAD(session *Session, conv *Conversation, c *LockedWebsocket, done ch
 			session.AudioBufferLock.Unlock()
 
 			aints := sound.BytesToInt16sLE(allAudio)
-			if len(aints) == 0 || len(aints) < int(silenceThreshold)*remoteSampleRate {
+			if len(aints) == 0 || len(aints) < int(silenceThreshold)*session.InputSampleRate {
 				continue
 			}
 
-			// Resample from 24kHz to 16kHz
-			aints = sound.ResampleInt16(aints, remoteSampleRate, localSampleRate)
+			// Resample from InputSampleRate to 16kHz
+			aints = sound.ResampleInt16(aints, session.InputSampleRate, localSampleRate)
 
 			segments, err := runVAD(vadContext, session, aints)
 			if err != nil {
