@@ -1,6 +1,5 @@
 ---
-- url: "github:mudler/LocalAI/gallery/voxtral.yaml@master"
-  name: voxtral-mini-4b-realtime
+- name: voxtral-mini-4b-realtime
   license: apache-2.0
   description: |
     Voxtral Mini 4B Realtime is a speech-to-text model from Mistral AI. It is a 4B parameter model optimized for fast, accurate audio transcription with low latency, making it ideal for real-time applications. The model uses the Voxtral architecture for efficient audio processing.
