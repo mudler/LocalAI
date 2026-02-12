@@ -10,7 +10,11 @@ import sys
 import os
 import backend_pb2
 import backend_pb2_grpc
-import moonshine_onnx
+from moonshine_voice import (
+    Transcriber,
+    get_model_for_language,
+    load_wav_file,
+)
 
 import grpc
 
@@ -25,16 +29,49 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
     """
     BackendServicer is the class that implements the gRPC service
     """
+    def __init__(self):
+        self.transcriber = None
+        self.model_name = None
+
     def Health(self, request, context):
         return backend_pb2.Reply(message=bytes("OK", 'utf-8'))
     
     def LoadModel(self, request, context):
         try:
             print("Preparing models, please wait", file=sys.stderr)
-            # Store the model name for use in transcription
-            # Model name format: e.g., "moonshine/tiny"
             self.model_name = request.Model
             print(f"Model name set to: {self.model_name}", file=sys.stderr)
+            
+            # Default values
+            language = "en"
+            model_arch = None
+            
+            # Parse options from request
+            options = request.Options
+            self.options = {}
+            
+            # The options are a list of strings in this form optname:optvalue
+            for opt in options:
+                if ":" not in opt:
+                    continue
+                key, value = opt.split(":", 1)
+                self.options[key] = value
+            
+            print(f"Options: {self.options}", file=sys.stderr)
+            
+            # Extract language and model_arch from options
+            if "language" in self.options:
+                language = self.options["language"]
+            if "model_arch" in self.options:
+                model_arch = self.options["model_arch"]
+            
+            # Get the model path and architecture
+            model_path, model_arch = get_model_for_language(language, model_arch)
+            print(f"Loading model: {model_path} with architecture: {model_arch} for language: {language}", file=sys.stderr)
+            
+            # Initialize the transcriber
+            self.transcriber = Transcriber(model_path=model_path, model_arch=model_arch)
+            print("Model loaded successfully", file=sys.stderr)
         except Exception as err:
             return backend_pb2.Result(success=False, message=f"Unexpected {err=}, {type(err)=}")
         return backend_pb2.Result(message="Model loaded successfully", success=True)
@@ -43,33 +80,44 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         resultSegments = []
         text = ""
         try:
-            # moonshine_onnx.transcribe returns a list of strings
-            transcriptions = moonshine_onnx.transcribe(request.dst, self.model_name)
+            if self.transcriber is None:
+                raise Exception("Model not loaded. Call LoadModel first.")
+            
+            # Load the audio file
+            audio_data, sample_rate = load_wav_file(request.dst)
+            print(f"Loaded audio file: {request.dst} with sample rate: {sample_rate}", file=sys.stderr)
+            
+            # Transcribe without streaming
+            transcript = self.transcriber.transcribe_without_streaming(
+                audio_data, sample_rate=sample_rate, flags=0
+            )
+            
+            # Process transcript lines
+            full_text_parts = []
+            for idx, line in enumerate(transcript.lines):
+                line_text = line.text.strip()
+                full_text_parts.append(line_text)
+                
+                # Create segment with timing information
+                start_ms = int(line.start_time * 1000)
+                end_ms = int((line.start_time + line.duration) * 1000)
+                
+                resultSegments.append(backend_pb2.TranscriptSegment(
+                    id=idx,
+                    start=start_ms,
+                    end=end_ms,
+                    text=line_text
+                ))
+                
+                print(f"Segment {idx}: [{line.start_time:.2f}s - {line.start_time + line.duration:.2f}s] {line_text}", file=sys.stderr)
             
             # Combine all transcriptions into a single text
-            if isinstance(transcriptions, list):
-                text = " ".join(transcriptions)
-                # Create segments for each transcription in the list
-                for id, trans in enumerate(transcriptions):
-                    # Since moonshine doesn't provide timing info, we'll create a single segment
-                    # with id and text, using approximate timing
-                    resultSegments.append(backend_pb2.TranscriptSegment(
-                        id=id, 
-                        start=0, 
-                        end=0, 
-                        text=trans
-                    ))
-            else:
-                # Handle case where it's not a list (shouldn't happen, but be safe)
-                text = str(transcriptions)
-                resultSegments.append(backend_pb2.TranscriptSegment(
-                    id=0,
-                    start=0,
-                    end=0,
-                    text=text
-                ))
+            text = " ".join(full_text_parts)
+            
         except Exception as err:
             print(f"Unexpected {err=}, {type(err)=}", file=sys.stderr)
+            import traceback
+            traceback.print_exc()
             return backend_pb2.TranscriptResult(segments=[], text="")
 
         return backend_pb2.TranscriptResult(segments=resultSegments, text=text)
