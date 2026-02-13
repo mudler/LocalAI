@@ -46,6 +46,8 @@ sources/sherpa-onnx: sources/onnxruntime
 	mkdir -p sources/sherpa-onnx/build
 	cd sources/sherpa-onnx/build && cmake \
 	  -DCMAKE_BUILD_TYPE=Release \
+	  -DCMAKE_C_FLAGS="-Wno-error=format-security" \
+	  -DCMAKE_CXX_FLAGS="-Wno-error=format-security" \
 	  -DSHERPA_ONNX_ENABLE_GPU=$(SHERPA_GPU) \
 	  -DSHERPA_ONNX_ENABLE_TTS=ON \
 	  -DSHERPA_ONNX_ENABLE_BINARY=OFF \
@@ -76,9 +78,13 @@ package:
 build: sherpa-onnx package
 
 clean:
-	rm -rf sherpa-onnx sources/ backend-assets/ package/
+	rm -rf sherpa-onnx sources/ backend-assets/ package/ vits-ljs/ sherpa-onnx-whisper-*/
 
-test:
-	@echo "sherpa-onnx tests require native libraries; skipping in host builds"
+test: sherpa-onnx
+	CGO_LDFLAGS="$(CGO_LDFLAGS) -L$(CURRENT_DIR)/backend-assets/lib -lsherpa-onnx-c-api -lonnxruntime" \
+	CGO_CFLAGS="$(CGO_CFLAGS) -I$(CURRENT_DIR)/sources/sherpa-onnx/sherpa-onnx/c-api -I$(CURRENT_DIR)/sources/onnxruntime/include" \
+	LIBRARY_PATH=$(CURRENT_DIR)/backend-assets/lib \
+	LD_LIBRARY_PATH=$(CURRENT_DIR)/backend-assets/lib \
+	bash test.sh
 
 .PHONY: build package clean test

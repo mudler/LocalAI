@@ -490,6 +490,7 @@ define docker-build-backend
 		--build-arg CUDA_MINOR_VERSION=$(CUDA_MINOR_VERSION) \
 		--build-arg UBUNTU_VERSION=$(UBUNTU_VERSION) \
 		--build-arg UBUNTU_CODENAME=$(UBUNTU_CODENAME) \
+		--progress=plain \
 		$(if $(filter true,$(5)),--build-arg BACKEND=$(1)) \
 		-t local-ai-backend:$(1) -f backend/Dockerfile.$(2) $(3)
 endef
