@@ -1,4 +1,35 @@
 ---
+- name: "lambent-mira-iris-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Lambent-Mira-Iris-i1-GGUF
+  description: |
+    The model `mradermacher/Lambent-Mira-Iris-i1-GGUF` is a **vision model** quantized from the base model `virtuous7373/Lambent-Mira-Iris`. It is optimized for speed and efficiency with the following key features:
+
+      - **Quantization**: Uses IQ2_M, IQ3_M, IQ4_K_M, and Q6_K variants, with the `i1-Q4_K_M` (16.6 GB) being the recommended trade-off between size, speed, and quality.
+      - **Use Case**: Designed for tasks requiring vision understanding, with mmproj files available in the static repository for custom quantization.
+      - **Downloads**: Available in GGUF format (e.g., `i1-Q4_K_M.gguf`) for deployment, with additional quantized variants (e.g., `i1-IQ3_XXS`, `i1-Q6_K`) offering varying trade-offs between quality and size.
+
+    For model galleries, emphasize its efficiency, supported quantization options, and suitability for vision tasks.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Lambent-Mira-Iris.i1-Q4_K_M.gguf
+    name: Lambent-Mira-Iris-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Lambent-Mira-Iris-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Lambent-Mira-Iris.i1-Q4_K_M.gguf
+      sha256: a73f215e276f826353d9acfc97ad1998dd48e79ceaecd783776b6150a37f34d6
+      uri: https://huggingface.co/mradermacher/Lambent-Mira-Iris-i1-GGUF/resolve/main/Lambent-Mira-Iris.i1-Q4_K_M.gguf
 - name: nemo-parakeet-tdt-0.6b
   license: apache-2.0
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
