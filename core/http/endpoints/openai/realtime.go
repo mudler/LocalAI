@@ -23,6 +23,7 @@ import (
 	"github.com/mudler/LocalAI/core/templates"
 	laudio "github.com/mudler/LocalAI/pkg/audio"
 	"github.com/mudler/LocalAI/pkg/functions"
+	"github.com/mudler/LocalAI/pkg/utils"
 	"github.com/mudler/LocalAI/pkg/grpc/proto"
 	model "github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/reasoning"
@@ -949,7 +950,12 @@ func triggerResponse(session *Session, conv *Conversation, c *LockedWebsocket, o
 				case types.MessageContentTypeInputAudio:
 					textContent += content.Transcript
 				case types.MessageContentTypeInputImage:
-					msg.StringImages = append(msg.StringImages, content.ImageURL)
+					img, err := utils.GetContentURIAsBase64(content.ImageURL)
+					if err != nil {
+						xlog.Warn("Failed to process image", "error", err)
+						continue
+					}
+					msg.StringImages = append(msg.StringImages, img)
 					imgIndex++
 					nrOfImgsInMessage++
 				}

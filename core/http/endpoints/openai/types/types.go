@@ -175,8 +175,8 @@ type ToolFunction struct {
 	// The description of the function, including guidance on when and how to call it, and guidance about what to tell the user when calling (if anything).
 	Description string `json:"description"`
 
-	// The type of the tool, i.e. function.
-	Parameters any `json:"parameters"`
+	// The jsonschema representing the parameters
+	Parameters any `json:"parameters,omitempty"`
 }
 
 func (t ToolFunction) ToolType() ToolType {
