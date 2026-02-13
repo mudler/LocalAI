@@ -9,7 +9,12 @@ else
 fi
 
 installRequirements
-
+ 
+if [ "x${USE_PIP}" == "xtrue" ]; then
+    pip install "setuptools<70.0.0"
+else
+    uv pip install "setuptools<70.0.0"
+fi
 # Apply patch to fix PyTorch compatibility issue in voxcpm
 # This fixes the "Dimension out of range" error in scaled_dot_product_attention
 # by changing .contiguous() to .unsqueeze(0) in the attention module
