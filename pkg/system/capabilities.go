@@ -88,10 +88,13 @@ func (s *SystemState) getSystemCapabilities() string {
 	// This might be used by e.g. container images to specify which
 	// backends to pull in automatically when installing meta backends.
 	if _, err := os.Stat(capabilityRunFile); err == nil {
-		capability, err := os.ReadFile(capabilityRunFile)
-		if err == nil {
-			xlog.Info("Using forced capability run file", "capabilityRunFile", capabilityRunFile, "capability", string(capability), "env", capabilityRunFileEnv)
-			return strings.Trim(strings.TrimSpace(string(capability)), "\n")
+		if !capabilityLogged {
+			capability, err := os.ReadFile(capabilityRunFile)
+			if err == nil {
+				xlog.Info("Using forced capability run file", "capabilityRunFile", capabilityRunFile, "capability", string(capability), "env", capabilityRunFileEnv)
+				capabilityLogged = true
+				return strings.Trim(strings.TrimSpace(string(capability)), "\n")
+			}
 		}
 	}
 
