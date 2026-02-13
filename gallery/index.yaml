@@ -1,4 +1,29 @@
 ---
+- name: "quasistarsynth-12b-noslop-absolute-heresy"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/QuasiStarSynth-12B-noslop-absolute-heresy-GGUF
+  description: |
+    The model is a quantized version of **QuasiStarSynth-12B**, a large language model trained on diverse datasets. It uses a transformer architecture with 12 billion parameters and is optimized for efficiency with quantization (e.g., 4-bit, 8-bit, or 16-bit precision). The GGUF format is used for deployment, and it includes specialized optimizations like removing unnecessary memory overhead (e.g., "noslop") and explicit quantization settings. The model is designed for tasks requiring high performance and low resource usage.
+  overrides:
+    parameters:
+      model: llama-cpp/models/QuasiStarSynth-12B-noslop-absolute-heresy.Q4_K_M.gguf
+    name: QuasiStarSynth-12B-noslop-absolute-heresy-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/QuasiStarSynth-12B-noslop-absolute-heresy-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/QuasiStarSynth-12B-noslop-absolute-heresy.Q4_K_M.gguf
+      sha256: aaef2d277b5be44e45e18a423eb8e1f71419896f57a4ed80eea1d29e527466b5
+      uri: https://huggingface.co/mradermacher/QuasiStarSynth-12B-noslop-absolute-heresy-GGUF/resolve/main/QuasiStarSynth-12B-noslop-absolute-heresy.Q4_K_M.gguf
 - &nanbeige4
   name: "nanbeige4.1-3b-q8"
   url: "github:mudler/LocalAI/gallery/nanbeige4.1.yaml@master"
