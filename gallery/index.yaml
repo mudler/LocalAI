@@ -1,4 +1,29 @@
 ---
+- name: "llama-4-scout-medical-moe-fp8-base-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Llama-4-Scout-Medical-MoE-fp8-base-i1-GGUF
+  description: |
+    The model is a **quantized version of the Llama-4 Medical variant**, optimized for medical applications. It is a **FP8 base model** (Sathvik265/Llama-4-Scout-Medical-MoE-fp8-base) quantized using **IQ3_XXS** and **Q2_K** configurations, resulting in a **GGUF file** (0.2 GB) for efficient deployment. The quantization reduces precision while maintaining performance, ideal for resource-constrained environments. It is not the original author's model but a modified version for specialized use cases like medical reasoning. The model supports multi-part GGUF files and is available via the Hugging Face repository.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Llama-4-Scout-Medical-MoE-fp8-base.imatrix.gguf
+    name: Llama-4-Scout-Medical-MoE-fp8-base-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Llama-4-Scout-Medical-MoE-fp8-base-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Llama-4-Scout-Medical-MoE-fp8-base.imatrix.gguf
+      sha256: 70039493cca6ee4a362fdc3817358998c9728f400f8d8b7c24c491c4ff32e8f2
+      uri: https://huggingface.co/mradermacher/Llama-4-Scout-Medical-MoE-fp8-base-i1-GGUF/resolve/main/Llama-4-Scout-Medical-MoE-fp8-base.imatrix.gguf
 - name: nemo-parakeet-tdt-0.6b
   license: apache-2.0
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
