@@ -1,4 +1,53 @@
 ---
+- name: "flux1-merged-lightning-8step"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/boredcoder/flux1-merged-lightning-8step-gguf
+  description: |
+    **Model Description:**
+    The `FLUX-merged_lightning-v1` is a text-to-image model merged from `black-forest-labs/FLUX.1-dev` and `FLUX.1-schnell`, designed for high-resolution image generation. It combines the strengths of both models into a single, efficient pipeline. The model is part of the OpenSight project, focused on dataset generation and evaluation.
+
+    **Key Features:**
+      - **Base Models:** Merged version of `FLUX.1-dev` and `FLUX.1-schnell`.
+      - **Use Case:** Text-to-image generation (e.g., creating images from textual prompts).
+      - **Performance:** Optimized for 8 steps (recommended for better results).
+      - **Licenses:** Uses the `flux-1-dev-non-commercial-license` for the base models.
+
+    **Important Notes:**
+      - Includes some LoRAs (with some NSFW content).
+      - Requires careful licensing compliance when used commercially.
+
+    **Tags:**
+      - `flux`
+      - `fluxpipeline`
+      - `turbo`
+      - `lightning`
+      - `diffusers`
+      - `text-to-image`
+
+    **Changelog:**
+      - Updated to fix issues with the text_encoder2 (check compatibility).
+
+    This model is ideal for researchers and developers seeking a powerful, efficient text-to-image generator with a focus on precision and flexibility.
+  overrides:
+    parameters:
+      model: llama-cpp/models/flux1-merged-lightning-8step-Q4_K_M.gguf
+    name: flux1-merged-lightning-8step-gguf
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/boredcoder/flux1-merged-lightning-8step-gguf
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/flux1-merged-lightning-8step-Q4_K_M.gguf
+      sha256: 00c5ea1e4154c3e2d9466d20c196658d0abb0a402ea2a7a0f8f2c05dfb692c5c
+      uri: https://huggingface.co/boredcoder/flux1-merged-lightning-8step-gguf/resolve/main/flux1-merged-lightning-8step-Q4_K_M.gguf
 - name: nemo-parakeet-tdt-0.6b
   license: apache-2.0
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
