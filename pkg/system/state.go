@@ -19,6 +19,8 @@ type SystemState struct {
 	Backend   Backend
 	Model     Model
 	VRAM      uint64
+
+	systemCapabilities string
 }
 
 type SystemStateOptions func(*SystemState)
@@ -52,6 +54,8 @@ func GetSystemState(opts ...SystemStateOptions) (*SystemState, error) {
 	xlog.Debug("GPU vendor", "gpuVendor", state.GPUVendor)
 	state.VRAM, _ = xsysinfo.TotalAvailableVRAM()
 	xlog.Debug("Total available VRAM", "vram", state.VRAM)
+
+	state.getSystemCapabilities()
 
 	return state, nil
 }
