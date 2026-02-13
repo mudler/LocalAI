@@ -1,4 +1,46 @@
 ---
+- &nanbeige4
+  name: "nanbeige4.1-3b-q8"
+  url: "github:mudler/LocalAI/gallery/nanbeige4.1.yaml@master"
+  urls:
+    - https://huggingface.co/Nanbeige/Nanbeige4.1-3B
+    - https://huggingface.co/Edge-Quant/Nanbeige4.1-3B-Q8_0-GGUF
+  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/646f0d118ff94af23bc44aab/GXHCollpMRgvYqUXQ2BQ7.png
+  license: apache-2.0
+  description: |
+    Nanbeige4.1-3B is built upon Nanbeige4-3B-Base and represents an enhanced iteration of our previous reasoning model, Nanbeige4-3B-Thinking-2511, achieved through further post-training optimization with supervised fine-tuning (SFT) and reinforcement learning (RL). As a highly competitive open-source model at a small parameter scale, Nanbeige4.1-3B illustrates that compact models can simultaneously achieve robust reasoning, preference alignment, and effective agentic behaviors.
+
+    Key features:
+      Strong Reasoning: Capable of solving complex, multi-step problems through sustained and coherent reasoning within a single forward pass, reliably producing correct answers on benchmarks like LiveCodeBench-Pro, IMO-Answer-Bench, and AIME 2026 I.
+      Robust Preference Alignment: Outperforms same-scale models (e.g., Qwen3-4B-2507, Nanbeige4-3B-2511) and larger models (e.g., Qwen3-30B-A3B, Qwen3-32B) on Arena-Hard-v2 and Multi-Challenge.
+      Agentic Capability: First general small model to natively support deep-search tasks and sustain complex problem-solving with >500 rounds of tool invocations; excels in benchmarks like xBench-DeepSearch (75), Browse-Comp (39), and others.
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - cpu
+    - nanbeige
+    - reasoning
+    - agent
+  overrides:
+    parameters:
+      model: nanbeige4.1-3b-q8_0.gguf
+  files:
+    - filename: nanbeige4.1-3b-q8_0.gguf
+      sha256: a5a4379e50605c5e5a31bb1716a211fb16691fea7e13ede7f88796e1f617d9e0
+      uri: huggingface://Edge-Quant/Nanbeige4.1-3B-Q8_0-GGUF/nanbeige4.1-3b-q8_0.gguf
+- !!merge <<: *nanbeige4
+  name: "nanbeige4.1-3b-q4"
+  urls:
+    - https://huggingface.co/Nanbeige/Nanbeige4.1-3B
+    - https://huggingface.co/Edge-Quant/Nanbeige4.1-3B-Q4_K_M-GGUF
+  overrides:
+    parameters:
+      model: nanbeige4.1-3b-q4_k_m.gguf
+  files:
+    - filename: nanbeige4.1-3b-q4_k_m.gguf
+      sha256: 043246350c952877b38958a9e35c480419008b6b2d52bedaf2b805ed2447b4df
+      uri: huggingface://Edge-Quant/Nanbeige4.1-3B-Q4_K_M-GGUF/nanbeige4.1-3b-q4_k_m.gguf
 - name: nemo-parakeet-tdt-0.6b
   license: apache-2.0
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
