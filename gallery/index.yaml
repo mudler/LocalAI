@@ -1,4 +1,122 @@
 ---
+- name: "zai-org.glm-5"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/DevQuasar/zai-org.GLM-5-GGUF
+  description: |
+    **GLM-5** is a large language model (LLM) developed by Zhipu Lab, designed for complex systems engineering and agentic tasks. It scales from 355B parameters (32B active) to 744B parameters (40B active), with training data spanning 28.5T tokens. Key features include:
+      - **Efficient deployment** via quantization (FP8) and asynchronous RL training.
+      - **Long-context capacity** with DeepSeek Sparse Attention to reduce costs.
+      - **Performance** outpacing GLM-4.7 in reasoning, coding, and agentic tasks (e.g., HLE, SWE-bench, τ²-bench).
+      - **Scalability** for tasks requiring fine-grained iterations.
+
+    **Deployment** supports local use via vLLM, SGLang, or Ascend NPU. Ideal for applications requiring high efficiency and precision.
+  overrides:
+    parameters:
+      model: llama-cpp/models/zai-org.GLM-5.Q4_K_M-00001-of-00030.gguf
+    name: zai-org.GLM-5-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/DevQuasar/zai-org.GLM-5-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/zai-org.GLM-5.Q4_K_M-00001-of-00030.gguf
+      sha256: 5bbc2739f409e02b3f0940a91b3f3e738fbe498a63216e10089b879bfcd229c0
+      uri: https://huggingface.co/DevQuasar/zai-org.GLM-5-GGUF/resolve/main/zai-org.GLM-5.Q4_K_M-00001-of-00030.gguf
+    - filename: llama-cpp/models/zai-org.GLM-5.Q4_K_M-00002-of-00030.gguf
+      sha256: ee4a9d7cbf5771277c47a8588b76c6708835cae6e02179eddd7f36ab0aa8edfe
+      uri: https://huggingface.co/DevQuasar/zai-org.GLM-5-GGUF/resolve/main/zai-org.GLM-5.Q4_K_M-00002-of-00030.gguf
+    - filename: llama-cpp/models/zai-org.GLM-5.Q4_K_M-00003-of-00030.gguf
+      sha256: 94cd9ce0cc85835b46ac4011589bc66a0c6e2d9319a6ab614309c26a58061f4b
+      uri: https://huggingface.co/DevQuasar/zai-org.GLM-5-GGUF/resolve/main/zai-org.GLM-5.Q4_K_M-00003-of-00030.gguf
+    - filename: llama-cpp/models/zai-org.GLM-5.Q4_K_M-00004-of-00030.gguf
+      sha256: 57a02a70250d46edd6ccbc22188fbe5918047f6245d0c42033cd5881b936b6ee
+      uri: https://huggingface.co/DevQuasar/zai-org.GLM-5-GGUF/resolve/main/zai-org.GLM-5.Q4_K_M-00004-of-00030.gguf
+    - filename: llama-cpp/models/zai-org.GLM-5.Q4_K_M-00005-of-00030.gguf
+      sha256: dcd8eb348d96dbbc9210fa991f4b583832a700cb1f4f766bbdcfd4354ffcd41d
+      uri: https://huggingface.co/DevQuasar/zai-org.GLM-5-GGUF/resolve/main/zai-org.GLM-5.Q4_K_M-00005-of-00030.gguf
+    - filename: llama-cpp/models/zai-org.GLM-5.Q4_K_M-00006-of-00030.gguf
+      sha256: 401f41262a4d2249d0157b0c79a8ea1a187e7f5e0c9dfbc563cc259656447d90
+      uri: https://huggingface.co/DevQuasar/zai-org.GLM-5-GGUF/resolve/main/zai-org.GLM-5.Q4_K_M-00006-of-00030.gguf
+    - filename: llama-cpp/models/zai-org.GLM-5.Q4_K_M-00007-of-00030.gguf
+      sha256: 6b55ba9729f6e3a9a9e437b50f22f13ae45d5216766b59f6929b3de8a842ad71
+      uri: https://huggingface.co/DevQuasar/zai-org.GLM-5-GGUF/resolve/main/zai-org.GLM-5.Q4_K_M-00007-of-00030.gguf
+    - filename: llama-cpp/models/zai-org.GLM-5.Q4_K_M-00008-of-00030.gguf
+      sha256: 805ea3867655abe7057cc39aae3c6ebf6b84ee869bc7802402b8208e412fa19c
+      uri: https://huggingface.co/DevQuasar/zai-org.GLM-5-GGUF/resolve/main/zai-org.GLM-5.Q4_K_M-00008-of-00030.gguf
+    - filename: llama-cpp/models/zai-org.GLM-5.Q4_K_M-00009-of-00030.gguf
+      sha256: 7be7e1554fd82b13f8002ab2f39899e2d30f5271513e2e0ef0a3a44d76b76166
+      uri: https://huggingface.co/DevQuasar/zai-org.GLM-5-GGUF/resolve/main/zai-org.GLM-5.Q4_K_M-00009-of-00030.gguf
+    - filename: llama-cpp/models/zai-org.GLM-5.Q4_K_M-00010-of-00030.gguf
+      sha256: eddf50450714fe8a5b888eea9530a426377f811443e1a553ffbb20d4d1c454af
+      uri: https://huggingface.co/DevQuasar/zai-org.GLM-5-GGUF/resolve/main/zai-org.GLM-5.Q4_K_M-00010-of-00030.gguf
+    - filename: llama-cpp/models/zai-org.GLM-5.Q4_K_M-00011-of-00030.gguf
+      sha256: 37a7e49d4b6954449b86c76b5ee19ed32843df0e64f15a17a31abbc3fede7a92
+      uri: https://huggingface.co/DevQuasar/zai-org.GLM-5-GGUF/resolve/main/zai-org.GLM-5.Q4_K_M-00011-of-00030.gguf
+    - filename: llama-cpp/models/zai-org.GLM-5.Q4_K_M-00012-of-00030.gguf
+      sha256: 907b13108572d23fd7b4e691f1037e0abba3872ff9ea1e4e7e6aefcdc2eca719
+      uri: https://huggingface.co/DevQuasar/zai-org.GLM-5-GGUF/resolve/main/zai-org.GLM-5.Q4_K_M-00012-of-00030.gguf
+    - filename: llama-cpp/models/zai-org.GLM-5.Q4_K_M-00013-of-00030.gguf
+      sha256: 262cfe4b1d7ed3df8ce8eafa3cb8ef1b93a3a378b5858bc9e36586474b6b04e2
+      uri: https://huggingface.co/DevQuasar/zai-org.GLM-5-GGUF/resolve/main/zai-org.GLM-5.Q4_K_M-00013-of-00030.gguf
+    - filename: llama-cpp/models/zai-org.GLM-5.Q4_K_M-00014-of-00030.gguf
+      sha256: 9d240698d1b77469385eb9a99ccabf4ed89d9cc2b6948ab00f3ab24faa94d244
+      uri: https://huggingface.co/DevQuasar/zai-org.GLM-5-GGUF/resolve/main/zai-org.GLM-5.Q4_K_M-00014-of-00030.gguf
+    - filename: llama-cpp/models/zai-org.GLM-5.Q4_K_M-00015-of-00030.gguf
+      sha256: 26985165931a651f23904ba7869a92f19d6c2a54ea582385b083bad6a9ea2c43
+      uri: https://huggingface.co/DevQuasar/zai-org.GLM-5-GGUF/resolve/main/zai-org.GLM-5.Q4_K_M-00015-of-00030.gguf
+    - filename: llama-cpp/models/zai-org.GLM-5.Q4_K_M-00016-of-00030.gguf
+      sha256: 4db5dee165c5b44a10ff64edba1e92872ca764fd0e3063437bd94f364bc35721
+      uri: https://huggingface.co/DevQuasar/zai-org.GLM-5-GGUF/resolve/main/zai-org.GLM-5.Q4_K_M-00016-of-00030.gguf
+    - filename: llama-cpp/models/zai-org.GLM-5.Q4_K_M-00017-of-00030.gguf
+      sha256: 1048163de7389380ff077f2a5f53e8405c210fa2ebd8d867cfd6554aefed8f5b
+      uri: https://huggingface.co/DevQuasar/zai-org.GLM-5-GGUF/resolve/main/zai-org.GLM-5.Q4_K_M-00017-of-00030.gguf
+    - filename: llama-cpp/models/zai-org.GLM-5.Q4_K_M-00018-of-00030.gguf
+      sha256: 11f2342fd7a7ce4cebd95cc904f1392e503c8b30432287324312ab5a76db013f
+      uri: https://huggingface.co/DevQuasar/zai-org.GLM-5-GGUF/resolve/main/zai-org.GLM-5.Q4_K_M-00018-of-00030.gguf
+    - filename: llama-cpp/models/zai-org.GLM-5.Q4_K_M-00019-of-00030.gguf
+      sha256: 277991b5e62d9851b2215897f67dabb517aeaec06b3140743c54c92865558e65
+      uri: https://huggingface.co/DevQuasar/zai-org.GLM-5-GGUF/resolve/main/zai-org.GLM-5.Q4_K_M-00019-of-00030.gguf
+    - filename: llama-cpp/models/zai-org.GLM-5.Q4_K_M-00020-of-00030.gguf
+      sha256: cd96ed76d59466ad00238045382ecf4fc931b7cbf0d6c23bec1428d4b83d8f52
+      uri: https://huggingface.co/DevQuasar/zai-org.GLM-5-GGUF/resolve/main/zai-org.GLM-5.Q4_K_M-00020-of-00030.gguf
+    - filename: llama-cpp/models/zai-org.GLM-5.Q4_K_M-00021-of-00030.gguf
+      sha256: d3c0234dae3ad3eea32d1da5f93db072a62118474243f662db9481e738872bbf
+      uri: https://huggingface.co/DevQuasar/zai-org.GLM-5-GGUF/resolve/main/zai-org.GLM-5.Q4_K_M-00021-of-00030.gguf
+    - filename: llama-cpp/models/zai-org.GLM-5.Q4_K_M-00022-of-00030.gguf
+      sha256: 4e61ecdcadfa10676c8f1e86a39d022310b1f99aecd1a9f56e9cd6dcec26aa8d
+      uri: https://huggingface.co/DevQuasar/zai-org.GLM-5-GGUF/resolve/main/zai-org.GLM-5.Q4_K_M-00022-of-00030.gguf
+    - filename: llama-cpp/models/zai-org.GLM-5.Q4_K_M-00023-of-00030.gguf
+      sha256: 31201a23214beb488334637c7baed60823e34ca8deebc80b701058ce6e7747a5
+      uri: https://huggingface.co/DevQuasar/zai-org.GLM-5-GGUF/resolve/main/zai-org.GLM-5.Q4_K_M-00023-of-00030.gguf
+    - filename: llama-cpp/models/zai-org.GLM-5.Q4_K_M-00024-of-00030.gguf
+      sha256: 0def9356bf3812b6d3245ca6b3472488e1554c5cd5e8e4eda8e2a623c8c65283
+      uri: https://huggingface.co/DevQuasar/zai-org.GLM-5-GGUF/resolve/main/zai-org.GLM-5.Q4_K_M-00024-of-00030.gguf
+    - filename: llama-cpp/models/zai-org.GLM-5.Q4_K_M-00025-of-00030.gguf
+      sha256: dd240f3540d7a5cb0c314cee51e4f7fd2580c198d8037956f049bc19ec1ea8ca
+      uri: https://huggingface.co/DevQuasar/zai-org.GLM-5-GGUF/resolve/main/zai-org.GLM-5.Q4_K_M-00025-of-00030.gguf
+    - filename: llama-cpp/models/zai-org.GLM-5.Q4_K_M-00026-of-00030.gguf
+      sha256: 760deca27182cdb5e2d972aabe877fe53002a6a903e5f03b8f76ef4d6a07ebbd
+      uri: https://huggingface.co/DevQuasar/zai-org.GLM-5-GGUF/resolve/main/zai-org.GLM-5.Q4_K_M-00026-of-00030.gguf
+    - filename: llama-cpp/models/zai-org.GLM-5.Q4_K_M-00027-of-00030.gguf
+      sha256: 7e6343fe2effa3a805019a0a03dd2ef0a9926c9c25ecaa1afad96dcd55448343
+      uri: https://huggingface.co/DevQuasar/zai-org.GLM-5-GGUF/resolve/main/zai-org.GLM-5.Q4_K_M-00027-of-00030.gguf
+    - filename: llama-cpp/models/zai-org.GLM-5.Q4_K_M-00028-of-00030.gguf
+      sha256: b9d612820d85790a3ae2fd3394e211b3dafc752c2a15fa1b57e095fdd952782a
+      uri: https://huggingface.co/DevQuasar/zai-org.GLM-5-GGUF/resolve/main/zai-org.GLM-5.Q4_K_M-00028-of-00030.gguf
+    - filename: llama-cpp/models/zai-org.GLM-5.Q4_K_M-00029-of-00030.gguf
+      sha256: 668574113bfefb24cd0ecf9dede4b44c673ccf499cc5fecde9cf0ac341deacd2
+      uri: https://huggingface.co/DevQuasar/zai-org.GLM-5-GGUF/resolve/main/zai-org.GLM-5.Q4_K_M-00029-of-00030.gguf
+    - filename: llama-cpp/models/zai-org.GLM-5.Q4_K_M-00030-of-00030.gguf
+      sha256: 269a2b715170f21ac66919ad65c3125a8a9db70c74c7701a4948e5e9f253aff0
+      uri: https://huggingface.co/DevQuasar/zai-org.GLM-5-GGUF/resolve/main/zai-org.GLM-5.Q4_K_M-00030-of-00030.gguf
 - name: nemo-parakeet-tdt-0.6b
   license: apache-2.0
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
