@@ -45,9 +45,8 @@ const (
 )
 
 var (
-	cuda13DirExists  bool
-	cuda12DirExists  bool
-	capabilityLogged bool
+	cuda13DirExists bool
+	cuda12DirExists bool
 )
 
 func init() {
@@ -72,9 +71,15 @@ func (s *SystemState) Capability(capMap map[string]string) string {
 }
 
 func (s *SystemState) getSystemCapabilities() string {
+
+	if s.systemCapabilities != "" {
+		return s.systemCapabilities
+	}
+
 	capability := os.Getenv(capabilityEnv)
 	if capability != "" {
 		xlog.Info("Using forced capability from environment variable", "capability", capability, "env", capabilityEnv)
+		s.systemCapabilities = capability
 		return capability
 	}
 
@@ -88,26 +93,26 @@ func (s *SystemState) getSystemCapabilities() string {
 	// This might be used by e.g. container images to specify which
 	// backends to pull in automatically when installing meta backends.
 	if _, err := os.Stat(capabilityRunFile); err == nil {
-		if !capabilityLogged {
-			capability, err := os.ReadFile(capabilityRunFile)
-			if err == nil {
-				xlog.Info("Using forced capability run file", "capabilityRunFile", capabilityRunFile, "capability", string(capability), "env", capabilityRunFileEnv)
-				capabilityLogged = true
-				return strings.Trim(strings.TrimSpace(string(capability)), "\n")
-			}
+		capability, err := os.ReadFile(capabilityRunFile)
+		if err == nil {
+			xlog.Info("Using forced capability run file", "capabilityRunFile", capabilityRunFile, "capability", string(capability), "env", capabilityRunFileEnv)
+			s.systemCapabilities = strings.Trim(strings.TrimSpace(string(capability)), "\n")
+			return s.systemCapabilities
 		}
 	}
 
 	// If we are on mac and arm64, we will return metal
 	if runtime.GOOS == "darwin" && runtime.GOARCH == "arm64" {
 		xlog.Info("Using metal capability (arm64 on mac)", "env", capabilityEnv)
-		return metal
+		s.systemCapabilities = metal
+		return s.systemCapabilities
 	}
 
 	// If we are on mac and x86, we will return darwin-x86
 	if runtime.GOOS == "darwin" && runtime.GOARCH == "amd64" {
 		xlog.Info("Using darwin-x86 capability (amd64 on mac)", "env", capabilityEnv)
-		return darwinX86
+		s.systemCapabilities = darwinX86
+		return s.systemCapabilities
 	}
 
 	// If arm64 on linux and a nvidia gpu is detected, we will return nvidia-l4t
@@ -115,39 +120,43 @@ func (s *SystemState) getSystemCapabilities() string {
 		if s.GPUVendor == Nvidia {
 			xlog.Info("Using nvidia-l4t capability (arm64 on linux)", "env", capabilityEnv)
 			if cuda13DirExists {
-				return nvidiaL4TCuda13
+				s.systemCapabilities = nvidiaL4TCuda13
+				return s.systemCapabilities
 			}
 			if cuda12DirExists {
-				return nvidiaL4TCuda12
+				s.systemCapabilities = nvidiaL4TCuda12
+				return s.systemCapabilities
 			}
-			return nvidiaL4T
+			s.systemCapabilities = nvidiaL4T
+			return s.systemCapabilities
 		}
 	}
 
 	if cuda13DirExists {
-		return nvidiaCuda13
+		s.systemCapabilities = nvidiaCuda13
+		return s.systemCapabilities
 	}
 
 	if cuda12DirExists {
-		return nvidiaCuda12
+		s.systemCapabilities = nvidiaCuda12
+		return s.systemCapabilities
 	}
 
 	if s.GPUVendor == "" {
 		xlog.Info("Default capability (no GPU detected)", "env", capabilityEnv)
-		return defaultCapability
+		s.systemCapabilities = defaultCapability
+		return s.systemCapabilities
 	}
 
-	if !capabilityLogged {
-		xlog.Info("Capability automatically detected", "capability", s.GPUVendor, "env", capabilityEnv)
-		capabilityLogged = true
-	}
 	// If vram is less than 4GB, let's default to CPU but warn the user that they can override that via env
 	if s.VRAM <= 4*1024*1024*1024 {
 		xlog.Warn("VRAM is less than 4GB, defaulting to CPU", "env", capabilityEnv)
-		return defaultCapability
+		s.systemCapabilities = defaultCapability
+		return s.systemCapabilities
 	}
 
-	return s.GPUVendor
+	s.systemCapabilities = s.GPUVendor
+	return s.systemCapabilities
 }
 
 // BackendPreferenceTokens returns a list of substrings that represent the preferred
