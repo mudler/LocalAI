@@ -1,4 +1,33 @@
 ---
+- name: "lambent-mira-iris"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Lambent-Mira-Iris-GGUF
+  description: |
+    The model is a large language model (LLM) optimized for efficiency using the GGUF format. It is based on the original Mira-Iris architecture and features quantized parameters at levels such as Q4_K_S, Q2_K, and Q8_0. The quantization reduces computational requirements while maintaining performance, making it suitable for deployment in resource-constrained environments. The model is not the original version but a quantized variant of the underlying architecture.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Lambent-Mira-Iris.Q4_K_M.gguf
+    name: Lambent-Mira-Iris-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    mmproj: llama-cpp/mmproj/Lambent-Mira-Iris.mmproj-f16.gguf
+    description: Imported from https://huggingface.co/mradermacher/Lambent-Mira-Iris-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Lambent-Mira-Iris.Q4_K_M.gguf
+      sha256: 07db663026ad9340a19138109f42a649fedbe7a8c26c770a296ffda62717e43b
+      uri: https://huggingface.co/mradermacher/Lambent-Mira-Iris-GGUF/resolve/main/Lambent-Mira-Iris.Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/Lambent-Mira-Iris.mmproj-f16.gguf
+      sha256: 4aa604c23999f5b2cbd524f65b23b0eb89c7667b535e84655dd23e2de403b70e
+      uri: https://huggingface.co/mradermacher/Lambent-Mira-Iris-GGUF/resolve/main/Lambent-Mira-Iris.mmproj-f16.gguf
 - name: nemo-parakeet-tdt-0.6b
   license: apache-2.0
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
