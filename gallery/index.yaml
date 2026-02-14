@@ -1,4 +1,51 @@
 ---
+- name: "todo-14b-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Todo-14B-i1-GGUF
+  description: |
+    The **Todo-14B** model is a quantized version of the base model **EcthelionLiu/Todo-14B**, optimized for efficiency and performance. It is designed for use with GGUF format, offering a range of quantized variants tailored for different trade-offs between accuracy, size, and speed. Key details include:
+
+    ### **Base Model**
+      - **Name**: EcthelionLiu/Todo-14B
+      - **Language Support**: English and Chinese
+      - **Library**: Transformers (via HuggingFace)
+      - **License**: Apache-2.0
+
+    ### **Quantized Versions**
+      - **Recommended**: `Todo-14B.i1-Q4_K_M.gguf` (size: 9.1 GB, fast, recommended)
+      - **Best Quality**: `Todo-14B.i1-Q4_K_S.gguf` (size: 8.7 GB, optimal balance of size, speed, and accuracy)
+      - **Lower-Quality Options**: Various IQ (Int8, Q3_K, Q2_K, etc.) variants, with trade-offs in accuracy for smaller sizes.
+
+    ### **Usage**
+      - Requires GGUF file format.
+      - Use [TheBloke's READMEs](https://huggingface.co/TheBloke/KafkaLM-70B-German-V0.1-GGUF) for detailed instructions on file concatenation.
+      - Available at [nethype GmbH](https://www.nethype.de/).
+
+    ### **Notes**
+      - Quantization by mradermacher for efficiency.
+      - Higher-quality variants (e.g., Q4_K_M) are preferred for best performance.
+
+    This model is ideal for deploying with low latency and minimal memory usage, suitable for applications requiring fast inference.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Todo-14B.i1-Q4_K_M.gguf
+    name: Todo-14B-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Todo-14B-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Todo-14B.i1-Q4_K_M.gguf
+      sha256: 0eac62c574f052145b6580c1b1d5f78f020171386c017ef7f57e24dc29e28654
+      uri: https://huggingface.co/mradermacher/Todo-14B-i1-GGUF/resolve/main/Todo-14B.i1-Q4_K_M.gguf
 - &nanbeige4
   name: "nanbeige4.1-3b-q8"
   url: "github:mudler/LocalAI/gallery/nanbeige4.1.yaml@master"
