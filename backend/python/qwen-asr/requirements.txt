@@ -3,3 +3,6 @@ protobuf
 certifi
 packaging==24.1
 setuptools
+h11
+gradio
+uvicorn
