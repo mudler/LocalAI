@@ -1,4 +1,37 @@
 ---
+- name: "magibu-11b"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/alibayram/magibu-11b-Q4_K_M-GGUF
+  description: |
+    The **magibu-11b-Q4_K_M-GGUF** model is a quantized version of the original **magibu-11b** (base model: `alibayram/magibu-11b`). It is optimized for efficiency using the **GGUF format** and leverages **LLaMA.cpp** for inference. Key features:
+
+      - **Quantization**: Q4_K_M (4-bit precision, 16-bit weight) for reduced memory usage.
+      - **Format**: GGUF for fast loading and inference.
+      - **Use Case**: Suitable for deploying on hardware with limited resources, ideal for tasks like text generation or dialogue.
+
+    **Tags**: `sft`, `unsloth`, `trl`, `llama-cpp`, `gguf-my-repo` (indicating it’s a fine-tuned model with specific libraries).
+
+    For deployment, install `llama.cpp` via Homebrew and use the CLI or server as shown in the README.
+  overrides:
+    parameters:
+      model: llama-cpp/models/magibu-11b-q4_k_m.gguf
+    name: magibu-11b-Q4_K_M-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/alibayram/magibu-11b-Q4_K_M-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/magibu-11b-q4_k_m.gguf
+      sha256: 4aab1c4737d51e97849d7b8d95445c314574ad998f57acc6cb718519534d8018
+      uri: https://huggingface.co/alibayram/magibu-11b-Q4_K_M-GGUF/resolve/main/magibu-11b-q4_k_m.gguf
 - &nanbeige4
   name: "nanbeige4.1-3b-q8"
   url: "github:mudler/LocalAI/gallery/nanbeige4.1.yaml@master"
