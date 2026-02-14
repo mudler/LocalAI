@@ -1,4 +1,38 @@
 ---
+- name: "minimax-m2.5"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/unsloth/MiniMax-M2.5-GGUF
+  description: |
+    AI model: minimax-m2.5
+  overrides:
+    parameters:
+      model: llama-cpp/models/MiniMax-M2.5-Q4_K_M-00001-of-00004.gguf
+    name: MiniMax-M2.5-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/unsloth/MiniMax-M2.5-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/MiniMax-M2.5-Q4_K_M-00001-of-00004.gguf
+      sha256: df02b24aa0534e6063a7d84f53981cda8f47918989d2e9ff617cd7d111351f42
+      uri: https://huggingface.co/unsloth/MiniMax-M2.5-GGUF/resolve/main/Q4_K_M/MiniMax-M2.5-Q4_K_M-00001-of-00004.gguf
+    - filename: llama-cpp/models/MiniMax-M2.5-Q4_K_M-00002-of-00004.gguf
+      sha256: 29df113619725aa2de4bb7353e6b038273cc714c1bf39058794970cb531b00bc
+      uri: https://huggingface.co/unsloth/MiniMax-M2.5-GGUF/resolve/main/Q4_K_M/MiniMax-M2.5-Q4_K_M-00002-of-00004.gguf
+    - filename: llama-cpp/models/MiniMax-M2.5-Q4_K_M-00003-of-00004.gguf
+      sha256: bce1fed7c774e0ad682bb19e2da62572e0a839bb56815e9e96468f5cbddcf46c
+      uri: https://huggingface.co/unsloth/MiniMax-M2.5-GGUF/resolve/main/Q4_K_M/MiniMax-M2.5-Q4_K_M-00003-of-00004.gguf
+    - filename: llama-cpp/models/MiniMax-M2.5-Q4_K_M-00004-of-00004.gguf
+      sha256: 515203d9473fbf88daa1455efa7bc22164b4b9a6227db1a9ae08e90b3d6dbc62
+      uri: https://huggingface.co/unsloth/MiniMax-M2.5-GGUF/resolve/main/Q4_K_M/MiniMax-M2.5-Q4_K_M-00004-of-00004.gguf
 - &nanbeige4
   name: "nanbeige4.1-3b-q8"
   url: "github:mudler/LocalAI/gallery/nanbeige4.1.yaml@master"
