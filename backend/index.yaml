@@ -703,6 +703,22 @@
     nvidia: "cuda12-neutts"
     amd: "rocm-neutts"
     nvidia-cuda-12: "cuda12-neutts"
+- &sherpa-onnx
+  name: "sherpa-onnx"
+  alias: "sherpa-onnx"
+  urls:
+    - https://k2-fsa.github.io/sherpa/onnx/
+  description: |
+    Sherpa-ONNX backend for text-to-speech using VITS, Matcha, Kokoro and other model architectures.
+    Supports multi-speaker voices and GPU acceleration via ONNX Runtime.
+  tags:
+    - text-to-speech
+    - TTS
+  capabilities:
+    default: "cpu-sherpa-onnx"
+    nvidia: "cuda12-sherpa-onnx"
+    nvidia-cuda-12: "cuda12-sherpa-onnx"
+    amd: "hipblas-sherpa-onnx"
 - !!merge <<: *neutts
   name: "neutts-development"
   capabilities:
@@ -2630,3 +2646,41 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-voxtral"
   mirrors:
     - localai/localai-backends:master-metal-darwin-arm64-voxtral
+## sherpa-onnx
+- !!merge <<: *sherpa-onnx
+  name: "sherpa-onnx-development"
+  capabilities:
+    default: "cpu-sherpa-onnx-development"
+    nvidia: "cuda12-sherpa-onnx-development"
+    nvidia-cuda-12: "cuda12-sherpa-onnx-development"
+    amd: "hipblas-sherpa-onnx-development"
+- !!merge <<: *sherpa-onnx
+  name: "cpu-sherpa-onnx"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-sherpa-onnx"
+  mirrors:
+    - localai/localai-backends:latest-cpu-sherpa-onnx
+- !!merge <<: *sherpa-onnx
+  name: "cpu-sherpa-onnx-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-cpu-sherpa-onnx"
+  mirrors:
+    - localai/localai-backends:master-cpu-sherpa-onnx
+- !!merge <<: *sherpa-onnx
+  name: "cuda12-sherpa-onnx"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-sherpa-onnx"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-12-sherpa-onnx
+- !!merge <<: *sherpa-onnx
+  name: "cuda12-sherpa-onnx-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-sherpa-onnx"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-12-sherpa-onnx
+- !!merge <<: *sherpa-onnx
+  name: "hipblas-sherpa-onnx"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-amd-hipblas-sherpa-onnx"
+  mirrors:
+    - localai/localai-backends:latest-gpu-amd-hipblas-sherpa-onnx
+- !!merge <<: *sherpa-onnx
+  name: "hipblas-sherpa-onnx-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-amd-hipblas-sherpa-onnx"
+  mirrors:
+    - localai/localai-backends:master-gpu-amd-hipblas-sherpa-onnx
