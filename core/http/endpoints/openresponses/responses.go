@@ -1004,12 +1004,6 @@ func handleBackgroundMCPNonStream(ctx context.Context, store *ResponseStore, res
 	default:
 	}
 
-	// Get final response
-	f, err = defaultLLM.Ask(ctx, f)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get response: %w", err)
-	}
-
 	// Convert fragment to Open Responses format
 	fPtr := &f
 	outputItems := convertCogitoFragmentToORItems(fPtr)
@@ -1184,21 +1178,6 @@ func handleBackgroundMCPStream(ctx context.Context, store *ResponseStore, respon
 			ended <- ctx.Err()
 			return
 		default:
-		}
-
-		// Get final response
-		f, err = defaultLLM.Ask(ctx, f)
-		if err != nil {
-			select {
-			case <-ctx.Done():
-				ended <- ctx.Err()
-			case events <- map[string]interface{}{
-				"type":    "error",
-				"message": fmt.Sprintf("Failed to get response: %v", err),
-			}:
-				ended <- err
-			}
-			return
 		}
 
 		// Stream final assistant message
@@ -2580,12 +2559,6 @@ func handleMCPNonStream(c echo.Context, responseID string, createdAt int64, inpu
 		return sendOpenResponsesError(c, 500, "model_error", fmt.Sprintf("failed to execute tools: %v", err), "")
 	}
 
-	// Get final response
-	f, err = defaultLLM.Ask(ctx, f)
-	if err != nil {
-		return sendOpenResponsesError(c, 500, "model_error", fmt.Sprintf("failed to get response: %v", err), "")
-	}
-
 	// Convert fragment to Open Responses format
 	fPtr := &f
 	outputItems := convertCogitoFragmentToORItems(fPtr)
@@ -2725,17 +2698,6 @@ func handleMCPStream(c echo.Context, responseID string, createdAt int64, input *
 			events <- map[string]interface{}{
 				"type":    "error",
 				"message": fmt.Sprintf("Failed to execute tools: %v", err),
-			}
-			ended <- err
-			return
-		}
-
-		// Get final response
-		f, err = defaultLLM.Ask(ctx, f)
-		if err != nil {
-			events <- map[string]interface{}{
-				"type":    "error",
-				"message": fmt.Sprintf("Failed to get response: %v", err),
 			}
 			ended <- err
 			return
