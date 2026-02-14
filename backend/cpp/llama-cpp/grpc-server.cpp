@@ -417,6 +417,12 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
     // n_ctx_checkpoints: max context checkpoints per slot (default: 8)
     params.n_ctx_checkpoints = 8;
 
+    // llama memory fit fails if we don't provide a buffer for tensor overrides
+    const size_t ntbo = llama_max_tensor_buft_overrides();
+    while (params.tensor_buft_overrides.size() < ntbo) {
+        params.tensor_buft_overrides.push_back({nullptr, nullptr});
+    }
+
      // decode options. Options are in form optname:optvale, or if booleans only optname.
     for (int i = 0; i < request->options_size(); i++) {
         std::string opt = request->options(i);
