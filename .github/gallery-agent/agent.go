@@ -146,7 +146,7 @@ func getRealReadme(ctx context.Context, repository string) (string, error) {
 		return "", err
 	}
 
-	content := newFragment.LastMessage().Content
+	content := result.LastMessage().Content
 	return cleanTextContent(content), nil
 }
 

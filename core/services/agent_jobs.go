@@ -27,8 +27,8 @@ import (
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/xsync"
 	"github.com/mudler/cogito"
-	"github.com/robfig/cron/v3"
 	"github.com/mudler/xlog"
+	"github.com/robfig/cron/v3"
 )
 
 // AgentJobService manages agent tasks and job execution
@@ -892,17 +892,6 @@ func (s *AgentJobService) executeJobInternal(job schema.Job, task schema.Task, c
 		job.CompletedAt = &completedAt
 		s.jobs.Set(job.ID, job)
 		return fmt.Errorf("failed to execute tools: %w", err)
-	}
-
-	// Get final response
-	f, err = defaultLLM.Ask(ctx, f)
-	if err != nil {
-		job.Status = schema.JobStatusFailed
-		job.Error = fmt.Sprintf("failed to get response: %v", err)
-		completedAt := time.Now()
-		job.CompletedAt = &completedAt
-		s.jobs.Set(job.ID, job)
-		return fmt.Errorf("failed to get response: %w", err)
 	}
 
 	// Extract traces from fragment.Status after execution

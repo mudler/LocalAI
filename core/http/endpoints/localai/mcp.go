@@ -162,11 +162,6 @@ func MCPEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator 
 				return err
 			}
 
-			f, err = defaultLLM.Ask(ctxWithCancellation, f)
-			if err != nil {
-				return err
-			}
-
 			resp := &schema.OpenAIResponse{
 				ID:      id,
 				Created: created,
@@ -247,17 +242,6 @@ func MCPEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator 
 				events <- MCPErrorEvent{
 					Type:    "error",
 					Message: fmt.Sprintf("Failed to execute tools: %v", err),
-				}
-				ended <- err
-				return
-			}
-
-			// Get final response
-			f, err = defaultLLM.Ask(ctxWithCancellation, f)
-			if err != nil {
-				events <- MCPErrorEvent{
-					Type:    "error",
-					Message: fmt.Sprintf("Failed to get response: %v", err),
 				}
 				ended <- err
 				return
