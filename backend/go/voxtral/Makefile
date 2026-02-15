@@ -10,7 +10,7 @@ JOBS?=$(shell nproc --ignore=1 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || e
 
 # voxtral.c version
 VOXTRAL_REPO?=https://github.com/antirez/voxtral.c
-VOXTRAL_VERSION?=c9e8773a2042d67c637fc492c8a655c485354080
+VOXTRAL_VERSION?=134d366c24d20c64b614a3dcc8bda2a6922d077d
 
 # Detect OS
 UNAME_S := $(shell uname -s)
