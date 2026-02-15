@@ -237,7 +237,7 @@ Roadmap items: [List of issues](https://github.com/mudler/LocalAI/issues?q=is%3A
 - 🧩 [Backend Gallery](https://localai.io/backends/): Install/remove backends on the fly, powered by OCI images — fully customizable and API-driven.
 - 📖 [Text generation with GPTs](https://localai.io/features/text-generation/) (`llama.cpp`, `transformers`, `vllm` ... [:book: and more](https://localai.io/model-compatibility/index.html#model-compatibility-table))
 - 🗣 [Text to Audio](https://localai.io/features/text-to-audio/)
-- 🔈 [Audio to Text](https://localai.io/features/audio-to-text/) (Audio transcription with `whisper.cpp`)
+- 🔈 [Audio to Text](https://localai.io/features/audio-to-text/)
 - 🎨 [Image generation](https://localai.io/features/image-generation)
 - 🔥 [OpenAI-alike tools API](https://localai.io/features/openai-functions/) 
 - ⚡ [Realtime API](https://localai.io/features/openai-realtime/) (Speech-to-speech) 
