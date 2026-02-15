@@ -34,8 +34,9 @@ import (
 
 const (
 	// XXX: Presently it seems all ASR/VAD backends use 16Khz. If a backend uses 24Khz then it will likely still work, but have reduced performance
-	localSampleRate  = 16000
+	localSampleRate         = 16000
 	defaultRemoteSampleRate = 24000
+	maxAudioBufferSize      = 100 * 1024 * 1024 // 100MB
 )
 
 // A model can be "emulated" that is: transcribe audio to text -> feed text to the LLM -> generate audio as result
@@ -373,6 +374,12 @@ func registerRealtime(application *application.Application, model string) func(c
 
 				// Append to InputAudioBuffer
 				session.AudioBufferLock.Lock()
+				if len(session.InputAudioBuffer)+len(decodedAudio) > maxAudioBufferSize {
+					session.AudioBufferLock.Unlock()
+					xlog.Error("audio buffer size limit exceeded", "current", len(session.InputAudioBuffer), "incoming", len(decodedAudio), "max", maxAudioBufferSize)
+					sendError(c, "buffer_too_large", "Audio buffer size limit exceeded", "", "")
+					continue
+				}
 				session.InputAudioBuffer = append(session.InputAudioBuffer, decodedAudio...)
 				session.AudioBufferLock.Unlock()
 
