@@ -16,7 +16,7 @@ import (
 	"github.com/mudler/LocalAI/pkg/xsync"
 	"github.com/mudler/xlog"
 
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 )
 
 func GetGalleryConfigFromURL[T any](url string, basePath string) (T, error) {

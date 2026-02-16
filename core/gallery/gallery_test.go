@@ -4,11 +4,12 @@ import (
 	"os"
 	"path/filepath"
 
+	"dario.cat/mergo"
 	"github.com/mudler/LocalAI/core/config"
 	. "github.com/mudler/LocalAI/core/gallery"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 )
 
 var _ = Describe("Gallery", func() {
@@ -460,6 +461,62 @@ var _ = Describe("Gallery", func() {
 		It("should return zero value when gallery@name not found", func() {
 			result := FindGalleryElement(models, "nonexistent@model")
 			Expect(result).To(BeNil())
+		})
+	})
+
+	Describe("YAML merge with nested maps", func() {
+		It("should handle YAML anchors and merges with nested overrides (regression test for nanbeige4.1)", func() {
+			// This tests the fix for the panic that occurred with yaml.v2:
+			// yaml.v2 produces map[interface{}]interface{} for nested maps
+			// which caused mergo.Merge to panic with "value of type interface {} is not assignable to type string"
+			// The exact YAML structure from gallery/index.yaml nanbeige4.1 entries
+			yamlContent := `---
+- &nanbeige4
+  name: "nanbeige4.1-3b-q8"
+  overrides:
+    parameters:
+      model: nanbeige4.1-3b-q8_0.gguf
+- !!merge <<: *nanbeige4
+  name: "nanbeige4.1-3b-q4"
+  overrides:
+    parameters:
+      model: nanbeige4.1-3b-q4_k_m.gguf
+`
+			var models []GalleryModel
+			err := yaml.Unmarshal([]byte(yamlContent), &models)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(models).To(HaveLen(2))
+
+			// Verify first model
+			Expect(models[0].Name).To(Equal("nanbeige4.1-3b-q8"))
+			Expect(models[0].Overrides).NotTo(BeNil())
+			Expect(models[0].Overrides["parameters"]).To(BeAssignableToTypeOf(map[string]interface{}{}))
+			params := models[0].Overrides["parameters"].(map[string]interface{})
+			Expect(params["model"]).To(Equal("nanbeige4.1-3b-q8_0.gguf"))
+
+			// Verify second model (merged)
+			Expect(models[1].Name).To(Equal("nanbeige4.1-3b-q4"))
+			Expect(models[1].Overrides).NotTo(BeNil())
+			Expect(models[1].Overrides["parameters"]).To(BeAssignableToTypeOf(map[string]interface{}{}))
+			params = models[1].Overrides["parameters"].(map[string]interface{})
+			Expect(params["model"]).To(Equal("nanbeige4.1-3b-q4_k_m.gguf"))
+
+			// Simulate the mergo.Merge call that was failing in models.go:251
+			// This should not panic with yaml.v3
+			configMap := make(map[string]interface{})
+			configMap["name"] = "test"
+			configMap["backend"] = "llama-cpp"
+			configMap["parameters"] = map[string]interface{}{
+				"model": "original.gguf",
+			}
+
+			err = mergo.Merge(&configMap, models[1].Overrides, mergo.WithOverride)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(configMap["parameters"]).NotTo(BeNil())
+			
+			// Verify the merge worked correctly
+			mergedParams := configMap["parameters"].(map[string]interface{})
+			Expect(mergedParams["model"]).To(Equal("nanbeige4.1-3b-q4_k_m.gguf"))
 		})
 	})
 })
