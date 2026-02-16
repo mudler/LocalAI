@@ -23,18 +23,18 @@ import (
 	"github.com/mudler/LocalAI/core/templates"
 	laudio "github.com/mudler/LocalAI/pkg/audio"
 	"github.com/mudler/LocalAI/pkg/functions"
-	"github.com/mudler/LocalAI/pkg/utils"
 	"github.com/mudler/LocalAI/pkg/grpc/proto"
 	model "github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/reasoning"
 	"github.com/mudler/LocalAI/pkg/sound"
+	"github.com/mudler/LocalAI/pkg/utils"
 
 	"github.com/mudler/xlog"
 )
 
 const (
 	// XXX: Presently it seems all ASR/VAD backends use 16Khz. If a backend uses 24Khz then it will likely still work, but have reduced performance
-	localSampleRate  = 16000
+	localSampleRate         = 16000
 	defaultRemoteSampleRate = 24000
 )
 

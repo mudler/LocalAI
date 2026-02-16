@@ -194,7 +194,40 @@ func (m *wrappedModel) Predict(ctx context.Context, messages schema.Messages, im
 
 	var toolsJSON string
 	if len(tools) > 0 {
-		b, _ := json.Marshal(tools)
+		// Convert tools to OpenAI Chat Completions format (nested)
+		// as expected by most backends (including llama.cpp)
+		var chatTools []functions.Tool
+		for _, t := range tools {
+			if t.Function != nil {
+				var params map[string]interface{}
+				switch p := t.Function.Parameters.(type) {
+				case map[string]interface{}:
+					params = p
+				case string:
+					if err := json.Unmarshal([]byte(p), &params); err != nil {
+						xlog.Warn("Failed to parse parameters JSON string", "error", err, "function", t.Function.Name)
+					}
+				case nil:
+					params = map[string]interface{}{}
+				default:
+					// Try to marshal/unmarshal to get map
+					b, err := json.Marshal(p)
+					if err == nil {
+						_ = json.Unmarshal(b, &params)
+					}
+				}
+
+				chatTools = append(chatTools, functions.Tool{
+					Type: "function",
+					Function: functions.Function{
+						Name:        t.Function.Name,
+						Description: t.Function.Description,
+						Parameters:  params,
+					},
+				})
+			}
+		}
+		b, _ := json.Marshal(chatTools)
 		toolsJSON = string(b)
 	}
 
