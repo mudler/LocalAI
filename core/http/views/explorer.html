@@ -5,8 +5,8 @@
 
 <style>
     body {
-        background-color: #101827;
-        color: #E5E7EB;
+        background-color: var(--color-bg-primary);
+        color: var(--color-text-primary);
         font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     }
     .token {
@@ -19,51 +19,53 @@
         position: relative;
     }
     .network-card {
-        background-color: #2d3748;
+        background-color: var(--color-bg-secondary);
         padding: 20px;
         border-radius: 8px;
         margin-bottom: 20px;
+        border: 1px solid var(--color-border-subtle);
         transition: background-color 0.2s ease;
     }
     .network-card:hover {
-        background-color: #374151;
+        background-color: var(--color-bg-tertiary);
     }
     .network-title {
         font-size: 24px;
         font-weight: bold;
         margin-bottom: 10px;
-        color: #63b3ed;
+        color: var(--color-primary);
     }
     .network-token {
         font-size: 14px;
         font-style: italic;
-        color: #cbd5e0;
+        color: var(--color-text-secondary);
         margin-bottom: 10px;
-        word-break: break-word; /* Breaks words to prevent overflow */
-        overflow-wrap: break-word; /* Ensures long strings break */
-        white-space: pre-wrap; /* Preserves whitespace for breaking */
+        word-break: break-word;
+        overflow-wrap: break-word;
+        white-space: pre-wrap;
     }
     .cluster {
         margin-top: 10px;
-        background-color: #4a5568;
+        background-color: var(--color-bg-tertiary);
         padding: 10px;
         border-radius: 6px;
+        border: 1px solid var(--color-border-subtle);
         transition: background-color 0.3s ease;
     }
     .cluster:hover {
-        background-color: #5a6b78;
+        background-color: var(--color-bg-secondary);
     }
     .cluster-title {
         font-size: 18px;
         font-weight: bold;
-        color: #e2e8f0;
+        color: var(--color-text-primary);
     }
     .form-container {
-        background-color: #2d3748;
+        background-color: var(--color-bg-secondary);
         padding: 20px;
         border-radius: 8px;
         margin-bottom: 20px;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        border: 1px solid var(--color-border-subtle);
     }
     .form-control {
         margin-bottom: 15px;
@@ -72,47 +74,50 @@
         display: block;
         margin-bottom: 5px;
         font-weight: bold;
+        color: var(--color-text-primary);
     }
     input[type="text"],
     textarea {
         width: 100%;
         padding: 10px;
         border-radius: 4px;
-        border: 1px solid #4a5568;
-        background-color: #3a4250;
-        color: #e2e8f0;
+        border: 1px solid var(--color-border-subtle);
+        background-color: var(--color-bg-primary);
+        color: var(--color-text-primary);
         transition: border-color 0.3s ease, background-color 0.3s ease;
     }
     input[type="text"]:focus,
     textarea:focus {
-        border-color: #63b3ed;
-        background-color: #4a5568;
+        border-color: var(--color-primary);
+        background-color: var(--color-bg-tertiary);
     }
     button {
-        background-color: #3182ce;
-        color: #e2e8f0;
+        background-color: var(--color-primary);
+        color: white;
         padding: 10px 20px;
         border: none;
         border-radius: 4px;
         cursor: pointer;
         transition: background-color 0.3s ease;
     }
+    button:hover {
+        background-color: var(--color-primary-hover);
+    }
     .error {
-        color: #e53e3e;
+        color: var(--color-error);
         margin-top: 5px;
     }
     .success {
-        color: #38a169;
+        color: var(--color-success);
         margin-top: 5px;
     }
-    /* Spinner Styles */
     .spinner {
         display: inline-block;
         width: 50px;
         height: 50px;
-        border: 5px solid rgba(255, 255, 255, 0.2);
+        border: 5px solid var(--color-border-subtle);
         border-radius: 50%;
-        border-top-color: #3182ce;
+        border-top-color: var(--color-primary);
         animation: spin 1s linear infinite;
         margin: 0 auto;
     }
@@ -121,43 +126,46 @@
         to { transform: rotate(360deg); }
     }
 
-    /* Center the loading text and spinner */
     .loading-container {
         text-align: center;
         padding: 50px;
     }
     .warning-box {
-            border-radius: 5px;
+        border-radius: 5px;
     }
     .warning-box i {
         margin-right: 10px;
     }
     .token-box {
-            background-color: #4a5568;
-            padding: 10px;
-            border-radius: 4px;
-            margin-top: 10px;
-            position: relative;
-            cursor: pointer;
-        }
-        .token-box:hover {
-            background-color: #5a6b7e;
-        }
-        .token-text {
-            overflow-wrap: break-word;
-            font-family: monospace;
-        }
-        .copy-icon {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            color: #e2e8f0;
-        }
+        background-color: var(--color-bg-tertiary);
+        padding: 10px;
+        border-radius: 4px;
+        margin-top: 10px;
+        position: relative;
+        cursor: pointer;
+        border: 1px solid var(--color-border-subtle);
+    }
+    .token-box:hover {
+        background-color: var(--color-bg-secondary);
+    }
+    .token-text {
+        overflow-wrap: break-word;
+        font-family: monospace;
+    }
+    .copy-icon {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        color: var(--color-text-primary);
+    }
 </style>
 
-<body class="bg-gray-900 text-gray-200">
-    <div class="flex flex-col min-h-screen" x-data="networkClusters()" x-init="init()">
-        {{template "views/partials/navbar_explorer" .}}
+<body class="bg-[var(--color-bg-primary)] text-[var(--color-text-primary)]">
+<div class="app-layout">
+  {{template "views/partials/navbar_explorer" .}}
+  
+  <main class="main-content">
+    <div class="main-content-inner" x-data="networkClusters()" x-init="init()">
         <div class="animation-container">
             <canvas id="networkCanvas"></canvas>
             <div class="text-overlay">
@@ -178,8 +186,8 @@
 
         <div class="container mx-auto px-4 flex-grow">
         <!-- Warning Box -->
-        <div class="warning-box bg-yellow-100 text-gray-800 mb-20 pt-5 pb-5 pr-5 pl-5 text-lg">
-            <i class="fa-solid fa-triangle-exclamation"></i><i class="fa-solid fa-flask"></i>
+        <div class="warning-box bg-[var(--color-warning-light)] border border-[var(--color-warning)]/30 text-[var(--color-text-primary)] mb-20 pt-5 pb-5 pr-5 pl-5 text-lg rounded-lg">
+            <i class="fa-solid fa-triangle-exclamation text-[var(--color-warning)]"></i><i class="fa-solid fa-flask text-[var(--color-warning)]"></i>
             The explorer is a global, community-driven tool to share network tokens and view available clusters in the globe.
             Anyone can use the tokens to offload computation and use the clusters available or share resources.
             This is provided without any warranty. Use it at your own risk. We are not responsible for any potential harm or misuse. Sharing tokens globally allows anyone from the internet to use your instances. 
@@ -259,19 +267,19 @@
                             <span class="inline-block bg-blue-500 text-white py-1 px-3 rounded-full text-xs"  x-text="'Number of Workers: ' + cluster.Workers.length">
                             </span>
                             <!-- Give commands and instructions to join the network -->
-                            <span class="inline-block token-box text-white py-1 px-3 text-xs" x-show="cluster.Type == 'federated'" >
-                                <p class="text-lg font-bold mb-4 mt-1">
-                                    <i class="fa-solid fa-copy copy-icon float-right"></i>
-                                    Command to connect (click to copy): 
-                                </p>
-                                <code class="block bg-gray-700 text-yellow-300 p-4 rounded-lg break-words"  @click="copyToken($el.textContent)" >
-                                    docker run -d --restart=always -e ADDRESS=":80" -e LOCALAI_P2P_NETWORK_ID=<span class="token" x-text="cluster.NetworkID"></span> -e LOCALAI_P2P_LOGLEVEL=debug --name local-ai -e TOKEN="<span class="token" x-text="network.token"></span>" --net host -ti localai/localai:master federated --debug
-                                </code>
-                                or via CLI:
-                                <code class="block bg-gray-700 text-yellow-300 p-4 rounded-lg break-words"  @click="copyToken($el.textContent)" >
-                                   ADDRESS=":80" LOCALAI_P2P_NETWORK_ID=<span class="token" x-text="cluster.NetworkID"></span> LOCALAI_P2P_LOGLEVEL=debug TOKEN="<span class="token" x-text="network.token"></span>" local-ai federated --debug
-                                </code>
-                            </span>
+                             <span class="inline-block token-box text-white py-1 px-3 text-xs" x-show="cluster.Type == 'federated'" >
+                                 <p class="text-lg font-bold mb-4 mt-1">
+                                     <i class="fa-solid fa-copy copy-icon float-right"></i>
+                                     Command to connect (click to copy): 
+                                 </p>
+                                 <code class="block bg-[var(--color-bg-primary)] text-[var(--color-warning)] p-4 rounded-lg break-words border border-[var(--color-border-subtle)]"  @click="copyToken($el.textContent)" >
+                                     docker run -d --restart=always -e ADDRESS=":80" -e LOCALAI_P2P_NETWORK_ID=<span class="token" x-text="cluster.NetworkID"></span> -e LOCALAI_P2P_LOGLEVEL=debug --name local-ai -e TOKEN="<span class="token" x-text="network.token"></span>" --net host -ti localai/localai:master federated --debug
+                                 </code>
+                                 or via CLI:
+                                 <code class="block bg-[var(--color-bg-primary)] text-[var(--color-warning)] p-4 rounded-lg break-words border border-[var(--color-border-subtle)]"  @click="copyToken($el.textContent)" >
+                                    ADDRESS=":80" LOCALAI_P2P_NETWORK_ID=<span class="token" x-text="cluster.NetworkID"></span> LOCALAI_P2P_LOGLEVEL=debug TOKEN="<span class="token" x-text="network.token"></span>" local-ai federated --debug
+                                 </code>
+                             </span>
                         </div>
                     </template>
                 </div>
@@ -371,6 +379,8 @@
 
         {{template "views/partials/footer" .}}
     </div>
+  </main>
+</div>
 
 </body>
 

@@ -340,7 +340,7 @@
   files:
     - filename: llama-cpp/models/Qwen3-Coder-Next-MXFP4_MOE.gguf
       uri: https://huggingface.co/noctrex/Qwen3-Coder-Next-MXFP4_MOE-GGUF/resolve/main/Qwen3-Coder-Next-MXFP4_MOE.gguf
-      sha256: 7c3c1622bb2954cf304dc917a382ee7437f433f703fc28330e632c34ab4bbfdf
+      sha256: 86f0158a6746c6613c5fa5125a4851960e1adb4549c965c4bdecba07b81ac4cb
 - name: "deepseek-ai.deepseek-v3.2"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
