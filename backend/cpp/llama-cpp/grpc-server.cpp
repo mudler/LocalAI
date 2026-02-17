@@ -1261,6 +1261,42 @@ public:
                     body_json["add_generation_prompt"] = data["add_generation_prompt"];
                 }
 
+                // Pass sampling parameters to body_json so oaicompat_chat_params_parse respects them
+                // and doesn't overwrite them with defaults in the returned parsed_data
+                if (data.contains("n_predict")) {
+                    body_json["max_tokens"] = data["n_predict"];
+                }
+                if (data.contains("ignore_eos")) {
+                    body_json["ignore_eos"] = data["ignore_eos"];
+                }
+                if (data.contains("stop")) {
+                    body_json["stop"] = data["stop"];
+                }
+                if (data.contains("temperature")) {
+                    body_json["temperature"] = data["temperature"];
+                }
+                if (data.contains("top_p")) {
+                    body_json["top_p"] = data["top_p"];
+                }
+                if (data.contains("frequency_penalty")) {
+                    body_json["frequency_penalty"] = data["frequency_penalty"];
+                }
+                if (data.contains("presence_penalty")) {
+                    body_json["presence_penalty"] = data["presence_penalty"];
+                }
+                if (data.contains("seed")) {
+                    body_json["seed"] = data["seed"];
+                }
+                if (data.contains("logit_bias")) {
+                    body_json["logit_bias"] = data["logit_bias"];
+                }
+                if (data.contains("top_k")) {
+                    body_json["top_k"] = data["top_k"];
+                }
+                if (data.contains("min_p")) {
+                    body_json["min_p"] = data["min_p"];
+                }
+
                 // Debug: Print full body_json before template processing (includes messages, tools, tool_choice, etc.)
                 SRV_DBG("[CONVERSATION DEBUG] PredictStream: Full body_json before oaicompat_chat_params_parse:\n%s\n", body_json.dump(2).c_str());
 
@@ -1990,6 +2026,42 @@ public:
                 // Pass add_generation_prompt if present (used by oaicompat_chat_params_parse)
                 if (data.contains("add_generation_prompt")) {
                     body_json["add_generation_prompt"] = data["add_generation_prompt"];
+                }
+
+                // Pass sampling parameters to body_json so oaicompat_chat_params_parse respects them
+                // and doesn't overwrite them with defaults in the returned parsed_data
+                if (data.contains("n_predict")) {
+                    body_json["max_tokens"] = data["n_predict"];
+                }
+                if (data.contains("ignore_eos")) {
+                    body_json["ignore_eos"] = data["ignore_eos"];
+                }
+                if (data.contains("stop")) {
+                    body_json["stop"] = data["stop"];
+                }
+                if (data.contains("temperature")) {
+                    body_json["temperature"] = data["temperature"];
+                }
+                if (data.contains("top_p")) {
+                    body_json["top_p"] = data["top_p"];
+                }
+                if (data.contains("frequency_penalty")) {
+                    body_json["frequency_penalty"] = data["frequency_penalty"];
+                }
+                if (data.contains("presence_penalty")) {
+                    body_json["presence_penalty"] = data["presence_penalty"];
+                }
+                if (data.contains("seed")) {
+                    body_json["seed"] = data["seed"];
+                }
+                if (data.contains("logit_bias")) {
+                    body_json["logit_bias"] = data["logit_bias"];
+                }
+                if (data.contains("top_k")) {
+                    body_json["top_k"] = data["top_k"];
+                }
+                if (data.contains("min_p")) {
+                    body_json["min_p"] = data["min_p"];
                 }
 
                 // Debug: Print full body_json before template processing (includes messages, tools, tool_choice, etc.)
