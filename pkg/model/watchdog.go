@@ -537,14 +537,16 @@ func (wd *WatchDog) evictLRUModel() {
 
 	xlog.Info("[WatchDog] Memory reclaimer evicting LRU model", "model", lruModel.model, "lastUsed", lruModel.lastUsed)
 
-	// Untrack the model
-	wd.untrack(lruModel.address)
 	wd.Unlock()
 
 	// Shutdown the model
 	if err := wd.pm.ShutdownModel(lruModel.model); err != nil {
 		xlog.Error("[WatchDog] error shutting down model during memory reclamation", "error", err, "model", lruModel.model)
 	} else {
+		// Untrack the model
+		wd.Lock()
+		wd.untrack(lruModel.address)
+		wd.Unlock()
 		xlog.Info("[WatchDog] Memory reclaimer eviction complete", "model", lruModel.model)
 	}
 }
