@@ -2,10 +2,12 @@
 <html lang="en">
 {{template "views/partials/head" .}}
 
-<body class="bg-[#101827] text-[#E5E7EB]">
-<div class="flex flex-col min-h-screen" x-data="importModel()" x-init="init()">
-
-    {{template "views/partials/navbar" .}}
+<body class="bg-[var(--color-bg-primary)] text-[var(--color-text-primary)]">
+<div class="app-layout">
+  {{template "views/partials/navbar" .}}
+  
+  <main class="main-content">
+    <div class="main-content-inner" x-data="importModel()" x-init="init()">
     {{template "views/partials/inprogress" .}}
 
     <div class="container mx-auto px-4 py-8 flex-grow">
@@ -64,9 +66,9 @@
              x-transition:enter-end="opacity-100"
              class="card p-8">
             <div class="space-y-6">
-                <h2 class="text-2xl font-semibold text-[#E5E7EB] flex items-center gap-3 mb-6">
-                    <div class="w-10 h-10 rounded-lg bg-green-500/10 flex items-center justify-center">
-                        <i class="fas fa-link text-green-400"></i>
+                <h2 class="text-2xl font-semibold text-[var(--color-text-primary)] flex items-center gap-3 mb-6">
+                    <div class="w-10 h-10 rounded-lg bg-[var(--color-success-light)] flex items-center justify-center">
+                        <i class="fas fa-link text-[var(--color-success)]"></i>
                     </div>
                     Import from URI
                 </h2>
@@ -74,20 +76,20 @@
                 <!-- URI Input -->
                 <div>
                     <div class="flex items-center justify-between mb-2">
-                        <label class="block text-sm font-medium text-[#94A3B8]">
+                        <label class="block text-sm font-medium text-[var(--color-text-secondary)]">
                             <i class="fas fa-link mr-2"></i>Model URI
                         </label>
                         <div class="flex gap-2">
                             <a href="https://huggingface.co/models?search=gguf&sort=trending" 
                                target="_blank"
-                               class="text-xs px-3 py-1.5 rounded-lg bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30 transition-all flex items-center gap-1.5">
+                               class="text-xs px-3 py-1.5 rounded-lg bg-[var(--color-accent-light)] hover:bg-[var(--color-accent)]/30 text-[var(--color-accent)] border border-[var(--color-accent)]/30 transition-all flex items-center gap-1.5">
                                 <i class="fab fa-huggingface"></i>
                                 <span>Search GGUF Models on Hugging Face</span>
                                 <i class="fas fa-external-link-alt text-xs"></i>
                             </a>
                             <a href="https://huggingface.co/models?sort=trending" 
                                target="_blank"
-                               class="text-xs px-3 py-1.5 rounded-lg bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30 transition-all flex items-center gap-1.5">
+                               class="text-xs px-3 py-1.5 rounded-lg bg-[var(--color-accent-light)] hover:bg-[var(--color-accent)]/30 text-[var(--color-accent)] border border-[var(--color-accent)]/30 transition-all flex items-center gap-1.5">
                                 <i class="fab fa-huggingface"></i>
                                 <span>Browse All Models on Hugging Face</span>
                                 <i class="fas fa-external-link-alt text-xs"></i>
@@ -100,14 +102,14 @@
                         placeholder="huggingface://TheBloke/Llama-2-7B-Chat-GGUF or https://example.com/model.gguf"
                         class="input w-full"
                         :disabled="isSubmitting">
-                    <p class="mt-2 text-xs text-[#94A3B8]">
+                    <p class="mt-2 text-xs text-[var(--color-text-secondary)]">
                         Enter the URI or path to the model file you want to import
                     </p>
                     
                     <!-- URI Format Guide -->
                     <div class="mt-4" x-data="{ showGuide: false }">
                         <button @click="showGuide = !showGuide" 
-                                class="flex items-center gap-2 text-sm text-[#94A3B8] hover:text-[#E5E7EB] transition-colors">
+                                class="flex items-center gap-2 text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors">
                             <i class="fas" :class="showGuide ? 'fa-chevron-down' : 'fa-chevron-right'"></i>
                             <i class="fas fa-info-circle"></i>
                             <span>Supported URI Formats</span>
@@ -117,34 +119,34 @@
                              x-transition:enter="transition ease-out duration-200"
                              x-transition:enter-start="opacity-0 transform -translate-y-2"
                              x-transition:enter-end="opacity-100 transform translate-y-0"
-                             class="mt-3 p-4 bg-[#101827] border border-[#1E293B] rounded-lg space-y-4">
+                             class="mt-3 p-4 bg-[var(--color-bg-primary)] border border-[var(--color-border-subtle)] rounded-lg space-y-4">
                             
                             <!-- HuggingFace -->
                             <div>
-                                <h4 class="text-sm font-semibold text-[#E5E7EB] mb-2 flex items-center gap-2">
-                                    <i class="fab fa-huggingface text-purple-400"></i>
+                                <h4 class="text-sm font-semibold text-[var(--color-text-primary)] mb-2 flex items-center gap-2">
+                                    <i class="fab fa-huggingface text-[var(--color-accent)]"></i>
                                     HuggingFace
                                 </h4>
-                                <div class="space-y-1.5 text-xs text-[#94A3B8] font-mono pl-6">
+                                <div class="space-y-1.5 text-xs text-[var(--color-text-secondary)] font-mono pl-6">
                                     <div class="flex items-start gap-2">
-                                        <span class="text-green-400">•</span>
+                                        <span class="text-[var(--color-success)]">•</span>
                                         <div>
-                                            <code class="text-[#10B981]">huggingface://</code><span class="text-[#94A3B8]">TheBloke/Llama-2-7B-Chat-GGUF</span>
-                                            <p class="text-[#6B7280] mt-0.5">Standard HuggingFace format</p>
+                                            <code class="text-[var(--color-success)]">huggingface://</code><span class="text-[var(--color-text-secondary)]">TheBloke/Llama-2-7B-Chat-GGUF</span>
+                                            <p class="text-[var(--color-text-muted)] mt-0.5">Standard HuggingFace format</p>
                                         </div>
                                     </div>
                                     <div class="flex items-start gap-2">
-                                        <span class="text-green-400">•</span>
+                                        <span class="text-[var(--color-success)]">•</span>
                                         <div>
-                                            <code class="text-[#10B981]">hf://</code><span class="text-[#94A3B8]">TheBloke/Llama-2-7B-Chat-GGUF</span>
-                                            <p class="text-[#6B7280] mt-0.5">Short HuggingFace format</p>
+                                            <code class="text-[var(--color-success)]">hf://</code><span class="text-[var(--color-text-secondary)]">TheBloke/Llama-2-7B-Chat-GGUF</span>
+                                            <p class="text-[var(--color-text-muted)] mt-0.5">Short HuggingFace format</p>
                                         </div>
                                     </div>
                                     <div class="flex items-start gap-2">
-                                        <span class="text-green-400">•</span>
+                                        <span class="text-[var(--color-success)]">•</span>
                                         <div>
-                                            <code class="text-[#10B981]">https://huggingface.co/</code><span class="text-[#94A3B8]">TheBloke/Llama-2-7B-Chat-GGUF</span>
-                                            <p class="text-[#6B7280] mt-0.5">Full HuggingFace URL</p>
+                                            <code class="text-[var(--color-success)]">https://huggingface.co/</code><span class="text-[var(--color-text-secondary)]">TheBloke/Llama-2-7B-Chat-GGUF</span>
+                                            <p class="text-[var(--color-text-muted)] mt-0.5">Full HuggingFace URL</p>
                                         </div>
                                     </div>
                                 </div>
@@ -152,16 +154,16 @@
                             
                             <!-- HTTP/HTTPS -->
                             <div>
-                                <h4 class="text-sm font-semibold text-[#E5E7EB] mb-2 flex items-center gap-2">
-                                    <i class="fas fa-globe text-blue-400"></i>
+                                <h4 class="text-sm font-semibold text-[var(--color-text-primary)] mb-2 flex items-center gap-2">
+                                    <i class="fas fa-globe text-[var(--color-primary)]"></i>
                                     HTTP/HTTPS URLs
                                 </h4>
-                                <div class="space-y-1.5 text-xs text-[#94A3B8] font-mono pl-6">
+                                <div class="space-y-1.5 text-xs text-[var(--color-text-secondary)] font-mono pl-6">
                                     <div class="flex items-start gap-2">
-                                        <span class="text-green-400">•</span>
+                                        <span class="text-[var(--color-success)]">•</span>
                                         <div>
-                                            <code class="text-[#10B981]">https://</code><span class="text-[#94A3B8]">example.com/model.gguf</span>
-                                            <p class="text-[#6B7280] mt-0.5">Direct download from any HTTPS URL</p>
+                                            <code class="text-[var(--color-success)]">https://</code><span class="text-[var(--color-text-secondary)]">example.com/model.gguf</span>
+                                            <p class="text-[var(--color-text-muted)] mt-0.5">Direct download from any HTTPS URL</p>
                                         </div>
                                     </div>
                                 </div>
@@ -169,23 +171,23 @@
                             
                             <!-- Local Files -->
                             <div>
-                                <h4 class="text-sm font-semibold text-[#E5E7EB] mb-2 flex items-center gap-2">
-                                    <i class="fas fa-file text-yellow-400"></i>
+                                <h4 class="text-sm font-semibold text-[var(--color-text-primary)] mb-2 flex items-center gap-2">
+                                    <i class="fas fa-file text-[var(--color-warning)]"></i>
                                     Local Files
                                 </h4>
-                                <div class="space-y-1.5 text-xs text-[#94A3B8] font-mono pl-6">
+                                <div class="space-y-1.5 text-xs text-[var(--color-text-secondary)] font-mono pl-6">
                                     <div class="flex items-start gap-2">
-                                        <span class="text-green-400">•</span>
+                                        <span class="text-[var(--color-success)]">•</span>
                                         <div>
-                                            <code class="text-[#10B981]">file://</code><span class="text-[#94A3B8]">/path/to/model.gguf</span>
-                                            <p class="text-[#6B7280] mt-0.5">Local file path (absolute)</p>
+                                            <code class="text-[var(--color-success)]">file://</code><span class="text-[var(--color-text-secondary)]">/path/to/model.gguf</span>
+                                            <p class="text-[var(--color-text-muted)] mt-0.5">Local file path (absolute)</p>
                                         </div>
                                     </div>
                                     <div class="flex items-start gap-2">
-                                        <span class="text-green-400">•</span>
+                                        <span class="text-[var(--color-success)]">•</span>
                                         <div>
-                                            <code class="text-[#94A3B8]">/path/to/model.yaml</code>
-                                            <p class="text-[#6B7280] mt-0.5">Direct local YAML config file</p>
+                                            <span class="text-[var(--color-text-secondary)]">/path/to/model.yaml</span>
+                                            <p class="text-[var(--color-text-muted)] mt-0.5">Direct local YAML config file</p>
                                         </div>
                                     </div>
                                 </div>
@@ -193,23 +195,23 @@
                             
                             <!-- OCI -->
                             <div>
-                                <h4 class="text-sm font-semibold text-[#E5E7EB] mb-2 flex items-center gap-2">
+                                <h4 class="text-sm font-semibold text-[var(--color-text-primary)] mb-2 flex items-center gap-2">
                                     <i class="fas fa-box text-cyan-400"></i>
                                     OCI Registry
                                 </h4>
-                                <div class="space-y-1.5 text-xs text-[#94A3B8] font-mono pl-6">
+                                <div class="space-y-1.5 text-xs text-[var(--color-text-secondary)] font-mono pl-6">
                                     <div class="flex items-start gap-2">
-                                        <span class="text-green-400">•</span>
+                                        <span class="text-[var(--color-success)]">•</span>
                                         <div>
-                                            <code class="text-[#10B981]">oci://</code><span class="text-[#94A3B8]">registry.example.com/model:tag</span>
-                                            <p class="text-[#6B7280] mt-0.5">OCI container registry</p>
+                                            <code class="text-[var(--color-success)]">oci://</code><span class="text-[var(--color-text-secondary)]">registry.example.com/model:tag</span>
+                                            <p class="text-[var(--color-text-muted)] mt-0.5">OCI container registry</p>
                                         </div>
                                     </div>
                                     <div class="flex items-start gap-2">
-                                        <span class="text-green-400">•</span>
+                                        <span class="text-[var(--color-success)]">•</span>
                                         <div>
-                                            <code class="text-[#10B981]">ocifile://</code><span class="text-[#94A3B8]">/path/to/image.tar</span>
-                                            <p class="text-[#6B7280] mt-0.5">Local OCI tarball file</p>
+                                            <code class="text-[var(--color-success)]">ocifile://</code><span class="text-[var(--color-text-secondary)]">/path/to/image.tar</span>
+                                            <p class="text-[var(--color-text-muted)] mt-0.5">Local OCI tarball file</p>
                                         </div>
                                     </div>
                                 </div>
@@ -217,16 +219,16 @@
                             
                             <!-- Ollama -->
                             <div>
-                                <h4 class="text-sm font-semibold text-[#E5E7EB] mb-2 flex items-center gap-2">
+                                <h4 class="text-sm font-semibold text-[var(--color-text-primary)] mb-2 flex items-center gap-2">
                                     <i class="fas fa-cube text-indigo-400"></i>
                                     Ollama
                                 </h4>
-                                <div class="space-y-1.5 text-xs text-[#94A3B8] font-mono pl-6">
+                                <div class="space-y-1.5 text-xs text-[var(--color-text-secondary)] font-mono pl-6">
                                     <div class="flex items-start gap-2">
-                                        <span class="text-green-400">•</span>
+                                        <span class="text-[var(--color-success)]">•</span>
                                         <div>
-                                            <code class="text-[#10B981]">ollama://</code><span class="text-[#94A3B8]">llama2:7b</span>
-                                            <p class="text-[#6B7280] mt-0.5">Ollama model format</p>
+                                            <code class="text-[var(--color-success)]">ollama://</code><span class="text-[var(--color-text-secondary)]">llama2:7b</span>
+                                            <p class="text-[var(--color-text-muted)] mt-0.5">Ollama model format</p>
                                         </div>
                                     </div>
                                 </div>
@@ -234,31 +236,31 @@
                             
                             <!-- YAML Config Files -->
                             <div>
-                                <h4 class="text-sm font-semibold text-[#E5E7EB] mb-2 flex items-center gap-2">
+                                <h4 class="text-sm font-semibold text-[var(--color-text-primary)] mb-2 flex items-center gap-2">
                                     <i class="fas fa-code text-pink-400"></i>
                                     YAML Configuration Files
                                 </h4>
-                                <div class="space-y-1.5 text-xs text-[#94A3B8] font-mono pl-6">
+                                <div class="space-y-1.5 text-xs text-[var(--color-text-secondary)] font-mono pl-6">
                                     <div class="flex items-start gap-2">
-                                        <span class="text-green-400">•</span>
+                                        <span class="text-[var(--color-success)]">•</span>
                                         <div>
-                                            <code class="text-[#94A3B8]">https://example.com/model.yaml</code>
-                                            <p class="text-[#6B7280] mt-0.5">Remote YAML config file</p>
+                                            <span class="text-[var(--color-text-secondary)]">https://example.com/model.yaml</span>
+                                            <p class="text-[var(--color-text-muted)] mt-0.5">Remote YAML config file</p>
                                         </div>
                                     </div>
                                     <div class="flex items-start gap-2">
-                                        <span class="text-green-400">•</span>
+                                        <span class="text-[var(--color-success)]">•</span>
                                         <div>
-                                            <code class="text-[#94A3B8]">file:///path/to/config.yaml</code>
-                                            <p class="text-[#6B7280] mt-0.5">Local YAML config file</p>
+                                            <span class="text-[var(--color-text-secondary)]">file:///path/to/config.yaml</span>
+                                            <p class="text-[var(--color-text-muted)] mt-0.5">Local YAML config file</p>
                                         </div>
                                     </div>
                                 </div>
                             </div>
                             
-                            <div class="pt-2 mt-3 border-t border-[#1E293B]">
-                                <p class="text-xs text-[#6B7280] italic">
-                                    <i class="fas fa-lightbulb mr-1.5 text-yellow-400"></i>
+                            <div class="pt-2 mt-3 border-t border-[var(--color-border-subtle)]">
+                                <p class="text-xs text-[var(--color-text-muted)] italic">
+                                    <i class="fas fa-lightbulb mr-1.5 text-[var(--color-warning)]"></i>
                                     Tip: For HuggingFace models, you can use any of the three formats. The system will automatically detect and download the appropriate model files.
                                 </p>
                             </div>
@@ -269,25 +271,25 @@
                 <!-- Preferences Section -->
                 <div>
                     <div class="flex items-center justify-between mb-4">
-                        <label class="block text-sm font-medium text-gray-300">
+                        <label class="block text-sm font-medium text-[var(--color-text-secondary)]">
                             <i class="fas fa-cog mr-2"></i>Preferences (Optional)
                         </label>
                     </div>
                     
                     <!-- Common Preferences -->
-                    <div class="space-y-4 mb-6 p-4 bg-gray-900/50 rounded-xl border border-gray-700/50">
-                        <h3 class="text-sm font-semibold text-gray-300 mb-3 flex items-center">
-                            <i class="fas fa-star mr-2 text-yellow-400"></i>Common Preferences
+                    <div class="space-y-4 mb-6 p-4 bg-[var(--color-bg-primary)]/50 rounded-xl border border-[var(--color-border-subtle)]/50">
+                        <h3 class="text-sm font-semibold text-[var(--color-text-secondary)] mb-3 flex items-center">
+                            <i class="fas fa-star mr-2 text-[var(--color-warning)]"></i>Common Preferences
                         </h3>
                         
                         <!-- Backend Selection -->
                         <div>
-                            <label class="block text-sm font-medium text-gray-300 mb-2">
+                            <label class="block text-sm font-medium text-[var(--color-text-secondary)] mb-2">
                                 <i class="fas fa-server mr-2"></i>Backend
                             </label>
                             <select 
                                 x-model="commonPreferences.backend"
-                                class="w-full px-4 py-2 bg-gray-900/90 border border-gray-700/70 rounded-lg text-gray-200 focus:border-green-500 focus:ring-2 focus:ring-green-500/50 focus:outline-none transition-all"
+                                class="input w-full px-4 py-2"
                                 :disabled="isSubmitting">
                                 <option value="">Auto-detect (based on URI)</option>
                                 <option value="llama-cpp">llama-cpp</option>
@@ -297,30 +299,30 @@
                                 <option value="vllm">vllm</option>
                                 <option value="diffusers">diffusers</option>
                             </select>
-                            <p class="mt-1 text-xs text-gray-400">
+                            <p class="mt-1 text-xs text-[var(--color-text-muted)]">
                                 Force a specific backend. Leave empty to auto-detect from URI.
                             </p>
                         </div>
                         
                         <!-- Model Name -->
                         <div>
-                            <label class="block text-sm font-medium text-gray-300 mb-2">
+                            <label class="block text-sm font-medium text-[var(--color-text-secondary)] mb-2">
                                 <i class="fas fa-tag mr-2"></i>Model Name
                             </label>
                             <input 
                                 x-model="commonPreferences.name"
                                 type="text" 
                                 placeholder="Leave empty to use filename"
-                                class="w-full px-4 py-2 bg-gray-900/90 border border-gray-700/70 rounded-lg text-gray-200 focus:border-green-500 focus:ring-2 focus:ring-green-500/50 focus:outline-none transition-all"
+                                class="input w-full px-4 py-2"
                                 :disabled="isSubmitting">
-                            <p class="mt-1 text-xs text-gray-400">
+                            <p class="mt-1 text-xs text-[var(--color-text-muted)]">
                                 Custom name for the model. If empty, the filename will be used.
                             </p>
                         </div>
                         
                         <!-- Description -->
                         <div>
-                            <label class="block text-sm font-medium text-gray-300 mb-2">
+                            <label class="block text-sm font-medium text-[var(--color-text-secondary)] mb-2">
                                 <i class="fas fa-align-left mr-2"></i>Description
                             </label>
                             <textarea 
@@ -329,39 +331,39 @@
                                 placeholder="Leave empty to use default description"
                                 class="input w-full resize-none"
                                 :disabled="isSubmitting"></textarea>
-                            <p class="mt-1 text-xs text-gray-400">
+                            <p class="mt-1 text-xs text-[var(--color-text-muted)]">
                                 Custom description for the model. If empty, a default description will be generated.
                             </p>
                         </div>
                         
                         <!-- Quantizations -->
                         <div>
-                            <label class="block text-sm font-medium text-gray-300 mb-2">
+                            <label class="block text-sm font-medium text-[var(--color-text-secondary)] mb-2">
                                 <i class="fas fa-layer-group mr-2"></i>Quantizations
                             </label>
                             <input 
                                 x-model="commonPreferences.quantizations"
                                 type="text" 
                                 placeholder="q4_k_m,q4_k_s,q3_k_m (comma-separated)"
-                                class="w-full px-4 py-2 bg-gray-900/90 border border-gray-700/70 rounded-lg text-gray-200 focus:border-green-500 focus:ring-2 focus:ring-green-500/50 focus:outline-none transition-all"
+                                class="input w-full px-4 py-2"
                                 :disabled="isSubmitting">
-                            <p class="mt-1 text-xs text-gray-400">
+                            <p class="mt-1 text-xs text-[var(--color-text-muted)]">
                                 Preferred quantizations (comma-separated). Examples: q4_k_m, q4_k_s, q3_k_m, q2_k. Leave empty to use default (q4_k_m).
                             </p>
                         </div>
                         
                         <!-- MMProj Quantizations -->
                         <div>
-                            <label class="block text-sm font-medium text-gray-300 mb-2">
+                            <label class="block text-sm font-medium text-[var(--color-text-secondary)] mb-2">
                                 <i class="fas fa-image mr-2"></i>MMProj Quantizations
                             </label>
                             <input 
                                 x-model="commonPreferences.mmproj_quantizations"
                                 type="text" 
                                 placeholder="fp16,fp32 (comma-separated)"
-                                class="w-full px-4 py-2 bg-gray-900/90 border border-gray-700/70 rounded-lg text-gray-200 focus:border-green-500 focus:ring-2 focus:ring-green-500/50 focus:outline-none transition-all"
+                                class="input w-full px-4 py-2"
                                 :disabled="isSubmitting">
-                            <p class="mt-1 text-xs text-gray-400">
+                            <p class="mt-1 text-xs text-[var(--color-text-muted)]">
                                 Preferred MMProj quantizations (comma-separated). Examples: fp16, fp32. Leave empty to use default (fp16).
                             </p>
                         </div>
@@ -372,77 +374,77 @@
                                 <input 
                                     x-model="commonPreferences.embeddings"
                                     type="checkbox" 
-                                    class="w-5 h-5 rounded bg-gray-900/90 border-gray-700/70 text-green-500 focus:ring-2 focus:ring-green-500/50 focus:outline-none transition-all cursor-pointer"
+                                    class="w-5 h-5 rounded bg-[var(--color-bg-primary)] border-[var(--color-border-subtle)] text-[var(--color-success)] focus:ring-2 focus:ring-[var(--color-success)]/50 focus:outline-none transition-all cursor-pointer"
                                     :disabled="isSubmitting">
-                                <span class="ml-3 text-sm font-medium text-gray-300">
+                                <span class="ml-3 text-sm font-medium text-[var(--color-text-secondary)]">
                                     <i class="fas fa-vector-square mr-2"></i>Embeddings
                                 </span>
                             </label>
-                            <p class="mt-1 ml-8 text-xs text-gray-400">
+                            <p class="mt-1 ml-8 text-xs text-[var(--color-text-muted)]">
                                 Enable embeddings support for this model.
                             </p>
                         </div>
                         
                         <!-- Model Type -->
                         <div>
-                            <label class="block text-sm font-medium text-gray-300 mb-2">
+                            <label class="block text-sm font-medium text-[var(--color-text-secondary)] mb-2">
                                 <i class="fas fa-tag mr-2"></i>Model Type
                             </label>
                             <input 
                                 x-model="commonPreferences.type"
                                 type="text" 
                                 placeholder="AutoModelForCausalLM (for transformers backend)"
-                                class="w-full px-4 py-2 bg-gray-900/90 border border-gray-700/70 rounded-lg text-gray-200 focus:border-green-500 focus:ring-2 focus:ring-green-500/50 focus:outline-none transition-all"
+                                class="input w-full px-4 py-2"
                                 :disabled="isSubmitting">
-                            <p class="mt-1 text-xs text-gray-400">
+                            <p class="mt-1 text-xs text-[var(--color-text-muted)]">
                                 Model type for transformers backend. Examples: AutoModelForCausalLM, SentenceTransformer, Mamba, MusicgenForConditionalGeneration. Leave empty to use default (AutoModelForCausalLM).
                             </p>
                         </div>
                         
                         <!-- Pipeline Type (Diffusers) -->
                         <div x-show="commonPreferences.backend === 'diffusers'">
-                            <label class="block text-sm font-medium text-gray-300 mb-2">
+                            <label class="block text-sm font-medium text-[var(--color-text-secondary)] mb-2">
                                 <i class="fas fa-stream mr-2"></i>Pipeline Type
                             </label>
                             <input 
                                 x-model="commonPreferences.pipeline_type"
                                 type="text" 
                                 placeholder="StableDiffusionPipeline (for diffusers backend)"
-                                class="w-full px-4 py-2 bg-gray-900/90 border border-gray-700/70 rounded-lg text-gray-200 focus:border-green-500 focus:ring-2 focus:ring-green-500/50 focus:outline-none transition-all"
+                                class="input w-full px-4 py-2"
                                 :disabled="isSubmitting">
-                            <p class="mt-1 text-xs text-gray-400">
+                            <p class="mt-1 text-xs text-[var(--color-text-muted)]">
                                 Pipeline type for diffusers backend. Examples: StableDiffusionPipeline, StableDiffusion3Pipeline, FluxPipeline. Leave empty to use default (StableDiffusionPipeline).
                             </p>
                         </div>
                         
                         <!-- Scheduler Type (Diffusers) -->
                         <div x-show="commonPreferences.backend === 'diffusers'">
-                            <label class="block text-sm font-medium text-gray-300 mb-2">
+                            <label class="block text-sm font-medium text-[var(--color-text-secondary)] mb-2">
                                 <i class="fas fa-clock mr-2"></i>Scheduler Type
                             </label>
                             <input 
                                 x-model="commonPreferences.scheduler_type"
                                 type="text" 
                                 placeholder="k_dpmpp_2m (optional)"
-                                class="w-full px-4 py-2 bg-gray-900/90 border border-gray-700/70 rounded-lg text-gray-200 focus:border-green-500 focus:ring-2 focus:ring-green-500/50 focus:outline-none transition-all"
+                                class="input w-full px-4 py-2"
                                 :disabled="isSubmitting">
-                            <p class="mt-1 text-xs text-gray-400">
+                            <p class="mt-1 text-xs text-[var(--color-text-muted)]">
                                 Scheduler type for diffusers backend. Examples: k_dpmpp_2m, euler_a, ddim. Leave empty to use model default.
                             </p>
                         </div>
                         
                         <!-- Enable Parameters (Diffusers) -->
                         <div x-show="commonPreferences.backend === 'diffusers'">
-                            <label class="block text-sm font-medium text-gray-300 mb-2">
+                            <label class="block text-sm font-medium text-[var(--color-text-secondary)] mb-2">
                                 <i class="fas fa-cogs mr-2"></i>Enable Parameters
                             </label>
                             <input 
                                 x-model="commonPreferences.enable_parameters"
                                 type="text" 
                                 placeholder="negative_prompt,num_inference_steps (comma-separated)"
-                                class="w-full px-4 py-2 bg-gray-900/90 border border-gray-700/70 rounded-lg text-gray-200 focus:border-green-500 focus:ring-2 focus:ring-green-500/50 focus:outline-none transition-all"
+                                class="input w-full px-4 py-2"
                                 :disabled="isSubmitting">
-                            <p class="mt-1 text-xs text-gray-400">
+                            <p class="mt-1 text-xs text-[var(--color-text-muted)]">
                                 Enabled parameters for diffusers backend (comma-separated). Leave empty to use default (negative_prompt,num_inference_steps).
                             </p>
                         </div>
@@ -453,13 +455,13 @@
                                 <input 
                                     x-model="commonPreferences.cuda"
                                     type="checkbox" 
-                                    class="w-5 h-5 rounded bg-gray-900/90 border-gray-700/70 text-green-500 focus:ring-2 focus:ring-green-500/50 focus:outline-none transition-all cursor-pointer"
+                                    class="w-5 h-5 rounded bg-[var(--color-bg-primary)] border-[var(--color-border-subtle)] text-[var(--color-success)] focus:ring-2 focus:ring-[var(--color-success)]/50 focus:outline-none transition-all cursor-pointer"
                                     :disabled="isSubmitting">
-                                <span class="ml-3 text-sm font-medium text-gray-300">
+                                <span class="ml-3 text-sm font-medium text-[var(--color-text-secondary)]">
                                     <i class="fas fa-microchip mr-2"></i>CUDA
                                 </span>
                             </label>
-                            <p class="mt-1 ml-8 text-xs text-gray-400">
+                            <p class="mt-1 ml-8 text-xs text-[var(--color-text-muted)]">
                                 Enable CUDA support for GPU acceleration with diffusers backend.
                             </p>
                         </div>
@@ -468,12 +470,12 @@
                     <!-- Custom Preferences -->
                     <div class="space-y-3">
                         <div class="flex items-center justify-between mb-3">
-                            <label class="block text-sm font-medium text-gray-300">
+                            <label class="block text-sm font-medium text-[var(--color-text-secondary)]">
                                 <i class="fas fa-sliders-h mr-2"></i>Custom Preferences
                             </label>
                             <button @click="addPreference()" 
                                     :disabled="isSubmitting"
-                                    class="text-sm px-3 py-1.5 rounded-lg bg-green-600/20 hover:bg-green-600/30 text-green-300 border border-green-500/30 transition-all">
+                                    class="text-sm px-3 py-1.5 rounded-lg bg-[var(--color-success-light)] hover:bg-[var(--color-success)]/30 text-[var(--color-success)] border border-[var(--color-success)]/30 transition-all">
                                 <i class="fas fa-plus mr-1"></i>Add Custom
                             </button>
                         </div>
@@ -485,24 +487,24 @@
                                         x-model="pref.key"
                                         type="text" 
                                         placeholder="Key"
-                                        class="flex-1 px-4 py-2 bg-gray-900/90 border border-gray-700/70 rounded-lg text-gray-200 focus:border-green-500 focus:ring-2 focus:ring-green-500/50 focus:outline-none transition-all"
+                                        class="flex-1 input px-4 py-2"
                                         :disabled="isSubmitting">
-                                    <span class="text-gray-400">:</span>
+                                    <span class="text-[var(--color-text-secondary)]">:</span>
                                     <input 
                                         x-model="pref.value"
                                         type="text" 
                                         placeholder="Value"
-                                        class="flex-1 px-4 py-2 bg-gray-900/90 border border-gray-700/70 rounded-lg text-gray-200 focus:border-green-500 focus:ring-2 focus:ring-green-500/50 focus:outline-none transition-all"
+                                        class="flex-1 input px-4 py-2"
                                         :disabled="isSubmitting">
                                     <button @click="removePreference(index)" 
                                             :disabled="isSubmitting"
-                                            class="px-3 py-2 rounded-lg bg-red-600/20 hover:bg-red-600/30 text-red-300 border border-red-500/30 transition-all">
+                                            class="px-3 py-2 rounded-lg bg-[var(--color-error-light)] hover:bg-[var(--color-error)]/30 text-[var(--color-error)] border border-[var(--color-error)]/30 transition-all">
                                         <i class="fas fa-trash"></i>
                                     </button>
                                 </div>
                             </template>
                         </div>
-                        <p class="mt-2 text-xs text-gray-400">
+                        <p class="mt-2 text-xs text-[var(--color-text-muted)]">
                             Add custom key-value pairs for advanced configuration
                         </p>
                     </div>
@@ -515,19 +517,19 @@
              x-transition:enter="transition ease-out duration-200"
              x-transition:enter-start="opacity-0"
              x-transition:enter-end="opacity-100"
-             class="bg-[#1E293B] border border-[#8B5CF6]/20 rounded-xl overflow-hidden h-[calc(100vh-250px)]">
-            <div class="sticky top-0 bg-[#1E293B] border-b border-[#101827] p-6 flex items-center justify-between z-10">
-                <h2 class="text-xl font-semibold text-[#E5E7EB] flex items-center gap-3">
+             class="bg-[var(--color-bg-secondary)] border border-[var(--color-accent)]/20 rounded-xl overflow-hidden h-[calc(100vh-250px)]">
+            <div class="sticky top-0 bg-[var(--color-bg-secondary)] border-b border-[var(--color-border-subtle)] p-6 flex items-center justify-between z-10">
+                <h2 class="text-xl font-semibold text-[var(--color-text-primary)] flex items-center gap-3">
                     <div class="w-8 h-8 rounded-lg bg-fuchsia-500/10 flex items-center justify-center">
                         <i class="fas fa-code text-fuchsia-400"></i>
                     </div>
                     YAML Configuration Editor
                 </h2>
                 <div class="flex items-center gap-3">
-                    <button id="formatYamlBtn" class="text-[#94A3B8] hover:text-[#E5E7EB] text-sm px-3 py-1.5 rounded-lg hover:bg-[#101827] transition-colors">
+                    <button id="formatYamlBtn" class="text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] text-sm px-3 py-1.5 rounded-lg hover:bg-[var(--color-bg-primary)] transition-colors">
                         <i class="fas fa-indent mr-1.5"></i> Format
                     </button>
-                    <button id="copyYamlBtn" class="text-[#94A3B8] hover:text-[#E5E7EB] text-sm px-3 py-1.5 rounded-lg hover:bg-[#101827] transition-colors">
+                    <button id="copyYamlBtn" class="text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] text-sm px-3 py-1.5 rounded-lg hover:bg-[var(--color-bg-primary)] transition-colors">
                         <i class="fas fa-copy mr-1.5"></i> Copy
                     </button>
                 </div>
@@ -1179,6 +1181,11 @@ parameters:
     }
 }
 </script>
+
+    {{template "views/partials/footer" .}}
+    </div>
+  </main>
+</div>
 
 </body>
 </html>

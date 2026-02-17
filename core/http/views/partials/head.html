@@ -37,6 +37,58 @@
         preflight: false,
       },
     };
+    
+    // Theme Management
+    (function() {
+      const THEME_KEY = 'localai-theme';
+      const DARK = 'dark';
+      const LIGHT = 'light';
+      
+      function getStoredTheme() {
+        return localStorage.getItem(THEME_KEY);
+      }
+      
+      function getSystemTheme() {
+        return window.matchMedia('(prefers-color-scheme: dark)').matches ? DARK : LIGHT;
+      }
+      
+      function applyTheme(theme) {
+        document.documentElement.setAttribute('data-theme', theme);
+        // Also set class for Tailwind compatibility
+        if (theme === DARK) {
+          document.documentElement.classList.add('dark');
+        } else {
+          document.documentElement.classList.remove('dark');
+        }
+      }
+      
+      function toggleTheme() {
+        const current = document.documentElement.getAttribute('data-theme') || DARK;
+        const newTheme = current === DARK ? LIGHT : DARK;
+        localStorage.setItem(THEME_KEY, newTheme);
+        applyTheme(newTheme);
+        return newTheme;
+      }
+      
+      // Initialize theme immediately to prevent flash
+      const stored = getStoredTheme();
+      const initialTheme = stored || getSystemTheme();
+      applyTheme(initialTheme);
+      
+      // Expose toggle function globally
+      window.toggleTheme = toggleTheme;
+      window.getCurrentTheme = function() {
+        return document.documentElement.getAttribute('data-theme') || DARK;
+      };
+      
+      // Listen for system theme changes
+      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function(e) {
+        if (!getStoredTheme()) {
+          applyTheme(e.matches ? DARK : LIGHT);
+        }
+      });
+    })();
+    
     function copyClipboard(token) {
       // Try modern Clipboard API first (requires secure context)
       if (navigator.clipboard && window.isSecureContext) {

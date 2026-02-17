@@ -3,9 +3,11 @@
 {{template "views/partials/head" .}}
 
 <body class="bg-[var(--color-bg-primary)] text-[var(--color-text-primary)]">
-<div class="flex flex-col min-h-screen" x-data="agentJobs()" x-init="init()">
-
-    {{template "views/partials/navbar" .}}
+<div class="app-layout">
+  {{template "views/partials/navbar" .}}
+  
+  <main class="main-content">
+    <div class="main-content-inner" x-data="agentJobs()" x-init="init()">
 
     <div class="container mx-auto px-4 py-8 flex-grow">
         <!-- Header -->
@@ -140,13 +142,13 @@
                     </h3>
                     <div class="space-y-3">
                         <template x-for="model in availableModels" :key="model.name">
-                            <div class="flex items-center justify-between p-3 bg-[#0A0E1A] rounded-lg border border-[var(--color-primary-border)]/10">
+                            <div class="flex items-center justify-between p-3 bg-[var(--color-bg-secondary)] rounded-lg border border-[var(--color-border-subtle)]">
                                 <div class="flex items-center space-x-3">
                                     <i class="fas fa-cube text-[var(--color-primary)]"></i>
                                     <span class="text-[var(--color-text-primary)] font-medium" x-text="model.name"></span>
                                 </div>
                                 <a :href="'/models/edit/' + model.name" 
-                                   class="inline-flex items-center bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded-lg transition-colors text-sm">
+                                   class="inline-flex items-center bg-[var(--color-warning)] hover:bg-[var(--color-warning)]/80 text-white px-4 py-2 rounded-lg transition-colors text-sm">
                                     <i class="fas fa-edit mr-2"></i>
                                     Configure MCP
                                 </a>
@@ -759,7 +761,9 @@
             }
         }
     </script>
+    {{template "views/partials/footer" .}}
+    </div>
+  </main>
 </div>
 </body>
 </html>
-

@@ -5,8 +5,8 @@
 
 <style>
     body {
-        background-color: #101827;
-        color: #E5E7EB;
+        background-color: var(--color-bg-primary);
+        color: var(--color-text-primary);
         font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     }
     .token {
@@ -155,9 +155,12 @@
         }
 </style>
 
-<body class="bg-gray-900 text-gray-200">
-    <div class="flex flex-col min-h-screen" x-data="networkClusters()" x-init="init()">
-        {{template "views/partials/navbar_explorer" .}}
+<body class="bg-[var(--color-bg-primary)] text-[var(--color-text-primary)]">
+<div class="app-layout">
+  {{template "views/partials/navbar_explorer" .}}
+  
+  <main class="main-content">
+    <div class="main-content-inner" x-data="networkClusters()" x-init="init()">
         <div class="animation-container">
             <canvas id="networkCanvas"></canvas>
             <div class="text-overlay">
@@ -371,6 +374,8 @@
 
         {{template "views/partials/footer" .}}
     </div>
+  </main>
+</div>
 
 </body>
 
