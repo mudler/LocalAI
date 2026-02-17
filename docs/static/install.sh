@@ -642,6 +642,13 @@ install_docker() {
         $SUDO systemctl start docker
     fi
 
+    # Avoid problem on older docker versions
+    DOCKER_VERSION=`docker version --format '{{.Server.Version}}' | sed 's/^\([0-9]*\.[0-9]*\).*/\1/'`
+    CONTAINER_PRIVILEGES=
+    if expr $DOCKER_VERSION '<' 20.10 >/dev/null ; then
+        CONTAINER_PRIVILEGES="--privileged=true"
+    fi
+
     info "Creating LocalAI Docker volume..."
     # Create volume if doesn't exist already
     if ! $SUDO docker volume inspect local-ai-data > /dev/null 2>&1; then
@@ -670,6 +677,7 @@ install_docker() {
         $SUDO docker run -v local-ai-data:/models \
             --device /dev/dri \
             --restart=always \
+            ${CONTAINER_PRIVILEGES} \
             -e API_KEY=$API_KEY \
             -e THREADS=$THREADS \
             $envs \
@@ -684,8 +692,8 @@ install_docker() {
 
         info "Checking Nvidia Kernel Drivers presence..."
         if ! available nvidia-smi; then
-          OS_NAME=$ID
-          OS_VERSION=$VERSION_ID
+            OS_NAME=$ID
+            OS_VERSION=$VERSION_ID
 
             case $OS_NAME in
                 debian|ubuntu) $SUDO apt-get -y install nvidia-cuda-toolkit;;
@@ -697,6 +705,7 @@ install_docker() {
         $SUDO docker run -v local-ai-data:/models \
             --gpus all \
             --restart=always \
+            ${CONTAINER_PRIVILEGES} \
             -e API_KEY=$API_KEY \
             -e THREADS=$THREADS \
             $envs \
@@ -714,6 +723,7 @@ install_docker() {
             --device /dev/kfd \
             --group-add=video \
             --restart=always \
+            ${CONTAINER_PRIVILEGES} \
             -e API_KEY=$API_KEY \
             -e THREADS=$THREADS \
             $envs \
@@ -729,6 +739,7 @@ install_docker() {
         $SUDO docker run -v local-ai-data:/models \
             --device /dev/dri \
             --restart=always \
+            ${CONTAINER_PRIVILEGES} \
             -e API_KEY=$API_KEY \
             -e THREADS=$THREADS \
             $envs \
@@ -744,12 +755,13 @@ install_docker() {
 
         info "Starting LocalAI Docker container..."
         $SUDO docker run -v local-ai-data:/models \
-                --restart=always \
-                -e MODELS_PATH=/models \
-                -e API_KEY=$API_KEY \
-                -e THREADS=$THREADS \
-                $envs \
-                -d -p $PORT:8080 --name local-ai localai/localai:$IMAGE_TAG $STARTCOMMAND
+            --restart=always \
+            ${CONTAINER_PRIVILEGES} \
+            -e MODELS_PATH=/models \
+            -e API_KEY=$API_KEY \
+            -e THREADS=$THREADS \
+            $envs \
+            -d -p $PORT:8080 --name local-ai localai/localai:$IMAGE_TAG $STARTCOMMAND
     fi
 
     install_success
