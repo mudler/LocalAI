@@ -12,6 +12,7 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/services/websearch"
 	"github.com/mudler/LocalAI/pkg/functions"
 	reason "github.com/mudler/LocalAI/pkg/reasoning"
 
@@ -373,6 +374,45 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 		input, ok := c.Get(middleware.CONTEXT_LOCALS_KEY_LOCALAI_REQUEST).(*schema.OpenAIRequest)
 		if !ok || input.Model == "" {
 			return echo.ErrBadRequest
+		}
+
+		// [Deep Research] Web Search Logic
+		if input.WebSearchOptions != nil && len(input.Messages) > 0 {
+			lastIdx := len(input.Messages) - 1
+			lastMsg := input.Messages[lastIdx]
+
+			// Only search if the last message is from the user
+			if lastMsg.Role == "user" && lastMsg.Content != nil {
+				var query string
+
+				// Safe Type Assertion: Handle Content as string or *string
+				switch v := lastMsg.Content.(type) {
+				case string:
+					query = v
+				case *string:
+					if v != nil {
+						query = *v
+					}
+				}
+
+				// Only proceed if we successfully extracted a query
+				if query != "" {
+					xlog.Debug("Web Search requested", "query", query)
+
+					searcher := websearch.New()
+					citations, err := searcher.Search(c.Request().Context(), query)
+					if err != nil {
+						xlog.Error("Web search failed", "error", err)
+					} else if len(citations) > 0 {
+						// Augment the prompt with search results
+						newContent := websearch.AugmmentedSystemPrompt(query, citations)
+
+						// Assign back to the interface{} field
+						// used a pointer to string to be safe with most LocalAI versions
+						input.Messages[lastIdx].Content = &newContent
+					}
+				}
+			}
 		}
 
 		extraUsage := c.Request().Header.Get("Extra-Usage") != ""
