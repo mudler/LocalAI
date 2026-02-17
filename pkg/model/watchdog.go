@@ -33,6 +33,7 @@ type WatchDog struct {
 	addressModelMap      map[string]string
 	pm                   ProcessManager
 	stop                 chan bool
+	done                 chan bool // Signals when Run() has completely shut down
 
 	busyCheck, idleCheck bool
 	lruLimit             int // Maximum number of active backends (0 = unlimited)
@@ -78,6 +79,7 @@ func NewWatchDog(opts ...WatchDogOption) *WatchDog {
 		lruLimit:                 o.lruLimit,
 		addressModelMap:          make(map[string]string),
 		stop:                     make(chan bool, 1),
+		done:                     make(chan bool, 1),
 		memoryReclaimerEnabled:   o.memoryReclaimerEnabled,
 		memoryReclaimerThreshold: o.memoryReclaimerThreshold,
 		watchdogInterval:         o.watchdogInterval,
@@ -128,6 +130,12 @@ func (wd *WatchDog) Shutdown() {
 	wd.stop <- true
 }
 
+// WaitDone blocks until the watchdog's Run() goroutine has completely shut down.
+// This should be called after Shutdown() to ensure the watchdog is fully stopped.
+func (wd *WatchDog) WaitDone() {
+	<-wd.done
+}
+
 func (wd *WatchDog) AddAddressModelMap(address string, model string) {
 	wd.Lock()
 	defer wd.Unlock()
@@ -171,6 +179,71 @@ func (wd *WatchDog) GetLoadedModelCount() int {
 	wd.Lock()
 	defer wd.Unlock()
 	return len(wd.addressModelMap)
+}
+
+// WatchDogState holds the current state of models tracked by the watchdog
+type WatchDogState struct {
+	AddressModelMap map[string]string
+	BusyTime        map[string]time.Time
+	IdleTime        map[string]time.Time
+	LastUsed        map[string]time.Time
+	AddressMap      map[string]*process.Process
+}
+
+// GetState returns the current state of models tracked by the watchdog
+// This can be used to restore state when creating a new watchdog
+func (wd *WatchDog) GetState() WatchDogState {
+	wd.Lock()
+	defer wd.Unlock()
+
+	// Create copies to avoid race conditions
+	addressModelMap := make(map[string]string, len(wd.addressModelMap))
+	for k, v := range wd.addressModelMap {
+		addressModelMap[k] = v
+	}
+
+	busyTime := make(map[string]time.Time, len(wd.busyTime))
+	for k, v := range wd.busyTime {
+		busyTime[k] = v
+	}
+
+	idleTime := make(map[string]time.Time, len(wd.idleTime))
+	for k, v := range wd.idleTime {
+		idleTime[k] = v
+	}
+
+	lastUsed := make(map[string]time.Time, len(wd.lastUsed))
+	for k, v := range wd.lastUsed {
+		lastUsed[k] = v
+	}
+
+	addressMap := make(map[string]*process.Process, len(wd.addressMap))
+	for k, v := range wd.addressMap {
+		addressMap[k] = v
+	}
+
+	return WatchDogState{
+		AddressModelMap: addressModelMap,
+		BusyTime:        busyTime,
+		IdleTime:        idleTime,
+		LastUsed:        lastUsed,
+		AddressMap:      addressMap,
+	}
+}
+
+// RestoreState restores the model state from a previous watchdog
+// This should be called after the new watchdog is created but before Run() is started
+func (wd *WatchDog) RestoreState(state WatchDogState) {
+	wd.Lock()
+	defer wd.Unlock()
+
+	wd.addressModelMap = state.AddressModelMap
+	wd.busyTime = state.BusyTime
+	wd.idleTime = state.IdleTime
+	wd.lastUsed = state.LastUsed
+	wd.addressMap = state.AddressMap
+
+	xlog.Info("[WatchDog] Restored model state", "modelCount", len(wd.addressModelMap))
 }
 
 // modelUsageInfo holds information about a model's usage for LRU sorting
@@ -279,6 +352,7 @@ func (wd *WatchDog) Run() {
 		select {
 		case <-wd.stop:
 			xlog.Info("[WatchDog] Stopping watchdog")
+			wd.done <- true
 			return
 		case <-time.After(wd.watchdogInterval):
 			// Check if any monitoring is enabled
@@ -290,6 +364,7 @@ func (wd *WatchDog) Run() {
 
 			if !busyCheck && !idleCheck && !memoryCheck {
 				xlog.Info("[WatchDog] No checks enabled, stopping watchdog")
+				wd.done <- true
 				return
 			}
 			if busyCheck {
