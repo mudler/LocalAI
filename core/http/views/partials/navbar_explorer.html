@@ -1,4 +1,4 @@
-<nav class="bg-gradient-to-r from-gray-900 to-gray-950 shadow-lg border-b border-gray-800/50">
+<nav class="bg-[var(--color-bg-secondary)] shadow-lg border-b border-[var(--color-border-subtle)]">
     <div class="container mx-auto px-4 py-3">
         <div class="flex items-center justify-between">
             <div class="flex items-center">
@@ -6,44 +6,44 @@
                 <a href="./" class="flex items-center group">
                     <img src="static/logo_horizontal.png" 
                          alt="LocalAI Logo" 
-                         class="h-10 mr-3 rounded-lg border border-blue-600/30 shadow-md transition-all duration-300 group-hover:shadow-blue-500/20 group-hover:border-blue-500/50">
+                         class="h-10 mr-3 rounded-lg border border-[var(--color-primary-border)] shadow-md transition-all duration-300 group-hover:shadow-[var(--color-primary)]/20 group-hover:border-[var(--color-primary)]/50">
                 </a>
             </div>
             
             <!-- Menu button for small screens -->
             <div class="lg:hidden">
-                <button id="menu-toggle" class="text-gray-300 hover:text-blue-400 focus:outline-none p-2 rounded-lg transition duration-300 ease-in-out hover:bg-gray-800/70">
+                <button id="menu-toggle" class="text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] focus:outline-none p-2 rounded-lg transition duration-300 ease-in-out hover:bg-[var(--color-bg-primary)]">
                     <i class="fas fa-bars fa-lg"></i>
                 </button>
             </div>
             
             <!-- Navigation links -->
             <div class="hidden lg:flex lg:items-center lg:justify-end lg:space-x-1">
-                <a href="./" class="text-gray-300 hover:text-white px-3 py-2 rounded-lg transition duration-300 ease-in-out hover:bg-blue-900/30 flex items-center">
-                    <i class="fas fa-home text-blue-400 mr-2"></i>Home
+                <a href="./" class="text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] px-3 py-2 rounded-lg transition duration-300 ease-in-out hover:bg-[var(--color-bg-primary)] flex items-center">
+                    <i class="fas fa-home text-[var(--color-primary)] mr-2"></i>Home
                 </a>
-                <a href="https://localai.io" target="_blank" class="text-gray-300 hover:text-white px-3 py-2 rounded-lg transition duration-300 ease-in-out hover:bg-blue-900/30 flex items-center group">
-                    <i class="fas fa-book-reader text-blue-400 mr-2"></i>Documentation
+                <a href="https://localai.io" target="_blank" class="text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] px-3 py-2 rounded-lg transition duration-300 ease-in-out hover:bg-[var(--color-bg-primary)] flex items-center group">
+                    <i class="fas fa-book-reader text-[var(--color-primary)] mr-2"></i>Documentation
                     <i class="fas fa-external-link-alt text-xs ml-1 opacity-70 group-hover:opacity-100 transition-opacity"></i>
                 </a>
-                <a href="https://models.localai.io/" class="text-gray-300 hover:text-white px-3 py-2 rounded-lg transition duration-300 ease-in-out hover:bg-blue-900/30 flex items-center">
-                    <i class="fas fa-brain text-blue-400 mr-2"></i>Models
+                <a href="https://models.localai.io/" class="text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] px-3 py-2 rounded-lg transition duration-300 ease-in-out hover:bg-[var(--color-bg-primary)] flex items-center">
+                    <i class="fas fa-brain text-[var(--color-primary)] mr-2"></i>Models
                 </a>
             </div>
         </div>
         
         <!-- Collapsible menu for small screens -->
         <div class="hidden lg:hidden" id="mobile-menu">
-            <div class="pt-3 pb-2 space-y-1 border-t border-gray-800/50 mt-2">
-                <a href="./" class="block text-gray-300 hover:text-white hover:bg-blue-900/30 px-3 py-2 rounded-lg transition duration-300 ease-in-out flex items-center">
-                    <i class="fas fa-home text-blue-400 mr-3 w-5 text-center"></i>Home
+            <div class="pt-3 pb-2 space-y-1 border-t border-[var(--color-border-subtle)] mt-2">
+                <a href="./" class="block text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-primary)] px-3 py-2 rounded-lg transition duration-300 ease-in-out flex items-center">
+                    <i class="fas fa-home text-[var(--color-primary)] mr-3 w-5 text-center"></i>Home
                 </a>
-                <a href="https://localai.io" target="_blank" class="block text-gray-300 hover:text-white hover:bg-blue-900/30 px-3 py-2 rounded-lg transition duration-300 ease-in-out flex items-center">
-                    <i class="fas fa-book-reader text-blue-400 mr-3 w-5 text-center"></i>Documentation
+                <a href="https://localai.io" target="_blank" class="block text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-primary)] px-3 py-2 rounded-lg transition duration-300 ease-in-out flex items-center">
+                    <i class="fas fa-book-reader text-[var(--color-primary)] mr-3 w-5 text-center"></i>Documentation
                     <i class="fas fa-external-link-alt text-xs ml-1 opacity-70"></i>
                 </a>
-                <a href="https://models.localai.io/" class="block text-gray-300 hover:text-white hover:bg-blue-900/30 px-3 py-2 rounded-lg transition duration-300 ease-in-out flex items-center">
-                    <i class="fas fa-brain text-blue-400 mr-3 w-5 text-center"></i>Models
+                <a href="https://models.localai.io/" class="block text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-primary)] px-3 py-2 rounded-lg transition duration-300 ease-in-out flex items-center">
+                    <i class="fas fa-brain text-[var(--color-primary)] mr-3 w-5 text-center"></i>Models
                 </a>
             </div>
         </div>
