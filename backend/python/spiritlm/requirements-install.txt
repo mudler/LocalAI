@@ -1,0 +1,2 @@
+# SpiritLM: install from GitHub (not on PyPI)
+git+https://github.com/facebookresearch/spiritlm.git
