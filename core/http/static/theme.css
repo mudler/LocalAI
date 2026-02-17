@@ -1,14 +1,18 @@
 /* LocalAI Theme - CSS Variables System */
 /* Based on logo color palette: cyan, teal, navy, purple */
 
-/* Dark Theme (Default) */
+/* Dark Theme (Default) - Charcoal Gray Style */
 :root,
-[data-theme="dark"] {
-  /* Base Colors */
-  --color-bg-primary: #0F172A;      /* Deep navy background */
-  --color-bg-secondary: #1E293B;     /* Elevated surfaces */
-  --color-bg-tertiary: #1E293B;      /* Cards, panels */
-  --color-bg-overlay: rgba(15, 23, 42, 0.8); /* Modals, overlays */
+[data-theme="dark"],
+.dark {
+  /* Base Colors - Charcoal Gray */
+  --color-bg-primary: #121212;        /* Main background */
+  --color-bg-secondary: #1A1A1A;      /* Elevated surfaces */
+  --color-bg-tertiary: #222222;       /* Cards, panels */
+  --color-bg-overlay: rgba(18, 18, 18, 0.95); /* Modals, overlays */
+  
+  /* Override tw-elements dark background */
+  background-color: #121212 !important;
   
   /* Brand Colors */
   --color-primary: #38BDF8;          /* Cyan - primary actions */
@@ -34,16 +38,16 @@
   --color-text-secondary: #94A3B8;   /* Secondary text */
   --color-text-muted: #64748B;        /* Tertiary text */
   --color-text-disabled: #475569;     /* Disabled text */
-  --color-text-inverse: #0F172A;      /* Text on light backgrounds */
+  --color-text-inverse: #FFFFFF;      /* Text on light backgrounds */
   
-  /* Border Colors - Minimal System */
-  --color-border-subtle: rgba(148, 163, 184, 0.08);  /* Minimal borders */
-  --color-border-default: rgba(148, 163, 184, 0.12);  /* Default borders */
-  --color-border-strong: rgba(56, 189, 248, 0.2);    /* Focus borders */
-  --color-border-divider: rgba(148, 163, 184, 0.06);  /* Section dividers */
-  --color-border-primary: rgba(56, 189, 248, 0.15);  /* Primary borders (reduced opacity) */
-  --color-border-secondary: rgba(148, 163, 184, 0.1);
-  --color-border-focus: rgba(56, 189, 248, 0.3);     /* Focus borders (reduced) */
+  /* Border Colors - Visible on charcoal */
+  --color-border-subtle: rgba(255, 255, 255, 0.08);  /* Minimal borders */
+  --color-border-default: rgba(255, 255, 255, 0.12);  /* Default borders */
+  --color-border-strong: rgba(56, 189, 248, 0.3);    /* Focus borders */
+  --color-border-divider: rgba(255, 255, 255, 0.05);  /* Section dividers */
+  --color-border-primary: rgba(56, 189, 248, 0.2);  /* Primary borders */
+  --color-border-secondary: rgba(255, 255, 255, 0.1);
+  --color-border-focus: rgba(56, 189, 248, 0.4);     /* Focus borders */
   
   /* Status Colors */
   --color-success: #14B8A6;          /* Use teal for success (aligned with logo) */
@@ -57,18 +61,18 @@
   
   /* Gradient Definitions */
   --gradient-primary: linear-gradient(135deg, #38BDF8 0%, #8B5CF6 50%, #14B8A6 100%);
-  --gradient-hero: linear-gradient(135deg, #0F172A 0%, #1E293B 50%, #0F172A 100%);
-  --gradient-card: linear-gradient(135deg, rgba(56, 189, 248, 0.05) 0%, rgba(139, 92, 246, 0.05) 100%);
+  --gradient-hero: linear-gradient(135deg, #121212 0%, #1A1A1A 50%, #121212 100%);
+  --gradient-card: linear-gradient(135deg, rgba(56, 189, 248, 0.04) 0%, rgba(139, 92, 246, 0.04) 100%);
   --gradient-text: linear-gradient(135deg, #38BDF8 0%, #8B5CF6 50%, #14B8A6 100%);
   
-  /* Shadows - Minimal System */
+  /* Shadows - Charcoal theme */
   --shadow-none: none;
-  --shadow-subtle: 0 1px 2px rgba(0, 0, 0, 0.1);
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.12);
-  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
-  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
-  --shadow-glow: 0 0 0 1px rgba(56, 189, 248, 0.1), 0 0 8px rgba(56, 189, 248, 0.15); /* Minimal glow */
-  --shadow-sidebar: 1px 0 3px rgba(0, 0, 0, 0.1);
+  --shadow-subtle: 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.25);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.35);
+  --shadow-glow: 0 0 0 1px rgba(56, 189, 248, 0.15), 0 0 12px rgba(56, 189, 248, 0.2);
+  --shadow-sidebar: 1px 0 3px rgba(0, 0, 0, 0.25);
   
   /* Animation Timing - Minimal */
   --duration-instant: 100ms;

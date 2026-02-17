@@ -17,14 +17,16 @@ body {
 .app-layout {
   display: flex;
   min-height: 100vh;
+  background-color: var(--color-bg-primary);
 }
 
 .main-content {
   flex: 1;
   margin-left: var(--sidebar-width);
-  height: 100vh;
+  min-height: 100vh;
   display: flex;
   flex-direction: column;
+  background-color: var(--color-bg-primary);
   transition: margin-left var(--duration-normal) var(--ease-default);
 }
 
@@ -32,6 +34,7 @@ body {
   flex: 1;
   display: flex;
   flex-direction: column;
+  background-color: var(--color-bg-primary);
 }
 
 /* Tablet and mobile */

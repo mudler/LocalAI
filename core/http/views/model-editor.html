@@ -555,8 +555,8 @@
 <style>
 /* Enhanced CodeMirror styling */
 .CodeMirror {
-    background: linear-gradient(135deg, #111827 0%, #1f2937 100%) !important;
-    color: #e5e7eb !important;
+    background: var(--color-bg-primary) !important;
+    color: var(--color-text-primary) !important;
     border: none !important;
     height: 100% !important;
     font-family: 'JetBrains Mono', 'Fira Code', 'Monaco', 'Consolas', monospace !important;
@@ -566,7 +566,7 @@
 }
 
 .CodeMirror-cursor {
-    border-left: 2px solid #a78bfa !important;
+    border-left: 2px solid var(--color-accent) !important;
     animation: blink 1s infinite;
 }
 
@@ -576,20 +576,20 @@
 }
 
 .CodeMirror-gutters {
-    background: linear-gradient(135deg, #1f2937 0%, #374151 100%) !important;
-    border-right: 1px solid rgba(75, 85, 99, 0.5) !important;
-    color: #9ca3af !important;
+    background: var(--color-bg-secondary) !important;
+    border-right: 1px solid var(--color-border-subtle) !important;
+    color: var(--color-text-secondary) !important;
     padding-right: 8px !important;
 }
 
 .CodeMirror-linenumber {
-    color: #6b7280 !important;
+    color: var(--color-text-muted) !important;
     padding: 0 8px 0 4px !important;
     font-size: 12px !important;
 }
 
 .CodeMirror-activeline-background {
-    background: rgba(139, 92, 246, 0.1) !important;
+    background: var(--color-accent-light) !important;
 }
 
 .CodeMirror-selected {
@@ -616,27 +616,27 @@
 .cm-keyword { color: #8b5cf6 !important; font-weight: 600 !important; }
 .cm-string { color: #10b981 !important; }
 .cm-number { color: #f59e0b !important; }
-.cm-comment { color: #6b7280 !important; font-style: italic !important; }
+.cm-comment { color: var(--color-text-muted) !important; font-style: italic !important; }
 .cm-property { color: #ec4899 !important; }
 .cm-operator { color: #ef4444 !important; }
 .cm-variable { color: #06b6d4 !important; }
 .cm-tag { color: #8b5cf6 !important; font-weight: 600 !important; }
 .cm-attribute { color: #f59e0b !important; }
 .cm-def { color: #ec4899 !important; font-weight: 600 !important; }
-.cm-bracket { color: #d1d5db !important; }
-.cm-punctuation { color: #d1d5db !important; }
+.cm-bracket { color: var(--color-text-secondary) !important; }
+.cm-punctuation { color: var(--color-text-secondary) !important; }
 .cm-quote { color: #10b981 !important; }
-.cm-meta { color: #6b7280 !important; }
+.cm-meta { color: var(--color-text-muted) !important; }
 .cm-builtin { color: #f472b6 !important; }
 .cm-atom { color: #f59e0b !important; }
 
 /* Enhanced scrollbar styling */
 .CodeMirror-scrollbar-filler, .CodeMirror-gutter-filler {
-    background: #1f2937 !important;
+    background: var(--color-bg-secondary) !important;
 }
 
 .CodeMirror-vscrollbar, .CodeMirror-hscrollbar {
-    background: #1f2937 !important;
+    background: var(--color-bg-secondary) !important;
 }
 
 .CodeMirror-vscrollbar::-webkit-scrollbar, .CodeMirror-hscrollbar::-webkit-scrollbar {
@@ -645,17 +645,17 @@
 }
 
 .CodeMirror-vscrollbar::-webkit-scrollbar-track, .CodeMirror-hscrollbar::-webkit-scrollbar-track {
-    background: #1f2937;
+    background: var(--color-bg-secondary);
     border-radius: 4px;
 }
 
 .CodeMirror-vscrollbar::-webkit-scrollbar-thumb, .CodeMirror-hscrollbar::-webkit-scrollbar-thumb {
-    background: linear-gradient(135deg, #6b7280 0%, #9ca3af 100%);
+    background: var(--color-text-muted);
     border-radius: 4px;
 }
 
 .CodeMirror-vscrollbar::-webkit-scrollbar-thumb:hover, .CodeMirror-hscrollbar::-webkit-scrollbar-thumb:hover {
-    background: linear-gradient(135deg, #9ca3af 0%, #d1d5db 100%);
+    background: var(--color-text-secondary);
 }
 
 /* Focus ring styling */
@@ -684,27 +684,27 @@
 }
 
 .alert-success {
-    background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(5, 150, 105, 0.1) 100%);
-    border-color: rgba(16, 185, 129, 0.3);
-    color: #10b981;
+    background: var(--color-success-light);
+    border-color: var(--color-success);
+    color: var(--color-success);
 }
 
 .alert-error {
-    background: linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, rgba(220, 38, 38, 0.1) 100%);
-    border-color: rgba(239, 68, 68, 0.3);
-    color: #ef4444;
+    background: var(--color-error-light);
+    border-color: var(--color-error);
+    color: var(--color-error);
 }
 
 .alert-warning {
-    background: linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(217, 119, 6, 0.1) 100%);
-    border-color: rgba(245, 158, 11, 0.3);
-    color: #f59e0b;
+    background: var(--color-warning-light);
+    border-color: var(--color-warning);
+    color: var(--color-warning);
 }
 
 .alert-info {
-    background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(37, 99, 235, 0.1) 100%);
-    border-color: rgba(59, 130, 246, 0.3);
-    color: #3b82f6;
+    background: var(--color-info-light);
+    border-color: var(--color-info);
+    color: var(--color-info);
 }
 </style>
 

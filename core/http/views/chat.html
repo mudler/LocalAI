@@ -1539,11 +1539,11 @@ SOFTWARE.
     <!-- Modal moved outside of sidebar to appear in center of page - Always available, content updated dynamically -->
     <div id="model-info-modal" tabindex="-1" aria-hidden="true" class="hidden overflow-y-auto overflow-x-hidden fixed top-0 right-0 left-0 z-50 flex justify-center items-center w-full h-full md:inset-0 max-h-full" style="padding: 1rem;">
       <div class="relative p-4 w-full max-w-2xl max-h-full">
-        <div class="relative p-4 w-full max-w-2xl max-h-full bg-white rounded-lg shadow dark:bg-gray-700">
+        <div class="relative p-4 w-full max-w-2xl max-h-full bg-[var(--color-bg-secondary)] rounded-lg shadow border border-[var(--color-border-subtle)]">
           <!-- Header -->
-          <div class="flex items-center justify-between p-4 md:p-5 border-b rounded-t dark:border-gray-600">
-            <h3 id="model-info-modal-title" class="text-xl font-semibold text-gray-900 dark:text-white">{{ if $model }}{{ $model }}{{ end }}</h3>
-            <button class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center dark:hover:bg-gray-600 dark:hover:text-white" data-modal-hide="model-info-modal" @click="if (window.closeModelInfoModal) { window.closeModelInfoModal(); }">
+          <div class="flex items-center justify-between p-4 md:p-5 border-b border-[var(--color-border-subtle)] rounded-t">
+            <h3 id="model-info-modal-title" class="text-xl font-semibold text-[var(--color-text-primary)]">{{ if $model }}{{ $model }}{{ end }}</h3>
+            <button class="text-[var(--color-text-secondary)] bg-transparent hover:bg-[var(--color-bg-primary)] hover:text-[var(--color-text-primary)] rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center transition-colors" data-modal-hide="model-info-modal" @click="if (window.closeModelInfoModal) { window.closeModelInfoModal(); }">
               <svg class="w-3 h-3" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
                 <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/>
               </svg>
@@ -1556,16 +1556,16 @@ SOFTWARE.
             <div class="flex justify-center items-center">
               <img id="model-info-modal-icon" class="lazy rounded-t-lg max-h-48 max-w-96 object-cover mt-3 entered loaded" style="display: none;" loading="lazy"/>
             </div>
-            <div id="model-info-description" class="text-base leading-relaxed text-gray-500 dark:text-gray-400 break-words max-w-full"></div>
-            <hr>
-            <p class="text-sm font-semibold text-gray-900 dark:text-white">Links</p>
+            <div id="model-info-description" class="text-base leading-relaxed text-[var(--color-text-secondary)] break-words max-w-full"></div>
+            <hr class="border-[var(--color-border-subtle)]">
+            <p class="text-sm font-semibold text-[var(--color-text-primary)]">Links</p>
             <ul id="model-info-links">
             </ul>
           </div>
 
           <!-- Footer -->
-          <div class="flex items-center p-4 md:p-5 border-t border-gray-200 rounded-b dark:border-gray-600">
-            <button data-modal-hide="model-info-modal" class="py-2.5 px-5 ms-3 text-sm font-medium text-gray-900 focus:outline-none bg-white rounded-lg border border-gray-200 hover:bg-gray-100 hover:text-blue-700 focus:z-10 focus:ring-4 focus:ring-gray-100 dark:focus:ring-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-600 dark:hover:text-white dark:hover:bg-gray-700" @click="if (window.closeModelInfoModal) { window.closeModelInfoModal(); }">
+          <div class="flex items-center p-4 md:p-5 border-t border-[var(--color-border-subtle)] rounded-b">
+            <button data-modal-hide="model-info-modal" class="py-2.5 px-5 ms-3 text-sm font-medium text-white focus:outline-none bg-[var(--color-primary)] rounded-lg border-none hover:bg-[var(--color-primary-hover)] focus:z-10 focus:ring-2 focus:ring-[var(--color-primary)]/50 transition-colors" @click="if (window.closeModelInfoModal) { window.closeModelInfoModal(); }">
               Close
             </button>
           </div>
@@ -1877,7 +1877,7 @@ SOFTWARE.
               let backdrop = document.querySelector('.modal-backdrop');
               if (!backdrop) {
                 backdrop = document.createElement('div');
-                backdrop.className = 'modal-backdrop fixed inset-0 bg-gray-900 bg-opacity-50 dark:bg-opacity-80 z-40';
+                backdrop.className = 'modal-backdrop fixed inset-0 bg-black/50 z-40';
                 document.body.appendChild(backdrop);
                 backdrop.addEventListener('click', () => {
                   closeModelInfoModal();
@@ -1965,7 +1965,7 @@ SOFTWARE.
             let backdrop = document.querySelector('.modal-backdrop');
             if (!backdrop) {
               backdrop = document.createElement('div');
-              backdrop.className = 'modal-backdrop fixed inset-0 bg-gray-900 bg-opacity-50 dark:bg-opacity-80 z-40';
+              backdrop.className = 'modal-backdrop fixed inset-0 bg-black/50 z-40';
               document.body.appendChild(backdrop);
               backdrop.addEventListener('click', () => {
                 window.closeModelInfoModal();
@@ -2068,8 +2068,8 @@ SOFTWARE.
         word-wrap: break-word;
         overflow-wrap: break-word;
         white-space: pre;
-        background: #101827 !important;
-        border: 1px solid #1E293B;
+        background: var(--color-bg-primary) !important;
+        border: 1px solid var(--color-border-subtle);
         border-radius: 6px;
         padding: 12px;
         margin: 0;
@@ -2082,7 +2082,7 @@ SOFTWARE.
         overflow-wrap: break-word;
         white-space: pre;
         background: transparent !important;
-        color: #E5E7EB;
+        color: var(--color-text-primary);
         font-family: 'ui-monospace', 'Monaco', 'Consolas', monospace;
         font-size: 0.875rem;
         line-height: 1.5;

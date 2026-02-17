@@ -73,7 +73,7 @@
                             <input type="checkbox" x-model="settings.watchdog_enabled"
                                    @change="updateWatchdogEnabled()"
                                    class="sr-only peer">
-                            <div class="w-11 h-6 bg-[var(--color-bg-primary)] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[var(--color-primary-light)] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-primary)]"></div>
+                            <div class="w-11 h-6 bg-[var(--color-bg-primary)] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[var(--color-primary-light)] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-[var(--color-border-subtle)] after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-primary)]"></div>
                         </label>
                     </div>
 
@@ -87,7 +87,7 @@
                             <input type="checkbox" x-model="settings.watchdog_idle_enabled"
                                    :disabled="!settings.watchdog_enabled"
                                    class="sr-only peer" :class="!settings.watchdog_enabled ? 'opacity-50' : ''">
-                            <div class="w-11 h-6 bg-[var(--color-bg-primary)] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[var(--color-primary-light)] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-primary)]"></div>
+                            <div class="w-11 h-6 bg-[var(--color-bg-primary)] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[var(--color-primary-light)] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-[var(--color-border-subtle)] after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-primary)]"></div>
                         </label>
                     </div>
 
@@ -112,7 +112,7 @@
                             <input type="checkbox" x-model="settings.watchdog_busy_enabled"
                                    :disabled="!settings.watchdog_enabled"
                                    class="sr-only peer" :class="!settings.watchdog_enabled ? 'opacity-50' : ''">
-                            <div class="w-11 h-6 bg-[var(--color-bg-primary)] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[var(--color-primary-light)] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-primary)]"></div>
+                            <div class="w-11 h-6 bg-[var(--color-bg-primary)] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[var(--color-primary-light)] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-[var(--color-border-subtle)] after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-primary)]"></div>
                         </label>
                     </div>
 
@@ -148,7 +148,7 @@
                             <input type="checkbox" x-model="settings.force_eviction_when_busy" 
                                    :disabled="!settings.watchdog_enabled"
                                    class="sr-only peer" :class="!settings.watchdog_enabled ? 'opacity-50' : ''">
-                            <div class="w-11 h-6 bg-[var(--color-bg-primary)] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[var(--color-primary-light)] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-primary)]"></div>
+                            <div class="w-11 h-6 bg-[var(--color-bg-primary)] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[var(--color-primary-light)] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-[var(--color-border-subtle)] after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-primary)]"></div>
                         </label>
                     </div>
 
@@ -228,7 +228,7 @@
                                 <input type="checkbox" x-model="settings.memory_reclaimer_enabled"
                                        :disabled="!settings.watchdog_enabled"
                                        class="sr-only peer" :class="!settings.watchdog_enabled ? 'opacity-50' : ''">
-                                <div class="w-11 h-6 bg-[var(--color-bg-primary)] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[var(--color-primary-light)] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-primary)]"></div>
+                                <div class="w-11 h-6 bg-[var(--color-bg-primary)] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[var(--color-primary-light)] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-[var(--color-border-subtle)] after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-primary)]"></div>
                             </label>
                         </div>
 
@@ -281,7 +281,7 @@
                         <label class="relative inline-flex items-center cursor-pointer">
                             <input type="checkbox" x-model="settings.parallel_backend_requests"
                                    class="sr-only peer">
-                            <div class="w-11 h-6 bg-[var(--color-bg-primary)] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[var(--color-accent-light)] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-accent)]"></div>
+                            <div class="w-11 h-6 bg-[var(--color-bg-primary)] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[var(--color-accent-light)] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-[var(--color-border-subtle)] after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-accent)]"></div>
                         </label>
                     </div>
                 </div>
@@ -327,7 +327,7 @@
                         <label class="relative inline-flex items-center cursor-pointer">
                             <input type="checkbox" x-model="settings.f16"
                                    class="sr-only peer">
-                            <div class="w-11 h-6 bg-[var(--color-bg-primary)] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[var(--color-success-light)] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-success)]"></div>
+                            <div class="w-11 h-6 bg-[var(--color-bg-primary)] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[var(--color-success-light)] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-[var(--color-border-subtle)] after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-success)]"></div>
                         </label>
                     </div>
 
@@ -340,7 +340,7 @@
                         <label class="relative inline-flex items-center cursor-pointer">
                             <input type="checkbox" x-model="settings.debug"
                                    class="sr-only peer">
-                            <div class="w-11 h-6 bg-[var(--color-bg-primary)] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[var(--color-success-light)] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-success)]"></div>
+                            <div class="w-11 h-6 bg-[var(--color-bg-primary)] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[var(--color-success-light)] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-[var(--color-border-subtle)] after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-success)]"></div>
                         </label>
                     </div>
 
@@ -353,7 +353,7 @@
                         <label class="relative inline-flex items-center cursor-pointer">
                             <input type="checkbox" x-model="settings.enable_tracing"
                                    class="sr-only peer">
-                            <div class="w-11 h-6 bg-[var(--color-bg-primary)] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[var(--color-success-light)] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-success)]"></div>
+                            <div class="w-11 h-6 bg-[var(--color-bg-primary)] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[var(--color-success-light)] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-[var(--color-border-subtle)] after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-success)]"></div>
                         </label>
                     </div>
 
@@ -392,7 +392,7 @@
                         <label class="relative inline-flex items-center cursor-pointer">
                             <input type="checkbox" x-model="settings.cors"
                                    class="sr-only peer">
-                            <div class="w-11 h-6 bg-[var(--color-bg-primary)] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[var(--color-warning-light)] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-warning)]"></div>
+                            <div class="w-11 h-6 bg-[var(--color-bg-primary)] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[var(--color-warning-light)] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-[var(--color-border-subtle)] after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-warning)]"></div>
                         </label>
                     </div>
 
@@ -414,7 +414,7 @@
                         <label class="relative inline-flex items-center cursor-pointer">
                             <input type="checkbox" x-model="settings.csrf"
                                    class="sr-only peer">
-                            <div class="w-11 h-6 bg-[var(--color-bg-primary)] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[var(--color-warning-light)] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-warning)]"></div>
+                            <div class="w-11 h-6 bg-[var(--color-bg-primary)] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[var(--color-warning-light)] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-[var(--color-border-subtle)] after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-warning)]"></div>
                         </label>
                     </div>
                 </div>
@@ -458,7 +458,7 @@
                         <label class="relative inline-flex items-center cursor-pointer">
                             <input type="checkbox" x-model="settings.federated"
                                    class="sr-only peer">
-                            <div class="w-11 h-6 bg-[var(--color-bg-primary)] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[var(--color-accent)]/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-accent)]"></div>
+                            <div class="w-11 h-6 bg-[var(--color-bg-primary)] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[var(--color-accent)]/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-[var(--color-border-subtle)] after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-accent)]"></div>
                         </label>
                     </div>
                 </div>
@@ -553,7 +553,7 @@
                         <label class="relative inline-flex items-center cursor-pointer">
                             <input type="checkbox" x-model="settings.autoload_galleries"
                                    class="sr-only peer">
-                            <div class="w-11 h-6 bg-[var(--color-bg-primary)] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[var(--color-accent)]/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-accent)]"></div>
+                            <div class="w-11 h-6 bg-[var(--color-bg-primary)] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[var(--color-accent)]/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-[var(--color-border-subtle)] after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-accent)]"></div>
                         </label>
                     </div>
 
@@ -566,7 +566,7 @@
                         <label class="relative inline-flex items-center cursor-pointer">
                             <input type="checkbox" x-model="settings.autoload_backend_galleries"
                                    class="sr-only peer">
-                            <div class="w-11 h-6 bg-[var(--color-bg-primary)] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[var(--color-accent)]/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-accent)]"></div>
+                            <div class="w-11 h-6 bg-[var(--color-bg-primary)] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[var(--color-accent)]/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-[var(--color-border-subtle)] after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-accent)]"></div>
                         </label>
                     </div>
 
@@ -618,7 +618,6 @@
         </form>
     </div>
 
-    {{template "views/partials/footer" .}}
 </div>
 
 <script>
