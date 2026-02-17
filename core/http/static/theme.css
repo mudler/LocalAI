@@ -1,12 +1,18 @@
 /* LocalAI Theme - CSS Variables System */
 /* Based on logo color palette: cyan, teal, navy, purple */
 
-:root {
-  /* Base Colors */
-  --color-bg-primary: #0F172A;      /* Deep navy background */
-  --color-bg-secondary: #1E293B;     /* Elevated surfaces */
-  --color-bg-tertiary: #1E293B;      /* Cards, panels */
-  --color-bg-overlay: rgba(15, 23, 42, 0.8); /* Modals, overlays */
+/* Dark Theme (Default) - Charcoal Gray Style */
+:root,
+[data-theme="dark"],
+.dark {
+  /* Base Colors - Charcoal Gray */
+  --color-bg-primary: #121212;        /* Main background */
+  --color-bg-secondary: #1A1A1A;      /* Elevated surfaces */
+  --color-bg-tertiary: #222222;       /* Cards, panels */
+  --color-bg-overlay: rgba(18, 18, 18, 0.95); /* Modals, overlays */
+  
+  /* Override tw-elements dark background */
+  background-color: #121212 !important;
   
   /* Brand Colors */
   --color-primary: #38BDF8;          /* Cyan - primary actions */
@@ -32,16 +38,16 @@
   --color-text-secondary: #94A3B8;   /* Secondary text */
   --color-text-muted: #64748B;        /* Tertiary text */
   --color-text-disabled: #475569;     /* Disabled text */
-  --color-text-inverse: #0F172A;      /* Text on light backgrounds */
+  --color-text-inverse: #FFFFFF;      /* Text on light backgrounds */
   
-  /* Border Colors - Minimal System */
-  --color-border-subtle: rgba(148, 163, 184, 0.08);  /* Minimal borders */
-  --color-border-default: rgba(148, 163, 184, 0.12);  /* Default borders */
-  --color-border-strong: rgba(56, 189, 248, 0.2);    /* Focus borders */
-  --color-border-divider: rgba(148, 163, 184, 0.06);  /* Section dividers */
-  --color-border-primary: rgba(56, 189, 248, 0.15);  /* Primary borders (reduced opacity) */
-  --color-border-secondary: rgba(148, 163, 184, 0.1);
-  --color-border-focus: rgba(56, 189, 248, 0.3);     /* Focus borders (reduced) */
+  /* Border Colors - Visible on charcoal */
+  --color-border-subtle: rgba(255, 255, 255, 0.08);  /* Minimal borders */
+  --color-border-default: rgba(255, 255, 255, 0.12);  /* Default borders */
+  --color-border-strong: rgba(56, 189, 248, 0.3);    /* Focus borders */
+  --color-border-divider: rgba(255, 255, 255, 0.05);  /* Section dividers */
+  --color-border-primary: rgba(56, 189, 248, 0.2);  /* Primary borders */
+  --color-border-secondary: rgba(255, 255, 255, 0.1);
+  --color-border-focus: rgba(56, 189, 248, 0.4);     /* Focus borders */
   
   /* Status Colors */
   --color-success: #14B8A6;          /* Use teal for success (aligned with logo) */
@@ -55,17 +61,18 @@
   
   /* Gradient Definitions */
   --gradient-primary: linear-gradient(135deg, #38BDF8 0%, #8B5CF6 50%, #14B8A6 100%);
-  --gradient-hero: linear-gradient(135deg, #0F172A 0%, #1E293B 50%, #0F172A 100%);
-  --gradient-card: linear-gradient(135deg, rgba(56, 189, 248, 0.05) 0%, rgba(139, 92, 246, 0.05) 100%);
+  --gradient-hero: linear-gradient(135deg, #121212 0%, #1A1A1A 50%, #121212 100%);
+  --gradient-card: linear-gradient(135deg, rgba(56, 189, 248, 0.04) 0%, rgba(139, 92, 246, 0.04) 100%);
   --gradient-text: linear-gradient(135deg, #38BDF8 0%, #8B5CF6 50%, #14B8A6 100%);
   
-  /* Shadows - Minimal System */
+  /* Shadows - Charcoal theme */
   --shadow-none: none;
-  --shadow-subtle: 0 1px 2px rgba(0, 0, 0, 0.1);
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.12);
-  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
-  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
-  --shadow-glow: 0 0 0 1px rgba(56, 189, 248, 0.1), 0 0 8px rgba(56, 189, 248, 0.15); /* Minimal glow */
+  --shadow-subtle: 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.25);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.35);
+  --shadow-glow: 0 0 0 1px rgba(56, 189, 248, 0.15), 0 0 12px rgba(56, 189, 248, 0.2);
+  --shadow-sidebar: 1px 0 3px rgba(0, 0, 0, 0.25);
   
   /* Animation Timing - Minimal */
   --duration-instant: 100ms;
@@ -109,5 +116,83 @@
   --width-5xl: 64rem;     /* 1024px */
   --width-6xl: 72rem;     /* 1152px */
   --width-7xl: 80rem;     /* 1280px */
+  
+  /* Sidebar */
+  --sidebar-width: 220px;
+  --sidebar-bg: var(--color-bg-primary);
+  --sidebar-border: var(--color-border-subtle);
+}
+
+/* Light Theme */
+[data-theme="light"] {
+  /* Base Colors */
+  --color-bg-primary: #F8FAFC;      /* Soft gray background */
+  --color-bg-secondary: #FFFFFF;     /* Elevated surfaces */
+  --color-bg-tertiary: #FFFFFF;      /* Cards, panels */
+  --color-bg-overlay: rgba(248, 250, 252, 0.9); /* Modals, overlays */
+  
+  /* Brand Colors - Slightly adjusted for light backgrounds */
+  --color-primary: #0EA5E9;          /* Slightly darker cyan for better contrast */
+  --color-primary-hover: #0284C7;    /* Darker on hover */
+  --color-primary-active: #0369A1;   /* Active state */
+  --color-primary-text: #FFFFFF;     /* Text on primary background */
+  --color-primary-light: rgba(14, 165, 233, 0.08); /* Light cyan backgrounds */
+  --color-primary-border: rgba(14, 165, 233, 0.2); /* Cyan borders */
+  
+  --color-secondary: #0D9488;        /* Teal - secondary actions */
+  --color-secondary-hover: #0F766E;  /* Darker teal on hover */
+  --color-secondary-light: rgba(13, 148, 136, 0.1);
+  
+  --color-accent: #7C3AED;           /* Purple - special states */
+  --color-accent-hover: #6D28D9;     /* Darker purple on hover */
+  --color-accent-light: rgba(124, 58, 237, 0.1);
+  
+  --color-accent-purple: #A78BFA;    /* Light purple for gradients */
+  --color-accent-teal: #2DD4BF;      /* Light teal for gradients */
+  
+  /* Text Colors */
+  --color-text-primary: #1E293B;      /* Primary text - dark slate */
+  --color-text-secondary: #64748B;   /* Secondary text */
+  --color-text-muted: #94A3B8;        /* Tertiary text */
+  --color-text-disabled: #CBD5E1;     /* Disabled text */
+  --color-text-inverse: #FFFFFF;      /* Text on dark backgrounds */
+  
+  /* Border Colors */
+  --color-border-subtle: rgba(15, 23, 42, 0.06);  /* Minimal borders */
+  --color-border-default: rgba(15, 23, 42, 0.1);  /* Default borders */
+  --color-border-strong: rgba(14, 165, 233, 0.3); /* Focus borders */
+  --color-border-divider: rgba(15, 23, 42, 0.04); /* Section dividers */
+  --color-border-primary: rgba(14, 165, 233, 0.2);  /* Primary borders */
+  --color-border-secondary: rgba(15, 23, 42, 0.08);
+  --color-border-focus: rgba(14, 165, 233, 0.4);    /* Focus borders */
+  
+  /* Status Colors - Adjusted for light theme */
+  --color-success: #0D9488;
+  --color-success-light: rgba(13, 148, 136, 0.1);
+  --color-warning: #D97706;
+  --color-warning-light: rgba(217, 119, 6, 0.1);
+  --color-error: #DC2626;
+  --color-error-light: rgba(220, 38, 38, 0.1);
+  --color-info: #0EA5E9;
+  --color-info-light: rgba(14, 165, 233, 0.1);
+  
+  /* Gradient Definitions */
+  --gradient-primary: linear-gradient(135deg, #0EA5E9 0%, #7C3AED 50%, #0D9488 100%);
+  --gradient-hero: linear-gradient(135deg, #F8FAFC 0%, #FFFFFF 50%, #F8FAFC 100%);
+  --gradient-card: linear-gradient(135deg, rgba(14, 165, 233, 0.03) 0%, rgba(124, 58, 237, 0.03) 100%);
+  --gradient-text: linear-gradient(135deg, #0EA5E9 0%, #7C3AED 50%, #0D9488 100%);
+  
+  /* Shadows - More visible in light theme */
+  --shadow-none: none;
+  --shadow-subtle: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.07);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.08);
+  --shadow-glow: 0 0 0 1px rgba(14, 165, 233, 0.15), 0 0 8px rgba(14, 165, 233, 0.2);
+  --shadow-sidebar: 1px 0 3px rgba(0, 0, 0, 0.08);
+  
+  /* Sidebar */
+  --sidebar-bg: #FFFFFF;
+  --sidebar-border: rgba(15, 23, 42, 0.06);
 }
 

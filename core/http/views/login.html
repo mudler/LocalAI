@@ -2,14 +2,16 @@
 <html lang="en">
 {{template "views/partials/head" .}}
 
-<body class="bg-[#101827] text-[#E5E7EB]">
-<div class="flex flex-col min-h-screen">
-
-    {{template "views/partials/navbar" .}}
+<body class="bg-[var(--color-bg-primary)] text-[var(--color-text-primary)]">
+<div class="app-layout">
+  {{template "views/partials/navbar" .}}
+  
+  <main class="main-content">
+    <div class="main-content-inner">
 
     <div class="container mx-auto px-4 py-8 flex-grow flex items-center justify-center">
         <!-- Auth Card -->
-        <div class="max-w-md w-full bg-[#1E293B] border border-[#38BDF8]/20 rounded-xl overflow-hidden">
+        <div class="max-w-md w-full bg-[var(--color-bg-secondary)] border border-[var(--color-border-subtle)] rounded-xl overflow-hidden">
             <div class="animation-container">
                 <div class="text-overlay">
                     <img src="static/logo.png" alt="LocalAI Logo" class="h-32 drop-shadow-[0_0_15px_rgba(56,189,248,0.3)]">
@@ -21,22 +23,22 @@
                     <h2 class="h2">
                         Authorization Required
                     </h2>
-                    <p class="text-[#94A3B8] mt-2">Please enter your access token to continue</p>
+                    <p class="text-[var(--color-text-secondary)] mt-2">Please enter your access token to continue</p>
                 </div>
                 
                 <form id="login-form" class="space-y-6" onsubmit="login(); return false;">
                     <div>
-                        <label for="token" class="block text-sm font-medium text-[#94A3B8] mb-2">Access Token</label>
+                        <label for="token" class="block text-sm font-medium text-[var(--color-text-secondary)] mb-2">Access Token</label>
                         <div class="relative">
                             <div class="absolute inset-y-0 start-0 flex items-center ps-4 pointer-events-none z-10">
-                                <i class="fas fa-key text-[#38BDF8]"></i>
+                                <i class="fas fa-key text-[var(--color-primary)]"></i>
                             </div>
                             <input 
                                 type="password" 
                                 id="token" 
                                 name="token" 
                                 placeholder="Enter your token" 
-                                class="bg-[#101827] border border-[#1E293B] text-[#E5E7EB] placeholder-[#94A3B8] text-sm rounded-lg focus:ring-[#38BDF8] focus:border-[#38BDF8] focus:ring-2 block w-full p-2.5 transition-all"
+                                class="input"
                                 style="padding-left: 3.5rem !important;"
                                 required
                             />
@@ -46,7 +48,7 @@
                     <div>
                         <button 
                             type="submit" 
-                            class="w-full flex items-center justify-center bg-[#38BDF8] hover:bg-[#38BDF8]/90 text-[#101827] font-semibold py-3 px-6 rounded-lg transition-colors"
+                            class="btn-primary w-full"
                         >
                             <i class="fas fa-sign-in-alt mr-2"></i>
                             <span>Login</span>
@@ -54,9 +56,9 @@
                     </div>
                 </form>
                 
-                <div class="mt-8 pt-6 border-t border-[#1E293B] text-center text-sm text-[#94A3B8]">
+                <div class="mt-8 pt-6 border-t border-[var(--color-border-subtle)] text-center text-sm text-[var(--color-text-secondary)]">
                     <div class="flex items-center justify-center mb-2">
-                        <i class="fas fa-shield-alt mr-2 text-[#38BDF8]"></i>
+                        <i class="fas fa-shield-alt mr-2 text-[var(--color-primary)]"></i>
                         <span>Instance is token protected</span>
                     </div>
                     <p>Current time (UTC): <span id="current-time">{{.CurrentDate}}</span></p>
@@ -66,6 +68,8 @@
     </div>
 
     {{template "views/partials/footer" .}}
+    </div>
+  </main>
 </div>
 
 <script>

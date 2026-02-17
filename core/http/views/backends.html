@@ -2,10 +2,12 @@
 <html lang="en">
 {{template "views/partials/head" .}}
 
-<body class="bg-[#101827] text-[#E5E7EB]">
-<div class="flex flex-col min-h-screen" x-data="backendsGallery()">
-   
-    {{template "views/partials/navbar" .}}
+<body class="bg-[var(--color-bg-primary)] text-[var(--color-text-primary)]">
+<div class="app-layout">
+  {{template "views/partials/navbar" .}}
+  
+  <main class="main-content">
+    <div class="main-content-inner" x-data="backendsGallery()">
     
     <!-- Notifications -->
     <div class="fixed top-20 right-4 z-50 space-y-2" style="max-width: 400px;">
@@ -44,20 +46,20 @@
                     Discover and install AI backends to power your models
                 </p>
                 <div class="flex flex-wrap justify-center items-center gap-6 text-sm md:text-base">
-                    <div class="flex items-center bg-[#101827] rounded-lg px-4 py-2">
-                        <div class="w-2 h-2 bg-emerald-400 rounded-full mr-2"></div>
-                        <span class="font-semibold text-emerald-300" x-text="availableBackends"></span>
-                        <span class="text-[#94A3B8] ml-1">backends available</span>
+                    <div class="flex items-center bg-[var(--color-bg-primary)] rounded-lg px-4 py-2">
+                        <div class="w-2 h-2 bg-[var(--color-success)] rounded-full mr-2"></div>
+                        <span class="font-semibold text-[var(--color-success)]" x-text="availableBackends"></span>
+                        <span class="text-[var(--color-text-secondary)] ml-1">backends available</span>
                     </div>
-                    <a href="/manage" class="flex items-center bg-[#101827] hover:bg-[#1E293B] rounded-lg px-4 py-2 transition-colors border border-[#8B5CF6]/30 hover:border-[#8B5CF6]/50">
-                        <div class="w-2 h-2 bg-cyan-400 rounded-full mr-2"></div>
-                        <span class="font-semibold text-cyan-300" x-text="installedBackends"></span>
-                        <span class="text-[#94A3B8] ml-1">installed</span>
+                    <a href="/manage" class="flex items-center bg-[var(--color-bg-primary)] hover:bg-[var(--color-bg-secondary)] rounded-lg px-4 py-2 transition-colors border border-[var(--color-accent)]/30 hover:border-[var(--color-accent)]/50">
+                        <div class="w-2 h-2 bg-[var(--color-primary)] rounded-full mr-2"></div>
+                        <span class="font-semibold text-[var(--color-primary)]" x-text="installedBackends"></span>
+                        <span class="text-[var(--color-text-secondary)] ml-1">installed</span>
                     </a>
-                    <div class="flex items-center bg-[#101827] rounded-lg px-4 py-2 border border-[#38BDF8]/30">
-                        <i class="fas fa-microchip text-[#38BDF8] mr-2"></i>
-                        <span class="text-[#94A3B8] mr-1">Capability:</span>
-                        <span class="font-semibold text-[#38BDF8]" x-text="systemCapability"></span>
+                    <div class="flex items-center bg-[var(--color-bg-primary)] rounded-lg px-4 py-2 border border-[var(--color-primary-border)]">
+                        <i class="fas fa-microchip text-[var(--color-primary)] mr-2"></i>
+                        <span class="text-[var(--color-text-secondary)] mr-1">Capability:</span>
+                        <span class="font-semibold text-[var(--color-primary)]" x-text="systemCapability"></span>
                     </div>
                     <a href="https://localai.io/backends/" target="_blank" class="btn-primary">
                         <i class="fas fa-info-circle mr-2"></i>
@@ -77,41 +79,41 @@
                 class="w-full flex items-center justify-between text-left"
             >
                 <div class="flex items-center gap-2">
-                    <i class="fas fa-plus-circle text-[#38BDF8] text-lg"></i>
-                    <h3 class="text-lg font-semibold text-[#E5E7EB]">Install Backend Manually</h3>
+                    <i class="fas fa-plus-circle text-[var(--color-primary)] text-lg"></i>
+                    <h3 class="text-lg font-semibold text-[var(--color-text-primary)]">Install Backend Manually</h3>
                 </div>
-                <i class="fas text-[#94A3B8] transition-transform duration-200" :class="showManualInstall ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
+                <i class="fas text-[var(--color-text-secondary)] transition-transform duration-200" :class="showManualInstall ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
             </button>
             
             <div x-show="showManualInstall" x-collapse>
-                <p class="text-sm text-[#94A3B8] mt-4 mb-6">Install a backend from an OCI image, URL, or local path</p>
+                <p class="text-sm text-[var(--color-text-secondary)] mt-4 mb-6">Install a backend from an OCI image, URL, or local path</p>
                 
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                     <div>
-                        <label class="block text-sm font-medium text-[#94A3B8] mb-2">OCI Image / URL / Path *</label>
+                        <label class="block text-sm font-medium text-[var(--color-text-secondary)] mb-2">OCI Image / URL / Path *</label>
                         <input 
                             type="text" 
                             x-model="externalBackend.uri"
                             placeholder="e.g., oci://quay.io/example/backend:latest"
-                            class="w-full px-4 py-3 text-sm bg-[#101827] border border-[#38BDF8]/30 rounded-lg text-[#E5E7EB] placeholder-[#94A3B8]/50 focus:border-[#38BDF8] focus:outline-none focus:ring-1 focus:ring-[#38BDF8]"
+                            class="input w-full px-4 py-3 text-sm"
                         >
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-[#94A3B8] mb-2">Name (required for OCI)</label>
+                        <label class="block text-sm font-medium text-[var(--color-text-secondary)] mb-2">Name (required for OCI)</label>
                         <input 
                             type="text" 
                             x-model="externalBackend.name"
                             placeholder="e.g., my-backend"
-                            class="w-full px-4 py-3 text-sm bg-[#101827] border border-[#38BDF8]/30 rounded-lg text-[#E5E7EB] placeholder-[#94A3B8]/50 focus:border-[#38BDF8] focus:outline-none focus:ring-1 focus:ring-[#38BDF8]"
+                            class="input w-full px-4 py-3 text-sm"
                         >
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-[#94A3B8] mb-2">Alias (optional)</label>
+                        <label class="block text-sm font-medium text-[var(--color-text-secondary)] mb-2">Alias (optional)</label>
                         <input 
                             type="text" 
                             x-model="externalBackend.alias"
                             placeholder="e.g., backend-alias"
-                            class="w-full px-4 py-3 text-sm bg-[#101827] border border-[#38BDF8]/30 rounded-lg text-[#E5E7EB] placeholder-[#94A3B8]/50 focus:border-[#38BDF8] focus:outline-none focus:ring-1 focus:ring-[#38BDF8]"
+                            class="input w-full px-4 py-3 text-sm"
                         >
                     </div>
                 </div>
@@ -120,12 +122,12 @@
                     <button 
                         @click="installExternalBackend()"
                         :disabled="installingExternal || !externalBackend.uri"
-                        class="inline-flex items-center px-5 py-2.5 rounded-lg bg-[#38BDF8] hover:bg-[#38BDF8]/80 text-sm font-medium text-white transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                        class="btn-primary"
                     >
                         <i class="mr-2" :class="installingExternal ? 'fas fa-spinner fa-spin' : 'fas fa-download'"></i>
                         <span x-text="installingExternal ? 'Installing...' : 'Install Backend'"></span>
                     </button>
-                    <span x-show="externalBackendProgress" class="text-sm text-[#94A3B8]" x-text="externalBackendProgress"></span>
+                    <span x-show="externalBackendProgress" class="text-sm text-[var(--color-text-secondary)]" x-text="externalBackendProgress"></span>
                 </div>
             </div>
         </div>
@@ -135,13 +137,13 @@
             <div>
                 <!-- Search Input -->
                 <div class="mb-8">
-                    <h3 class="text-xl font-semibold text-[#E5E7EB] mb-4 flex items-center">
-                        <i class="fas fa-search mr-3 text-[#8B5CF6]"></i>
+                    <h3 class="text-xl font-semibold text-[var(--color-text-primary)] mb-4 flex items-center">
+                        <i class="fas fa-search mr-3 text-[var(--color-accent)]"></i>
                         Find Backend Components
                     </h3>
                     <div class="relative">
                         <div class="absolute inset-y-0 start-0 flex items-center ps-4 pointer-events-none z-10">
-                            <i class="fas fa-search text-[#94A3B8]"></i>
+                            <i class="fas fa-search text-[var(--color-text-secondary)]"></i>
                         </div>
                         <input 
                             x-model="searchTerm"
@@ -151,7 +153,7 @@
                             type="search" 
                             placeholder="Search backends by name, description or type...">
                         <span class="absolute right-4 top-4" x-show="loading">
-                            <svg class="animate-spin h-6 w-6 text-[#8B5CF6]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <svg class="animate-spin h-6 w-6 text-[var(--color-accent)]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                             </svg>
@@ -161,33 +163,33 @@
                 
                 <!-- Filter by Type -->
                 <div>
-                    <h3 class="text-lg font-semibold text-white mb-4 flex items-center">
-                        <i class="fas fa-filter mr-3 text-teal-400"></i>
+                    <h3 class="text-lg font-semibold text-[var(--color-text-primary)] mb-4 flex items-center">
+                        <i class="fas fa-filter mr-3 text-[var(--color-secondary)]"></i>
                         Filter by Backend Type
                     </h3>
                     <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
                         <button @click="filterByTerm('llm')"
-                            class="flex items-center justify-center rounded-lg px-4 py-3 text-sm font-semibold bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 transition-colors">
+                            class="flex items-center justify-center rounded-lg px-4 py-3 text-sm font-semibold bg-[var(--color-accent-light)] hover:bg-[var(--color-accent)]/30 text-[var(--color-text-primary)] border border-[var(--color-accent)]/30 transition-colors">
                             <i class="fas fa-brain mr-2"></i>
                             <span>LLM</span>
                         </button>
                         <button @click="filterByTerm('diffusion')"
-                            class="flex items-center justify-center rounded-lg px-4 py-3 text-sm font-semibold bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30 transition-colors">
+                            class="flex items-center justify-center rounded-lg px-4 py-3 text-sm font-semibold bg-[var(--color-accent-light)] hover:bg-[var(--color-accent)]/30 text-[var(--color-text-primary)] border border-[var(--color-accent)]/30 transition-colors">
                             <i class="fas fa-image mr-2"></i>
                             <span>Diffusion</span>
                         </button>
                         <button @click="filterByTerm('tts')"
-                            class="flex items-center justify-center rounded-lg px-4 py-3 text-sm font-semibold bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 transition-colors">
+                            class="flex items-center justify-center rounded-lg px-4 py-3 text-sm font-semibold bg-[var(--color-primary-light)] hover:bg-[var(--color-primary)]/30 text-[var(--color-text-primary)] border border-[var(--color-primary-border)] transition-colors">
                             <i class="fas fa-microphone mr-2"></i>
                             <span>TTS</span>
                         </button>
                         <button @click="filterByTerm('whisper')"
-                            class="flex items-center justify-center rounded-lg px-4 py-3 text-sm font-semibold bg-green-600/20 hover:bg-green-600/30 text-green-300 border border-green-500/30 transition-colors">
+                            class="flex items-center justify-center rounded-lg px-4 py-3 text-sm font-semibold bg-[var(--color-success-light)] hover:bg-[var(--color-success)]/30 text-[var(--color-success)] border border-[var(--color-success)]/30 transition-colors">
                             <i class="fas fa-headphones mr-2"></i>
                             <span>Whisper</span>
                         </button>
                         <button @click="filterByTerm('object-detection')"
-                            class="flex items-center justify-center rounded-lg px-4 py-3 text-sm font-semibold bg-red-600/20 hover:bg-red-600/30 text-red-300 border border-red-500/30 transition-colors">
+                            class="flex items-center justify-center rounded-lg px-4 py-3 text-sm font-semibold bg-[var(--color-error-light)] hover:bg-[var(--color-error)]/30 text-[var(--color-error)] border border-[var(--color-error)]/30 transition-colors">
                             <i class="fas fa-eye mr-2"></i>
                             <span>Vision</span>
                         </button>
@@ -199,97 +201,97 @@
         <!-- Results Section -->
         <div id="search-results" class="transition-all duration-300">
             <div x-show="loading && backends.length === 0" class="text-center py-12">
-                <svg class="animate-spin h-12 w-12 text-emerald-500 mx-auto mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <svg class="animate-spin h-12 w-12 text-[var(--color-primary)] mx-auto mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
-                <p class="text-gray-400">Loading backends...</p>
+                <p class="text-[var(--color-text-secondary)]">Loading backends...</p>
             </div>
 
             <div x-show="!loading && backends.length === 0" class="text-center py-12">
-                <i class="fas fa-search text-gray-500 text-4xl mb-4"></i>
-                <p class="text-gray-400">No backends found matching your criteria</p>
+                <i class="fas fa-search text-[var(--color-text-muted)] text-4xl mb-4"></i>
+                <p class="text-[var(--color-text-secondary)]">No backends found matching your criteria</p>
             </div>
 
             <!-- Table View -->
-            <div x-show="backends.length > 0" class="bg-[#1E293B] rounded-2xl border border-[#38BDF8]/20 overflow-hidden shadow-xl backdrop-blur-sm">
+            <div x-show="backends.length > 0" class="bg-[var(--color-bg-secondary)] rounded-2xl border border-[var(--color-border-subtle)] overflow-hidden shadow-xl backdrop-blur-sm">
                 <div class="overflow-x-auto">
                     <table class="w-full">
                         <thead>
-                            <tr class="bg-gradient-to-r from-[#38BDF8]/20 to-[#8B5CF6]/20 border-b border-[#38BDF8]/30">
-                                <th class="px-6 py-4 text-left text-xs font-semibold text-[#E5E7EB] uppercase tracking-wider">Icon</th>
+                            <tr class="bg-[var(--color-primary-light)] border-b border-[var(--color-border-subtle)]">
+                                <th class="px-6 py-4 text-left text-xs font-semibold text-[var(--color-text-primary)] uppercase tracking-wider">Icon</th>
                                 <th @click="setSort('name')" 
-                                    :class="sortBy === 'name' ? 'bg-[#38BDF8]/20' : ''"
-                                    class="px-6 py-4 text-left text-xs font-semibold text-[#E5E7EB] uppercase tracking-wider cursor-pointer hover:bg-[#38BDF8]/10 transition-colors">
+                                    :class="sortBy === 'name' ? 'bg-[var(--color-primary-light)]' : ''"
+                                    class="px-6 py-4 text-left text-xs font-semibold text-[var(--color-text-primary)] uppercase tracking-wider cursor-pointer hover:bg-[var(--color-bg-primary)] transition-colors">
                                     <div class="flex items-center gap-2">
                                         <span>Backend Name</span>
                                         <i :class="sortBy === 'name' ? (sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down') : 'fas fa-sort'" 
-                                           :class="sortBy === 'name' ? 'text-[#38BDF8]' : 'text-[#94A3B8]'"
+                                           :class="sortBy === 'name' ? 'text-[var(--color-primary)]' : 'text-[var(--color-text-secondary)]'"
                                            class="text-xs"></i>
                                     </div>
                                 </th>
-                                <th class="px-6 py-4 text-left text-xs font-semibold text-[#E5E7EB] uppercase tracking-wider">Description</th>
+                                <th class="px-6 py-4 text-left text-xs font-semibold text-[var(--color-text-primary)] uppercase tracking-wider">Description</th>
                                 <th @click="setSort('repository')" 
-                                    :class="sortBy === 'repository' ? 'bg-[#38BDF8]/20' : ''"
-                                    class="px-6 py-4 text-left text-xs font-semibold text-[#E5E7EB] uppercase tracking-wider cursor-pointer hover:bg-[#38BDF8]/10 transition-colors">
+                                    :class="sortBy === 'repository' ? 'bg-[var(--color-primary-light)]' : ''"
+                                    class="px-6 py-4 text-left text-xs font-semibold text-[var(--color-text-primary)] uppercase tracking-wider cursor-pointer hover:bg-[var(--color-bg-primary)] transition-colors">
                                     <div class="flex items-center gap-2">
                                         <span>Repository</span>
                                         <i :class="sortBy === 'repository' ? (sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down') : 'fas fa-sort'" 
-                                           :class="sortBy === 'repository' ? 'text-[#38BDF8]' : 'text-[#94A3B8]'"
+                                           :class="sortBy === 'repository' ? 'text-[var(--color-primary)]' : 'text-[var(--color-text-secondary)]'"
                                            class="text-xs"></i>
                                     </div>
                                 </th>
                                 <th @click="setSort('license')" 
-                                    :class="sortBy === 'license' ? 'bg-[#38BDF8]/20' : ''"
-                                    class="px-6 py-4 text-left text-xs font-semibold text-[#E5E7EB] uppercase tracking-wider cursor-pointer hover:bg-[#38BDF8]/10 transition-colors">
+                                    :class="sortBy === 'license' ? 'bg-[var(--color-primary-light)]' : ''"
+                                    class="px-6 py-4 text-left text-xs font-semibold text-[var(--color-text-primary)] uppercase tracking-wider cursor-pointer hover:bg-[var(--color-bg-primary)] transition-colors">
                                     <div class="flex items-center gap-2">
                                         <span>License</span>
                                         <i :class="sortBy === 'license' ? (sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down') : 'fas fa-sort'" 
-                                           :class="sortBy === 'license' ? 'text-[#38BDF8]' : 'text-[#94A3B8]'"
+                                           :class="sortBy === 'license' ? 'text-[var(--color-primary)]' : 'text-[var(--color-text-secondary)]'"
                                            class="text-xs"></i>
                                     </div>
                                 </th>
                                 <th @click="setSort('status')" 
-                                    :class="sortBy === 'status' ? 'bg-[#38BDF8]/20' : ''"
-                                    class="px-6 py-4 text-left text-xs font-semibold text-[#E5E7EB] uppercase tracking-wider cursor-pointer hover:bg-[#38BDF8]/10 transition-colors">
+                                    :class="sortBy === 'status' ? 'bg-[var(--color-primary-light)]' : ''"
+                                    class="px-6 py-4 text-left text-xs font-semibold text-[var(--color-text-primary)] uppercase tracking-wider cursor-pointer hover:bg-[var(--color-bg-primary)] transition-colors">
                                     <div class="flex items-center gap-2">
                                         <span>Status</span>
                                         <i :class="sortBy === 'status' ? (sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down') : 'fas fa-sort'" 
-                                           :class="sortBy === 'status' ? 'text-[#38BDF8]' : 'text-[#94A3B8]'"
+                                           :class="sortBy === 'status' ? 'text-[var(--color-primary)]' : 'text-[var(--color-text-secondary)]'"
                                            class="text-xs"></i>
                                     </div>
                                 </th>
-                                <th class="px-6 py-4 text-right text-xs font-semibold text-[#E5E7EB] uppercase tracking-wider">Actions</th>
+                                <th class="px-6 py-4 text-right text-xs font-semibold text-[var(--color-text-primary)] uppercase tracking-wider">Actions</th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-[#38BDF8]/20">
+                        <tbody class="divide-y divide-[var(--color-border-subtle)]">
                             <template x-for="backend in backends" :key="backend.id">
-                                <tr class="hover:bg-[#38BDF8]/10 transition-colors duration-200">
+                                <tr class="hover:bg-[var(--color-bg-primary)] transition-colors duration-200">
                                     <!-- Icon -->
                                     <td class="px-6 py-4">
-                                        <div class="w-12 h-12 rounded-lg border border-[#38BDF8]/30 flex items-center justify-center bg-[#101827]">
+                                        <div class="w-12 h-12 rounded-lg border border-[var(--color-border-subtle)] flex items-center justify-center bg-[var(--color-bg-primary)]">
                                             <img x-show="backend.icon"
                                                  :src="backend.icon"
                                                  class="w-full h-full object-cover rounded-lg"
                                                  loading="lazy"
                                                  :alt="backend.name">
-                                            <i x-show="!backend.icon" class="fas fa-cog text-xl text-[#8B5CF6]"></i>
+                                            <i x-show="!backend.icon" class="fas fa-cog text-xl text-[var(--color-accent)]"></i>
                                         </div>
                                     </td>
                                     
                                     <!-- Backend Name -->
                                     <td class="px-6 py-4">
-                                        <span class="text-sm font-semibold text-[#E5E7EB]" x-text="backend.name"></span>
+                                        <span class="text-sm font-semibold text-[var(--color-text-primary)]" x-text="backend.name"></span>
                                     </td>
                                     
                                     <!-- Description -->
                                     <td class="px-6 py-4">
-                                        <div class="text-sm text-[#94A3B8] max-w-xs truncate" x-text="backend.description" :title="backend.description"></div>
+                                        <div class="text-sm text-[var(--color-text-secondary)] max-w-xs truncate" x-text="backend.description" :title="backend.description"></div>
                                     </td>
                                     
                                     <!-- Repository -->
                                     <td class="px-6 py-4">
-                                        <span class="inline-flex items-center text-xs px-2 py-1 rounded bg-[#38BDF8]/10 text-[#E5E7EB] border border-[#38BDF8]/30">
+                                        <span class="inline-flex items-center text-xs px-2 py-1 rounded bg-[var(--color-primary-light)] text-[var(--color-text-primary)] border border-[var(--color-primary-border)]">
                                             <i class="fa-brands fa-git-alt mr-1"></i>
                                             <span x-text="backend.gallery"></span>
                                         </span>
@@ -297,21 +299,21 @@
                                     
                                     <!-- License -->
                                     <td class="px-6 py-4">
-                                        <span x-show="backend.license" class="inline-flex items-center text-xs px-2 py-1 rounded bg-[#8B5CF6]/10 text-[#E5E7EB] border border-[#8B5CF6]/30">
+                                        <span x-show="backend.license" class="inline-flex items-center text-xs px-2 py-1 rounded bg-[var(--color-accent-light)] text-[var(--color-text-primary)] border border-[var(--color-accent)]/30">
                                             <i class="fas fa-book mr-1"></i>
                                             <span x-text="backend.license"></span>
                                         </span>
-                                        <span x-show="!backend.license" class="text-xs text-[#94A3B8]">-</span>
+                                        <span x-show="!backend.license" class="text-xs text-[var(--color-text-secondary)]">-</span>
                                     </td>
                                     
                                     <!-- Status -->
                                     <td class="px-6 py-4">
                                         <!-- Processing State -->
                                         <div x-show="backend.processing" class="min-w-[200px]">
-                                            <div class="text-xs font-medium text-[#E5E7EB] mb-1">
+                                            <div class="text-xs font-medium text-[var(--color-text-primary)] mb-1">
                                                 <span x-text="backend.isDeletion ? 'Deleting...' : 'Installing...'"></span>
                                             </div>
-                                            <div x-show="(jobProgress[backend.jobID] || 0) === 0" class="text-xs text-[#38BDF8]">
+                                            <div x-show="(jobProgress[backend.jobID] || 0) === 0" class="text-xs text-[var(--color-primary)]">
                                                 <i class="fas fa-clock mr-1"></i>Queued
                                             </div>
                                             <div class="progress-table mt-1">
@@ -321,7 +323,7 @@
                                         
                                         <!-- Installed State -->
                                         <div x-show="!backend.processing && backend.installed">
-                                            <span class="inline-flex items-center text-xs px-2 py-1 rounded bg-green-500/20 text-green-300 border border-green-500/30">
+                                            <span class="inline-flex items-center text-xs px-2 py-1 rounded bg-[var(--color-success-light)] text-[var(--color-success)] border border-[var(--color-success)]/30">
                                                 <i class="fas fa-check-circle mr-1"></i>
                                                 Installed
                                             </span>
@@ -329,7 +331,7 @@
                                         
                                         <!-- Not Installed State -->
                                         <div x-show="!backend.processing && !backend.installed">
-                                            <span class="inline-flex items-center text-xs px-2 py-1 rounded bg-[#1E293B] text-[#94A3B8] border border-[#38BDF8]/30">
+                                            <span class="inline-flex items-center text-xs px-2 py-1 rounded bg-[var(--color-bg-primary)] text-[var(--color-text-secondary)] border border-[var(--color-border-subtle)]">
                                                 <i class="fas fa-circle mr-1"></i>
                                                 Not Installed
                                             </span>
@@ -341,7 +343,7 @@
                                         <div class="flex items-center justify-end gap-2">
                                             <!-- Info Button -->
                                             <button @click="openModal(backend)" 
-                                                    class="inline-flex items-center px-3 py-1.5 rounded-lg bg-[#1E293B] hover:bg-[#38BDF8]/20 text-xs font-medium text-[#E5E7EB] transition duration-200 border border-[#38BDF8]/30"
+                                                    class="inline-flex items-center px-3 py-1.5 rounded-lg bg-[var(--color-bg-primary)] hover:bg-[var(--color-primary-light)] text-xs font-medium text-[var(--color-text-primary)] transition duration-200 border border-[var(--color-border-subtle)]"
                                                     title="View details">
                                                 <i class="fas fa-info-circle"></i>
                                             </button>
@@ -350,12 +352,12 @@
                                             <template x-if="!backend.processing && backend.installed">
                                                 <div class="flex gap-2">
                                                     <button @click="reinstallBackend(backend.id)" 
-                                                            class="inline-flex items-center px-3 py-1.5 rounded-lg bg-[#38BDF8] hover:bg-[#38BDF8]/80 text-xs font-medium text-white transition duration-200"
+                                                            class="inline-flex items-center px-3 py-1.5 rounded-lg bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] text-xs font-medium text-white transition duration-200"
                                                             title="Reinstall">
                                                         <i class="fa-solid fa-arrow-rotate-right"></i>
                                                     </button>
                                                     <button @click="deleteBackend(backend.id)" 
-                                                            class="inline-flex items-center px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-xs font-medium text-white transition duration-200"
+                                                            class="inline-flex items-center px-3 py-1.5 rounded-lg bg-[var(--color-error)] hover:bg-[var(--color-error)]/80 text-xs font-medium text-white transition duration-200"
                                                             title="Delete">
                                                         <i class="fa-solid fa-trash"></i>
                                                     </button>
@@ -365,7 +367,7 @@
                                             <!-- Not Installed State Actions -->
                                             <template x-if="!backend.processing && !backend.installed">
                                                 <button @click="installBackend(backend.id)" 
-                                                        class="inline-flex items-center px-3 py-1.5 rounded-lg bg-[#38BDF8] hover:bg-[#38BDF8]/80 text-xs font-medium text-white transition duration-200"
+                                                        class="inline-flex items-center px-3 py-1.5 rounded-lg bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] text-xs font-medium text-white transition duration-200"
                                                         title="Install">
                                                     <i class="fa-solid fa-download"></i>
                                                 </button>
@@ -383,15 +385,15 @@
             <div x-show="selectedBackend" 
                  x-transition
                  @click.away="closeModal()"
-                 class="fixed top-0 right-0 left-0 z-50 flex justify-center items-center w-full md:inset-0 h-full max-h-full bg-gray-900/50"
+                 class="fixed top-0 right-0 left-0 z-50 flex justify-center items-center w-full md:inset-0 h-full max-h-full bg-black/50"
                  style="display: none;">
                 <div class="relative p-4 w-full max-w-2xl h-[90vh] mx-auto mt-[5vh]">
-                    <div class="relative bg-white rounded-lg shadow dark:bg-gray-700 h-full flex flex-col">
+                    <div class="relative bg-[var(--color-bg-secondary)] rounded-lg shadow h-full flex flex-col border border-[var(--color-border-subtle)]">
                         <!-- Modal Header -->
-                        <div class="flex items-center justify-between p-4 md:p-5 border-b rounded-t dark:border-gray-600">
-                            <h3 class="text-xl font-semibold text-gray-900 dark:text-white" x-text="selectedBackend?.name"></h3>
+                        <div class="flex items-center justify-between p-4 md:p-5 border-b border-[var(--color-border-subtle)] rounded-t">
+                            <h3 class="text-xl font-semibold text-[var(--color-text-primary)]" x-text="selectedBackend?.name"></h3>
                             <button @click="closeModal()" 
-                                    class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center dark:hover:bg-gray-600 dark:hover:text-white">
+                                    class="text-[var(--color-text-secondary)] bg-transparent hover:bg-[var(--color-bg-primary)] hover:text-[var(--color-text-primary)] rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center transition-colors">
                                 <svg class="w-3 h-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
                                     <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/>
                                 </svg>
@@ -401,21 +403,21 @@
                         <!-- Modal Body -->
                         <div class="p-4 md:p-5 space-y-4 overflow-y-auto flex-1 min-h-0">
                             <div class="flex justify-center items-center">
-                                <div class="w-48 h-48 rounded-lg border border-gray-300 dark:border-gray-600 flex items-center justify-center bg-gray-100 dark:bg-gray-800 mt-3">
+                                <div class="w-48 h-48 rounded-lg border border-[var(--color-border-subtle)] flex items-center justify-center bg-[var(--color-bg-primary)] mt-3">
                                     <img x-show="selectedBackend?.icon"
                                          :src="selectedBackend?.icon"
                                          class="rounded-lg max-h-48 max-w-96 object-cover"
                                          loading="lazy">
-                                    <i x-show="!selectedBackend?.icon" class="fas fa-cog text-6xl text-gray-400 dark:text-gray-500"></i>
+                                    <i x-show="!selectedBackend?.icon" class="fas fa-cog text-6xl text-[var(--color-text-muted)]"></i>
                                 </div>
                             </div>
-                            <div class="text-base leading-relaxed text-gray-500 dark:text-gray-400 break-words max-w-full markdown-content" x-html="renderMarkdown(selectedBackend?.description)"></div>
+                            <div class="text-base leading-relaxed text-[var(--color-text-secondary)] break-words max-w-full markdown-content" x-html="renderMarkdown(selectedBackend?.description)"></div>
                             <template x-if="selectedBackend?.tags && selectedBackend.tags.length > 0">
                                 <div>
-                                    <p class="text-sm mb-3 font-semibold text-gray-900 dark:text-white">Tags</p>
+                                    <p class="text-sm mb-3 font-semibold text-[var(--color-text-primary)]">Tags</p>
                                     <div class="flex flex-wrap gap-2">
                                         <template x-for="tag in selectedBackend.tags" :key="tag">
-                                            <span class="inline-flex items-center text-xs px-3 py-1 rounded-full bg-gray-700/60 text-gray-300 border border-gray-600/50">
+                                            <span class="inline-flex items-center text-xs px-3 py-1 rounded-full bg-[var(--color-bg-primary)] text-[var(--color-text-secondary)] border border-[var(--color-border-subtle)]">
                                                 <i class="fas fa-tag pr-2"></i>
                                                 <span x-text="tag"></span>
                                             </span>
@@ -425,11 +427,11 @@
                             </template>
                             <template x-if="selectedBackend?.urls && selectedBackend.urls.length > 0">
                                 <div>
-                                    <p class="text-sm font-semibold text-gray-900 dark:text-white mb-2">Links</p>
+                                    <p class="text-sm font-semibold text-[var(--color-text-primary)] mb-2">Links</p>
                                     <ul>
                                         <template x-for="url in selectedBackend.urls" :key="url">
                                             <li>
-                                                <a :href="url" target="_blank" class="text-blue-500 hover:underline">
+                                                <a :href="url" target="_blank" class="text-[var(--color-primary)] hover:underline">
                                                     <i class="fas fa-link pr-2"></i>
                                                     <span x-text="url"></span>
                                                 </a>
@@ -440,9 +442,9 @@
                             </template>
                         </div>
                         <!-- Modal Footer -->
-                        <div class="flex items-center p-4 md:p-5 border-t border-gray-200 rounded-b dark:border-gray-600">
+                        <div class="flex items-center p-4 md:p-5 border-t border-[var(--color-border-subtle)] rounded-b">
                             <button @click="closeModal()" 
-                                    class="text-white bg-emerald-700 hover:bg-emerald-800 focus:ring-4 focus:outline-none focus:ring-emerald-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-emerald-600 dark:hover:bg-emerald-700 dark:focus:ring-emerald-800">
+                                    class="text-white bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] focus:ring-2 focus:outline-none focus:ring-[var(--color-primary)]/50 font-medium rounded-lg text-sm px-5 py-2.5 text-center transition-colors">
                                 Close
                             </button>
                         </div>
@@ -453,30 +455,29 @@
 
         <!-- Pagination -->
         <div x-show="totalPages > 1" class="flex justify-center mt-12">
-            <div class="flex items-center gap-4 bg-gray-800/60 rounded-2xl p-4 backdrop-blur-sm border border-gray-700/50">
+            <div class="flex items-center gap-4 bg-[var(--color-bg-secondary)] rounded-2xl p-4 backdrop-blur-sm border border-[var(--color-border-subtle)]">
                 <button @click="goToPage(currentPage - 1)" 
                     :disabled="currentPage <= 1"
                     :class="currentPage <= 1 ? 'opacity-50 cursor-not-allowed' : ''"
-                    class="flex items-center justify-center h-12 w-12 bg-[#1E293B] hover:bg-emerald-600 text-[#94A3B8] hover:text-white rounded-lg transition-colors">
+                    class="flex items-center justify-center h-12 w-12 bg-[var(--color-bg-primary)] hover:bg-[var(--color-success)] text-[var(--color-text-secondary)] hover:text-white rounded-lg transition-colors">
                     <i class="fas fa-chevron-left"></i>
                 </button>
-                <div class="text-gray-300 text-sm font-medium px-4">
-                    <span class="text-gray-400">Page</span>
-                    <span class="text-white font-bold text-lg mx-2" x-text="currentPage"></span>
-                    <span class="text-gray-400">of</span>
-                    <span class="text-white font-bold text-lg mx-2" x-text="totalPages"></span>
+                <div class="text-[var(--color-text-primary)] text-sm font-medium px-4">
+                    <span class="text-[var(--color-text-secondary)]">Page</span>
+                    <span class="text-[var(--color-text-primary)] font-bold text-lg mx-2" x-text="currentPage"></span>
+                    <span class="text-[var(--color-text-secondary)]">of</span>
+                    <span class="text-[var(--color-text-primary)] font-bold text-lg mx-2" x-text="totalPages"></span>
                 </div>
                 <button @click="goToPage(currentPage + 1)" 
                     :disabled="currentPage >= totalPages"
                     :class="currentPage >= totalPages ? 'opacity-50 cursor-not-allowed' : ''"
-                    class="group flex items-center justify-center h-12 w-12 bg-gray-700/80 hover:bg-emerald-600 text-gray-300 hover:text-white rounded-xl shadow-lg transition-all duration-300 ease-in-out transform hover:scale-110">
+                    class="group flex items-center justify-center h-12 w-12 bg-[var(--color-bg-primary)] hover:bg-[var(--color-success)] text-[var(--color-text-secondary)] hover:text-white rounded-xl shadow-lg transition-all duration-300 ease-in-out transform hover:scale-110">
                     <i class="fas fa-chevron-right group-hover:animate-pulse"></i>
                 </button>
             </div>
         </div>
 
     </div>
-    {{template "views/partials/footer" .}}
 </div>
 
 <style>
@@ -516,16 +517,16 @@
 
 /* Table progress bar styling */
 .progress-table {
-    background: linear-gradient(135deg, rgba(56, 189, 248, 0.2) 0%, rgba(139, 92, 246, 0.2) 100%);
+    background: var(--color-primary-light);
     border-radius: 0.25rem;
-    border: 1px solid rgba(56, 189, 248, 0.3);
+    border: 1px solid var(--color-primary-border);
     height: 6px;
     overflow: hidden;
     width: 100%;
 }
 
 .progress-bar-table-backend {
-    background: linear-gradient(135deg, #38BDF8 0%, #8B5CF6 100%);
+    background: var(--gradient-primary);
     height: 100%;
     transition: width 0.3s ease;
 }
@@ -534,6 +535,7 @@
 table {
     border-collapse: separate;
     border-spacing: 0;
+    background: var(--color-bg-secondary);
 }
 
 tbody tr:last-child td:first-child {
@@ -905,5 +907,10 @@ function backendsGallery() {
 }
 </script>
 
+    {{template "views/partials/footer" .}}
+    </div>
+  </main>
+</div>
+
 </body>
-</html> 
+</html>

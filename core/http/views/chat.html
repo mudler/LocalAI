@@ -587,19 +587,23 @@ SOFTWARE.
   <script defer src="static/chat.js"></script>
   {{ $allGalleryConfigs:=.GalleryConfig }}
   {{ $model:=.Model}}
-  <body class="bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] flex flex-col h-screen" x-data="{ sidebarOpen: true, showClearAlert: false }">
-    {{template "views/partials/navbar" .}}
+  <body class="bg-[var(--color-bg-primary)] text-[var(--color-text-primary)]" x-data="{ settingsPanelOpen: true, showClearAlert: false }">
+    <div class="app-layout">
+      {{template "views/partials/navbar" .}}
+      
+      <main class="main-content">
+        <div class="main-content-inner h-full flex flex-col">
 
-    <!-- Main container with sidebar toggle -->
-    <div class="flex flex-1 overflow-hidden relative">
-      <!-- Sidebar -->
+    <!-- Main container with settings panel -->
+    <div class="flex flex-1 min-h-0 relative">
+      <!-- Chat Settings Panel (right side) -->
       <div
-        class="sidebar bg-[var(--color-bg-secondary)] fixed top-14 bottom-0 left-0 w-56 transform transition-transform duration-300 ease-in-out z-30 border-r border-[var(--color-bg-primary)] overflow-y-auto"
-        :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full'">
+        class="chat-settings-panel bg-[var(--color-bg-secondary)] fixed top-0 right-0 bottom-0 w-56 transform transition-transform duration-300 ease-in-out z-30 border-l border-[var(--color-border-subtle)] overflow-y-auto"
+        :class="settingsPanelOpen ? 'translate-x-0' : 'translate-x-full'">
 
-        <div class="p-3 flex justify-between items-center border-b border-[var(--color-bg-primary)]">
+        <div class="p-3 flex justify-between items-center border-b border-[var(--color-border-subtle)]">
           <div class="flex items-center gap-2">
-            <h2 class="text-sm font-semibold text-[var(--color-text-primary)]">Settings</h2>
+            <h2 class="text-sm font-semibold text-[var(--color-text-primary)]">Chat Settings</h2>
             <a
               href="https://localai.io/features/text-generation/"
               target="_blank"
@@ -609,10 +613,10 @@ SOFTWARE.
             </a>
           </div>
           <button
-            @click="sidebarOpen = false"
+            @click="settingsPanelOpen = false"
             class="text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] focus:outline-none text-xs"
-            title="Hide sidebar">
-            <i class="fa-solid fa-chevron-left"></i>
+            title="Hide settings">
+            <i class="fa-solid fa-chevron-right"></i>
           </button>
         </div>
 
@@ -1099,23 +1103,14 @@ SOFTWARE.
         </div>
       </div>
 
-      <!-- Main chat container (shifts with sidebar) -->
+      <!-- Main chat container (shifts with settings panel) -->
       <div
-        class="flex-1 flex flex-col transition-all duration-300 ease-in-out"
-        :class="sidebarOpen ? 'ml-56' : 'ml-0'">
+        class="flex-1 flex flex-col min-h-0 transition-all duration-300 ease-in-out"
+        :class="settingsPanelOpen ? 'mr-56' : 'mr-0'">
 
         <!-- Chat header with toggle button -->
-        <div class="border-b border-[var(--color-bg-secondary)] p-4 flex items-center justify-between">
+        <div class="flex-shrink-0 border-b border-[var(--color-bg-secondary)] p-4 flex items-center justify-between">
           <div class="flex items-center">
-            <!-- Sidebar toggle button moved to be the first element in the header and with clear styling -->
-            <button
-              @click="sidebarOpen = !sidebarOpen"
-              class="mr-4 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] focus:outline-none bg-[var(--color-bg-secondary)] hover:bg-[var(--color-bg-secondary)]/80 p-2 rounded transition-colors"
-              style="min-width: 36px;"
-              title="Toggle settings">
-              <i class="fa-solid" :class="sidebarOpen ? 'fa-chevron-left' : 'fa-bars'"></i>
-            </button>
-
             <div class="flex items-center">
               <i class="fa-solid fa-comments mr-2 text-[var(--color-primary)]"></i>
               <!-- Model icon - reactive to active chat -->
@@ -1151,6 +1146,13 @@ SOFTWARE.
               x-show="$store.chat.activeChat() && ($store.chat.activeChat()?.history?.length || 0) > 0">
               <i class="fa-solid fa-broom"></i>
             </button>
+            <!-- Settings panel toggle button -->
+            <button
+              @click="settingsPanelOpen = !settingsPanelOpen"
+              class="text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] focus:outline-none bg-[var(--color-bg-secondary)] hover:bg-[var(--color-bg-secondary)]/80 p-2 rounded transition-colors"
+              title="Toggle chat settings">
+              <i class="fa-solid" :class="settingsPanelOpen ? 'fa-chevron-right' : 'fa-cog'"></i>
+            </button>
           </div>
           
           <!-- Clear Chat Alert -->
@@ -1172,7 +1174,8 @@ SOFTWARE.
         </div>
 
         <!-- Chat messages area -->
-        <div class="flex-1 p-4 overflow-auto" id="chat">
+        <div class="flex-1 min-h-0 overflow-y-auto" id="chat">
+          <div class="p-4">
           <p id="usage" x-show="!$store.chat.activeChat() || ($store.chat.activeChat()?.history?.length || 0) === 0" class="text-[var(--color-text-secondary)]">
             Start chatting with the AI by typing a prompt in the input field below and pressing Enter.<br>
             <ul class="list-disc list-inside mt-2 space-y-1">
@@ -1367,11 +1370,11 @@ SOFTWARE.
               </div>
             </template>
           </div>
+          </div>
         </div>
 
-
           <!-- Chat Input -->
-          <div class="p-4 border-t border-[var(--color-bg-secondary)]" x-data="{ inputValue: '', shiftPressed: false, attachedFiles: [] }">
+          <div class="flex-shrink-0 p-4 border-t border-[var(--color-bg-secondary)] bg-[var(--color-bg-primary)]" x-data="{ inputValue: '', shiftPressed: false, attachedFiles: [] }">
             <form id="prompt" action="chat/{{.Model}}" method="get" @submit.prevent="submitPrompt" class="max-w-3xl mx-auto">
               <!-- Attachment Tags - Show above input when files are attached -->
               <div x-show="attachedFiles.length > 0" class="mb-3 flex flex-wrap gap-2 items-center">
@@ -1536,11 +1539,11 @@ SOFTWARE.
     <!-- Modal moved outside of sidebar to appear in center of page - Always available, content updated dynamically -->
     <div id="model-info-modal" tabindex="-1" aria-hidden="true" class="hidden overflow-y-auto overflow-x-hidden fixed top-0 right-0 left-0 z-50 flex justify-center items-center w-full h-full md:inset-0 max-h-full" style="padding: 1rem;">
       <div class="relative p-4 w-full max-w-2xl max-h-full">
-        <div class="relative p-4 w-full max-w-2xl max-h-full bg-white rounded-lg shadow dark:bg-gray-700">
+        <div class="relative p-4 w-full max-w-2xl max-h-full bg-[var(--color-bg-secondary)] rounded-lg shadow border border-[var(--color-border-subtle)]">
           <!-- Header -->
-          <div class="flex items-center justify-between p-4 md:p-5 border-b rounded-t dark:border-gray-600">
-            <h3 id="model-info-modal-title" class="text-xl font-semibold text-gray-900 dark:text-white">{{ if $model }}{{ $model }}{{ end }}</h3>
-            <button class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center dark:hover:bg-gray-600 dark:hover:text-white" data-modal-hide="model-info-modal" @click="if (window.closeModelInfoModal) { window.closeModelInfoModal(); }">
+          <div class="flex items-center justify-between p-4 md:p-5 border-b border-[var(--color-border-subtle)] rounded-t">
+            <h3 id="model-info-modal-title" class="text-xl font-semibold text-[var(--color-text-primary)]">{{ if $model }}{{ $model }}{{ end }}</h3>
+            <button class="text-[var(--color-text-secondary)] bg-transparent hover:bg-[var(--color-bg-primary)] hover:text-[var(--color-text-primary)] rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center transition-colors" data-modal-hide="model-info-modal" @click="if (window.closeModelInfoModal) { window.closeModelInfoModal(); }">
               <svg class="w-3 h-3" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
                 <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/>
               </svg>
@@ -1553,16 +1556,16 @@ SOFTWARE.
             <div class="flex justify-center items-center">
               <img id="model-info-modal-icon" class="lazy rounded-t-lg max-h-48 max-w-96 object-cover mt-3 entered loaded" style="display: none;" loading="lazy"/>
             </div>
-            <div id="model-info-description" class="text-base leading-relaxed text-gray-500 dark:text-gray-400 break-words max-w-full"></div>
-            <hr>
-            <p class="text-sm font-semibold text-gray-900 dark:text-white">Links</p>
+            <div id="model-info-description" class="text-base leading-relaxed text-[var(--color-text-secondary)] break-words max-w-full"></div>
+            <hr class="border-[var(--color-border-subtle)]">
+            <p class="text-sm font-semibold text-[var(--color-text-primary)]">Links</p>
             <ul id="model-info-links">
             </ul>
           </div>
 
           <!-- Footer -->
-          <div class="flex items-center p-4 md:p-5 border-t border-gray-200 rounded-b dark:border-gray-600">
-            <button data-modal-hide="model-info-modal" class="py-2.5 px-5 ms-3 text-sm font-medium text-gray-900 focus:outline-none bg-white rounded-lg border border-gray-200 hover:bg-gray-100 hover:text-blue-700 focus:z-10 focus:ring-4 focus:ring-gray-100 dark:focus:ring-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-600 dark:hover:text-white dark:hover:bg-gray-700" @click="if (window.closeModelInfoModal) { window.closeModelInfoModal(); }">
+          <div class="flex items-center p-4 md:p-5 border-t border-[var(--color-border-subtle)] rounded-b">
+            <button data-modal-hide="model-info-modal" class="py-2.5 px-5 ms-3 text-sm font-medium text-white focus:outline-none bg-[var(--color-primary)] rounded-lg border-none hover:bg-[var(--color-primary-hover)] focus:z-10 focus:ring-2 focus:ring-[var(--color-primary)]/50 transition-colors" @click="if (window.closeModelInfoModal) { window.closeModelInfoModal(); }">
               Close
             </button>
           </div>
@@ -1874,7 +1877,7 @@ SOFTWARE.
               let backdrop = document.querySelector('.modal-backdrop');
               if (!backdrop) {
                 backdrop = document.createElement('div');
-                backdrop.className = 'modal-backdrop fixed inset-0 bg-gray-900 bg-opacity-50 dark:bg-opacity-80 z-40';
+                backdrop.className = 'modal-backdrop fixed inset-0 bg-black/50 z-40';
                 document.body.appendChild(backdrop);
                 backdrop.addEventListener('click', () => {
                   closeModelInfoModal();
@@ -1962,7 +1965,7 @@ SOFTWARE.
             let backdrop = document.querySelector('.modal-backdrop');
             if (!backdrop) {
               backdrop = document.createElement('div');
-              backdrop.className = 'modal-backdrop fixed inset-0 bg-gray-900 bg-opacity-50 dark:bg-opacity-80 z-40';
+              backdrop.className = 'modal-backdrop fixed inset-0 bg-black/50 z-40';
               document.body.appendChild(backdrop);
               backdrop.addEventListener('click', () => {
                 window.closeModelInfoModal();
@@ -2065,8 +2068,8 @@ SOFTWARE.
         word-wrap: break-word;
         overflow-wrap: break-word;
         white-space: pre;
-        background: #101827 !important;
-        border: 1px solid #1E293B;
+        background: var(--color-bg-primary) !important;
+        border: 1px solid var(--color-border-subtle);
         border-radius: 6px;
         padding: 12px;
         margin: 0;
@@ -2079,7 +2082,7 @@ SOFTWARE.
         overflow-wrap: break-word;
         white-space: pre;
         background: transparent !important;
-        color: #E5E7EB;
+        color: var(--color-text-primary);
         font-family: 'ui-monospace', 'Monaco', 'Consolas', monospace;
         font-size: 0.875rem;
         line-height: 1.5;
@@ -2182,13 +2185,13 @@ SOFTWARE.
         height: 6px;
       }
 
-      .sidebar::-webkit-scrollbar-track,
+      .chat-settings-panel::-webkit-scrollbar-track,
       #chat::-webkit-scrollbar-track,
       #messages::-webkit-scrollbar-track {
         background: transparent;
       }
 
-      .sidebar::-webkit-scrollbar-thumb,
+      .chat-settings-panel::-webkit-scrollbar-thumb,
       #chat::-webkit-scrollbar-thumb,
       #messages::-webkit-scrollbar-thumb {
         background: rgba(148, 163, 184, 0.2);
@@ -2196,14 +2199,14 @@ SOFTWARE.
         transition: background 0.2s ease;
       }
 
-      .sidebar::-webkit-scrollbar-thumb:hover,
+      .chat-settings-panel::-webkit-scrollbar-thumb:hover,
       #chat::-webkit-scrollbar-thumb:hover,
       #messages::-webkit-scrollbar-thumb:hover {
         background: rgba(148, 163, 184, 0.4);
       }
 
       /* Firefox - Minimal */
-      .sidebar,
+      .chat-settings-panel,
       #chat,
       #messages {
         scrollbar-width: thin;
@@ -2234,5 +2237,8 @@ SOFTWARE.
         scrollbar-color: rgba(148, 163, 184, 0.15) transparent;
       }
     </style>
+      </div>
+    </main>
+  </div>
   </body>
 </html>

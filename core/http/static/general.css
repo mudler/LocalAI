@@ -1,6 +1,49 @@
+/* Layout Structure */
+html {
+  height: 100%;
+}
+
 body {
     font-family: var(--font-body, 'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif);
+    margin: 0;
+    padding: 0;
+    min-height: 100%;
+    background-color: var(--color-bg-primary);
+    color: var(--color-text-primary);
+    transition: background-color var(--duration-normal) var(--ease-default),
+                color var(--duration-normal) var(--ease-default);
 }
+
+.app-layout {
+  display: flex;
+  min-height: 100vh;
+  background-color: var(--color-bg-primary);
+}
+
+.main-content {
+  flex: 1;
+  margin-left: var(--sidebar-width);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--color-bg-primary);
+  transition: margin-left var(--duration-normal) var(--ease-default);
+}
+
+.main-content-inner {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--color-bg-primary);
+}
+
+/* Tablet and mobile */
+@media (max-width: 1023px) {
+  .main-content {
+    margin-left: 0;
+  }
+}
+
 .chat-container { height: 90vh; display: flex; flex-direction: column; }
 .chat-messages { overflow-y: auto; flex-grow: 1; }
 .htmx-indicator{

@@ -3,10 +3,12 @@
 {{template "views/partials/head" .}}
 <script defer src="static/image.js"></script>
 
-<body class="bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] flex flex-col h-screen">
-<div class="flex flex-col flex-1 overflow-hidden">
-   
-    {{template "views/partials/navbar" .}}
+<body class="bg-[var(--color-bg-primary)] text-[var(--color-text-primary)]">
+<div class="app-layout">
+  {{template "views/partials/navbar" .}}
+  
+  <main class="main-content">
+    <div class="main-content-inner h-screen flex flex-col">
     <div class="flex flex-1 overflow-hidden">
         <!-- Two Column Layout: Settings on Left, Preview on Right -->
         <div class="flex flex-col lg:flex-row flex-1 gap-4 p-4 overflow-hidden">
@@ -237,6 +239,8 @@
         </div>
     </div>
 
+    </div>
+  </main>
 </div>
 
 <script>

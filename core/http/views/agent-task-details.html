@@ -2,20 +2,22 @@
 <html lang="en">
 {{template "views/partials/head" .}}
 
-<body class="bg-[#101827] text-[#E5E7EB]">
-<div class="flex flex-col min-h-screen" x-data="taskDetails()" x-init="init()">
-
-    {{template "views/partials/navbar" .}}
+<body class="bg-[var(--color-bg-primary)] text-[var(--color-text-primary)]">
+<div class="app-layout">
+  {{template "views/partials/navbar" .}}
+  
+  <main class="main-content">
+    <div class="main-content-inner" x-data="taskDetails()" x-init="init()">
 
     <div class="container mx-auto px-4 py-8 flex-grow max-w-6xl">
         <!-- Header -->
-        <div class="bg-[#1E293B] border border-[#38BDF8]/20 rounded-xl p-8 mb-8">
+        <div class="bg-[var(--color-bg-secondary)] border border-[var(--color-primary)]/20 rounded-xl p-8 mb-8">
             <div class="flex justify-between items-center">
                 <div>
                     <h1 class="hero-title">
                         <span x-text="isNewTask ? 'Create Task' : (isEditMode ? 'Edit Task' : 'Task Details')"></span>
                     </h1>
-                    <p class="text-lg text-[#94A3B8]" x-text="isNewTask ? 'Create a new agent task' : (task ? task.name : 'Loading...')"></p>
+                    <p class="text-lg text-[var(--color-text-secondary)]" x-text="isNewTask ? 'Create a new agent task' : (task ? task.name : 'Loading...')"></p>
                 </div>
                 <div class="flex space-x-3">
                     <template x-if="!isNewTask && !isEditMode">
@@ -37,7 +39,7 @@
                     <template x-if="isEditMode || isNewTask">
                         <div class="flex space-x-3">
                             <button @click="cancelEdit()" 
-                                    class="bg-[#1E293B] hover:bg-[#2D3A4F] text-white px-4 py-2 rounded-lg transition-colors">
+                                    class="bg-[var(--color-bg-secondary)] hover:bg-[var(--color-bg-primary)] text-white px-4 py-2 rounded-lg transition-colors">
                                 Cancel
                             </button>
                             <button @click="saveTask()" 
@@ -46,7 +48,7 @@
                             </button>
                         </div>
                     </template>
-                    <a href="/agent-jobs" class="text-[#94A3B8] hover:text-[#E5E7EB] px-4 py-2">
+                    <a href="/agent-jobs" class="text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] px-4 py-2">
                         <i class="fas fa-arrow-left mr-2"></i>Back
                     </a>
                 </div>
@@ -57,62 +59,62 @@
         <template x-if="isEditMode || isNewTask">
             <form @submit.prevent="saveTask()" class="space-y-8">
                 <!-- Basic Information -->
-                <div class="bg-[#1E293B] border border-[#38BDF8]/20 rounded-xl p-8">
-                    <h2 class="text-2xl font-semibold text-[#E5E7EB] mb-6">Basic Information</h2>
+                <div class="bg-[var(--color-bg-secondary)] border border-[var(--color-primary)]/20 rounded-xl p-8">
+                    <h2 class="text-2xl font-semibold text-[var(--color-text-primary)] mb-6">Basic Information</h2>
                     
                     <div class="space-y-6">
                         <div>
-                            <label class="block text-[#E5E7EB] mb-2">Name *</label>
+                            <label class="block text-[var(--color-text-primary)] mb-2">Name *</label>
                             <input type="text" x-model="taskForm.name" required
-                                   class="w-full bg-[#101827] border border-[#38BDF8]/20 rounded px-4 py-2 text-[#E5E7EB] focus:border-[#38BDF8] focus:ring-2 focus:ring-[#38BDF8]/50">
+                                   class="w-full bg-[var(--color-bg-primary)] border border-[var(--color-primary)]/20 rounded px-4 py-2 text-[var(--color-text-primary)] focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/50">
                         </div>
 
                         <div>
-                            <label class="block text-[#E5E7EB] mb-2">Description</label>
+                            <label class="block text-[var(--color-text-primary)] mb-2">Description</label>
                             <textarea x-model="taskForm.description" rows="3"
-                                       class="w-full bg-[#101827] border border-[#38BDF8]/20 rounded px-4 py-2 text-[#E5E7EB] focus:border-[#38BDF8] focus:ring-2 focus:ring-[#38BDF8]/50"></textarea>
+                                       class="w-full bg-[var(--color-bg-primary)] border border-[var(--color-primary)]/20 rounded px-4 py-2 text-[var(--color-text-primary)] focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/50"></textarea>
                         </div>
 
                         <div>
-                            <label class="block text-[#E5E7EB] mb-2">Model *</label>
+                            <label class="block text-[var(--color-text-primary)] mb-2">Model *</label>
                             <select x-model="taskForm.model" required
-                                    class="w-full bg-[#101827] border border-[#38BDF8]/20 rounded px-4 py-2 text-[#E5E7EB] focus:border-[#38BDF8] focus:ring-2 focus:ring-[#38BDF8]/50">
+                                    class="w-full bg-[var(--color-bg-primary)] border border-[var(--color-primary)]/20 rounded px-4 py-2 text-[var(--color-text-primary)] focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/50">
                                 <option value="">Select a model with MCP configuration...</option>
                                 {{ range .ModelsConfig }}
                                 {{ $cfg := . }}
                                 {{ $hasMCP := or (ne $cfg.MCP.Servers "") (ne $cfg.MCP.Stdio "") }}
                                 {{ if $hasMCP }}
-                                <option value="{{$cfg.Name}}" class="bg-[#1E293B] text-[#E5E7EB]">{{$cfg.Name}}</option>
+                                <option value="{{$cfg.Name}}" class="bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)]">{{$cfg.Name}}</option>
                                 {{ end }}
                                 {{ end }}
                             </select>
-                            <p class="text-sm text-[#94A3B8] mt-1">Only models with MCP configuration are shown</p>
+                            <p class="text-sm text-[var(--color-text-secondary)] mt-1">Only models with MCP configuration are shown</p>
                         </div>
 
                         <div>
                             <label class="flex items-center">
                                 <input type="checkbox" x-model="taskForm.enabled"
                                        class="mr-2">
-                                <span class="text-[#E5E7EB]">Enabled</span>
+                                <span class="text-[var(--color-text-primary)]">Enabled</span>
                             </label>
                         </div>
                     </div>
                 </div>
 
                 <!-- Prompt Template -->
-                <div class="bg-[#1E293B] border border-[#38BDF8]/20 rounded-xl p-8">
-                    <h2 class="text-2xl font-semibold text-[#E5E7EB] mb-6">Prompt Template</h2>
+                <div class="bg-[var(--color-bg-secondary)] border border-[var(--color-primary)]/20 rounded-xl p-8">
+                    <h2 class="text-2xl font-semibold text-[var(--color-text-primary)] mb-6">Prompt Template</h2>
                     <div>
-                        <label class="block text-[#E5E7EB] mb-2">Prompt *</label>
-                        <p class="text-sm text-[#94A3B8] mb-4">
-                            Use Go template syntax with <code class="bg-[#101827] px-1.5 py-0.5 rounded text-[#38BDF8]">{{"{{"}}.param{{"}}"}}</code> for dynamic parameters. 
+                        <label class="block text-[var(--color-text-primary)] mb-2">Prompt *</label>
+                        <p class="text-sm text-[var(--color-text-secondary)] mb-4">
+                            Use Go template syntax with <code class="bg-[var(--color-bg-primary)] px-1.5 py-0.5 rounded text-[var(--color-primary)]">{{"{{"}}.param{{"}}"}}</code> for dynamic parameters. 
                             Parameters are provided when executing the job and will be substituted into the prompt.
                         </p>
                         
                         <!-- Example Prompt -->
-                        <div class="bg-[#101827] border border-[#38BDF8]/10 rounded-lg p-4 mb-4">
-                            <p class="text-xs text-[#94A3B8] mb-2 font-semibold">Example Prompt:</p>
-                            <pre class="text-xs text-[#E5E7EB] font-mono whitespace-pre-wrap">You are a helpful assistant. The user's name is {{"{{"}}.user_name{{"}}"}} and they work as a {{"{{"}}.job_title{{"}}"}}.
+                        <div class="bg-[var(--color-bg-primary)] border border-[var(--color-primary)]/10 rounded-lg p-4 mb-4">
+                            <p class="text-xs text-[var(--color-text-secondary)] mb-2 font-semibold">Example Prompt:</p>
+                            <pre class="text-xs text-[var(--color-text-primary)] font-mono whitespace-pre-wrap">You are a helpful assistant. The user's name is {{"{{"}}.user_name{{"}}"}} and they work as a {{"{{"}}.job_title{{"}}"}}.
 
 Please help them with the following task: {{"{{"}}.task_description{{"}}"}}
 
@@ -121,8 +123,8 @@ Provide a detailed response that addresses their specific needs.</pre>
                         
                         <textarea x-model="taskForm.prompt" required rows="12"
                                    placeholder="Enter your prompt template here. Use {{.parameter_name}} to reference parameters that will be provided when the job executes."
-                                   class="w-full bg-[#101827] border border-[#38BDF8]/20 rounded px-4 py-2 text-[#E5E7EB] font-mono text-sm focus:border-[#38BDF8] focus:ring-2 focus:ring-[#38BDF8]/50"></textarea>
-                        <p class="text-xs text-[#94A3B8] mt-2">
+                                   class="w-full bg-[var(--color-bg-primary)] border border-[var(--color-primary)]/20 rounded px-4 py-2 text-[var(--color-text-primary)] font-mono text-sm focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/50"></textarea>
+                        <p class="text-xs text-[var(--color-text-secondary)] mt-2">
                             <i class="fas fa-info-circle mr-1"></i>
                             The prompt will be processed as a Go template. All parameters passed during job execution will be available as template variables.
                         </p>
@@ -130,25 +132,25 @@ Provide a detailed response that addresses their specific needs.</pre>
                 </div>
 
                 <!-- Cron Schedule -->
-                <div class="bg-[#1E293B] border border-[#38BDF8]/20 rounded-xl p-8">
-                    <h2 class="text-2xl font-semibold text-[#E5E7EB] mb-6">Cron Schedule (Optional)</h2>
+                <div class="bg-[var(--color-bg-secondary)] border border-[var(--color-primary)]/20 rounded-xl p-8">
+                    <h2 class="text-2xl font-semibold text-[var(--color-text-primary)] mb-6">Cron Schedule (Optional)</h2>
                     <div class="space-y-6">
                         <div>
-                            <label class="block text-[#E5E7EB] mb-2">Cron Expression</label>
+                            <label class="block text-[var(--color-text-primary)] mb-2">Cron Expression</label>
                             <input type="text" 
                                    x-model="taskForm.cron" 
                                    @blur="validateCron(taskForm.cron)"
                                    @input="cronError = ''"
                                    placeholder="0 0 * * * (daily at midnight)"
-                                   :class="cronError ? 'w-full bg-[#101827] border border-red-500 rounded px-4 py-2 text-[#E5E7EB] focus:border-red-500 focus:ring-2 focus:ring-red-500/50' : 'w-full bg-[#101827] border border-[#38BDF8]/20 rounded px-4 py-2 text-[#E5E7EB] focus:border-[#38BDF8] focus:ring-2 focus:ring-[#38BDF8]/50'">
-                            <p class="text-sm text-[#94A3B8] mt-1">Standard 5-field cron format (minute hour day month weekday)</p>
+                                   :class="cronError ? 'w-full bg-[var(--color-bg-primary)] border border-red-500 rounded px-4 py-2 text-[var(--color-text-primary)] focus:border-red-500 focus:ring-2 focus:ring-red-500/50' : 'w-full bg-[var(--color-bg-primary)] border border-[var(--color-primary)]/20 rounded px-4 py-2 text-[var(--color-text-primary)] focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/50'">
+                            <p class="text-sm text-[var(--color-text-secondary)] mt-1">Standard 5-field cron format (minute hour day month weekday)</p>
                             <p x-show="cronError" class="text-sm text-red-400 mt-2" x-text="cronError"></p>
                         </div>
                         
                         <!-- Cron Parameters -->
                         <div>
-                            <label class="block text-[#E5E7EB] mb-2">Cron Parameters (Optional)</label>
-                            <p class="text-sm text-[#94A3B8] mb-3">
+                            <label class="block text-[var(--color-text-primary)] mb-2">Cron Parameters (Optional)</label>
+                            <p class="text-sm text-[var(--color-text-secondary)] mb-3">
                                 Parameters to use when executing jobs triggered by cron. These will be used to template the prompt.
                                 Enter as key-value pairs (one per line, format: key=value).
                             </p>
@@ -156,27 +158,27 @@ Provide a detailed response that addresses their specific needs.</pre>
                                       @input="updateCronParameters()"
                                       rows="6"
                                       placeholder="user_name=Alice&#10;job_title=Software Engineer&#10;task_description=Daily status report"
-                                      class="w-full bg-[#101827] border border-[#38BDF8]/20 rounded px-4 py-2 text-[#E5E7EB] font-mono text-sm focus:border-[#38BDF8] focus:ring-2 focus:ring-[#38BDF8]/50"></textarea>
-                            <p class="text-xs text-[#94A3B8] mt-1">
+                                      class="w-full bg-[var(--color-bg-primary)] border border-[var(--color-primary)]/20 rounded px-4 py-2 text-[var(--color-text-primary)] font-mono text-sm focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/50"></textarea>
+                            <p class="text-xs text-[var(--color-text-secondary)] mt-1">
                                 <i class="fas fa-info-circle mr-1"></i>
-                                Example: <code class="bg-[#101827] px-1 py-0.5 rounded text-[#38BDF8]">user_name=Alice</code>
+                                Example: <code class="bg-[var(--color-bg-primary)] px-1 py-0.5 rounded text-[var(--color-primary)]">user_name=Alice</code>
                             </p>
                         </div>
                     </div>
                 </div>
 
                 <!-- Multimedia Sources Configuration -->
-                <div class="bg-[#1E293B] border border-[#38BDF8]/20 rounded-xl p-8">
-                    <h2 class="text-2xl font-semibold text-[#E5E7EB] mb-6">Multimedia Sources (Optional)</h2>
-                    <p class="text-sm text-[#94A3B8] mb-4">
+                <div class="bg-[var(--color-bg-secondary)] border border-[var(--color-primary)]/20 rounded-xl p-8">
+                    <h2 class="text-2xl font-semibold text-[var(--color-text-primary)] mb-6">Multimedia Sources (Optional)</h2>
+                    <p class="text-sm text-[var(--color-text-secondary)] mb-4">
                         Configure multimedia sources (images, videos, audios, files) to fetch when cron jobs execute. 
                         Each source can have custom headers for authentication/authorization. These will be fetched and included in the job execution.
                     </p>
                     <div class="space-y-4">
                         <template x-for="(source, index) in taskForm.multimedia_sources" :key="index">
-                            <div class="bg-[#101827] p-4 rounded border border-[#38BDF8]/10">
+                            <div class="bg-[var(--color-bg-primary)] p-4 rounded border border-[var(--color-primary)]/10">
                                 <div class="flex justify-between items-center mb-4">
-                                    <h3 class="text-lg font-semibold text-[#E5E7EB]">Multimedia Source <span x-text="index + 1"></span></h3>
+                                    <h3 class="text-lg font-semibold text-[var(--color-text-primary)]">Multimedia Source <span x-text="index + 1"></span></h3>
                                     <button type="button" @click="taskForm.multimedia_sources.splice(index, 1)" 
                                             class="text-red-400 hover:text-red-300">
                                         <i class="fas fa-trash"></i>
@@ -184,9 +186,9 @@ Provide a detailed response that addresses their specific needs.</pre>
                                 </div>
                                 <div class="space-y-4">
                                     <div>
-                                        <label class="block text-[#E5E7EB] mb-2">Type *</label>
+                                        <label class="block text-[var(--color-text-primary)] mb-2">Type *</label>
                                         <select x-model="source.type" required
-                                                class="w-full bg-[#0A0E1A] border border-[#38BDF8]/20 rounded px-4 py-2 text-[#E5E7EB] focus:border-[#38BDF8] focus:ring-2 focus:ring-[#38BDF8]/50">
+                                                class="w-full bg-[var(--color-bg-tertiary)] border border-[var(--color-primary)]/20 rounded px-4 py-2 text-[var(--color-text-primary)] focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/50">
                                             <option value="">Select type...</option>
                                             <option value="image">Image</option>
                                             <option value="video">Video</option>
@@ -195,40 +197,40 @@ Provide a detailed response that addresses their specific needs.</pre>
                                         </select>
                                     </div>
                                     <div>
-                                        <label class="block text-[#E5E7EB] mb-2">URL *</label>
+                                        <label class="block text-[var(--color-text-primary)] mb-2">URL *</label>
                                         <input type="url" x-model="source.url" required
                                                placeholder="https://example.com/image.png"
-                                               class="w-full bg-[#0A0E1A] border border-[#38BDF8]/20 rounded px-4 py-2 text-[#E5E7EB] focus:border-[#38BDF8] focus:ring-2 focus:ring-[#38BDF8]/50">
-                                        <p class="text-xs text-[#94A3B8] mt-1">URL where multimedia content will be fetched from</p>
+                                               class="w-full bg-[var(--color-bg-tertiary)] border border-[var(--color-primary)]/20 rounded px-4 py-2 text-[var(--color-text-primary)] focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/50">
+                                        <p class="text-xs text-[var(--color-text-secondary)] mt-1">URL where multimedia content will be fetched from</p>
                                     </div>
                                     <div>
-                                        <label class="block text-[#E5E7EB] mb-2">Headers (JSON)</label>
+                                        <label class="block text-[var(--color-text-primary)] mb-2">Headers (JSON)</label>
                                         <textarea x-model="source.headers_json" rows="3"
                                                   placeholder='{"Authorization": "Bearer token"}'
-                                                  class="w-full bg-[#0A0E1A] border border-[#38BDF8]/20 rounded px-4 py-2 text-[#E5E7EB] font-mono text-sm focus:border-[#38BDF8] focus:ring-2 focus:ring-[#38BDF8]/50"></textarea>
-                                        <p class="text-xs text-[#94A3B8] mt-1">Custom headers for the HTTP request (e.g., Authorization)</p>
+                                                  class="w-full bg-[var(--color-bg-tertiary)] border border-[var(--color-primary)]/20 rounded px-4 py-2 text-[var(--color-text-primary)] font-mono text-sm focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/50"></textarea>
+                                        <p class="text-xs text-[var(--color-text-secondary)] mt-1">Custom headers for the HTTP request (e.g., Authorization)</p>
                                     </div>
                                 </div>
                             </div>
                         </template>
                         <button type="button" @click="addMultimediaSource()" 
-                                class="w-full bg-[#101827] hover:bg-[#0A0E1A] border border-[#38BDF8]/20 border-dashed rounded-lg p-4 text-[#94A3B8] hover:text-[#E5E7EB] transition-colors">
+                                class="w-full bg-[var(--color-bg-primary)] hover:bg-[var(--color-bg-tertiary)] border border-[var(--color-primary)]/20 border-dashed rounded-lg p-4 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors">
                             <i class="fas fa-plus mr-2"></i>Add Multimedia Source
                         </button>
                     </div>
                 </div>
 
                 <!-- Webhook Configuration -->
-                <div class="bg-[#1E293B] border border-[#38BDF8]/20 rounded-xl p-8">
-                    <h2 class="text-2xl font-semibold text-[#E5E7EB] mb-6">Webhooks (Optional)</h2>
-                    <p class="text-sm text-[#94A3B8] mb-4">
+                <div class="bg-[var(--color-bg-secondary)] border border-[var(--color-primary)]/20 rounded-xl p-8">
+                    <h2 class="text-2xl font-semibold text-[var(--color-text-primary)] mb-6">Webhooks (Optional)</h2>
+                    <p class="text-sm text-[var(--color-text-secondary)] mb-4">
                         Configure webhook URLs to receive notifications when jobs complete. You can add multiple webhooks, each with custom headers and HTTP methods.
                     </p>
                     <div class="space-y-4">
                         <template x-for="(webhook, index) in taskForm.webhooks" :key="index">
-                            <div class="bg-[#101827] p-4 rounded border border-[#38BDF8]/10">
+                            <div class="bg-[var(--color-bg-primary)] p-4 rounded border border-[var(--color-primary)]/10">
                                 <div class="flex justify-between items-center mb-4">
-                                    <h3 class="text-lg font-semibold text-[#E5E7EB]">Webhook <span x-text="index + 1"></span></h3>
+                                    <h3 class="text-lg font-semibold text-[var(--color-text-primary)]">Webhook <span x-text="index + 1"></span></h3>
                                     <button type="button" @click="taskForm.webhooks.splice(index, 1)" 
                                             class="text-red-400 hover:text-red-300">
                                         <i class="fas fa-trash"></i>
@@ -236,35 +238,35 @@ Provide a detailed response that addresses their specific needs.</pre>
                                 </div>
                                 <div class="space-y-4">
                                     <div>
-                                        <label class="block text-[#E5E7EB] mb-2">URL *</label>
+                                        <label class="block text-[var(--color-text-primary)] mb-2">URL *</label>
                                         <input type="url" x-model="webhook.url" required
                                                placeholder="https://hooks.slack.com/services/YOUR/WEBHOOK/URL"
-                                               class="w-full bg-[#0A0E1A] border border-[#38BDF8]/20 rounded px-4 py-2 text-[#E5E7EB] focus:border-[#38BDF8] focus:ring-2 focus:ring-[#38BDF8]/50">
-                                        <p class="text-xs text-[#94A3B8] mt-1">URL where webhook notifications will be sent</p>
+                                               class="w-full bg-[var(--color-bg-tertiary)] border border-[var(--color-primary)]/20 rounded px-4 py-2 text-[var(--color-text-primary)] focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/50">
+                                        <p class="text-xs text-[var(--color-text-secondary)] mt-1">URL where webhook notifications will be sent</p>
                                     </div>
                                     <div>
-                                        <label class="block text-[#E5E7EB] mb-2">HTTP Method</label>
+                                        <label class="block text-[var(--color-text-primary)] mb-2">HTTP Method</label>
                                         <select x-model="webhook.method"
-                                                class="w-full bg-[#0A0E1A] border border-[#38BDF8]/20 rounded px-4 py-2 text-[#E5E7EB] focus:border-[#38BDF8] focus:ring-2 focus:ring-[#38BDF8]/50">
+                                                class="w-full bg-[var(--color-bg-tertiary)] border border-[var(--color-primary)]/20 rounded px-4 py-2 text-[var(--color-text-primary)] focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/50">
                                             <option value="POST">POST</option>
                                             <option value="PUT">PUT</option>
                                             <option value="PATCH">PATCH</option>
                                         </select>
                                     </div>
                                     <div>
-                                        <label class="block text-[#E5E7EB] mb-2">Headers (JSON)</label>
+                                        <label class="block text-[var(--color-text-primary)] mb-2">Headers (JSON)</label>
                                         <textarea x-model="webhook.headers_json" rows="3"
                                                   placeholder='{"Authorization": "Bearer token", "Content-Type": "application/json"}'
-                                                  class="w-full bg-[#0A0E1A] border border-[#38BDF8]/20 rounded px-4 py-2 text-[#E5E7EB] font-mono text-sm focus:border-[#38BDF8] focus:ring-2 focus:ring-[#38BDF8]/50"></textarea>
-                                        <p class="text-xs text-[#94A3B8] mt-1">Custom headers for the webhook request (e.g., Authorization)</p>
+                                                  class="w-full bg-[var(--color-bg-tertiary)] border border-[var(--color-primary)]/20 rounded px-4 py-2 text-[var(--color-text-primary)] font-mono text-sm focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/50"></textarea>
+                                        <p class="text-xs text-[var(--color-text-secondary)] mt-1">Custom headers for the webhook request (e.g., Authorization)</p>
                                     </div>
                                     <div>
-                                        <label class="block text-[#E5E7EB] mb-2">Custom Payload Template (Optional)</label>
-                                        <p class="text-xs text-[#94A3B8] mb-2">Customize the webhook payload using Go template syntax. Available variables: <code class="bg-[#101827] px-1 py-0.5 rounded text-[#38BDF8]">.Job</code>, <code class="bg-[#101827] px-1 py-0.5 rounded text-[#38BDF8]">.Task</code>, <code class="bg-[#101827] px-1 py-0.5 rounded text-[#38BDF8]">.Result</code>, <code class="bg-[#101827] px-1 py-0.5 rounded text-[#38BDF8]">.Error</code>, <code class="bg-[#101827] px-1 py-0.5 rounded text-[#38BDF8]">.Status</code></p>
-                                        <p class="text-xs text-[#94A3B8] mb-2">Note: <code class="bg-[#101827] px-1 py-0.5 rounded text-[#38BDF8]">.Error</code> will be empty string if job succeeded, or contain the error message if it failed. Use this to handle both success and failure cases in a single webhook.</p>
-                                        <div class="bg-[#0A0E1A] border border-[#38BDF8]/10 rounded-lg p-3 mb-2">
-                                            <p class="text-xs text-[#94A3B8] mb-1 font-semibold">Example (Slack with error handling):</p>
-                                            <pre class="text-xs text-[#E5E7EB] font-mono whitespace-pre-wrap">{
+                                        <label class="block text-[var(--color-text-primary)] mb-2">Custom Payload Template (Optional)</label>
+                                        <p class="text-xs text-[var(--color-text-secondary)] mb-2">Customize the webhook payload using Go template syntax. Available variables: <code class="bg-[var(--color-bg-primary)] px-1 py-0.5 rounded text-[var(--color-primary)]">.Job</code>, <code class="bg-[var(--color-bg-primary)] px-1 py-0.5 rounded text-[var(--color-primary)]">.Task</code>, <code class="bg-[var(--color-bg-primary)] px-1 py-0.5 rounded text-[var(--color-primary)]">.Result</code>, <code class="bg-[var(--color-bg-primary)] px-1 py-0.5 rounded text-[var(--color-primary)]">.Error</code>, <code class="bg-[var(--color-bg-primary)] px-1 py-0.5 rounded text-[var(--color-primary)]">.Status</code></p>
+                                        <p class="text-xs text-[var(--color-text-secondary)] mb-2">Note: <code class="bg-[var(--color-bg-primary)] px-1 py-0.5 rounded text-[var(--color-primary)]">.Error</code> will be empty string if job succeeded, or contain the error message if it failed. Use this to handle both success and failure cases in a single webhook.</p>
+                                        <div class="bg-[var(--color-bg-tertiary)] border border-[var(--color-primary)]/10 rounded-lg p-3 mb-2">
+                                            <p class="text-xs text-[var(--color-text-secondary)] mb-1 font-semibold">Example (Slack with error handling):</p>
+                                            <pre class="text-xs text-[var(--color-text-primary)] font-mono whitespace-pre-wrap">{
   "text": "Job {{.Job.ID}} {{if .Error}}failed{{else}}completed{{end}}",
   "blocks": [
     {
@@ -279,13 +281,13 @@ Provide a detailed response that addresses their specific needs.</pre>
                                         </div>
                                         <textarea x-model="webhook.payload_template" rows="5"
                                                   placeholder='{"text": "Job {{.Job.ID}} completed with status {{.Status}}", "error": "{{.Error}}"}'
-                                                  class="w-full bg-[#0A0E1A] border border-[#38BDF8]/20 rounded px-4 py-2 text-[#E5E7EB] font-mono text-sm focus:border-[#38BDF8] focus:ring-2 focus:ring-[#38BDF8]/50"></textarea>
+                                                  class="w-full bg-[var(--color-bg-tertiary)] border border-[var(--color-primary)]/20 rounded px-4 py-2 text-[var(--color-text-primary)] font-mono text-sm focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/50"></textarea>
                                     </div>
                                 </div>
                             </div>
                         </template>
                         <button type="button" @click="addWebhook()" 
-                                class="w-full bg-[#101827] border border-[#38BDF8]/20 hover:border-[#38BDF8]/40 rounded px-4 py-3 text-[#38BDF8] transition-colors">
+                                class="w-full bg-[var(--color-bg-primary)] border border-[var(--color-primary)]/20 hover:border-[var(--color-primary)]/40 rounded px-4 py-3 text-[var(--color-primary)] transition-colors">
                             <i class="fas fa-plus mr-2"></i>Add Webhook
                         </button>
                     </div>
@@ -297,15 +299,15 @@ Provide a detailed response that addresses their specific needs.</pre>
         <!-- Task Information (always visible when not in edit mode and not creating new task) -->
         <div x-show="!isEditMode && !isNewTask" x-cloak>
             <!-- Task Information -->
-            <div class="bg-[#1E293B] border border-[#38BDF8]/20 rounded-xl p-8 mb-8">
-                <h2 class="text-2xl font-semibold text-[#E5E7EB] mb-6">Task Information</h2>
+            <div class="bg-[var(--color-bg-secondary)] border border-[var(--color-primary)]/20 rounded-xl p-8 mb-8">
+                <h2 class="text-2xl font-semibold text-[var(--color-text-primary)] mb-6">Task Information</h2>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                        <label class="text-[#94A3B8] text-sm">Name</label>
-                        <div class="text-[#E5E7EB] mt-1 font-semibold" x-text="task ? task.name : 'Loading...'"></div>
+                        <label class="text-[var(--color-text-secondary)] text-sm">Name</label>
+                        <div class="text-[var(--color-text-primary)] mt-1 font-semibold" x-text="task ? task.name : 'Loading...'"></div>
                     </div>
                     <div>
-                        <label class="text-[#94A3B8] text-sm">Status</label>
+                        <label class="text-[var(--color-text-secondary)] text-sm">Status</label>
                         <div class="mt-1">
                             <span :class="task && task.enabled ? 'bg-green-500' : 'bg-gray-500'" 
                                   class="px-2 py-1 rounded text-xs text-white" 
@@ -313,10 +315,10 @@ Provide a detailed response that addresses their specific needs.</pre>
                         </div>
                     </div>
                     <div>
-                        <label class="text-[#94A3B8] text-sm">Model</label>
+                        <label class="text-[var(--color-text-secondary)] text-sm">Model</label>
                         <div class="mt-1 flex items-center space-x-2">
                             <a :href="task ? '/chat/' + task.model + '?mcp=true' : '#'" 
-                               class="text-[#38BDF8] hover:text-[#38BDF8]/80 hover:underline" 
+                               class="text-[var(--color-primary)] hover:text-[var(--color-primary)]/80 hover:underline" 
                                x-text="task ? task.model : '-'"></a>
                             <a :href="task ? '/models/edit/' + task.model : '#'" 
                                class="text-yellow-400 hover:text-yellow-300"
@@ -326,47 +328,47 @@ Provide a detailed response that addresses their specific needs.</pre>
                         </div>
                     </div>
                     <div>
-                        <label class="text-[#94A3B8] text-sm">Cron Schedule</label>
-                        <div class="text-[#E5E7EB] mt-1 font-mono text-sm" x-text="task && task.cron ? task.cron : '-'"></div>
+                        <label class="text-[var(--color-text-secondary)] text-sm">Cron Schedule</label>
+                        <div class="text-[var(--color-text-primary)] mt-1 font-mono text-sm" x-text="task && task.cron ? task.cron : '-'"></div>
                     </div>
                     <div class="md:col-span-2" x-show="task && task.cron_parameters && Object.keys(task.cron_parameters).length > 0">
-                        <label class="text-[#94A3B8] text-sm">Cron Parameters</label>
+                        <label class="text-[var(--color-text-secondary)] text-sm">Cron Parameters</label>
                         <div class="mt-1">
                             <template x-for="(value, key) in task.cron_parameters" :key="key">
-                                <div class="text-[#E5E7EB] text-sm mb-1">
-                                    <span class="font-semibold text-[#38BDF8]" x-text="key + ':'"></span>
+                                <div class="text-[var(--color-text-primary)] text-sm mb-1">
+                                    <span class="font-semibold text-[var(--color-primary)]" x-text="key + ':'"></span>
                                     <span x-text="value"></span>
                                 </div>
                             </template>
                         </div>
                     </div>
                     <div class="md:col-span-2">
-                        <label class="text-[#94A3B8] text-sm">Description</label>
-                        <div class="text-[#E5E7EB] mt-1" x-text="task && task.description ? task.description : 'No description'"></div>
+                        <label class="text-[var(--color-text-secondary)] text-sm">Description</label>
+                        <div class="text-[var(--color-text-primary)] mt-1" x-text="task && task.description ? task.description : 'No description'"></div>
                     </div>
                     <div class="md:col-span-2">
-                        <label class="text-[#94A3B8] text-sm">Prompt Template</label>
-                        <pre class="bg-[#101827] p-4 rounded text-[#E5E7EB] text-sm mt-1 whitespace-pre-wrap" x-text="task ? task.prompt : '-'"></pre>
+                        <label class="text-[var(--color-text-secondary)] text-sm">Prompt Template</label>
+                        <pre class="bg-[var(--color-bg-primary)] p-4 rounded text-[var(--color-text-primary)] text-sm mt-1 whitespace-pre-wrap" x-text="task ? task.prompt : '-'"></pre>
                     </div>
                 </div>
             </div>
 
             <!-- API Usage Examples -->
-            <div class="bg-[#1E293B] border border-[#38BDF8]/20 rounded-xl p-8 mb-8" x-show="task && task.id">
-                <h2 class="text-2xl font-semibold text-[#E5E7EB] mb-6">API Usage Examples</h2>
-                <p class="text-sm text-[#94A3B8] mb-4">
+            <div class="bg-[var(--color-bg-secondary)] border border-[var(--color-primary)]/20 rounded-xl p-8 mb-8" x-show="task && task.id">
+                <h2 class="text-2xl font-semibold text-[var(--color-text-primary)] mb-6">API Usage Examples</h2>
+                <p class="text-sm text-[var(--color-text-secondary)] mb-4">
                     Use these curl commands to interact with this task programmatically.
                 </p>
                 
                 <div class="space-y-6">
                     <!-- Execute Task by ID -->
                     <div>
-                        <h3 class="text-lg font-semibold text-[#E5E7EB] mb-3 flex items-center">
-                            <i class="fas fa-play text-[#38BDF8] mr-2"></i>
+                        <h3 class="text-lg font-semibold text-[var(--color-text-primary)] mb-3 flex items-center">
+                            <i class="fas fa-play text-[var(--color-primary)] mr-2"></i>
                             Execute Task by ID
                         </h3>
-                        <div class="bg-[#101827] border border-[#38BDF8]/10 rounded-lg p-4">
-                            <pre class="text-xs text-[#E5E7EB] font-mono overflow-x-auto"><code>curl -X POST {{ .BaseURL }}api/agent/jobs/execute \
+                        <div class="bg-[var(--color-bg-primary)] border border-[var(--color-primary)]/10 rounded-lg p-4">
+                            <pre class="text-xs text-[var(--color-text-primary)] font-mono overflow-x-auto"><code>curl -X POST {{ .BaseURL }}api/agent/jobs/execute \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer YOUR_API_KEY" \
   -d '{
@@ -382,12 +384,12 @@ Provide a detailed response that addresses their specific needs.</pre>
                     
                     <!-- Execute Task by Name -->
                     <div>
-                        <h3 class="text-lg font-semibold text-[#E5E7EB] mb-3 flex items-center">
-                            <i class="fas fa-code text-[#38BDF8] mr-2"></i>
+                        <h3 class="text-lg font-semibold text-[var(--color-text-primary)] mb-3 flex items-center">
+                            <i class="fas fa-code text-[var(--color-primary)] mr-2"></i>
                             Execute Task by Name
                         </h3>
-                        <div class="bg-[#101827] border border-[#38BDF8]/10 rounded-lg p-4">
-                            <pre class="text-xs text-[#E5E7EB] font-mono overflow-x-auto"><code>curl -X POST {{ .BaseURL }}api/agent/tasks/<span x-text="task ? task.name : 'task-name'"></span>/execute \
+                        <div class="bg-[var(--color-bg-primary)] border border-[var(--color-primary)]/10 rounded-lg p-4">
+                            <pre class="text-xs text-[var(--color-text-primary)] font-mono overflow-x-auto"><code>curl -X POST {{ .BaseURL }}api/agent/tasks/<span x-text="task ? task.name : 'task-name'"></span>/execute \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer YOUR_API_KEY" \
   -d '{
@@ -396,7 +398,7 @@ Provide a detailed response that addresses their specific needs.</pre>
     "task_description": "Analyze sales data"
   }'</code></pre>
                         </div>
-                        <p class="text-xs text-[#94A3B8] mt-2">
+                        <p class="text-xs text-[var(--color-text-secondary)] mt-2">
                             <i class="fas fa-info-circle mr-1"></i>
                             The request body should be a JSON object where keys are parameter names and values are strings. 
                             If no body is provided, the task will execute with empty parameters.
@@ -405,12 +407,12 @@ Provide a detailed response that addresses their specific needs.</pre>
                     
                     <!-- Execute Task with Multimedia -->
                     <div>
-                        <h3 class="text-lg font-semibold text-[#E5E7EB] mb-3 flex items-center">
-                            <i class="fas fa-images text-[#38BDF8] mr-2"></i>
+                        <h3 class="text-lg font-semibold text-[var(--color-text-primary)] mb-3 flex items-center">
+                            <i class="fas fa-images text-[var(--color-primary)] mr-2"></i>
                             Execute Task with Multimedia (Images)
                         </h3>
-                        <div class="bg-[#101827] border border-[#38BDF8]/10 rounded-lg p-4">
-                            <pre class="text-xs text-[#E5E7EB] font-mono overflow-x-auto"><code>curl -X POST {{ .BaseURL }}api/agent/jobs/execute \
+                        <div class="bg-[var(--color-bg-primary)] border border-[var(--color-primary)]/10 rounded-lg p-4">
+                            <pre class="text-xs text-[var(--color-text-primary)] font-mono overflow-x-auto"><code>curl -X POST {{ .BaseURL }}api/agent/jobs/execute \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer YOUR_API_KEY" \
   -d '{
@@ -425,53 +427,53 @@ Provide a detailed response that addresses their specific needs.</pre>
     ]
   }'</code></pre>
                         </div>
-                        <p class="text-xs text-[#94A3B8] mt-2">
-                            You can provide multimedia content as URLs or base64-encoded data URIs. Supported types: <code class="bg-[#101827] px-1 py-0.5 rounded text-[#38BDF8]">images</code>, <code class="bg-[#101827] px-1 py-0.5 rounded text-[#38BDF8]">videos</code>, <code class="bg-[#101827] px-1 py-0.5 rounded text-[#38BDF8]">audios</code>, and <code class="bg-[#101827] px-1 py-0.5 rounded text-[#38BDF8]">files</code>.
+                        <p class="text-xs text-[var(--color-text-secondary)] mt-2">
+                            You can provide multimedia content as URLs or base64-encoded data URIs. Supported types: <code class="bg-[var(--color-bg-primary)] px-1 py-0.5 rounded text-[var(--color-primary)]">images</code>, <code class="bg-[var(--color-bg-primary)] px-1 py-0.5 rounded text-[var(--color-primary)]">videos</code>, <code class="bg-[var(--color-bg-primary)] px-1 py-0.5 rounded text-[var(--color-primary)]">audios</code>, and <code class="bg-[var(--color-bg-primary)] px-1 py-0.5 rounded text-[var(--color-primary)]">files</code>.
                         </p>
                     </div>
                     
                     <!-- Check Job Status -->
                     <div>
-                        <h3 class="text-lg font-semibold text-[#E5E7EB] mb-3 flex items-center">
-                            <i class="fas fa-info-circle text-[#38BDF8] mr-2"></i>
+                        <h3 class="text-lg font-semibold text-[var(--color-text-primary)] mb-3 flex items-center">
+                            <i class="fas fa-info-circle text-[var(--color-primary)] mr-2"></i>
                             Check Job Status
                         </h3>
-                        <div class="bg-[#101827] border border-[#38BDF8]/10 rounded-lg p-4">
-                            <pre class="text-xs text-[#E5E7EB] font-mono overflow-x-auto"><code>curl -X GET {{ .BaseURL }}api/agent/jobs/JOB_ID \
+                        <div class="bg-[var(--color-bg-primary)] border border-[var(--color-primary)]/10 rounded-lg p-4">
+                            <pre class="text-xs text-[var(--color-text-primary)] font-mono overflow-x-auto"><code>curl -X GET {{ .BaseURL }}api/agent/jobs/JOB_ID \
   -H "Authorization: Bearer YOUR_API_KEY"</code></pre>
                         </div>
-                        <p class="text-xs text-[#94A3B8] mt-2">
-                            After executing a task, you will receive a <code class="bg-[#101827] px-1 py-0.5 rounded text-[#38BDF8]">job_id</code> in the response. Use it to query the job's status and results.
+                        <p class="text-xs text-[var(--color-text-secondary)] mt-2">
+                            After executing a task, you will receive a <code class="bg-[var(--color-bg-primary)] px-1 py-0.5 rounded text-[var(--color-primary)]">job_id</code> in the response. Use it to query the job's status and results.
                         </p>
                     </div>
                 </div>
             </div>
 
             <!-- Webhook Configuration (View Mode) -->
-            <div class="bg-[#1E293B] border border-[#38BDF8]/20 rounded-xl p-8 mb-8" x-show="task && task.id && task.webhooks && task.webhooks.length > 0">
-                <h2 class="text-2xl font-semibold text-[#E5E7EB] mb-6">Webhook Configuration</h2>
+            <div class="bg-[var(--color-bg-secondary)] border border-[var(--color-primary)]/20 rounded-xl p-8 mb-8" x-show="task && task.id && task.webhooks && task.webhooks.length > 0">
+                <h2 class="text-2xl font-semibold text-[var(--color-text-primary)] mb-6">Webhook Configuration</h2>
                 <div class="space-y-4">
                     <template x-for="(webhook, index) in task.webhooks" :key="index">
-                        <div class="bg-[#101827] p-4 rounded border border-[#38BDF8]/10">
+                        <div class="bg-[var(--color-bg-primary)] p-4 rounded border border-[var(--color-primary)]/10">
                             <div class="flex items-center mb-3">
-                                <h3 class="text-lg font-semibold text-[#E5E7EB]">Webhook <span x-text="index + 1"></span></h3>
+                                <h3 class="text-lg font-semibold text-[var(--color-text-primary)]">Webhook <span x-text="index + 1"></span></h3>
                             </div>
                             <div class="space-y-3">
                                 <div>
-                                    <label class="text-[#94A3B8] text-sm">URL</label>
-                                    <div class="text-[#E5E7EB] mt-1 font-mono text-sm break-all" x-text="webhook.url"></div>
+                                    <label class="text-[var(--color-text-secondary)] text-sm">URL</label>
+                                    <div class="text-[var(--color-text-primary)] mt-1 font-mono text-sm break-all" x-text="webhook.url"></div>
                                 </div>
                                 <div>
-                                    <label class="text-[#94A3B8] text-sm">Method</label>
-                                    <div class="text-[#E5E7EB] mt-1 font-mono text-sm" x-text="webhook.method || 'POST'"></div>
+                                    <label class="text-[var(--color-text-secondary)] text-sm">Method</label>
+                                    <div class="text-[var(--color-text-primary)] mt-1 font-mono text-sm" x-text="webhook.method || 'POST'"></div>
                                 </div>
                                 <div x-show="webhook.headers && Object.keys(webhook.headers).length > 0">
-                                    <label class="text-[#94A3B8] text-sm">Headers</label>
-                                    <pre class="bg-[#0A0E1A] p-3 rounded text-[#E5E7EB] text-xs mt-1 overflow-x-auto" x-text="JSON.stringify(webhook.headers, null, 2)"></pre>
+                                    <label class="text-[var(--color-text-secondary)] text-sm">Headers</label>
+                                    <pre class="bg-[var(--color-bg-tertiary)] p-3 rounded text-[var(--color-text-primary)] text-xs mt-1 overflow-x-auto" x-text="JSON.stringify(webhook.headers, null, 2)"></pre>
                                 </div>
                                 <div x-show="webhook.payload_template">
-                                    <label class="text-[#94A3B8] text-sm">Payload Template</label>
-                                    <pre class="bg-[#0A0E1A] p-3 rounded text-[#E5E7EB] text-xs mt-1 whitespace-pre-wrap overflow-x-auto" x-text="webhook.payload_template"></pre>
+                                    <label class="text-[var(--color-text-secondary)] text-sm">Payload Template</label>
+                                    <pre class="bg-[var(--color-bg-tertiary)] p-3 rounded text-[var(--color-text-primary)] text-xs mt-1 whitespace-pre-wrap overflow-x-auto" x-text="webhook.payload_template"></pre>
                                 </div>
                             </div>
                         </div>
@@ -482,12 +484,12 @@ Provide a detailed response that addresses their specific needs.</pre>
 
         <!-- Jobs for this Task (visible when not creating new task and not in edit mode) -->
         <template x-if="!isNewTask && !isEditMode">
-            <div class="bg-[#1E293B] border border-[#38BDF8]/20 rounded-xl p-8">
+            <div class="bg-[var(--color-bg-secondary)] border border-[var(--color-primary)]/20 rounded-xl p-8">
                 <div class="flex justify-between items-center mb-6">
-                    <h2 class="text-2xl font-semibold text-[#E5E7EB]">Job History</h2>
+                    <h2 class="text-2xl font-semibold text-[var(--color-text-primary)]">Job History</h2>
                     <div class="flex space-x-4">
                         <select x-model="jobFilter" @change="fetchJobs()" 
-                                class="bg-[#101827] border border-[#38BDF8]/20 rounded px-4 py-2 text-[#E5E7EB]">
+                                class="bg-[var(--color-bg-primary)] border border-[var(--color-primary)]/20 rounded px-4 py-2 text-[var(--color-text-primary)]">
                             <option value="">All Status</option>
                             <option value="pending">Pending</option>
                             <option value="running">Running</option>
@@ -505,20 +507,20 @@ Provide a detailed response that addresses their specific needs.</pre>
                 <div class="overflow-x-auto">
                     <table class="w-full">
                         <thead>
-                            <tr class="border-b border-[#38BDF8]/20">
-                                <th class="text-left py-3 px-4 text-[#94A3B8]">Job ID</th>
-                                <th class="text-left py-3 px-4 text-[#94A3B8]">Status</th>
-                                <th class="text-left py-3 px-4 text-[#94A3B8]">Created</th>
-                                <th class="text-left py-3 px-4 text-[#94A3B8]">Triggered By</th>
-                                <th class="text-left py-3 px-4 text-[#94A3B8]">Actions</th>
+                            <tr class="border-b border-[var(--color-primary)]/20">
+                                <th class="text-left py-3 px-4 text-[var(--color-text-secondary)]">Job ID</th>
+                                <th class="text-left py-3 px-4 text-[var(--color-text-secondary)]">Status</th>
+                                <th class="text-left py-3 px-4 text-[var(--color-text-secondary)]">Created</th>
+                                <th class="text-left py-3 px-4 text-[var(--color-text-secondary)]">Triggered By</th>
+                                <th class="text-left py-3 px-4 text-[var(--color-text-secondary)]">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
                             <template x-for="job in jobs" :key="job.id">
-                                <tr class="border-b border-[#38BDF8]/10 hover:bg-[#101827]">
+                                <tr class="border-b border-[var(--color-primary)]/10 hover:bg-[var(--color-bg-primary)]">
                                     <td class="py-3 px-4">
                                         <a :href="'/agent-jobs/jobs/' + job.id" 
-                                           class="font-mono text-sm text-[#38BDF8] hover:text-[#38BDF8]/80 hover:underline" 
+                                           class="font-mono text-sm text-[var(--color-primary)] hover:text-[var(--color-primary)]/80 hover:underline" 
                                            x-text="job.id.substring(0, 8) + '...'"
                                            :title="job.id"></a>
                                     </td>
@@ -533,8 +535,8 @@ Provide a detailed response that addresses their specific needs.</pre>
                                         class="px-2 py-1 rounded text-xs text-white" 
                                         x-text="job.status"></span>
                                     </td>
-                                    <td class="py-3 px-4 text-[#94A3B8] text-sm" x-text="formatDate(job.created_at)"></td>
-                                    <td class="py-3 px-4 text-[#94A3B8] text-sm" x-text="job.triggered_by || '-'"></td>
+                                    <td class="py-3 px-4 text-[var(--color-text-secondary)] text-sm" x-text="formatDate(job.created_at)"></td>
+                                    <td class="py-3 px-4 text-[var(--color-text-secondary)] text-sm" x-text="job.triggered_by || '-'"></td>
                                     <td class="py-3 px-4">
                                         <button x-show="job.status === 'pending' || job.status === 'running'" 
                                                 @click="cancelJob(job.id)" 
@@ -546,7 +548,7 @@ Provide a detailed response that addresses their specific needs.</pre>
                                 </tr>
                             </template>
                             <tr x-show="jobs.length === 0">
-                                <td colspan="5" class="py-8 text-center text-[#94A3B8]">No jobs found for this task</td>
+                                <td colspan="5" class="py-8 text-center text-[var(--color-text-secondary)]">No jobs found for this task</td>
                             </tr>
                         </tbody>
                     </table>
@@ -560,11 +562,11 @@ Provide a detailed response that addresses their specific needs.</pre>
          x-cloak
          @click.away="showExecuteTaskModal = false; executionParameters = {}; executionParametersText = ''; executionMultimedia = {images: '', videos: '', audios: '', files: ''}; executeModalTab = 'parameters'"
          class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-        <div class="bg-[#1E293B] border border-[#38BDF8]/20 rounded-xl max-w-2xl w-full mx-4 max-h-[90vh] flex flex-col" @click.stop>
-            <div class="flex justify-between items-center p-8 pb-6 border-b border-[#38BDF8]/20">
-                <h3 class="text-2xl font-semibold text-[#E5E7EB]">Execute Task</h3>
+        <div class="bg-[var(--color-bg-secondary)] border border-[var(--color-primary)]/20 rounded-xl max-w-2xl w-full mx-4 max-h-[90vh] flex flex-col" @click.stop>
+            <div class="flex justify-between items-center p-8 pb-6 border-b border-[var(--color-primary)]/20">
+                <h3 class="text-2xl font-semibold text-[var(--color-text-primary)]">Execute Task</h3>
                 <button @click="showExecuteTaskModal = false; executionParameters = {}; executionParametersText = ''; executionMultimedia = {images: '', videos: '', audios: '', files: ''}; executeModalTab = 'parameters'" 
-                        class="text-[#94A3B8] hover:text-[#E5E7EB]">
+                        class="text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]">
                     <i class="fas fa-times text-xl"></i>
                 </button>
             </div>
@@ -572,20 +574,20 @@ Provide a detailed response that addresses their specific needs.</pre>
                 <div class="flex flex-col flex-1 min-h-0">
                     <div class="flex-1 overflow-y-auto px-8 py-6 space-y-4">
                     <div>
-                        <label class="block text-sm font-medium text-[#E5E7EB] mb-2">Task</label>
-                        <div class="text-[#94A3B8]" x-text="task.name"></div>
+                        <label class="block text-sm font-medium text-[var(--color-text-primary)] mb-2">Task</label>
+                        <div class="text-[var(--color-text-secondary)]" x-text="task.name"></div>
                     </div>
                     
                     <!-- Tabs for Parameters and Multimedia -->
-                    <div class="border-b border-[#38BDF8]/20">
+                    <div class="border-b border-[var(--color-primary)]/20">
                         <div class="flex space-x-4">
                             <button @click="executeModalTab = 'parameters'" 
-                                    :class="executeModalTab === 'parameters' ? 'border-b-2 border-[#38BDF8] text-[#38BDF8]' : 'text-[#94A3B8] hover:text-[#E5E7EB]'"
+                                    :class="executeModalTab === 'parameters' ? 'border-b-2 border-[var(--color-primary)] text-[var(--color-primary)]' : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'"
                                     class="px-4 py-2 font-medium transition-colors">
                                 Parameters
                             </button>
                             <button @click="executeModalTab = 'multimedia'" 
-                                    :class="executeModalTab === 'multimedia' ? 'border-b-2 border-[#38BDF8] text-[#38BDF8]' : 'text-[#94A3B8] hover:text-[#E5E7EB]'"
+                                    :class="executeModalTab === 'multimedia' ? 'border-b-2 border-[var(--color-primary)] text-[var(--color-primary)]' : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'"
                                     class="px-4 py-2 font-medium transition-colors">
                                 Multimedia
                             </button>
@@ -594,75 +596,75 @@ Provide a detailed response that addresses their specific needs.</pre>
                     
                     <!-- Parameters Tab -->
                     <div x-show="executeModalTab === 'parameters'">
-                        <label class="block text-sm font-medium text-[#E5E7EB] mb-2">Parameters</label>
-                        <p class="text-xs text-[#94A3B8] mb-3">
+                        <label class="block text-sm font-medium text-[var(--color-text-primary)] mb-2">Parameters</label>
+                        <p class="text-xs text-[var(--color-text-secondary)] mb-3">
                             Enter parameters as key-value pairs (one per line, format: key=value). 
                             These will be used to template the prompt.
                         </p>
                         <textarea x-model="executionParametersText" 
                                   rows="6"
                                   placeholder="user_name=Alice&#10;job_title=Software Engineer&#10;task_description=Review code changes"
-                                  class="w-full bg-[#101827] border border-[#38BDF8]/20 rounded px-4 py-2 text-[#E5E7EB] font-mono text-sm focus:border-[#38BDF8] focus:ring-2 focus:ring-[#38BDF8]/50"></textarea>
-                        <p class="text-xs text-[#94A3B8] mt-1">
-                            Example: <code class="bg-[#101827] px-1 py-0.5 rounded text-[#38BDF8]">user_name=Alice</code>
+                                  class="w-full bg-[var(--color-bg-primary)] border border-[var(--color-primary)]/20 rounded px-4 py-2 text-[var(--color-text-primary)] font-mono text-sm focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/50"></textarea>
+                        <p class="text-xs text-[var(--color-text-secondary)] mt-1">
+                            Example: <code class="bg-[var(--color-bg-primary)] px-1 py-0.5 rounded text-[var(--color-primary)]">user_name=Alice</code>
                         </p>
                     </div>
                     
                     <!-- Multimedia Tab -->
                     <div x-show="executeModalTab === 'multimedia'" class="space-y-4">
-                        <p class="text-xs text-[#94A3B8] mb-3">
+                        <p class="text-xs text-[var(--color-text-secondary)] mb-3">
                             Provide multimedia content as URLs or base64-encoded data URIs. You can also upload files which will be converted to base64.
                         </p>
                         
                         <!-- Images -->
                         <div>
-                            <label class="block text-sm font-medium text-[#E5E7EB] mb-2">Images</label>
+                            <label class="block text-sm font-medium text-[var(--color-text-primary)] mb-2">Images</label>
                             <textarea x-model="executionMultimedia.images" 
                                       rows="3"
                                       placeholder="https://example.com/image.png&#10;data:image/png;base64,iVBORw0KG..."
-                                      class="w-full bg-[#101827] border border-[#38BDF8]/20 rounded px-4 py-2 text-[#E5E7EB] font-mono text-sm focus:border-[#38BDF8] focus:ring-2 focus:ring-[#38BDF8]/50"></textarea>
+                                      class="w-full bg-[var(--color-bg-primary)] border border-[var(--color-primary)]/20 rounded px-4 py-2 text-[var(--color-text-primary)] font-mono text-sm focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/50"></textarea>
                             <input type="file" @change="handleFileUpload($event, 'image')" accept="image/*" multiple
-                                   class="mt-2 text-sm text-[#94A3B8] file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-[#38BDF8] file:text-white hover:file:bg-[#38BDF8]/80">
+                                   class="mt-2 text-sm text-[var(--color-text-secondary)] file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-[var(--color-primary)] file:text-white hover:file:bg-[var(--color-primary)]/80">
                         </div>
                         
                         <!-- Videos -->
                         <div>
-                            <label class="block text-sm font-medium text-[#E5E7EB] mb-2">Videos</label>
+                            <label class="block text-sm font-medium text-[var(--color-text-primary)] mb-2">Videos</label>
                             <textarea x-model="executionMultimedia.videos" 
                                       rows="3"
                                       placeholder="https://example.com/video.mp4&#10;data:video/mp4;base64,..."
-                                      class="w-full bg-[#101827] border border-[#38BDF8]/20 rounded px-4 py-2 text-[#E5E7EB] font-mono text-sm focus:border-[#38BDF8] focus:ring-2 focus:ring-[#38BDF8]/50"></textarea>
+                                      class="w-full bg-[var(--color-bg-primary)] border border-[var(--color-primary)]/20 rounded px-4 py-2 text-[var(--color-text-primary)] font-mono text-sm focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/50"></textarea>
                             <input type="file" @change="handleFileUpload($event, 'video')" accept="video/*" multiple
-                                   class="mt-2 text-sm text-[#94A3B8] file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-[#38BDF8] file:text-white hover:file:bg-[#38BDF8]/80">
+                                   class="mt-2 text-sm text-[var(--color-text-secondary)] file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-[var(--color-primary)] file:text-white hover:file:bg-[var(--color-primary)]/80">
                         </div>
                         
                         <!-- Audios -->
                         <div>
-                            <label class="block text-sm font-medium text-[#E5E7EB] mb-2">Audios</label>
+                            <label class="block text-sm font-medium text-[var(--color-text-primary)] mb-2">Audios</label>
                             <textarea x-model="executionMultimedia.audios" 
                                       rows="3"
                                       placeholder="https://example.com/audio.mp3&#10;data:audio/mpeg;base64,..."
-                                      class="w-full bg-[#101827] border border-[#38BDF8]/20 rounded px-4 py-2 text-[#E5E7EB] font-mono text-sm focus:border-[#38BDF8] focus:ring-2 focus:ring-[#38BDF8]/50"></textarea>
+                                      class="w-full bg-[var(--color-bg-primary)] border border-[var(--color-primary)]/20 rounded px-4 py-2 text-[var(--color-text-primary)] font-mono text-sm focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/50"></textarea>
                             <input type="file" @change="handleFileUpload($event, 'audio')" accept="audio/*" multiple
-                                   class="mt-2 text-sm text-[#94A3B8] file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-[#38BDF8] file:text-white hover:file:bg-[#38BDF8]/80">
+                                   class="mt-2 text-sm text-[var(--color-text-secondary)] file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-[var(--color-primary)] file:text-white hover:file:bg-[var(--color-primary)]/80">
                         </div>
                         
                         <!-- Files -->
                         <div>
-                            <label class="block text-sm font-medium text-[#E5E7EB] mb-2">Files</label>
+                            <label class="block text-sm font-medium text-[var(--color-text-primary)] mb-2">Files</label>
                             <textarea x-model="executionMultimedia.files" 
                                       rows="3"
                                       placeholder="https://example.com/file.pdf&#10;data:application/pdf;base64,..."
-                                      class="w-full bg-[#101827] border border-[#38BDF8]/20 rounded px-4 py-2 text-[#E5E7EB] font-mono text-sm focus:border-[#38BDF8] focus:ring-2 focus:ring-[#38BDF8]/50"></textarea>
+                                      class="w-full bg-[var(--color-bg-primary)] border border-[var(--color-primary)]/20 rounded px-4 py-2 text-[var(--color-text-primary)] font-mono text-sm focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/50"></textarea>
                             <input type="file" @change="handleFileUpload($event, 'file')" multiple
-                                   class="mt-2 text-sm text-[#94A3B8] file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-[#38BDF8] file:text-white hover:file:bg-[#38BDF8]/80">
+                                   class="mt-2 text-sm text-[var(--color-text-secondary)] file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-[var(--color-primary)] file:text-white hover:file:bg-[var(--color-primary)]/80">
                         </div>
                     </div>
                     </div>
                     
-                    <div class="flex justify-end space-x-4 p-8 pt-6 border-t border-[#38BDF8]/20 bg-[#1E293B]">
+                    <div class="flex justify-end space-x-4 p-8 pt-6 border-t border-[var(--color-primary)]/20 bg-[var(--color-bg-secondary)]">
                         <button @click="showExecuteTaskModal = false; executionParameters = {}; executionParametersText = ''; executionMultimedia = {images: '', videos: '', audios: '', files: ''}; executeModalTab = 'parameters'" 
-                                class="px-4 py-2 bg-[#101827] hover:bg-[#0A0E1A] text-[#E5E7EB] rounded-lg transition-colors">
+                                class="px-4 py-2 bg-[var(--color-bg-primary)] hover:bg-[var(--color-bg-tertiary)] text-[var(--color-text-primary)] rounded-lg transition-colors">
                             Cancel
                         </button>
                         <button @click="executeTaskWithParameters()" 
@@ -1135,6 +1137,9 @@ Provide a detailed response that addresses their specific needs.</pre>
             }
         }
     </script>
+    {{template "views/partials/footer" .}}
+    </div>
+  </main>
 </div>
 </body>
 </html>
