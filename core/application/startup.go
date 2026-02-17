@@ -319,6 +319,29 @@ func loadRuntimeSettingsFromFile(options *config.ApplicationConfig) {
 			options.MemoryReclaimerThreshold = *settings.MemoryReclaimerThreshold
 		}
 	}
+	if settings.ForceEvictionWhenBusy != nil {
+		// Only apply if current value is default (false), suggesting it wasn't set from env var
+		if !options.ForceEvictionWhenBusy {
+			options.ForceEvictionWhenBusy = *settings.ForceEvictionWhenBusy
+		}
+	}
+	if settings.LRUEvictionMaxRetries != nil {
+		// Only apply if current value is default (30), suggesting it wasn't set from env var
+		if options.LRUEvictionMaxRetries == 0 {
+			options.LRUEvictionMaxRetries = *settings.LRUEvictionMaxRetries
+		}
+	}
+	if settings.LRUEvictionRetryInterval != nil {
+		// Only apply if current value is default (1s), suggesting it wasn't set from env var
+		if options.LRUEvictionRetryInterval == 0 {
+			dur, err := time.ParseDuration(*settings.LRUEvictionRetryInterval)
+			if err == nil {
+				options.LRUEvictionRetryInterval = dur
+			} else {
+				xlog.Warn("invalid LRU eviction retry interval in runtime_settings.json", "error", err, "interval", *settings.LRUEvictionRetryInterval)
+			}
+		}
+	}
 	if settings.AgentJobRetentionDays != nil {
 		// Only apply if current value is default (0), suggesting it wasn't set from env var
 		if options.AgentJobRetentionDays == 0 {
