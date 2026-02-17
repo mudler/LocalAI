@@ -74,6 +74,7 @@ type Session struct {
 	// The pipeline model config or the config for an any-to-any model
 	ModelConfig     *config.ModelConfig
 	InputSampleRate int
+	MaxOutputTokens types.IntOrInf
 }
 
 func (s *Session) FromClient(session *types.SessionUnion) {
@@ -95,12 +96,13 @@ func (s *Session) ToServer() types.SessionUnion {
 	} else {
 		return types.SessionUnion{
 			Realtime: &types.RealtimeSession{
-				ID:           s.ID,
-				Object:       "realtime.session",
-				Model:        s.Model,
-				Instructions: s.Instructions,
-				Tools:        s.Tools,
-				ToolChoice:   s.ToolChoice,
+				ID:              s.ID,
+				Object:          "realtime.session",
+				Model:           s.Model,
+				Instructions:    s.Instructions,
+				Tools:           s.Tools,
+				ToolChoice:      s.ToolChoice,
+				MaxOutputTokens: s.MaxOutputTokens,
 				Audio: &types.RealtimeSessionAudio{
 					Input: &types.SessionAudioInput{
 						TurnDetection: s.TurnDetection,
@@ -678,6 +680,10 @@ func updateSession(session *Session, update *types.SessionUnion, cl *config.Mode
 		session.ToolChoice = rt.ToolChoice
 	}
 
+	if rt.MaxOutputTokens != 0 {
+		session.MaxOutputTokens = rt.MaxOutputTokens
+	}
+
 	return nil
 }
 
@@ -914,6 +920,7 @@ func triggerResponse(session *Session, conv *Conversation, c *LockedWebsocket, o
 	tools := session.Tools
 	toolChoice := session.ToolChoice
 	instructions := session.Instructions
+	maxOutputTokens := session.MaxOutputTokens
 	// Overrides
 	if overrides != nil {
 		if overrides.Tools != nil {
@@ -925,7 +932,28 @@ func triggerResponse(session *Session, conv *Conversation, c *LockedWebsocket, o
 		if overrides.Instructions != "" {
 			instructions = overrides.Instructions
 		}
+		if overrides.MaxOutputTokens != 0 {
+			maxOutputTokens = overrides.MaxOutputTokens
+		}
 	}
+
+	// Apply MaxOutputTokens to model config if specified
+	// Save original value to restore after prediction
+	var originalMaxTokens *int
+	if config != nil {
+		originalMaxTokens = config.Maxtokens
+		if maxOutputTokens != 0 && !maxOutputTokens.IsInf() {
+			tokenValue := int(maxOutputTokens)
+			config.Maxtokens = &tokenValue
+			xlog.Debug("Applied max_output_tokens to config", "value", tokenValue)
+		}
+	}
+	// Defer restoration of original value
+	defer func() {
+		if config != nil {
+			config.Maxtokens = originalMaxTokens
+		}
+	}()
 
 	var conversationHistory schema.Messages
 	conversationHistory = append(conversationHistory, schema.Message{
@@ -1034,6 +1062,18 @@ func triggerResponse(session *Session, conv *Conversation, c *LockedWebsocket, o
 	}
 
 	xlog.Debug("Function config for parsing", "function_name_key", config.FunctionsConfig.FunctionNameKey, "function_arguments_key", config.FunctionsConfig.FunctionArgumentsKey)
+	xlog.Debug("LLM raw response", "text", pred.Response, "response_length", len(pred.Response), "usage", pred.Usage)
+	
+	// Safely dereference pointer fields for logging
+	maxTokens := "nil"
+	if config.Maxtokens != nil {
+		maxTokens = fmt.Sprintf("%d", *config.Maxtokens)
+	}
+	contextSize := "nil"
+	if config.ContextSize != nil {
+		contextSize = fmt.Sprintf("%d", *config.ContextSize)
+	}
+	xlog.Debug("Model parameters", "max_tokens", maxTokens, "context_size", contextSize, "stopwords", config.StopWords)
 
 	rawResponse := pred.Response
 	if config.TemplateConfig.ReplyPrefix != "" {
