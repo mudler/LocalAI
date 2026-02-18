@@ -587,18 +587,20 @@ SOFTWARE.
   <script defer src="static/chat.js"></script>
   {{ $allGalleryConfigs:=.GalleryConfig }}
   {{ $model:=.Model}}
-  <body class="bg-[var(--color-bg-primary)] text-[var(--color-text-primary)]" x-data="{ settingsPanelOpen: true, showClearAlert: false }">
-    <div class="app-layout">
+  <body class="bg-[var(--color-bg-primary)] text-[var(--color-text-primary)]" x-data="{ settingsPanelOpen: true, showClearAlert: false, isMobile: false }" x-init="isMobile = window.innerWidth < 1024; if (isMobile) settingsPanelOpen = false; window.addEventListener('resize', () => { isMobile = window.innerWidth < 1024 })">
+    <div class="app-layout chat-layout">
       {{template "views/partials/navbar" .}}
       
-      <main class="main-content">
-        <div class="main-content-inner h-full flex flex-col">
+      <main class="main-content chat-layout">
+        <div class="main-content-inner chat-layout h-full flex flex-col">
 
     <!-- Main container with settings panel -->
     <div class="flex flex-1 min-h-0 relative">
-      <!-- Chat Settings Panel (right side) -->
+      <!-- Backdrop for mobile when settings panel is open (click to close) -->
+      <div x-show="settingsPanelOpen && isMobile" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0" @click="settingsPanelOpen = false" class="fixed inset-0 bg-black/50 z-20" aria-hidden="true"></div>
+      <!-- Chat Settings Panel (right side): overlay on mobile (w-full), sidebar on desktop (md:w-56) -->
       <div
-        class="chat-settings-panel bg-[var(--color-bg-secondary)] fixed top-0 right-0 bottom-0 w-56 transform transition-transform duration-300 ease-in-out z-30 border-l border-[var(--color-border-subtle)] overflow-y-auto"
+        class="chat-settings-panel bg-[var(--color-bg-secondary)] fixed top-0 right-0 bottom-0 w-full md:w-56 transform transition-transform duration-300 ease-in-out z-30 border-l border-[var(--color-border-subtle)] overflow-y-auto"
         :class="settingsPanelOpen ? 'translate-x-0' : 'translate-x-full'">
 
         <div class="p-3 flex justify-between items-center border-b border-[var(--color-border-subtle)]">
@@ -1103,59 +1105,57 @@ SOFTWARE.
         </div>
       </div>
 
-      <!-- Main chat container (shifts with settings panel) -->
+      <!-- Main chat container (shifts with settings panel on desktop only; on mobile panel overlays) -->
       <div
         class="flex-1 flex flex-col min-h-0 transition-all duration-300 ease-in-out"
-        :class="settingsPanelOpen ? 'mr-56' : 'mr-0'">
+        :class="settingsPanelOpen ? 'md:mr-56' : 'mr-0'">
 
         <!-- Chat header with toggle button -->
-        <div class="flex-shrink-0 border-b border-[var(--color-bg-secondary)] p-4 flex items-center justify-between">
-          <div class="flex items-center">
-            <div class="flex items-center">
-              <i class="fa-solid fa-comments mr-2 text-[var(--color-primary)]"></i>
-              <!-- Model icon - reactive to active chat -->
-              <template x-if="$store.chat.activeChat() && $store.chat.activeChat().model && window.__galleryConfigs && window.__galleryConfigs[$store.chat.activeChat().model] && window.__galleryConfigs[$store.chat.activeChat().model].Icon">
-                <img :src="window.__galleryConfigs[$store.chat.activeChat().model].Icon" class="rounded-lg w-8 h-8 mr-2">
+        <div class="flex-shrink-0 border-b border-[var(--color-bg-secondary)] p-4 flex flex-wrap items-center justify-between gap-2">
+          <div class="flex items-center min-w-0 flex-1">
+            <i class="fa-solid fa-comments mr-2 text-[var(--color-primary)] flex-shrink-0"></i>
+            <!-- Model icon - reactive to active chat -->
+            <template x-if="$store.chat.activeChat() && $store.chat.activeChat().model && window.__galleryConfigs && window.__galleryConfigs[$store.chat.activeChat().model] && window.__galleryConfigs[$store.chat.activeChat().model].Icon">
+              <img :src="window.__galleryConfigs[$store.chat.activeChat().model].Icon" class="rounded-lg w-8 h-8 mr-2 flex-shrink-0">
+            </template>
+            <!-- Fallback icon for initial model from server (when no active chat yet) -->
+            <template x-if="(!$store.chat.activeChat() || !$store.chat.activeChat().model) && window.__galleryConfigs && window.__galleryConfigs['{{$model}}'] && window.__galleryConfigs['{{$model}}'].Icon">
+              <img :src="window.__galleryConfigs['{{$model}}'].Icon" class="rounded-lg w-8 h-8 mr-2 flex-shrink-0">
+            </template>
+            <h1 class="text-lg font-semibold text-[var(--color-text-primary)] truncate min-w-0">
+              Chat
+              <template x-if="$store.chat.activeChat() && $store.chat.activeChat().model">
+                <span x-text="' with ' + $store.chat.activeChat().model"></span>
               </template>
-              <!-- Fallback icon for initial model from server (when no active chat yet) -->
-              <template x-if="(!$store.chat.activeChat() || !$store.chat.activeChat().model) && window.__galleryConfigs && window.__galleryConfigs['{{$model}}'] && window.__galleryConfigs['{{$model}}'].Icon">
-                <img :src="window.__galleryConfigs['{{$model}}'].Icon" class="rounded-lg w-8 h-8 mr-2">
+              <template x-if="!$store.chat.activeChat() || !$store.chat.activeChat().model">
+                {{ if .Model }}<span> with {{.Model}}</span>{{ end }}
               </template>
-              <h1 class="text-lg font-semibold text-[var(--color-text-primary)]">
-                Chat
-                <template x-if="$store.chat.activeChat() && $store.chat.activeChat().model">
-                  <span x-text="' with ' + $store.chat.activeChat().model"></span>
-                </template>
-                <template x-if="!$store.chat.activeChat() || !$store.chat.activeChat().model">
-                  {{ if .Model }}<span> with {{.Model}}</span>{{ end }}
-                </template>
-              </h1>
-              <!-- Loading indicator next to model name -->
-              <div id="header-loading-indicator" class="ml-3 text-[var(--color-primary)]" style="display: none;">
-                <i class="fas fa-spinner fa-spin text-sm"></i>
-              </div>
+            </h1>
+            <!-- Loading indicator next to model name -->
+            <div id="header-loading-indicator" class="ml-3 text-[var(--color-primary)] flex-shrink-0" style="display: none;">
+              <i class="fas fa-spinner fa-spin text-sm"></i>
             </div>
           </div>
 
-          <div class="flex items-center gap-2">
+          <div class="flex items-center gap-2 flex-shrink-0">
             <button
               @click="if (confirm('Clear all messages from this conversation? This action cannot be undone.')) { $store.chat.clear(); showClearAlert = true; setTimeout(() => showClearAlert = false, 3000); }"
               id="clear"
               title="Clear current chat history"
-              class="text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-colors p-2 rounded hover:bg-[var(--color-bg-secondary)]"
+              class="text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-colors p-2 min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 flex items-center justify-center rounded hover:bg-[var(--color-bg-secondary)]"
               x-show="$store.chat.activeChat() && ($store.chat.activeChat()?.history?.length || 0) > 0">
               <i class="fa-solid fa-broom"></i>
             </button>
             <!-- Settings panel toggle button -->
             <button
               @click="settingsPanelOpen = !settingsPanelOpen"
-              class="text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] focus:outline-none bg-[var(--color-bg-secondary)] hover:bg-[var(--color-bg-secondary)]/80 p-2 rounded transition-colors"
+              class="text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] focus:outline-none bg-[var(--color-bg-secondary)] hover:bg-[var(--color-bg-secondary)]/80 p-2 min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 flex items-center justify-center rounded transition-colors"
               title="Toggle chat settings">
               <i class="fa-solid" :class="settingsPanelOpen ? 'fa-chevron-right' : 'fa-cog'"></i>
             </button>
           </div>
           
-          <!-- Clear Chat Alert -->
+          <!-- Clear Chat Alert (bottom on mobile to avoid covering header) -->
           <div x-show="showClearAlert"
                x-transition:enter="transition ease-out duration-300"
                x-transition:enter-start="opacity-0 translate-y-2"
@@ -1163,7 +1163,7 @@ SOFTWARE.
                x-transition:leave="transition ease-in duration-200"
                x-transition:leave-start="opacity-100"
                x-transition:leave-end="opacity-0"
-               class="fixed top-20 right-4 z-50 max-w-sm pointer-events-none">
+               class="fixed top-20 right-4 max-md:top-auto max-md:bottom-4 max-md:left-4 max-md:right-4 z-50 max-w-sm pointer-events-none">
             <div class="bg-[var(--color-primary)]/20 border border-[var(--color-primary-border)]/40 rounded-lg p-3 shadow-lg backdrop-blur-sm">
               <div class="flex items-center gap-2">
                 <i class="fa-solid fa-check-circle text-[var(--color-primary)]"></i>
@@ -1374,7 +1374,7 @@ SOFTWARE.
         </div>
 
           <!-- Chat Input -->
-          <div class="flex-shrink-0 p-4 border-t border-[var(--color-bg-secondary)] bg-[var(--color-bg-primary)]" x-data="{ inputValue: '', shiftPressed: false, attachedFiles: [] }">
+          <div class="flex-shrink-0 p-4 pb-safe border-t border-[var(--color-bg-secondary)] bg-[var(--color-bg-primary)]" x-data="{ inputValue: '', shiftPressed: false, attachedFiles: [] }">
             <form id="prompt" action="chat/{{.Model}}" method="get" @submit.prevent="submitPrompt" class="max-w-3xl mx-auto">
               <!-- Attachment Tags - Show above input when files are attached -->
               <div x-show="attachedFiles.length > 0" class="mb-3 flex flex-wrap gap-2 items-center">
@@ -1394,38 +1394,38 @@ SOFTWARE.
                 </template>
               </div>
 
-              <!-- Token Usage and Context Window - Compact above input -->
-              <div class="mb-3 flex items-center justify-between gap-4 text-xs">
-                <!-- Token Usage -->
-                <div class="flex items-center gap-3 text-[var(--color-text-secondary)]">
-                  <div class="flex items-center gap-1">
+              <!-- Token Usage and Context Window - responsive: two rows on mobile -->
+              <div class="mb-3 flex flex-col md:flex-row md:items-center md:justify-between gap-3 text-xs">
+                <!-- Token Usage (wraps on mobile) -->
+                <div class="flex flex-wrap items-center gap-2 md:gap-3 text-[var(--color-text-secondary)]">
+                  <div class="flex items-center gap-1 max-md:hidden">
                     <i class="fas fa-chart-line text-[var(--color-primary)]"></i>
                     <span>Prompt:</span>
                     <span class="text-[var(--color-text-primary)] font-medium" x-text="new Intl.NumberFormat().format($store.chat.activeChat()?.tokenUsage?.promptTokens || 0)"></span>
                   </div>
-                  <div class="flex items-center gap-1">
+                  <div class="flex items-center gap-1 max-md:hidden">
                     <span>Completion:</span>
                     <span class="text-[var(--color-text-primary)] font-medium" x-text="new Intl.NumberFormat().format($store.chat.activeChat()?.tokenUsage?.completionTokens || 0)"></span>
                   </div>
-                  <div class="flex items-center gap-1 border-l border-[var(--color-bg-secondary)] pl-3">
+                  <div class="flex items-center gap-1 md:border-l border-[var(--color-bg-secondary)] pl-0 md:pl-3">
                     <span class="text-[var(--color-primary)] font-semibold">Total:</span>
                     <span class="text-[var(--color-text-primary)] font-bold" x-text="new Intl.NumberFormat().format($store.chat.activeChat()?.tokenUsage?.totalTokens || 0)"></span>
                   </div>
                   <!-- Tokens per second display -->
-                  <div id="tokens-per-second-container" class="flex items-center gap-1 border-l border-[var(--color-bg-secondary)] pl-3">
+                  <div id="tokens-per-second-container" class="flex items-center gap-1 border-l border-[var(--color-bg-secondary)] pl-2 md:pl-3">
                     <i class="fas fa-tachometer-alt text-[var(--color-primary)]"></i>
                     <span id="tokens-per-second" class="text-[var(--color-text-primary)] font-medium">-</span>
                     <span id="max-tokens-per-second-badge" class="ml-2 px-1.5 py-0.5 text-[10px] bg-[var(--color-primary)]/20 text-[var(--color-primary)] rounded border border-[var(--color-primary-border)]/30 hidden"></span>
                   </div>
                 </div>
 
-                <!-- Context Window -->
+                <!-- Context Window (second row on mobile) -->
                 <template x-if="$store.chat.activeChat()?.contextSize && $store.chat.activeChat().contextSize > 0">
-                  <div class="flex items-center gap-2 text-[var(--color-text-secondary)]">
+                  <div class="flex items-center gap-2 text-[var(--color-text-secondary)] flex-shrink-0">
                     <i class="fas fa-database text-[var(--color-primary)]"></i>
                     <span>
                       <span class="text-[var(--color-text-primary)] font-medium" x-text="new Intl.NumberFormat().format($store.chat.activeChat()?.tokenUsage?.totalTokens || 0)"></span>
-                      / 
+                      /
                       <span class="text-[var(--color-text-primary)] font-medium" x-text="new Intl.NumberFormat().format($store.chat.activeChat()?.contextSize || 0)"></span>
                     </span>
                     <div class="w-16 bg-[var(--color-bg-primary)] rounded-full h-1.5 overflow-hidden border border-[var(--color-bg-secondary)]">
@@ -1446,38 +1446,36 @@ SOFTWARE.
                 </template>
               </div>
 
+              <!-- Attachment buttons row (mobile only) - avoids overlap with input on narrow screens -->
+              <div class="flex flex-wrap gap-2 mb-2 md:hidden">
+                <button type="button" onclick="document.getElementById('input_image').click()" class="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-colors border border-[var(--color-border-subtle)]" title="Attach images" aria-label="Attach images">
+                  <i class="fa-solid fa-image text-lg"></i>
+                </button>
+                <button type="button" onclick="document.getElementById('input_audio').click()" class="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-colors border border-[var(--color-border-subtle)]" title="Attach an audio file" aria-label="Attach audio">
+                  <i class="fa-solid fa-microphone text-lg"></i>
+                </button>
+                <button type="button" onclick="document.getElementById('input_file').click()" class="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-colors border border-[var(--color-border-subtle)]" title="Upload text, markdown or PDF file" aria-label="Attach file">
+                  <i class="fa-solid fa-file text-lg"></i>
+                </button>
+              </div>
+
               <div class="relative w-full">
                 <textarea
                   id="input"
                   name="input"
                   x-model="inputValue"
-                  class="input w-full p-3 pr-16 resize-none border-0"
+                  class="input w-full p-3 pr-12 md:pr-28 resize-none border-0 bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] placeholder-[var(--color-text-secondary)] focus:outline-none rounded-xl transition-colors duration-200"
                   placeholder="Send a message..."
-                  class="p-3 pr-16 w-full bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] placeholder-[var(--color-text-secondary)] focus:outline-none resize-none border-0 rounded-xl transition-colors duration-200"
                   required
                   @keydown.shift="shiftPressed = true"
                   @keyup.shift="shiftPressed = false"
                   @keydown.enter.prevent="if (!shiftPressed) { submitPrompt($event); }"
                   rows="2"
                 ></textarea>
-                <button
-                  type="button"
-                  onclick="document.getElementById('input_image').click()"
-                  class="fa-solid fa-image text-[var(--color-text-secondary)] absolute right-12 top-3 text-base p-1.5 hover:text-[var(--color-primary)] transition-colors duration-200"
-                  title="Attach images"
-                ></button>
-                <button
-                  type="button"
-                  onclick="document.getElementById('input_audio').click()"
-                  class="fa-solid fa-microphone text-[var(--color-text-secondary)] absolute right-20 top-3 text-base p-1.5 hover:text-[var(--color-primary)] transition-colors duration-200"
-                  title="Attach an audio file"
-                ></button>
-                <button
-                  type="button"
-                  onclick="document.getElementById('input_file').click()"
-                  class="fa-solid fa-file text-[var(--color-text-secondary)] absolute right-28 top-3 text-base p-1.5 hover:text-[var(--color-primary)] transition-colors duration-200"
-                  title="Upload text, markdown or PDF file"
-                ></button>
+                <!-- Attachment buttons (desktop only - inside input) -->
+                <button type="button" onclick="document.getElementById('input_image').click()" class="hidden md:flex fa-solid fa-image text-[var(--color-text-secondary)] absolute right-12 top-3 text-base p-1.5 hover:text-[var(--color-primary)] transition-colors duration-200 items-center justify-center" title="Attach images" aria-label="Attach images"></button>
+                <button type="button" onclick="document.getElementById('input_audio').click()" class="hidden md:flex fa-solid fa-microphone text-[var(--color-text-secondary)] absolute right-20 top-3 text-base p-1.5 hover:text-[var(--color-primary)] transition-colors duration-200 items-center justify-center" title="Attach an audio file" aria-label="Attach audio"></button>
+                <button type="button" onclick="document.getElementById('input_file').click()" class="hidden md:flex fa-solid fa-file text-[var(--color-text-secondary)] absolute right-28 top-3 text-base p-1.5 hover:text-[var(--color-primary)] transition-colors duration-200 items-center justify-center" title="Upload text, markdown or PDF file" aria-label="Attach file"></button>
 
                 <!-- Send button and stop button in the same position -->
                 <div class="absolute right-3 top-3 flex items-center">
@@ -1486,7 +1484,7 @@ SOFTWARE.
                     id="stop-button"
                     type="button"
                     onclick="stopRequest()"
-                    class="text-lg p-2 text-[var(--color-error)] hover:text-[var(--color-error)] transition-colors duration-200"
+                    class="text-lg p-2 min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 flex items-center justify-center text-[var(--color-error)] hover:text-[var(--color-error)] transition-colors duration-200"
                     style="display: none;"
                     title="Stop request"
                   >
@@ -1497,7 +1495,7 @@ SOFTWARE.
                   <button
                     id="send-button"
                     type="submit"
-                    class="text-lg p-2 text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-colors duration-200"
+                    class="text-lg p-2 min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 flex items-center justify-center text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-colors duration-200"
                     title="Send message (Enter)"
                   >
                     <i class="fa-solid fa-paper-plane"></i>

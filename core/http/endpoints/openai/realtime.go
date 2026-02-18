@@ -23,19 +23,23 @@ import (
 	"github.com/mudler/LocalAI/core/templates"
 	laudio "github.com/mudler/LocalAI/pkg/audio"
 	"github.com/mudler/LocalAI/pkg/functions"
-	"github.com/mudler/LocalAI/pkg/utils"
 	"github.com/mudler/LocalAI/pkg/grpc/proto"
 	model "github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/reasoning"
 	"github.com/mudler/LocalAI/pkg/sound"
+	"github.com/mudler/LocalAI/pkg/utils"
 
 	"github.com/mudler/xlog"
 )
 
 const (
 	// XXX: Presently it seems all ASR/VAD backends use 16Khz. If a backend uses 24Khz then it will likely still work, but have reduced performance
-	localSampleRate  = 16000
+	localSampleRate         = 16000
 	defaultRemoteSampleRate = 24000
+	// Maximum audio buffer size in bytes (100MB) to prevent memory exhaustion
+	maxAudioBufferSize = 100 * 1024 * 1024
+	// Maximum WebSocket message size in bytes (10MB) to prevent DoS attacks
+	maxWebSocketMessageSize = 10 * 1024 * 1024
 )
 
 // A model can be "emulated" that is: transcribe audio to text -> feed text to the LLM -> generate audio as result
@@ -74,6 +78,7 @@ type Session struct {
 	// The pipeline model config or the config for an any-to-any model
 	ModelConfig     *config.ModelConfig
 	InputSampleRate int
+	MaxOutputTokens types.IntOrInf
 }
 
 func (s *Session) FromClient(session *types.SessionUnion) {
@@ -95,12 +100,13 @@ func (s *Session) ToServer() types.SessionUnion {
 	} else {
 		return types.SessionUnion{
 			Realtime: &types.RealtimeSession{
-				ID:           s.ID,
-				Object:       "realtime.session",
-				Model:        s.Model,
-				Instructions: s.Instructions,
-				Tools:        s.Tools,
-				ToolChoice:   s.ToolChoice,
+				ID:              s.ID,
+				Object:          "realtime.session",
+				Model:           s.Model,
+				Instructions:    s.Instructions,
+				Tools:           s.Tools,
+				ToolChoice:      s.ToolChoice,
+				MaxOutputTokens: s.MaxOutputTokens,
 				Audio: &types.RealtimeSessionAudio{
 					Input: &types.SessionAudioInput{
 						TurnDetection: s.TurnDetection,
@@ -167,6 +173,9 @@ func Realtime(application *application.Application) echo.HandlerFunc {
 			return err
 		}
 		defer ws.Close()
+
+		// Set maximum message size to prevent DoS attacks
+		ws.SetReadLimit(maxWebSocketMessageSize)
 
 		// Extract query parameters from Echo context before passing to websocket handler
 		model := c.QueryParam("model")
@@ -371,8 +380,17 @@ func registerRealtime(application *application.Application, model string) func(c
 					continue
 				}
 
-				// Append to InputAudioBuffer
+				// Check buffer size limits before appending
 				session.AudioBufferLock.Lock()
+				newSize := len(session.InputAudioBuffer) + len(decodedAudio)
+				if newSize > maxAudioBufferSize {
+					session.AudioBufferLock.Unlock()
+					xlog.Error("audio buffer size limit exceeded", "current_size", len(session.InputAudioBuffer), "incoming_size", len(decodedAudio), "limit", maxAudioBufferSize)
+					sendError(c, "buffer_size_exceeded", fmt.Sprintf("Audio buffer size limit exceeded (max %d bytes)", maxAudioBufferSize), "", "")
+					continue
+				}
+
+				// Append to InputAudioBuffer
 				session.InputAudioBuffer = append(session.InputAudioBuffer, decodedAudio...)
 				session.AudioBufferLock.Unlock()
 
@@ -678,6 +696,10 @@ func updateSession(session *Session, update *types.SessionUnion, cl *config.Mode
 		session.ToolChoice = rt.ToolChoice
 	}
 
+	if rt.MaxOutputTokens != 0 {
+		session.MaxOutputTokens = rt.MaxOutputTokens
+	}
+
 	return nil
 }
 
@@ -733,18 +755,18 @@ func handleVAD(session *Session, conv *Conversation, c *LockedWebsocket, done ch
 			audioLength := float64(len(aints)) / localSampleRate
 
 			// TODO: When resetting the buffer we should retain a small postfix
-			// TODO: The OpenAI documentation seems to suggest that only the client decides when to clear the buffer
 			if len(segments) == 0 && audioLength > silenceThreshold {
 				session.AudioBufferLock.Lock()
 				session.InputAudioBuffer = nil
 				session.AudioBufferLock.Unlock()
-				xlog.Debug("Detected silence for a while, clearing audio buffer")
 
-				sendEvent(c, types.InputAudioBufferClearedEvent{
-					ServerEventBase: types.ServerEventBase{
-						EventID: "event_TODO",
-					},
-				})
+				// NOTE: OpenAI doesn't send this message unless the client requests it
+				// xlog.Debug("Detected silence for a while, clearing audio buffer")
+				// sendEvent(c, types.InputAudioBufferClearedEvent{
+				// 	ServerEventBase: types.ServerEventBase{
+				// 		EventID: "event_TODO",
+				// 	},
+				// })
 
 				continue
 			} else if len(segments) == 0 {
@@ -914,6 +936,7 @@ func triggerResponse(session *Session, conv *Conversation, c *LockedWebsocket, o
 	tools := session.Tools
 	toolChoice := session.ToolChoice
 	instructions := session.Instructions
+	maxOutputTokens := session.MaxOutputTokens
 	// Overrides
 	if overrides != nil {
 		if overrides.Tools != nil {
@@ -925,7 +948,28 @@ func triggerResponse(session *Session, conv *Conversation, c *LockedWebsocket, o
 		if overrides.Instructions != "" {
 			instructions = overrides.Instructions
 		}
+		if overrides.MaxOutputTokens != 0 {
+			maxOutputTokens = overrides.MaxOutputTokens
+		}
 	}
+
+	// Apply MaxOutputTokens to model config if specified
+	// Save original value to restore after prediction
+	var originalMaxTokens *int
+	if config != nil {
+		originalMaxTokens = config.Maxtokens
+		if maxOutputTokens != 0 && !maxOutputTokens.IsInf() {
+			tokenValue := int(maxOutputTokens)
+			config.Maxtokens = &tokenValue
+			xlog.Debug("Applied max_output_tokens to config", "value", tokenValue)
+		}
+	}
+	// Defer restoration of original value
+	defer func() {
+		if config != nil {
+			config.Maxtokens = originalMaxTokens
+		}
+	}()
 
 	var conversationHistory schema.Messages
 	conversationHistory = append(conversationHistory, schema.Message{
@@ -1034,13 +1078,34 @@ func triggerResponse(session *Session, conv *Conversation, c *LockedWebsocket, o
 	}
 
 	xlog.Debug("Function config for parsing", "function_name_key", config.FunctionsConfig.FunctionNameKey, "function_arguments_key", config.FunctionsConfig.FunctionArgumentsKey)
+	xlog.Debug("LLM raw response", "text", pred.Response, "response_length", len(pred.Response), "usage", pred.Usage)
+
+	// Safely dereference pointer fields for logging
+	maxTokens := "nil"
+	if config.Maxtokens != nil {
+		maxTokens = fmt.Sprintf("%d", *config.Maxtokens)
+	}
+	contextSize := "nil"
+	if config.ContextSize != nil {
+		contextSize = fmt.Sprintf("%d", *config.ContextSize)
+	}
+	xlog.Debug("Model parameters", "max_tokens", maxTokens, "context_size", contextSize, "stopwords", config.StopWords)
 
 	rawResponse := pred.Response
 	if config.TemplateConfig.ReplyPrefix != "" {
 		rawResponse = config.TemplateConfig.ReplyPrefix + rawResponse
 	}
 
-	reasoningText, responseWithoutReasoning := reasoning.ExtractReasoningWithConfig(rawResponse, "", config.ReasoningConfig)
+	// Detect thinking start token from template for reasoning extraction
+	var template string
+	if config.TemplateConfig.UseTokenizerTemplate {
+		template = config.GetModelTemplate()
+	} else {
+		template = config.TemplateConfig.Chat
+	}
+	thinkingStartToken := reasoning.DetectThinkingStartToken(template, &config.ReasoningConfig)
+
+	reasoningText, responseWithoutReasoning := reasoning.ExtractReasoningWithConfig(rawResponse, thinkingStartToken, config.ReasoningConfig)
 	xlog.Debug("LLM Response", "reasoning", reasoningText, "response_without_reasoning", responseWithoutReasoning)
 
 	textContent := functions.ParseTextContent(responseWithoutReasoning, config.FunctionsConfig)

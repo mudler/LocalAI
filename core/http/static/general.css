@@ -17,6 +17,7 @@ body {
 .app-layout {
   display: flex;
   min-height: 100vh;
+  min-height: 100dvh;
   background-color: var(--color-bg-primary);
 }
 
@@ -24,6 +25,7 @@ body {
   flex: 1;
   margin-left: var(--sidebar-width);
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
   background-color: var(--color-bg-primary);
@@ -37,10 +39,30 @@ body {
   background-color: var(--color-bg-primary);
 }
 
+/* Chat page: fix viewport height so messages scroll and input stays fixed at bottom */
+.app-layout.chat-layout {
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+}
+.main-content.chat-layout {
+  min-height: 0;
+}
+.main-content-inner.chat-layout {
+  min-height: 0;
+}
+
 /* Tablet and mobile */
 @media (max-width: 1023px) {
   .main-content {
     margin-left: 0;
+  }
+}
+
+/* Safe area for notched devices (e.g. iOS) - use on fixed bottom bars / modals */
+@supports (padding: env(safe-area-inset-bottom)) {
+  .pb-safe {
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
   }
 }
 
