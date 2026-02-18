@@ -739,18 +739,18 @@ func handleVAD(session *Session, conv *Conversation, c *LockedWebsocket, done ch
 			audioLength := float64(len(aints)) / localSampleRate
 
 			// TODO: When resetting the buffer we should retain a small postfix
-			// TODO: The OpenAI documentation seems to suggest that only the client decides when to clear the buffer
 			if len(segments) == 0 && audioLength > silenceThreshold {
 				session.AudioBufferLock.Lock()
 				session.InputAudioBuffer = nil
 				session.AudioBufferLock.Unlock()
-				xlog.Debug("Detected silence for a while, clearing audio buffer")
 
-				sendEvent(c, types.InputAudioBufferClearedEvent{
-					ServerEventBase: types.ServerEventBase{
-						EventID: "event_TODO",
-					},
-				})
+				// NOTE: OpenAI doesn't send this message unless the client requests it
+				// xlog.Debug("Detected silence for a while, clearing audio buffer")
+				// sendEvent(c, types.InputAudioBufferClearedEvent{
+				// 	ServerEventBase: types.ServerEventBase{
+				// 		EventID: "event_TODO",
+				// 	},
+				// })
 
 				continue
 			} else if len(segments) == 0 {
@@ -1063,7 +1063,7 @@ func triggerResponse(session *Session, conv *Conversation, c *LockedWebsocket, o
 
 	xlog.Debug("Function config for parsing", "function_name_key", config.FunctionsConfig.FunctionNameKey, "function_arguments_key", config.FunctionsConfig.FunctionArgumentsKey)
 	xlog.Debug("LLM raw response", "text", pred.Response, "response_length", len(pred.Response), "usage", pred.Usage)
-	
+
 	// Safely dereference pointer fields for logging
 	maxTokens := "nil"
 	if config.Maxtokens != nil {
@@ -1088,7 +1088,7 @@ func triggerResponse(session *Session, conv *Conversation, c *LockedWebsocket, o
 		template = config.TemplateConfig.Chat
 	}
 	thinkingStartToken := reasoning.DetectThinkingStartToken(template, &config.ReasoningConfig)
-	
+
 	reasoningText, responseWithoutReasoning := reasoning.ExtractReasoningWithConfig(rawResponse, thinkingStartToken, config.ReasoningConfig)
 	xlog.Debug("LLM Response", "reasoning", reasoningText, "response_without_reasoning", responseWithoutReasoning)
 
