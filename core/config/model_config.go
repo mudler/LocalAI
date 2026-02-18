@@ -99,6 +99,10 @@ type AgentConfig struct {
 	EnablePlanning        bool `yaml:"enable_planning,omitempty" json:"enable_planning,omitempty"`
 	EnableMCPPrompts      bool `yaml:"enable_mcp_prompts,omitempty" json:"enable_mcp_prompts,omitempty"`
 	EnablePlanReEvaluator bool `yaml:"enable_plan_re_evaluator,omitempty" json:"enable_plan_re_evaluator,omitempty"`
+	DisableSinkState      bool `yaml:"disable_sink_state,omitempty" json:"disable_sink_state,omitempty"`
+	LoopDetection         int  `yaml:"loop_detection,omitempty" json:"loop_detection,omitempty"`
+	MaxAdjustmentAttempts int  `yaml:"max_adjustment_attempts,omitempty" json:"max_adjustment_attempts,omitempty"`
+	ForceReasoningTool    bool `yaml:"force_reasoning_tool,omitempty" json:"force_reasoning_tool,omitempty"`
 }
 
 func (c *MCPConfig) MCPConfigFromYAML() (MCPGenericConfig[MCPRemoteServers], MCPGenericConfig[MCPSTDIOServers], error) {
@@ -704,7 +708,7 @@ func (c *ModelConfig) BuildCogitoOptions() []cogito.Option {
 
 	// Apply agent configuration options
 	if c.Agent.EnableReasoning {
-		cogitoOpts = append(cogitoOpts, cogito.EnableToolReasoner)
+		cogitoOpts = append(cogitoOpts, cogito.WithForceReasoning())
 	}
 
 	if c.Agent.EnablePlanning {
@@ -725,6 +729,22 @@ func (c *ModelConfig) BuildCogitoOptions() []cogito.Option {
 
 	if c.Agent.MaxAttempts != 0 {
 		cogitoOpts = append(cogitoOpts, cogito.WithMaxAttempts(c.Agent.MaxAttempts))
+	}
+
+	if c.Agent.DisableSinkState {
+		cogitoOpts = append(cogitoOpts, cogito.DisableSinkState)
+	}
+
+	if c.Agent.LoopDetection != 0 {
+		cogitoOpts = append(cogitoOpts, cogito.WithLoopDetection(c.Agent.LoopDetection))
+	}
+
+	if c.Agent.MaxAdjustmentAttempts != 0 {
+		cogitoOpts = append(cogitoOpts, cogito.WithMaxAdjustmentAttempts(c.Agent.MaxAdjustmentAttempts))
+	}
+
+	if c.Agent.ForceReasoningTool {
+		cogitoOpts = append(cogitoOpts, cogito.WithForceReasoningTool())
 	}
 
 	return cogitoOpts

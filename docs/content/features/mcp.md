@@ -78,12 +78,16 @@ mcp:
     }
 
 agent:
-  max_attempts: 3        # Maximum number of tool execution attempts
-  max_iterations: 3     # Maximum number of reasoning iterations
-  enable_reasoning: true # Enable tool reasoning capabilities
-  enable_planning: false # Enable auto-planning capabilities
-  enable_mcp_prompts: false # Enable MCP prompts
+  max_attempts: 3              # Maximum number of tool execution attempts
+  max_iterations: 3            # Maximum number of reasoning iterations
+  enable_reasoning: true       # Enable tool reasoning capabilities
+  enable_planning: false       # Enable auto-planning capabilities
+  enable_mcp_prompts: false    # Enable MCP prompts
   enable_plan_re_evaluator: false # Enable plan re-evaluation
+  disable_sink_state: false    # Disable sink state behavior
+  loop_detection: 3            # Loop detection sensitivity level
+  max_adjustment_attempts: 5   # Maximum adjustment attempts for tool calls
+  force_reasoning_tool: false  # Force reasoning tool usage
 ```
 
 ### Configuration Options
@@ -104,12 +108,21 @@ Configure local command-based MCP servers:
 #### Agent Configuration (`agent`)
 Configure agent behavior and tool execution:
 
-- **`max_attempts`**: Maximum number of tool execution attempts (default: 3)
-- **`max_iterations`**: Maximum number of reasoning iterations (default: 3)
-- **`enable_reasoning`**: Enable tool reasoning capabilities (default: false)
-- **`enable_planning`**: Enable auto-planning capabilities (default: false)
-- **`enable_mcp_prompts`**: Enable MCP prompts (default: false)
-- **`enable_plan_re_evaluator`**: Enable plan re-evaluation (default: false)
+**Execution Control**
+- **`max_attempts`**: Maximum number of tool execution attempts (default: 3). Higher values provide more resilience but may increase response time.
+- **`max_iterations`**: Maximum number of reasoning iterations (default: 3). More iterations allow for complex multi-step problem solving.
+- **`loop_detection`**: Loop detection sensitivity level (default: 0, disabled). Set to a positive integer (e.g., 3) to enable loop detection and prevent infinite execution cycles.
+- **`max_adjustment_attempts`**: Maximum adjustment attempts for tool calls (default: 5). Prevents infinite loops when adjusting tool call parameters.
+
+**Reasoning and Planning**
+- **`enable_reasoning`**: Enable tool reasoning capabilities (default: false). When enabled, the agent uses advanced reasoning to better understand tool results.
+- **`enable_planning`**: Enable auto-planning capabilities (default: false). When enabled, breaks down complex tasks into manageable steps.
+- **`disable_sink_state`**: Disable sink state behavior (default: false). When enabled, prevents the agent from entering a sink state.
+- **`force_reasoning_tool`**: Force reasoning tool usage (default: false). When enabled, always use the reasoning tool in the agent's reasoning process.
+
+**MCP Integration**
+- **`enable_mcp_prompts`**: Enable MCP prompts (default: false). When enabled, uses specialized prompts exposed by MCP servers.
+- **`enable_plan_re_evaluator`**: Enable plan re-evaluation (default: false). When enabled, dynamically adjusts execution plans based on results.
 
 ## Usage
 
@@ -186,9 +199,13 @@ The `agent` section controls how the AI model interacts with MCP tools:
 ### Execution Control
 - **`max_attempts`**: Limits how many times a tool can be retried if it fails. Higher values provide more resilience but may increase response time.
 - **`max_iterations`**: Controls the maximum number of reasoning cycles the agent can perform. More iterations allow for complex multi-step problem solving.
+- **`loop_detection`**: Set to a positive integer (e.g., 3) to enable loop detection and prevent infinite execution cycles. Default is 0 (disabled).
+- **`max_adjustment_attempts`**: Limits the number of times the agent can adjust tool call parameters. Prevents infinite loops during tool execution (default: 5).
 
 ### Reasoning Capabilities
 - **`enable_reasoning`**: When enabled, the agent uses advanced reasoning to better understand tool results and plan next steps.
+- **`force_reasoning_tool`**: When enabled, forces the agent to always use the reasoning tool in its reasoning process, ensuring explicit reasoning steps.
+- **`disable_sink_state`**: When enabled, prevents the agent from entering a sink state where it stops making progress.
 
 ### Planning Capabilities
 - **`enable_planning`**: When enabled, the agent uses auto-planning to break down complex tasks into manageable steps and execute them systematically. The agent will automatically detect when planning is needed.
@@ -198,8 +215,9 @@ The `agent` section controls how the AI model interacts with MCP tools:
 ### Recommended Settings
 - **Simple tasks**: `max_attempts: 2`, `max_iterations: 2`, `enable_reasoning: false`, `enable_planning: false`
 - **Complex tasks**: `max_attempts: 5`, `max_iterations: 5`, `enable_reasoning: true`, `enable_planning: true`, `enable_mcp_prompts: true`
-- **Advanced planning**: `max_attempts: 5`, `max_iterations: 5`, `enable_reasoning: true`, `enable_planning: true`, `enable_mcp_prompts: true`, `enable_plan_re_evaluator: true`
+- **Advanced planning**: `max_attempts: 5`, `max_iterations: 5`, `enable_reasoning: true`, `enable_planning: true`, `enable_mcp_prompts: true`, `enable_plan_re_evaluator: true`, `loop_detection: 3`
 - **Development/Debugging**: `max_attempts: 1`, `max_iterations: 1`, `enable_reasoning: true`, `enable_planning: true`
+- **Aggressive loop prevention**: `max_attempts: 5`, `max_iterations: 5`, `loop_detection: 2`, `max_adjustment_attempts: 3`, `force_reasoning_tool: true`
 
 ## How It Works
 
