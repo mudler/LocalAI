@@ -1080,7 +1080,16 @@ func triggerResponse(session *Session, conv *Conversation, c *LockedWebsocket, o
 		rawResponse = config.TemplateConfig.ReplyPrefix + rawResponse
 	}
 
-	reasoningText, responseWithoutReasoning := reasoning.ExtractReasoningWithConfig(rawResponse, "", config.ReasoningConfig)
+	// Detect thinking start token from template for reasoning extraction
+	var template string
+	if config.TemplateConfig.UseTokenizerTemplate {
+		template = config.GetModelTemplate()
+	} else {
+		template = config.TemplateConfig.Chat
+	}
+	thinkingStartToken := reasoning.DetectThinkingStartToken(template, &config.ReasoningConfig)
+	
+	reasoningText, responseWithoutReasoning := reasoning.ExtractReasoningWithConfig(rawResponse, thinkingStartToken, config.ReasoningConfig)
 	xlog.Debug("LLM Response", "reasoning", reasoningText, "response_without_reasoning", responseWithoutReasoning)
 
 	textContent := functions.ParseTextContent(responseWithoutReasoning, config.FunctionsConfig)
