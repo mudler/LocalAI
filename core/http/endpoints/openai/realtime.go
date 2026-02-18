@@ -36,6 +36,10 @@ const (
 	// XXX: Presently it seems all ASR/VAD backends use 16Khz. If a backend uses 24Khz then it will likely still work, but have reduced performance
 	localSampleRate  = 16000
 	defaultRemoteSampleRate = 24000
+	// Maximum audio buffer size in bytes (100MB) to prevent memory exhaustion
+	maxAudioBufferSize = 100 * 1024 * 1024
+	// Maximum WebSocket message size in bytes (10MB) to prevent DoS attacks
+	maxWebSocketMessageSize = 10 * 1024 * 1024
 )
 
 // A model can be "emulated" that is: transcribe audio to text -> feed text to the LLM -> generate audio as result
@@ -167,6 +171,9 @@ func Realtime(application *application.Application) echo.HandlerFunc {
 			return err
 		}
 		defer ws.Close()
+
+		// Set maximum message size to prevent DoS attacks
+		ws.SetReadLimit(maxWebSocketMessageSize)
 
 		// Extract query parameters from Echo context before passing to websocket handler
 		model := c.QueryParam("model")
@@ -371,8 +378,17 @@ func registerRealtime(application *application.Application, model string) func(c
 					continue
 				}
 
-				// Append to InputAudioBuffer
+				// Check buffer size limits before appending
 				session.AudioBufferLock.Lock()
+				newSize := len(session.InputAudioBuffer) + len(decodedAudio)
+				if newSize > maxAudioBufferSize {
+					session.AudioBufferLock.Unlock()
+					xlog.Error("audio buffer size limit exceeded", "current_size", len(session.InputAudioBuffer), "incoming_size", len(decodedAudio), "limit", maxAudioBufferSize)
+					sendError(c, "buffer_size_exceeded", fmt.Sprintf("Audio buffer size limit exceeded (max %d bytes)", maxAudioBufferSize), "", "")
+					continue
+				}
+
+				// Append to InputAudioBuffer
 				session.InputAudioBuffer = append(session.InputAudioBuffer, decodedAudio...)
 				session.AudioBufferLock.Unlock()
 
