@@ -61,10 +61,10 @@
                         <span class="text-[var(--color-text-secondary)] mr-1">Capability:</span>
                         <span class="font-semibold text-[var(--color-primary)]" x-text="systemCapability"></span>
                     </div>
-                    <a href="https://localai.io/backends/" target="_blank" class="btn-primary">
-                        <i class="fas fa-info-circle mr-2"></i>
+                    <a href="https://localai.io/backends/" target="_blank" class="inline-flex items-center gap-1.5 text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] bg-transparent hover:bg-[var(--color-primary)]/10 border border-[var(--color-border-subtle)] hover:border-[var(--color-primary)]/30 rounded-md py-1.5 px-2.5 transition-colors">
+                        <i class="fas fa-info-circle"></i>
                         <span>Documentation</span>
-                        <i class="fas fa-external-link-alt ml-2 text-xs"></i>
+                        <i class="fas fa-external-link-alt text-[10px]"></i>
                     </a>
                 </div>
             </div>
@@ -119,12 +119,12 @@
                 </div>
                 
                 <div class="flex items-center gap-4">
-                    <button 
+                    <button type="button"
                         @click="installExternalBackend()"
                         :disabled="installingExternal || !externalBackend.uri"
-                        class="btn-primary"
+                        class="inline-flex items-center gap-1.5 text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] bg-transparent hover:bg-[var(--color-primary)]/10 border border-[var(--color-border-subtle)] hover:border-[var(--color-primary)]/30 rounded-md py-1.5 px-2.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:border-[var(--color-border-subtle)]"
                     >
-                        <i class="mr-2" :class="installingExternal ? 'fas fa-spinner fa-spin' : 'fas fa-download'"></i>
+                        <i class="text-[10px]" :class="installingExternal ? 'fas fa-spinner fa-spin' : 'fas fa-download'"></i>
                         <span x-text="installingExternal ? 'Installing...' : 'Install Backend'"></span>
                     </button>
                     <span x-show="externalBackendProgress" class="text-sm text-[var(--color-text-secondary)]" x-text="externalBackendProgress"></span>

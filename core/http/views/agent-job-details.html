@@ -39,11 +39,11 @@
                     }" 
                     class="px-4 py-2 rounded-lg text-sm font-semibold text-white" 
                     x-text="job.status ? job.status.toUpperCase() : 'LOADING...'"></span>
-                    <button x-show="job.status === 'pending' || job.status === 'running'" 
+                    <button type="button" x-show="job.status === 'pending' || job.status === 'running'" 
                             @click="cancelJob()" 
-                            class="btn-primary"
-                            style="background: var(--color-error);">
-                        <i class="fas fa-stop mr-2"></i>Cancel
+                            class="inline-flex items-center gap-1.5 text-xs text-red-400/90 hover:text-red-400 bg-transparent hover:bg-red-500/10 border border-[var(--color-border-subtle)] hover:border-red-500/30 rounded-md py-1.5 px-2.5 transition-colors">
+                        <i class="fas fa-stop"></i>
+                        <span>Cancel</span>
                     </button>
                 </div>
             </div>

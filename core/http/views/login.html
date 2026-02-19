@@ -3,7 +3,7 @@
 {{template "views/partials/head" .}}
 
 <body class="bg-[var(--color-bg-primary)] text-[var(--color-text-primary)]">
-<div class="app-layout">
+<div class="app-layout no-sidebar">
   <main class="main-content">
     <div class="main-content-inner">
 
@@ -44,11 +44,9 @@
                     </div>
                     
                     <div>
-                        <button 
-                            type="submit" 
-                            class="btn-primary w-full"
-                        >
-                            <i class="fas fa-sign-in-alt mr-2"></i>
+                        <button type="submit"
+                            class="inline-flex items-center justify-center gap-1.5 w-full text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] bg-transparent hover:bg-[var(--color-primary)]/10 border border-[var(--color-border-subtle)] hover:border-[var(--color-primary)]/30 rounded-md py-1.5 px-2.5 transition-colors">
+                            <i class="fas fa-sign-in-alt"></i>
                             <span>Login</span>
                         </button>
                     </div>

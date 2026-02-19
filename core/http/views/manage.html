@@ -42,36 +42,6 @@
                     Model & Backend Management
                 </h1>
                 <p class="hero-subtitle">Manage your installed models and backends</p>
-                
-                <!-- Quick Actions -->
-                <div class="flex flex-wrap justify-center gap-3">
-                    <a href="browse/" class="btn-primary text-sm py-1.5 px-3">
-                        <i class="fas fa-images mr-1.5 text-[10px]"></i>
-                        <span>Model Gallery</span>
-                    </a>
-                    
-                    <a href="/import-model" class="btn-primary text-sm py-1.5 px-3">
-                        <i class="fas fa-plus mr-1.5 text-[10px]"></i>
-                        <span>Import Model</span>
-                    </a>
-
-                    <button id="reload-models-btn" class="btn-primary text-sm py-1.5 px-3">
-                        <i class="fas fa-sync-alt mr-1.5 text-[10px]"></i>
-                        <span>Update Models</span>
-                    </button>
-
-                    <a href="/browse/backends" class="btn-secondary text-sm py-1.5 px-3">
-                        <i class="fas fa-cogs mr-1.5 text-[10px]"></i>
-                        <span>Backend Gallery</span>
-                    </a>
-
-                    {{ if not .DisableRuntimeSettings }}
-                    <a href="/settings" class="btn-secondary text-sm py-1.5 px-3">
-                        <i class="fas fa-cog mr-1.5 text-[10px]"></i>
-                        <span>Settings</span>
-                    </a>
-                    {{ end }}
-                </div>
             </div>
         </div>
 
@@ -190,17 +160,17 @@
                     <p class="text-sm text-[var(--color-text-secondary)] mb-6">Get started by installing a model from the gallery or importing it</p>
                     
                     <div class="flex flex-wrap justify-center gap-2 mb-6">
-                        <a href="browse" class="btn-primary text-sm py-1.5 px-3">
-                            <i class="fas fa-images mr-1.5 text-[10px]"></i>
-                            Browse Model Gallery
+                        <a href="browse" class="inline-flex items-center gap-1.5 text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] bg-transparent hover:bg-[var(--color-primary)]/10 border border-[var(--color-border-subtle)] hover:border-[var(--color-primary)]/30 rounded-md py-1.5 px-2.5 transition-colors">
+                            <i class="fas fa-images text-[10px]"></i>
+                            <span>Browse Model Gallery</span>
                         </a>
-                        <a href="/import-model" class="btn-primary text-sm py-1.5 px-3">
-                            <i class="fas fa-upload mr-1.5 text-[10px]"></i>
-                            Import Model
+                        <a href="/import-model" class="inline-flex items-center gap-1.5 text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] bg-transparent hover:bg-[var(--color-primary)]/10 border border-[var(--color-border-subtle)] hover:border-[var(--color-primary)]/30 rounded-md py-1.5 px-2.5 transition-colors">
+                            <i class="fas fa-upload text-[10px]"></i>
+                            <span>Import Model</span>
                         </a>
-                        <a href="https://localai.io/basics/getting_started/" target="_blank" class="btn-secondary text-sm py-1.5 px-3">
-                            <i class="fas fa-book mr-1.5 text-[10px]"></i>
-                            Documentation
+                        <a href="https://localai.io/basics/getting_started/" target="_blank" class="inline-flex items-center gap-1.5 text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] bg-transparent hover:bg-[var(--color-primary)]/10 border border-[var(--color-border-subtle)] hover:border-[var(--color-primary)]/30 rounded-md py-1.5 px-2.5 transition-colors">
+                            <i class="fas fa-book text-[10px]"></i>
+                            <span>Documentation</span>
                         </a>
                     </div>
 
@@ -228,13 +198,22 @@
             {{ $modelsN := len .ModelsConfig}}
             {{ $modelsN = add $modelsN (len .Models)}}
             <div class="mb-6">
-                <h2 class="h3 mb-1 flex items-center">
-                    <i class="fas fa-brain mr-2 text-[var(--color-primary)] text-sm"></i>
-                    Installed Models
-                </h2>
-                <p class="text-sm text-[var(--color-text-secondary)] mb-4">
-                    <span class="text-[var(--color-primary)] font-medium">{{$modelsN}}</span> model{{if gt $modelsN 1}}s{{end}} ready to use
-                </p>
+                <div class="flex items-center justify-between gap-3 mb-1">
+                    <div>
+                        <h2 class="h3 flex items-center">
+                            <i class="fas fa-brain mr-2 text-[var(--color-primary)] text-sm"></i>
+                            Installed Models
+                        </h2>
+                        <p class="text-sm text-[var(--color-text-secondary)] mt-0.5">
+                            <span class="text-[var(--color-primary)] font-medium">{{$modelsN}}</span> model{{if gt $modelsN 1}}s{{end}} ready to use
+                        </p>
+                    </div>
+                    <button id="reload-models-btn" type="button" title="Update models list from disk"
+                        class="inline-flex items-center gap-1.5 text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] bg-transparent hover:bg-[var(--color-primary)]/10 border border-[var(--color-border-subtle)] hover:border-[var(--color-primary)]/30 rounded-md py-1.5 px-2.5 transition-colors">
+                        <i class="fas fa-sync-alt text-[10px]"></i>
+                        <span>Update</span>
+                    </button>
+                </div>
             </div>
             
             <div class="overflow-x-auto mb-8">
@@ -339,13 +318,13 @@
                             <td class="p-2">
                                 <div class="flex items-center justify-end gap-1">
                                     {{ if index $loadedModels .Name }}
-                                    <button class="text-red-400/60 hover:text-red-400 hover:bg-red-500/10 rounded p-1 transition-colors" 
+                                    <button type="button" class="text-red-400/60 hover:text-red-400 hover:bg-red-500/10 rounded p-1 transition-colors"
                                         onclick="handleStopModel('{{.Name}}')"
                                         title="Stop {{.Name}}">
                                         <i class="fas fa-stop text-xs"></i>
                                     </button>
                                     {{ end }}
-                                    <button class="text-red-400/60 hover:text-red-400 hover:bg-red-500/10 rounded p-1 transition-colors"
+                                    <button type="button" class="text-red-400/60 hover:text-red-400 hover:bg-red-500/10 rounded p-1 transition-colors"
                                         onclick="handleDeleteModel('{{.Name}}')"
                                         title="Delete {{.Name}}">
                                         <i class="fas fa-trash-alt text-xs"></i>
@@ -397,12 +376,12 @@
                         Installed Backends
                     </h2>
                     {{ if gt (len .InstalledBackends) 0 }}
-                    <button
+                    <button type="button"
                         @click="reinstallAllBackends()"
                         :disabled="reinstallingAll"
-                        class="btn-primary text-sm py-1.5 px-3"
+                        class="inline-flex items-center gap-1.5 text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] bg-transparent hover:bg-[var(--color-primary)]/10 border border-[var(--color-border-subtle)] hover:border-[var(--color-primary)]/30 rounded-md py-1.5 px-2.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:border-[var(--color-border-subtle)]"
                         title="Reinstall all backends">
-                        <i class="fas fa-arrow-rotate-right mr-1.5 text-[10px]" :class="reinstallingAll ? 'fa-spin' : ''"></i>
+                        <i class="fas fa-arrow-rotate-right text-[10px]" :class="reinstallingAll ? 'fa-spin' : ''"></i>
                         <span x-text="reinstallingAll ? 'Reinstalling...' : 'Reinstall All'"></span>
                     </button>
                     {{ end }}
@@ -422,14 +401,14 @@
                     <h2 class="h2 mb-2">No backends installed yet</h2>
                     <p class="text-sm text-[var(--color-text-secondary)] mb-6">Backends power your AI models. Install them from the backend gallery to get started</p>
                     
-                    <div class="flex flex-wrap justify-center gap-3">
-                        <a href="/browse/backends" class="btn-primary">
-                            <i class="fas fa-cogs mr-2 text-xs"></i>
-                            Browse Backend Gallery
+                    <div class="flex flex-wrap justify-center gap-2">
+                        <a href="/browse/backends" class="inline-flex items-center gap-1.5 text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] bg-transparent hover:bg-[var(--color-primary)]/10 border border-[var(--color-border-subtle)] hover:border-[var(--color-primary)]/30 rounded-md py-1.5 px-2.5 transition-colors">
+                            <i class="fas fa-cogs text-[10px]"></i>
+                            <span>Browse Backend Gallery</span>
                         </a>
-                        <a href="https://localai.io/backends/" target="_blank" class="btn-secondary">
-                            <i class="fas fa-book mr-2 text-xs"></i>
-                            Documentation
+                        <a href="https://localai.io/backends/" target="_blank" class="inline-flex items-center gap-1.5 text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] bg-transparent hover:bg-[var(--color-primary)]/10 border border-[var(--color-border-subtle)] hover:border-[var(--color-primary)]/30 rounded-md py-1.5 px-2.5 transition-colors">
+                            <i class="fas fa-book text-[10px]"></i>
+                            <span>Documentation</span>
                         </a>
                     </div>
                 </div>
@@ -502,14 +481,14 @@
                             <td class="p-2">
                                 <div class="flex items-center justify-end gap-1">
                                     {{ if not .IsSystem }}
-                                    <button
+                                    <button type="button"
                                         @click="reinstallBackend('{{.Name}}')"
                                         :disabled="reinstallingBackends['{{.Name}}']"
                                         class="text-[var(--color-primary)]/60 hover:text-[var(--color-primary)] hover:bg-[var(--color-primary)]/10 disabled:opacity-50 disabled:cursor-not-allowed rounded p-1 transition-colors"
                                         title="Reinstall {{.Name}}">
                                         <i class="fas fa-arrow-rotate-right text-xs" :class="reinstallingBackends['{{.Name}}'] ? 'fa-spin' : ''"></i>
                                     </button>
-                                    <button
+                                    <button type="button"
                                         @click="deleteBackend('{{.Name}}')"
                                         class="text-red-400/60 hover:text-red-400 hover:bg-red-500/10 rounded p-1 transition-colors"
                                         title="Delete {{.Name}}">

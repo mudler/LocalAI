@@ -39,6 +39,11 @@ body {
   background-color: var(--color-bg-primary);
 }
 
+/* Pages without sidebar (e.g. login): center content */
+.app-layout.no-sidebar .main-content {
+  margin-left: 0;
+}
+
 /* Chat page: fix viewport height so messages scroll and input stays fixed at bottom */
 .app-layout.chat-layout {
   height: 100vh;

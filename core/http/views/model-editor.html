@@ -24,30 +24,30 @@
                     <div class="flex gap-3">
                         <!-- Mode Toggle (only show when not in edit mode) -->
                         <template x-if="!isEditMode">
-                            <button @click="toggleMode()" class="btn-secondary">
-                                <i class="fas" :class="isAdvancedMode ? 'fa-magic mr-2' : 'fa-code mr-2'"></i>
+                            <button type="button" @click="toggleMode()" class="inline-flex items-center gap-1.5 text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] bg-transparent hover:bg-[var(--color-primary)]/10 border border-[var(--color-border-subtle)] hover:border-[var(--color-primary)]/30 rounded-md py-1.5 px-2.5 transition-colors">
+                                <i class="fas" :class="isAdvancedMode ? 'fa-magic' : 'fa-code'"></i>
                                 <span x-text="isAdvancedMode ? 'Simple Mode' : 'Advanced Mode'"></span>
                             </button>
                         </template>
                         <!-- Advanced Mode Buttons -->
                         <template x-if="isAdvancedMode">
-                            <div class="flex gap-3">
-                                <button id="validateBtn" class="btn-primary">
-                                    <i class="fas fa-check mr-2"></i>
+                            <div class="flex gap-2">
+                                <button type="button" id="validateBtn" class="inline-flex items-center gap-1.5 text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] bg-transparent hover:bg-[var(--color-primary)]/10 border border-[var(--color-border-subtle)] hover:border-[var(--color-primary)]/30 rounded-md py-1.5 px-2.5 transition-colors">
+                                    <i class="fas fa-check"></i>
                                     <span>Validate</span>
                                 </button>
-                                <button id="saveBtn" class="btn-primary">
-                                    <i class="fas fa-save mr-2"></i>
+                                <button type="button" id="saveBtn" class="inline-flex items-center gap-1.5 text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] bg-transparent hover:bg-[var(--color-primary)]/10 border border-[var(--color-border-subtle)] hover:border-[var(--color-primary)]/30 rounded-md py-1.5 px-2.5 transition-colors">
+                                    <i class="fas fa-save"></i>
                                     <span>{{if .ModelName}}Update{{else}}Create{{end}}</span>
                                 </button>
                             </div>
                         </template>
                         <!-- Simple Mode Button -->
                         <template x-if="!isAdvancedMode && !isEditMode">
-                            <button @click="submitImport()" 
+                            <button type="button" @click="submitImport()" 
                                     :disabled="isSubmitting || !importUri.trim()"
-                                    class="btn-primary">
-                                <i class="fas" :class="isSubmitting ? 'fa-spinner fa-spin mr-2' : 'fa-upload mr-2'"></i>
+                                    class="inline-flex items-center gap-1.5 text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] bg-transparent hover:bg-[var(--color-primary)]/10 border border-[var(--color-border-subtle)] hover:border-[var(--color-primary)]/30 rounded-md py-1.5 px-2.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:border-[var(--color-border-subtle)]">
+                                <i class="fas text-[10px]" :class="isSubmitting ? 'fa-spinner fa-spin' : 'fa-upload'"></i>
                                 <span x-text="isSubmitting ? 'Importing...' : 'Import Model'"></span>
                             </button>
                         </template>
