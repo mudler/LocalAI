@@ -233,6 +233,10 @@ test-stablediffusion: prepare-test
 	TEST_DIR=$(abspath ./)/test-dir/ FIXTURES=$(abspath ./)/tests/fixtures CONFIG_FILE=$(abspath ./)/test-models/config.yaml MODELS_PATH=$(abspath ./)/test-models BACKENDS_PATH=$(abspath ./)/backends \
 	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter="stablediffusion" --flake-attempts $(TEST_FLAKES) -v -r $(TEST_PATHS)
 
+test-spiritlm: prepare-test
+	TEST_DIR=$(abspath ./)/test-dir/ FIXTURES=$(abspath ./)/tests/fixtures MODELS_PATH=$(abspath ./)/test-models BACKENDS_PATH=$(abspath ./)/backend/python SPIRITLM_CHECKPOINTS_DIR=$(SPIRITLM_CHECKPOINTS_DIR) \
+	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter="spiritlm" --flake-attempts $(TEST_FLAKES) -v -r $(TEST_PATHS)
+
 test-stores:
 	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter="stores" --flake-attempts $(TEST_FLAKES) -v -r tests/integration
 

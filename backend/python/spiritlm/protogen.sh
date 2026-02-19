@@ -8,4 +8,6 @@ else
     source $backend_dir/../common/libbackend.sh
 fi
 
-python3 -m grpc_tools.protoc -I../.. -I./ --python_out=. --grpc_python_out=. backend.proto
+# backend.proto lives at repo backend/; from backend/python/spiritlm that is ../../../backend
+proto_root="${backend_dir}/../../../backend"
+python3 -m grpc_tools.protoc -I"${proto_root}" --python_out=. --grpc_python_out=. "${proto_root}/backend.proto"
