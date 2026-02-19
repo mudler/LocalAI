@@ -4,7 +4,6 @@ git+https://github.com/huggingface/diffusers
 transformers
 accelerate
 compel
-git+https://github.com/xhinker/sd_embed
 peft
 optimum-quanto
 numpy<2
