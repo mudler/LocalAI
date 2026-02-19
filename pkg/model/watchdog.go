@@ -540,7 +540,7 @@ func (wd *WatchDog) evictLRUModel() {
 	wd.Unlock()
 
 	// Shutdown the model
-	if err := wd.pm.ShutdownModel(lruModel.model); err != nil {
+	if err := wd.pm.ShutdownModel(lruModel.model); err != nil && err != modelNotFoundErr {
 		xlog.Error("[WatchDog] error shutting down model during memory reclamation", "error", err, "model", lruModel.model)
 	} else {
 		// Untrack the model

@@ -17,11 +17,15 @@ import (
 
 var forceBackendShutdown bool = os.Getenv("LOCALAI_FORCE_BACKEND_SHUTDOWN") == "true"
 
+var (
+	modelNotFoundErr = errors.New("model not found")
+)
+
 func (ml *ModelLoader) deleteProcess(s string) error {
 	model, ok := ml.models[s]
 	if !ok {
 		xlog.Debug("Model not found", "model", s)
-		return fmt.Errorf("model %s not found", s)
+		return modelNotFoundErr
 	}
 
 	retries := 1
