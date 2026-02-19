@@ -36,22 +36,22 @@
 
     <div class="container mx-auto px-4 py-6 flex-grow max-w-4xl">
         <!-- Header -->
-        <div class="mb-6">
-            <div class="flex items-center justify-between mb-2">
-                <h1 class="h2">
-                    Application Settings
-                </h1>
-                <a href="/manage"
-                   class="inline-flex items-center text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors">
-                    <i class="fas fa-arrow-left mr-2 text-sm"></i>
-                    <span class="text-sm">Back to Manage</span>
-                </a>
-            </div>
+        <div class="mb-4">
+            <h1 class="h2 mb-2">Application Settings</h1>
             <p class="text-sm text-[var(--color-text-secondary)]">Configure watchdog and backend request settings</p>
         </div>
 
         <!-- Settings Form -->
         <form @submit.prevent="saveSettings()" class="space-y-6">
+            <!-- Sticky Save bar -->
+            <div class="sticky top-0 z-10 -mx-4 px-4 py-3 -mt-2 mb-2 bg-[var(--color-bg-primary)] border-b border-[var(--color-border-subtle)] flex justify-end">
+                <button type="submit"
+                        :disabled="saving"
+                        class="inline-flex items-center gap-1.5 text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] bg-transparent hover:bg-[var(--color-primary)]/10 border border-[var(--color-border-subtle)] hover:border-[var(--color-primary)]/30 rounded-md py-1.5 px-2.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:border-[var(--color-border-subtle)]">
+                    <i class="fas fa-save text-[10px]" :class="saving ? 'fa-spin fa-spinner' : ''"></i>
+                    <span x-text="saving ? 'Saving...' : 'Save Settings'"></span>
+                </button>
+            </div>
             <!-- Watchdog Settings Section -->
             <div class="bg-[var(--color-bg-secondary)] border border-[var(--color-primary-border)]/20 rounded-lg p-6">
                 <h2 class="text-xl font-semibold text-[var(--color-text-primary)] mb-4 flex items-center">
@@ -591,30 +591,6 @@
                     </div>
                 </div>
             </div>
-
-            <!-- Source Info -->
-            <div class="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-4" x-show="sourceInfo">
-                <div class="flex items-start">
-                    <i class="fas fa-info-circle text-yellow-400 mr-2 mt-0.5"></i>
-                    <div class="flex-1">
-                        <p class="text-sm text-yellow-300 font-medium mb-1">Configuration Source</p>
-                        <p class="text-xs text-yellow-200" x-text="'Settings are currently loaded from: ' + sourceInfo"></p>
-                        <p class="text-xs text-yellow-200 mt-1" x-show="sourceInfo === 'env'">
-                            Environment variables take precedence. To modify settings via the UI, unset the relevant environment variables first.
-                        </p>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Save Button -->
-            <div class="flex justify-end">
-                <button type="submit"
-                        :disabled="saving"
-                        class="btn-primary">
-                    <i class="fas fa-save mr-2" :class="saving ? 'fa-spin fa-spinner' : ''"></i>
-                    <span x-text="saving ? 'Saving...' : 'Save Settings'"></span>
-                </button>
-            </div>
         </form>
     </div>
 
@@ -659,7 +635,6 @@ function settingsDashboard() {
             agent_job_retention_days: 30,
             open_responses_store_ttl: '0'
         },
-        sourceInfo: '',
         saving: false,
 
         init() {
@@ -707,7 +682,6 @@ function settingsDashboard() {
                         agent_job_retention_days: data.agent_job_retention_days || 30,
                         open_responses_store_ttl: data.open_responses_store_ttl || '0'
                     };
-                    this.sourceInfo = data.source || 'default';
                 } else {
                     this.addNotification('Failed to load settings: ' + (data.error || 'Unknown error'), 'error');
                 }
@@ -879,7 +853,6 @@ function settingsDashboard() {
 
                 if (response.ok && data.success) {
                     this.addNotification('Settings saved successfully!', 'success');
-                    // Reload settings to get updated source info
                     setTimeout(() => this.loadSettings(), 1000);
                 } else {
                     this.addNotification('Failed to save settings: ' + (data.error || 'Unknown error'), 'error');

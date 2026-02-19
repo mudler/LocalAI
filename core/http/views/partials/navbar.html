@@ -85,9 +85,15 @@
         <span class="nav-label">Swarm</span>
       </a>
       <a href="/manage" class="nav-item">
+        <i class="fas fa-server nav-icon"></i>
+        <span class="nav-label">System</span>
+      </a>
+      {{ if not .DisableRuntimeSettings }}
+      <a href="/settings" class="nav-item">
         <i class="fas fa-cog nav-icon"></i>
         <span class="nav-label">Settings</span>
       </a>
+      {{ end }}
     </div>
   </nav>
   
