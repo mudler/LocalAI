@@ -195,9 +195,8 @@
         </div>
             <div class="flow-root">
             <!-- Toggle button for showing/hiding the form -->
-            <button class="btn-primary float-right mb-2" @click="toggleForm()">
-                <!-- Conditional icon display -->
-                <i :class="showForm ? 'fa-solid fa-times' : 'fa-solid fa-plus'" class="mr-2"></i>
+            <button type="button" class="inline-flex items-center gap-1.5 text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] bg-transparent hover:bg-[var(--color-primary)]/10 border border-[var(--color-border-subtle)] hover:border-[var(--color-primary)]/30 rounded-md py-1.5 px-2.5 transition-colors float-right mb-2" @click="toggleForm()">
+                <i :class="showForm ? 'fa-solid fa-times' : 'fa-solid fa-plus'"></i>
                 <span x-text="showForm ? 'Close' : 'Add New Network'"></span>
             </button>
         </div>
@@ -216,7 +215,7 @@
                     <label for="token">Token</label>
                     <textarea id="token" x-model="newNetwork.token" placeholder="Enter token" class="input"></textarea>
                 </div>
-                <button @click="addNetwork" class="btn-primary"><i class="fa-solid fa-plus"></i> Add Network</button>
+                <button type="button" @click="addNetwork" class="inline-flex items-center gap-1.5 text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] bg-transparent hover:bg-[var(--color-primary)]/10 border border-[var(--color-border-subtle)] hover:border-[var(--color-primary)]/30 rounded-md py-1.5 px-2.5 transition-colors"><i class="fa-solid fa-plus"></i> <span>Add Network</span></button>
                 <template x-if="errorMessage">
                     <p class="error" x-text="errorMessage"></p>
                 </template>

@@ -61,14 +61,14 @@
                         <span class="font-semibold text-purple-300" x-text="repositories.length"></span>
                         <span class="text-[var(--color-text-secondary)] ml-1">repositories</span>
                     </div>
-                    <a href="/import-model" class="btn-primary">
-                        <i class="fas fa-upload mr-2"></i>
+                    <a href="/import-model" class="inline-flex items-center gap-1.5 text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] bg-transparent hover:bg-[var(--color-primary)]/10 border border-[var(--color-border-subtle)] hover:border-[var(--color-primary)]/30 rounded-md py-1.5 px-2.5 transition-colors">
+                        <i class="fas fa-upload"></i>
                         <span>Import Model</span>
                     </a>
-                    <a href="https://localai.io/models/" target="_blank" class="btn-secondary">
-                        <i class="fas fa-info-circle mr-2"></i>
+                    <a href="https://localai.io/models/" target="_blank" class="inline-flex items-center gap-1.5 text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] bg-transparent hover:bg-[var(--color-primary)]/10 border border-[var(--color-border-subtle)] hover:border-[var(--color-primary)]/30 rounded-md py-1.5 px-2.5 transition-colors">
+                        <i class="fas fa-info-circle"></i>
                         <span>Documentation</span>
-                        <i class="fas fa-external-link-alt ml-2 text-xs"></i>
+                        <i class="fas fa-external-link-alt text-[10px]"></i>
                     </a>
                 </div>
             </div>
@@ -453,8 +453,8 @@
                         </div>
                         <!-- Modal Footer -->
                         <div class="flex items-center p-4 md:p-5 border-t border-[var(--color-border-subtle)] rounded-b">
-                            <button @click="closeModal()"
-                                    class="btn-secondary">
+                            <button type="button" @click="closeModal()"
+                                    class="inline-flex items-center gap-1.5 text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] bg-transparent hover:bg-[var(--color-primary)]/10 border border-[var(--color-border-subtle)] hover:border-[var(--color-primary)]/30 rounded-md py-1.5 px-2.5 transition-colors">
                                 Close
                             </button>
                         </div>
