@@ -102,7 +102,7 @@ func MCPEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator 
 		// Build fragment from messages
 		fragment := cogito.NewEmptyFragment()
 		for _, message := range input.Messages {
-			fragment = fragment.AddMessage(message.Role, message.StringContent)
+			fragment = fragment.AddMessage(cogito.MessageRole(message.Role), message.StringContent)
 		}
 
 		_, port, err := net.SplitHostPort(appConfig.APIAddress)

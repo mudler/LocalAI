@@ -927,7 +927,7 @@ func handleBackgroundMCPResponse(ctx context.Context, store *ResponseStore, resp
 	// Build fragment from messages
 	fragment := cogito.NewEmptyFragment()
 	for _, message := range openAIReq.Messages {
-		fragment = fragment.AddMessage(message.Role, message.StringContent)
+		fragment = fragment.AddMessage(cogito.MessageRole(message.Role), message.StringContent)
 	}
 	fragmentPtr := &fragment
 
@@ -2484,7 +2484,7 @@ func handleMCPResponse(c echo.Context, responseID string, createdAt int64, input
 	// Build fragment from messages
 	fragment := cogito.NewEmptyFragment()
 	for _, message := range openAIReq.Messages {
-		fragment = fragment.AddMessage(message.Role, message.StringContent)
+		fragment = fragment.AddMessage(cogito.MessageRole(message.Role), message.StringContent)
 	}
 	fragmentPtr := &fragment
 
