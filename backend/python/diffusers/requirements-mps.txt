@@ -5,7 +5,6 @@ opencv-python
 transformers
 accelerate
 compel
-git+https://github.com/xhinker/sd_embed
 peft
 sentencepiece
 optimum-quanto
