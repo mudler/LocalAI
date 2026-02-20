@@ -7,11 +7,13 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"time"
 	"unicode/utf8"
 
 	"github.com/mudler/xlog"
 
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/trace"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services"
 
@@ -217,6 +219,84 @@ func ModelInference(ctx context.Context, s string, messages schema.Messages, ima
 				Usage:    tokenUsage,
 				Logprobs: logprobs,
 			}, err
+		}
+	}
+
+	if o.EnableTracing {
+		trace.InitBackendTracingIfEnabled(o.TracingMaxItems)
+
+		traceData := map[string]any{
+			"prompt":                 s,
+			"use_tokenizer_template": c.TemplateConfig.UseTokenizerTemplate,
+			"chat_template":          c.TemplateConfig.Chat,
+			"function_template":      c.TemplateConfig.Functions,
+			"grammar":               c.Grammar,
+			"stop_words":            c.StopWords,
+			"streaming":             tokenCallback != nil,
+			"images_count":          len(images),
+			"videos_count":          len(videos),
+			"audios_count":          len(audios),
+		}
+
+		if len(messages) > 0 {
+			if msgJSON, err := json.Marshal(messages); err == nil {
+				traceData["messages"] = string(msgJSON)
+			}
+		}
+		if tools != "" {
+			traceData["tools"] = tools
+		}
+		if toolChoice != "" {
+			traceData["tool_choice"] = toolChoice
+		}
+		if reasoningJSON, err := json.Marshal(c.ReasoningConfig); err == nil {
+			traceData["reasoning_config"] = string(reasoningJSON)
+		}
+		traceData["functions_config"] = map[string]any{
+			"grammar_disabled":  c.FunctionsConfig.GrammarConfig.NoGrammar,
+			"parallel_calls":    c.FunctionsConfig.GrammarConfig.ParallelCalls,
+			"mixed_mode":        c.FunctionsConfig.GrammarConfig.MixedMode,
+			"xml_format_preset": c.FunctionsConfig.XMLFormatPreset,
+		}
+		if c.Temperature != nil {
+			traceData["temperature"] = *c.Temperature
+		}
+		if c.TopP != nil {
+			traceData["top_p"] = *c.TopP
+		}
+		if c.Maxtokens != nil {
+			traceData["max_tokens"] = *c.Maxtokens
+		}
+
+		startTime := time.Now()
+		originalFn := fn
+		fn = func() (LLMResponse, error) {
+			resp, err := originalFn()
+			duration := time.Since(startTime)
+
+			traceData["response"] = resp.Response
+			traceData["token_usage"] = map[string]any{
+				"prompt":     resp.Usage.Prompt,
+				"completion": resp.Usage.Completion,
+			}
+
+			errStr := ""
+			if err != nil {
+				errStr = err.Error()
+			}
+
+			trace.RecordBackendTrace(trace.BackendTrace{
+				Timestamp: startTime,
+				Duration:  duration,
+				Type:      trace.BackendTraceLLM,
+				ModelName: c.Name,
+				Backend:   c.Backend,
+				Summary:   trace.GenerateLLMSummary(messages, s),
+				Error:     errStr,
+				Data:      traceData,
+			})
+
+			return resp, err
 		}
 	}
 

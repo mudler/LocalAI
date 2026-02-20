@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/trace"
 	"github.com/mudler/LocalAI/core/schema"
 
 	"github.com/mudler/LocalAI/pkg/grpc/proto"
@@ -28,6 +29,12 @@ func ModelTranscription(audio, language string, translate, diarize bool, prompt 
 		return nil, fmt.Errorf("could not load transcription model")
 	}
 
+	var startTime time.Time
+	if appConfig.EnableTracing {
+		trace.InitBackendTracingIfEnabled(appConfig.TracingMaxItems)
+		startTime = time.Now()
+	}
+
 	r, err := transcriptionModel.AudioTranscription(context.Background(), &proto.TranscriptRequest{
 		Dst:       audio,
 		Language:  language,
@@ -37,6 +44,24 @@ func ModelTranscription(audio, language string, translate, diarize bool, prompt 
 		Prompt:    prompt,
 	})
 	if err != nil {
+		if appConfig.EnableTracing {
+			trace.RecordBackendTrace(trace.BackendTrace{
+				Timestamp: startTime,
+				Duration:  time.Since(startTime),
+				Type:      trace.BackendTraceTranscription,
+				ModelName: modelConfig.Name,
+				Backend:   modelConfig.Backend,
+				Summary:   trace.TruncateString(audio, 200),
+				Error:     err.Error(),
+				Data: map[string]any{
+					"audio_file": audio,
+					"language":   language,
+					"translate":  translate,
+					"diarize":    diarize,
+					"prompt":     prompt,
+				},
+			})
+		}
 		return nil, err
 	}
 	tr := &schema.TranscriptionResult{
@@ -57,5 +82,26 @@ func ModelTranscription(audio, language string, translate, diarize bool, prompt 
 				Speaker: s.Speaker,
 			})
 	}
+
+	if appConfig.EnableTracing {
+		trace.RecordBackendTrace(trace.BackendTrace{
+			Timestamp: startTime,
+			Duration:  time.Since(startTime),
+			Type:      trace.BackendTraceTranscription,
+			ModelName: modelConfig.Name,
+			Backend:   modelConfig.Backend,
+			Summary:   trace.TruncateString(audio+" -> "+tr.Text, 200),
+			Data: map[string]any{
+				"audio_file":     audio,
+				"language":       language,
+				"translate":      translate,
+				"diarize":        diarize,
+				"prompt":         prompt,
+				"result_text":    tr.Text,
+				"segments_count": len(tr.Segments),
+			},
+		})
+	}
+
 	return tr, err
 }
