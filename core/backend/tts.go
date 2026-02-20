@@ -8,8 +8,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/trace"
 	laudio "github.com/mudler/LocalAI/pkg/audio"
 
 	"github.com/mudler/LocalAI/pkg/grpc/proto"
@@ -60,6 +62,12 @@ func ModelTTS(
 		modelPath = modelConfig.Model // skip this step if it fails?????
 	}
 
+	var startTime time.Time
+	if appConfig.EnableTracing {
+		trace.InitBackendTracingIfEnabled(appConfig.TracingMaxItems)
+		startTime = time.Now()
+	}
+
 	res, err := ttsModel.TTS(context.Background(), &proto.TTSRequest{
 		Text:     text,
 		Model:    modelPath,
@@ -67,6 +75,31 @@ func ModelTTS(
 		Dst:      filePath,
 		Language: &language,
 	})
+
+	if appConfig.EnableTracing {
+		errStr := ""
+		if err != nil {
+			errStr = err.Error()
+		} else if !res.Success {
+			errStr = fmt.Sprintf("TTS error: %s", res.Message)
+		}
+
+		trace.RecordBackendTrace(trace.BackendTrace{
+			Timestamp: startTime,
+			Duration:  time.Since(startTime),
+			Type:      trace.BackendTraceTTS,
+			ModelName: modelConfig.Name,
+			Backend:   modelConfig.Backend,
+			Summary:   trace.TruncateString(text, 200),
+			Error:     errStr,
+			Data: map[string]any{
+				"text":     text,
+				"voice":    voice,
+				"language": language,
+			},
+		})
+	}
+
 	if err != nil {
 		return "", nil, err
 	}
@@ -113,6 +146,12 @@ func ModelTTSStream(
 		modelPath = mp
 	} else {
 		modelPath = modelConfig.Model // skip this step if it fails?????
+	}
+
+	var startTime time.Time
+	if appConfig.EnableTracing {
+		trace.InitBackendTracingIfEnabled(appConfig.TracingMaxItems)
+		startTime = time.Now()
 	}
 
 	var sampleRate uint32 = 16000 // default
@@ -170,6 +209,34 @@ func ModelTTSStream(
 			}
 		}
 	})
+
+	resultErr := err
+	if callbackErr != nil {
+		resultErr = callbackErr
+	}
+
+	if appConfig.EnableTracing {
+		errStr := ""
+		if resultErr != nil {
+			errStr = resultErr.Error()
+		}
+
+		trace.RecordBackendTrace(trace.BackendTrace{
+			Timestamp: startTime,
+			Duration:  time.Since(startTime),
+			Type:      trace.BackendTraceTTS,
+			ModelName: modelConfig.Name,
+			Backend:   modelConfig.Backend,
+			Summary:   trace.TruncateString(text, 200),
+			Error:     errStr,
+			Data: map[string]any{
+				"text":      text,
+				"voice":     voice,
+				"language":  language,
+				"streaming": true,
+			},
+		})
+	}
 
 	if callbackErr != nil {
 		return callbackErr

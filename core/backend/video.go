@@ -1,7 +1,10 @@
 package backend
 
 import (
+	"time"
+
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/trace"
 
 	"github.com/mudler/LocalAI/pkg/grpc/proto"
 	model "github.com/mudler/LocalAI/pkg/model"
@@ -35,6 +38,47 @@ func VideoGeneration(height, width int32, prompt, negativePrompt, startImage, en
 				Dst:            dst,
 			})
 		return err
+	}
+
+	if appConfig.EnableTracing {
+		trace.InitBackendTracingIfEnabled(appConfig.TracingMaxItems)
+
+		traceData := map[string]any{
+			"prompt":          prompt,
+			"negative_prompt": negativePrompt,
+			"height":          height,
+			"width":           width,
+			"num_frames":      numFrames,
+			"fps":             fps,
+			"seed":            seed,
+			"cfg_scale":       cfgScale,
+			"step":            step,
+		}
+
+		startTime := time.Now()
+		originalFn := fn
+		fn = func() error {
+			err := originalFn()
+			duration := time.Since(startTime)
+
+			errStr := ""
+			if err != nil {
+				errStr = err.Error()
+			}
+
+			trace.RecordBackendTrace(trace.BackendTrace{
+				Timestamp: startTime,
+				Duration:  duration,
+				Type:      trace.BackendTraceVideoGeneration,
+				ModelName: modelConfig.Name,
+				Backend:   modelConfig.Backend,
+				Summary:   trace.TruncateString(prompt, 200),
+				Error:     errStr,
+				Data:      traceData,
+			})
+
+			return err
+		}
 	}
 
 	return fn, nil
