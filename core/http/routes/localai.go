@@ -31,9 +31,10 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 		// Import model page
 		router.GET("/import-model", func(c echo.Context) error {
 			return c.Render(200, "views/model-editor", map[string]interface{}{
-				"Title":   "LocalAI - Import Model",
-				"BaseURL": middleware.BaseURL(c),
-				"Version": internal.PrintableVersion(),
+				"Title":                  "LocalAI - Import Model",
+				"BaseURL":                middleware.BaseURL(c),
+				"Version":                internal.PrintableVersion(),
+				"DisableRuntimeSettings": appConfig.DisableRuntimeSettings,
 			})
 		})
 
