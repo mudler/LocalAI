@@ -43,13 +43,13 @@
                     API Traces
                 </h1>
                 <p class="hero-subtitle">View logged API requests and responses</p>
-                <div class="flex flex-wrap justify-center gap-3">
-                    <button @click="clearTraces()" class="btn-secondary text-sm py-1.5 px-3">
-                        <i class="fas fa-trash mr-1.5 text-[10px]"></i>
+                <div class="flex flex-wrap justify-center gap-2">
+                    <button type="button" @click="clearTraces()" class="inline-flex items-center gap-1.5 text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] bg-transparent hover:bg-[var(--color-primary)]/10 border border-[var(--color-border-subtle)] hover:border-[var(--color-primary)]/30 rounded-md py-1.5 px-2.5 transition-colors">
+                        <i class="fas fa-trash text-[10px]"></i>
                         <span>Clear Traces</span>
                     </button>
-                    <a href="/api/traces" download="traces.json" class="btn-secondary text-sm py-1.5 px-3">
-                        <i class="fas fa-download mr-1.5 text-[10px]"></i>
+                    <a href="/api/traces" download="traces.json" class="inline-flex items-center gap-1.5 text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] bg-transparent hover:bg-[var(--color-primary)]/10 border border-[var(--color-border-subtle)] hover:border-[var(--color-primary)]/30 rounded-md py-1.5 px-2.5 transition-colors">
+                        <i class="fas fa-download text-[10px]"></i>
                         <span>Export Traces</span>
                     </a>
                 </div>
@@ -93,10 +93,10 @@
 
                 <!-- Save Button -->
                 <div class="flex justify-end pt-2">
-                    <button @click="saveTracingSettings()"
+                    <button type="button" @click="saveTracingSettings()"
                             :disabled="saving"
-                            class="btn-primary px-4 py-2 text-sm">
-                        <i class="fas fa-save mr-2" :class="saving ? 'fa-spin fa-spinner' : ''"></i>
+                            class="inline-flex items-center gap-1.5 text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] bg-transparent hover:bg-[var(--color-primary)]/10 border border-[var(--color-border-subtle)] hover:border-[var(--color-primary)]/30 rounded-md py-1.5 px-2.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:border-[var(--color-border-subtle)]">
+                        <i class="fas fa-save text-[10px]" :class="saving ? 'fa-spin fa-spinner' : ''"></i>
                         <span x-text="saving ? 'Saving...' : 'Save Settings'"></span>
                     </button>
                 </div>
