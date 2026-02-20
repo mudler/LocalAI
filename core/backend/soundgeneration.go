@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/trace"
 	"github.com/mudler/LocalAI/pkg/grpc/proto"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/utils"
@@ -92,7 +94,51 @@ func SoundGeneration(
 		req.Instrumental = instrumental
 	}
 
+	var startTime time.Time
+	if appConfig.EnableTracing {
+		trace.InitBackendTracingIfEnabled(appConfig.TracingMaxItems)
+		startTime = time.Now()
+	}
+
 	res, err := soundGenModel.SoundGeneration(context.Background(), req)
+
+	if appConfig.EnableTracing {
+		errStr := ""
+		if err != nil {
+			errStr = err.Error()
+		} else if res != nil && !res.Success {
+			errStr = fmt.Sprintf("sound generation error: %s", res.Message)
+		}
+
+		summary := trace.TruncateString(text, 200)
+		if summary == "" && caption != "" {
+			summary = trace.TruncateString(caption, 200)
+		}
+
+		traceData := map[string]any{
+			"text":    text,
+			"caption": caption,
+			"lyrics":  lyrics,
+		}
+		if duration != nil {
+			traceData["duration"] = *duration
+		}
+		if temperature != nil {
+			traceData["temperature"] = *temperature
+		}
+
+		trace.RecordBackendTrace(trace.BackendTrace{
+			Timestamp: startTime,
+			Duration:  time.Since(startTime),
+			Type:      trace.BackendTraceSoundGeneration,
+			ModelName: modelConfig.Name,
+			Backend:   modelConfig.Backend,
+			Summary:   summary,
+			Error:     errStr,
+			Data:      traceData,
+		})
+	}
+
 	if err != nil {
 		return "", nil, err
 	}

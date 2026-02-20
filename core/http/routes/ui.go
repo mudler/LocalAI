@@ -7,6 +7,7 @@ import (
 	"github.com/mudler/LocalAI/core/http/endpoints/localai"
 	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/services"
+	"github.com/mudler/LocalAI/core/trace"
 	"github.com/mudler/LocalAI/internal"
 	"github.com/mudler/LocalAI/pkg/model"
 )
@@ -427,6 +428,15 @@ func RegisterUIRoutes(app *echo.Echo,
 
 	app.POST("/api/traces/clear", func(c echo.Context) error {
 		middleware.ClearTraces()
+		return c.NoContent(204)
+	})
+
+	app.GET("/api/backend-traces", func(c echo.Context) error {
+		return c.JSON(200, trace.GetBackendTraces())
+	})
+
+	app.POST("/api/backend-traces/clear", func(c echo.Context) error {
+		trace.ClearBackendTraces()
 		return c.NoContent(204)
 	})
 

@@ -2,8 +2,10 @@ package backend
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/trace"
 
 	"github.com/mudler/LocalAI/pkg/grpc"
 	model "github.com/mudler/LocalAI/pkg/model"
@@ -53,7 +55,7 @@ func ModelEmbedding(s string, tokens []int, loader *model.ModelLoader, modelConf
 		}
 	}
 
-	return func() ([]float32, error) {
+	wrappedFn := func() ([]float32, error) {
 		embeds, err := fn()
 		if err != nil {
 			return embeds, err
@@ -67,5 +69,48 @@ func ModelEmbedding(s string, tokens []int, loader *model.ModelLoader, modelConf
 			}
 		}
 		return embeds, nil
-	}, nil
+	}
+
+	if appConfig.EnableTracing {
+		trace.InitBackendTracingIfEnabled(appConfig.TracingMaxItems)
+
+		traceData := map[string]any{
+			"input_text":         trace.TruncateString(s, 1000),
+			"input_tokens_count": len(tokens),
+		}
+
+		startTime := time.Now()
+		originalFn := wrappedFn
+		wrappedFn = func() ([]float32, error) {
+			result, err := originalFn()
+			duration := time.Since(startTime)
+
+			traceData["embedding_dimensions"] = len(result)
+
+			errStr := ""
+			if err != nil {
+				errStr = err.Error()
+			}
+
+			summary := trace.TruncateString(s, 200)
+			if summary == "" {
+				summary = fmt.Sprintf("tokens[%d]", len(tokens))
+			}
+
+			trace.RecordBackendTrace(trace.BackendTrace{
+				Timestamp: startTime,
+				Duration:  duration,
+				Type:      trace.BackendTraceEmbedding,
+				ModelName: modelConfig.Name,
+				Backend:   modelConfig.Backend,
+				Summary:   summary,
+				Error:     errStr,
+				Data:      traceData,
+			})
+
+			return result, err
+		}
+	}
+
+	return wrappedFn, nil
 }

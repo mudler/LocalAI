@@ -1,7 +1,10 @@
 package backend
 
 import (
+	"time"
+
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/trace"
 
 	"github.com/mudler/LocalAI/pkg/grpc/proto"
 	model "github.com/mudler/LocalAI/pkg/model"
@@ -34,6 +37,46 @@ func ImageGeneration(height, width, step, seed int, positive_prompt, negative_pr
 				RefImages:        refImages,
 			})
 		return err
+	}
+
+	if appConfig.EnableTracing {
+		trace.InitBackendTracingIfEnabled(appConfig.TracingMaxItems)
+
+		traceData := map[string]any{
+			"positive_prompt": positive_prompt,
+			"negative_prompt": negative_prompt,
+			"height":          height,
+			"width":           width,
+			"step":            step,
+			"seed":            seed,
+			"source_image":    src,
+			"destination":     dst,
+		}
+
+		startTime := time.Now()
+		originalFn := fn
+		fn = func() error {
+			err := originalFn()
+			duration := time.Since(startTime)
+
+			errStr := ""
+			if err != nil {
+				errStr = err.Error()
+			}
+
+			trace.RecordBackendTrace(trace.BackendTrace{
+				Timestamp: startTime,
+				Duration:  duration,
+				Type:      trace.BackendTraceImageGeneration,
+				ModelName: modelConfig.Name,
+				Backend:   modelConfig.Backend,
+				Summary:   trace.TruncateString(positive_prompt, 200),
+				Error:     errStr,
+				Data:      traceData,
+			})
+
+			return err
+		}
 	}
 
 	return fn, nil
