@@ -1046,6 +1046,27 @@ func triggerResponse(session *Session, conv *Conversation, c *LockedWebsocket, o
 					Content:       content.Text,
 				})
 			}
+		} else if item.FunctionCall != nil {
+			conversationHistory = append(conversationHistory, schema.Message{
+				Role: string(types.MessageRoleAssistant),
+				ToolCalls: []schema.ToolCall{
+					{
+						ID:   item.FunctionCall.CallID,
+						Type: "function",
+						FunctionCall: schema.FunctionCall{
+							Name:      item.FunctionCall.Name,
+							Arguments: item.FunctionCall.Arguments,
+						},
+					},
+				},
+			})
+		} else if item.FunctionCallOutput != nil {
+			conversationHistory = append(conversationHistory, schema.Message{
+				Role:          "tool",
+				Name:          item.FunctionCallOutput.CallID,
+				Content:       item.FunctionCallOutput.Output,
+				StringContent: item.FunctionCallOutput.Output,
+			})
 		}
 	}
 	conv.Lock.Unlock()
