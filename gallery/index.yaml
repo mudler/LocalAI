@@ -584,6 +584,39 @@
       - transcript
     parameters:
       model: Qwen/Qwen3-ASR-0.6B
+- &spiritlm
+  urls:
+    - https://github.com/facebookresearch/spiritlm
+    - https://ai.meta.com/resources/models-and-libraries/spirit-lm-downloads/
+  description: |
+    Meta Spirit LM is an interleaved spoken and written language model. It supports text generation, text-to-speech (TTS), and automatic speech recognition (ASR) in a single 7B model. Base version uses phonetic tokens; Expressive adds pitch and style.
+  tags:
+    - speech-recognition
+    - ASR
+    - text-to-speech
+    - TTS
+    - llm
+    - multimodal
+  license: fair-noncommercial
+  icon: https://ai.meta.com/favicon.ico
+  name: "spirit-lm-base-7b"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  overrides:
+    backend: spiritlm
+    known_usecases:
+      - transcript
+      - tts
+    parameters:
+      model: spirit-lm-base-7b
+- !!merge <<: *spiritlm
+  name: "spirit-lm-expressive-7b"
+  overrides:
+    backend: spiritlm
+    known_usecases:
+      - transcript
+      - tts
+    parameters:
+      model: spirit-lm-expressive-7b
 - name: "huihui-glm-4.7-flash-abliterated-i1"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
