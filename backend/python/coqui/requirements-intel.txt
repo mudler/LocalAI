@@ -3,6 +3,6 @@ torch==2.8.0+xpu
 torchaudio==2.8.0+xpu
 optimum[openvino]
 setuptools
-transformers==4.48.3
+transformers==5.2.0
 accelerate
 coqui-tts
