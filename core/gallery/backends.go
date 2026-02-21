@@ -98,6 +98,12 @@ func InstallBackendFromGallery(ctx context.Context, galleries []config.Gallery, 
 		return fmt.Errorf("no backend found with name %q", name)
 	}
 
+	if force {
+		if err := DeleteBackendFromSystem(systemState, name); err != nil {
+			return fmt.Errorf("failed to uninstall existing backend %s: %w", name, err)
+		}
+	}
+
 	if backend.IsMeta() {
 		xlog.Debug("Backend is a meta backend", "systemState", systemState, "name", name)
 
