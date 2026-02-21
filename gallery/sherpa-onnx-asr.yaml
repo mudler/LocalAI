@@ -1,0 +1,6 @@
+---
+name: "sherpa-onnx-asr"
+
+config_file: |
+  backend: sherpa-onnx
+  type: asr

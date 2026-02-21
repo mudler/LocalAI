@@ -689,7 +689,7 @@ func (c *ModelConfig) GuessUsecases(u ModelConfigUsecase) bool {
 	}
 
 	if (u & FLAG_VAD) == FLAG_VAD {
-		if c.Backend != "silero-vad" {
+		if c.Backend != "silero-vad" && c.Backend != "sherpa-onnx" {
 			return false
 		}
 	}

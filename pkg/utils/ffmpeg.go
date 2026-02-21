@@ -2,9 +2,12 @@ package utils
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"strings"
+
+	laudio "github.com/mudler/LocalAI/pkg/audio"
 
 	"github.com/go-audio/wav"
 )
@@ -16,24 +19,33 @@ func ffmpegCommand(args []string) (string, error) {
 	return string(out), err
 }
 
-// AudioToWav converts audio to wav for transcribe.
-// TODO: use https://github.com/mccoyst/ogg?
+// AudioToWav converts audio to wav for transcribe (16 kHz mono s16le).
+// WAV files already in the target format are passed through directly;
+// everything else is converted via ffmpeg.
 func AudioToWav(src, dst string) error {
-	if strings.HasSuffix(src, ".wav") {
-		f, err := os.Open(src)
-		if err != nil {
-			return fmt.Errorf("open: %w", err)
-		}
-
-		dec := wav.NewDecoder(f)
-		dec.ReadInfo()
-		f.Close()
-
-		if dec.BitDepth == 16 && dec.NumChans == 1 && dec.SampleRate == 16000 {
-			os.Rename(src, dst)
-			return nil
-		}
+	if strings.HasSuffix(src, ".wav") && isTargetWav(src) {
+		return os.Rename(src, dst)
 	}
+	return convertWithFFmpeg(src, dst)
+}
+
+// isTargetWav returns true when src is a valid WAV already in the
+// target format (16 kHz, mono, 16-bit PCM).
+func isTargetWav(src string) bool {
+	f, err := os.Open(src)
+	if err != nil {
+		return false
+	}
+	defer f.Close()
+
+	dec := wav.NewDecoder(f)
+	if !dec.IsValidFile() {
+		return false
+	}
+	return dec.BitDepth == 16 && dec.NumChans == 1 && dec.SampleRate == 16000
+}
+
+func convertWithFFmpeg(src, dst string) error {
 	commandArgs := []string{"-i", src, "-format", "s16le", "-ar", "16000", "-ac", "1", "-acodec", "pcm_s16le", dst}
 	out, err := ffmpegCommand(commandArgs)
 	if err != nil {
@@ -69,4 +81,19 @@ func AudioConvert(src string, format string) (string, error) {
 		return "", fmt.Errorf("error: %w out: %s", err, out)
 	}
 	return dst, nil
+}
+
+// WriteWav16kFromReader reads all PCM data from r and writes a 16 kHz mono
+// 16-bit WAV to w. Useful when the PCM length is not known in advance.
+func WriteWav16kFromReader(w io.Writer, r io.Reader) error {
+	pcm, err := io.ReadAll(r)
+	if err != nil {
+		return fmt.Errorf("read pcm: %w", err)
+	}
+	hdr := laudio.NewWAVHeader(uint32(len(pcm)), 16000)
+	if err := hdr.Write(w); err != nil {
+		return fmt.Errorf("write wav header: %w", err)
+	}
+	_, err = w.Write(pcm)
+	return err
 }

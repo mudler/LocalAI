@@ -833,7 +833,7 @@ func commitUtterance(ctx context.Context, utt []byte, session *Session, conv *Co
 	defer os.Remove(f.Name())
 	xlog.Debug("Writing to file", "file", f.Name())
 
-	hdr := laudio.NewWAVHeader(uint32(len(utt)))
+	hdr := laudio.NewWAVHeader(uint32(len(utt)), 16000)
 	if err := hdr.Write(f); err != nil {
 		xlog.Error("Failed to write WAV header", "error", err)
 		return

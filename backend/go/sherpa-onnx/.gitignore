@@ -1,0 +1,9 @@
+.cache/
+sources/
+build*/
+package/
+backend-assets/
+sherpa-onnx
+*.so
+compile_commands.json
+sherpa-onnx-whisper-*

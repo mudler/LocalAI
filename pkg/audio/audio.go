@@ -29,7 +29,7 @@ type WAVHeader struct {
   Subchunk2Size uint32
 }
 
-func NewWAVHeader(pcmLen uint32) WAVHeader {
+func NewWAVHeader(pcmLen uint32, sampleRate uint32) WAVHeader {
   header := WAVHeader{
     ChunkID:       [4]byte{'R', 'I', 'F', 'F'},
     Format:        [4]byte{'W', 'A', 'V', 'E'},
@@ -37,9 +37,9 @@ func NewWAVHeader(pcmLen uint32) WAVHeader {
     Subchunk1Size: 16, // PCM = 16 bytes
     AudioFormat:   1,  // PCM
     NumChannels:   1,  // Mono
-    SampleRate:    16000,
-    ByteRate:      16000 * 2, // SampleRate * BlockAlign (mono, 2 bytes per sample)
-    BlockAlign:    2,         // 16-bit = 2 bytes per sample
+    SampleRate:    sampleRate,
+    ByteRate:      sampleRate * 2, // SampleRate * BlockAlign (mono, 2 bytes per sample)
+    BlockAlign:    2,              // 16-bit = 2 bytes per sample
     BitsPerSample: 16,
     Subchunk2ID:   [4]byte{'d', 'a', 't', 'a'},
     Subchunk2Size: pcmLen,

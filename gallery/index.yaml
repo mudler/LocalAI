@@ -135,6 +135,37 @@
       - transcript
     parameters:
       model: tiny
+- name: omnilingual-0.3b-ctc-q8-sherpa
+  license: apache-2.0
+  url: "github:mudler/LocalAI/gallery/sherpa-onnx-asr.yaml@master"
+  description: |
+    Omnilingual ASR CTC 300M (int8) is a multilingual automatic speech recognition model supporting 1,600+ languages. Based on Meta's omniASR_CTC_300M architecture (Wav2Vec2 with CTC head), quantized to int8 for efficient inference. Uses the sherpa-onnx backend with ONNX Runtime.
+  urls:
+    - https://huggingface.co/csukuangfj/sherpa-onnx-omnilingual-asr-1600-languages-300M-ctc-int8-2025-11-12
+    - https://k2-fsa.github.io/sherpa/onnx/omnilingual-asr/models.html
+  icon: https://avatars.githubusercontent.com/u/75781706
+  tags:
+    - stt
+    - speech-to-text
+    - asr
+    - audio-transcription
+    - multilingual
+    - omnilingual
+    - sherpa-onnx
+    - cpu
+    - gpu
+  overrides:
+    known_usecases:
+      - transcript
+    parameters:
+      model: omnilingual-asr/model.int8.onnx
+  files:
+    - filename: omnilingual-asr/model.int8.onnx
+      sha256: e7c4e54ee4c4c47829cc6667d5d00ed8ea7bef1dcfeef0fce766f77752a2726c
+      uri: https://huggingface.co/csukuangfj/sherpa-onnx-omnilingual-asr-1600-languages-300M-ctc-int8-2025-11-12/resolve/main/model.int8.onnx
+    - filename: omnilingual-asr/tokens.txt
+      sha256: a7a044c52cb29cbe8b0dc1953e92cefd4ca16b0ed968177b6beab21f9a7d0b31
+      uri: https://huggingface.co/csukuangfj/sherpa-onnx-omnilingual-asr-1600-languages-300M-ctc-int8-2025-11-12/resolve/main/tokens.txt
 - name: voxcpm-1.5
   license: apache-2.0
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
