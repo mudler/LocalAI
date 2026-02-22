@@ -60,6 +60,22 @@ diffusers:
   scheduler_type: "k_dpmpp_sde"
 ```
 
+### Multi-GPU Support
+
+For multi-GPU support with diffusers, you need to configure the model with `tensor_parallel_size` set to the number of GPUs you want to use.
+
+```yaml
+name: stable-diffusion-multigpu
+model: stabilityai/stable-diffusion-xl-base-1.0
+backend: diffusers
+parameters:
+  tensor_parallel_size: 2 # Number of GPUs to use
+```
+
+The `tensor_parallel_size` parameter is set in the gRPC proto configuration (in `ModelOptions` message, field 55). When this is set to a value greater than 1, the diffusers backend automatically enables `device_map="auto"` to distribute the model across multiple GPUs.
+
+When using diffusers with multiple GPUs, ensure you have sufficient GPU memory across all devices. The model will be automatically distributed across available GPUs. For optimal performance, use GPUs of the same type and memory capacity.
+
 ## CUDA(NVIDIA) acceleration
 
 ### Requirements
