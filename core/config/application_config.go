@@ -98,10 +98,11 @@ func NewApplicationConfig(o ...AppOption) *ApplicationConfig {
 		Context:                  context.Background(),
 		UploadLimitMB:            15,
 		Debug:                    true,
-		AgentJobRetentionDays:    30,              // Default: 30 days
-		LRUEvictionMaxRetries:    30,              // Default: 30 retries
-		LRUEvictionRetryInterval: 1 * time.Second, // Default: 1 second
-		TracingMaxItems:       1024,
+		AgentJobRetentionDays:    30,                     // Default: 30 days
+		LRUEvictionMaxRetries:    30,                     // Default: 30 retries
+		LRUEvictionRetryInterval: 1 * time.Second,        // Default: 1 second
+		WatchDogInterval:         500 * time.Millisecond, // Default: 500ms
+		TracingMaxItems:          1024,
 		PathWithoutAuth: []string{
 			"/static/",
 			"/generated-audio/",
@@ -205,6 +206,12 @@ func SetWatchDogBusyTimeout(t time.Duration) AppOption {
 func SetWatchDogIdleTimeout(t time.Duration) AppOption {
 	return func(o *ApplicationConfig) {
 		o.WatchDogIdleTimeout = t
+	}
+}
+
+func SetWatchDogInterval(t time.Duration) AppOption {
+	return func(o *ApplicationConfig) {
+		o.WatchDogInterval = t
 	}
 }
 
@@ -642,7 +649,7 @@ func (o *ApplicationConfig) ToRuntimeSettings() RuntimeSettings {
 		AutoloadBackendGalleries: &autoloadBackendGalleries,
 		ApiKeys:                  &apiKeys,
 		AgentJobRetentionDays:    &agentJobRetentionDays,
-		OpenResponsesStoreTTL:     &openResponsesStoreTTL,
+		OpenResponsesStoreTTL:    &openResponsesStoreTTL,
 	}
 }
 
