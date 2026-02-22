@@ -145,6 +145,14 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 			os.Setenv("LLAMACPP_GRPC_SERVERS", tunnelEnvVar)
 			xlog.Debug("setting LLAMACPP_GRPC_SERVERS", "value", tunnelEnvVar)
 		}),
+		// Add MLX RDMA support if enabled via options
+		config.WithTunnelCallback(func(tunnels []string) {
+			if os.Getenv("MLX_RDMA_ENABLED") == "true" {
+				tunnelEnvVar := strings.Join(tunnels, ",")
+				os.Setenv("MLX_GRPC_SERVERS", tunnelEnvVar)
+				xlog.Debug("setting MLX_GRPC_SERVERS", "value", tunnelEnvVar)
+			}
+		}),
 	}
 
 	if r.DisableMetricsEndpoint {
