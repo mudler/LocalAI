@@ -12,7 +12,7 @@ LocalAI can be installed in multiple ways depending on your platform and prefere
 **Recommended: Docker Installation**
 
 **Docker is the recommended installation method** for most users as it works across all platforms (Linux, macOS, Windows) and provides the easiest setup experience. It's the fastest way to get started with LocalAI.
-{{% /notice %}}
+{{% /notice %}
 
 ## Installation Methods
 
@@ -20,7 +20,7 @@ Choose the installation method that best suits your needs:
 
 1. **[Docker](docker/)** ⭐ **Recommended** - Works on all platforms, easiest setup
 2. **[macOS](macos/)** - Download and install the DMG application
-3. **[Linux](linux/)** - Install on Linux using binaries (install.sh script currently has issues - see [issue #8032](https://github.com/mudler/LocalAI/issues/8032))
+3. **[Linux](linux/)** - Install on Linux using binaries
 4. **[Kubernetes](kubernetes/)** - Deploy LocalAI on Kubernetes clusters
 5. **[Build from Source](build/)** - Build LocalAI from source code
 
@@ -36,6 +36,6 @@ This will start LocalAI. The API will be available at `http://localhost:8080`. F
 
 For other platforms:
 - **macOS**: Download the [DMG](macos/)
-- **Linux**: See the [Linux installation guide](linux/) for installation options. **Note:** The `install.sh` script is currently experiencing issues - see [issue #8032](https://github.com/mudler/LocalAI/issues/8032) for details.
+- **Linux**: See the [Linux installation guide](linux/) for binary installation.
 
 For detailed instructions, see the [Docker installation guide](docker/).
