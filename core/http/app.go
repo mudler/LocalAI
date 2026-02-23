@@ -29,6 +29,8 @@ import (
 //go:embed static/*
 var embedDirStatic embed.FS
 
+var quietPaths = []string{"/api/operations", "/api/resources", "/healthz", "/readyz"}
+
 // @title LocalAI API
 // @version 2.0.0
 // @description The LocalAI Rest API.
@@ -109,10 +111,17 @@ func API(application *application.Application) (*echo.Echo, error) {
 			res := c.Response()
 			err := next(c)
 
-			// Fix for #7989: Reduce log verbosity of Web UI polling and resources API
-			// If the path is /api/operations or /api/resources and the request was successful (200),
-			// we log it at DEBUG level (hidden by default) instead of INFO.
-			if (req.URL.Path == "/api/operations" || req.URL.Path == "/api/resources") && res.Status == 200 {
+			// Fix for #7989: Reduce log verbosity of Web UI polling, resources API, and health checks
+			// These paths are logged at DEBUG level (hidden by default) instead of INFO.
+			isQuietPath := false
+			for _, path := range quietPaths {
+				if req.URL.Path == path {
+					isQuietPath = true
+					break
+				}
+			}
+
+			if isQuietPath && res.Status == 200 {
 				xlog.Debug("HTTP request", "method", req.Method, "path", req.URL.Path, "status", res.Status)
 			} else {
 				xlog.Info("HTTP request", "method", req.Method, "path", req.URL.Path, "status", res.Status)
