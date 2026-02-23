@@ -57,7 +57,7 @@ Result:
 
 ---
 
-You can also specify the `response_format` parameter to be one of `lrc`, `srt`, `vtt`, `text`, `json` or `json_verbose` (default):
+You can also specify the `response_format` parameter to be one of `lrc`, `srt`, `vtt`, `text`, `json` or `verbose_json` (default):
 ```bash
 ## Send the example audio file to the transcriptions endpoint
 curl http://localhost:8080/v1/audio/transcriptions -H "Content-Type: multipart/form-data" -F file="@$PWD/gb1.ogg" -F model="whisper-1" -F response_format="srt"
