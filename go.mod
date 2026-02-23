@@ -9,7 +9,7 @@ require (
 	fyne.io/fyne/v2 v2.7.2
 	github.com/Masterminds/sprig/v3 v3.3.0
 	github.com/alecthomas/kong v1.14.0
-	github.com/anthropics/anthropic-sdk-go v1.22.0
+	github.com/anthropics/anthropic-sdk-go v1.26.0
 	github.com/charmbracelet/glamour v0.10.0
 	github.com/containerd/containerd v1.7.30
 	github.com/dhowden/tag v0.0.0-20240417053706-3d75831295e8
