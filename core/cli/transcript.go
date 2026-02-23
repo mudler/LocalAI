@@ -31,8 +31,8 @@ type TranscriptCMD struct {
 	ModelsPath       string                                 `env:"LOCALAI_MODELS_PATH,MODELS_PATH" type:"path" default:"${basepath}/models" help:"Path containing models used for inferencing" group:"storage"`
 	BackendGalleries string                                 `env:"LOCALAI_BACKEND_GALLERIES,BACKEND_GALLERIES" help:"JSON list of backend galleries" group:"backends" default:"${backends}"`
 	Prompt           string                                 `short:"p" help:"Previous transcribed text or words that hint at what the model should expect"`
-	ResponseFormat   schema.TranscriptionResponseFormatType `short:"f" default:"" help:"Response format for Whisper models, can be one of (txt, lrc, srt, vtt, json, json_verbose)"`
-	PrettyPrint      bool                                   `help:"Used with response_format json or json_verbose for pretty printing"`
+	ResponseFormat   schema.TranscriptionResponseFormatType `short:"f" default:"" help:"Response format for Whisper models, can be one of (txt, lrc, srt, vtt, json, verbose_json)"`
+	PrettyPrint      bool                                   `help:"Used with response_format json or verbose_json for pretty printing"`
 }
 
 func (t *TranscriptCMD) Run(ctx *cliContext.Context) error {
