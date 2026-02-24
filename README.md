@@ -93,16 +93,7 @@ Liking LocalAI? LocalAI is part of an integrated suite of AI infrastructure tool
 
 ## 💻 Quickstart
 
-> ⚠️ **Note:** The `install.sh` script is currently experiencing issues due to the heavy changes currently undergoing in LocalAI and may produce broken or misconfigured installations. Please use Docker installation (see below) or manual binary installation until [issue #8032](https://github.com/mudler/LocalAI/issues/8032) is resolved.
 
-Run the installer script:
-
-```bash
-# Basic installation
-curl https://localai.io/install.sh | sh
-```
-
-For more installation options, see [Installer Options](https://localai.io/installation/).
 
 ### macOS Download:
 
