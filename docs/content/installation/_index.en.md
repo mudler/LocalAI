@@ -12,7 +12,7 @@ LocalAI can be installed in multiple ways depending on your platform and prefere
 **Recommended: Docker Installation**
 
 **Docker is the recommended installation method** for most users as it works across all platforms (Linux, macOS, Windows) and provides the easiest setup experience. It's the fastest way to get started with LocalAI.
-{{% /notice %}
+{{% /notice %}}
 
 ## Installation Methods
 
