@@ -1,8 +1,6 @@
 module github.com/mudler/LocalAI
 
-go 1.24.4
-
-toolchain go1.24.5
+go 1.25.0
 
 require (
 	dario.cat/mergo v1.0.2
@@ -52,7 +50,7 @@ require (
 	github.com/shirou/gopsutil/v3 v3.24.5
 	github.com/streamer45/silero-vad-go v0.2.1
 	github.com/stretchr/testify v1.11.1
-	github.com/swaggo/echo-swagger v1.4.1
+	github.com/swaggo/echo-swagger v1.5.0
 	github.com/swaggo/swag v1.16.6
 	github.com/testcontainers/testcontainers-go v0.40.0
 	github.com/tmc/langchaingo v0.1.14
@@ -66,9 +64,11 @@ require (
 )
 
 require (
-	github.com/ghodss/yaml v1.0.0 // indirect
+	github.com/labstack/echo/v5 v5.0.0 // indirect
 	github.com/labstack/gommon v0.4.2 // indirect
+	github.com/sv-tools/openapi v0.2.1 // indirect
 	github.com/swaggo/files/v2 v2.0.2 // indirect
+	github.com/swaggo/swag/v2 v2.0.0-rc4 // indirect
 	github.com/tidwall/gjson v1.18.0 // indirect
 	github.com/tidwall/match v1.2.0 // indirect
 	github.com/tidwall/pretty v1.2.1 // indirect
@@ -76,6 +76,7 @@ require (
 	github.com/valyala/fasttemplate v1.2.2 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
+	sigs.k8s.io/yaml v1.3.0 // indirect
 )
 
 require (
