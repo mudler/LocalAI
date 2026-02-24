@@ -19,10 +19,11 @@ LocalAI can be installed in multiple ways depending on your platform and prefere
 Choose the installation method that best suits your needs:
 
 1. **[Docker](docker/)** ⭐ **Recommended** - Works on all platforms, easiest setup
-2. **[macOS](macos/)** - Download and install the DMG application
-3. **[Linux](linux/)** - Install on Linux using binaries
-4. **[Kubernetes](kubernetes/)** - Deploy LocalAI on Kubernetes clusters
-5. **[Build from Source](build/)** - Build LocalAI from source code
+2. **[Podman](podman/)** - Docker-compatible container runtime, daemonless and rootless
+3. **[macOS](macos/)** - Download and install the DMG application
+4. **[Linux](linux/)** - Install on Linux using binaries
+5. **[Kubernetes](kubernetes/)** - Deploy LocalAI on Kubernetes clusters
+6. **[Build from Source](build/)** - Build LocalAI from source code
 
 ## Quick Start
 
