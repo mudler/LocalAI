@@ -99,6 +99,18 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 	Expect(os.WriteFile(configPath, configYAML, 0644)).To(Succeed())
 
+	// SpiritLM-style model config (same mock backend, for e2e coverage of SpiritLM path)
+	spiritlmConfig := map[string]interface{}{
+		"name":    "spirit-lm-base-7b",
+		"backend": "spiritlm",
+		"parameters": map[string]interface{}{
+			"model": "spirit-lm-base-7b",
+		},
+	}
+	spiritlmConfigYAML, err := yaml.Marshal(spiritlmConfig)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(os.WriteFile(filepath.Join(modelsPath, "spirit-lm-base-7b.yaml"), spiritlmConfigYAML, 0644)).To(Succeed())
+
 	// Set up system state
 	systemState, err := system.GetSystemState(
 		system.WithBackendPath(backendPath),
@@ -122,6 +134,7 @@ var _ = BeforeSuite(func() {
 
 	// Register backend with application's model loader
 	application.ModelLoader().SetExternalBackend("mock-backend", mockBackendPath)
+	application.ModelLoader().SetExternalBackend("spiritlm", mockBackendPath)
 
 	// Create HTTP app
 	app, err = httpapi.API(application)

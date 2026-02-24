@@ -1,10 +1,27 @@
 # SpiritLM E2E tests
 
-End-to-end tests for the SpiritLM backend live in `core/http/app_test.go` under the context **SpiritLM backend e2e** (label: `spiritlm`).
+SpiritLM is covered by two test layers:
+
+1. **`tests/e2e/` (recommended for CI)** – Full e2e suite using the shared mock backend. File: `tests/e2e/spiritlm_e2e_test.go`, label: `SpiritLM`. No real SpiritLM backend or model required.
+2. **`core/http/app_test.go`** – Integration-style tests under context **SpiritLM backend e2e** (label: `spiritlm`). Requires the Python SpiritLM backend and fixtures.
 
 ## How to run
 
 From the repo root:
+
+**E2E suite (mock backend, no Python backend needed):**
+
+```bash
+make test-e2e-spiritlm
+```
+
+Or run the full e2e suite (includes SpiritLM):
+
+```bash
+make test-e2e
+```
+
+**Integration tests (real SpiritLM backend):**
 
 ```bash
 make test-spiritlm

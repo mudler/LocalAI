@@ -213,6 +213,10 @@ test-e2e: build-mock-backend prepare-e2e run-e2e-image
 	$(MAKE) teardown-e2e
 	docker rmi localai-tests
 
+test-e2e-spiritlm: build-mock-backend
+	@echo 'Running SpiritLM e2e tests (mock backend)'
+	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter="SpiritLM" --flake-attempts $(TEST_FLAKES) -v ./tests/e2e/...
+
 teardown-e2e:
 	rm -rf $(TEST_DIR) || true
 	docker stop $$(docker ps -q --filter ancestor=localai-tests)
@@ -302,7 +306,7 @@ protoc:
 .PHONY: protogen-go
 protogen-go: protoc install-go-tools
 	mkdir -p pkg/grpc/proto
-	./protoc --experimental_allow_proto3_optional -Ibackend/ --go_out=pkg/grpc/proto/ --go_opt=paths=source_relative --go-grpc_out=pkg/grpc/proto/ --go-grpc_opt=paths=source_relative \
+	PATH="$$(go env GOPATH)/bin:$$PATH" ./protoc --experimental_allow_proto3_optional -Ibackend/ --go_out=pkg/grpc/proto/ --go_opt=paths=source_relative --go-grpc_out=pkg/grpc/proto/ --go-grpc_opt=paths=source_relative \
     backend/backend.proto
 
 .PHONY: protogen-go-clean
