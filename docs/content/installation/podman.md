@@ -1,8 +1,12 @@
 ---
 title: Podman
 description: Install and use LocalAI with Podman
-weight: 8
+weight: 3
 ---
+
+For the complete guide to running LocalAI with Podman, including image variants and GPU setup, see [Containers](/installation/containers/).
+
+This page provides Podman-specific installation instructions.
 
 ## Podman Installation
 
@@ -67,7 +71,7 @@ podman run -p 8080:8080 localai/localai:latest
 
 ## Image Variants
 
-LocalAI provides multiple image variants for different hardware. For a complete list of available images, see the [Docker installation guide](docker/#image-types).
+LocalAI provides multiple image variants for different hardware. For a complete list of available images, see the [Containers guide](/installation/containers/#image-types).
 
 ### NVIDIA GPU
 
@@ -195,4 +199,4 @@ sudo systemctl restart podman
 podman run -v ./models:/models:z localai/localai:latest
 ```
 
-For more information, see the [installation overview](../).
+For more information, see the [Containers guide](/installation/containers/).
