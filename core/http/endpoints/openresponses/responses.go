@@ -279,6 +279,18 @@ func convertORInputToMessages(input interface{}, cfg *config.ModelConfig) ([]sch
 					return nil, err
 				}
 				messages = append(messages, msg)
+			case "reasoning":
+				msg, err := convertORReasoningItemToMessage(itemMap)
+				if err != nil {
+					return nil, err
+				}
+				messages = append(messages, msg)
+			case "function_call":
+				msg, err := convertORFunctionCallItemToMessage(itemMap)
+				if err != nil {
+					return nil, err
+				}
+				messages = append(messages, msg)
 			case "function_call_output":
 				// Convert function call output to tool role message
 				callID, _ := itemMap["call_id"].(string)
@@ -323,10 +335,57 @@ func convertORInputToMessages(input interface{}, cfg *config.ModelConfig) ([]sch
 				messages = append(messages, msg)
 			}
 		}
-		return messages, nil
+		return mergeContiguousAssistantMessages(messages), nil
 	default:
 		return nil, fmt.Errorf("unsupported input type: %T", input)
 	}
+}
+
+// convertORReasoningItemToMessage converts an Open Responses reasoning item to an assistant Message fragment (for merging).
+func convertORReasoningItemToMessage(itemMap map[string]interface{}) (schema.Message, error) {
+	var reasoning string
+	if content := itemMap["content"]; content != nil {
+		if s, ok := content.(string); ok {
+			reasoning = s
+		} else if parts, ok := content.([]interface{}); ok {
+			for _, p := range parts {
+				if partMap, ok := p.(map[string]interface{}); ok {
+					if t, _ := partMap["type"].(string); (t == "output_text" || t == "input_text") && partMap["text"] != nil {
+						if tStr, ok := partMap["text"].(string); ok {
+							reasoning += tStr
+						}
+					}
+				}
+			}
+		}
+	}
+	return schema.Message{Role: "assistant", Reasoning: stringPtr(reasoning)}, nil
+}
+
+// convertORFunctionCallItemToMessage converts an Open Responses function_call item to an assistant Message fragment (for merging).
+func convertORFunctionCallItemToMessage(itemMap map[string]interface{}) (schema.Message, error) {
+	callID, _ := itemMap["call_id"].(string)
+	name, _ := itemMap["name"].(string)
+	arguments, _ := itemMap["arguments"].(string)
+	if callID == "" {
+		callID = fmt.Sprintf("call_%s", name)
+	}
+	return schema.Message{
+		Role: "assistant",
+		ToolCalls: []schema.ToolCall{{
+			Index:        0,
+			ID:           callID,
+			Type:         "function",
+			FunctionCall: schema.FunctionCall{Name: name, Arguments: arguments},
+		}},
+	}, nil
+}
+
+func stringPtr(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
 }
 
 // convertORItemToMessage converts a single ORItemField to a Message
@@ -366,19 +425,52 @@ func convertORItemToMessage(item *schema.ORItemField, responseID string) (schema
 			Content:       outputStr,
 			StringContent: outputStr,
 		}, nil
+	case "reasoning":
+		reasoning := extractReasoningContentFromORItem(item)
+		return schema.Message{Role: "assistant", Reasoning: stringPtr(reasoning)}, nil
+	case "function_call":
+		callID := item.CallID
+		if callID == "" {
+			callID = fmt.Sprintf("call_%s", item.Name)
+		}
+		return schema.Message{
+			Role: "assistant",
+			ToolCalls: []schema.ToolCall{{
+				Index:        0,
+				ID:           callID,
+				Type:         "function",
+				FunctionCall: schema.FunctionCall{Name: item.Name, Arguments: item.Arguments},
+			}},
+		}, nil
 	default:
 		return schema.Message{}, fmt.Errorf("unsupported item type for conversion: %s (from response %s)", item.Type, responseID)
 	}
 }
 
-// convertOROutputItemsToMessages converts Open Responses output items to internal Messages
+func extractReasoningContentFromORItem(item *schema.ORItemField) string {
+	if contentParts, ok := item.Content.([]schema.ORContentPart); ok {
+		var s string
+		for _, part := range contentParts {
+			if part.Type == "output_text" || part.Type == "input_text" {
+				s += part.Text
+			}
+		}
+		return s
+	}
+	if s, ok := item.Content.(string); ok {
+		return s
+	}
+	return ""
+}
+
+// convertOROutputItemsToMessages converts Open Responses output items to internal Messages.
+// Contiguous assistant items (message, reasoning, function_call) are merged into a single message.
 func convertOROutputItemsToMessages(outputItems []schema.ORItemField) ([]schema.Message, error) {
 	var messages []schema.Message
 
 	for _, item := range outputItems {
 		switch item.Type {
 		case "message":
-			// Convert message item to assistant message
 			var textContent string
 			if contentParts, ok := item.Content.([]schema.ORContentPart); ok && len(contentParts) > 0 {
 				for _, part := range contentParts {
@@ -392,9 +484,23 @@ func convertOROutputItemsToMessages(outputItems []schema.ORItemField) ([]schema.
 				StringContent: textContent,
 				Content:       textContent,
 			})
+		case "reasoning":
+			reasoning := extractReasoningContentFromORItem(&item)
+			messages = append(messages, schema.Message{Role: "assistant", Reasoning: stringPtr(reasoning)})
 		case "function_call":
-			// Function calls are handled separately - they become tool calls in the next turn
-			// For now, we skip them as they're part of the model's output, not input
+			msg := schema.Message{
+				Role: "assistant",
+				ToolCalls: []schema.ToolCall{{
+					Index:        0,
+					ID:           item.CallID,
+					Type:         "function",
+					FunctionCall: schema.FunctionCall{Name: item.Name, Arguments: item.Arguments},
+				}},
+			}
+			if msg.ToolCalls[0].ID == "" {
+				msg.ToolCalls[0].ID = fmt.Sprintf("call_%s", item.Name)
+			}
+			messages = append(messages, msg)
 		case "function_call_output":
 			// Convert function call output to tool role message
 			var outputStr string
@@ -414,7 +520,74 @@ func convertOROutputItemsToMessages(outputItems []schema.ORItemField) ([]schema.
 		}
 	}
 
-	return messages, nil
+	return mergeContiguousAssistantMessages(messages), nil
+}
+
+// mergeContiguousAssistantMessages merges contiguous assistant messages into one.
+// Many chat templates expect content, reasoning, and tool calls in a single assistant message
+// (see e.g. llama.cpp PR 19773). This avoids creating separate messages per input item.
+func mergeContiguousAssistantMessages(messages []schema.Message) []schema.Message {
+	if len(messages) == 0 {
+		return messages
+	}
+	var out []schema.Message
+	var acc *schema.Message
+	for i := range messages {
+		m := &messages[i]
+		if m.Role != "assistant" {
+			flushAssistantAccumulator(&out, &acc)
+			out = append(out, *m)
+			continue
+		}
+		if acc == nil {
+			acc = &schema.Message{Role: "assistant"}
+		}
+		if m.StringContent != "" {
+			if acc.StringContent != "" {
+				acc.StringContent += "\n" + m.StringContent
+			} else {
+				acc.StringContent = m.StringContent
+			}
+			if acc.Content == nil {
+				acc.Content = m.Content
+			} else if _, ok := m.Content.(string); ok {
+				acc.Content = acc.StringContent
+			}
+		}
+		if m.Reasoning != nil && *m.Reasoning != "" {
+			if acc.Reasoning == nil {
+				acc.Reasoning = m.Reasoning
+			} else {
+				combined := *acc.Reasoning + "\n" + *m.Reasoning
+				acc.Reasoning = &combined
+			}
+		}
+		if len(m.ToolCalls) > 0 {
+			acc.ToolCalls = append(acc.ToolCalls, m.ToolCalls...)
+		}
+	}
+	flushAssistantAccumulator(&out, &acc)
+	return out
+}
+
+func flushAssistantAccumulator(out *[]schema.Message, acc **schema.Message) {
+	if acc == nil || *acc == nil {
+		return
+	}
+	m := *acc
+	if m.StringContent == "" && (m.Reasoning == nil || *m.Reasoning == "") && len(m.ToolCalls) == 0 {
+		*acc = nil
+		return
+	}
+	if m.Content == nil {
+		m.Content = m.StringContent
+	}
+	// Re-index tool calls after merge (each may have been 0)
+	for i := range m.ToolCalls {
+		m.ToolCalls[i].Index = i
+	}
+	*out = append(*out, *m)
+	*acc = nil
 }
 
 // convertORMessageItem converts an Open Responses message item to internal Message

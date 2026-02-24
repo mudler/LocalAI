@@ -5,7 +5,7 @@
 <body class="bg-[var(--color-bg-primary)] text-[var(--color-text-primary)]">
 <div class="app-layout">
   {{template "views/partials/navbar" .}}
-  
+
   <main class="main-content">
     <div class="main-content-inner" x-data="tracesApp()" x-init="init()">
 
@@ -40,10 +40,10 @@
         <div class="hero-section">
             <div class="hero-content">
                 <h1 class="hero-title">
-                    API Traces
+                    Traces
                 </h1>
-                <p class="hero-subtitle">View logged API requests and responses</p>
-                <div class="flex flex-wrap justify-center gap-2">
+                <p class="hero-subtitle">View logged API requests, responses, and backend operations</p>
+                <div class="flex flex-wrap justify-center gap-2" x-show="activeTab === 'api'">
                     <button type="button" @click="clearTraces()" class="inline-flex items-center gap-1.5 text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] bg-transparent hover:bg-[var(--color-primary)]/10 border border-[var(--color-border-subtle)] hover:border-[var(--color-primary)]/30 rounded-md py-1.5 px-2.5 transition-colors">
                         <i class="fas fa-trash text-[10px]"></i>
                         <span>Clear Traces</span>
@@ -53,7 +53,33 @@
                         <span>Export Traces</span>
                     </a>
                 </div>
+                <div class="flex flex-wrap justify-center gap-2" x-show="activeTab === 'backend'">
+                    <button type="button" @click="clearBackendTraces()" class="inline-flex items-center gap-1.5 text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] bg-transparent hover:bg-[var(--color-primary)]/10 border border-[var(--color-border-subtle)] hover:border-[var(--color-primary)]/30 rounded-md py-1.5 px-2.5 transition-colors">
+                        <i class="fas fa-trash text-[10px]"></i>
+                        <span>Clear Backend Traces</span>
+                    </button>
+                    <a href="/api/backend-traces" download="backend-traces.json" class="inline-flex items-center gap-1.5 text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] bg-transparent hover:bg-[var(--color-primary)]/10 border border-[var(--color-border-subtle)] hover:border-[var(--color-primary)]/30 rounded-md py-1.5 px-2.5 transition-colors">
+                        <i class="fas fa-download text-[10px]"></i>
+                        <span>Export Backend Traces</span>
+                    </a>
+                </div>
             </div>
+        </div>
+
+        <!-- Tab Bar -->
+        <div class="flex border-b border-[var(--color-border-subtle)] mb-6">
+            <button @click="switchTab('api')"
+                    :class="activeTab === 'api' ? 'border-[var(--color-primary)] text-[var(--color-primary)]' : 'border-transparent text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'"
+                    class="px-4 py-2 text-sm font-medium border-b-2 transition-colors">
+                <i class="fas fa-exchange-alt mr-1.5 text-xs"></i>API Traces
+                <span class="ml-1 text-xs opacity-70" x-text="'(' + traces.length + ')'"></span>
+            </button>
+            <button @click="switchTab('backend')"
+                    :class="activeTab === 'backend' ? 'border-[var(--color-primary)] text-[var(--color-primary)]' : 'border-transparent text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'"
+                    class="px-4 py-2 text-sm font-medium border-b-2 transition-colors">
+                <i class="fas fa-cogs mr-1.5 text-xs"></i>Backend Traces
+                <span class="ml-1 text-xs opacity-70" x-text="'(' + backendTraces.length + ')'"></span>
+            </button>
         </div>
 
         <!-- Tracing Settings -->
@@ -62,7 +88,7 @@
                 <i class="fas fa-bug mr-2 text-[var(--color-primary)] text-sm"></i>
                 Tracing Settings
             </h2>
-            <p class="text-xs text-[var(--color-text-secondary)] mb-4">Configure API tracing</p>
+            <p class="text-xs text-[var(--color-text-secondary)] mb-4">Configure API and backend tracing</p>
 
             <div class="space-y-4">
                 <!-- Enable Tracing -->
@@ -103,54 +129,176 @@
             </div>
         </div>
 
-        <!-- Traces Table -->
-        <div class="mt-8">
+        <!-- API Traces Table -->
+        <div class="mt-8" x-show="activeTab === 'api'">
             <div class="overflow-x-auto">
                 <table class="w-full border-collapse">
                     <thead>
                         <tr class="border-b border-[var(--color-bg-secondary)]">
+                            <th class="w-8 p-2"></th>
                             <th class="text-left p-2 text-xs font-semibold text-[var(--color-text-secondary)]">Method</th>
                             <th class="text-left p-2 text-xs font-semibold text-[var(--color-text-secondary)]">Path</th>
                             <th class="text-left p-2 text-xs font-semibold text-[var(--color-text-secondary)]">Status</th>
-                            <th class="text-right p-2 text-xs font-semibold text-[var(--color-text-secondary)]">Actions</th>
                         </tr>
                     </thead>
-                    <tbody>
-                        <template x-for="(trace, index) in traces" :key="index">
-                            <tr class="hover:bg-[var(--color-bg-secondary)]/50 border-b border-[var(--color-bg-secondary)] transition-colors">
+                    <template x-for="(trace, index) in traces" :key="index">
+                        <tbody>
+                            <tr @click="toggleTrace(index)"
+                                class="cursor-pointer hover:bg-[var(--color-bg-secondary)]/50 border-b border-[var(--color-bg-secondary)] transition-colors">
+                                <td class="p-2 w-8 text-center">
+                                    <i class="fas fa-chevron-right text-xs text-[var(--color-text-secondary)] transition-transform duration-200"
+                                       :class="expandedTraces[index] ? 'rotate-90' : ''"></i>
+                                </td>
                                 <td class="p-2" x-text="trace.request.method"></td>
                                 <td class="p-2" x-text="trace.request.path"></td>
                                 <td class="p-2" x-text="trace.response.status"></td>
-                                <td class="p-2 text-right">
-                                    <button @click="showDetails(index)" class="text-[var(--color-primary)]/60 hover:text-[var(--color-primary)] hover:bg-[var(--color-primary)]/10 rounded p-1 transition-colors">
-                                        <i class="fas fa-eye text-xs"></i>
-                                    </button>
+                            </tr>
+                            <tr x-show="expandedTraces[index]">
+                                <td colspan="4" class="p-0">
+                                    <div class="p-4 bg-[var(--color-bg-secondary)]/30 border-b border-[var(--color-bg-secondary)]">
+                                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                            <div>
+                                                <h4 class="text-sm font-semibold text-[var(--color-text-primary)] mb-2">Request Body</h4>
+                                                <pre class="overflow-auto max-h-[70vh] p-3 rounded-lg bg-[var(--color-bg-primary)] border border-[var(--color-border-subtle)] text-xs font-mono text-[var(--color-text-secondary)] whitespace-pre-wrap break-words"
+                                                     x-text="formatTraceBody(trace.request.body)"></pre>
+                                            </div>
+                                            <div>
+                                                <h4 class="text-sm font-semibold text-[var(--color-text-primary)] mb-2">Response Body</h4>
+                                                <pre class="overflow-auto max-h-[70vh] p-3 rounded-lg bg-[var(--color-bg-primary)] border border-[var(--color-border-subtle)] text-xs font-mono text-[var(--color-text-secondary)] whitespace-pre-wrap break-words"
+                                                     x-text="formatTraceBody(trace.response.body)"></pre>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </td>
                             </tr>
-                        </template>
-                    </tbody>
+                        </tbody>
+                    </template>
                 </table>
+                <div x-show="traces.length === 0" class="text-center py-8 text-[var(--color-text-secondary)] text-sm">
+                    No API traces recorded yet.
+                </div>
             </div>
         </div>
 
-        <!-- Details Modal -->
-        <div x-show="selectedTrace !== null" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50" @click="selectedTrace = null">
-            <div class="bg-[var(--color-bg-secondary)] rounded-lg p-6 max-w-4xl w-full max-h-[90vh] overflow-auto" @click.stop>
-                <div class="flex justify-between mb-4">
-                    <h2 class="h3">Trace Details</h2>
-                    <button @click="selectedTrace = null" class="text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]">
-                        <i class="fas fa-times"></i>
-                    </button>
-                </div>
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <h3 class="text-lg font-semibold mb-2">Request Body</h3>
-                        <div id="requestEditor" class="h-96 border border-[var(--color-primary-border)]/20"></div>
-                    </div>
-                    <div>
-                        <h3 class="text-lg font-semibold mb-2">Response Body</h3>
-                        <div id="responseEditor" class="h-96 border border-[var(--color-primary-border)]/20"></div>
-                    </div>
+        <!-- Backend Traces Table -->
+        <div class="mt-8" x-show="activeTab === 'backend'">
+            <div class="overflow-x-auto">
+                <table class="w-full border-collapse">
+                    <thead>
+                        <tr class="border-b border-[var(--color-bg-secondary)]">
+                            <th class="w-8 p-2"></th>
+                            <th class="text-left p-2 text-xs font-semibold text-[var(--color-text-secondary)]">Type</th>
+                            <th class="text-left p-2 text-xs font-semibold text-[var(--color-text-secondary)]">Timestamp</th>
+                            <th class="text-left p-2 text-xs font-semibold text-[var(--color-text-secondary)]">Model</th>
+                            <th class="text-left p-2 text-xs font-semibold text-[var(--color-text-secondary)]">Summary</th>
+                            <th class="text-left p-2 text-xs font-semibold text-[var(--color-text-secondary)]">Duration</th>
+                            <th class="text-left p-2 text-xs font-semibold text-[var(--color-text-secondary)]">Status</th>
+                        </tr>
+                    </thead>
+                    <template x-for="(trace, index) in backendTraces" :key="index">
+                        <tbody>
+                            <tr @click="toggleBackendTrace(index)"
+                                class="cursor-pointer hover:bg-[var(--color-bg-secondary)]/50 border-b border-[var(--color-bg-secondary)] transition-colors">
+                                <td class="p-2 w-8 text-center">
+                                    <i class="fas fa-chevron-right text-xs text-[var(--color-text-secondary)] transition-transform duration-200"
+                                       :class="expandedBackendTraces[index] ? 'rotate-90' : ''"></i>
+                                </td>
+                                <td class="p-2">
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium"
+                                          :class="getTypeClass(trace.type)"
+                                          x-text="trace.type"></span>
+                                </td>
+                                <td class="p-2 text-xs text-[var(--color-text-secondary)]" x-text="formatTimestamp(trace.timestamp)"></td>
+                                <td class="p-2 text-sm" x-text="trace.model_name || '-'"></td>
+                                <td class="p-2 text-sm max-w-xs truncate" x-text="trace.summary || '-'"></td>
+                                <td class="p-2 text-xs text-[var(--color-text-secondary)]" x-text="formatDuration(trace.duration)"></td>
+                                <td class="p-2">
+                                    <template x-if="!trace.error">
+                                        <i class="fas fa-check-circle text-green-500 text-xs"></i>
+                                    </template>
+                                    <template x-if="trace.error">
+                                        <i class="fas fa-times-circle text-red-500 text-xs" :title="trace.error"></i>
+                                    </template>
+                                </td>
+                            </tr>
+                            <tr x-show="expandedBackendTraces[index]">
+                                <td colspan="7" class="p-0">
+                                    <div class="p-4 bg-[var(--color-bg-secondary)]/30 border-b border-[var(--color-bg-secondary)]">
+                                        <!-- Header info -->
+                                        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                                            <div class="bg-[var(--color-bg-primary)] rounded-lg p-3 border border-[var(--color-border-subtle)]">
+                                                <div class="text-xs text-[var(--color-text-secondary)] mb-1">Type</div>
+                                                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium"
+                                                      :class="getTypeClass(trace.type)"
+                                                      x-text="trace.type"></span>
+                                            </div>
+                                            <div class="bg-[var(--color-bg-primary)] rounded-lg p-3 border border-[var(--color-border-subtle)]">
+                                                <div class="text-xs text-[var(--color-text-secondary)] mb-1">Model</div>
+                                                <div class="text-sm font-medium" x-text="trace.model_name || '-'"></div>
+                                            </div>
+                                            <div class="bg-[var(--color-bg-primary)] rounded-lg p-3 border border-[var(--color-border-subtle)]">
+                                                <div class="text-xs text-[var(--color-text-secondary)] mb-1">Backend</div>
+                                                <div class="text-sm font-medium" x-text="trace.backend || '-'"></div>
+                                            </div>
+                                            <div class="bg-[var(--color-bg-primary)] rounded-lg p-3 border border-[var(--color-border-subtle)]">
+                                                <div class="text-xs text-[var(--color-text-secondary)] mb-1">Duration</div>
+                                                <div class="text-sm font-medium" x-text="formatDuration(trace.duration)"></div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Error banner -->
+                                        <div x-show="trace.error" class="bg-red-500/10 border border-red-500/30 rounded-lg p-3 mb-4">
+                                            <div class="flex items-center gap-2">
+                                                <i class="fas fa-exclamation-triangle text-red-500 text-sm"></i>
+                                                <span class="text-sm text-red-400" x-text="trace.error"></span>
+                                            </div>
+                                        </div>
+
+                                        <!-- Data fields as nested accordions -->
+                                        <template x-if="trace.data && Object.keys(trace.data).length > 0">
+                                            <div>
+                                                <h4 class="text-sm font-semibold text-[var(--color-text-primary)] mb-2">Data Fields</h4>
+                                                <div class="border border-[var(--color-border-subtle)] rounded-lg overflow-hidden">
+                                                    <template x-for="[key, value] in Object.entries(trace.data)" :key="key">
+                                                        <div class="border-b border-[var(--color-border-subtle)] last:border-b-0">
+                                                            <!-- Field header row -->
+                                                            <div @click="isLargeValue(value) && toggleBackendField(index, key)"
+                                                                 class="flex items-center gap-2 px-3 py-2 hover:bg-[var(--color-bg-primary)]/50 transition-colors"
+                                                                 :class="isLargeValue(value) ? 'cursor-pointer' : ''">
+                                                                <template x-if="isLargeValue(value)">
+                                                                    <i class="fas fa-chevron-right text-[10px] text-[var(--color-text-secondary)] transition-transform duration-200 w-3 flex-shrink-0"
+                                                                       :class="isBackendFieldExpanded(index, key) ? 'rotate-90' : ''"></i>
+                                                                </template>
+                                                                <template x-if="!isLargeValue(value)">
+                                                                    <span class="w-3 flex-shrink-0"></span>
+                                                                </template>
+                                                                <span class="text-sm font-mono text-[var(--color-primary)] flex-shrink-0" x-text="key"></span>
+                                                                <template x-if="!isLargeValue(value)">
+                                                                    <span class="font-mono text-xs text-[var(--color-text-secondary)]" x-text="formatValue(value)"></span>
+                                                                </template>
+                                                                <template x-if="isLargeValue(value) && !isBackendFieldExpanded(index, key)">
+                                                                    <span class="text-xs text-[var(--color-text-secondary)] truncate" x-text="truncateValue(value, 120)"></span>
+                                                                </template>
+                                                            </div>
+                                                            <!-- Expanded field value -->
+                                                            <div x-show="isLargeValue(value) && isBackendFieldExpanded(index, key)"
+                                                                 class="px-3 pb-3">
+                                                                <pre class="overflow-auto max-h-[70vh] p-3 rounded-lg bg-[var(--color-bg-primary)] border border-[var(--color-border-subtle)] text-xs font-mono text-[var(--color-text-secondary)] whitespace-pre-wrap break-words"
+                                                                     x-text="formatLargeValue(value)"></pre>
+                                                            </div>
+                                                        </div>
+                                                    </template>
+                                                </div>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </template>
+                </table>
+                <div x-show="backendTraces.length === 0" class="text-center py-8 text-[var(--color-text-secondary)] text-sm">
+                    No backend traces recorded yet.
                 </div>
             </div>
         </div>
@@ -160,37 +308,43 @@
 
 </div>
 
-<!-- CodeMirror -->
-<link rel="stylesheet" href="static/assets/codemirror.min.css">
-<script src="static/assets/codemirror.min.js"></script>
-<script src="static/assets/javascript.min.js"></script>
-
-<!-- Styles from model-editor -->
-<style>
-.CodeMirror {
-    height: 100% !important;
-    font-family: monospace;
-}
-</style>
-
 <script>
 function tracesApp() {
     return {
+        activeTab: 'api',
         traces: [],
-        selectedTrace: null,
-        requestEditor: null,
-        responseEditor: null,
+        backendTraces: [],
+        expandedTraces: {},
+        expandedBackendTraces: {},
+        expandedBackendFields: {},
         notifications: [],
         settings: {
             enable_tracing: false,
             tracing_max_items: 0
         },
         saving: false,
+        refreshInterval: null,
 
         init() {
             this.loadTracingSettings();
             this.fetchTraces();
-            setInterval(() => this.fetchTraces(), 5000);
+            this.fetchBackendTraces();
+            this.startAutoRefresh();
+        },
+
+        switchTab(tab) {
+            this.activeTab = tab;
+        },
+
+        startAutoRefresh() {
+            if (this.refreshInterval) clearInterval(this.refreshInterval);
+            this.refreshInterval = setInterval(() => {
+                if (this.activeTab === 'api') {
+                    this.fetchTraces();
+                } else {
+                    this.fetchBackendTraces();
+                }
+            }, 5000);
         },
 
         async loadTracingSettings() {
@@ -261,71 +415,143 @@ function tracesApp() {
         },
 
         async fetchTraces() {
-            const response = await fetch('/api/traces');
-            this.traces = await response.json();
-        },
-
-        async clearTraces() {
-            if (confirm('Clear all traces?')) {
-                await fetch('/api/traces/clear', { method: 'POST' });
-                this.traces = [];
+            try {
+                const response = await fetch('/api/traces');
+                this.traces = await response.json();
+            } catch (e) {
+                console.error('Error fetching API traces:', e);
             }
         },
 
-        showDetails(index) {
-            this.selectedTrace = index;
-            this.$nextTick(() => {
-                const trace = this.traces[index];
+        async fetchBackendTraces() {
+            try {
+                const response = await fetch('/api/backend-traces');
+                this.backendTraces = await response.json();
+            } catch (e) {
+                console.error('Error fetching backend traces:', e);
+            }
+        },
 
-                const decodeBase64 = (base64) => {
-                    const binaryString = atob(base64);
-                    const bytes = new Uint8Array(binaryString.length);
-                    for (let i = 0; i < binaryString.length; i++) {
-                        bytes[i] = binaryString.charCodeAt(i);
-                    }
-                    return new TextDecoder().decode(bytes);
-                };
+        async clearTraces() {
+            if (confirm('Clear all API traces?')) {
+                await fetch('/api/traces/clear', { method: 'POST' });
+                this.traces = [];
+                this.expandedTraces = {};
+            }
+        },
 
-                const formatBody = (bodyText) => {
-                    try {
-                        const json = JSON.parse(bodyText);
-                        return JSON.stringify(json, null, 2);
-                    } catch {
-                        return bodyText;
-                    }
-                };
+        async clearBackendTraces() {
+            if (confirm('Clear all backend traces?')) {
+                await fetch('/api/backend-traces/clear', { method: 'POST' });
+                this.backendTraces = [];
+                this.expandedBackendTraces = {};
+                this.expandedBackendFields = {};
+            }
+        },
 
-                const reqBody = formatBody(decodeBase64(trace.request.body));
-                const resBody = formatBody(decodeBase64(trace.response.body));
+        toggleTrace(index) {
+            this.expandedTraces = {
+                ...this.expandedTraces,
+                [index]: !this.expandedTraces[index]
+            };
+        },
 
-                if (!this.requestEditor) {
-                    this.requestEditor = CodeMirror(document.getElementById('requestEditor'), {
-                        value: reqBody,
-                        mode: 'javascript',
-                        json: true,
-                        theme: 'default',
-                        lineNumbers: true,
-                        readOnly: true,
-                        lineWrapping: true
-                    });
-                } else {
-                    this.requestEditor.setValue(reqBody);
+        toggleBackendTrace(index) {
+            this.expandedBackendTraces = {
+                ...this.expandedBackendTraces,
+                [index]: !this.expandedBackendTraces[index]
+            };
+        },
+
+        toggleBackendField(index, key) {
+            const fieldKey = index + '-' + key;
+            this.expandedBackendFields = {
+                ...this.expandedBackendFields,
+                [fieldKey]: !this.expandedBackendFields[fieldKey]
+            };
+        },
+
+        isBackendFieldExpanded(index, key) {
+            return !!this.expandedBackendFields[index + '-' + key];
+        },
+
+        formatTraceBody(body) {
+            try {
+                const binaryString = atob(body);
+                const bytes = new Uint8Array(binaryString.length);
+                for (let i = 0; i < binaryString.length; i++) {
+                    bytes[i] = binaryString.charCodeAt(i);
                 }
-
-                if (!this.responseEditor) {
-                    this.responseEditor = CodeMirror(document.getElementById('responseEditor'), {
-                        value: resBody,
-                        mode: 'javascript',
-                        json: true,
-                        theme: 'default',
-                        lineNumbers: true,
-                        readOnly: true,
-                        lineWrapping: true
-                    });
-                } else {
-                    this.responseEditor.setValue(resBody);
+                const text = new TextDecoder().decode(bytes);
+                try {
+                    return JSON.stringify(JSON.parse(text), null, 2);
+                } catch {
+                    return text;
                 }
-            });
+            } catch {
+                return body || '';
+            }
+        },
+
+        formatLargeValue(value) {
+            if (typeof value === 'string') {
+                try {
+                    return JSON.stringify(JSON.parse(value), null, 2);
+                } catch {
+                    return value;
+                }
+            }
+            if (typeof value === 'object') {
+                return JSON.stringify(value, null, 2);
+            }
+            return String(value);
+        },
+
+        formatTimestamp(ts) {
+            if (!ts) return '-';
+            const d = new Date(ts);
+            return d.toLocaleTimeString() + '.' + String(d.getMilliseconds()).padStart(3, '0');
+        },
+
+        formatDuration(ns) {
+            if (!ns) return '-';
+            const ms = ns / 1000000;
+            if (ms < 1000) return ms.toFixed(1) + 'ms';
+            return (ms / 1000).toFixed(2) + 's';
+        },
+
+        getTypeClass(type) {
+            const classes = {
+                'llm': 'bg-blue-500/20 text-blue-400',
+                'embedding': 'bg-purple-500/20 text-purple-400',
+                'transcription': 'bg-yellow-500/20 text-yellow-400',
+                'image_generation': 'bg-green-500/20 text-green-400',
+                'video_generation': 'bg-pink-500/20 text-pink-400',
+                'tts': 'bg-orange-500/20 text-orange-400',
+                'sound_generation': 'bg-teal-500/20 text-teal-400',
+                'rerank': 'bg-indigo-500/20 text-indigo-400',
+                'tokenize': 'bg-gray-500/20 text-gray-400',
+            };
+            return classes[type] || 'bg-gray-500/20 text-gray-400';
+        },
+
+        isLargeValue(value) {
+            if (typeof value === 'string') return value.length > 120;
+            if (typeof value === 'object') return JSON.stringify(value).length > 120;
+            return false;
+        },
+
+        truncateValue(value, maxLen) {
+            let str = typeof value === 'object' ? JSON.stringify(value) : String(value);
+            if (str.length <= maxLen) return str;
+            return str.substring(0, maxLen) + '...';
+        },
+
+        formatValue(value) {
+            if (value === null || value === undefined) return 'null';
+            if (typeof value === 'boolean') return value ? 'true' : 'false';
+            if (typeof value === 'object') return JSON.stringify(value);
+            return String(value);
         }
     }
 }

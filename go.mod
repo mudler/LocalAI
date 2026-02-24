@@ -6,10 +6,10 @@ toolchain go1.24.5
 
 require (
 	dario.cat/mergo v1.0.2
-	fyne.io/fyne/v2 v2.7.2
+	fyne.io/fyne/v2 v2.7.3
 	github.com/Masterminds/sprig/v3 v3.3.0
 	github.com/alecthomas/kong v1.14.0
-	github.com/anthropics/anthropic-sdk-go v1.22.0
+	github.com/anthropics/anthropic-sdk-go v1.26.0
 	github.com/charmbracelet/glamour v0.10.0
 	github.com/containerd/containerd v1.7.30
 	github.com/dhowden/tag v0.0.0-20240417053706-3d75831295e8
@@ -21,7 +21,7 @@ require (
 	github.com/gofrs/flock v0.13.0
 	github.com/google/go-containerregistry v0.20.7
 	github.com/google/uuid v1.6.0
-	github.com/gpustack/gguf-parser-go v0.23.1
+	github.com/gpustack/gguf-parser-go v0.24.0
 	github.com/hpcloud/tail v1.0.0
 	github.com/ipfs/go-log v1.0.5
 	github.com/jaypipes/ghw v0.23.0
@@ -33,7 +33,7 @@ require (
 	github.com/mholt/archiver/v3 v3.5.1
 	github.com/microcosm-cc/bluemonday v1.0.27
 	github.com/modelcontextprotocol/go-sdk v1.3.0
-	github.com/mudler/cogito v0.9.1-0.20260217143801-bb7f986ed2c7
+	github.com/mudler/cogito v0.9.1
 	github.com/mudler/edgevpn v0.31.1
 	github.com/mudler/go-processmanager v0.1.0
 	github.com/mudler/memory v0.0.0-20251216220809-d1256471a6c2
@@ -101,7 +101,7 @@ require (
 	github.com/go-gl/glfw/v3.3/glfw v0.0.0-20240506104042-037f3cc74f2a // indirect
 	github.com/go-task/slim-sprig/v3 v3.0.0 // indirect
 	github.com/go-text/render v0.2.0 // indirect
-	github.com/go-text/typesetting v0.2.1 // indirect
+	github.com/go-text/typesetting v0.3.3 // indirect
 	github.com/godbus/dbus/v5 v5.1.0 // indirect
 	github.com/google/jsonschema-go v0.4.2 // indirect
 	github.com/hack-pad/go-indexeddb v0.3.2 // indirect

@@ -115,7 +115,7 @@ const (
 	TranscriptionResponseFormatVtt         = TranscriptionResponseFormatType("vtt")
 	TranscriptionResponseFormatLrc         = TranscriptionResponseFormatType("lrc")
 	TranscriptionResponseFormatJson        = TranscriptionResponseFormatType("json")
-	TranscriptionResponseFormatJsonVerbose = TranscriptionResponseFormatType("json_verbose")
+	TranscriptionResponseFormatJsonVerbose = TranscriptionResponseFormatType("verbose_json")
 )
 
 type ChatCompletionResponseFormat struct {
