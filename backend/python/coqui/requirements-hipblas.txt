@@ -1,6 +1,6 @@
 --extra-index-url https://download.pytorch.org/whl/rocm6.4
 torch==2.8.0+rocm6.4
 torchaudio==2.8.0+rocm6.4
-transformers==4.48.3
+transformers==5.2.0
 accelerate
 coqui-tts
