@@ -408,6 +408,7 @@ Configure how reasoning tags are extracted and processed from model output. Reas
 | `reasoning.strip_reasoning_only` | bool | `false` | When `true`, extracts and removes reasoning tags from content but discards the reasoning text. Useful when you want to clean reasoning tags from output without storing the reasoning content. |
 | `reasoning.thinking_start_tokens` | array | `[]` | List of custom thinking start tokens to detect in prompts. Custom tokens are checked before default tokens. |
 | `reasoning.tag_pairs` | array | `[]` | List of custom tag pairs for reasoning extraction. Each entry has `start` and `end` fields. Custom pairs are checked before default pairs. |
+| `reasoning.messages_format` | string | `""` | Controls how `role: "thinking"` messages are handled when using the tokenizer template. See [Messages Format](#messages-format) below. |
 
 ### Reasoning Tag Formats
 
@@ -473,6 +474,29 @@ reasoning:
 ```
 
 **Note:** Custom tokens and tag pairs are checked before the default ones, giving them priority. This allows you to override default behavior or add support for new reasoning tag formats.
+
+### Messages Format
+
+When `use_tokenizer_template` is enabled, messages are sent to the backend for Jinja template rendering. Some clients (e.g. Open WebUI) send previous reasoning/thinking content back as a separate message with `role: "thinking"`. If the model's chat template does not handle this role, it will produce an error such as `'Unexpected message role.'`.
+
+The `messages_format` option controls how these `role: "thinking"` messages are represented before being sent to the template:
+
+| Value | Behavior |
+|-------|----------|
+| `""` (empty, default) | Same as `thinking_role`. |
+| `thinking_role` | Pass `role: "thinking"` messages through as-is. Use this if the model's template handles the "thinking" role natively. |
+| `reasoning_content_field` | Merge `role: "thinking"` messages into the next assistant message's `reasoning_content` field, removing them from the message list. Use this if the model's template expects `reasoning_content` on assistant messages (e.g. Qwen3 templates). |
+
+**Example — merge thinking into reasoning_content:**
+```yaml
+name: qwen3-model
+backend: llama-cpp
+parameters:
+  model: qwen3.gguf
+
+reasoning:
+  messages_format: reasoning_content_field
+```
 
 ## Pipeline Configuration
 

@@ -12,4 +12,5 @@ type Config struct {
 	StripReasoningOnly         *bool     `yaml:"strip_reasoning_only,omitempty" json:"strip_reasoning_only,omitempty"`
 	ThinkingStartTokens        []string  `yaml:"thinking_start_tokens,omitempty" json:"thinking_start_tokens,omitempty"`
 	TagPairs                   []TagPair `yaml:"tag_pairs,omitempty" json:"tag_pairs,omitempty"`
+	MessagesFormat             string    `yaml:"messages_format,omitempty" json:"messages_format,omitempty"`
 }

@@ -46,19 +46,29 @@ type FunctionCall struct {
 
 type Messages []Message
 
-// MessagesToProto converts schema.Message slice to proto.Message slice
-// It handles content conversion, tool_calls serialization, and optional fields
-func (messages Messages) ToProto() []*proto.Message {
-	protoMessages := make([]*proto.Message, len(messages))
-	for i, message := range messages {
-		protoMessages[i] = &proto.Message{
+// MessagesToProto converts schema.Message slice to proto.Message slice.
+// It handles content conversion, tool_calls serialization, and optional fields.
+// When mergeThinking is true, messages with role "thinking" are merged into
+// the next assistant message's ReasoningContent field instead of being passed
+// through as standalone messages.
+func (messages Messages) ToProto(mergeThinking ...bool) []*proto.Message {
+	merge := len(mergeThinking) > 0 && mergeThinking[0]
+
+	input := []Message(messages)
+	if merge {
+		input = mergeThinkingMessages(input)
+	}
+
+	protoMessages := make([]*proto.Message, 0, len(input))
+	for _, message := range input {
+		pm := &proto.Message{
 			Role: message.Role,
 			Name: message.Name, // needed by function calls
 		}
 
 		switch ct := message.Content.(type) {
 		case string:
-			protoMessages[i].Content = ct
+			pm.Content = ct
 		case []interface{}:
 			// If using the tokenizer template, in case of multimodal we want to keep the multimodal content as and return only strings here
 			data, _ := json.Marshal(ct)
@@ -67,7 +77,7 @@ func (messages Messages) ToProto() []*proto.Message {
 			}{}
 			json.Unmarshal(data, &resultData)
 			for _, r := range resultData {
-				protoMessages[i].Content += r.Text
+				pm.Content += r.Text
 			}
 		}
 
@@ -77,12 +87,66 @@ func (messages Messages) ToProto() []*proto.Message {
 			if err != nil {
 				xlog.Warn("failed to marshal tool_calls to JSON", "error", err)
 			} else {
-				protoMessages[i].ToolCalls = string(toolCallsJSON)
+				pm.ToolCalls = string(toolCallsJSON)
 			}
 		}
 
-		// Note: tool_call_id is not in schema.Message yet
-		// Reasoning field is now available in schema.Message but not yet in proto.Message
+		// Map Reasoning field to proto ReasoningContent
+		if message.Reasoning != nil {
+			pm.ReasoningContent = *message.Reasoning
+		}
+
+		protoMessages = append(protoMessages, pm)
 	}
 	return protoMessages
+}
+
+// mergeThinkingMessages pre-processes messages to merge "thinking" role messages
+// into the following assistant message's Reasoning field, removing them from the list.
+func mergeThinkingMessages(messages []Message) []Message {
+	result := make([]Message, 0, len(messages))
+	var pendingThinking string
+
+	for _, msg := range messages {
+		if msg.Role == "thinking" {
+			content := messageContentString(msg)
+			if pendingThinking != "" {
+				pendingThinking += "\n"
+			}
+			pendingThinking += content
+			continue
+		}
+
+		if pendingThinking != "" && msg.Role == "assistant" {
+			merged := pendingThinking
+			if msg.Reasoning != nil {
+				merged += "\n" + *msg.Reasoning
+			}
+			msg.Reasoning = &merged
+			pendingThinking = ""
+		}
+
+		result = append(result, msg)
+	}
+
+	// If there's leftover thinking content with no following assistant message,
+	// preserve it as a thinking role message so it's not silently lost.
+	if pendingThinking != "" {
+		result = append(result, Message{
+			Role:    "thinking",
+			Content: pendingThinking,
+		})
+	}
+
+	return result
+}
+
+// messageContentString extracts the string content from a Message's Content field.
+func messageContentString(msg Message) string {
+	switch ct := msg.Content.(type) {
+	case string:
+		return ct
+	default:
+		return ""
+	}
 }

@@ -79,7 +79,8 @@ func ModelInference(ctx context.Context, s string, messages schema.Messages, ima
 	// if we are using the tokenizer template, we need to convert the messages to proto messages
 	// unless the prompt has already been tokenized (non-chat endpoints + functions)
 	if c.TemplateConfig.UseTokenizerTemplate && len(messages) > 0 {
-		protoMessages = messages.ToProto()
+		mergeThinking := c.ReasoningConfig.MessagesFormat == "reasoning_content_field"
+		protoMessages = messages.ToProto(mergeThinking)
 	}
 
 	// in GRPC, the backend is supposed to answer to 1 single token if stream is not supported

@@ -261,5 +261,121 @@ var _ = Describe("LLM tests", func() {
 			// Should only extract text parts
 			Expect(protoMessages[0].Content).To(Equal("Hello"))
 		})
+
+		It("should map Reasoning field to proto ReasoningContent", func() {
+			reasoning := "Let me think about this..."
+			messages := Messages{
+				{
+					Role:      "assistant",
+					Content:   "The answer is 42.",
+					Reasoning: &reasoning,
+				},
+			}
+
+			protoMessages := messages.ToProto()
+
+			Expect(protoMessages).To(HaveLen(1))
+			Expect(protoMessages[0].Role).To(Equal("assistant"))
+			Expect(protoMessages[0].Content).To(Equal("The answer is 42."))
+			Expect(protoMessages[0].ReasoningContent).To(Equal("Let me think about this..."))
+		})
+
+		It("should preserve thinking role messages when mergeThinking is false", func() {
+			messages := Messages{
+				{
+					Role:    "user",
+					Content: "What is 2+2?",
+				},
+				{
+					Role:    "thinking",
+					Content: "Let me calculate...",
+				},
+				{
+					Role:    "assistant",
+					Content: "4",
+				},
+			}
+
+			protoMessages := messages.ToProto()
+
+			Expect(protoMessages).To(HaveLen(3))
+			Expect(protoMessages[0].Role).To(Equal("user"))
+			Expect(protoMessages[1].Role).To(Equal("thinking"))
+			Expect(protoMessages[1].Content).To(Equal("Let me calculate..."))
+			Expect(protoMessages[2].Role).To(Equal("assistant"))
+			Expect(protoMessages[2].Content).To(Equal("4"))
+			Expect(protoMessages[2].ReasoningContent).To(BeEmpty())
+		})
+
+		It("should merge thinking role into next assistant message when mergeThinking is true", func() {
+			messages := Messages{
+				{
+					Role:    "user",
+					Content: "What is 2+2?",
+				},
+				{
+					Role:    "thinking",
+					Content: "Let me calculate...",
+				},
+				{
+					Role:    "assistant",
+					Content: "4",
+				},
+			}
+
+			protoMessages := messages.ToProto(true)
+
+			Expect(protoMessages).To(HaveLen(2))
+			Expect(protoMessages[0].Role).To(Equal("user"))
+			Expect(protoMessages[0].Content).To(Equal("What is 2+2?"))
+			Expect(protoMessages[1].Role).To(Equal("assistant"))
+			Expect(protoMessages[1].Content).To(Equal("4"))
+			Expect(protoMessages[1].ReasoningContent).To(Equal("Let me calculate..."))
+		})
+
+		It("should merge multiple consecutive thinking messages into next assistant message", func() {
+			messages := Messages{
+				{
+					Role:    "thinking",
+					Content: "First thought",
+				},
+				{
+					Role:    "thinking",
+					Content: "Second thought",
+				},
+				{
+					Role:    "assistant",
+					Content: "The answer",
+				},
+			}
+
+			protoMessages := messages.ToProto(true)
+
+			Expect(protoMessages).To(HaveLen(1))
+			Expect(protoMessages[0].Role).To(Equal("assistant"))
+			Expect(protoMessages[0].Content).To(Equal("The answer"))
+			Expect(protoMessages[0].ReasoningContent).To(Equal("First thought\nSecond thought"))
+		})
+
+		It("should preserve trailing thinking messages with no following assistant when merging", func() {
+			messages := Messages{
+				{
+					Role:    "assistant",
+					Content: "Hello",
+				},
+				{
+					Role:    "thinking",
+					Content: "Orphaned thought",
+				},
+			}
+
+			protoMessages := messages.ToProto(true)
+
+			Expect(protoMessages).To(HaveLen(2))
+			Expect(protoMessages[0].Role).To(Equal("assistant"))
+			Expect(protoMessages[0].Content).To(Equal("Hello"))
+			Expect(protoMessages[1].Role).To(Equal("thinking"))
+			Expect(protoMessages[1].Content).To(Equal("Orphaned thought"))
+		})
 	})
 })
