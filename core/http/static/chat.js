@@ -1148,6 +1148,9 @@ async function promptGPT(systemPrompt, input) {
 
   messages = chatStore.messages();
 
+  // Exclude thinking/reasoning from API payload (backend chat templates expect only system/user/assistant)
+  messages = messages.filter((m) => m.role !== "thinking" && m.role !== "reasoning");
+
   // if systemPrompt isn't empty, push it at the start of messages
   if (systemPrompt) {
     messages.unshift({
@@ -2530,12 +2533,14 @@ document.addEventListener("alpine:init", () => {
       messages() {
         const chat = this.activeChat();
         if (!chat) return [];
-        return chat.history.map((message) => ({
-          role: message.role,
-          content: message.content,
-          image: message.image,
-          audio: message.audio,
-        }));
+        return chat.history
+          .filter((message) => message.role !== "thinking" && message.role !== "reasoning")
+          .map((message) => ({
+            role: message.role,
+            content: message.content,
+            image: message.image,
+            audio: message.audio,
+          }));
       },
       
       // Getter for active chat history to ensure reactivity
