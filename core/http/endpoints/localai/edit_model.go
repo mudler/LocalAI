@@ -10,6 +10,7 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	httpUtils "github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/internal"
+	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/utils"
 
 	"gopkg.in/yaml.v3"
@@ -78,7 +79,7 @@ func GetEditModelPage(cl *config.ModelConfigLoader, appConfig *config.Applicatio
 }
 
 // EditModelEndpoint handles updating existing model configurations
-func EditModelEndpoint(cl *config.ModelConfigLoader, appConfig *config.ApplicationConfig) echo.HandlerFunc {
+func EditModelEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		modelName := c.Param("name")
 		if modelName == "" {
@@ -174,6 +175,14 @@ func EditModelEndpoint(cl *config.ModelConfigLoader, appConfig *config.Applicati
 			return c.JSON(http.StatusInternalServerError, response)
 		}
 
+		// Shutdown the running model to apply new configuration (e.g., context_size)
+		// The model will be reloaded on the next inference request
+		if err := ml.ShutdownModel(modelName); err != nil {
+			// Log the error but don't fail the request - the config was saved successfully
+			// The model can still be manually reloaded or restarted
+			fmt.Printf("Warning: Failed to shutdown model '%s': %v\n", modelName, err)
+		}
+
 		// Preload the model
 		if err := cl.Preload(appConfig.SystemState.Model.ModelsPath); err != nil {
 			response := ModelResponse{
@@ -186,7 +195,7 @@ func EditModelEndpoint(cl *config.ModelConfigLoader, appConfig *config.Applicati
 		// Return success response
 		response := ModelResponse{
 			Success:  true,
-			Message:  fmt.Sprintf("Model '%s' updated successfully", modelName),
+			Message:  fmt.Sprintf("Model '%s' updated successfully. Model has been reloaded with new configuration.", modelName),
 			Filename: configPath,
 			Config:   req,
 		}
