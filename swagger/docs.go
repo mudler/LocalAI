@@ -3526,6 +3526,10 @@ const docTemplate = `{
                     "description": "(optional) output format",
                     "type": "string"
                 },
+                "sample_rate": {
+                    "description": "(optional) desired output sample rate",
+                    "type": "integer"
+                },
                 "stream": {
                     "description": "(optional) enable streaming TTS",
                     "type": "boolean"
