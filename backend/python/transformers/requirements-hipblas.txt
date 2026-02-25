@@ -5,5 +5,5 @@ transformers
 llvmlite==0.43.0
 numba==0.60.0
 bitsandbytes
-sentence-transformers==5.2.2
+sentence-transformers==5.2.3
 protobuf==6.33.5
