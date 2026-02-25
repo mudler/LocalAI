@@ -2030,7 +2030,7 @@
     nvidia-cuda-13: "cuda13-chatterbox-development"
     nvidia-cuda-12: "cuda12-chatterbox-development"
     nvidia-l4t-cuda-12: "nvidia-l4t-arm64-chatterbox"
-    nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-chatterbox"
+    nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-chatterbox-development"
 - !!merge <<: *chatterbox
   name: "cpu-chatterbox"
   uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-chatterbox"
