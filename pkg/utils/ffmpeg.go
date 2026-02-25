@@ -42,6 +42,21 @@ func AudioToWav(src, dst string) error {
 	return nil
 }
 
+// AudioResample resamples an audio file to the given sample rate using ffmpeg.
+// If sampleRate <= 0, it is a no-op and returns src unchanged.
+func AudioResample(src string, sampleRate int) (string, error) {
+	if sampleRate <= 0 {
+		return src, nil
+	}
+	dst := strings.Replace(src, ".wav", fmt.Sprintf("_%dhz.wav", sampleRate), 1)
+	commandArgs := []string{"-y", "-i", src, "-ar", fmt.Sprintf("%d", sampleRate), dst}
+	out, err := ffmpegCommand(commandArgs)
+	if err != nil {
+		return "", fmt.Errorf("error resampling audio: %w out: %s", err, out)
+	}
+	return dst, nil
+}
+
 // AudioConvert converts generated wav file from tts to other output formats.
 // TODO: handle pcm to have 100% parity of supported format from OpenAI
 func AudioConvert(src string, format string) (string, error) {
