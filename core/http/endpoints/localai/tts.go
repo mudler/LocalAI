@@ -79,6 +79,14 @@ func TTSEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig 
 			return err
 		}
 
+		// Resample to requested sample rate if specified
+		if input.SampleRate > 0 {
+			filePath, err = utils.AudioResample(filePath, input.SampleRate)
+			if err != nil {
+				return err
+			}
+		}
+
 		// Convert generated file to target format
 		filePath, err = utils.AudioConvert(filePath, input.Format)
 		if err != nil {

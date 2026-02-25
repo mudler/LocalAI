@@ -53,7 +53,8 @@ type TTSRequest struct {
 	Backend  string `json:"backend" yaml:"backend"`
 	Language string `json:"language,omitempty" yaml:"language,omitempty"`               // (optional) language to use with TTS model
 	Format   string `json:"response_format,omitempty" yaml:"response_format,omitempty"` // (optional) output format
-	Stream   bool   `json:"stream,omitempty" yaml:"stream,omitempty"`                   // (optional) enable streaming TTS
+	Stream     bool   `json:"stream,omitempty" yaml:"stream,omitempty"`                         // (optional) enable streaming TTS
+	SampleRate int    `json:"sample_rate,omitempty" yaml:"sample_rate,omitempty"`               // (optional) desired output sample rate
 }
 
 // @Description VAD request body
