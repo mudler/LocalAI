@@ -304,25 +304,6 @@ jobs:
         run: |
           make --jobs=5 --output-sync=target -C backend/python/qwen-tts
           make --jobs=5 --output-sync=target -C backend/python/qwen-tts test
-  tests-faster-qwen3-tts:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Clone
-        uses: actions/checkout@v6
-        with:
-          submodules: true
-      - name: Dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential ffmpeg
-          sudo apt-get install -y ca-certificates cmake curl patch python3-pip
-          # Install UV
-          curl -LsSf https://astral.sh/uv/install.sh | sh
-          pip install --user --no-cache-dir grpcio-tools==1.64.1
-      - name: Test faster-qwen3-tts
-        run: |
-          make --jobs=5 --output-sync=target -C backend/python/faster-qwen3-tts
-          make --jobs=5 --output-sync=target -C backend/python/faster-qwen3-tts test
   tests-qwen-asr:
     runs-on: ubuntu-latest
     steps:

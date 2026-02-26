@@ -1,4 +1,0 @@
---extra-index-url https://download.pytorch.org/whl/xpu
-torch
-torchaudio
-faster-qwen3-tts

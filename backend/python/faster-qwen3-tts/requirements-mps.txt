@@ -1,3 +1,0 @@
-torch
-torchaudio
-faster-qwen3-tts
