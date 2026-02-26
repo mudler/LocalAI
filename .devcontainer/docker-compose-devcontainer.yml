@@ -10,7 +10,8 @@ services:
       - 8080:8080
     volumes:
       - localai_workspace:/workspace
-      - ../models:/host-models
+      - models:/host-models
+      - backends:/host-backends
       - ./customization:/devcontainer-customization
     command: /bin/sh -c "while sleep 1000; do :; done"
     cap_add:
@@ -39,6 +40,9 @@ services:
       - GF_SECURITY_ADMIN_PASSWORD=grafana
     volumes:
       - ./grafana:/etc/grafana/provisioning/datasources
+
 volumes:
   prom_data:
   localai_workspace:
+  models:
+  backends:
