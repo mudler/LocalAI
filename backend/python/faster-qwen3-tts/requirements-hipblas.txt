@@ -1,4 +1,0 @@
---extra-index-url https://download.pytorch.org/whl/rocm6.3
-torch==2.7.1+rocm6.3
-torchaudio==2.7.1+rocm6.3
-faster-qwen3-tts
