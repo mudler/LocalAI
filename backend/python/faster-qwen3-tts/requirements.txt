@@ -1,0 +1,8 @@
+grpcio==1.71.0
+protobuf
+certifi
+packaging==24.1
+soundfile
+setuptools
+six
+sox
