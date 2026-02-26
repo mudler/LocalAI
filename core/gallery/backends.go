@@ -182,6 +182,36 @@ func InstallBackend(ctx context.Context, systemState *system.SystemState, modelL
 				}
 			}
 
+			// Try fallback: replace "latest-" with "master-" in the URI
+			fallbackURI := strings.Replace(string(config.URI), "latest-", "master-", 1)
+			if fallbackURI != string(config.URI) {
+				xlog.Debug("Trying fallback URI", "original", config.URI, "fallback", fallbackURI)
+				if err := downloader.URI(fallbackURI).DownloadFileWithContext(ctx, backendPath, "", 1, 1, downloadStatus); err == nil {
+					xlog.Debug("Downloaded backend using fallback URI", "uri", fallbackURI, "backendPath", backendPath)
+					success = true
+				} else {
+					// Try another fallback: add "-development" suffix to the backend name
+					// For example: master-gpu-nvidia-cuda-13-ace-step -> master-gpu-nvidia-cuda-13-ace-step-development
+					if !strings.Contains(fallbackURI, "-development") {
+						// Extract backend name from URI and add -development
+						parts := strings.Split(fallbackURI, "-")
+						if len(parts) >= 2 {
+							// Find where the backend name ends (usually the last part before the tag)
+							// Pattern: quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-ace-step
+							lastDash := strings.LastIndex(fallbackURI, "-")
+							if lastDash > 0 {
+								devFallbackURI := fallbackURI[:lastDash] + "-development"
+								xlog.Debug("Trying development fallback URI", "fallback", devFallbackURI)
+								if err := downloader.URI(devFallbackURI).DownloadFileWithContext(ctx, backendPath, "", 1, 1, downloadStatus); err == nil {
+									xlog.Debug("Downloaded backend using development fallback URI", "uri", devFallbackURI, "backendPath", backendPath)
+									success = true
+								}
+							}
+						}
+					}
+				}
+			}
+
 			if !success {
 				xlog.Error("Failed to download backend", "uri", config.URI, "backendPath", backendPath, "error", err)
 				return fmt.Errorf("failed to download backend %q: %v", config.URI, err)
