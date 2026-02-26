@@ -215,7 +215,7 @@ func InstallModel(ctx context.Context, systemState *system.SystemState, nameOver
 			return nil, fmt.Errorf("failed to create parent directory for prompt template %q: %v", template.Name, err)
 		}
 		// Create and write file content
-		err = os.WriteFile(filePath, []byte(template.Content), 0600)
+		err = os.WriteFile(filePath, []byte(template.Content), 0644)
 		if err != nil {
 			return nil, fmt.Errorf("failed to write prompt template %q: %v", template.Name, err)
 		}
@@ -268,7 +268,7 @@ func InstallModel(ctx context.Context, systemState *system.SystemState, nameOver
 			return nil, fmt.Errorf("failed to validate updated config YAML: %v", err)
 		}
 
-		err = os.WriteFile(configFilePath, updatedConfigYAML, 0600)
+		err = os.WriteFile(configFilePath, updatedConfigYAML, 0644)
 		if err != nil {
 			return nil, fmt.Errorf("failed to write updated config file: %v", err)
 		}
@@ -285,7 +285,7 @@ func InstallModel(ctx context.Context, systemState *system.SystemState, nameOver
 
 	xlog.Debug("Written gallery file", "file", modelFile)
 
-	return &modelConfig, os.WriteFile(modelFile, data, 0600)
+	return &modelConfig, os.WriteFile(modelFile, data, 0644)
 }
 
 func galleryFileName(name string) string {
