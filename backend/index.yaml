@@ -528,6 +528,28 @@
     nvidia-l4t-cuda-12: "nvidia-l4t-qwen-tts"
     nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-qwen-tts"
   icon: https://cdn-avatars.huggingface.co/v1/production/uploads/620760a26e3b7210c2ff1943/-s1gyJfvbE1RgO5iBeNOi.png
+- &faster-qwen3-tts
+  urls:
+    - https://github.com/andimarafioti/faster-qwen3-tts
+    - https://pypi.org/project/faster-qwen3-tts/
+  description: |
+    Real-time Qwen3-TTS inference using CUDA graph capture. Voice clone only; requires NVIDIA GPU with CUDA.
+  tags:
+    - text-to-speech
+    - TTS
+    - voice-clone
+  license: apache-2.0
+  name: "faster-qwen3-tts"
+  alias: "faster-qwen3-tts"
+  capabilities:
+    nvidia: "cuda12-faster-qwen3-tts"
+    default: "cuda12-faster-qwen3-tts"
+    nvidia-cuda-13: "cuda13-faster-qwen3-tts"
+    nvidia-cuda-12: "cuda12-faster-qwen3-tts"
+    nvidia-l4t: "nvidia-l4t-faster-qwen3-tts"
+    nvidia-l4t-cuda-12: "nvidia-l4t-faster-qwen3-tts"
+    nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-faster-qwen3-tts"
+  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/620760a26e3b7210c2ff1943/-s1gyJfvbE1RgO5iBeNOi.png
 - &qwen-asr
   urls:
     - https://github.com/QwenLM/Qwen3-ASR
@@ -2279,6 +2301,57 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-qwen-tts"
   mirrors:
     - localai/localai-backends:master-metal-darwin-arm64-qwen-tts
+## faster-qwen3-tts
+- !!merge <<: *faster-qwen3-tts
+  name: "faster-qwen3-tts-development"
+  capabilities:
+    nvidia: "cuda12-faster-qwen3-tts-development"
+    default: "cuda12-faster-qwen3-tts-development"
+    nvidia-cuda-13: "cuda13-faster-qwen3-tts-development"
+    nvidia-cuda-12: "cuda12-faster-qwen3-tts-development"
+    nvidia-l4t: "nvidia-l4t-faster-qwen3-tts-development"
+    nvidia-l4t-cuda-12: "nvidia-l4t-faster-qwen3-tts-development"
+    nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-faster-qwen3-tts-development"
+- !!merge <<: *faster-qwen3-tts
+  name: "cuda12-faster-qwen3-tts"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-faster-qwen3-tts"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-12-faster-qwen3-tts
+- !!merge <<: *faster-qwen3-tts
+  name: "cuda12-faster-qwen3-tts-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-faster-qwen3-tts"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-12-faster-qwen3-tts
+- !!merge <<: *faster-qwen3-tts
+  name: "cuda13-faster-qwen3-tts"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-13-faster-qwen3-tts"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-13-faster-qwen3-tts
+- !!merge <<: *faster-qwen3-tts
+  name: "cuda13-faster-qwen3-tts-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-faster-qwen3-tts"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-13-faster-qwen3-tts
+- !!merge <<: *faster-qwen3-tts
+  name: "nvidia-l4t-faster-qwen3-tts"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-nvidia-l4t-faster-qwen3-tts"
+  mirrors:
+    - localai/localai-backends:latest-nvidia-l4t-faster-qwen3-tts
+- !!merge <<: *faster-qwen3-tts
+  name: "nvidia-l4t-faster-qwen3-tts-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-faster-qwen3-tts"
+  mirrors:
+    - localai/localai-backends:master-nvidia-l4t-faster-qwen3-tts
+- !!merge <<: *faster-qwen3-tts
+  name: "cuda13-nvidia-l4t-arm64-faster-qwen3-tts"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-nvidia-l4t-cuda-13-arm64-faster-qwen3-tts"
+  mirrors:
+    - localai/localai-backends:latest-nvidia-l4t-cuda-13-arm64-faster-qwen3-tts
+- !!merge <<: *faster-qwen3-tts
+  name: "cuda13-nvidia-l4t-arm64-faster-qwen3-tts-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-cuda-13-arm64-faster-qwen3-tts"
+  mirrors:
+    - localai/localai-backends:master-nvidia-l4t-cuda-13-arm64-faster-qwen3-tts
 ## qwen-asr
 - !!merge <<: *qwen-asr
   name: "qwen-asr-development"
