@@ -362,7 +362,7 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
       params.mmproj.path = request->mmproj();
     }
     //  params.model_alias ??
-    params.model_alias =  request->modelfile();
+    params.model_alias.insert(request->modelfile());
     if (!request->cachetypekey().empty()) {
         params.cache_type_k = kv_cache_type_from_str(request->cachetypekey());
     }
