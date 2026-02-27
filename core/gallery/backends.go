@@ -25,6 +25,39 @@ const (
 	runFile      = "run.sh"
 )
 
+// Environment variables for configurable fallback URI patterns
+const (
+	// Default fallback tag values
+	defaultLatestTag = "latest"
+	defaultMasterTag = "master"
+	defaultDevSuffix = "development"
+
+	// Environment variable names
+	envLatestTag = "LOCALAI_BACKEND_IMAGES_RELEASE_TAG"
+	envMasterTag = "LOCALAI_BACKEND_IMAGES_BRANCH_TAG"
+	envDevSuffix = "LOCALAI_BACKEND_DEV_SUFFIX"
+)
+
+// getFallbackTagValues returns the configurable fallback tag values from environment variables
+func getFallbackTagValues() (latestTag, masterTag, devSuffix string) {
+	latestTag = os.Getenv(envLatestTag)
+	masterTag = os.Getenv(envMasterTag)
+	devSuffix = os.Getenv(envDevSuffix)
+
+	// Use defaults if environment variables are not set
+	if latestTag == "" {
+		latestTag = defaultLatestTag
+	}
+	if masterTag == "" {
+		masterTag = defaultMasterTag
+	}
+	if devSuffix == "" {
+		devSuffix = defaultDevSuffix
+	}
+
+	return latestTag, masterTag, devSuffix
+}
+
 // backendCandidate represents an installed concrete backend option for a given alias
 type backendCandidate struct {
 	name    string
@@ -139,6 +172,9 @@ func InstallBackendFromGallery(ctx context.Context, galleries []config.Gallery, 
 }
 
 func InstallBackend(ctx context.Context, systemState *system.SystemState, modelLoader *model.ModelLoader, config *GalleryBackend, downloadStatus func(string, string, string, float64)) error {
+	// Get configurable fallback tag values from environment variables
+	latestTag, masterTag, devSuffix := getFallbackTagValues()
+
 	// Create base path if it doesn't exist
 	err := os.MkdirAll(systemState.Backend.BackendsPath, 0750)
 	if err != nil {
@@ -182,17 +218,17 @@ func InstallBackend(ctx context.Context, systemState *system.SystemState, modelL
 				}
 			}
 
-			// Try fallback: replace "latest-" with "master-" in the URI
-			fallbackURI := strings.Replace(string(config.URI), "latest-", "master-", 1)
+			// Try fallback: replace latestTag + "-" with masterTag + "-" in the URI
+			fallbackURI := strings.Replace(string(config.URI), latestTag + "-", masterTag + "-", 1)
 			if fallbackURI != string(config.URI) {
 				xlog.Debug("Trying fallback URI", "original", config.URI, "fallback", fallbackURI)
 				if err := downloader.URI(fallbackURI).DownloadFileWithContext(ctx, backendPath, "", 1, 1, downloadStatus); err == nil {
 					xlog.Debug("Downloaded backend using fallback URI", "uri", fallbackURI, "backendPath", backendPath)
 					success = true
 				} else {
-					// Try another fallback: add "-development" suffix to the backend name
+					// Try another fallback: add "-" + devSuffix suffix to the backend name
 					// For example: master-gpu-nvidia-cuda-13-ace-step -> master-gpu-nvidia-cuda-13-ace-step-development
-					if !strings.Contains(fallbackURI, "-development") {
+					if !strings.Contains(fallbackURI, "-" + devSuffix) {
 						// Extract backend name from URI and add -development
 						parts := strings.Split(fallbackURI, "-")
 						if len(parts) >= 2 {
@@ -200,7 +236,7 @@ func InstallBackend(ctx context.Context, systemState *system.SystemState, modelL
 							// Pattern: quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-ace-step
 							lastDash := strings.LastIndex(fallbackURI, "-")
 							if lastDash > 0 {
-								devFallbackURI := fallbackURI[:lastDash] + "-development"
+								devFallbackURI := fallbackURI[:lastDash] + "-" + devSuffix
 								xlog.Debug("Trying development fallback URI", "fallback", devFallbackURI)
 								if err := downloader.URI(devFallbackURI).DownloadFileWithContext(ctx, backendPath, "", 1, 1, downloadStatus); err == nil {
 									xlog.Debug("Downloaded backend using development fallback URI", "uri", devFallbackURI, "backendPath", backendPath)
