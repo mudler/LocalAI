@@ -609,6 +609,11 @@ func (c *ModelConfig) HasUsecases(u ModelConfigUsecase) bool {
 // In its current state, this function should ideally check for properties of the config like templates, rather than the direct backend name checks for the lower half.
 // This avoids the maintenance burden of updating this list for each new backend - but unfortunately, that's the best option for some services currently.
 func (c *ModelConfig) GuessUsecases(u ModelConfigUsecase) bool {
+	// If the user has explicitly set known_usecases in the config, trust that instead of using heuristics
+	if c.KnownUsecases != nil {
+		return false
+	}
+
 	if (u & FLAG_CHAT) == FLAG_CHAT {
 		if c.TemplateConfig.Chat == "" && c.TemplateConfig.ChatMessage == "" && !c.TemplateConfig.UseTokenizerTemplate {
 			return false
