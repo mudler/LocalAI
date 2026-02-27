@@ -779,6 +779,42 @@ value
 			Expect(results[0].Name).To(Equal("glob"))
 			Expect(results[0].Arguments).To(Equal(`{"pattern":"**/package.json"}`))
 		})
+		It("should parse tool calls when reasoning (<think>) precedes tool block (Qwen3.5-style)", func() {
+			input := `<think>
+I need to run a command.
+</think>
+<tool_call>
+<function=bash>
+<parameter=script>
+echo hello
+</parameter>
+</function>
+</tool_call>`
+			cfg := FunctionsConfig{}
+			results := ParseFunctionCall(input, cfg)
+			Expect(results).To(HaveLen(1))
+			Expect(results[0].Name).To(Equal("bash"))
+			Expect(results[0].Arguments).To(ContainSubstring("echo hello"))
+		})
+
+		It("should parse tool calls when reasoning (<think>) precedes tool block (Qwen3.5-style)", func() {
+			input := `<think>
+I need to run a command.
+</think>
+<tool_call>
+<function=bash>
+<parameter=script>
+echo hello
+</parameter>
+</function>
+</tool_call>`
+			cfg := FunctionsConfig{}
+			cfg.XMLFormatPreset = "qwen3.5"
+			results := ParseFunctionCall(input, cfg)
+			Expect(results).To(HaveLen(1))
+			Expect(results[0].Name).To(Equal("bash"))
+			Expect(results[0].Arguments).To(ContainSubstring("echo hello"))
+		})
 
 		It("should parse XML tool calls alongside JSON tool calls", func() {
 			input := `{"name": "add", "arguments": {"x": 5, "y": 3}}

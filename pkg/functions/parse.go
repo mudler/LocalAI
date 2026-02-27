@@ -376,6 +376,20 @@ func getAllXMLFormats() []xmlFormatPreset {
 			},
 		},
 		{
+			name: "qwen3.5",
+			format: &XMLToolCallFormat{
+				ScopeStart:    "<tool_call>",
+				ToolStart:     "<function=",
+				ToolSep:       ">",
+				KeyStart:      "<parameter=",
+				KeyValSep:     ">",
+				ValEnd:        "</parameter>",
+				ToolEnd:       "</function>",
+				ScopeEnd:      "</tool_call>",
+				TrimRawArgVal: true,
+			},
+		},
+		{
 			name: "glm-4.5",
 			format: &XMLToolCallFormat{
 				ScopeStart: "",
@@ -483,9 +497,70 @@ func ParseXML(s string, format *XMLToolCallFormat) ([]FuncCallResults, error) {
 	return parseXMLWithFormat(s, format)
 }
 
+// getScopeOrToolStart returns the string to search for to start the tool-calls section
+// (ScopeStart if set, else ToolStart). Used to mimic llama.cpp's "content until <tool_call>" order.
+func getScopeOrToolStart(format *XMLToolCallFormat) string {
+	if format == nil {
+		return ""
+	}
+	if format.ScopeStart != "" {
+		return format.ScopeStart
+	}
+	return format.ToolStart
+}
+
+// tryParseXMLFromScopeStart finds the first occurrence of scopeStart (or format.ToolStart),
+// splits the input there, and parses only the suffix as XML tool calls. Returns (toolCalls, true)
+// if any tool calls were parsed, else (nil, false). This mimics llama.cpp's PEG order so that
+// reasoning or content before the tool block does not cause "whitespace only before scope" to fail.
+func tryParseXMLFromScopeStart(s string, format *XMLToolCallFormat, isPartial bool) ([]FuncCallResults, bool) {
+	if format == nil {
+		return nil, false
+	}
+	scopeStart := getScopeOrToolStart(format)
+	if scopeStart == "" {
+		return nil, false
+	}
+	idx := strings.Index(s, scopeStart)
+	if idx < 0 {
+		return nil, false
+	}
+	toolCallsPart := s[idx:]
+	parser := NewChatMsgParser(toolCallsPart, isPartial)
+	success, err := parser.TryConsumeXMLToolCalls(format)
+	if err != nil {
+		if _, ok := err.(*ChatMsgPartialException); ok && isPartial {
+			return parser.ToolCalls(), len(parser.ToolCalls()) > 0
+		}
+		return nil, false
+	}
+	if success && len(parser.ToolCalls()) > 0 {
+		return parser.ToolCalls(), true
+	}
+	return nil, false
+}
+
 // ParseXMLIterative parses XML tool calls using the iterative parser
-// This provides better streaming and partial parsing support
+// This provides better streaming and partial parsing support.
+// When format is nil or when format is set, tries "find scope/tool start, split, parse suffix"
+// first (llama.cpp PEG order) so that content before the tool block does not cause parse failure.
 func ParseXMLIterative(s string, format *XMLToolCallFormat, isPartial bool) ([]FuncCallResults, error) {
+	// Try split-on-scope first so reasoning/content before tool block is skipped
+	if format != nil {
+		if results, ok := tryParseXMLFromScopeStart(s, format, isPartial); ok {
+			return results, nil
+		}
+	} else {
+		formats := getAllXMLFormats()
+		for _, fmtPreset := range formats {
+			if fmtPreset.format != nil {
+				if results, ok := tryParseXMLFromScopeStart(s, fmtPreset.format, isPartial); ok {
+					return results, nil
+				}
+			}
+		}
+	}
+
 	parser := NewChatMsgParser(s, isPartial)
 
 	// Auto-detect format if not provided
@@ -1621,16 +1696,54 @@ func ParseFunctionCall(llmresult string, functionConfig FunctionsConfig) []FuncC
 	// but we've already parsed it, so we shouldn't try XML parsing on the same content
 	skipXMLParsing := (len(functionConfig.JSONRegexMatch) > 0 || len(functionConfig.ResponseRegex) > 0) && len(results) > 0
 	if len(results) == 0 && !skipXMLParsing {
-		xmlResults, err := ParseXML(llmresult, xmlFormat)
-		if err == nil && len(xmlResults) > 0 {
-			xlog.Debug("Found XML tool calls", "count", len(xmlResults))
-			results = append(results, xmlResults...)
+		// Mimic llama.cpp PEG order: try "find scope/tool start, split, parse suffix" first so that
+		// reasoning or content before the tool block (e.g. <think>...</think>) does not cause parse failure.
+		if xmlFormat != nil {
+			if xmlResults, ok := tryParseXMLFromScopeStart(llmresult, xmlFormat, false); ok {
+				xlog.Debug("Found XML tool calls (split-on-scope)", "count", len(xmlResults))
+				results = append(results, xmlResults...)
+			}
+		} else {
+			formats := getAllXMLFormats()
+			for _, fmtPreset := range formats {
+				if fmtPreset.format != nil {
+					if xmlResults, ok := tryParseXMLFromScopeStart(llmresult, fmtPreset.format, false); ok {
+						xlog.Debug("Found XML tool calls (split-on-scope, auto-detect)", "format", fmtPreset.name, "count", len(xmlResults))
+						results = append(results, xmlResults...)
+						break
+					}
+				}
+			}
+		}
+		if len(results) == 0 {
+			xmlResults, err := ParseXML(llmresult, xmlFormat)
+			if err == nil && len(xmlResults) > 0 {
+				xlog.Debug("Found XML tool calls", "count", len(xmlResults))
+				results = append(results, xmlResults...)
+			}
 		}
 	} else if len(results) > 0 && !skipXMLParsing {
 		// Even if we found JSON results, check for XML tool calls in the response
-		// This handles mixed content scenarios (text + JSON + XML)
-		// But skip if JSONRegexMatch or ResponseRegex was used (they already extracted the content)
-		xmlResults, err := ParseXML(llmresult, xmlFormat)
+		// Try split-on-scope first (llama.cpp order), then full ParseXML
+		var xmlResults []FuncCallResults
+		var err error
+		if xmlFormat != nil {
+			xmlResults, _ = tryParseXMLFromScopeStart(llmresult, xmlFormat, false)
+		}
+		if len(xmlResults) == 0 && xmlFormat == nil {
+			formats := getAllXMLFormats()
+			for _, fmtPreset := range formats {
+				if fmtPreset.format != nil {
+					xmlResults, _ = tryParseXMLFromScopeStart(llmresult, fmtPreset.format, false)
+					if len(xmlResults) > 0 {
+						break
+					}
+				}
+			}
+		}
+		if len(xmlResults) == 0 {
+			xmlResults, err = ParseXML(llmresult, xmlFormat)
+		}
 		if err == nil && len(xmlResults) > 0 {
 			// Check if JSON is inside XML tags, if so, skip it
 			for _, result := range xmlResults {
