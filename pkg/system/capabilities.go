@@ -50,9 +50,9 @@ var (
 )
 
 func init() {
-	_, err := os.Stat(filepath.Join("usr", "local", "cuda-13"))
+	_, err := os.Stat(filepath.Join(string(os.PathSeparator), "usr", "local", "cuda-13"))
 	cuda13DirExists = err == nil
-	_, err = os.Stat(filepath.Join("usr", "local", "cuda-12"))
+	_, err = os.Stat(filepath.Join(string(os.PathSeparator), "usr", "local", "cuda-12"))
 	cuda12DirExists = err == nil
 }
 
