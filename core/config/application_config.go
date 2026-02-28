@@ -88,6 +88,10 @@ type ApplicationConfig struct {
 
 	OpenResponsesStoreTTL time.Duration // TTL for Open Responses store (0 = no expiration)
 
+	BackendImagesReleaseTag string // Release tag for backend images (e.g., "latest")
+	BackendImagesBranchTag  string // Branch tag for backend images (e.g., "master")
+	BackendDevSuffix        string // Development suffix for backend images (e.g., "development")
+
 	PathWithoutAuth []string
 }
 
@@ -481,6 +485,26 @@ func WithOpenResponsesStoreTTL(ttl time.Duration) AppOption {
 		o.OpenResponsesStoreTTL = ttl
 	}
 }
+
+
+func WithBackendImagesReleaseTag(tag string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.BackendImagesReleaseTag = tag
+	}
+}
+
+func WithBackendImagesBranchTag(tag string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.BackendImagesBranchTag = tag
+	}
+}
+
+func WithBackendDevSuffix(suffix string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.BackendDevSuffix = suffix
+	}
+}
+
 
 func WithEnforcedPredownloadScans(enforced bool) AppOption {
 	return func(o *ApplicationConfig) {

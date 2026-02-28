@@ -38,13 +38,30 @@ const (
 	envDevSuffix = "LOCALAI_BACKEND_DEV_SUFFIX"
 )
 
-// getFallbackTagValues returns the configurable fallback tag values from environment variables
-func getFallbackTagValues() (latestTag, masterTag, devSuffix string) {
-	latestTag = os.Getenv(envLatestTag)
-	masterTag = os.Getenv(envMasterTag)
-	devSuffix = os.Getenv(envDevSuffix)
 
-	// Use defaults if environment variables are not set
+// getFallbackTagValues returns the configurable fallback tag values from system state, falling back to environment variables
+func getFallbackTagValues(systemState *system.SystemState) (latestTag, masterTag, devSuffix string) {
+	// First try to get values from system state
+	if systemState != nil && systemState.Backend.BackendImagesReleaseTag != "" {
+		latestTag = systemState.Backend.BackendImagesReleaseTag
+	} else {
+		// Fallback to environment variables
+		latestTag = os.Getenv(envLatestTag)
+	}
+
+	if systemState != nil && systemState.Backend.BackendImagesBranchTag != "" {
+		masterTag = systemState.Backend.BackendImagesBranchTag
+	} else {
+		masterTag = os.Getenv(envMasterTag)
+	}
+
+	if systemState != nil && systemState.Backend.BackendDevSuffix != "" {
+		devSuffix = systemState.Backend.BackendDevSuffix
+	} else {
+		devSuffix = os.Getenv(envDevSuffix)
+	}
+
+	// Use defaults if values are not set
 	if latestTag == "" {
 		latestTag = defaultLatestTag
 	}
@@ -56,6 +73,8 @@ func getFallbackTagValues() (latestTag, masterTag, devSuffix string) {
 	}
 
 	return latestTag, masterTag, devSuffix
+}
+
 }
 
 // backendCandidate represents an installed concrete backend option for a given alias
@@ -172,8 +191,8 @@ func InstallBackendFromGallery(ctx context.Context, galleries []config.Gallery, 
 }
 
 func InstallBackend(ctx context.Context, systemState *system.SystemState, modelLoader *model.ModelLoader, config *GalleryBackend, downloadStatus func(string, string, string, float64)) error {
-	// Get configurable fallback tag values from environment variables
-	latestTag, masterTag, devSuffix := getFallbackTagValues()
+	// Get configurable fallback tag values from system state, falling back to environment variables
+	latestTag, masterTag, devSuffix := getFallbackTagValues(systemState)
 
 	// Create base path if it doesn't exist
 	err := os.MkdirAll(systemState.Backend.BackendsPath, 0750)

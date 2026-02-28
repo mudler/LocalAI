@@ -6,8 +6,11 @@ import (
 )
 
 type Backend struct {
-	BackendsPath       string
-	BackendsSystemPath string
+	BackendsPath           string
+	BackendsSystemPath     string
+	BackendImagesReleaseTag string // Release tag for backend images
+	BackendImagesBranchTag  string // Branch tag for backend images
+	BackendDevSuffix        string // Development suffix for backend images
 }
 
 type Model struct {
@@ -40,6 +43,24 @@ func WithBackendSystemPath(path string) SystemStateOptions {
 func WithModelPath(path string) SystemStateOptions {
 	return func(s *SystemState) {
 		s.Model.ModelsPath = path
+	}
+}
+
+func WithBackendImagesReleaseTag(tag string) SystemStateOptions {
+	return func(s *SystemState) {
+		s.Backend.BackendImagesReleaseTag = tag
+	}
+}
+
+func WithBackendImagesBranchTag(tag string) SystemStateOptions {
+	return func(s *SystemState) {
+		s.Backend.BackendImagesBranchTag = tag
+	}
+}
+
+func WithBackendDevSuffix(suffix string) SystemStateOptions {
+	return func(s *SystemState) {
+		s.Backend.BackendDevSuffix = suffix
 	}
 }
 
