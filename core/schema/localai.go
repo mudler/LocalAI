@@ -24,6 +24,11 @@ type BackendMonitorResponse struct {
 type GalleryResponse struct {
 	ID        string `json:"uuid"`
 	StatusURL string `json:"status"`
+
+	EstimatedVRAMBytes    uint64 `json:"estimated_vram_bytes,omitempty"`
+	EstimatedVRAMDisplay  string `json:"estimated_vram_display,omitempty"`
+	EstimatedSizeBytes    uint64 `json:"estimated_size_bytes,omitempty"`
+	EstimatedSizeDisplay string `json:"estimated_size_display,omitempty"`
 }
 
 type VideoRequest struct {
