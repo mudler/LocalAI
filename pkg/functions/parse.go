@@ -1555,6 +1555,21 @@ func ParseFunctionCall(llmresult string, functionConfig FunctionsConfig) []FuncC
 	}
 	xlog.Debug("LLM result(function cleanup)", "result", llmresult)
 
+
+	// If grammar is disabled (NoGrammar is true), try to detect plain text tool calls
+	// This handles cases where the model returns tool calls as plain text like:
+	// "pick_tool{\"reasoning\": \"...\", \"tool\": \"search\"}"
+	// instead of proper JSON: {"name": "pick_tool", "arguments": {...}}
+	if functionConfig.GrammarConfig.NoGrammar {
+		xlog.Debug("Grammar disabled, trying to detect plain text tool calls")
+		// Try to find patterns like "functionName{...}" or "functionName(...)"
+		plainTextResults := parsePlainTextToolCalls(llmresult)
+		if len(plainTextResults) > 0 {
+			xlog.Debug("Found plain text tool calls", "count", len(plainTextResults))
+			return plainTextResults
+		}
+	}
+
 	functionNameKey := defaultFunctionNameKey
 	functionArgumentsKey := defaultFunctionArgumentsKey
 	if functionConfig.FunctionNameKey != "" {
@@ -1804,4 +1819,71 @@ func ParseFunctionCallArgs(functionArguments string, functionConfig FunctionsCon
 	jsonBytes, _ := json.Marshal(args)
 
 	return string(jsonBytes)
+}
+
+// parsePlainTextToolCalls attempts to parse tool calls from plain text responses
+// when grammar is disabled. This handles formats like:
+// - pick_tool{"reasoning": "...", "tool": "search"}
+// - pick_tool({"reasoning": "...", "tool": "search"})
+// - function_name{"arg1": "value1"}
+func parsePlainTextToolCalls(llmresult string) []FuncCallResults {
+	var results []FuncCallResults
+
+	// Pattern 1: functionName{...} or functionName({...})
+	// This handles responses like: pick_tool{"reasoning": "...", "tool": "search"}
+	plainTextPattern1 := regexp.MustCompile(`([a-zA-Z_][a-zA-Z0-9_]*)\s*\{([^\}]+)\}`)
+	matches := plainTextPattern1.FindAllStringSubmatch(llmresult, -1)
+	for _, match := range matches {
+		if len(match) >= 3 {
+			funcName := strings.TrimSpace(match[1])
+			argsContent := strings.TrimSpace(match[2])
+
+			// Try to parse the arguments as JSON
+			var args map[string]any
+			// Add braces to make it a valid JSON object if not already
+			argsJSON := "{" + argsContent + "}"
+			if err := json.Unmarshal([]byte(argsJSON), &args); err == nil {
+				argsBytes, _ := json.Marshal(args)
+				results = append(results, FuncCallResults{
+					Name:      funcName,
+					Arguments: string(argsBytes),
+				})
+			} else {
+				// If JSON parsing fails, try as key-value pairs
+				argsStr := ParseFunctionCallArgs(argsContent, FunctionsConfig{
+					ArgumentRegex: []string{`(?P<key>[^=]+)=(?P<value>[^,]+)`},
+				})
+				results = append(results, FuncCallResults{
+					Name:      funcName,
+					Arguments: argsStr,
+				})
+			}
+		}
+	}
+
+	// If we found results, return them
+	if len(results) > 0 {
+		return results
+	}
+
+	// Pattern 2: Try to find JSON object with "name" or "function" key
+	// This handles responses that look like JSON but weren't caught by extractJSON
+	jsonPattern := regexp.MustCompile(`\{[^}]*(?:"name"|"function")[^}]*\}`)
+	jsonMatches := jsonPattern.FindAllString(llmresult, -1)
+	for _, jsonStr := range jsonMatches {
+		var obj map[string]any
+		if err := json.Unmarshal([]byte(jsonStr), &obj); err == nil {
+			if name, ok := obj["name"].(string); ok {
+				if args, ok := obj["arguments"]; ok {
+					argsBytes, _ := json.Marshal(args)
+					results = append(results, FuncCallResults{
+						Name:      name,
+						Arguments: string(argsBytes),
+					})
+				}
+			}
+		}
+	}
+
+	return results
 }
