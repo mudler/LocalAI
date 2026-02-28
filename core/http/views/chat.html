@@ -324,17 +324,11 @@ SOFTWARE.
                 c = DOMPurify.sanitize('<pre><code class="language-json">' + formatted + '</code></pre>');
               } catch (e) {
                 // If not JSON, treat as markdown
-                const lines = content.split("\n");
-                lines.forEach((line) => {
-                  c += DOMPurify.sanitize(marked.parse(line));
-                });
+                c = DOMPurify.sanitize(marked.parse(content));
               }
             } else {
               // For thinking and reasoning, format as markdown
-              const lines = content.split("\n");
-              lines.forEach((line) => {
-                c += DOMPurify.sanitize(marked.parse(line));
-              });
+              c = DOMPurify.sanitize(marked.parse(content));
             }
             // Set expanded state: thinking and reasoning are expanded by default in non-MCP mode, collapsed in MCP mode
             // tool_call and tool_result are always collapsed by default
@@ -366,11 +360,7 @@ SOFTWARE.
               chat.history[N].model = messageModel;
             }
           } else {
-            let c = "";
-            const lines = content.split("\n");
-            lines.forEach((line) => {
-              c += DOMPurify.sanitize(marked.parse(line));
-            });
+            const c = DOMPurify.sanitize(marked.parse(content));
             chat.history.push({ 
               role, 
               content, 
@@ -1335,7 +1325,7 @@ SOFTWARE.
                     <div class="flex flex-col flex-1">
                       <span class="text-xs font-semibold text-[var(--color-text-secondary)] mb-1" x-text="message.model || $store.chat.activeChat()?.model || '{{if .Model}}{{.Model}}{{else}}Assistant{{end}}'"></span>
                       <div class="flex-1 text-[var(--color-text-primary)] flex items-center space-x-2 min-w-0">
-                        <div class="p-3 rounded-lg bg-[var(--color-bg-secondary)] border border-[var(--color-accent-border)]/20 shadow-lg max-w-full overflow-x-auto overflow-wrap-anywhere" x-html="message.html"></div>
+                        <div class="p-3 rounded-lg bg-[var(--color-bg-secondary)] border border-[var(--color-accent-border)]/20 shadow-lg max-w-full overflow-x-auto break-words" style="overflow-wrap: anywhere; word-break: break-word;" x-html="message.html"></div>
                         <button @click="copyToClipboard(message.html)" title="Copy to clipboard" class="text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-colors p-1 flex-shrink-0">
                           <i class="fa-solid fa-copy"></i>
                         </button>

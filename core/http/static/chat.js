@@ -2459,11 +2459,7 @@ document.addEventListener("alpine:init", () => {
         
         const N = chat.history.length - 1;
         if (role === "thinking" || role === "reasoning") {
-          let c = "";
-          const lines = content.split("\n");
-          lines.forEach((line) => {
-            c += DOMPurify.sanitize(marked.parse(line));
-          });
+          const c = DOMPurify.sanitize(marked.parse(content));
           chat.history.push({ role, content, html: c, image, audio });
         }
         else if (chat.history.length && chat.history[N].role === role) {
@@ -2478,11 +2474,7 @@ document.addEventListener("alpine:init", () => {
             chat.history[N].audio = [...(chat.history[N].audio || []), ...audio];
           }
         } else {
-          let c = "";
-          const lines = content.split("\n");
-          lines.forEach((line) => {
-            c += DOMPurify.sanitize(marked.parse(line));
-          });
+          const c = DOMPurify.sanitize(marked.parse(content));
           chat.history.push({ 
             role, 
             content, 
