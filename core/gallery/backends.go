@@ -202,6 +202,12 @@ func InstallBackend(ctx context.Context, systemState *system.SystemState, modelL
 	} else {
 		xlog.Debug("Downloading backend", "uri", config.URI, "backendPath", backendPath)
 		if err := uri.DownloadFileWithContext(ctx, backendPath, "", 1, 1, downloadStatus); err != nil {
+			// Clean up the partially downloaded backend directory on failure
+			xlog.Debug("Backend download failed, cleaning up", "backendPath", backendPath, "error", err)
+			if cleanupErr := os.RemoveAll(backendPath); cleanupErr != nil {
+				xlog.Warn("Failed to clean up backend directory", "backendPath", backendPath, "error", cleanupErr)
+			}
+
 			success := false
 			// Try to download from mirrors
 			for _, mirror := range config.Mirrors {
