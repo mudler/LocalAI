@@ -110,18 +110,11 @@ server {
 If you serve LocalAI under a sub-path (e.g., `https://your-domain.com/localai`), you need to:
 
 1. Configure your reverse proxy to set the `X-Forwarded-Prefix` header
-2. Configure LocalAI with the `--base-url` option to match the sub-path
 
 Example with Nginx:
 
 ```nginx
 proxy_set_header X-Forwarded-Prefix /localai;
-```
-
-Then start LocalAI with:
-
-```bash
-localai --base-url /localai
 ```
 
 ## Testing Your Configuration
