@@ -8,9 +8,12 @@ import (
 	"math"
 	"net/http"
 	"net/url"
+	"path"
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
@@ -22,6 +25,7 @@ import (
 	"github.com/mudler/LocalAI/core/p2p"
 	"github.com/mudler/LocalAI/core/services"
 	"github.com/mudler/LocalAI/pkg/model"
+	"github.com/mudler/LocalAI/pkg/vram"
 	"github.com/mudler/LocalAI/pkg/xsysinfo"
 	"github.com/mudler/xlog"
 )
@@ -263,6 +267,22 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		modelsJSON := make([]map[string]interface{}, 0, len(models))
 		seenIDs := make(map[string]bool)
 
+		weightExts := map[string]bool{".gguf": true, ".safetensors": true, ".bin": true, ".pt": true}
+		hasWeightFiles := func(files []gallery.File) bool {
+			for _, f := range files {
+				ext := strings.ToLower(path.Ext(path.Base(f.URI)))
+				if weightExts[ext] {
+					return true
+				}
+			}
+			return false
+		}
+
+		const estimateTimeout = 3 * time.Second
+		const estimateConcurrency = 3
+		sem := make(chan struct{}, estimateConcurrency)
+		var wg sync.WaitGroup
+
 		for _, m := range models {
 			modelID := m.ID()
 
@@ -286,7 +306,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 
 			_, trustRemoteCodeExists := m.Overrides["trust_remote_code"]
 
-			modelsJSON = append(modelsJSON, map[string]interface{}{
+			obj := map[string]interface{}{
 				"id":              modelID,
 				"name":            m.Name,
 				"description":     m.Description,
@@ -301,8 +321,47 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 				"isDeletion":      isDeletionOp,
 				"trustRemoteCode": trustRemoteCodeExists,
 				"additionalFiles": m.AdditionalFiles,
-			})
+			}
+
+			if hasWeightFiles(m.AdditionalFiles) {
+				files := make([]gallery.File, len(m.AdditionalFiles))
+				copy(files, m.AdditionalFiles)
+				wg.Add(1)
+				go func(files []gallery.File, out map[string]interface{}) {
+					defer wg.Done()
+					sem <- struct{}{}
+					defer func() { <-sem }()
+					inputs := make([]vram.FileInput, 0, len(files))
+					for _, f := range files {
+						ext := strings.ToLower(path.Ext(path.Base(f.URI)))
+						if weightExts[ext] {
+							inputs = append(inputs, vram.FileInput{URI: f.URI, Size: 0})
+						}
+					}
+					if len(inputs) == 0 {
+						return
+					}
+					ctx, cancel := context.WithTimeout(context.Background(), estimateTimeout)
+					defer cancel()
+					opts := vram.EstimateOptions{ContextLength: 8192}
+					result, err := vram.Estimate(ctx, inputs, opts, vram.DefaultCachedSizeResolver(), vram.DefaultCachedGGUFReader())
+					if err == nil {
+						if result.SizeBytes > 0 {
+							out["estimated_size_bytes"] = result.SizeBytes
+							out["estimated_size_display"] = result.SizeDisplay
+						}
+						if result.VRAMBytes > 0 {
+							out["estimated_vram_bytes"] = result.VRAMBytes
+							out["estimated_vram_display"] = result.VRAMDisplay
+						}
+					}
+				}(files, obj)
+			}
+
+			modelsJSON = append(modelsJSON, obj)
 		}
+
+		wg.Wait()
 
 		prevPage := pageNum - 1
 		nextPage := pageNum + 1
@@ -318,10 +377,6 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		modelsWithoutConfig, _ := services.ListModels(cl, ml, config.NoFilterFn, services.LOOSE_ONLY)
 		installedModelsCount := len(modelConfigs) + len(modelsWithoutConfig)
 
-		// Calculate storage size and RAM info
-		modelsPath := appConfig.SystemState.Model.ModelsPath
-		storageSize, _ := getDirectorySize(modelsPath)
-
 		ramInfo, _ := xsysinfo.GetSystemRAMInfo()
 
 		return c.JSON(200, map[string]interface{}{
@@ -332,7 +387,6 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			"taskTypes":        taskTypes,
 			"availableModels":  totalModels,
 			"installedModels":  installedModelsCount,
-			"storageSize":      storageSize,
 			"ramTotal":         ramInfo.Total,
 			"ramUsed":          ramInfo.Used,
 			"ramUsagePercent":  ramInfo.UsagePercent,
@@ -967,12 +1021,15 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			watchdogInterval = appConfig.WatchDogInterval.String()
 		}
 
+		storageSize, _ := getDirectorySize(appConfig.SystemState.Model.ModelsPath)
+
 		response := map[string]interface{}{
 			"type":                resourceInfo.Type, // "gpu" or "ram"
 			"available":           resourceInfo.Available,
 			"gpus":                resourceInfo.GPUs,
 			"ram":                 resourceInfo.RAM,
 			"aggregate":           resourceInfo.Aggregate,
+			"storage_size":        storageSize,
 			"reclaimer_enabled":   appConfig.MemoryReclaimerEnabled,
 			"reclaimer_threshold": appConfig.MemoryReclaimerThreshold,
 			"watchdog_interval":   watchdogInterval,
