@@ -61,6 +61,15 @@
                         <span class="font-semibold text-purple-300" x-text="repositories.length"></span>
                         <span class="text-[var(--color-text-secondary)] ml-1">repositories</span>
                     </div>
+                    <div class="flex items-center bg-[var(--color-bg-primary)] rounded-lg px-4 py-2">
+                        <div class="w-2 h-2 bg-blue-500 rounded-full mr-2"></div>
+                        <span class="font-semibold text-blue-300" x-text="formatBytes(storageSize)"></span>
+                        <span class="text-[var(--color-text-secondary)] ml-1">storage</span>
+                    </div>
+                    <div x-show="storageSize > ramTotal" class="flex items-center bg-red-500/20 rounded-lg px-4 py-2 border border-red-500/30">
+                        <i class="fas fa-exclamation-triangle text-red-400 mr-2"></i>
+                        <span class="text-red-300 text-sm">Storage exceeds RAM!</span>
+                    </div>
                     <a href="/import-model" class="inline-flex items-center gap-1.5 text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] bg-transparent hover:bg-[var(--color-primary)]/10 border border-[var(--color-border-subtle)] hover:border-[var(--color-primary)]/30 rounded-md py-1.5 px-2.5 transition-colors">
                         <i class="fas fa-upload"></i>
                         <span>Import Model</span>
@@ -605,6 +614,10 @@ function modelsGallery() {
         totalPages: 1,
         availableModels: 0,
         installedModels: 0,
+        storageSize: 0,
+        ramTotal: 0,
+        ramUsed: 0,
+        ramUsagePercent: 0,
         selectedModel: null,
         jobProgress: {},
         notifications: [],
@@ -650,6 +663,10 @@ function modelsGallery() {
                 this.totalPages = data.totalPages || 1;
                 this.availableModels = data.availableModels || 0;
                 this.installedModels = data.installedModels || 0;
+                this.storageSize = data.storageSize || 0;
+                this.ramTotal = data.ramTotal || 0;
+                this.ramUsed = data.ramUsed || 0;
+                this.ramUsagePercent = data.ramUsagePercent || 0;
             } catch (error) {
                 console.error('Error fetching models:', error);
             } finally {
@@ -824,6 +841,14 @@ function modelsGallery() {
 
         openModal(model) {
             this.selectedModel = model;
+        },
+
+        formatBytes(bytes) {
+            if (bytes === 0) return "0 B";
+            const k = 1024;
+            const sizes = ["B", "KB", "MB", "GB", "TB"];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
         },
 
         closeModal() {

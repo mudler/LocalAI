@@ -1,5 +1,7 @@
 package routes
 
+import "os"
+
 import (
 	"context"
 	"fmt"
@@ -31,6 +33,25 @@ const (
 	statusSortFieldName     = "status"
 	ascSortOrder            = "asc"
 )
+
+// getDirectorySize calculates the total size of files in a directory
+func getDirectorySize(path string) (int64, error) {
+	var totalSize int64
+	entries, err := os.ReadDir(path)
+	if err != nil {
+		return 0, err
+	}
+	for _, entry := range entries {
+		info, err := entry.Info()
+		if err != nil {
+			continue
+		}
+		if !info.IsDir() {
+			totalSize += info.Size()
+		}
+	}
+	return totalSize, nil
+}
 
 // RegisterUIAPIRoutes registers JSON API routes for the web UI
 func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig, galleryService *services.GalleryService, opcache *services.OpCache, applicationInstance *application.Application) {
@@ -297,6 +318,12 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		modelsWithoutConfig, _ := services.ListModels(cl, ml, config.NoFilterFn, services.LOOSE_ONLY)
 		installedModelsCount := len(modelConfigs) + len(modelsWithoutConfig)
 
+		// Calculate storage size and RAM info
+		modelsPath := appConfig.SystemState.Model.ModelsPath
+		storageSize, _ := getDirectorySize(modelsPath)
+
+		ramInfo, _ := xsysinfo.GetSystemRAMInfo()
+
 		return c.JSON(200, map[string]interface{}{
 			"models":           modelsJSON,
 			"repositories":     appConfig.Galleries,
@@ -305,6 +332,10 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			"taskTypes":        taskTypes,
 			"availableModels":  totalModels,
 			"installedModels":  installedModelsCount,
+			"storageSize":      storageSize,
+			"ramTotal":         ramInfo.Total,
+			"ramUsed":          ramInfo.Used,
+			"ramUsagePercent":  ramInfo.UsagePercent,
 			"currentPage":      pageNum,
 			"totalPages":       totalPages,
 			"prevPage":         prevPage,
