@@ -139,17 +139,16 @@ podman run -ti --name local-ai -p 8080:8080 --device gpu.intel.com/all localai/l
 
 For a more manageable setup, especially with persistent volumes, use Docker Compose or Podman Compose:
 
+### Using CDI (Container Device Interface) - Recommended for NVIDIA Container Toolkit 1.14+
+
+The CDI approach is recommended for newer versions of the NVIDIA Container Toolkit (1.14 and later). It provides better compatibility and is the future-proof method:
+
 ```yaml
 version: "3.9"
 services:
   api:
-    image: localai/localai:latest-aio-cpu
-    # For GPU support, use one of:
-    # image: localai/localai:latest-aio-gpu-nvidia-cuda-13
-    # image: localai/localai:latest-aio-gpu-nvidia-cuda-12
-    # image: localai/localai:latest-aio-gpu-nvidia-cuda-11
-    # image: localai/localai:latest-aio-gpu-hipblas
-    # image: localai/localai:latest-aio-gpu-intel
+    image: localai/localai:latest-aio-gpu-nvidia-cuda-12
+    # For CUDA 13, use: localai/localai:latest-aio-gpu-nvidia-cuda-13
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/readyz"]
       interval: 1m
@@ -161,14 +160,15 @@ services:
       - DEBUG=false
     volumes:
       - ./models:/models:cached
-    # For NVIDIA GPUs, uncomment:
-    # deploy:
-    #   resources:
-    #     reservations:
-    #       devices:
-    #         - driver: nvidia
-    #           count: 1
-    #           capabilities: [gpu]
+    # CDI driver configuration (recommended for NVIDIA Container Toolkit 1.14+)
+    # This uses the nvidia.com/gpu resource API
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia.com/gpu
+              count: all
+              capabilities: [gpu]
 ```
 
 Save this as `compose.yaml` and run:
@@ -177,6 +177,37 @@ Save this as `compose.yaml` and run:
 docker compose up -d
 # Or with Podman:
 podman-compose up -d
+```
+
+### Using Legacy NVIDIA Driver - For Older NVIDIA Container Toolkit
+
+If you are using an older version of the NVIDIA Container Toolkit (before 1.14), or need backward compatibility, use the legacy approach:
+
+```yaml
+version: "3.9"
+services:
+  api:
+    image: localai/localai:latest-aio-gpu-nvidia-cuda-12
+    # For CUDA 13, use: localai/localai:latest-aio-gpu-nvidia-cuda-13
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/readyz"]
+      interval: 1m
+      timeout: 20m
+      retries: 5
+    ports:
+      - 8080:8080
+    environment:
+      - DEBUG=false
+    volumes:
+      - ./models:/models:cached
+    # Legacy NVIDIA driver configuration (for older NVIDIA Container Toolkit)
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
 ```
 
 ## Persistent Storage
@@ -243,6 +274,35 @@ After installation:
 - For Podman, see the [Podman installation guide](/installation/podman/#gpu-not-detected)
 - For NVIDIA: Install [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html)
 - For AMD: Ensure devices are accessible: `ls -la /dev/kfd /dev/dri`
+
+### NVIDIA Container fails to start with "Auto-detected mode as 'legacy'" error
+
+If you encounter this error:
+```
+Error response from daemon: failed to create task for container: failed to create shim task: OCI runtime create failed: runc create failed: unable to start container process: error during container init: error running prestart hook #0: exit status 1, stdout: , stderr: Auto-detected mode as 'legacy'
+nvidia-container-cli: requirement error: invalid expression
+```
+
+This indicates a Docker/NVIDIA Container Toolkit configuration issue. The container runtime's prestart hook fails before LocalAI starts. This is **not** a LocalAI code bug.
+
+**Solutions:**
+
+1. **Use CDI mode (recommended)**: Update your docker-compose.yaml to use the CDI driver configuration:
+   ```yaml
+   deploy:
+     resources:
+       reservations:
+         devices:
+           - driver: nvidia.com/gpu
+             count: all
+             capabilities: [gpu]
+   ```
+
+2. **Upgrade NVIDIA Container Toolkit**: Ensure you have version 1.14 or later, which has better CDI support.
+
+3. **Check NVIDIA Container Toolkit configuration**: Run `nvidia-container-cli --query-gpu` to verify your installation is working correctly outside of containers.
+
+4. **Verify Docker GPU access**: Test with `docker run --rm --gpus all nvidia/cuda:12.0.0-base-ubuntu22.04 nvidia-smi`
 
 ### Models not downloading
 
