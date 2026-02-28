@@ -130,6 +130,9 @@ func API(application *application.Application) (*echo.Echo, error) {
 		}
 	})
 
+	//Job tracking middleware (Fix for #7906)
+	e.Use(httpMiddleware.JobTracker())
+
 	// Recover middleware
 	if !application.ApplicationConfig().Debug {
 		e.Use(middleware.Recover())
@@ -231,7 +234,7 @@ func API(application *application.Application) (*echo.Echo, error) {
 		routes.RegisterUIRoutes(e, application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig(), application.GalleryService())
 	}
 	routes.RegisterJINARoutes(e, requestExtractor, application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig())
-
+	routes.RegisterJobRoutes(e)
 	// Note: 404 handling is done via HTTPErrorHandler above, no need for catch-all route
 
 	// Log startup message
