@@ -93,27 +93,10 @@ jobs:
       - name: Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install build-essential ccache upx-ucl curl ffmpeg
-          sudo apt-get install -y libgmock-dev clang
-          # Install UV
-          curl -LsSf https://astral.sh/uv/install.sh | sh
-          sudo apt-get install -y ca-certificates cmake patch python3-pip unzip
-          sudo apt-get install -y libopencv-dev
-
-          curl -L -s https://github.com/protocolbuffers/protobuf/releases/download/v26.1/protoc-26.1-linux-x86_64.zip -o protoc.zip && \
-          unzip -j -d /usr/local/bin protoc.zip bin/protoc && \
-          rm protoc.zip
-
-          curl -O https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.1-1_all.deb
-          sudo dpkg -i cuda-keyring_1.1-1_all.deb
-          sudo apt-get update
-          sudo apt-get install -y cuda-nvcc-${CUDA_VERSION} libcublas-dev-${CUDA_VERSION}
-          export CUDACXX=/usr/local/cuda/bin/nvcc
-          make -C backend/python/transformers
-
-          make backends/huggingface backends/llama-cpp backends/local-store backends/silero-vad backends/piper backends/whisper backends/stablediffusion-ggml
-        env:
-          CUDA_VERSION: 12-4
+          sudo apt-get install curl ffmpeg
+      - name: Build backends
+        run: |
+          make backends/transformers backends/huggingface backends/llama-cpp backends/local-store backends/silero-vad backends/piper backends/whisper backends/stablediffusion-ggml
       - name: Test
         run: |
           PATH="$PATH:/root/go/bin" GO_TAGS="tts" make --jobs 5 --output-sync=target test
