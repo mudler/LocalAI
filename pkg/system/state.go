@@ -6,8 +6,12 @@ import (
 )
 
 type Backend struct {
-	BackendsPath       string
-	BackendsSystemPath string
+	GRPCServers             string // GRPC servers for backend connectivity (e.g., from P2P tunnels)
+	BackendsPath            string
+	BackendsSystemPath      string
+	BackendImagesReleaseTag string // Release tag for backend images
+	BackendImagesBranchTag  string // Branch tag for backend images
+	BackendDevSuffix        string // Development suffix for backend images
 }
 
 type Model struct {
@@ -43,6 +47,24 @@ func WithModelPath(path string) SystemStateOptions {
 	}
 }
 
+func WithBackendImagesReleaseTag(tag string) SystemStateOptions {
+	return func(s *SystemState) {
+		s.Backend.BackendImagesReleaseTag = tag
+	}
+}
+
+func WithBackendImagesBranchTag(tag string) SystemStateOptions {
+	return func(s *SystemState) {
+		s.Backend.BackendImagesBranchTag = tag
+	}
+}
+
+func WithBackendDevSuffix(suffix string) SystemStateOptions {
+	return func(s *SystemState) {
+		s.Backend.BackendDevSuffix = suffix
+	}
+}
+
 func GetSystemState(opts ...SystemStateOptions) (*SystemState, error) {
 	state := &SystemState{}
 	for _, opt := range opts {
@@ -58,4 +80,10 @@ func GetSystemState(opts ...SystemStateOptions) (*SystemState, error) {
 	state.getSystemCapabilities()
 
 	return state, nil
+}
+
+func WithGRPCServers(servers string) SystemStateOptions {
+	return func(s *SystemState) {
+		s.Backend.GRPCServers = servers
+	}
 }
