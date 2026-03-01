@@ -334,7 +334,7 @@ Other:
 - Langchain: https://python.langchain.com/docs/integrations/providers/localai/
 - Terminal utility https://github.com/djcopley/ShellOracle
 - Local Smart assistant https://github.com/mudler/LocalAGI
-- Home Assistant https://github.com/sammcj/homeassistant-localai / https://github.com/drndos/hass-openai-custom-conversation / https://github.com/valentinfrlch/ha-gpt4vision
+- Home Assistant https://github.com/drndos/hass-openai-custom-conversation / https://github.com/valentinfrlch/ha-llmvision / https://github.com/loryanstrant/HA-LocalAI-Monitor
 - Discord bot https://github.com/mudler/LocalAGI/tree/main/examples/discord
 - Slack bot https://github.com/mudler/LocalAGI/tree/main/examples/slack
 - Shell-Pilot(Interact with LLM using LocalAI models via pure shell scripts on your Linux or MacOS system) https://github.com/reid41/shell-pilot
