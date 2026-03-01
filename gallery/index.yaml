@@ -1,4 +1,48 @@
 ---
+- name: "qwen3.5-397b-a17b"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/unsloth/Qwen3.5-397B-A17B-GGUF
+  description: |
+    AI model: qwen3.5-397b-a17b
+  overrides:
+    parameters:
+      model: llama-cpp/models/Qwen3.5-397B-A17B-Q4_K_M-00001-of-00006.gguf
+    name: Qwen3.5-397B-A17B-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    mmproj: llama-cpp/mmproj/mmproj-F32.gguf
+    description: Imported from https://huggingface.co/unsloth/Qwen3.5-397B-A17B-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Qwen3.5-397B-A17B-Q4_K_M-00001-of-00006.gguf
+      sha256: 1300b09fae0f87ee8dc10f2b17e0070eaf73a3561e8664a3fa307fcad50c55e3
+      uri: https://huggingface.co/unsloth/Qwen3.5-397B-A17B-GGUF/resolve/main/Q4_K_M/Qwen3.5-397B-A17B-Q4_K_M-00001-of-00006.gguf
+    - filename: llama-cpp/models/Qwen3.5-397B-A17B-Q4_K_M-00002-of-00006.gguf
+      sha256: 2bc58495b9108480cd9f3ceea0c323ddcb9fceffe354e56b71d48ef01c35ef60
+      uri: https://huggingface.co/unsloth/Qwen3.5-397B-A17B-GGUF/resolve/main/Q4_K_M/Qwen3.5-397B-A17B-Q4_K_M-00002-of-00006.gguf
+    - filename: llama-cpp/models/Qwen3.5-397B-A17B-Q4_K_M-00003-of-00006.gguf
+      sha256: 64954cb1376d1de1778ddad0c8231f4bbd15492627caf118a685ae475d3efa81
+      uri: https://huggingface.co/unsloth/Qwen3.5-397B-A17B-GGUF/resolve/main/Q4_K_M/Qwen3.5-397B-A17B-Q4_K_M-00003-of-00006.gguf
+    - filename: llama-cpp/models/Qwen3.5-397B-A17B-Q4_K_M-00004-of-00006.gguf
+      sha256: 554485298f616b0ff59e1ec2982167d55bece87f682827c68a32acd0fd03425f
+      uri: https://huggingface.co/unsloth/Qwen3.5-397B-A17B-GGUF/resolve/main/Q4_K_M/Qwen3.5-397B-A17B-Q4_K_M-00004-of-00006.gguf
+    - filename: llama-cpp/models/Qwen3.5-397B-A17B-Q4_K_M-00005-of-00006.gguf
+      sha256: 24d6f5668ea2c6eaddde5f08ea6325b495bc66be7217bb2de0a5c8b5eace1c51
+      uri: https://huggingface.co/unsloth/Qwen3.5-397B-A17B-GGUF/resolve/main/Q4_K_M/Qwen3.5-397B-A17B-Q4_K_M-00005-of-00006.gguf
+    - filename: llama-cpp/models/Qwen3.5-397B-A17B-Q4_K_M-00006-of-00006.gguf
+      sha256: e36715e951da55d9e48b40aab61ba7829a7bfad5c6a155eb79aa13fe8b39347f
+      uri: https://huggingface.co/unsloth/Qwen3.5-397B-A17B-GGUF/resolve/main/Q4_K_M/Qwen3.5-397B-A17B-Q4_K_M-00006-of-00006.gguf
+    - filename: llama-cpp/mmproj/mmproj-F32.gguf
+      sha256: e47df150363dd9d53b4ddf01e5477a6803f7fc2d2e0341064dcf39511ad5f110
+      uri: https://huggingface.co/unsloth/Qwen3.5-397B-A17B-GGUF/resolve/main/mmproj-F32.gguf
 - name: "qwen3.5-27b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
