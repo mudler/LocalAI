@@ -13,16 +13,16 @@ type HFReadmeTool struct {
 	client *hfapi.Client
 }
 
-func (s *HFReadmeTool) Execute(args map[string]any) (string, error) {
+func (s *HFReadmeTool) Execute(args map[string]any) (string, any, error) {
 	q, ok := args["repository"].(string)
 	if !ok {
-		return "", fmt.Errorf("no query")
+		return "", nil, fmt.Errorf("no query")
 	}
 	readme, err := s.client.GetReadmeContent(q, "README.md")
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
-	return readme, nil
+	return readme, nil, nil
 }
 
 func (s *HFReadmeTool) Tool() openai.Tool {
