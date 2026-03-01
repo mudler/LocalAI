@@ -40,9 +40,24 @@ const (
 type URI string
 
 // HF_ENDPOINT is the HuggingFace endpoint, can be overridden by setting the HF_ENDPOINT environment variable.
+// HF_MIRROR is an alternative way to set a mirror URL (e.g., hf-mirror.com).
+// If both are set, HF_ENDPOINT takes precedence.
 var HF_ENDPOINT string = loadConfig()
 
 func loadConfig() string {
+	// Check for HF_MIRROR first (simpler configuration for mirrors)
+	HF_MIRROR := os.Getenv("HF_MIRROR")
+	if HF_MIRROR != "" {
+		// Normalize the mirror URL
+		HF_MIRROR = strings.TrimRight(HF_MIRROR, "/")
+		// Add https:// if no scheme is provided
+		if !strings.HasPrefix(HF_MIRROR, "http://") && !strings.HasPrefix(HF_MIRROR, "https://") {
+			HF_MIRROR = "https://" + HF_MIRROR
+		}
+		return HF_MIRROR
+	}
+
+	// Fall back to HF_ENDPOINT
 	HF_ENDPOINT := os.Getenv("HF_ENDPOINT")
 	if HF_ENDPOINT == "" {
 		HF_ENDPOINT = "https://huggingface.co"
