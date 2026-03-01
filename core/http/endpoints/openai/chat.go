@@ -106,10 +106,9 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 			}
 
 			delta := &schema.Message{}
-			// Only include content if there's actual content (not just thinking tags)
-			if deltaContent != "" {
-				delta.Content = &deltaContent
-			}
+			// Always set content to ensure JSON includes content field for agentic tools
+			// This fixes issue #8546 where agentic coding tools show empty responses
+			delta.Content = &deltaContent
 			if reasoningDelta != nil && *reasoningDelta != "" {
 				delta.Reasoning = reasoningDelta
 			}
