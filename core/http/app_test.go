@@ -916,7 +916,7 @@ parameters:
 
 			application, err := application.New(
 				append(commonOpts,
-					config.WithExternalBackend("transformers", os.Getenv("HUGGINGFACE_GRPC")),
+					config.WithExternalBackend("transformers", os.Getenv("TRANSFORMER_BACKEND")),
 					config.WithContext(c),
 					config.WithSystemState(systemState),
 				)...)
