@@ -17400,3 +17400,109 @@
     - filename: Melinoe-30B-A3B-Thinking.i1-Q4_K_M.gguf
       sha256: 7b9e8fe00faf7803e440542be01974c05b0dcb8b75e1f1c25638027bfb75dbf3
       uri: huggingface://mradermacher/Melinoe-30B-A3B-Thinking-i1-GGUF/Melinoe-30B-A3B-Thinking.i1-Q4_K_M.gguf
+## Avian (remote API provider)
+- &avian-deepseek-v3
+  name: "avian-deepseek-v3.2"
+  url: "github:mudler/LocalAI/gallery/avian.yaml@master"
+  urls:
+    - https://avian.io
+    - https://api.avian.io/v1
+  icon: https://avian.io/assets/avian-logo.svg
+  license: proprietary
+  description: |
+    DeepSeek-V3.2 hosted on Avian. 164K context, 65K output tokens.
+    Pricing: $0.26/$0.38 per 1M tokens (input/output).
+    Requires AVIAN_API_KEY environment variable.
+  tags:
+    - llm
+    - api
+    - cloud
+    - avian
+    - deepseek
+    - chat
+  overrides:
+    parameters:
+      model: deepseek/deepseek-v3.2
+    context_size: 164000
+    known_usecases:
+      - FLAG_CHAT
+      - FLAG_COMPLETION
+- &avian-kimi-k2
+  name: "avian-kimi-k2.5"
+  url: "github:mudler/LocalAI/gallery/avian.yaml@master"
+  urls:
+    - https://avian.io
+    - https://api.avian.io/v1
+  icon: https://avian.io/assets/avian-logo.svg
+  license: proprietary
+  description: |
+    Moonshot AI Kimi-K2.5 hosted on Avian. 131K context, 8K output tokens.
+    Pricing: $0.45/$2.20 per 1M tokens (input/output).
+    Requires AVIAN_API_KEY environment variable.
+  tags:
+    - llm
+    - api
+    - cloud
+    - avian
+    - kimi
+    - chat
+  overrides:
+    parameters:
+      model: moonshotai/kimi-k2.5
+    context_size: 131000
+    known_usecases:
+      - FLAG_CHAT
+      - FLAG_COMPLETION
+- &avian-glm-5
+  name: "avian-glm-5"
+  url: "github:mudler/LocalAI/gallery/avian.yaml@master"
+  urls:
+    - https://avian.io
+    - https://api.avian.io/v1
+  icon: https://avian.io/assets/avian-logo.svg
+  license: proprietary
+  description: |
+    Z-AI GLM-5 hosted on Avian. 131K context, 16K output tokens.
+    Pricing: $0.30/$2.55 per 1M tokens (input/output).
+    Requires AVIAN_API_KEY environment variable.
+  tags:
+    - llm
+    - api
+    - cloud
+    - avian
+    - glm
+    - chat
+  overrides:
+    parameters:
+      model: z-ai/glm-5
+    context_size: 131000
+    known_usecases:
+      - FLAG_CHAT
+      - FLAG_COMPLETION
+- &avian-minimax-m2
+  name: "avian-minimax-m2.5"
+  url: "github:mudler/LocalAI/gallery/avian.yaml@master"
+  urls:
+    - https://avian.io
+    - https://api.avian.io/v1
+  icon: https://avian.io/assets/avian-logo.svg
+  license: proprietary
+  description: |
+    MiniMax M2.5 hosted on Avian. 1M context, 1M output tokens.
+    Pricing: $0.30/$1.10 per 1M tokens (input/output).
+    Requires AVIAN_API_KEY environment variable.
+  tags:
+    - llm
+    - api
+    - cloud
+    - avian
+    - minimax
+    - chat
+    - long-context
+  overrides:
+    parameters:
+      model: minimax/minimax-m2.5
+    context_size: 1000000
+    known_usecases:
+      - FLAG_CHAT
+      - FLAG_COMPLETION
