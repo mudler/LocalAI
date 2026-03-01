@@ -1,4 +1,29 @@
 ---
+- name: "tinyrp2"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/hamzah0asadullah/TinyRP2-GGUF
+  description: |
+    Describe the model in a clear and concise way that can be shared in a model gallery.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Q8_0.gguf
+    name: TinyRP2-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/hamzah0asadullah/TinyRP2-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Q8_0.gguf
+      sha256: a1ec569f3cb1136b5ba586e27251f7de568fb6895550a2d4cd85e5a381a344c5
+      uri: https://huggingface.co/hamzah0asadullah/TinyRP2-GGUF/resolve/main/Q8_0.gguf
 - name: "qwen3.5-122b-a10b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
