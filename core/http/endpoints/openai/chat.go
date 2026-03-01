@@ -388,6 +388,14 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 		shouldUseFn := len(input.Functions) > 0 && config.ShouldUseFunctions()
 		strictMode := false
 
+		xlog.Debug("Tool call routing decision",
+			"shouldUseFn", shouldUseFn,
+			"len(input.Functions)", len(input.Functions),
+			"len(input.Tools)", len(input.Tools),
+			"config.ShouldUseFunctions()", config.ShouldUseFunctions(),
+			"config.FunctionToCall()", config.FunctionToCall(),
+		)
+
 		for _, f := range input.Functions {
 			if f.Strict {
 				strictMode = true
