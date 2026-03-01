@@ -275,6 +275,68 @@ func (uri URI) checkSeverSupportsRangeHeader() (bool, error) {
 	return resp.Header.Get("Accept-Ranges") == "bytes", nil
 }
 
+// ContentLength returns the size in bytes of the resource at the URI.
+// For file:// it uses os.Stat on the resolved path; for HTTP/HTTPS it uses HEAD
+// and optionally a Range request if Content-Length is missing.
+func (u URI) ContentLength(ctx context.Context) (int64, error) {
+	urlStr := u.ResolveURL()
+	if strings.HasPrefix(string(u), LocalPrefix) {
+		info, err := os.Stat(urlStr)
+		if err != nil {
+			return 0, err
+		}
+		return info.Size(), nil
+	}
+	if !u.LooksLikeHTTPURL() {
+		return 0, fmt.Errorf("unsupported URI scheme for ContentLength: %s", string(u))
+	}
+	req, err := http.NewRequestWithContext(ctx, "HEAD", urlStr, nil)
+	if err != nil {
+		return 0, err
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return 0, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 400 {
+		return 0, fmt.Errorf("HEAD %s: status %d", urlStr, resp.StatusCode)
+	}
+	if resp.ContentLength >= 0 {
+		return resp.ContentLength, nil
+	}
+	if resp.Header.Get("Accept-Ranges") != "bytes" {
+		return 0, fmt.Errorf("HEAD %s: no Content-Length and server does not support Range", urlStr)
+	}
+	req2, err := http.NewRequestWithContext(ctx, "GET", urlStr, nil)
+	if err != nil {
+		return 0, err
+	}
+	req2.Header.Set("Range", "bytes=0-0")
+	resp2, err := http.DefaultClient.Do(req2)
+	if err != nil {
+		return 0, err
+	}
+	defer resp2.Body.Close()
+	if resp2.StatusCode != http.StatusPartialContent && resp2.StatusCode != http.StatusOK {
+		return 0, fmt.Errorf("Range request %s: status %d", urlStr, resp2.StatusCode)
+	}
+	cr := resp2.Header.Get("Content-Range")
+	// Content-Range: bytes 0-0/12345
+	if cr == "" {
+		return 0, fmt.Errorf("Range request %s: no Content-Range header", urlStr)
+	}
+	parts := strings.Split(cr, "/")
+	if len(parts) != 2 {
+		return 0, fmt.Errorf("invalid Content-Range: %s", cr)
+	}
+	size, err := strconv.ParseInt(strings.TrimSpace(parts[1]), 10, 64)
+	if err != nil || size < 0 {
+		return 0, fmt.Errorf("invalid Content-Range total length: %s", parts[1])
+	}
+	return size, nil
+}
+
 func (uri URI) DownloadFile(filePath, sha string, fileN, total int, downloadStatus func(string, string, string, float64)) error {
 	return uri.DownloadFileWithContext(context.Background(), filePath, sha, fileN, total, downloadStatus)
 }

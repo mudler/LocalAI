@@ -177,7 +177,7 @@
         </div>
 
         <!-- Results Section -->
-        <div id="search-results" class="transition-all duration-300">
+        <div id="search-results" class="transition-all duration-300 relative">
             <div x-show="loading && models.length === 0" class="text-center py-12">
                 <svg class="animate-spin h-12 w-12 text-[var(--color-primary)] mx-auto mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -189,6 +189,21 @@
             <div x-show="!loading && models.length === 0" class="text-center py-12">
                 <i class="fas fa-search text-[var(--color-text-muted)] text-4xl mb-4"></i>
                 <p class="text-[var(--color-text-secondary)]">No models found matching your criteria</p>
+            </div>
+
+            <!-- Loading overlay when switching pages (we have models but loading) -->
+            <div x-show="loading && models.length > 0"
+                 x-transition:enter="transition ease-out duration-150"
+                 x-transition:enter-start="opacity-0"
+                 x-transition:enter-end="opacity-100"
+                 class="absolute inset-0 z-10 flex items-center justify-center rounded-2xl bg-[var(--color-bg-secondary)]/80 backdrop-blur-sm">
+                <div class="flex flex-col items-center gap-3">
+                    <svg class="animate-spin h-12 w-12 text-[var(--color-primary)]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <p class="text-sm text-[var(--color-text-secondary)]">Loading page...</p>
+                </div>
             </div>
 
             <!-- Table View -->
@@ -209,26 +224,7 @@
                                     </div>
                                 </th>
                                 <th class="px-6 py-4 text-left text-xs font-semibold text-[var(--color-text-primary)] uppercase tracking-wider">Description</th>
-                                <th @click="setSort('repository')" 
-                                    :class="sortBy === 'repository' ? 'bg-[var(--color-primary-light)]' : ''"
-                                    class="px-6 py-4 text-left text-xs font-semibold text-[var(--color-text-primary)] uppercase tracking-wider cursor-pointer hover:bg-[var(--color-bg-primary)] transition-colors">
-                                    <div class="flex items-center gap-2">
-                                        <span>Repository</span>
-                                        <i :class="sortBy === 'repository' ? (sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down') : 'fas fa-sort'" 
-                                           :class="sortBy === 'repository' ? 'text-[var(--color-primary)]' : 'text-[var(--color-text-secondary)]'"
-                                           class="text-xs"></i>
-                                    </div>
-                                </th>
-                                <th @click="setSort('license')" 
-                                    :class="sortBy === 'license' ? 'bg-[var(--color-primary-light)]' : ''"
-                                    class="px-6 py-4 text-left text-xs font-semibold text-[var(--color-text-primary)] uppercase tracking-wider cursor-pointer hover:bg-[var(--color-bg-primary)] transition-colors">
-                                    <div class="flex items-center gap-2">
-                                        <span>License</span>
-                                        <i :class="sortBy === 'license' ? (sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down') : 'fas fa-sort'" 
-                                           :class="sortBy === 'license' ? 'text-[var(--color-primary)]' : 'text-[var(--color-text-secondary)]'"
-                                           class="text-xs"></i>
-                                    </div>
-                                </th>
+                                <th class="px-6 py-4 text-left text-xs font-semibold text-[var(--color-text-primary)] uppercase tracking-wider">Size / VRAM</th>
                                 <th @click="setSort('status')" 
                                     :class="sortBy === 'status' ? 'bg-[var(--color-primary-light)]' : ''"
                                     class="px-6 py-4 text-left text-xs font-semibold text-[var(--color-text-primary)] uppercase tracking-wider cursor-pointer hover:bg-[var(--color-bg-primary)] transition-colors">
@@ -275,21 +271,26 @@
                                         <div class="text-sm text-[var(--color-text-secondary)] max-w-xs truncate" x-text="model.description" :title="model.description"></div>
                                     </td>
 
-                                    <!-- Repository -->
+                                    <!-- Size / VRAM -->
                                     <td class="px-6 py-4">
-                                        <span class="inline-flex items-center text-xs px-2 py-1 rounded bg-[var(--color-primary-light)] text-[var(--color-text-primary)] border border-[var(--color-primary-border)]">
-                                            <i class="fa-brands fa-git-alt mr-1"></i>
-                                            <span x-text="model.gallery"></span>
-                                        </span>
-                                    </td>
-
-                                    <!-- License -->
-                                    <td class="px-6 py-4">
-                                        <span x-show="model.license" class="inline-flex items-center text-xs px-2 py-1 rounded bg-[var(--color-accent-light)] text-[var(--color-text-primary)] border border-[var(--color-accent)]/30">
-                                            <i class="fas fa-book mr-1"></i>
-                                            <span x-text="model.license"></span>
-                                        </span>
-                                        <span x-show="!model.license" class="text-xs text-[var(--color-text-secondary)]">-</span>
+                                        <div class="flex flex-col gap-0.5">
+                                            <template x-if="(model.estimated_size_display && model.estimated_size_display !== '0 B') || (model.estimated_vram_display && model.estimated_vram_display !== '0 B')">
+                                                <div class="text-xs text-[var(--color-text-secondary)]">
+                                                    <span x-show="model.estimated_size_display && model.estimated_size_display !== '0 B'" x-text="'Size: ' + model.estimated_size_display"></span>
+                                                    <span x-show="(model.estimated_size_display && model.estimated_size_display !== '0 B') && (model.estimated_vram_display && model.estimated_vram_display !== '0 B')"> · </span>
+                                                    <span x-show="model.estimated_vram_display && model.estimated_vram_display !== '0 B'" x-text="'VRAM: ' + model.estimated_vram_display"></span>
+                                                </div>
+                                            </template>
+                                            <template x-if="model.estimated_vram_bytes && totalMemory > 0">
+                                                <span :title="(model.estimated_vram_bytes <= totalMemory * 0.95 ? 'Fits your GPU' : 'May not fit your GPU')"
+                                                      class="inline-flex items-center text-xs">
+                                                    <i class="fas fa-microchip mr-1"
+                                                       :class="model.estimated_vram_bytes <= totalMemory * 0.95 ? 'text-[var(--color-success)]' : 'text-[var(--color-error)]'"></i>
+                                                    <span x-text="model.estimated_vram_bytes <= totalMemory * 0.95 ? 'Fits' : 'May not fit'"></span>
+                                                </span>
+                                            </template>
+                                            <span x-show="(!model.estimated_size_display || model.estimated_size_display === '0 B') && (!model.estimated_vram_display || model.estimated_vram_display === '0 B')" class="text-xs text-[var(--color-text-muted)]">-</span>
+                                        </div>
                                     </td>
 
                                     <!-- Status -->
@@ -405,6 +406,36 @@
                                 </div>
                             </div>
                             <div class="text-base leading-relaxed text-[var(--color-text-secondary)] break-words max-w-full markdown-content" x-html="renderMarkdown(selectedModel?.description)"></div>
+                            <template x-if="(selectedModel?.estimated_size_display && selectedModel.estimated_size_display !== '0 B') || (selectedModel?.estimated_vram_display && selectedModel.estimated_vram_display !== '0 B')">
+                                <div class="space-y-1">
+                                    <p x-show="selectedModel?.estimated_size_display && selectedModel.estimated_size_display !== '0 B'" class="text-sm text-[var(--color-text-secondary)]">
+                                        <i class="fas fa-download mr-2 text-[var(--color-primary)]"></i>
+                                        Estimated download size: <span x-text="selectedModel?.estimated_size_display" class="font-medium text-[var(--color-text-primary)]"></span>
+                                    </p>
+                                    <p x-show="selectedModel?.estimated_vram_display && selectedModel.estimated_vram_display !== '0 B'" class="text-sm text-[var(--color-text-secondary)]">
+                                        <i class="fas fa-memory mr-2 text-[var(--color-primary)]"></i>
+                                        Estimated VRAM: <span x-text="selectedModel?.estimated_vram_display" class="font-medium text-[var(--color-text-primary)]"></span>
+                                    </p>
+                                    <p x-show="selectedModel?.estimated_vram_bytes && totalMemory > 0" class="text-sm">
+                                        <i class="fas fa-microchip mr-2"
+                                           :class="selectedModel?.estimated_vram_bytes <= totalMemory * 0.95 ? 'text-[var(--color-success)]' : 'text-[var(--color-error)]'"></i>
+                                        <span x-text="selectedModel?.estimated_vram_bytes <= totalMemory * 0.95 ? 'Fits your GPU' : 'May not fit your GPU'"
+                                              :class="selectedModel?.estimated_vram_bytes <= totalMemory * 0.95 ? 'text-[var(--color-success)]' : 'text-[var(--color-error)]'"></span>
+                                    </p>
+                                </div>
+                            </template>
+                            <template x-if="selectedModel?.gallery || selectedModel?.license">
+                                <div class="space-y-1">
+                                    <p x-show="selectedModel?.gallery" class="text-sm text-[var(--color-text-secondary)]">
+                                        <i class="fa-brands fa-git-alt mr-2 text-[var(--color-primary)]"></i>
+                                        Repository: <span x-text="selectedModel?.gallery" class="font-medium text-[var(--color-text-primary)]"></span>
+                                    </p>
+                                    <p x-show="selectedModel?.license" class="text-sm text-[var(--color-text-secondary)]">
+                                        <i class="fas fa-book mr-2 text-[var(--color-primary)]"></i>
+                                        License: <span x-text="selectedModel?.license" class="font-medium text-[var(--color-text-primary)]"></span>
+                                    </p>
+                                </div>
+                            </template>
                             <hr>
                             <template x-if="selectedModel?.urls && selectedModel.urls.length > 0">
                                 <div>
@@ -605,6 +636,10 @@ function modelsGallery() {
         totalPages: 1,
         availableModels: 0,
         installedModels: 0,
+        ramTotal: 0,
+        ramUsed: 0,
+        ramUsagePercent: 0,
+        totalMemory: 0,
         selectedModel: null,
         jobProgress: {},
         notifications: [],
@@ -613,8 +648,19 @@ function modelsGallery() {
 
         init() {
             this.fetchModels();
+            this.fetchResources();
             // Poll for job progress every 600ms
             setInterval(() => this.pollJobs(), 600);
+        },
+
+        async fetchResources() {
+            try {
+                const response = await fetch('/api/resources');
+                if (response.ok) {
+                    const data = await response.json();
+                    this.totalMemory = data.aggregate?.total_memory || 0;
+                }
+            } catch (e) {}
         },
 
         addNotification(message, type = 'error') {
@@ -650,6 +696,9 @@ function modelsGallery() {
                 this.totalPages = data.totalPages || 1;
                 this.availableModels = data.availableModels || 0;
                 this.installedModels = data.installedModels || 0;
+                this.ramTotal = data.ramTotal || 0;
+                this.ramUsed = data.ramUsed || 0;
+                this.ramUsagePercent = data.ramUsagePercent || 0;
             } catch (error) {
                 console.error('Error fetching models:', error);
             } finally {
@@ -824,6 +873,14 @@ function modelsGallery() {
 
         openModal(model) {
             this.selectedModel = model;
+        },
+
+        formatBytes(bytes) {
+            if (bytes === 0) return "0 B";
+            const k = 1024;
+            const sizes = ["B", "KB", "MB", "GB", "TB"];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
         },
 
         closeModal() {

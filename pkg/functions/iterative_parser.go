@@ -305,6 +305,16 @@ func AllSpace(s string) bool {
 	return strings.TrimSpace(s) == ""
 }
 
+// allSpaceOrEscapedNewlines reports whether s is empty or contains only whitespace
+// and the two-character sequences \n and \r (as in escaped JSON or backtick strings).
+// Used for XML tool-call prelude checks so that content with literal \n between
+// tags is accepted like real newlines, matching behavior when input has actual newlines.
+func allSpaceOrEscapedNewlines(s string) bool {
+	normalized := strings.ReplaceAll(s, "\\n", "")
+	normalized = strings.ReplaceAll(normalized, "\\r", "")
+	return strings.TrimSpace(normalized) == ""
+}
+
 // TryConsumeJSON attempts to consume a JSON value from the current position
 // Returns the parsed JSON (can be object, array, or any JSON type), whether it's partial,
 // and the jsonDumpMarker (non-empty if JSON was healed)
@@ -721,7 +731,7 @@ func (p *ChatMsgParser) TryConsumeXMLToolCalls(format *XMLToolCallFormat) (bool,
 				// No more scopes found, break
 				break
 			}
-			if !AllSpace(tc.Prelude) {
+			if !allSpaceOrEscapedNewlines(tc.Prelude) {
 				// Non-whitespace before scope_start, stop parsing
 				p.MoveTo(tc.Groups[0].Begin - len(tc.Prelude))
 				break
@@ -743,7 +753,7 @@ func (p *ChatMsgParser) TryConsumeXMLToolCalls(format *XMLToolCallFormat) (bool,
 				break
 			}
 
-			if !AllSpace(tc.Prelude) {
+			if !allSpaceOrEscapedNewlines(tc.Prelude) {
 				// Non-whitespace before tool_start, stop parsing
 				p.MoveTo(tc.Groups[0].Begin - len(tc.Prelude))
 				break
@@ -845,7 +855,7 @@ func (p *ChatMsgParser) TryConsumeXMLToolCalls(format *XMLToolCallFormat) (bool,
 					break
 				}
 
-				if !AllSpace(keyStart.Prelude) {
+				if !allSpaceOrEscapedNewlines(keyStart.Prelude) {
 					// Non-whitespace before key_start, stop parsing parameters
 					p.MoveTo(keyStart.Groups[0].Begin - len(keyStart.Prelude))
 					break
@@ -1009,7 +1019,7 @@ func (p *ChatMsgParser) TryConsumeXMLToolCalls(format *XMLToolCallFormat) (bool,
 					// Rewind to json_end and check if val_end follows
 					p.MoveTo(jsonEnd)
 					valEndSize, valEnd := tryFindValEnd()
-					if valEnd != nil && AllSpace(valEnd.Prelude) && jsonHealingMarker == "" {
+					if valEnd != nil && allSpaceOrEscapedNewlines(valEnd.Prelude) && jsonHealingMarker == "" {
 						// val_end follows JSON
 						if len(valEnd.Groups) > 0 {
 							matchedSize := valEnd.Groups[0].End - valEnd.Groups[0].Begin
@@ -1105,7 +1115,7 @@ func (p *ChatMsgParser) TryConsumeXMLToolCalls(format *XMLToolCallFormat) (bool,
 				return false, &ChatMsgPartialException{Message: "incomplete tool_call"}
 			}
 
-			if !AllSpace(toolEnd.Prelude) {
+			if !allSpaceOrEscapedNewlines(toolEnd.Prelude) {
 				return returnError(errors.New("non-whitespace before tool_end"), recovery)
 			}
 
@@ -1147,7 +1157,7 @@ func (p *ChatMsgParser) TryConsumeXMLToolCalls(format *XMLToolCallFormat) (bool,
 					break
 				}
 				break
-			} else if !AllSpace(tc.Prelude) {
+			} else if !allSpaceOrEscapedNewlines(tc.Prelude) {
 				// Non-whitespace before scope_end - this might be another scope_start
 				// Check if it's actually another scope_start
 				if format.ScopeStart != "" {
