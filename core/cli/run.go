@@ -149,11 +149,6 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 		config.WithMachineTag(r.MachineTag),
 		config.WithAPIAddress(r.Address),
 		config.WithAgentJobRetentionDays(r.AgentJobRetentionDays),
-		config.WithTunnelCallback(func(tunnels []string) {
-			tunnelServers := strings.Join(tunnels, ",")
-			systemStateOpts = append(systemStateOpts, system.WithGRPCServers(tunnelServers))
-			xlog.Debug("setting GRPC servers via system state", "value", tunnelServers)
-		}),
 	}
 
 	if r.DisableMetricsEndpoint {
