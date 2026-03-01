@@ -2183,6 +2183,18 @@ const docTemplate = `{
         "schema.GalleryResponse": {
             "type": "object",
             "properties": {
+                "estimated_size_bytes": {
+                    "type": "integer"
+                },
+                "estimated_size_display": {
+                    "type": "string"
+                },
+                "estimated_vram_bytes": {
+                    "type": "integer"
+                },
+                "estimated_vram_display": {
+                    "type": "string"
+                },
                 "status": {
                     "type": "string"
                 },
