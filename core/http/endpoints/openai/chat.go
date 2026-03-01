@@ -270,7 +270,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 			}
 			responses <- initialMessage
 
-			result, err := handleQuestion(config, cl, req, ml, startupOptions, functionResults, result, prompt)
+			result, err := handleQuestion(config, functionResults, result, prompt)
 			if err != nil {
 				xlog.Error("error handling question", "error", err)
 				return err
@@ -656,12 +656,13 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 
 			xlog.Debug("Thinking start token", "thinkingStartToken", thinkingStartToken, "template", template)
 
+			var emptyRetryNeeded bool
+
 			tokenCallback := func(s string, c *[]schema.Choice) {
 				// Prepend thinking token if needed, then extract reasoning from the response
 				reasoning, s := reason.ExtractReasoningWithConfig(s, thinkingStartToken, config.ReasoningConfig)
 
 				if !shouldUseFn {
-					// no function is called, just reply and use stop as finish reason
 					stopReason := FinishReasonStop
 					message := &schema.Message{Role: "assistant", Content: &s}
 					if reasoning != "" {
@@ -679,9 +680,15 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 
 				switch {
 				case noActionsToRun:
-					result, err := handleQuestion(config, cl, input, ml, startupOptions, results, s, predInput)
+					if s == "" && textContentToReturn == "" {
+						xlog.Warn("Backend returned empty content in tool-calling context, will retry")
+						emptyRetryNeeded = true
+						return
+					}
+					result, err := handleQuestion(config, results, s, predInput)
 					if err != nil {
 						xlog.Error("error handling question", "error", err)
+						emptyRetryNeeded = true
 						return
 					}
 
@@ -753,18 +760,41 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 			// Echo properly supports context cancellation via c.Request().Context()
 			// No workaround needed!
 
-			result, tokenUsage, err := ComputeChoices(
-				input,
-				predInput,
-				config,
-				cl,
-				startupOptions,
-				ml,
-				tokenCallback,
-				nil,
-			)
+			const maxEmptyRetries = 5
+			var result []schema.Choice
+			var tokenUsage backend.TokenUsage
+			var err error
+
+			for attempt := 0; attempt <= maxEmptyRetries; attempt++ {
+				emptyRetryNeeded = false
+				result, tokenUsage, err = ComputeChoices(
+					input,
+					predInput,
+					config,
+					cl,
+					startupOptions,
+					ml,
+					tokenCallback,
+					nil,
+				)
+				if err != nil || !emptyRetryNeeded {
+					break
+				}
+				xlog.Warn("Retrying prediction due to empty backend response", "attempt", attempt+1, "maxRetries", maxEmptyRetries)
+			}
 			if err != nil {
 				return err
+			}
+
+			if emptyRetryNeeded {
+				xlog.Warn("All retries exhausted, backend still returning empty content")
+				stopReason := FinishReasonStop
+				empty := ""
+				result = append(result, schema.Choice{
+					FinishReason: &stopReason,
+					Index:        0,
+					Message:      &schema.Message{Role: "assistant", Content: &empty},
+				})
 			}
 			usage := schema.OpenAIUsage{
 				PromptTokens:     tokenUsage.Prompt,
@@ -793,7 +823,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 	}
 }
 
-func handleQuestion(config *config.ModelConfig, cl *config.ModelConfigLoader, input *schema.OpenAIRequest, ml *model.ModelLoader, o *config.ApplicationConfig, funcResults []functions.FuncCallResults, result, prompt string) (string, error) {
+func handleQuestion(config *config.ModelConfig, funcResults []functions.FuncCallResults, result, prompt string) (string, error) {
 
 	if len(funcResults) == 0 && result != "" {
 		xlog.Debug("nothing function results but we had a message from the LLM")
@@ -826,73 +856,6 @@ func handleQuestion(config *config.ModelConfig, cl *config.ModelConfigLoader, in
 	}
 
 	xlog.Debug("No action received from LLM, without a message, computing a reply")
-	// Otherwise ask the LLM to understand the JSON output and the context, and return a message
-	// Note: This costs (in term of CPU/GPU) another computation
-	config.Grammar = ""
-	images := []string{}
-	for _, m := range input.Messages {
-		images = append(images, m.StringImages...)
-	}
-	videos := []string{}
-	for _, m := range input.Messages {
-		videos = append(videos, m.StringVideos...)
-	}
-	audios := []string{}
-	for _, m := range input.Messages {
-		audios = append(audios, m.StringAudios...)
-	}
 
-	// Serialize tools and tool_choice to JSON strings
-	toolsJSON := ""
-	if len(input.Tools) > 0 {
-		toolsBytes, err := json.Marshal(input.Tools)
-		if err == nil {
-			toolsJSON = string(toolsBytes)
-		}
-	}
-	toolChoiceJSON := ""
-	if input.ToolsChoice != nil {
-		toolChoiceBytes, err := json.Marshal(input.ToolsChoice)
-		if err == nil {
-			toolChoiceJSON = string(toolChoiceBytes)
-		}
-	}
-
-	// Extract logprobs from request
-	// According to OpenAI API: logprobs is boolean, top_logprobs (0-20) controls how many top tokens per position
-	var logprobs *int
-	var topLogprobs *int
-	if input.Logprobs.IsEnabled() {
-		// If logprobs is enabled, use top_logprobs if provided, otherwise default to 1
-		if input.TopLogprobs != nil {
-			topLogprobs = input.TopLogprobs
-			// For backend compatibility, set logprobs to the top_logprobs value
-			logprobs = input.TopLogprobs
-		} else {
-			// Default to 1 if logprobs is true but top_logprobs not specified
-			val := 1
-			logprobs = &val
-			topLogprobs = &val
-		}
-	}
-
-	// Extract logit_bias from request
-	// According to OpenAI API: logit_bias is a map of token IDs (as strings) to bias values (-100 to 100)
-	var logitBias map[string]float64
-	if len(input.LogitBias) > 0 {
-		logitBias = input.LogitBias
-	}
-
-	predFunc, err := backend.ModelInference(input.Context, prompt, input.Messages, images, videos, audios, ml, config, cl, o, nil, toolsJSON, toolChoiceJSON, logprobs, topLogprobs, logitBias)
-	if err != nil {
-		xlog.Error("model inference failed", "error", err)
-		return "", err
-	}
-
-	prediction, err := predFunc()
-	if err != nil {
-		xlog.Error("prediction failed", "error", err)
-		return "", err
-	}
-	return backend.Finetune(*config, prompt, prediction.Response), nil
+	return "", fmt.Errorf("no action received from LLM, without a message, computing a reply")
 }

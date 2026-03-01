@@ -800,12 +800,25 @@ func handleBackgroundNonStream(ctx context.Context, store *ResponseStore, respon
 	default:
 	}
 
-	prediction, err := predFunc()
-	if err != nil {
-		return nil, fmt.Errorf("prediction failed: %w", err)
+	const maxEmptyRetries = 5
+	var prediction backend.LLMResponse
+	var result string
+	for attempt := 0; attempt <= maxEmptyRetries; attempt++ {
+		prediction, err = predFunc()
+		if err != nil {
+			return nil, fmt.Errorf("prediction failed: %w", err)
+		}
+		result = backend.Finetune(*cfg, predInput, prediction.Response)
+		if result != "" || !shouldUseFn {
+			break
+		}
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		default:
+		}
+		xlog.Warn("Open Responses background: retrying prediction due to empty backend response", "attempt", attempt+1, "maxRetries", maxEmptyRetries)
 	}
-
-	result := backend.Finetune(*cfg, predInput, prediction.Response)
 
 	// Parse tool calls if using functions (same logic as regular handler)
 	var outputItems []schema.ORItemField
@@ -1475,13 +1488,21 @@ func handleOpenResponsesNonStream(c echo.Context, responseID string, createdAt i
 		return sendOpenResponsesError(c, 500, "model_error", fmt.Sprintf("model inference failed: %v", err), "")
 	}
 
-	prediction, err := predFunc()
-	if err != nil {
-		xlog.Error("Open Responses prediction failed", "error", err)
-		return sendOpenResponsesError(c, 500, "model_error", fmt.Sprintf("prediction failed: %v", err), "")
+	const maxEmptyRetries = 5
+	var prediction backend.LLMResponse
+	var result string
+	for attempt := 0; attempt <= maxEmptyRetries; attempt++ {
+		prediction, err = predFunc()
+		if err != nil {
+			xlog.Error("Open Responses prediction failed", "error", err)
+			return sendOpenResponsesError(c, 500, "model_error", fmt.Sprintf("prediction failed: %v", err), "")
+		}
+		result = backend.Finetune(*cfg, predInput, prediction.Response)
+		if result != "" || !shouldUseFn {
+			break
+		}
+		xlog.Warn("Open Responses: retrying prediction due to empty backend response", "attempt", attempt+1, "maxRetries", maxEmptyRetries)
 	}
-
-	result := backend.Finetune(*cfg, predInput, prediction.Response)
 	xlog.Debug("Open Responses - Raw model result", "result", result, "shouldUseFn", shouldUseFn)
 
 	// Detect if thinking token is already in prompt or template
