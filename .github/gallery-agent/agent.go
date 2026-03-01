@@ -141,7 +141,7 @@ func getRealReadme(ctx context.Context, repository string) (string, error) {
 	result = result.AddMessage("user", "Describe the model in a clear and concise way that can be shared in a model gallery.")
 
 	// Get a response
-	newFragment, err := llm.Ask(ctx, result)
+	_, err = llm.Ask(ctx, result)
 	if err != nil {
 		return "", err
 	}
