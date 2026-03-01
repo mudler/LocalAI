@@ -62,6 +62,18 @@ func main() {
 				EnvVars:     []string{"CONTEXT_SIZE"},
 				Value:       512,
 			},
+			&cli.IntFlag{
+				Name:        "memory-threshold",
+				DefaultText: "Memory threshold in MB for auto-fit model unloading. 0 disables auto-fit.",
+				EnvVars:     []string{"MEMORY_THRESHOLD"},
+				Value:       0,
+			},
+			&cli.BoolFlag{
+				Name:        "auto-fit",
+				DefaultText: "Enable automatic model unloading when memory threshold is exceeded",
+				EnvVars:     []string{"AUTO_FIT"},
+				Value:       false,
+			},
 		},
 		Description: `
 LocalAI is a drop-in replacement OpenAI API which runs inference locally.
@@ -80,7 +92,19 @@ It uses llama.cpp, ggml and gpt4all as backend with golang c bindings.
 		UsageText: `local-ai [options]`,
 		Copyright: "go-skynet authors",
 		Action: func(ctx *cli.Context) error {
-			return api.App(model.NewModelLoader(ctx.String("models-path")), ctx.Int("threads"), ctx.Int("context-size"), ctx.Bool("f16"), ctx.Bool("debug"), false).Listen(ctx.String("address"))
+			loader := model.NewModelLoader(ctx.String("models-path"))
+			
+			// Configure memory management if auto-fit is enabled
+			if ctx.Bool("auto-fit") {
+				threshold := ctx.Int("memory-threshold")
+				if threshold > 0 {
+					loader.SetMemoryThreshold(threshold)
+					loader.SetAutoFit(true)
+					log.Info().Msgf("Auto-fit enabled with memory threshold: %dMB", threshold)
+				}
+			}
+			
+			return api.App(loader, ctx.Int("threads"), ctx.Int("context-size"), ctx.Bool("f16"), ctx.Bool("debug"), false, ctx.Bool("auto-fit"), ctx.Int("memory-threshold")).Listen(ctx.String("address"))
 		},
 	}
 

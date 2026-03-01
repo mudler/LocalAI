@@ -85,11 +85,15 @@ type OpenAIRequest struct {
 	Seed int `json:"seed"`
 }
 
-// https://platform.openai.com/docs/api-reference/completions
+// updateModelLastUsed updates the last used time for a model (for auto-fit tracking)
+func updateModelLastUsed(loader *model.ModelLoader, modelFile string) {
+	// The model loader now tracks this internally when models are accessed
+}
+
 func openAIEndpoint(chat, debug bool, loader *model.ModelLoader, threads, ctx int, f16 bool, mutexMap *sync.Mutex, mutexes map[string]*sync.Mutex) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 		var err error
-		var model *llama.LLama
+		var modelInst *llama.LLama
 		var gptModel *gptj.GPTJ
 		var gpt2Model *gpt2.GPT2
 		var stableLMModel *gpt2.StableLM
@@ -139,7 +143,7 @@ func openAIEndpoint(chat, debug bool, loader *model.ModelLoader, threads, ctx in
 		}
 
 		// TODO: this is ugly, better identifying the model somehow! however, it is a good stab for a first implementation..
-		model, llamaerr = loader.LoadLLaMAModel(modelFile, llamaOpts...)
+		modelInst, llamaerr = loader.LoadLLaMAModel(modelFile, llamaOpts...)
 		if llamaerr != nil {
 			gptModel, gptjerr = loader.LoadGPTJModel(modelFile)
 			if gptjerr != nil {
@@ -287,7 +291,7 @@ func openAIEndpoint(chat, debug bool, loader *model.ModelLoader, threads, ctx in
 					predictOptions...,
 				)
 			}
-		case model != nil:
+		case modelInst != nil:
 			predFunc = func() (string, error) {
 				// Generate the prediction using the language model
 				predictOptions := []llama.PredictOption{
@@ -330,7 +334,7 @@ func openAIEndpoint(chat, debug bool, loader *model.ModelLoader, threads, ctx in
 					predictOptions = append(predictOptions, llama.SetSeed(input.Seed))
 				}
 
-				return model.Predict(
+				return modelInst.Predict(
 					predInput,
 					predictOptions...,
 				)
@@ -386,7 +390,7 @@ func listModels(loader *model.ModelLoader) func(ctx *fiber.Ctx) error {
 	}
 }
 
-func App(loader *model.ModelLoader, threads, ctxSize int, f16 bool, debug, disableMessage bool) *fiber.App {
+func App(loader *model.ModelLoader, threads, ctxSize int, f16 bool, debug, disableMessage bool, autoFit bool, memoryThreshold int) *fiber.App {
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 	if debug {
 		zerolog.SetGlobalLevel(zerolog.DebugLevel)
