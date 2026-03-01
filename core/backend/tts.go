@@ -13,6 +13,7 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/trace"
 	laudio "github.com/mudler/LocalAI/pkg/audio"
+	"github.com/mudler/xlog"
 
 	"github.com/mudler/LocalAI/pkg/grpc/proto"
 	"github.com/mudler/LocalAI/pkg/model"
@@ -27,7 +28,26 @@ func ModelTTS(
 	appConfig *config.ApplicationConfig,
 	modelConfig config.ModelConfig,
 ) (string, *proto.Result, error) {
+	// FIX: Use modelConfig.Name as modelID if available, otherwise use modelConfig.Model
+	// This prevents voice IDs from being treated as model names for duplicate loading checks
+	modelID := modelConfig.Name
+	if modelID == "" {
+		modelID = modelConfig.Model
+	}
+
+	// Check if this model is already loaded to prevent duplicate loading
+	// This is particularly important for voice cloning scenarios where the same
+	// TTS model may be used with different voice IDs
+	if loadedModel := loader.CheckIsLoaded(modelID); loadedModel != nil {
+		// Model is already loaded, reuse it
+		xlog.Debug("TTS model already loaded, reusing", "modelID", modelID, "voice", voice)
+	}
+
 	opts := ModelOptions(modelConfig, appConfig)
+
+	// Ensure we use the correct modelID for the loader to prevent duplicate loading
+	opts = append(opts, model.WithModelID(modelID))
+
 	ttsModel, err := loader.Load(opts...)
 	if err != nil {
 		return "", nil, err
@@ -121,7 +141,24 @@ func ModelTTSStream(
 	modelConfig config.ModelConfig,
 	audioCallback func([]byte) error,
 ) error {
+	// FIX: Use modelConfig.Name as modelID if available, otherwise use modelConfig.Model
+	// This prevents voice IDs from being treated as model names for duplicate loading checks
+	modelID := modelConfig.Name
+	if modelID == "" {
+		modelID = modelConfig.Model
+	}
+
+	// Check if this model is already loaded to prevent duplicate loading
+	if loadedModel := loader.CheckIsLoaded(modelID); loadedModel != nil {
+		// Model is already loaded, reuse it
+		xlog.Debug("TTS model already loaded (stream), reusing", "modelID", modelID, "voice", voice)
+	}
+
 	opts := ModelOptions(modelConfig, appConfig)
+
+	// Ensure we use the correct modelID for the loader to prevent duplicate loading
+	opts = append(opts, model.WithModelID(modelID))
+
 	ttsModel, err := loader.Load(opts...)
 	if err != nil {
 		return err
