@@ -12,6 +12,7 @@ type AIModel interface {
 	Predict(*pb.PredictOptions) (string, error)
 	PredictStream(*pb.PredictOptions, chan string) error
 	Load(*pb.ModelOptions) error
+	Free() error
 	Embeddings(*pb.PredictOptions) ([]float32, error)
 	GenerateImage(*pb.GenerateImageRequest) error
 	GenerateVideo(*pb.GenerateVideoRequest) error
@@ -26,7 +27,7 @@ type AIModel interface {
 	StoresSet(*pb.StoresSetOptions) error
 	StoresDelete(*pb.StoresDeleteOptions) error
 	StoresGet(*pb.StoresGetOptions) (pb.StoresGetResult, error)
-	StoresFind(*pb.StoresFindOptions) (pb.StoresFindResult, error)
+	StoresFind(*pb.StoresFindOptions) (pb.StoresGetResult, error)
 
 	VAD(*pb.VADRequest) (pb.VADResponse, error)
 
