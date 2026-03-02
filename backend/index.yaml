@@ -351,6 +351,7 @@
     - Whisper
   license: MIT
   name: "faster-whisper"
+  alias: "faster-whisper"
   capabilities:
     nvidia: "cuda12-faster-whisper"
     intel: "intel-faster-whisper"
