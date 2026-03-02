@@ -213,6 +213,10 @@ test-e2e: build-mock-backend prepare-e2e run-e2e-image
 	$(MAKE) teardown-e2e
 	docker rmi localai-tests
 
+test-e2e-spiritlm: build-mock-backend
+	@echo 'Running SpiritLM e2e tests (mock backend)'
+	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter="SpiritLM" --flake-attempts $(TEST_FLAKES) -v ./tests/e2e/...
+
 teardown-e2e:
 	rm -rf $(TEST_DIR) || true
 	docker stop $$(docker ps -q --filter ancestor=localai-tests)
@@ -232,6 +236,10 @@ test-tts: prepare-test
 test-stablediffusion: prepare-test
 	TEST_DIR=$(abspath ./)/test-dir/ FIXTURES=$(abspath ./)/tests/fixtures CONFIG_FILE=$(abspath ./)/test-models/config.yaml MODELS_PATH=$(abspath ./)/test-models BACKENDS_PATH=$(abspath ./)/backends \
 	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter="stablediffusion" --flake-attempts $(TEST_FLAKES) -v -r $(TEST_PATHS)
+
+test-spiritlm: prepare-test
+	TEST_DIR=$(abspath ./)/test-dir/ FIXTURES=$(abspath ./)/tests/fixtures MODELS_PATH=$(abspath ./)/test-models BACKENDS_PATH=$(abspath ./)/backend/python SPIRITLM_CHECKPOINTS_DIR=$(SPIRITLM_CHECKPOINTS_DIR) \
+	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter="spiritlm" --flake-attempts $(TEST_FLAKES) -v -r $(TEST_PATHS)
 
 test-stores:
 	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter="stores" --flake-attempts $(TEST_FLAKES) -v -r tests/integration
@@ -298,7 +306,7 @@ protoc:
 .PHONY: protogen-go
 protogen-go: protoc install-go-tools
 	mkdir -p pkg/grpc/proto
-	./protoc --experimental_allow_proto3_optional -Ibackend/ --go_out=pkg/grpc/proto/ --go_opt=paths=source_relative --go-grpc_out=pkg/grpc/proto/ --go-grpc_opt=paths=source_relative \
+	PATH="$$(go env GOPATH)/bin:$$PATH" ./protoc --experimental_allow_proto3_optional -Ibackend/ --go_out=pkg/grpc/proto/ --go_opt=paths=source_relative --go-grpc_out=pkg/grpc/proto/ --go-grpc_opt=paths=source_relative \
     backend/backend.proto
 
 .PHONY: protogen-go-clean
