@@ -226,6 +226,30 @@
       - transcript
     parameters:
       model: nvidia/parakeet-tdt-0.6b-v3
+- name: voxtral-mini-4b-realtime-vllm
+  license: apache-2.0
+  url: "github:mudler/LocalAI/gallery/voxtral-mini-4b-realtime-vllm.yaml@master"
+  icon: https://huggingface.co/datasets/huggingface/brand-assets/resolve/main/hf-logo.svg
+  description: |
+    Voxtral Mini 4B Realtime via vLLM - A speech-to-text model from Mistral AI served using the vLLM backend. This 4B parameter model is optimized for fast, accurate audio transcription with low latency, making it ideal for real-time applications. Using vLLM enables high-throughput inference and efficient GPU utilization.
+  urls:
+    - https://huggingface.co/mistralai/Voxtral-Mini-4B-Realtime-2602
+  tags:
+    - stt
+    - speech-to-text
+    - audio-transcription
+    - vllm
+    - gpu
+    - mistral
+  overrides:
+    backend: vllm
+    known_usecases:
+      - transcript
+    parameters:
+      model: mistralai/Voxtral-Mini-4B-Realtime-2602
+    options:
+      - trust_remote_code:true
+
 - name: voxtral-mini-4b-realtime
   license: apache-2.0
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
