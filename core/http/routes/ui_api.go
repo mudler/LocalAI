@@ -481,15 +481,27 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			// Wait for deletion to complete before removing config
 			// This ensures the model files are actually deleted
 			// before we remove the config from memory
-			for {
-				status := galleryService.GetStatus(uid)
-				if status != nil && status.Processed {
-					break
+			// Use a proper wait mechanism with timeout to avoid deadlock
+			done := make(chan struct{})
+			go func() {
+				ticker := time.NewTicker(100 * time.Millisecond)
+				defer ticker.Stop()
+				for range ticker.C {
+					status := galleryService.GetStatus(uid)
+					if status != nil && status.Processed {
+						break
+					}
 				}
-				// Small delay to avoid busy-waiting
-				// In production, a proper channel-based notification would be better
+				close(done)
+			}()
+			
+			select {
+			case <-done:
+				// Deletion completed successfully
+			case <-time.After(30 * time.Second):
+				// Timeout - log warning but continue
+				xlog.Warn("Model deletion status check timed out, proceeding with config removal")
 			}
-			// Now safe to remove from config after deletion completes
 			cl.RemoveModelConfig(galleryName)
 		}()
 
