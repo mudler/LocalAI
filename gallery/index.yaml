@@ -1,4 +1,29 @@
 ---
+- name: "qwen3.5-35b-a3b-ud-q6_k_xl.gguf"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/acertainbru/Qwen3.5-35B-A3B-UD-Q6_K_XL.gguf
+  description: |
+    AI model: qwen3.5-35b-a3b-ud-q6_k_xl.gguf
+  overrides:
+    parameters:
+      model: Qwen3.5-35B-A3B-UD-Q6_K_XL.gguf
+    name: Qwen3.5-35B-A3B-UD-Q6_K_XL.gguf
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/acertainbru/Qwen3.5-35B-A3B-UD-Q6_K_XL.gguf
+    options:
+      - use_jinja:true
+  files:
+    - filename: Qwen3.5-35B-A3B-UD-Q6_K_XL.gguf
+      sha256: ""
+      uri: https://huggingface.co/acertainbru/Qwen3.5-35B-A3B-UD-Q6_K_XL.gguf
 - name: "qwen3.5-397b-a17b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
