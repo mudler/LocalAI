@@ -1,4 +1,29 @@
 ---
+- name: "gpt-oss-swallow-120b-rl-v0.1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/GPT-OSS-Swallow-120B-RL-v0.1-GGUF
+  description: |
+    Describe the model in a clear and concise way that can be shared in a model gallery.
+  overrides:
+    parameters:
+      model: llama-cpp/models/GPT-OSS-Swallow-120B-RL-v0.1.Q8_0.gguf
+    name: GPT-OSS-Swallow-120B-RL-v0.1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/GPT-OSS-Swallow-120B-RL-v0.1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/GPT-OSS-Swallow-120B-RL-v0.1.Q8_0.gguf
+      sha256: 3b603a87ce8bd29b25a730680126f1cbb754e22ef95cb6cab7df46f11a74ef4b
+      uri: https://huggingface.co/mradermacher/GPT-OSS-Swallow-120B-RL-v0.1-GGUF/resolve/main/GPT-OSS-Swallow-120B-RL-v0.1.Q8_0.gguf
 - name: "qwen3.5-397b-a17b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
