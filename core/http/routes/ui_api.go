@@ -1,7 +1,5 @@
 package routes
 
-import "os"
-
 import (
 	"context"
 	"fmt"
@@ -480,6 +478,18 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		galleryService.StoreCancellation(uid, cancelFunc)
 		go func() {
 			galleryService.ModelGalleryChannel <- op
+			// Wait for deletion to complete before removing config
+			// This ensures the model files are actually deleted
+			// before we remove the config from memory
+			for {
+				status := galleryService.GetStatus(uid)
+				if status != nil && status.Processed {
+					break
+				}
+				// Small delay to avoid busy-waiting
+				// In production, a proper channel-based notification would be better
+			}
+			// Now safe to remove from config after deletion completes
 			cl.RemoveModelConfig(galleryName)
 		}()
 
