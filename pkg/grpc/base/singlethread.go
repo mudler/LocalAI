@@ -50,3 +50,8 @@ func (llm *SingleThread) Status() (pb.StatusResponse, error) {
 		Memory: mud,
 	}, nil
 }
+
+// Shutdown is a no-op for SingleThread base - derived types should override if needed
+func (llm *SingleThread) Shutdown() {
+	// Call base Shutdown if needed
+}

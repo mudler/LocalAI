@@ -130,3 +130,7 @@ func memoryUsage() *pb.MemoryUsageData {
 	}
 	return &mud
 }
+
+func (llm *Base) Shutdown() {
+	// Base implementation does nothing - backends should override if they need cleanup
+}

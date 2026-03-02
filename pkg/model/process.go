@@ -46,6 +46,12 @@ func (ml *ModelLoader) deleteProcess(s string) error {
 
 	xlog.Debug("Deleting process", "model", s)
 
+
+	// Shutdown the model to free GPU memory before stopping the process
+	xlog.Debug("Shutting down model to free VRAM", "model", s)
+	if err := model.GRPC(false, ml.wd).Shutdown(); err != nil {
+		xlog.Warn("Error during model shutdown", "error", err, "model", s)
+	}
 	process := model.Process()
 	if process == nil {
 		xlog.Error("No process", "model", s)

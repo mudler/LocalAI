@@ -31,6 +31,7 @@ type AIModel interface {
 	VAD(*pb.VADRequest) (pb.VADResponse, error)
 
 	ModelMetadata(*pb.ModelOptions) (*pb.ModelMetadataResponse, error)
+	Shutdown()
 }
 
 func newReply(s string) *pb.Reply {

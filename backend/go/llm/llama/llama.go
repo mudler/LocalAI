@@ -18,6 +18,17 @@ type LLM struct {
 	draftModel *llama.LLama
 }
 
+// Shutdown frees the model resources including GPU memory
+func (llm *LLM) Shutdown() error {
+	if llm.llama != nil {
+		llm.llama.Free()
+	}
+	if llm.draftModel != nil {
+		llm.draftModel.Free()
+	}
+	return nil
+}
+
 func (llm *LLM) Load(opts *pb.ModelOptions) error {
 	ropeFreqBase := float32(10000)
 	ropeFreqScale := float32(1)
