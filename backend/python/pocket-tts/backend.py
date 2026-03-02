@@ -167,7 +167,9 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                     voice_input = request.AudioPath
 
             # Get voice state
+            print(f"DEBUG: voice_input={voice_input}", file=sys.stderr)
             voice_state = self._get_voice_state(voice_input)
+            print(f"DEBUG: voice_state={voice_state}", file=sys.stderr)
             if voice_state is None:
                 return backend_pb2.Result(
                     success=False,
