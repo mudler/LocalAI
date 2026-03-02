@@ -97,6 +97,7 @@ jobs:
       - name: Build backends
         run: |
           make backends/transformers backends/huggingface backends/llama-cpp backends/local-store backends/silero-vad backends/piper backends/whisper backends/stablediffusion-ggml
+          mkdir -p external
       - name: Test
         run: |
           PATH="$PATH:/root/go/bin" GO_TAGS="tts" make --jobs 5 --output-sync=target test
