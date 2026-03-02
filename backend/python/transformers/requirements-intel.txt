@@ -6,4 +6,4 @@ numba==0.60.0
 transformers
 bitsandbytes
 sentence-transformers==5.2.3
-protobuf==6.33.5
+protobuf==7.34.0
