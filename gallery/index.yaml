@@ -67,11 +67,11 @@
       - use_jinja:true
   files:
     - filename: llama-cpp/models/Qwen3.5-27B-Q4_K_M.gguf
-      sha256: 728960e4dda52d4f2af5bee09b2cbe86addfa93220fe9324bfac9dc727605c17
       uri: https://huggingface.co/unsloth/Qwen3.5-27B-GGUF/resolve/main/Qwen3.5-27B-Q4_K_M.gguf
+      sha256: 84b5f7f112156d63836a01a69dc3f11a6ba63b10a23b8ca7a7efaf52d5a2d806
     - filename: llama-cpp/mmproj/mmproj-F32.gguf
-      sha256: c4efc54971085f29eecd433a8fba3edd2890584dfa2fc978933d1dd193f174dd
       uri: https://huggingface.co/unsloth/Qwen3.5-27B-GGUF/resolve/main/mmproj-F32.gguf
+      sha256: cb04ce8bd243483434f3e05a51a3821258cac74187e409547742a729452b0756
 - name: "qwen3.5-122b-a10b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
