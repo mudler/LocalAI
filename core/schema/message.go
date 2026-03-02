@@ -28,7 +28,7 @@ type Message struct {
 
 	ToolCalls []ToolCall `json:"tool_calls,omitempty" yaml:"tool_call,omitempty"`
 
-	// Reasoning content extracted from <thinking>...</thinking> tags
+	// Reasoning content extracted from  tags
 	Reasoning *string `json:"reasoning,omitempty" yaml:"reasoning,omitempty"`
 }
 
@@ -52,8 +52,10 @@ func (messages Messages) ToProto() []*proto.Message {
 	protoMessages := make([]*proto.Message, len(messages))
 	for i, message := range messages {
 		protoMessages[i] = &proto.Message{
-			Role: message.Role,
-			Name: message.Name, // needed by function calls
+			Role:   message.Role,
+			Name:   message.Name,
+			ReasoningContent: "",
+			ToolCalls: "",
 		}
 
 		switch ct := message.Content.(type) {
@@ -81,8 +83,10 @@ func (messages Messages) ToProto() []*proto.Message {
 			}
 		}
 
-		// Note: tool_call_id is not in schema.Message yet
-		// Reasoning field is now available in schema.Message but not yet in proto.Message
+		// Map Reasoning field to proto Message reasoning_content
+		if message.Reasoning != nil {
+			protoMessages[i].ReasoningContent = *message.Reasoning
+		}
 	}
 	return protoMessages
 }
