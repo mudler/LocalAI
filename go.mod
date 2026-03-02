@@ -32,7 +32,7 @@ require (
 	github.com/lithammer/fuzzysearch v1.1.8
 	github.com/mholt/archiver/v3 v3.5.1
 	github.com/microcosm-cc/bluemonday v1.0.27
-	github.com/modelcontextprotocol/go-sdk v1.3.0
+	github.com/modelcontextprotocol/go-sdk v1.4.0
 	github.com/mudler/cogito v0.9.1
 	github.com/mudler/edgevpn v0.31.1
 	github.com/mudler/go-processmanager v0.1.0
@@ -68,6 +68,8 @@ require (
 require (
 	github.com/ghodss/yaml v1.0.0 // indirect
 	github.com/labstack/gommon v0.4.2 // indirect
+	github.com/segmentio/asm v1.1.3 // indirect
+	github.com/segmentio/encoding v0.5.3 // indirect
 	github.com/swaggo/files/v2 v2.0.2 // indirect
 	github.com/tidwall/gjson v1.18.0 // indirect
 	github.com/tidwall/match v1.2.0 // indirect
