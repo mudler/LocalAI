@@ -652,7 +652,7 @@ func (c *ModelConfig) GuessUsecases(u ModelConfigUsecase) bool {
 
 	}
 	if (u & FLAG_RERANK) == FLAG_RERANK {
-		if c.Backend != "rerankers" {
+		if c.Backend != "rerankers" && (c.Reranking == nil || !*c.Reranking) {
 			return false
 		}
 	}
