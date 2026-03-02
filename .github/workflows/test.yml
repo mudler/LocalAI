@@ -97,7 +97,7 @@ jobs:
       - name: Build backends
         run: |
           make backends/transformers 
-          mv backends/transformers external/transformers
+          mkdir external && mv backends/transformers external/transformers
           make backends/huggingface backends/llama-cpp backends/local-store backends/silero-vad backends/piper backends/whisper backends/stablediffusion-ggml
       - name: Test
         run: |
