@@ -27,7 +27,7 @@ type AIModel interface {
 	StoresSet(*pb.StoresSetOptions) error
 	StoresDelete(*pb.StoresDeleteOptions) error
 	StoresGet(*pb.StoresGetOptions) (pb.StoresGetResult, error)
-	StoresFind(*pb.StoresFindOptions) (pb.StoresGetResult, error)
+	StoresFind(*pb.StoresFindOptions) (pb.StoresFindResult, error)
 
 	VAD(*pb.VADRequest) (pb.VADResponse, error)
 
