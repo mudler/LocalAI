@@ -46,6 +46,14 @@ func (ml *ModelLoader) deleteProcess(s string) error {
 
 	xlog.Debug("Deleting process", "model", s)
 
+	// Free GPU resources before stopping the process to ensure VRAM is released
+	if freeFunc, ok := model.GRPC(false, ml.wd).(interface{ Free() error }); ok {
+		xlog.Debug("Calling Free() to release GPU resources", "model", s)
+		if err := freeFunc.Free(); err != nil {
+			xlog.Warn("Error freeing GPU resources", "error", err, "model", s)
+		}
+	}
+
 	process := model.Process()
 	if process == nil {
 		xlog.Error("No process", "model", s)
@@ -65,7 +73,6 @@ func (ml *ModelLoader) deleteProcess(s string) error {
 
 	return err
 }
-
 func (ml *ModelLoader) StopGRPC(filter GRPCProcessFilter) error {
 	var err error = nil
 	ml.mu.Lock()
