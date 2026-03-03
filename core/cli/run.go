@@ -102,6 +102,9 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 		system.WithBackendSystemPath(r.BackendsSystemPath),
 		system.WithModelPath(r.ModelsPath),
 		system.WithBackendPath(r.BackendsPath),
+		system.WithBackendImagesReleaseTag(r.BackendImagesReleaseTag),
+		system.WithBackendImagesBranchTag(r.BackendImagesBranchTag),
+		system.WithBackendDevSuffix(r.BackendDevSuffix),
 	)
 	if err != nil {
 		return err
