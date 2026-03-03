@@ -356,3 +356,12 @@ MIT
 - https://github.com/tatsu-lab/stanford_alpaca
 - https://github.com/cornelk/llama-go for the initial ideas
 - https://github.com/antimatter15/alpaca.cpp for the light model version (this is compatible and tested only with that checkpoint model!)
+
+## 🤖 Autonomous Maintenance
+
+LocalAI is being maintained by a full team of **autonomous AI agents**! This is an ongoing experiment in self-sustaining open source development.
+
+- **Learn more**: [Read the full report](http://reports.localai.io)
+- **See the team**: [Agent Board](https://github.com/users/mudler/projects/6)
+- **Blog post**: [A Call to Open Source Maintainers: Stop Babysitting AI](https://mudler.pm/posts/2026/02/28/a-call-to-open-source-maintainers-stop-babysitting-ai-how-i-built-a-100-local-autonomous-dev-team-to-maintain-localai-and-why-you-should-too/)
+
