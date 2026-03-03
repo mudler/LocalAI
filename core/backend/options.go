@@ -13,6 +13,15 @@ import (
 
 func ModelOptions(c config.ModelConfig, so *config.ApplicationConfig, opts ...model.Option) []model.Option {
 	name := c.Name
+	modelFile := c.Model
+
+	// For duplicate model loading prevention: use the actual model file as the ID
+	// when the model configuration name differs but the underlying model is the same
+	// This prevents loading the same model multiple times for different voice configs
+	if c.Model != "" && c.Model != name {
+		// Use the model file path/URL as the ID to detect duplicates
+		modelFile = c.Model
+	}
 	if name == "" {
 		name = c.Model
 	}
@@ -21,7 +30,7 @@ func ModelOptions(c config.ModelConfig, so *config.ApplicationConfig, opts ...mo
 		model.WithBackendString(c.Backend),
 		model.WithModel(c.Model),
 		model.WithContext(so.Context),
-		model.WithModelID(name),
+		model.WithModelID(modelFile),
 	}
 
 	threads := 1
