@@ -6,7 +6,6 @@ import (
 )
 
 type Backend struct {
-	GRPCServers             string // GRPC servers for backend connectivity (e.g., from P2P tunnels)
 	BackendsPath            string
 	BackendsSystemPath      string
 	BackendImagesReleaseTag string // Release tag for backend images
@@ -80,10 +79,4 @@ func GetSystemState(opts ...SystemStateOptions) (*SystemState, error) {
 	state.getSystemCapabilities()
 
 	return state, nil
-}
-
-func WithGRPCServers(servers string) SystemStateOptions {
-	return func(s *SystemState) {
-		s.Backend.GRPCServers = servers
-	}
 }

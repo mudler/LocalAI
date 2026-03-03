@@ -75,7 +75,6 @@ func getFallbackTagValues(systemState *system.SystemState) (latestTag, masterTag
 	return latestTag, masterTag, devSuffix
 }
 
-}
 
 // backendCandidate represents an installed concrete backend option for a given alias
 type backendCandidate struct {
