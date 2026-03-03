@@ -1,4 +1,29 @@
 ---
+- name: "suri-qwen-3.1-30b-uncensored"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Suri-Qwen-3.1-30B-Uncensored-GGUF
+  description: |
+    AI model: suri-qwen-3.1-30b-uncensored
+  overrides:
+    parameters:
+      model: llama-cpp/models/Suri-Qwen-3.1-30B-Uncensored.Q4_K_M.gguf
+    name: Suri-Qwen-3.1-30B-Uncensored-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Suri-Qwen-3.1-30B-Uncensored-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Suri-Qwen-3.1-30B-Uncensored.Q4_K_M.gguf
+      sha256: 819895d90fe9f89896aa6d89fa7e2b8695cad2534342f736e5f08e6f1862d125
+      uri: https://huggingface.co/mradermacher/Suri-Qwen-3.1-30B-Uncensored-GGUF/resolve/main/Suri-Qwen-3.1-30B-Uncensored.Q4_K_M.gguf
 - name: "qwen3.5-9b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
