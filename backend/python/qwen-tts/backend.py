@@ -19,6 +19,8 @@ import soundfile as sf
 from qwen_tts import Qwen3TTSModel
 
 import json
+import hashlib
+import pickle
 
 import grpc
 
@@ -184,6 +186,9 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
 
         # Cache for voice clone prompts
         self._voice_clone_cache = {}
+
+        # Pre-load cached voices if disk_cache is enabled
+        self._preload_cached_voices()
 
         # Store AudioPath, ModelFile, and ModelPath from LoadModel request
         # These are used later in TTS for VoiceClone mode
@@ -387,22 +392,36 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         return self.audio_path
 
     def _get_voice_clone_prompt(self, request, ref_audio, ref_text):
-        """Get or create voice clone prompt, with caching."""
-        cache_key = f"{ref_audio}:{ref_text}"
+        """Get or create voice clone prompt, with in-memory and disk caching."""
+        cache_key = self._get_voice_cache_key(ref_audio, ref_text)
 
         if cache_key not in self._voice_clone_cache:
-            print(f"Creating voice clone prompt from {ref_audio}", file=sys.stderr)
-            try:
-                prompt_items = self.model.create_voice_clone_prompt(
-                    ref_audio=ref_audio,
-                    ref_text=ref_text,
-                    x_vector_only_mode=self.options.get("x_vector_only_mode", False),
-                )
-                self._voice_clone_cache[cache_key] = prompt_items
-            except Exception as e:
-                print(f"Error creating voice clone prompt: {e}", file=sys.stderr)
-                print(traceback.format_exc(), file=sys.stderr)
-                return None
+            # Check disk cache first (if enabled)
+            disk_cached = self._get_cached_voice_clone_prompt_from_disk(
+                ref_audio, ref_text
+            )
+            if disk_cached is not None:
+                self._voice_clone_cache[cache_key] = disk_cached
+            else:
+                # Create new prompt
+                print(f"Creating voice clone prompt from {ref_audio}", file=sys.stderr)
+                try:
+                    prompt_items = self.model.create_voice_clone_prompt(
+                        ref_audio=ref_audio,
+                        ref_text=ref_text,
+                        x_vector_only_mode=self.options.get(
+                            "x_vector_only_mode", False
+                        ),
+                    )
+                    self._voice_clone_cache[cache_key] = prompt_items
+                    # Save to disk cache if enabled
+                    self._save_voice_clone_prompt_to_disk(
+                        ref_audio, ref_text, prompt_items
+                    )
+                except Exception as e:
+                    print(f"Error creating voice clone prompt: {e}", file=sys.stderr)
+                    print(traceback.format_exc(), file=sys.stderr)
+                    return None
 
         return self._voice_clone_cache[cache_key]
 
@@ -471,6 +490,158 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             )
             print(traceback.format_exc(), file=sys.stderr)
             return None
+
+    def _compute_file_hash(self, file_path):
+        """Compute SHA256 hash of file content."""
+        try:
+            sha256 = hashlib.sha256()
+            with open(file_path, "rb") as f:
+                for chunk in iter(lambda: f.read(4096), b""):
+                    sha256.update(chunk)
+            return sha256.hexdigest()
+        except Exception as e:
+            print(
+                f"[ERROR] Failed to compute hash for {file_path}: {e}", file=sys.stderr
+            )
+            return None
+
+    def _compute_string_hash(self, text):
+        """Compute SHA256 hash of string."""
+        return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+    def _get_cached_voice_clone_prompt_from_disk(self, ref_audio, ref_text_content):
+        """Load cached prompt from disk if available and valid."""
+        if not self.options.get("disk_cache", False):
+            return None
+
+        cache_file = f"{ref_audio}.voice_cache.pkl"
+
+        if not os.path.exists(cache_file):
+            return None
+
+        try:
+            with open(cache_file, "rb") as f:
+                cached = pickle.load(f)
+
+            # Validate checksums
+            current_audio_hash = self._compute_file_hash(ref_audio)
+            current_text_hash = self._compute_string_hash(ref_text_content)
+
+            if current_audio_hash is None or cached["audio_hash"] != current_audio_hash:
+                print("[INFO] Cache invalidation: audio file changed", file=sys.stderr)
+                os.remove(cache_file)
+                return None
+
+            if cached["ref_text_hash"] != current_text_hash:
+                print(
+                    "[INFO] Cache invalidation: ref_text content changed",
+                    file=sys.stderr,
+                )
+                os.remove(cache_file)
+                return None
+
+            print(
+                f"[INFO] Loaded voice clone prompt from disk cache: {cache_file}",
+                file=sys.stderr,
+            )
+            return cached["prompt_items"]
+
+        except Exception as e:
+            print(
+                f"[WARNING] Failed to load disk cache {cache_file}: {e}",
+                file=sys.stderr,
+            )
+            return None
+
+    def _save_voice_clone_prompt_to_disk(
+        self, ref_audio, ref_text_content, prompt_items
+    ):
+        """Save prompt to disk cache alongside audio file."""
+        if not self.options.get("disk_cache", False):
+            return
+
+        cache_file = f"{ref_audio}.voice_cache.pkl"
+
+        try:
+            cache_data = {
+                "audio_hash": self._compute_file_hash(ref_audio),
+                "ref_text_hash": self._compute_string_hash(ref_text_content),
+                "prompt_items": prompt_items,
+            }
+
+            with open(cache_file, "wb") as f:
+                pickle.dump(cache_data, f)
+
+            print(
+                f"[INFO] Saved voice clone prompt to disk cache: {cache_file}",
+                file=sys.stderr,
+            )
+        except Exception as e:
+            print(
+                f"[WARNING] Failed to save disk cache {cache_file}: {e}",
+                file=sys.stderr,
+            )
+
+    def _get_voice_cache_key(self, ref_audio, ref_text):
+        """Get the cache key for a voice."""
+        return f"{ref_audio}:{ref_text}"
+
+    def _preload_cached_voices(self):
+        """Pre-load cached voice prompts at model startup."""
+        if not self.voices or not self.options.get("disk_cache", False):
+            return
+
+        print(
+            f"[INFO] Pre-loading {len(self.voices)} cached voice(s)...", file=sys.stderr
+        )
+        loaded_count = 0
+        missing_count = 0
+        invalid_count = 0
+
+        for voice_name, voice_config in self.voices.items():
+            audio_path = voice_config["audio"]
+            ref_text_path = voice_config["ref_text"]
+
+            # Check for cache file
+            cache_file = f"{audio_path}.voice_cache.pkl"
+            if os.path.exists(cache_file):
+                # Read ref_text content for validation
+                ref_text_content = self._read_text_file(ref_text_path)
+                if ref_text_content is None:
+                    invalid_count += 1
+                    print(
+                        f"[INFO] Cannot read ref_text for {voice_name} (will recreate on first use)",
+                        file=sys.stderr,
+                    )
+                    continue
+
+                cached_prompt = self._get_cached_voice_clone_prompt_from_disk(
+                    audio_path, ref_text_content
+                )
+                if cached_prompt:
+                    # Pre-populate memory cache with content-based key
+                    cache_key = self._get_voice_cache_key(audio_path, ref_text_content)
+                    self._voice_clone_cache[cache_key] = cached_prompt
+                    loaded_count += 1
+                    print(f"[INFO] Pre-loaded voice: {voice_name}", file=sys.stderr)
+                else:
+                    invalid_count += 1
+                    print(
+                        f"[INFO] Cache invalid for {voice_name} (will recreate on first use)",
+                        file=sys.stderr,
+                    )
+            else:
+                missing_count += 1
+                print(
+                    f"[INFO] No cache found for {voice_name} (will create on first use)",
+                    file=sys.stderr,
+                )
+
+        # Summary line
+        print(
+            f"[INFO] Pre-loaded {loaded_count}/{len(self.voices)} voices ({missing_count} missing, {invalid_count} invalid)",
+            file=sys.stderr,
+        )
 
     def TTS(self, request, context):
         try:
@@ -576,12 +747,21 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                     ref_text_source
                 )
 
-                # For caching: use file path as key if it's a file, otherwise use the text directly
-                # This avoids reading the file on every request when cached
                 if ref_text_is_file:
-                    ref_text_for_cache = ref_text_source
-                else:
-                    ref_text_for_cache = ref_text_source
+                    ref_text_content = self._read_text_file(ref_text_source)
+                    if ref_text_content is None:
+                        return backend_pb2.Result(
+                            success=False,
+                            message=f"Failed to read ref_text from file: {ref_text_source}",
+                        )
+                    ref_text_source = ref_text_content
+                    print(
+                        f"[INFO] Loaded ref_text from file: {ref_text_content[:100]}...",
+                        file=sys.stderr,
+                    )
+
+                # For caching: use the content as the key (since we've read the file if it was one)
+                ref_text_for_cache = ref_text_source
 
                 # Check if we should use cached prompt
                 use_cached_prompt = self.options.get("use_cached_prompt", True)
@@ -592,25 +772,6 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                         request, ref_audio, ref_text_for_cache
                     )
 
-                # If cache miss and ref_text is a file, read it now
-                if voice_clone_prompt is None and ref_text_is_file:
-                    ref_text_content = self._read_text_file(ref_text_source)
-                    if ref_text_content is not None:
-                        ref_text_source = ref_text_content
-                        print(
-                            f"[INFO] Loaded ref_text from file (cache miss): {ref_text_content[:100]}...",
-                            file=sys.stderr,
-                        )
-                        # Create prompt with the file content
-                        voice_clone_prompt = self._get_voice_clone_prompt(
-                            request, ref_audio, ref_text_source
-                        )
-                    else:
-                        return backend_pb2.Result(
-                            success=False,
-                            message=f"Failed to read ref_text from file: {ref_text_source}",
-                        )
-
                 if voice_clone_prompt is None:
                     return backend_pb2.Result(
                         success=False, message="Failed to create voice clone prompt"
@@ -618,14 +779,22 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
 
                 if voice_clone_prompt:
                     # Use cached prompt
+                    start_time = time.time()
                     wavs, sr = self.model.generate_voice_clone(
                         text=text,
                         language=language,
                         voice_clone_prompt=voice_clone_prompt,
                         **generation_kwargs,
                     )
+                    generation_duration = time.time() - start_time
+                    print(
+                        f"[INFO] Voice clone generation completed: {generation_duration:.2f}s, output_samples={len(wavs) if wavs else 0}",
+                        file=sys.stderr,
+                        flush=True,
+                    )
                 else:
                     # Create prompt on-the-fly (only for non-file ref_text that wasn't cached)
+                    start_time = time.time()
                     wavs, sr = self.model.generate_voice_clone(
                         text=text,
                         language=language,
@@ -635,6 +804,12 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                             "x_vector_only_mode", False
                         ),
                         **generation_kwargs,
+                    )
+                    generation_duration = time.time() - start_time
+                    print(
+                        f"[INFO] Voice clone generation (on-the-fly) completed: {generation_duration:.2f}s, output_samples={len(wavs) if wavs else 0}",
+                        file=sys.stderr,
+                        flush=True,
                     )
 
             elif mode == "VoiceDesign":
@@ -696,8 +871,12 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             if wavs is not None and len(wavs) > 0:
                 # wavs is a list, take first element
                 audio_data = wavs[0] if isinstance(wavs, list) else wavs
+                audio_duration = len(audio_data) / sr if sr > 0 else 0
                 sf.write(request.dst, audio_data, sr)
-                print(f"Saved output to {request.dst}", file=sys.stderr)
+                print(
+                    f"Saved {audio_duration:.2f}s audio to {request.dst}",
+                    file=sys.stderr,
+                )
             else:
                 return backend_pb2.Result(
                     success=False, message="No audio output generated"
