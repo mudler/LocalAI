@@ -96,12 +96,12 @@ jobs:
           sudo apt-get install curl ffmpeg
       - name: Build backends
         run: |
-          make backends/transformers 
+          make backends/transformers
           mkdir external && mv backends/transformers external/transformers
           make backends/huggingface backends/llama-cpp backends/local-store backends/silero-vad backends/piper backends/whisper backends/stablediffusion-ggml
       - name: Test
         run: |
-          TRANSFORMER_BACKEND=$(abspath ./)/external/transformers/run.sh PATH="$PATH:/root/go/bin" GO_TAGS="tts" make --jobs 5 --output-sync=target test
+          TRANSFORMER_BACKEND=$PWD/external/transformers/run.sh PATH="$PATH:/root/go/bin" GO_TAGS="tts" make --jobs 5 --output-sync=target test
       - name: Setup tmate session if tests fail
         if: ${{ failure() }}
         uses: mxschmitt/action-tmate@v3.23
