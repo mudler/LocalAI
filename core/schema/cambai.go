@@ -147,14 +147,18 @@ type CambAITaskStatusResponse struct {
 }
 
 type CambAIVoice struct {
-	VoiceID int    `json:"voice_id"`
-	Name    string `json:"voice_name"`
-	Gender  string `json:"gender,omitempty"`
-	Age     string `json:"age,omitempty"`
+	ID     int    `json:"id"`
+	Name   string `json:"voice_name"`
+	Gender string `json:"gender,omitempty"`
+	Age    string `json:"age,omitempty"`
 }
 
 type CambAIListVoicesResponse struct {
 	Voices []CambAIVoice `json:"voices"`
+}
+
+type CambAICreateCustomVoiceResponse struct {
+	VoiceID int `json:"voice_id"`
 }
 
 type CambAIErrorResponse struct {

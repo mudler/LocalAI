@@ -22,8 +22,8 @@ func ListVoicesEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, app
 		voices := make([]schema.CambAIVoice, 0)
 		for i, cfg := range ttsConfigs {
 			voice := schema.CambAIVoice{
-				VoiceID: i + 1,
-				Name:    cfg.Name,
+				ID:   i + 1,
+				Name: cfg.Name,
 			}
 			if cfg.Voice != "" {
 				voice.Name = fmt.Sprintf("%s (%s)", cfg.Name, cfg.Voice)
@@ -31,9 +31,7 @@ func ListVoicesEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, app
 			voices = append(voices, voice)
 		}
 
-		return c.JSON(http.StatusOK, schema.CambAIListVoicesResponse{
-			Voices: voices,
-		})
+		return c.JSON(http.StatusOK, voices)
 	}
 }
 
@@ -85,9 +83,8 @@ func CreateCustomVoiceEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoad
 
 		xlog.Info("Custom voice audio saved", "name", voiceName, "path", dstPath)
 
-		return c.JSON(http.StatusOK, schema.CambAIVoice{
+		return c.JSON(http.StatusOK, schema.CambAICreateCustomVoiceResponse{
 			VoiceID: 0,
-			Name:    voiceName,
 		})
 	}
 }

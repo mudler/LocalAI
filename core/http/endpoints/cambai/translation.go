@@ -95,31 +95,24 @@ func TranslationStreamEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoad
 		targetLang := schema.CambAILanguageCodeFromID(input.TargetLanguageID)
 		prompt := buildTranslationPrompt(input.Text, sourceLang, targetLang)
 
-		c.Response().Header().Set("Content-Type", "text/plain; charset=utf-8")
-		c.Response().Header().Set("Transfer-Encoding", "chunked")
-		c.Response().Header().Set("Cache-Control", "no-cache")
-		c.Response().Header().Set("Connection", "keep-alive")
-
 		fn, err := backend.ModelInference(
 			context.Background(), prompt, nil, nil, nil, nil,
-			ml, cfg, cl, appConfig,
-			func(token string, _ backend.TokenUsage) bool {
-				_, writeErr := c.Response().Write([]byte(token))
-				if writeErr != nil {
-					return true
-				}
-				c.Response().Flush()
-				return true
-			},
-			"", "", nil, nil, nil,
+			ml, cfg, cl, appConfig, nil, "", "", nil, nil, nil,
 		)
 		if err != nil {
 			return err
 		}
 
-		// Call fn to complete inference
-		_, err = fn()
-		return err
+		resp, err := fn()
+		if err != nil {
+			return err
+		}
+
+		return c.JSON(http.StatusOK, map[string]any{
+			"translation":     strings.TrimSpace(resp.Response),
+			"source_language": input.SourceLanguageID,
+			"target_language": input.TargetLanguageID,
+		})
 	}
 }
 
@@ -178,14 +171,12 @@ func TranslatedTTSEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, 
 		}
 
 		taskID := uuid.New().String()
+		ttsTaskResults.Store(taskID, filePath)
 
-		return c.JSON(http.StatusOK, schema.CambAITaskStatusResponse{
+		return c.JSON(http.StatusOK, schema.CambAITaskResponse{
+			TaskID: taskID,
 			Status: "SUCCESS",
 			RunID:  taskID,
-			Output: map[string]string{
-				"translation": translatedText,
-				"audio_path":  filePath,
-			},
 		})
 	}
 }

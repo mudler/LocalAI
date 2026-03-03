@@ -160,7 +160,7 @@ var _ = Describe("CAMB AI API Compatibility Tests", Label("CambAI"), func() {
 			Expect(result.Output).ToNot(BeNil())
 		})
 
-		It("should stream translation via /apis/translation/stream", func() {
+		It("should translate via /apis/translation/stream", func() {
 			body := `{
 				"text": "Hello world",
 				"source_language": 1,
@@ -176,9 +176,10 @@ var _ = Describe("CAMB AI API Compatibility Tests", Label("CambAI"), func() {
 
 			Expect(resp.StatusCode).To(Equal(200))
 
-			data, err := io.ReadAll(resp.Body)
+			var result map[string]any
+			err = json.NewDecoder(resp.Body).Decode(&result)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(len(data)).To(BeNumerically(">", 0), "Stream should return some text")
+			Expect(result["translation"]).ToNot(BeEmpty())
 		})
 	})
 
@@ -196,11 +197,12 @@ var _ = Describe("CAMB AI API Compatibility Tests", Label("CambAI"), func() {
 			defer resp.Body.Close()
 
 			Expect(resp.StatusCode).To(Equal(200))
-			Expect(resp.Header.Get("Content-Type")).To(HavePrefix("audio/"))
 
-			data, err := io.ReadAll(resp.Body)
+			var taskResp schema.CambAITaskResponse
+			err = json.NewDecoder(resp.Body).Decode(&taskResp)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(len(data)).To(BeNumerically(">", 0))
+			Expect(taskResp.TaskID).ToNot(BeEmpty())
+			Expect(taskResp.Status).To(Equal("SUCCESS"))
 		})
 	})
 
@@ -215,11 +217,10 @@ var _ = Describe("CAMB AI API Compatibility Tests", Label("CambAI"), func() {
 
 			Expect(resp.StatusCode).To(Equal(200))
 
-			var result schema.CambAIListVoicesResponse
+			var result []schema.CambAIVoice
 			err = json.NewDecoder(resp.Body).Decode(&result)
 			Expect(err).ToNot(HaveOccurred())
-			// voices list may be empty if no TTS models are flagged, but the endpoint should work
-			Expect(result.Voices).ToNot(BeNil())
+			Expect(result).ToNot(BeNil())
 		})
 	})
 
