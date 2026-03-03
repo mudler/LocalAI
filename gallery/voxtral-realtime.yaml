@@ -1,0 +1,20 @@
+---
+name: "voxtral-realtime"
+
+config_file: |
+  name: voxtral-realtime
+  backend: vllm
+  parameters:
+    model: mistralai/Voxtral-Mini-4B-Realtime-2602
+  trust_remote_code: true
+  max_model_len: 32768
+  template:
+    use_tokenizer_template: true
+  # Real-time ASR configuration
+  # Uncomment to enable streaming for real-time transcription
+  # stream: true
+  # Uncomment to specify audio input handling
+  # multimodal: "audio"
+  # Uncomment for specific vLLM audio processing options
+  # limit_mm_per_prompt:
+  #   audio: 4
