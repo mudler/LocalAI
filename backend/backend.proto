@@ -9,6 +9,7 @@ package backend;
 
 service Backend {
   rpc Health(HealthMessage) returns (Reply) {}
+  rpc Free(HealthMessage) returns (Result) {}
   rpc Predict(PredictOptions) returns (Reply) {}
   rpc LoadModel(ModelOptions) returns (Result) {}
   rpc PredictStream(PredictOptions) returns (stream Reply) {}
