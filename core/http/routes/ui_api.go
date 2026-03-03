@@ -495,7 +495,6 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 					time.Sleep(100 * time.Millisecond)
 				}
 			}
-		removeConfig:
 			cl.RemoveModelConfig(galleryName)
 		}()
 
