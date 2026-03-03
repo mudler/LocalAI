@@ -480,7 +480,19 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		galleryService.StoreCancellation(uid, cancelFunc)
 		go func() {
 			galleryService.ModelGalleryChannel <- op
-			cl.RemoveModelConfig(galleryName)
+			// Wait for the deletion operation to complete before removing the config
+			for {
+				status := galleryService.GetStatus(uid)
+				if status != nil && status.Processed {
+					break
+				}
+				time.Sleep(100 * time.Millisecond)
+			}
+			// Only remove config if deletion was successful (no error)
+			status := galleryService.GetStatus(uid)
+			if status != nil && status.Error == nil {
+				cl.RemoveModelConfig(galleryName)
+			}
 		}()
 
 		return c.JSON(200, map[string]interface{}{
