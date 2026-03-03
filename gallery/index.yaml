@@ -1,4 +1,29 @@
 ---
+- name: "zen4-coder-pro-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/zen4-coder-pro-i1-GGUF
+  description: |
+    Describe the model in a clear and concise way that can be shared in a model gallery.
+  overrides:
+    parameters:
+      model: llama-cpp/models/zen4-coder-pro.i1-Q4_K_M.gguf
+    name: zen4-coder-pro-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/zen4-coder-pro-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/zen4-coder-pro.i1-Q4_K_M.gguf
+      sha256: 242059e28442a9b3583c0e533b31aa89f069daefc95e0bb03b98637562f93005
+      uri: https://huggingface.co/mradermacher/zen4-coder-pro-i1-GGUF/resolve/main/zen4-coder-pro.i1-Q4_K_M.gguf
 - name: "qwen3.5-9b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
