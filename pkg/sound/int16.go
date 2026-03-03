@@ -25,11 +25,23 @@ func CalculateRMS16(buffer []int16) float64 {
 }
 
 func ResampleInt16(input []int16, inputRate, outputRate int) []int16 {
+	if len(input) == 0 {
+		return nil
+	}
+	if inputRate == outputRate {
+		out := make([]int16, len(input))
+		copy(out, input)
+		return out
+	}
+
 	// Calculate the resampling ratio
 	ratio := float64(inputRate) / float64(outputRate)
 
 	// Calculate the length of the resampled output
 	outputLength := int(float64(len(input)) / ratio)
+	if outputLength <= 0 {
+		return []int16{input[0]}
+	}
 
 	// Allocate a slice for the resampled output
 	output := make([]int16, outputLength)

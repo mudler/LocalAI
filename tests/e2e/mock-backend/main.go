@@ -7,9 +7,11 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"math"
 	"net"
 	"os"
 	"path/filepath"
+	"strconv"
 
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"github.com/mudler/xlog"
@@ -177,12 +179,28 @@ func (m *MockBackend) SoundGeneration(ctx context.Context, in *pb.SoundGeneratio
 	}, nil
 }
 
-// writeMinimalWAV writes a minimal valid WAV file (short silence) so the HTTP handler can send it.
+// ttsSampleRate returns the sample rate to use for TTS output, configurable
+// via the MOCK_TTS_SAMPLE_RATE environment variable (default 16000).
+func ttsSampleRate() int {
+	if s := os.Getenv("MOCK_TTS_SAMPLE_RATE"); s != "" {
+		if v, err := strconv.Atoi(s); err == nil && v > 0 {
+			return v
+		}
+	}
+	return 16000
+}
+
+// writeMinimalWAV writes a WAV file containing a 440Hz sine wave (0.5s)
+// so that tests can verify audio integrity end-to-end. The sample rate
+// is configurable via MOCK_TTS_SAMPLE_RATE to test rate mismatch bugs.
 func writeMinimalWAV(path string) error {
-	const sampleRate = 16000
+	sampleRate := ttsSampleRate()
 	const numChannels = 1
 	const bitsPerSample = 16
-	const numSamples = 1600 // 0.1s
+	const freq = 440.0
+	const durationSec = 0.5
+	numSamples := int(float64(sampleRate) * durationSec)
+
 	dataSize := numSamples * numChannels * (bitsPerSample / 8)
 	const headerLen = 44
 	f, err := os.Create(path)
@@ -203,23 +221,56 @@ func writeMinimalWAV(path string) error {
 	_ = binary.Write(f, binary.LittleEndian, uint32(sampleRate*numChannels*(bitsPerSample/8)))
 	_ = binary.Write(f, binary.LittleEndian, uint16(numChannels*(bitsPerSample/8)))
 	_ = binary.Write(f, binary.LittleEndian, uint16(bitsPerSample))
-	// data chunk
+	// data chunk — 440Hz sine wave
 	_, _ = f.Write([]byte("data"))
 	_ = binary.Write(f, binary.LittleEndian, uint32(dataSize))
-	_, _ = f.Write(make([]byte, dataSize))
+	for i := range numSamples {
+		t := float64(i) / float64(sampleRate)
+		sample := int16(math.MaxInt16 / 2 * math.Sin(2*math.Pi*freq*t))
+		_ = binary.Write(f, binary.LittleEndian, sample)
+	}
 	return nil
 }
 
 func (m *MockBackend) AudioTranscription(ctx context.Context, in *pb.TranscriptRequest) (*pb.TranscriptResult, error) {
-	xlog.Debug("AudioTranscription called")
+	dst := in.GetDst()
+	wavSR := 0
+	dataLen := 0
+	rms := 0.0
+
+	if dst != "" {
+		if data, err := os.ReadFile(dst); err == nil {
+			if len(data) >= 44 {
+				wavSR = int(binary.LittleEndian.Uint32(data[24:28]))
+				dataLen = int(binary.LittleEndian.Uint32(data[40:44]))
+
+				// Compute RMS of the PCM payload (16-bit LE samples)
+				pcm := data[44:]
+				var sumSq float64
+				nSamples := len(pcm) / 2
+				for i := range nSamples {
+					s := int16(pcm[2*i]) | int16(pcm[2*i+1])<<8
+					v := float64(s)
+					sumSq += v * v
+				}
+				if nSamples > 0 {
+					rms = math.Sqrt(sumSq / float64(nSamples))
+				}
+			}
+		}
+	}
+
+	xlog.Debug("AudioTranscription called", "dst", dst, "wav_sample_rate", wavSR, "data_len", dataLen, "rms", rms)
+
+	text := fmt.Sprintf("transcribed: rms=%.1f samples=%d sr=%d", rms, dataLen/2, wavSR)
 	return &pb.TranscriptResult{
-		Text: "This is a mocked transcription.",
+		Text: text,
 		Segments: []*pb.TranscriptSegment{
 			{
 				Id:    0,
 				Start: 0,
 				End:   3000,
-				Text:  "This is a mocked transcription.",
+				Text:  text,
 				Tokens: []int32{1, 2, 3, 4, 5, 6},
 			},
 		},
@@ -349,16 +400,30 @@ func (m *MockBackend) GetMetrics(ctx context.Context, in *pb.MetricsRequest) (*p
 }
 
 func (m *MockBackend) VAD(ctx context.Context, in *pb.VADRequest) (*pb.VADResponse, error) {
-	xlog.Debug("VAD called", "audio_length", len(in.Audio))
+	// Compute RMS of the received float32 audio to decide whether speech is present.
+	var sumSq float64
+	for _, s := range in.Audio {
+		v := float64(s)
+		sumSq += v * v
+	}
+	rms := 0.0
+	if len(in.Audio) > 0 {
+		rms = math.Sqrt(sumSq / float64(len(in.Audio)))
+	}
+	xlog.Debug("VAD called", "audio_length", len(in.Audio), "rms", rms)
+
+	// If audio is near-silence, return no segments (no speech detected).
+	if rms < 0.001 {
+		return &pb.VADResponse{}, nil
+	}
+
+	// Audio has signal — return a single segment covering the duration.
+	duration := float64(len(in.Audio)) / 16000.0
 	return &pb.VADResponse{
 		Segments: []*pb.VADSegment{
 			{
 				Start: 0.0,
-				End:   1.5,
-			},
-			{
-				Start: 2.0,
-				End:   3.5,
+				End:   float32(duration),
 			},
 		},
 	}, nil

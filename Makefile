@@ -106,7 +106,17 @@ react-ui-docker:
 core/http/react-ui/dist: react-ui
 
 ## Build:
-build: protogen-go install-go-tools core/http/react-ui/dist ## Build the project
+
+# Build the opus shim if libopus is available
+build-opus-shim:
+	@if command -v pkg-config >/dev/null 2>&1 && pkg-config --exists opus; then \
+		echo "$(GREEN)I Building opus shim (libopus found)$(RESET)"; \
+		$(MAKE) -C pkg/opus/shim; \
+	else \
+		echo "$(YELLOW)W libopus-dev not found, skipping opus shim build (WebRTC audio will not work)$(RESET)"; \
+	fi
+
+build: protogen-go install-go-tools build-opus-shim core/http/react-ui/dist ## Build the project
 	$(info ${GREEN}I local-ai build info:${RESET})
 	$(info ${GREEN}I BUILD_TYPE: ${YELLOW}$(BUILD_TYPE)${RESET})
 	$(info ${GREEN}I GO_TAGS: ${YELLOW}$(GO_TAGS)${RESET})
@@ -114,6 +124,7 @@ build: protogen-go install-go-tools core/http/react-ui/dist ## Build the project
 	$(info ${GREEN}I UPX: ${YELLOW}$(UPX)${RESET})
 	rm -rf $(BINARY_NAME) || true
 	CGO_LDFLAGS="$(CGO_LDFLAGS)" $(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o $(BINARY_NAME) ./cmd/local-ai
+	@if [ -f pkg/opus/shim/libopusshim.so ]; then cp pkg/opus/shim/libopusshim.so .; fi
 
 build-launcher: ## Build the launcher application
 	$(info ${GREEN}I local-ai launcher build info:${RESET})
@@ -249,6 +260,73 @@ test-stablediffusion: prepare-test
 
 test-stores:
 	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter="stores" --flake-attempts $(TEST_FLAKES) -v -r tests/integration
+
+test-realtime: build-mock-backend
+	@echo 'Running realtime e2e tests (mock backend)'
+	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter="Realtime && !real-models" --flake-attempts $(TEST_FLAKES) -v -r ./tests/e2e
+
+# Real-model realtime tests. Set REALTIME_TEST_MODEL to use your own pipeline,
+# or leave unset to auto-build one from the component env vars below.
+REALTIME_VAD?=silero-vad-ggml
+REALTIME_STT?=whisper-1
+REALTIME_LLM?=qwen3-0.6b
+REALTIME_TTS?=tts-1
+REALTIME_BACKENDS_PATH?=$(abspath ./)/backends
+
+test-realtime-models: build-mock-backend
+	@echo 'Running realtime e2e tests (real models)'
+	REALTIME_TEST_MODEL=$${REALTIME_TEST_MODEL:-realtime-test-pipeline} \
+	REALTIME_VAD=$(REALTIME_VAD) \
+	REALTIME_STT=$(REALTIME_STT) \
+	REALTIME_LLM=$(REALTIME_LLM) \
+	REALTIME_TTS=$(REALTIME_TTS) \
+	REALTIME_BACKENDS_PATH=$(REALTIME_BACKENDS_PATH) \
+	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter="Realtime" --flake-attempts $(TEST_FLAKES) -v -r ./tests/e2e
+
+# --- Container-based real-model testing ---
+
+REALTIME_BACKEND_NAMES ?= silero-vad whisper llama-cpp kokoro
+REALTIME_MODELS_DIR ?= $(abspath ./models)
+REALTIME_BACKENDS_DIR ?= $(abspath ./local-backends)
+REALTIME_DOCKER_FLAGS ?= --gpus all
+
+local-backends:
+	mkdir -p local-backends
+
+extract-backend-%: docker-build-% local-backends
+	@echo "Extracting backend $*..."
+	@CID=$$(docker create local-ai-backend:$*) && \
+	  rm -rf local-backends/$* && mkdir -p local-backends/$* && \
+	  docker cp $$CID:/ - | tar -xf - -C local-backends/$* && \
+	  docker rm $$CID > /dev/null
+
+extract-realtime-backends: $(addprefix extract-backend-,$(REALTIME_BACKEND_NAMES))
+
+test-realtime-models-docker: build-mock-backend
+	docker build --target build-requirements \
+	  --build-arg BUILD_TYPE=$(or $(BUILD_TYPE),cublas) \
+	  --build-arg CUDA_MAJOR_VERSION=$(or $(CUDA_MAJOR_VERSION),13) \
+	  --build-arg CUDA_MINOR_VERSION=$(or $(CUDA_MINOR_VERSION),0) \
+	  -t localai-test-runner .
+	docker run --rm \
+	  $(REALTIME_DOCKER_FLAGS) \
+	  -v $(abspath ./):/build \
+	  -v $(REALTIME_MODELS_DIR):/models:ro \
+	  -v $(REALTIME_BACKENDS_DIR):/backends \
+	  -v localai-go-cache:/root/go/pkg/mod \
+	  -v localai-go-build-cache:/root/.cache/go-build \
+	  -e REALTIME_TEST_MODEL=$${REALTIME_TEST_MODEL:-realtime-test-pipeline} \
+	  -e REALTIME_VAD=$(REALTIME_VAD) \
+	  -e REALTIME_STT=$(REALTIME_STT) \
+	  -e REALTIME_LLM=$(REALTIME_LLM) \
+	  -e REALTIME_TTS=$(REALTIME_TTS) \
+	  -e REALTIME_BACKENDS_PATH=/backends \
+	  -e REALTIME_MODELS_PATH=/models \
+	  -w /build \
+	  localai-test-runner \
+	  bash -c 'git config --global --add safe.directory /build && \
+	    make protogen-go && make build-mock-backend && \
+	    go run github.com/onsi/ginkgo/v2/ginkgo --label-filter="Realtime" --flake-attempts $(TEST_FLAKES) -v -r ./tests/e2e'
 
 test-container:
 	docker build --target requirements -t local-ai-test-container .

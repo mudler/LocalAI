@@ -2,10 +2,10 @@
 <html lang="en">
   {{template "views/partials/head" .}}
   <script defer src="static/talk.js"></script>
-  <body class="bg-[var(--color-bg-primary)] text-[var(--color-text-primary)]" x-data="{ key: $store.chat.key }">
+  <body class="bg-[var(--color-bg-primary)] text-[var(--color-text-primary)]">
     <div class="app-layout">
       {{template "views/partials/navbar" .}}
-      
+
       <main class="main-content">
         <div class="main-content-inner">
 
@@ -16,107 +16,206 @@
             <h1 class="hero-title">
               <i class="fas fa-comments mr-2"></i>Talk Interface
             </h1>
-            <p class="hero-subtitle">Speak with your AI models using voice interaction</p>
+            <p class="hero-subtitle">Real-time voice conversation with your AI models via WebRTC</p>
           </div>
         </div>
 
         <!-- Talk Interface -->
         <div class="max-w-3xl mx-auto">
           <div class="card overflow-hidden">
-            <!-- Talk Interface Body -->
             <div class="p-6">
-              <!-- Recording Status -->
-              <div id="recording" class="bg-[var(--color-error-light)] border border-[var(--color-error)]/30 rounded-lg p-4 mb-4 flex items-center space-x-3" style="display: none;">
-                <i class="fa-solid fa-microphone text-2xl text-[var(--color-error)]"></i>
-                <span class="text-[var(--color-error)] font-medium">Recording... press "Stop recording" to stop</span>
+              <!-- Connection Status -->
+              <div id="connectionStatus" class="rounded-lg p-4 mb-4 flex items-center space-x-3 bg-[var(--color-bg-primary)]/50 border border-[var(--color-border-subtle)]">
+                <i id="statusIcon" class="fa-solid fa-circle text-[var(--color-text-secondary)]"></i>
+                <span id="statusLabel" class="font-medium text-[var(--color-text-secondary)]">Disconnected</span>
               </div>
-              
-              <!-- Loader -->
-              <div id="loader" class="my-4 flex justify-center" style="display: none;">
-                <div class="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-[var(--color-primary)]"></div>
-              </div>
-              
-              <!-- Status Text -->
-              <div id="statustext" class="my-4 p-3 bg-[var(--color-bg-primary)]/50 border border-[var(--color-border-subtle)] rounded-lg text-[var(--color-text-primary)]" style="min-height: 3rem;">Press the record button to start recording.</div>
-              
+
               <!-- Note -->
               <div class="bg-[var(--color-primary-light)] border border-[var(--color-primary)]/20 rounded-lg p-4 mb-6">
                 <div class="flex items-start">
                   <i class="fas fa-info-circle text-[var(--color-primary)] mt-1 mr-3 flex-shrink-0"></i>
                   <p class="text-[var(--color-text-secondary)]">
-                    <strong class="text-[var(--color-primary)]">Note:</strong> You need an LLM, an audio-transcription (whisper), and a TTS model installed for this to work. Select the appropriate models below and click 'Talk' to start recording. The recording will continue until you click 'Stop recording'. Make sure your microphone is set up and enabled.
+                    <strong class="text-[var(--color-primary)]">Note:</strong> Select a pipeline model below and click 'Connect' to start a real-time voice conversation. The pipeline model includes VAD, transcription, LLM, and TTS components. Your microphone audio streams continuously; the server detects speech and responds automatically.
                   </p>
                 </div>
               </div>
-              
-              <!-- Model Selectors -->
-              <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-                <!-- LLM Model -->
-                <div class="space-y-2">
-                  <label for="modelSelect" class="flex items-center text-[var(--color-text-secondary)] font-medium">
-                    <i class="fas fa-brain text-[var(--color-primary)] mr-2"></i>LLM Model
-                  </label>
-                  <select id="modelSelect" 
-                    class="w-full bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] border border-[var(--color-border-subtle)] focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/50 rounded-lg shadow-sm p-2.5 appearance-none">
-                    <option value="" disabled class="text-[var(--color-text-secondary)]">Select a model</option>
-                    {{ range .ModelsConfig }}
-                    <option value="{{.}}" class="bg-[var(--color-bg-primary)] text-[var(--color-text-primary)]">{{.}}</option>
-                    {{ end }}
-                  </select>
-                </div>
-                
-                <!-- STT Model -->
-                <div class="space-y-2">
-                  <label for="sttModelSelect" class="flex items-center text-[var(--color-text-secondary)] font-medium">
-                    <i class="fas fa-ear-listen text-[var(--color-accent)] mr-2"></i>STT Model
-                  </label>
-                  <select id="sttModelSelect" 
-                    class="w-full bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] border border-[var(--color-border-subtle)] focus:border-[var(--color-accent)] focus:ring-2 focus:ring-[var(--color-accent)]/50 rounded-lg shadow-sm p-2.5 appearance-none">
-                    <option value="" disabled class="text-[var(--color-text-secondary)]">Select a model</option>
-                    {{ range .ModelsConfig }}
-                    <option value="{{.}}" class="bg-[var(--color-bg-primary)] text-[var(--color-text-primary)]">{{.}}</option>
-                    {{ end }}
-                  </select>
-                </div>
-                
-                <!-- TTS Model -->
-                <div class="space-y-2">
-                  <label for="ttsModelSelect" class="flex items-center text-[var(--color-text-secondary)] font-medium">
-                    <i class="fas fa-volume-high text-[var(--color-success)] mr-2"></i>TTS Model
-                  </label>
-                  <select id="ttsModelSelect" 
-                    class="w-full bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] border border-[var(--color-border-subtle)] focus:border-[var(--color-success)] focus:ring-2 focus:ring-[var(--color-success)]/50 rounded-lg shadow-sm p-2.5 appearance-none">
-                    <option value="" disabled class="text-[var(--color-text-secondary)]">Select a model</option>
-                    {{ range .ModelsConfig }}
-                    <option value="{{.}}" class="bg-[var(--color-bg-primary)] text-[var(--color-text-primary)]">{{.}}</option>
-                    {{ end }}
-                  </select>
+
+              <!-- Model Selector -->
+              <div class="mb-4 space-y-2">
+                <label for="modelSelect" class="flex items-center text-[var(--color-text-secondary)] font-medium">
+                  <i class="fas fa-brain text-[var(--color-primary)] mr-2"></i>Pipeline Model
+                </label>
+                <select id="modelSelect"
+                  class="w-full bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] border border-[var(--color-border-subtle)] focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/50 rounded-lg shadow-sm p-2.5 appearance-none">
+                  <option value="" disabled class="text-[var(--color-text-secondary)]">Select a pipeline model</option>
+                  {{ range .PipelineModels }}
+                  <option value="{{.Name}}"
+                    data-vad="{{.VAD}}"
+                    data-stt="{{.Transcription}}"
+                    data-llm="{{.LLM}}"
+                    data-tts="{{.TTS}}"
+                    data-voice="{{.Voice}}"
+                    class="bg-[var(--color-bg-primary)] text-[var(--color-text-primary)]">{{.Name}}</option>
+                  {{ end }}
+                </select>
+              </div>
+
+              <!-- Pipeline Details (shown when a model is selected) -->
+              <div id="pipelineDetails" class="mb-6 hidden">
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                  <div class="bg-[var(--color-bg-primary)]/50 rounded p-2 border border-[var(--color-border-subtle)]">
+                    <p class="text-[var(--color-text-secondary)] mb-0.5">VAD</p>
+                    <p id="pipelineVAD" class="font-mono text-[var(--color-text-primary)] truncate"></p>
+                  </div>
+                  <div class="bg-[var(--color-bg-primary)]/50 rounded p-2 border border-[var(--color-border-subtle)]">
+                    <p class="text-[var(--color-text-secondary)] mb-0.5">Transcription</p>
+                    <p id="pipelineSTT" class="font-mono text-[var(--color-text-primary)] truncate"></p>
+                  </div>
+                  <div class="bg-[var(--color-bg-primary)]/50 rounded p-2 border border-[var(--color-border-subtle)]">
+                    <p class="text-[var(--color-text-secondary)] mb-0.5">LLM</p>
+                    <p id="pipelineLLM" class="font-mono text-[var(--color-text-primary)] truncate"></p>
+                  </div>
+                  <div class="bg-[var(--color-bg-primary)]/50 rounded p-2 border border-[var(--color-border-subtle)]">
+                    <p class="text-[var(--color-text-secondary)] mb-0.5">TTS</p>
+                    <p id="pipelineTTS" class="font-mono text-[var(--color-text-primary)] truncate"></p>
+                  </div>
                 </div>
               </div>
-              
+
+              <!-- Session Settings (collapsible) -->
+              <details class="mb-6 border border-[var(--color-border-subtle)] rounded-lg">
+                <summary class="cursor-pointer p-3 flex items-center text-[var(--color-text-secondary)] font-medium hover:bg-[var(--color-bg-primary)]/50 rounded-lg">
+                  <i class="fas fa-sliders text-[var(--color-primary)] mr-2"></i>Session Settings
+                </summary>
+                <div class="p-4 pt-2 space-y-4">
+                  <!-- Instructions -->
+                  <div class="space-y-1">
+                    <label for="instructionsInput" class="text-sm text-[var(--color-text-secondary)]">Instructions</label>
+                    <textarea id="instructionsInput" rows="3"
+                      class="w-full bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] border border-[var(--color-border-subtle)] focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/50 rounded-lg shadow-sm p-2.5 text-sm"
+                      placeholder="System instructions for the model (e.g. 'be extremely succinct', 'talk quickly')">You are a helpful voice assistant. Your responses will be spoken aloud using text-to-speech, so keep them concise and conversational. Do not use markdown formatting, bullet points, numbered lists, code blocks, or special characters. Speak naturally as you would in a phone conversation. Avoid parenthetical asides, URLs, and anything that cannot be clearly vocalized.</textarea>
+                  </div>
+
+                  <!-- Voice -->
+                  <div class="space-y-1">
+                    <label for="voiceInput" class="text-sm text-[var(--color-text-secondary)]">Voice</label>
+                    <input id="voiceInput" type="text"
+                      class="w-full bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] border border-[var(--color-border-subtle)] focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/50 rounded-lg shadow-sm p-2.5 text-sm"
+                      placeholder="Voice name (leave blank for model default)">
+                  </div>
+
+                  <!-- Language -->
+                  <div class="space-y-1">
+                    <label for="languageInput" class="text-sm text-[var(--color-text-secondary)]">Transcription Language</label>
+                    <input id="languageInput" type="text"
+                      class="w-full bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] border border-[var(--color-border-subtle)] focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/50 rounded-lg shadow-sm p-2.5 text-sm"
+                      placeholder="Language code (e.g. 'en', 'es') — leave blank for auto-detect">
+                  </div>
+                </div>
+              </details>
+
+              <!-- Conversation Transcript -->
+              <div id="transcript" class="mb-6 space-y-3 max-h-96 overflow-y-auto p-3 bg-[var(--color-bg-primary)]/50 border border-[var(--color-border-subtle)] rounded-lg" style="min-height: 6rem;">
+                <p class="text-[var(--color-text-secondary)] italic">Conversation will appear here...</p>
+              </div>
+
               <!-- Buttons -->
               <div class="flex items-center justify-between mt-8">
-                <button id="recordButton" 
-                  class="inline-flex items-center bg-[var(--color-error)] hover:bg-[var(--color-error)]/90 text-white font-semibold py-2 px-6 rounded-lg transition-colors">
-                  <i class="fas fa-microphone mr-2"></i>
-                  <span>Talk</span>
+                <div class="flex items-center space-x-3">
+                  <button id="connectButton"
+                    class="inline-flex items-center bg-[var(--color-success)] hover:bg-[var(--color-success)]/90 text-white font-semibold py-2 px-6 rounded-lg transition-colors">
+                    <i class="fas fa-plug mr-2"></i>
+                    <span>Connect</span>
+                  </button>
+
+                  <button id="testToneButton"
+                    class="inline-flex items-center bg-[var(--color-accent)] hover:bg-[var(--color-accent)]/90 text-white font-semibold py-2 px-6 rounded-lg transition-colors"
+                    style="display: none;">
+                    <i class="fas fa-wave-square mr-2"></i>
+                    <span>Test Tone</span>
+                  </button>
+
+                  <button id="diagnosticsButton"
+                    class="inline-flex items-center bg-[var(--color-bg-primary)] hover:bg-[var(--color-bg-primary)]/80 text-[var(--color-text-secondary)] font-semibold py-2 px-4 rounded-lg transition-colors border border-[var(--color-border-subtle)]"
+                    style="display: none;">
+                    <i class="fas fa-chart-line mr-2"></i>
+                    <span>Diag</span>
+                  </button>
+                </div>
+
+                <button id="disconnectButton"
+                  class="inline-flex items-center bg-[var(--color-error)] hover:bg-[var(--color-error)]/90 text-white font-semibold py-2 px-6 rounded-lg transition-colors"
+                  style="display: none;">
+                  <i class="fas fa-plug-circle-xmark mr-2"></i>
+                  <span>Disconnect</span>
                 </button>
-                
-                <a id="resetButton" 
-                  class="flex items-center text-[var(--color-primary)] hover:text-[var(--color-accent)] transition-colors" 
-                  href="#">
-                  <i class="fas fa-rotate-left mr-2"></i>
-                  <span>Reset conversation</span>
-                </a>
               </div>
-              
-              <!-- Audio Playback -->
-              <audio id="audioPlayback" controls hidden></audio>
+
+              <!-- Audio element for WebRTC playback -->
+              <audio id="audioPlayback" autoplay style="display:none;"></audio>
+
+              <!-- Audio Diagnostics (toggled by button) -->
+              <div id="diagnosticsPanel" style="display: none;" class="mt-6 border border-[var(--color-border-subtle)] rounded-lg p-4">
+                <h3 class="font-semibold text-[var(--color-text-primary)] mb-3">
+                  <i class="fas fa-chart-line text-[var(--color-primary)] mr-2"></i>Audio Diagnostics
+                </h3>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <p class="text-xs text-[var(--color-text-secondary)] mb-1">Waveform (time domain)</p>
+                    <canvas id="waveformCanvas" width="400" height="120" class="w-full border border-[var(--color-border-subtle)] rounded bg-black"></canvas>
+                  </div>
+                  <div>
+                    <p class="text-xs text-[var(--color-text-secondary)] mb-1">Spectrum (FFT)</p>
+                    <canvas id="spectrumCanvas" width="400" height="120" class="w-full border border-[var(--color-border-subtle)] rounded bg-black"></canvas>
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+                  <div class="bg-[var(--color-bg-primary)]/50 rounded p-2">
+                    <p class="text-xs text-[var(--color-text-secondary)]">Peak Freq</p>
+                    <p id="statPeakFreq" class="font-mono text-sm text-[var(--color-text-primary)]">--</p>
+                  </div>
+                  <div class="bg-[var(--color-bg-primary)]/50 rounded p-2">
+                    <p class="text-xs text-[var(--color-text-secondary)]">THD</p>
+                    <p id="statTHD" class="font-mono text-sm text-[var(--color-text-primary)]">--</p>
+                  </div>
+                  <div class="bg-[var(--color-bg-primary)]/50 rounded p-2">
+                    <p class="text-xs text-[var(--color-text-secondary)]">RMS Level</p>
+                    <p id="statRMS" class="font-mono text-sm text-[var(--color-text-primary)]">--</p>
+                  </div>
+                  <div class="bg-[var(--color-bg-primary)]/50 rounded p-2">
+                    <p class="text-xs text-[var(--color-text-secondary)]">Sample Rate</p>
+                    <p id="statSampleRate" class="font-mono text-sm text-[var(--color-text-primary)]">--</p>
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+                  <div class="bg-[var(--color-bg-primary)]/50 rounded p-2">
+                    <p class="text-xs text-[var(--color-text-secondary)]">Packets Recv</p>
+                    <p id="statPacketsRecv" class="font-mono text-sm text-[var(--color-text-primary)]">--</p>
+                  </div>
+                  <div class="bg-[var(--color-bg-primary)]/50 rounded p-2">
+                    <p class="text-xs text-[var(--color-text-secondary)]">Packets Lost</p>
+                    <p id="statPacketsLost" class="font-mono text-sm text-[var(--color-text-primary)]">--</p>
+                  </div>
+                  <div class="bg-[var(--color-bg-primary)]/50 rounded p-2">
+                    <p class="text-xs text-[var(--color-text-secondary)]">Jitter</p>
+                    <p id="statJitter" class="font-mono text-sm text-[var(--color-text-primary)]">--</p>
+                  </div>
+                  <div class="bg-[var(--color-bg-primary)]/50 rounded p-2">
+                    <p class="text-xs text-[var(--color-text-secondary)]">Concealed</p>
+                    <p id="statConcealed" class="font-mono text-sm text-[var(--color-text-primary)]">--</p>
+                  </div>
+                </div>
+
+                <pre id="statsRaw" class="text-xs text-[var(--color-text-secondary)] bg-[var(--color-bg-primary)]/50 rounded p-2 max-h-32 overflow-y-auto font-mono" style="white-space: pre-wrap;"></pre>
+              </div>
             </div>
           </div>
         </div>
       </div>
-      
+
       {{template "views/partials/footer" .}}
       </div>
     </main>

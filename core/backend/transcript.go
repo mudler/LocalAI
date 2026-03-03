@@ -3,11 +3,12 @@ package backend
 import (
 	"context"
 	"fmt"
+	"maps"
 	"time"
 
 	"github.com/mudler/LocalAI/core/config"
-	"github.com/mudler/LocalAI/core/trace"
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/trace"
 
 	"github.com/mudler/LocalAI/pkg/grpc/proto"
 	"github.com/mudler/LocalAI/pkg/model"
@@ -30,9 +31,12 @@ func ModelTranscription(audio, language string, translate, diarize bool, prompt 
 	}
 
 	var startTime time.Time
+	var audioSnippet map[string]any
 	if appConfig.EnableTracing {
 		trace.InitBackendTracingIfEnabled(appConfig.TracingMaxItems)
 		startTime = time.Now()
+		// Capture audio before the backend call — the backend may delete the file.
+		audioSnippet = trace.AudioSnippet(audio)
 	}
 
 	r, err := transcriptionModel.AudioTranscription(context.Background(), &proto.TranscriptRequest{
@@ -45,6 +49,16 @@ func ModelTranscription(audio, language string, translate, diarize bool, prompt 
 	})
 	if err != nil {
 		if appConfig.EnableTracing {
+			errData := map[string]any{
+				"audio_file": audio,
+				"language":   language,
+				"translate":  translate,
+				"diarize":    diarize,
+				"prompt":     prompt,
+			}
+			if audioSnippet != nil {
+				maps.Copy(errData, audioSnippet)
+			}
 			trace.RecordBackendTrace(trace.BackendTrace{
 				Timestamp: startTime,
 				Duration:  time.Since(startTime),
@@ -53,13 +67,7 @@ func ModelTranscription(audio, language string, translate, diarize bool, prompt 
 				Backend:   modelConfig.Backend,
 				Summary:   trace.TruncateString(audio, 200),
 				Error:     err.Error(),
-				Data: map[string]any{
-					"audio_file": audio,
-					"language":   language,
-					"translate":  translate,
-					"diarize":    diarize,
-					"prompt":     prompt,
-				},
+				Data:      errData,
 			})
 		}
 		return nil, err
@@ -84,6 +92,18 @@ func ModelTranscription(audio, language string, translate, diarize bool, prompt 
 	}
 
 	if appConfig.EnableTracing {
+		data := map[string]any{
+			"audio_file":     audio,
+			"language":       language,
+			"translate":      translate,
+			"diarize":        diarize,
+			"prompt":         prompt,
+			"result_text":    tr.Text,
+			"segments_count": len(tr.Segments),
+		}
+		if audioSnippet != nil {
+			maps.Copy(data, audioSnippet)
+		}
 		trace.RecordBackendTrace(trace.BackendTrace{
 			Timestamp: startTime,
 			Duration:  time.Since(startTime),
@@ -91,15 +111,7 @@ func ModelTranscription(audio, language string, translate, diarize bool, prompt 
 			ModelName: modelConfig.Name,
 			Backend:   modelConfig.Backend,
 			Summary:   trace.TruncateString(audio+" -> "+tr.Text, 200),
-			Data: map[string]any{
-				"audio_file":     audio,
-				"language":       language,
-				"translate":      translate,
-				"diarize":        diarize,
-				"prompt":         prompt,
-				"result_text":    tr.Text,
-				"segments_count": len(tr.Segments),
-			},
+			Data:      data,
 		})
 	}
 

@@ -54,6 +54,7 @@ const SECTIONS = [
   { id: 'memory', icon: 'fa-memory', color: 'var(--color-accent)', label: 'Memory' },
   { id: 'backends', icon: 'fa-cogs', color: 'var(--color-accent)', label: 'Backends' },
   { id: 'performance', icon: 'fa-gauge-high', color: 'var(--color-success)', label: 'Performance' },
+  { id: 'tracing', icon: 'fa-bug', color: 'var(--color-warning)', label: 'Tracing' },
   { id: 'api', icon: 'fa-globe', color: 'var(--color-warning)', label: 'API & CORS' },
   { id: 'p2p', icon: 'fa-network-wired', color: 'var(--color-accent)', label: 'P2P' },
   { id: 'galleries', icon: 'fa-images', color: 'var(--color-accent)', label: 'Galleries' },
@@ -325,10 +326,19 @@ export default function Settings() {
               <SettingRow label="Debug Mode" description="Enable verbose debug logging">
                 <Toggle checked={settings.debug} onChange={(v) => update('debug', v)} />
               </SettingRow>
-              <SettingRow label="Enable Tracing" description="Enable request/response tracing for debugging">
+            </div>
+          </div>
+
+          {/* Tracing */}
+          <div ref={el => sectionRefs.current.tracing = el} style={{ marginBottom: 'var(--spacing-xl)' }}>
+            <h3 style={{ fontSize: '1rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-md)' }}>
+              <i className="fas fa-bug" style={{ color: 'var(--color-warning)' }} /> Tracing
+            </h3>
+            <div className="card">
+              <SettingRow label="Enable Tracing" description="Record API requests, responses, and backend operations for debugging">
                 <Toggle checked={settings.enable_tracing} onChange={(v) => update('enable_tracing', v)} />
               </SettingRow>
-              <SettingRow label="Tracing Max Items" description="Maximum number of trace items to retain">
+              <SettingRow label="Max Items" description="Maximum number of trace items to retain (0 = unlimited)">
                 <input className="input" type="number" style={{ width: 120 }} value={settings.tracing_max_items ?? ''} onChange={(e) => update('tracing_max_items', parseInt(e.target.value) || 0)} placeholder="100" disabled={!settings.enable_tracing} />
               </SettingRow>
             </div>
