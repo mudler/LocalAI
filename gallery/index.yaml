@@ -1,4 +1,33 @@
 ---
+- name: "qwen3.5-9b"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/unsloth/Qwen3.5-9B-GGUF
+  description: |
+    Describe the model in a clear and concise way that can be shared in a model gallery.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Qwen3.5-9B-Q4_K_M.gguf
+    name: Qwen3.5-9B-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    mmproj: llama-cpp/mmproj/mmproj-F32.gguf
+    description: Imported from https://huggingface.co/unsloth/Qwen3.5-9B-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Qwen3.5-9B-Q4_K_M.gguf
+      sha256: 03b74727a860a56338e042c4420bb3f04b2fec5734175f4cb9fa853daf52b7e8
+      uri: https://huggingface.co/unsloth/Qwen3.5-9B-GGUF/resolve/main/Qwen3.5-9B-Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/mmproj-F32.gguf
+      sha256: a1cd5c1625b44dd0facaec998020e9b36cb78c2225eaee701e73bf2e5b051ce2
+      uri: https://huggingface.co/unsloth/Qwen3.5-9B-GGUF/resolve/main/mmproj-F32.gguf
 - name: "qwen3.5-397b-a17b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
