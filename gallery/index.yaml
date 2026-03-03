@@ -1,4 +1,29 @@
 ---
+- name: "qwen3-0.6b-qrazy-qoder"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Qwen3-0.6B-Qrazy-Qoder-GGUF
+  description: |
+    Describe the model in a clear and concise way that can be shared in a model gallery.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Qwen3-0.6B-Qrazy-Qoder.Q4_K_M.gguf
+    name: Qwen3-0.6B-Qrazy-Qoder-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Qwen3-0.6B-Qrazy-Qoder-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Qwen3-0.6B-Qrazy-Qoder.Q4_K_M.gguf
+      sha256: 81a71687530d933fb0e176723c96d412013640a67f8ccf72515509e4aed32adf
+      uri: https://huggingface.co/mradermacher/Qwen3-0.6B-Qrazy-Qoder-GGUF/resolve/main/Qwen3-0.6B-Qrazy-Qoder.Q4_K_M.gguf
 - name: "qwen3.5-9b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
