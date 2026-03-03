@@ -1,4 +1,29 @@
 ---
+- name: "mn-12b-hydra-rp-ru"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/MN-12B-Hydra-RP-RU-GGUF
+  description: |
+    Describe the model in a clear and concise way that can be shared in a model gallery.
+  overrides:
+    parameters:
+      model: llama-cpp/models/MN-12B-Hydra-RP-RU.Q4_K_M.gguf
+    name: MN-12B-Hydra-RP-RU-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/MN-12B-Hydra-RP-RU-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/MN-12B-Hydra-RP-RU.Q4_K_M.gguf
+      sha256: deee4ef8f6c3bbddc41aa30b137908d8fef065d5c2644558b0f036ed638af5ed
+      uri: https://huggingface.co/mradermacher/MN-12B-Hydra-RP-RU-GGUF/resolve/main/MN-12B-Hydra-RP-RU.Q4_K_M.gguf
 - name: "qwen3.5-397b-a17b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
