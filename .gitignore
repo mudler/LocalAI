@@ -38,6 +38,7 @@ test-models/
 test-dir/
 tests/e2e-aio/backends
 tests/e2e-aio/models
+mock-backend
 
 release/
 
@@ -69,3 +70,6 @@ docs/static/gallery.html
 # React UI build artifacts (keep placeholder dist/index.html)
 core/http/react-ui/node_modules/
 core/http/react-ui/dist
+
+# Extracted backend binaries for container-based testing
+local-backends/

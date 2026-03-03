@@ -93,7 +93,7 @@ jobs:
       - name: Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install curl ffmpeg
+          sudo apt-get install curl ffmpeg libopus-dev
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
@@ -195,7 +195,7 @@ jobs:
         run: go version
       - name: Dependencies
         run: |
-          brew install protobuf grpc make protoc-gen-go protoc-gen-go-grpc libomp llvm
+          brew install protobuf grpc make protoc-gen-go protoc-gen-go-grpc libomp llvm opus
           pip install --user --no-cache-dir grpcio-tools grpcio
       - name: Setup Node.js
         uses: actions/setup-node@v6

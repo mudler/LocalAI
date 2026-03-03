@@ -180,6 +180,11 @@ RUN <<EOT bash
     fi
 EOT
 
+RUN if [ "${BACKEND}" = "opus" ]; then \
+    apt-get update && apt-get install -y --no-install-recommends libopus-dev pkg-config && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*; \
+fi
+
 COPY . /LocalAI
 
 RUN git config --global --add safe.directory /LocalAI

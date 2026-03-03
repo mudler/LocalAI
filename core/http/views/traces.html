@@ -254,12 +254,54 @@
                                             </div>
                                         </div>
 
+                                        <!-- Audio Player & Metrics (transcription traces) -->
+                                        <template x-if="trace.data && trace.data.audio_wav_base64">
+                                            <div class="mb-4">
+                                                <h4 class="text-sm font-semibold text-[var(--color-text-primary)] mb-2">
+                                                    <i class="fas fa-headphones text-[var(--color-primary)] mr-1.5"></i>Audio Snippet
+                                                </h4>
+                                                <div class="bg-[var(--color-bg-primary)] border border-[var(--color-border-subtle)] rounded-lg p-3">
+                                                    <audio controls class="w-full mb-3" :src="'data:audio/wav;base64,' + trace.data.audio_wav_base64"></audio>
+                                                    <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                                                        <div class="bg-[var(--color-bg-secondary)]/50 rounded p-2">
+                                                            <p class="text-[var(--color-text-secondary)]">Duration</p>
+                                                            <p class="font-mono text-[var(--color-text-primary)]" x-text="trace.data.audio_duration_s + 's'"></p>
+                                                        </div>
+                                                        <div class="bg-[var(--color-bg-secondary)]/50 rounded p-2">
+                                                            <p class="text-[var(--color-text-secondary)]">Sample Rate</p>
+                                                            <p class="font-mono text-[var(--color-text-primary)]" x-text="trace.data.audio_sample_rate + ' Hz'"></p>
+                                                        </div>
+                                                        <div class="bg-[var(--color-bg-secondary)]/50 rounded p-2">
+                                                            <p class="text-[var(--color-text-secondary)]">RMS Level</p>
+                                                            <p class="font-mono text-[var(--color-text-primary)]" x-text="trace.data.audio_rms_dbfs + ' dBFS'"></p>
+                                                        </div>
+                                                        <div class="bg-[var(--color-bg-secondary)]/50 rounded p-2">
+                                                            <p class="text-[var(--color-text-secondary)]">Peak Level</p>
+                                                            <p class="font-mono text-[var(--color-text-primary)]" x-text="trace.data.audio_peak_dbfs + ' dBFS'"></p>
+                                                        </div>
+                                                        <div class="bg-[var(--color-bg-secondary)]/50 rounded p-2">
+                                                            <p class="text-[var(--color-text-secondary)]">Samples</p>
+                                                            <p class="font-mono text-[var(--color-text-primary)]" x-text="trace.data.audio_samples"></p>
+                                                        </div>
+                                                        <div class="bg-[var(--color-bg-secondary)]/50 rounded p-2">
+                                                            <p class="text-[var(--color-text-secondary)]">Snippet</p>
+                                                            <p class="font-mono text-[var(--color-text-primary)]" x-text="trace.data.audio_snippet_s + 's'"></p>
+                                                        </div>
+                                                        <div class="bg-[var(--color-bg-secondary)]/50 rounded p-2">
+                                                            <p class="text-[var(--color-text-secondary)]">DC Offset</p>
+                                                            <p class="font-mono text-[var(--color-text-primary)]" x-text="trace.data.audio_dc_offset"></p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </template>
+
                                         <!-- Data fields as nested accordions -->
                                         <template x-if="trace.data && Object.keys(trace.data).length > 0">
                                             <div>
                                                 <h4 class="text-sm font-semibold text-[var(--color-text-primary)] mb-2">Data Fields</h4>
                                                 <div class="border border-[var(--color-border-subtle)] rounded-lg overflow-hidden">
-                                                    <template x-for="[key, value] in Object.entries(trace.data)" :key="key">
+                                                    <template x-for="[key, value] in filterDataFields(trace.data)" :key="key">
                                                         <div class="border-b border-[var(--color-border-subtle)] last:border-b-0">
                                                             <!-- Field header row -->
                                                             <div @click="isLargeValue(value) && toggleBackendField(index, key)"
@@ -552,6 +594,15 @@ function tracesApp() {
             if (typeof value === 'boolean') return value ? 'true' : 'false';
             if (typeof value === 'object') return JSON.stringify(value);
             return String(value);
+        },
+
+        filterDataFields(data) {
+            const audioKeys = new Set([
+                'audio_wav_base64', 'audio_duration_s', 'audio_snippet_s',
+                'audio_sample_rate', 'audio_samples', 'audio_rms_dbfs',
+                'audio_peak_dbfs', 'audio_dc_offset'
+            ]);
+            return Object.entries(data).filter(([key]) => !audioKeys.has(key));
         }
     }
 }

@@ -724,6 +724,23 @@
   tags:
     - text-to-speech
     - TTS
+- &opus
+  name: "opus"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-opus"
+  urls:
+    - https://opus-codec.org/
+  mirrors:
+    - localai/localai-backends:latest-cpu-opus
+  license: BSD-3-Clause
+  description: |
+    Opus audio codec backend for encoding and decoding audio.
+    Required for WebRTC transport in the Realtime API.
+  tags:
+    - audio-codec
+    - opus
+    - WebRTC
+    - realtime
+    - CPU
 - &silero-vad
   name: "silero-vad"
   uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-silero-vad"
@@ -1088,6 +1105,21 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-local-store"
   mirrors:
     - localai/localai-backends:master-metal-darwin-arm64-local-store
+- !!merge <<: *opus
+  name: "opus-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-cpu-opus"
+  mirrors:
+    - localai/localai-backends:master-cpu-opus
+- !!merge <<: *opus
+  name: "metal-opus"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-metal-darwin-arm64-opus"
+  mirrors:
+    - localai/localai-backends:latest-metal-darwin-arm64-opus
+- !!merge <<: *opus
+  name: "metal-opus-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-opus"
+  mirrors:
+    - localai/localai-backends:master-metal-darwin-arm64-opus
 - !!merge <<: *silero-vad
   name: "silero-vad-development"
   uri: "quay.io/go-skynet/local-ai-backends:master-cpu-silero-vad"

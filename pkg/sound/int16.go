@@ -25,17 +25,29 @@ func CalculateRMS16(buffer []int16) float64 {
 }
 
 func ResampleInt16(input []int16, inputRate, outputRate int) []int16 {
+	if len(input) == 0 {
+		return nil
+	}
+	if inputRate == outputRate {
+		out := make([]int16, len(input))
+		copy(out, input)
+		return out
+	}
+
 	// Calculate the resampling ratio
 	ratio := float64(inputRate) / float64(outputRate)
 
 	// Calculate the length of the resampled output
 	outputLength := int(float64(len(input)) / ratio)
+	if outputLength <= 0 {
+		return []int16{input[0]}
+	}
 
 	// Allocate a slice for the resampled output
 	output := make([]int16, outputLength)
 
 	// Perform linear interpolation for resampling
-	for i := 0; i < outputLength-1; i++ {
+	for i := 0; i < outputLength; i++ {
 		// Calculate the corresponding position in the input
 		pos := float64(i) * ratio
 
@@ -52,9 +64,6 @@ func ResampleInt16(input []int16, inputRate, outputRate int) []int16 {
 		// Linearly interpolate between the two surrounding input samples
 		output[i] = int16((1-frac)*float64(input[indexBefore]) + frac*float64(input[indexAfter]))
 	}
-
-	// Handle the last sample explicitly to avoid index out of range
-	output[outputLength-1] = input[len(input)-1]
 
 	return output
 }

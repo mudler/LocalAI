@@ -10,7 +10,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         ca-certificates curl wget espeak-ng libgomp1 \
-        ffmpeg libopenblas0 libopenblas-dev sox && \
+        ffmpeg libopenblas0 libopenblas-dev libopus0 sox && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
@@ -190,6 +190,7 @@ RUN apt-get update && \
         curl libssl-dev \
         git \
         git-lfs \
+        libopus-dev pkg-config \
         unzip upx-ucl python3 python-is-python3 && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
@@ -378,6 +379,9 @@ COPY ./entrypoint.sh .
 
 # Copy the binary
 COPY --from=builder /build/local-ai ./
+# Copy the opus shim if it was built
+RUN --mount=from=builder,src=/build/,dst=/mnt/build \
+    if [ -f /mnt/build/libopusshim.so ]; then cp /mnt/build/libopusshim.so ./; fi
 
 # Make sure the models directory exists
 RUN mkdir -p /models /backends
