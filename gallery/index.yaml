@@ -1,4 +1,29 @@
 ---
+- name: "xortron.criminalcomputing.2026.27b-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/XORTRON.CriminalComputing.2026.27B-i1-GGUF
+  description: |
+    Describe the model in a clear and concise way that can be shared in a model gallery.
+  overrides:
+    parameters:
+      model: llama-cpp/models/XORTRON.CriminalComputing.2026.27B.i1-Q4_K_M.gguf
+    name: XORTRON.CriminalComputing.2026.27B-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/XORTRON.CriminalComputing.2026.27B-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/XORTRON.CriminalComputing.2026.27B.i1-Q4_K_M.gguf
+      sha256: cc75a4ab69033f372ce138c292ac9f55cf5e0b374f5ac37dae7aa2e34b26d643
+      uri: https://huggingface.co/mradermacher/XORTRON.CriminalComputing.2026.27B-i1-GGUF/resolve/main/XORTRON.CriminalComputing.2026.27B.i1-Q4_K_M.gguf
 - name: "qwen3.5-9b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
