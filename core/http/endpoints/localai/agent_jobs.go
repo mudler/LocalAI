@@ -347,3 +347,95 @@ func ExecuteTaskByNameEndpoint(app *application.Application) echo.HandlerFunc {
 		})
 	}
 }
+
+// GetJobQueueStatusEndpoint returns the queue status for a specific job
+// @Summary Get queue status for a job
+// @Description Get the current position and status of a job in the queue
+// @Tags agent-jobs
+// @Produce json
+// @Param id path string true "Job ID"
+// @Success 200 {object} services.QueueStatus "Queue status"
+// @Failure 404 {object} map[string]string "Job not found"
+// @Router /api/agent/jobs/{id}/queue-status [get]
+func GetJobQueueStatusEndpoint(app *application.Application) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		id := c.Param("id")
+		
+		queueStatus, err := app.AgentJobService().GetQueueStatusForJob(id)
+		if err != nil {
+			if err.Error() == "job not found: "+id {
+				return c.JSON(http.StatusNotFound, map[string]string{"error": err.Error()})
+			}
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+		}
+
+		return c.JSON(http.StatusOK, queueStatus)
+	}
+}
+
+// GetAllQueueStatusEndpoint returns the status of all jobs in the queue
+// @Summary Get all queue statuses
+// @Description Get the queue status for all pending jobs
+// @Tags agent-jobs
+// @Produce json
+// @Success 200 {array} services.QueueStatus "List of queue statuses"
+// @Router /api/agent/jobs/queue-status [get]
+func GetAllQueueStatusEndpoint(app *application.Application) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		statuses := app.AgentJobService().GetAllQueueStatus()
+		return c.JSON(http.StatusOK, statuses)
+	}
+}
+
+// GetQueueMetricsEndpoint returns overall queue metrics
+// @Summary Get queue metrics
+// @Description Get overall metrics about the job queue
+// @Tags agent-jobs
+// @Produce json
+// @Success 200 {object} map[string]interface{} "Queue metrics"
+// @Router /api/agent/jobs/queue-metrics [get]
+func GetQueueMetricsEndpoint(app *application.Application) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		metrics := app.AgentJobService().GetQueueMetrics()
+		return c.JSON(http.StatusOK, metrics)
+	}
+}
+
+// UpdateJobQueueStatusEndpoint allows updating a job's status with queue information
+// This is useful for connectors to push updates to users
+// @Summary Update job queue status
+// @Description Update a job with queue status information for user notifications
+// @Tags agent-jobs
+// @Accept json
+// @Produce json
+// @Param id path string true "Job ID"
+// @Param request body map[string]string true "Update message"
+// @Success 200 {object} map[string]string "Status updated"
+// @Failure 400 {object} map[string]string "Invalid request"
+// @Failure 404 {object} map[string]string "Job not found"
+// @Router /api/agent/jobs/{id}/queue-status [post]
+func UpdateJobQueueStatusEndpoint(app *application.Application) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		id := c.Param("id")
+		
+		var requestBody map[string]string
+		if err := c.Bind(&requestBody); err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request body: " + err.Error()})
+		}
+
+		message := requestBody["message"]
+		if message == "" {
+			message = "Queue status update"
+		}
+
+		err := app.AgentJobService().UpdateJobStatusWithQueueInfo(id, message)
+		if err != nil {
+			if err.Error() == "job not found: "+id {
+				return c.JSON(http.StatusNotFound, map[string]string{"error": err.Error()})
+			}
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+		}
+
+		return c.JSON(http.StatusOK, map[string]string{"message": "Queue status updated", "job_id": id})
+	}
+}

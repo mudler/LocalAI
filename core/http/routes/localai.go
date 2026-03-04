@@ -172,6 +172,10 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 		router.GET("/api/agent/jobs", localai.ListJobsEndpoint(app))
 		router.POST("/api/agent/jobs/:id/cancel", localai.CancelJobEndpoint(app))
 		router.DELETE("/api/agent/jobs/:id", localai.DeleteJobEndpoint(app))
+		router.GET("/api/agent/jobs/:id/queue-status", localai.GetJobQueueStatusEndpoint(app))
+		router.GET("/api/agent/jobs/queue-status", localai.GetAllQueueStatusEndpoint(app))
+		router.GET("/api/agent/jobs/queue-metrics", localai.GetQueueMetricsEndpoint(app))
+		router.POST("/api/agent/jobs/:id/queue-status", localai.UpdateJobQueueStatusEndpoint(app))
 
 		router.POST("/api/agent/tasks/:name/execute", localai.ExecuteTaskByNameEndpoint(app))
 	}
