@@ -1726,6 +1726,24 @@ value
 				// Arguments should contain partial flag
 				Expect(results[0].Arguments).To(ContainSubstring("key"))
 			})
+			It("should return tool call when leading text precedes tool block (real newlines)", func() {
+				input := "The memory reclaimer functionality already exists! Let me examine the watchdog to understand how it works and what might need to be implemented for \"auto-fit\" vs unloading.\n\n<tool_call>\n<function=bash>\n<parameter=script>\ncd /root/worktrees/LocalAI/task_8562 && cat core/application/watchdog.go\n</parameter>\n</function>\n</tool_call>"
+				results, err := ParseXMLIterative(input, nil, true)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(results).NotTo(BeNil())
+				Expect(results).To(HaveLen(1))
+				Expect(results[0].Name).To(Equal("bash"))
+				Expect(results[0].Arguments).To(ContainSubstring("task_8562"))
+			})
+			It("should return tool call when leading text precedes tool block (literal \\n between tags)", func() {
+				input := `The memory reclaimer functionality already exists! Let me examine the watchdog to understand how it works and what might need to be implemented for "auto-fit" vs unloading.\n\n<tool_call>\n<function=bash>\n<parameter=script>\ncd /root/worktrees/LocalAI/task_8562 && cat core/application/watchdog.go\n</parameter>\n</function>\n</tool_call>`
+				results, err := ParseXMLIterative(input, nil, false)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(results).NotTo(BeNil())
+				Expect(results).To(HaveLen(1))
+				Expect(results[0].Name).To(Equal("bash"))
+				Expect(results[0].Arguments).To(ContainSubstring("task_8562"))
+			})
 		})
 
 		Describe("ParseJSONIterative", func() {

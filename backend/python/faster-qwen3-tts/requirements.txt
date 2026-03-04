@@ -5,4 +5,5 @@ packaging==24.1
 soundfile
 setuptools
 six
+anyio
 sox

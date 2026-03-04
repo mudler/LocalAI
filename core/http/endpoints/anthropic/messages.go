@@ -125,13 +125,21 @@ func handleAnthropicNonStream(c echo.Context, id string, input *schema.Anthropic
 		return sendAnthropicError(c, 500, "api_error", fmt.Sprintf("model inference failed: %v", err))
 	}
 
-	prediction, err := predFunc()
-	if err != nil {
-		xlog.Error("Anthropic prediction failed", "error", err)
-		return sendAnthropicError(c, 500, "api_error", fmt.Sprintf("prediction failed: %v", err))
+	const maxEmptyRetries = 5
+	var prediction backend.LLMResponse
+	var result string
+	for attempt := 0; attempt <= maxEmptyRetries; attempt++ {
+		prediction, err = predFunc()
+		if err != nil {
+			xlog.Error("Anthropic prediction failed", "error", err)
+			return sendAnthropicError(c, 500, "api_error", fmt.Sprintf("prediction failed: %v", err))
+		}
+		result = backend.Finetune(*cfg, predInput, prediction.Response)
+		if result != "" || !shouldUseFn {
+			break
+		}
+		xlog.Warn("Anthropic: retrying prediction due to empty backend response", "attempt", attempt+1, "maxRetries", maxEmptyRetries)
 	}
-
-	result := backend.Finetune(*cfg, predInput, prediction.Response)
 	
 	// Check if the result contains tool calls
 	toolCalls := functions.ParseFunctionCall(result, cfg.FunctionsConfig)

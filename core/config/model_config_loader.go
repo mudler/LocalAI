@@ -91,6 +91,7 @@ func readModelConfigsFromFile(file string, opts ...ConfigLoaderOption) ([]*Model
 		for _, cc := range configs {
 			cc.modelConfigFile = file
 			cc.SetDefaults(opts...)
+			cc.syncKnownUsecasesFromString()
 		}
 		return configs, nil
 	}
@@ -102,6 +103,7 @@ func readModelConfigsFromFile(file string, opts ...ConfigLoaderOption) ([]*Model
 	}
 
 	c.modelConfigFile = file
+	c.syncKnownUsecasesFromString()
 	c.SetDefaults(opts...)
 
 	return []*ModelConfig{c}, nil
