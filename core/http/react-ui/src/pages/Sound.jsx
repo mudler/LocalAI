@@ -67,13 +67,13 @@ export default function Sound() {
     <div className="media-layout">
       <div className="media-controls">
         <div className="page-header">
-          <h1 className="page-title">Sound Generation</h1>
+          <h1 className="page-title"><i className="fas fa-music" style={{ marginRight: 8, color: 'var(--color-accent)' }} />Sound Generation</h1>
         </div>
 
         <form onSubmit={handleGenerate}>
           <div className="form-group">
             <label className="form-label">Model</label>
-            <ModelSelector value={model} onChange={setModel} />
+            <ModelSelector value={model} onChange={setModel} capability="FLAG_SOUND_GENERATION" />
           </div>
 
           {/* Mode toggle */}
@@ -141,7 +141,7 @@ export default function Sound() {
             </div>
           ) : (
             <div style={{ textAlign: 'center', color: 'var(--color-text-muted)' }}>
-              <i className="fas fa-music" style={{ fontSize: '3rem', marginBottom: 'var(--spacing-md)' }} />
+              <i className="fas fa-music" style={{ fontSize: '3rem', marginBottom: 'var(--spacing-md)', opacity: 0.4 }} />
               <p>Generated sound will appear here</p>
             </div>
           )}

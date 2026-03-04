@@ -321,7 +321,7 @@ export default function AgentTaskDetails() {
             </div>
             <div className="form-group">
               <label className="form-label">Model</label>
-              <ModelSelector value={task.model} onChange={(model) => updateField('model', model)} />
+              <ModelSelector value={task.model} onChange={(model) => updateField('model', model)} capability="FLAG_CHAT" />
             </div>
           </div>
           <div className="form-group">

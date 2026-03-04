@@ -477,8 +477,13 @@ export function useChat(initialModel = '') {
                     if (lastOpen >= 0) {
                       const partial = rawContent.slice(lastOpen).replace(/<thinking>|<think>/, '')
                       setStreamingReasoning(partial)
+                      // Only show content before the unclosed think tag (with prior complete pairs removed)
+                      const beforeThink = rawContent.slice(0, lastOpen)
+                      const { regularContent: contentBeforeThink } = extractThinking(beforeThink)
+                      setStreamingContent(contentBeforeThink)
+                    } else {
+                      setStreamingContent(regularContent)
                     }
-                    setStreamingContent(regularContent)
                   } else {
                     setStreamingReasoning(reasoningContent)
                     setStreamingContent(regularContent)

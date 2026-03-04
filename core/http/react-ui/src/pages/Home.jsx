@@ -71,7 +71,7 @@ export default function Home() {
       return
     }
     let cancelled = false
-    modelsApi.getConfig(selectedModel).then(cfg => {
+    modelsApi.getConfigJson(selectedModel).then(cfg => {
       if (cancelled) return
       const hasMcp = !!(cfg?.mcp?.remote || cfg?.mcp?.stdio)
       setMcpAvailable(hasMcp)
@@ -122,8 +122,7 @@ export default function Home() {
     else setTextFiles(removeFn)
   }, [])
 
-  const handleSubmit = (e) => {
-    e.preventDefault()
+  const doSubmit = useCallback(() => {
     const text = message.trim() || placeholderText
     if (!text && allFiles.length === 0) return
     if (!selectedModel) {
@@ -136,9 +135,15 @@ export default function Home() {
       model: selectedModel,
       files: allFiles,
       mcpMode,
+      newChat: true,
     }
     localStorage.setItem('localai_index_chat_data', JSON.stringify(chatData))
     navigate(`/chat/${encodeURIComponent(selectedModel)}`)
+  }, [message, placeholderText, allFiles, selectedModel, mcpMode, addToast, navigate])
+
+  const handleSubmit = (e) => {
+    if (e) e.preventDefault()
+    doSubmit()
   }
 
   const handleStopModel = async (modelName) => {
@@ -192,15 +197,18 @@ export default function Home() {
             <form onSubmit={handleSubmit}>
               {/* Model selector + MCP toggle */}
               <div className="home-model-row">
-                <ModelSelector value={selectedModel} onChange={setSelectedModel} filterChat />
+                <ModelSelector value={selectedModel} onChange={setSelectedModel} capability="FLAG_CHAT" />
                 {mcpAvailable && (
                   <label className="home-mcp-toggle">
-                    <input
-                      type="checkbox"
-                      checked={mcpMode}
-                      onChange={(e) => setMcpMode(e.target.checked)}
-                    />
                     <span className="home-mcp-label">MCP</span>
+                    <span className="toggle">
+                      <input
+                        type="checkbox"
+                        checked={mcpMode}
+                        onChange={(e) => setMcpMode(e.target.checked)}
+                      />
+                      <span className="toggle-slider" />
+                    </span>
                   </label>
                 )}
               </div>
@@ -237,7 +245,7 @@ export default function Home() {
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && !e.shiftKey) {
                       e.preventDefault()
-                      handleSubmit(e)
+                      doSubmit()
                     }
                   }}
                 />
@@ -447,12 +455,10 @@ export default function Home() {
         .home-mcp-toggle {
           display: flex;
           align-items: center;
-          gap: 4px;
-          font-size: 0.75rem;
+          gap: 6px;
           cursor: pointer;
-          color: var(--color-text-secondary);
+          user-select: none;
         }
-        .home-mcp-toggle input { margin: 0; }
         .home-mcp-info {
           font-size: 0.75rem;
           color: var(--color-accent);

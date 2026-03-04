@@ -9,6 +9,7 @@ export const API_CONFIG = {
     installModel: (id) => `/api/models/install/${id}`,
     deleteModel: (id) => `/api/models/delete/${id}`,
     modelConfig: (id) => `/api/models/config/${id}`,
+    modelConfigJson: (name) => `/api/models/config-json/${name}`,
     modelJob: (uid) => `/api/models/job/${uid}`,
 
     // Backends gallery
@@ -56,6 +57,7 @@ export const API_CONFIG = {
     soundGeneration: '/v1/sound-generation',
     embeddings: '/v1/embeddings',
     modelsList: '/v1/models',
+    modelsCapabilities: '/api/models/capabilities',
 
     // LocalAI-specific
     tts: '/tts',

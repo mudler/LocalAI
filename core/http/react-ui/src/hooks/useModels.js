@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { modelsApi } from '../utils/api'
 
-export function useModels() {
+export function useModels(capability) {
   const [models, setModels] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -9,15 +9,30 @@ export function useModels() {
   const fetchModels = useCallback(async () => {
     try {
       setLoading(true)
-      const data = await modelsApi.listV1()
-      setModels(data?.data || [])
+      const data = await modelsApi.listCapabilities()
+      let items = data?.data || []
+      if (capability) {
+        items = items.filter(m =>
+          m.capabilities?.includes(capability) ||
+          // Models without config (loose files) have no capabilities — show them only when no filter
+          false
+        )
+      }
+      setModels(items)
       setError(null)
-    } catch (err) {
-      setError(err.message)
+    } catch {
+      // Fallback to /v1/models if capabilities endpoint unavailable
+      try {
+        const data = await modelsApi.listV1()
+        setModels((data?.data || []).map(m => ({ id: m.id, capabilities: [] })))
+        setError(null)
+      } catch (err) {
+        setError(err.message)
+      }
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [capability])
 
   useEffect(() => {
     fetchModels()

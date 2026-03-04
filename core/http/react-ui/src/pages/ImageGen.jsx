@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef } from 'react'
 import { useParams, useOutletContext } from 'react-router-dom'
 import ModelSelector from '../components/ModelSelector'
 import LoadingSpinner from '../components/LoadingSpinner'
@@ -39,7 +39,6 @@ export default function ImageGen() {
     const body = { model, prompt: combinedPrompt, n: count, size }
     if (steps) body.step = parseInt(steps)
     if (seed) body.seed = parseInt(seed)
-
     if (sourceImage) body.file = sourceImage
     if (refImages.length > 0) body.ref_images = refImages
 
@@ -55,17 +54,12 @@ export default function ImageGen() {
   }
 
   const handleSourceImage = async (e) => {
-    if (e.target.files[0]) {
-      const b64 = await fileToBase64(e.target.files[0])
-      setSourceImage(b64)
-    }
+    if (e.target.files[0]) setSourceImage(await fileToBase64(e.target.files[0]))
   }
 
   const handleRefImages = async (e) => {
     const arr = []
-    for (const f of e.target.files) {
-      arr.push(await fileToBase64(f))
-    }
+    for (const f of e.target.files) arr.push(await fileToBase64(f))
     setRefImages(prev => [...prev, ...arr])
   }
 
@@ -73,36 +67,21 @@ export default function ImageGen() {
     <div className="media-layout">
       <div className="media-controls">
         <div className="page-header">
-          <h1 className="page-title">Image Generation</h1>
+          <h1 className="page-title"><i className="fas fa-image" style={{ marginRight: 8, color: 'var(--color-accent)' }} />Image Generation</h1>
         </div>
 
         <form onSubmit={handleGenerate}>
           <div className="form-group">
             <label className="form-label">Model</label>
-            <ModelSelector value={model} onChange={setModel} />
+            <ModelSelector value={model} onChange={setModel} capability="FLAG_IMAGE" />
           </div>
-
           <div className="form-group">
             <label className="form-label">Prompt</label>
-            <textarea
-              className="textarea"
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              placeholder="Describe the image you want to generate..."
-              rows={3}
-              onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleGenerate(e) } }}
-            />
+            <textarea className="textarea" value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="Describe the image you want to generate..." rows={3} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleGenerate(e) } }} />
           </div>
-
           <div className="form-group">
             <label className="form-label">Negative Prompt</label>
-            <textarea
-              className="textarea"
-              value={negativePrompt}
-              onChange={(e) => setNegativePrompt(e.target.value)}
-              placeholder="What to avoid..."
-              rows={2}
-            />
+            <textarea className="textarea" value={negativePrompt} onChange={(e) => setNegativePrompt(e.target.value)} placeholder="What to avoid..." rows={2} />
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-sm)' }}>
@@ -118,33 +97,22 @@ export default function ImageGen() {
             </div>
           </div>
 
-          {/* Advanced */}
           <div className={`collapsible-header ${showAdvanced ? 'open' : ''}`} onClick={() => setShowAdvanced(!showAdvanced)}>
             <i className="fas fa-chevron-right" /> Advanced Settings
           </div>
           {showAdvanced && (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-md)' }}>
-              <div className="form-group">
-                <label className="form-label">Steps</label>
-                <input className="input" type="number" value={steps} onChange={(e) => setSteps(e.target.value)} placeholder="20" />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Seed</label>
-                <input className="input" type="number" value={seed} onChange={(e) => setSeed(e.target.value)} placeholder="Random" />
-              </div>
+              <div className="form-group"><label className="form-label">Steps</label><input className="input" type="number" value={steps} onChange={(e) => setSteps(e.target.value)} placeholder="20" /></div>
+              <div className="form-group"><label className="form-label">Seed</label><input className="input" type="number" value={seed} onChange={(e) => setSeed(e.target.value)} placeholder="Random" /></div>
             </div>
           )}
 
-          {/* Image inputs */}
           <div className={`collapsible-header ${showImageInputs ? 'open' : ''}`} onClick={() => setShowImageInputs(!showImageInputs)}>
             <i className="fas fa-chevron-right" /> Image Inputs
           </div>
           {showImageInputs && (
             <div style={{ marginBottom: 'var(--spacing-md)' }}>
-              <div className="form-group">
-                <label className="form-label">Source Image (img2img)</label>
-                <input ref={sourceRef} type="file" accept="image/*" onChange={handleSourceImage} className="input" />
-              </div>
+              <div className="form-group"><label className="form-label">Source Image (img2img)</label><input ref={sourceRef} type="file" accept="image/*" onChange={handleSourceImage} className="input" /></div>
               <div className="form-group">
                 <label className="form-label">Reference Images</label>
                 <input ref={refRef} type="file" accept="image/*" multiple onChange={handleRefImages} className="input" />
@@ -167,17 +135,13 @@ export default function ImageGen() {
             <div className="media-result-grid">
               {images.map((img, i) => (
                 <div key={i}>
-                  <img
-                    src={img.url || `data:image/png;base64,${img.b64_json}`}
-                    alt={prompt}
-                    style={{ width: '100%', borderRadius: 'var(--radius-md)' }}
-                  />
+                  <img src={img.url || `data:image/png;base64,${img.b64_json}`} alt={prompt} style={{ width: '100%', borderRadius: 'var(--radius-md)' }} />
                 </div>
               ))}
             </div>
           ) : (
             <div style={{ textAlign: 'center', color: 'var(--color-text-muted)' }}>
-              <i className="fas fa-image" style={{ fontSize: '3rem', marginBottom: 'var(--spacing-md)' }} />
+              <i className="fas fa-image" style={{ fontSize: '3rem', marginBottom: 'var(--spacing-md)', opacity: 0.4 }} />
               <p>Generated images will appear here</p>
             </div>
           )}

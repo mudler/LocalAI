@@ -35,7 +35,7 @@ func RegisterUIRoutes(app *echo.Echo,
 		}
 	}
 
-	app.GET("/", redirectToApp(""))
+	// "/" is handled in app.go to serve React SPA directly (preserves reverse-proxy headers)
 	app.GET("/manage", redirectToApp("/manage"))
 
 	if !appConfig.DisableRuntimeSettings {

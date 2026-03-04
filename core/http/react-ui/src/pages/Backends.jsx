@@ -9,14 +9,12 @@ export default function Backends() {
   const { addToast } = useOutletContext()
   const navigate = useNavigate()
   const { operations } = useOperations()
-  const [backends, setBackends] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState('')
   const [sortBy, setSortBy] = useState('name')
   const [sortOrder, setSortOrder] = useState('asc')
   const [page, setPage] = useState(1)
-  const [totalPages, setTotalPages] = useState(1)
   const [installedCount, setInstalledCount] = useState(0)
   const [showManualInstall, setShowManualInstall] = useState(false)
   const [manualUri, setManualUri] = useState('')
@@ -25,32 +23,49 @@ export default function Backends() {
   const [selectedBackend, setSelectedBackend] = useState(null)
   const debounceRef = useRef(null)
 
+  const [allBackends, setAllBackends] = useState([])
+
   const fetchBackends = useCallback(async () => {
     try {
       setLoading(true)
-      const params = { page, items: 21, sort: sortBy, order: sortOrder }
+      const params = { page: 1, items: 9999, sort: sortBy, order: sortOrder }
       if (search) params.term = search
-      if (filter) params.filter = filter
       const data = await backendsApi.list(params)
       const list = Array.isArray(data?.backends) ? data.backends : Array.isArray(data) ? data : []
-      setBackends(list)
-      setTotalPages(data?.totalPages || Math.ceil((data?.total || list.length) / 21) || 1)
+      setAllBackends(list)
       setInstalledCount(list.filter(b => b.installed).length)
     } catch (err) {
       addToast(`Failed to load backends: ${err.message}`, 'error')
     } finally {
       setLoading(false)
     }
-  }, [search, filter, sortBy, sortOrder, page, addToast])
+  }, [search, sortBy, sortOrder, addToast])
 
   useEffect(() => {
     fetchBackends()
-  }, [filter, sortBy, sortOrder, page])
+  }, [sortBy, sortOrder])
 
   // Re-fetch when operations change (install/delete completion)
   useEffect(() => {
     if (!loading) fetchBackends()
   }, [operations.length])
+
+  // Client-side filtering by tag
+  const filteredBackends = filter
+    ? allBackends.filter(b => {
+        const tags = (b.tags || []).map(t => t.toLowerCase())
+        const name = (b.name || '').toLowerCase()
+        const desc = (b.description || '').toLowerCase()
+        const f = filter.toLowerCase()
+        // Match against tags, or name/description containing the filter keyword
+        return tags.some(t => t.includes(f)) || name.includes(f) || desc.includes(f)
+      })
+    : allBackends
+
+  // Client-side pagination
+  const ITEMS_PER_PAGE = 21
+  const totalPages = Math.max(1, Math.ceil(filteredBackends.length / ITEMS_PER_PAGE))
+  const backends = filteredBackends.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE)
 
   const handleSearch = (value) => {
     setSearch(value)
@@ -116,9 +131,10 @@ export default function Backends() {
   const FILTERS = [
     { key: '', label: 'All', icon: 'fa-layer-group' },
     { key: 'llm', label: 'LLM', icon: 'fa-brain' },
-    { key: 'diffusion', label: 'Diffusion', icon: 'fa-image' },
+    { key: 'image', label: 'Image', icon: 'fa-image' },
+    { key: 'video', label: 'Video', icon: 'fa-video' },
     { key: 'tts', label: 'TTS', icon: 'fa-microphone' },
-    { key: 'whisper', label: 'Whisper', icon: 'fa-headphones' },
+    { key: 'stt', label: 'STT', icon: 'fa-headphones' },
     { key: 'vision', label: 'Vision', icon: 'fa-eye' },
   ]
 
@@ -145,7 +161,7 @@ export default function Backends() {
         <div style={{ display: 'flex', gap: 'var(--spacing-md)', alignItems: 'center' }}>
           <div style={{ display: 'flex', gap: 'var(--spacing-md)', fontSize: '0.8125rem' }}>
             <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--color-primary)' }}>{backends.length}</div>
+              <div style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--color-primary)' }}>{filteredBackends.length}</div>
               <div style={{ color: 'var(--color-text-muted)' }}>Available</div>
             </div>
             <div style={{ textAlign: 'center' }}>

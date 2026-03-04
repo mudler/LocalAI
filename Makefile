@@ -96,6 +96,9 @@ core/http/react-ui/dist:
 	docker run --entrypoint /bin/bash -v $(CURDIR):/app:z oven/bun:1 \
 	  -c "cd /app/core/http/react-ui && bun install && bun run build"
 
+react-ui:
+	cd core/http/react-ui && npm install && npm run build
+
 ## Build:
 build: protogen-go install-go-tools core/http/react-ui/dist ## Build the project
 	$(info ${GREEN}I local-ai build info:${RESET})

@@ -72,9 +72,11 @@ export async function streamChat(body, signal) {
 export const modelsApi = {
   list: (params) => fetchJSON(buildUrl(API_CONFIG.endpoints.models, params)),
   listV1: () => fetchJSON(API_CONFIG.endpoints.modelsList),
+  listCapabilities: () => fetchJSON(API_CONFIG.endpoints.modelsCapabilities),
   install: (id) => postJSON(API_CONFIG.endpoints.installModel(id), {}),
   delete: (id) => postJSON(API_CONFIG.endpoints.deleteModel(id), {}),
   getConfig: (id) => postJSON(API_CONFIG.endpoints.modelConfig(id), {}),
+  getConfigJson: (name) => fetchJSON(API_CONFIG.endpoints.modelConfigJson(name)),
   getJob: (uid) => fetchJSON(API_CONFIG.endpoints.modelJob(uid)),
   apply: (body) => postJSON(API_CONFIG.endpoints.modelsApply, body),
   deleteByName: (name) => postJSON(API_CONFIG.endpoints.modelsDelete(name), {}),

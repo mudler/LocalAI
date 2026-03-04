@@ -246,9 +246,16 @@ func API(application *application.Application) (*echo.Echo, error) {
 				if err != nil {
 					return c.String(http.StatusNotFound, "React UI not built")
 				}
+				// Inject <base href> for reverse-proxy support
+				baseURL := httpMiddleware.BaseURL(c)
+				if baseURL != "" {
+					baseTag := `<base href="` + baseURL + `" />`
+					indexHTML = []byte(strings.Replace(string(indexHTML), "<head>", "<head>\n  "+baseTag, 1))
+				}
 				return c.HTMLBlob(http.StatusOK, indexHTML)
 			}
 
+			e.GET("/", serveIndex)
 			e.GET("/app", serveIndex)
 			e.GET("/app/*", func(c echo.Context) error {
 				p := c.Param("*")

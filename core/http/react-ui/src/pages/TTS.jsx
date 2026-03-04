@@ -39,13 +39,13 @@ export default function TTS() {
     <div className="media-layout">
       <div className="media-controls">
         <div className="page-header">
-          <h1 className="page-title">Text to Speech</h1>
+          <h1 className="page-title"><i className="fas fa-headphones" style={{ marginRight: 8, color: 'var(--color-accent)' }} />Text to Speech</h1>
         </div>
 
         <form onSubmit={handleGenerate}>
           <div className="form-group">
             <label className="form-label">Model</label>
-            <ModelSelector value={model} onChange={setModel} />
+            <ModelSelector value={model} onChange={setModel} capability="FLAG_TTS" />
           </div>
           <div className="form-group">
             <label className="form-label">Text</label>
@@ -84,7 +84,7 @@ export default function TTS() {
             </div>
           ) : (
             <div style={{ textAlign: 'center', color: 'var(--color-text-muted)' }}>
-              <i className="fas fa-headphones" style={{ fontSize: '3rem', marginBottom: 'var(--spacing-md)' }} />
+              <i className="fas fa-headphones" style={{ fontSize: '3rem', marginBottom: 'var(--spacing-md)', opacity: 0.4 }} />
               <p>Generated audio will appear here</p>
             </div>
           )}

@@ -4,18 +4,120 @@ import { modelsApi } from '../utils/api'
 import { useOperations } from '../hooks/useOperations'
 import { useResources } from '../hooks/useResources'
 import { formatBytes } from '../utils/format'
-import LoadingSpinner from '../components/LoadingSpinner'
+
+
+const LOADING_PHRASES = [
+  { text: 'Rounding up the neural networks...', icon: 'fa-brain' },
+  { text: 'Asking the models to line up nicely...', icon: 'fa-people-line' },
+  { text: 'Convincing transformers to transform...', icon: 'fa-wand-magic-sparkles' },
+  { text: 'Herding digital llamas...', icon: 'fa-horse' },
+  { text: 'Downloading more RAM... just kidding', icon: 'fa-memory' },
+  { text: 'Counting parameters... lost count at a billion', icon: 'fa-calculator' },
+  { text: 'Untangling attention heads...', icon: 'fa-diagram-project' },
+  { text: 'Warming up the GPUs...', icon: 'fa-fire' },
+  { text: 'Teaching AI to sit and stay...', icon: 'fa-graduation-cap' },
+  { text: 'Polishing the weights and biases...', icon: 'fa-gem' },
+  { text: 'Stacking layers like pancakes...', icon: 'fa-layer-group' },
+  { text: 'Negotiating with the token budget...', icon: 'fa-coins' },
+  { text: 'Fetching models from the cloud mines...', icon: 'fa-cloud-arrow-down' },
+  { text: 'Calibrating the vibe check algorithm...', icon: 'fa-gauge-high' },
+  { text: 'Optimizing inference with good intentions...', icon: 'fa-bolt' },
+  { text: 'Measuring GPU with a ruler...', icon: 'fa-ruler' },
+  { text: 'Will it fit? Asking the VRAM oracle...', icon: 'fa-microchip' },
+  { text: 'Playing Tetris with model layers...', icon: 'fa-cubes' },
+  { text: 'Checking if we need more RGB...', icon: 'fa-rainbow' },
+  { text: 'Squeezing tensors into memory...', icon: 'fa-compress' },
+  { text: 'Whispering sweet nothings to CUDA cores...', icon: 'fa-heart' },
+  { text: 'Asking the electrons to scoot over...', icon: 'fa-atom' },
+  { text: 'Defragmenting the flux capacitor...', icon: 'fa-clock-rotate-left' },
+  { text: 'Consulting the tensor gods...', icon: 'fa-hands-praying' },
+  { text: 'Checking under the GPU\'s hood...', icon: 'fa-car' },
+  { text: 'Seeing if the hamsters can run faster...', icon: 'fa-fan' },
+  { text: 'Running very important math... carry the 1...', icon: 'fa-square-root-variable' },
+  { text: 'Poking the memory bus gently...', icon: 'fa-bus' },
+  { text: 'Bribing the scheduler with clock cycles...', icon: 'fa-stopwatch' },
+  { text: 'Asking models to share their VRAM nicely...', icon: 'fa-handshake' },
+]
+
+function GalleryLoader() {
+  const [idx, setIdx] = useState(() => Math.floor(Math.random() * LOADING_PHRASES.length))
+  const [fade, setFade] = useState(true)
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setFade(false)
+      setTimeout(() => {
+        setIdx(prev => (prev + 1) % LOADING_PHRASES.length)
+        setFade(true)
+      }, 300)
+    }, 2800)
+    return () => clearInterval(interval)
+  }, [])
+
+  const phrase = LOADING_PHRASES[idx]
+
+  return (
+    <div style={{
+      display: 'flex', flexDirection: 'column', alignItems: 'center',
+      justifyContent: 'center', padding: 'var(--spacing-xl) var(--spacing-md)',
+      minHeight: '280px', gap: 'var(--spacing-lg)',
+    }}>
+      {/* Animated dots */}
+      <div style={{ display: 'flex', gap: '8px' }}>
+        {[0, 1, 2, 3, 4].map(i => (
+          <div key={i} style={{
+            width: 10, height: 10, borderRadius: '50%',
+            background: 'var(--color-primary)',
+            animation: `galleryDot 1.4s ease-in-out ${i * 0.15}s infinite`,
+          }} />
+        ))}
+      </div>
+      {/* Rotating phrase */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)',
+        opacity: fade ? 1 : 0,
+        transition: 'opacity 300ms ease',
+        color: 'var(--color-text-secondary)',
+        fontSize: '0.9375rem',
+        fontWeight: 500,
+      }}>
+        <i className={`fas ${phrase.icon}`} style={{ color: 'var(--color-accent)', fontSize: '1.125rem' }} />
+        {phrase.text}
+      </div>
+      {/* Skeleton rows */}
+      <div style={{ width: '100%', maxWidth: '700px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        {[0.9, 0.7, 0.5].map((opacity, i) => (
+          <div key={i} style={{
+            height: '48px', borderRadius: 'var(--radius-md)',
+            background: 'var(--color-bg-tertiary)', opacity,
+            animation: `galleryShimmer 1.8s ease-in-out ${i * 0.2}s infinite`,
+          }} />
+        ))}
+      </div>
+      <style>{`
+        @keyframes galleryDot {
+          0%, 80%, 100% { transform: scale(0.4); opacity: 0.3; }
+          40% { transform: scale(1); opacity: 1; }
+        }
+        @keyframes galleryShimmer {
+          0%, 100% { opacity: var(--shimmer-base, 0.15); }
+          50% { opacity: var(--shimmer-peak, 0.3); }
+        }
+      `}</style>
+    </div>
+  )
+}
 
 const FILTERS = [
-  { key: '', label: 'All' },
-  { key: 'tts', label: 'TTS' },
-  { key: 'sd', label: 'Image (SD)' },
-  { key: 'llm', label: 'LLM' },
-  { key: 'multimodal', label: 'Multimodal' },
-  { key: 'embedding', label: 'Embedding' },
-  { key: 'reranker', label: 'Rerank' },
-  { key: 'whisper', label: 'Whisper' },
-  { key: 'vision', label: 'Vision' },
+  { key: '', label: 'All', icon: 'fa-layer-group' },
+  { key: 'llm', label: 'LLM', icon: 'fa-brain' },
+  { key: 'sd', label: 'Image', icon: 'fa-image' },
+  { key: 'multimodal', label: 'Multimodal', icon: 'fa-shapes' },
+  { key: 'vision', label: 'Vision', icon: 'fa-eye' },
+  { key: 'tts', label: 'TTS', icon: 'fa-microphone' },
+  { key: 'stt', label: 'STT', icon: 'fa-headphones' },
+  { key: 'embedding', label: 'Embedding', icon: 'fa-vector-square' },
+  { key: 'reranker', label: 'Rerank', icon: 'fa-sort' },
 ]
 
 export default function Models() {
@@ -135,16 +237,24 @@ export default function Models() {
         <div>
           <h1 className="page-title">Model Gallery</h1>
           <p className="page-subtitle">Discover and install AI models for your workflows</p>
-          {/* Stats row */}
-          <div style={{ display: 'flex', gap: 'var(--spacing-md)', marginTop: 'var(--spacing-sm)', fontSize: '0.8125rem', color: 'var(--color-text-secondary)' }}>
-            <span>{stats.total} models available</span>
-            <span>·</span>
-            <span style={{ color: 'var(--color-success)' }}>{stats.installed} installed</span>
-          </div>
         </div>
-        <button className="btn btn-secondary btn-sm" onClick={() => navigate('/import-model')}>
-          <i className="fas fa-upload" /> Import Model
-        </button>
+        <div style={{ display: 'flex', gap: 'var(--spacing-md)', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: 'var(--spacing-md)', fontSize: '0.8125rem' }}>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--color-primary)' }}>{stats.total}</div>
+              <div style={{ color: 'var(--color-text-muted)' }}>Available</div>
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <a onClick={() => navigate('/manage')} style={{ cursor: 'pointer' }}>
+                <div style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--color-success)' }}>{stats.installed}</div>
+                <div style={{ color: 'var(--color-text-muted)' }}>Installed</div>
+              </a>
+            </div>
+          </div>
+          <button className="btn btn-secondary btn-sm" onClick={() => navigate('/import-model')}>
+            <i className="fas fa-upload" /> Import Model
+          </button>
+        </div>
       </div>
 
       {/* Search */}
@@ -167,6 +277,7 @@ export default function Models() {
             className={`filter-btn ${filter === f.key ? 'active' : ''}`}
             onClick={() => { setFilter(f.key); setPage(1) }}
           >
+            <i className={`fas ${f.icon}`} style={{ marginRight: 4 }} />
             {f.label}
           </button>
         ))}
@@ -174,9 +285,7 @@ export default function Models() {
 
       {/* Table */}
       {loading ? (
-        <div style={{ display: 'flex', justifyContent: 'center', padding: 'var(--spacing-xl)' }}>
-          <LoadingSpinner size="lg" />
-        </div>
+        <GalleryLoader />
       ) : models.length === 0 ? (
         <div className="empty-state">
           <div className="empty-state-icon"><i className="fas fa-search" /></div>

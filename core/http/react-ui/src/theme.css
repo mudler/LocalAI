@@ -75,6 +75,7 @@
   --radius-full: 9999px;
 
   --sidebar-width: 220px;
+  --color-toggle-off: #475569;
 }
 
 [data-theme="light"] {
@@ -133,4 +134,5 @@
   --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.08);
   --shadow-glow: 0 0 0 1px rgba(14, 165, 233, 0.15), 0 0 8px rgba(14, 165, 233, 0.2);
   --shadow-sidebar: 1px 0 3px rgba(0, 0, 0, 0.08);
+  --color-toggle-off: #CBD5E1;
 }

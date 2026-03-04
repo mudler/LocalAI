@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState } from 'react'
 import { useParams, useOutletContext } from 'react-router-dom'
 import ModelSelector from '../components/ModelSelector'
 import LoadingSpinner from '../components/LoadingSpinner'
@@ -64,13 +64,13 @@ export default function VideoGen() {
     <div className="media-layout">
       <div className="media-controls">
         <div className="page-header">
-          <h1 className="page-title">Video Generation</h1>
+          <h1 className="page-title"><i className="fas fa-video" style={{ marginRight: 8, color: 'var(--color-accent)' }} />Video Generation</h1>
         </div>
 
         <form onSubmit={handleGenerate}>
           <div className="form-group">
             <label className="form-label">Model</label>
-            <ModelSelector value={model} onChange={setModel} />
+            <ModelSelector value={model} onChange={setModel} capability="FLAG_VIDEO" />
           </div>
           <div className="form-group">
             <label className="form-label">Prompt</label>
@@ -137,7 +137,7 @@ export default function VideoGen() {
             </div>
           ) : (
             <div style={{ textAlign: 'center', color: 'var(--color-text-muted)' }}>
-              <i className="fas fa-video" style={{ fontSize: '3rem', marginBottom: 'var(--spacing-md)' }} />
+              <i className="fas fa-video" style={{ fontSize: '3rem', marginBottom: 'var(--spacing-md)', opacity: 0.4 }} />
               <p>Generated videos will appear here</p>
             </div>
           )}

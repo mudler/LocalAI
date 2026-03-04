@@ -1,18 +1,14 @@
 import { useEffect } from 'react'
 import { useModels } from '../hooks/useModels'
 
-export default function ModelSelector({ value, onChange, filter, className = '' }) {
-  const { models, loading } = useModels()
-
-  const filtered = filter
-    ? models.filter(m => !filter || m.id?.includes(filter))
-    : models
+export default function ModelSelector({ value, onChange, capability, className = '' }) {
+  const { models, loading } = useModels(capability)
 
   useEffect(() => {
-    if (!value && filtered.length > 0) {
-      onChange(filtered[0].id)
+    if (!value && models.length > 0) {
+      onChange(models[0].id)
     }
-  }, [filtered, value, onChange])
+  }, [models, value, onChange])
 
   return (
     <select
@@ -22,8 +18,8 @@ export default function ModelSelector({ value, onChange, filter, className = '' 
       disabled={loading}
     >
       {loading && <option>Loading models...</option>}
-      {!loading && filtered.length === 0 && <option>No models available</option>}
-      {filtered.map(model => (
+      {!loading && models.length === 0 && <option>No models available</option>}
+      {models.map(model => (
         <option key={model.id} value={model.id}>{model.id}</option>
       ))}
     </select>

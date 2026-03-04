@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Outlet } from 'react-router-dom'
+import { Outlet, useLocation } from 'react-router-dom'
 import Sidebar from './components/Sidebar'
 import OperationsBar from './components/OperationsBar'
 import { ToastContainer, useToast } from './components/Toast'
@@ -9,6 +9,8 @@ export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const { toasts, addToast, removeToast } = useToast()
   const [version, setVersion] = useState('')
+  const location = useLocation()
+  const isChatRoute = location.pathname.startsWith('/chat')
 
   useEffect(() => {
     systemApi.version()
@@ -17,7 +19,7 @@ export default function App() {
   }, [])
 
   return (
-    <div className="app-layout">
+    <div className={`app-layout${isChatRoute ? ' app-layout-chat' : ''}`}>
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <main className="main-content">
         <OperationsBar />
@@ -34,29 +36,31 @@ export default function App() {
         <div className="main-content-inner">
           <Outlet context={{ addToast }} />
         </div>
-        <footer className="app-footer">
-          <div className="app-footer-inner">
-            {version && (
-              <span className="app-footer-version">
-                LocalAI <span style={{ color: 'var(--color-primary)', fontWeight: 500 }}>{version}</span>
+        {!isChatRoute && (
+          <footer className="app-footer">
+            <div className="app-footer-inner">
+              {version && (
+                <span className="app-footer-version">
+                  LocalAI <span style={{ color: 'var(--color-primary)', fontWeight: 500 }}>{version}</span>
+                </span>
+              )}
+              <div className="app-footer-links">
+                <a href="https://github.com/mudler/LocalAI" target="_blank" rel="noopener noreferrer">
+                  <i className="fab fa-github" /> GitHub
+                </a>
+                <a href="https://localai.io" target="_blank" rel="noopener noreferrer">
+                  <i className="fas fa-book" /> Documentation
+                </a>
+                <a href="https://mudler.pm" target="_blank" rel="noopener noreferrer">
+                  <i className="fas fa-user" /> Author
+                </a>
+              </div>
+              <span className="app-footer-copyright">
+                &copy; 2023-2026 <a href="https://mudler.pm" target="_blank" rel="noopener noreferrer">Ettore Di Giacinto</a>
               </span>
-            )}
-            <div className="app-footer-links">
-              <a href="https://github.com/mudler/LocalAI" target="_blank" rel="noopener noreferrer">
-                <i className="fab fa-github" /> GitHub
-              </a>
-              <a href="https://localai.io" target="_blank" rel="noopener noreferrer">
-                <i className="fas fa-book" /> Documentation
-              </a>
-              <a href="https://mudler.pm" target="_blank" rel="noopener noreferrer">
-                <i className="fas fa-user" /> Author
-              </a>
             </div>
-            <span className="app-footer-copyright">
-              &copy; 2023-2026 <a href="https://mudler.pm" target="_blank" rel="noopener noreferrer">Ettore Di Giacinto</a>
-            </span>
-          </div>
-        </footer>
+          </footer>
+        )}
       </main>
       <ToastContainer toasts={toasts} removeToast={removeToast} />
     </div>

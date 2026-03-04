@@ -1,7 +1,15 @@
-import { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import { tracesApi } from '../utils/api'
 import LoadingSpinner from '../components/LoadingSpinner'
+
+function formatDuration(ns) {
+  if (!ns && ns !== 0) return '-'
+  if (ns < 1000) return `${ns}ns`
+  if (ns < 1_000_000) return `${(ns / 1000).toFixed(1)}µs`
+  if (ns < 1_000_000_000) return `${(ns / 1_000_000).toFixed(1)}ms`
+  return `${(ns / 1_000_000_000).toFixed(2)}s`
+}
 
 export default function Traces() {
   const { addToast } = useOutletContext()
@@ -75,7 +83,7 @@ export default function Traces() {
           <h2 className="empty-state-title">No traces</h2>
           <p className="empty-state-text">Traces will appear here as requests are made.</p>
         </div>
-      ) : (
+      ) : activeTab === 'api' ? (
         <div className="table-container">
           <table className="table">
             <thead>
@@ -85,30 +93,70 @@ export default function Traces() {
                 <th>Method</th>
                 <th>Path</th>
                 <th>Status</th>
-                <th>Duration</th>
               </tr>
             </thead>
             <tbody>
               {traces.map((trace, i) => (
-                <>
-                  <tr key={i} onClick={() => setExpandedRow(expandedRow === i ? null : i)} style={{ cursor: 'pointer' }}>
+                <React.Fragment key={i}>
+                  <tr onClick={() => setExpandedRow(expandedRow === i ? null : i)} style={{ cursor: 'pointer' }}>
                     <td><i className={`fas fa-chevron-${expandedRow === i ? 'down' : 'right'}`} style={{ fontSize: '0.7rem' }} /></td>
                     <td>{trace.timestamp ? new Date(trace.timestamp).toLocaleTimeString() : '-'}</td>
-                    <td><span className="badge badge-info">{trace.method || '-'}</span></td>
-                    <td style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.8125rem' }}>{trace.path || trace.endpoint || '-'}</td>
-                    <td><span className={`badge ${(trace.status || 0) < 400 ? 'badge-success' : 'badge-error'}`}>{trace.status || '-'}</span></td>
-                    <td>{trace.duration || '-'}</td>
+                    <td><span className="badge badge-info">{trace.request?.method || '-'}</span></td>
+                    <td style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.8125rem' }}>{trace.request?.path || '-'}</td>
+                    <td><span className={`badge ${(trace.response?.status || 0) < 400 ? 'badge-success' : 'badge-error'}`}>{trace.response?.status || '-'}</span></td>
                   </tr>
                   {expandedRow === i && (
-                    <tr key={`${i}-detail`}>
-                      <td colSpan="6">
+                    <tr>
+                      <td colSpan="5">
                         <pre style={{ background: 'var(--color-bg-primary)', padding: 'var(--spacing-sm)', borderRadius: 'var(--radius-md)', fontSize: '0.75rem', overflow: 'auto', maxHeight: '300px' }}>
                           {JSON.stringify(trace, null, 2)}
                         </pre>
                       </td>
                     </tr>
                   )}
-                </>
+                </React.Fragment>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <div className="table-container">
+          <table className="table">
+            <thead>
+              <tr>
+                <th style={{ width: '30px' }}></th>
+                <th>Time</th>
+                <th>Type</th>
+                <th>Model</th>
+                <th>Backend</th>
+                <th>Duration</th>
+                <th>Summary</th>
+              </tr>
+            </thead>
+            <tbody>
+              {traces.map((trace, i) => (
+                <React.Fragment key={i}>
+                  <tr onClick={() => setExpandedRow(expandedRow === i ? null : i)} style={{ cursor: 'pointer' }}>
+                    <td><i className={`fas fa-chevron-${expandedRow === i ? 'down' : 'right'}`} style={{ fontSize: '0.7rem' }} /></td>
+                    <td>{trace.timestamp ? new Date(trace.timestamp).toLocaleTimeString() : '-'}</td>
+                    <td><span className="badge badge-info">{trace.type || '-'}</span></td>
+                    <td style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.8125rem' }}>{trace.model_name || '-'}</td>
+                    <td>{trace.backend || '-'}</td>
+                    <td>{formatDuration(trace.duration)}</td>
+                    <td style={{ maxWidth: '300px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {trace.error ? <span style={{ color: 'var(--color-error)' }}>{trace.error}</span> : (trace.summary || '-')}
+                    </td>
+                  </tr>
+                  {expandedRow === i && (
+                    <tr>
+                      <td colSpan="7">
+                        <pre style={{ background: 'var(--color-bg-primary)', padding: 'var(--spacing-sm)', borderRadius: 'var(--radius-md)', fontSize: '0.75rem', overflow: 'auto', maxHeight: '300px' }}>
+                          {JSON.stringify(trace, null, 2)}
+                        </pre>
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
               ))}
             </tbody>
           </table>

@@ -96,103 +96,101 @@ export default function Talk() {
     addToast('Conversation reset', 'info')
   }
 
+  const allModelsSet = llmModel && whisperModel && ttsModel
+
   return (
     <div className="page" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-      <div style={{ width: '100%', maxWidth: '48rem' }}>
-        {/* Hero */}
-        <div style={{ textAlign: 'center', marginBottom: 'var(--spacing-xl)' }}>
-          <h1 className="page-title">Talk Interface</h1>
-          <p className="page-subtitle">Have a voice conversation with AI using speech-to-text and text-to-speech</p>
+      <div style={{ width: '100%', maxWidth: '40rem' }}>
+        <div style={{ textAlign: 'center', marginBottom: 'var(--spacing-lg)' }}>
+          <h1 className="page-title">Talk</h1>
+          <p className="page-subtitle">Voice conversation with AI</p>
         </div>
 
-        {/* Main card */}
-        <div className="card" style={{ padding: 'var(--spacing-lg)' }}>
-          {/* Recording status banner */}
-          {isRecording && (
-            <div style={{
-              background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.3)',
-              borderRadius: 'var(--radius-md)', padding: 'var(--spacing-sm)',
-              display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)',
-              marginBottom: 'var(--spacing-md)', color: 'var(--color-error)',
-            }}>
-              <i className="fas fa-microphone" style={{ animation: 'pulse 1s infinite' }} />
-              <span style={{ fontSize: '0.875rem', fontWeight: 500 }}>Recording in progress...</span>
-            </div>
-          )}
-
-          {/* Loader */}
-          {loading && (
-            <div style={{ textAlign: 'center', padding: 'var(--spacing-md)', marginBottom: 'var(--spacing-md)' }}>
-              <LoadingSpinner size="lg" />
-            </div>
-          )}
+        {/* Main interaction area */}
+        <div className="card" style={{ padding: 'var(--spacing-lg)', textAlign: 'center', marginBottom: 'var(--spacing-md)' }}>
+          {/* Big record button */}
+          <button
+            onClick={isRecording ? stopRecording : startRecording}
+            disabled={loading || !allModelsSet}
+            style={{
+              width: 96, height: 96, borderRadius: '50%', border: 'none', cursor: loading || !allModelsSet ? 'not-allowed' : 'pointer',
+              background: isRecording ? 'var(--color-error)' : 'var(--color-primary)',
+              color: '#fff', fontSize: '2rem', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: isRecording ? '0 0 0 8px rgba(239,68,68,0.2)' : '0 0 0 8px var(--color-primary-light)',
+              transition: 'all 200ms', opacity: loading || !allModelsSet ? 0.5 : 1,
+              margin: '0 auto var(--spacing-md)',
+            }}
+          >
+            <i className={`fas ${isRecording ? 'fa-stop' : 'fa-microphone'}`} />
+          </button>
 
           {/* Status */}
-          <p style={{
-            textAlign: 'center', color: 'var(--color-text-secondary)', fontSize: '0.875rem',
-            marginBottom: 'var(--spacing-md)',
-          }}>
-            {status}
+          <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.875rem', marginBottom: 'var(--spacing-md)' }}>
+            {loading ? <LoadingSpinner size="sm" /> : null}
+            {' '}{status}
           </p>
 
-          {/* Info box */}
-          <div style={{
-            background: 'var(--color-info-light)', border: '1px solid rgba(56, 189, 248, 0.2)',
-            borderRadius: 'var(--radius-md)', padding: 'var(--spacing-sm) var(--spacing-md)',
-            marginBottom: 'var(--spacing-lg)', fontSize: '0.8125rem', color: 'var(--color-text-secondary)',
-          }}>
-            <i className="fas fa-info-circle" style={{ color: 'var(--color-info)', marginRight: 'var(--spacing-xs)' }} />
-            This interface requires three models: an LLM for conversation, a Whisper model for speech recognition, and a TTS model for voice synthesis.
-          </div>
-
-          {/* Model selectors - 3 column grid */}
-          <div style={{
-            display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)',
-            gap: 'var(--spacing-md)', marginBottom: 'var(--spacing-lg)',
-          }}>
-            <div className="form-group" style={{ margin: 0 }}>
-              <label className="form-label">
-                <i className="fas fa-brain" style={{ color: 'var(--color-primary)' }} /> LLM Model
-              </label>
-              <ModelSelector value={llmModel} onChange={setLlmModel} />
+          {/* Recording indicator */}
+          {isRecording && (
+            <div style={{
+              background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)',
+              borderRadius: 'var(--radius-md)', padding: 'var(--spacing-xs) var(--spacing-sm)',
+              display: 'inline-flex', alignItems: 'center', gap: 'var(--spacing-xs)',
+              color: 'var(--color-error)', fontSize: '0.8125rem', marginBottom: 'var(--spacing-md)',
+            }}>
+              <i className="fas fa-circle" style={{ fontSize: '0.5rem', animation: 'pulse 1s infinite' }} />
+              Recording...
             </div>
-            <div className="form-group" style={{ margin: 0 }}>
-              <label className="form-label">
-                <i className="fas fa-ear-listen" style={{ color: 'var(--color-accent)' }} /> Whisper Model
-              </label>
-              <ModelSelector value={whisperModel} onChange={setWhisperModel} />
-            </div>
-            <div className="form-group" style={{ margin: 0 }}>
-              <label className="form-label">
-                <i className="fas fa-volume-high" style={{ color: 'var(--color-success)' }} /> TTS Model
-              </label>
-              <ModelSelector value={ttsModel} onChange={setTtsModel} />
-            </div>
-          </div>
-
-          {/* Action buttons */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <button
-              className={`btn ${isRecording ? 'btn-danger' : 'btn-primary'}`}
-              onClick={isRecording ? stopRecording : startRecording}
-              disabled={loading || !llmModel || !whisperModel || !ttsModel}
-            >
-              <i className={`fas ${isRecording ? 'fa-stop' : 'fa-microphone'}`} />
-              {isRecording ? 'Stop Recording' : 'Talk'}
-            </button>
-            <button
-              className="btn btn-secondary"
-              onClick={resetConversation}
-              style={{ fontSize: '0.8125rem' }}
-            >
-              Reset conversation
-            </button>
-          </div>
+          )}
 
           {/* Audio playback */}
           {audioUrl && (
-            <div style={{ marginTop: 'var(--spacing-lg)' }}>
+            <div style={{ marginTop: 'var(--spacing-sm)' }}>
               <audio ref={audioRef} controls src={audioUrl} style={{ width: '100%' }} />
+            </div>
+          )}
+        </div>
+
+        {/* Model selectors */}
+        <div className="card" style={{ padding: 'var(--spacing-md)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--spacing-md)' }}>
+            <h3 style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--color-text-secondary)' }}>
+              <i className="fas fa-sliders-h" style={{ marginRight: 'var(--spacing-xs)' }} /> Models
+            </h3>
+            <button className="btn btn-secondary btn-sm" onClick={resetConversation} style={{ fontSize: '0.75rem' }}>
+              <i className="fas fa-rotate-right" /> Reset
+            </button>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-sm)' }}>
+            <div className="form-group" style={{ margin: 0 }}>
+              <label className="form-label" style={{ fontSize: '0.75rem' }}>
+                <i className="fas fa-brain" style={{ color: 'var(--color-primary)', marginRight: 4 }} /> LLM
+              </label>
+              <ModelSelector value={llmModel} onChange={setLlmModel} capability="FLAG_CHAT" />
+            </div>
+            <div className="form-group" style={{ margin: 0 }}>
+              <label className="form-label" style={{ fontSize: '0.75rem' }}>
+                <i className="fas fa-ear-listen" style={{ color: 'var(--color-accent)', marginRight: 4 }} /> Speech-to-Text
+              </label>
+              <ModelSelector value={whisperModel} onChange={setWhisperModel} capability="FLAG_TRANSCRIPT" />
+            </div>
+            <div className="form-group" style={{ margin: 0 }}>
+              <label className="form-label" style={{ fontSize: '0.75rem' }}>
+                <i className="fas fa-volume-high" style={{ color: 'var(--color-success)', marginRight: 4 }} /> Text-to-Speech
+              </label>
+              <ModelSelector value={ttsModel} onChange={setTtsModel} capability="FLAG_TTS" />
+            </div>
+          </div>
+
+          {!allModelsSet && (
+            <div style={{
+              background: 'var(--color-info-light)', border: '1px solid rgba(56, 189, 248, 0.2)',
+              borderRadius: 'var(--radius-md)', padding: 'var(--spacing-xs) var(--spacing-sm)',
+              marginTop: 'var(--spacing-sm)', fontSize: '0.75rem', color: 'var(--color-text-secondary)',
+            }}>
+              <i className="fas fa-info-circle" style={{ color: 'var(--color-info)', marginRight: 4 }} />
+              Select all three models to start talking.
             </div>
           )}
         </div>

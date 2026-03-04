@@ -51,7 +51,7 @@ export default function AgentJobs() {
     if (models.length === 0) { setHasMCPModels(false); return }
     let cancelled = false
     Promise.all(
-      models.map(m => modelsApi.getConfig(m.id).catch(() => null))
+      models.map(m => modelsApi.getConfigJson(m.id).catch(() => null))
     ).then(configs => {
       if (cancelled) return
       const hasMcp = configs.some(cfg => cfg && (cfg.mcp?.remote || cfg.mcp?.stdio))
