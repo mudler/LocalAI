@@ -1,4 +1,29 @@
 ---
+- name: "grid-runner-7b"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/grid-runner-7b-GGUF
+  description: |
+    Describe the model in a clear and concise way that can be shared in a model gallery.
+  overrides:
+    parameters:
+      model: llama-cpp/models/grid-runner-7b.Q4_K_M.gguf
+    name: grid-runner-7b-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/grid-runner-7b-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/grid-runner-7b.Q4_K_M.gguf
+      sha256: 28c9e8c4d4db05988301ac8b0461bbaa86b32d88e874e1703c06b7bcdb5d3ec4
+      uri: https://huggingface.co/mradermacher/grid-runner-7b-GGUF/resolve/main/grid-runner-7b.Q4_K_M.gguf
 - name: "qwen3.5-9b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
