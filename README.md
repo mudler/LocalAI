@@ -370,7 +370,7 @@ Other:
 
 ## 🤖 Autonomous Development Team
 
-LocalAI is now being maintained by a full team of autonomous AI agents led by an AI Scrum Master! This experiment demonstrates how open source projects can leverage AI agents for sustainable, long-term maintenance.
+LocalAI is now helped being maintained (for small tasks!) by a full team of autonomous AI agents led by an AI Scrum Master! This experiment demonstrates how open source projects can leverage AI agents for sustainable, long-term maintenance.
 
 - **📊 Live Reports**: [Automatically generated reports](http://reports.localai.io)
 - **📋 Project Board**: [Agent task tracking](https://github.com/users/mudler/projects/6)
