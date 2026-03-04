@@ -641,7 +641,7 @@ func (c *ModelConfig) GuessUsecases(u ModelConfigUsecase) bool {
 
 	}
 	if (u & FLAG_VIDEO) == FLAG_VIDEO {
-		videoBackends := []string{"diffusers", "stablediffusion"}
+		videoBackends := []string{"diffusers", "stablediffusion", "vllm-omni"}
 		if !slices.Contains(videoBackends, c.Backend) {
 			return false
 		}
