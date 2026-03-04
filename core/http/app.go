@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"mime"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -28,6 +29,11 @@ import (
 //
 //go:embed static/*
 var embedDirStatic embed.FS
+
+// Embed React UI build output
+//
+//go:embed react-ui/dist/*
+var reactUI embed.FS
 
 var quietPaths = []string{"/api/operations", "/api/resources", "/healthz", "/readyz"}
 
@@ -229,6 +235,42 @@ func API(application *application.Application) (*echo.Echo, error) {
 	if !application.ApplicationConfig().DisableWebUI {
 		routes.RegisterUIAPIRoutes(e, application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig(), application.GalleryService(), opcache, application)
 		routes.RegisterUIRoutes(e, application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig(), application.GalleryService())
+
+		// Serve React SPA at /app with SPA fallback
+		reactFS, fsErr := fs.Sub(reactUI, "react-ui/dist")
+		if fsErr != nil {
+			xlog.Warn("React UI not available (build with 'make core/http/react-ui/dist')", "error", fsErr)
+		} else {
+			serveIndex := func(c echo.Context) error {
+				indexHTML, err := reactUI.ReadFile("react-ui/dist/index.html")
+				if err != nil {
+					return c.String(http.StatusNotFound, "React UI not built")
+				}
+				return c.HTMLBlob(http.StatusOK, indexHTML)
+			}
+
+			e.GET("/app", serveIndex)
+			e.GET("/app/*", func(c echo.Context) error {
+				p := c.Param("*")
+
+				// Try to serve static file from embedded FS
+				f, err := reactFS.Open(p)
+				if err == nil {
+					defer f.Close()
+					stat, statErr := f.Stat()
+					if statErr == nil && !stat.IsDir() {
+						contentType := mime.TypeByExtension(filepath.Ext(p))
+						if contentType == "" {
+							contentType = echo.MIMEOctetStream
+						}
+						return c.Stream(http.StatusOK, contentType, f)
+					}
+				}
+
+				// SPA fallback: serve index.html for client-side routing
+				return serveIndex(c)
+			})
+		}
 	}
 	routes.RegisterJINARoutes(e, requestExtractor, application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig())
 

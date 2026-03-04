@@ -533,6 +533,42 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		})
 	})
 
+	// Get installed model YAML config for the React model editor
+	app.GET("/api/models/edit/:name", func(c echo.Context) error {
+		modelName := c.Param("name")
+		if modelName == "" {
+			return c.JSON(http.StatusBadRequest, map[string]interface{}{
+				"error": "model name is required",
+			})
+		}
+
+		modelConfig, exists := cl.GetModelConfig(modelName)
+		if !exists {
+			return c.JSON(http.StatusNotFound, map[string]interface{}{
+				"error": "model configuration not found",
+			})
+		}
+
+		modelConfigFile := modelConfig.GetModelConfigFile()
+		if modelConfigFile == "" {
+			return c.JSON(http.StatusNotFound, map[string]interface{}{
+				"error": "model configuration file not found",
+			})
+		}
+
+		configData, err := os.ReadFile(modelConfigFile)
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]interface{}{
+				"error": "failed to read configuration file: " + err.Error(),
+			})
+		}
+
+		return c.JSON(http.StatusOK, map[string]interface{}{
+			"config": string(configData),
+			"name":   modelName,
+		})
+	})
+
 	app.GET("/api/models/job/:uid", func(c echo.Context) error {
 		jobUID := c.Param("uid")
 

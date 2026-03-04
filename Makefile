@@ -91,8 +91,13 @@ install-go-tools:
 	go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@1958fcbe2ca8bd93af633f11e97d44e567e945af
 	go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2
 
+## React UI:
+core/http/react-ui/dist:
+	docker run --entrypoint /bin/bash -v $(CURDIR):/app:z oven/bun:1 \
+	  -c "cd /app/core/http/react-ui && bun install && bun run build"
+
 ## Build:
-build: protogen-go install-go-tools ## Build the project
+build: protogen-go install-go-tools core/http/react-ui/dist ## Build the project
 	$(info ${GREEN}I local-ai build info:${RESET})
 	$(info ${GREEN}I BUILD_TYPE: ${YELLOW}$(BUILD_TYPE)${RESET})
 	$(info ${GREEN}I GO_TAGS: ${YELLOW}$(GO_TAGS)${RESET})
