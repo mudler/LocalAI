@@ -38,7 +38,6 @@ const (
 	envDevSuffix = "LOCALAI_BACKEND_DEV_SUFFIX"
 )
 
-
 // getFallbackTagValues returns the configurable fallback tag values from system state, falling back to environment variables
 func getFallbackTagValues(systemState *system.SystemState) (latestTag, masterTag, devSuffix string) {
 	// First try to get values from system state
@@ -74,7 +73,6 @@ func getFallbackTagValues(systemState *system.SystemState) (latestTag, masterTag
 
 	return latestTag, masterTag, devSuffix
 }
-
 
 // backendCandidate represents an installed concrete backend option for a given alias
 type backendCandidate struct {
@@ -243,7 +241,7 @@ func InstallBackend(ctx context.Context, systemState *system.SystemState, modelL
 			}
 
 			// Try fallback: replace latestTag + "-" with masterTag + "-" in the URI
-			fallbackURI := strings.Replace(string(config.URI), latestTag + "-", masterTag + "-", 1)
+			fallbackURI := strings.Replace(string(config.URI), latestTag+"-", masterTag+"-", 1)
 			if fallbackURI != string(config.URI) {
 				xlog.Debug("Trying fallback URI", "original", config.URI, "fallback", fallbackURI)
 				if err := downloader.URI(fallbackURI).DownloadFileWithContext(ctx, backendPath, "", 1, 1, downloadStatus); err == nil {
@@ -252,7 +250,7 @@ func InstallBackend(ctx context.Context, systemState *system.SystemState, modelL
 				} else {
 					// Try another fallback: add "-" + devSuffix suffix to the backend name
 					// For example: master-gpu-nvidia-cuda-13-ace-step -> master-gpu-nvidia-cuda-13-ace-step-development
-					if !strings.Contains(fallbackURI, "-" + devSuffix) {
+					if !strings.Contains(fallbackURI, "-"+devSuffix) {
 						// Extract backend name from URI and add -development
 						parts := strings.Split(fallbackURI, "-")
 						if len(parts) >= 2 {
