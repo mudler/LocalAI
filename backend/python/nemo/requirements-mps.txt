@@ -1,0 +1,2 @@
+torch
+nemo_toolkit[asr]

@@ -1,0 +1,8 @@
+--extra-index-url https://download.pytorch.org/whl/cu130
+torch==2.9.1
+rfdetr
+opencv-python
+accelerate
+inference
+peft
+optimum-quanto

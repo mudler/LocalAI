@@ -1,0 +1,13 @@
+--extra-index-url https://download.pytorch.org/whl/cu130
+torch
+git+https://github.com/huggingface/diffusers
+transformers
+accelerate
+compel
+peft
+optimum-quanto
+numpy<2
+sentencepiece
+torchvision
+ftfy
+chardet

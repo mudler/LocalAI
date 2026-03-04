@@ -1,0 +1,16 @@
+name: gpt4all-2
+parameters:
+  model: testmodel.ggml
+  top_p: 80
+  top_k: 0.9
+  temperature: 0.1
+context_size: 200
+stopwords:
+- "HUMAN:"
+- "### Response:"
+roles:
+  user: "HUMAN:"
+  system: "GPT:"
+template:
+  completion: completion
+  chat: ggml-gpt4all-j

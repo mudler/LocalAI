@@ -1,0 +1,327 @@
+---
+name: 'build container images (reusable)'
+
+on:
+  workflow_call:
+    inputs:
+      base-image:
+        description: 'Base image'
+        required: true
+        type: string
+      grpc-base-image:
+        description: 'GRPC Base image, must be a compatible image with base-image'
+        required: false
+        default: ''
+        type: string
+      build-type:
+        description: 'Build type'
+        default: ''
+        type: string
+      cuda-major-version:
+        description: 'CUDA major version'
+        default: "12"
+        type: string
+      cuda-minor-version:
+        description: 'CUDA minor version'
+        default: "9"
+        type: string
+      platforms:
+        description: 'Platforms'
+        default: ''
+        type: string
+      tag-latest:
+        description: 'Tag latest'
+        default: ''
+        type: string
+      tag-suffix:
+        description: 'Tag suffix'
+        default: ''
+        type: string
+      skip-drivers:
+        description: 'Skip drivers by default'
+        default: 'false'
+        type: string
+      runs-on:
+        description: 'Runs on'
+        required: true
+        default: ''
+        type: string
+      makeflags:
+        description: 'Make Flags'
+        required: false
+        default: '--jobs=4 --output-sync=target'
+        type: string
+      aio:
+        description: 'AIO Image Name'
+        required: false
+        default: ''
+        type: string
+      ubuntu-version:
+        description: 'Ubuntu version'
+        required: false
+        default: '2204'
+        type: string
+      ubuntu-codename:
+        description: 'Ubuntu codename'
+        required: false
+        default: 'noble'
+        type: string
+    secrets:
+      dockerUsername:
+        required: true
+      dockerPassword:
+        required: true
+      quayUsername:
+        required: true
+      quayPassword:
+        required: true
+jobs:
+  reusable_image-build:
+    runs-on: ${{ inputs.runs-on }}
+    steps:
+
+      - name: Free Disk Space (Ubuntu)
+        if: inputs.runs-on == 'ubuntu-latest'
+        uses: jlumbroso/free-disk-space@main
+        with:
+          # this might remove tools that are actually needed,
+          # if set to "true" but frees about 6 GB
+          tool-cache: true
+          # all of these default to true, but feel free to set to
+          # "false" if necessary for your workflow
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: true
+      - name: Force Install GIT latest
+        run: |
+          sudo apt-get update \
+          && sudo apt-get install -y software-properties-common \
+          && sudo apt-get update \
+          && sudo add-apt-repository -y ppa:git-core/ppa \
+          && sudo apt-get update \
+          && sudo apt-get install -y git
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Release space from worker
+        if: inputs.runs-on == 'ubuntu-latest'
+        run: |
+          echo "Listing top largest packages"
+          pkgs=$(dpkg-query -Wf '${Installed-Size}\t${Package}\t${Status}\n' | awk '$NF == "installed"{print $1 "\t" $2}' | sort -nr)
+          head -n 30 <<< "${pkgs}"
+          echo
+          df -h
+          echo
+          sudo apt-get remove -y '^llvm-.*|^libllvm.*' || true
+          sudo apt-get remove --auto-remove android-sdk-platform-tools snapd || true
+          sudo apt-get purge --auto-remove android-sdk-platform-tools snapd || true
+          sudo rm -rf /usr/local/lib/android
+          sudo apt-get remove -y '^dotnet-.*|^aspnetcore-.*' || true
+          sudo rm -rf /usr/share/dotnet
+          sudo apt-get remove -y '^mono-.*' || true
+          sudo apt-get remove -y '^ghc-.*' || true
+          sudo apt-get remove -y '.*jdk.*|.*jre.*' || true
+          sudo apt-get remove -y 'php.*' || true
+          sudo apt-get remove -y hhvm powershell firefox monodoc-manual msbuild || true
+          sudo apt-get remove -y '^google-.*' || true
+          sudo apt-get remove -y azure-cli || true
+          sudo apt-get remove -y '^mongo.*-.*|^postgresql-.*|^mysql-.*|^mssql-.*' || true
+          sudo apt-get remove -y '^gfortran-.*' || true
+          sudo apt-get remove -y microsoft-edge-stable || true
+          sudo apt-get remove -y firefox || true
+          sudo apt-get remove -y powershell || true
+          sudo apt-get remove -y r-base-core || true
+          sudo apt-get autoremove -y
+          sudo apt-get clean
+          echo
+          echo "Listing top largest packages"
+          pkgs=$(dpkg-query -Wf '${Installed-Size}\t${Package}\t${Status}\n' | awk '$NF == "installed"{print $1 "\t" $2}' | sort -nr)
+          head -n 30 <<< "${pkgs}"
+          echo
+          sudo rm -rfv build || true
+          sudo rm -rf /usr/share/dotnet || true
+          sudo rm -rf /opt/ghc || true
+          sudo rm -rf "/usr/local/share/boost" || true
+          sudo rm -rf "$AGENT_TOOLSDIRECTORY" || true
+          df -h
+
+      - name: Docker meta
+        id: meta
+        if: github.event_name != 'pull_request'
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            quay.io/go-skynet/local-ai
+            localai/localai
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{raw}}
+            type=sha
+          flavor: |
+            latest=${{ inputs.tag-latest }}
+            suffix=${{ inputs.tag-suffix }},onlatest=true
+      - name: Docker meta for PR
+        id: meta_pull_request
+        if: github.event_name == 'pull_request'
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            quay.io/go-skynet/ci-tests
+          tags: |
+            type=ref,event=branch,suffix=localai${{ github.event.number }}-${{ inputs.build-type }}-${{ inputs.cuda-major-version }}-${{ inputs.cuda-minor-version }}
+            type=semver,pattern={{raw}},suffix=localai${{ github.event.number }}-${{ inputs.build-type }}-${{ inputs.cuda-major-version }}-${{ inputs.cuda-minor-version }}
+            type=sha,suffix=localai${{ github.event.number }}-${{ inputs.build-type }}-${{ inputs.cuda-major-version }}-${{ inputs.cuda-minor-version }}
+          flavor: |
+            latest=${{ inputs.tag-latest }}
+            suffix=${{ inputs.tag-suffix }}
+      - name: Docker meta AIO (quay.io)
+        if: inputs.aio != ''
+        id: meta_aio
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            quay.io/go-skynet/local-ai
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{raw}}
+          flavor: |
+            latest=${{ inputs.tag-latest }}
+            suffix=${{ inputs.aio }},onlatest=true
+
+      - name: Docker meta AIO (dockerhub)
+        if: inputs.aio != ''
+        id: meta_aio_dockerhub
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            localai/localai
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{raw}}
+          flavor: |
+            latest=${{ inputs.tag-latest }}
+            suffix=${{ inputs.aio }},onlatest=true
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@master
+        with:
+          platforms: all
+
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@master
+
+      - name: Login to DockerHub
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.dockerUsername }}
+          password: ${{ secrets.dockerPassword }}
+
+      - name: Login to DockerHub
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: quay.io
+          username: ${{ secrets.quayUsername }}
+          password: ${{ secrets.quayPassword }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        if: github.event_name != 'pull_request'
+        with:
+          builder: ${{ steps.buildx.outputs.name }}
+          # The build-args MUST be an EXACT match between the image cache and other workflow steps that want to use that cache.
+          # This means that even the MAKEFLAGS have to be an EXACT match.
+          # If the build-args are not an EXACT match, it will result in a cache miss, which will require GRPC to be built from scratch.
+          # This is why some build args like GRPC_VERSION and MAKEFLAGS are hardcoded
+          build-args: |
+            BUILD_TYPE=${{ inputs.build-type }}
+            CUDA_MAJOR_VERSION=${{ inputs.cuda-major-version }}
+            CUDA_MINOR_VERSION=${{ inputs.cuda-minor-version }}
+            BASE_IMAGE=${{ inputs.base-image }}
+            GRPC_BASE_IMAGE=${{ inputs.grpc-base-image || inputs.base-image }}
+            GRPC_MAKEFLAGS=--jobs=4 --output-sync=target
+            GRPC_VERSION=v1.65.0
+            MAKEFLAGS=${{ inputs.makeflags }}
+            SKIP_DRIVERS=${{ inputs.skip-drivers }}
+            UBUNTU_VERSION=${{ inputs.ubuntu-version }}
+            UBUNTU_CODENAME=${{ inputs.ubuntu-codename }}
+          context: .
+          file: ./Dockerfile
+          cache-from: type=gha
+          platforms: ${{ inputs.platforms }}
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+### Start testing image
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        if: github.event_name == 'pull_request'
+        with:
+          builder: ${{ steps.buildx.outputs.name }}
+          # The build-args MUST be an EXACT match between the image cache and other workflow steps that want to use that cache.
+          # This means that even the MAKEFLAGS have to be an EXACT match.
+          # If the build-args are not an EXACT match, it will result in a cache miss, which will require GRPC to be built from scratch.
+          # This is why some build args like GRPC_VERSION and MAKEFLAGS are hardcoded
+          build-args: |
+            BUILD_TYPE=${{ inputs.build-type }}
+            CUDA_MAJOR_VERSION=${{ inputs.cuda-major-version }}
+            CUDA_MINOR_VERSION=${{ inputs.cuda-minor-version }}
+            BASE_IMAGE=${{ inputs.base-image }}
+            GRPC_BASE_IMAGE=${{ inputs.grpc-base-image || inputs.base-image }}
+            GRPC_MAKEFLAGS=--jobs=4 --output-sync=target
+            GRPC_VERSION=v1.65.0
+            MAKEFLAGS=${{ inputs.makeflags }}
+            SKIP_DRIVERS=${{ inputs.skip-drivers }}
+            UBUNTU_VERSION=${{ inputs.ubuntu-version }}
+            UBUNTU_CODENAME=${{ inputs.ubuntu-codename }}
+          context: .
+          file: ./Dockerfile
+          cache-from: type=gha
+          platforms: ${{ inputs.platforms }}
+          #push: true
+          tags: ${{ steps.meta_pull_request.outputs.tags }}
+          labels: ${{ steps.meta_pull_request.outputs.labels }}
+## End testing image
+      - name: Build and push AIO image
+        if: inputs.aio != ''
+        uses: docker/build-push-action@v6
+        with:
+          builder: ${{ steps.buildx.outputs.name }}
+          build-args: |
+            BASE_IMAGE=quay.io/go-skynet/local-ai:${{ steps.meta.outputs.version }}
+            MAKEFLAGS=${{ inputs.makeflags }}
+          context: .
+          file: ./Dockerfile.aio
+          platforms: ${{ inputs.platforms }}
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta_aio.outputs.tags }}
+          labels: ${{ steps.meta_aio.outputs.labels }}
+
+      - name: Build and push AIO image (dockerhub)
+        if: inputs.aio != ''
+        uses: docker/build-push-action@v6
+        with:
+          builder: ${{ steps.buildx.outputs.name }}
+          build-args: |
+            BASE_IMAGE=localai/localai:${{ steps.meta.outputs.version }}
+            MAKEFLAGS=${{ inputs.makeflags }}
+          context: .
+          file: ./Dockerfile.aio
+          platforms: ${{ inputs.platforms }}
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta_aio_dockerhub.outputs.tags }}
+          labels: ${{ steps.meta_aio_dockerhub.outputs.labels }}
+
+      - name: job summary
+        run: |
+          echo "Built image: ${{ steps.meta.outputs.labels }}" >> $GITHUB_STEP_SUMMARY
+
+      - name: job summary(AIO)
+        if: inputs.aio != ''
+        run: |
+          echo "Built image: ${{ steps.meta_aio.outputs.labels }}" >> $GITHUB_STEP_SUMMARY

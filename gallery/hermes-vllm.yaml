@@ -1,0 +1,93 @@
+---
+name: "hermes-vllm"
+
+config_file: |
+    backend: vllm
+    parameters:
+      max_tokens: 8192
+    context_size: 8192
+    stopwords:
+    - "<|im_end|>"
+    - "<dummy32000>"
+    - "<|eot_id|>"
+    - "<|end_of_text|>"
+    function:
+      disable_no_action: true
+      grammar:
+        # Uncomment the line below to enable grammar matching for JSON results if the model is breaking
+        # the output. This will make the model more accurate and won't break the JSON output.
+        # This however, will make parallel_calls not functional (it is a known bug)
+        # mixed_mode: true
+        disable: true
+        parallel_calls: true
+        expect_strings_after_json: true
+      json_regex_match:
+      - "(?s)<tool_call>(.*?)</tool_call>"
+      - "(?s)<tool_call>(.*)"
+      capture_llm_results:
+        - (?s)<scratchpad>(.*?)</scratchpad>
+      replace_llm_results:
+        - key: (?s)<scratchpad>(.*?)</scratchpad>
+          value: ""
+
+    template:
+      use_tokenizer_template: true
+      chat: |
+        {{.Input -}}
+        <|im_start|>assistant
+      chat_message: |
+        <|im_start|>{{if eq .RoleName "assistant"}}assistant{{else if eq .RoleName "system"}}system{{else if eq .RoleName "tool"}}tool{{else if eq .RoleName "user"}}user{{end}}
+        {{- if .FunctionCall }}
+        <tool_call>
+        {{- else if eq .RoleName "tool" }}
+        <tool_response>
+        {{- end }}
+        {{- if .Content}}
+        {{.Content }}
+        {{- end }}
+        {{- if .FunctionCall}}
+        {{toJson .FunctionCall}}
+        {{- end }}
+        {{- if .FunctionCall }}
+        </tool_call>
+        {{- else if eq .RoleName "tool" }}
+        </tool_response>
+        {{- end }}<|im_end|>
+      completion: |
+        {{.Input}}
+      function: |
+        <|im_start|>system
+        You are a function calling AI model.
+        Here are the available tools:
+        <tools>
+        {{range .Functions}}
+        {'type': 'function', 'function': {'name': '{{.Name}}', 'description': '{{.Description}}', 'parameters': {{toJson .Parameters}} }}
+        {{end}}
+        </tools>
+        You should call the tools provided to you sequentially
+        Please use <scratchpad> XML tags to record your reasoning and planning before you call the functions as follows:
+        <scratchpad>
+        {step-by-step reasoning and plan in bullet points}
+        </scratchpad>
+        For each function call return a json object with function name and arguments within <tool_call> XML tags as follows:
+        <tool_call>
+        {"arguments": <args-dict>, "name": <function-name>}
+        </tool_call><|im_end|>
+        {{.Input -}}
+        <|im_start|>assistant
+# Uncomment to specify a quantization method (optional)
+# quantization: "awq"
+# Uncomment to limit the GPU memory utilization (vLLM default is 0.9 for 90%)
+# gpu_memory_utilization: 0.5
+# Uncomment to trust remote code from huggingface
+# trust_remote_code: true
+# Uncomment to enable eager execution
+# enforce_eager: true
+# Uncomment to specify the size of the CPU swap space per GPU (in GiB)
+# swap_space: 2
+# Uncomment to specify the maximum length of a sequence (including prompt and output)
+# max_model_len: 32768
+# Uncomment and specify the number of Tensor divisions.
+# Allows you to partition and run large models. Performance gains are limited.
+# https://github.com/vllm-project/vllm/issues/1435
+# tensor_parallel_size: 2

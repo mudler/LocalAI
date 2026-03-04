@@ -1,0 +1,9 @@
+---
+name: openvino
+
+config_file: |
+  backend: transformers
+  context_size: 8192
+  type: OVModelForCausalLM
+  template:
+    use_tokenizer_template: true

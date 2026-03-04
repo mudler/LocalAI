@@ -1,0 +1,7 @@
+--extra-index-url https://pypi.jetson-ai-lab.io/jp6/cu126/
+torch
+torchaudio
+transformers
+numpy>=1.24.0,<1.26.0
+chatterbox-tts@git+https://git@github.com/mudler/chatterbox.git@faster
+accelerate

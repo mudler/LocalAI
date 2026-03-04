@@ -1,0 +1,110 @@
+baseURL = 'https://localai.io/'
+languageCode = 'en-GB'
+defaultContentLanguage = 'en'
+
+title = 'LocalAI'
+
+# Theme configuration
+theme = 'hugo-theme-relearn'
+
+# Enable Git info
+enableGitInfo = true
+enableEmoji = true
+
+[outputs]
+  home = ['html', 'rss', 'print', 'search']
+  section = ['html', 'rss', 'print']
+  page = ['html', 'print']
+
+[markup]
+  defaultMarkdownHandler = 'goldmark'
+  [markup.tableOfContents]
+    endLevel = 3
+    startLevel = 1
+  [markup.goldmark]
+    [markup.goldmark.renderer]
+      unsafe = true
+  [markup.goldmark.parser.attribute]
+    block = true
+    title = true
+
+[params]
+  # Relearn theme parameters
+  editURL = 'https://github.com/mudler/LocalAI/edit/master/docs/content/'
+  description = 'LocalAI documentation'
+  author = 'Ettore Di Giacinto'
+  showVisitedLinks = true
+  disableBreadcrumb = false
+  disableNextPrev = false
+  disableLandingPageButton = false
+  titleSeparator = '::'
+  disableSeoHiddenPages = true
+  
+  # Additional theme options
+  disableSearch = false
+  disableGenerator = false
+  disableLanguageSwitchingButton = true
+  
+  # Theme variant - dark/blue style
+  themeVariant = [ 'zen-dark' , 'neon', 'auto' ]
+  
+  # ordersectionsby = 'weight'
+
+[languages]
+  [languages.en]
+    title = 'LocalAI'
+    languageName = 'English'
+    weight = 10
+    contentDir = 'content'
+    [languages.en.params]
+      landingPageName = '<i class="fa-fw fas fa-home"></i> Home'
+
+# Menu shortcuts
+[[languages.en.menu.shortcuts]]
+  name = '<i class="fas fa-fw fa-star"></i> Star us on GitHub'
+  identifier = 'star-github'
+  url = 'https://github.com/mudler/LocalAI'
+  weight = 5
+
+[[languages.en.menu.shortcuts]]
+  name = '<i class="fab fa-fw fa-github"></i> GitHub'
+  identifier = 'github'
+  url = 'https://github.com/mudler/LocalAI'
+  weight = 10
+
+[[languages.en.menu.shortcuts]]
+  name = '<i class="fab fa-fw fa-discord"></i> Discord'
+  identifier = 'discord'
+  url = 'https://discord.gg/uJAeKSAGDy'
+  weight = 20
+
+[[languages.en.menu.shortcuts]]
+  name = '<i class="fab fa-fw fa-x-twitter"></i> X/Twitter'
+  identifier = 'twitter'
+  url = 'https://twitter.com/LocalAI_API'
+  weight = 20
+
+
+# Module configuration for theme
+[module]
+  [[module.mounts]]
+    source = 'content'
+    target = 'content'
+  [[module.mounts]]
+    source = 'static'
+    target = 'static'
+  [[module.mounts]]
+    source = 'layouts'
+    target = 'layouts'
+  [[module.mounts]]
+    source = 'data'
+    target = 'data'
+  [[module.mounts]]
+    source = 'assets'
+    target = 'assets'
+  [[module.mounts]]
+    source = '../images'
+    target = 'static/images'
+  [[module.mounts]]
+    source = 'i18n'
+    target = 'i18n'

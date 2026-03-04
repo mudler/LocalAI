@@ -1,0 +1,33 @@
+name: jina-reranker-v1-base-en
+reranking: true
+f16: true
+parameters:
+  model: jina-reranker-v1-tiny-en.f16.gguf
+backend: llama-cpp
+download_files:
+  - filename: jina-reranker-v1-tiny-en.f16.gguf
+    sha256: 5f696cf0d0f3d347c4a279eee8270e5918554cdac0ed1f632f2619e4e8341407
+    uri: huggingface://mradermacher/jina-reranker-v1-tiny-en-GGUF/jina-reranker-v1-tiny-en.f16.gguf 
+
+usage: |
+    You can test this model with curl like this:
+
+    curl http://localhost:8080/v1/rerank \
+      -H "Content-Type: application/json" \
+      -d '{
+      "model": "jina-reranker-v1-base-en",
+      "query": "Organic skincare products for sensitive skin",
+      "documents": [
+        "Eco-friendly kitchenware for modern homes",
+        "Biodegradable cleaning supplies for eco-conscious consumers",
+        "Organic cotton baby clothes for sensitive skin",
+        "Natural organic skincare range for sensitive skin",
+        "Tech gadgets for smart homes: 2024 edition",
+        "Sustainable gardening tools and compost solutions",
+        "Sensitive skin-friendly facial cleansers and toners",
+        "Organic food wraps and storage solutions",
+        "All-natural pet food for dogs with allergies",
+        "Yoga mats made from recycled materials"
+      ],
+      "top_n": 3
+    }'

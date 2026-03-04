@@ -1,15 +1,67 @@
 # go-llama build artifacts
-go-llama
-go-gpt4all-j
+/sources/
+__pycache__/
+*.a
+*.o
+get-sources
+prepare-sources
+/backend/cpp/llama-cpp/grpc-server
+/backend/cpp/llama-cpp/llama.cpp
+/backend/cpp/llama-*
+!backend/cpp/llama-cpp
+/backends
+/backend-images
+/result.yaml
+protoc
+
+*.log
+
+go-ggml-transformers
 go-gpt2
+whisper.cpp
+/bloomz
+go-bert
 
 # LocalAI build binary
 LocalAI
-local-ai
+/local-ai
+/local-ai-launcher
 # prevent above rules from omitting the helm chart
 !charts/*
+# prevent above rules from omitting the api/localai folder
+!api/localai
+!core/**/localai
 
 # Ignore models
-models/*.bin
-models/ggml-*
+models/*
 test-models/
+test-dir/
+tests/e2e-aio/backends
+tests/e2e-aio/models
+
+release/
+
+# just in case
+.DS_Store
+.idea
+
+# Generated during build
+backend-assets/*
+!backend-assets/.keep
+prepare
+/ggml-metal.metal
+docs/static/gallery.html
+
+# Protobuf generated files
+*.pb.go
+*pb2.py
+*pb2_grpc.py
+
+# SonarQube
+.scannerwork
+
+# backend virtual environments
+**/venv
+
+# per-developer customization files for the development container
+.devcontainer/customization/*

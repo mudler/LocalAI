@@ -1,78 +1,190 @@
 ---
-name: 'build container images'
-
-on:
-  pull_request:
-  push:
-    branches:
-      - master
-    tags:
-      - '*'
-
-jobs:
-  docker:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-
-      - name: Prepare
-        id: prep
-        run: |
-          DOCKER_IMAGE=quay.io/go-skynet/local-ai
-          VERSION=master
-          SHORTREF=${GITHUB_SHA::8}
-
-          # If this is git tag, use the tag name as a docker tag
-          if [[ $GITHUB_REF == refs/tags/* ]]; then
-            VERSION=${GITHUB_REF#refs/tags/}
-          fi
-          TAGS="${DOCKER_IMAGE}:${VERSION},${DOCKER_IMAGE}:${SHORTREF}"
-
-          # If the VERSION looks like a version number, assume that
-          # this is the most recent version of the image and also
-          # tag it 'latest'.
-          if [[ $VERSION =~ ^v[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
-            TAGS="$TAGS,${DOCKER_IMAGE}:latest"
-          fi
-
-          # Set output parameters.
-          echo ::set-output name=tags::${TAGS}
-          echo ::set-output name=docker_image::${DOCKER_IMAGE}
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@master
-        with:
-          platforms: all
-
-      - name: Set up Docker Buildx
-        id: buildx
-        uses: docker/setup-buildx-action@master
-
-      - name: Login to DockerHub
-        if: github.event_name != 'pull_request'
-        uses: docker/login-action@v2
-        with:
-          registry: quay.io
-          username: ${{ secrets.QUAY_USERNAME }}
-          password: ${{ secrets.QUAY_PASSWORD }}
-      - name: Build
-        if: github.event_name != 'pull_request'
-        uses: docker/build-push-action@v4
-        with:
-          builder: ${{ steps.buildx.outputs.name }}
-          context: .
-          file: ./Dockerfile
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ steps.prep.outputs.tags }}
-      - name: Build PRs
-        if: github.event_name == 'pull_request'
-        uses: docker/build-push-action@v4
-        with:
-          builder: ${{ steps.buildx.outputs.name }}
-          context: .
-          file: ./Dockerfile
-          platforms: linux/amd64
-          push: false
-          tags: ${{ steps.prep.outputs.tags }}
+  name: 'build container images'
+  
+  on:
+    push:
+      branches:
+        - master
+      tags:
+        - '*'
+  
+  concurrency:
+    group: ci-${{ github.head_ref || github.ref }}-${{ github.repository }}
+    cancel-in-progress: true
+  
+  jobs:
+    hipblas-jobs:
+      if: github.repository == 'mudler/LocalAI'
+      uses: ./.github/workflows/image_build.yml
+      with:
+        tag-latest: ${{ matrix.tag-latest }}
+        tag-suffix: ${{ matrix.tag-suffix }}
+        build-type: ${{ matrix.build-type }}
+        cuda-major-version: ${{ matrix.cuda-major-version }}
+        cuda-minor-version: ${{ matrix.cuda-minor-version }}
+        platforms: ${{ matrix.platforms }}
+        runs-on: ${{ matrix.runs-on }}
+        base-image: ${{ matrix.base-image }}
+        grpc-base-image: ${{ matrix.grpc-base-image }}
+        aio: ${{ matrix.aio }}
+        makeflags: ${{ matrix.makeflags }}
+        ubuntu-version: ${{ matrix.ubuntu-version }}
+        ubuntu-codename: ${{ matrix.ubuntu-codename }}
+      secrets:
+        dockerUsername: ${{ secrets.DOCKERHUB_USERNAME }}
+        dockerPassword: ${{ secrets.DOCKERHUB_PASSWORD }}
+        quayUsername: ${{ secrets.LOCALAI_REGISTRY_USERNAME }}
+        quayPassword: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
+      strategy:
+        matrix:
+          include:
+            - build-type: 'hipblas'
+              platforms: 'linux/amd64'
+              tag-latest: 'auto'
+              tag-suffix: '-gpu-hipblas'
+              base-image: "rocm/dev-ubuntu-24.04:6.4.4"
+              grpc-base-image: "ubuntu:24.04"
+              runs-on: 'ubuntu-latest'
+              makeflags: "--jobs=3 --output-sync=target"
+              aio: "-aio-gpu-hipblas"
+              ubuntu-version: '2404'
+              ubuntu-codename: 'noble'
+  
+    core-image-build:
+      if: github.repository == 'mudler/LocalAI'
+      uses: ./.github/workflows/image_build.yml
+      with:
+        tag-latest: ${{ matrix.tag-latest }}
+        tag-suffix: ${{ matrix.tag-suffix }}
+        build-type: ${{ matrix.build-type }}
+        cuda-major-version: ${{ matrix.cuda-major-version }}
+        cuda-minor-version: ${{ matrix.cuda-minor-version }}
+        platforms: ${{ matrix.platforms }}
+        runs-on: ${{ matrix.runs-on }}
+        aio: ${{ matrix.aio }}
+        base-image: ${{ matrix.base-image }}
+        grpc-base-image: ${{ matrix.grpc-base-image }}
+        makeflags: ${{ matrix.makeflags }}
+        skip-drivers: ${{ matrix.skip-drivers }}
+        ubuntu-version: ${{ matrix.ubuntu-version }}
+        ubuntu-codename: ${{ matrix.ubuntu-codename }}
+      secrets:
+        dockerUsername: ${{ secrets.DOCKERHUB_USERNAME }}
+        dockerPassword: ${{ secrets.DOCKERHUB_PASSWORD }}
+        quayUsername: ${{ secrets.LOCALAI_REGISTRY_USERNAME }}
+        quayPassword: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
+      strategy:
+        #max-parallel: ${{ github.event_name != 'pull_request' && 2 || 4 }}
+        matrix:
+          include:
+            - build-type: ''
+              platforms: 'linux/amd64,linux/arm64'
+              tag-latest: 'auto'
+              tag-suffix: ''
+              base-image: "ubuntu:24.04"
+              runs-on: 'ubuntu-latest'
+              aio: "-aio-cpu"
+              makeflags: "--jobs=4 --output-sync=target"
+              skip-drivers: 'false'
+              ubuntu-version: '2404'
+              ubuntu-codename: 'noble'
+            - build-type: 'cublas'
+              cuda-major-version: "12"
+              cuda-minor-version: "8"
+              platforms: 'linux/amd64'
+              tag-latest: 'auto'
+              tag-suffix: '-gpu-nvidia-cuda-12'
+              runs-on: 'ubuntu-latest'
+              base-image: "ubuntu:24.04"
+              skip-drivers: 'false'
+              makeflags: "--jobs=4 --output-sync=target"
+              aio: "-aio-gpu-nvidia-cuda-12"
+              ubuntu-version: '2404'
+              ubuntu-codename: 'noble'
+            - build-type: 'cublas'
+              cuda-major-version: "13"
+              cuda-minor-version: "0"
+              platforms: 'linux/amd64'
+              tag-latest: 'auto'
+              tag-suffix: '-gpu-nvidia-cuda-13'
+              runs-on: 'ubuntu-latest'
+              base-image: "ubuntu:22.04"
+              skip-drivers: 'false'
+              makeflags: "--jobs=4 --output-sync=target"
+              aio: "-aio-gpu-nvidia-cuda-13"
+              ubuntu-version: '2404'
+              ubuntu-codename: 'noble'
+            - build-type: 'vulkan'
+              platforms: 'linux/amd64,linux/arm64'
+              tag-latest: 'auto'
+              tag-suffix: '-gpu-vulkan'
+              runs-on: 'ubuntu-latest'
+              base-image: "ubuntu:24.04"
+              skip-drivers: 'false'
+              makeflags: "--jobs=4 --output-sync=target"
+              aio: "-aio-gpu-vulkan"
+              ubuntu-version: '2404'
+              ubuntu-codename: 'noble'
+            - build-type: 'intel'
+              platforms: 'linux/amd64'
+              tag-latest: 'auto'
+              base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
+              grpc-base-image: "ubuntu:24.04"
+              tag-suffix: '-gpu-intel'
+              runs-on: 'ubuntu-latest'
+              makeflags: "--jobs=3 --output-sync=target"
+              aio: "-aio-gpu-intel"
+              ubuntu-version: '2404'
+              ubuntu-codename: 'noble'
+  
+    gh-runner:
+      if: github.repository == 'mudler/LocalAI'
+      uses: ./.github/workflows/image_build.yml
+      with:
+        tag-latest: ${{ matrix.tag-latest }}
+        tag-suffix: ${{ matrix.tag-suffix }}
+        build-type: ${{ matrix.build-type }}
+        cuda-major-version: ${{ matrix.cuda-major-version }}
+        cuda-minor-version: ${{ matrix.cuda-minor-version }}
+        platforms: ${{ matrix.platforms }}
+        runs-on: ${{ matrix.runs-on }}
+        aio: ${{ matrix.aio }}
+        base-image: ${{ matrix.base-image }}
+        grpc-base-image: ${{ matrix.grpc-base-image }}
+        makeflags: ${{ matrix.makeflags }}
+        skip-drivers: ${{ matrix.skip-drivers }}
+        ubuntu-version: ${{ matrix.ubuntu-version }}
+        ubuntu-codename: ${{ matrix.ubuntu-codename }}
+      secrets:
+        dockerUsername: ${{ secrets.DOCKERHUB_USERNAME }}
+        dockerPassword: ${{ secrets.DOCKERHUB_PASSWORD }}
+        quayUsername: ${{ secrets.LOCALAI_REGISTRY_USERNAME }}
+        quayPassword: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
+      strategy:
+        matrix:
+          include:
+            - build-type: 'cublas'
+              cuda-major-version: "12"
+              cuda-minor-version: "0"
+              platforms: 'linux/arm64'
+              tag-latest: 'auto'
+              tag-suffix: '-nvidia-l4t-arm64'
+              base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
+              runs-on: 'ubuntu-24.04-arm'
+              makeflags: "--jobs=4 --output-sync=target"
+              skip-drivers: 'true'
+              ubuntu-version: "2204"
+              ubuntu-codename: 'jammy'
+            - build-type: 'cublas'
+              cuda-major-version: "13"
+              cuda-minor-version: "0"
+              platforms: 'linux/arm64'
+              tag-latest: 'auto'
+              tag-suffix: '-nvidia-l4t-arm64-cuda-13'
+              base-image: "ubuntu:24.04"
+              runs-on: 'ubuntu-24.04-arm'
+              makeflags: "--jobs=4 --output-sync=target"
+              skip-drivers: 'false'
+              ubuntu-version: '2404'
+              ubuntu-codename: 'noble'
+  

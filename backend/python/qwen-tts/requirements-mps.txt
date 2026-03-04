@@ -1,0 +1,4 @@
+torch
+torchaudio
+qwen-tts
+sox
