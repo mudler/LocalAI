@@ -1,4 +1,64 @@
 ---
+- name: "stepfun-ai.step-3.5-flash-base"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/DevQuasar/stepfun-ai.Step-3.5-Flash-Base-GGUF
+  description: |
+    Describe the model in a clear and concise way that can be shared in a model gallery.
+  license: "empty string if license not found in README or model info."
+  tags:
+    - llm
+    - gguf
+    - flash
+    - image-to-text
+    - text-to-text
+    - code
+    - vision
+    - multimodal
+    - thinking
+    - reasoning
+    - instruction-tuned
+    - chat
+  overrides:
+    parameters:
+      model: llama-cpp/models/stepfun-ai.Step-3.5-Flash-Base.Q4_K_M-00001-of-00008.gguf
+    name: stepfun-ai.Step-3.5-Flash-Base-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/DevQuasar/stepfun-ai.Step-3.5-Flash-Base-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/stepfun-ai.Step-3.5-Flash-Base.Q4_K_M-00001-of-00008.gguf
+      sha256: 899e42955157dc56ea2a0708fde82711caf1bfdc47f582851d7e4a1373e86488
+      uri: https://huggingface.co/DevQuasar/stepfun-ai.Step-3.5-Flash-Base-GGUF/resolve/main/stepfun-ai.Step-3.5-Flash-Base.Q4_K_M-00001-of-00008.gguf
+    - filename: llama-cpp/models/stepfun-ai.Step-3.5-Flash-Base.Q4_K_M-00002-of-00008.gguf
+      sha256: a4c63c2291b21f7fcd9703259a974df5f2b2da715347872345ed60f4a4a1cb4d
+      uri: https://huggingface.co/DevQuasar/stepfun-ai.Step-3.5-Flash-Base-GGUF/resolve/main/stepfun-ai.Step-3.5-Flash-Base.Q4_K_M-00002-of-00008.gguf
+    - filename: llama-cpp/models/stepfun-ai.Step-3.5-Flash-Base.Q4_K_M-00003-of-00008.gguf
+      sha256: 8f95710e729ab269362479b8bbf48076205f0af6df6d52b963d83a1634e4d453
+      uri: https://huggingface.co/DevQuasar/stepfun-ai.Step-3.5-Flash-Base-GGUF/resolve/main/stepfun-ai.Step-3.5-Flash-Base.Q4_K_M-00003-of-00008.gguf
+    - filename: llama-cpp/models/stepfun-ai.Step-3.5-Flash-Base.Q4_K_M-00004-of-00008.gguf
+      sha256: 8433d50081ae67b76ed8a9dbb729b10bf85c2ae606f13d7c7e15188e6c20dcfb
+      uri: https://huggingface.co/DevQuasar/stepfun-ai.Step-3.5-Flash-Base-GGUF/resolve/main/stepfun-ai.Step-3.5-Flash-Base.Q4_K_M-00004-of-00008.gguf
+    - filename: llama-cpp/models/stepfun-ai.Step-3.5-Flash-Base.Q4_K_M-00005-of-00008.gguf
+      sha256: 5fdb175b4fd57771ef4d9b259d2fdf028bce87764fbb567d72c66c1cc1ed40c1
+      uri: https://huggingface.co/DevQuasar/stepfun-ai.Step-3.5-Flash-Base-GGUF/resolve/main/stepfun-ai.Step-3.5-Flash-Base.Q4_K_M-00005-of-00008.gguf
+    - filename: llama-cpp/models/stepfun-ai.Step-3.5-Flash-Base.Q4_K_M-00006-of-00008.gguf
+      sha256: a9dd0cae6e8a5bbc47abe2c34984edea4a33a40c3b640b84b335d0d2fd51f43e
+      uri: https://huggingface.co/DevQuasar/stepfun-ai.Step-3.5-Flash-Base-GGUF/resolve/main/stepfun-ai.Step-3.5-Flash-Base.Q4_K_M-00006-of-00008.gguf
+    - filename: llama-cpp/models/stepfun-ai.Step-3.5-Flash-Base.Q4_K_M-00007-of-00008.gguf
+      sha256: 5d582f146007561d2878acd77be07e1d29f50502be14d3ba92de5049c352392a
+      uri: https://huggingface.co/DevQuasar/stepfun-ai.Step-3.5-Flash-Base-GGUF/resolve/main/stepfun-ai.Step-3.5-Flash-Base.Q4_K_M-00007-of-00008.gguf
+    - filename: llama-cpp/models/stepfun-ai.Step-3.5-Flash-Base.Q4_K_M-00008-of-00008.gguf
+      sha256: 69745d85eaadf91fb7e3839139f6f639b0da5cca21a31c095e0ffe3df00113f8
+      uri: https://huggingface.co/DevQuasar/stepfun-ai.Step-3.5-Flash-Base-GGUF/resolve/main/stepfun-ai.Step-3.5-Flash-Base.Q4_K_M-00008-of-00008.gguf
 - name: "q3.5-bluestar-27b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
