@@ -1,4 +1,33 @@
 ---
+- name: "solari"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/Cubex11/Solari-GGUF
+  description: |
+    AI model: solari
+  overrides:
+    parameters:
+      model: llama-cpp/models/Solari-f16.gguf
+    name: Solari-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    mmproj: llama-cpp/mmproj/mmproj-Solari-f16.gguf
+    description: Imported from https://huggingface.co/Cubex11/Solari-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/mmproj/mmproj-Solari-f16.gguf
+      sha256: dfbb3a4247386edf94e96354184a3fbf1b9e6531f232a29b40f9ea8834420243
+      uri: https://huggingface.co/Cubex11/Solari-GGUF/resolve/main/mmproj-Solari-f16.gguf
+    - filename: llama-cpp/models/Solari-f16.gguf
+      sha256: f555d8e81f92aeecc74311cb30644ad254aa4bdb74e3e92438f7e463761e444f
+      uri: https://huggingface.co/Cubex11/Solari-GGUF/resolve/main/Solari-f16.gguf
 - name: "q3.5-bluestar-27b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
