@@ -621,6 +621,39 @@
   border-color: var(--color-border-strong);
 }
 
+/* Code editor (syntax-highlighted textarea overlay) */
+.code-editor-highlight .hljs {
+  background: transparent;
+  padding: 0;
+}
+.code-editor-wrapper textarea:focus {
+  border-color: var(--color-border-strong);
+}
+
+/* highlight.js YAML syntax colours – dark theme */
+[data-theme="dark"] .hljs-attr { color: #7dd3fc; }
+[data-theme="dark"] .hljs-string { color: #6ee7b7; }
+[data-theme="dark"] .hljs-number { color: #fcd34d; }
+[data-theme="dark"] .hljs-literal { color: #f9a8d4; }
+[data-theme="dark"] .hljs-keyword { color: #c4b5fd; }
+[data-theme="dark"] .hljs-comment { color: #64748b; font-style: italic; }
+[data-theme="dark"] .hljs-meta { color: #94a3b8; }
+[data-theme="dark"] .hljs-bullet { color: #38bdf8; }
+[data-theme="dark"] .hljs-section { color: #a78bfa; font-weight: 600; }
+[data-theme="dark"] .hljs-type { color: #f472b6; }
+
+/* highlight.js YAML syntax colours – light theme */
+[data-theme="light"] .hljs-attr { color: #0369a1; }
+[data-theme="light"] .hljs-string { color: #15803d; }
+[data-theme="light"] .hljs-number { color: #b45309; }
+[data-theme="light"] .hljs-literal { color: #be185d; }
+[data-theme="light"] .hljs-keyword { color: #7c3aed; }
+[data-theme="light"] .hljs-comment { color: #94a3b8; font-style: italic; }
+[data-theme="light"] .hljs-meta { color: #64748b; }
+[data-theme="light"] .hljs-bullet { color: #0284c7; }
+[data-theme="light"] .hljs-section { color: #6d28d9; font-weight: 600; }
+[data-theme="light"] .hljs-type { color: #db2777; }
+
 /* Form groups */
 .form-group {
   margin-bottom: var(--spacing-md);

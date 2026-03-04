@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate, useOutletContext } from 'react-router-dom'
 import { modelsApi } from '../utils/api'
 import LoadingSpinner from '../components/LoadingSpinner'
+import CodeEditor from '../components/CodeEditor'
 
 export default function ModelEditor() {
   const { name } = useParams()
@@ -57,14 +58,7 @@ export default function ModelEditor() {
         </button>
       </div>
 
-      <div className="card">
-        <textarea
-          className="textarea"
-          value={config}
-          onChange={(e) => setConfig(e.target.value)}
-          style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.8125rem', minHeight: '500px', tabSize: 2 }}
-        />
-      </div>
+      <CodeEditor value={config} onChange={setConfig} minHeight="500px" />
 
       <div style={{ marginTop: 'var(--spacing-md)', display: 'flex', gap: 'var(--spacing-sm)' }}>
         <button className="btn btn-primary" onClick={handleSave} disabled={saving}>

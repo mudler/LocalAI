@@ -2,6 +2,7 @@ import { useState, useRef, useCallback, useEffect } from 'react'
 import { useNavigate, useOutletContext } from 'react-router-dom'
 import { modelsApi } from '../utils/api'
 import LoadingSpinner from '../components/LoadingSpinner'
+import CodeEditor from '../components/CodeEditor'
 
 const BACKENDS = [
   { value: '', label: 'Auto-detect (based on URI)' },
@@ -436,21 +437,7 @@ export default function ImportModel() {
               <i className="fas fa-copy" /> Copy
             </button>
           </div>
-          <textarea
-            className="textarea"
-            value={yamlContent}
-            onChange={(e) => setYamlContent(e.target.value)}
-            disabled={isSubmitting}
-            style={{
-              fontFamily: 'JetBrains Mono, monospace',
-              fontSize: '0.8125rem',
-              minHeight: 'calc(100vh - 400px)',
-              tabSize: 2,
-              border: 'none',
-              borderRadius: 0,
-              resize: 'vertical',
-            }}
-          />
+          <CodeEditor value={yamlContent} onChange={setYamlContent} disabled={isSubmitting} minHeight="calc(100vh - 400px)" />
         </div>
       )}
     </div>
