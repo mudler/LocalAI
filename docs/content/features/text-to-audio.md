@@ -364,7 +364,54 @@ curl http://localhost:8080/tts -H "Content-Type: application/json" -d '{
    }' | aplay
 ```
 
-## Using config files
+#### Multi-Voice Clone Mode
+
+Qwen3-TTS also supports loading multiple voices for voice cloning, allowing you to select different voices at request time. Configure multiple voices using the `voices` option:
+
+```yaml
+name: qwen-tts-multi-voice
+backend: qwen-tts
+parameters:
+  model: Qwen/Qwen3-TTS-12Hz-1.7B-Base
+options:
+  - voices:[{"name":"jane","audio":"voices/jane.wav","ref_text":"voices/jane-ref.txt"},{"name":"john","audio":"voices/john.wav","ref_text":"voices/john-ref.txt"}]
+```
+
+The `voices` option accepts a JSON array where each voice entry must have:
+- `name`: The voice identifier (used in API requests)
+- `audio`: Path to the reference audio file (relative to model directory or absolute)
+- `ref_text`: Path to the reference text file for the audio it is paired with
+
+Then use the model with voice selection:
+
+```bash
+curl http://localhost:8080/tts -H "Content-Type: application/json" -d '{         
+     "model": "qwen-tts-multi-voice",
+     "input":"Hello world, this is Jane speaking.",
+     "voice": "jane"
+   }' | aplay
+
+# Switch to a different voice
+curl http://localhost:8080/tts -H "Content-Type: application/json" -d '{         
+     "model": "qwen-tts-multi-voice",
+     "input":"Hello world, this is John speaking.",
+     "voice": "john"
+   }' | aplay
+```
+
+**Voice Selection Priority:**
+1. `voice` parameter in the API request (highest priority)
+2. `voice` option in the model configuration
+3. Error if voice is not found among configured voices
+
+**Error Handling:**
+If you request a voice that doesn't exist in the voices list, the API will return an error with a list of available voices:
+```json
+{"error": "Voice 'unknown' not found. Available voices: jane, john"}
+```
+
+**Backward Compatibility:**
+The multi-voice mode is backward compatible with existing single-voice configurations. Models using `audio_path` in the `tts` section will continue to work as before.
 
 You can also use a `config-file` to specify TTS models and their parameters.
 
