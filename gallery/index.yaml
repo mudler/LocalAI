@@ -1,4 +1,33 @@
 ---
+- name: "q3.5-bluestar-27b"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Q3.5-BlueStar-27B-GGUF
+  description: |
+    Describe the model in a clear and concise way that can be shared in a model gallery.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Q3.5-BlueStar-27B.Q4_K_M.gguf
+    name: Q3.5-BlueStar-27B-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    mmproj: llama-cpp/mmproj/Q3.5-BlueStar-27B.mmproj-f16.gguf
+    description: Imported from https://huggingface.co/mradermacher/Q3.5-BlueStar-27B-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Q3.5-BlueStar-27B.Q4_K_M.gguf
+      sha256: 8c6b404f87d6c74b97f102bc8199dc6a3658c1d1d7022bd21ee0d9144ee8600a
+      uri: https://huggingface.co/mradermacher/Q3.5-BlueStar-27B-GGUF/resolve/main/Q3.5-BlueStar-27B.Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/Q3.5-BlueStar-27B.mmproj-f16.gguf
+      sha256: 8221b6a48c714db6829a92760c31034d7ecd436f830c61624ccc92b461b4a1c4
+      uri: https://huggingface.co/mradermacher/Q3.5-BlueStar-27B-GGUF/resolve/main/Q3.5-BlueStar-27B.mmproj-f16.gguf
 - name: "qwen3.5-9b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
