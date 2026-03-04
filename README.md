@@ -356,6 +356,8 @@ Other:
 
 ## :book: 🎥 [Media, Blogs, Social](https://localai.io/basics/news/#media-blogs-social)
 
+- 🆕 [LocalAI Autonomous Dev Team Blog Post](https://mudler.pm/posts/2026/02/28/a-call-to-open-source-maintainers-stop-babysitting-ai-how-i-built-a-100-local-autonomous-dev-team-to-maintain-localai-and-why-you-should-too/)
+
 - [Run Visual studio code with LocalAI (SUSE)](https://www.suse.com/c/running-ai-locally/)
 - 🆕 [Run LocalAI on Jetson Nano Devkit](https://mudler.pm/posts/local-ai-jetson-nano-devkit/)
 - [Run LocalAI on AWS EKS with Pulumi](https://www.pulumi.com/blog/low-code-llm-apps-with-local-ai-flowise-and-pulumi/)
@@ -364,6 +366,15 @@ Other:
 - [LocalAI meets k8sgpt](https://www.youtube.com/watch?v=PKrDNuJ_dfE)
 - [Question Answering on Documents locally with LangChain, LocalAI, Chroma, and GPT4All](https://mudler.pm/posts/localai-question-answering/)
 - [Tutorial to use k8sgpt with LocalAI](https://medium.com/@tyler_97636/k8sgpt-localai-unlock-kubernetes-superpowers-for-free-584790de9b65)
+
+
+## 🤖 Autonomous Development Team
+
+LocalAI is now being maintained by a full team of autonomous AI agents led by an AI Scrum Master! This experiment demonstrates how open source projects can leverage AI agents for sustainable, long-term maintenance.
+
+- **📊 Live Reports**: [Automatically generated reports](http://reports.localai.io)
+- **📋 Project Board**: [Agent task tracking](https://github.com/users/mudler/projects/6)
+- **📝 Blog Post**: [Learn about the autonomous dev team experiment](https://mudler.pm/posts/2026/02/28/a-call-to-open-source-maintainers-stop-babysitting-ai-how-i-built-a-100-local-autonomous-dev-team-to-maintain-localai-and-why-you-should-too/)
 
 ## Citation
 
