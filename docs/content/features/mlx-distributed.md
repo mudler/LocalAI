@@ -57,33 +57,46 @@ parameters:
   model: mlx-community/Llama-3.2-1B-Instruct-4bit
 ```
 
-## Manual Setup with Hostfile
+## Manual Setup with CLI
 
-For setups without P2P, you can provide a hostfile directly.
+For setups without P2P, use the `worker mlx-distributed` command. LocalAI handles backend installation automatically.
 
 ### Ring Backend (TCP)
 
-Create a JSON hostfile listing all ranks:
+The Ring backend uses TCP for pipeline parallelism. Each rank listens on a TCP port for ring communication with its neighbors. The **hostfile** is a JSON array where entry `i` is the `"ip:port"` that **rank `i` binds to and listens on**. All ranks must use the same hostfile so they know how to reach each other.
+
+**Example:** Two Macs on a local network — Mac A is `192.168.1.10`, Mac B is `192.168.1.11`.
+
+Create `hosts.json` (identical on both machines):
 
 ```json
 ["192.168.1.10:5555", "192.168.1.11:5555"]
 ```
 
-Start rank 0 (the gRPC server):
+- Entry 0 (`192.168.1.10:5555`) — the address rank 0 (Mac A) listens on
+- Entry 1 (`192.168.1.11:5555`) — the address rank 1 (Mac B) listens on
+
+Each rank binds to its own entry and connects to its neighbors for the ring pipeline. Port 5555 is arbitrary — use any available port, but it must be open in your firewall.
+
+Start rank 0 on **Mac A** (`192.168.1.10`):
 
 ```bash
-python backend.py --addr localhost:50051 --backend ring --hostfile hosts.json --rank 0
+local-ai worker mlx-distributed --hostfile hosts.json --rank 0 --addr localhost:50051
 ```
 
-Start rank 1 (worker):
+Start rank 1 on **Mac B** (`192.168.1.11`):
 
 ```bash
-python backend.py --worker --backend ring --hostfile hosts.json --rank 1
+local-ai worker mlx-distributed --hostfile hosts.json --rank 1
 ```
+
+Rank 0 starts a gRPC server (on `--addr`) that LocalAI connects to for inference requests. The `--addr` flag is separate from the ring hostfile — it controls where the gRPC API listens, not the ring communication. All other ranks run as workers that participate in each forward pass.
 
 ### JACCL Backend (RDMA/Thunderbolt)
 
-Create a JSON device matrix (`null` on diagonal):
+For Thunderbolt-connected Macs, JACCL provides tensor parallelism via RDMA for higher throughput.
+
+The **device matrix** is a JSON 2D array describing the RDMA device name used to communicate between each pair of ranks. Entry `[i][j]` is the RDMA device that rank `i` uses to talk to rank `j`. The diagonal is `null` (a rank doesn't talk to itself).
 
 ```json
 [
@@ -92,15 +105,56 @@ Create a JSON device matrix (`null` on diagonal):
 ]
 ```
 
-Start with `--backend jaccl` and `--coordinator <coordinator-address>`.
+The **coordinator** is a TCP endpoint where one node (typically rank 0) runs a coordination service that helps all ranks establish their RDMA connections. Rank 0 binds to this address; all other ranks connect to it. Use rank 0's IP address and any available port.
 
-## Environment Variables
+**Example:** Mac A (`192.168.1.10`) is rank 0, Mac B is rank 1, connected via Thunderbolt.
 
-| Variable | Description |
-|----------|-------------|
-| `MLX_DISTRIBUTED_HOSTFILE` | Path to hostfile JSON (auto-set by P2P) |
-| `MLX_LISTEN_PORT` | Port for MLX communication (default: 5555) |
-| `MLX_DISTRIBUTED_BACKEND` | Backend type: `ring` or `jaccl` (default: ring) |
+Start rank 0 on **Mac A** (`192.168.1.10`):
+
+```bash
+local-ai worker mlx-distributed \
+  --hostfile devices.json \
+  --rank 0 \
+  --backend jaccl \
+  --coordinator 192.168.1.10:5555 \
+  --addr localhost:50051
+```
+
+Start rank 1 on **Mac B**:
+
+```bash
+local-ai worker mlx-distributed \
+  --hostfile devices.json \
+  --rank 1 \
+  --backend jaccl \
+  --coordinator 192.168.1.10:5555
+```
+
+Both ranks point `--coordinator` to rank 0's IP. Rank 0 binds to that address to accept RDMA setup connections from other ranks.
+
+## CLI Reference
+
+### `worker mlx-distributed`
+
+Standalone mode — run with a manual hostfile.
+
+| Flag | Env | Default | Description |
+|------|-----|---------|-------------|
+| `--hostfile` | `MLX_DISTRIBUTED_HOSTFILE` | *(required)* | Path to hostfile JSON. For Ring: array of `"ip:port"` where entry `i` is rank `i`'s listen address. For JACCL: device matrix of RDMA device names. |
+| `--rank` | `MLX_RANK` | *(required)* | Rank of this process (0 = gRPC server + ring participant, >0 = worker only) |
+| `--backend` | `MLX_DISTRIBUTED_BACKEND` | `ring` | Backend type: `ring` (TCP pipeline parallelism) or `jaccl` (RDMA tensor parallelism) |
+| `--addr` | `MLX_DISTRIBUTED_ADDR` | `localhost:50051` | gRPC API listen address for LocalAI to connect to (rank 0 only, separate from ring communication) |
+| `--coordinator` | `MLX_JACCL_COORDINATOR` | | JACCL coordinator `ip:port` — rank 0's IP where it accepts RDMA setup connections (jaccl only, required for all ranks) |
+
+### `worker p2p-mlx`
+
+P2P mode — auto-discovers peers and generates hostfile.
+
+| Flag | Env | Default | Description |
+|------|-----|---------|-------------|
+| `--token` | `TOKEN` | *(required)* | P2P network token |
+| `--mlx-listen-port` | `MLX_LISTEN_PORT` | `5555` | Port for MLX communication |
+| `--mlx-backend` | `MLX_DISTRIBUTED_BACKEND` | `ring` | Backend type: `ring` or `jaccl` |
 
 ## Troubleshooting
 
@@ -108,3 +162,7 @@ Start with `--backend jaccl` and `--coordinator <coordinator-address>`.
 - **Timeout errors:** If ranks can't connect, check firewall rules. The Ring backend uses TCP on the ports listed in the hostfile.
 - **Rank assignment:** In P2P mode, rank 0 is always the LocalAI server. Worker ranks are assigned by sorting node IDs.
 - **Performance:** Pipeline parallelism adds latency proportional to the number of ranks. For best results, use the fewest ranks needed to fit your model in memory.
+
+## Acknowledgements
+
+The MLX distributed auto-parallel sharding implementation is based on [exo](https://github.com/exo-explore/exo).

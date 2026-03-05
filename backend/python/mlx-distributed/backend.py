@@ -23,7 +23,16 @@ MAX_WORKERS = int(os.environ.get('PYTHON_GRPC_MAX_WORKERS', '1'))
 
 
 def mlx_distributed_init(rank, hostfile, backend="ring", coordinator=None):
-    """Initialize MLX distributed runtime."""
+    """Initialize MLX distributed runtime.
+
+    Ring: MLX_HOSTFILE points to a JSON array of "ip:port" strings. Each rank
+    binds to its own entry (hostfile[rank]) and connects to neighbors for the
+    ring pipeline.
+
+    JACCL: MLX_IBV_DEVICES points to a JSON 2D matrix of RDMA device names.
+    MLX_JACCL_COORDINATOR is rank 0's ip:port where it runs a TCP service that
+    helps all ranks establish RDMA connections.
+    """
     import mlx.core as mx
 
     if backend == "ring":
@@ -335,12 +344,17 @@ async def serve(address, group, dist_backend):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="MLX Distributed Backend")
-    parser.add_argument("--addr", default="localhost:50051", help="gRPC listen address (rank 0 only)")
+    parser.add_argument("--addr", default="localhost:50051",
+                        help="gRPC API listen address for LocalAI (rank 0 only, separate from ring communication)")
     parser.add_argument("--worker", action="store_true", help="Run in worker mode (rank > 0)")
-    parser.add_argument("--backend", default="ring", choices=["ring", "jaccl"], help="MLX distributed backend")
-    parser.add_argument("--hostfile", required=True, help="Path to hostfile JSON")
-    parser.add_argument("--rank", type=int, required=True, help="Rank of this process")
-    parser.add_argument("--coordinator", default=None, help="JACCL coordinator address")
+    parser.add_argument("--backend", default="ring", choices=["ring", "jaccl"],
+                        help="ring = TCP pipeline parallelism, jaccl = RDMA tensor parallelism")
+    parser.add_argument("--hostfile", required=True,
+                        help="Ring: JSON array of 'ip:port' where entry i is rank i's listen address. "
+                             "JACCL: JSON 2D matrix of RDMA device names (null on diagonal).")
+    parser.add_argument("--rank", type=int, required=True, help="Rank of this process (0 = server, >0 = worker)")
+    parser.add_argument("--coordinator", default=None,
+                        help="JACCL only: coordinator ip:port — rank 0's address for RDMA setup (same value on all ranks)")
     args = parser.parse_args()
 
     group = mlx_distributed_init(args.rank, args.hostfile, args.backend, args.coordinator)
