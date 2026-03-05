@@ -15,68 +15,8 @@ func RegisterUIRoutes(app *echo.Echo,
 	appConfig *config.ApplicationConfig,
 	galleryService *services.GalleryService) {
 
-	// Redirect all old UI routes to React SPA at /app
-	redirectToApp := func(path string) echo.HandlerFunc {
-		return func(c echo.Context) error {
-			return c.Redirect(302, "/app"+path)
-		}
-	}
-
-	redirectToAppWithParam := func(prefix string) echo.HandlerFunc {
-		return func(c echo.Context) error {
-			param := c.Param("model")
-			if param == "" {
-				param = c.Param("id")
-			}
-			if param != "" {
-				return c.Redirect(302, "/app"+prefix+"/"+param)
-			}
-			return c.Redirect(302, "/app"+prefix)
-		}
-	}
-
-	// "/" is handled in app.go to serve React SPA directly (preserves reverse-proxy headers)
-	app.GET("/manage", redirectToApp("/manage"))
-
-	if !appConfig.DisableRuntimeSettings {
-		app.GET("/settings", redirectToApp("/settings"))
-	}
-
-	// Agent Jobs pages
-	app.GET("/agent-jobs", redirectToApp("/agent-jobs"))
-	app.GET("/agent-jobs/tasks/new", redirectToApp("/agent-jobs/tasks/new"))
-	app.GET("/agent-jobs/tasks/:id/edit", func(c echo.Context) error {
-		return c.Redirect(302, "/app/agent-jobs/tasks/"+c.Param("id")+"/edit")
-	})
-	app.GET("/agent-jobs/tasks/:id", func(c echo.Context) error {
-		return c.Redirect(302, "/app/agent-jobs/tasks/"+c.Param("id"))
-	})
-	app.GET("/agent-jobs/jobs/:id", func(c echo.Context) error {
-		return c.Redirect(302, "/app/agent-jobs/jobs/"+c.Param("id"))
-	})
-
-	// P2P
-	app.GET("/p2p", redirectToApp("/p2p"))
-
-	if !appConfig.DisableGalleryEndpoint {
-		app.GET("/browse", redirectToApp("/browse"))
-		app.GET("/browse/backends", redirectToApp("/backends"))
-	}
-
-	app.GET("/talk", redirectToApp("/talk"))
-	app.GET("/chat", redirectToApp("/chat"))
-	app.GET("/chat/:model", redirectToAppWithParam("/chat"))
-	app.GET("/image", redirectToApp("/image"))
-	app.GET("/image/:model", redirectToAppWithParam("/image"))
-	app.GET("/tts", redirectToApp("/tts"))
-	app.GET("/tts/:model", redirectToAppWithParam("/tts"))
-	app.GET("/sound", redirectToApp("/sound"))
-	app.GET("/sound/:model", redirectToAppWithParam("/sound"))
-	app.GET("/video", redirectToApp("/video"))
-	app.GET("/video/:model", redirectToAppWithParam("/video"))
-
-	// Traces UI
-	app.GET("/traces", redirectToApp("/traces"))
+	// SPA routes are handled by the 404 fallback in app.go which serves
+	// index.html for any unmatched HTML request, enabling client-side routing.
 
 	app.GET("/api/traces", func(c echo.Context) error {
 		return c.JSON(200, middleware.GetTraces())
