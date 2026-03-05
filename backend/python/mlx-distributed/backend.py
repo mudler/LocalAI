@@ -20,6 +20,7 @@ import os
 import signal
 import sys
 import tempfile
+from typing import List
 
 import grpc
 
@@ -104,6 +105,9 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         self.tokenizer = None
         self.coordinator = None
         self.options = {}
+        self.lru_cache = None
+        self.model_key = None
+        self.max_kv_size = None
 
     def Health(self, request, context):
         return backend_pb2.Reply(message=bytes("OK", 'utf-8'))
@@ -112,12 +116,12 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         try:
             import mlx.core as mx
             from mlx_lm import load
-            from coordinator import DistributedCoordinator, CMD_LOAD_MODEL
-            from sharding import pipeline_auto_parallel
+            from mlx_lm.models.cache import make_prompt_cache, can_trim_prompt_cache, trim_prompt_cache
 
             print(f"[Rank 0] Loading model: {request.Model}", file=sys.stderr)
 
             self.options = parse_options(request.Options)
+            print(f"Options: {self.options}", file=sys.stderr)
 
             # Get distributed config from model options, falling back to env vars.
             # If neither is set, run as single-node (no distributed).
@@ -130,6 +134,9 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             jaccl_coordinator = os.environ.get("MLX_JACCL_COORDINATOR", "")
 
             if hostfile:
+                from coordinator import DistributedCoordinator, CMD_LOAD_MODEL
+                from sharding import pipeline_auto_parallel
+
                 print(f"[Rank 0] Initializing distributed: backend={dist_backend}, hostfile={hostfile}", file=sys.stderr)
                 self.dist_backend = dist_backend
                 self.group = mlx_distributed_init(
@@ -144,20 +151,38 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             else:
                 print("[Rank 0] No hostfile configured, running single-node", file=sys.stderr)
 
+            # Build tokenizer config from request and options
             tokenizer_config = {}
             if request.TrustRemoteCode or self.options.get("trust_remote_code", False):
                 tokenizer_config["trust_remote_code"] = True
+            # Token overrides from options
+            for key in ["eos_token", "pad_token", "bos_token", "unk_token",
+                        "sep_token", "cls_token", "mask_token"]:
+                if key in self.options:
+                    tokenizer_config[key] = self.options[key]
 
             if tokenizer_config:
+                print(f"Loading with tokenizer_config: {tokenizer_config}", file=sys.stderr)
                 self.model, self.tokenizer = load(request.Model, tokenizer_config=tokenizer_config)
             else:
                 self.model, self.tokenizer = load(request.Model)
 
             if self.group is not None:
+                from sharding import pipeline_auto_parallel
                 self.model = pipeline_auto_parallel(self.model, self.group)
                 print(f"[Rank 0] Model loaded and sharded across {self.group.size()} ranks", file=sys.stderr)
             else:
-                print("[Rank 0] Model loaded (single-node)", file=sys.stderr)
+                # Single-node: set up prompt cache for efficient generation
+                from mlx_cache import ThreadSafeLRUPromptCache
+                max_cache_entries = self.options.get("max_cache_entries", 10)
+                self.max_kv_size = self.options.get("max_kv_size", None)
+                self.model_key = request.Model
+                self.lru_cache = ThreadSafeLRUPromptCache(
+                    max_size=max_cache_entries,
+                    can_trim_fn=can_trim_prompt_cache,
+                    trim_fn=trim_prompt_cache,
+                )
+                print("[Rank 0] Model loaded (single-node with prompt cache)", file=sys.stderr)
 
         except Exception as err:
             print(f"[Rank 0] Error loading model: {err}", file=sys.stderr)
@@ -166,18 +191,19 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         return backend_pb2.Result(message="Model loaded successfully", success=True)
 
     async def Predict(self, request, context):
+        prompt_cache = None
+        cache_key = None
+
         try:
             import mlx.core as mx
             from mlx_lm import stream_generate
             from mlx_lm.sample_utils import make_sampler
-            from coordinator import CMD_GENERATE
 
             prompt_text = self._prepare_prompt(request)
-            tokens = self.tokenizer.encode(prompt_text)
-            if hasattr(tokens, 'tolist'):
-                tokens = tokens.tolist()
+            tokens = self._get_tokens_from_prompt(prompt_text)
 
             if self.coordinator:
+                from coordinator import CMD_GENERATE
                 self.coordinator.broadcast_command(CMD_GENERATE, len(tokens))
                 self.coordinator.broadcast_tokens(tokens)
 
@@ -193,6 +219,20 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
 
             sampler = make_sampler(**sampler_params)
 
+            # Use prompt cache in single-node mode
+            gen_kwargs = {}
+            if self.lru_cache is not None:
+                from mlx_lm.models.cache import make_prompt_cache
+                cache_key = list(tokens)
+                prompt_cache, remaining_tokens = self.lru_cache.fetch_nearest_cache(
+                    self.model_key, cache_key
+                )
+                if prompt_cache is None:
+                    prompt_cache = make_prompt_cache(self.model, self.max_kv_size)
+                    remaining_tokens = cache_key
+                gen_kwargs['prompt_cache'] = prompt_cache
+                tokens = remaining_tokens if remaining_tokens else cache_key
+
             generated = []
             for response in stream_generate(
                 self.model,
@@ -200,8 +240,14 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 prompt=tokens,
                 max_tokens=max_tokens,
                 sampler=sampler,
+                **gen_kwargs,
             ):
                 generated.append(response.text)
+                if cache_key is not None:
+                    cache_key.append(response.token)
+
+            if self.lru_cache is not None and cache_key is not None:
+                self.lru_cache.insert_cache(self.model_key, cache_key, prompt_cache)
 
             return backend_pb2.Reply(message=bytes(''.join(generated), encoding='utf-8'))
 
@@ -212,18 +258,19 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             return backend_pb2.Reply(message=bytes("", encoding='utf-8'))
 
     async def PredictStream(self, request, context):
+        prompt_cache = None
+        cache_key = None
+
         try:
             import mlx.core as mx
             from mlx_lm import stream_generate
             from mlx_lm.sample_utils import make_sampler
-            from coordinator import CMD_GENERATE
 
             prompt_text = self._prepare_prompt(request)
-            tokens = self.tokenizer.encode(prompt_text)
-            if hasattr(tokens, 'tolist'):
-                tokens = tokens.tolist()
+            tokens = self._get_tokens_from_prompt(prompt_text)
 
             if self.coordinator:
+                from coordinator import CMD_GENERATE
                 self.coordinator.broadcast_command(CMD_GENERATE, len(tokens))
                 self.coordinator.broadcast_tokens(tokens)
 
@@ -239,13 +286,30 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
 
             sampler = make_sampler(**sampler_params)
 
+            # Use prompt cache in single-node mode
+            gen_kwargs = {}
+            if self.lru_cache is not None:
+                from mlx_lm.models.cache import make_prompt_cache
+                cache_key = list(tokens)
+                prompt_cache, remaining_tokens = self.lru_cache.fetch_nearest_cache(
+                    self.model_key, cache_key
+                )
+                if prompt_cache is None:
+                    prompt_cache = make_prompt_cache(self.model, self.max_kv_size)
+                    remaining_tokens = cache_key
+                gen_kwargs['prompt_cache'] = prompt_cache
+                tokens = remaining_tokens if remaining_tokens else cache_key
+
             for response in stream_generate(
                 self.model,
                 self.tokenizer,
                 prompt=tokens,
                 max_tokens=max_tokens,
                 sampler=sampler,
+                **gen_kwargs,
             ):
+                if cache_key is not None:
+                    cache_key.append(response.token)
                 yield backend_pb2.Reply(message=bytes(response.text, encoding='utf-8'))
 
         except Exception as e:
@@ -253,6 +317,19 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             context.set_code(grpc.StatusCode.INTERNAL)
             context.set_details(f"Streaming failed: {str(e)}")
             yield backend_pb2.Reply(message=bytes("", encoding='utf-8'))
+
+        finally:
+            if self.lru_cache is not None and prompt_cache is not None and cache_key is not None:
+                try:
+                    self.lru_cache.insert_cache(self.model_key, cache_key, prompt_cache)
+                except Exception as e:
+                    print(f"Error inserting cache: {e}", file=sys.stderr)
+
+    def Embedding(self, request, context):
+        print("Embeddings not supported in MLX distributed backend", file=sys.stderr)
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Embeddings are not supported in the MLX distributed backend.")
+        return backend_pb2.EmbeddingResult()
 
     def _prepare_prompt(self, request):
         if not request.Prompt and request.UseTokenizerTemplate and request.Messages:
@@ -262,7 +339,15 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             )
         return request.Prompt
 
+    def _get_tokens_from_prompt(self, prompt_text: str) -> List[int]:
+        tokens = self.tokenizer.encode(prompt_text)
+        if hasattr(tokens, 'tolist'):
+            return tokens.tolist()
+        return list(tokens)
+
     def _build_generation_params(self, request, default_max_tokens=200):
+        import mlx.core as mx
+
         max_tokens = getattr(request, 'Tokens', default_max_tokens)
         if max_tokens == 0:
             max_tokens = default_max_tokens
@@ -286,23 +371,37 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
 
         seed = getattr(request, 'Seed', 0)
         if seed != 0:
-            import mlx.core as mx
             mx.random.seed(seed)
 
         if hasattr(self, 'options'):
             if 'max_tokens' in self.options:
                 max_tokens = self.options['max_tokens']
             option_mapping = {
-                'temp': 'temp', 'temperature': 'temp',
-                'top_p': 'top_p', 'min_p': 'min_p', 'top_k': 'top_k',
+                'temp': 'temp',
+                'temperature': 'temp',
+                'top_p': 'top_p',
+                'min_p': 'min_p',
+                'top_k': 'top_k',
+                'xtc_threshold': 'xtc_threshold',
+                'xtc_probability': 'xtc_probability',
             }
             for opt_key, param_key in option_mapping.items():
                 if opt_key in self.options:
                     sampler_params[param_key] = self.options[opt_key]
+            if 'seed' in self.options:
+                mx.random.seed(self.options['seed'])
 
+        # XTC special tokens
         xtc_special_tokens = []
-        if hasattr(self.tokenizer, 'eos_token_id') and self.tokenizer.eos_token_id is not None:
+        if hasattr(self.tokenizer, 'eos_token_ids') and self.tokenizer.eos_token_ids:
+            xtc_special_tokens = list(self.tokenizer.eos_token_ids)
+        elif hasattr(self.tokenizer, 'eos_token_id') and self.tokenizer.eos_token_id is not None:
             xtc_special_tokens = [self.tokenizer.eos_token_id]
+        try:
+            newline_tokens = self.tokenizer.encode("\n")
+            xtc_special_tokens.extend(newline_tokens)
+        except:
+            pass
         sampler_params['xtc_special_tokens'] = xtc_special_tokens
 
         return max_tokens, sampler_params
