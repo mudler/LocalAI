@@ -91,8 +91,22 @@ install-go-tools:
 	go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@1958fcbe2ca8bd93af633f11e97d44e567e945af
 	go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2
 
+## React UI:
+react-ui:
+ifneq ($(wildcard core/http/react-ui/dist),)
+	@echo "react-ui dist already exists, skipping build"
+else
+	cd core/http/react-ui && npm install && npm run build
+endif
+
+react-ui-docker:
+	docker run --entrypoint /bin/bash -v $(CURDIR):/app:z oven/bun:1 \
+	  -c "cd /app/core/http/react-ui && bun install && bun run build"
+
+core/http/react-ui/dist: react-ui
+
 ## Build:
-build: protogen-go install-go-tools ## Build the project
+build: protogen-go install-go-tools core/http/react-ui/dist ## Build the project
 	$(info ${GREEN}I local-ai build info:${RESET})
 	$(info ${GREEN}I BUILD_TYPE: ${YELLOW}$(BUILD_TYPE)${RESET})
 	$(info ${GREEN}I GO_TAGS: ${YELLOW}$(GO_TAGS)${RESET})
@@ -559,6 +573,7 @@ clean-mock-backend:
 swagger:
 	swag init -g core/http/app.go --output swagger
 
+# DEPRECATED: gen-assets is for the legacy Alpine.js UI. Remove when legacy UI is removed.
 .PHONY: gen-assets
 gen-assets:
 	$(GOCMD) run core/dependencies_manager/manager.go webui_static.yaml core/http/static/assets

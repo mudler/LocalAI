@@ -300,7 +300,8 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 
 	xlog.Info("LocalAI is started and running", "address", r.Address)
 
-	if token != "" {
+	// Start P2P if token was provided via CLI/env or loaded from runtime_settings.json
+	if token != "" || app.ApplicationConfig().P2PToken != "" {
 		if err := app.StartP2P(); err != nil {
 			return err
 		}

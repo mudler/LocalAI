@@ -44,6 +44,12 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Build React UI
+        run: make react-ui
       - name: Test Backend E2E
         run: |
           PATH="$PATH:$HOME/go/bin" make build-mock-backend test-e2e
