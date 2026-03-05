@@ -262,8 +262,8 @@
                         </div>
                         <div class="text-right">
                             <div class="text-2xl font-bold">
-                                <span :class="stats.workers.online > 0 ? 'text-[var(--color-success)]' : 'text-[var(--color-error)]'" x-text="stats.workers.online"></span>
-                                <span class="text-[var(--color-text-secondary)] text-xl">/<span x-text="stats.workers.total"></span></span>
+                                <span :class="stats.llama_cpp_workers.online > 0 ? 'text-[var(--color-success)]' : 'text-[var(--color-error)]'" x-text="stats.llama_cpp_workers.online"></span>
+                                <span class="text-[var(--color-text-secondary)] text-xl">/<span x-text="stats.llama_cpp_workers.total"></span></span>
                             </div>
                             <p class="text-[var(--color-accent)] text-sm">workers</p>
                         </div>
@@ -469,8 +469,8 @@ docker run -ti --net host -e TOKEN="<span class="token">{{.P2PToken}}</span>" --
                         <div class="text-right">
                             <div class="text-sm text-[var(--color-text-secondary)] mb-1">Active Workers</div>
                             <div class="text-3xl font-bold">
-                                <span :class="stats.workers.online > 0 ? 'text-[var(--color-accent)]' : 'text-[var(--color-error)]'" x-text="stats.workers.online"></span>
-                                <span class="text-[var(--color-text-secondary)] text-xl">/<span x-text="stats.workers.total"></span></span>
+                                <span :class="stats.llama_cpp_workers.online > 0 ? 'text-[var(--color-accent)]' : 'text-[var(--color-error)]'" x-text="stats.llama_cpp_workers.online"></span>
+                                <span class="text-[var(--color-text-secondary)] text-xl">/<span x-text="stats.llama_cpp_workers.total"></span></span>
                             </div>
                         </div>
                     </div>
@@ -657,7 +657,7 @@ function p2pNetwork() {
         workerNodes: [],
         federationNodes: [],
         stats: {
-            workers: { online: 0, total: 0 },
+            llama_cpp_workers: { online: 0, total: 0 },
             federated: { online: 0, total: 0 }
         },
         

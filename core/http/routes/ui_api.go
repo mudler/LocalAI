@@ -1026,11 +1026,12 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 
 	// P2P APIs
 	app.GET("/api/p2p/workers", func(c echo.Context) error {
-		nodes := p2p.GetAvailableNodes(p2p.NetworkID(appConfig.P2PNetworkID, p2p.WorkerID))
+		llamaNodes := p2p.GetAvailableNodes(p2p.NetworkID(appConfig.P2PNetworkID, p2p.LlamaCPPWorkerID))
+		mlxNodes := p2p.GetAvailableNodes(p2p.NetworkID(appConfig.P2PNetworkID, p2p.MLXWorkerID))
 
-		nodesJSON := make([]map[string]interface{}, 0, len(nodes))
-		for _, n := range nodes {
-			nodesJSON = append(nodesJSON, map[string]interface{}{
+		llamaJSON := make([]map[string]any, 0, len(llamaNodes))
+		for _, n := range llamaNodes {
+			llamaJSON = append(llamaJSON, map[string]any{
 				"name":          n.Name,
 				"id":            n.ID,
 				"tunnelAddress": n.TunnelAddress,
@@ -1040,8 +1041,27 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			})
 		}
 
-		return c.JSON(200, map[string]interface{}{
-			"nodes": nodesJSON,
+		mlxJSON := make([]map[string]any, 0, len(mlxNodes))
+		for _, n := range mlxNodes {
+			mlxJSON = append(mlxJSON, map[string]any{
+				"name":          n.Name,
+				"id":            n.ID,
+				"tunnelAddress": n.TunnelAddress,
+				"serviceID":     n.ServiceID,
+				"lastSeen":      n.LastSeen,
+				"isOnline":      n.IsOnline(),
+			})
+		}
+
+		return c.JSON(200, map[string]any{
+			"llama_cpp": map[string]any{
+				"nodes": llamaJSON,
+			},
+			"mlx": map[string]any{
+				"nodes": mlxJSON,
+			},
+			// Keep backward-compatible "nodes" key with llama.cpp workers
+			"nodes": llamaJSON,
 		})
 	})
 
@@ -1066,13 +1086,14 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 	})
 
 	app.GET("/api/p2p/stats", func(c echo.Context) error {
-		workerNodes := p2p.GetAvailableNodes(p2p.NetworkID(appConfig.P2PNetworkID, p2p.WorkerID))
+		llamaCPPNodes := p2p.GetAvailableNodes(p2p.NetworkID(appConfig.P2PNetworkID, p2p.LlamaCPPWorkerID))
 		federatedNodes := p2p.GetAvailableNodes(p2p.NetworkID(appConfig.P2PNetworkID, p2p.FederatedID))
+		mlxWorkerNodes := p2p.GetAvailableNodes(p2p.NetworkID(appConfig.P2PNetworkID, p2p.MLXWorkerID))
 
-		workersOnline := 0
-		for _, n := range workerNodes {
+		llamaCPPOnline := 0
+		for _, n := range llamaCPPNodes {
 			if n.IsOnline() {
-				workersOnline++
+				llamaCPPOnline++
 			}
 		}
 
@@ -1083,14 +1104,25 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			}
 		}
 
-		return c.JSON(200, map[string]interface{}{
-			"workers": map[string]interface{}{
-				"online": workersOnline,
-				"total":  len(workerNodes),
+		mlxWorkersOnline := 0
+		for _, n := range mlxWorkerNodes {
+			if n.IsOnline() {
+				mlxWorkersOnline++
+			}
+		}
+
+		return c.JSON(200, map[string]any{
+			"llama_cpp_workers": map[string]any{
+				"online": llamaCPPOnline,
+				"total":  len(llamaCPPNodes),
 			},
-			"federated": map[string]interface{}{
+			"federated": map[string]any{
 				"online": federatedOnline,
 				"total":  len(federatedNodes),
+			},
+			"mlx_workers": map[string]any{
+				"online": mlxWorkersOnline,
+				"total":  len(mlxWorkerNodes),
 			},
 		})
 	})
