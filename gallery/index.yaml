@@ -180,8 +180,8 @@
       sha256: 223138866b87b12e68ffb43a1d45afb572921e9cd4c594e6a736df94c5130466
       uri: https://huggingface.co/unsloth/Qwen3.5-35B-A3B-GGUF/resolve/main/Qwen3.5-35B-A3B-UD-Q4_K_M.gguf
     - filename: llama-cpp/mmproj/mmproj-F32.gguf
-      sha256: 40169fdbd92afb86ef298c8f535353c7cc1307e3493db4359454246bcfc92131
       uri: https://huggingface.co/unsloth/Qwen3.5-35B-A3B-GGUF/resolve/main/mmproj-F32.gguf
+      sha256: 5de13d9052180b24cceda247af3023e3a2cbe785612198efe05b81905e3a5dc7
 - name: "qwen_qwen3-next-80b-a3b-thinking"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
