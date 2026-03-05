@@ -1,4 +1,37 @@
 ---
+- name: "seed-oss-36b-chat-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/seed-oss-36b-chat-i1-GGUF
+  description: |
+    Describe the model in a clear and concise way that can be shared in a model gallery.
+  license: "proprietary"
+  tags:
+    - llm
+    - gguf
+    - chat
+    - instruction-tuned
+    - code
+    - multi-token
+  overrides:
+    parameters:
+      model: llama-cpp/models/seed-oss-36b-chat.i1-Q4_K_M.gguf
+    name: seed-oss-36b-chat-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/seed-oss-36b-chat-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/seed-oss-36b-chat.i1-Q4_K_M.gguf
+      sha256: e9f063c9c3fecb82e5e95bf2133538c51a23fb43abe8913b6f4c122c83a450bd
+      uri: https://huggingface.co/mradermacher/seed-oss-36b-chat-i1-GGUF/resolve/main/seed-oss-36b-chat.i1-Q4_K_M.gguf
 - name: "q3.5-bluestar-27b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
