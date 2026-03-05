@@ -155,7 +155,6 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 			os.Setenv("LLAMACPP_GRPC_SERVERS", tunnelEnvVar)
 			xlog.Debug("setting LLAMACPP_GRPC_SERVERS", "value", tunnelEnvVar)
 		}),
-
 	}
 
 	if r.DisableMetricsEndpoint {
