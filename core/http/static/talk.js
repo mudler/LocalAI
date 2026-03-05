@@ -13,8 +13,8 @@ function getModel() {
     return document.getElementById('modelSelect').value;
 }
 
-function getWhisperModel() {
-    return document.getElementById('whisperModelSelect').value;
+function getSTTModel() {
+    return document.getElementById('sttModelSelect').value;
 }
 
 function getTTSModel() {
@@ -73,7 +73,7 @@ function stopRecording() {
         document.getElementById("loader").style.display = "block";
         const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
         document.getElementById("statustext").textContent = "Processing audio...";
-        const transcript = await sendAudioToWhisper(audioBlob);
+        const transcript = await sendAudioToSTT(audioBlob);
         console.log("Transcript:", transcript);
         document.getElementById("statustext").textContent = "Seems you said: " + transcript+ ". Generating response...";
         const responseText = await sendTextToChatGPT(transcript);
@@ -95,10 +95,10 @@ function stopRecording() {
     };
 }
 
-async function sendAudioToWhisper(audioBlob) {
+async function sendAudioToSTT(audioBlob) {
     const formData = new FormData();
     formData.append('file', audioBlob);
-    formData.append('model', getWhisperModel());
+    formData.append('model', getSTTModel());
 
     const response = await fetch('v1/audio/transcriptions', {
         method: 'POST',
@@ -106,7 +106,7 @@ async function sendAudioToWhisper(audioBlob) {
     });
 
     const result = await response.json();
-    console.log("Whisper result:", result)
+    console.log("STT result:", result)
     return result.text;
 }
 
