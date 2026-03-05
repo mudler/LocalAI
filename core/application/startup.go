@@ -354,6 +354,23 @@ func loadRuntimeSettingsFromFile(options *config.ApplicationConfig) {
 		}
 	}
 
+	// P2P settings
+	if settings.P2PToken != nil {
+		if options.P2PToken == "" {
+			options.P2PToken = *settings.P2PToken
+		}
+	}
+	if settings.P2PNetworkID != nil {
+		if options.P2PNetworkID == "" {
+			options.P2PNetworkID = *settings.P2PNetworkID
+		}
+	}
+	if settings.Federated != nil {
+		if !options.Federated {
+			options.Federated = *settings.Federated
+		}
+	}
+
 	xlog.Debug("Runtime settings loaded from runtime_settings.json")
 }
 

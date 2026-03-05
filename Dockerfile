@@ -291,6 +291,17 @@ EOT
 ###################################
 ###################################
 
+# Build React UI
+FROM node:22-slim AS react-ui-builder
+WORKDIR /app
+COPY core/http/react-ui/package*.json ./
+RUN npm install
+COPY core/http/react-ui/ ./
+RUN npm run build
+
+###################################
+###################################
+
 # Compile backends first in a separate stage
 FROM builder-base AS builder-backends
 ARG TARGETARCH
@@ -319,6 +330,9 @@ FROM builder-backends AS builder
 WORKDIR /build
 
 COPY . .
+
+# Copy pre-built React UI
+COPY --from=react-ui-builder /app/dist ./core/http/react-ui/dist
 
 ## Build the binary
 ## If we're on arm64 AND using cublas/hipblas, skip some of the llama-compat backends to save space

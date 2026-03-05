@@ -1,3 +1,6 @@
+// DEPRECATED: This tool downloads static assets for the legacy Alpine.js UI.
+// The new React UI (core/http/react-ui/) bundles all dependencies via npm.
+// Remove this file when the legacy UI (core/http/views/) is removed.
 package main
 
 import (
