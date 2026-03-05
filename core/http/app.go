@@ -58,6 +58,9 @@ func API(application *application.Application) (*echo.Echo, error) {
 		e.Use(middleware.BodyLimit(fmt.Sprintf("%dM", application.ApplicationConfig().UploadLimitMB)))
 	}
 
+	// SPA fallback handler, set later when React UI is available
+	var spaFallback func(echo.Context) error
+
 	// Set error handler
 	if !application.ApplicationConfig().OpaqueErrors {
 		e.HTTPErrorHandler = func(err error, c echo.Context) {
@@ -67,8 +70,16 @@ func API(application *application.Application) (*echo.Echo, error) {
 				code = he.Code
 			}
 
-			// Handle 404 errors with HTML rendering when appropriate
+			// Handle 404 errors: serve React SPA for HTML requests, JSON otherwise
 			if code == http.StatusNotFound {
+				if spaFallback != nil {
+					accept := c.Request().Header.Get("Accept")
+					contentType := c.Request().Header.Get("Content-Type")
+					if strings.Contains(accept, "text/html") && !strings.Contains(contentType, "application/json") {
+						spaFallback(c)
+						return
+					}
+				}
 				notFoundHandler(c)
 				return
 			}
@@ -236,7 +247,7 @@ func API(application *application.Application) (*echo.Echo, error) {
 		routes.RegisterUIAPIRoutes(e, application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig(), application.GalleryService(), opcache, application)
 		routes.RegisterUIRoutes(e, application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig(), application.GalleryService())
 
-		// Serve React SPA at /app with SPA fallback
+		// Serve React SPA from / with SPA fallback via 404 handler
 		reactFS, fsErr := fs.Sub(reactUI, "react-ui/dist")
 		if fsErr != nil {
 			xlog.Warn("React UI not available (build with 'make core/http/react-ui/dist')", "error", fsErr)
@@ -255,12 +266,15 @@ func API(application *application.Application) (*echo.Echo, error) {
 				return c.HTMLBlob(http.StatusOK, indexHTML)
 			}
 
-			e.GET("/", serveIndex)
-			e.GET("/app", serveIndex)
-			e.GET("/app/*", func(c echo.Context) error {
-				p := c.Param("*")
+			// Enable SPA fallback in the 404 handler for client-side routing
+			spaFallback = serveIndex
 
-				// Try to serve static file from embedded FS
+			// Serve React SPA at /
+			e.GET("/", serveIndex)
+
+			// Serve React static assets (JS, CSS, etc.)
+			serveReactAsset := func(c echo.Context) error {
+				p := "assets/" + c.Param("*")
 				f, err := reactFS.Open(p)
 				if err == nil {
 					defer f.Close()
@@ -273,9 +287,17 @@ func API(application *application.Application) (*echo.Echo, error) {
 						return c.Stream(http.StatusOK, contentType, f)
 					}
 				}
+				return echo.NewHTTPError(http.StatusNotFound)
+			}
+			e.GET("/assets/*", serveReactAsset)
 
-				// SPA fallback: serve index.html for client-side routing
-				return serveIndex(c)
+			// Backward compatibility: redirect /app/* to /*
+			e.GET("/app", func(c echo.Context) error {
+				return c.Redirect(http.StatusMovedPermanently, "/")
+			})
+			e.GET("/app/*", func(c echo.Context) error {
+				p := c.Param("*")
+				return c.Redirect(http.StatusMovedPermanently, "/"+p)
 			})
 		}
 	}
