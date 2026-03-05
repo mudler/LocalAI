@@ -487,10 +487,10 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 				select {
 				case <-ctx.Done():
 					xlog.Warn("Timeout waiting for deletion to complete", "uid", uid)
-					goto removeConfig
+					break
 				default:
 					if status := galleryService.GetStatus(uid); status != nil && status.Processed {
-						goto removeConfig
+						break
 					}
 					time.Sleep(100 * time.Millisecond)
 				}
