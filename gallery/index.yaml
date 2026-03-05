@@ -1,4 +1,38 @@
 ---
+- name: "heretical-qwen3.5-9b"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Heretical-Qwen3.5-9B-GGUF
+  description: |
+    Describe the model in a clear and concise way that can be shared in a model gallery.
+  tags:
+    - llm
+    - qwen
+    - gguf
+    - 9b
+    - heretical
+    - multi-modal
+    - image-to-text
+    - reasoning
+  overrides:
+    parameters:
+      model: llama-cpp/models/Heretical-Qwen3.5-9B.Q4_K_M.gguf
+    name: Heretical-Qwen3.5-9B-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Heretical-Qwen3.5-9B-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Heretical-Qwen3.5-9B.Q4_K_M.gguf
+      sha256: b4aafd48995ac41a6adcecfa4d65bb1fca22a77c7669676c1e198d3e8d105758
+      uri: https://huggingface.co/mradermacher/Heretical-Qwen3.5-9B-GGUF/resolve/main/Heretical-Qwen3.5-9B.Q4_K_M.gguf
 - name: "q3.5-bluestar-27b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
