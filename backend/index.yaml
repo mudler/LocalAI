@@ -30,8 +30,8 @@
     nvidia-l4t-cuda-12: "nvidia-l4t-arm64-llama-cpp"
     nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-llama-cpp"
 - &whispercpp
-  name: "whisper"
-  alias: "whisper"
+  name: "STT"
+  alias: "STT"
   license: mit
   icon: https://user-images.githubusercontent.com/1991296/235238348-05d0f6a4-da44-4900-a1de-d0707e75b763.jpeg
   description: |
@@ -39,7 +39,7 @@
   urls:
     - https://github.com/ggml-org/whisper.cpp
   tags:
-    - audio-transcription
+    - stt
     - CPU
     - GPU
     - CUDA
@@ -61,11 +61,11 @@
   alias: "voxtral"
   license: mit
   description: |
-    Voxtral Realtime 4B Pure C speech-to-text inference engine
+    Voxtral Realtime 4B Pure C stt inference engine
   urls:
     - https://github.com/mudler/voxtral.c
   tags:
-    - audio-transcription
+    - stt
     - CPU
     - Metal
   capabilities:
@@ -347,7 +347,7 @@
   urls:
     - https://github.com/SYSTRAN/faster-whisper
   tags:
-    - speech-to-text
+    - stt
     - Whisper
   license: MIT
   name: "faster-whisper"
@@ -360,12 +360,12 @@
     nvidia-cuda-12: "cuda12-faster-whisper"
 - &moonshine
   description: |
-    Moonshine is a fast, accurate, and efficient speech-to-text transcription model using ONNX Runtime.
+    Moonshine is a fast, accurate, and efficient stt transcription model using ONNX Runtime.
     It provides real-time transcription capabilities with support for multiple model sizes and GPU acceleration.
   urls:
     - https://github.com/moonshine-ai/moonshine
   tags:
-    - speech-to-text
+    - stt
     - transcription
     - ONNX
   license: MIT
@@ -385,7 +385,7 @@
   urls:
     - https://github.com/m-bain/whisperX
   tags:
-    - speech-to-text
+    - stt
     - diarization
     - whisperx
   license: BSD-4-Clause

@@ -257,7 +257,7 @@
     - https://github.com/NVIDIA/NeMo
   tags:
     - stt
-    - speech-to-text
+    - stt
     - asr
     - nvidia
     - nemo
@@ -274,14 +274,14 @@
   license: apache-2.0
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   description: |
-    Voxtral Mini 4B Realtime is a speech-to-text model from Mistral AI. It is a 4B parameter model optimized for fast, accurate audio transcription with low latency, making it ideal for real-time applications. The model uses the Voxtral architecture for efficient audio processing.
+    Voxtral Mini 4B Realtime is a speech-to-text (STT) model from Mistral AI. It is a 4B parameter model optimized for fast, accurate audio transcription with low latency, making it ideal for real-time applications. The model uses the Voxtral architecture for efficient audio processing.
   urls:
     - https://huggingface.co/mistralai/Voxtral-Mini-4B-Realtime-2602
     - https://github.com/antirez/voxtral.c
   tags:
     - stt
-    - speech-to-text
-    - audio-transcription
+    - stt
+    - stt
     - cpu
     - metal
     - mistral
@@ -304,14 +304,14 @@
   license: apache-2.0
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   description: |
-    Moonshine Tiny is a lightweight speech-to-text model optimized for fast transcription. It is designed for efficient on-device ASR with high accuracy relative to its size.
+    Moonshine Tiny is a lightweight speech-to-text (STT) model optimized for fast transcription. It is designed for efficient on-device ASR with high accuracy relative to its size.
   urls:
     - https://github.com/moonshine-ai/moonshine
   tags:
     - stt
-    - speech-to-text
+    - stt
     - asr
-    - audio-transcription
+    - stt
     - cpu
     - gpu
   overrides:
@@ -329,9 +329,9 @@
     - https://github.com/m-bain/whisperX
   tags:
     - stt
-    - speech-to-text
+    - stt
     - asr
-    - audio-transcription
+    - stt
     - speaker-diarization
     - cpu
     - gpu
