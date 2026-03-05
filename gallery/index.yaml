@@ -1,4 +1,40 @@
 ---
+- name: "qwen3.5-122b-a10b"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/unsloth/Qwen3.5-122B-A10B-GGUF
+  description: |
+    Describe the model in a clear and concise way that can be shared in a model gallery.
+  license: "proprietary"
+  tags:
+    - gml
+    - llm
+    - text-to-text
+    - qwen
+    - 122B
+  overrides:
+    parameters:
+      model: llama-cpp/models/imatrix_unsloth.gguf
+    name: Qwen3.5-122B-A10B-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    mmproj: llama-cpp/mmproj/mmproj-F32.gguf
+    description: Imported from https://huggingface.co/unsloth/Qwen3.5-122B-A10B-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/mmproj/mmproj-F32.gguf
+      sha256: ba889ce164a6cc7ffe34296851d0f2bbe139bd27deeb7fe3830d08bd776a28a6
+      uri: https://huggingface.co/unsloth/Qwen3.5-122B-A10B-GGUF/resolve/main/mmproj-F32.gguf
+    - filename: llama-cpp/models/imatrix_unsloth.gguf
+      sha256: 41ec0555401a2abaf73589dcea1ca83d979573d45e8e838d1df722fd26e8cf1e
+      uri: https://huggingface.co/unsloth/Qwen3.5-122B-A10B-GGUF/resolve/main/imatrix_unsloth.gguf
 - name: "q3.5-bluestar-27b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
