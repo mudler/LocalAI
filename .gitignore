@@ -65,3 +65,7 @@ docs/static/gallery.html
 
 # per-developer customization files for the development container
 .devcontainer/customization/*
+
+# React UI build artifacts (keep placeholder dist/index.html)
+core/http/react-ui/node_modules/
+core/http/react-ui/dist
