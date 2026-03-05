@@ -2,8 +2,15 @@
 """
 MLX Distributed Inference Backend for LocalAI.
 
-Rank 0 mode: Starts a gRPC server that coordinates distributed inference.
-Worker mode: Enters a loop waiting for commands from rank 0.
+Two startup modes:
+
+1. Server mode (started by LocalAI automatically):
+   run.sh --addr localhost:50051
+   Distributed config comes from LoadModel options or env vars.
+
+2. Worker mode (started by CLI for remote ranks):
+   run.sh --worker --hostfile hosts.json --rank 1 --backend ring
+   Enters a loop waiting for commands from rank 0.
 """
 import asyncio
 from concurrent import futures
@@ -66,12 +73,33 @@ def is_int(s):
         return False
 
 
-class BackendServicer(backend_pb2_grpc.BackendServicer):
-    """gRPC servicer for distributed MLX inference (runs only on rank 0)."""
+def parse_options(options):
+    """Parse key:value option strings into a dict."""
+    result = {}
+    for opt in options:
+        if ":" not in opt:
+            continue
+        key, value = opt.split(":", 1)
+        if is_float(value):
+            value = float(value)
+        elif is_int(value):
+            value = int(value)
+        elif value.lower() in ["true", "false"]:
+            value = value.lower() == "true"
+        result[key] = value
+    return result
 
-    def __init__(self, group, dist_backend="ring"):
-        self.group = group
-        self.dist_backend = dist_backend
+
+class BackendServicer(backend_pb2_grpc.BackendServicer):
+    """gRPC servicer for distributed MLX inference (runs on rank 0).
+
+    When started by LocalAI (server mode), distributed init happens at
+    LoadModel time using config from model options or environment variables.
+    """
+
+    def __init__(self):
+        self.group = None
+        self.dist_backend = None
         self.model = None
         self.tokenizer = None
         self.coordinator = None
@@ -87,27 +115,34 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             from coordinator import DistributedCoordinator, CMD_LOAD_MODEL
             from sharding import pipeline_auto_parallel
 
-            print(f"[Rank 0] Loading distributed model: {request.Model}", file=sys.stderr)
+            print(f"[Rank 0] Loading model: {request.Model}", file=sys.stderr)
 
-            options = request.Options
-            self.options = {}
-            for opt in options:
-                if ":" not in opt:
-                    continue
-                key, value = opt.split(":", 1)
-                if is_float(value):
-                    value = float(value)
-                elif is_int(value):
-                    value = int(value)
-                elif value.lower() in ["true", "false"]:
-                    value = value.lower() == "true"
-                self.options[key] = value
+            self.options = parse_options(request.Options)
 
-            self.coordinator = DistributedCoordinator(self.group)
+            # Get distributed config from model options, falling back to env vars.
+            # If neither is set, run as single-node (no distributed).
+            hostfile = self.options.get("hostfile", os.environ.get("MLX_DISTRIBUTED_HOSTFILE", ""))
+            dist_backend = str(self.options.get("distributed_backend",
+                               os.environ.get("MLX_DISTRIBUTED_BACKEND", "ring")))
+            # JACCL coordinator: rank 0 reads from env (set by CLI --coordinator).
+            # Not in model options — rank 0 is the coordinator, workers get
+            # the address via their own --coordinator CLI flag.
+            jaccl_coordinator = os.environ.get("MLX_JACCL_COORDINATOR", "")
 
-            # Broadcast load command to all ranks
-            self.coordinator.broadcast_command(CMD_LOAD_MODEL)
-            self.coordinator.broadcast_model_name(request.Model)
+            if hostfile:
+                print(f"[Rank 0] Initializing distributed: backend={dist_backend}, hostfile={hostfile}", file=sys.stderr)
+                self.dist_backend = dist_backend
+                self.group = mlx_distributed_init(
+                    rank=0,
+                    hostfile=hostfile,
+                    backend=dist_backend,
+                    coordinator=jaccl_coordinator or None,
+                )
+                self.coordinator = DistributedCoordinator(self.group)
+                self.coordinator.broadcast_command(CMD_LOAD_MODEL)
+                self.coordinator.broadcast_model_name(request.Model)
+            else:
+                print("[Rank 0] No hostfile configured, running single-node", file=sys.stderr)
 
             tokenizer_config = {}
             if request.TrustRemoteCode or self.options.get("trust_remote_code", False):
@@ -118,16 +153,17 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             else:
                 self.model, self.tokenizer = load(request.Model)
 
-            # Apply pipeline parallelism
-            self.model = pipeline_auto_parallel(self.model, self.group)
-
-            print(f"[Rank 0] Model loaded and sharded across {self.group.size()} ranks", file=sys.stderr)
+            if self.group is not None:
+                self.model = pipeline_auto_parallel(self.model, self.group)
+                print(f"[Rank 0] Model loaded and sharded across {self.group.size()} ranks", file=sys.stderr)
+            else:
+                print("[Rank 0] Model loaded (single-node)", file=sys.stderr)
 
         except Exception as err:
             print(f"[Rank 0] Error loading model: {err}", file=sys.stderr)
             return backend_pb2.Result(success=False, message=f"Error loading model: {err}")
 
-        return backend_pb2.Result(message="Model loaded with distributed sharding", success=True)
+        return backend_pb2.Result(message="Model loaded successfully", success=True)
 
     async def Predict(self, request, context):
         try:
@@ -141,16 +177,19 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             if hasattr(tokens, 'tolist'):
                 tokens = tokens.tolist()
 
-            # Broadcast generate command + tokens
-            self.coordinator.broadcast_command(CMD_GENERATE, len(tokens))
-            self.coordinator.broadcast_tokens(tokens)
+            if self.coordinator:
+                self.coordinator.broadcast_command(CMD_GENERATE, len(tokens))
+                self.coordinator.broadcast_tokens(tokens)
 
             max_tokens, sampler_params = self._build_generation_params(request)
-            gen_params = self.coordinator.broadcast_generation_params(
-                max_tokens=max_tokens,
-                temperature=sampler_params.get('temp', 0.6),
-                top_p=sampler_params.get('top_p', 1.0),
-            )
+
+            if self.coordinator:
+                gen_params = self.coordinator.broadcast_generation_params(
+                    max_tokens=max_tokens,
+                    temperature=sampler_params.get('temp', 0.6),
+                    top_p=sampler_params.get('top_p', 1.0),
+                )
+                max_tokens = gen_params["max_tokens"]
 
             sampler = make_sampler(**sampler_params)
 
@@ -159,7 +198,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 self.model,
                 self.tokenizer,
                 prompt=tokens,
-                max_tokens=gen_params["max_tokens"],
+                max_tokens=max_tokens,
                 sampler=sampler,
             ):
                 generated.append(response.text)
@@ -184,15 +223,19 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             if hasattr(tokens, 'tolist'):
                 tokens = tokens.tolist()
 
-            self.coordinator.broadcast_command(CMD_GENERATE, len(tokens))
-            self.coordinator.broadcast_tokens(tokens)
+            if self.coordinator:
+                self.coordinator.broadcast_command(CMD_GENERATE, len(tokens))
+                self.coordinator.broadcast_tokens(tokens)
 
             max_tokens, sampler_params = self._build_generation_params(request, default_max_tokens=512)
-            gen_params = self.coordinator.broadcast_generation_params(
-                max_tokens=max_tokens,
-                temperature=sampler_params.get('temp', 0.6),
-                top_p=sampler_params.get('top_p', 1.0),
-            )
+
+            if self.coordinator:
+                gen_params = self.coordinator.broadcast_generation_params(
+                    max_tokens=max_tokens,
+                    temperature=sampler_params.get('temp', 0.6),
+                    top_p=sampler_params.get('top_p', 1.0),
+                )
+                max_tokens = gen_params["max_tokens"]
 
             sampler = make_sampler(**sampler_params)
 
@@ -200,7 +243,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 self.model,
                 self.tokenizer,
                 prompt=tokens,
-                max_tokens=gen_params["max_tokens"],
+                max_tokens=max_tokens,
                 sampler=sampler,
             ):
                 yield backend_pb2.Reply(message=bytes(response.text, encoding='utf-8'))
@@ -305,7 +348,6 @@ def run_worker(group):
                 top_p=gen_params["top_p"],
             )
 
-            # Participate in distributed compute, discard output
             for _ in stream_generate(
                 model, tokenizer,
                 prompt=tokens,
@@ -319,7 +361,7 @@ def run_worker(group):
             break
 
 
-async def serve(address, group, dist_backend):
+async def serve(address):
     server = grpc.aio.server(
         migration_thread_pool=futures.ThreadPoolExecutor(max_workers=MAX_WORKERS),
         options=[
@@ -328,9 +370,7 @@ async def serve(address, group, dist_backend):
             ('grpc.max_receive_message_length', 50 * 1024 * 1024),
         ],
     )
-    backend_pb2_grpc.add_BackendServicer_to_server(
-        BackendServicer(group, dist_backend), server
-    )
+    backend_pb2_grpc.add_BackendServicer_to_server(BackendServicer(), server)
     server.add_insecure_port(address)
 
     loop = asyncio.get_event_loop()
@@ -345,21 +385,26 @@ async def serve(address, group, dist_backend):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="MLX Distributed Backend")
     parser.add_argument("--addr", default="localhost:50051",
-                        help="gRPC API listen address for LocalAI (rank 0 only, separate from ring communication)")
-    parser.add_argument("--worker", action="store_true", help="Run in worker mode (rank > 0)")
+                        help="gRPC listen address (used by LocalAI to send requests)")
+    parser.add_argument("--worker", action="store_true",
+                        help="Run in worker mode (for remote ranks started by CLI)")
     parser.add_argument("--backend", default="ring", choices=["ring", "jaccl"],
                         help="ring = TCP pipeline parallelism, jaccl = RDMA tensor parallelism")
-    parser.add_argument("--hostfile", required=True,
-                        help="Ring: JSON array of 'ip:port' where entry i is rank i's listen address. "
-                             "JACCL: JSON 2D matrix of RDMA device names (null on diagonal).")
-    parser.add_argument("--rank", type=int, required=True, help="Rank of this process (0 = server, >0 = worker)")
+    parser.add_argument("--hostfile", default=None,
+                        help="Path to hostfile JSON (required for --worker mode)")
+    parser.add_argument("--rank", type=int, default=0,
+                        help="Rank of this process (0 = server, >0 = worker)")
     parser.add_argument("--coordinator", default=None,
-                        help="JACCL only: coordinator ip:port — rank 0's address for RDMA setup (same value on all ranks)")
+                        help="JACCL coordinator ip:port (jaccl backend only)")
     args = parser.parse_args()
 
-    group = mlx_distributed_init(args.rank, args.hostfile, args.backend, args.coordinator)
-
-    if args.worker or args.rank > 0:
+    if args.worker:
+        if not args.hostfile:
+            print("Error: --hostfile is required in worker mode", file=sys.stderr)
+            sys.exit(1)
+        group = mlx_distributed_init(args.rank, args.hostfile, args.backend, args.coordinator)
         run_worker(group)
     else:
-        asyncio.run(serve(args.addr, group, args.backend))
+        # Server mode: started by LocalAI with just --addr.
+        # Distributed init deferred to LoadModel (reads config from model options/env vars).
+        asyncio.run(serve(args.addr))
