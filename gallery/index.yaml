@@ -1,4 +1,33 @@
 ---
+- name: "thoth-30b-a3b"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Thoth-30B-A3B-GGUF
+  description: |
+    Describe the model in a clear and concise way that can be shared in a model gallery.
+  tags:
+    - llama
+    - text-to-text
+    - ai
+  overrides:
+    parameters:
+      model: llama-cpp/models/Thoth-30B-A3B.Q4_K_M.gguf
+    name: Thoth-30B-A3B-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Thoth-30B-A3B-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Thoth-30B-A3B.Q4_K_M.gguf
+      sha256: ebf0c74ec0628195483ea936e7f7c21db6a61cf9ab8664d18d01115e4e8ab767
+      uri: https://huggingface.co/mradermacher/Thoth-30B-A3B-GGUF/resolve/main/Thoth-30B-A3B.Q4_K_M.gguf
 - name: "q3.5-bluestar-27b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
