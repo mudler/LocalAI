@@ -119,7 +119,7 @@ func handleAnthropicNonStream(c echo.Context, id string, input *schema.Anthropic
 	}
 
 	predFunc, err := backend.ModelInference(
-		input.Context, predInput, openAIReq.Messages, images, nil, nil, ml, cfg, cl, appConfig, nil, toolsJSON, toolChoiceJSON, nil, nil, nil)
+		input.Context, predInput, openAIReq.Messages, images, nil, nil, ml, cfg, cl, appConfig, nil, toolsJSON, toolChoiceJSON, nil, nil, nil, input.Metadata)
 	if err != nil {
 		xlog.Error("Anthropic model inference failed", "error", err)
 		return sendAnthropicError(c, 500, "api_error", fmt.Sprintf("model inference failed: %v", err))
@@ -335,7 +335,7 @@ func handleAnthropicStream(c echo.Context, id string, input *schema.AnthropicReq
 	}
 
 	predFunc, err := backend.ModelInference(
-		input.Context, predInput, openAIMessages, images, nil, nil, ml, cfg, cl, appConfig, tokenCallback, toolsJSON, toolChoiceJSON, nil, nil, nil)
+		input.Context, predInput, openAIMessages, images, nil, nil, ml, cfg, cl, appConfig, tokenCallback, toolsJSON, toolChoiceJSON, nil, nil, nil, input.Metadata)
 	if err != nil {
 		xlog.Error("Anthropic stream model inference failed", "error", err)
 		return sendAnthropicError(c, 500, "api_error", fmt.Sprintf("model inference failed: %v", err))
