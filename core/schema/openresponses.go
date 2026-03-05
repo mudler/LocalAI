@@ -1,6 +1,7 @@
 package schema
 
 import (
+	"time"
 	"context"
 )
 
@@ -308,4 +309,73 @@ func ORContentPartWithLogprobs(text string, logprobs *Logprobs) ORContentPart {
 		Annotations: []ORAnnotation{}, // REQUIRED - must always be present as array (empty if none)
 		Logprobs:    orLogprobs,       // REQUIRED - must always be present as array (empty if none)
 	}
+}
+
+// WebSocket message types for Open Responses API WebSocket Mode
+// https://developers.openai.com/api/docs/guides/websocket-mode
+
+// ORWebSocketMessage represents a WebSocket message (client -> server or server -> client)
+type ORWebSocketMessage struct {
+	Type string `json:"type"` // response.create, response.created, response.progress, etc.
+}
+
+// ORWebSocketClientMessage represents a client message to the WebSocket endpoint
+type ORWebSocketClientMessage struct {
+	Type                 string                 `json:"type"` // "response.create"
+	Model                string                 `json:"model,omitempty"`
+	Input                interface{}            `json:"input,omitempty"`
+	Tools                []ORFunctionTool       `json:"tools,omitempty"`
+	ToolChoice           interface{}            `json:"tool_choice,omitempty"`
+	MaxOutputTokens      *int                   `json:"max_output_tokens,omitempty"`
+	Temperature          *float64               `json:"temperature,omitempty"`
+	TopP                 *float64               `json:"top_p,omitempty"`
+	Truncation           string                 `json:"truncation,omitempty"`
+	Instructions         string                 `json:"instructions,omitempty"`
+	Reasoning            *ORReasoningParam      `json:"reasoning,omitempty"`
+	Metadata             map[string]string      `json:"metadata,omitempty"`
+	PreviousResponseID   string                 `json:"previous_response_id,omitempty"`
+	Store                *bool                  `json:"store,omitempty"`
+	TextFormat           interface{}            `json:"text_format,omitempty"`
+	ServiceTier          string                 `json:"service_tier,omitempty"`
+	AllowedTools         []string               `json:"allowed_tools,omitempty"`
+	ParallelToolCalls    *bool                  `json:"parallel_tool_calls,omitempty"`
+	PresencePenalty      *float64               `json:"presence_penalty,omitempty"`
+	FrequencyPenalty     *float64               `json:"frequency_penalty,omitempty"`
+	TopLogprobs          *int                   `json:"top_logprobs,omitempty"`
+	MaxToolCalls         *int                   `json:"max_tool_calls,omitempty"`
+	Generate             *bool                  `json:"generate,omitempty"` // If false, just warm up and return response_id
+}
+
+// ORWebSocketServerEvent represents a server event to the WebSocket
+type ORWebSocketServerEvent struct {
+	Type           string                   `json:"type"` // response.created, response.progress, etc.
+	ResponseID     string                   `json:"response_id,omitempty"`
+	Response       *ORResponseResource      `json:"response,omitempty"`
+	OutputIndex    *int                     `json:"output_index,omitempty"`
+	Output         []ORItemField            `json:"output,omitempty"`
+	ItemID         string                   `json:"item_id,omitempty"`
+	Item           *ORItemField             `json:"item,omitempty"`
+	ContentIndex   *int                     `json:"content_index,omitempty"`
+	Delta          *string                  `json:"delta,omitempty"`
+	Text           *string                  `json:"text,omitempty"`
+	CallID         string                   `json:"call_id,omitempty"`
+	Arguments      *string                  `json:"arguments,omitempty"`
+	Error          *ORError                 `json:"error,omitempty"`
+}
+
+// ORWebSocketError represents a WebSocket error event
+type ORWebSocketError struct {
+	Type    string `json:"type"` // error
+	Code    string `json:"code,omitempty"` // previous_response_not_found, websocket_connection_limit_reached, etc.
+	Message string `json:"message"`
+	Param   string `json:"param,omitempty"`
+}
+
+// ConnectionLocalCacheEntry represents a cached response in connection-local storage
+type ConnectionLocalCacheEntry struct {
+	ResponseID  string
+	Response    *ORResponseResource
+	Input       *ORWebSocketClientMessage
+	CachedAt    time.Time
+	ExpiresAt   *time.Time
 }

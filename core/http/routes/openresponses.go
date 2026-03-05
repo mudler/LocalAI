@@ -43,6 +43,18 @@ func RegisterOpenResponsesRoutes(app *echo.Echo,
 	cancelResponseHandler := openresponses.CancelResponseEndpoint()
 	app.POST("/v1/responses/:id/cancel", cancelResponseHandler, middleware.TraceMiddleware(application))
 	app.POST("/responses/:id/cancel", cancelResponseHandler, middleware.TraceMiddleware(application))
+
+	// WebSocket endpoint for OpenAI Responses API WebSocket Mode
+	websocketHandler := openresponses.WebSocketEndpoint(
+		application.ModelConfigLoader(),
+		application.ModelLoader(),
+		application.TemplatesEvaluator(),
+		application.ApplicationConfig(),
+	)
+
+	// WebSocket at /v1/responses (GET method for upgrade)
+	app.GET("/v1/responses", websocketHandler, middleware.TraceMiddleware(application))
+	app.GET("/responses", websocketHandler, middleware.TraceMiddleware(application))
 }
 
 // setOpenResponsesRequestContext sets up the context and cancel function for Open Responses requests
