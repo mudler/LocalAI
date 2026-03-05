@@ -37,7 +37,7 @@ type TokenUsage struct {
 	TimingTokenGeneration  float64
 }
 
-func ModelInference(ctx context.Context, s string, messages schema.Messages, images, videos, audios []string, loader *model.ModelLoader, c *config.ModelConfig, cl *config.ModelConfigLoader, o *config.ApplicationConfig, tokenCallback func(string, TokenUsage) bool, tools string, toolChoice string, logprobs *int, topLogprobs *int, logitBias map[string]float64) (func() (LLMResponse, error), error) {
+func ModelInference(ctx context.Context, s string, messages schema.Messages, images, videos, audios []string, loader *model.ModelLoader, c *config.ModelConfig, cl *config.ModelConfigLoader, o *config.ApplicationConfig, tokenCallback func(string, TokenUsage) bool, tools string, toolChoice string, logprobs *int, topLogprobs *int, logitBias map[string]float64, metadata map[string]string) (func() (LLMResponse, error), error) {
 	modelFile := c.Model
 
 	// Check if the modelFile exists, if it doesn't try to load it from the gallery
@@ -85,6 +85,10 @@ func ModelInference(ctx context.Context, s string, messages schema.Messages, ima
 	// in GRPC, the backend is supposed to answer to 1 single token if stream is not supported
 	fn := func() (LLMResponse, error) {
 		opts := gRPCPredictOpts(*c, loader.ModelPath)
+		// Merge request-level metadata (overrides config defaults)
+		for k, v := range metadata {
+			opts.Metadata[k] = v
+		}
 		opts.Prompt = s
 		opts.Messages = protoMessages
 		opts.UseTokenizerTemplate = c.TemplateConfig.UseTokenizerTemplate
