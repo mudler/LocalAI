@@ -146,15 +146,16 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 		config.WithHttpGetExemptedEndpoints(r.HttpGetExemptedEndpoints),
 		config.WithP2PNetworkID(r.Peer2PeerNetworkID),
 		config.WithLoadToMemory(r.LoadToMemory),
+		config.WithMachineTag(r.MachineTag),
+		config.WithAPIAddress(r.Address),
+		config.WithAgentJobRetentionDays(r.AgentJobRetentionDays),
 		config.WithTunnelCallback(func(tunnels []string) {
 			tunnelEnvVar := strings.Join(tunnels, ",")
 			// TODO: this is very specific to llama.cpp, we should have a more generic way to set the environment variable
 			os.Setenv("LLAMACPP_GRPC_SERVERS", tunnelEnvVar)
 			xlog.Debug("setting LLAMACPP_GRPC_SERVERS", "value", tunnelEnvVar)
 		}),
-		config.WithMachineTag(r.MachineTag),
-		config.WithAPIAddress(r.Address),
-		config.WithAgentJobRetentionDays(r.AgentJobRetentionDays),
+
 	}
 
 	if r.DisableMetricsEndpoint {
