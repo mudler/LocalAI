@@ -3,8 +3,6 @@
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
     - https://huggingface.co/mradermacher/Q3.5-BlueStar-27B-GGUF
-  description: |
-    Describe the model in a clear and concise way that can be shared in a model gallery.
   overrides:
     parameters:
       model: llama-cpp/models/Q3.5-BlueStar-27B.Q4_K_M.gguf
@@ -32,8 +30,6 @@
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
     - https://huggingface.co/unsloth/Qwen3.5-9B-GGUF
-  description: |
-    Describe the model in a clear and concise way that can be shared in a model gallery.
   overrides:
     parameters:
       model: llama-cpp/models/Qwen3.5-9B-Q4_K_M.gguf
@@ -61,8 +57,6 @@
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
     - https://huggingface.co/unsloth/Qwen3.5-397B-A17B-GGUF
-  description: |
-    AI model: qwen3.5-397b-a17b
   overrides:
     parameters:
       model: llama-cpp/models/Qwen3.5-397B-A17B-Q4_K_M-00001-of-00006.gguf
@@ -105,8 +99,6 @@
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
     - https://huggingface.co/unsloth/Qwen3.5-27B-GGUF
-  description: |
-    AI model: qwen3.5-27b
   overrides:
     parameters:
       model: llama-cpp/models/Qwen3.5-27B-Q4_K_M.gguf
@@ -134,8 +126,6 @@
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
     - https://huggingface.co/unsloth/Qwen3.5-122B-A10B-GGUF
-  description: |
-    AI model: qwen3.5-122b-a10b
   overrides:
     parameters:
       model: llama-cpp/models/Qwen3.5-122B-A10B-Q4_K_M-00001-of-00003.gguf
@@ -169,8 +159,6 @@
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
     - https://huggingface.co/unsloth/Qwen3.5-35B-A3B-GGUF
-  description: |
-    AI model: qwen3.5-35b-a3b
   overrides:
     parameters:
       model: llama-cpp/models/Qwen3.5-35B-A3B-UD-Q4_K_M.gguf
@@ -192,14 +180,12 @@
       sha256: 223138866b87b12e68ffb43a1d45afb572921e9cd4c594e6a736df94c5130466
       uri: https://huggingface.co/unsloth/Qwen3.5-35B-A3B-GGUF/resolve/main/Qwen3.5-35B-A3B-UD-Q4_K_M.gguf
     - filename: llama-cpp/mmproj/mmproj-F32.gguf
-      sha256: 40169fdbd92afb86ef298c8f535353c7cc1307e3493db4359454246bcfc92131
       uri: https://huggingface.co/unsloth/Qwen3.5-35B-A3B-GGUF/resolve/main/mmproj-F32.gguf
+      sha256: 5de13d9052180b24cceda247af3023e3a2cbe785612198efe05b81905e3a5dc7
 - name: "qwen_qwen3-next-80b-a3b-thinking"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
     - https://huggingface.co/bartowski/Qwen_Qwen3-Next-80B-A3B-Thinking-GGUF
-  description: |
-    Describe the model in a clear and concise way that can be shared in a model gallery.
   overrides:
     parameters:
       model: llama-cpp/models/Qwen_Qwen3-Next-80B-A3B-Thinking-Q4_K_M.gguf
