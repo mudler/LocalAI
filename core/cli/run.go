@@ -103,14 +103,10 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 	os.MkdirAll(r.BackendsPath, 0750)
 	os.MkdirAll(r.ModelsPath, 0750)
 
-	systemStateOpts := []system.SystemStateOptions{
-	}
-
 	systemState, err := system.GetSystemState(
 		system.WithBackendSystemPath(r.BackendsSystemPath),
 		system.WithModelPath(r.ModelsPath),
 		system.WithBackendPath(r.BackendsPath),
-		 systemStateOpts...,
 	)
 	if err != nil {
 		return err
@@ -149,12 +145,6 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 		config.WithMachineTag(r.MachineTag),
 		config.WithAPIAddress(r.Address),
 		config.WithAgentJobRetentionDays(r.AgentJobRetentionDays),
-		config.WithTunnelCallback(func(tunnels []string) {
-			tunnelEnvVar := strings.Join(tunnels, ",")
-			// TODO: this is very specific to llama.cpp, we should have a more generic way to set the environment variable
-			os.Setenv("LLAMACPP_GRPC_SERVERS", tunnelEnvVar)
-			xlog.Debug("setting LLAMACPP_GRPC_SERVERS", "value", tunnelEnvVar)
-		}),
 	}
 
 	if r.DisableMetricsEndpoint {
@@ -274,18 +264,6 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 			return fmt.Errorf("invalid Open Responses store TTL: %w", err)
 		}
 		opts = append(opts, config.WithOpenResponsesStoreTTL(dur))
-	}
-
-
-	// Pass backend image fallback tags via system state
-	if r.BackendImagesReleaseTag != "" {
-		systemStateOpts = append(systemStateOpts, system.WithBackendImagesReleaseTag(r.BackendImagesReleaseTag))
-	}
-	if r.BackendImagesBranchTag != "" {
-		systemStateOpts = append(systemStateOpts, system.WithBackendImagesBranchTag(r.BackendImagesBranchTag))
-	}
-	if r.BackendDevSuffix != "" {
-		systemStateOpts = append(systemStateOpts, system.WithBackendDevSuffix(r.BackendDevSuffix))
 	}
 
 	// split ":" to get backend name and the uri
