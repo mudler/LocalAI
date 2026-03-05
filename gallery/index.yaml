@@ -17444,3 +17444,51 @@
     - filename: Melinoe-30B-A3B-Thinking.i1-Q4_K_M.gguf
       sha256: 7b9e8fe00faf7803e440542be01974c05b0dcb8b75e1f1c25638027bfb75dbf3
       uri: huggingface://mradermacher/Melinoe-30B-A3B-Thinking-i1-GGUF/Melinoe-30B-A3B-Thinking.i1-Q4_K_M.gguf
+
+- &ltx23
+  name: "ltx-2.3"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/Lightricks/LTX-2.3
+  license: ltx-2-community-license-agreement
+  tags:
+    - diffusers
+    - gpu
+    - image-to-video
+    - video-generation
+    - audio-video
+  description: |
+    **LTX-2.3** is an improved DiT-based audio-video foundation model from Lightricks, building upon the LTX-2 architecture with enhanced capabilities for generating synchronized video and audio within a single model.
+
+    **Key Features:**
+    - **Joint Audio-Video Generation**: Generates synchronized video and audio in a single model
+    - **Image-to-Video**: Converts static images into dynamic videos with matching audio
+    - **Enhanced Quality**: Improved video quality and motion generation over LTX-2
+    - **Open Weights**: Available under the LTX-2 Community License Agreement
+
+    **Model Details:**
+    - **Model Type**: Diffusion-based audio-video foundation model
+    - **Architecture**: DiT (Diffusion Transformer) based
+    - **Developed by**: Lightricks
+    - **Parent Model**: LTX-2
+
+    **Usage Tips:**
+    - Width & height settings must be divisible by 32
+    - Frame count must be divisible by 8 + 1 (e.g., 9, 17, 25, 33, 41, 49, 57, 65, 73, 81, 89, 97, 105, 113, 121)
+    - Recommended settings: width=768, height=512, num_frames=121, frame_rate=24.0
+    - For best results, use detailed prompts describing motion and scene dynamics
+
+    **Limitations:**
+    - This model is not intended or able to provide factual information
+    - Prompt following is heavily influenced by the prompting-style
+    - When generating audio without speech, the audio may be of lower quality
+  overrides:
+    backend: diffusers
+    low_vram: true
+    parameters:
+      model: Lightricks/LTX-2.3
+    diffusers:
+      cuda: true
+      pipeline_type: LTX2ImageToVideoPipeline
+    options:
+      - torch_dtype:bf16
