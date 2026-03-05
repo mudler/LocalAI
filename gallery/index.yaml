@@ -1,4 +1,36 @@
 ---
+- name: "l3.3-ms-nevoria-70b-heretic2-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/L3.3-MS-Nevoria-70b-heretic2-i1-GGUF
+  description: |
+    Describe the model in a clear and concise way that can be shared in a model gallery.
+  license: "empty string"
+  tags:
+    - llm
+    - gguf
+    - 70b
+    - text-to-text
+    - neviria
+  overrides:
+    parameters:
+      model: llama-cpp/models/L3.3-MS-Nevoria-70b-heretic2.i1-Q4_K_M.gguf
+    name: L3.3-MS-Nevoria-70b-heretic2-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/L3.3-MS-Nevoria-70b-heretic2-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/L3.3-MS-Nevoria-70b-heretic2.i1-Q4_K_M.gguf
+      sha256: 1ff90fbbec9f39bc9fb200a04fd5272a342e179e1d2da1772d369d82c02a0abe
+      uri: https://huggingface.co/mradermacher/L3.3-MS-Nevoria-70b-heretic2-i1-GGUF/resolve/main/L3.3-MS-Nevoria-70b-heretic2.i1-Q4_K_M.gguf
 - name: "q3.5-bluestar-27b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
