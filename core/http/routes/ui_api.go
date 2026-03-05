@@ -221,7 +221,12 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		}
 		sort.Strings(tags)
 
-		if term != "" {
+		tag := c.QueryParam("tag")
+
+		// Filter by tag if provided (exact match)
+		if tag != "" {
+			models = gallery.GalleryElements[*gallery.GalleryModel](models).FilterByTag(tag)
+		} else if term != "" {
 			models = gallery.GalleryElements[*gallery.GalleryModel](models).Search(term)
 		}
 
@@ -603,7 +608,12 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		}
 		sort.Strings(tags)
 
-		if term != "" {
+		tag := c.QueryParam("tag")
+
+		// Filter by tag if provided (exact match)
+		if tag != "" {
+			backends = gallery.GalleryElements[*gallery.GalleryBackend](backends).FilterByTag(tag)
+		} else if term != "" {
 			backends = gallery.GalleryElements[*gallery.GalleryBackend](backends).Search(term)
 		}
 
