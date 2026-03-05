@@ -788,7 +788,7 @@ func handleBackgroundNonStream(ctx context.Context, store *ResponseStore, respon
 	}
 
 	predFunc, err := backend.ModelInference(
-		ctx, predInput, openAIReq.Messages, images, videos, audios, ml, cfg, cl, appConfig, nil, toolsJSON, toolChoiceJSON, logprobs, input.TopLogprobs, input.LogitBias)
+		ctx, predInput, openAIReq.Messages, images, videos, audios, ml, cfg, cl, appConfig, nil, toolsJSON, toolChoiceJSON, logprobs, input.TopLogprobs, input.LogitBias, nil)
 	if err != nil {
 		return nil, fmt.Errorf("model inference failed: %w", err)
 	}
@@ -1010,7 +1010,7 @@ func handleBackgroundStream(ctx context.Context, store *ResponseStore, responseI
 	}
 
 	predFunc, err := backend.ModelInference(
-		ctx, predInput, openAIReq.Messages, images, videos, audios, ml, cfg, cl, appConfig, tokenCallback, toolsJSON, toolChoiceJSON, streamLogprobs, input.TopLogprobs, input.LogitBias)
+		ctx, predInput, openAIReq.Messages, images, videos, audios, ml, cfg, cl, appConfig, tokenCallback, toolsJSON, toolChoiceJSON, streamLogprobs, input.TopLogprobs, input.LogitBias, nil)
 	if err != nil {
 		return nil, fmt.Errorf("model inference failed: %w", err)
 	}
@@ -1482,7 +1482,7 @@ func handleOpenResponsesNonStream(c echo.Context, responseID string, createdAt i
 	}
 
 	predFunc, err := backend.ModelInference(
-		input.Context, predInput, openAIReq.Messages, images, videos, audios, ml, cfg, cl, appConfig, nil, toolsJSON, toolChoiceJSON, logprobs, input.TopLogprobs, input.LogitBias)
+		input.Context, predInput, openAIReq.Messages, images, videos, audios, ml, cfg, cl, appConfig, nil, toolsJSON, toolChoiceJSON, logprobs, input.TopLogprobs, input.LogitBias, nil)
 	if err != nil {
 		xlog.Error("Open Responses model inference failed", "error", err)
 		return sendOpenResponsesError(c, 500, "model_error", fmt.Sprintf("model inference failed: %v", err), "")
@@ -2021,7 +2021,7 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 		}
 
 		predFunc, err := backend.ModelInference(
-			input.Context, predInput, openAIReq.Messages, images, videos, audios, ml, cfg, cl, appConfig, tokenCallback, toolsJSON, toolChoiceJSON, streamLogprobs, input.TopLogprobs, input.LogitBias)
+			input.Context, predInput, openAIReq.Messages, images, videos, audios, ml, cfg, cl, appConfig, tokenCallback, toolsJSON, toolChoiceJSON, streamLogprobs, input.TopLogprobs, input.LogitBias, nil)
 		if err != nil {
 			xlog.Error("Open Responses stream model inference failed", "error", err)
 			sendSSEEvent(c, &schema.ORStreamEvent{
@@ -2449,7 +2449,7 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 	}
 
 	predFunc, err := backend.ModelInference(
-		input.Context, predInput, openAIReq.Messages, images, videos, audios, ml, cfg, cl, appConfig, tokenCallback, toolsJSON, toolChoiceJSON, mcpLogprobs, input.TopLogprobs, input.LogitBias)
+		input.Context, predInput, openAIReq.Messages, images, videos, audios, ml, cfg, cl, appConfig, tokenCallback, toolsJSON, toolChoiceJSON, mcpLogprobs, input.TopLogprobs, input.LogitBias, nil)
 	if err != nil {
 		xlog.Error("Open Responses stream model inference failed", "error", err)
 		sendSSEEvent(c, &schema.ORStreamEvent{
