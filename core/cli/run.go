@@ -50,6 +50,7 @@ type RunCMD struct {
 	UploadLimit                        int      `env:"LOCALAI_UPLOAD_LIMIT,UPLOAD_LIMIT" default:"15" help:"Default upload-limit in MB" group:"api"`
 	APIKeys                            []string `env:"LOCALAI_API_KEY,API_KEY" help:"List of API Keys to enable API authentication. When this is set, all the requests must be authenticated with one of these API keys" group:"api"`
 	DisableWebUI                       bool     `env:"LOCALAI_DISABLE_WEBUI,DISABLE_WEBUI" default:"false" help:"Disables the web user interface. When set to true, the server will only expose API endpoints without serving the web interface" group:"api"`
+        DisableMCP                         bool     `env:"LOCALAI_DISABLE_MCP,DISABLE_MCP" default:"false" help:"Disables MCP (Model Context Protocol) support entirely" group:"api"`
 	DisableRuntimeSettings             bool     `env:"LOCALAI_DISABLE_RUNTIME_SETTINGS,DISABLE_RUNTIME_SETTINGS" default:"false" help:"Disables the runtime settings. When set to true, the server will not load the runtime settings from the runtime_settings.json file" group:"api"`
 	DisablePredownloadScan             bool     `env:"LOCALAI_DISABLE_PREDOWNLOAD_SCAN" help:"If true, disables the best-effort security scanner before downloading any files." group:"hardening" default:"false"`
 	OpaqueErrors                       bool     `env:"LOCALAI_OPAQUE_ERRORS" default:"false" help:"If true, all error responses are replaced with blank 500 errors. This is intended only for hardening against information leaks and is normally not recommended." group:"hardening"`
@@ -189,6 +190,10 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 
 	idleWatchDog := r.EnableWatchdogIdle
 	busyWatchDog := r.EnableWatchdogBusy
+
+        if r.DisableMCP {
+                opts = append(opts, config.WithDisableMCP)
+        }
 
 	if r.DisableWebUI {
 		opts = append(opts, config.DisableWebUI)

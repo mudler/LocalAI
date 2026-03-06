@@ -1119,6 +1119,9 @@ func handleBackgroundMCPResponse(ctx context.Context, store *ResponseStore, resp
 
 	// Build cogito options
 	cogitoOpts := cfg.BuildCogitoOptions()
+	if appConfig.DisableMCP {
+		return fmt.Errorf("MCP support is disabled")
+	}
 	cogitoOpts = append(
 		cogitoOpts,
 		cogito.WithContext(ctx),
@@ -2679,6 +2682,9 @@ func handleMCPResponse(c echo.Context, responseID string, createdAt int64, input
 
 	// Build cogito options
 	cogitoOpts := cfg.BuildCogitoOptions()
+	if appConfig.DisableMCP {
+		return echo.NewHTTPError(503, "MCP support is disabled")
+	}
 	cogitoOpts = append(
 		cogitoOpts,
 		cogito.WithContext(ctxWithCancellation),

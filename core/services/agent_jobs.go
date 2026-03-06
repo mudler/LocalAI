@@ -813,6 +813,10 @@ func (s *AgentJobService) executeJobInternal(job schema.Job, task schema.Task, c
 
 	// Build cogito options
 	cogitoOpts := modelConfig.BuildCogitoOptions()
+	if s.appConfig.DisableMCP {
+		xlog.Warn("MCP support is disabled, skipping MCP tool execution")
+		return fmt.Errorf("MCP support is disabled")
+	}
 	cogitoOpts = append(
 		cogitoOpts,
 		cogito.WithContext(ctx),

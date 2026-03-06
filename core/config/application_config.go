@@ -43,6 +43,7 @@ type ApplicationConfig struct {
 	UseSubtleKeyComparison             bool
 	DisableApiKeyRequirementForHttpGet bool
 	DisableMetrics                     bool
+	DisableMCP                         bool
 	HttpGetExemptedEndpoints           []*regexp.Regexp
 	DisableGalleryEndpoint             bool
 	LoadToMemory                       []string
@@ -809,3 +810,8 @@ func (o *ApplicationConfig) ApplyRuntimeSettings(settings *RuntimeSettings) (req
 // 		o.Metrics = meter
 // 	}
 // }
+
+// WithDisableMCP disables MCP support
+var WithDisableMCP AppOption = func(o *ApplicationConfig) {
+	o.DisableMCP = true
+}

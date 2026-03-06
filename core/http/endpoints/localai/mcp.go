@@ -79,6 +79,12 @@ func MCPEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator 
 			return echo.ErrBadRequest
 		}
 
+
+		// Check if MCP is disabled
+		if appConfig.DisableMCP {
+			return echo.NewHTTPError(503, "MCP support is disabled")
+		}
+
 		if config.MCP.Servers == "" && config.MCP.Stdio == "" {
 			return fmt.Errorf("no MCP servers configured")
 		}
