@@ -430,7 +430,9 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 			switch d.Type {
 			case "json_object":
 				input.Grammar = functions.JSONBNF
+				config.ResponseFormat = "json_object"
 			case "json_schema":
+				config.ResponseFormat = "json_schema"
 				d := schema.JsonSchemaRequest{}
 				dat, err := json.Marshal(config.ResponseFormatMap)
 				if err != nil {
@@ -440,6 +442,13 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 				if err != nil {
 					return err
 				}
+
+				// Pass raw JSON schema to backends that support native structured output
+				schemaBytes, err := json.Marshal(d.JsonSchema.Schema)
+				if err == nil {
+					config.JSONSchema = string(schemaBytes)
+				}
+
 				fs := &functions.JSONFunctionStructure{
 					AnyOf: []functions.Item{d.JsonSchema.Schema},
 				}
