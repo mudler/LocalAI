@@ -21,6 +21,11 @@ type SystemState struct {
 	VRAM      uint64
 
 	systemCapabilities string
+
+	// Backend image fallback tag configuration
+	BackendImagesReleaseTag string
+	BackendImagesBranchTag  string
+	BackendDevSuffix        string
 }
 
 type SystemStateOptions func(*SystemState)
@@ -40,6 +45,24 @@ func WithBackendSystemPath(path string) SystemStateOptions {
 func WithModelPath(path string) SystemStateOptions {
 	return func(s *SystemState) {
 		s.Model.ModelsPath = path
+	}
+}
+
+func WithBackendImagesReleaseTag(tag string) SystemStateOptions {
+	return func(s *SystemState) {
+		s.BackendImagesReleaseTag = tag
+	}
+}
+
+func WithBackendImagesBranchTag(tag string) SystemStateOptions {
+	return func(s *SystemState) {
+		s.BackendImagesBranchTag = tag
+	}
+}
+
+func WithBackendDevSuffix(suffix string) SystemStateOptions {
+	return func(s *SystemState) {
+		s.BackendDevSuffix = suffix
 	}
 }
 
