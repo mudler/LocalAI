@@ -35,6 +35,9 @@ type RunCMD struct {
 	Galleries                string   `env:"LOCALAI_GALLERIES,GALLERIES" help:"JSON list of galleries" group:"models" default:"${galleries}"`
 	AutoloadGalleries        bool     `env:"LOCALAI_AUTOLOAD_GALLERIES,AUTOLOAD_GALLERIES" group:"models" default:"true"`
 	AutoloadBackendGalleries bool     `env:"LOCALAI_AUTOLOAD_BACKEND_GALLERIES,AUTOLOAD_BACKEND_GALLERIES" group:"backends" default:"true"`
+	BackendImagesReleaseTag string   `env:"LOCALAI_BACKEND_IMAGES_RELEASE_TAG,BACKEND_IMAGES_RELEASE_TAG" help:"Fallback release tag for backend images" group:"backends" default:"latest"`
+	BackendImagesBranchTag  string   `env:"LOCALAI_BACKEND_IMAGES_BRANCH_TAG,BACKEND_IMAGES_BRANCH_TAG" help:"Fallback branch tag for backend images" group:"backends" default:"master"`
+	BackendDevSuffix        string   `env:"LOCALAI_BACKEND_DEV_SUFFIX,BACKEND_DEV_SUFFIX" help:"Development suffix for backend images" group:"backends" default:"development"`
 	PreloadModels            string   `env:"LOCALAI_PRELOAD_MODELS,PRELOAD_MODELS" help:"A List of models to apply in JSON at start" group:"models"`
 	Models                   []string `env:"LOCALAI_MODELS,MODELS" help:"A List of model configuration URLs to load" group:"models"`
 	PreloadModelsConfig      string   `env:"LOCALAI_PRELOAD_MODELS_CONFIG,PRELOAD_MODELS_CONFIG" help:"A List of models to apply at startup. Path to a YAML config file" group:"models"`
@@ -102,6 +105,9 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 		system.WithBackendSystemPath(r.BackendsSystemPath),
 		system.WithModelPath(r.ModelsPath),
 		system.WithBackendPath(r.BackendsPath),
+		system.WithBackendImagesReleaseTag(r.BackendImagesReleaseTag),
+		system.WithBackendImagesBranchTag(r.BackendImagesBranchTag),
+		system.WithBackendDevSuffix(r.BackendDevSuffix),
 	)
 	if err != nil {
 		return err
