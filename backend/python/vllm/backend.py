@@ -26,7 +26,11 @@ from model_utils import resolve_model_reference
 
 from vllm.engine.arg_utils import AsyncEngineArgs
 from vllm.engine.async_llm_engine import AsyncLLMEngine
-from vllm.sampling_params import SamplingParams, GuidedDecodingParams
+from vllm.sampling_params import SamplingParams
+try:
+    from vllm.sampling_params import GuidedDecodingParams
+except ImportError:
+    GuidedDecodingParams = None
 from vllm.utils import random_uuid
 try:
     from vllm.tokenizers import get_tokenizer  # vLLM >= 0.22
