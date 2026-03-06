@@ -481,7 +481,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		go func() {
 			galleryService.ModelGalleryChannel <- op
 			// Wait for the deletion operation to complete with a timeout
-			ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
 			for {
 				select {
