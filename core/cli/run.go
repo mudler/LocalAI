@@ -103,10 +103,25 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 	os.MkdirAll(r.BackendsPath, 0750)
 	os.MkdirAll(r.ModelsPath, 0750)
 
+	systemStateOpts := []system.SystemStateOptions{}
+
+	// Pass backend image fallback tags via system state
+	if r.BackendImagesReleaseTag != "" {
+		systemStateOpts = append(systemStateOpts, system.WithBackendImagesReleaseTag(r.BackendImagesReleaseTag))
+	}
+	if r.BackendImagesBranchTag != "" {
+		systemStateOpts = append(systemStateOpts, system.WithBackendImagesBranchTag(r.BackendImagesBranchTag))
+	}
+	if r.BackendDevSuffix != "" {
+		systemStateOpts = append(systemStateOpts, system.WithBackendDevSuffix(r.BackendDevSuffix))
+	}
+
+
 	systemState, err := system.GetSystemState(
 		system.WithBackendSystemPath(r.BackendsSystemPath),
 		system.WithModelPath(r.ModelsPath),
 		system.WithBackendPath(r.BackendsPath),
+			systemStateOpts...,
 	)
 	if err != nil {
 		return err
