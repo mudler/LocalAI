@@ -1,4 +1,35 @@
 ---
+- name: "memocr-7b-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/MemOCR-7B-i1-GGUF
+  description: |
+    Describe the model in a clear and concise way that can be shared in a model gallery.
+  license: "LLAMA"
+  tags:
+    - memocr
+    - 7b
+    - gguf
+    - multi-modal
+  overrides:
+    parameters:
+      model: llama-cpp/models/MemOCR-7B.i1-Q4_K_M.gguf
+    name: MemOCR-7B-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/MemOCR-7B-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/MemOCR-7B.i1-Q4_K_M.gguf
+      sha256: 09d7708ddfe2750ab8dd285ace0d79f7b9ecfe1bfbadd1dd085b380341fc5efc
+      uri: https://huggingface.co/mradermacher/MemOCR-7B-i1-GGUF/resolve/main/MemOCR-7B.i1-Q4_K_M.gguf
 - name: "q3.5-bluestar-27b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
