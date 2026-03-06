@@ -253,6 +253,7 @@ func gRPCPredictOpts(c config.ModelConfig, modelPath string) *pb.PredictOptions 
 		TensorSplit:         c.TensorSplit,
 		TailFreeSamplingZ:   float32(*c.TFZ),
 		TypicalP:            float32(*c.TypicalP),
+		Dimensions:          int32(*c.Dimensions),
 	}
 	// Logprobs and TopLogprobs are set by the caller if provided
 	return pbOpts
