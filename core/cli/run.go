@@ -79,6 +79,7 @@ type RunCMD struct {
 	LRUEvictionRetryInterval           string   `env:"LOCALAI_LRU_EVICTION_RETRY_INTERVAL,LRU_EVICTION_RETRY_INTERVAL" default:"1s" help:"Interval between retries when waiting for busy models to become idle (e.g., 1s, 2s) (default: 1s)" group:"backends"`
 	Federated                          bool     `env:"LOCALAI_FEDERATED,FEDERATED" help:"Enable federated instance" group:"federated"`
 	DisableGalleryEndpoint             bool     `env:"LOCALAI_DISABLE_GALLERY_ENDPOINT,DISABLE_GALLERY_ENDPOINT" help:"Disable the gallery endpoints" group:"api"`
+	DisableMCP                         bool     `env:"LOCALAI_DISABLE_MCP,DISABLE_MCP" help:"Disable MCP (Model Context Protocol) support" group:"api" default:"false"`
 	MachineTag                         string   `env:"LOCALAI_MACHINE_TAG,MACHINE_TAG" help:"Add Machine-Tag header to each response which is useful to track the machine in the P2P network" group:"api"`
 	LoadToMemory                       []string `env:"LOCALAI_LOAD_TO_MEMORY,LOAD_TO_MEMORY" help:"A list of models to load into memory at startup" group:"models"`
 	EnableTracing                      bool     `env:"LOCALAI_ENABLE_TRACING,ENABLE_TRACING" help:"Enable API tracing" group:"api"`
@@ -196,6 +197,10 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 
 	if r.DisableGalleryEndpoint {
 		opts = append(opts, config.DisableGalleryEndpoint)
+	}
+
+	if r.DisableMCP {
+		opts = append(opts, config.DisableMCP)
 	}
 
 	if idleWatchDog || busyWatchDog {
