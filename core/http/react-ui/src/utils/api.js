@@ -228,6 +228,12 @@ export const audioApi = {
   },
 }
 
+// Realtime / WebRTC
+export const realtimeApi = {
+  call: (body) => postJSON(API_CONFIG.endpoints.realtimeCalls, body),
+  pipelineModels: () => fetchJSON(API_CONFIG.endpoints.pipelineModels),
+}
+
 // Backend control
 export const backendControlApi = {
   shutdown: (body) => postJSON(API_CONFIG.endpoints.backendShutdown, body),

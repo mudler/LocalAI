@@ -712,15 +712,37 @@ type SessionAudioInput struct {
 	// Configuration for input audio noise reduction. This can be set to null to turn off. Noise reduction filters audio added to the input audio buffer before it is sent to VAD and the model. Filtering the audio can improve VAD and turn detection accuracy (reducing false positives) and model performance by improving perception of the input audio.
 	NoiseReduction *AudioNoiseReduction `json:"noise_reduction,omitempty"`
 
-	// Configuration for input audio transcription, defaults to off and can be set to null to turn off once on. Input audio transcription is not native to the model, since the model consumes audio directly. Transcription runs asynchronously through the /audio/transcriptions endpoint and should be treated as guidance of input audio content rather than precisely what the model heard. The client can optionally set the language and prompt for transcription, these offer additional guidance to the transcription service.
+	// Configuration for turn detection: Server VAD or Semantic VAD. Set to null
+	// to turn off, in which case the client must manually trigger model response.
 	TurnDetection *TurnDetectionUnion `json:"turn_detection,omitempty"`
 
-	// Configuration for turn detection, ether Server VAD or Semantic VAD. This can be set to null to turn off, in which case the client must manually trigger model response.
-	//
-	// Server VAD means that the model will detect the start and end of speech based on audio volume and respond at the end of user speech.
-	//
-	// Semantic VAD is more advanced and uses a turn detection model (in conjunction with VAD) to semantically estimate whether the user has finished speaking, then dynamically sets a timeout based on this probability. For example, if user audio trails off with "uhhm", the model will score a low probability of turn end and wait longer for the user to continue speaking. This can be useful for more natural conversations, but may have a higher latency.
+	// True when the JSON payload explicitly included "turn_detection" (even as null).
+	// Standard Go JSON can't distinguish absent from null for pointer fields.
+	TurnDetectionSet bool `json:"-"`
+
+	// Configuration for input audio transcription, defaults to off and can be
+	// set to null to turn off once on.
 	Transcription *AudioTranscription `json:"transcription,omitempty"`
+}
+
+func (s *SessionAudioInput) UnmarshalJSON(data []byte) error {
+	// Check whether turn_detection key exists in the raw JSON.
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+
+	type alias SessionAudioInput
+	var a alias
+	if err := json.Unmarshal(data, &a); err != nil {
+		return err
+	}
+	*s = SessionAudioInput(a)
+
+	if _, ok := raw["turn_detection"]; ok {
+		s.TurnDetectionSet = true
+	}
+	return nil
 }
 
 type SessionAudioOutput struct {
@@ -1012,10 +1034,13 @@ func (r *SessionUnion) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	switch SessionType(t.Type) {
-	case SessionTypeRealtime:
-		return json.Unmarshal(data, &r.Realtime)
+	case SessionTypeRealtime, "":
+		// Default to realtime when no type field is present (e.g. session.update events).
+		r.Realtime = &RealtimeSession{}
+		return json.Unmarshal(data, r.Realtime)
 	case SessionTypeTranscription:
-		return json.Unmarshal(data, &r.Transcription)
+		r.Transcription = &TranscriptionSession{}
+		return json.Unmarshal(data, r.Transcription)
 	default:
 		return fmt.Errorf("unknown session type: %s", t.Type)
 	}

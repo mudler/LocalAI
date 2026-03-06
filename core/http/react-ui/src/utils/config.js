@@ -59,6 +59,10 @@ export const API_CONFIG = {
     modelsList: '/v1/models',
     modelsCapabilities: '/api/models/capabilities',
 
+    // Realtime / WebRTC
+    realtimeCalls: '/v1/realtime/calls',
+    pipelineModels: '/api/pipeline-models',
+
     // LocalAI-specific
     tts: '/tts',
     video: '/video',
