@@ -16,7 +16,11 @@ import backend_pb2_grpc
 import grpc
 from vllm.engine.arg_utils import AsyncEngineArgs
 from vllm.engine.async_llm_engine import AsyncLLMEngine
-from vllm.sampling_params import SamplingParams, GuidedDecodingParams
+from vllm.sampling_params import SamplingParams
+try:
+    from vllm.sampling_params import GuidedDecodingParams
+except ImportError:
+    GuidedDecodingParams = None
 from vllm.utils import random_uuid
 from vllm.transformers_utils.tokenizer import get_tokenizer
 from vllm.multimodal.utils import fetch_image
@@ -231,20 +235,15 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                     setattr(sampling_params, param_field, value)
 
         # Handle structured output via guided decoding
-        guided_decoding = None
-        if hasattr(request, 'JSONSchema') and request.JSONSchema:
-            try:
-                schema = json.loads(request.JSONSchema)
-                guided_decoding = GuidedDecodingParams(json_schema=schema)
-            except json.JSONDecodeError as e:
-                print(f"Failed to parse JSONSchema: {e}", file=sys.stderr)
-        elif hasattr(request, 'ResponseFormat') and request.ResponseFormat == "json_object":
-            guided_decoding = GuidedDecodingParams(json_object=True)
-        elif hasattr(request, 'Grammar') and request.Grammar:
-            guided_decoding = GuidedDecodingParams(grammar=request.Grammar)
+        if GuidedDecodingParams is not None:
+            guided_decoding = None
+            if hasattr(request, 'JSONSchema') and request.JSONSchema:
+                guided_decoding = GuidedDecodingParams(json_schema=request.JSONSchema)
+            elif hasattr(request, 'ResponseFormat') and request.ResponseFormat == "json_object":
+                guided_decoding = GuidedDecodingParams(json_object=True)
 
-        if guided_decoding is not None:
-            sampling_params.guided_decoding = guided_decoding
+            if guided_decoding is not None:
+                sampling_params.guided_decoding = guided_decoding
 
         # Extract image paths and process images
         prompt = request.Prompt

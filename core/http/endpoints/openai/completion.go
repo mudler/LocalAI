@@ -101,6 +101,15 @@ func CompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eva
 						if err == nil {
 							config.JSONSchema = string(schemaBytes)
 						}
+						fs := &functions.JSONFunctionStructure{
+							AnyOf: []functions.Item{jsr.JsonSchema.Schema},
+						}
+						g, err := fs.Grammar(config.FunctionsConfig.GrammarOptions()...)
+						if err == nil {
+							input.Grammar = g
+						} else {
+							xlog.Error("Failed generating grammar", "error", err)
+						}
 					}
 				}
 			}
