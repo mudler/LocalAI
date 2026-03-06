@@ -525,7 +525,7 @@ func (re *RequestExtractor) SetOpenResponsesRequest(c echo.Context) error {
 	input.Context = ctxWithCorrelationID
 	input.Cancel = cancel
 
-	err := mergeOpenResponsesRequestAndModelConfig(cfg, input)
+	err := MergeOpenResponsesConfig(cfg, input)
 	if err != nil {
 		return err
 	}
@@ -541,7 +541,8 @@ func (re *RequestExtractor) SetOpenResponsesRequest(c echo.Context) error {
 	return nil
 }
 
-func mergeOpenResponsesRequestAndModelConfig(config *config.ModelConfig, input *schema.OpenResponsesRequest) error {
+// MergeOpenResponsesConfig merges request parameters into the model configuration.
+func MergeOpenResponsesConfig(config *config.ModelConfig, input *schema.OpenResponsesRequest) error {
 	// Temperature
 	if input.Temperature != nil {
 		config.Temperature = input.Temperature
