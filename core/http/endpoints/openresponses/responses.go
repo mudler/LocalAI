@@ -22,6 +22,7 @@ import (
 	reason "github.com/mudler/LocalAI/pkg/reasoning"
 	"github.com/mudler/LocalAI/pkg/utils"
 	"github.com/mudler/cogito"
+	"github.com/mudler/cogito/clients"
 	"github.com/mudler/xlog"
 )
 
@@ -1128,7 +1129,7 @@ func handleBackgroundMCPResponse(ctx context.Context, store *ResponseStore, resp
 	}
 
 	// Create OpenAI LLM client
-	defaultLLM := cogito.NewOpenAILLM(cfg.Name, apiKey, "http://127.0.0.1:"+port)
+	defaultLLM := clients.NewLocalAILLM(cfg.Name, apiKey, "http://127.0.0.1:"+port)
 
 	// Build cogito options
 	cogitoOpts := cfg.BuildCogitoOptions()
@@ -2696,7 +2697,7 @@ func handleMCPResponse(c echo.Context, responseID string, createdAt int64, input
 	defer cancel()
 
 	// Create OpenAI LLM client
-	defaultLLM := cogito.NewOpenAILLM(cfg.Name, apiKey, "http://127.0.0.1:"+port)
+	defaultLLM := clients.NewLocalAILLM(cfg.Name, apiKey, "http://127.0.0.1:"+port)
 
 	// Build cogito options
 	cogitoOpts := cfg.BuildCogitoOptions()

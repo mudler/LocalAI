@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import { settingsApi, resourcesApi } from '../utils/api'
 import LoadingSpinner from '../components/LoadingSpinner'
+import SearchableModelSelect from '../components/SearchableModelSelect'
 import { formatBytes, percentColor } from '../utils/format'
 
 function Toggle({ checked, onChange, disabled }) {
@@ -59,6 +60,7 @@ const SECTIONS = [
   { id: 'galleries', icon: 'fa-images', color: 'var(--color-accent)', label: 'Galleries' },
   { id: 'apikeys', icon: 'fa-key', color: 'var(--color-error)', label: 'API Keys' },
   { id: 'agents', icon: 'fa-tasks', color: 'var(--color-primary)', label: 'Agent Jobs' },
+  { id: 'agentpool', icon: 'fa-robot', color: 'var(--color-primary)', label: 'Agent Pool' },
   { id: 'responses', icon: 'fa-database', color: 'var(--color-accent)', label: 'Responses' },
 ]
 
@@ -446,6 +448,36 @@ export default function Settings() {
             <div className="card">
               <SettingRow label="Job Retention Days" description="Number of days to keep job history">
                 <input className="input" type="number" style={{ width: 120 }} value={settings.agent_job_retention_days ?? ''} onChange={(e) => update('agent_job_retention_days', parseInt(e.target.value) || 0)} placeholder="30" />
+              </SettingRow>
+            </div>
+          </div>
+
+          {/* Agent Pool */}
+          <div ref={el => sectionRefs.current.agentpool = el} style={{ marginBottom: 'var(--spacing-xl)' }}>
+            <h3 style={{ fontSize: '1rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-md)' }}>
+              <i className="fas fa-robot" style={{ color: 'var(--color-primary)' }} /> Agent Pool
+            </h3>
+            <div className="card">
+              <SettingRow label="Enabled" description="Enable or disable the agent pool feature (requires restart)">
+                <Toggle checked={settings.agent_pool_enabled ?? true} onChange={(v) => update('agent_pool_enabled', v)} />
+              </SettingRow>
+              <SettingRow label="Default Model" description="Default LLM model for agents">
+                <SearchableModelSelect value={settings.agent_pool_default_model || ''} onChange={(v) => update('agent_pool_default_model', v)} capability="FLAG_CHAT" placeholder="e.g. gpt-4" />
+              </SettingRow>
+              <SettingRow label="Embedding Model" description="Model used for knowledge base embeddings">
+                <SearchableModelSelect value={settings.agent_pool_embedding_model || ''} onChange={(v) => update('agent_pool_embedding_model', v)} placeholder="granite-embedding-107m-multilingual" />
+              </SettingRow>
+              <SettingRow label="Max Chunking Size" description="Maximum chunk size for knowledge base documents (default: 400)">
+                <input className="input" type="number" style={{ width: 120 }} value={settings.agent_pool_max_chunking_size ?? 400} onChange={(e) => update('agent_pool_max_chunking_size', parseInt(e.target.value, 10) || 0)} min={0} />
+              </SettingRow>
+              <SettingRow label="Chunk Overlap" description="Overlap between chunks for knowledge base documents (default: 0)">
+                <input className="input" type="number" style={{ width: 120 }} value={settings.agent_pool_chunk_overlap ?? 0} onChange={(e) => update('agent_pool_chunk_overlap', parseInt(e.target.value, 10) || 0)} min={0} />
+              </SettingRow>
+              <SettingRow label="Enable Logs" description="Enable agent logging (requires restart)">
+                <Toggle checked={settings.agent_pool_enable_logs ?? false} onChange={(v) => update('agent_pool_enable_logs', v)} />
+              </SettingRow>
+              <SettingRow label="Collection DB Path" description="Database path for agent collections">
+                <input className="input" style={{ width: 280 }} value={settings.agent_pool_collection_db_path || ''} onChange={(e) => update('agent_pool_collection_db_path', e.target.value)} placeholder="Leave empty for default" />
               </SettingRow>
             </div>
           </div>

@@ -8,6 +8,7 @@ import (
 	"github.com/mudler/LocalAI/core/services"
 	"github.com/mudler/LocalAI/core/templates"
 	"github.com/mudler/LocalAI/pkg/model"
+	"github.com/mudler/xlog"
 )
 
 type Application struct {
@@ -18,6 +19,7 @@ type Application struct {
 	templatesEvaluator *templates.Evaluator
 	galleryService     *services.GalleryService
 	agentJobService    *services.AgentJobService
+	agentPoolService   *services.AgentPoolService
 	watchdogMutex      sync.Mutex
 	watchdogStop       chan bool
 	p2pMutex           sync.Mutex
@@ -59,6 +61,10 @@ func (a *Application) AgentJobService() *services.AgentJobService {
 	return a.agentJobService
 }
 
+func (a *Application) AgentPoolService() *services.AgentPoolService {
+	return a.agentPoolService
+}
+
 // StartupConfig returns the original startup configuration (from env vars, before file loading)
 func (a *Application) StartupConfig() *config.ApplicationConfig {
 	return a.startupConfig
@@ -87,6 +93,20 @@ func (a *Application) start() error {
 	}
 
 	a.agentJobService = agentJobService
+
+	// Initialize agent pool service (LocalAGI integration)
+	if a.applicationConfig.AgentPool.Enabled {
+		aps, err := services.NewAgentPoolService(a.applicationConfig)
+		if err == nil {
+			if err := aps.Start(a.applicationConfig.Context); err != nil {
+				xlog.Error("Failed to start agent pool", "error", err)
+			} else {
+				a.agentPoolService = aps
+			}
+		} else {
+			xlog.Error("Failed to create agent pool service", "error", err)
+		}
+	}
 
 	return nil
 }

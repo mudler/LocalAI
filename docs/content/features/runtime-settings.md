@@ -82,6 +82,20 @@ Manage model and backend galleries:
 - **Autoload Galleries**: Automatically load model galleries on startup
 - **Autoload Backend Galleries**: Automatically load backend galleries on startup
 
+### Agent Pool Settings
+
+Configure the built-in agent platform (see [Agents]({{%relref "features/agents" %}}) for full documentation):
+
+- **Agent Pool Enabled**: Enable or disable the agent pool feature
+- **Default Model**: Default LLM model for new agents
+- **Embedding Model**: Model used for knowledge base embeddings (default: `granite-embedding-107m-multilingual`)
+- **Max Chunking Size**: Maximum chunk size for document ingestion (default: `400`)
+- **Chunk Overlap**: Overlap between document chunks (default: `0`)
+- **Enable Logs**: Enable detailed agent logging
+- **Collection DB Path**: Custom path for the collections database
+
+> **Note:** Most agent pool settings require a restart to take effect.
+
 ## Configuration Persistence
 
 All settings are automatically saved to `runtime_settings.json` in the `LOCALAI_CONFIG_DIR` directory (default: `BASEPATH/configuration`). This file is watched for changes, so modifications made directly to the file will also be applied at runtime.
