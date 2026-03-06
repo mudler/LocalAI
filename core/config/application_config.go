@@ -45,6 +45,7 @@ type ApplicationConfig struct {
 	DisableMetrics                     bool
 	HttpGetExemptedEndpoints           []*regexp.Regexp
 	DisableGalleryEndpoint             bool
+	DisableMCP                         bool
 	LoadToMemory                       []string
 
 	Galleries        []Gallery
@@ -182,6 +183,10 @@ var EnableWatchDogIdleCheck = func(o *ApplicationConfig) {
 
 var DisableGalleryEndpoint = func(o *ApplicationConfig) {
 	o.DisableGalleryEndpoint = true
+}
+
+var DisableMCP = func(o *ApplicationConfig) {
+	o.DisableMCP = true
 }
 
 var EnableWatchDogBusyCheck = func(o *ApplicationConfig) {
