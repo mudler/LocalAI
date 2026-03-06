@@ -60,8 +60,19 @@ func ModelEmbedding(s string, tokens []int, loader *model.ModelLoader, modelConf
 		if err != nil {
 			return embeds, err
 		}
-		// Return embeddings as-is to preserve full dimensionality
-		// Trailing zeros may be valid values in some embedding models
+
+		// Handle dimension truncation if requested via the dimensions parameter
+		// This is part of the OpenAI Embeddings API specification
+		if modelConfig.Dimensions != nil && *modelConfig.Dimensions > 0 {
+			targetDim := *modelConfig.Dimensions
+			if targetDim < len(embeds) {
+				// Truncate to requested dimensions
+				embeds = embeds[:targetDim]
+			}
+			// If targetDim >= len(embeds), return embeddings as-is
+			// The model cannot return more dimensions than it natively supports
+		}
+
 		return embeds, nil
 	}
 
@@ -80,6 +91,9 @@ func ModelEmbedding(s string, tokens []int, loader *model.ModelLoader, modelConf
 			duration := time.Since(startTime)
 
 			traceData["embedding_dimensions"] = len(result)
+			if modelConfig.Dimensions != nil {
+				traceData["requested_dimensions"] = *modelConfig.Dimensions
+			}
 
 			errStr := ""
 			if err != nil {

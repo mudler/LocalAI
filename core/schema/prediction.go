@@ -78,6 +78,7 @@ func (l *LogprobsValue) IsEnabled() bool {
 }
 
 // @Description PredictionOptions contains prediction parameters for model inference
+// @Description PredictionOptions contains prediction parameters for model inference
 type PredictionOptions struct {
 
 	// Also part of the OpenAI official spec
@@ -98,6 +99,12 @@ type PredictionOptions struct {
 	Temperature *float64 `json:"temperature,omitempty" yaml:"temperature,omitempty"`
 	Maxtokens   *int     `json:"max_tokens,omitempty" yaml:"max_tokens,omitempty"`
 	Echo        bool     `json:"echo,omitempty" yaml:"echo,omitempty"`
+
+	// OpenAI Embeddings API dimensions parameter
+	// When specified, the embedding will be truncated to this number of dimensions.
+	// When omitted (0 or nil), the model returns its full native dimension.
+	// This is part of the official OpenAI API spec for embeddings.
+	Dimensions *int `json:"dimensions,omitempty" yaml:"dimensions,omitempty"`
 
 	// Custom parameters - not present in the OpenAI API
 	Batch         int     `json:"batch,omitempty" yaml:"batch,omitempty"`
