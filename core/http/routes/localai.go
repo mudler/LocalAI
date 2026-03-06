@@ -129,6 +129,13 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 		}{Version: internal.PrintableVersion()})
 	})
 
+	router.GET("/api/features", func(c echo.Context) error {
+		return c.JSON(200, map[string]bool{
+			"agents": app.AgentPoolService() != nil,
+			"mcp":    !appConfig.DisableMCP,
+		})
+	})
+
 	router.GET("/system", localai.SystemInformations(ml, appConfig))
 
 	// misc
@@ -159,8 +166,8 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 		router.POST("/mcp/chat/completions", mcpStreamHandler, mcpStreamMiddleware...)
 	}
 
-	// Agent job routes
-	if app != nil && app.AgentJobService() != nil {
+	// Agent job routes (MCP CI Jobs — requires MCP to be enabled)
+	if app != nil && app.AgentJobService() != nil && !appConfig.DisableMCP {
 		router.POST("/api/agent/tasks", localai.CreateTaskEndpoint(app))
 		router.PUT("/api/agent/tasks/:id", localai.UpdateTaskEndpoint(app))
 		router.DELETE("/api/agent/tasks/:id", localai.DeleteTaskEndpoint(app))

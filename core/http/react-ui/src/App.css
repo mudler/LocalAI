@@ -154,6 +154,7 @@
 
 .sidebar-logo-img {
   width: 100%;
+  max-width: 140px;
   height: auto;
   padding: 0 var(--spacing-xs);
 }

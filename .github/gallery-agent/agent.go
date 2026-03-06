@@ -13,8 +13,8 @@ import (
 
 	"github.com/ghodss/yaml"
 	hfapi "github.com/mudler/LocalAI/pkg/huggingface-api"
-	cogito "github.com/mudler/cogito"
-
+	"github.com/mudler/cogito"
+	"github.com/mudler/cogito/clients"
 	"github.com/mudler/cogito/structures"
 	"github.com/sashabaranov/go-openai/jsonschema"
 )
@@ -25,7 +25,7 @@ var (
 	openAIBaseURL    = os.Getenv("OPENAI_BASE_URL")
 	galleryIndexPath = os.Getenv("GALLERY_INDEX_PATH")
 	//defaultclient
-	llm = cogito.NewOpenAILLM(openAIModel, openAIKey, openAIBaseURL)
+	llm = clients.NewOpenAILLM(openAIModel, openAIKey, openAIBaseURL)
 )
 
 // cleanTextContent removes trailing spaces, tabs, and normalizes line endings

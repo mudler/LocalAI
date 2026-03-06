@@ -16,6 +16,7 @@ import (
 	"github.com/mudler/LocalAI/core/templates"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/cogito"
+	"github.com/mudler/cogito/clients"
 	"github.com/mudler/xlog"
 )
 
@@ -121,7 +122,7 @@ func MCPEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator 
 		// and act like completion.go.
 		// We can do this as cogito expects an interface and we can create one that
 		// we satisfy to just call internally ComputeChoices
-		defaultLLM := cogito.NewOpenAILLM(config.Name, apiKey, "http://127.0.0.1:"+port)
+		defaultLLM := clients.NewLocalAILLM(config.Name, apiKey, "http://127.0.0.1:"+port)
 
 		// Build cogito options using the consolidated method
 		cogitoOpts := config.BuildCogitoOptions()

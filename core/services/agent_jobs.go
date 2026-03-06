@@ -27,6 +27,7 @@ import (
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/xsync"
 	"github.com/mudler/cogito"
+	"github.com/mudler/cogito/clients"
 	"github.com/mudler/xlog"
 	"github.com/robfig/cron/v3"
 )
@@ -806,7 +807,7 @@ func (s *AgentJobService) executeJobInternal(job schema.Job, task schema.Task, c
 	}
 
 	// Create LLM client
-	defaultLLM := cogito.NewOpenAILLM(modelConfig.Name, apiKey, "http://127.0.0.1:"+port)
+	defaultLLM := clients.NewLocalAILLM(modelConfig.Name, apiKey, "http://127.0.0.1:"+port)
 
 	// Initialize traces slice
 	job.Traces = []schema.JobTrace{}
