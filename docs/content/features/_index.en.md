@@ -25,6 +25,7 @@ LocalAI provides a comprehensive set of features for running AI models locally. 
 - **[GPU Acceleration](GPU-acceleration/)** - Optimize performance with GPU support
 - **[Distributed Inference](distributed_inferencing/)** - Scale inference across multiple nodes
 - **[Model Context Protocol (MCP)](mcp/)** - Enable agentic capabilities with MCP integration
+- **[Agents](agents/)** - Autonomous AI agents with tools, knowledge base, and skills
 
 ## Specialized Features
 
