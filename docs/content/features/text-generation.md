@@ -110,7 +110,7 @@ curl http://localhost:8080/v1/messages \
 | `stream` | boolean | No | Enable streaming responses |
 | `tools` | array | No | Array of tool definitions for function calling |
 | `tool_choice` | string/object | No | Tool choice strategy: "auto", "any", "none", or specific tool |
-| `metadata` | object | No | Custom metadata to attach to the request |
+| `metadata` | object | No | Per-request metadata passed to the backend (e.g., `{"enable_thinking": "true"}`) |
 
 #### Message Format
 

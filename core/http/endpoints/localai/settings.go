@@ -96,6 +96,12 @@ func UpdateSettingsEndpoint(app *application.Application) echo.HandlerFunc {
 			}
 		}
 
+		// Generate P2P token before saving so the real token is persisted (not "0")
+		if settings.P2PToken != nil && *settings.P2PToken == "0" {
+			token := p2p.GenerateToken(60, 60)
+			settings.P2PToken = &token
+		}
+
 		// Save to file
 		if appConfig.DynamicConfigsDir == "" {
 			return c.JSON(http.StatusBadRequest, schema.SettingsResponse{
@@ -218,11 +224,6 @@ func UpdateSettingsEndpoint(app *application.Application) echo.HandlerFunc {
 					})
 				}
 			} else {
-				if settings.P2PToken != nil && *settings.P2PToken == "0" {
-					token := p2p.GenerateToken(60, 60)
-					settings.P2PToken = &token
-					appConfig.P2PToken = token
-				}
 				if err := app.RestartP2P(); err != nil {
 					xlog.Error("Failed to restart P2P", "error", err)
 					return c.JSON(http.StatusInternalServerError, schema.SettingsResponse{

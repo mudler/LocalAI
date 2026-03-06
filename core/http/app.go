@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"mime"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -29,6 +30,11 @@ import (
 //go:embed static/*
 var embedDirStatic embed.FS
 
+// Embed React UI build output
+//
+//go:embed react-ui/dist/*
+var reactUI embed.FS
+
 var quietPaths = []string{"/api/operations", "/api/resources", "/healthz", "/readyz"}
 
 // @title LocalAI API
@@ -52,6 +58,9 @@ func API(application *application.Application) (*echo.Echo, error) {
 		e.Use(middleware.BodyLimit(fmt.Sprintf("%dM", application.ApplicationConfig().UploadLimitMB)))
 	}
 
+	// SPA fallback handler, set later when React UI is available
+	var spaFallback func(echo.Context) error
+
 	// Set error handler
 	if !application.ApplicationConfig().OpaqueErrors {
 		e.HTTPErrorHandler = func(err error, c echo.Context) {
@@ -61,8 +70,16 @@ func API(application *application.Application) (*echo.Echo, error) {
 				code = he.Code
 			}
 
-			// Handle 404 errors with HTML rendering when appropriate
+			// Handle 404 errors: serve React SPA for HTML requests, JSON otherwise
 			if code == http.StatusNotFound {
+				if spaFallback != nil {
+					accept := c.Request().Header.Get("Accept")
+					contentType := c.Request().Header.Get("Content-Type")
+					if strings.Contains(accept, "text/html") && !strings.Contains(contentType, "application/json") {
+						spaFallback(c)
+						return
+					}
+				}
 				notFoundHandler(c)
 				return
 			}
@@ -229,6 +246,60 @@ func API(application *application.Application) (*echo.Echo, error) {
 	if !application.ApplicationConfig().DisableWebUI {
 		routes.RegisterUIAPIRoutes(e, application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig(), application.GalleryService(), opcache, application)
 		routes.RegisterUIRoutes(e, application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig(), application.GalleryService())
+
+		// Serve React SPA from / with SPA fallback via 404 handler
+		reactFS, fsErr := fs.Sub(reactUI, "react-ui/dist")
+		if fsErr != nil {
+			xlog.Warn("React UI not available (build with 'make core/http/react-ui/dist')", "error", fsErr)
+		} else {
+			serveIndex := func(c echo.Context) error {
+				indexHTML, err := reactUI.ReadFile("react-ui/dist/index.html")
+				if err != nil {
+					return c.String(http.StatusNotFound, "React UI not built")
+				}
+				// Inject <base href> for reverse-proxy support
+				baseURL := httpMiddleware.BaseURL(c)
+				if baseURL != "" {
+					baseTag := `<base href="` + baseURL + `" />`
+					indexHTML = []byte(strings.Replace(string(indexHTML), "<head>", "<head>\n  "+baseTag, 1))
+				}
+				return c.HTMLBlob(http.StatusOK, indexHTML)
+			}
+
+			// Enable SPA fallback in the 404 handler for client-side routing
+			spaFallback = serveIndex
+
+			// Serve React SPA at /
+			e.GET("/", serveIndex)
+
+			// Serve React static assets (JS, CSS, etc.)
+			serveReactAsset := func(c echo.Context) error {
+				p := "assets/" + c.Param("*")
+				f, err := reactFS.Open(p)
+				if err == nil {
+					defer f.Close()
+					stat, statErr := f.Stat()
+					if statErr == nil && !stat.IsDir() {
+						contentType := mime.TypeByExtension(filepath.Ext(p))
+						if contentType == "" {
+							contentType = echo.MIMEOctetStream
+						}
+						return c.Stream(http.StatusOK, contentType, f)
+					}
+				}
+				return echo.NewHTTPError(http.StatusNotFound)
+			}
+			e.GET("/assets/*", serveReactAsset)
+
+			// Backward compatibility: redirect /app/* to /*
+			e.GET("/app", func(c echo.Context) error {
+				return c.Redirect(http.StatusMovedPermanently, "/")
+			})
+			e.GET("/app/*", func(c echo.Context) error {
+				p := c.Param("*")
+				return c.Redirect(http.StatusMovedPermanently, "/"+p)
+			})
+		}
 	}
 	routes.RegisterJINARoutes(e, requestExtractor, application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig())
 

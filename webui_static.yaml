@@ -1,3 +1,9 @@
+# DEPRECATED: This file is used by the legacy Alpine.js UI (core/http/views/).
+# The new React UI (core/http/react-ui/) bundles all its dependencies via npm.
+# When the legacy UI is removed, delete this file along with:
+#   - core/dependencies_manager/manager.go
+#   - core/http/static/assets/ (downloaded artifacts)
+#   - The "gen-assets" Makefile target
 - filename: "highlightjs.css"
   url: "https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.8.0/build/styles/default.min.css"
   sha: "fbde0ac0921d86c356c41532e7319c887a23bd1b8ff00060cab447249f03c7cf"

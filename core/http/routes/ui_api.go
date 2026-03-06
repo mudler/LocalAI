@@ -397,6 +397,35 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		})
 	})
 
+	// Returns installed models with their capability flags for UI filtering
+	app.GET("/api/models/capabilities", func(c echo.Context) error {
+		modelConfigs := cl.GetAllModelsConfigs()
+		modelsWithoutConfig, _ := services.ListModels(cl, ml, config.NoFilterFn, services.LOOSE_ONLY)
+
+		type modelCapability struct {
+			ID           string   `json:"id"`
+			Capabilities []string `json:"capabilities"`
+		}
+
+		result := make([]modelCapability, 0, len(modelConfigs)+len(modelsWithoutConfig))
+		for _, cfg := range modelConfigs {
+			result = append(result, modelCapability{
+				ID:           cfg.Name,
+				Capabilities: cfg.KnownUsecaseStrings,
+			})
+		}
+		for _, name := range modelsWithoutConfig {
+			result = append(result, modelCapability{
+				ID:           name,
+				Capabilities: []string{},
+			})
+		}
+
+		return c.JSON(200, map[string]any{
+			"data": result,
+		})
+	})
+
 	app.POST("/api/models/install/:id", func(c echo.Context) error {
 		galleryID := c.Param("id")
 		// URL decode the gallery ID (e.g., "localai%40model" -> "localai@model")
@@ -480,6 +509,21 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		galleryService.StoreCancellation(uid, cancelFunc)
 		go func() {
 			galleryService.ModelGalleryChannel <- op
+			// Wait for the deletion operation to complete with a timeout
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			for {
+				select {
+				case <-ctx.Done():
+					xlog.Warn("Timeout waiting for deletion to complete", "uid", uid)
+					break
+				default:
+					if status := galleryService.GetStatus(uid); status != nil && status.Processed {
+						break
+					}
+					time.Sleep(100 * time.Millisecond)
+				}
+			}
 			cl.RemoveModelConfig(galleryName)
 		}()
 
@@ -530,6 +574,61 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 
 		return c.JSON(200, map[string]interface{}{
 			"message": "Configuration file saved",
+		})
+	})
+
+	// Get installed model config as JSON (used by frontend for MCP detection, etc.)
+	app.GET("/api/models/config-json/:name", func(c echo.Context) error {
+		modelName := c.Param("name")
+		if modelName == "" {
+			return c.JSON(http.StatusBadRequest, map[string]interface{}{
+				"error": "model name is required",
+			})
+		}
+
+		modelConfig, exists := cl.GetModelConfig(modelName)
+		if !exists {
+			return c.JSON(http.StatusNotFound, map[string]interface{}{
+				"error": "model configuration not found",
+			})
+		}
+
+		return c.JSON(http.StatusOK, modelConfig)
+	})
+
+	// Get installed model YAML config for the React model editor
+	app.GET("/api/models/edit/:name", func(c echo.Context) error {
+		modelName := c.Param("name")
+		if modelName == "" {
+			return c.JSON(http.StatusBadRequest, map[string]interface{}{
+				"error": "model name is required",
+			})
+		}
+
+		modelConfig, exists := cl.GetModelConfig(modelName)
+		if !exists {
+			return c.JSON(http.StatusNotFound, map[string]interface{}{
+				"error": "model configuration not found",
+			})
+		}
+
+		modelConfigFile := modelConfig.GetModelConfigFile()
+		if modelConfigFile == "" {
+			return c.JSON(http.StatusNotFound, map[string]interface{}{
+				"error": "model configuration file not found",
+			})
+		}
+
+		configData, err := os.ReadFile(modelConfigFile)
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]interface{}{
+				"error": "failed to read configuration file: " + err.Error(),
+			})
+		}
+
+		return c.JSON(http.StatusOK, map[string]interface{}{
+			"config": string(configData),
+			"name":   modelName,
 		})
 	})
 

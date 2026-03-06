@@ -94,14 +94,20 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install curl ffmpeg
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Build React UI
+        run: make react-ui
       - name: Build backends
         run: |
-          make backends/transformers 
+          make backends/transformers
           mkdir external && mv backends/transformers external/transformers
           make backends/huggingface backends/llama-cpp backends/local-store backends/silero-vad backends/piper backends/whisper backends/stablediffusion-ggml
       - name: Test
         run: |
-          TRANSFORMER_BACKEND=$(abspath ./)/external/transformers/run.sh PATH="$PATH:/root/go/bin" GO_TAGS="tts" make --jobs 5 --output-sync=target test
+          TRANSFORMER_BACKEND=$PWD/external/transformers/run.sh PATH="$PATH:/root/go/bin" GO_TAGS="tts" make --jobs 5 --output-sync=target test
       - name: Setup tmate session if tests fail
         if: ${{ failure() }}
         uses: mxschmitt/action-tmate@v3.23
@@ -191,6 +197,12 @@ jobs:
         run: |
           brew install protobuf grpc make protoc-gen-go protoc-gen-go-grpc libomp llvm
           pip install --user --no-cache-dir grpcio-tools grpcio
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Build React UI
+        run: make react-ui
       - name: Build llama-cpp-darwin
         run: |
           make protogen-go

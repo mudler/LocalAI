@@ -1,10 +1,62 @@
 ---
+- name: "q3.5-bluestar-27b"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Q3.5-BlueStar-27B-GGUF
+  overrides:
+    parameters:
+      model: llama-cpp/models/Q3.5-BlueStar-27B.Q4_K_M.gguf
+    name: Q3.5-BlueStar-27B-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    mmproj: llama-cpp/mmproj/Q3.5-BlueStar-27B.mmproj-f16.gguf
+    description: Imported from https://huggingface.co/mradermacher/Q3.5-BlueStar-27B-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Q3.5-BlueStar-27B.Q4_K_M.gguf
+      sha256: 8c6b404f87d6c74b97f102bc8199dc6a3658c1d1d7022bd21ee0d9144ee8600a
+      uri: https://huggingface.co/mradermacher/Q3.5-BlueStar-27B-GGUF/resolve/main/Q3.5-BlueStar-27B.Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/Q3.5-BlueStar-27B.mmproj-f16.gguf
+      sha256: 8221b6a48c714db6829a92760c31034d7ecd436f830c61624ccc92b461b4a1c4
+      uri: https://huggingface.co/mradermacher/Q3.5-BlueStar-27B-GGUF/resolve/main/Q3.5-BlueStar-27B.mmproj-f16.gguf
+- name: "qwen3.5-9b"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/unsloth/Qwen3.5-9B-GGUF
+  overrides:
+    parameters:
+      model: llama-cpp/models/Qwen3.5-9B-Q4_K_M.gguf
+    name: Qwen3.5-9B-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    mmproj: llama-cpp/mmproj/mmproj-F32.gguf
+    description: Imported from https://huggingface.co/unsloth/Qwen3.5-9B-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Qwen3.5-9B-Q4_K_M.gguf
+      sha256: 03b74727a860a56338e042c4420bb3f04b2fec5734175f4cb9fa853daf52b7e8
+      uri: https://huggingface.co/unsloth/Qwen3.5-9B-GGUF/resolve/main/Qwen3.5-9B-Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/mmproj-F32.gguf
+      sha256: a1cd5c1625b44dd0facaec998020e9b36cb78c2225eaee701e73bf2e5b051ce2
+      uri: https://huggingface.co/unsloth/Qwen3.5-9B-GGUF/resolve/main/mmproj-F32.gguf
 - name: "qwen3.5-397b-a17b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
     - https://huggingface.co/unsloth/Qwen3.5-397B-A17B-GGUF
-  description: |
-    AI model: qwen3.5-397b-a17b
   overrides:
     parameters:
       model: llama-cpp/models/Qwen3.5-397B-A17B-Q4_K_M-00001-of-00006.gguf
@@ -47,8 +99,6 @@
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
     - https://huggingface.co/unsloth/Qwen3.5-27B-GGUF
-  description: |
-    AI model: qwen3.5-27b
   overrides:
     parameters:
       model: llama-cpp/models/Qwen3.5-27B-Q4_K_M.gguf
@@ -67,17 +117,15 @@
       - use_jinja:true
   files:
     - filename: llama-cpp/models/Qwen3.5-27B-Q4_K_M.gguf
-      sha256: 728960e4dda52d4f2af5bee09b2cbe86addfa93220fe9324bfac9dc727605c17
       uri: https://huggingface.co/unsloth/Qwen3.5-27B-GGUF/resolve/main/Qwen3.5-27B-Q4_K_M.gguf
+      sha256: 84b5f7f112156d63836a01a69dc3f11a6ba63b10a23b8ca7a7efaf52d5a2d806
     - filename: llama-cpp/mmproj/mmproj-F32.gguf
-      sha256: c4efc54971085f29eecd433a8fba3edd2890584dfa2fc978933d1dd193f174dd
       uri: https://huggingface.co/unsloth/Qwen3.5-27B-GGUF/resolve/main/mmproj-F32.gguf
+      sha256: cb04ce8bd243483434f3e05a51a3821258cac74187e409547742a729452b0756
 - name: "qwen3.5-122b-a10b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
     - https://huggingface.co/unsloth/Qwen3.5-122B-A10B-GGUF
-  description: |
-    AI model: qwen3.5-122b-a10b
   overrides:
     parameters:
       model: llama-cpp/models/Qwen3.5-122B-A10B-Q4_K_M-00001-of-00003.gguf
@@ -111,8 +159,6 @@
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
     - https://huggingface.co/unsloth/Qwen3.5-35B-A3B-GGUF
-  description: |
-    AI model: qwen3.5-35b-a3b
   overrides:
     parameters:
       model: llama-cpp/models/Qwen3.5-35B-A3B-UD-Q4_K_M.gguf
@@ -134,14 +180,12 @@
       sha256: 223138866b87b12e68ffb43a1d45afb572921e9cd4c594e6a736df94c5130466
       uri: https://huggingface.co/unsloth/Qwen3.5-35B-A3B-GGUF/resolve/main/Qwen3.5-35B-A3B-UD-Q4_K_M.gguf
     - filename: llama-cpp/mmproj/mmproj-F32.gguf
-      sha256: 40169fdbd92afb86ef298c8f535353c7cc1307e3493db4359454246bcfc92131
       uri: https://huggingface.co/unsloth/Qwen3.5-35B-A3B-GGUF/resolve/main/mmproj-F32.gguf
+      sha256: 5de13d9052180b24cceda247af3023e3a2cbe785612198efe05b81905e3a5dc7
 - name: "qwen_qwen3-next-80b-a3b-thinking"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
     - https://huggingface.co/bartowski/Qwen_Qwen3-Next-80B-A3B-Thinking-GGUF
-  description: |
-    Describe the model in a clear and concise way that can be shared in a model gallery.
   overrides:
     parameters:
       model: llama-cpp/models/Qwen_Qwen3-Next-80B-A3B-Thinking-Q4_K_M.gguf
@@ -17400,3 +17444,51 @@
     - filename: Melinoe-30B-A3B-Thinking.i1-Q4_K_M.gguf
       sha256: 7b9e8fe00faf7803e440542be01974c05b0dcb8b75e1f1c25638027bfb75dbf3
       uri: huggingface://mradermacher/Melinoe-30B-A3B-Thinking-i1-GGUF/Melinoe-30B-A3B-Thinking.i1-Q4_K_M.gguf
+
+- &ltx23
+  name: "ltx-2.3"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/Lightricks/LTX-2.3
+  license: ltx-2-community-license-agreement
+  tags:
+    - diffusers
+    - gpu
+    - image-to-video
+    - video-generation
+    - audio-video
+  description: |
+    **LTX-2.3** is an improved DiT-based audio-video foundation model from Lightricks, building upon the LTX-2 architecture with enhanced capabilities for generating synchronized video and audio within a single model.
+
+    **Key Features:**
+    - **Joint Audio-Video Generation**: Generates synchronized video and audio in a single model
+    - **Image-to-Video**: Converts static images into dynamic videos with matching audio
+    - **Enhanced Quality**: Improved video quality and motion generation over LTX-2
+    - **Open Weights**: Available under the LTX-2 Community License Agreement
+
+    **Model Details:**
+    - **Model Type**: Diffusion-based audio-video foundation model
+    - **Architecture**: DiT (Diffusion Transformer) based
+    - **Developed by**: Lightricks
+    - **Parent Model**: LTX-2
+
+    **Usage Tips:**
+    - Width & height settings must be divisible by 32
+    - Frame count must be divisible by 8 + 1 (e.g., 9, 17, 25, 33, 41, 49, 57, 65, 73, 81, 89, 97, 105, 113, 121)
+    - Recommended settings: width=768, height=512, num_frames=121, frame_rate=24.0
+    - For best results, use detailed prompts describing motion and scene dynamics
+
+    **Limitations:**
+    - This model is not intended or able to provide factual information
+    - Prompt following is heavily influenced by the prompting-style
+    - When generating audio without speech, the audio may be of lower quality
+  overrides:
+    backend: diffusers
+    low_vram: true
+    parameters:
+      model: Lightricks/LTX-2.3
+    diffusers:
+      cuda: true
+      pipeline_type: LTX2ImageToVideoPipeline
+    options:
+      - torch_dtype:bf16

@@ -50,3 +50,10 @@ func (llm *SingleThread) Status() (pb.StatusResponse, error) {
 		Memory: mud,
 	}, nil
 }
+
+
+// Free releases resources for SingleThread backends
+// The base implementation does nothing, derived classes should override if needed
+func (llm *SingleThread) Free() error {
+	return llm.Base.Free()
+}
