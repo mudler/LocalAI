@@ -221,7 +221,60 @@ All agent endpoints are grouped under `/api/agents/`:
 | `POST` | `/api/agents/actions/:name/definition` | Get action definition |
 | `POST` | `/api/agents/actions/:name/run` | Execute an action |
 
-## Chat Example
+## Using Agents via the Responses API
+
+Agents can be used programmatically via the standard `/v1/responses` endpoint (OpenAI Responses API). Simply use the agent name as the `model` field:
+
+```bash
+curl -X POST http://localhost:8080/v1/responses \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "my-agent",
+    "input": "What is the weather today?"
+  }'
+```
+
+This returns a standard Responses API response:
+
+```json
+{
+  "id": "resp_...",
+  "object": "response",
+  "status": "completed",
+  "model": "my-agent",
+  "output": [
+    {
+      "type": "message",
+      "role": "assistant",
+      "content": [
+        {
+          "type": "output_text",
+          "text": "The agent's response..."
+        }
+      ]
+    }
+  ]
+}
+```
+
+You can also send structured message arrays as input:
+
+```bash
+curl -X POST http://localhost:8080/v1/responses \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "my-agent",
+    "input": [
+      {"role": "user", "content": "Summarize the latest news about AI"}
+    ]
+  }'
+```
+
+When the model name matches an agent, the request is routed to the agent pool. If no agent matches, it falls through to the normal model-based inference pipeline.
+
+## Chat with SSE Streaming
+
+For real-time streaming responses, use the chat endpoint with SSE:
 
 Send a message to an agent:
 
