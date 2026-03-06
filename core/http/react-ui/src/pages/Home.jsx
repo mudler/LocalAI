@@ -24,9 +24,10 @@ export default function Home() {
   const navigate = useNavigate()
   const { addToast } = useOutletContext()
   const { resources } = useResources()
-  const [configuredModels, setConfiguredModels] = useState([])
+  const [configuredModels, setConfiguredModels] = useState(null)
+  const configuredModelsRef = useRef(configuredModels)
+  configuredModelsRef.current = configuredModels
   const [loadedModels, setLoadedModels] = useState([])
-  const [initialLoaded, setInitialLoaded] = useState(false)
   const [selectedModel, setSelectedModel] = useState('')
   const [message, setMessage] = useState('')
   const [imageFiles, setImageFiles] = useState([])
@@ -52,9 +53,12 @@ export default function Home() {
       }
       if (v1Models?.data) {
         setConfiguredModels(v1Models.data)
+      } else if (configuredModelsRef.current === null) {
+        setConfiguredModels([])
       }
-      setInitialLoaded(true)
-    } catch (_e) { setInitialLoaded(true) }
+    } catch (_e) {
+      if (configuredModelsRef.current === null) setConfiguredModels([])
+    }
   }, [])
 
   useEffect(() => {
@@ -169,17 +173,14 @@ export default function Home() {
     }
   }
 
-  const hasModels = configuredModels.length > 0
+  const modelsLoading = configuredModels === null
+  const hasModels = modelsLoading || configuredModels.length > 0
   const loadedCount = loadedModels.length
 
   // Resource display
   const resType = resources?.type
   const usagePct = resources?.aggregate?.usage_percent ?? resources?.ram?.usage_percent ?? 0
   const pctColor = usagePct > 90 ? 'var(--color-error)' : usagePct > 70 ? 'var(--color-warning)' : 'var(--color-success)'
-
-  if (!initialLoaded) {
-    return <div className="home-page" />
-  }
 
   return (
     <div className="home-page">

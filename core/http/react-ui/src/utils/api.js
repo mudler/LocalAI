@@ -239,6 +239,60 @@ export const systemApi = {
   info: () => fetchJSON(API_CONFIG.endpoints.system),
 }
 
+export const agentsApi = {
+  list: () => fetchJSON('/api/agents'),
+  create: (config) => postJSON('/api/agents', config),
+  get: (name) => fetchJSON(`/api/agents/${encodeURIComponent(name)}`),
+  getConfig: (name) => fetchJSON(`/api/agents/${encodeURIComponent(name)}/config`),
+  update: (name, config) => fetchJSON(`/api/agents/${encodeURIComponent(name)}`, { method: 'PUT', body: JSON.stringify(config), headers: { 'Content-Type': 'application/json' } }),
+  delete: (name) => fetchJSON(`/api/agents/${encodeURIComponent(name)}`, { method: 'DELETE' }),
+  pause: (name) => fetchJSON(`/api/agents/${encodeURIComponent(name)}/pause`, { method: 'PUT' }),
+  resume: (name) => fetchJSON(`/api/agents/${encodeURIComponent(name)}/resume`, { method: 'PUT' }),
+  status: (name) => fetchJSON(`/api/agents/${encodeURIComponent(name)}/status`),
+  observables: (name) => fetchJSON(`/api/agents/${encodeURIComponent(name)}/observables`),
+  clearObservables: (name) => fetchJSON(`/api/agents/${encodeURIComponent(name)}/observables`, { method: 'DELETE' }),
+  chat: (name, message) => postJSON(`/api/agents/${encodeURIComponent(name)}/chat`, { message }),
+  export: (name) => fetchJSON(`/api/agents/${encodeURIComponent(name)}/export`),
+  import: (formData) => fetch('/api/agents/import', { method: 'POST', body: formData }).then(handleResponse),
+  configMeta: () => fetchJSON('/api/agents/config/metadata'),
+}
+
+export const agentCollectionsApi = {
+  list: () => fetchJSON('/api/agents/collections'),
+  create: (name) => postJSON('/api/agents/collections', { name }),
+  upload: (name, formData) => fetch(`/api/agents/collections/${encodeURIComponent(name)}/upload`, { method: 'POST', body: formData }).then(handleResponse),
+  entries: (name) => fetchJSON(`/api/agents/collections/${encodeURIComponent(name)}/entries`),
+  entryContent: (name, entry) => fetchJSON(`/api/agents/collections/${encodeURIComponent(name)}/entries/${encodeURIComponent(entry)}`),
+  search: (name, query, maxResults) => postJSON(`/api/agents/collections/${encodeURIComponent(name)}/search`, { query, max_results: maxResults }),
+  reset: (name) => postJSON(`/api/agents/collections/${encodeURIComponent(name)}/reset`),
+  deleteEntry: (name, entry) => fetchJSON(`/api/agents/collections/${encodeURIComponent(name)}/entry/delete`, { method: 'DELETE', body: JSON.stringify({ entry }), headers: { 'Content-Type': 'application/json' } }),
+  sources: (name) => fetchJSON(`/api/agents/collections/${encodeURIComponent(name)}/sources`),
+  addSource: (name, url, interval) => postJSON(`/api/agents/collections/${encodeURIComponent(name)}/sources`, { url, update_interval: interval }),
+  removeSource: (name, url) => fetchJSON(`/api/agents/collections/${encodeURIComponent(name)}/sources`, { method: 'DELETE', body: JSON.stringify({ url }), headers: { 'Content-Type': 'application/json' } }),
+}
+
+// Skills API
+export const skillsApi = {
+  list: () => fetchJSON('/api/agents/skills'),
+  search: (q) => fetchJSON(`/api/agents/skills/search?q=${encodeURIComponent(q)}`),
+  get: (name) => fetchJSON(`/api/agents/skills/${encodeURIComponent(name)}`),
+  create: (data) => postJSON('/api/agents/skills', data),
+  update: (name, data) => fetchJSON(`/api/agents/skills/${encodeURIComponent(name)}`, { method: 'PUT', body: JSON.stringify(data), headers: { 'Content-Type': 'application/json' } }),
+  delete: (name) => fetchJSON(`/api/agents/skills/${encodeURIComponent(name)}`, { method: 'DELETE' }),
+  import: (file) => { const fd = new FormData(); fd.append('file', file); return fetch('/api/agents/skills/import', { method: 'POST', body: fd }).then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); }); },
+  exportUrl: (name) => `/api/agents/skills/export/${encodeURIComponent(name)}`,
+  listResources: (name) => fetchJSON(`/api/agents/skills/${encodeURIComponent(name)}/resources`),
+  getResource: (name, path, opts) => fetchJSON(`/api/agents/skills/${encodeURIComponent(name)}/resources/${path}${opts?.json ? '?encoding=base64' : ''}`),
+  createResource: (name, path, file) => { const fd = new FormData(); fd.append('file', file); fd.append('path', path); return fetch(`/api/agents/skills/${encodeURIComponent(name)}/resources`, { method: 'POST', body: fd }).then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); }); },
+  updateResource: (name, path, content) => postJSON(`/api/agents/skills/${encodeURIComponent(name)}/resources/${path}`, { content }),
+  deleteResource: (name, path) => fetchJSON(`/api/agents/skills/${encodeURIComponent(name)}/resources/${path}`, { method: 'DELETE' }),
+  listGitRepos: () => fetchJSON('/api/agents/git-repos'),
+  addGitRepo: (url) => postJSON('/api/agents/git-repos', { url }),
+  syncGitRepo: (id) => postJSON(`/api/agents/git-repos/${encodeURIComponent(id)}/sync`, {}),
+  toggleGitRepo: (id) => postJSON(`/api/agents/git-repos/${encodeURIComponent(id)}/toggle`, {}),
+  deleteGitRepo: (id) => fetchJSON(`/api/agents/git-repos/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+}
+
 // File to base64 helper
 export function fileToBase64(file) {
   return new Promise((resolve, reject) => {

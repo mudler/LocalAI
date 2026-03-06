@@ -13,6 +13,14 @@ import Backends from './pages/Backends'
 import Settings from './pages/Settings'
 import Traces from './pages/Traces'
 import P2P from './pages/P2P'
+import Agents from './pages/Agents'
+import AgentCreate from './pages/AgentCreate'
+import AgentChat from './pages/AgentChat'
+import AgentStatus from './pages/AgentStatus'
+import Collections from './pages/Collections'
+import CollectionDetails from './pages/CollectionDetails'
+import Skills from './pages/Skills'
+import SkillEdit from './pages/SkillEdit'
 import AgentJobs from './pages/AgentJobs'
 import AgentTaskDetails from './pages/AgentTaskDetails'
 import AgentJobDetails from './pages/AgentJobDetails'
@@ -53,6 +61,16 @@ export const router = createBrowserRouter([
       { path: 'settings', element: <Settings /> },
       { path: 'traces', element: <Traces /> },
       { path: 'p2p', element: <P2P /> },
+      { path: 'agents', element: <Agents /> },
+      { path: 'agents/new', element: <AgentCreate /> },
+      { path: 'agents/:name/edit', element: <AgentCreate /> },
+      { path: 'agents/:name/chat', element: <AgentChat /> },
+      { path: 'agents/:name/status', element: <AgentStatus /> },
+      { path: 'collections', element: <Collections /> },
+      { path: 'collections/:name', element: <CollectionDetails /> },
+      { path: 'skills', element: <Skills /> },
+      { path: 'skills/new', element: <SkillEdit /> },
+      { path: 'skills/edit/:name', element: <SkillEdit /> },
       { path: 'agent-jobs', element: <AgentJobs /> },
       { path: 'agent-jobs/tasks/new', element: <AgentTaskDetails /> },
       { path: 'agent-jobs/tasks/:id', element: <AgentTaskDetails /> },
