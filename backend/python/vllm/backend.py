@@ -17,10 +17,21 @@ import grpc
 from vllm.engine.arg_utils import AsyncEngineArgs
 from vllm.engine.async_llm_engine import AsyncLLMEngine
 from vllm.sampling_params import SamplingParams
+
+# vLLM renamed GuidedDecodingParams to StructuredOutputsParams in newer versions.
+# The corresponding SamplingParams field also changed from guided_decoding to structured_outputs.
 try:
-    from vllm.sampling_params import GuidedDecodingParams
+    from vllm.sampling_params import StructuredOutputsParams
+    _structured_output_cls = StructuredOutputsParams
+    _structured_output_field = "structured_outputs"
 except ImportError:
-    GuidedDecodingParams = None
+    try:
+        from vllm.sampling_params import GuidedDecodingParams
+        _structured_output_cls = GuidedDecodingParams
+        _structured_output_field = "guided_decoding"
+    except ImportError:
+        _structured_output_cls = None
+        _structured_output_field = None
 from vllm.utils import random_uuid
 from vllm.transformers_utils.tokenizer import get_tokenizer
 from vllm.multimodal.utils import fetch_image
@@ -234,16 +245,18 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 if value not in (None, 0, [], False):
                     setattr(sampling_params, param_field, value)
 
-        # Handle structured output via guided decoding
-        if GuidedDecodingParams is not None:
-            guided_decoding = None
+        # Handle structured output via guided decoding / structured outputs
+        if _structured_output_cls is not None:
+            constraint = None
             if hasattr(request, 'JSONSchema') and request.JSONSchema:
-                guided_decoding = GuidedDecodingParams(json_schema=request.JSONSchema)
+                constraint = _structured_output_cls(json=request.JSONSchema)
             elif hasattr(request, 'ResponseFormat') and request.ResponseFormat == "json_object":
-                guided_decoding = GuidedDecodingParams(json_object=True)
+                constraint = _structured_output_cls(json_object=True)
+            elif hasattr(request, 'Grammar') and request.Grammar:
+                constraint = _structured_output_cls(grammar=request.Grammar)
 
-            if guided_decoding is not None:
-                sampling_params.guided_decoding = guided_decoding
+            if constraint is not None:
+                setattr(sampling_params, _structured_output_field, constraint)
 
         # Extract image paths and process images
         prompt = request.Prompt
