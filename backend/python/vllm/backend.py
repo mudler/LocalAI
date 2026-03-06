@@ -2,9 +2,11 @@
 import asyncio
 from concurrent import futures
 import argparse
+import json
 import signal
 import sys
 import os
+import time
 from typing import List
 from PIL import Image
 
@@ -14,7 +16,7 @@ import backend_pb2_grpc
 import grpc
 from vllm.engine.arg_utils import AsyncEngineArgs
 from vllm.engine.async_llm_engine import AsyncLLMEngine
-from vllm.sampling_params import SamplingParams
+from vllm.sampling_params import SamplingParams, GuidedDecodingParams
 from vllm.utils import random_uuid
 from vllm.transformers_utils.tokenizer import get_tokenizer
 from vllm.multimodal.utils import fetch_image
@@ -218,7 +220,6 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             "SkipSpecialTokens": "skip_special_tokens",
             "SpacesBetweenSpecialTokens": "spaces_between_special_tokens",
             "TruncatePromptTokens": "truncate_prompt_tokens",
-            "GuidedDecoding": "guided_decoding",
         }
 
         sampling_params = SamplingParams(top_p=0.9, max_tokens=200)
@@ -228,6 +229,22 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 value = getattr(request, request_field)
                 if value not in (None, 0, [], False):
                     setattr(sampling_params, param_field, value)
+
+        # Handle structured output via guided decoding
+        guided_decoding = None
+        if hasattr(request, 'JSONSchema') and request.JSONSchema:
+            try:
+                schema = json.loads(request.JSONSchema)
+                guided_decoding = GuidedDecodingParams(json_schema=schema)
+            except json.JSONDecodeError as e:
+                print(f"Failed to parse JSONSchema: {e}", file=sys.stderr)
+        elif hasattr(request, 'ResponseFormat') and request.ResponseFormat == "json_object":
+            guided_decoding = GuidedDecodingParams(json_object=True)
+        elif hasattr(request, 'Grammar') and request.Grammar:
+            guided_decoding = GuidedDecodingParams(grammar=request.Grammar)
+
+        if guided_decoding is not None:
+            sampling_params.guided_decoding = guided_decoding
 
         # Extract image paths and process images
         prompt = request.Prompt
