@@ -140,7 +140,7 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 
 	// MCP endpoint - supports both streaming and non-streaming modes
 	// Note: streaming mode is NOT compatible with the OpenAI apis. We have a set which streams more states.
-	if evaluator != nil {
+	if evaluator != nil && !appConfig.DisableMCP {
 		mcpStreamHandler := localai.MCPEndpoint(cl, ml, evaluator, appConfig)
 		mcpStreamMiddleware := []echo.MiddlewareFunc{
 			requestExtractor.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_CHAT)),
