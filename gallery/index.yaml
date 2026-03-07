@@ -1,4 +1,38 @@
 ---
+- name: "ultrachat-llama-3-8b-sft"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/ultrachat-llama-3-8b-sft-GGUF
+  description: |
+    Describe the model in a clear and concise way that can be shared in a model gallery.
+  license: "unknown"
+  tags:
+    - llama-3
+    - llama
+    - 8b
+    - gguf
+    - text-to-text
+    - chat
+    - sft
+  overrides:
+    parameters:
+      model: llama-cpp/models/ultrachat-llama-3-8b-sft.Q4_K_M.gguf
+    name: ultrachat-llama-3-8b-sft-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/ultrachat-llama-3-8b-sft-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/ultrachat-llama-3-8b-sft.Q4_K_M.gguf
+      sha256: 114fa8019af0f3c4b46f62e2b3f58a1480f24fa2d38dfe85ebf107fa26dd4e5d
+      uri: https://huggingface.co/mradermacher/ultrachat-llama-3-8b-sft-GGUF/resolve/main/ultrachat-llama-3-8b-sft.Q4_K_M.gguf
 - name: "qwen3.5-27b-claude-4.6-opus-reasoning-distilled-i1"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
