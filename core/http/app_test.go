@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"time"
 
 	"github.com/mudler/LocalAI/core/application"
@@ -1375,6 +1376,140 @@ parameters:
 					Expect(jobResp.JobID).ToNot(BeEmpty())
 				})
 			})
+		})
+	})
+
+	Context("SpiritLM backend e2e", Label("spiritlm"), func() {
+		BeforeEach(func() {
+			if runtime.GOOS != "linux" {
+				Skip("SpiritLM e2e runs only on linux")
+			}
+			backendPath := os.Getenv("BACKENDS_PATH")
+			if backendPath == "" {
+				Skip("BACKENDS_PATH not set (e.g. use make test-spiritlm)")
+			}
+			spiritlmRun := filepath.Join(backendPath, "spiritlm", "run.sh")
+			if _, err := os.Stat(spiritlmRun); err != nil {
+				Skip("SpiritLM backend not found at BACKENDS_PATH/spiritlm/run.sh")
+			}
+
+			var err error
+			tmpdir, err = os.MkdirTemp("", "spiritlm-e2e-")
+			Expect(err).ToNot(HaveOccurred())
+
+			modelDir = filepath.Join(tmpdir, "models")
+			err = os.Mkdir(modelDir, 0750)
+			Expect(err).ToNot(HaveOccurred())
+
+			modelYAML := []byte(`name: spirit-lm-base-7b
+backend: spiritlm
+known_usecases:
+  - transcript
+  - tts
+parameters:
+  model: spirit-lm-base-7b
+`)
+			err = os.WriteFile(filepath.Join(modelDir, "spirit-lm-base-7b.yaml"), modelYAML, 0600)
+			Expect(err).ToNot(HaveOccurred())
+
+			c, cancel = context.WithCancel(context.Background())
+
+			systemState, err := system.GetSystemState(
+				system.WithBackendPath(backendPath),
+				system.WithModelPath(modelDir),
+			)
+			Expect(err).ToNot(HaveOccurred())
+
+			application, err := application.New(
+				append(commonOpts,
+					config.WithExternalBackend("spiritlm", spiritlmRun),
+					config.WithContext(c),
+					config.WithSystemState(systemState),
+				)...)
+			Expect(err).ToNot(HaveOccurred())
+			app, err = API(application)
+			Expect(err).ToNot(HaveOccurred())
+
+			go func() {
+				if err := app.Start("127.0.0.1:9090"); err != nil && err != http.ErrServerClosed {
+					xlog.Error("server error", "error", err)
+				}
+			}()
+
+			defaultConfig := openai.DefaultConfig("")
+			defaultConfig.BaseURL = "http://127.0.0.1:9090/v1"
+			client2 = openaigo.NewClient("")
+			client2.BaseURL = defaultConfig.BaseURL
+			client = openai.NewClientWithConfig(defaultConfig)
+			Eventually(func() error {
+				_, err := client.ListModels(context.TODO())
+				return err
+			}, "2m").ShouldNot(HaveOccurred())
+		})
+		AfterEach(func() {
+			cancel()
+			if app != nil {
+				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				defer cancel()
+				err := app.Shutdown(ctx)
+				Expect(err).ToNot(HaveOccurred())
+			}
+			if tmpdir != "" {
+				_ = os.RemoveAll(tmpdir)
+			}
+		})
+
+		It("loads model and returns chat completion", func() {
+			resp, err := client.CreateChatCompletion(context.TODO(), openai.ChatCompletionRequest{
+				Model: "spirit-lm-base-7b",
+				Messages: []openai.ChatCompletionMessage{
+					{Role: "user", Content: "Say hello in one word."},
+				},
+			})
+			if err != nil {
+				errStr := err.Error()
+				if strings.Contains(errStr, "grpc service not ready") || strings.Contains(errStr, "failed to load model") || strings.Contains(errStr, "could not load model") || strings.Contains(errStr, "Repo id must be") || strings.Contains(errStr, "is not a local folder and is not a valid model identifier") {
+					Skip("SpiritLM backend not ready (run 'make -C backend/python/spiritlm', set SPIRITLM_CHECKPOINTS_DIR to model dir, see backend/python/spiritlm/E2E.md)")
+				}
+				Expect(err).ToNot(HaveOccurred())
+			}
+			Expect(resp.Choices).ToNot(BeEmpty())
+			Expect(resp.Choices[0].Message.Content).ToNot(BeEmpty())
+		})
+
+		It("TTS returns audio", func() {
+			resp, err := http.Post("http://127.0.0.1:9090/tts", "application/json",
+				bytes.NewBuffer([]byte(`{"input": "Hello", "model": "spirit-lm-base-7b"}`)))
+			Expect(err).ToNot(HaveOccurred())
+			defer resp.Body.Close()
+			dat, err := io.ReadAll(resp.Body)
+			Expect(err).ToNot(HaveOccurred())
+			if resp.StatusCode != 200 && (strings.Contains(string(dat), "failed to load") || strings.Contains(string(dat), "not ready") || strings.Contains(string(dat), "could not load") || strings.Contains(string(dat), "is not a valid model identifier")) {
+				Skip("SpiritLM backend not ready (run 'make -C backend/python/spiritlm', set SPIRITLM_CHECKPOINTS_DIR, see backend/python/spiritlm/E2E.md)")
+			}
+			Expect(resp.StatusCode).To(Equal(200), string(dat))
+			Expect(resp.Header.Get("Content-Type")).To(Or(Equal("audio/x-wav"), Equal("audio/wav"), Equal("audio/vnd.wave")))
+			Expect(len(dat)).To(BeNumerically(">", 0))
+		})
+
+		It("transcription returns text", func() {
+			testDir := os.Getenv("TEST_DIR")
+			audioPath := filepath.Join(testDir, "audio.wav")
+			if _, err := os.Stat(audioPath); err != nil {
+				Skip("TEST_DIR/audio.wav not found (run prepare-test or set TEST_DIR)")
+			}
+			resp, err := client.CreateTranscription(context.Background(), openai.AudioRequest{
+				Model:    "spirit-lm-base-7b",
+				FilePath: audioPath,
+			})
+			if err != nil {
+				errStr := err.Error()
+				if strings.Contains(errStr, "grpc service not ready") || strings.Contains(errStr, "failed to load model") || strings.Contains(errStr, "could not load model") || strings.Contains(errStr, "Repo id must be") || strings.Contains(errStr, "is not a local folder and is not a valid model identifier") {
+					Skip("SpiritLM backend not ready (run 'make -C backend/python/spiritlm', set SPIRITLM_CHECKPOINTS_DIR, see backend/python/spiritlm/E2E.md)")
+				}
+				Expect(err).ToNot(HaveOccurred())
+			}
+			Expect(resp.Text).ToNot(BeEmpty())
 		})
 	})
 
