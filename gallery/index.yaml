@@ -1,4 +1,37 @@
 ---
+- name: "llama-3.1-70b-heretic-lora-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Llama-3.1-70B-heretic-lora-i1-GGUF
+  description: |
+    Describe the model in a clear and concise way that can be shared in a model gallery.
+  tags:
+    - llama
+    - llama-3.1
+    - 70b
+    - heretic
+    - llora
+    - gguf
+    - gemma
+  overrides:
+    parameters:
+      model: llama-cpp/models/Llama-3.1-70B-heretic-lora.i1-Q4_K_M.gguf
+    name: Llama-3.1-70B-heretic-lora-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Llama-3.1-70B-heretic-lora-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Llama-3.1-70B-heretic-lora.i1-Q4_K_M.gguf
+      sha256: 4b646559c80e28306bf72fac39e09141e0f1dbaae9412d5d6ce2f652a5f9eeae
+      uri: https://huggingface.co/mradermacher/Llama-3.1-70B-heretic-lora-i1-GGUF/resolve/main/Llama-3.1-70B-heretic-lora.i1-Q4_K_M.gguf
 - name: "q3.5-bluestar-27b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
