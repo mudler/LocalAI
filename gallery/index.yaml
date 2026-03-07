@@ -444,6 +444,8 @@
     - gpu
   overrides:
     backend: neutts
+    parameters:
+      model: neuphonic/neutts-air
     known_usecases:
       - tts
 - name: vllm-omni-z-image-turbo
