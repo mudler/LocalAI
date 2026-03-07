@@ -1,4 +1,36 @@
 ---
+- name: "gpt-oss-120b-distill-qwen3-4b-thinking"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/eldar78/gpt-oss-120b-Distill-Qwen3-4B-Thinking-GGUF
+  description: |
+    Describe the model in a clear and concise way that can be shared in a model gallery.
+  license: "llama2"
+  tags:
+    - llm
+    - llama
+    - distill
+    - qwen
+    - thinking
+  overrides:
+    parameters:
+      model: llama-cpp/models/qwen3-4b-thinking-2507.Q4_K_M.gguf
+    name: gpt-oss-120b-Distill-Qwen3-4B-Thinking-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/eldar78/gpt-oss-120b-Distill-Qwen3-4B-Thinking-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/qwen3-4b-thinking-2507.Q4_K_M.gguf
+      sha256: 4f239b2a924d541a8ed79f6e81018024be0038faacbb406bfc930efeba180b9d
+      uri: https://huggingface.co/eldar78/gpt-oss-120b-Distill-Qwen3-4B-Thinking-GGUF/resolve/main/qwen3-4b-thinking-2507.Q4_K_M.gguf
 - name: "qwen3.5-27b-claude-4.6-opus-reasoning-distilled-i1"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
