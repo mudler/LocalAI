@@ -164,7 +164,7 @@
                     <div class="max-h-32 overflow-y-auto pr-2">
                         <div class="flex flex-wrap gap-2">
                             <template x-for="tag in allTags" :key="tag">
-                                <button @click="filterByTerm(tag)"
+                                <button @click="filterByTag(tag)"
                                     class="inline-flex items-center text-xs px-3 py-2 rounded bg-[var(--color-bg-primary)] hover:bg-[var(--color-bg-primary)]/80 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] border border-[var(--color-bg-secondary)] transition-colors">
                                     <i class="fas fa-tag text-xs mr-2"></i>
                                     <span x-text="tag"></span>
@@ -472,7 +472,7 @@
                                     <p class="text-sm mb-3 font-semibold text-[var(--color-text-primary)]">Tags</p>
                                     <div class="flex flex-row flex-wrap content-center">
                                         <template x-for="tag in selectedModel.tags" :key="tag">
-                                            <a :href="'browse?term=' + tag"
+                                            <a href="#" @click.prevent="filterByTag(tag)"
                                                class="inline-flex items-center text-xs px-3 py-1 rounded-full bg-[var(--color-bg-primary)] text-[var(--color-text-secondary)] border border-[var(--color-border-subtle)] hover:bg-[var(--color-primary-light)] hover:text-[var(--color-text-primary)] transition duration-200 ease-in-out mr-2 mb-2">
                                                 <i class="fas fa-tag pr-2"></i>
                                                 <span x-text="tag"></span>
@@ -631,6 +631,7 @@ function modelsGallery() {
         allTags: [],
         repositories: [],
         searchTerm: '',
+        searchTag: '',
         loading: false,
         currentPage: 1,
         totalPages: 1,
@@ -682,6 +683,9 @@ function modelsGallery() {
                     items: 21,
                     term: this.searchTerm
                 });
+                if (this.searchTag) {
+                    params.append('tag', this.searchTag);
+                }
                 if (this.sortBy) {
                     params.append('sort', this.sortBy);
                     params.append('order', this.sortOrder);
@@ -708,6 +712,14 @@ function modelsGallery() {
 
         filterByTerm(term) {
             this.searchTerm = term;
+            this.searchTag = '';
+            this.currentPage = 1;
+            this.fetchModels();
+        },
+
+        filterByTag(tag) {
+            this.searchTag = tag;
+            this.searchTerm = '';
             this.currentPage = 1;
             this.fetchModels();
         },

@@ -92,6 +92,22 @@ func (gm GalleryElements[T]) Search(term string) GalleryElements[T] {
 	return filteredModels
 }
 
+// FilterByTag filters gallery elements to only those that have the exact specified tag
+func (gm GalleryElements[T]) FilterByTag(tag string) GalleryElements[T] {
+	var filteredModels GalleryElements[T]
+	tag = strings.ToLower(tag)
+	for _, m := range gm {
+		for _, t := range m.GetTags() {
+			if strings.ToLower(t) == tag {
+				filteredModels = append(filteredModels, m)
+				break
+			}
+		}
+	}
+
+	return filteredModels
+}
+
 func (gm GalleryElements[T]) SortByName(sortOrder string) GalleryElements[T] {
 	sort.Slice(gm, func(i, j int) bool {
 		if sortOrder == "asc" {
