@@ -1,14 +1,19 @@
 package routes
 
+import "os"
+
 import (
 	"context"
 	"fmt"
 	"math"
 	"net/http"
 	"net/url"
+	"path"
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
@@ -20,6 +25,7 @@ import (
 	"github.com/mudler/LocalAI/core/p2p"
 	"github.com/mudler/LocalAI/core/services"
 	"github.com/mudler/LocalAI/pkg/model"
+	"github.com/mudler/LocalAI/pkg/vram"
 	"github.com/mudler/LocalAI/pkg/xsysinfo"
 	"github.com/mudler/xlog"
 )
@@ -31,6 +37,25 @@ const (
 	statusSortFieldName     = "status"
 	ascSortOrder            = "asc"
 )
+
+// getDirectorySize calculates the total size of files in a directory
+func getDirectorySize(path string) (int64, error) {
+	var totalSize int64
+	entries, err := os.ReadDir(path)
+	if err != nil {
+		return 0, err
+	}
+	for _, entry := range entries {
+		info, err := entry.Info()
+		if err != nil {
+			continue
+		}
+		if !info.IsDir() {
+			totalSize += info.Size()
+		}
+	}
+	return totalSize, nil
+}
 
 // RegisterUIAPIRoutes registers JSON API routes for the web UI
 func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig, galleryService *services.GalleryService, opcache *services.OpCache, applicationInstance *application.Application) {
@@ -242,6 +267,22 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		modelsJSON := make([]map[string]interface{}, 0, len(models))
 		seenIDs := make(map[string]bool)
 
+		weightExts := map[string]bool{".gguf": true, ".safetensors": true, ".bin": true, ".pt": true}
+		hasWeightFiles := func(files []gallery.File) bool {
+			for _, f := range files {
+				ext := strings.ToLower(path.Ext(path.Base(f.URI)))
+				if weightExts[ext] {
+					return true
+				}
+			}
+			return false
+		}
+
+		const estimateTimeout = 3 * time.Second
+		const estimateConcurrency = 3
+		sem := make(chan struct{}, estimateConcurrency)
+		var wg sync.WaitGroup
+
 		for _, m := range models {
 			modelID := m.ID()
 
@@ -265,7 +306,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 
 			_, trustRemoteCodeExists := m.Overrides["trust_remote_code"]
 
-			modelsJSON = append(modelsJSON, map[string]interface{}{
+			obj := map[string]interface{}{
 				"id":              modelID,
 				"name":            m.Name,
 				"description":     m.Description,
@@ -280,8 +321,47 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 				"isDeletion":      isDeletionOp,
 				"trustRemoteCode": trustRemoteCodeExists,
 				"additionalFiles": m.AdditionalFiles,
-			})
+			}
+
+			if hasWeightFiles(m.AdditionalFiles) {
+				files := make([]gallery.File, len(m.AdditionalFiles))
+				copy(files, m.AdditionalFiles)
+				wg.Add(1)
+				go func(files []gallery.File, out map[string]interface{}) {
+					defer wg.Done()
+					sem <- struct{}{}
+					defer func() { <-sem }()
+					inputs := make([]vram.FileInput, 0, len(files))
+					for _, f := range files {
+						ext := strings.ToLower(path.Ext(path.Base(f.URI)))
+						if weightExts[ext] {
+							inputs = append(inputs, vram.FileInput{URI: f.URI, Size: 0})
+						}
+					}
+					if len(inputs) == 0 {
+						return
+					}
+					ctx, cancel := context.WithTimeout(context.Background(), estimateTimeout)
+					defer cancel()
+					opts := vram.EstimateOptions{ContextLength: 8192}
+					result, err := vram.Estimate(ctx, inputs, opts, vram.DefaultCachedSizeResolver(), vram.DefaultCachedGGUFReader())
+					if err == nil {
+						if result.SizeBytes > 0 {
+							out["estimated_size_bytes"] = result.SizeBytes
+							out["estimated_size_display"] = result.SizeDisplay
+						}
+						if result.VRAMBytes > 0 {
+							out["estimated_vram_bytes"] = result.VRAMBytes
+							out["estimated_vram_display"] = result.VRAMDisplay
+						}
+					}
+				}(files, obj)
+			}
+
+			modelsJSON = append(modelsJSON, obj)
 		}
+
+		wg.Wait()
 
 		prevPage := pageNum - 1
 		nextPage := pageNum + 1
@@ -297,6 +377,8 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		modelsWithoutConfig, _ := services.ListModels(cl, ml, config.NoFilterFn, services.LOOSE_ONLY)
 		installedModelsCount := len(modelConfigs) + len(modelsWithoutConfig)
 
+		ramInfo, _ := xsysinfo.GetSystemRAMInfo()
+
 		return c.JSON(200, map[string]interface{}{
 			"models":           modelsJSON,
 			"repositories":     appConfig.Galleries,
@@ -305,10 +387,42 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			"taskTypes":        taskTypes,
 			"availableModels":  totalModels,
 			"installedModels":  installedModelsCount,
+			"ramTotal":         ramInfo.Total,
+			"ramUsed":          ramInfo.Used,
+			"ramUsagePercent":  ramInfo.UsagePercent,
 			"currentPage":      pageNum,
 			"totalPages":       totalPages,
 			"prevPage":         prevPage,
 			"nextPage":         nextPage,
+		})
+	})
+
+	// Returns installed models with their capability flags for UI filtering
+	app.GET("/api/models/capabilities", func(c echo.Context) error {
+		modelConfigs := cl.GetAllModelsConfigs()
+		modelsWithoutConfig, _ := services.ListModels(cl, ml, config.NoFilterFn, services.LOOSE_ONLY)
+
+		type modelCapability struct {
+			ID           string   `json:"id"`
+			Capabilities []string `json:"capabilities"`
+		}
+
+		result := make([]modelCapability, 0, len(modelConfigs)+len(modelsWithoutConfig))
+		for _, cfg := range modelConfigs {
+			result = append(result, modelCapability{
+				ID:           cfg.Name,
+				Capabilities: cfg.KnownUsecaseStrings,
+			})
+		}
+		for _, name := range modelsWithoutConfig {
+			result = append(result, modelCapability{
+				ID:           name,
+				Capabilities: []string{},
+			})
+		}
+
+		return c.JSON(200, map[string]any{
+			"data": result,
 		})
 	})
 
@@ -395,6 +509,21 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		galleryService.StoreCancellation(uid, cancelFunc)
 		go func() {
 			galleryService.ModelGalleryChannel <- op
+			// Wait for the deletion operation to complete with a timeout
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			for {
+				select {
+				case <-ctx.Done():
+					xlog.Warn("Timeout waiting for deletion to complete", "uid", uid)
+					break
+				default:
+					if status := galleryService.GetStatus(uid); status != nil && status.Processed {
+						break
+					}
+					time.Sleep(100 * time.Millisecond)
+				}
+			}
 			cl.RemoveModelConfig(galleryName)
 		}()
 
@@ -445,6 +574,61 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 
 		return c.JSON(200, map[string]interface{}{
 			"message": "Configuration file saved",
+		})
+	})
+
+	// Get installed model config as JSON (used by frontend for MCP detection, etc.)
+	app.GET("/api/models/config-json/:name", func(c echo.Context) error {
+		modelName := c.Param("name")
+		if modelName == "" {
+			return c.JSON(http.StatusBadRequest, map[string]interface{}{
+				"error": "model name is required",
+			})
+		}
+
+		modelConfig, exists := cl.GetModelConfig(modelName)
+		if !exists {
+			return c.JSON(http.StatusNotFound, map[string]interface{}{
+				"error": "model configuration not found",
+			})
+		}
+
+		return c.JSON(http.StatusOK, modelConfig)
+	})
+
+	// Get installed model YAML config for the React model editor
+	app.GET("/api/models/edit/:name", func(c echo.Context) error {
+		modelName := c.Param("name")
+		if modelName == "" {
+			return c.JSON(http.StatusBadRequest, map[string]interface{}{
+				"error": "model name is required",
+			})
+		}
+
+		modelConfig, exists := cl.GetModelConfig(modelName)
+		if !exists {
+			return c.JSON(http.StatusNotFound, map[string]interface{}{
+				"error": "model configuration not found",
+			})
+		}
+
+		modelConfigFile := modelConfig.GetModelConfigFile()
+		if modelConfigFile == "" {
+			return c.JSON(http.StatusNotFound, map[string]interface{}{
+				"error": "model configuration file not found",
+			})
+		}
+
+		configData, err := os.ReadFile(modelConfigFile)
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]interface{}{
+				"error": "failed to read configuration file: " + err.Error(),
+			})
+		}
+
+		return c.JSON(http.StatusOK, map[string]interface{}{
+			"config": string(configData),
+			"name":   modelName,
 		})
 	})
 
@@ -936,12 +1120,15 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			watchdogInterval = appConfig.WatchDogInterval.String()
 		}
 
+		storageSize, _ := getDirectorySize(appConfig.SystemState.Model.ModelsPath)
+
 		response := map[string]interface{}{
 			"type":                resourceInfo.Type, // "gpu" or "ram"
 			"available":           resourceInfo.Available,
 			"gpus":                resourceInfo.GPUs,
 			"ram":                 resourceInfo.RAM,
 			"aggregate":           resourceInfo.Aggregate,
+			"storage_size":        storageSize,
 			"reclaimer_enabled":   appConfig.MemoryReclaimerEnabled,
 			"reclaimer_threshold": appConfig.MemoryReclaimerThreshold,
 			"watchdog_interval":   watchdogInterval,

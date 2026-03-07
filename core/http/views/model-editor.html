@@ -59,6 +59,26 @@
         <!-- Alert Messages -->
         <div id="alertContainer" class="mb-6"></div>
 
+        <!-- Persistent estimate (stays visible so user can see size/VRAM even if alert is replaced) -->
+        <div x-show="!isAdvancedMode && !isEditMode && lastEstimate && ((lastEstimate.sizeDisplay && lastEstimate.sizeDisplay !== '0 B') || (lastEstimate.vramDisplay && lastEstimate.vramDisplay !== '0 B'))"
+             x-transition
+             class="mb-6 p-4 rounded-xl border border-[var(--color-primary)]/30 bg-[var(--color-primary-light)]/30">
+            <h3 class="text-sm font-semibold text-[var(--color-text-primary)] mb-2 flex items-center gap-2">
+                <i class="fas fa-memory text-[var(--color-primary)]"></i>
+                Estimated requirements
+            </h3>
+            <div class="flex flex-wrap gap-4 text-sm text-[var(--color-text-secondary)]">
+                <span x-show="lastEstimate && lastEstimate.sizeDisplay && lastEstimate.sizeDisplay !== '0 B'">
+                    <i class="fas fa-download mr-1.5 text-[var(--color-primary)]"></i>
+                    Download size: <span class="font-medium text-[var(--color-text-primary)]" x-text="lastEstimate?.sizeDisplay"></span>
+                </span>
+                <span x-show="lastEstimate && lastEstimate.vramDisplay && lastEstimate.vramDisplay !== '0 B'">
+                    <i class="fas fa-microchip mr-1.5 text-[var(--color-primary)]"></i>
+                    VRAM: <span class="font-medium text-[var(--color-text-primary)]" x-text="lastEstimate?.vramDisplay"></span>
+                </span>
+            </div>
+        </div>
+
         <!-- Simple Import Mode -->
         <div x-show="!isAdvancedMode && !isEditMode" 
              x-transition:enter="transition ease-out duration-200"
@@ -731,6 +751,7 @@ function importModel() {
         jobPollInterval: null,
         yamlEditor: null,
         modelEditor: null,
+        lastEstimate: null,
         
         init() {
             // If in edit mode, always show advanced mode
@@ -854,15 +875,36 @@ function importModel() {
                 }
                 
                 const result = await response.json();
-                
+
+                const hasSize = result.estimated_size_display && result.estimated_size_display !== '0 B';
+                const hasVram = result.estimated_vram_display && result.estimated_vram_display !== '0 B';
+                if (hasSize || hasVram) {
+                    this.lastEstimate = {
+                        sizeDisplay: result.estimated_size_display || '',
+                        vramDisplay: result.estimated_vram_display || '',
+                        sizeBytes: result.estimated_size_bytes || 0,
+                        vramBytes: result.estimated_vram_bytes || 0
+                    };
+                } else {
+                    this.lastEstimate = null;
+                }
+
+                let successMsg = 'Import started! Tracking progress...';
+                if (hasSize || hasVram) {
+                    const parts = [];
+                    if (hasSize) parts.push('Size: ' + result.estimated_size_display);
+                    if (hasVram) parts.push('VRAM: ' + result.estimated_vram_display);
+                    successMsg += ' (' + parts.join(' · ') + ')';
+                }
+
                 if (result.uuid) {
                     this.currentJobId = result.uuid;
-                    this.showAlert('success', 'Import started! Tracking progress...');
+                    this.showAlert('success', successMsg);
                     this.startJobPolling();
                 } else if (result.ID) {
                     // Fallback for different response format
                     this.currentJobId = result.ID;
-                    this.showAlert('success', 'Import started! Tracking progress...');
+                    this.showAlert('success', successMsg);
                     this.startJobPolling();
                 } else {
                     throw new Error('No job ID returned from server');

@@ -12,6 +12,7 @@ type AIModel interface {
 	Predict(*pb.PredictOptions) (string, error)
 	PredictStream(*pb.PredictOptions, chan string) error
 	Load(*pb.ModelOptions) error
+	Free() error
 	Embeddings(*pb.PredictOptions) ([]float32, error)
 	GenerateImage(*pb.GenerateImageRequest) error
 	GenerateVideo(*pb.GenerateVideoRequest) error

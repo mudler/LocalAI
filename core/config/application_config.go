@@ -45,6 +45,7 @@ type ApplicationConfig struct {
 	DisableMetrics                     bool
 	HttpGetExemptedEndpoints           []*regexp.Regexp
 	DisableGalleryEndpoint             bool
+	DisableMCP                         bool
 	LoadToMemory                       []string
 
 	Galleries        []Gallery
@@ -89,6 +90,33 @@ type ApplicationConfig struct {
 	OpenResponsesStoreTTL time.Duration // TTL for Open Responses store (0 = no expiration)
 
 	PathWithoutAuth []string
+
+	// Agent Pool (LocalAGI integration)
+	AgentPool AgentPoolConfig
+}
+
+// AgentPoolConfig holds configuration for the LocalAGI agent pool integration.
+type AgentPoolConfig struct {
+	Enabled                bool   // default: true (disabled by LOCALAI_DISABLE_AGENTS=true)
+	StateDir               string // default: DynamicConfigsDir (LocalAI configuration folder)
+	APIURL                 string // default: self-referencing LocalAI (http://127.0.0.1:<port>)
+	APIKey                 string // default: first API key from LocalAI config
+	DefaultModel           string
+	MultimodalModel        string
+	TranscriptionModel     string
+	TranscriptionLanguage  string
+	TTSModel               string
+	Timeout                string // default: "5m"
+	EnableSkills     bool
+	EnableLogs       bool
+	CustomActionsDir string
+	CollectionDBPath string
+	VectorEngine     string // default: "chromem"
+	EmbeddingModel   string // default: "granite-embedding-107m-multilingual"
+	MaxChunkingSize  int    // default: 400
+	ChunkOverlap     int    // default: 0
+	DatabaseURL      string
+	AgentHubURL      string // default: "https://agenthub.localai.io"
 }
 
 type AppOption func(*ApplicationConfig)
@@ -103,6 +131,14 @@ func NewApplicationConfig(o ...AppOption) *ApplicationConfig {
 		LRUEvictionRetryInterval: 1 * time.Second,        // Default: 1 second
 		WatchDogInterval:         500 * time.Millisecond, // Default: 500ms
 		TracingMaxItems:          1024,
+		AgentPool: AgentPoolConfig{
+			Enabled:        true,
+			Timeout:        "5m",
+			VectorEngine:   "chromem",
+			EmbeddingModel: "granite-embedding-107m-multilingual",
+			MaxChunkingSize: 400,
+			AgentHubURL:    "https://agenthub.localai.io",
+		},
 		PathWithoutAuth: []string{
 			"/static/",
 			"/generated-audio/",
@@ -182,6 +218,10 @@ var EnableWatchDogIdleCheck = func(o *ApplicationConfig) {
 
 var DisableGalleryEndpoint = func(o *ApplicationConfig) {
 	o.DisableGalleryEndpoint = true
+}
+
+var DisableMCP = func(o *ApplicationConfig) {
+	o.DisableMCP = true
 }
 
 var EnableWatchDogBusyCheck = func(o *ApplicationConfig) {
@@ -536,6 +576,122 @@ func WithHttpGetExemptedEndpoints(endpoints []string) AppOption {
 	}
 }
 
+// Agent Pool options
+
+var DisableAgentPool = func(o *ApplicationConfig) {
+	o.AgentPool.Enabled = false
+}
+
+func WithAgentPoolAPIURL(url string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.AgentPool.APIURL = url
+	}
+}
+
+func WithAgentPoolAPIKey(key string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.AgentPool.APIKey = key
+	}
+}
+
+func WithAgentPoolDefaultModel(model string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.AgentPool.DefaultModel = model
+	}
+}
+
+func WithAgentPoolMultimodalModel(model string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.AgentPool.MultimodalModel = model
+	}
+}
+
+func WithAgentPoolTranscriptionModel(model string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.AgentPool.TranscriptionModel = model
+	}
+}
+
+func WithAgentPoolTranscriptionLanguage(lang string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.AgentPool.TranscriptionLanguage = lang
+	}
+}
+
+func WithAgentPoolTTSModel(model string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.AgentPool.TTSModel = model
+	}
+}
+
+func WithAgentPoolStateDir(dir string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.AgentPool.StateDir = dir
+	}
+}
+
+func WithAgentPoolTimeout(timeout string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.AgentPool.Timeout = timeout
+	}
+}
+
+var EnableAgentPoolSkills = func(o *ApplicationConfig) {
+	o.AgentPool.EnableSkills = true
+}
+
+func WithAgentPoolVectorEngine(engine string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.AgentPool.VectorEngine = engine
+	}
+}
+
+func WithAgentPoolEmbeddingModel(model string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.AgentPool.EmbeddingModel = model
+	}
+}
+
+func WithAgentPoolCustomActionsDir(dir string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.AgentPool.CustomActionsDir = dir
+	}
+}
+
+func WithAgentPoolDatabaseURL(url string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.AgentPool.DatabaseURL = url
+	}
+}
+
+func WithAgentPoolMaxChunkingSize(size int) AppOption {
+	return func(o *ApplicationConfig) {
+		o.AgentPool.MaxChunkingSize = size
+	}
+}
+
+func WithAgentPoolChunkOverlap(overlap int) AppOption {
+	return func(o *ApplicationConfig) {
+		o.AgentPool.ChunkOverlap = overlap
+	}
+}
+
+var EnableAgentPoolLogs = func(o *ApplicationConfig) {
+	o.AgentPool.EnableLogs = true
+}
+
+func WithAgentPoolCollectionDBPath(path string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.AgentPool.CollectionDBPath = path
+	}
+}
+
+func WithAgentHubURL(url string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.AgentPool.AgentHubURL = url
+	}
+}
+
 // ToConfigLoaderOptions returns a slice of ConfigLoader Option.
 // Some options defined at the application level are going to be passed as defaults for
 // all the configuration for the models.
@@ -616,6 +772,15 @@ func (o *ApplicationConfig) ToRuntimeSettings() RuntimeSettings {
 		openResponsesStoreTTL = "0" // default: no expiration
 	}
 
+	// Agent Pool settings
+	agentPoolEnabled := o.AgentPool.Enabled
+	agentPoolDefaultModel := o.AgentPool.DefaultModel
+	agentPoolEmbeddingModel := o.AgentPool.EmbeddingModel
+	agentPoolMaxChunkingSize := o.AgentPool.MaxChunkingSize
+	agentPoolChunkOverlap := o.AgentPool.ChunkOverlap
+	agentPoolEnableLogs := o.AgentPool.EnableLogs
+	agentPoolCollectionDBPath := o.AgentPool.CollectionDBPath
+
 	return RuntimeSettings{
 		WatchdogEnabled:          &watchdogEnabled,
 		WatchdogIdleEnabled:      &watchdogIdle,
@@ -650,6 +815,13 @@ func (o *ApplicationConfig) ToRuntimeSettings() RuntimeSettings {
 		ApiKeys:                  &apiKeys,
 		AgentJobRetentionDays:    &agentJobRetentionDays,
 		OpenResponsesStoreTTL:    &openResponsesStoreTTL,
+		AgentPoolEnabled:          &agentPoolEnabled,
+		AgentPoolDefaultModel:     &agentPoolDefaultModel,
+		AgentPoolEmbeddingModel:   &agentPoolEmbeddingModel,
+		AgentPoolMaxChunkingSize:  &agentPoolMaxChunkingSize,
+		AgentPoolChunkOverlap:     &agentPoolChunkOverlap,
+		AgentPoolEnableLogs:       &agentPoolEnableLogs,
+		AgentPoolCollectionDBPath: &agentPoolCollectionDBPath,
 	}
 }
 
@@ -799,6 +971,36 @@ func (o *ApplicationConfig) ApplyRuntimeSettings(settings *RuntimeSettings) (req
 		}
 		// This setting doesn't require restart, can be updated dynamically
 	}
+	// Agent Pool settings
+	if settings.AgentPoolEnabled != nil {
+		o.AgentPool.Enabled = *settings.AgentPoolEnabled
+		requireRestart = true
+	}
+	if settings.AgentPoolDefaultModel != nil {
+		o.AgentPool.DefaultModel = *settings.AgentPoolDefaultModel
+		requireRestart = true
+	}
+	if settings.AgentPoolEmbeddingModel != nil {
+		o.AgentPool.EmbeddingModel = *settings.AgentPoolEmbeddingModel
+		requireRestart = true
+	}
+	if settings.AgentPoolMaxChunkingSize != nil {
+		o.AgentPool.MaxChunkingSize = *settings.AgentPoolMaxChunkingSize
+		requireRestart = true
+	}
+	if settings.AgentPoolChunkOverlap != nil {
+		o.AgentPool.ChunkOverlap = *settings.AgentPoolChunkOverlap
+		requireRestart = true
+	}
+	if settings.AgentPoolEnableLogs != nil {
+		o.AgentPool.EnableLogs = *settings.AgentPoolEnableLogs
+		requireRestart = true
+	}
+	if settings.AgentPoolCollectionDBPath != nil {
+		o.AgentPool.CollectionDBPath = *settings.AgentPoolCollectionDBPath
+		requireRestart = true
+	}
+
 	// Note: ApiKeys requires special handling (merging with startup keys) - handled in caller
 
 	return requireRestart

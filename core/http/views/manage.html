@@ -141,6 +141,15 @@
                             </div>
                         </div>
                     </template>
+                    <!-- Models storage (disk usage) -->
+                    <template x-if="resourceData.storage_size != null">
+                        <div class="mt-3 pt-3 border-t border-[var(--color-primary-border)]/20">
+                            <div class="flex justify-between text-xs">
+                                <span class="text-[var(--color-text-secondary)]">Models storage</span>
+                                <span class="font-mono text-[var(--color-text-primary)]" x-text="formatBytes(resourceData.storage_size)"></span>
+                            </div>
+                        </div>
+                    </template>
                 </div>
             </template>
         </div>

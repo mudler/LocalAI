@@ -18,6 +18,20 @@ type LLM struct {
 	draftModel *llama.LLama
 }
 
+
+// Free releases GPU resources and frees the llama model
+// This should be called when the model is being unloaded to properly release VRAM
+func (llm *LLM) Free() error {
+	if llm.llama != nil {
+		llm.llama.Free()
+		llm.llama = nil
+	}
+	if llm.draftModel != nil {
+		llm.draftModel.Free()
+		llm.draftModel = nil
+	}
+	return nil
+}
 func (llm *LLM) Load(opts *pb.ModelOptions) error {
 	ropeFreqBase := float32(10000)
 	ropeFreqScale := float32(1)

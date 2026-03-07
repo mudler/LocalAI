@@ -22,6 +22,7 @@ import (
 	reason "github.com/mudler/LocalAI/pkg/reasoning"
 	"github.com/mudler/LocalAI/pkg/utils"
 	"github.com/mudler/cogito"
+	"github.com/mudler/cogito/clients"
 	"github.com/mudler/xlog"
 )
 
@@ -788,7 +789,7 @@ func handleBackgroundNonStream(ctx context.Context, store *ResponseStore, respon
 	}
 
 	predFunc, err := backend.ModelInference(
-		ctx, predInput, openAIReq.Messages, images, videos, audios, ml, cfg, cl, appConfig, nil, toolsJSON, toolChoiceJSON, logprobs, input.TopLogprobs, input.LogitBias)
+		ctx, predInput, openAIReq.Messages, images, videos, audios, ml, cfg, cl, appConfig, nil, toolsJSON, toolChoiceJSON, logprobs, input.TopLogprobs, input.LogitBias, nil)
 	if err != nil {
 		return nil, fmt.Errorf("model inference failed: %w", err)
 	}
@@ -800,12 +801,25 @@ func handleBackgroundNonStream(ctx context.Context, store *ResponseStore, respon
 	default:
 	}
 
-	prediction, err := predFunc()
-	if err != nil {
-		return nil, fmt.Errorf("prediction failed: %w", err)
+	const maxEmptyRetries = 5
+	var prediction backend.LLMResponse
+	var result string
+	for attempt := 0; attempt <= maxEmptyRetries; attempt++ {
+		prediction, err = predFunc()
+		if err != nil {
+			return nil, fmt.Errorf("prediction failed: %w", err)
+		}
+		result = backend.Finetune(*cfg, predInput, prediction.Response)
+		if result != "" || !shouldUseFn {
+			break
+		}
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		default:
+		}
+		xlog.Warn("Open Responses background: retrying prediction due to empty backend response", "attempt", attempt+1, "maxRetries", maxEmptyRetries)
 	}
-
-	result := backend.Finetune(*cfg, predInput, prediction.Response)
 
 	// Parse tool calls if using functions (same logic as regular handler)
 	var outputItems []schema.ORItemField
@@ -997,7 +1011,7 @@ func handleBackgroundStream(ctx context.Context, store *ResponseStore, responseI
 	}
 
 	predFunc, err := backend.ModelInference(
-		ctx, predInput, openAIReq.Messages, images, videos, audios, ml, cfg, cl, appConfig, tokenCallback, toolsJSON, toolChoiceJSON, streamLogprobs, input.TopLogprobs, input.LogitBias)
+		ctx, predInput, openAIReq.Messages, images, videos, audios, ml, cfg, cl, appConfig, tokenCallback, toolsJSON, toolChoiceJSON, streamLogprobs, input.TopLogprobs, input.LogitBias, nil)
 	if err != nil {
 		return nil, fmt.Errorf("model inference failed: %w", err)
 	}
@@ -1115,7 +1129,7 @@ func handleBackgroundMCPResponse(ctx context.Context, store *ResponseStore, resp
 	}
 
 	// Create OpenAI LLM client
-	defaultLLM := cogito.NewOpenAILLM(cfg.Name, apiKey, "http://127.0.0.1:"+port)
+	defaultLLM := clients.NewLocalAILLM(cfg.Name, apiKey, "http://127.0.0.1:"+port)
 
 	// Build cogito options
 	cogitoOpts := cfg.BuildCogitoOptions()
@@ -1469,19 +1483,27 @@ func handleOpenResponsesNonStream(c echo.Context, responseID string, createdAt i
 	}
 
 	predFunc, err := backend.ModelInference(
-		input.Context, predInput, openAIReq.Messages, images, videos, audios, ml, cfg, cl, appConfig, nil, toolsJSON, toolChoiceJSON, logprobs, input.TopLogprobs, input.LogitBias)
+		input.Context, predInput, openAIReq.Messages, images, videos, audios, ml, cfg, cl, appConfig, nil, toolsJSON, toolChoiceJSON, logprobs, input.TopLogprobs, input.LogitBias, nil)
 	if err != nil {
 		xlog.Error("Open Responses model inference failed", "error", err)
 		return sendOpenResponsesError(c, 500, "model_error", fmt.Sprintf("model inference failed: %v", err), "")
 	}
 
-	prediction, err := predFunc()
-	if err != nil {
-		xlog.Error("Open Responses prediction failed", "error", err)
-		return sendOpenResponsesError(c, 500, "model_error", fmt.Sprintf("prediction failed: %v", err), "")
+	const maxEmptyRetries = 5
+	var prediction backend.LLMResponse
+	var result string
+	for attempt := 0; attempt <= maxEmptyRetries; attempt++ {
+		prediction, err = predFunc()
+		if err != nil {
+			xlog.Error("Open Responses prediction failed", "error", err)
+			return sendOpenResponsesError(c, 500, "model_error", fmt.Sprintf("prediction failed: %v", err), "")
+		}
+		result = backend.Finetune(*cfg, predInput, prediction.Response)
+		if result != "" || !shouldUseFn {
+			break
+		}
+		xlog.Warn("Open Responses: retrying prediction due to empty backend response", "attempt", attempt+1, "maxRetries", maxEmptyRetries)
 	}
-
-	result := backend.Finetune(*cfg, predInput, prediction.Response)
 	xlog.Debug("Open Responses - Raw model result", "result", result, "shouldUseFn", shouldUseFn)
 
 	// Detect if thinking token is already in prompt or template
@@ -2000,7 +2022,7 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 		}
 
 		predFunc, err := backend.ModelInference(
-			input.Context, predInput, openAIReq.Messages, images, videos, audios, ml, cfg, cl, appConfig, tokenCallback, toolsJSON, toolChoiceJSON, streamLogprobs, input.TopLogprobs, input.LogitBias)
+			input.Context, predInput, openAIReq.Messages, images, videos, audios, ml, cfg, cl, appConfig, tokenCallback, toolsJSON, toolChoiceJSON, streamLogprobs, input.TopLogprobs, input.LogitBias, nil)
 		if err != nil {
 			xlog.Error("Open Responses stream model inference failed", "error", err)
 			sendSSEEvent(c, &schema.ORStreamEvent{
@@ -2428,7 +2450,7 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 	}
 
 	predFunc, err := backend.ModelInference(
-		input.Context, predInput, openAIReq.Messages, images, videos, audios, ml, cfg, cl, appConfig, tokenCallback, toolsJSON, toolChoiceJSON, mcpLogprobs, input.TopLogprobs, input.LogitBias)
+		input.Context, predInput, openAIReq.Messages, images, videos, audios, ml, cfg, cl, appConfig, tokenCallback, toolsJSON, toolChoiceJSON, mcpLogprobs, input.TopLogprobs, input.LogitBias, nil)
 	if err != nil {
 		xlog.Error("Open Responses stream model inference failed", "error", err)
 		sendSSEEvent(c, &schema.ORStreamEvent{
@@ -2675,7 +2697,7 @@ func handleMCPResponse(c echo.Context, responseID string, createdAt int64, input
 	defer cancel()
 
 	// Create OpenAI LLM client
-	defaultLLM := cogito.NewOpenAILLM(cfg.Name, apiKey, "http://127.0.0.1:"+port)
+	defaultLLM := clients.NewLocalAILLM(cfg.Name, apiKey, "http://127.0.0.1:"+port)
 
 	// Build cogito options
 	cogitoOpts := cfg.BuildCogitoOptions()

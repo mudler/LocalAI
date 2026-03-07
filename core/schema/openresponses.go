@@ -14,6 +14,14 @@ const (
 	ORStatusCancelled  = "cancelled"
 )
 
+// ORWebSocketMessage is the envelope for WebSocket mode messages.
+// The client sends {"type":"response.create", ...} where the remaining fields
+// map to OpenResponsesRequest. "type" is the only additional field.
+type ORWebSocketMessage struct {
+	Type string `json:"type"`
+	OpenResponsesRequest
+}
+
 // OpenResponsesRequest represents a request to the Open Responses API
 // https://www.openresponses.org/specification
 type OpenResponsesRequest struct {

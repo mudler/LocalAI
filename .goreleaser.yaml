@@ -2,6 +2,7 @@ version: 2
 before:
   hooks:
     - make protogen-go
+    - make react-ui
     - go mod tidy
 dist: release
 source:

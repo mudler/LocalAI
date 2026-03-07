@@ -10,7 +10,7 @@ permissions:
   actions: write # to dispatch publish workflow
 jobs:
   dependabot:
-    if: github.repository == 'mudler/LocalAI' && github.actor == 'localai-bot' && !contains(github.event.pull_request.title, 'chore(model gallery):')
+    if: github.repository == 'mudler/LocalAI' && github.actor == 'localai-bot' && contains(github.event.pull_request.title, 'chore:')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository

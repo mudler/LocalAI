@@ -1,6 +1,7 @@
 package localai
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -8,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
@@ -18,6 +20,7 @@ import (
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services"
 	"github.com/mudler/LocalAI/pkg/utils"
+	"github.com/mudler/LocalAI/pkg/vram"
 
 	"gopkg.in/yaml.v3"
 )
@@ -35,6 +38,31 @@ func ImportModelURIEndpoint(cl *config.ModelConfigLoader, appConfig *config.Appl
 		modelConfig, err := importers.DiscoverModelConfig(input.URI, input.Preferences)
 		if err != nil {
 			return fmt.Errorf("failed to discover model config: %w", err)
+		}
+
+		resp := schema.GalleryResponse{
+			StatusURL: fmt.Sprintf("%smodels/jobs/%s", httpUtils.BaseURL(c), ""),
+		}
+
+		if len(modelConfig.Files) > 0 {
+			files := make([]vram.FileInput, 0, len(modelConfig.Files))
+			for _, f := range modelConfig.Files {
+				files = append(files, vram.FileInput{URI: f.URI, Size: 0})
+			}
+			estCtx, cancel := context.WithTimeout(c.Request().Context(), 5*time.Second)
+			defer cancel()
+			opts := vram.EstimateOptions{ContextLength: 8192}
+			result, err := vram.Estimate(estCtx, files, opts, vram.DefaultCachedSizeResolver(), vram.DefaultCachedGGUFReader())
+			if err == nil {
+				if result.SizeBytes > 0 {
+					resp.EstimatedSizeBytes = result.SizeBytes
+					resp.EstimatedSizeDisplay = result.SizeDisplay
+				}
+				if result.VRAMBytes > 0 {
+					resp.EstimatedVRAMBytes = result.VRAMBytes
+					resp.EstimatedVRAMDisplay = result.VRAMDisplay
+				}
+			}
 		}
 
 		uuid, err := uuid.NewUUID()
@@ -63,10 +91,9 @@ func ImportModelURIEndpoint(cl *config.ModelConfigLoader, appConfig *config.Appl
 			BackendGalleries:   appConfig.BackendGalleries,
 		}
 
-		return c.JSON(200, schema.GalleryResponse{
-			ID:        uuid.String(),
-			StatusURL: fmt.Sprintf("%smodels/jobs/%s", httpUtils.BaseURL(c), uuid.String()),
-		})
+		resp.ID = uuid.String()
+		resp.StatusURL = fmt.Sprintf("%smodels/jobs/%s", httpUtils.BaseURL(c), uuid.String())
+		return c.JSON(200, resp)
 	}
 }
 

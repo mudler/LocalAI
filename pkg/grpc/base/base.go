@@ -130,3 +130,6 @@ func memoryUsage() *pb.MemoryUsageData {
 	}
 	return &mud
 }
+func (llm *Base) Free() error {
+	return nil
+}

@@ -499,7 +499,7 @@
                 {{ range .ModelsConfig }}
                     {{ if index $loadedModels .Name }}
                     <span class="inline-flex items-center gap-1 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors" data-loaded-model>
-                        <span class="truncate max-w-[100px]">{{.Name}}</span>
+                        <span class="break-words max-w-[200px]">{{.Name}}</span>
                         <button
                             @click="stopModel('{{.Name}}')"
                             class="text-red-400/60 hover:text-red-400 transition-colors ml-0.5"

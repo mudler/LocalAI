@@ -362,7 +362,7 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
       params.mmproj.path = request->mmproj();
     }
     //  params.model_alias ??
-    params.model_alias =  request->modelfile();
+    params.model_alias.insert(request->modelfile());
     if (!request->cachetypekey().empty()) {
         params.cache_type_k = kv_cache_type_from_str(request->cachetypekey());
     }
@@ -1297,6 +1297,13 @@ public:
                     body_json["min_p"] = data["min_p"];
                 }
 
+                // Pass metadata fields to body_json
+                const auto& metadata = request->metadata();
+                auto et_it = metadata.find("enable_thinking");
+                if (et_it != metadata.end()) {
+                    body_json["enable_thinking"] = (et_it->second == "true");
+                }
+
                 // Debug: Print full body_json before template processing (includes messages, tools, tool_choice, etc.)
                 SRV_DBG("[CONVERSATION DEBUG] PredictStream: Full body_json before oaicompat_chat_params_parse:\n%s\n", body_json.dump(2).c_str());
 
@@ -2062,6 +2069,13 @@ public:
                 }
                 if (data.contains("min_p")) {
                     body_json["min_p"] = data["min_p"];
+                }
+
+                // Pass metadata fields to body_json
+                const auto& predict_metadata = request->metadata();
+                auto predict_et_it = predict_metadata.find("enable_thinking");
+                if (predict_et_it != predict_metadata.end()) {
+                    body_json["enable_thinking"] = (predict_et_it->second == "true");
                 }
 
                 // Debug: Print full body_json before template processing (includes messages, tools, tool_choice, etc.)

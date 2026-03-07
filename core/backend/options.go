@@ -254,6 +254,17 @@ func gRPCPredictOpts(c config.ModelConfig, modelPath string) *pb.PredictOptions 
 		TailFreeSamplingZ:   float32(*c.TFZ),
 		TypicalP:            float32(*c.TypicalP),
 	}
+
+	metadata := map[string]string{}
+	if c.ReasoningConfig.DisableReasoning != nil {
+		if *c.ReasoningConfig.DisableReasoning {
+			metadata["enable_thinking"] = "false"
+		} else {
+			metadata["enable_thinking"] = "true"
+		}
+	}
+	pbOpts.Metadata = metadata
+
 	// Logprobs and TopLogprobs are set by the caller if provided
 	return pbOpts
 }

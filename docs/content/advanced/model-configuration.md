@@ -474,6 +474,37 @@ reasoning:
 
 **Note:** Custom tokens and tag pairs are checked before the default ones, giving them priority. This allows you to override default behavior or add support for new reasoning tag formats.
 
+### Per-Request Override via Metadata
+
+The `reasoning.disable` setting from model configuration can be overridden on a per-request basis using the `metadata` field in the OpenAI chat completion request. This allows you to enable or disable thinking for individual requests without changing the model configuration.
+
+The `metadata` field accepts a `map[string]string` that is forwarded to the backend. The `enable_thinking` key controls thinking behavior:
+
+```bash
+# Enable thinking for a single request (overrides model config)
+curl http://localhost:8080/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "qwen3",
+    "messages": [{"role": "user", "content": "Explain quantum computing"}],
+    "metadata": {"enable_thinking": "true"}
+  }'
+
+# Disable thinking for a single request (overrides model config)
+curl http://localhost:8080/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "qwen3",
+    "messages": [{"role": "user", "content": "Hello"}],
+    "metadata": {"enable_thinking": "false"}
+  }'
+```
+
+**Priority order:**
+1. Request-level `metadata.enable_thinking` (highest priority)
+2. Model config `reasoning.disable` (fallback)
+3. Auto-detected from model template (default)
+
 ## Pipeline Configuration
 
 Define pipelines for audio-to-audio processing and the [Realtime API]({{%relref "features/openai-realtime" %}}):

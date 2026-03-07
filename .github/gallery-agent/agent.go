@@ -13,8 +13,8 @@ import (
 
 	"github.com/ghodss/yaml"
 	hfapi "github.com/mudler/LocalAI/pkg/huggingface-api"
-	cogito "github.com/mudler/cogito"
-
+	"github.com/mudler/cogito"
+	"github.com/mudler/cogito/clients"
 	"github.com/mudler/cogito/structures"
 	"github.com/sashabaranov/go-openai/jsonschema"
 )
@@ -25,7 +25,7 @@ var (
 	openAIBaseURL    = os.Getenv("OPENAI_BASE_URL")
 	galleryIndexPath = os.Getenv("GALLERY_INDEX_PATH")
 	//defaultclient
-	llm = cogito.NewOpenAILLM(openAIModel, openAIKey, openAIBaseURL)
+	llm = clients.NewOpenAILLM(openAIModel, openAIKey, openAIBaseURL)
 )
 
 // cleanTextContent removes trailing spaces, tabs, and normalizes line endings
@@ -141,7 +141,7 @@ func getRealReadme(ctx context.Context, repository string) (string, error) {
 	result = result.AddMessage("user", "Describe the model in a clear and concise way that can be shared in a model gallery.")
 
 	// Get a response
-	newFragment, err := llm.Ask(ctx, result)
+	_, err = llm.Ask(ctx, result)
 	if err != nil {
 		return "", err
 	}

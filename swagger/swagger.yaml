@@ -444,6 +444,14 @@ definitions:
     type: object
   schema.GalleryResponse:
     properties:
+      estimated_size_bytes:
+        type: integer
+      estimated_size_display:
+        type: string
+      estimated_vram_bytes:
+        type: integer
+      estimated_vram_display:
+        type: string
       status:
         type: string
       uuid:
@@ -1362,6 +1370,9 @@ definitions:
       response_format:
         description: (optional) output format
         type: string
+      sample_rate:
+        description: (optional) desired output sample rate
+        type: integer
       stream:
         description: (optional) enable streaming TTS
         type: boolean

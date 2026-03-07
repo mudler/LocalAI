@@ -365,3 +365,33 @@ mcp:
 
 - [Awesome MCPs](https://github.com/punkpeye/awesome-mcp-servers)
 - [A list of MCPs by mudler](https://github.com/mudler/MCPs)
+
+## Disabling MCP Support
+
+You can completely disable MCP functionality in LocalAI by setting the `LOCALAI_DISABLE_MCP` environment variable to `true`, `1`, or `yes`:
+
+```bash
+export LOCALAI_DISABLE_MCP=true
+```
+
+When this environment variable is set, all MCP-related features will be disabled, including:
+- MCP server connections (both remote and stdio)
+- Agent tool execution
+- The `/mcp/v1/chat/completions` endpoint
+
+This is useful when you want to:
+- Run LocalAI without MCP capabilities for security reasons
+- Reduce the attack surface by disabling unnecessary features
+- Troubleshoot MCP-related issues
+
+### Example
+
+```bash
+# Disable MCP completely
+LOCALAI_DISABLE_MCP=true localai run
+
+# Or in Docker
+docker run -e LOCALAI_DISABLE_MCP=true localai/localai:latest
+```
+
+When MCP is disabled, any model configuration with `mcp` sections will be ignored, and attempts to use the MCP endpoint will return an error indicating that MCP support is disabled.

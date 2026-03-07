@@ -1,4 +1,279 @@
 ---
+- name: "qwen3.5-27b-claude-4.6-opus-reasoning-distilled-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-i1-GGUF
+  description: |
+    Describe the model in a clear and concise way that can be shared in a model gallery.
+  license: "license"
+  tags:
+    - llm
+    - qwen
+    - text-to-text
+    - distilled
+  overrides:
+    parameters:
+      model: llama-cpp/models/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled.i1-Q4_K_M.gguf
+    name: Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled.i1-Q4_K_M.gguf
+      sha256: 34b9bcd8021b95d86dee8e8aaa165f28c441c08dee85dbed297f0489bfa8b899
+      uri: https://huggingface.co/mradermacher/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-i1-GGUF/resolve/main/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled.i1-Q4_K_M.gguf
+- name: "qwen3.5-4b-claude-4.6-opus-reasoning-distilled"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/Jackrong/Qwen3.5-4B-Claude-4.6-Opus-Reasoning-Distilled-GGUF
+  description: |
+    Describe the model in a clear and concise way that can be shared in a model gallery.
+  license: "gpl-3.0"
+  tags:
+    - llm
+    - guf
+    - cpu
+    - qwen
+    - text-to-text
+    - distilled
+    - reasoning
+  overrides:
+    parameters:
+      model: llama-cpp/models/Qwen3.5-4B.Q4_K_M.gguf
+    name: Qwen3.5-4B-Claude-4.6-Opus-Reasoning-Distilled-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    mmproj: llama-cpp/mmproj/Qwen3.5-4B.BF16-mmproj.gguf
+    description: Imported from https://huggingface.co/Jackrong/Qwen3.5-4B-Claude-4.6-Opus-Reasoning-Distilled-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Qwen3.5-4B.Q4_K_M.gguf
+      sha256: e1a4a9886699fecb153747ae97aeb413a7e6bd69da80037aa66cef9a3c656d85
+      uri: https://huggingface.co/Jackrong/Qwen3.5-4B-Claude-4.6-Opus-Reasoning-Distilled-GGUF/resolve/main/Qwen3.5-4B.Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/Qwen3.5-4B.BF16-mmproj.gguf
+      sha256: 5ce63ce0113f4bb7b87dc19d076fe0f951c94d4e593154c7a84f605b2f57d423
+      uri: https://huggingface.co/Jackrong/Qwen3.5-4B-Claude-4.6-Opus-Reasoning-Distilled-GGUF/resolve/main/Qwen3.5-4B.BF16-mmproj.gguf
+- name: "q3.5-bluestar-27b"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Q3.5-BlueStar-27B-GGUF
+  overrides:
+    parameters:
+      model: llama-cpp/models/Q3.5-BlueStar-27B.Q4_K_M.gguf
+    name: Q3.5-BlueStar-27B-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    mmproj: llama-cpp/mmproj/Q3.5-BlueStar-27B.mmproj-f16.gguf
+    description: Imported from https://huggingface.co/mradermacher/Q3.5-BlueStar-27B-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Q3.5-BlueStar-27B.Q4_K_M.gguf
+      sha256: 8c6b404f87d6c74b97f102bc8199dc6a3658c1d1d7022bd21ee0d9144ee8600a
+      uri: https://huggingface.co/mradermacher/Q3.5-BlueStar-27B-GGUF/resolve/main/Q3.5-BlueStar-27B.Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/Q3.5-BlueStar-27B.mmproj-f16.gguf
+      sha256: 8221b6a48c714db6829a92760c31034d7ecd436f830c61624ccc92b461b4a1c4
+      uri: https://huggingface.co/mradermacher/Q3.5-BlueStar-27B-GGUF/resolve/main/Q3.5-BlueStar-27B.mmproj-f16.gguf
+- name: "qwen3.5-9b"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/unsloth/Qwen3.5-9B-GGUF
+  overrides:
+    parameters:
+      model: llama-cpp/models/Qwen3.5-9B-Q4_K_M.gguf
+    name: Qwen3.5-9B-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    mmproj: llama-cpp/mmproj/mmproj-F32.gguf
+    description: Imported from https://huggingface.co/unsloth/Qwen3.5-9B-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Qwen3.5-9B-Q4_K_M.gguf
+      sha256: 03b74727a860a56338e042c4420bb3f04b2fec5734175f4cb9fa853daf52b7e8
+      uri: https://huggingface.co/unsloth/Qwen3.5-9B-GGUF/resolve/main/Qwen3.5-9B-Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/mmproj-F32.gguf
+      sha256: a1cd5c1625b44dd0facaec998020e9b36cb78c2225eaee701e73bf2e5b051ce2
+      uri: https://huggingface.co/unsloth/Qwen3.5-9B-GGUF/resolve/main/mmproj-F32.gguf
+- name: "qwen3.5-397b-a17b"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/unsloth/Qwen3.5-397B-A17B-GGUF
+  overrides:
+    parameters:
+      model: llama-cpp/models/Qwen3.5-397B-A17B-Q4_K_M-00001-of-00006.gguf
+    name: Qwen3.5-397B-A17B-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    mmproj: llama-cpp/mmproj/mmproj-F32.gguf
+    description: Imported from https://huggingface.co/unsloth/Qwen3.5-397B-A17B-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Qwen3.5-397B-A17B-Q4_K_M-00001-of-00006.gguf
+      sha256: 1300b09fae0f87ee8dc10f2b17e0070eaf73a3561e8664a3fa307fcad50c55e3
+      uri: https://huggingface.co/unsloth/Qwen3.5-397B-A17B-GGUF/resolve/main/Q4_K_M/Qwen3.5-397B-A17B-Q4_K_M-00001-of-00006.gguf
+    - filename: llama-cpp/models/Qwen3.5-397B-A17B-Q4_K_M-00002-of-00006.gguf
+      sha256: 2bc58495b9108480cd9f3ceea0c323ddcb9fceffe354e56b71d48ef01c35ef60
+      uri: https://huggingface.co/unsloth/Qwen3.5-397B-A17B-GGUF/resolve/main/Q4_K_M/Qwen3.5-397B-A17B-Q4_K_M-00002-of-00006.gguf
+    - filename: llama-cpp/models/Qwen3.5-397B-A17B-Q4_K_M-00003-of-00006.gguf
+      sha256: 64954cb1376d1de1778ddad0c8231f4bbd15492627caf118a685ae475d3efa81
+      uri: https://huggingface.co/unsloth/Qwen3.5-397B-A17B-GGUF/resolve/main/Q4_K_M/Qwen3.5-397B-A17B-Q4_K_M-00003-of-00006.gguf
+    - filename: llama-cpp/models/Qwen3.5-397B-A17B-Q4_K_M-00004-of-00006.gguf
+      sha256: 554485298f616b0ff59e1ec2982167d55bece87f682827c68a32acd0fd03425f
+      uri: https://huggingface.co/unsloth/Qwen3.5-397B-A17B-GGUF/resolve/main/Q4_K_M/Qwen3.5-397B-A17B-Q4_K_M-00004-of-00006.gguf
+    - filename: llama-cpp/models/Qwen3.5-397B-A17B-Q4_K_M-00005-of-00006.gguf
+      sha256: 24d6f5668ea2c6eaddde5f08ea6325b495bc66be7217bb2de0a5c8b5eace1c51
+      uri: https://huggingface.co/unsloth/Qwen3.5-397B-A17B-GGUF/resolve/main/Q4_K_M/Qwen3.5-397B-A17B-Q4_K_M-00005-of-00006.gguf
+    - filename: llama-cpp/models/Qwen3.5-397B-A17B-Q4_K_M-00006-of-00006.gguf
+      sha256: e36715e951da55d9e48b40aab61ba7829a7bfad5c6a155eb79aa13fe8b39347f
+      uri: https://huggingface.co/unsloth/Qwen3.5-397B-A17B-GGUF/resolve/main/Q4_K_M/Qwen3.5-397B-A17B-Q4_K_M-00006-of-00006.gguf
+    - filename: llama-cpp/mmproj/mmproj-F32.gguf
+      sha256: e47df150363dd9d53b4ddf01e5477a6803f7fc2d2e0341064dcf39511ad5f110
+      uri: https://huggingface.co/unsloth/Qwen3.5-397B-A17B-GGUF/resolve/main/mmproj-F32.gguf
+- name: "qwen3.5-27b"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/unsloth/Qwen3.5-27B-GGUF
+  overrides:
+    parameters:
+      model: llama-cpp/models/Qwen3.5-27B-Q4_K_M.gguf
+    name: Qwen3.5-27B-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    mmproj: llama-cpp/mmproj/mmproj-F32.gguf
+    description: Imported from https://huggingface.co/unsloth/Qwen3.5-27B-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Qwen3.5-27B-Q4_K_M.gguf
+      uri: https://huggingface.co/unsloth/Qwen3.5-27B-GGUF/resolve/main/Qwen3.5-27B-Q4_K_M.gguf
+      sha256: 84b5f7f112156d63836a01a69dc3f11a6ba63b10a23b8ca7a7efaf52d5a2d806
+    - filename: llama-cpp/mmproj/mmproj-F32.gguf
+      uri: https://huggingface.co/unsloth/Qwen3.5-27B-GGUF/resolve/main/mmproj-F32.gguf
+      sha256: cb04ce8bd243483434f3e05a51a3821258cac74187e409547742a729452b0756
+- name: "qwen3.5-122b-a10b"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/unsloth/Qwen3.5-122B-A10B-GGUF
+  overrides:
+    parameters:
+      model: llama-cpp/models/Qwen3.5-122B-A10B-Q4_K_M-00001-of-00003.gguf
+    name: Qwen3.5-122B-A10B-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    mmproj: llama-cpp/mmproj/mmproj-F32.gguf
+    description: Imported from https://huggingface.co/unsloth/Qwen3.5-122B-A10B-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Qwen3.5-122B-A10B-Q4_K_M-00001-of-00003.gguf
+      sha256: 914ac4aea369a78a16db389cd11293bd7ed4d2fe7960cdc7bc5140b21e5d8074
+      uri: https://huggingface.co/unsloth/Qwen3.5-122B-A10B-GGUF/resolve/main/Q4_K_M/Qwen3.5-122B-A10B-Q4_K_M-00001-of-00003.gguf
+    - filename: llama-cpp/models/Qwen3.5-122B-A10B-Q4_K_M-00002-of-00003.gguf
+      sha256: 073b82aaccefa6b360d4220299e488dc8810ad76d286b282c44ec374534e41d4
+      uri: https://huggingface.co/unsloth/Qwen3.5-122B-A10B-GGUF/resolve/main/Q4_K_M/Qwen3.5-122B-A10B-Q4_K_M-00002-of-00003.gguf
+    - filename: llama-cpp/models/Qwen3.5-122B-A10B-Q4_K_M-00003-of-00003.gguf
+      sha256: 0c9eed4a95f8fac03cb57e3fb63a49dcf400f958d86a387b98f0e9b4fbb54fd6
+      uri: https://huggingface.co/unsloth/Qwen3.5-122B-A10B-GGUF/resolve/main/Q4_K_M/Qwen3.5-122B-A10B-Q4_K_M-00003-of-00003.gguf
+    - filename: llama-cpp/mmproj/mmproj-F32.gguf
+      sha256: ba889ce164a6cc7ffe34296851d0f2bbe139bd27deeb7fe3830d08bd776a28a6
+      uri: https://huggingface.co/unsloth/Qwen3.5-122B-A10B-GGUF/resolve/main/mmproj-F32.gguf
+- name: "qwen3.5-35b-a3b"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/unsloth/Qwen3.5-35B-A3B-GGUF
+  overrides:
+    parameters:
+      model: llama-cpp/models/Qwen3.5-35B-A3B-UD-Q4_K_M.gguf
+    name: Qwen3.5-35B-A3B-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    mmproj: llama-cpp/mmproj/mmproj-F32.gguf
+    description: Imported from https://huggingface.co/unsloth/Qwen3.5-35B-A3B-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Qwen3.5-35B-A3B-UD-Q4_K_M.gguf
+      sha256: 223138866b87b12e68ffb43a1d45afb572921e9cd4c594e6a736df94c5130466
+      uri: https://huggingface.co/unsloth/Qwen3.5-35B-A3B-GGUF/resolve/main/Qwen3.5-35B-A3B-UD-Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/mmproj-F32.gguf
+      uri: https://huggingface.co/unsloth/Qwen3.5-35B-A3B-GGUF/resolve/main/mmproj-F32.gguf
+      sha256: 5de13d9052180b24cceda247af3023e3a2cbe785612198efe05b81905e3a5dc7
+- name: "qwen_qwen3-next-80b-a3b-thinking"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/bartowski/Qwen_Qwen3-Next-80B-A3B-Thinking-GGUF
+  overrides:
+    parameters:
+      model: llama-cpp/models/Qwen_Qwen3-Next-80B-A3B-Thinking-Q4_K_M.gguf
+    name: Qwen_Qwen3-Next-80B-A3B-Thinking-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/bartowski/Qwen_Qwen3-Next-80B-A3B-Thinking-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Qwen_Qwen3-Next-80B-A3B-Thinking-Q4_K_M.gguf
+      sha256: 83481c75cc6c0837ba9afa52b59b4cd3f85f55dd7aa6c60e27230ff329c81367
+      uri: https://huggingface.co/bartowski/Qwen_Qwen3-Next-80B-A3B-Thinking-GGUF/resolve/main/Qwen_Qwen3-Next-80B-A3B-Thinking-Q4_K_M.gguf
 - &nanbeige4
   name: "nanbeige4.1-3b-q8"
   url: "github:mudler/LocalAI/gallery/nanbeige4.1.yaml@master"
@@ -17271,3 +17546,51 @@
     - filename: Melinoe-30B-A3B-Thinking.i1-Q4_K_M.gguf
       sha256: 7b9e8fe00faf7803e440542be01974c05b0dcb8b75e1f1c25638027bfb75dbf3
       uri: huggingface://mradermacher/Melinoe-30B-A3B-Thinking-i1-GGUF/Melinoe-30B-A3B-Thinking.i1-Q4_K_M.gguf
+
+- &ltx23
+  name: "ltx-2.3"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/Lightricks/LTX-2.3
+  license: ltx-2-community-license-agreement
+  tags:
+    - diffusers
+    - gpu
+    - image-to-video
+    - video-generation
+    - audio-video
+  description: |
+    **LTX-2.3** is an improved DiT-based audio-video foundation model from Lightricks, building upon the LTX-2 architecture with enhanced capabilities for generating synchronized video and audio within a single model.
+
+    **Key Features:**
+    - **Joint Audio-Video Generation**: Generates synchronized video and audio in a single model
+    - **Image-to-Video**: Converts static images into dynamic videos with matching audio
+    - **Enhanced Quality**: Improved video quality and motion generation over LTX-2
+    - **Open Weights**: Available under the LTX-2 Community License Agreement
+
+    **Model Details:**
+    - **Model Type**: Diffusion-based audio-video foundation model
+    - **Architecture**: DiT (Diffusion Transformer) based
+    - **Developed by**: Lightricks
+    - **Parent Model**: LTX-2
+
+    **Usage Tips:**
+    - Width & height settings must be divisible by 32
+    - Frame count must be divisible by 8 + 1 (e.g., 9, 17, 25, 33, 41, 49, 57, 65, 73, 81, 89, 97, 105, 113, 121)
+    - Recommended settings: width=768, height=512, num_frames=121, frame_rate=24.0
+    - For best results, use detailed prompts describing motion and scene dynamics
+
+    **Limitations:**
+    - This model is not intended or able to provide factual information
+    - Prompt following is heavily influenced by the prompting-style
+    - When generating audio without speech, the audio may be of lower quality
+  overrides:
+    backend: diffusers
+    low_vram: true
+    parameters:
+      model: Lightricks/LTX-2.3
+    diffusers:
+      cuda: true
+      pipeline_type: LTX2ImageToVideoPipeline
+    options:
+      - torch_dtype:bf16

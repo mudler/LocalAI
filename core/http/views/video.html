@@ -20,7 +20,7 @@
                         <div class="flex items-center justify-between gap-2">
                             <label class="text-xs font-medium text-[var(--color-text-secondary)] uppercase tracking-wide flex-shrink-0">Model</label>
                         </div>
-                        <select x-data="{ link : '' }" x-model="link" x-init="$watch('link', value => window.location = link)" 
+                        <select x-data="{ link : '{{if .Model}}video/{{.Model}}{{end}}' }" x-model="link" x-init="$watch('link', value => window.location = link)" 
                             id="model-select"
                             class="input w-full p-1.5 text-xs"
                         >	

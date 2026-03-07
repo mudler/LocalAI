@@ -66,7 +66,7 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 		router.POST("/models/import-uri", localai.ImportModelURIEndpoint(cl, appConfig, galleryService, opcache))
 
 		// Custom model edit endpoint
-		router.POST("/models/edit/:name", localai.EditModelEndpoint(cl, appConfig))
+		router.POST("/models/edit/:name", localai.EditModelEndpoint(cl, ml, appConfig))
 
 		// Reload models endpoint
 		router.POST("/models/reload", localai.ReloadModelsEndpoint(cl, appConfig))
@@ -129,6 +129,13 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 		}{Version: internal.PrintableVersion()})
 	})
 
+	router.GET("/api/features", func(c echo.Context) error {
+		return c.JSON(200, map[string]bool{
+			"agents": app.AgentPoolService() != nil,
+			"mcp":    !appConfig.DisableMCP,
+		})
+	})
+
 	router.GET("/system", localai.SystemInformations(ml, appConfig))
 
 	// misc
@@ -140,7 +147,7 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 
 	// MCP endpoint - supports both streaming and non-streaming modes
 	// Note: streaming mode is NOT compatible with the OpenAI apis. We have a set which streams more states.
-	if evaluator != nil {
+	if evaluator != nil && !appConfig.DisableMCP {
 		mcpStreamHandler := localai.MCPEndpoint(cl, ml, evaluator, appConfig)
 		mcpStreamMiddleware := []echo.MiddlewareFunc{
 			requestExtractor.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_CHAT)),
@@ -159,8 +166,8 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 		router.POST("/mcp/chat/completions", mcpStreamHandler, mcpStreamMiddleware...)
 	}
 
-	// Agent job routes
-	if app != nil && app.AgentJobService() != nil {
+	// Agent job routes (MCP CI Jobs — requires MCP to be enabled)
+	if app != nil && app.AgentJobService() != nil && !appConfig.DisableMCP {
 		router.POST("/api/agent/tasks", localai.CreateTaskEndpoint(app))
 		router.PUT("/api/agent/tasks/:id", localai.UpdateTaskEndpoint(app))
 		router.DELETE("/api/agent/tasks/:id", localai.DeleteTaskEndpoint(app))

@@ -2183,6 +2183,18 @@ const docTemplate = `{
         "schema.GalleryResponse": {
             "type": "object",
             "properties": {
+                "estimated_size_bytes": {
+                    "type": "integer"
+                },
+                "estimated_size_display": {
+                    "type": "string"
+                },
+                "estimated_vram_bytes": {
+                    "type": "integer"
+                },
+                "estimated_vram_display": {
+                    "type": "string"
+                },
                 "status": {
                     "type": "string"
                 },
@@ -3525,6 +3537,10 @@ const docTemplate = `{
                 "response_format": {
                     "description": "(optional) output format",
                     "type": "string"
+                },
+                "sample_rate": {
+                    "description": "(optional) desired output sample rate",
+                    "type": "integer"
                 },
                 "stream": {
                     "description": "(optional) enable streaming TTS",

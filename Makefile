@@ -1,5 +1,5 @@
 # Disable parallel execution for backend builds
-.NOTPARALLEL: backends/diffusers backends/llama-cpp backends/outetts backends/piper backends/stablediffusion-ggml backends/whisper backends/faster-whisper backends/silero-vad backends/local-store backends/huggingface backends/rfdetr backends/kitten-tts backends/kokoro backends/chatterbox backends/llama-cpp-darwin backends/neutts build-darwin-python-backend build-darwin-go-backend backends/mlx backends/diffuser-darwin backends/mlx-vlm backends/mlx-audio backends/stablediffusion-ggml-darwin backends/vllm backends/vllm-omni backends/moonshine backends/pocket-tts backends/qwen-tts backends/qwen-asr backends/nemo backends/voxcpm backends/whisperx backends/ace-step backends/voxtral
+.NOTPARALLEL: backends/diffusers backends/llama-cpp backends/outetts backends/piper backends/stablediffusion-ggml backends/whisper backends/faster-whisper backends/silero-vad backends/local-store backends/huggingface backends/rfdetr backends/kitten-tts backends/kokoro backends/chatterbox backends/llama-cpp-darwin backends/neutts build-darwin-python-backend build-darwin-go-backend backends/mlx backends/diffuser-darwin backends/mlx-vlm backends/mlx-audio backends/stablediffusion-ggml-darwin backends/vllm backends/vllm-omni backends/moonshine backends/pocket-tts backends/qwen-tts backends/faster-qwen3-tts backends/qwen-asr backends/nemo backends/voxcpm backends/whisperx backends/ace-step backends/voxtral
 
 GOCMD=go
 GOTEST=$(GOCMD) test
@@ -91,8 +91,22 @@ install-go-tools:
 	go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@1958fcbe2ca8bd93af633f11e97d44e567e945af
 	go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2
 
+## React UI:
+react-ui:
+ifneq ($(wildcard core/http/react-ui/dist),)
+	@echo "react-ui dist already exists, skipping build"
+else
+	cd core/http/react-ui && npm install && npm run build
+endif
+
+react-ui-docker:
+	docker run --entrypoint /bin/bash -v $(CURDIR):/app:z oven/bun:1 \
+	  -c "cd /app/core/http/react-ui && bun install && bun run build"
+
+core/http/react-ui/dist: react-ui
+
 ## Build:
-build: protogen-go install-go-tools ## Build the project
+build: protogen-go install-go-tools core/http/react-ui/dist ## Build the project
 	$(info ${GREEN}I local-ai build info:${RESET})
 	$(info ${GREEN}I BUILD_TYPE: ${YELLOW}$(BUILD_TYPE)${RESET})
 	$(info ${GREEN}I GO_TAGS: ${YELLOW}$(GO_TAGS)${RESET})
@@ -325,6 +339,7 @@ prepare-test-extra: protogen-python
 	$(MAKE) -C backend/python/moonshine
 	$(MAKE) -C backend/python/pocket-tts
 	$(MAKE) -C backend/python/qwen-tts
+	$(MAKE) -C backend/python/faster-qwen3-tts
 	$(MAKE) -C backend/python/qwen-asr
 	$(MAKE) -C backend/python/nemo
 	$(MAKE) -C backend/python/voxcpm
@@ -342,6 +357,7 @@ test-extra: prepare-test-extra
 	$(MAKE) -C backend/python/moonshine test
 	$(MAKE) -C backend/python/pocket-tts test
 	$(MAKE) -C backend/python/qwen-tts test
+	$(MAKE) -C backend/python/faster-qwen3-tts test
 	$(MAKE) -C backend/python/qwen-asr test
 	$(MAKE) -C backend/python/nemo test
 	$(MAKE) -C backend/python/voxcpm test
@@ -481,6 +497,7 @@ BACKEND_VIBEVOICE = vibevoice|python|.|--progress=plain|true
 BACKEND_MOONSHINE = moonshine|python|.|false|true
 BACKEND_POCKET_TTS = pocket-tts|python|.|false|true
 BACKEND_QWEN_TTS = qwen-tts|python|.|false|true
+BACKEND_FASTER_QWEN3_TTS = faster-qwen3-tts|python|.|false|true
 BACKEND_QWEN_ASR = qwen-asr|python|.|false|true
 BACKEND_NEMO = nemo|python|.|false|true
 BACKEND_VOXCPM = voxcpm|python|.|false|true
@@ -533,6 +550,7 @@ $(eval $(call generate-docker-build-target,$(BACKEND_VIBEVOICE)))
 $(eval $(call generate-docker-build-target,$(BACKEND_MOONSHINE)))
 $(eval $(call generate-docker-build-target,$(BACKEND_POCKET_TTS)))
 $(eval $(call generate-docker-build-target,$(BACKEND_QWEN_TTS)))
+$(eval $(call generate-docker-build-target,$(BACKEND_FASTER_QWEN3_TTS)))
 $(eval $(call generate-docker-build-target,$(BACKEND_QWEN_ASR)))
 $(eval $(call generate-docker-build-target,$(BACKEND_NEMO)))
 $(eval $(call generate-docker-build-target,$(BACKEND_VOXCPM)))
@@ -543,7 +561,7 @@ $(eval $(call generate-docker-build-target,$(BACKEND_ACE_STEP)))
 docker-save-%: backend-images
 	docker save local-ai-backend:$* -o backend-images/$*.tar
 
-docker-build-backends: docker-build-llama-cpp docker-build-rerankers docker-build-vllm docker-build-vllm-omni docker-build-transformers docker-build-outetts docker-build-diffusers docker-build-kokoro docker-build-faster-whisper docker-build-coqui docker-build-chatterbox docker-build-vibevoice docker-build-moonshine docker-build-pocket-tts docker-build-qwen-tts docker-build-qwen-asr docker-build-nemo docker-build-voxcpm docker-build-whisperx docker-build-ace-step docker-build-voxtral
+docker-build-backends: docker-build-llama-cpp docker-build-rerankers docker-build-vllm docker-build-vllm-omni docker-build-transformers docker-build-outetts docker-build-diffusers docker-build-kokoro docker-build-faster-whisper docker-build-coqui docker-build-chatterbox docker-build-vibevoice docker-build-moonshine docker-build-pocket-tts docker-build-qwen-tts docker-build-faster-qwen3-tts docker-build-qwen-asr docker-build-nemo docker-build-voxcpm docker-build-whisperx docker-build-ace-step docker-build-voxtral
 
 ########################################################
 ### Mock Backend for E2E Tests
@@ -563,6 +581,7 @@ clean-mock-backend:
 swagger:
 	swag init -g core/http/app.go --output swagger
 
+# DEPRECATED: gen-assets is for the legacy Alpine.js UI. Remove when legacy UI is removed.
 .PHONY: gen-assets
 gen-assets:
 	$(GOCMD) run core/dependencies_manager/manager.go webui_static.yaml core/http/static/assets
