@@ -726,7 +726,6 @@ int load_model(const char *model, char *model_path, char* options[], int threads
     ctx_params.chroma_use_dit_mask = chroma_use_dit_mask;
     ctx_params.chroma_use_t5_mask = chroma_use_t5_mask;
     ctx_params.chroma_t5_mask_pad = chroma_t5_mask_pad;
-    ctx_params.flow_shift = flow_shift;
     sd_ctx_t* sd_ctx = new_sd_ctx(&ctx_params);
 
     if (sd_ctx == NULL) {
