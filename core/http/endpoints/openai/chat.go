@@ -16,6 +16,7 @@ import (
 	reason "github.com/mudler/LocalAI/pkg/reasoning"
 
 	"github.com/mudler/LocalAI/core/templates"
+	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"github.com/mudler/LocalAI/pkg/model"
 
 	"github.com/mudler/xlog"
@@ -55,7 +56,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 		lastEmittedReasoning := ""
 		lastEmittedCleanedContent := ""
 
-		_, _, err := ComputeChoices(req, s, config, cl, startupOptions, loader, func(s string, c *[]schema.Choice) {}, func(s string, tokenUsage backend.TokenUsage) bool {
+		_, _, _, err := ComputeChoices(req, s, config, cl, startupOptions, loader, func(s string, c *[]schema.Choice) {}, func(s string, tokenUsage backend.TokenUsage) bool {
 			accumulatedContent += s
 
 			currentReasoning, cleanedContent := reason.ExtractReasoningWithConfig(accumulatedContent, thinkingStartToken, config.ReasoningConfig)
@@ -141,7 +142,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 
 		result := ""
 		lastEmittedCount := 0
-		_, tokenUsage, err := ComputeChoices(req, prompt, config, cl, startupOptions, loader, func(s string, c *[]schema.Choice) {}, func(s string, usage backend.TokenUsage) bool {
+		_, tokenUsage, chatDeltas, err := ComputeChoices(req, prompt, config, cl, startupOptions, loader, func(s string, c *[]schema.Choice) {}, func(s string, usage backend.TokenUsage) bool {
 			result += s
 			// Try incremental XML parsing for streaming support using iterative parser
 			// This allows emitting partial tool calls as they're being generated
@@ -250,13 +251,25 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 		if err != nil {
 			return err
 		}
-		// Prepend thinking token if needed, then extract reasoning before processing tool calls
-		reasoning, result := reason.ExtractReasoningWithConfig(result, thinkingStartToken, config.ReasoningConfig)
+		// Try using pre-parsed tool calls from C++ autoparser (chat deltas)
+		var functionResults []functions.FuncCallResults
+		var reasoning string
 
-		textContentToReturn = functions.ParseTextContent(result, config.FunctionsConfig)
-		result = functions.CleanupLLMResult(result, config.FunctionsConfig)
-		functionResults := functions.ParseFunctionCall(result, config.FunctionsConfig)
-		xlog.Debug("Text content to return", "text", textContentToReturn)
+		if deltaToolCalls := functions.ToolCallsFromChatDeltas(chatDeltas); len(deltaToolCalls) > 0 {
+			xlog.Debug("[ChatDeltas] Using pre-parsed tool calls from C++ autoparser", "count", len(deltaToolCalls))
+			functionResults = deltaToolCalls
+			// Use content/reasoning from deltas too
+			textContentToReturn = functions.ContentFromChatDeltas(chatDeltas)
+			reasoning = functions.ReasoningFromChatDeltas(chatDeltas)
+		} else {
+			// Fallback: parse tool calls from raw text (no chat deltas from backend)
+			xlog.Debug("[ChatDeltas] no pre-parsed tool calls, falling back to Go-side text parsing")
+			reasoning, result = reason.ExtractReasoningWithConfig(result, thinkingStartToken, config.ReasoningConfig)
+			textContentToReturn = functions.ParseTextContent(result, config.FunctionsConfig)
+			result = functions.CleanupLLMResult(result, config.FunctionsConfig)
+			functionResults = functions.ParseFunctionCall(result, config.FunctionsConfig)
+		}
+		xlog.Debug("[ChatDeltas] final tool call decision", "tool_calls", len(functionResults), "text_content", textContentToReturn)
 		noActionToRun := len(functionResults) > 0 && functionResults[0].Name == noAction || len(functionResults) == 0
 
 		switch {
@@ -308,6 +321,10 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 		default:
 			for i, ss := range functionResults {
 				name, args := ss.Name, ss.Arguments
+				toolCallID := ss.ID
+				if toolCallID == "" {
+					toolCallID = id
+				}
 
 				initialMessage := schema.OpenAIResponse{
 					ID:      id,
@@ -319,7 +336,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 							ToolCalls: []schema.ToolCall{
 								{
 									Index: i,
-									ID:    id,
+									ID:    toolCallID,
 									Type:  "function",
 									FunctionCall: schema.FunctionCall{
 										Name: name,
@@ -345,7 +362,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 							ToolCalls: []schema.ToolCall{
 								{
 									Index: i,
-									ID:    id,
+									ID:    toolCallID,
 									Type:  "function",
 									FunctionCall: schema.FunctionCall{
 										Arguments: args,
@@ -656,10 +673,13 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 
 			xlog.Debug("Thinking start token", "thinkingStartToken", thinkingStartToken, "template", template)
 
+			// When shouldUseFn, the callback just stores the raw text — tool parsing
+			// is deferred to after ComputeChoices so we can check chat deltas first
+			// and avoid redundant Go-side parsing.
+			var cbRawResult, cbReasoning string
 			var emptyRetryNeeded bool
 
 			tokenCallback := func(s string, c *[]schema.Choice) {
-				// Prepend thinking token if needed, then extract reasoning from the response
 				reasoning, s := reason.ExtractReasoningWithConfig(s, thinkingStartToken, config.ReasoningConfig)
 
 				if !shouldUseFn {
@@ -672,102 +692,20 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 					return
 				}
 
-				textContentToReturn = functions.ParseTextContent(s, config.FunctionsConfig)
-				s = functions.CleanupLLMResult(s, config.FunctionsConfig)
-				results := functions.ParseFunctionCall(s, config.FunctionsConfig)
-				xlog.Debug("Text content to return", "text", textContentToReturn)
-				noActionsToRun := len(results) > 0 && results[0].Name == noActionName || len(results) == 0
-
-				switch {
-				case noActionsToRun:
-					if s == "" && textContentToReturn == "" {
-						xlog.Warn("Backend returned empty content in tool-calling context, will retry")
-						emptyRetryNeeded = true
-						return
-					}
-					result, err := handleQuestion(config, results, s, predInput)
-					if err != nil {
-						xlog.Error("error handling question", "error", err)
-						emptyRetryNeeded = true
-						return
-					}
-
-					stopReason := FinishReasonStop
-					message := &schema.Message{Role: "assistant", Content: &result}
-					if reasoning != "" {
-						message.Reasoning = &reasoning
-					}
-					*c = append(*c, schema.Choice{
-						FinishReason: &stopReason,
-						Message:      message})
-				default:
-					toolCallsReason := FinishReasonToolCalls
-					toolChoice := schema.Choice{
-						FinishReason: &toolCallsReason,
-						Message: &schema.Message{
-							Role: "assistant",
-						},
-					}
-					if reasoning != "" {
-						toolChoice.Message.Reasoning = &reasoning
-					}
-
-					for _, ss := range results {
-						name, args := ss.Name, ss.Arguments
-						if len(input.Tools) > 0 {
-							// If we are using tools, we condense the function calls into
-							// a single response choice with all the tools
-							toolChoice.Message.Content = textContentToReturn
-							toolChoice.Message.ToolCalls = append(toolChoice.Message.ToolCalls,
-								schema.ToolCall{
-									ID:   id,
-									Type: "function",
-									FunctionCall: schema.FunctionCall{
-										Name:      name,
-										Arguments: args,
-									},
-								},
-							)
-						} else {
-							// otherwise we return more choices directly (deprecated)
-							functionCallReason := FinishReasonFunctionCall
-							message := &schema.Message{
-								Role:    "assistant",
-								Content: &textContentToReturn,
-								FunctionCall: map[string]interface{}{
-									"name":      name,
-									"arguments": args,
-								},
-							}
-							if reasoning != "" {
-								message.Reasoning = &reasoning
-							}
-							*c = append(*c, schema.Choice{
-								FinishReason: &functionCallReason,
-								Message:      message,
-							})
-						}
-					}
-
-					if len(input.Tools) > 0 {
-						// we need to append our result if we are using tools
-						*c = append(*c, toolChoice)
-					}
-				}
-
+				// Store raw text for deferred tool parsing
+				cbRawResult = s
+				cbReasoning = reasoning
 			}
-
-			// Echo properly supports context cancellation via c.Request().Context()
-			// No workaround needed!
 
 			const maxEmptyRetries = 5
 			var result []schema.Choice
 			var tokenUsage backend.TokenUsage
 			var err error
 
+			var chatDeltas []*pb.ChatDelta
 			for attempt := 0; attempt <= maxEmptyRetries; attempt++ {
 				emptyRetryNeeded = false
-				result, tokenUsage, err = ComputeChoices(
+				result, tokenUsage, chatDeltas, err = ComputeChoices(
 					input,
 					predInput,
 					config,
@@ -777,7 +715,111 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 					tokenCallback,
 					nil,
 				)
-				if err != nil || !emptyRetryNeeded {
+				if err != nil {
+					break
+				}
+
+				// Tool parsing is deferred here (only when shouldUseFn)
+				if shouldUseFn {
+					var funcResults []functions.FuncCallResults
+
+					// Try pre-parsed tool calls from C++ autoparser first
+					if deltaToolCalls := functions.ToolCallsFromChatDeltas(chatDeltas); len(deltaToolCalls) > 0 {
+						xlog.Debug("[ChatDeltas] non-SSE: using C++ autoparser tool calls, skipping Go-side parsing", "count", len(deltaToolCalls))
+						funcResults = deltaToolCalls
+						textContentToReturn = functions.ContentFromChatDeltas(chatDeltas)
+						cbReasoning = functions.ReasoningFromChatDeltas(chatDeltas)
+					} else {
+						// Fallback: parse tool calls from raw text
+						xlog.Debug("[ChatDeltas] non-SSE: no chat deltas, falling back to Go-side text parsing")
+						textContentToReturn = functions.ParseTextContent(cbRawResult, config.FunctionsConfig)
+						cbRawResult = functions.CleanupLLMResult(cbRawResult, config.FunctionsConfig)
+						funcResults = functions.ParseFunctionCall(cbRawResult, config.FunctionsConfig)
+					}
+
+					noActionsToRun := len(funcResults) > 0 && funcResults[0].Name == noActionName || len(funcResults) == 0
+
+					switch {
+					case noActionsToRun:
+						if cbRawResult == "" && textContentToReturn == "" {
+							xlog.Warn("Backend returned empty content in tool-calling context, will retry")
+							emptyRetryNeeded = true
+							continue
+						}
+						qResult, qErr := handleQuestion(config, funcResults, cbRawResult, predInput)
+						if qErr != nil {
+							xlog.Error("error handling question", "error", qErr)
+							emptyRetryNeeded = true
+							continue
+						}
+
+						stopReason := FinishReasonStop
+						message := &schema.Message{Role: "assistant", Content: &qResult}
+						if cbReasoning != "" {
+							message.Reasoning = &cbReasoning
+						}
+						result = append(result, schema.Choice{
+							FinishReason: &stopReason,
+							Message:      message,
+						})
+					default:
+						toolCallsReason := FinishReasonToolCalls
+						toolChoice := schema.Choice{
+							FinishReason: &toolCallsReason,
+							Message: &schema.Message{
+								Role: "assistant",
+							},
+						}
+						if cbReasoning != "" {
+							toolChoice.Message.Reasoning = &cbReasoning
+						}
+
+						for _, ss := range funcResults {
+							name, args := ss.Name, ss.Arguments
+							toolCallID := ss.ID
+							if toolCallID == "" {
+								toolCallID = id
+							}
+							if len(input.Tools) > 0 {
+								toolChoice.Message.Content = textContentToReturn
+								toolChoice.Message.ToolCalls = append(toolChoice.Message.ToolCalls,
+									schema.ToolCall{
+										ID:   toolCallID,
+										Type: "function",
+										FunctionCall: schema.FunctionCall{
+											Name:      name,
+											Arguments: args,
+										},
+									},
+								)
+							} else {
+								// Deprecated function_call format
+								functionCallReason := FinishReasonFunctionCall
+								message := &schema.Message{
+									Role:    "assistant",
+									Content: &textContentToReturn,
+									FunctionCall: map[string]interface{}{
+										"name":      name,
+										"arguments": args,
+									},
+								}
+								if cbReasoning != "" {
+									message.Reasoning = &cbReasoning
+								}
+								result = append(result, schema.Choice{
+									FinishReason: &functionCallReason,
+									Message:      message,
+								})
+							}
+						}
+
+						if len(input.Tools) > 0 {
+							result = append(result, toolChoice)
+						}
+					}
+				}
+
+				if !emptyRetryNeeded {
 					break
 				}
 				xlog.Warn("Retrying prediction due to empty backend response", "attempt", attempt+1, "maxRetries", maxEmptyRetries)
@@ -796,6 +838,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 					Message:      &schema.Message{Role: "assistant", Content: &empty},
 				})
 			}
+
 			usage := schema.OpenAIUsage{
 				PromptTokens:     tokenUsage.Prompt,
 				CompletionTokens: tokenUsage.Completion,
