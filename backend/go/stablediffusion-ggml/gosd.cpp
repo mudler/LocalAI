@@ -41,8 +41,6 @@ const char* sample_method_str[] = {
     "lcm",
     "ddim_trailing",
     "tcd",
-    "res_multistep",
-    "res_2s",
 };
 
 static_assert(std::size(sample_method_str) == SAMPLE_METHOD_COUNT, "sample method mismatch");
