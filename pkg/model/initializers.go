@@ -21,8 +21,6 @@ var Aliases = map[string]string{
 	"go-llama":               LLamaCPP,
 	"llama":                  LLamaCPP,
 	"embedded-store":         LocalStoreBackend,
-	"huggingface-embeddings": TransformersBackend,
-	"langchain-huggingface":  LCHuggingFaceBackend,
 	"transformers-musicgen":  TransformersBackend,
 	"sentencetransformers":   TransformersBackend,
 	"mamba":                  TransformersBackend,
@@ -31,7 +29,6 @@ var Aliases = map[string]string{
 
 var TypeAlias = map[string]string{
 	"sentencetransformers":   "SentenceTransformer",
-	"huggingface-embeddings": "SentenceTransformer",
 	"mamba":                  "Mamba",
 	"transformers-musicgen":  "MusicgenForConditionalGeneration",
 }
@@ -39,7 +36,6 @@ var TypeAlias = map[string]string{
 const (
 	WhisperBackend             = "whisper"
 	StableDiffusionGGMLBackend = "stablediffusion-ggml"
-	LCHuggingFaceBackend       = "huggingface"
 
 	TransformersBackend = "transformers"
 	LocalStoreBackend   = "local-store"
