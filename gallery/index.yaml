@@ -4,7 +4,7 @@
   urls:
     - https://huggingface.co/mradermacher/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-i1-GGUF
   description: |
-    Describe the model in a clear and concise way that can be shared in a model gallery.
+    Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-i1-GGUF - A GGUF quantized model optimized for local inference. Specialized for reasoning and chain-of-thought tasks. Based on Qwen 3.5 architecture with enhanced language understanding. Available in multiple quantization levels for various hardware requirements. Distilled from Claude-style reasoning models for enhanced logical reasoning capabilities.
   license: "license"
   tags:
     - llm
@@ -35,7 +35,7 @@
   urls:
     - https://huggingface.co/Jackrong/Qwen3.5-4B-Claude-4.6-Opus-Reasoning-Distilled-GGUF
   description: |
-    Describe the model in a clear and concise way that can be shared in a model gallery.
+    Qwen3.5-4B-Claude-4.6-Opus-Reasoning-Distilled-GGUF - A GGUF quantized model optimized for local inference. Specialized for reasoning and chain-of-thought tasks. Based on Qwen 3.5 architecture with enhanced language understanding. Available in multiple quantization levels for various hardware requirements. Distilled from Claude-style reasoning models for enhanced logical reasoning capabilities.
   license: "gpl-3.0"
   tags:
     - llm
@@ -85,7 +85,7 @@
       grammar:
         disable: true
     mmproj: llama-cpp/mmproj/Q3.5-BlueStar-27B.mmproj-f16.gguf
-    description: Imported from https://huggingface.co/mradermacher/Q3.5-BlueStar-27B-GGUF
+    description: Q3.5-BlueStar-27B-GGUF - A GGUF quantized model optimized for local inference. Fine-tuned variant with specialized training on instruction and roleplay datasets. Based on Qwen 3.5 architecture with enhanced language understanding. Available in multiple quantization levels for various hardware requirements.
     options:
       - use_jinja:true
   files:
@@ -112,7 +112,7 @@
       grammar:
         disable: true
     mmproj: llama-cpp/mmproj/mmproj-F32.gguf
-    description: Imported from https://huggingface.co/unsloth/Qwen3.5-9B-GGUF
+    description: Qwen3.5-9B-GGUF - A GGUF quantized model optimized for local inference. Based on Qwen 3.5 architecture with enhanced language understanding. Available in multiple quantization levels for various hardware requirements. Multimodal capabilities for image-text-to-text tasks.
     options:
       - use_jinja:true
   files:
@@ -139,7 +139,7 @@
       grammar:
         disable: true
     mmproj: llama-cpp/mmproj/mmproj-F32.gguf
-    description: Imported from https://huggingface.co/unsloth/Qwen3.5-397B-A17B-GGUF
+    description: Qwen3.5-397B-A17B-GGUF - A GGUF quantized model optimized for local inference. Based on Qwen 3.5 architecture with enhanced language understanding. Available in multiple quantization levels for various hardware requirements. Large-scale model with 397B parameters for advanced reasoning tasks.
     options:
       - use_jinja:true
   files:
@@ -181,7 +181,7 @@
       grammar:
         disable: true
     mmproj: llama-cpp/mmproj/mmproj-F32.gguf
-    description: Imported from https://huggingface.co/unsloth/Qwen3.5-27B-GGUF
+    description: Qwen3.5-27B-GGUF - A GGUF quantized model optimized for local inference. Based on Qwen 3.5 architecture with enhanced language understanding. Available in multiple quantization levels for various hardware requirements. 27B parameter model balancing performance and efficiency.
     options:
       - use_jinja:true
   files:
@@ -208,7 +208,7 @@
       grammar:
         disable: true
     mmproj: llama-cpp/mmproj/mmproj-F32.gguf
-    description: Imported from https://huggingface.co/unsloth/Qwen3.5-122B-A10B-GGUF
+    description: Qwen3.5-122B-A10B-GGUF - A GGUF quantized model optimized for local inference. Based on Qwen 3.5 architecture with enhanced language understanding. Available in multiple quantization levels for various hardware requirements. 122B parameter model with 10B active parameters for efficient inference.
     options:
       - use_jinja:true
   files:
@@ -241,7 +241,7 @@
       grammar:
         disable: true
     mmproj: llama-cpp/mmproj/mmproj-F32.gguf
-    description: Imported from https://huggingface.co/unsloth/Qwen3.5-35B-A3B-GGUF
+    description: Qwen3.5-35B-A3B-GGUF - A GGUF quantized model optimized for local inference. Based on Qwen 3.5 architecture with enhanced language understanding. Available in multiple quantization levels for various hardware requirements. 35B parameter model with 3B active parameters for efficient inference.
     options:
       - use_jinja:true
   files:
@@ -267,7 +267,7 @@
     function:
       grammar:
         disable: true
-    description: Imported from https://huggingface.co/bartowski/Qwen_Qwen3-Next-80B-A3B-Thinking-GGUF
+    description: Qwen3-Next-80B-A3B-Thinking-GGUF - A GGUF quantized model optimized for local inference. Next-generation Qwen model with improved efficiency and performance. Optimized for thinking and reasoning tasks with chain-of-thought prompting. 80B parameter model with 3B active parameters.
     options:
       - use_jinja:true
   files:
