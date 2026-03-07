@@ -17,6 +17,7 @@
 #include "backend.pb.h"
 #include "backend.grpc.pb.h"
 #include "common.h"
+#include "chat-auto-parser.h"
 #include <getopt.h>
 #include <grpcpp/ext/proto_server_reflection_plugin.h>
 #include <grpcpp/grpcpp.h>
@@ -2608,6 +2609,113 @@ public:
         }
         
         response->set_rendered_template(rendered_template);
+
+        // Run differential template analysis to detect tool format markers
+        if (params_base.use_jinja) {
+            try {
+                // Get template source and reconstruct a common_chat_template for analysis
+                std::string tmpl_src = common_chat_templates_source(ctx_server.impl->chat_params.tmpls.get());
+                if (!tmpl_src.empty()) {
+                    const auto * vocab = llama_model_get_vocab(ctx_server.impl->model);
+                    std::string token_bos, token_eos;
+                    if (vocab) {
+                        auto bos_id = llama_vocab_bos(vocab);
+                        auto eos_id = llama_vocab_eos(vocab);
+                        if (bos_id != LLAMA_TOKEN_NULL) {
+                            token_bos = common_token_to_piece(vocab, bos_id, true);
+                        }
+                        if (eos_id != LLAMA_TOKEN_NULL) {
+                            token_eos = common_token_to_piece(vocab, eos_id, true);
+                        }
+                    }
+                    common_chat_template tmpl(tmpl_src, token_bos, token_eos);
+                    struct autoparser::autoparser ap;
+                    ap.analyze_template(tmpl);
+
+                    if (ap.analysis_complete && ap.tools.format.mode != autoparser::tool_format::NONE) {
+                        auto * tf = response->mutable_tool_format();
+
+                        // Format type
+                        switch (ap.tools.format.mode) {
+                            case autoparser::tool_format::JSON_NATIVE:
+                                tf->set_format_type("json_native");
+                                break;
+                            case autoparser::tool_format::TAG_WITH_JSON:
+                                tf->set_format_type("tag_with_json");
+                                break;
+                            case autoparser::tool_format::TAG_WITH_TAGGED:
+                                tf->set_format_type("tag_with_tagged");
+                                break;
+                            default:
+                                break;
+                        }
+
+                        // Tool section markers
+                        tf->set_section_start(ap.tools.format.section_start);
+                        tf->set_section_end(ap.tools.format.section_end);
+                        tf->set_per_call_start(ap.tools.format.per_call_start);
+                        tf->set_per_call_end(ap.tools.format.per_call_end);
+
+                        // Function markers
+                        tf->set_func_name_prefix(ap.tools.function.name_prefix);
+                        tf->set_func_name_suffix(ap.tools.function.name_suffix);
+                        tf->set_func_close(ap.tools.function.close);
+
+                        // Argument markers
+                        tf->set_arg_name_prefix(ap.tools.arguments.name_prefix);
+                        tf->set_arg_name_suffix(ap.tools.arguments.name_suffix);
+                        tf->set_arg_value_prefix(ap.tools.arguments.value_prefix);
+                        tf->set_arg_value_suffix(ap.tools.arguments.value_suffix);
+                        tf->set_arg_separator(ap.tools.arguments.separator);
+                        tf->set_args_start(ap.tools.arguments.start);
+                        tf->set_args_end(ap.tools.arguments.end);
+
+                        // JSON format fields
+                        tf->set_name_field(ap.tools.format.name_field);
+                        tf->set_args_field(ap.tools.format.args_field);
+                        tf->set_id_field(ap.tools.format.id_field);
+                        tf->set_fun_name_is_key(ap.tools.format.fun_name_is_key);
+                        tf->set_tools_array_wrapped(ap.tools.format.tools_array_wrapped);
+                        tf->set_uses_python_dicts(ap.tools.format.uses_python_dicts);
+                        tf->set_function_field(ap.tools.format.function_field);
+
+                        tf->set_gen_id_field(ap.tools.format.gen_id_field);
+
+                        for (const auto & p : ap.tools.format.parameter_order) {
+                            tf->add_parameter_order(p);
+                        }
+
+                        // Call ID markers
+                        switch (ap.tools.call_id.pos) {
+                            case autoparser::call_id_position::NONE:
+                                tf->set_call_id_position("none");
+                                break;
+                            case autoparser::call_id_position::PRE_FUNC_NAME:
+                                tf->set_call_id_position("pre_func_name");
+                                break;
+                            case autoparser::call_id_position::BETWEEN_FUNC_AND_ARGS:
+                                tf->set_call_id_position("between_func_and_args");
+                                break;
+                            case autoparser::call_id_position::POST_ARGS:
+                                tf->set_call_id_position("post_args");
+                                break;
+                        }
+                        tf->set_call_id_prefix(ap.tools.call_id.prefix);
+                        tf->set_call_id_suffix(ap.tools.call_id.suffix);
+
+                        // Reasoning markers
+                        tf->set_reasoning_start(ap.reasoning.start);
+                        tf->set_reasoning_end(ap.reasoning.end);
+
+                        // Content markers
+                        tf->set_content_start(ap.content.start);
+                        tf->set_content_end(ap.content.end);
+                    }
+                }
+            } catch (const std::exception & e) {
+                SRV_WRN("ModelMetadata: failed to run autoparser analysis: %s\n", e.what());
+            }
+        }
 
         return grpc::Status::OK;
     }

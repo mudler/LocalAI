@@ -425,7 +425,62 @@ message DetectResponse {
   repeated Detection Detections = 1;
 }
 
+message ToolFormatMarkers {
+  string format_type = 1;           // "json_native", "tag_with_json", "tag_with_tagged"
+
+  // Tool section markers
+  string section_start = 2;         // e.g., "<tool_call>", "[TOOL_CALLS]"
+  string section_end = 3;           // e.g., "</tool_call>"
+  string per_call_start = 4;        // e.g., "<|tool_call_begin|>"
+  string per_call_end = 5;          // e.g., "<|tool_call_end|>"
+
+  // Function name markers (TAG_WITH_JSON / TAG_WITH_TAGGED)
+  string func_name_prefix = 6;     // e.g., "<function="
+  string func_name_suffix = 7;     // e.g., ">"
+  string func_close = 8;           // e.g., "</function>"
+
+  // Argument markers (TAG_WITH_TAGGED)
+  string arg_name_prefix = 9;      // e.g., "<param="
+  string arg_name_suffix = 10;     // e.g., ">"
+  string arg_value_prefix = 11;
+  string arg_value_suffix = 12;    // e.g., "</param>"
+  string arg_separator = 13;       // e.g., "\n"
+
+  // JSON format fields (JSON_NATIVE)
+  string name_field = 14;          // e.g., "name"
+  string args_field = 15;          // e.g., "arguments"
+  string id_field = 16;            // e.g., "id"
+  bool fun_name_is_key = 17;
+  bool tools_array_wrapped = 18;
+  bool uses_python_dicts = 19;
+
+  // Reasoning markers
+  string reasoning_start = 20;     // e.g., "<think>"
+  string reasoning_end = 21;       // e.g., "</think>"
+
+  // Content markers
+  string content_start = 22;
+  string content_end = 23;
+
+  // Args wrapper markers
+  string args_start = 24;          // e.g., "<args>"
+  string args_end = 25;            // e.g., "</args>"
+
+  // JSON parameter ordering
+  string function_field = 26;      // e.g., "function" (wrapper key in JSON)
+  repeated string parameter_order = 27;
+
+  // Generated ID field (alternative field name for generated IDs)
+  string gen_id_field = 28;        // e.g., "call_id"
+
+  // Call ID markers (position and delimiters for tool call IDs)
+  string call_id_position = 29;    // "none", "pre_func_name", "between_func_and_args", "post_args"
+  string call_id_prefix = 30;      // e.g., "[CALL_ID]"
+  string call_id_suffix = 31;      // e.g., ""
+}
+
 message ModelMetadataResponse {
   bool supports_thinking = 1;
   string rendered_template = 2;  // The rendered chat template with enable_thinking=true (empty if not applicable)
+  ToolFormatMarkers tool_format = 3;  // Auto-detected tool format markers from differential template analysis
 }
