@@ -1,4 +1,42 @@
 ---
+- name: "qwen3.5-4b-claude-4.6-opus-reasoning-distilled"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/Jackrong/Qwen3.5-4B-Claude-4.6-Opus-Reasoning-Distilled-GGUF
+  description: |
+    Describe the model in a clear and concise way that can be shared in a model gallery.
+  license: "gpl-3.0"
+  tags:
+    - llm
+    - guf
+    - cpu
+    - qwen
+    - text-to-text
+    - distilled
+    - reasoning
+  overrides:
+    parameters:
+      model: llama-cpp/models/Qwen3.5-4B.Q4_K_M.gguf
+    name: Qwen3.5-4B-Claude-4.6-Opus-Reasoning-Distilled-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    mmproj: llama-cpp/mmproj/Qwen3.5-4B.BF16-mmproj.gguf
+    description: Imported from https://huggingface.co/Jackrong/Qwen3.5-4B-Claude-4.6-Opus-Reasoning-Distilled-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Qwen3.5-4B.Q4_K_M.gguf
+      sha256: e1a4a9886699fecb153747ae97aeb413a7e6bd69da80037aa66cef9a3c656d85
+      uri: https://huggingface.co/Jackrong/Qwen3.5-4B-Claude-4.6-Opus-Reasoning-Distilled-GGUF/resolve/main/Qwen3.5-4B.Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/Qwen3.5-4B.BF16-mmproj.gguf
+      sha256: 5ce63ce0113f4bb7b87dc19d076fe0f951c94d4e593154c7a84f605b2f57d423
+      uri: https://huggingface.co/Jackrong/Qwen3.5-4B-Claude-4.6-Opus-Reasoning-Distilled-GGUF/resolve/main/Qwen3.5-4B.BF16-mmproj.gguf
 - name: "q3.5-bluestar-27b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
