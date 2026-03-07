@@ -57,6 +57,7 @@ const char* schedulers[] = {
     "smoothstep",
     "kl_optimal",
     "lcm",
+    "bong_tangent",
 };
 
 static_assert(std::size(schedulers) == SCHEDULER_COUNT, "schedulers mismatch");
@@ -501,7 +502,6 @@ int load_model(const char *model, char *model_path, char* options[], int threads
     bool chroma_use_dit_mask = true;
     bool chroma_use_t5_mask = false;
     int chroma_t5_mask_pad = 1;
-    float flow_shift = INFINITY;
 
     fprintf(stderr, "parsing options: %p\n", options);
 
@@ -591,7 +591,6 @@ int load_model(const char *model, char *model_path, char* options[], int threads
         if (!strcmp(optname, "n_threads")) n_threads = atoi(optval);
         if (!strcmp(optname, "chroma_t5_mask_pad")) chroma_t5_mask_pad = atoi(optval);
 
-        if (!strcmp(optname, "flow_shift")) flow_shift = atof(optval);
 
         if (!strcmp(optname, "rng_type")) {
             int found = -1;
@@ -723,7 +722,6 @@ int load_model(const char *model, char *model_path, char* options[], int threads
     ctx_params.chroma_use_dit_mask = chroma_use_dit_mask;
     ctx_params.chroma_use_t5_mask = chroma_use_t5_mask;
     ctx_params.chroma_t5_mask_pad = chroma_t5_mask_pad;
-    ctx_params.flow_shift = flow_shift;
     sd_ctx_t* sd_ctx = new_sd_ctx(&ctx_params);
 
     if (sd_ctx == NULL) {
