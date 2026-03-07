@@ -4,6 +4,7 @@ package gallery
 
 import (
 	"context"
+	"os"
 	"encoding/json"
 	"errors"
 	"fmt"
