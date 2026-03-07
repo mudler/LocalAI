@@ -590,6 +590,7 @@ function backendsGallery() {
         allTags: [],
         repositories: [],
         searchTerm: '',
+        searchTag: '',
         loading: false,
         currentPage: 1,
         totalPages: 1,
@@ -677,6 +678,9 @@ function backendsGallery() {
                     items: 21,
                     term: this.searchTerm
                 });
+                if (this.searchTag) {
+                    params.append('tag', this.searchTag);
+                }
                 if (this.sortBy) {
                     params.append('sort', this.sortBy);
                     params.append('order', this.sortOrder);
@@ -701,6 +705,14 @@ function backendsGallery() {
         
         filterByTerm(term) {
             this.searchTerm = term;
+            this.searchTag = '';
+            this.currentPage = 1;
+            this.fetchBackends();
+        },
+
+        filterByTag(tag) {
+            this.searchTag = tag;
+            this.searchTerm = '';
             this.currentPage = 1;
             this.fetchBackends();
         },
