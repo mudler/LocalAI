@@ -16,6 +16,7 @@ import (
 	reason "github.com/mudler/LocalAI/pkg/reasoning"
 
 	"github.com/mudler/LocalAI/core/templates"
+	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"github.com/mudler/LocalAI/pkg/model"
 
 	"github.com/mudler/xlog"
@@ -55,7 +56,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 		lastEmittedReasoning := ""
 		lastEmittedCleanedContent := ""
 
-		_, _, err := ComputeChoices(req, s, config, cl, startupOptions, loader, func(s string, c *[]schema.Choice) {}, func(s string, tokenUsage backend.TokenUsage) bool {
+		_, _, _, err := ComputeChoices(req, s, config, cl, startupOptions, loader, func(s string, c *[]schema.Choice) {}, func(s string, tokenUsage backend.TokenUsage) bool {
 			accumulatedContent += s
 
 			currentReasoning, cleanedContent := reason.ExtractReasoningWithConfig(accumulatedContent, thinkingStartToken, config.ReasoningConfig)
@@ -141,7 +142,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 
 		result := ""
 		lastEmittedCount := 0
-		_, tokenUsage, err := ComputeChoices(req, prompt, config, cl, startupOptions, loader, func(s string, c *[]schema.Choice) {}, func(s string, usage backend.TokenUsage) bool {
+		_, tokenUsage, chatDeltas, err := ComputeChoices(req, prompt, config, cl, startupOptions, loader, func(s string, c *[]schema.Choice) {}, func(s string, usage backend.TokenUsage) bool {
 			result += s
 			// Try incremental XML parsing for streaming support using iterative parser
 			// This allows emitting partial tool calls as they're being generated
@@ -250,13 +251,25 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 		if err != nil {
 			return err
 		}
-		// Prepend thinking token if needed, then extract reasoning before processing tool calls
-		reasoning, result := reason.ExtractReasoningWithConfig(result, thinkingStartToken, config.ReasoningConfig)
+		// Try using pre-parsed tool calls from C++ autoparser (chat deltas)
+		var functionResults []functions.FuncCallResults
+		var reasoning string
 
-		textContentToReturn = functions.ParseTextContent(result, config.FunctionsConfig)
-		result = functions.CleanupLLMResult(result, config.FunctionsConfig)
-		functionResults := functions.ParseFunctionCall(result, config.FunctionsConfig)
-		xlog.Debug("Text content to return", "text", textContentToReturn)
+		if deltaToolCalls := functions.ToolCallsFromChatDeltas(chatDeltas); len(deltaToolCalls) > 0 {
+			xlog.Debug("[ChatDeltas] Using pre-parsed tool calls from C++ autoparser", "count", len(deltaToolCalls))
+			functionResults = deltaToolCalls
+			// Use content/reasoning from deltas too
+			textContentToReturn = functions.ContentFromChatDeltas(chatDeltas)
+			reasoning = functions.ReasoningFromChatDeltas(chatDeltas)
+		} else {
+			// Fallback: parse tool calls from raw text (no chat deltas from backend)
+			xlog.Debug("[ChatDeltas] no pre-parsed tool calls, falling back to Go-side text parsing")
+			reasoning, result = reason.ExtractReasoningWithConfig(result, thinkingStartToken, config.ReasoningConfig)
+			textContentToReturn = functions.ParseTextContent(result, config.FunctionsConfig)
+			result = functions.CleanupLLMResult(result, config.FunctionsConfig)
+			functionResults = functions.ParseFunctionCall(result, config.FunctionsConfig)
+		}
+		xlog.Debug("[ChatDeltas] final tool call decision", "tool_calls", len(functionResults), "text_content", textContentToReturn)
 		noActionToRun := len(functionResults) > 0 && functionResults[0].Name == noAction || len(functionResults) == 0
 
 		switch {
@@ -308,6 +321,10 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 		default:
 			for i, ss := range functionResults {
 				name, args := ss.Name, ss.Arguments
+				toolCallID := ss.ID
+				if toolCallID == "" {
+					toolCallID = id
+				}
 
 				initialMessage := schema.OpenAIResponse{
 					ID:      id,
@@ -319,7 +336,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 							ToolCalls: []schema.ToolCall{
 								{
 									Index: i,
-									ID:    id,
+									ID:    toolCallID,
 									Type:  "function",
 									FunctionCall: schema.FunctionCall{
 										Name: name,
@@ -345,7 +362,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 							ToolCalls: []schema.ToolCall{
 								{
 									Index: i,
-									ID:    id,
+									ID:    toolCallID,
 									Type:  "function",
 									FunctionCall: schema.FunctionCall{
 										Arguments: args,
@@ -714,13 +731,17 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 
 					for _, ss := range results {
 						name, args := ss.Name, ss.Arguments
+						toolCallID := ss.ID
+						if toolCallID == "" {
+							toolCallID = id
+						}
 						if len(input.Tools) > 0 {
 							// If we are using tools, we condense the function calls into
 							// a single response choice with all the tools
 							toolChoice.Message.Content = textContentToReturn
 							toolChoice.Message.ToolCalls = append(toolChoice.Message.ToolCalls,
 								schema.ToolCall{
-									ID:   id,
+									ID:   toolCallID,
 									Type: "function",
 									FunctionCall: schema.FunctionCall{
 										Name:      name,
@@ -765,9 +786,10 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 			var tokenUsage backend.TokenUsage
 			var err error
 
+			var chatDeltas []*pb.ChatDelta
 			for attempt := 0; attempt <= maxEmptyRetries; attempt++ {
 				emptyRetryNeeded = false
-				result, tokenUsage, err = ComputeChoices(
+				result, tokenUsage, chatDeltas, err = ComputeChoices(
 					input,
 					predInput,
 					config,
@@ -796,6 +818,66 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 					Message:      &schema.Message{Role: "assistant", Content: &empty},
 				})
 			}
+
+			// Override result with pre-parsed tool calls from C++ autoparser if available
+			if deltaToolCalls := functions.ToolCallsFromChatDeltas(chatDeltas); len(deltaToolCalls) > 0 {
+				xlog.Debug("[ChatDeltas] non-SSE: overriding text-parsed result with C++ autoparser tool calls", "count", len(deltaToolCalls))
+				result = nil // clear text-parsed choices
+				deltaContent := functions.ContentFromChatDeltas(chatDeltas)
+				deltaReasoning := functions.ReasoningFromChatDeltas(chatDeltas)
+
+				if len(input.Tools) > 0 {
+					toolCallsReason := FinishReasonToolCalls
+					msg := &schema.Message{Role: "assistant"}
+					if deltaContent != "" {
+						msg.Content = &deltaContent
+					}
+					if deltaReasoning != "" {
+						msg.Reasoning = &deltaReasoning
+					}
+					for i, tc := range deltaToolCalls {
+						toolCallID := tc.ID
+						if toolCallID == "" {
+							toolCallID = id
+						}
+						msg.ToolCalls = append(msg.ToolCalls, schema.ToolCall{
+							Index: i,
+							ID:    toolCallID,
+							Type:  "function",
+							FunctionCall: schema.FunctionCall{
+								Name:      tc.Name,
+								Arguments: tc.Arguments,
+							},
+						})
+					}
+					result = append(result, schema.Choice{
+						FinishReason: &toolCallsReason,
+						Index:        0,
+						Message:      msg,
+					})
+				} else {
+					// Deprecated function_call format
+					for _, tc := range deltaToolCalls {
+						functionCallReason := FinishReasonFunctionCall
+						msg := &schema.Message{
+							Role:    "assistant",
+							Content: &deltaContent,
+							FunctionCall: map[string]any{
+								"name":      tc.Name,
+								"arguments": tc.Arguments,
+							},
+						}
+						if deltaReasoning != "" {
+							msg.Reasoning = &deltaReasoning
+						}
+						result = append(result, schema.Choice{
+							FinishReason: &functionCallReason,
+							Message:      msg,
+						})
+					}
+				}
+			}
+
 			usage := schema.OpenAIUsage{
 				PromptTokens:     tokenUsage.Prompt,
 				CompletionTokens: tokenUsage.Completion,

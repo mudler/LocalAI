@@ -165,6 +165,22 @@ message PredictOptions {
   map<string, string> Metadata = 52;  // Generic per-request metadata (e.g., enable_thinking)
 }
 
+// ToolCallDelta represents an incremental tool call update from the C++ parser.
+// Used for both streaming (partial diffs) and non-streaming (final tool calls).
+message ToolCallDelta {
+  int32 index = 1;           // tool call index (0-based)
+  string id = 2;             // tool call ID (e.g., "call_abc123")
+  string name = 3;           // function name (set on first appearance)
+  string arguments = 4;      // arguments chunk (incremental in streaming, full in non-streaming)
+}
+
+// ChatDelta represents incremental content/reasoning/tool_call updates parsed by the C++ backend.
+message ChatDelta {
+  string content = 1;                       // content text delta
+  string reasoning_content = 2;             // reasoning/thinking text delta
+  repeated ToolCallDelta tool_calls = 3;    // tool call deltas
+}
+
 // The response message containing the result
 message Reply {
   bytes message = 1;
@@ -174,6 +190,7 @@ message Reply {
   double timing_token_generation = 5;
   bytes audio = 6;
   bytes logprobs = 7;  // JSON-encoded logprobs data matching OpenAI format
+  repeated ChatDelta chat_deltas = 8;       // Parsed chat deltas from C++ autoparser (streaming + non-streaming)
 }
 
 message GrammarTrigger {

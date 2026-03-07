@@ -867,6 +867,56 @@ public:
         return logprobs_json;
     }
 
+    // Helper: populate chat_deltas on a Reply from oaicompat_msg_diffs (streaming chunks)
+    static void populate_chat_deltas_from_diffs(backend::Reply & reply,
+                                                const std::vector<common_chat_msg_diff> & diffs) {
+        for (const auto & diff : diffs) {
+            auto* delta = reply.add_chat_deltas();
+            if (!diff.content_delta.empty()) {
+                delta->set_content(diff.content_delta);
+            }
+            if (!diff.reasoning_content_delta.empty()) {
+                delta->set_reasoning_content(diff.reasoning_content_delta);
+            }
+            if (diff.tool_call_index != std::string::npos) {
+                auto* tc = delta->add_tool_calls();
+                tc->set_index(static_cast<int32_t>(diff.tool_call_index));
+                if (!diff.tool_call_delta.id.empty()) {
+                    tc->set_id(diff.tool_call_delta.id);
+                }
+                if (!diff.tool_call_delta.name.empty()) {
+                    tc->set_name(diff.tool_call_delta.name);
+                }
+                if (!diff.tool_call_delta.arguments.empty()) {
+                    tc->set_arguments(diff.tool_call_delta.arguments);
+                }
+            }
+        }
+    }
+
+    // Helper: populate chat_deltas on a Reply from final oaicompat_msg (non-streaming)
+    static void populate_chat_deltas_from_final(backend::Reply & reply,
+                                                const common_chat_msg & msg) {
+        // Content delta
+        if (!msg.content.empty() || !msg.reasoning_content.empty() || !msg.tool_calls.empty()) {
+            auto* delta = reply.add_chat_deltas();
+            if (!msg.content.empty()) {
+                delta->set_content(msg.content);
+            }
+            if (!msg.reasoning_content.empty()) {
+                delta->set_reasoning_content(msg.reasoning_content);
+            }
+            // Tool calls as individual deltas within the same ChatDelta
+            for (size_t i = 0; i < msg.tool_calls.size(); i++) {
+                auto* tc = delta->add_tool_calls();
+                tc->set_index(static_cast<int32_t>(i));
+                tc->set_id(msg.tool_calls[i].id);
+                tc->set_name(msg.tool_calls[i].name);
+                tc->set_arguments(msg.tool_calls[i].arguments);
+            }
+        }
+    }
+
     grpc::Status PredictStream(grpc::ServerContext* context, const backend::PredictOptions* request, grpc::ServerWriter<backend::Reply>* writer) override {
         if (params_base.model.path.empty()) {
             return grpc::Status(grpc::StatusCode::FAILED_PRECONDITION, "Model not loaded");
@@ -1485,127 +1535,76 @@ public:
             return grpc::Status(grpc::StatusCode::INTERNAL, error_json.value("message", "Error occurred"));
         }
 
+        // Lambda to build a Reply from JSON + attach chat deltas from a result
+        auto build_reply_from_json = [](const json & res_json, server_task_result * raw_result) -> backend::Reply {
+            backend::Reply reply;
+            std::string completion_text = res_json.value("content", "");
+            reply.set_message(completion_text);
+            reply.set_tokens(res_json.value("tokens_predicted", 0));
+            reply.set_prompt_tokens(res_json.value("tokens_evaluated", 0));
+
+            if (res_json.contains("timings")) {
+                reply.set_timing_prompt_processing(res_json.at("timings").value("prompt_ms", 0.0));
+                reply.set_timing_token_generation(res_json.at("timings").value("predicted_ms", 0.0));
+            }
+
+            json logprobs_json = extract_logprobs_from_json(res_json);
+            if (!logprobs_json.empty() && !logprobs_json.is_null()) {
+                reply.set_logprobs(logprobs_json.dump());
+            }
+
+            return reply;
+        };
+
+        auto attach_chat_deltas = [](backend::Reply & reply, server_task_result * raw_result) {
+            // Try streaming partial result first
+            auto* partial = dynamic_cast<server_task_result_cmpl_partial*>(raw_result);
+            if (partial && !partial->oaicompat_msg_diffs.empty()) {
+                populate_chat_deltas_from_diffs(reply, partial->oaicompat_msg_diffs);
+                return;
+            }
+            // Try final result
+            auto* final_res = dynamic_cast<server_task_result_cmpl_final*>(raw_result);
+            if (final_res && final_res->is_updated) {
+                populate_chat_deltas_from_diffs(reply, final_res->oaicompat_msg_diffs);
+            }
+        };
+
         // Process first result
         json first_res_json = first_result->to_json();
         if (first_res_json.is_array()) {
             for (const auto & res : first_res_json) {
-                std::string completion_text = res.value("content", "");
-
-                backend::Reply reply;
-                reply.set_message(completion_text);
-                int32_t tokens_predicted = res.value("tokens_predicted", 0);
-                reply.set_tokens(tokens_predicted);
-                int32_t tokens_evaluated = res.value("tokens_evaluated", 0);
-                reply.set_prompt_tokens(tokens_evaluated);
-
-                if (res.contains("timings")) {
-                    double timing_prompt_processing = res.at("timings").value("prompt_ms", 0.0);
-                    reply.set_timing_prompt_processing(timing_prompt_processing);
-                    double timing_token_generation = res.at("timings").value("predicted_ms", 0.0);
-                    reply.set_timing_token_generation(timing_token_generation);
-                }
-
-                // Extract and set logprobs if present
-                json logprobs_json = extract_logprobs_from_json(res);
-                if (!logprobs_json.empty() && !logprobs_json.is_null()) {
-                    std::string logprobs_str = logprobs_json.dump();
-                    reply.set_logprobs(logprobs_str);
-                }
-
+                auto reply = build_reply_from_json(res, first_result.get());
+                attach_chat_deltas(reply, first_result.get());
                 writer->Write(reply);
             }
         } else {
-            std::string completion_text = first_res_json.value("content", "");
-
-            backend::Reply reply;
-            reply.set_message(completion_text);
-            int32_t tokens_predicted = first_res_json.value("tokens_predicted", 0);
-            reply.set_tokens(tokens_predicted);
-            int32_t tokens_evaluated = first_res_json.value("tokens_evaluated", 0);
-            reply.set_prompt_tokens(tokens_evaluated);
-
-            if (first_res_json.contains("timings")) {
-                double timing_prompt_processing = first_res_json.at("timings").value("prompt_ms", 0.0);
-                reply.set_timing_prompt_processing(timing_prompt_processing);
-                double timing_token_generation = first_res_json.at("timings").value("predicted_ms", 0.0);
-                reply.set_timing_token_generation(timing_token_generation);
-            }
-
-            // Extract and set logprobs if present
-            json logprobs_json = extract_logprobs_from_json(first_res_json);
-            if (!logprobs_json.empty() && !logprobs_json.is_null()) {
-                std::string logprobs_str = logprobs_json.dump();
-                reply.set_logprobs(logprobs_str);
-            }
-
+            auto reply = build_reply_from_json(first_res_json, first_result.get());
+            attach_chat_deltas(reply, first_result.get());
             writer->Write(reply);
         }
 
         // Process subsequent results
         while (rd.has_next()) {
-            // Check if context is cancelled before processing result
             if (context->IsCancelled()) {
                 break;
             }
 
             auto result = rd.next([&context]() { return context->IsCancelled(); });
             if (result == nullptr) {
-                // connection is closed
                 break;
             }
 
             json res_json = result->to_json();
             if (res_json.is_array()) {
                 for (const auto & res : res_json) {
-                    std::string completion_text = res.value("content", "");
-
-                    backend::Reply reply;
-                    reply.set_message(completion_text);
-                    int32_t tokens_predicted = res.value("tokens_predicted", 0);
-                    reply.set_tokens(tokens_predicted);
-                    int32_t tokens_evaluated = res.value("tokens_evaluated", 0);
-                    reply.set_prompt_tokens(tokens_evaluated);
-
-                    if (res.contains("timings")) {
-                        double timing_prompt_processing = res.at("timings").value("prompt_ms", 0.0);
-                        reply.set_timing_prompt_processing(timing_prompt_processing);
-                        double timing_token_generation = res.at("timings").value("predicted_ms", 0.0);
-                        reply.set_timing_token_generation(timing_token_generation);
-                    }
-
-                    // Extract and set logprobs if present
-                    json logprobs_json = extract_logprobs_from_json(res);
-                    if (!logprobs_json.empty() && !logprobs_json.is_null()) {
-                        std::string logprobs_str = logprobs_json.dump();
-                        reply.set_logprobs(logprobs_str);
-                    }
-
+                    auto reply = build_reply_from_json(res, result.get());
+                    attach_chat_deltas(reply, result.get());
                     writer->Write(reply);
                 }
             } else {
-                std::string completion_text = res_json.value("content", "");
-
-                backend::Reply reply;
-                reply.set_message(completion_text);
-                int32_t tokens_predicted = res_json.value("tokens_predicted", 0);
-                reply.set_tokens(tokens_predicted);
-                int32_t tokens_evaluated = res_json.value("tokens_evaluated", 0);
-                reply.set_prompt_tokens(tokens_evaluated);
-
-                if (res_json.contains("timings")) {
-                    double timing_prompt_processing = res_json.at("timings").value("prompt_ms", 0.0);
-                    reply.set_timing_prompt_processing(timing_prompt_processing);
-                    double timing_token_generation = res_json.at("timings").value("predicted_ms", 0.0);
-                    reply.set_timing_token_generation(timing_token_generation);
-                }
-
-                // Extract and set logprobs if present
-                json logprobs_json = extract_logprobs_from_json(res_json);
-                if (!logprobs_json.empty() && !logprobs_json.is_null()) {
-                    std::string logprobs_str = logprobs_json.dump();
-                    reply.set_logprobs(logprobs_str);
-                }
-
+                auto reply = build_reply_from_json(res_json, result.get());
+                attach_chat_deltas(reply, result.get());
                 writer->Write(reply);
             }
         }
@@ -2265,7 +2264,8 @@ public:
             std::cout << "[DEBUG] Received " << all_results.results.size() << " results" << std::endl;
             if (all_results.results.size() == 1) {
                 // single result
-                GGML_ASSERT(dynamic_cast<server_task_result_cmpl_final*>(all_results.results[0].get()) != nullptr);
+                auto* final_res = dynamic_cast<server_task_result_cmpl_final*>(all_results.results[0].get());
+                GGML_ASSERT(final_res != nullptr);
                 json result_json = all_results.results[0]->to_json();
                 reply->set_message(result_json.value("content", ""));
 
@@ -2286,6 +2286,11 @@ public:
                 if (!logprobs_json.empty() && !logprobs_json.is_null()) {
                     std::string logprobs_str = logprobs_json.dump();
                     reply->set_logprobs(logprobs_str);
+                }
+
+                // Populate chat deltas from the autoparser's final parsed message
+                if (final_res->is_updated) {
+                    populate_chat_deltas_from_final(*reply, final_res->oaicompat_msg);
                 }
 
             } else {
