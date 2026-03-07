@@ -39,7 +39,6 @@ const char* sample_method_str[] = {
     "ipndm",
     "ipndm_v",
     "lcm",
-    "bong_tangent",
     "ddim_trailing",
     "tcd",
     "res_multistep",
