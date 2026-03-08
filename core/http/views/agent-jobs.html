@@ -313,6 +313,7 @@
                             <th class="text-left py-3 px-4 text-[var(--color-text-secondary)]">Job ID</th>
                             <th class="text-left py-3 px-4 text-[var(--color-text-secondary)]">Task</th>
                             <th class="text-left py-3 px-4 text-[var(--color-text-secondary)]">Status</th>
+                            <th class="text-left py-3 px-4 text-[var(--color-text-secondary)]">Events</th>
                             <th class="text-left py-3 px-4 text-[var(--color-text-secondary)]">Created</th>
                             <th class="text-left py-3 px-4 text-[var(--color-text-secondary)]">Actions</th>
                         </tr>
@@ -343,10 +344,16 @@
                                     class="px-2 py-1 rounded text-xs text-white" 
                                     x-text="job.status"></span>
                                 </td>
+                                <td class="py-3 px-4">
+                                    <a :href="'/agent-jobs/jobs/' + job.id"
+                                       class="text-[var(--color-primary)] hover:text-[var(--color-primary)]/80 hover:underline"
+                                       title="View execution traces"
+                                       x-text="(job.traces && job.traces.length) || 0"></a>
+                                </td>
                                 <td class="py-3 px-4 text-[var(--color-text-secondary)] text-sm" x-text="formatDate(job.created_at)"></td>
                                 <td class="py-3 px-4">
-                                    <button x-show="job.status === 'pending' || job.status === 'running'" 
-                                            @click="cancelJob(job.id)" 
+                                    <button x-show="job.status === 'pending' || job.status === 'running'"
+                                            @click="cancelJob(job.id)"
                                             class="text-red-400 hover:text-red-300">
                                         <i class="fas fa-stop"></i>
                                     </button>
@@ -354,7 +361,7 @@
                             </tr>
                         </template>
                         <tr x-show="jobs.length === 0">
-                            <td colspan="5" class="py-8 text-center text-[var(--color-text-secondary)]">No jobs found</td>
+                            <td colspan="6" class="py-8 text-center text-[var(--color-text-secondary)]">No jobs found</td>
                         </tr>
                     </tbody>
                 </table>
