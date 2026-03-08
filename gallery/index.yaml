@@ -1,4 +1,37 @@
 ---
+- name: "gpt-oss-cybersecurity-20b-merged-gabliterated"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/GPT-OSS-Cybersecurity-20B-Merged-gabliterated-GGUF
+  description: |
+    Describe the model in a clear and concise way that can be shared in a model gallery.
+  license: "none"
+  tags:
+    - llm
+    - gffuf
+    - text-to-text
+    - security
+    - instruction-tuned
+    - 20b
+  overrides:
+    parameters:
+      model: llama-cpp/models/GPT-OSS-Cybersecurity-20B-Merged-gabliterated.Q4_K_M.gguf
+    name: GPT-OSS-Cybersecurity-20B-Merged-gabliterated-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/GPT-OSS-Cybersecurity-20B-Merged-gabliterated-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/GPT-OSS-Cybersecurity-20B-Merged-gabliterated.Q4_K_M.gguf
+      sha256: c4b5d5ec84ca0342639b70e9ba27c0fdbc971242b41e9c3c69f46c16972fae06
+      uri: https://huggingface.co/mradermacher/GPT-OSS-Cybersecurity-20B-Merged-gabliterated-GGUF/resolve/main/GPT-OSS-Cybersecurity-20B-Merged-gabliterated.Q4_K_M.gguf
 - name: "qwen3.5-27b-claude-4.6-opus-reasoning-distilled-i1"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
