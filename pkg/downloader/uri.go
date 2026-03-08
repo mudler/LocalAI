@@ -42,7 +42,29 @@ type URI string
 // HF_ENDPOINT is the HuggingFace endpoint, can be overridden by setting the HF_ENDPOINT environment variable.
 var HF_ENDPOINT string = loadConfig()
 
+// loadConfig returns the HuggingFace endpoint URL.
+// It supports the following environment variables in order of precedence:
+// 1. HF_MIRROR - if set, uses this as the mirror URL (takes precedence over HF_ENDPOINT)
+// 2. HF_ENDPOINT - if set, uses this as the endpoint
+// 3. Default: https://huggingface.co
+//
+// HF_MIRROR supports both full URLs (https://hf-mirror.com) and simple hostnames (hf-mirror.com).
+// If no scheme is provided, https:// is automatically added.
 func loadConfig() string {
+	// Check for HF_MIRROR first (takes precedence)
+	HF_MIRROR := os.Getenv("HF_MIRROR")
+	if HF_MIRROR == "" {
+		HF_MIRROR = os.Getenv("HF")
+	}
+	if HF_MIRROR != "" {
+		// Normalize the mirror URL - add https:// if no scheme
+		if !strings.HasPrefix(HF_MIRROR, "http://") && !strings.HasPrefix(HF_MIRROR, "https://") {
+			HF_MIRROR = "https://" + HF_MIRROR
+		}
+		return HF_MIRROR
+	}
+
+	// Fall back to HF_ENDPOINT
 	HF_ENDPOINT := os.Getenv("HF_ENDPOINT")
 	if HF_ENDPOINT == "" {
 		HF_ENDPOINT = "https://huggingface.co"
