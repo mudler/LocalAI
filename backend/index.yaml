@@ -697,6 +697,25 @@
     - LLM
     - huggingface
   license: MIT
+- &avian
+  name: "avian"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-avian"
+  mirrors:
+    - localai/localai-backends:latest-avian
+  icon: https://avian.io/assets/avian-logo.svg
+  urls:
+    - https://avian.io
+    - https://api.avian.io/v1
+  description: |
+    Avian is a cloud LLM inference provider with an OpenAI-compatible API.
+    Supports models like DeepSeek-V3.2, Kimi-K2.5, GLM-5, and MiniMax-M2.5.
+    Requires AVIAN_API_KEY environment variable.
+  tags:
+    - LLM
+    - cloud
+    - API
+    - avian
+  license: proprietary
 - &kitten-tts
   name: "kitten-tts"
   uri: "quay.io/go-skynet/local-ai-backends:latest-kitten-tts"
@@ -2703,3 +2722,24 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-voxtral"
   mirrors:
     - localai/localai-backends:master-metal-darwin-arm64-voxtral
+## avian
+- !!merge <<: *avian
+  name: "cpu-avian"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-avian"
+  mirrors:
+    - localai/localai-backends:latest-cpu-avian
+- !!merge <<: *avian
+  name: "cpu-avian-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-cpu-avian"
+  mirrors:
+    - localai/localai-backends:master-cpu-avian
+- !!merge <<: *avian
+  name: "metal-avian"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-metal-darwin-arm64-avian"
+  mirrors:
+    - localai/localai-backends:latest-metal-darwin-arm64-avian
+- !!merge <<: *avian
+  name: "metal-avian-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-avian"
+  mirrors:
+    - localai/localai-backends:master-metal-darwin-arm64-avian
