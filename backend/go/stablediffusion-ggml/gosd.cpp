@@ -41,6 +41,8 @@ const char* sample_method_str[] = {
     "lcm",
     "ddim_trailing",
     "tcd",
+    "res_multistep",
+    "res_2s",
 };
 
 static_assert(std::size(sample_method_str) == SAMPLE_METHOD_COUNT, "sample method mismatch");
@@ -57,6 +59,7 @@ const char* schedulers[] = {
     "smoothstep",
     "kl_optimal",
     "lcm",
+    "bong_tangent",
 };
 
 static_assert(std::size(schedulers) == SCHEDULER_COUNT, "schedulers mismatch");
@@ -118,10 +121,10 @@ constexpr const char* sd_type_str[] = {
     "f64",      // 28
     "iq1_m",    // 29
     "bf16",     // 30
-    nullptr, nullptr, nullptr, nullptr,  // 31-34
-    "tq1_0",    // 35
-    "tq2_0",    // 36
-    nullptr, nullptr,           // 37-38
+    nullptr, nullptr, nullptr,  // 31-33
+    "tq1_0",    // 34
+    "tq2_0",    // 35
+    nullptr, nullptr, nullptr,  // 36-38
     "mxfp4"     // 39
 };
 static_assert(std::size(sd_type_str) == SD_TYPE_COUNT, "sd type mismatch");
@@ -131,6 +134,7 @@ sd_ctx_t* sd_c;
 // Moved from the context (load time) to generation time params
 scheduler_t scheduler = SCHEDULER_COUNT;
 sample_method_t sample_method = SAMPLE_METHOD_COUNT;
+float flow_shift = INFINITY;
 
 // Storage for embeddings (needs to persist for the lifetime of ctx_params)
 static std::vector<sd_embedding_t> embedding_vec;
@@ -501,8 +505,6 @@ int load_model(const char *model, char *model_path, char* options[], int threads
     bool chroma_use_dit_mask = true;
     bool chroma_use_t5_mask = false;
     int chroma_t5_mask_pad = 1;
-    float flow_shift = INFINITY;
-
     fprintf(stderr, "parsing options: %p\n", options);
 
     // If options is not NULL, parse options
@@ -723,7 +725,6 @@ int load_model(const char *model, char *model_path, char* options[], int threads
     ctx_params.chroma_use_dit_mask = chroma_use_dit_mask;
     ctx_params.chroma_use_t5_mask = chroma_use_t5_mask;
     ctx_params.chroma_t5_mask_pad = chroma_t5_mask_pad;
-    ctx_params.flow_shift = flow_shift;
     sd_ctx_t* sd_ctx = new_sd_ctx(&ctx_params);
 
     if (sd_ctx == NULL) {
@@ -872,6 +873,7 @@ int gen_image(sd_img_gen_params_t *p, int steps, char *dst, float cfg_scale, cha
     p->sample_params.sample_method = sample_method;
     p->sample_params.sample_steps = steps;
     p->sample_params.scheduler = scheduler;
+    p->sample_params.flow_shift = flow_shift;
 
     int width = p->width;
     int height = p->height;
@@ -1089,7 +1091,7 @@ int gen_image(sd_img_gen_params_t *p, int steps, char *dst, float cfg_scale, cha
     fprintf (stderr, "Data: %p\n", results[0].data);
 
     int ret = stbi_write_png(dst, results[0].width, results[0].height, results[0].channel,
-                             results[0].data, 0, NULL);
+                             results[0].data, 0);
     if (ret)
       fprintf (stderr, "Saved resulting image to '%s'\n", dst);
     else

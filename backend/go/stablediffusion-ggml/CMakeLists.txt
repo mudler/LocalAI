@@ -12,8 +12,8 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_LE
 endif()
 
 target_include_directories(gosd PUBLIC
-    stable-diffusion.cpp
-    stable-diffusion.cpp/thirdparty
+    sources/stablediffusion-ggml.cpp/include
+    sources/stablediffusion-ggml.cpp/thirdparty
 )
 
 set_property(TARGET gosd PROPERTY CXX_STANDARD 17)
