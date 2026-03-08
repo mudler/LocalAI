@@ -44,7 +44,7 @@ After installation, you can:
 
 ## Next Steps
 
-- [Try it out with examples](/basics/try/)
-- [Learn about available models](/models/)
+- [Try it out with examples](/getting-started/try-it-out/)
+- [Learn about available models](/features/model-gallery/)
 - [Configure GPU acceleration](/features/gpu-acceleration/)
 - [Customize your configuration](/advanced/model-configuration/)

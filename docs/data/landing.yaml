@@ -69,7 +69,7 @@ featureGrid:
       description: LocalAI is a free, **Open Source** OpenAI alternative. Run **LLMs**, generate **images**, **audio** and more **locally** with consumer grade hardware.
       ctaLink:
         text: learn more
-        url: /basics/getting_started/
+        url: /getting-started/
     - title: Agentic-first
       icon: smart_toy
       description: |
@@ -92,14 +92,14 @@ featureGrid:
       description: Drop-in replacement for OpenAI API. Compatible with existing applications and libraries.
       ctaLink:
         text: learn more
-        url: /basics/getting_started/
+        url: /getting-started/
 
     - title: No GPU Required
       icon: memory
       description: Run on consumer grade hardware. No need for expensive GPUs or cloud services.
       ctaLink:
         text: learn more
-        url: /basics/getting_started/
+        url: /getting-started/
 
     - title: Multiple Models
       icon: hub
@@ -116,14 +116,14 @@ featureGrid:
       description: Keep your data local. No data leaves your machine, ensuring complete privacy.
       ctaLink:
         text: learn more
-        url: /basics/container/
+        url: /installation/docker/
 
     - title: Easy Setup
       icon: settings
       description: Simple installation and configuration. Get started in minutes with Binaries installation, Docker, Podman, Kubernetes or local installation.
       ctaLink:
         text: learn more
-        url: /basics/getting_started/
+        url: /getting-started/
 
     - title: Community Driven
       icon: groups
@@ -149,7 +149,7 @@ featureGrid:
         It works both in federated mode or by splitting models weights.
       ctaLink:
         text: learn more
-        url: /features/distribute/
+        url: /features/distributed_inferencing/
 
     - title: Open Source
       icon: code
@@ -219,7 +219,7 @@ imageText:
 
   ctaButton:
     text: Learn more
-    url: "/basics/getting_started/"
+    url: "/getting-started/"
 
 # Image compare
 imageCompare:
