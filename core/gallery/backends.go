@@ -4,10 +4,10 @@ package gallery
 
 import (
 	"context"
+	"os"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -25,33 +25,29 @@ const (
 	runFile      = "run.sh"
 )
 
-// Environment variables for configurable fallback URI patterns
+// Default fallback tag values
 const (
-	// Default fallback tag values
 	defaultLatestTag = "latest"
 	defaultMasterTag = "master"
 	defaultDevSuffix = "development"
-
-	// Environment variable names
-	envLatestTag = "LOCALAI_BACKEND_IMAGES_RELEASE_TAG"
-	envMasterTag = "LOCALAI_BACKEND_IMAGES_BRANCH_TAG"
-	envDevSuffix = "LOCALAI_BACKEND_DEV_SUFFIX"
 )
 
-// getFallbackTagValues returns the configurable fallback tag values from environment variables
-func getFallbackTagValues() (latestTag, masterTag, devSuffix string) {
-	latestTag = os.Getenv(envLatestTag)
-	masterTag = os.Getenv(envMasterTag)
-	devSuffix = os.Getenv(envDevSuffix)
-
-	// Use defaults if environment variables are not set
-	if latestTag == "" {
+// getFallbackTagValues returns the configurable fallback tag values from SystemState
+func getFallbackTagValues(systemState *system.SystemState) (latestTag, masterTag, devSuffix string) {
+	// Use SystemState fields if set, otherwise use defaults
+	if systemState.BackendImagesReleaseTag != "" {
+		latestTag = systemState.BackendImagesReleaseTag
+	} else {
 		latestTag = defaultLatestTag
 	}
-	if masterTag == "" {
+	if systemState.BackendImagesBranchTag != "" {
+		masterTag = systemState.BackendImagesBranchTag
+	} else {
 		masterTag = defaultMasterTag
 	}
-	if devSuffix == "" {
+	if systemState.BackendDevSuffix != "" {
+		devSuffix = systemState.BackendDevSuffix
+	} else {
 		devSuffix = defaultDevSuffix
 	}
 
@@ -172,8 +168,8 @@ func InstallBackendFromGallery(ctx context.Context, galleries []config.Gallery, 
 }
 
 func InstallBackend(ctx context.Context, systemState *system.SystemState, modelLoader *model.ModelLoader, config *GalleryBackend, downloadStatus func(string, string, string, float64)) error {
-	// Get configurable fallback tag values from environment variables
-	latestTag, masterTag, devSuffix := getFallbackTagValues()
+	// Get configurable fallback tag values from SystemState
+	latestTag, masterTag, devSuffix := getFallbackTagValues(systemState)
 
 	// Create base path if it doesn't exist
 	err := os.MkdirAll(systemState.Backend.BackendsPath, 0750)
@@ -225,7 +221,7 @@ func InstallBackend(ctx context.Context, systemState *system.SystemState, modelL
 			}
 
 			// Try fallback: replace latestTag + "-" with masterTag + "-" in the URI
-			fallbackURI := strings.Replace(string(config.URI), latestTag + "-", masterTag + "-", 1)
+			fallbackURI := strings.Replace(string(config.URI), latestTag+"-", masterTag+"-", 1)
 			if fallbackURI != string(config.URI) {
 				xlog.Debug("Trying fallback URI", "original", config.URI, "fallback", fallbackURI)
 				if err := downloader.URI(fallbackURI).DownloadFileWithContext(ctx, backendPath, "", 1, 1, downloadStatus); err == nil {
@@ -234,7 +230,7 @@ func InstallBackend(ctx context.Context, systemState *system.SystemState, modelL
 				} else {
 					// Try another fallback: add "-" + devSuffix suffix to the backend name
 					// For example: master-gpu-nvidia-cuda-13-ace-step -> master-gpu-nvidia-cuda-13-ace-step-development
-					if !strings.Contains(fallbackURI, "-" + devSuffix) {
+					if !strings.Contains(fallbackURI, "-"+devSuffix) {
 						// Extract backend name from URI and add -development
 						parts := strings.Split(fallbackURI, "-")
 						if len(parts) >= 2 {
@@ -441,7 +437,7 @@ func ListSystemBackends(systemState *system.SystemState) (SystemBackends, error)
 
 		metaMap[dir] = metadata
 
-		// Concrete backend entry
+		// Concrete-backend entry
 		if _, err := os.Stat(run); err == nil {
 			backends[dir] = SystemBackend{
 				Name:     dir,
