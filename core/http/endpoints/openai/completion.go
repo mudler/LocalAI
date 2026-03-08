@@ -57,7 +57,7 @@ func CompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eva
 			responses <- resp
 			return true
 		}
-		_, _, err := ComputeChoices(req, s, config, cl, appConfig, loader, func(s string, c *[]schema.Choice) {}, tokenCallback)
+		_, _, _, err := ComputeChoices(req, s, config, cl, appConfig, loader, func(s string, c *[]schema.Choice) {}, tokenCallback)
 		close(responses)
 		return err
 	}
@@ -216,7 +216,7 @@ func CompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eva
 				xlog.Debug("Template found, input modified", "input", i)
 			}
 
-			r, tokenUsage, err := ComputeChoices(
+			r, tokenUsage, _, err := ComputeChoices(
 				input, i, config, cl, appConfig, ml, func(s string, c *[]schema.Choice) {
 					stopReason := FinishReasonStop
 					*c = append(*c, schema.Choice{Text: s, FinishReason: &stopReason, Index: k})

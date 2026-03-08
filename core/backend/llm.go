@@ -28,6 +28,7 @@ type LLMResponse struct {
 	Usage       TokenUsage
 	AudioOutput string
 	Logprobs    *schema.Logprobs // Logprobs from the backend response
+	ChatDeltas  []*proto.ChatDelta // Pre-parsed tool calls/content from C++ autoparser
 }
 
 type TokenUsage struct {
@@ -142,6 +143,7 @@ func ModelInference(ctx context.Context, s string, messages schema.Messages, ima
 
 			ss := ""
 			var logprobs *schema.Logprobs
+			var allChatDeltas []*proto.ChatDelta
 
 			var partialRune []byte
 			err := inferenceModel.PredictStream(ctx, opts, func(reply *proto.Reply) {
@@ -152,6 +154,11 @@ func ModelInference(ctx context.Context, s string, messages schema.Messages, ima
 				tokenUsage.Completion = int(reply.Tokens)
 				tokenUsage.TimingTokenGeneration = reply.TimingTokenGeneration
 				tokenUsage.TimingPromptProcessing = reply.TimingPromptProcessing
+
+				// Collect chat deltas from C++ autoparser
+				if len(reply.ChatDeltas) > 0 {
+					allChatDeltas = append(allChatDeltas, reply.ChatDeltas...)
+				}
 
 				// Parse logprobs from reply if present (collect from last chunk that has them)
 				if len(reply.Logprobs) > 0 {
@@ -183,10 +190,14 @@ func ModelInference(ctx context.Context, s string, messages schema.Messages, ima
 					tokenCallback("", tokenUsage)
 				}
 			})
+			if len(allChatDeltas) > 0 {
+				xlog.Debug("[ChatDeltas] streaming completed, accumulated deltas from C++ autoparser", "total_deltas", len(allChatDeltas))
+			}
 			return LLMResponse{
-				Response: ss,
-				Usage:    tokenUsage,
-				Logprobs: logprobs,
+				Response:   ss,
+				Usage:      tokenUsage,
+				Logprobs:   logprobs,
+				ChatDeltas: allChatDeltas,
 			}, err
 		} else {
 			// TODO: Is the chicken bit the only way to get here? is that acceptable?
@@ -218,10 +229,14 @@ func ModelInference(ctx context.Context, s string, messages schema.Messages, ima
 				}
 			}
 
+			if len(reply.ChatDeltas) > 0 {
+				xlog.Debug("[ChatDeltas] non-streaming Predict received deltas from C++ autoparser", "total_deltas", len(reply.ChatDeltas))
+			}
 			return LLMResponse{
-				Response: response,
-				Usage:    tokenUsage,
-				Logprobs: logprobs,
+				Response:   response,
+				Usage:      tokenUsage,
+				Logprobs:   logprobs,
+				ChatDeltas: reply.ChatDeltas,
 			}, err
 		}
 	}

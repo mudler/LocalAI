@@ -141,8 +141,15 @@ func handleAnthropicNonStream(c echo.Context, id string, input *schema.Anthropic
 		xlog.Warn("Anthropic: retrying prediction due to empty backend response", "attempt", attempt+1, "maxRetries", maxEmptyRetries)
 	}
 	
-	// Check if the result contains tool calls
-	toolCalls := functions.ParseFunctionCall(result, cfg.FunctionsConfig)
+	// Try pre-parsed tool calls from C++ autoparser first, fall back to text parsing
+	var toolCalls []functions.FuncCallResults
+	if deltaToolCalls := functions.ToolCallsFromChatDeltas(prediction.ChatDeltas); len(deltaToolCalls) > 0 {
+		xlog.Debug("[ChatDeltas] Anthropic: using pre-parsed tool calls", "count", len(deltaToolCalls))
+		toolCalls = deltaToolCalls
+	} else {
+		xlog.Debug("[ChatDeltas] Anthropic: no pre-parsed tool calls, falling back to Go-side text parsing")
+		toolCalls = functions.ParseFunctionCall(result, cfg.FunctionsConfig)
+	}
 	
 	var contentBlocks []schema.AnthropicContentBlock
 	var stopReason string
