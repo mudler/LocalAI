@@ -69,7 +69,6 @@ uname -m
 **Solution:** See [GitHub issue #6268](https://github.com/mudler/LocalAI/issues/6268) for quarantine bypass instructions. This is tracked for resolution in [issue #6244](https://github.com/mudler/LocalAI/issues/6244).
 
 
-**Symptoms:** LocalAI crashes immediately with a SIGILL signal.
 
 **Cause:** Your CPU does not support certain instruction sets (AVX2, AVX512, F16C, FMA) that were enabled at compile time.
 
