@@ -16,10 +16,25 @@ export default function Agents() {
       const names = Array.isArray(data.agents) ? data.agents : []
       const statuses = data.statuses || {}
       if (data.agent_hub_url) setAgentHubURL(data.agent_hub_url)
-      setAgents(names.map(name => ({
-        name,
-        status: statuses[name] ? 'active' : 'paused',
-      })))
+      
+      // Fetch observable counts for each agent
+      const agentsWithCounts = await Promise.all(
+        names.map(async (name) => {
+          let eventsCount = 0
+          try {
+            const observables = await agentsApi.observables(name)
+            eventsCount = observables?.History?.length || 0
+          } catch (_err) {
+            eventsCount = 0
+          }
+          return {
+            name,
+            status: statuses[name] ? 'active' : 'paused',
+            eventsCount,
+          }
+        })
+      )
+      setAgents(agentsWithCounts)
     } catch (err) {
       addToast(`Failed to load agents: ${err.message}`, 'error')
     } finally {
@@ -228,6 +243,7 @@ export default function Agents() {
                   <tr>
                     <th>Name</th>
                     <th>Status</th>
+                    <th>Events</th>
                     <th style={{ textAlign: 'right' }}>Actions</th>
                   </tr>
                 </thead>
@@ -243,6 +259,15 @@ export default function Agents() {
                           </a>
                         </td>
                         <td>{statusBadge(agent.status)}</td>
+                        <td>
+                          <a
+                            className="agents-name"
+                            onClick={() => navigate(`/agents/${encodeURIComponent(name)}/status`)}
+                            title={`${agent.eventsCount} events - Click to view`}
+                          >
+                            {agent.eventsCount}
+                          </a>
+                        </td>
                         <td>
                           <div className="agents-action-group">
                             <button
@@ -265,13 +290,6 @@ export default function Agents() {
                               title="Chat"
                             >
                               <i className="fas fa-comment" />
-                            </button>
-                            <button
-                              className="btn btn-secondary btn-sm"
-                              onClick={() => navigate(`/agents/${encodeURIComponent(name)}/status`)}
-                              title="Status & Observables"
-                            >
-                              <i className="fas fa-chart-bar" />
                             </button>
                             <button
                               className="btn btn-secondary btn-sm"
