@@ -40,7 +40,6 @@ LocalAI provides a comprehensive set of features for running AI models locally. 
 - **[Model Gallery](model-gallery/)** - Browse and install pre-configured models
 - **[Backends](backends/)** - Learn about available backends and how to manage them
 - **[Backend Monitor](backend-monitor/)** - Monitor backend status and resource usage
-- **[Token Metrics](token-metrics/)** - Token generation performance statistics
 - **[System Info and Version](system-info/)** - Inspect instance backends, loaded models, and version
 - **[Runtime Settings](runtime-settings/)** - Configure application settings via web UI without restarting
 
