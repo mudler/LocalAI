@@ -48,6 +48,11 @@ For a list of all available models run local-ai models list
 Copyright: Ettore Di Giacinto
 
 Version: ${version}
+
+For documentation and support:
+  Documentation: https://localai.io/
+  Getting Started: https://localai.io/basics/getting_started/
+  GitHub Issues: https://github.com/mudler/LocalAI/issues
 `,
 		),
 		kong.UsageOnError(),
