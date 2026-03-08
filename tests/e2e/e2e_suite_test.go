@@ -93,6 +93,13 @@ var _ = BeforeSuite(func() {
 		"parameters": map[string]interface{}{
 			"model": "mock-model.bin",
 		},
+		"known_usecases": []string{
+			"FLAG_CHAT",
+			"FLAG_COMPLETION",
+			"FLAG_TTS",
+			"FLAG_TRANSCRIPT",
+			"FLAG_SOUND_GENERATION",
+		},
 	}
 	configPath = filepath.Join(modelsPath, "mock-model.yaml")
 	configYAML, err := yaml.Marshal(modelConfig)
