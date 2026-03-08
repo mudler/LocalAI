@@ -3,7 +3,6 @@ package cli
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"strings"
 
@@ -61,7 +60,7 @@ func (t *TranscriptCMD) Run(ctx *cliContext.Context) error {
 
 	c, exists := cl.GetModelConfig(t.Model)
 	if !exists {
-		return errors.New("model not found")
+		return fmt.Errorf("model %q not found. Run 'local-ai models list' to see available models, or install one with 'local-ai models install <model>'. See https://localai.io/models/ for more information", t.Model)
 	}
 
 	c.Threads = &t.Threads
