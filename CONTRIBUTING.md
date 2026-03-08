@@ -159,9 +159,10 @@ Use a descriptive branch name that indicates the type and scope of the change:
 
 #### Commit messages
 
-- Use a short, imperative subject line (e.g., "Add whisper backend support", not "Added whisper backend support")
+- Use a short, imperative subject line (e.g., "feat: add whisper backend support", not "Added whisper backend support")
 - Keep the subject under 72 characters
 - Use the body to explain **why** the change was made when the subject alone is not sufficient
+- Use [conventional commits](https://www.conventionalcommits.org/en/v1.0.0/)
 
 #### Creating a Pull Request (PR)
 
