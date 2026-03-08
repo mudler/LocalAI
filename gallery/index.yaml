@@ -1,4 +1,36 @@
 ---
+- name: "perexiguus-0.6b"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Perexiguus-0.6B-GGUF
+  description: |
+    Describe the model in a clear and concise way that can be shared in a model gallery.
+  license: "proprietary"
+  tags:
+    - gguf
+    - llm
+    - text-to-text
+    - small
+    - text-generation
+  overrides:
+    parameters:
+      model: llama-cpp/models/Perexiguus-0.6B.Q4_K_M.gguf
+    name: Perexiguus-0.6B-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Perexiguus-0.6B-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Perexiguus-0.6B.Q4_K_M.gguf
+      sha256: c984f6a04f0f43f4ae8b28ed22a68c4a85beb188ea86dadbee551c2cd8c4d65c
+      uri: https://huggingface.co/mradermacher/Perexiguus-0.6B-GGUF/resolve/main/Perexiguus-0.6B.Q4_K_M.gguf
 - name: "qwen3.5-27b-claude-4.6-opus-reasoning-distilled-i1"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
