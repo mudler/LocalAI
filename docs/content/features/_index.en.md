@@ -14,6 +14,10 @@ LocalAI provides a comprehensive set of features for running AI models locally. 
 - **[Text Generation](text-generation/)** - Generate text with GPT-compatible models using various backends
 - **[Image Generation](image-generation/)** - Create images with Stable Diffusion and other diffusion models
 - **[Audio Processing](audio-to-text/)** - Transcribe audio to text and generate speech from text
+- **[Text to Audio](text-to-audio/)** - Generate speech from text with TTS models
+- **[Sound Generation](sound-generation/)** - Generate music and sound effects from text descriptions
+- **[Voice Activity Detection](voice-activity-detection/)** - Detect speech segments in audio data
+- **[Video Generation](video-generation/)** - Generate videos from text prompts and reference images
 - **[Embeddings](embeddings/)** - Generate vector embeddings for semantic search and RAG applications
 - **[GPT Vision](gpt-vision/)** - Analyze and understand images with vision-language models
 
@@ -24,6 +28,7 @@ LocalAI provides a comprehensive set of features for running AI models locally. 
 - **[Constrained Grammars](constrained_grammars/)** - Control model output format with BNF grammars
 - **[GPU Acceleration](GPU-acceleration/)** - Optimize performance with GPU support
 - **[Distributed Inference](distributed_inferencing/)** - Scale inference across multiple nodes
+- **[P2P API](p2p/)** - Monitor and manage P2P worker and federated nodes
 - **[Model Context Protocol (MCP)](mcp/)** - Enable agentic capabilities with MCP integration
 - **[Agents](agents/)** - Autonomous AI agents with tools, knowledge base, and skills
 
@@ -34,6 +39,9 @@ LocalAI provides a comprehensive set of features for running AI models locally. 
 - **[Stores](stores/)** - Vector similarity search for embeddings
 - **[Model Gallery](model-gallery/)** - Browse and install pre-configured models
 - **[Backends](backends/)** - Learn about available backends and how to manage them
+- **[Backend Monitor](backend-monitor/)** - Monitor backend status and resource usage
+- **[Token Metrics](token-metrics/)** - Token generation performance statistics
+- **[System Info and Version](system-info/)** - Inspect instance backends, loaded models, and version
 - **[Runtime Settings](runtime-settings/)** - Configure application settings via web UI without restarting
 
 ## Getting Started
