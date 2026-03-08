@@ -253,6 +253,8 @@ func gRPCPredictOpts(c config.ModelConfig, modelPath string) *pb.PredictOptions 
 		TensorSplit:         c.TensorSplit,
 		TailFreeSamplingZ:   float32(*c.TFZ),
 		TypicalP:            float32(*c.TypicalP),
+		JSONSchema:          c.JSONSchema,
+		ResponseFormat:      c.ResponseFormat,
 	}
 
 	metadata := map[string]string{}

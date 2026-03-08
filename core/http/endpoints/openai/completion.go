@@ -87,8 +87,31 @@ func CompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eva
 			d := schema.ChatCompletionResponseFormat{}
 			dat, _ := json.Marshal(config.ResponseFormatMap)
 			_ = json.Unmarshal(dat, &d)
-			if d.Type == "json_object" {
+			switch d.Type {
+			case "json_object":
 				input.Grammar = functions.JSONBNF
+				config.ResponseFormat = "json_object"
+			case "json_schema":
+				config.ResponseFormat = "json_schema"
+				jsr := schema.JsonSchemaRequest{}
+				dat, err := json.Marshal(config.ResponseFormatMap)
+				if err == nil {
+					if err := json.Unmarshal(dat, &jsr); err == nil {
+						schemaBytes, err := json.Marshal(jsr.JsonSchema.Schema)
+						if err == nil {
+							config.JSONSchema = string(schemaBytes)
+						}
+						fs := &functions.JSONFunctionStructure{
+							AnyOf: []functions.Item{jsr.JsonSchema.Schema},
+						}
+						g, err := fs.Grammar(config.FunctionsConfig.GrammarOptions()...)
+						if err == nil {
+							input.Grammar = g
+						} else {
+							xlog.Error("Failed generating grammar", "error", err)
+						}
+					}
+				}
 			}
 		}
 
