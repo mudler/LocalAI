@@ -35,6 +35,6 @@ Download the latest DMG from GitHub releases:
 After installing LocalAI, you can:
 
 - Access the WebUI at `http://localhost:8080`
-- [Try it out with examples](/basics/try/)
-- [Learn about available models](/models/)
+- [Try it out with examples](/getting-started/try-it-out/)
+- [Learn about available models](/features/model-gallery/)
 - [Customize your configuration](/advanced/model-configuration/)
