@@ -2,7 +2,7 @@
 disableToc = false
 title = "System Info and Version"
 weight = 23
-url = "/features/system-info/"
+url = "/reference/system-info/"
 +++
 
 LocalAI provides endpoints to inspect the running instance, including available backends, loaded models, and version information.
