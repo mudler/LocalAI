@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-gRPC server of LocalAI for NVIDIA NEMO Toolkit ASR.
+GRPC server of LocalAI for NVIDIA NEMO Toolkit ASR.
 """
 from concurrent import futures
 import time
@@ -12,6 +12,14 @@ import backend_pb2
 import backend_pb2_grpc
 import torch
 import nemo.collections.asr as nemo_asr
+import numpy as np
+
+try:
+    import torchaudio
+    TORCHAUDIO_AVAILABLE = True
+except ImportError:
+    TORCHAUDIO_AVAILABLE = False
+    print("[WARNING] torchaudio not available, will use fallback audio loading", file=sys.stderr)
 
 import grpc
 
@@ -34,6 +42,50 @@ def is_int(s):
 
 _ONE_DAY_IN_SECONDS = 60 * 60 * 24
 MAX_WORKERS = int(os.environ.get('PYTHON_GRPC_MAX_WORKERS', '1'))
+
+
+def load_audio_np(audio_path, target_sample_rate=16000):
+    """Load audio file as numpy array using available methods."""
+    if TORCHAUDIO_AVAILABLE:
+        try:
+            waveform, sample_rate = torchaudio.load(audio_path)
+            # Convert to mono if stereo
+            if waveform.shape[0] > 1:
+                waveform = waveform.mean(dim=0, keepdim=True)
+            # Resample if needed
+            if sample_rate != target_sample_rate:
+                resampler = torchaudio.transforms.Resample(sample_rate, target_sample_rate)
+                waveform = resampler(waveform)
+            # Convert to numpy
+            audio_np = waveform.squeeze().numpy()
+            return audio_np, target_sample_rate
+        except Exception as e:
+            print(f"[WARNING] torchaudio loading failed: {e}, trying fallback", file=sys.stderr)
+    
+    # Fallback: try using scipy or soundfile
+    try:
+        import soundfile as sf
+        audio_np, sample_rate = sf.read(audio_path)
+        if audio_np.ndim > 1:
+            audio_np = audio_np.mean(axis=1)
+        if sample_rate != target_sample_rate:
+            from scipy.signal import resample
+            num_samples = int(len(audio_np) * target_sample_rate / sample_rate)
+            audio_np = resample(audio_np, num_samples)
+        return audio_np, target_sample_rate
+    except ImportError:
+        pass
+    
+    try:
+        from scipy.io import wavfile
+        sample_rate, audio_np = wavfile.read(audio_path)
+        if audio_np.ndim > 1:
+            audio_np = audio_np.mean(axis=1)
+        return audio_np, sample_rate
+    except ImportError:
+        pass
+    
+    raise RuntimeError("No audio loading library available (torchaudio, soundfile, scipy)")
 
 
 class BackendServicer(backend_pb2_grpc.BackendServicer):
@@ -89,14 +141,37 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 print(f"Error: Audio file not found: {audio_path}", file=sys.stderr)
                 return backend_pb2.TranscriptResult(segments=[], text="")
 
-            # NEMO's transcribe method accepts a list of audio paths and returns a list of transcripts
-            results = self.model.transcribe([audio_path])
-
+            # Load audio as numpy array to avoid lhotse dataloader issues
+            audio_np, sample_rate = load_audio_np(audio_path, target_sample_rate=16000)
+            
+            # Convert to torch tensor
+            audio_tensor = torch.from_numpy(audio_np).float()
+            audio_tensor = audio_tensor.unsqueeze(0)  # Add batch dimension
+            
+            # Use the model's transcribe method with the tensor directly
+            # Some NEMO models accept audio tensors directly
+            try:
+                # Try passing the waveform tensor directly
+                results = self.model.transcribe(audio_tensor, return_char_alignments=False)
+            except TypeError:
+                # Fallback: try with dict format
+                results = self.model.transcribe(
+                    [{"audio_file": audio_path}],
+                    return_char_alignments=False
+                )
+            
             if not results or len(results) == 0:
+                print("[WARNING] No transcription results returned", file=sys.stderr)
                 return backend_pb2.TranscriptResult(segments=[], text="")
 
             # Get the transcript text from the first result
-            text = results[0]
+            if isinstance(results, list) and len(results) > 0:
+                text = results[0]
+            elif isinstance(results, dict) and "text" in results:
+                text = results["text"]
+            else:
+                text = str(results) if results else ""
+            
             if text:
                 # Create a single segment with the full transcription
                 result_segments.append(backend_pb2.TranscriptSegment(
