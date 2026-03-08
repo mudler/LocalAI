@@ -70,7 +70,6 @@ uname -m
 
 
 
-**Cause:** Your CPU does not support certain instruction sets (AVX2, AVX512, F16C, FMA) that were enabled at compile time.
 
 **Solution:** Rebuild with unsupported instructions disabled:
 
