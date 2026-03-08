@@ -2,7 +2,7 @@
 disableToc = false
 title = "Shell Completion"
 weight = 18
-url = "/features/shell-completion/"
+url = "/reference/shell-completion/"
 +++
 
 LocalAI provides shell completion support for **bash**, **zsh**, and **fish** shells. Once installed, tab completion works for all CLI commands, subcommands, and flags.
