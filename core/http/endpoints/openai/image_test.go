@@ -1,0 +1,49 @@
+package openai
+
+import (
+	"encoding/base64"
+	"os"
+	"testing"
+
+	"github.com/stretchr/testify/require"
+)
+
+func TestProcessImageFile_Base64(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "processimage")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
+
+	// 4x4 red pixel PNG (68 bytes raw) — small enough to fit in bufio's
+	// default 4096-byte buffer, which is exactly the scenario where a
+	// missing Flush() produces a 0-byte file.
+	pngBytes := []byte{
+		0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, // PNG signature
+		0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52, // IHDR chunk
+		0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x04,
+		0x08, 0x02, 0x00, 0x00, 0x00, 0x26, 0x93, 0x09,
+		0x29, 0x00, 0x00, 0x00, 0x1c, 0x49, 0x44, 0x41, // IDAT chunk
+		0x54, 0x78, 0x9c, 0x62, 0xf8, 0xcf, 0xc0, 0xc0,
+		0xc0, 0xc0, 0xc0, 0xc0, 0xc0, 0xc0, 0xc0, 0xc0,
+		0xc0, 0xc0, 0xc0, 0xc0, 0xc0, 0xc0, 0x00, 0x00,
+		0x00, 0x31, 0x00, 0x01, 0x2e, 0xa8, 0xd1, 0xe5,
+		0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4e, 0x44, // IEND chunk
+		0xae, 0x42, 0x60, 0x82,
+	}
+	b64 := base64.StdEncoding.EncodeToString(pngBytes)
+
+	outPath := processImageFile(b64, tmpDir)
+	require.NotEmpty(t, outPath, "processImageFile should return a file path")
+
+	written, err := os.ReadFile(outPath)
+	require.NoError(t, err)
+	require.Equal(t, pngBytes, written, "file on disk must match the original bytes")
+}
+
+func TestProcessImageFile_InvalidBase64(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "processimage")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
+
+	outPath := processImageFile("not-valid-base64!!!", tmpDir)
+	require.Empty(t, outPath, "should return empty string for invalid base64")
+}
