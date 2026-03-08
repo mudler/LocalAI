@@ -13,6 +13,7 @@ endif()
 
 target_include_directories(gosd PUBLIC
     stable-diffusion.cpp
+    stable-diffusion.cpp/include
     stable-diffusion.cpp/thirdparty
 )
 
