@@ -1,0 +1,109 @@
+<!-- Breadcrumb Navigation -->
+<nav aria-label="Breadcrumb" class="breadcrumb-nav" x-data="breadcrumbNav()" x-show="crumbs.length > 1">
+  <ol class="breadcrumb-list">
+    <template x-for="(crumb, index) in crumbs" :key="index">
+      <li class="breadcrumb-item">
+        <template x-if="index > 0">
+          <i class="fas fa-chevron-right breadcrumb-separator"></i>
+        </template>
+        <template x-if="index === 0">
+          <a :href="crumb.href" class="breadcrumb-link">
+            <i class="fas fa-home breadcrumb-home-icon"></i>
+            <span x-text="crumb.label"></span>
+          </a>
+        </template>
+        <template x-if="index > 0 && index < crumbs.length - 1">
+          <a :href="crumb.href" class="breadcrumb-link" x-text="crumb.label"></a>
+        </template>
+        <template x-if="index === crumbs.length - 1 && index > 0">
+          <span class="breadcrumb-current" x-text="crumb.label"></span>
+        </template>
+      </li>
+    </template>
+  </ol>
+</nav>
+
+<script>
+function breadcrumbNav() {
+  const path = window.location.pathname.replace(/\/+$/, '') || '/';
+
+  const routeMap = {
+    '/': { label: 'Home', section: null },
+    '/browse': { label: 'Install Models', section: 'main' },
+    '/chat': { label: 'Chat', section: 'main' },
+    '/image': { label: 'Images', section: 'main' },
+    '/video': { label: 'Video', section: 'main' },
+    '/tts': { label: 'TTS', section: 'main' },
+    '/sound': { label: 'Sound', section: 'main' },
+    '/talk': { label: 'Talk', section: 'main' },
+    '/agent-jobs': { label: 'Agent Jobs', section: 'tools' },
+    '/traces': { label: 'Traces', section: 'tools' },
+    '/browse/backends': { label: 'Backends', section: 'system' },
+    '/p2p': { label: 'Swarm', section: 'system' },
+    '/manage': { label: 'System', section: 'system' },
+    '/settings': { label: 'Settings', section: 'system' },
+  };
+
+  function buildCrumbs() {
+    const crumbs = [{ label: 'Home', href: './' }];
+
+    // Agent job details: /agent-jobs/{id}
+    if (path.match(/^\/agent-jobs\/tasks\/new$/)) {
+      crumbs.push({ label: 'Agent Jobs', href: '/agent-jobs' });
+      crumbs.push({ label: 'Create Task', href: path });
+      return crumbs;
+    }
+
+    if (path.match(/^\/agent-jobs\/tasks\/.+/)) {
+      crumbs.push({ label: 'Agent Jobs', href: '/agent-jobs' });
+      crumbs.push({ label: 'Task Details', href: path });
+      return crumbs;
+    }
+
+    if (path.match(/^\/agent-jobs\/.+/)) {
+      crumbs.push({ label: 'Agent Jobs', href: '/agent-jobs' });
+      crumbs.push({ label: 'Job Details', href: path });
+      return crumbs;
+    }
+
+    // Model editor: /browse/import/model or /browse/models/edit/{name}
+    if (path.match(/^\/browse\/import\/model/)) {
+      crumbs.push({ label: 'Install Models', href: '/browse/' });
+      crumbs.push({ label: 'Import Model', href: path });
+      return crumbs;
+    }
+
+    if (path.match(/^\/browse\/models\/edit\/.+/)) {
+      crumbs.push({ label: 'Install Models', href: '/browse/' });
+      crumbs.push({ label: 'Edit Model', href: path });
+      return crumbs;
+    }
+
+    // Chat with specific model: /chat/{model}
+    if (path.match(/^\/chat\/.+/)) {
+      crumbs.push({ label: 'Chat', href: '/chat/' });
+      const model = decodeURIComponent(path.split('/chat/')[1]);
+      crumbs.push({ label: model, href: path });
+      return crumbs;
+    }
+
+    // Backends sub-page
+    if (path === '/browse/backends') {
+      crumbs.push({ label: 'Backends', href: path });
+      return crumbs;
+    }
+
+    // Standard single-level routes
+    const route = routeMap[path];
+    if (route) {
+      crumbs.push({ label: route.label, href: path });
+    }
+
+    return crumbs;
+  }
+
+  return {
+    crumbs: buildCrumbs()
+  };
+}
+</script>

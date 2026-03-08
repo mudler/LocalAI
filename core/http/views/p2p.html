@@ -12,6 +12,7 @@
     {{template "views/partials/inprogress" .}}
     
     <div class="container mx-auto px-4 py-8 flex-grow">
+        {{template "views/partials/breadcrumb" .}}
         {{ if eq .P2PToken "" }}
         <!-- P2P Disabled - Wizard Guide -->
         <div class="hero-section">
