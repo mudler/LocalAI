@@ -192,9 +192,9 @@ func (bcl *ModelConfigLoader) ReadModelConfig(file string, opts ...ConfigLoaderO
 		bcl.configs[c.Name] = *c
 	} else {
 		if err != nil {
-			return fmt.Errorf("config is not valid: %w", err)
+			return fmt.Errorf("model config %q is not valid: %w. Ensure the YAML file has a valid 'name' field and correct syntax. See https://localai.io/docs/getting-started/customize-model/ for config reference", file, err)
 		}
-		return fmt.Errorf("config is not valid")
+		return fmt.Errorf("model config %q is not valid. Ensure the YAML file has a valid 'name' field and correct syntax. See https://localai.io/docs/getting-started/customize-model/ for config reference", file)
 	}
 
 	return nil
