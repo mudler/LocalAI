@@ -163,7 +163,7 @@ rocminfo
 docker run --device=/dev/kfd --device=/dev/dri --group-add=video ...
 ```
 
-If your GPU is not in the default target list, set `GPU_TARGETS` to your GPU's LLVM target and rebuild with `REBUILD=true`. Supported targets include: gfx900, gfx906, gfx908, gfx90a, gfx940, gfx941, gfx942, gfx1030, gfx1031, gfx1100, gfx1101.
+If your GPU is not in the default target list, open up an Issue. Supported targets include: gfx900, gfx906, gfx908, gfx90a, gfx940, gfx941, gfx942, gfx1030, gfx1031, gfx1100, gfx1101.
 
 **Intel (SYCL):**
 
