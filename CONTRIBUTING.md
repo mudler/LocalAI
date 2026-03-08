@@ -42,6 +42,8 @@ If you find a bug, have a feature request, or encounter any issues, please check
 
 ### Creating a Pull Request (PR)
 
+Before jumping into a PR for a massive feature or big change, it is preferred to discuss it first via an issue.
+
 1. Fork the repository.
 2. Create a new branch with a descriptive name: `git checkout -b [branch name]`
 3. Make your changes and commit them.
@@ -53,7 +55,33 @@ If you find a bug, have a feature request, or encounter any issues, please check
 
 ## Coding Guidelines
 
-- No specific coding guidelines at the moment. Please make sure the code can be tested. The most popular lint tools like [`golangci-lint`](https://golangci-lint.run) can help you here.
+This project uses an [`.editorconfig`](.editorconfig) file to define formatting standards (indentation, line endings, charset, etc.). Please configure your editor to respect it.
+
+For AI-assisted development, see [`CLAUDE.md`](CLAUDE.md) for agent-specific guidelines including build instructions and backend architecture details.
+
+### General Principles
+
+- Write code that can be tested. All new features and bug fixes should include test coverage.
+- Use comments sparingly to explain **why** code does something, not **what** it does. Comments should add context that would be difficult to deduce from reading the code alone.
+- Keep changes focused. Avoid unrelated refactors, formatting changes, or feature additions in the same PR.
+
+### Go Code
+
+- Prefer modern Go idioms — for example, use `any` instead of `interface{}`.
+- Use [`golangci-lint`](https://golangci-lint.run) to catch common issues before submitting a PR.
+- Use [`github.com/mudler/xlog`](https://github.com/mudler/xlog) for logging (same API as `slog`). Do not use `fmt.Println` or the standard `log` package for operational logging.
+- Use tab indentation for Go files (as defined in `.editorconfig`).
+
+### Python Code
+
+- Use 4-space indentation (as defined in `.editorconfig`).
+- Include a `requirements.txt` for any new dependencies.
+
+### Code Review
+
+- All contributions go through code review via pull requests.
+- Reviewers will check for correctness, test coverage, adherence to these guidelines, and clarity of intent.
+- Be responsive to review feedback and keep discussions constructive.
 
 ## Testing
 
