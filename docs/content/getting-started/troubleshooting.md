@@ -71,7 +71,6 @@ uname -m
 
 
 
-**Solution:** Rebuild with unsupported instructions disabled:
 
 ```bash
 REBUILD=true CMAKE_ARGS="-DGGML_F16C=OFF -DGGML_AVX512=OFF -DGGML_AVX2=OFF -DGGML_FMA=OFF" local-ai run
