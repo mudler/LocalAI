@@ -821,7 +821,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                     )
 
                 wavs, sr = self.model.generate_voice_design(
-                    text=text, language=language, instruct=instruct, **generation_kwargs
+                    text=text, language=language, **generation_kwargs
                 )
 
             else:
