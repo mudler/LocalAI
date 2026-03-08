@@ -50,6 +50,35 @@
 
 **LocalAI** is the free, Open Source OpenAI alternative. LocalAI act as a drop-in replacement REST API that's compatible with OpenAI (Elevenlabs, Anthropic... ) API specifications for local AI inferencing. It allows you to run LLMs, generate images, audio (and not only) locally or on-prem with consumer grade hardware, supporting multiple model families. Does not require GPU. It is created and maintained by [Ettore Di Giacinto](https://github.com/mudler).
 
+<details>
+<summary><strong>Table of Contents</strong></summary>
+
+- [Local Stack Family](#local-stack-family)
+- [Screenshots / Video](#screenshots--video)
+- [Quickstart](#-quickstart)
+  - [macOS Download](#macos-download)
+  - [Containers (Docker, podman, ...)](#containers-docker-podman-)
+- [Latest project news](#-latest-project-news)
+- [Features](#-features)
+- [Supported Backends & Acceleration](#-supported-backends--acceleration)
+  - [Text Generation & Language Models](#text-generation--language-models)
+  - [Audio & Speech Processing](#audio--speech-processing)
+  - [Image & Video Generation](#image--video-generation)
+  - [Specialized AI Tasks](#specialized-ai-tasks)
+  - [Hardware Acceleration Matrix](#hardware-acceleration-matrix)
+  - [Community and integrations](#-community-and-integrations)
+  - [Resources](#-resources)
+- [Media, Blogs, Social](#book--media-blogs-social)
+- [Autonomous Development Team](#-autonomous-development-team)
+- [Citation](#citation)
+- [Sponsors](#️-sponsors)
+  - [Individual sponsors](#individual-sponsors)
+- [Star history](#-star-history)
+- [License](#-license)
+- [Acknowledgements](#-acknowledgements)
+- [Contributors](#-contributors)
+
+</details>
 
 ## Local Stack Family
 
