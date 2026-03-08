@@ -7,7 +7,11 @@
   {{template "views/partials/navbar" .}}
   
   <main class="main-content">
-    <div class="main-content-inner" x-data="indexDashboard()">
+    <div class="main-content-inner" x-data="indexDashboard()
+    {
+        activeTab: 'models',
+        get installedModels() { return this.$data.installedModels || 0; },
+        get installedBackends() { return this.$data.installedBackends || 0; }">
 
     <!-- Notifications -->
     <div class="fixed top-20 right-4 z-50 space-y-2" style="max-width: 400px;">
@@ -43,10 +47,30 @@
                 </h1>
                 <p class="hero-subtitle">Manage your installed models and backends</p>
             </div>
+                
+                <!-- Tab Navigation -->
+                <div class="mt-6 flex justify-center">
+                    <div class="inline-flex rounded-lg bg-[var(--color-bg-secondary)] p-1 border border-[var(--color-border-subtle)]">
+                        <button @click="activeTab = 'models'" 
+                                :class="activeTab === 'models' ? 'bg-[var(--color-primary)] text-white shadow-lg' : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'"
+                                class="px-6 py-2.5 rounded-md text-sm font-semibold transition-all duration-200 flex items-center gap-2">
+                            <i class="fas fa-brain"></i>
+                            <span>Models</span>
+                            <span :class="activeTab === 'models' ? 'bg-white/20' : 'bg-[var(--color-bg-secondary)]'" class="ml-2 px-2 py-0.5 rounded-full text-xs" x-text="installedModels"></span>
+                        </button>
+                        <button @click="activeTab = 'backends'" 
+                                :class="activeTab === 'backends' ? 'bg-[var(--color-primary)] text-white shadow-lg' : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'"
+                                class="px-6 py-2.5 rounded-md text-sm font-semibold transition-all duration-200 flex items-center gap-2">
+                            <i class="fas fa-server"></i>
+                            <span>Backends</span>
+                            <span :class="activeTab === 'backends' ? 'bg-white/20' : 'bg-[var(--color-bg-secondary)]'" class="ml-2 px-2 py-0.5 rounded-full text-xs" x-text="installedBackends"></span>
+                        </button>
+                    </div>
+                </div>
         </div>
 
         <!-- Memory Info Section (GPU or RAM) -->
-        <div class="mt-8" x-data="resourceMonitor()" x-init="startPolling()">
+        <div class="mt-8" x-data="resourceMonitor()" x-show="activeTab === 'models'" x-init="startPolling()">
             <template x-if="resourceData && resourceData.available">
                 <div class="bg-[var(--color-bg-secondary)] border border-[var(--color-primary-border)]/20 rounded-lg p-4 mb-6">
                     <div class="flex items-center justify-between mb-3">
@@ -155,7 +179,7 @@
         </div>
 
         <!-- Models Section -->
-        <div class="models mt-8">
+        <div class="models mt-8" x-show="activeTab === 'models'">
             {{template "views/partials/inprogress" .}}
             
             {{ if eq (len .ModelsConfig) 0 }}
@@ -377,7 +401,7 @@
         </div>
 
         <!-- Backends Section -->
-        <div class="mt-8">
+        <div class="mt-8" x-show="activeTab === 'backends'">
             <div class="mb-6">
                 <div class="flex items-center justify-between mb-1">
                     <h2 class="h3 flex items-center">
