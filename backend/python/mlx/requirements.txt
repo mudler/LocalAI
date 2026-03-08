@@ -2,3 +2,4 @@ grpcio==1.71.0
 protobuf
 certifi
 setuptools
+httpx>=0.24.0
