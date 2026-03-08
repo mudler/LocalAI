@@ -826,9 +826,20 @@ func handleBackgroundNonStream(ctx context.Context, store *ResponseStore, respon
 	var toolCalls []schema.ToolCall
 
 	if shouldUseFn {
-		cleanedResult := functions.CleanupLLMResult(result, cfg.FunctionsConfig)
-		funcCallResults := functions.ParseFunctionCall(cleanedResult, cfg.FunctionsConfig)
-		textContent := functions.ParseTextContent(cleanedResult, cfg.FunctionsConfig)
+		var funcCallResults []functions.FuncCallResults
+		var textContent string
+
+		// Try pre-parsed tool calls from C++ autoparser first
+		if deltaToolCalls := functions.ToolCallsFromChatDeltas(prediction.ChatDeltas); len(deltaToolCalls) > 0 {
+			xlog.Debug("[ChatDeltas] OpenResponses: using pre-parsed tool calls", "count", len(deltaToolCalls))
+			funcCallResults = deltaToolCalls
+			textContent = functions.ContentFromChatDeltas(prediction.ChatDeltas)
+		} else {
+			xlog.Debug("[ChatDeltas] OpenResponses: no pre-parsed tool calls, falling back to Go-side text parsing")
+			cleanedResult := functions.CleanupLLMResult(result, cfg.FunctionsConfig)
+			funcCallResults = functions.ParseFunctionCall(cleanedResult, cfg.FunctionsConfig)
+			textContent = functions.ParseTextContent(cleanedResult, cfg.FunctionsConfig)
+		}
 
 		noActionName := "answer"
 		if cfg.FunctionsConfig.NoActionFunctionName != "" {
@@ -1535,13 +1546,22 @@ func handleOpenResponsesNonStream(c echo.Context, responseID string, createdAt i
 	}
 
 	if shouldUseFn {
-		// Clean up the result (already extracted reasoning above)
-		cleanedResult = functions.CleanupLLMResult(cleanedResult, cfg.FunctionsConfig)
-		xlog.Debug("Open Responses - Cleaned result", "cleanedResult", cleanedResult)
+		var funcCallResults []functions.FuncCallResults
+		var textContent string
 
-		funcCallResults := functions.ParseFunctionCall(cleanedResult, cfg.FunctionsConfig)
-		textContent := functions.ParseTextContent(cleanedResult, cfg.FunctionsConfig)
-		xlog.Debug("Open Responses - Parsed function calls", "count", len(funcCallResults), "textContent", textContent)
+		// Try pre-parsed tool calls from C++ autoparser first
+		if deltaToolCalls := functions.ToolCallsFromChatDeltas(prediction.ChatDeltas); len(deltaToolCalls) > 0 {
+			xlog.Debug("[ChatDeltas] OpenResponses: using pre-parsed tool calls", "count", len(deltaToolCalls))
+			funcCallResults = deltaToolCalls
+			textContent = functions.ContentFromChatDeltas(prediction.ChatDeltas)
+		} else {
+			xlog.Debug("[ChatDeltas] OpenResponses: no pre-parsed tool calls, falling back to Go-side text parsing")
+			// Clean up the result (already extracted reasoning above)
+			cleanedResult = functions.CleanupLLMResult(cleanedResult, cfg.FunctionsConfig)
+			funcCallResults = functions.ParseFunctionCall(cleanedResult, cfg.FunctionsConfig)
+			textContent = functions.ParseTextContent(cleanedResult, cfg.FunctionsConfig)
+		}
+		xlog.Debug("[ChatDeltas] OpenResponses: final tool call decision", "count", len(funcCallResults), "textContent", textContent)
 
 		// Check for noAction function (model chose to respond without tool)
 		noActionName := "answer"
@@ -2128,11 +2148,20 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 			}
 		}
 
-		cleanedResult := functions.CleanupLLMResult(finalCleanedResult, cfg.FunctionsConfig)
-		xlog.Debug("Open Responses Stream - Cleaned result", "cleanedResult", cleanedResult)
+		var parsedToolCalls []functions.FuncCallResults
+		var textContent string
 
-		parsedToolCalls := functions.ParseFunctionCall(cleanedResult, cfg.FunctionsConfig)
-		textContent := functions.ParseTextContent(cleanedResult, cfg.FunctionsConfig)
+		// Try pre-parsed tool calls from C++ autoparser first
+		if deltaToolCalls := functions.ToolCallsFromChatDeltas(prediction.ChatDeltas); len(deltaToolCalls) > 0 {
+			xlog.Debug("[ChatDeltas] OpenResponses Stream: using pre-parsed tool calls", "count", len(deltaToolCalls))
+			parsedToolCalls = deltaToolCalls
+			textContent = functions.ContentFromChatDeltas(prediction.ChatDeltas)
+		} else {
+			xlog.Debug("[ChatDeltas] OpenResponses Stream: no pre-parsed tool calls, falling back to Go-side text parsing")
+			cleanedResult := functions.CleanupLLMResult(finalCleanedResult, cfg.FunctionsConfig)
+			parsedToolCalls = functions.ParseFunctionCall(cleanedResult, cfg.FunctionsConfig)
+			textContent = functions.ParseTextContent(cleanedResult, cfg.FunctionsConfig)
+		}
 
 		// Handle noAction function (model chose to respond without tool)
 		noActionName := "answer"

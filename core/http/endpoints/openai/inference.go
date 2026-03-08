@@ -7,6 +7,7 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 
 	"github.com/mudler/LocalAI/core/schema"
+	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	model "github.com/mudler/LocalAI/pkg/model"
 )
 
@@ -18,7 +19,7 @@ func ComputeChoices(
 	o *config.ApplicationConfig,
 	loader *model.ModelLoader,
 	cb func(string, *[]schema.Choice),
-	tokenCallback func(string, backend.TokenUsage) bool) ([]schema.Choice, backend.TokenUsage, error) {
+	tokenCallback func(string, backend.TokenUsage) bool) ([]schema.Choice, backend.TokenUsage, []*pb.ChatDelta, error) {
 	n := req.N // number of completions to return
 	result := []schema.Choice{}
 
@@ -84,21 +85,27 @@ func ComputeChoices(
 	predFunc, err := backend.ModelInference(
 		req.Context, predInput, req.Messages, images, videos, audios, loader, config, bcl, o, tokenCallback, toolsJSON, toolChoiceJSON, logprobs, topLogprobs, logitBias, req.Metadata)
 	if err != nil {
-		return result, backend.TokenUsage{}, err
+		return result, backend.TokenUsage{}, nil, err
 	}
 
 	tokenUsage := backend.TokenUsage{}
+	var allChatDeltas []*pb.ChatDelta
 
 	for i := 0; i < n; i++ {
 		prediction, err := predFunc()
 		if err != nil {
-			return result, backend.TokenUsage{}, err
+			return result, backend.TokenUsage{}, nil, err
 		}
 
 		tokenUsage.Prompt += prediction.Usage.Prompt
 		tokenUsage.Completion += prediction.Usage.Completion
 		tokenUsage.TimingPromptProcessing += prediction.Usage.TimingPromptProcessing
 		tokenUsage.TimingTokenGeneration += prediction.Usage.TimingTokenGeneration
+
+		// Collect chat deltas from C++ autoparser
+		if len(prediction.ChatDeltas) > 0 {
+			allChatDeltas = append(allChatDeltas, prediction.ChatDeltas...)
+		}
 
 		finetunedResponse := backend.Finetune(*config, predInput, prediction.Response)
 		cb(finetunedResponse, &result)
@@ -111,5 +118,5 @@ func ComputeChoices(
 		//result = append(result, Choice{Text: prediction})
 
 	}
-	return result, tokenUsage, err
+	return result, tokenUsage, allChatDeltas, err
 }

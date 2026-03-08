@@ -58,7 +58,7 @@ func EditEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 				xlog.Debug("Template found, input modified", "input", i)
 			}
 
-			r, tokenUsage, err := ComputeChoices(input, i, config, cl, appConfig, ml, func(s string, c *[]schema.Choice) {
+			r, tokenUsage, _, err := ComputeChoices(input, i, config, cl, appConfig, ml, func(s string, c *[]schema.Choice) {
 				*c = append(*c, schema.Choice{Text: s})
 			}, nil)
 			if err != nil {
