@@ -41,6 +41,8 @@ const char* sample_method_str[] = {
     "lcm",
     "ddim_trailing",
     "tcd",
+    "res_multistep",
+    "res_2s",
 };
 
 static_assert(std::size(sample_method_str) == SAMPLE_METHOD_COUNT, "sample method mismatch");
@@ -57,6 +59,7 @@ const char* schedulers[] = {
     "smoothstep",
     "kl_optimal",
     "lcm",
+    "bong_tangent",
 };
 
 static_assert(std::size(schedulers) == SCHEDULER_COUNT, "schedulers mismatch");
@@ -131,6 +134,7 @@ sd_ctx_t* sd_c;
 // Moved from the context (load time) to generation time params
 scheduler_t scheduler = SCHEDULER_COUNT;
 sample_method_t sample_method = SAMPLE_METHOD_COUNT;
+float flow_shift_value = INFINITY;
 
 // Storage for embeddings (needs to persist for the lifetime of ctx_params)
 static std::vector<sd_embedding_t> embedding_vec;
@@ -493,6 +497,7 @@ int load_model(const char *model, char *model_path, char* options[], int threads
     bool keep_clip_on_cpu = false;
     bool keep_control_net_on_cpu = false;
     bool keep_vae_on_cpu = false;
+    bool flash_attn = false;
     bool diffusion_flash_attn = false;
     bool tae_preview_only = false;
     bool diffusion_conv_direct = false;
@@ -580,6 +585,7 @@ int load_model(const char *model, char *model_path, char* options[], int threads
         if (!strcmp(optname, "keep_clip_on_cpu")) keep_clip_on_cpu = (strcmp(optval, "true") == 0 || strcmp(optval, "1") == 0);
         if (!strcmp(optname, "keep_control_net_on_cpu")) keep_control_net_on_cpu = (strcmp(optval, "true") == 0 || strcmp(optval, "1") == 0);
         if (!strcmp(optname, "keep_vae_on_cpu")) keep_vae_on_cpu = (strcmp(optval, "true") == 0 || strcmp(optval, "1") == 0);
+        if (!strcmp(optname, "flash_attn")) flash_attn = (strcmp(optval, "true") == 0 || strcmp(optval, "1") == 0);
         if (!strcmp(optname, "diffusion_flash_attn")) diffusion_flash_attn = (strcmp(optval, "true") == 0 || strcmp(optval, "1") == 0);
         if (!strcmp(optname, "tae_preview_only")) tae_preview_only = (strcmp(optval, "true") == 0 || strcmp(optval, "1") == 0);
         if (!strcmp(optname, "diffusion_conv_direct")) diffusion_conv_direct = (strcmp(optval, "true") == 0 || strcmp(optval, "1") == 0);
@@ -715,6 +721,7 @@ int load_model(const char *model, char *model_path, char* options[], int threads
     ctx_params.offload_params_to_cpu = offload_params_to_cpu;
     ctx_params.keep_control_net_on_cpu = keep_control_net_on_cpu;
     ctx_params.keep_vae_on_cpu = keep_vae_on_cpu;
+    ctx_params.flash_attn = flash_attn;
     ctx_params.diffusion_flash_attn = diffusion_flash_attn;
     ctx_params.tae_preview_only = tae_preview_only;
     ctx_params.diffusion_conv_direct = diffusion_conv_direct;
@@ -723,7 +730,7 @@ int load_model(const char *model, char *model_path, char* options[], int threads
     ctx_params.chroma_use_dit_mask = chroma_use_dit_mask;
     ctx_params.chroma_use_t5_mask = chroma_use_t5_mask;
     ctx_params.chroma_t5_mask_pad = chroma_t5_mask_pad;
-    ctx_params.flow_shift = flow_shift;
+    flow_shift_value = flow_shift;
     sd_ctx_t* sd_ctx = new_sd_ctx(&ctx_params);
 
     if (sd_ctx == NULL) {
@@ -872,6 +879,7 @@ int gen_image(sd_img_gen_params_t *p, int steps, char *dst, float cfg_scale, cha
     p->sample_params.sample_method = sample_method;
     p->sample_params.sample_steps = steps;
     p->sample_params.scheduler = scheduler;
+    p->sample_params.flow_shift = flow_shift_value;
 
     int width = p->width;
     int height = p->height;
