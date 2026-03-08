@@ -5,15 +5,7 @@ weight = 9
 url = "/features/gpu-acceleration/"
 +++
 
-{{% notice context="warning" %}}
-Section under construction
- {{% /notice %}}
-
-This section contains instruction on how to use LocalAI with GPU acceleration.
-
-{{% notice icon="⚡" context="warning" %}}
-For acceleration for AMD or Metal HW is still in development, for additional details see the [build]({{%relref "installation/build#Acceleration" %}})
- {{% /notice %}}
+This page covers how to use LocalAI with GPU acceleration across different hardware vendors. For container image tags and registry details, see [Container Images]({{%relref "getting-started/container-images" %}}). For memory management with multiple GPU-accelerated models, see [VRAM Management]({{%relref "advanced/vram-management" %}}).
 
 ## Automatic Backend Detection
 
@@ -62,7 +54,24 @@ diffusers:
 
 ### Multi-GPU Support
 
-For multi-GPU support with diffusers, you need to configure the model with `tensor_parallel_size` set to the number of GPUs you want to use.
+#### llama.cpp
+
+For llama.cpp models, you can control which GPU layers are offloaded using `gpu_layers`. When multiple NVIDIA GPUs are present, llama.cpp distributes layers across available devices automatically. You can control GPU visibility with the `CUDA_VISIBLE_DEVICES` environment variable:
+
+```bash
+# Use only GPU 0 and GPU 1
+docker run --gpus all -e CUDA_VISIBLE_DEVICES=0,1 ...
+```
+
+For AMD GPUs, use `HIP_VISIBLE_DEVICES` instead:
+
+```bash
+docker run --device /dev/dri --device /dev/kfd -e HIP_VISIBLE_DEVICES=0,1 ...
+```
+
+#### diffusers
+
+For multi-GPU support with diffusers, configure the model with `tensor_parallel_size` set to the number of GPUs you want to use.
 
 ```yaml
 name: stable-diffusion-multigpu
@@ -74,7 +83,11 @@ parameters:
 
 The `tensor_parallel_size` parameter is set in the gRPC proto configuration (in `ModelOptions` message, field 55). When this is set to a value greater than 1, the diffusers backend automatically enables `device_map="auto"` to distribute the model across multiple GPUs.
 
-When using diffusers with multiple GPUs, ensure you have sufficient GPU memory across all devices. The model will be automatically distributed across available GPUs. For optimal performance, use GPUs of the same type and memory capacity.
+#### Tips
+
+- For optimal performance, use GPUs of the same type and memory capacity.
+- Ensure you have sufficient GPU memory across all devices.
+- When running multiple models concurrently, consider using [VRAM Management]({{%relref "advanced/vram-management" %}}) to automatically unload idle models.
 
 ## CUDA(NVIDIA) acceleration
 
@@ -330,3 +343,110 @@ docker run -p 8080:8080 -e DEBUG=true -v $PWD/models:/models \
 --device /dev/dri --device /dev/kfd \ # AMD/Intel passthrough
 localai/localai:latest-gpu-vulkan
 ```
+
+## NVIDIA L4T (Jetson/ARM64) acceleration
+
+LocalAI supports NVIDIA ARM64 devices including Jetson Nano, Jetson Xavier NX, Jetson AGX Orin, and DGX Spark. Pre-built container images are available for both CUDA 12 and CUDA 13.
+
+For detailed setup instructions, platform compatibility, and build commands, see the dedicated [Running on Nvidia ARM64]({{%relref "reference/nvidia-l4t" %}}) page.
+
+### Quick start
+
+```bash
+# Jetson AGX Orin (CUDA 12)
+docker run -e DEBUG=true -p 8080:8080 -v $PWD/models:/models \
+  --runtime nvidia --gpus all \
+  quay.io/go-skynet/local-ai:latest-nvidia-l4t-arm64
+
+# DGX Spark (CUDA 13)
+docker run -e DEBUG=true -p 8080:8080 -v $PWD/models:/models \
+  --runtime nvidia --gpus all \
+  quay.io/go-skynet/local-ai:latest-nvidia-l4t-arm64-cuda-13
+```
+
+## GPU monitoring
+
+Use these vendor-specific tools to verify that LocalAI is using your GPU and to monitor resource usage during inference.
+
+### NVIDIA
+
+```bash
+# Real-time GPU utilization, memory, temperature
+nvidia-smi
+
+# Continuous monitoring (updates every 1 second)
+nvidia-smi --loop=1
+
+# Inside a container
+docker run --rm --gpus all nvidia/cuda:12.8.0-base-ubuntu24.04 nvidia-smi
+```
+
+Look for non-zero **GPU-Util** and **Memory-Usage** values while running inference to confirm GPU acceleration is active.
+
+### AMD
+
+```bash
+# ROCm System Management Interface
+rocm-smi
+
+# Continuous monitoring
+watch -n1 rocm-smi
+
+# Show detailed GPU info
+rocm-smi --showallinfo
+```
+
+### Intel
+
+```bash
+# Intel GPU top (part of intel-gpu-tools)
+sudo intel_gpu_top
+
+# List available Intel GPUs
+sycl-ls
+```
+
+## Troubleshooting
+
+### GPU not detected in container
+
+- **NVIDIA**: Ensure `nvidia-container-toolkit` is installed and the Docker runtime is configured. Test with `docker run --rm --gpus all nvidia/cuda:12.8.0-base-ubuntu24.04 nvidia-smi`.
+- **AMD**: Ensure `/dev/dri` and `/dev/kfd` are passed to the container and that `amdgpu-dkms` is installed on the host.
+- **Intel**: Ensure `/dev/dri` is passed to the container and Intel GPU drivers are installed on the host.
+
+### Model loads on CPU instead of GPU
+
+- Check that `gpu_layers` is set in your model YAML configuration. Setting it to a high number (e.g., `999`) offloads all possible layers to GPU.
+- Verify you are using a GPU-enabled container image (tags containing `gpu-nvidia-cuda`, `gpu-hipblas`, `gpu-intel`, etc.).
+- Enable `DEBUG=true` and check the logs for GPU initialization messages.
+
+### Out of memory (OOM) errors
+
+- Reduce `gpu_layers` to offload fewer layers, keeping some on CPU.
+- Lower `context_size` to reduce VRAM usage.
+- Use [VRAM Management]({{%relref "advanced/vram-management" %}}) to automatically unload idle models when running multiple models.
+- Use quantized models (e.g., Q4_K_M) which require less memory than full-precision models.
+
+### ROCm: unsupported GPU target
+
+If your AMD GPU is not in the default target list, set `REBUILD=true` and `GPU_TARGETS` to your device's gfx target:
+
+```bash
+docker run -e REBUILD=true -e BUILD_TYPE=hipblas -e GPU_TARGETS=gfx1030 \
+  --device /dev/dri --device /dev/kfd \
+  quay.io/go-skynet/local-ai:master-aio-gpu-hipblas
+```
+
+### Intel SYCL: model hangs
+
+SYCL has a known issue where models hang when `mmap: true` is set. Ensure `mmap` is disabled in the model configuration:
+
+```yaml
+mmap: false
+```
+
+### Slow performance or unexpected CPU fallback
+
+- Ensure `f16: true` is set in the model YAML for GPU-accelerated backends.
+- Set `threads: 1` when using full GPU offloading to avoid CPU thread contention.
+- Verify the correct `BUILD_TYPE` matches your hardware (e.g., `cublas` for NVIDIA, `hipblas` for AMD).
