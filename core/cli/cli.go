@@ -18,4 +18,5 @@ var CLI struct {
 	Worker          worker.Worker      `cmd:"" help:"Run workers to distribute workload (llama.cpp-only)"`
 	Util            UtilCMD            `cmd:"" help:"Utility commands"`
 	Explorer        ExplorerCMD        `cmd:"" help:"Run p2p explorer"`
+	Completion      CompletionCMD      `cmd:"" help:"Generate shell completion scripts for bash, zsh, or fish"`
 }
