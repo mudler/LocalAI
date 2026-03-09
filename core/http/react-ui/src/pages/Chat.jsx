@@ -164,8 +164,8 @@ export default function Chat() {
   const { addToast } = useOutletContext()
   const navigate = useNavigate()
   const {
-    chats, activeChat, activeChatId, isStreaming, streamingContent, streamingReasoning,
-    streamingToolCalls, tokensPerSecond, maxTokensPerSecond,
+    chats, activeChat, activeChatId, isStreaming, streamingChatId, streamingContent,
+    streamingReasoning, streamingToolCalls, tokensPerSecond, maxTokensPerSecond,
     addChat, switchChat, deleteChat, deleteAllChats, renameChat, updateChatSettings,
     sendMessage, stopGeneration, clearHistory, getContextUsagePercent,
   } = useChat(urlModel || '')
@@ -430,6 +430,7 @@ export default function Chat() {
                       className="chat-list-item-name"
                       onDoubleClick={() => startRename(chat.id, chat.name)}
                     >
+                      {streamingChatId === chat.id && <i className="fas fa-circle-notch fa-spin" style={{ marginRight: '6px', fontSize: '0.7rem', opacity: 0.7 }} />}
                       {chat.name}
                     </span>
                     <span className="chat-list-item-time">{relativeTime(chat.updatedAt)}</span>
