@@ -44,7 +44,7 @@ LocalAI will attempt to automatically load models which are not explicitly confi
 | [mlx-audio](https://github.com/Blaizzy/mlx-audio) | MLX | no                       | Text-tospeech    | no                               | no                   | Metal (Apple Silicon) |
 | [nemo](https://github.com/NVIDIA/NeMo) | NeMo speech models | no | Speech models | no | no | CUDA 12/13, ROCm, Intel, CPU |
 | [outetts](https://github.com/edwengc/outetts) | OuteTTS | no | Text-to-speech with voice cloning | no | no | CUDA 12/13, CPU |
-| [faster-qwen3-tts](https://github.com/QwenLM/faster-qwen3-tts) | Faster Qwen3 TTS | no | Fast text-to-speech | no | no | CUDA 12/13, ROCm, Intel, CPU |
+| [faster-qwen3-tts](https://github.com/andimarafioti/faster-qwen3-tts) | Faster Qwen3 TTS | no | Fast text-to-speech | no | no | CUDA 12/13, ROCm, Intel, CPU |
 | [qwen-asr](https://github.com/QwenLM/Qwen-ASR) | Qwen ASR | no | Automatic speech recognition | no | no | CUDA 12/13, ROCm, Intel, CPU |
 | [voxcpm](https://github.com/voxcpm/voxcpm) | VoxCPM | no | Speech understanding | no | no | CUDA 12/13, Metal, CPU |
 | [whisperx](https://github.com/m-bain/whisperX) | WhisperX | no | Enhanced transcription | no | no | CUDA 12/13, ROCm, Intel, CPU |
