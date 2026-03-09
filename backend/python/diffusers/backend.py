@@ -741,6 +741,8 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         # populate kwargs from self.options.
         kwargs.update(self.options)
 
+        kwargs.update(options)
+
         # Set seed
         if request.seed > 0:
             kwargs["generator"] = torch.Generator(device=self.device).manual_seed(
@@ -779,7 +781,6 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             export_to_video(video_frames, request.dst)
             return backend_pb2.Result(message="Media generated successfully", success=True)
 
-        kwargs.update(options)
         print(f"Generating image with {kwargs=}", file=sys.stderr)
         image = {}
         if COMPEL:
