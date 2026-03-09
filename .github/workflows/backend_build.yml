@@ -188,14 +188,14 @@ jobs:
 
       - name: Login to DockerHub
         if: github.event_name != 'pull_request'
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           username: ${{ secrets.dockerUsername }}
           password: ${{ secrets.dockerPassword }}
 
       - name: Login to Quay.io
         if: ${{ env.quay_username != '' }}
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: quay.io
           username: ${{ secrets.quayUsername }}
