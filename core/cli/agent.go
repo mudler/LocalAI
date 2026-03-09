@@ -111,6 +111,9 @@ func (a *AgentRunCMD) Run(ctx *cliContext.Context) error {
 
 	xlog.Info("Agent started successfully", "name", agentConfig.Name)
 
+	// Optionally, if the user specifies a prompt, we will ask the agent directly and exit.
+	// No background service in that case.
+
 	// Wait for interrupt signal
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
@@ -150,7 +153,7 @@ func (a *AgentRunCMD) loadFromFile(path string) (*state.AgentConfig, error) {
 // loadFromRegistry fetches an agent configuration from the agent hub registry.
 func (a *AgentRunCMD) loadFromRegistry(name string) (*state.AgentConfig, error) {
 	hubURL := strings.TrimRight(a.AgentHubURL, "/")
-	endpoint := fmt.Sprintf("%s/api/agents/%s", hubURL, name)
+	endpoint := fmt.Sprintf("%s/agents/%s.json", hubURL, name)
 
 	xlog.Info("Fetching agent configuration from registry", "name", name, "url", endpoint)
 
