@@ -480,6 +480,7 @@
       sha256: 8434af1d39eba99f0ef46cf1450bf1a63fa941a26933a1ef5dbbf4adf0d00e44
 - name: moonshine-tiny
   license: apache-2.0
+  size: "108MB"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   description: |
     Moonshine Tiny is a lightweight speech-to-text model optimized for fast transcription. It is designed for efficient on-device ASR with high accuracy relative to its size.
@@ -500,6 +501,7 @@
       model: moonshine/tiny
 - name: whisperx-tiny
   license: mit
+  size: "151MB"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   description: |
     WhisperX Tiny is a fast and accurate speech recognition model with speaker diarization capabilities. Built on OpenAI's Whisper with additional features for alignment and speaker segmentation.
@@ -540,6 +542,7 @@
       model: openbmb/VoxCPM1.5
 - name: neutts-air
   license: apache-2.0
+  size: "1.5GB"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   description: |
     NeuTTS Air is the world's first super-realistic, on-device TTS speech language model with instant voice cloning. Built on a 0.5B LLM backbone, it brings natural-sounding speech, real-time performance, and speaker cloning to local devices.
@@ -1532,6 +1535,7 @@
       sha256: 67561d63bfa2153616e4c02fd967007c182593fc53738a6ad94bf5f84e8832ac
 - &pocket-tts
   url: "github:mudler/LocalAI/gallery/pocket-tts.yaml@master"
+  size: "236MB"
   icon: https://avatars.githubusercontent.com/u/6154722?s=200&v=4
   license: mit
   tags:
@@ -2244,6 +2248,7 @@
       uri: huggingface://bartowski/LiquidAI_LFM2-8B-A1B-GGUF/LiquidAI_LFM2-8B-A1B-Q4_K_M.gguf
 - name: "kokoro"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  size: "327MB"
   urls:
     - https://github.com/hexgrad/kokoro
   license: apache-2.0
@@ -2533,6 +2538,7 @@
       uri: huggingface://DavidAU/OpenAi-GPT-oss-20b-abliterated-uncensored-NEO-Imatrix-gguf/OpenAI-20B-NEOPlus-Uncensored-IQ4_NL.gguf
 - name: "chatterbox"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  size: "3.2GB"
   icon: https://private-user-images.githubusercontent.com/660224/448166653-bd8c5f03-e91d-4ee5-b680-57355da204d1.png
   license: "mit"
   urls:
@@ -2619,6 +2625,7 @@
 - &rfdetr
   name: "rfdetr-base"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  size: "116MB"
   icon: https://avatars.githubusercontent.com/u/53104118?s=200&v=4
   license: apache-2.0
   description: |

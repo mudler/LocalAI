@@ -2,8 +2,10 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -17,6 +19,11 @@ import (
 	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/mudler/xlog"
 )
+
+// CLI Flag Naming Convention:
+// All CLI flags use kebab-case (e.g., --backends-path, --p2p-token).
+// When renaming flags, add the old name as an alias for backward compatibility
+// and document the deprecation in the help text.
 
 type RunCMD struct {
 	ModelArgs []string `arg:"" optional:"" name:"models" help:"Model configuration URLs to load"`
@@ -64,7 +71,7 @@ type RunCMD struct {
 	Peer2Peer                          bool     `env:"LOCALAI_P2P,P2P" name:"p2p" default:"false" help:"Enable P2P mode" group:"p2p"`
 	Peer2PeerDHTInterval               int      `env:"LOCALAI_P2P_DHT_INTERVAL,P2P_DHT_INTERVAL" default:"360" name:"p2p-dht-interval" help:"Interval for DHT refresh (used during token generation)" group:"p2p"`
 	Peer2PeerOTPInterval               int      `env:"LOCALAI_P2P_OTP_INTERVAL,P2P_OTP_INTERVAL" default:"9000" name:"p2p-otp-interval" help:"Interval for OTP refresh (used during token generation)" group:"p2p"`
-	Peer2PeerToken                     string   `env:"LOCALAI_P2P_TOKEN,P2P_TOKEN,TOKEN" name:"p2ptoken" help:"Token for P2P mode (optional)" group:"p2p"`
+	Peer2PeerToken                     string   `env:"LOCALAI_P2P_TOKEN,P2P_TOKEN,TOKEN" name:"p2p-token" aliases:"p2ptoken" help:"Token for P2P mode (optional; --p2ptoken is deprecated, use --p2p-token)" group:"p2p"`
 	Peer2PeerNetworkID                 string   `env:"LOCALAI_P2P_NETWORK_ID,P2P_NETWORK_ID" help:"Network ID for P2P mode, can be set arbitrarly by the user for grouping a set of instances" group:"p2p"`
 	ParallelRequests                   bool     `env:"LOCALAI_PARALLEL_REQUESTS,PARALLEL_REQUESTS" help:"Enable backends to handle multiple requests in parallel if they support it (e.g.: llama.cpp or vllm)" group:"backends"`
 	SingleActiveBackend                bool     `env:"LOCALAI_SINGLE_ACTIVE_BACKEND,SINGLE_ACTIVE_BACKEND" help:"Allow only one backend to be run at a time (deprecated: use --max-active-backends=1 instead)" group:"backends"`
@@ -117,6 +124,8 @@ type RunCMD struct {
 }
 
 func (r *RunCMD) Run(ctx *cliContext.Context) error {
+	warnDeprecatedFlags()
+
 	if r.Version {
 		fmt.Println(internal.Version)
 		return nil
@@ -171,11 +180,17 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 		config.WithMachineTag(r.MachineTag),
 		config.WithAPIAddress(r.Address),
 		config.WithAgentJobRetentionDays(r.AgentJobRetentionDays),
-		config.WithTunnelCallback(func(tunnels []string) {
+		config.WithLlamaCPPTunnelCallback(func(tunnels []string) {
 			tunnelEnvVar := strings.Join(tunnels, ",")
-			// TODO: this is very specific to llama.cpp, we should have a more generic way to set the environment variable
 			os.Setenv("LLAMACPP_GRPC_SERVERS", tunnelEnvVar)
 			xlog.Debug("setting LLAMACPP_GRPC_SERVERS", "value", tunnelEnvVar)
+		}),
+		config.WithMLXTunnelCallback(func(tunnels []string) {
+			hostfile := filepath.Join(os.TempDir(), "localai_mlx_hostfile.json")
+			data, _ := json.Marshal(tunnels)
+			os.WriteFile(hostfile, data, 0644)
+			os.Setenv("MLX_DISTRIBUTED_HOSTFILE", hostfile)
+			xlog.Debug("setting MLX_DISTRIBUTED_HOSTFILE", "value", hostfile, "tunnels", tunnels)
 		}),
 	}
 

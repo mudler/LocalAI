@@ -103,6 +103,7 @@ export function useChat(initialModel = '') {
   })
 
   const [isStreaming, setIsStreaming] = useState(false)
+  const [streamingChatId, setStreamingChatId] = useState(null)
   const [streamingContent, setStreamingContent] = useState('')
   const [streamingReasoning, setStreamingReasoning] = useState('')
   const [streamingToolCalls, setStreamingToolCalls] = useState([])
@@ -263,6 +264,7 @@ export function useChat(initialModel = '') {
     const controller = new AbortController()
     abortControllerRef.current = controller
     setIsStreaming(true)
+    setStreamingChatId(activeChatId)
     setStreamingContent('')
     setStreamingReasoning('')
     setStreamingToolCalls([])
@@ -526,6 +528,7 @@ export function useChat(initialModel = '') {
 
     // Finalize
     setIsStreaming(false)
+    setStreamingChatId(null)
     abortControllerRef.current = null
     setStreamingContent('')
     setStreamingReasoning('')
@@ -577,14 +580,17 @@ export function useChat(initialModel = '') {
     ))
   }, [])
 
+  const isActiveStreaming = isStreaming && streamingChatId === activeChatId
+
   return {
     chats,
     activeChat,
     activeChatId,
-    isStreaming,
-    streamingContent,
-    streamingReasoning,
-    streamingToolCalls,
+    isStreaming: isActiveStreaming,
+    streamingChatId: isStreaming ? streamingChatId : null,
+    streamingContent: isActiveStreaming ? streamingContent : '',
+    streamingReasoning: isActiveStreaming ? streamingReasoning : '',
+    streamingToolCalls: isActiveStreaming ? streamingToolCalls : [],
     tokensPerSecond,
     maxTokensPerSecond,
     addChat,
