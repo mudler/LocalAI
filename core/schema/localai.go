@@ -136,8 +136,9 @@ func (d NodeData) IsOnline() bool {
 }
 
 type P2PNodesResponse struct {
-	Nodes          []NodeData `json:"nodes" yaml:"nodes"`
+	LlamaCPPNodes  []NodeData `json:"llama_cpp_nodes" yaml:"llama_cpp_nodes"`
 	FederatedNodes []NodeData `json:"federated_nodes" yaml:"federated_nodes"`
+	MLXNodes       []NodeData `json:"mlx_nodes" yaml:"mlx_nodes"`
 }
 
 type SysInfoModel struct {

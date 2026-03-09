@@ -156,7 +156,7 @@ func (s *DiscoveryServer) retrieveNetworkData(c context.Context, ledger *blockch
 			for d := range data {
 				toScanForWorkers := false
 				cd := ClusterData{}
-				isWorkerCluster := d == p2p.WorkerID || (strings.Contains(d, "_") && strings.Contains(d, p2p.WorkerID))
+				isWorkerCluster := d == p2p.LlamaCPPWorkerID || (strings.Contains(d, "_") && strings.Contains(d, p2p.LlamaCPPWorkerID))
 				isFederatedCluster := d == p2p.FederatedID || (strings.Contains(d, "_") && strings.Contains(d, p2p.FederatedID))
 				switch {
 				case isWorkerCluster:

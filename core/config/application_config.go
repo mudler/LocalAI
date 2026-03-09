@@ -82,7 +82,8 @@ type ApplicationConfig struct {
 
 	APIAddress string
 
-	TunnelCallback func(tunnels []string)
+	LlamaCPPTunnelCallback    func(tunnels []string)
+	MLXTunnelCallback func(tunnels []string)
 
 	DisableRuntimeSettings bool
 
@@ -457,9 +458,15 @@ func WithContextSize(ctxSize int) AppOption {
 	}
 }
 
-func WithTunnelCallback(callback func(tunnels []string)) AppOption {
+func WithLlamaCPPTunnelCallback(callback func(tunnels []string)) AppOption {
 	return func(o *ApplicationConfig) {
-		o.TunnelCallback = callback
+		o.LlamaCPPTunnelCallback = callback
+	}
+}
+
+func WithMLXTunnelCallback(callback func(tunnels []string)) AppOption {
+	return func(o *ApplicationConfig) {
+		o.MLXTunnelCallback = callback
 	}
 }
 
