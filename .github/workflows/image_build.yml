@@ -230,7 +230,7 @@ jobs:
           password: ${{ secrets.quayPassword }}
 
       - name: Build and push
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         if: github.event_name != 'pull_request'
         with:
           builder: ${{ steps.buildx.outputs.name }}
@@ -259,7 +259,7 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
 ### Start testing image
       - name: Build and push
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         if: github.event_name == 'pull_request'
         with:
           builder: ${{ steps.buildx.outputs.name }}
@@ -289,7 +289,7 @@ jobs:
 ## End testing image
       - name: Build and push AIO image
         if: inputs.aio != ''
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           builder: ${{ steps.buildx.outputs.name }}
           build-args: |
@@ -304,7 +304,7 @@ jobs:
 
       - name: Build and push AIO image (dockerhub)
         if: inputs.aio != ''
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           builder: ${{ steps.buildx.outputs.name }}
           build-args: |
