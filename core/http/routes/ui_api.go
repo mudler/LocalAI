@@ -197,7 +197,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		}
 		items := c.QueryParam("items")
 		if items == "" {
-			items = "21"
+			items = "9"
 		}
 
 		models, err := gallery.AvailableGalleryModels(appConfig.Galleries, appConfig.SystemState)
@@ -253,7 +253,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 
 		itemsNum, err := strconv.Atoi(items)
 		if err != nil || itemsNum < 1 {
-			itemsNum = 21
+			itemsNum = 9
 		}
 
 		totalPages := int(math.Ceil(float64(len(models)) / float64(itemsNum)))
@@ -268,6 +268,25 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		seenIDs := make(map[string]bool)
 
 		weightExts := map[string]bool{".gguf": true, ".safetensors": true, ".bin": true, ".pt": true}
+		extractHFRepo := func(overrides map[string]interface{}, urls []string) string {
+			// Try overrides.parameters.model first
+			if overrides != nil {
+				if params, ok := overrides["parameters"].(map[string]interface{}); ok {
+					if modelRef, ok := params["model"].(string); ok {
+						if repoID, ok := vram.ExtractHFRepoID(modelRef); ok {
+							return repoID
+						}
+					}
+				}
+			}
+			// Fall back to the first HuggingFace URL in the metadata urls list
+			for _, u := range urls {
+				if repoID, ok := vram.ExtractHFRepoID(u); ok {
+					return repoID
+				}
+			}
+			return ""
+		}
 		hasWeightFiles := func(files []gallery.File) bool {
 			for _, f := range files {
 				ext := strings.ToLower(path.Ext(path.Base(f.URI)))
@@ -279,6 +298,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		}
 
 		const estimateTimeout = 3 * time.Second
+		const hfEstimateTimeout = 10 * time.Second
 		const estimateConcurrency = 3
 		sem := make(chan struct{}, estimateConcurrency)
 		var wg sync.WaitGroup
@@ -356,6 +376,34 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 						}
 					}
 				}(files, obj)
+			} else if m.Size != "" {
+				if sizeBytes, err := vram.ParseSizeString(m.Size); err == nil && sizeBytes > 0 {
+					result := vram.EstimateFromSize(sizeBytes)
+					obj["estimated_size_bytes"] = result.SizeBytes
+					obj["estimated_size_display"] = result.SizeDisplay
+					obj["estimated_vram_bytes"] = result.VRAMBytes
+					obj["estimated_vram_display"] = result.VRAMDisplay
+				}
+			} else if hfRepoID := extractHFRepo(m.Overrides, m.URLs); hfRepoID != "" {
+				wg.Add(1)
+				go func(repoID string, out map[string]interface{}) {
+					defer wg.Done()
+					sem <- struct{}{}
+					defer func() { <-sem }()
+					ctx, cancel := context.WithTimeout(context.Background(), hfEstimateTimeout)
+					defer cancel()
+					result, err := vram.EstimateFromHFRepo(ctx, repoID)
+					if err == nil {
+						if result.SizeBytes > 0 {
+							out["estimated_size_bytes"] = result.SizeBytes
+							out["estimated_size_display"] = result.SizeDisplay
+						}
+						if result.VRAMBytes > 0 {
+							out["estimated_vram_bytes"] = result.VRAMBytes
+							out["estimated_vram_display"] = result.VRAMDisplay
+						}
+					}
+				}(hfRepoID, obj)
 			}
 
 			modelsJSON = append(modelsJSON, obj)
@@ -678,7 +726,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		}
 		items := c.QueryParam("items")
 		if items == "" {
-			items = "21"
+			items = "9"
 		}
 
 		backends, err := gallery.AvailableBackends(appConfig.BackendGalleries, appConfig.SystemState)
@@ -734,7 +782,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 
 		itemsNum, err := strconv.Atoi(items)
 		if err != nil || itemsNum < 1 {
-			itemsNum = 21
+			itemsNum = 9
 		}
 
 		totalPages := int(math.Ceil(float64(len(backends)) / float64(itemsNum)))
