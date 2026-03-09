@@ -5,12 +5,15 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/application"
 	"github.com/mudler/LocalAI/core/services"
+	"github.com/mudler/LocalAI/pkg/utils"
 	"github.com/mudler/LocalAGI/core/state"
 	coreTypes "github.com/mudler/LocalAGI/core/types"
 	agiServices "github.com/mudler/LocalAGI/services"
@@ -225,7 +228,16 @@ func AgentSSEEndpoint(app *application.Application) echo.HandlerFunc {
 func GetAgentConfigMetaEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		svc := app.AgentPoolService()
-		return c.JSON(http.StatusOK, svc.GetConfigMeta())
+		meta := svc.GetConfigMeta()
+		return c.JSON(http.StatusOK, map[string]any{
+			"filters":        meta.Filters,
+			"fields":         meta.Fields,
+			"connectors":     meta.Connectors,
+			"actions":        meta.Actions,
+			"dynamicPrompts": meta.DynamicPrompts,
+			"mcpServers":     meta.MCPServers,
+			"outputsDir":     svc.OutputsDir(),
+		})
 	}
 }
 
@@ -329,5 +341,36 @@ func ExecuteActionEndpoint(app *application.Application) echo.HandlerFunc {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
 		}
 		return c.JSON(http.StatusOK, result)
+	}
+}
+
+func AgentFileEndpoint(app *application.Application) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		svc := app.AgentPoolService()
+
+		requestedPath := c.QueryParam("path")
+		if requestedPath == "" {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "no file path specified"})
+		}
+
+		// Resolve the real path (follows symlinks, eliminates ..)
+		resolved, err := filepath.EvalSymlinks(filepath.Clean(requestedPath))
+		if err != nil {
+			return c.JSON(http.StatusNotFound, map[string]string{"error": "file not found"})
+		}
+
+		// Only serve files from the outputs subdirectory
+		outputsDir, _ := filepath.EvalSymlinks(filepath.Clean(svc.OutputsDir()))
+
+		if utils.InTrustedRoot(resolved, outputsDir) != nil {
+			return c.JSON(http.StatusForbidden, map[string]string{"error": "access denied"})
+		}
+
+		info, err := os.Stat(resolved)
+		if err != nil || info.IsDir() {
+			return c.JSON(http.StatusNotFound, map[string]string{"error": "file not found"})
+		}
+
+		return c.File(resolved)
 	}
 }

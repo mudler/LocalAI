@@ -38,6 +38,8 @@ type AgentPoolService struct {
 	configMeta         state.AgentConfigMeta
 	actionsConfig      map[string]string
 	sharedState        *coreTypes.AgentSharedState
+	stateDir           string
+	outputsDir         string
 	mu                 sync.Mutex
 }
 
@@ -103,7 +105,15 @@ func (s *AgentPoolService) Start(ctx context.Context) error {
 		actionsConfig[agiServices.CustomActionsDir] = cfg.CustomActionsDir
 	}
 
+	// Create outputs subdirectory for action-generated files (PDFs, audio, etc.)
+	outputsDir := filepath.Join(stateDir, "outputs")
+	if err := os.MkdirAll(outputsDir, 0750); err != nil {
+		xlog.Error("Failed to create outputs directory", "path", outputsDir, "error", err)
+	}
+
 	s.actionsConfig = actionsConfig
+	s.stateDir = stateDir
+	s.outputsDir = outputsDir
 	s.sharedState = coreTypes.NewAgentSharedState(5 * time.Minute)
 
 	// Create the agent pool
@@ -306,12 +316,36 @@ func (s *AgentPoolService) Chat(name, message string) (string, error) {
 			})
 			manager.Send(sse.NewMessage(string(errMsg)).WithEvent("json_error"))
 		} else {
-			respMsg, _ := json.Marshal(map[string]any{
+			// Collect metadata from all action states
+			metadata := map[string]any{}
+			for _, state := range response.State {
+				for k, v := range state.Metadata {
+					if existing, ok := metadata[k]; ok {
+						if existList, ok := existing.([]string); ok {
+							if newList, ok := v.([]string); ok {
+								metadata[k] = append(existList, newList...)
+								continue
+							}
+						}
+					}
+					metadata[k] = v
+				}
+			}
+
+			if len(metadata) > 0 {
+				s.collectAndCopyMetadata(metadata)
+			}
+
+			msg := map[string]any{
 				"id":        messageID + "-agent",
 				"sender":    "agent",
 				"content":   response.Response,
 				"timestamp": time.Now().Format(time.RFC3339),
-			})
+			}
+			if len(metadata) > 0 {
+				msg["metadata"] = metadata
+			}
+			respMsg, _ := json.Marshal(msg)
 			manager.Send(sse.NewMessage(string(respMsg)).WithEvent("json_message"))
 		}
 
@@ -325,6 +359,63 @@ func (s *AgentPoolService) Chat(name, message string) (string, error) {
 	return messageID, nil
 }
 
+// copyToOutputs copies a file into the outputs directory and returns the new path.
+// If the file is already inside outputsDir, it returns the original path unchanged.
+func (s *AgentPoolService) copyToOutputs(srcPath string) (string, error) {
+	srcClean := filepath.Clean(srcPath)
+	absOutputs, _ := filepath.Abs(s.outputsDir)
+	absSrc, _ := filepath.Abs(srcClean)
+	if strings.HasPrefix(absSrc, absOutputs+string(os.PathSeparator)) {
+		return srcPath, nil
+	}
+
+	src, err := os.Open(srcClean)
+	if err != nil {
+		return "", err
+	}
+	defer src.Close()
+
+	dstPath := filepath.Join(s.outputsDir, filepath.Base(srcClean))
+	dst, err := os.Create(dstPath)
+	if err != nil {
+		return "", err
+	}
+	defer dst.Close()
+
+	if _, err := io.Copy(dst, src); err != nil {
+		return "", err
+	}
+	return dstPath, nil
+}
+
+// collectAndCopyMetadata iterates all metadata keys and, for any value that is
+// a []string of local file paths, copies those files into the outputs directory
+// so the file endpoint can serve them from a single confined location.
+// Entries that are URLs (http/https) are left unchanged.
+func (s *AgentPoolService) collectAndCopyMetadata(metadata map[string]any) {
+	for key, val := range metadata {
+		list, ok := val.([]string)
+		if !ok {
+			continue
+		}
+		updated := make([]string, 0, len(list))
+		for _, p := range list {
+			if strings.HasPrefix(p, "http://") || strings.HasPrefix(p, "https://") {
+				updated = append(updated, p)
+				continue
+			}
+			newPath, err := s.copyToOutputs(p)
+			if err != nil {
+				xlog.Error("Failed to copy file to outputs", "src", p, "error", err)
+				updated = append(updated, p)
+				continue
+			}
+			updated = append(updated, newPath)
+		}
+		metadata[key] = updated
+	}
+}
+
 func (s *AgentPoolService) GetSSEManager(name string) sse.Manager {
 	return s.pool.GetManager(name)
 }
@@ -335,6 +426,14 @@ func (s *AgentPoolService) GetConfigMeta() state.AgentConfigMeta {
 
 func (s *AgentPoolService) AgentHubURL() string {
 	return s.appConfig.AgentPool.AgentHubURL
+}
+
+func (s *AgentPoolService) StateDir() string {
+	return s.stateDir
+}
+
+func (s *AgentPoolService) OutputsDir() string {
+	return s.outputsDir
 }
 
 // ExportAgent returns the agent config as JSON bytes.
