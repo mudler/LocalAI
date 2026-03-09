@@ -47,6 +47,8 @@
             <div class="sticky top-0 z-10 -mx-4 px-4 py-3 -mt-2 mb-2 bg-[var(--color-bg-primary)] border-b border-[var(--color-border-subtle)] flex justify-end">
                 <button type="submit"
                         :disabled="saving"
+                        data-tooltip="Save current settings"
+                        aria-label="Save settings"
                         class="inline-flex items-center gap-1.5 text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] bg-transparent hover:bg-[var(--color-primary)]/10 border border-[var(--color-border-subtle)] hover:border-[var(--color-primary)]/30 rounded-md py-1.5 px-2.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:border-[var(--color-border-subtle)]">
                     <i class="fas fa-save text-[10px]" :class="saving ? 'fa-spin fa-spinner' : ''"></i>
                     <span x-text="saving ? 'Saving...' : 'Save Settings'"></span>
@@ -64,7 +66,7 @@
 
                 <div class="space-y-4">
                     <!-- Enable Watchdog -->
-                    <div class="flex items-center justify-between">
+                    <div class="flex items-center justify-between" data-tooltip="Monitor and manage backend processes automatically" data-tooltip-wrap>
                         <div>
                             <label class="text-sm font-medium text-[var(--color-text-primary)]">Enable Watchdog</label>
                             <p class="text-xs text-[var(--color-text-secondary)] mt-1">Enable automatic monitoring of backend processes</p>
@@ -78,7 +80,7 @@
                     </div>
 
                     <!-- Enable Idle Check -->
-                    <div class="flex items-center justify-between">
+                    <div class="flex items-center justify-between" data-tooltip="Stop idle backends to free resources" data-tooltip-wrap>
                         <div>
                             <label class="text-sm font-medium text-[var(--color-text-primary)]">Enable Idle Check</label>
                             <p class="text-xs text-[var(--color-text-secondary)] mt-1">Automatically stop backends that are idle for too long</p>
@@ -103,7 +105,7 @@
                     </div>
 
                     <!-- Enable Busy Check -->
-                    <div class="flex items-center justify-between">
+                    <div class="flex items-center justify-between" data-tooltip="Stop stuck backend processes" data-tooltip-wrap>
                         <div>
                             <label class="text-sm font-medium text-[var(--color-text-primary)]">Enable Busy Check</label>
                             <p class="text-xs text-[var(--color-text-secondary)] mt-1">Automatically stop backends that are busy for too long (stuck processes)</p>
@@ -139,7 +141,7 @@
                     </div>
 
                     <!-- Force Eviction When Busy -->
-                    <div class="flex items-center justify-between">
+                    <div class="flex items-center justify-between" data-tooltip="Allow evicting models during active API calls" data-tooltip-wrap>
                         <div>
                             <label class="text-sm font-medium text-[var(--color-text-primary)]">Force Eviction When Busy</label>
                             <p class="text-xs text-[var(--color-text-secondary)] mt-1">Allow evicting models even when they have active API calls (default: disabled for safety)</p>
@@ -189,7 +191,7 @@
                         <div x-data="resourceStatus()" x-init="fetchResource()" class="p-3 bg-[var(--color-bg-primary)] rounded mb-4">
                             <div class="flex items-center justify-between mb-2">
                                 <span class="text-xs text-[var(--color-text-secondary)]" x-text="resourceData && resourceData.type === 'gpu' ? 'Current GPU Status' : 'Current Memory Status'">Current Memory Status</span>
-                                <button @click="fetchResource()" class="text-[10px] text-[var(--color-primary)] hover:underline">
+                                <button @click="fetchResource()" class="text-[10px] text-[var(--color-primary)] hover:underline" data-tooltip="Refresh memory status" aria-label="Refresh">
                                     <i class="fas fa-sync-alt mr-1"></i>Refresh
                                 </button>
                             </div>

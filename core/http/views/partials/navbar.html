@@ -1,5 +1,5 @@
 <!-- Mobile Menu Button -->
-<button id="mobile-menu-btn" class="mobile-menu-btn" aria-label="Open menu">
+<button id="mobile-menu-btn" class="mobile-menu-btn" aria-label="Open menu" data-tooltip="Open menu" data-tooltip-pos="right">
   <i class="fas fa-bars"></i>
 </button>
 
@@ -13,7 +13,7 @@
     <a href="./" class="block">
       <img src="static/logo_horizontal.png" alt="LocalAI" class="w-full h-auto px-2">
     </a>
-    <button id="sidebar-close-btn" class="sidebar-close-btn" aria-label="Close menu">
+    <button id="sidebar-close-btn" class="sidebar-close-btn" aria-label="Close menu" data-tooltip="Close menu">
       <i class="fas fa-times"></i>
     </button>
   </div>
@@ -105,12 +105,13 @@
         <i class="fas fa-moon" id="theme-icon-dark" style="display: none;"></i>
         <span id="theme-label">Dark</span>
       </span>
-      <div 
-        class="toggle-switch" 
+      <div
+        class="toggle-switch"
         id="theme-toggle-switch"
         onclick="toggleTheme && toggleTheme(); updateThemeUI();"
         role="switch"
         aria-label="Toggle theme"
+        data-tooltip="Switch between dark and light theme"
         tabindex="0"
         onkeydown="if(event.key === 'Enter' || event.key === ' ') { event.preventDefault(); toggleTheme && toggleTheme(); updateThemeUI(); }"
       ></div>

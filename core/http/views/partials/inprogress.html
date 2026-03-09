@@ -89,7 +89,7 @@
                                 <template x-if="operation.cancellable && !operation.isCancelled">
                                     <button @click="cancelOperation(operation.jobID, operation.id)"
                                             class="text-[var(--color-error)] hover:text-[var(--color-error)] transition-colors p-1 rounded hover:bg-[var(--color-error-light)]"
-                                            title="Cancel operation">
+                                            data-tooltip="Cancel operation" aria-label="Cancel operation">
                                         <i class="fas fa-times"></i>
                                     </button>
                                 </template>

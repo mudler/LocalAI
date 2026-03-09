@@ -63,7 +63,7 @@
 
                                 <!-- Negative Prompt -->
                                 <div class="space-y-1">
-                                    <label for="negative-prompt" class="block text-xs font-medium text-[var(--color-text-secondary)] uppercase tracking-wide">
+                                    <label for="negative-prompt" class="block text-xs font-medium text-[var(--color-text-secondary)] uppercase tracking-wide" data-tooltip="Describe what to exclude from the generated image" data-tooltip-wrap>
                                         <i class="fas fa-ban mr-1.5 text-[var(--color-primary)]"></i>Negative Prompt
                                     </label>
                                     <textarea
@@ -81,10 +81,10 @@
                                         <i class="fas fa-expand-arrows-alt mr-1.5 text-[var(--color-primary)]"></i>Image Size
                                     </label>
                                     <div class="flex flex-wrap gap-1.5 mb-1.5">
-                                        <button type="button" class="size-preset px-2 py-0.5 text-[10px] rounded border border-[var(--color-border)] hover:bg-[var(--color-bg-secondary)]" data-size="256x256">256×256</button>
-                                        <button type="button" class="size-preset px-2 py-0.5 text-[10px] rounded border border-[var(--color-border)] hover:bg-[var(--color-bg-secondary)]" data-size="512x512">512×512</button>
-                                        <button type="button" class="size-preset px-2 py-0.5 text-[10px] rounded border border-[var(--color-border)] hover:bg-[var(--color-bg-secondary)]" data-size="768x768">768×768</button>
-                                        <button type="button" class="size-preset px-2 py-0.5 text-[10px] rounded border border-[var(--color-border)] hover:bg-[var(--color-bg-secondary)]" data-size="1024x1024">1024×1024</button>
+                                        <button type="button" class="size-preset px-2 py-0.5 text-[10px] rounded border border-[var(--color-border)] hover:bg-[var(--color-bg-secondary)]" data-size="256x256" data-tooltip="Small square format">256×256</button>
+                                        <button type="button" class="size-preset px-2 py-0.5 text-[10px] rounded border border-[var(--color-border)] hover:bg-[var(--color-bg-secondary)]" data-size="512x512" data-tooltip="Standard square format">512×512</button>
+                                        <button type="button" class="size-preset px-2 py-0.5 text-[10px] rounded border border-[var(--color-border)] hover:bg-[var(--color-bg-secondary)]" data-size="768x768" data-tooltip="Large square format">768×768</button>
+                                        <button type="button" class="size-preset px-2 py-0.5 text-[10px] rounded border border-[var(--color-border)] hover:bg-[var(--color-bg-secondary)]" data-size="1024x1024" data-tooltip="Extra large square format">1024×1024</button>
                                     </div>
                                     <input
                                         type="text"
@@ -121,7 +121,7 @@
                                 <div id="advanced-settings" class="hidden p-2 bg-[var(--color-bg-secondary)] border border-[var(--color-primary-border)]/20 rounded pl-4 border-l-2 border-[var(--color-bg-secondary)] space-y-2">
                                     <!-- Steps -->
                                     <div class="space-y-1">
-                                        <label for="image-steps" class="block text-xs text-[var(--color-text-secondary)]">
+                                        <label for="image-steps" class="block text-xs text-[var(--color-text-secondary)]" data-tooltip="More steps = higher quality but slower" data-tooltip-wrap>
                                             <i class="fas fa-step-forward mr-1.5 text-[var(--color-primary)]"></i>Steps
                                         </label>
                                         <input
@@ -137,7 +137,7 @@
 
                                     <!-- Seed -->
                                     <div class="space-y-1">
-                                        <label for="image-seed" class="block text-xs text-[var(--color-text-secondary)]">
+                                        <label for="image-seed" class="block text-xs text-[var(--color-text-secondary)]" data-tooltip="Fixed seed reproduces the same image" data-tooltip-wrap>
                                             <i class="fas fa-seedling mr-1.5 text-[var(--color-primary)]"></i>Seed
                                         </label>
                                         <input
@@ -161,7 +161,7 @@
                                 <div id="image-inputs-settings" class="hidden p-2 bg-[var(--color-bg-secondary)] border border-[var(--color-primary-border)]/20 rounded pl-4 border-l-2 border-[var(--color-bg-secondary)] space-y-2">
                                     <!-- Source Image (img2img) -->
                                     <div class="space-y-1">
-                                        <label for="source-image" class="block text-xs text-[var(--color-text-secondary)]">
+                                        <label for="source-image" class="block text-xs text-[var(--color-text-secondary)]" data-tooltip="Base image to transform with your prompt" data-tooltip-wrap>
                                             <i class="fas fa-file-image mr-1.5 text-[var(--color-primary)]"></i>Source Image (img2img)
                                         </label>
                                         <input
@@ -179,7 +179,7 @@
                                             <label class="block text-xs text-[var(--color-text-secondary)]">
                                                 <i class="fas fa-images mr-1.5 text-[var(--color-primary)]"></i>Multiple Input Images
                                             </label>
-                                            <button type="button" id="add-reference-image" class="px-2 py-0.5 text-[10px] bg-[var(--color-primary)] text-white rounded hover:opacity-80">
+                                            <button type="button" id="add-reference-image" class="px-2 py-0.5 text-[10px] bg-[var(--color-primary)] text-white rounded hover:opacity-80" data-tooltip="Add another reference image" aria-label="Add reference image">
                                                 <i class="fas fa-plus mr-1"></i>Add
                                             </button>
                                         </div>

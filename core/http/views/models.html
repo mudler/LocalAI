@@ -268,7 +268,7 @@
 
                                     <!-- Description -->
                                     <td class="px-6 py-4">
-                                        <div class="text-sm text-[var(--color-text-secondary)] max-w-xs truncate" x-text="model.description" :title="model.description"></div>
+                                        <div class="text-sm text-[var(--color-text-secondary)] max-w-xs truncate" x-text="model.description" :data-tooltip="model.description"></div>
                                     </td>
 
                                     <!-- Size / VRAM -->
@@ -282,7 +282,7 @@
                                                 </div>
                                             </template>
                                             <template x-if="model.estimated_vram_bytes && totalMemory > 0">
-                                                <span :title="(model.estimated_vram_bytes <= totalMemory * 0.95 ? 'Fits your GPU' : 'May not fit your GPU')"
+                                                <span :data-tooltip="(model.estimated_vram_bytes <= totalMemory * 0.95 ? 'Fits your GPU' : 'May not fit your GPU')"
                                                       class="inline-flex items-center text-xs">
                                                     <i class="fas fa-microchip mr-1"
                                                        :class="model.estimated_vram_bytes <= totalMemory * 0.95 ? 'text-[var(--color-success)]' : 'text-[var(--color-error)]'"></i>
@@ -331,37 +331,37 @@
                                             <!-- Info Button -->
                                             <button @click="openModal(model)" 
                                                     class="inline-flex items-center px-3 py-1.5 rounded-lg bg-[var(--color-bg-primary)] hover:bg-[var(--color-primary-light)] text-xs font-medium text-[var(--color-text-primary)] transition duration-200 border border-[var(--color-border-subtle)]"
-                                                    title="View details">
+                                                    data-tooltip="View details" aria-label="View details">
                                                 <i class="fas fa-info-circle"></i>
                                             </button>
-                                            
+
                                             <!-- Installed State Actions -->
                                             <template x-if="!model.processing && model.installed">
                                                 <div class="flex gap-2">
-                                                    <button @click="reinstallModel(model.id)" 
+                                                    <button @click="reinstallModel(model.id)"
                                                             class="inline-flex items-center px-3 py-1.5 rounded-lg bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] text-xs font-medium text-white transition duration-200"
-                                                            title="Reinstall">
+                                                            data-tooltip="Reinstall" aria-label="Reinstall model">
                                                         <i class="fa-solid fa-arrow-rotate-right"></i>
                                                     </button>
-                                                    <button @click="deleteModel(model.id)" 
+                                                    <button @click="deleteModel(model.id)"
                                                             class="inline-flex items-center px-3 py-1.5 rounded-lg bg-[var(--color-error)] hover:bg-[var(--color-error)]/80 text-xs font-medium text-white transition duration-200"
-                                                            title="Delete">
+                                                            data-tooltip="Delete" aria-label="Delete model">
                                                         <i class="fa-solid fa-trash"></i>
                                                     </button>
                                                 </div>
                                             </template>
-                                            
+
                                             <!-- Not Installed State Actions -->
                                             <template x-if="!model.processing && !model.installed">
                                                 <div class="flex gap-2">
                                                     <button @click="getConfig(model.id)"
                                                             class="inline-flex items-center px-3 py-1.5 rounded-lg bg-[var(--color-accent-light)] hover:bg-[var(--color-accent)]/30 text-xs font-medium text-[var(--color-text-primary)] transition duration-200 border border-[var(--color-accent)]/30"
-                                                            title="Get config">
+                                                            data-tooltip="Get config" aria-label="Get configuration">
                                                         <i class="fa-solid fa-file-code"></i>
                                                     </button>
-                                                    <button @click="installModel(model.id)" 
+                                                    <button @click="installModel(model.id)"
                                                             class="inline-flex items-center px-3 py-1.5 rounded-lg bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] text-xs font-medium text-white transition duration-200"
-                                                            title="Install">
+                                                            data-tooltip="Install" aria-label="Install model">
                                                         <i class="fa-solid fa-download"></i>
                                                     </button>
                                                 </div>

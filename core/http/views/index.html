@@ -330,7 +330,7 @@
                             x-show="mcpAvailable"
                             class="flex items-center gap-2 px-3 py-2 text-xs rounded text-[var(--color-text-primary)] bg-[var(--color-bg-secondary)] border border-[var(--color-primary-border)] whitespace-nowrap">
                             <i class="fa-solid fa-plug text-[var(--color-primary)] text-sm"></i>
-                            <span class="text-[var(--color-text-secondary)]">MCP</span>
+                            <span class="text-[var(--color-text-secondary)]" data-tooltip="Model Context Protocol - enables tool use" data-tooltip-wrap>MCP</span>
                             <label class="relative inline-flex items-center cursor-pointer ml-1">
                                 <input type="checkbox" id="index_mcp_toggle" class="sr-only peer" x-model="mcpMode">
                                 <div class="w-9 h-5 bg-[var(--color-bg-primary)] peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-[var(--color-primary-border)] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-[var(--color-bg-secondary)] after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[var(--color-primary)]"></div>
@@ -361,7 +361,8 @@
                                     type="button"
                                     @click="attachedFiles.splice(index, 1); removeAttachedFile(file.type, file.name)"
                                     class="ml-1 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors"
-                                    title="Remove attachment"
+                                    data-tooltip="Remove attachment"
+                                    aria-label="Remove attachment"
                                 >
                                     <i class="fa-solid fa-times text-xs"></i>
                                 </button>
@@ -389,19 +390,22 @@
                             type="button"
                             @click="document.getElementById('index_input_image').click()"
                             class="fa-solid fa-image text-[var(--color-text-secondary)] absolute right-12 top-3 text-base p-1.5 hover:text-[var(--color-primary)] transition-colors duration-200"
-                            title="Attach images"
+                            data-tooltip="Attach images"
+                            aria-label="Attach images"
                         ></button>
                         <button
                             type="button"
                             @click="document.getElementById('index_input_audio').click()"
                             class="fa-solid fa-microphone text-[var(--color-text-secondary)] absolute right-20 top-3 text-base p-1.5 hover:text-[var(--color-primary)] transition-colors duration-200"
-                            title="Attach an audio file"
+                            data-tooltip="Attach an audio file"
+                            aria-label="Attach audio"
                         ></button>
                         <button
                             type="button"
                             @click="document.getElementById('index_input_file').click()"
                             class="fa-solid fa-file text-[var(--color-text-secondary)] absolute right-28 top-3 text-base p-1.5 hover:text-[var(--color-primary)] transition-colors duration-200"
-                            title="Upload text, markdown or PDF file"
+                            data-tooltip="Upload text, markdown or PDF file"
+                            aria-label="Attach file"
                         ></button>
 
                         <!-- Send Button -->
@@ -410,7 +414,8 @@
                             :disabled="!selectedModel || (!inputValue.trim() && !currentPlaceholder.trim())"
                             :class="!selectedModel || (!inputValue.trim() && !currentPlaceholder.trim()) ? 'opacity-50 cursor-not-allowed' : ''"
                             class="text-lg p-2 text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-colors duration-200 absolute right-3 top-3"
-                            title="Send message (Enter)"
+                            data-tooltip="Send message (Enter)"
+                            aria-label="Send message"
                         >
                             <i class="fa-solid fa-paper-plane"></i>
                         </button>
@@ -503,7 +508,8 @@
                         <button
                             @click="stopModel('{{.Name}}')"
                             class="text-red-400/60 hover:text-red-400 transition-colors ml-0.5"
-                            title="Stop {{.Name}}"
+                            data-tooltip="Stop {{.Name}}"
+                            aria-label="Stop {{.Name}}"
                         >
                             <i class="fas fa-times text-[10px]"></i>
                         </button>
@@ -516,7 +522,8 @@
                     :disabled="stoppingAll"
                     :class="stoppingAll ? 'opacity-50 cursor-not-allowed' : ''"
                     class="text-red-400/60 hover:text-red-400 transition-colors text-xs"
-                    title="Stop all loaded models"
+                    data-tooltip="Stop all loaded models"
+                    aria-label="Stop all loaded models"
                 >
                     <span x-text="stoppingAll ? 'Stopping...' : 'Stop all'"></span>
                 </button>

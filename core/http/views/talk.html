@@ -53,7 +53,7 @@
               <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
                 <!-- LLM Model -->
                 <div class="space-y-2">
-                  <label for="modelSelect" class="flex items-center text-[var(--color-text-secondary)] font-medium">
+                  <label for="modelSelect" class="flex items-center text-[var(--color-text-secondary)] font-medium" data-tooltip="Language model for generating responses" data-tooltip-wrap>
                     <i class="fas fa-brain text-[var(--color-primary)] mr-2"></i>LLM Model
                   </label>
                   <select id="modelSelect" 
@@ -67,7 +67,7 @@
                 
                 <!-- STT Model -->
                 <div class="space-y-2">
-                  <label for="sttModelSelect" class="flex items-center text-[var(--color-text-secondary)] font-medium">
+                  <label for="sttModelSelect" class="flex items-center text-[var(--color-text-secondary)] font-medium" data-tooltip="Speech-to-text model (e.g. Whisper)" data-tooltip-wrap>
                     <i class="fas fa-ear-listen text-[var(--color-accent)] mr-2"></i>STT Model
                   </label>
                   <select id="sttModelSelect" 
@@ -81,7 +81,7 @@
                 
                 <!-- TTS Model -->
                 <div class="space-y-2">
-                  <label for="ttsModelSelect" class="flex items-center text-[var(--color-text-secondary)] font-medium">
+                  <label for="ttsModelSelect" class="flex items-center text-[var(--color-text-secondary)] font-medium" data-tooltip="Text-to-speech model for voice output" data-tooltip-wrap>
                     <i class="fas fa-volume-high text-[var(--color-success)] mr-2"></i>TTS Model
                   </label>
                   <select id="ttsModelSelect" 
@@ -96,15 +96,17 @@
               
               <!-- Buttons -->
               <div class="flex items-center justify-between mt-8">
-                <button id="recordButton" 
-                  class="inline-flex items-center bg-[var(--color-error)] hover:bg-[var(--color-error)]/90 text-white font-semibold py-2 px-6 rounded-lg transition-colors">
+                <button id="recordButton"
+                  class="inline-flex items-center bg-[var(--color-error)] hover:bg-[var(--color-error)]/90 text-white font-semibold py-2 px-6 rounded-lg transition-colors"
+                  data-tooltip="Start voice recording" aria-label="Start recording">
                   <i class="fas fa-microphone mr-2"></i>
                   <span>Talk</span>
                 </button>
                 
-                <a id="resetButton" 
-                  class="flex items-center text-[var(--color-primary)] hover:text-[var(--color-accent)] transition-colors" 
-                  href="#">
+                <a id="resetButton"
+                  class="flex items-center text-[var(--color-primary)] hover:text-[var(--color-accent)] transition-colors"
+                  href="#"
+                  data-tooltip="Clear conversation history and start fresh" data-tooltip-wrap aria-label="Reset conversation">
                   <i class="fas fa-rotate-left mr-2"></i>
                   <span>Reset conversation</span>
                 </a>

@@ -217,7 +217,7 @@
                             <span class="text-[var(--color-primary)] font-medium">{{$modelsN}}</span> model{{if gt $modelsN 1}}s{{end}} ready to use
                         </p>
                     </div>
-                    <button id="reload-models-btn" type="button" title="Update models list from disk"
+                    <button id="reload-models-btn" type="button" data-tooltip="Update models list from disk" aria-label="Update models list from disk"
                         class="inline-flex items-center gap-1.5 text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] bg-transparent hover:bg-[var(--color-primary)]/10 border border-[var(--color-border-subtle)] hover:border-[var(--color-primary)]/30 rounded-md py-1.5 px-2.5 transition-colors">
                         <i class="fas fa-sync-alt text-[10px]"></i>
                         <span>Update</span>
@@ -260,7 +260,7 @@
                                     <span class="text-xs text-[var(--color-text-primary)] font-medium truncate">{{.Name}}</span>
                                     <a href="/models/edit/{{.Name}}" 
                                        class="text-[var(--color-primary)]/60 hover:text-[var(--color-primary)] hover:bg-[var(--color-primary)]/10 rounded p-0.5 transition-colors ml-1 flex-shrink-0"
-                                       title="Edit {{.Name}}">
+                                       data-tooltip="Edit {{.Name}}" aria-label="Edit {{.Name}}">
                                         <i class="fas fa-edit text-[10px]"></i>
                                     </a>
                                 </div>
@@ -300,22 +300,22 @@
                                 <div class="flex flex-wrap gap-1">
                                     {{ range .KnownUsecaseStrings }}
                                     {{ if eq . "FLAG_CHAT" }}
-                                    <a href="chat/{{$backendCfg.Name}}" onclick="sessionStorage.setItem('localai_create_new_chat', 'true');" class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-[var(--color-primary)]/10 text-[var(--color-primary)] hover:bg-[var(--color-primary)]/20 transition-colors" title="Chat">
+                                    <a href="chat/{{$backendCfg.Name}}" onclick="sessionStorage.setItem('localai_create_new_chat', 'true');" class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-[var(--color-primary)]/10 text-[var(--color-primary)] hover:bg-[var(--color-primary)]/20 transition-colors" data-tooltip="Chat" aria-label="Chat">
                                         <i class="fas fa-comment-alt text-[8px] mr-1"></i>Chat
                                     </a>
                                     {{ end }}
                                     {{ if eq . "FLAG_IMAGE" }}
-                                    <a href="image/{{$backendCfg.Name}}" class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-[var(--color-success)]/10 text-green-300 hover:bg-[var(--color-success)]/20 transition-colors" title="Image">
+                                    <a href="image/{{$backendCfg.Name}}" class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-[var(--color-success)]/10 text-green-300 hover:bg-[var(--color-success)]/20 transition-colors" data-tooltip="Image" aria-label="Image">
                                         <i class="fas fa-image text-[8px] mr-1"></i>Image
                                     </a>
                                     {{ end }}
                                     {{ if eq . "FLAG_TTS" }}
-                                    <a href="tts/{{$backendCfg.Name}}" class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-[var(--color-accent-light)] text-[var(--color-accent)] hover:bg-[var(--color-accent-light)] transition-colors" title="TTS">
+                                    <a href="tts/{{$backendCfg.Name}}" class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-[var(--color-accent-light)] text-[var(--color-accent)] hover:bg-[var(--color-accent-light)] transition-colors" data-tooltip="TTS" aria-label="TTS">
                                         <i class="fas fa-microphone text-[8px] mr-1"></i>TTS
                                     </a>
                                     {{ end }}
                                     {{ if eq . "FLAG_SOUND_GENERATION" }}
-                                    <a href="sound/{{$backendCfg.Name}}" class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-[var(--color-primary)]/10 text-[var(--color-primary)] hover:bg-[var(--color-primary)]/20 transition-colors" title="Sound">
+                                    <a href="sound/{{$backendCfg.Name}}" class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-[var(--color-primary)]/10 text-[var(--color-primary)] hover:bg-[var(--color-primary)]/20 transition-colors" data-tooltip="Sound" aria-label="Sound">
                                         <i class="fas fa-waveform-lines text-[8px] mr-1"></i>Sound
                                     </a>
                                     {{ end }}
@@ -329,13 +329,13 @@
                                     {{ if index $loadedModels .Name }}
                                     <button type="button" class="text-red-400/60 hover:text-red-400 hover:bg-red-500/10 rounded p-1 transition-colors"
                                         onclick="handleStopModel('{{.Name}}')"
-                                        title="Stop {{.Name}}">
+                                        data-tooltip="Stop {{.Name}}" aria-label="Stop {{.Name}}">
                                         <i class="fas fa-stop text-xs"></i>
                                     </button>
                                     {{ end }}
                                     <button type="button" class="text-red-400/60 hover:text-red-400 hover:bg-red-500/10 rounded p-1 transition-colors"
                                         onclick="handleDeleteModel('{{.Name}}')"
-                                        title="Delete {{.Name}}">
+                                        data-tooltip="Delete {{.Name}}" aria-label="Delete {{.Name}}">
                                         <i class="fas fa-trash-alt text-xs"></i>
                                     </button>
                                 </div>
@@ -389,7 +389,7 @@
                         @click="reinstallAllBackends()"
                         :disabled="reinstallingAll"
                         class="inline-flex items-center gap-1.5 text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] bg-transparent hover:bg-[var(--color-primary)]/10 border border-[var(--color-border-subtle)] hover:border-[var(--color-primary)]/30 rounded-md py-1.5 px-2.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:border-[var(--color-border-subtle)]"
-                        title="Reinstall all backends">
+                        data-tooltip="Reinstall all backends" aria-label="Reinstall all backends">
                         <i class="fas fa-arrow-rotate-right text-[10px]" :class="reinstallingAll ? 'fa-spin' : ''"></i>
                         <span x-text="reinstallingAll ? 'Reinstalling...' : 'Reinstall All'"></span>
                     </button>
@@ -494,13 +494,13 @@
                                         @click="reinstallBackend('{{.Name}}')"
                                         :disabled="reinstallingBackends['{{.Name}}']"
                                         class="text-[var(--color-primary)]/60 hover:text-[var(--color-primary)] hover:bg-[var(--color-primary)]/10 disabled:opacity-50 disabled:cursor-not-allowed rounded p-1 transition-colors"
-                                        title="Reinstall {{.Name}}">
+                                        data-tooltip="Reinstall {{.Name}}" aria-label="Reinstall {{.Name}}">
                                         <i class="fas fa-arrow-rotate-right text-xs" :class="reinstallingBackends['{{.Name}}'] ? 'fa-spin' : ''"></i>
                                     </button>
                                     <button type="button"
                                         @click="deleteBackend('{{.Name}}')"
                                         class="text-red-400/60 hover:text-red-400 hover:bg-red-500/10 rounded p-1 transition-colors"
-                                        title="Delete {{.Name}}">
+                                        data-tooltip="Delete {{.Name}}" aria-label="Delete {{.Name}}">
                                         <i class="fas fa-trash-alt text-xs"></i>
                                     </button>
                                     {{ else }}

@@ -610,14 +610,16 @@ SOFTWARE.
               href="https://localai.io/features/text-generation/"
               target="_blank"
               class="text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-colors text-xs"
-              title="Documentation">
+              data-tooltip="Documentation"
+              aria-label="Documentation">
               <i class="fas fa-book"></i>
             </a>
           </div>
           <button
             @click="settingsPanelOpen = false"
             class="text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] focus:outline-none text-xs"
-            title="Hide settings">
+            data-tooltip="Hide settings"
+            aria-label="Hide settings">
             <i class="fa-solid fa-chevron-right"></i>
           </button>
         </div>
@@ -639,38 +641,42 @@ SOFTWARE.
                     data-modal-toggle="model-info-modal"
                     :data-model-name="$store.chat.activeChat().model"
                     @click="if (window.updateModelInfoModal) { window.updateModelInfoModal($store.chat.activeChat().model, true); }"
-                    title="Model Information">
+                    data-tooltip="Model Information"
+                    aria-label="Model Information">
                     <i class="fas fa-info-circle"></i>
                   </button>
                 </template>
                 <!-- Fallback info button for initial model from server -->
                 <template x-if="(!$store.chat.activeChat() || !$store.chat.activeChat().model) && window.__galleryConfigs && window.__galleryConfigs['{{$model}}']">
-                  <button 
-                    data-twe-ripple-init 
-                    data-twe-ripple-color="light" 
-                    class="text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-colors text-xs p-1 rounded hover:bg-[var(--color-bg-primary)]" 
-                    data-modal-target="model-info-modal" 
+                  <button
+                    data-twe-ripple-init
+                    data-twe-ripple-color="light"
+                    class="text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-colors text-xs p-1 rounded hover:bg-[var(--color-bg-primary)]"
+                    data-modal-target="model-info-modal"
                     data-modal-toggle="model-info-modal"
                     data-model-name="{{$model}}"
                     @click="if (window.updateModelInfoModal) { window.updateModelInfoModal('{{$model}}', true); }"
-                    title="Model Information">
+                    data-tooltip="Model Information"
+                    aria-label="Model Information">
                     <i class="fas fa-info-circle"></i>
                   </button>
                 </template>
                 <!-- Edit button - reactive to active chat model -->
                 <template x-if="$store.chat.activeChat() && $store.chat.activeChat().model">
                   <a :href="'/models/edit/' + $store.chat.activeChat().model" 
-                     class="text-[var(--color-text-secondary)] hover:text-[var(--color-warning)] transition-colors text-xs p-1 rounded hover:bg-[var(--color-bg-primary)]" 
-                     title="Edit Model Configuration">
+                     class="text-[var(--color-text-secondary)] hover:text-[var(--color-warning)] transition-colors text-xs p-1 rounded hover:bg-[var(--color-bg-primary)]"
+                     data-tooltip="Edit Model Configuration"
+                     aria-label="Edit Model Configuration">
                     <i class="fas fa-edit"></i>
                   </a>
                 </template>
                 <!-- Fallback edit button for initial model from server -->
                 <template x-if="!$store.chat.activeChat() || !$store.chat.activeChat().model">
                   {{ if $model }}
-                  <a href="/models/edit/{{$model}}" 
-                     class="text-[var(--color-text-secondary)] hover:text-[var(--color-warning)] transition-colors text-xs p-1 rounded hover:bg-[var(--color-bg-primary)]" 
-                     title="Edit Model Configuration">
+                  <a href="/models/edit/{{$model}}"
+                     class="text-[var(--color-text-secondary)] hover:text-[var(--color-warning)] transition-colors text-xs p-1 rounded hover:bg-[var(--color-bg-primary)]"
+                     data-tooltip="Edit Model Configuration"
+                     aria-label="Edit Model Configuration">
                     <i class="fas fa-edit"></i>
                   </a>
                   {{ end }}
@@ -792,13 +798,15 @@ SOFTWARE.
                 <button
                   @click="createNewChat()"
                   class="text-[var(--color-primary)] hover:text-[var(--color-accent)] transition-colors text-xs p-1"
-                  title="New Chat">
+                  data-tooltip="New Chat"
+                  aria-label="New Chat">
                   <i class="fa-solid fa-plus"></i>
                 </button>
                 <button
                   @click="if (confirm('Delete all chats? This cannot be undone.')) { bulkDeleteChats({deleteAll: true}); }"
                   class="text-[var(--color-text-secondary)] hover:text-[var(--color-error)] transition-colors text-xs p-1"
-                  title="Delete all chats"
+                  data-tooltip="Delete all chats"
+                  aria-label="Delete all chats"
                   x-show="$store.chat.chats.length > 0">
                   <i class="fa-solid fa-trash"></i>
                 </button>
@@ -819,7 +827,8 @@ SOFTWARE.
                 x-show="searchQuery.length > 0"
                 @click="searchQuery = ''"
                 class="absolute right-2 top-1/2 transform -translate-y-1/2 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] text-xs"
-                title="Clear search">
+                data-tooltip="Clear search"
+                aria-label="Clear search">
                 <i class="fa-solid fa-times"></i>
               </button>
             </div>
@@ -870,13 +879,15 @@ SOFTWARE.
                     <button
                       @click.stop="editingChatId = chat.id; editingName = chat.name"
                       class="text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-colors text-[10px] p-0.5"
-                      title="Rename chat">
+                      data-tooltip="Rename chat"
+                      aria-label="Rename chat">
                       <i class="fa-solid fa-edit"></i>
                     </button>
                     <button
                       @click.stop="if (confirm('Delete this chat?')) deleteChat(chat.id)"
                       class="text-[var(--color-text-secondary)] hover:text-[var(--color-error)] transition-colors text-[10px] p-0.5"
-                      title="Delete chat"
+                      data-tooltip="Delete chat"
+                      aria-label="Delete chat"
                       x-show="$store.chat.chats.length > 1">
                       <i class="fa-solid fa-trash"></i>
                     </button>
@@ -1035,7 +1046,8 @@ SOFTWARE.
                       <button
                         @click="if ($store.chat.activeChat()) { $store.chat.activeChat().temperature = null; $store.chat.activeChat().updatedAt = Date.now(); autoSaveChats(); }"
                         class="text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-colors text-xs px-2 py-1 flex-shrink-0"
-                        title="Reset to default"
+                        data-tooltip="Reset to default"
+                        aria-label="Reset to default"
                         x-show="$store.chat.activeChat()?.temperature !== null && $store.chat.activeChat()?.temperature !== undefined"
                       >
                         <i class="fa-solid fa-rotate-left"></i>
@@ -1063,7 +1075,8 @@ SOFTWARE.
                       <button
                         @click="if ($store.chat.activeChat()) { $store.chat.activeChat().topP = null; $store.chat.activeChat().updatedAt = Date.now(); autoSaveChats(); }"
                         class="text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-colors text-xs px-2 py-1 flex-shrink-0"
-                        title="Reset to default"
+                        data-tooltip="Reset to default"
+                        aria-label="Reset to default"
                         x-show="$store.chat.activeChat()?.topP !== null && $store.chat.activeChat()?.topP !== undefined"
                       >
                         <i class="fa-solid fa-rotate-left"></i>
@@ -1091,7 +1104,8 @@ SOFTWARE.
                       <button
                         @click="if ($store.chat.activeChat()) { $store.chat.activeChat().topK = null; $store.chat.activeChat().updatedAt = Date.now(); autoSaveChats(); }"
                         class="text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-colors text-xs px-2 py-1 flex-shrink-0"
-                        title="Reset to default"
+                        data-tooltip="Reset to default"
+                        aria-label="Reset to default"
                         x-show="$store.chat.activeChat()?.topK !== null && $store.chat.activeChat()?.topK !== undefined"
                       >
                         <i class="fa-solid fa-rotate-left"></i>
@@ -1141,7 +1155,8 @@ SOFTWARE.
             <button
               @click="if (confirm('Clear all messages from this conversation? This action cannot be undone.')) { $store.chat.clear(); showClearAlert = true; setTimeout(() => showClearAlert = false, 3000); }"
               id="clear"
-              title="Clear current chat history"
+              data-tooltip="Clear current chat history"
+              aria-label="Clear current chat history"
               class="text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-colors p-2 min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 flex items-center justify-center rounded hover:bg-[var(--color-bg-secondary)]"
               x-show="$store.chat.activeChat() && ($store.chat.activeChat()?.history?.length || 0) > 0">
               <i class="fa-solid fa-broom"></i>
@@ -1150,7 +1165,8 @@ SOFTWARE.
             <button
               @click="settingsPanelOpen = !settingsPanelOpen"
               class="text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] focus:outline-none bg-[var(--color-bg-secondary)] hover:bg-[var(--color-bg-secondary)]/80 p-2 min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 flex items-center justify-center rounded transition-colors"
-              title="Toggle chat settings">
+              data-tooltip="Toggle chat settings"
+              aria-label="Toggle chat settings">
               <i class="fa-solid" :class="settingsPanelOpen ? 'fa-chevron-right' : 'fa-cog'"></i>
             </button>
           </div>
@@ -1336,7 +1352,7 @@ SOFTWARE.
                       <span class="text-xs font-semibold text-[var(--color-text-secondary)] mb-1" x-text="message.model || $store.chat.activeChat()?.model || '{{if .Model}}{{.Model}}{{else}}Assistant{{end}}'"></span>
                       <div class="flex-1 text-[var(--color-text-primary)] flex items-center space-x-2 min-w-0">
                         <div class="p-3 rounded-lg bg-[var(--color-bg-secondary)] border border-[var(--color-accent-border)]/20 shadow-lg max-w-full overflow-x-auto overflow-wrap-anywhere" x-html="message.html"></div>
-                        <button @click="copyToClipboard(message.html)" title="Copy to clipboard" class="text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-colors p-1 flex-shrink-0">
+                        <button @click="copyToClipboard(message.html)" data-tooltip="Copy to clipboard" aria-label="Copy to clipboard" class="text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-colors p-1 flex-shrink-0">
                           <i class="fa-solid fa-copy"></i>
                         </button>
                       </div>
@@ -1386,7 +1402,8 @@ SOFTWARE.
                       type="button"
                       @click="attachedFiles.splice(index, 1); removeFileFromInput(file.type, file.name)"
                       class="ml-1 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors"
-                      title="Remove attachment"
+                      data-tooltip="Remove attachment"
+                      aria-label="Remove attachment"
                     >
                       <i class="fa-solid fa-times text-xs"></i>
                     </button>
@@ -1448,13 +1465,13 @@ SOFTWARE.
 
               <!-- Attachment buttons row (mobile only) - avoids overlap with input on narrow screens -->
               <div class="flex flex-wrap gap-2 mb-2 md:hidden">
-                <button type="button" onclick="document.getElementById('input_image').click()" class="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-colors border border-[var(--color-border-subtle)]" title="Attach images" aria-label="Attach images">
+                <button type="button" onclick="document.getElementById('input_image').click()" class="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-colors border border-[var(--color-border-subtle)]" data-tooltip="Attach images" aria-label="Attach images">
                   <i class="fa-solid fa-image text-lg"></i>
                 </button>
-                <button type="button" onclick="document.getElementById('input_audio').click()" class="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-colors border border-[var(--color-border-subtle)]" title="Attach an audio file" aria-label="Attach audio">
+                <button type="button" onclick="document.getElementById('input_audio').click()" class="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-colors border border-[var(--color-border-subtle)]" data-tooltip="Attach an audio file" aria-label="Attach audio">
                   <i class="fa-solid fa-microphone text-lg"></i>
                 </button>
-                <button type="button" onclick="document.getElementById('input_file').click()" class="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-colors border border-[var(--color-border-subtle)]" title="Upload text, markdown or PDF file" aria-label="Attach file">
+                <button type="button" onclick="document.getElementById('input_file').click()" class="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-colors border border-[var(--color-border-subtle)]" data-tooltip="Upload text, markdown or PDF file" aria-label="Attach file">
                   <i class="fa-solid fa-file text-lg"></i>
                 </button>
               </div>
@@ -1473,9 +1490,9 @@ SOFTWARE.
                   rows="2"
                 ></textarea>
                 <!-- Attachment buttons (desktop only - inside input) -->
-                <button type="button" onclick="document.getElementById('input_image').click()" class="hidden md:flex fa-solid fa-image text-[var(--color-text-secondary)] absolute right-12 top-3 text-base p-1.5 hover:text-[var(--color-primary)] transition-colors duration-200 items-center justify-center" title="Attach images" aria-label="Attach images"></button>
-                <button type="button" onclick="document.getElementById('input_audio').click()" class="hidden md:flex fa-solid fa-microphone text-[var(--color-text-secondary)] absolute right-20 top-3 text-base p-1.5 hover:text-[var(--color-primary)] transition-colors duration-200 items-center justify-center" title="Attach an audio file" aria-label="Attach audio"></button>
-                <button type="button" onclick="document.getElementById('input_file').click()" class="hidden md:flex fa-solid fa-file text-[var(--color-text-secondary)] absolute right-28 top-3 text-base p-1.5 hover:text-[var(--color-primary)] transition-colors duration-200 items-center justify-center" title="Upload text, markdown or PDF file" aria-label="Attach file"></button>
+                <button type="button" onclick="document.getElementById('input_image').click()" class="hidden md:flex fa-solid fa-image text-[var(--color-text-secondary)] absolute right-12 top-3 text-base p-1.5 hover:text-[var(--color-primary)] transition-colors duration-200 items-center justify-center" data-tooltip="Attach images" aria-label="Attach images"></button>
+                <button type="button" onclick="document.getElementById('input_audio').click()" class="hidden md:flex fa-solid fa-microphone text-[var(--color-text-secondary)] absolute right-20 top-3 text-base p-1.5 hover:text-[var(--color-primary)] transition-colors duration-200 items-center justify-center" data-tooltip="Attach an audio file" aria-label="Attach audio"></button>
+                <button type="button" onclick="document.getElementById('input_file').click()" class="hidden md:flex fa-solid fa-file text-[var(--color-text-secondary)] absolute right-28 top-3 text-base p-1.5 hover:text-[var(--color-primary)] transition-colors duration-200 items-center justify-center" data-tooltip="Upload text, markdown or PDF file" aria-label="Attach file"></button>
 
                 <!-- Send button and stop button in the same position -->
                 <div class="absolute right-3 top-3 flex items-center">
@@ -1486,7 +1503,8 @@ SOFTWARE.
                     onclick="stopRequest()"
                     class="text-lg p-2 min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 flex items-center justify-center text-[var(--color-error)] hover:text-[var(--color-error)] transition-colors duration-200"
                     style="display: none;"
-                    title="Stop request"
+                    data-tooltip="Stop request"
+                    aria-label="Stop request"
                   >
                     <i class="fa-solid fa-stop"></i>
                   </button>
@@ -1496,7 +1514,8 @@ SOFTWARE.
                     id="send-button"
                     type="submit"
                     class="text-lg p-2 min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 flex items-center justify-center text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-colors duration-200"
-                    title="Send message (Enter)"
+                    data-tooltip="Send message (Enter)"
+                    aria-label="Send message (Enter)"
                   >
                     <i class="fa-solid fa-paper-plane"></i>
                   </button>

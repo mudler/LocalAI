@@ -286,7 +286,7 @@
                                     
                                     <!-- Description -->
                                     <td class="px-6 py-4">
-                                        <div class="text-sm text-[var(--color-text-secondary)] max-w-xs truncate" x-text="backend.description" :title="backend.description"></div>
+                                        <div class="text-sm text-[var(--color-text-secondary)] max-w-xs truncate" x-text="backend.description" :data-tooltip="backend.description"></div>
                                     </td>
                                     
                                     <!-- Repository -->
@@ -344,31 +344,31 @@
                                             <!-- Info Button -->
                                             <button @click="openModal(backend)" 
                                                     class="inline-flex items-center px-3 py-1.5 rounded-lg bg-[var(--color-bg-primary)] hover:bg-[var(--color-primary-light)] text-xs font-medium text-[var(--color-text-primary)] transition duration-200 border border-[var(--color-border-subtle)]"
-                                                    title="View details">
+                                                    data-tooltip="View details" aria-label="View details">
                                                 <i class="fas fa-info-circle"></i>
                                             </button>
-                                            
+
                                             <!-- Installed State Actions -->
                                             <template x-if="!backend.processing && backend.installed">
                                                 <div class="flex gap-2">
-                                                    <button @click="reinstallBackend(backend.id)" 
+                                                    <button @click="reinstallBackend(backend.id)"
                                                             class="inline-flex items-center px-3 py-1.5 rounded-lg bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] text-xs font-medium text-white transition duration-200"
-                                                            title="Reinstall">
+                                                            data-tooltip="Reinstall" aria-label="Reinstall backend">
                                                         <i class="fa-solid fa-arrow-rotate-right"></i>
                                                     </button>
-                                                    <button @click="deleteBackend(backend.id)" 
+                                                    <button @click="deleteBackend(backend.id)"
                                                             class="inline-flex items-center px-3 py-1.5 rounded-lg bg-[var(--color-error)] hover:bg-[var(--color-error)]/80 text-xs font-medium text-white transition duration-200"
-                                                            title="Delete">
+                                                            data-tooltip="Delete" aria-label="Delete backend">
                                                         <i class="fa-solid fa-trash"></i>
                                                     </button>
                                                 </div>
                                             </template>
-                                            
+
                                             <!-- Not Installed State Actions -->
                                             <template x-if="!backend.processing && !backend.installed">
-                                                <button @click="installBackend(backend.id)" 
+                                                <button @click="installBackend(backend.id)"
                                                         class="inline-flex items-center px-3 py-1.5 rounded-lg bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] text-xs font-medium text-white transition duration-200"
-                                                        title="Install">
+                                                        data-tooltip="Install" aria-label="Install backend">
                                                     <i class="fa-solid fa-download"></i>
                                                 </button>
                                             </template>

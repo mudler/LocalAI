@@ -44,21 +44,21 @@
                 </h1>
                 <p class="hero-subtitle">View logged API requests, responses, and backend operations</p>
                 <div class="flex flex-wrap justify-center gap-2" x-show="activeTab === 'api'">
-                    <button type="button" @click="clearTraces()" class="inline-flex items-center gap-1.5 text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] bg-transparent hover:bg-[var(--color-primary)]/10 border border-[var(--color-border-subtle)] hover:border-[var(--color-primary)]/30 rounded-md py-1.5 px-2.5 transition-colors">
+                    <button type="button" @click="clearTraces()" class="inline-flex items-center gap-1.5 text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] bg-transparent hover:bg-[var(--color-primary)]/10 border border-[var(--color-border-subtle)] hover:border-[var(--color-primary)]/30 rounded-md py-1.5 px-2.5 transition-colors" data-tooltip="Delete all recorded API traces" aria-label="Clear traces">
                         <i class="fas fa-trash text-[10px]"></i>
                         <span>Clear Traces</span>
                     </button>
-                    <a href="/api/traces" download="traces.json" class="inline-flex items-center gap-1.5 text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] bg-transparent hover:bg-[var(--color-primary)]/10 border border-[var(--color-border-subtle)] hover:border-[var(--color-primary)]/30 rounded-md py-1.5 px-2.5 transition-colors">
+                    <a href="/api/traces" download="traces.json" class="inline-flex items-center gap-1.5 text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] bg-transparent hover:bg-[var(--color-primary)]/10 border border-[var(--color-border-subtle)] hover:border-[var(--color-primary)]/30 rounded-md py-1.5 px-2.5 transition-colors" data-tooltip="Download traces as JSON" aria-label="Export traces">
                         <i class="fas fa-download text-[10px]"></i>
                         <span>Export Traces</span>
                     </a>
                 </div>
                 <div class="flex flex-wrap justify-center gap-2" x-show="activeTab === 'backend'">
-                    <button type="button" @click="clearBackendTraces()" class="inline-flex items-center gap-1.5 text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] bg-transparent hover:bg-[var(--color-primary)]/10 border border-[var(--color-border-subtle)] hover:border-[var(--color-primary)]/30 rounded-md py-1.5 px-2.5 transition-colors">
+                    <button type="button" @click="clearBackendTraces()" class="inline-flex items-center gap-1.5 text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] bg-transparent hover:bg-[var(--color-primary)]/10 border border-[var(--color-border-subtle)] hover:border-[var(--color-primary)]/30 rounded-md py-1.5 px-2.5 transition-colors" data-tooltip="Delete all recorded backend traces" aria-label="Clear backend traces">
                         <i class="fas fa-trash text-[10px]"></i>
                         <span>Clear Backend Traces</span>
                     </button>
-                    <a href="/api/backend-traces" download="backend-traces.json" class="inline-flex items-center gap-1.5 text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] bg-transparent hover:bg-[var(--color-primary)]/10 border border-[var(--color-border-subtle)] hover:border-[var(--color-primary)]/30 rounded-md py-1.5 px-2.5 transition-colors">
+                    <a href="/api/backend-traces" download="backend-traces.json" class="inline-flex items-center gap-1.5 text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] bg-transparent hover:bg-[var(--color-primary)]/10 border border-[var(--color-border-subtle)] hover:border-[var(--color-primary)]/30 rounded-md py-1.5 px-2.5 transition-colors" data-tooltip="Download backend traces as JSON" aria-label="Export backend traces">
                         <i class="fas fa-download text-[10px]"></i>
                         <span>Export Backend Traces</span>
                     </a>
@@ -121,7 +121,8 @@
                 <div class="flex justify-end pt-2">
                     <button type="button" @click="saveTracingSettings()"
                             :disabled="saving"
-                            class="inline-flex items-center gap-1.5 text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] bg-transparent hover:bg-[var(--color-primary)]/10 border border-[var(--color-border-subtle)] hover:border-[var(--color-primary)]/30 rounded-md py-1.5 px-2.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:border-[var(--color-border-subtle)]">
+                            class="inline-flex items-center gap-1.5 text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] bg-transparent hover:bg-[var(--color-primary)]/10 border border-[var(--color-border-subtle)] hover:border-[var(--color-primary)]/30 rounded-md py-1.5 px-2.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:border-[var(--color-border-subtle)]"
+                            data-tooltip="Save tracing configuration" aria-label="Save settings">
                         <i class="fas fa-save text-[10px]" :class="saving ? 'fa-spin fa-spinner' : ''"></i>
                         <span x-text="saving ? 'Saving...' : 'Save Settings'"></span>
                     </button>
@@ -217,7 +218,7 @@
                                         <i class="fas fa-check-circle text-green-500 text-xs"></i>
                                     </template>
                                     <template x-if="trace.error">
-                                        <i class="fas fa-times-circle text-red-500 text-xs" :title="trace.error"></i>
+                                        <i class="fas fa-times-circle text-red-500 text-xs" :data-tooltip="trace.error" :aria-label="'Error: ' + trace.error"></i>
                                     </template>
                                 </td>
                             </tr>

@@ -322,7 +322,7 @@ Provide a detailed response that addresses their specific needs.</pre>
                                x-text="task ? task.model : '-'"></a>
                             <a :href="task ? '/models/edit/' + task.model : '#'" 
                                class="text-yellow-400 hover:text-yellow-300"
-                               title="Edit model configuration">
+                               data-tooltip="Edit model configuration" aria-label="Edit model configuration">
                                 <i class="fas fa-edit text-sm"></i>
                             </a>
                         </div>
@@ -499,7 +499,7 @@ Provide a detailed response that addresses their specific needs.</pre>
                         </select>
                         <button @click="clearJobHistory()" 
                                 class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition-colors"
-                                title="Clear all job history for this task">
+                                data-tooltip="Clear all job history for this task" aria-label="Clear job history">
                             <i class="fas fa-trash mr-2"></i>Clear History
                         </button>
                     </div>
@@ -522,7 +522,7 @@ Provide a detailed response that addresses their specific needs.</pre>
                                         <a :href="'/agent-jobs/jobs/' + job.id" 
                                            class="font-mono text-sm text-[var(--color-primary)] hover:text-[var(--color-primary)]/80 hover:underline" 
                                            x-text="job.id.substring(0, 8) + '...'"
-                                           :title="job.id"></a>
+                                           :data-tooltip="job.id"></a>
                                     </td>
                                     <td class="py-3 px-4">
                                         <span :class="{
@@ -541,7 +541,7 @@ Provide a detailed response that addresses their specific needs.</pre>
                                         <button x-show="job.status === 'pending' || job.status === 'running'" 
                                                 @click="cancelJob(job.id)" 
                                                 class="text-red-400 hover:text-red-300"
-                                                title="Cancel job">
+                                                data-tooltip="Cancel job" aria-label="Cancel job">
                                             <i class="fas fa-stop"></i>
                                         </button>
                                     </td>

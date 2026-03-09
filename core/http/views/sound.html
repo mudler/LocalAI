@@ -99,7 +99,7 @@
                         <!-- Simple mode -->
                         <div id="simple-fields" class="space-y-4">
                             <div class="flex flex-wrap items-center gap-4">
-                                <label class="inline-flex items-center cursor-pointer">
+                                <label class="inline-flex items-center cursor-pointer" data-tooltip="Generate music without vocals" data-tooltip-wrap>
                                     <input type="checkbox" id="instrumental" name="instrumental" class="rounded mr-2">
                                     <span class="text-sm text-[var(--color-text-secondary)]">Instrumental only</span>
                                 </label>
@@ -121,12 +121,12 @@
                                 <textarea id="lyrics" name="lyrics" placeholder="[Verse 1]&#10;..." rows="4" class="input w-full p-3 font-mono text-sm"></textarea>
                             </div>
                             <div class="flex flex-wrap items-center gap-4">
-                                <label class="inline-flex items-center cursor-pointer">
+                                <label class="inline-flex items-center cursor-pointer" data-tooltip="Enable model reasoning for better results" data-tooltip-wrap>
                                     <input type="checkbox" id="think" name="think" class="rounded mr-2">
                                     <span class="text-sm text-[var(--color-text-secondary)]">Think (reasoning)</span>
                                 </label>
                                 <div>
-                                    <label for="bpm" class="block text-xs text-[var(--color-text-secondary)] mb-0.5">BPM</label>
+                                    <label for="bpm" class="block text-xs text-[var(--color-text-secondary)] mb-0.5" data-tooltip="Beats per minute - tempo of the music">BPM</label>
                                     <input type="number" id="bpm" name="bpm" min="1" max="300" placeholder="120" class="input p-2 w-24">
                                 </div>
                                 <div>
@@ -134,7 +134,7 @@
                                     <input type="number" id="duration_seconds" name="duration_seconds" min="1" placeholder="225" class="input p-2 w-24">
                                 </div>
                                 <div>
-                                    <label for="keyscale" class="block text-xs text-[var(--color-text-secondary)] mb-0.5">Key</label>
+                                    <label for="keyscale" class="block text-xs text-[var(--color-text-secondary)] mb-0.5" data-tooltip="Musical key, e.g. Ab major, C minor">Key</label>
                                     <input type="text" id="keyscale" name="keyscale" placeholder="e.g. Ab major" class="input p-2 w-28">
                                 </div>
                                 <div>
@@ -142,7 +142,7 @@
                                     <input type="text" id="language" name="language" placeholder="e.g. ja" class="input p-2 w-20">
                                 </div>
                                 <div>
-                                    <label for="timesignature" class="block text-xs text-[var(--color-text-secondary)] mb-0.5">Time sig.</label>
+                                    <label for="timesignature" class="block text-xs text-[var(--color-text-secondary)] mb-0.5" data-tooltip="Time signature, e.g. 4 for 4/4 time">Time sig.</label>
                                     <input type="text" id="timesignature" name="timesignature" placeholder="4" class="input p-2 w-16">
                                 </div>
                             </div>
