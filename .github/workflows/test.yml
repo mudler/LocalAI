@@ -95,7 +95,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install curl ffmpeg
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: '22'
       - name: Build React UI
@@ -198,7 +198,7 @@ jobs:
           brew install protobuf grpc make protoc-gen-go protoc-gen-go-grpc libomp llvm
           pip install --user --no-cache-dir grpcio-tools grpcio
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: '22'
       - name: Build React UI
