@@ -93,11 +93,16 @@ func NewAgentJobService(
 		retentionDays = 30 // Default
 	}
 
+	// Determine storage directory: DataPath > DynamicConfigsDir
 	tasksFile := ""
 	jobsFile := ""
-	if appConfig.DynamicConfigsDir != "" {
-		tasksFile = filepath.Join(appConfig.DynamicConfigsDir, "agent_tasks.json")
-		jobsFile = filepath.Join(appConfig.DynamicConfigsDir, "agent_jobs.json")
+	dataDir := appConfig.DataPath
+	if dataDir == "" {
+		dataDir = appConfig.DynamicConfigsDir
+	}
+	if dataDir != "" {
+		tasksFile = filepath.Join(dataDir, "agent_tasks.json")
+		jobsFile = filepath.Join(dataDir, "agent_jobs.json")
 	}
 
 	return &AgentJobService{

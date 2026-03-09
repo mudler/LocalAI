@@ -60,7 +60,7 @@ All agent-related settings can be configured via environment variables:
 | `LOCALAI_AGENT_POOL_TRANSCRIPTION_MODEL` | _(empty)_ | Default transcription (speech-to-text) model for agents |
 | `LOCALAI_AGENT_POOL_TRANSCRIPTION_LANGUAGE` | _(empty)_ | Default transcription language for agents |
 | `LOCALAI_AGENT_POOL_TTS_MODEL` | _(empty)_ | Default TTS (text-to-speech) model for agents |
-| `LOCALAI_AGENT_POOL_STATE_DIR` | _(config dir)_ | Directory for persisting agent state |
+| `LOCALAI_AGENT_POOL_STATE_DIR` | _(data path)_ | Directory for persisting agent state. Defaults to `LOCALAI_DATA_PATH` if set, otherwise falls back to `LOCALAI_CONFIG_DIR` |
 | `LOCALAI_AGENT_POOL_TIMEOUT` | `5m` | Default timeout for agent operations |
 | `LOCALAI_AGENT_POOL_ENABLE_SKILLS` | `false` | Enable the skills service |
 | `LOCALAI_AGENT_POOL_VECTOR_ENGINE` | `chromem` | Vector engine for knowledge base (`chromem` or `postgres`) |
@@ -96,15 +96,18 @@ services:
       - 8080:8080
     environment:
       - MODELS_PATH=/models
+      - LOCALAI_DATA_PATH=/data
       - LOCALAI_AGENT_POOL_DEFAULT_MODEL=hermes-3-llama3.1-8b
       - LOCALAI_AGENT_POOL_EMBEDDING_MODEL=granite-embedding-107m-multilingual
       - LOCALAI_AGENT_POOL_ENABLE_SKILLS=true
       - LOCALAI_AGENT_POOL_ENABLE_LOGS=true
     volumes:
       - models:/models
+      - localai_data:/data
       - localai_config:/etc/localai
 volumes:
   models:
+  localai_data:
   localai_config:
 ```
 
