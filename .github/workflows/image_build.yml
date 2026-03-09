@@ -151,7 +151,7 @@ jobs:
       - name: Docker meta
         id: meta
         if: github.event_name != 'pull_request'
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: |
             quay.io/go-skynet/local-ai
@@ -166,7 +166,7 @@ jobs:
       - name: Docker meta for PR
         id: meta_pull_request
         if: github.event_name == 'pull_request'
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: |
             quay.io/go-skynet/ci-tests
@@ -180,7 +180,7 @@ jobs:
       - name: Docker meta AIO (quay.io)
         if: inputs.aio != ''
         id: meta_aio
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: |
             quay.io/go-skynet/local-ai
@@ -194,7 +194,7 @@ jobs:
       - name: Docker meta AIO (dockerhub)
         if: inputs.aio != ''
         id: meta_aio_dockerhub
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: |
             localai/localai

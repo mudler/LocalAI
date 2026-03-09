@@ -2222,7 +2222,7 @@ jobs:
           echo "${{ secrets.LOCALAI_REGISTRY_PASSWORD }}" | crane auth login quay.io -u "${{ secrets.LOCALAI_REGISTRY_USERNAME }}" --password-stdin
       - name: Docker meta
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: |
             localai/localai-backends
@@ -2235,7 +2235,7 @@ jobs:
             suffix=-metal-darwin-arm64-llama-cpp,onlatest=true
       - name: Docker meta
         id: quaymeta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: |
             quay.io/go-skynet/local-ai-backends
