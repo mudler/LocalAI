@@ -47,7 +47,7 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Cache Intel images
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           builder: ${{ steps.buildx.outputs.name }}
           build-args: |
