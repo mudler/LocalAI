@@ -1,4 +1,39 @@
 ---
+- name: "qwen_qwen3.5-4b"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/bartowski/Qwen_Qwen3.5-4B-GGUF
+  description: |
+    Describe the model in a clear and concise way that can be shared in a model gallery.
+  tags:
+    - qwen
+    - llama2
+    - gemma
+    - qwen3.5
+    - 4b
+  overrides:
+    parameters:
+      model: llama-cpp/models/Qwen_Qwen3.5-4B-Q4_K_M.gguf
+    name: Qwen_Qwen3.5-4B-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    mmproj: llama-cpp/mmproj/mmproj-Qwen_Qwen3.5-4B-f16.gguf
+    description: Imported from https://huggingface.co/bartowski/Qwen_Qwen3.5-4B-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Qwen_Qwen3.5-4B-Q4_K_M.gguf
+      sha256: 2c08bf55fdde0b2e4bd52fa7dc6d49150e83eac997910cf014b7221c172a4b20
+      uri: https://huggingface.co/bartowski/Qwen_Qwen3.5-4B-GGUF/resolve/main/Qwen_Qwen3.5-4B-Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/mmproj-Qwen_Qwen3.5-4B-f16.gguf
+      sha256: 659b59dd44b73b1cd34af6cc424669484b06dc80f4340adf8ea84ad776eef813
+      uri: https://huggingface.co/bartowski/Qwen_Qwen3.5-4B-GGUF/resolve/main/mmproj-Qwen_Qwen3.5-4B-f16.gguf
 - name: "qwen3.5-27b-claude-4.6-opus-reasoning-distilled-i1"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
