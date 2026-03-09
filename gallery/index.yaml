@@ -1,4 +1,36 @@
 ---
+- name: "darkidol-ballad-4b-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Darkidol-Ballad-4B-i1-GGUF
+  description: |
+    Describe the model in a clear and concise way that can be shared in a model gallery.
+  license: "apache-2.0"
+  tags:
+    - llama
+    - gguf
+    - text-to-text
+    - 4b
+    - i1
+  overrides:
+    parameters:
+      model: llama-cpp/models/Darkidol-Ballad-4B.i1-Q4_K_M.gguf
+    name: Darkidol-Ballad-4B-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Darkidol-Ballad-4B-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Darkidol-Ballad-4B.i1-Q4_K_M.gguf
+      sha256: cf96a53ce8044789e6cd35ccd4f58492eaa88de1bc745099f6ae2a32f42af7f6
+      uri: https://huggingface.co/mradermacher/Darkidol-Ballad-4B-i1-GGUF/resolve/main/Darkidol-Ballad-4B.i1-Q4_K_M.gguf
 - name: "qwen3.5-27b-claude-4.6-opus-reasoning-distilled-i1"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
