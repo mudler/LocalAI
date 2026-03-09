@@ -38,7 +38,7 @@ require (
 	github.com/mudler/xlog v0.0.5
 	github.com/onsi/ginkgo/v2 v2.28.1
 	github.com/onsi/gomega v1.39.1
-	github.com/openai/openai-go/v3 v3.24.0
+	github.com/openai/openai-go/v3 v3.26.0
 	github.com/otiai10/copy v1.14.1
 	github.com/otiai10/openaigo v1.7.0
 	github.com/phayes/freeport v0.0.0-20220201140144-74d24b5ae9f5
@@ -59,10 +59,11 @@ require (
 	go.opentelemetry.io/otel/metric v1.41.0
 	go.opentelemetry.io/otel/sdk/metric v1.40.0
 	google.golang.org/grpc v1.79.1
-	google.golang.org/protobuf v1.36.11
 	gopkg.in/yaml.v3 v3.0.1
 	oras.land/oras-go/v2 v2.6.0
 )
+
+require google.golang.org/protobuf v1.36.11 // indirect
 
 require (
 	github.com/JohannesKaufmann/dom v0.2.0 // indirect
