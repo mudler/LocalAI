@@ -1,4 +1,40 @@
 ---
+- name: "qwen3.5-9b-finetuned-medical"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/MateoM4/qwen3.5-9b-finetuned-medical-GGUF
+  description: |
+    Describe the model in a clear and concise way that can be shared in a model gallery.
+  license: "empty string"
+  tags:
+    - llm
+    - gguf
+    - medical
+    - qwen
+    - finetuned
+  overrides:
+    parameters:
+      model: llama-cpp/models/Qwen3.5-9B.Q6_K.gguf
+    name: qwen3.5-9b-finetuned-medical-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    mmproj: llama-cpp/mmproj/Qwen3.5-9B.BF16-mmproj.gguf
+    description: Imported from https://huggingface.co/MateoM4/qwen3.5-9b-finetuned-medical-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/mmproj/Qwen3.5-9B.BF16-mmproj.gguf
+      sha256: 7666ee2c5e16cb483fcbde326257424d30bad57611dada08c9d89c8103145a6d
+      uri: https://huggingface.co/MateoM4/qwen3.5-9b-finetuned-medical-GGUF/resolve/main/Qwen3.5-9B.BF16-mmproj.gguf
+    - filename: llama-cpp/models/Qwen3.5-9B.Q6_K.gguf
+      sha256: b68b38e1add5a3ef3907f9bf15c60f92e04d69bb5a9fc2a0d6a2e71d769c45b9
+      uri: https://huggingface.co/MateoM4/qwen3.5-9b-finetuned-medical-GGUF/resolve/main/Qwen3.5-9B.Q6_K.gguf
 - name: "qwen3.5-27b-claude-4.6-opus-reasoning-distilled-i1"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
