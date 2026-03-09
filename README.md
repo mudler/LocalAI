@@ -292,6 +292,7 @@ LocalAI supports a comprehensive range of AI backends with multiple acceleration
 | **transformers** | HuggingFace transformers framework | CUDA 12/13, ROCm, Intel, CPU |
 | **MLX** | Apple Silicon LLM inference | Metal (M1/M2/M3+) |
 | **MLX-VLM** | Apple Silicon Vision-Language Models | Metal (M1/M2/M3+) |
+| **vLLM Omni** | Multimodal vLLM with vision and audio | CUDA 12/13, ROCm, Intel |
 
 ### Audio & Speech Processing
 | Backend | Description | Acceleration Support |
@@ -309,6 +310,12 @@ LocalAI supports a comprehensive range of AI backends with multiple acceleration
 | **vibevoice** | Real-time TTS with voice cloning | CUDA 12/13, ROCm, Intel, CPU |
 | **pocket-tts** | Lightweight CPU-based TTS | CUDA 12/13, ROCm, Intel, CPU |
 | **qwen-tts** | High-quality TTS with custom voice, voice design, and voice cloning | CUDA 12/13, ROCm, Intel, CPU |
+| **nemo** | NVIDIA NeMo framework for speech models | CUDA 12/13, ROCm, Intel, CPU |
+| **outetts** | OuteTTS with voice cloning | CUDA 12/13, CPU |
+| **faster-qwen3-tts** | Faster Qwen3 TTS | CUDA 12/13, ROCm, Intel, CPU |
+| **qwen-asr** | Qwen ASR speech recognition | CUDA 12/13, ROCm, Intel, CPU |
+| **voxcpm** | VoxCPM speech understanding | CUDA 12/13, Metal, CPU |
+| **whisperx** | Enhanced Whisper transcription | CUDA 12/13, ROCm, Intel, CPU |
 | **ace-step** | Music generation from text descriptions, lyrics, or audio samples | CUDA 12/13, ROCm, Intel, Metal, CPU |
 
 ### Image & Video Generation
