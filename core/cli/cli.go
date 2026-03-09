@@ -15,6 +15,7 @@ var CLI struct {
 	TTS             TTSCMD             `cmd:"" help:"Convert text to speech"`
 	SoundGeneration SoundGenerationCMD `cmd:"" help:"Generates audio files from text or audio"`
 	Transcript      TranscriptCMD      `cmd:"" help:"Convert audio to text"`
+	Agent           AgentCMD           `cmd:"" help:"Run and manage agents"`
 	Worker          worker.Worker      `cmd:"" help:"Run workers to distribute workload (llama.cpp-only)"`
 	Util            UtilCMD            `cmd:"" help:"Utility commands"`
 	Explorer        ExplorerCMD        `cmd:"" help:"Run p2p explorer"`
