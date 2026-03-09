@@ -70,6 +70,17 @@ func New(opts ...config.AppOption) (*Application, error) {
 		}
 	}
 
+	// Create and migrate data directory
+	if options.DataPath != "" {
+		if err := os.MkdirAll(options.DataPath, 0750); err != nil {
+			return nil, fmt.Errorf("unable to create DataPath: %q", err)
+		}
+		// Migrate data from DynamicConfigsDir to DataPath if needed
+		if options.DynamicConfigsDir != "" && options.DataPath != options.DynamicConfigsDir {
+			migrateDataFiles(options.DynamicConfigsDir, options.DataPath)
+		}
+	}
+
 	if err := coreStartup.InstallModels(options.Context, application.GalleryService(), options.Galleries, options.BackendGalleries, options.SystemState, application.ModelLoader(), options.EnforcePredownloadScans, options.AutoloadBackendGalleries, nil, options.ModelsURL...); err != nil {
 		xlog.Error("error installing models", "error", err)
 	}
@@ -412,5 +423,45 @@ func initializeWatchdog(application *Application, options *config.ApplicationCon
 			xlog.Debug("Context canceled, shutting down")
 			wd.Shutdown()
 		}()
+	}
+}
+
+// migrateDataFiles moves persistent data files from the old config directory
+// to the new data directory. Only moves files that exist in src but not in dst.
+func migrateDataFiles(srcDir, dstDir string) {
+	// Files and directories to migrate
+	items := []string{
+		"agent_tasks.json",
+		"agent_jobs.json",
+		"collections",
+		"assets",
+	}
+
+	migrated := false
+	for _, item := range items {
+		srcPath := filepath.Join(srcDir, item)
+		dstPath := filepath.Join(dstDir, item)
+
+		// Only migrate if source exists and destination does not
+		if _, err := os.Stat(srcPath); os.IsNotExist(err) {
+			continue
+		}
+		if _, err := os.Stat(dstPath); err == nil {
+			continue // destination already exists, skip
+		}
+
+		if err := os.Rename(srcPath, dstPath); err != nil {
+			xlog.Warn("Failed to migrate data file, will copy instead", "src", srcPath, "dst", dstPath, "error", err)
+			// os.Rename fails across filesystems, fall back to leaving in place
+			// and log a warning for the user to manually move
+			xlog.Warn("Data file remains in old location, please move manually", "src", srcPath, "dst", dstPath)
+			continue
+		}
+		migrated = true
+		xlog.Info("Migrated data file to new data path", "src", srcPath, "dst", dstPath)
+	}
+
+	if migrated {
+		xlog.Info("Data migration complete", "from", srcDir, "to", dstDir)
 	}
 }

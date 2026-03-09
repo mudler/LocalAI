@@ -24,6 +24,7 @@ type ApplicationConfig struct {
 	GeneratedContentDir                 string
 
 	UploadDir string
+	DataPath  string // Persistent data directory for collectiondb, agents, etc.
 
 	DynamicConfigsDir             string
 	DynamicConfigsDirPollInterval time.Duration
@@ -489,6 +490,12 @@ func WithGeneratedContentDir(generatedContentDir string) AppOption {
 func WithUploadDir(uploadDir string) AppOption {
 	return func(o *ApplicationConfig) {
 		o.UploadDir = uploadDir
+	}
+}
+
+func WithDataPath(dataPath string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.DataPath = dataPath
 	}
 }
 
