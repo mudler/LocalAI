@@ -53,7 +53,6 @@ require (
 	github.com/swaggo/echo-swagger v1.4.1
 	github.com/swaggo/swag v1.16.6
 	github.com/testcontainers/testcontainers-go v0.40.0
-	github.com/tmc/langchaingo v0.1.14
 	go.opentelemetry.io/otel v1.41.0
 	go.opentelemetry.io/otel/exporters/prometheus v0.62.0
 	go.opentelemetry.io/otel/metric v1.41.0

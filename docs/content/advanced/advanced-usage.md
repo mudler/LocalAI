@@ -184,7 +184,6 @@ there are additional environment variables available that modify the behavior of
 | `REBUILD`                  | `false` | Rebuild LocalAI on startup                                                                                 |
 | `BUILD_TYPE`               |         | Build type. Available: `cublas`, `openblas`, `clblas`, `intel` (intel core), `sycl_f16`, `sycl_f32` (intel backends)                                                      |
 | `GO_TAGS`                  |         | Go tags. Available: `stablediffusion`                                                                      |
-| `HUGGINGFACEHUB_API_TOKEN` |         | Special token for interacting with HuggingFace Inference API, required only when using the `langchain-huggingface` backend |
 | `EXTRA_BACKENDS`          |         | A space separated list of backends to prepare. For example `EXTRA_BACKENDS="backend/python/diffusers backend/python/transformers"` prepares the python environment on start |
 | `DISABLE_AUTODETECT`       | `false` | Disable autodetect of CPU flagset on start                                                                     |
 | `LLAMACPP_GRPC_SERVERS`   |         | A list of llama.cpp workers to distribute the workload. For example `LLAMACPP_GRPC_SERVERS="address1:port,address2:port"` |

@@ -24,7 +24,6 @@ LocalAI will attempt to automatically load models which are not explicitly confi
 | [MLX](https://github.com/ml-explore/mlx-lm)        | Various LLMs               | yes                       | GPT                        | no                                | no                   | Metal (Apple Silicon) |
 | [MLX-VLM](https://github.com/Blaizzy/mlx-vlm)        | Vision-Language Models               | yes                       | Multimodal GPT                        | no                                | no                   | Metal (Apple Silicon) |
 | [vllm-omni](https://github.com/vllm-project/vllm) | vLLM Omni multimodal | yes | Multimodal GPT | no | no | CUDA 12/13, ROCm, Intel |
-| [langchain-huggingface](https://github.com/tmc/langchaingo)                                                                    | Any text generators available on HuggingFace through API | yes                      | GPT                        | no                                | no                   | N/A |
 
 ## Audio & Speech Processing
 
@@ -64,7 +63,6 @@ LocalAI will attempt to automatically load models which are not explicitly confi
 | [rfdetr](https://github.com/roboflow/rf-detr) | RF-DETR    | no                       | Object Detection    | no                               | no                   | CUDA 12/13, Intel, CPU |
 | [rerankers](https://github.com/AnswerDotAI/rerankers) | Reranking API    | no                       | Reranking   | no                               | no                   | CUDA 12/13, ROCm, Intel, CPU |
 | [local-store](https://github.com/mudler/LocalAI) | Vector database    | no                       | Vector storage   | yes                               | no                   | CPU |
-| [huggingface](https://huggingface.co/docs/hub/en/api) | HuggingFace API models    | yes                       | Various AI tasks   | yes                               | yes                   | API-based |
 
 ## Acceleration Support Summary
 

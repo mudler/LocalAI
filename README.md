@@ -336,7 +336,6 @@ LocalAI supports a comprehensive range of AI backends with multiple acceleration
 | **rfdetr** | Real-time object detection | CUDA 12/13, Intel, CPU |
 | **rerankers** | Document reranking API | CUDA 12/13, ROCm, Intel, CPU |
 | **local-store** | Vector database | CPU |
-| **huggingface** | HuggingFace API integration | API-based |
 
 ### Hardware Acceleration Matrix
 

@@ -354,7 +354,6 @@ We now support a vast variety of models, while being backward compatible with pr
 - ✨ Added support for `falcon`-based model families (7b)  ( [mudler](https://github.com/mudler) )
 - ✨ Experimental support for Metal Apple Silicon GPU - ( [mudler](https://github.com/mudler) and thanks to [Soleblaze](https://github.com/Soleblaze) for testing! ). See the [build section]({{%relref "installation/build#Acceleration" %}}).
 - ✨ Support for token stream in the `/v1/completions` endpoint ( [samm81](https://github.com/samm81) )
-- ✨ Added huggingface backend ( [Evilfreelancer](https://github.com/EvilFreelancer) )
 - 📷 Stablediffusion now can output `2048x2048` images size with `esrgan`! ( [mudler](https://github.com/mudler) )
 
 ### Container images

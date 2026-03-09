@@ -1,5 +1,5 @@
 # Disable parallel execution for backend builds
-.NOTPARALLEL: backends/diffusers backends/llama-cpp backends/outetts backends/piper backends/stablediffusion-ggml backends/whisper backends/faster-whisper backends/silero-vad backends/local-store backends/huggingface backends/rfdetr backends/kitten-tts backends/kokoro backends/chatterbox backends/llama-cpp-darwin backends/neutts build-darwin-python-backend build-darwin-go-backend backends/mlx backends/diffuser-darwin backends/mlx-vlm backends/mlx-audio backends/mlx-distributed backends/stablediffusion-ggml-darwin backends/vllm backends/vllm-omni backends/moonshine backends/pocket-tts backends/qwen-tts backends/faster-qwen3-tts backends/qwen-asr backends/nemo backends/voxcpm backends/whisperx backends/ace-step backends/voxtral
+.NOTPARALLEL: backends/diffusers backends/llama-cpp backends/outetts backends/piper backends/stablediffusion-ggml backends/whisper backends/faster-whisper backends/silero-vad backends/local-store backends/rfdetr backends/kitten-tts backends/kokoro backends/chatterbox backends/llama-cpp-darwin backends/neutts build-darwin-python-backend build-darwin-go-backend backends/mlx backends/diffuser-darwin backends/mlx-vlm backends/mlx-audio backends/mlx-distributed backends/stablediffusion-ggml-darwin backends/vllm backends/vllm-omni backends/moonshine backends/pocket-tts backends/qwen-tts backends/faster-qwen3-tts backends/qwen-asr backends/nemo backends/voxcpm backends/whisperx backends/ace-step backends/voxtral
 
 GOCMD=go
 GOTEST=$(GOCMD) test
@@ -163,7 +163,7 @@ test: test-models/testmodel.ggml protogen-go
 	@echo 'Running tests'
 	export GO_TAGS="debug"
 	$(MAKE) prepare-test
-	HUGGINGFACE_GRPC=$(abspath ./)/backend/python/transformers/run.sh TEST_DIR=$(abspath ./)/test-dir/ FIXTURES=$(abspath ./)/tests/fixtures CONFIG_FILE=$(abspath ./)/test-models/config.yaml MODELS_PATH=$(abspath ./)/test-models BACKENDS_PATH=$(abspath ./)/backends \
+	TEST_DIR=$(abspath ./)/test-dir/ FIXTURES=$(abspath ./)/tests/fixtures CONFIG_FILE=$(abspath ./)/test-models/config.yaml MODELS_PATH=$(abspath ./)/test-models BACKENDS_PATH=$(abspath ./)/backends \
 	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter="!llama-gguf"  --flake-attempts $(TEST_FLAKES) --fail-fast -v -r $(TEST_PATHS)
 	$(MAKE) test-llama-gguf
 	$(MAKE) test-tts
@@ -469,7 +469,6 @@ BACKEND_LLAMA_CPP = llama-cpp|llama-cpp|.|false|false
 # Golang backends
 BACKEND_PIPER = piper|golang|.|false|true
 BACKEND_LOCAL_STORE = local-store|golang|.|false|true
-BACKEND_HUGGINGFACE = huggingface|golang|.|false|true
 BACKEND_SILERO_VAD = silero-vad|golang|.|false|true
 BACKEND_STABLEDIFFUSION_GGML = stablediffusion-ggml|golang|.|--progress=plain|true
 BACKEND_WHISPER = whisper|golang|.|false|true
@@ -525,7 +524,6 @@ endef
 $(eval $(call generate-docker-build-target,$(BACKEND_LLAMA_CPP)))
 $(eval $(call generate-docker-build-target,$(BACKEND_PIPER)))
 $(eval $(call generate-docker-build-target,$(BACKEND_LOCAL_STORE)))
-$(eval $(call generate-docker-build-target,$(BACKEND_HUGGINGFACE)))
 $(eval $(call generate-docker-build-target,$(BACKEND_SILERO_VAD)))
 $(eval $(call generate-docker-build-target,$(BACKEND_STABLEDIFFUSION_GGML)))
 $(eval $(call generate-docker-build-target,$(BACKEND_WHISPER)))
