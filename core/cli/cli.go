@@ -12,6 +12,7 @@ var CLI struct {
 	Federated       FederatedCLI       `cmd:"" help:"Run LocalAI in federated mode"`
 	Models          ModelsCMD          `cmd:"" help:"Manage LocalAI models and definitions"`
 	Backends        BackendsCMD        `cmd:"" help:"Manage LocalAI backends and definitions"`
+	Agent           AgentCMD           `cmd:"" help:"Manage and run agent tasks"`
 	TTS             TTSCMD             `cmd:"" help:"Convert text to speech"`
 	SoundGeneration SoundGenerationCMD `cmd:"" help:"Generates audio files from text or audio"`
 	Transcript      TranscriptCMD      `cmd:"" help:"Convert audio to text"`
