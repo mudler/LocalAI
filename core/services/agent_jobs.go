@@ -819,6 +819,7 @@ func (s *AgentJobService) executeJobInternal(job schema.Job, task schema.Task, c
 
 	// Build cogito options
 	cogitoOpts := modelConfig.BuildCogitoOptions()
+	cogitoOpts = modelConfig.ApplyMCPAgentOptions(cogitoOpts, task.AgentOptions)
 	cogitoOpts = append(
 		cogitoOpts,
 		cogito.WithContext(ctx),

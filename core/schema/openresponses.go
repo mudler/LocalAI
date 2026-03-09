@@ -55,6 +55,9 @@ type OpenResponsesRequest struct {
 	// OpenAI-compatible extensions (not in Open Responses spec)
 	LogitBias map[string]float64 `json:"logit_bias,omitempty"` // Map of token IDs to bias values (-100 to 100)
 
+	// Agent options for MCP endpoints (overrides model config)
+	AgentOptions *MCPAgentOptions `json:"agent_options,omitempty"`
+
 	// Internal fields (like OpenAIRequest)
 	Context context.Context    `json:"-"`
 	Cancel  context.CancelFunc `json:"-"`

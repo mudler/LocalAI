@@ -1144,6 +1144,7 @@ func handleBackgroundMCPResponse(ctx context.Context, store *ResponseStore, resp
 
 	// Build cogito options
 	cogitoOpts := cfg.BuildCogitoOptions()
+	cogitoOpts = cfg.ApplyMCPAgentOptions(cogitoOpts, input.AgentOptions)
 	cogitoOpts = append(
 		cogitoOpts,
 		cogito.WithContext(ctx),
@@ -2730,6 +2731,7 @@ func handleMCPResponse(c echo.Context, responseID string, createdAt int64, input
 
 	// Build cogito options
 	cogitoOpts := cfg.BuildCogitoOptions()
+	cogitoOpts = cfg.ApplyMCPAgentOptions(cogitoOpts, input.AgentOptions)
 	cogitoOpts = append(
 		cogitoOpts,
 		cogito.WithContext(ctxWithCancellation),

@@ -749,3 +749,20 @@ func (c *ModelConfig) BuildCogitoOptions() []cogito.Option {
 
 	return cogitoOpts
 }
+
+// ApplyMCPAgentOptions applies per-request agent option overrides to cogito options
+func (c *ModelConfig) ApplyMCPAgentOptions(opts []cogito.Option, agentOpts *schema.MCPAgentOptions) []cogito.Option {
+	if agentOpts == nil {
+		return opts
+	}
+	if agentOpts.DisableSinkState != nil && *agentOpts.DisableSinkState {
+		opts = append(opts, cogito.DisableSinkState)
+	}
+	if agentOpts.ForceReasoning != nil && *agentOpts.ForceReasoning {
+		opts = append(opts, cogito.WithForceReasoning())
+	}
+	if agentOpts.ForceReasoningTool != nil && *agentOpts.ForceReasoningTool {
+		opts = append(opts, cogito.WithForceReasoningTool())
+	}
+	return opts
+}

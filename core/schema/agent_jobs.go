@@ -31,6 +31,9 @@ type Task struct {
 	// URLs to fetch multimedia content from when cron job executes
 	// Each source can have custom headers for authentication/authorization
 	MultimediaSources []MultimediaSourceConfig `json:"multimedia_sources,omitempty"` // Multimedia sources for cron jobs
+
+	// Agent options (overrides model config)
+	AgentOptions *MCPAgentOptions `json:"agent_options,omitempty"`
 }
 
 // WebhookConfig represents configuration for sending webhook notifications

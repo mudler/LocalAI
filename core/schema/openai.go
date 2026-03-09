@@ -133,6 +133,13 @@ type JsonSchema struct {
 	Schema functions.Item `json:"schema"`
 }
 
+// MCPAgentOptions allows per-request override of cogito agent options for MCP endpoints
+type MCPAgentOptions struct {
+	DisableSinkState   *bool `json:"disable_sink_state,omitempty" yaml:"disable_sink_state,omitempty"`
+	ForceReasoning     *bool `json:"force_reasoning,omitempty" yaml:"force_reasoning,omitempty"`
+	ForceReasoningTool *bool `json:"force_reasoning_tool,omitempty" yaml:"force_reasoning_tool,omitempty"`
+}
+
 type OpenAIRequest struct {
 	PredictionOptions
 
@@ -186,6 +193,9 @@ type OpenAIRequest struct {
 	ReasoningEffort string `json:"reasoning_effort" yaml:"reasoning_effort"`
 
 	Metadata map[string]string `json:"metadata" yaml:"metadata"`
+
+	// Agent options for MCP endpoints (overrides model config)
+	AgentOptions *MCPAgentOptions `json:"agent_options,omitempty" yaml:"agent_options,omitempty"`
 }
 
 type ModelsDataResponse struct {

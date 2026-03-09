@@ -126,6 +126,7 @@ func MCPEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator 
 
 		// Build cogito options using the consolidated method
 		cogitoOpts := config.BuildCogitoOptions()
+		cogitoOpts = config.ApplyMCPAgentOptions(cogitoOpts, input.AgentOptions)
 		cogitoOpts = append(
 			cogitoOpts,
 			cogito.WithContext(ctxWithCancellation),
