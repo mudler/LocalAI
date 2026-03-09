@@ -28,6 +28,7 @@ func RegisterAgentPoolRoutes(e *echo.Echo, app *application.Application) {
 	e.POST("/api/agents/:name/chat", localai.ChatWithAgentEndpoint(app))
 	e.GET("/api/agents/:name/sse", localai.AgentSSEEndpoint(app))
 	e.GET("/api/agents/:name/export", localai.ExportAgentEndpoint(app))
+	e.GET("/api/agents/:name/files", localai.AgentFileEndpoint(app))
 
 	// Actions
 	e.GET("/api/agents/actions", localai.ListActionsEndpoint(app))

@@ -190,7 +190,8 @@ All agent endpoints are grouped under `/api/agents/`:
 | `GET` | `/api/agents/:name/sse` | SSE stream for real-time agent events |
 | `GET` | `/api/agents/:name/export` | Export agent configuration as JSON |
 | `POST` | `/api/agents/import` | Import an agent from JSON |
-| `GET` | `/api/agents/config/metadata` | Get dynamic config form metadata |
+| `GET` | `/api/agents/:name/files?path=...` | Serve a generated file from the outputs directory |
+| `GET` | `/api/agents/config/metadata` | Get dynamic config form metadata (includes `outputsDir`) |
 
 ### Skills
 
@@ -299,6 +300,62 @@ The SSE stream emits the following event types:
 - `json_message_status` — processing status updates (`processing` / `completed`)
 - `status` — system messages (reasoning steps, action results)
 - `json_error` — error notifications
+
+## Generated Files and Outputs
+
+Some agent actions (image generation, PDF creation, audio synthesis) produce files. These files are automatically managed by LocalAI through a confined **outputs directory**.
+
+### How It Works
+
+1. Actions generate files to their configured `outputDir` (which can be any path on the filesystem)
+2. After each agent response, LocalAI automatically copies generated files into `{stateDir}/outputs/`
+3. The file-serving endpoint (`/api/agents/:name/files?path=...`) only serves files from this outputs directory
+4. File paths in agent response metadata are rewritten to point to the copied files
+
+This design ensures that:
+- Actions can write files to any directory they need
+- The file-serving endpoint is confined to a single trusted directory — no arbitrary filesystem access
+- Symlink traversal is blocked via `filepath.EvalSymlinks` validation
+
+### Accessing Generated Files
+
+Use the file-serving endpoint to retrieve files produced by agent actions:
+
+```bash
+curl http://localhost:8080/api/agents/my-agent/files?path=/path/to/outputs/image.png
+```
+
+The `path` parameter must point to a file inside the outputs directory. Requests for files outside this directory are rejected with `403 Forbidden`.
+
+### Metadata in SSE Messages
+
+When an agent action produces files, the SSE `json_message` event includes a `metadata` field with the generated resources:
+
+```json
+{
+  "id": "msg-123-agent",
+  "sender": "agent",
+  "content": "Here is the image you requested.",
+  "metadata": {
+    "images_url": ["http://localhost:8080/api/agents/my-agent/files?path=..."],
+    "pdf_paths": ["/path/to/outputs/document.pdf"],
+    "songs_paths": ["/path/to/outputs/song.mp3"]
+  },
+  "timestamp": "2025-01-01T00:00:00Z"
+}
+```
+
+The web UI uses this metadata to display inline resource cards (images, PDFs, audio players) and to open files in the canvas panel.
+
+### Configuration
+
+The outputs directory is created at `{stateDir}/outputs/` where `stateDir` defaults to `LOCALAI_AGENT_POOL_STATE_DIR` (or `LOCALAI_DATA_PATH` / `LOCALAI_CONFIG_DIR` as fallbacks). You can query the current outputs directory path via:
+
+```bash
+curl http://localhost:8080/api/agents/config/metadata
+```
+
+This returns a JSON object including the `outputsDir` field.
 
 ## Architecture
 

@@ -10,7 +10,7 @@ export default function App() {
   const { toasts, addToast, removeToast } = useToast()
   const [version, setVersion] = useState('')
   const location = useLocation()
-  const isChatRoute = location.pathname.startsWith('/chat')
+  const isChatRoute = location.pathname.startsWith('/chat') || location.pathname.match(/^\/agents\/[^/]+\/chat/)
 
   useEffect(() => {
     systemApi.version()

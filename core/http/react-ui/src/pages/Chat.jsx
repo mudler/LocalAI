@@ -1,8 +1,10 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useParams, useOutletContext, useNavigate } from 'react-router-dom'
 import { useChat } from '../hooks/useChat'
 import ModelSelector from '../components/ModelSelector'
 import { renderMarkdown, highlightAll } from '../utils/markdown'
+import { extractCodeArtifacts, renderMarkdownWithArtifacts } from '../utils/artifacts'
+import CanvasPanel from '../components/CanvasPanel'
 import { fileToBase64, modelsApi } from '../utils/api'
 
 function relativeTime(ts) {
@@ -54,87 +56,165 @@ function exportChatAsMarkdown(chat) {
   URL.revokeObjectURL(url)
 }
 
-function ThinkingMessage({ msg, onToggle }) {
+function formatToolContent(raw) {
+  try {
+    const data = JSON.parse(raw)
+    const name = data.name || 'unknown'
+    const params = data.arguments || data.input || data.result || data.parameters || {}
+    const entries = typeof params === 'object' && params !== null ? Object.entries(params) : []
+    return { name, entries, fallback: null }
+  } catch (_e) {
+    return { name: null, entries: [], fallback: raw }
+  }
+}
+
+function ToolParams({ entries, fallback }) {
+  if (fallback) {
+    return <span className="chat-activity-item-text">{fallback}</span>
+  }
+  if (entries.length === 0) return null
+  return (
+    <div className="chat-activity-params">
+      {entries.map(([k, v]) => {
+        const val = typeof v === 'string' ? v : JSON.stringify(v, null, 2)
+        const isLong = val.length > 120
+        return (
+          <div key={k} className="chat-activity-param">
+            <span className="chat-activity-param-key">{k}:</span>
+            <span className={`chat-activity-param-val${isLong ? ' chat-activity-param-val-long' : ''}`}>{val}</span>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+function ActivityGroup({ items, updateChatSettings, activeChat }) {
+  const [expanded, setExpanded] = useState(false)
   const contentRef = useRef(null)
 
   useEffect(() => {
-    if (msg.expanded && contentRef.current) {
-      highlightAll(contentRef.current)
+    if (expanded && contentRef.current) highlightAll(contentRef.current)
+  }, [expanded])
+
+  if (!items || items.length === 0) return null
+
+  const labels = items.map(item => {
+    if (item.role === 'thinking' || item.role === 'reasoning') return 'Thought'
+    if (item.role === 'tool_call') {
+      try { return JSON.parse(item.content)?.name || 'Tool' } catch (_e) { return 'Tool' }
     }
-  }, [msg.expanded, msg.content])
-
-  return (
-    <div className="chat-thinking-box">
-      <button className="chat-thinking-header" onClick={onToggle}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)' }}>
-          <i className="fas fa-brain" style={{ color: 'var(--color-primary)' }} />
-          <span className="chat-thinking-label">Thinking</span>
-          <span style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)' }}>
-            ({(msg.content || '').split('\n').length} lines)
-          </span>
-        </div>
-        <i className={`fas fa-chevron-${msg.expanded ? 'up' : 'down'}`} style={{ color: 'var(--color-primary)', fontSize: '0.75rem' }} />
-      </button>
-      {msg.expanded && (
-        <div
-          ref={contentRef}
-          className="chat-thinking-content"
-          dangerouslySetInnerHTML={{ __html: renderMarkdown(msg.content || '') }}
-        />
-      )}
-    </div>
-  )
-}
-
-function ToolCallMessage({ msg, onToggle }) {
-  let parsed = null
-  try { parsed = JSON.parse(msg.content) } catch (_e) { /* ignore */ }
-  const isCall = msg.role === 'tool_call'
-
-  return (
-    <div className={`chat-tool-box chat-tool-box-${isCall ? 'call' : 'result'}`}>
-      <button className="chat-tool-header" onClick={onToggle}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)' }}>
-          <i className={`fas ${isCall ? 'fa-wrench' : 'fa-check-circle'}`}
-            style={{ color: isCall ? 'var(--color-accent)' : 'var(--color-success)' }} />
-          <span className="chat-tool-label">
-            {isCall ? 'Tool Call' : 'Tool Result'}: {parsed?.name || 'unknown'}
-          </span>
-        </div>
-        <i className={`fas fa-chevron-${msg.expanded ? 'up' : 'down'}`}
-          style={{ color: 'var(--color-text-muted)', fontSize: '0.75rem' }} />
-      </button>
-      {msg.expanded && (
-        <div className="chat-tool-content">
-          <pre><code>{msg.content}</code></pre>
-        </div>
-      )}
-    </div>
-  )
-}
-
-function StreamingToolCalls({ toolCalls }) {
-  if (!toolCalls || toolCalls.length === 0) return null
-  return toolCalls.map((tc, i) => {
-    const isCall = tc.type === 'tool_call'
-    return (
-      <div key={i} className={`chat-tool-box chat-tool-box-${isCall ? 'call' : 'result'}`}>
-        <div className="chat-tool-header" style={{ cursor: 'default' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)' }}>
-            <i className={`fas ${isCall ? 'fa-wrench' : 'fa-check-circle'}`}
-              style={{ color: isCall ? 'var(--color-accent)' : 'var(--color-success)' }} />
-            <span className="chat-tool-label">
-              {isCall ? 'Tool Call' : 'Tool Result'}: {tc.name}
-            </span>
-            <span className="chat-streaming-cursor" />
-          </div>
-        </div>
-        <div className="chat-tool-content">
-          <pre><code>{JSON.stringify(isCall ? tc.arguments : tc.result, null, 2)}</code></pre>
-        </div>
-      </div>
-    )
+    if (item.role === 'tool_result') {
+      try { return `${JSON.parse(item.content)?.name || 'Tool'} result` } catch (_e) { return 'Result' }
+    }
+    return item.role
   })
+  const summary = labels.join(' → ')
+
+  return (
+    <div className="chat-message chat-message-assistant">
+      <div className="chat-message-avatar">
+        <i className="fas fa-cogs" />
+      </div>
+      <div className="chat-activity-group">
+        <button className="chat-activity-toggle" onClick={() => setExpanded(!expanded)}>
+          <span className="chat-activity-summary">{summary}</span>
+          <i className={`fas fa-chevron-${expanded ? 'up' : 'down'}`} />
+        </button>
+        {expanded && (
+          <div className="chat-activity-details" ref={contentRef}>
+            {items.map((item, idx) => {
+              if (item.role === 'thinking' || item.role === 'reasoning') {
+                return (
+                  <div key={idx} className="chat-activity-item chat-activity-thinking">
+                    <span className="chat-activity-item-label">Thought</span>
+                    <div className="chat-activity-item-content"
+                      dangerouslySetInnerHTML={{ __html: renderMarkdown(item.content || '') }} />
+                  </div>
+                )
+              }
+              const isCall = item.role === 'tool_call'
+              const parsed = formatToolContent(item.content)
+              return (
+                <div key={idx} className={`chat-activity-item ${isCall ? 'chat-activity-tool-call' : 'chat-activity-tool-result'}`}>
+                  <span className="chat-activity-item-label">{labels[idx]}</span>
+                  <ToolParams entries={parsed.entries} fallback={parsed.fallback} />
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function StreamingActivity({ reasoning, toolCalls, hasResponse }) {
+  const hasContent = reasoning || (toolCalls && toolCalls.length > 0)
+  if (!hasContent) return null
+
+  const contentRef = useRef(null)
+  const [manualCollapse, setManualCollapse] = useState(null)
+
+  // Auto-expand while thinking, auto-collapse when response starts
+  const autoExpanded = reasoning && !hasResponse
+  const expanded = manualCollapse !== null ? !manualCollapse : autoExpanded
+
+  // Scroll to bottom of thinking content as it streams
+  useEffect(() => {
+    if (expanded && contentRef.current) {
+      contentRef.current.scrollTop = contentRef.current.scrollHeight
+    }
+  }, [reasoning, expanded])
+
+  // Reset manual override when streaming state changes significantly
+  useEffect(() => {
+    setManualCollapse(null)
+  }, [hasResponse])
+
+  const lastTool = toolCalls && toolCalls.length > 0 ? toolCalls[toolCalls.length - 1] : null
+  const label = reasoning
+    ? 'Thinking...'
+    : lastTool
+      ? (lastTool.type === 'tool_call' ? lastTool.name : `${lastTool.name} result`)
+      : ''
+
+  return (
+    <div className="chat-message chat-message-assistant">
+      <div className="chat-message-avatar">
+        <i className="fas fa-cogs" />
+      </div>
+      <div className="chat-activity-group chat-activity-streaming">
+        <button className="chat-activity-toggle" onClick={() => setManualCollapse(expanded)}>
+          <span className={`chat-activity-summary${!expanded ? ' chat-activity-shimmer' : ''}`}>
+            {label}
+          </span>
+          <i className={`fas fa-chevron-${expanded ? 'up' : 'down'}`} />
+        </button>
+        {expanded && reasoning && (
+          <div className="chat-activity-details">
+            <div className="chat-activity-item chat-activity-thinking">
+              <div className="chat-activity-item-content chat-activity-live" ref={contentRef}
+                dangerouslySetInnerHTML={{ __html: renderMarkdown(reasoning) }} />
+            </div>
+          </div>
+        )}
+        {expanded && toolCalls && toolCalls.length > 0 && (
+          <div className="chat-activity-details">
+            {toolCalls.map((tc, idx) => {
+              const parsed = formatToolContent(JSON.stringify(tc, null, 2))
+              return (
+                <div key={idx} className={`chat-activity-item ${tc.type === 'tool_call' ? 'chat-activity-tool-call' : 'chat-activity-tool-result'}`}>
+                  <span className="chat-activity-item-label">{tc.name || tc.type}</span>
+                  <ToolParams entries={parsed.entries} fallback={parsed.fallback} />
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  )
 }
 
 function UserMessageContent({ content, files }) {
@@ -180,11 +260,30 @@ export default function Chat() {
   const [modelInfo, setModelInfo] = useState(null)
   const [showModelInfo, setShowModelInfo] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [canvasMode, setCanvasMode] = useState(false)
+  const [canvasOpen, setCanvasOpen] = useState(false)
+  const [selectedArtifactId, setSelectedArtifactId] = useState(null)
   const messagesEndRef = useRef(null)
   const fileInputRef = useRef(null)
   const messagesRef = useRef(null)
-  const thinkingBoxRef = useRef(null)
   const textareaRef = useRef(null)
+
+  const artifacts = useMemo(
+    () => canvasMode ? extractCodeArtifacts(activeChat?.history, 'role', 'assistant') : [],
+    [activeChat?.history, canvasMode]
+  )
+
+  const prevArtifactCountRef = useRef(0)
+  useEffect(() => {
+    prevArtifactCountRef.current = artifacts.length
+  }, [activeChat?.id])
+  useEffect(() => {
+    if (artifacts.length > prevArtifactCountRef.current && artifacts.length > 0) {
+      setSelectedArtifactId(artifacts[artifacts.length - 1].id)
+      if (!canvasOpen) setCanvasOpen(true)
+    }
+    prevArtifactCountRef.current = artifacts.length
+  }, [artifacts])
 
   // Check MCP availability and fetch model config
   useEffect(() => {
@@ -242,13 +341,6 @@ export default function Chat() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [activeChat?.history, streamingContent, streamingReasoning, streamingToolCalls])
 
-  // Scroll streaming thinking box
-  useEffect(() => {
-    if (thinkingBoxRef.current) {
-      thinkingBoxRef.current.scrollTop = thinkingBoxRef.current.scrollHeight
-    }
-  }, [streamingReasoning])
-
   // Highlight code blocks
   useEffect(() => {
     if (messagesRef.current) {
@@ -267,6 +359,41 @@ export default function Chat() {
   useEffect(() => {
     autoGrowTextarea()
   }, [input, autoGrowTextarea])
+
+  // Event delegation for artifact cards
+  useEffect(() => {
+    const el = messagesRef.current
+    if (!el || !canvasMode) return
+    const handler = (e) => {
+      const openBtn = e.target.closest('.artifact-card-open')
+      const downloadBtn = e.target.closest('.artifact-card-download')
+      const card = e.target.closest('.artifact-card')
+      if (downloadBtn) {
+        e.stopPropagation()
+        const id = downloadBtn.dataset.artifactId
+        const artifact = artifacts.find(a => a.id === id)
+        if (artifact?.code) {
+          const blob = new Blob([artifact.code], { type: 'text/plain' })
+          const url = URL.createObjectURL(blob)
+          const a = document.createElement('a')
+          a.href = url
+          a.download = artifact.title || 'download.txt'
+          a.click()
+          URL.revokeObjectURL(url)
+        }
+        return
+      }
+      if (openBtn || card) {
+        const id = (openBtn || card).dataset.artifactId
+        if (id) {
+          setSelectedArtifactId(id)
+          setCanvasOpen(true)
+        }
+      }
+    }
+    el.addEventListener('click', handler)
+    return () => el.removeEventListener('click', handler)
+  }, [canvasMode, artifacts])
 
   const handleFileChange = useCallback(async (e) => {
     const newFiles = []
@@ -517,6 +644,30 @@ export default function Chat() {
             </label>
           )}
           <div className="chat-header-actions">
+            <label className="canvas-mode-toggle" title="Extract code blocks and media into a side panel for preview, copy, and download">
+              <i className="fas fa-columns" />
+              <span className="canvas-mode-label">Canvas</span>
+              <span className="toggle">
+                <input
+                  type="checkbox"
+                  checked={canvasMode}
+                  onChange={(e) => {
+                    setCanvasMode(e.target.checked)
+                    if (!e.target.checked) setCanvasOpen(false)
+                  }}
+                />
+                <span className="toggle-slider" />
+              </span>
+            </label>
+            {canvasMode && artifacts.length > 0 && !canvasOpen && (
+              <button
+                className="btn btn-secondary btn-sm"
+                onClick={() => { setSelectedArtifactId(artifacts[0]?.id); setCanvasOpen(true) }}
+                title="Open canvas panel"
+              >
+                <i className="fas fa-layer-group" /> {artifacts.length}
+              </button>
+            )}
             <button
               className="btn btn-secondary btn-sm"
               onClick={() => exportChatAsMarkdown(activeChat)}
@@ -663,80 +814,68 @@ export default function Chat() {
               </div>
             </div>
           )}
-          {activeChat.history.map((msg, i) => {
-            if (msg.role === 'thinking' || msg.role === 'reasoning') {
-              return (
-                <ThinkingMessage key={i} msg={msg} onToggle={() => {
-                  const newHistory = [...activeChat.history]
-                  newHistory[i] = { ...newHistory[i], expanded: !newHistory[i].expanded }
-                  updateChatSettings(activeChat.id, { history: newHistory })
-                }} />
-              )
+          {(() => {
+            const elements = []
+            let activityBuf = []
+            const flushActivity = (key) => {
+              if (activityBuf.length > 0) {
+                elements.push(
+                  <ActivityGroup key={`ag-${key}`} items={[...activityBuf]}
+                    updateChatSettings={updateChatSettings} activeChat={activeChat} />
+                )
+                activityBuf = []
+              }
             }
-            if (msg.role === 'tool_call' || msg.role === 'tool_result') {
-              return (
-                <ToolCallMessage key={i} msg={msg} onToggle={() => {
-                  const newHistory = [...activeChat.history]
-                  newHistory[i] = { ...newHistory[i], expanded: !newHistory[i].expanded }
-                  updateChatSettings(activeChat.id, { history: newHistory })
-                }} />
-              )
-            }
-            return (
-              <div key={i} className={`chat-message chat-message-${msg.role}`}>
-                <div className="chat-message-avatar">
-                  <i className={`fas ${msg.role === 'user' ? 'fa-user' : 'fa-robot'}`} />
-                </div>
-                <div className="chat-message-bubble">
-                  {msg.role === 'assistant' && activeChat.model && (
-                    <span className="chat-message-model">{activeChat.model}</span>
-                  )}
-                  <div className="chat-message-content">
-                    {msg.role === 'user' ? (
-                      <UserMessageContent content={msg.content} files={msg.files} />
-                    ) : (
-                      <div dangerouslySetInnerHTML={{
-                        __html: renderMarkdown(typeof msg.content === 'string' ? msg.content : '')
-                      }} />
-                    )}
+            activeChat.history.forEach((msg, i) => {
+              const isActivity = msg.role === 'thinking' || msg.role === 'reasoning' ||
+                msg.role === 'tool_call' || msg.role === 'tool_result'
+              if (isActivity) {
+                activityBuf.push(msg)
+                return
+              }
+              flushActivity(i)
+              elements.push(
+                <div key={i} className={`chat-message chat-message-${msg.role}`}>
+                  <div className="chat-message-avatar">
+                    <i className={`fas ${msg.role === 'user' ? 'fa-user' : 'fa-robot'}`} />
                   </div>
-                  <div className="chat-message-actions">
-                    <button onClick={() => copyMessage(msg.content)} title="Copy">
-                      <i className="fas fa-copy" />
-                    </button>
-                    {msg.role === 'assistant' && i === activeChat.history.length - 1 && !isStreaming && (
-                      <button onClick={handleRegenerate} title="Regenerate">
-                        <i className="fas fa-rotate" />
+                  <div className="chat-message-bubble">
+                    {msg.role === 'assistant' && activeChat.model && (
+                      <span className="chat-message-model">{activeChat.model}</span>
+                    )}
+                    <div className="chat-message-content">
+                      {msg.role === 'user' ? (
+                        <UserMessageContent content={msg.content} files={msg.files} />
+                      ) : (
+                        <div dangerouslySetInnerHTML={{
+                          __html: canvasMode
+                            ? renderMarkdownWithArtifacts(typeof msg.content === 'string' ? msg.content : '', i)
+                            : renderMarkdown(typeof msg.content === 'string' ? msg.content : '')
+                        }} />
+                      )}
+                    </div>
+                    <div className="chat-message-actions">
+                      <button onClick={() => copyMessage(msg.content)} title="Copy">
+                        <i className="fas fa-copy" />
                       </button>
-                    )}
+                      {msg.role === 'assistant' && i === activeChat.history.length - 1 && !isStreaming && (
+                        <button onClick={handleRegenerate} title="Regenerate">
+                          <i className="fas fa-rotate" />
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            )
-          })}
+              )
+            })
+            flushActivity('end')
+            return elements
+          })()}
 
-          {/* Streaming reasoning box */}
-          {isStreaming && streamingReasoning && (
-            <div className="chat-thinking-box chat-thinking-box-streaming">
-              <div className="chat-thinking-header" style={{ cursor: 'default' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)' }}>
-                  <i className="fas fa-brain" style={{ color: 'var(--color-primary)' }} />
-                  <span className="chat-thinking-label">Thinking</span>
-                  <span className="chat-streaming-cursor" />
-                </div>
-              </div>
-              <div
-                ref={thinkingBoxRef}
-                className="chat-thinking-content"
-                style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
-              >
-                {streamingReasoning}
-              </div>
-            </div>
+          {/* Streaming activity (thinking + tools) */}
+          {isStreaming && (streamingReasoning || streamingToolCalls.length > 0) && (
+            <StreamingActivity reasoning={streamingReasoning} toolCalls={streamingToolCalls} hasResponse={!!streamingContent} />
           )}
-
-          {/* Streaming tool calls */}
-          {isStreaming && <StreamingToolCalls toolCalls={streamingToolCalls} />}
 
           {/* Streaming message */}
           {isStreaming && streamingContent && (
@@ -848,6 +987,14 @@ export default function Chat() {
           </div>
         </div>
       </div>
+      {canvasOpen && artifacts.length > 0 && (
+        <CanvasPanel
+          artifacts={artifacts}
+          selectedId={selectedArtifactId}
+          onSelect={setSelectedArtifactId}
+          onClose={() => setCanvasOpen(false)}
+        />
+      )}
     </div>
   )
 }

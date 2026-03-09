@@ -1,28 +1,126 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useParams, useNavigate, useOutletContext } from 'react-router-dom'
 import { agentsApi } from '../utils/api'
 import { renderMarkdown, highlightAll } from '../utils/markdown'
-import DOMPurify from 'dompurify'
+import { extractCodeArtifacts, extractMetadataArtifacts, renderMarkdownWithArtifacts } from '../utils/artifacts'
+import CanvasPanel from '../components/CanvasPanel'
+import ResourceCards from '../components/ResourceCards'
+import { useAgentChat } from '../hooks/useAgentChat'
+
+function relativeTime(ts) {
+  if (!ts) return ''
+  const diff = Date.now() - ts
+  const seconds = Math.floor(diff / 1000)
+  if (seconds < 60) return 'Just now'
+  const minutes = Math.floor(seconds / 60)
+  if (minutes < 60) return `${minutes}m ago`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours}h ago`
+  const days = Math.floor(hours / 24)
+  if (days < 7) return `${days}d ago`
+  return new Date(ts).toLocaleDateString()
+}
+
+function getLastMessagePreview(conv) {
+  if (!conv.messages || conv.messages.length === 0) return ''
+  for (let i = conv.messages.length - 1; i >= 0; i--) {
+    const msg = conv.messages[i]
+    if (msg.sender === 'user' || msg.sender === 'agent') {
+      return (msg.content || '').slice(0, 40).replace(/\n/g, ' ')
+    }
+  }
+  return ''
+}
+
+function stripHtml(html) {
+  if (!html) return ''
+  return html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
+}
+
+function summarizeStatus(text) {
+  const plain = stripHtml(text)
+  // Extract a short label from "Thinking: ...", "Reasoning: ...", etc.
+  const match = plain.match(/^(Thinking|Reasoning|Action taken|Result)[:\s]*/i)
+  if (match) return match[1]
+  return plain.length > 60 ? plain.slice(0, 60) + '...' : plain
+}
+
+function AgentActivityGroup({ items }) {
+  const [expanded, setExpanded] = useState(false)
+  if (!items || items.length === 0) return null
+
+  const latest = items[items.length - 1]
+  const summary = summarizeStatus(latest.content)
+
+  return (
+    <div className="chat-message chat-message-assistant">
+      <div className="chat-message-avatar" style={{ background: 'var(--color-bg-tertiary)', color: 'var(--color-text-muted)' }}>
+        <i className="fas fa-cogs" />
+      </div>
+      <div className="chat-activity-group">
+        <button className="chat-activity-toggle" onClick={() => setExpanded(!expanded)}>
+          <span className="chat-activity-summary">
+            {summary}
+            {items.length > 1 && <span className="chat-activity-count">+{items.length - 1}</span>}
+          </span>
+          <i className={`fas fa-chevron-${expanded ? 'up' : 'down'}`} />
+        </button>
+        {expanded && (
+          <div className="chat-activity-details">
+            {items.map((item, idx) => (
+              <div key={idx} className="chat-activity-item">
+                <span className="chat-activity-item-label">{new Date(item.timestamp).toLocaleTimeString()}</span>
+                <div className="chat-activity-item-content"
+                  dangerouslySetInnerHTML={{ __html: item.content }} />
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
 
 export default function AgentChat() {
   const { name } = useParams()
   const navigate = useNavigate()
   const { addToast } = useOutletContext()
-  const [messages, setMessages] = useState([])
+
+  const {
+    conversations, activeConversation, activeId,
+    addConversation, switchConversation, deleteConversation,
+    deleteAllConversations, renameConversation, addMessage, clearMessages,
+  } = useAgentChat(name)
+
+  const messages = activeConversation?.messages || []
+
   const [input, setInput] = useState('')
-  const [processing, setProcessing] = useState(false)
+  const [processingChatId, setProcessingChatId] = useState(null)
+  const [canvasMode, setCanvasMode] = useState(false)
+  const [canvasOpen, setCanvasOpen] = useState(false)
+  const [selectedArtifactId, setSelectedArtifactId] = useState(null)
+  const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [editingName, setEditingName] = useState(null)
+  const [editName, setEditName] = useState('')
+  const [chatSearch, setChatSearch] = useState('')
   const messagesEndRef = useRef(null)
   const messagesRef = useRef(null)
   const textareaRef = useRef(null)
   const eventSourceRef = useRef(null)
   const messageIdCounter = useRef(0)
+  const addMessageRef = useRef(addMessage)
+  addMessageRef.current = addMessage
+  const activeIdRef = useRef(activeId)
+  activeIdRef.current = activeId
+
+  const processing = processingChatId === activeId
 
   const nextId = useCallback(() => {
     messageIdCounter.current += 1
     return messageIdCounter.current
   }, [])
 
-  // Connect to SSE endpoint
+  // Connect to SSE endpoint — only reconnect when agent name changes
   useEffect(() => {
     const url = `/api/agents/${encodeURIComponent(name)}/sse`
     const es = new EventSource(url)
@@ -31,12 +129,16 @@ export default function AgentChat() {
     es.addEventListener('json_message', (e) => {
       try {
         const data = JSON.parse(e.data)
-        setMessages(prev => [...prev, {
+        const msg = {
           id: nextId(),
           sender: data.sender || (data.role === 'user' ? 'user' : 'agent'),
           content: data.content || data.message || '',
           timestamp: data.timestamp || Date.now(),
-        }])
+        }
+        if (data.metadata && Object.keys(data.metadata).length > 0) {
+          msg.metadata = data.metadata
+        }
+        addMessageRef.current(msg)
       } catch (_err) {
         // ignore malformed messages
       }
@@ -46,9 +148,9 @@ export default function AgentChat() {
       try {
         const data = JSON.parse(e.data)
         if (data.status === 'processing') {
-          setProcessing(true)
+          setProcessingChatId(activeIdRef.current)
         } else if (data.status === 'completed') {
-          setProcessing(false)
+          setProcessingChatId(null)
         }
       } catch (_err) {
         // ignore
@@ -58,12 +160,12 @@ export default function AgentChat() {
     es.addEventListener('status', (e) => {
       const text = e.data
       if (!text) return
-      setMessages(prev => [...prev, {
+      addMessageRef.current({
         id: nextId(),
         sender: 'system',
         content: text,
         timestamp: Date.now(),
-      }])
+      })
     })
 
     es.addEventListener('json_error', (e) => {
@@ -73,7 +175,7 @@ export default function AgentChat() {
       } catch (_err) {
         addToast('Agent error', 'error')
       }
-      setProcessing(false)
+      setProcessingChatId(null)
     })
 
     es.onerror = () => {
@@ -96,19 +198,82 @@ export default function AgentChat() {
     if (messagesRef.current) highlightAll(messagesRef.current)
   }, [messages])
 
+  const agentMessages = useMemo(() => messages.filter(m => m.sender === 'agent'), [messages])
+  const codeArtifacts = useMemo(
+    () => canvasMode ? extractCodeArtifacts(agentMessages, 'sender', 'agent') : [],
+    [agentMessages, canvasMode]
+  )
+  const metaArtifacts = useMemo(
+    () => canvasMode ? extractMetadataArtifacts(messages, name) : [],
+    [messages, canvasMode, name]
+  )
+  const artifacts = useMemo(() => [...codeArtifacts, ...metaArtifacts], [codeArtifacts, metaArtifacts])
+
+  const prevArtifactCountRef = useRef(0)
+  useEffect(() => {
+    prevArtifactCountRef.current = artifacts.length
+  }, [activeId])
+  useEffect(() => {
+    if (artifacts.length > prevArtifactCountRef.current && artifacts.length > 0) {
+      setSelectedArtifactId(artifacts[artifacts.length - 1].id)
+      if (!canvasOpen) setCanvasOpen(true)
+    }
+    prevArtifactCountRef.current = artifacts.length
+  }, [artifacts])
+
+  // Event delegation for artifact cards
+  useEffect(() => {
+    const el = messagesRef.current
+    if (!el || !canvasMode) return
+    const handler = (e) => {
+      const openBtn = e.target.closest('.artifact-card-open')
+      const downloadBtn = e.target.closest('.artifact-card-download')
+      const card = e.target.closest('.artifact-card')
+      if (downloadBtn) {
+        e.stopPropagation()
+        const id = downloadBtn.dataset.artifactId
+        const artifact = artifacts.find(a => a.id === id)
+        if (artifact?.code) {
+          const blob = new Blob([artifact.code], { type: 'text/plain' })
+          const url = URL.createObjectURL(blob)
+          const a = document.createElement('a')
+          a.href = url
+          a.download = artifact.title || 'download.txt'
+          a.click()
+          URL.revokeObjectURL(url)
+        }
+        return
+      }
+      if (openBtn || card) {
+        const id = (openBtn || card).dataset.artifactId
+        if (id) {
+          setSelectedArtifactId(id)
+          setCanvasOpen(true)
+        }
+      }
+    }
+    el.addEventListener('click', handler)
+    return () => el.removeEventListener('click', handler)
+  }, [canvasMode, artifacts])
+
+  const openArtifactById = useCallback((id) => {
+    setSelectedArtifactId(id)
+    setCanvasOpen(true)
+  }, [])
+
   const handleSend = useCallback(async () => {
     const msg = input.trim()
     if (!msg || processing) return
     setInput('')
     if (textareaRef.current) textareaRef.current.style.height = 'auto'
-    setProcessing(true)
+    setProcessingChatId(activeId)
     try {
       await agentsApi.chat(name, msg)
     } catch (err) {
       addToast(`Failed to send message: ${err.message}`, 'error')
-      setProcessing(false)
+      setProcessingChatId(null)
     }
-  }, [input, processing, name, addToast])
+  }, [input, processing, name, activeId, addToast])
 
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -128,19 +293,173 @@ export default function AgentChat() {
     return 'system'
   }
 
+  const startRename = (id, currentName) => {
+    setEditingName(id)
+    setEditName(currentName)
+  }
+
+  const finishRename = () => {
+    if (editingName && editName.trim()) {
+      renameConversation(editingName, editName.trim())
+    }
+    setEditingName(null)
+  }
+
+  const filteredConversations = chatSearch.trim()
+    ? conversations.filter(c => {
+      const q = chatSearch.toLowerCase()
+      if ((c.name || '').toLowerCase().includes(q)) return true
+      return c.messages?.some(m => {
+        return (m.content || '').toLowerCase().includes(q)
+      })
+    })
+    : conversations
+
   return (
+    <div className={`chat-layout${sidebarOpen ? '' : ' chat-sidebar-collapsed'}`}>
+      {/* Conversation sidebar */}
+      <div className={`chat-sidebar${sidebarOpen ? '' : ' hidden'}`}>
+        <div className="chat-sidebar-header">
+          <button className="btn btn-primary btn-sm" style={{ flex: 1 }} onClick={() => addConversation()}>
+            <i className="fas fa-plus" /> New Chat
+          </button>
+          <button
+            className="btn btn-secondary btn-sm"
+            onClick={() => {
+              if (confirm('Delete all conversations? This cannot be undone.')) deleteAllConversations()
+            }}
+            title="Delete all conversations"
+            style={{ padding: '6px 8px' }}
+          >
+            <i className="fas fa-trash" />
+          </button>
+        </div>
+
+        <div style={{ padding: '0 var(--spacing-sm)' }}>
+          <div className="chat-search-wrapper">
+            <i className="fas fa-search chat-search-icon" />
+            <input
+              className="chat-search-input"
+              type="text"
+              value={chatSearch}
+              onChange={(e) => setChatSearch(e.target.value)}
+              placeholder="Search conversations..."
+            />
+            {chatSearch && (
+              <button className="chat-search-clear" onClick={() => setChatSearch('')}>
+                <i className="fas fa-times" />
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="chat-list">
+          {filteredConversations.map(conv => (
+            <div
+              key={conv.id}
+              className={`chat-list-item ${conv.id === activeId ? 'active' : ''}`}
+              onClick={() => switchConversation(conv.id)}
+            >
+              <i className="fas fa-message" style={{ fontSize: '0.7rem', flexShrink: 0, marginTop: '2px' }} />
+              {editingName === conv.id ? (
+                <input
+                  className="input"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  onBlur={finishRename}
+                  onKeyDown={(e) => e.key === 'Enter' && finishRename()}
+                  autoFocus
+                  onClick={(e) => e.stopPropagation()}
+                  style={{ padding: '2px 4px', fontSize: '0.8125rem' }}
+                />
+              ) : (
+                <div className="chat-list-item-info">
+                  <div className="chat-list-item-top">
+                    <span
+                      className="chat-list-item-name"
+                      onDoubleClick={() => startRename(conv.id, conv.name)}
+                    >
+                      {processingChatId === conv.id && <i className="fas fa-circle-notch fa-spin" style={{ marginRight: '6px', fontSize: '0.7rem', opacity: 0.7 }} />}
+                      {conv.name}
+                    </span>
+                    <span className="chat-list-item-time">{relativeTime(conv.updatedAt)}</span>
+                  </div>
+                  <span className="chat-list-item-preview">
+                    {getLastMessagePreview(conv) || 'No messages yet'}
+                  </span>
+                </div>
+              )}
+              <div className="chat-list-item-actions">
+                <button
+                  onClick={(e) => { e.stopPropagation(); startRename(conv.id, conv.name) }}
+                  title="Rename"
+                >
+                  <i className="fas fa-edit" />
+                </button>
+                {conversations.length > 1 && (
+                  <button
+                    className="chat-list-item-delete"
+                    onClick={(e) => { e.stopPropagation(); deleteConversation(conv.id) }}
+                    title="Delete conversation"
+                  >
+                    <i className="fas fa-trash" />
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+          {filteredConversations.length === 0 && chatSearch && (
+            <div style={{ padding: 'var(--spacing-sm)', textAlign: 'center', color: 'var(--color-text-muted)', fontSize: '0.8rem' }}>
+              No conversations match your search
+            </div>
+          )}
+        </div>
+      </div>
+
     <div className="chat-main">
       {/* Header */}
       <div className="chat-header">
+        <button
+          className="btn btn-secondary btn-sm"
+          onClick={() => setSidebarOpen(prev => !prev)}
+          title={sidebarOpen ? 'Hide chat list' : 'Show chat list'}
+          style={{ flexShrink: 0 }}
+        >
+          <i className={`fas fa-${sidebarOpen ? 'angles-left' : 'angles-right'}`} />
+        </button>
         <span className="chat-header-title">
           <i className="fas fa-robot" style={{ marginRight: 'var(--spacing-xs)' }} />
           {name}
         </span>
         <div className="chat-header-actions">
+          <label className="canvas-mode-toggle" title="Extract code blocks and media into a side panel for preview, copy, and download">
+            <i className="fas fa-columns" />
+            <span className="canvas-mode-label">Canvas</span>
+            <span className="toggle">
+              <input
+                type="checkbox"
+                checked={canvasMode}
+                onChange={(e) => {
+                  setCanvasMode(e.target.checked)
+                  if (!e.target.checked) setCanvasOpen(false)
+                }}
+              />
+              <span className="toggle-slider" />
+            </span>
+          </label>
+          {canvasMode && artifacts.length > 0 && !canvasOpen && (
+            <button
+              className="btn btn-secondary btn-sm"
+              onClick={() => { setSelectedArtifactId(artifacts[0]?.id); setCanvasOpen(true) }}
+              title="Open canvas panel"
+            >
+              <i className="fas fa-layer-group" /> {artifacts.length}
+            </button>
+          )}
           <button className="btn btn-secondary btn-sm" onClick={() => navigate(`/agents/${encodeURIComponent(name)}/status`)} title="View status & observables">
             <i className="fas fa-chart-bar" /> Status
           </button>
-          <button className="btn btn-secondary btn-sm" onClick={() => setMessages([])} disabled={messages.length === 0} title="Clear chat history">
+          <button className="btn btn-secondary btn-sm" onClick={() => clearMessages()} disabled={messages.length === 0} title="Clear chat history">
             <i className="fas fa-eraser" /> Clear
           </button>
         </div>
@@ -161,55 +480,70 @@ export default function AgentChat() {
             </div>
           </div>
         )}
-        {messages.map(msg => {
-          const role = senderToRole(msg.sender)
-
-          if (role === 'system') {
-            return (
-              <div key={msg.id} className="chat-message chat-message-system">
+        {(() => {
+          const elements = []
+          let systemBuf = []
+          const flushSystem = (key) => {
+            if (systemBuf.length > 0) {
+              elements.push(<AgentActivityGroup key={`sag-${key}`} items={[...systemBuf]} />)
+              systemBuf = []
+            }
+          }
+          messages.forEach((msg, idx) => {
+            const role = senderToRole(msg.sender)
+            if (role === 'system') {
+              systemBuf.push(msg)
+              return
+            }
+            flushSystem(idx)
+            elements.push(
+              <div key={msg.id} className={`chat-message chat-message-${role}`}>
+                <div className="chat-message-avatar">
+                  <i className={`fas ${role === 'user' ? 'fa-user' : 'fa-robot'}`} />
+                </div>
                 <div className="chat-message-bubble">
-                  <div className="chat-message-content" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(msg.content) }} />
+                  <div className="chat-message-content">
+                    {role === 'user' ? (
+                      <div dangerouslySetInnerHTML={{ __html: msg.content.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>') }} />
+                    ) : (
+                      <div dangerouslySetInnerHTML={{
+                        __html: canvasMode
+                          ? renderMarkdownWithArtifacts(msg.content, idx)
+                          : renderMarkdown(msg.content)
+                      }} />
+                    )}
+                  </div>
+                  {role === 'assistant' && msg.metadata && (
+                    <ResourceCards
+                      metadata={msg.metadata}
+                      messageIndex={idx}
+                      agentName={name}
+                      onOpenArtifact={openArtifactById}
+                    />
+                  )}
+                  <div className="chat-message-actions">
+                    <button onClick={() => copyMessage(msg.content)} title="Copy">
+                      <i className="fas fa-copy" />
+                    </button>
+                  </div>
                   <div className="chat-message-timestamp">
                     {new Date(msg.timestamp).toLocaleTimeString()}
                   </div>
                 </div>
               </div>
             )
-          }
-
-          return (
-            <div key={msg.id} className={`chat-message chat-message-${role}`}>
-              <div className="chat-message-avatar">
-                <i className={`fas ${role === 'user' ? 'fa-user' : 'fa-robot'}`} />
-              </div>
-              <div className="chat-message-bubble">
-                <div className="chat-message-content">
-                  {role === 'user' ? (
-                    <div dangerouslySetInnerHTML={{ __html: msg.content.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>') }} />
-                  ) : (
-                    <div dangerouslySetInnerHTML={{ __html: renderMarkdown(msg.content) }} />
-                  )}
-                </div>
-                <div className="chat-message-actions">
-                  <button onClick={() => copyMessage(msg.content)} title="Copy">
-                    <i className="fas fa-copy" />
-                  </button>
-                </div>
-                <div className="chat-message-timestamp">
-                  {new Date(msg.timestamp).toLocaleTimeString()}
-                </div>
-              </div>
-            </div>
-          )
-        })}
+          })
+          flushSystem('end')
+          return elements
+        })()}
         {processing && (
           <div className="chat-message chat-message-assistant">
-            <div className="chat-message-avatar">
-              <i className="fas fa-robot" />
+            <div className="chat-message-avatar" style={{ background: 'var(--color-bg-tertiary)', color: 'var(--color-text-muted)' }}>
+              <i className="fas fa-cogs" />
             </div>
-            <div className="chat-message-bubble">
-              <div className="chat-message-content" style={{ color: 'var(--color-text-muted)' }}>
-                <i className="fas fa-circle-notch fa-spin" /> Thinking...
+            <div className="chat-activity-group chat-activity-streaming">
+              <div className="chat-activity-toggle" style={{ cursor: 'default' }}>
+                <span className="chat-activity-summary chat-activity-shimmer">Working...</span>
               </div>
             </div>
           </div>
@@ -244,6 +578,15 @@ export default function AgentChat() {
           </button>
         </div>
       </div>
+    </div>
+    {canvasOpen && artifacts.length > 0 && (
+      <CanvasPanel
+        artifacts={artifacts}
+        selectedId={selectedArtifactId}
+        onSelect={setSelectedArtifactId}
+        onClose={() => setCanvasOpen(false)}
+      />
+    )}
     </div>
   )
 }
