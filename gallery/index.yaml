@@ -1,4 +1,36 @@
 ---
+- name: "skyfall-31b-v4.1-heretic-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Skyfall-31B-v4.1-heretic-i1-GGUF
+  description: |
+    Describe the model in a clear and concise way that can be shared in a model gallery.
+  license: "MIT"
+  tags:
+    - default
+    - text-to-text
+    - text-to-speech
+    - text-to-speech
+    - text-to-speech
+  overrides:
+    parameters:
+      model: llama-cpp/models/Skyfall-31B-v4.1-heretic.i1-Q4_K_M.gguf
+    name: Skyfall-31B-v4.1-heretic-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Skyfall-31B-v4.1-heretic-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Skyfall-31B-v4.1-heretic.i1-Q4_K_M.gguf
+      sha256: f3a3ad327098814ae580a94d3879f679ee543434a7475625696defcd6308e64e
+      uri: https://huggingface.co/mradermacher/Skyfall-31B-v4.1-heretic-i1-GGUF/resolve/main/Skyfall-31B-v4.1-heretic.i1-Q4_K_M.gguf
 - name: "qwen3.5-27b-claude-4.6-opus-reasoning-distilled-i1"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
