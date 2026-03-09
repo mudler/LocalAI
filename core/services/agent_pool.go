@@ -64,8 +64,11 @@ func (s *AgentPoolService) Start(ctx context.Context) error {
 		apiKey = s.appConfig.ApiKeys[0]
 	}
 
-	// State dir defaults to DynamicConfigsDir (LocalAI configuration folder)
+	// State dir: explicit config > DataPath > DynamicConfigsDir > fallback
 	stateDir := cfg.StateDir
+	if stateDir == "" {
+		stateDir = s.appConfig.DataPath
+	}
 	if stateDir == "" {
 		stateDir = s.appConfig.DynamicConfigsDir
 	}
