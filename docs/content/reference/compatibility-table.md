@@ -23,6 +23,7 @@ LocalAI will attempt to automatically load models which are not explicitly confi
 | [transformers](https://github.com/huggingface/transformers) | Various GPTs and quantization formats  | yes                      | GPT, embeddings, Audio generation            | yes | yes*                  | CUDA 12/13, ROCm, Intel, CPU |
 | [MLX](https://github.com/ml-explore/mlx-lm)        | Various LLMs               | yes                       | GPT                        | no                                | no                   | Metal (Apple Silicon) |
 | [MLX-VLM](https://github.com/Blaizzy/mlx-vlm)        | Vision-Language Models               | yes                       | Multimodal GPT                        | no                                | no                   | Metal (Apple Silicon) |
+| [vllm-omni](https://github.com/vllm-project/vllm) | vLLM Omni multimodal | yes | Multimodal GPT | no | no | CUDA 12/13, ROCm, Intel |
 | [langchain-huggingface](https://github.com/tmc/langchaingo)                                                                    | Any text generators available on HuggingFace through API | yes                      | GPT                        | no                                | no                   | N/A |
 
 ## Audio & Speech Processing
@@ -41,6 +42,12 @@ LocalAI will attempt to automatically load models which are not explicitly confi
 | [vibevoice](https://github.com/microsoft/VibeVoice) | VibeVoice-Realtime    | no                       | Real-time text-to-speech with voice cloning    | no                               | no                   | CUDA 12/13, ROCm, Intel, CPU |
 | [pocket-tts](https://github.com/kyutai-labs/pocket-tts) | Pocket TTS    | no                       | Lightweight CPU-based text-to-speech with voice cloning    | no                               | no                   | CUDA 12/13, ROCm, Intel, CPU |
 | [mlx-audio](https://github.com/Blaizzy/mlx-audio) | MLX | no                       | Text-tospeech    | no                               | no                   | Metal (Apple Silicon) |
+| [nemo](https://github.com/NVIDIA/NeMo) | NeMo speech models | no | Speech models | no | no | CUDA 12/13, ROCm, Intel, CPU |
+| [outetts](https://github.com/edwengc/outetts) | OuteTTS | no | Text-to-speech with voice cloning | no | no | CUDA 12/13, CPU |
+| [faster-qwen3-tts](https://github.com/andimarafioti/faster-qwen3-tts) | Faster Qwen3 TTS | no | Fast text-to-speech | no | no | CUDA 12/13, ROCm, Intel, CPU |
+| [qwen-asr](https://github.com/QwenLM/Qwen-ASR) | Qwen ASR | no | Automatic speech recognition | no | no | CUDA 12/13, ROCm, Intel, CPU |
+| [voxcpm](https://github.com/voxcpm/voxcpm) | VoxCPM | no | Speech understanding | no | no | CUDA 12/13, Metal, CPU |
+| [whisperx](https://github.com/m-bain/whisperX) | WhisperX | no | Enhanced transcription | no | no | CUDA 12/13, ROCm, Intel, CPU |
 
 ## Image & Video Generation
 
