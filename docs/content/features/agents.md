@@ -300,6 +300,67 @@ The SSE stream emits the following event types:
 - `status` — system messages (reasoning steps, action results)
 - `json_error` — error notifications
 
+## Standalone Agent CLI
+
+You can run an agent outside of the full LocalAI server using the `agent run` CLI command. This launches a single agent in standalone mode, which is useful for scripting, CI/CD pipelines, or running agents without the HTTP server.
+
+### Usage
+
+```bash
+# Run from a local JSON configuration file
+local-ai agent run ./my-agent.json
+
+# Run from the Agent Hub registry by name
+local-ai agent run my-agent-name
+
+# Override API URL and model
+local-ai agent run ./my-agent.json --api-url http://localhost:8080 --default-model llama3
+```
+
+### Arguments
+
+| Argument | Description |
+|----------|-------------|
+| `<agent-ref>` | **(required)** Agent name from the registry or path to a JSON config file |
+
+### Flags
+
+| Flag | Env Variable | Default | Description |
+|------|-------------|---------|-------------|
+| `--api-url` | `LOCALAI_AGENT_POOL_API_URL` | | API URL the agent uses for LLM inference |
+| `--api-key` | `LOCALAI_AGENT_POOL_API_KEY` | | API key for the agent |
+| `--default-model` | `LOCALAI_AGENT_POOL_DEFAULT_MODEL` | | Default model for the agent |
+| `--multimodal-model` | `LOCALAI_AGENT_POOL_MULTIMODAL_MODEL` | | Multimodal model |
+| `--transcription-model` | `LOCALAI_AGENT_POOL_TRANSCRIPTION_MODEL` | | Transcription model |
+| `--tts-model` | `LOCALAI_AGENT_POOL_TTS_MODEL` | | TTS model |
+| `--state-dir` | `LOCALAI_AGENT_POOL_STATE_DIR` | `agent-state` | State directory |
+| `--timeout` | `LOCALAI_AGENT_POOL_TIMEOUT` | `5m` | Agent timeout |
+| `--enable-skills` | `LOCALAI_AGENT_POOL_ENABLE_SKILLS` | `false` | Enable skills service |
+| `--enable-logs` | `LOCALAI_AGENT_POOL_ENABLE_LOGS` | `false` | Enable agent logging |
+| `--agent-hub-url` | `LOCALAI_AGENT_HUB_URL` | `https://agenthub.localai.io` | Agent Hub URL for registry lookups |
+
+### How It Works
+
+1. **File reference**: If the argument is a path to an existing file or ends in `.json`, the agent config is loaded from that file.
+2. **Registry lookup**: Otherwise, the agent name is looked up from the Agent Hub registry (`GET <hub-url>/api/agents/<name>`).
+3. CLI flags fill in any values not already set in the configuration (e.g., `--api-url` sets the API URL only if the config doesn't already specify one).
+4. The agent is created and started in standalone mode. Press `Ctrl+C` to stop.
+
+### Example Agent Config
+
+```json
+{
+  "name": "my-assistant",
+  "model": "hermes-3-llama3.1-8b",
+  "api_url": "http://localhost:8080",
+  "system_prompt": "You are a helpful assistant.",
+  "standalone_job": true,
+  "actions": [
+    {"name": "search", "config": "{}"}
+  ]
+}
+```
+
 ## Architecture
 
 Agents run in-process within LocalAI. By default, each agent calls back into LocalAI's own API (`http://127.0.0.1:<port>/v1/chat/completions`) for LLM inference. This means:
