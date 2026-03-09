@@ -814,7 +814,7 @@ function modelsGallery() {
         },
 
         async deleteModel(modelId) {
-            if (!confirm('Are you sure you wish to delete the model?')) {
+            if (!await confirmDialog({title:'Delete Model',message:'Are you sure you wish to delete the model?',confirmText:'Delete',variant:'danger'})) {
                 return;
             }
 

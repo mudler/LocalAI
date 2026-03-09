@@ -746,7 +746,7 @@ function backendsGallery() {
         },
         
         async deleteBackend(backendId) {
-            if (!confirm('Are you sure you wish to delete the backend?')) {
+            if (!await confirmDialog({title:'Delete Backend',message:'Are you sure you wish to delete the backend?',confirmText:'Delete',variant:'danger'})) {
                 return;
             }
             

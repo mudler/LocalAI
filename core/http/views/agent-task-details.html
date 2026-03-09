@@ -1077,7 +1077,7 @@ Provide a detailed response that addresses their specific needs.</pre>
                 },
 
                 async deleteTask() {
-                    if (!confirm('Are you sure you want to delete this task? This will also delete all associated jobs.')) return;
+                    if (!await confirmDialog({title:'Delete Task',message:'Are you sure you want to delete this task? This will also delete all associated jobs.',confirmText:'Delete',variant:'danger'})) return;
                     try {
                         const response = await fetch('/api/agent/tasks/' + this.taskId, {
                             method: 'DELETE'
@@ -1114,7 +1114,7 @@ Provide a detailed response that addresses their specific needs.</pre>
                 },
 
                 async clearJobHistory() {
-                    if (!confirm('Are you sure you want to clear all job history for this task? This action cannot be undone.')) return;
+                    if (!await confirmDialog({title:'Clear Job History',message:'Are you sure you want to clear all job history for this task? This action cannot be undone.',confirmText:'Clear All',variant:'danger'})) return;
                     try {
                         // Get all jobs for this task
                         const response = await fetch('/api/agent/jobs?task_id=' + this.taskId + '&limit=1000');

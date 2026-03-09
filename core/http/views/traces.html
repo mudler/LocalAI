@@ -433,7 +433,7 @@ function tracesApp() {
         },
 
         async clearTraces() {
-            if (confirm('Clear all API traces?')) {
+            if (await confirmDialog({title:'Clear Traces',message:'Clear all API traces?',confirmText:'Clear',variant:'danger'})) {
                 await fetch('/api/traces/clear', { method: 'POST' });
                 this.traces = [];
                 this.expandedTraces = {};
@@ -441,7 +441,7 @@ function tracesApp() {
         },
 
         async clearBackendTraces() {
-            if (confirm('Clear all backend traces?')) {
+            if (await confirmDialog({title:'Clear Traces',message:'Clear all backend traces?',confirmText:'Clear',variant:'danger'})) {
                 await fetch('/api/backend-traces/clear', { method: 'POST' });
                 this.backendTraces = [];
                 this.expandedBackendTraces = {};

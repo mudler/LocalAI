@@ -796,7 +796,7 @@ SOFTWARE.
                   <i class="fa-solid fa-plus"></i>
                 </button>
                 <button
-                  @click="if (confirm('Delete all chats? This cannot be undone.')) { bulkDeleteChats({deleteAll: true}); }"
+                  @click="confirmDialog({title:'Delete All Chats',message:'Delete all chats? This cannot be undone.',confirmText:'Delete All',variant:'danger',onConfirm:()=>bulkDeleteChats({deleteAll:true})})"
                   class="text-[var(--color-text-secondary)] hover:text-[var(--color-error)] transition-colors text-xs p-1"
                   title="Delete all chats"
                   x-show="$store.chat.chats.length > 0">
@@ -874,7 +874,7 @@ SOFTWARE.
                       <i class="fa-solid fa-edit"></i>
                     </button>
                     <button
-                      @click.stop="if (confirm('Delete this chat?')) deleteChat(chat.id)"
+                      @click.stop="confirmDialog({title:'Delete Chat',message:'Delete this chat?',confirmText:'Delete',variant:'danger',onConfirm:()=>deleteChat(chat.id)})"
                       class="text-[var(--color-text-secondary)] hover:text-[var(--color-error)] transition-colors text-[10px] p-0.5"
                       title="Delete chat"
                       x-show="$store.chat.chats.length > 1">
@@ -1139,7 +1139,7 @@ SOFTWARE.
 
           <div class="flex items-center gap-2 flex-shrink-0">
             <button
-              @click="if (confirm('Clear all messages from this conversation? This action cannot be undone.')) { $store.chat.clear(); showClearAlert = true; setTimeout(() => showClearAlert = false, 3000); }"
+              @click="confirmDialog({title:'Clear Conversation',message:'Clear all messages from this conversation? This action cannot be undone.',confirmText:'Clear',variant:'danger',onConfirm:()=>{$store.chat.clear();showClearAlert=true;setTimeout(()=>showClearAlert=false,3000)}})"
               id="clear"
               title="Clear current chat history"
               class="text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-colors p-2 min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 flex items-center justify-center rounded hover:bg-[var(--color-bg-secondary)]"

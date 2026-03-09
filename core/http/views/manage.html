@@ -617,7 +617,7 @@ function indexDashboard() {
                 return; // Already reinstalling
             }
             
-            if (!confirm('Are you sure you want to reinstall all backends? This may take some time.')) {
+            if (!await confirmDialog({title:'Reinstall Backends',message:'Are you sure you want to reinstall all backends? This may take some time.',confirmText:'Reinstall All',variant:'danger'})) {
                 return;
             }
             
@@ -717,7 +717,7 @@ function indexDashboard() {
         },
         
         async deleteBackend(backendName) {
-            if (!confirm(`Are you sure you want to delete the backend "${backendName}"?`)) {
+            if (!await confirmDialog({title:'Delete Backend',message:'Are you sure you want to delete the backend "' + backendName + '"?',confirmText:'Delete',variant:'danger'})) {
                 return;
             }
             
@@ -746,7 +746,7 @@ function indexDashboard() {
 }
 
 async function handleStopModel(modelName) {
-    if (!confirm('Are you sure you wish to stop this model?')) {
+    if (!await confirmDialog({title:'Stop Model',message:'Are you sure you wish to stop this model?',confirmText:'Stop',variant:'danger'})) {
         return;
     }
     
@@ -771,7 +771,7 @@ async function handleStopModel(modelName) {
 }
 
 async function handleDeleteModel(modelName) {
-    if (!confirm('Are you sure you wish to delete this model?')) {
+    if (!await confirmDialog({title:'Delete Model',message:'Are you sure you wish to delete this model?',confirmText:'Delete',variant:'danger'})) {
         return;
     }
     

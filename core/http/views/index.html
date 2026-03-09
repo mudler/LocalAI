@@ -637,7 +637,7 @@ window.startChat = startChat;
 
 // Stop individual model
 async function stopModel(modelName) {
-    if (!confirm(`Are you sure you want to stop "${modelName}"?`)) {
+    if (!await confirmDialog({title:'Stop Model',message:'Are you sure you want to stop "' + modelName + '"?',confirmText:'Stop',variant:'danger'})) {
         return;
     }
     
@@ -673,7 +673,7 @@ async function stopAllModels(component) {
         return;
     }
     
-    if (!confirm(`Are you sure you want to stop all ${loadedModelNames.length} loaded model(s)?`)) {
+    if (!await confirmDialog({title:'Stop All Models',message:'Are you sure you want to stop all ' + loadedModelNames.length + ' loaded model(s)?',confirmText:'Stop All',variant:'danger'})) {
         return;
     }
     

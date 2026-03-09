@@ -270,7 +270,7 @@
                 },
 
                 async cancelJob() {
-                    if (!confirm('Are you sure you want to cancel this job?')) return;
+                    if (!await confirmDialog({title:'Cancel Job',message:'Are you sure you want to cancel this job?',confirmText:'Cancel Job',variant:'danger'})) return;
                     try {
                         const response = await fetch('/api/agent/jobs/' + this.jobId + '/cancel', {
                             method: 'POST'
