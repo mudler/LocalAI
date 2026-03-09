@@ -39,7 +39,7 @@ type HFScanCMD struct {
 }
 
 type UsecaseHeuristicCMD struct {
-	ConfigName string `name:"The config file to check"`
+	ConfigName string `arg:"" name:"config-name" help:"The config file to check"`
 	ModelsPath string `env:"LOCALAI_MODELS_PATH,MODELS_PATH" type:"path" default:"${basepath}/models" help:"Path containing models used for inferencing" group:"storage"`
 }
 
