@@ -1,4 +1,36 @@
 ---
+- name: "udi-vis-64k-llama-3.1-8b-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/UDI-VIS-64k-Llama-3.1-8B-i1-GGUF
+  description: |
+    Describe the model in a clear and concise way that can be shared in a model gallery.
+  tags:
+    - llama
+    - llama-3.1
+    - vision
+    - multi-modal
+    - 8b
+    - gguf
+  overrides:
+    parameters:
+      model: llama-cpp/models/UDI-VIS-64k-Llama-3.1-8B.i1-Q4_K_M.gguf
+    name: UDI-VIS-64k-Llama-3.1-8B-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/UDI-VIS-64k-Llama-3.1-8B-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/UDI-VIS-64k-Llama-3.1-8B.i1-Q4_K_M.gguf
+      sha256: 2af7bdd86633d807dfbe688eceee1e57e8b76a573468a906445305e537c763cb
+      uri: https://huggingface.co/mradermacher/UDI-VIS-64k-Llama-3.1-8B-i1-GGUF/resolve/main/UDI-VIS-64k-Llama-3.1-8B.i1-Q4_K_M.gguf
 - name: "qwen_qwen3.5-0.8b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
