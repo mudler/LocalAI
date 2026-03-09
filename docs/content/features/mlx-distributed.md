@@ -1,6 +1,6 @@
 +++
 disableToc = false
-title = "MLX Distributed Inference"
+title = "(experimental) MLX Distributed Inference"
 weight = 18
 url = '/features/mlx-distributed/'
 +++
