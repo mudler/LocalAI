@@ -100,6 +100,8 @@
                         <input type="text" x-model="settings.watchdog_idle_timeout"
                                :disabled="!settings.watchdog_idle_enabled"
                                placeholder="15m"
+                               data-tooltip="Duration string, e.g. 15m, 1h, 30s"
+                               aria-label="Idle timeout duration"
                                class="w-full px-3 py-2 bg-[var(--color-bg-primary)] border border-[var(--color-primary-border)]/20 rounded text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-border)]"
                                :class="!settings.watchdog_idle_enabled ? 'opacity-50 cursor-not-allowed' : ''">
                     </div>
@@ -125,6 +127,8 @@
                         <input type="text" x-model="settings.watchdog_busy_timeout"
                                :disabled="!settings.watchdog_busy_enabled"
                                placeholder="5m"
+                               data-tooltip="Duration string, e.g. 5m, 30m, 1h"
+                               aria-label="Busy timeout duration"
                                class="w-full px-3 py-2 bg-[var(--color-bg-primary)] border border-[var(--color-primary-border)]/20 rounded text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-border)]"
                                :class="!settings.watchdog_busy_enabled ? 'opacity-50 cursor-not-allowed' : ''">
                     </div>
@@ -136,6 +140,8 @@
                         <input type="text" x-model="settings.watchdog_interval"
                                :disabled="!settings.watchdog_enabled"
                                placeholder="2s"
+                               data-tooltip="Duration string, e.g. 2s, 30s, 1m"
+                               aria-label="Watchdog check interval"
                                class="w-full px-3 py-2 bg-[var(--color-bg-primary)] border border-[var(--color-primary-border)]/20 rounded text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-border)]"
                                :class="!settings.watchdog_enabled ? 'opacity-50 cursor-not-allowed' : ''">
                     </div>
@@ -158,10 +164,12 @@
                     <div>
                         <label class="block text-sm font-medium text-[var(--color-text-primary)] mb-2">LRU Eviction Max Retries</label>
                         <p class="text-xs text-[var(--color-text-secondary)] mb-2">Maximum number of retries when waiting for busy models to become idle (default: 30)</p>
-                        <input type="number" x-model="settings.lru_eviction_max_retries" 
+                        <input type="number" x-model="settings.lru_eviction_max_retries"
                                :disabled="!settings.watchdog_enabled"
                                min="1"
                                placeholder="30"
+                               data-tooltip="Number of retry attempts before giving up"
+                               aria-label="LRU eviction max retries"
                                class="w-full px-3 py-2 bg-[var(--color-bg-primary)] border border-[var(--color-primary-border)]/20 rounded text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-border)]"
                                :class="!settings.watchdog_enabled ? 'opacity-50 cursor-not-allowed' : ''">
                     </div>
@@ -170,9 +178,11 @@
                     <div>
                         <label class="block text-sm font-medium text-[var(--color-text-primary)] mb-2">LRU Eviction Retry Interval</label>
                         <p class="text-xs text-[var(--color-text-secondary)] mb-2">Interval between retries when waiting for busy models (e.g., 1s, 2s) (default: 1s)</p>
-                        <input type="text" x-model="settings.lru_eviction_retry_interval" 
+                        <input type="text" x-model="settings.lru_eviction_retry_interval"
                                :disabled="!settings.watchdog_enabled"
                                placeholder="1s"
+                               data-tooltip="Duration string, e.g. 1s, 2s, 500ms"
+                               aria-label="LRU eviction retry interval"
                                class="w-full px-3 py-2 bg-[var(--color-bg-primary)] border border-[var(--color-primary-border)]/20 rounded text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-border)]"
                                :class="!settings.watchdog_enabled ? 'opacity-50 cursor-not-allowed' : ''">
                     </div>
@@ -221,7 +231,7 @@
                         </div>
 
                         <!-- Enable Memory Reclaimer -->
-                        <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center justify-between mb-4" data-tooltip="Evict least-recently-used backends when memory is low" data-tooltip-wrap>
                             <div>
                                 <label class="text-sm font-medium text-[var(--color-text-primary)]">Enable Memory Reclaimer</label>
                                 <p class="text-xs text-[var(--color-text-secondary)] mt-1">Evict backends when memory usage exceeds threshold</p>
@@ -242,6 +252,8 @@
                                 <input type="range" x-model="settings.memory_reclaimer_threshold_percent"
                                        min="50" max="100" step="1"
                                        :disabled="!settings.memory_reclaimer_enabled || !settings.watchdog_enabled"
+                                       data-tooltip="Eviction triggers when usage exceeds this %"
+                                       aria-label="Memory reclaimer threshold percentage"
                                        class="flex-1 h-2 bg-[var(--color-bg-primary)] rounded-lg appearance-none cursor-pointer"
                                        :class="(!settings.memory_reclaimer_enabled || !settings.watchdog_enabled) ? 'opacity-50' : ''">
                                 <span class="text-sm font-mono text-[var(--color-text-primary)] w-12 text-right"
@@ -271,11 +283,13 @@
                                min="0"
                                placeholder="0"
                                @change="updateMaxActiveBackends()"
+                               data-tooltip="0 = unlimited, 1 = single model at a time"
+                               aria-label="Max active backends"
                                class="w-full px-3 py-2 bg-[var(--color-bg-primary)] border border-[var(--color-accent-light)] rounded text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent-light)]">
                     </div>
 
                     <!-- Parallel Backend Requests -->
-                    <div class="flex items-center justify-between">
+                    <div class="flex items-center justify-between" data-tooltip="Allow concurrent request processing per backend" data-tooltip-wrap>
                         <div>
                             <label class="text-sm font-medium text-[var(--color-text-primary)]">Parallel Backend Requests</label>
                             <p class="text-xs text-[var(--color-text-secondary)] mt-1">Enable backends to handle multiple requests in parallel (if supported)</p>
@@ -307,6 +321,8 @@
                         <input type="number" x-model="settings.threads"
                                min="0"
                                placeholder="0"
+                               data-tooltip="0 = auto-detect based on CPU cores"
+                               aria-label="Default inference threads"
                                class="w-full px-3 py-2 bg-[var(--color-bg-primary)] border border-[var(--color-success-light)] rounded text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-success-light)]">
                     </div>
 
@@ -317,11 +333,13 @@
                         <input type="number" x-model="settings.context_size"
                                min="0"
                                placeholder="512"
+                               data-tooltip="Tokens per context window (e.g. 512, 2048, 4096)"
+                               aria-label="Default context size"
                                class="w-full px-3 py-2 bg-[var(--color-bg-primary)] border border-[var(--color-success-light)] rounded text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-success-light)]">
                     </div>
 
                     <!-- F16 -->
-                    <div class="flex items-center justify-between">
+                    <div class="flex items-center justify-between" data-tooltip="Use half-precision for lower memory usage" data-tooltip-wrap>
                         <div>
                             <label class="text-sm font-medium text-[var(--color-text-primary)]">F16 Precision</label>
                             <p class="text-xs text-[var(--color-text-secondary)] mt-1">Use 16-bit floating point precision</p>
@@ -334,7 +352,7 @@
                     </div>
 
                     <!-- Debug -->
-                    <div class="flex items-center justify-between">
+                    <div class="flex items-center justify-between" data-tooltip="Verbose logging for troubleshooting">
                         <div>
                             <label class="text-sm font-medium text-[var(--color-text-primary)]">Debug Mode</label>
                             <p class="text-xs text-[var(--color-text-secondary)] mt-1">Enable debug logging</p>
@@ -347,7 +365,7 @@
                     </div>
 
                     <!-- Enable Tracing -->
-                    <div class="flex items-center justify-between">
+                    <div class="flex items-center justify-between" data-tooltip="Record request/response traces for debugging">
                         <div>
                             <label class="text-sm font-medium text-[var(--color-text-primary)]">Enable Tracing</label>
                             <p class="text-xs text-[var(--color-text-secondary)] mt-1">Enable tracing of requests and responses</p>
@@ -367,6 +385,8 @@
                                min="0"
                                placeholder="0"
                                :disabled="!settings.enable_tracing"
+                               data-tooltip="0 = unlimited trace history"
+                               aria-label="Tracing max items"
                                class="w-full px-3 py-2 bg-[var(--color-bg-primary)] border border-[var(--color-success-light)] rounded text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-success-light)]"
                                :class="!settings.enable_tracing ? 'opacity-50 cursor-not-allowed' : ''">
                     </div>
@@ -386,7 +406,7 @@
 
                 <div class="space-y-4">
                     <!-- CORS -->
-                    <div class="flex items-center justify-between">
+                    <div class="flex items-center justify-between" data-tooltip="Allow API access from other domains">
                         <div>
                             <label class="text-sm font-medium text-[var(--color-text-primary)]">Enable CORS</label>
                             <p class="text-xs text-[var(--color-text-secondary)] mt-1">Enable Cross-Origin Resource Sharing</p>
@@ -404,11 +424,13 @@
                         <p class="text-xs text-[var(--color-text-secondary)] mb-2">Comma-separated list of allowed origins</p>
                         <input type="text" x-model="settings.cors_allow_origins"
                                placeholder="*"
+                               data-tooltip="Use * to allow all origins"
+                               aria-label="CORS allowed origins"
                                class="w-full px-3 py-2 bg-[var(--color-bg-primary)] border border-[var(--color-warning-light)] rounded text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-warning-light)]">
                     </div>
 
                     <!-- CSRF -->
-                    <div class="flex items-center justify-between">
+                    <div class="flex items-center justify-between" data-tooltip="Protect against cross-site request forgery attacks">
                         <div>
                             <label class="text-sm font-medium text-[var(--color-text-primary)]">Enable CSRF Protection</label>
                             <p class="text-xs text-[var(--color-text-secondary)] mt-1">Enable Cross-Site Request Forgery protection</p>
@@ -439,6 +461,8 @@
                         <p class="text-xs text-[var(--color-text-secondary)] mb-2">Authentication token for P2P network (set to 0 to generate a new token)</p>
                         <input type="text" x-model="settings.p2p_token"
                                placeholder=""
+                               data-tooltip="Set to 0 to generate a new token"
+                               aria-label="P2P authentication token"
                                class="w-full px-3 py-2 bg-[var(--color-bg-primary)] border border-[var(--color-accent)]/20 rounded text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]/50">
                     </div>
 
@@ -448,11 +472,13 @@
                         <p class="text-xs text-[var(--color-text-secondary)] mb-2">Network identifier for P2P connections</p>
                         <input type="text" x-model="settings.p2p_network_id"
                                placeholder=""
+                               data-tooltip="Peers must share the same network ID"
+                               aria-label="P2P network ID"
                                class="w-full px-3 py-2 bg-[var(--color-bg-primary)] border border-[var(--color-accent)]/20 rounded text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]/50">
                     </div>
 
                     <!-- Federated -->
-                    <div class="flex items-center justify-between">
+                    <div class="flex items-center justify-between" data-tooltip="Distribute workloads across P2P peers">
                         <div>
                             <label class="text-sm font-medium text-[var(--color-text-primary)]">Federated Mode</label>
                             <p class="text-xs text-[var(--color-text-secondary)] mt-1">Enable federated instance mode</p>
@@ -484,6 +510,8 @@
                         <input type="number" x-model="settings.agent_job_retention_days"
                                min="0"
                                placeholder="30"
+                               data-tooltip="0 = keep forever"
+                               aria-label="Agent job retention days"
                                class="w-full px-3 py-2 bg-[var(--color-bg-primary)] border border-[var(--color-primary)]/20 rounded text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/50">
                     </div>
                 </div>
@@ -506,6 +534,8 @@
                         <p class="text-xs text-[var(--color-text-secondary)] mb-2">Time-to-live for stored responses (e.g., 1h, 30m, 0 = no expiration)</p>
                         <input type="text" x-model="settings.open_responses_store_ttl"
                                placeholder="0"
+                               data-tooltip="Duration string, e.g. 1h, 30m. 0 = no expiration"
+                               aria-label="Response store TTL"
                                class="w-full px-3 py-2 bg-[var(--color-bg-primary)] border border-[var(--color-accent)]/20 rounded text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]/50">
                     </div>
                 </div>
@@ -529,6 +559,7 @@
                         <textarea x-model="settings.api_keys_text"
                                   rows="4"
                                   placeholder="sk-1234567890abcdef&#10;sk-0987654321fedcba"
+                                  aria-label="API keys list"
                                   class="w-full px-3 py-2 bg-[var(--color-bg-primary)] border border-[var(--color-error-light)] rounded text-sm text-[var(--color-text-primary)] font-mono focus:outline-none focus:ring-2 focus:ring-[var(--color-error-light)]"></textarea>
                         <p class="text-xs text-[var(--color-text-secondary)] mt-1">Note: API keys are sensitive. Handle with care.</p>
                     </div>
@@ -547,7 +578,7 @@
 
                 <div class="space-y-4">
                     <!-- Autoload Galleries -->
-                    <div class="flex items-center justify-between">
+                    <div class="flex items-center justify-between" data-tooltip="Fetch model gallery indexes at startup">
                         <div>
                             <label class="text-sm font-medium text-[var(--color-text-primary)]">Autoload Galleries</label>
                             <p class="text-xs text-[var(--color-text-secondary)] mt-1">Automatically load model galleries on startup</p>
@@ -560,7 +591,7 @@
                     </div>
 
                     <!-- Autoload Backend Galleries -->
-                    <div class="flex items-center justify-between">
+                    <div class="flex items-center justify-between" data-tooltip="Fetch backend gallery indexes at startup">
                         <div>
                             <label class="text-sm font-medium text-[var(--color-text-primary)]">Autoload Backend Galleries</label>
                             <p class="text-xs text-[var(--color-text-secondary)] mt-1">Automatically load backend galleries on startup</p>
@@ -579,6 +610,7 @@
                         <textarea x-model="settings.galleries_json"
                                   rows="4"
                                   placeholder='[{"url": "https://example.com", "name": "Example Gallery"}]'
+                                  aria-label="Model galleries JSON configuration"
                                   class="w-full px-3 py-2 bg-[var(--color-bg-primary)] border border-[var(--color-accent)]/20 rounded text-sm text-[var(--color-text-primary)] font-mono focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]/50"></textarea>
                     </div>
 
@@ -589,6 +621,7 @@
                         <textarea x-model="settings.backend_galleries_json"
                                   rows="4"
                                   placeholder='[{"url": "https://example.com", "name": "Example Backend Gallery"}]'
+                                  aria-label="Backend galleries JSON configuration"
                                   class="w-full px-3 py-2 bg-[var(--color-bg-primary)] border border-[var(--color-accent)]/20 rounded text-sm text-[var(--color-text-primary)] font-mono focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]/50"></textarea>
                     </div>
                 </div>
