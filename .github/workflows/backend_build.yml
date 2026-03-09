@@ -149,7 +149,7 @@ jobs:
       - name: Docker meta
         id: meta
         if: github.event_name != 'pull_request'
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: |
             quay.io/go-skynet/local-ai-backends
@@ -165,7 +165,7 @@ jobs:
       - name: Docker meta for PR
         id: meta_pull_request
         if: github.event_name == 'pull_request'
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: |
             quay.io/go-skynet/ci-tests
