@@ -25,7 +25,7 @@ require (
 	github.com/jaypipes/ghw v0.23.0
 	github.com/joho/godotenv v1.5.1
 	github.com/klauspost/cpuid/v2 v2.3.0
-	github.com/labstack/echo/v4 v4.15.0
+	github.com/labstack/echo/v4 v4.15.1
 	github.com/libp2p/go-libp2p v0.43.0
 	github.com/lithammer/fuzzysearch v1.1.8
 	github.com/mholt/archiver/v3 v3.5.1
@@ -59,10 +59,11 @@ require (
 	go.opentelemetry.io/otel/metric v1.41.0
 	go.opentelemetry.io/otel/sdk/metric v1.40.0
 	google.golang.org/grpc v1.79.1
-	google.golang.org/protobuf v1.36.11
 	gopkg.in/yaml.v3 v3.0.1
 	oras.land/oras-go/v2 v2.6.0
 )
+
+require google.golang.org/protobuf v1.36.11 // indirect
 
 require (
 	github.com/JohannesKaufmann/dom v0.2.0 // indirect
