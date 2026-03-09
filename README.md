@@ -482,6 +482,7 @@ LocalAI couldn't have been built without the help of great software already avai
 - https://github.com/EdVince/Stable-Diffusion-NCNN
 - https://github.com/ggerganov/whisper.cpp
 - https://github.com/rhasspy/piper
+- [exo](https://github.com/exo-explore/exo) for the MLX distributed auto-parallel sharding implementation
 
 ## 🤗 Contributors
 
