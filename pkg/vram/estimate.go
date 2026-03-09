@@ -124,6 +124,69 @@ func sizeOnlyVRAM(sizeOnDisk uint64, ctxLen uint32) uint64 {
 	return vram
 }
 
+// ParseSizeString parses a human-readable size string (e.g. "500MB", "14.5 GB", "2tb")
+// into bytes. Supports B, KB, MB, GB, TB, PB (case-insensitive, space optional).
+// Uses SI units (1 KB = 1000 B).
+func ParseSizeString(s string) (uint64, error) {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return 0, fmt.Errorf("empty size string")
+	}
+
+	s = strings.ToUpper(s)
+
+	// Find where the numeric part ends
+	i := 0
+	for i < len(s) && (s[i] == '.' || (s[i] >= '0' && s[i] <= '9')) {
+		i++
+	}
+	if i == 0 {
+		return 0, fmt.Errorf("no numeric value in size string: %q", s)
+	}
+
+	numStr := s[:i]
+	suffix := strings.TrimSpace(s[i:])
+
+	var num float64
+	if _, err := fmt.Sscanf(numStr, "%f", &num); err != nil {
+		return 0, fmt.Errorf("invalid numeric value %q: %w", numStr, err)
+	}
+	if num < 0 {
+		return 0, fmt.Errorf("negative size: %q", s)
+	}
+
+	multiplier := uint64(1)
+	switch suffix {
+	case "", "B":
+		multiplier = 1
+	case "K", "KB":
+		multiplier = 1000
+	case "M", "MB":
+		multiplier = 1000 * 1000
+	case "G", "GB":
+		multiplier = 1000 * 1000 * 1000
+	case "T", "TB":
+		multiplier = 1000 * 1000 * 1000 * 1000
+	case "P", "PB":
+		multiplier = 1000 * 1000 * 1000 * 1000 * 1000
+	default:
+		return 0, fmt.Errorf("unknown size suffix: %q", suffix)
+	}
+
+	return uint64(num * float64(multiplier)), nil
+}
+
+// EstimateFromSize builds an EstimateResult from a raw byte count.
+func EstimateFromSize(sizeBytes uint64) EstimateResult {
+	vramBytes := sizeOnlyVRAM(sizeBytes, 8192)
+	return EstimateResult{
+		SizeBytes:   sizeBytes,
+		SizeDisplay: FormatBytes(sizeBytes),
+		VRAMBytes:   vramBytes,
+		VRAMDisplay: FormatBytes(vramBytes),
+	}
+}
+
 func FormatBytes(n uint64) string {
 	const unit = 1000
 	if n < unit {

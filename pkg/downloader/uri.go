@@ -309,7 +309,7 @@ func (u URI) ContentLength(ctx context.Context) (int64, error) {
 		}
 		return info.Size(), nil
 	}
-	if !u.LooksLikeHTTPURL() {
+	if !strings.HasPrefix(urlStr, HTTPPrefix) && !strings.HasPrefix(urlStr, HTTPSPrefix) {
 		return 0, fmt.Errorf("unsupported URI scheme for ContentLength: %s", string(u))
 	}
 	req, err := http.NewRequestWithContext(ctx, "HEAD", urlStr, nil)
