@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useNavigate, useOutletContext } from 'react-router-dom'
 import { agentsApi } from '../utils/api'
+import { renderMarkdown, highlightAll } from '../utils/markdown'
+import DOMPurify from 'dompurify'
 
 export default function AgentChat() {
   const { name } = useParams()
@@ -10,6 +12,7 @@ export default function AgentChat() {
   const [input, setInput] = useState('')
   const [processing, setProcessing] = useState(false)
   const messagesEndRef = useRef(null)
+  const messagesRef = useRef(null)
   const textareaRef = useRef(null)
   const eventSourceRef = useRef(null)
   const messageIdCounter = useRef(0)
@@ -88,6 +91,11 @@ export default function AgentChat() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
+  // Highlight code blocks
+  useEffect(() => {
+    if (messagesRef.current) highlightAll(messagesRef.current)
+  }, [messages])
+
   const handleSend = useCallback(async () => {
     const msg = input.trim()
     if (!msg || processing) return
@@ -109,106 +117,26 @@ export default function AgentChat() {
     }
   }
 
-  return (
-    <div className="page agent-chat-page">
-      <style>{`
-        .agent-chat-page {
-          display: flex;
-          flex-direction: column;
-          height: calc(100vh - 80px);
-          padding-bottom: 0 !important;
-        }
-        .agent-chat-messages {
-          flex: 1;
-          overflow-y: auto;
-          padding: var(--spacing-md);
-          display: flex;
-          flex-direction: column;
-          gap: var(--spacing-sm);
-        }
-        .agent-chat-message {
-          display: flex;
-          max-width: 75%;
-          word-wrap: break-word;
-        }
-        .agent-chat-message-user {
-          align-self: flex-end;
-        }
-        .agent-chat-message-agent {
-          align-self: flex-start;
-        }
-        .agent-chat-bubble {
-          padding: var(--spacing-sm) var(--spacing-md);
-          border-radius: var(--radius-md);
-          font-size: 0.9rem;
-          line-height: 1.5;
-          white-space: pre-wrap;
-        }
-        .agent-chat-message-user .agent-chat-bubble {
-          background: var(--color-bg-tertiary, #e5e7eb);
-          color: var(--color-text-primary);
-          border-bottom-right-radius: var(--radius-xs, 4px);
-        }
-        .agent-chat-message-agent .agent-chat-bubble {
-          background: var(--color-primary, #3b82f6);
-          color: #fff;
-          border-bottom-left-radius: var(--radius-xs, 4px);
-        }
-        .agent-chat-message-system {
-          align-self: center;
-          max-width: 90%;
-        }
-        .agent-chat-message-system .agent-chat-bubble {
-          background: var(--color-bg-secondary);
-          border: 1px solid var(--color-border);
-          color: var(--color-text-secondary);
-          font-size: 0.8rem;
-          font-style: italic;
-          padding: var(--spacing-xs) var(--spacing-sm);
-        }
-        .agent-chat-timestamp {
-          font-size: 0.6875rem;
-          color: var(--color-text-muted);
-          margin-top: 2px;
-          padding: 0 var(--spacing-xs);
-        }
-        .agent-chat-message-user .agent-chat-timestamp {
-          text-align: right;
-        }
-        .agent-chat-input-area {
-          display: flex;
-          gap: var(--spacing-sm);
-          padding: var(--spacing-md);
-          border-top: 1px solid var(--color-border);
-          background: var(--color-bg-secondary);
-          align-items: flex-end;
-        }
-        .agent-chat-input-area textarea {
-          flex: 1;
-          min-height: 38px;
-          max-height: 150px;
-          resize: none;
-          overflow-y: auto;
-          line-height: 1.5;
-          font-family: inherit;
-          font-size: inherit;
-        }
-        .agent-chat-empty {
-          flex: 1;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          color: var(--color-text-muted);
-          font-size: 0.9rem;
-        }
-      `}</style>
+  const copyMessage = (content) => {
+    navigator.clipboard.writeText(content)
+    addToast('Copied to clipboard', 'success', 2000)
+  }
 
-      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h1 className="page-title">
+  const senderToRole = (sender) => {
+    if (sender === 'agent') return 'assistant'
+    if (sender === 'user') return 'user'
+    return 'system'
+  }
+
+  return (
+    <div className="chat-main">
+      {/* Header */}
+      <div className="chat-header">
+        <span className="chat-header-title">
           <i className="fas fa-robot" style={{ marginRight: 'var(--spacing-xs)' }} />
           {name}
-        </h1>
-        <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
+        </span>
+        <div className="chat-header-actions">
           <button className="btn btn-secondary btn-sm" onClick={() => navigate(`/agents/${encodeURIComponent(name)}/status`)} title="View status & observables">
             <i className="fas fa-chart-bar" /> Status
           </button>
@@ -218,29 +146,69 @@ export default function AgentChat() {
         </div>
       </div>
 
-      <div className="agent-chat-messages">
+      {/* Messages */}
+      <div className="chat-messages" ref={messagesRef}>
         {messages.length === 0 && !processing && (
-          <div className="agent-chat-empty">
-            Send a message to start chatting with {name}.
-          </div>
-        )}
-        {messages.map(msg => (
-          <div key={msg.id} className={`agent-chat-message agent-chat-message-${msg.sender}`}>
-            <div>
-              {msg.sender === 'system'
-                ? <div className="agent-chat-bubble" dangerouslySetInnerHTML={{ __html: msg.content }} />
-                : <div className="agent-chat-bubble">{msg.content}</div>
-              }
-              <div className="agent-chat-timestamp">
-                {new Date(msg.timestamp).toLocaleTimeString()}
-              </div>
+          <div className="chat-empty-state">
+            <div className="chat-empty-icon">
+              <i className="fas fa-robot" />
+            </div>
+            <h2 className="chat-empty-title">Chat with {name}</h2>
+            <p className="chat-empty-text">Send a message to start a conversation with this agent.</p>
+            <div className="chat-empty-hints">
+              <span><i className="fas fa-keyboard" /> Enter to send</span>
+              <span><i className="fas fa-level-down-alt" /> Shift+Enter for newline</span>
             </div>
           </div>
-        ))}
+        )}
+        {messages.map(msg => {
+          const role = senderToRole(msg.sender)
+
+          if (role === 'system') {
+            return (
+              <div key={msg.id} className="chat-message chat-message-system">
+                <div className="chat-message-bubble">
+                  <div className="chat-message-content" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(msg.content) }} />
+                  <div className="chat-message-timestamp">
+                    {new Date(msg.timestamp).toLocaleTimeString()}
+                  </div>
+                </div>
+              </div>
+            )
+          }
+
+          return (
+            <div key={msg.id} className={`chat-message chat-message-${role}`}>
+              <div className="chat-message-avatar">
+                <i className={`fas ${role === 'user' ? 'fa-user' : 'fa-robot'}`} />
+              </div>
+              <div className="chat-message-bubble">
+                <div className="chat-message-content">
+                  {role === 'user' ? (
+                    <div dangerouslySetInnerHTML={{ __html: msg.content.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>') }} />
+                  ) : (
+                    <div dangerouslySetInnerHTML={{ __html: renderMarkdown(msg.content) }} />
+                  )}
+                </div>
+                <div className="chat-message-actions">
+                  <button onClick={() => copyMessage(msg.content)} title="Copy">
+                    <i className="fas fa-copy" />
+                  </button>
+                </div>
+                <div className="chat-message-timestamp">
+                  {new Date(msg.timestamp).toLocaleTimeString()}
+                </div>
+              </div>
+            </div>
+          )
+        })}
         {processing && (
-          <div className="agent-chat-message agent-chat-message-agent">
-            <div>
-              <div className="agent-chat-bubble">
+          <div className="chat-message chat-message-assistant">
+            <div className="chat-message-avatar">
+              <i className="fas fa-robot" />
+            </div>
+            <div className="chat-message-bubble">
+              <div className="chat-message-content" style={{ color: 'var(--color-text-muted)' }}>
                 <i className="fas fa-circle-notch fa-spin" /> Thinking...
               </div>
             </div>
@@ -249,30 +217,32 @@ export default function AgentChat() {
         <div ref={messagesEndRef} />
       </div>
 
-      <div className="agent-chat-input-area">
-        <textarea
-          ref={textareaRef}
-          className="input"
-          value={input}
-          onChange={(e) => {
-            setInput(e.target.value)
-            // Auto-resize
-            const ta = e.target
-            ta.style.height = 'auto'
-            ta.style.height = Math.min(ta.scrollHeight, 150) + 'px'
-          }}
-          onKeyDown={handleKeyDown}
-          placeholder="Type a message... (Shift+Enter for new line)"
-          disabled={processing}
-          rows={1}
-        />
-        <button
-          className="btn btn-primary"
-          onClick={handleSend}
-          disabled={processing || !input.trim()}
-        >
-          <i className="fas fa-paper-plane" /> Send
-        </button>
+      {/* Input area */}
+      <div className="chat-input-area">
+        <div className="chat-input-wrapper">
+          <textarea
+            ref={textareaRef}
+            className="chat-input"
+            value={input}
+            onChange={(e) => {
+              setInput(e.target.value)
+              const ta = e.target
+              ta.style.height = 'auto'
+              ta.style.height = Math.min(ta.scrollHeight, 150) + 'px'
+            }}
+            onKeyDown={handleKeyDown}
+            placeholder="Type a message..."
+            disabled={processing}
+            rows={1}
+          />
+          <button
+            className="chat-send-btn"
+            onClick={handleSend}
+            disabled={processing || !input.trim()}
+          >
+            <i className="fas fa-paper-plane" />
+          </button>
+        </div>
       </div>
     </div>
   )
