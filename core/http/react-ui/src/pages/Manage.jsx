@@ -1,18 +1,32 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useNavigate, useOutletContext } from 'react-router-dom'
+import { useNavigate, useOutletContext, useSearchParams } from 'react-router-dom'
 import ResourceMonitor from '../components/ResourceMonitor'
 import { useModels } from '../hooks/useModels'
 import { backendControlApi, modelsApi, backendsApi, systemApi } from '../utils/api'
 
+const TABS = [
+  { key: 'models', label: 'Models', icon: 'fa-brain' },
+  { key: 'backends', label: 'Backends', icon: 'fa-server' },
+]
+
 export default function Manage() {
   const { addToast } = useOutletContext()
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const initialTab = searchParams.get('tab') || localStorage.getItem('manage-tab') || 'models'
+  const [activeTab, setActiveTab] = useState(TABS.some(t => t.key === initialTab) ? initialTab : 'models')
   const { models, loading: modelsLoading, refetch: refetchModels } = useModels()
   const [loadedModelIds, setLoadedModelIds] = useState(new Set())
   const [backends, setBackends] = useState([])
   const [backendsLoading, setBackendsLoading] = useState(true)
   const [reloading, setReloading] = useState(false)
   const [reinstallingBackends, setReinstallingBackends] = useState(new Set())
+
+  const handleTabChange = (tab) => {
+    setActiveTab(tab)
+    localStorage.setItem('manage-tab', tab)
+    setSearchParams({ tab })
+  }
 
   const fetchLoadedModels = useCallback(async () => {
     try {
@@ -37,9 +51,12 @@ export default function Manage() {
   }, [])
 
   useEffect(() => {
-    fetchLoadedModels()
-    fetchBackends()
-  }, [fetchLoadedModels, fetchBackends])
+    if (activeTab === 'models') {
+      fetchLoadedModels()
+    } else {
+      fetchBackends()
+    }
+  }, [activeTab, fetchLoadedModels, fetchBackends])
 
   const handleStopModel = async (modelName) => {
     if (!confirm(`Stop model ${modelName}?`)) return
@@ -106,18 +123,33 @@ export default function Manage() {
   return (
     <div className="page">
       <div className="page-header">
-        <h1 className="page-title">Model & Backend Management</h1>
+        <h1 className="page-title">System</h1>
+        <p className="page-subtitle">Manage installed models and backends</p>
       </div>
 
       {/* Resource Monitor */}
       <ResourceMonitor />
 
-      {/* Models Section */}
-      <div style={{ marginTop: 'var(--spacing-xl)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--spacing-md)' }}>
-          <h2 style={{ fontSize: '1.125rem', fontWeight: 600 }}>
-            Models ({models.length})
-          </h2>
+      {/* Tabs */}
+      <div className="tabs" style={{ marginTop: 'var(--spacing-lg)', marginBottom: 'var(--spacing-md)' }}>
+        {TABS.map(t => (
+          <button
+            key={t.key}
+            className={`tab ${activeTab === t.key ? 'tab-active' : ''}`}
+            onClick={() => handleTabChange(t.key)}
+          >
+            <i className={`fas ${t.icon}`} style={{ marginRight: 6 }} />
+            {t.label}
+            {t.key === 'models' && !modelsLoading && ` (${models.length})`}
+            {t.key === 'backends' && !backendsLoading && ` (${backends.length})`}
+          </button>
+        ))}
+      </div>
+
+      {/* Models Tab */}
+      {activeTab === 'models' && (
+      <div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', marginBottom: 'var(--spacing-md)' }}>
           <button className="btn btn-secondary btn-sm" onClick={handleReload} disabled={reloading}>
             <i className={`fas ${reloading ? 'fa-spinner fa-spin' : 'fa-rotate'}`} />
             {reloading ? 'Updating...' : 'Update'}
@@ -223,15 +255,11 @@ export default function Manage() {
           </div>
         )}
       </div>
+      )}
 
-      {/* Backends Section */}
-      <div style={{ marginTop: 'var(--spacing-xl)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--spacing-md)' }}>
-          <h2 style={{ fontSize: '1.125rem', fontWeight: 600 }}>
-            Backends ({backends.length})
-          </h2>
-        </div>
-
+      {/* Backends Tab */}
+      {activeTab === 'backends' && (
+      <div>
         {backendsLoading ? (
           <div style={{ textAlign: 'center', padding: 'var(--spacing-md)', color: 'var(--color-text-muted)', fontSize: '0.875rem' }}>
             Loading backends...
@@ -345,6 +373,7 @@ export default function Manage() {
           </div>
         )}
       </div>
+      )}
     </div>
   )
 }
