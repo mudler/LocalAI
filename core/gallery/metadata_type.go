@@ -12,6 +12,9 @@ type Metadata struct {
 	Tags        []string `json:"tags,omitempty" yaml:"tags,omitempty"`
 	// AdditionalFiles are used to add additional files to the model
 	AdditionalFiles []File `json:"files,omitempty" yaml:"files,omitempty"`
+	// Size is an optional hardcoded model size string (e.g. "500MB", "14.5GB").
+	// Used when the size cannot be estimated automatically.
+	Size string `json:"size,omitempty" yaml:"size,omitempty"`
 	// Gallery is a reference to the gallery which contains the model
 	Gallery config.Gallery `json:"gallery,omitempty" yaml:"gallery,omitempty"`
 	// Installed is used to indicate if the model is installed or not

@@ -151,7 +151,7 @@ export default function Models() {
       const term = searchVal || filterVal || ''
       const queryParams = {
         page: params.page || page,
-        items: 21,
+        items: 9,
       }
       if (term) queryParams.term = term
       if (sortVal) {
