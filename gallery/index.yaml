@@ -1,4 +1,41 @@
 ---
+- name: "qwen_qwen3.5-2b"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/bartowski/Qwen_Qwen3.5-2B-GGUF
+  description: |
+    Describe the model in a clear and concise way that can be shared in a model gallery.
+  license: "proprietary"
+  tags:
+    - llama
+    - qwen
+    - qwen3.5
+    - quantized
+    - 2b
+    - text-to-text
+  overrides:
+    parameters:
+      model: llama-cpp/models/Qwen_Qwen3.5-2B-Q4_K_M.gguf
+    name: Qwen_Qwen3.5-2B-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    mmproj: llama-cpp/mmproj/mmproj-Qwen_Qwen3.5-2B-f16.gguf
+    description: Imported from https://huggingface.co/bartowski/Qwen_Qwen3.5-2B-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Qwen_Qwen3.5-2B-Q4_K_M.gguf
+      sha256: 1e277e5d06f17a145fc0d6b1c152a0bcc6323ac2f87f1bacdbb85c71c8660e24
+      uri: https://huggingface.co/bartowski/Qwen_Qwen3.5-2B-GGUF/resolve/main/Qwen_Qwen3.5-2B-Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/mmproj-Qwen_Qwen3.5-2B-f16.gguf
+      sha256: d08bfcf088bd2df868298508149cb7ed377470f957196396dd210413c140464c
+      uri: https://huggingface.co/bartowski/Qwen_Qwen3.5-2B-GGUF/resolve/main/mmproj-Qwen_Qwen3.5-2B-f16.gguf
 - name: "qwen_qwen3.5-4b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
