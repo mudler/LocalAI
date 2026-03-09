@@ -1656,6 +1656,10 @@ const docTemplate = `{
                 "name": {
                     "type": "string"
                 },
+                "size": {
+                    "description": "Size is an optional hardcoded model size string (e.g. \"500MB\", \"14.5GB\").\nUsed when the size cannot be estimated automatically.",
+                    "type": "string"
+                },
                 "tags": {
                     "type": "array",
                     "items": {
@@ -1719,6 +1723,10 @@ const docTemplate = `{
                     "description": "Overrides are used to override the configuration of the model located at URL",
                     "type": "object",
                     "additionalProperties": true
+                },
+                "size": {
+                    "description": "Size is an optional hardcoded model size string (e.g. \"500MB\", \"14.5GB\").\nUsed when the size cannot be estimated automatically.",
+                    "type": "string"
                 },
                 "tags": {
                     "type": "array",
@@ -1791,6 +1799,10 @@ const docTemplate = `{
                     "description": "Overrides are used to override the configuration of the model located at URL",
                     "type": "object",
                     "additionalProperties": true
+                },
+                "size": {
+                    "description": "Size is an optional hardcoded model size string (e.g. \"500MB\", \"14.5GB\").\nUsed when the size cannot be estimated automatically.",
+                    "type": "string"
                 },
                 "tags": {
                     "type": "array",
@@ -3483,7 +3495,13 @@ const docTemplate = `{
                         "$ref": "#/definitions/schema.NodeData"
                     }
                 },
-                "nodes": {
+                "llama_cpp_nodes": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.NodeData"
+                    }
+                },
+                "mlx_nodes": {
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/schema.NodeData"

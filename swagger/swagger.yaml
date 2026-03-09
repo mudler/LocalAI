@@ -89,6 +89,11 @@ definitions:
         type: array
       name:
         type: string
+      size:
+        description: |-
+          Size is an optional hardcoded model size string (e.g. "500MB", "14.5GB").
+          Used when the size cannot be estimated automatically.
+        type: string
       tags:
         items:
           type: string
@@ -134,6 +139,11 @@ definitions:
         description: Overrides are used to override the configuration of the model
           located at URL
         type: object
+      size:
+        description: |-
+          Size is an optional hardcoded model size string (e.g. "500MB", "14.5GB").
+          Used when the size cannot be estimated automatically.
+        type: string
       tags:
         items:
           type: string
@@ -184,6 +194,11 @@ definitions:
         description: Overrides are used to override the configuration of the model
           located at URL
         type: object
+      size:
+        description: |-
+          Size is an optional hardcoded model size string (e.g. "500MB", "14.5GB").
+          Used when the size cannot be estimated automatically.
+        type: string
       tags:
         items:
           type: string
@@ -1333,7 +1348,11 @@ definitions:
         items:
           $ref: '#/definitions/schema.NodeData'
         type: array
-      nodes:
+      llama_cpp_nodes:
+        items:
+          $ref: '#/definitions/schema.NodeData'
+        type: array
+      mlx_nodes:
         items:
           $ref: '#/definitions/schema.NodeData'
         type: array
