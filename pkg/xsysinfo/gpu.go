@@ -3,6 +3,7 @@ package xsysinfo
 import (
 	"bytes"
 	"encoding/json"
+	"os"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -216,6 +217,15 @@ func isUnifiedMemoryDevice(gpuName string) bool {
 // Returns an empty slice if no GPU monitoring tools are available.
 func GetGPUMemoryUsage() []GPUMemoryInfo {
 	var gpus []GPUMemoryInfo
+
+	// Try Jetson first (before NVIDIA, as Jetson uses unified memory)
+	jetsonGPUs := getJetsonGPUMemory()
+	if len(jetsonGPUs) > 0 {
+		gpus = append(gpus, jetsonGPUs...)
+		return gpus
+	}
+
+	// Try NVIDIA (fallback for non-Jetson systems)
 
 	// Try NVIDIA first
 	nvidiaGPUs := getNVIDIAGPUMemory()
@@ -728,6 +738,84 @@ func getVulkanGPUMemory() []GPUMemoryInfo {
 			UsagePercent: 0,
 		})
 	}
+
+	return gpus
+}
+
+// isRunningOnJetson checks if we're running on NVIDIA Jetson hardware
+// Jetson devices use integrated GPUs with unified memory architecture
+func isRunningOnJetson() bool {
+	// Check for Jetson-specific sysfs entries
+	if _, err := os.Stat("/sys/devices/gpu.0"); err == nil {
+		return true
+	}
+	// Check for tegra-firmware
+	if _, err := os.Stat("/sys/class/tegra-firmware"); err == nil {
+		return true
+	}
+	// Check for nvpmodel (Jetson-specific power management tool)
+	if _, err := exec.LookPath("nvpmodel"); err == nil {
+		return true
+	}
+	// Check device tree for Jetson identifiers
+	if data, err := os.ReadFile("/proc/device-tree/model"); err == nil {
+		model := strings.ToLower(strings.TrimSpace(string(data)))
+		if strings.Contains(model, "jetson") || strings.Contains(model, "orin") || strings.Contains(model, "xavier") || strings.Contains(model, "nano") || strings.Contains(model, "tx2") || strings.Contains(model, "tx1") {
+			return true
+		}
+	}
+	return false
+}
+
+// getJetsonGPUMemory reads GPU memory info from Jetson sysfs interfaces
+// Jetson uses unified memory architecture - GPU shares system RAM
+// This function provides memory reporting for Jetson devices where nvidia-smi is not available
+func getJetsonGPUMemory() []GPUMemoryInfo {
+	if !isRunningOnJetson() {
+		return nil
+	}
+
+	xlog.Debug("Detected Jetson platform, using unified memory reporting")
+
+	var gpus []GPUMemoryInfo
+
+	// For Jetson with unified memory, report using system RAM info
+	// The GPU can access all system memory
+	sysInfo, err := GetSystemRAMInfo()
+	if err != nil {
+		xlog.Debug("failed to get system RAM for Jetson", "error", err)
+		return nil
+	}
+
+	if sysInfo.Total == 0 {
+		xlog.Debug("Jetson detected but system RAM info shows zero total")
+		return nil
+	}
+
+	// On Jetson, GPU uses unified memory - report system memory as GPU memory
+	// Used = Total - Available (this gives us actual memory in use)
+	usedBytes := sysInfo.Total - sysInfo.Available
+	if int64(usedBytes) < 0 {
+		usedBytes = 0
+	}
+
+	usagePercent := float64(usedBytes) / float64(sysInfo.Total) * 100
+
+	gpus = append(gpus, GPUMemoryInfo{
+		Index:        0,
+		Name:         "Orin (nvgpu)",
+		Vendor:       VendorNVIDIA,
+		TotalVRAM:    sysInfo.Total,
+		UsedVRAM:     usedBytes,
+		FreeVRAM:     sysInfo.Available,
+		UsagePercent: usagePercent,
+	})
+
+	xlog.Debug("Jetson GPU memory reported via unified memory",
+		"total", sysInfo.Total,
+		"used", usedBytes,
+		"free", sysInfo.Available,
+		"percent", usagePercent)
 
 	return gpus
 }
