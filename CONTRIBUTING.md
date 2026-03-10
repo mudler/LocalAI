@@ -270,7 +270,7 @@ make test-extra           # run backend-specific tests
 
 ## Documentation
 
-We are welcome the contribution of the documents, please open new PR or create a new issue. The documentation is available under `docs/` https://github.com/mudler/LocalAI/tree/master/docs
+We welcome contributions to the documentation. Please open a new PR or create a new issue. The documentation is available under `docs/` https://github.com/mudler/LocalAI/tree/master/docs
 
 ### Gallery YAML Schema
 
