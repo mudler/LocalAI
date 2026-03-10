@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate, useOutletContext } from 'react-router-dom'
 import ModelSelector from '../components/ModelSelector'
+import ClientMCPDropdown from '../components/ClientMCPDropdown'
 import { useResources } from '../hooks/useResources'
 import { fileToBase64, backendControlApi, systemApi, modelsApi, mcpApi } from '../utils/api'
 import { API_CONFIG } from '../utils/config'
@@ -40,6 +41,7 @@ export default function Home() {
   const [mcpServersLoading, setMcpServersLoading] = useState(false)
   const [mcpServerCache, setMcpServerCache] = useState({})
   const [mcpSelectedServers, setMcpSelectedServers] = useState([])
+  const [clientMCPSelectedIds, setClientMCPSelectedIds] = useState([])
   const mcpDropdownRef = useRef(null)
   const [placeholderIdx, setPlaceholderIdx] = useState(0)
   const [placeholderText, setPlaceholderText] = useState('')
@@ -187,11 +189,12 @@ export default function Home() {
       files: allFiles,
       mcpMode,
       mcpServers: mcpSelectedServers,
+      clientMCPServers: clientMCPSelectedIds,
       newChat: true,
     }
     localStorage.setItem('localai_index_chat_data', JSON.stringify(chatData))
     navigate(`/chat/${encodeURIComponent(selectedModel)}`)
-  }, [message, placeholderText, allFiles, selectedModel, mcpMode, mcpSelectedServers, addToast, navigate])
+  }, [message, placeholderText, allFiles, selectedModel, mcpMode, mcpSelectedServers, clientMCPSelectedIds, addToast, navigate])
 
   const handleSubmit = (e) => {
     if (e) e.preventDefault()
@@ -301,6 +304,14 @@ export default function Home() {
                     )}
                   </div>
                 )}
+                <ClientMCPDropdown
+                  activeServerIds={clientMCPSelectedIds}
+                  onToggleServer={(id) => setClientMCPSelectedIds(prev =>
+                    prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]
+                  )}
+                  onServerAdded={(server) => setClientMCPSelectedIds(prev => [...prev, server.id])}
+                  onServerRemoved={(id) => setClientMCPSelectedIds(prev => prev.filter(s => s !== id))}
+                />
               </div>
 
               {/* File attachment tags */}
