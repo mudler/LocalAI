@@ -184,7 +184,7 @@ func (i *LlamaCPPImporter) Import(details Details) (gallery.ModelConfig, error) 
 			if strings.Contains(strings.ToLower(file.Path), "mmproj") {
 				lastMMProjFile = &gallery.File{
 					URI:      file.URL,
-					Filename: filepath.Join("llama-cpp", "mmproj", filepath.Base(file.Path)),
+					Filename: filepath.Join("llama-cpp", "mmproj", name, filepath.Base(file.Path)),
 					SHA256:   file.SHA256,
 				}
 				if slices.ContainsFunc(mmprojQuantsList, func(quant string) bool {
