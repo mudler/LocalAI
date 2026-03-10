@@ -225,18 +225,17 @@ func AgentSSEEndpoint(app *application.Application) echo.HandlerFunc {
 	}
 }
 
+type agentConfigMetaResponse struct {
+	state.AgentConfigMeta
+	OutputsDir string `json:"OutputsDir"`
+}
+
 func GetAgentConfigMetaEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		svc := app.AgentPoolService()
-		meta := svc.GetConfigMeta()
-		return c.JSON(http.StatusOK, map[string]any{
-			"filters":        meta.Filters,
-			"fields":         meta.Fields,
-			"connectors":     meta.Connectors,
-			"actions":        meta.Actions,
-			"dynamicPrompts": meta.DynamicPrompts,
-			"mcpServers":     meta.MCPServers,
-			"outputsDir":     svc.OutputsDir(),
+		return c.JSON(http.StatusOK, agentConfigMetaResponse{
+			AgentConfigMeta: svc.GetConfigMeta(),
+			OutputsDir:      svc.OutputsDir(),
 		})
 	}
 }
