@@ -308,7 +308,7 @@ func handleWSResponseCreate(connCtx context.Context, conn *lockedConn, input *sc
 		defer close(processDone)
 		store.UpdateStatus(responseID, schema.ORStatusInProgress, nil)
 
-		finalResponse, bgErr := handleBackgroundStream(reqCtx, store, responseID, createdAt, input, cfg, ml, cl, appConfig, predInput, openAIReq, funcs, shouldUseFn)
+		finalResponse, bgErr := handleBackgroundStream(reqCtx, store, responseID, createdAt, input, cfg, ml, cl, appConfig, predInput, openAIReq, funcs, shouldUseFn, nil, nil)
 		if bgErr != nil {
 			xlog.Error("WebSocket Responses: processing failed", "response_id", responseID, "error", bgErr)
 			now := time.Now().Unix()

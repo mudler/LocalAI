@@ -21,23 +21,23 @@ The Model Context Protocol is a standard for connecting AI models to external to
 
 ## Key Features
 
-- **🔄 Real-time Tool Access**: Connect to external MCP servers for live data
-- **🛠️ Multiple Server Support**: Configure both remote HTTP and local stdio servers
-- **⚡ Cached Connections**: Efficient tool caching for better performance
-- **🔒 Secure Authentication**: Support for bearer token authentication
-- **🎯 OpenAI Compatible**: Uses the familiar `/mcp/v1/chat/completions` endpoint
-- **🧠 Advanced Reasoning**: Configurable reasoning and re-evaluation capabilities
-- **📋 Auto-Planning**: Break down complex tasks into manageable steps
-- **🎯 MCP Prompts**: Specialized prompts for better MCP server interaction
-- **🔄 Plan Re-evaluation**: Dynamic plan adjustment based on results
-- **⚙️ Flexible Agent Control**: Customizable execution limits and retry behavior
+- **Real-time Tool Access**: Connect to external MCP servers for live data
+- **Multiple Server Support**: Configure both remote HTTP and local stdio servers
+- **Cached Connections**: Efficient tool caching for better performance
+- **Secure Authentication**: Support for bearer token authentication
+- **Multi-endpoint Support**: Works with OpenAI Chat, Anthropic Messages, and Open Responses APIs
+- **Selective Server Activation**: Use `metadata.mcp_servers` to enable only specific servers per request
+- **Server-side Tool Execution**: Tools are executed on the server and results fed back to the model automatically
+- **Agent Configuration**: Customizable execution limits and retry behavior
+- **MCP Prompts**: Discover and expand reusable prompt templates from MCP servers
+- **MCP Resources**: Browse and inject resource content (files, data) from MCP servers into conversations
 
 ## Configuration
 
 MCP support is configured in your model's YAML configuration file using the `mcp` section:
 
 ```yaml
-name: my-agentic-model
+name: my-mcp-model
 backend: llama-cpp
 parameters:
   model: qwen3-4b.gguf
@@ -56,7 +56,7 @@ mcp:
         }
       }
     }
-  
+
   stdio: |
     {
       "mcpServers": {
@@ -78,16 +78,7 @@ mcp:
     }
 
 agent:
-  max_attempts: 3              # Maximum number of tool execution attempts
-  max_iterations: 3            # Maximum number of reasoning iterations
-  enable_reasoning: true       # Enable tool reasoning capabilities
-  enable_planning: false       # Enable auto-planning capabilities
-  enable_mcp_prompts: false    # Enable MCP prompts
-  enable_plan_re_evaluator: false # Enable plan re-evaluation
-  disable_sink_state: false    # Disable sink state behavior
-  loop_detection: 3            # Loop detection sensitivity level
-  max_adjustment_attempts: 5   # Maximum adjustment attempts for tool calls
-  force_reasoning_tool: false  # Force reasoning tool usage
+  max_iterations: 10             # Maximum MCP tool execution loop iterations
 ```
 
 ### Configuration Options
@@ -106,39 +97,226 @@ Configure local command-based MCP servers:
 - **`env`**: Environment variables (optional)
 
 #### Agent Configuration (`agent`)
-Configure agent behavior and tool execution:
 
-**Execution Control**
-- **`max_attempts`**: Maximum number of tool execution attempts (default: 3). Higher values provide more resilience but may increase response time.
-- **`max_iterations`**: Maximum number of reasoning iterations (default: 3). More iterations allow for complex multi-step problem solving.
-- **`loop_detection`**: Loop detection sensitivity level (default: 0, disabled). Set to a positive integer (e.g., 3) to enable loop detection and prevent infinite execution cycles.
-- **`max_adjustment_attempts`**: Maximum adjustment attempts for tool calls (default: 5). Prevents infinite loops when adjusting tool call parameters.
-
-**Reasoning and Planning**
-- **`enable_reasoning`**: Enable tool reasoning capabilities (default: false). When enabled, the agent uses advanced reasoning to better understand tool results.
-- **`enable_planning`**: Enable auto-planning capabilities (default: false). When enabled, breaks down complex tasks into manageable steps.
-- **`disable_sink_state`**: Disable sink state behavior (default: false). When enabled, prevents the agent from entering a sink state.
-- **`force_reasoning_tool`**: Force reasoning tool usage (default: false). When enabled, always use the reasoning tool in the agent's reasoning process.
-
-**MCP Integration**
-- **`enable_mcp_prompts`**: Enable MCP prompts (default: false). When enabled, uses specialized prompts exposed by MCP servers.
-- **`enable_plan_re_evaluator`**: Enable plan re-evaluation (default: false). When enabled, dynamically adjusts execution plans based on results.
+- **`max_iterations`**: Maximum number of MCP tool execution loop iterations (default: 10). Each iteration allows the model to call tools and receive results before generating the next response.
 
 ## Usage
 
-### API Endpoint
+### Selecting MCP Servers via `metadata`
 
-Use the MCP-enabled completion endpoint:
+All API endpoints support MCP server selection through the standard `metadata` field. Pass a comma-separated list of server names in `metadata.mcp_servers`:
+
+- **When present**: Only the named MCP servers are activated for this request. Server names must match the keys in the model's MCP config YAML (e.g., `"weather-api"`, `"search-engine"`).
+- **When absent**: Behavior depends on the endpoint:
+  - **OpenAI Chat Completions** and **Anthropic Messages**: No MCP tools are injected (standard behavior).
+  - **Open Responses**: If the model has MCP config and no user-provided tools, all MCP servers are auto-activated (backward compatible).
+
+The `mcp_servers` metadata key is consumed by the MCP engine and stripped before reaching the backend. Clients that support the standard `metadata` field can use this without custom schema extensions.
+
+### API Endpoints
+
+MCP tools work across all three API endpoints:
+
+#### OpenAI Chat Completions (`/v1/chat/completions`)
+
+```bash
+curl http://localhost:8080/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "my-mcp-model",
+    "messages": [{"role": "user", "content": "What is the weather in New York?"}],
+    "metadata": {"mcp_servers": "weather-api"},
+    "stream": true
+  }'
+```
+
+#### Anthropic Messages (`/v1/messages`)
+
+```bash
+curl http://localhost:8080/v1/messages \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "my-mcp-model",
+    "max_tokens": 1024,
+    "messages": [{"role": "user", "content": "What is the weather in New York?"}],
+    "metadata": {"mcp_servers": "weather-api"}
+  }'
+```
+
+#### Open Responses (`/v1/responses`)
+
+```bash
+curl http://localhost:8080/v1/responses \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "my-mcp-model",
+    "input": "What is the weather in New York?",
+    "metadata": {"mcp_servers": "weather-api"}
+  }'
+```
+
+### Server Listing Endpoint
+
+You can list available MCP servers and their tools for a given model:
+
+```bash
+curl http://localhost:8080/v1/mcp/servers/my-mcp-model
+```
+
+Returns:
+
+```json
+[
+  {
+    "name": "weather-api",
+    "type": "remote",
+    "tools": ["get_weather", "get_forecast"]
+  },
+  {
+    "name": "search-engine",
+    "type": "remote",
+    "tools": ["web_search", "image_search"]
+  }
+]
+```
+
+### MCP Prompts
+
+MCP servers can provide reusable prompt templates. LocalAI supports discovering and expanding prompts from MCP servers.
+
+#### List Prompts
+
+```bash
+curl http://localhost:8080/v1/mcp/prompts/my-mcp-model
+```
+
+Returns:
+
+```json
+[
+  {
+    "name": "code-review",
+    "description": "Review code for best practices",
+    "title": "Code Review",
+    "arguments": [
+      {"name": "language", "description": "Programming language", "required": true}
+    ],
+    "server": "dev-tools"
+  }
+]
+```
+
+#### Expand a Prompt
+
+```bash
+curl -X POST http://localhost:8080/v1/mcp/prompts/my-mcp-model/code-review \
+  -H "Content-Type: application/json" \
+  -d '{"arguments": {"language": "go"}}'
+```
+
+Returns:
+
+```json
+{
+  "messages": [
+    {"role": "user", "content": "Please review the following Go code for best practices..."}
+  ]
+}
+```
+
+#### Inject Prompts via Metadata
+
+You can inject MCP prompts into any chat request using `metadata.mcp_prompt` and `metadata.mcp_prompt_args`:
+
+```bash
+curl http://localhost:8080/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "my-mcp-model",
+    "messages": [{"role": "user", "content": "Review this function: func add(a, b int) int { return a + b }"}],
+    "metadata": {
+      "mcp_servers": "dev-tools",
+      "mcp_prompt": "code-review",
+      "mcp_prompt_args": "{\"language\": \"go\"}"
+    }
+  }'
+```
+
+The prompt messages are prepended to the conversation before inference.
+
+### MCP Resources
+
+MCP servers can expose data/content (files, database records, etc.) as resources identified by URI.
+
+#### List Resources
+
+```bash
+curl http://localhost:8080/v1/mcp/resources/my-mcp-model
+```
+
+Returns:
+
+```json
+[
+  {
+    "name": "project-readme",
+    "uri": "file:///README.md",
+    "description": "Project documentation",
+    "mimeType": "text/markdown",
+    "server": "file-manager"
+  }
+]
+```
+
+#### Read a Resource
+
+```bash
+curl -X POST http://localhost:8080/v1/mcp/resources/my-mcp-model/read \
+  -H "Content-Type: application/json" \
+  -d '{"uri": "file:///README.md"}'
+```
+
+Returns:
+
+```json
+{
+  "uri": "file:///README.md",
+  "content": "# My Project\n...",
+  "mimeType": "text/markdown"
+}
+```
+
+#### Inject Resources via Metadata
+
+You can inject MCP resources into chat requests using `metadata.mcp_resources` (comma-separated URIs):
+
+```bash
+curl http://localhost:8080/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "my-mcp-model",
+    "messages": [{"role": "user", "content": "Summarize this project"}],
+    "metadata": {
+      "mcp_servers": "file-manager",
+      "mcp_resources": "file:///README.md,file:///CHANGELOG.md"
+    }
+  }'
+```
+
+Resource contents are appended to the last user message as text blocks (following the same approach as llama.cpp's WebUI).
+
+### Legacy Endpoint
+
+The `/mcp/v1/chat/completions` endpoint is still supported for backward compatibility. It automatically enables all configured MCP servers (equivalent to not specifying `mcp_servers`).
 
 ```bash
 curl http://localhost:8080/mcp/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "my-agentic-model",
+    "model": "my-mcp-model",
     "messages": [
       {"role": "user", "content": "What is the current weather in New York?"}
-    ],
-    "temperature": 0.7
+    ]
   }'
 ```
 
@@ -148,10 +326,10 @@ curl http://localhost:8080/mcp/v1/chat/completions \
 {
   "id": "chatcmpl-123",
   "created": 1699123456,
-  "model": "my-agentic-model",
+  "model": "my-mcp-model",
   "choices": [
     {
-      "text": "The current weather in New York is 72°F (22°C) with partly cloudy skies. The humidity is 65% and there's a light breeze from the west at 8 mph."
+      "text": "The current weather in New York is 72°F (22°C) with partly cloudy skies."
     }
   ],
   "object": "text_completion"
@@ -159,7 +337,6 @@ curl http://localhost:8080/mcp/v1/chat/completions \
 ```
 
 ## Example Configurations
-
 
 ### Docker-based Tools
 
@@ -184,47 +361,28 @@ mcp:
     }
 
 agent:
-  max_attempts: 5
-  max_iterations: 5
-  enable_reasoning: true
-  enable_planning: true
-  enable_mcp_prompts: true
-  enable_plan_re_evaluator: true
+  max_iterations: 10
 ```
-
-## Agent Configuration Details
-
-The `agent` section controls how the AI model interacts with MCP tools:
-
-### Execution Control
-- **`max_attempts`**: Limits how many times a tool can be retried if it fails. Higher values provide more resilience but may increase response time.
-- **`max_iterations`**: Controls the maximum number of reasoning cycles the agent can perform. More iterations allow for complex multi-step problem solving.
-- **`loop_detection`**: Set to a positive integer (e.g., 3) to enable loop detection and prevent infinite execution cycles. Default is 0 (disabled).
-- **`max_adjustment_attempts`**: Limits the number of times the agent can adjust tool call parameters. Prevents infinite loops during tool execution (default: 5).
-
-### Reasoning Capabilities
-- **`enable_reasoning`**: When enabled, the agent uses advanced reasoning to better understand tool results and plan next steps.
-- **`force_reasoning_tool`**: When enabled, forces the agent to always use the reasoning tool in its reasoning process, ensuring explicit reasoning steps.
-- **`disable_sink_state`**: When enabled, prevents the agent from entering a sink state where it stops making progress.
-
-### Planning Capabilities
-- **`enable_planning`**: When enabled, the agent uses auto-planning to break down complex tasks into manageable steps and execute them systematically. The agent will automatically detect when planning is needed.
-- **`enable_mcp_prompts`**: When enabled, the agent uses specialized prompts exposed by the MCP servers to interact with the exposed tools.
-- **`enable_plan_re_evaluator`**: When enabled, the agent can re-evaluate and adjust its execution plan based on intermediate results.
-
-### Recommended Settings
-- **Simple tasks**: `max_attempts: 2`, `max_iterations: 2`, `enable_reasoning: false`, `enable_planning: false`
-- **Complex tasks**: `max_attempts: 5`, `max_iterations: 5`, `enable_reasoning: true`, `enable_planning: true`, `enable_mcp_prompts: true`
-- **Advanced planning**: `max_attempts: 5`, `max_iterations: 5`, `enable_reasoning: true`, `enable_planning: true`, `enable_mcp_prompts: true`, `enable_plan_re_evaluator: true`, `loop_detection: 3`
-- **Development/Debugging**: `max_attempts: 1`, `max_iterations: 1`, `enable_reasoning: true`, `enable_planning: true`
-- **Aggressive loop prevention**: `max_attempts: 5`, `max_iterations: 5`, `loop_detection: 2`, `max_adjustment_attempts: 3`, `force_reasoning_tool: true`
 
 ## How It Works
 
 1. **Tool Discovery**: LocalAI connects to configured MCP servers and discovers available tools
-2. **Tool Caching**: Tools are cached per model for efficient reuse
-3. **Agent Execution**: The AI model uses the [Cogito](https://github.com/mudler/cogito) framework to execute tools
-4. **Response Generation**: The model generates responses incorporating tool results
+2. **Tool Injection**: Discovered tools are injected into the model's tool/function list alongside any user-provided tools
+3. **Inference Loop**: The model generates a response. If it calls MCP tools, LocalAI executes them server-side, appends results to the conversation, and re-runs inference
+4. **Response Generation**: When the model produces a final response (no more MCP tool calls), it is returned to the client
+
+The execution loop is bounded by `agent.max_iterations` (default 10) to prevent infinite loops.
+
+## Session Lifecycle
+
+MCP sessions are automatically managed by LocalAI:
+
+- **Lazy initialization**: Sessions are created the first time a model's MCP tools are used
+- **Cached per model**: Sessions are reused across requests for the same model
+- **Cleanup on model unload**: When a model is unloaded (idle watchdog eviction, manual stop, or shutdown), all associated MCP sessions are closed and resources freed
+- **Graceful shutdown**: All MCP sessions are closed when LocalAI shuts down
+
+This means you don't need to manually manage MCP connections — they follow the model's lifecycle automatically.
 
 ## Supported MCP Servers
 
@@ -255,15 +413,16 @@ Use MCP-enabled models in your applications:
 import openai
 
 client = openai.OpenAI(
-    base_url="http://localhost:8080/mcp/v1",
+    base_url="http://localhost:8080/v1",
     api_key="your-api-key"
 )
 
 response = client.chat.completions.create(
-    model="my-agentic-model",
+    model="my-mcp-model",
     messages=[
         {"role": "user", "content": "Analyze the latest research papers on AI"}
-    ]
+    ],
+    extra_body={"metadata": {"mcp_servers": "search-engine"}}
 )
 ```
 

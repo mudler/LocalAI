@@ -50,6 +50,11 @@ export const API_CONFIG = {
     // OpenAI-compatible endpoints
     chatCompletions: '/v1/chat/completions',
     mcpChatCompletions: '/v1/mcp/chat/completions',
+    mcpServers: (model) => `/v1/mcp/servers/${model}`,
+    mcpPrompts: (model) => `/v1/mcp/prompts/${model}`,
+    mcpGetPrompt: (model, prompt) => `/v1/mcp/prompts/${model}/${encodeURIComponent(prompt)}`,
+    mcpResources: (model) => `/v1/mcp/resources/${model}`,
+    mcpReadResource: (model) => `/v1/mcp/resources/${model}/read`,
     completions: '/v1/completions',
     imageGenerations: '/v1/images/generations',
     audioSpeech: '/v1/audio/speech',

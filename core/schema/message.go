@@ -28,6 +28,8 @@ type Message struct {
 
 	ToolCalls []ToolCall `json:"tool_calls,omitempty" yaml:"tool_call,omitempty"`
 
+	ToolCallID string `json:"tool_call_id,omitempty" yaml:"tool_call_id,omitempty"`
+
 	// Reasoning content extracted from <thinking>...</thinking> tags
 	Reasoning *string `json:"reasoning,omitempty" yaml:"reasoning,omitempty"`
 }

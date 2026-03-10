@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate, useOutletContext } from 'react-router-dom'
 import ModelSelector from '../components/ModelSelector'
 import { useResources } from '../hooks/useResources'
-import { fileToBase64, backendControlApi, systemApi, modelsApi } from '../utils/api'
+import { fileToBase64, backendControlApi, systemApi, modelsApi, mcpApi } from '../utils/api'
 import { API_CONFIG } from '../utils/config'
 
 const placeholderMessages = [
@@ -35,6 +35,12 @@ export default function Home() {
   const [textFiles, setTextFiles] = useState([])
   const [mcpMode, setMcpMode] = useState(false)
   const [mcpAvailable, setMcpAvailable] = useState(false)
+  const [mcpServersOpen, setMcpServersOpen] = useState(false)
+  const [mcpServerList, setMcpServerList] = useState([])
+  const [mcpServersLoading, setMcpServersLoading] = useState(false)
+  const [mcpServerCache, setMcpServerCache] = useState({})
+  const [mcpSelectedServers, setMcpSelectedServers] = useState([])
+  const mcpDropdownRef = useRef(null)
   const [placeholderIdx, setPlaceholderIdx] = useState(0)
   const [placeholderText, setPlaceholderText] = useState('')
   const imageInputRef = useRef(null)
@@ -72,6 +78,7 @@ export default function Home() {
     if (!selectedModel) {
       setMcpAvailable(false)
       setMcpMode(false)
+      setMcpSelectedServers([])
       return
     }
     let cancelled = false
@@ -79,11 +86,15 @@ export default function Home() {
       if (cancelled) return
       const hasMcp = !!(cfg?.mcp?.remote || cfg?.mcp?.stdio)
       setMcpAvailable(hasMcp)
-      if (!hasMcp) setMcpMode(false)
+      if (!hasMcp) {
+        setMcpMode(false)
+        setMcpSelectedServers([])
+      }
     }).catch(() => {
       if (!cancelled) {
         setMcpAvailable(false)
         setMcpMode(false)
+        setMcpSelectedServers([])
       }
     })
     return () => { cancelled = true }
@@ -126,6 +137,42 @@ export default function Home() {
     else setTextFiles(removeFn)
   }, [])
 
+  useEffect(() => {
+    if (!mcpServersOpen) return
+    const handleClick = (e) => {
+      if (mcpDropdownRef.current && !mcpDropdownRef.current.contains(e.target)) {
+        setMcpServersOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [mcpServersOpen])
+
+  const fetchMcpServers = useCallback(async () => {
+    if (!selectedModel) return
+    if (mcpServerCache[selectedModel]) {
+      setMcpServerList(mcpServerCache[selectedModel])
+      return
+    }
+    setMcpServersLoading(true)
+    try {
+      const data = await mcpApi.listServers(selectedModel)
+      const servers = data?.servers || []
+      setMcpServerList(servers)
+      setMcpServerCache(prev => ({ ...prev, [selectedModel]: servers }))
+    } catch (_e) {
+      setMcpServerList([])
+    } finally {
+      setMcpServersLoading(false)
+    }
+  }, [selectedModel, mcpServerCache])
+
+  const toggleMcpServer = useCallback((serverName) => {
+    setMcpSelectedServers(prev =>
+      prev.includes(serverName) ? prev.filter(s => s !== serverName) : [...prev, serverName]
+    )
+  }, [])
+
   const doSubmit = useCallback(() => {
     const text = message.trim() || placeholderText
     if (!text && allFiles.length === 0) return
@@ -139,11 +186,12 @@ export default function Home() {
       model: selectedModel,
       files: allFiles,
       mcpMode,
+      mcpServers: mcpSelectedServers,
       newChat: true,
     }
     localStorage.setItem('localai_index_chat_data', JSON.stringify(chatData))
     navigate(`/chat/${encodeURIComponent(selectedModel)}`)
-  }, [message, placeholderText, allFiles, selectedModel, mcpMode, addToast, navigate])
+  }, [message, placeholderText, allFiles, selectedModel, mcpMode, mcpSelectedServers, addToast, navigate])
 
   const handleSubmit = (e) => {
     if (e) e.preventDefault()
@@ -200,25 +248,60 @@ export default function Home() {
               <div className="home-model-row">
                 <ModelSelector value={selectedModel} onChange={setSelectedModel} capability="FLAG_CHAT" />
                 {mcpAvailable && (
-                  <label className="home-mcp-toggle">
-                    <span className="home-mcp-label">MCP</span>
-                    <span className="toggle">
-                      <input
-                        type="checkbox"
-                        checked={mcpMode}
-                        onChange={(e) => setMcpMode(e.target.checked)}
-                      />
-                      <span className="toggle-slider" />
-                    </span>
-                  </label>
+                  <div className="chat-mcp-dropdown" ref={mcpDropdownRef}>
+                    <button
+                      type="button"
+                      className={`btn btn-sm ${mcpSelectedServers.length > 0 ? 'btn-primary' : 'btn-secondary'}`}
+                      title="Select MCP servers"
+                      onClick={() => { setMcpServersOpen(!mcpServersOpen); if (!mcpServersOpen) fetchMcpServers() }}
+                    >
+                      <i className="fas fa-plug" /> MCP
+                      {mcpSelectedServers.length > 0 && (
+                        <span className="chat-mcp-badge">{mcpSelectedServers.length}</span>
+                      )}
+                    </button>
+                    {mcpServersOpen && (
+                      <div className="chat-mcp-dropdown-menu">
+                        {mcpServersLoading ? (
+                          <div className="chat-mcp-dropdown-loading"><i className="fas fa-spinner fa-spin" /> Loading servers...</div>
+                        ) : mcpServerList.length === 0 ? (
+                          <div className="chat-mcp-dropdown-empty">No MCP servers configured</div>
+                        ) : (
+                          <>
+                            <div className="chat-mcp-dropdown-header">
+                              <span>MCP Servers</span>
+                              <button
+                                type="button"
+                                className="chat-mcp-select-all"
+                                onClick={() => {
+                                  const allNames = mcpServerList.map(s => s.name)
+                                  const allSelected = allNames.every(n => mcpSelectedServers.includes(n))
+                                  setMcpSelectedServers(allSelected ? [] : allNames)
+                                }}
+                              >
+                                {mcpServerList.every(s => mcpSelectedServers.includes(s.name)) ? 'Deselect all' : 'Select all'}
+                              </button>
+                            </div>
+                            {mcpServerList.map(server => (
+                              <label key={server.name} className="chat-mcp-server-item">
+                                <input
+                                  type="checkbox"
+                                  checked={mcpSelectedServers.includes(server.name)}
+                                  onChange={() => toggleMcpServer(server.name)}
+                                />
+                                <div className="chat-mcp-server-info">
+                                  <span className="chat-mcp-server-name">{server.name}</span>
+                                  <span className="chat-mcp-server-tools">{server.tools?.length || 0} tools</span>
+                                </div>
+                              </label>
+                            ))}
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
-
-              {mcpMode && (
-                <div className="home-mcp-info">
-                  <i className="fas fa-info-circle" /> Non-streaming mode active.
-                </div>
-              )}
 
               {/* File attachment tags */}
               {allFiles.length > 0 && (
@@ -451,21 +534,6 @@ export default function Home() {
           display: flex;
           align-items: center;
           gap: var(--spacing-sm);
-          margin-bottom: var(--spacing-sm);
-        }
-        .home-mcp-toggle {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          cursor: pointer;
-          user-select: none;
-        }
-        .home-mcp-info {
-          font-size: 0.75rem;
-          color: var(--color-accent);
-          padding: var(--spacing-xs) var(--spacing-sm);
-          background: var(--color-accent-light);
-          border-radius: var(--radius-md);
           margin-bottom: var(--spacing-sm);
         }
         .home-file-tags {

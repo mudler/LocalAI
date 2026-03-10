@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/mudler/LocalAI/core/config"
+	mcpTools "github.com/mudler/LocalAI/core/http/endpoints/mcp"
 	"github.com/mudler/LocalAI/core/services"
 	"github.com/mudler/LocalAI/core/templates"
 	"github.com/mudler/LocalAI/pkg/model"
@@ -29,9 +30,16 @@ type Application struct {
 }
 
 func newApplication(appConfig *config.ApplicationConfig) *Application {
+	ml := model.NewModelLoader(appConfig.SystemState)
+
+	// Close MCP sessions when a model is unloaded (watchdog eviction, manual shutdown, etc.)
+	ml.OnModelUnload(func(modelName string) {
+		mcpTools.CloseMCPSessions(modelName)
+	})
+
 	return &Application{
 		backendLoader:      config.NewModelConfigLoader(appConfig.SystemState.Model.ModelsPath),
-		modelLoader:        model.NewModelLoader(appConfig.SystemState),
+		modelLoader:        ml,
 		applicationConfig:  appConfig,
 		templatesEvaluator: templates.NewEvaluator(appConfig.SystemState.Model.ModelsPath),
 	}

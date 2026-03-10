@@ -164,6 +164,17 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 		router.POST("/v1/mcp/chat/completions", mcpStreamHandler, mcpStreamMiddleware...)
 		router.POST("/mcp/v1/chat/completions", mcpStreamHandler, mcpStreamMiddleware...)
 		router.POST("/mcp/chat/completions", mcpStreamHandler, mcpStreamMiddleware...)
+
+		// MCP server listing endpoint
+		router.GET("/v1/mcp/servers/:model", localai.MCPServersEndpoint(cl, appConfig))
+
+		// MCP prompts endpoints
+		router.GET("/v1/mcp/prompts/:model", localai.MCPPromptsEndpoint(cl, appConfig))
+		router.POST("/v1/mcp/prompts/:model/:prompt", localai.MCPGetPromptEndpoint(cl, appConfig))
+
+		// MCP resources endpoints
+		router.GET("/v1/mcp/resources/:model", localai.MCPResourcesEndpoint(cl, appConfig))
+		router.POST("/v1/mcp/resources/:model/read", localai.MCPReadResourceEndpoint(cl, appConfig))
 	}
 
 	// Agent job routes (MCP CI Jobs — requires MCP to be enabled)

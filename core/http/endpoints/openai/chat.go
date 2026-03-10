@@ -10,6 +10,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
+	mcpTools "github.com/mudler/LocalAI/core/http/endpoints/mcp"
 	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/pkg/functions"
@@ -21,6 +22,37 @@ import (
 
 	"github.com/mudler/xlog"
 )
+
+// mergeToolCallDeltas merges streaming tool call deltas into complete tool calls.
+// In SSE streaming, a single tool call arrives as multiple chunks sharing the same Index:
+// the first chunk carries the ID, Type, and Name; subsequent chunks append to Arguments.
+func mergeToolCallDeltas(existing []schema.ToolCall, deltas []schema.ToolCall) []schema.ToolCall {
+	byIndex := make(map[int]int, len(existing)) // tool call Index -> position in slice
+	for i, tc := range existing {
+		byIndex[tc.Index] = i
+	}
+	for _, d := range deltas {
+		pos, found := byIndex[d.Index]
+		if !found {
+			byIndex[d.Index] = len(existing)
+			existing = append(existing, d)
+			continue
+		}
+		// Merge into existing entry
+		tc := &existing[pos]
+		if d.ID != "" {
+			tc.ID = d.ID
+		}
+		if d.Type != "" {
+			tc.Type = d.Type
+		}
+		if d.FunctionCall.Name != "" {
+			tc.FunctionCall.Name = d.FunctionCall.Name
+		}
+		tc.FunctionCall.Arguments += d.FunctionCall.Arguments
+	}
+	return existing
+}
 
 // ChatEndpoint is the OpenAI Completion API endpoint https://platform.openai.com/docs/api-reference/chat/create
 // @Summary Generate a chat completions for a given prompt and model.
@@ -405,6 +437,100 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 		shouldUseFn := len(input.Functions) > 0 && config.ShouldUseFunctions()
 		strictMode := false
 
+		// MCP tool injection: when mcp_servers is set in metadata and model has MCP config
+		var mcpToolInfos []mcpTools.MCPToolInfo
+		mcpServers := mcpTools.MCPServersFromMetadata(input.Metadata)
+
+		// MCP prompt and resource injection (extracted before tool injection)
+		mcpPromptName, mcpPromptArgs := mcpTools.MCPPromptFromMetadata(input.Metadata)
+		mcpResourceURIs := mcpTools.MCPResourcesFromMetadata(input.Metadata)
+
+		if (len(mcpServers) > 0 || mcpPromptName != "" || len(mcpResourceURIs) > 0) && (config.MCP.Servers != "" || config.MCP.Stdio != "") {
+			remote, stdio, mcpErr := config.MCP.MCPConfigFromYAML()
+			if mcpErr == nil {
+				namedSessions, sessErr := mcpTools.NamedSessionsFromMCPConfig(config.Name, remote, stdio, mcpServers)
+				if sessErr == nil && len(namedSessions) > 0 {
+					// Prompt injection: prepend prompt messages to the conversation
+					if mcpPromptName != "" {
+						prompts, discErr := mcpTools.DiscoverMCPPrompts(c.Request().Context(), namedSessions)
+						if discErr == nil {
+							promptMsgs, getErr := mcpTools.GetMCPPrompt(c.Request().Context(), prompts, mcpPromptName, mcpPromptArgs)
+							if getErr == nil {
+								var injected []schema.Message
+								for _, pm := range promptMsgs {
+									injected = append(injected, schema.Message{
+										Role:    string(pm.Role),
+										Content: mcpTools.PromptMessageToText(pm),
+									})
+								}
+								input.Messages = append(injected, input.Messages...)
+								xlog.Debug("MCP prompt injected", "prompt", mcpPromptName, "messages", len(injected))
+							} else {
+								xlog.Error("Failed to get MCP prompt", "error", getErr)
+							}
+						} else {
+							xlog.Error("Failed to discover MCP prompts", "error", discErr)
+						}
+					}
+
+					// Resource injection: append resource content to the last user message
+					if len(mcpResourceURIs) > 0 {
+						resources, discErr := mcpTools.DiscoverMCPResources(c.Request().Context(), namedSessions)
+						if discErr == nil {
+							var resourceTexts []string
+							for _, uri := range mcpResourceURIs {
+								content, readErr := mcpTools.ReadMCPResource(c.Request().Context(), resources, uri)
+								if readErr != nil {
+									xlog.Error("Failed to read MCP resource", "error", readErr, "uri", uri)
+									continue
+								}
+								// Find resource name
+								name := uri
+								for _, r := range resources {
+									if r.URI == uri {
+										name = r.Name
+										break
+									}
+								}
+								resourceTexts = append(resourceTexts, fmt.Sprintf("--- MCP Resource: %s ---\n%s", name, content))
+							}
+							if len(resourceTexts) > 0 && len(input.Messages) > 0 {
+								lastIdx := len(input.Messages) - 1
+								suffix := "\n\n" + strings.Join(resourceTexts, "\n\n")
+								switch ct := input.Messages[lastIdx].Content.(type) {
+								case string:
+									input.Messages[lastIdx].Content = ct + suffix
+								default:
+									input.Messages[lastIdx].Content = fmt.Sprintf("%v%s", ct, suffix)
+								}
+								xlog.Debug("MCP resources injected", "count", len(resourceTexts))
+							}
+						} else {
+							xlog.Error("Failed to discover MCP resources", "error", discErr)
+						}
+					}
+
+					// Tool injection
+					if len(mcpServers) > 0 {
+						discovered, discErr := mcpTools.DiscoverMCPTools(c.Request().Context(), namedSessions)
+						if discErr == nil {
+							mcpToolInfos = discovered
+							for _, ti := range mcpToolInfos {
+								funcs = append(funcs, ti.Function)
+								input.Tools = append(input.Tools, functions.Tool{Type: "function", Function: ti.Function})
+							}
+							shouldUseFn = len(funcs) > 0 && config.ShouldUseFunctions()
+							xlog.Debug("MCP tools injected", "count", len(mcpToolInfos), "total_funcs", len(funcs))
+						} else {
+							xlog.Error("Failed to discover MCP tools", "error", discErr)
+						}
+					}
+				}
+			} else {
+				xlog.Error("Failed to parse MCP config", "error", mcpErr)
+			}
+		}
+
 		xlog.Debug("Tool call routing decision",
 			"shouldUseFn", shouldUseFn,
 			"len(input.Functions)", len(input.Functions),
@@ -552,6 +678,19 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 			c.Response().Header().Set("Connection", "keep-alive")
 			c.Response().Header().Set("X-Correlation-ID", id)
 
+			mcpStreamMaxIterations := 10
+			if config.Agent.MaxIterations > 0 {
+				mcpStreamMaxIterations = config.Agent.MaxIterations
+			}
+			hasMCPToolsStream := len(mcpToolInfos) > 0
+
+			for mcpStreamIter := 0; mcpStreamIter <= mcpStreamMaxIterations; mcpStreamIter++ {
+			// Re-template on MCP iterations
+			if mcpStreamIter > 0 && !config.TemplateConfig.UseTokenizerTemplate {
+				predInput = evaluator.TemplateMessages(*input, input.Messages, config, funcs, shouldUseFn)
+				xlog.Debug("MCP stream re-templating", "iteration", mcpStreamIter)
+			}
+
 			responses := make(chan schema.OpenAIResponse)
 			ended := make(chan error, 1)
 
@@ -565,6 +704,8 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 
 			usage := &schema.OpenAIUsage{}
 			toolsCalled := false
+			var collectedToolCalls []schema.ToolCall
+			var collectedContent string
 
 		LOOP:
 			for {
@@ -582,6 +723,18 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 					usage = &ev.Usage // Copy a pointer to the latest usage chunk so that the stop message can reference it
 					if len(ev.Choices[0].Delta.ToolCalls) > 0 {
 						toolsCalled = true
+						// Collect and merge tool call deltas for MCP execution
+						if hasMCPToolsStream {
+							collectedToolCalls = mergeToolCallDeltas(collectedToolCalls, ev.Choices[0].Delta.ToolCalls)
+						}
+					}
+					// Collect content for MCP conversation history
+					if hasMCPToolsStream && ev.Choices[0].Delta != nil && ev.Choices[0].Delta.Content != nil {
+						if s, ok := ev.Choices[0].Delta.Content.(string); ok {
+							collectedContent += s
+						} else if sp, ok := ev.Choices[0].Delta.Content.(*string); ok && sp != nil {
+							collectedContent += *sp
+						}
 					}
 					respData, err := json.Marshal(ev)
 					if err != nil {
@@ -632,6 +785,63 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 				}
 			}
 
+			// MCP streaming tool execution: if we collected MCP tool calls, execute and loop
+			if hasMCPToolsStream && toolsCalled && len(collectedToolCalls) > 0 {
+				var hasMCPCalls bool
+				for _, tc := range collectedToolCalls {
+					if mcpTools.IsMCPTool(mcpToolInfos, tc.FunctionCall.Name) {
+						hasMCPCalls = true
+						break
+					}
+				}
+				if hasMCPCalls {
+					// Append assistant message with tool_calls
+					assistantMsg := schema.Message{
+						Role:      "assistant",
+						Content:   collectedContent,
+						ToolCalls: collectedToolCalls,
+					}
+					input.Messages = append(input.Messages, assistantMsg)
+
+					// Execute MCP tool calls and stream results as tool_result events
+					for _, tc := range collectedToolCalls {
+						if !mcpTools.IsMCPTool(mcpToolInfos, tc.FunctionCall.Name) {
+							continue
+						}
+						xlog.Debug("Executing MCP tool (stream)", "tool", tc.FunctionCall.Name, "iteration", mcpStreamIter)
+						toolResult, toolErr := mcpTools.ExecuteMCPToolCall(
+							c.Request().Context(), mcpToolInfos,
+							tc.FunctionCall.Name, tc.FunctionCall.Arguments,
+						)
+						if toolErr != nil {
+							xlog.Error("MCP tool execution failed", "tool", tc.FunctionCall.Name, "error", toolErr)
+							toolResult = fmt.Sprintf("Error: %v", toolErr)
+						}
+						input.Messages = append(input.Messages, schema.Message{
+							Role:       "tool",
+							Content:    toolResult,
+							ToolCallID: tc.ID,
+							Name:       tc.FunctionCall.Name,
+						})
+
+						// Stream tool result event to client
+						mcpEvent := map[string]any{
+							"type":   "mcp_tool_result",
+							"name":   tc.FunctionCall.Name,
+							"result": toolResult,
+						}
+						if mcpEventData, err := json.Marshal(mcpEvent); err == nil {
+							fmt.Fprintf(c.Response().Writer, "data: %s\n\n", mcpEventData)
+							c.Response().Flush()
+						}
+					}
+
+					xlog.Debug("MCP streaming tools executed, re-running inference", "iteration", mcpStreamIter)
+					continue // next MCP stream iteration
+				}
+			}
+
+			// No MCP tools to execute, send final stop message
 			finishReason := FinishReasonStop
 			if toolsCalled && len(input.Tools) > 0 {
 				finishReason = FinishReasonToolCalls
@@ -659,9 +869,28 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 			c.Response().Flush()
 			xlog.Debug("Stream ended")
 			return nil
+			} // end MCP stream iteration loop
+
+			// Safety fallback
+			fmt.Fprintf(c.Response().Writer, "data: [DONE]\n\n")
+			c.Response().Flush()
+			return nil
 
 		// no streaming mode
 		default:
+			mcpMaxIterations := 10
+			if config.Agent.MaxIterations > 0 {
+				mcpMaxIterations = config.Agent.MaxIterations
+			}
+			hasMCPTools := len(mcpToolInfos) > 0
+
+			for mcpIteration := 0; mcpIteration <= mcpMaxIterations; mcpIteration++ {
+			// Re-template on each MCP iteration since messages may have changed
+			if mcpIteration > 0 && !config.TemplateConfig.UseTokenizerTemplate {
+				predInput = evaluator.TemplateMessages(*input, input.Messages, config, funcs, shouldUseFn)
+				xlog.Debug("MCP re-templating", "iteration", mcpIteration, "prompt_len", len(predInput))
+			}
+
 			// Detect if thinking token is already in prompt or template
 			var template string
 			if config.TemplateConfig.UseTokenizerTemplate {
@@ -839,6 +1068,74 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 				})
 			}
 
+			// MCP server-side tool execution loop:
+			// If we have MCP tools and the model returned tool_calls, execute MCP tools
+			// and re-run inference with the results appended to the conversation.
+			if hasMCPTools && len(result) > 0 {
+				var mcpCallsExecuted bool
+				for _, choice := range result {
+					if choice.Message == nil || len(choice.Message.ToolCalls) == 0 {
+						continue
+					}
+					// Check if any tool calls are MCP tools
+					var hasMCPCalls bool
+					for _, tc := range choice.Message.ToolCalls {
+						if mcpTools.IsMCPTool(mcpToolInfos, tc.FunctionCall.Name) {
+							hasMCPCalls = true
+							break
+						}
+					}
+					if !hasMCPCalls {
+						continue
+					}
+
+					// Append assistant message with tool_calls to conversation
+					assistantContent := ""
+					if choice.Message.Content != nil {
+						if s, ok := choice.Message.Content.(string); ok {
+							assistantContent = s
+						} else if sp, ok := choice.Message.Content.(*string); ok && sp != nil {
+							assistantContent = *sp
+						}
+					}
+					assistantMsg := schema.Message{
+						Role:      "assistant",
+						Content:   assistantContent,
+						ToolCalls: choice.Message.ToolCalls,
+					}
+					input.Messages = append(input.Messages, assistantMsg)
+
+					// Execute each MCP tool call and append results
+					for _, tc := range choice.Message.ToolCalls {
+						if !mcpTools.IsMCPTool(mcpToolInfos, tc.FunctionCall.Name) {
+							continue
+						}
+						xlog.Debug("Executing MCP tool", "tool", tc.FunctionCall.Name, "arguments", tc.FunctionCall.Arguments, "iteration", mcpIteration)
+						toolResult, toolErr := mcpTools.ExecuteMCPToolCall(
+							c.Request().Context(), mcpToolInfos,
+							tc.FunctionCall.Name, tc.FunctionCall.Arguments,
+						)
+						if toolErr != nil {
+							xlog.Error("MCP tool execution failed", "tool", tc.FunctionCall.Name, "error", toolErr)
+							toolResult = fmt.Sprintf("Error: %v", toolErr)
+						}
+						input.Messages = append(input.Messages, schema.Message{
+							Role:       "tool",
+							Content:    toolResult,
+							ToolCallID: tc.ID,
+							Name:       tc.FunctionCall.Name,
+						})
+						mcpCallsExecuted = true
+					}
+				}
+
+				if mcpCallsExecuted {
+					xlog.Debug("MCP tools executed, re-running inference", "iteration", mcpIteration, "messages", len(input.Messages))
+					continue // next MCP iteration
+				}
+			}
+
+			// No MCP tools to execute (or no MCP tools configured), return response
 			usage := schema.OpenAIUsage{
 				PromptTokens:     tokenUsage.Prompt,
 				CompletionTokens: tokenUsage.Completion,
@@ -862,6 +1159,10 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 
 			// Return the prediction in the response body
 			return c.JSON(200, resp)
+			} // end MCP iteration loop
+
+			// Should not reach here, but safety fallback
+			return fmt.Errorf("MCP iteration limit reached")
 		}
 	}
 }

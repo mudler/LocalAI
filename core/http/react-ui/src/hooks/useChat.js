@@ -52,6 +52,7 @@ function saveChats(chats, activeChatId) {
         history: chat.history,
         systemPrompt: chat.systemPrompt,
         mcpMode: chat.mcpMode,
+        mcpServers: chat.mcpServers,
         temperature: chat.temperature,
         topP: chat.topP,
         topK: chat.topK,
@@ -79,6 +80,8 @@ function createNewChat(model = '', systemPrompt = '', mcpMode = false) {
     history: [],
     systemPrompt,
     mcpMode,
+    mcpServers: [],
+    mcpResources: [],
     temperature: null,
     topP: null,
     topK: null,
@@ -256,8 +259,23 @@ export function useChat(initialModel = '') {
     if (topK !== null && topK !== undefined) requestBody.top_k = topK
     if (contextSize) requestBody.max_tokens = contextSize
 
-    // Choose endpoint
-    const endpoint = activeChat.mcpMode
+    // MCP: send selected servers via metadata so the backend activates them
+    const hasMcpServers = activeChat.mcpServers && activeChat.mcpServers.length > 0
+    if (hasMcpServers) {
+      if (!requestBody.metadata) requestBody.metadata = {}
+      requestBody.metadata.mcp_servers = activeChat.mcpServers.join(',')
+    }
+
+    // MCP: send selected resource URIs via metadata
+    const hasMcpResources = activeChat.mcpResources && activeChat.mcpResources.length > 0
+    if (hasMcpResources) {
+      if (!requestBody.metadata) requestBody.metadata = {}
+      requestBody.metadata.mcp_resources = activeChat.mcpResources.join(',')
+    }
+
+    // Use MCP endpoint only for legacy mcpMode without specific servers selected
+    // (the MCP endpoint auto-enables all servers)
+    const endpoint = (activeChat.mcpMode && !hasMcpServers)
       ? API_CONFIG.endpoints.mcpChatCompletions
       : API_CONFIG.endpoints.chatCompletions
 
@@ -277,8 +295,8 @@ export function useChat(initialModel = '') {
     let usage = {}
     const newMessages = [] // Accumulate messages to add to history
 
-    if (activeChat.mcpMode) {
-      // MCP SSE streaming
+    if (activeChat.mcpMode && !hasMcpServers) {
+      // Legacy MCP SSE streaming (custom event types from /v1/mcp/chat/completions)
       try {
         const timeoutId = setTimeout(() => controller.abort(), 300000) // 5 min timeout
         const response = await fetch(endpoint, {
@@ -412,6 +430,7 @@ export function useChat(initialModel = '') {
       let reasoningContent = ''
       let hasReasoningFromAPI = false
       let insideThinkTag = false
+      let currentToolCalls = [] // Track MCP tool call deltas
 
       try {
         const response = await fetch(endpoint, {
@@ -445,6 +464,18 @@ export function useChat(initialModel = '') {
 
             try {
               const parsed = JSON.parse(data)
+
+              // Handle MCP tool result events
+              if (parsed?.type === 'mcp_tool_result') {
+                currentToolCalls.push({
+                  type: 'tool_result',
+                  name: parsed.name || 'tool',
+                  result: parsed.result || '',
+                })
+                setStreamingToolCalls([...currentToolCalls.filter(Boolean)])
+                continue
+              }
+
               const delta = parsed?.choices?.[0]?.delta
 
               // Handle reasoning field from API
@@ -454,6 +485,24 @@ export function useChat(initialModel = '') {
                 tokenCountRef.current++
                 setStreamingReasoning(reasoningContent)
                 updateTps()
+              }
+
+              // Handle tool call deltas from MCP streaming
+              if (delta?.tool_calls) {
+                for (const tc of delta.tool_calls) {
+                  const idx = tc.index ?? 0
+                  if (!currentToolCalls[idx]) {
+                    currentToolCalls[idx] = {
+                      type: 'tool_call',
+                      name: tc.function?.name || '',
+                      arguments: tc.function?.arguments || '',
+                    }
+                  } else {
+                    if (tc.function?.name) currentToolCalls[idx].name = tc.function.name
+                    if (tc.function?.arguments) currentToolCalls[idx].arguments += tc.function.arguments
+                  }
+                }
+                setStreamingToolCalls([...currentToolCalls.filter(Boolean)])
               }
 
               if (delta?.content) {
@@ -582,6 +631,17 @@ export function useChat(initialModel = '') {
 
   const isActiveStreaming = isStreaming && streamingChatId === activeChatId
 
+  const addMessage = useCallback((chatId, message) => {
+    setChats(prev => prev.map(c => {
+      if (c.id !== chatId) return c
+      return {
+        ...c,
+        history: [...c.history, { ...message, timestamp: Date.now() }],
+        updatedAt: Date.now(),
+      }
+    }))
+  }, [])
+
   return {
     chats,
     activeChat,
@@ -603,5 +663,6 @@ export function useChat(initialModel = '') {
     stopGeneration,
     clearHistory,
     getContextUsagePercent,
+    addMessage,
   }
 }

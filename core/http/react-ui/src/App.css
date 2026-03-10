@@ -1696,18 +1696,104 @@
   border-color: var(--color-primary-border);
   color: var(--color-primary);
 }
-/* Chat MCP toggle switch */
-.chat-mcp-switch {
+/* Chat MCP dropdown */
+.chat-mcp-dropdown {
+  position: relative;
+  display: inline-block;
+}
+.chat-mcp-dropdown .btn {
   display: flex;
   align-items: center;
-  gap: 6px;
-  cursor: pointer;
-  user-select: none;
+  gap: 5px;
 }
-.chat-mcp-switch-label {
-  font-size: 0.75rem;
-  font-weight: 500;
+.chat-mcp-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: rgba(255,255,255,0.25);
+  font-size: 0.7rem;
+  font-weight: 600;
+  line-height: 1;
+}
+.chat-mcp-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 100;
+  min-width: 240px;
+  max-height: 320px;
+  overflow-y: auto;
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+}
+.chat-mcp-dropdown-loading,
+.chat-mcp-dropdown-empty {
+  padding: var(--spacing-sm) var(--spacing-md);
+  font-size: 0.8125rem;
   color: var(--color-text-secondary);
+}
+.chat-mcp-dropdown-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-xs) var(--spacing-md);
+  border-bottom: 1px solid var(--color-border-divider);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.chat-mcp-select-all {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 0.75rem;
+  color: var(--color-accent);
+  cursor: pointer;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.chat-mcp-select-all:hover {
+  text-decoration: underline;
+}
+.chat-mcp-server-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: var(--spacing-xs) var(--spacing-md);
+  cursor: pointer;
+  transition: background 120ms;
+}
+.chat-mcp-server-item:hover {
+  background: var(--color-bg-hover);
+}
+.chat-mcp-server-item input[type="checkbox"] {
+  flex-shrink: 0;
+}
+.chat-mcp-server-info {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+.chat-mcp-server-name {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.chat-mcp-server-tools {
+  font-size: 0.7rem;
+  color: var(--color-text-tertiary);
 }
 
 /* Chat model info panel */
