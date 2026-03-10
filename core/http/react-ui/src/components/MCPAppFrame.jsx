@@ -1,7 +1,7 @@
 import { useRef, useEffect, useState, useCallback } from 'react'
 import { AppBridge, PostMessageTransport, buildAllowAttribute } from '@modelcontextprotocol/ext-apps/app-bridge'
 
-export default function MCPAppFrame({ toolName, toolInput, toolResult, mcpClient, toolDefinition, appHtml, resourceMeta }) {
+export default function MCPAppFrame({ toolName, toolInput, toolResult, mcpClient, toolDefinition: _toolDefinition, appHtml, resourceMeta }) {
   const iframeRef = useRef(null)
   const bridgeRef = useRef(null)
   const [iframeHeight, setIframeHeight] = useState(200)

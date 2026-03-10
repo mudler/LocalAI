@@ -818,10 +818,11 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 							toolResult = fmt.Sprintf("Error: %v", toolErr)
 						}
 						input.Messages = append(input.Messages, schema.Message{
-							Role:       "tool",
-							Content:    toolResult,
-							ToolCallID: tc.ID,
-							Name:       tc.FunctionCall.Name,
+							Role:          "tool",
+							Content:       toolResult,
+							StringContent: toolResult,
+							ToolCallID:    tc.ID,
+							Name:          tc.FunctionCall.Name,
 						})
 
 						// Stream tool result event to client
@@ -1120,10 +1121,11 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 							toolResult = fmt.Sprintf("Error: %v", toolErr)
 						}
 						input.Messages = append(input.Messages, schema.Message{
-							Role:       "tool",
-							Content:    toolResult,
-							ToolCallID: tc.ID,
-							Name:       tc.FunctionCall.Name,
+							Role:          "tool",
+							Content:       toolResult,
+							StringContent: toolResult,
+							ToolCallID:    tc.ID,
+							Name:          tc.FunctionCall.Name,
 						})
 						mcpCallsExecuted = true
 					}

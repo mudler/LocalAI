@@ -1005,7 +1005,7 @@ func handleBackgroundNonStream(ctx context.Context, store *ResponseStore, respon
 							toolResult = fmt.Sprintf("Error: %v", toolErr)
 						}
 						openAIReq.Messages = append(openAIReq.Messages, schema.Message{
-							Role: "tool", Content: toolResult, ToolCallID: tc.ID, Name: tc.FunctionCall.Name,
+							Role: "tool", Content: toolResult, StringContent: toolResult, ToolCallID: tc.ID, Name: tc.FunctionCall.Name,
 						})
 						allOutputItems = append(allOutputItems, schema.ORItemField{
 							Type: "function_call_output", ID: fmt.Sprintf("fco_%s", uuid.New().String()),
@@ -1290,7 +1290,7 @@ func handleBackgroundStream(ctx context.Context, store *ResponseStore, responseI
 						toolResult = fmt.Sprintf("Error: %v", toolErr)
 					}
 					openAIReq.Messages = append(openAIReq.Messages, schema.Message{
-						Role: "tool", Content: toolResult, ToolCallID: tc.ID, Name: tc.FunctionCall.Name,
+						Role: "tool", Content: toolResult, StringContent: toolResult, ToolCallID: tc.ID, Name: tc.FunctionCall.Name,
 					})
 
 					outputIndex++
@@ -1547,7 +1547,7 @@ func handleOpenResponsesNonStream(c echo.Context, responseID string, createdAt i
 						toolResult = fmt.Sprintf("Error: %v", toolErr)
 					}
 					openAIReq.Messages = append(openAIReq.Messages, schema.Message{
-						Role: "tool", Content: toolResult, ToolCallID: tc.ID, Name: tc.FunctionCall.Name,
+						Role: "tool", Content: toolResult, StringContent: toolResult, ToolCallID: tc.ID, Name: tc.FunctionCall.Name,
 					})
 
 					// Collect function_call + function_call_output items for the response
@@ -2241,7 +2241,7 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 						toolResult = fmt.Sprintf("Error: %v", toolErr)
 					}
 					openAIReq.Messages = append(openAIReq.Messages, schema.Message{
-						Role: "tool", Content: toolResult, ToolCallID: tcID, Name: tc.Name,
+						Role: "tool", Content: toolResult, StringContent: toolResult, ToolCallID: tcID, Name: tc.Name,
 					})
 
 					// Emit function_call_output item

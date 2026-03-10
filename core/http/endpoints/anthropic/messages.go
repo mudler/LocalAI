@@ -299,10 +299,11 @@ func handleAnthropicNonStream(c echo.Context, id string, input *schema.Anthropic
 						toolResult = fmt.Sprintf("Error: %v", toolErr)
 					}
 					openAIReq.Messages = append(openAIReq.Messages, schema.Message{
-						Role:       "tool",
-						Content:    toolResult,
-						ToolCallID: tc.ID,
-						Name:       tc.FunctionCall.Name,
+						Role:          "tool",
+						Content:       toolResult,
+						StringContent: toolResult,
+						ToolCallID:    tc.ID,
+						Name:          tc.FunctionCall.Name,
 					})
 				}
 
@@ -562,10 +563,11 @@ func handleAnthropicStream(c echo.Context, id string, input *schema.AnthropicReq
 						toolResult = fmt.Sprintf("Error: %v", toolErr)
 					}
 					openAIReq.Messages = append(openAIReq.Messages, schema.Message{
-						Role:       "tool",
-						Content:    toolResult,
-						ToolCallID: tc.ID,
-						Name:       tc.FunctionCall.Name,
+						Role:          "tool",
+						Content:       toolResult,
+						StringContent: toolResult,
+						ToolCallID:    tc.ID,
+						Name:          tc.FunctionCall.Name,
 					})
 				}
 
