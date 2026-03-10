@@ -59,11 +59,11 @@
       - use_jinja:true
   files:
     - filename: llama-cpp/models/Qwen_Qwen3.5-0.8B-Q4_K_M.gguf
-      sha256: 7403b7bc6e6a47ab3fd95621de5e9ccd7c849abdcd880dcbe2cb37ce3a08b6a1
       uri: https://huggingface.co/bartowski/Qwen_Qwen3.5-0.8B-GGUF/resolve/main/Qwen_Qwen3.5-0.8B-Q4_K_M.gguf
+      sha256: 9d8472987aed5b36a0d167543a695bcbf349939445ca5382a4245219829f4581
     - filename: llama-cpp/mmproj/mmproj-Qwen_Qwen3.5-0.8B-f16.gguf
-      sha256: 805487880b1b1a1621aada1e86423c57086f8534d208eaa124a3929b758b4a8b
       uri: https://huggingface.co/bartowski/Qwen_Qwen3.5-0.8B-GGUF/resolve/main/mmproj-Qwen_Qwen3.5-0.8B-f16.gguf
+      sha256: 1dc1351c82e41b48edb55fd6ddfa7ca60fb5a16b3d5abf3ce7054880dd022847
 - name: "qwen_qwen3.5-2b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
@@ -96,11 +96,11 @@
       - use_jinja:true
   files:
     - filename: llama-cpp/models/Qwen_Qwen3.5-2B-Q4_K_M.gguf
-      sha256: 1e277e5d06f17a145fc0d6b1c152a0bcc6323ac2f87f1bacdbb85c71c8660e24
       uri: https://huggingface.co/bartowski/Qwen_Qwen3.5-2B-GGUF/resolve/main/Qwen_Qwen3.5-2B-Q4_K_M.gguf
+      sha256: 84aeb7fe40e7b833d71303d7f1b9f9c1991b931b5dbd214e0aa48d56a0af1f85
     - filename: llama-cpp/mmproj/mmproj-Qwen_Qwen3.5-2B-f16.gguf
-      sha256: d08bfcf088bd2df868298508149cb7ed377470f957196396dd210413c140464c
       uri: https://huggingface.co/bartowski/Qwen_Qwen3.5-2B-GGUF/resolve/main/mmproj-Qwen_Qwen3.5-2B-f16.gguf
+      sha256: 044a0ea136cca70711ae16e23b24d754b44eab6f2462d187aee4d7c7a9503d36
 - name: "qwen_qwen3.5-4b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
@@ -131,8 +131,8 @@
       - use_jinja:true
   files:
     - filename: llama-cpp/models/Qwen_Qwen3.5-4B-Q4_K_M.gguf
-      sha256: 2c08bf55fdde0b2e4bd52fa7dc6d49150e83eac997910cf014b7221c172a4b20
       uri: https://huggingface.co/bartowski/Qwen_Qwen3.5-4B-GGUF/resolve/main/Qwen_Qwen3.5-4B-Q4_K_M.gguf
+      sha256: 68c9c6bfeecee13dd3b3c1de7f73b2d86e5feadc100f0f50e5e11fd2388ca66d
     - filename: llama-cpp/mmproj/mmproj-Qwen_Qwen3.5-4B-f16.gguf
       sha256: 659b59dd44b73b1cd34af6cc424669484b06dc80f4340adf8ea84ad776eef813
       uri: https://huggingface.co/bartowski/Qwen_Qwen3.5-4B-GGUF/resolve/main/mmproj-Qwen_Qwen3.5-4B-f16.gguf
@@ -17657,7 +17657,6 @@
     - filename: Melinoe-30B-A3B-Thinking.i1-Q4_K_M.gguf
       sha256: 7b9e8fe00faf7803e440542be01974c05b0dcb8b75e1f1c25638027bfb75dbf3
       uri: huggingface://mradermacher/Melinoe-30B-A3B-Thinking-i1-GGUF/Melinoe-30B-A3B-Thinking.i1-Q4_K_M.gguf
-
 - &ltx23
   name: "ltx-2.3"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
