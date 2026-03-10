@@ -17,7 +17,8 @@
     "marked": "^15.0.7",
     "dompurify": "^3.2.5",
     "@fortawesome/fontawesome-free": "^6.7.2",
-    "@modelcontextprotocol/sdk": "^1.25.1"
+    "@modelcontextprotocol/sdk": "^1.25.1",
+    "@modelcontextprotocol/ext-apps": "^1.2.2"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.5.2",

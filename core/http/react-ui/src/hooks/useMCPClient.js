@@ -2,6 +2,7 @@ import { useState, useRef, useCallback } from 'react'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
 import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js'
+import { getToolUiResourceUri, isToolVisibilityAppOnly } from '@modelcontextprotocol/ext-apps/app-bridge'
 import { API_CONFIG } from '../utils/config'
 
 function buildProxyUrl(targetUrl, useProxy = true) {
@@ -98,6 +99,7 @@ export function useMCPClient() {
     const tools = []
     for (const [, conn] of connectionsRef.current) {
       for (const tool of conn.tools) {
+        if (isToolVisibilityAppOnly(tool)) continue
         tools.push({
           type: 'function',
           function: {
@@ -163,6 +165,51 @@ export function useMCPClient() {
     return result
   }, [])
 
+  const findToolAndConnection = useCallback((toolName) => {
+    const serverId = toolIndexRef.current.get(toolName)
+    if (!serverId) return null
+    const conn = connectionsRef.current.get(serverId)
+    if (!conn) return null
+    const tool = conn.tools.find(t => t.name === toolName)
+    if (!tool) return null
+    return { tool, conn }
+  }, [])
+
+  const hasAppUI = useCallback((toolName) => {
+    const found = findToolAndConnection(toolName)
+    if (!found) return false
+    return !!getToolUiResourceUri(found.tool)
+  }, [findToolAndConnection])
+
+  const getAppResource = useCallback(async (toolName) => {
+    const found = findToolAndConnection(toolName)
+    if (!found) return null
+    const uri = getToolUiResourceUri(found.tool)
+    if (!uri) return null
+    try {
+      const res = await found.conn.client.readResource({ uri })
+      const htmlContent = res.contents?.[0]
+      if (!htmlContent) return null
+      return {
+        html: htmlContent.text || '',
+        meta: found.tool._meta?.ui || {},
+      }
+    } catch (err) {
+      console.warn('Failed to fetch MCP app resource:', err)
+      return null
+    }
+  }, [findToolAndConnection])
+
+  const getClientForTool = useCallback((toolName) => {
+    const found = findToolAndConnection(toolName)
+    return found ? found.conn.client : null
+  }, [findToolAndConnection])
+
+  const getToolDefinition = useCallback((toolName) => {
+    const found = findToolAndConnection(toolName)
+    return found ? found.tool : null
+  }, [findToolAndConnection])
+
   return {
     connect,
     disconnect,
@@ -172,6 +219,10 @@ export function useMCPClient() {
     executeTool,
     connectionStatuses,
     getConnectedTools,
+    hasAppUI,
+    getAppResource,
+    getClientForTool,
+    getToolDefinition,
   }
 }
 

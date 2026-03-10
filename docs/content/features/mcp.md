@@ -547,6 +547,23 @@ Since browsers enforce CORS restrictions, LocalAI provides a built-in proxy at `
 
 The proxy forwards the request method, headers, and body to the target URL and streams the response back with appropriate CORS headers.
 
+### MCP Apps (Interactive Tool UIs)
+
+LocalAI supports the [MCP Apps extension](https://modelcontextprotocol.io/extensions/apps/overview), which allows MCP tools to declare interactive HTML UIs. When a tool has `_meta.ui.resourceUri` in its definition, calling that tool renders the app's HTML inline in the chat as a sandboxed iframe.
+
+**How it works:**
+
+- When the LLM calls a tool with `_meta.ui.resourceUri`, the browser fetches the HTML resource from the MCP server and renders it in an iframe
+- The iframe is sandboxed (`allow-scripts allow-forms`, no `allow-same-origin`) for security
+- The app can call server tools, send messages, and update context via the `AppBridge` protocol (JSON-RPC over `postMessage`)
+- Tools marked as app-only (`_meta.ui.visibility: "app-only"`) are hidden from the LLM and only callable by the app iframe
+- On page reload, apps render statically until the MCP connection is re-established
+
+**Requirements:**
+
+- Only works with **client-side MCP** connections (the browser must be connected to the MCP server)
+- The MCP server must implement the Apps extension (`_meta.ui.resourceUri` on tools, resource serving)
+
 ### Coexistence with Server-Side MCP
 
 Both modes work simultaneously in the same chat:

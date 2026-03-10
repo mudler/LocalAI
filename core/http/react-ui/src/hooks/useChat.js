@@ -632,13 +632,25 @@ export function useChat(initialModel = '') {
             const toolResultMsg = { role: 'tool', tool_call_id: tc.id, content: result }
             loopMessages.push(toolResultMsg)
 
+            // Check for MCP App UI
+            let appUI = null
+            if (options.getToolAppUI) {
+              let parsedArgs
+              try {
+                parsedArgs = typeof tc.function.arguments === 'string'
+                  ? JSON.parse(tc.function.arguments) : tc.function.arguments
+              } catch (_) { parsedArgs = {} }
+              appUI = await options.getToolAppUI(tc.function.name, parsedArgs, result)
+            }
+
             // Show result in UI
             newMessages.push({
               role: 'tool_result',
               content: JSON.stringify({ type: 'tool_result', name: tc.function.name, result }, null, 2),
               expanded: false,
+              appUI,
             })
-            currentToolCalls.push({ type: 'tool_result', name: tc.function.name, result })
+            currentToolCalls.push({ type: 'tool_result', name: tc.function.name, result, appUI })
             setStreamingToolCalls([...currentToolCalls.filter(Boolean)])
           }
 

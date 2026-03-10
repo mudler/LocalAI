@@ -7,6 +7,7 @@ import { extractCodeArtifacts, renderMarkdownWithArtifacts } from '../utils/arti
 import CanvasPanel from '../components/CanvasPanel'
 import { fileToBase64, modelsApi, mcpApi } from '../utils/api'
 import { useMCPClient } from '../hooks/useMCPClient'
+import MCPAppFrame from '../components/MCPAppFrame'
 import { loadClientMCPServers, saveClientMCPServers, addClientMCPServer, removeClientMCPServer } from '../utils/mcpClientStorage'
 
 function relativeTime(ts) {
@@ -94,7 +95,7 @@ function ToolParams({ entries, fallback }) {
   )
 }
 
-function ActivityGroup({ items, updateChatSettings, activeChat }) {
+function ActivityGroup({ items, updateChatSettings, activeChat, getClientForTool }) {
   const [expanded, setExpanded] = useState(false)
   const contentRef = useRef(null)
 
@@ -104,7 +105,11 @@ function ActivityGroup({ items, updateChatSettings, activeChat }) {
 
   if (!items || items.length === 0) return null
 
-  const labels = items.map(item => {
+  // Separate out tool_result items that have appUI — they render outside the collapsed group
+  const appUIItems = items.filter(item => item.role === 'tool_result' && item.appUI)
+  const regularItems = items.filter(item => !(item.role === 'tool_result' && item.appUI))
+
+  const labels = regularItems.map(item => {
     if (item.role === 'thinking' || item.role === 'reasoning') return 'Thought'
     if (item.role === 'tool_call') {
       try { return JSON.parse(item.content)?.name || 'Tool' } catch (_e) { return 'Tool' }
@@ -117,40 +122,63 @@ function ActivityGroup({ items, updateChatSettings, activeChat }) {
   const summary = labels.join(' → ')
 
   return (
-    <div className="chat-message chat-message-assistant">
-      <div className="chat-message-avatar">
-        <i className="fas fa-cogs" />
-      </div>
-      <div className="chat-activity-group">
-        <button className="chat-activity-toggle" onClick={() => setExpanded(!expanded)}>
-          <span className="chat-activity-summary">{summary}</span>
-          <i className={`fas fa-chevron-${expanded ? 'up' : 'down'}`} />
-        </button>
-        {expanded && (
-          <div className="chat-activity-details" ref={contentRef}>
-            {items.map((item, idx) => {
-              if (item.role === 'thinking' || item.role === 'reasoning') {
-                return (
-                  <div key={idx} className="chat-activity-item chat-activity-thinking">
-                    <span className="chat-activity-item-label">Thought</span>
-                    <div className="chat-activity-item-content"
-                      dangerouslySetInnerHTML={{ __html: renderMarkdown(item.content || '') }} />
-                  </div>
-                )
-              }
-              const isCall = item.role === 'tool_call'
-              const parsed = formatToolContent(item.content)
-              return (
-                <div key={idx} className={`chat-activity-item ${isCall ? 'chat-activity-tool-call' : 'chat-activity-tool-result'}`}>
-                  <span className="chat-activity-item-label">{labels[idx]}</span>
-                  <ToolParams entries={parsed.entries} fallback={parsed.fallback} />
-                </div>
-              )
-            })}
+    <>
+      {regularItems.length > 0 && (
+        <div className="chat-message chat-message-assistant">
+          <div className="chat-message-avatar">
+            <i className="fas fa-cogs" />
           </div>
-        )}
-      </div>
-    </div>
+          <div className="chat-activity-group">
+            <button className="chat-activity-toggle" onClick={() => setExpanded(!expanded)}>
+              <span className="chat-activity-summary">{summary}</span>
+              <i className={`fas fa-chevron-${expanded ? 'up' : 'down'}`} />
+            </button>
+            {expanded && (
+              <div className="chat-activity-details" ref={contentRef}>
+                {regularItems.map((item, idx) => {
+                  if (item.role === 'thinking' || item.role === 'reasoning') {
+                    return (
+                      <div key={idx} className="chat-activity-item chat-activity-thinking">
+                        <span className="chat-activity-item-label">Thought</span>
+                        <div className="chat-activity-item-content"
+                          dangerouslySetInnerHTML={{ __html: renderMarkdown(item.content || '') }} />
+                      </div>
+                    )
+                  }
+                  const isCall = item.role === 'tool_call'
+                  const parsed = formatToolContent(item.content)
+                  return (
+                    <div key={idx} className={`chat-activity-item ${isCall ? 'chat-activity-tool-call' : 'chat-activity-tool-result'}`}>
+                      <span className="chat-activity-item-label">{labels[idx]}</span>
+                      <ToolParams entries={parsed.entries} fallback={parsed.fallback} />
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+      {appUIItems.map((item, idx) => (
+        <div key={`appui-${idx}`} className="chat-message chat-message-assistant">
+          <div className="chat-message-avatar">
+            <i className="fas fa-puzzle-piece" />
+          </div>
+          <div className="chat-message-bubble">
+            <span className="chat-message-model">{item.appUI.toolName}</span>
+            <MCPAppFrame
+              toolName={item.appUI.toolName}
+              toolInput={item.appUI.toolInput}
+              toolResult={item.appUI.toolResult}
+              mcpClient={getClientForTool?.(item.appUI.toolName) || null}
+              toolDefinition={item.appUI.toolDefinition}
+              appHtml={item.appUI.html}
+              resourceMeta={item.appUI.meta}
+            />
+          </div>
+        </div>
+      ))}
+    </>
   )
 }
 
@@ -299,6 +327,7 @@ export default function Chat() {
   const {
     connect: mcpConnect, disconnect: mcpDisconnect, disconnectAll: mcpDisconnectAll,
     getToolsForLLM, isClientTool, executeTool, connectionStatuses, getConnectedTools,
+    hasAppUI, getAppResource, getClientForTool, getToolDefinition,
   } = useMCPClient()
   const messagesEndRef = useRef(null)
   const fileInputRef = useRef(null)
@@ -669,9 +698,22 @@ export default function Chat() {
       isClientTool: (name) => isClientTool(name),
       executeTool: (name, args) => executeTool(name, args),
       maxToolTurns: 10,
+      getToolAppUI: async (toolName, toolInput, toolResultText) => {
+        if (!hasAppUI(toolName)) return null
+        const resource = await getAppResource(toolName)
+        if (!resource) return null
+        return {
+          html: resource.html,
+          meta: resource.meta,
+          toolName,
+          toolInput,
+          toolDefinition: getToolDefinition(toolName),
+          toolResult: { content: [{ type: 'text', text: toolResultText }] },
+        }
+      },
     } : {}
     await sendMessage(msg, files, mcpOptions)
-  }, [input, files, activeChat, sendMessage, addToast, getToolsForLLM, isClientTool, executeTool])
+  }, [input, files, activeChat, sendMessage, addToast, getToolsForLLM, isClientTool, executeTool, hasAppUI, getAppResource, getToolDefinition])
 
   const handleRegenerate = useCallback(async () => {
     if (!activeChat || isStreaming) return
@@ -1314,7 +1356,8 @@ export default function Chat() {
               if (activityBuf.length > 0) {
                 elements.push(
                   <ActivityGroup key={`ag-${key}`} items={[...activityBuf]}
-                    updateChatSettings={updateChatSettings} activeChat={activeChat} />
+                    updateChatSettings={updateChatSettings} activeChat={activeChat}
+                    getClientForTool={getClientForTool} />
                 )
                 activityBuf = []
               }
