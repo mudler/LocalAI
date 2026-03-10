@@ -1,7 +1,7 @@
-package http_test
+package utils_test
 
 import (
-	. "github.com/mudler/LocalAI/core/http"
+	. "github.com/mudler/LocalAI/core/http/utils"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
