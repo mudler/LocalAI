@@ -294,6 +294,7 @@ export default function Chat() {
   const [addMCPDialog, setAddMCPDialog] = useState(false)
   const [newMCPUrl, setNewMCPUrl] = useState('')
   const [newMCPName, setNewMCPName] = useState('')
+  const [newMCPAuthToken, setNewMCPAuthToken] = useState('')
   const [newMCPUseProxy, setNewMCPUseProxy] = useState(true)
   const {
     connect: mcpConnect, disconnect: mcpDisconnect, disconnectAll: mcpDisconnectAll,
@@ -510,16 +511,21 @@ export default function Chat() {
 
   const handleAddClientMCP = useCallback(() => {
     if (!newMCPUrl.trim()) return
-    const server = addClientMCPServer({ name: newMCPName.trim() || undefined, url: newMCPUrl.trim(), useProxy: newMCPUseProxy })
+    const headers = {}
+    if (newMCPAuthToken.trim()) {
+      headers['Authorization'] = `Bearer ${newMCPAuthToken.trim()}`
+    }
+    const server = addClientMCPServer({ name: newMCPName.trim() || undefined, url: newMCPUrl.trim(), headers, useProxy: newMCPUseProxy })
     setClientMCPServers(loadClientMCPServers())
     setNewMCPUrl('')
     setNewMCPName('')
+    setNewMCPAuthToken('')
     setNewMCPUseProxy(true)
     setAddMCPDialog(false)
     // Auto-activate for current chat
     const current = activeChat?.clientMCPServers || []
     if (activeChat) updateChatSettings(activeChat.id, { clientMCPServers: [...current, server.id] })
-  }, [newMCPUrl, newMCPName, newMCPUseProxy, activeChat, updateChatSettings])
+  }, [newMCPUrl, newMCPName, newMCPAuthToken, newMCPUseProxy, activeChat, updateChatSettings])
 
   const handleRemoveClientMCP = useCallback(async (id) => {
     await mcpDisconnect(id)
@@ -1070,6 +1076,14 @@ export default function Chat() {
                       onChange={e => setNewMCPName(e.target.value)}
                       style={{ width: '100%', marginBottom: '4px' }}
                     />
+                    <input
+                      type="password"
+                      className="input input-sm"
+                      placeholder="Auth token (optional)"
+                      value={newMCPAuthToken}
+                      onChange={e => setNewMCPAuthToken(e.target.value)}
+                      style={{ width: '100%', marginBottom: '4px' }}
+                    />
                     <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', marginBottom: '6px' }}>
                       <input type="checkbox" checked={newMCPUseProxy} onChange={e => setNewMCPUseProxy(e.target.checked)} />
                       Use CORS proxy
@@ -1098,6 +1112,7 @@ export default function Chat() {
                           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                             <span className={`chat-client-mcp-status chat-client-mcp-status-${status}`} />
                             <span className="chat-mcp-server-name">{server.name}</span>
+                            {server.headers?.Authorization && <i className="fas fa-lock" style={{ fontSize: '0.65rem', opacity: 0.5 }} title="Authenticated" />}
                           </div>
                           <span className="chat-mcp-server-tools">
                             {status === 'connecting' ? 'Connecting...' :
