@@ -1,9 +1,12 @@
 package openai
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
+	"errors"
+	"net"
 	"time"
 
 	"github.com/google/uuid"
@@ -14,6 +17,10 @@ import (
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/pkg/functions"
 	reason "github.com/mudler/LocalAI/pkg/reasoning"
+
+	"github.com/mudler/cogito"
+	"github.com/mudler/cogito/clients"
+	mcpTools "github.com/mudler/LocalAI/core/http/endpoints/mcp"
 
 	"github.com/mudler/LocalAI/core/templates"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
@@ -31,7 +38,125 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 	var id, textContentToReturn string
 	var created int
 
-	process := func(s string, req *schema.OpenAIRequest, config *config.ModelConfig, loader *model.ModelLoader, responses chan schema.OpenAIResponse, extraUsage bool) error {
+	// MCP Stdio Injection: Check if MCP configuration exists and execute tools via cogito
+	mcpExecute := func(input *schema.OpenAIRequest, config *config.ModelConfig, responses chan schema.OpenAIResponse, extraUsage bool) error {
+		// Check if MCP servers are configured
+		if config.MCP.Servers == "" && config.MCP.Stdio == "" {
+			return errors.New("MCP not configured")
+		}
+
+		// Get MCP config from model config
+		remote, stdio, err := config.MCP.MCPConfigFromYAML()
+		if err != nil {
+			return fmt.Errorf("failed to get MCP config: %w", err)
+		}
+
+		// Check if we have tools in cache, or we have to have an initial connection
+		sessions, err := mcpTools.SessionsFromMCPConfig(config.Name, remote, stdio)
+		if err != nil {
+			return fmt.Errorf("failed to get MCP sessions: %w", err)
+		}
+
+		if len(sessions) == 0 {
+			return errors.New("no working MCP servers found")
+		}
+
+		// Build fragment from messages
+		fragment := cogito.NewEmptyFragment()
+		for _, message := range input.Messages {
+			fragment = fragment.AddMessage(cogito.MessageRole(message.Role), message.StringContent)
+		}
+
+		_, port, err := net.SplitHostPort(startupOptions.APIAddress)
+		if err != nil {
+			return err
+		}
+		apiKey := ""
+		if len(startupOptions.ApiKeys) > 0 {
+			apiKey = startupOptions.ApiKeys[0]
+		}
+
+		ctx := startupOptions.Context
+		if ctx == nil {
+			ctx = context.Background()
+		}
+
+		// Build cogito options
+		defaultLLM := clients.NewLocalAILLM(config.Name, apiKey, "http://127.0.0.1:"+port)
+		cogitoOpts := config.BuildCogitoOptions()
+		cogitoOpts = append(cogitoOpts, cogito.WithMCPs(sessions...))
+		cogitoOpts = append(cogitoOpts, cogito.WithContext(ctx))
+		cogitoOpts = append(cogitoOpts, cogito.WithStatusCallback(func(s string) {
+			xlog.Debug("[model agent] Status", "model", config.Name, "status", s)
+		}))
+		cogitoOpts = append(cogitoOpts, cogito.WithReasoningCallback(func(s string) {
+			xlog.Debug("[model agent] Reasoning", "model", config.Name, "reasoning", s)
+		}))
+		cogitoOpts = append(cogitoOpts, cogito.WithToolCallBack(func(t *cogito.ToolChoice, state *cogito.SessionState) cogito.ToolCallDecision {
+			xlog.Debug("[model agent] Tool call", "model", config.Name, "tool", t.Name, "reasoning", t.Reasoning, "arguments", t.Arguments)
+			return cogito.ToolCallDecision{
+				Approved: true,
+			}
+		}))
+		cogitoOpts = append(cogitoOpts, cogito.WithToolCallResultCallback(func(t cogito.ToolStatus) {
+			xlog.Debug("[model agent] Tool call result", "model", config.Name, "tool", t.Name, "result", t.Result, "tool_arguments", t.ToolArguments)
+		}))
+
+		toStream := input.Stream
+
+		if !toStream {
+			// Non-streaming mode
+			f, err := cogito.ExecuteTools(defaultLLM, fragment, cogitoOpts...)
+			if err != nil && !errors.Is(err, cogito.ErrNoToolSelected) {
+				return err
+			}
+
+			content := f.LastMessage().Content
+			choice := schema.Choice{
+				Message: &schema.Message{Role: "assistant", Content: &content},
+			}
+			responses <- schema.OpenAIResponse{
+				ID:      id,
+				Created: created,
+				Model:   input.Model,
+				Choices: []schema.Choice{choice},
+				Object:  "chat.completion",
+			}
+			close(responses)
+			return nil
+		}
+
+		// Streaming mode: execute and emit final response
+		f, err := cogito.ExecuteTools(defaultLLM, fragment, cogitoOpts...)
+		if err != nil && !errors.Is(err, cogito.ErrNoToolSelected) {
+			return err
+		}
+
+		content := f.LastMessage().Content
+		choice := schema.Choice{
+			Delta: &schema.Message{Role: "assistant", Content: &content},
+		}
+		responses <- schema.OpenAIResponse{
+			ID:      id,
+			Created: created,
+			Model:   input.Model,
+			Choices: []schema.Choice{choice},
+			Object:  "chat.completion.chunk",
+		}
+		close(responses)
+		return nil
+	}
+
+process := func(s string, req *schema.OpenAIRequest, config *config.ModelConfig, loader *model.ModelLoader, responses chan schema.OpenAIResponse, extraUsage bool) error {
+		// Try MCP execution first if configured
+		if config.MCP.Servers != "" || config.MCP.Stdio != "" {
+			if err := mcpExecute(req, config, responses, extraUsage); err == nil {
+				return nil // MCP execution succeeded
+			}
+			// If MCP fails, fall back to standard function calling
+			xlog.Debug("MCP execution failed, falling back to standard function calling", "error", err)
+		}
+
 		initialMessage := schema.OpenAIResponse{
 			ID:      id,
 			Created: created,
