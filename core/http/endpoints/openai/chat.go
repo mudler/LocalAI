@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"net"
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
@@ -19,6 +20,9 @@ import (
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"github.com/mudler/LocalAI/pkg/model"
 
+	"github.com/mudler/cogito"
+	"github.com/mudler/cogito/clients"
+	mcpTools "github.com/mudler/LocalAI/core/http/endpoints/mcp"
 	"github.com/mudler/xlog"
 )
 
@@ -401,6 +405,17 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 
 		xlog.Debug("Chat endpoint configuration read", "config", config)
 
+
+		// Check for MCP configuration and handle if present
+		mcpHandled, err := handleMCPToolExecution(c, input, config, startupOptions)
+		if err != nil {
+			xlog.Error("[MCP] Failed to handle MCP request", "error", err)
+			return err
+		}
+		if mcpHandled {
+			// MCP handled the request, return early
+			return nil
+		}
 		funcs := input.Functions
 		shouldUseFn := len(input.Functions) > 0 && config.ShouldUseFunctions()
 		strictMode := false
@@ -866,6 +881,132 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 	}
 }
 
+// handleMCPToolExecution handles MCP tool execution using cogito when MCP config is set
+// It returns true if MCP was processed, false otherwise
+
+// handleMCPToolExecution handles MCP tool execution using cogito when MCP config is set
+// It returns true if MCP was processed (and response sent), false otherwise
+func handleMCPToolExecution(
+	ctx echo.Context,
+	req *schema.OpenAIRequest,
+	config *config.ModelConfig,
+	appConfig *config.ApplicationConfig,
+) (bool, error) {
+	// Check if MCP is configured
+	if config.MCP.Stdio.Servers == nil || len(config.MCP.Stdio.Servers) == 0 {
+		if config.MCP.Servers.Servers == nil || len(config.MCP.Servers.Servers) == 0 {
+			return false, nil
+		}
+	}
+
+	xlog.Debug("[MCP] MCP configuration detected, initializing sessions", "model", config.Name)
+
+	// Get MCP sessions from config
+	sessions, err := mcpTools.SessionsFromMCPConfig(config.Name, config.MCP.Servers, config.MCP.Stdio)
+	if err != nil {
+		xlog.Error("[MCP] Failed to create MCP sessions", "error", err)
+		// Fall back to standard processing
+		return false, nil
+	}
+
+	if len(sessions) == 0 {
+		xlog.Warn("[MCP] No working MCP servers found, falling back to standard function calling")
+		return false, nil
+	}
+
+	xlog.Debug("[MCP] Connected to MCP servers", "count", len(sessions))
+
+	// Get API address and key for cogito LLM client
+	apiHost, apiPort, err := net.SplitHostPort(appConfig.APIAddress)
+	if err != nil {
+		xlog.Error("[MCP] Failed to parse API address", "error", err)
+		return false, nil
+	}
+	apiKey := ""
+	if len(appConfig.ApiKeys) > 0 {
+		apiKey = appConfig.ApiKeys[0]
+	}
+
+	// Build fragment from chat messages
+	fragment := cogito.NewEmptyFragment()
+	for _, message := range req.Messages {
+		fragment = fragment.AddMessage(cogito.MessageRole(message.Role), message.StringContent)
+	}
+
+	// Create OpenAI LLM client for cogito
+	llm := clients.NewLocalAILLM(config.Name, apiKey, "http://"+apiHost+":"+apiPort)
+
+	// Build cogito options
+	cogitoOpts := config.BuildCogitoOptions()
+	cogitoOpts = append(cogitoOpts,
+		cogito.WithContext(ctx.Request().Context()),
+		cogito.WithMCPs(sessions...),
+		cogito.WithStatusCallback(func(s string) {
+			xlog.Debug("[MCP Chat] Status", "model", config.Name, "status", s)
+		}),
+		cogito.WithReasoningCallback(func(s string) {
+			xlog.Debug("[MCP Chat] Reasoning", "model", config.Name, "reasoning", s)
+		}),
+		cogito.WithToolCallBack(func(t *cogito.ToolChoice, state *cogito.SessionState) cogito.ToolCallDecision {
+			xlog.Debug("[MCP Chat] Tool call", "model", config.Name, "tool", t.Name, "reasoning", t.Reasoning, "arguments", t.Arguments)
+			return cogito.ToolCallDecision{Approved: true}
+		}),
+		cogito.WithToolCallResultCallback(func(t cogito.ToolStatus) {
+			xlog.Debug("[MCP Chat] Tool result", "model", config.Name, "tool", t.Name, "result", t.Result)
+		}),
+	)
+
+	// Execute tools via cogito
+	resultFragment, err := cogito.ExecuteTools(llm, fragment, cogitoOpts...)
+	if err != nil {
+		if err == cogito.ErrNoToolSelected {
+			// No tools were selected, fall back to standard processing
+			xlog.Debug("[MCP] No tools selected, falling back to standard function calling")
+			return false, nil
+		}
+		xlog.Error("[MCP] Tool execution failed", "error", err)
+		// Fall back to standard processing
+		return false, nil
+	}
+
+	// Get the assistant's response from the fragment
+	lastMsg := resultFragment.LastMessage()
+	if lastMsg == nil || lastMsg.Content == "" {
+		xlog.Debug("[MCP] No message content in fragment, falling back to standard function calling")
+		return false, nil
+	}
+
+	xlog.Debug("[MCP] MCP processing complete, response generated", "model", config.Name, "content_length", len(lastMsg.Content))
+
+	// Build response with the assistant's message
+	content := lastMsg.Content
+	stopReason := FinishReasonStop
+	choice := schema.Choice{
+		FinishReason: &stopReason,
+		Message: &schema.Message{
+			Role:    "assistant",
+			Content: &content,
+		},
+	}
+
+	// Include reasoning if present
+	if lastMsg.Reasoning != "" {
+		choice.Message.Reasoning = &lastMsg.Reasoning
+	}
+
+	resp := &schema.OpenAIResponse{
+		ID:      uuid.New().String(),
+		Created: int(time.Now().Unix()),
+		Model:   req.Model,
+		Choices: []schema.Choice{choice},
+		Object:  "chat.completion",
+	}
+
+	respData, _ := json.Marshal(resp)
+	xlog.Debug("[MCP] Response", "response", string(respData))
+
+	return ctx.JSON(200, resp) == nil, nil
+}
 func handleQuestion(config *config.ModelConfig, funcResults []functions.FuncCallResults, result, prompt string) (string, error) {
 
 	if len(funcResults) == 0 && result != "" {
