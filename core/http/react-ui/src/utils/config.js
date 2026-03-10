@@ -83,5 +83,6 @@ export const API_CONFIG = {
     backendsInstalled: '/backends',
     version: '/version',
     system: '/system',
+    corsProxy: '/api/cors-proxy',
   },
 }

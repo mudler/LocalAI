@@ -53,6 +53,7 @@ function saveChats(chats, activeChatId) {
         systemPrompt: chat.systemPrompt,
         mcpMode: chat.mcpMode,
         mcpServers: chat.mcpServers,
+        clientMCPServers: chat.clientMCPServers,
         temperature: chat.temperature,
         topP: chat.topP,
         topK: chat.topK,
@@ -82,6 +83,7 @@ function createNewChat(model = '', systemPrompt = '', mcpMode = false) {
     mcpMode,
     mcpServers: [],
     mcpResources: [],
+    clientMCPServers: [],
     temperature: null,
     topP: null,
     topK: null,
@@ -273,6 +275,11 @@ export function useChat(initialModel = '') {
       requestBody.metadata.mcp_resources = activeChat.mcpResources.join(',')
     }
 
+    // Client-side MCP: inject tools into request body
+    if (options.clientMCPTools && options.clientMCPTools.length > 0) {
+      requestBody.tools = [...(requestBody.tools || []), ...options.clientMCPTools]
+    }
+
     // Use MCP endpoint only for legacy mcpMode without specific servers selected
     // (the MCP endpoint auto-enables all servers)
     const endpoint = (activeChat.mcpMode && !hasMcpServers)
@@ -425,153 +432,238 @@ export function useChat(initialModel = '') {
         }
       }
     } else {
-      // Regular SSE streaming
-      let rawContent = ''
-      let reasoningContent = ''
-      let hasReasoningFromAPI = false
-      let insideThinkTag = false
-      let currentToolCalls = [] // Track MCP tool call deltas
+      // Regular SSE streaming with client-side agentic loop support
+      const maxToolTurns = options.maxToolTurns || 10
+      let turnCount = 0
+      let loopMessages = [...messages]
+      let loopBody = { ...requestBody }
 
-      try {
-        const response = await fetch(endpoint, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(requestBody),
-          signal: controller.signal,
-        })
+      // Outer loop: re-sends when client-side tool calls are detected
+      let continueLoop = true
+      while (continueLoop) {
+        continueLoop = false
 
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`)
-        }
+        let rawContent = ''
+        let reasoningContent = ''
+        let hasReasoningFromAPI = false
+        let insideThinkTag = false
+        let currentToolCalls = []
+        let finishReason = null
+        let fullToolCalls = [] // Tool calls with id for agentic loop
 
-        const reader = response.body.getReader()
-        const decoder = new TextDecoder()
-        let buffer = ''
+        try {
+          const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(loopBody),
+            signal: controller.signal,
+          })
 
-        while (true) {
-          const { done, value } = await reader.read()
-          if (done) break
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`)
+          }
 
-          buffer += decoder.decode(value, { stream: true })
-          const lines = buffer.split('\n')
-          buffer = lines.pop() || ''
+          const reader = response.body.getReader()
+          const decoder = new TextDecoder()
+          let buffer = ''
 
-          for (const line of lines) {
-            const trimmed = line.trim()
-            if (!trimmed || !trimmed.startsWith('data: ')) continue
-            const data = trimmed.slice(6)
-            if (data === '[DONE]') continue
+          while (true) {
+            const { done, value } = await reader.read()
+            if (done) break
 
-            try {
-              const parsed = JSON.parse(data)
+            buffer += decoder.decode(value, { stream: true })
+            const lines = buffer.split('\n')
+            buffer = lines.pop() || ''
 
-              // Handle MCP tool result events
-              if (parsed?.type === 'mcp_tool_result') {
-                currentToolCalls.push({
-                  type: 'tool_result',
-                  name: parsed.name || 'tool',
-                  result: parsed.result || '',
-                })
-                setStreamingToolCalls([...currentToolCalls.filter(Boolean)])
-                continue
-              }
+            for (const line of lines) {
+              const trimmed = line.trim()
+              if (!trimmed || !trimmed.startsWith('data: ')) continue
+              const data = trimmed.slice(6)
+              if (data === '[DONE]') continue
 
-              const delta = parsed?.choices?.[0]?.delta
+              try {
+                const parsed = JSON.parse(data)
 
-              // Handle reasoning field from API
-              if (delta?.reasoning) {
-                hasReasoningFromAPI = true
-                reasoningContent += delta.reasoning
-                tokenCountRef.current++
-                setStreamingReasoning(reasoningContent)
-                updateTps()
-              }
-
-              // Handle tool call deltas from MCP streaming
-              if (delta?.tool_calls) {
-                for (const tc of delta.tool_calls) {
-                  const idx = tc.index ?? 0
-                  if (!currentToolCalls[idx]) {
-                    currentToolCalls[idx] = {
-                      type: 'tool_call',
-                      name: tc.function?.name || '',
-                      arguments: tc.function?.arguments || '',
-                    }
-                  } else {
-                    if (tc.function?.name) currentToolCalls[idx].name = tc.function.name
-                    if (tc.function?.arguments) currentToolCalls[idx].arguments += tc.function.arguments
-                  }
+                // Handle MCP tool result events
+                if (parsed?.type === 'mcp_tool_result') {
+                  currentToolCalls.push({
+                    type: 'tool_result',
+                    name: parsed.name || 'tool',
+                    result: parsed.result || '',
+                  })
+                  setStreamingToolCalls([...currentToolCalls.filter(Boolean)])
+                  continue
                 }
-                setStreamingToolCalls([...currentToolCalls.filter(Boolean)])
-              }
 
-              if (delta?.content) {
-                rawContent += delta.content
-                tokenCountRef.current++
+                const choice = parsed?.choices?.[0]
+                const delta = choice?.delta
 
-                if (!hasReasoningFromAPI) {
-                  // Check thinking tags
-                  if (openThinkTagRegex.test(rawContent) && !closeThinkTagRegex.test(rawContent)) {
-                    insideThinkTag = true
-                  }
-                  if (insideThinkTag && closeThinkTagRegex.test(rawContent)) {
-                    insideThinkTag = false
-                  }
+                // Track finish_reason
+                if (choice?.finish_reason) {
+                  finishReason = choice.finish_reason
+                }
 
-                  const { regularContent, thinkingContent } = extractThinking(rawContent)
-                  if (thinkingContent) {
-                    reasoningContent = thinkingContent
-                  }
+                // Handle reasoning field from API
+                if (delta?.reasoning) {
+                  hasReasoningFromAPI = true
+                  reasoningContent += delta.reasoning
+                  tokenCountRef.current++
+                  setStreamingReasoning(reasoningContent)
+                  updateTps()
+                }
 
-                  if (insideThinkTag) {
-                    const lastOpen = Math.max(rawContent.lastIndexOf('<thinking>'), rawContent.lastIndexOf('<think>'))
-                    if (lastOpen >= 0) {
-                      const partial = rawContent.slice(lastOpen).replace(/<thinking>|<think>/, '')
-                      setStreamingReasoning(partial)
-                      // Only show content before the unclosed think tag (with prior complete pairs removed)
-                      const beforeThink = rawContent.slice(0, lastOpen)
-                      const { regularContent: contentBeforeThink } = extractThinking(beforeThink)
-                      setStreamingContent(contentBeforeThink)
+                // Handle tool call deltas
+                if (delta?.tool_calls) {
+                  for (const tc of delta.tool_calls) {
+                    const idx = tc.index ?? 0
+                    if (!currentToolCalls[idx]) {
+                      currentToolCalls[idx] = {
+                        type: 'tool_call',
+                        name: tc.function?.name || '',
+                        arguments: tc.function?.arguments || '',
+                      }
+                      fullToolCalls[idx] = {
+                        id: tc.id || `call_${idx}`,
+                        type: 'function',
+                        function: { name: tc.function?.name || '', arguments: tc.function?.arguments || '' },
+                      }
                     } else {
+                      if (tc.function?.name) {
+                        currentToolCalls[idx].name = tc.function.name
+                        fullToolCalls[idx].function.name = tc.function.name
+                      }
+                      if (tc.function?.arguments) {
+                        currentToolCalls[idx].arguments += tc.function.arguments
+                        fullToolCalls[idx].function.arguments += tc.function.arguments
+                      }
+                      if (tc.id) fullToolCalls[idx].id = tc.id
+                    }
+                  }
+                  setStreamingToolCalls([...currentToolCalls.filter(Boolean)])
+                }
+
+                if (delta?.content) {
+                  rawContent += delta.content
+                  tokenCountRef.current++
+
+                  if (!hasReasoningFromAPI) {
+                    if (openThinkTagRegex.test(rawContent) && !closeThinkTagRegex.test(rawContent)) {
+                      insideThinkTag = true
+                    }
+                    if (insideThinkTag && closeThinkTagRegex.test(rawContent)) {
+                      insideThinkTag = false
+                    }
+
+                    const { regularContent, thinkingContent } = extractThinking(rawContent)
+                    if (thinkingContent) {
+                      reasoningContent = thinkingContent
+                    }
+
+                    if (insideThinkTag) {
+                      const lastOpen = Math.max(rawContent.lastIndexOf('<thinking>'), rawContent.lastIndexOf('<think>'))
+                      if (lastOpen >= 0) {
+                        const partial = rawContent.slice(lastOpen).replace(/<thinking>|<think>/, '')
+                        setStreamingReasoning(partial)
+                        const beforeThink = rawContent.slice(0, lastOpen)
+                        const { regularContent: contentBeforeThink } = extractThinking(beforeThink)
+                        setStreamingContent(contentBeforeThink)
+                      } else {
+                        setStreamingContent(regularContent)
+                      }
+                    } else {
+                      setStreamingReasoning(reasoningContent)
                       setStreamingContent(regularContent)
                     }
                   } else {
-                    setStreamingReasoning(reasoningContent)
-                    setStreamingContent(regularContent)
+                    setStreamingContent(rawContent)
                   }
-                } else {
-                  setStreamingContent(rawContent)
-                }
 
-                updateTps()
+                  updateTps()
+                }
+                if (parsed?.usage) {
+                  usage = parsed.usage
+                }
+              } catch (_e) {
+                // skip malformed JSON
               }
-              if (parsed?.usage) {
-                usage = parsed.usage
-              }
-            } catch (_e) {
-              // skip malformed JSON
             }
           }
+        } catch (err) {
+          if (err.name !== 'AbortError') {
+            rawContent += `\n\nError: ${err.message}`
+          }
         }
-      } catch (err) {
-        if (err.name !== 'AbortError') {
-          rawContent += `\n\nError: ${err.message}`
+
+        // Client-side agentic loop: check for client tool calls
+        const validToolCalls = fullToolCalls.filter(Boolean)
+        const hasClientToolCalls = (
+          (finishReason === 'tool_calls' || finishReason === 'stop' && validToolCalls.length > 0) &&
+          validToolCalls.length > 0 &&
+          options.isClientTool &&
+          options.executeTool &&
+          turnCount < maxToolTurns
+        )
+
+        const clientCalls = hasClientToolCalls
+          ? validToolCalls.filter(tc => options.isClientTool(tc.function?.name))
+          : []
+
+        if (clientCalls.length > 0) {
+          // Add tool calls to streaming display
+          for (const tc of clientCalls) {
+            newMessages.push({
+              role: 'tool_call',
+              content: JSON.stringify({ type: 'tool_call', name: tc.function.name, arguments: tc.function.arguments }, null, 2),
+              expanded: false,
+            })
+          }
+
+          // Build assistant message with tool_calls for conversation
+          const assistantMsg = {
+            role: 'assistant',
+            content: rawContent || null,
+            tool_calls: validToolCalls,
+          }
+          loopMessages.push(assistantMsg)
+
+          // Execute each client-side tool
+          for (const tc of clientCalls) {
+            const result = await options.executeTool(tc.function.name, tc.function.arguments)
+            const toolResultMsg = { role: 'tool', tool_call_id: tc.id, content: result }
+            loopMessages.push(toolResultMsg)
+
+            // Show result in UI
+            newMessages.push({
+              role: 'tool_result',
+              content: JSON.stringify({ type: 'tool_result', name: tc.function.name, result }, null, 2),
+              expanded: false,
+            })
+            currentToolCalls.push({ type: 'tool_result', name: tc.function.name, result })
+            setStreamingToolCalls([...currentToolCalls.filter(Boolean)])
+          }
+
+          // Re-send with updated messages
+          loopBody = { ...requestBody, messages: loopMessages, stream: true }
+          setStreamingContent('')
+          turnCount++
+          continueLoop = true
+          continue
         }
-      }
 
-      // Determine final content
-      let finalContent = rawContent
-      if (!hasReasoningFromAPI) {
-        const { regularContent, thinkingContent } = extractThinking(rawContent)
-        finalContent = regularContent
-        if (thinkingContent && !reasoningContent) reasoningContent = thinkingContent
-      }
+        // No more client tool calls — finalize
+        let finalContent = rawContent
+        if (!hasReasoningFromAPI) {
+          const { regularContent, thinkingContent } = extractThinking(rawContent)
+          finalContent = regularContent
+          if (thinkingContent && !reasoningContent) reasoningContent = thinkingContent
+        }
 
-      if (reasoningContent) {
-        newMessages.push({ role: 'thinking', content: reasoningContent, expanded: true })
-      }
-      if (finalContent) {
-        newMessages.push({ role: 'assistant', content: finalContent })
+        if (reasoningContent) {
+          newMessages.push({ role: 'thinking', content: reasoningContent, expanded: true })
+        }
+        if (finalContent) {
+          newMessages.push({ role: 'assistant', content: finalContent })
+        }
       }
     }
 

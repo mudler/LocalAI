@@ -6,6 +6,8 @@ import { renderMarkdown, highlightAll } from '../utils/markdown'
 import { extractCodeArtifacts, renderMarkdownWithArtifacts } from '../utils/artifacts'
 import CanvasPanel from '../components/CanvasPanel'
 import { fileToBase64, modelsApi, mcpApi } from '../utils/api'
+import { useMCPClient } from '../hooks/useMCPClient'
+import { loadClientMCPServers, saveClientMCPServers, addClientMCPServer, removeClientMCPServer } from '../utils/mcpClientStorage'
 
 function relativeTime(ts) {
   if (!ts) return ''
@@ -287,6 +289,16 @@ export default function Chat() {
   const [canvasMode, setCanvasMode] = useState(false)
   const [canvasOpen, setCanvasOpen] = useState(false)
   const [selectedArtifactId, setSelectedArtifactId] = useState(null)
+  const [clientMCPServers, setClientMCPServers] = useState(() => loadClientMCPServers())
+  const [clientMCPOpen, setClientMCPOpen] = useState(false)
+  const [addMCPDialog, setAddMCPDialog] = useState(false)
+  const [newMCPUrl, setNewMCPUrl] = useState('')
+  const [newMCPName, setNewMCPName] = useState('')
+  const [newMCPUseProxy, setNewMCPUseProxy] = useState(true)
+  const {
+    connect: mcpConnect, disconnect: mcpDisconnect, disconnectAll: mcpDisconnectAll,
+    getToolsForLLM, isClientTool, executeTool, connectionStatuses, getConnectedTools,
+  } = useMCPClient()
   const messagesEndRef = useRef(null)
   const fileInputRef = useRef(null)
   const messagesRef = useRef(null)
@@ -469,6 +481,63 @@ export default function Chat() {
     updateChatSettings(activeChat.id, { mcpResources: next })
   }, [activeChat, updateChatSettings])
 
+  // Client-side MCP: click-outside handler
+  const clientMCPRef = useRef(null)
+  useEffect(() => {
+    if (!clientMCPOpen) return
+    const handleClick = (e) => {
+      if (clientMCPRef.current && !clientMCPRef.current.contains(e.target)) {
+        setClientMCPOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [clientMCPOpen])
+
+  // Auto-connect/disconnect client MCP servers based on chat's active list
+  const activeMCPIds = activeChat?.clientMCPServers || []
+  useEffect(() => {
+    const activeSet = new Set(activeMCPIds)
+    for (const server of clientMCPServers) {
+      const status = connectionStatuses[server.id]?.status
+      if (activeSet.has(server.id) && status !== 'connected' && status !== 'connecting') {
+        mcpConnect(server)
+      } else if (!activeSet.has(server.id) && (status === 'connected' || status === 'connecting')) {
+        mcpDisconnect(server.id)
+      }
+    }
+  }, [activeMCPIds.join(','), clientMCPServers])
+
+  const handleAddClientMCP = useCallback(() => {
+    if (!newMCPUrl.trim()) return
+    const server = addClientMCPServer({ name: newMCPName.trim() || undefined, url: newMCPUrl.trim(), useProxy: newMCPUseProxy })
+    setClientMCPServers(loadClientMCPServers())
+    setNewMCPUrl('')
+    setNewMCPName('')
+    setNewMCPUseProxy(true)
+    setAddMCPDialog(false)
+    // Auto-activate for current chat
+    const current = activeChat?.clientMCPServers || []
+    if (activeChat) updateChatSettings(activeChat.id, { clientMCPServers: [...current, server.id] })
+  }, [newMCPUrl, newMCPName, newMCPUseProxy, activeChat, updateChatSettings])
+
+  const handleRemoveClientMCP = useCallback(async (id) => {
+    await mcpDisconnect(id)
+    removeClientMCPServer(id)
+    setClientMCPServers(loadClientMCPServers())
+    if (activeChat) {
+      const current = activeChat.clientMCPServers || []
+      updateChatSettings(activeChat.id, { clientMCPServers: current.filter(s => s !== id) })
+    }
+  }, [activeChat, mcpDisconnect, updateChatSettings])
+
+  const toggleClientMCPServer = useCallback((serverId) => {
+    if (!activeChat) return
+    const current = activeChat.clientMCPServers || []
+    const next = current.includes(serverId) ? current.filter(s => s !== serverId) : [...current, serverId]
+    updateChatSettings(activeChat.id, { clientMCPServers: next })
+  }, [activeChat, updateChatSettings])
+
   // Load initial message from home page
   const homeDataProcessed = useRef(false)
   useEffect(() => {
@@ -588,8 +657,15 @@ export default function Chat() {
     }
     setInput('')
     setFiles([])
-    await sendMessage(msg, files)
-  }, [input, files, activeChat, sendMessage, addToast])
+    const tools = getToolsForLLM()
+    const mcpOptions = tools.length > 0 ? {
+      clientMCPTools: tools,
+      isClientTool: (name) => isClientTool(name),
+      executeTool: (name, args) => executeTool(name, args),
+      maxToolTurns: 10,
+    } : {}
+    await sendMessage(msg, files, mcpOptions)
+  }, [input, files, activeChat, sendMessage, addToast, getToolsForLLM, isClientTool, executeTool])
 
   const handleRegenerate = useCallback(async () => {
     if (!activeChat || isStreaming) return
@@ -957,6 +1033,94 @@ export default function Chat() {
               )}
             </div>
           )}
+          <div className="chat-mcp-dropdown" ref={clientMCPRef}>
+            <button
+              className={`btn btn-sm ${(activeChat.clientMCPServers?.length > 0) ? 'btn-primary' : 'btn-secondary'}`}
+              title="Client-side MCP servers (browser connects directly)"
+              onClick={() => setClientMCPOpen(!clientMCPOpen)}
+            >
+              <i className="fas fa-globe" /> Client MCP
+              {activeChat.clientMCPServers?.length > 0 && (
+                <span className="chat-mcp-badge">{activeChat.clientMCPServers.length}</span>
+              )}
+            </button>
+            {clientMCPOpen && (
+              <div className="chat-mcp-dropdown-menu" style={{ minWidth: '280px' }}>
+                <div className="chat-mcp-dropdown-header">
+                  <span>Client MCP Servers</span>
+                  <button className="chat-mcp-select-all" onClick={() => setAddMCPDialog(!addMCPDialog)}>
+                    <i className="fas fa-plus" /> Add
+                  </button>
+                </div>
+                {addMCPDialog && (
+                  <div style={{ padding: '8px 10px', borderBottom: '1px solid var(--color-border)' }}>
+                    <input
+                      type="text"
+                      className="input input-sm"
+                      placeholder="Server URL (e.g. https://mcp.example.com/sse)"
+                      value={newMCPUrl}
+                      onChange={e => setNewMCPUrl(e.target.value)}
+                      style={{ width: '100%', marginBottom: '4px' }}
+                    />
+                    <input
+                      type="text"
+                      className="input input-sm"
+                      placeholder="Name (optional)"
+                      value={newMCPName}
+                      onChange={e => setNewMCPName(e.target.value)}
+                      style={{ width: '100%', marginBottom: '4px' }}
+                    />
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', marginBottom: '6px' }}>
+                      <input type="checkbox" checked={newMCPUseProxy} onChange={e => setNewMCPUseProxy(e.target.checked)} />
+                      Use CORS proxy
+                    </label>
+                    <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end' }}>
+                      <button className="btn btn-sm btn-secondary" onClick={() => setAddMCPDialog(false)}>Cancel</button>
+                      <button className="btn btn-sm btn-primary" onClick={handleAddClientMCP} disabled={!newMCPUrl.trim()}>Add</button>
+                    </div>
+                  </div>
+                )}
+                {clientMCPServers.length === 0 && !addMCPDialog ? (
+                  <div className="chat-mcp-dropdown-empty">No client MCP servers configured</div>
+                ) : (
+                  clientMCPServers.map(server => {
+                    const status = connectionStatuses[server.id]?.status || 'disconnected'
+                    const isActive = (activeChat.clientMCPServers || []).includes(server.id)
+                    const connTools = getConnectedTools().find(c => c.serverId === server.id)
+                    return (
+                      <label key={server.id} className="chat-mcp-server-item">
+                        <input
+                          type="checkbox"
+                          checked={isActive}
+                          onChange={() => toggleClientMCPServer(server.id)}
+                        />
+                        <div className="chat-mcp-server-info" style={{ flex: 1 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span className={`chat-client-mcp-status chat-client-mcp-status-${status}`} />
+                            <span className="chat-mcp-server-name">{server.name}</span>
+                          </div>
+                          <span className="chat-mcp-server-tools">
+                            {status === 'connecting' ? 'Connecting...' :
+                             status === 'error' ? (connectionStatuses[server.id]?.error || 'Error') :
+                             status === 'connected' && connTools ? `${connTools.tools.length} tools` :
+                             server.url}
+                          </span>
+                        </div>
+                        <button
+                          className="btn btn-sm"
+                          style={{ padding: '2px 6px', fontSize: '0.7rem', color: 'var(--color-error)' }}
+                          onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleRemoveClientMCP(server.id) }}
+                          title="Remove server"
+                        >
+                          <i className="fas fa-trash" />
+                        </button>
+                      </label>
+                    )
+                  })
+                )}
+              </div>
+            )}
+          </div>
           <div className="chat-header-actions">
             <label className="canvas-mode-toggle" title="Extract code blocks and media into a side panel for preview, copy, and download">
               <i className="fas fa-columns" />

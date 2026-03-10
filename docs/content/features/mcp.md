@@ -525,6 +525,43 @@ mcp:
 - [Awesome MCPs](https://github.com/punkpeye/awesome-mcp-servers)
 - [A list of MCPs by mudler](https://github.com/mudler/MCPs)
 
+## Client-Side MCP (Browser)
+
+In addition to server-side MCP (where the backend connects to MCP servers), LocalAI supports **client-side MCP** where the browser connects directly to MCP servers. This is inspired by llama.cpp's WebUI and works alongside server-side MCP.
+
+### How It Works
+
+1. **Add servers in the UI**: Click the "Client MCP" button in the chat header and add MCP server URLs
+2. **Browser connects directly**: The browser uses the MCP TypeScript SDK (`StreamableHTTPClientTransport` or `SSEClientTransport`) to connect to MCP servers
+3. **Tool discovery**: Connected servers' tools are sent as `tools` in the chat request body
+4. **Browser-side execution**: When the LLM calls a client-side tool, the browser executes it against the MCP server and sends the result back in a follow-up request
+5. **Agentic loop**: This continues (up to 10 turns) until the LLM produces a final response
+
+### CORS Proxy
+
+Since browsers enforce CORS restrictions, LocalAI provides a built-in proxy at `/api/cors-proxy`. When "Use CORS proxy" is enabled (default), requests to external MCP servers are routed through:
+
+```
+/api/cors-proxy?url=https://remote-mcp-server.example.com/sse
+```
+
+The proxy forwards the request method, headers, and body to the target URL and streams the response back with appropriate CORS headers.
+
+### Coexistence with Server-Side MCP
+
+Both modes work simultaneously in the same chat:
+
+- **Server-side MCP tools** are configured in model YAML files and executed by the backend. The backend handles these in its own agentic loop.
+- **Client-side MCP tools** are configured per-user in the browser and sent as `tools` in the request. When the LLM calls them, the browser executes them.
+
+If both sides have a tool with the same name, the server-side tool takes priority.
+
+### Security Considerations
+
+- The CORS proxy can forward requests to any HTTP/HTTPS URL. It is only available when MCP is enabled (`LOCALAI_DISABLE_MCP` is not set).
+- Client-side MCP server configurations are stored in the browser's localStorage and are not shared with the server.
+- Custom headers (e.g., API keys) for MCP servers are stored in localStorage. Use with caution on shared machines.
+
 ## Disabling MCP Support
 
 You can completely disable MCP functionality in LocalAI by setting the `LOCALAI_DISABLE_MCP` environment variable to `true`, `1`, or `yes`:

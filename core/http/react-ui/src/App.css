@@ -1796,6 +1796,30 @@
   color: var(--color-text-tertiary);
 }
 
+/* Client MCP status indicators */
+.chat-client-mcp-status {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--color-text-tertiary);
+}
+.chat-client-mcp-status-connected {
+  background: #22c55e;
+  box-shadow: 0 0 4px rgba(34, 197, 94, 0.5);
+}
+.chat-client-mcp-status-connecting {
+  background: #f59e0b;
+  animation: pulse 1s infinite;
+}
+.chat-client-mcp-status-error {
+  background: #ef4444;
+}
+.chat-client-mcp-status-disconnected {
+  background: var(--color-text-tertiary);
+}
+
 /* Chat model info panel */
 .chat-model-info-panel {
   background: var(--color-bg-secondary);
