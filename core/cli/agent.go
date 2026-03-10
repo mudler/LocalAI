@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"bytes"
+	"time"
 	"strings"
 	"syscall"
 
@@ -44,6 +46,8 @@ type AgentRunCMD struct {
 
 	// Registry settings
 	AgentHubURL string `env:"LOCALAI_AGENT_HUB_URL" default:"https://agenthub.localai.io" help:"Agent hub URL for registry lookups" group:"registry"`
+	// Direct prompt execution
+	Prompt string `flag:"prompt" env:"AGENT_PROMPT" help:"Optional prompt to send to the agent directly and exit"`
 }
 
 func (a *AgentRunCMD) Run(ctx *cliContext.Context) error {
@@ -110,6 +114,11 @@ func (a *AgentRunCMD) Run(ctx *cliContext.Context) error {
 	}
 
 	xlog.Info("Agent started successfully", "name", agentConfig.Name)
+
+	// If a prompt was provided, send it to the agent and exit
+	if a.Prompt != "" {
+		return a.sendPrompt(agentConfig.Name)
+	}
 
 	// Optionally, if the user specifies a prompt, we will ask the agent directly and exit.
 	// No background service in that case.
@@ -223,4 +232,51 @@ func isJSONFile(ref string) bool {
 	// Check if the file exists on disk (handles paths without .json extension)
 	info, err := os.Stat(ref)
 	return err == nil && !info.IsDir()
+}
+
+// sendPrompt sends a prompt to the agent and prints the response.
+func (a *AgentRunCMD) sendPrompt(agentName string) error {
+	xlog.Info("Sending prompt to agent", "name", agentName, "prompt", a.Prompt)
+
+	// Construct the API request to send a message to the agent
+	// The agent pool service exposes an endpoint for this
+	url := fmt.Sprintf("%s/agent/%s/message", a.APIURL, agentName)
+
+	reqBody := map[string]string{
+		"content": a.Prompt,
+	}
+
+	jsonData, err := json.Marshal(reqBody)
+	if err != nil {
+		return fmt.Errorf("failed to marshal prompt request: %w", err)
+	}
+
+	req, err := http.NewRequest("POST", url, strings.NewReader(string(jsonData)))
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	if a.APIKey != "" {
+		req.Header.Set("Authorization", "Bearer " + a.APIKey)
+	}
+
+	client := &http.Client{Timeout: 5 * time.Minute}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to send prompt: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("failed to send prompt: HTTP %d - %s", resp.StatusCode, string(body))
+	}
+
+	// Stream the response
+	fmt.Println("\nAgent response:")
+	fmt.Println(string(bytes.Buffer{}))
+
+	_, err = io.Copy(os.Stdout, resp.Body)
+	return err
 }
