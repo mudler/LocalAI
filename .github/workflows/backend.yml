@@ -228,6 +228,19 @@ jobs:
             cuda-minor-version: "8"
             platforms: 'linux/amd64'
             tag-latest: 'auto'
+            tag-suffix: '-gpu-nvidia-cuda-12-fish-speech'
+            runs-on: 'ubuntu-latest'
+            base-image: "ubuntu:24.04"
+            skip-drivers: 'false'
+            backend: "fish-speech"
+            dockerfile: "./backend/Dockerfile.python"
+            context: "./"
+            ubuntu-version: '2404'
+          - build-type: 'cublas'
+            cuda-major-version: "12"
+            cuda-minor-version: "8"
+            platforms: 'linux/amd64'
+            tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-faster-qwen3-tts'
             runs-on: 'ubuntu-latest'
             base-image: "ubuntu:24.04"
@@ -619,6 +632,19 @@ jobs:
             cuda-minor-version: "0"
             platforms: 'linux/amd64'
             tag-latest: 'auto'
+            tag-suffix: '-gpu-nvidia-cuda-13-fish-speech'
+            runs-on: 'ubuntu-latest'
+            base-image: "ubuntu:24.04"
+            skip-drivers: 'false'
+            backend: "fish-speech"
+            dockerfile: "./backend/Dockerfile.python"
+            context: "./"
+            ubuntu-version: '2404'
+          - build-type: 'cublas'
+            cuda-major-version: "13"
+            cuda-minor-version: "0"
+            platforms: 'linux/amd64'
+            tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-13-faster-qwen3-tts'
             runs-on: 'ubuntu-latest'
             base-image: "ubuntu:24.04"
@@ -755,6 +781,19 @@ jobs:
             skip-drivers: 'false'
             ubuntu-version: '2404'
             backend: "qwen-tts"
+            dockerfile: "./backend/Dockerfile.python"
+            context: "./"
+          - build-type: 'l4t'
+            cuda-major-version: "13"
+            cuda-minor-version: "0"
+            platforms: 'linux/arm64'
+            tag-latest: 'auto'
+            tag-suffix: '-nvidia-l4t-cuda-13-arm64-fish-speech'
+            runs-on: 'ubuntu-24.04-arm'
+            base-image: "ubuntu:24.04"
+            skip-drivers: 'false'
+            ubuntu-version: '2404'
+            backend: "fish-speech"
             dockerfile: "./backend/Dockerfile.python"
             context: "./"
           - build-type: 'l4t'
@@ -1206,6 +1245,19 @@ jobs:
             cuda-minor-version: ""
             platforms: 'linux/amd64'
             tag-latest: 'auto'
+            tag-suffix: '-gpu-rocm-hipblas-fish-speech'
+            runs-on: 'arc-runner-set'
+            base-image: "rocm/dev-ubuntu-24.04:6.4.4"
+            skip-drivers: 'false'
+            backend: "fish-speech"
+            dockerfile: "./backend/Dockerfile.python"
+            context: "./"
+            ubuntu-version: '2404'
+          - build-type: 'hipblas'
+            cuda-major-version: ""
+            cuda-minor-version: ""
+            platforms: 'linux/amd64'
+            tag-latest: 'auto'
             tag-suffix: '-gpu-rocm-hipblas-voxcpm'
             runs-on: 'arc-runner-set'
             base-image: "rocm/dev-ubuntu-24.04:6.4.4"
@@ -1402,6 +1454,19 @@ jobs:
             cuda-minor-version: "0"
             platforms: 'linux/arm64'
             tag-latest: 'auto'
+            tag-suffix: '-nvidia-l4t-fish-speech'
+            runs-on: 'ubuntu-24.04-arm'
+            base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
+            skip-drivers: 'true'
+            backend: "fish-speech"
+            dockerfile: "./backend/Dockerfile.python"
+            context: "./"
+            ubuntu-version: '2204'
+          - build-type: 'l4t'
+            cuda-major-version: "12"
+            cuda-minor-version: "0"
+            platforms: 'linux/arm64'
+            tag-latest: 'auto'
             tag-suffix: '-nvidia-l4t-faster-qwen3-tts'
             runs-on: 'ubuntu-24.04-arm'
             base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
@@ -1564,6 +1629,19 @@ jobs:
             base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
             skip-drivers: 'false'
             backend: "qwen-tts"
+            dockerfile: "./backend/Dockerfile.python"
+            context: "./"
+            ubuntu-version: '2404'
+          - build-type: 'intel'
+            cuda-major-version: ""
+            cuda-minor-version: ""
+            platforms: 'linux/amd64'
+            tag-latest: 'auto'
+            tag-suffix: '-gpu-intel-fish-speech'
+            runs-on: 'arc-runner-set'
+            base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
+            skip-drivers: 'false'
+            backend: "fish-speech"
             dockerfile: "./backend/Dockerfile.python"
             context: "./"
             ubuntu-version: '2404'
@@ -2022,6 +2100,19 @@ jobs:
           - build-type: ''
             cuda-major-version: ""
             cuda-minor-version: ""
+            platforms: 'linux/amd64,linux/arm64'
+            tag-latest: 'auto'
+            tag-suffix: '-cpu-fish-speech'
+            runs-on: 'ubuntu-latest'
+            base-image: "ubuntu:24.04"
+            skip-drivers: 'false'
+            backend: "fish-speech"
+            dockerfile: "./backend/Dockerfile.python"
+            context: "./"
+            ubuntu-version: '2404'
+          - build-type: ''
+            cuda-major-version: ""
+            cuda-minor-version: ""
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-cpu-voxcpm'
@@ -2107,6 +2198,9 @@ jobs:
             build-type: "mps"
           - backend: "qwen-tts"
             tag-suffix: "-metal-darwin-arm64-qwen-tts"
+            build-type: "mps"
+          - backend: "fish-speech"
+            tag-suffix: "-metal-darwin-arm64-fish-speech"
             build-type: "mps"
           - backend: "voxcpm"
             tag-suffix: "-metal-darwin-arm64-voxcpm"
