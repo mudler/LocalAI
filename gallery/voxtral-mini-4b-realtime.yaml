@@ -1,0 +1,27 @@
+---
+name: "voxtral-mini-4b-realtime"
+
+description: |
+  Voxtral Mini 4B Realtime is a multilingual, realtime speech-transcription model from Mistral AI.
+  It achieves accuracy comparable to offline systems with a delay of <500ms and supports 13 languages.
+  This model is designed for real-time automatic speech recognition (ASR) with streaming capabilities
+  and benefits from vLLM's Realtime API for low-latency transcription workflows.
+
+config_file: |
+  name: voxtral-mini-4b-realtime
+  description: Voxtral Mini 4B Realtime - Real-time ASR model via vLLM
+  backend: vllm
+  parameters:
+    model: mistralai/Voxtral-Mini-4B-Realtime-2602
+  known_usecases:
+    - transcript
+  template:
+    use_tokenizer_template: true
+  prediction:
+    max_tokens: 45000
+  backend_options:
+    vllm:
+      # Recommended settings for Voxtral Realtime
+      # --max-model-len: 131072 (default, supports ~3h of transcription)
+      # Temperature should be set to 0.0 for ASR
+      compilation_config: '{"cudagraph_mode": "PIECEWISE"}'
