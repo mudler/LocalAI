@@ -25,18 +25,20 @@ import (
 )
 
 var (
-	anthropicBaseURL string
-	tmpDir           string
-	backendPath    string
-	modelsPath     string
-	configPath     string
-	app            *echo.Echo
-	appCtx         context.Context
-	appCancel      context.CancelFunc
-	client         openai.Client
-	apiPort        int
-	apiURL         string
-	mockBackendPath string
+	anthropicBaseURL   string
+	tmpDir             string
+	backendPath        string
+	modelsPath         string
+	configPath         string
+	app                *echo.Echo
+	appCtx             context.Context
+	appCancel          context.CancelFunc
+	client             openai.Client
+	apiPort            int
+	apiURL             string
+	mockBackendPath    string
+	mcpServerURL       string
+	mcpServerShutdown  func()
 )
 
 var _ = BeforeSuite(func() {
@@ -99,6 +101,14 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 	Expect(os.WriteFile(configPath, configYAML, 0644)).To(Succeed())
 
+	// Start mock MCP server and create MCP-enabled model config
+	mcpServerURL, mcpServerShutdown = startMockMCPServer()
+	mcpConfig := mcpModelConfig(mcpServerURL)
+	mcpConfigPath := filepath.Join(modelsPath, "mock-model-mcp.yaml")
+	mcpConfigYAML, err := yaml.Marshal(mcpConfig)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(os.WriteFile(mcpConfigPath, mcpConfigYAML, 0644)).To(Succeed())
+
 	// Set up system state
 	systemState, err := system.GetSystemState(
 		system.WithBackendPath(backendPath),
@@ -159,6 +169,9 @@ var _ = AfterSuite(func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		Expect(app.Shutdown(ctx)).To(Succeed())
+	}
+	if mcpServerShutdown != nil {
+		mcpServerShutdown()
 	}
 	if tmpDir != "" {
 		os.RemoveAll(tmpDir)

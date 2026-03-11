@@ -10,6 +10,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strings"
 
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"github.com/mudler/xlog"
@@ -20,9 +21,18 @@ var (
 	addr = flag.String("addr", "localhost:50051", "the address to connect to")
 )
 
-// MockBackend implements the Backend gRPC service with mocked responses
+// MockBackend implements the Backend gRPC service with mocked responses.
+// When tools are present but the prompt already contains MCP tool results
+// (indicated by the marker from the mock MCP server), it returns a plain
+// text response instead of another tool call, letting the MCP loop complete.
 type MockBackend struct {
 	pb.UnimplementedBackendServer
+}
+
+// promptHasToolResults checks if the prompt contains evidence of prior tool
+// execution — specifically the output from the mock MCP server's get_weather tool.
+func promptHasToolResults(prompt string) bool {
+	return strings.Contains(prompt, "Weather in")
 }
 
 func (m *MockBackend) Health(ctx context.Context, in *pb.HealthMessage) (*pb.Reply, error) {
@@ -42,8 +52,12 @@ func (m *MockBackend) Predict(ctx context.Context, in *pb.PredictOptions) (*pb.R
 	xlog.Debug("Predict called", "prompt", in.Prompt)
 	var response string
 	toolName := mockToolNameFromRequest(in)
-	if toolName != "" {
+	if toolName != "" && !promptHasToolResults(in.Prompt) {
+		// First call with tools: return a tool call so the MCP loop executes it.
 		response = fmt.Sprintf(`{"name": "%s", "arguments": {"location": "San Francisco"}}`, toolName)
+	} else if toolName != "" {
+		// Subsequent call: tool results already in prompt, return final text.
+		response = "Based on the tool results, the weather in San Francisco is sunny, 72°F."
 	} else {
 		response = "This is a mocked response."
 	}
@@ -60,8 +74,10 @@ func (m *MockBackend) PredictStream(in *pb.PredictOptions, stream pb.Backend_Pre
 	xlog.Debug("PredictStream called", "prompt", in.Prompt)
 	var toStream string
 	toolName := mockToolNameFromRequest(in)
-	if toolName != "" {
+	if toolName != "" && !promptHasToolResults(in.Prompt) {
 		toStream = fmt.Sprintf(`{"name": "%s", "arguments": {"location": "San Francisco"}}`, toolName)
+	} else if toolName != "" {
+		toStream = "Based on the tool results, the weather in San Francisco is sunny, 72°F."
 	} else {
 		toStream = "This is a mocked streaming response."
 	}
