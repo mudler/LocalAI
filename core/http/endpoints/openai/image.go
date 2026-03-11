@@ -288,12 +288,17 @@ func processImageFile(file string, generatedContentDir string) string {
 		return ""
 	}
 
-	// write the base64 result
+	// write the decoded result
 	writer := bufio.NewWriter(outputFile)
 	_, err = writer.Write(fileData)
 	if err != nil {
 		outputFile.Close()
 		xlog.Error("Failed writing to temporary file", "error", err)
+		return ""
+	}
+	if err := writer.Flush(); err != nil {
+		outputFile.Close()
+		xlog.Error("Failed flushing to temporary file", "error", err)
 		return ""
 	}
 	outputFile.Close()
