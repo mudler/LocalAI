@@ -364,6 +364,29 @@
     default: "cpu-ace-step-development"
     nvidia-cuda-13: "cuda13-ace-step-development"
     nvidia-cuda-12: "cuda12-ace-step-development"
+- &acestepcpp
+  name: "acestep-cpp"
+  description: |
+    ACE-Step 1.5 C++ backend using GGML. Native C++ implementation of ACE-Step music generation with GPU support through GGML backends.
+    Generates stereo 48kHz audio from text descriptions and optional lyrics via a two-stage pipeline: text-to-code (ace-qwen3 LLM) + code-to-audio (DiT-VAE).
+  urls:
+    - https://github.com/ace-step/acestep.cpp
+  tags:
+    - music-generation
+    - sound-generation
+  alias: "acestep-cpp"
+  capabilities:
+    default: "cpu-acestep-cpp"
+    nvidia: "cuda12-acestep-cpp"
+    nvidia-cuda-13: "cuda13-acestep-cpp"
+    nvidia-cuda-12: "cuda12-acestep-cpp"
+    intel: "intel-sycl-f16-acestep-cpp"
+    metal: "metal-acestep-cpp"
+    amd: "rocm-acestep-cpp"
+    vulkan: "vulkan-acestep-cpp"
+    nvidia-l4t: "nvidia-l4t-arm64-acestep-cpp"
+    nvidia-l4t-cuda-12: "nvidia-l4t-arm64-acestep-cpp"
+    nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-acestep-cpp"
 - &faster-whisper
   icon: https://avatars.githubusercontent.com/u/1520500?s=200&v=4
   description: |
@@ -1845,6 +1868,107 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-ace-step"
   mirrors:
     - localai/localai-backends:master-metal-darwin-arm64-ace-step
+## acestep-cpp
+- !!merge <<: *acestepcpp
+  name: "nvidia-l4t-arm64-acestep-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-nvidia-l4t-arm64-acestep-cpp"
+  mirrors:
+    - localai/localai-backends:latest-nvidia-l4t-arm64-acestep-cpp
+- !!merge <<: *acestepcpp
+  name: "nvidia-l4t-arm64-acestep-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-arm64-acestep-cpp"
+  mirrors:
+    - localai/localai-backends:master-nvidia-l4t-arm64-acestep-cpp
+- !!merge <<: *acestepcpp
+  name: "cuda13-nvidia-l4t-arm64-acestep-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-nvidia-l4t-cuda-13-arm64-acestep-cpp"
+  mirrors:
+    - localai/localai-backends:latest-nvidia-l4t-cuda-13-arm64-acestep-cpp
+- !!merge <<: *acestepcpp
+  name: "cuda13-nvidia-l4t-arm64-acestep-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-cuda-13-arm64-acestep-cpp"
+  mirrors:
+    - localai/localai-backends:master-nvidia-l4t-cuda-13-arm64-acestep-cpp
+- !!merge <<: *acestepcpp
+  name: "cpu-acestep-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-acestep-cpp"
+  mirrors:
+    - localai/localai-backends:latest-cpu-acestep-cpp
+- !!merge <<: *acestepcpp
+  name: "metal-acestep-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-metal-darwin-arm64-acestep-cpp"
+  mirrors:
+    - localai/localai-backends:latest-metal-darwin-arm64-acestep-cpp
+- !!merge <<: *acestepcpp
+  name: "metal-acestep-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-acestep-cpp"
+  mirrors:
+    - localai/localai-backends:master-metal-darwin-arm64-acestep-cpp
+- !!merge <<: *acestepcpp
+  name: "cpu-acestep-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-cpu-acestep-cpp"
+  mirrors:
+    - localai/localai-backends:master-cpu-acestep-cpp
+- !!merge <<: *acestepcpp
+  name: "cuda12-acestep-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-acestep-cpp"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-12-acestep-cpp
+- !!merge <<: *acestepcpp
+  name: "rocm-acestep-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-rocm-hipblas-acestep-cpp"
+  mirrors:
+    - localai/localai-backends:latest-gpu-rocm-hipblas-acestep-cpp
+- !!merge <<: *acestepcpp
+  name: "intel-sycl-f32-acestep-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-sycl-f32-acestep-cpp"
+  mirrors:
+    - localai/localai-backends:latest-gpu-intel-sycl-f32-acestep-cpp
+- !!merge <<: *acestepcpp
+  name: "intel-sycl-f16-acestep-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-sycl-f16-acestep-cpp"
+  mirrors:
+    - localai/localai-backends:latest-gpu-intel-sycl-f16-acestep-cpp
+- !!merge <<: *acestepcpp
+  name: "vulkan-acestep-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-vulkan-acestep-cpp"
+  mirrors:
+    - localai/localai-backends:latest-gpu-vulkan-acestep-cpp
+- !!merge <<: *acestepcpp
+  name: "vulkan-acestep-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-vulkan-acestep-cpp"
+  mirrors:
+    - localai/localai-backends:master-gpu-vulkan-acestep-cpp
+- !!merge <<: *acestepcpp
+  name: "cuda12-acestep-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-acestep-cpp"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-12-acestep-cpp
+- !!merge <<: *acestepcpp
+  name: "rocm-acestep-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-rocm-hipblas-acestep-cpp"
+  mirrors:
+    - localai/localai-backends:master-gpu-rocm-hipblas-acestep-cpp
+- !!merge <<: *acestepcpp
+  name: "intel-sycl-f32-acestep-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-sycl-f32-acestep-cpp"
+  mirrors:
+    - localai/localai-backends:master-gpu-intel-sycl-f32-acestep-cpp
+- !!merge <<: *acestepcpp
+  name: "intel-sycl-f16-acestep-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-sycl-f16-acestep-cpp"
+  mirrors:
+    - localai/localai-backends:master-gpu-intel-sycl-f16-acestep-cpp
+- !!merge <<: *acestepcpp
+  name: "cuda13-acestep-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-13-acestep-cpp"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-13-acestep-cpp
+- !!merge <<: *acestepcpp
+  name: "cuda13-acestep-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-acestep-cpp"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-13-acestep-cpp
 ## kokoro
 - !!merge <<: *kokoro
   name: "kokoro-development"

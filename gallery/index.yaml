@@ -718,6 +718,83 @@
       - "inference_steps:8"
       - "guidance_scale:7.0"
       - "batch_size:1"
+- name: "acestep-cpp-turbo"
+  license: mit
+  tags:
+    - music
+    - audio
+    - music-generation
+    - sound-generation
+    - acestep-cpp
+    - ace-step-1.5
+    - gguf
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/Serveurperso/ACE-Step-1.5-GGUF
+    - https://github.com/ace-step/acestep.cpp
+  description: |
+    ACE-Step 1.5 Turbo (C++ / GGML) — native C++ music generation from text descriptions and lyrics.
+    Two-stage pipeline: text-to-code (Qwen3 LM) + code-to-audio (DiT-VAE). Stereo 48kHz output.
+    Uses Q8_0 quantized models for a good balance of quality and speed.
+  overrides:
+    name: acestep-cpp-turbo
+    backend: acestep-cpp
+    parameters:
+      model: acestep-cpp/acestep-5Hz-lm-0.6B-Q8_0.gguf
+    known_usecases:
+      - sound_generation
+      - tts
+    options:
+      - "text_encoder_model:acestep-cpp/Qwen3-Embedding-0.6B-Q8_0.gguf"
+      - "dit_model:acestep-cpp/acestep-v15-turbo-Q8_0.gguf"
+      - "vae_model:acestep-cpp/vae-BF16.gguf"
+  files:
+    - filename: acestep-cpp/acestep-5Hz-lm-0.6B-Q8_0.gguf
+      uri: huggingface://Serveurperso/ACE-Step-1.5-GGUF/acestep-5Hz-lm-0.6B-Q8_0.gguf
+    - filename: acestep-cpp/Qwen3-Embedding-0.6B-Q8_0.gguf
+      uri: huggingface://Serveurperso/ACE-Step-1.5-GGUF/Qwen3-Embedding-0.6B-Q8_0.gguf
+    - filename: acestep-cpp/acestep-v15-turbo-Q8_0.gguf
+      uri: huggingface://Serveurperso/ACE-Step-1.5-GGUF/acestep-v15-turbo-Q8_0.gguf
+    - filename: acestep-cpp/vae-BF16.gguf
+      uri: huggingface://Serveurperso/ACE-Step-1.5-GGUF/vae-BF16.gguf
+- name: "acestep-cpp-turbo-4b"
+  license: mit
+  tags:
+    - music
+    - audio
+    - music-generation
+    - sound-generation
+    - acestep-cpp
+    - ace-step-1.5
+    - gguf
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/Serveurperso/ACE-Step-1.5-GGUF
+    - https://github.com/ace-step/acestep.cpp
+  description: |
+    ACE-Step 1.5 Turbo (C++ / GGML) with 4B LM — higher quality music generation from text and lyrics.
+    Uses the larger 4B parameter LM for better metadata/code generation. Stereo 48kHz output.
+  overrides:
+    name: acestep-cpp-turbo-4b
+    backend: acestep-cpp
+    parameters:
+      model: acestep-cpp/acestep-5Hz-lm-4B-Q8_0.gguf
+    known_usecases:
+      - sound_generation
+      - tts
+    options:
+      - "text_encoder_model:acestep-cpp/Qwen3-Embedding-0.6B-Q8_0.gguf"
+      - "dit_model:acestep-cpp/acestep-v15-turbo-Q8_0.gguf"
+      - "vae_model:acestep-cpp/vae-BF16.gguf"
+  files:
+    - filename: acestep-cpp/acestep-5Hz-lm-4B-Q8_0.gguf
+      uri: huggingface://Serveurperso/ACE-Step-1.5-GGUF/acestep-5Hz-lm-4B-Q8_0.gguf
+    - filename: acestep-cpp/Qwen3-Embedding-0.6B-Q8_0.gguf
+      uri: huggingface://Serveurperso/ACE-Step-1.5-GGUF/Qwen3-Embedding-0.6B-Q8_0.gguf
+    - filename: acestep-cpp/acestep-v15-turbo-Q8_0.gguf
+      uri: huggingface://Serveurperso/ACE-Step-1.5-GGUF/acestep-v15-turbo-Q8_0.gguf
+    - filename: acestep-cpp/vae-BF16.gguf
+      uri: huggingface://Serveurperso/ACE-Step-1.5-GGUF/vae-BF16.gguf
 - name: "qwen3-coder-next-mxfp4_moe"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
