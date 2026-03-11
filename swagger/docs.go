@@ -1176,7 +1176,7 @@ const docTemplate = `{
         },
         "/v1/mcp/chat/completions": {
             "post": {
-                "summary": "Stream MCP chat completions with reasoning, tool calls, and results",
+                "summary": "MCP chat completions with automatic tool execution",
                 "parameters": [
                     {
                         "description": "query params",
@@ -2607,6 +2607,9 @@ const docTemplate = `{
                     "items": {
                         "type": "string"
                     }
+                },
+                "tool_call_id": {
+                    "type": "string"
                 },
                 "tool_calls": {
                     "type": "array",
