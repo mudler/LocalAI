@@ -312,3 +312,64 @@ class TestDiffusersDynamicLoaderWithMocks(unittest.TestCase):
         # or fail depending on network, but the fallback path should work.
         cls = loader.resolve_pipeline_class(model_id="some/nonexistent/model")
         self.assertEqual(cls, DiffusionPipeline)
+
+
+@unittest.skipUnless(GRPC_AVAILABLE, "gRPC modules not available")
+class TestGenerateImageOptionsKwargsMerge(unittest.TestCase):
+    """Test that GenerateImage merges the options dict into pipeline kwargs.
+
+    The options dict holds image (PIL), negative_prompt, and
+    num_inference_steps. Without the merge, img2img pipelines never
+    receive the source image and fail with 'Input is in incorrect format'.
+    """
+
+    def test_options_merged_into_pipeline_kwargs(self):
+        from backend import BackendServicer
+        from PIL import Image
+        import tempfile, os
+
+        svc = BackendServicer.__new__(BackendServicer)
+        # Minimal attributes the method reads
+        svc.pipe = MagicMock()
+        svc.pipe.return_value.images = [Image.new("RGB", (4, 4))]
+        svc.cfg_scale = 7.5
+        svc.controlnet = None
+        svc.img2vid = False
+        svc.txt2vid = False
+        svc.clip_skip = 0
+        svc.PipelineType = "StableDiffusionImg2ImgPipeline"
+        svc.options = {}
+
+        # Create a tiny source image for the request's src field
+        src_file = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
+        Image.new("RGB", (4, 4), color="red").save(src_file, format="PNG")
+        src_file.close()
+
+        dst_file = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
+        dst_file.close()
+
+        try:
+            request = MagicMock()
+            request.positive_prompt = "a test prompt"
+            request.negative_prompt = "bad quality"
+            request.step = 10
+            request.seed = 0
+            request.width = 0
+            request.height = 0
+            request.src = src_file.name
+            request.ref_images = []
+            request.dst = dst_file.name
+
+            svc.GenerateImage(request, context=None)
+
+            # The pipeline must have been called with the image kwarg
+            svc.pipe.assert_called_once()
+            _, call_kwargs = svc.pipe.call_args
+            self.assertIn("image", call_kwargs,
+                          "source image must be passed to pipeline via kwargs")
+            self.assertIn("negative_prompt", call_kwargs,
+                          "negative_prompt must be passed to pipeline via kwargs")
+            self.assertEqual(call_kwargs["num_inference_steps"], 10)
+        finally:
+            os.unlink(src_file.name)
+            os.unlink(dst_file.name)
