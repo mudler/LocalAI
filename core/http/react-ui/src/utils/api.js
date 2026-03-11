@@ -112,6 +112,15 @@ export const chatApi = {
   mcpComplete: (body) => postJSON(API_CONFIG.endpoints.mcpChatCompletions, body),
 }
 
+// MCP API
+export const mcpApi = {
+  listServers: (model) => fetchJSON(API_CONFIG.endpoints.mcpServers(model)),
+  listPrompts: (model) => fetchJSON(API_CONFIG.endpoints.mcpPrompts(model)),
+  getPrompt: (model, name, args) => postJSON(API_CONFIG.endpoints.mcpGetPrompt(model, name), { arguments: args }),
+  listResources: (model) => fetchJSON(API_CONFIG.endpoints.mcpResources(model)),
+  readResource: (model, uri) => postJSON(API_CONFIG.endpoints.mcpReadResource(model), { uri }),
+}
+
 // Resources API
 export const resourcesApi = {
   get: () => fetchJSON(API_CONFIG.endpoints.resources),
