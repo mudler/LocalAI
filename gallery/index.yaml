@@ -1,4 +1,38 @@
 ---
+- name: "gpt-oss-swallow-120b-rl-v0.1-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/GPT-OSS-Swallow-120B-RL-v0.1-i1-GGUF
+  description: |
+    Describe the model in a clear and concise way that can be shared in a model gallery.
+  tags:
+    - llm
+    - gpt
+    - oss
+    - large
+    - open
+    - gguf
+    - multi-token
+    - rl
+  overrides:
+    parameters:
+      model: llama-cpp/models/GPT-OSS-Swallow-120B-RL-v0.1-i1-GGUF/GPT-OSS-Swallow-120B-RL-v0.1.i1-Q4_K_M.gguf
+    name: GPT-OSS-Swallow-120B-RL-v0.1-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/GPT-OSS-Swallow-120B-RL-v0.1-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/GPT-OSS-Swallow-120B-RL-v0.1-i1-GGUF/GPT-OSS-Swallow-120B-RL-v0.1.i1-Q4_K_M.gguf
+      sha256: 3313396dc8f8b15d004842163343bcc00ea7109a696cec07eed8dbd46c2a9d5b
+      uri: https://huggingface.co/mradermacher/GPT-OSS-Swallow-120B-RL-v0.1-i1-GGUF/resolve/main/GPT-OSS-Swallow-120B-RL-v0.1.i1-Q4_K_M.gguf
 - name: "qwen3.5-27b-claude-4.6-opus-reasoning-distilled-heretic-i1"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
