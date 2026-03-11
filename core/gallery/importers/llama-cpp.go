@@ -196,7 +196,7 @@ func (i *LlamaCPPImporter) Import(details Details) (gallery.ModelConfig, error) 
 			} else if strings.HasSuffix(strings.ToLower(file.Path), "gguf") {
 				lastGGUFFile = &gallery.File{
 					URI:      file.URL,
-					Filename: filepath.Join("llama-cpp", "models", filepath.Base(file.Path)),
+					Filename: filepath.Join("llama-cpp", "models", name, filepath.Base(file.Path)),
 					SHA256:   file.SHA256,
 				}
 				// get the files of the prefered quants
