@@ -113,8 +113,17 @@ function AudioSnippet({ data }) {
   )
 }
 
-// Expandable data fields for backend traces
-function DataFields({ data }) {
+function isPlainObject(value) {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+}
+
+function fieldSummary(value) {
+  const count = Object.keys(value).length
+  return `{${count} field${count !== 1 ? 's' : ''}}`
+}
+
+// Expandable data fields for backend traces (recursive for nested objects)
+function DataFields({ data, nested }) {
   const [expandedFields, setExpandedFields] = useState({})
   const filtered = Object.entries(data).filter(([key]) => !AUDIO_DATA_KEYS.has(key))
   if (filtered.length === 0) return null
@@ -125,32 +134,40 @@ function DataFields({ data }) {
 
   return (
     <div>
-      <h4 style={{ fontSize: '0.8125rem', fontWeight: 600, marginBottom: 'var(--spacing-xs)' }}>Data Fields</h4>
+      {!nested && <h4 style={{ fontSize: '0.8125rem', fontWeight: 600, marginBottom: 'var(--spacing-xs)' }}>Data Fields</h4>}
       <div style={{ border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
         {filtered.map(([key, value]) => {
-          const large = isLargeValue(value)
+          const objValue = isPlainObject(value)
+          const large = !objValue && isLargeValue(value)
+          const expandable = objValue || large
           const expanded = expandedFields[key]
           return (
             <div key={key} style={{ borderBottom: '1px solid var(--color-border)' }}>
               <div
-                onClick={large ? () => toggleField(key) : undefined}
+                onClick={expandable ? () => toggleField(key) : undefined}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)',
                   padding: 'var(--spacing-xs) var(--spacing-sm)',
-                  cursor: large ? 'pointer' : 'default',
+                  cursor: expandable ? 'pointer' : 'default',
                   fontSize: '0.8125rem',
                 }}
               >
-                {large ? (
+                {expandable ? (
                   <i className={`fas fa-chevron-${expanded ? 'down' : 'right'}`} style={{ fontSize: '0.6rem', color: 'var(--color-text-secondary)', width: 12, flexShrink: 0 }} />
                 ) : (
                   <span style={{ width: 12, flexShrink: 0 }} />
                 )}
                 <span style={{ fontFamily: 'monospace', color: 'var(--color-primary)', flexShrink: 0 }}>{key}</span>
-                {!large && <span style={{ fontFamily: 'monospace', fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>{formatValue(value)}</span>}
-                {large && !expanded && <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{truncateValue(value, 120)}</span>}
+                {objValue && !expanded && <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>{fieldSummary(value)}</span>}
+                {!objValue && !large && <span style={{ fontFamily: 'monospace', fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>{formatValue(value)}</span>}
+                {!objValue && large && !expanded && <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{truncateValue(value, 120)}</span>}
               </div>
-              {large && expanded && (
+              {expanded && objValue && (
+                <div style={{ padding: '0 0 var(--spacing-xs) var(--spacing-md)' }}>
+                  <DataFields data={value} nested />
+                </div>
+              )}
+              {expanded && large && (
                 <div style={{ padding: '0 var(--spacing-sm) var(--spacing-sm)' }}>
                   <pre style={{
                     background: 'var(--color-bg-primary)', border: '1px solid var(--color-border)',
