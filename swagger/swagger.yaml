@@ -745,6 +745,8 @@ definitions:
         items:
           type: string
         type: array
+      tool_call_id:
+        type: string
       tool_calls:
         items:
           $ref: '#/definitions/schema.ToolCall'
@@ -2339,7 +2341,7 @@ paths:
           description: Response
           schema:
             $ref: '#/definitions/schema.OpenAIResponse'
-      summary: Stream MCP chat completions with reasoning, tool calls, and results
+      summary: MCP chat completions with automatic tool execution
   /v1/messages:
     post:
       parameters:
