@@ -28,6 +28,11 @@ else
     cd "${FISH_SPEECH_DIR}" && git pull && cd -
 fi
 
+# Remove pyaudio from fish-speech deps — it's only used by the upstream client tool
+# (tools/api_client.py) for speaker playback, not by our gRPC backend server.
+# It requires native portaudio libs which aren't available on all build environments.
+sed -i.bak '/"pyaudio"/d' "${FISH_SPEECH_DIR}/pyproject.toml"
+
 # Install fish-speech deps from source (without the package itself since we use PYTHONPATH)
 ensureVenv
 if [ "x${USE_PIP}" == "xtrue" ]; then
