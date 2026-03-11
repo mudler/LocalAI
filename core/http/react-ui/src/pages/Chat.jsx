@@ -5,7 +5,11 @@ import ModelSelector from '../components/ModelSelector'
 import { renderMarkdown, highlightAll } from '../utils/markdown'
 import { extractCodeArtifacts, renderMarkdownWithArtifacts } from '../utils/artifacts'
 import CanvasPanel from '../components/CanvasPanel'
-import { fileToBase64, modelsApi } from '../utils/api'
+import { fileToBase64, modelsApi, mcpApi } from '../utils/api'
+import { useMCPClient } from '../hooks/useMCPClient'
+import MCPAppFrame from '../components/MCPAppFrame'
+import ClientMCPDropdown from '../components/ClientMCPDropdown'
+import { loadClientMCPServers } from '../utils/mcpClientStorage'
 
 function relativeTime(ts) {
   if (!ts) return ''
@@ -60,7 +64,10 @@ function formatToolContent(raw) {
   try {
     const data = JSON.parse(raw)
     const name = data.name || 'unknown'
-    const params = data.arguments || data.input || data.result || data.parameters || {}
+    let params = data.arguments || data.input || data.result || data.parameters || {}
+    if (typeof params === 'string') {
+      try { params = JSON.parse(params) } catch (_) { /* keep as string */ }
+    }
     const entries = typeof params === 'object' && params !== null ? Object.entries(params) : []
     return { name, entries, fallback: null }
   } catch (_e) {
@@ -89,7 +96,7 @@ function ToolParams({ entries, fallback }) {
   )
 }
 
-function ActivityGroup({ items, updateChatSettings, activeChat }) {
+function ActivityGroup({ items, updateChatSettings, activeChat, getClientForTool }) {
   const [expanded, setExpanded] = useState(false)
   const contentRef = useRef(null)
 
@@ -99,7 +106,11 @@ function ActivityGroup({ items, updateChatSettings, activeChat }) {
 
   if (!items || items.length === 0) return null
 
-  const labels = items.map(item => {
+  // Separate out tool_result items that have appUI — they render outside the collapsed group
+  const appUIItems = items.filter(item => item.role === 'tool_result' && item.appUI)
+  const regularItems = items.filter(item => !(item.role === 'tool_result' && item.appUI))
+
+  const labels = regularItems.map(item => {
     if (item.role === 'thinking' || item.role === 'reasoning') return 'Thought'
     if (item.role === 'tool_call') {
       try { return JSON.parse(item.content)?.name || 'Tool' } catch (_e) { return 'Tool' }
@@ -112,40 +123,63 @@ function ActivityGroup({ items, updateChatSettings, activeChat }) {
   const summary = labels.join(' → ')
 
   return (
-    <div className="chat-message chat-message-assistant">
-      <div className="chat-message-avatar">
-        <i className="fas fa-cogs" />
-      </div>
-      <div className="chat-activity-group">
-        <button className="chat-activity-toggle" onClick={() => setExpanded(!expanded)}>
-          <span className="chat-activity-summary">{summary}</span>
-          <i className={`fas fa-chevron-${expanded ? 'up' : 'down'}`} />
-        </button>
-        {expanded && (
-          <div className="chat-activity-details" ref={contentRef}>
-            {items.map((item, idx) => {
-              if (item.role === 'thinking' || item.role === 'reasoning') {
-                return (
-                  <div key={idx} className="chat-activity-item chat-activity-thinking">
-                    <span className="chat-activity-item-label">Thought</span>
-                    <div className="chat-activity-item-content"
-                      dangerouslySetInnerHTML={{ __html: renderMarkdown(item.content || '') }} />
-                  </div>
-                )
-              }
-              const isCall = item.role === 'tool_call'
-              const parsed = formatToolContent(item.content)
-              return (
-                <div key={idx} className={`chat-activity-item ${isCall ? 'chat-activity-tool-call' : 'chat-activity-tool-result'}`}>
-                  <span className="chat-activity-item-label">{labels[idx]}</span>
-                  <ToolParams entries={parsed.entries} fallback={parsed.fallback} />
-                </div>
-              )
-            })}
+    <>
+      {regularItems.length > 0 && (
+        <div className="chat-message chat-message-assistant">
+          <div className="chat-message-avatar">
+            <i className="fas fa-cogs" />
           </div>
-        )}
-      </div>
-    </div>
+          <div className="chat-activity-group">
+            <button className="chat-activity-toggle" onClick={() => setExpanded(!expanded)}>
+              <span className="chat-activity-summary">{summary}</span>
+              <i className={`fas fa-chevron-${expanded ? 'up' : 'down'}`} />
+            </button>
+            {expanded && (
+              <div className="chat-activity-details" ref={contentRef}>
+                {regularItems.map((item, idx) => {
+                  if (item.role === 'thinking' || item.role === 'reasoning') {
+                    return (
+                      <div key={idx} className="chat-activity-item chat-activity-thinking">
+                        <span className="chat-activity-item-label">Thought</span>
+                        <div className="chat-activity-item-content"
+                          dangerouslySetInnerHTML={{ __html: renderMarkdown(item.content || '') }} />
+                      </div>
+                    )
+                  }
+                  const isCall = item.role === 'tool_call'
+                  const parsed = formatToolContent(item.content)
+                  return (
+                    <div key={idx} className={`chat-activity-item ${isCall ? 'chat-activity-tool-call' : 'chat-activity-tool-result'}`}>
+                      <span className="chat-activity-item-label">{labels[idx]}</span>
+                      <ToolParams entries={parsed.entries} fallback={parsed.fallback} />
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+      {appUIItems.map((item, idx) => (
+        <div key={`appui-${idx}`} className="chat-message chat-message-assistant">
+          <div className="chat-message-avatar">
+            <i className="fas fa-puzzle-piece" />
+          </div>
+          <div className="chat-message-bubble">
+            <span className="chat-message-model">{item.appUI.toolName}</span>
+            <MCPAppFrame
+              toolName={item.appUI.toolName}
+              toolInput={item.appUI.toolInput}
+              toolResult={item.appUI.toolResult}
+              mcpClient={getClientForTool?.(item.appUI.toolName) || null}
+              toolDefinition={item.appUI.toolDefinition}
+              appHtml={item.appUI.html}
+              resourceMeta={item.appUI.meta}
+            />
+          </div>
+        </div>
+      ))}
+    </>
   )
 }
 
@@ -156,8 +190,8 @@ function StreamingActivity({ reasoning, toolCalls, hasResponse }) {
   const contentRef = useRef(null)
   const [manualCollapse, setManualCollapse] = useState(null)
 
-  // Auto-expand while thinking, auto-collapse when response starts
-  const autoExpanded = reasoning && !hasResponse
+  // Auto-expand while thinking or tool-calling, auto-collapse when response starts
+  const autoExpanded = (reasoning || (toolCalls && toolCalls.length > 0)) && !hasResponse
   const expanded = manualCollapse !== null ? !manualCollapse : autoExpanded
 
   // Scroll to bottom of thinking content as it streams
@@ -202,9 +236,18 @@ function StreamingActivity({ reasoning, toolCalls, hasResponse }) {
         {expanded && toolCalls && toolCalls.length > 0 && (
           <div className="chat-activity-details">
             {toolCalls.map((tc, idx) => {
+              if (tc.type === 'tool_result') {
+                return (
+                  <div key={idx} className="chat-activity-item chat-activity-tool-result">
+                    <span className="chat-activity-item-label">{tc.name} result</span>
+                    <div className="chat-activity-item-content"
+                      dangerouslySetInnerHTML={{ __html: renderMarkdown(tc.result || '') }} />
+                  </div>
+                )
+              }
               const parsed = formatToolContent(JSON.stringify(tc, null, 2))
               return (
-                <div key={idx} className={`chat-activity-item ${tc.type === 'tool_call' ? 'chat-activity-tool-call' : 'chat-activity-tool-result'}`}>
+                <div key={idx} className="chat-activity-item chat-activity-tool-call">
                   <span className="chat-activity-item-label">{tc.name || tc.type}</span>
                   <ToolParams entries={parsed.entries} fallback={parsed.fallback} />
                 </div>
@@ -247,7 +290,7 @@ export default function Chat() {
     chats, activeChat, activeChatId, isStreaming, streamingChatId, streamingContent,
     streamingReasoning, streamingToolCalls, tokensPerSecond, maxTokensPerSecond,
     addChat, switchChat, deleteChat, deleteAllChats, renameChat, updateChatSettings,
-    sendMessage, stopGeneration, clearHistory, getContextUsagePercent,
+    sendMessage, stopGeneration, clearHistory, getContextUsagePercent, addMessage,
   } = useChat(urlModel || '')
 
   const [input, setInput] = useState('')
@@ -256,6 +299,18 @@ export default function Chat() {
   const [editingName, setEditingName] = useState(null)
   const [editName, setEditName] = useState('')
   const [mcpAvailable, setMcpAvailable] = useState(false)
+  const [mcpServersOpen, setMcpServersOpen] = useState(false)
+  const [mcpServerList, setMcpServerList] = useState([])
+  const [mcpServersLoading, setMcpServersLoading] = useState(false)
+  const [mcpServerCache, setMcpServerCache] = useState({})
+  const [mcpPromptsOpen, setMcpPromptsOpen] = useState(false)
+  const [mcpPromptList, setMcpPromptList] = useState([])
+  const [mcpPromptsLoading, setMcpPromptsLoading] = useState(false)
+  const [mcpPromptArgsDialog, setMcpPromptArgsDialog] = useState(null)
+  const [mcpPromptArgsValues, setMcpPromptArgsValues] = useState({})
+  const [mcpResourcesOpen, setMcpResourcesOpen] = useState(false)
+  const [mcpResourceList, setMcpResourceList] = useState([])
+  const [mcpResourcesLoading, setMcpResourcesLoading] = useState(false)
   const [chatSearch, setChatSearch] = useState('')
   const [modelInfo, setModelInfo] = useState(null)
   const [showModelInfo, setShowModelInfo] = useState(false)
@@ -263,6 +318,12 @@ export default function Chat() {
   const [canvasMode, setCanvasMode] = useState(false)
   const [canvasOpen, setCanvasOpen] = useState(false)
   const [selectedArtifactId, setSelectedArtifactId] = useState(null)
+  const [clientMCPServers, setClientMCPServers] = useState(() => loadClientMCPServers())
+  const {
+    connect: mcpConnect, disconnect: mcpDisconnect, disconnectAll: mcpDisconnectAll,
+    getToolsForLLM, isClientTool, executeTool, connectionStatuses, getConnectedTools,
+    hasAppUI, getAppResource, getClientForTool, getToolDefinition,
+  } = useMCPClient()
   const messagesEndRef = useRef(null)
   const fileInputRef = useRef(null)
   const messagesRef = useRef(null)
@@ -296,11 +357,190 @@ export default function Chat() {
       const hasMcp = !!(cfg?.mcp?.remote || cfg?.mcp?.stdio)
       setMcpAvailable(hasMcp)
       if (!hasMcp && activeChat?.mcpMode) {
-        updateChatSettings(activeChat.id, { mcpMode: false })
+        updateChatSettings(activeChat.id, { mcpMode: false, mcpServers: [] })
       }
     }).catch(() => { if (!cancelled) { setMcpAvailable(false); setModelInfo(null) } })
     return () => { cancelled = true }
   }, [activeChat?.model])
+
+  const mcpDropdownRef = useRef(null)
+  useEffect(() => {
+    if (!mcpServersOpen) return
+    const handleClick = (e) => {
+      if (mcpDropdownRef.current && !mcpDropdownRef.current.contains(e.target)) {
+        setMcpServersOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [mcpServersOpen])
+
+  const fetchMcpServers = useCallback(async () => {
+    const model = activeChat?.model
+    if (!model) return
+    if (mcpServerCache[model]) {
+      setMcpServerList(mcpServerCache[model])
+      return
+    }
+    setMcpServersLoading(true)
+    try {
+      const data = await mcpApi.listServers(model)
+      const servers = data?.servers || []
+      setMcpServerList(servers)
+      setMcpServerCache(prev => ({ ...prev, [model]: servers }))
+    } catch (_e) {
+      setMcpServerList([])
+    } finally {
+      setMcpServersLoading(false)
+    }
+  }, [activeChat?.model, mcpServerCache])
+
+  const toggleMcpServer = useCallback((serverName) => {
+    if (!activeChat) return
+    const current = activeChat.mcpServers || []
+    const next = current.includes(serverName)
+      ? current.filter(s => s !== serverName)
+      : [...current, serverName]
+    updateChatSettings(activeChat.id, { mcpServers: next })
+  }, [activeChat, updateChatSettings])
+
+  const mcpPromptsRef = useRef(null)
+  useEffect(() => {
+    if (!mcpPromptsOpen) return
+    const handleClick = (e) => {
+      if (mcpPromptsRef.current && !mcpPromptsRef.current.contains(e.target)) {
+        setMcpPromptsOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [mcpPromptsOpen])
+
+  const mcpResourcesRef = useRef(null)
+  useEffect(() => {
+    if (!mcpResourcesOpen) return
+    const handleClick = (e) => {
+      if (mcpResourcesRef.current && !mcpResourcesRef.current.contains(e.target)) {
+        setMcpResourcesOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [mcpResourcesOpen])
+
+  const fetchMcpPrompts = useCallback(async () => {
+    const model = activeChat?.model
+    if (!model) return
+    setMcpPromptsLoading(true)
+    try {
+      const data = await mcpApi.listPrompts(model)
+      setMcpPromptList(Array.isArray(data) ? data : [])
+    } catch (_e) {
+      setMcpPromptList([])
+    } finally {
+      setMcpPromptsLoading(false)
+    }
+  }, [activeChat?.model])
+
+  const fetchMcpResources = useCallback(async () => {
+    const model = activeChat?.model
+    if (!model) return
+    setMcpResourcesLoading(true)
+    try {
+      const data = await mcpApi.listResources(model)
+      setMcpResourceList(Array.isArray(data) ? data : [])
+    } catch (_e) {
+      setMcpResourceList([])
+    } finally {
+      setMcpResourcesLoading(false)
+    }
+  }, [activeChat?.model])
+
+  const handleSelectPrompt = useCallback(async (prompt) => {
+    if (prompt.arguments && prompt.arguments.length > 0) {
+      setMcpPromptArgsDialog(prompt)
+      setMcpPromptArgsValues({})
+      return
+    }
+    // No arguments, expand immediately
+    const model = activeChat?.model
+    if (!model) return
+    try {
+      const result = await mcpApi.getPrompt(model, prompt.name, {})
+      if (result?.messages) {
+        for (const msg of result.messages) {
+          addMessage(activeChat.id, { role: msg.role || 'user', content: msg.content })
+        }
+      }
+    } catch (e) {
+      addMessage(activeChat.id, { role: 'system', content: `Failed to expand prompt: ${e.message}` })
+    }
+    setMcpPromptsOpen(false)
+  }, [activeChat?.model, activeChat?.id, addMessage])
+
+  const handleExpandPromptWithArgs = useCallback(async () => {
+    if (!mcpPromptArgsDialog) return
+    const model = activeChat?.model
+    if (!model) return
+    try {
+      const result = await mcpApi.getPrompt(model, mcpPromptArgsDialog.name, mcpPromptArgsValues)
+      if (result?.messages) {
+        for (const msg of result.messages) {
+          addMessage(activeChat.id, { role: msg.role || 'user', content: msg.content })
+        }
+      }
+    } catch (e) {
+      addMessage(activeChat.id, { role: 'system', content: `Failed to expand prompt: ${e.message}` })
+    }
+    setMcpPromptArgsDialog(null)
+    setMcpPromptArgsValues({})
+    setMcpPromptsOpen(false)
+  }, [activeChat?.model, activeChat?.id, mcpPromptArgsDialog, mcpPromptArgsValues, addMessage])
+
+  const toggleMcpResource = useCallback((uri) => {
+    if (!activeChat) return
+    const current = activeChat.mcpResources || []
+    const next = current.includes(uri)
+      ? current.filter(u => u !== uri)
+      : [...current, uri]
+    updateChatSettings(activeChat.id, { mcpResources: next })
+  }, [activeChat, updateChatSettings])
+
+  // Auto-connect/disconnect client MCP servers based on chat's active list
+  const activeMCPIds = activeChat?.clientMCPServers || []
+  useEffect(() => {
+    const activeSet = new Set(activeMCPIds)
+    for (const server of clientMCPServers) {
+      const status = connectionStatuses[server.id]?.status
+      if (activeSet.has(server.id) && status !== 'connected' && status !== 'connecting') {
+        mcpConnect(server)
+      } else if (!activeSet.has(server.id) && (status === 'connected' || status === 'connecting')) {
+        mcpDisconnect(server.id)
+      }
+    }
+  }, [activeMCPIds.join(','), clientMCPServers])
+
+  const handleClientMCPServerAdded = useCallback((server) => {
+    setClientMCPServers(loadClientMCPServers())
+    const current = activeChat?.clientMCPServers || []
+    if (activeChat) updateChatSettings(activeChat.id, { clientMCPServers: [...current, server.id] })
+  }, [activeChat, updateChatSettings])
+
+  const handleClientMCPServerRemoved = useCallback(async (id) => {
+    await mcpDisconnect(id)
+    setClientMCPServers(loadClientMCPServers())
+    if (activeChat) {
+      const current = activeChat.clientMCPServers || []
+      updateChatSettings(activeChat.id, { clientMCPServers: current.filter(s => s !== id) })
+    }
+  }, [activeChat, mcpDisconnect, updateChatSettings])
+
+  const handleClientMCPToggle = useCallback((serverId) => {
+    if (!activeChat) return
+    const current = activeChat.clientMCPServers || []
+    const next = current.includes(serverId) ? current.filter(s => s !== serverId) : [...current, serverId]
+    updateChatSettings(activeChat.id, { clientMCPServers: next })
+  }, [activeChat, updateChatSettings])
 
   // Load initial message from home page
   const homeDataProcessed = useRef(false)
@@ -324,6 +564,12 @@ export default function Chat() {
             if (data.mcpMode && activeChat) {
               updateChatSettings(activeChat.id, { mcpMode: true })
             }
+          }
+          if (data.mcpServers?.length > 0 && targetChat) {
+            updateChatSettings(targetChat.id, { mcpServers: data.mcpServers })
+          }
+          if (data.clientMCPServers?.length > 0 && targetChat) {
+            updateChatSettings(targetChat.id, { clientMCPServers: data.clientMCPServers })
           }
           setInput(data.message)
           if (data.files) setFiles(data.files)
@@ -418,8 +664,28 @@ export default function Chat() {
     }
     setInput('')
     setFiles([])
-    await sendMessage(msg, files)
-  }, [input, files, activeChat, sendMessage, addToast])
+    const tools = getToolsForLLM()
+    const mcpOptions = tools.length > 0 ? {
+      clientMCPTools: tools,
+      isClientTool: (name) => isClientTool(name),
+      executeTool: (name, args) => executeTool(name, args),
+      maxToolTurns: 10,
+      getToolAppUI: async (toolName, toolInput, toolResultText) => {
+        if (!hasAppUI(toolName)) return null
+        const resource = await getAppResource(toolName)
+        if (!resource) return null
+        return {
+          html: resource.html,
+          meta: resource.meta,
+          toolName,
+          toolInput,
+          toolDefinition: getToolDefinition(toolName),
+          toolResult: { content: [{ type: 'text', text: toolResultText }] },
+        }
+      },
+    } : {}
+    await sendMessage(msg, files, mcpOptions)
+  }, [input, files, activeChat, sendMessage, addToast, getToolsForLLM, isClientTool, executeTool, hasAppUI, getAppResource, getToolDefinition])
 
   const handleRegenerate = useCallback(async () => {
     if (!activeChat || isStreaming) return
@@ -631,18 +897,170 @@ export default function Chat() {
             </>
           )}
           {mcpAvailable && (
-            <label className="chat-mcp-switch" title="Toggle MCP mode">
-              <span className="chat-mcp-switch-label">MCP</span>
-              <span className="toggle">
-                <input
-                  type="checkbox"
-                  checked={activeChat.mcpMode || false}
-                  onChange={(e) => updateChatSettings(activeChat.id, { mcpMode: e.target.checked })}
-                />
-                <span className="toggle-slider" />
-              </span>
-            </label>
+            <div className="chat-mcp-dropdown" ref={mcpDropdownRef}>
+              <button
+                className={`btn btn-sm ${(activeChat.mcpServers?.length > 0) ? 'btn-primary' : 'btn-secondary'}`}
+                title="Select MCP servers"
+                onClick={() => { setMcpServersOpen(!mcpServersOpen); if (!mcpServersOpen) fetchMcpServers() }}
+              >
+                <i className="fas fa-plug" /> MCP
+                {activeChat.mcpServers?.length > 0 && (
+                  <span className="chat-mcp-badge">{activeChat.mcpServers.length}</span>
+                )}
+              </button>
+              {mcpServersOpen && (
+                <div className="chat-mcp-dropdown-menu">
+                  {mcpServersLoading ? (
+                    <div className="chat-mcp-dropdown-loading"><i className="fas fa-spinner fa-spin" /> Loading servers...</div>
+                  ) : mcpServerList.length === 0 ? (
+                    <div className="chat-mcp-dropdown-empty">No MCP servers configured</div>
+                  ) : (
+                    <>
+                      <div className="chat-mcp-dropdown-header">
+                        <span>MCP Servers</span>
+                        <button
+                          className="chat-mcp-select-all"
+                          onClick={() => {
+                            const allNames = mcpServerList.map(s => s.name)
+                            const allSelected = allNames.every(n => (activeChat.mcpServers || []).includes(n))
+                            updateChatSettings(activeChat.id, { mcpServers: allSelected ? [] : allNames })
+                          }}
+                        >
+                          {mcpServerList.every(s => (activeChat.mcpServers || []).includes(s.name)) ? 'Deselect all' : 'Select all'}
+                        </button>
+                      </div>
+                      {mcpServerList.map(server => (
+                        <label key={server.name} className="chat-mcp-server-item">
+                          <input
+                            type="checkbox"
+                            checked={(activeChat.mcpServers || []).includes(server.name)}
+                            onChange={() => toggleMcpServer(server.name)}
+                          />
+                          <div className="chat-mcp-server-info">
+                            <span className="chat-mcp-server-name">{server.name}</span>
+                            <span className="chat-mcp-server-tools">{server.tools?.length || 0} tools</span>
+                          </div>
+                        </label>
+                      ))}
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
           )}
+          {mcpAvailable && (
+            <div className="chat-mcp-dropdown" ref={mcpPromptsRef}>
+              <button
+                className="btn btn-sm btn-secondary"
+                title="MCP Prompts"
+                onClick={() => { setMcpPromptsOpen(!mcpPromptsOpen); if (!mcpPromptsOpen) fetchMcpPrompts() }}
+              >
+                <i className="fas fa-comment-dots" /> Prompts
+              </button>
+              {mcpPromptsOpen && (
+                <div className="chat-mcp-dropdown-menu">
+                  {mcpPromptsLoading ? (
+                    <div className="chat-mcp-dropdown-loading"><i className="fas fa-spinner fa-spin" /> Loading prompts...</div>
+                  ) : mcpPromptList.length === 0 ? (
+                    <div className="chat-mcp-dropdown-empty">No MCP prompts available</div>
+                  ) : (
+                    <>
+                      <div className="chat-mcp-dropdown-header"><span>MCP Prompts</span></div>
+                      {mcpPromptList.map(prompt => (
+                        <div
+                          key={prompt.name}
+                          className="chat-mcp-server-item"
+                          style={{ cursor: 'pointer', padding: '6px 10px' }}
+                          onClick={() => handleSelectPrompt(prompt)}
+                        >
+                          <div className="chat-mcp-server-info">
+                            <span className="chat-mcp-server-name">{prompt.title || prompt.name}</span>
+                            {prompt.description && (
+                              <span className="chat-mcp-server-tools">{prompt.description}</span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </>
+                  )}
+                </div>
+              )}
+              {mcpPromptArgsDialog && (
+                <div className="chat-mcp-dropdown-menu" style={{ minWidth: '250px' }}>
+                  <div className="chat-mcp-dropdown-header">
+                    <span>{mcpPromptArgsDialog.title || mcpPromptArgsDialog.name}</span>
+                  </div>
+                  {mcpPromptArgsDialog.arguments.map(arg => (
+                    <div key={arg.name} style={{ padding: '4px 10px' }}>
+                      <label style={{ fontSize: '0.8rem', display: 'block', marginBottom: '2px' }}>
+                        {arg.name}{arg.required ? ' *' : ''}
+                      </label>
+                      <input
+                        type="text"
+                        className="input input-sm"
+                        style={{ width: '100%' }}
+                        placeholder={arg.description || arg.name}
+                        value={mcpPromptArgsValues[arg.name] || ''}
+                        onChange={e => setMcpPromptArgsValues(prev => ({ ...prev, [arg.name]: e.target.value }))}
+                      />
+                    </div>
+                  ))}
+                  <div style={{ padding: '6px 10px', display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
+                    <button className="btn btn-sm btn-secondary" onClick={() => setMcpPromptArgsDialog(null)}>Cancel</button>
+                    <button className="btn btn-sm btn-primary" onClick={handleExpandPromptWithArgs}>Apply</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          {mcpAvailable && (
+            <div className="chat-mcp-dropdown" ref={mcpResourcesRef}>
+              <button
+                className={`btn btn-sm ${(activeChat.mcpResources?.length > 0) ? 'btn-primary' : 'btn-secondary'}`}
+                title="MCP Resources"
+                onClick={() => { setMcpResourcesOpen(!mcpResourcesOpen); if (!mcpResourcesOpen) fetchMcpResources() }}
+              >
+                <i className="fas fa-paperclip" /> Resources
+                {activeChat.mcpResources?.length > 0 && (
+                  <span className="chat-mcp-badge">{activeChat.mcpResources.length}</span>
+                )}
+              </button>
+              {mcpResourcesOpen && (
+                <div className="chat-mcp-dropdown-menu">
+                  {mcpResourcesLoading ? (
+                    <div className="chat-mcp-dropdown-loading"><i className="fas fa-spinner fa-spin" /> Loading resources...</div>
+                  ) : mcpResourceList.length === 0 ? (
+                    <div className="chat-mcp-dropdown-empty">No MCP resources available</div>
+                  ) : (
+                    <>
+                      <div className="chat-mcp-dropdown-header"><span>MCP Resources</span></div>
+                      {mcpResourceList.map(resource => (
+                        <label key={resource.uri} className="chat-mcp-server-item">
+                          <input
+                            type="checkbox"
+                            checked={(activeChat.mcpResources || []).includes(resource.uri)}
+                            onChange={() => toggleMcpResource(resource.uri)}
+                          />
+                          <div className="chat-mcp-server-info">
+                            <span className="chat-mcp-server-name">{resource.name}</span>
+                            <span className="chat-mcp-server-tools">{resource.uri}</span>
+                          </div>
+                        </label>
+                      ))}
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+          <ClientMCPDropdown
+            activeServerIds={activeChat.clientMCPServers || []}
+            onToggleServer={handleClientMCPToggle}
+            onServerAdded={handleClientMCPServerAdded}
+            onServerRemoved={handleClientMCPServerRemoved}
+            connectionStatuses={connectionStatuses}
+            getConnectedTools={getConnectedTools}
+          />
           <div className="chat-header-actions">
             <label className="canvas-mode-toggle" title="Extract code blocks and media into a side panel for preview, copy, and download">
               <i className="fas fa-columns" />
@@ -821,7 +1239,8 @@ export default function Chat() {
               if (activityBuf.length > 0) {
                 elements.push(
                   <ActivityGroup key={`ag-${key}`} items={[...activityBuf]}
-                    updateChatSettings={updateChatSettings} activeChat={activeChat} />
+                    updateChatSettings={updateChatSettings} activeChat={activeChat}
+                    getClientForTool={getClientForTool} />
                 )
                 activityBuf = []
               }

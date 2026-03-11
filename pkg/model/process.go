@@ -46,6 +46,11 @@ func (ml *ModelLoader) deleteProcess(s string) error {
 
 	xlog.Debug("Deleting process", "model", s)
 
+	// Run unload hooks (e.g. close MCP sessions)
+	for _, hook := range ml.onUnloadHooks {
+		hook(s)
+	}
+
 	// Free GPU resources before stopping the process to ensure VRAM is released
 	if freeFunc, ok := model.GRPC(false, ml.wd).(interface{ Free() error }); ok {
 		xlog.Debug("Calling Free() to release GPU resources", "model", s)

@@ -3,9 +3,7 @@ package openresponses
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"net"
 	"strings"
 	"time"
 
@@ -21,8 +19,6 @@ import (
 	"github.com/mudler/LocalAI/pkg/model"
 	reason "github.com/mudler/LocalAI/pkg/reasoning"
 	"github.com/mudler/LocalAI/pkg/utils"
-	"github.com/mudler/cogito"
-	"github.com/mudler/cogito/clients"
 	"github.com/mudler/xlog"
 )
 
@@ -104,14 +100,127 @@ func ResponsesEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eval
 		// Handle tools
 		var funcs functions.Functions
 		var shouldUseFn bool
-		var useMCP bool
+		var mcpToolInfos []mcpTools.MCPToolInfo
 
 		if len(input.Tools) > 0 {
-			// User-provided tools
 			funcs, shouldUseFn = convertORToolsToFunctions(input, cfg)
-		} else if cfg.MCP.Servers != "" || cfg.MCP.Stdio != "" {
-			// MCP tools (internal)
-			useMCP = true
+		}
+
+		// MCP injection: prompts, resources, and tools
+		mcpServers := mcpTools.MCPServersFromMetadata(input.Metadata)
+		mcpPromptName, mcpPromptArgs := mcpTools.MCPPromptFromMetadata(input.Metadata)
+		mcpResourceURIs := mcpTools.MCPResourcesFromMetadata(input.Metadata)
+
+		hasMCPRequest := len(mcpServers) > 0 || mcpPromptName != "" || len(mcpResourceURIs) > 0
+		hasMCPConfig := cfg.MCP.Servers != "" || cfg.MCP.Stdio != ""
+
+		if hasMCPRequest && hasMCPConfig {
+			remote, stdio, mcpErr := cfg.MCP.MCPConfigFromYAML()
+			if mcpErr == nil {
+				namedSessions, sessErr := mcpTools.NamedSessionsFromMCPConfig(cfg.Name, remote, stdio, mcpServers)
+				if sessErr == nil && len(namedSessions) > 0 {
+					// Prompt injection
+					if mcpPromptName != "" {
+						prompts, discErr := mcpTools.DiscoverMCPPrompts(c.Request().Context(), namedSessions)
+						if discErr == nil {
+							promptMsgs, getErr := mcpTools.GetMCPPrompt(c.Request().Context(), prompts, mcpPromptName, mcpPromptArgs)
+							if getErr == nil {
+								var injected []schema.Message
+								for _, pm := range promptMsgs {
+									injected = append(injected, schema.Message{
+										Role:    string(pm.Role),
+										Content: mcpTools.PromptMessageToText(pm),
+									})
+								}
+								messages = append(injected, messages...)
+								xlog.Debug("Open Responses MCP prompt injected", "prompt", mcpPromptName, "messages", len(injected))
+							} else {
+								xlog.Error("Failed to get MCP prompt", "error", getErr)
+							}
+						}
+					}
+
+					// Resource injection
+					if len(mcpResourceURIs) > 0 {
+						resources, discErr := mcpTools.DiscoverMCPResources(c.Request().Context(), namedSessions)
+						if discErr == nil {
+							var resourceTexts []string
+							for _, uri := range mcpResourceURIs {
+								content, readErr := mcpTools.ReadMCPResource(c.Request().Context(), resources, uri)
+								if readErr != nil {
+									xlog.Error("Failed to read MCP resource", "error", readErr, "uri", uri)
+									continue
+								}
+								name := uri
+								for _, r := range resources {
+									if r.URI == uri {
+										name = r.Name
+										break
+									}
+								}
+								resourceTexts = append(resourceTexts, fmt.Sprintf("--- MCP Resource: %s ---\n%s", name, content))
+							}
+							if len(resourceTexts) > 0 && len(messages) > 0 {
+								lastIdx := len(messages) - 1
+								suffix := "\n\n" + strings.Join(resourceTexts, "\n\n")
+								switch ct := messages[lastIdx].Content.(type) {
+								case string:
+									messages[lastIdx].Content = ct + suffix
+								default:
+									messages[lastIdx].Content = fmt.Sprintf("%v%s", ct, suffix)
+								}
+								xlog.Debug("Open Responses MCP resources injected", "count", len(resourceTexts))
+							}
+						}
+					}
+
+					// Tool injection
+					if len(mcpServers) > 0 {
+						discovered, discErr := mcpTools.DiscoverMCPTools(c.Request().Context(), namedSessions)
+						if discErr == nil {
+							mcpToolInfos = discovered
+							for _, ti := range mcpToolInfos {
+								funcs = append(funcs, ti.Function)
+								input.Tools = append(input.Tools, schema.ORFunctionTool{
+									Type:        "function",
+									Name:        ti.Function.Name,
+									Description: ti.Function.Description,
+									Parameters:  ti.Function.Parameters,
+								})
+							}
+							shouldUseFn = len(funcs) > 0 && cfg.ShouldUseFunctions()
+							xlog.Debug("Open Responses MCP tools injected", "count", len(mcpToolInfos), "total_funcs", len(funcs))
+						} else {
+							xlog.Error("Failed to discover MCP tools", "error", discErr)
+						}
+					}
+				}
+			} else {
+				xlog.Error("Failed to parse MCP config", "error", mcpErr)
+			}
+		} else if len(input.Tools) == 0 && hasMCPConfig {
+			// Backward compat: model has MCP config, no user tools and no mcp_servers field
+			remote, stdio, mcpErr := cfg.MCP.MCPConfigFromYAML()
+			if mcpErr == nil {
+				namedSessions, sessErr := mcpTools.NamedSessionsFromMCPConfig(cfg.Name, remote, stdio, nil)
+				if sessErr == nil && len(namedSessions) > 0 {
+					discovered, discErr := mcpTools.DiscoverMCPTools(c.Request().Context(), namedSessions)
+					if discErr == nil {
+						mcpToolInfos = discovered
+						for _, ti := range mcpToolInfos {
+							funcs = append(funcs, ti.Function)
+							input.Tools = append(input.Tools, schema.ORFunctionTool{
+								Type:        "function",
+								Name:        ti.Function.Name,
+								Description: ti.Function.Description,
+								Parameters:  ti.Function.Parameters,
+							})
+						}
+						shouldUseFn = len(funcs) > 0 && cfg.ShouldUseFunctions()
+						xlog.Debug("Open Responses MCP tools auto-activated", "count", len(mcpToolInfos))
+					}
+				}
+			}
 		}
 
 		// Create OpenAI-compatible request for internal processing
@@ -215,15 +324,12 @@ func ResponsesEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eval
 				var finalResponse *schema.ORResponseResource
 				var bgErr error
 
-				if useMCP {
-					// Background MCP processing
-					finalResponse, bgErr = handleBackgroundMCPResponse(bgCtx, store, responseID, createdAt, input, cfg, ml, predInput, openAIReq, appConfig)
-				} else if input.Stream {
+				if input.Stream {
 					// Background streaming processing (buffer events)
-					finalResponse, bgErr = handleBackgroundStream(bgCtx, store, responseID, createdAt, input, cfg, ml, cl, appConfig, predInput, openAIReq, funcs, shouldUseFn)
+					finalResponse, bgErr = handleBackgroundStream(bgCtx, store, responseID, createdAt, input, cfg, ml, cl, appConfig, predInput, openAIReq, funcs, shouldUseFn, mcpToolInfos, evaluator)
 				} else {
 					// Background non-streaming processing
-					finalResponse, bgErr = handleBackgroundNonStream(bgCtx, store, responseID, createdAt, input, cfg, ml, cl, appConfig, predInput, openAIReq, funcs, shouldUseFn)
+					finalResponse, bgErr = handleBackgroundNonStream(bgCtx, store, responseID, createdAt, input, cfg, ml, cl, appConfig, predInput, openAIReq, funcs, shouldUseFn, mcpToolInfos, evaluator)
 				}
 
 				if bgErr != nil {
@@ -243,16 +349,11 @@ func ResponsesEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eval
 			return c.JSON(200, queuedResponse)
 		}
 
-		if useMCP {
-			// Use MCP agentic loop
-			return handleMCPResponse(c, responseID, createdAt, input, cfg, ml, predInput, openAIReq, appConfig, shouldStore)
-		}
-
 		if input.Stream {
-			return handleOpenResponsesStream(c, responseID, createdAt, input, cfg, ml, cl, appConfig, predInput, openAIReq, funcs, shouldUseFn, shouldStore)
+			return handleOpenResponsesStream(c, responseID, createdAt, input, cfg, ml, cl, appConfig, predInput, openAIReq, funcs, shouldUseFn, shouldStore, mcpToolInfos, evaluator)
 		}
 
-		return handleOpenResponsesNonStream(c, responseID, createdAt, input, cfg, ml, cl, appConfig, predInput, openAIReq, funcs, shouldUseFn, shouldStore)
+		return handleOpenResponsesNonStream(c, responseID, createdAt, input, cfg, ml, cl, appConfig, predInput, openAIReq, funcs, shouldUseFn, shouldStore, mcpToolInfos, evaluator, 0)
 	}
 }
 
@@ -764,163 +865,199 @@ func convertTextFormatToResponseFormat(textFormat interface{}) interface{} {
 }
 
 // handleBackgroundNonStream handles background non-streaming responses
-func handleBackgroundNonStream(ctx context.Context, store *ResponseStore, responseID string, createdAt int64, input *schema.OpenResponsesRequest, cfg *config.ModelConfig, ml *model.ModelLoader, cl *config.ModelConfigLoader, appConfig *config.ApplicationConfig, predInput string, openAIReq *schema.OpenAIRequest, funcs functions.Functions, shouldUseFn bool) (*schema.ORResponseResource, error) {
-	images := []string{}
-	videos := []string{}
-	audios := []string{}
-	for _, m := range openAIReq.Messages {
-		images = append(images, m.StringImages...)
-		videos = append(videos, m.StringVideos...)
-		audios = append(audios, m.StringAudios...)
+func handleBackgroundNonStream(ctx context.Context, store *ResponseStore, responseID string, createdAt int64, input *schema.OpenResponsesRequest, cfg *config.ModelConfig, ml *model.ModelLoader, cl *config.ModelConfigLoader, appConfig *config.ApplicationConfig, predInput string, openAIReq *schema.OpenAIRequest, funcs functions.Functions, shouldUseFn bool, mcpToolInfos []mcpTools.MCPToolInfo, evaluator *templates.Evaluator) (*schema.ORResponseResource, error) {
+	mcpMaxIterations := 10
+	if cfg.Agent.MaxIterations > 0 {
+		mcpMaxIterations = cfg.Agent.MaxIterations
 	}
+	hasMCPTools := len(mcpToolInfos) > 0
+	var allOutputItems []schema.ORItemField
 
-	toolsJSON := serializeToolsForBackend(input.Tools)
-	toolChoiceJSON := ""
-	if input.ToolChoice != nil {
-		toolChoiceBytes, err := json.Marshal(input.ToolChoice)
-		if err == nil {
-			toolChoiceJSON = string(toolChoiceBytes)
+	for mcpIteration := 0; mcpIteration <= mcpMaxIterations; mcpIteration++ {
+		if mcpIteration > 0 {
+			predInput = evaluator.TemplateMessages(*openAIReq, openAIReq.Messages, cfg, funcs, shouldUseFn)
+			xlog.Debug("Background MCP re-templating", "iteration", mcpIteration)
 		}
-	}
 
-	var logprobs *int
-	if input.TopLogprobs != nil && *input.TopLogprobs > 0 {
-		logprobs = input.TopLogprobs
-	}
+		images := []string{}
+		videos := []string{}
+		audios := []string{}
+		for _, m := range openAIReq.Messages {
+			images = append(images, m.StringImages...)
+			videos = append(videos, m.StringVideos...)
+			audios = append(audios, m.StringAudios...)
+		}
 
-	predFunc, err := backend.ModelInference(
-		ctx, predInput, openAIReq.Messages, images, videos, audios, ml, cfg, cl, appConfig, nil, toolsJSON, toolChoiceJSON, logprobs, input.TopLogprobs, input.LogitBias, nil)
-	if err != nil {
-		return nil, fmt.Errorf("model inference failed: %w", err)
-	}
+		toolsJSON := serializeToolsForBackend(input.Tools)
+		toolChoiceJSON := ""
+		if input.ToolChoice != nil {
+			toolChoiceBytes, err := json.Marshal(input.ToolChoice)
+			if err == nil {
+				toolChoiceJSON = string(toolChoiceBytes)
+			}
+		}
 
-	// Check for cancellation
-	select {
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	default:
-	}
+		var logprobs *int
+		if input.TopLogprobs != nil && *input.TopLogprobs > 0 {
+			logprobs = input.TopLogprobs
+		}
 
-	const maxEmptyRetries = 5
-	var prediction backend.LLMResponse
-	var result string
-	for attempt := 0; attempt <= maxEmptyRetries; attempt++ {
-		prediction, err = predFunc()
+		predFunc, err := backend.ModelInference(
+			ctx, predInput, openAIReq.Messages, images, videos, audios, ml, cfg, cl, appConfig, nil, toolsJSON, toolChoiceJSON, logprobs, input.TopLogprobs, input.LogitBias, nil)
 		if err != nil {
-			return nil, fmt.Errorf("prediction failed: %w", err)
+			return nil, fmt.Errorf("model inference failed: %w", err)
 		}
-		result = backend.Finetune(*cfg, predInput, prediction.Response)
-		if result != "" || !shouldUseFn {
-			break
-		}
+
 		select {
 		case <-ctx.Done():
 			return nil, ctx.Err()
 		default:
 		}
-		xlog.Warn("Open Responses background: retrying prediction due to empty backend response", "attempt", attempt+1, "maxRetries", maxEmptyRetries)
-	}
 
-	// Parse tool calls if using functions (same logic as regular handler)
-	var outputItems []schema.ORItemField
-	var toolCalls []schema.ToolCall
+		const maxEmptyRetries = 5
+		var prediction backend.LLMResponse
+		var result string
+		for attempt := 0; attempt <= maxEmptyRetries; attempt++ {
+			prediction, err = predFunc()
+			if err != nil {
+				return nil, fmt.Errorf("prediction failed: %w", err)
+			}
+			result = backend.Finetune(*cfg, predInput, prediction.Response)
+			if result != "" || !shouldUseFn {
+				break
+			}
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			default:
+			}
+			xlog.Warn("Open Responses background: retrying prediction due to empty backend response", "attempt", attempt+1, "maxRetries", maxEmptyRetries)
+		}
 
-	if shouldUseFn {
+		// Parse tool calls
 		var funcCallResults []functions.FuncCallResults
 		var textContent string
 
-		// Try pre-parsed tool calls from C++ autoparser first
-		if deltaToolCalls := functions.ToolCallsFromChatDeltas(prediction.ChatDeltas); len(deltaToolCalls) > 0 {
-			xlog.Debug("[ChatDeltas] OpenResponses: using pre-parsed tool calls", "count", len(deltaToolCalls))
-			funcCallResults = deltaToolCalls
-			textContent = functions.ContentFromChatDeltas(prediction.ChatDeltas)
-		} else {
-			xlog.Debug("[ChatDeltas] OpenResponses: no pre-parsed tool calls, falling back to Go-side text parsing")
-			cleanedResult := functions.CleanupLLMResult(result, cfg.FunctionsConfig)
-			funcCallResults = functions.ParseFunctionCall(cleanedResult, cfg.FunctionsConfig)
-			textContent = functions.ParseTextContent(cleanedResult, cfg.FunctionsConfig)
-		}
+		if shouldUseFn {
+			if deltaToolCalls := functions.ToolCallsFromChatDeltas(prediction.ChatDeltas); len(deltaToolCalls) > 0 {
+				funcCallResults = deltaToolCalls
+				textContent = functions.ContentFromChatDeltas(prediction.ChatDeltas)
+			} else {
+				cleanedResult := functions.CleanupLLMResult(result, cfg.FunctionsConfig)
+				funcCallResults = functions.ParseFunctionCall(cleanedResult, cfg.FunctionsConfig)
+				textContent = functions.ParseTextContent(cleanedResult, cfg.FunctionsConfig)
+			}
 
-		noActionName := "answer"
-		if cfg.FunctionsConfig.NoActionFunctionName != "" {
-			noActionName = cfg.FunctionsConfig.NoActionFunctionName
-		}
+			noActionName := "answer"
+			if cfg.FunctionsConfig.NoActionFunctionName != "" {
+				noActionName = cfg.FunctionsConfig.NoActionFunctionName
+			}
 
-		for i, fc := range funcCallResults {
-			if fc.Name == noActionName {
-				if fc.Arguments != "" {
-					var args map[string]interface{}
-					if err := json.Unmarshal([]byte(fc.Arguments), &args); err == nil {
-						if msg, ok := args["message"].(string); ok && msg != "" {
-							textContent = msg
+			var toolCalls []schema.ToolCall
+			for i, fc := range funcCallResults {
+				if fc.Name == noActionName {
+					if fc.Arguments != "" {
+						var args map[string]interface{}
+						if err := json.Unmarshal([]byte(fc.Arguments), &args); err == nil {
+							if msg, ok := args["message"].(string); ok && msg != "" {
+								textContent = msg
+							}
 						}
 					}
+					continue
 				}
-				continue
+				toolCalls = append(toolCalls, schema.ToolCall{
+					Index: i,
+					ID:    fmt.Sprintf("fc_%s", uuid.New().String()),
+					Type:  "function",
+					FunctionCall: schema.FunctionCall{
+						Name:      fc.Name,
+						Arguments: fc.Arguments,
+					},
+				})
 			}
-			toolCalls = append(toolCalls, schema.ToolCall{
-				Index: i,
-				ID:    fmt.Sprintf("fc_%s", uuid.New().String()),
-				Type:  "function",
-				FunctionCall: schema.FunctionCall{
-					Name:      fc.Name,
-					Arguments: fc.Arguments,
-				},
-			})
-		}
 
-		if textContent != "" {
-			outputItems = append(outputItems, schema.ORItemField{
-				Type:    "message",
-				ID:      fmt.Sprintf("msg_%s", uuid.New().String()),
-				Status:  "completed",
-				Role:    "assistant",
-				Content: []schema.ORContentPart{makeOutputTextPartWithLogprobs(textContent, prediction.Logprobs)},
-			})
-		}
+			// MCP tool execution
+			if hasMCPTools && len(toolCalls) > 0 {
+				var hasMCPCalls bool
+				for _, tc := range toolCalls {
+					if mcpTools.IsMCPTool(mcpToolInfos, tc.FunctionCall.Name) {
+						hasMCPCalls = true
+						break
+					}
+				}
+				if hasMCPCalls {
+					assistantMsg := schema.Message{Role: "assistant", Content: result, ToolCalls: toolCalls}
+					openAIReq.Messages = append(openAIReq.Messages, assistantMsg)
 
-		for _, tc := range toolCalls {
-			outputItems = append(outputItems, schema.ORItemField{
-				Type:      "function_call",
-				ID:        fmt.Sprintf("fc_%s", uuid.New().String()),
-				Status:    "completed",
-				CallID:    tc.ID,
-				Name:      tc.FunctionCall.Name,
-				Arguments: tc.FunctionCall.Arguments,
-			})
-		}
+					for _, tc := range toolCalls {
+						// Emit function_call + function_call_output items
+						allOutputItems = append(allOutputItems, schema.ORItemField{
+							Type: "function_call", ID: fmt.Sprintf("fc_%s", uuid.New().String()),
+							Status: "completed", CallID: tc.ID, Name: tc.FunctionCall.Name, Arguments: tc.FunctionCall.Arguments,
+						})
 
-		if len(outputItems) == 0 && result != "" {
-			outputItems = append(outputItems, schema.ORItemField{
-				Type:    "message",
-				ID:      fmt.Sprintf("msg_%s", uuid.New().String()),
-				Status:  "completed",
-				Role:    "assistant",
+						if !mcpTools.IsMCPTool(mcpToolInfos, tc.FunctionCall.Name) {
+							continue
+						}
+						toolResult, toolErr := mcpTools.ExecuteMCPToolCall(ctx, mcpToolInfos, tc.FunctionCall.Name, tc.FunctionCall.Arguments)
+						if toolErr != nil {
+							toolResult = fmt.Sprintf("Error: %v", toolErr)
+						}
+						openAIReq.Messages = append(openAIReq.Messages, schema.Message{
+							Role: "tool", Content: toolResult, StringContent: toolResult, ToolCallID: tc.ID, Name: tc.FunctionCall.Name,
+						})
+						allOutputItems = append(allOutputItems, schema.ORItemField{
+							Type: "function_call_output", ID: fmt.Sprintf("fco_%s", uuid.New().String()),
+							Status: "completed", CallID: tc.ID, Output: toolResult,
+						})
+					}
+					continue // next MCP iteration
+				}
+			}
+
+			// No MCP calls, build output items
+			if textContent != "" {
+				allOutputItems = append(allOutputItems, schema.ORItemField{
+					Type: "message", ID: fmt.Sprintf("msg_%s", uuid.New().String()),
+					Status: "completed", Role: "assistant",
+					Content: []schema.ORContentPart{makeOutputTextPartWithLogprobs(textContent, prediction.Logprobs)},
+				})
+			}
+			for _, tc := range toolCalls {
+				allOutputItems = append(allOutputItems, schema.ORItemField{
+					Type: "function_call", ID: fmt.Sprintf("fc_%s", uuid.New().String()),
+					Status: "completed", CallID: tc.ID, Name: tc.FunctionCall.Name, Arguments: tc.FunctionCall.Arguments,
+				})
+			}
+			if len(allOutputItems) == 0 && result != "" {
+				allOutputItems = append(allOutputItems, schema.ORItemField{
+					Type: "message", ID: fmt.Sprintf("msg_%s", uuid.New().String()),
+					Status: "completed", Role: "assistant",
+					Content: []schema.ORContentPart{makeOutputTextPartWithLogprobs(result, prediction.Logprobs)},
+				})
+			}
+		} else {
+			allOutputItems = append(allOutputItems, schema.ORItemField{
+				Type: "message", ID: fmt.Sprintf("msg_%s", uuid.New().String()),
+				Status: "completed", Role: "assistant",
 				Content: []schema.ORContentPart{makeOutputTextPartWithLogprobs(result, prediction.Logprobs)},
 			})
 		}
-	} else {
-		outputItems = append(outputItems, schema.ORItemField{
-			Type:    "message",
-			ID:      fmt.Sprintf("msg_%s", uuid.New().String()),
-			Status:  "completed",
-			Role:    "assistant",
-			Content: []schema.ORContentPart{makeOutputTextPartWithLogprobs(result, prediction.Logprobs)},
-		})
-	}
 
-	now := time.Now().Unix()
-	response := buildORResponse(responseID, createdAt, &now, schema.ORStatusCompleted, input, outputItems, &schema.ORUsage{
-		InputTokens:  prediction.Usage.Prompt,
-		OutputTokens: prediction.Usage.Completion,
-		TotalTokens:  prediction.Usage.Prompt + prediction.Usage.Completion,
-	}, true)
+		now := time.Now().Unix()
+		return buildORResponse(responseID, createdAt, &now, schema.ORStatusCompleted, input, allOutputItems, &schema.ORUsage{
+			InputTokens:  prediction.Usage.Prompt,
+			OutputTokens: prediction.Usage.Completion,
+			TotalTokens:  prediction.Usage.Prompt + prediction.Usage.Completion,
+		}, true), nil
+	} // end MCP iteration loop
 
-	return response, nil
+	return nil, fmt.Errorf("MCP iteration limit reached")
 }
 
 // handleBackgroundStream handles background streaming responses with event buffering
-func handleBackgroundStream(ctx context.Context, store *ResponseStore, responseID string, createdAt int64, input *schema.OpenResponsesRequest, cfg *config.ModelConfig, ml *model.ModelLoader, cl *config.ModelConfigLoader, appConfig *config.ApplicationConfig, predInput string, openAIReq *schema.OpenAIRequest, funcs functions.Functions, shouldUseFn bool) (*schema.ORResponseResource, error) {
+func handleBackgroundStream(ctx context.Context, store *ResponseStore, responseID string, createdAt int64, input *schema.OpenResponsesRequest, cfg *config.ModelConfig, ml *model.ModelLoader, cl *config.ModelConfigLoader, appConfig *config.ApplicationConfig, predInput string, openAIReq *schema.OpenAIRequest, funcs functions.Functions, shouldUseFn bool, mcpToolInfos []mcpTools.MCPToolInfo, evaluator *templates.Evaluator) (*schema.ORResponseResource, error) {
 	images := []string{}
 	videos := []string{}
 	audios := []string{}
@@ -961,118 +1098,264 @@ func handleBackgroundStream(ctx context.Context, store *ResponseStore, responseI
 	var accumulatedText string
 	var collectedOutputItems []schema.ORItemField
 	outputIndex := 0
-	currentMessageID := fmt.Sprintf("msg_%s", uuid.New().String())
 
-	// Emit output_item.added
-	messageItem := &schema.ORItemField{
-		Type:    "message",
-		ID:      currentMessageID,
-		Status:  "in_progress",
-		Role:    "assistant",
-		Content: []schema.ORContentPart{},
+	mcpBgStreamMaxIterations := 10
+	if cfg.Agent.MaxIterations > 0 {
+		mcpBgStreamMaxIterations = cfg.Agent.MaxIterations
 	}
-	bufferEvent(store, responseID, &schema.ORStreamEvent{
-		Type:           "response.output_item.added",
-		SequenceNumber: sequenceNumber,
-		OutputIndex:    &outputIndex,
-		Item:           messageItem,
-	})
-	sequenceNumber++
+	hasMCPTools := len(mcpToolInfos) > 0
 
-	// Emit content_part.added
-	currentContentIndex := 0
-	emptyPart := makeOutputTextPart("")
-	bufferEvent(store, responseID, &schema.ORStreamEvent{
-		Type:           "response.content_part.added",
-		SequenceNumber: sequenceNumber,
-		ItemID:         currentMessageID,
-		OutputIndex:    &outputIndex,
-		ContentIndex:   &currentContentIndex,
-		Part:           &emptyPart,
-	})
-	sequenceNumber++
+	var prediction backend.LLMResponse
 
-	// Token callback for streaming
-	tokenCallback := func(token string, tokenUsage backend.TokenUsage) bool {
-		select {
-		case <-ctx.Done():
-			return false
-		default:
+	for mcpIter := 0; mcpIter <= mcpBgStreamMaxIterations; mcpIter++ {
+		if mcpIter > 0 {
+			predInput = evaluator.TemplateMessages(*openAIReq, openAIReq.Messages, cfg, funcs, shouldUseFn)
+			xlog.Debug("Background stream MCP re-templating", "iteration", mcpIter)
+			images = images[:0]
+			videos = videos[:0]
+			audios = audios[:0]
+			for _, m := range openAIReq.Messages {
+				images = append(images, m.StringImages...)
+				videos = append(videos, m.StringVideos...)
+				audios = append(audios, m.StringAudios...)
+			}
 		}
 
-		accumulatedText += token
+		accumulatedText = ""
+		currentMessageID := fmt.Sprintf("msg_%s", uuid.New().String())
 
-		// Buffer text delta
+		// Emit output_item.added
+		messageItem := &schema.ORItemField{
+			Type:    "message",
+			ID:      currentMessageID,
+			Status:  "in_progress",
+			Role:    "assistant",
+			Content: []schema.ORContentPart{},
+		}
 		bufferEvent(store, responseID, &schema.ORStreamEvent{
-			Type:           "response.output_text.delta",
+			Type:           "response.output_item.added",
+			SequenceNumber: sequenceNumber,
+			OutputIndex:    &outputIndex,
+			Item:           messageItem,
+		})
+		sequenceNumber++
+
+		// Emit content_part.added
+		currentContentIndex := 0
+		emptyPart := makeOutputTextPart("")
+		bufferEvent(store, responseID, &schema.ORStreamEvent{
+			Type:           "response.content_part.added",
 			SequenceNumber: sequenceNumber,
 			ItemID:         currentMessageID,
 			OutputIndex:    &outputIndex,
 			ContentIndex:   &currentContentIndex,
-			Delta:          strPtr(token),
-			Logprobs:       emptyLogprobs(),
+			Part:           &emptyPart,
 		})
 		sequenceNumber++
-		return true
-	}
 
-	var streamLogprobs *int
-	if input.TopLogprobs != nil && *input.TopLogprobs > 0 {
-		streamLogprobs = input.TopLogprobs
-	}
+		// Token callback for streaming
+		tokenCallback := func(token string, tokenUsage backend.TokenUsage) bool {
+			select {
+			case <-ctx.Done():
+				return false
+			default:
+			}
 
-	predFunc, err := backend.ModelInference(
-		ctx, predInput, openAIReq.Messages, images, videos, audios, ml, cfg, cl, appConfig, tokenCallback, toolsJSON, toolChoiceJSON, streamLogprobs, input.TopLogprobs, input.LogitBias, nil)
-	if err != nil {
-		return nil, fmt.Errorf("model inference failed: %w", err)
-	}
+			accumulatedText += token
 
-	prediction, err := predFunc()
-	if err != nil {
-		return nil, fmt.Errorf("prediction failed: %w", err)
-	}
+			// Buffer text delta
+			bufferEvent(store, responseID, &schema.ORStreamEvent{
+				Type:           "response.output_text.delta",
+				SequenceNumber: sequenceNumber,
+				ItemID:         currentMessageID,
+				OutputIndex:    &outputIndex,
+				ContentIndex:   &currentContentIndex,
+				Delta:          strPtr(token),
+				Logprobs:       emptyLogprobs(),
+			})
+			sequenceNumber++
+			return true
+		}
 
-	// Emit output_text.done
-	streamEventLogprobs := convertLogprobsForStreaming(prediction.Logprobs)
-	bufferEvent(store, responseID, &schema.ORStreamEvent{
-		Type:           "response.output_text.done",
-		SequenceNumber: sequenceNumber,
-		ItemID:         currentMessageID,
-		OutputIndex:    &outputIndex,
-		ContentIndex:   &currentContentIndex,
-		Text:           strPtr(accumulatedText),
-		Logprobs:       logprobsPtr(streamEventLogprobs),
-	})
-	sequenceNumber++
+		var streamLogprobs *int
+		if input.TopLogprobs != nil && *input.TopLogprobs > 0 {
+			streamLogprobs = input.TopLogprobs
+		}
 
-	// Emit content_part.done
-	textPart := makeOutputTextPartWithLogprobs(accumulatedText, prediction.Logprobs)
-	bufferEvent(store, responseID, &schema.ORStreamEvent{
-		Type:           "response.content_part.done",
-		SequenceNumber: sequenceNumber,
-		ItemID:         currentMessageID,
-		OutputIndex:    &outputIndex,
-		ContentIndex:   &currentContentIndex,
-		Part:           &textPart,
-	})
-	sequenceNumber++
+		predFunc, err := backend.ModelInference(
+			ctx, predInput, openAIReq.Messages, images, videos, audios, ml, cfg, cl, appConfig, tokenCallback, toolsJSON, toolChoiceJSON, streamLogprobs, input.TopLogprobs, input.LogitBias, nil)
+		if err != nil {
+			return nil, fmt.Errorf("model inference failed: %w", err)
+		}
 
-	// Emit output_item.done
-	completedMessageItem := &schema.ORItemField{
-		Type:    "message",
-		ID:      currentMessageID,
-		Status:  "completed",
-		Role:    "assistant",
-		Content: []schema.ORContentPart{makeOutputTextPartWithLogprobs(accumulatedText, prediction.Logprobs)},
-	}
-	bufferEvent(store, responseID, &schema.ORStreamEvent{
-		Type:           "response.output_item.done",
-		SequenceNumber: sequenceNumber,
-		OutputIndex:    &outputIndex,
-		Item:           completedMessageItem,
-	})
-	sequenceNumber++
-	collectedOutputItems = append(collectedOutputItems, *completedMessageItem)
+		prediction, err = predFunc()
+		if err != nil {
+			return nil, fmt.Errorf("prediction failed: %w", err)
+		}
+
+		result := backend.Finetune(*cfg, predInput, prediction.Response)
+
+		// Check for MCP tool calls in the streamed result
+		if shouldUseFn && hasMCPTools {
+			var funcCallResults []functions.FuncCallResults
+			if deltaToolCalls := functions.ToolCallsFromChatDeltas(prediction.ChatDeltas); len(deltaToolCalls) > 0 {
+				funcCallResults = deltaToolCalls
+			} else {
+				cleanedResult := functions.CleanupLLMResult(result, cfg.FunctionsConfig)
+				funcCallResults = functions.ParseFunctionCall(cleanedResult, cfg.FunctionsConfig)
+			}
+
+			noActionName := "answer"
+			if cfg.FunctionsConfig.NoActionFunctionName != "" {
+				noActionName = cfg.FunctionsConfig.NoActionFunctionName
+			}
+
+			var toolCalls []schema.ToolCall
+			for i, fc := range funcCallResults {
+				if fc.Name == noActionName {
+					continue
+				}
+				toolCalls = append(toolCalls, schema.ToolCall{
+					Index: i, ID: fmt.Sprintf("fc_%s", uuid.New().String()),
+					Type: "function",
+					FunctionCall: schema.FunctionCall{Name: fc.Name, Arguments: fc.Arguments},
+				})
+			}
+
+			var hasMCPCalls bool
+			for _, tc := range toolCalls {
+				if mcpTools.IsMCPTool(mcpToolInfos, tc.FunctionCall.Name) {
+					hasMCPCalls = true
+					break
+				}
+			}
+
+			if hasMCPCalls {
+				// Close the current message
+				bufferEvent(store, responseID, &schema.ORStreamEvent{
+					Type: "response.output_text.done", SequenceNumber: sequenceNumber,
+					ItemID: currentMessageID, OutputIndex: &outputIndex,
+					ContentIndex: &currentContentIndex, Text: strPtr(accumulatedText),
+					Logprobs: emptyLogprobs(),
+				})
+				sequenceNumber++
+				textPart := makeOutputTextPart(accumulatedText)
+				bufferEvent(store, responseID, &schema.ORStreamEvent{
+					Type: "response.content_part.done", SequenceNumber: sequenceNumber,
+					ItemID: currentMessageID, OutputIndex: &outputIndex,
+					ContentIndex: &currentContentIndex, Part: &textPart,
+				})
+				sequenceNumber++
+				completedMsg := &schema.ORItemField{
+					Type: "message", ID: currentMessageID, Status: "completed",
+					Role: "assistant", Content: []schema.ORContentPart{textPart},
+				}
+				bufferEvent(store, responseID, &schema.ORStreamEvent{
+					Type: "response.output_item.done", SequenceNumber: sequenceNumber,
+					OutputIndex: &outputIndex, Item: completedMsg,
+				})
+				sequenceNumber++
+				collectedOutputItems = append(collectedOutputItems, *completedMsg)
+
+				// Append assistant message with tool calls
+				assistantMsg := schema.Message{Role: "assistant", Content: result, ToolCalls: toolCalls}
+				openAIReq.Messages = append(openAIReq.Messages, assistantMsg)
+
+				// Execute MCP tools and emit events
+				for _, tc := range toolCalls {
+					outputIndex++
+					functionCallItem := &schema.ORItemField{
+						Type: "function_call", ID: tc.ID, Status: "completed",
+						CallID: tc.ID, Name: tc.FunctionCall.Name, Arguments: tc.FunctionCall.Arguments,
+					}
+					bufferEvent(store, responseID, &schema.ORStreamEvent{
+						Type: "response.output_item.added", SequenceNumber: sequenceNumber,
+						OutputIndex: &outputIndex, Item: functionCallItem,
+					})
+					sequenceNumber++
+					bufferEvent(store, responseID, &schema.ORStreamEvent{
+						Type: "response.output_item.done", SequenceNumber: sequenceNumber,
+						OutputIndex: &outputIndex, Item: functionCallItem,
+					})
+					sequenceNumber++
+					collectedOutputItems = append(collectedOutputItems, *functionCallItem)
+
+					if !mcpTools.IsMCPTool(mcpToolInfos, tc.FunctionCall.Name) {
+						continue
+					}
+
+					xlog.Debug("Executing MCP tool (background stream)", "tool", tc.FunctionCall.Name, "iteration", mcpIter)
+					toolResult, toolErr := mcpTools.ExecuteMCPToolCall(ctx, mcpToolInfos, tc.FunctionCall.Name, tc.FunctionCall.Arguments)
+					if toolErr != nil {
+						toolResult = fmt.Sprintf("Error: %v", toolErr)
+					}
+					openAIReq.Messages = append(openAIReq.Messages, schema.Message{
+						Role: "tool", Content: toolResult, StringContent: toolResult, ToolCallID: tc.ID, Name: tc.FunctionCall.Name,
+					})
+
+					outputIndex++
+					outputItem := &schema.ORItemField{
+						Type: "function_call_output", ID: fmt.Sprintf("fco_%s", uuid.New().String()),
+						Status: "completed", CallID: tc.ID, Output: toolResult,
+					}
+					bufferEvent(store, responseID, &schema.ORStreamEvent{
+						Type: "response.output_item.added", SequenceNumber: sequenceNumber,
+						OutputIndex: &outputIndex, Item: outputItem,
+					})
+					sequenceNumber++
+					bufferEvent(store, responseID, &schema.ORStreamEvent{
+						Type: "response.output_item.done", SequenceNumber: sequenceNumber,
+						OutputIndex: &outputIndex, Item: outputItem,
+					})
+					sequenceNumber++
+					collectedOutputItems = append(collectedOutputItems, *outputItem)
+				}
+				continue // next MCP iteration
+			}
+		}
+
+		// No MCP tools — close the message and break
+		streamEventLogprobs := convertLogprobsForStreaming(prediction.Logprobs)
+		bufferEvent(store, responseID, &schema.ORStreamEvent{
+			Type:           "response.output_text.done",
+			SequenceNumber: sequenceNumber,
+			ItemID:         currentMessageID,
+			OutputIndex:    &outputIndex,
+			ContentIndex:   &currentContentIndex,
+			Text:           strPtr(accumulatedText),
+			Logprobs:       logprobsPtr(streamEventLogprobs),
+		})
+		sequenceNumber++
+
+		textPart := makeOutputTextPartWithLogprobs(accumulatedText, prediction.Logprobs)
+		bufferEvent(store, responseID, &schema.ORStreamEvent{
+			Type:           "response.content_part.done",
+			SequenceNumber: sequenceNumber,
+			ItemID:         currentMessageID,
+			OutputIndex:    &outputIndex,
+			ContentIndex:   &currentContentIndex,
+			Part:           &textPart,
+		})
+		sequenceNumber++
+
+		completedMessageItem := &schema.ORItemField{
+			Type:    "message",
+			ID:      currentMessageID,
+			Status:  "completed",
+			Role:    "assistant",
+			Content: []schema.ORContentPart{makeOutputTextPartWithLogprobs(accumulatedText, prediction.Logprobs)},
+		}
+		bufferEvent(store, responseID, &schema.ORStreamEvent{
+			Type:           "response.output_item.done",
+			SequenceNumber: sequenceNumber,
+			OutputIndex:    &outputIndex,
+			Item:           completedMessageItem,
+		})
+		sequenceNumber++
+		collectedOutputItems = append(collectedOutputItems, *completedMessageItem)
+
+		break
+	} // end MCP background stream iteration loop
 
 	// Build final response
 	now := time.Now().Unix()
@@ -1092,373 +1375,6 @@ func handleBackgroundStream(ctx context.Context, store *ResponseStore, responseI
 	return response, nil
 }
 
-// handleBackgroundMCPResponse handles background MCP responses
-func handleBackgroundMCPResponse(ctx context.Context, store *ResponseStore, responseID string, createdAt int64, input *schema.OpenResponsesRequest, cfg *config.ModelConfig, ml *model.ModelLoader, predInput string, openAIReq *schema.OpenAIRequest, appConfig *config.ApplicationConfig) (*schema.ORResponseResource, error) {
-	// Check for cancellation
-	select {
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	default:
-	}
-
-	// Validate MCP config
-	if cfg.MCP.Servers == "" && cfg.MCP.Stdio == "" {
-		return nil, fmt.Errorf("no MCP servers configured")
-	}
-
-	// Get MCP config from model config
-	remote, stdio, err := cfg.MCP.MCPConfigFromYAML()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get MCP config: %w", err)
-	}
-
-	// Get MCP sessions
-	sessions, err := mcpTools.SessionsFromMCPConfig(cfg.Name, remote, stdio)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get MCP sessions: %w", err)
-	}
-
-	if len(sessions) == 0 {
-		return nil, fmt.Errorf("no working MCP servers found")
-	}
-
-	// Build fragment from messages
-	fragment := cogito.NewEmptyFragment()
-	for _, message := range openAIReq.Messages {
-		fragment = fragment.AddMessage(cogito.MessageRole(message.Role), message.StringContent)
-	}
-	fragmentPtr := &fragment
-
-	// Get API address and key
-	_, port, err := net.SplitHostPort(appConfig.APIAddress)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse API address: %w", err)
-	}
-	apiKey := ""
-	if len(appConfig.ApiKeys) > 0 {
-		apiKey = appConfig.ApiKeys[0]
-	}
-
-	// Create OpenAI LLM client
-	defaultLLM := clients.NewLocalAILLM(cfg.Name, apiKey, "http://127.0.0.1:"+port)
-
-	// Build cogito options
-	cogitoOpts := cfg.BuildCogitoOptions()
-	cogitoOpts = append(
-		cogitoOpts,
-		cogito.WithContext(ctx),
-		cogito.WithMCPs(sessions...),
-	)
-
-	if input.Stream {
-		return handleBackgroundMCPStream(ctx, store, responseID, createdAt, input, cfg, defaultLLM, fragmentPtr, cogitoOpts)
-	}
-
-	// Non-streaming mode
-	return handleBackgroundMCPNonStream(ctx, store, responseID, createdAt, input, cfg, defaultLLM, fragmentPtr, cogitoOpts)
-}
-
-// handleBackgroundMCPNonStream handles background non-streaming MCP responses
-func handleBackgroundMCPNonStream(ctx context.Context, store *ResponseStore, responseID string, createdAt int64, input *schema.OpenResponsesRequest, cfg *config.ModelConfig, defaultLLM cogito.LLM, fragment *cogito.Fragment, cogitoOpts []cogito.Option) (*schema.ORResponseResource, error) {
-	frag := *fragment
-
-	// Check for cancellation
-	select {
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	default:
-	}
-
-	// Set up callbacks for logging
-	cogitoOpts = append(
-		cogitoOpts,
-		cogito.WithStatusCallback(func(s string) {
-			xlog.Debug("[Open Responses MCP Background] Status", "model", cfg.Name, "status", s, "response_id", responseID)
-		}),
-		cogito.WithReasoningCallback(func(s string) {
-			xlog.Debug("[Open Responses MCP Background] Reasoning", "model", cfg.Name, "reasoning", s, "response_id", responseID)
-		}),
-		cogito.WithToolCallBack(func(t *cogito.ToolChoice, state *cogito.SessionState) cogito.ToolCallDecision {
-			xlog.Debug("[Open Responses MCP Background] Tool call", "model", cfg.Name, "tool", t.Name, "reasoning", t.Reasoning, "arguments", t.Arguments, "response_id", responseID)
-			return cogito.ToolCallDecision{
-				Approved: true,
-			}
-		}),
-		cogito.WithToolCallResultCallback(func(t cogito.ToolStatus) {
-			xlog.Debug("[Open Responses MCP Background] Tool call result", "model", cfg.Name, "tool", t.Name, "result", t.Result, "tool_arguments", t.ToolArguments, "response_id", responseID)
-		}),
-	)
-
-	// Execute tools
-	f, err := cogito.ExecuteTools(defaultLLM, frag, cogitoOpts...)
-	if err != nil && !errors.Is(err, cogito.ErrNoToolSelected) {
-		return nil, fmt.Errorf("failed to execute tools: %w", err)
-	}
-
-	// Check for cancellation
-	select {
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	default:
-	}
-
-	// Convert fragment to Open Responses format
-	fPtr := &f
-	outputItems := convertCogitoFragmentToORItems(fPtr)
-
-	// Build response with all required fields
-	now := time.Now().Unix()
-	response := buildORResponse(responseID, createdAt, &now, schema.ORStatusCompleted, input, outputItems, nil, true)
-
-	return response, nil
-}
-
-// handleBackgroundMCPStream handles background streaming MCP responses
-func handleBackgroundMCPStream(ctx context.Context, store *ResponseStore, responseID string, createdAt int64, input *schema.OpenResponsesRequest, cfg *config.ModelConfig, defaultLLM cogito.LLM, fragment *cogito.Fragment, cogitoOpts []cogito.Option) (*schema.ORResponseResource, error) {
-	frag := *fragment
-	sequenceNumber := 0
-
-	// Emit response.created
-	responseCreated := buildORResponse(responseID, createdAt, nil, schema.ORStatusInProgress, input, []schema.ORItemField{}, nil, true)
-	bufferEvent(store, responseID, &schema.ORStreamEvent{
-		Type:           "response.created",
-		SequenceNumber: sequenceNumber,
-		Response:       responseCreated,
-	})
-	sequenceNumber++
-
-	// Emit response.in_progress
-	bufferEvent(store, responseID, &schema.ORStreamEvent{
-		Type:           "response.in_progress",
-		SequenceNumber: sequenceNumber,
-		Response:       responseCreated,
-	})
-	sequenceNumber++
-
-	// Create channels for streaming events
-	events := make(chan interface{})
-	ended := make(chan error, 1)
-	var collectedOutputItems []schema.ORItemField
-	outputIndex := 0
-
-	// Set up callbacks
-	statusCallback := func(s string) {
-		select {
-		case <-ctx.Done():
-			return
-		case events <- map[string]interface{}{
-			"type":    "status",
-			"message": s,
-		}:
-		}
-	}
-
-	reasoningCallback := func(s string) {
-		select {
-		case <-ctx.Done():
-			return
-		default:
-		}
-		itemID := fmt.Sprintf("reasoning_%s", uuid.New().String())
-		outputIndex++
-		item := &schema.ORItemField{
-			Type:   "reasoning",
-			ID:     itemID,
-			Status: "in_progress",
-		}
-		collectedOutputItems = append(collectedOutputItems, *item)
-
-		select {
-		case <-ctx.Done():
-			return
-		case events <- map[string]interface{}{
-			"type":         "reasoning",
-			"item_id":      itemID,
-			"output_index": outputIndex,
-			"content":      s,
-		}:
-		}
-	}
-
-	toolCallCallback := func(t *cogito.ToolChoice, state *cogito.SessionState) cogito.ToolCallDecision {
-		select {
-		case <-ctx.Done():
-			return cogito.ToolCallDecision{Approved: false}
-		default:
-		}
-		toolCallID := fmt.Sprintf("fc_%s", uuid.New().String())
-		outputIndex++
-		item := &schema.ORItemField{
-			Type:      "function_call",
-			ID:        toolCallID,
-			Status:    "in_progress",
-			CallID:    toolCallID,
-			Name:      t.Name,
-			Arguments: "",
-		}
-		collectedOutputItems = append(collectedOutputItems, *item)
-
-		select {
-		case <-ctx.Done():
-			return cogito.ToolCallDecision{Approved: false}
-		case events <- map[string]interface{}{
-			"type":         "tool_call",
-			"item_id":      toolCallID,
-			"output_index": outputIndex,
-			"name":         t.Name,
-			"arguments":    t.Arguments,
-			"reasoning":    t.Reasoning,
-		}:
-		}
-		return cogito.ToolCallDecision{
-			Approved: true,
-		}
-	}
-
-	toolCallResultCallback := func(t cogito.ToolStatus) {
-		select {
-		case <-ctx.Done():
-			return
-		default:
-		}
-		outputIndex++
-		callID := fmt.Sprintf("fc_%s", uuid.New().String())
-		item := schema.ORItemField{
-			Type:   "function_call_output",
-			ID:     fmt.Sprintf("fco_%s", uuid.New().String()),
-			Status: "completed",
-			CallID: callID,
-			Output: t.Result,
-		}
-		collectedOutputItems = append(collectedOutputItems, item)
-
-		select {
-		case <-ctx.Done():
-			return
-		case events <- map[string]interface{}{
-			"type":         "tool_result",
-			"item_id":      item.ID,
-			"output_index": outputIndex,
-			"name":         t.Name,
-			"result":       t.Result,
-		}:
-		}
-	}
-
-	cogitoOpts = append(cogitoOpts,
-		cogito.WithStatusCallback(statusCallback),
-		cogito.WithReasoningCallback(reasoningCallback),
-		cogito.WithToolCallBack(toolCallCallback),
-		cogito.WithToolCallResultCallback(toolCallResultCallback),
-	)
-
-	// Execute tools in goroutine
-	go func() {
-		defer close(events)
-
-		f, err := cogito.ExecuteTools(defaultLLM, frag, cogitoOpts...)
-		if err != nil && !errors.Is(err, cogito.ErrNoToolSelected) {
-			select {
-			case <-ctx.Done():
-				ended <- ctx.Err()
-			case events <- map[string]interface{}{
-				"type":    "error",
-				"message": fmt.Sprintf("Failed to execute tools: %v", err),
-			}:
-				ended <- err
-			}
-			return
-		}
-
-		// Check for cancellation
-		select {
-		case <-ctx.Done():
-			ended <- ctx.Err()
-			return
-		default:
-		}
-
-		// Stream final assistant message
-		content := f.LastMessage().Content
-		messageID := fmt.Sprintf("msg_%s", uuid.New().String())
-		outputIndex++
-		item := schema.ORItemField{
-			Type:    "message",
-			ID:      messageID,
-			Status:  "completed",
-			Role:    "assistant",
-			Content: []schema.ORContentPart{makeOutputTextPart(content)},
-		}
-		collectedOutputItems = append(collectedOutputItems, item)
-
-		select {
-		case <-ctx.Done():
-			ended <- ctx.Err()
-		case events <- map[string]interface{}{
-			"type":         "assistant",
-			"item_id":      messageID,
-			"output_index": outputIndex,
-			"content":      content,
-		}:
-			ended <- nil
-		}
-	}()
-
-	// Process events from channel
-LOOP:
-	for {
-		select {
-		case <-ctx.Done():
-			break LOOP
-		case event := <-events:
-			if event == nil {
-				break LOOP
-			}
-			// Convert event to Open Responses format and buffer
-			bufferMCPEventAsOR(store, responseID, event, &sequenceNumber)
-		case err := <-ended:
-			if err != nil {
-				// Buffer error event
-				bufferEvent(store, responseID, &schema.ORStreamEvent{
-					Type:           "error",
-					SequenceNumber: sequenceNumber,
-					Error: &schema.ORErrorPayload{
-						Type:    "model_error",
-						Message: err.Error(),
-					},
-				})
-				sequenceNumber++
-
-				// Buffer failed response
-				responseFailed := buildORResponse(responseID, createdAt, nil, schema.ORStatusFailed, input, collectedOutputItems, nil, true)
-				bufferEvent(store, responseID, &schema.ORStreamEvent{
-					Type:           "response.failed",
-					SequenceNumber: sequenceNumber,
-					Response:       responseFailed,
-				})
-				return nil, err
-			}
-
-			// Emit response.completed
-			now := time.Now().Unix()
-			responseCompleted := buildORResponse(responseID, createdAt, &now, schema.ORStatusCompleted, input, collectedOutputItems, nil, true)
-			bufferEvent(store, responseID, &schema.ORStreamEvent{
-				Type:           "response.completed",
-				SequenceNumber: sequenceNumber,
-				Response:       responseCompleted,
-			})
-
-			break LOOP
-		}
-	}
-
-	// Build final response
-	now := time.Now().Unix()
-	response := buildORResponse(responseID, createdAt, &now, schema.ORStatusCompleted, input, collectedOutputItems, nil, true)
-
-	return response, nil
-}
-
 // bufferEvent stores an SSE event in the response store for streaming resume
 func bufferEvent(store *ResponseStore, responseID string, event *schema.ORStreamEvent) {
 	if err := store.AppendEvent(responseID, event); err != nil {
@@ -1467,7 +1383,14 @@ func bufferEvent(store *ResponseStore, responseID string, event *schema.ORStream
 }
 
 // handleOpenResponsesNonStream handles non-streaming responses
-func handleOpenResponsesNonStream(c echo.Context, responseID string, createdAt int64, input *schema.OpenResponsesRequest, cfg *config.ModelConfig, ml *model.ModelLoader, cl *config.ModelConfigLoader, appConfig *config.ApplicationConfig, predInput string, openAIReq *schema.OpenAIRequest, funcs functions.Functions, shouldUseFn bool, shouldStore bool) error {
+func handleOpenResponsesNonStream(c echo.Context, responseID string, createdAt int64, input *schema.OpenResponsesRequest, cfg *config.ModelConfig, ml *model.ModelLoader, cl *config.ModelConfigLoader, appConfig *config.ApplicationConfig, predInput string, openAIReq *schema.OpenAIRequest, funcs functions.Functions, shouldUseFn bool, shouldStore bool, mcpToolInfos []mcpTools.MCPToolInfo, evaluator *templates.Evaluator, mcpIteration int) error {
+	mcpMaxIterations := 10
+	if cfg.Agent.MaxIterations > 0 {
+		mcpMaxIterations = cfg.Agent.MaxIterations
+	}
+	if mcpIteration > mcpMaxIterations {
+		return sendOpenResponsesError(c, 500, "server_error", "MCP iteration limit reached", "")
+	}
 	images := []string{}
 	videos := []string{}
 	audios := []string{}
@@ -1595,6 +1518,55 @@ func handleOpenResponsesNonStream(c echo.Context, responseID string, createdAt i
 			})
 		}
 
+		// MCP server-side tool execution: if any tool calls are MCP tools, execute and re-run
+		if len(mcpToolInfos) > 0 && len(toolCalls) > 0 {
+			var hasMCPCalls bool
+			for _, tc := range toolCalls {
+				if mcpTools.IsMCPTool(mcpToolInfos, tc.FunctionCall.Name) {
+					hasMCPCalls = true
+					break
+				}
+			}
+			if hasMCPCalls {
+				// Append assistant message with tool_calls to conversation
+				assistantMsg := schema.Message{Role: "assistant", Content: result, ToolCalls: toolCalls}
+				openAIReq.Messages = append(openAIReq.Messages, assistantMsg)
+
+				// Execute each MCP tool call and append results
+				for _, tc := range toolCalls {
+					if !mcpTools.IsMCPTool(mcpToolInfos, tc.FunctionCall.Name) {
+						continue
+					}
+					xlog.Debug("Executing MCP tool (Open Responses)", "tool", tc.FunctionCall.Name)
+					toolResult, toolErr := mcpTools.ExecuteMCPToolCall(
+						c.Request().Context(), mcpToolInfos,
+						tc.FunctionCall.Name, tc.FunctionCall.Arguments,
+					)
+					if toolErr != nil {
+						xlog.Error("MCP tool execution failed", "tool", tc.FunctionCall.Name, "error", toolErr)
+						toolResult = fmt.Sprintf("Error: %v", toolErr)
+					}
+					openAIReq.Messages = append(openAIReq.Messages, schema.Message{
+						Role: "tool", Content: toolResult, StringContent: toolResult, ToolCallID: tc.ID, Name: tc.FunctionCall.Name,
+					})
+
+					// Collect function_call + function_call_output items for the response
+					outputItems = append(outputItems, schema.ORItemField{
+						Type: "function_call", ID: fmt.Sprintf("fc_%s", uuid.New().String()),
+						Status: "completed", CallID: tc.ID, Name: tc.FunctionCall.Name, Arguments: tc.FunctionCall.Arguments,
+					})
+					outputItems = append(outputItems, schema.ORItemField{
+						Type: "function_call_output", ID: fmt.Sprintf("fco_%s", uuid.New().String()),
+						Status: "completed", CallID: tc.ID, Output: toolResult,
+					})
+				}
+
+				// Re-template and re-run inference
+				predInput = evaluator.TemplateMessages(*openAIReq, openAIReq.Messages, cfg, funcs, shouldUseFn)
+				return handleOpenResponsesNonStream(c, responseID, createdAt, input, cfg, ml, cl, appConfig, predInput, openAIReq, funcs, shouldUseFn, shouldStore, mcpToolInfos, evaluator, mcpIteration+1)
+			}
+		}
+
 		// Add message item with text content (include logprobs if available)
 		if textContent != "" {
 			outputItems = append(outputItems, schema.ORItemField{
@@ -1619,8 +1591,6 @@ func handleOpenResponsesNonStream(c echo.Context, responseID string, createdAt i
 		}
 
 		// If we have no output items but the model did produce output, include the cleaned result as a message
-		// This handles cases where the function call parsing failed but we still have model output
-		// Note: reasoning item may already be added above
 		hasMessageItem := false
 		for _, item := range outputItems {
 			if item.Type == "message" {
@@ -1640,7 +1610,6 @@ func handleOpenResponsesNonStream(c echo.Context, responseID string, createdAt i
 		}
 	} else {
 		// Simple text response (include logprobs if available)
-		// Note: reasoning item may already be added above
 		messageItem := schema.ORItemField{
 			Type:    "message",
 			ID:      fmt.Sprintf("msg_%s", uuid.New().String()),
@@ -1682,7 +1651,7 @@ func handleOpenResponsesNonStream(c echo.Context, responseID string, createdAt i
 }
 
 // handleOpenResponsesStream handles streaming responses
-func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int64, input *schema.OpenResponsesRequest, cfg *config.ModelConfig, ml *model.ModelLoader, cl *config.ModelConfigLoader, appConfig *config.ApplicationConfig, predInput string, openAIReq *schema.OpenAIRequest, funcs functions.Functions, shouldUseFn bool, shouldStore bool) error {
+func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int64, input *schema.OpenResponsesRequest, cfg *config.ModelConfig, ml *model.ModelLoader, cl *config.ModelConfigLoader, appConfig *config.ApplicationConfig, predInput string, openAIReq *schema.OpenAIRequest, funcs functions.Functions, shouldUseFn bool, shouldStore bool, mcpToolInfos []mcpTools.MCPToolInfo, evaluator *templates.Evaluator) error {
 	c.Response().Header().Set("Content-Type", "text/event-stream")
 	c.Response().Header().Set("Cache-Control", "no-cache")
 	c.Response().Header().Set("Connection", "keep-alive")
@@ -1754,6 +1723,32 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 	var collectedOutputItems []schema.ORItemField
 
 	if shouldUseFn {
+		mcpStreamMaxIterations := 10
+		if cfg.Agent.MaxIterations > 0 {
+			mcpStreamMaxIterations = cfg.Agent.MaxIterations
+		}
+		hasMCPToolsStream := len(mcpToolInfos) > 0
+
+		var prediction backend.LLMResponse
+		var result, finalReasoning, finalCleanedResult string
+		var textContent string
+		var parsedToolCalls []functions.FuncCallResults
+		var toolCalls []functions.FuncCallResults
+
+		for mcpStreamIter := 0; mcpStreamIter <= mcpStreamMaxIterations; mcpStreamIter++ {
+		if mcpStreamIter > 0 {
+			predInput = evaluator.TemplateMessages(*openAIReq, openAIReq.Messages, cfg, funcs, shouldUseFn)
+			xlog.Debug("Open Responses stream MCP re-templating", "iteration", mcpStreamIter)
+			images = images[:0]
+			videos = videos[:0]
+			audios = audios[:0]
+			for _, m := range openAIReq.Messages {
+				images = append(images, m.StringImages...)
+				videos = append(videos, m.StringVideos...)
+				audios = append(audios, m.StringAudios...)
+			}
+		}
+
 		// For tool calls, we need to track accumulated result and parse incrementally
 		// We'll handle this differently - track the full result and parse tool calls
 		accumulatedResult := ""
@@ -2067,7 +2062,7 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 			return nil
 		}
 
-		prediction, err := predFunc()
+		prediction, err = predFunc()
 		if err != nil {
 			xlog.Error("Open Responses stream prediction failed", "error", err)
 			sendSSEEvent(c, &schema.ORStreamEvent{
@@ -2092,10 +2087,10 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 			return nil
 		}
 
-		result := backend.Finetune(*cfg, predInput, prediction.Response)
+		result = backend.Finetune(*cfg, predInput, prediction.Response)
 
 		// Extract reasoning from final result
-		finalReasoning, finalCleanedResult := reason.ExtractReasoningWithConfig(result, thinkingStartToken, cfg.ReasoningConfig)
+		finalReasoning, finalCleanedResult = reason.ExtractReasoningWithConfig(result, thinkingStartToken, cfg.ReasoningConfig)
 
 		// Close reasoning item if it exists and wasn't closed yet
 		if currentReasoningID != "" && finalReasoning != "" {
@@ -2148,8 +2143,8 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 			}
 		}
 
-		var parsedToolCalls []functions.FuncCallResults
-		var textContent string
+		parsedToolCalls = nil
+		textContent = ""
 
 		// Try pre-parsed tool calls from C++ autoparser first
 		if deltaToolCalls := functions.ToolCallsFromChatDeltas(prediction.ChatDeltas); len(deltaToolCalls) > 0 {
@@ -2170,7 +2165,7 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 		}
 
 		// Filter out noAction calls and extract the message
-		var toolCalls []functions.FuncCallResults
+		toolCalls = nil
 		for _, fc := range parsedToolCalls {
 			if fc.Name == noActionName {
 				// This is a text response, not a tool call
@@ -2188,6 +2183,91 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 		}
 
 		xlog.Debug("Open Responses Stream - Parsed", "toolCalls", len(toolCalls), "textContent", textContent)
+
+		// MCP streaming tool execution: check if any tool calls are MCP tools
+		if hasMCPToolsStream && len(toolCalls) > 0 {
+			var hasMCPCalls bool
+			for _, tc := range toolCalls {
+				if mcpTools.IsMCPTool(mcpToolInfos, tc.Name) {
+					hasMCPCalls = true
+					break
+				}
+			}
+			if hasMCPCalls {
+				// Build schema.ToolCall list for the assistant message
+				var schemaToolCalls []schema.ToolCall
+				for i, tc := range toolCalls {
+					schemaToolCalls = append(schemaToolCalls, schema.ToolCall{
+						Index: i, ID: fmt.Sprintf("fc_%s", uuid.New().String()),
+						Type: "function",
+						FunctionCall: schema.FunctionCall{Name: tc.Name, Arguments: tc.Arguments},
+					})
+				}
+				assistantMsg := schema.Message{Role: "assistant", Content: result, ToolCalls: schemaToolCalls}
+				openAIReq.Messages = append(openAIReq.Messages, assistantMsg)
+
+				for idx, tc := range toolCalls {
+					tcID := schemaToolCalls[idx].ID
+
+					// Emit function_call item
+					outputIndex++
+					functionCallItem := &schema.ORItemField{
+						Type: "function_call", ID: tcID, Status: "completed",
+						CallID: tcID, Name: tc.Name, Arguments: tc.Arguments,
+					}
+					sendSSEEvent(c, &schema.ORStreamEvent{
+						Type: "response.output_item.added", SequenceNumber: sequenceNumber,
+						OutputIndex: &outputIndex, Item: functionCallItem,
+					})
+					sequenceNumber++
+					sendSSEEvent(c, &schema.ORStreamEvent{
+						Type: "response.output_item.done", SequenceNumber: sequenceNumber,
+						OutputIndex: &outputIndex, Item: functionCallItem,
+					})
+					sequenceNumber++
+					collectedOutputItems = append(collectedOutputItems, *functionCallItem)
+
+					if !mcpTools.IsMCPTool(mcpToolInfos, tc.Name) {
+						continue
+					}
+
+					// Execute MCP tool
+					xlog.Debug("Executing MCP tool (Open Responses stream)", "tool", tc.Name, "iteration", mcpStreamIter)
+					toolResult, toolErr := mcpTools.ExecuteMCPToolCall(
+						input.Context, mcpToolInfos, tc.Name, tc.Arguments,
+					)
+					if toolErr != nil {
+						xlog.Error("MCP tool execution failed", "tool", tc.Name, "error", toolErr)
+						toolResult = fmt.Sprintf("Error: %v", toolErr)
+					}
+					openAIReq.Messages = append(openAIReq.Messages, schema.Message{
+						Role: "tool", Content: toolResult, StringContent: toolResult, ToolCallID: tcID, Name: tc.Name,
+					})
+
+					// Emit function_call_output item
+					outputIndex++
+					outputItem := &schema.ORItemField{
+						Type: "function_call_output", ID: fmt.Sprintf("fco_%s", uuid.New().String()),
+						Status: "completed", CallID: tcID, Output: toolResult,
+					}
+					sendSSEEvent(c, &schema.ORStreamEvent{
+						Type: "response.output_item.added", SequenceNumber: sequenceNumber,
+						OutputIndex: &outputIndex, Item: outputItem,
+					})
+					sequenceNumber++
+					sendSSEEvent(c, &schema.ORStreamEvent{
+						Type: "response.output_item.done", SequenceNumber: sequenceNumber,
+						OutputIndex: &outputIndex, Item: outputItem,
+					})
+					sequenceNumber++
+					collectedOutputItems = append(collectedOutputItems, *outputItem)
+				}
+				c.Response().Flush()
+				xlog.Debug("MCP streaming tools executed, re-running inference", "iteration", mcpStreamIter)
+				continue // next MCP stream iteration
+			}
+		}
+
 
 		// Convert prediction logprobs for streaming events
 		streamEventLogprobs := convertLogprobsForStreaming(prediction.Logprobs)
@@ -2277,6 +2357,9 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 			// Collect function call item for storage
 			collectedOutputItems = append(collectedOutputItems, *functionCallItem)
 		}
+
+		break // no MCP tools to execute, exit loop
+		} // end MCP stream iteration loop
 
 		// Build final response with all items (include reasoning first, then messages, then tool calls)
 		var allOutputItems []schema.ORItemField
@@ -2677,73 +2760,6 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 	return nil
 }
 
-// handleMCPResponse handles responses using MCP agentic loop
-func handleMCPResponse(c echo.Context, responseID string, createdAt int64, input *schema.OpenResponsesRequest, cfg *config.ModelConfig, ml *model.ModelLoader, predInput string, openAIReq *schema.OpenAIRequest, appConfig *config.ApplicationConfig, shouldStore bool) error {
-	ctx := input.Context
-	if ctx == nil {
-		ctx = c.Request().Context()
-	}
-
-	// Validate MCP config
-	if cfg.MCP.Servers == "" && cfg.MCP.Stdio == "" {
-		return sendOpenResponsesError(c, 400, "invalid_request", "no MCP servers configured", "")
-	}
-
-	// Get MCP config from model config
-	remote, stdio, err := cfg.MCP.MCPConfigFromYAML()
-	if err != nil {
-		return sendOpenResponsesError(c, 500, "server_error", fmt.Sprintf("failed to get MCP config: %v", err), "")
-	}
-
-	// Get MCP sessions
-	sessions, err := mcpTools.SessionsFromMCPConfig(cfg.Name, remote, stdio)
-	if err != nil {
-		return sendOpenResponsesError(c, 500, "server_error", fmt.Sprintf("failed to get MCP sessions: %v", err), "")
-	}
-
-	if len(sessions) == 0 {
-		return sendOpenResponsesError(c, 500, "server_error", "no working MCP servers found", "")
-	}
-
-	// Build fragment from messages
-	fragment := cogito.NewEmptyFragment()
-	for _, message := range openAIReq.Messages {
-		fragment = fragment.AddMessage(cogito.MessageRole(message.Role), message.StringContent)
-	}
-	fragmentPtr := &fragment
-
-	// Get API address and key
-	_, port, err := net.SplitHostPort(appConfig.APIAddress)
-	if err != nil {
-		return sendOpenResponsesError(c, 500, "server_error", fmt.Sprintf("failed to parse API address: %v", err), "")
-	}
-	apiKey := ""
-	if len(appConfig.ApiKeys) > 0 {
-		apiKey = appConfig.ApiKeys[0]
-	}
-
-	ctxWithCancellation, cancel := context.WithCancel(ctx)
-	defer cancel()
-
-	// Create OpenAI LLM client
-	defaultLLM := clients.NewLocalAILLM(cfg.Name, apiKey, "http://127.0.0.1:"+port)
-
-	// Build cogito options
-	cogitoOpts := cfg.BuildCogitoOptions()
-	cogitoOpts = append(
-		cogitoOpts,
-		cogito.WithContext(ctxWithCancellation),
-		cogito.WithMCPs(sessions...),
-	)
-
-	if input.Stream {
-		return handleMCPStream(c, responseID, createdAt, input, cfg, defaultLLM, fragmentPtr, cogitoOpts, ctxWithCancellation, cancel, shouldStore)
-	}
-
-	// Non-streaming mode
-	return handleMCPNonStream(c, responseID, createdAt, input, cfg, defaultLLM, fragmentPtr, cogitoOpts, ctxWithCancellation, shouldStore)
-}
-
 // sendSSEEvent sends a Server-Sent Event
 func sendSSEEvent(c echo.Context, event *schema.ORStreamEvent) {
 	data, err := json.Marshal(event)
@@ -2752,670 +2768,6 @@ func sendSSEEvent(c echo.Context, event *schema.ORStreamEvent) {
 		return
 	}
 	fmt.Fprintf(c.Response().Writer, "event: %s\ndata: %s\n\n", event.Type, string(data))
-}
-
-// handleMCPNonStream handles non-streaming MCP responses
-func handleMCPNonStream(c echo.Context, responseID string, createdAt int64, input *schema.OpenResponsesRequest, cfg *config.ModelConfig, defaultLLM cogito.LLM, fragment *cogito.Fragment, cogitoOpts []cogito.Option, ctx context.Context, shouldStore bool) error {
-	frag := *fragment
-	// Set up callbacks for logging
-	cogitoOpts = append(
-		cogitoOpts,
-		cogito.WithStatusCallback(func(s string) {
-			xlog.Debug("[Open Responses MCP] Status", "model", cfg.Name, "status", s)
-		}),
-		cogito.WithReasoningCallback(func(s string) {
-			xlog.Debug("[Open Responses MCP] Reasoning", "model", cfg.Name, "reasoning", s)
-		}),
-		cogito.WithToolCallBack(func(t *cogito.ToolChoice, state *cogito.SessionState) cogito.ToolCallDecision {
-			xlog.Debug("[Open Responses MCP] Tool call", "model", cfg.Name, "tool", t.Name, "reasoning", t.Reasoning, "arguments", t.Arguments)
-			return cogito.ToolCallDecision{
-				Approved: true,
-			}
-		}),
-		cogito.WithToolCallResultCallback(func(t cogito.ToolStatus) {
-			xlog.Debug("[Open Responses MCP] Tool call result", "model", cfg.Name, "tool", t.Name, "result", t.Result, "tool_arguments", t.ToolArguments)
-		}),
-	)
-
-	// Execute tools
-	f, err := cogito.ExecuteTools(defaultLLM, frag, cogitoOpts...)
-	if err != nil && !errors.Is(err, cogito.ErrNoToolSelected) {
-		return sendOpenResponsesError(c, 500, "model_error", fmt.Sprintf("failed to execute tools: %v", err), "")
-	}
-
-	// Convert fragment to Open Responses format
-	fPtr := &f
-	outputItems := convertCogitoFragmentToORItems(fPtr)
-
-	// Build response with all required fields
-	now := time.Now().Unix()
-	response := buildORResponse(responseID, createdAt, &now, "completed", input, outputItems, nil, shouldStore)
-
-	// Store response (if enabled)
-	if shouldStore {
-		store := GetGlobalStore()
-		store.Store(responseID, input, response)
-	}
-
-	return c.JSON(200, response)
-}
-
-// handleMCPStream handles streaming MCP responses
-func handleMCPStream(c echo.Context, responseID string, createdAt int64, input *schema.OpenResponsesRequest, cfg *config.ModelConfig, defaultLLM cogito.LLM, fragment *cogito.Fragment, cogitoOpts []cogito.Option, ctx context.Context, cancel context.CancelFunc, shouldStore bool) error {
-	frag := *fragment
-	// Set SSE headers
-	c.Response().Header().Set("Content-Type", "text/event-stream")
-	c.Response().Header().Set("Cache-Control", "no-cache")
-	c.Response().Header().Set("Connection", "keep-alive")
-
-	sequenceNumber := 0
-
-	// Emit response.created - use helper to create response with all required fields
-	responseCreated := buildORResponse(responseID, createdAt, nil, "in_progress", input, []schema.ORItemField{}, nil, shouldStore)
-	sendSSEEvent(c, &schema.ORStreamEvent{
-		Type:           "response.created",
-		SequenceNumber: sequenceNumber,
-		Response:       responseCreated,
-	})
-	sequenceNumber++
-
-	// Emit response.in_progress
-	sendSSEEvent(c, &schema.ORStreamEvent{
-		Type:           "response.in_progress",
-		SequenceNumber: sequenceNumber,
-		Response:       responseCreated,
-	})
-	sequenceNumber++
-
-	// Create channels for streaming events
-	events := make(chan interface{})
-	ended := make(chan error, 1)
-	var collectedOutputItems []schema.ORItemField
-	outputIndex := 0
-
-	// Set up callbacks
-	statusCallback := func(s string) {
-		events <- map[string]interface{}{
-			"type":    "status",
-			"message": s,
-		}
-	}
-
-	reasoningCallback := func(s string) {
-		itemID := fmt.Sprintf("reasoning_%s", uuid.New().String())
-		outputIndex++
-		item := &schema.ORItemField{
-			Type:   "reasoning",
-			ID:     itemID,
-			Status: "in_progress",
-		}
-		collectedOutputItems = append(collectedOutputItems, *item)
-
-		events <- map[string]interface{}{
-			"type":         "reasoning",
-			"item_id":      itemID,
-			"output_index": outputIndex,
-			"content":      s,
-		}
-	}
-
-	toolCallCallback := func(t *cogito.ToolChoice, state *cogito.SessionState) cogito.ToolCallDecision {
-		toolCallID := fmt.Sprintf("fc_%s", uuid.New().String())
-		outputIndex++
-		item := &schema.ORItemField{
-			Type:      "function_call",
-			ID:        toolCallID,
-			Status:    "in_progress",
-			CallID:    toolCallID,
-			Name:      t.Name,
-			Arguments: "",
-		}
-		collectedOutputItems = append(collectedOutputItems, *item)
-
-		events <- map[string]interface{}{
-			"type":         "tool_call",
-			"item_id":      toolCallID,
-			"output_index": outputIndex,
-			"name":         t.Name,
-			"arguments":    t.Arguments,
-			"reasoning":    t.Reasoning,
-		}
-		return cogito.ToolCallDecision{
-			Approved: true,
-		}
-	}
-
-	toolCallResultCallback := func(t cogito.ToolStatus) {
-		outputIndex++
-		callID := fmt.Sprintf("fc_%s", uuid.New().String())
-		item := schema.ORItemField{
-			Type:   "function_call_output",
-			ID:     fmt.Sprintf("fco_%s", uuid.New().String()),
-			Status: "completed",
-			CallID: callID,
-			Output: t.Result,
-		}
-		collectedOutputItems = append(collectedOutputItems, item)
-
-		events <- map[string]interface{}{
-			"type":         "tool_result",
-			"item_id":      item.ID,
-			"output_index": outputIndex,
-			"name":         t.Name,
-			"result":       t.Result,
-		}
-	}
-
-	cogitoOpts = append(cogitoOpts,
-		cogito.WithStatusCallback(statusCallback),
-		cogito.WithReasoningCallback(reasoningCallback),
-		cogito.WithToolCallBack(toolCallCallback),
-		cogito.WithToolCallResultCallback(toolCallResultCallback),
-	)
-
-	// Execute tools in goroutine
-	go func() {
-		defer close(events)
-
-		f, err := cogito.ExecuteTools(defaultLLM, frag, cogitoOpts...)
-		if err != nil && !errors.Is(err, cogito.ErrNoToolSelected) {
-			events <- map[string]interface{}{
-				"type":    "error",
-				"message": fmt.Sprintf("Failed to execute tools: %v", err),
-			}
-			ended <- err
-			return
-		}
-
-		// Stream final assistant message
-		content := f.LastMessage().Content
-		messageID := fmt.Sprintf("msg_%s", uuid.New().String())
-		outputIndex++
-		item := schema.ORItemField{
-			Type:    "message",
-			ID:      messageID,
-			Status:  "completed",
-			Role:    "assistant",
-			Content: []schema.ORContentPart{makeOutputTextPart(content)},
-		}
-		collectedOutputItems = append(collectedOutputItems, item)
-
-		events <- map[string]interface{}{
-			"type":         "assistant",
-			"item_id":      messageID,
-			"output_index": outputIndex,
-			"content":      content,
-		}
-
-		ended <- nil
-	}()
-
-	// Stream events to client
-LOOP:
-	for {
-		select {
-		case <-ctx.Done():
-			cancel()
-			break LOOP
-		case event := <-events:
-			if event == nil {
-				break LOOP
-			}
-			// Convert event to Open Responses format and send
-			if err := sendMCPEventAsOR(c, event, &sequenceNumber); err != nil {
-				cancel()
-				return err
-			}
-			c.Response().Flush()
-		case err := <-ended:
-			if err == nil {
-				// Emit response.completed
-				now := time.Now().Unix()
-				responseCompleted := buildORResponse(responseID, createdAt, &now, "completed", input, collectedOutputItems, nil, shouldStore)
-				sendSSEEvent(c, &schema.ORStreamEvent{
-					Type:           "response.completed",
-					SequenceNumber: sequenceNumber,
-					Response:       responseCompleted,
-				})
-				sequenceNumber++
-
-				// Store response (if enabled)
-				if shouldStore {
-					store := GetGlobalStore()
-					store.Store(responseID, input, responseCompleted)
-				}
-
-				// Send [DONE]
-				fmt.Fprintf(c.Response().Writer, "data: [DONE]\n\n")
-				c.Response().Flush()
-				break LOOP
-			}
-			// Send error
-			sendSSEEvent(c, &schema.ORStreamEvent{
-				Type:           "error",
-				SequenceNumber: sequenceNumber,
-				Error: &schema.ORErrorPayload{
-					Type:    "model_error",
-					Message: err.Error(),
-				},
-			})
-			sequenceNumber++
-			responseFailed := buildORResponse(responseID, createdAt, nil, "failed", input, collectedOutputItems, nil, shouldStore)
-			sendSSEEvent(c, &schema.ORStreamEvent{
-				Type:           "response.failed",
-				SequenceNumber: sequenceNumber,
-				Response:       responseFailed,
-			})
-			fmt.Fprintf(c.Response().Writer, "data: [DONE]\n\n")
-			c.Response().Flush()
-			return nil
-		}
-	}
-
-	return nil
-}
-
-// convertCogitoFragmentToORItems converts a cogito fragment to Open Responses items
-func convertCogitoFragmentToORItems(f *cogito.Fragment) []schema.ORItemField {
-	var items []schema.ORItemField
-
-	// Get the last message (assistant response)
-	lastMsg := f.LastMessage()
-	if lastMsg != nil && lastMsg.Content != "" {
-		items = append(items, schema.ORItemField{
-			Type:    "message",
-			ID:      fmt.Sprintf("msg_%s", uuid.New().String()),
-			Status:  "completed",
-			Role:    "assistant",
-			Content: []schema.ORContentPart{makeOutputTextPart(lastMsg.Content)},
-		})
-	}
-
-	return items
-}
-
-// sendMCPEventAsOR converts MCP events to Open Responses format and sends them
-func sendMCPEventAsOR(c echo.Context, event interface{}, sequenceNumber *int) error {
-	eventMap, ok := event.(map[string]interface{})
-	if !ok {
-		return nil
-	}
-
-	eventType, _ := eventMap["type"].(string)
-	switch eventType {
-	case "status":
-		// Status events are informational, skip for now
-		return nil
-	case "reasoning":
-		itemID, _ := eventMap["item_id"].(string)
-		outputIndex, _ := eventMap["output_index"].(int)
-
-		item := &schema.ORItemField{
-			Type:   "reasoning",
-			ID:     itemID,
-			Status: "in_progress",
-		}
-		sendSSEEvent(c, &schema.ORStreamEvent{
-			Type:           "response.output_item.added",
-			SequenceNumber: *sequenceNumber,
-			OutputIndex:    &outputIndex,
-			Item:           item,
-		})
-		*sequenceNumber++
-		// Note: reasoning content streaming would go here
-		return nil
-	case "tool_call":
-		itemID, _ := eventMap["item_id"].(string)
-		outputIndex, _ := eventMap["output_index"].(int)
-		name, _ := eventMap["name"].(string)
-		arguments, _ := eventMap["arguments"].(string)
-
-		item := &schema.ORItemField{
-			Type:      "function_call",
-			ID:        itemID,
-			Status:    "in_progress",
-			CallID:    itemID,
-			Name:      name,
-			Arguments: "",
-		}
-		sendSSEEvent(c, &schema.ORStreamEvent{
-			Type:           "response.output_item.added",
-			SequenceNumber: *sequenceNumber,
-			OutputIndex:    &outputIndex,
-			Item:           item,
-		})
-		*sequenceNumber++
-
-		// Emit arguments
-		if arguments != "" {
-			sendSSEEvent(c, &schema.ORStreamEvent{
-				Type:           "response.function_call_arguments.delta",
-				SequenceNumber: *sequenceNumber,
-				ItemID:         itemID,
-				OutputIndex:    &outputIndex,
-				Delta:          strPtr(arguments),
-			})
-			*sequenceNumber++
-
-			item.Status = "completed"
-			item.Arguments = arguments
-			sendSSEEvent(c, &schema.ORStreamEvent{
-				Type:           "response.function_call_arguments.done",
-				SequenceNumber: *sequenceNumber,
-				ItemID:         itemID,
-				OutputIndex:    &outputIndex,
-				Arguments:      strPtr(arguments),
-			})
-			*sequenceNumber++
-
-			sendSSEEvent(c, &schema.ORStreamEvent{
-				Type:           "response.output_item.done",
-				SequenceNumber: *sequenceNumber,
-				OutputIndex:    &outputIndex,
-				Item:           item,
-			})
-			*sequenceNumber++
-		}
-		return nil
-	case "tool_result":
-		itemID, _ := eventMap["item_id"].(string)
-		outputIndex, _ := eventMap["output_index"].(int)
-		result, _ := eventMap["result"].(string)
-
-		item := &schema.ORItemField{
-			Type:   "function_call_output",
-			ID:     itemID,
-			Status: "completed",
-			Output: result,
-		}
-		sendSSEEvent(c, &schema.ORStreamEvent{
-			Type:           "response.output_item.added",
-			SequenceNumber: *sequenceNumber,
-			OutputIndex:    &outputIndex,
-			Item:           item,
-		})
-		*sequenceNumber++
-		sendSSEEvent(c, &schema.ORStreamEvent{
-			Type:           "response.output_item.done",
-			SequenceNumber: *sequenceNumber,
-			OutputIndex:    &outputIndex,
-			Item:           item,
-		})
-		*sequenceNumber++
-		return nil
-	case "assistant":
-		itemID, _ := eventMap["item_id"].(string)
-		outputIndex, _ := eventMap["output_index"].(int)
-		content, _ := eventMap["content"].(string)
-
-		item := &schema.ORItemField{
-			Type:    "message",
-			ID:      itemID,
-			Status:  "in_progress",
-			Role:    "assistant",
-			Content: []schema.ORContentPart{},
-		}
-		sendSSEEvent(c, &schema.ORStreamEvent{
-			Type:           "response.output_item.added",
-			SequenceNumber: *sequenceNumber,
-			OutputIndex:    &outputIndex,
-			Item:           item,
-		})
-		*sequenceNumber++
-
-		// Emit content part
-		emptyPart := makeOutputTextPart("")
-		sendSSEEvent(c, &schema.ORStreamEvent{
-			Type:           "response.content_part.added",
-			SequenceNumber: *sequenceNumber,
-			ItemID:         itemID,
-			OutputIndex:    &outputIndex,
-			ContentIndex:   func() *int { i := 0; return &i }(),
-			Part:           &emptyPart,
-		})
-		*sequenceNumber++
-
-		// Emit text done
-		sendSSEEvent(c, &schema.ORStreamEvent{
-			Type:           "response.output_text.done",
-			SequenceNumber: *sequenceNumber,
-			ItemID:         itemID,
-			OutputIndex:    &outputIndex,
-			ContentIndex:   func() *int { i := 0; return &i }(),
-			Text:           strPtr(content),
-			Logprobs:       emptyLogprobs(),
-		})
-		*sequenceNumber++
-
-		// Emit content part done
-		contentPart := makeOutputTextPart(content)
-		sendSSEEvent(c, &schema.ORStreamEvent{
-			Type:           "response.content_part.done",
-			SequenceNumber: *sequenceNumber,
-			ItemID:         itemID,
-			OutputIndex:    &outputIndex,
-			ContentIndex:   func() *int { i := 0; return &i }(),
-			Part:           &contentPart,
-		})
-		*sequenceNumber++
-
-		// Emit item done
-		item.Status = "completed"
-		item.Content = []schema.ORContentPart{makeOutputTextPart(content)}
-		sendSSEEvent(c, &schema.ORStreamEvent{
-			Type:           "response.output_item.done",
-			SequenceNumber: *sequenceNumber,
-			OutputIndex:    &outputIndex,
-			Item:           item,
-		})
-		*sequenceNumber++
-		return nil
-	case "error":
-		message, _ := eventMap["message"].(string)
-		sendSSEEvent(c, &schema.ORStreamEvent{
-			Type:           "error",
-			SequenceNumber: *sequenceNumber,
-			Error: &schema.ORErrorPayload{
-				Type:    "model_error",
-				Message: message,
-			},
-		})
-		*sequenceNumber++
-		return nil
-	}
-
-	return nil
-}
-
-// bufferMCPEventAsOR converts MCP events to Open Responses format and buffers them
-func bufferMCPEventAsOR(store *ResponseStore, responseID string, event interface{}, sequenceNumber *int) {
-	eventMap, ok := event.(map[string]interface{})
-	if !ok {
-		return
-	}
-
-	eventType, _ := eventMap["type"].(string)
-	switch eventType {
-	case "status":
-		// Status events are informational, skip for now
-		return
-	case "reasoning":
-		itemID, _ := eventMap["item_id"].(string)
-		outputIndex, _ := eventMap["output_index"].(int)
-
-		item := &schema.ORItemField{
-			Type:   "reasoning",
-			ID:     itemID,
-			Status: "in_progress",
-		}
-		bufferEvent(store, responseID, &schema.ORStreamEvent{
-			Type:           "response.output_item.added",
-			SequenceNumber: *sequenceNumber,
-			OutputIndex:    &outputIndex,
-			Item:           item,
-		})
-		*sequenceNumber++
-		// Note: reasoning content streaming would go here
-		return
-	case "tool_call":
-		itemID, _ := eventMap["item_id"].(string)
-		outputIndex, _ := eventMap["output_index"].(int)
-		name, _ := eventMap["name"].(string)
-		arguments, _ := eventMap["arguments"].(string)
-
-		item := &schema.ORItemField{
-			Type:      "function_call",
-			ID:        itemID,
-			Status:    "in_progress",
-			CallID:    itemID,
-			Name:      name,
-			Arguments: "",
-		}
-		bufferEvent(store, responseID, &schema.ORStreamEvent{
-			Type:           "response.output_item.added",
-			SequenceNumber: *sequenceNumber,
-			OutputIndex:    &outputIndex,
-			Item:           item,
-		})
-		*sequenceNumber++
-
-		// Emit arguments
-		if arguments != "" {
-			bufferEvent(store, responseID, &schema.ORStreamEvent{
-				Type:           "response.function_call_arguments.delta",
-				SequenceNumber: *sequenceNumber,
-				ItemID:         itemID,
-				OutputIndex:    &outputIndex,
-				Delta:          strPtr(arguments),
-			})
-			*sequenceNumber++
-
-			item.Status = "completed"
-			item.Arguments = arguments
-			bufferEvent(store, responseID, &schema.ORStreamEvent{
-				Type:           "response.function_call_arguments.done",
-				SequenceNumber: *sequenceNumber,
-				ItemID:         itemID,
-				OutputIndex:    &outputIndex,
-				Arguments:      strPtr(arguments),
-			})
-			*sequenceNumber++
-
-			bufferEvent(store, responseID, &schema.ORStreamEvent{
-				Type:           "response.output_item.done",
-				SequenceNumber: *sequenceNumber,
-				OutputIndex:    &outputIndex,
-				Item:           item,
-			})
-			*sequenceNumber++
-		}
-		return
-	case "tool_result":
-		itemID, _ := eventMap["item_id"].(string)
-		outputIndex, _ := eventMap["output_index"].(int)
-		result, _ := eventMap["result"].(string)
-
-		item := &schema.ORItemField{
-			Type:   "function_call_output",
-			ID:     itemID,
-			Status: "completed",
-			Output: result,
-		}
-		bufferEvent(store, responseID, &schema.ORStreamEvent{
-			Type:           "response.output_item.added",
-			SequenceNumber: *sequenceNumber,
-			OutputIndex:    &outputIndex,
-			Item:           item,
-		})
-		*sequenceNumber++
-		bufferEvent(store, responseID, &schema.ORStreamEvent{
-			Type:           "response.output_item.done",
-			SequenceNumber: *sequenceNumber,
-			OutputIndex:    &outputIndex,
-			Item:           item,
-		})
-		*sequenceNumber++
-		return
-	case "assistant":
-		itemID, _ := eventMap["item_id"].(string)
-		outputIndex, _ := eventMap["output_index"].(int)
-		content, _ := eventMap["content"].(string)
-
-		item := &schema.ORItemField{
-			Type:    "message",
-			ID:      itemID,
-			Status:  "in_progress",
-			Role:    "assistant",
-			Content: []schema.ORContentPart{},
-		}
-		bufferEvent(store, responseID, &schema.ORStreamEvent{
-			Type:           "response.output_item.added",
-			SequenceNumber: *sequenceNumber,
-			OutputIndex:    &outputIndex,
-			Item:           item,
-		})
-		*sequenceNumber++
-
-		// Emit content part
-		emptyPart := makeOutputTextPart("")
-		bufferEvent(store, responseID, &schema.ORStreamEvent{
-			Type:           "response.content_part.added",
-			SequenceNumber: *sequenceNumber,
-			ItemID:         itemID,
-			OutputIndex:    &outputIndex,
-			ContentIndex:   func() *int { i := 0; return &i }(),
-			Part:           &emptyPart,
-		})
-		*sequenceNumber++
-
-		// Emit text done
-		bufferEvent(store, responseID, &schema.ORStreamEvent{
-			Type:           "response.output_text.done",
-			SequenceNumber: *sequenceNumber,
-			ItemID:         itemID,
-			OutputIndex:    &outputIndex,
-			ContentIndex:   func() *int { i := 0; return &i }(),
-			Text:           strPtr(content),
-			Logprobs:       emptyLogprobs(),
-		})
-		*sequenceNumber++
-
-		// Emit content part done
-		contentPart := makeOutputTextPart(content)
-		bufferEvent(store, responseID, &schema.ORStreamEvent{
-			Type:           "response.content_part.done",
-			SequenceNumber: *sequenceNumber,
-			ItemID:         itemID,
-			OutputIndex:    &outputIndex,
-			ContentIndex:   func() *int { i := 0; return &i }(),
-			Part:           &contentPart,
-		})
-		*sequenceNumber++
-
-		// Emit item done
-		item.Status = "completed"
-		item.Content = []schema.ORContentPart{makeOutputTextPart(content)}
-		bufferEvent(store, responseID, &schema.ORStreamEvent{
-			Type:           "response.output_item.done",
-			SequenceNumber: *sequenceNumber,
-			OutputIndex:    &outputIndex,
-			Item:           item,
-		})
-		*sequenceNumber++
-		return
-	case "error":
-		message, _ := eventMap["message"].(string)
-		bufferEvent(store, responseID, &schema.ORStreamEvent{
-			Type:           "error",
-			SequenceNumber: *sequenceNumber,
-			Error: &schema.ORErrorPayload{
-				Type:    "model_error",
-				Message: message,
-			},
-		})
-		*sequenceNumber++
-		return
-	}
 }
 
 // getTopLogprobs returns the top_logprobs value, defaulting to 0 if nil

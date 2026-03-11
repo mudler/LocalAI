@@ -74,7 +74,8 @@
   --radius-xl: 12px;
   --radius-full: 9999px;
 
-  --sidebar-width: 220px;
+  --sidebar-width: 200px;
+  --sidebar-width-collapsed: 52px;
   --color-toggle-off: #475569;
 }
 

@@ -557,21 +557,6 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		galleryService.StoreCancellation(uid, cancelFunc)
 		go func() {
 			galleryService.ModelGalleryChannel <- op
-			// Wait for the deletion operation to complete with a timeout
-			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-			defer cancel()
-			for {
-				select {
-				case <-ctx.Done():
-					xlog.Warn("Timeout waiting for deletion to complete", "uid", uid)
-					break
-				default:
-					if status := galleryService.GetStatus(uid); status != nil && status.Processed {
-						break
-					}
-					time.Sleep(100 * time.Millisecond)
-				}
-			}
 			cl.RemoveModelConfig(galleryName)
 		}()
 

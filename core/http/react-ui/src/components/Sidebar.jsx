@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { NavLink } from 'react-router-dom'
 import ThemeToggle from './ThemeToggle'
 
+const COLLAPSED_KEY = 'localai_sidebar_collapsed'
+
 const mainItems = [
   { path: '/', icon: 'fas fa-home', label: 'Home' },
   { path: '/browse', icon: 'fas fa-download', label: 'Install Models' },
@@ -28,7 +30,7 @@ const systemItems = [
   { path: '/settings', icon: 'fas fa-cog', label: 'Settings' },
 ]
 
-function NavItem({ item, onClose }) {
+function NavItem({ item, onClose, collapsed }) {
   return (
     <NavLink
       to={item.path}
@@ -37,6 +39,7 @@ function NavItem({ item, onClose }) {
         `nav-item ${isActive ? 'active' : ''}`
       }
       onClick={onClose}
+      title={collapsed ? item.label : undefined}
     >
       <i className={`${item.icon} nav-icon`} />
       <span className="nav-label">{item.label}</span>
@@ -46,19 +49,35 @@ function NavItem({ item, onClose }) {
 
 export default function Sidebar({ isOpen, onClose }) {
   const [features, setFeatures] = useState({})
+  const [collapsed, setCollapsed] = useState(() => {
+    try { return localStorage.getItem(COLLAPSED_KEY) === 'true' } catch (_) { return false }
+  })
+
   useEffect(() => {
     fetch('/api/features').then(r => r.json()).then(setFeatures).catch(() => {})
   }, [])
+
+  const toggleCollapse = () => {
+    setCollapsed(prev => {
+      const next = !prev
+      try { localStorage.setItem(COLLAPSED_KEY, String(next)) } catch (_) { /* ignore */ }
+      window.dispatchEvent(new CustomEvent('sidebar-collapse', { detail: { collapsed: next } }))
+      return next
+    })
+  }
 
   return (
     <>
       {isOpen && <div className="sidebar-overlay" onClick={onClose} />}
 
-      <aside className={`sidebar ${isOpen ? 'open' : ''}`}>
+      <aside className={`sidebar ${isOpen ? 'open' : ''} ${collapsed ? 'collapsed' : ''}`}>
         {/* Logo */}
         <div className="sidebar-header">
           <a href="./" className="sidebar-logo-link">
             <img src="/static/logo_horizontal.png" alt="LocalAI" className="sidebar-logo-img" />
+          </a>
+          <a href="./" className="sidebar-logo-icon" title="LocalAI">
+            <img src="/static/logo.png" alt="LocalAI" className="sidebar-logo-icon-img" />
           </a>
           <button className="sidebar-close-btn" onClick={onClose} aria-label="Close menu">
             <i className="fas fa-times" />
@@ -70,7 +89,7 @@ export default function Sidebar({ isOpen, onClose }) {
           {/* Main section */}
           <div className="sidebar-section">
             {mainItems.map(item => (
-              <NavItem key={item.path} item={item} onClose={onClose} />
+              <NavItem key={item.path} item={item} onClose={onClose} collapsed={collapsed} />
             ))}
           </div>
 
@@ -79,7 +98,7 @@ export default function Sidebar({ isOpen, onClose }) {
             <div className="sidebar-section">
               <div className="sidebar-section-title">Agents</div>
               {agentItems.filter(item => !item.feature || features[item.feature] !== false).map(item => (
-                <NavItem key={item.path} item={item} onClose={onClose} />
+                <NavItem key={item.path} item={item} onClose={onClose} collapsed={collapsed} />
               ))}
             </div>
           )}
@@ -92,13 +111,14 @@ export default function Sidebar({ isOpen, onClose }) {
               target="_blank"
               rel="noopener noreferrer"
               className="nav-item"
+              title={collapsed ? 'API' : undefined}
             >
               <i className="fas fa-code nav-icon" />
               <span className="nav-label">API</span>
-              <i className="fas fa-external-link-alt" style={{ fontSize: '0.6rem', marginLeft: 'auto', opacity: 0.5 }} />
+              <i className="fas fa-external-link-alt nav-external" />
             </a>
             {systemItems.map(item => (
-              <NavItem key={item.path} item={item} onClose={onClose} />
+              <NavItem key={item.path} item={item} onClose={onClose} collapsed={collapsed} />
             ))}
           </div>
         </nav>
@@ -106,6 +126,13 @@ export default function Sidebar({ isOpen, onClose }) {
         {/* Footer */}
         <div className="sidebar-footer">
           <ThemeToggle />
+          <button
+            className="sidebar-collapse-btn"
+            onClick={toggleCollapse}
+            title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          >
+            <i className={`fas fa-chevron-${collapsed ? 'right' : 'left'}`} />
+          </button>
         </div>
       </aside>
     </>
