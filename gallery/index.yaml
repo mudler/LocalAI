@@ -1,4 +1,37 @@
 ---
+- name: "uniscientist-30b-a3b-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/UniScientist-30B-A3B-i1-GGUF
+  description: |
+    Describe the model in a clear and concise way that can be shared in a model gallery.
+  tags:
+    - text-generation
+    - llm
+    - ai
+    - 30b
+    - gemma
+    - multi-gpu
+    - a3b
+  overrides:
+    parameters:
+      model: llama-cpp/models/UniScientist-30B-A3B.i1-Q4_K_M.gguf
+    name: UniScientist-30B-A3B-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/UniScientist-30B-A3B-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/UniScientist-30B-A3B.i1-Q4_K_M.gguf
+      sha256: c4bfab5435f84f9eb1b33e6b72259a3e7935c6f1e0ee9bbcd70e74c3a9ff5021
+      uri: https://huggingface.co/mradermacher/UniScientist-30B-A3B-i1-GGUF/resolve/main/UniScientist-30B-A3B.i1-Q4_K_M.gguf
 - name: "qwen3.5-27b-claude-4.6-opus-reasoning-distilled-heretic-i1"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
