@@ -343,3 +343,44 @@ diffusers:
 (echo -n '{"prompt": "spiderman surfing","size": "512x512","model":"txt2vid"}') |
 curl -H "Content-Type: application/json" -X POST -d @- http://localhost:8080/v1/images/generations
 ```
+## Lumina-Image 2.0 Support
+
+Lumina-Image 2.0 is a unified image generative framework that uses the Next-DiT architecture. LocalAI supports Lumina-Image models through the `stablediffusion-ggml` backend.
+
+### Important Notes
+
+- Lumina-Image models use the "lumina2" architecture which is **NOT** supported by the `llama-cpp` backend
+- Always use `backend: stablediffusion-ggml` for Lumina-Image models
+- Attempting to load Lumina-Image models with `llama-cpp` will result in an "unknown model architecture: 'lumina2'" error
+
+### Setup
+
+1. Add the Lumina-Image gallery entry by running:
+   ```bash
+   local-ai gallery add lumina-image-ggml
+   ```
+
+2. Download your Lumina-Image GGUF model file (e.g., from [Hugging Face](https://huggingface.co/Immac/NetaYume-Lumina-Image-2.0-GGUF))
+
+3. Create a model configuration:
+   ```yaml
+   name: lumina-image
+   backend: stablediffusion-ggml
+   parameters:
+     model: NetaYume-Lumina-Image-2.0.Q4_K_M.gguf
+   step: 25
+   cfg_scale: 4.5
+   ```
+
+4. Generate images using the OpenAI-compatible API:
+   ```bash
+   curl http://localhost:8080/v1/images/generations -H "Content-Type: application/json" -d '{
+     "prompt": "A beautiful sunset over mountains",
+     "model": "lumina-image"
+   }'
+   ```
+
+### Available Models
+
+- [NetaYume-Lumina-Image-2.0-GGUF](https://huggingface.co/Immac/NetaYume-Lumina-Image-2.0-GGUF) on Hugging Face
+
