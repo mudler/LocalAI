@@ -758,12 +758,16 @@
   files:
     - filename: acestep-cpp/acestep-5Hz-lm-0.6B-Q8_0.gguf
       uri: huggingface://Serveurperso/ACE-Step-1.5-GGUF/acestep-5Hz-lm-0.6B-Q8_0.gguf
+      sha256: bdaf9e292d4470f31c19cafeaca1b74936a114667e3a85e5d33b65247e9908ec
     - filename: acestep-cpp/Qwen3-Embedding-0.6B-Q8_0.gguf
       uri: huggingface://Serveurperso/ACE-Step-1.5-GGUF/Qwen3-Embedding-0.6B-Q8_0.gguf
+      sha256: 972f23255e46adfe744a0eb9a0039f3c63988f65753b0968d776e8b27168c321
     - filename: acestep-cpp/acestep-v15-turbo-Q8_0.gguf
       uri: huggingface://Serveurperso/ACE-Step-1.5-GGUF/acestep-v15-turbo-Q8_0.gguf
+      sha256: 288f708a61cfc241013a98a62f98ba331f83fe34d0d3559acdd9b0f6a2f7cd6b
     - filename: acestep-cpp/vae-BF16.gguf
       uri: huggingface://Serveurperso/ACE-Step-1.5-GGUF/vae-BF16.gguf
+      sha256: 0599862ac5d15cd308e1d2e368373aea6c02e25ebd1737ad4a4562a0901b0ef8
 - name: "acestep-cpp-turbo-4b"
   license: mit
   tags:
@@ -796,12 +800,16 @@
   files:
     - filename: acestep-cpp/acestep-5Hz-lm-4B-Q8_0.gguf
       uri: huggingface://Serveurperso/ACE-Step-1.5-GGUF/acestep-5Hz-lm-4B-Q8_0.gguf
+      sha256: 972f91147a167f0c041f1b158d67985a82c0f6a852e68cdf70e46030cf08b1bc
     - filename: acestep-cpp/Qwen3-Embedding-0.6B-Q8_0.gguf
       uri: huggingface://Serveurperso/ACE-Step-1.5-GGUF/Qwen3-Embedding-0.6B-Q8_0.gguf
+      sha256: 972f23255e46adfe744a0eb9a0039f3c63988f65753b0968d776e8b27168c321
     - filename: acestep-cpp/acestep-v15-turbo-Q8_0.gguf
       uri: huggingface://Serveurperso/ACE-Step-1.5-GGUF/acestep-v15-turbo-Q8_0.gguf
+      sha256: 288f708a61cfc241013a98a62f98ba331f83fe34d0d3559acdd9b0f6a2f7cd6b
     - filename: acestep-cpp/vae-BF16.gguf
       uri: huggingface://Serveurperso/ACE-Step-1.5-GGUF/vae-BF16.gguf
+      sha256: 0599862ac5d15cd308e1d2e368373aea6c02e25ebd1737ad4a4562a0901b0ef8
 - name: "qwen3-coder-next-mxfp4_moe"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
