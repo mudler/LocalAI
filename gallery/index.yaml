@@ -3,9 +3,6 @@
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
     - https://huggingface.co/bartowski/Qwen_Qwen3.5-35B-A3B-GGUF
-  description: |
-    Describe the model in a clear and concise way that can be shared in a model gallery.
-  license: "The license is not specified in the README content."
   tags:
     - qwen
     - qwen3.5
@@ -16,7 +13,6 @@
   overrides:
     parameters:
       model: llama-cpp/models/Qwen_Qwen3.5-35B-A3B-GGUF/Qwen_Qwen3.5-35B-A3B-Q4_K_M.gguf
-    name: Qwen_Qwen3.5-35B-A3B-GGUF
     backend: llama-cpp
     template:
       use_tokenizer_template: true
