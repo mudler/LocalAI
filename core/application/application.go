@@ -102,19 +102,24 @@ func (a *Application) start() error {
 
 	a.agentJobService = agentJobService
 
-	// Initialize agent pool service (LocalAGI integration)
-	if a.applicationConfig.AgentPool.Enabled {
-		aps, err := services.NewAgentPoolService(a.applicationConfig)
-		if err == nil {
-			if err := aps.Start(a.applicationConfig.Context); err != nil {
-				xlog.Error("Failed to start agent pool", "error", err)
-			} else {
-				a.agentPoolService = aps
-			}
-		} else {
-			xlog.Error("Failed to create agent pool service", "error", err)
-		}
-	}
-
 	return nil
+}
+
+// StartAgentPool initializes and starts the agent pool service (LocalAGI integration).
+// This must be called after the HTTP server is listening, because backends like
+// PostgreSQL need to call the embeddings API during collection initialization.
+func (a *Application) StartAgentPool() {
+	if !a.applicationConfig.AgentPool.Enabled {
+		return
+	}
+	aps, err := services.NewAgentPoolService(a.applicationConfig)
+	if err != nil {
+		xlog.Error("Failed to create agent pool service", "error", err)
+		return
+	}
+	if err := aps.Start(a.applicationConfig.Context); err != nil {
+		xlog.Error("Failed to start agent pool", "error", err)
+		return
+	}
+	a.agentPoolService = aps
 }
