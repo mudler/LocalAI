@@ -1348,11 +1348,14 @@ public:
                     body_json["min_p"] = data["min_p"];
                 }
 
-                // Pass metadata fields to body_json
+                // Pass enable_thinking via chat_template_kwargs (where oaicompat_chat_params_parse reads it)
                 const auto& metadata = request->metadata();
                 auto et_it = metadata.find("enable_thinking");
                 if (et_it != metadata.end()) {
-                    body_json["enable_thinking"] = (et_it->second == "true");
+                    if (!body_json.contains("chat_template_kwargs")) {
+                        body_json["chat_template_kwargs"] = json::object();
+                    }
+                    body_json["chat_template_kwargs"]["enable_thinking"] = (et_it->second == "true");
                 }
 
                 // Debug: Print full body_json before template processing (includes messages, tools, tool_choice, etc.)
@@ -2071,11 +2074,14 @@ public:
                     body_json["min_p"] = data["min_p"];
                 }
 
-                // Pass metadata fields to body_json
+                // Pass enable_thinking via chat_template_kwargs (where oaicompat_chat_params_parse reads it)
                 const auto& predict_metadata = request->metadata();
                 auto predict_et_it = predict_metadata.find("enable_thinking");
                 if (predict_et_it != predict_metadata.end()) {
-                    body_json["enable_thinking"] = (predict_et_it->second == "true");
+                    if (!body_json.contains("chat_template_kwargs")) {
+                        body_json["chat_template_kwargs"] = json::object();
+                    }
+                    body_json["chat_template_kwargs"]["enable_thinking"] = (predict_et_it->second == "true");
                 }
 
                 // Debug: Print full body_json before template processing (includes messages, tools, tool_choice, etc.)
