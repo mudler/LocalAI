@@ -889,7 +889,7 @@ export default function Chat() {
               </button>
               <button
                 className="btn btn-secondary btn-sm"
-                onClick={() => navigate(`/model-editor/${encodeURIComponent(activeChat.model)}`)}
+                onClick={() => navigate(`/app/model-editor/${encodeURIComponent(activeChat.model)}`)}
                 title="Edit model config"
               >
                 <i className="fas fa-edit" />

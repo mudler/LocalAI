@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { API_CONFIG } from '../utils/config'
+import { apiUrl } from '../utils/basePath'
 
 const thinkingTagRegex = /<thinking>([\s\S]*?)<\/thinking>|<think>([\s\S]*?)<\/think>/g
 const openThinkTagRegex = /<thinking>|<think>/
@@ -306,7 +307,7 @@ export function useChat(initialModel = '') {
       // Legacy MCP SSE streaming (custom event types from /v1/mcp/chat/completions)
       try {
         const timeoutId = setTimeout(() => controller.abort(), 300000) // 5 min timeout
-        const response = await fetch(endpoint, {
+        const response = await fetch(apiUrl(endpoint), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(requestBody),
@@ -452,7 +453,7 @@ export function useChat(initialModel = '') {
         let fullToolCalls = [] // Tool calls with id for agentic loop
 
         try {
-          const response = await fetch(endpoint, {
+          const response = await fetch(apiUrl(endpoint), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(loopBody),

@@ -1,6 +1,7 @@
 import { Marked } from 'marked'
 import DOMPurify from 'dompurify'
 import hljs from 'highlight.js'
+import { apiUrl } from './basePath'
 
 const FENCE_REGEX = /```(\w*)\n([\s\S]*?)```/g
 
@@ -64,7 +65,7 @@ export function extractMetadataArtifacts(messages, agentName) {
     if (!meta) return
     const fileUrl = (absPath) => {
       if (!agentName) return absPath
-      return `/api/agents/${encodeURIComponent(agentName)}/files?path=${encodeURIComponent(absPath)}`
+      return apiUrl(`/api/agents/${encodeURIComponent(agentName)}/files?path=${encodeURIComponent(absPath)}`)
     }
     Object.entries(meta).forEach(([key, values]) => {
       if (!Array.isArray(values)) return

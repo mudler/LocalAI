@@ -435,7 +435,7 @@ export default function AgentCreate() {
         await agentsApi.create(payload)
         addToast(`Agent "${form.name}" created`, 'success')
       }
-      navigate('/agents')
+      navigate('/app/agents')
     } catch (err) {
       addToast(`Save failed: ${err.message}`, 'error')
     } finally {
@@ -789,7 +789,7 @@ export default function AgentCreate() {
 
       <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h1 className="page-title">{isEdit ? `Edit Agent: ${name}` : importedConfig ? 'Import Agent' : 'Create Agent'}</h1>
-        <button className="btn btn-secondary btn-sm" onClick={() => navigate('/agents')}>
+        <button className="btn btn-secondary btn-sm" onClick={() => navigate('/app/agents')}>
           <i className="fas fa-arrow-left" /> Back
         </button>
       </div>
@@ -831,7 +831,7 @@ export default function AgentCreate() {
             </div>
 
             <div style={{ display: 'flex', gap: 'var(--spacing-sm)', justifyContent: 'flex-end', marginTop: 'var(--spacing-md)' }}>
-              <button type="button" className="btn btn-secondary" onClick={() => navigate('/agents')}>
+              <button type="button" className="btn btn-secondary" onClick={() => navigate('/app/agents')}>
                 <i className="fas fa-times" /> Cancel
               </button>
               <button type="submit" className="btn btn-primary" disabled={saving}>

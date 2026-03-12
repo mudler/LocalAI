@@ -4,11 +4,12 @@ import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/
 import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js'
 import { getToolUiResourceUri, isToolVisibilityAppOnly } from '@modelcontextprotocol/ext-apps/app-bridge'
 import { API_CONFIG } from '../utils/config'
+import { apiUrl } from '../utils/basePath'
 
 function buildProxyUrl(targetUrl, useProxy = true) {
   if (!useProxy) return new URL(targetUrl)
   const base = window.location.origin
-  return new URL(`${base}${API_CONFIG.endpoints.corsProxy}?url=${encodeURIComponent(targetUrl)}`)
+  return new URL(`${base}${apiUrl(API_CONFIG.endpoints.corsProxy)}?url=${encodeURIComponent(targetUrl)}`)
 }
 
 export function useMCPClient() {

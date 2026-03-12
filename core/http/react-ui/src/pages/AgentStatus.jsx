@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate, useOutletContext } from 'react-router-dom'
 import { agentsApi } from '../utils/api'
+import { apiUrl } from '../utils/basePath'
 
 function ObservableSummary({ observable }) {
   const creation = observable?.creation || {}
@@ -215,7 +216,7 @@ export default function AgentStatus() {
 
   // SSE for real-time observable updates
   useEffect(() => {
-    const url = `/api/agents/${encodeURIComponent(name)}/sse`
+    const url = apiUrl(`/api/agents/${encodeURIComponent(name)}/sse`)
     const es = new EventSource(url)
 
     es.addEventListener('observable_update', (e) => {
@@ -358,10 +359,10 @@ export default function AgentStatus() {
           <p className="page-subtitle">Agent observables and activity history</p>
         </div>
         <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
-          <button className="btn btn-secondary" onClick={() => navigate(`/agents/${encodeURIComponent(name)}/chat`)}>
+          <button className="btn btn-secondary" onClick={() => navigate(`/app/agents/${encodeURIComponent(name)}/chat`)}>
             <i className="fas fa-comment" /> Chat
           </button>
-          <button className="btn btn-secondary" onClick={() => navigate(`/agents/${encodeURIComponent(name)}/edit`)}>
+          <button className="btn btn-secondary" onClick={() => navigate(`/app/agents/${encodeURIComponent(name)}/edit`)}>
             <i className="fas fa-edit" /> Edit
           </button>
           <button className="btn btn-secondary" onClick={fetchData}>
@@ -404,7 +405,7 @@ export default function AgentStatus() {
           <div className="empty-state-icon"><i className="fas fa-chart-bar" /></div>
           <h2 className="empty-state-title">No observables yet</h2>
           <p className="empty-state-text">Send a message to the agent to see its activity here.</p>
-          <button className="btn btn-primary" onClick={() => navigate(`/agents/${encodeURIComponent(name)}/chat`)}>
+          <button className="btn btn-primary" onClick={() => navigate(`/app/agents/${encodeURIComponent(name)}/chat`)}>
             <i className="fas fa-comment" /> Chat with {name}
           </button>
         </div>

@@ -168,10 +168,10 @@ export default function Manage() {
               Install a model from the gallery to get started.
             </p>
             <div style={{ display: 'flex', gap: 'var(--spacing-sm)', justifyContent: 'center' }}>
-              <button className="btn btn-primary btn-sm" onClick={() => navigate('/browse')}>
+              <button className="btn btn-primary btn-sm" onClick={() => navigate('/app/models')}>
                 <i className="fas fa-store" /> Browse Gallery
               </button>
-              <button className="btn btn-secondary btn-sm" onClick={() => navigate('/import-model')}>
+              <button className="btn btn-secondary btn-sm" onClick={() => navigate('/app/import-model')}>
                 <i className="fas fa-upload" /> Import Model
               </button>
               <a className="btn btn-secondary btn-sm" href="https://localai.io" target="_blank" rel="noopener noreferrer">
@@ -201,7 +201,7 @@ export default function Manage() {
                         <span style={{ fontWeight: 500 }}>{model.id}</span>
                         <a
                           href="#"
-                          onClick={(e) => { e.preventDefault(); navigate(`/model-editor/${encodeURIComponent(model.id)}`) }}
+                          onClick={(e) => { e.preventDefault(); navigate(`/app/model-editor/${encodeURIComponent(model.id)}`) }}
                           style={{ fontSize: '0.75rem', color: 'var(--color-primary)' }}
                           title="Edit config"
                         >
@@ -225,7 +225,7 @@ export default function Manage() {
                     </td>
                     <td>
                       <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-                        <a href="#" onClick={(e) => { e.preventDefault(); navigate(`/chat/${encodeURIComponent(model.id)}`) }} className="badge badge-info" style={{ textDecoration: 'none', cursor: 'pointer' }}>Chat</a>
+                        <a href="#" onClick={(e) => { e.preventDefault(); navigate(`/app/chat/${encodeURIComponent(model.id)}`) }} className="badge badge-info" style={{ textDecoration: 'none', cursor: 'pointer' }}>Chat</a>
                       </div>
                     </td>
                     <td>
@@ -272,7 +272,7 @@ export default function Manage() {
               Install backends from the gallery to extend functionality.
             </p>
             <div style={{ display: 'flex', gap: 'var(--spacing-sm)', justifyContent: 'center' }}>
-              <button className="btn btn-primary btn-sm" onClick={() => navigate('/backends')}>
+              <button className="btn btn-primary btn-sm" onClick={() => navigate('/app/backends')}>
                 <i className="fas fa-server" /> Browse Backend Gallery
               </button>
               <a className="btn btn-secondary btn-sm" href="https://localai.io/backends/" target="_blank" rel="noopener noreferrer">
