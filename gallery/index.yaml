@@ -10,7 +10,7 @@
     - default
   overrides:
     parameters:
-      model: llama-cpp/models/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-heretic.i1-Q4_K_M.gguf
+      model: llama-cpp/models/Qwen3.-27B-Claude-4.6-Opus-Reasoning-Distilled-heretic.i1-Q4_K_M.gguf
     backend: llama-cpp
     template:
       use_tokenizer_template: true
@@ -350,32 +350,6 @@
     - filename: llama-cpp/mmproj/mmproj-F32.gguf
       sha256: ba889ce164a6cc7ffe34296851d0f2bbe139bd27deeb7fe3830d08bd776a28a6
       uri: https://huggingface.co/unsloth/Qwen3.5-122B-A10B-GGUF/resolve/main/mmproj-F32.gguf
-- name: "qwen3.5-35b-a3b"
-  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
-  urls:
-    - https://huggingface.co/unsloth/Qwen3.5-35B-A3B-GGUF
-  overrides:
-    parameters:
-      model: llama-cpp/models/Qwen3.5-35B-A3B-UD-Q4_K_M.gguf
-    backend: llama-cpp
-    template:
-      use_tokenizer_template: true
-    known_usecases:
-      - chat
-    function:
-      grammar:
-        disable: true
-    mmproj: llama-cpp/mmproj/mmproj-F32.gguf
-    description: Qwen3.5-35B-A3B-GGUF - A GGUF quantized model optimized for local inference. Based on Qwen 3.5 architecture with enhanced language understanding. Available in multiple quantization levels for various hardware requirements. 35B parameter model with 3B active parameters for efficient inference.
-    options:
-      - use_jinja:true
-  files:
-    - filename: llama-cpp/models/Qwen3.5-35B-A3B-UD-Q4_K_M.gguf
-      sha256: 223138866b87b12e68ffb43a1d45afb572921e9cd4c594e6a736df94c5130466
-      uri: https://huggingface.co/unsloth/Qwen3.5-35B-A3B-GGUF/resolve/main/Qwen3.5-35B-A3B-UD-Q4_K_M.gguf
-    - filename: llama-cpp/mmproj/mmproj-F32.gguf
-      uri: https://huggingface.co/unsloth/Qwen3.5-35B-A3B-GGUF/resolve/main/mmproj-F32.gguf
-      sha256: 5de13d9052180b24cceda247af3023e3a2cbe785612198efe05b81905e3a5dc7
 - name: "qwen_qwen3-next-80b-a3b-thinking"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
