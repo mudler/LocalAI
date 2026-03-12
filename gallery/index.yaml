@@ -1,4 +1,34 @@
 ---
+- name: "next-70b-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/thelamapi/next-70b-i1-GGUF
+  description: |
+    Describe the model in a clear and concise way that can be shared in a model gallery.
+  license: "license-2.0"
+  tags:
+    - language-model
+    - large-scale
+    - text-generation
+  overrides:
+    parameters:
+      model: llama-cpp/models/next-70b-i1-GGUF/next-70b.imatrix.gguf
+    name: next-70b-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/thelamapi/next-70b-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/next-70b-i1-GGUF/next-70b.imatrix.gguf
+      sha256: 9d8a13ee2b42acb01f62a2ebaa7f4382b20a8b8784050755bb2caff0d1000d96
+      uri: https://huggingface.co/thelamapi/next-70b-i1-GGUF/resolve/main/next-70b.imatrix.gguf
 - name: "qwen_qwen3.5-35b-a3b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
