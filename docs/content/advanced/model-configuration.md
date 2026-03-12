@@ -626,4 +626,4 @@ To enable llama-cpp's auto-fit mode, set `gpu_layers: -1` in your model configur
    - Only enable `gpu_layers: -1` if you understand the implications and have tested on your specific hardware
    - Monitor VRAM usage carefully when using auto-fit mode
 
-This is a known limitation being tracked in issue #8562. A future implementation may provide a runtime toggle or custom logic to reconcile auto-fit with threshold-based unloading.
+This is a known limitation being tracked in issue [#8562](https://github.com/mudler/LocalAI/issues/8562). A future implementation may provide a runtime toggle or custom logic to reconcile auto-fit with threshold-based unloading.
