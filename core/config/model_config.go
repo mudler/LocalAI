@@ -675,7 +675,7 @@ func (c *ModelConfig) GuessUsecases(u ModelConfigUsecase) bool {
 	}
 
 	if (u & FLAG_SOUND_GENERATION) == FLAG_SOUND_GENERATION {
-		soundGenBackends := []string{"transformers-musicgen", "ace-step", "mock-backend"}
+		soundGenBackends := []string{"transformers-musicgen", "ace-step", "acestep-cpp", "mock-backend"}
 		if !slices.Contains(soundGenBackends, c.Backend) {
 			return false
 		}
