@@ -198,7 +198,6 @@ export default function Models() {
     try {
       setInstalling(prev => new Set(prev).add(modelId))
       await modelsApi.install(modelId)
-      addToast(`Installing ${modelId}...`, 'info')
     } catch (err) {
       addToast(`Failed to install: ${err.message}`, 'error')
     }
@@ -214,6 +213,25 @@ export default function Models() {
       addToast(`Failed to delete: ${err.message}`, 'error')
     }
   }
+
+  // Clear local installing flags when operations finish (success or error)
+  useEffect(() => {
+    if (installing.size === 0) return
+    setInstalling(prev => {
+      const next = new Set(prev)
+      let changed = false
+      for (const modelId of prev) {
+        const hasActiveOp = operations.some(op =>
+          op.name === modelId && !op.completed && !op.error
+        )
+        if (!hasActiveOp) {
+          next.delete(modelId)
+          changed = true
+        }
+      }
+      return changed ? next : prev
+    })
+  }, [operations, installing.size])
 
   const isInstalling = (modelId) => {
     return installing.has(modelId) || operations.some(op =>

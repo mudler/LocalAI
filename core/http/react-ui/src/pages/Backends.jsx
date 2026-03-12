@@ -87,7 +87,6 @@ export default function Backends() {
   const handleInstall = async (id) => {
     try {
       await backendsApi.install(id)
-      addToast(`Installing backend ${id}...`, 'info')
     } catch (err) {
       addToast(`Install failed: ${err.message}`, 'error')
     }
@@ -112,7 +111,6 @@ export default function Backends() {
       if (manualName.trim()) body.name = manualName.trim()
       if (manualAlias.trim()) body.alias = manualAlias.trim()
       await backendsApi.installExternal(body)
-      addToast('Installing backend...', 'info')
       setManualUri('')
       setManualName('')
       setManualAlias('')

@@ -3,6 +3,7 @@ export const API_CONFIG = {
     // Operations
     operations: '/api/operations',
     cancelOperation: (jobID) => `/api/operations/${jobID}/cancel`,
+    dismissOperation: (jobID) => `/api/operations/${jobID}/dismiss`,
 
     // Models gallery
     models: '/api/models',

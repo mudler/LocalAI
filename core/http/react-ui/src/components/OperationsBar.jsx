@@ -1,7 +1,7 @@
 import { useOperations } from '../hooks/useOperations'
 
 export default function OperationsBar() {
-  const { operations, cancelOperation } = useOperations()
+  const { operations, cancelOperation, dismissFailedOp } = useOperations()
 
   if (operations.length === 0) return null
 
@@ -10,7 +10,9 @@ export default function OperationsBar() {
       {operations.map(op => (
         <div key={op.jobID || op.id} className="operation-item">
           <div className="operation-info">
-            {op.isCancelled ? (
+            {op.error ? (
+              <i className="fas fa-circle-exclamation" style={{ color: 'var(--color-error)', marginRight: 'var(--spacing-xs)' }} />
+            ) : op.isCancelled ? (
               <i className="fas fa-ban" style={{ color: 'var(--color-warning)', marginRight: 'var(--spacing-xs)' }} />
             ) : op.isDeletion ? (
               <i className="fas fa-trash" style={{ color: 'var(--color-error)', marginRight: 'var(--spacing-xs)' }} />
@@ -18,34 +20,53 @@ export default function OperationsBar() {
               <div className="operation-spinner" />
             )}
             <span className="operation-text">
-              {op.isDeletion ? 'Removing' : 'Installing'}{' '}
-              {op.isBackend ? 'backend' : 'model'}: {op.name || op.id}
+              {op.error ? (
+                <>
+                  Failed to install {op.isBackend ? 'backend' : 'model'}: {op.name || op.id}
+                  <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginLeft: 'var(--spacing-xs)' }}>
+                    ({op.error})
+                  </span>
+                </>
+              ) : (
+                <>
+                  {op.isDeletion ? 'Removing' : 'Installing'}{' '}
+                  {op.isBackend ? 'backend' : 'model'}: {op.name || op.id}
+                </>
+              )}
             </span>
-            {op.isQueued && (
+            {!op.error && op.isQueued && (
               <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginLeft: 'var(--spacing-xs)' }}>
                 (Queued)
               </span>
             )}
-            {op.isCancelled && (
+            {!op.error && op.isCancelled && (
               <span style={{ fontSize: '0.75rem', color: 'var(--color-warning)', marginLeft: 'var(--spacing-xs)' }}>
                 Cancelling...
               </span>
             )}
-            {op.message && !op.isQueued && !op.isCancelled && (
+            {!op.error && op.message && !op.isQueued && !op.isCancelled && (
               <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginLeft: 'var(--spacing-xs)' }}>
                 {op.message}
               </span>
             )}
-            {op.progress !== undefined && op.progress > 0 && (
+            {!op.error && op.progress !== undefined && op.progress > 0 && (
               <span className="operation-progress">{Math.round(op.progress)}%</span>
             )}
           </div>
-          {op.progress !== undefined && op.progress > 0 && (
+          {!op.error && op.progress !== undefined && op.progress > 0 && (
             <div className="operation-bar-container">
               <div className="operation-bar" style={{ width: `${op.progress}%` }} />
             </div>
           )}
-          {op.cancellable && !op.isCancelled && (
+          {op.error ? (
+            <button
+              className="operation-cancel"
+              onClick={() => dismissFailedOp(op.id)}
+              title="Dismiss"
+            >
+              <i className="fas fa-xmark" />
+            </button>
+          ) : op.cancellable && !op.isCancelled ? (
             <button
               className="operation-cancel"
               onClick={() => cancelOperation(op.jobID)}
@@ -53,7 +74,7 @@ export default function OperationsBar() {
             >
               <i className="fas fa-xmark" />
             </button>
-          )}
+          ) : null}
         </div>
       ))}
     </div>
