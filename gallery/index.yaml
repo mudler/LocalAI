@@ -958,6 +958,25 @@
       voice: Aiden # Available speakers: Vivian, Serena, Uncle_Fu, Dylan, Eric, Ryan, Aiden, Ono_Anna, Sohee
     parameters:
       model: Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice
+- &fish-speech
+  urls:
+    - https://huggingface.co/fishaudio/s2-pro
+  description: |
+    Fish Speech S2-Pro is a high-quality text-to-speech model supporting voice cloning via reference audio. Uses a two-stage pipeline: text to semantic tokens (LLaMA-based) then semantic to audio (DAC decoder).
+  tags:
+    - text-to-speech
+    - TTS
+    - voice-cloning
+  license: apache-2.0
+  icon: https://huggingface.co/fishaudio/s2-pro/resolve/main/overview.png
+  name: "fish-speech-s2-pro"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  overrides:
+    backend: fish-speech
+    known_usecases:
+      - tts
+    parameters:
+      model: fishaudio/s2-pro
 - &qwen-asr
   urls:
     - https://huggingface.co/Qwen/Qwen3-ASR-1.7B

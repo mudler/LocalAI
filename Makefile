@@ -1,5 +1,5 @@
 # Disable parallel execution for backend builds
-.NOTPARALLEL: backends/diffusers backends/llama-cpp backends/outetts backends/piper backends/stablediffusion-ggml backends/whisper backends/faster-whisper backends/silero-vad backends/local-store backends/huggingface backends/rfdetr backends/kitten-tts backends/kokoro backends/chatterbox backends/llama-cpp-darwin backends/neutts build-darwin-python-backend build-darwin-go-backend backends/mlx backends/diffuser-darwin backends/mlx-vlm backends/mlx-audio backends/mlx-distributed backends/stablediffusion-ggml-darwin backends/vllm backends/vllm-omni backends/moonshine backends/pocket-tts backends/qwen-tts backends/faster-qwen3-tts backends/qwen-asr backends/nemo backends/voxcpm backends/whisperx backends/ace-step backends/voxtral
+.NOTPARALLEL: backends/diffusers backends/llama-cpp backends/outetts backends/piper backends/stablediffusion-ggml backends/whisper backends/faster-whisper backends/silero-vad backends/local-store backends/huggingface backends/rfdetr backends/kitten-tts backends/kokoro backends/chatterbox backends/llama-cpp-darwin backends/neutts build-darwin-python-backend build-darwin-go-backend backends/mlx backends/diffuser-darwin backends/mlx-vlm backends/mlx-audio backends/mlx-distributed backends/stablediffusion-ggml-darwin backends/vllm backends/vllm-omni backends/moonshine backends/pocket-tts backends/qwen-tts backends/faster-qwen3-tts backends/qwen-asr backends/nemo backends/voxcpm backends/whisperx backends/ace-step backends/fish-speech backends/voxtral
 
 GOCMD=go
 GOTEST=$(GOCMD) test
@@ -331,6 +331,7 @@ prepare-test-extra: protogen-python
 	$(MAKE) -C backend/python/moonshine
 	$(MAKE) -C backend/python/pocket-tts
 	$(MAKE) -C backend/python/qwen-tts
+	$(MAKE) -C backend/python/fish-speech
 	$(MAKE) -C backend/python/faster-qwen3-tts
 	$(MAKE) -C backend/python/qwen-asr
 	$(MAKE) -C backend/python/nemo
@@ -349,6 +350,7 @@ test-extra: prepare-test-extra
 	$(MAKE) -C backend/python/moonshine test
 	$(MAKE) -C backend/python/pocket-tts test
 	$(MAKE) -C backend/python/qwen-tts test
+	$(MAKE) -C backend/python/fish-speech test
 	$(MAKE) -C backend/python/faster-qwen3-tts test
 	$(MAKE) -C backend/python/qwen-asr test
 	$(MAKE) -C backend/python/nemo test
@@ -493,6 +495,7 @@ BACKEND_VIBEVOICE = vibevoice|python|.|--progress=plain|true
 BACKEND_MOONSHINE = moonshine|python|.|false|true
 BACKEND_POCKET_TTS = pocket-tts|python|.|false|true
 BACKEND_QWEN_TTS = qwen-tts|python|.|false|true
+BACKEND_FISH_SPEECH = fish-speech|python|.|false|true
 BACKEND_FASTER_QWEN3_TTS = faster-qwen3-tts|python|.|false|true
 BACKEND_QWEN_ASR = qwen-asr|python|.|false|true
 BACKEND_NEMO = nemo|python|.|false|true
@@ -547,6 +550,7 @@ $(eval $(call generate-docker-build-target,$(BACKEND_VIBEVOICE)))
 $(eval $(call generate-docker-build-target,$(BACKEND_MOONSHINE)))
 $(eval $(call generate-docker-build-target,$(BACKEND_POCKET_TTS)))
 $(eval $(call generate-docker-build-target,$(BACKEND_QWEN_TTS)))
+$(eval $(call generate-docker-build-target,$(BACKEND_FISH_SPEECH)))
 $(eval $(call generate-docker-build-target,$(BACKEND_FASTER_QWEN3_TTS)))
 $(eval $(call generate-docker-build-target,$(BACKEND_QWEN_ASR)))
 $(eval $(call generate-docker-build-target,$(BACKEND_NEMO)))
@@ -559,7 +563,7 @@ $(eval $(call generate-docker-build-target,$(BACKEND_MLX_DISTRIBUTED)))
 docker-save-%: backend-images
 	docker save local-ai-backend:$* -o backend-images/$*.tar
 
-docker-build-backends: docker-build-llama-cpp docker-build-rerankers docker-build-vllm docker-build-vllm-omni docker-build-transformers docker-build-outetts docker-build-diffusers docker-build-kokoro docker-build-faster-whisper docker-build-coqui docker-build-chatterbox docker-build-vibevoice docker-build-moonshine docker-build-pocket-tts docker-build-qwen-tts docker-build-faster-qwen3-tts docker-build-qwen-asr docker-build-nemo docker-build-voxcpm docker-build-whisperx docker-build-ace-step docker-build-voxtral docker-build-mlx-distributed
+docker-build-backends: docker-build-llama-cpp docker-build-rerankers docker-build-vllm docker-build-vllm-omni docker-build-transformers docker-build-outetts docker-build-diffusers docker-build-kokoro docker-build-faster-whisper docker-build-coqui docker-build-chatterbox docker-build-vibevoice docker-build-moonshine docker-build-pocket-tts docker-build-qwen-tts docker-build-fish-speech docker-build-faster-qwen3-tts docker-build-qwen-asr docker-build-nemo docker-build-voxcpm docker-build-whisperx docker-build-ace-step docker-build-voxtral docker-build-mlx-distributed
 
 ########################################################
 ### Mock Backend for E2E Tests

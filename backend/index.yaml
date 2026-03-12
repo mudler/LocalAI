@@ -553,6 +553,30 @@
     nvidia-l4t-cuda-12: "nvidia-l4t-qwen-tts"
     nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-qwen-tts"
   icon: https://cdn-avatars.huggingface.co/v1/production/uploads/620760a26e3b7210c2ff1943/-s1gyJfvbE1RgO5iBeNOi.png
+- &fish-speech
+  urls:
+    - https://github.com/fishaudio/fish-speech
+  description: |
+    Fish Speech is a high-quality text-to-speech model supporting voice cloning via reference audio.
+  tags:
+    - text-to-speech
+    - TTS
+    - voice-cloning
+  license: apache-2.0
+  name: "fish-speech"
+  alias: "fish-speech"
+  capabilities:
+    nvidia: "cuda12-fish-speech"
+    intel: "intel-fish-speech"
+    amd: "rocm-fish-speech"
+    nvidia-l4t: "nvidia-l4t-fish-speech"
+    metal: "metal-fish-speech"
+    default: "cpu-fish-speech"
+    nvidia-cuda-13: "cuda13-fish-speech"
+    nvidia-cuda-12: "cuda12-fish-speech"
+    nvidia-l4t-cuda-12: "nvidia-l4t-fish-speech"
+    nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-fish-speech"
+  icon: https://avatars.githubusercontent.com/u/148526220?s=200&v=4
 - &faster-qwen3-tts
   urls:
     - https://github.com/andimarafioti/faster-qwen3-tts
@@ -2382,6 +2406,100 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-qwen-tts"
   mirrors:
     - localai/localai-backends:master-metal-darwin-arm64-qwen-tts
+## fish-speech
+- !!merge <<: *fish-speech
+  name: "fish-speech-development"
+  capabilities:
+    nvidia: "cuda12-fish-speech-development"
+    intel: "intel-fish-speech-development"
+    amd: "rocm-fish-speech-development"
+    nvidia-l4t: "nvidia-l4t-fish-speech-development"
+    metal: "metal-fish-speech-development"
+    default: "cpu-fish-speech-development"
+    nvidia-cuda-13: "cuda13-fish-speech-development"
+    nvidia-cuda-12: "cuda12-fish-speech-development"
+    nvidia-l4t-cuda-12: "nvidia-l4t-fish-speech-development"
+    nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-fish-speech-development"
+- !!merge <<: *fish-speech
+  name: "cpu-fish-speech"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-fish-speech"
+  mirrors:
+    - localai/localai-backends:latest-cpu-fish-speech
+- !!merge <<: *fish-speech
+  name: "cpu-fish-speech-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-cpu-fish-speech"
+  mirrors:
+    - localai/localai-backends:master-cpu-fish-speech
+- !!merge <<: *fish-speech
+  name: "cuda12-fish-speech"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-fish-speech"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-12-fish-speech
+- !!merge <<: *fish-speech
+  name: "cuda12-fish-speech-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-fish-speech"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-12-fish-speech
+- !!merge <<: *fish-speech
+  name: "cuda13-fish-speech"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-13-fish-speech"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-13-fish-speech
+- !!merge <<: *fish-speech
+  name: "cuda13-fish-speech-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-fish-speech"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-13-fish-speech
+- !!merge <<: *fish-speech
+  name: "intel-fish-speech"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-fish-speech"
+  mirrors:
+    - localai/localai-backends:latest-gpu-intel-fish-speech
+- !!merge <<: *fish-speech
+  name: "intel-fish-speech-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-fish-speech"
+  mirrors:
+    - localai/localai-backends:master-gpu-intel-fish-speech
+- !!merge <<: *fish-speech
+  name: "rocm-fish-speech"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-rocm-hipblas-fish-speech"
+  mirrors:
+    - localai/localai-backends:latest-gpu-rocm-hipblas-fish-speech
+- !!merge <<: *fish-speech
+  name: "rocm-fish-speech-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-rocm-hipblas-fish-speech"
+  mirrors:
+    - localai/localai-backends:master-gpu-rocm-hipblas-fish-speech
+- !!merge <<: *fish-speech
+  name: "nvidia-l4t-fish-speech"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-nvidia-l4t-fish-speech"
+  mirrors:
+    - localai/localai-backends:latest-nvidia-l4t-fish-speech
+- !!merge <<: *fish-speech
+  name: "nvidia-l4t-fish-speech-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-fish-speech"
+  mirrors:
+    - localai/localai-backends:master-nvidia-l4t-fish-speech
+- !!merge <<: *fish-speech
+  name: "cuda13-nvidia-l4t-arm64-fish-speech"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-nvidia-l4t-cuda-13-arm64-fish-speech"
+  mirrors:
+    - localai/localai-backends:latest-nvidia-l4t-cuda-13-arm64-fish-speech
+- !!merge <<: *fish-speech
+  name: "cuda13-nvidia-l4t-arm64-fish-speech-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-cuda-13-arm64-fish-speech"
+  mirrors:
+    - localai/localai-backends:master-nvidia-l4t-cuda-13-arm64-fish-speech
+- !!merge <<: *fish-speech
+  name: "metal-fish-speech"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-metal-darwin-arm64-fish-speech"
+  mirrors:
+    - localai/localai-backends:latest-metal-darwin-arm64-fish-speech
+- !!merge <<: *fish-speech
+  name: "metal-fish-speech-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-fish-speech"
+  mirrors:
+    - localai/localai-backends:master-metal-darwin-arm64-fish-speech
 ## faster-qwen3-tts
 - !!merge <<: *faster-qwen3-tts
   name: "faster-qwen3-tts-development"
