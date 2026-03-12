@@ -53,7 +53,6 @@ The backend system provides language-specific Dockerfiles that handle the build 
 #### Go Backends (`go/`)
 - **whisper**: OpenAI Whisper speech recognition in Go with GGML cpp backend (whisper.cpp)
 - **stablediffusion-ggml**: Stable Diffusion in Go with GGML Cpp backend
-- **huggingface**: Hugging Face model integration
 - **piper**: Text-to-speech synthesis Golang with C bindings using rhaspy/piper
 - **local-store**: Vector storage backend
 
