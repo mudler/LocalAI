@@ -30,6 +30,10 @@ jobs:
             variable: "VOXTRAL_VERSION"
             branch: "main"
             file: "backend/go/voxtral/Makefile"
+          - repository: "ace-step/acestep.cpp"
+            variable: "ACESTEP_CPP_VERSION"
+            branch: "master"
+            file: "backend/go/acestep-cpp/Makefile"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
