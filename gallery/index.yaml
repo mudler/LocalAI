@@ -11,7 +11,6 @@
   overrides:
     parameters:
       model: llama-cpp/models/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-heretic.i1-Q4_K_M.gguf
-    name: Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-heretic-i1-GGUF
     backend: llama-cpp
     template:
       use_tokenizer_template: true
@@ -44,7 +43,6 @@
   overrides:
     parameters:
       model: llama-cpp/models/Qwen_Qwen3.5-0.8B-Q4_K_M.gguf
-    name: Qwen_Qwen3.5-0.8B-GGUF
     backend: llama-cpp
     template:
       use_tokenizer_template: true
@@ -81,7 +79,6 @@
   overrides:
     parameters:
       model: llama-cpp/models/Qwen_Qwen3.5-2B-Q4_K_M.gguf
-    name: Qwen_Qwen3.5-2B-GGUF
     backend: llama-cpp
     template:
       use_tokenizer_template: true
@@ -116,7 +113,6 @@
   overrides:
     parameters:
       model: llama-cpp/models/Qwen_Qwen3.5-4B-Q4_K_M.gguf
-    name: Qwen_Qwen3.5-4B-GGUF
     backend: llama-cpp
     template:
       use_tokenizer_template: true
@@ -151,7 +147,6 @@
   overrides:
     parameters:
       model: llama-cpp/models/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled.i1-Q4_K_M.gguf
-    name: Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-i1-GGUF
     backend: llama-cpp
     template:
       use_tokenizer_template: true
@@ -185,7 +180,6 @@
   overrides:
     parameters:
       model: llama-cpp/models/Qwen3.5-4B.Q4_K_M.gguf
-    name: Qwen3.5-4B-Claude-4.6-Opus-Reasoning-Distilled-GGUF
     backend: llama-cpp
     template:
       use_tokenizer_template: true
@@ -212,7 +206,6 @@
   overrides:
     parameters:
       model: llama-cpp/models/Q3.5-BlueStar-27B.Q4_K_M.gguf
-    name: Q3.5-BlueStar-27B-GGUF
     backend: llama-cpp
     template:
       use_tokenizer_template: true
@@ -239,7 +232,6 @@
   overrides:
     parameters:
       model: llama-cpp/models/Qwen3.5-9B-Q4_K_M.gguf
-    name: Qwen3.5-9B-GGUF
     backend: llama-cpp
     template:
       use_tokenizer_template: true
@@ -266,7 +258,6 @@
   overrides:
     parameters:
       model: llama-cpp/models/Qwen3.5-397B-A17B-Q4_K_M-00001-of-00006.gguf
-    name: Qwen3.5-397B-A17B-GGUF
     backend: llama-cpp
     template:
       use_tokenizer_template: true
@@ -308,7 +299,6 @@
   overrides:
     parameters:
       model: llama-cpp/models/Qwen3.5-27B-Q4_K_M.gguf
-    name: Qwen3.5-27B-GGUF
     backend: llama-cpp
     template:
       use_tokenizer_template: true
@@ -335,7 +325,6 @@
   overrides:
     parameters:
       model: llama-cpp/models/Qwen3.5-122B-A10B-Q4_K_M-00001-of-00003.gguf
-    name: Qwen3.5-122B-A10B-GGUF
     backend: llama-cpp
     template:
       use_tokenizer_template: true
@@ -368,7 +357,6 @@
   overrides:
     parameters:
       model: llama-cpp/models/Qwen3.5-35B-A3B-UD-Q4_K_M.gguf
-    name: Qwen3.5-35B-A3B-GGUF
     backend: llama-cpp
     template:
       use_tokenizer_template: true
@@ -395,7 +383,6 @@
   overrides:
     parameters:
       model: llama-cpp/models/Qwen_Qwen3-Next-80B-A3B-Thinking-Q4_K_M.gguf
-    name: Qwen_Qwen3-Next-80B-A3B-Thinking-GGUF
     backend: llama-cpp
     template:
       use_tokenizer_template: true
