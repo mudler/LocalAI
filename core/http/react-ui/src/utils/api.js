@@ -130,6 +130,7 @@ export const resourcesApi = {
 export const operationsApi = {
   list: () => fetchJSON(API_CONFIG.endpoints.operations),
   cancel: (jobID) => postJSON(API_CONFIG.endpoints.cancelOperation(jobID), {}),
+  dismiss: (jobID) => postJSON(API_CONFIG.endpoints.dismissOperation(jobID), {}),
 }
 
 // Settings API

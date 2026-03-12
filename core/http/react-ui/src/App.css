@@ -365,6 +365,7 @@
   align-items: center;
   gap: var(--spacing-sm);
   flex: 1;
+  min-width: 0;
 }
 
 .operation-spinner {
@@ -379,6 +380,8 @@
 .operation-text {
   font-size: 0.8125rem;
   color: var(--color-text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .operation-progress {
@@ -403,11 +406,12 @@
 }
 
 .operation-cancel {
+  flex-shrink: 0;
   background: none;
   border: none;
   color: var(--color-text-muted);
   cursor: pointer;
-  padding: 2px;
+  padding: 4px 6px;
   font-size: 0.875rem;
 }
 .operation-cancel:hover {
