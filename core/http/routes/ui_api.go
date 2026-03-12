@@ -80,8 +80,8 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			message := ""
 
 			if status != nil {
-				// Skip completed operations (unless cancelled and not yet cleaned up)
-				if status.Processed && !status.Cancelled {
+				// Skip successfully completed operations
+				if status.Processed && !status.Cancelled && status.Error == nil {
 					continue
 				}
 				// Skip cancelled operations that are processed (they're done, no need to show)
@@ -131,7 +131,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 				}
 			}
 
-			operations = append(operations, map[string]interface{}{
+			opData := map[string]interface{}{
 				"id":          galleryID,
 				"name":        displayName,
 				"fullName":    galleryID,
@@ -144,7 +144,11 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 				"isCancelled": isCancelled,
 				"cancellable": isCancellable,
 				"message":     message,
-			})
+			}
+			if status != nil && status.Error != nil {
+				opData["error"] = status.Error.Error()
+			}
+			operations = append(operations, opData)
 		}
 
 		// Sort operations by progress (ascending), then by ID for stable display order
@@ -185,6 +189,20 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		return c.JSON(200, map[string]interface{}{
 			"success": true,
 			"message": "Operation cancelled",
+		})
+	})
+
+	// Dismiss a failed operation (acknowledge the error and remove it from the list)
+	app.POST("/api/operations/:jobID/dismiss", func(c echo.Context) error {
+		jobID := c.Param("jobID")
+		xlog.Debug("API request to dismiss operation", "jobID", jobID)
+
+		// Remove the operation from the opcache so it no longer appears
+		opcache.DeleteUUID(jobID)
+
+		return c.JSON(200, map[string]interface{}{
+			"success": true,
+			"message": "Operation dismissed",
 		})
 	})
 
