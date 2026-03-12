@@ -31,7 +31,7 @@ require (
 	github.com/mholt/archiver/v3 v3.5.1
 	github.com/microcosm-cc/bluemonday v1.0.27
 	github.com/modelcontextprotocol/go-sdk v1.4.0
-	github.com/mudler/cogito v0.9.3-0.20260306202429-e073d115bd04
+	github.com/mudler/cogito v0.0.0-20260309145014-3bc79f756d78
 	github.com/mudler/edgevpn v0.31.1
 	github.com/mudler/go-processmanager v0.1.0
 	github.com/mudler/memory v0.0.0-20251216220809-d1256471a6c2
@@ -126,7 +126,7 @@ require (
 	github.com/kevinburke/ssh_config v1.2.0 // indirect
 	github.com/labstack/gommon v0.4.2 // indirect
 	github.com/mschoch/smat v0.2.0 // indirect
-	github.com/mudler/LocalAGI v0.0.0-20260306154948-5a27c471ca78
+	github.com/mudler/LocalAGI v0.0.0-20260311165347-2d2da7df95e1
 	github.com/mudler/localrecall v0.5.4 // indirect
 	github.com/mudler/skillserver v0.0.5-0.20260221145827-0639a82c8f49
 	github.com/olekukonko/tablewriter v0.0.5 // indirect
