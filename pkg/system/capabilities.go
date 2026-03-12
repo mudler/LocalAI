@@ -132,27 +132,30 @@ func (s *SystemState) getSystemCapabilities() string {
 		}
 	}
 
-	if cuda13DirExists {
-		s.systemCapabilities = nvidiaCuda13
-		return s.systemCapabilities
-	}
-
-	if cuda12DirExists {
-		s.systemCapabilities = nvidiaCuda12
-		return s.systemCapabilities
-	}
-
+	// No GPU detected → default capability
 	if s.GPUVendor == "" {
 		xlog.Info("Default capability (no GPU detected)", "env", capabilityEnv)
 		s.systemCapabilities = defaultCapability
 		return s.systemCapabilities
 	}
 
-	// If vram is less than 4GB, let's default to CPU but warn the user that they can override that via env
+	// GPU detected but insufficient VRAM → default with warning
 	if s.VRAM <= 4*1024*1024*1024 {
 		xlog.Warn("VRAM is less than 4GB, defaulting to CPU", "env", capabilityEnv)
 		s.systemCapabilities = defaultCapability
 		return s.systemCapabilities
+	}
+
+	// CUDA directories refine capability only for NVIDIA GPUs
+	if s.GPUVendor == Nvidia {
+		if cuda13DirExists {
+			s.systemCapabilities = nvidiaCuda13
+			return s.systemCapabilities
+		}
+		if cuda12DirExists {
+			s.systemCapabilities = nvidiaCuda12
+			return s.systemCapabilities
+		}
 	}
 
 	s.systemCapabilities = s.GPUVendor
