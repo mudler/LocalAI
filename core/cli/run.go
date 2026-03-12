@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -425,5 +426,38 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 		}
 	})
 
+	// Start the agent pool after the HTTP server is listening, because
+	// backends like PostgreSQL need to call the embeddings API during
+	// collection initialization.
+	go func() {
+		waitForServerReady(r.Address, app.ApplicationConfig().Context)
+		app.StartAgentPool()
+	}()
+
 	return appHTTP.Start(r.Address)
+}
+
+// waitForServerReady polls the given address until the HTTP server is
+// accepting connections or the context is cancelled.
+func waitForServerReady(address string, ctx context.Context) {
+	// Ensure the address has a host component for dialing.
+	// Echo accepts ":8080" but net.Dial needs a resolvable host.
+	host, port, err := net.SplitHostPort(address)
+	if err == nil && host == "" {
+		address = "127.0.0.1:" + port
+	}
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+		conn, err := net.DialTimeout("tcp", address, 500*time.Millisecond)
+		if err == nil {
+			conn.Close()
+			return
+		}
+		time.Sleep(250 * time.Millisecond)
+	}
 }
