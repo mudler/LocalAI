@@ -3,6 +3,7 @@ package application
 import (
 	"context"
 	"sync"
+	"sync/atomic"
 
 	"github.com/mudler/LocalAI/core/config"
 	mcpTools "github.com/mudler/LocalAI/core/http/endpoints/mcp"
@@ -20,7 +21,7 @@ type Application struct {
 	templatesEvaluator *templates.Evaluator
 	galleryService     *services.GalleryService
 	agentJobService    *services.AgentJobService
-	agentPoolService   *services.AgentPoolService
+	agentPoolService   atomic.Pointer[services.AgentPoolService]
 	watchdogMutex      sync.Mutex
 	watchdogStop       chan bool
 	p2pMutex           sync.Mutex
@@ -70,7 +71,7 @@ func (a *Application) AgentJobService() *services.AgentJobService {
 }
 
 func (a *Application) AgentPoolService() *services.AgentPoolService {
-	return a.agentPoolService
+	return a.agentPoolService.Load()
 }
 
 // StartupConfig returns the original startup configuration (from env vars, before file loading)
@@ -121,5 +122,5 @@ func (a *Application) StartAgentPool() {
 		xlog.Error("Failed to start agent pool", "error", err)
 		return
 	}
-	a.agentPoolService = aps
+	a.agentPoolService.Store(aps)
 }
