@@ -85,7 +85,7 @@ func GetBackendTraces() []BackendTrace {
 	}
 
 	sort.Slice(traces, func(i, j int) bool {
-		return traces[i].Timestamp.Before(traces[j].Timestamp)
+		return traces[i].Timestamp.After(traces[j].Timestamp)
 	})
 
 	return traces

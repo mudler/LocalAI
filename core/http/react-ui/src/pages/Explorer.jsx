@@ -18,7 +18,7 @@ export default function Explorer() {
           <p>Explorer visualization</p>
         </div>
       </div>
-      <button className="btn btn-secondary" onClick={() => navigate('/')} style={{ marginTop: 'var(--spacing-lg)' }}>
+      <button className="btn btn-secondary" onClick={() => navigate('/app')} style={{ marginTop: 'var(--spacing-lg)' }}>
         <i className="fas fa-arrow-left" /> Back to Home
       </button>
     </div>

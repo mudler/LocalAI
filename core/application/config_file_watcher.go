@@ -6,6 +6,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"slices"
 	"time"
 
 	"dario.cat/mergo"
@@ -211,6 +212,8 @@ func readRuntimeSettingsJson(startupAppConfig config.ApplicationConfig) fileHand
 		envP2PToken := appConfig.P2PToken == startupAppConfig.P2PToken
 		envP2PNetworkID := appConfig.P2PNetworkID == startupAppConfig.P2PNetworkID
 		envFederated := appConfig.Federated == startupAppConfig.Federated
+		envGalleries := slices.Equal(appConfig.Galleries, startupAppConfig.Galleries)
+		envBackendGalleries := slices.Equal(appConfig.BackendGalleries, startupAppConfig.BackendGalleries)
 		envAutoloadGalleries := appConfig.AutoloadGalleries == startupAppConfig.AutoloadGalleries
 		envAutoloadBackendGalleries := appConfig.AutoloadBackendGalleries == startupAppConfig.AutoloadBackendGalleries
 		envAgentJobRetentionDays := appConfig.AgentJobRetentionDays == startupAppConfig.AgentJobRetentionDays
@@ -324,10 +327,10 @@ func readRuntimeSettingsJson(startupAppConfig config.ApplicationConfig) fileHand
 			if settings.Federated != nil && !envFederated {
 				appConfig.Federated = *settings.Federated
 			}
-			if settings.Galleries != nil {
+			if settings.Galleries != nil && !envGalleries {
 				appConfig.Galleries = *settings.Galleries
 			}
-			if settings.BackendGalleries != nil {
+			if settings.BackendGalleries != nil && !envBackendGalleries {
 				appConfig.BackendGalleries = *settings.BackendGalleries
 			}
 			if settings.AutoloadGalleries != nil && !envAutoloadGalleries {

@@ -292,7 +292,7 @@ export default function Skills() {
             onChange={(e) => setSearchQuery(e.target.value)}
             style={{ width: '200px' }}
           />
-          <button className="btn btn-primary" onClick={() => navigate('/skills/new')}>
+          <button className="btn btn-primary" onClick={() => navigate('/app/skills/new')}>
             <i className="fas fa-plus" /> New skill
           </button>
           <label className="btn btn-secondary" style={{ cursor: 'pointer' }}>
@@ -390,7 +390,7 @@ export default function Skills() {
           <h2 className="empty-state-title">No skills found</h2>
           <p className="empty-state-text">Create a skill or import one to get started.</p>
           <div style={{ display: 'flex', gap: 'var(--spacing-sm)', justifyContent: 'center' }}>
-            <button className="btn btn-primary" onClick={() => navigate('/skills/new')}>
+            <button className="btn btn-primary" onClick={() => navigate('/app/skills/new')}>
               <i className="fas fa-plus" /> Create skill
             </button>
             <label className="btn btn-secondary" style={{ cursor: 'pointer' }}>
@@ -420,7 +420,7 @@ export default function Skills() {
                 {!s.readOnly && (
                   <button
                     className="btn btn-secondary btn-sm"
-                    onClick={() => navigate(`/skills/edit/${encodeURIComponent(s.name)}`)}
+                    onClick={() => navigate(`/app/skills/edit/${encodeURIComponent(s.name)}`)}
                     title="Edit skill"
                   >
                     <i className="fas fa-edit" /> Edit

@@ -165,7 +165,7 @@ export default function AgentJobDetails() {
       <div className="empty-state">
         <div className="empty-state-icon"><i className="fas fa-search" /></div>
         <h2 className="empty-state-title">Job not found</h2>
-        <button className="btn btn-secondary" onClick={() => navigate('/agent-jobs')}><i className="fas fa-arrow-left" /> Back</button>
+        <button className="btn btn-secondary" onClick={() => navigate('/app/agent-jobs')}><i className="fas fa-arrow-left" /> Back</button>
       </div>
     </div>
   )
@@ -186,7 +186,7 @@ export default function AgentJobDetails() {
               <i className="fas fa-stop" /> Cancel
             </button>
           )}
-          <button className="btn btn-secondary" onClick={() => navigate('/agent-jobs')}>
+          <button className="btn btn-secondary" onClick={() => navigate('/app/agent-jobs')}>
             <i className="fas fa-arrow-left" /> Back
           </button>
         </div>
@@ -210,7 +210,7 @@ export default function AgentJobDetails() {
             <span className="form-label">Task</span>
             <p>
               {job.task_id ? (
-                <a onClick={() => navigate(`/agent-jobs/tasks/${job.task_id}`)} style={{ cursor: 'pointer', color: 'var(--color-primary)' }}>
+                <a onClick={() => navigate(`/app/agent-jobs/tasks/${job.task_id}`)} style={{ cursor: 'pointer', color: 'var(--color-primary)' }}>
                   {job.task_id}
                 </a>
               ) : '-'}

@@ -2014,6 +2014,20 @@ jobs:
             dockerfile: "./backend/Dockerfile.golang"
             context: "./"
             ubuntu-version: '2404'
+          #opus
+          - build-type: ''
+            cuda-major-version: ""
+            cuda-minor-version: ""
+            platforms: 'linux/amd64,linux/arm64'
+            tag-latest: 'auto'
+            tag-suffix: '-cpu-opus'
+            runs-on: 'ubuntu-latest'
+            base-image: "ubuntu:24.04"
+            skip-drivers: 'false'
+            backend: "opus"
+            dockerfile: "./backend/Dockerfile.golang"
+            context: "./"
+            ubuntu-version: '2404'
           #silero-vad
           - build-type: ''
             cuda-major-version: ""
@@ -2345,6 +2359,10 @@ jobs:
             build-type: "mps"
           - backend: "piper"
             tag-suffix: "-metal-darwin-arm64-piper"
+            build-type: "metal"
+            lang: "go"
+          - backend: "opus"
+            tag-suffix: "-metal-darwin-arm64-opus"
             build-type: "metal"
             lang: "go"
           - backend: "silero-vad"

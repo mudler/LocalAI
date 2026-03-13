@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate, useOutletContext } from 'react-router-dom'
+import { apiUrl } from '../utils/basePath'
 import ModelSelector from '../components/ModelSelector'
 import ClientMCPDropdown from '../components/ClientMCPDropdown'
 import { useResources } from '../hooks/useResources'
@@ -193,7 +194,7 @@ export default function Home() {
       newChat: true,
     }
     localStorage.setItem('localai_index_chat_data', JSON.stringify(chatData))
-    navigate(`/chat/${encodeURIComponent(selectedModel)}`)
+    navigate(`/app/chat/${encodeURIComponent(selectedModel)}`)
   }, [message, placeholderText, allFiles, selectedModel, mcpMode, mcpSelectedServers, clientMCPSelectedIds, addToast, navigate])
 
   const handleSubmit = (e) => {
@@ -239,7 +240,7 @@ export default function Home() {
         <>
           {/* Hero with logo */}
           <div className="home-hero">
-            <img src="/static/logo.png" alt="LocalAI" className="home-logo" />
+            <img src={apiUrl('/static/logo.png')} alt="LocalAI" className="home-logo" />
             <h1 className="home-heading">How can I help you today?</h1>
             <p className="home-subheading">Ask me anything, and I'll do my best to assist you.</p>
           </div>
@@ -372,13 +373,13 @@ export default function Home() {
 
           {/* Quick links */}
           <div className="home-quick-links">
-            <button className="home-link-btn" onClick={() => navigate('/manage')}>
+            <button className="home-link-btn" onClick={() => navigate('/app/manage')}>
               <i className="fas fa-desktop" /> Installed Models and Backends
             </button>
-            <button className="home-link-btn" onClick={() => navigate('/browse')}>
+            <button className="home-link-btn" onClick={() => navigate('/app/models')}>
               <i className="fas fa-download" /> Browse Gallery
             </button>
-            <button className="home-link-btn" onClick={() => navigate('/import-model')}>
+            <button className="home-link-btn" onClick={() => navigate('/app/import-model')}>
               <i className="fas fa-upload" /> Import Model
             </button>
             <a className="home-link-btn" href="https://localai.io" target="_blank" rel="noopener noreferrer">
@@ -443,7 +444,7 @@ export default function Home() {
               <h3>Model Gallery</h3>
               <p>Browse and install from a curated collection of open-source AI models</p>
             </div>
-            <div className="home-wizard-feature" onClick={() => navigate('/import-model')} style={{ cursor: 'pointer' }}>
+            <div className="home-wizard-feature" onClick={() => navigate('/app/import-model')} style={{ cursor: 'pointer' }}>
               <div className="home-wizard-feature-icon" style={{ background: 'var(--color-accent-light)' }}>
                 <i className="fas fa-upload" style={{ color: 'var(--color-accent)' }} />
               </div>
@@ -487,10 +488,10 @@ export default function Home() {
 
           {/* Action buttons */}
           <div className="home-wizard-actions">
-            <button className="btn btn-primary" onClick={() => navigate('/browse')}>
+            <button className="btn btn-primary" onClick={() => navigate('/app/models')}>
               <i className="fas fa-store" /> Browse Model Gallery
             </button>
-            <button className="btn btn-secondary" onClick={() => navigate('/import-model')}>
+            <button className="btn btn-secondary" onClick={() => navigate('/app/import-model')}>
               <i className="fas fa-upload" /> Import Model
             </button>
             <a className="btn btn-secondary" href="https://localai.io/docs/getting-started" target="_blank" rel="noopener noreferrer">

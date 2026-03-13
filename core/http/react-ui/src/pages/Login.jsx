@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { apiUrl } from '../utils/basePath'
 
 export default function Login() {
   const navigate = useNavigate()
@@ -14,7 +15,7 @@ export default function Login() {
     }
     // Set token as cookie
     document.cookie = `token=${encodeURIComponent(token.trim())}; path=/; SameSite=Strict`
-    navigate('/')
+    navigate('/app')
   }
 
   return (
@@ -28,7 +29,7 @@ export default function Login() {
     }}>
       <div className="card" style={{ width: '100%', maxWidth: '400px', padding: 'var(--spacing-xl)' }}>
         <div style={{ textAlign: 'center', marginBottom: 'var(--spacing-xl)' }}>
-          <img src="/static/logo.png" alt="LocalAI" style={{ width: 64, height: 64, marginBottom: 'var(--spacing-md)' }} />
+          <img src={apiUrl('/static/logo.png')} alt="LocalAI" style={{ width: 64, height: 64, marginBottom: 'var(--spacing-md)' }} />
           <h1 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: 'var(--spacing-xs)' }}>
             <span className="text-gradient">LocalAI</span>
           </h1>

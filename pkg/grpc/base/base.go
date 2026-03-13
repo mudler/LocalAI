@@ -112,6 +112,14 @@ func (llm *Base) VAD(*pb.VADRequest) (pb.VADResponse, error) {
 	return pb.VADResponse{}, fmt.Errorf("unimplemented")
 }
 
+func (llm *Base) AudioEncode(*pb.AudioEncodeRequest) (*pb.AudioEncodeResult, error) {
+	return nil, fmt.Errorf("unimplemented")
+}
+
+func (llm *Base) AudioDecode(*pb.AudioDecodeRequest) (*pb.AudioDecodeResult, error) {
+	return nil, fmt.Errorf("unimplemented")
+}
+
 func memoryUsage() *pb.MemoryUsageData {
 	mud := pb.MemoryUsageData{
 		Breakdown: make(map[string]uint64),

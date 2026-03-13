@@ -126,13 +126,13 @@ export default function Collections() {
           {collections.map((collection) => {
             const name = typeof collection === 'string' ? collection : collection.name
             return (
-              <div className="card" key={name} style={{ cursor: 'pointer' }} onClick={() => navigate(`/collections/${encodeURIComponent(name)}`)}>
+              <div className="card" key={name} style={{ cursor: 'pointer' }} onClick={() => navigate(`/app/collections/${encodeURIComponent(name)}`)}>
                 <div className="collections-card-name">
                   <i className="fas fa-folder" style={{ marginRight: 'var(--spacing-xs)', color: 'var(--color-primary)' }} />
                   {name}
                 </div>
                 <div className="collections-card-actions" onClick={(e) => e.stopPropagation()}>
-                  <button className="btn btn-secondary btn-sm" onClick={() => navigate(`/collections/${encodeURIComponent(name)}`)} title="View details">
+                  <button className="btn btn-secondary btn-sm" onClick={() => navigate(`/app/collections/${encodeURIComponent(name)}`)} title="View details">
                     <i className="fas fa-eye" /> Details
                   </button>
                   <button className="btn btn-secondary btn-sm" onClick={() => handleReset(name)} title="Reset collection">
