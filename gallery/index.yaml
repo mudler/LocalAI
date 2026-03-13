@@ -1,4 +1,34 @@
 ---
+- name: "g-health-14b-base"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/G-Health-14B-Base-GGUF
+  description: |
+    Describe the model in a clear and concise way that can be shared in a model gallery.
+  tags:
+    - g-health
+    - 14b
+    - base
+    - gguf
+  overrides:
+    parameters:
+      model: llama-cpp/models/G-Health-14B-Base-GGUF/G-Health-14B-Base.Q4_K_M.gguf
+    name: G-Health-14B-Base-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/G-Health-14B-Base-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/G-Health-14B-Base-GGUF/G-Health-14B-Base.Q4_K_M.gguf
+      sha256: 204042c46a5a9175c25d5db5c152e63077a7296a47d5d218c93b1cca320661a6
+      uri: https://huggingface.co/mradermacher/G-Health-14B-Base-GGUF/resolve/main/G-Health-14B-Base.Q4_K_M.gguf
 - name: "qwen_qwen3.5-35b-a3b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
