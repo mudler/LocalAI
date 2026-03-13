@@ -1,4 +1,35 @@
 ---
+- name: "laser-8b"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/LASER-8B-GGUF
+  description: |
+    Describe the model in a clear and concise way that can be shared in a model gallery.
+  license: "apache-2.0"
+  tags:
+    - llm
+    - 8b
+    - gguf
+    - text-generation
+  overrides:
+    parameters:
+      model: llama-cpp/models/LASER-8B-GGUF/LASER-8B.Q4_K_M.gguf
+    name: LASER-8B-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/LASER-8B-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/LASER-8B-GGUF/LASER-8B.Q4_K_M.gguf
+      sha256: 69f7109a13a6910212f6508751802b57b9d521e3aa99d604a042989e580e79d0
+      uri: https://huggingface.co/mradermacher/LASER-8B-GGUF/resolve/main/LASER-8B.Q4_K_M.gguf
 - name: "qwen_qwen3.5-35b-a3b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
