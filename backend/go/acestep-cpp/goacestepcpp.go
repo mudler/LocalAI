@@ -12,7 +12,7 @@ import (
 
 var (
 	CppLoadModel    func(lmModelPath, textEncoderPath, ditModelPath, vaeModelPath string) int
-	CppGenerateMusic func(caption, lyrics string, bpm float32, keyscale, timesignature string, duration, temperature float32, instrumental bool, seed int, dst string, threads int) int
+	CppGenerateMusic func(caption, lyrics string, bpm int, keyscale, timesignature string, duration, temperature float32, instrumental bool, seed int, dst string, threads int) int
 )
 
 type AceStepCpp struct {
@@ -101,7 +101,7 @@ func (a *AceStepCpp) SoundGeneration(req *pb.SoundGenerationRequest) error {
 	seed := 42
 	threads := 4
 
-	if ret := CppGenerateMusic(caption, lyrics, float32(bpm), keyscale, timesignature, duration, temperature, instrumental, seed, req.GetDst(), threads); ret != 0 {
+	if ret := CppGenerateMusic(caption, lyrics, bpm, keyscale, timesignature, duration, temperature, instrumental, seed, req.GetDst(), threads); ret != 0 {
 		return fmt.Errorf("failed to generate music (error code: %d)", ret)
 	}
 

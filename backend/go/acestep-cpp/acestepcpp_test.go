@@ -167,7 +167,7 @@ func TestSoundGeneration(t *testing.T) {
 	// Generate music
 	duration := float32(10.0)
 	temperature := float32(0.85)
-	bpm := float32(120.0)
+	bpm := int32(120)
 	caption := "A cheerful electronic dance track"
 	timesig := "4/4"
 
