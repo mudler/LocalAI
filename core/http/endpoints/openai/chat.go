@@ -443,10 +443,13 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 					return err
 				}
 
-				// Pass raw JSON schema to backends that support native structured output
+				// Pass raw JSON schema via metadata for backends that support native structured output
 				schemaBytes, err := json.Marshal(d.JsonSchema.Schema)
 				if err == nil {
-					config.JSONSchema = string(schemaBytes)
+					if config.RequestMetadata == nil {
+						config.RequestMetadata = map[string]string{}
+					}
+					config.RequestMetadata["json_schema"] = string(schemaBytes)
 				}
 
 				fs := &functions.JSONFunctionStructure{

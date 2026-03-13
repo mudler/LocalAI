@@ -246,11 +246,13 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                     setattr(sampling_params, param_field, value)
 
         # Handle structured output via guided decoding / structured outputs
+        # Read json_schema and response_format from Metadata map (avoids extra proto fields)
         if _structured_output_cls is not None:
+            metadata = dict(request.Metadata) if hasattr(request, 'Metadata') and request.Metadata else {}
             constraint = None
-            if hasattr(request, 'JSONSchema') and request.JSONSchema:
-                constraint = _structured_output_cls(json=request.JSONSchema)
-            elif hasattr(request, 'ResponseFormat') and request.ResponseFormat == "json_object":
+            if metadata.get("json_schema"):
+                constraint = _structured_output_cls(json=metadata["json_schema"])
+            elif metadata.get("response_format") == "json_object":
                 constraint = _structured_output_cls(json_object=True)
             elif hasattr(request, 'Grammar') and request.Grammar:
                 constraint = _structured_output_cls(grammar=request.Grammar)

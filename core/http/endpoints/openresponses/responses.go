@@ -128,9 +128,42 @@ func ResponsesEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eval
 			Functions: funcs,
 		}
 
-		// Handle text_format -> response_format conversion
+		// Handle text_format -> response_format conversion and structured output
 		if input.TextFormat != nil {
-			openAIReq.ResponseFormat = convertTextFormatToResponseFormat(input.TextFormat)
+			responseFormat := convertTextFormatToResponseFormat(input.TextFormat)
+			openAIReq.ResponseFormat = responseFormat
+
+			// Generate grammar and pass schema for structured output (like OpenAI chat/completion)
+			if rfMap, ok := responseFormat.(map[string]interface{}); ok {
+				if rfType, _ := rfMap["type"].(string); rfType == "json_object" {
+					cfg.Grammar = functions.JSONBNF
+					cfg.ResponseFormat = "json_object"
+				} else if rfType == "json_schema" {
+					cfg.ResponseFormat = "json_schema"
+					d := schema.JsonSchemaRequest{}
+					dat, err := json.Marshal(rfMap)
+					if err == nil {
+						if err := json.Unmarshal(dat, &d); err == nil {
+							schemaBytes, err := json.Marshal(d.JsonSchema.Schema)
+							if err == nil {
+								if cfg.RequestMetadata == nil {
+									cfg.RequestMetadata = map[string]string{}
+								}
+								cfg.RequestMetadata["json_schema"] = string(schemaBytes)
+							}
+							fs := &functions.JSONFunctionStructure{
+								AnyOf: []functions.Item{d.JsonSchema.Schema},
+							}
+							g, err := fs.Grammar(cfg.FunctionsConfig.GrammarOptions()...)
+							if err == nil {
+								cfg.Grammar = g
+							} else {
+								xlog.Error("Open Responses - Failed generating grammar for json_schema", "error", err)
+							}
+						}
+					}
+				}
+			}
 		}
 
 		// Generate grammar for function calling (similar to OpenAI chat endpoint)

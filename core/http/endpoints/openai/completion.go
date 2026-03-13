@@ -99,7 +99,10 @@ func CompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eva
 					if err := json.Unmarshal(dat, &jsr); err == nil {
 						schemaBytes, err := json.Marshal(jsr.JsonSchema.Schema)
 						if err == nil {
-							config.JSONSchema = string(schemaBytes)
+							if config.RequestMetadata == nil {
+								config.RequestMetadata = map[string]string{}
+							}
+							config.RequestMetadata["json_schema"] = string(schemaBytes)
 						}
 						fs := &functions.JSONFunctionStructure{
 							AnyOf: []functions.Item{jsr.JsonSchema.Schema},

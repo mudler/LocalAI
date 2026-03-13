@@ -162,9 +162,7 @@ message PredictOptions {
   string ToolChoice = 49;  // JSON string or object specifying tool choice behavior
   int32 Logprobs = 50;  // Number of top logprobs to return (maps to OpenAI logprobs parameter)
   int32 TopLogprobs = 51;  // Number of top logprobs to return per token (maps to OpenAI top_logprobs parameter)
-  map<string, string> Metadata = 52;  // Generic per-request metadata (e.g., enable_thinking)
-  string JSONSchema = 53;  // Raw JSON schema string for backends that support native structured output (e.g. vLLM guided decoding)
-  string ResponseFormat = 54;  // Response format type: "json_object", "json_schema", or empty
+  map<string, string> Metadata = 52;  // Generic per-request metadata (e.g., enable_thinking, json_schema, response_format)
 }
 
 // The response message containing the result
