@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate, useOutletContext, useLocation } from 'react-router-dom'
 import { agentJobsApi } from '../utils/api'
+import { basePath } from '../utils/basePath'
 import ModelSelector from '../components/ModelSelector'
 import LoadingSpinner from '../components/LoadingSpinner'
 
@@ -140,7 +141,7 @@ export default function AgentTaskDetails() {
         await agentJobsApi.updateTask(id, body)
         addToast('Task updated', 'success')
       }
-      navigate('/agent-jobs')
+      navigate('/app/agent-jobs')
     } catch (err) {
       addToast(`Save failed: ${err.message}`, 'error')
     } finally {
@@ -167,10 +168,10 @@ export default function AgentTaskDetails() {
             {task.description && <p className="page-subtitle">{task.description}</p>}
           </div>
           <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
-            <button className="btn btn-primary btn-sm" onClick={() => navigate(`/agent-jobs/tasks/${id}/edit`)}>
+            <button className="btn btn-primary btn-sm" onClick={() => navigate(`/app/agent-jobs/tasks/${id}/edit`)}>
               <i className="fas fa-edit" /> Edit
             </button>
-            <button className="btn btn-secondary btn-sm" onClick={() => navigate('/agent-jobs')}>
+            <button className="btn btn-secondary btn-sm" onClick={() => navigate('/app/agent-jobs')}>
               <i className="fas fa-arrow-left" /> Back
             </button>
           </div>
@@ -226,13 +227,13 @@ export default function AgentTaskDetails() {
             <div>
               <span className="form-label">Execute by name</span>
               <pre style={{ background: 'var(--color-bg-primary)', padding: 'var(--spacing-sm)', borderRadius: 'var(--radius-md)', fontSize: '0.75rem', fontFamily: "'JetBrains Mono', monospace", whiteSpace: 'pre-wrap', overflow: 'auto' }}>
-{`curl -X POST ${window.location.origin}/api/agent/tasks/${encodeURIComponent(task.name)}/execute`}
+{`curl -X POST ${window.location.origin}${basePath}/api/agent/tasks/${encodeURIComponent(task.name)}/execute`}
               </pre>
             </div>
             <div>
               <span className="form-label">Execute with multimedia</span>
               <pre style={{ background: 'var(--color-bg-primary)', padding: 'var(--spacing-sm)', borderRadius: 'var(--radius-md)', fontSize: '0.75rem', fontFamily: "'JetBrains Mono', monospace", whiteSpace: 'pre-wrap', overflow: 'auto' }}>
-{`curl -X POST ${window.location.origin}/api/agent/tasks/${encodeURIComponent(task.name)}/execute \\
+{`curl -X POST ${window.location.origin}${basePath}/api/agent/tasks/${encodeURIComponent(task.name)}/execute \\
   -H "Content-Type: application/json" \\
   -d '{"multimedia": {"images": [{"url": "https://example.com/image.jpg"}]}}'`}
               </pre>
@@ -240,7 +241,7 @@ export default function AgentTaskDetails() {
             <div>
               <span className="form-label">Check job status</span>
               <pre style={{ background: 'var(--color-bg-primary)', padding: 'var(--spacing-sm)', borderRadius: 'var(--radius-md)', fontSize: '0.75rem', fontFamily: "'JetBrains Mono', monospace", whiteSpace: 'pre-wrap', overflow: 'auto' }}>
-{`curl ${window.location.origin}/api/agent/jobs/<job-id>`}
+{`curl ${window.location.origin}${basePath}/api/agent/jobs/<job-id>`}
               </pre>
             </div>
           </div>
@@ -285,7 +286,7 @@ export default function AgentTaskDetails() {
                       <td>{statusBadge(job.status)}</td>
                       <td style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)' }}>{formatDate(job.created_at)}</td>
                       <td>
-                        <button className="btn btn-secondary btn-sm" onClick={() => navigate(`/agent-jobs/jobs/${job.id}`)}>
+                        <button className="btn btn-secondary btn-sm" onClick={() => navigate(`/app/agent-jobs/jobs/${job.id}`)}>
                           <i className="fas fa-eye" /> View
                         </button>
                       </td>
@@ -305,7 +306,7 @@ export default function AgentTaskDetails() {
     <div className="page" style={{ maxWidth: 900 }}>
       <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h1 className="page-title">{isNew ? 'Create Task' : 'Edit Task'}</h1>
-        <button className="btn btn-secondary btn-sm" onClick={() => navigate('/agent-jobs')}>
+        <button className="btn btn-secondary btn-sm" onClick={() => navigate('/app/agent-jobs')}>
           <i className="fas fa-arrow-left" /> Back
         </button>
       </div>
@@ -500,7 +501,7 @@ export default function AgentTaskDetails() {
           <button type="submit" className="btn btn-primary" disabled={saving}>
             {saving ? <><i className="fas fa-spinner fa-spin" /> Saving...</> : <><i className="fas fa-save" /> {isNew ? 'Create Task' : 'Save Changes'}</>}
           </button>
-          <button type="button" className="btn btn-secondary" onClick={() => navigate('/agent-jobs')}>Cancel</button>
+          <button type="button" className="btn btn-secondary" onClick={() => navigate('/app/agent-jobs')}>Cancel</button>
         </div>
       </form>
     </div>

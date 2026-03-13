@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useParams, useNavigate, useOutletContext } from 'react-router-dom'
 import { agentsApi } from '../utils/api'
+import { apiUrl } from '../utils/basePath'
 import { renderMarkdown, highlightAll } from '../utils/markdown'
 import { extractCodeArtifacts, extractMetadataArtifacts, renderMarkdownWithArtifacts } from '../utils/artifacts'
 import CanvasPanel from '../components/CanvasPanel'
@@ -122,7 +123,7 @@ export default function AgentChat() {
 
   // Connect to SSE endpoint — only reconnect when agent name changes
   useEffect(() => {
-    const url = `/api/agents/${encodeURIComponent(name)}/sse`
+    const url = apiUrl(`/api/agents/${encodeURIComponent(name)}/sse`)
     const es = new EventSource(url)
     eventSourceRef.current = es
 
@@ -456,7 +457,7 @@ export default function AgentChat() {
               <i className="fas fa-layer-group" /> {artifacts.length}
             </button>
           )}
-          <button className="btn btn-secondary btn-sm" onClick={() => navigate(`/agents/${encodeURIComponent(name)}/status`)} title="View status & observables">
+          <button className="btn btn-secondary btn-sm" onClick={() => navigate(`/app/agents/${encodeURIComponent(name)}/status`)} title="View status & observables">
             <i className="fas fa-chart-bar" /> Status
           </button>
           <button className="btn btn-secondary btn-sm" onClick={() => clearMessages()} disabled={messages.length === 0} title="Clear chat history">

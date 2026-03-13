@@ -112,7 +112,7 @@ export default function ImportModel() {
           setIsSubmitting(false)
           setJobProgress(null)
           addToast('Model imported successfully!', 'success')
-          navigate('/manage')
+          navigate('/app/manage')
         } else if (data.error || (data.message && data.message.startsWith('error:'))) {
           clearInterval(pollRef.current)
           pollRef.current = null
@@ -185,7 +185,7 @@ export default function ImportModel() {
     try {
       await modelsApi.importConfig(yamlContent, 'application/x-yaml')
       addToast('Model configuration imported successfully!', 'success')
-      navigate('/manage')
+      navigate('/app/manage')
     } catch (err) {
       addToast(`Import failed: ${err.message}`, 'error')
     } finally {

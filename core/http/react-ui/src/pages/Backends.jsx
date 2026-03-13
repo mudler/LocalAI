@@ -163,7 +163,7 @@ export default function Backends() {
               <div style={{ color: 'var(--color-text-muted)' }}>Available</div>
             </div>
             <div style={{ textAlign: 'center' }}>
-              <a onClick={() => navigate('/manage')} style={{ cursor: 'pointer' }}>
+              <a onClick={() => navigate('/app/manage')} style={{ cursor: 'pointer' }}>
                 <div style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--color-success)' }}>{installedCount}</div>
                 <div style={{ color: 'var(--color-text-muted)' }}>Installed</div>
               </a>

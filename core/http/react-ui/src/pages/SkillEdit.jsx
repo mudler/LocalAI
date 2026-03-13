@@ -298,7 +298,7 @@ export default function SkillEdit() {
         })
         .catch((err) => {
           addToast(err.message || 'Failed to load skill', 'error')
-          navigate('/skills')
+          navigate('/app/skills')
         })
         .finally(() => setLoading(false))
     }
@@ -332,7 +332,7 @@ export default function SkillEdit() {
         await skillsApi.update(name, { ...payload, name: undefined })
         addToast('Skill updated', 'success')
       }
-      navigate('/skills')
+      navigate('/app/skills')
     } catch (err) {
       addToast(err.message || 'Save failed', 'error')
     } finally {
@@ -493,7 +493,7 @@ export default function SkillEdit() {
         }
       `}</style>
 
-      <a className="skilledit-back-link" onClick={() => navigate('/skills')}>
+      <a className="skilledit-back-link" onClick={() => navigate('/app/skills')}>
         <i className="fas fa-arrow-left" /> Back to skills
       </a>
       <div className="page-header">
@@ -613,7 +613,7 @@ export default function SkillEdit() {
               )}
 
               <div className="skilledit-form-actions">
-                <button type="button" className="btn btn-secondary" onClick={() => navigate('/skills')}>
+                <button type="button" className="btn btn-secondary" onClick={() => navigate('/app/skills')}>
                   <i className="fas fa-times" /> Cancel
                 </button>
                 <button type="submit" className="btn btn-primary" disabled={saving}>

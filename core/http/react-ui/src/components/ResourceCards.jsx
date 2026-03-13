@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { getArtifactIcon, inferMetadataType } from '../utils/artifacts'
+import { apiUrl } from '../utils/basePath'
 
 export default function ResourceCards({ metadata, onOpenArtifact, messageIndex, agentName }) {
   const [expanded, setExpanded] = useState(false)
@@ -9,7 +10,7 @@ export default function ResourceCards({ metadata, onOpenArtifact, messageIndex, 
   const items = []
   const fileUrl = (absPath) => {
     if (!agentName) return absPath
-    return `/api/agents/${encodeURIComponent(agentName)}/files?path=${encodeURIComponent(absPath)}`
+    return apiUrl(`/api/agents/${encodeURIComponent(agentName)}/files?path=${encodeURIComponent(absPath)}`)
   }
 
   Object.entries(metadata).forEach(([key, values]) => {
