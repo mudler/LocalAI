@@ -89,10 +89,10 @@ var _ = BeforeSuite(func() {
 	Expect(os.Chmod(mockBackendPath, 0755)).To(Succeed())
 
 	// Create model config YAML
-	modelConfig := map[string]interface{}{
+	modelConfig := map[string]any{
 		"name":    "mock-model",
 		"backend": "mock-backend",
-		"parameters": map[string]interface{}{
+		"parameters": map[string]any{
 			"model": "mock-model.bin",
 		},
 	}
@@ -109,11 +109,92 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 	Expect(os.WriteFile(mcpConfigPath, mcpConfigYAML, 0644)).To(Succeed())
 
-	// Set up system state
-	systemState, err := system.GetSystemState(
-		system.WithBackendPath(backendPath),
+	// Create pipeline model configs for realtime API tests.
+	// Each component model uses the same mock-backend binary.
+	for _, name := range []string{"mock-vad", "mock-stt", "mock-llm", "mock-tts"} {
+		cfg := map[string]any{
+			"name":    name,
+			"backend": "mock-backend",
+			"parameters": map[string]any{
+				"model": name + ".bin",
+			},
+		}
+		data, err := yaml.Marshal(cfg)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(os.WriteFile(filepath.Join(modelsPath, name+".yaml"), data, 0644)).To(Succeed())
+	}
+
+	// Pipeline model that wires the component models together.
+	pipelineCfg := map[string]any{
+		"name": "realtime-pipeline",
+		"pipeline": map[string]any{
+			"vad":           "mock-vad",
+			"transcription": "mock-stt",
+			"llm":           "mock-llm",
+			"tts":           "mock-tts",
+		},
+	}
+	pipelineData, err := yaml.Marshal(pipelineCfg)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(os.WriteFile(filepath.Join(modelsPath, "realtime-pipeline.yaml"), pipelineData, 0644)).To(Succeed())
+
+	// If REALTIME_TEST_MODEL=realtime-test-pipeline, auto-create a pipeline
+	// config from the REALTIME_VAD/STT/LLM/TTS env vars so real-model tests
+	// can run without the user having to write a YAML file manually.
+	if os.Getenv("REALTIME_TEST_MODEL") == "realtime-test-pipeline" {
+		rtVAD := os.Getenv("REALTIME_VAD")
+		rtSTT := os.Getenv("REALTIME_STT")
+		rtLLM := os.Getenv("REALTIME_LLM")
+		rtTTS := os.Getenv("REALTIME_TTS")
+
+		if rtVAD != "" && rtSTT != "" && rtLLM != "" && rtTTS != "" {
+			testPipeline := map[string]any{
+				"name": "realtime-test-pipeline",
+				"pipeline": map[string]any{
+					"vad":           rtVAD,
+					"transcription": rtSTT,
+					"llm":           rtLLM,
+					"tts":           rtTTS,
+				},
+			}
+			data, writeErr := yaml.Marshal(testPipeline)
+			Expect(writeErr).ToNot(HaveOccurred())
+			Expect(os.WriteFile(filepath.Join(modelsPath, "realtime-test-pipeline.yaml"), data, 0644)).To(Succeed())
+			xlog.Info("created realtime-test-pipeline",
+				"vad", rtVAD, "stt", rtSTT, "llm", rtLLM, "tts", rtTTS)
+		}
+	}
+
+	// Import model configs from an external directory (e.g. real model YAMLs
+	// and weights mounted into a container). Symlinks avoid copying large files.
+	if rtModels := os.Getenv("REALTIME_MODELS_PATH"); rtModels != "" {
+		entries, err := os.ReadDir(rtModels)
+		Expect(err).ToNot(HaveOccurred())
+		for _, entry := range entries {
+			src := filepath.Join(rtModels, entry.Name())
+			dst := filepath.Join(modelsPath, entry.Name())
+			if _, err := os.Stat(dst); err == nil {
+				continue // don't overwrite mock configs
+			}
+			if entry.IsDir() {
+				continue
+			}
+			Expect(os.Symlink(src, dst)).To(Succeed())
+		}
+	}
+
+	// Set up system state. When REALTIME_BACKENDS_PATH is set, use it so the
+	// application can discover real backend binaries for real-model tests.
+	systemOpts := []system.SystemStateOptions{
 		system.WithModelPath(modelsPath),
-	)
+	}
+	if realBackends := os.Getenv("REALTIME_BACKENDS_PATH"); realBackends != "" {
+		systemOpts = append(systemOpts, system.WithBackendPath(realBackends))
+	} else {
+		systemOpts = append(systemOpts, system.WithBackendPath(backendPath))
+	}
+
+	systemState, err := system.GetSystemState(systemOpts...)
 	Expect(err).ToNot(HaveOccurred())
 
 	// Create application
@@ -130,8 +211,9 @@ var _ = BeforeSuite(func() {
 	)
 	Expect(err).ToNot(HaveOccurred())
 
-	// Register backend with application's model loader
+	// Register mock backend (always available for non-realtime tests).
 	application.ModelLoader().SetExternalBackend("mock-backend", mockBackendPath)
+	application.ModelLoader().SetExternalBackend("opus", mockBackendPath)
 
 	// Create HTTP app
 	app, err = httpapi.API(application)

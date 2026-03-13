@@ -53,3 +53,46 @@ func NewWAVHeader(pcmLen uint32) WAVHeader {
 func (h *WAVHeader) Write(writer io.Writer) error {
   return binary.Write(writer, binary.LittleEndian, h)
 }
+
+// NewWAVHeaderWithRate creates a WAV header for mono 16-bit PCM at the given sample rate.
+func NewWAVHeaderWithRate(pcmLen, sampleRate uint32) WAVHeader {
+  header := WAVHeader{
+    ChunkID:       [4]byte{'R', 'I', 'F', 'F'},
+    Format:        [4]byte{'W', 'A', 'V', 'E'},
+    Subchunk1ID:   [4]byte{'f', 'm', 't', ' '},
+    Subchunk1Size: 16,
+    AudioFormat:   1,
+    NumChannels:   1,
+    SampleRate:    sampleRate,
+    ByteRate:      sampleRate * 2,
+    BlockAlign:    2,
+    BitsPerSample: 16,
+    Subchunk2ID:   [4]byte{'d', 'a', 't', 'a'},
+    Subchunk2Size: pcmLen,
+  }
+  header.ChunkSize = 36 + header.Subchunk2Size
+  return header
+}
+
+// WAVHeaderSize is the size of a standard PCM WAV header in bytes.
+const WAVHeaderSize = 44
+
+// StripWAVHeader removes a WAV header from audio data, returning raw PCM.
+// If the data is too short to contain a header, it is returned unchanged.
+func StripWAVHeader(data []byte) []byte {
+  if len(data) > WAVHeaderSize {
+    return data[WAVHeaderSize:]
+  }
+  return data
+}
+
+// ParseWAV strips the WAV header and returns the raw PCM along with the
+// sample rate read from the header. If the data is too short to contain a
+// valid header the PCM is returned as-is with sampleRate=0.
+func ParseWAV(data []byte) (pcm []byte, sampleRate int) {
+  if len(data) <= WAVHeaderSize {
+    return data, 0
+  }
+  sr := int(binary.LittleEndian.Uint32(data[24:28]))
+  return data[WAVHeaderSize:], sr
+}

@@ -35,6 +35,9 @@ service Backend {
 
   rpc VAD(VADRequest) returns (VADResponse) {}
 
+  rpc AudioEncode(AudioEncodeRequest) returns (AudioEncodeResult) {}
+  rpc AudioDecode(AudioDecodeRequest) returns (AudioDecodeResult) {}
+
   rpc ModelMetadata(ModelOptions) returns (ModelMetadataResponse) {}
 }
 
@@ -494,6 +497,30 @@ message ToolFormatMarkers {
   string call_id_position = 29;    // "none", "pre_func_name", "between_func_and_args", "post_args"
   string call_id_prefix = 30;      // e.g., "[CALL_ID]"
   string call_id_suffix = 31;      // e.g., ""
+}
+
+message AudioEncodeRequest {
+  bytes pcm_data = 1;
+  int32 sample_rate = 2;
+  int32 channels = 3;
+  map<string, string> options = 4;
+}
+
+message AudioEncodeResult {
+  repeated bytes frames = 1;
+  int32 sample_rate = 2;
+  int32 samples_per_frame = 3;
+}
+
+message AudioDecodeRequest {
+  repeated bytes frames = 1;
+  map<string, string> options = 2;
+}
+
+message AudioDecodeResult {
+  bytes pcm_data = 1;
+  int32 sample_rate = 2;
+  int32 samples_per_frame = 3;
 }
 
 message ModelMetadataResponse {
