@@ -1,4 +1,35 @@
 ---
+- name: "qwen3.5-122b-a10b-heretic-v2-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Qwen3.5-122B-A10B-heretic-v2-i1-GGUF
+  description: |
+    Describe the model in a clear and concise way that can be shared in a model gallery.
+  license: "gpl-3.0"
+  tags:
+    - llm
+    - gpl-3.0
+    - qwen
+    - ai
+  overrides:
+    parameters:
+      model: llama-cpp/models/Qwen3.5-122B-A10B-heretic-v2-i1-GGUF/Qwen3.5-122B-A10B-heretic-v2.i1-Q4_K_M.gguf
+    name: Qwen3.5-122B-A10B-heretic-v2-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Qwen3.5-122B-A10B-heretic-v2-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Qwen3.5-122B-A10B-heretic-v2-i1-GGUF/Qwen3.5-122B-A10B-heretic-v2.i1-Q4_K_M.gguf
+      sha256: 7cc92d8bc6016dce0f788b30f4aab561c4112aa013ce2e5687228e9ff639039e
+      uri: https://huggingface.co/mradermacher/Qwen3.5-122B-A10B-heretic-v2-i1-GGUF/resolve/main/Qwen3.5-122B-A10B-heretic-v2.i1-Q4_K_M.gguf
 - name: "qwen_qwen3.5-35b-a3b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
