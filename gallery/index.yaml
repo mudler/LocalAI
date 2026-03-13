@@ -1,4 +1,35 @@
 ---
+- name: "strawberrylemonade-l3-70b-v1.2-heretic-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Strawberrylemonade-L3-70B-v1.2-heretic-i1-GGUF
+  description: |
+    Describe the model in a clear and concise way that can be shared in a model gallery.
+  tags:
+    - 70b
+    - gguf
+    - hermetic
+    - text-generation
+    - v1.2
+  overrides:
+    parameters:
+      model: llama-cpp/models/Strawberrylemonade-L3-70B-v1.2-heretic-i1-GGUF/Strawberrylemonade-L3-70B-v1.2-heretic.i1-Q4_K_M.gguf
+    name: Strawberrylemonade-L3-70B-v1.2-heretic-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Strawberrylemonade-L3-70B-v1.2-heretic-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Strawberrylemonade-L3-70B-v1.2-heretic-i1-GGUF/Strawberrylemonade-L3-70B-v1.2-heretic.i1-Q4_K_M.gguf
+      sha256: f42a2c303c91f81e79ae1b318d575c55b0e0c85711d8ed9289f9ccf3fce0918f
+      uri: https://huggingface.co/mradermacher/Strawberrylemonade-L3-70B-v1.2-heretic-i1-GGUF/resolve/main/Strawberrylemonade-L3-70B-v1.2-heretic.i1-Q4_K_M.gguf
 - name: "qwen_qwen3.5-35b-a3b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
