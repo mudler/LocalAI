@@ -109,14 +109,13 @@ func TestLoadModel(t *testing.T) {
 	
 	// Get base directory from main model file for relative paths
 	mainModelPath := filepath.Join(modelDir, "acestep-5Hz-lm-0.6B-Q8_0.gguf")
-	baseDir := filepath.Dir(mainModelPath)
 	
 	resp, err := client.LoadModel(context.Background(), &pb.ModelOptions{
 		ModelFile: mainModelPath,
 		Options: []string{
-			baseDir + "/text_encoder_model:Qwen3-Embedding-0.6B-Q8_0.gguf",
-			baseDir + "/dit_model:acestep-v15-turbo-Q8_0.gguf",
-			baseDir + "/vae_model:vae-BF16.gguf",
+			"text_encoder_model:Qwen3-Embedding-0.6B-Q8_0.gguf",
+			"dit_model:acestep-v15-turbo-Q8_0.gguf",
+			"vae_model:vae-BF16.gguf",
 		},
 	})
 	if err != nil {
@@ -148,15 +147,14 @@ func TestSoundGeneration(t *testing.T) {
 
 	// Get base directory from main model file for relative paths
 	mainModelPath := filepath.Join(modelDir, "acestep-5Hz-lm-0.6B-Q8_0.gguf")
-	baseDir := filepath.Dir(mainModelPath)
 
 	// Load models
 	loadResp, err := client.LoadModel(context.Background(), &pb.ModelOptions{
 		ModelFile: mainModelPath,
 		Options: []string{
-			baseDir + "/text_encoder_model:Qwen3-Embedding-0.6B-Q8_0.gguf",
-			baseDir + "/dit_model:acestep-v15-turbo-Q8_0.gguf",
-			baseDir + "/vae_model:vae-BF16.gguf",
+			"text_encoder_model:Qwen3-Embedding-0.6B-Q8_0.gguf",
+			"dit_model:acestep-v15-turbo-Q8_0.gguf",
+			"vae_model:vae-BF16.gguf",
 		},
 	})
 	if err != nil {
