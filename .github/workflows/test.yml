@@ -104,7 +104,7 @@ jobs:
         run: |
           make backends/transformers
           mkdir external && mv backends/transformers external/transformers
-          make backends/huggingface backends/llama-cpp backends/local-store backends/silero-vad backends/piper backends/whisper backends/stablediffusion-ggml
+          make backends/llama-cpp backends/local-store backends/silero-vad backends/piper backends/whisper backends/stablediffusion-ggml
       - name: Test
         run: |
           TRANSFORMER_BACKEND=$PWD/external/transformers/run.sh PATH="$PATH:/root/go/bin" GO_TAGS="tts" make --jobs 5 --output-sync=target test
