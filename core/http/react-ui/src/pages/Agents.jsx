@@ -106,7 +106,7 @@ export default function Agents() {
     try {
       const text = await file.text()
       const config = JSON.parse(text)
-      navigate('/agents/new', { state: { importedConfig: config } })
+      navigate('/app/agents/new', { state: { importedConfig: config } })
     } catch (err) {
       addToast(`Failed to parse agent file: ${err.message}`, 'error')
     }
@@ -177,7 +177,7 @@ export default function Agents() {
             <i className="fas fa-file-import" /> Import
             <input type="file" accept=".json" className="agents-import-input" onChange={handleImport} />
           </label>
-          <button className="btn btn-primary" onClick={() => navigate('/agents/new')}>
+          <button className="btn btn-primary" onClick={() => navigate('/app/agents/new')}>
             <i className="fas fa-plus" /> Create Agent
           </button>
         </div>
@@ -198,7 +198,7 @@ export default function Agents() {
             </p>
           )}
           <div style={{ display: 'flex', gap: 'var(--spacing-sm)', justifyContent: 'center', flexWrap: 'wrap' }}>
-            <button className="btn btn-primary" onClick={() => navigate('/agents/new')}>
+            <button className="btn btn-primary" onClick={() => navigate('/app/agents/new')}>
               <i className="fas fa-plus" /> Create Agent
             </button>
             <label className="btn btn-secondary">
@@ -254,7 +254,7 @@ export default function Agents() {
                     return (
                       <tr key={name}>
                         <td>
-                          <a className="agents-name" onClick={() => navigate(`/agents/${encodeURIComponent(name)}/chat`)}>
+                          <a className="agents-name" onClick={() => navigate(`/app/agents/${encodeURIComponent(name)}/chat`)}>
                             {name}
                           </a>
                         </td>
@@ -262,7 +262,7 @@ export default function Agents() {
                         <td>
                           <a
                             className="agents-name"
-                            onClick={() => navigate(`/agents/${encodeURIComponent(name)}/status`)}
+                            onClick={() => navigate(`/app/agents/${encodeURIComponent(name)}/status`)}
                             title={`${agent.eventsCount} events - Click to view`}
                           >
                             {agent.eventsCount}
@@ -279,14 +279,14 @@ export default function Agents() {
                             </button>
                             <button
                               className="btn btn-secondary btn-sm"
-                              onClick={() => navigate(`/agents/${encodeURIComponent(name)}/edit`)}
+                              onClick={() => navigate(`/app/agents/${encodeURIComponent(name)}/edit`)}
                               title="Edit"
                             >
                               <i className="fas fa-edit" />
                             </button>
                             <button
                               className="btn btn-secondary btn-sm"
-                              onClick={() => navigate(`/agents/${encodeURIComponent(name)}/chat`)}
+                              onClick={() => navigate(`/app/agents/${encodeURIComponent(name)}/chat`)}
                               title="Chat"
                             >
                               <i className="fas fa-comment" />

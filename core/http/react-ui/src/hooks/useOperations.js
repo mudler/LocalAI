@@ -8,6 +8,7 @@ export function useOperations(pollInterval = 1000) {
   const intervalRef = useRef(null)
 
   const previousCountRef = useRef(0)
+  const onAllCompleteRef = useRef(null)
 
   const fetchOperations = useCallback(async () => {
     try {
@@ -19,10 +20,9 @@ export function useOperations(pollInterval = 1000) {
       const activeOps = ops.filter(op => !op.error)
       const failedOps = ops.filter(op => op.error)
 
-      // Auto-refresh the page when all active operations complete (mirrors original behavior)
-      // but not when there are still failed operations being shown
+      // Notify when all operations complete (no active or failed remaining)
       if (previousCountRef.current > 0 && activeOps.length === 0 && failedOps.length === 0) {
-        setTimeout(() => window.location.reload(), 1000)
+        onAllCompleteRef.current?.()
       }
       previousCountRef.current = activeOps.length
 
@@ -64,5 +64,10 @@ export function useOperations(pollInterval = 1000) {
     }
   }, [fetchOperations, pollInterval])
 
-  return { operations, loading, error, cancelOperation, dismissFailedOp, refetch: fetchOperations }
+  // Allow callers to register a callback for when all operations finish
+  const onAllComplete = useCallback((cb) => {
+    onAllCompleteRef.current = cb
+  }, [])
+
+  return { operations, loading, error, cancelOperation, dismissFailedOp, refetch: fetchOperations, onAllComplete }
 }

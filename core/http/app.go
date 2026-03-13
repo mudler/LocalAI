@@ -270,8 +270,31 @@ func API(application *application.Application) (*echo.Echo, error) {
 			// Enable SPA fallback in the 404 handler for client-side routing
 			spaFallback = serveIndex
 
-			// Serve React SPA at /
-			e.GET("/", serveIndex)
+			// Serve React SPA at /app
+			e.GET("/app", serveIndex)
+			e.GET("/app/*", serveIndex)
+
+			// prefixRedirect performs a redirect that preserves X-Forwarded-Prefix for reverse-proxy support.
+			prefixRedirect := func(c echo.Context, target string) error {
+				if prefix := c.Request().Header.Get("X-Forwarded-Prefix"); prefix != "" {
+					target = strings.TrimSuffix(prefix, "/") + target
+				}
+				return c.Redirect(http.StatusMovedPermanently, target)
+			}
+
+			// Redirect / to /app
+			e.GET("/", func(c echo.Context) error {
+				return prefixRedirect(c, "/app")
+			})
+
+			// Backward compatibility: redirect /browse/* to /app/*
+			e.GET("/browse", func(c echo.Context) error {
+				return prefixRedirect(c, "/app")
+			})
+			e.GET("/browse/*", func(c echo.Context) error {
+				p := c.Param("*")
+				return prefixRedirect(c, "/app/"+p)
+			})
 
 			// Serve React static assets (JS, CSS, etc.)
 			serveReactAsset := func(c echo.Context) error {
@@ -291,15 +314,6 @@ func API(application *application.Application) (*echo.Echo, error) {
 				return echo.NewHTTPError(http.StatusNotFound)
 			}
 			e.GET("/assets/*", serveReactAsset)
-
-			// Backward compatibility: redirect /app/* to /*
-			e.GET("/app", func(c echo.Context) error {
-				return c.Redirect(http.StatusMovedPermanently, "/")
-			})
-			e.GET("/app/*", func(c echo.Context) error {
-				p := c.Param("*")
-				return c.Redirect(http.StatusMovedPermanently, "/"+p)
-			})
 		}
 	}
 	routes.RegisterJINARoutes(e, requestExtractor, application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig())

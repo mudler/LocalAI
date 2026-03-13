@@ -1,40 +1,41 @@
 import { useState, useEffect } from 'react'
 import { NavLink } from 'react-router-dom'
 import ThemeToggle from './ThemeToggle'
+import { apiUrl } from '../utils/basePath'
 
 const COLLAPSED_KEY = 'localai_sidebar_collapsed'
 
 const mainItems = [
-  { path: '/', icon: 'fas fa-home', label: 'Home' },
-  { path: '/browse', icon: 'fas fa-download', label: 'Install Models' },
-  { path: '/chat', icon: 'fas fa-comments', label: 'Chat' },
-  { path: '/image', icon: 'fas fa-image', label: 'Images' },
-  { path: '/video', icon: 'fas fa-video', label: 'Video' },
-  { path: '/tts', icon: 'fas fa-music', label: 'TTS' },
-  { path: '/sound', icon: 'fas fa-volume-high', label: 'Sound' },
-  { path: '/talk', icon: 'fas fa-phone', label: 'Talk' },
+  { path: '/app', icon: 'fas fa-home', label: 'Home' },
+  { path: '/app/models', icon: 'fas fa-download', label: 'Install Models' },
+  { path: '/app/chat', icon: 'fas fa-comments', label: 'Chat' },
+  { path: '/app/image', icon: 'fas fa-image', label: 'Images' },
+  { path: '/app/video', icon: 'fas fa-video', label: 'Video' },
+  { path: '/app/tts', icon: 'fas fa-music', label: 'TTS' },
+  { path: '/app/sound', icon: 'fas fa-volume-high', label: 'Sound' },
+  { path: '/app/talk', icon: 'fas fa-phone', label: 'Talk' },
 ]
 
 const agentItems = [
-  { path: '/agents', icon: 'fas fa-robot', label: 'Agents' },
-  { path: '/skills', icon: 'fas fa-wand-magic-sparkles', label: 'Skills' },
-  { path: '/collections', icon: 'fas fa-database', label: 'Memory' },
-  { path: '/agent-jobs', icon: 'fas fa-tasks', label: 'MCP CI Jobs', feature: 'mcp' },
+  { path: '/app/agents', icon: 'fas fa-robot', label: 'Agents' },
+  { path: '/app/skills', icon: 'fas fa-wand-magic-sparkles', label: 'Skills' },
+  { path: '/app/collections', icon: 'fas fa-database', label: 'Memory' },
+  { path: '/app/agent-jobs', icon: 'fas fa-tasks', label: 'MCP CI Jobs', feature: 'mcp' },
 ]
 
 const systemItems = [
-  { path: '/backends', icon: 'fas fa-server', label: 'Backends' },
-  { path: '/traces', icon: 'fas fa-chart-line', label: 'Traces' },
-  { path: '/p2p', icon: 'fas fa-circle-nodes', label: 'Swarm' },
-  { path: '/manage', icon: 'fas fa-desktop', label: 'System' },
-  { path: '/settings', icon: 'fas fa-cog', label: 'Settings' },
+  { path: '/app/backends', icon: 'fas fa-server', label: 'Backends' },
+  { path: '/app/traces', icon: 'fas fa-chart-line', label: 'Traces' },
+  { path: '/app/p2p', icon: 'fas fa-circle-nodes', label: 'Swarm' },
+  { path: '/app/manage', icon: 'fas fa-desktop', label: 'System' },
+  { path: '/app/settings', icon: 'fas fa-cog', label: 'Settings' },
 ]
 
 function NavItem({ item, onClose, collapsed }) {
   return (
     <NavLink
       to={item.path}
-      end={item.path === '/'}
+      end={item.path === '/app'}
       className={({ isActive }) =>
         `nav-item ${isActive ? 'active' : ''}`
       }
@@ -54,7 +55,7 @@ export default function Sidebar({ isOpen, onClose }) {
   })
 
   useEffect(() => {
-    fetch('/api/features').then(r => r.json()).then(setFeatures).catch(() => {})
+    fetch(apiUrl('/api/features')).then(r => r.json()).then(setFeatures).catch(() => {})
   }, [])
 
   const toggleCollapse = () => {
@@ -74,10 +75,10 @@ export default function Sidebar({ isOpen, onClose }) {
         {/* Logo */}
         <div className="sidebar-header">
           <a href="./" className="sidebar-logo-link">
-            <img src="/static/logo_horizontal.png" alt="LocalAI" className="sidebar-logo-img" />
+            <img src={apiUrl('/static/logo_horizontal.png')} alt="LocalAI" className="sidebar-logo-img" />
           </a>
           <a href="./" className="sidebar-logo-icon" title="LocalAI">
-            <img src="/static/logo.png" alt="LocalAI" className="sidebar-logo-icon-img" />
+            <img src={apiUrl('/static/logo.png')} alt="LocalAI" className="sidebar-logo-icon-img" />
           </a>
           <button className="sidebar-close-btn" onClick={onClose} aria-label="Close menu">
             <i className="fas fa-times" />
@@ -107,7 +108,7 @@ export default function Sidebar({ isOpen, onClose }) {
           <div className="sidebar-section">
             <div className="sidebar-section-title">System</div>
             <a
-              href="/swagger/index.html"
+              href={apiUrl('/swagger/index.html')}
               target="_blank"
               rel="noopener noreferrer"
               className="nav-item"

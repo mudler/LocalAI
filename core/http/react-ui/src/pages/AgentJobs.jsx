@@ -184,7 +184,7 @@ export default function AgentJobs() {
             Agent Jobs require at least one model with MCP (Model Context Protocol) support. Install a model first, then configure MCP in the model settings.
           </p>
           <div style={{ display: 'flex', gap: 'var(--spacing-sm)', justifyContent: 'center' }}>
-            <button className="btn btn-primary" onClick={() => navigate('/browse')}>
+            <button className="btn btn-primary" onClick={() => navigate('/app/models')}>
               <i className="fas fa-store" /> Browse Models
             </button>
             <a className="btn btn-secondary" href="https://localai.io/features/agent-jobs/" target="_blank" rel="noopener noreferrer">
@@ -219,7 +219,7 @@ export default function AgentJobs() {
       args: ["--flag"]`}</pre>
           </div>
           <div style={{ display: 'flex', gap: 'var(--spacing-sm)', justifyContent: 'center' }}>
-            <button className="btn btn-primary" onClick={() => navigate('/manage')}>
+            <button className="btn btn-primary" onClick={() => navigate('/app/manage')}>
               <i className="fas fa-cog" /> Manage Models
             </button>
             <a className="btn btn-secondary" href="https://localai.io/features/agent-jobs/" target="_blank" rel="noopener noreferrer">
@@ -238,7 +238,7 @@ export default function AgentJobs() {
           <h1 className="page-title">Agent Jobs</h1>
           <p className="page-subtitle">Manage agent tasks and automated workflows</p>
         </div>
-        <button className="btn btn-primary" onClick={() => navigate('/agent-jobs/tasks/new')}>
+        <button className="btn btn-primary" onClick={() => navigate('/app/agent-jobs/tasks/new')}>
           <i className="fas fa-plus" /> New Task
         </button>
       </div>
@@ -260,7 +260,7 @@ export default function AgentJobs() {
             <div className="empty-state-icon"><i className="fas fa-robot" /></div>
             <h2 className="empty-state-title">No tasks defined</h2>
             <p className="empty-state-text">Create a task to get started with agent workflows.</p>
-            <button className="btn btn-primary" onClick={() => navigate('/agent-jobs/tasks/new')}>
+            <button className="btn btn-primary" onClick={() => navigate('/app/agent-jobs/tasks/new')}>
               <i className="fas fa-plus" /> Create Task
             </button>
           </div>
@@ -281,7 +281,7 @@ export default function AgentJobs() {
                 {tasks.map(task => (
                   <tr key={task.id || task.name}>
                     <td>
-                      <a onClick={() => navigate(`/agent-jobs/tasks/${task.id || task.name}`)} style={{ cursor: 'pointer', color: 'var(--color-primary)', fontWeight: 500 }}>
+                      <a onClick={() => navigate(`/app/agent-jobs/tasks/${task.id || task.name}`)} style={{ cursor: 'pointer', color: 'var(--color-primary)', fontWeight: 500 }}>
                         {task.name || task.id}
                       </a>
                     </td>
@@ -292,7 +292,7 @@ export default function AgentJobs() {
                     </td>
                     <td>
                       {task.model ? (
-                        <a onClick={() => navigate(`/model-editor/${encodeURIComponent(task.model)}`)} style={{ cursor: 'pointer', color: 'var(--color-primary)', fontSize: '0.8125rem' }}>
+                        <a onClick={() => navigate(`/app/model-editor/${encodeURIComponent(task.model)}`)} style={{ cursor: 'pointer', color: 'var(--color-primary)', fontSize: '0.8125rem' }}>
                           {task.model}
                         </a>
                       ) : '-'}
@@ -316,7 +316,7 @@ export default function AgentJobs() {
                         <button className="btn btn-primary btn-sm" onClick={() => openExecuteModal(task)} title="Execute">
                           <i className="fas fa-play" />
                         </button>
-                        <button className="btn btn-secondary btn-sm" onClick={() => navigate(`/agent-jobs/tasks/${task.id || task.name}/edit`)} title="Edit">
+                        <button className="btn btn-secondary btn-sm" onClick={() => navigate(`/app/agent-jobs/tasks/${task.id || task.name}/edit`)} title="Edit">
                           <i className="fas fa-edit" />
                         </button>
                         <button className="btn btn-danger btn-sm" onClick={() => handleDeleteTask(task.id || task.name)} title="Delete">
@@ -376,7 +376,7 @@ export default function AgentJobs() {
                   {filteredJobs.map(job => (
                     <tr key={job.id}>
                       <td>
-                        <a onClick={() => navigate(`/agent-jobs/jobs/${job.id}`)} style={{ cursor: 'pointer', color: 'var(--color-primary)', fontFamily: "'JetBrains Mono', monospace", fontSize: '0.8125rem' }}>
+                        <a onClick={() => navigate(`/app/agent-jobs/jobs/${job.id}`)} style={{ cursor: 'pointer', color: 'var(--color-primary)', fontFamily: "'JetBrains Mono', monospace", fontSize: '0.8125rem' }}>
                           {job.id?.slice(0, 12)}...
                         </a>
                       </td>
@@ -387,7 +387,7 @@ export default function AgentJobs() {
                       </td>
                       <td>
                         <div style={{ display: 'flex', gap: 'var(--spacing-xs)', justifyContent: 'flex-end' }}>
-                          <button className="btn btn-secondary btn-sm" onClick={() => navigate(`/agent-jobs/jobs/${job.id}`)} title="View">
+                          <button className="btn btn-secondary btn-sm" onClick={() => navigate(`/app/agent-jobs/jobs/${job.id}`)} title="View">
                             <i className="fas fa-eye" />
                           </button>
                           {(job.status === 'running' || job.status === 'pending') && (

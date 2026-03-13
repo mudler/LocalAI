@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate, useOutletContext } from 'react-router-dom'
 import { modelsApi } from '../utils/api'
+import { apiUrl } from '../utils/basePath'
 import LoadingSpinner from '../components/LoadingSpinner'
 import CodeEditor from '../components/CodeEditor'
 
@@ -27,7 +28,7 @@ export default function ModelEditor() {
     setSaving(true)
     try {
       // Send raw YAML/text to the edit endpoint (not JSON-encoded)
-      const response = await fetch(`/models/edit/${encodeURIComponent(name)}`, {
+      const response = await fetch(apiUrl(`/models/edit/${encodeURIComponent(name)}`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-yaml' },
         body: config,
@@ -53,7 +54,7 @@ export default function ModelEditor() {
           <h1 className="page-title">Model Editor</h1>
           <p className="page-subtitle">{decodeURIComponent(name)}</p>
         </div>
-        <button className="btn btn-secondary" onClick={() => navigate('/manage')}>
+        <button className="btn btn-secondary" onClick={() => navigate('/app/manage')}>
           <i className="fas fa-arrow-left" /> Back
         </button>
       </div>

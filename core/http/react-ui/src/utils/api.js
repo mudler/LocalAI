@@ -1,4 +1,5 @@
 import { API_CONFIG } from './config'
+import { apiUrl } from './basePath'
 
 async function handleResponse(response) {
   if (!response.ok) {
@@ -20,7 +21,7 @@ async function handleResponse(response) {
 }
 
 function buildUrl(endpoint, params) {
-  const url = new URL(endpoint, window.location.origin)
+  const url = new URL(apiUrl(endpoint), window.location.origin)
   if (params) {
     Object.entries(params).forEach(([key, value]) => {
       if (value !== undefined && value !== null && value !== '') {
@@ -32,7 +33,7 @@ function buildUrl(endpoint, params) {
 }
 
 async function fetchJSON(endpoint, options = {}) {
-  const response = await fetch(endpoint, {
+  const response = await fetch(apiUrl(endpoint), {
     headers: { 'Content-Type': 'application/json', ...options.headers },
     ...options,
   })
@@ -49,7 +50,7 @@ async function postJSON(endpoint, body, options = {}) {
 
 // SSE streaming for chat completions
 export async function streamChat(body, signal) {
-  const response = await fetch(API_CONFIG.endpoints.chatCompletions, {
+  const response = await fetch(apiUrl(API_CONFIG.endpoints.chatCompletions), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ ...body, stream: true }),
@@ -83,7 +84,7 @@ export const modelsApi = {
   reload: () => postJSON(API_CONFIG.endpoints.modelsReload, {}),
   importUri: (body) => postJSON(API_CONFIG.endpoints.modelsImportUri, body),
   importConfig: async (content, contentType = 'application/x-yaml') => {
-    const response = await fetch(API_CONFIG.endpoints.modelsImport, {
+    const response = await fetch(apiUrl(API_CONFIG.endpoints.modelsImport), {
       method: 'POST',
       headers: { 'Content-Type': contentType },
       body: content,
@@ -153,7 +154,7 @@ export const p2pApi = {
   getFederation: () => fetchJSON(API_CONFIG.endpoints.p2pFederation),
   getStats: () => fetchJSON(API_CONFIG.endpoints.p2pStats),
   getToken: async () => {
-    const response = await fetch(API_CONFIG.endpoints.p2pToken)
+    const response = await fetch(apiUrl(API_CONFIG.endpoints.p2pToken))
     if (!response.ok) throw new Error(`HTTP ${response.status}`)
     return response.text()
   },
@@ -186,7 +187,7 @@ export const videoApi = {
 // TTS
 export const ttsApi = {
   generate: async (body) => {
-    const response = await fetch(API_CONFIG.endpoints.tts, {
+    const response = await fetch(apiUrl(API_CONFIG.endpoints.tts), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
@@ -198,7 +199,7 @@ export const ttsApi = {
     return response.blob()
   },
   generateV1: async (body) => {
-    const response = await fetch(API_CONFIG.endpoints.audioSpeech, {
+    const response = await fetch(apiUrl(API_CONFIG.endpoints.audioSpeech), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
@@ -214,7 +215,7 @@ export const ttsApi = {
 // Sound generation
 export const soundApi = {
   generate: async (body) => {
-    const response = await fetch(API_CONFIG.endpoints.soundGeneration, {
+    const response = await fetch(apiUrl(API_CONFIG.endpoints.soundGeneration), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
@@ -230,7 +231,7 @@ export const soundApi = {
 // Audio transcription
 export const audioApi = {
   transcribe: async (formData) => {
-    const response = await fetch(API_CONFIG.endpoints.audioTranscriptions, {
+    const response = await fetch(apiUrl(API_CONFIG.endpoints.audioTranscriptions), {
       method: 'POST',
       body: formData,
     })
@@ -269,14 +270,14 @@ export const agentsApi = {
   clearObservables: (name) => fetchJSON(`/api/agents/${encodeURIComponent(name)}/observables`, { method: 'DELETE' }),
   chat: (name, message) => postJSON(`/api/agents/${encodeURIComponent(name)}/chat`, { message }),
   export: (name) => fetchJSON(`/api/agents/${encodeURIComponent(name)}/export`),
-  import: (formData) => fetch('/api/agents/import', { method: 'POST', body: formData }).then(handleResponse),
+  import: (formData) => fetch(apiUrl('/api/agents/import'), { method: 'POST', body: formData }).then(handleResponse),
   configMeta: () => fetchJSON('/api/agents/config/metadata'),
 }
 
 export const agentCollectionsApi = {
   list: () => fetchJSON('/api/agents/collections'),
   create: (name) => postJSON('/api/agents/collections', { name }),
-  upload: (name, formData) => fetch(`/api/agents/collections/${encodeURIComponent(name)}/upload`, { method: 'POST', body: formData }).then(handleResponse),
+  upload: (name, formData) => fetch(apiUrl(`/api/agents/collections/${encodeURIComponent(name)}/upload`), { method: 'POST', body: formData }).then(handleResponse),
   entries: (name) => fetchJSON(`/api/agents/collections/${encodeURIComponent(name)}/entries`),
   entryContent: (name, entry) => fetchJSON(`/api/agents/collections/${encodeURIComponent(name)}/entries/${encodeURIComponent(entry)}`),
   search: (name, query, maxResults) => postJSON(`/api/agents/collections/${encodeURIComponent(name)}/search`, { query, max_results: maxResults }),
@@ -295,11 +296,11 @@ export const skillsApi = {
   create: (data) => postJSON('/api/agents/skills', data),
   update: (name, data) => fetchJSON(`/api/agents/skills/${encodeURIComponent(name)}`, { method: 'PUT', body: JSON.stringify(data), headers: { 'Content-Type': 'application/json' } }),
   delete: (name) => fetchJSON(`/api/agents/skills/${encodeURIComponent(name)}`, { method: 'DELETE' }),
-  import: (file) => { const fd = new FormData(); fd.append('file', file); return fetch('/api/agents/skills/import', { method: 'POST', body: fd }).then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); }); },
-  exportUrl: (name) => `/api/agents/skills/export/${encodeURIComponent(name)}`,
+  import: (file) => { const fd = new FormData(); fd.append('file', file); return fetch(apiUrl('/api/agents/skills/import'), { method: 'POST', body: fd }).then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); }); },
+  exportUrl: (name) => apiUrl(`/api/agents/skills/export/${encodeURIComponent(name)}`),
   listResources: (name) => fetchJSON(`/api/agents/skills/${encodeURIComponent(name)}/resources`),
   getResource: (name, path, opts) => fetchJSON(`/api/agents/skills/${encodeURIComponent(name)}/resources/${path}${opts?.json ? '?encoding=base64' : ''}`),
-  createResource: (name, path, file) => { const fd = new FormData(); fd.append('file', file); fd.append('path', path); return fetch(`/api/agents/skills/${encodeURIComponent(name)}/resources`, { method: 'POST', body: fd }).then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); }); },
+  createResource: (name, path, file) => { const fd = new FormData(); fd.append('file', file); fd.append('path', path); return fetch(apiUrl(`/api/agents/skills/${encodeURIComponent(name)}/resources`), { method: 'POST', body: fd }).then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); }); },
   updateResource: (name, path, content) => postJSON(`/api/agents/skills/${encodeURIComponent(name)}/resources/${path}`, { content }),
   deleteResource: (name, path) => fetchJSON(`/api/agents/skills/${encodeURIComponent(name)}/resources/${path}`, { method: 'DELETE' }),
   listGitRepos: () => fetchJSON('/api/agents/git-repos'),
