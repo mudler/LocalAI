@@ -1,4 +1,35 @@
 ---
+- name: "iquest-coder-v1-14b-base-stage1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/xhxlb/IQuest-Coder-V1-14B-Base-Stage1-GGUF
+  description: |
+    Describe the model in a clear and concise way that can be shared in a model gallery.
+  license: "No license specified"
+  tags:
+    - llm
+    - gguf
+    - code
+    - instruction-tuned
+  overrides:
+    parameters:
+      model: llama-cpp/models/IQuest-Coder-V1-14B-Base-Stage1-GGUF/IQuest-Coder-V1-14B-Base-Stage1-Q4_K_M.gguf
+    name: IQuest-Coder-V1-14B-Base-Stage1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/xhxlb/IQuest-Coder-V1-14B-Base-Stage1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/IQuest-Coder-V1-14B-Base-Stage1-GGUF/IQuest-Coder-V1-14B-Base-Stage1-Q4_K_M.gguf
+      sha256: c155b5cf377a62e193713d9dfd732223fa23a410c99d2903bed88a6997b9155c
+      uri: https://huggingface.co/xhxlb/IQuest-Coder-V1-14B-Base-Stage1-GGUF/resolve/main/IQuest-Coder-V1-14B-Base-Stage1-Q4_K_M.gguf
 - name: "qwen_qwen3.5-35b-a3b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
