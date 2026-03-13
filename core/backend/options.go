@@ -263,6 +263,12 @@ func gRPCPredictOpts(c config.ModelConfig, modelPath string) *pb.PredictOptions 
 			metadata["enable_thinking"] = "true"
 		}
 	}
+	if c.ResponseFormat != "" {
+		metadata["response_format"] = c.ResponseFormat
+	}
+	for k, v := range c.RequestMetadata {
+		metadata[k] = v
+	}
 	pbOpts.Metadata = metadata
 
 	// Logprobs and TopLogprobs are set by the caller if provided

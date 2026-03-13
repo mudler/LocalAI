@@ -10,7 +10,11 @@ url = "/features/constrained_grammars/"
 The `chat` endpoint supports the `grammar` parameter, which allows users to specify a grammar in Backus-Naur Form (BNF). This feature enables the Large Language Model (LLM) to generate outputs adhering to a user-defined schema, such as `JSON`, `YAML`, or any other format that can be defined using BNF. For more details about BNF, see [Backus-Naur Form on Wikipedia](https://en.wikipedia.org/wiki/Backus%E2%80%93Naur_form).
 
 {{% notice note %}}
-**Compatibility Notice:** This feature is only supported by models that use the [llama.cpp](https://github.com/ggerganov/llama.cpp) backend. For a complete list of compatible models, refer to the [Model Compatibility]({{%relref "reference/compatibility-table" %}}) page. For technical details, see the related pull requests: [PR #1773](https://github.com/ggerganov/llama.cpp/pull/1773) and [PR #1887](https://github.com/ggerganov/llama.cpp/pull/1887).
+**Compatibility Notice:** Grammar and structured output support is available for the following backends:
+- **llama.cpp** — supports the `grammar` parameter (GBNF syntax) and `response_format` with `json_schema`/`json_object`
+- **vLLM** — supports the `grammar` parameter (via xgrammar), `response_format` with `json_schema` (native JSON schema enforcement), and `json_object`
+
+For a complete list of compatible models, refer to the [Model Compatibility]({{%relref "reference/compatibility-table" %}}) page.
  {{% /notice %}}
 
 ## Setup
@@ -65,6 +69,96 @@ For more complex grammars, you can define multi-line BNF rules. The grammar pars
 - Optional elements (`?`)
 - Character classes (`[a-z]`)
 - String literals (`"text"`)
+
+## vLLM Backend
+
+The vLLM backend supports structured output via three methods:
+
+### JSON Schema (recommended)
+
+Use the OpenAI-compatible `response_format` parameter with `json_schema` to enforce a specific JSON structure:
+
+```bash
+curl http://localhost:8080/v1/chat/completions -H "Content-Type: application/json" -d '{
+  "model": "my-vllm-model",
+  "messages": [{"role": "user", "content": "Generate a person object"}],
+  "response_format": {
+    "type": "json_schema",
+    "json_schema": {
+      "name": "person",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "name": {"type": "string"},
+          "age": {"type": "integer"}
+        },
+        "required": ["name", "age"]
+      }
+    }
+  }
+}'
+```
+
+### JSON Object
+
+Force the model to output valid JSON (without a specific schema):
+
+```bash
+curl http://localhost:8080/v1/chat/completions -H "Content-Type: application/json" -d '{
+  "model": "my-vllm-model",
+  "messages": [{"role": "user", "content": "Generate a person as JSON"}],
+  "response_format": {"type": "json_object"}
+}'
+```
+
+### Grammar
+
+The `grammar` parameter also works with vLLM via xgrammar:
+
+```bash
+curl http://localhost:8080/v1/chat/completions -H "Content-Type: application/json" -d '{
+  "model": "my-vllm-model",
+  "messages": [{"role": "user", "content": "Do you like apples?"}],
+  "grammar": "root ::= (\"yes\" | \"no\")"
+}'
+```
+
+## Open Responses API
+
+The Open Responses API (`/v1/responses`) also supports structured output via the `text_format` parameter:
+
+### JSON Schema
+
+```bash
+curl http://localhost:8080/v1/responses -H "Content-Type: application/json" -d '{
+  "model": "my-model",
+  "input": "Generate a person object",
+  "text_format": {
+    "type": "json_schema",
+    "json_schema": {
+      "name": "person",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "name": {"type": "string"},
+          "age": {"type": "integer"}
+        },
+        "required": ["name", "age"]
+      }
+    }
+  }
+}'
+```
+
+### JSON Object
+
+```bash
+curl http://localhost:8080/v1/responses -H "Content-Type: application/json" -d '{
+  "model": "my-model",
+  "input": "Generate a person as JSON",
+  "text_format": {"type": "json_object"}
+}'
+```
 
 ## Related Features
 
