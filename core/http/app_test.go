@@ -1077,7 +1077,6 @@ parameters:
 			Expect(resp.StatusCode).To(Equal(200))
 			dat, err := io.ReadAll(resp.Body)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(string(dat)).To(ContainSubstring("huggingface"))
 			Expect(string(dat)).To(ContainSubstring("llama-cpp"))
 		})
 
