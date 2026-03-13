@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"time"
 
+	"github.com/mudler/LocalAI/core/http/utils"
 	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/mudler/LocalAI/pkg/xsysinfo"
 	"github.com/mudler/xlog"
@@ -92,6 +93,11 @@ type ApplicationConfig struct {
 	OpenResponsesStoreTTL time.Duration // TTL for Open Responses store (0 = no expiration)
 
 	PathWithoutAuth []string
+
+	// ie: 192.168.1.0/24,10.0.0.1,127.0.0.1
+	IpAllowList string
+
+	IPAllowListHelper *utils.IPAllowList
 
 	// Agent Pool (LocalAGI integration)
 	AgentPool AgentPoolConfig
@@ -202,6 +208,18 @@ func WithCsrf(b bool) AppOption {
 func WithP2PToken(s string) AppOption {
 	return func(o *ApplicationConfig) {
 		o.P2PToken = s
+	}
+}
+
+func WithIPAllowList(s string) AppOption {
+	return func(o *ApplicationConfig) {
+		xlog.Info("Application IpAllowList($LOCALAI_IP_ALLOWLIST)", "value", s)
+		o.IpAllowList = s
+		ipAllowListHelper, err := utils.NewIPAllowList(s)
+		if err != nil {
+			xlog.Error("Failed to parse IpAllowList", "error", err, "value", s)
+		}
+		o.IPAllowListHelper = ipAllowListHelper
 	}
 }
 

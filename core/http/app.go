@@ -152,6 +152,21 @@ func API(application *application.Application) (*echo.Echo, error) {
 		e.Use(middleware.Recover())
 	}
 
+	// IP restriction middleware
+	if application.ApplicationConfig().IPAllowListHelper != nil {
+		e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
+			return func(c echo.Context) error {
+				clientIP := c.RealIP()
+				if !application.ApplicationConfig().IPAllowListHelper.IsAllowed(clientIP) {
+					return c.JSON(http.StatusForbidden, schema.ErrorResponse{
+						Error: &schema.APIError{Message: "Forbidden: your IP is not allowed", Code: http.StatusForbidden},
+					})
+				}
+				return next(c)
+			}
+		})
+	}
+
 	// Metrics middleware
 	if !application.ApplicationConfig().DisableMetrics {
 		metricsService, err := services.NewLocalAIMetricsService()
