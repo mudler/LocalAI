@@ -4,7 +4,6 @@ import dataclasses
 import difflib
 from concurrent import futures
 import argparse
-import json
 import signal
 import sys
 import os
@@ -27,21 +26,6 @@ from model_utils import resolve_model_reference
 from vllm.engine.arg_utils import AsyncEngineArgs
 from vllm.engine.async_llm_engine import AsyncLLMEngine
 from vllm.sampling_params import SamplingParams
-
-# vLLM renamed GuidedDecodingParams to StructuredOutputsParams in newer versions.
-# The corresponding SamplingParams field also changed from guided_decoding to structured_outputs.
-try:
-    from vllm.sampling_params import StructuredOutputsParams
-    _structured_output_cls = StructuredOutputsParams
-    _structured_output_field = "structured_outputs"
-except ImportError:
-    try:
-        from vllm.sampling_params import GuidedDecodingParams
-        _structured_output_cls = GuidedDecodingParams
-        _structured_output_field = "guided_decoding"
-    except ImportError:
-        _structured_output_cls = None
-        _structured_output_field = None
 from vllm.utils import random_uuid
 try:
     from vllm.tokenizers import get_tokenizer  # vLLM >= 0.22

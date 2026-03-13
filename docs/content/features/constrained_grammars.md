@@ -123,6 +123,43 @@ curl http://localhost:8080/v1/chat/completions -H "Content-Type: application/jso
 }'
 ```
 
+## Open Responses API
+
+The Open Responses API (`/v1/responses`) also supports structured output via the `text_format` parameter:
+
+### JSON Schema
+
+```bash
+curl http://localhost:8080/v1/responses -H "Content-Type: application/json" -d '{
+  "model": "my-model",
+  "input": "Generate a person object",
+  "text_format": {
+    "type": "json_schema",
+    "json_schema": {
+      "name": "person",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "name": {"type": "string"},
+          "age": {"type": "integer"}
+        },
+        "required": ["name", "age"]
+      }
+    }
+  }
+}'
+```
+
+### JSON Object
+
+```bash
+curl http://localhost:8080/v1/responses -H "Content-Type: application/json" -d '{
+  "model": "my-model",
+  "input": "Generate a person as JSON",
+  "text_format": {"type": "json_object"}
+}'
+```
+
 ## Related Features
 
 - [OpenAI Functions]({{%relref "features/openai-functions" %}}) - Function calling with structured outputs
