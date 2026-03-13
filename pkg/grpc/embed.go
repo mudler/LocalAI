@@ -107,6 +107,14 @@ func (e *embedBackend) VAD(ctx context.Context, in *pb.VADRequest, opts ...grpc.
 	return e.s.VAD(ctx, in)
 }
 
+func (e *embedBackend) AudioEncode(ctx context.Context, in *pb.AudioEncodeRequest, opts ...grpc.CallOption) (*pb.AudioEncodeResult, error) {
+	return e.s.AudioEncode(ctx, in)
+}
+
+func (e *embedBackend) AudioDecode(ctx context.Context, in *pb.AudioDecodeRequest, opts ...grpc.CallOption) (*pb.AudioDecodeResult, error) {
+	return e.s.AudioDecode(ctx, in)
+}
+
 func (e *embedBackend) ModelMetadata(ctx context.Context, in *pb.ModelOptions, opts ...grpc.CallOption) (*pb.ModelMetadataResponse, error) {
 	return e.s.ModelMetadata(ctx, in)
 }

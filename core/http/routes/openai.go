@@ -21,6 +21,7 @@ func RegisterOpenAIRoutes(app *echo.Echo,
 	app.GET("/v1/realtime", openai.Realtime(application))
 	app.POST("/v1/realtime/sessions", openai.RealtimeTranscriptionSession(application), traceMiddleware)
 	app.POST("/v1/realtime/transcription_session", openai.RealtimeTranscriptionSession(application), traceMiddleware)
+	app.POST("/v1/realtime/calls", openai.RealtimeCalls(application), traceMiddleware)
 
 	// chat
 	chatHandler := openai.ChatEndpoint(application.ModelConfigLoader(), application.ModelLoader(), application.TemplatesEvaluator(), application.ApplicationConfig())

@@ -1,5 +1,5 @@
 # Disable parallel execution for backend builds
-.NOTPARALLEL: backends/diffusers backends/llama-cpp backends/outetts backends/piper backends/stablediffusion-ggml backends/whisper backends/faster-whisper backends/silero-vad backends/local-store backends/huggingface backends/rfdetr backends/kitten-tts backends/kokoro backends/chatterbox backends/llama-cpp-darwin backends/neutts build-darwin-python-backend build-darwin-go-backend backends/mlx backends/diffuser-darwin backends/mlx-vlm backends/mlx-audio backends/mlx-distributed backends/stablediffusion-ggml-darwin backends/vllm backends/vllm-omni backends/moonshine backends/pocket-tts backends/qwen-tts backends/faster-qwen3-tts backends/qwen-asr backends/nemo backends/voxcpm backends/whisperx backends/ace-step backends/acestep-cpp backends/fish-speech backends/voxtral
+.NOTPARALLEL: backends/diffusers backends/llama-cpp backends/outetts backends/piper backends/stablediffusion-ggml backends/whisper backends/faster-whisper backends/silero-vad backends/local-store backends/huggingface backends/rfdetr backends/kitten-tts backends/kokoro backends/chatterbox backends/llama-cpp-darwin backends/neutts build-darwin-python-backend build-darwin-go-backend backends/mlx backends/diffuser-darwin backends/mlx-vlm backends/mlx-audio backends/mlx-distributed backends/stablediffusion-ggml-darwin backends/vllm backends/vllm-omni backends/moonshine backends/pocket-tts backends/qwen-tts backends/faster-qwen3-tts backends/qwen-asr backends/nemo backends/voxcpm backends/whisperx backends/ace-step backends/acestep-cpp backends/fish-speech backends/voxtral backends/opus
 
 GOCMD=go
 GOTEST=$(GOCMD) test
@@ -106,6 +106,7 @@ react-ui-docker:
 core/http/react-ui/dist: react-ui
 
 ## Build:
+
 build: protogen-go install-go-tools core/http/react-ui/dist ## Build the project
 	$(info ${GREEN}I local-ai build info:${RESET})
 	$(info ${GREEN}I BUILD_TYPE: ${YELLOW}$(BUILD_TYPE)${RESET})
@@ -163,6 +164,7 @@ test: test-models/testmodel.ggml protogen-go
 	@echo 'Running tests'
 	export GO_TAGS="debug"
 	$(MAKE) prepare-test
+	OPUS_SHIM_LIBRARY=$(abspath ./pkg/opus/shim/libopusshim.so) \
 	HUGGINGFACE_GRPC=$(abspath ./)/backend/python/transformers/run.sh TEST_DIR=$(abspath ./)/test-dir/ FIXTURES=$(abspath ./)/tests/fixtures CONFIG_FILE=$(abspath ./)/test-models/config.yaml MODELS_PATH=$(abspath ./)/test-models BACKENDS_PATH=$(abspath ./)/backends \
 	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter="!llama-gguf"  --flake-attempts $(TEST_FLAKES) --fail-fast -v -r $(TEST_PATHS)
 	$(MAKE) test-llama-gguf
@@ -249,6 +251,88 @@ test-stablediffusion: prepare-test
 
 test-stores:
 	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter="stores" --flake-attempts $(TEST_FLAKES) -v -r tests/integration
+
+test-opus:
+	@echo 'Running opus backend tests'
+	$(MAKE) -C backend/go/opus libopusshim.so
+	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --flake-attempts $(TEST_FLAKES) -v -r ./backend/go/opus/...
+
+test-opus-docker:
+	@echo 'Running opus backend tests in Docker'
+	docker build --target builder \
+	  --build-arg BUILD_TYPE=$(or $(BUILD_TYPE),) \
+	  --build-arg BASE_IMAGE=$(or $(BASE_IMAGE),ubuntu:24.04) \
+	  --build-arg BACKEND=opus \
+	  -t localai-opus-test -f backend/Dockerfile.golang .
+	docker run --rm localai-opus-test \
+	  bash -c 'cd /LocalAI && go run github.com/onsi/ginkgo/v2/ginkgo --flake-attempts $(TEST_FLAKES) -v -r ./backend/go/opus/...'
+
+test-realtime: build-mock-backend
+	@echo 'Running realtime e2e tests (mock backend)'
+	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter="Realtime && !real-models" --flake-attempts $(TEST_FLAKES) -v -r ./tests/e2e
+
+# Real-model realtime tests. Set REALTIME_TEST_MODEL to use your own pipeline,
+# or leave unset to auto-build one from the component env vars below.
+REALTIME_VAD?=silero-vad-ggml
+REALTIME_STT?=whisper-1
+REALTIME_LLM?=qwen3-0.6b
+REALTIME_TTS?=tts-1
+REALTIME_BACKENDS_PATH?=$(abspath ./)/backends
+
+test-realtime-models: build-mock-backend
+	@echo 'Running realtime e2e tests (real models)'
+	REALTIME_TEST_MODEL=$${REALTIME_TEST_MODEL:-realtime-test-pipeline} \
+	REALTIME_VAD=$(REALTIME_VAD) \
+	REALTIME_STT=$(REALTIME_STT) \
+	REALTIME_LLM=$(REALTIME_LLM) \
+	REALTIME_TTS=$(REALTIME_TTS) \
+	REALTIME_BACKENDS_PATH=$(REALTIME_BACKENDS_PATH) \
+	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter="Realtime" --flake-attempts $(TEST_FLAKES) -v -r ./tests/e2e
+
+# --- Container-based real-model testing ---
+
+REALTIME_BACKEND_NAMES ?= silero-vad whisper llama-cpp kokoro
+REALTIME_MODELS_DIR ?= $(abspath ./models)
+REALTIME_BACKENDS_DIR ?= $(abspath ./local-backends)
+REALTIME_DOCKER_FLAGS ?= --gpus all
+
+local-backends:
+	mkdir -p local-backends
+
+extract-backend-%: docker-build-% local-backends
+	@echo "Extracting backend $*..."
+	@CID=$$(docker create local-ai-backend:$*) && \
+	  rm -rf local-backends/$* && mkdir -p local-backends/$* && \
+	  docker cp $$CID:/ - | tar -xf - -C local-backends/$* && \
+	  docker rm $$CID > /dev/null
+
+extract-realtime-backends: $(addprefix extract-backend-,$(REALTIME_BACKEND_NAMES))
+
+test-realtime-models-docker: build-mock-backend
+	docker build --target build-requirements \
+	  --build-arg BUILD_TYPE=$(or $(BUILD_TYPE),cublas) \
+	  --build-arg CUDA_MAJOR_VERSION=$(or $(CUDA_MAJOR_VERSION),13) \
+	  --build-arg CUDA_MINOR_VERSION=$(or $(CUDA_MINOR_VERSION),0) \
+	  -t localai-test-runner .
+	docker run --rm \
+	  $(REALTIME_DOCKER_FLAGS) \
+	  -v $(abspath ./):/build \
+	  -v $(REALTIME_MODELS_DIR):/models:ro \
+	  -v $(REALTIME_BACKENDS_DIR):/backends \
+	  -v localai-go-cache:/root/go/pkg/mod \
+	  -v localai-go-build-cache:/root/.cache/go-build \
+	  -e REALTIME_TEST_MODEL=$${REALTIME_TEST_MODEL:-realtime-test-pipeline} \
+	  -e REALTIME_VAD=$(REALTIME_VAD) \
+	  -e REALTIME_STT=$(REALTIME_STT) \
+	  -e REALTIME_LLM=$(REALTIME_LLM) \
+	  -e REALTIME_TTS=$(REALTIME_TTS) \
+	  -e REALTIME_BACKENDS_PATH=/backends \
+	  -e REALTIME_MODELS_PATH=/models \
+	  -w /build \
+	  localai-test-runner \
+	  bash -c 'git config --global --add safe.directory /build && \
+	    make protogen-go && make build-mock-backend && \
+	    go run github.com/onsi/ginkgo/v2/ginkgo --label-filter="Realtime" --flake-attempts $(TEST_FLAKES) -v -r ./tests/e2e'
 
 test-container:
 	docker build --target requirements -t local-ai-test-container .
@@ -477,6 +561,7 @@ BACKEND_STABLEDIFFUSION_GGML = stablediffusion-ggml|golang|.|--progress=plain|tr
 BACKEND_WHISPER = whisper|golang|.|false|true
 BACKEND_VOXTRAL = voxtral|golang|.|false|true
 BACKEND_ACESTEP_CPP = acestep-cpp|golang|.|false|true
+BACKEND_OPUS = opus|golang|.|false|true
 
 # Python backends with root context
 BACKEND_RERANKERS = rerankers|python|.|false|true
@@ -534,6 +619,7 @@ $(eval $(call generate-docker-build-target,$(BACKEND_SILERO_VAD)))
 $(eval $(call generate-docker-build-target,$(BACKEND_STABLEDIFFUSION_GGML)))
 $(eval $(call generate-docker-build-target,$(BACKEND_WHISPER)))
 $(eval $(call generate-docker-build-target,$(BACKEND_VOXTRAL)))
+$(eval $(call generate-docker-build-target,$(BACKEND_OPUS)))
 $(eval $(call generate-docker-build-target,$(BACKEND_RERANKERS)))
 $(eval $(call generate-docker-build-target,$(BACKEND_TRANSFORMERS)))
 $(eval $(call generate-docker-build-target,$(BACKEND_OUTETTS)))

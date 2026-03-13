@@ -7,17 +7,17 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
-	"testing"
 
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/middleware"
 	model "github.com/mudler/LocalAI/pkg/model"
-	"github.com/stretchr/testify/require"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
-func makeMultipartRequest(t *testing.T, fields map[string]string, files map[string][]byte) (*http.Request, string) {
+func makeMultipartRequest(fields map[string]string, files map[string][]byte) (*http.Request, string) {
 	b := &bytes.Buffer{}
 	w := multipart.NewWriter(b)
 	for k, v := range fields {
@@ -25,83 +25,73 @@ func makeMultipartRequest(t *testing.T, fields map[string]string, files map[stri
 	}
 	for fname, content := range files {
 		fw, err := w.CreateFormFile(fname, fname+".png")
-		require.NoError(t, err)
+		Expect(err).ToNot(HaveOccurred())
 		_, err = fw.Write(content)
-		require.NoError(t, err)
+		Expect(err).ToNot(HaveOccurred())
 	}
-	require.NoError(t, w.Close())
+	Expect(w.Close()).To(Succeed())
 	req := httptest.NewRequest(http.MethodPost, "/v1/images/inpainting", b)
 	req.Header.Set("Content-Type", w.FormDataContentType())
 	return req, w.FormDataContentType()
 }
 
-func TestInpainting_MissingFiles(t *testing.T) {
-	e := echo.New()
-	// handler requires cl, ml, appConfig but this test verifies missing files early
-	h := InpaintingEndpoint(nil, nil, config.NewApplicationConfig())
+var _ = Describe("Inpainting", func() {
+	It("returns error for missing files", func() {
+		e := echo.New()
+		h := InpaintingEndpoint(nil, nil, config.NewApplicationConfig())
 
-	req := httptest.NewRequest(http.MethodPost, "/v1/images/inpainting", nil)
-	rec := httptest.NewRecorder()
-	c := e.NewContext(req, rec)
+		req := httptest.NewRequest(http.MethodPost, "/v1/images/inpainting", nil)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
 
-	err := h(c)
-	require.Error(t, err)
-}
+		err := h(c)
+		Expect(err).To(HaveOccurred())
+	})
 
-func TestInpainting_HappyPath(t *testing.T) {
-	// Setup temp generated content dir
-	tmpDir, err := os.MkdirTemp("", "gencontent")
-	require.NoError(t, err)
-	defer os.RemoveAll(tmpDir)
+	It("handles the happy path", func() {
+		tmpDir, err := os.MkdirTemp("", "gencontent")
+		Expect(err).ToNot(HaveOccurred())
+		DeferCleanup(func() { os.RemoveAll(tmpDir) })
 
-	appConf := config.NewApplicationConfig(config.WithGeneratedContentDir(tmpDir))
+		appConf := config.NewApplicationConfig(config.WithGeneratedContentDir(tmpDir))
 
-	// stub the backend.ImageGenerationFunc
-	orig := backend.ImageGenerationFunc
-	backend.ImageGenerationFunc = func(height, width, step, seed int, positive_prompt, negative_prompt, src, dst string, loader *model.ModelLoader, modelConfig config.ModelConfig, appConfig *config.ApplicationConfig, refImages []string) (func() error, error) {
-		fn := func() error {
-			// write a fake png file to dst
-			return os.WriteFile(dst, []byte("PNGDATA"), 0644)
+		orig := backend.ImageGenerationFunc
+		backend.ImageGenerationFunc = func(height, width, step, seed int, positive_prompt, negative_prompt, src, dst string, loader *model.ModelLoader, modelConfig config.ModelConfig, appConfig *config.ApplicationConfig, refImages []string) (func() error, error) {
+			fn := func() error {
+				return os.WriteFile(dst, []byte("PNGDATA"), 0644)
+			}
+			return fn, nil
 		}
-		return fn, nil
-	}
-	defer func() { backend.ImageGenerationFunc = orig }()
+		DeferCleanup(func() { backend.ImageGenerationFunc = orig })
 
-	// prepare multipart request with image and mask
-	fields := map[string]string{"model": "dreamshaper-8-inpainting", "prompt": "A test"}
-	files := map[string][]byte{"image": []byte("IMAGEDATA"), "mask": []byte("MASKDATA")}
-	reqBuf, _ := makeMultipartRequest(t, fields, files)
+		fields := map[string]string{"model": "dreamshaper-8-inpainting", "prompt": "A test"}
+		files := map[string][]byte{"image": []byte("IMAGEDATA"), "mask": []byte("MASKDATA")}
+		reqBuf, _ := makeMultipartRequest(fields, files)
 
-	rec := httptest.NewRecorder()
-	e := echo.New()
-	c := e.NewContext(reqBuf, rec)
+		rec := httptest.NewRecorder()
+		e := echo.New()
+		c := e.NewContext(reqBuf, rec)
 
-	// set a minimal model config in context as handler expects
-	c.Set(middleware.CONTEXT_LOCALS_KEY_MODEL_CONFIG, &config.ModelConfig{Backend: "diffusers"})
+		c.Set(middleware.CONTEXT_LOCALS_KEY_MODEL_CONFIG, &config.ModelConfig{Backend: "diffusers"})
 
-	h := InpaintingEndpoint(nil, nil, appConf)
+		h := InpaintingEndpoint(nil, nil, appConf)
 
-	// call handler
-	err = h(c)
-	require.NoError(t, err)
-	require.Equal(t, http.StatusOK, rec.Code)
+		err = h(c)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(rec.Code).To(Equal(http.StatusOK))
 
-	// verify response body contains generated-images path
-	body := rec.Body.String()
-	require.Contains(t, body, "generated-images")
+		body := rec.Body.String()
+		Expect(body).To(ContainSubstring("generated-images"))
 
-	// confirm the file was created in tmpDir
-	// parse out filename from response (naive search)
-	// find "generated-images/" and extract until closing quote or brace
-	idx := bytes.Index(rec.Body.Bytes(), []byte("generated-images/"))
-	require.True(t, idx >= 0)
-	rest := rec.Body.Bytes()[idx:]
-	end := bytes.IndexAny(rest, "\",}\n")
-	if end == -1 {
-		end = len(rest)
-	}
-	fname := string(rest[len("generated-images/"):end])
-	// ensure file exists
-	_, err = os.Stat(filepath.Join(tmpDir, fname))
-	require.NoError(t, err)
-}
+		idx := bytes.Index(rec.Body.Bytes(), []byte("generated-images/"))
+		Expect(idx).To(BeNumerically(">=", 0))
+		rest := rec.Body.Bytes()[idx:]
+		end := bytes.IndexAny(rest, "\",}\n")
+		if end == -1 {
+			end = len(rest)
+		}
+		fname := string(rest[len("generated-images/"):end])
+		_, err = os.Stat(filepath.Join(tmpDir, fname))
+		Expect(err).ToNot(HaveOccurred())
+	})
+})
