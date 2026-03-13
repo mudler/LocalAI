@@ -12,7 +12,7 @@ import (
 
 var (
 	CppLoadModel    func(lmModelPath, textEncoderPath, ditModelPath, vaeModelPath string) int
-	CppGenerateMusic func(caption, lyrics string, bpm int, keyscale, timesignature string, duration, temperature float32, instrumental bool, seed int, dst string, threads int)
+	CppGenerateMusic func(caption, lyrics string, bpm int, keyscale, timesignature string, duration, temperature float32, instrumental bool, seed int, dst string, threads int) int
 )
 
 type AceStepCpp struct {
