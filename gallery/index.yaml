@@ -14714,7 +14714,7 @@
       - "diffusion_model"
       - "vae_path:stablediffusion-cpp/models/flux2-vae.safetensors"
       - "sampler:euler"
-      - llm_path:stablediffusion-cpp/models/Qwen3-4B-Q4_K_M.gguf
+      - llm_path:stablediffusion-cpp/models/Qwen3-8B-Q4_K_M.gguf
       - offload_params_to_cpu:true
     cfg_scale: 1
     parameters:
@@ -14726,9 +14726,9 @@
     - filename: stablediffusion-cpp/models/flux2-vae.safetensors
       sha256: d64f3a68e1cc4f9f4e29b6e0da38a0204fe9a49f2d4053f0ec1fa1ca02f9c4b5
       uri: https://huggingface.co/Comfy-Org/flux2-dev/resolve/main/split_files/vae/flux2-vae.safetensors
-    - filename: stablediffusion-cpp/models/Qwen3-4B-Q4_K_M.gguf
-      sha256: f6f851777709861056efcdad3af01da38b31223a3ba26e61a4f8bf3a2195813a
-      uri: https://huggingface.co/unsloth/Qwen3-4B-GGUF/resolve/main/Qwen3-4B-Q4_K_M.gguf
+    - filename: stablediffusion-cpp/models/Qwen3-8B-Q4_K_M.gguf
+      sha256: 120307ba529eb2439d6c430d94104dabd578497bc7bfe7e322b5d9933b449bd4
+      uri: https://huggingface.co/unsloth/Qwen3-8B-GGUF/resolve/main/Qwen3-8B-Q4_K_M.gguf
 - &zimage
   name: Z-Image-Turbo
   icon: https://z-image.ai/logo.png
