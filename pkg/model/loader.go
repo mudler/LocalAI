@@ -136,6 +136,7 @@ var knownModelsNameSuffixToSkip []string = []string{
 	".ggml",
 	".partial",
 	".tar.gz",
+	".gguf",
 }
 
 const retryTimeout = time.Duration(2 * time.Minute)
