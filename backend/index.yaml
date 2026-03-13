@@ -1050,6 +1050,7 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-kitten-tts"
   mirrors:
     - localai/localai-backends:master-metal-darwin-arm64-kitten-tts
+- !!merge <<: *local-store
   name: "local-store-development"
   uri: "quay.io/go-skynet/local-ai-backends:master-cpu-local-store"
   mirrors:
