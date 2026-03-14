@@ -1,6 +1,6 @@
 context_size: 4096
-backend: llama-cpp
 f16: true
+backend: llama-cpp
 mmap: true
 mmproj: minicpm-v-4_5-mmproj-f16.gguf
 name: gpt-4o
@@ -40,7 +40,6 @@ template:
     <|im_end|>
     {{.Input -}}
     <|im_start|>assistant
-
 
 download_files:
 - filename: minicpm-v-4_5-Q4_K_M.gguf

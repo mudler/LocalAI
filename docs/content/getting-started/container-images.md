@@ -8,8 +8,6 @@ ico = "rocket_launch"
 
 LocalAI provides a variety of images to support different environments. These images are available on [quay.io](https://quay.io/repository/go-skynet/local-ai?tab=tags) and [Docker Hub](https://hub.docker.com/r/localai/localai).
 
-All-in-One images comes with a pre-configured set of models and backends, standard images instead do not have any model pre-configured and installed.
-
 For GPU Acceleration support for Nvidia video graphic cards, use the Nvidia/CUDA images, if you don't have a GPU, use the CPU images. If you have AMD or Mac Silicon, see the [build section]({{%relref "installation/build" %}}).
 
 {{% notice tip %}}
@@ -17,7 +15,6 @@ For GPU Acceleration support for Nvidia video graphic cards, use the Nvidia/CUDA
 **Available Images Types**:
 
 - Images ending with `-core` are smaller images without predownload python dependencies. Use these images if you plan to use `llama.cpp`, `stablediffusion-ncn` or `rwkv` backends - if you are not sure which one to use, do **not** use these images.
-- Images containing the `aio` tag are all-in-one images with all the features enabled, and come with an opinionated set of configuration.
 
  {{% /notice %}}
 
@@ -123,109 +120,6 @@ These images are compatible with Nvidia ARM64 devices with CUDA 13, such as the 
 {{% /tab %}}
 
 {{< /tabs >}}
-
-## All-in-one images
-
-All-In-One images are images that come pre-configured with a set of models and backends to fully leverage almost all the LocalAI featureset. These images are available for both CPU and GPU environments. The AIO images are designed to be easy to use and require no configuration. Models configuration can be found [here](https://github.com/mudler/LocalAI/tree/master/aio) separated by size.
-
-In the AIO images there are models configured with the names of OpenAI models, however, they are really backed by Open Source models. You can find the table below
-
-| Category | Model name | Real model (CPU) | Real model (GPU) |
-| ---- | ---- | ---- | ---- |
-| Text Generation | `gpt-4` | `phi-2` | `hermes-2-pro-mistral` |
-| Multimodal Vision | `gpt-4-vision-preview` | `bakllava` | `llava-1.6-mistral` |
-| Image Generation | `stablediffusion` | `stablediffusion` | `dreamshaper-8` |
-| Speech to Text | `whisper-1` | `whisper` with `whisper-base` model | <= same |
-| Text to Speech | `tts-1` | `en-us-amy-low.onnx` from `rhasspy/piper` | <= same |
-| Embeddings | `text-embedding-ada-002` | `all-MiniLM-L6-v2` in Q4 | `all-MiniLM-L6-v2` |
-
-### Usage
-
-Select the image (CPU or GPU) and start the container with Docker:
-
-```bash
-docker run -p 8080:8080 --name local-ai -ti localai/localai:latest-aio-cpu
-```
-
-LocalAI will automatically download all the required models, and the API will be available at [localhost:8080](http://localhost:8080/v1/models).
-
-
-Or with a docker-compose file:
-
-```yaml
-version: "3.9"
-services:
-  api:
-    image: localai/localai:latest-aio-cpu
-    # For a specific version:
-    # image: localai/localai:{{< version >}}-aio-cpu
-    # For Nvidia GPUs decomment one of the following (cuda12 or cuda13):
-    # image: localai/localai:{{< version >}}-aio-gpu-nvidia-cuda-12
-    # image: localai/localai:{{< version >}}-aio-gpu-nvidia-cuda-13
-    # image: localai/localai:latest-aio-gpu-nvidia-cuda-12
-    # image: localai/localai:latest-aio-gpu-nvidia-cuda-13
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/readyz"]
-      interval: 1m
-      timeout: 20m
-      retries: 5
-    ports:
-      - 8080:8080
-    environment:
-      - DEBUG=true
-      # ...
-    volumes:
-      - ./models:/models:cached
-    # decomment the following piece if running with Nvidia GPUs
-    # deploy:
-    #   resources:
-    #     reservations:
-    #       devices:
-    #         - driver: nvidia
-    #           count: 1
-    #           capabilities: [gpu]
-```
-
-{{% notice tip %}}
-
-**Models caching**: The **AIO** image will download the needed models on the first run if not already present and store those in `/models` inside the container. The AIO models will be automatically updated with new versions of AIO images.
-
-You can change the directory inside the container by specifying a `MODELS_PATH` environment variable (or `--models-path`). 
-
-If you want to use a named model or a local directory, you can mount it as a volume to `/models`:
-
-```bash
-docker run -p 8080:8080 --name local-ai -ti -v $PWD/models:/models localai/localai:latest-aio-cpu
-```
-
-or associate a volume:
-
-```bash
-docker volume create localai-models
-docker run -p 8080:8080 --name local-ai -ti -v localai-models:/models localai/localai:latest-aio-cpu
-```
-
- {{% /notice %}}
-
-### Available AIO images
-
-| Description | Quay | Docker Hub                                   |
-| --- | --- |-----------------------------------------------|
-| Latest images for CPU | `quay.io/go-skynet/local-ai:latest-aio-cpu` | `localai/localai:latest-aio-cpu`                      |
-| Versioned image (e.g. for CPU) | `quay.io/go-skynet/local-ai:{{< version >}}-aio-cpu` | `localai/localai:{{< version >}}-aio-cpu`             |
-| Latest images for Nvidia GPU (CUDA12) | `quay.io/go-skynet/local-ai:latest-aio-gpu-nvidia-cuda-12` | `localai/localai:latest-aio-gpu-nvidia-cuda-12`                      |
-| Latest images for Nvidia GPU (CUDA13) | `quay.io/go-skynet/local-ai:latest-aio-gpu-nvidia-cuda-13` | `localai/localai:latest-aio-gpu-nvidia-cuda-13`                      |
-| Latest images for AMD GPU | `quay.io/go-skynet/local-ai:latest-aio-gpu-hipblas` | `localai/localai:latest-aio-gpu-hipblas`                      |
-| Latest images for Intel GPU | `quay.io/go-skynet/local-ai:latest-aio-gpu-intel` | `localai/localai:latest-aio-gpu-intel`                      |
-
-### Available environment variables
-
-The AIO Images are inheriting the same environment variables as the base images and the environment of LocalAI (that you can inspect by calling `--help`). However, it supports additional environment variables available only from the container image
-
-| Variable | Default | Description |
-| ---------------------| ------- | ----------- |
-| `PROFILE` | Auto-detected | The size of the model to use. Available: `cpu`, `gpu-8g` |
-| `MODELS` | Auto-detected | A list of models YAML Configuration file URI/URL (see also [running models]({{%relref "getting-started/models" %}})) |
 
 ## See Also
 

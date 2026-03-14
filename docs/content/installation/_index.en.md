@@ -30,7 +30,7 @@ docker run -p 8080:8080 --name local-ai -ti localai/localai:latest
 podman run -p 8080:8080 --name local-ai -ti localai/localai:latest
 ```
 
-This will start LocalAI. The API will be available at `http://localhost:8080`. For images with pre-configured models, see [All-in-One images](/getting-started/container-images/#all-in-one-images).
+This will start LocalAI. The API will be available at `http://localhost:8080`.
 
 For other platforms:
 - **macOS**: Download the [DMG](macos/)
