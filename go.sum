@@ -664,8 +664,8 @@ github.com/mudler/go-piper v0.0.0-20241023091659-2494246fd9fc h1:RxwneJl1VgvikiX
 github.com/mudler/go-piper v0.0.0-20241023091659-2494246fd9fc/go.mod h1:O7SwdSWMilAWhBZMK9N9Y/oBDyMMzshE3ju8Xkexwig=
 github.com/mudler/go-processmanager v0.1.0 h1:fcSKgF9U/a1Z7KofAFeZnke5YseadCI5GqL9oT0LS3E=
 github.com/mudler/go-processmanager v0.1.0/go.mod h1:h6kmHUZeafr+k5hRYpGLMzJFH4hItHffgpRo2QIkP+o=
-github.com/mudler/localrecall v0.5.6 h1:dmAtGSUwVnrtRLbY+DKg2aPEerhDGxDhIdr6muYCOvM=
-github.com/mudler/localrecall v0.5.6/go.mod h1:TZVXQI840MqjDtilBLc7kfmnctK4oNf1IR+cE68zno8=
+github.com/mudler/localrecall v0.5.7-0.20260314101322-43426c06c67a h1:Ah71V/UgF78i0I7yxu0EUweum6p3KwErz9qVFms9/VI=
+github.com/mudler/localrecall v0.5.7-0.20260314101322-43426c06c67a/go.mod h1:TZVXQI840MqjDtilBLc7kfmnctK4oNf1IR+cE68zno8=
 github.com/mudler/memory v0.0.0-20251216220809-d1256471a6c2 h1:+WHsL/j6EWOMUiMVIOJNKOwSKiQt/qDPc9fePCf87fA=
 github.com/mudler/memory v0.0.0-20251216220809-d1256471a6c2/go.mod h1:EA8Ashhd56o32qN7ouPKFSRUs/Z+LrRCF4v6R2Oarm8=
 github.com/mudler/skillserver v0.0.5-0.20260221145827-0639a82c8f49 h1:dAF1ALXqqapRZo80x56BIBBcPrPbRNerbd66rdyO8J4=
