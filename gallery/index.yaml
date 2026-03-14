@@ -1,4 +1,35 @@
 ---
+- name: "salamandra-estigia"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/salamandra-estigia-GGUF
+  description: |
+    Describe the model in a clear and concise way that can be shared in a model gallery.
+  tags:
+    - gguf
+    - multi-model
+    - text-generation
+    - inference
+    - ai
+  overrides:
+    parameters:
+      model: llama-cpp/models/salamandra-estigia-GGUF/salamandra-estigia.Q4_K_M.gguf
+    name: salamandra-estigia-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/salamandra-estigia-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/salamandra-estigia-GGUF/salamandra-estigia.Q4_K_M.gguf
+      sha256: 31fe91de520fd8e3912b6afea74db2d2781a7e9c3d9403ce405fadf02183311e
+      uri: https://huggingface.co/mradermacher/salamandra-estigia-GGUF/resolve/main/salamandra-estigia.Q4_K_M.gguf
 - name: "qwen_qwen3.5-35b-a3b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
