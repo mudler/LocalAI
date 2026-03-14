@@ -31,7 +31,7 @@ require (
 	github.com/mholt/archiver/v3 v3.5.1
 	github.com/microcosm-cc/bluemonday v1.0.27
 	github.com/modelcontextprotocol/go-sdk v1.4.0
-	github.com/mudler/cogito v0.9.3-0.20260306202429-e073d115bd04
+	github.com/mudler/cogito v0.9.5-0.20260313170202-42271c7e1a6b
 	github.com/mudler/edgevpn v0.31.1
 	github.com/mudler/go-processmanager v0.1.0
 	github.com/mudler/memory v0.0.0-20251216220809-d1256471a6c2
@@ -49,21 +49,23 @@ require (
 	github.com/schollz/progressbar/v3 v3.19.0
 	github.com/shirou/gopsutil/v3 v3.24.5
 	github.com/streamer45/silero-vad-go v0.2.1
-	github.com/stretchr/testify v1.11.1
 	github.com/swaggo/echo-swagger v1.4.1
 	github.com/swaggo/swag v1.16.6
 	github.com/testcontainers/testcontainers-go v0.40.0
-	github.com/tmc/langchaingo v0.1.14
 	go.opentelemetry.io/otel v1.42.0
 	go.opentelemetry.io/otel/exporters/prometheus v0.62.0
 	go.opentelemetry.io/otel/metric v1.42.0
 	go.opentelemetry.io/otel/sdk/metric v1.42.0
 	google.golang.org/grpc v1.79.1
+	google.golang.org/protobuf v1.36.11
 	gopkg.in/yaml.v3 v3.0.1
 	oras.land/oras-go/v2 v2.6.0
 )
 
-require google.golang.org/protobuf v1.36.11 // indirect
+require (
+	github.com/stretchr/testify v1.11.1 // indirect
+	github.com/tmc/langchaingo v0.1.14 // indirect
+)
 
 require (
 	github.com/JohannesKaufmann/dom v0.2.0 // indirect
@@ -126,8 +128,8 @@ require (
 	github.com/kevinburke/ssh_config v1.2.0 // indirect
 	github.com/labstack/gommon v0.4.2 // indirect
 	github.com/mschoch/smat v0.2.0 // indirect
-	github.com/mudler/LocalAGI v0.0.0-20260306154948-5a27c471ca78
-	github.com/mudler/localrecall v0.5.4 // indirect
+	github.com/mudler/LocalAGI v0.0.0-20260311165347-2d2da7df95e1
+	github.com/mudler/localrecall v0.5.6 // indirect
 	github.com/mudler/skillserver v0.0.5-0.20260221145827-0639a82c8f49
 	github.com/olekukonko/tablewriter v0.0.5 // indirect
 	github.com/oxffaa/gopher-parse-sitemap v0.0.0-20191021113419-005d2eb1def4 // indirect
