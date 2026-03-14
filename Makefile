@@ -172,10 +172,10 @@ test: test-models/testmodel.ggml protogen-go
 	$(MAKE) test-stablediffusion
 
 ########################################################
-## AIO tests
+## E2E AIO tests (uses standard image with pre-configured models)
 ########################################################
 
-docker-build-aio:
+docker-build-e2e:
 	docker build \
 		--build-arg MAKEFLAGS="--jobs=5 --output-sync=target" \
 		--build-arg BASE_IMAGE=$(BASE_IMAGE) \
@@ -187,13 +187,12 @@ docker-build-aio:
 		--build-arg UBUNTU_CODENAME=$(UBUNTU_CODENAME) \
 		--build-arg GO_TAGS="$(GO_TAGS)" \
 		-t local-ai:tests -f Dockerfile .
-	BASE_IMAGE=local-ai:tests DOCKER_AIO_IMAGE=local-ai-aio:test $(MAKE) docker-aio
 
 e2e-aio:
 	LOCALAI_BACKEND_DIR=$(abspath ./backends) \
-	LOCALAI_MODELS_DIR=$(abspath ./models) \
-	LOCALAI_IMAGE_TAG=test \
-	LOCALAI_IMAGE=local-ai-aio \
+	LOCALAI_MODELS_DIR=$(abspath ./tests/e2e-aio/models) \
+	LOCALAI_IMAGE_TAG=tests \
+	LOCALAI_IMAGE=local-ai \
 	$(MAKE) run-e2e-aio
 
 run-e2e-aio: protogen-go
@@ -443,7 +442,6 @@ test-extra: prepare-test-extra
 	$(MAKE) -C backend/python/ace-step test
 
 DOCKER_IMAGE?=local-ai
-DOCKER_AIO_IMAGE?=local-ai-aio
 IMAGE_TYPE?=core
 BASE_IMAGE?=ubuntu:24.04
 
@@ -472,21 +470,6 @@ docker-cuda12:
 		--build-arg UBUNTU_VERSION=$(UBUNTU_VERSION) \
 		--build-arg UBUNTU_CODENAME=$(UBUNTU_CODENAME) \
 		-t $(DOCKER_IMAGE)-cuda-12 .
-
-docker-aio:
-	@echo "Building AIO image with base $(BASE_IMAGE) as $(DOCKER_AIO_IMAGE)"
-	docker build \
-		--build-arg BASE_IMAGE=$(BASE_IMAGE) \
-		--build-arg MAKEFLAGS="$(DOCKER_MAKEFLAGS)" \
-		--build-arg CUDA_MAJOR_VERSION=$(CUDA_MAJOR_VERSION) \
-		--build-arg CUDA_MINOR_VERSION=$(CUDA_MINOR_VERSION) \
-		--build-arg UBUNTU_VERSION=$(UBUNTU_VERSION) \
-		--build-arg UBUNTU_CODENAME=$(UBUNTU_CODENAME) \
-		-t $(DOCKER_AIO_IMAGE) -f Dockerfile.aio .
-
-docker-aio-all:
-	$(MAKE) docker-aio DOCKER_AIO_SIZE=cpu
-	$(MAKE) docker-aio DOCKER_AIO_SIZE=cpu
 
 docker-image-intel:
 	docker build \

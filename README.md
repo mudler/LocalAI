@@ -194,27 +194,6 @@ docker run -ti --name local-ai -p 8080:8080 --device=/dev/dri/card1 --device=/de
 docker run -ti --name local-ai -p 8080:8080 localai/localai:latest-gpu-vulkan
 ```
 
-#### AIO Images (pre-downloaded models):
-
-```bash
-# CPU version
-docker run -ti --name local-ai -p 8080:8080 localai/localai:latest-aio-cpu
-
-# NVIDIA CUDA 13 version
-docker run -ti --name local-ai -p 8080:8080 --gpus all localai/localai:latest-aio-gpu-nvidia-cuda-13
-
-# NVIDIA CUDA 12 version
-docker run -ti --name local-ai -p 8080:8080 --gpus all localai/localai:latest-aio-gpu-nvidia-cuda-12
-
-# Intel GPU version
-docker run -ti --name local-ai -p 8080:8080 localai/localai:latest-aio-gpu-intel
-
-# AMD GPU version
-docker run -ti --name local-ai -p 8080:8080 --device=/dev/kfd --device=/dev/dri --group-add=video localai/localai:latest-aio-gpu-hipblas
-```
-
-For more information about the AIO images and pre-downloaded models, see [Container Documentation](https://localai.io/basics/container/).
-
 To load models:
 
 ```bash
@@ -250,7 +229,7 @@ For more information, see [💻 Getting started](https://localai.io/basics/getti
 - May 2025: Important: image name changes [See release](https://github.com/mudler/LocalAI/releases/tag/v2.29.0)
 - Apr 2025: Rebrand, WebUI enhancements
 - Apr 2025: [LocalAGI](https://github.com/mudler/LocalAGI) and [LocalRecall](https://github.com/mudler/LocalRecall) join the LocalAI family stack.
-- Apr 2025: WebUI overhaul, AIO images updates
+- Apr 2025: WebUI overhaul
 - Feb 2025: Backend cleanup, Breaking changes, new backends (kokoro, OutelTTS, faster-whisper), Nvidia L4T images
 - Jan 2025: LocalAI model release: https://huggingface.co/mudler/LocalAI-functioncall-phi-4-v0.3, SANA support in diffusers: https://github.com/mudler/LocalAI/pull/4603
 - Dec 2024: stablediffusion.cpp backend (ggml) added ( https://github.com/mudler/LocalAI/pull/4289 )

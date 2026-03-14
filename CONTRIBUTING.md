@@ -244,19 +244,16 @@ The e2e tests run LocalAI in a Docker container and exercise the API:
 make test-e2e
 ```
 
-### Running AIO tests
+### Running E2E container tests
 
-All-In-One images have a set of tests that automatically verify that most of the endpoints work correctly:
+These tests build a standard LocalAI Docker image and run it with pre-configured model configs to verify that most endpoints work correctly:
 
 ```bash
 # Build the LocalAI docker image
-make DOCKER_IMAGE=local-ai docker
+make docker-build-e2e
 
-# Build the corresponding AIO image
-BASE_IMAGE=local-ai DOCKER_AIO_IMAGE=local-ai-aio:test make docker-aio
-
-# Run the AIO e2e tests
-LOCALAI_IMAGE_TAG=test LOCALAI_IMAGE=local-ai-aio make run-e2e-aio
+# Run the e2e tests (uses model configs from tests/e2e-aio/models/)
+make e2e-aio
 ```
 
 ### Testing backends

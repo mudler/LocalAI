@@ -26,7 +26,6 @@
         runs-on: ${{ matrix.runs-on }}
         base-image: ${{ matrix.base-image }}
         grpc-base-image: ${{ matrix.grpc-base-image }}
-        aio: ${{ matrix.aio }}
         makeflags: ${{ matrix.makeflags }}
         ubuntu-version: ${{ matrix.ubuntu-version }}
         ubuntu-codename: ${{ matrix.ubuntu-codename }}
@@ -46,7 +45,6 @@
               grpc-base-image: "ubuntu:24.04"
               runs-on: 'ubuntu-latest'
               makeflags: "--jobs=3 --output-sync=target"
-              aio: "-aio-gpu-hipblas"
               ubuntu-version: '2404'
               ubuntu-codename: 'noble'
   
@@ -61,7 +59,6 @@
         cuda-minor-version: ${{ matrix.cuda-minor-version }}
         platforms: ${{ matrix.platforms }}
         runs-on: ${{ matrix.runs-on }}
-        aio: ${{ matrix.aio }}
         base-image: ${{ matrix.base-image }}
         grpc-base-image: ${{ matrix.grpc-base-image }}
         makeflags: ${{ matrix.makeflags }}
@@ -83,7 +80,6 @@
               tag-suffix: ''
               base-image: "ubuntu:24.04"
               runs-on: 'ubuntu-latest'
-              aio: "-aio-cpu"
               makeflags: "--jobs=4 --output-sync=target"
               skip-drivers: 'false'
               ubuntu-version: '2404'
@@ -98,7 +94,6 @@
               base-image: "ubuntu:24.04"
               skip-drivers: 'false'
               makeflags: "--jobs=4 --output-sync=target"
-              aio: "-aio-gpu-nvidia-cuda-12"
               ubuntu-version: '2404'
               ubuntu-codename: 'noble'
             - build-type: 'cublas'
@@ -111,7 +106,6 @@
               base-image: "ubuntu:22.04"
               skip-drivers: 'false'
               makeflags: "--jobs=4 --output-sync=target"
-              aio: "-aio-gpu-nvidia-cuda-13"
               ubuntu-version: '2404'
               ubuntu-codename: 'noble'
             - build-type: 'vulkan'
@@ -122,7 +116,6 @@
               base-image: "ubuntu:24.04"
               skip-drivers: 'false'
               makeflags: "--jobs=4 --output-sync=target"
-              aio: "-aio-gpu-vulkan"
               ubuntu-version: '2404'
               ubuntu-codename: 'noble'
             - build-type: 'intel'
@@ -133,7 +126,6 @@
               tag-suffix: '-gpu-intel'
               runs-on: 'ubuntu-latest'
               makeflags: "--jobs=3 --output-sync=target"
-              aio: "-aio-gpu-intel"
               ubuntu-version: '2404'
               ubuntu-codename: 'noble'
   
@@ -148,7 +140,6 @@
         cuda-minor-version: ${{ matrix.cuda-minor-version }}
         platforms: ${{ matrix.platforms }}
         runs-on: ${{ matrix.runs-on }}
-        aio: ${{ matrix.aio }}
         base-image: ${{ matrix.base-image }}
         grpc-base-image: ${{ matrix.grpc-base-image }}
         makeflags: ${{ matrix.makeflags }}
