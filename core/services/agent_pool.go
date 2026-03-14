@@ -1053,6 +1053,10 @@ func (s *AgentPoolService) CollectionEntryExists(collection, entry string) bool 
 	return s.collectionsBackend.EntryExists(collection, entry)
 }
 
+func (s *AgentPoolService) GetCollectionEntryFilePath(collection, entry string) (string, error) {
+	return s.collectionsBackend.GetEntryFilePath(collection, entry)
+}
+
 // --- Actions ---
 
 // ListAvailableActions returns the list of all available action type names.

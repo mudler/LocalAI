@@ -203,6 +203,26 @@ func RemoveCollectionSourceEndpoint(app *application.Application) echo.HandlerFu
 	}
 }
 
+// GetCollectionEntryRawFileEndpoint serves the original uploaded binary file.
+func GetCollectionEntryRawFileEndpoint(app *application.Application) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		svc := app.AgentPoolService()
+		entryParam := c.Param("*")
+		entry, err := url.PathUnescape(entryParam)
+		if err != nil {
+			entry = entryParam
+		}
+		fpath, err := svc.GetCollectionEntryFilePath(c.Param("name"), entry)
+		if err != nil {
+			if strings.Contains(err.Error(), "not found") {
+				return c.JSON(http.StatusNotFound, map[string]string{"error": err.Error()})
+			}
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		}
+		return c.File(fpath)
+	}
+}
+
 func ListCollectionSourcesEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		svc := app.AgentPoolService()
