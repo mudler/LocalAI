@@ -68,7 +68,7 @@ export default function ClientMCPDropdown({
         <div className="chat-mcp-dropdown-menu" style={{ minWidth: '280px' }}>
           <div className="chat-mcp-dropdown-header">
             <span>Client MCP Servers</span>
-            <button className="chat-mcp-select-all" onClick={() => setAddDialog(!addDialog)}>
+            <button type="button" className="chat-mcp-select-all" onClick={() => setAddDialog(!addDialog)}>
               <i className="fas fa-plus" /> Add
             </button>
           </div>
@@ -103,8 +103,8 @@ export default function ClientMCPDropdown({
                 Use CORS proxy
               </label>
               <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end' }}>
-                <button className="btn btn-sm btn-secondary" onClick={() => setAddDialog(false)}>Cancel</button>
-                <button className="btn btn-sm btn-primary" onClick={handleAdd} disabled={!url.trim()}>Add</button>
+                <button type="button" className="btn btn-sm btn-secondary" onClick={() => setAddDialog(false)}>Cancel</button>
+                <button type="button" className="btn btn-sm btn-primary" onClick={handleAdd} disabled={!url.trim()}>Add</button>
               </div>
             </div>
           )}
