@@ -80,6 +80,7 @@ func RegisterAgentPoolRoutes(e *echo.Echo, app *application.Application) {
 	g.POST("/collections/:name/upload", localai.UploadToCollectionEndpoint(app))
 	g.GET("/collections/:name/entries", localai.ListCollectionEntriesEndpoint(app))
 	g.GET("/collections/:name/entries/*", localai.GetCollectionEntryContentEndpoint(app))
+	g.GET("/collections/:name/entries-raw/*", localai.GetCollectionEntryRawFileEndpoint(app))
 	g.POST("/collections/:name/search", localai.SearchCollectionEndpoint(app))
 	g.POST("/collections/:name/reset", localai.ResetCollectionEndpoint(app))
 	g.DELETE("/collections/:name/entry/delete", localai.DeleteCollectionEntryEndpoint(app))
