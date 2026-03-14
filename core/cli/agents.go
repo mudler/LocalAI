@@ -49,15 +49,15 @@ type RunAgentCMD struct {
 	AgentHubURL                    string `env:"LOCALAI_AGENT_HUB_URL" default:"https://agenthub.localai.io" help:"URL for the agent hub" group:"agents"`
 
 	// Storage paths
-	DataPath                string `env:"LOCALAI_DATA_PATH" type:"path" default:"${basepath}/data" help:"Path for persistent data" group:"storage"`
-	LocalaiConfigDir        string `env:"LOCALAI_CONFIG_DIR" type:"path" default:"${basepath}/configuration" help:"Directory for dynamic configuration" group:"storage"`
-	Galleries               string `env:"LOCALAI_GALLERIES,GALLERIES" help:"JSON list of galleries" group:"models" default:"${galleries}"`
-	BackendGalleries        string `env:"LOCALAI_BACKEND_GALLERIES,BACKEND_GALLERIES" help:"JSON list of backend galleries" group:"backends"`
+	DataPath         string `env:"LOCALAI_DATA_PATH" type:"path" default:"${basepath}/data" help:"Path for persistent data" group:"storage"`
+	LocalaiConfigDir string `env:"LOCALAI_CONFIG_DIR" type:"path" default:"${basepath}/configuration" help:"Directory for dynamic configuration" group:"storage"`
+	Galleries        string `env:"LOCALAI_GALLERIES,GALLERIES" help:"JSON list of galleries" group:"models" default:"${galleries}"`
+	BackendGalleries string `env:"LOCALAI_BACKEND_GALLERIES,BACKEND_GALLERIES" help:"JSON list of backend galleries" group:"backends"`
 
 	// API settings
-	Address         string   `env:"LOCALAI_ADDRESS,ADDRESS" default:":8080" help:"Bind address for the API server" group:"api"`
-	APIKeys         []string `env:"LOCALAI_API_KEY,API_KEY" help:"API keys for authentication" group:"api"`
-	DisableWebUI    bool     `env:"LOCALAI_DISABLE_WEBUI,DISABLE_WEBUI" default:"true" help:"Disable the web UI (default true for standalone agent mode)" group:"api"`
+	Address      string   `env:"LOCALAI_ADDRESS,ADDRESS" default:":8080" help:"Bind address for the API server" group:"api"`
+	APIKeys      []string `env:"LOCALAI_API_KEY,API_KEY" help:"API keys for authentication" group:"api"`
+	DisableWebUI bool     `env:"LOCALAI_DISABLE_WEBUI,DISABLE_WEBUI" default:"true" help:"Disable the web UI (default true for standalone agent mode)" group:"api"`
 
 	// Debug
 	Debug bool `env:"LOCALAI_DEBUG,DEBUG" help:"Enable debug logging" group:"debug"`
