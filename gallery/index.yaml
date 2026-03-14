@@ -1,4 +1,39 @@
 ---
+- name: "qwen3.5-9b-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Qwen3.5-9B-i1-GGUF
+  description: |
+    Describe the model in a clear and concise way that can be shared in a model gallery.
+  tags:
+    - llama
+    - llama2
+    - qwen
+    - qwen3.5
+    - 9b
+    - gguf
+    - llm
+    - text-generation
+    - open-source
+  overrides:
+    parameters:
+      model: llama-cpp/models/Qwen3.5-9B-i1-GGUF/Qwen3.5-9B.i1-Q4_K_M.gguf
+    name: Qwen3.5-9B-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Qwen3.5-9B-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Qwen3.5-9B-i1-GGUF/Qwen3.5-9B.i1-Q4_K_M.gguf
+      sha256: 611d3302fc059d0f1d9b72e3e25e389aa8549d71e1081b50b3dc0c6b99314741
+      uri: https://huggingface.co/mradermacher/Qwen3.5-9B-i1-GGUF/resolve/main/Qwen3.5-9B.i1-Q4_K_M.gguf
 - name: "qwen_qwen3.5-35b-a3b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
