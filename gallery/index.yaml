@@ -1,4 +1,37 @@
 ---
+- name: "atlas-72b-svt-merged-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Atlas-72B-SVT-merged-i1-GGUF
+  description: |
+    Describe the model in a clear and concise way that can be shared in a model gallery.
+  tags:
+    - 72b
+    - gguf
+    - merged-i1
+    - svt
+    - turbo
+    - llm
+    - model
+  overrides:
+    parameters:
+      model: llama-cpp/models/Atlas-72B-SVT-merged-i1-GGUF/Atlas-72B-SVT-merged.i1-Q4_K_M.gguf
+    name: Atlas-72B-SVT-merged-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Atlas-72B-SVT-merged-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Atlas-72B-SVT-merged-i1-GGUF/Atlas-72B-SVT-merged.i1-Q4_K_M.gguf
+      sha256: 24cf8fcf690804591e306a1cb432df21a9150da64101d3d223807c66da95b921
+      uri: https://huggingface.co/mradermacher/Atlas-72B-SVT-merged-i1-GGUF/resolve/main/Atlas-72B-SVT-merged.i1-Q4_K_M.gguf
 - name: "qwen_qwen3.5-35b-a3b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
