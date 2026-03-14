@@ -212,29 +212,44 @@ services:
 
 ## Persistent Storage
 
-To persist models and configurations, mount a volume:
+The container exposes the following volumes:
+
+| Volume | Description | CLI Flag | Environment Variable |
+|--------|-------------|----------|----------------------|
+| `/models` | Model files used for inferencing | `--models-path` | `$LOCALAI_MODELS_PATH` |
+| `/backends` | Custom backends for inferencing | `--backends-path` | `$LOCALAI_BACKENDS_PATH` |
+| `/configuration` | Dynamic config files (api_keys.json, external_backends.json, runtime_settings.json) | `--localai-config-dir` | `$LOCALAI_CONFIG_DIR` |
+| `/data` | Persistent data (collections, agent state, tasks, jobs) | `--data-path` | `$LOCALAI_DATA_PATH` |
+
+To persist models and data, mount volumes:
 
 ```bash
 docker run -ti --name local-ai -p 8080:8080 \
   -v $PWD/models:/models \
+  -v $PWD/data:/data \
   localai/localai:latest-aio-cpu
 # Or with Podman:
 podman run -ti --name local-ai -p 8080:8080 \
   -v $PWD/models:/models \
+  -v $PWD/data:/data \
   localai/localai:latest-aio-cpu
 ```
 
-Or use a named volume:
+Or use named volumes:
 
 ```bash
 docker volume create localai-models
+docker volume create localai-data
 docker run -ti --name local-ai -p 8080:8080 \
   -v localai-models:/models \
+  -v localai-data:/data \
   localai/localai:latest-aio-cpu
 # Or with Podman:
 podman volume create localai-models
+podman volume create localai-data
 podman run -ti --name local-ai -p 8080:8080 \
   -v localai-models:/models \
+  -v localai-data:/data \
   localai/localai:latest-aio-cpu
 ```
 

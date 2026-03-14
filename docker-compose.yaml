@@ -31,6 +31,7 @@ services:
     volumes:
       - models:/models
       - images:/tmp/generated/images/
+      - data:/data
     command:
     # Here we can specify a list of models to run (see quickstart https://localai.io/basics/getting_started/#running-models )
     # or an URL pointing to a YAML configuration file, for example:
@@ -73,4 +74,5 @@ services:
 volumes:
   models:
   images:
+  data:
   # postgres_data:

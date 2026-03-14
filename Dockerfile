@@ -384,12 +384,12 @@ RUN --mount=from=builder,src=/build/,dst=/mnt/build \
     if [ -f /mnt/build/libopusshim.so ]; then cp /mnt/build/libopusshim.so ./; fi
 
 # Make sure the models directory exists
-RUN mkdir -p /models /backends
+RUN mkdir -p /models /backends /data
 
 # Define the health check command
 HEALTHCHECK --interval=1m --timeout=10m --retries=10 \
   CMD curl -f ${HEALTHCHECK_ENDPOINT} || exit 1
 
-VOLUME /models /backends /configuration
+VOLUME /models /backends /configuration /data
 EXPOSE 8080
 ENTRYPOINT [ "/entrypoint.sh" ]
