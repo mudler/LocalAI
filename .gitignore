@@ -37,7 +37,6 @@ models/*
 test-models/
 test-dir/
 tests/e2e-aio/backends
-tests/e2e-aio/models
 mock-backend
 
 release/

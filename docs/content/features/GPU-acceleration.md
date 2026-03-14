@@ -206,7 +206,7 @@ The following are examples of the ROCm specific configuration elements required.
 
 ```yaml
     # For full functionality select a non-'core' image, version locking the image is recommended for debug purposes.
-    image: quay.io/go-skynet/local-ai:master-aio-gpu-hipblas
+    image: quay.io/go-skynet/local-ai:master-gpu-hipblas
     environment:
       - DEBUG=true
       # If your gpu is not already included in the current list of default targets the following build details are required.
@@ -229,12 +229,10 @@ docker run \
  -e GPU_TARGETS=gfx906 \
  --device /dev/dri \
  --device /dev/kfd \
- quay.io/go-skynet/local-ai:master-aio-gpu-hipblas
+ quay.io/go-skynet/local-ai:master-gpu-hipblas
 ```
 
 Please ensure to add all other required environment variables, port forwardings, etc to your `compose` file or `run` command.
-
-The rebuild process will take some time to complete when deploying these containers and it is recommended that you `pull` the image prior to deployment as depending on the version these images may be ~20GB in size.
 
 #### Example (k8s) (Advanced Deployment/WIP)
 
@@ -434,7 +432,7 @@ If your AMD GPU is not in the default target list, set `REBUILD=true` and `GPU_T
 ```bash
 docker run -e REBUILD=true -e BUILD_TYPE=hipblas -e GPU_TARGETS=gfx1030 \
   --device /dev/dri --device /dev/kfd \
-  quay.io/go-skynet/local-ai:master-aio-gpu-hipblas
+  quay.io/go-skynet/local-ai:master-gpu-hipblas
 ```
 
 ### Intel SYCL: model hangs
