@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/config"
@@ -38,20 +39,20 @@ func GetEditModelPage(cl *config.ModelConfigLoader, appConfig *config.Applicatio
 		}
 
 		modelConfigFile := modelConfig.GetModelConfigFile()
-		if modelConfigFile == "" {
-			response := ModelResponse{
-				Success: false,
-				Error:   "Model configuration file not found",
+		
+		// If the model doesn't have a config file (e.g., downloaded via ollama://),
+		// we can still show the edit page but with a note that a new config will be created
+		configData := []byte{}
+		if modelConfigFile != "" {
+			var err error
+			configData, err = os.ReadFile(modelConfigFile)
+			if err != nil {
+				response := ModelResponse{
+					Success: false,
+					Error:   "Failed to read configuration file: " + err.Error(),
+				}
+				return c.JSON(http.StatusInternalServerError, response)
 			}
-			return c.JSON(http.StatusNotFound, response)
-		}
-		configData, err := os.ReadFile(modelConfigFile)
-		if err != nil {
-			response := ModelResponse{
-				Success: false,
-				Error:   "Failed to read configuration file: " + err.Error(),
-			}
-			return c.JSON(http.StatusInternalServerError, response)
 		}
 
 		// Render the edit page with the current configuration
@@ -64,14 +65,16 @@ func GetEditModelPage(cl *config.ModelConfigLoader, appConfig *config.Applicatio
 			BaseURL                 string
 			Version                 string
 			DisableRuntimeSettings  bool
+			HasExistingConfigFile   bool
 		}{
-			Title:                  "LocalAI - Edit Model " + modelName,
-			ModelName:              modelName,
-			Config:                 &modelConfig,
-			ConfigYAML:             string(configData),
-			BaseURL:                httpUtils.BaseURL(c),
-			Version:                internal.PrintableVersion(),
-			DisableRuntimeSettings: appConfig.DisableRuntimeSettings,
+			Title:                   "LocalAI - Edit Model " + modelName,
+			ModelName:               modelName,
+			Config:                  &modelConfig,
+			ConfigYAML:              string(configData),
+			BaseURL:                 httpUtils.BaseURL(c),
+			Version:                 internal.PrintableVersion(),
+			DisableRuntimeSettings:  appConfig.DisableRuntimeSettings,
+			HasExistingConfigFile:   modelConfigFile != "",
 		}
 
 		return c.Render(http.StatusOK, "views/model-editor", templateData)
@@ -147,14 +150,32 @@ func EditModelEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appC
 			return c.JSON(http.StatusBadRequest, response)
 		}
 
-		// Load the existing configuration
+		// Determine the config file path
 		configPath := modelConfig.GetModelConfigFile()
-		if err := utils.VerifyPath(configPath, appConfig.SystemState.Model.ModelsPath); err != nil {
-			response := ModelResponse{
-				Success: false,
-				Error:   "Model configuration not trusted: " + err.Error(),
+		var isNewConfig bool
+		
+		if configPath == "" {
+			// No existing config file - create a new one for models downloaded via Ollama or other methods
+			isNewConfig = true
+			configPath = filepath.Join(appConfig.SystemState.Model.ModelsPath, modelName+".yaml")
+			
+			// Verify the path is safe
+			if err := utils.VerifyPath(configPath, appConfig.SystemState.Model.ModelsPath); err != nil {
+				response := ModelResponse{
+					Success: false,
+					Error:   "Invalid configuration path: " + err.Error(),
+				}
+				return c.JSON(http.StatusForbidden, response)
 			}
-			return c.JSON(http.StatusNotFound, response)
+		} else {
+			// Existing config file - verify it's trusted
+			if err := utils.VerifyPath(configPath, appConfig.SystemState.Model.ModelsPath); err != nil {
+				response := ModelResponse{
+					Success: false,
+					Error:   "Model configuration not trusted: " + err.Error(),
+				}
+				return c.JSON(http.StatusForbidden, response)
+			}
 		}
 
 		// Write new content to file
@@ -193,11 +214,19 @@ func EditModelEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appC
 		}
 
 		// Return success response
+		var message string
+		if isNewConfig {
+			message = fmt.Sprintf("Model '%s' configuration created successfully at %s. Model has been loaded with the new configuration.", modelName, configPath)
+		} else {
+			message = fmt.Sprintf("Model '%s' updated successfully. Model has been reloaded with new configuration.", modelName)
+		}
+		
 		response := ModelResponse{
 			Success:  true,
-			Message:  fmt.Sprintf("Model '%s' updated successfully. Model has been reloaded with new configuration.", modelName),
+			Message:  message,
 			Filename: configPath,
 			Config:   req,
+			NewConfig: isNewConfig,
 		}
 		return c.JSON(200, response)
 	}
