@@ -123,6 +123,16 @@ func (ml *ModelLoader) grpcModel(backend string, o *Options) func(string, string
 			if process := client.Process(); process != nil {
 				process.Stop()
 			}
+			// Provide better error messages for Intel GPU backend
+			if strings.Contains(backend, "intel") || strings.Contains(backend, "sycl") {
+				return nil, fmt.Errorf("grpc service not ready. This may indicate an Intel GPU initialization issue. " +
+					"Please verify: " +
+					"1. GPU devices are properly passed through to the container (--device /dev/dri/cardX --device /dev/dri/renderDXX), " +
+					"2. Environment variables are set: ZES_ENABLE_SYSMAN=1, GGML_SYCL_DEVICE=0, XPU=1, " +
+					"3. Run 'sycl-ls' in the container to verify GPU detection, " +
+					"4. Check device permissions with 'ls -l /dev/dri/'. " +
+					"See https://github.com/mudler/LocalAI/issues/9012 for more details")
+			}
 			return nil, fmt.Errorf("grpc service not ready")
 		}
 
