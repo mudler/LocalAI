@@ -1,0 +1,36 @@
+---
+name: "Lumina-Image-GGML"
+
+config_file: |
+  backend: stablediffusion-ggml
+  cfg_scale: 4.5
+  name: lumina-image-test
+  options:
+    - diffusion_model
+  parameters:
+    model: lumina-image-2.0.Q4_K_M.gguf
+  step: 25
+  f16: true
+
+description: |
+  Lumina-Image 2.0 is a unified and efficient image generative framework.
+  This model uses the Lumina2 architecture and requires the stablediffusion-ggml backend.
+  
+  ## Usage
+  To use this model, place your Lumina-Image GGUF model file in the models directory
+  and reference it in your configuration.
+  
+  ## Requirements
+  - Backend: stablediffusion-ggml
+  - Model file: Lumina-Image 2.0 in GGUF format (e.g., lumina-image-2.0.Q4_K_M.gguf)
+  
+  ## Note
+  Lumina-Image 2.0 uses the "lumina2" architecture which is not supported by llama-cpp backend.
+  Always use the stablediffusion-ggml backend for Lumina-Image models.
+
+gallery_url: https://huggingface.co/Immac/NetaYume-Lumina-Image-2.0-GGUF
+tags:
+  - image-generation
+  - diffusion
+  - ggml
+  - lumina
