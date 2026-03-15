@@ -458,34 +458,22 @@
       model: nvidia/parakeet-tdt-0.6b-v3
 - name: voxtral-mini-4b-realtime
   license: apache-2.0
-  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  url: "github:mudler/LocalAI/gallery/voxtral-mini-4b-realtime.yaml@master"
   description: |
-    Voxtral Mini 4B Realtime is a speech-to-text model from Mistral AI. It is a 4B parameter model optimized for fast, accurate audio transcription with low latency, making it ideal for real-time applications. The model uses the Voxtral architecture for efficient audio processing.
+    Voxtral Mini 4B Realtime is a multilingual, realtime speech-transcription model from Mistral AI.
+    It achieves accuracy comparable to offline systems with a delay of <500ms and supports 13 languages.
+    This model is designed for real-time automatic speech recognition (ASR) with streaming capabilities
+    and benefits from vLLM's Realtime API for low-latency transcription workflows.
   urls:
     - https://huggingface.co/mistralai/Voxtral-Mini-4B-Realtime-2602
-    - https://github.com/antirez/voxtral.c
   tags:
     - stt
     - speech-to-text
     - audio-transcription
+    - vllm
     - cpu
     - metal
     - mistral
-  overrides:
-    backend: voxtral
-    known_usecases:
-      - transcript
-    parameters:
-      model: voxtral-model
-  files:
-    - filename: voxtral-model/consolidated.safetensors
-      uri: https://huggingface.co/mistralai/Voxtral-Mini-4B-Realtime-2602/resolve/main/consolidated.safetensors
-      sha256: 263f178fe752c90a2ae58f037a95ed092db8b14768b0978b8c48f66979c8345d
-    - filename: voxtral-model/params.json
-      uri: https://huggingface.co/mistralai/Voxtral-Mini-4B-Realtime-2602/resolve/main/params.json
-    - filename: voxtral-model/tekken.json
-      uri: https://huggingface.co/mistralai/Voxtral-Mini-4B-Realtime-2602/resolve/main/tekken.json
-      sha256: 8434af1d39eba99f0ef46cf1450bf1a63fa941a26933a1ef5dbbf4adf0d00e44
 - name: moonshine-tiny
   license: apache-2.0
   size: "108MB"
