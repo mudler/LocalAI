@@ -1,6 +1,7 @@
 package backend
 
 import (
+	"strings"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -107,6 +108,15 @@ func grpcModelOpts(c config.ModelConfig, modelPath string) *pb.ModelOptions {
 	mmap := false
 	if c.MMap != nil {
 		mmap = *c.MMap
+	}
+
+	// Intel SYCL backend has issues with mmap enabled
+	// See: https://github.com/mudler/LocalAI/issues/9012
+	// Automatically disable mmap for Intel SYCL backends
+	if c.Backend != "" {
+		if strings.Contains(strings.ToLower(c.Backend), "intel") || strings.Contains(strings.ToLower(c.Backend), "sycl") {
+			mmap = false
+		}
 	}
 
 	ctxSize := 4096
