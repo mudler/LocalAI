@@ -112,6 +112,7 @@ func TestLoadModel(t *testing.T) {
 	
 	resp, err := client.LoadModel(context.Background(), &pb.ModelOptions{
 		ModelFile: mainModelPath,
+		ModelPath: modelDir,
 		Options: []string{
 			"text_encoder_model:Qwen3-Embedding-0.6B-Q8_0.gguf",
 			"dit_model:acestep-v15-turbo-Q8_0.gguf",
@@ -151,6 +152,7 @@ func TestSoundGeneration(t *testing.T) {
 	// Load models
 	loadResp, err := client.LoadModel(context.Background(), &pb.ModelOptions{
 		ModelFile: mainModelPath,
+		ModelPath: modelDir,
 		Options: []string{
 			"text_encoder_model:Qwen3-Embedding-0.6B-Q8_0.gguf",
 			"dit_model:acestep-v15-turbo-Q8_0.gguf",

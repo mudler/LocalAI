@@ -24,7 +24,7 @@ func (a *AceStepCpp) Load(opts *pb.ModelOptions) error {
 	lmModel := opts.ModelFile
 
 	// Get the base directory from ModelFile for resolving relative paths
-	baseDir := filepath.Dir(lmModel)
+	baseDir := opts.ModelPath
 
 	var textEncoderModel, ditModel, vaeModel string
 
