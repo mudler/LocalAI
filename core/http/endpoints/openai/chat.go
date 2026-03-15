@@ -139,10 +139,8 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 			}
 
 			delta := &schema.Message{}
-			// Only include content if there's actual content (not just thinking tags)
-			if deltaContent != "" {
-				delta.Content = &deltaContent
-			}
+			// Always include content field in streaming responses to ensure proper OpenAI API compatibility
+			delta.Content = &deltaContent
 			if reasoningDelta != nil && *reasoningDelta != "" {
 				delta.Reasoning = reasoningDelta
 			}
