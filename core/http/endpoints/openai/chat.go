@@ -174,8 +174,78 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 
 		result := ""
 		lastEmittedCount := 0
+
+		// Track accumulated content for incremental reasoning and content extraction (mirrors process())
+		accumulatedContent := ""
+		lastEmittedReasoning := ""
+		lastEmittedCleanedContent := ""
+		sentInitialRole := false
+
 		_, tokenUsage, chatDeltas, err := ComputeChoices(req, prompt, config, cl, startupOptions, loader, func(s string, c *[]schema.Choice) {}, func(s string, usage backend.TokenUsage) bool {
 			result += s
+			accumulatedContent += s
+
+			// Incremental reasoning extraction — emit reasoning deltas in their own SSE chunks
+			// before any tool-call chunks (OpenAI spec: reasoning and tool_calls never share a delta)
+			currentReasoning, cleanedContent := reason.ExtractReasoningWithConfig(accumulatedContent, thinkingStartToken, config.ReasoningConfig)
+
+			var reasoningDelta *string
+			if currentReasoning != lastEmittedReasoning {
+				if len(currentReasoning) > len(lastEmittedReasoning) && strings.HasPrefix(currentReasoning, lastEmittedReasoning) {
+					newReasoning := currentReasoning[len(lastEmittedReasoning):]
+					reasoningDelta = &newReasoning
+					lastEmittedReasoning = currentReasoning
+				} else if currentReasoning != "" {
+					reasoningDelta = &currentReasoning
+					lastEmittedReasoning = currentReasoning
+				}
+			}
+
+			if reasoningDelta != nil && *reasoningDelta != "" {
+				responses <- schema.OpenAIResponse{
+					ID:      id,
+					Created: created,
+					Model:   req.Model,
+					Choices: []schema.Choice{{
+						Delta: &schema.Message{Reasoning: reasoningDelta},
+						Index: 0,
+					}},
+					Object: "chat.completion.chunk",
+				}
+			}
+
+			// Stream content deltas (cleaned of reasoning tags) while no tool calls
+			// have been detected. Once the incremental parser finds tool calls,
+			// content stops — per OpenAI spec, content and tool_calls don't mix.
+			if lastEmittedCount == 0 && cleanedContent != "" {
+				var deltaContent string
+				if len(cleanedContent) > len(lastEmittedCleanedContent) && strings.HasPrefix(cleanedContent, lastEmittedCleanedContent) {
+					deltaContent = cleanedContent[len(lastEmittedCleanedContent):]
+					lastEmittedCleanedContent = cleanedContent
+				} else if cleanedContent != lastEmittedCleanedContent {
+					deltaContent = cleanedContent
+					lastEmittedCleanedContent = cleanedContent
+				}
+				if deltaContent != "" {
+					if !sentInitialRole {
+						responses <- schema.OpenAIResponse{
+							ID: id, Created: created, Model: req.Model,
+							Choices: []schema.Choice{{Delta: &schema.Message{Role: "assistant"}, Index: 0}},
+							Object:  "chat.completion.chunk",
+						}
+						sentInitialRole = true
+					}
+					responses <- schema.OpenAIResponse{
+						ID: id, Created: created, Model: req.Model,
+						Choices: []schema.Choice{{
+							Delta: &schema.Message{Content: &deltaContent},
+							Index: 0,
+						}},
+						Object: "chat.completion.chunk",
+					}
+				}
+			}
+
 			// Try incremental XML parsing for streaming support using iterative parser
 			// This allows emitting partial tool calls as they're being generated
 			cleanedResult := functions.CleanupLLMResult(result, config.FunctionsConfig)
@@ -306,20 +376,6 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 
 		switch {
 		case noActionToRun:
-			initialMessage := schema.OpenAIResponse{
-				ID:      id,
-				Created: created,
-				Model:   req.Model, // we have to return what the user sent here, due to OpenAI spec.
-				Choices: []schema.Choice{{Delta: &schema.Message{Role: "assistant"}, Index: 0, FinishReason: nil}},
-				Object:  "chat.completion.chunk",
-			}
-			responses <- initialMessage
-
-			result, err := handleQuestion(config, functionResults, result, prompt)
-			if err != nil {
-				xlog.Error("error handling question", "error", err)
-				return err
-			}
 			usage := schema.OpenAIUsage{
 				PromptTokens:     tokenUsage.Prompt,
 				CompletionTokens: tokenUsage.Completion,
@@ -330,25 +386,43 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 				usage.TimingPromptProcessing = tokenUsage.TimingPromptProcessing
 			}
 
-			var deltaReasoning *string
-			if reasoning != "" {
-				deltaReasoning = &reasoning
-			}
-			delta := &schema.Message{Content: &result}
-			if deltaReasoning != nil {
-				delta.Reasoning = deltaReasoning
-			}
+			if sentInitialRole {
+				// Content was already streamed during the callback — just emit usage.
+				delta := &schema.Message{}
+				if reasoning != "" && lastEmittedReasoning == "" {
+					delta.Reasoning = &reasoning
+				}
+				responses <- schema.OpenAIResponse{
+					ID: id, Created: created, Model: req.Model,
+					Choices: []schema.Choice{{Delta: delta, Index: 0}},
+					Object:  "chat.completion.chunk",
+					Usage:   usage,
+				}
+			} else {
+				// Content was NOT streamed — send everything at once (fallback).
+				responses <- schema.OpenAIResponse{
+					ID: id, Created: created, Model: req.Model,
+					Choices: []schema.Choice{{Delta: &schema.Message{Role: "assistant"}, Index: 0}},
+					Object:  "chat.completion.chunk",
+				}
 
-			resp := schema.OpenAIResponse{
-				ID:      id,
-				Created: created,
-				Model:   req.Model, // we have to return what the user sent here, due to OpenAI spec.
-				Choices: []schema.Choice{{Delta: delta, Index: 0, FinishReason: nil}},
-				Object:  "chat.completion.chunk",
-				Usage:   usage,
-			}
+				result, err := handleQuestion(config, functionResults, result, prompt)
+				if err != nil {
+					xlog.Error("error handling question", "error", err)
+					return err
+				}
 
-			responses <- resp
+				delta := &schema.Message{Content: &result}
+				if reasoning != "" {
+					delta.Reasoning = &reasoning
+				}
+				responses <- schema.OpenAIResponse{
+					ID: id, Created: created, Model: req.Model,
+					Choices: []schema.Choice{{Delta: delta, Index: 0}},
+					Object:  "chat.completion.chunk",
+					Usage:   usage,
+				}
+			}
 
 		default:
 			for i, ss := range functionResults {

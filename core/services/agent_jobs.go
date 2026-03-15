@@ -887,6 +887,35 @@ func (s *AgentJobService) executeJobInternal(job schema.Job, task schema.Task, c
 			job.Traces = append(job.Traces, trace)
 			s.jobs.Set(job.ID, job)
 		}),
+		cogito.WithStreamCallback(func(ev cogito.StreamEvent) {
+			switch ev.Type {
+			case cogito.StreamEventReasoning:
+				trace := schema.JobTrace{
+					Type:      "stream_reasoning",
+					Content:   ev.Content,
+					Timestamp: time.Now(),
+				}
+				job.Traces = append(job.Traces, trace)
+				s.jobs.Set(job.ID, job)
+			case cogito.StreamEventContent:
+				trace := schema.JobTrace{
+					Type:      "stream_content",
+					Content:   ev.Content,
+					Timestamp: time.Now(),
+				}
+				job.Traces = append(job.Traces, trace)
+				s.jobs.Set(job.ID, job)
+			case cogito.StreamEventToolCall:
+				trace := schema.JobTrace{
+					Type:     "stream_tool_call",
+					Content:  ev.ToolArgs,
+					ToolName: ev.ToolName,
+					Timestamp: time.Now(),
+				}
+				job.Traces = append(job.Traces, trace)
+				s.jobs.Set(job.ID, job)
+			}
+		}),
 	)
 
 	// Execute tools
