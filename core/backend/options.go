@@ -116,6 +116,7 @@ func grpcModelOpts(c config.ModelConfig, modelPath string) *pb.ModelOptions {
 	if c.Backend != "" {
 		if strings.Contains(strings.ToLower(c.Backend), "intel") || strings.Contains(strings.ToLower(c.Backend), "sycl") {
 			mmap = false
+			xlog.Info("Auto-disabling mmap for Intel SYCL backend", "backend", c.Backend)
 		}
 	}
 
