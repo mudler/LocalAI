@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 
 	"github.com/labstack/echo/v4"
@@ -20,6 +21,9 @@ import (
 func GetEditModelPage(cl *config.ModelConfigLoader, appConfig *config.ApplicationConfig) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		modelName := c.Param("name")
+		if decoded, err := url.PathUnescape(modelName); err == nil {
+			modelName = decoded
+		}
 		if modelName == "" {
 			response := ModelResponse{
 				Success: false,
@@ -82,6 +86,9 @@ func GetEditModelPage(cl *config.ModelConfigLoader, appConfig *config.Applicatio
 func EditModelEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		modelName := c.Param("name")
+		if decoded, err := url.PathUnescape(modelName); err == nil {
+			modelName = decoded
+		}
 		if modelName == "" {
 			response := ModelResponse{
 				Success: false,
