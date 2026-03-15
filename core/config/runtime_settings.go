@@ -10,9 +10,9 @@ package config
 // All fields are pointers to distinguish between "not set" and "set to zero/false value".
 type RuntimeSettings struct {
 	// Watchdog settings
-	WatchdogEnabled     *bool   `json:"watchdog_enabled,omitempty"`
-	WatchdogIdleEnabled *bool   `json:"watchdog_idle_enabled,omitempty"`
-	WatchdogBusyEnabled *bool   `json:"watchdog_busy_enabled,omitempty"`
+	WatchdogEnabled     *bool   `json:"watchdog_enabled"`
+	WatchdogIdleEnabled *bool   `json:"watchdog_idle_enabled"`
+	WatchdogBusyEnabled *bool   `json:"watchdog_busy_enabled"`
 	WatchdogIdleTimeout *string `json:"watchdog_idle_timeout,omitempty"`
 	WatchdogBusyTimeout *string `json:"watchdog_busy_timeout,omitempty"`
 	WatchdogInterval    *string `json:"watchdog_interval,omitempty"` // Interval between watchdog checks (e.g., 2s, 30s)
@@ -23,8 +23,8 @@ type RuntimeSettings struct {
 	ParallelBackendRequests *bool `json:"parallel_backend_requests,omitempty"`
 
 	// Memory Reclaimer settings (works with GPU if available, otherwise RAM)
-	MemoryReclaimerEnabled   *bool    `json:"memory_reclaimer_enabled,omitempty"`   // Enable memory threshold monitoring
-	MemoryReclaimerThreshold *float64 `json:"memory_reclaimer_threshold,omitempty"` // Threshold 0.0-1.0 (e.g., 0.95 = 95%)
+	MemoryReclaimerEnabled   *bool    `json:"memory_reclaimer_enabled"`   // Enable memory threshold monitoring
+	MemoryReclaimerThreshold *float64 `json:"memory_reclaimer_threshold"` // Threshold 0.0-1.0 (e.g., 0.95 = 95%)
 
 	// Eviction settings
 	ForceEvictionWhenBusy      *bool   `json:"force_eviction_when_busy,omitempty"`      // Force eviction even when models have active API calls (default: false for safety)
