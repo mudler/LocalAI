@@ -6,9 +6,9 @@ import (
 	"math/rand"
 	"os"
 
+	"github.com/mudler/xlog"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/mudler/xlog"
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/pkg/grpc"

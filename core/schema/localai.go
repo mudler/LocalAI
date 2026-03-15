@@ -25,9 +25,9 @@ type GalleryResponse struct {
 	ID        string `json:"uuid"`
 	StatusURL string `json:"status"`
 
-	EstimatedVRAMBytes    uint64 `json:"estimated_vram_bytes,omitempty"`
-	EstimatedVRAMDisplay  string `json:"estimated_vram_display,omitempty"`
-	EstimatedSizeBytes    uint64 `json:"estimated_size_bytes,omitempty"`
+	EstimatedVRAMBytes   uint64 `json:"estimated_vram_bytes,omitempty"`
+	EstimatedVRAMDisplay string `json:"estimated_vram_display,omitempty"`
+	EstimatedSizeBytes   uint64 `json:"estimated_size_bytes,omitempty"`
 	EstimatedSizeDisplay string `json:"estimated_size_display,omitempty"`
 }
 
@@ -53,13 +53,13 @@ type VideoRequest struct {
 // @Description TTS request body
 type TTSRequest struct {
 	BasicModelRequest
-	Input    string `json:"input" yaml:"input"` // text input
-	Voice    string `json:"voice" yaml:"voice"` // voice audio file or speaker id
-	Backend  string `json:"backend" yaml:"backend"`
-	Language string `json:"language,omitempty" yaml:"language,omitempty"`               // (optional) language to use with TTS model
-	Format   string `json:"response_format,omitempty" yaml:"response_format,omitempty"` // (optional) output format
-	Stream     bool   `json:"stream,omitempty" yaml:"stream,omitempty"`                         // (optional) enable streaming TTS
-	SampleRate int    `json:"sample_rate,omitempty" yaml:"sample_rate,omitempty"`               // (optional) desired output sample rate
+	Input      string `json:"input" yaml:"input"` // text input
+	Voice      string `json:"voice" yaml:"voice"` // voice audio file or speaker id
+	Backend    string `json:"backend" yaml:"backend"`
+	Language   string `json:"language,omitempty" yaml:"language,omitempty"`               // (optional) language to use with TTS model
+	Format     string `json:"response_format,omitempty" yaml:"response_format,omitempty"` // (optional) output format
+	Stream     bool   `json:"stream,omitempty" yaml:"stream,omitempty"`                   // (optional) enable streaming TTS
+	SampleRate int    `json:"sample_rate,omitempty" yaml:"sample_rate,omitempty"`         // (optional) desired output sample rate
 }
 
 // @Description VAD request body

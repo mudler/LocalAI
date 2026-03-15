@@ -144,14 +144,14 @@ type ToolFormatMarkers struct {
 	ArgsEnd        string
 
 	// JSON format fields
-	NameField        string
-	ArgsField        string
-	IDField          string
-	FunNameIsKey     bool
+	NameField         string
+	ArgsField         string
+	IDField           string
+	FunNameIsKey      bool
 	ToolsArrayWrapped bool
-	UsesPythonDicts  bool
-	FunctionField    string
-	ParameterOrder   []string
+	UsesPythonDicts   bool
+	FunctionField     string
+	ParameterOrder    []string
 
 	// Generated ID field
 	GenIDField string
@@ -786,7 +786,6 @@ func genPartialJSON(args map[string]any, functionName string, rest string, needl
 	}
 	return jsonStr, false
 }
-
 
 // parseParameterValue parses a parameter value based on format configuration
 // Implements JSON-first parsing: tries JSON parsing first (if raw_argval is false/null),

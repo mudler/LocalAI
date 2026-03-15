@@ -513,7 +513,7 @@ var _ = Describe("Gallery", func() {
 			err = mergo.Merge(&configMap, models[1].Overrides, mergo.WithOverride)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(configMap["parameters"]).NotTo(BeNil())
-			
+
 			// Verify the merge worked correctly
 			mergedParams := configMap["parameters"].(map[string]interface{})
 			Expect(mergedParams["model"]).To(Equal("nanbeige4.1-3b-q4_k_m.gguf"))

@@ -141,16 +141,16 @@ func (s *AgentPoolService) Start(ctx context.Context) error {
 
 	// Create in-process collections backend and RAG provider directly
 	collectionsCfg := &collections.Config{
-		LLMAPIURL:       apiURL,
-		LLMAPIKey:       apiKey,
-		LLMModel:        cfg.DefaultModel,
+		LLMAPIURL:        apiURL,
+		LLMAPIKey:        apiKey,
+		LLMModel:         cfg.DefaultModel,
 		CollectionDBPath: collectionDBPath,
 		FileAssets:       fileAssets,
-		VectorEngine:    cfg.VectorEngine,
-		EmbeddingModel:  cfg.EmbeddingModel,
-		MaxChunkingSize: cfg.MaxChunkingSize,
-		ChunkOverlap:    cfg.ChunkOverlap,
-		DatabaseURL:     cfg.DatabaseURL,
+		VectorEngine:     cfg.VectorEngine,
+		EmbeddingModel:   cfg.EmbeddingModel,
+		MaxChunkingSize:  cfg.MaxChunkingSize,
+		ChunkOverlap:     cfg.ChunkOverlap,
+		DatabaseURL:      cfg.DatabaseURL,
 	}
 	collectionsBackend, collectionsState := collections.NewInProcessBackend(collectionsCfg)
 	s.collectionsBackend = collectionsBackend

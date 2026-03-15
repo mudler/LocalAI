@@ -13,9 +13,9 @@ import (
 	"github.com/mudler/xlog"
 
 	"github.com/mudler/LocalAI/core/config"
-	"github.com/mudler/LocalAI/core/trace"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services"
+	"github.com/mudler/LocalAI/core/trace"
 
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/pkg/grpc/proto"
@@ -27,7 +27,7 @@ type LLMResponse struct {
 	Response    string // should this be []byte?
 	Usage       TokenUsage
 	AudioOutput string
-	Logprobs    *schema.Logprobs // Logprobs from the backend response
+	Logprobs    *schema.Logprobs   // Logprobs from the backend response
 	ChatDeltas  []*proto.ChatDelta // Pre-parsed tool calls/content from C++ autoparser
 }
 
@@ -249,12 +249,12 @@ func ModelInference(ctx context.Context, s string, messages schema.Messages, ima
 			"use_tokenizer_template": c.TemplateConfig.UseTokenizerTemplate,
 			"chat_template":          c.TemplateConfig.Chat,
 			"function_template":      c.TemplateConfig.Functions,
-			"grammar":               c.Grammar,
-			"stop_words":            c.StopWords,
-			"streaming":             tokenCallback != nil,
-			"images_count":          len(images),
-			"videos_count":          len(videos),
-			"audios_count":          len(audios),
+			"grammar":                c.Grammar,
+			"stop_words":             c.StopWords,
+			"streaming":              tokenCallback != nil,
+			"images_count":           len(images),
+			"videos_count":           len(videos),
+			"audios_count":           len(audios),
 		}
 
 		if len(messages) > 0 {

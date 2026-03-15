@@ -1,6 +1,5 @@
 package peg
 
-
 // Parser is the interface all parser types implement.
 type Parser interface {
 	parse(arena *Arena, ctx *ParseContext, start int) ParseResult

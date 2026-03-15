@@ -261,18 +261,18 @@ func (cb *ChatBuilder) StandardConstructedTools(
 
 // StandardJSONToolsOpts holds options for building JSON tool call parsers.
 type StandardJSONToolsOpts struct {
-	SectionStart     string
-	SectionEnd       string
-	Tools            []ToolDef
-	ParallelCalls    bool
-	ForceToolCalls   bool
-	NameKey          string
-	ArgsKey          string
-	ArrayWrapped     bool
-	FunctionIsKey    bool
-	CallIDKey        string
-	GenCallIDKey     string
-	ParametersOrder  []string
+	SectionStart    string
+	SectionEnd      string
+	Tools           []ToolDef
+	ParallelCalls   bool
+	ForceToolCalls  bool
+	NameKey         string
+	ArgsKey         string
+	ArrayWrapped    bool
+	FunctionIsKey   bool
+	CallIDKey       string
+	GenCallIDKey    string
+	ParametersOrder []string
 }
 
 // StandardJSONTools builds JSON-format tool call parsers.
@@ -604,11 +604,11 @@ type ChatMsg struct {
 type ChatPegMapper struct {
 	Result ChatMsg
 
-	pendingToolCall   *ToolCall
-	currentTool       *ToolCall
-	argCount          int
-	closingQuotePend  bool
-	argsBuffer        string
+	pendingToolCall  *ToolCall
+	currentTool      *ToolCall
+	argCount         int
+	closingQuotePend bool
+	argsBuffer       string
 }
 
 func (m *ChatPegMapper) argsTarget() *string {

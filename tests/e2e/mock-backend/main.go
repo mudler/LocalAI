@@ -48,11 +48,11 @@ func (m *MockBackend) Predict(ctx context.Context, in *pb.PredictOptions) (*pb.R
 		response = "This is a mocked response."
 	}
 	return &pb.Reply{
-		Message:                 []byte(response),
-		Tokens:                  10,
-		PromptTokens:            5,
-		TimingPromptProcessing:  0.1,
-		TimingTokenGeneration:   0.2,
+		Message:                []byte(response),
+		Tokens:                 10,
+		PromptTokens:           5,
+		TimingPromptProcessing: 0.1,
+		TimingTokenGeneration:  0.2,
 	}, nil
 }
 
@@ -216,10 +216,10 @@ func (m *MockBackend) AudioTranscription(ctx context.Context, in *pb.TranscriptR
 		Text: "This is a mocked transcription.",
 		Segments: []*pb.TranscriptSegment{
 			{
-				Id:    0,
-				Start: 0,
-				End:   3000,
-				Text:  "This is a mocked transcription.",
+				Id:     0,
+				Start:  0,
+				End:    3000,
+				Text:   "This is a mocked transcription.",
 				Tokens: []int32{1, 2, 3, 4, 5, 6},
 			},
 		},
@@ -232,7 +232,7 @@ func (m *MockBackend) TokenizeString(ctx context.Context, in *pb.PredictOptions)
 	tokens := []int32{101, 2023, 2003, 1037, 3231, 1012}
 	return &pb.TokenizationResponse{
 		Length: int32(len(tokens)),
-		Tokens:  tokens,
+		Tokens: tokens,
 	}, nil
 }
 
@@ -254,12 +254,12 @@ func (m *MockBackend) Detect(ctx context.Context, in *pb.DetectOptions) (*pb.Det
 	return &pb.DetectResponse{
 		Detections: []*pb.Detection{
 			{
-				X:         10.0,
-				Y:         20.0,
-				Width:     100.0,
-				Height:    200.0,
+				X:          10.0,
+				Y:          20.0,
+				Width:      100.0,
+				Height:     200.0,
 				Confidence: 0.95,
-				ClassName: "mocked_object",
+				ClassName:  "mocked_object",
 			},
 		},
 	}, nil
@@ -311,8 +311,8 @@ func (m *MockBackend) StoresFind(ctx context.Context, in *pb.StoresFindOptions) 
 	}
 	similarities := []float32{0.95, 0.85}
 	return &pb.StoresFindResult{
-		Keys:        keys,
-		Values:      values,
+		Keys:         keys,
+		Values:       values,
 		Similarities: similarities,
 	}, nil
 }
@@ -340,10 +340,10 @@ func (m *MockBackend) Rerank(ctx context.Context, in *pb.RerankRequest) (*pb.Rer
 func (m *MockBackend) GetMetrics(ctx context.Context, in *pb.MetricsRequest) (*pb.MetricsResponse, error) {
 	xlog.Debug("GetMetrics called")
 	return &pb.MetricsResponse{
-		SlotId:              0,
-		PromptJsonForSlot:   `{"prompt":"mocked"}`,
-		TokensPerSecond:     10.0,
-		TokensGenerated:     100,
+		SlotId:                0,
+		PromptJsonForSlot:     `{"prompt":"mocked"}`,
+		TokensPerSecond:       10.0,
+		TokensGenerated:       100,
 		PromptTokensProcessed: 50,
 	}, nil
 }

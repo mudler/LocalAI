@@ -11,12 +11,12 @@ import (
 	"strings"
 
 	"github.com/labstack/echo/v4"
-	"github.com/mudler/LocalAI/core/application"
-	"github.com/mudler/LocalAI/core/services"
-	"github.com/mudler/LocalAI/pkg/utils"
 	"github.com/mudler/LocalAGI/core/state"
 	coreTypes "github.com/mudler/LocalAGI/core/types"
 	agiServices "github.com/mudler/LocalAGI/services"
+	"github.com/mudler/LocalAI/core/application"
+	"github.com/mudler/LocalAI/core/services"
+	"github.com/mudler/LocalAI/pkg/utils"
 )
 
 func ListAgentsEndpoint(app *application.Application) echo.HandlerFunc {

@@ -140,7 +140,7 @@ func handleAnthropicNonStream(c echo.Context, id string, input *schema.Anthropic
 		}
 		xlog.Warn("Anthropic: retrying prediction due to empty backend response", "attempt", attempt+1, "maxRetries", maxEmptyRetries)
 	}
-	
+
 	// Try pre-parsed tool calls from C++ autoparser first, fall back to text parsing
 	var toolCalls []functions.FuncCallResults
 	if deltaToolCalls := functions.ToolCallsFromChatDeltas(prediction.ChatDeltas); len(deltaToolCalls) > 0 {
@@ -150,10 +150,10 @@ func handleAnthropicNonStream(c echo.Context, id string, input *schema.Anthropic
 		xlog.Debug("[ChatDeltas] Anthropic: no pre-parsed tool calls, falling back to Go-side text parsing")
 		toolCalls = functions.ParseFunctionCall(result, cfg.FunctionsConfig)
 	}
-	
+
 	var contentBlocks []schema.AnthropicContentBlock
 	var stopReason string
-	
+
 	if shouldUseFn && len(toolCalls) > 0 {
 		// Model wants to use tools
 		stopReason = "tool_use"
@@ -164,7 +164,7 @@ func handleAnthropicNonStream(c echo.Context, id string, input *schema.Anthropic
 				xlog.Warn("Failed to parse tool call arguments as JSON", "error", err, "args", tc.Arguments)
 				inputArgs = map[string]interface{}{"raw": tc.Arguments}
 			}
-			
+
 			contentBlocks = append(contentBlocks, schema.AnthropicContentBlock{
 				Type:  "tool_use",
 				ID:    fmt.Sprintf("toolu_%s_%d", id, len(contentBlocks)),
@@ -172,7 +172,7 @@ func handleAnthropicNonStream(c echo.Context, id string, input *schema.Anthropic
 				Input: inputArgs,
 			})
 		}
-		
+
 		// Add any text content before the tool calls
 		textContent := functions.ParseTextContent(result, cfg.FunctionsConfig)
 		if textContent != "" {
@@ -239,7 +239,7 @@ func handleAnthropicStream(c echo.Context, id string, input *schema.AnthropicReq
 	currentBlockIndex := 0
 	inToolCall := false
 	toolCallsEmitted := 0
-	
+
 	// Send initial content_block_start event
 	contentBlockStart := schema.AnthropicStreamEvent{
 		Type:         "content_block_start",
@@ -251,14 +251,14 @@ func handleAnthropicStream(c echo.Context, id string, input *schema.AnthropicReq
 	// Stream content deltas
 	tokenCallback := func(token string, usage backend.TokenUsage) bool {
 		accumulatedContent += token
-		
+
 		// If we're using functions, try to detect tool calls incrementally
 		if shouldUseFn {
 			cleanedResult := functions.CleanupLLMResult(accumulatedContent, cfg.FunctionsConfig)
-			
+
 			// Try parsing for tool calls
 			toolCalls := functions.ParseFunctionCall(cleanedResult, cfg.FunctionsConfig)
-			
+
 			// If we detected new tool calls and haven't emitted them yet
 			if len(toolCalls) > toolCallsEmitted {
 				// Stop the current text block if we were in one
@@ -270,11 +270,11 @@ func handleAnthropicStream(c echo.Context, id string, input *schema.AnthropicReq
 					currentBlockIndex++
 					inToolCall = true
 				}
-				
+
 				// Emit new tool calls
 				for i := toolCallsEmitted; i < len(toolCalls); i++ {
 					tc := toolCalls[i]
-					
+
 					// Send content_block_start for tool_use
 					sendAnthropicSSE(c, schema.AnthropicStreamEvent{
 						Type:  "content_block_start",
@@ -285,7 +285,7 @@ func handleAnthropicStream(c echo.Context, id string, input *schema.AnthropicReq
 							Name: tc.Name,
 						},
 					})
-					
+
 					// Send input_json_delta with the arguments
 					sendAnthropicSSE(c, schema.AnthropicStreamEvent{
 						Type:  "content_block_delta",
@@ -295,20 +295,20 @@ func handleAnthropicStream(c echo.Context, id string, input *schema.AnthropicReq
 							PartialJSON: tc.Arguments,
 						},
 					})
-					
+
 					// Send content_block_stop
 					sendAnthropicSSE(c, schema.AnthropicStreamEvent{
 						Type:  "content_block_stop",
 						Index: currentBlockIndex,
 					})
-					
+
 					currentBlockIndex++
 				}
 				toolCallsEmitted = len(toolCalls)
 				return true
 			}
 		}
-		
+
 		// Send regular text delta if not in tool call mode
 		if !inToolCall {
 			delta := schema.AnthropicStreamEvent{
@@ -467,14 +467,14 @@ func convertAnthropicToOpenAIMessages(input *schema.AnthropicRequest) []schema.M
 						toolID, _ := blockMap["id"].(string)
 						toolName, _ := blockMap["name"].(string)
 						toolInput := blockMap["input"]
-						
+
 						// Serialize input to JSON string
 						inputJSON, err := json.Marshal(toolInput)
 						if err != nil {
 							xlog.Warn("Failed to marshal tool input", "error", err)
 							inputJSON = []byte("{}")
 						}
-						
+
 						toolCalls = append(toolCalls, schema.ToolCall{
 							Index: toolCallIndex,
 							ID:    toolID,
@@ -494,7 +494,7 @@ func convertAnthropicToOpenAIMessages(input *schema.AnthropicRequest) []schema.M
 						if isErrorPtr, ok := blockMap["is_error"].(*bool); ok && isErrorPtr != nil {
 							isError = *isErrorPtr
 						}
-						
+
 						var resultText string
 						if resultContent, ok := blockMap["content"]; ok {
 							switch rc := resultContent.(type) {
@@ -513,7 +513,7 @@ func convertAnthropicToOpenAIMessages(input *schema.AnthropicRequest) []schema.M
 								}
 							}
 						}
-						
+
 						// Add tool result as a tool role message
 						// We need to handle this differently - create a new message
 						if msg.Role == "user" {
@@ -530,7 +530,7 @@ func convertAnthropicToOpenAIMessages(input *schema.AnthropicRequest) []schema.M
 			openAIMsg.StringContent = textContent
 			openAIMsg.Content = textContent
 			openAIMsg.StringImages = stringImages
-			
+
 			// Add tool calls if present
 			if len(toolCalls) > 0 {
 				openAIMsg.ToolCalls = toolCalls
@@ -548,7 +548,7 @@ func convertAnthropicTools(input *schema.AnthropicRequest, cfg *config.ModelConf
 	if len(input.Tools) == 0 {
 		return nil, false
 	}
-	
+
 	var funcs functions.Functions
 	for _, tool := range input.Tools {
 		f := functions.Function{
@@ -558,7 +558,7 @@ func convertAnthropicTools(input *schema.AnthropicRequest, cfg *config.ModelConf
 		}
 		funcs = append(funcs, f)
 	}
-	
+
 	// Handle tool_choice
 	if input.ToolChoice != nil {
 		switch tc := input.ToolChoice.(type) {
@@ -582,6 +582,6 @@ func convertAnthropicTools(input *schema.AnthropicRequest, cfg *config.ModelConf
 			}
 		}
 	}
-	
+
 	return funcs, len(funcs) > 0 && cfg.ShouldUseFunctions()
 }

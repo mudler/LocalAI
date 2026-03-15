@@ -14,15 +14,15 @@ import (
 type BackendTraceType string
 
 const (
-	BackendTraceLLM              BackendTraceType = "llm"
-	BackendTraceEmbedding        BackendTraceType = "embedding"
-	BackendTraceTranscription    BackendTraceType = "transcription"
-	BackendTraceImageGeneration  BackendTraceType = "image_generation"
-	BackendTraceVideoGeneration  BackendTraceType = "video_generation"
-	BackendTraceTTS              BackendTraceType = "tts"
-	BackendTraceSoundGeneration  BackendTraceType = "sound_generation"
-	BackendTraceRerank           BackendTraceType = "rerank"
-	BackendTraceTokenize         BackendTraceType = "tokenize"
+	BackendTraceLLM             BackendTraceType = "llm"
+	BackendTraceEmbedding       BackendTraceType = "embedding"
+	BackendTraceTranscription   BackendTraceType = "transcription"
+	BackendTraceImageGeneration BackendTraceType = "image_generation"
+	BackendTraceVideoGeneration BackendTraceType = "video_generation"
+	BackendTraceTTS             BackendTraceType = "tts"
+	BackendTraceSoundGeneration BackendTraceType = "sound_generation"
+	BackendTraceRerank          BackendTraceType = "rerank"
+	BackendTraceTokenize        BackendTraceType = "tokenize"
 )
 
 type BackendTrace struct {
