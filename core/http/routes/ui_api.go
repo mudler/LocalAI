@@ -650,6 +650,9 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 	// Get installed model YAML config for the React model editor
 	app.GET("/api/models/edit/:name", func(c echo.Context) error {
 		modelName := c.Param("name")
+		if decoded, err := url.PathUnescape(modelName); err == nil {
+			modelName = decoded
+		}
 		if modelName == "" {
 			return c.JSON(http.StatusBadRequest, map[string]interface{}{
 				"error": "model name is required",
