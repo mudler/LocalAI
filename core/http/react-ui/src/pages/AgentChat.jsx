@@ -104,6 +104,9 @@ export default function AgentChat() {
   const [editingName, setEditingName] = useState(null)
   const [editName, setEditName] = useState('')
   const [chatSearch, setChatSearch] = useState('')
+  const [streamContent, setStreamContent] = useState('')
+  const [streamReasoning, setStreamReasoning] = useState('')
+  const [streamToolCalls, setStreamToolCalls] = useState([])
   const messagesEndRef = useRef(null)
   const messagesRef = useRef(null)
   const textareaRef = useRef(null)
@@ -150,8 +153,41 @@ export default function AgentChat() {
         const data = JSON.parse(e.data)
         if (data.status === 'processing') {
           setProcessingChatId(activeIdRef.current)
+          setStreamContent('')
+          setStreamReasoning('')
+          setStreamToolCalls([])
         } else if (data.status === 'completed') {
           setProcessingChatId(null)
+          setStreamContent('')
+          setStreamReasoning('')
+          setStreamToolCalls([])
+        }
+      } catch (_err) {
+        // ignore
+      }
+    })
+
+    es.addEventListener('stream_event', (e) => {
+      try {
+        const data = JSON.parse(e.data)
+        if (data.type === 'reasoning') {
+          setStreamReasoning(prev => prev + (data.content || ''))
+        } else if (data.type === 'content') {
+          setStreamContent(prev => prev + (data.content || ''))
+        } else if (data.type === 'tool_call') {
+          const name = data.tool_name || ''
+          const args = data.tool_args || ''
+          setStreamToolCalls(prev => {
+            if (name) {
+              return [...prev, { name, args }]
+            }
+            if (prev.length === 0) return prev
+            const updated = [...prev]
+            updated[updated.length - 1] = { ...updated[updated.length - 1], args: updated[updated.length - 1].args + args }
+            return updated
+          })
+        } else if (data.type === 'done') {
+          // Content will be finalized by json_message event
         }
       } catch (_err) {
         // ignore
@@ -192,7 +228,7 @@ export default function AgentChat() {
   // Auto-scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
+  }, [messages, streamContent, streamReasoning, streamToolCalls])
 
   // Highlight code blocks
   useEffect(() => {
@@ -537,7 +573,50 @@ export default function AgentChat() {
           flushSystem('end')
           return elements
         })()}
-        {processing && (
+        {processing && (streamReasoning || streamContent || streamToolCalls.length > 0) && (
+          <div className="chat-message chat-message-assistant">
+            <div className="chat-message-avatar">
+              <i className="fas fa-robot" />
+            </div>
+            <div className="chat-message-bubble">
+              {streamReasoning && (
+                <details className="chat-activity-group" open={!streamContent} style={{ marginBottom: streamContent ? 'var(--spacing-sm)' : 0 }}>
+                  <summary className="chat-activity-toggle" style={{ cursor: 'pointer' }}>
+                    <span className={`chat-activity-summary${!streamContent ? ' chat-activity-shimmer' : ''}`}>
+                      {streamContent ? 'Thinking' : 'Thinking...'}
+                    </span>
+                  </summary>
+                  <div className="chat-activity-details">
+                    <div className="chat-activity-item chat-activity-thinking">
+                      <div className="chat-activity-item-content chat-activity-live"
+                        dangerouslySetInnerHTML={{ __html: renderMarkdown(streamReasoning) }} />
+                    </div>
+                  </div>
+                </details>
+              )}
+              {streamToolCalls.length > 0 && !streamContent && (
+                <div className="chat-activity-group" style={{ marginBottom: 'var(--spacing-sm)' }}>
+                  {streamToolCalls.map((tc, idx) => (
+                    <div key={idx} className="chat-activity-item chat-activity-tool-call" style={{ padding: 'var(--spacing-xs) var(--spacing-sm)' }}>
+                      <span className="chat-activity-item-label">
+                        <i className="fas fa-bolt" style={{ marginRight: 'var(--spacing-xs)' }} />
+                        {tc.name}
+                      </span>
+                      <span style={{ opacity: 0.5, fontSize: '0.85em', marginLeft: 'var(--spacing-xs)' }}>calling...</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {streamContent && (
+                <div className="chat-message-content">
+                  <span dangerouslySetInnerHTML={{ __html: renderMarkdown(streamContent) }} />
+                  <span className="chat-streaming-cursor" />
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+        {processing && !streamReasoning && !streamContent && streamToolCalls.length === 0 && (
           <div className="chat-message chat-message-assistant">
             <div className="chat-message-avatar" style={{ background: 'var(--color-bg-tertiary)', color: 'var(--color-text-muted)' }}>
               <i className="fas fa-cogs" />

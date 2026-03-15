@@ -1737,6 +1737,16 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 
 		for mcpStreamIter := 0; mcpStreamIter <= mcpStreamMaxIterations; mcpStreamIter++ {
 		if mcpStreamIter > 0 {
+			// Reset reasoning and tool-call state for re-inference so reasoning
+			// extraction runs again on subsequent iterations
+			inToolCallMode = false
+			accumulatedContent = ""
+			lastEmittedReasoning = ""
+			lastEmittedCleanedContent = ""
+			currentMessageID = ""
+			lastEmittedToolCallCount = 0
+			currentReasoningID = ""
+
 			predInput = evaluator.TemplateMessages(*openAIReq, openAIReq.Messages, cfg, funcs, shouldUseFn)
 			xlog.Debug("Open Responses stream MCP re-templating", "iteration", mcpStreamIter)
 			images = images[:0]
