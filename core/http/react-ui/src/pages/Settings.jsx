@@ -140,7 +140,7 @@ export default function Settings() {
   if (loading) return <div className="page" style={{ display: 'flex', justifyContent: 'center', padding: 'var(--spacing-xl)' }}><LoadingSpinner size="lg" /></div>
   if (!settings) return <div className="page"><div className="empty-state"><p className="empty-state-text">Settings not available</p></div></div>
 
-  const watchdogEnabled = settings.watchdog_idle || settings.watchdog_busy
+  const watchdogEnabled = settings.watchdog_idle_enabled || settings.watchdog_busy_enabled
 
   return (
     <div className="page" style={{ maxWidth: 1000, padding: 0 }}>
@@ -205,31 +205,31 @@ export default function Settings() {
             </h3>
             <div className="card">
               <SettingRow label="Enable Watchdog" description="Automatically monitor and manage backend processes">
-                <Toggle checked={settings.watchdog_idle || settings.watchdog_busy} onChange={(v) => { update('watchdog_idle', v); update('watchdog_busy', v) }} />
+                <Toggle checked={settings.watchdog_idle_enabled || settings.watchdog_busy_enabled} onChange={(v) => { update('watchdog_idle_enabled', v); update('watchdog_busy_enabled', v) }} />
               </SettingRow>
               <SettingRow label="Enable Idle Check" description="Automatically stop backends that have been idle too long">
-                <Toggle checked={settings.watchdog_idle} onChange={(v) => update('watchdog_idle', v)} disabled={!watchdogEnabled} />
+                <Toggle checked={settings.watchdog_idle_enabled} onChange={(v) => update('watchdog_idle_enabled', v)} disabled={!watchdogEnabled} />
               </SettingRow>
               <SettingRow label="Idle Timeout" description="Time before an idle backend is stopped (e.g. 15m, 1h)">
-                <input className="input" style={{ width: 120 }} value={settings.watchdog_idle_timeout || ''} onChange={(e) => update('watchdog_idle_timeout', e.target.value)} placeholder="15m" disabled={!settings.watchdog_idle} />
+                <input className="input" style={{ width: 120 }} value={settings.watchdog_idle_timeout || ''} onChange={(e) => update('watchdog_idle_timeout', e.target.value)} placeholder="15m" disabled={!settings.watchdog_idle_enabled} />
               </SettingRow>
               <SettingRow label="Enable Busy Check" description="Stop stuck/busy processes that exceed timeout">
-                <Toggle checked={settings.watchdog_busy} onChange={(v) => update('watchdog_busy', v)} disabled={!watchdogEnabled} />
+                <Toggle checked={settings.watchdog_busy_enabled} onChange={(v) => update('watchdog_busy_enabled', v)} disabled={!watchdogEnabled} />
               </SettingRow>
               <SettingRow label="Busy Timeout" description="Time before a busy backend is stopped (e.g. 5m)">
-                <input className="input" style={{ width: 120 }} value={settings.watchdog_busy_timeout || ''} onChange={(e) => update('watchdog_busy_timeout', e.target.value)} placeholder="5m" disabled={!settings.watchdog_busy} />
+                <input className="input" style={{ width: 120 }} value={settings.watchdog_busy_timeout || ''} onChange={(e) => update('watchdog_busy_timeout', e.target.value)} placeholder="5m" disabled={!settings.watchdog_busy_enabled} />
               </SettingRow>
               <SettingRow label="Check Interval" description="How often the watchdog checks backends (e.g. 2s)">
-                <input className="input" style={{ width: 120 }} value={settings.watchdog_check_interval || ''} onChange={(e) => update('watchdog_check_interval', e.target.value)} placeholder="2s" />
+                <input className="input" style={{ width: 120 }} value={settings.watchdog_interval || ''} onChange={(e) => update('watchdog_interval', e.target.value)} placeholder="2s" />
               </SettingRow>
               <SettingRow label="Force Eviction When Busy" description="Allow model eviction even during active API calls">
-                <Toggle checked={settings.force_eviction} onChange={(v) => update('force_eviction', v)} />
+                <Toggle checked={settings.force_eviction_when_busy} onChange={(v) => update('force_eviction_when_busy', v)} />
               </SettingRow>
               <SettingRow label="LRU Eviction Max Retries" description="Maximum retries waiting for busy models before eviction">
-                <input className="input" type="number" style={{ width: 120 }} value={settings.lru_retries ?? ''} onChange={(e) => update('lru_retries', parseInt(e.target.value) || 0)} placeholder="30" />
+                <input className="input" type="number" style={{ width: 120 }} value={settings.lru_eviction_max_retries ?? ''} onChange={(e) => update('lru_eviction_max_retries', parseInt(e.target.value) || 0)} placeholder="30" />
               </SettingRow>
               <SettingRow label="LRU Eviction Retry Interval" description="Wait between eviction retries (e.g. 1s)">
-                <input className="input" style={{ width: 120 }} value={settings.lru_retry_interval || ''} onChange={(e) => update('lru_retry_interval', e.target.value)} placeholder="1s" />
+                <input className="input" style={{ width: 120 }} value={settings.lru_eviction_retry_interval || ''} onChange={(e) => update('lru_eviction_retry_interval', e.target.value)} placeholder="1s" />
               </SettingRow>
             </div>
           </div>
@@ -282,13 +282,13 @@ export default function Settings() {
                 </div>
               )}
               <SettingRow label="Enable Memory Reclaimer" description="Evict backends when memory usage exceeds threshold">
-                <Toggle checked={settings.memory_reclaimer} onChange={(v) => update('memory_reclaimer', v)} />
+                <Toggle checked={settings.memory_reclaimer_enabled} onChange={(v) => update('memory_reclaimer_enabled', v)} />
               </SettingRow>
               <SettingRow label="Memory Threshold (%)" description="Eviction triggers when usage exceeds this percentage">
                 <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
-                  <input type="range" min="50" max="100" value={settings.memory_threshold || 80} onChange={(e) => update('memory_threshold', parseInt(e.target.value))} disabled={!settings.memory_reclaimer} style={{ width: 120 }} />
-                  <span style={{ fontSize: '0.875rem', fontWeight: 600, minWidth: 40, textAlign: 'right', color: percentColor(settings.memory_threshold || 80) }}>
-                    {settings.memory_threshold || 80}%
+                  <input type="range" min="50" max="100" value={Math.round((settings.memory_reclaimer_threshold || 0.8) * 100)} onChange={(e) => update('memory_reclaimer_threshold', parseInt(e.target.value) / 100)} disabled={!settings.memory_reclaimer_enabled} style={{ width: 120 }} />
+                  <span style={{ fontSize: '0.875rem', fontWeight: 600, minWidth: 40, textAlign: 'right', color: percentColor(Math.round((settings.memory_reclaimer_threshold || 0.8) * 100)) }}>
+                    {Math.round((settings.memory_reclaimer_threshold || 0.8) * 100)}%
                   </span>
                 </div>
               </SettingRow>
