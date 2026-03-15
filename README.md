@@ -92,18 +92,15 @@
 
 </details>
 
-## Local Stack Family
-
-Liking LocalAI? LocalAI is part of an integrated suite of AI infrastructure tools, you might also like:
-
-- **[LocalAGI](https://github.com/mudler/LocalAGI)** - AI agent orchestration platform with OpenAI Responses API compatibility and advanced agentic capabilities
-- **[LocalRecall](https://github.com/mudler/LocalRecall)** - MCP/REST API knowledge base system providing persistent memory and storage for AI agents
-- 🆕 **[Cogito](https://github.com/mudler/cogito)** - Go library for building intelligent, co-operative agentic software and LLM-powered workflows, focusing on improving results for small, open source language models that scales to any LLM. Powers LocalAGI and LocalAI MCP/Agentic capabilities
-- 🆕 **[Wiz](https://github.com/mudler/wiz)** - Terminal-based AI agent accessible via Ctrl+Space keybinding. Portable, local-LLM friendly shell assistant with TUI/CLI modes, tool execution with approval, MCP protocol support, and multi-shell compatibility (zsh, bash, fish)
-- 🆕 **[SkillServer](https://github.com/mudler/skillserver)** - Simple, centralized skills database for AI agents via MCP. Manages skills as Markdown files with MCP server integration, web UI for editing, Git synchronization, and full-text search capabilities
-
-
 ## Screenshots / Video
+
+### Chat, Model gallery
+
+https://github.com/user-attachments/assets/08cbb692-57da-48f7-963d-2e7b43883c18
+
+### Agents
+
+https://github.com/user-attachments/assets/6270b331-e21d-4087-a540-6290006b381a
 
 ### Youtube video
 
@@ -114,27 +111,8 @@ Liking LocalAI? LocalAI is part of an integrated suite of AI infrastructure tool
 </h1>
 
 
-### Screenshots
-
-| Talk Interface | Generate Audio |
-| --- | --- |
-| ![LocalAI - Talk](./docs/assets/images/screenshots/screenshot_talk.png) | ![LocalAI - Generate Audio](./docs/assets/images/screenshots/screenshot_tts.png) |
-
-| Models Overview | Generate Images |
-| --- | --- |
-| ![LocalAI - Models](./docs/assets/images/screenshots/screenshot_gallery.png) | ![LocalAI - Generate Images](./docs/assets/images/screenshots/screenshot_image.png) |
-
-| Chat Interface | Home |
-| --- | --- |
-| ![LocalAI - Chat](./docs/assets/images/screenshots/screenshot_chat.png) | ![LocalAI - Home](./docs/assets/images/screenshots/screenshot_home.png) |
-
-| Login | Swarm |
-| --- | --- |
-| ![LocalAI - Login](./docs/assets/images/screenshots/screenshot_login.png) | ![LocalAI - P2P Dashboard](./docs/assets/images/screenshots/screenshot_p2p.png) |
 
 ## 💻 Quickstart
-
-
 
 ### macOS Download:
 
