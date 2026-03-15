@@ -1,4 +1,36 @@
 ---
+- name: "hypnos-colossus-1t-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Hypnos-Colossus-1T-i1-GGUF
+  description: |
+    Describe the model in a clear and concise way that can be shared in a model gallery.
+  license: "MIT"
+  tags:
+    - llm
+    - gpt
+    - text-to-text
+    - code
+    - instruction-tuned
+  overrides:
+    parameters:
+      model: llama-cpp/models/Hypnos-Colossus-1T-i1-GGUF/Hypnos-Colossus-1T.imatrix.gguf
+    name: Hypnos-Colossus-1T-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Hypnos-Colossus-1T-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Hypnos-Colossus-1T-i1-GGUF/Hypnos-Colossus-1T.imatrix.gguf
+      sha256: 6e58721126ed4052e0d172122c78c277c1634cb6db1ec1578606228e4fcabf1e
+      uri: https://huggingface.co/mradermacher/Hypnos-Colossus-1T-i1-GGUF/resolve/main/Hypnos-Colossus-1T.imatrix.gguf
 - name: "qwen_qwen3.5-35b-a3b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
