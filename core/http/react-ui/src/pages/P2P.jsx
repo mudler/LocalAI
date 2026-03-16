@@ -7,7 +7,7 @@ function NodeCard({ node, label, iconColor, iconBg }) {
   return (
     <div style={{
       background: 'var(--color-bg-primary)',
-      border: `1px solid ${node.isOnline ? 'rgba(34,197,94,0.5)' : 'rgba(239,68,68,0.5)'}`,
+      border: `1px solid ${node.isOnline ? 'var(--color-success-border)' : 'var(--color-error-border)'}`,
       borderRadius: 'var(--radius-md)',
       padding: 'var(--spacing-md)',
       transition: 'border-color 200ms',
@@ -211,7 +211,7 @@ export default function P2P() {
             <div className="card" style={{ textAlign: 'center', padding: 'var(--spacing-md)' }}>
               <div style={{
                 width: 40, height: 40, borderRadius: 'var(--radius-md)', margin: '0 auto var(--spacing-sm)',
-                background: 'rgba(34,197,94,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: 'var(--color-success-light)', display: 'flex', alignItems: 'center', justifyContent: 'center',
               }}>
                 <i className="fas fa-share-alt" style={{ color: 'var(--color-success)', fontSize: '1.25rem' }} />
               </div>
@@ -305,7 +305,7 @@ export default function P2P() {
 
       {/* Network Token */}
       <div style={{
-        background: 'var(--color-bg-secondary)', border: '1px solid rgba(139,92,246,0.2)',
+        background: 'var(--color-bg-secondary)', border: '1px solid var(--color-accent-border)',
         borderRadius: 'var(--radius-lg)', padding: 'var(--spacing-lg)', marginBottom: 'var(--spacing-xl)',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', marginBottom: 'var(--spacing-md)' }}>
@@ -420,7 +420,7 @@ export default function P2P() {
       {/* ── Federation Tab ── */}
       {activeTab === 'federation' && (
         <div style={{
-          background: 'var(--color-bg-secondary)', border: '1px solid rgba(99,102,241,0.2)',
+          background: 'var(--color-bg-secondary)', border: '1px solid var(--color-accent-border)',
           borderRadius: 'var(--radius-lg)', overflow: 'hidden',
         }}>
           <div style={{ padding: 'var(--spacing-lg)', borderBottom: '1px solid var(--color-border-subtle)' }}>
@@ -433,7 +433,7 @@ export default function P2P() {
                 <div style={{ textAlign: 'center' }}>
                   <div style={{
                     width: 48, height: 48, borderRadius: 'var(--radius-md)',
-                    background: 'rgba(245,158,11,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    background: 'var(--color-warning-light)', display: 'flex', alignItems: 'center', justifyContent: 'center',
                     margin: '0 auto var(--spacing-xs)',
                   }}>
                     <i className="fas fa-user" style={{ color: 'var(--color-warning)', fontSize: '1rem' }} />
@@ -444,7 +444,7 @@ export default function P2P() {
                 <div style={{ textAlign: 'center' }}>
                   <div style={{
                     width: 48, height: 48, borderRadius: 'var(--radius-md)',
-                    background: 'rgba(34,197,94,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    background: 'var(--color-success-light)', display: 'flex', alignItems: 'center', justifyContent: 'center',
                     margin: '0 auto var(--spacing-xs)', border: '2px solid var(--color-success)',
                   }}>
                     <i className="fas fa-scale-balanced" style={{ color: 'var(--color-success)', fontSize: '1rem' }} />
@@ -514,7 +514,7 @@ export default function P2P() {
             }}>
               {/* Step 1 */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-sm)' }}>
-                <StepNumber n={1} bg="rgba(34,197,94,0.15)" color="var(--color-success)" />
+                <StepNumber n={1} bg="var(--color-success-light)" color="var(--color-success)" />
                 <h4 style={{ fontSize: '1rem', fontWeight: 700 }}>
                   Start the Federated Server <span style={{ fontSize: '0.8125rem', fontWeight: 400, color: 'var(--color-text-muted)' }}>(load balancer)</span>
                 </h4>
@@ -567,12 +567,12 @@ export default function P2P() {
       {/* ── Model Sharding Tab ── */}
       {activeTab === 'sharding' && (
         <div style={{
-          background: 'var(--color-bg-secondary)', border: '1px solid rgba(139,92,246,0.2)',
+          background: 'var(--color-bg-secondary)', border: '1px solid var(--color-accent-border)',
           borderRadius: 'var(--radius-lg)', overflow: 'hidden',
         }}>
           <div style={{ padding: 'var(--spacing-lg)', borderBottom: '1px solid var(--color-border-subtle)' }}>
             <div style={{
-              background: 'var(--color-accent-light)', border: '1px solid rgba(139,92,246,0.3)',
+              background: 'var(--color-accent-light)', border: '1px solid var(--color-accent-border)',
               borderRadius: 'var(--radius-md)', padding: 'var(--spacing-sm) var(--spacing-md)',
               fontSize: '0.8125rem', color: 'var(--color-text-secondary)', marginBottom: 'var(--spacing-md)',
             }}>
@@ -614,7 +614,7 @@ export default function P2P() {
                         <div style={{
                           width: 56, height: 36, borderRadius: 'var(--radius-sm)',
                           background: 'var(--color-accent-light)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          border: '1px solid rgba(139,92,246,0.3)',
+                          border: '1px solid var(--color-accent-border)',
                         }}>
                           <i className="fas fa-microchip" style={{ color: 'var(--color-accent)', fontSize: '0.75rem' }} />
                         </div>
@@ -662,7 +662,7 @@ export default function P2P() {
           {/* ── MLX Distributed Workers Section ── */}
           <div style={{ padding: 'var(--spacing-lg)', borderBottom: '1px solid var(--color-border-subtle)' }}>
             <h3 style={{ fontSize: '1.125rem', fontWeight: 700, marginBottom: 'var(--spacing-sm)', display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
-              <i className="fas fa-apple-whole" style={{ color: 'rgba(245,158,11,1)' }} />
+              <i className="fas fa-apple-whole" style={{ color: 'var(--color-warning)' }} />
               MLX Distributed Workers
             </h3>
 
@@ -693,10 +693,10 @@ export default function P2P() {
                       <div key={i} style={{ textAlign: 'center' }}>
                         <div style={{
                           width: 64, height: 36, borderRadius: 'var(--radius-sm)',
-                          background: 'rgba(245,158,11,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          border: '1px solid rgba(245,158,11,0.3)',
+                          background: 'var(--color-warning-light)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          border: '1px solid var(--color-warning-border)',
                         }}>
-                          <i className="fas fa-microchip" style={{ color: 'rgba(245,158,11,1)', fontSize: '0.75rem' }} />
+                          <i className="fas fa-microchip" style={{ color: 'var(--color-warning)', fontSize: '0.75rem' }} />
                         </div>
                         <div style={{ fontSize: '0.5625rem', color: 'var(--color-text-muted)', marginTop: 2 }}>{label}</div>
                       </div>
@@ -733,7 +733,7 @@ export default function P2P() {
             ) : (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 'var(--spacing-md)' }}>
                 {mlxWorkers.map((node, i) => (
-                  <NodeCard key={node.id || i} node={node} label={`MLX Rank ${i + 1}`} iconColor="rgba(245,158,11,1)" iconBg="rgba(245,158,11,0.1)" />
+                  <NodeCard key={node.id || i} node={node} label={`MLX Rank ${i + 1}`} iconColor="var(--color-warning)" iconBg="var(--color-warning-light)" />
                 ))}
               </div>
             )}
@@ -763,7 +763,7 @@ export default function P2P() {
 
             <div style={{
               background: 'var(--color-bg-primary)', borderRadius: 'var(--radius-lg)',
-              border: '1px solid rgba(245,158,11,0.3)', padding: 'var(--spacing-lg)',
+              border: '1px solid var(--color-warning-border)', padding: 'var(--spacing-lg)',
             }}>
               <h4 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: 'var(--spacing-sm)' }}>MLX Distributed Worker</h4>
               <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.875rem', marginBottom: 'var(--spacing-sm)' }}>
@@ -776,7 +776,7 @@ export default function P2P() {
               <p style={{ color: 'var(--color-text-muted)', fontSize: '0.8125rem', marginTop: 'var(--spacing-sm)' }}>
                 For more information, see the{' '}
                 <a href="https://localai.io/features/mlx-distributed/" target="_blank" rel="noopener noreferrer"
-                  style={{ color: 'rgba(245,158,11,1)' }}>MLX Distributed</a> docs.
+                  style={{ color: 'var(--color-warning)' }}>MLX Distributed</a> docs.
               </p>
             </div>
           </div>
