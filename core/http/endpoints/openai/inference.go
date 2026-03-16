@@ -2,6 +2,7 @@ package openai
 
 import (
 	"encoding/json"
+	"strings"
 
 	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
@@ -9,6 +10,7 @@ import (
 	"github.com/mudler/LocalAI/core/schema"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	model "github.com/mudler/LocalAI/pkg/model"
+	"github.com/mudler/xlog"
 )
 
 func ComputeChoices(
@@ -19,12 +21,20 @@ func ComputeChoices(
 	o *config.ApplicationConfig,
 	loader *model.ModelLoader,
 	cb func(string, *[]schema.Choice),
-	tokenCallback func(string, backend.TokenUsage) bool) ([]schema.Choice, backend.TokenUsage, []*pb.ChatDelta, error) {
+	tokenCallback func(string, backend.TokenUsage) bool,
+	shouldRetry ...func(int) bool,
+) ([]schema.Choice, backend.TokenUsage, []*pb.ChatDelta, error) {
 	n := req.N // number of completions to return
 	result := []schema.Choice{}
 
 	if n == 0 {
 		n = 1
+	}
+
+	// Extract the optional shouldRetry callback
+	var shouldRetryFn func(int) bool
+	if len(shouldRetry) > 0 {
+		shouldRetryFn = shouldRetry[0]
 	}
 
 	images := []string{}
@@ -82,7 +92,7 @@ func ComputeChoices(
 	}
 
 	// get the model function to call for the result
-	predFunc, err := backend.ModelInference(
+	predFunc, err := backend.ModelInferenceFunc(
 		req.Context, predInput, req.Messages, images, videos, audios, loader, config, bcl, o, tokenCallback, toolsJSON, toolChoiceJSON, logprobs, topLogprobs, logitBias, req.Metadata)
 	if err != nil {
 		return result, backend.TokenUsage{}, nil, err
@@ -91,32 +101,49 @@ func ComputeChoices(
 	tokenUsage := backend.TokenUsage{}
 	var allChatDeltas []*pb.ChatDelta
 
+	const maxRetries = 5
+
 	for i := 0; i < n; i++ {
-		prediction, err := predFunc()
-		if err != nil {
-			return result, backend.TokenUsage{}, nil, err
+		var prediction backend.LLMResponse
+
+		for attempt := 0; attempt <= maxRetries; attempt++ {
+			p, err := predFunc()
+			if err != nil {
+				return result, backend.TokenUsage{}, nil, err
+			}
+			prediction = p
+
+			// Built-in: retry on truly empty response (no tokens at all)
+			if strings.TrimSpace(prediction.Response) == "" && attempt < maxRetries {
+				xlog.Warn("Backend returned empty response, retrying",
+					"attempt", attempt+1, "maxRetries", maxRetries)
+				continue
+			}
+
+			tokenUsage.Prompt = prediction.Usage.Prompt
+			tokenUsage.Completion = prediction.Usage.Completion
+			tokenUsage.TimingPromptProcessing = prediction.Usage.TimingPromptProcessing
+			tokenUsage.TimingTokenGeneration = prediction.Usage.TimingTokenGeneration
+
+			allChatDeltas = prediction.ChatDeltas
+
+			finetunedResponse := backend.Finetune(*config, predInput, prediction.Response)
+			cb(finetunedResponse, &result)
+
+			// Caller-driven retry (tool parsing, reasoning-only, etc.)
+			if shouldRetryFn != nil && shouldRetryFn(attempt) && attempt < maxRetries {
+				// Caller has already reset its state inside shouldRetry
+				result = result[:0]
+				allChatDeltas = nil
+				continue
+			}
+			break
 		}
-
-		tokenUsage.Prompt += prediction.Usage.Prompt
-		tokenUsage.Completion += prediction.Usage.Completion
-		tokenUsage.TimingPromptProcessing += prediction.Usage.TimingPromptProcessing
-		tokenUsage.TimingTokenGeneration += prediction.Usage.TimingTokenGeneration
-
-		// Collect chat deltas from C++ autoparser
-		if len(prediction.ChatDeltas) > 0 {
-			allChatDeltas = append(allChatDeltas, prediction.ChatDeltas...)
-		}
-
-		finetunedResponse := backend.Finetune(*config, predInput, prediction.Response)
-		cb(finetunedResponse, &result)
 
 		// Add logprobs to the last choice if present
 		if prediction.Logprobs != nil && len(result) > 0 {
 			result[len(result)-1].Logprobs = prediction.Logprobs
 		}
-
-		//result = append(result, Choice{Text: prediction})
-
 	}
 	return result, tokenUsage, allChatDeltas, err
 }
