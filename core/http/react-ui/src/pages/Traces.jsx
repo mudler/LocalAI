@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useOutletContext } from 'react-router-dom'
-import { Link } from 'react-router-dom'
 import { tracesApi, settingsApi } from '../utils/api'
 import LoadingSpinner from '../components/LoadingSpinner'
+import Toggle from '../components/Toggle'
+import SettingRow from '../components/SettingRow'
 
 const AUDIO_DATA_KEYS = new Set([
   'audio_wav_base64', 'audio_duration_s', 'audio_snippet_s',
@@ -211,7 +212,7 @@ function BackendTraceDetail({ trace }) {
       {/* Error banner */}
       {trace.error && (
         <div style={{
-          background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)',
+          background: 'var(--color-error-light)', border: '1px solid var(--color-error-border)',
           borderRadius: 'var(--radius-md)', padding: 'var(--spacing-sm)', marginBottom: 'var(--spacing-md)',
           display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)',
         }}>
@@ -270,13 +271,34 @@ export default function Traces() {
   const [loading, setLoading] = useState(true)
   const [expandedRow, setExpandedRow] = useState(null)
   const [tracingEnabled, setTracingEnabled] = useState(null)
+  const [settings, setSettings] = useState(null)
+  const [settingsExpanded, setSettingsExpanded] = useState(false)
+  const [saving, setSaving] = useState(false)
   const refreshRef = useRef(null)
 
   useEffect(() => {
     settingsApi.get()
-      .then(data => setTracingEnabled(!!data.enable_tracing))
+      .then(data => {
+        setTracingEnabled(!!data.enable_tracing)
+        setSettings(data)
+        if (!data.enable_tracing) setSettingsExpanded(true)
+      })
       .catch(() => {})
   }, [])
+
+  const handleSaveSettings = async () => {
+    setSaving(true)
+    try {
+      await settingsApi.save(settings)
+      setTracingEnabled(!!settings.enable_tracing)
+      addToast('Tracing settings saved', 'success')
+      if (settings.enable_tracing) setSettingsExpanded(false)
+    } catch (err) {
+      addToast(`Save failed: ${err.message}`, 'error')
+    } finally {
+      setSaving(false)
+    }
+  }
 
   const fetchTraces = useCallback(async () => {
     try {
@@ -356,30 +378,60 @@ export default function Traces() {
         <button className="btn btn-secondary btn-sm" onClick={handleExport} disabled={traces.length === 0}><i className="fas fa-download" /> Export</button>
       </div>
 
-      {tracingEnabled === false && (
+      {settings && (
         <div style={{
-          background: 'rgba(234,179,8,0.1)', border: '1px solid rgba(234,179,8,0.3)',
-          borderRadius: 'var(--radius-md)', padding: 'var(--spacing-sm) var(--spacing-md)',
-          marginBottom: 'var(--spacing-md)', display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)',
+          border: `1px solid ${tracingEnabled ? 'var(--color-success-border)' : 'var(--color-warning-border)'}`,
+          borderRadius: 'var(--radius-md)',
+          marginBottom: 'var(--spacing-md)',
+          overflow: 'hidden',
         }}>
-          <i className="fas fa-exclamation-triangle" style={{ color: '#facc15', flexShrink: 0 }} />
-          <span style={{ fontSize: '0.8125rem' }}>
-            Tracing is currently <strong>disabled</strong>. New requests will not be recorded.{' '}
-            <Link to="/settings" style={{ color: 'var(--color-primary)' }}>Enable in Settings</Link>
-          </span>
-        </div>
-      )}
-      {tracingEnabled === true && (
-        <div style={{
-          background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.25)',
-          borderRadius: 'var(--radius-md)', padding: 'var(--spacing-sm) var(--spacing-md)',
-          marginBottom: 'var(--spacing-md)', display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)',
-        }}>
-          <i className="fas fa-circle-check" style={{ color: 'var(--color-success)', flexShrink: 0 }} />
-          <span style={{ fontSize: '0.8125rem' }}>
-            Tracing is <strong>enabled</strong>. Requests are being recorded.{' '}
-            <Link to="/settings" style={{ color: 'var(--color-primary)' }}>Manage in Settings</Link>
-          </span>
+          <button
+            onClick={() => setSettingsExpanded(!settingsExpanded)}
+            style={{
+              width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: 'var(--spacing-sm) var(--spacing-md)',
+              background: tracingEnabled ? 'var(--color-success-light)' : 'var(--color-warning-light)',
+              border: 'none', cursor: 'pointer',
+              color: 'var(--color-text-primary)',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
+              <i className={`fas ${tracingEnabled ? 'fa-circle-check' : 'fa-exclamation-triangle'}`}
+                style={{ color: tracingEnabled ? 'var(--color-success)' : 'var(--color-warning)', flexShrink: 0 }} />
+              <span style={{ fontSize: '0.8125rem', textAlign: 'left' }}>
+                Tracing is <strong>{tracingEnabled ? 'enabled' : 'disabled'}</strong>
+                {!tracingEnabled && ' — new requests will not be recorded'}
+              </span>
+            </div>
+            <i className={`fas fa-chevron-${settingsExpanded ? 'up' : 'down'}`}
+              style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', flexShrink: 0 }} />
+          </button>
+          {settingsExpanded && (
+            <div style={{ padding: '0 var(--spacing-md) var(--spacing-md)', background: 'var(--color-bg-secondary)', borderTop: '1px solid var(--color-border-subtle)' }}>
+              <SettingRow label="Enable Tracing" description="Record API requests, responses, and backend operations">
+                <Toggle
+                  checked={settings.enable_tracing}
+                  onChange={(v) => setSettings(prev => ({ ...prev, enable_tracing: v }))}
+                />
+              </SettingRow>
+              <SettingRow label="Max Items" description="Maximum trace items to retain (0 = unlimited)">
+                <input
+                  className="input"
+                  type="number"
+                  style={{ width: 120 }}
+                  value={settings.tracing_max_items ?? ''}
+                  onChange={(e) => setSettings(prev => ({ ...prev, tracing_max_items: parseInt(e.target.value) || 0 }))}
+                  placeholder="100"
+                  disabled={!settings.enable_tracing}
+                />
+              </SettingRow>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 'var(--spacing-sm)' }}>
+                <button className="btn btn-primary btn-sm" onClick={handleSaveSettings} disabled={saving}>
+                  {saving ? <><LoadingSpinner size="sm" /> Saving...</> : <><i className="fas fa-save" /> Save</>}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

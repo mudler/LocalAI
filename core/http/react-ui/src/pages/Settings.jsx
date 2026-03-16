@@ -3,52 +3,9 @@ import { useOutletContext } from 'react-router-dom'
 import { settingsApi, resourcesApi } from '../utils/api'
 import LoadingSpinner from '../components/LoadingSpinner'
 import SearchableModelSelect from '../components/SearchableModelSelect'
+import Toggle from '../components/Toggle'
+import SettingRow from '../components/SettingRow'
 import { formatBytes, percentColor } from '../utils/format'
-
-function Toggle({ checked, onChange, disabled }) {
-  return (
-    <label style={{
-      position: 'relative', display: 'inline-block', width: 40, height: 22, cursor: disabled ? 'not-allowed' : 'pointer',
-      opacity: disabled ? 0.5 : 1,
-    }}>
-      <input
-        type="checkbox"
-        checked={checked || false}
-        onChange={(e) => onChange(e.target.checked)}
-        disabled={disabled}
-        style={{ display: 'none' }}
-      />
-      <span style={{
-        position: 'absolute', inset: 0, borderRadius: 22,
-        background: checked ? 'var(--color-primary)' : 'var(--color-toggle-off)',
-        transition: 'background 200ms',
-      }}>
-        <span style={{
-          position: 'absolute', top: 2, left: checked ? 20 : 2,
-          width: 18, height: 18, borderRadius: '50%',
-          background: '#fff', transition: 'left 200ms',
-          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.2)',
-        }} />
-      </span>
-    </label>
-  )
-}
-
-function SettingRow({ label, description, children }) {
-  return (
-    <div style={{
-      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-      padding: 'var(--spacing-sm) 0',
-      borderBottom: '1px solid var(--color-border-subtle)',
-    }}>
-      <div style={{ flex: 1, marginRight: 'var(--spacing-md)' }}>
-        <div style={{ fontSize: '0.875rem', fontWeight: 500 }}>{label}</div>
-        {description && <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: 2 }}>{description}</div>}
-      </div>
-      <div style={{ flexShrink: 0 }}>{children}</div>
-    </div>
-  )
-}
 
 const SECTIONS = [
   { id: 'watchdog', icon: 'fa-shield-halved', color: 'var(--color-primary)', label: 'Watchdog' },

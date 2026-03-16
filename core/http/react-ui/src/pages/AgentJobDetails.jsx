@@ -331,7 +331,7 @@ export default function AgentJobDetails() {
             Error
           </h3>
           <pre style={{
-            background: 'rgba(239,68,68,0.05)', padding: 'var(--spacing-sm)',
+            background: 'var(--color-error-light)', padding: 'var(--spacing-sm)',
             borderRadius: 'var(--radius-md)', fontSize: '0.8125rem',
             whiteSpace: 'pre-wrap', overflow: 'auto', color: 'var(--color-error)',
           }}>
