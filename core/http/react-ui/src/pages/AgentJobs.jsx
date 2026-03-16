@@ -4,6 +4,7 @@ import { agentJobsApi, modelsApi } from '../utils/api'
 import { useModels } from '../hooks/useModels'
 import LoadingSpinner from '../components/LoadingSpinner'
 import { fileToBase64 } from '../utils/api'
+import Modal from '../components/Modal'
 
 export default function AgentJobs() {
   const { addToast } = useOutletContext()
@@ -187,7 +188,7 @@ export default function AgentJobs() {
             <button className="btn btn-primary" onClick={() => navigate('/app/models')}>
               <i className="fas fa-store" /> Browse Models
             </button>
-            <a className="btn btn-secondary" href="https://localai.io/features/agent-jobs/" target="_blank" rel="noopener noreferrer">
+            <a className="btn btn-secondary" href="https://localai.io/features/agents/" target="_blank" rel="noopener noreferrer">
               <i className="fas fa-book" /> Documentation
             </a>
           </div>
@@ -222,7 +223,7 @@ export default function AgentJobs() {
             <button className="btn btn-primary" onClick={() => navigate('/app/manage')}>
               <i className="fas fa-cog" /> Manage Models
             </button>
-            <a className="btn btn-secondary" href="https://localai.io/features/agent-jobs/" target="_blank" rel="noopener noreferrer">
+            <a className="btn btn-secondary" href="https://localai.io/features/agents/" target="_blank" rel="noopener noreferrer">
               <i className="fas fa-book" /> Documentation
             </a>
           </div>
@@ -408,11 +409,8 @@ export default function AgentJobs() {
 
       {/* Execute Task Modal */}
       {executeModal && (
-        <div style={{
-          position: 'fixed', inset: 0, zIndex: 1000,
-          background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }} onClick={() => setExecuteModal(null)}>
-          <div className="card" style={{ maxWidth: 600, width: '90%', maxHeight: '80vh', overflow: 'auto' }} onClick={e => e.stopPropagation()}>
+        <Modal onClose={() => setExecuteModal(null)}>
+          <div style={{ padding: 'var(--spacing-md)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-md)' }}>
               <h3 style={{ fontWeight: 600 }}>
                 <i className="fas fa-play" style={{ color: 'var(--color-primary)', marginRight: 'var(--spacing-xs)' }} />
@@ -489,7 +487,7 @@ export default function AgentJobs() {
               </button>
             </div>
           </div>
-        </div>
+        </Modal>
       )}
     </div>
   )

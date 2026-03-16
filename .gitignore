@@ -72,3 +72,8 @@ core/http/react-ui/dist
 
 # Extracted backend binaries for container-based testing
 local-backends/
+
+# UI E2E test artifacts
+tests/e2e-ui/ui-test-server
+core/http/react-ui/playwright-report/
+core/http/react-ui/test-results/
