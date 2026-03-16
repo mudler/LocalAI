@@ -647,6 +647,23 @@ clean-mock-backend:
 	rm -f tests/e2e/mock-backend/mock-backend
 
 ########################################################
+### UI E2E Test Server
+########################################################
+
+build-ui-test-server: build-mock-backend react-ui protogen-go
+	$(GOCMD) build -o tests/e2e-ui/ui-test-server ./tests/e2e-ui
+
+test-ui-e2e: build-ui-test-server
+	cd core/http/react-ui && npm install && npx playwright install --with-deps chromium && npx playwright test
+
+test-ui-e2e-docker:
+	docker build -t localai-ui-e2e -f tests/e2e-ui/Dockerfile .
+	docker run --rm localai-ui-e2e
+
+clean-ui-test-server:
+	rm -f tests/e2e-ui/ui-test-server
+
+########################################################
 ### END Backends
 ########################################################
 

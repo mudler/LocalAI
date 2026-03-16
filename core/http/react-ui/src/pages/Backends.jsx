@@ -4,6 +4,7 @@ import { backendsApi } from '../utils/api'
 import { useOperations } from '../hooks/useOperations'
 import LoadingSpinner from '../components/LoadingSpinner'
 import { renderMarkdown } from '../utils/markdown'
+import Modal from '../components/Modal'
 
 export default function Backends() {
   const { addToast } = useOutletContext()
@@ -390,11 +391,8 @@ export default function Backends() {
 
       {/* Detail Modal */}
       {selectedBackend && (
-        <div style={{
-          position: 'fixed', inset: 0, zIndex: 1000,
-          background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }} onClick={() => setSelectedBackend(null)}>
-          <div className="card" style={{ maxWidth: 600, width: '90%', maxHeight: '80vh', overflow: 'auto' }} onClick={e => e.stopPropagation()}>
+        <Modal onClose={() => setSelectedBackend(null)}>
+          <div style={{ padding: 'var(--spacing-md)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 'var(--spacing-md)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
                 {selectedBackend.icon ? (
@@ -489,7 +487,7 @@ export default function Backends() {
               <button className="btn btn-secondary btn-sm" onClick={() => setSelectedBackend(null)}>Close</button>
             </div>
           </div>
-        </div>
+        </Modal>
       )}
     </div>
   )

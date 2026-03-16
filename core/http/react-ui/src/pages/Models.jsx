@@ -4,6 +4,7 @@ import { modelsApi } from '../utils/api'
 import { useOperations } from '../hooks/useOperations'
 import { useResources } from '../hooks/useResources'
 import { formatBytes } from '../utils/format'
+import Modal from '../components/Modal'
 
 
 const LOADING_PHRASES = [
@@ -494,83 +495,71 @@ export default function Models() {
 
       {/* Detail Modal */}
       {selectedModel && (
-        <div style={{
-          position: 'fixed', inset: 0, zIndex: 100,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)',
-        }} onClick={() => setSelectedModel(null)}>
+        <Modal onClose={() => setSelectedModel(null)}>
+          {/* Modal header */}
           <div style={{
-            background: 'var(--color-bg-secondary)',
-            border: '1px solid var(--color-border-subtle)',
-            borderRadius: 'var(--radius-lg)',
-            maxWidth: '600px', width: '90%', maxHeight: '80vh',
-            display: 'flex', flexDirection: 'column',
-          }} onClick={e => e.stopPropagation()}>
-            {/* Modal header */}
-            <div style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              padding: 'var(--spacing-md)', borderBottom: '1px solid var(--color-border-subtle)',
-            }}>
-              <h3 style={{ fontSize: '1rem', fontWeight: 600 }}>{selectedModel.name}</h3>
-              <button className="btn btn-secondary btn-sm" onClick={() => setSelectedModel(null)}>
-                <i className="fas fa-times" />
-              </button>
-            </div>
-            {/* Modal body */}
-            <div style={{ padding: 'var(--spacing-md)', overflowY: 'auto', flex: 1 }}>
-              {/* Icon */}
-              {selectedModel.icon && (
-                <div style={{
-                  width: 48, height: 48, borderRadius: 'var(--radius-md)',
-                  border: '1px solid var(--color-border-subtle)', overflow: 'hidden',
-                  marginBottom: 'var(--spacing-md)',
-                }}>
-                  <img src={selectedModel.icon} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                </div>
-              )}
-              {/* Description */}
-              {selectedModel.description && (
-                <p style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)', lineHeight: 1.6, marginBottom: 'var(--spacing-md)' }}>
-                  {selectedModel.description}
-                </p>
-              )}
-              {/* Size/VRAM */}
-              {(selectedModel.estimated_size_display || selectedModel.estimated_vram_display) && (
-                <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)', marginBottom: 'var(--spacing-md)' }}>
-                  {selectedModel.estimated_size_display && <div>Size: {selectedModel.estimated_size_display}</div>}
-                  {selectedModel.estimated_vram_display && <div>VRAM: {selectedModel.estimated_vram_display}</div>}
-                </div>
-              )}
-              {/* Tags */}
-              {selectedModel.tags?.length > 0 && (
-                <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginBottom: 'var(--spacing-md)' }}>
-                  {selectedModel.tags.map(tag => (
-                    <span key={tag} className="badge badge-info">{tag}</span>
-                  ))}
-                </div>
-              )}
-              {/* Links */}
-              {selectedModel.urls?.length > 0 && (
-                <div style={{ marginBottom: 'var(--spacing-md)' }}>
-                  <h4 style={{ fontSize: '0.8125rem', fontWeight: 600, marginBottom: 'var(--spacing-xs)' }}>Links</h4>
-                  {selectedModel.urls.map((url, i) => (
-                    <a key={i} href={url} target="_blank" rel="noopener noreferrer" style={{ display: 'block', fontSize: '0.8125rem', color: 'var(--color-primary)', marginBottom: '2px' }}>
-                      {url}
-                    </a>
-                  ))}
-                </div>
-              )}
-            </div>
-            {/* Modal footer */}
-            <div style={{
-              padding: 'var(--spacing-sm) var(--spacing-md)',
-              borderTop: '1px solid var(--color-border-subtle)',
-              display: 'flex', justifyContent: 'flex-end',
-            }}>
-              <button className="btn btn-secondary btn-sm" onClick={() => setSelectedModel(null)}>Close</button>
-            </div>
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            padding: 'var(--spacing-md)', borderBottom: '1px solid var(--color-border-subtle)',
+          }}>
+            <h3 style={{ fontSize: '1rem', fontWeight: 600 }}>{selectedModel.name}</h3>
+            <button className="btn btn-secondary btn-sm" onClick={() => setSelectedModel(null)}>
+              <i className="fas fa-times" />
+            </button>
           </div>
-        </div>
+          {/* Modal body */}
+          <div style={{ padding: 'var(--spacing-md)', overflowY: 'auto', flex: 1 }}>
+            {/* Icon */}
+            {selectedModel.icon && (
+              <div style={{
+                width: 48, height: 48, borderRadius: 'var(--radius-md)',
+                border: '1px solid var(--color-border-subtle)', overflow: 'hidden',
+                marginBottom: 'var(--spacing-md)',
+              }}>
+                <img src={selectedModel.icon} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              </div>
+            )}
+            {/* Description */}
+            {selectedModel.description && (
+              <p style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)', lineHeight: 1.6, marginBottom: 'var(--spacing-md)' }}>
+                {selectedModel.description}
+              </p>
+            )}
+            {/* Size/VRAM */}
+            {(selectedModel.estimated_size_display || selectedModel.estimated_vram_display) && (
+              <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)', marginBottom: 'var(--spacing-md)' }}>
+                {selectedModel.estimated_size_display && <div>Size: {selectedModel.estimated_size_display}</div>}
+                {selectedModel.estimated_vram_display && <div>VRAM: {selectedModel.estimated_vram_display}</div>}
+              </div>
+            )}
+            {/* Tags */}
+            {selectedModel.tags?.length > 0 && (
+              <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginBottom: 'var(--spacing-md)' }}>
+                {selectedModel.tags.map(tag => (
+                  <span key={tag} className="badge badge-info">{tag}</span>
+                ))}
+              </div>
+            )}
+            {/* Links */}
+            {selectedModel.urls?.length > 0 && (
+              <div style={{ marginBottom: 'var(--spacing-md)' }}>
+                <h4 style={{ fontSize: '0.8125rem', fontWeight: 600, marginBottom: 'var(--spacing-xs)' }}>Links</h4>
+                {selectedModel.urls.map((url, i) => (
+                  <a key={i} href={url} target="_blank" rel="noopener noreferrer" style={{ display: 'block', fontSize: '0.8125rem', color: 'var(--color-primary)', marginBottom: '2px' }}>
+                    {url}
+                  </a>
+                ))}
+              </div>
+            )}
+          </div>
+          {/* Modal footer */}
+          <div style={{
+            padding: 'var(--spacing-sm) var(--spacing-md)',
+            borderTop: '1px solid var(--color-border-subtle)',
+            display: 'flex', justifyContent: 'flex-end',
+          }}>
+            <button className="btn btn-secondary btn-sm" onClick={() => setSelectedModel(null)}>Close</button>
+          </div>
+        </Modal>
       )}
     </div>
   )

@@ -51,12 +51,9 @@ export default function Manage() {
   }, [])
 
   useEffect(() => {
-    if (activeTab === 'models') {
-      fetchLoadedModels()
-    } else {
-      fetchBackends()
-    }
-  }, [activeTab, fetchLoadedModels, fetchBackends])
+    fetchLoadedModels()
+    fetchBackends()
+  }, [fetchLoadedModels, fetchBackends])
 
   const handleStopModel = async (modelName) => {
     if (!confirm(`Stop model ${modelName}?`)) return
