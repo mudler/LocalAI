@@ -38,6 +38,10 @@ type TokenUsage struct {
 	TimingTokenGeneration  float64
 }
 
+// ModelInferenceFunc is a test-friendly indirection to call model inference logic.
+// Tests can override this variable to provide a stub implementation.
+var ModelInferenceFunc = ModelInference
+
 func ModelInference(ctx context.Context, s string, messages schema.Messages, images, videos, audios []string, loader *model.ModelLoader, c *config.ModelConfig, cl *config.ModelConfigLoader, o *config.ApplicationConfig, tokenCallback func(string, TokenUsage) bool, tools string, toolChoice string, logprobs *int, topLogprobs *int, logitBias map[string]float64, metadata map[string]string) (func() (LLMResponse, error), error) {
 	modelFile := c.Model
 

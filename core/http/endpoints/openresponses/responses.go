@@ -12,6 +12,7 @@ import (
 	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
 	mcpTools "github.com/mudler/LocalAI/core/http/endpoints/mcp"
+	openaiEndpoint "github.com/mudler/LocalAI/core/http/endpoints/openai"
 	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/templates"
@@ -879,34 +880,14 @@ func handleBackgroundNonStream(ctx context.Context, store *ResponseStore, respon
 			xlog.Debug("Background MCP re-templating", "iteration", mcpIteration)
 		}
 
-		images := []string{}
-		videos := []string{}
-		audios := []string{}
-		for _, m := range openAIReq.Messages {
-			images = append(images, m.StringImages...)
-			videos = append(videos, m.StringVideos...)
-			audios = append(audios, m.StringAudios...)
-		}
-
-		toolsJSON := serializeToolsForBackend(input.Tools)
-		toolChoiceJSON := ""
-		if input.ToolChoice != nil {
-			toolChoiceBytes, err := json.Marshal(input.ToolChoice)
-			if err == nil {
-				toolChoiceJSON = string(toolChoiceBytes)
-			}
-		}
-
-		var logprobs *int
+		// Populate openAIReq fields for ComputeChoices
+		openAIReq.Tools = convertORToolsToOpenAIFormat(input.Tools)
+		openAIReq.ToolsChoice = input.ToolChoice
 		if input.TopLogprobs != nil && *input.TopLogprobs > 0 {
-			logprobs = input.TopLogprobs
+			openAIReq.TopLogprobs = input.TopLogprobs
+			openAIReq.Logprobs = schema.LogprobsValue{Enabled: true}
 		}
-
-		predFunc, err := backend.ModelInference(
-			ctx, predInput, openAIReq.Messages, images, videos, audios, ml, cfg, cl, appConfig, nil, toolsJSON, toolChoiceJSON, logprobs, input.TopLogprobs, input.LogitBias, nil)
-		if err != nil {
-			return nil, fmt.Errorf("model inference failed: %w", err)
-		}
+		openAIReq.LogitBias = input.LogitBias
 
 		select {
 		case <-ctx.Done():
@@ -914,24 +895,19 @@ func handleBackgroundNonStream(ctx context.Context, store *ResponseStore, respon
 		default:
 		}
 
-		const maxEmptyRetries = 5
-		var prediction backend.LLMResponse
 		var result string
-		for attempt := 0; attempt <= maxEmptyRetries; attempt++ {
-			prediction, err = predFunc()
-			if err != nil {
-				return nil, fmt.Errorf("prediction failed: %w", err)
-			}
-			result = backend.Finetune(*cfg, predInput, prediction.Response)
-			if result != "" || !shouldUseFn {
-				break
-			}
-			select {
-			case <-ctx.Done():
-				return nil, ctx.Err()
-			default:
-			}
-			xlog.Warn("Open Responses background: retrying prediction due to empty backend response", "attempt", attempt+1, "maxRetries", maxEmptyRetries)
+		cb := func(s string, c *[]schema.Choice) {
+			result = s
+		}
+		choices, tokenUsage, chatDeltas, err := openaiEndpoint.ComputeChoices(openAIReq, predInput, cfg, cl, appConfig, ml, cb, nil)
+		if err != nil {
+			return nil, fmt.Errorf("model inference failed: %w", err)
+		}
+
+		// Extract logprobs from choices if available
+		var resultLogprobs *schema.Logprobs
+		if len(choices) > 0 {
+			resultLogprobs = choices[0].Logprobs
 		}
 
 		// Parse tool calls
@@ -939,9 +915,9 @@ func handleBackgroundNonStream(ctx context.Context, store *ResponseStore, respon
 		var textContent string
 
 		if shouldUseFn {
-			if deltaToolCalls := functions.ToolCallsFromChatDeltas(prediction.ChatDeltas); len(deltaToolCalls) > 0 {
+			if deltaToolCalls := functions.ToolCallsFromChatDeltas(chatDeltas); len(deltaToolCalls) > 0 {
 				funcCallResults = deltaToolCalls
-				textContent = functions.ContentFromChatDeltas(prediction.ChatDeltas)
+				textContent = functions.ContentFromChatDeltas(chatDeltas)
 			} else {
 				cleanedResult := functions.CleanupLLMResult(result, cfg.FunctionsConfig)
 				funcCallResults = functions.ParseFunctionCall(cleanedResult, cfg.FunctionsConfig)
@@ -1021,7 +997,7 @@ func handleBackgroundNonStream(ctx context.Context, store *ResponseStore, respon
 				allOutputItems = append(allOutputItems, schema.ORItemField{
 					Type: "message", ID: fmt.Sprintf("msg_%s", uuid.New().String()),
 					Status: "completed", Role: "assistant",
-					Content: []schema.ORContentPart{makeOutputTextPartWithLogprobs(textContent, prediction.Logprobs)},
+					Content: []schema.ORContentPart{makeOutputTextPartWithLogprobs(textContent, resultLogprobs)},
 				})
 			}
 			for _, tc := range toolCalls {
@@ -1034,22 +1010,22 @@ func handleBackgroundNonStream(ctx context.Context, store *ResponseStore, respon
 				allOutputItems = append(allOutputItems, schema.ORItemField{
 					Type: "message", ID: fmt.Sprintf("msg_%s", uuid.New().String()),
 					Status: "completed", Role: "assistant",
-					Content: []schema.ORContentPart{makeOutputTextPartWithLogprobs(result, prediction.Logprobs)},
+					Content: []schema.ORContentPart{makeOutputTextPartWithLogprobs(result, resultLogprobs)},
 				})
 			}
 		} else {
 			allOutputItems = append(allOutputItems, schema.ORItemField{
 				Type: "message", ID: fmt.Sprintf("msg_%s", uuid.New().String()),
 				Status: "completed", Role: "assistant",
-				Content: []schema.ORContentPart{makeOutputTextPartWithLogprobs(result, prediction.Logprobs)},
+				Content: []schema.ORContentPart{makeOutputTextPartWithLogprobs(result, resultLogprobs)},
 			})
 		}
 
 		now := time.Now().Unix()
 		return buildORResponse(responseID, createdAt, &now, schema.ORStatusCompleted, input, allOutputItems, &schema.ORUsage{
-			InputTokens:  prediction.Usage.Prompt,
-			OutputTokens: prediction.Usage.Completion,
-			TotalTokens:  prediction.Usage.Prompt + prediction.Usage.Completion,
+			InputTokens:  tokenUsage.Prompt,
+			OutputTokens: tokenUsage.Completion,
+			TotalTokens:  tokenUsage.Prompt + tokenUsage.Completion,
 		}, true), nil
 	} // end MCP iteration loop
 
@@ -1058,23 +1034,14 @@ func handleBackgroundNonStream(ctx context.Context, store *ResponseStore, respon
 
 // handleBackgroundStream handles background streaming responses with event buffering
 func handleBackgroundStream(ctx context.Context, store *ResponseStore, responseID string, createdAt int64, input *schema.OpenResponsesRequest, cfg *config.ModelConfig, ml *model.ModelLoader, cl *config.ModelConfigLoader, appConfig *config.ApplicationConfig, predInput string, openAIReq *schema.OpenAIRequest, funcs functions.Functions, shouldUseFn bool, mcpToolInfos []mcpTools.MCPToolInfo, evaluator *templates.Evaluator) (*schema.ORResponseResource, error) {
-	images := []string{}
-	videos := []string{}
-	audios := []string{}
-	for _, m := range openAIReq.Messages {
-		images = append(images, m.StringImages...)
-		videos = append(videos, m.StringVideos...)
-		audios = append(audios, m.StringAudios...)
+	// Populate openAIReq fields for ComputeChoices
+	openAIReq.Tools = convertORToolsToOpenAIFormat(input.Tools)
+	openAIReq.ToolsChoice = input.ToolChoice
+	if input.TopLogprobs != nil && *input.TopLogprobs > 0 {
+		openAIReq.TopLogprobs = input.TopLogprobs
+		openAIReq.Logprobs = schema.LogprobsValue{Enabled: true}
 	}
-
-	toolsJSON := serializeToolsForBackend(input.Tools)
-	toolChoiceJSON := ""
-	if input.ToolChoice != nil {
-		toolChoiceBytes, err := json.Marshal(input.ToolChoice)
-		if err == nil {
-			toolChoiceJSON = string(toolChoiceBytes)
-		}
-	}
+	openAIReq.LogitBias = input.LogitBias
 
 	sequenceNumber := 0
 
@@ -1105,20 +1072,13 @@ func handleBackgroundStream(ctx context.Context, store *ResponseStore, responseI
 	}
 	hasMCPTools := len(mcpToolInfos) > 0
 
-	var prediction backend.LLMResponse
+	var lastTokenUsage backend.TokenUsage
+	var lastLogprobs *schema.Logprobs
 
 	for mcpIter := 0; mcpIter <= mcpBgStreamMaxIterations; mcpIter++ {
 		if mcpIter > 0 {
 			predInput = evaluator.TemplateMessages(*openAIReq, openAIReq.Messages, cfg, funcs, shouldUseFn)
 			xlog.Debug("Background stream MCP re-templating", "iteration", mcpIter)
-			images = images[:0]
-			videos = videos[:0]
-			audios = audios[:0]
-			for _, m := range openAIReq.Messages {
-				images = append(images, m.StringImages...)
-				videos = append(videos, m.StringVideos...)
-				audios = append(audios, m.StringAudios...)
-			}
 		}
 
 		accumulatedText = ""
@@ -1177,28 +1137,23 @@ func handleBackgroundStream(ctx context.Context, store *ResponseStore, responseI
 			return true
 		}
 
-		var streamLogprobs *int
-		if input.TopLogprobs != nil && *input.TopLogprobs > 0 {
-			streamLogprobs = input.TopLogprobs
+		var result string
+		cb := func(s string, c *[]schema.Choice) {
+			result = s
 		}
-
-		predFunc, err := backend.ModelInference(
-			ctx, predInput, openAIReq.Messages, images, videos, audios, ml, cfg, cl, appConfig, tokenCallback, toolsJSON, toolChoiceJSON, streamLogprobs, input.TopLogprobs, input.LogitBias, nil)
+		choices, tokenUsage, chatDeltas, err := openaiEndpoint.ComputeChoices(openAIReq, predInput, cfg, cl, appConfig, ml, cb, tokenCallback)
 		if err != nil {
 			return nil, fmt.Errorf("model inference failed: %w", err)
 		}
-
-		prediction, err = predFunc()
-		if err != nil {
-			return nil, fmt.Errorf("prediction failed: %w", err)
+		lastTokenUsage = tokenUsage
+		if len(choices) > 0 {
+			lastLogprobs = choices[0].Logprobs
 		}
-
-		result := backend.Finetune(*cfg, predInput, prediction.Response)
 
 		// Check for MCP tool calls in the streamed result
 		if shouldUseFn && hasMCPTools {
 			var funcCallResults []functions.FuncCallResults
-			if deltaToolCalls := functions.ToolCallsFromChatDeltas(prediction.ChatDeltas); len(deltaToolCalls) > 0 {
+			if deltaToolCalls := functions.ToolCallsFromChatDeltas(chatDeltas); len(deltaToolCalls) > 0 {
 				funcCallResults = deltaToolCalls
 			} else {
 				cleanedResult := functions.CleanupLLMResult(result, cfg.FunctionsConfig)
@@ -1315,7 +1270,7 @@ func handleBackgroundStream(ctx context.Context, store *ResponseStore, responseI
 		}
 
 		// No MCP tools — close the message and break
-		streamEventLogprobs := convertLogprobsForStreaming(prediction.Logprobs)
+		streamEventLogprobs := convertLogprobsForStreaming(lastLogprobs)
 		bufferEvent(store, responseID, &schema.ORStreamEvent{
 			Type:           "response.output_text.done",
 			SequenceNumber: sequenceNumber,
@@ -1327,7 +1282,7 @@ func handleBackgroundStream(ctx context.Context, store *ResponseStore, responseI
 		})
 		sequenceNumber++
 
-		textPart := makeOutputTextPartWithLogprobs(accumulatedText, prediction.Logprobs)
+		textPart := makeOutputTextPartWithLogprobs(accumulatedText, lastLogprobs)
 		bufferEvent(store, responseID, &schema.ORStreamEvent{
 			Type:           "response.content_part.done",
 			SequenceNumber: sequenceNumber,
@@ -1343,7 +1298,7 @@ func handleBackgroundStream(ctx context.Context, store *ResponseStore, responseI
 			ID:      currentMessageID,
 			Status:  "completed",
 			Role:    "assistant",
-			Content: []schema.ORContentPart{makeOutputTextPartWithLogprobs(accumulatedText, prediction.Logprobs)},
+			Content: []schema.ORContentPart{makeOutputTextPartWithLogprobs(accumulatedText, lastLogprobs)},
 		}
 		bufferEvent(store, responseID, &schema.ORStreamEvent{
 			Type:           "response.output_item.done",
@@ -1360,9 +1315,9 @@ func handleBackgroundStream(ctx context.Context, store *ResponseStore, responseI
 	// Build final response
 	now := time.Now().Unix()
 	response := buildORResponse(responseID, createdAt, &now, schema.ORStatusCompleted, input, collectedOutputItems, &schema.ORUsage{
-		InputTokens:  prediction.Usage.Prompt,
-		OutputTokens: prediction.Usage.Completion,
-		TotalTokens:  prediction.Usage.Prompt + prediction.Usage.Completion,
+		InputTokens:  lastTokenUsage.Prompt,
+		OutputTokens: lastTokenUsage.Completion,
+		TotalTokens:  lastTokenUsage.Prompt + lastTokenUsage.Completion,
 	}, true)
 
 	// Emit response.completed
@@ -1391,52 +1346,27 @@ func handleOpenResponsesNonStream(c echo.Context, responseID string, createdAt i
 	if mcpIteration > mcpMaxIterations {
 		return sendOpenResponsesError(c, 500, "server_error", "MCP iteration limit reached", "")
 	}
-	images := []string{}
-	videos := []string{}
-	audios := []string{}
-	for _, m := range openAIReq.Messages {
-		images = append(images, m.StringImages...)
-		videos = append(videos, m.StringVideos...)
-		audios = append(audios, m.StringAudios...)
-	}
-
-	// Convert and serialize tools to OpenAI format for the backend
-	toolsJSON := serializeToolsForBackend(input.Tools)
-	toolChoiceJSON := ""
-	if input.ToolChoice != nil {
-		toolChoiceBytes, err := json.Marshal(input.ToolChoice)
-		if err == nil {
-			toolChoiceJSON = string(toolChoiceBytes)
-		}
-	}
-
-	// Pass logprobs and logit_bias parameters if requested
-	var logprobs *int
+	// Populate openAIReq fields for ComputeChoices
+	openAIReq.Tools = convertORToolsToOpenAIFormat(input.Tools)
+	openAIReq.ToolsChoice = input.ToolChoice
 	if input.TopLogprobs != nil && *input.TopLogprobs > 0 {
-		logprobs = input.TopLogprobs
+		openAIReq.TopLogprobs = input.TopLogprobs
+		openAIReq.Logprobs = schema.LogprobsValue{Enabled: true}
 	}
+	openAIReq.LogitBias = input.LogitBias
 
-	predFunc, err := backend.ModelInference(
-		input.Context, predInput, openAIReq.Messages, images, videos, audios, ml, cfg, cl, appConfig, nil, toolsJSON, toolChoiceJSON, logprobs, input.TopLogprobs, input.LogitBias, nil)
+	var result string
+	cb := func(s string, c *[]schema.Choice) {
+		result = s
+	}
+	choices, tokenUsage, chatDeltas, err := openaiEndpoint.ComputeChoices(openAIReq, predInput, cfg, cl, appConfig, ml, cb, nil)
 	if err != nil {
 		xlog.Error("Open Responses model inference failed", "error", err)
 		return sendOpenResponsesError(c, 500, "model_error", fmt.Sprintf("model inference failed: %v", err), "")
 	}
-
-	const maxEmptyRetries = 5
-	var prediction backend.LLMResponse
-	var result string
-	for attempt := 0; attempt <= maxEmptyRetries; attempt++ {
-		prediction, err = predFunc()
-		if err != nil {
-			xlog.Error("Open Responses prediction failed", "error", err)
-			return sendOpenResponsesError(c, 500, "model_error", fmt.Sprintf("prediction failed: %v", err), "")
-		}
-		result = backend.Finetune(*cfg, predInput, prediction.Response)
-		if result != "" || !shouldUseFn {
-			break
-		}
-		xlog.Warn("Open Responses: retrying prediction due to empty backend response", "attempt", attempt+1, "maxRetries", maxEmptyRetries)
+	var resultLogprobs *schema.Logprobs
+	if len(choices) > 0 {
+		resultLogprobs = choices[0].Logprobs
 	}
 	xlog.Debug("Open Responses - Raw model result", "result", result, "shouldUseFn", shouldUseFn)
 
@@ -1473,10 +1403,10 @@ func handleOpenResponsesNonStream(c echo.Context, responseID string, createdAt i
 		var textContent string
 
 		// Try pre-parsed tool calls from C++ autoparser first
-		if deltaToolCalls := functions.ToolCallsFromChatDeltas(prediction.ChatDeltas); len(deltaToolCalls) > 0 {
+		if deltaToolCalls := functions.ToolCallsFromChatDeltas(chatDeltas); len(deltaToolCalls) > 0 {
 			xlog.Debug("[ChatDeltas] OpenResponses: using pre-parsed tool calls", "count", len(deltaToolCalls))
 			funcCallResults = deltaToolCalls
-			textContent = functions.ContentFromChatDeltas(prediction.ChatDeltas)
+			textContent = functions.ContentFromChatDeltas(chatDeltas)
 		} else {
 			xlog.Debug("[ChatDeltas] OpenResponses: no pre-parsed tool calls, falling back to Go-side text parsing")
 			// Clean up the result (already extracted reasoning above)
@@ -1574,7 +1504,7 @@ func handleOpenResponsesNonStream(c echo.Context, responseID string, createdAt i
 				ID:      fmt.Sprintf("msg_%s", uuid.New().String()),
 				Status:  "completed",
 				Role:    "assistant",
-				Content: []schema.ORContentPart{makeOutputTextPartWithLogprobs(textContent, prediction.Logprobs)},
+				Content: []schema.ORContentPart{makeOutputTextPartWithLogprobs(textContent, resultLogprobs)},
 			})
 		}
 
@@ -1605,7 +1535,7 @@ func handleOpenResponsesNonStream(c echo.Context, responseID string, createdAt i
 				ID:      fmt.Sprintf("msg_%s", uuid.New().String()),
 				Status:  "completed",
 				Role:    "assistant",
-				Content: []schema.ORContentPart{makeOutputTextPartWithLogprobs(cleanedResult, prediction.Logprobs)},
+				Content: []schema.ORContentPart{makeOutputTextPartWithLogprobs(cleanedResult, resultLogprobs)},
 			})
 		}
 	} else {
@@ -1615,7 +1545,7 @@ func handleOpenResponsesNonStream(c echo.Context, responseID string, createdAt i
 			ID:      fmt.Sprintf("msg_%s", uuid.New().String()),
 			Status:  "completed",
 			Role:    "assistant",
-			Content: []schema.ORContentPart{makeOutputTextPartWithLogprobs(cleanedResult, prediction.Logprobs)},
+			Content: []schema.ORContentPart{makeOutputTextPartWithLogprobs(cleanedResult, resultLogprobs)},
 		}
 		outputItems = append(outputItems, messageItem)
 	}
@@ -1633,9 +1563,9 @@ func handleOpenResponsesNonStream(c echo.Context, responseID string, createdAt i
 	// Build response with all required fields
 	now := time.Now().Unix()
 	response := buildORResponse(responseID, createdAt, &now, "completed", input, outputItems, &schema.ORUsage{
-		InputTokens:  prediction.Usage.Prompt,
-		OutputTokens: prediction.Usage.Completion,
-		TotalTokens:  prediction.Usage.Prompt + prediction.Usage.Completion,
+		InputTokens:  tokenUsage.Prompt,
+		OutputTokens: tokenUsage.Completion,
+		TotalTokens:  tokenUsage.Prompt + tokenUsage.Completion,
 		OutputTokensDetails: &schema.OROutputTokensDetails{
 			ReasoningTokens: reasoningTokens,
 		},
@@ -1675,24 +1605,14 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 	})
 	sequenceNumber++
 
-	images := []string{}
-	videos := []string{}
-	audios := []string{}
-	for _, m := range openAIReq.Messages {
-		images = append(images, m.StringImages...)
-		videos = append(videos, m.StringVideos...)
-		audios = append(audios, m.StringAudios...)
+	// Populate openAIReq fields for ComputeChoices
+	openAIReq.Tools = convertORToolsToOpenAIFormat(input.Tools)
+	openAIReq.ToolsChoice = input.ToolChoice
+	if input.TopLogprobs != nil && *input.TopLogprobs > 0 {
+		openAIReq.TopLogprobs = input.TopLogprobs
+		openAIReq.Logprobs = schema.LogprobsValue{Enabled: true}
 	}
-
-	// Convert and serialize tools to OpenAI format for the backend
-	toolsJSON := serializeToolsForBackend(input.Tools)
-	toolChoiceJSON := ""
-	if input.ToolChoice != nil {
-		toolChoiceBytes, err := json.Marshal(input.ToolChoice)
-		if err == nil {
-			toolChoiceJSON = string(toolChoiceBytes)
-		}
-	}
+	openAIReq.LogitBias = input.LogitBias
 
 	// Detect if thinking token is already in prompt or template
 	var template string
@@ -1714,10 +1634,8 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 	// Track reasoning state for streaming
 	var currentReasoningID string
 	var currentReasoningContentIndex int
-	var accumulatedContent string
-	var lastEmittedReasoning string
-	var lastEmittedCleanedContent string
 	var reasoningTokens int
+	extractor := reason.NewReasoningExtractor(thinkingStartToken, cfg.ReasoningConfig)
 
 	// Collect all output items for storage
 	var collectedOutputItems []schema.ORItemField
@@ -1729,34 +1647,25 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 		}
 		hasMCPToolsStream := len(mcpToolInfos) > 0
 
-		var prediction backend.LLMResponse
 		var result, finalReasoning, finalCleanedResult string
 		var textContent string
 		var parsedToolCalls []functions.FuncCallResults
 		var toolCalls []functions.FuncCallResults
+		var lastStreamTokenUsage backend.TokenUsage
+		var lastStreamLogprobs *schema.Logprobs
 
 		for mcpStreamIter := 0; mcpStreamIter <= mcpStreamMaxIterations; mcpStreamIter++ {
 		if mcpStreamIter > 0 {
 			// Reset reasoning and tool-call state for re-inference so reasoning
 			// extraction runs again on subsequent iterations
 			inToolCallMode = false
-			accumulatedContent = ""
-			lastEmittedReasoning = ""
-			lastEmittedCleanedContent = ""
+			extractor.Reset()
 			currentMessageID = ""
 			lastEmittedToolCallCount = 0
 			currentReasoningID = ""
 
 			predInput = evaluator.TemplateMessages(*openAIReq, openAIReq.Messages, cfg, funcs, shouldUseFn)
 			xlog.Debug("Open Responses stream MCP re-templating", "iteration", mcpStreamIter)
-			images = images[:0]
-			videos = videos[:0]
-			audios = audios[:0]
-			for _, m := range openAIReq.Messages {
-				images = append(images, m.StringImages...)
-				videos = append(videos, m.StringVideos...)
-				audios = append(audios, m.StringAudios...)
-			}
 		}
 
 		// For tool calls, we need to track accumulated result and parse incrementally
@@ -1911,11 +1820,10 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 
 			// If no tool calls detected yet, handle reasoning and text
 			if !inToolCallMode {
-				accumulatedContent += token
-				currentReasoning, cleanedContent := reason.ExtractReasoningWithConfig(accumulatedContent, thinkingStartToken, cfg.ReasoningConfig)
+				reasoningDelta, contentDelta := extractor.ProcessToken(token)
 
 				// Handle reasoning item
-				if currentReasoning != "" {
+				if extractor.Reasoning() != "" {
 					// Check if we need to create reasoning item
 					if currentReasoningID == "" {
 						outputIndex++
@@ -1947,16 +1855,6 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 						sequenceNumber++
 					}
 
-					// Calculate reasoning delta
-					var reasoningDelta string
-					if len(currentReasoning) > len(lastEmittedReasoning) && strings.HasPrefix(currentReasoning, lastEmittedReasoning) {
-						reasoningDelta = currentReasoning[len(lastEmittedReasoning):]
-						lastEmittedReasoning = currentReasoning
-					} else if currentReasoning != lastEmittedReasoning {
-						reasoningDelta = currentReasoning
-						lastEmittedReasoning = currentReasoning
-					}
-
 					// Emit reasoning delta if there's new content
 					if reasoningDelta != "" {
 						sendSSEEvent(c, &schema.ORStreamEvent{
@@ -1973,23 +1871,8 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 					}
 				}
 
-				// Handle message content (cleaned content without reasoning tags)
-				var deltaContent string
-				if len(cleanedContent) > len(lastEmittedCleanedContent) && strings.HasPrefix(cleanedContent, lastEmittedCleanedContent) {
-					deltaContent = cleanedContent[len(lastEmittedCleanedContent):]
-					lastEmittedCleanedContent = cleanedContent
-				} else if cleanedContent != lastEmittedCleanedContent {
-					if lastEmittedCleanedContent == "" {
-						deltaContent = cleanedContent
-						lastEmittedCleanedContent = cleanedContent
-					} else {
-						deltaContent = cleanedContent
-						lastEmittedCleanedContent = cleanedContent
-					}
-				}
-
 				// Only emit message content if there's actual content (not just reasoning)
-				if deltaContent != "" {
+				if contentDelta != "" {
 					if currentMessageID == "" {
 						// Emit output_item.added for message
 						outputIndex++
@@ -2030,7 +1913,7 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 						ItemID:         currentMessageID,
 						OutputIndex:    &outputIndex,
 						ContentIndex:   &currentContentIndex,
-						Delta:          strPtr(deltaContent),
+						Delta:          strPtr(contentDelta),
 						Logprobs:       emptyLogprobs(),
 					})
 					sequenceNumber++
@@ -2040,14 +1923,11 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 			return true
 		}
 
-		// Pass logprobs and logit_bias parameters if requested
-		var streamLogprobs *int
-		if input.TopLogprobs != nil && *input.TopLogprobs > 0 {
-			streamLogprobs = input.TopLogprobs
+		var ccResult string
+		ccCb := func(s string, c *[]schema.Choice) {
+			ccResult = s
 		}
-
-		predFunc, err := backend.ModelInference(
-			input.Context, predInput, openAIReq.Messages, images, videos, audios, ml, cfg, cl, appConfig, tokenCallback, toolsJSON, toolChoiceJSON, streamLogprobs, input.TopLogprobs, input.LogitBias, nil)
+		choices, ccTokenUsage, chatDeltas, err := openaiEndpoint.ComputeChoices(openAIReq, predInput, cfg, cl, appConfig, ml, ccCb, tokenCallback)
 		if err != nil {
 			xlog.Error("Open Responses stream model inference failed", "error", err)
 			sendSSEEvent(c, &schema.ORStreamEvent{
@@ -2071,36 +1951,27 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 			c.Response().Flush()
 			return nil
 		}
-
-		prediction, err = predFunc()
-		if err != nil {
-			xlog.Error("Open Responses stream prediction failed", "error", err)
-			sendSSEEvent(c, &schema.ORStreamEvent{
-				Type:           "error",
-				SequenceNumber: sequenceNumber,
-				Error: &schema.ORErrorPayload{
-					Type:    "model_error",
-					Message: fmt.Sprintf("prediction failed: %v", err),
-				},
-			})
-			sequenceNumber++
-			responseFailed := responseCreated
-			responseFailed.Status = "failed"
-			sendSSEEvent(c, &schema.ORStreamEvent{
-				Type:           "response.failed",
-				SequenceNumber: sequenceNumber,
-				Response:       responseFailed,
-			})
-			// Send [DONE] even on error
-			fmt.Fprintf(c.Response().Writer, "data: [DONE]\n\n")
-			c.Response().Flush()
-			return nil
+		result = ccResult
+		lastStreamTokenUsage = ccTokenUsage
+		if len(choices) > 0 {
+			lastStreamLogprobs = choices[0].Logprobs
 		}
 
-		result = backend.Finetune(*cfg, predInput, prediction.Response)
-
-		// Extract reasoning from final result
-		finalReasoning, finalCleanedResult = reason.ExtractReasoningWithConfig(result, thinkingStartToken, cfg.ReasoningConfig)
+		// Source reasoning from: (1) ChatDeltas from C++ autoparser, (2) extractor's
+		// streaming state, (3) final extraction from the finetuned result.
+		if chatDeltaReasoning := functions.ReasoningFromChatDeltas(chatDeltas); chatDeltaReasoning != "" {
+			finalReasoning = chatDeltaReasoning
+			finalCleanedResult = functions.ContentFromChatDeltas(chatDeltas)
+			if finalCleanedResult == "" {
+				finalCleanedResult = extractor.CleanedContent()
+			}
+		} else {
+			finalReasoning = extractor.Reasoning()
+			finalCleanedResult = extractor.CleanedContent()
+		}
+		if finalReasoning == "" && finalCleanedResult == "" {
+			finalReasoning, finalCleanedResult = reason.ExtractReasoningWithConfig(result, thinkingStartToken, cfg.ReasoningConfig)
+		}
 
 		// Close reasoning item if it exists and wasn't closed yet
 		if currentReasoningID != "" && finalReasoning != "" {
@@ -2157,10 +2028,10 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 		textContent = ""
 
 		// Try pre-parsed tool calls from C++ autoparser first
-		if deltaToolCalls := functions.ToolCallsFromChatDeltas(prediction.ChatDeltas); len(deltaToolCalls) > 0 {
+		if deltaToolCalls := functions.ToolCallsFromChatDeltas(chatDeltas); len(deltaToolCalls) > 0 {
 			xlog.Debug("[ChatDeltas] OpenResponses Stream: using pre-parsed tool calls", "count", len(deltaToolCalls))
 			parsedToolCalls = deltaToolCalls
-			textContent = functions.ContentFromChatDeltas(prediction.ChatDeltas)
+			textContent = functions.ContentFromChatDeltas(chatDeltas)
 		} else {
 			xlog.Debug("[ChatDeltas] OpenResponses Stream: no pre-parsed tool calls, falling back to Go-side text parsing")
 			cleanedResult := functions.CleanupLLMResult(finalCleanedResult, cfg.FunctionsConfig)
@@ -2279,8 +2150,8 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 		}
 
 
-		// Convert prediction logprobs for streaming events
-		streamEventLogprobs := convertLogprobsForStreaming(prediction.Logprobs)
+		// Convert logprobs for streaming events
+		streamEventLogprobs := convertLogprobsForStreaming(lastStreamLogprobs)
 
 		// If we have no output but the model did produce something, use the cleaned result (without reasoning tags)
 		if textContent == "" && len(toolCalls) == 0 && finalCleanedResult != "" {
@@ -2303,7 +2174,7 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 			sequenceNumber++
 
 			// Emit content_part.done (with actual logprobs)
-			textPart := makeOutputTextPartWithLogprobs(textContent, prediction.Logprobs)
+			textPart := makeOutputTextPartWithLogprobs(textContent, lastStreamLogprobs)
 			sendSSEEvent(c, &schema.ORStreamEvent{
 				Type:           "response.content_part.done",
 				SequenceNumber: sequenceNumber,
@@ -2320,7 +2191,7 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 				ID:      currentMessageID,
 				Status:  "completed",
 				Role:    "assistant",
-				Content: []schema.ORContentPart{makeOutputTextPartWithLogprobs(textContent, prediction.Logprobs)},
+				Content: []schema.ORContentPart{makeOutputTextPartWithLogprobs(textContent, lastStreamLogprobs)},
 			}
 			sendSSEEvent(c, &schema.ORStreamEvent{
 				Type:           "response.output_item.done",
@@ -2389,7 +2260,7 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 				ID:      currentMessageID,
 				Status:  "completed",
 				Role:    "assistant",
-				Content: []schema.ORContentPart{makeOutputTextPartWithLogprobs(textContent, prediction.Logprobs)},
+				Content: []schema.ORContentPart{makeOutputTextPartWithLogprobs(textContent, lastStreamLogprobs)},
 			})
 		}
 		// Add tool call items
@@ -2408,9 +2279,9 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 		// Emit response.completed
 		now := time.Now().Unix()
 		responseCompleted := buildORResponse(responseID, createdAt, &now, "completed", input, allOutputItems, &schema.ORUsage{
-			InputTokens:  prediction.Usage.Prompt,
-			OutputTokens: prediction.Usage.Completion,
-			TotalTokens:  prediction.Usage.Prompt + prediction.Usage.Completion,
+			InputTokens:  lastStreamTokenUsage.Prompt,
+			OutputTokens: lastStreamTokenUsage.Completion,
+			TotalTokens:  lastStreamTokenUsage.Prompt + lastStreamTokenUsage.Completion,
 			OutputTokensDetails: &schema.OROutputTokensDetails{
 				ReasoningTokens: reasoningTokens,
 			},
@@ -2469,12 +2340,10 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 	// Stream text deltas with reasoning extraction
 	tokenCallback := func(token string, tokenUsage backend.TokenUsage) bool {
 		accumulatedText += token
-		accumulatedContent += token
-		// Prepend thinking token if needed, then extract reasoning
-		currentReasoning, cleanedContent := reason.ExtractReasoningWithConfig(accumulatedContent, thinkingStartToken, cfg.ReasoningConfig)
+		reasoningDelta, contentDelta := extractor.ProcessToken(token)
 
 		// Handle reasoning item
-		if currentReasoning != "" {
+		if extractor.Reasoning() != "" {
 			// Check if we need to create reasoning item
 			if currentReasoningID == "" {
 				outputIndex++
@@ -2506,16 +2375,6 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 				sequenceNumber++
 			}
 
-			// Calculate reasoning delta
-			var reasoningDelta string
-			if len(currentReasoning) > len(lastEmittedReasoning) && strings.HasPrefix(currentReasoning, lastEmittedReasoning) {
-				reasoningDelta = currentReasoning[len(lastEmittedReasoning):]
-				lastEmittedReasoning = currentReasoning
-			} else if currentReasoning != lastEmittedReasoning {
-				reasoningDelta = currentReasoning
-				lastEmittedReasoning = currentReasoning
-			}
-
 			// Emit reasoning delta if there's new content
 			if reasoningDelta != "" {
 				sendSSEEvent(c, &schema.ORStreamEvent{
@@ -2532,23 +2391,8 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 			}
 		}
 
-		// Handle message content (cleaned content without reasoning tags)
-		var deltaContent string
-		if len(cleanedContent) > len(lastEmittedCleanedContent) && strings.HasPrefix(cleanedContent, lastEmittedCleanedContent) {
-			deltaContent = cleanedContent[len(lastEmittedCleanedContent):]
-			lastEmittedCleanedContent = cleanedContent
-		} else if cleanedContent != lastEmittedCleanedContent {
-			if lastEmittedCleanedContent == "" {
-				deltaContent = cleanedContent
-				lastEmittedCleanedContent = cleanedContent
-			} else {
-				deltaContent = cleanedContent
-				lastEmittedCleanedContent = cleanedContent
-			}
-		}
-
 		// Only emit message content if there's actual content (not just reasoning)
-		if deltaContent != "" {
+		if contentDelta != "" {
 			// Emit text delta
 			sendSSEEvent(c, &schema.ORStreamEvent{
 				Type:           "response.output_text.delta",
@@ -2556,7 +2400,7 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 				ItemID:         currentMessageID,
 				OutputIndex:    &outputIndex,
 				ContentIndex:   &currentContentIndex,
-				Delta:          strPtr(deltaContent),
+				Delta:          strPtr(contentDelta),
 				Logprobs:       emptyLogprobs(),
 			})
 			sequenceNumber++
@@ -2565,14 +2409,11 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 		return true
 	}
 
-	// Pass logprobs and logit_bias parameters if requested
-	var mcpLogprobs *int
-	if input.TopLogprobs != nil && *input.TopLogprobs > 0 {
-		mcpLogprobs = input.TopLogprobs
+	var noToolResult string
+	noToolCb := func(s string, c *[]schema.Choice) {
+		noToolResult = s
 	}
-
-	predFunc, err := backend.ModelInference(
-		input.Context, predInput, openAIReq.Messages, images, videos, audios, ml, cfg, cl, appConfig, tokenCallback, toolsJSON, toolChoiceJSON, mcpLogprobs, input.TopLogprobs, input.LogitBias, nil)
+	noToolChoices, noToolTokenUsage, noToolChatDeltas, err := openaiEndpoint.ComputeChoices(openAIReq, predInput, cfg, cl, appConfig, ml, noToolCb, tokenCallback)
 	if err != nil {
 		xlog.Error("Open Responses stream model inference failed", "error", err)
 		sendSSEEvent(c, &schema.ORStreamEvent{
@@ -2596,36 +2437,28 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 		c.Response().Flush()
 		return nil
 	}
-
-	prediction, err := predFunc()
-	if err != nil {
-		xlog.Error("Open Responses stream prediction failed", "error", err)
-		sendSSEEvent(c, &schema.ORStreamEvent{
-			Type:           "error",
-			SequenceNumber: sequenceNumber,
-			Error: &schema.ORErrorPayload{
-				Type:    "model_error",
-				Message: fmt.Sprintf("prediction failed: %v", err),
-			},
-		})
-		sequenceNumber++
-		responseFailed := responseCreated
-		responseFailed.Status = "failed"
-		sendSSEEvent(c, &schema.ORStreamEvent{
-			Type:           "response.failed",
-			SequenceNumber: sequenceNumber,
-			Response:       responseFailed,
-		})
-		// Send [DONE] even on error
-		fmt.Fprintf(c.Response().Writer, "data: [DONE]\n\n")
-		c.Response().Flush()
-		return nil
+	result := noToolResult
+	var noToolLogprobs *schema.Logprobs
+	if len(noToolChoices) > 0 {
+		noToolLogprobs = noToolChoices[0].Logprobs
 	}
 
-	result := backend.Finetune(*cfg, predInput, prediction.Response)
-
-	// Extract reasoning from final result for non-tool-call path
-	finalReasoning, finalCleanedResult := reason.ExtractReasoningWithConfig(result, thinkingStartToken, cfg.ReasoningConfig)
+	// Source reasoning from: (1) ChatDeltas from C++ autoparser, (2) extractor's
+	// streaming state, (3) final extraction from the finetuned result.
+	var finalReasoning, finalCleanedResult string
+	if chatDeltaReasoning := functions.ReasoningFromChatDeltas(noToolChatDeltas); chatDeltaReasoning != "" {
+		finalReasoning = chatDeltaReasoning
+		finalCleanedResult = functions.ContentFromChatDeltas(noToolChatDeltas)
+		if finalCleanedResult == "" {
+			finalCleanedResult = extractor.CleanedContent()
+		}
+	} else {
+		finalReasoning = extractor.Reasoning()
+		finalCleanedResult = extractor.CleanedContent()
+	}
+	if finalReasoning == "" && finalCleanedResult == "" {
+		finalReasoning, finalCleanedResult = reason.ExtractReasoningWithConfig(result, thinkingStartToken, cfg.ReasoningConfig)
+	}
 
 	// Close reasoning item if it exists and wasn't closed yet
 	if currentReasoningID != "" && finalReasoning != "" {
@@ -2680,8 +2513,8 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 
 	result = finalCleanedResult
 
-	// Convert prediction logprobs for streaming events
-	mcpStreamLogprobs := convertLogprobsForStreaming(prediction.Logprobs)
+	// Convert logprobs for streaming events
+	mcpStreamLogprobs := convertLogprobsForStreaming(noToolLogprobs)
 
 	// Emit output_text.done
 	sendSSEEvent(c, &schema.ORStreamEvent{
@@ -2696,7 +2529,7 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 	sequenceNumber++
 
 	// Emit content_part.done (with actual logprobs)
-	resultPart := makeOutputTextPartWithLogprobs(result, prediction.Logprobs)
+	resultPart := makeOutputTextPartWithLogprobs(result, noToolLogprobs)
 	sendSSEEvent(c, &schema.ORStreamEvent{
 		Type:           "response.content_part.done",
 		SequenceNumber: sequenceNumber,
@@ -2709,7 +2542,7 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 
 	// Emit output_item.done (with actual logprobs)
 	messageItem.Status = "completed"
-	messageItem.Content = []schema.ORContentPart{makeOutputTextPartWithLogprobs(result, prediction.Logprobs)}
+	messageItem.Content = []schema.ORContentPart{makeOutputTextPartWithLogprobs(result, noToolLogprobs)}
 	sendSSEEvent(c, &schema.ORStreamEvent{
 		Type:           "response.output_item.done",
 		SequenceNumber: sequenceNumber,
@@ -2744,9 +2577,9 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 		finalOutputItems = append(finalOutputItems, *messageItem)
 	}
 	responseCompleted := buildORResponse(responseID, createdAt, &now, "completed", input, finalOutputItems, &schema.ORUsage{
-		InputTokens:  prediction.Usage.Prompt,
-		OutputTokens: prediction.Usage.Completion,
-		TotalTokens:  prediction.Usage.Prompt + prediction.Usage.Completion,
+		InputTokens:  noToolTokenUsage.Prompt,
+		OutputTokens: noToolTokenUsage.Completion,
+		TotalTokens:  noToolTokenUsage.Prompt + noToolTokenUsage.Completion,
 		OutputTokensDetails: &schema.OROutputTokensDetails{
 			ReasoningTokens: reasoningTokens,
 		},
@@ -3033,19 +2866,6 @@ func convertORToolsToOpenAIFormat(orTools []schema.ORFunctionTool) []functions.T
 		})
 	}
 	return result
-}
-
-// serializeToolsForBackend converts and serializes Open Responses tools to JSON for the backend
-func serializeToolsForBackend(orTools []schema.ORFunctionTool) string {
-	if len(orTools) == 0 {
-		return ""
-	}
-	openAITools := convertORToolsToOpenAIFormat(orTools)
-	toolsBytes, err := json.Marshal(openAITools)
-	if err != nil {
-		return ""
-	}
-	return string(toolsBytes)
 }
 
 // GetResponseEndpoint returns a handler for GET /responses/:id
