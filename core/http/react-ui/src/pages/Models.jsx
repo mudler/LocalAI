@@ -3,8 +3,7 @@ import { useNavigate, useOutletContext } from 'react-router-dom'
 import { modelsApi } from '../utils/api'
 import { useOperations } from '../hooks/useOperations'
 import { useResources } from '../hooks/useResources'
-import { formatBytes } from '../utils/format'
-import Modal from '../components/Modal'
+import React from 'react'
 
 
 const LOADING_PHRASES = [
@@ -135,7 +134,8 @@ export default function Models() {
   const [sort, setSort] = useState('')
   const [order, setOrder] = useState('asc')
   const [installing, setInstalling] = useState(new Set())
-  const [selectedModel, setSelectedModel] = useState(null)
+  const [expandedRow, setExpandedRow] = useState(null)
+  const [expandedFiles, setExpandedFiles] = useState(false)
   const [stats, setStats] = useState({ total: 0, installed: 0, repositories: 0 })
   const debounceRef = useRef(null)
 
@@ -322,6 +322,7 @@ export default function Models() {
             <table className="table" style={{ minWidth: '800px' }}>
               <thead>
                 <tr>
+                  <th style={{ width: '30px' }}></th>
                   <th style={{ width: '60px' }}></th>
                   <th style={{ cursor: 'pointer' }} onClick={() => handleSort('name')}>
                     Model Name {sort === 'name' && <i className={`fas fa-arrow-${order === 'asc' ? 'up' : 'down'}`} style={{ fontSize: '0.625rem' }} />}
@@ -335,14 +336,23 @@ export default function Models() {
                 </tr>
               </thead>
               <tbody>
-                {models.map(model => {
+                {models.map((model, idx) => {
                   const name = model.name || model.id
                   const installing = isInstalling(name)
                   const progress = getOperationProgress(name)
                   const fit = fitsGpu(model.estimated_vram_bytes)
+                  const isExpanded = expandedRow === idx
 
                   return (
-                    <tr key={name}>
+                    <React.Fragment key={name}>
+                    <tr
+                      onClick={() => { setExpandedRow(isExpanded ? null : idx); setExpandedFiles(false) }}
+                      style={{ cursor: 'pointer' }}
+                    >
+                      {/* Chevron */}
+                      <td style={{ width: 30 }}>
+                        <i className={`fas fa-chevron-${isExpanded ? 'down' : 'right'}`} style={{ fontSize: '0.625rem', color: 'var(--color-text-muted)', transition: 'transform 150ms' }} />
+                      </td>
                       {/* Icon */}
                       <td>
                         <div style={{
@@ -440,14 +450,7 @@ export default function Models() {
 
                       {/* Actions */}
                       <td>
-                        <div style={{ display: 'flex', gap: 'var(--spacing-xs)', justifyContent: 'flex-end' }}>
-                          <button
-                            className="btn btn-secondary btn-sm"
-                            onClick={() => setSelectedModel(model)}
-                            title="Details"
-                          >
-                            <i className="fas fa-info-circle" />
-                          </button>
+                        <div style={{ display: 'flex', gap: 'var(--spacing-xs)', justifyContent: 'flex-end' }} onClick={e => e.stopPropagation()}>
                           {model.installed ? (
                             <>
                               <button className="btn btn-secondary btn-sm" onClick={() => handleInstall(name)} title="Reinstall">
@@ -470,6 +473,15 @@ export default function Models() {
                         </div>
                       </td>
                     </tr>
+                    {/* Expanded detail row */}
+                    {isExpanded && (
+                      <tr>
+                        <td colSpan="7" style={{ padding: 0 }}>
+                          <ModelDetail model={model} fit={fit} expandedFiles={expandedFiles} setExpandedFiles={setExpandedFiles} />
+                        </td>
+                      </tr>
+                    )}
+                    </React.Fragment>
                   )
                 })}
               </tbody>
@@ -493,74 +505,125 @@ export default function Models() {
         </div>
       )}
 
-      {/* Detail Modal */}
-      {selectedModel && (
-        <Modal onClose={() => setSelectedModel(null)}>
-          {/* Modal header */}
-          <div style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            padding: 'var(--spacing-md)', borderBottom: '1px solid var(--color-border-subtle)',
-          }}>
-            <h3 style={{ fontSize: '1rem', fontWeight: 600 }}>{selectedModel.name}</h3>
-            <button className="btn btn-secondary btn-sm" onClick={() => setSelectedModel(null)}>
-              <i className="fas fa-times" />
-            </button>
-          </div>
-          {/* Modal body */}
-          <div style={{ padding: 'var(--spacing-md)', overflowY: 'auto', flex: 1 }}>
-            {/* Icon */}
-            {selectedModel.icon && (
-              <div style={{
-                width: 48, height: 48, borderRadius: 'var(--radius-md)',
-                border: '1px solid var(--color-border-subtle)', overflow: 'hidden',
-                marginBottom: 'var(--spacing-md)',
-              }}>
-                <img src={selectedModel.icon} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              </div>
+    </div>
+  )
+}
+
+function DetailRow({ label, children }) {
+  if (!children) return null
+  return (
+    <tr>
+      <td style={{ fontWeight: 500, fontSize: '0.8125rem', color: 'var(--color-text-secondary)', whiteSpace: 'nowrap', verticalAlign: 'top', padding: '6px 12px 6px 0' }}>
+        {label}
+      </td>
+      <td style={{ fontSize: '0.8125rem', padding: '6px 0' }}>{children}</td>
+    </tr>
+  )
+}
+
+function ModelDetail({ model, fit, expandedFiles, setExpandedFiles }) {
+  const files = model.additionalFiles || model.files || []
+  return (
+    <div style={{ padding: 'var(--spacing-md) var(--spacing-lg)', background: 'var(--color-bg-primary)', borderTop: '1px solid var(--color-border-subtle)' }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <tbody>
+          <DetailRow label="Description">
+            {model.description && (
+              <span style={{ color: 'var(--color-text-secondary)', lineHeight: 1.6 }}>{model.description}</span>
             )}
-            {/* Description */}
-            {selectedModel.description && (
-              <p style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)', lineHeight: 1.6, marginBottom: 'var(--spacing-md)' }}>
-                {selectedModel.description}
-              </p>
+          </DetailRow>
+          <DetailRow label="Gallery">
+            {model.gallery && (
+              <span className="badge badge-info" style={{ fontSize: '0.6875rem' }}>
+                {typeof model.gallery === 'string' ? model.gallery : model.gallery.name || '—'}
+              </span>
             )}
-            {/* Size/VRAM */}
-            {(selectedModel.estimated_size_display || selectedModel.estimated_vram_display) && (
-              <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)', marginBottom: 'var(--spacing-md)' }}>
-                {selectedModel.estimated_size_display && <div>Size: {selectedModel.estimated_size_display}</div>}
-                {selectedModel.estimated_vram_display && <div>VRAM: {selectedModel.estimated_vram_display}</div>}
-              </div>
-            )}
-            {/* Tags */}
-            {selectedModel.tags?.length > 0 && (
-              <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginBottom: 'var(--spacing-md)' }}>
-                {selectedModel.tags.map(tag => (
-                  <span key={tag} className="badge badge-info">{tag}</span>
+          </DetailRow>
+          <DetailRow label="Size">
+            {model.estimated_size_display && model.estimated_size_display !== '0 B' ? model.estimated_size_display : null}
+          </DetailRow>
+          <DetailRow label="VRAM">
+            {model.estimated_vram_display && model.estimated_vram_display !== '0 B' ? (
+              <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                {model.estimated_vram_display}
+                {fit !== null && (
+                  <span style={{ fontSize: '0.75rem', color: fit ? 'var(--color-success)' : 'var(--color-error)' }}>
+                    <i className="fas fa-microchip" /> {fit ? 'Fits in GPU' : 'May not fit in GPU'}
+                  </span>
+                )}
+              </span>
+            ) : null}
+          </DetailRow>
+          <DetailRow label="License">
+            {model.license && <span>{model.license}</span>}
+          </DetailRow>
+          <DetailRow label="Tags">
+            {model.tags?.length > 0 && (
+              <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                {model.tags.map(tag => (
+                  <span key={tag} className="badge badge-info" style={{ fontSize: '0.6875rem' }}>{tag}</span>
                 ))}
               </div>
             )}
-            {/* Links */}
-            {selectedModel.urls?.length > 0 && (
-              <div style={{ marginBottom: 'var(--spacing-md)' }}>
-                <h4 style={{ fontSize: '0.8125rem', fontWeight: 600, marginBottom: 'var(--spacing-xs)' }}>Links</h4>
-                {selectedModel.urls.map((url, i) => (
-                  <a key={i} href={url} target="_blank" rel="noopener noreferrer" style={{ display: 'block', fontSize: '0.8125rem', color: 'var(--color-primary)', marginBottom: '2px' }}>
-                    {url}
+          </DetailRow>
+          <DetailRow label="Links">
+            {model.urls?.length > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                {model.urls.map((url, i) => (
+                  <a key={i} href={url} target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.8125rem', color: 'var(--color-primary)', wordBreak: 'break-all' }}>
+                    <i className="fas fa-external-link-alt" style={{ marginRight: 4, fontSize: '0.6875rem' }} />{url}
                   </a>
                 ))}
               </div>
             )}
-          </div>
-          {/* Modal footer */}
-          <div style={{
-            padding: 'var(--spacing-sm) var(--spacing-md)',
-            borderTop: '1px solid var(--color-border-subtle)',
-            display: 'flex', justifyContent: 'flex-end',
-          }}>
-            <button className="btn btn-secondary btn-sm" onClick={() => setSelectedModel(null)}>Close</button>
-          </div>
-        </Modal>
-      )}
+          </DetailRow>
+          {model.trustRemoteCode && (
+            <DetailRow label="Warning">
+              <span className="badge badge-error" style={{ fontSize: '0.6875rem' }}>
+                <i className="fas fa-circle-exclamation" /> Requires Trust Remote Code
+              </span>
+            </DetailRow>
+          )}
+          {files.length > 0 && (
+            <DetailRow label="Files">
+              <div>
+                <button
+                  className="btn btn-secondary btn-sm"
+                  onClick={(e) => { e.stopPropagation(); setExpandedFiles(!expandedFiles) }}
+                  style={{ marginBottom: expandedFiles ? 'var(--spacing-sm)' : 0 }}
+                >
+                  <i className={`fas fa-chevron-${expandedFiles ? 'down' : 'right'}`} style={{ fontSize: '0.5rem', marginRight: 4 }} />
+                  {files.length} file{files.length !== 1 ? 's' : ''}
+                </button>
+                {expandedFiles && (
+                  <div style={{ border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.75rem' }}>
+                      <thead>
+                        <tr style={{ background: 'var(--color-bg-tertiary)' }}>
+                          <th style={{ padding: '4px 8px', textAlign: 'left', fontWeight: 500 }}>Filename</th>
+                          <th style={{ padding: '4px 8px', textAlign: 'left', fontWeight: 500 }}>URI</th>
+                          <th style={{ padding: '4px 8px', textAlign: 'left', fontWeight: 500 }}>SHA256</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {files.map((f, i) => (
+                          <tr key={i} style={{ borderTop: '1px solid var(--color-border-subtle)' }}>
+                            <td style={{ padding: '4px 8px', fontFamily: 'monospace' }}>{f.filename || '—'}</td>
+                            <td style={{ padding: '4px 8px', wordBreak: 'break-all', maxWidth: 300 }}>{f.uri || '—'}</td>
+                            <td style={{ padding: '4px 8px', fontFamily: 'monospace', fontSize: '0.6875rem', color: 'var(--color-text-muted)' }}>
+                              {f.sha256 ? f.sha256.substring(0, 16) + '...' : '—'}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </DetailRow>
+          )}
+        </tbody>
+      </table>
     </div>
   )
 }
