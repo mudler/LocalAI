@@ -9,7 +9,7 @@ import (
 	cliContext "github.com/mudler/LocalAI/core/cli/context"
 	"github.com/mudler/LocalAI/core/services"
 	"github.com/mudler/LocalAI/core/config"
-	"github.com/mudler/LocalAGI/core/state"
+	"github.com/mudler/LocalAI/core/state"
 	"github.com/mudler/xlog"
 )
 
