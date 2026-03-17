@@ -28,7 +28,7 @@ func skillToResponse(s skilldomain.Skill) skillResponse {
 		out.License = s.Metadata.License
 		out.Compatibility = s.Metadata.Compatibility
 		out.Metadata = s.Metadata.Metadata
-		out.AllowedTools = s.Metadata.AllowedTools
+		out.AllowedTools = s.Metadata.AllowedTools.String()
 	}
 	return out
 }
