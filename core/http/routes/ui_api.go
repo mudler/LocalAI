@@ -210,6 +210,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 	// Model Gallery APIs (admin only)
 	app.GET("/api/models", func(c echo.Context) error {
 		term := c.QueryParam("term")
+		tag := c.QueryParam("tag")
 		page := c.QueryParam("page")
 		if page == "" {
 			page = "1"
@@ -253,6 +254,9 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		}
 		sort.Strings(backendNames)
 
+		if tag != "" {
+			models = gallery.GalleryElements[*gallery.GalleryModel](models).FilterByTag(tag)
+		}
 		if term != "" {
 			models = gallery.GalleryElements[*gallery.GalleryModel](models).Search(term)
 		}
@@ -776,6 +780,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 	// Backend Gallery APIs
 	app.GET("/api/backends", func(c echo.Context) error {
 		term := c.QueryParam("term")
+		tag := c.QueryParam("tag")
 		page := c.QueryParam("page")
 		if page == "" {
 			page = "1"
@@ -806,6 +811,9 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		}
 		sort.Strings(tags)
 
+		if tag != "" {
+			backends = gallery.GalleryElements[*gallery.GalleryBackend](backends).FilterByTag(tag)
+		}
 		if term != "" {
 			backends = gallery.GalleryElements[*gallery.GalleryBackend](backends).Search(term)
 		}

@@ -159,6 +159,68 @@ var _ = Describe("Gallery", func() {
 		})
 	})
 
+	Describe("GalleryElements FilterByTag", func() {
+		var elements GalleryElements[*GalleryModel]
+
+		BeforeEach(func() {
+			elements = GalleryElements[*GalleryModel]{
+				{
+					Metadata: Metadata{
+						Name: "whisper-asr",
+						Tags: []string{"asr", "stt"},
+					},
+				},
+				{
+					Metadata: Metadata{
+						Name: "image-diffusers",
+						Tags: []string{"sd", "image"},
+					},
+				},
+				{
+					Metadata: Metadata{
+						Name: "another-stt-model",
+						Tags: []string{"stt", "audio"},
+					},
+				},
+				{
+					Metadata: Metadata{
+						Name: "no-tags-model",
+						Tags: []string{},
+					},
+				},
+			}
+		})
+
+		It("should return exact tag matches only", func() {
+			results := elements.FilterByTag("asr")
+			Expect(results).To(HaveLen(1))
+			Expect(results[0].GetName()).To(Equal("whisper-asr"))
+		})
+
+		It("should not match substrings (image-diffusers must NOT match 'asr')", func() {
+			results := elements.FilterByTag("asr")
+			for _, r := range results {
+				Expect(r.GetName()).NotTo(Equal("image-diffusers"))
+			}
+		})
+
+		It("should be case insensitive", func() {
+			results := elements.FilterByTag("ASR")
+			Expect(results).To(HaveLen(1))
+			Expect(results[0].GetName()).To(Equal("whisper-asr"))
+		})
+
+		It("should return multiple models with the same tag", func() {
+			results := elements.FilterByTag("stt")
+			Expect(results).To(HaveLen(2))
+		})
+
+		It("should return empty when no models have the tag", func() {
+			results := elements.FilterByTag("nonexistent")
+			Expect(results).To(HaveLen(0))
+		})
+	})
+
 	Describe("GalleryElements SortByName", func() {
 		var elements GalleryElements[*GalleryModel]
 

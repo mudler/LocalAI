@@ -130,13 +130,12 @@ export default function Models() {
       const filterVal = params.filter !== undefined ? params.filter : filter
       const sortVal = params.sort !== undefined ? params.sort : sort
       const backendVal = params.backendFilter !== undefined ? params.backendFilter : backendFilter
-      // Combine search text and filter into 'term' param
-      const term = searchVal || filterVal || ''
       const queryParams = {
         page: params.page || page,
         items: 9,
       }
-      if (term) queryParams.term = term
+      if (filterVal) queryParams.tag = filterVal
+      if (searchVal) queryParams.term = searchVal
       if (backendVal) queryParams.backend = backendVal
       if (sortVal) {
         queryParams.sort = sortVal
