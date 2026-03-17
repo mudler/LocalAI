@@ -1,4 +1,33 @@
 ---
+- name: "voxtral-mini-4b-realtime-2602"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/chris0173/Voxtral-Mini-4B-Realtime-2602-GGUF
+  description: |
+    AI model: voxtral-mini-4b-realtime-2602
+  overrides:
+    parameters:
+      model: llama-cpp/models/Voxtral-Mini-4B-Realtime-2602-GGUF/Voxtral-Mini-4B-Realtime-2602-Q8_0.gguf
+    name: Voxtral-Mini-4B-Realtime-2602-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    mmproj: llama-cpp/mmproj/Voxtral-Mini-4B-Realtime-2602-GGUF/mmproj-Voxtral-Mini-4B-Realtime-2602-Q8_0.gguf
+    description: Imported from https://huggingface.co/chris0173/Voxtral-Mini-4B-Realtime-2602-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/mmproj/Voxtral-Mini-4B-Realtime-2602-GGUF/mmproj-Voxtral-Mini-4B-Realtime-2602-Q8_0.gguf
+      sha256: 7f70a3797012c15f64358ef198ba28338c05c6fb5153bfca94c5e531205912d7
+      uri: https://huggingface.co/chris0173/Voxtral-Mini-4B-Realtime-2602-GGUF/resolve/main/mmproj-Voxtral-Mini-4B-Realtime-2602-Q8_0.gguf
+    - filename: llama-cpp/models/Voxtral-Mini-4B-Realtime-2602-GGUF/Voxtral-Mini-4B-Realtime-2602-Q8_0.gguf
+      sha256: 64c330753d4c09648b813be502e2e6d4c30eac2f1db82365c69719a94247a8d5
+      uri: https://huggingface.co/chris0173/Voxtral-Mini-4B-Realtime-2602-GGUF/resolve/main/Voxtral-Mini-4B-Realtime-2602-Q8_0.gguf
 - name: "qwen_qwen3.5-35b-a3b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
