@@ -7,7 +7,7 @@ require (
 	fyne.io/fyne/v2 v2.7.3
 	github.com/Masterminds/sprig/v3 v3.3.0
 	github.com/alecthomas/kong v1.14.0
-	github.com/anthropics/anthropic-sdk-go v1.26.0
+	github.com/anthropics/anthropic-sdk-go v1.27.0
 	github.com/charmbracelet/glamour v0.10.0
 	github.com/containerd/containerd v1.7.30
 	github.com/dhowden/tag v0.0.0-20240417053706-3d75831295e8
@@ -57,7 +57,6 @@ require (
 	go.opentelemetry.io/otel/metric v1.42.0
 	go.opentelemetry.io/otel/sdk/metric v1.42.0
 	google.golang.org/grpc v1.79.1
-	google.golang.org/protobuf v1.36.11
 	gopkg.in/yaml.v3 v3.0.1
 	oras.land/oras-go/v2 v2.6.0
 )
@@ -65,6 +64,7 @@ require (
 require (
 	github.com/stretchr/testify v1.11.1 // indirect
 	github.com/tmc/langchaingo v0.1.14 // indirect
+	google.golang.org/protobuf v1.36.11 // indirect
 )
 
 require (
