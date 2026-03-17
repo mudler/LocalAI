@@ -17,7 +17,7 @@ require (
 	github.com/go-audio/wav v1.1.0
 	github.com/go-skynet/go-llama.cpp v0.0.0-20240314183750-6a8041ef6b46
 	github.com/gofrs/flock v0.13.0
-	github.com/google/go-containerregistry v0.21.1
+	github.com/google/go-containerregistry v0.21.2
 	github.com/google/uuid v1.6.0
 	github.com/gpustack/gguf-parser-go v0.24.0
 	github.com/hpcloud/tail v1.0.0
