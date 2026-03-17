@@ -57,6 +57,7 @@ require (
 	go.opentelemetry.io/otel/metric v1.42.0
 	go.opentelemetry.io/otel/sdk/metric v1.42.0
 	google.golang.org/grpc v1.79.1
+	google.golang.org/protobuf v1.36.11
 	gopkg.in/yaml.v3 v3.0.1
 	oras.land/oras-go/v2 v2.6.0
 )
@@ -64,7 +65,6 @@ require (
 require (
 	github.com/stretchr/testify v1.11.1 // indirect
 	github.com/tmc/langchaingo v0.1.14 // indirect
-	google.golang.org/protobuf v1.36.11 // indirect
 )
 
 require (
@@ -130,7 +130,7 @@ require (
 	github.com/mschoch/smat v0.2.0 // indirect
 	github.com/mudler/LocalAGI v0.0.0-20260315223407-da286065e126
 	github.com/mudler/localrecall v0.5.9-0.20260314221856-96d63875cc47 // indirect
-	github.com/mudler/skillserver v0.0.5-0.20260221145827-0639a82c8f49
+	github.com/mudler/skillserver v0.0.5
 	github.com/olekukonko/tablewriter v0.0.5 // indirect
 	github.com/oxffaa/gopher-parse-sitemap v0.0.0-20191021113419-005d2eb1def4 // indirect
 	github.com/philippgille/chromem-go v0.7.0 // indirect
