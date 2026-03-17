@@ -17,6 +17,7 @@ func VAD(request *schema.VADRequest,
 	opts := ModelOptions(modelConfig, appConfig)
 	vadModel, err := ml.Load(opts...)
 	if err != nil {
+		recordModelLoadFailure(appConfig, modelConfig.Name, modelConfig.Backend, err, nil)
 		return nil, err
 	}
 

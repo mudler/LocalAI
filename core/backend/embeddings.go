@@ -17,6 +17,7 @@ func ModelEmbedding(s string, tokens []int, loader *model.ModelLoader, modelConf
 
 	inferenceModel, err := loader.Load(opts...)
 	if err != nil {
+		recordModelLoadFailure(appConfig, modelConfig.Name, modelConfig.Backend, err, nil)
 		return nil, err
 	}
 

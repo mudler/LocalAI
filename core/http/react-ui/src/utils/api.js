@@ -140,6 +140,13 @@ export const settingsApi = {
   save: (body) => postJSON(API_CONFIG.endpoints.settings, body),
 }
 
+// Backend Logs API
+export const backendLogsApi = {
+  listModels: () => fetchJSON(API_CONFIG.endpoints.backendLogs),
+  getLines: (modelId) => fetchJSON(API_CONFIG.endpoints.backendLogsModel(modelId)),
+  clear: (modelId) => postJSON(API_CONFIG.endpoints.clearBackendLogs(modelId), {}),
+}
+
 // Traces API
 export const tracesApi = {
   get: () => fetchJSON(API_CONFIG.endpoints.traces),

@@ -27,6 +27,7 @@ import AgentTaskDetails from './pages/AgentTaskDetails'
 import AgentJobDetails from './pages/AgentJobDetails'
 import ModelEditor from './pages/ModelEditor'
 import ImportModel from './pages/ImportModel'
+import BackendLogs from './pages/BackendLogs'
 import Explorer from './pages/Explorer'
 import Login from './pages/Login'
 import NotFound from './pages/NotFound'
@@ -54,6 +55,7 @@ const appChildren = [
   { path: 'backends', element: <Backends /> },
   { path: 'settings', element: <Settings /> },
   { path: 'traces', element: <Traces /> },
+  { path: 'backend-logs/:modelId', element: <BackendLogs /> },
   { path: 'p2p', element: <P2P /> },
   { path: 'agents', element: <Agents /> },
   { path: 'agents/new', element: <AgentCreate /> },

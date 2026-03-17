@@ -65,6 +65,7 @@ func ModelInference(ctx context.Context, s string, messages schema.Messages, ima
 	opts := ModelOptions(*c, o)
 	inferenceModel, err := loader.Load(opts...)
 	if err != nil {
+		recordModelLoadFailure(o, c.Name, c.Backend, err, map[string]any{"model_file": modelFile})
 		return nil, err
 	}
 

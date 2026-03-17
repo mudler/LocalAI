@@ -31,6 +31,7 @@ func ModelTTS(
 	opts := ModelOptions(modelConfig, appConfig)
 	ttsModel, err := loader.Load(opts...)
 	if err != nil {
+		recordModelLoadFailure(appConfig, modelConfig.Name, modelConfig.Backend, err, nil)
 		return "", nil, err
 	}
 
@@ -131,6 +132,7 @@ func ModelTTSStream(
 	opts := ModelOptions(modelConfig, appConfig)
 	ttsModel, err := loader.Load(opts...)
 	if err != nil {
+		recordModelLoadFailure(appConfig, modelConfig.Name, modelConfig.Backend, err, nil)
 		return err
 	}
 

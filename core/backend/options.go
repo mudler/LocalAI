@@ -1,16 +1,35 @@
 package backend
 
 import (
-	"strings"
 	"math/rand"
 	"os"
 	"path/filepath"
+	"strings"
+	"time"
 
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/trace"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/xlog"
 )
+
+// recordModelLoadFailure records a backend trace when model loading fails.
+func recordModelLoadFailure(appConfig *config.ApplicationConfig, modelName, backend string, err error, data map[string]any) {
+	if !appConfig.EnableTracing {
+		return
+	}
+	trace.InitBackendTracingIfEnabled(appConfig.TracingMaxItems)
+	trace.RecordBackendTrace(trace.BackendTrace{
+		Timestamp: time.Now(),
+		Type:      trace.BackendTraceModelLoad,
+		ModelName: modelName,
+		Backend:   backend,
+		Summary:   "Model load failed",
+		Error:     err.Error(),
+		Data:      data,
+	})
+}
 
 func ModelOptions(c config.ModelConfig, so *config.ApplicationConfig, opts ...model.Option) []model.Option {
 	name := c.Name

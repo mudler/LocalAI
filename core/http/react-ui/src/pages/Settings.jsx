@@ -300,6 +300,9 @@ export default function Settings() {
               <SettingRow label="Max Items" description="Maximum number of trace items to retain (0 = unlimited)">
                 <input className="input" type="number" style={{ width: 120 }} value={settings.tracing_max_items ?? ''} onChange={(e) => update('tracing_max_items', parseInt(e.target.value) || 0)} placeholder="100" disabled={!settings.enable_tracing} />
               </SettingRow>
+              <SettingRow label="Enable Backend Logging" description="Capture backend process output per model (without requiring debug mode)">
+                <Toggle checked={settings.enable_backend_logging} onChange={(v) => update('enable_backend_logging', v)} />
+              </SettingRow>
             </div>
           </div>
 

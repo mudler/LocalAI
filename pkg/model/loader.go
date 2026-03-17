@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/mudler/LocalAI/pkg/system"
@@ -33,6 +34,8 @@ type ModelLoader struct {
 	lruEvictionMaxRetries    int           // Maximum number of retries when waiting for busy models
 	lruEvictionRetryInterval time.Duration // Interval between retries when waiting for busy models
 	onUnloadHooks            []ModelUnloadHook
+	backendLogs              *BackendLogStore
+	backendLoggingEnabled    atomic.Bool
 }
 
 // NewModelLoader creates a new ModelLoader instance.
@@ -45,6 +48,7 @@ func NewModelLoader(system *system.SystemState) *ModelLoader {
 		externalBackends:         make(map[string]string),
 		lruEvictionMaxRetries:    30,              // Default: 30 retries
 		lruEvictionRetryInterval: 1 * time.Second, // Default: 1 second
+		backendLogs:              NewBackendLogStore(1000),
 	}
 
 	return nml
@@ -70,6 +74,18 @@ func (ml *ModelLoader) SetWatchDog(wd *WatchDog) {
 
 func (ml *ModelLoader) GetWatchDog() *WatchDog {
 	return ml.wd
+}
+
+func (ml *ModelLoader) BackendLogs() *BackendLogStore {
+	return ml.backendLogs
+}
+
+func (ml *ModelLoader) SetBackendLoggingEnabled(enabled bool) {
+	ml.backendLoggingEnabled.Store(enabled)
+}
+
+func (ml *ModelLoader) BackendLoggingEnabled() bool {
+	return ml.backendLoggingEnabled.Load()
 }
 
 // SetLRUEvictionRetrySettings updates the LRU eviction retry settings
