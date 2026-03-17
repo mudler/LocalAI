@@ -354,6 +354,9 @@ export default function Chat() {
     modelsApi.getConfigJson(model).then(cfg => {
       if (cancelled) return
       setModelInfo(cfg)
+      if (cfg?.context_size > 0 && activeChat) {
+        updateChatSettings(activeChat.id, { contextSize: cfg.context_size })
+      }
       const hasMcp = !!(cfg?.mcp?.remote || cfg?.mcp?.stdio)
       setMcpAvailable(hasMcp)
       if (!hasMcp && activeChat?.mcpMode) {

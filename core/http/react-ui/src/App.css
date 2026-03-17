@@ -2109,7 +2109,7 @@
   height: 4px;
   appearance: none;
   -webkit-appearance: none;
-  background: var(--color-bg-tertiary);
+  background: var(--color-border-default);
   border-radius: 2px;
   outline: none;
 }
