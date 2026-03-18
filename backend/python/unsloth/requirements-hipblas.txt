@@ -1,0 +1,10 @@
+--extra-index-url https://download.pytorch.org/whl/rocm6.3
+unsloth
+torch
+transformers
+datasets
+trl
+peft
+accelerate
+bitsandbytes
+sentencepiece

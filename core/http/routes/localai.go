@@ -187,6 +187,15 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 		router.OPTIONS("/api/cors-proxy", localai.CORSProxyOptionsEndpoint())
 	}
 
+	// Training job routes
+	if app != nil && app.TrainingJobService() != nil {
+		router.POST("/api/training/jobs", localai.StartTrainingEndpoint(app))
+		router.GET("/api/training/jobs/:id", localai.GetTrainingJobEndpoint(app))
+		router.GET("/api/training/jobs", localai.ListTrainingJobsEndpoint(app))
+		router.POST("/api/training/jobs/:id/cancel", localai.CancelTrainingEndpoint(app))
+		router.DELETE("/api/training/jobs/:id", localai.DeleteTrainingEndpoint(app))
+	}
+
 	// Agent job routes (MCP CI Jobs — requires MCP to be enabled)
 	if app != nil && app.AgentJobService() != nil && !appConfig.DisableMCP {
 		router.POST("/api/agent/tasks", localai.CreateTaskEndpoint(app), mcpJobsMw)
