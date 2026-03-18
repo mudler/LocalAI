@@ -99,7 +99,14 @@ export default function UserGroupSection({ title, userGroups, userMap, currentUs
         }
       `}</style>
 
-      <div className="ugs-header" onClick={() => setOpen(v => !v)}>
+      <div
+        className="ugs-header"
+        role="button"
+        tabIndex={0}
+        onClick={() => setOpen(v => !v)}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpen(v => !v) } }}
+        aria-expanded={open}
+      >
         <i className={`fas fa-chevron-right ugs-chevron ${open ? 'open' : ''}`} />
         <span className="ugs-title">{title}</span>
         <span className="ugs-badge">{totalUsers} user{totalUsers !== 1 ? 's' : ''}</span>
@@ -140,7 +147,14 @@ function UserSubSection({ uid, displayName, initials, avatarUrl, count, itemKey,
 
   return (
     <div className="ugs-user-section">
-      <div className="ugs-user-header" onClick={() => setOpen(v => !v)}>
+      <div
+        className="ugs-user-header"
+        role="button"
+        tabIndex={0}
+        onClick={() => setOpen(v => !v)}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpen(v => !v) } }}
+        aria-expanded={open}
+      >
         <i className={`fas fa-chevron-right ugs-chevron ${open ? 'open' : ''}`} style={{ fontSize: '0.625rem' }} />
         <div className="ugs-avatar">
           {avatarUrl ? <img src={avatarUrl} alt="" /> : initials}

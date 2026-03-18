@@ -318,6 +318,8 @@ export default function Chat() {
   const [selectedArtifactId, setSelectedArtifactId] = useState(null)
   const [clientMCPServers, setClientMCPServers] = useState(() => loadClientMCPServers())
   const [confirmDialog, setConfirmDialog] = useState(null)
+  const [completionGlowIdx, setCompletionGlowIdx] = useState(-1)
+  const prevStreamingRef = useRef(false)
   const {
     connect: mcpConnect, disconnect: mcpDisconnect, disconnectAll: mcpDisconnectAll,
     getToolsForLLM, isClientTool, executeTool, connectionStatuses, getConnectedTools,
@@ -344,6 +346,19 @@ export default function Chat() {
     }
     prevArtifactCountRef.current = artifacts.length
   }, [artifacts])
+
+  // Completion glow: when streaming finishes, briefly highlight last assistant message
+  useEffect(() => {
+    if (prevStreamingRef.current && !isStreaming && activeChat?.history?.length > 0) {
+      const lastIdx = activeChat.history.length - 1
+      if (activeChat.history[lastIdx]?.role === 'assistant') {
+        setCompletionGlowIdx(lastIdx)
+        const timer = setTimeout(() => setCompletionGlowIdx(-1), 600)
+        return () => clearTimeout(timer)
+      }
+    }
+    prevStreamingRef.current = isStreaming
+  }, [isStreaming, activeChat?.history?.length])
 
   // Check MCP availability and fetch model config
   useEffect(() => {
@@ -1106,7 +1121,7 @@ export default function Chat() {
               }
               flushActivity(i)
               elements.push(
-                <div key={i} className={`chat-message chat-message-${msg.role}`}>
+                <div key={i} className={`chat-message chat-message-${msg.role}${i === completionGlowIdx ? ' chat-message-new' : ''}`}>
                   <div className="chat-message-avatar">
                     <i className={`fas ${msg.role === 'user' ? 'fa-user' : 'fa-robot'}`} />
                   </div>

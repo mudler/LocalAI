@@ -29,6 +29,11 @@ export default function App() {
     return () => window.removeEventListener('sidebar-collapse', handler)
   }, [])
 
+  // Scroll to top on route change
+  useEffect(() => {
+    window.scrollTo(0, 0)
+  }, [location.pathname])
+
   const layoutClasses = [
     'app-layout',
     isChatRoute ? 'app-layout-chat' : '',
@@ -51,7 +56,9 @@ export default function App() {
           <span className="mobile-title">LocalAI</span>
         </header>
         <div className="main-content-inner">
-          <Outlet context={{ addToast }} />
+          <div className="page-transition" key={location.pathname}>
+            <Outlet context={{ addToast }} />
+          </div>
         </div>
         {!isChatRoute && (
           <footer className="app-footer">
