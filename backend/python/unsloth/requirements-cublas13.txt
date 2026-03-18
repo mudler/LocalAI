@@ -1,5 +1,5 @@
 --extra-index-url https://download.pytorch.org/whl/cu126
-unsloth[cu124-ampere-torch250]
+unsloth[cu124-ampere-torch251]
 torch
 transformers
 datasets
