@@ -226,7 +226,7 @@ export default function Manage() {
                       )}
                     </td>
                     <td>
-                      <span className="badge badge-info">Auto</span>
+                      <span className="badge badge-info">{model.backend || 'Auto'}</span>
                     </td>
                     <td>
                       <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
