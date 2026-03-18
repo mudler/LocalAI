@@ -137,6 +137,8 @@ export default function Models() {
   const [expandedRow, setExpandedRow] = useState(null)
   const [expandedFiles, setExpandedFiles] = useState(false)
   const [stats, setStats] = useState({ total: 0, installed: 0, repositories: 0 })
+  const [backendFilter, setBackendFilter] = useState('')
+  const [allBackends, setAllBackends] = useState([])
   const debounceRef = useRef(null)
 
   // Total GPU memory for "fits" check
@@ -148,6 +150,7 @@ export default function Models() {
       const searchVal = params.search !== undefined ? params.search : search
       const filterVal = params.filter !== undefined ? params.filter : filter
       const sortVal = params.sort !== undefined ? params.sort : sort
+      const backendVal = params.backendFilter !== undefined ? params.backendFilter : backendFilter
       // Combine search text and filter into 'term' param
       const term = searchVal || filterVal || ''
       const queryParams = {
@@ -155,6 +158,7 @@ export default function Models() {
         items: 9,
       }
       if (term) queryParams.term = term
+      if (backendVal) queryParams.backend = backendVal
       if (sortVal) {
         queryParams.sort = sortVal
         queryParams.order = params.order || order
@@ -166,16 +170,17 @@ export default function Models() {
         total: data?.availableModels || 0,
         installed: data?.installedModels || 0,
       })
+      setAllBackends(data?.allBackends || [])
     } catch (err) {
       addToast(`Failed to load models: ${err.message}`, 'error')
     } finally {
       setLoading(false)
     }
-  }, [page, search, filter, sort, order, addToast])
+  }, [page, search, filter, sort, order, backendFilter, addToast])
 
   useEffect(() => {
     fetchModels()
-  }, [page, filter, sort, order])
+  }, [page, filter, sort, order, backendFilter])
 
   // Re-fetch when operations change (install/delete completion)
   useEffect(() => {
@@ -305,6 +310,19 @@ export default function Models() {
             {f.label}
           </button>
         ))}
+        {allBackends.length > 0 && (
+          <select
+            className="input"
+            value={backendFilter}
+            onChange={(e) => { setBackendFilter(e.target.value); setPage(1) }}
+            style={{ width: 'auto', minWidth: 160, marginLeft: 'auto', padding: '4px 8px', fontSize: '0.8125rem' }}
+          >
+            <option value="">All Backends</option>
+            {allBackends.map(b => (
+              <option key={b} value={b}>{b}</option>
+            ))}
+          </select>
+        )}
       </div>
 
       {/* Table */}
@@ -328,6 +346,7 @@ export default function Models() {
                     Model Name {sort === 'name' && <i className={`fas fa-arrow-${order === 'asc' ? 'up' : 'down'}`} style={{ fontSize: '0.625rem' }} />}
                   </th>
                   <th>Description</th>
+                  <th>Backend</th>
                   <th>Size / VRAM</th>
                   <th style={{ cursor: 'pointer' }} onClick={() => handleSort('status')}>
                     Status {sort === 'status' && <i className={`fas fa-arrow-${order === 'asc' ? 'up' : 'down'}`} style={{ fontSize: '0.625rem' }} />}
@@ -391,6 +410,17 @@ export default function Models() {
                         }} title={model.description}>
                           {model.description || '—'}
                         </div>
+                      </td>
+
+                      {/* Backend */}
+                      <td>
+                        {model.backend ? (
+                          <span className="badge badge-info" style={{ fontSize: '0.6875rem' }}>
+                            {model.backend}
+                          </span>
+                        ) : (
+                          <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>—</span>
+                        )}
                       </td>
 
                       {/* Size / VRAM */}
@@ -476,7 +506,7 @@ export default function Models() {
                     {/* Expanded detail row */}
                     {isExpanded && (
                       <tr>
-                        <td colSpan="7" style={{ padding: 0 }}>
+                        <td colSpan="8" style={{ padding: 0 }}>
                           <ModelDetail model={model} fit={fit} expandedFiles={expandedFiles} setExpandedFiles={setExpandedFiles} />
                         </td>
                       </tr>
@@ -536,6 +566,13 @@ function ModelDetail({ model, fit, expandedFiles, setExpandedFiles }) {
             {model.gallery && (
               <span className="badge badge-info" style={{ fontSize: '0.6875rem' }}>
                 {typeof model.gallery === 'string' ? model.gallery : model.gallery.name || '—'}
+              </span>
+            )}
+          </DetailRow>
+          <DetailRow label="Backend">
+            {model.backend && (
+              <span className="badge badge-info" style={{ fontSize: '0.6875rem' }}>
+                {model.backend}
               </span>
             )}
           </DetailRow>
