@@ -63,4 +63,6 @@ type Backend interface {
 	AudioDecode(ctx context.Context, in *pb.AudioDecodeRequest, opts ...grpc.CallOption) (*pb.AudioDecodeResult, error)
 
 	ModelMetadata(ctx context.Context, in *pb.ModelOptions, opts ...grpc.CallOption) (*pb.ModelMetadataResponse, error)
+
+	TrainStream(ctx context.Context, in *pb.TrainRequest, f func(resp *pb.TrainResponse), opts ...grpc.CallOption) error
 }

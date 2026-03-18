@@ -39,6 +39,8 @@ service Backend {
   rpc AudioDecode(AudioDecodeRequest) returns (AudioDecodeResult) {}
 
   rpc ModelMetadata(ModelOptions) returns (ModelMetadataResponse) {}
+
+  rpc TrainStream(TrainRequest) returns (stream TrainResponse) {}
 }
 
 // Define the empty request
@@ -527,4 +529,50 @@ message ModelMetadataResponse {
   bool supports_thinking = 1;
   string rendered_template = 2;  // The rendered chat template with enable_thinking=true (empty if not applicable)
   ToolFormatMarkers tool_format = 3;  // Auto-detected tool format markers from differential template analysis
+}
+
+message TrainRequest {
+  string model = 1;                   // Base model name or HuggingFace model ID
+  string dataset = 2;                 // Path or HuggingFace dataset ID
+  string output_dir = 3;              // Output directory for the fine-tuned model
+
+  // Hyperparameters
+  int32 epochs = 4;                   // Number of training epochs
+  int32 batch_size = 5;               // Training batch size
+  float learning_rate = 6;            // Learning rate
+  int32 max_seq_length = 7;           // Maximum sequence length
+
+  // LoRA parameters
+  int32 lora_rank = 8;                // LoRA rank (r)
+  int32 lora_alpha = 9;               // LoRA alpha scaling factor
+  float lora_dropout = 10;            // LoRA dropout rate
+  repeated string target_modules = 11; // LoRA target modules (e.g., "q_proj", "v_proj")
+
+  // Quantization
+  string quantization = 12;           // Quantization method (e.g., "4bit", "8bit", "none")
+
+  // Additional options
+  map<string, string> options = 13;   // Generic key-value options for backend-specific settings
+}
+
+message TrainResponse {
+  enum TrainStatus {
+    UNKNOWN = 0;
+    STARTING = 1;
+    RUNNING = 2;
+    COMPLETED = 3;
+    FAILED = 4;
+  }
+
+  TrainStatus status = 1;             // Current training status
+  float progress = 2;                 // Overall progress percentage (0-100)
+  int32 current_epoch = 3;            // Current epoch number
+  int32 total_epochs = 4;             // Total number of epochs
+  int32 current_step = 5;             // Current training step
+  int32 total_steps = 6;              // Total number of training steps
+  float loss = 7;                     // Current training loss
+  float learning_rate_current = 8;    // Current learning rate (may change with schedulers)
+  string message = 9;                 // Human-readable status message
+  string error = 10;                  // Error message if status is FAILED
+  string output_path = 11;            // Path to the output model (set on completion)
 }

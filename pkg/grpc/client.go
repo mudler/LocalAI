@@ -632,6 +632,54 @@ func (c *Client) AudioDecode(ctx context.Context, in *pb.AudioDecodeRequest, opt
 	return client.AudioDecode(ctx, in, opts...)
 }
 
+func (c *Client) TrainStream(ctx context.Context, in *pb.TrainRequest, f func(resp *pb.TrainResponse), opts ...grpc.CallOption) error {
+	if !c.parallel {
+		c.opMutex.Lock()
+		defer c.opMutex.Unlock()
+	}
+	c.setBusy(true)
+	defer c.setBusy(false)
+	c.wdMark()
+	defer c.wdUnMark()
+	conn, err := grpc.Dial(c.address, grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithDefaultCallOptions(
+			grpc.MaxCallRecvMsgSize(50*1024*1024), // 50MB
+			grpc.MaxCallSendMsgSize(50*1024*1024), // 50MB
+		))
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+	client := pb.NewBackendClient(conn)
+
+	stream, err := client.TrainStream(ctx, in, opts...)
+	if err != nil {
+		return err
+	}
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
+		resp, err := stream.Recv()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
+			return err
+		}
+		f(resp)
+	}
+
+	return nil
+}
+
 func (c *Client) ModelMetadata(ctx context.Context, in *pb.ModelOptions, opts ...grpc.CallOption) (*pb.ModelMetadataResponse, error) {
 	if !c.parallel {
 		c.opMutex.Lock()

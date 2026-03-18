@@ -120,6 +120,10 @@ func (llm *Base) AudioDecode(*pb.AudioDecodeRequest) (*pb.AudioDecodeResult, err
 	return nil, fmt.Errorf("unimplemented")
 }
 
+func (llm *Base) TrainStream(*pb.TrainRequest, chan *pb.TrainResponse) error {
+	return fmt.Errorf("unimplemented")
+}
+
 func memoryUsage() *pb.MemoryUsageData {
 	mud := pb.MemoryUsageData{
 		Breakdown: make(map[string]uint64),

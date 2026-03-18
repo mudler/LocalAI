@@ -35,6 +35,8 @@ type AIModel interface {
 	AudioDecode(*pb.AudioDecodeRequest) (*pb.AudioDecodeResult, error)
 
 	ModelMetadata(*pb.ModelOptions) (*pb.ModelMetadataResponse, error)
+
+	TrainStream(*pb.TrainRequest, chan *pb.TrainResponse) error
 }
 
 func newReply(s string) *pb.Reply {
