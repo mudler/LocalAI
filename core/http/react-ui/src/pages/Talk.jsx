@@ -1,6 +1,7 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import { realtimeApi } from '../utils/api'
+import ModelSelector from '../components/ModelSelector'
 
 const STATUS_STYLES = {
   disconnected: { icon: 'fa-solid fa-circle', color: 'var(--color-text-secondary)', bg: 'transparent' },
@@ -17,6 +18,7 @@ export default function Talk() {
 
   // Pipeline models
   const [pipelineModels, setPipelineModels] = useState([])
+  const pipelineModelNames = useMemo(() => pipelineModels.map(m => m.name), [pipelineModels])
   const [selectedModel, setSelectedModel] = useState('')
   const [modelsLoading, setModelsLoading] = useState(true)
 
@@ -482,23 +484,18 @@ export default function Talk() {
             <label className="form-label" style={{ fontSize: '0.8125rem' }}>
               <i className="fas fa-brain" style={{ color: 'var(--color-primary)', marginRight: 4 }} /> Pipeline Model
             </label>
-            <select
-              className="model-selector"
+            <ModelSelector
               value={selectedModel}
-              onChange={(e) => {
-                setSelectedModel(e.target.value)
-                const m = pipelineModels.find(p => p.name === e.target.value)
+              onChange={(v) => {
+                setSelectedModel(v)
+                const m = pipelineModels.find(p => p.name === v)
                 if (m && !voiceEdited) setVoice(m.voice || '')
               }}
-              disabled={modelsLoading || isConnected}
-              style={{ width: '100%' }}
-            >
-              {modelsLoading && <option>Loading models...</option>}
-              {!modelsLoading && pipelineModels.length === 0 && <option>No pipeline models available</option>}
-              {pipelineModels.map(m => (
-                <option key={m.name} value={m.name}>{m.name}</option>
-              ))}
-            </select>
+              options={pipelineModelNames}
+              loading={modelsLoading}
+              disabled={isConnected}
+              searchPlaceholder="Search pipeline models..."
+            />
           </div>
 
           {/* Pipeline details */}

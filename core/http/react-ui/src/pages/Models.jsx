@@ -3,6 +3,7 @@ import { useNavigate, useOutletContext } from 'react-router-dom'
 import { modelsApi } from '../utils/api'
 import { useOperations } from '../hooks/useOperations'
 import { useResources } from '../hooks/useResources'
+import SearchableSelect from '../components/SearchableSelect'
 import React from 'react'
 
 
@@ -107,6 +108,7 @@ function GalleryLoader() {
     </div>
   )
 }
+
 
 const FILTERS = [
   { key: '', label: 'All', icon: 'fa-layer-group' },
@@ -311,17 +313,15 @@ export default function Models() {
           </button>
         ))}
         {allBackends.length > 0 && (
-          <select
-            className="input"
+          <SearchableSelect
             value={backendFilter}
-            onChange={(e) => { setBackendFilter(e.target.value); setPage(1) }}
-            style={{ width: 'auto', minWidth: 160, marginLeft: 'auto', padding: '4px 8px', fontSize: '0.8125rem' }}
-          >
-            <option value="">All Backends</option>
-            {allBackends.map(b => (
-              <option key={b} value={b}>{b}</option>
-            ))}
-          </select>
+            onChange={(v) => { setBackendFilter(v); setPage(1) }}
+            options={allBackends}
+            placeholder="All Backends"
+            allOption="All Backends"
+            searchPlaceholder="Search backends..."
+            style={{ marginLeft: 'auto' }}
+          />
         )}
       </div>
 
