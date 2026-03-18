@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate, useOutletContext } from 'react-router-dom'
 import { apiUrl } from '../utils/basePath'
 import ModelSelector from '../components/ModelSelector'
-import ClientMCPDropdown from '../components/ClientMCPDropdown'
+import UnifiedMCPDropdown from '../components/UnifiedMCPDropdown'
 import { useResources } from '../hooks/useResources'
 import { fileToBase64, backendControlApi, systemApi, modelsApi, mcpApi } from '../utils/api'
 import { API_CONFIG } from '../utils/config'
@@ -37,13 +37,11 @@ export default function Home() {
   const [textFiles, setTextFiles] = useState([])
   const [mcpMode, setMcpMode] = useState(false)
   const [mcpAvailable, setMcpAvailable] = useState(false)
-  const [mcpServersOpen, setMcpServersOpen] = useState(false)
   const [mcpServerList, setMcpServerList] = useState([])
   const [mcpServersLoading, setMcpServersLoading] = useState(false)
   const [mcpServerCache, setMcpServerCache] = useState({})
   const [mcpSelectedServers, setMcpSelectedServers] = useState([])
   const [clientMCPSelectedIds, setClientMCPSelectedIds] = useState([])
-  const mcpDropdownRef = useRef(null)
   const [placeholderIdx, setPlaceholderIdx] = useState(0)
   const [placeholderText, setPlaceholderText] = useState('')
   const imageInputRef = useRef(null)
@@ -139,17 +137,6 @@ export default function Home() {
     else if (file.type?.startsWith('audio/')) setAudioFiles(removeFn)
     else setTextFiles(removeFn)
   }, [])
-
-  useEffect(() => {
-    if (!mcpServersOpen) return
-    const handleClick = (e) => {
-      if (mcpDropdownRef.current && !mcpDropdownRef.current.contains(e.target)) {
-        setMcpServersOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
-  }, [mcpServersOpen])
 
   const fetchMcpServers = useCallback(async () => {
     if (!selectedModel) return
@@ -251,67 +238,24 @@ export default function Home() {
               {/* Model selector + MCP toggle */}
               <div className="home-model-row">
                 <ModelSelector value={selectedModel} onChange={setSelectedModel} capability="FLAG_CHAT" />
-                {mcpAvailable && (
-                  <div className="chat-mcp-dropdown" ref={mcpDropdownRef}>
-                    <button
-                      type="button"
-                      className={`btn btn-sm ${mcpSelectedServers.length > 0 ? 'btn-primary' : 'btn-secondary'}`}
-                      title="Select MCP servers"
-                      onClick={() => { setMcpServersOpen(!mcpServersOpen); if (!mcpServersOpen) fetchMcpServers() }}
-                    >
-                      <i className="fas fa-plug" /> MCP
-                      {mcpSelectedServers.length > 0 && (
-                        <span className="chat-mcp-badge">{mcpSelectedServers.length}</span>
-                      )}
-                    </button>
-                    {mcpServersOpen && (
-                      <div className="chat-mcp-dropdown-menu">
-                        {mcpServersLoading ? (
-                          <div className="chat-mcp-dropdown-loading"><i className="fas fa-spinner fa-spin" /> Loading servers...</div>
-                        ) : mcpServerList.length === 0 ? (
-                          <div className="chat-mcp-dropdown-empty">No MCP servers configured</div>
-                        ) : (
-                          <>
-                            <div className="chat-mcp-dropdown-header">
-                              <span>MCP Servers</span>
-                              <button
-                                type="button"
-                                className="chat-mcp-select-all"
-                                onClick={() => {
-                                  const allNames = mcpServerList.map(s => s.name)
-                                  const allSelected = allNames.every(n => mcpSelectedServers.includes(n))
-                                  setMcpSelectedServers(allSelected ? [] : allNames)
-                                }}
-                              >
-                                {mcpServerList.every(s => mcpSelectedServers.includes(s.name)) ? 'Deselect all' : 'Select all'}
-                              </button>
-                            </div>
-                            {mcpServerList.map(server => (
-                              <label key={server.name} className="chat-mcp-server-item">
-                                <input
-                                  type="checkbox"
-                                  checked={mcpSelectedServers.includes(server.name)}
-                                  onChange={() => toggleMcpServer(server.name)}
-                                />
-                                <div className="chat-mcp-server-info">
-                                  <span className="chat-mcp-server-name">{server.name}</span>
-                                  <span className="chat-mcp-server-tools">{server.tools?.length || 0} tools</span>
-                                </div>
-                              </label>
-                            ))}
-                          </>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
-                <ClientMCPDropdown
-                  activeServerIds={clientMCPSelectedIds}
-                  onToggleServer={(id) => setClientMCPSelectedIds(prev =>
+                <UnifiedMCPDropdown
+                  serverMCPAvailable={mcpAvailable}
+                  mcpServerList={mcpServerList}
+                  mcpServersLoading={mcpServersLoading}
+                  selectedServers={mcpSelectedServers}
+                  onToggleServer={toggleMcpServer}
+                  onSelectAllServers={() => {
+                    const allNames = mcpServerList.map(s => s.name)
+                    const allSelected = allNames.every(n => mcpSelectedServers.includes(n))
+                    setMcpSelectedServers(allSelected ? [] : allNames)
+                  }}
+                  onFetchServers={fetchMcpServers}
+                  clientMCPActiveIds={clientMCPSelectedIds}
+                  onClientToggle={(id) => setClientMCPSelectedIds(prev =>
                     prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]
                   )}
-                  onServerAdded={(server) => setClientMCPSelectedIds(prev => [...prev, server.id])}
-                  onServerRemoved={(id) => setClientMCPSelectedIds(prev => prev.filter(s => s !== id))}
+                  onClientAdded={(server) => setClientMCPSelectedIds(prev => [...prev, server.id])}
+                  onClientRemoved={(id) => setClientMCPSelectedIds(prev => prev.filter(s => s !== id))}
                 />
               </div>
 
