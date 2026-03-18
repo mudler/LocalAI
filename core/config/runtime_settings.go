@@ -36,8 +36,9 @@ type RuntimeSettings struct {
 	ContextSize     *int  `json:"context_size,omitempty"`
 	F16             *bool `json:"f16,omitempty"`
 	Debug           *bool `json:"debug,omitempty"`
-	EnableTracing   *bool `json:"enable_tracing,omitempty"`
-	TracingMaxItems *int  `json:"tracing_max_items,omitempty"`
+	EnableTracing        *bool `json:"enable_tracing,omitempty"`
+	TracingMaxItems      *int  `json:"tracing_max_items,omitempty"`
+	EnableBackendLogging *bool `json:"enable_backend_logging,omitempty"`
 
 	// Security/CORS settings
 	CORS             *bool   `json:"cors,omitempty"`

@@ -18,6 +18,7 @@ func TokenMetrics(
 	opts := ModelOptions(modelConfig, appConfig, model.WithModel(modelFile))
 	model, err := loader.Load(opts...)
 	if err != nil {
+		recordModelLoadFailure(appConfig, modelConfig.Name, modelConfig.Backend, err, nil)
 		return nil, err
 	}
 

@@ -159,19 +159,27 @@ func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string
 	go func() {
 		t, err := tail.TailFile(grpcControlProcess.StderrPath(), tail.Config{Follow: true})
 		if err != nil {
-			xlog.Debug("Could not tail stderr")
+			xlog.Error("Could not tail stderr", "process", grpcProcess)
+			return
 		}
 		for line := range t.Lines {
 			xlog.Debug("GRPC stderr", "id", strings.Join([]string{id, serverAddress}, "-"), "line", line.Text)
+			if ml.backendLogs != nil && ml.backendLoggingEnabled.Load() {
+				ml.backendLogs.AppendLine(id, "stderr", line.Text)
+			}
 		}
 	}()
 	go func() {
 		t, err := tail.TailFile(grpcControlProcess.StdoutPath(), tail.Config{Follow: true})
 		if err != nil {
-			xlog.Debug("Could not tail stdout")
+			xlog.Error("Could not tail stdout", "process", grpcProcess)
+			return
 		}
 		for line := range t.Lines {
 			xlog.Debug("GRPC stdout", "id", strings.Join([]string{id, serverAddress}, "-"), "line", line.Text)
+			if ml.backendLogs != nil && ml.backendLoggingEnabled.Load() {
+				ml.backendLogs.AppendLine(id, "stdout", line.Text)
+			}
 		}
 	}()
 

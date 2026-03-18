@@ -98,6 +98,7 @@ func main() {
 		config.WithDynamicConfigDir(dataDir),
 		config.WithGeneratedContentDir(generatedDir),
 		config.EnableTracing,
+		config.EnableBackendLogging,
 	)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error creating application: %v\n", err)

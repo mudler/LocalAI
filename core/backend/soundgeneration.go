@@ -37,6 +37,7 @@ func SoundGeneration(
 	opts := ModelOptions(modelConfig, appConfig)
 	soundGenModel, err := loader.Load(opts...)
 	if err != nil {
+		recordModelLoadFailure(appConfig, modelConfig.Name, modelConfig.Backend, err, nil)
 		return "", nil, err
 	}
 

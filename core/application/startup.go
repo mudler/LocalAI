@@ -136,6 +136,8 @@ func New(opts ...config.AppOption) (*Application, error) {
 		loadRuntimeSettingsFromFile(options)
 	}
 
+	application.ModelLoader().SetBackendLoggingEnabled(options.EnableBackendLogging)
+
 	// turn off any process that was started by GRPC if the context is canceled
 	go func() {
 		<-options.Context.Done()
@@ -379,6 +381,12 @@ func loadRuntimeSettingsFromFile(options *config.ApplicationConfig) {
 	if settings.Federated != nil {
 		if !options.Federated {
 			options.Federated = *settings.Federated
+		}
+	}
+
+	if settings.EnableBackendLogging != nil {
+		if !options.EnableBackendLogging {
+			options.EnableBackendLogging = *settings.EnableBackendLogging
 		}
 	}
 

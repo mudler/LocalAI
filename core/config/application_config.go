@@ -21,6 +21,7 @@ type ApplicationConfig struct {
 	Debug                               bool
 	EnableTracing                       bool
 	TracingMaxItems                     int
+	EnableBackendLogging                bool
 	GeneratedContentDir                 string
 
 	UploadDir string
@@ -211,6 +212,10 @@ var EnableWatchDog = func(o *ApplicationConfig) {
 
 var EnableTracing = func(o *ApplicationConfig) {
 	o.EnableTracing = true
+}
+
+var EnableBackendLogging = func(o *ApplicationConfig) {
+	o.EnableBackendLogging = true
 }
 
 var EnableWatchDogIdleCheck = func(o *ApplicationConfig) {
@@ -743,6 +748,7 @@ func (o *ApplicationConfig) ToRuntimeSettings() RuntimeSettings {
 	debug := o.Debug
 	tracingMaxItems := o.TracingMaxItems
 	enableTracing := o.EnableTracing
+	enableBackendLogging := o.EnableBackendLogging
 	cors := o.CORS
 	csrf := o.CSRF
 	corsAllowOrigins := o.CORSAllowOrigins
@@ -816,6 +822,7 @@ func (o *ApplicationConfig) ToRuntimeSettings() RuntimeSettings {
 		Debug:                    &debug,
 		TracingMaxItems:          &tracingMaxItems,
 		EnableTracing:            &enableTracing,
+		EnableBackendLogging:     &enableBackendLogging,
 		CORS:                     &cors,
 		CSRF:                     &csrf,
 		CORSAllowOrigins:         &corsAllowOrigins,
@@ -943,6 +950,9 @@ func (o *ApplicationConfig) ApplyRuntimeSettings(settings *RuntimeSettings) (req
 	}
 	if settings.TracingMaxItems != nil {
 		o.TracingMaxItems = *settings.TracingMaxItems
+	}
+	if settings.EnableBackendLogging != nil {
+		o.EnableBackendLogging = *settings.EnableBackendLogging
 	}
 	if settings.CORS != nil {
 		o.CORS = *settings.CORS

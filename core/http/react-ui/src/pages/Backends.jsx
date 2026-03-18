@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate, useOutletContext } from 'react-router-dom'
 import { backendsApi } from '../utils/api'
+import React from 'react'
 import { useOperations } from '../hooks/useOperations'
 import LoadingSpinner from '../components/LoadingSpinner'
 import { renderMarkdown } from '../utils/markdown'
-import Modal from '../components/Modal'
 
 export default function Backends() {
   const { addToast } = useOutletContext()
@@ -21,7 +21,7 @@ export default function Backends() {
   const [manualUri, setManualUri] = useState('')
   const [manualName, setManualName] = useState('')
   const [manualAlias, setManualAlias] = useState('')
-  const [selectedBackend, setSelectedBackend] = useState(null)
+  const [expandedRow, setExpandedRow] = useState(null)
   const debounceRef = useRef(null)
 
   const [allBackends, setAllBackends] = useState([])
@@ -246,6 +246,7 @@ export default function Backends() {
           <table className="table">
             <thead>
               <tr>
+                <th style={{ width: 30 }}></th>
                 <th style={{ width: 40 }}></th>
                 <SortHeader col="name">Backend</SortHeader>
                 <th>Description</th>
@@ -256,12 +257,21 @@ export default function Backends() {
               </tr>
             </thead>
             <tbody>
-              {backends.map(b => {
+              {backends.map((b, idx) => {
                 const op = getBackendOp(b)
                 const isProcessing = !!op
+                const isExpanded = expandedRow === idx
 
                 return (
-                  <tr key={b.name || b.id}>
+                  <React.Fragment key={b.name || b.id}>
+                  <tr
+                    onClick={() => setExpandedRow(isExpanded ? null : idx)}
+                    style={{ cursor: 'pointer' }}
+                  >
+                    {/* Chevron */}
+                    <td style={{ width: 30 }}>
+                      <i className={`fas fa-chevron-${isExpanded ? 'down' : 'right'}`} style={{ fontSize: '0.625rem', color: 'var(--color-text-muted)', transition: 'transform 150ms' }} />
+                    </td>
                     {/* Icon */}
                     <td>
                       {b.icon ? (
@@ -279,12 +289,7 @@ export default function Backends() {
 
                     {/* Name */}
                     <td>
-                      <span
-                        style={{ fontWeight: 500, cursor: 'pointer', color: 'var(--color-primary)' }}
-                        onClick={() => setSelectedBackend(b)}
-                      >
-                        {b.name || b.id}
-                      </span>
+                      <span style={{ fontWeight: 500 }}>{b.name || b.id}</span>
                     </td>
 
                     {/* Description */}
@@ -343,10 +348,7 @@ export default function Backends() {
 
                     {/* Actions */}
                     <td>
-                      <div style={{ display: 'flex', gap: 'var(--spacing-xs)', justifyContent: 'flex-end' }}>
-                        <button className="btn btn-secondary btn-sm" onClick={() => setSelectedBackend(b)} title="Details">
-                          <i className="fas fa-info-circle" />
-                        </button>
+                      <div style={{ display: 'flex', gap: 'var(--spacing-xs)', justifyContent: 'flex-end' }} onClick={e => e.stopPropagation()}>
                         {b.installed ? (
                           <>
                             <button className="btn btn-secondary btn-sm" onClick={() => handleInstall(b.name || b.id)} title="Reinstall" disabled={isProcessing}>
@@ -364,6 +366,15 @@ export default function Backends() {
                       </div>
                     </td>
                   </tr>
+                  {/* Expanded detail row */}
+                  {isExpanded && (
+                    <tr>
+                      <td colSpan="8" style={{ padding: 0 }}>
+                        <BackendDetail backend={b} />
+                      </td>
+                    </tr>
+                  )}
+                  </React.Fragment>
                 )
               })}
             </tbody>
@@ -389,106 +400,67 @@ export default function Backends() {
         </div>
       )}
 
-      {/* Detail Modal */}
-      {selectedBackend && (
-        <Modal onClose={() => setSelectedBackend(null)}>
-          <div style={{ padding: 'var(--spacing-md)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 'var(--spacing-md)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
-                {selectedBackend.icon ? (
-                  <img src={selectedBackend.icon} alt="" style={{ width: 48, height: 48, borderRadius: 'var(--radius-md)' }} />
-                ) : (
-                  <div style={{
-                    width: 48, height: 48, borderRadius: 'var(--radius-md)',
-                    background: 'var(--color-bg-tertiary)', display: 'flex',
-                    alignItems: 'center', justifyContent: 'center',
-                  }}>
-                    <i className="fas fa-cog" style={{ fontSize: '1.25rem', color: 'var(--color-text-muted)' }} />
-                  </div>
-                )}
-                <div>
-                  <h3 style={{ fontWeight: 600, fontSize: '1.125rem' }}>{selectedBackend.name || selectedBackend.id}</h3>
-                  {selectedBackend.installed && <span className="badge badge-success">Installed</span>}
-                </div>
-              </div>
-              <button className="btn btn-secondary btn-sm" onClick={() => setSelectedBackend(null)}>
-                <i className="fas fa-xmark" />
-              </button>
-            </div>
+    </div>
+  )
+}
 
-            {/* Description */}
-            {selectedBackend.description && (
-              <div style={{ marginBottom: 'var(--spacing-md)' }}>
-                <div
-                  style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)', lineHeight: 1.6 }}
-                  dangerouslySetInnerHTML={{ __html: renderMarkdown(selectedBackend.description) }}
-                />
+function BackendDetailRow({ label, children }) {
+  if (!children) return null
+  return (
+    <tr>
+      <td style={{ fontWeight: 500, fontSize: '0.8125rem', color: 'var(--color-text-secondary)', whiteSpace: 'nowrap', verticalAlign: 'top', padding: '6px 12px 6px 0' }}>
+        {label}
+      </td>
+      <td style={{ fontSize: '0.8125rem', padding: '6px 0' }}>{children}</td>
+    </tr>
+  )
+}
+
+function BackendDetail({ backend }) {
+  return (
+    <div style={{ padding: 'var(--spacing-md) var(--spacing-lg)', background: 'var(--color-bg-primary)', borderTop: '1px solid var(--color-border-subtle)' }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <tbody>
+          <BackendDetailRow label="Description">
+            {backend.description && (
+              <div
+                style={{ color: 'var(--color-text-secondary)', lineHeight: 1.6 }}
+                dangerouslySetInnerHTML={{ __html: renderMarkdown(backend.description) }}
+              />
+            )}
+          </BackendDetailRow>
+          <BackendDetailRow label="Repository">
+            {backend.gallery && (
+              <span className="badge badge-info" style={{ fontSize: '0.6875rem' }}>
+                {typeof backend.gallery === 'string' ? backend.gallery : backend.gallery.name || '-'}
+              </span>
+            )}
+          </BackendDetailRow>
+          <BackendDetailRow label="License">
+            {backend.license && <span>{backend.license}</span>}
+          </BackendDetailRow>
+          <BackendDetailRow label="Tags">
+            {backend.tags?.length > 0 && (
+              <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                {backend.tags.map(tag => (
+                  <span key={tag} className="badge badge-info" style={{ fontSize: '0.6875rem' }}>{tag}</span>
+                ))}
               </div>
             )}
-
-            {/* Tags */}
-            {selectedBackend.tags && selectedBackend.tags.length > 0 && (
-              <div style={{ marginBottom: 'var(--spacing-md)' }}>
-                <span className="form-label">Tags</span>
-                <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                  {selectedBackend.tags.map(tag => (
-                    <span key={tag} className="badge badge-info" style={{ fontSize: '0.6875rem' }}>{tag}</span>
-                  ))}
-                </div>
+          </BackendDetailRow>
+          <BackendDetailRow label="Links">
+            {backend.urls?.length > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                {backend.urls.map((url, i) => (
+                  <a key={i} href={url} target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.8125rem', color: 'var(--color-primary)', wordBreak: 'break-all' }}>
+                    <i className="fas fa-external-link-alt" style={{ marginRight: 4, fontSize: '0.6875rem' }} />{url}
+                  </a>
+                ))}
               </div>
             )}
-
-            {/* URLs */}
-            {selectedBackend.urls && selectedBackend.urls.length > 0 && (
-              <div style={{ marginBottom: 'var(--spacing-md)' }}>
-                <span className="form-label">Links</span>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  {selectedBackend.urls.map((url, i) => (
-                    <a key={i} href={url} target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.8125rem', color: 'var(--color-primary)', wordBreak: 'break-all' }}>
-                      <i className="fas fa-external-link-alt" style={{ marginRight: 4 }} />{url}
-                    </a>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Repository / License */}
-            <div style={{ display: 'flex', gap: 'var(--spacing-md)', marginBottom: 'var(--spacing-md)' }}>
-              {selectedBackend.gallery && (
-                <div>
-                  <span className="form-label">Repository</span>
-                  <p style={{ fontSize: '0.8125rem' }}>{typeof selectedBackend.gallery === 'string' ? selectedBackend.gallery : selectedBackend.gallery.name || '-'}</p>
-                </div>
-              )}
-              {selectedBackend.license && (
-                <div>
-                  <span className="form-label">License</span>
-                  <p style={{ fontSize: '0.8125rem' }}>{selectedBackend.license}</p>
-                </div>
-              )}
-            </div>
-
-            {/* Actions */}
-            <div style={{ display: 'flex', gap: 'var(--spacing-sm)', justifyContent: 'flex-end', borderTop: '1px solid var(--color-border-subtle)', paddingTop: 'var(--spacing-md)' }}>
-              {selectedBackend.installed ? (
-                <>
-                  <button className="btn btn-secondary btn-sm" onClick={() => { handleInstall(selectedBackend.name || selectedBackend.id); setSelectedBackend(null) }}>
-                    <i className="fas fa-rotate" /> Reinstall
-                  </button>
-                  <button className="btn btn-danger btn-sm" onClick={() => { handleDelete(selectedBackend.name || selectedBackend.id); setSelectedBackend(null) }}>
-                    <i className="fas fa-trash" /> Delete
-                  </button>
-                </>
-              ) : (
-                <button className="btn btn-primary btn-sm" onClick={() => { handleInstall(selectedBackend.name || selectedBackend.id); setSelectedBackend(null) }}>
-                  <i className="fas fa-download" /> Install
-                </button>
-              )}
-              <button className="btn btn-secondary btn-sm" onClick={() => setSelectedBackend(null)}>Close</button>
-            </div>
-          </div>
-        </Modal>
-      )}
+          </BackendDetailRow>
+        </tbody>
+      </table>
     </div>
   )
 }
