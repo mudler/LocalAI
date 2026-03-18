@@ -1,5 +1,5 @@
 ARG GO_VERSION=1.25.4
-ARG PLAYWRIGHT_VERSION=v1.52.0
+ARG PLAYWRIGHT_VERSION=v1.58.2
 
 ###################################
 # Stage 1: Build React UI
@@ -80,13 +80,17 @@ ENV CI=true
 ENV PLAYWRIGHT_EXTERNAL_SERVER=1
 
 CMD ["bash", "-c", "\
-    ui-test-server --mock-backend=/usr/local/bin/mock-backend --port=8089 & \
+    ui-test-server --mock-backend=/usr/local/bin/mock-backend --port=8089 > /tmp/ui-test-server.log 2>&1 & \
     for i in $(seq 1 30); do \
         curl -sf http://127.0.0.1:8089/readyz > /dev/null 2>&1 && break; \
         sleep 1; \
     done && \
     npx playwright test; \
     TEST_EXIT=$?; \
+    if [ $TEST_EXIT -ne 0 ]; then \
+        echo '--- ui-test-server logs (last 50 lines) ---'; \
+        tail -50 /tmp/ui-test-server.log; \
+    fi; \
     kill %1 2>/dev/null; \
     exit $TEST_EXIT \
 "]

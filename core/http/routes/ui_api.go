@@ -239,8 +239,33 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		}
 		sort.Strings(tags)
 
+		// Get all available backends (before filtering so dropdown always shows all)
+		allBackendsMap := map[string]struct{}{}
+		for _, m := range models {
+			if b := m.Backend; b != "" {
+				allBackendsMap[b] = struct{}{}
+			}
+		}
+		backendNames := make([]string, 0, len(allBackendsMap))
+		for b := range allBackendsMap {
+			backendNames = append(backendNames, b)
+		}
+		sort.Strings(backendNames)
+
 		if term != "" {
 			models = gallery.GalleryElements[*gallery.GalleryModel](models).Search(term)
+		}
+
+		// Filter by backend if requested
+		backendFilter := c.QueryParam("backend")
+		if backendFilter != "" {
+			var filtered gallery.GalleryElements[*gallery.GalleryModel]
+			for _, m := range models {
+				if m.Backend == backendFilter {
+					filtered = append(filtered, m)
+				}
+			}
+			models = filtered
 		}
 
 		// Get model statuses
@@ -359,6 +384,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 				"isDeletion":      isDeletionOp,
 				"trustRemoteCode": trustRemoteCodeExists,
 				"additionalFiles": m.AdditionalFiles,
+				"backend":         m.Backend,
 			}
 
 			if hasWeightFiles(m.AdditionalFiles) {
@@ -449,6 +475,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			"models":           modelsJSON,
 			"repositories":     appConfig.Galleries,
 			"allTags":          tags,
+			"allBackends":     backendNames,
 			"processingModels": processingModelsData,
 			"taskTypes":        taskTypes,
 			"availableModels":  totalModels,

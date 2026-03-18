@@ -3,6 +3,7 @@ import { useNavigate, useOutletContext } from 'react-router-dom'
 import { modelsApi } from '../utils/api'
 import LoadingSpinner from '../components/LoadingSpinner'
 import CodeEditor from '../components/CodeEditor'
+import SearchableSelect from '../components/SearchableSelect'
 
 const BACKENDS = [
   { value: '', label: 'Auto-detect (based on URI)' },
@@ -321,9 +322,15 @@ export default function ImportModel() {
               <div style={{ display: 'grid', gap: 'var(--spacing-md)' }}>
                 <div className="form-group" style={{ marginBottom: 0 }}>
                   <label className="form-label"><i className="fas fa-server" style={{ marginRight: '6px' }} />Backend</label>
-                  <select className="input" value={prefs.backend} onChange={e => updatePref('backend', e.target.value)} disabled={isSubmitting}>
-                    {BACKENDS.map(b => <option key={b.value} value={b.value}>{b.label}</option>)}
-                  </select>
+                  <SearchableSelect
+                    value={prefs.backend}
+                    onChange={(v) => updatePref('backend', v)}
+                    options={BACKENDS.filter(b => b.value !== '')}
+                    allOption="Auto-detect (based on URI)"
+                    placeholder="Auto-detect (based on URI)"
+                    searchPlaceholder="Search backends..."
+                    disabled={isSubmitting}
+                  />
                   <p style={hintStyle}>Force a specific backend. Leave empty to auto-detect from URI.</p>
                 </div>
 

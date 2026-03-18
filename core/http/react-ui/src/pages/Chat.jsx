@@ -837,32 +837,6 @@ export default function Chat() {
             <i className={`fas fa-${sidebarOpen ? 'angles-left' : 'angles-right'}`} />
           </button>
           <span className="chat-header-title">{activeChat.name}</span>
-          <ModelSelector
-            value={activeChat.model}
-            onChange={(model) => updateChatSettings(activeChat.id, { model })}
-            capability="FLAG_CHAT"
-          />
-          {activeChat.model && (
-            <>
-              {modelInfo?.backend && (
-                <span className="badge badge-info" style={{ fontSize: '0.75rem' }}>{modelInfo.backend}</span>
-              )}
-              <button
-                className="btn btn-secondary btn-sm"
-                onClick={() => setShowModelInfo(!showModelInfo)}
-                title="Model info"
-              >
-                <i className="fas fa-info-circle" />
-              </button>
-              <button
-                className="btn btn-secondary btn-sm"
-                onClick={() => navigate(`/app/model-editor/${encodeURIComponent(activeChat.model)}`)}
-                title="Edit model config"
-              >
-                <i className="fas fa-edit" />
-              </button>
-            </>
-          )}
           <UnifiedMCPDropdown
             serverMCPAvailable={mcpAvailable}
             mcpServerList={mcpServerList}
@@ -898,7 +872,31 @@ export default function Chat() {
             selectedResources={activeChat.mcpResources || []}
             onToggleResource={toggleMcpResource}
           />
+          <ModelSelector
+            value={activeChat.model}
+            onChange={(model) => updateChatSettings(activeChat.id, { model })}
+            capability="FLAG_CHAT"
+            style={{ flex: '1 1 0', minWidth: 120 }}
+          />
           <div className="chat-header-actions">
+            {activeChat.model && (
+              <>
+                <button
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => setShowModelInfo(!showModelInfo)}
+                  title="Model info"
+                >
+                  <i className="fas fa-info-circle" />
+                </button>
+                <button
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => navigate(`/app/model-editor/${encodeURIComponent(activeChat.model)}`)}
+                  title="Edit model config"
+                >
+                  <i className="fas fa-edit" />
+                </button>
+              </>
+            )}
             <label className="canvas-mode-toggle" title="Extract code blocks and media into a side panel for preview, copy, and download">
               <i className="fas fa-columns" />
               <span className="canvas-mode-label">Canvas</span>
