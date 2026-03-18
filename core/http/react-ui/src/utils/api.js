@@ -345,6 +345,10 @@ export const adminUsersApi = {
   setPermissions: (id, perms) => fetchJSON(`/api/auth/admin/users/${encodeURIComponent(id)}/permissions`, {
     method: 'PUT', body: JSON.stringify(perms), headers: { 'Content-Type': 'application/json' },
   }),
+  getFeatures: () => fetchJSON('/api/auth/admin/features'),
+  setModels: (id, allowlist) => fetchJSON(`/api/auth/admin/users/${encodeURIComponent(id)}/models`, {
+    method: 'PUT', body: JSON.stringify(allowlist), headers: { 'Content-Type': 'application/json' },
+  }),
 }
 
 // Profile API

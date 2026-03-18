@@ -44,27 +44,7 @@ function ProviderBadge({ provider }) {
   )
 }
 
-const FEATURES = [
-  { key: 'agents', label: 'Agents' },
-  { key: 'skills', label: 'Skills' },
-  { key: 'collections', label: 'Collections' },
-  { key: 'mcp_jobs', label: 'MCP CI Jobs' },
-]
-
-function PermissionToggles({ user, onUpdate, addToast }) {
-  const permissions = user.permissions || {}
-
-  const handleToggle = async (featureKey) => {
-    const updated = { ...permissions, [featureKey]: !permissions[featureKey] }
-    try {
-      await adminUsersApi.setPermissions(user.id, updated)
-      onUpdate(user.id, updated)
-      addToast(`Permissions updated for ${user.name || user.email}`, 'success')
-    } catch (err) {
-      addToast(`Failed to update permissions: ${err.message}`, 'error')
-    }
-  }
-
+function PermissionSummary({ user, onClick }) {
   if (user.role === 'admin') {
     return (
       <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', fontStyle: 'italic' }}>
@@ -73,19 +53,214 @@ function PermissionToggles({ user, onUpdate, addToast }) {
     )
   }
 
+  const perms = user.permissions || {}
+  const apiFeatures = ['chat', 'images', 'audio_speech', 'audio_transcription', 'vad', 'detection', 'video', 'embeddings', 'sound']
+  const agentFeatures = ['agents', 'skills', 'collections', 'mcp_jobs']
+
+  const apiOn = apiFeatures.filter(f => perms[f] !== false && (perms[f] === true || perms[f] === undefined)).length
+  const agentOn = agentFeatures.filter(f => perms[f]).length
+
+  const modelRestricted = user.allowed_models?.enabled
+
   return (
-    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-      {FEATURES.map(f => (
-        <button
-          key={f.key}
-          className={`btn btn-sm ${permissions[f.key] ? 'btn-primary' : 'btn-secondary'}`}
-          onClick={() => handleToggle(f.key)}
-          title={`${permissions[f.key] ? 'Disable' : 'Enable'} ${f.label}`}
-          style={{ fontSize: '0.7rem', padding: '2px 6px' }}
-        >
-          {f.label}
-        </button>
-      ))}
+    <button
+      className="btn btn-sm btn-secondary"
+      onClick={onClick}
+      style={{ fontSize: '0.7rem', padding: '2px 8px' }}
+      title="Edit permissions"
+    >
+      <i className="fas fa-shield-halved" style={{ marginRight: 4 }} />
+      {apiOn}/{apiFeatures.length} API, {agentOn}/{agentFeatures.length} Agent
+      {modelRestricted && ' | Models restricted'}
+    </button>
+  )
+}
+
+function PermissionsModal({ user, featureMeta, availableModels, onClose, onSave, addToast }) {
+  const [permissions, setPermissions] = useState({ ...(user.permissions || {}) })
+  const [allowedModels, setAllowedModels] = useState(user.allowed_models || { enabled: false, models: [] })
+  const [saving, setSaving] = useState(false)
+
+  const apiFeatures = featureMeta?.api_features || []
+  const agentFeatures = featureMeta?.agent_features || []
+
+  const toggleFeature = (key) => {
+    setPermissions(prev => ({ ...prev, [key]: !prev[key] }))
+  }
+
+  const setAllFeatures = (features, value) => {
+    setPermissions(prev => {
+      const updated = { ...prev }
+      features.forEach(f => { updated[f.key] = value })
+      return updated
+    })
+  }
+
+  const toggleModel = (model) => {
+    setAllowedModels(prev => {
+      const models = prev.models || []
+      const has = models.includes(model)
+      return {
+        ...prev,
+        models: has ? models.filter(m => m !== model) : [...models, model],
+      }
+    })
+  }
+
+  const setAllModels = (value) => {
+    if (value) {
+      setAllowedModels(prev => ({ ...prev, models: [...(availableModels || [])] }))
+    } else {
+      setAllowedModels(prev => ({ ...prev, models: [] }))
+    }
+  }
+
+  const handleSave = async () => {
+    setSaving(true)
+    try {
+      await adminUsersApi.setPermissions(user.id, permissions)
+      await adminUsersApi.setModels(user.id, allowedModels)
+      onSave(user.id, permissions, allowedModels)
+      addToast(`Permissions updated for ${user.name || user.email}`, 'success')
+      onClose()
+    } catch (err) {
+      addToast(`Failed to update permissions: ${err.message}`, 'error')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const overlayStyle = {
+    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+    background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center',
+    justifyContent: 'center', zIndex: 1000,
+  }
+
+  const modalStyle = {
+    background: 'var(--color-bg-secondary)', borderRadius: 'var(--radius-lg)',
+    border: '1px solid var(--color-border-default)',
+    padding: 'var(--spacing-lg)', maxWidth: 600, width: '90vw',
+    maxHeight: '80vh', overflow: 'auto', boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+  }
+
+  const sectionStyle = {
+    marginBottom: 'var(--spacing-md)',
+    padding: 'var(--spacing-sm) var(--spacing-md)',
+    background: 'var(--color-bg-tertiary)',
+    border: '1px solid var(--color-border-subtle)',
+    borderRadius: 'var(--radius-md)',
+  }
+
+  const headerStyle = {
+    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+    marginBottom: 'var(--spacing-sm)',
+  }
+
+  const gridStyle = {
+    display: 'flex', gap: '6px', flexWrap: 'wrap',
+  }
+
+  return (
+    <div style={overlayStyle} onClick={onClose}>
+      <div style={modalStyle} onClick={e => e.stopPropagation()}>
+        <h3 style={{ margin: '0 0 var(--spacing-md) 0', fontSize: '1.1rem', color: 'var(--color-text-primary)' }}>
+          Permissions for &ldquo;{user.name || user.email}&rdquo;
+        </h3>
+
+        {/* API Endpoints */}
+        <div style={sectionStyle}>
+          <div style={headerStyle}>
+            <strong style={{ fontSize: '0.85rem', color: 'var(--color-text-primary)' }}>API Endpoints</strong>
+            <div style={{ display: 'flex', gap: 4 }}>
+              <button className="btn btn-sm btn-secondary" onClick={() => setAllFeatures(apiFeatures, true)} style={{ fontSize: '0.65rem', padding: '1px 5px' }}>All</button>
+              <button className="btn btn-sm btn-secondary" onClick={() => setAllFeatures(apiFeatures, false)} style={{ fontSize: '0.65rem', padding: '1px 5px' }}>None</button>
+            </div>
+          </div>
+          <div style={gridStyle}>
+            {apiFeatures.map(f => (
+              <button
+                key={f.key}
+                className={`btn btn-sm ${permissions[f.key] ? 'btn-primary' : 'btn-secondary'}`}
+                onClick={() => toggleFeature(f.key)}
+                style={{ fontSize: '0.7rem', padding: '3px 8px' }}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Agent Features */}
+        <div style={sectionStyle}>
+          <div style={headerStyle}>
+            <strong style={{ fontSize: '0.85rem', color: 'var(--color-text-primary)' }}>Agent Features</strong>
+            <div style={{ display: 'flex', gap: 4 }}>
+              <button className="btn btn-sm btn-secondary" onClick={() => setAllFeatures(agentFeatures, true)} style={{ fontSize: '0.65rem', padding: '1px 5px' }}>All</button>
+              <button className="btn btn-sm btn-secondary" onClick={() => setAllFeatures(agentFeatures, false)} style={{ fontSize: '0.65rem', padding: '1px 5px' }}>None</button>
+            </div>
+          </div>
+          <div style={gridStyle}>
+            {agentFeatures.map(f => (
+              <button
+                key={f.key}
+                className={`btn btn-sm ${permissions[f.key] ? 'btn-primary' : 'btn-secondary'}`}
+                onClick={() => toggleFeature(f.key)}
+                style={{ fontSize: '0.7rem', padding: '3px 8px' }}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Model Access */}
+        <div style={sectionStyle}>
+          <div style={headerStyle}>
+            <strong style={{ fontSize: '0.85rem', color: 'var(--color-text-primary)' }}>Model Access</strong>
+          </div>
+          <div style={{ marginBottom: 'var(--spacing-sm, 8px)' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.8rem', cursor: 'pointer', color: 'var(--color-text-primary)' }}>
+              <input
+                type="checkbox"
+                checked={allowedModels.enabled}
+                onChange={() => setAllowedModels(prev => ({ ...prev, enabled: !prev.enabled }))}
+              />
+              Restrict to specific models
+            </label>
+          </div>
+          {allowedModels.enabled && (
+            <>
+              <div style={{ display: 'flex', gap: 4, marginBottom: 8 }}>
+                <button className="btn btn-sm btn-secondary" onClick={() => setAllModels(true)} style={{ fontSize: '0.65rem', padding: '1px 5px' }}>All</button>
+                <button className="btn btn-sm btn-secondary" onClick={() => setAllModels(false)} style={{ fontSize: '0.65rem', padding: '1px 5px' }}>None</button>
+              </div>
+              <div style={{ ...gridStyle, maxHeight: 200, overflow: 'auto' }}>
+                {(availableModels || []).map(m => (
+                  <button
+                    key={m}
+                    className={`btn btn-sm ${(allowedModels.models || []).includes(m) ? 'btn-primary' : 'btn-secondary'}`}
+                    onClick={() => toggleModel(m)}
+                    style={{ fontSize: '0.7rem', padding: '3px 8px' }}
+                  >
+                    {m}
+                  </button>
+                ))}
+                {(!availableModels || availableModels.length === 0) && (
+                  <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>No models available</span>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Actions */}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--spacing-sm)', marginTop: 'var(--spacing-md)' }}>
+          <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
+          <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
+            {saving ? 'Saving...' : 'Save'}
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
@@ -308,6 +483,9 @@ export default function Users() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [activeTab, setActiveTab] = useState('users')
+  const [editingUser, setEditingUser] = useState(null)
+  const [featureMeta, setFeatureMeta] = useState(null)
+  const [availableModels, setAvailableModels] = useState([])
 
   const fetchUsers = useCallback(async () => {
     setLoading(true)
@@ -321,9 +499,39 @@ export default function Users() {
     }
   }, [addToast])
 
+  const fetchFeatures = useCallback(async () => {
+    try {
+      const data = await adminUsersApi.getFeatures()
+      setFeatureMeta(data)
+      setAvailableModels(data.models || [])
+    } catch {
+      // Features endpoint may not be available, use defaults
+      setFeatureMeta({
+        api_features: [
+          { key: 'chat', label: 'Chat Completions', default: true },
+          { key: 'images', label: 'Image Generation', default: true },
+          { key: 'audio_speech', label: 'Audio Speech / TTS', default: true },
+          { key: 'audio_transcription', label: 'Audio Transcription', default: true },
+          { key: 'vad', label: 'Voice Activity Detection', default: true },
+          { key: 'detection', label: 'Detection', default: true },
+          { key: 'video', label: 'Video Generation', default: true },
+          { key: 'embeddings', label: 'Embeddings', default: true },
+          { key: 'sound', label: 'Sound Generation', default: true },
+        ],
+        agent_features: [
+          { key: 'agents', label: 'Agents', default: false },
+          { key: 'skills', label: 'Skills', default: false },
+          { key: 'collections', label: 'Collections', default: false },
+          { key: 'mcp_jobs', label: 'MCP CI Jobs', default: false },
+        ],
+      })
+    }
+  }, [])
+
   useEffect(() => {
     fetchUsers()
-  }, [fetchUsers])
+    fetchFeatures()
+  }, [fetchUsers, fetchFeatures])
 
   const handleToggleRole = async (u) => {
     const newRole = u.role === 'admin' ? 'user' : 'admin'
@@ -365,8 +573,8 @@ export default function Users() {
     return (u.name || '').toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q)
   })
 
-  const handlePermissionUpdate = (userId, newPerms) => {
-    setUsers(prev => prev.map(u => u.id === userId ? { ...u, permissions: newPerms } : u))
+  const handlePermissionSave = (userId, newPerms, newModels) => {
+    setUsers(prev => prev.map(u => u.id === userId ? { ...u, permissions: newPerms, allowed_models: newModels } : u))
   }
 
   const isSelf = (u) => currentUser && (u.id === currentUser.id || u.email === currentUser.email)
@@ -459,10 +667,9 @@ export default function Users() {
                       <td><ProviderBadge provider={u.provider} /></td>
                       <td><RoleBadge role={u.role} /></td>
                       <td>
-                        <PermissionToggles
+                        <PermissionSummary
                           user={u}
-                          onUpdate={handlePermissionUpdate}
-                          addToast={addToast}
+                          onClick={() => u.role !== 'admin' && setEditingUser(u)}
                         />
                       </td>
                       <td><StatusBadge status={u.status} /></td>
@@ -513,6 +720,17 @@ export default function Users() {
             </div>
           )}
         </>
+      )}
+
+      {editingUser && featureMeta && (
+        <PermissionsModal
+          user={editingUser}
+          featureMeta={featureMeta}
+          availableModels={availableModels}
+          onClose={() => setEditingUser(null)}
+          onSave={handlePermissionSave}
+          addToast={addToast}
+        />
       )}
     </div>
   )

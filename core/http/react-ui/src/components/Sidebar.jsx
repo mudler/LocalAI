@@ -26,7 +26,7 @@ const agentItems = [
 ]
 
 const systemItems = [
-  { path: '/app/users', icon: 'fas fa-users', label: 'Users', adminOnly: true },
+  { path: '/app/users', icon: 'fas fa-users', label: 'Users', adminOnly: true, authOnly: true },
   { path: '/app/backends', icon: 'fas fa-server', label: 'Backends', adminOnly: true },
   { path: '/app/traces', icon: 'fas fa-chart-line', label: 'Traces', adminOnly: true },
   { path: '/app/p2p', icon: 'fas fa-circle-nodes', label: 'Swarm', adminOnly: true },
@@ -78,7 +78,11 @@ export default function Sidebar({ isOpen, onClose }) {
     return true
   })
 
-  const visibleSystemItems = systemItems.filter(item => !item.adminOnly || isAdmin)
+  const visibleSystemItems = systemItems.filter(item => {
+    if (item.adminOnly && !isAdmin) return false
+    if (item.authOnly && !authEnabled) return false
+    return true
+  })
 
   return (
     <>
