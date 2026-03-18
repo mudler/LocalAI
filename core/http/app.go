@@ -217,6 +217,12 @@ func API(application *application.Application) (*echo.Echo, error) {
 	// the role of the exempt-path logic inside the middleware.
 	e.Use(authMiddleware)
 
+	// Feature and model access control (after auth middleware, before routes)
+	if application.AuthDB() != nil {
+		e.Use(auth.RequireRouteFeature(application.AuthDB()))
+		e.Use(auth.RequireModelAccess(application.AuthDB()))
+	}
+
 	// CORS middleware
 	if application.ApplicationConfig().CORS {
 		corsConfig := middleware.CORSConfig{}

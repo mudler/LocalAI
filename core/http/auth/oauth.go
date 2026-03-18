@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"golang.org/x/oauth2"
@@ -17,33 +18,75 @@ import (
 	"gorm.io/gorm"
 )
 
-// OAuthProvider holds the OAuth2 config and user-info fetch logic for a provider.
-type OAuthProvider struct {
-	Config      *oauth2.Config
-	UserInfoURL string
-	Name        string
+// providerEntry holds the OAuth2/OIDC config for a single provider.
+type providerEntry struct {
+	oauth2Config oauth2.Config
+	oidcVerifier *oidc.IDTokenVerifier // nil for GitHub (API-based user info)
+	name         string
+	userInfoURL  string // only used for GitHub
 }
 
-// OAuthManager manages multiple OAuth providers.
+// oauthUserInfo is a provider-agnostic representation of an authenticated user.
+type oauthUserInfo struct {
+	Subject   string
+	Email     string
+	Name      string
+	AvatarURL string
+}
+
+// OAuthManager manages multiple OAuth/OIDC providers.
 type OAuthManager struct {
-	providers map[string]*OAuthProvider
+	providers map[string]*providerEntry
 }
 
-// NewOAuthManager creates an OAuthManager from the given AuthConfig.
-func NewOAuthManager(baseURL, githubClientID, githubClientSecret string) (*OAuthManager, error) {
-	m := &OAuthManager{providers: make(map[string]*OAuthProvider)}
+// OAuthParams groups the parameters needed to create an OAuthManager.
+type OAuthParams struct {
+	GitHubClientID     string
+	GitHubClientSecret string
+	OIDCIssuer         string
+	OIDCClientID       string
+	OIDCClientSecret   string
+}
 
-	if githubClientID != "" {
-		m.providers["github"] = &OAuthProvider{
-			Name: "github",
-			Config: &oauth2.Config{
-				ClientID:     githubClientID,
-				ClientSecret: githubClientSecret,
+// NewOAuthManager creates an OAuthManager from the given params.
+func NewOAuthManager(baseURL string, params OAuthParams) (*OAuthManager, error) {
+	m := &OAuthManager{providers: make(map[string]*providerEntry)}
+
+	if params.GitHubClientID != "" {
+		m.providers["github"] = &providerEntry{
+			name: "github",
+			oauth2Config: oauth2.Config{
+				ClientID:     params.GitHubClientID,
+				ClientSecret: params.GitHubClientSecret,
 				Endpoint:     githubOAuth.Endpoint,
 				RedirectURL:  baseURL + "/api/auth/github/callback",
 				Scopes:       []string{"user:email", "read:user"},
 			},
-			UserInfoURL: "https://api.github.com/user",
+			userInfoURL: "https://api.github.com/user",
+		}
+	}
+
+	if params.OIDCClientID != "" && params.OIDCIssuer != "" {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+
+		provider, err := oidc.NewProvider(ctx, params.OIDCIssuer)
+		if err != nil {
+			return nil, fmt.Errorf("OIDC discovery failed for %s: %w", params.OIDCIssuer, err)
+		}
+
+		verifier := provider.Verifier(&oidc.Config{ClientID: params.OIDCClientID})
+
+		m.providers["oidc"] = &providerEntry{
+			name: "oidc",
+			oauth2Config: oauth2.Config{
+				ClientID:     params.OIDCClientID,
+				ClientSecret: params.OIDCClientSecret,
+				Endpoint:     provider.Endpoint(),
+				RedirectURL:  baseURL + "/api/auth/oidc/callback",
+				Scopes:       []string{oidc.ScopeOpenID, "profile", "email"},
+			},
+			oidcVerifier: verifier,
 		}
 	}
 
@@ -93,7 +136,7 @@ func (m *OAuthManager) LoginHandler(providerName string) echo.HandlerFunc {
 			})
 		}
 
-		url := provider.Config.AuthCodeURL(state)
+		url := provider.oauth2Config.AuthCodeURL(state)
 		return c.Redirect(http.StatusTemporaryRedirect, url)
 	}
 }
@@ -131,13 +174,18 @@ func (m *OAuthManager) CallbackHandler(providerName string, db *gorm.DB, adminEm
 		ctx, cancel := context.WithTimeout(c.Request().Context(), 30*time.Second)
 		defer cancel()
 
-		token, err := provider.Config.Exchange(ctx, code)
+		token, err := provider.oauth2Config.Exchange(ctx, code)
 		if err != nil {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": "failed to exchange code: " + err.Error()})
 		}
 
-		// Fetch user info
-		userInfo, err := fetchGitHubUserInfo(ctx, token.AccessToken)
+		// Fetch user info — branch based on provider type
+		var userInfo *oauthUserInfo
+		if provider.oidcVerifier != nil {
+			userInfo, err = extractOIDCUserInfo(ctx, provider.oidcVerifier, token)
+		} else {
+			userInfo, err = fetchGitHubUserInfoAsOAuth(ctx, token.AccessToken)
+		}
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to fetch user info"})
 		}
@@ -157,7 +205,7 @@ func (m *OAuthManager) CallbackHandler(providerName string, db *gorm.DB, adminEm
 		}
 
 		// Upsert user (with invite code support)
-		user, err := upsertUser(db, providerName, userInfo, adminEmail, registrationMode)
+		user, err := upsertOAuthUser(db, providerName, userInfo, adminEmail, registrationMode)
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to create user"})
 		}
@@ -192,6 +240,36 @@ func (m *OAuthManager) CallbackHandler(providerName string, db *gorm.DB, adminEm
 	}
 }
 
+// extractOIDCUserInfo extracts user info from the OIDC ID token.
+func extractOIDCUserInfo(ctx context.Context, verifier *oidc.IDTokenVerifier, token *oauth2.Token) (*oauthUserInfo, error) {
+	rawIDToken, ok := token.Extra("id_token").(string)
+	if !ok || rawIDToken == "" {
+		return nil, fmt.Errorf("no id_token in token response")
+	}
+
+	idToken, err := verifier.Verify(ctx, rawIDToken)
+	if err != nil {
+		return nil, fmt.Errorf("failed to verify ID token: %w", err)
+	}
+
+	var claims struct {
+		Sub     string `json:"sub"`
+		Email   string `json:"email"`
+		Name    string `json:"name"`
+		Picture string `json:"picture"`
+	}
+	if err := idToken.Claims(&claims); err != nil {
+		return nil, fmt.Errorf("failed to parse ID token claims: %w", err)
+	}
+
+	return &oauthUserInfo{
+		Subject:   claims.Sub,
+		Email:     claims.Email,
+		Name:      claims.Name,
+		AvatarURL: claims.Picture,
+	}, nil
+}
+
 type githubUserInfo struct {
 	ID        int    `json:"id"`
 	Login     string `json:"login"`
@@ -204,6 +282,20 @@ type githubEmail struct {
 	Email    string `json:"email"`
 	Primary  bool   `json:"primary"`
 	Verified bool   `json:"verified"`
+}
+
+// fetchGitHubUserInfoAsOAuth fetches GitHub user info and returns it as oauthUserInfo.
+func fetchGitHubUserInfoAsOAuth(ctx context.Context, accessToken string) (*oauthUserInfo, error) {
+	info, err := fetchGitHubUserInfo(ctx, accessToken)
+	if err != nil {
+		return nil, err
+	}
+	return &oauthUserInfo{
+		Subject:   fmt.Sprintf("%d", info.ID),
+		Email:     info.Email,
+		Name:      info.Name,
+		AvatarURL: info.AvatarURL,
+	}, nil
 }
 
 func fetchGitHubUserInfo(ctx context.Context, accessToken string) (*githubUserInfo, error) {
@@ -276,11 +368,9 @@ func fetchGitHubPrimaryEmail(ctx context.Context, accessToken string) (string, e
 	return "", fmt.Errorf("no verified email found")
 }
 
-func upsertUser(db *gorm.DB, provider string, info *githubUserInfo, adminEmail, registrationMode string) (*User, error) {
-	subject := fmt.Sprintf("%d", info.ID)
-
+func upsertOAuthUser(db *gorm.DB, provider string, info *oauthUserInfo, adminEmail, registrationMode string) (*User, error) {
 	var user User
-	err := db.Where("provider = ? AND subject = ?", provider, subject).First(&user).Error
+	err := db.Where("provider = ? AND subject = ?", provider, info.Subject).First(&user).Error
 	if err == nil {
 		// Existing user — update profile fields
 		user.Name = info.Name
@@ -310,7 +400,7 @@ func upsertUser(db *gorm.DB, provider string, info *githubUserInfo, adminEmail, 
 		Name:      info.Name,
 		AvatarURL: info.AvatarURL,
 		Provider:  provider,
-		Subject:   subject,
+		Subject:   info.Subject,
 		Role:      role,
 		Status:    status,
 	}

@@ -107,6 +107,9 @@ type AuthConfig struct {
 	DatabaseURL        string // "postgres://..." or file path for SQLite
 	GitHubClientID     string
 	GitHubClientSecret string
+	OIDCIssuer         string // OIDC issuer URL for auto-discovery (e.g. https://accounts.google.com)
+	OIDCClientID       string
+	OIDCClientSecret   string
 	BaseURL            string // for OAuth callback URLs (e.g. "http://localhost:8080")
 	AdminEmail         string // auto-promote to admin on login
 	RegistrationMode   string // "open" (default), "approval", "invite"
@@ -768,6 +771,24 @@ func WithAuthAdminEmail(email string) AppOption {
 func WithAuthRegistrationMode(mode string) AppOption {
 	return func(o *ApplicationConfig) {
 		o.Auth.RegistrationMode = mode
+	}
+}
+
+func WithAuthOIDCIssuer(issuer string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.Auth.OIDCIssuer = issuer
+	}
+}
+
+func WithAuthOIDCClientID(clientID string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.Auth.OIDCClientID = clientID
+	}
+}
+
+func WithAuthOIDCClientSecret(clientSecret string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.Auth.OIDCClientSecret = clientSecret
 	}
 }
 

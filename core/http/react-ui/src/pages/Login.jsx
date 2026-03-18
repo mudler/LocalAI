@@ -148,14 +148,20 @@ export default function Login() {
   if (authLoading || statusLoading) return null
 
   const hasGitHub = providers.includes('github')
+  const hasOIDC = providers.includes('oidc')
   const hasLocal = providers.includes('local')
+  const hasOAuth = hasGitHub || hasOIDC
   const showInviteField = (registrationMode === 'invite' || registrationMode === 'approval') && mode === 'register' && hasUsers
   const inviteRequired = registrationMode === 'invite' && hasUsers
 
-  // Build GitHub login URL with invite code if present
+  // Build OAuth login URLs with invite code if present
   const githubLoginUrl = inviteCode
     ? apiUrl(`/api/auth/github/login?invite_code=${encodeURIComponent(inviteCode)}`)
     : apiUrl('/api/auth/github/login')
+
+  const oidcLoginUrl = inviteCode
+    ? apiUrl(`/api/auth/oidc/login?invite_code=${encodeURIComponent(inviteCode)}`)
+    : apiUrl('/api/auth/oidc/login')
 
   return (
     <div className="login-page">
@@ -184,18 +190,27 @@ export default function Login() {
         )}
 
         {hasGitHub && (
-          <>
-            <a
-              href={githubLoginUrl}
-              className="btn btn-primary"
-              style={{ width: '100%', justifyContent: 'center', textDecoration: 'none' }}
-            >
-              <i className="fab fa-github" /> Sign in with GitHub
-            </a>
-            {hasLocal && (
-              <div className="login-divider">or</div>
-            )}
-          </>
+          <a
+            href={githubLoginUrl}
+            className="btn btn-primary"
+            style={{ width: '100%', justifyContent: 'center', textDecoration: 'none', marginBottom: hasOIDC ? '0.5rem' : undefined }}
+          >
+            <i className="fab fa-github" /> Sign in with GitHub
+          </a>
+        )}
+
+        {hasOIDC && (
+          <a
+            href={oidcLoginUrl}
+            className="btn btn-primary"
+            style={{ width: '100%', justifyContent: 'center', textDecoration: 'none' }}
+          >
+            <i className="fas fa-sign-in-alt" /> Sign in with SSO
+          </a>
+        )}
+
+        {hasOAuth && hasLocal && (
+          <div className="login-divider">or</div>
         )}
 
         {hasLocal && mode === 'login' && (

@@ -11,6 +11,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/application"
 	"github.com/mudler/LocalAI/core/http/auth"
+	"github.com/mudler/LocalAI/core/services"
 )
 
 // RegisterAuthRoutes registers authentication-related API routes.
@@ -32,6 +33,9 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 			providers = append(providers, "local") // always available
 			if appConfig.Auth.GitHubClientID != "" {
 				providers = append(providers, "github")
+			}
+			if appConfig.Auth.OIDCClientID != "" {
+				providers = append(providers, "oidc")
 			}
 		}
 
@@ -77,18 +81,31 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 		return
 	}
 
-	// Set up OAuth manager
-	if appConfig.Auth.GitHubClientID != "" {
+	// Set up OAuth manager when any OAuth/OIDC provider is configured
+	if appConfig.Auth.GitHubClientID != "" || appConfig.Auth.OIDCClientID != "" {
 		oauthMgr, err := auth.NewOAuthManager(
 			appConfig.Auth.BaseURL,
-			appConfig.Auth.GitHubClientID,
-			appConfig.Auth.GitHubClientSecret,
+			auth.OAuthParams{
+				GitHubClientID:     appConfig.Auth.GitHubClientID,
+				GitHubClientSecret: appConfig.Auth.GitHubClientSecret,
+				OIDCIssuer:         appConfig.Auth.OIDCIssuer,
+				OIDCClientID:       appConfig.Auth.OIDCClientID,
+				OIDCClientSecret:   appConfig.Auth.OIDCClientSecret,
+			},
 		)
 		if err == nil {
-			e.GET("/api/auth/github/login", oauthMgr.LoginHandler("github"))
-			e.GET("/api/auth/github/callback", oauthMgr.CallbackHandler(
-				"github", db, appConfig.Auth.AdminEmail, appConfig.Auth.RegistrationMode,
-			))
+			if appConfig.Auth.GitHubClientID != "" {
+				e.GET("/api/auth/github/login", oauthMgr.LoginHandler("github"))
+				e.GET("/api/auth/github/callback", oauthMgr.CallbackHandler(
+					"github", db, appConfig.Auth.AdminEmail, appConfig.Auth.RegistrationMode,
+				))
+			}
+			if appConfig.Auth.OIDCClientID != "" {
+				e.GET("/api/auth/oidc/login", oauthMgr.LoginHandler("oidc"))
+				e.GET("/api/auth/oidc/callback", oauthMgr.CallbackHandler(
+					"oidc", db, appConfig.Auth.AdminEmail, appConfig.Auth.RegistrationMode,
+				))
+			}
 		}
 	}
 
@@ -469,6 +486,26 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 	// Admin endpoints
 	adminMw := auth.RequireAdmin()
 
+	// GET /api/auth/admin/features - returns feature metadata and available models
+	e.GET("/api/auth/admin/features", func(c echo.Context) error {
+		// Get available models
+		modelNames := []string{}
+		if app.ModelConfigLoader() != nil && app.ModelLoader() != nil {
+			names, err := services.ListModels(
+				app.ModelConfigLoader(), app.ModelLoader(), nil, services.SKIP_IF_CONFIGURED,
+			)
+			if err == nil {
+				modelNames = names
+			}
+		}
+
+		return c.JSON(http.StatusOK, map[string]interface{}{
+			"agent_features": auth.AgentFeatureMetas(),
+			"api_features":   auth.APIFeatureMetas(),
+			"models":         modelNames,
+		})
+	}, adminMw)
+
 	// GET /api/auth/admin/users - list all users
 	e.GET("/api/auth/admin/users", func(c echo.Context) error {
 		var users []auth.User
@@ -489,6 +526,7 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 				"createdAt": u.CreatedAt,
 			}
 			entry["permissions"] = auth.GetPermissionMapForUser(db, &u)
+			entry["allowed_models"] = auth.GetModelAllowlist(db, u.ID)
 			result = append(result, entry)
 		}
 
@@ -599,6 +637,30 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 			"message":     "permissions updated",
 			"user_id":     targetID,
 			"permissions": perms,
+		})
+	}, adminMw)
+
+	// PUT /api/auth/admin/users/:id/models - update user model allowlist
+	e.PUT("/api/auth/admin/users/:id/models", func(c echo.Context) error {
+		targetID := c.Param("id")
+		var target auth.User
+		if err := db.First(&target, "id = ?", targetID).Error; err != nil {
+			return c.JSON(http.StatusNotFound, map[string]string{"error": "user not found"})
+		}
+
+		var allowlist auth.ModelAllowlist
+		if err := c.Bind(&allowlist); err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+		}
+
+		if err := auth.UpdateModelAllowlist(db, targetID, allowlist); err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to update model allowlist"})
+		}
+
+		return c.JSON(http.StatusOK, map[string]interface{}{
+			"message":        "model allowlist updated",
+			"user_id":        targetID,
+			"allowed_models": allowlist,
 		})
 	}, adminMw)
 

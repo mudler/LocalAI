@@ -126,6 +126,9 @@ type RunCMD struct {
 	AuthDatabaseURL      string `env:"LOCALAI_AUTH_DATABASE_URL,DATABASE_URL" help:"Database URL for auth (postgres:// or file path for SQLite). Defaults to {DataPath}/database.db" group:"auth"`
 	GitHubClientID       string `env:"GITHUB_CLIENT_ID" help:"GitHub OAuth App Client ID (auto-enables auth when set)" group:"auth"`
 	GitHubClientSecret   string `env:"GITHUB_CLIENT_SECRET" help:"GitHub OAuth App Client Secret" group:"auth"`
+	OIDCIssuer           string `env:"LOCALAI_OIDC_ISSUER" help:"OIDC issuer URL for auto-discovery" group:"auth"`
+	OIDCClientID         string `env:"LOCALAI_OIDC_CLIENT_ID" help:"OIDC Client ID (auto-enables auth)" group:"auth"`
+	OIDCClientSecret     string `env:"LOCALAI_OIDC_CLIENT_SECRET" help:"OIDC Client Secret" group:"auth"`
 	AuthBaseURL          string `env:"LOCALAI_BASE_URL" help:"Base URL for OAuth callbacks (e.g. http://localhost:8080)" group:"auth"`
 	AuthAdminEmail       string `env:"LOCALAI_ADMIN_EMAIL" help:"Email address to auto-promote to admin role" group:"auth"`
 	AuthRegistrationMode string `env:"LOCALAI_REGISTRATION_MODE" default:"open" help:"Registration mode: 'open' (default) or 'approval'" group:"auth"`
@@ -321,7 +324,7 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 	}
 
 	// Authentication
-	authEnabled := r.AuthEnabled || r.GitHubClientID != ""
+	authEnabled := r.AuthEnabled || r.GitHubClientID != "" || r.OIDCClientID != ""
 	if authEnabled {
 		opts = append(opts, config.WithAuthEnabled(true))
 
@@ -334,6 +337,11 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 		if r.GitHubClientID != "" {
 			opts = append(opts, config.WithAuthGitHubClientID(r.GitHubClientID))
 			opts = append(opts, config.WithAuthGitHubClientSecret(r.GitHubClientSecret))
+		}
+		if r.OIDCClientID != "" {
+			opts = append(opts, config.WithAuthOIDCIssuer(r.OIDCIssuer))
+			opts = append(opts, config.WithAuthOIDCClientID(r.OIDCClientID))
+			opts = append(opts, config.WithAuthOIDCClientSecret(r.OIDCClientSecret))
 		}
 		if r.AuthBaseURL != "" {
 			opts = append(opts, config.WithAuthBaseURL(r.AuthBaseURL))

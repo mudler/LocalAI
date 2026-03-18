@@ -92,12 +92,47 @@ type InviteCode struct {
 	Consumer  *User      `gorm:"foreignKey:UsedBy"`
 }
 
+// ModelAllowlist controls which models a user can access.
+// When Enabled is false (default), all models are allowed.
+type ModelAllowlist struct {
+	Enabled bool     `json:"enabled"`
+	Models  []string `json:"models,omitempty"`
+}
+
+// Value implements driver.Valuer for GORM JSON serialization.
+func (m ModelAllowlist) Value() (driver.Value, error) {
+	b, err := json.Marshal(m)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal ModelAllowlist: %w", err)
+	}
+	return string(b), nil
+}
+
+// Scan implements sql.Scanner for GORM JSON deserialization.
+func (m *ModelAllowlist) Scan(value any) error {
+	if value == nil {
+		*m = ModelAllowlist{}
+		return nil
+	}
+	var bytes []byte
+	switch v := value.(type) {
+	case string:
+		bytes = []byte(v)
+	case []byte:
+		bytes = v
+	default:
+		return fmt.Errorf("cannot scan %T into ModelAllowlist", value)
+	}
+	return json.Unmarshal(bytes, m)
+}
+
 // UserPermission stores per-user feature permissions.
 type UserPermission struct {
-	ID          string        `gorm:"primaryKey;size:36"`
-	UserID      string        `gorm:"size:36;uniqueIndex"`
-	Permissions PermissionMap `gorm:"type:text"`
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
-	User        User `gorm:"foreignKey:UserID;constraint:OnDelete:CASCADE"`
+	ID            string         `gorm:"primaryKey;size:36"`
+	UserID        string         `gorm:"size:36;uniqueIndex"`
+	Permissions   PermissionMap  `gorm:"type:text"`
+	AllowedModels ModelAllowlist `gorm:"type:text"`
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
+	User          User `gorm:"foreignKey:UserID;constraint:OnDelete:CASCADE"`
 }

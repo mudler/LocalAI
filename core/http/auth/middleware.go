@@ -191,6 +191,86 @@ func GetUserRole(c echo.Context) string {
 	return role
 }
 
+// RequireRouteFeature returns a global middleware that checks the user has access
+// to the feature required by the matched route. It uses the RouteFeatureRegistry
+// to look up the required feature for each route pattern + HTTP method.
+// If no entry matches, the request passes through (no restriction).
+func RequireRouteFeature(db *gorm.DB) echo.MiddlewareFunc {
+	if db == nil {
+		return NoopMiddleware()
+	}
+	// Pre-build lookup map: "METHOD:pattern" -> feature
+	lookup := map[string]string{}
+	for _, rf := range RouteFeatureRegistry {
+		lookup[rf.Method+":"+rf.Pattern] = rf.Feature
+	}
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			path := c.Path() // Echo route pattern (e.g. "/v1/engines/:model/completions")
+			method := c.Request().Method
+			feature := lookup[method+":"+path]
+			if feature == "" {
+				feature = lookup["*:"+path]
+			}
+			if feature == "" {
+				return next(c) // no restriction for this route
+			}
+			user := GetUser(c)
+			if user == nil {
+				return next(c) // auth middleware handles unauthenticated
+			}
+			if user.Role == RoleAdmin {
+				return next(c)
+			}
+			if !HasFeatureAccess(db, user, feature) {
+				return c.JSON(http.StatusForbidden, schema.ErrorResponse{
+					Error: &schema.APIError{
+						Message: "feature not enabled for your account: " + feature,
+						Code:    http.StatusForbidden,
+						Type:    "authorization_error",
+					},
+				})
+			}
+			return next(c)
+		}
+	}
+}
+
+// RequireModelAccess returns a global middleware that checks the user is allowed
+// to use the resolved model. It reads the model name from the context key set by
+// the request extractor middleware. If no model name is set, the request passes through.
+func RequireModelAccess(db *gorm.DB) echo.MiddlewareFunc {
+	if db == nil {
+		return NoopMiddleware()
+	}
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			user := GetUser(c)
+			if user == nil {
+				return next(c)
+			}
+			if user.Role == RoleAdmin {
+				return next(c)
+			}
+			// Model name is set by the request extractor middleware
+			modelName, _ := c.Get("MODEL_NAME").(string)
+			if modelName == "" {
+				return next(c)
+			}
+			if !IsModelAllowed(db, user, modelName) {
+				return c.JSON(http.StatusForbidden, schema.ErrorResponse{
+					Error: &schema.APIError{
+						Message: "access denied to model: " + modelName,
+						Code:    http.StatusForbidden,
+						Type:    "authorization_error",
+					},
+				})
+			}
+			return next(c)
+		}
+	}
+}
+
 // tryAuthenticate attempts to authenticate the request using the database.
 func tryAuthenticate(c echo.Context, db *gorm.DB, appConfig *config.ApplicationConfig) *User {
 	// a. Session cookie

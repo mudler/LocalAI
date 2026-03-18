@@ -37,14 +37,14 @@ The user authentication system provides:
 - **User accounts** with email, name, and avatar
 - **Role-based access control** (admin vs. user)
 - **Session-based authentication** with secure cookies
-- **OAuth login** (GitHub, with more providers planned)
+- **OAuth login** (GitHub) and **OIDC single sign-on** (Keycloak, Google, Okta, Authentik, etc.)
 - **Per-user API keys** for programmatic access
 - **Admin route gating** — management endpoints are restricted to admins
 - **Per-user usage tracking** with token consumption metrics
 
 ### Enabling Authentication
 
-Set `LOCALAI_AUTH=true` or provide a GitHub OAuth Client ID (which auto-enables auth):
+Set `LOCALAI_AUTH=true` or provide a GitHub OAuth Client ID or OIDC Client ID (which auto-enables auth):
 
 ```bash
 # Enable with SQLite (default, stored at {DataPath}/database.db)
@@ -53,6 +53,13 @@ LOCALAI_AUTH=true localai run
 # Enable with GitHub OAuth
 GITHUB_CLIENT_ID=your-client-id \
 GITHUB_CLIENT_SECRET=your-client-secret \
+LOCALAI_BASE_URL=http://localhost:8080 \
+localai run
+
+# Enable with OIDC provider (e.g. Keycloak)
+LOCALAI_OIDC_ISSUER=https://keycloak.example.com/realms/myrealm \
+LOCALAI_OIDC_CLIENT_ID=your-client-id \
+LOCALAI_OIDC_CLIENT_SECRET=your-client-secret \
 LOCALAI_BASE_URL=http://localhost:8080 \
 localai run
 
@@ -70,6 +77,9 @@ localai run
 | `LOCALAI_AUTH_DATABASE_URL` | `{DataPath}/database.db` | Database URL — `postgres://...` for PostgreSQL, or a file path for SQLite |
 | `GITHUB_CLIENT_ID` | | GitHub OAuth App Client ID (auto-enables auth when set) |
 | `GITHUB_CLIENT_SECRET` | | GitHub OAuth App Client Secret |
+| `LOCALAI_OIDC_ISSUER` | | OIDC issuer URL for auto-discovery (e.g. `https://accounts.google.com`) |
+| `LOCALAI_OIDC_CLIENT_ID` | | OIDC Client ID (auto-enables auth when set) |
+| `LOCALAI_OIDC_CLIENT_SECRET` | | OIDC Client Secret |
 | `LOCALAI_BASE_URL` | | Base URL for OAuth callbacks (e.g. `http://localhost:8080`) |
 | `LOCALAI_ADMIN_EMAIL` | | Email address to auto-promote to admin role on login |
 | `LOCALAI_REGISTRATION_MODE` | `open` | Registration mode: `open`, `approval`, or `invite` |
@@ -168,6 +178,36 @@ Admin-only pages are also protected at the router level — navigating directly 
 3. Set `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET` environment variables
 4. Set `LOCALAI_BASE_URL` to your publicly-accessible URL
 
+### OIDC Setup
+
+Any OIDC-compliant identity provider can be used for single sign-on. This includes Keycloak, Google, Okta, Authentik, Azure AD, and many others.
+
+**Steps:**
+
+1. Create a client/application in your OIDC provider
+2. Set the redirect URL to `{LOCALAI_BASE_URL}/api/auth/oidc/callback`
+3. Set the three environment variables: `LOCALAI_OIDC_ISSUER`, `LOCALAI_OIDC_CLIENT_ID`, `LOCALAI_OIDC_CLIENT_SECRET`
+
+LocalAI uses OIDC auto-discovery (the `/.well-known/openid-configuration` endpoint) and requests the standard scopes: `openid`, `profile`, `email`.
+
+**Provider examples:**
+
+```bash
+# Keycloak
+LOCALAI_OIDC_ISSUER=https://keycloak.example.com/realms/myrealm
+
+# Google
+LOCALAI_OIDC_ISSUER=https://accounts.google.com
+
+# Authentik
+LOCALAI_OIDC_ISSUER=https://authentik.example.com/application/o/localai/
+
+# Okta
+LOCALAI_OIDC_ISSUER=https://your-org.okta.com
+```
+
+For OIDC, invite codes work the same way as GitHub OAuth — the invite code is passed as a query parameter to the login URL (`/api/auth/oidc/login?invite_code=<code>`) and stored in a cookie during the OAuth flow.
+
 ### User API Keys
 
 Authenticated users can create personal API keys for programmatic access:
@@ -202,6 +242,9 @@ User API keys inherit the creating user's role. Admin keys grant admin access; u
 | `DELETE` | `/api/auth/admin/invites/:id` | Revoke unused invite | Admin |
 | `GET` | `/api/auth/invite/:code/check` | Check if invite code is valid | No |
 | `GET` | `/api/auth/github/login` | Start GitHub OAuth | No |
+| `GET` | `/api/auth/github/callback` | GitHub OAuth callback (internal) | No |
+| `GET` | `/api/auth/oidc/login` | Start OIDC login | No |
+| `GET` | `/api/auth/oidc/callback` | OIDC callback (internal) | No |
 
 ## Usage Tracking
 

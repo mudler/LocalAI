@@ -7,14 +7,49 @@ import (
 
 // Feature name constants — all code must use these, never bare strings.
 const (
+	// Agent features (default OFF for new users)
 	FeatureAgents      = "agents"
 	FeatureSkills      = "skills"
 	FeatureCollections = "collections"
 	FeatureMCPJobs     = "mcp_jobs"
+
+	// API features (default ON for new users)
+	FeatureChat              = "chat"
+	FeatureImages            = "images"
+	FeatureAudioSpeech       = "audio_speech"
+	FeatureAudioTranscription = "audio_transcription"
+	FeatureVAD               = "vad"
+	FeatureDetection         = "detection"
+	FeatureVideo             = "video"
+	FeatureEmbeddings        = "embeddings"
+	FeatureSound             = "sound"
 )
 
+// AgentFeatures lists agent-related features (default OFF).
+var AgentFeatures = []string{FeatureAgents, FeatureSkills, FeatureCollections, FeatureMCPJobs}
+
+// APIFeatures lists API endpoint features (default ON).
+var APIFeatures = []string{
+	FeatureChat, FeatureImages, FeatureAudioSpeech, FeatureAudioTranscription,
+	FeatureVAD, FeatureDetection, FeatureVideo, FeatureEmbeddings, FeatureSound,
+}
+
 // AllFeatures lists all known features (used by UI and validation).
-var AllFeatures = []string{FeatureAgents, FeatureSkills, FeatureCollections, FeatureMCPJobs}
+var AllFeatures = append(append([]string{}, AgentFeatures...), APIFeatures...)
+
+// defaultOnFeatures is the set of features that default to ON when absent from a user's permission map.
+var defaultOnFeatures = func() map[string]bool {
+	m := map[string]bool{}
+	for _, f := range APIFeatures {
+		m[f] = true
+	}
+	return m
+}()
+
+// isDefaultOnFeature returns true if the feature defaults to ON when not explicitly set.
+func isDefaultOnFeature(feature string) bool {
+	return defaultOnFeatures[feature]
+}
 
 // GetUserPermissions returns the permission record for a user, creating a default
 // (empty map = all disabled) if none exists.
@@ -58,6 +93,8 @@ func UpdateUserPermissions(db *gorm.DB, userID string, perms PermissionMap) erro
 }
 
 // HasFeatureAccess returns true if the user is an admin or has the given feature enabled.
+// When a feature key is absent from the user's permission map, it checks whether the
+// feature defaults to ON (API features) or OFF (agent features) for backward compatibility.
 func HasFeatureAccess(db *gorm.DB, user *User, feature string) bool {
 	if user == nil {
 		return false
@@ -69,11 +106,17 @@ func HasFeatureAccess(db *gorm.DB, user *User, feature string) bool {
 	if err != nil {
 		return false
 	}
-	return perm.Permissions[feature]
+	val, exists := perm.Permissions[feature]
+	if !exists {
+		return isDefaultOnFeature(feature)
+	}
+	return val
 }
 
 // GetPermissionMapForUser returns the effective permission map for a user.
 // Admins get all features as true (virtual).
+// For regular users, absent keys are filled with their defaults so the
+// UI/API always returns a complete picture.
 func GetPermissionMapForUser(db *gorm.DB, user *User) PermissionMap {
 	if user == nil {
 		return PermissionMap{}
@@ -89,5 +132,55 @@ func GetPermissionMapForUser(db *gorm.DB, user *User) PermissionMap {
 	if err != nil {
 		return PermissionMap{}
 	}
-	return perm.Permissions
+	// Fill in defaults for absent keys
+	effective := PermissionMap{}
+	for _, f := range AllFeatures {
+		val, exists := perm.Permissions[f]
+		if exists {
+			effective[f] = val
+		} else {
+			effective[f] = isDefaultOnFeature(f)
+		}
+	}
+	return effective
+}
+
+// GetModelAllowlist returns the model allowlist for a user.
+func GetModelAllowlist(db *gorm.DB, userID string) ModelAllowlist {
+	perm, err := GetUserPermissions(db, userID)
+	if err != nil {
+		return ModelAllowlist{}
+	}
+	return perm.AllowedModels
+}
+
+// UpdateModelAllowlist updates the model allowlist for a user.
+func UpdateModelAllowlist(db *gorm.DB, userID string, allowlist ModelAllowlist) error {
+	perm, err := GetUserPermissions(db, userID)
+	if err != nil {
+		return err
+	}
+	perm.AllowedModels = allowlist
+	return db.Save(perm).Error
+}
+
+// IsModelAllowed returns true if the user is allowed to use the given model.
+// Admins always have access. If the allowlist is not enabled, all models are allowed.
+func IsModelAllowed(db *gorm.DB, user *User, modelName string) bool {
+	if user == nil {
+		return false
+	}
+	if user.Role == RoleAdmin {
+		return true
+	}
+	allowlist := GetModelAllowlist(db, user.ID)
+	if !allowlist.Enabled {
+		return true
+	}
+	for _, m := range allowlist.Models {
+		if m == modelName {
+			return true
+		}
+	}
+	return false
 }

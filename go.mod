@@ -10,6 +10,7 @@ require (
 	github.com/anthropics/anthropic-sdk-go v1.27.0
 	github.com/charmbracelet/glamour v0.10.0
 	github.com/containerd/containerd v1.7.30
+	github.com/coreos/go-oidc/v3 v3.17.0
 	github.com/dhowden/tag v0.0.0-20240417053706-3d75831295e8
 	github.com/ebitengine/purego v0.10.0
 	github.com/emirpasic/gods/v2 v2.0.0-alpha
@@ -66,6 +67,7 @@ require (
 )
 
 require (
+	github.com/go-jose/go-jose/v4 v4.1.3 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
 	github.com/mattn/go-sqlite3 v1.14.22 // indirect
