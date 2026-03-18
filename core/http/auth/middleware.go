@@ -1,6 +1,9 @@
 package auth
 
 import (
+	"bytes"
+	"encoding/json"
+	"io"
 	"net/http"
 	"strings"
 
@@ -237,8 +240,9 @@ func RequireRouteFeature(db *gorm.DB) echo.MiddlewareFunc {
 }
 
 // RequireModelAccess returns a global middleware that checks the user is allowed
-// to use the resolved model. It reads the model name from the context key set by
-// the request extractor middleware. If no model name is set, the request passes through.
+// to use the resolved model. It extracts the model name directly from the request
+// (path param, query param, JSON body, or form value) rather than relying on a
+// context key set by downstream route-specific middleware.
 func RequireModelAccess(db *gorm.DB) echo.MiddlewareFunc {
 	if db == nil {
 		return NoopMiddleware()
@@ -252,23 +256,67 @@ func RequireModelAccess(db *gorm.DB) echo.MiddlewareFunc {
 			if user.Role == RoleAdmin {
 				return next(c)
 			}
-			// Model name is set by the request extractor middleware
-			modelName, _ := c.Get("MODEL_NAME").(string)
+
+			// Check if this user even has a model allowlist enabled before
+			// doing the expensive body read. Most users won't have restrictions.
+			allowlist := GetModelAllowlist(db, user.ID)
+			if !allowlist.Enabled {
+				return next(c)
+			}
+
+			modelName := extractModelFromRequest(c)
 			if modelName == "" {
 				return next(c)
 			}
-			if !IsModelAllowed(db, user, modelName) {
-				return c.JSON(http.StatusForbidden, schema.ErrorResponse{
-					Error: &schema.APIError{
-						Message: "access denied to model: " + modelName,
-						Code:    http.StatusForbidden,
-						Type:    "authorization_error",
-					},
-				})
+
+			for _, m := range allowlist.Models {
+				if m == modelName {
+					return next(c)
+				}
 			}
-			return next(c)
+
+			return c.JSON(http.StatusForbidden, schema.ErrorResponse{
+				Error: &schema.APIError{
+					Message: "access denied to model: " + modelName,
+					Code:    http.StatusForbidden,
+					Type:    "authorization_error",
+				},
+			})
 		}
 	}
+}
+
+// extractModelFromRequest extracts the model name from various request sources.
+// It checks URL path params, query params, JSON body, and form values.
+// For JSON bodies, it peeks at the body and resets it so downstream handlers
+// can still read it.
+func extractModelFromRequest(c echo.Context) string {
+	// 1. URL path param (e.g. /v1/engines/:model/completions)
+	if model := c.Param("model"); model != "" {
+		return model
+	}
+	// 2. Query param
+	if model := c.QueryParam("model"); model != "" {
+		return model
+	}
+	// 3. Peek at JSON body
+	if strings.HasPrefix(c.Request().Header.Get("Content-Type"), "application/json") {
+		body, err := io.ReadAll(c.Request().Body)
+		c.Request().Body = io.NopCloser(bytes.NewReader(body)) // always reset
+		if err == nil && len(body) > 0 {
+			var m struct {
+				Model string `json:"model"`
+			}
+			if json.Unmarshal(body, &m) == nil && m.Model != "" {
+				return m.Model
+			}
+		}
+	}
+	// 4. Form value (multipart/form-data)
+	if model := c.FormValue("model"); model != "" {
+		return model
+	}
+	return ""
 }
 
 // tryAuthenticate attempts to authenticate the request using the database.
