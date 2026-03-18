@@ -40,7 +40,7 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 
 		// Edit model page
 		router.GET("/models/edit/:name", localai.GetEditModelPage(cl, appConfig))
-		modelGalleryEndpointService := localai.CreateModelGalleryEndpointService(appConfig.Galleries, appConfig.BackendGalleries, appConfig.SystemState, galleryService)
+		modelGalleryEndpointService := localai.CreateModelGalleryEndpointService(appConfig.Galleries, appConfig.BackendGalleries, appConfig.SystemState, galleryService, cl)
 		router.POST("/models/apply", modelGalleryEndpointService.ApplyModelGalleryEndpoint())
 		router.POST("/models/delete/:name", modelGalleryEndpointService.DeleteModelGalleryEndpoint())
 
