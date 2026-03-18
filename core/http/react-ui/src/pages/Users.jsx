@@ -3,6 +3,7 @@ import { useOutletContext } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { adminUsersApi, adminInvitesApi } from '../utils/api'
 import LoadingSpinner from '../components/LoadingSpinner'
+import Modal from '../components/Modal'
 
 function RoleBadge({ role }) {
   const isPrimary = role === 'admin'
@@ -84,6 +85,14 @@ function PermissionsModal({ user, featureMeta, availableModels, onClose, onSave,
   const apiFeatures = featureMeta?.api_features || []
   const agentFeatures = featureMeta?.agent_features || []
 
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [onClose])
+
   const toggleFeature = (key) => {
     setPermissions(prev => ({ ...prev, [key]: !prev[key] }))
   }
@@ -130,19 +139,6 @@ function PermissionsModal({ user, featureMeta, availableModels, onClose, onSave,
     }
   }
 
-  const overlayStyle = {
-    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-    background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center',
-    justifyContent: 'center', zIndex: 1000,
-  }
-
-  const modalStyle = {
-    background: 'var(--color-bg-secondary)', borderRadius: 'var(--radius-lg)',
-    border: '1px solid var(--color-border-default)',
-    padding: 'var(--spacing-lg)', maxWidth: 600, width: '90vw',
-    maxHeight: '80vh', overflow: 'auto', boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
-  }
-
   const sectionStyle = {
     marginBottom: 'var(--spacing-md)',
     padding: 'var(--spacing-sm) var(--spacing-md)',
@@ -157,23 +153,41 @@ function PermissionsModal({ user, featureMeta, availableModels, onClose, onSave,
   }
 
   const gridStyle = {
-    display: 'flex', gap: '6px', flexWrap: 'wrap',
+    display: 'flex', gap: 'var(--spacing-xs)', flexWrap: 'wrap',
   }
 
+  const allNoneBtnStyle = { fontSize: '0.75rem', padding: '2px 8px' }
+  const featureBtnStyle = { fontSize: '0.8rem', padding: '5px 12px' }
+
   return (
-    <div style={overlayStyle} onClick={onClose}>
-      <div style={modalStyle} onClick={e => e.stopPropagation()}>
-        <h3 style={{ margin: '0 0 var(--spacing-md) 0', fontSize: '1.1rem', color: 'var(--color-text-primary)' }}>
-          Permissions for &ldquo;{user.name || user.email}&rdquo;
-        </h3>
+    <Modal onClose={onClose} maxWidth="640px">
+      <div style={{ padding: 'var(--spacing-lg)' }}>
+        {/* Header with avatar */}
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)',
+          paddingBottom: 'var(--spacing-md)', marginBottom: 'var(--spacing-md)',
+          borderBottom: '1px solid var(--color-border-subtle)',
+        }}>
+          {user.avatarUrl ? (
+            <img src={user.avatarUrl} alt="" style={{ width: 32, height: 32, borderRadius: '50%' }} />
+          ) : (
+            <i className="fas fa-user-circle" style={{ fontSize: '1.75rem', color: 'var(--color-text-secondary)' }} />
+          )}
+          <h3 style={{ margin: 0, fontSize: '1.1rem', color: 'var(--color-text-primary)' }}>
+            Permissions for &ldquo;{user.name || user.email}&rdquo;
+          </h3>
+        </div>
 
         {/* API Endpoints */}
         <div style={sectionStyle}>
           <div style={headerStyle}>
-            <strong style={{ fontSize: '0.85rem', color: 'var(--color-text-primary)' }}>API Endpoints</strong>
-            <div style={{ display: 'flex', gap: 4 }}>
-              <button className="btn btn-sm btn-secondary" onClick={() => setAllFeatures(apiFeatures, true)} style={{ fontSize: '0.65rem', padding: '1px 5px' }}>All</button>
-              <button className="btn btn-sm btn-secondary" onClick={() => setAllFeatures(apiFeatures, false)} style={{ fontSize: '0.65rem', padding: '1px 5px' }}>None</button>
+            <strong style={{ fontSize: '0.875rem', color: 'var(--color-text-primary)' }}>
+              <i className="fas fa-plug" style={{ marginRight: 'var(--spacing-xs)' }} />
+              API Endpoints
+            </strong>
+            <div style={{ display: 'flex', gap: 'var(--spacing-xs)' }}>
+              <button className="btn btn-sm btn-secondary" onClick={() => setAllFeatures(apiFeatures, true)} style={allNoneBtnStyle}>All</button>
+              <button className="btn btn-sm btn-secondary" onClick={() => setAllFeatures(apiFeatures, false)} style={allNoneBtnStyle}>None</button>
             </div>
           </div>
           <div style={gridStyle}>
@@ -182,7 +196,7 @@ function PermissionsModal({ user, featureMeta, availableModels, onClose, onSave,
                 key={f.key}
                 className={`btn btn-sm ${permissions[f.key] ? 'btn-primary' : 'btn-secondary'}`}
                 onClick={() => toggleFeature(f.key)}
-                style={{ fontSize: '0.7rem', padding: '3px 8px' }}
+                style={featureBtnStyle}
               >
                 {f.label}
               </button>
@@ -193,10 +207,13 @@ function PermissionsModal({ user, featureMeta, availableModels, onClose, onSave,
         {/* Agent Features */}
         <div style={sectionStyle}>
           <div style={headerStyle}>
-            <strong style={{ fontSize: '0.85rem', color: 'var(--color-text-primary)' }}>Agent Features</strong>
-            <div style={{ display: 'flex', gap: 4 }}>
-              <button className="btn btn-sm btn-secondary" onClick={() => setAllFeatures(agentFeatures, true)} style={{ fontSize: '0.65rem', padding: '1px 5px' }}>All</button>
-              <button className="btn btn-sm btn-secondary" onClick={() => setAllFeatures(agentFeatures, false)} style={{ fontSize: '0.65rem', padding: '1px 5px' }}>None</button>
+            <strong style={{ fontSize: '0.875rem', color: 'var(--color-text-primary)' }}>
+              <i className="fas fa-robot" style={{ marginRight: 'var(--spacing-xs)' }} />
+              Agent Features
+            </strong>
+            <div style={{ display: 'flex', gap: 'var(--spacing-xs)' }}>
+              <button className="btn btn-sm btn-secondary" onClick={() => setAllFeatures(agentFeatures, true)} style={allNoneBtnStyle}>All</button>
+              <button className="btn btn-sm btn-secondary" onClick={() => setAllFeatures(agentFeatures, false)} style={allNoneBtnStyle}>None</button>
             </div>
           </div>
           <div style={gridStyle}>
@@ -205,7 +222,7 @@ function PermissionsModal({ user, featureMeta, availableModels, onClose, onSave,
                 key={f.key}
                 className={`btn btn-sm ${permissions[f.key] ? 'btn-primary' : 'btn-secondary'}`}
                 onClick={() => toggleFeature(f.key)}
-                style={{ fontSize: '0.7rem', padding: '3px 8px' }}
+                style={featureBtnStyle}
               >
                 {f.label}
               </button>
@@ -216,40 +233,66 @@ function PermissionsModal({ user, featureMeta, availableModels, onClose, onSave,
         {/* Model Access */}
         <div style={sectionStyle}>
           <div style={headerStyle}>
-            <strong style={{ fontSize: '0.85rem', color: 'var(--color-text-primary)' }}>Model Access</strong>
+            <strong style={{ fontSize: '0.875rem', color: 'var(--color-text-primary)' }}>
+              <i className="fas fa-cubes" style={{ marginRight: 'var(--spacing-xs)' }} />
+              Model Access
+            </strong>
           </div>
-          <div style={{ marginBottom: 'var(--spacing-sm, 8px)' }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.8rem', cursor: 'pointer', color: 'var(--color-text-primary)' }}>
-              <input
-                type="checkbox"
-                checked={allowedModels.enabled}
-                onChange={() => setAllowedModels(prev => ({ ...prev, enabled: !prev.enabled }))}
-              />
+          <div style={{ marginBottom: 'var(--spacing-sm)' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', fontSize: '0.8rem', cursor: 'pointer', color: 'var(--color-text-primary)' }}>
+              <label className="toggle" style={{ flexShrink: 0 }}>
+                <input
+                  type="checkbox"
+                  checked={allowedModels.enabled}
+                  onChange={() => setAllowedModels(prev => ({ ...prev, enabled: !prev.enabled }))}
+                />
+                <span className="toggle-slider" />
+              </label>
               Restrict to specific models
             </label>
           </div>
-          {allowedModels.enabled && (
+          {allowedModels.enabled ? (
             <>
-              <div style={{ display: 'flex', gap: 4, marginBottom: 8 }}>
-                <button className="btn btn-sm btn-secondary" onClick={() => setAllModels(true)} style={{ fontSize: '0.65rem', padding: '1px 5px' }}>All</button>
-                <button className="btn btn-sm btn-secondary" onClick={() => setAllModels(false)} style={{ fontSize: '0.65rem', padding: '1px 5px' }}>None</button>
+              <div style={{ display: 'flex', gap: 'var(--spacing-xs)', marginBottom: 'var(--spacing-sm)' }}>
+                <button className="btn btn-sm btn-secondary" onClick={() => setAllModels(true)} style={allNoneBtnStyle}>All</button>
+                <button className="btn btn-sm btn-secondary" onClick={() => setAllModels(false)} style={allNoneBtnStyle}>None</button>
               </div>
-              <div style={{ ...gridStyle, maxHeight: 200, overflow: 'auto' }}>
+              <div style={{
+                display: 'flex', flexDirection: 'column', gap: 'var(--spacing-xs)',
+                maxHeight: 200, overflow: 'auto',
+                padding: 'var(--spacing-xs)',
+                background: 'var(--color-bg-secondary)',
+                borderRadius: 'var(--radius-sm)',
+                border: '1px solid var(--color-border-subtle)',
+              }}>
                 {(availableModels || []).map(m => (
-                  <button
+                  <label
                     key={m}
-                    className={`btn btn-sm ${(allowedModels.models || []).includes(m) ? 'btn-primary' : 'btn-secondary'}`}
-                    onClick={() => toggleModel(m)}
-                    style={{ fontSize: '0.7rem', padding: '3px 8px' }}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)',
+                      padding: '4px var(--spacing-xs)', cursor: 'pointer',
+                      borderRadius: 'var(--radius-sm)',
+                      fontSize: '0.8rem',
+                      color: 'var(--color-text-primary)',
+                    }}
                   >
-                    {m}
-                  </button>
+                    <input
+                      type="checkbox"
+                      checked={(allowedModels.models || []).includes(m)}
+                      onChange={() => toggleModel(m)}
+                    />
+                    <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.8rem' }}>{m}</span>
+                  </label>
                 ))}
                 {(!availableModels || availableModels.length === 0) && (
-                  <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>No models available</span>
+                  <span style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)', padding: 'var(--spacing-xs)' }}>No models available</span>
                 )}
               </div>
             </>
+          ) : (
+            <p style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)', margin: 0, fontStyle: 'italic' }}>
+              All models are accessible
+            </p>
           )}
         </div>
 
@@ -261,7 +304,7 @@ function PermissionsModal({ user, featureMeta, availableModels, onClose, onSave,
           </button>
         </div>
       </div>
-    </div>
+    </Modal>
   )
 }
 

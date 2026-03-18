@@ -20,6 +20,7 @@ import (
 	"github.com/mudler/LocalAI/core/application"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
+	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/http/endpoints/localai"
 	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/p2p"
@@ -514,6 +515,26 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 				ID:           name,
 				Capabilities: []string{},
 			})
+		}
+
+		// Filter by user's model allowlist if auth is enabled
+		if authDB := applicationInstance.AuthDB(); authDB != nil {
+			if user := auth.GetUser(c); user != nil && user.Role != auth.RoleAdmin {
+				perm, err := auth.GetCachedUserPermissions(c, authDB, user.ID)
+				if err == nil && perm.AllowedModels.Enabled {
+					allowed := map[string]bool{}
+					for _, m := range perm.AllowedModels.Models {
+						allowed[m] = true
+					}
+					filtered := make([]modelCapability, 0, len(result))
+					for _, mc := range result {
+						if allowed[mc.ID] {
+							filtered = append(filtered, mc)
+						}
+					}
+					result = filtered
+				}
+			}
 		}
 
 		return c.JSON(200, map[string]any{

@@ -165,7 +165,28 @@ func RequireFeature(db *gorm.DB, feature string) echo.MiddlewareFunc {
 			if user.Role == RoleAdmin {
 				return next(c)
 			}
-			if !HasFeatureAccess(db, user, feature) {
+			perm, err := GetCachedUserPermissions(c, db, user.ID)
+			if err != nil {
+				return c.JSON(http.StatusForbidden, schema.ErrorResponse{
+					Error: &schema.APIError{
+						Message: "feature not enabled for your account",
+						Code:    http.StatusForbidden,
+						Type:    "authorization_error",
+					},
+				})
+			}
+			val, exists := perm.Permissions[feature]
+			if !exists {
+				if !isDefaultOnFeature(feature) {
+					return c.JSON(http.StatusForbidden, schema.ErrorResponse{
+						Error: &schema.APIError{
+							Message: "feature not enabled for your account",
+							Code:    http.StatusForbidden,
+							Type:    "authorization_error",
+						},
+					})
+				}
+			} else if !val {
 				return c.JSON(http.StatusForbidden, schema.ErrorResponse{
 					Error: &schema.APIError{
 						Message: "feature not enabled for your account",
@@ -225,7 +246,22 @@ func RequireRouteFeature(db *gorm.DB) echo.MiddlewareFunc {
 			if user.Role == RoleAdmin {
 				return next(c)
 			}
-			if !HasFeatureAccess(db, user, feature) {
+			perm, err := GetCachedUserPermissions(c, db, user.ID)
+			if err != nil {
+				return next(c)
+			}
+			val, exists := perm.Permissions[feature]
+			if !exists {
+				if !isDefaultOnFeature(feature) {
+					return c.JSON(http.StatusForbidden, schema.ErrorResponse{
+						Error: &schema.APIError{
+							Message: "feature not enabled for your account: " + feature,
+							Code:    http.StatusForbidden,
+							Type:    "authorization_error",
+						},
+					})
+				}
+			} else if !val {
 				return c.JSON(http.StatusForbidden, schema.ErrorResponse{
 					Error: &schema.APIError{
 						Message: "feature not enabled for your account: " + feature,
@@ -259,7 +295,13 @@ func RequireModelAccess(db *gorm.DB) echo.MiddlewareFunc {
 
 			// Check if this user even has a model allowlist enabled before
 			// doing the expensive body read. Most users won't have restrictions.
-			allowlist := GetModelAllowlist(db, user.ID)
+			// Uses request-scoped cache to avoid duplicate DB hit when
+			// RequireRouteFeature already fetched permissions.
+			perm, err := GetCachedUserPermissions(c, db, user.ID)
+			if err != nil {
+				return next(c)
+			}
+			allowlist := perm.AllowedModels
 			if !allowlist.Enabled {
 				return next(c)
 			}

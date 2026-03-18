@@ -45,10 +45,10 @@ func ListModelsEndpoint(bcl *config.ModelConfigLoader, ml *model.ModelLoader, ap
 		// Filter models by user's allowlist if auth is enabled
 		if authDB != nil {
 			if user := auth.GetUser(c); user != nil && user.Role != auth.RoleAdmin {
-				allowlist := auth.GetModelAllowlist(authDB, user.ID)
-				if allowlist.Enabled && len(allowlist.Models) > 0 {
+				perm, err := auth.GetCachedUserPermissions(c, authDB, user.ID)
+				if err == nil && perm.AllowedModels.Enabled {
 					allowed := map[string]bool{}
-					for _, m := range allowlist.Models {
+					for _, m := range perm.AllowedModels.Models {
 						allowed[m] = true
 					}
 					filtered := make([]string, 0, len(modelNames))

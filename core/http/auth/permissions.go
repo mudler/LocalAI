@@ -2,8 +2,27 @@ package auth
 
 import (
 	"github.com/google/uuid"
+	"github.com/labstack/echo/v4"
 	"gorm.io/gorm"
 )
+
+const contextKeyPermissions = "auth_permissions"
+
+// GetCachedUserPermissions returns the user's permission record, using a
+// request-scoped cache stored in the echo context. This avoids duplicate
+// DB lookups when multiple middlewares (RequireRouteFeature, RequireModelAccess)
+// both need permissions in the same request.
+func GetCachedUserPermissions(c echo.Context, db *gorm.DB, userID string) (*UserPermission, error) {
+	if perm, ok := c.Get(contextKeyPermissions).(*UserPermission); ok && perm != nil {
+		return perm, nil
+	}
+	perm, err := GetUserPermissions(db, userID)
+	if err != nil {
+		return nil, err
+	}
+	c.Set(contextKeyPermissions, perm)
+	return perm, nil
+}
 
 // Feature name constants — all code must use these, never bare strings.
 const (
