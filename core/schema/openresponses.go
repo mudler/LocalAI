@@ -96,7 +96,7 @@ type ORItemParam struct {
 	// Function call fields
 	CallID    string `json:"call_id,omitempty"`
 	Name      string `json:"name,omitempty"`
-	Arguments string `json:"arguments,omitempty"`
+	Arguments string `json:"arguments"`
 
 	// Function call output fields
 	Output interface{} `json:"output,omitempty"` // string or []ORContentPart
