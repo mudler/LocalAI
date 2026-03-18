@@ -434,6 +434,27 @@ func (s *server) ModelMetadata(ctx context.Context, in *pb.ModelOptions) (*pb.Mo
 	return res, nil
 }
 
+func (s *server) TrainStream(in *pb.TrainRequest, stream pb.Backend_TrainStreamServer) error {
+	if s.llm.Locking() {
+		s.llm.Lock()
+		defer s.llm.Unlock()
+	}
+	resultChan := make(chan *pb.TrainResponse)
+
+	done := make(chan bool)
+	go func() {
+		for result := range resultChan {
+			stream.Send(result)
+		}
+		done <- true
+	}()
+
+	err := s.llm.TrainStream(in, resultChan)
+	<-done
+
+	return err
+}
+
 func StartServer(address string, model AIModel) error {
 	lis, err := net.Listen("tcp", address)
 	if err != nil {

@@ -10,6 +10,7 @@ import (
 
 var _ Backend = new(embedBackend)
 var _ pb.Backend_PredictStreamServer = new(embedBackendServerStream)
+var _ pb.Backend_TrainStreamServer = new(embedBackendTrainStream)
 
 type embedBackend struct {
 	s *server
@@ -117,6 +118,14 @@ func (e *embedBackend) AudioDecode(ctx context.Context, in *pb.AudioDecodeReques
 
 func (e *embedBackend) ModelMetadata(ctx context.Context, in *pb.ModelOptions, opts ...grpc.CallOption) (*pb.ModelMetadataResponse, error) {
 	return e.s.ModelMetadata(ctx, in)
+}
+
+func (e *embedBackend) TrainStream(ctx context.Context, in *pb.TrainRequest, f func(resp *pb.TrainResponse), opts ...grpc.CallOption) error {
+	bs := &embedBackendTrainStream{
+		ctx: ctx,
+		fn:  f,
+	}
+	return e.s.TrainStream(in, bs)
 }
 
 func (e *embedBackend) GetTokenMetrics(ctx context.Context, in *pb.MetricsRequest, opts ...grpc.CallOption) (*pb.MetricsResponse, error) {
@@ -272,5 +281,41 @@ func (e *embedBackendServerStream) SendMsg(m any) error {
 }
 
 func (e *embedBackendServerStream) RecvMsg(m any) error {
+	return nil
+}
+
+type embedBackendTrainStream struct {
+	ctx context.Context
+	fn  func(resp *pb.TrainResponse)
+}
+
+func (e *embedBackendTrainStream) Send(resp *pb.TrainResponse) error {
+	e.fn(resp)
+	return nil
+}
+
+func (e *embedBackendTrainStream) SetHeader(md metadata.MD) error {
+	return nil
+}
+
+func (e *embedBackendTrainStream) SendHeader(md metadata.MD) error {
+	return nil
+}
+
+func (e *embedBackendTrainStream) SetTrailer(md metadata.MD) {
+}
+
+func (e *embedBackendTrainStream) Context() context.Context {
+	return e.ctx
+}
+
+func (e *embedBackendTrainStream) SendMsg(m any) error {
+	if x, ok := m.(*pb.TrainResponse); ok {
+		return e.Send(x)
+	}
+	return nil
+}
+
+func (e *embedBackendTrainStream) RecvMsg(m any) error {
 	return nil
 }
