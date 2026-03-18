@@ -16,7 +16,7 @@ export default defineConfig({
     },
   ],
   webServer: process.env.PLAYWRIGHT_EXTERNAL_SERVER ? undefined : {
-    command: '../../../tests/e2e-ui/ui-test-server --mock-backend=../../../tests/e2e/mock-backend/mock-backend --port=8089',
+    command: '../../../tests/e2e-ui/ui-test-server --mock-backend=../../../tests/e2e/mock-backend/mock-backend --port=8089 > /tmp/ui-test-server.log 2>&1',
     port: 8089,
     timeout: 120_000,
     reuseExistingServer: !process.env.CI,
