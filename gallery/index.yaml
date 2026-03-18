@@ -1,4 +1,33 @@
 ---
+- name: "magistral-small-2509-ultra-uncensored-heretic-v2"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/llmfan46/Magistral-Small-2509-ultra-uncensored-heretic-v2-GGUF
+  description: |
+    Describe the model in a clear and concise way that can be shared in a model gallery.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Magistral-Small-2509-ultra-uncensored-heretic-v2-GGUF/Magistral-Small-2509-ultra-uncensored-heretic-v2-Q4_K_M.gguf
+    name: Magistral-Small-2509-ultra-uncensored-heretic-v2-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    mmproj: llama-cpp/mmproj/Magistral-Small-2509-ultra-uncensored-heretic-v2-GGUF/Magistral-Small-2509-mmproj-BF16.gguf
+    description: Imported from https://huggingface.co/llmfan46/Magistral-Small-2509-ultra-uncensored-heretic-v2-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Magistral-Small-2509-ultra-uncensored-heretic-v2-GGUF/Magistral-Small-2509-ultra-uncensored-heretic-v2-Q4_K_M.gguf
+      sha256: 0ca4a7742584c6a685449b2c4334f7d8c7359e888255e97c5343aa60c378ccce
+      uri: https://huggingface.co/llmfan46/Magistral-Small-2509-ultra-uncensored-heretic-v2-GGUF/resolve/main/Magistral-Small-2509-ultra-uncensored-heretic-v2-Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/Magistral-Small-2509-ultra-uncensored-heretic-v2-GGUF/Magistral-Small-2509-mmproj-BF16.gguf
+      sha256: 3d11627ffcccbbdaef3acf8ace67e8a1296431cb334818a41aa3760f1d71c864
+      uri: https://huggingface.co/llmfan46/Magistral-Small-2509-ultra-uncensored-heretic-v2-GGUF/resolve/main/Magistral-Small-2509-mmproj-BF16.gguf
 - name: "qwen_qwen3.5-35b-a3b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
