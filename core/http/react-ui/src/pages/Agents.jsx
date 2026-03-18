@@ -4,6 +4,7 @@ import { agentsApi } from '../utils/api'
 import { useAuth } from '../context/AuthContext'
 import { useUserMap } from '../hooks/useUserMap'
 import UserGroupSection from '../components/UserGroupSection'
+import ConfirmDialog from '../components/ConfirmDialog'
 
 export default function Agents() {
   const { addToast } = useOutletContext()
@@ -15,6 +16,7 @@ export default function Agents() {
   const [agentHubURL, setAgentHubURL] = useState('')
   const [search, setSearch] = useState('')
   const [userGroups, setUserGroups] = useState(null)
+  const [confirmDialog, setConfirmDialog] = useState(null)
 
   const fetchAgents = useCallback(async () => {
     try {
@@ -61,15 +63,23 @@ export default function Agents() {
     return agents.filter(a => a.name.toLowerCase().includes(q))
   }, [agents, search])
 
-  const handleDelete = async (name, userId) => {
-    if (!window.confirm(`Delete agent "${name}"? This action cannot be undone.`)) return
-    try {
-      await agentsApi.delete(name, userId)
-      addToast(`Agent "${name}" deleted`, 'success')
-      fetchAgents()
-    } catch (err) {
-      addToast(`Failed to delete agent: ${err.message}`, 'error')
-    }
+  const handleDelete = (name, userId) => {
+    setConfirmDialog({
+      title: 'Delete Agent',
+      message: `Delete agent "${name}"? This action cannot be undone.`,
+      confirmLabel: 'Delete',
+      danger: true,
+      onConfirm: async () => {
+        setConfirmDialog(null)
+        try {
+          await agentsApi.delete(name, userId)
+          addToast(`Agent "${name}" deleted`, 'success')
+          fetchAgents()
+        } catch (err) {
+          addToast(`Failed to delete agent: ${err.message}`, 'error')
+        }
+      },
+    })
   }
 
   const handlePauseResume = async (agent, userId) => {
@@ -402,6 +412,16 @@ export default function Agents() {
           )}
         />
       )}
+
+      <ConfirmDialog
+        open={!!confirmDialog}
+        title={confirmDialog?.title}
+        message={confirmDialog?.message}
+        confirmLabel={confirmDialog?.confirmLabel}
+        danger={confirmDialog?.danger}
+        onConfirm={confirmDialog?.onConfirm}
+        onCancel={() => setConfirmDialog(null)}
+      />
     </div>
   )
 }

@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import { apiKeysApi, profileApi } from '../utils/api'
 import LoadingSpinner from '../components/LoadingSpinner'
 import SettingRow from '../components/SettingRow'
+import ConfirmDialog from '../components/ConfirmDialog'
 
 function formatDate(d) {
   if (!d) return '-'
@@ -248,6 +249,7 @@ function ApiKeysTab({ addToast }) {
   const [newKeyName, setNewKeyName] = useState('')
   const [newKeyPlaintext, setNewKeyPlaintext] = useState(null)
   const [revokingId, setRevokingId] = useState(null)
+  const [confirmDialog, setConfirmDialog] = useState(null)
 
   const fetchKeys = useCallback(async () => {
     setLoading(true)
@@ -281,17 +283,25 @@ function ApiKeysTab({ addToast }) {
   }
 
   const handleRevoke = async (id, name) => {
-    if (!window.confirm(`Revoke API key "${name}"? This cannot be undone.`)) return
-    setRevokingId(id)
-    try {
-      await apiKeysApi.revoke(id)
-      setKeys(prev => prev.filter(k => k.id !== id))
-      addToast('API key revoked', 'success')
-    } catch (err) {
-      addToast(`Failed to revoke API key: ${err.message}`, 'error')
-    } finally {
-      setRevokingId(null)
-    }
+    setConfirmDialog({
+      title: 'Revoke API Key',
+      message: `Revoke API key "${name}"? This cannot be undone.`,
+      confirmLabel: 'Revoke',
+      danger: true,
+      onConfirm: async () => {
+        setConfirmDialog(null)
+        setRevokingId(id)
+        try {
+          await apiKeysApi.revoke(id)
+          setKeys(prev => prev.filter(k => k.id !== id))
+          addToast('API key revoked', 'success')
+        } catch (err) {
+          addToast(`Failed to revoke API key: ${err.message}`, 'error')
+        } finally {
+          setRevokingId(null)
+        }
+      },
+    })
   }
 
   const copyToClipboard = (text) => {
@@ -419,6 +429,15 @@ function ApiKeysTab({ addToast }) {
           ))}
         </div>
       )}
+      <ConfirmDialog
+        open={!!confirmDialog}
+        title={confirmDialog?.title}
+        message={confirmDialog?.message}
+        confirmLabel={confirmDialog?.confirmLabel}
+        danger={confirmDialog?.danger}
+        onConfirm={confirmDialog?.onConfirm}
+        onCancel={() => setConfirmDialog(null)}
+      />
     </div>
   )
 }

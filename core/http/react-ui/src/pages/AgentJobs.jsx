@@ -8,6 +8,7 @@ import LoadingSpinner from '../components/LoadingSpinner'
 import { fileToBase64 } from '../utils/api'
 import Modal from '../components/Modal'
 import UserGroupSection from '../components/UserGroupSection'
+import ConfirmDialog from '../components/ConfirmDialog'
 
 export default function AgentJobs() {
   const { addToast } = useOutletContext()
@@ -21,6 +22,7 @@ export default function AgentJobs() {
   const [loading, setLoading] = useState(true)
   const [jobFilter, setJobFilter] = useState('all')
   const [hasMCPModels, setHasMCPModels] = useState(false)
+  const [confirmDialog, setConfirmDialog] = useState(null)
   const [taskUserGroups, setTaskUserGroups] = useState(null)
   const [jobUserGroups, setJobUserGroups] = useState(null)
 
@@ -95,14 +97,22 @@ export default function AgentJobs() {
   }, [models])
 
   const handleDeleteTask = async (id) => {
-    if (!confirm('Delete this task?')) return
-    try {
-      await agentJobsApi.deleteTask(id)
-      addToast('Task deleted', 'success')
-      fetchData()
-    } catch (err) {
-      addToast(`Failed to delete: ${err.message}`, 'error')
-    }
+    setConfirmDialog({
+      title: 'Delete Task',
+      message: 'Delete this task?',
+      confirmLabel: 'Delete',
+      danger: true,
+      onConfirm: async () => {
+        setConfirmDialog(null)
+        try {
+          await agentJobsApi.deleteTask(id)
+          addToast('Task deleted', 'success')
+          fetchData()
+        } catch (err) {
+          addToast(`Failed to delete: ${err.message}`, 'error')
+        }
+      },
+    })
   }
 
   const handleCancelJob = async (id) => {
@@ -116,16 +126,24 @@ export default function AgentJobs() {
   }
 
   const handleClearHistory = async () => {
-    if (!confirm('Clear all job history?')) return
-    try {
-      // Cancel all running jobs first, then refetch
-      const running = jobs.filter(j => j.status === 'running' || j.status === 'pending')
-      await Promise.all(running.map(j => agentJobsApi.cancelJob(j.id).catch(() => {})))
-      addToast('Job history cleared', 'success')
-      fetchData()
-    } catch (err) {
-      addToast(`Failed to clear: ${err.message}`, 'error')
-    }
+    setConfirmDialog({
+      title: 'Clear Job History',
+      message: 'Clear all job history?',
+      confirmLabel: 'Clear',
+      danger: true,
+      onConfirm: async () => {
+        setConfirmDialog(null)
+        try {
+          // Cancel all running jobs first, then refetch
+          const running = jobs.filter(j => j.status === 'running' || j.status === 'pending')
+          await Promise.all(running.map(j => agentJobsApi.cancelJob(j.id).catch(() => {})))
+          addToast('Job history cleared', 'success')
+          fetchData()
+        } catch (err) {
+          addToast(`Failed to clear: ${err.message}`, 'error')
+        }
+      },
+    })
   }
 
   const openExecuteModal = (task) => {
@@ -515,6 +533,16 @@ export default function AgentJobs() {
           )}
         />
       )}
+
+      <ConfirmDialog
+        open={!!confirmDialog}
+        title={confirmDialog?.title}
+        message={confirmDialog?.message}
+        confirmLabel={confirmDialog?.confirmLabel}
+        danger={confirmDialog?.danger}
+        onConfirm={confirmDialog?.onConfirm}
+        onCancel={() => setConfirmDialog(null)}
+      />
 
       {/* Execute Task Modal */}
       {executeModal && (

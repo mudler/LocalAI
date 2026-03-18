@@ -4,6 +4,7 @@ import { agentCollectionsApi } from '../utils/api'
 import { useAuth } from '../context/AuthContext'
 import { useUserMap } from '../hooks/useUserMap'
 import UserGroupSection from '../components/UserGroupSection'
+import ConfirmDialog from '../components/ConfirmDialog'
 
 export default function Collections() {
   const { addToast } = useOutletContext()
@@ -15,6 +16,7 @@ export default function Collections() {
   const [newName, setNewName] = useState('')
   const [creating, setCreating] = useState(false)
   const [userGroups, setUserGroups] = useState(null)
+  const [confirmDialog, setConfirmDialog] = useState(null)
 
   const fetchCollections = useCallback(async () => {
     try {
@@ -48,26 +50,42 @@ export default function Collections() {
     }
   }
 
-  const handleDelete = async (name, userId) => {
-    if (!window.confirm(`Delete collection "${name}"? This will remove all entries and cannot be undone.`)) return
-    try {
-      await agentCollectionsApi.reset(name, userId)
-      addToast(`Collection "${name}" deleted`, 'success')
-      fetchCollections()
-    } catch (err) {
-      addToast(`Failed to delete collection: ${err.message}`, 'error')
-    }
+  const handleDelete = (name, userId) => {
+    setConfirmDialog({
+      title: 'Delete Collection',
+      message: `Delete collection "${name}"? This will remove all entries and cannot be undone.`,
+      confirmLabel: 'Delete',
+      danger: true,
+      onConfirm: async () => {
+        setConfirmDialog(null)
+        try {
+          await agentCollectionsApi.reset(name, userId)
+          addToast(`Collection "${name}" deleted`, 'success')
+          fetchCollections()
+        } catch (err) {
+          addToast(`Failed to delete collection: ${err.message}`, 'error')
+        }
+      },
+    })
   }
 
-  const handleReset = async (name, userId) => {
-    if (!window.confirm(`Reset collection "${name}"? This will remove all entries but keep the collection.`)) return
-    try {
-      await agentCollectionsApi.reset(name, userId)
-      addToast(`Collection "${name}" reset`, 'success')
-      fetchCollections()
-    } catch (err) {
-      addToast(`Failed to reset collection: ${err.message}`, 'error')
-    }
+  const handleReset = (name, userId) => {
+    setConfirmDialog({
+      title: 'Reset Collection',
+      message: `Reset collection "${name}"? This will remove all entries but keep the collection.`,
+      confirmLabel: 'Reset',
+      danger: true,
+      onConfirm: async () => {
+        setConfirmDialog(null)
+        try {
+          await agentCollectionsApi.reset(name, userId)
+          addToast(`Collection "${name}" reset`, 'success')
+          fetchCollections()
+        } catch (err) {
+          addToast(`Failed to reset collection: ${err.message}`, 'error')
+        }
+      },
+    })
   }
 
   return (
@@ -126,7 +144,10 @@ export default function Collections() {
         <div className="empty-state">
           <div className="empty-state-icon"><i className="fas fa-database" /></div>
           <h2 className="empty-state-title">No collections yet</h2>
-          <p className="empty-state-text">Create a collection above to start building your knowledge base.</p>
+          <p className="empty-state-text">
+            Collections let you organize documents into knowledge bases that agents can search using RAG (Retrieval-Augmented Generation).
+            Create a collection above to get started.
+          </p>
         </div>
       ) : (
         <>
@@ -197,6 +218,16 @@ export default function Collections() {
           )}
         />
       )}
+
+      <ConfirmDialog
+        open={!!confirmDialog}
+        title={confirmDialog?.title}
+        message={confirmDialog?.message}
+        confirmLabel={confirmDialog?.confirmLabel}
+        danger={confirmDialog?.danger}
+        onConfirm={confirmDialog?.onConfirm}
+        onCancel={() => setConfirmDialog(null)}
+      />
     </div>
   )
 }

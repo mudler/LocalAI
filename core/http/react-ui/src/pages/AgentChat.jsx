@@ -6,6 +6,7 @@ import { renderMarkdown, highlightAll } from '../utils/markdown'
 import { extractCodeArtifacts, extractMetadataArtifacts, renderMarkdownWithArtifacts } from '../utils/artifacts'
 import CanvasPanel from '../components/CanvasPanel'
 import ResourceCards from '../components/ResourceCards'
+import ConfirmDialog from '../components/ConfirmDialog'
 import { useAgentChat } from '../hooks/useAgentChat'
 
 function relativeTime(ts) {
@@ -106,6 +107,7 @@ export default function AgentChat() {
   const [editingName, setEditingName] = useState(null)
   const [editName, setEditName] = useState('')
   const [chatSearch, setChatSearch] = useState('')
+  const [confirmDialog, setConfirmDialog] = useState(null)
   const [streamContent, setStreamContent] = useState('')
   const [streamReasoning, setStreamReasoning] = useState('')
   const [streamToolCalls, setStreamToolCalls] = useState([])
@@ -365,7 +367,13 @@ export default function AgentChat() {
           <button
             className="btn btn-secondary btn-sm"
             onClick={() => {
-              if (confirm('Delete all conversations? This cannot be undone.')) deleteAllConversations()
+              setConfirmDialog({
+                title: 'Delete All Conversations',
+                message: 'Delete all conversations? This cannot be undone.',
+                confirmLabel: 'Delete All',
+                danger: true,
+                onConfirm: () => { setConfirmDialog(null); deleteAllConversations() },
+              })
             }}
             title="Delete all conversations"
             style={{ padding: '6px 8px' }}
@@ -669,6 +677,15 @@ export default function AgentChat() {
         onClose={() => setCanvasOpen(false)}
       />
     )}
+    <ConfirmDialog
+      open={!!confirmDialog}
+      title={confirmDialog?.title}
+      message={confirmDialog?.message}
+      confirmLabel={confirmDialog?.confirmLabel}
+      danger={confirmDialog?.danger}
+      onConfirm={confirmDialog?.onConfirm}
+      onCancel={() => setConfirmDialog(null)}
+    />
     </div>
   )
 }

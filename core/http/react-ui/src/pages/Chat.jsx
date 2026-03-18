@@ -10,6 +10,7 @@ import { useMCPClient } from '../hooks/useMCPClient'
 import MCPAppFrame from '../components/MCPAppFrame'
 import UnifiedMCPDropdown from '../components/UnifiedMCPDropdown'
 import { loadClientMCPServers } from '../utils/mcpClientStorage'
+import ConfirmDialog from '../components/ConfirmDialog'
 
 function relativeTime(ts) {
   if (!ts) return ''
@@ -316,6 +317,7 @@ export default function Chat() {
   const [canvasOpen, setCanvasOpen] = useState(false)
   const [selectedArtifactId, setSelectedArtifactId] = useState(null)
   const [clientMCPServers, setClientMCPServers] = useState(() => loadClientMCPServers())
+  const [confirmDialog, setConfirmDialog] = useState(null)
   const {
     connect: mcpConnect, disconnect: mcpDisconnect, disconnectAll: mcpDisconnectAll,
     getToolsForLLM, isClientTool, executeTool, connectionStatuses, getConnectedTools,
@@ -732,9 +734,13 @@ export default function Chat() {
           </button>
           <button
             className="btn btn-secondary btn-sm"
-            onClick={() => {
-              if (confirm('Delete all chats? This cannot be undone.')) deleteAllChats()
-            }}
+            onClick={() => setConfirmDialog({
+              title: 'Delete All Chats',
+              message: 'Delete all chats? This cannot be undone.',
+              confirmLabel: 'Delete all',
+              danger: true,
+              onConfirm: () => { setConfirmDialog(null); deleteAllChats() },
+            })}
             title="Delete all chats"
             style={{ padding: '6px 8px' }}
           >
@@ -1059,7 +1065,18 @@ export default function Chat() {
                 <i className="fas fa-comments" />
               </div>
               <h2 className="chat-empty-title">Start a conversation</h2>
-              <p className="chat-empty-text">Type a message below to begin chatting{activeChat.model ? ` with ${activeChat.model}` : ''}.</p>
+              <p className="chat-empty-text">{activeChat.model ? `Ready to chat with ${activeChat.model}` : 'Select a model above to get started'}</p>
+              <div className="chat-empty-suggestions">
+                {['Explain how this works', 'Help me write code', 'Summarize a document', 'Brainstorm ideas'].map((prompt) => (
+                  <button
+                    key={prompt}
+                    className="chat-empty-suggestion"
+                    onClick={() => { setInput(prompt); textareaRef.current?.focus() }}
+                  >
+                    {prompt}
+                  </button>
+                ))}
+              </div>
               <div className="chat-empty-hints">
                 <span><i className="fas fa-keyboard" /> Enter to send</span>
                 <span><i className="fas fa-level-down-alt" /> Shift+Enter for newline</span>
@@ -1145,6 +1162,11 @@ export default function Chat() {
                   <span dangerouslySetInnerHTML={{ __html: renderMarkdown(streamingContent) }} />
                   <span className="chat-streaming-cursor" />
                 </div>
+                {tokensPerSecond !== null && (
+                  <div className="chat-streaming-speed">
+                    <i className="fas fa-tachometer-alt" /> {tokensPerSecond} tok/s
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -1154,8 +1176,10 @@ export default function Chat() {
                 <i className="fas fa-robot" />
               </div>
               <div className="chat-message-bubble">
-                <div className="chat-message-content" style={{ color: 'var(--color-text-muted)' }}>
-                  <i className="fas fa-circle-notch fa-spin" /> Thinking...
+                <div className="chat-message-content chat-thinking-indicator">
+                  <span className="chat-thinking-dots">
+                    <span /><span /><span />
+                  </span>
                 </div>
               </div>
             </div>
@@ -1220,7 +1244,7 @@ export default function Chat() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Type a message..."
+              placeholder="Message..."
               rows={1}
               disabled={isStreaming}
             />
@@ -1249,6 +1273,15 @@ export default function Chat() {
           onClose={() => setCanvasOpen(false)}
         />
       )}
+      <ConfirmDialog
+        open={!!confirmDialog}
+        title={confirmDialog?.title}
+        message={confirmDialog?.message}
+        confirmLabel={confirmDialog?.confirmLabel}
+        danger={confirmDialog?.danger}
+        onConfirm={confirmDialog?.onConfirm}
+        onCancel={() => setConfirmDialog(null)}
+      />
     </div>
   )
 }

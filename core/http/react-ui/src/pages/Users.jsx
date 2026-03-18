@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import { adminUsersApi, adminInvitesApi } from '../utils/api'
 import LoadingSpinner from '../components/LoadingSpinner'
 import Modal from '../components/Modal'
+import ConfirmDialog from '../components/ConfirmDialog'
 
 function RoleBadge({ role }) {
   const isPrimary = role === 'admin'
@@ -257,33 +258,26 @@ function PermissionsModal({ user, featureMeta, availableModels, onClose, onSave,
                 <button className="btn btn-sm btn-secondary" onClick={() => setAllModels(true)} style={allNoneBtnStyle}>All</button>
                 <button className="btn btn-sm btn-secondary" onClick={() => setAllModels(false)} style={allNoneBtnStyle}>None</button>
               </div>
-              <div style={{
-                display: 'flex', flexDirection: 'column', gap: 'var(--spacing-xs)',
-                maxHeight: 200, overflow: 'auto',
-                padding: 'var(--spacing-xs)',
-                background: 'var(--color-bg-secondary)',
-                borderRadius: 'var(--radius-sm)',
-                border: '1px solid var(--color-border-subtle)',
-              }}>
-                {(availableModels || []).map(m => (
-                  <label
-                    key={m}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)',
-                      padding: '4px var(--spacing-xs)', cursor: 'pointer',
-                      borderRadius: 'var(--radius-sm)',
-                      fontSize: '0.8rem',
-                      color: 'var(--color-text-primary)',
-                    }}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={(allowedModels.models || []).includes(m)}
-                      onChange={() => toggleModel(m)}
-                    />
-                    <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.8rem' }}>{m}</span>
-                  </label>
-                ))}
+              <div className="model-list">
+                {(availableModels || []).map(m => {
+                  const checked = (allowedModels.models || []).includes(m)
+                  return (
+                    <label
+                      key={m}
+                      className={`model-item${checked ? ' model-item-checked' : ''}`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => toggleModel(m)}
+                      />
+                      <span className="model-item-check">
+                        {checked && <i className="fas fa-check" />}
+                      </span>
+                      <span className="model-item-name">{m}</span>
+                    </label>
+                  )
+                })}
                 {(!availableModels || availableModels.length === 0) && (
                   <span style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)', padding: 'var(--spacing-xs)' }}>No models available</span>
                 )}
@@ -358,6 +352,7 @@ function InvitesTab({ addToast }) {
   const [invites, setInvites] = useState([])
   const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false)
+  const [confirmDialog, setConfirmDialog] = useState(null)
 
   const fetchInvites = useCallback(async () => {
     setLoading(true)
@@ -389,14 +384,22 @@ function InvitesTab({ addToast }) {
   }
 
   const handleRevoke = async (invite) => {
-    if (!window.confirm('Revoke this invite link?')) return
-    try {
-      await adminInvitesApi.delete(invite.id)
-      setInvites(prev => prev.filter(x => x.id !== invite.id))
-      addToast('Invite revoked', 'success')
-    } catch (err) {
-      addToast(`Failed to revoke invite: ${err.message}`, 'error')
-    }
+    setConfirmDialog({
+      title: 'Revoke Invite',
+      message: 'Revoke this invite link?',
+      confirmLabel: 'Revoke',
+      danger: true,
+      onConfirm: async () => {
+        setConfirmDialog(null)
+        try {
+          await adminInvitesApi.delete(invite.id)
+          setInvites(prev => prev.filter(x => x.id !== invite.id))
+          addToast('Invite revoked', 'success')
+        } catch (err) {
+          addToast(`Failed to revoke invite: ${err.message}`, 'error')
+        }
+      },
+    })
   }
 
   const handleCopyUrl = (code) => {
@@ -515,6 +518,15 @@ function InvitesTab({ addToast }) {
           </table>
         </div>
       )}
+      <ConfirmDialog
+        open={!!confirmDialog}
+        title={confirmDialog?.title}
+        message={confirmDialog?.message}
+        confirmLabel={confirmDialog?.confirmLabel}
+        danger={confirmDialog?.danger}
+        onConfirm={confirmDialog?.onConfirm}
+        onCancel={() => setConfirmDialog(null)}
+      />
     </>
   )
 }
@@ -529,6 +541,7 @@ export default function Users() {
   const [editingUser, setEditingUser] = useState(null)
   const [featureMeta, setFeatureMeta] = useState(null)
   const [availableModels, setAvailableModels] = useState([])
+  const [confirmDialog, setConfirmDialog] = useState(null)
 
   const fetchUsers = useCallback(async () => {
     setLoading(true)
@@ -600,14 +613,22 @@ export default function Users() {
   }
 
   const handleDelete = async (u) => {
-    if (!window.confirm(`Delete user "${u.name || u.email}"? This will also remove their sessions and API keys.`)) return
-    try {
-      await adminUsersApi.delete(u.id)
-      setUsers(prev => prev.filter(x => x.id !== u.id))
-      addToast(`User deleted`, 'success')
-    } catch (err) {
-      addToast(`Failed to delete user: ${err.message}`, 'error')
-    }
+    setConfirmDialog({
+      title: 'Delete User',
+      message: `Delete user "${u.name || u.email}"? This will also remove their sessions and API keys.`,
+      confirmLabel: 'Delete',
+      danger: true,
+      onConfirm: async () => {
+        setConfirmDialog(null)
+        try {
+          await adminUsersApi.delete(u.id)
+          setUsers(prev => prev.filter(x => x.id !== u.id))
+          addToast(`User deleted`, 'success')
+        } catch (err) {
+          addToast(`Failed to delete user: ${err.message}`, 'error')
+        }
+      },
+    })
   }
 
   const filtered = users.filter(u => {
@@ -775,6 +796,15 @@ export default function Users() {
           addToast={addToast}
         />
       )}
+      <ConfirmDialog
+        open={!!confirmDialog}
+        title={confirmDialog?.title}
+        message={confirmDialog?.message}
+        confirmLabel={confirmDialog?.confirmLabel}
+        danger={confirmDialog?.danger}
+        onConfirm={confirmDialog?.onConfirm}
+        onCancel={() => setConfirmDialog(null)}
+      />
     </div>
   )
 }

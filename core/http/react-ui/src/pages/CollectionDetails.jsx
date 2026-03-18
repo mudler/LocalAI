@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useOutletContext, useSearchParams } from 'react-router-dom'
 import { agentCollectionsApi } from '../utils/api'
+import ConfirmDialog from '../components/ConfirmDialog'
 
 export default function CollectionDetails() {
   const { name } = useParams()
@@ -9,6 +10,7 @@ export default function CollectionDetails() {
   const userId = searchParams.get('user_id') || undefined
   const [activeTab, setActiveTab] = useState('entries')
   const [loading, setLoading] = useState(true)
+  const [confirmDialog, setConfirmDialog] = useState(null)
 
   // Entries tab state
   const [entries, setEntries] = useState([])
@@ -75,14 +77,22 @@ export default function CollectionDetails() {
   }
 
   const handleDeleteEntry = async (entry) => {
-    if (!window.confirm('Are you sure you want to delete this entry?')) return
-    try {
-      await agentCollectionsApi.deleteEntry(name, entry, userId)
-      addToast('Entry deleted', 'success')
-      fetchEntries()
-    } catch (err) {
-      addToast(`Failed to delete entry: ${err.message}`, 'error')
-    }
+    setConfirmDialog({
+      title: 'Delete Entry',
+      message: 'Are you sure you want to delete this entry?',
+      confirmLabel: 'Delete',
+      danger: true,
+      onConfirm: async () => {
+        setConfirmDialog(null)
+        try {
+          await agentCollectionsApi.deleteEntry(name, entry, userId)
+          addToast('Entry deleted', 'success')
+          fetchEntries()
+        } catch (err) {
+          addToast(`Failed to delete entry: ${err.message}`, 'error')
+        }
+      },
+    })
   }
 
   const handleUpload = async (e) => {
@@ -135,14 +145,22 @@ export default function CollectionDetails() {
   }
 
   const handleRemoveSource = async (url) => {
-    if (!window.confirm('Are you sure you want to remove this source?')) return
-    try {
-      await agentCollectionsApi.removeSource(name, url, userId)
-      addToast('Source removed', 'success')
-      fetchSources()
-    } catch (err) {
-      addToast(`Failed to remove source: ${err.message}`, 'error')
-    }
+    setConfirmDialog({
+      title: 'Remove Source',
+      message: 'Are you sure you want to remove this source?',
+      confirmLabel: 'Remove',
+      danger: true,
+      onConfirm: async () => {
+        setConfirmDialog(null)
+        try {
+          await agentCollectionsApi.removeSource(name, url, userId)
+          addToast('Source removed', 'success')
+          fetchSources()
+        } catch (err) {
+          addToast(`Failed to remove source: ${err.message}`, 'error')
+        }
+      },
+    })
   }
 
   return (
@@ -471,6 +489,16 @@ export default function CollectionDetails() {
           )}
         </>
       )}
+
+      <ConfirmDialog
+        open={!!confirmDialog}
+        title={confirmDialog?.title}
+        message={confirmDialog?.message}
+        confirmLabel={confirmDialog?.confirmLabel}
+        danger={confirmDialog?.danger}
+        onConfirm={confirmDialog?.onConfirm}
+        onCancel={() => setConfirmDialog(null)}
+      />
 
       {/* Entry content modal */}
       {viewEntry && (

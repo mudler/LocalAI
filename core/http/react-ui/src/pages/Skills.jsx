@@ -4,6 +4,7 @@ import { skillsApi } from '../utils/api'
 import { useAuth } from '../context/AuthContext'
 import { useUserMap } from '../hooks/useUserMap'
 import UserGroupSection from '../components/UserGroupSection'
+import ConfirmDialog from '../components/ConfirmDialog'
 
 export default function Skills() {
   const { addToast } = useOutletContext()
@@ -21,6 +22,7 @@ export default function Skills() {
   const [gitReposLoading, setGitReposLoading] = useState(false)
   const [gitReposAction, setGitReposAction] = useState(null)
   const [userGroups, setUserGroups] = useState(null)
+  const [confirmDialog, setConfirmDialog] = useState(null)
 
   const fetchSkills = useCallback(async () => {
     setLoading(true)
@@ -67,14 +69,22 @@ export default function Skills() {
   }, [fetchSkills])
 
   const deleteSkill = async (name, userId) => {
-    if (!window.confirm(`Delete skill "${name}"? This action cannot be undone.`)) return
-    try {
-      await skillsApi.delete(name, userId)
-      addToast(`Skill "${name}" deleted`, 'success')
-      fetchSkills()
-    } catch (err) {
-      addToast(err.message || 'Failed to delete skill', 'error')
-    }
+    setConfirmDialog({
+      title: 'Delete Skill',
+      message: `Delete skill "${name}"? This action cannot be undone.`,
+      confirmLabel: 'Delete',
+      danger: true,
+      onConfirm: async () => {
+        setConfirmDialog(null)
+        try {
+          await skillsApi.delete(name, userId)
+          addToast(`Skill "${name}" deleted`, 'success')
+          fetchSkills()
+        } catch (err) {
+          addToast(err.message || 'Failed to delete skill', 'error')
+        }
+      },
+    })
   }
 
   const exportSkill = async (name, userId) => {
@@ -173,15 +183,23 @@ export default function Skills() {
   }
 
   const deleteGitRepo = async (id) => {
-    if (!window.confirm('Remove this Git repository? Skills from it will no longer be available.')) return
-    try {
-      await skillsApi.deleteGitRepo(id)
-      await loadGitRepos()
-      fetchSkills()
-      addToast('Repo removed', 'success')
-    } catch (err) {
-      addToast(err.message || 'Remove failed', 'error')
-    }
+    setConfirmDialog({
+      title: 'Remove Git Repository',
+      message: 'Remove this Git repository? Skills from it will no longer be available.',
+      confirmLabel: 'Remove',
+      danger: true,
+      onConfirm: async () => {
+        setConfirmDialog(null)
+        try {
+          await skillsApi.deleteGitRepo(id)
+          await loadGitRepos()
+          fetchSkills()
+          addToast('Repo removed', 'success')
+        } catch (err) {
+          addToast(err.message || 'Remove failed', 'error')
+        }
+      },
+    })
   }
 
   if (unavailable) {
@@ -468,6 +486,16 @@ export default function Skills() {
         )}
         </>
       )}
+
+      <ConfirmDialog
+        open={!!confirmDialog}
+        title={confirmDialog?.title}
+        message={confirmDialog?.message}
+        confirmLabel={confirmDialog?.confirmLabel}
+        danger={confirmDialog?.danger}
+        onConfirm={confirmDialog?.onConfirm}
+        onCancel={() => setConfirmDialog(null)}
+      />
 
       {userGroups && (
         <UserGroupSection
