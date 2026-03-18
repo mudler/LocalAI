@@ -530,6 +530,25 @@
     nvidia-cuda-12: "cuda12-chatterbox"
     nvidia-l4t-cuda-12: "nvidia-l4t-arm64-chatterbox"
     nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-chatterbox"
+- &unsloth
+  urls:
+    - https://github.com/unslothai/unsloth
+  description: |
+    Fine-tuning backend powered by Unsloth. Supports QLoRA, LoRA, and full fine-tuning
+    of LLMs with 2x faster training and 70% less memory. Includes GGUF export support.
+  tags:
+    - fine-tuning
+    - training
+    - lora
+    - qlora
+  license: apache-2.0
+  name: "unsloth"
+  alias: "unsloth"
+  capabilities:
+    nvidia: "cuda12-unsloth"
+    default: "cpu-unsloth"
+    nvidia-cuda-13: "cuda13-unsloth"
+    nvidia-cuda-12: "cuda12-unsloth"
 - &vibevoice
   urls:
     - https://github.com/microsoft/VibeVoice
@@ -3029,3 +3048,41 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-voxtral"
   mirrors:
     - localai/localai-backends:master-metal-darwin-arm64-voxtral
+## unsloth
+- !!merge <<: *unsloth
+  name: "unsloth-development"
+  capabilities:
+    nvidia: "cuda12-unsloth-development"
+    default: "cpu-unsloth-development"
+    nvidia-cuda-13: "cuda13-unsloth-development"
+    nvidia-cuda-12: "cuda12-unsloth-development"
+- !!merge <<: *unsloth
+  name: "cpu-unsloth"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-unsloth"
+  mirrors:
+    - localai/localai-backends:latest-cpu-unsloth
+- !!merge <<: *unsloth
+  name: "cpu-unsloth-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-cpu-unsloth"
+  mirrors:
+    - localai/localai-backends:master-cpu-unsloth
+- !!merge <<: *unsloth
+  name: "cuda12-unsloth"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-unsloth"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-12-unsloth
+- !!merge <<: *unsloth
+  name: "cuda12-unsloth-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-unsloth"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-12-unsloth
+- !!merge <<: *unsloth
+  name: "cuda13-unsloth"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-13-unsloth"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-13-unsloth
+- !!merge <<: *unsloth
+  name: "cuda13-unsloth-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-unsloth"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-13-unsloth

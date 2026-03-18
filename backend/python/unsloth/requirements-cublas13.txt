@@ -1,0 +1,10 @@
+--extra-index-url https://download.pytorch.org/whl/cu126
+unsloth[cu124-ampere-torch250]
+torch
+transformers
+datasets
+trl
+peft
+accelerate
+bitsandbytes
+sentencepiece

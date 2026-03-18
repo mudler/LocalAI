@@ -14,20 +14,21 @@ import (
 )
 
 type Application struct {
-	backendLoader      *config.ModelConfigLoader
-	modelLoader        *model.ModelLoader
-	applicationConfig  *config.ApplicationConfig
-	startupConfig      *config.ApplicationConfig // Stores original config from env vars (before file loading)
-	templatesEvaluator *templates.Evaluator
-	galleryService     *services.GalleryService
-	agentJobService    *services.AgentJobService
-	agentPoolService   atomic.Pointer[services.AgentPoolService]
-	watchdogMutex      sync.Mutex
-	watchdogStop       chan bool
-	p2pMutex           sync.Mutex
-	p2pCtx             context.Context
-	p2pCancel          context.CancelFunc
-	agentJobMutex      sync.Mutex
+	backendLoader       *config.ModelConfigLoader
+	modelLoader         *model.ModelLoader
+	applicationConfig   *config.ApplicationConfig
+	startupConfig       *config.ApplicationConfig // Stores original config from env vars (before file loading)
+	templatesEvaluator  *templates.Evaluator
+	galleryService      *services.GalleryService
+	agentJobService     *services.AgentJobService
+	trainingJobService  *services.TrainingJobService
+	agentPoolService    atomic.Pointer[services.AgentPoolService]
+	watchdogMutex       sync.Mutex
+	watchdogStop        chan bool
+	p2pMutex            sync.Mutex
+	p2pCtx              context.Context
+	p2pCancel           context.CancelFunc
+	agentJobMutex       sync.Mutex
 }
 
 func newApplication(appConfig *config.ApplicationConfig) *Application {
@@ -70,6 +71,10 @@ func (a *Application) AgentJobService() *services.AgentJobService {
 	return a.agentJobService
 }
 
+func (a *Application) TrainingJobService() *services.TrainingJobService {
+	return a.trainingJobService
+}
+
 func (a *Application) AgentPoolService() *services.AgentPoolService {
 	return a.agentPoolService.Load()
 }
@@ -102,6 +107,20 @@ func (a *Application) start() error {
 	}
 
 	a.agentJobService = agentJobService
+
+	// Initialize training job service
+	trainingJobService := services.NewTrainingJobService(
+		a.ApplicationConfig(),
+		a.ModelLoader(),
+		a.ModelConfigLoader(),
+	)
+
+	err = trainingJobService.Start(a.ApplicationConfig().Context)
+	if err != nil {
+		return err
+	}
+
+	a.trainingJobService = trainingJobService
 
 	return nil
 }

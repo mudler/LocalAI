@@ -1,0 +1,9 @@
+--extra-index-url https://download.pytorch.org/whl/cpu
+unsloth
+torch
+transformers
+datasets
+trl
+peft
+accelerate
+sentencepiece
