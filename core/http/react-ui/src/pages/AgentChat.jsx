@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
-import { useParams, useNavigate, useOutletContext } from 'react-router-dom'
+import { useParams, useNavigate, useOutletContext, useSearchParams } from 'react-router-dom'
 import { agentsApi } from '../utils/api'
 import { apiUrl } from '../utils/basePath'
 import { renderMarkdown, highlightAll } from '../utils/markdown'
@@ -86,6 +86,8 @@ export default function AgentChat() {
   const { name } = useParams()
   const navigate = useNavigate()
   const { addToast } = useOutletContext()
+  const [searchParams] = useSearchParams()
+  const userId = searchParams.get('user_id') || undefined
 
   const {
     conversations, activeConversation, activeId,
@@ -126,7 +128,7 @@ export default function AgentChat() {
 
   // Connect to SSE endpoint — only reconnect when agent name changes
   useEffect(() => {
-    const url = apiUrl(`/api/agents/${encodeURIComponent(name)}/sse`)
+    const url = apiUrl(agentsApi.sseUrl(name, userId))
     const es = new EventSource(url)
     eventSourceRef.current = es
 
@@ -223,7 +225,7 @@ export default function AgentChat() {
       es.close()
       eventSourceRef.current = null
     }
-  }, [name, addToast, nextId])
+  }, [name, userId, addToast, nextId])
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -305,12 +307,12 @@ export default function AgentChat() {
     if (textareaRef.current) textareaRef.current.style.height = 'auto'
     setProcessingChatId(activeId)
     try {
-      await agentsApi.chat(name, msg)
+      await agentsApi.chat(name, msg, userId)
     } catch (err) {
       addToast(`Failed to send message: ${err.message}`, 'error')
       setProcessingChatId(null)
     }
-  }, [input, processing, name, activeId, addToast])
+  }, [input, processing, name, activeId, addToast, userId])
 
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -493,7 +495,7 @@ export default function AgentChat() {
               <i className="fas fa-layer-group" /> {artifacts.length}
             </button>
           )}
-          <button className="btn btn-secondary btn-sm" onClick={() => navigate(`/app/agents/${encodeURIComponent(name)}/status`)} title="View status & observables">
+          <button className="btn btn-secondary btn-sm" onClick={() => navigate(`/app/agents/${encodeURIComponent(name)}/status${userId ? `?user_id=${encodeURIComponent(userId)}` : ''}`)} title="View status & observables">
             <i className="fas fa-chart-bar" /> Status
           </button>
           <button className="btn btn-secondary btn-sm" onClick={() => clearMessages()} disabled={messages.length === 0} title="Clear chat history">

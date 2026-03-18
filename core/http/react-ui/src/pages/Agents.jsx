@@ -61,10 +61,10 @@ export default function Agents() {
     return agents.filter(a => a.name.toLowerCase().includes(q))
   }, [agents, search])
 
-  const handleDelete = async (name) => {
+  const handleDelete = async (name, userId) => {
     if (!window.confirm(`Delete agent "${name}"? This action cannot be undone.`)) return
     try {
-      await agentsApi.delete(name)
+      await agentsApi.delete(name, userId)
       addToast(`Agent "${name}" deleted`, 'success')
       fetchAgents()
     } catch (err) {
@@ -72,15 +72,15 @@ export default function Agents() {
     }
   }
 
-  const handlePauseResume = async (agent) => {
+  const handlePauseResume = async (agent, userId) => {
     const name = agent.name || agent.id
-    const isActive = agent.status === 'active'
+    const isActive = agent.status === 'active' || agent.active === true
     try {
       if (isActive) {
-        await agentsApi.pause(name)
+        await agentsApi.pause(name, userId)
         addToast(`Agent "${name}" paused`, 'success')
       } else {
-        await agentsApi.resume(name)
+        await agentsApi.resume(name, userId)
         addToast(`Agent "${name}" resumed`, 'success')
       }
       fetchAgents()
@@ -89,9 +89,9 @@ export default function Agents() {
     }
   }
 
-  const handleExport = async (name) => {
+  const handleExport = async (name, userId) => {
     try {
-      const data = await agentsApi.export(name)
+      const data = await agentsApi.export(name, userId)
       const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
@@ -333,22 +333,69 @@ export default function Agents() {
           userMap={userMap}
           currentUserId={user?.id}
           itemKey="agents"
-          renderGroup={(items) => (
+          renderGroup={(items, userId) => (
             <div className="table-container">
               <table className="table">
                 <thead>
                   <tr>
                     <th>Name</th>
                     <th>Status</th>
+                    <th style={{ textAlign: 'right' }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {(items || []).map(a => (
-                    <tr key={a.name}>
-                      <td style={{ fontWeight: 500 }}>{a.name}</td>
-                      <td>{statusBadge(a.active ? 'active' : 'paused')}</td>
-                    </tr>
-                  ))}
+                  {(items || []).map(a => {
+                    const isActive = a.active === true
+                    return (
+                      <tr key={a.name}>
+                        <td>
+                          <a className="agents-name" onClick={() => navigate(`/app/agents/${encodeURIComponent(a.name)}/chat?user_id=${encodeURIComponent(userId)}`)}>
+                            {a.name}
+                          </a>
+                        </td>
+                        <td>{statusBadge(isActive ? 'active' : 'paused')}</td>
+                        <td>
+                          <div className="agents-action-group">
+                            <button
+                              className={`btn btn-sm ${isActive ? 'btn-warning' : 'btn-success'}`}
+                              onClick={() => handlePauseResume(a, userId)}
+                              title={isActive ? 'Pause' : 'Resume'}
+                            >
+                              <i className={`fas ${isActive ? 'fa-pause' : 'fa-play'}`} />
+                            </button>
+                            <button
+                              className="btn btn-secondary btn-sm"
+                              onClick={() => navigate(`/app/agents/${encodeURIComponent(a.name)}/edit?user_id=${encodeURIComponent(userId)}`)}
+                              title="Edit"
+                            >
+                              <i className="fas fa-edit" />
+                            </button>
+                            <button
+                              className="btn btn-secondary btn-sm"
+                              onClick={() => navigate(`/app/agents/${encodeURIComponent(a.name)}/chat?user_id=${encodeURIComponent(userId)}`)}
+                              title="Chat"
+                            >
+                              <i className="fas fa-comment" />
+                            </button>
+                            <button
+                              className="btn btn-secondary btn-sm"
+                              onClick={() => handleExport(a.name, userId)}
+                              title="Export"
+                            >
+                              <i className="fas fa-download" />
+                            </button>
+                            <button
+                              className="btn btn-danger btn-sm"
+                              onClick={() => handleDelete(a.name, userId)}
+                              title="Delete"
+                            >
+                              <i className="fas fa-trash" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>

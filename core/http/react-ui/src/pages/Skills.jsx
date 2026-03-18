@@ -66,10 +66,10 @@ export default function Skills() {
     fetchSkills()
   }, [fetchSkills])
 
-  const deleteSkill = async (name) => {
+  const deleteSkill = async (name, userId) => {
     if (!window.confirm(`Delete skill "${name}"? This action cannot be undone.`)) return
     try {
-      await skillsApi.delete(name)
+      await skillsApi.delete(name, userId)
       addToast(`Skill "${name}" deleted`, 'success')
       fetchSkills()
     } catch (err) {
@@ -77,9 +77,9 @@ export default function Skills() {
     }
   }
 
-  const exportSkill = async (name) => {
+  const exportSkill = async (name, userId) => {
     try {
-      const url = skillsApi.exportUrl(name)
+      const url = skillsApi.exportUrl(name, userId)
       const res = await fetch(url, { credentials: 'same-origin' })
       if (!res.ok) throw new Error(res.statusText || 'Export failed')
       const blob = await res.blob()
@@ -476,7 +476,7 @@ export default function Skills() {
           userMap={userMap}
           currentUserId={user?.id}
           itemKey="skills"
-          renderGroup={(items) => (
+          renderGroup={(items, userId) => (
             <div className="skills-grid">
               {(items || []).map((s) => (
                 <div key={s.name} className="card">
@@ -485,6 +485,33 @@ export default function Skills() {
                     {s.readOnly && <span className="badge">Read-only</span>}
                   </div>
                   <p className="skills-card-desc">{s.description || 'No description'}</p>
+                  <div className="skills-card-actions">
+                    {!s.readOnly && (
+                      <button
+                        className="btn btn-secondary btn-sm"
+                        onClick={() => navigate(`/app/skills/edit/${encodeURIComponent(s.name)}?user_id=${encodeURIComponent(userId)}`)}
+                        title="Edit skill"
+                      >
+                        <i className="fas fa-edit" /> Edit
+                      </button>
+                    )}
+                    {!s.readOnly && (
+                      <button
+                        className="btn btn-danger btn-sm"
+                        onClick={() => deleteSkill(s.name, userId)}
+                        title="Delete skill"
+                      >
+                        <i className="fas fa-trash" /> Delete
+                      </button>
+                    )}
+                    <button
+                      className="btn btn-secondary btn-sm"
+                      onClick={() => exportSkill(s.name, userId)}
+                      title="Export as .tar.gz"
+                    >
+                      <i className="fas fa-download" /> Export
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>

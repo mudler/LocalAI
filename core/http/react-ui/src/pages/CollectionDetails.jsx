@@ -1,10 +1,12 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useParams, useOutletContext } from 'react-router-dom'
+import { useParams, useOutletContext, useSearchParams } from 'react-router-dom'
 import { agentCollectionsApi } from '../utils/api'
 
 export default function CollectionDetails() {
   const { name } = useParams()
   const { addToast } = useOutletContext()
+  const [searchParams] = useSearchParams()
+  const userId = searchParams.get('user_id') || undefined
   const [activeTab, setActiveTab] = useState('entries')
   const [loading, setLoading] = useState(true)
 
@@ -32,21 +34,21 @@ export default function CollectionDetails() {
 
   const fetchEntries = useCallback(async () => {
     try {
-      const data = await agentCollectionsApi.entries(name)
+      const data = await agentCollectionsApi.entries(name, userId)
       setEntries(Array.isArray(data.entries) ? data.entries : [])
     } catch (err) {
       addToast(`Failed to load entries: ${err.message}`, 'error')
     }
-  }, [name, addToast])
+  }, [name, addToast, userId])
 
   const fetchSources = useCallback(async () => {
     try {
-      const data = await agentCollectionsApi.sources(name)
+      const data = await agentCollectionsApi.sources(name, userId)
       setSources(Array.isArray(data.sources) ? data.sources : [])
     } catch (err) {
       addToast(`Failed to load sources: ${err.message}`, 'error')
     }
-  }, [name, addToast])
+  }, [name, addToast, userId])
 
   useEffect(() => {
     const load = async () => {
@@ -62,7 +64,7 @@ export default function CollectionDetails() {
     setViewContent(null)
     setViewLoading(true)
     try {
-      const data = await agentCollectionsApi.entryContent(name, entry)
+      const data = await agentCollectionsApi.entryContent(name, entry, userId)
       setViewContent(data)
     } catch (err) {
       addToast(`Failed to load entry content: ${err.message}`, 'error')
@@ -75,7 +77,7 @@ export default function CollectionDetails() {
   const handleDeleteEntry = async (entry) => {
     if (!window.confirm('Are you sure you want to delete this entry?')) return
     try {
-      await agentCollectionsApi.deleteEntry(name, entry)
+      await agentCollectionsApi.deleteEntry(name, entry, userId)
       addToast('Entry deleted', 'success')
       fetchEntries()
     } catch (err) {
@@ -90,7 +92,7 @@ export default function CollectionDetails() {
     try {
       const formData = new FormData()
       formData.append('file', uploadFile)
-      await agentCollectionsApi.upload(name, formData)
+      await agentCollectionsApi.upload(name, formData, userId)
       addToast('File uploaded successfully', 'success')
       setUploadFile(null)
       fetchEntries()
@@ -106,7 +108,7 @@ export default function CollectionDetails() {
     if (!searchQuery.trim()) return
     setSearching(true)
     try {
-      const data = await agentCollectionsApi.search(name, searchQuery, searchMaxResults)
+      const data = await agentCollectionsApi.search(name, searchQuery, searchMaxResults, userId)
       setSearchResults(Array.isArray(data.results) ? data.results : [])
     } catch (err) {
       addToast(`Search failed: ${err.message}`, 'error')
@@ -120,7 +122,7 @@ export default function CollectionDetails() {
     if (!newSourceUrl.trim()) return
     setAddingSource(true)
     try {
-      await agentCollectionsApi.addSource(name, newSourceUrl, newSourceInterval || undefined)
+      await agentCollectionsApi.addSource(name, newSourceUrl, newSourceInterval || undefined, userId)
       addToast('Source added', 'success')
       setNewSourceUrl('')
       setNewSourceInterval('')
@@ -135,7 +137,7 @@ export default function CollectionDetails() {
   const handleRemoveSource = async (url) => {
     if (!window.confirm('Are you sure you want to remove this source?')) return
     try {
-      await agentCollectionsApi.removeSource(name, url)
+      await agentCollectionsApi.removeSource(name, url, userId)
       addToast('Source removed', 'success')
       fetchSources()
     } catch (err) {

@@ -69,7 +69,7 @@ func CreateCollectionEndpoint(app *application.Application) echo.HandlerFunc {
 func UploadToCollectionEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		svc := app.AgentPoolService()
-		userID := getUserID(c)
+		userID := effectiveUserID(c)
 		name := c.Param("name")
 		file, err := c.FormFile("file")
 		if err != nil {
@@ -96,7 +96,7 @@ func UploadToCollectionEndpoint(app *application.Application) echo.HandlerFunc {
 func ListCollectionEntriesEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		svc := app.AgentPoolService()
-		userID := getUserID(c)
+		userID := effectiveUserID(c)
 		entries, err := svc.ListCollectionEntriesForUser(userID, c.Param("name"))
 		if err != nil {
 			if strings.Contains(err.Error(), "not found") {
@@ -114,7 +114,7 @@ func ListCollectionEntriesEndpoint(app *application.Application) echo.HandlerFun
 func GetCollectionEntryContentEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		svc := app.AgentPoolService()
-		userID := getUserID(c)
+		userID := effectiveUserID(c)
 		entryParam := c.Param("*")
 		entry, err := url.PathUnescape(entryParam)
 		if err != nil {
@@ -137,7 +137,7 @@ func GetCollectionEntryContentEndpoint(app *application.Application) echo.Handle
 func SearchCollectionEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		svc := app.AgentPoolService()
-		userID := getUserID(c)
+		userID := effectiveUserID(c)
 		var payload struct {
 			Query      string `json:"query"`
 			MaxResults int    `json:"max_results"`
@@ -162,7 +162,7 @@ func SearchCollectionEndpoint(app *application.Application) echo.HandlerFunc {
 func ResetCollectionEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		svc := app.AgentPoolService()
-		userID := getUserID(c)
+		userID := effectiveUserID(c)
 		if err := svc.ResetCollectionForUser(userID, c.Param("name")); err != nil {
 			if strings.Contains(err.Error(), "not found") {
 				return c.JSON(http.StatusNotFound, map[string]string{"error": err.Error()})
@@ -176,7 +176,7 @@ func ResetCollectionEndpoint(app *application.Application) echo.HandlerFunc {
 func DeleteCollectionEntryEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		svc := app.AgentPoolService()
-		userID := getUserID(c)
+		userID := effectiveUserID(c)
 		var payload struct {
 			Entry string `json:"entry"`
 		}
@@ -200,7 +200,7 @@ func DeleteCollectionEntryEndpoint(app *application.Application) echo.HandlerFun
 func AddCollectionSourceEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		svc := app.AgentPoolService()
-		userID := getUserID(c)
+		userID := effectiveUserID(c)
 		var payload struct {
 			URL            string `json:"url"`
 			UpdateInterval int    `json:"update_interval"`
@@ -224,7 +224,7 @@ func AddCollectionSourceEndpoint(app *application.Application) echo.HandlerFunc 
 func RemoveCollectionSourceEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		svc := app.AgentPoolService()
-		userID := getUserID(c)
+		userID := effectiveUserID(c)
 		var payload struct {
 			URL string `json:"url"`
 		}
@@ -242,7 +242,7 @@ func RemoveCollectionSourceEndpoint(app *application.Application) echo.HandlerFu
 func GetCollectionEntryRawFileEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		svc := app.AgentPoolService()
-		userID := getUserID(c)
+		userID := effectiveUserID(c)
 		entryParam := c.Param("*")
 		entry, err := url.PathUnescape(entryParam)
 		if err != nil {
@@ -262,7 +262,7 @@ func GetCollectionEntryRawFileEndpoint(app *application.Application) echo.Handle
 func ListCollectionSourcesEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		svc := app.AgentPoolService()
-		userID := getUserID(c)
+		userID := effectiveUserID(c)
 		sources, err := svc.ListCollectionSourcesForUser(userID, c.Param("name"))
 		if err != nil {
 			if strings.Contains(err.Error(), "not found") {

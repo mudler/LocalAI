@@ -41,6 +41,16 @@ func wantsAllUsers(c echo.Context) bool {
 	return c.QueryParam("all_users") == "true" && isAdminUser(c)
 }
 
+// effectiveUserID returns the user ID to scope operations to.
+// SECURITY: Only admins may supply ?user_id=<id> to operate on another user's
+// resources. Non-admin callers always get their own ID regardless of query params.
+func effectiveUserID(c echo.Context) string {
+	if targetUID := c.QueryParam("user_id"); targetUID != "" && isAdminUser(c) {
+		return targetUID
+	}
+	return getUserID(c)
+}
+
 func ListAgentsEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		svc := app.AgentPoolService()
@@ -99,7 +109,7 @@ func CreateAgentEndpoint(app *application.Application) echo.HandlerFunc {
 func GetAgentEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		svc := app.AgentPoolService()
-		userID := getUserID(c)
+		userID := effectiveUserID(c)
 		name := c.Param("name")
 		ag := svc.GetAgentForUser(userID, name)
 		if ag == nil {
@@ -114,7 +124,7 @@ func GetAgentEndpoint(app *application.Application) echo.HandlerFunc {
 func UpdateAgentEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		svc := app.AgentPoolService()
-		userID := getUserID(c)
+		userID := effectiveUserID(c)
 		name := c.Param("name")
 		var cfg state.AgentConfig
 		if err := c.Bind(&cfg); err != nil {
@@ -133,7 +143,7 @@ func UpdateAgentEndpoint(app *application.Application) echo.HandlerFunc {
 func DeleteAgentEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		svc := app.AgentPoolService()
-		userID := getUserID(c)
+		userID := effectiveUserID(c)
 		name := c.Param("name")
 		if err := svc.DeleteAgentForUser(userID, name); err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
@@ -145,7 +155,7 @@ func DeleteAgentEndpoint(app *application.Application) echo.HandlerFunc {
 func GetAgentConfigEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		svc := app.AgentPoolService()
-		userID := getUserID(c)
+		userID := effectiveUserID(c)
 		name := c.Param("name")
 		cfg := svc.GetAgentConfigForUser(userID, name)
 		if cfg == nil {
@@ -158,7 +168,7 @@ func GetAgentConfigEndpoint(app *application.Application) echo.HandlerFunc {
 func PauseAgentEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		svc := app.AgentPoolService()
-		userID := getUserID(c)
+		userID := effectiveUserID(c)
 		if err := svc.PauseAgentForUser(userID, c.Param("name")); err != nil {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": err.Error()})
 		}
@@ -169,7 +179,7 @@ func PauseAgentEndpoint(app *application.Application) echo.HandlerFunc {
 func ResumeAgentEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		svc := app.AgentPoolService()
-		userID := getUserID(c)
+		userID := effectiveUserID(c)
 		if err := svc.ResumeAgentForUser(userID, c.Param("name")); err != nil {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": err.Error()})
 		}
@@ -180,7 +190,7 @@ func ResumeAgentEndpoint(app *application.Application) echo.HandlerFunc {
 func GetAgentStatusEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		svc := app.AgentPoolService()
-		userID := getUserID(c)
+		userID := effectiveUserID(c)
 		name := c.Param("name")
 		history := svc.GetAgentStatusForUser(userID, name)
 		if history == nil {
@@ -209,7 +219,7 @@ func GetAgentStatusEndpoint(app *application.Application) echo.HandlerFunc {
 func GetAgentObservablesEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		svc := app.AgentPoolService()
-		userID := getUserID(c)
+		userID := effectiveUserID(c)
 		name := c.Param("name")
 		history, err := svc.GetAgentObservablesForUser(userID, name)
 		if err != nil {
@@ -225,7 +235,7 @@ func GetAgentObservablesEndpoint(app *application.Application) echo.HandlerFunc 
 func ClearAgentObservablesEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		svc := app.AgentPoolService()
-		userID := getUserID(c)
+		userID := effectiveUserID(c)
 		name := c.Param("name")
 		if err := svc.ClearAgentObservablesForUser(userID, name); err != nil {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": err.Error()})
@@ -237,7 +247,7 @@ func ClearAgentObservablesEndpoint(app *application.Application) echo.HandlerFun
 func ChatWithAgentEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		svc := app.AgentPoolService()
-		userID := getUserID(c)
+		userID := effectiveUserID(c)
 		name := c.Param("name")
 		var payload struct {
 			Message string `json:"message"`
@@ -266,7 +276,7 @@ func ChatWithAgentEndpoint(app *application.Application) echo.HandlerFunc {
 func AgentSSEEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		svc := app.AgentPoolService()
-		userID := getUserID(c)
+		userID := effectiveUserID(c)
 		name := c.Param("name")
 		manager := svc.GetSSEManagerForUser(userID, name)
 		if manager == nil {
@@ -294,7 +304,7 @@ func GetAgentConfigMetaEndpoint(app *application.Application) echo.HandlerFunc {
 func ExportAgentEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		svc := app.AgentPoolService()
-		userID := getUserID(c)
+		userID := effectiveUserID(c)
 		name := c.Param("name")
 		data, err := svc.ExportAgentForUser(userID, name)
 		if err != nil {

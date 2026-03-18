@@ -132,7 +132,7 @@ func CreateSkillEndpoint(app *application.Application) echo.HandlerFunc {
 func GetSkillEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		svc := app.AgentPoolService()
-		userID := getUserID(c)
+		userID := effectiveUserID(c)
 		skill, err := svc.GetSkillForUser(userID, c.Param("name"))
 		if err != nil {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": err.Error()})
@@ -144,7 +144,7 @@ func GetSkillEndpoint(app *application.Application) echo.HandlerFunc {
 func UpdateSkillEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		svc := app.AgentPoolService()
-		userID := getUserID(c)
+		userID := effectiveUserID(c)
 		var payload struct {
 			Description   string            `json:"description"`
 			Content       string            `json:"content"`
@@ -170,7 +170,7 @@ func UpdateSkillEndpoint(app *application.Application) echo.HandlerFunc {
 func DeleteSkillEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		svc := app.AgentPoolService()
-		userID := getUserID(c)
+		userID := effectiveUserID(c)
 		if err := svc.DeleteSkillForUser(userID, c.Param("name")); err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		}
@@ -181,7 +181,7 @@ func DeleteSkillEndpoint(app *application.Application) echo.HandlerFunc {
 func ExportSkillEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		svc := app.AgentPoolService()
-		userID := getUserID(c)
+		userID := effectiveUserID(c)
 		name := c.Param("*")
 		data, err := svc.ExportSkillForUser(userID, name)
 		if err != nil {
@@ -223,7 +223,7 @@ func ImportSkillEndpoint(app *application.Application) echo.HandlerFunc {
 func ListSkillResourcesEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		svc := app.AgentPoolService()
-		userID := getUserID(c)
+		userID := effectiveUserID(c)
 		resources, skill, err := svc.ListSkillResourcesForUser(userID, c.Param("name"))
 		if err != nil {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": err.Error()})
@@ -261,7 +261,7 @@ func ListSkillResourcesEndpoint(app *application.Application) echo.HandlerFunc {
 func GetSkillResourceEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		svc := app.AgentPoolService()
-		userID := getUserID(c)
+		userID := effectiveUserID(c)
 		content, info, err := svc.GetSkillResourceForUser(userID, c.Param("name"), c.Param("*"))
 		if err != nil {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": err.Error()})

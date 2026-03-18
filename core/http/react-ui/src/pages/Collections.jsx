@@ -48,10 +48,10 @@ export default function Collections() {
     }
   }
 
-  const handleDelete = async (name) => {
+  const handleDelete = async (name, userId) => {
     if (!window.confirm(`Delete collection "${name}"? This will remove all entries and cannot be undone.`)) return
     try {
-      await agentCollectionsApi.reset(name)
+      await agentCollectionsApi.reset(name, userId)
       addToast(`Collection "${name}" deleted`, 'success')
       fetchCollections()
     } catch (err) {
@@ -59,10 +59,10 @@ export default function Collections() {
     }
   }
 
-  const handleReset = async (name) => {
+  const handleReset = async (name, userId) => {
     if (!window.confirm(`Reset collection "${name}"? This will remove all entries but keep the collection.`)) return
     try {
-      await agentCollectionsApi.reset(name)
+      await agentCollectionsApi.reset(name, userId)
       addToast(`Collection "${name}" reset`, 'success')
       fetchCollections()
     } catch (err) {
@@ -169,15 +169,26 @@ export default function Collections() {
           userMap={userMap}
           currentUserId={user?.id}
           itemKey="collections"
-          renderGroup={(items) => (
+          renderGroup={(items, userId) => (
             <div className="collections-grid">
               {(items || []).map((col) => {
                 const name = typeof col === 'string' ? col : col.name
                 return (
                   <div className="card" key={name}>
                     <div className="collections-card-name">
-                      <i className="fas fa-folder" style={{ marginRight: 'var(--spacing-xs)', color: 'var(--color-text-muted)' }} />
+                      <i className="fas fa-folder" style={{ marginRight: 'var(--spacing-xs)', color: 'var(--color-primary)' }} />
                       {name}
+                    </div>
+                    <div className="collections-card-actions">
+                      <button className="btn btn-secondary btn-sm" onClick={() => navigate(`/app/collections/${encodeURIComponent(name)}?user_id=${encodeURIComponent(userId)}`)} title="View details">
+                        <i className="fas fa-eye" /> Details
+                      </button>
+                      <button className="btn btn-secondary btn-sm" onClick={() => handleReset(name, userId)} title="Reset collection">
+                        <i className="fas fa-rotate" /> Reset
+                      </button>
+                      <button className="btn btn-danger btn-sm" onClick={() => handleDelete(name, userId)} title="Delete collection">
+                        <i className="fas fa-trash" />
+                      </button>
                     </div>
                   </div>
                 )
