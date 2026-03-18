@@ -14,6 +14,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 
+	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/http/endpoints/localai"
 	httpMiddleware "github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/http/routes"
@@ -170,11 +171,9 @@ func API(application *application.Application) (*echo.Echo, error) {
 	// Health Checks should always be exempt from auth, so register these first
 	routes.HealthRoutes(e)
 
-	// Get key auth middleware
-	keyAuthMiddleware, err := httpMiddleware.GetKeyAuthConfig(application.ApplicationConfig())
-	if err != nil {
-		return nil, fmt.Errorf("failed to create key auth config: %w", err)
-	}
+	// Build auth middleware: use the new auth.Middleware when auth is enabled or
+	// as a unified replacement for the legacy key-auth middleware.
+	authMiddleware := auth.Middleware(application.AuthDB(), application.ApplicationConfig())
 
 	// Favicon handler
 	e.GET("/favicon.svg", func(c echo.Context) error {
@@ -209,8 +208,14 @@ func API(application *application.Application) (*echo.Echo, error) {
 		e.Static("/generated-videos", videoPath)
 	}
 
-	// Auth is applied to _all_ endpoints. No exceptions. Filtering out endpoints to bypass is the role of the Skipper property of the KeyAuth Configuration
-	e.Use(keyAuthMiddleware)
+	// Initialize usage recording when auth DB is available
+	if application.AuthDB() != nil {
+		httpMiddleware.InitUsageRecorder(application.AuthDB())
+	}
+
+	// Auth is applied to _all_ endpoints. Filtering out endpoints to bypass is
+	// the role of the exempt-path logic inside the middleware.
+	e.Use(authMiddleware)
 
 	// CORS middleware
 	if application.ApplicationConfig().CORS {
@@ -229,7 +234,24 @@ func API(application *application.Application) (*echo.Echo, error) {
 		e.Use(middleware.CSRF())
 	}
 
+	// Admin middleware: enforces admin role when auth is enabled, no-op otherwise
+	var adminMiddleware echo.MiddlewareFunc
+	if application.AuthDB() != nil {
+		adminMiddleware = auth.RequireAdmin()
+	} else {
+		adminMiddleware = auth.NoopMiddleware()
+	}
+
+	// Feature middlewares: per-feature access control
+	agentsMw := auth.RequireFeature(application.AuthDB(), auth.FeatureAgents)
+	skillsMw := auth.RequireFeature(application.AuthDB(), auth.FeatureSkills)
+	collectionsMw := auth.RequireFeature(application.AuthDB(), auth.FeatureCollections)
+	mcpJobsMw := auth.RequireFeature(application.AuthDB(), auth.FeatureMCPJobs)
+
 	requestExtractor := httpMiddleware.NewRequestExtractor(application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig())
+
+	// Register auth routes (login, callback, API keys, user management)
+	routes.RegisterAuthRoutes(e, application)
 
 	routes.RegisterElevenLabsRoutes(e, requestExtractor, application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig())
 
@@ -239,14 +261,14 @@ func API(application *application.Application) (*echo.Echo, error) {
 		opcache = services.NewOpCache(application.GalleryService())
 	}
 
-	routes.RegisterLocalAIRoutes(e, requestExtractor, application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig(), application.GalleryService(), opcache, application.TemplatesEvaluator(), application)
-	routes.RegisterAgentPoolRoutes(e, application)
+	routes.RegisterLocalAIRoutes(e, requestExtractor, application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig(), application.GalleryService(), opcache, application.TemplatesEvaluator(), application, adminMiddleware, mcpJobsMw)
+	routes.RegisterAgentPoolRoutes(e, application, agentsMw, skillsMw, collectionsMw)
 	routes.RegisterOpenAIRoutes(e, requestExtractor, application)
 	routes.RegisterAnthropicRoutes(e, requestExtractor, application)
 	routes.RegisterOpenResponsesRoutes(e, requestExtractor, application)
 	if !application.ApplicationConfig().DisableWebUI {
-		routes.RegisterUIAPIRoutes(e, application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig(), application.GalleryService(), opcache, application)
-		routes.RegisterUIRoutes(e, application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig(), application.GalleryService())
+		routes.RegisterUIAPIRoutes(e, application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig(), application.GalleryService(), opcache, application, adminMiddleware)
+		routes.RegisterUIRoutes(e, application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig(), application.GalleryService(), adminMiddleware)
 
 		// Serve React SPA from / with SPA fallback via 404 handler
 		reactFS, fsErr := fs.Sub(reactUI, "react-ui/dist")

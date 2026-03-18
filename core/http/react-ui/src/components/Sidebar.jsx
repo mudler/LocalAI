@@ -1,19 +1,21 @@
 import { useState, useEffect } from 'react'
-import { NavLink } from 'react-router-dom'
+import { NavLink, useNavigate } from 'react-router-dom'
 import ThemeToggle from './ThemeToggle'
+import { useAuth } from '../context/AuthContext'
 import { apiUrl } from '../utils/basePath'
 
 const COLLAPSED_KEY = 'localai_sidebar_collapsed'
 
 const mainItems = [
   { path: '/app', icon: 'fas fa-home', label: 'Home' },
-  { path: '/app/models', icon: 'fas fa-download', label: 'Install Models' },
+  { path: '/app/models', icon: 'fas fa-download', label: 'Install Models', adminOnly: true },
   { path: '/app/chat', icon: 'fas fa-comments', label: 'Chat' },
   { path: '/app/image', icon: 'fas fa-image', label: 'Images' },
   { path: '/app/video', icon: 'fas fa-video', label: 'Video' },
   { path: '/app/tts', icon: 'fas fa-music', label: 'TTS' },
   { path: '/app/sound', icon: 'fas fa-volume-high', label: 'Sound' },
   { path: '/app/talk', icon: 'fas fa-phone', label: 'Talk' },
+  { path: '/app/usage', icon: 'fas fa-chart-bar', label: 'Usage', authOnly: true },
 ]
 
 const agentItems = [
@@ -24,11 +26,12 @@ const agentItems = [
 ]
 
 const systemItems = [
-  { path: '/app/backends', icon: 'fas fa-server', label: 'Backends' },
-  { path: '/app/traces', icon: 'fas fa-chart-line', label: 'Traces' },
-  { path: '/app/p2p', icon: 'fas fa-circle-nodes', label: 'Swarm' },
-  { path: '/app/manage', icon: 'fas fa-desktop', label: 'System' },
-  { path: '/app/settings', icon: 'fas fa-cog', label: 'Settings' },
+  { path: '/app/users', icon: 'fas fa-users', label: 'Users', adminOnly: true },
+  { path: '/app/backends', icon: 'fas fa-server', label: 'Backends', adminOnly: true },
+  { path: '/app/traces', icon: 'fas fa-chart-line', label: 'Traces', adminOnly: true },
+  { path: '/app/p2p', icon: 'fas fa-circle-nodes', label: 'Swarm', adminOnly: true },
+  { path: '/app/manage', icon: 'fas fa-desktop', label: 'System', adminOnly: true },
+  { path: '/app/settings', icon: 'fas fa-cog', label: 'Settings', adminOnly: true },
 ]
 
 function NavItem({ item, onClose, collapsed }) {
@@ -53,6 +56,8 @@ export default function Sidebar({ isOpen, onClose }) {
   const [collapsed, setCollapsed] = useState(() => {
     try { return localStorage.getItem(COLLAPSED_KEY) === 'true' } catch (_) { return false }
   })
+  const { isAdmin, authEnabled, user, logout, hasFeature } = useAuth()
+  const navigate = useNavigate()
 
   useEffect(() => {
     fetch(apiUrl('/api/features')).then(r => r.json()).then(setFeatures).catch(() => {})
@@ -66,6 +71,14 @@ export default function Sidebar({ isOpen, onClose }) {
       return next
     })
   }
+
+  const visibleMainItems = mainItems.filter(item => {
+    if (item.adminOnly && !isAdmin) return false
+    if (item.authOnly && !authEnabled) return false
+    return true
+  })
+
+  const visibleSystemItems = systemItems.filter(item => !item.adminOnly || isAdmin)
 
   return (
     <>
@@ -89,24 +102,40 @@ export default function Sidebar({ isOpen, onClose }) {
         <nav className="sidebar-nav">
           {/* Main section */}
           <div className="sidebar-section">
-            {mainItems.map(item => (
+            {visibleMainItems.map(item => (
               <NavItem key={item.path} item={item} onClose={onClose} collapsed={collapsed} />
             ))}
           </div>
 
-          {/* Agents section */}
-          {features.agents !== false && (
-            <div className="sidebar-section">
-              <div className="sidebar-section-title">Agents</div>
-              {agentItems.filter(item => !item.feature || features[item.feature] !== false).map(item => (
-                <NavItem key={item.path} item={item} onClose={onClose} collapsed={collapsed} />
-              ))}
-            </div>
-          )}
+          {/* Agents section (per-feature permissions) */}
+          {features.agents !== false && (() => {
+            const featureMap = {
+              '/app/agents': 'agents',
+              '/app/skills': 'skills',
+              '/app/collections': 'collections',
+              '/app/agent-jobs': 'mcp_jobs',
+            }
+            const visibleAgentItems = agentItems.filter(item => {
+              if (item.feature && features[item.feature] === false) return false
+              const featureName = featureMap[item.path]
+              return featureName ? hasFeature(featureName) : isAdmin
+            })
+            if (visibleAgentItems.length === 0) return null
+            return (
+              <div className="sidebar-section">
+                <div className="sidebar-section-title">Agents</div>
+                {visibleAgentItems.map(item => (
+                  <NavItem key={item.path} item={item} onClose={onClose} collapsed={collapsed} />
+                ))}
+              </div>
+            )
+          })()}
 
           {/* System section */}
           <div className="sidebar-section">
-            <div className="sidebar-section-title">System</div>
+            {visibleSystemItems.length > 0 && (
+              <div className="sidebar-section-title">System</div>
+            )}
             <a
               href={apiUrl('/swagger/index.html')}
               target="_blank"
@@ -118,7 +147,7 @@ export default function Sidebar({ isOpen, onClose }) {
               <span className="nav-label">API</span>
               <i className="fas fa-external-link-alt nav-external" />
             </a>
-            {systemItems.map(item => (
+            {visibleSystemItems.map(item => (
               <NavItem key={item.path} item={item} onClose={onClose} collapsed={collapsed} />
             ))}
           </div>
@@ -126,6 +155,25 @@ export default function Sidebar({ isOpen, onClose }) {
 
         {/* Footer */}
         <div className="sidebar-footer">
+          {authEnabled && user && (
+            <div className="sidebar-user" title={collapsed ? (user.name || user.email) : undefined}>
+              <button
+                className="sidebar-user-link"
+                onClick={() => { navigate('/app/account'); onClose?.() }}
+                title="Account settings"
+              >
+                {user.avatarUrl ? (
+                  <img src={user.avatarUrl} alt="" className="sidebar-user-avatar" />
+                ) : (
+                  <i className="fas fa-user-circle sidebar-user-avatar-icon" />
+                )}
+                <span className="nav-label sidebar-user-name">{user.name || user.email}</span>
+              </button>
+              <button className="sidebar-logout-btn" onClick={logout} title="Logout">
+                <i className="fas fa-sign-out-alt" />
+              </button>
+            </div>
+          )}
           <ThemeToggle />
           <button
             className="sidebar-collapse-btn"

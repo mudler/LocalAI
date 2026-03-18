@@ -10,6 +10,7 @@ import (
 	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
+	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/services"
 	coreStartup "github.com/mudler/LocalAI/core/startup"
 	"github.com/mudler/LocalAI/internal"
@@ -79,6 +80,32 @@ func New(opts ...config.AppOption) (*Application, error) {
 		if options.DynamicConfigsDir != "" && options.DataPath != options.DynamicConfigsDir {
 			migrateDataFiles(options.DynamicConfigsDir, options.DataPath)
 		}
+	}
+
+	// Initialize auth database if auth is enabled
+	if options.Auth.Enabled {
+		authDB, err := auth.InitDB(options.Auth.DatabaseURL)
+		if err != nil {
+			return nil, fmt.Errorf("failed to initialize auth database: %w", err)
+		}
+		application.authDB = authDB
+		xlog.Info("Auth enabled", "database", options.Auth.DatabaseURL)
+
+		// Start session cleanup goroutine
+		go func() {
+			ticker := time.NewTicker(1 * time.Hour)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-options.Context.Done():
+					return
+				case <-ticker.C:
+					if err := auth.CleanExpiredSessions(authDB); err != nil {
+						xlog.Error("failed to clean expired sessions", "error", err)
+					}
+				}
+			}
+		}()
 	}
 
 	if err := coreStartup.InstallModels(options.Context, application.GalleryService(), options.Galleries, options.BackendGalleries, options.SystemState, application.ModelLoader(), options.EnforcePredownloadScans, options.AutoloadBackendGalleries, nil, options.ModelsURL...); err != nil {

@@ -29,7 +29,8 @@ func RegisterUIRoutes(app *echo.Echo,
 	cl *config.ModelConfigLoader,
 	ml *model.ModelLoader,
 	appConfig *config.ApplicationConfig,
-	galleryService *services.GalleryService) {
+	galleryService *services.GalleryService,
+	adminMiddleware echo.MiddlewareFunc) {
 
 	// SPA routes are handled by the 404 fallback in app.go which serves
 	// index.html for any unmatched HTML request, enabling client-side routing.
@@ -71,36 +72,36 @@ func RegisterUIRoutes(app *echo.Echo,
 
 	app.GET("/api/traces", func(c echo.Context) error {
 		return c.JSON(200, middleware.GetTraces())
-	})
+	}, adminMiddleware)
 
 	app.POST("/api/traces/clear", func(c echo.Context) error {
 		middleware.ClearTraces()
 		return c.NoContent(204)
-	})
+	}, adminMiddleware)
 
 	app.GET("/api/backend-traces", func(c echo.Context) error {
 		return c.JSON(200, trace.GetBackendTraces())
-	})
+	}, adminMiddleware)
 
 	app.POST("/api/backend-traces/clear", func(c echo.Context) error {
 		trace.ClearBackendTraces()
 		return c.NoContent(204)
-	})
+	}, adminMiddleware)
 
 	// Backend logs REST endpoints
 	app.GET("/api/backend-logs", func(c echo.Context) error {
 		return c.JSON(200, ml.BackendLogs().ListModels())
-	})
+	}, adminMiddleware)
 
 	app.GET("/api/backend-logs/:modelId", func(c echo.Context) error {
 		modelID := c.Param("modelId")
 		return c.JSON(200, ml.BackendLogs().GetLines(modelID))
-	})
+	}, adminMiddleware)
 
 	app.POST("/api/backend-logs/:modelId/clear", func(c echo.Context) error {
 		ml.BackendLogs().Clear(c.Param("modelId"))
 		return c.NoContent(204)
-	})
+	}, adminMiddleware)
 
 	// Backend logs WebSocket endpoint for real-time streaming
 	app.GET("/ws/backend-logs/:modelId", func(c echo.Context) error {

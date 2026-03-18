@@ -1,10 +1,15 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate, useOutletContext } from 'react-router-dom'
 import { skillsApi } from '../utils/api'
+import { useAuth } from '../context/AuthContext'
+import { useUserMap } from '../hooks/useUserMap'
+import UserGroupSection from '../components/UserGroupSection'
 
 export default function Skills() {
   const { addToast } = useOutletContext()
   const navigate = useNavigate()
+  const { isAdmin, authEnabled, user } = useAuth()
+  const userMap = useUserMap()
   const [skills, setSkills] = useState([])
   const [searchQuery, setSearchQuery] = useState('')
   const [loading, setLoading] = useState(true)
@@ -15,6 +20,7 @@ export default function Skills() {
   const [gitRepoUrl, setGitRepoUrl] = useState('')
   const [gitReposLoading, setGitReposLoading] = useState(false)
   const [gitReposAction, setGitReposAction] = useState(null)
+  const [userGroups, setUserGroups] = useState(null)
 
   const fetchSkills = useCallback(async () => {
     setLoading(true)
@@ -31,9 +37,17 @@ export default function Skills() {
       if (searchQuery.trim()) {
         const data = await withTimeout(skillsApi.search(searchQuery.trim()))
         setSkills(Array.isArray(data) ? data : [])
+        setUserGroups(null)
       } else {
-        const data = await withTimeout(skillsApi.list())
-        setSkills(Array.isArray(data) ? data : [])
+        const data = await withTimeout(skillsApi.list(isAdmin && authEnabled))
+        // Handle wrapped response (admin) or flat array (regular user)
+        if (Array.isArray(data)) {
+          setSkills(data)
+          setUserGroups(null)
+        } else {
+          setSkills(Array.isArray(data.skills) ? data.skills : [])
+          setUserGroups(data.user_groups || null)
+        }
       }
     } catch (err) {
       if (err.message?.includes('503') || err.message?.includes('skills')) {
@@ -46,7 +60,7 @@ export default function Skills() {
     } finally {
       setLoading(false)
     }
-  }, [searchQuery, addToast])
+  }, [searchQuery, addToast, isAdmin, authEnabled])
 
   useEffect(() => {
     fetchSkills()
@@ -384,7 +398,7 @@ export default function Skills() {
         <div style={{ display: 'flex', justifyContent: 'center', padding: 'var(--spacing-xl)' }}>
           <i className="fas fa-spinner fa-spin" style={{ fontSize: '2rem', color: 'var(--color-primary)' }} />
         </div>
-      ) : skills.length === 0 ? (
+      ) : skills.length === 0 && !userGroups ? (
         <div className="empty-state">
           <div className="empty-state-icon"><i className="fas fa-book" /></div>
           <h2 className="empty-state-title">No skills found</h2>
@@ -406,6 +420,11 @@ export default function Skills() {
           </div>
         </div>
       ) : (
+        <>
+        {userGroups && <h2 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: 'var(--spacing-md)' }}>Your Skills</h2>}
+        {skills.length === 0 ? (
+          <p style={{ color: 'var(--color-text-secondary)', marginBottom: 'var(--spacing-md)' }}>You have no skills yet.</p>
+        ) : (
         <div className="skills-grid">
           {skills.map((s) => (
             <div key={s.name} className="card">
@@ -446,6 +465,31 @@ export default function Skills() {
             </div>
           ))}
         </div>
+        )}
+        </>
+      )}
+
+      {userGroups && (
+        <UserGroupSection
+          title="Other Users' Skills"
+          userGroups={userGroups}
+          userMap={userMap}
+          currentUserId={user?.id}
+          itemKey="skills"
+          renderGroup={(items) => (
+            <div className="skills-grid">
+              {(items || []).map((s) => (
+                <div key={s.name} className="card">
+                  <div className="skills-card-header">
+                    <h3 className="skills-card-name">{s.name}</h3>
+                    {s.readOnly && <span className="badge">Read-only</span>}
+                  </div>
+                  <p className="skills-card-desc">{s.description || 'No description'}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        />
       )}
     </div>
   )

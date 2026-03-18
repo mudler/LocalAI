@@ -121,6 +121,15 @@ type RunCMD struct {
 	AgentPoolCollectionDBPath string `env:"LOCALAI_AGENT_POOL_COLLECTION_DB_PATH" help:"Database path for agent collections" group:"agents"`
 	AgentHubURL               string `env:"LOCALAI_AGENT_HUB_URL" default:"https://agenthub.localai.io" help:"URL for the agent hub where users can browse and download agent configurations" group:"agents"`
 
+	// Authentication
+	AuthEnabled          bool   `env:"LOCALAI_AUTH" default:"false" help:"Enable user authentication and authorization" group:"auth"`
+	AuthDatabaseURL      string `env:"LOCALAI_AUTH_DATABASE_URL,DATABASE_URL" help:"Database URL for auth (postgres:// or file path for SQLite). Defaults to {DataPath}/database.db" group:"auth"`
+	GitHubClientID       string `env:"GITHUB_CLIENT_ID" help:"GitHub OAuth App Client ID (auto-enables auth when set)" group:"auth"`
+	GitHubClientSecret   string `env:"GITHUB_CLIENT_SECRET" help:"GitHub OAuth App Client Secret" group:"auth"`
+	AuthBaseURL          string `env:"LOCALAI_BASE_URL" help:"Base URL for OAuth callbacks (e.g. http://localhost:8080)" group:"auth"`
+	AuthAdminEmail       string `env:"LOCALAI_ADMIN_EMAIL" help:"Email address to auto-promote to admin role" group:"auth"`
+	AuthRegistrationMode string `env:"LOCALAI_REGISTRATION_MODE" default:"open" help:"Registration mode: 'open' (default) or 'approval'" group:"auth"`
+
 	Version bool
 }
 
@@ -309,6 +318,32 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 	}
 	if r.AgentHubURL != "" {
 		opts = append(opts, config.WithAgentHubURL(r.AgentHubURL))
+	}
+
+	// Authentication
+	authEnabled := r.AuthEnabled || r.GitHubClientID != ""
+	if authEnabled {
+		opts = append(opts, config.WithAuthEnabled(true))
+
+		dbURL := r.AuthDatabaseURL
+		if dbURL == "" {
+			dbURL = filepath.Join(r.DataPath, "database.db")
+		}
+		opts = append(opts, config.WithAuthDatabaseURL(dbURL))
+
+		if r.GitHubClientID != "" {
+			opts = append(opts, config.WithAuthGitHubClientID(r.GitHubClientID))
+			opts = append(opts, config.WithAuthGitHubClientSecret(r.GitHubClientSecret))
+		}
+		if r.AuthBaseURL != "" {
+			opts = append(opts, config.WithAuthBaseURL(r.AuthBaseURL))
+		}
+		if r.AuthAdminEmail != "" {
+			opts = append(opts, config.WithAuthAdminEmail(r.AuthAdminEmail))
+		}
+		if r.AuthRegistrationMode != "" {
+			opts = append(opts, config.WithAuthRegistrationMode(r.AuthRegistrationMode))
+		}
 	}
 
 	if idleWatchDog || busyWatchDog {

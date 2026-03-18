@@ -1,21 +1,28 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate, useOutletContext } from 'react-router-dom'
 import { agentsApi } from '../utils/api'
+import { useAuth } from '../context/AuthContext'
+import { useUserMap } from '../hooks/useUserMap'
+import UserGroupSection from '../components/UserGroupSection'
 
 export default function Agents() {
   const { addToast } = useOutletContext()
   const navigate = useNavigate()
+  const { isAdmin, authEnabled, user } = useAuth()
+  const userMap = useUserMap()
   const [agents, setAgents] = useState([])
   const [loading, setLoading] = useState(true)
   const [agentHubURL, setAgentHubURL] = useState('')
   const [search, setSearch] = useState('')
+  const [userGroups, setUserGroups] = useState(null)
 
   const fetchAgents = useCallback(async () => {
     try {
-      const data = await agentsApi.list()
+      const data = await agentsApi.list(isAdmin && authEnabled)
       const names = Array.isArray(data.agents) ? data.agents : []
       const statuses = data.statuses || {}
       if (data.agent_hub_url) setAgentHubURL(data.agent_hub_url)
+      setUserGroups(data.user_groups || null)
       
       // Fetch observable counts for each agent
       const agentsWithCounts = await Promise.all(
@@ -40,7 +47,7 @@ export default function Agents() {
     } finally {
       setLoading(false)
     }
-  }, [addToast])
+  }, [addToast, isAdmin, authEnabled])
 
   useEffect(() => {
     fetchAgents()
@@ -187,7 +194,7 @@ export default function Agents() {
         <div style={{ display: 'flex', justifyContent: 'center', padding: 'var(--spacing-xl)' }}>
           <i className="fas fa-spinner fa-spin" style={{ fontSize: '2rem', color: 'var(--color-primary)' }} />
         </div>
-      ) : agents.length === 0 ? (
+      ) : agents.length === 0 && !userGroups ? (
         <div className="empty-state">
           <div className="empty-state-icon"><i className="fas fa-robot" /></div>
           <h2 className="empty-state-title">No agents configured</h2>
@@ -214,6 +221,7 @@ export default function Agents() {
         </div>
       ) : (
         <>
+          {userGroups && <h2 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: 'var(--spacing-md)' }}>Your Agents</h2>}
           <div className="agents-toolbar">
             <div className="agents-search">
               <i className="fas fa-search" />
@@ -314,7 +322,38 @@ export default function Agents() {
               </table>
             </div>
           )}
+
         </>
+      )}
+
+      {userGroups && (
+        <UserGroupSection
+          title="Other Users' Agents"
+          userGroups={userGroups}
+          userMap={userMap}
+          currentUserId={user?.id}
+          itemKey="agents"
+          renderGroup={(items) => (
+            <div className="table-container">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(items || []).map(a => (
+                    <tr key={a.name}>
+                      <td style={{ fontWeight: 500 }}>{a.name}</td>
+                      <td>{statusBadge(a.active ? 'active' : 'paused')}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        />
       )}
     </div>
   )

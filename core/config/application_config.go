@@ -96,6 +96,20 @@ type ApplicationConfig struct {
 
 	// Agent Pool (LocalAGI integration)
 	AgentPool AgentPoolConfig
+
+	// Authentication & Authorization
+	Auth AuthConfig
+}
+
+// AuthConfig holds configuration for user authentication and authorization.
+type AuthConfig struct {
+	Enabled            bool
+	DatabaseURL        string // "postgres://..." or file path for SQLite
+	GitHubClientID     string
+	GitHubClientSecret string
+	BaseURL            string // for OAuth callback URLs (e.g. "http://localhost:8080")
+	AdminEmail         string // auto-promote to admin on login
+	RegistrationMode   string // "open" (default), "approval", "invite"
 }
 
 // AgentPoolConfig holds configuration for the LocalAGI agent pool integration.
@@ -150,6 +164,8 @@ func NewApplicationConfig(o ...AppOption) *ApplicationConfig {
 			"/favicon.svg",
 			"/readyz",
 			"/healthz",
+			"/api/auth/",
+			"/assets/",
 		},
 	}
 	for _, oo := range o {
@@ -708,6 +724,50 @@ func WithAgentPoolCollectionDBPath(path string) AppOption {
 func WithAgentHubURL(url string) AppOption {
 	return func(o *ApplicationConfig) {
 		o.AgentPool.AgentHubURL = url
+	}
+}
+
+// Auth options
+
+func WithAuthEnabled(enabled bool) AppOption {
+	return func(o *ApplicationConfig) {
+		o.Auth.Enabled = enabled
+	}
+}
+
+func WithAuthDatabaseURL(url string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.Auth.DatabaseURL = url
+	}
+}
+
+func WithAuthGitHubClientID(clientID string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.Auth.GitHubClientID = clientID
+	}
+}
+
+func WithAuthGitHubClientSecret(clientSecret string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.Auth.GitHubClientSecret = clientSecret
+	}
+}
+
+func WithAuthBaseURL(baseURL string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.Auth.BaseURL = baseURL
+	}
+}
+
+func WithAuthAdminEmail(email string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.Auth.AdminEmail = email
+	}
+}
+
+func WithAuthRegistrationMode(mode string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.Auth.RegistrationMode = mode
 	}
 }
 

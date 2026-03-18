@@ -28,6 +28,7 @@ func RegisterAnthropicRoutes(app *echo.Echo,
 	)
 
 	messagesMiddleware := []echo.MiddlewareFunc{
+		middleware.UsageMiddleware(application.AuthDB()),
 		middleware.TraceMiddleware(application),
 		re.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_CHAT)),
 		re.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.AnthropicRequest) }),

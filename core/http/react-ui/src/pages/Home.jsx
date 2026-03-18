@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate, useOutletContext } from 'react-router-dom'
 import { apiUrl } from '../utils/basePath'
+import { useAuth } from '../context/AuthContext'
 import ModelSelector from '../components/ModelSelector'
 import UnifiedMCPDropdown from '../components/UnifiedMCPDropdown'
 import { useResources } from '../hooks/useResources'
@@ -25,6 +26,7 @@ const placeholderMessages = [
 export default function Home() {
   const navigate = useNavigate()
   const { addToast } = useOutletContext()
+  const { isAdmin } = useAuth()
   const { resources } = useResources()
   const [configuredModels, setConfiguredModels] = useState(null)
   const configuredModelsRef = useRef(configuredModels)
@@ -317,15 +319,19 @@ export default function Home() {
 
           {/* Quick links */}
           <div className="home-quick-links">
-            <button className="home-link-btn" onClick={() => navigate('/app/manage')}>
-              <i className="fas fa-desktop" /> Installed Models and Backends
-            </button>
-            <button className="home-link-btn" onClick={() => navigate('/app/models')}>
-              <i className="fas fa-download" /> Browse Gallery
-            </button>
-            <button className="home-link-btn" onClick={() => navigate('/app/import-model')}>
-              <i className="fas fa-upload" /> Import Model
-            </button>
+            {isAdmin && (
+              <>
+                <button className="home-link-btn" onClick={() => navigate('/app/manage')}>
+                  <i className="fas fa-desktop" /> Installed Models and Backends
+                </button>
+                <button className="home-link-btn" onClick={() => navigate('/app/models')}>
+                  <i className="fas fa-download" /> Browse Gallery
+                </button>
+                <button className="home-link-btn" onClick={() => navigate('/app/import-model')}>
+                  <i className="fas fa-upload" /> Import Model
+                </button>
+              </>
+            )}
             <a className="home-link-btn" href="https://localai.io" target="_blank" rel="noopener noreferrer">
               <i className="fas fa-book" /> Documentation
             </a>
@@ -371,8 +377,8 @@ export default function Home() {
             </div>
           )}
         </>
-      ) : (
-        /* No models installed wizard */
+      ) : isAdmin ? (
+        /* No models installed wizard (admin) */
         <div className="home-wizard">
           <div className="home-wizard-hero">
             <h1>No Models Installed</h1>
@@ -440,6 +446,20 @@ export default function Home() {
             </button>
             <a className="btn btn-secondary" href="https://localai.io/docs/getting-started" target="_blank" rel="noopener noreferrer">
               <i className="fas fa-book" /> Getting Started
+            </a>
+          </div>
+        </div>
+      ) : (
+        /* No models available (non-admin) */
+        <div className="home-wizard">
+          <div className="home-wizard-hero">
+            <img src={apiUrl('/static/logo.png')} alt="LocalAI" className="home-logo" />
+            <h1>No Models Available</h1>
+            <p>There are no models installed yet. Ask your administrator to set up models so you can start chatting.</p>
+          </div>
+          <div className="home-wizard-actions">
+            <a className="btn btn-secondary" href="https://localai.io" target="_blank" rel="noopener noreferrer">
+              <i className="fas fa-book" /> Documentation
             </a>
           </div>
         </div>

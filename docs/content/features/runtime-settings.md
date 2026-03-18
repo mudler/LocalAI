@@ -63,6 +63,8 @@ You can configure these settings via the web UI or through environment variables
 - **CSRF**: Enable CSRF protection middleware
 - **API Keys**: Manage API keys for authentication (one per line or comma-separated)
 
+For multi-user authentication with roles, OAuth, and usage tracking, see [Authentication & Authorization]({{%relref "features/authentication" %}}).
+
 ### P2P Settings
 
 Configure peer-to-peer networking for distributed inference:

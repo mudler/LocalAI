@@ -169,13 +169,13 @@ export const p2pApi = {
 
 // Agent Jobs API
 export const agentJobsApi = {
-  listTasks: () => fetchJSON(API_CONFIG.endpoints.agentTasks),
+  listTasks: (allUsers) => fetchJSON(`${API_CONFIG.endpoints.agentTasks}${allUsers ? '?all_users=true' : ''}`),
   getTask: (id) => fetchJSON(API_CONFIG.endpoints.agentTask(id)),
   createTask: (body) => postJSON(API_CONFIG.endpoints.agentTasks, body),
   updateTask: (id, body) => fetchJSON(API_CONFIG.endpoints.agentTask(id), { method: 'PUT', body: JSON.stringify(body), headers: { 'Content-Type': 'application/json' } }),
   deleteTask: (id) => fetchJSON(API_CONFIG.endpoints.agentTask(id), { method: 'DELETE' }),
   executeTask: (name) => postJSON(API_CONFIG.endpoints.executeAgentTask(name), {}),
-  listJobs: () => fetchJSON(API_CONFIG.endpoints.agentJobs),
+  listJobs: (allUsers) => fetchJSON(`${API_CONFIG.endpoints.agentJobs}${allUsers ? '?all_users=true' : ''}`),
   getJob: (id) => fetchJSON(API_CONFIG.endpoints.agentJob(id)),
   cancelJob: (id) => postJSON(API_CONFIG.endpoints.cancelAgentJob(id), {}),
   executeJob: (body) => postJSON(API_CONFIG.endpoints.executeAgentJob, body),
@@ -264,7 +264,7 @@ export const systemApi = {
 }
 
 export const agentsApi = {
-  list: () => fetchJSON('/api/agents'),
+  list: (allUsers) => fetchJSON(`/api/agents${allUsers ? '?all_users=true' : ''}`),
   create: (config) => postJSON('/api/agents', config),
   get: (name) => fetchJSON(`/api/agents/${encodeURIComponent(name)}`),
   getConfig: (name) => fetchJSON(`/api/agents/${encodeURIComponent(name)}/config`),
@@ -282,7 +282,7 @@ export const agentsApi = {
 }
 
 export const agentCollectionsApi = {
-  list: () => fetchJSON('/api/agents/collections'),
+  list: (allUsers) => fetchJSON(`/api/agents/collections${allUsers ? '?all_users=true' : ''}`),
   create: (name) => postJSON('/api/agents/collections', { name }),
   upload: (name, formData) => fetch(apiUrl(`/api/agents/collections/${encodeURIComponent(name)}/upload`), { method: 'POST', body: formData }).then(handleResponse),
   entries: (name) => fetchJSON(`/api/agents/collections/${encodeURIComponent(name)}/entries`),
@@ -297,7 +297,7 @@ export const agentCollectionsApi = {
 
 // Skills API
 export const skillsApi = {
-  list: () => fetchJSON('/api/agents/skills'),
+  list: (allUsers) => fetchJSON(`/api/agents/skills${allUsers ? '?all_users=true' : ''}`),
   search: (q) => fetchJSON(`/api/agents/skills/search?q=${encodeURIComponent(q)}`),
   get: (name) => fetchJSON(`/api/agents/skills/${encodeURIComponent(name)}`),
   create: (data) => postJSON('/api/agents/skills', data),
@@ -315,6 +315,66 @@ export const skillsApi = {
   syncGitRepo: (id) => postJSON(`/api/agents/git-repos/${encodeURIComponent(id)}/sync`, {}),
   toggleGitRepo: (id) => postJSON(`/api/agents/git-repos/${encodeURIComponent(id)}/toggle`, {}),
   deleteGitRepo: (id) => fetchJSON(`/api/agents/git-repos/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+}
+
+// Usage API
+export const usageApi = {
+  getMyUsage: (period) => fetchJSON(`/api/auth/usage?period=${period || 'month'}`),
+  getAdminUsage: (period, userId) => {
+    let url = `/api/auth/admin/usage?period=${period || 'month'}`
+    if (userId) url += `&user_id=${encodeURIComponent(userId)}`
+    return fetchJSON(url)
+  },
+}
+
+// Admin Users API
+export const adminUsersApi = {
+  list: () => fetchJSON('/api/auth/admin/users'),
+  setRole: (id, role) => fetchJSON(`/api/auth/admin/users/${encodeURIComponent(id)}/role`, {
+    method: 'PUT', body: JSON.stringify({ role }), headers: { 'Content-Type': 'application/json' },
+  }),
+  delete: (id) => fetchJSON(`/api/auth/admin/users/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  setStatus: (id, status) => fetchJSON(`/api/auth/admin/users/${encodeURIComponent(id)}/status`, {
+    method: 'PUT', body: JSON.stringify({ status }), headers: { 'Content-Type': 'application/json' },
+  }),
+  getPermissions: (id) => fetchJSON(`/api/auth/admin/users/${encodeURIComponent(id)}/permissions`),
+  setPermissions: (id, perms) => fetchJSON(`/api/auth/admin/users/${encodeURIComponent(id)}/permissions`, {
+    method: 'PUT', body: JSON.stringify(perms), headers: { 'Content-Type': 'application/json' },
+  }),
+}
+
+// Profile API
+export const profileApi = {
+  get: () => fetchJSON('/api/auth/me'),
+  updateName: (name) => fetchJSON('/api/auth/profile', {
+    method: 'PUT', body: JSON.stringify({ name }), headers: { 'Content-Type': 'application/json' },
+  }),
+  updateProfile: (name, avatarUrl) => fetchJSON('/api/auth/profile', {
+    method: 'PUT', body: JSON.stringify({ name, avatar_url: avatarUrl || '' }), headers: { 'Content-Type': 'application/json' },
+  }),
+  changePassword: (currentPassword, newPassword) => fetchJSON('/api/auth/password', {
+    method: 'PUT', body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
+    headers: { 'Content-Type': 'application/json' },
+  }),
+}
+
+// Admin Invites API
+export const adminInvitesApi = {
+  list: () => fetchJSON('/api/auth/admin/invites'),
+  create: (expiresInHours = 168) => postJSON('/api/auth/admin/invites', { expiresInHours }),
+  delete: (id) => fetchJSON(`/api/auth/admin/invites/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+}
+
+// Invite API (public)
+export const inviteApi = {
+  check: (code) => fetchJSON(`/api/auth/invite/${encodeURIComponent(code)}/check`),
+}
+
+// API Keys
+export const apiKeysApi = {
+  list: () => fetchJSON('/api/auth/api-keys'),
+  create: (name) => postJSON('/api/auth/api-keys', { name }),
+  revoke: (id) => fetchJSON(`/api/auth/api-keys/${encodeURIComponent(id)}`, { method: 'DELETE' }),
 }
 
 // File to base64 helper

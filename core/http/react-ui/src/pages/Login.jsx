@@ -1,58 +1,342 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext'
 import { apiUrl } from '../utils/basePath'
+import { inviteApi } from '../utils/api'
 
 export default function Login() {
   const navigate = useNavigate()
-  const [token, setToken] = useState('')
-  const [error, setError] = useState('')
+  const { code: urlInviteCode } = useParams()
+  const { authEnabled, user, loading: authLoading, refresh } = useAuth()
+  const [providers, setProviders] = useState([])
+  const [hasUsers, setHasUsers] = useState(true)
+  const [registrationMode, setRegistrationMode] = useState('open')
+  const [statusLoading, setStatusLoading] = useState(true)
 
-  const handleSubmit = (e) => {
+  // Form state
+  const [mode, setMode] = useState('login') // 'login' or 'register'
+  const [email, setEmail] = useState('')
+  const [name, setName] = useState('')
+  const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [inviteCode, setInviteCode] = useState('')
+  const [inviteValid, setInviteValid] = useState(null) // null=unchecked, true/false
+  const [error, setError] = useState('')
+  const [message, setMessage] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [showTokenLogin, setShowTokenLogin] = useState(false)
+  const [token, setToken] = useState('')
+
+  // Pre-fill invite code from URL and switch to register mode
+  useEffect(() => {
+    if (urlInviteCode) {
+      setInviteCode(urlInviteCode)
+      setMode('register')
+    }
+  }, [urlInviteCode])
+
+  useEffect(() => {
+    fetch(apiUrl('/api/auth/status'))
+      .then(r => r.json())
+      .then(data => {
+        setProviders(data.providers || [])
+        setHasUsers(data.hasUsers !== false)
+        setRegistrationMode(data.registrationMode || 'open')
+        if (!data.hasUsers) setMode('register')
+        setStatusLoading(false)
+      })
+      .catch(() => setStatusLoading(false))
+  }, [])
+
+  // Validate invite code when pre-filled from URL
+  useEffect(() => {
+    if (urlInviteCode && urlInviteCode.length > 0) {
+      inviteApi.check(urlInviteCode)
+        .then(data => setInviteValid(data.valid === true))
+        .catch(() => setInviteValid(false))
+    }
+  }, [urlInviteCode])
+
+  // Redirect if auth is disabled or user is already logged in
+  useEffect(() => {
+    if (!authLoading && (!authEnabled || user)) {
+      navigate('/app', { replace: true })
+    }
+  }, [authLoading, authEnabled, user, navigate])
+
+  const handleEmailLogin = async (e) => {
+    e.preventDefault()
+    setError('')
+    setMessage('')
+    setSubmitting(true)
+
+    try {
+      const res = await fetch(apiUrl('/api/auth/login'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      })
+      const data = await res.json()
+
+      if (!res.ok) {
+        setError(data.error || 'Login failed')
+        setSubmitting(false)
+        return
+      }
+
+      await refresh()
+    } catch {
+      setError('Network error')
+      setSubmitting(false)
+    }
+  }
+
+  const handleRegister = async (e) => {
+    e.preventDefault()
+    setError('')
+    setMessage('')
+
+    if (password !== confirmPassword) {
+      setError('Passwords do not match')
+      return
+    }
+
+    setSubmitting(true)
+
+    try {
+      const body = { email, password, name }
+      if (inviteCode) {
+        body.inviteCode = inviteCode
+      }
+
+      const res = await fetch(apiUrl('/api/auth/register'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      const data = await res.json()
+
+      if (!res.ok) {
+        setError(data.error || 'Registration failed')
+        setSubmitting(false)
+        return
+      }
+
+      if (data.pending) {
+        setMessage(data.message || 'Registration successful, awaiting approval.')
+        setSubmitting(false)
+        return
+      }
+
+      await refresh()
+    } catch {
+      setError('Network error')
+      setSubmitting(false)
+    }
+  }
+
+  const handleTokenLogin = (e) => {
     e.preventDefault()
     if (!token.trim()) {
       setError('Please enter a token')
       return
     }
-    // Set token as cookie
     document.cookie = `token=${encodeURIComponent(token.trim())}; path=/; SameSite=Strict`
-    navigate('/app')
+    window.location.href = '/app'
   }
 
+  if (authLoading || statusLoading) return null
+
+  const hasGitHub = providers.includes('github')
+  const hasLocal = providers.includes('local')
+  const showInviteField = (registrationMode === 'invite' || registrationMode === 'approval') && mode === 'register' && hasUsers
+  const inviteRequired = registrationMode === 'invite' && hasUsers
+
+  // Build GitHub login URL with invite code if present
+  const githubLoginUrl = inviteCode
+    ? apiUrl(`/api/auth/github/login?invite_code=${encodeURIComponent(inviteCode)}`)
+    : apiUrl('/api/auth/github/login')
+
   return (
-    <div style={{
-      minHeight: '100vh',
-      background: 'var(--color-bg-primary)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: 'var(--spacing-xl)',
-    }}>
-      <div className="card" style={{ width: '100%', maxWidth: '400px', padding: 'var(--spacing-xl)' }}>
-        <div style={{ textAlign: 'center', marginBottom: 'var(--spacing-xl)' }}>
-          <img src={apiUrl('/static/logo.png')} alt="LocalAI" style={{ width: 64, height: 64, marginBottom: 'var(--spacing-md)' }} />
-          <h1 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: 'var(--spacing-xs)' }}>
-            <span className="text-gradient">LocalAI</span>
-          </h1>
-          <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.875rem' }}>Enter your API token to continue</p>
+    <div className="login-page">
+      <div className="card login-card">
+        <div className="login-header">
+          <img src={apiUrl('/static/logo.png')} alt="LocalAI" className="login-logo" />
+          <p className="login-subtitle">
+            {!hasUsers ? 'Create your admin account' : mode === 'register' ? 'Create an account' : 'Sign in to continue'}
+          </p>
         </div>
 
-        <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label className="form-label">API Token</label>
-            <input
-              className="input"
-              type="password"
-              value={token}
-              onChange={(e) => { setToken(e.target.value); setError('') }}
-              placeholder="Enter token..."
-              autoFocus
-            />
-            {error && <p style={{ color: 'var(--color-error)', fontSize: '0.8125rem', marginTop: 'var(--spacing-xs)' }}>{error}</p>}
-          </div>
-          <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>
-            <i className="fas fa-sign-in-alt" /> Login
+        {urlInviteCode && inviteValid === false && (
+          <div className="login-alert login-alert-error">This invite link is invalid or has expired.</div>
+        )}
+
+        {urlInviteCode && inviteValid === true && (
+          <div className="login-alert login-alert-success">Invite code accepted. Create your account below.</div>
+        )}
+
+        {error && (
+          <div className="login-alert login-alert-error">{error}</div>
+        )}
+
+        {message && (
+          <div className="login-alert login-alert-success">{message}</div>
+        )}
+
+        {hasGitHub && (
+          <>
+            <a
+              href={githubLoginUrl}
+              className="btn btn-primary"
+              style={{ width: '100%', justifyContent: 'center', textDecoration: 'none' }}
+            >
+              <i className="fab fa-github" /> Sign in with GitHub
+            </a>
+            {hasLocal && (
+              <div className="login-divider">or</div>
+            )}
+          </>
+        )}
+
+        {hasLocal && mode === 'login' && (
+          <form onSubmit={handleEmailLogin}>
+            <div className="form-group">
+              <label className="form-label">Email</label>
+              <input
+                className="input"
+                type="email"
+                value={email}
+                onChange={(e) => { setEmail(e.target.value); setError('') }}
+                placeholder="you@example.com"
+                autoFocus={!hasGitHub}
+                required
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Password</label>
+              <input
+                className="input"
+                type="password"
+                value={password}
+                onChange={(e) => { setPassword(e.target.value); setError('') }}
+                placeholder="Enter password..."
+                required
+              />
+            </div>
+            <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={submitting}>
+              {submitting ? 'Signing in...' : 'Sign In'}
+            </button>
+            <p className="login-footer">
+              Don't have an account?{' '}
+              <button type="button" className="login-link" onClick={() => { setMode('register'); setError(''); setMessage('') }}>
+                Register
+              </button>
+            </p>
+          </form>
+        )}
+
+        {hasLocal && mode === 'register' && (
+          <form onSubmit={handleRegister}>
+            {showInviteField && (
+              <div className="form-group">
+                <label className="form-label">
+                  Invite Code{inviteRequired ? ' (required)' : ' (optional — skip the approval wait)'}
+                </label>
+                <input
+                  className="input"
+                  type="text"
+                  value={inviteCode}
+                  onChange={(e) => { setInviteCode(e.target.value); setError('') }}
+                  placeholder="Paste your invite code..."
+                  required={inviteRequired}
+                  readOnly={!!urlInviteCode}
+                />
+              </div>
+            )}
+            <div className="form-group">
+              <label className="form-label">Email</label>
+              <input
+                className="input"
+                type="email"
+                value={email}
+                onChange={(e) => { setEmail(e.target.value); setError('') }}
+                placeholder="you@example.com"
+                autoFocus
+                required
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Name</label>
+              <input
+                className="input"
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Your name (optional)"
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Password</label>
+              <input
+                className="input"
+                type="password"
+                value={password}
+                onChange={(e) => { setPassword(e.target.value); setError('') }}
+                placeholder="At least 8 characters"
+                minLength={8}
+                required
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Confirm Password</label>
+              <input
+                className="input"
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => { setConfirmPassword(e.target.value); setError('') }}
+                placeholder="Repeat password"
+                required
+              />
+            </div>
+            <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={submitting}>
+              {submitting ? 'Creating account...' : !hasUsers ? 'Create Admin Account' : 'Register'}
+            </button>
+            {hasUsers && (
+              <p className="login-footer">
+                Already have an account?{' '}
+                <button type="button" className="login-link" onClick={() => { setMode('login'); setError(''); setMessage('') }}>
+                  Sign in
+                </button>
+              </p>
+            )}
+          </form>
+        )}
+
+        {/* Token login fallback */}
+        <div className="login-token-toggle">
+          <button
+            type="button"
+            onClick={() => setShowTokenLogin(!showTokenLogin)}
+          >
+            {showTokenLogin ? 'Hide token login' : 'Login with API Token'}
           </button>
-        </form>
+          {showTokenLogin && (
+            <form onSubmit={handleTokenLogin} className="login-token-form">
+              <div className="form-group">
+                <input
+                  className="input"
+                  type="password"
+                  value={token}
+                  onChange={(e) => { setToken(e.target.value); setError('') }}
+                  placeholder="Enter API token..."
+                />
+              </div>
+              <button type="submit" className="btn btn-secondary" style={{ width: '100%' }}>
+                <i className="fas fa-key" /> Login with Token
+              </button>
+            </form>
+          )}
+        </div>
       </div>
     </div>
   )

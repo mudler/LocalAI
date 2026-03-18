@@ -1,25 +1,32 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate, useOutletContext } from 'react-router-dom'
 import { agentCollectionsApi } from '../utils/api'
+import { useAuth } from '../context/AuthContext'
+import { useUserMap } from '../hooks/useUserMap'
+import UserGroupSection from '../components/UserGroupSection'
 
 export default function Collections() {
   const { addToast } = useOutletContext()
   const navigate = useNavigate()
+  const { isAdmin, authEnabled, user } = useAuth()
+  const userMap = useUserMap()
   const [collections, setCollections] = useState([])
   const [loading, setLoading] = useState(true)
   const [newName, setNewName] = useState('')
   const [creating, setCreating] = useState(false)
+  const [userGroups, setUserGroups] = useState(null)
 
   const fetchCollections = useCallback(async () => {
     try {
-      const data = await agentCollectionsApi.list()
+      const data = await agentCollectionsApi.list(isAdmin && authEnabled)
       setCollections(Array.isArray(data.collections) ? data.collections : [])
+      setUserGroups(data.user_groups || null)
     } catch (err) {
       addToast(`Failed to load collections: ${err.message}`, 'error')
     } finally {
       setLoading(false)
     }
-  }, [addToast])
+  }, [addToast, isAdmin, authEnabled])
 
   useEffect(() => {
     fetchCollections()
@@ -115,13 +122,18 @@ export default function Collections() {
         <div style={{ display: 'flex', justifyContent: 'center', padding: 'var(--spacing-xl)' }}>
           <i className="fas fa-spinner fa-spin" style={{ fontSize: '2rem', color: 'var(--color-text-muted)' }} />
         </div>
-      ) : collections.length === 0 ? (
+      ) : collections.length === 0 && !userGroups ? (
         <div className="empty-state">
           <div className="empty-state-icon"><i className="fas fa-database" /></div>
           <h2 className="empty-state-title">No collections yet</h2>
           <p className="empty-state-text">Create a collection above to start building your knowledge base.</p>
         </div>
       ) : (
+        <>
+        {userGroups && <h2 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: 'var(--spacing-md)' }}>Your Collections</h2>}
+        {collections.length === 0 ? (
+          <p style={{ color: 'var(--color-text-secondary)', marginBottom: 'var(--spacing-md)' }}>You have no collections yet.</p>
+        ) : (
         <div className="collections-grid">
           {collections.map((collection) => {
             const name = typeof collection === 'string' ? collection : collection.name
@@ -146,6 +158,33 @@ export default function Collections() {
             )
           })}
         </div>
+        )}
+        </>
+      )}
+
+      {userGroups && (
+        <UserGroupSection
+          title="Other Users' Collections"
+          userGroups={userGroups}
+          userMap={userMap}
+          currentUserId={user?.id}
+          itemKey="collections"
+          renderGroup={(items) => (
+            <div className="collections-grid">
+              {(items || []).map((col) => {
+                const name = typeof col === 'string' ? col : col.name
+                return (
+                  <div className="card" key={name}>
+                    <div className="collections-card-name">
+                      <i className="fas fa-folder" style={{ marginRight: 'var(--spacing-xs)', color: 'var(--color-text-muted)' }} />
+                      {name}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        />
       )}
     </div>
   )

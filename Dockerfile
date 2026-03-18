@@ -256,7 +256,7 @@ RUN apt-get update && \
 
 FROM build-requirements AS builder-base
 
-ARG GO_TAGS=""
+ARG GO_TAGS="auth"
 ARG GRPC_BACKENDS
 ARG MAKEFLAGS
 ARG LD_FLAGS="-s -w"
