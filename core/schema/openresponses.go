@@ -86,7 +86,7 @@ type ORReasoningParam struct {
 // ORItemParam represents an input/output item (discriminated union by type)
 type ORItemParam struct {
 	Type   string `json:"type"`             // message|function_call|function_call_output|reasoning|item_reference
-	ID     string `json:"id,omitempty"`     // Present for all output items
+	ID     string `json:"id"`               // Present for all output items
 	Status string `json:"status,omitempty"` // in_progress|completed|incomplete
 
 	// Message fields
@@ -102,8 +102,8 @@ type ORItemParam struct {
 	Output interface{} `json:"output,omitempty"` // string or []ORContentPart
 
 	// Reasoning fields (for type == "reasoning")
-	Summary         []ORContentPart `json:"summary,omitempty"`          // Array of summary parts
-	EncryptedContent *string        `json:"encrypted_content,omitempty"` // Provider-specific encrypted content
+	Summary          []ORContentPart `json:"summary"`                     // Array of summary parts
+	EncryptedContent *string         `json:"encrypted_content,omitempty"` // Provider-specific encrypted content
 
 	// Note: For item_reference type, use the ID field above to reference the item
 	// Note: For reasoning type, Content field (from message fields) contains the raw reasoning content
