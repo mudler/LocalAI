@@ -136,6 +136,12 @@ func UpdateSettingsEndpoint(app *application.Application) echo.HandlerFunc {
 			appConfig.ApiKeys = append(envKeys, runtimeKeys...)
 		}
 
+		// Update backend logging dynamically
+		if settings.EnableBackendLogging != nil {
+			app.ModelLoader().SetBackendLoggingEnabled(*settings.EnableBackendLogging)
+			xlog.Info("Updated backend logging setting", "enableBackendLogging", *settings.EnableBackendLogging)
+		}
+
 		// Update watchdog dynamically for settings that don't require restart
 		if settings.ForceEvictionWhenBusy != nil {
 			currentWD := app.ModelLoader().GetWatchDog()

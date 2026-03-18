@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import { tracesApi, settingsApi } from '../utils/api'
+import { formatTimestamp } from '../utils/format'
 import LoadingSpinner from '../components/LoadingSpinner'
 import Toggle from '../components/Toggle'
 import SettingRow from '../components/SettingRow'
@@ -17,12 +18,6 @@ function formatDuration(ns) {
   if (ns < 1_000_000) return `${(ns / 1000).toFixed(1)}\u00b5s`
   if (ns < 1_000_000_000) return `${(ns / 1_000_000).toFixed(1)}ms`
   return `${(ns / 1_000_000_000).toFixed(2)}s`
-}
-
-function formatTimestamp(ts) {
-  if (!ts) return '-'
-  const d = new Date(ts)
-  return d.toLocaleTimeString() + '.' + String(d.getMilliseconds()).padStart(3, '0')
 }
 
 function decodeTraceBody(body) {
@@ -75,6 +70,8 @@ const TYPE_COLORS = {
   sound_generation: { bg: 'rgba(20,184,166,0.15)', color: '#2dd4bf' },
   rerank: { bg: 'rgba(99,102,241,0.15)', color: '#818cf8' },
   tokenize: { bg: 'rgba(107,114,128,0.15)', color: '#9ca3af' },
+  detection: { bg: 'rgba(14,165,233,0.15)', color: '#38bdf8' },
+  model_load: { bg: 'rgba(239,68,68,0.15)', color: '#f87171' },
 }
 
 function typeBadgeStyle(type) {
@@ -221,6 +218,18 @@ function BackendTraceDetail({ trace }) {
         </div>
       )}
 
+      {/* Backend logs link */}
+      {trace.model_name && (
+        <div style={{ marginBottom: 'var(--spacing-md)' }}>
+          <a
+            href={`/app/backend-logs/${encodeURIComponent(trace.model_name)}${trace.timestamp ? `?from=${encodeURIComponent(trace.timestamp)}` : ''}`}
+            style={{ fontSize: '0.8125rem', color: 'var(--color-primary)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 'var(--spacing-xs)' }}
+          >
+            <i className="fas fa-terminal" /> View backend logs
+          </a>
+        </div>
+      )}
+
       {/* Audio snippet */}
       {trace.data && <AudioSnippet data={trace.data} />}
 
@@ -234,6 +243,16 @@ function BackendTraceDetail({ trace }) {
 function ApiTraceDetail({ trace }) {
   return (
     <div style={{ padding: 'var(--spacing-md)', background: 'var(--color-bg-secondary)', borderBottom: '1px solid var(--color-border)' }}>
+      {trace.error && (
+        <div style={{
+          background: 'var(--color-error-light)', border: '1px solid var(--color-error-border)',
+          borderRadius: 'var(--radius-md)', padding: 'var(--spacing-sm)', marginBottom: 'var(--spacing-md)',
+          display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)',
+        }}>
+          <i className="fas fa-exclamation-triangle" style={{ color: 'var(--color-error)' }} />
+          <span style={{ color: 'var(--color-error)', fontSize: '0.8125rem', fontFamily: 'monospace', wordBreak: 'break-all' }}>{trace.error}</span>
+        </div>
+      )}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)' }}>
         <div>
           <h4 style={{ fontSize: '0.8125rem', fontWeight: 600, marginBottom: 'var(--spacing-xs)' }}>Request Body</h4>
@@ -452,6 +471,7 @@ export default function Traces() {
                 <th>Method</th>
                 <th>Path</th>
                 <th>Status</th>
+                <th style={{ width: '40px' }}>Result</th>
               </tr>
             </thead>
             <tbody>
@@ -462,10 +482,15 @@ export default function Traces() {
                     <td><span className="badge badge-info">{trace.request?.method || '-'}</span></td>
                     <td style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.8125rem' }}>{trace.request?.path || '-'}</td>
                     <td><span className={`badge ${(trace.response?.status || 0) < 400 ? 'badge-success' : 'badge-error'}`}>{trace.response?.status || '-'}</span></td>
+                    <td style={{ textAlign: 'center' }}>
+                      {trace.error
+                        ? <i className="fas fa-times-circle" style={{ color: 'var(--color-error)' }} title={trace.error} />
+                        : <i className="fas fa-check-circle" style={{ color: 'var(--color-success)' }} />}
+                    </td>
                   </tr>
                   {expandedRow === i && (
                     <tr>
-                      <td colSpan="4" style={{ padding: 0 }}>
+                      <td colSpan="5" style={{ padding: 0 }}>
                         <ApiTraceDetail trace={trace} />
                       </td>
                     </tr>

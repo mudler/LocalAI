@@ -23,6 +23,8 @@ const (
 	BackendTraceSoundGeneration  BackendTraceType = "sound_generation"
 	BackendTraceRerank           BackendTraceType = "rerank"
 	BackendTraceTokenize         BackendTraceType = "tokenize"
+	BackendTraceDetection        BackendTraceType = "detection"
+	BackendTraceModelLoad        BackendTraceType = "model_load"
 )
 
 type BackendTrace struct {

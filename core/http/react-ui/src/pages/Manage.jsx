@@ -204,6 +204,14 @@ export default function Manage() {
                         >
                           <i className="fas fa-pen-to-square" />
                         </a>
+                        <a
+                          href="#"
+                          onClick={(e) => { e.preventDefault(); navigate(`/app/backend-logs/${encodeURIComponent(model.id)}`) }}
+                          style={{ fontSize: '0.75rem', color: 'var(--color-primary)' }}
+                          title="Backend logs"
+                        >
+                          <i className="fas fa-terminal" />
+                        </a>
                       </div>
                     </td>
                     <td>

@@ -18,6 +18,7 @@ func ModelTokenize(s string, loader *model.ModelLoader, modelConfig config.Model
 	opts := ModelOptions(modelConfig, appConfig)
 	inferenceModel, err = loader.Load(opts...)
 	if err != nil {
+		recordModelLoadFailure(appConfig, modelConfig.Name, modelConfig.Backend, err, nil)
 		return schema.TokenizeResponse{}, err
 	}
 

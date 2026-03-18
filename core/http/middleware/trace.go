@@ -29,8 +29,10 @@ type APIExchangeResponse struct {
 
 type APIExchange struct {
 	Timestamp time.Time           `json:"timestamp"`
+	Duration  time.Duration       `json:"duration"`
 	Request   APIExchangeRequest  `json:"request"`
 	Response  APIExchangeResponse `json:"response"`
+	Error     string              `json:"error,omitempty"`
 }
 
 var traceBuffer *circularbuffer.Queue[APIExchange]
@@ -108,13 +110,18 @@ func TraceMiddleware(app *application.Application) echo.MiddlewareFunc {
 			}
 			c.Response().Writer = mw
 
-			err = next(c)
-			if err != nil {
-				c.Response().Writer = mw.ResponseWriter // Restore original writer if error
-				return err
+			handlerErr := next(c)
+
+			// Restore original writer unconditionally
+			c.Response().Writer = mw.ResponseWriter
+
+			// Determine response status (use 500 if handler errored and no status was set)
+			status := c.Response().Status
+			if status == 0 && handlerErr != nil {
+				status = http.StatusInternalServerError
 			}
 
-			// Create exchange log
+			// Create exchange log (always, even on error)
 			requestHeaders := c.Request().Header.Clone()
 			requestBody := make([]byte, len(body))
 			copy(requestBody, body)
@@ -123,6 +130,7 @@ func TraceMiddleware(app *application.Application) echo.MiddlewareFunc {
 			copy(responseBody, resBody.Bytes())
 			exchange := APIExchange{
 				Timestamp: startTime,
+				Duration:  time.Since(startTime),
 				Request: APIExchangeRequest{
 					Method:  c.Request().Method,
 					Path:    c.Path(),
@@ -130,10 +138,13 @@ func TraceMiddleware(app *application.Application) echo.MiddlewareFunc {
 					Body:    &requestBody,
 				},
 				Response: APIExchangeResponse{
-					Status:  c.Response().Status,
+					Status:  status,
 					Headers: &responseHeaders,
 					Body:    &responseBody,
 				},
+			}
+			if handlerErr != nil {
+				exchange.Error = handlerErr.Error()
 			}
 
 			select {
@@ -142,7 +153,7 @@ func TraceMiddleware(app *application.Application) echo.MiddlewareFunc {
 				xlog.Warn("Trace channel full, dropping trace")
 			}
 
-			return nil
+			return handlerErr
 		}
 	}
 }
