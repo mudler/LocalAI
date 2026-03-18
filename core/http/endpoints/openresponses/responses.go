@@ -1332,6 +1332,7 @@ func handleBackgroundStream(ctx context.Context, store *ResponseStore, responseI
 
 // bufferEvent stores an SSE event in the response store for streaming resume
 func bufferEvent(store *ResponseStore, responseID string, event *schema.ORStreamEvent) {
+	normalizeORStreamEvent(event)
 	if err := store.AppendEvent(responseID, event); err != nil {
 		xlog.Error("Failed to buffer event", "response_id", responseID, "error", err)
 	}
@@ -2605,12 +2606,20 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 
 // sendSSEEvent sends a Server-Sent Event
 func sendSSEEvent(c echo.Context, event *schema.ORStreamEvent) {
+	normalizeORStreamEvent(event)
 	data, err := json.Marshal(event)
 	if err != nil {
 		xlog.Error("Failed to marshal SSE event", "error", err)
 		return
 	}
 	fmt.Fprintf(c.Response().Writer, "event: %s\ndata: %s\n\n", event.Type, string(data))
+}
+
+// normalizeORStreamEvent ensures required fields like Summary are never null.
+func normalizeORStreamEvent(event *schema.ORStreamEvent) {
+	if event.Item != nil && event.Item.Summary == nil {
+		event.Item.Summary = []schema.ORContentPart{}
+	}
 }
 
 // getTopLogprobs returns the top_logprobs value, defaulting to 0 if nil
@@ -2691,6 +2700,13 @@ func buildORResponse(responseID string, createdAt int64, completedAt *int64, sta
 	// Ensure output is never null - always an array
 	if outputItems == nil {
 		outputItems = []schema.ORItemField{}
+	}
+
+	// Ensure Summary is never null on any output item
+	for i := range outputItems {
+		if outputItems[i].Summary == nil {
+			outputItems[i].Summary = []schema.ORContentPart{}
+		}
 	}
 
 	// Ensure tools is never null - always an array
