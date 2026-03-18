@@ -14,9 +14,9 @@ import (
 	"github.com/mudler/LocalAI/core/application"
 	"github.com/mudler/LocalAI/core/services"
 	"github.com/mudler/LocalAI/pkg/utils"
-	"github.com/mudler/LocalAGI/core/state"
-	coreTypes "github.com/mudler/LocalAGI/core/types"
-	agiServices "github.com/mudler/LocalAGI/services"
+	"github.com/mudler/LocalAI/pkg/system/state"
+	coreTypes "github.com/mudler/LocalAI/core/types"
+	agiServices "github.com/mudler/LocalAI/services"
 )
 
 func ListAgentsEndpoint(app *application.Application) echo.HandlerFunc {

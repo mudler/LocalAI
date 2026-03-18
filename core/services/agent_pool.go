@@ -15,13 +15,13 @@ import (
 
 	"github.com/mudler/LocalAI/core/config"
 
-	"github.com/mudler/LocalAGI/core/agent"
-	"github.com/mudler/LocalAGI/core/sse"
-	"github.com/mudler/LocalAGI/core/state"
-	coreTypes "github.com/mudler/LocalAGI/core/types"
-	agiServices "github.com/mudler/LocalAGI/services"
-	"github.com/mudler/LocalAGI/services/skills"
-	"github.com/mudler/LocalAGI/webui/collections"
+	"github.com/mudler/LocalAI/core/agent"
+	"github.com/mudler/LocalAI/core/sse"
+	"github.com/mudler/LocalAI/pkg/system/state"
+	coreTypes "github.com/mudler/LocalAI/core/types"
+	agiServices "github.com/mudler/LocalAI/services"
+	"github.com/mudler/LocalAI/services/skills"
+	"github.com/mudler/LocalAI/webui/collections"
 	"github.com/mudler/xlog"
 
 	skilldomain "github.com/mudler/skillserver/pkg/domain"
