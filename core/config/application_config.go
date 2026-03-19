@@ -30,7 +30,7 @@ type ApplicationConfig struct {
 	DynamicConfigsDir             string
 	DynamicConfigsDirPollInterval time.Duration
 	CORS                          bool
-	CSRF                          bool
+	DisableCSRF                   bool
 	PreloadJSONModels             string
 	PreloadModelsFromPath         string
 	CORSAllowOrigins              string
@@ -96,6 +96,26 @@ type ApplicationConfig struct {
 
 	// Agent Pool (LocalAGI integration)
 	AgentPool AgentPoolConfig
+
+	// Authentication & Authorization
+	Auth AuthConfig
+}
+
+// AuthConfig holds configuration for user authentication and authorization.
+type AuthConfig struct {
+	Enabled            bool
+	DatabaseURL        string // "postgres://..." or file path for SQLite
+	GitHubClientID     string
+	GitHubClientSecret string
+	OIDCIssuer         string // OIDC issuer URL for auto-discovery (e.g. https://accounts.google.com)
+	OIDCClientID       string
+	OIDCClientSecret   string
+	BaseURL            string // for OAuth callback URLs (e.g. "http://localhost:8080")
+	AdminEmail         string // auto-promote to admin on login
+	RegistrationMode   string // "open", "approval" (default when empty), "invite"
+	DisableLocalAuth   bool   // disable local email/password registration and login
+	APIKeyHMACSecret   string // HMAC secret for API key hashing; auto-generated if empty
+	DefaultAPIKeyExpiry string // default expiry duration for API keys (e.g. "90d"); empty = no expiry
 }
 
 // AgentPoolConfig holds configuration for the LocalAGI agent pool integration.
@@ -150,6 +170,8 @@ func NewApplicationConfig(o ...AppOption) *ApplicationConfig {
 			"/favicon.svg",
 			"/readyz",
 			"/healthz",
+			"/api/auth/",
+			"/assets/",
 		},
 	}
 	for _, oo := range o {
@@ -194,9 +216,9 @@ func WithP2PNetworkID(s string) AppOption {
 	}
 }
 
-func WithCsrf(b bool) AppOption {
+func WithDisableCSRF(b bool) AppOption {
 	return func(o *ApplicationConfig) {
-		o.CSRF = b
+		o.DisableCSRF = b
 	}
 }
 
@@ -711,6 +733,86 @@ func WithAgentHubURL(url string) AppOption {
 	}
 }
 
+// Auth options
+
+func WithAuthEnabled(enabled bool) AppOption {
+	return func(o *ApplicationConfig) {
+		o.Auth.Enabled = enabled
+	}
+}
+
+func WithAuthDatabaseURL(url string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.Auth.DatabaseURL = url
+	}
+}
+
+func WithAuthGitHubClientID(clientID string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.Auth.GitHubClientID = clientID
+	}
+}
+
+func WithAuthGitHubClientSecret(clientSecret string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.Auth.GitHubClientSecret = clientSecret
+	}
+}
+
+func WithAuthBaseURL(baseURL string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.Auth.BaseURL = baseURL
+	}
+}
+
+func WithAuthAdminEmail(email string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.Auth.AdminEmail = email
+	}
+}
+
+func WithAuthRegistrationMode(mode string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.Auth.RegistrationMode = mode
+	}
+}
+
+func WithAuthDisableLocalAuth(disable bool) AppOption {
+	return func(o *ApplicationConfig) {
+		o.Auth.DisableLocalAuth = disable
+	}
+}
+
+func WithAuthOIDCIssuer(issuer string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.Auth.OIDCIssuer = issuer
+	}
+}
+
+func WithAuthOIDCClientID(clientID string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.Auth.OIDCClientID = clientID
+	}
+}
+
+func WithAuthOIDCClientSecret(clientSecret string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.Auth.OIDCClientSecret = clientSecret
+	}
+}
+
+func WithAuthAPIKeyHMACSecret(secret string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.Auth.APIKeyHMACSecret = secret
+	}
+}
+
+func WithAuthDefaultAPIKeyExpiry(expiry string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.Auth.DefaultAPIKeyExpiry = expiry
+	}
+}
+
 // ToConfigLoaderOptions returns a slice of ConfigLoader Option.
 // Some options defined at the application level are going to be passed as defaults for
 // all the configuration for the models.
@@ -750,7 +852,7 @@ func (o *ApplicationConfig) ToRuntimeSettings() RuntimeSettings {
 	enableTracing := o.EnableTracing
 	enableBackendLogging := o.EnableBackendLogging
 	cors := o.CORS
-	csrf := o.CSRF
+	csrf := o.DisableCSRF
 	corsAllowOrigins := o.CORSAllowOrigins
 	p2pToken := o.P2PToken
 	p2pNetworkID := o.P2PNetworkID
@@ -958,7 +1060,7 @@ func (o *ApplicationConfig) ApplyRuntimeSettings(settings *RuntimeSettings) (req
 		o.CORS = *settings.CORS
 	}
 	if settings.CSRF != nil {
-		o.CSRF = *settings.CSRF
+		o.DisableCSRF = *settings.CSRF
 	}
 	if settings.CORSAllowOrigins != nil {
 		o.CORSAllowOrigins = *settings.CORSAllowOrigins

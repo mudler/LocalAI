@@ -41,7 +41,10 @@ export default function ResourceCards({ metadata, onOpenArtifact, messageIndex, 
         <div
           key={item.id}
           className={`resource-card resource-card-${item.type}`}
+          role="button"
+          tabIndex={0}
           onClick={() => onOpenArtifact && onOpenArtifact(item.id)}
+          onKeyDown={(e) => { if ((e.key === 'Enter' || e.key === ' ') && onOpenArtifact) { e.preventDefault(); onOpenArtifact(item.id) } }}
         >
           {item.type === 'image' ? (
             <img src={item.url} alt={item.title} className="resource-card-thumb" />

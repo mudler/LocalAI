@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { useParams, useNavigate, useLocation, useOutletContext } from 'react-router-dom'
+import { useParams, useNavigate, useLocation, useOutletContext, useSearchParams } from 'react-router-dom'
 import { agentsApi } from '../utils/api'
 import SearchableModelSelect from '../components/SearchableModelSelect'
 import Toggle from '../components/Toggle'
@@ -269,6 +269,8 @@ export default function AgentCreate() {
   const navigate = useNavigate()
   const location = useLocation()
   const { addToast } = useOutletContext()
+  const [searchParams] = useSearchParams()
+  const userId = searchParams.get('user_id') || undefined
   const isEdit = !!name
   const importedConfig = location.state?.importedConfig || null
 
@@ -308,7 +310,7 @@ export default function AgentCreate() {
       try {
         const [metaData, config] = await Promise.all([
           agentsApi.configMeta().catch(() => null),
-          isEdit ? agentsApi.getConfig(name).catch(() => null) : Promise.resolve(null),
+          isEdit ? agentsApi.getConfig(name, userId).catch(() => null) : Promise.resolve(null),
         ])
         if (metaData) setMeta(metaData)
 
@@ -384,7 +386,7 @@ export default function AgentCreate() {
       }
 
       if (isEdit) {
-        await agentsApi.update(name, payload)
+        await agentsApi.update(name, payload, userId)
         addToast(`Agent "${form.name}" updated`, 'success')
       } else {
         await agentsApi.create(payload)

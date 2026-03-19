@@ -90,12 +90,17 @@ The `/v1/responses` endpoint returns errors with this structure:
 
 ### Authentication Errors (401)
 
-When API keys are configured (via `LOCALAI_API_KEY` or `--api-keys`), all requests must include a valid key. Keys can be provided through:
+When authentication is enabled — either via API keys (`LOCALAI_API_KEY`) or the user auth system (`LOCALAI_AUTH=true`) — API requests must include valid credentials. Credentials can be provided through:
 
-- `Authorization: Bearer <key>` header
+- `Authorization: Bearer <key>` header (API key, user API key, or session ID)
 - `x-api-key: <key>` header
 - `xi-api-key: <key>` header
-- `token` cookie
+- `session` cookie (user auth sessions)
+- `token` cookie (legacy API keys)
+
+### Authorization Errors (403)
+
+When user authentication is enabled, admin-only endpoints (model management, system settings, traces, agents, etc.) return 403 if accessed by a non-admin user. See [Authentication & Authorization]({{%relref "features/authentication" %}}) for the full list of admin-only endpoints.
 
 **Example request without a key:**
 

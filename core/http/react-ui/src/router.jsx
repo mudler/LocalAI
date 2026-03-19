@@ -31,15 +31,29 @@ import BackendLogs from './pages/BackendLogs'
 import Explorer from './pages/Explorer'
 import Login from './pages/Login'
 import NotFound from './pages/NotFound'
+import Usage from './pages/Usage'
+import Users from './pages/Users'
+import Account from './pages/Account'
+import RequireAdmin from './components/RequireAdmin'
+import RequireAuth from './components/RequireAuth'
+import RequireFeature from './components/RequireFeature'
 
 function BrowseRedirect() {
   const { '*': splat } = useParams()
   return <Navigate to={`/app/${splat || ''}`} replace />
 }
 
+function Admin({ children }) {
+  return <RequireAdmin>{children}</RequireAdmin>
+}
+
+function Feature({ feature, children }) {
+  return <RequireFeature feature={feature}>{children}</RequireFeature>
+}
+
 const appChildren = [
   { index: true, element: <Home /> },
-  { path: 'models', element: <Models /> },
+  { path: 'models', element: <Admin><Models /></Admin> },
   { path: 'chat', element: <Chat /> },
   { path: 'chat/:model', element: <Chat /> },
   { path: 'image', element: <ImageGen /> },
@@ -51,29 +65,32 @@ const appChildren = [
   { path: 'sound', element: <Sound /> },
   { path: 'sound/:model', element: <Sound /> },
   { path: 'talk', element: <Talk /> },
-  { path: 'manage', element: <Manage /> },
-  { path: 'backends', element: <Backends /> },
-  { path: 'settings', element: <Settings /> },
-  { path: 'traces', element: <Traces /> },
-  { path: 'backend-logs/:modelId', element: <BackendLogs /> },
-  { path: 'p2p', element: <P2P /> },
-  { path: 'agents', element: <Agents /> },
-  { path: 'agents/new', element: <AgentCreate /> },
-  { path: 'agents/:name/edit', element: <AgentCreate /> },
-  { path: 'agents/:name/chat', element: <AgentChat /> },
-  { path: 'agents/:name/status', element: <AgentStatus /> },
-  { path: 'collections', element: <Collections /> },
-  { path: 'collections/:name', element: <CollectionDetails /> },
-  { path: 'skills', element: <Skills /> },
-  { path: 'skills/new', element: <SkillEdit /> },
-  { path: 'skills/edit/:name', element: <SkillEdit /> },
-  { path: 'agent-jobs', element: <AgentJobs /> },
-  { path: 'agent-jobs/tasks/new', element: <AgentTaskDetails /> },
-  { path: 'agent-jobs/tasks/:id', element: <AgentTaskDetails /> },
-  { path: 'agent-jobs/tasks/:id/edit', element: <AgentTaskDetails /> },
-  { path: 'agent-jobs/jobs/:id', element: <AgentJobDetails /> },
-  { path: 'model-editor/:name', element: <ModelEditor /> },
-  { path: 'import-model', element: <ImportModel /> },
+  { path: 'usage', element: <Usage /> },
+  { path: 'account', element: <Account /> },
+  { path: 'users', element: <Admin><Users /></Admin> },
+  { path: 'manage', element: <Admin><Manage /></Admin> },
+  { path: 'backends', element: <Admin><Backends /></Admin> },
+  { path: 'settings', element: <Admin><Settings /></Admin> },
+  { path: 'traces', element: <Admin><Traces /></Admin> },
+  { path: 'backend-logs/:modelId', element: <Admin><BackendLogs /></Admin> },
+  { path: 'p2p', element: <Admin><P2P /></Admin> },
+  { path: 'agents', element: <Feature feature="agents"><Agents /></Feature> },
+  { path: 'agents/new', element: <Feature feature="agents"><AgentCreate /></Feature> },
+  { path: 'agents/:name/edit', element: <Feature feature="agents"><AgentCreate /></Feature> },
+  { path: 'agents/:name/chat', element: <Feature feature="agents"><AgentChat /></Feature> },
+  { path: 'agents/:name/status', element: <Feature feature="agents"><AgentStatus /></Feature> },
+  { path: 'collections', element: <Feature feature="collections"><Collections /></Feature> },
+  { path: 'collections/:name', element: <Feature feature="collections"><CollectionDetails /></Feature> },
+  { path: 'skills', element: <Feature feature="skills"><Skills /></Feature> },
+  { path: 'skills/new', element: <Feature feature="skills"><SkillEdit /></Feature> },
+  { path: 'skills/edit/:name', element: <Feature feature="skills"><SkillEdit /></Feature> },
+  { path: 'agent-jobs', element: <Feature feature="mcp_jobs"><AgentJobs /></Feature> },
+  { path: 'agent-jobs/tasks/new', element: <Feature feature="mcp_jobs"><AgentTaskDetails /></Feature> },
+  { path: 'agent-jobs/tasks/:id', element: <Feature feature="mcp_jobs"><AgentTaskDetails /></Feature> },
+  { path: 'agent-jobs/tasks/:id/edit', element: <Feature feature="mcp_jobs"><AgentTaskDetails /></Feature> },
+  { path: 'agent-jobs/jobs/:id', element: <Feature feature="mcp_jobs"><AgentJobDetails /></Feature> },
+  { path: 'model-editor/:name', element: <Admin><ModelEditor /></Admin> },
+  { path: 'import-model', element: <Admin><ImportModel /></Admin> },
   { path: '*', element: <NotFound /> },
 ]
 
@@ -83,12 +100,16 @@ export const router = createBrowserRouter([
     element: <Login />,
   },
   {
+    path: '/invite/:code',
+    element: <Login />,
+  },
+  {
     path: '/explorer',
     element: <Explorer />,
   },
   {
     path: '/app',
-    element: <App />,
+    element: <RequireAuth><App /></RequireAuth>,
     children: appChildren,
   },
   // Backward compatibility: redirect /browse/* to /app/*

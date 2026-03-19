@@ -73,7 +73,9 @@ var _ = Describe("Backend API Routes", func() {
 
 		// Register the API routes for backends
 		opcache := services.NewOpCache(galleryService)
-		routes.RegisterUIAPIRoutes(app, configLoader, modelLoader, appConfig, galleryService, opcache, nil)
+		// Use a no-op admin middleware for tests
+		noopMw := func(next echo.HandlerFunc) echo.HandlerFunc { return next }
+		routes.RegisterUIAPIRoutes(app, configLoader, modelLoader, appConfig, galleryService, opcache, nil, noopMw)
 	})
 
 	AfterEach(func() {

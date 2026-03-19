@@ -32,6 +32,8 @@ services:
       - models:/models
       - images:/tmp/generated/images/
       - data:/data
+      - backends:/backends
+      - configuration:/configuration
     command:
     # Here we can specify a list of models to run (see quickstart https://localai.io/basics/getting_started/#running-models )
     # or an URL pointing to a YAML configuration file, for example:
@@ -64,7 +66,7 @@ services:
   #     - POSTGRES_USER=localrecall
   #     - POSTGRES_PASSWORD=localrecall
   #   volumes:
-  #     - postgres_data:/var/lib/postgresql/data
+  #     - postgres_data:/var/lib/postgresql
   #   healthcheck:
   #     test: ["CMD-SHELL", "pg_isready -U localrecall"]
   #     interval: 10s
@@ -75,4 +77,6 @@ volumes:
   models:
   images:
   data:
+  configuration:
+  backends:
   # postgres_data:

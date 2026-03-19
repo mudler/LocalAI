@@ -207,7 +207,7 @@ func readRuntimeSettingsJson(startupAppConfig config.ApplicationConfig) fileHand
 		envF16 := appConfig.F16 == startupAppConfig.F16
 		envDebug := appConfig.Debug == startupAppConfig.Debug
 		envCORS := appConfig.CORS == startupAppConfig.CORS
-		envCSRF := appConfig.CSRF == startupAppConfig.CSRF
+		envCSRF := appConfig.DisableCSRF == startupAppConfig.DisableCSRF
 		envCORSAllowOrigins := appConfig.CORSAllowOrigins == startupAppConfig.CORSAllowOrigins
 		envP2PToken := appConfig.P2PToken == startupAppConfig.P2PToken
 		envP2PNetworkID := appConfig.P2PNetworkID == startupAppConfig.P2PNetworkID
@@ -313,7 +313,7 @@ func readRuntimeSettingsJson(startupAppConfig config.ApplicationConfig) fileHand
 				appConfig.CORS = *settings.CORS
 			}
 			if settings.CSRF != nil && !envCSRF {
-				appConfig.CSRF = *settings.CSRF
+				appConfig.DisableCSRF = *settings.CSRF
 			}
 			if settings.CORSAllowOrigins != nil && !envCORSAllowOrigins {
 				appConfig.CORSAllowOrigins = *settings.CORSAllowOrigins

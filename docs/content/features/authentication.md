@@ -1,0 +1,355 @@
++++
+disableToc = false
+title = "🔐 Authentication & Authorization"
+weight = 26
+url = '/features/authentication'
++++
+
+LocalAI supports two authentication modes: **legacy API key authentication** (simple shared keys) and a full **user authentication system** with roles, sessions, OAuth, and per-user usage tracking.
+
+## Legacy API Key Authentication
+
+The simplest way to protect your LocalAI instance is with API keys. Set one or more keys via environment variable or CLI flag:
+
+```bash
+# Single key
+LOCALAI_API_KEY=sk-my-secret-key localai run
+
+# Multiple keys (comma-separated)
+LOCALAI_API_KEY=key1,key2,key3 localai run
+```
+
+Clients provide the key via any of these methods:
+
+- `Authorization: Bearer <key>` header
+- `x-api-key: <key>` header
+- `xi-api-key: <key>` header
+- `token` cookie
+
+Legacy API keys grant **full admin access** — there is no role separation. For multi-user deployments with role-based access, use the user authentication system instead.
+
+API keys can also be managed at runtime through the [Runtime Settings]({{%relref "features/runtime-settings" %}}) interface.
+
+## User Authentication System
+
+The user authentication system provides:
+
+- **User accounts** with email, name, and avatar
+- **Role-based access control** (admin vs. user)
+- **Session-based authentication** with secure cookies
+- **OAuth login** (GitHub) and **OIDC single sign-on** (Keycloak, Google, Okta, Authentik, etc.)
+- **Per-user API keys** for programmatic access
+- **Admin route gating** — management endpoints are restricted to admins
+- **Per-user usage tracking** with token consumption metrics
+
+### Enabling Authentication
+
+Set `LOCALAI_AUTH=true` or provide a GitHub OAuth Client ID or OIDC Client ID (which auto-enables auth):
+
+```bash
+# Enable with SQLite (default, stored at {DataPath}/database.db)
+LOCALAI_AUTH=true localai run
+
+# Enable with GitHub OAuth
+GITHUB_CLIENT_ID=your-client-id \
+GITHUB_CLIENT_SECRET=your-client-secret \
+LOCALAI_BASE_URL=http://localhost:8080 \
+localai run
+
+# Enable with OIDC provider (e.g. Keycloak)
+LOCALAI_OIDC_ISSUER=https://keycloak.example.com/realms/myrealm \
+LOCALAI_OIDC_CLIENT_ID=your-client-id \
+LOCALAI_OIDC_CLIENT_SECRET=your-client-secret \
+LOCALAI_BASE_URL=http://localhost:8080 \
+localai run
+
+# Enable with PostgreSQL
+LOCALAI_AUTH=true \
+LOCALAI_AUTH_DATABASE_URL=postgres://user:pass@host/dbname \
+localai run
+```
+
+### Configuration Reference
+
+| Environment Variable | Default | Description |
+|---|---|---|
+| `LOCALAI_AUTH` | `false` | Enable user authentication and authorization |
+| `LOCALAI_AUTH_DATABASE_URL` | `{DataPath}/database.db` | Database URL — `postgres://...` for PostgreSQL, or a file path for SQLite |
+| `GITHUB_CLIENT_ID` | | GitHub OAuth App Client ID (auto-enables auth when set) |
+| `GITHUB_CLIENT_SECRET` | | GitHub OAuth App Client Secret |
+| `LOCALAI_OIDC_ISSUER` | | OIDC issuer URL for auto-discovery (e.g. `https://accounts.google.com`) |
+| `LOCALAI_OIDC_CLIENT_ID` | | OIDC Client ID (auto-enables auth when set) |
+| `LOCALAI_OIDC_CLIENT_SECRET` | | OIDC Client Secret |
+| `LOCALAI_BASE_URL` | | Base URL for OAuth callbacks (e.g. `http://localhost:8080`) |
+| `LOCALAI_ADMIN_EMAIL` | | Email address to auto-promote to admin role on login |
+| `LOCALAI_REGISTRATION_MODE` | `approval` | Registration mode: `open`, `approval`, or `invite` |
+| `LOCALAI_DISABLE_LOCAL_AUTH` | `false` | Disable local email/password registration and login (for OAuth/OIDC-only deployments) |
+
+### Disabling Local Authentication
+
+If you want to enforce OAuth/OIDC-only login and prevent users from registering or logging in with email/password, set `LOCALAI_DISABLE_LOCAL_AUTH=true` (or pass `--disable-local-auth`):
+
+```bash
+# OAuth-only setup (no email/password)
+LOCALAI_DISABLE_LOCAL_AUTH=true \
+GITHUB_CLIENT_ID=your-client-id \
+GITHUB_CLIENT_SECRET=your-client-secret \
+LOCALAI_BASE_URL=http://localhost:8080 \
+localai run
+```
+
+When disabled:
+- The login page will not show email/password forms (the UI checks the `providers` list from `/api/auth/status`)
+- `POST /api/auth/register` returns `403 Forbidden`
+- `POST /api/auth/login` returns `403 Forbidden`
+- OAuth/OIDC login continues to work normally
+
+### Roles
+
+There are two roles:
+
+- **Admin**: Full access to all endpoints, including model management, backend configuration, system settings, traces, agents, and user management.
+- **User**: Access to inference endpoints only — chat completions, embeddings, image/video/audio generation, TTS, MCP chat, and their own usage statistics.
+
+The **first user** to sign in is automatically assigned the admin role. Additional users can be promoted to admin via the admin user management API or by setting `LOCALAI_ADMIN_EMAIL` to their email address.
+
+### Registration Modes
+
+| Mode | Description |
+|---|---|
+| `open` | Anyone can register and is immediately active |
+| `approval` | New users land in "pending" status until an admin approves them. If a valid invite code is provided during registration, the user is activated immediately (skipping the approval wait). **(default)** |
+| `invite` | Registration requires a valid invite link generated by an admin. Without one, registration is rejected. |
+
+### Invite Links
+
+Admins can generate single-use, time-limited invite links from the **Users → Invites** tab in the web UI, or via the API:
+
+```bash
+# Create an invite link (default: expires in 7 days)
+curl -X POST http://localhost:8080/api/auth/admin/invites \
+  -H "Authorization: Bearer <admin-key>" \
+  -H "Content-Type: application/json" \
+  -d '{"expiresInHours": 168}'
+
+# List all invites
+curl http://localhost:8080/api/auth/admin/invites \
+  -H "Authorization: Bearer <admin-key>"
+
+# Revoke an unused invite
+curl -X DELETE http://localhost:8080/api/auth/admin/invites/<invite-id> \
+  -H "Authorization: Bearer <admin-key>"
+
+# Check if an invite code is valid (public, no auth required)
+curl http://localhost:8080/api/auth/invite/<code>/check
+```
+
+Share the invite URL (`/invite/<code>`) with the user. When they open it, the registration form is pre-filled with the invite code. Invite codes are single-use — once consumed, they cannot be reused. Expired or used invites are rejected.
+
+For GitHub OAuth, the invite code is passed as a query parameter to the login URL (`/api/auth/github/login?invite_code=<code>`) and stored in a cookie during the OAuth flow.
+
+### Admin-Only Endpoints
+
+When authentication is enabled, the following endpoints require admin role:
+
+**Model & Backend Management:**
+- `GET /api/models`, `POST /api/models/install/*`, `POST /api/models/delete/*`
+- `GET /api/backends`, `POST /api/backends/install/*`, `POST /api/backends/delete/*`
+- `GET /api/operations`, `POST /api/operations/*/cancel`
+- `GET /models/available`, `GET /models/galleries`, `GET /models/jobs/*`
+- `GET /backends`, `GET /backends/available`, `GET /backends/galleries`
+
+**System & Monitoring:**
+- `GET /api/traces`, `POST /api/traces/clear`
+- `GET /api/backend-traces`, `POST /api/backend-traces/clear`
+- `GET /api/backend-logs/*`, `POST /api/backend-logs/*/clear`
+- `GET /api/resources`, `GET /api/settings`, `POST /api/settings`
+- `GET /system`, `GET /backend/monitor`, `POST /backend/shutdown`
+
+**P2P:**
+- `GET /api/p2p/*`
+
+**Agents & Jobs:**
+- All `/api/agents/*` endpoints
+- All `/api/agent/tasks/*` and `/api/agent/jobs/*` endpoints
+
+**User-Accessible Endpoints (all authenticated users):**
+- `POST /v1/chat/completions`, `POST /v1/embeddings`, `POST /v1/completions`
+- `POST /v1/images/generations`, `POST /v1/audio/*`, `POST /tts`, `POST /vad`, `POST /video`
+- `GET /v1/models`, `POST /v1/tokenize`, `POST /v1/detection`
+- `POST /v1/mcp/chat/completions`, `POST /v1/messages`, `POST /v1/responses`
+- `POST /stores/*`, `GET /api/cors-proxy`
+- `GET /version`, `GET /api/features`, `GET /swagger/*`, `GET /metrics`
+- `GET /api/auth/usage` (own usage data)
+
+### Web UI Access Control
+
+When auth is enabled, the React UI sidebar dynamically shows/hides sections based on the user's role:
+
+- **All users see**: Home, Chat, Images, Video, TTS, Sound, Talk, Usage, API docs link
+- **Admins also see**: Install Models, Agents section (Agents, Skills, Memory, MCP CI Jobs), System section (Backends, Traces, Swarm, System, Settings)
+
+Admin-only pages are also protected at the router level — navigating directly to an admin URL redirects non-admin users to the home page.
+
+### GitHub OAuth Setup
+
+1. Create a GitHub OAuth App at **Settings → Developer settings → OAuth Apps → New OAuth App**
+2. Set the **Authorization callback URL** to `{LOCALAI_BASE_URL}/api/auth/github/callback`
+3. Set `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET` environment variables
+4. Set `LOCALAI_BASE_URL` to your publicly-accessible URL
+
+### OIDC Setup
+
+Any OIDC-compliant identity provider can be used for single sign-on. This includes Keycloak, Google, Okta, Authentik, Azure AD, and many others.
+
+**Steps:**
+
+1. Create a client/application in your OIDC provider
+2. Set the redirect URL to `{LOCALAI_BASE_URL}/api/auth/oidc/callback`
+3. Set the three environment variables: `LOCALAI_OIDC_ISSUER`, `LOCALAI_OIDC_CLIENT_ID`, `LOCALAI_OIDC_CLIENT_SECRET`
+
+LocalAI uses OIDC auto-discovery (the `/.well-known/openid-configuration` endpoint) and requests the standard scopes: `openid`, `profile`, `email`.
+
+**Provider examples:**
+
+```bash
+# Keycloak
+LOCALAI_OIDC_ISSUER=https://keycloak.example.com/realms/myrealm
+
+# Google
+LOCALAI_OIDC_ISSUER=https://accounts.google.com
+
+# Authentik
+LOCALAI_OIDC_ISSUER=https://authentik.example.com/application/o/localai/
+
+# Okta
+LOCALAI_OIDC_ISSUER=https://your-org.okta.com
+```
+
+For OIDC, invite codes work the same way as GitHub OAuth — the invite code is passed as a query parameter to the login URL (`/api/auth/oidc/login?invite_code=<code>`) and stored in a cookie during the OAuth flow.
+
+### User API Keys
+
+Authenticated users can create personal API keys for programmatic access:
+
+```bash
+# Create an API key (requires session auth)
+curl -X POST http://localhost:8080/api/auth/api-keys \
+  -H "Cookie: session=<session-id>" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "My Script Key"}'
+```
+
+User API keys inherit the creating user's role. Admin keys grant admin access; user keys grant user-level access.
+
+### Auth API Endpoints
+
+| Method | Endpoint | Description | Auth Required |
+|---|---|---|---|
+| `GET` | `/api/auth/status` | Auth state, current user, providers | No |
+| `POST` | `/api/auth/logout` | End session | Yes |
+| `GET` | `/api/auth/me` | Current user info | Yes |
+| `POST` | `/api/auth/api-keys` | Create API key | Yes |
+| `GET` | `/api/auth/api-keys` | List user's API keys | Yes |
+| `DELETE` | `/api/auth/api-keys/:id` | Revoke API key | Yes |
+| `GET` | `/api/auth/usage` | User's own usage stats | Yes |
+| `GET` | `/api/auth/admin/users` | List all users | Admin |
+| `PUT` | `/api/auth/admin/users/:id/role` | Change user role | Admin |
+| `DELETE` | `/api/auth/admin/users/:id` | Delete user | Admin |
+| `GET` | `/api/auth/admin/usage` | All users' usage stats | Admin |
+| `POST` | `/api/auth/admin/invites` | Create invite link | Admin |
+| `GET` | `/api/auth/admin/invites` | List all invites | Admin |
+| `DELETE` | `/api/auth/admin/invites/:id` | Revoke unused invite | Admin |
+| `GET` | `/api/auth/invite/:code/check` | Check if invite code is valid | No |
+| `GET` | `/api/auth/github/login` | Start GitHub OAuth | No |
+| `GET` | `/api/auth/github/callback` | GitHub OAuth callback (internal) | No |
+| `GET` | `/api/auth/oidc/login` | Start OIDC login | No |
+| `GET` | `/api/auth/oidc/callback` | OIDC callback (internal) | No |
+
+## Usage Tracking
+
+When authentication is enabled, LocalAI automatically tracks per-user token usage for inference endpoints. Usage data includes:
+
+- **Prompt tokens**, **completion tokens**, and **total tokens** per request
+- **Model** used and **endpoint** called
+- **Request duration**
+- **Timestamp** for time-series aggregation
+
+### Viewing Usage
+
+Usage is accessible through the **Usage** page in the web UI (visible to all authenticated users) or via the API:
+
+```bash
+# Get your own usage (default: last 30 days)
+curl http://localhost:8080/api/auth/usage?period=month \
+  -H "Authorization: Bearer <key>"
+
+# Admin: get all users' usage
+curl http://localhost:8080/api/auth/admin/usage?period=week \
+  -H "Authorization: Bearer <admin-key>"
+
+# Admin: filter by specific user
+curl "http://localhost:8080/api/auth/admin/usage?period=month&user_id=<user-id>" \
+  -H "Authorization: Bearer <admin-key>"
+```
+
+**Period values:**
+- `day` — last 24 hours, bucketed by hour
+- `week` — last 7 days, bucketed by day
+- `month` — last 30 days, bucketed by day (default)
+- `all` — all time, bucketed by month
+
+**Response format:**
+
+```json
+{
+  "usage": [
+    {
+      "bucket": "2026-03-18",
+      "model": "gpt-4",
+      "user_id": "abc-123",
+      "user_name": "Alice",
+      "prompt_tokens": 1500,
+      "completion_tokens": 800,
+      "total_tokens": 2300,
+      "request_count": 12
+    }
+  ],
+  "totals": {
+    "prompt_tokens": 1500,
+    "completion_tokens": 800,
+    "total_tokens": 2300,
+    "request_count": 12
+  }
+}
+```
+
+### Usage Dashboard
+
+The web UI Usage page provides:
+- **Period selector** — switch between day, week, month, and all-time views
+- **Summary cards** — total requests, prompt tokens, completion tokens, total tokens
+- **By Model table** — per-model breakdown with visual usage bars
+- **By User table** (admin only) — per-user breakdown across all models
+
+## Combining Auth Modes
+
+Legacy API keys and user authentication can be used simultaneously. When both are configured:
+
+1. User sessions and user API keys are checked first
+2. Legacy API keys are checked as fallback — they grant **admin-level access**
+3. This allows a gradual migration from shared API keys to per-user accounts
+
+## Build Requirements
+
+The user authentication system requires CGO for SQLite support. It is enabled with the `auth` build tag, which is included by default in Docker builds.
+
+```bash
+# Building from source with auth support
+GO_TAGS=auth make build
+
+# Or directly with go build
+go build -tags auth ./...
+```
+
+The default Dockerfile includes `GO_TAGS="auth"`, so all Docker images ship with auth support. When building from source without the `auth` tag, setting `LOCALAI_AUTH=true` has no effect — the system operates without authentication.

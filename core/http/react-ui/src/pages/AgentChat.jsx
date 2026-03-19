@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
-import { useParams, useNavigate, useOutletContext } from 'react-router-dom'
+import { useParams, useNavigate, useOutletContext, useSearchParams } from 'react-router-dom'
 import { agentsApi } from '../utils/api'
 import { apiUrl } from '../utils/basePath'
 import { renderMarkdown, highlightAll } from '../utils/markdown'
 import { extractCodeArtifacts, extractMetadataArtifacts, renderMarkdownWithArtifacts } from '../utils/artifacts'
 import CanvasPanel from '../components/CanvasPanel'
 import ResourceCards from '../components/ResourceCards'
+import ConfirmDialog from '../components/ConfirmDialog'
 import { useAgentChat } from '../hooks/useAgentChat'
 
 function relativeTime(ts) {
@@ -86,6 +87,8 @@ export default function AgentChat() {
   const { name } = useParams()
   const navigate = useNavigate()
   const { addToast } = useOutletContext()
+  const [searchParams] = useSearchParams()
+  const userId = searchParams.get('user_id') || undefined
 
   const {
     conversations, activeConversation, activeId,
@@ -104,6 +107,7 @@ export default function AgentChat() {
   const [editingName, setEditingName] = useState(null)
   const [editName, setEditName] = useState('')
   const [chatSearch, setChatSearch] = useState('')
+  const [confirmDialog, setConfirmDialog] = useState(null)
   const [streamContent, setStreamContent] = useState('')
   const [streamReasoning, setStreamReasoning] = useState('')
   const [streamToolCalls, setStreamToolCalls] = useState([])
@@ -126,7 +130,7 @@ export default function AgentChat() {
 
   // Connect to SSE endpoint — only reconnect when agent name changes
   useEffect(() => {
-    const url = apiUrl(`/api/agents/${encodeURIComponent(name)}/sse`)
+    const url = apiUrl(agentsApi.sseUrl(name, userId))
     const es = new EventSource(url)
     eventSourceRef.current = es
 
@@ -223,7 +227,7 @@ export default function AgentChat() {
       es.close()
       eventSourceRef.current = null
     }
-  }, [name, addToast, nextId])
+  }, [name, userId, addToast, nextId])
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -305,12 +309,12 @@ export default function AgentChat() {
     if (textareaRef.current) textareaRef.current.style.height = 'auto'
     setProcessingChatId(activeId)
     try {
-      await agentsApi.chat(name, msg)
+      await agentsApi.chat(name, msg, userId)
     } catch (err) {
       addToast(`Failed to send message: ${err.message}`, 'error')
       setProcessingChatId(null)
     }
-  }, [input, processing, name, activeId, addToast])
+  }, [input, processing, name, activeId, addToast, userId])
 
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -363,7 +367,13 @@ export default function AgentChat() {
           <button
             className="btn btn-secondary btn-sm"
             onClick={() => {
-              if (confirm('Delete all conversations? This cannot be undone.')) deleteAllConversations()
+              setConfirmDialog({
+                title: 'Delete All Conversations',
+                message: 'Delete all conversations? This cannot be undone.',
+                confirmLabel: 'Delete All',
+                danger: true,
+                onConfirm: () => { setConfirmDialog(null); deleteAllConversations() },
+              })
             }}
             title="Delete all conversations"
             style={{ padding: '6px 8px' }}
@@ -493,7 +503,7 @@ export default function AgentChat() {
               <i className="fas fa-layer-group" /> {artifacts.length}
             </button>
           )}
-          <button className="btn btn-secondary btn-sm" onClick={() => navigate(`/app/agents/${encodeURIComponent(name)}/status`)} title="View status & observables">
+          <button className="btn btn-secondary btn-sm" onClick={() => navigate(`/app/agents/${encodeURIComponent(name)}/status${userId ? `?user_id=${encodeURIComponent(userId)}` : ''}`)} title="View status & observables">
             <i className="fas fa-chart-bar" /> Status
           </button>
           <button className="btn btn-secondary btn-sm" onClick={() => clearMessages()} disabled={messages.length === 0} title="Clear chat history">
@@ -667,6 +677,15 @@ export default function AgentChat() {
         onClose={() => setCanvasOpen(false)}
       />
     )}
+    <ConfirmDialog
+      open={!!confirmDialog}
+      title={confirmDialog?.title}
+      message={confirmDialog?.message}
+      confirmLabel={confirmDialog?.confirmLabel}
+      danger={confirmDialog?.danger}
+      onConfirm={confirmDialog?.onConfirm}
+      onCancel={() => setConfirmDialog(null)}
+    />
     </div>
   )
 }

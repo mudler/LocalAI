@@ -88,11 +88,6 @@ func NewAgentJobService(
 	configLoader *config.ModelConfigLoader,
 	evaluator *templates.Evaluator,
 ) *AgentJobService {
-	retentionDays := appConfig.AgentJobRetentionDays
-	if retentionDays == 0 {
-		retentionDays = 30 // Default
-	}
-
 	// Determine storage directory: DataPath > DynamicConfigsDir
 	tasksFile := ""
 	jobsFile := ""
@@ -103,6 +98,22 @@ func NewAgentJobService(
 	if dataDir != "" {
 		tasksFile = filepath.Join(dataDir, "agent_tasks.json")
 		jobsFile = filepath.Join(dataDir, "agent_jobs.json")
+	}
+
+	return NewAgentJobServiceWithPaths(appConfig, modelLoader, configLoader, evaluator, tasksFile, jobsFile)
+}
+
+// NewAgentJobServiceWithPaths creates a new AgentJobService with explicit file paths.
+func NewAgentJobServiceWithPaths(
+	appConfig *config.ApplicationConfig,
+	modelLoader *model.ModelLoader,
+	configLoader *config.ModelConfigLoader,
+	evaluator *templates.Evaluator,
+	tasksFile, jobsFile string,
+) *AgentJobService {
+	retentionDays := appConfig.AgentJobRetentionDays
+	if retentionDays == 0 {
+		retentionDays = 30 // Default
 	}
 
 	return &AgentJobService{

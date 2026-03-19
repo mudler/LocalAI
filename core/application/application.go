@@ -11,6 +11,7 @@ import (
 	"github.com/mudler/LocalAI/core/templates"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/xlog"
+	"gorm.io/gorm"
 )
 
 type Application struct {
@@ -22,6 +23,7 @@ type Application struct {
 	galleryService     *services.GalleryService
 	agentJobService    *services.AgentJobService
 	agentPoolService   atomic.Pointer[services.AgentPoolService]
+	authDB             *gorm.DB
 	watchdogMutex      sync.Mutex
 	watchdogStop       chan bool
 	p2pMutex           sync.Mutex
@@ -74,6 +76,11 @@ func (a *Application) AgentPoolService() *services.AgentPoolService {
 	return a.agentPoolService.Load()
 }
 
+// AuthDB returns the auth database connection, or nil if auth is not enabled.
+func (a *Application) AuthDB() *gorm.DB {
+	return a.authDB
+}
+
 // StartupConfig returns the original startup configuration (from env vars, before file loading)
 func (a *Application) StartupConfig() *config.ApplicationConfig {
 	return a.startupConfig
@@ -118,9 +125,23 @@ func (a *Application) StartAgentPool() {
 		xlog.Error("Failed to create agent pool service", "error", err)
 		return
 	}
+	if a.authDB != nil {
+		aps.SetAuthDB(a.authDB)
+	}
 	if err := aps.Start(a.applicationConfig.Context); err != nil {
 		xlog.Error("Failed to start agent pool", "error", err)
 		return
 	}
+
+	// Wire per-user scoped services so collections, skills, and jobs are isolated per user
+	usm := services.NewUserServicesManager(
+		aps.UserStorage(),
+		a.applicationConfig,
+		a.modelLoader,
+		a.backendLoader,
+		a.templatesEvaluator,
+	)
+	aps.SetUserServicesManager(usm)
+
 	a.agentPoolService.Store(aps)
 }

@@ -93,6 +93,8 @@ export default function SearchableSelect({
         ref={buttonRef}
         type="button"
         className="input"
+        aria-haspopup="listbox"
+        aria-expanded={open}
         onClick={() => { if (!disabled) { setOpen(!open); setQuery(''); setFocusIndex(-1) } }}
         style={{
           width: '100%', padding: '4px 8px', fontSize: '0.8125rem',
@@ -112,7 +114,8 @@ export default function SearchableSelect({
           position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 100, marginTop: 4,
           minWidth: 200, maxHeight: 260, background: 'var(--color-bg-secondary)',
           border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)',
-          boxShadow: '0 4px 12px rgba(0,0,0,0.15)', display: 'flex', flexDirection: 'column',
+          boxShadow: 'var(--shadow-md)', display: 'flex', flexDirection: 'column',
+          animation: 'dropdownIn 120ms ease-out',
         }}>
           <div style={{ padding: '6px', borderBottom: '1px solid var(--color-border-subtle)' }}>
             <input
@@ -126,9 +129,11 @@ export default function SearchableSelect({
               style={{ width: '100%', padding: '4px 8px', fontSize: '0.8125rem' }}
             />
           </div>
-          <div ref={listRef} style={{ overflowY: 'auto', maxHeight: 200 }}>
+          <div ref={listRef} role="listbox" style={{ overflowY: 'auto', maxHeight: 200 }}>
             {allOption && (
               <div
+                role="option"
+                aria-selected={!value}
                 onClick={() => select('')}
                 style={itemStyle(!value, focusIndex === -1 && enterTarget?.type === 'all')}
                 onMouseEnter={() => setFocusIndex(-1)}
@@ -146,6 +151,8 @@ export default function SearchableSelect({
               return (
                 <div
                   key={o.value}
+                  role="option"
+                  aria-selected={isActive}
                   onClick={() => select(o.value)}
                   style={itemStyle(isActive, isFocused)}
                   onMouseEnter={() => setFocusIndex(i)}

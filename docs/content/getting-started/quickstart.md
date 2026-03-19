@@ -12,7 +12,10 @@ icon = "rocket_launch"
 
 **Security considerations**
 
-If you are exposing LocalAI remotely, make sure you protect the API endpoints adequately with a mechanism which allows to protect from the incoming traffic or alternatively, run LocalAI with `API_KEY` to gate the access with an API key. The API key guarantees a total access to the features (there is no role separation), and it is to be considered as likely as an admin role.
+If you are exposing LocalAI remotely, make sure you protect the API endpoints adequately. You have two options:
+
+- **Simple API keys**: Run with `LOCALAI_API_KEY=your-key` to gate access. API keys grant full admin access with no role separation.
+- **User authentication**: Run with `LOCALAI_AUTH=true` for multi-user support with admin/user roles, OAuth login, per-user API keys, and usage tracking. See [Authentication & Authorization]({{%relref "features/authentication" %}}) for details.
 
  {{% /notice %}}
 

@@ -5,6 +5,7 @@ import React from 'react'
 import { useOperations } from '../hooks/useOperations'
 import LoadingSpinner from '../components/LoadingSpinner'
 import { renderMarkdown } from '../utils/markdown'
+import ConfirmDialog from '../components/ConfirmDialog'
 
 export default function Backends() {
   const { addToast } = useOutletContext()
@@ -22,6 +23,7 @@ export default function Backends() {
   const [manualName, setManualName] = useState('')
   const [manualAlias, setManualAlias] = useState('')
   const [expandedRow, setExpandedRow] = useState(null)
+  const [confirmDialog, setConfirmDialog] = useState(null)
   const debounceRef = useRef(null)
 
   const [allBackends, setAllBackends] = useState([])
@@ -94,14 +96,22 @@ export default function Backends() {
   }
 
   const handleDelete = async (id) => {
-    if (!confirm(`Delete backend ${id}?`)) return
-    try {
-      await backendsApi.delete(id)
-      addToast(`Deleting ${id}...`, 'info')
-      setTimeout(fetchBackends, 1000)
-    } catch (err) {
-      addToast(`Delete failed: ${err.message}`, 'error')
-    }
+    setConfirmDialog({
+      title: 'Delete Backend',
+      message: `Delete backend ${id}?`,
+      confirmLabel: 'Delete',
+      danger: true,
+      onConfirm: async () => {
+        setConfirmDialog(null)
+        try {
+          await backendsApi.delete(id)
+          addToast(`Deleting ${id}...`, 'info')
+          setTimeout(fetchBackends, 1000)
+        } catch (err) {
+          addToast(`Delete failed: ${err.message}`, 'error')
+        }
+      },
+    })
   }
 
   const handleManualInstall = async (e) => {
@@ -400,6 +410,15 @@ export default function Backends() {
         </div>
       )}
 
+      <ConfirmDialog
+        open={!!confirmDialog}
+        title={confirmDialog?.title}
+        message={confirmDialog?.message}
+        confirmLabel={confirmDialog?.confirmLabel}
+        danger={confirmDialog?.danger}
+        onConfirm={confirmDialog?.onConfirm}
+        onCancel={() => setConfirmDialog(null)}
+      />
     </div>
   )
 }
