@@ -61,6 +61,11 @@ definitions:
     properties:
       alias:
         type: string
+      backend:
+        description: |-
+          Backend is the resolved backend engine for this model (e.g. "llama-cpp").
+          Populated at load time from overrides, inline config, or the URL-referenced config file.
+        type: string
       capabilities:
         additionalProperties:
           type: string
@@ -109,6 +114,11 @@ definitions:
     type: object
   gallery.GalleryModel:
     properties:
+      backend:
+        description: |-
+          Backend is the resolved backend engine for this model (e.g. "llama-cpp").
+          Populated at load time from overrides, inline config, or the URL-referenced config file.
+        type: string
       config_file:
         additionalProperties: true
         description: config_file is read in the situation where URL is blank - and
@@ -162,6 +172,11 @@ definitions:
     type: object
   localai.GalleryModel:
     properties:
+      backend:
+        description: |-
+          Backend is the resolved backend engine for this model (e.g. "llama-cpp").
+          Populated at load time from overrides, inline config, or the URL-referenced config file.
+        type: string
       config_file:
         additionalProperties: true
         description: config_file is read in the situation where URL is blank - and

@@ -1613,6 +1613,10 @@ const docTemplate = `{
                 "alias": {
                     "type": "string"
                 },
+                "backend": {
+                    "description": "Backend is the resolved backend engine for this model (e.g. \"llama-cpp\").\nPopulated at load time from overrides, inline config, or the URL-referenced config file.",
+                    "type": "string"
+                },
                 "capabilities": {
                     "type": "object",
                     "additionalProperties": {
@@ -1683,6 +1687,10 @@ const docTemplate = `{
         "gallery.GalleryModel": {
             "type": "object",
             "properties": {
+                "backend": {
+                    "description": "Backend is the resolved backend engine for this model (e.g. \"llama-cpp\").\nPopulated at load time from overrides, inline config, or the URL-referenced config file.",
+                    "type": "string"
+                },
                 "config_file": {
                     "description": "config_file is read in the situation where URL is blank - and therefore this is a base config.",
                     "type": "object",
@@ -1756,6 +1764,10 @@ const docTemplate = `{
         "localai.GalleryModel": {
             "type": "object",
             "properties": {
+                "backend": {
+                    "description": "Backend is the resolved backend engine for this model (e.g. \"llama-cpp\").\nPopulated at load time from overrides, inline config, or the URL-referenced config file.",
+                    "type": "string"
+                },
                 "config_file": {
                     "description": "config_file is read in the situation where URL is blank - and therefore this is a base config.",
                     "type": "object",
