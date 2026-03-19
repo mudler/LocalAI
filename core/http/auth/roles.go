@@ -20,9 +20,11 @@ const (
 // AssignRole determines the role for a new user.
 // First user in the database becomes admin. If adminEmail is set and matches,
 // the user becomes admin. Otherwise, the user gets the "user" role.
-func AssignRole(db *gorm.DB, email, adminEmail string) string {
+// Must be called within a transaction that also creates the user to prevent
+// race conditions on the first-user admin assignment.
+func AssignRole(tx *gorm.DB, email, adminEmail string) string {
 	var count int64
-	db.Model(&User{}).Count(&count)
+	tx.Model(&User{}).Count(&count)
 	if count == 0 {
 		return RoleAdmin
 	}
@@ -52,9 +54,11 @@ func MaybePromote(db *gorm.DB, user *User, adminEmail string) bool {
 }
 
 // ValidateInvite checks that an invite code exists, is unused, and has not expired.
-func ValidateInvite(db *gorm.DB, code string) (*InviteCode, error) {
+// The code is hashed with HMAC-SHA256 before lookup.
+func ValidateInvite(db *gorm.DB, code, hmacSecret string) (*InviteCode, error) {
+	hash := HashAPIKey(code, hmacSecret)
 	var invite InviteCode
-	if err := db.Where("code = ?", code).First(&invite).Error; err != nil {
+	if err := db.Where("code = ?", hash).First(&invite).Error; err != nil {
 		return nil, fmt.Errorf("invite code not found")
 	}
 	if invite.UsedBy != nil {
@@ -76,7 +80,12 @@ func ConsumeInvite(db *gorm.DB, invite *InviteCode, userID string) {
 
 // NeedsInviteOrApproval returns true if registration gating applies for the given mode.
 // Admins (first user or matching adminEmail) are never gated.
-func NeedsInviteOrApproval(db *gorm.DB, email, adminEmail, registrationMode string) bool {
+// Must be called within a transaction that also creates the user.
+func NeedsInviteOrApproval(tx *gorm.DB, email, adminEmail, registrationMode string) bool {
+	// Empty registration mode defaults to "approval"
+	if registrationMode == "" {
+		registrationMode = "approval"
+	}
 	if registrationMode != "approval" && registrationMode != "invite" {
 		return false
 	}
@@ -86,7 +95,7 @@ func NeedsInviteOrApproval(db *gorm.DB, email, adminEmail, registrationMode stri
 	}
 	// First user is never gated
 	var count int64
-	db.Model(&User{}).Count(&count)
+	tx.Model(&User{}).Count(&count)
 	if count == 0 {
 		return false
 	}

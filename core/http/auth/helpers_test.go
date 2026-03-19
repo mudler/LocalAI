@@ -36,9 +36,9 @@ func createTestUser(db *gorm.DB, email, role, provider string) *auth.User {
 	return user
 }
 
-// createTestSession creates a session for a user, returns session ID.
+// createTestSession creates a session for a user, returns plaintext session token.
 func createTestSession(db *gorm.DB, userID string) string {
-	sessionID, err := auth.CreateSession(db, userID)
+	sessionID, err := auth.CreateSession(db, userID, "")
 	Expect(err).ToNot(HaveOccurred())
 	return sessionID
 }

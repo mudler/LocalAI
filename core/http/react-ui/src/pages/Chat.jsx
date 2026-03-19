@@ -11,6 +11,7 @@ import MCPAppFrame from '../components/MCPAppFrame'
 import UnifiedMCPDropdown from '../components/UnifiedMCPDropdown'
 import { loadClientMCPServers } from '../utils/mcpClientStorage'
 import ConfirmDialog from '../components/ConfirmDialog'
+import { useAuth } from '../context/AuthContext'
 
 function relativeTime(ts) {
   if (!ts) return ''
@@ -287,6 +288,7 @@ export default function Chat() {
   const { model: urlModel } = useParams()
   const { addToast } = useOutletContext()
   const navigate = useNavigate()
+  const { isAdmin } = useAuth()
   const {
     chats, activeChat, activeChatId, isStreaming, streamingChatId, streamingContent,
     streamingReasoning, streamingToolCalls, tokensPerSecond, maxTokensPerSecond,
@@ -360,10 +362,10 @@ export default function Chat() {
     prevStreamingRef.current = isStreaming
   }, [isStreaming, activeChat?.history?.length])
 
-  // Check MCP availability and fetch model config
+  // Check MCP availability and fetch model config (admin-only endpoint)
   useEffect(() => {
     const model = activeChat?.model
-    if (!model) { setMcpAvailable(false); setModelInfo(null); return }
+    if (!model || !isAdmin) { setMcpAvailable(false); setModelInfo(null); return }
     let cancelled = false
     modelsApi.getConfigJson(model).then(cfg => {
       if (cancelled) return
@@ -378,7 +380,7 @@ export default function Chat() {
       }
     }).catch(() => { if (!cancelled) { setMcpAvailable(false); setModelInfo(null) } })
     return () => { cancelled = true }
-  }, [activeChat?.model])
+  }, [activeChat?.model, isAdmin])
 
   const fetchMcpServers = useCallback(async () => {
     const model = activeChat?.model
@@ -900,7 +902,7 @@ export default function Chat() {
             style={{ flex: '1 1 0', minWidth: 120 }}
           />
           <div className="chat-header-actions">
-            {activeChat.model && (
+            {activeChat.model && isAdmin && (
               <>
                 <button
                   className="btn btn-secondary btn-sm"

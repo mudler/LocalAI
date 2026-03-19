@@ -2,6 +2,7 @@ package auth
 
 import (
 	"bytes"
+	"crypto/subtle"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -54,6 +55,11 @@ func Middleware(db *gorm.DB, appConfig *config.ApplicationConfig) echo.Middlewar
 					c.Set(contextKeyUser, user)
 					c.Set(contextKeyRole, user.Role)
 					authenticated = true
+
+					// Session rotation for cookie-based sessions
+					if session, ok := c.Get("_auth_session").(*Session); ok {
+						MaybeRotateSession(c, db, session, appConfig.Auth.APIKeyHMACSecret)
+					}
 				}
 			}
 
@@ -248,7 +254,13 @@ func RequireRouteFeature(db *gorm.DB) echo.MiddlewareFunc {
 			}
 			perm, err := GetCachedUserPermissions(c, db, user.ID)
 			if err != nil {
-				return next(c)
+				return c.JSON(http.StatusInternalServerError, schema.ErrorResponse{
+					Error: &schema.APIError{
+						Message: "failed to check permissions",
+						Code:    http.StatusInternalServerError,
+						Type:    "server_error",
+					},
+				})
 			}
 			val, exists := perm.Permissions[feature]
 			if !exists {
@@ -299,7 +311,13 @@ func RequireModelAccess(db *gorm.DB) echo.MiddlewareFunc {
 			// RequireRouteFeature already fetched permissions.
 			perm, err := GetCachedUserPermissions(c, db, user.ID)
 			if err != nil {
-				return next(c)
+				return c.JSON(http.StatusInternalServerError, schema.ErrorResponse{
+					Error: &schema.APIError{
+						Message: "failed to check permissions",
+						Code:    http.StatusInternalServerError,
+						Type:    "server_error",
+					},
+				})
 			}
 			allowlist := perm.AllowedModels
 			if !allowlist.Enabled {
@@ -363,25 +381,29 @@ func extractModelFromRequest(c echo.Context) string {
 
 // tryAuthenticate attempts to authenticate the request using the database.
 func tryAuthenticate(c echo.Context, db *gorm.DB, appConfig *config.ApplicationConfig) *User {
+	hmacSecret := appConfig.Auth.APIKeyHMACSecret
+
 	// a. Session cookie
 	if cookie, err := c.Cookie(sessionCookie); err == nil && cookie.Value != "" {
-		if user := ValidateSession(db, cookie.Value); user != nil {
+		if user, session := ValidateSession(db, cookie.Value, hmacSecret); user != nil {
+			// Store session for rotation check in middleware
+			c.Set("_auth_session", session)
 			return user
 		}
 	}
 
 	// b. Authorization: Bearer token
-	auth := c.Request().Header.Get("Authorization")
-	if strings.HasPrefix(auth, "Bearer ") {
-		token := strings.TrimPrefix(auth, "Bearer ")
+	authHeader := c.Request().Header.Get("Authorization")
+	if strings.HasPrefix(authHeader, "Bearer ") {
+		token := strings.TrimPrefix(authHeader, "Bearer ")
 
 		// Try as session ID first
-		if user := ValidateSession(db, token); user != nil {
+		if user, _ := ValidateSession(db, token, hmacSecret); user != nil {
 			return user
 		}
 
 		// Try as user API key
-		if key, err := ValidateAPIKey(db, token); err == nil {
+		if key, err := ValidateAPIKey(db, token, hmacSecret); err == nil {
 			return &key.User
 		}
 	}
@@ -389,7 +411,7 @@ func tryAuthenticate(c echo.Context, db *gorm.DB, appConfig *config.ApplicationC
 	// c. x-api-key / xi-api-key headers
 	for _, header := range []string{"x-api-key", "xi-api-key"} {
 		if key := c.Request().Header.Get(header); key != "" {
-			if apiKey, err := ValidateAPIKey(db, key); err == nil {
+			if apiKey, err := ValidateAPIKey(db, key, hmacSecret); err == nil {
 				return &apiKey.User
 			}
 		}
@@ -398,7 +420,7 @@ func tryAuthenticate(c echo.Context, db *gorm.DB, appConfig *config.ApplicationC
 	// d. token cookie (legacy)
 	if cookie, err := c.Cookie("token"); err == nil && cookie.Value != "" {
 		// Try as user API key
-		if key, err := ValidateAPIKey(db, cookie.Value); err == nil {
+		if key, err := ValidateAPIKey(db, cookie.Value, hmacSecret); err == nil {
 			return &key.User
 		}
 	}
@@ -435,10 +457,11 @@ func extractKey(c echo.Context) string {
 	return ""
 }
 
-// isValidLegacyKey checks if the key matches any configured API key.
+// isValidLegacyKey checks if the key matches any configured API key
+// using constant-time comparison to prevent timing attacks.
 func isValidLegacyKey(key string, appConfig *config.ApplicationConfig) bool {
 	for _, validKey := range appConfig.ApiKeys {
-		if key == validKey {
+		if subtle.ConstantTimeCompare([]byte(key), []byte(validKey)) == 1 {
 			return true
 		}
 	}

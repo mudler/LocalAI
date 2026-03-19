@@ -1927,7 +1927,7 @@ func (s *AgentPoolService) CreateAgentForUser(userID string, config *state.Agent
 
 	// Auto-generate a user API key when auth is active and none is specified
 	if s.authDB != nil && userID != "" && config.APIKey == "" {
-		plaintext, _, err := auth.CreateAPIKey(s.authDB, userID, "agent:"+config.Name, "user")
+		plaintext, _, err := auth.CreateAPIKey(s.authDB, userID, "agent:"+config.Name, "user", s.appConfig.Auth.APIKeyHMACSecret, nil)
 		if err != nil {
 			return fmt.Errorf("failed to create API key for agent: %w", err)
 		}
@@ -1960,7 +1960,7 @@ func (s *AgentPoolService) UpdateAgentForUser(userID, name string, config *state
 
 	// Auto-generate a user API key when auth is active and none is specified
 	if s.authDB != nil && userID != "" && config.APIKey == "" {
-		plaintext, _, err := auth.CreateAPIKey(s.authDB, userID, "agent:"+name, "user")
+		plaintext, _, err := auth.CreateAPIKey(s.authDB, userID, "agent:"+name, "user", s.appConfig.Auth.APIKeyHMACSecret, nil)
 		if err != nil {
 			return fmt.Errorf("failed to create API key for agent: %w", err)
 		}
@@ -2047,7 +2047,7 @@ func (s *AgentPoolService) ImportAgentForUser(userID string, data []byte) error 
 
 	// Auto-generate a user API key when auth is active and none is specified
 	if s.authDB != nil && userID != "" && cfg.APIKey == "" {
-		plaintext, _, err := auth.CreateAPIKey(s.authDB, userID, "agent:"+cfg.Name, "user")
+		plaintext, _, err := auth.CreateAPIKey(s.authDB, userID, "agent:"+cfg.Name, "user", s.appConfig.Auth.APIKeyHMACSecret, nil)
 		if err != nil {
 			return fmt.Errorf("failed to create API key for agent: %w", err)
 		}

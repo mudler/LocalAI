@@ -98,7 +98,7 @@ var _ = Describe("Auth Middleware", func() {
 		})
 
 		It("allows requests with valid user API key as Bearer token", func() {
-			plaintext, _, err := auth.CreateAPIKey(db, user.ID, "test", auth.RoleUser)
+			plaintext, _, err := auth.CreateAPIKey(db, user.ID, "test", auth.RoleUser, "", nil)
 			Expect(err).ToNot(HaveOccurred())
 
 			rec := doRequest(app, http.MethodGet, "/v1/models", withBearerToken(plaintext))
@@ -115,8 +115,9 @@ var _ = Describe("Auth Middleware", func() {
 
 		It("returns 401 for expired session", func() {
 			sessionID := createTestSession(db, user.ID)
-			// Manually expire
-			db.Model(&auth.Session{}).Where("id = ?", sessionID).
+			// Manually expire (session ID in DB is the hash)
+			hash := auth.HashAPIKey(sessionID, "")
+			db.Model(&auth.Session{}).Where("id = ?", hash).
 				Update("expires_at", "2020-01-01")
 
 			rec := doRequest(app, http.MethodGet, "/v1/models", withSessionCookie(sessionID))
@@ -129,7 +130,7 @@ var _ = Describe("Auth Middleware", func() {
 		})
 
 		It("returns 401 for revoked API key", func() {
-			plaintext, record, err := auth.CreateAPIKey(db, user.ID, "to revoke", auth.RoleUser)
+			plaintext, record, err := auth.CreateAPIKey(db, user.ID, "to revoke", auth.RoleUser, "", nil)
 			Expect(err).ToNot(HaveOccurred())
 
 			err = auth.RevokeAPIKey(db, record.ID, user.ID)

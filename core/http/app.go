@@ -234,10 +234,42 @@ func API(application *application.Application) (*echo.Echo, error) {
 		e.Use(middleware.CORS())
 	}
 
-	// CSRF middleware
-	if application.ApplicationConfig().CSRF {
-		xlog.Debug("Enabling CSRF middleware. Tokens are now required for state-modifying requests")
-		e.Use(middleware.CSRF())
+	// CSRF middleware (enabled by default, disable with LOCALAI_DISABLE_CSRF=true)
+	//
+	// Protection relies on Echo's Sec-Fetch-Site header check (supported by all
+	// modern browsers). The legacy cookie+token approach is removed because
+	// Echo's Sec-Fetch-Site short-circuit never sets the cookie, so the frontend
+	// could never read a token to send back.
+	if !application.ApplicationConfig().DisableCSRF {
+		xlog.Debug("Enabling CSRF middleware (Sec-Fetch-Site mode)")
+		e.Use(middleware.CSRFWithConfig(middleware.CSRFConfig{
+			Skipper: func(c echo.Context) bool {
+				// Skip CSRF for API clients using auth headers (may be cross-origin)
+				if c.Request().Header.Get("Authorization") != "" {
+					return true
+				}
+				if c.Request().Header.Get("x-api-key") != "" || c.Request().Header.Get("xi-api-key") != "" {
+					return true
+				}
+				// Skip when Sec-Fetch-Site header is absent (older browsers, reverse
+				// proxies that strip the header). The SameSite=Lax cookie attribute
+				// provides baseline CSRF protection for these clients.
+				if c.Request().Header.Get("Sec-Fetch-Site") == "" {
+					return true
+				}
+				return false
+			},
+			// Allow same-site requests (subdomains / different ports) in addition
+			// to same-origin which Echo already permits by default.
+			AllowSecFetchSiteFunc: func(c echo.Context) (bool, error) {
+				secFetchSite := c.Request().Header.Get("Sec-Fetch-Site")
+				if secFetchSite == "same-site" {
+					return true, nil
+				}
+				// cross-site: block
+				return false, nil
+			},
+		}))
 	}
 
 	// Admin middleware: enforces admin role when auth is enabled, no-op otherwise

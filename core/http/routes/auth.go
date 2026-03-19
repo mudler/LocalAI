@@ -2,8 +2,11 @@ package routes
 
 import (
 	"crypto/rand"
+	"crypto/subtle"
 	"encoding/hex"
+	"fmt"
 	"net/http"
+	"net/mail"
 	"strings"
 	"sync"
 	"time"
@@ -11,8 +14,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/application"
+	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/services"
+	"gorm.io/gorm"
 )
 
 // rateLimiter implements a simple per-IP rate limiter for auth endpoints.
@@ -55,6 +60,27 @@ func (rl *rateLimiter) allow(key string) bool {
 	return true
 }
 
+// cleanup removes stale IP entries that have no recent attempts.
+func (rl *rateLimiter) cleanup() {
+	rl.mu.Lock()
+	defer rl.mu.Unlock()
+
+	cutoff := time.Now().Add(-rl.window)
+	for ip, attempts := range rl.attempts {
+		recent := attempts[:0]
+		for _, t := range attempts {
+			if t.After(cutoff) {
+				recent = append(recent, t)
+			}
+		}
+		if len(recent) == 0 {
+			delete(rl.attempts, ip)
+		} else {
+			rl.attempts[ip] = recent
+		}
+	}
+}
+
 func rateLimitMiddleware(rl *rateLimiter) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
@@ -66,6 +92,33 @@ func rateLimitMiddleware(rl *rateLimiter) echo.MiddlewareFunc {
 			return next(c)
 		}
 	}
+}
+
+// parseDuration parses a duration string like "30d", "90d", "1y", "24h".
+func parseDuration(s string) (time.Duration, error) {
+	if strings.HasSuffix(s, "d") {
+		s = strings.TrimSuffix(s, "d")
+		var days int
+		for _, c := range s {
+			if c < '0' || c > '9' {
+				return 0, &time.ParseError{}
+			}
+			days = days*10 + int(c-'0')
+		}
+		return time.Duration(days) * 24 * time.Hour, nil
+	}
+	if strings.HasSuffix(s, "y") {
+		s = strings.TrimSuffix(s, "y")
+		var years int
+		for _, c := range s {
+			if c < '0' || c > '9' {
+				return 0, &time.ParseError{}
+			}
+			years = years*10 + int(c-'0')
+		}
+		return time.Duration(years) * 365 * 24 * time.Hour, nil
+	}
+	return time.ParseDuration(s)
 }
 
 // RegisterAuthRoutes registers authentication-related API routes.
@@ -99,7 +152,7 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 		if authEnabled {
 			registrationMode = appConfig.Auth.RegistrationMode
 			if registrationMode == "" {
-				registrationMode = "open"
+				registrationMode = "approval"
 			}
 		}
 
@@ -153,13 +206,13 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 			if appConfig.Auth.GitHubClientID != "" {
 				e.GET("/api/auth/github/login", oauthMgr.LoginHandler(auth.ProviderGitHub))
 				e.GET("/api/auth/github/callback", oauthMgr.CallbackHandler(
-					auth.ProviderGitHub, db, appConfig.Auth.AdminEmail, appConfig.Auth.RegistrationMode,
+					auth.ProviderGitHub, db, appConfig.Auth.AdminEmail, appConfig.Auth.RegistrationMode, appConfig.Auth.APIKeyHMACSecret,
 				))
 			}
 			if appConfig.Auth.OIDCClientID != "" {
 				e.GET("/api/auth/oidc/login", oauthMgr.LoginHandler(auth.ProviderOIDC))
 				e.GET("/api/auth/oidc/callback", oauthMgr.CallbackHandler(
-					auth.ProviderOIDC, db, appConfig.Auth.AdminEmail, appConfig.Auth.RegistrationMode,
+					auth.ProviderOIDC, db, appConfig.Auth.AdminEmail, appConfig.Auth.RegistrationMode, appConfig.Auth.APIKeyHMACSecret,
 				))
 			}
 		}
@@ -168,6 +221,20 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 	// Rate limiter for auth endpoints: 5 attempts per minute per IP
 	authRL := newRateLimiter(1*time.Minute, 5)
 	authRateLimitMw := rateLimitMiddleware(authRL)
+
+	// Start background goroutine to periodically prune stale IP entries (#12)
+	go func() {
+		ticker := time.NewTicker(10 * time.Minute)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-appConfig.Context.Done():
+				return
+			case <-ticker.C:
+				authRL.cleanup()
+			}
+		}
+	}()
 
 	// POST /api/auth/register - public, email/password registration
 	e.POST("/api/auth/register", func(c echo.Context) error {
@@ -185,21 +252,18 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request"})
 		}
 
-		body.Email = strings.TrimSpace(body.Email)
+		body.Email = strings.ToLower(strings.TrimSpace(body.Email))
 		body.Name = strings.TrimSpace(body.Name)
 		body.InviteCode = strings.TrimSpace(body.InviteCode)
 
 		if body.Email == "" {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": "email is required"})
 		}
+		if _, err := mail.ParseAddress(body.Email); err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid email address"})
+		}
 		if len(body.Password) < 8 {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": "password must be at least 8 characters"})
-		}
-
-		// Check for duplicate email with local provider
-		var existing auth.User
-		if err := db.Where("email = ? AND provider = ?", body.Email, auth.ProviderLocal).First(&existing).Error; err == nil {
-			return c.JSON(http.StatusConflict, map[string]string{"error": "an account with this email already exists"})
 		}
 
 		hash, err := auth.HashPassword(body.Password)
@@ -207,51 +271,84 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to hash password"})
 		}
 
-		role := auth.AssignRole(db, body.Email, appConfig.Auth.AdminEmail)
-
-		// Determine status based on registration mode and invite code
-		status := auth.StatusActive
-		var validInvite *auth.InviteCode
-
-		if auth.NeedsInviteOrApproval(db, body.Email, appConfig.Auth.AdminEmail, appConfig.Auth.RegistrationMode) {
-			if appConfig.Auth.RegistrationMode == "invite" && body.InviteCode == "" {
-				return c.JSON(http.StatusBadRequest, map[string]string{"error": "an invite code is required to register"})
-			}
-
-			if body.InviteCode != "" {
-				invite, err := auth.ValidateInvite(db, body.InviteCode)
-				if err != nil {
-					return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid or expired invite code"})
-				}
-				validInvite = invite
-				status = auth.StatusActive // valid invite = immediate activation
-			} else {
-				// approval mode without invite code
-				status = auth.StatusPending
-			}
-		}
-
 		name := body.Name
 		if name == "" {
 			name = body.Email
 		}
 
-		user := &auth.User{
-			ID:           uuid.New().String(),
-			Email:        body.Email,
-			Name:         name,
-			Provider:     auth.ProviderLocal,
-			Subject:      body.Email,
-			PasswordHash: hash,
-			Role:         role,
-			Status:       status,
-		}
-		if err := db.Create(user).Error; err != nil {
+		// Wrap user creation in a transaction to prevent admin bootstrap race (#2)
+		var user *auth.User
+		var validInvite *auth.InviteCode
+		var status string
+
+		txErr := db.Transaction(func(tx *gorm.DB) error {
+			// Check for duplicate email with local provider (#6: return generic response)
+			var existing auth.User
+			if err := tx.Where("email = ? AND provider = ?", body.Email, auth.ProviderLocal).First(&existing).Error; err == nil {
+				// Account exists — return nil to signal generic success
+				user = nil
+				return nil
+			}
+
+			role := auth.AssignRole(tx, body.Email, appConfig.Auth.AdminEmail)
+
+			// Determine status based on registration mode and invite code
+			status = auth.StatusActive
+
+			if auth.NeedsInviteOrApproval(tx, body.Email, appConfig.Auth.AdminEmail, appConfig.Auth.RegistrationMode) {
+				if appConfig.Auth.RegistrationMode == "invite" && body.InviteCode == "" {
+					return fmt.Errorf("invite_required")
+				}
+
+				if body.InviteCode != "" {
+					invite, err := auth.ValidateInvite(tx, body.InviteCode, appConfig.Auth.APIKeyHMACSecret)
+					if err != nil {
+						return fmt.Errorf("invalid_invite")
+					}
+					validInvite = invite
+					status = auth.StatusActive
+				} else {
+					status = auth.StatusPending
+				}
+			}
+
+			user = &auth.User{
+				ID:           uuid.New().String(),
+				Email:        body.Email,
+				Name:         name,
+				Provider:     auth.ProviderLocal,
+				Subject:      body.Email,
+				PasswordHash: hash,
+				Role:         role,
+				Status:       status,
+			}
+			if err := tx.Create(user).Error; err != nil {
+				return fmt.Errorf("failed to create user: %w", err)
+			}
+
+			if validInvite != nil {
+				auth.ConsumeInvite(tx, validInvite, user.ID)
+			}
+
+			return nil
+		})
+
+		if txErr != nil {
+			msg := txErr.Error()
+			if msg == "invite_required" {
+				return c.JSON(http.StatusBadRequest, map[string]string{"error": "an invite code is required to register"})
+			}
+			if msg == "invalid_invite" {
+				return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid or expired invite code"})
+			}
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to create user"})
 		}
 
-		if validInvite != nil {
-			auth.ConsumeInvite(db, validInvite, user.ID)
+		// user == nil means duplicate email — return generic success (#6)
+		if user == nil {
+			return c.JSON(http.StatusCreated, map[string]interface{}{
+				"message": "registration processed",
+			})
 		}
 
 		if status == auth.StatusPending {
@@ -261,7 +358,7 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 			})
 		}
 
-		sessionID, err := auth.CreateSession(db, user.ID)
+		sessionID, err := auth.CreateSession(db, user.ID, appConfig.Auth.APIKeyHMACSecret)
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to create session"})
 		}
@@ -291,7 +388,7 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request"})
 		}
 
-		body.Email = strings.TrimSpace(body.Email)
+		body.Email = strings.ToLower(strings.TrimSpace(body.Email))
 
 		if body.Email == "" || body.Password == "" {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": "email and password are required"})
@@ -313,7 +410,7 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 		// Maybe promote on login
 		auth.MaybePromote(db, &user, appConfig.Auth.AdminEmail)
 
-		sessionID, err := auth.CreateSession(db, user.ID)
+		sessionID, err := auth.CreateSession(db, user.ID, appConfig.Auth.APIKeyHMACSecret)
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to create session"})
 		}
@@ -329,6 +426,53 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 		})
 	}, authRateLimitMw)
 
+	// POST /api/auth/token-login - public, authenticate with API key/token (#3)
+	e.POST("/api/auth/token-login", func(c echo.Context) error {
+		var body struct {
+			Token string `json:"token"`
+		}
+		if err := c.Bind(&body); err != nil || strings.TrimSpace(body.Token) == "" {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "token is required"})
+		}
+
+		token := strings.TrimSpace(body.Token)
+		hmacSecret := appConfig.Auth.APIKeyHMACSecret
+
+		// Try as user API key
+		if apiKey, err := auth.ValidateAPIKey(db, token, hmacSecret); err == nil {
+			sessionID, err := auth.CreateSession(db, apiKey.User.ID, appConfig.Auth.APIKeyHMACSecret)
+			if err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to create session"})
+			}
+			auth.SetSessionCookie(c, sessionID)
+
+			return c.JSON(http.StatusOK, map[string]interface{}{
+				"user": map[string]interface{}{
+					"id":    apiKey.User.ID,
+					"email": apiKey.User.Email,
+					"name":  apiKey.User.Name,
+					"role":  apiKey.User.Role,
+				},
+			})
+		}
+
+		// Try as legacy API key
+		if len(appConfig.ApiKeys) > 0 && isValidLegacyKey(token, appConfig) {
+			// Create a synthetic session cookie with the token for legacy mode
+			auth.SetTokenCookie(c, token)
+
+			return c.JSON(http.StatusOK, map[string]interface{}{
+				"user": map[string]interface{}{
+					"id":   "legacy-api-key",
+					"name": "API Key User",
+					"role": auth.RoleAdmin,
+				},
+			})
+		}
+
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "invalid token"})
+	}, authRateLimitMw)
+
 	// POST /api/auth/logout - requires auth
 	e.POST("/api/auth/logout", func(c echo.Context) error {
 		user := auth.GetUser(c)
@@ -338,7 +482,7 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 
 		// Delete session from cookie
 		if cookie, err := c.Cookie("session"); err == nil && cookie.Value != "" {
-			auth.DeleteSession(db, cookie.Value)
+			auth.DeleteSession(db, cookie.Value, appConfig.Auth.APIKeyHMACSecret)
 		}
 		auth.ClearSessionCookie(c)
 
@@ -404,7 +548,7 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 		})
 	})
 
-	// PUT /api/auth/password - change password (local users only)
+	// PUT /api/auth/password - change password (local users only) (#4: add rate limiting)
 	e.PUT("/api/auth/password", func(c echo.Context) error {
 		user := auth.GetUser(c)
 		if user == nil {
@@ -449,14 +593,14 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 		auth.DeleteUserSessions(db, user.ID)
 
 		// Create a fresh session for the current request
-		newSessionID, err := auth.CreateSession(db, user.ID)
+		newSessionID, err := auth.CreateSession(db, user.ID, appConfig.Auth.APIKeyHMACSecret)
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to create session"})
 		}
 		auth.SetSessionCookie(c, newSessionID)
 
 		return c.JSON(http.StatusOK, map[string]string{"message": "password updated"})
-	})
+	}, authRateLimitMw)
 
 	// DELETE /api/auth/sessions - revoke all sessions for the current user
 	e.DELETE("/api/auth/sessions", func(c echo.Context) error {
@@ -469,7 +613,7 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 		auth.DeleteUserSessions(db, user.ID)
 
 		// Create a fresh session for the current request
-		newSessionID, err := auth.CreateSession(db, user.ID)
+		newSessionID, err := auth.CreateSession(db, user.ID, appConfig.Auth.APIKeyHMACSecret)
 		if err != nil {
 			auth.ClearSessionCookie(c)
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to create session"})
@@ -479,7 +623,7 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 		return c.JSON(http.StatusOK, map[string]string{"message": "all other sessions revoked"})
 	})
 
-	// POST /api/auth/api-keys - create API key
+	// POST /api/auth/api-keys - create API key (#8: expiration support)
 	e.POST("/api/auth/api-keys", func(c echo.Context) error {
 		user := auth.GetUser(c)
 		if user == nil {
@@ -487,25 +631,55 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 		}
 
 		var body struct {
-			Name string `json:"name"`
+			Name      string `json:"name"`
+			ExpiresIn string `json:"expiresIn"` // duration like "30d", "90d", "1y"
+			ExpiresAt string `json:"expiresAt"` // ISO timestamp
 		}
 		if err := c.Bind(&body); err != nil || body.Name == "" {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": "name is required"})
 		}
 
-		plaintext, record, err := auth.CreateAPIKey(db, user.ID, body.Name, user.Role)
+		// Determine expiration
+		var expiresAt *time.Time
+		if body.ExpiresAt != "" {
+			t, err := time.Parse(time.RFC3339, body.ExpiresAt)
+			if err != nil {
+				return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid expiresAt format, use RFC3339"})
+			}
+			expiresAt = &t
+		} else if body.ExpiresIn != "" {
+			dur, err := parseDuration(body.ExpiresIn)
+			if err != nil {
+				return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid expiresIn format"})
+			}
+			t := time.Now().Add(dur)
+			expiresAt = &t
+		} else if appConfig.Auth.DefaultAPIKeyExpiry != "" {
+			dur, err := parseDuration(appConfig.Auth.DefaultAPIKeyExpiry)
+			if err == nil {
+				t := time.Now().Add(dur)
+				expiresAt = &t
+			}
+		}
+
+		plaintext, record, err := auth.CreateAPIKey(db, user.ID, body.Name, user.Role, appConfig.Auth.APIKeyHMACSecret, expiresAt)
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to create API key"})
 		}
 
-		return c.JSON(http.StatusCreated, map[string]interface{}{
+		resp := map[string]interface{}{
 			"key":       plaintext, // shown once
 			"id":        record.ID,
 			"name":      record.Name,
 			"keyPrefix": record.KeyPrefix,
 			"role":      record.Role,
 			"createdAt": record.CreatedAt,
-		})
+		}
+		if record.ExpiresAt != nil {
+			resp["expiresAt"] = record.ExpiresAt
+		}
+
+		return c.JSON(http.StatusCreated, resp)
 	})
 
 	// GET /api/auth/api-keys - list user's API keys
@@ -522,14 +696,18 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 
 		result := make([]map[string]interface{}, 0, len(keys))
 		for _, k := range keys {
-			result = append(result, map[string]interface{}{
+			entry := map[string]interface{}{
 				"id":        k.ID,
 				"name":      k.Name,
 				"keyPrefix": k.KeyPrefix,
 				"role":      k.Role,
 				"createdAt": k.CreatedAt,
 				"lastUsed":  k.LastUsed,
-			})
+			}
+			if k.ExpiresAt != nil {
+				entry["expiresAt"] = k.ExpiresAt
+			}
+			result = append(result, entry)
 		}
 
 		return c.JSON(http.StatusOK, map[string]interface{}{"keys": result})
@@ -811,13 +989,15 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 		if _, err := rand.Read(codeBytes); err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to generate invite code"})
 		}
-		code := hex.EncodeToString(codeBytes)
+		plaintext := hex.EncodeToString(codeBytes)
+		codeHash := auth.HashAPIKey(plaintext, appConfig.Auth.APIKeyHMACSecret)
 
 		invite := &auth.InviteCode{
-			ID:        uuid.New().String(),
-			Code:      code,
-			CreatedBy: admin.ID,
-			ExpiresAt: time.Now().Add(time.Duration(body.ExpiresInHours) * time.Hour),
+			ID:         uuid.New().String(),
+			Code:       codeHash,
+			CodePrefix: plaintext[:8],
+			CreatedBy:  admin.ID,
+			ExpiresAt:  time.Now().Add(time.Duration(body.ExpiresInHours) * time.Hour),
 		}
 		if err := db.Create(invite).Error; err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to create invite"})
@@ -825,7 +1005,7 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 
 		return c.JSON(http.StatusCreated, map[string]interface{}{
 			"id":        invite.ID,
-			"code":      invite.Code,
+			"code":      plaintext,
 			"expiresAt": invite.ExpiresAt,
 			"createdAt": invite.CreatedAt,
 		})
@@ -841,9 +1021,9 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 		result := make([]map[string]interface{}, 0, len(invites))
 		for _, inv := range invites {
 			entry := map[string]interface{}{
-				"id":        inv.ID,
-				"code":      inv.Code,
-				"expiresAt": inv.ExpiresAt,
+				"id":         inv.ID,
+				"codePrefix": inv.CodePrefix,
+				"expiresAt":  inv.ExpiresAt,
 				"createdAt": inv.CreatedAt,
 				"usedAt":    inv.UsedAt,
 				"createdBy": map[string]interface{}{
@@ -881,12 +1061,17 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 		return c.JSON(http.StatusOK, map[string]string{"message": "invite revoked"})
 	}, adminMw)
 
-	// GET /api/auth/invite/:code/check - public, validates invite code
-	e.GET("/api/auth/invite/:code/check", func(c echo.Context) error {
-		code := c.Param("code")
-		_, err := auth.ValidateInvite(db, code)
-		return c.JSON(http.StatusOK, map[string]interface{}{
-			"valid": err == nil,
-		})
-	})
+	// Note: GET /api/auth/invite/:code/check endpoint removed (#5) —
+	// invite codes are validated only during registration.
+}
+
+// isValidLegacyKey checks if the key matches any configured API key
+// using constant-time comparison.
+func isValidLegacyKey(token string, appConfig *config.ApplicationConfig) bool {
+	for _, validKey := range appConfig.ApiKeys {
+		if subtle.ConstantTimeCompare([]byte(token), []byte(validKey)) == 1 {
+			return true
+		}
+	}
+	return false
 }

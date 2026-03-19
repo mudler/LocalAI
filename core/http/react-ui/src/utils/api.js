@@ -373,11 +373,6 @@ export const adminInvitesApi = {
   delete: (id) => fetchJSON(`/api/auth/admin/invites/${encodeURIComponent(id)}`, { method: 'DELETE' }),
 }
 
-// Invite API (public)
-export const inviteApi = {
-  check: (code) => fetchJSON(`/api/auth/invite/${encodeURIComponent(code)}/check`),
-}
-
 // API Keys
 export const apiKeysApi = {
   list: () => fetchJSON('/api/auth/api-keys'),

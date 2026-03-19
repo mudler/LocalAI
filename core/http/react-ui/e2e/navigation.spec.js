@@ -9,7 +9,7 @@ test.describe('Navigation', () => {
   test('/app shows home page with LocalAI title', async ({ page }) => {
     await page.goto('/app')
     await expect(page.locator('.sidebar')).toBeVisible()
-    await expect(page.getByRole('heading', { name: 'How can I help you today?' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Start a conversation' })).toBeVisible()
   })
 
   test('sidebar traces link navigates to /app/traces', async ({ page }) => {

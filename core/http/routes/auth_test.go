@@ -108,7 +108,7 @@ func newTestAuthApp(db *gorm.DB, appConfig *config.ApplicationConfig) *echo.Echo
 		if status == auth.StatusPending {
 			return c.JSON(http.StatusOK, map[string]interface{}{"message": "registration successful, awaiting admin approval", "pending": true})
 		}
-		sessionID, err := auth.CreateSession(db, user.ID)
+		sessionID, err := auth.CreateSession(db, user.ID, "")
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to create session"})
 		}
@@ -118,7 +118,7 @@ func newTestAuthApp(db *gorm.DB, appConfig *config.ApplicationConfig) *echo.Echo
 		})
 	})
 
-	// POST /api/auth/login
+	// POST /api/auth/login - inline test handler
 	e.POST("/api/auth/login", func(c echo.Context) error {
 		var body struct {
 			Email    string `json:"email"`
@@ -142,7 +142,7 @@ func newTestAuthApp(db *gorm.DB, appConfig *config.ApplicationConfig) *echo.Echo
 			return c.JSON(http.StatusForbidden, map[string]string{"error": "account pending admin approval"})
 		}
 		auth.MaybePromote(db, &user, appConfig.Auth.AdminEmail)
-		sessionID, err := auth.CreateSession(db, user.ID)
+		sessionID, err := auth.CreateSession(db, user.ID, "")
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to create session"})
 		}
@@ -159,7 +159,7 @@ func newTestAuthApp(db *gorm.DB, appConfig *config.ApplicationConfig) *echo.Echo
 			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "not authenticated"})
 		}
 		if cookie, err := c.Cookie("session"); err == nil && cookie.Value != "" {
-			auth.DeleteSession(db, cookie.Value)
+			auth.DeleteSession(db, cookie.Value, "")
 		}
 		auth.ClearSessionCookie(c)
 		return c.JSON(http.StatusOK, map[string]string{"message": "logged out"})
@@ -190,7 +190,7 @@ func newTestAuthApp(db *gorm.DB, appConfig *config.ApplicationConfig) *echo.Echo
 		if err := c.Bind(&body); err != nil || body.Name == "" {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": "name is required"})
 		}
-		plaintext, record, err := auth.CreateAPIKey(db, user.ID, body.Name, user.Role)
+		plaintext, record, err := auth.CreateAPIKey(db, user.ID, body.Name, user.Role, "", nil)
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to create API key"})
 		}
@@ -378,7 +378,7 @@ var _ = Describe("Auth Routes", Label("auth"), func() {
 
 		It("returns user info when authenticated", func() {
 			user := createRouteTestUser(db, "status@test.com", auth.RoleAdmin)
-			sessionID, _ := auth.CreateSession(db, user.ID)
+			sessionID, _ := auth.CreateSession(db, user.ID, "")
 			app := newTestAuthApp(db, appConfig)
 
 			rec := doAuthRequest(app, "GET", "/api/auth/status", nil, withSession(sessionID))
@@ -412,14 +412,15 @@ var _ = Describe("Auth Routes", Label("auth"), func() {
 	Context("POST /api/auth/logout", func() {
 		It("deletes session and clears cookie", func() {
 			user := createRouteTestUser(db, "logout@test.com", auth.RoleUser)
-			sessionID, _ := auth.CreateSession(db, user.ID)
+			sessionID, _ := auth.CreateSession(db, user.ID, "")
 			app := newTestAuthApp(db, appConfig)
 
 			rec := doAuthRequest(app, "POST", "/api/auth/logout", nil, withSession(sessionID))
 			Expect(rec.Code).To(Equal(http.StatusOK))
 
 			// Session should be deleted
-			Expect(auth.ValidateSession(db, sessionID)).To(BeNil())
+			validatedUser, _ := auth.ValidateSession(db, sessionID, "")
+			Expect(validatedUser).To(BeNil())
 		})
 
 		It("returns 401 when not authenticated", func() {
@@ -432,7 +433,7 @@ var _ = Describe("Auth Routes", Label("auth"), func() {
 	Context("GET /api/auth/me", func() {
 		It("returns current user profile", func() {
 			user := createRouteTestUser(db, "me@test.com", auth.RoleAdmin)
-			sessionID, _ := auth.CreateSession(db, user.ID)
+			sessionID, _ := auth.CreateSession(db, user.ID, "")
 			app := newTestAuthApp(db, appConfig)
 
 			rec := doAuthRequest(app, "GET", "/api/auth/me", nil, withSession(sessionID))
@@ -454,7 +455,7 @@ var _ = Describe("Auth Routes", Label("auth"), func() {
 	Context("POST /api/auth/api-keys", func() {
 		It("creates API key and returns plaintext once", func() {
 			user := createRouteTestUser(db, "apikey@test.com", auth.RoleUser)
-			sessionID, _ := auth.CreateSession(db, user.ID)
+			sessionID, _ := auth.CreateSession(db, user.ID, "")
 			app := newTestAuthApp(db, appConfig)
 
 			body, _ := json.Marshal(map[string]string{"name": "my key"})
@@ -469,7 +470,7 @@ var _ = Describe("Auth Routes", Label("auth"), func() {
 
 		It("key is usable for authentication", func() {
 			user := createRouteTestUser(db, "apikey2@test.com", auth.RoleUser)
-			sessionID, _ := auth.CreateSession(db, user.ID)
+			sessionID, _ := auth.CreateSession(db, user.ID, "")
 			app := newTestAuthApp(db, appConfig)
 
 			body, _ := json.Marshal(map[string]string{"name": "usable key"})
@@ -496,9 +497,9 @@ var _ = Describe("Auth Routes", Label("auth"), func() {
 	Context("GET /api/auth/api-keys", func() {
 		It("lists user's API keys without plaintext", func() {
 			user := createRouteTestUser(db, "list@test.com", auth.RoleUser)
-			auth.CreateAPIKey(db, user.ID, "key1", auth.RoleUser)
-			auth.CreateAPIKey(db, user.ID, "key2", auth.RoleUser)
-			sessionID, _ := auth.CreateSession(db, user.ID)
+			auth.CreateAPIKey(db, user.ID, "key1", auth.RoleUser, "", nil)
+			auth.CreateAPIKey(db, user.ID, "key2", auth.RoleUser, "", nil)
+			sessionID, _ := auth.CreateSession(db, user.ID, "")
 			app := newTestAuthApp(db, appConfig)
 
 			rec := doAuthRequest(app, "GET", "/api/auth/api-keys", nil, withSession(sessionID))
@@ -513,9 +514,9 @@ var _ = Describe("Auth Routes", Label("auth"), func() {
 		It("does not show other users' keys", func() {
 			user1 := createRouteTestUser(db, "user1@test.com", auth.RoleUser)
 			user2 := createRouteTestUser(db, "user2@test.com", auth.RoleUser)
-			auth.CreateAPIKey(db, user1.ID, "user1-key", auth.RoleUser)
-			auth.CreateAPIKey(db, user2.ID, "user2-key", auth.RoleUser)
-			sessionID, _ := auth.CreateSession(db, user1.ID)
+			auth.CreateAPIKey(db, user1.ID, "user1-key", auth.RoleUser, "", nil)
+			auth.CreateAPIKey(db, user2.ID, "user2-key", auth.RoleUser, "", nil)
+			sessionID, _ := auth.CreateSession(db, user1.ID, "")
 			app := newTestAuthApp(db, appConfig)
 
 			rec := doAuthRequest(app, "GET", "/api/auth/api-keys", nil, withSession(sessionID))
@@ -529,9 +530,9 @@ var _ = Describe("Auth Routes", Label("auth"), func() {
 	Context("DELETE /api/auth/api-keys/:id", func() {
 		It("revokes user's own key", func() {
 			user := createRouteTestUser(db, "revoke@test.com", auth.RoleUser)
-			plaintext, record, err := auth.CreateAPIKey(db, user.ID, "to-revoke", auth.RoleUser)
+			plaintext, record, err := auth.CreateAPIKey(db, user.ID, "to-revoke", auth.RoleUser, "", nil)
 			Expect(err).ToNot(HaveOccurred())
-			sessionID, _ := auth.CreateSession(db, user.ID)
+			sessionID, _ := auth.CreateSession(db, user.ID, "")
 			app := newTestAuthApp(db, appConfig)
 
 			rec := doAuthRequest(app, "DELETE", "/api/auth/api-keys/"+record.ID, nil, withSession(sessionID))
@@ -545,8 +546,8 @@ var _ = Describe("Auth Routes", Label("auth"), func() {
 		It("returns 404 for another user's key", func() {
 			user1 := createRouteTestUser(db, "owner@test.com", auth.RoleUser)
 			user2 := createRouteTestUser(db, "attacker@test.com", auth.RoleUser)
-			_, record, _ := auth.CreateAPIKey(db, user1.ID, "secret-key", auth.RoleUser)
-			sessionID, _ := auth.CreateSession(db, user2.ID)
+			_, record, _ := auth.CreateAPIKey(db, user1.ID, "secret-key", auth.RoleUser, "", nil)
+			sessionID, _ := auth.CreateSession(db, user2.ID, "")
 			app := newTestAuthApp(db, appConfig)
 
 			rec := doAuthRequest(app, "DELETE", "/api/auth/api-keys/"+record.ID, nil, withSession(sessionID))
@@ -558,7 +559,7 @@ var _ = Describe("Auth Routes", Label("auth"), func() {
 		It("returns all users for admin", func() {
 			admin := createRouteTestUser(db, "admin@test.com", auth.RoleAdmin)
 			createRouteTestUser(db, "user@test.com", auth.RoleUser)
-			sessionID, _ := auth.CreateSession(db, admin.ID)
+			sessionID, _ := auth.CreateSession(db, admin.ID, "")
 			app := newTestAuthApp(db, appConfig)
 
 			rec := doAuthRequest(app, "GET", "/api/auth/admin/users", nil, withSession(sessionID))
@@ -572,7 +573,7 @@ var _ = Describe("Auth Routes", Label("auth"), func() {
 
 		It("returns 403 for non-admin user", func() {
 			user := createRouteTestUser(db, "nonadmin@test.com", auth.RoleUser)
-			sessionID, _ := auth.CreateSession(db, user.ID)
+			sessionID, _ := auth.CreateSession(db, user.ID, "")
 			app := newTestAuthApp(db, appConfig)
 
 			rec := doAuthRequest(app, "GET", "/api/auth/admin/users", nil, withSession(sessionID))
@@ -584,7 +585,7 @@ var _ = Describe("Auth Routes", Label("auth"), func() {
 		It("changes user role", func() {
 			admin := createRouteTestUser(db, "admin2@test.com", auth.RoleAdmin)
 			user := createRouteTestUser(db, "promote@test.com", auth.RoleUser)
-			sessionID, _ := auth.CreateSession(db, admin.ID)
+			sessionID, _ := auth.CreateSession(db, admin.ID, "")
 			app := newTestAuthApp(db, appConfig)
 
 			body, _ := json.Marshal(map[string]string{"role": "admin"})
@@ -599,7 +600,7 @@ var _ = Describe("Auth Routes", Label("auth"), func() {
 
 		It("prevents self-demotion", func() {
 			admin := createRouteTestUser(db, "self-demote@test.com", auth.RoleAdmin)
-			sessionID, _ := auth.CreateSession(db, admin.ID)
+			sessionID, _ := auth.CreateSession(db, admin.ID, "")
 			app := newTestAuthApp(db, appConfig)
 
 			body, _ := json.Marshal(map[string]string{"role": "user"})
@@ -610,7 +611,7 @@ var _ = Describe("Auth Routes", Label("auth"), func() {
 		It("returns 403 for non-admin", func() {
 			user := createRouteTestUser(db, "sneaky@test.com", auth.RoleUser)
 			other := createRouteTestUser(db, "victim@test.com", auth.RoleUser)
-			sessionID, _ := auth.CreateSession(db, user.ID)
+			sessionID, _ := auth.CreateSession(db, user.ID, "")
 			app := newTestAuthApp(db, appConfig)
 
 			body, _ := json.Marshal(map[string]string{"role": "admin"})
@@ -623,9 +624,9 @@ var _ = Describe("Auth Routes", Label("auth"), func() {
 		It("deletes user and cascades to sessions + API keys", func() {
 			admin := createRouteTestUser(db, "admin3@test.com", auth.RoleAdmin)
 			target := createRouteTestUser(db, "delete-me@test.com", auth.RoleUser)
-			auth.CreateSession(db, target.ID)
-			auth.CreateAPIKey(db, target.ID, "target-key", auth.RoleUser)
-			sessionID, _ := auth.CreateSession(db, admin.ID)
+			auth.CreateSession(db, target.ID, "")
+			auth.CreateAPIKey(db, target.ID, "target-key", auth.RoleUser, "", nil)
+			sessionID, _ := auth.CreateSession(db, admin.ID, "")
 			app := newTestAuthApp(db, appConfig)
 
 			rec := doAuthRequest(app, "DELETE", "/api/auth/admin/users/"+target.ID, nil, withSession(sessionID))
@@ -645,7 +646,7 @@ var _ = Describe("Auth Routes", Label("auth"), func() {
 
 		It("prevents self-deletion", func() {
 			admin := createRouteTestUser(db, "admin4@test.com", auth.RoleAdmin)
-			sessionID, _ := auth.CreateSession(db, admin.ID)
+			sessionID, _ := auth.CreateSession(db, admin.ID, "")
 			app := newTestAuthApp(db, appConfig)
 
 			rec := doAuthRequest(app, "DELETE", "/api/auth/admin/users/"+admin.ID, nil, withSession(sessionID))
@@ -655,7 +656,7 @@ var _ = Describe("Auth Routes", Label("auth"), func() {
 		It("returns 403 for non-admin", func() {
 			user := createRouteTestUser(db, "sneak@test.com", auth.RoleUser)
 			target := createRouteTestUser(db, "target2@test.com", auth.RoleUser)
-			sessionID, _ := auth.CreateSession(db, user.ID)
+			sessionID, _ := auth.CreateSession(db, user.ID, "")
 			app := newTestAuthApp(db, appConfig)
 
 			rec := doAuthRequest(app, "DELETE", "/api/auth/admin/users/"+target.ID, nil, withSession(sessionID))

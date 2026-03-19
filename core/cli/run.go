@@ -58,7 +58,7 @@ type RunCMD struct {
 	Address                            string   `env:"LOCALAI_ADDRESS,ADDRESS" default:":8080" help:"Bind address for the API server" group:"api"`
 	CORS                               bool     `env:"LOCALAI_CORS,CORS" help:"" group:"api"`
 	CORSAllowOrigins                   string   `env:"LOCALAI_CORS_ALLOW_ORIGINS,CORS_ALLOW_ORIGINS" group:"api"`
-	CSRF                               bool     `env:"LOCALAI_CSRF" help:"Enables fiber CSRF middleware" group:"api"`
+	DisableCSRF                        bool     `env:"LOCALAI_DISABLE_CSRF" help:"Disable CSRF middleware (enabled by default)" group:"api"`
 	UploadLimit                        int      `env:"LOCALAI_UPLOAD_LIMIT,UPLOAD_LIMIT" default:"15" help:"Default upload-limit in MB" group:"api"`
 	APIKeys                            []string `env:"LOCALAI_API_KEY,API_KEY" help:"List of API Keys to enable API authentication. When this is set, all the requests must be authenticated with one of these API keys" group:"api"`
 	DisableWebUI                       bool     `env:"LOCALAI_DISABLE_WEBUI,DISABLE_WEBUI" default:"false" help:"Disables the web user interface. When set to true, the server will only expose API endpoints without serving the web interface" group:"api"`
@@ -131,8 +131,10 @@ type RunCMD struct {
 	OIDCClientSecret     string `env:"LOCALAI_OIDC_CLIENT_SECRET" help:"OIDC Client Secret" group:"auth"`
 	AuthBaseURL          string `env:"LOCALAI_BASE_URL" help:"Base URL for OAuth callbacks (e.g. http://localhost:8080)" group:"auth"`
 	AuthAdminEmail       string `env:"LOCALAI_ADMIN_EMAIL" help:"Email address to auto-promote to admin role" group:"auth"`
-	AuthRegistrationMode string `env:"LOCALAI_REGISTRATION_MODE" default:"open" help:"Registration mode: 'open' (default) or 'approval'" group:"auth"`
+	AuthRegistrationMode string `env:"LOCALAI_REGISTRATION_MODE" default:"open" help:"Registration mode: 'open' (default), 'approval', or 'invite' (invite code required)" group:"auth"`
 	DisableLocalAuth     bool   `env:"LOCALAI_DISABLE_LOCAL_AUTH" default:"false" help:"Disable local email/password registration and login (use with OAuth/OIDC-only setups)" group:"auth"`
+	AuthAPIKeyHMACSecret string `env:"LOCALAI_AUTH_HMAC_SECRET" help:"HMAC secret for API key hashing (auto-generated if empty)" group:"auth"`
+	DefaultAPIKeyExpiry  string `env:"LOCALAI_DEFAULT_API_KEY_EXPIRY" help:"Default expiry for API keys (e.g. 90d, 1y; empty = no expiry)" group:"auth"`
 
 	Version bool
 }
@@ -178,7 +180,7 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 		config.WithBackendGalleries(r.BackendGalleries),
 		config.WithCors(r.CORS),
 		config.WithCorsAllowOrigins(r.CORSAllowOrigins),
-		config.WithCsrf(r.CSRF),
+		config.WithDisableCSRF(r.DisableCSRF),
 		config.WithThreads(r.Threads),
 		config.WithUploadLimitMB(r.UploadLimit),
 		config.WithApiKeys(r.APIKeys),
@@ -355,6 +357,12 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 		}
 		if r.DisableLocalAuth {
 			opts = append(opts, config.WithAuthDisableLocalAuth(true))
+		}
+		if r.AuthAPIKeyHMACSecret != "" {
+			opts = append(opts, config.WithAuthAPIKeyHMACSecret(r.AuthAPIKeyHMACSecret))
+		}
+		if r.DefaultAPIKeyExpiry != "" {
+			opts = append(opts, config.WithAuthDefaultAPIKeyExpiry(r.DefaultAPIKeyExpiry))
 		}
 	}
 

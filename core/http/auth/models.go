@@ -31,9 +31,10 @@ type User struct {
 
 // Session represents a user login session.
 type Session struct {
-	ID        string `gorm:"primaryKey;size:64"` // 64-char hex token
+	ID        string `gorm:"primaryKey;size:64"` // HMAC-SHA256 hash of session token
 	UserID    string `gorm:"size:36;index"`
 	ExpiresAt time.Time
+	RotatedAt time.Time
 	CreatedAt time.Time
 	User      User `gorm:"foreignKey:UserID;constraint:OnDelete:CASCADE"`
 }
@@ -47,6 +48,7 @@ type UserAPIKey struct {
 	KeyPrefix string `gorm:"size:12"` // first 8 chars of key for display
 	Role      string `gorm:"size:20"`
 	CreatedAt time.Time
+	ExpiresAt *time.Time `gorm:"index"`
 	LastUsed  *time.Time
 	User      User `gorm:"foreignKey:UserID;constraint:OnDelete:CASCADE"`
 }
@@ -88,9 +90,10 @@ func (p *PermissionMap) Scan(value any) error {
 
 // InviteCode represents an admin-generated invitation for user registration.
 type InviteCode struct {
-	ID        string     `gorm:"primaryKey;size:36"`
-	Code      string     `gorm:"uniqueIndex;not null;size:64"`
-	CreatedBy string     `gorm:"size:36;not null"`
+	ID         string     `gorm:"primaryKey;size:36"`
+	Code       string     `gorm:"uniqueIndex;not null;size:64"` // HMAC-SHA256 hash of invite code
+	CodePrefix string     `gorm:"size:12"`                      // first 8 chars for admin display
+	CreatedBy  string     `gorm:"size:36;not null"`
 	UsedBy    *string    `gorm:"size:36"`
 	UsedAt    *time.Time
 	ExpiresAt time.Time  `gorm:"not null;index"`

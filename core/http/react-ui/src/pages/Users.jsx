@@ -5,6 +5,7 @@ import { adminUsersApi, adminInvitesApi } from '../utils/api'
 import LoadingSpinner from '../components/LoadingSpinner'
 import Modal from '../components/Modal'
 import ConfirmDialog from '../components/ConfirmDialog'
+import './auth.css'
 
 function RoleBadge({ role }) {
   const isPrimary = role === 'admin'
@@ -16,23 +17,13 @@ function RoleBadge({ role }) {
 }
 
 function StatusBadge({ status }) {
-  const color = status === 'active'
-    ? 'var(--color-success, #22c55e)'
+  const variant = status === 'active'
+    ? 'success'
     : status === 'disabled'
-      ? 'var(--color-danger, #ef4444)'
-      : 'var(--color-warning, #eab308)'
+      ? 'danger'
+      : 'warning'
   return (
-    <span
-      style={{
-        display: 'inline-block',
-        padding: '2px 8px',
-        borderRadius: 'var(--radius-sm, 4px)',
-        fontSize: '0.75rem',
-        fontWeight: 600,
-        background: `${color}22`,
-        color,
-      }}
-    >
+    <span className={`status-badge status-badge-${variant}`}>
       {status || 'unknown'}
     </span>
   )
@@ -48,11 +39,7 @@ function ProviderBadge({ provider }) {
 
 function PermissionSummary({ user, onClick }) {
   if (user.role === 'admin') {
-    return (
-      <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', fontStyle: 'italic' }}>
-        All (admin)
-      </span>
-    )
+    return <span className="perm-summary-text">All (admin)</span>
   }
 
   const perms = user.permissions || {}
@@ -66,12 +53,11 @@ function PermissionSummary({ user, onClick }) {
 
   return (
     <button
-      className="btn btn-sm btn-secondary"
+      className="btn btn-sm btn-secondary perm-summary-btn"
       onClick={onClick}
-      style={{ fontSize: '0.7rem', padding: '2px 8px' }}
       title="Edit permissions"
     >
-      <i className="fas fa-shield-halved" style={{ marginRight: 4 }} />
+      <i className="fas fa-shield-halved" />
       {apiOn}/{apiFeatures.length} API, {agentOn}/{agentFeatures.length} Agent
       {modelRestricted && ' | Models restricted'}
     </button>
@@ -140,64 +126,37 @@ function PermissionsModal({ user, featureMeta, availableModels, onClose, onSave,
     }
   }
 
-  const sectionStyle = {
-    marginBottom: 'var(--spacing-md)',
-    padding: 'var(--spacing-sm) var(--spacing-md)',
-    background: 'var(--color-bg-tertiary)',
-    border: '1px solid var(--color-border-subtle)',
-    borderRadius: 'var(--radius-md)',
-  }
-
-  const headerStyle = {
-    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-    marginBottom: 'var(--spacing-sm)',
-  }
-
-  const gridStyle = {
-    display: 'flex', gap: 'var(--spacing-xs)', flexWrap: 'wrap',
-  }
-
-  const allNoneBtnStyle = { fontSize: '0.75rem', padding: '2px 8px' }
-  const featureBtnStyle = { fontSize: '0.8rem', padding: '5px 12px' }
-
   return (
     <Modal onClose={onClose} maxWidth="640px">
-      <div style={{ padding: 'var(--spacing-lg)' }}>
+      <div className="perm-modal-body">
         {/* Header with avatar */}
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)',
-          paddingBottom: 'var(--spacing-md)', marginBottom: 'var(--spacing-md)',
-          borderBottom: '1px solid var(--color-border-subtle)',
-        }}>
+        <div className="perm-modal-header">
           {user.avatarUrl ? (
-            <img src={user.avatarUrl} alt="" style={{ width: 32, height: 32, borderRadius: '50%' }} />
+            <img src={user.avatarUrl} alt="" className="perm-modal-avatar" />
           ) : (
-            <i className="fas fa-user-circle" style={{ fontSize: '1.75rem', color: 'var(--color-text-secondary)' }} />
+            <i className="fas fa-user-circle user-avatar-placeholder--lg" />
           )}
-          <h3 style={{ margin: 0, fontSize: '1.1rem', color: 'var(--color-text-primary)' }}>
-            Permissions for &ldquo;{user.name || user.email}&rdquo;
-          </h3>
+          <h3>Permissions for &ldquo;{user.name || user.email}&rdquo;</h3>
         </div>
 
         {/* API Endpoints */}
-        <div style={sectionStyle}>
-          <div style={headerStyle}>
-            <strong style={{ fontSize: '0.875rem', color: 'var(--color-text-primary)' }}>
-              <i className="fas fa-plug" style={{ marginRight: 'var(--spacing-xs)' }} />
+        <div className="perm-section">
+          <div className="perm-section-header">
+            <strong className="perm-section-title">
+              <i className="fas fa-plug" />
               API Endpoints
             </strong>
-            <div style={{ display: 'flex', gap: 'var(--spacing-xs)' }}>
-              <button className="btn btn-sm btn-secondary" onClick={() => setAllFeatures(apiFeatures, true)} style={allNoneBtnStyle}>All</button>
-              <button className="btn btn-sm btn-secondary" onClick={() => setAllFeatures(apiFeatures, false)} style={allNoneBtnStyle}>None</button>
+            <div className="action-group">
+              <button className="btn btn-sm btn-secondary perm-btn-all-none" onClick={() => setAllFeatures(apiFeatures, true)}>All</button>
+              <button className="btn btn-sm btn-secondary perm-btn-all-none" onClick={() => setAllFeatures(apiFeatures, false)}>None</button>
             </div>
           </div>
-          <div style={gridStyle}>
+          <div className="perm-grid">
             {apiFeatures.map(f => (
               <button
                 key={f.key}
-                className={`btn btn-sm ${permissions[f.key] ? 'btn-primary' : 'btn-secondary'}`}
+                className={`btn btn-sm ${permissions[f.key] ? 'btn-primary' : 'btn-secondary'} perm-btn-feature`}
                 onClick={() => toggleFeature(f.key)}
-                style={featureBtnStyle}
               >
                 {f.label}
               </button>
@@ -206,24 +165,23 @@ function PermissionsModal({ user, featureMeta, availableModels, onClose, onSave,
         </div>
 
         {/* Agent Features */}
-        <div style={sectionStyle}>
-          <div style={headerStyle}>
-            <strong style={{ fontSize: '0.875rem', color: 'var(--color-text-primary)' }}>
-              <i className="fas fa-robot" style={{ marginRight: 'var(--spacing-xs)' }} />
+        <div className="perm-section">
+          <div className="perm-section-header">
+            <strong className="perm-section-title">
+              <i className="fas fa-robot" />
               Agent Features
             </strong>
-            <div style={{ display: 'flex', gap: 'var(--spacing-xs)' }}>
-              <button className="btn btn-sm btn-secondary" onClick={() => setAllFeatures(agentFeatures, true)} style={allNoneBtnStyle}>All</button>
-              <button className="btn btn-sm btn-secondary" onClick={() => setAllFeatures(agentFeatures, false)} style={allNoneBtnStyle}>None</button>
+            <div className="action-group">
+              <button className="btn btn-sm btn-secondary perm-btn-all-none" onClick={() => setAllFeatures(agentFeatures, true)}>All</button>
+              <button className="btn btn-sm btn-secondary perm-btn-all-none" onClick={() => setAllFeatures(agentFeatures, false)}>None</button>
             </div>
           </div>
-          <div style={gridStyle}>
+          <div className="perm-grid">
             {agentFeatures.map(f => (
               <button
                 key={f.key}
-                className={`btn btn-sm ${permissions[f.key] ? 'btn-primary' : 'btn-secondary'}`}
+                className={`btn btn-sm ${permissions[f.key] ? 'btn-primary' : 'btn-secondary'} perm-btn-feature`}
                 onClick={() => toggleFeature(f.key)}
-                style={featureBtnStyle}
               >
                 {f.label}
               </button>
@@ -232,15 +190,15 @@ function PermissionsModal({ user, featureMeta, availableModels, onClose, onSave,
         </div>
 
         {/* Model Access */}
-        <div style={sectionStyle}>
-          <div style={headerStyle}>
-            <strong style={{ fontSize: '0.875rem', color: 'var(--color-text-primary)' }}>
-              <i className="fas fa-cubes" style={{ marginRight: 'var(--spacing-xs)' }} />
+        <div className="perm-section">
+          <div className="perm-section-header">
+            <strong className="perm-section-title">
+              <i className="fas fa-cubes" />
               Model Access
             </strong>
           </div>
           <div style={{ marginBottom: 'var(--spacing-sm)' }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', fontSize: '0.8rem', cursor: 'pointer', color: 'var(--color-text-primary)' }}>
+            <label className="perm-toggle-label">
               <label className="toggle" style={{ flexShrink: 0 }}>
                 <input
                   type="checkbox"
@@ -254,9 +212,9 @@ function PermissionsModal({ user, featureMeta, availableModels, onClose, onSave,
           </div>
           {allowedModels.enabled ? (
             <>
-              <div style={{ display: 'flex', gap: 'var(--spacing-xs)', marginBottom: 'var(--spacing-sm)' }}>
-                <button className="btn btn-sm btn-secondary" onClick={() => setAllModels(true)} style={allNoneBtnStyle}>All</button>
-                <button className="btn btn-sm btn-secondary" onClick={() => setAllModels(false)} style={allNoneBtnStyle}>None</button>
+              <div className="action-group" style={{ marginBottom: 'var(--spacing-sm)' }}>
+                <button className="btn btn-sm btn-secondary perm-btn-all-none" onClick={() => setAllModels(true)}>All</button>
+                <button className="btn btn-sm btn-secondary perm-btn-all-none" onClick={() => setAllModels(false)}>None</button>
               </div>
               <div className="model-list">
                 {(availableModels || []).map(m => {
@@ -279,19 +237,17 @@ function PermissionsModal({ user, featureMeta, availableModels, onClose, onSave,
                   )
                 })}
                 {(!availableModels || availableModels.length === 0) && (
-                  <span style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)', padding: 'var(--spacing-xs)' }}>No models available</span>
+                  <span className="perm-empty">No models available</span>
                 )}
               </div>
             </>
           ) : (
-            <p style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)', margin: 0, fontStyle: 'italic' }}>
-              All models are accessible
-            </p>
+            <p className="perm-hint">All models are accessible</p>
           )}
         </div>
 
         {/* Actions */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--spacing-sm)', marginTop: 'var(--spacing-md)' }}>
+        <div className="perm-modal-actions">
           <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
           <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
             {saving ? 'Saving...' : 'Save'}
@@ -311,37 +267,9 @@ function InviteStatusBadge({ invite }) {
     return <StatusBadge status="used" />
   }
   if (expired) {
-    return (
-      <span
-        style={{
-          display: 'inline-block',
-          padding: '2px 8px',
-          borderRadius: 'var(--radius-sm, 4px)',
-          fontSize: '0.75rem',
-          fontWeight: 600,
-          background: 'var(--color-danger, #ef4444)22',
-          color: 'var(--color-danger, #ef4444)',
-        }}
-      >
-        expired
-      </span>
-    )
+    return <span className="status-badge status-badge-danger">expired</span>
   }
-  return (
-    <span
-      style={{
-        display: 'inline-block',
-        padding: '2px 8px',
-        borderRadius: 'var(--radius-sm, 4px)',
-        fontSize: '0.75rem',
-        fontWeight: 600,
-        background: 'var(--color-success, #22c55e)22',
-        color: 'var(--color-success, #22c55e)',
-      }}
-    >
-      available
-    </span>
-  )
+  return <span className="status-badge status-badge-success">available</span>
 }
 
 function isInviteAvailable(invite) {
@@ -353,6 +281,7 @@ function InvitesTab({ addToast }) {
   const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false)
   const [confirmDialog, setConfirmDialog] = useState(null)
+  const [newInviteCodes, setNewInviteCodes] = useState({})
 
   const fetchInvites = useCallback(async () => {
     setLoading(true)
@@ -373,7 +302,10 @@ function InvitesTab({ addToast }) {
   const handleCreate = async () => {
     setCreating(true)
     try {
-      await adminInvitesApi.create(168) // 7 days
+      const resp = await adminInvitesApi.create(168) // 7 days
+      if (resp && resp.id && resp.code) {
+        setNewInviteCodes(prev => ({ ...prev, [resp.id]: resp.code }))
+      }
       addToast('Invite link created', 'success')
       fetchInvites()
     } catch (err) {
@@ -421,7 +353,7 @@ function InvitesTab({ addToast }) {
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', padding: 'var(--spacing-xl)' }}>
+      <div className="auth-loading">
         <LoadingSpinner size="lg" />
       </div>
     )
@@ -429,7 +361,7 @@ function InvitesTab({ addToast }) {
 
   return (
     <>
-      <div style={{ display: 'flex', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-md)', alignItems: 'center' }}>
+      <div className="auth-toolbar">
         <button className="btn btn-primary btn-sm" onClick={handleCreate} disabled={creating}>
           <i className="fas fa-plus" /> {creating ? 'Creating...' : 'Generate Invite Link'}
         </button>
@@ -454,51 +386,49 @@ function InvitesTab({ addToast }) {
                 <th>Created By</th>
                 <th>Used By</th>
                 <th>Expires</th>
-                <th style={{ width: 120 }}>Actions</th>
+                <th className="cell-actions--sm">Actions</th>
               </tr>
             </thead>
             <tbody>
               {invites.map(inv => (
                 <tr key={inv.id}>
-                  <td style={{ fontSize: '0.8rem', maxWidth: 320 }}>
-                    {isInviteAvailable(inv) ? (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <span
-                          style={{
-                            fontFamily: 'JetBrains Mono, monospace',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                            flex: 1,
-                            color: 'var(--color-text-secondary)',
-                          }}
-                          title={`${window.location.origin}/invite/${inv.code}`}
-                        >
-                          {`${window.location.origin}/invite/${inv.code}`}
+                  <td className="invite-cell">
+                    {(() => {
+                      const code = inv.code || newInviteCodes[inv.id]
+                      if (isInviteAvailable(inv) && code) {
+                        return (
+                          <div className="invite-link-row">
+                            <span
+                              className="invite-link-text"
+                              title={`${window.location.origin}/invite/${code}`}
+                            >
+                              {`${window.location.origin}/invite/${code}`}
+                            </span>
+                            <button
+                              className="btn btn-sm btn-secondary invite-copy-btn"
+                              onClick={() => handleCopyUrl(code)}
+                              title="Copy invite URL"
+                            >
+                              <i className="fas fa-copy" /> Copy
+                            </button>
+                          </div>
+                        )
+                      }
+                      return (
+                        <span className="mono-text">
+                          {inv.codePrefix || code?.substring(0, 8) || '???'}...
                         </span>
-                        <button
-                          className="btn btn-sm btn-secondary"
-                          onClick={() => handleCopyUrl(inv.code)}
-                          title="Copy invite URL"
-                          style={{ fontSize: '0.7rem', padding: '2px 6px', flexShrink: 0 }}
-                        >
-                          <i className="fas fa-copy" /> Copy
-                        </button>
-                      </div>
-                    ) : (
-                      <span style={{ fontFamily: 'JetBrains Mono, monospace', color: 'var(--color-text-secondary)' }}>
-                        {inv.code.substring(0, 16)}...
-                      </span>
-                    )}
+                      )
+                    })()}
                   </td>
                   <td><InviteStatusBadge invite={inv} /></td>
-                  <td style={{ fontSize: '0.8125rem' }}>
+                  <td className="cell-sm">
                     {inv.createdBy?.name || inv.createdBy?.id || '-'}
                   </td>
-                  <td style={{ fontSize: '0.8125rem' }}>
+                  <td className="cell-sm">
                     {inv.usedBy?.name || inv.usedBy?.id || '\u2014'}
                   </td>
-                  <td style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)' }}>
+                  <td className="cell-muted">
                     {inv.expiresAt ? new Date(inv.expiresAt).toLocaleString() : '-'}
                   </td>
                   <td>
@@ -651,18 +581,16 @@ export default function Users() {
       </div>
 
       {/* Tab bar */}
-      <div style={{ display: 'flex', gap: 'var(--spacing-xs)', marginBottom: 'var(--spacing-md)', borderBottom: '1px solid var(--color-border)' }}>
+      <div className="auth-tab-bar">
         <button
-          className={`btn btn-sm ${activeTab === 'users' ? 'btn-primary' : 'btn-secondary'}`}
+          className={`btn btn-sm auth-tab--pill ${activeTab === 'users' ? 'btn-primary' : 'btn-secondary'}`}
           onClick={() => setActiveTab('users')}
-          style={{ borderRadius: 'var(--radius-sm) var(--radius-sm) 0 0' }}
         >
           <i className="fas fa-users" /> Users
         </button>
         <button
-          className={`btn btn-sm ${activeTab === 'invites' ? 'btn-primary' : 'btn-secondary'}`}
+          className={`btn btn-sm auth-tab--pill ${activeTab === 'invites' ? 'btn-primary' : 'btn-secondary'}`}
           onClick={() => setActiveTab('invites')}
-          style={{ borderRadius: 'var(--radius-sm) var(--radius-sm) 0 0' }}
         >
           <i className="fas fa-envelope-open-text" /> Invites
         </button>
@@ -672,16 +600,15 @@ export default function Users() {
         <InvitesTab addToast={addToast} />
       ) : (
         <>
-          <div style={{ display: 'flex', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-md)', alignItems: 'center' }}>
-            <div style={{ position: 'relative', flex: 1, maxWidth: 360 }}>
-              <i className="fas fa-search" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-secondary)', fontSize: '0.8rem' }} />
+          <div className="auth-toolbar">
+            <div className="search-field">
+              <i className="fas fa-search search-field-icon" />
               <input
                 type="text"
                 className="input"
                 placeholder="Search by name or email..."
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                style={{ paddingLeft: 32 }}
               />
             </div>
             <button className="btn btn-secondary btn-sm" onClick={fetchUsers} disabled={loading}>
@@ -690,7 +617,7 @@ export default function Users() {
           </div>
 
           {loading ? (
-            <div style={{ display: 'flex', justifyContent: 'center', padding: 'var(--spacing-xl)' }}>
+            <div className="auth-loading">
               <LoadingSpinner size="lg" />
             </div>
           ) : filtered.length === 0 ? (
@@ -711,23 +638,23 @@ export default function Users() {
                     <th>Permissions</th>
                     <th>Status</th>
                     <th>Created</th>
-                    <th style={{ width: 140 }}>Actions</th>
+                    <th className="cell-actions">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filtered.map(u => (
                     <tr key={u.id}>
                       <td>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
+                        <div className="user-identity">
                           {u.avatarUrl ? (
-                            <img src={u.avatarUrl} alt="" style={{ width: 28, height: 28, borderRadius: '50%' }} />
+                            <img src={u.avatarUrl} alt="" className="user-avatar" />
                           ) : (
-                            <i className="fas fa-user-circle" style={{ fontSize: '1.5rem', color: 'var(--color-text-secondary)' }} />
+                            <i className="fas fa-user-circle user-avatar-placeholder" />
                           )}
-                          <span style={{ fontSize: '0.875rem', fontWeight: 500 }}>{u.name || '(no name)'}</span>
+                          <span className="user-name">{u.name || '(no name)'}</span>
                         </div>
                       </td>
-                      <td style={{ fontSize: '0.8125rem', fontFamily: 'JetBrains Mono, monospace' }}>{u.email}</td>
+                      <td className="user-email">{u.email}</td>
                       <td><ProviderBadge provider={u.provider} /></td>
                       <td><RoleBadge role={u.role} /></td>
                       <td>
@@ -737,12 +664,12 @@ export default function Users() {
                         />
                       </td>
                       <td><StatusBadge status={u.status} /></td>
-                      <td style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)' }}>
+                      <td className="cell-muted">
                         {u.createdAt ? new Date(u.createdAt).toLocaleDateString() : '-'}
                       </td>
                       <td>
                         {!isSelf(u) && (
-                          <div style={{ display: 'flex', gap: 'var(--spacing-xs)' }}>
+                          <div className="action-group">
                             {u.status !== 'active' ? (
                               <button
                                 className="btn btn-sm btn-primary"

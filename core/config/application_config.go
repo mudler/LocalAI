@@ -30,7 +30,7 @@ type ApplicationConfig struct {
 	DynamicConfigsDir             string
 	DynamicConfigsDirPollInterval time.Duration
 	CORS                          bool
-	CSRF                          bool
+	DisableCSRF                   bool
 	PreloadJSONModels             string
 	PreloadModelsFromPath         string
 	CORSAllowOrigins              string
@@ -112,8 +112,10 @@ type AuthConfig struct {
 	OIDCClientSecret   string
 	BaseURL            string // for OAuth callback URLs (e.g. "http://localhost:8080")
 	AdminEmail         string // auto-promote to admin on login
-	RegistrationMode   string // "open" (default), "approval", "invite"
+	RegistrationMode   string // "open", "approval" (default when empty), "invite"
 	DisableLocalAuth   bool   // disable local email/password registration and login
+	APIKeyHMACSecret   string // HMAC secret for API key hashing; auto-generated if empty
+	DefaultAPIKeyExpiry string // default expiry duration for API keys (e.g. "90d"); empty = no expiry
 }
 
 // AgentPoolConfig holds configuration for the LocalAGI agent pool integration.
@@ -214,9 +216,9 @@ func WithP2PNetworkID(s string) AppOption {
 	}
 }
 
-func WithCsrf(b bool) AppOption {
+func WithDisableCSRF(b bool) AppOption {
 	return func(o *ApplicationConfig) {
-		o.CSRF = b
+		o.DisableCSRF = b
 	}
 }
 
@@ -799,6 +801,18 @@ func WithAuthOIDCClientSecret(clientSecret string) AppOption {
 	}
 }
 
+func WithAuthAPIKeyHMACSecret(secret string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.Auth.APIKeyHMACSecret = secret
+	}
+}
+
+func WithAuthDefaultAPIKeyExpiry(expiry string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.Auth.DefaultAPIKeyExpiry = expiry
+	}
+}
+
 // ToConfigLoaderOptions returns a slice of ConfigLoader Option.
 // Some options defined at the application level are going to be passed as defaults for
 // all the configuration for the models.
@@ -838,7 +852,7 @@ func (o *ApplicationConfig) ToRuntimeSettings() RuntimeSettings {
 	enableTracing := o.EnableTracing
 	enableBackendLogging := o.EnableBackendLogging
 	cors := o.CORS
-	csrf := o.CSRF
+	csrf := o.DisableCSRF
 	corsAllowOrigins := o.CORSAllowOrigins
 	p2pToken := o.P2PToken
 	p2pNetworkID := o.P2PNetworkID
@@ -1046,7 +1060,7 @@ func (o *ApplicationConfig) ApplyRuntimeSettings(settings *RuntimeSettings) (req
 		o.CORS = *settings.CORS
 	}
 	if settings.CSRF != nil {
-		o.CSRF = *settings.CSRF
+		o.DisableCSRF = *settings.CSRF
 	}
 	if settings.CORSAllowOrigins != nil {
 		o.CORSAllowOrigins = *settings.CORSAllowOrigins

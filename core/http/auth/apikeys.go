@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
@@ -18,8 +19,8 @@ const (
 )
 
 // GenerateAPIKey generates a new API key. Returns the plaintext key,
-// its SHA-256 hash, and a display prefix.
-func GenerateAPIKey() (plaintext, hash, prefix string, err error) {
+// its HMAC-SHA256 hash, and a display prefix.
+func GenerateAPIKey(hmacSecret string) (plaintext, hash, prefix string, err error) {
 	b := make([]byte, apiKeyRandBytes)
 	if _, err := rand.Read(b); err != nil {
 		return "", "", "", fmt.Errorf("failed to generate API key: %w", err)
@@ -27,22 +28,28 @@ func GenerateAPIKey() (plaintext, hash, prefix string, err error) {
 
 	randHex := hex.EncodeToString(b)
 	plaintext = apiKeyPrefix + randHex
-	hash = HashAPIKey(plaintext)
+	hash = HashAPIKey(plaintext, hmacSecret)
 	prefix = plaintext[:len(apiKeyPrefix)+keyPrefixLen]
 
 	return plaintext, hash, prefix, nil
 }
 
-// HashAPIKey returns the SHA-256 hex digest of the given plaintext key.
-func HashAPIKey(plaintext string) string {
-	h := sha256.Sum256([]byte(plaintext))
-	return hex.EncodeToString(h[:])
+// HashAPIKey returns the HMAC-SHA256 hex digest of the given plaintext key.
+// If hmacSecret is empty, falls back to plain SHA-256 for backward compatibility.
+func HashAPIKey(plaintext, hmacSecret string) string {
+	if hmacSecret == "" {
+		h := sha256.Sum256([]byte(plaintext))
+		return hex.EncodeToString(h[:])
+	}
+	mac := hmac.New(sha256.New, []byte(hmacSecret))
+	mac.Write([]byte(plaintext))
+	return hex.EncodeToString(mac.Sum(nil))
 }
 
 // CreateAPIKey generates and stores a new API key for the given user.
 // Returns the plaintext key (shown once) and the database record.
-func CreateAPIKey(db *gorm.DB, userID, name, role string) (string, *UserAPIKey, error) {
-	plaintext, hash, prefix, err := GenerateAPIKey()
+func CreateAPIKey(db *gorm.DB, userID, name, role, hmacSecret string, expiresAt *time.Time) (string, *UserAPIKey, error) {
+	plaintext, hash, prefix, err := GenerateAPIKey(hmacSecret)
 	if err != nil {
 		return "", nil, err
 	}
@@ -54,6 +61,7 @@ func CreateAPIKey(db *gorm.DB, userID, name, role string) (string, *UserAPIKey, 
 		KeyHash:   hash,
 		KeyPrefix: prefix,
 		Role:      role,
+		ExpiresAt: expiresAt,
 	}
 
 	if err := db.Create(record).Error; err != nil {
@@ -66,12 +74,16 @@ func CreateAPIKey(db *gorm.DB, userID, name, role string) (string, *UserAPIKey, 
 // ValidateAPIKey looks up an API key by hashing the plaintext and searching
 // the database. Returns the key record if found, or an error.
 // Updates LastUsed on successful validation.
-func ValidateAPIKey(db *gorm.DB, plaintext string) (*UserAPIKey, error) {
-	hash := HashAPIKey(plaintext)
+func ValidateAPIKey(db *gorm.DB, plaintext, hmacSecret string) (*UserAPIKey, error) {
+	hash := HashAPIKey(plaintext, hmacSecret)
 
 	var key UserAPIKey
 	if err := db.Preload("User").Where("key_hash = ?", hash).First(&key).Error; err != nil {
 		return nil, fmt.Errorf("invalid API key")
+	}
+
+	if key.ExpiresAt != nil && time.Now().After(*key.ExpiresAt) {
+		return nil, fmt.Errorf("API key expired")
 	}
 
 	if key.User.Status != StatusActive {
@@ -101,4 +113,9 @@ func RevokeAPIKey(db *gorm.DB, keyID, userID string) error {
 		return fmt.Errorf("API key not found or not owned by user")
 	}
 	return result.Error
+}
+
+// CleanExpiredAPIKeys removes all API keys that have passed their expiry time.
+func CleanExpiredAPIKeys(db *gorm.DB) error {
+	return db.Where("expires_at IS NOT NULL AND expires_at < ?", time.Now()).Delete(&UserAPIKey{}).Error
 }

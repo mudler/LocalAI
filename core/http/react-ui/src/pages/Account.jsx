@@ -5,6 +5,7 @@ import { apiKeysApi, profileApi } from '../utils/api'
 import LoadingSpinner from '../components/LoadingSpinner'
 import SettingRow from '../components/SettingRow'
 import ConfirmDialog from '../components/ConfirmDialog'
+import './auth.css'
 
 function formatDate(d) {
   if (!d) return '-'
@@ -46,42 +47,21 @@ function ProfileTab({ addToast }) {
   return (
     <div>
       {/* User info header */}
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: 'var(--spacing-md)',
-        marginBottom: 'var(--spacing-lg)',
-        padding: 'var(--spacing-md)',
-        background: 'var(--color-bg-tertiary)',
-        borderRadius: 'var(--radius-md)',
-      }}>
-        <div style={{
-          width: 48, height: 48, borderRadius: '50%',
-          background: 'var(--color-primary-light)',
-          border: '2px solid var(--color-primary-border)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          flexShrink: 0, overflow: 'hidden',
-        }}>
+      <div className="account-user-header">
+        <div className="account-avatar-frame">
           {user?.avatarUrl ? (
-            <img src={user.avatarUrl} alt="" style={{ width: 44, height: 44, borderRadius: '50%', objectFit: 'cover' }} />
+            <img src={user.avatarUrl} alt="" className="user-avatar--lg" />
           ) : (
-            <i className="fas fa-user" style={{ fontSize: '1.125rem', color: 'var(--color-primary)' }} />
+            <i className="fas fa-user account-avatar-icon" />
           )}
         </div>
-        <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)', marginBottom: 2 }}>{user?.email}</div>
-          <div style={{ display: 'flex', gap: 'var(--spacing-xs)', alignItems: 'center' }}>
-            <span style={{
-              fontSize: '0.6875rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em',
-              padding: '1px 6px', borderRadius: 'var(--radius-sm)',
-              background: user?.role === 'admin' ? 'var(--color-accent-light)' : 'var(--color-primary-light)',
-              color: user?.role === 'admin' ? 'var(--color-accent)' : 'var(--color-primary)',
-            }}>
+        <div className="account-user-meta">
+          <div className="account-user-email">{user?.email}</div>
+          <div className="account-user-badges">
+            <span className={`role-badge ${user?.role === 'admin' ? 'role-badge-admin' : 'role-badge-user'}`}>
               {user?.role}
             </span>
-            <span style={{
-              fontSize: '0.6875rem', color: 'var(--color-text-muted)',
-              padding: '1px 6px', borderRadius: 'var(--radius-sm)',
-              background: 'var(--color-bg-primary)',
-            }}>
+            <span className="provider-tag">
               {user?.provider || 'local'}
             </span>
           </div>
@@ -94,35 +74,29 @@ function ProfileTab({ addToast }) {
           <SettingRow label="Display name" description="Your public display name">
             <input
               type="text"
-              className="input"
+              className="input account-input-sm"
               value={name}
               onChange={(e) => setName(e.target.value)}
               disabled={saving}
               maxLength={100}
-              style={{ width: 240 }}
             />
           </SettingRow>
           <SettingRow label="Avatar URL" description="URL to your profile picture">
-            <div style={{ display: 'flex', gap: 'var(--spacing-sm)', alignItems: 'center' }}>
+            <div className="account-input-row">
               <input
                 type="url"
-                className="input"
+                className="input account-input-sm"
                 value={avatarUrl}
                 onChange={(e) => setAvatarUrl(e.target.value)}
                 disabled={saving}
                 maxLength={512}
                 placeholder="https://example.com/avatar.png"
-                style={{ width: 240 }}
               />
               {avatarUrl.trim() && (
                 <img
                   src={avatarUrl.trim()}
                   alt="preview"
-                  style={{
-                    width: 28, height: 28, borderRadius: '50%', objectFit: 'cover',
-                    border: '1px solid var(--color-border-default)',
-                    flexShrink: 0,
-                  }}
+                  className="account-avatar-preview"
                   onError={(e) => { e.target.style.display = 'none' }}
                   onLoad={(e) => { e.target.style.display = 'block' }}
                 />
@@ -130,7 +104,7 @@ function ProfileTab({ addToast }) {
             </div>
           </SettingRow>
         </div>
-        <div style={{ marginTop: 'var(--spacing-md)', display: 'flex', justifyContent: 'flex-end' }}>
+        <div className="form-actions">
           <button
             type="submit"
             className="btn btn-primary btn-sm"
@@ -179,9 +153,9 @@ function SecurityTab({ addToast }) {
 
   if (!isLocal) {
     return (
-      <div className="card" style={{ textAlign: 'center', padding: 'var(--spacing-xl)' }}>
-        <i className="fas fa-shield-halved" style={{ fontSize: '1.5rem', color: 'var(--color-text-muted)', marginBottom: 'var(--spacing-sm)', display: 'block' }} />
-        <div style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)' }}>
+      <div className="card empty-icon-block">
+        <i className="fas fa-shield-halved" />
+        <div className="empty-icon-block-text">
           Password management is not available for {user?.provider || 'OAuth'} accounts.
         </div>
       </div>
@@ -194,42 +168,39 @@ function SecurityTab({ addToast }) {
         <SettingRow label="Current password" description="Enter your existing password to verify your identity">
           <input
             type="password"
-            className="input"
+            className="input account-input-sm"
             value={currentPw}
             onChange={(e) => setCurrentPw(e.target.value)}
             placeholder="Current password"
             disabled={saving}
             required
-            style={{ width: 240 }}
           />
         </SettingRow>
         <SettingRow label="New password" description="Must be at least 8 characters">
           <input
             type="password"
-            className="input"
+            className="input account-input-sm"
             value={newPw}
             onChange={(e) => setNewPw(e.target.value)}
             placeholder="New password"
             minLength={8}
             disabled={saving}
             required
-            style={{ width: 240 }}
           />
         </SettingRow>
         <SettingRow label="Confirm password" description="Re-enter your new password">
           <input
             type="password"
-            className="input"
+            className="input account-input-sm"
             value={confirmPw}
             onChange={(e) => setConfirmPw(e.target.value)}
             placeholder="Confirm new password"
             disabled={saving}
             required
-            style={{ width: 240 }}
           />
         </SettingRow>
       </div>
-      <div style={{ marginTop: 'var(--spacing-md)', display: 'flex', justifyContent: 'flex-end' }}>
+      <div className="form-actions">
         <button
           type="submit"
           className="btn btn-primary btn-sm"
@@ -337,16 +308,15 @@ function ApiKeysTab({ addToast }) {
       <div className="card" style={{ marginBottom: 'var(--spacing-md)' }}>
         <form onSubmit={handleCreate}>
           <SettingRow label="Create API key" description="Generate a key for programmatic access">
-            <div style={{ display: 'flex', gap: 'var(--spacing-sm)', alignItems: 'center' }}>
+            <div className="account-input-row">
               <input
                 type="text"
-                className="input"
+                className="input account-input-xs"
                 placeholder="Key name (e.g. my-app)"
                 value={newKeyName}
                 onChange={(e) => setNewKeyName(e.target.value)}
                 disabled={creating}
                 maxLength={64}
-                style={{ width: 200 }}
               />
               <button type="submit" className="btn btn-primary btn-sm" disabled={creating || !newKeyName.trim()}>
                 {creating ? <LoadingSpinner size="sm" /> : <><i className="fas fa-plus" /> Create</>}
@@ -358,24 +328,13 @@ function ApiKeysTab({ addToast }) {
 
       {/* Newly created key banner */}
       {newKeyPlaintext && (
-        <div style={{
-          padding: 'var(--spacing-sm) var(--spacing-md)',
-          border: '1px solid var(--color-warning-border)',
-          borderRadius: 'var(--radius-md)',
-          background: 'var(--color-warning-light)',
-          marginBottom: 'var(--spacing-md)',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)', marginBottom: 'var(--spacing-xs)', fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-warning)' }}>
+        <div className="new-key-banner">
+          <div className="new-key-banner-header">
             <i className="fas fa-triangle-exclamation" />
             Copy now — this key won't be shown again
           </div>
-          <div style={{ display: 'flex', gap: 'var(--spacing-sm)', alignItems: 'center' }}>
-            <code style={{
-              flex: 1, padding: 'var(--spacing-xs) var(--spacing-sm)',
-              background: 'var(--color-bg-primary)', borderRadius: 'var(--radius-sm)',
-              fontFamily: 'JetBrains Mono, monospace', fontSize: '0.75rem',
-              wordBreak: 'break-all', color: 'var(--color-text-primary)',
-            }}>
+          <div className="new-key-banner-body">
+            <code className="new-key-value">
               {newKeyPlaintext}
             </code>
             <button className="btn btn-secondary btn-sm" onClick={() => copyToClipboard(newKeyPlaintext)}>
@@ -390,40 +349,35 @@ function ApiKeysTab({ addToast }) {
 
       {/* Keys list */}
       {loading ? (
-        <div style={{ display: 'flex', justifyContent: 'center', padding: 'var(--spacing-xl)' }}>
+        <div className="auth-loading">
           <LoadingSpinner size="sm" />
         </div>
       ) : keys.length === 0 ? (
-        <div className="card" style={{ textAlign: 'center', padding: 'var(--spacing-xl)' }}>
-          <i className="fas fa-key" style={{ fontSize: '1.5rem', color: 'var(--color-text-muted)', marginBottom: 'var(--spacing-sm)', display: 'block' }} />
-          <div style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)' }}>
+        <div className="card empty-icon-block">
+          <i className="fas fa-key" />
+          <div className="empty-icon-block-text">
             No API keys yet. Create one above to get programmatic access.
           </div>
         </div>
       ) : (
         <div className="card">
-          {keys.map((k, i) => (
-            <div key={k.id} style={{
-              display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)',
-              padding: 'var(--spacing-sm) 0',
-              borderBottom: i < keys.length - 1 ? '1px solid var(--color-border-subtle)' : 'none',
-            }}>
-              <i className="fas fa-key" style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)', width: 16, textAlign: 'center' }} />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: '0.8125rem', fontWeight: 500, color: 'var(--color-text-primary)' }}>{k.name}</div>
-                <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)', fontFamily: 'JetBrains Mono, monospace' }}>
+          {keys.map((k) => (
+            <div key={k.id} className="apikey-row">
+              <i className="fas fa-key apikey-icon" />
+              <div className="apikey-info">
+                <div className="apikey-name">{k.name}</div>
+                <div className="apikey-details">
                   {k.keyPrefix}... &middot; {formatDate(k.createdAt)}
                   {k.lastUsed && <> &middot; last used {formatDate(k.lastUsed)}</>}
                 </div>
               </div>
               <button
-                className="btn btn-sm"
-                style={{ color: 'var(--color-error)', padding: '2px 6px' }}
+                className="btn btn-sm apikey-revoke-btn"
                 onClick={() => handleRevoke(k.id, k.name)}
                 disabled={revokingId === k.id}
                 title="Revoke key"
               >
-                {revokingId === k.id ? <LoadingSpinner size="sm" /> : <i className="fas fa-trash" style={{ fontSize: '0.6875rem' }} />}
+                {revokingId === k.id ? <LoadingSpinner size="sm" /> : <i className="fas fa-trash" />}
               </button>
             </div>
           ))}
@@ -464,7 +418,7 @@ export default function Account() {
   const visibleTabs = isLocal ? TABS : TABS.filter(t => t.id !== 'security')
 
   return (
-    <div className="page" style={{ maxWidth: 800 }}>
+    <div className="page account-page">
       {/* Header */}
       <div className="page-header">
         <h1 className="page-title">Account</h1>
@@ -472,28 +426,14 @@ export default function Account() {
       </div>
 
       {/* Tab bar */}
-      <div style={{
-        display: 'flex', gap: 0,
-        borderBottom: '1px solid var(--color-border-default)',
-        marginBottom: 'var(--spacing-lg)',
-      }}>
+      <div className="auth-tab-bar auth-tab-bar--flush">
         {visibleTabs.map(tab => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)',
-              padding: 'var(--spacing-sm) var(--spacing-md)',
-              background: 'none', border: 'none', cursor: 'pointer',
-              fontSize: '0.8125rem',
-              fontWeight: activeTab === tab.id ? 600 : 400,
-              color: activeTab === tab.id ? 'var(--color-primary)' : 'var(--color-text-secondary)',
-              borderBottom: activeTab === tab.id ? '2px solid var(--color-primary)' : '2px solid transparent',
-              marginBottom: '-1px',
-              transition: 'all 150ms',
-            }}
+            className={`auth-tab ${activeTab === tab.id ? 'active' : ''}`}
           >
-            <i className={`fas ${tab.icon}`} style={{ fontSize: '0.75rem' }} />
+            <i className={`fas ${tab.icon} auth-tab-icon`} />
             {tab.label}
           </button>
         ))}

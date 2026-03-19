@@ -3,11 +3,13 @@ package auth
 import (
 	"context"
 	"crypto/rand"
+	"crypto/subtle"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
@@ -147,7 +149,7 @@ func (m *OAuthManager) LoginHandler(providerName string) echo.HandlerFunc {
 
 // CallbackHandler handles the OAuth callback, creates/updates the user, and
 // creates a session.
-func (m *OAuthManager) CallbackHandler(providerName string, db *gorm.DB, adminEmail, registrationMode string) echo.HandlerFunc {
+func (m *OAuthManager) CallbackHandler(providerName string, db *gorm.DB, adminEmail, registrationMode, hmacSecret string) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		provider, ok := m.providers[providerName]
 		if !ok {
@@ -156,7 +158,7 @@ func (m *OAuthManager) CallbackHandler(providerName string, db *gorm.DB, adminEm
 
 		// Validate state
 		stateCookie, err := c.Cookie("oauth_state")
-		if err != nil || stateCookie.Value == "" || stateCookie.Value != c.QueryParam("state") {
+		if err != nil || stateCookie.Value == "" || subtle.ConstantTimeCompare([]byte(stateCookie.Value), []byte(c.QueryParam("state"))) != 1 {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid OAuth state"})
 		}
 
@@ -219,7 +221,7 @@ func (m *OAuthManager) CallbackHandler(providerName string, db *gorm.DB, adminEm
 
 		// For new users that are pending, check if they have a valid invite
 		if user.Status != StatusActive && inviteCode != "" {
-			if invite, err := ValidateInvite(db, inviteCode); err == nil {
+			if invite, err := ValidateInvite(db, inviteCode, hmacSecret); err == nil {
 				user.Status = StatusActive
 				db.Model(user).Update("status", StatusActive)
 				ConsumeInvite(db, invite, user.ID)
@@ -237,7 +239,7 @@ func (m *OAuthManager) CallbackHandler(providerName string, db *gorm.DB, adminEm
 		MaybePromote(db, user, adminEmail)
 
 		// Create session
-		sessionID, err := CreateSession(db, user.ID)
+		sessionID, err := CreateSession(db, user.ID, hmacSecret)
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to create session"})
 		}
@@ -376,6 +378,11 @@ func fetchGitHubPrimaryEmail(ctx context.Context, accessToken string) (string, e
 }
 
 func upsertOAuthUser(db *gorm.DB, provider string, info *oauthUserInfo, adminEmail, registrationMode string) (*User, error) {
+	// Normalize email from provider (#10)
+	if info.Email != "" {
+		info.Email = strings.ToLower(strings.TrimSpace(info.Email))
+	}
+
 	var user User
 	err := db.Where("provider = ? AND subject = ?", provider, info.Subject).First(&user).Error
 	if err == nil {
@@ -389,9 +396,13 @@ func upsertOAuthUser(db *gorm.DB, provider string, info *oauthUserInfo, adminEma
 		return &user, nil
 	}
 
-	// New user
+	// New user — empty registration mode defaults to "approval"
+	effectiveMode := registrationMode
+	if effectiveMode == "" {
+		effectiveMode = "approval"
+	}
 	status := StatusActive
-	if registrationMode == "approval" || registrationMode == "invite" {
+	if effectiveMode == "approval" || effectiveMode == "invite" {
 		status = StatusPending
 	}
 

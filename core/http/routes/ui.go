@@ -68,7 +68,7 @@ func RegisterUIRoutes(app *echo.Echo,
 		}
 
 		return c.JSON(200, models)
-	}, adminMiddleware)
+	})
 
 	app.GET("/api/traces", func(c echo.Context) error {
 		return c.JSON(200, middleware.GetTraces())

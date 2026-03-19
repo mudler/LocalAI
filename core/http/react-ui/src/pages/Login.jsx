@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { apiUrl } from '../utils/basePath'
-import { inviteApi } from '../utils/api'
+import './auth.css'
 
 export default function Login() {
   const navigate = useNavigate()
@@ -20,12 +20,19 @@ export default function Login() {
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [inviteCode, setInviteCode] = useState('')
-  const [inviteValid, setInviteValid] = useState(null) // null=unchecked, true/false
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [showTokenLogin, setShowTokenLogin] = useState(false)
   const [token, setToken] = useState('')
+
+  const extractError = (data, fallback) => {
+    if (!data) return fallback
+    if (typeof data.error === 'string') return data.error
+    if (data.error && typeof data.error === 'object') return data.error.message || fallback
+    if (typeof data.message === 'string') return data.message
+    return fallback
+  }
 
   // Pre-fill invite code from URL and switch to register mode
   useEffect(() => {
@@ -47,15 +54,6 @@ export default function Login() {
       })
       .catch(() => setStatusLoading(false))
   }, [])
-
-  // Validate invite code when pre-filled from URL
-  useEffect(() => {
-    if (urlInviteCode && urlInviteCode.length > 0) {
-      inviteApi.check(urlInviteCode)
-        .then(data => setInviteValid(data.valid === true))
-        .catch(() => setInviteValid(false))
-    }
-  }, [urlInviteCode])
 
   // Redirect if auth is disabled or user is already logged in
   useEffect(() => {
@@ -79,7 +77,7 @@ export default function Login() {
       const data = await res.json()
 
       if (!res.ok) {
-        setError(data.error || 'Login failed')
+        setError(extractError(data, 'Login failed'))
         setSubmitting(false)
         return
       }
@@ -117,7 +115,7 @@ export default function Login() {
       const data = await res.json()
 
       if (!res.ok) {
-        setError(data.error || 'Registration failed')
+        setError(extractError(data, 'Registration failed'))
         setSubmitting(false)
         return
       }
@@ -128,21 +126,43 @@ export default function Login() {
         return
       }
 
-      await refresh()
+      // Full reload so the auth provider picks up the new session cookie
+      window.location.href = '/app'
+      return
     } catch {
       setError('Network error')
       setSubmitting(false)
     }
   }
 
-  const handleTokenLogin = (e) => {
+  const handleTokenLogin = async (e) => {
     e.preventDefault()
     if (!token.trim()) {
       setError('Please enter a token')
       return
     }
-    document.cookie = `token=${encodeURIComponent(token.trim())}; path=/; SameSite=Strict`
-    window.location.href = '/app'
+    setError('')
+    setSubmitting(true)
+
+    try {
+      const res = await fetch(apiUrl('/api/auth/token-login'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: token.trim() }),
+      })
+      const data = await res.json()
+
+      if (!res.ok) {
+        setError(extractError(data, 'Invalid token'))
+        setSubmitting(false)
+        return
+      }
+
+      await refresh()
+    } catch {
+      setError('Network error')
+      setSubmitting(false)
+    }
   }
 
   if (authLoading || statusLoading) return null
@@ -173,14 +193,6 @@ export default function Login() {
           </p>
         </div>
 
-        {urlInviteCode && inviteValid === false && (
-          <div className="login-alert login-alert-error">This invite link is invalid or has expired.</div>
-        )}
-
-        {urlInviteCode && inviteValid === true && (
-          <div className="login-alert login-alert-success">Invite code accepted. Create your account below.</div>
-        )}
-
         {error && (
           <div className="login-alert login-alert-error">{error}</div>
         )}
@@ -192,8 +204,8 @@ export default function Login() {
         {hasGitHub && (
           <a
             href={githubLoginUrl}
-            className="btn btn-primary"
-            style={{ width: '100%', justifyContent: 'center', textDecoration: 'none', marginBottom: hasOIDC ? '0.5rem' : undefined }}
+            className="btn btn-primary login-btn-full"
+            style={{ marginBottom: hasOIDC ? '0.5rem' : undefined }}
           >
             <i className="fab fa-github" /> Sign in with GitHub
           </a>
@@ -202,8 +214,7 @@ export default function Login() {
         {hasOIDC && (
           <a
             href={oidcLoginUrl}
-            className="btn btn-primary"
-            style={{ width: '100%', justifyContent: 'center', textDecoration: 'none' }}
+            className="btn btn-primary login-btn-full"
           >
             <i className="fas fa-sign-in-alt" /> Sign in with SSO
           </a>
@@ -238,7 +249,7 @@ export default function Login() {
                 required
               />
             </div>
-            <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={submitting}>
+            <button type="submit" className="btn btn-primary login-btn-full" disabled={submitting}>
               {submitting ? 'Signing in...' : 'Sign In'}
             </button>
             <p className="login-footer">
@@ -255,7 +266,7 @@ export default function Login() {
             {showInviteField && (
               <div className="form-group">
                 <label className="form-label">
-                  Invite Code{inviteRequired ? ' (required)' : ' (optional — skip the approval wait)'}
+                  Invite Code{inviteRequired ? '' : ' (optional — skip the approval wait)'}
                 </label>
                 <input
                   className="input"
@@ -313,7 +324,7 @@ export default function Login() {
                 required
               />
             </div>
-            <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={submitting}>
+            <button type="submit" className="btn btn-primary login-btn-full" disabled={submitting}>
               {submitting ? 'Creating account...' : !hasUsers ? 'Create Admin Account' : 'Register'}
             </button>
             {hasUsers && (
@@ -346,7 +357,7 @@ export default function Login() {
                   placeholder="Enter API token..."
                 />
               </div>
-              <button type="submit" className="btn btn-secondary" style={{ width: '100%' }}>
+              <button type="submit" className="btn btn-secondary login-btn-full" disabled={submitting}>
                 <i className="fas fa-key" /> Login with Token
               </button>
             </form>
