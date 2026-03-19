@@ -19,7 +19,7 @@ var _ = Describe("API Keys", func() {
 
 	BeforeEach(func() {
 		db = testDB()
-		user = createTestUser(db, "apikey@example.com", auth.RoleUser, "github")
+		user = createTestUser(db, "apikey@example.com", auth.RoleUser, auth.ProviderGitHub)
 	})
 
 	Describe("GenerateAPIKey", func() {
@@ -127,7 +127,7 @@ var _ = Describe("API Keys", func() {
 		})
 
 		It("does not return other users' keys", func() {
-			other := createTestUser(db, "other@example.com", auth.RoleUser, "github")
+			other := createTestUser(db, "other@example.com", auth.RoleUser, auth.ProviderGitHub)
 			auth.CreateAPIKey(db, user.ID, "my key", auth.RoleUser)
 			auth.CreateAPIKey(db, other.ID, "other key", auth.RoleUser)
 
@@ -154,7 +154,7 @@ var _ = Describe("API Keys", func() {
 			_, record, err := auth.CreateAPIKey(db, user.ID, "mine", auth.RoleUser)
 			Expect(err).ToNot(HaveOccurred())
 
-			other := createTestUser(db, "attacker@example.com", auth.RoleUser, "github")
+			other := createTestUser(db, "attacker@example.com", auth.RoleUser, auth.ProviderGitHub)
 			err = auth.RevokeAPIKey(db, record.ID, other.ID)
 			Expect(err).To(HaveOccurred())
 		})

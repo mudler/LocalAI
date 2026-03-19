@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -13,6 +14,59 @@ import (
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/services"
 )
+
+// rateLimiter implements a simple per-IP rate limiter for auth endpoints.
+type rateLimiter struct {
+	mu       sync.Mutex
+	attempts map[string][]time.Time
+	window   time.Duration
+	max      int
+}
+
+func newRateLimiter(window time.Duration, max int) *rateLimiter {
+	return &rateLimiter{
+		attempts: make(map[string][]time.Time),
+		window:   window,
+		max:      max,
+	}
+}
+
+func (rl *rateLimiter) allow(key string) bool {
+	rl.mu.Lock()
+	defer rl.mu.Unlock()
+
+	now := time.Now()
+	cutoff := now.Add(-rl.window)
+
+	// Prune old entries
+	recent := rl.attempts[key][:0]
+	for _, t := range rl.attempts[key] {
+		if t.After(cutoff) {
+			recent = append(recent, t)
+		}
+	}
+
+	if len(recent) >= rl.max {
+		rl.attempts[key] = recent
+		return false
+	}
+
+	rl.attempts[key] = append(recent, now)
+	return true
+}
+
+func rateLimitMiddleware(rl *rateLimiter) echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			if !rl.allow(c.RealIP()) {
+				return c.JSON(http.StatusTooManyRequests, map[string]string{
+					"error": "too many requests, please try again later",
+				})
+			}
+			return next(c)
+		}
+	}
+}
 
 // RegisterAuthRoutes registers authentication-related API routes.
 func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
@@ -30,12 +84,14 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 			db.Model(&auth.User{}).Count(&count)
 			hasUsers = count > 0
 
-			providers = append(providers, "local") // always available
+			if !appConfig.Auth.DisableLocalAuth {
+				providers = append(providers, auth.ProviderLocal)
+			}
 			if appConfig.Auth.GitHubClientID != "" {
-				providers = append(providers, "github")
+				providers = append(providers, auth.ProviderGitHub)
 			}
 			if appConfig.Auth.OIDCClientID != "" {
-				providers = append(providers, "oidc")
+				providers = append(providers, auth.ProviderOIDC)
 			}
 		}
 
@@ -95,22 +151,30 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 		)
 		if err == nil {
 			if appConfig.Auth.GitHubClientID != "" {
-				e.GET("/api/auth/github/login", oauthMgr.LoginHandler("github"))
+				e.GET("/api/auth/github/login", oauthMgr.LoginHandler(auth.ProviderGitHub))
 				e.GET("/api/auth/github/callback", oauthMgr.CallbackHandler(
-					"github", db, appConfig.Auth.AdminEmail, appConfig.Auth.RegistrationMode,
+					auth.ProviderGitHub, db, appConfig.Auth.AdminEmail, appConfig.Auth.RegistrationMode,
 				))
 			}
 			if appConfig.Auth.OIDCClientID != "" {
-				e.GET("/api/auth/oidc/login", oauthMgr.LoginHandler("oidc"))
+				e.GET("/api/auth/oidc/login", oauthMgr.LoginHandler(auth.ProviderOIDC))
 				e.GET("/api/auth/oidc/callback", oauthMgr.CallbackHandler(
-					"oidc", db, appConfig.Auth.AdminEmail, appConfig.Auth.RegistrationMode,
+					auth.ProviderOIDC, db, appConfig.Auth.AdminEmail, appConfig.Auth.RegistrationMode,
 				))
 			}
 		}
 	}
 
+	// Rate limiter for auth endpoints: 5 attempts per minute per IP
+	authRL := newRateLimiter(1*time.Minute, 5)
+	authRateLimitMw := rateLimitMiddleware(authRL)
+
 	// POST /api/auth/register - public, email/password registration
 	e.POST("/api/auth/register", func(c echo.Context) error {
+		if appConfig.Auth.DisableLocalAuth {
+			return c.JSON(http.StatusForbidden, map[string]string{"error": "local registration is disabled"})
+		}
+
 		var body struct {
 			Email      string `json:"email"`
 			Password   string `json:"password"`
@@ -132,9 +196,9 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": "password must be at least 8 characters"})
 		}
 
-		// Check for duplicate email with provider "local"
+		// Check for duplicate email with local provider
 		var existing auth.User
-		if err := db.Where("email = ? AND provider = ?", body.Email, "local").First(&existing).Error; err == nil {
+		if err := db.Where("email = ? AND provider = ?", body.Email, auth.ProviderLocal).First(&existing).Error; err == nil {
 			return c.JSON(http.StatusConflict, map[string]string{"error": "an account with this email already exists"})
 		}
 
@@ -176,7 +240,7 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 			ID:           uuid.New().String(),
 			Email:        body.Email,
 			Name:         name,
-			Provider:     "local",
+			Provider:     auth.ProviderLocal,
 			Subject:      body.Email,
 			PasswordHash: hash,
 			Role:         role,
@@ -211,10 +275,14 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 				"role":  user.Role,
 			},
 		})
-	})
+	}, authRateLimitMw)
 
 	// POST /api/auth/login - public, email/password login
 	e.POST("/api/auth/login", func(c echo.Context) error {
+		if appConfig.Auth.DisableLocalAuth {
+			return c.JSON(http.StatusForbidden, map[string]string{"error": "local login is disabled, please use OAuth"})
+		}
+
 		var body struct {
 			Email    string `json:"email"`
 			Password string `json:"password"`
@@ -230,7 +298,7 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 		}
 
 		var user auth.User
-		if err := db.Where("email = ? AND provider = ?", body.Email, "local").First(&user).Error; err != nil {
+		if err := db.Where("email = ? AND provider = ?", body.Email, auth.ProviderLocal).First(&user).Error; err != nil {
 			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "invalid email or password"})
 		}
 
@@ -259,7 +327,7 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 				"role":  user.Role,
 			},
 		})
-	})
+	}, authRateLimitMw)
 
 	// POST /api/auth/logout - requires auth
 	e.POST("/api/auth/logout", func(c echo.Context) error {
@@ -343,7 +411,7 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "not authenticated"})
 		}
 
-		if user.Provider != "local" {
+		if user.Provider != auth.ProviderLocal {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": "password change is only available for local accounts"})
 		}
 
@@ -377,7 +445,38 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to update password"})
 		}
 
+		// Invalidate all existing sessions for this user
+		auth.DeleteUserSessions(db, user.ID)
+
+		// Create a fresh session for the current request
+		newSessionID, err := auth.CreateSession(db, user.ID)
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to create session"})
+		}
+		auth.SetSessionCookie(c, newSessionID)
+
 		return c.JSON(http.StatusOK, map[string]string{"message": "password updated"})
+	})
+
+	// DELETE /api/auth/sessions - revoke all sessions for the current user
+	e.DELETE("/api/auth/sessions", func(c echo.Context) error {
+		user := auth.GetUser(c)
+		if user == nil {
+			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "not authenticated"})
+		}
+
+		// Delete all sessions
+		auth.DeleteUserSessions(db, user.ID)
+
+		// Create a fresh session for the current request
+		newSessionID, err := auth.CreateSession(db, user.ID)
+		if err != nil {
+			auth.ClearSessionCookie(c)
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to create session"})
+		}
+		auth.SetSessionCookie(c, newSessionID)
+
+		return c.JSON(http.StatusOK, map[string]string{"message": "all other sessions revoked"})
 	})
 
 	// POST /api/auth/api-keys - create API key

@@ -82,7 +82,7 @@ var _ = Describe("Auth Middleware", func() {
 			db = testDB()
 			appConfig = config.NewApplicationConfig()
 			app = newAuthTestApp(db, appConfig)
-			user = createTestUser(db, "user@example.com", auth.RoleUser, "github")
+			user = createTestUser(db, "user@example.com", auth.RoleUser, auth.ProviderGitHub)
 		})
 
 		It("allows requests with valid session cookie", func() {
@@ -173,7 +173,7 @@ var _ = Describe("Auth Middleware", func() {
 		})
 
 		It("passes for admin user", func() {
-			admin := createTestUser(db, "admin@example.com", auth.RoleAdmin, "github")
+			admin := createTestUser(db, "admin@example.com", auth.RoleAdmin, auth.ProviderGitHub)
 			sessionID := createTestSession(db, admin.ID)
 			app := newAdminTestApp(db, appConfig)
 
@@ -182,7 +182,7 @@ var _ = Describe("Auth Middleware", func() {
 		})
 
 		It("returns 403 for user role", func() {
-			user := createTestUser(db, "user@example.com", auth.RoleUser, "github")
+			user := createTestUser(db, "user@example.com", auth.RoleUser, auth.ProviderGitHub)
 			sessionID := createTestSession(db, user.ID)
 			app := newAdminTestApp(db, appConfig)
 
@@ -198,7 +198,7 @@ var _ = Describe("Auth Middleware", func() {
 		})
 
 		It("allows admin to access model management", func() {
-			admin := createTestUser(db, "admin@example.com", auth.RoleAdmin, "github")
+			admin := createTestUser(db, "admin@example.com", auth.RoleAdmin, auth.ProviderGitHub)
 			sessionID := createTestSession(db, admin.ID)
 			app := newAdminTestApp(db, appConfig)
 
@@ -207,7 +207,7 @@ var _ = Describe("Auth Middleware", func() {
 		})
 
 		It("blocks user from model management", func() {
-			user := createTestUser(db, "user@example.com", auth.RoleUser, "github")
+			user := createTestUser(db, "user@example.com", auth.RoleUser, auth.ProviderGitHub)
 			sessionID := createTestSession(db, user.ID)
 			app := newAdminTestApp(db, appConfig)
 
@@ -216,7 +216,7 @@ var _ = Describe("Auth Middleware", func() {
 		})
 
 		It("allows user to access regular inference endpoints", func() {
-			user := createTestUser(db, "user@example.com", auth.RoleUser, "github")
+			user := createTestUser(db, "user@example.com", auth.RoleUser, auth.ProviderGitHub)
 			sessionID := createTestSession(db, user.ID)
 			app := newAdminTestApp(db, appConfig)
 
@@ -233,7 +233,7 @@ var _ = Describe("Auth Middleware", func() {
 		})
 
 		It("allows admin to access trace endpoints", func() {
-			admin := createTestUser(db, "admin2@example.com", auth.RoleAdmin, "github")
+			admin := createTestUser(db, "admin2@example.com", auth.RoleAdmin, auth.ProviderGitHub)
 			sessionID := createTestSession(db, admin.ID)
 			app := newAdminTestApp(db, appConfig)
 
@@ -245,7 +245,7 @@ var _ = Describe("Auth Middleware", func() {
 		})
 
 		It("blocks non-admin from trace endpoints", func() {
-			user := createTestUser(db, "user2@example.com", auth.RoleUser, "github")
+			user := createTestUser(db, "user2@example.com", auth.RoleUser, auth.ProviderGitHub)
 			sessionID := createTestSession(db, user.ID)
 			app := newAdminTestApp(db, appConfig)
 
@@ -257,7 +257,7 @@ var _ = Describe("Auth Middleware", func() {
 		})
 
 		It("allows admin to access agent job endpoints", func() {
-			admin := createTestUser(db, "admin3@example.com", auth.RoleAdmin, "github")
+			admin := createTestUser(db, "admin3@example.com", auth.RoleAdmin, auth.ProviderGitHub)
 			sessionID := createTestSession(db, admin.ID)
 			app := newAdminTestApp(db, appConfig)
 
@@ -269,7 +269,7 @@ var _ = Describe("Auth Middleware", func() {
 		})
 
 		It("blocks non-admin from agent job endpoints", func() {
-			user := createTestUser(db, "user3@example.com", auth.RoleUser, "github")
+			user := createTestUser(db, "user3@example.com", auth.RoleUser, auth.ProviderGitHub)
 			sessionID := createTestSession(db, user.ID)
 			app := newAdminTestApp(db, appConfig)
 
@@ -281,7 +281,7 @@ var _ = Describe("Auth Middleware", func() {
 		})
 
 		It("blocks non-admin from system/management endpoints", func() {
-			user := createTestUser(db, "user4@example.com", auth.RoleUser, "github")
+			user := createTestUser(db, "user4@example.com", auth.RoleUser, auth.ProviderGitHub)
 			sessionID := createTestSession(db, user.ID)
 			app := newAdminTestApp(db, appConfig)
 
@@ -292,7 +292,7 @@ var _ = Describe("Auth Middleware", func() {
 		})
 
 		It("allows admin to access system/management endpoints", func() {
-			admin := createTestUser(db, "admin4@example.com", auth.RoleAdmin, "github")
+			admin := createTestUser(db, "admin4@example.com", auth.RoleAdmin, auth.ProviderGitHub)
 			sessionID := createTestSession(db, admin.ID)
 			app := newAdminTestApp(db, appConfig)
 

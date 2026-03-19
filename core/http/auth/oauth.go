@@ -13,6 +13,7 @@ import (
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
+	"github.com/mudler/xlog"
 	"golang.org/x/oauth2"
 	githubOAuth "golang.org/x/oauth2/github"
 	"gorm.io/gorm"
@@ -53,8 +54,8 @@ func NewOAuthManager(baseURL string, params OAuthParams) (*OAuthManager, error) 
 	m := &OAuthManager{providers: make(map[string]*providerEntry)}
 
 	if params.GitHubClientID != "" {
-		m.providers["github"] = &providerEntry{
-			name: "github",
+		m.providers[ProviderGitHub] = &providerEntry{
+			name: ProviderGitHub,
 			oauth2Config: oauth2.Config{
 				ClientID:     params.GitHubClientID,
 				ClientSecret: params.GitHubClientSecret,
@@ -77,8 +78,8 @@ func NewOAuthManager(baseURL string, params OAuthParams) (*OAuthManager, error) 
 
 		verifier := provider.Verifier(&oidc.Config{ClientID: params.OIDCClientID})
 
-		m.providers["oidc"] = &providerEntry{
-			name: "oidc",
+		m.providers[ProviderOIDC] = &providerEntry{
+			name: ProviderOIDC,
 			oauth2Config: oauth2.Config{
 				ClientID:     params.OIDCClientID,
 				ClientSecret: params.OIDCClientSecret,
@@ -115,11 +116,13 @@ func (m *OAuthManager) LoginHandler(providerName string) echo.HandlerFunc {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to generate state"})
 		}
 
+		secure := isSecure(c)
 		c.SetCookie(&http.Cookie{
 			Name:     "oauth_state",
 			Value:    state,
 			Path:     "/",
 			HttpOnly: true,
+			Secure:   secure,
 			SameSite: http.SameSiteLaxMode,
 			MaxAge:   600, // 10 minutes
 		})
@@ -131,6 +134,7 @@ func (m *OAuthManager) LoginHandler(providerName string) echo.HandlerFunc {
 				Value:    inviteCode,
 				Path:     "/",
 				HttpOnly: true,
+				Secure:   secure,
 				SameSite: http.SameSiteLaxMode,
 				MaxAge:   600,
 			})
@@ -162,6 +166,7 @@ func (m *OAuthManager) CallbackHandler(providerName string, db *gorm.DB, adminEm
 			Value:    "",
 			Path:     "/",
 			HttpOnly: true,
+			Secure:   isSecure(c),
 			MaxAge:   -1,
 		})
 
@@ -176,7 +181,8 @@ func (m *OAuthManager) CallbackHandler(providerName string, db *gorm.DB, adminEm
 
 		token, err := provider.oauth2Config.Exchange(ctx, code)
 		if err != nil {
-			return c.JSON(http.StatusBadRequest, map[string]string{"error": "failed to exchange code: " + err.Error()})
+			xlog.Error("OAuth code exchange failed", "provider", providerName, "error", err)
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "OAuth authentication failed"})
 		}
 
 		// Fetch user info — branch based on provider type
@@ -200,6 +206,7 @@ func (m *OAuthManager) CallbackHandler(providerName string, db *gorm.DB, adminEm
 				Value:    "",
 				Path:     "/",
 				HttpOnly: true,
+				Secure:   isSecure(c),
 				MaxAge:   -1,
 			})
 		}

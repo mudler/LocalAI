@@ -19,7 +19,7 @@ var _ = Describe("Sessions", func() {
 
 	BeforeEach(func() {
 		db = testDB()
-		user = createTestUser(db, "session@example.com", auth.RoleUser, "github")
+		user = createTestUser(db, "session@example.com", auth.RoleUser, auth.ProviderGitHub)
 	})
 
 	Describe("CreateSession", func() {

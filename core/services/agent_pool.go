@@ -345,7 +345,12 @@ func (s *AgentPoolService) Chat(name, message string) (string, error) {
 			}
 
 			if len(metadata) > 0 {
-				s.collectAndCopyMetadata(metadata)
+				// Extract userID from the agent key (format: "userID:agentName")
+				var chatUserID string
+				if parts := strings.SplitN(name, ":", 2); len(parts) == 2 {
+					chatUserID = parts[0]
+				}
+				s.collectAndCopyMetadata(metadata, chatUserID)
 			}
 
 			msg := map[string]any{
@@ -371,13 +376,25 @@ func (s *AgentPoolService) Chat(name, message string) (string, error) {
 	return messageID, nil
 }
 
-// copyToOutputs copies a file into the outputs directory and returns the new path.
-// If the file is already inside outputsDir, it returns the original path unchanged.
-func (s *AgentPoolService) copyToOutputs(srcPath string) (string, error) {
+// userOutputsDir returns the per-user outputs directory, creating it if needed.
+// If userID is empty, falls back to the shared outputs directory.
+func (s *AgentPoolService) userOutputsDir(userID string) string {
+	if userID == "" {
+		return s.outputsDir
+	}
+	dir := filepath.Join(s.outputsDir, userID)
+	os.MkdirAll(dir, 0750)
+	return dir
+}
+
+// copyToOutputs copies a file into the per-user outputs directory and returns the new path.
+// If the file is already inside the target dir, it returns the original path unchanged.
+func (s *AgentPoolService) copyToOutputs(srcPath, userID string) (string, error) {
+	targetDir := s.userOutputsDir(userID)
 	srcClean := filepath.Clean(srcPath)
-	absOutputs, _ := filepath.Abs(s.outputsDir)
+	absTarget, _ := filepath.Abs(targetDir)
 	absSrc, _ := filepath.Abs(srcClean)
-	if strings.HasPrefix(absSrc, absOutputs+string(os.PathSeparator)) {
+	if strings.HasPrefix(absSrc, absTarget+string(os.PathSeparator)) {
 		return srcPath, nil
 	}
 
@@ -387,7 +404,7 @@ func (s *AgentPoolService) copyToOutputs(srcPath string) (string, error) {
 	}
 	defer src.Close()
 
-	dstPath := filepath.Join(s.outputsDir, filepath.Base(srcClean))
+	dstPath := filepath.Join(targetDir, filepath.Base(srcClean))
 	dst, err := os.Create(dstPath)
 	if err != nil {
 		return "", err
@@ -401,10 +418,10 @@ func (s *AgentPoolService) copyToOutputs(srcPath string) (string, error) {
 }
 
 // collectAndCopyMetadata iterates all metadata keys and, for any value that is
-// a []string of local file paths, copies those files into the outputs directory
-// so the file endpoint can serve them from a single confined location.
+// a []string of local file paths, copies those files into the per-user outputs
+// directory so the file endpoint can serve them from a single confined location.
 // Entries that are URLs (http/https) are left unchanged.
-func (s *AgentPoolService) collectAndCopyMetadata(metadata map[string]any) {
+func (s *AgentPoolService) collectAndCopyMetadata(metadata map[string]any, userID string) {
 	for key, val := range metadata {
 		list, ok := val.([]string)
 		if !ok {
@@ -416,7 +433,7 @@ func (s *AgentPoolService) collectAndCopyMetadata(metadata map[string]any) {
 				updated = append(updated, p)
 				continue
 			}
-			newPath, err := s.copyToOutputs(p)
+			newPath, err := s.copyToOutputs(p, userID)
 			if err != nil {
 				xlog.Error("Failed to copy file to outputs", "src", p, "error", err)
 				updated = append(updated, p)

@@ -83,6 +83,26 @@ localai run
 | `LOCALAI_BASE_URL` | | Base URL for OAuth callbacks (e.g. `http://localhost:8080`) |
 | `LOCALAI_ADMIN_EMAIL` | | Email address to auto-promote to admin role on login |
 | `LOCALAI_REGISTRATION_MODE` | `open` | Registration mode: `open`, `approval`, or `invite` |
+| `LOCALAI_DISABLE_LOCAL_AUTH` | `false` | Disable local email/password registration and login (for OAuth/OIDC-only deployments) |
+
+### Disabling Local Authentication
+
+If you want to enforce OAuth/OIDC-only login and prevent users from registering or logging in with email/password, set `LOCALAI_DISABLE_LOCAL_AUTH=true` (or pass `--disable-local-auth`):
+
+```bash
+# OAuth-only setup (no email/password)
+LOCALAI_DISABLE_LOCAL_AUTH=true \
+GITHUB_CLIENT_ID=your-client-id \
+GITHUB_CLIENT_SECRET=your-client-secret \
+LOCALAI_BASE_URL=http://localhost:8080 \
+localai run
+```
+
+When disabled:
+- The login page will not show email/password forms (the UI checks the `providers` list from `/api/auth/status`)
+- `POST /api/auth/register` returns `403 Forbidden`
+- `POST /api/auth/login` returns `403 Forbidden`
+- OAuth/OIDC login continues to work normally
 
 ### Roles
 

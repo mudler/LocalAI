@@ -132,6 +132,7 @@ type RunCMD struct {
 	AuthBaseURL          string `env:"LOCALAI_BASE_URL" help:"Base URL for OAuth callbacks (e.g. http://localhost:8080)" group:"auth"`
 	AuthAdminEmail       string `env:"LOCALAI_ADMIN_EMAIL" help:"Email address to auto-promote to admin role" group:"auth"`
 	AuthRegistrationMode string `env:"LOCALAI_REGISTRATION_MODE" default:"open" help:"Registration mode: 'open' (default) or 'approval'" group:"auth"`
+	DisableLocalAuth     bool   `env:"LOCALAI_DISABLE_LOCAL_AUTH" default:"false" help:"Disable local email/password registration and login (use with OAuth/OIDC-only setups)" group:"auth"`
 
 	Version bool
 }
@@ -351,6 +352,9 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 		}
 		if r.AuthRegistrationMode != "" {
 			opts = append(opts, config.WithAuthRegistrationMode(r.AuthRegistrationMode))
+		}
+		if r.DisableLocalAuth {
+			opts = append(opts, config.WithAuthDisableLocalAuth(true))
 		}
 	}
 

@@ -7,13 +7,20 @@ import (
 	"time"
 )
 
+// Auth provider constants.
+const (
+	ProviderLocal  = "local"
+	ProviderGitHub = "github"
+	ProviderOIDC   = "oidc"
+)
+
 // User represents an authenticated user.
 type User struct {
 	ID        string `gorm:"primaryKey;size:36"`
 	Email     string `gorm:"size:255;index"`
 	Name      string `gorm:"size:255"`
 	AvatarURL string `gorm:"size:512"`
-	Provider  string `gorm:"size:50"`  // "github", "oidc"
+	Provider  string `gorm:"size:50"`  // ProviderLocal, ProviderGitHub, ProviderOIDC
 	Subject   string `gorm:"size:255"` // provider-specific user ID
 	PasswordHash string `json:"-"`                       // bcrypt hash, empty for OAuth-only users
 	Role         string `gorm:"size:20;default:user"`

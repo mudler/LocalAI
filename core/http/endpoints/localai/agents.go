@@ -421,10 +421,16 @@ func AgentFileEndpoint(app *application.Application) echo.HandlerFunc {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": "file not found"})
 		}
 
-		// Only serve files from the outputs subdirectory
-		outputsDir, _ := filepath.EvalSymlinks(filepath.Clean(svc.OutputsDir()))
+		// Determine the allowed outputs directory — scoped to the user when auth is active
+		allowedDir := svc.OutputsDir()
+		user := auth.GetUser(c)
+		if user != nil {
+			allowedDir = filepath.Join(allowedDir, user.ID)
+		}
 
-		if utils.InTrustedRoot(resolved, outputsDir) != nil {
+		allowedDirResolved, _ := filepath.EvalSymlinks(filepath.Clean(allowedDir))
+
+		if utils.InTrustedRoot(resolved, allowedDirResolved) != nil {
 			return c.JSON(http.StatusForbidden, map[string]string{"error": "access denied"})
 		}
 

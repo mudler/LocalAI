@@ -1271,7 +1271,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		}
 
 		return c.JSON(200, response)
-	})
+	}, adminMiddleware)
 
 	if !appConfig.DisableRuntimeSettings {
 		// Settings API

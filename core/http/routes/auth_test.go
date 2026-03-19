@@ -38,9 +38,9 @@ func newTestAuthApp(db *gorm.DB, appConfig *config.ApplicationConfig) *echo.Echo
 			db.Model(&auth.User{}).Count(&count)
 			hasUsers = count > 0
 
-			providers = append(providers, "local")
+			providers = append(providers, auth.ProviderLocal)
 			if appConfig.Auth.GitHubClientID != "" {
-				providers = append(providers, "github")
+				providers = append(providers, auth.ProviderGitHub)
 			}
 		}
 
@@ -81,7 +81,7 @@ func newTestAuthApp(db *gorm.DB, appConfig *config.ApplicationConfig) *echo.Echo
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": "password must be at least 8 characters"})
 		}
 		var existing auth.User
-		if err := db.Where("email = ? AND provider = ?", body.Email, "local").First(&existing).Error; err == nil {
+		if err := db.Where("email = ? AND provider = ?", body.Email, auth.ProviderLocal).First(&existing).Error; err == nil {
 			return c.JSON(http.StatusConflict, map[string]string{"error": "an account with this email already exists"})
 		}
 		hash, err := auth.HashPassword(body.Password)
@@ -99,7 +99,7 @@ func newTestAuthApp(db *gorm.DB, appConfig *config.ApplicationConfig) *echo.Echo
 		}
 		user := &auth.User{
 			ID: uuid.New().String(), Email: body.Email, Name: name,
-			Provider: "local", Subject: body.Email, PasswordHash: hash,
+			Provider: auth.ProviderLocal, Subject: body.Email, PasswordHash: hash,
 			Role: role, Status: status,
 		}
 		if err := db.Create(user).Error; err != nil {
@@ -132,7 +132,7 @@ func newTestAuthApp(db *gorm.DB, appConfig *config.ApplicationConfig) *echo.Echo
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": "email and password are required"})
 		}
 		var user auth.User
-		if err := db.Where("email = ? AND provider = ?", body.Email, "local").First(&user).Error; err != nil {
+		if err := db.Where("email = ? AND provider = ?", body.Email, auth.ProviderLocal).First(&user).Error; err != nil {
 			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "invalid email or password"})
 		}
 		if !auth.CheckPassword(user.PasswordHash, body.Password) {
@@ -301,7 +301,7 @@ func createRouteTestUser(db *gorm.DB, email, role string) *auth.User {
 		ID:       "user-" + email,
 		Email:    email,
 		Name:     "Test " + role,
-		Provider: "github",
+		Provider: auth.ProviderGitHub,
 		Subject:  "sub-" + email,
 		Role:     role,
 		Status:   auth.StatusActive,
@@ -363,7 +363,7 @@ var _ = Describe("Auth Routes", Label("auth"), func() {
 			json.Unmarshal(rec.Body.Bytes(), &resp)
 			Expect(resp["authEnabled"]).To(BeTrue())
 			providers := resp["providers"].([]interface{})
-			Expect(providers).To(ContainElement("github"))
+			Expect(providers).To(ContainElement(auth.ProviderGitHub))
 		})
 
 		It("returns authEnabled=false when auth disabled", func() {
@@ -800,8 +800,8 @@ var _ = Describe("Auth Routes", Label("auth"), func() {
 			var resp map[string]interface{}
 			json.Unmarshal(rec.Body.Bytes(), &resp)
 			providers := resp["providers"].([]interface{})
-			Expect(providers).To(ContainElement("local"))
-			Expect(providers).To(ContainElement("github"))
+			Expect(providers).To(ContainElement(auth.ProviderLocal))
+			Expect(providers).To(ContainElement(auth.ProviderGitHub))
 		})
 	})
 })

@@ -3,6 +3,7 @@ package middleware
 import (
 	"bytes"
 	"encoding/json"
+	"sync"
 	"time"
 
 	"github.com/labstack/echo/v4"
@@ -11,19 +12,59 @@ import (
 	"gorm.io/gorm"
 )
 
-var usageChan chan *auth.UsageRecord
+const (
+	usageFlushInterval = 5 * time.Second
+	usageMaxPending    = 5000
+)
 
-// InitUsageRecorder starts a background goroutine that writes usage records.
+// usageBatcher accumulates usage records and flushes them to the DB periodically.
+type usageBatcher struct {
+	mu      sync.Mutex
+	pending []*auth.UsageRecord
+	db      *gorm.DB
+}
+
+func (b *usageBatcher) add(r *auth.UsageRecord) {
+	b.mu.Lock()
+	b.pending = append(b.pending, r)
+	b.mu.Unlock()
+}
+
+func (b *usageBatcher) flush() {
+	b.mu.Lock()
+	batch := b.pending
+	b.pending = nil
+	b.mu.Unlock()
+
+	if len(batch) == 0 {
+		return
+	}
+
+	if err := b.db.Create(&batch).Error; err != nil {
+		xlog.Error("Failed to flush usage batch", "count", len(batch), "error", err)
+		// Re-queue failed records with a cap to avoid unbounded growth
+		b.mu.Lock()
+		if len(b.pending) < usageMaxPending {
+			b.pending = append(batch, b.pending...)
+		}
+		b.mu.Unlock()
+	}
+}
+
+var batcher *usageBatcher
+
+// InitUsageRecorder starts a background goroutine that periodically flushes
+// accumulated usage records to the database.
 func InitUsageRecorder(db *gorm.DB) {
 	if db == nil {
 		return
 	}
-	usageChan = make(chan *auth.UsageRecord, 500)
+	batcher = &usageBatcher{db: db}
 	go func() {
-		for record := range usageChan {
-			if err := auth.RecordUsage(db, record); err != nil {
-				xlog.Error("Failed to record usage", "error", err)
-			}
+		ticker := time.NewTicker(usageFlushInterval)
+		defer ticker.Stop()
+		for range ticker.C {
+			batcher.flush()
 		}
 	}()
 }
@@ -43,7 +84,7 @@ type usageResponseBody struct {
 func UsageMiddleware(db *gorm.DB) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
-			if db == nil || usageChan == nil {
+			if db == nil || batcher == nil {
 				return next(c)
 			}
 
@@ -120,11 +161,7 @@ func UsageMiddleware(db *gorm.DB) echo.MiddlewareFunc {
 				CreatedAt:        startTime,
 			}
 
-			select {
-			case usageChan <- record:
-			default:
-				xlog.Warn("Usage channel full, dropping record")
-			}
+			batcher.add(record)
 
 			return handlerErr
 		}

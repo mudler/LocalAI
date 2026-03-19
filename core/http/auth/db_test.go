@@ -37,7 +37,7 @@ var _ = Describe("InitDB", func() {
 			// Insert a user to verify the index doesn't prevent normal operations
 			user := &auth.User{
 				ID:       "test-1",
-				Provider: "github",
+				Provider: auth.ProviderGitHub,
 				Subject:  "12345",
 				Role:     "admin",
 				Status:   auth.StatusActive,
@@ -46,7 +46,7 @@ var _ = Describe("InitDB", func() {
 
 			// Query using the indexed columns should work
 			var found auth.User
-			Expect(db.Where("provider = ? AND subject = ?", "github", "12345").First(&found).Error).ToNot(HaveOccurred())
+			Expect(db.Where("provider = ? AND subject = ?", auth.ProviderGitHub, "12345").First(&found).Error).ToNot(HaveOccurred())
 			Expect(found.ID).To(Equal("test-1"))
 		})
 	})

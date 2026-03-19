@@ -113,6 +113,7 @@ type AuthConfig struct {
 	BaseURL            string // for OAuth callback URLs (e.g. "http://localhost:8080")
 	AdminEmail         string // auto-promote to admin on login
 	RegistrationMode   string // "open" (default), "approval", "invite"
+	DisableLocalAuth   bool   // disable local email/password registration and login
 }
 
 // AgentPoolConfig holds configuration for the LocalAGI agent pool integration.
@@ -771,6 +772,12 @@ func WithAuthAdminEmail(email string) AppOption {
 func WithAuthRegistrationMode(mode string) AppOption {
 	return func(o *ApplicationConfig) {
 		o.Auth.RegistrationMode = mode
+	}
+}
+
+func WithAuthDisableLocalAuth(disable bool) AppOption {
+	return func(o *ApplicationConfig) {
+		o.Auth.DisableLocalAuth = disable
 	}
 }
 
