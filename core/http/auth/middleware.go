@@ -85,19 +85,8 @@ func Middleware(db *gorm.DB, appConfig *config.ApplicationConfig) echo.Middlewar
 
 			// 5. Require auth for API paths
 			if isAPIPath(path) {
-				return authError(c, appConfig)
-			}
-
-			// 6. Pass through for non-API paths when auth is DB-based
-			// (the React UI will redirect to login as needed)
-			if authEnabled && !hasLegacyKeys {
-				return next(c)
-			}
-
-			// 7. Legacy behavior: if API keys are set, all paths require auth
-			if hasLegacyKeys {
-				// Check GET exemptions
-				if appConfig.DisableApiKeyRequirementForHttpGet && c.Request().Method == http.MethodGet {
+				// Check GET exemptions for legacy keys
+				if hasLegacyKeys && appConfig.DisableApiKeyRequirementForHttpGet && c.Request().Method == http.MethodGet {
 					for _, rx := range appConfig.HttpGetExemptedEndpoints {
 						if rx.MatchString(c.Path()) {
 							return next(c)
@@ -107,6 +96,8 @@ func Middleware(db *gorm.DB, appConfig *config.ApplicationConfig) echo.Middlewar
 				return authError(c, appConfig)
 			}
 
+			// 6. Non-API paths (UI, static assets) pass through.
+			// The React UI handles login redirects client-side.
 			return next(c)
 		}
 	}

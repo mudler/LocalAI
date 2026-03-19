@@ -428,8 +428,10 @@ var _ = Describe("API test", func() {
 					"X-Forwarded-Prefix": {"/myprefix/"},
 				})
 				Expect(err).To(BeNil(), "error")
-				Expect(sc).To(Equal(401), "status code")
+				Expect(sc).To(Equal(200), "status code")
+				// Non-API paths pass through to the React SPA (which handles login client-side)
 				Expect(string(body)).To(ContainSubstring(`<base href="https://example.org/myprefix/" />`), "body")
+				Expect(string(body)).To(ContainSubstring(`<div id="root">`), "should serve React SPA")
 			})
 
 			It("Should support reverse-proxy when authenticated", func() {
