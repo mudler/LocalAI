@@ -75,9 +75,6 @@ func UploadToCollectionEndpoint(app *application.Application) echo.HandlerFunc {
 		if err != nil {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": "file required"})
 		}
-		if svc.CollectionEntryExistsForUser(userID, name, file.Filename) {
-			return c.JSON(http.StatusConflict, map[string]string{"error": "entry already exists"})
-		}
 		src, err := file.Open()
 		if err != nil {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
