@@ -101,6 +101,24 @@ For more information on VRAM management, see [VRAM and Memory Management]({{%rel
 | `--disable-api-key-requirement-for-http-get` | `false` | If true, a valid API key is not required to issue GET requests to portions of the web UI. This should only be enabled in secure testing environments | `$LOCALAI_DISABLE_API_KEY_REQUIREMENT_FOR_HTTP_GET` |
 | `--http-get-exempted-endpoints` | `^/$,^/app(/.*)?$,^/browse(/.*)?$,^/login/?$,^/explorer/?$,^/assets/.*$,^/static/.*$,^/swagger.*$` | If `--disable-api-key-requirement-for-http-get` is overridden to true, this is the list of endpoints to exempt. Only adjust this in case of a security incident or as a result of a personal security posture review | `$LOCALAI_HTTP_GET_EXEMPTED_ENDPOINTS` |
 
+## Authentication Flags
+
+| Parameter | Default | Description | Environment Variable |
+|-----------|---------|-------------|----------------------|
+| `--auth-enabled` | `false` | Enable user authentication and authorization | `$LOCALAI_AUTH` |
+| `--auth-database-url` | `{DataPath}/database.db` | Database URL for auth — `postgres://...` for PostgreSQL, or a file path for SQLite | `$LOCALAI_AUTH_DATABASE_URL`, `$DATABASE_URL` |
+| `--github-client-id` | | GitHub OAuth App Client ID (auto-enables auth when set) | `$GITHUB_CLIENT_ID` |
+| `--github-client-secret` | | GitHub OAuth App Client Secret | `$GITHUB_CLIENT_SECRET` |
+| `--oidc-issuer` | | OIDC issuer URL for auto-discovery | `$LOCALAI_OIDC_ISSUER` |
+| `--oidc-client-id` | | OIDC Client ID (auto-enables auth when set) | `$LOCALAI_OIDC_CLIENT_ID` |
+| `--oidc-client-secret` | | OIDC Client Secret | `$LOCALAI_OIDC_CLIENT_SECRET` |
+| `--auth-base-url` | | Base URL for OAuth callbacks (e.g. `http://localhost:8080`) | `$LOCALAI_BASE_URL` |
+| `--auth-admin-email` | | Email address to auto-promote to admin role on login | `$LOCALAI_ADMIN_EMAIL` |
+| `--auth-registration-mode` | `open` | Registration mode: `open`, `approval`, or `invite` | `$LOCALAI_REGISTRATION_MODE` |
+| `--disable-local-auth` | `false` | Disable local email/password registration and login (for OAuth/OIDC-only setups) | `$LOCALAI_DISABLE_LOCAL_AUTH` |
+
+See [Authentication & Authorization]({{%relref "features/authentication" %}}) for full documentation.
+
 ## P2P Flags
 
 | Parameter | Default | Description | Environment Variable |

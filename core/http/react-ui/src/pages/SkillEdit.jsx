@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useParams, useNavigate, useLocation, useOutletContext } from 'react-router-dom'
+import { useParams, useNavigate, useLocation, useOutletContext, useSearchParams } from 'react-router-dom'
 import { skillsApi } from '../utils/api'
 
 const RESOURCE_PREFIXES = ['scripts/', 'references/', 'assets/']
@@ -265,6 +265,8 @@ export default function SkillEdit() {
   const name = nameParam ? decodeURIComponent(nameParam) : undefined
   const navigate = useNavigate()
   const { addToast } = useOutletContext()
+  const [searchParams] = useSearchParams()
+  const userId = searchParams.get('user_id') || undefined
   const [loading, setLoading] = useState(!isNew)
   const [saving, setSaving] = useState(false)
   const [activeSection, setActiveSection] = useState('basic')
@@ -284,7 +286,7 @@ export default function SkillEdit() {
       return
     }
     if (name) {
-      skillsApi.get(name)
+      skillsApi.get(name, userId)
         .then((data) => {
           setForm({
             name: data.name || '',
@@ -329,7 +331,7 @@ export default function SkillEdit() {
         await skillsApi.create(payload)
         addToast('Skill created', 'success')
       } else {
-        await skillsApi.update(name, { ...payload, name: undefined })
+        await skillsApi.update(name, { ...payload, name: undefined }, userId)
         addToast('Skill updated', 'success')
       }
       navigate('/app/skills')

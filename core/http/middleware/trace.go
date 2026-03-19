@@ -2,15 +2,16 @@ package middleware
 
 import (
 	"bytes"
-	"github.com/emirpasic/gods/v2/queues/circularbuffer"
 	"io"
 	"net/http"
 	"sort"
 	"sync"
 	"time"
 
+	"github.com/emirpasic/gods/v2/queues/circularbuffer"
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/application"
+	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/xlog"
 )
 
@@ -33,6 +34,8 @@ type APIExchange struct {
 	Request   APIExchangeRequest  `json:"request"`
 	Response  APIExchangeResponse `json:"response"`
 	Error     string              `json:"error,omitempty"`
+	UserID    string              `json:"user_id,omitempty"`
+	UserName  string              `json:"user_name,omitempty"`
 }
 
 var traceBuffer *circularbuffer.Queue[APIExchange]
@@ -145,6 +148,11 @@ func TraceMiddleware(app *application.Application) echo.MiddlewareFunc {
 			}
 			if handlerErr != nil {
 				exchange.Error = handlerErr.Error()
+			}
+
+			if user := auth.GetUser(c); user != nil {
+				exchange.UserID = user.ID
+				exchange.UserName = user.Name
 			}
 
 			select {

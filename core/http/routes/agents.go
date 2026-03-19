@@ -8,14 +8,14 @@ import (
 	"github.com/mudler/LocalAI/core/http/endpoints/localai"
 )
 
-func RegisterAgentPoolRoutes(e *echo.Echo, app *application.Application) {
+func RegisterAgentPoolRoutes(e *echo.Echo, app *application.Application,
+	agentsMw, skillsMw, collectionsMw echo.MiddlewareFunc) {
 	if !app.ApplicationConfig().AgentPool.Enabled {
 		return
 	}
 
-	// Group all agent routes behind a middleware that returns 503 while the
-	// agent pool is still initializing (it starts after the HTTP server).
-	g := e.Group("/api/agents", func(next echo.HandlerFunc) echo.HandlerFunc {
+	// Middleware that returns 503 while the agent pool is still initializing.
+	poolReadyMw := func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
 			if app.AgentPoolService() == nil {
 				return c.JSON(http.StatusServiceUnavailable, map[string]string{
@@ -24,67 +24,71 @@ func RegisterAgentPoolRoutes(e *echo.Echo, app *application.Application) {
 			}
 			return next(c)
 		}
-	})
+	}
 
-	// Agent Management
-	g.GET("", localai.ListAgentsEndpoint(app))
-	g.POST("", localai.CreateAgentEndpoint(app))
-	g.GET("/config/metadata", localai.GetAgentConfigMetaEndpoint(app))
-	g.POST("/import", localai.ImportAgentEndpoint(app))
-	g.GET("/:name", localai.GetAgentEndpoint(app))
-	g.PUT("/:name", localai.UpdateAgentEndpoint(app))
-	g.DELETE("/:name", localai.DeleteAgentEndpoint(app))
-	g.GET("/:name/config", localai.GetAgentConfigEndpoint(app))
-	g.PUT("/:name/pause", localai.PauseAgentEndpoint(app))
-	g.PUT("/:name/resume", localai.ResumeAgentEndpoint(app))
-	g.GET("/:name/status", localai.GetAgentStatusEndpoint(app))
-	g.GET("/:name/observables", localai.GetAgentObservablesEndpoint(app))
-	g.DELETE("/:name/observables", localai.ClearAgentObservablesEndpoint(app))
-	g.POST("/:name/chat", localai.ChatWithAgentEndpoint(app))
-	g.GET("/:name/sse", localai.AgentSSEEndpoint(app))
-	g.GET("/:name/export", localai.ExportAgentEndpoint(app))
-	g.GET("/:name/files", localai.AgentFileEndpoint(app))
+	// Agent management routes — require "agents" feature
+	ag := e.Group("/api/agents", poolReadyMw, agentsMw)
+	ag.GET("", localai.ListAgentsEndpoint(app))
+	ag.POST("", localai.CreateAgentEndpoint(app))
+	ag.GET("/config/metadata", localai.GetAgentConfigMetaEndpoint(app))
+	ag.POST("/import", localai.ImportAgentEndpoint(app))
+	ag.GET("/:name", localai.GetAgentEndpoint(app))
+	ag.PUT("/:name", localai.UpdateAgentEndpoint(app))
+	ag.DELETE("/:name", localai.DeleteAgentEndpoint(app))
+	ag.GET("/:name/config", localai.GetAgentConfigEndpoint(app))
+	ag.PUT("/:name/pause", localai.PauseAgentEndpoint(app))
+	ag.PUT("/:name/resume", localai.ResumeAgentEndpoint(app))
+	ag.GET("/:name/status", localai.GetAgentStatusEndpoint(app))
+	ag.GET("/:name/observables", localai.GetAgentObservablesEndpoint(app))
+	ag.DELETE("/:name/observables", localai.ClearAgentObservablesEndpoint(app))
+	ag.POST("/:name/chat", localai.ChatWithAgentEndpoint(app))
+	ag.GET("/:name/sse", localai.AgentSSEEndpoint(app))
+	ag.GET("/:name/export", localai.ExportAgentEndpoint(app))
+	ag.GET("/:name/files", localai.AgentFileEndpoint(app))
 
-	// Actions
-	g.GET("/actions", localai.ListActionsEndpoint(app))
-	g.POST("/actions/:name/definition", localai.GetActionDefinitionEndpoint(app))
-	g.POST("/actions/:name/run", localai.ExecuteActionEndpoint(app))
+	// Actions (part of agents feature)
+	ag.GET("/actions", localai.ListActionsEndpoint(app))
+	ag.POST("/actions/:name/definition", localai.GetActionDefinitionEndpoint(app))
+	ag.POST("/actions/:name/run", localai.ExecuteActionEndpoint(app))
 
-	// Skills
-	g.GET("/skills", localai.ListSkillsEndpoint(app))
-	g.GET("/skills/config", localai.GetSkillsConfigEndpoint(app))
-	g.GET("/skills/search", localai.SearchSkillsEndpoint(app))
-	g.POST("/skills", localai.CreateSkillEndpoint(app))
-	g.GET("/skills/export/*", localai.ExportSkillEndpoint(app))
-	g.POST("/skills/import", localai.ImportSkillEndpoint(app))
-	g.GET("/skills/:name", localai.GetSkillEndpoint(app))
-	g.PUT("/skills/:name", localai.UpdateSkillEndpoint(app))
-	g.DELETE("/skills/:name", localai.DeleteSkillEndpoint(app))
-	g.GET("/skills/:name/resources", localai.ListSkillResourcesEndpoint(app))
-	g.GET("/skills/:name/resources/*", localai.GetSkillResourceEndpoint(app))
-	g.POST("/skills/:name/resources", localai.CreateSkillResourceEndpoint(app))
-	g.PUT("/skills/:name/resources/*", localai.UpdateSkillResourceEndpoint(app))
-	g.DELETE("/skills/:name/resources/*", localai.DeleteSkillResourceEndpoint(app))
+	// Skills routes — require "skills" feature
+	sg := e.Group("/api/agents/skills", poolReadyMw, skillsMw)
+	sg.GET("", localai.ListSkillsEndpoint(app))
+	sg.GET("/config", localai.GetSkillsConfigEndpoint(app))
+	sg.GET("/search", localai.SearchSkillsEndpoint(app))
+	sg.POST("", localai.CreateSkillEndpoint(app))
+	sg.GET("/export/*", localai.ExportSkillEndpoint(app))
+	sg.POST("/import", localai.ImportSkillEndpoint(app))
+	sg.GET("/:name", localai.GetSkillEndpoint(app))
+	sg.PUT("/:name", localai.UpdateSkillEndpoint(app))
+	sg.DELETE("/:name", localai.DeleteSkillEndpoint(app))
+	sg.GET("/:name/resources", localai.ListSkillResourcesEndpoint(app))
+	sg.GET("/:name/resources/*", localai.GetSkillResourceEndpoint(app))
+	sg.POST("/:name/resources", localai.CreateSkillResourceEndpoint(app))
+	sg.PUT("/:name/resources/*", localai.UpdateSkillResourceEndpoint(app))
+	sg.DELETE("/:name/resources/*", localai.DeleteSkillResourceEndpoint(app))
 
-	// Git Repos
-	g.GET("/git-repos", localai.ListGitReposEndpoint(app))
-	g.POST("/git-repos", localai.AddGitRepoEndpoint(app))
-	g.PUT("/git-repos/:id", localai.UpdateGitRepoEndpoint(app))
-	g.DELETE("/git-repos/:id", localai.DeleteGitRepoEndpoint(app))
-	g.POST("/git-repos/:id/sync", localai.SyncGitRepoEndpoint(app))
-	g.POST("/git-repos/:id/toggle", localai.ToggleGitRepoEndpoint(app))
+	// Git Repos — guarded by skills feature (at original /api/agents/git-repos path)
+	gg := e.Group("/api/agents/git-repos", poolReadyMw, skillsMw)
+	gg.GET("", localai.ListGitReposEndpoint(app))
+	gg.POST("", localai.AddGitRepoEndpoint(app))
+	gg.PUT("/:id", localai.UpdateGitRepoEndpoint(app))
+	gg.DELETE("/:id", localai.DeleteGitRepoEndpoint(app))
+	gg.POST("/:id/sync", localai.SyncGitRepoEndpoint(app))
+	gg.POST("/:id/toggle", localai.ToggleGitRepoEndpoint(app))
 
-	// Collections / Knowledge Base
-	g.GET("/collections", localai.ListCollectionsEndpoint(app))
-	g.POST("/collections", localai.CreateCollectionEndpoint(app))
-	g.POST("/collections/:name/upload", localai.UploadToCollectionEndpoint(app))
-	g.GET("/collections/:name/entries", localai.ListCollectionEntriesEndpoint(app))
-	g.GET("/collections/:name/entries/*", localai.GetCollectionEntryContentEndpoint(app))
-	g.GET("/collections/:name/entries-raw/*", localai.GetCollectionEntryRawFileEndpoint(app))
-	g.POST("/collections/:name/search", localai.SearchCollectionEndpoint(app))
-	g.POST("/collections/:name/reset", localai.ResetCollectionEndpoint(app))
-	g.DELETE("/collections/:name/entry/delete", localai.DeleteCollectionEntryEndpoint(app))
-	g.POST("/collections/:name/sources", localai.AddCollectionSourceEndpoint(app))
-	g.DELETE("/collections/:name/sources", localai.RemoveCollectionSourceEndpoint(app))
-	g.GET("/collections/:name/sources", localai.ListCollectionSourcesEndpoint(app))
+	// Collections / Knowledge Base — require "collections" feature
+	cg := e.Group("/api/agents/collections", poolReadyMw, collectionsMw)
+	cg.GET("", localai.ListCollectionsEndpoint(app))
+	cg.POST("", localai.CreateCollectionEndpoint(app))
+	cg.POST("/:name/upload", localai.UploadToCollectionEndpoint(app))
+	cg.GET("/:name/entries", localai.ListCollectionEntriesEndpoint(app))
+	cg.GET("/:name/entries/*", localai.GetCollectionEntryContentEndpoint(app))
+	cg.GET("/:name/entries-raw/*", localai.GetCollectionEntryRawFileEndpoint(app))
+	cg.POST("/:name/search", localai.SearchCollectionEndpoint(app))
+	cg.POST("/:name/reset", localai.ResetCollectionEndpoint(app))
+	cg.DELETE("/:name/entry/delete", localai.DeleteCollectionEntryEndpoint(app))
+	cg.POST("/:name/sources", localai.AddCollectionSourceEndpoint(app))
+	cg.DELETE("/:name/sources", localai.RemoveCollectionSourceEndpoint(app))
+	cg.GET("/:name/sources", localai.ListCollectionSourcesEndpoint(app))
 }

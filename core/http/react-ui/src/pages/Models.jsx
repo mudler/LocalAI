@@ -4,40 +4,16 @@ import { modelsApi } from '../utils/api'
 import { useOperations } from '../hooks/useOperations'
 import { useResources } from '../hooks/useResources'
 import SearchableSelect from '../components/SearchableSelect'
+import ConfirmDialog from '../components/ConfirmDialog'
 import React from 'react'
 
 
 const LOADING_PHRASES = [
-  { text: 'Rounding up the neural networks...', icon: 'fa-brain' },
-  { text: 'Asking the models to line up nicely...', icon: 'fa-people-line' },
-  { text: 'Convincing transformers to transform...', icon: 'fa-wand-magic-sparkles' },
-  { text: 'Herding digital llamas...', icon: 'fa-horse' },
-  { text: 'Downloading more RAM... just kidding', icon: 'fa-memory' },
-  { text: 'Counting parameters... lost count at a billion', icon: 'fa-calculator' },
-  { text: 'Untangling attention heads...', icon: 'fa-diagram-project' },
-  { text: 'Warming up the GPUs...', icon: 'fa-fire' },
-  { text: 'Teaching AI to sit and stay...', icon: 'fa-graduation-cap' },
-  { text: 'Polishing the weights and biases...', icon: 'fa-gem' },
-  { text: 'Stacking layers like pancakes...', icon: 'fa-layer-group' },
-  { text: 'Negotiating with the token budget...', icon: 'fa-coins' },
-  { text: 'Fetching models from the cloud mines...', icon: 'fa-cloud-arrow-down' },
-  { text: 'Calibrating the vibe check algorithm...', icon: 'fa-gauge-high' },
-  { text: 'Optimizing inference with good intentions...', icon: 'fa-bolt' },
-  { text: 'Measuring GPU with a ruler...', icon: 'fa-ruler' },
-  { text: 'Will it fit? Asking the VRAM oracle...', icon: 'fa-microchip' },
-  { text: 'Playing Tetris with model layers...', icon: 'fa-cubes' },
-  { text: 'Checking if we need more RGB...', icon: 'fa-rainbow' },
-  { text: 'Squeezing tensors into memory...', icon: 'fa-compress' },
-  { text: 'Whispering sweet nothings to CUDA cores...', icon: 'fa-heart' },
-  { text: 'Asking the electrons to scoot over...', icon: 'fa-atom' },
-  { text: 'Defragmenting the flux capacitor...', icon: 'fa-clock-rotate-left' },
-  { text: 'Consulting the tensor gods...', icon: 'fa-hands-praying' },
-  { text: 'Checking under the GPU\'s hood...', icon: 'fa-car' },
-  { text: 'Seeing if the hamsters can run faster...', icon: 'fa-fan' },
-  { text: 'Running very important math... carry the 1...', icon: 'fa-square-root-variable' },
-  { text: 'Poking the memory bus gently...', icon: 'fa-bus' },
-  { text: 'Bribing the scheduler with clock cycles...', icon: 'fa-stopwatch' },
-  { text: 'Asking models to share their VRAM nicely...', icon: 'fa-handshake' },
+  { text: 'Loading models...', icon: 'fa-brain' },
+  { text: 'Fetching gallery...', icon: 'fa-download' },
+  { text: 'Checking availability...', icon: 'fa-circle-check' },
+  { text: 'Almost ready...', icon: 'fa-hourglass-half' },
+  { text: 'Preparing gallery...', icon: 'fa-store' },
 ]
 
 function GalleryLoader() {
@@ -142,6 +118,7 @@ export default function Models() {
   const [backendFilter, setBackendFilter] = useState('')
   const [allBackends, setAllBackends] = useState([])
   const debounceRef = useRef(null)
+  const [confirmDialog, setConfirmDialog] = useState(null)
 
   // Total GPU memory for "fits" check
   const totalGpuMemory = resources?.aggregate?.total_memory || 0
@@ -216,15 +193,24 @@ export default function Models() {
     }
   }
 
-  const handleDelete = async (modelId) => {
-    if (!confirm(`Delete model ${modelId}?`)) return
-    try {
-      await modelsApi.delete(modelId)
-      addToast(`Deleting ${modelId}...`, 'info')
-      fetchModels()
-    } catch (err) {
-      addToast(`Failed to delete: ${err.message}`, 'error')
-    }
+  const handleDelete = (modelId) => {
+    setConfirmDialog({
+      title: 'Delete Model',
+      message: `Delete model ${modelId}?`,
+      confirmLabel: `Delete ${modelId}`,
+      danger: true,
+      onConfirm: async () => {
+        setConfirmDialog(null)
+        try {
+          await modelsApi.delete(modelId)
+          addToast(`Deleting ${modelId}...`, 'info')
+          fetchModels()
+        } catch (err) {
+          addToast(`Failed to delete: ${err.message}`, 'error')
+        }
+      },
+    })
+    return
   }
 
   // Clear local installing flags when operations finish (success or error)
@@ -332,7 +318,19 @@ export default function Models() {
         <div className="empty-state">
           <div className="empty-state-icon"><i className="fas fa-search" /></div>
           <h2 className="empty-state-title">No models found</h2>
-          <p className="empty-state-text">Try adjusting your search or filters</p>
+          <p className="empty-state-text">
+            {search || filter || backendFilter
+              ? 'No models match your current search or filters.'
+              : 'The model gallery is empty.'}
+          </p>
+          {(search || filter || backendFilter) && (
+            <button
+              className="btn btn-secondary btn-sm"
+              onClick={() => { handleSearch(''); setFilter(''); setBackendFilter(''); setPage(1) }}
+            >
+              <i className="fas fa-times" /> Clear filters
+            </button>
+          )}
         </div>
       ) : (
         <div className="table-container" style={{ background: 'var(--color-bg-secondary)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
@@ -535,6 +533,15 @@ export default function Models() {
         </div>
       )}
 
+      <ConfirmDialog
+        open={!!confirmDialog}
+        title={confirmDialog?.title}
+        message={confirmDialog?.message}
+        confirmLabel={confirmDialog?.confirmLabel}
+        danger={confirmDialog?.danger}
+        onConfirm={confirmDialog?.onConfirm}
+        onCancel={() => setConfirmDialog(null)}
+      />
     </div>
   )
 }

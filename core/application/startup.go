@@ -1,6 +1,8 @@
 package application
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -10,6 +12,7 @@ import (
 	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
+	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/services"
 	coreStartup "github.com/mudler/LocalAI/core/startup"
 	"github.com/mudler/LocalAI/internal"
@@ -79,6 +82,45 @@ func New(opts ...config.AppOption) (*Application, error) {
 		if options.DynamicConfigsDir != "" && options.DataPath != options.DynamicConfigsDir {
 			migrateDataFiles(options.DynamicConfigsDir, options.DataPath)
 		}
+	}
+
+	// Initialize auth database if auth is enabled
+	if options.Auth.Enabled {
+		// Auto-generate HMAC secret if not provided
+		if options.Auth.APIKeyHMACSecret == "" {
+			secretFile := filepath.Join(options.DataPath, ".hmac_secret")
+			secret, err := loadOrGenerateHMACSecret(secretFile)
+			if err != nil {
+				return nil, fmt.Errorf("failed to initialize HMAC secret: %w", err)
+			}
+			options.Auth.APIKeyHMACSecret = secret
+		}
+
+		authDB, err := auth.InitDB(options.Auth.DatabaseURL)
+		if err != nil {
+			return nil, fmt.Errorf("failed to initialize auth database: %w", err)
+		}
+		application.authDB = authDB
+		xlog.Info("Auth enabled", "database", options.Auth.DatabaseURL)
+
+		// Start session and expired API key cleanup goroutine
+		go func() {
+			ticker := time.NewTicker(1 * time.Hour)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-options.Context.Done():
+					return
+				case <-ticker.C:
+					if err := auth.CleanExpiredSessions(authDB); err != nil {
+						xlog.Error("failed to clean expired sessions", "error", err)
+					}
+					if err := auth.CleanExpiredAPIKeys(authDB); err != nil {
+						xlog.Error("failed to clean expired API keys", "error", err)
+					}
+				}
+			}
+		}()
 	}
 
 	if err := coreStartup.InstallModels(options.Context, application.GalleryService(), options.Galleries, options.BackendGalleries, options.SystemState, application.ModelLoader(), options.EnforcePredownloadScans, options.AutoloadBackendGalleries, nil, options.ModelsURL...); err != nil {
@@ -432,6 +474,31 @@ func initializeWatchdog(application *Application, options *config.ApplicationCon
 			wd.Shutdown()
 		}()
 	}
+}
+
+// loadOrGenerateHMACSecret loads an HMAC secret from the given file path,
+// or generates a random 32-byte secret and persists it if the file doesn't exist.
+func loadOrGenerateHMACSecret(path string) (string, error) {
+	data, err := os.ReadFile(path)
+	if err == nil {
+		secret := string(data)
+		if len(secret) >= 32 {
+			return secret, nil
+		}
+	}
+
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		return "", fmt.Errorf("failed to generate HMAC secret: %w", err)
+	}
+	secret := hex.EncodeToString(b)
+
+	if err := os.WriteFile(path, []byte(secret), 0600); err != nil {
+		return "", fmt.Errorf("failed to persist HMAC secret: %w", err)
+	}
+
+	xlog.Info("Generated new HMAC secret for API key hashing", "path", path)
+	return secret, nil
 }
 
 // migrateDataFiles moves persistent data files from the old config directory

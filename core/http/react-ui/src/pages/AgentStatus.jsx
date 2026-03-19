@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useParams, useNavigate, useOutletContext } from 'react-router-dom'
+import { useParams, useNavigate, useOutletContext, useSearchParams } from 'react-router-dom'
 import { agentsApi } from '../utils/api'
 import { apiUrl } from '../utils/basePath'
 
@@ -187,26 +187,28 @@ export default function AgentStatus() {
   const { name } = useParams()
   const navigate = useNavigate()
   const { addToast } = useOutletContext()
+  const [searchParams] = useSearchParams()
+  const userId = searchParams.get('user_id') || undefined
   const [observables, setObservables] = useState([])
   const [status, setStatus] = useState(null)
   const [loading, setLoading] = useState(true)
 
   const fetchData = useCallback(async () => {
     try {
-      const obsData = await agentsApi.observables(name)
+      const obsData = await agentsApi.observables(name, userId)
       const history = Array.isArray(obsData) ? obsData : (obsData?.History || [])
       setObservables(history)
     } catch (err) {
       addToast(`Failed to load observables: ${err.message}`, 'error')
     }
     try {
-      const statusData = await agentsApi.status(name)
+      const statusData = await agentsApi.status(name, userId)
       setStatus(statusData)
     } catch (_) {
       // status endpoint may fail if no actions have run yet
     }
     setLoading(false)
-  }, [name, addToast])
+  }, [name, userId, addToast])
 
   useEffect(() => {
     fetchData()
@@ -216,7 +218,7 @@ export default function AgentStatus() {
 
   // SSE for real-time observable updates
   useEffect(() => {
-    const url = apiUrl(`/api/agents/${encodeURIComponent(name)}/sse`)
+    const url = apiUrl(agentsApi.sseUrl(name, userId))
     const es = new EventSource(url)
 
     es.addEventListener('observable_update', (e) => {
@@ -243,11 +245,11 @@ export default function AgentStatus() {
 
     es.onerror = () => { /* reconnect handled by browser */ }
     return () => es.close()
-  }, [name])
+  }, [name, userId])
 
   const handleClear = async () => {
     try {
-      await agentsApi.clearObservables(name)
+      await agentsApi.clearObservables(name, userId)
       setObservables([])
       addToast('Observables cleared', 'success')
     } catch (err) {
@@ -359,10 +361,10 @@ export default function AgentStatus() {
           <p className="page-subtitle">Agent observables and activity history</p>
         </div>
         <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
-          <button className="btn btn-secondary" onClick={() => navigate(`/app/agents/${encodeURIComponent(name)}/chat`)}>
+          <button className="btn btn-secondary" onClick={() => navigate(`/app/agents/${encodeURIComponent(name)}/chat${userId ? `?user_id=${encodeURIComponent(userId)}` : ''}`)}>
             <i className="fas fa-comment" /> Chat
           </button>
-          <button className="btn btn-secondary" onClick={() => navigate(`/app/agents/${encodeURIComponent(name)}/edit`)}>
+          <button className="btn btn-secondary" onClick={() => navigate(`/app/agents/${encodeURIComponent(name)}/edit${userId ? `?user_id=${encodeURIComponent(userId)}` : ''}`)}>
             <i className="fas fa-edit" /> Edit
           </button>
           <button className="btn btn-secondary" onClick={fetchData}>
@@ -405,7 +407,7 @@ export default function AgentStatus() {
           <div className="empty-state-icon"><i className="fas fa-chart-bar" /></div>
           <h2 className="empty-state-title">No observables yet</h2>
           <p className="empty-state-text">Send a message to the agent to see its activity here.</p>
-          <button className="btn btn-primary" onClick={() => navigate(`/app/agents/${encodeURIComponent(name)}/chat`)}>
+          <button className="btn btn-primary" onClick={() => navigate(`/app/agents/${encodeURIComponent(name)}/chat${userId ? `?user_id=${encodeURIComponent(userId)}` : ''}`)}>
             <i className="fas fa-comment" /> Chat with {name}
           </button>
         </div>

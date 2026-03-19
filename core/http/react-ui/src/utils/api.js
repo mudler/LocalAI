@@ -1,6 +1,9 @@
 import { API_CONFIG } from './config'
 import { apiUrl } from './basePath'
 
+const enc = encodeURIComponent
+const userQ = (userId) => userId ? `?user_id=${enc(userId)}` : ''
+
 async function handleResponse(response) {
   if (!response.ok) {
     let errorMessage = `HTTP ${response.status}`
@@ -169,13 +172,13 @@ export const p2pApi = {
 
 // Agent Jobs API
 export const agentJobsApi = {
-  listTasks: () => fetchJSON(API_CONFIG.endpoints.agentTasks),
+  listTasks: (allUsers) => fetchJSON(`${API_CONFIG.endpoints.agentTasks}${allUsers ? '?all_users=true' : ''}`),
   getTask: (id) => fetchJSON(API_CONFIG.endpoints.agentTask(id)),
   createTask: (body) => postJSON(API_CONFIG.endpoints.agentTasks, body),
   updateTask: (id, body) => fetchJSON(API_CONFIG.endpoints.agentTask(id), { method: 'PUT', body: JSON.stringify(body), headers: { 'Content-Type': 'application/json' } }),
   deleteTask: (id) => fetchJSON(API_CONFIG.endpoints.agentTask(id), { method: 'DELETE' }),
   executeTask: (name) => postJSON(API_CONFIG.endpoints.executeAgentTask(name), {}),
-  listJobs: () => fetchJSON(API_CONFIG.endpoints.agentJobs),
+  listJobs: (allUsers) => fetchJSON(`${API_CONFIG.endpoints.agentJobs}${allUsers ? '?all_users=true' : ''}`),
   getJob: (id) => fetchJSON(API_CONFIG.endpoints.agentJob(id)),
   cancelJob: (id) => postJSON(API_CONFIG.endpoints.cancelAgentJob(id), {}),
   executeJob: (body) => postJSON(API_CONFIG.endpoints.executeAgentJob, body),
@@ -264,57 +267,117 @@ export const systemApi = {
 }
 
 export const agentsApi = {
-  list: () => fetchJSON('/api/agents'),
+  list: (allUsers) => fetchJSON(`/api/agents${allUsers ? '?all_users=true' : ''}`),
   create: (config) => postJSON('/api/agents', config),
-  get: (name) => fetchJSON(`/api/agents/${encodeURIComponent(name)}`),
-  getConfig: (name) => fetchJSON(`/api/agents/${encodeURIComponent(name)}/config`),
-  update: (name, config) => fetchJSON(`/api/agents/${encodeURIComponent(name)}`, { method: 'PUT', body: JSON.stringify(config), headers: { 'Content-Type': 'application/json' } }),
-  delete: (name) => fetchJSON(`/api/agents/${encodeURIComponent(name)}`, { method: 'DELETE' }),
-  pause: (name) => fetchJSON(`/api/agents/${encodeURIComponent(name)}/pause`, { method: 'PUT' }),
-  resume: (name) => fetchJSON(`/api/agents/${encodeURIComponent(name)}/resume`, { method: 'PUT' }),
-  status: (name) => fetchJSON(`/api/agents/${encodeURIComponent(name)}/status`),
-  observables: (name) => fetchJSON(`/api/agents/${encodeURIComponent(name)}/observables`),
-  clearObservables: (name) => fetchJSON(`/api/agents/${encodeURIComponent(name)}/observables`, { method: 'DELETE' }),
-  chat: (name, message) => postJSON(`/api/agents/${encodeURIComponent(name)}/chat`, { message }),
-  export: (name) => fetchJSON(`/api/agents/${encodeURIComponent(name)}/export`),
+  get: (name, userId) => fetchJSON(`/api/agents/${enc(name)}${userQ(userId)}`),
+  getConfig: (name, userId) => fetchJSON(`/api/agents/${enc(name)}/config${userQ(userId)}`),
+  update: (name, config, userId) => fetchJSON(`/api/agents/${enc(name)}${userQ(userId)}`, { method: 'PUT', body: JSON.stringify(config), headers: { 'Content-Type': 'application/json' } }),
+  delete: (name, userId) => fetchJSON(`/api/agents/${enc(name)}${userQ(userId)}`, { method: 'DELETE' }),
+  pause: (name, userId) => fetchJSON(`/api/agents/${enc(name)}/pause${userQ(userId)}`, { method: 'PUT' }),
+  resume: (name, userId) => fetchJSON(`/api/agents/${enc(name)}/resume${userQ(userId)}`, { method: 'PUT' }),
+  status: (name, userId) => fetchJSON(`/api/agents/${enc(name)}/status${userQ(userId)}`),
+  observables: (name, userId) => fetchJSON(`/api/agents/${enc(name)}/observables${userQ(userId)}`),
+  clearObservables: (name, userId) => fetchJSON(`/api/agents/${enc(name)}/observables${userQ(userId)}`, { method: 'DELETE' }),
+  chat: (name, message, userId) => postJSON(`/api/agents/${enc(name)}/chat${userQ(userId)}`, { message }),
+  export: (name, userId) => fetchJSON(`/api/agents/${enc(name)}/export${userQ(userId)}`),
   import: (formData) => fetch(apiUrl('/api/agents/import'), { method: 'POST', body: formData }).then(handleResponse),
   configMeta: () => fetchJSON('/api/agents/config/metadata'),
+  sseUrl: (name, userId) => `/api/agents/${enc(name)}/sse${userQ(userId)}`,
 }
 
 export const agentCollectionsApi = {
-  list: () => fetchJSON('/api/agents/collections'),
+  list: (allUsers) => fetchJSON(`/api/agents/collections${allUsers ? '?all_users=true' : ''}`),
   create: (name) => postJSON('/api/agents/collections', { name }),
-  upload: (name, formData) => fetch(apiUrl(`/api/agents/collections/${encodeURIComponent(name)}/upload`), { method: 'POST', body: formData }).then(handleResponse),
-  entries: (name) => fetchJSON(`/api/agents/collections/${encodeURIComponent(name)}/entries`),
-  entryContent: (name, entry) => fetchJSON(`/api/agents/collections/${encodeURIComponent(name)}/entries/${encodeURIComponent(entry)}`),
-  search: (name, query, maxResults) => postJSON(`/api/agents/collections/${encodeURIComponent(name)}/search`, { query, max_results: maxResults }),
-  reset: (name) => postJSON(`/api/agents/collections/${encodeURIComponent(name)}/reset`),
-  deleteEntry: (name, entry) => fetchJSON(`/api/agents/collections/${encodeURIComponent(name)}/entry/delete`, { method: 'DELETE', body: JSON.stringify({ entry }), headers: { 'Content-Type': 'application/json' } }),
-  sources: (name) => fetchJSON(`/api/agents/collections/${encodeURIComponent(name)}/sources`),
-  addSource: (name, url, interval) => postJSON(`/api/agents/collections/${encodeURIComponent(name)}/sources`, { url, update_interval: interval }),
-  removeSource: (name, url) => fetchJSON(`/api/agents/collections/${encodeURIComponent(name)}/sources`, { method: 'DELETE', body: JSON.stringify({ url }), headers: { 'Content-Type': 'application/json' } }),
+  upload: (name, formData, userId) => fetch(apiUrl(`/api/agents/collections/${enc(name)}/upload${userQ(userId)}`), { method: 'POST', body: formData }).then(handleResponse),
+  entries: (name, userId) => fetchJSON(`/api/agents/collections/${enc(name)}/entries${userQ(userId)}`),
+  entryContent: (name, entry, userId) => fetchJSON(`/api/agents/collections/${enc(name)}/entries/${encodeURIComponent(entry)}${userQ(userId)}`),
+  search: (name, query, maxResults, userId) => postJSON(`/api/agents/collections/${enc(name)}/search${userQ(userId)}`, { query, max_results: maxResults }),
+  reset: (name, userId) => postJSON(`/api/agents/collections/${enc(name)}/reset${userQ(userId)}`),
+  deleteEntry: (name, entry, userId) => fetchJSON(`/api/agents/collections/${enc(name)}/entry/delete${userQ(userId)}`, { method: 'DELETE', body: JSON.stringify({ entry }), headers: { 'Content-Type': 'application/json' } }),
+  sources: (name, userId) => fetchJSON(`/api/agents/collections/${enc(name)}/sources${userQ(userId)}`),
+  addSource: (name, url, interval, userId) => postJSON(`/api/agents/collections/${enc(name)}/sources${userQ(userId)}`, { url, update_interval: interval }),
+  removeSource: (name, url, userId) => fetchJSON(`/api/agents/collections/${enc(name)}/sources${userQ(userId)}`, { method: 'DELETE', body: JSON.stringify({ url }), headers: { 'Content-Type': 'application/json' } }),
 }
 
 // Skills API
 export const skillsApi = {
-  list: () => fetchJSON('/api/agents/skills'),
-  search: (q) => fetchJSON(`/api/agents/skills/search?q=${encodeURIComponent(q)}`),
-  get: (name) => fetchJSON(`/api/agents/skills/${encodeURIComponent(name)}`),
+  list: (allUsers) => fetchJSON(`/api/agents/skills${allUsers ? '?all_users=true' : ''}`),
+  search: (q) => fetchJSON(`/api/agents/skills/search?q=${enc(q)}`),
+  get: (name, userId) => fetchJSON(`/api/agents/skills/${enc(name)}${userQ(userId)}`),
   create: (data) => postJSON('/api/agents/skills', data),
-  update: (name, data) => fetchJSON(`/api/agents/skills/${encodeURIComponent(name)}`, { method: 'PUT', body: JSON.stringify(data), headers: { 'Content-Type': 'application/json' } }),
-  delete: (name) => fetchJSON(`/api/agents/skills/${encodeURIComponent(name)}`, { method: 'DELETE' }),
+  update: (name, data, userId) => fetchJSON(`/api/agents/skills/${enc(name)}${userQ(userId)}`, { method: 'PUT', body: JSON.stringify(data), headers: { 'Content-Type': 'application/json' } }),
+  delete: (name, userId) => fetchJSON(`/api/agents/skills/${enc(name)}${userQ(userId)}`, { method: 'DELETE' }),
   import: (file) => { const fd = new FormData(); fd.append('file', file); return fetch(apiUrl('/api/agents/skills/import'), { method: 'POST', body: fd }).then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); }); },
-  exportUrl: (name) => apiUrl(`/api/agents/skills/export/${encodeURIComponent(name)}`),
-  listResources: (name) => fetchJSON(`/api/agents/skills/${encodeURIComponent(name)}/resources`),
-  getResource: (name, path, opts) => fetchJSON(`/api/agents/skills/${encodeURIComponent(name)}/resources/${path}${opts?.json ? '?encoding=base64' : ''}`),
-  createResource: (name, path, file) => { const fd = new FormData(); fd.append('file', file); fd.append('path', path); return fetch(apiUrl(`/api/agents/skills/${encodeURIComponent(name)}/resources`), { method: 'POST', body: fd }).then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); }); },
-  updateResource: (name, path, content) => postJSON(`/api/agents/skills/${encodeURIComponent(name)}/resources/${path}`, { content }),
-  deleteResource: (name, path) => fetchJSON(`/api/agents/skills/${encodeURIComponent(name)}/resources/${path}`, { method: 'DELETE' }),
+  exportUrl: (name, userId) => apiUrl(`/api/agents/skills/export/${enc(name)}${userQ(userId)}`),
+  listResources: (name, userId) => fetchJSON(`/api/agents/skills/${enc(name)}/resources${userQ(userId)}`),
+  getResource: (name, path, opts, userId) => fetchJSON(`/api/agents/skills/${enc(name)}/resources/${path}${opts?.json ? '?encoding=base64' : ''}${userId ? `${opts?.json ? '&' : '?'}user_id=${enc(userId)}` : ''}`),
+  createResource: (name, path, file) => { const fd = new FormData(); fd.append('file', file); fd.append('path', path); return fetch(apiUrl(`/api/agents/skills/${enc(name)}/resources`), { method: 'POST', body: fd }).then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); }); },
+  updateResource: (name, path, content) => postJSON(`/api/agents/skills/${enc(name)}/resources/${path}`, { content }),
+  deleteResource: (name, path) => fetchJSON(`/api/agents/skills/${enc(name)}/resources/${path}`, { method: 'DELETE' }),
   listGitRepos: () => fetchJSON('/api/agents/git-repos'),
   addGitRepo: (url) => postJSON('/api/agents/git-repos', { url }),
-  syncGitRepo: (id) => postJSON(`/api/agents/git-repos/${encodeURIComponent(id)}/sync`, {}),
-  toggleGitRepo: (id) => postJSON(`/api/agents/git-repos/${encodeURIComponent(id)}/toggle`, {}),
-  deleteGitRepo: (id) => fetchJSON(`/api/agents/git-repos/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  syncGitRepo: (id) => postJSON(`/api/agents/git-repos/${enc(id)}/sync`, {}),
+  toggleGitRepo: (id) => postJSON(`/api/agents/git-repos/${enc(id)}/toggle`, {}),
+  deleteGitRepo: (id) => fetchJSON(`/api/agents/git-repos/${enc(id)}`, { method: 'DELETE' }),
+}
+
+// Usage API
+export const usageApi = {
+  getMyUsage: (period) => fetchJSON(`/api/auth/usage?period=${period || 'month'}`),
+  getAdminUsage: (period, userId) => {
+    let url = `/api/auth/admin/usage?period=${period || 'month'}`
+    if (userId) url += `&user_id=${encodeURIComponent(userId)}`
+    return fetchJSON(url)
+  },
+}
+
+// Admin Users API
+export const adminUsersApi = {
+  list: () => fetchJSON('/api/auth/admin/users'),
+  setRole: (id, role) => fetchJSON(`/api/auth/admin/users/${encodeURIComponent(id)}/role`, {
+    method: 'PUT', body: JSON.stringify({ role }), headers: { 'Content-Type': 'application/json' },
+  }),
+  delete: (id) => fetchJSON(`/api/auth/admin/users/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  setStatus: (id, status) => fetchJSON(`/api/auth/admin/users/${encodeURIComponent(id)}/status`, {
+    method: 'PUT', body: JSON.stringify({ status }), headers: { 'Content-Type': 'application/json' },
+  }),
+  getPermissions: (id) => fetchJSON(`/api/auth/admin/users/${encodeURIComponent(id)}/permissions`),
+  setPermissions: (id, perms) => fetchJSON(`/api/auth/admin/users/${encodeURIComponent(id)}/permissions`, {
+    method: 'PUT', body: JSON.stringify(perms), headers: { 'Content-Type': 'application/json' },
+  }),
+  getFeatures: () => fetchJSON('/api/auth/admin/features'),
+  setModels: (id, allowlist) => fetchJSON(`/api/auth/admin/users/${encodeURIComponent(id)}/models`, {
+    method: 'PUT', body: JSON.stringify(allowlist), headers: { 'Content-Type': 'application/json' },
+  }),
+}
+
+// Profile API
+export const profileApi = {
+  get: () => fetchJSON('/api/auth/me'),
+  updateName: (name) => fetchJSON('/api/auth/profile', {
+    method: 'PUT', body: JSON.stringify({ name }), headers: { 'Content-Type': 'application/json' },
+  }),
+  updateProfile: (name, avatarUrl) => fetchJSON('/api/auth/profile', {
+    method: 'PUT', body: JSON.stringify({ name, avatar_url: avatarUrl || '' }), headers: { 'Content-Type': 'application/json' },
+  }),
+  changePassword: (currentPassword, newPassword) => fetchJSON('/api/auth/password', {
+    method: 'PUT', body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
+    headers: { 'Content-Type': 'application/json' },
+  }),
+}
+
+// Admin Invites API
+export const adminInvitesApi = {
+  list: () => fetchJSON('/api/auth/admin/invites'),
+  create: (expiresInHours = 168) => postJSON('/api/auth/admin/invites', { expiresInHours }),
+  delete: (id) => fetchJSON(`/api/auth/admin/invites/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+}
+
+// API Keys
+export const apiKeysApi = {
+  list: () => fetchJSON('/api/auth/api-keys'),
+  create: (name) => postJSON('/api/auth/api-keys', { name }),
+  revoke: (id) => fetchJSON(`/api/auth/api-keys/${encodeURIComponent(id)}`, { method: 'DELETE' }),
 }
 
 // File to base64 helper

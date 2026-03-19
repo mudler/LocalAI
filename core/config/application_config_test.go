@@ -26,7 +26,7 @@ var _ = Describe("ApplicationConfig RuntimeSettings Conversion", func() {
 				F16:                      true,
 				Debug:                    true,
 				CORS:                     true,
-				CSRF:                     true,
+				DisableCSRF:                     true,
 				CORSAllowOrigins:         "https://example.com",
 				P2PToken:                 "test-token",
 				P2PNetworkID:             "test-network",
@@ -377,7 +377,7 @@ var _ = Describe("ApplicationConfig RuntimeSettings Conversion", func() {
 			appConfig.ApplyRuntimeSettings(rs)
 
 			Expect(appConfig.CORS).To(BeTrue())
-			Expect(appConfig.CSRF).To(BeTrue())
+			Expect(appConfig.DisableCSRF).To(BeTrue())
 			Expect(appConfig.CORSAllowOrigins).To(Equal("https://example.com,https://other.com"))
 		})
 
@@ -463,7 +463,7 @@ var _ = Describe("ApplicationConfig RuntimeSettings Conversion", func() {
 				F16:                      true,
 				Debug:                    false,
 				CORS:                     true,
-				CSRF:                     false,
+				DisableCSRF:                     false,
 				CORSAllowOrigins:         "https://test.com",
 				P2PToken:                 "round-trip-token",
 				P2PNetworkID:             "round-trip-network",
@@ -495,7 +495,7 @@ var _ = Describe("ApplicationConfig RuntimeSettings Conversion", func() {
 			Expect(target.F16).To(Equal(original.F16))
 			Expect(target.Debug).To(Equal(original.Debug))
 			Expect(target.CORS).To(Equal(original.CORS))
-			Expect(target.CSRF).To(Equal(original.CSRF))
+			Expect(target.DisableCSRF).To(Equal(original.DisableCSRF))
 			Expect(target.CORSAllowOrigins).To(Equal(original.CORSAllowOrigins))
 			Expect(target.P2PToken).To(Equal(original.P2PToken))
 			Expect(target.P2PNetworkID).To(Equal(original.P2PNetworkID))

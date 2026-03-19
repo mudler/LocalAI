@@ -58,7 +58,7 @@ type RunCMD struct {
 	Address                            string   `env:"LOCALAI_ADDRESS,ADDRESS" default:":8080" help:"Bind address for the API server" group:"api"`
 	CORS                               bool     `env:"LOCALAI_CORS,CORS" help:"" group:"api"`
 	CORSAllowOrigins                   string   `env:"LOCALAI_CORS_ALLOW_ORIGINS,CORS_ALLOW_ORIGINS" group:"api"`
-	CSRF                               bool     `env:"LOCALAI_CSRF" help:"Enables fiber CSRF middleware" group:"api"`
+	DisableCSRF                        bool     `env:"LOCALAI_DISABLE_CSRF" help:"Disable CSRF middleware (enabled by default)" group:"api"`
 	UploadLimit                        int      `env:"LOCALAI_UPLOAD_LIMIT,UPLOAD_LIMIT" default:"15" help:"Default upload-limit in MB" group:"api"`
 	APIKeys                            []string `env:"LOCALAI_API_KEY,API_KEY" help:"List of API Keys to enable API authentication. When this is set, all the requests must be authenticated with one of these API keys" group:"api"`
 	DisableWebUI                       bool     `env:"LOCALAI_DISABLE_WEBUI,DISABLE_WEBUI" default:"false" help:"Disables the web user interface. When set to true, the server will only expose API endpoints without serving the web interface" group:"api"`
@@ -121,6 +121,21 @@ type RunCMD struct {
 	AgentPoolCollectionDBPath string `env:"LOCALAI_AGENT_POOL_COLLECTION_DB_PATH" help:"Database path for agent collections" group:"agents"`
 	AgentHubURL               string `env:"LOCALAI_AGENT_HUB_URL" default:"https://agenthub.localai.io" help:"URL for the agent hub where users can browse and download agent configurations" group:"agents"`
 
+	// Authentication
+	AuthEnabled          bool   `env:"LOCALAI_AUTH" default:"false" help:"Enable user authentication and authorization" group:"auth"`
+	AuthDatabaseURL      string `env:"LOCALAI_AUTH_DATABASE_URL,DATABASE_URL" help:"Database URL for auth (postgres:// or file path for SQLite). Defaults to {DataPath}/database.db" group:"auth"`
+	GitHubClientID       string `env:"GITHUB_CLIENT_ID" help:"GitHub OAuth App Client ID (auto-enables auth when set)" group:"auth"`
+	GitHubClientSecret   string `env:"GITHUB_CLIENT_SECRET" help:"GitHub OAuth App Client Secret" group:"auth"`
+	OIDCIssuer           string `env:"LOCALAI_OIDC_ISSUER" help:"OIDC issuer URL for auto-discovery" group:"auth"`
+	OIDCClientID         string `env:"LOCALAI_OIDC_CLIENT_ID" help:"OIDC Client ID (auto-enables auth)" group:"auth"`
+	OIDCClientSecret     string `env:"LOCALAI_OIDC_CLIENT_SECRET" help:"OIDC Client Secret" group:"auth"`
+	AuthBaseURL          string `env:"LOCALAI_BASE_URL" help:"Base URL for OAuth callbacks (e.g. http://localhost:8080)" group:"auth"`
+	AuthAdminEmail       string `env:"LOCALAI_ADMIN_EMAIL" help:"Email address to auto-promote to admin role" group:"auth"`
+	AuthRegistrationMode string `env:"LOCALAI_REGISTRATION_MODE" default:"open" help:"Registration mode: 'open' (default), 'approval', or 'invite' (invite code required)" group:"auth"`
+	DisableLocalAuth     bool   `env:"LOCALAI_DISABLE_LOCAL_AUTH" default:"false" help:"Disable local email/password registration and login (use with OAuth/OIDC-only setups)" group:"auth"`
+	AuthAPIKeyHMACSecret string `env:"LOCALAI_AUTH_HMAC_SECRET" help:"HMAC secret for API key hashing (auto-generated if empty)" group:"auth"`
+	DefaultAPIKeyExpiry  string `env:"LOCALAI_DEFAULT_API_KEY_EXPIRY" help:"Default expiry for API keys (e.g. 90d, 1y; empty = no expiry)" group:"auth"`
+
 	Version bool
 }
 
@@ -165,7 +180,7 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 		config.WithBackendGalleries(r.BackendGalleries),
 		config.WithCors(r.CORS),
 		config.WithCorsAllowOrigins(r.CORSAllowOrigins),
-		config.WithCsrf(r.CSRF),
+		config.WithDisableCSRF(r.DisableCSRF),
 		config.WithThreads(r.Threads),
 		config.WithUploadLimitMB(r.UploadLimit),
 		config.WithApiKeys(r.APIKeys),
@@ -309,6 +324,46 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 	}
 	if r.AgentHubURL != "" {
 		opts = append(opts, config.WithAgentHubURL(r.AgentHubURL))
+	}
+
+	// Authentication
+	authEnabled := r.AuthEnabled || r.GitHubClientID != "" || r.OIDCClientID != ""
+	if authEnabled {
+		opts = append(opts, config.WithAuthEnabled(true))
+
+		dbURL := r.AuthDatabaseURL
+		if dbURL == "" {
+			dbURL = filepath.Join(r.DataPath, "database.db")
+		}
+		opts = append(opts, config.WithAuthDatabaseURL(dbURL))
+
+		if r.GitHubClientID != "" {
+			opts = append(opts, config.WithAuthGitHubClientID(r.GitHubClientID))
+			opts = append(opts, config.WithAuthGitHubClientSecret(r.GitHubClientSecret))
+		}
+		if r.OIDCClientID != "" {
+			opts = append(opts, config.WithAuthOIDCIssuer(r.OIDCIssuer))
+			opts = append(opts, config.WithAuthOIDCClientID(r.OIDCClientID))
+			opts = append(opts, config.WithAuthOIDCClientSecret(r.OIDCClientSecret))
+		}
+		if r.AuthBaseURL != "" {
+			opts = append(opts, config.WithAuthBaseURL(r.AuthBaseURL))
+		}
+		if r.AuthAdminEmail != "" {
+			opts = append(opts, config.WithAuthAdminEmail(r.AuthAdminEmail))
+		}
+		if r.AuthRegistrationMode != "" {
+			opts = append(opts, config.WithAuthRegistrationMode(r.AuthRegistrationMode))
+		}
+		if r.DisableLocalAuth {
+			opts = append(opts, config.WithAuthDisableLocalAuth(true))
+		}
+		if r.AuthAPIKeyHMACSecret != "" {
+			opts = append(opts, config.WithAuthAPIKeyHMACSecret(r.AuthAPIKeyHMACSecret))
+		}
+		if r.DefaultAPIKeyExpiry != "" {
+			opts = append(opts, config.WithAuthDefaultAPIKeyExpiry(r.DefaultAPIKeyExpiry))
+		}
 	}
 
 	if idleWatchDog || busyWatchDog {
