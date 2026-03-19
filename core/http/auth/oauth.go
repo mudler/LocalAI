@@ -211,15 +211,15 @@ func (m *OAuthManager) CallbackHandler(providerName string, db *gorm.DB, adminEm
 		}
 
 		// For new users that are pending, check if they have a valid invite
-		if user.Status != "active" && inviteCode != "" {
+		if user.Status != StatusActive && inviteCode != "" {
 			if invite, err := ValidateInvite(db, inviteCode); err == nil {
-				user.Status = "active"
-				db.Model(user).Update("status", "active")
+				user.Status = StatusActive
+				db.Model(user).Update("status", StatusActive)
 				ConsumeInvite(db, invite, user.ID)
 			}
 		}
 
-		if user.Status != "active" {
+		if user.Status != StatusActive {
 			if registrationMode == "invite" {
 				return c.JSON(http.StatusForbidden, map[string]string{"error": "a valid invite code is required to register"})
 			}
@@ -383,15 +383,15 @@ func upsertOAuthUser(db *gorm.DB, provider string, info *oauthUserInfo, adminEma
 	}
 
 	// New user
-	status := "active"
+	status := StatusActive
 	if registrationMode == "approval" || registrationMode == "invite" {
-		status = "pending"
+		status = StatusPending
 	}
 
 	role := AssignRole(db, info.Email, adminEmail)
 	// First user is always active regardless of registration mode
 	if role == RoleAdmin {
-		status = "active"
+		status = StatusActive
 	}
 
 	user = User{

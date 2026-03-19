@@ -89,9 +89,9 @@ func newTestAuthApp(db *gorm.DB, appConfig *config.ApplicationConfig) *echo.Echo
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to hash password"})
 		}
 		role := auth.AssignRole(db, body.Email, appConfig.Auth.AdminEmail)
-		status := "active"
+		status := auth.StatusActive
 		if appConfig.Auth.RegistrationMode == "approval" && role != auth.RoleAdmin {
-			status = "pending"
+			status = auth.StatusPending
 		}
 		name := body.Name
 		if name == "" {
@@ -105,7 +105,7 @@ func newTestAuthApp(db *gorm.DB, appConfig *config.ApplicationConfig) *echo.Echo
 		if err := db.Create(user).Error; err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to create user"})
 		}
-		if status == "pending" {
+		if status == auth.StatusPending {
 			return c.JSON(http.StatusOK, map[string]interface{}{"message": "registration successful, awaiting admin approval", "pending": true})
 		}
 		sessionID, err := auth.CreateSession(db, user.ID)
@@ -138,7 +138,7 @@ func newTestAuthApp(db *gorm.DB, appConfig *config.ApplicationConfig) *echo.Echo
 		if !auth.CheckPassword(user.PasswordHash, body.Password) {
 			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "invalid email or password"})
 		}
-		if user.Status == "pending" {
+		if user.Status == auth.StatusPending {
 			return c.JSON(http.StatusForbidden, map[string]string{"error": "account pending admin approval"})
 		}
 		auth.MaybePromote(db, &user, appConfig.Auth.AdminEmail)
@@ -304,7 +304,7 @@ func createRouteTestUser(db *gorm.DB, email, role string) *auth.User {
 		Provider: "github",
 		Subject:  "sub-" + email,
 		Role:     role,
-		Status:   "active",
+		Status:   auth.StatusActive,
 	}
 	Expect(db.Create(user).Error).ToNot(HaveOccurred())
 	return user

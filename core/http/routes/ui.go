@@ -178,7 +178,7 @@ func RegisterUIRoutes(app *echo.Echo,
 				return nil
 			}
 		}
-	})
+	}, adminMiddleware)
 }
 
 // backendLogsConn wraps a websocket connection with a mutex for safe concurrent writes

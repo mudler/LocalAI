@@ -62,6 +62,29 @@ var RouteFeatureRegistry = []RouteFeature{
 
 	// Sound generation
 	{"POST", "/v1/sound-generation", FeatureSound},
+
+	// Realtime
+	{"GET", "/v1/realtime", FeatureRealtime},
+	{"POST", "/v1/realtime/sessions", FeatureRealtime},
+	{"POST", "/v1/realtime/transcription_session", FeatureRealtime},
+	{"POST", "/v1/realtime/calls", FeatureRealtime},
+
+	// MCP
+	{"POST", "/v1/mcp/chat/completions", FeatureMCP},
+	{"POST", "/mcp/v1/chat/completions", FeatureMCP},
+	{"POST", "/mcp/chat/completions", FeatureMCP},
+
+	// Tokenize
+	{"POST", "/v1/tokenize", FeatureTokenize},
+
+	// Rerank
+	{"POST", "/v1/rerank", FeatureRerank},
+
+	// Stores
+	{"POST", "/stores/set", FeatureStores},
+	{"POST", "/stores/delete", FeatureStores},
+	{"POST", "/stores/get", FeatureStores},
+	{"POST", "/stores/find", FeatureStores},
 }
 
 // FeatureMeta describes a feature for the admin API/UI.
@@ -93,5 +116,10 @@ func APIFeatureMetas() []FeatureMeta {
 		{FeatureVideo, "Video Generation", true},
 		{FeatureEmbeddings, "Embeddings", true},
 		{FeatureSound, "Sound Generation", true},
+		{FeatureRealtime, "Realtime", true},
+		{FeatureRerank, "Rerank", true},
+		{FeatureTokenize, "Tokenize", true},
+		{FeatureMCP, "MCP", true},
+		{FeatureStores, "Stores", true},
 	}
 }

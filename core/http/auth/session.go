@@ -47,6 +47,9 @@ func ValidateSession(db *gorm.DB, sessionID string) *User {
 	if err := db.Preload("User").Where("id = ? AND expires_at > ?", sessionID, time.Now()).First(&session).Error; err != nil {
 		return nil
 	}
+	if session.User.Status != StatusActive {
+		return nil
+	}
 	return &session.User
 }
 

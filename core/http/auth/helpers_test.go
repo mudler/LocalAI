@@ -29,7 +29,7 @@ func createTestUser(db *gorm.DB, email, role, provider string) *auth.User {
 		Provider: provider,
 		Subject:  generateTestID(),
 		Role:     role,
-		Status:   "active",
+		Status:   auth.StatusActive,
 	}
 	err := db.Create(user).Error
 	Expect(err).ToNot(HaveOccurred())

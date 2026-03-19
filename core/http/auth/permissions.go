@@ -42,6 +42,11 @@ const (
 	FeatureVideo             = "video"
 	FeatureEmbeddings        = "embeddings"
 	FeatureSound             = "sound"
+	FeatureRealtime          = "realtime"
+	FeatureRerank            = "rerank"
+	FeatureTokenize          = "tokenize"
+	FeatureMCP               = "mcp"
+	FeatureStores            = "stores"
 )
 
 // AgentFeatures lists agent-related features (default OFF).
@@ -51,6 +56,7 @@ var AgentFeatures = []string{FeatureAgents, FeatureSkills, FeatureCollections, F
 var APIFeatures = []string{
 	FeatureChat, FeatureImages, FeatureAudioSpeech, FeatureAudioTranscription,
 	FeatureVAD, FeatureDetection, FeatureVideo, FeatureEmbeddings, FeatureSound,
+	FeatureRealtime, FeatureRerank, FeatureTokenize, FeatureMCP, FeatureStores,
 }
 
 // AllFeatures lists all known features (used by UI and validation).

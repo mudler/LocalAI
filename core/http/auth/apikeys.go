@@ -74,6 +74,10 @@ func ValidateAPIKey(db *gorm.DB, plaintext string) (*UserAPIKey, error) {
 		return nil, fmt.Errorf("invalid API key")
 	}
 
+	if key.User.Status != StatusActive {
+		return nil, fmt.Errorf("user account is not active")
+	}
+
 	// Update LastUsed
 	now := time.Now()
 	db.Model(&key).Update("last_used", now)

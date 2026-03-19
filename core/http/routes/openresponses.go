@@ -41,8 +41,8 @@ func RegisterOpenResponsesRoutes(app *echo.Echo,
 
 	// WebSocket mode for Responses API
 	wsHandler := openresponses.WebSocketEndpoint(application)
-	app.GET("/v1/responses", wsHandler)
-	app.GET("/responses", wsHandler)
+	app.GET("/v1/responses", wsHandler, middleware.UsageMiddleware(application.AuthDB()), middleware.TraceMiddleware(application))
+	app.GET("/responses", wsHandler, middleware.UsageMiddleware(application.AuthDB()), middleware.TraceMiddleware(application))
 
 	// GET /responses/:id - Retrieve a response (for polling background requests)
 	getResponseHandler := openresponses.GetResponseEndpoint()

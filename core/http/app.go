@@ -267,7 +267,8 @@ func API(application *application.Application) (*echo.Echo, error) {
 		opcache = services.NewOpCache(application.GalleryService())
 	}
 
-	routes.RegisterLocalAIRoutes(e, requestExtractor, application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig(), application.GalleryService(), opcache, application.TemplatesEvaluator(), application, adminMiddleware, mcpJobsMw)
+	mcpMw := auth.RequireFeature(application.AuthDB(), auth.FeatureMCP)
+	routes.RegisterLocalAIRoutes(e, requestExtractor, application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig(), application.GalleryService(), opcache, application.TemplatesEvaluator(), application, adminMiddleware, mcpJobsMw, mcpMw)
 	routes.RegisterAgentPoolRoutes(e, application, agentsMw, skillsMw, collectionsMw)
 	routes.RegisterOpenAIRoutes(e, requestExtractor, application)
 	routes.RegisterAnthropicRoutes(e, requestExtractor, application)

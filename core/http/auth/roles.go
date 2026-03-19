@@ -11,6 +11,10 @@ import (
 const (
 	RoleAdmin = "admin"
 	RoleUser  = "user"
+
+	StatusActive   = "active"
+	StatusPending  = "pending"
+	StatusDisabled = "disabled"
 )
 
 // AssignRole determines the role for a new user.

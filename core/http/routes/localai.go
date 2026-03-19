@@ -24,7 +24,8 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 	evaluator *templates.Evaluator,
 	app *application.Application,
 	adminMiddleware echo.MiddlewareFunc,
-	mcpJobsMw echo.MiddlewareFunc) {
+	mcpJobsMw echo.MiddlewareFunc,
+	mcpMw echo.MiddlewareFunc) {
 
 	router.GET("/swagger/*", echoswagger.WrapHandler) // default
 
@@ -103,7 +104,7 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 	router.POST("/stores/find", localai.StoresFindEndpoint(ml, appConfig))
 
 	if !appConfig.DisableMetrics {
-		router.GET("/metrics", localai.LocalAIMetricsEndpoint())
+		router.GET("/metrics", localai.LocalAIMetricsEndpoint(), adminMiddleware)
 	}
 
 	videoHandler := localai.VideoEndpoint(cl, ml, appConfig)
@@ -168,19 +169,19 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 		router.POST("/mcp/chat/completions", mcpStreamHandler, mcpStreamMiddleware...)
 
 		// MCP server listing endpoint
-		router.GET("/v1/mcp/servers/:model", localai.MCPServersEndpoint(cl, appConfig))
+		router.GET("/v1/mcp/servers/:model", localai.MCPServersEndpoint(cl, appConfig), mcpMw)
 
 		// MCP prompts endpoints
-		router.GET("/v1/mcp/prompts/:model", localai.MCPPromptsEndpoint(cl, appConfig))
-		router.POST("/v1/mcp/prompts/:model/:prompt", localai.MCPGetPromptEndpoint(cl, appConfig))
+		router.GET("/v1/mcp/prompts/:model", localai.MCPPromptsEndpoint(cl, appConfig), mcpMw)
+		router.POST("/v1/mcp/prompts/:model/:prompt", localai.MCPGetPromptEndpoint(cl, appConfig), mcpMw)
 
 		// MCP resources endpoints
-		router.GET("/v1/mcp/resources/:model", localai.MCPResourcesEndpoint(cl, appConfig))
-		router.POST("/v1/mcp/resources/:model/read", localai.MCPReadResourceEndpoint(cl, appConfig))
+		router.GET("/v1/mcp/resources/:model", localai.MCPResourcesEndpoint(cl, appConfig), mcpMw)
+		router.POST("/v1/mcp/resources/:model/read", localai.MCPReadResourceEndpoint(cl, appConfig), mcpMw)
 
 		// CORS proxy for client-side MCP connections
-		router.GET("/api/cors-proxy", localai.CORSProxyEndpoint(appConfig))
-		router.POST("/api/cors-proxy", localai.CORSProxyEndpoint(appConfig))
+		router.GET("/api/cors-proxy", localai.CORSProxyEndpoint(appConfig), mcpMw)
+		router.POST("/api/cors-proxy", localai.CORSProxyEndpoint(appConfig), mcpMw)
 		router.OPTIONS("/api/cors-proxy", localai.CORSProxyOptionsEndpoint())
 	}
 

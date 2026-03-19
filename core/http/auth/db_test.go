@@ -40,7 +40,7 @@ var _ = Describe("InitDB", func() {
 				Provider: "github",
 				Subject:  "12345",
 				Role:     "admin",
-				Status:   "active",
+				Status:   auth.StatusActive,
 			}
 			Expect(db.Create(user).Error).ToNot(HaveOccurred())
 

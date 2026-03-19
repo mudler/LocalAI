@@ -146,7 +146,7 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 		role := auth.AssignRole(db, body.Email, appConfig.Auth.AdminEmail)
 
 		// Determine status based on registration mode and invite code
-		status := "active"
+		status := auth.StatusActive
 		var validInvite *auth.InviteCode
 
 		if auth.NeedsInviteOrApproval(db, body.Email, appConfig.Auth.AdminEmail, appConfig.Auth.RegistrationMode) {
@@ -160,10 +160,10 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 					return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid or expired invite code"})
 				}
 				validInvite = invite
-				status = "active" // valid invite = immediate activation
+				status = auth.StatusActive // valid invite = immediate activation
 			} else {
 				// approval mode without invite code
-				status = "pending"
+				status = auth.StatusPending
 			}
 		}
 
@@ -190,7 +190,7 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 			auth.ConsumeInvite(db, validInvite, user.ID)
 		}
 
-		if status == "pending" {
+		if status == auth.StatusPending {
 			return c.JSON(http.StatusOK, map[string]interface{}{
 				"message": "registration successful, awaiting admin approval",
 				"pending": true,
@@ -238,7 +238,7 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "invalid email or password"})
 		}
 
-		if user.Status == "pending" {
+		if user.Status == auth.StatusPending {
 			return c.JSON(http.StatusForbidden, map[string]string{"error": "account pending admin approval"})
 		}
 
@@ -569,7 +569,7 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 		var body struct {
 			Status string `json:"status"`
 		}
-		if err := c.Bind(&body); err != nil || (body.Status != "active" && body.Status != "disabled") {
+		if err := c.Bind(&body); err != nil || (body.Status != auth.StatusActive && body.Status != auth.StatusDisabled) {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": "status must be 'active' or 'disabled'"})
 		}
 

@@ -473,7 +473,10 @@ func isAPIPath(path string) bool {
 		strings.HasPrefix(path, "/vad") ||
 		strings.HasPrefix(path, "/video") ||
 		strings.HasPrefix(path, "/stores/") ||
-		strings.HasPrefix(path, "/system")
+		strings.HasPrefix(path, "/system") ||
+		strings.HasPrefix(path, "/ws/") ||
+		strings.HasPrefix(path, "/generated-") ||
+		path == "/metrics"
 }
 
 // authError returns an appropriate error response.
