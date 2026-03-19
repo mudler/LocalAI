@@ -472,7 +472,7 @@ message ToolFormatMarkers {
   string id_field = 16;            // e.g., "id"
   bool fun_name_is_key = 17;
   bool tools_array_wrapped = 18;
-  bool uses_python_dicts = 19;
+  reserved 19;
 
   // Reasoning markers
   string reasoning_start = 20;     // e.g., "<think>"
