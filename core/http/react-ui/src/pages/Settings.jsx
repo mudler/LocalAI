@@ -55,7 +55,17 @@ export default function Settings() {
   const handleSave = async () => {
     setSaving(true)
     try {
-      await settingsApi.save(settings)
+      // Prepare settings for saving: convert api_keys_text to api_keys array
+      const settingsToSave = { ...settings }
+      if (settingsToSave.api_keys_text !== undefined && settingsToSave.api_keys_text !== null) {
+        const text = settingsToSave.api_keys_text
+        if (typeof text === 'string' && text.trim() !== '') {
+          settingsToSave.api_keys = text.split('\n').map(k => k.trim()).filter(k => k !== '')
+        } else {
+          settingsToSave.api_keys = []
+        }
+      }
+      await settingsApi.save(settingsToSave)
       addToast('Settings saved successfully', 'success')
     } catch (err) {
       addToast(`Save failed: ${err.message}`, 'error')
