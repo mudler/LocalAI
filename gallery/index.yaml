@@ -1,4 +1,29 @@
 ---
+- name: "kingroleplay_12b_v1-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/KingRoleplay_12b_v1-i1-GGUF
+  description: |
+    Describe the model in a clear and concise way that can be shared in a model gallery.
+  overrides:
+    parameters:
+      model: llama-cpp/models/KingRoleplay_12b_v1-i1-GGUF/KingRoleplay_12b_v1.i1-Q4_K_M.gguf
+    name: KingRoleplay_12b_v1-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/KingRoleplay_12b_v1-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/KingRoleplay_12b_v1-i1-GGUF/KingRoleplay_12b_v1.i1-Q4_K_M.gguf
+      sha256: 8c0de0b6648bdf1fc79aaecbb4b9fb5976c763e62204a271ab001aa9eafc11d1
+      uri: https://huggingface.co/mradermacher/KingRoleplay_12b_v1-i1-GGUF/resolve/main/KingRoleplay_12b_v1.i1-Q4_K_M.gguf
 - name: "qwen_qwen3.5-35b-a3b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
