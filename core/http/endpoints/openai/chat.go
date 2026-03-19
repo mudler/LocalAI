@@ -779,25 +779,17 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 					}
 					xlog.Error("Stream ended with error", "error", err)
 
-					stopReason := FinishReasonStop
-					resp := &schema.OpenAIResponse{
-						ID:      id,
-						Created: created,
-						Model:   input.Model, // we have to return what the user sent here, due to OpenAI spec.
-						Choices: []schema.Choice{
-							{
-								FinishReason: &stopReason,
-								Index:        0,
-								Delta:        &schema.Message{Content: "Internal error: " + err.Error()},
-							}},
-						Object: "chat.completion.chunk",
-						Usage:  *usage,
+					errorResp := schema.ErrorResponse{
+						Error: &schema.APIError{
+							Message: err.Error(),
+							Type:    "server_error",
+							Code:    "server_error",
+						},
 					}
-					respData, marshalErr := json.Marshal(resp)
+					respData, marshalErr := json.Marshal(errorResp)
 					if marshalErr != nil {
 						xlog.Error("Failed to marshal error response", "error", marshalErr)
-						// Send a simple error message as fallback
-						fmt.Fprintf(c.Response().Writer, "data: {\"error\":\"Internal error\"}\n\n")
+						fmt.Fprintf(c.Response().Writer, "data: {\"error\":{\"message\":\"Internal error\",\"type\":\"server_error\"}}\n\n")
 					} else {
 						fmt.Fprintf(c.Response().Writer, "data: %s\n\n", respData)
 					}

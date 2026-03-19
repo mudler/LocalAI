@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useParams, useOutletContext } from 'react-router-dom'
 import ModelSelector from '../components/ModelSelector'
 import LoadingSpinner from '../components/LoadingSpinner'
+import ErrorWithTraceLink from '../components/ErrorWithTraceLink'
 import { videoApi, fileToBase64 } from '../utils/api'
 
 const SIZES = ['256x256', '512x512', '768x768', '1024x1024']
@@ -20,6 +21,7 @@ export default function VideoGen() {
   const [seed, setSeed] = useState('')
   const [cfgScale, setCfgScale] = useState('')
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
   const [videos, setVideos] = useState([])
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [showImageInputs, setShowImageInputs] = useState(false)
@@ -33,6 +35,7 @@ export default function VideoGen() {
 
     setLoading(true)
     setVideos([])
+    setError(null)
 
     const [w, h] = size.split('x').map(Number)
     const body = { model, prompt: prompt.trim(), width: w, height: h, fps: parseInt(fps) || 16 }
@@ -50,7 +53,7 @@ export default function VideoGen() {
       setVideos(data?.data || [])
       if (!data?.data?.length) addToast('No videos generated', 'warning')
     } catch (err) {
-      addToast(`Error: ${err.message}`, 'error')
+      setError(err.message)
     } finally {
       setLoading(false)
     }
@@ -129,6 +132,8 @@ export default function VideoGen() {
         <div className="media-result">
           {loading ? (
             <LoadingSpinner size="lg" />
+          ) : error ? (
+            <ErrorWithTraceLink message={error} />
           ) : videos.length > 0 ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)', width: '100%' }}>
               {videos.map((v, i) => (

@@ -2,6 +2,7 @@ import { useState, useRef } from 'react'
 import { useParams, useOutletContext } from 'react-router-dom'
 import ModelSelector from '../components/ModelSelector'
 import LoadingSpinner from '../components/LoadingSpinner'
+import ErrorWithTraceLink from '../components/ErrorWithTraceLink'
 import { ttsApi } from '../utils/api'
 
 export default function TTS() {
@@ -10,6 +11,7 @@ export default function TTS() {
   const [model, setModel] = useState(urlModel || '')
   const [text, setText] = useState('')
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
   const [audioUrl, setAudioUrl] = useState(null)
   const audioRef = useRef(null)
 
@@ -20,6 +22,7 @@ export default function TTS() {
 
     setLoading(true)
     setAudioUrl(null)
+    setError(null)
 
     try {
       const blob = await ttsApi.generate({ model, input: text.trim() })
@@ -29,7 +32,7 @@ export default function TTS() {
       // Auto-play
       setTimeout(() => audioRef.current?.play(), 100)
     } catch (err) {
-      addToast(`Error: ${err.message}`, 'error')
+      setError(err.message)
     } finally {
       setLoading(false)
     }
@@ -67,6 +70,8 @@ export default function TTS() {
         <div className="media-result">
           {loading ? (
             <LoadingSpinner size="lg" />
+          ) : error ? (
+            <ErrorWithTraceLink message={error} />
           ) : audioUrl ? (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--spacing-md)', width: '100%' }}>
               <audio ref={audioRef} controls src={audioUrl} style={{ width: '100%' }} />

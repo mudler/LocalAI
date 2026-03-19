@@ -25,6 +25,7 @@ const SECTIONS = [
 export default function Settings() {
   const { addToast } = useOutletContext()
   const [settings, setSettings] = useState(null)
+  const [initialSettings, setInitialSettings] = useState(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [resources, setResources] = useState(null)
@@ -38,6 +39,7 @@ export default function Settings() {
     try {
       const data = await settingsApi.get()
       setSettings(data)
+      setInitialSettings(structuredClone(data))
     } catch (err) {
       addToast(`Failed to load settings: ${err.message}`, 'error')
     } finally {
@@ -56,6 +58,7 @@ export default function Settings() {
     setSaving(true)
     try {
       await settingsApi.save(settings)
+      setInitialSettings(structuredClone(settings))
       addToast('Settings saved successfully', 'success')
     } catch (err) {
       addToast(`Save failed: ${err.message}`, 'error')
@@ -97,6 +100,7 @@ export default function Settings() {
   if (loading) return <div className="page" style={{ display: 'flex', justifyContent: 'center', padding: 'var(--spacing-xl)' }}><LoadingSpinner size="lg" /></div>
   if (!settings) return <div className="page"><div className="empty-state"><p className="empty-state-text">Settings not available</p></div></div>
 
+  const isDirty = settings && initialSettings && JSON.stringify(settings) !== JSON.stringify(initialSettings)
   const watchdogEnabled = settings.watchdog_idle_enabled || settings.watchdog_busy_enabled
 
   return (
@@ -110,8 +114,8 @@ export default function Settings() {
           <h1 className="page-title">Settings</h1>
           <p className="page-subtitle">Configure LocalAI runtime settings</p>
         </div>
-        <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
-          {saving ? <><LoadingSpinner size="sm" /> Saving...</> : <><i className="fas fa-save" /> Save</>}
+        <button className={`btn ${isDirty ? 'btn-primary' : 'btn-secondary'}`} onClick={handleSave} disabled={saving || !isDirty}>
+          {saving ? <><LoadingSpinner size="sm" /> Saving...</> : <><i className="fas fa-save" /> {isDirty ? 'Save Changes' : 'Saved'}</>}
         </button>
       </div>
 
