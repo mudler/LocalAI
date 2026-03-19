@@ -432,6 +432,18 @@ func loadRuntimeSettingsFromFile(options *config.ApplicationConfig) {
 		}
 	}
 
+	// Tracing settings
+	if settings.EnableTracing != nil {
+		if !options.EnableTracing {
+			options.EnableTracing = *settings.EnableTracing
+		}
+	}
+	if settings.TracingMaxItems != nil {
+		if options.TracingMaxItems == 0 {
+			options.TracingMaxItems = *settings.TracingMaxItems
+		}
+	}
+
 	xlog.Debug("Runtime settings loaded from runtime_settings.json")
 }
 
