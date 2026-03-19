@@ -3,6 +3,7 @@ import { useNavigate, useOutletContext } from 'react-router-dom'
 import { apiUrl } from '../utils/basePath'
 import { useAuth } from '../context/AuthContext'
 import ModelSelector from '../components/ModelSelector'
+import { CAP_CHAT } from '../utils/capabilities'
 import UnifiedMCPDropdown from '../components/UnifiedMCPDropdown'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { useResources } from '../hooks/useResources'
@@ -237,7 +238,7 @@ export default function Home() {
             <form onSubmit={handleSubmit}>
               {/* Model selector + MCP toggle */}
               <div className="home-model-row">
-                <ModelSelector value={selectedModel} onChange={setSelectedModel} capability="FLAG_CHAT" />
+                <ModelSelector value={selectedModel} onChange={setSelectedModel} capability={CAP_CHAT} />
                 <UnifiedMCPDropdown
                   serverMCPAvailable={mcpAvailable}
                   mcpServerList={mcpServerList}

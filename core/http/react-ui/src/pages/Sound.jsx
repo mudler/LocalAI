@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react'
 import { useParams, useOutletContext } from 'react-router-dom'
 import ModelSelector from '../components/ModelSelector'
+import { CAP_SOUND_GENERATION } from '../utils/capabilities'
 import LoadingSpinner from '../components/LoadingSpinner'
 import { soundApi } from '../utils/api'
 
@@ -73,7 +74,7 @@ export default function Sound() {
         <form onSubmit={handleGenerate}>
           <div className="form-group">
             <label className="form-label">Model</label>
-            <ModelSelector value={model} onChange={setModel} capability="FLAG_SOUND_GENERATION" />
+            <ModelSelector value={model} onChange={setModel} capability={CAP_SOUND_GENERATION} />
           </div>
 
           {/* Mode toggle */}

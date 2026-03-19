@@ -3,6 +3,7 @@ import { useParams, useNavigate, useOutletContext, useLocation } from 'react-rou
 import { agentJobsApi } from '../utils/api'
 import { basePath } from '../utils/basePath'
 import ModelSelector from '../components/ModelSelector'
+import { CAP_CHAT } from '../utils/capabilities'
 import LoadingSpinner from '../components/LoadingSpinner'
 
 export default function AgentTaskDetails() {
@@ -322,7 +323,7 @@ export default function AgentTaskDetails() {
             </div>
             <div className="form-group">
               <label className="form-label">Model</label>
-              <ModelSelector value={task.model} onChange={(model) => updateField('model', model)} capability="FLAG_CHAT" />
+              <ModelSelector value={task.model} onChange={(model) => updateField('model', model)} capability={CAP_CHAT} />
             </div>
           </div>
           <div className="form-group">

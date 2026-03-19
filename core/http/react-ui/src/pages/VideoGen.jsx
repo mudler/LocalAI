@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useParams, useOutletContext } from 'react-router-dom'
 import ModelSelector from '../components/ModelSelector'
+import { CAP_VIDEO } from '../utils/capabilities'
 import LoadingSpinner from '../components/LoadingSpinner'
 import { videoApi, fileToBase64 } from '../utils/api'
 
@@ -70,7 +71,7 @@ export default function VideoGen() {
         <form onSubmit={handleGenerate}>
           <div className="form-group">
             <label className="form-label">Model</label>
-            <ModelSelector value={model} onChange={setModel} capability="FLAG_VIDEO" />
+            <ModelSelector value={model} onChange={setModel} capability={CAP_VIDEO} />
           </div>
           <div className="form-group">
             <label className="form-label">Prompt</label>

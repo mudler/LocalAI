@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react'
 import { useParams, useOutletContext } from 'react-router-dom'
 import ModelSelector from '../components/ModelSelector'
+import { CAP_TTS } from '../utils/capabilities'
 import LoadingSpinner from '../components/LoadingSpinner'
 import { ttsApi } from '../utils/api'
 
@@ -45,7 +46,7 @@ export default function TTS() {
         <form onSubmit={handleGenerate}>
           <div className="form-group">
             <label className="form-label">Model</label>
-            <ModelSelector value={model} onChange={setModel} capability="FLAG_TTS" />
+            <ModelSelector value={model} onChange={setModel} capability={CAP_TTS} />
           </div>
           <div className="form-group">
             <label className="form-label">Text</label>
