@@ -31,8 +31,9 @@ test.describe('Traces Settings', () => {
     await expect(page.locator('text=Enable Tracing')).toBeVisible()
 
     // The Toggle component is a <label> wrapping a hidden checkbox.
-    // Target the checkbox within the settings panel.
-    const checkbox = page.locator('input[type="checkbox"]')
+    // Use .first() on the checkbox to target the Enable Tracing toggle
+    // (it appears before the Enable Backend Logging toggle in the DOM).
+    const checkbox = page.locator('input[type="checkbox"]').first()
 
     // Initially enabled (server starts with tracing on)
     await expect(checkbox).toBeChecked()
@@ -84,8 +85,8 @@ test.describe('Traces Settings', () => {
     await page.locator('button', { hasText: 'Tracing is' }).click()
     await expect(page.locator('text=Enable Tracing')).toBeVisible()
 
-    // Toggle tracing off
-    await page.locator('input[type="checkbox"]').locator('..').click()
+    // Toggle tracing off (first checkbox is the Enable Tracing toggle)
+    await page.locator('input[type="checkbox"]').first().locator('..').click()
 
     // Save
     await page.locator('button', { hasText: 'Save' }).click()

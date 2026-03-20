@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
-import { useOutletContext } from 'react-router-dom'
+import { useOutletContext, useSearchParams } from 'react-router-dom'
 import { tracesApi, settingsApi } from '../utils/api'
 import { formatTimestamp } from '../utils/format'
 import LoadingSpinner from '../components/LoadingSpinner'
@@ -283,13 +283,15 @@ function ApiTraceDetail({ trace }) {
 
 export default function Traces() {
   const { addToast } = useOutletContext()
-  const [activeTab, setActiveTab] = useState('api')
+  const [searchParams] = useSearchParams()
+  const [activeTab, setActiveTab] = useState(() => searchParams.get('tab') === 'backend' ? 'backend' : 'api')
   const [traces, setTraces] = useState([])
   const [apiCount, setApiCount] = useState(0)
   const [backendCount, setBackendCount] = useState(0)
   const [loading, setLoading] = useState(true)
   const [expandedRow, setExpandedRow] = useState(null)
   const [tracingEnabled, setTracingEnabled] = useState(null)
+  const [backendLoggingEnabled, setBackendLoggingEnabled] = useState(null)
   const [settings, setSettings] = useState(null)
   const [settingsExpanded, setSettingsExpanded] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -299,6 +301,7 @@ export default function Traces() {
     settingsApi.get()
       .then(data => {
         setTracingEnabled(!!data.enable_tracing)
+        setBackendLoggingEnabled(!!data.enable_backend_logging)
         setSettings(data)
         if (!data.enable_tracing) setSettingsExpanded(true)
       })
@@ -310,6 +313,7 @@ export default function Traces() {
     try {
       await settingsApi.save(settings)
       setTracingEnabled(!!settings.enable_tracing)
+      setBackendLoggingEnabled(!!settings.enable_backend_logging)
       addToast('Tracing settings saved', 'success')
       if (settings.enable_tracing) setSettingsExpanded(false)
     } catch (err) {
@@ -397,9 +401,11 @@ export default function Traces() {
         <button className="btn btn-secondary btn-sm" onClick={handleExport} disabled={traces.length === 0}><i className="fas fa-download" /> Export</button>
       </div>
 
-      {settings && (
+      {settings && (() => {
+        const allEnabled = tracingEnabled && backendLoggingEnabled
+        return (
         <div style={{
-          border: `1px solid ${tracingEnabled ? 'var(--color-success-border)' : 'var(--color-warning-border)'}`,
+          border: `1px solid ${allEnabled ? 'var(--color-success-border)' : 'var(--color-warning-border)'}`,
           borderRadius: 'var(--radius-md)',
           marginBottom: 'var(--spacing-md)',
           overflow: 'hidden',
@@ -409,16 +415,17 @@ export default function Traces() {
             style={{
               width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
               padding: 'var(--spacing-sm) var(--spacing-md)',
-              background: tracingEnabled ? 'var(--color-success-light)' : 'var(--color-warning-light)',
+              background: allEnabled ? 'var(--color-success-light)' : 'var(--color-warning-light)',
               border: 'none', cursor: 'pointer',
               color: 'var(--color-text-primary)',
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
-              <i className={`fas ${tracingEnabled ? 'fa-circle-check' : 'fa-exclamation-triangle'}`}
-                style={{ color: tracingEnabled ? 'var(--color-success)' : 'var(--color-warning)', flexShrink: 0 }} />
+              <i className={`fas ${allEnabled ? 'fa-circle-check' : 'fa-exclamation-triangle'}`}
+                style={{ color: allEnabled ? 'var(--color-success)' : 'var(--color-warning)', flexShrink: 0 }} />
               <span style={{ fontSize: '0.8125rem', textAlign: 'left' }}>
                 Tracing is <strong>{tracingEnabled ? 'enabled' : 'disabled'}</strong>
+                {' · Backend logging is '}<strong>{backendLoggingEnabled ? 'enabled' : 'disabled'}</strong>
                 {!tracingEnabled && ' — new requests will not be recorded'}
               </span>
             </div>
@@ -444,6 +451,12 @@ export default function Traces() {
                   disabled={!settings.enable_tracing}
                 />
               </SettingRow>
+              <SettingRow label="Enable Backend Logging" description="Capture backend process output per model (without requiring debug mode)">
+                <Toggle
+                  checked={settings.enable_backend_logging}
+                  onChange={(v) => setSettings(prev => ({ ...prev, enable_backend_logging: v }))}
+                />
+              </SettingRow>
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 'var(--spacing-sm)' }}>
                 <button className="btn btn-primary btn-sm" onClick={handleSaveSettings} disabled={saving}>
                   {saving ? <><LoadingSpinner size="sm" /> Saving...</> : <><i className="fas fa-save" /> Save</>}
@@ -452,7 +465,8 @@ export default function Traces() {
             </div>
           )}
         </div>
-      )}
+        )
+      })()}
 
       {loading ? (
         <div style={{ display: 'flex', justifyContent: 'center', padding: 'var(--spacing-xl)' }}><LoadingSpinner size="lg" /></div>

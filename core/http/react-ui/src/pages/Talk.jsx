@@ -74,7 +74,7 @@ export default function Talk() {
           if (!voiceEdited) setVoice(models[0].voice || '')
         }
       })
-      .catch(err => addToast(`Failed to load pipeline models: ${err.message}`, 'error'))
+      .catch(err => addToast(`Failed to load pipeline models: ${err.message}`, 'error', 5000, { link: { href: '/app/traces?tab=backend', text: 'View traces' } }))
       .finally(() => setModelsLoading(false))
   }, [])
 
@@ -461,6 +461,11 @@ export default function Talk() {
           }}>
             <i className={statusStyle.icon} style={{ color: statusStyle.color }} />
             <span style={{ fontWeight: 500, color: statusStyle.color }}>{statusText}</span>
+            {status === 'error' && (
+              <a href="/app/traces?tab=backend" className="chat-error-trace-link" style={{ marginLeft: 'auto' }}>
+                <i className="fas fa-wave-square" /> View traces
+              </a>
+            )}
           </div>
 
           {/* Info note */}
