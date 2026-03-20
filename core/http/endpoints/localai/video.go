@@ -62,6 +62,7 @@ func downloadFile(url string) (string, error) {
 */
 // VideoEndpoint
 // @Summary Creates a video given a prompt.
+// @Tags video
 // @Param request body schema.VideoRequest true "query params"
 // @Success 200 {object} schema.OpenAIResponse "Response"
 // @Router /video [post]

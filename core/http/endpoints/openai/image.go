@@ -68,6 +68,7 @@ func downloadFile(url string) (string, error) {
 */
 // ImageEndpoint is the OpenAI Image generation API endpoint https://platform.openai.com/docs/api-reference/images/create
 // @Summary Creates an image given a prompt.
+// @Tags images
 // @Param request body schema.OpenAIRequest true "query params"
 // @Success 200 {object} schema.OpenAIResponse "Response"
 // @Router /v1/images/generations [post]

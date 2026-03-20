@@ -8,6 +8,7 @@ import (
 
 // BackendMonitorEndpoint returns the status of the specified backend
 // @Summary Backend monitor endpoint
+// @Tags monitoring
 // @Param request body schema.BackendMonitorRequest true "Backend statistics request"
 // @Success 200 {object} proto.StatusResponse "Response"
 // @Router /backend/monitor [get]
@@ -29,7 +30,8 @@ func BackendMonitorEndpoint(bm *monitoring.BackendMonitorService) echo.HandlerFu
 }
 
 // BackendShutdownEndpoint shuts down the specified backend
-// @Summary Backend monitor endpoint
+// @Summary Backend shutdown endpoint
+// @Tags monitoring
 // @Param request body schema.BackendMonitorRequest true "Backend statistics request"
 // @Router /backend/shutdown [post]
 func BackendShutdownEndpoint(bm *monitoring.BackendMonitorService) echo.HandlerFunc {

@@ -10,7 +10,9 @@ import (
 
 // LocalAIMetricsEndpoint returns the metrics endpoint for LocalAI
 // @Summary Prometheus metrics endpoint
-// @Param request body config.Gallery true "Gallery details"
+// @Tags monitoring
+// @Produce text/plain
+// @Success 200 {string} string "Prometheus metrics"
 // @Router /metrics [get]
 func LocalAIMetricsEndpoint() echo.HandlerFunc {
 	return echo.WrapHandler(promhttp.Handler())

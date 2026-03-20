@@ -13,6 +13,7 @@ import (
 
 // DetectionEndpoint is the LocalAI Detection endpoint https://localai.io/docs/api-reference/detection
 // @Summary Detects objects in the input image.
+// @Tags detection
 // @Param request body schema.DetectionRequest true "query params"
 // @Success 200 {object} schema.DetectionResponse "Response"
 // @Router /v1/detection [post]

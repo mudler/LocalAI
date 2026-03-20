@@ -9,6 +9,7 @@ import (
 
 // ShowP2PNodes returns the P2P Nodes
 // @Summary Returns available P2P nodes
+// @Tags p2p
 // @Success 200 {object} []schema.P2PNodesResponse "Response"
 // @Router /api/p2p [get]
 func ShowP2PNodes(appConfig *config.ApplicationConfig) echo.HandlerFunc {
@@ -24,6 +25,7 @@ func ShowP2PNodes(appConfig *config.ApplicationConfig) echo.HandlerFunc {
 
 // ShowP2PToken returns the P2P token
 // @Summary Show the P2P token
+// @Tags p2p
 // @Success 200 {string} string	 "Response"
 // @Router /api/p2p/token [get]
 func ShowP2PToken(appConfig *config.ApplicationConfig) echo.HandlerFunc {

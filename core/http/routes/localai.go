@@ -29,7 +29,9 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 	mcpJobsMw echo.MiddlewareFunc,
 	mcpMw echo.MiddlewareFunc) {
 
-	router.GET("/swagger/*", echoswagger.WrapHandler) // default
+	router.GET("/swagger/*", echoswagger.EchoWrapHandler(func(c *echoswagger.Config) {
+		c.URLs = []string{"doc.json"}
+	}))
 
 	// LocalAI API endpoints
 	if !appConfig.DisableGalleryEndpoint {
@@ -124,6 +126,19 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 	router.GET("/v1/backend/monitor", localai.BackendMonitorEndpoint(backendMonitorService), adminMiddleware)
 	router.POST("/v1/backend/shutdown", localai.BackendShutdownEndpoint(backendMonitorService), adminMiddleware)
 
+	// Traces and backend logs (monitoring)
+	router.GET("/api/traces", localai.GetAPITracesEndpoint(), adminMiddleware)
+	router.POST("/api/traces/clear", localai.ClearAPITracesEndpoint(), adminMiddleware)
+	router.GET("/api/backend-traces", localai.GetBackendTracesEndpoint(), adminMiddleware)
+	router.POST("/api/backend-traces/clear", localai.ClearBackendTracesEndpoint(), adminMiddleware)
+	// Backend logs — standalone only (distributed mode uses node-proxied routes)
+	if !appConfig.Distributed.Enabled {
+		router.GET("/api/backend-logs", localai.ListBackendLogsEndpoint(ml), adminMiddleware)
+		router.GET("/api/backend-logs/:modelId", localai.GetBackendLogsEndpoint(ml), adminMiddleware)
+		router.POST("/api/backend-logs/:modelId/clear", localai.ClearBackendLogsEndpoint(ml), adminMiddleware)
+		router.GET("/ws/backend-logs/:modelId", localai.BackendLogsWebSocketEndpoint(ml), adminMiddleware)
+	}
+
 	// p2p
 	router.GET("/api/p2p", localai.ShowP2PNodes(appConfig), adminMiddleware)
 	router.GET("/api/p2p/token", localai.ShowP2PToken(appConfig), adminMiddleware)
@@ -133,6 +148,127 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 			Version string `json:"version"`
 		}{Version: internal.PrintableVersion()})
 	})
+
+	// Agent discovery endpoint
+	router.GET("/.well-known/localai.json", func(c echo.Context) error {
+		monitoringRoutes := map[string]string{
+			"metrics":              "/metrics",
+			"backend_monitor":      "/backend/monitor",
+			"backend_shutdown":     "/backend/shutdown",
+			"system":               "/system",
+			"version":              "/version",
+			"traces":               "/api/traces",
+			"traces_clear":         "/api/traces/clear",
+			"backend_traces":       "/api/backend-traces",
+			"backend_traces_clear": "/api/backend-traces/clear",
+		}
+		if !appConfig.Distributed.Enabled {
+			monitoringRoutes["backend_logs"] = "/api/backend-logs"
+			monitoringRoutes["backend_logs_model"] = "/api/backend-logs/:modelId"
+			monitoringRoutes["backend_logs_clear"] = "/api/backend-logs/:modelId/clear"
+			monitoringRoutes["backend_logs_ws"] = "/ws/backend-logs/:modelId"
+		} else {
+			monitoringRoutes["node_backend_logs"] = "/api/nodes/:id/backend-logs"
+			monitoringRoutes["node_backend_logs_model"] = "/api/nodes/:id/backend-logs/:modelId"
+			monitoringRoutes["node_backend_logs_ws"] = "/ws/nodes/:id/backend-logs/:modelId"
+		}
+		return c.JSON(200, map[string]any{
+			"version": internal.PrintableVersion(),
+			// Flat endpoint list for backwards compatibility
+			"endpoints": map[string]any{
+				"models":           "/v1/models",
+				"chat_completions": "/v1/chat/completions",
+				"completions":      "/v1/completions",
+				"embeddings":       "/v1/embeddings",
+				"config_metadata":  "/api/models/config-metadata",
+				"config_json":      "/api/models/config-json/:name",
+				"config_patch":     "/api/models/config-json/:name",
+				"autocomplete":     "/api/models/config-metadata/autocomplete/:provider",
+				"vram_estimate":    "/api/models/vram-estimate",
+				"tts":              "/tts",
+				"transcription":    "/v1/audio/transcriptions",
+				"image_generation": "/v1/images/generations",
+				"swagger":          "/swagger/index.html",
+				"instructions":     "/api/instructions",
+			},
+			// Categorized endpoint groups for structured discovery
+			"endpoint_groups": map[string]any{
+				"openai_compatible": map[string]string{
+					"models":           "/v1/models",
+					"chat_completions": "/v1/chat/completions",
+					"completions":      "/v1/completions",
+					"embeddings":       "/v1/embeddings",
+					"transcription":    "/v1/audio/transcriptions",
+					"image_generation": "/v1/images/generations",
+				},
+				"config_management": map[string]string{
+					"config_metadata": "/api/models/config-metadata",
+					"config_json":     "/api/models/config-json/:name",
+					"config_patch":    "/api/models/config-json/:name",
+					"autocomplete":    "/api/models/config-metadata/autocomplete/:provider",
+					"vram_estimate":   "/api/models/vram-estimate",
+				},
+				"model_management": map[string]string{
+					"list_gallery": "/models/available",
+					"install":      "/models/apply",
+					"delete":       "/models/delete/:name",
+					"edit":         "/models/edit/:name",
+					"import":       "/models/import",
+					"reload":       "/models/reload",
+				},
+				"ai_functions": map[string]string{
+					"tts":       "/tts",
+					"vad":       "/vad",
+					"video":     "/video",
+					"detection": "/v1/detection",
+					"tokenize":  "/v1/tokenize",
+				},
+				"monitoring": monitoringRoutes,
+				"mcp": map[string]string{
+					"chat_completions": "/v1/mcp/chat/completions",
+					"servers":          "/v1/mcp/servers/:model",
+					"prompts":          "/v1/mcp/prompts/:model",
+					"resources":        "/v1/mcp/resources/:model",
+				},
+				"p2p": map[string]string{
+					"nodes": "/api/p2p",
+					"token": "/api/p2p/token",
+				},
+				"agents": map[string]string{
+					"tasks":   "/api/agent/tasks",
+					"jobs":    "/api/agent/jobs",
+					"execute": "/api/agent/jobs/execute",
+				},
+				"settings": map[string]string{
+					"get":    "/api/settings",
+					"update": "/api/settings",
+				},
+				"stores": map[string]string{
+					"set":    "/stores/set",
+					"get":    "/stores/get",
+					"find":   "/stores/find",
+					"delete": "/stores/delete",
+				},
+				"docs": map[string]string{
+					"swagger": "/swagger/index.html",
+					"instructions": "/api/instructions",
+				},
+			},
+			"capabilities": map[string]bool{
+				"config_metadata": true,
+				"config_patch":    true,
+				"vram_estimate":   true,
+				"mcp":             !appConfig.DisableMCP,
+				"agents":          appConfig.AgentPool.Enabled,
+				"p2p":             appConfig.P2PToken != "",
+				"tracing":         true,
+			},
+		})
+	})
+
+	// API instructions for agent discovery (no auth — agents should discover these without credentials)
+	router.GET("/api/instructions", localai.ListAPIInstructionsEndpoint())
+	router.GET("/api/instructions/:name", localai.GetAPIInstructionEndpoint())
 
 	router.GET("/api/features", func(c echo.Context) error {
 		return c.JSON(200, map[string]bool{

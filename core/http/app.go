@@ -52,9 +52,42 @@ var quietPaths = []string{"/api/operations", "/api/resources", "/healthz", "/rea
 // @license.name MIT
 // @license.url https://raw.githubusercontent.com/mudler/LocalAI/master/LICENSE
 // @BasePath /
+// @schemes http https
 // @securityDefinitions.apikey BearerAuth
 // @in header
 // @name Authorization
+// @tag.name inference
+// @tag.description Chat completions, text completions, edits, and responses (OpenAI-compatible)
+// @tag.name embeddings
+// @tag.description Vector embeddings (OpenAI-compatible)
+// @tag.name audio
+// @tag.description Text-to-speech, transcription, voice activity detection, sound generation
+// @tag.name images
+// @tag.description Image generation and inpainting
+// @tag.name video
+// @tag.description Video generation from prompts
+// @tag.name detection
+// @tag.description Object detection in images
+// @tag.name tokenize
+// @tag.description Tokenization and token metrics
+// @tag.name models
+// @tag.description Model gallery browsing, installation, deletion, and listing
+// @tag.name backends
+// @tag.description Backend gallery browsing, installation, deletion, and listing
+// @tag.name config
+// @tag.description Model configuration metadata, autocomplete, PATCH updates, VRAM estimation
+// @tag.name monitoring
+// @tag.description Prometheus metrics, backend status, system information
+// @tag.name mcp
+// @tag.description Model Context Protocol — tool-augmented chat with MCP servers
+// @tag.name agent-jobs
+// @tag.description Agent task and job management
+// @tag.name p2p
+// @tag.description Peer-to-peer networking nodes and tokens
+// @tag.name rerank
+// @tag.description Document reranking
+// @tag.name instructions
+// @tag.description API instruction discovery — browse instruction areas and get endpoint guides
 
 func API(application *application.Application) (*echo.Echo, error) {
 	e := echo.New()
@@ -360,7 +393,7 @@ func API(application *application.Application) (*echo.Echo, error) {
 	routes.RegisterOpenResponsesRoutes(e, requestExtractor, application)
 	if !application.ApplicationConfig().DisableWebUI {
 		routes.RegisterUIAPIRoutes(e, application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig(), application.GalleryService(), opcache, application, adminMiddleware)
-		routes.RegisterUIRoutes(e, application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig(), application.GalleryService(), adminMiddleware)
+		routes.RegisterUIRoutes(e, application.ModelConfigLoader(), application.ApplicationConfig(), application.GalleryService(), adminMiddleware)
 
 		// Serve React SPA from / with SPA fallback via 404 handler
 		reactFS, fsErr := fs.Sub(reactUI, "react-ui/dist")
