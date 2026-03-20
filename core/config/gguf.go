@@ -143,7 +143,6 @@ func DetectThinkingSupportFromBackend(ctx context.Context, cfg *ModelConfig, bac
 				IDField:           tf.IdField,
 				FunNameIsKey:      tf.FunNameIsKey,
 				ToolsArrayWrapped: tf.ToolsArrayWrapped,
-				UsesPythonDicts:   tf.UsesPythonDicts,
 				FunctionField:     tf.FunctionField,
 				ParameterOrder:    tf.ParameterOrder,
 				GenIDField:        tf.GenIdField,
