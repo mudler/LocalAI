@@ -203,7 +203,10 @@ export default function ImportModel() {
             {isAdvancedMode ? 'Configure your model settings using YAML' : 'Import a model from URI with preferences'}
           </p>
         </div>
-        <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
+        <div style={{ display: 'flex', gap: 'var(--spacing-sm)', flexWrap: 'wrap' }}>
+          <button className="btn btn-secondary" onClick={() => navigate('/app/pipeline-editor')}>
+            <i className="fas fa-diagram-project" /> Create Pipeline Model
+          </button>
           <button className="btn btn-secondary" onClick={() => setIsAdvancedMode(!isAdvancedMode)}>
             <i className={`fas ${isAdvancedMode ? 'fa-magic' : 'fa-code'}`} />
             {isAdvancedMode ? ' Simple Mode' : ' Advanced Mode'}

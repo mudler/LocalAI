@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react'
 import { useParams, useOutletContext } from 'react-router-dom'
 import ModelSelector from '../components/ModelSelector'
+import { CAP_IMAGE } from '../utils/capabilities'
 import LoadingSpinner from '../components/LoadingSpinner'
 import ErrorWithTraceLink from '../components/ErrorWithTraceLink'
 import { imageApi, fileToBase64 } from '../utils/api'
@@ -76,7 +77,7 @@ export default function ImageGen() {
         <form onSubmit={handleGenerate}>
           <div className="form-group">
             <label className="form-label">Model</label>
-            <ModelSelector value={model} onChange={setModel} capability="FLAG_IMAGE" />
+            <ModelSelector value={model} onChange={setModel} capability={CAP_IMAGE} />
           </div>
           <div className="form-group">
             <label className="form-label">Prompt</label>
