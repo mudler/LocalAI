@@ -92,6 +92,19 @@ func (gm GalleryElements[T]) Search(term string) GalleryElements[T] {
 	return filteredModels
 }
 
+func (gm GalleryElements[T]) FilterByTag(tag string) GalleryElements[T] {
+	var filtered GalleryElements[T]
+	for _, m := range gm {
+		for _, t := range m.GetTags() {
+			if strings.EqualFold(t, tag) {
+				filtered = append(filtered, m)
+				break
+			}
+		}
+	}
+	return filtered
+}
+
 func (gm GalleryElements[T]) SortByName(sortOrder string) GalleryElements[T] {
 	sort.Slice(gm, func(i, j int) bool {
 		if sortOrder == "asc" {
