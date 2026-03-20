@@ -265,25 +265,16 @@ func (s *FineTuneService) StopJob(ctx context.Context, userID, jobID string, sav
 	}
 	s.mu.Unlock()
 
-	backendModel, err := s.modelLoader.Load(
-		model.WithBackendString(job.Backend),
-		model.WithModel(job.Backend),
-		model.WithModelID(job.Backend+"-finetune"),
-	)
+	// Kill the backend process directly — gRPC stop deadlocks on single-threaded Python backends
+	modelID := job.Backend + "-finetune"
+	err := s.modelLoader.ShutdownModel(modelID)
 	if err != nil {
-		return fmt.Errorf("failed to load backend: %w", err)
-	}
-
-	_, err = backendModel.StopFineTune(ctx, &pb.FineTuneStopRequest{
-		JobId:          jobID,
-		SaveCheckpoint: saveCheckpoint,
-	})
-	if err != nil {
-		return fmt.Errorf("failed to stop job: %w", err)
+		return fmt.Errorf("failed to stop backend: %w", err)
 	}
 
 	s.mu.Lock()
-	job.Message = "Stop requested, waiting for training to halt..."
+	job.Status = "stopped"
+	job.Message = "Training stopped by user"
 	s.saveJobState(job)
 	s.mu.Unlock()
 
