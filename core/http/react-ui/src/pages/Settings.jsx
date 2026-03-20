@@ -3,6 +3,7 @@ import { useOutletContext } from 'react-router-dom'
 import { settingsApi, resourcesApi } from '../utils/api'
 import LoadingSpinner from '../components/LoadingSpinner'
 import SearchableModelSelect from '../components/SearchableModelSelect'
+import { CAP_CHAT } from '../utils/capabilities'
 import Toggle from '../components/Toggle'
 import SettingRow from '../components/SettingRow'
 import { formatBytes, percentColor } from '../utils/format'
@@ -436,7 +437,7 @@ export default function Settings() {
                 <Toggle checked={settings.agent_pool_enabled ?? true} onChange={(v) => update('agent_pool_enabled', v)} />
               </SettingRow>
               <SettingRow label="Default Model" description="Default LLM model for agents">
-                <SearchableModelSelect value={settings.agent_pool_default_model || ''} onChange={(v) => update('agent_pool_default_model', v)} capability="FLAG_CHAT" placeholder="e.g. gpt-4" />
+                <SearchableModelSelect value={settings.agent_pool_default_model || ''} onChange={(v) => update('agent_pool_default_model', v)} capability={CAP_CHAT} placeholder="e.g. gpt-4" />
               </SettingRow>
               <SettingRow label="Embedding Model" description="Model used for knowledge base embeddings">
                 <SearchableModelSelect value={settings.agent_pool_embedding_model || ''} onChange={(v) => update('agent_pool_embedding_model', v)} placeholder="granite-embedding-107m-multilingual" />

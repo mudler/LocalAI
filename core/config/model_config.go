@@ -660,6 +660,10 @@ func (c *ModelConfig) GuessUsecases(u ModelConfigUsecase) bool {
 		if c.Backend != "whisper" {
 			return false
 		}
+		// whisper models with vad_only option are VAD, not transcription
+		if slices.Contains(c.Options, "vad_only") {
+			return false
+		}
 	}
 	if (u & FLAG_TTS) == FLAG_TTS {
 		ttsBackends := []string{"piper", "transformers-musicgen", "kokoro"}
@@ -689,7 +693,7 @@ func (c *ModelConfig) GuessUsecases(u ModelConfigUsecase) bool {
 	}
 
 	if (u & FLAG_VAD) == FLAG_VAD {
-		if c.Backend != "silero-vad" {
+		if c.Backend != "silero-vad" && !(c.Backend == "whisper" && slices.Contains(c.Options, "vad_only")) {
 			return false
 		}
 	}
