@@ -60,11 +60,14 @@ export default function Settings() {
       if (settingsToSave.api_keys_text !== undefined && settingsToSave.api_keys_text !== null) {
         const text = settingsToSave.api_keys_text
         if (typeof text === 'string' && text.trim() !== '') {
-          settingsToSave.api_keys = text.split('\n').map(k => k.trim()).filter(k => k !== '')
+          const keys = text.split('\n').map(k => k.trim()).filter(k => k !== '')
+          settingsToSave.api_keys = Array.from(new Set(keys))
         } else {
           settingsToSave.api_keys = []
         }
       }
+      // Remove UI-only field before sending to backend
+      delete settingsToSave.api_keys_text
       await settingsApi.save(settingsToSave)
       addToast('Settings saved successfully', 'success')
     } catch (err) {
