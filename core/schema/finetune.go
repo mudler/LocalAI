@@ -1,9 +1,17 @@
 package schema
 
+// RewardFunctionSpec defines a reward function for GRPO training.
+type RewardFunctionSpec struct {
+	Type   string            `json:"type"`             // "builtin" or "inline"
+	Name   string            `json:"name"`
+	Code   string            `json:"code,omitempty"`   // inline only
+	Params map[string]string `json:"params,omitempty"`
+}
+
 // FineTuneJobRequest is the REST API request to start a fine-tuning job.
 type FineTuneJobRequest struct {
 	Model          string            `json:"model"`
-	Backend        string            `json:"backend"`                    // "unsloth", "trl"
+	Backend        string            `json:"backend"`                    // "trl"
 	TrainingType   string            `json:"training_type,omitempty"`    // lora, loha, lokr, full
 	TrainingMethod string            `json:"training_method,omitempty"`  // sft, dpo, grpo, rloo, reward, kto, orpo
 
@@ -33,6 +41,9 @@ type FineTuneJobRequest struct {
 
 	// Resume from a checkpoint
 	ResumeFromCheckpoint string `json:"resume_from_checkpoint,omitempty"`
+
+	// GRPO reward functions
+	RewardFunctions []RewardFunctionSpec `json:"reward_functions,omitempty"`
 
 	// Backend-specific and method-specific options
 	ExtraOptions map[string]string `json:"extra_options,omitempty"`

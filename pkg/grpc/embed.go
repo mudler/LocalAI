@@ -123,6 +123,68 @@ func (e *embedBackend) GetTokenMetrics(ctx context.Context, in *pb.MetricsReques
 	return e.s.GetMetrics(ctx, in)
 }
 
+func (e *embedBackend) StartFineTune(ctx context.Context, in *pb.FineTuneRequest, opts ...grpc.CallOption) (*pb.FineTuneJobResult, error) {
+	return e.s.StartFineTune(ctx, in)
+}
+
+func (e *embedBackend) FineTuneProgress(ctx context.Context, in *pb.FineTuneProgressRequest, f func(update *pb.FineTuneProgressUpdate), opts ...grpc.CallOption) error {
+	bs := &embedBackendFineTuneProgressStream{
+		ctx: ctx,
+		fn:  f,
+	}
+	return e.s.FineTuneProgress(in, bs)
+}
+
+func (e *embedBackend) StopFineTune(ctx context.Context, in *pb.FineTuneStopRequest, opts ...grpc.CallOption) (*pb.Result, error) {
+	return e.s.StopFineTune(ctx, in)
+}
+
+func (e *embedBackend) ListCheckpoints(ctx context.Context, in *pb.ListCheckpointsRequest, opts ...grpc.CallOption) (*pb.ListCheckpointsResponse, error) {
+	return e.s.ListCheckpoints(ctx, in)
+}
+
+func (e *embedBackend) ExportModel(ctx context.Context, in *pb.ExportModelRequest, opts ...grpc.CallOption) (*pb.Result, error) {
+	return e.s.ExportModel(ctx, in)
+}
+
+var _ pb.Backend_FineTuneProgressServer = new(embedBackendFineTuneProgressStream)
+
+type embedBackendFineTuneProgressStream struct {
+	ctx context.Context
+	fn  func(update *pb.FineTuneProgressUpdate)
+}
+
+func (e *embedBackendFineTuneProgressStream) Send(update *pb.FineTuneProgressUpdate) error {
+	e.fn(update)
+	return nil
+}
+
+func (e *embedBackendFineTuneProgressStream) SetHeader(md metadata.MD) error {
+	return nil
+}
+
+func (e *embedBackendFineTuneProgressStream) SendHeader(md metadata.MD) error {
+	return nil
+}
+
+func (e *embedBackendFineTuneProgressStream) SetTrailer(md metadata.MD) {
+}
+
+func (e *embedBackendFineTuneProgressStream) Context() context.Context {
+	return e.ctx
+}
+
+func (e *embedBackendFineTuneProgressStream) SendMsg(m any) error {
+	if x, ok := m.(*pb.FineTuneProgressUpdate); ok {
+		return e.Send(x)
+	}
+	return nil
+}
+
+func (e *embedBackendFineTuneProgressStream) RecvMsg(m any) error {
+	return nil
+}
+
 type embedBackendServerStream struct {
 	ctx context.Context
 	fn  func(reply *pb.Reply)

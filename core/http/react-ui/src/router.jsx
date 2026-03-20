@@ -30,6 +30,7 @@ import ImportModel from './pages/ImportModel'
 import BackendLogs from './pages/BackendLogs'
 import Explorer from './pages/Explorer'
 import Login from './pages/Login'
+import FineTune from './pages/FineTune'
 import NotFound from './pages/NotFound'
 import Usage from './pages/Usage'
 import Users from './pages/Users'
@@ -89,6 +90,7 @@ const appChildren = [
   { path: 'agent-jobs/tasks/:id', element: <Feature feature="mcp_jobs"><AgentTaskDetails /></Feature> },
   { path: 'agent-jobs/tasks/:id/edit', element: <Feature feature="mcp_jobs"><AgentTaskDetails /></Feature> },
   { path: 'agent-jobs/jobs/:id', element: <Feature feature="mcp_jobs"><AgentJobDetails /></Feature> },
+  { path: 'fine-tune', element: <Feature feature="fine_tuning"><FineTune /></Feature> },
   { path: 'model-editor/:name', element: <Admin><ModelEditor /></Admin> },
   { path: 'import-model', element: <Admin><ImportModel /></Admin> },
   { path: '*', element: <NotFound /> },

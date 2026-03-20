@@ -32,9 +32,11 @@ func RegisterFineTuningRoutes(e *echo.Echo, ftService *services.FineTuneService,
 	ft.POST("/jobs", localai.StartFineTuneJobEndpoint(ftService))
 	ft.GET("/jobs", localai.ListFineTuneJobsEndpoint(ftService))
 	ft.GET("/jobs/:id", localai.GetFineTuneJobEndpoint(ftService))
-	ft.DELETE("/jobs/:id", localai.StopFineTuneJobEndpoint(ftService))
+	ft.POST("/jobs/:id/stop", localai.StopFineTuneJobEndpoint(ftService))
+	ft.DELETE("/jobs/:id", localai.DeleteFineTuneJobEndpoint(ftService))
 	ft.GET("/jobs/:id/progress", localai.FineTuneProgressEndpoint(ftService))
 	ft.GET("/jobs/:id/checkpoints", localai.ListCheckpointsEndpoint(ftService))
 	ft.POST("/jobs/:id/export", localai.ExportModelEndpoint(ftService))
+	ft.GET("/jobs/:id/download", localai.DownloadExportedModelEndpoint(ftService))
 	ft.POST("/datasets", localai.UploadDatasetEndpoint(ftService))
 }

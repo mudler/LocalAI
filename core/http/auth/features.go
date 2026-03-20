@@ -85,6 +85,18 @@ var RouteFeatureRegistry = []RouteFeature{
 	{"POST", "/stores/delete", FeatureStores},
 	{"POST", "/stores/get", FeatureStores},
 	{"POST", "/stores/find", FeatureStores},
+
+	// Fine-tuning
+	{"POST", "/api/fine-tuning/jobs", FeatureFineTuning},
+	{"GET", "/api/fine-tuning/jobs", FeatureFineTuning},
+	{"GET", "/api/fine-tuning/jobs/:id", FeatureFineTuning},
+	{"POST", "/api/fine-tuning/jobs/:id/stop", FeatureFineTuning},
+	{"DELETE", "/api/fine-tuning/jobs/:id", FeatureFineTuning},
+	{"GET", "/api/fine-tuning/jobs/:id/progress", FeatureFineTuning},
+	{"GET", "/api/fine-tuning/jobs/:id/checkpoints", FeatureFineTuning},
+	{"POST", "/api/fine-tuning/jobs/:id/export", FeatureFineTuning},
+	{"GET", "/api/fine-tuning/jobs/:id/download", FeatureFineTuning},
+	{"POST", "/api/fine-tuning/datasets", FeatureFineTuning},
 }
 
 // FeatureMeta describes a feature for the admin API/UI.
@@ -101,6 +113,7 @@ func AgentFeatureMetas() []FeatureMeta {
 		{FeatureSkills, "Skills", false},
 		{FeatureCollections, "Collections", false},
 		{FeatureMCPJobs, "MCP CI Jobs", false},
+		{FeatureFineTuning, "Fine-Tuning", false},
 	}
 }
 

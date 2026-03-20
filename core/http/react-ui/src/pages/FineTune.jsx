@@ -8,6 +8,15 @@ const FALLBACK_BACKENDS = ['trl']
 const OPTIMIZERS = ['adamw_torch', 'adamw_8bit', 'sgd', 'adafactor', 'prodigy']
 const MIXED_PRECISION_OPTS = ['', 'fp16', 'bf16', 'no']
 
+const BUILTIN_REWARDS = [
+  { name: 'format_reward', description: 'Checks <think>...</think> then answer format', params: [] },
+  { name: 'reasoning_accuracy_reward', description: 'Compares <answer> content to dataset answer column', params: [] },
+  { name: 'length_reward', description: 'Score based on proximity to target length', params: [{ key: 'target_length', default: '200', label: 'Target Length' }] },
+  { name: 'xml_tag_reward', description: 'Scores properly opened/closed XML tags', params: [] },
+  { name: 'no_repetition_reward', description: 'Penalizes n-gram repetition', params: [] },
+  { name: 'code_execution_reward', description: 'Checks Python code block syntax validity', params: [] },
+]
+
 const statusBadgeClass = {
   queued: '',
   loading_model: 'badge-warning',
@@ -92,7 +101,7 @@ function CopyButton({ text }) {
   )
 }
 
-function JobCard({ job, isSelected, onSelect, onUseConfig }) {
+function JobCard({ job, isSelected, onSelect, onUseConfig, onDelete }) {
   return (
     <div
       className="card"
@@ -118,6 +127,16 @@ function JobCard({ job, isSelected, onSelect, onUseConfig }) {
           >
             <i className="fas fa-copy" /> Reuse
           </button>
+          {['completed', 'stopped', 'failed'].includes(job.status) && (
+            <button
+              className="btn btn-danger"
+              style={{ fontSize: '0.75rem', padding: '2px 6px' }}
+              onClick={(e) => { e.stopPropagation(); onDelete(job.id) }}
+              title="Delete this job and its data"
+            >
+              <i className="fas fa-trash" />
+            </button>
+          )}
           <span className={`badge ${statusBadgeClass[job.status] || ''}`}>
             {job.status}
           </span>
@@ -388,10 +407,18 @@ function TrainingChart({ events }) {
 function TrainingMonitor({ job, onStop }) {
   const [events, setEvents] = useState([])
   const [latest, setLatest] = useState(null)
+  const [connecting, setConnecting] = useState(true)
   const eventSourceRef = useRef(null)
 
   useEffect(() => {
-    if (!job || !['queued', 'loading_model', 'loading_dataset', 'training', 'saving'].includes(job.status)) return
+    if (!job || !['queued', 'loading_model', 'loading_dataset', 'training', 'saving'].includes(job.status)) {
+      setConnecting(false)
+      return
+    }
+
+    setConnecting(true)
+    setLatest(null)
+    setEvents([])
 
     const url = fineTuneApi.progressUrl(job.id)
     const es = new EventSource(url)
@@ -399,6 +426,7 @@ function TrainingMonitor({ job, onStop }) {
 
     es.onmessage = (e) => {
       try {
+        setConnecting(false)
         const data = JSON.parse(e.data)
         setLatest(data)
         if (data.loss > 0) {
@@ -411,13 +439,14 @@ function TrainingMonitor({ job, onStop }) {
     }
 
     es.onerror = () => {
+      setConnecting(false)
       es.close()
     }
 
     return () => {
       es.close()
     }
-  }, [job])
+  }, [job?.id])
 
   if (!job) return null
 
@@ -427,6 +456,12 @@ function TrainingMonitor({ job, onStop }) {
         <i className="fas fa-chart-line" style={{ marginRight: 'var(--spacing-sm)' }} />
         Training Monitor
       </h3>
+
+      {connecting && !latest && (
+        <div style={{ textAlign: 'center', padding: 'var(--spacing-lg)', color: 'var(--color-text-muted)' }}>
+          <LoadingSpinner size="sm" /> Connecting to training stream...
+        </div>
+      )}
 
       {latest && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-md)' }}>
@@ -511,7 +546,7 @@ function CheckpointsPanel({ job, onResume, onExportCheckpoint }) {
     fineTuneApi.listCheckpoints(job.id).then(r => {
       setCheckpoints(r.checkpoints || [])
     }).catch(() => {}).finally(() => setLoading(false))
-  }, [job])
+  }, [job?.id])
 
   if (!job) return null
   if (loading) return <div style={{ padding: 'var(--spacing-md)', fontSize: '0.875rem' }}><LoadingSpinner size="sm" /> Loading checkpoints...</div>
@@ -582,7 +617,7 @@ function ExportPanel({ job, prefilledCheckpoint }) {
     fineTuneApi.listCheckpoints(job.id).then(r => {
       setCheckpoints(r.checkpoints || [])
     }).catch(() => {})
-  }, [job])
+  }, [job?.id])
 
   // Apply prefilled checkpoint when set
   useEffect(() => {
@@ -596,7 +631,7 @@ function ExportPanel({ job, prefilledCheckpoint }) {
     if (!job) return
     if (job.export_status === 'exporting') {
       setExporting(true)
-      setMessage('Export in progress...')
+      setMessage(job.export_message || 'Export in progress...')
     } else if (job.export_status === 'completed' && job.export_model_name) {
       setExporting(false)
       setExportedModelName(job.export_model_name)
@@ -624,6 +659,8 @@ function ExportPanel({ job, prefilledCheckpoint }) {
           setExporting(false)
           setMessage(`Export failed: ${updated.export_message || 'unknown error'}`)
           clearInterval(pollRef.current)
+        } else if (updated.export_status === 'exporting' && updated.export_message) {
+          setMessage(updated.export_message)
         }
       } catch (_) {}
     }, 3000)
@@ -721,11 +758,14 @@ function ExportPanel({ job, prefilledCheckpoint }) {
 
       {message && (
         <div style={{ marginTop: 'var(--spacing-sm)', fontSize: '0.875rem', color: message.includes('failed') ? 'var(--color-error)' : 'var(--color-success)' }}>
-          {message}
+          {exporting && <LoadingSpinner size="sm" />} {message}
           {exportedModelName && !message.includes('failed') && (
             <span style={{ marginLeft: 'var(--spacing-sm)' }}>
               <a href={`/app/chat/${encodeURIComponent(exportedModelName)}`} style={{ color: 'var(--color-primary)', textDecoration: 'underline' }}>
                 Chat with {exportedModelName}
+              </a>
+              <a href={fineTuneApi.downloadUrl(job.id)} download className="btn" style={{ marginLeft: 'var(--spacing-sm)', fontSize: '0.8125rem', padding: '2px 8px' }}>
+                <i className="fas fa-download" /> Download Archive
               </a>
             </span>
           )}
@@ -775,6 +815,10 @@ export default function FineTune() {
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [resumeFromCheckpoint, setResumeFromCheckpoint] = useState('')
   const [saveTotalLimit, setSaveTotalLimit] = useState(0)
+  const [rewardFunctions, setRewardFunctions] = useState([]) // [{type, name, code?, params?}]
+  const [showAddCustomReward, setShowAddCustomReward] = useState(false)
+  const [customRewardName, setCustomRewardName] = useState('')
+  const [customRewardCode, setCustomRewardCode] = useState('')
 
   const loadJobs = useCallback(async () => {
     try {
@@ -849,6 +893,7 @@ export default function FineTune() {
         mixed_precision: mixedPrecision || undefined,
         resume_from_checkpoint: resumeFromCheckpoint || undefined,
         extra_options: Object.keys(extra).length > 0 ? extra : undefined,
+        reward_functions: trainingMethod === 'grpo' && rewardFunctions.length > 0 ? rewardFunctions : undefined,
       }
 
       const resp = await fineTuneApi.startJob(req)
@@ -867,6 +912,17 @@ export default function FineTune() {
   const handleStop = async (jobId) => {
     try {
       await fineTuneApi.stopJob(jobId, true)
+      await loadJobs()
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
+  const handleDelete = async (jobId) => {
+    if (!window.confirm('Delete this job and all its data (checkpoints, exported model)? This cannot be undone.')) return
+    try {
+      await fineTuneApi.deleteJob(jobId)
+      if (selectedJob?.id === jobId) setSelectedJob(null)
       await loadJobs()
     } catch (err) {
       setError(err.message)
@@ -905,6 +961,7 @@ export default function FineTune() {
       mixed_precision: mixedPrecision,
       max_seq_length: maxSeqLength,
       extra_options: Object.keys(extra).length > 0 ? extra : {},
+      reward_functions: rewardFunctions.length > 0 ? rewardFunctions : undefined,
     }
   }
 
@@ -955,6 +1012,13 @@ export default function FineTune() {
         .filter(([k]) => !['max_seq_length', 'save_total_limit', 'hf_token'].includes(k))
         .map(([key, value]) => ({ key, value: String(value) }))
       setExtraOptions(entries)
+    }
+
+    // Restore reward functions
+    if (Array.isArray(config.reward_functions)) {
+      setRewardFunctions(config.reward_functions)
+    } else {
+      setRewardFunctions([])
     }
   }
 
@@ -1074,7 +1138,7 @@ export default function FineTune() {
               </div>
               <div>
                 <label className="form-label">Model (HuggingFace ID or local path)</label>
-                <input type="text" value={model} onChange={e => setModel(e.target.value)} placeholder="e.g. unsloth/tinyllama-bnb-4bit" className="input" required />
+                <input type="text" value={model} onChange={e => setModel(e.target.value)} placeholder="e.g. TinyLlama/TinyLlama-1.1B-Chat-v1.0" className="input" required />
               </div>
             </div>
             <div style={{ marginTop: 'var(--spacing-md)' }}>
@@ -1132,6 +1196,152 @@ export default function FineTune() {
               </div>
             </div>
           </FormSection>
+
+          {trainingMethod === 'grpo' && (
+            <FormSection icon="fas fa-trophy" title="Reward Functions (GRPO)">
+              <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', marginBottom: 'var(--spacing-md)' }}>
+                GRPO requires at least one reward function. Select built-in functions or add custom ones.
+              </div>
+
+              {/* Built-in reward functions */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-md)' }}>
+                {BUILTIN_REWARDS.map(builtin => {
+                  const isSelected = rewardFunctions.some(rf => rf.type === 'builtin' && rf.name === builtin.name)
+                  const selectedRf = rewardFunctions.find(rf => rf.type === 'builtin' && rf.name === builtin.name)
+                  return (
+                    <div key={builtin.name} style={{
+                      padding: 'var(--spacing-sm) var(--spacing-md)',
+                      border: `1px solid ${isSelected ? 'var(--color-primary)' : 'var(--color-border-subtle)'}`,
+                      borderRadius: 'var(--radius-sm)',
+                      background: isSelected ? 'var(--color-bg-secondary)' : 'transparent',
+                    }}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', cursor: 'pointer' }}>
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={e => {
+                            if (e.target.checked) {
+                              setRewardFunctions(prev => [...prev, { type: 'builtin', name: builtin.name }])
+                            } else {
+                              setRewardFunctions(prev => prev.filter(rf => !(rf.type === 'builtin' && rf.name === builtin.name)))
+                            }
+                          }}
+                        />
+                        <div>
+                          <div style={{ fontWeight: 600, fontSize: '0.8125rem' }}>{builtin.name}</div>
+                          <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>{builtin.description}</div>
+                        </div>
+                      </label>
+                      {isSelected && builtin.params.length > 0 && (
+                        <div style={{ marginTop: 'var(--spacing-sm)', paddingLeft: 'var(--spacing-lg)' }}>
+                          {builtin.params.map(param => (
+                            <div key={param.key} style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-xs)' }}>
+                              <label style={{ fontSize: '0.75rem', minWidth: '80px' }}>{param.label}:</label>
+                              <input
+                                type="text"
+                                className="input"
+                                style={{ width: '100px', fontSize: '0.8125rem', padding: '2px 6px' }}
+                                value={selectedRf?.params?.[param.key] || param.default}
+                                onChange={e => {
+                                  setRewardFunctions(prev => prev.map(rf =>
+                                    rf.type === 'builtin' && rf.name === builtin.name
+                                      ? { ...rf, params: { ...(rf.params || {}), [param.key]: e.target.value } }
+                                      : rf
+                                  ))
+                                }}
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+
+              {/* Custom inline reward functions */}
+              {rewardFunctions.filter(rf => rf.type === 'inline').map((rf, idx) => (
+                <div key={`inline-${idx}`} style={{
+                  padding: 'var(--spacing-sm) var(--spacing-md)',
+                  border: '1px solid var(--color-primary)',
+                  borderRadius: 'var(--radius-sm)',
+                  background: 'var(--color-bg-secondary)',
+                  marginBottom: 'var(--spacing-sm)',
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-xs)' }}>
+                    <span style={{ fontWeight: 600, fontSize: '0.8125rem' }}>
+                      <i className="fas fa-code" style={{ marginRight: 'var(--spacing-xs)' }} />
+                      {rf.name}
+                    </span>
+                    <button type="button" className="btn btn-danger" style={{ padding: '2px 6px', fontSize: '0.75rem' }}
+                      onClick={() => setRewardFunctions(prev => prev.filter((_, i) => i !== rewardFunctions.indexOf(rf)))}>
+                      <i className="fas fa-times" />
+                    </button>
+                  </div>
+                  <pre style={{ fontSize: '0.75rem', margin: 0, whiteSpace: 'pre-wrap', color: 'var(--color-text-muted)' }}>
+                    {rf.code}
+                  </pre>
+                </div>
+              ))}
+
+              {/* Add custom reward button / form */}
+              {showAddCustomReward ? (
+                <div style={{
+                  padding: 'var(--spacing-md)',
+                  border: '1px dashed var(--color-border)',
+                  borderRadius: 'var(--radius-sm)',
+                  marginTop: 'var(--spacing-sm)',
+                }}>
+                  <div style={{ marginBottom: 'var(--spacing-sm)' }}>
+                    <label className="form-label">Function Name</label>
+                    <input type="text" className="input" value={customRewardName} onChange={e => setCustomRewardName(e.target.value)}
+                      placeholder="e.g. my_custom_reward" style={{ maxWidth: '300px' }} />
+                  </div>
+                  <div style={{ marginBottom: 'var(--spacing-sm)' }}>
+                    <label className="form-label">
+                      Function Body
+                      <span style={{ fontWeight: 'normal', fontSize: '0.75rem', color: 'var(--color-text-muted)', marginLeft: 'var(--spacing-sm)' }}>
+                        (receives: completions, **kwargs; must return list[float]; available: re, math, json, string)
+                      </span>
+                    </label>
+                    <textarea
+                      className="input"
+                      value={customRewardCode}
+                      onChange={e => setCustomRewardCode(e.target.value)}
+                      placeholder={"return [1.0 if '<think>' in c else 0.0 for c in completions]"}
+                      rows={4}
+                      style={{ fontFamily: 'monospace', fontSize: '0.8125rem' }}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
+                    <button type="button" className="btn btn-primary" style={{ fontSize: '0.8125rem' }}
+                      disabled={!customRewardName.trim() || !customRewardCode.trim()}
+                      onClick={() => {
+                        setRewardFunctions(prev => [...prev, {
+                          type: 'inline',
+                          name: customRewardName.trim(),
+                          code: customRewardCode,
+                        }])
+                        setCustomRewardName('')
+                        setCustomRewardCode('')
+                        setShowAddCustomReward(false)
+                      }}>
+                      <i className="fas fa-plus" style={{ marginRight: 'var(--spacing-xs)' }} /> Add
+                    </button>
+                    <button type="button" className="btn" style={{ fontSize: '0.8125rem' }}
+                      onClick={() => { setShowAddCustomReward(false); setCustomRewardName(''); setCustomRewardCode('') }}>
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button type="button" className="btn" onClick={() => setShowAddCustomReward(true)} style={{ fontSize: '0.8125rem' }}>
+                  <i className="fas fa-plus" style={{ marginRight: 'var(--spacing-xs)' }} />
+                  Add Custom Reward Function
+                </button>
+              )}
+            </FormSection>
+          )}
 
           <FormSection icon="fas fa-sliders-h" title="Hyperparameters">
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 'var(--spacing-md)' }}>
@@ -1276,7 +1486,7 @@ export default function FineTune() {
             </div>
           ) : (
             jobs.map(job => (
-              <JobCard key={job.id} job={job} isSelected={selectedJob?.id === job.id} onSelect={setSelectedJob} onUseConfig={handleUseConfig} />
+              <JobCard key={job.id} job={job} isSelected={selectedJob?.id === job.id} onSelect={setSelectedJob} onUseConfig={handleUseConfig} onDelete={handleDelete} />
             ))
           )}
         </div>

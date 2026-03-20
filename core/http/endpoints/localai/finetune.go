@@ -1,10 +1,14 @@
 package localai
 
 import (
+	"archive/tar"
+	"compress/gzip"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/labstack/echo/v4"
@@ -100,6 +104,32 @@ func StopFineTuneJobEndpoint(ftService *services.FineTuneService) echo.HandlerFu
 	}
 }
 
+// DeleteFineTuneJobEndpoint deletes a fine-tuning job and its data.
+func DeleteFineTuneJobEndpoint(ftService *services.FineTuneService) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		userID := getUserID(c)
+		jobID := c.Param("id")
+
+		err := ftService.DeleteJob(userID, jobID)
+		if err != nil {
+			status := http.StatusInternalServerError
+			if strings.Contains(err.Error(), "not found") {
+				status = http.StatusNotFound
+			} else if strings.Contains(err.Error(), "cannot delete") {
+				status = http.StatusConflict
+			}
+			return c.JSON(status, map[string]string{
+				"error": err.Error(),
+			})
+		}
+
+		return c.JSON(http.StatusOK, map[string]string{
+			"status":  "deleted",
+			"message": "Fine-tuning job deleted",
+		})
+	}
+}
+
 // FineTuneProgressEndpoint streams progress updates via SSE.
 func FineTuneProgressEndpoint(ftService *services.FineTuneService) echo.HandlerFunc {
 	return func(c echo.Context) error {
@@ -174,6 +204,72 @@ func ExportModelEndpoint(ftService *services.FineTuneService) echo.HandlerFunc {
 			"message":    "Export started for model '" + modelName + "'",
 			"model_name": modelName,
 		})
+	}
+}
+
+// DownloadExportedModelEndpoint streams the exported model directory as a tar.gz archive.
+func DownloadExportedModelEndpoint(ftService *services.FineTuneService) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		userID := getUserID(c)
+		jobID := c.Param("id")
+
+		modelDir, modelName, err := ftService.GetExportedModelPath(userID, jobID)
+		if err != nil {
+			return c.JSON(http.StatusNotFound, map[string]string{
+				"error": err.Error(),
+			})
+		}
+
+		c.Response().Header().Set("Content-Type", "application/gzip")
+		c.Response().Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s.tar.gz"`, modelName))
+		c.Response().WriteHeader(http.StatusOK)
+
+		gw := gzip.NewWriter(c.Response())
+		defer gw.Close()
+
+		tw := tar.NewWriter(gw)
+		defer tw.Close()
+
+		err = filepath.Walk(modelDir, func(path string, info os.FileInfo, walkErr error) error {
+			if walkErr != nil {
+				return walkErr
+			}
+
+			relPath, err := filepath.Rel(modelDir, path)
+			if err != nil {
+				return err
+			}
+
+			header, err := tar.FileInfoHeader(info, "")
+			if err != nil {
+				return err
+			}
+			header.Name = filepath.Join(modelName, relPath)
+
+			if err := tw.WriteHeader(header); err != nil {
+				return err
+			}
+
+			if info.IsDir() {
+				return nil
+			}
+
+			f, err := os.Open(path)
+			if err != nil {
+				return err
+			}
+			defer f.Close()
+
+			_, err = io.Copy(tw, f)
+			return err
+		})
+
+		if err != nil {
+			// Headers already sent, can't return JSON error
+			return err
+		}
+
+		return nil
 	}
 }
 

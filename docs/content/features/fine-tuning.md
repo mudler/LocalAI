@@ -11,7 +11,6 @@ LocalAI supports fine-tuning LLMs directly through the API and Web UI. Fine-tuni
 
 | Backend | Domain | GPU Required | Training Methods | Adapter Types |
 |---------|--------|-------------|-----------------|---------------|
-| **unsloth** | LLM fine-tuning | Yes (CUDA) | SFT, GRPO | LoRA/QLoRA |
 | **trl** | LLM fine-tuning | No (CPU or GPU) | SFT, DPO, GRPO, RLOO, Reward, KTO, ORPO | LoRA, Full |
 
 ## Enabling Fine-Tuning
@@ -32,8 +31,8 @@ When authentication is enabled, fine-tuning is a per-user feature (default OFF).
 curl -X POST http://localhost:8080/api/fine-tuning/jobs \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "unsloth/tinyllama-bnb-4bit",
-    "backend": "unsloth",
+    "model": "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
+    "backend": "trl",
     "training_method": "sft",
     "training_type": "lora",
     "dataset_source": "yahma/alpaca-cleaned",
@@ -43,8 +42,7 @@ curl -X POST http://localhost:8080/api/fine-tuning/jobs \
     "adapter_rank": 16,
     "adapter_alpha": 16,
     "extra_options": {
-      "max_seq_length": "2048",
-      "load_in_4bit": "true"
+      "max_seq_length": "512"
     }
   }'
 ```
@@ -93,7 +91,7 @@ curl -X POST http://localhost:8080/api/fine-tuning/jobs/{job_id}/export \
 | Field | Type | Description |
 |-------|------|-------------|
 | `model` | string | HuggingFace model ID or local path (required) |
-| `backend` | string | Backend name: `unsloth` or `trl` (default: `trl`) |
+| `backend` | string | Backend name (default: `trl`) |
 | `training_method` | string | `sft`, `dpo`, `grpo`, `rloo`, `reward`, `kto`, `orpo` |
 | `training_type` | string | `lora` or `full` |
 | `dataset_source` | string | HuggingFace dataset ID or local file path (required) |
@@ -108,15 +106,6 @@ curl -X POST http://localhost:8080/api/fine-tuning/jobs/{job_id}/export \
 | `extra_options` | map | Backend-specific options (see below) |
 
 ### Backend-Specific Options (`extra_options`)
-
-#### Unsloth
-
-| Key | Description | Default |
-|-----|-------------|---------|
-| `max_seq_length` | Maximum sequence length | `2048` |
-| `load_in_4bit` | Load model in 4-bit quantization | `true` |
-| `packing` | Enable sequence packing | `false` |
-| `use_rslora` | Use Rank-Stabilized LoRA | `false` |
 
 #### TRL
 
@@ -141,6 +130,58 @@ curl -X POST http://localhost:8080/api/fine-tuning/jobs/{job_id}/export \
 |-----|-------------|---------|
 | `num_generations` | Number of generations per prompt | `4` |
 | `max_completion_length` | Max completion token length | `256` |
+
+### GRPO Reward Functions
+
+GRPO training requires reward functions to evaluate model completions. Specify them via the `reward_functions` field (a typed array) or via `extra_options["reward_funcs"]` (a JSON string).
+
+#### Built-in Reward Functions
+
+| Name | Description | Parameters |
+|------|-------------|-----------|
+| `format_reward` | Checks `<think>...</think>` then answer format (1.0/0.0) | — |
+| `reasoning_accuracy_reward` | Extracts `<answer>` content, compares to dataset's `answer` column | — |
+| `length_reward` | Score based on proximity to target length [0, 1] | `target_length` (default: 200) |
+| `xml_tag_reward` | Scores properly opened/closed `<think>` and `<answer>` tags | — |
+| `no_repetition_reward` | Penalizes n-gram repetition [0, 1] | — |
+| `code_execution_reward` | Checks Python code block syntax validity (1.0/0.0) | — |
+
+#### Inline Custom Reward Functions
+
+You can provide custom reward function code as a Python function body. The function receives `completions` (list of strings) and `**kwargs`, and must return `list[float]`.
+
+**Security restrictions for inline code:**
+- Allowed builtins: `len`, `int`, `float`, `str`, `list`, `dict`, `range`, `enumerate`, `zip`, `map`, `filter`, `sorted`, `min`, `max`, `sum`, `abs`, `round`, `any`, `all`, `isinstance`, `print`, `True`, `False`, `None`
+- Available modules: `re`, `math`, `json`, `string`
+- Blocked: `open`, `__import__`, `exec`, `eval`, `compile`, `os`, `subprocess`, `getattr`, `setattr`, `delattr`, `globals`, `locals`
+- Functions are compiled and validated at job start (fail-fast on syntax errors)
+
+#### Example API Request
+
+```bash
+curl -X POST http://localhost:8080/api/fine-tuning/jobs \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "Qwen/Qwen2.5-1.5B-Instruct",
+    "backend": "trl",
+    "training_method": "grpo",
+    "training_type": "lora",
+    "dataset_source": "my-reasoning-dataset",
+    "num_epochs": 1,
+    "batch_size": 2,
+    "learning_rate": 5e-6,
+    "reward_functions": [
+      {"type": "builtin", "name": "reasoning_accuracy_reward"},
+      {"type": "builtin", "name": "format_reward"},
+      {"type": "builtin", "name": "length_reward", "params": {"target_length": "200"}},
+      {"type": "inline", "name": "think_presence", "code": "return [1.0 if \"<think>\" in c else 0.0 for c in completions]"}
+    ],
+    "extra_options": {
+      "num_generations": "4",
+      "max_completion_length": "256"
+    }
+  }'
+```
 
 ### Export Formats
 

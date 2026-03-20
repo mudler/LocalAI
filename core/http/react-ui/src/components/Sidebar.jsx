@@ -15,6 +15,7 @@ const mainItems = [
   { path: '/app/tts', icon: 'fas fa-music', label: 'TTS' },
   { path: '/app/sound', icon: 'fas fa-volume-high', label: 'Sound' },
   { path: '/app/talk', icon: 'fas fa-phone', label: 'Talk' },
+  { path: '/app/fine-tune', icon: 'fas fa-graduation-cap', label: 'Fine-Tune', feature: 'fine_tuning' },
   { path: '/app/usage', icon: 'fas fa-chart-bar', label: 'Usage', authOnly: true },
 ]
 
@@ -75,6 +76,8 @@ export default function Sidebar({ isOpen, onClose }) {
   const visibleMainItems = mainItems.filter(item => {
     if (item.adminOnly && !isAdmin) return false
     if (item.authOnly && !authEnabled) return false
+    if (item.feature && features[item.feature] === false) return false
+    if (item.feature && !hasFeature(item.feature)) return false
     return true
   })
 

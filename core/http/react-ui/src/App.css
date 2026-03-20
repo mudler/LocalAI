@@ -588,14 +588,6 @@
 .spinner-md .spinner-ring { width: 24px; height: 24px; }
 .spinner-lg .spinner-ring { width: 40px; height: 40px; }
 
-.spinner-logo {
-  animation: pulse 1.2s ease-in-out infinite;
-  object-fit: contain;
-}
-.spinner-sm .spinner-logo { width: 16px; height: 16px; }
-.spinner-md .spinner-logo { width: 24px; height: 24px; }
-.spinner-lg .spinner-logo { width: 40px; height: 40px; }
-
 /* Model selector */
 .model-selector {
   background: var(--color-bg-tertiary);

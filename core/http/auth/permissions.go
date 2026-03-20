@@ -31,6 +31,7 @@ const (
 	FeatureSkills      = "skills"
 	FeatureCollections = "collections"
 	FeatureMCPJobs     = "mcp_jobs"
+	FeatureFineTuning  = "fine_tuning"
 
 	// API features (default ON for new users)
 	FeatureChat              = "chat"
@@ -50,7 +51,7 @@ const (
 )
 
 // AgentFeatures lists agent-related features (default OFF).
-var AgentFeatures = []string{FeatureAgents, FeatureSkills, FeatureCollections, FeatureMCPJobs}
+var AgentFeatures = []string{FeatureAgents, FeatureSkills, FeatureCollections, FeatureMCPJobs, FeatureFineTuning}
 
 // APIFeatures lists API endpoint features (default ON).
 var APIFeatures = []string{

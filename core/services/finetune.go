@@ -167,6 +167,18 @@ func (s *FineTuneService) StartJob(ctx context.Context, userID string, req schem
 		ExtraOptions:              req.ExtraOptions,
 	}
 
+	// Serialize reward functions into extra_options for the backend
+	if len(req.RewardFunctions) > 0 {
+		rfJSON, err := json.Marshal(req.RewardFunctions)
+		if err != nil {
+			return nil, fmt.Errorf("failed to serialize reward functions: %w", err)
+		}
+		if grpcReq.ExtraOptions == nil {
+			grpcReq.ExtraOptions = make(map[string]string)
+		}
+		grpcReq.ExtraOptions["reward_funcs"] = string(rfJSON)
+	}
+
 	// Load the fine-tuning backend
 	backendModel, err := s.modelLoader.Load(
 		model.WithBackendString(backendName),
@@ -271,10 +283,70 @@ func (s *FineTuneService) StopJob(ctx context.Context, userID, jobID string, sav
 	}
 
 	s.mu.Lock()
-	job.Status = "stopped"
+	job.Message = "Stop requested, waiting for training to halt..."
 	s.saveJobState(job)
 	s.mu.Unlock()
 
+	return nil
+}
+
+// DeleteJob removes a fine-tuning job and its associated data from disk.
+func (s *FineTuneService) DeleteJob(userID, jobID string) error {
+	s.mu.Lock()
+	job, ok := s.jobs[jobID]
+	if !ok {
+		s.mu.Unlock()
+		return fmt.Errorf("job not found: %s", jobID)
+	}
+	if userID != "" && job.UserID != userID {
+		s.mu.Unlock()
+		return fmt.Errorf("job not found: %s", jobID)
+	}
+
+	// Reject deletion of actively running jobs
+	activeStatuses := map[string]bool{
+		"queued": true, "loading_model": true, "loading_dataset": true,
+		"training": true, "saving": true,
+	}
+	if activeStatuses[job.Status] {
+		s.mu.Unlock()
+		return fmt.Errorf("cannot delete job %s: currently %s (stop it first)", jobID, job.Status)
+	}
+	if job.ExportStatus == "exporting" {
+		s.mu.Unlock()
+		return fmt.Errorf("cannot delete job %s: export in progress", jobID)
+	}
+
+	exportModelName := job.ExportModelName
+	delete(s.jobs, jobID)
+	s.mu.Unlock()
+
+	// Remove job directory (state.json, checkpoints, output)
+	jobDir := s.jobDir(jobID)
+	if err := os.RemoveAll(jobDir); err != nil {
+		xlog.Warn("Failed to remove job directory", "job_id", jobID, "path", jobDir, "error", err)
+	}
+
+	// If an exported model exists, clean it up too
+	if exportModelName != "" {
+		modelsPath := s.appConfig.SystemState.Model.ModelsPath
+		modelDir := filepath.Join(modelsPath, exportModelName)
+		configPath := filepath.Join(modelsPath, exportModelName+".yaml")
+
+		if err := os.RemoveAll(modelDir); err != nil {
+			xlog.Warn("Failed to remove exported model directory", "path", modelDir, "error", err)
+		}
+		if err := os.Remove(configPath); err != nil && !os.IsNotExist(err) {
+			xlog.Warn("Failed to remove exported model config", "path", configPath, "error", err)
+		}
+
+		// Reload model configs
+		if err := s.configLoader.LoadModelConfigsFromPath(modelsPath, s.appConfig.ToConfigLoaderOptions()...); err != nil {
+			xlog.Warn("Failed to reload configs after delete", "error", err)
+		}
+	}
+
+	xlog.Info("Deleted fine-tune job", "job_id", jobID)
 	return nil
 }
 
@@ -307,7 +379,11 @@ func (s *FineTuneService) StreamProgress(ctx context.Context, userID, jobID stri
 		// Update job status and persist
 		s.mu.Lock()
 		if j, ok := s.jobs[jobID]; ok {
-			j.Status = update.Status
+			// Don't let progress updates overwrite terminal states
+			isTerminal := j.Status == "stopped" || j.Status == "completed" || j.Status == "failed"
+			if !isTerminal {
+				j.Status = update.Status
+			}
 			if update.Message != "" {
 				j.Message = update.Message
 			}
@@ -445,6 +521,8 @@ func (s *FineTuneService) ExportModel(ctx context.Context, userID, jobID string,
 
 	// Launch the export in a background goroutine
 	go func() {
+		s.setExportMessage(job, "Loading export backend...")
+
 		backendModel, err := s.modelLoader.Load(
 			model.WithBackendString(job.Backend),
 			model.WithModel(job.Backend),
@@ -473,6 +551,8 @@ func (s *FineTuneService) ExportModel(ctx context.Context, userID, jobID string,
 			ExtraOptions:       mergedOpts,
 		}
 
+		s.setExportMessage(job, "Running model export (merging and converting — this may take a while)...")
+
 		result, err := backendModel.ExportModel(context.Background(), grpcReq)
 		if err != nil {
 			s.setExportFailed(job, fmt.Sprintf("export failed: %v", err))
@@ -482,6 +562,8 @@ func (s *FineTuneService) ExportModel(ctx context.Context, userID, jobID string,
 			s.setExportFailed(job, fmt.Sprintf("export failed: %s", result.Message))
 			return
 		}
+
+		s.setExportMessage(job, "Export complete, generating model configuration...")
 
 		// Auto-import: detect format and generate config
 		cfg, err := importers.ImportLocalPath(outputPath, modelName)
@@ -508,6 +590,8 @@ func (s *FineTuneService) ExportModel(ctx context.Context, userID, jobID string,
 			return
 		}
 
+		s.setExportMessage(job, "Registering model with LocalAI...")
+
 		// Reload configs so the model is immediately available
 		if err := s.configLoader.LoadModelConfigsFromPath(modelsPath, s.appConfig.ToConfigLoaderOptions()...); err != nil {
 			xlog.Warn("Failed to reload configs after export", "error", err)
@@ -527,6 +611,47 @@ func (s *FineTuneService) ExportModel(ctx context.Context, userID, jobID string,
 	}()
 
 	return modelName, nil
+}
+
+// setExportMessage updates the export message and persists the job state.
+func (s *FineTuneService) setExportMessage(job *schema.FineTuneJob, msg string) {
+	s.mu.Lock()
+	job.ExportMessage = msg
+	s.saveJobState(job)
+	s.mu.Unlock()
+}
+
+// GetExportedModelPath returns the path to the exported model directory and its name.
+func (s *FineTuneService) GetExportedModelPath(userID, jobID string) (string, string, error) {
+	s.mu.Lock()
+	job, ok := s.jobs[jobID]
+	if !ok {
+		s.mu.Unlock()
+		return "", "", fmt.Errorf("job not found: %s", jobID)
+	}
+	if userID != "" && job.UserID != userID {
+		s.mu.Unlock()
+		return "", "", fmt.Errorf("job not found: %s", jobID)
+	}
+	if job.ExportStatus != "completed" {
+		s.mu.Unlock()
+		return "", "", fmt.Errorf("export not completed for job %s (status: %s)", jobID, job.ExportStatus)
+	}
+	exportModelName := job.ExportModelName
+	s.mu.Unlock()
+
+	if exportModelName == "" {
+		return "", "", fmt.Errorf("no exported model name for job %s", jobID)
+	}
+
+	modelsPath := s.appConfig.SystemState.Model.ModelsPath
+	modelDir := filepath.Join(modelsPath, exportModelName)
+
+	if _, err := os.Stat(modelDir); os.IsNotExist(err) {
+		return "", "", fmt.Errorf("exported model directory not found: %s", modelDir)
+	}
+
+	return modelDir, exportModelName, nil
 }
 
 // setExportFailed sets the export status to failed with a message.
