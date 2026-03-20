@@ -1142,6 +1142,11 @@ export default function Chat() {
                         }} />
                       )}
                     </div>
+                    {msg.role === 'assistant' && typeof msg.content === 'string' && msg.content.includes('Error:') && (
+                      <a href="/app/traces?tab=backend" className="chat-error-trace-link">
+                        <i className="fas fa-wave-square" /> View traces for details
+                      </a>
+                    )}
                     <div className="chat-message-actions">
                       <button onClick={() => copyMessage(msg.content)} title="Copy">
                         <i className="fas fa-copy" />

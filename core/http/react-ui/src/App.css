@@ -571,6 +571,30 @@
   padding: 2px;
 }
 .toast-close:hover { opacity: 1; }
+.toast-link {
+  font-size: 0.75rem;
+  color: inherit;
+  opacity: 0.8;
+  text-decoration: underline;
+  white-space: nowrap;
+  margin-left: var(--spacing-xs);
+}
+.toast-link:hover { opacity: 1; }
+
+/* Chat error trace link */
+.chat-error-trace-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  margin-top: var(--spacing-xs);
+}
+.chat-error-trace-link:hover {
+  color: var(--color-primary);
+  text-decoration: underline;
+}
 
 /* Spinner */
 .spinner {

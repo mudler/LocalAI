@@ -27,10 +27,15 @@ test.describe('Settings - Backend Logging', () => {
   })
 
   test('save shows toast', async ({ page }) => {
+    // Toggle a setting to enable the Save button (it's disabled when no changes)
+    const section = page.locator('div', { has: page.locator('text=Enable Backend Logging') })
+    const checkbox = section.locator('input[type="checkbox"]').last()
+    await checkbox.locator('..').click()
+
     // Click save button
-    await page.locator('button', { hasText: 'Save' }).click()
+    await page.locator('button', { hasText: /Save Changes/ }).click()
 
     // Verify toast appears
-    await expect(page.locator('text=Settings saved')).toBeVisible({ timeout: 5_000 })
+    await expect(page.locator('text=Settings saved successfully')).toBeVisible({ timeout: 5_000 })
   })
 })

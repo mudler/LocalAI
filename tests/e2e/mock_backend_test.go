@@ -55,6 +55,65 @@ var _ = Describe("Mock Backend E2E Tests", Label("MockBackend"), func() {
 		})
 	})
 
+	Describe("Error Handling", func() {
+		Context("Non-streaming errors", func() {
+			It("should return error for request with error trigger", func() {
+				_, err := client.Chat.Completions.New(
+					context.TODO(),
+					openai.ChatCompletionNewParams{
+						Model: "mock-model",
+						Messages: []openai.ChatCompletionMessageParamUnion{
+							openai.UserMessage("MOCK_ERROR"),
+						},
+					},
+				)
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("simulated failure"))
+			})
+		})
+
+		Context("Streaming errors", func() {
+			It("should return error for streaming request with immediate error trigger", func() {
+				stream := client.Chat.Completions.NewStreaming(
+					context.TODO(),
+					openai.ChatCompletionNewParams{
+						Model: "mock-model",
+						Messages: []openai.ChatCompletionMessageParamUnion{
+							openai.UserMessage("MOCK_ERROR_IMMEDIATE"),
+						},
+					},
+				)
+				for stream.Next() {
+					// drain
+				}
+				Expect(stream.Err()).To(HaveOccurred())
+			})
+
+			It("should return structured error for mid-stream failure", func() {
+				body := `{"model":"mock-model","messages":[{"role":"user","content":"MOCK_ERROR_MIDSTREAM"}],"stream":true}`
+				req, err := http.NewRequest("POST", apiURL+"/chat/completions", strings.NewReader(body))
+				Expect(err).ToNot(HaveOccurred())
+				req.Header.Set("Content-Type", "application/json")
+
+				resp, err := http.DefaultClient.Do(req)
+				Expect(err).ToNot(HaveOccurred())
+				defer resp.Body.Close()
+				Expect(resp.StatusCode).To(Equal(200))
+
+				data, err := io.ReadAll(resp.Body)
+				Expect(err).ToNot(HaveOccurred())
+				bodyStr := string(data)
+
+				// Should contain a structured error event
+				Expect(bodyStr).To(ContainSubstring(`"error"`))
+				Expect(bodyStr).To(ContainSubstring(`"message"`))
+				Expect(bodyStr).To(ContainSubstring("simulated mid-stream failure"))
+				// Should also contain [DONE]
+				Expect(bodyStr).To(ContainSubstring("[DONE]"))
+			})
+		})
+	})
+
 	Describe("Embeddings API", func() {
 		It("should return mocked embeddings", func() {
 			resp, err := client.Embeddings.New(

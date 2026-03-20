@@ -5,9 +5,9 @@ let toastId = 0
 export function useToast() {
   const [toasts, setToasts] = useState([])
 
-  const addToast = useCallback((message, type = 'info', duration = 5000) => {
+  const addToast = useCallback((message, type = 'info', duration = 5000, options = {}) => {
     const id = ++toastId
-    setToasts(prev => [...prev, { id, message, type }])
+    setToasts(prev => [...prev, { id, message, type, link: options.link }])
     if (duration > 0) {
       setTimeout(() => {
         setToasts(prev => prev.map(t => t.id === id ? { ...t, exiting: true } : t))
@@ -69,6 +69,9 @@ function ToastItem({ toast, onRemove }) {
     <div ref={ref} className={`toast ${colorMap[toast.type] || 'toast-info'} ${toast.exiting ? 'toast-exit' : ''}`}>
       <i className={`fas ${iconMap[toast.type] || 'fa-circle-info'}`} />
       <span>{toast.message}</span>
+      {toast.link && (
+        <a href={toast.link.href} className="toast-link">{toast.link.text}</a>
+      )}
       <button onClick={() => onRemove(toast.id)} className="toast-close" aria-label="Dismiss notification">
         <i className="fas fa-xmark" />
       </button>
