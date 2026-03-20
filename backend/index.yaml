@@ -726,6 +726,7 @@
     - TTS
 - &opus
   name: "opus"
+  alias: "opus"
   uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-opus"
   urls:
     - https://opus-codec.org/
