@@ -149,7 +149,6 @@ type ToolFormatMarkers struct {
 	IDField          string
 	FunNameIsKey     bool
 	ToolsArrayWrapped bool
-	UsesPythonDicts  bool
 	FunctionField    string
 	ParameterOrder   []string
 

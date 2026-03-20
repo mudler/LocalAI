@@ -2687,7 +2687,6 @@ public:
                         tf->set_id_field(ap.tools.format.id_field);
                         tf->set_fun_name_is_key(ap.tools.format.fun_name_is_key);
                         tf->set_tools_array_wrapped(ap.tools.format.tools_array_wrapped);
-                        tf->set_uses_python_dicts(ap.tools.format.uses_python_dicts);
                         tf->set_function_field(ap.tools.format.function_field);
 
                         tf->set_gen_id_field(ap.tools.format.gen_id_field);
