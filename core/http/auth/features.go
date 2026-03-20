@@ -113,6 +113,12 @@ func AgentFeatureMetas() []FeatureMeta {
 		{FeatureSkills, "Skills", false},
 		{FeatureCollections, "Collections", false},
 		{FeatureMCPJobs, "MCP CI Jobs", false},
+	}
+}
+
+// GeneralFeatureMetas returns metadata for general features.
+func GeneralFeatureMetas() []FeatureMeta {
+	return []FeatureMeta{
 		{FeatureFineTuning, "Fine-Tuning", false},
 	}
 }
