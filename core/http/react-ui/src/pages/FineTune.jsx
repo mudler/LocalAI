@@ -180,226 +180,147 @@ function formatAxisValue(val, decimals) {
   return val.toExponential(1)
 }
 
-function TrainingChart({ events }) {
+function SingleMetricChart({ data, valueKey, label, color, formatValue, events }) {
   const [tooltip, setTooltip] = useState(null)
   const svgRef = useRef(null)
 
-  if (!events || events.length < 2) return null
+  if (!data || data.length < 1) return null
 
-  const pad = { top: 20, right: 60, bottom: 40, left: 60 }
-  const W = 600, H = 300
+  const pad = { top: 16, right: 12, bottom: 32, left: 52 }
+  const W = 400, H = 220
   const cw = W - pad.left - pad.right
   const ch = H - pad.top - pad.bottom
 
-  const steps = events.map(e => e.current_step)
-  const losses = events.map(e => e.loss)
-  const lrs = events.map(e => e.learning_rate).filter(v => v != null && v > 0)
-  const hasLr = lrs.length > 1
+  const steps = data.map(e => e.current_step)
+  const values = data.map(e => e[valueKey])
 
   const minStep = Math.min(...steps), maxStep = Math.max(...steps)
   const stepRange = maxStep - minStep || 1
-  const minLoss = Math.min(...losses), maxLoss = Math.max(...losses)
-  const lossRange = maxLoss - minLoss || 1
-  const lossPad = lossRange * 0.05
-  const yMin = Math.max(0, minLoss - lossPad), yMax = maxLoss + lossPad
+  const minVal = Math.min(...values), maxVal = Math.max(...values)
+  const valRange = maxVal - minVal || 1
+  const valPad = valRange * 0.05
+  const yMin = Math.max(0, minVal - valPad), yMax = maxVal + valPad
   const yRange = yMax - yMin || 1
 
   const x = (step) => pad.left + ((step - minStep) / stepRange) * cw
-  const yLoss = (loss) => pad.top + (1 - (loss - yMin) / yRange) * ch
+  const y = (val) => pad.top + (1 - (val - yMin) / yRange) * ch
 
-  // Loss polyline
-  const lossPoints = events.map(e => `${x(e.current_step)},${yLoss(e.loss)}`).join(' ')
+  const points = data.map(e => `${x(e.current_step)},${y(e[valueKey])}`).join(' ')
 
-  // Learning rate polyline (scaled to right axis)
-  let lrPoints = ''
-  let lrMin = 0, lrMax = 1, lrRange = 1
-  if (hasLr) {
-    lrMin = Math.min(...lrs)
-    lrMax = Math.max(...lrs)
-    lrRange = lrMax - lrMin || 1
-    const lrPad = lrRange * 0.05
-    lrMin = Math.max(0, lrMin - lrPad)
-    lrMax = lrMax + lrPad
-    lrRange = lrMax - lrMin || 1
-    const yLr = (lr) => pad.top + (1 - (lr - lrMin) / lrRange) * ch
-    lrPoints = events
-      .filter(e => e.learning_rate != null && e.learning_rate > 0)
-      .map(e => `${x(e.current_step)},${yLr(e.learning_rate)}`)
-      .join(' ')
-  }
+  const xTickCount = Math.min(5, data.length)
+  const xTicks = Array.from({ length: xTickCount }, (_, i) => Math.round(minStep + (stepRange * i) / (xTickCount - 1)))
+  const yTickCount = 4
+  const yTicks = Array.from({ length: yTickCount }, (_, i) => yMin + (yRange * i) / (yTickCount - 1))
 
-  // Axis ticks
-  const xTickCount = Math.min(6, events.length)
-  const xTicks = Array.from({ length: xTickCount }, (_, i) => {
-    const step = minStep + (stepRange * i) / (xTickCount - 1)
-    return Math.round(step)
-  })
-
-  const yTickCount = 5
-  const yTicks = Array.from({ length: yTickCount }, (_, i) => {
-    return yMin + (yRange * i) / (yTickCount - 1)
-  })
-
-  // LR axis ticks (right)
-  const lrTicks = hasLr ? Array.from({ length: yTickCount }, (_, i) => {
-    return lrMin + (lrRange * i) / (yTickCount - 1)
-  }) : []
-  const yLrTick = (lr) => pad.top + (1 - (lr - lrMin) / lrRange) * ch
-
-  // Epoch boundary markers
+  // Epoch boundaries from the full events list if provided
   const epochBoundaries = []
-  for (let i = 1; i < events.length; i++) {
-    const prevEpoch = Math.floor(events[i - 1].current_epoch || 0)
-    const curEpoch = Math.floor(events[i].current_epoch || 0)
+  const evts = events || data
+  for (let i = 1; i < evts.length; i++) {
+    const prevEpoch = Math.floor(evts[i - 1].current_epoch || 0)
+    const curEpoch = Math.floor(evts[i].current_epoch || 0)
     if (curEpoch > prevEpoch && curEpoch > 0) {
-      epochBoundaries.push({ step: events[i].current_step, epoch: curEpoch })
+      epochBoundaries.push({ step: evts[i].current_step, epoch: curEpoch })
     }
   }
+
+  const fmtVal = formatValue || ((v) => formatAxisValue(v, 3))
 
   const handleMouseMove = (e) => {
     if (!svgRef.current) return
     const rect = svgRef.current.getBoundingClientRect()
     const mx = ((e.clientX - rect.left) / rect.width) * W
     const step = minStep + ((mx - pad.left) / cw) * stepRange
-    // Find nearest event
-    let nearest = events[0], bestDist = Infinity
-    for (const ev of events) {
-      const d = Math.abs(ev.current_step - step)
-      if (d < bestDist) { bestDist = d; nearest = ev }
+    let nearest = data[0], bestDist = Infinity
+    for (const d of data) {
+      const dist = Math.abs(d.current_step - step)
+      if (dist < bestDist) { bestDist = dist; nearest = d }
     }
-    setTooltip({ x: x(nearest.current_step), y: yLoss(nearest.loss), data: nearest })
+    setTooltip({ x: x(nearest.current_step), y: y(nearest[valueKey]), data: nearest })
   }
 
   return (
-    <div style={{ marginBottom: 'var(--spacing-md)' }}>
-      <div style={{ fontSize: '0.875rem', fontWeight: 'bold', marginBottom: 'var(--spacing-xs)', display: 'flex', alignItems: 'center', gap: 'var(--spacing-md)' }}>
-        <span>Training Curves</span>
-        <span style={{ fontSize: '0.75rem', fontWeight: 'normal', color: 'var(--color-primary)' }}>
-          <span style={{ display: 'inline-block', width: 16, height: 2, background: 'var(--color-primary)', verticalAlign: 'middle', marginRight: 4 }} /> Loss
-        </span>
-        {hasLr && (
-          <span style={{ fontSize: '0.75rem', fontWeight: 'normal', color: 'var(--color-text-muted)' }}>
-            <span style={{ display: 'inline-block', width: 16, height: 0, borderTop: '2px dashed var(--color-text-muted)', verticalAlign: 'middle', marginRight: 4 }} /> Learning Rate
-          </span>
-        )}
+    <div>
+      <div style={{ fontSize: '0.8125rem', fontWeight: 600, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
+        <span style={{ display: 'inline-block', width: 12, height: 3, background: color, borderRadius: 2 }} />
+        {label}
       </div>
       <svg
         ref={svgRef}
         viewBox={`0 0 ${W} ${H}`}
-        style={{ width: '100%', height: 'auto', maxHeight: 400, background: 'var(--color-bg-secondary)', borderRadius: 'var(--radius-sm)' }}
+        style={{ width: '100%', height: 'auto', maxHeight: 220, background: 'var(--color-bg-secondary)', borderRadius: 'var(--radius-sm)' }}
         onMouseMove={handleMouseMove}
         onMouseLeave={() => setTooltip(null)}
       >
-        {/* Grid lines */}
         {yTicks.map((val, i) => (
-          <line key={i} x1={pad.left} x2={W - pad.right} y1={yLoss(val)} y2={yLoss(val)}
-            stroke="currentColor" strokeOpacity={0.1} strokeDasharray="4 4" />
+          <line key={i} x1={pad.left} x2={W - pad.right} y1={y(val)} y2={y(val)}
+            stroke="currentColor" strokeOpacity={0.08} strokeDasharray="3 3" />
         ))}
-
-        {/* Epoch boundary markers */}
         {epochBoundaries.map((eb, i) => (
           <g key={i}>
             <line x1={x(eb.step)} x2={x(eb.step)} y1={pad.top} y2={H - pad.bottom}
-              stroke="currentColor" strokeOpacity={0.2} strokeDasharray="6 3" />
-            <text x={x(eb.step)} y={pad.top - 4} textAnchor="middle"
-              fill="currentColor" fillOpacity={0.4} fontSize={9}>
-              Epoch {eb.epoch}
-            </text>
+              stroke="currentColor" strokeOpacity={0.15} strokeDasharray="4 3" />
           </g>
         ))}
-
-        {/* Loss curve */}
-        <polyline points={lossPoints} fill="none" stroke="var(--color-primary)" strokeWidth={2} strokeLinejoin="round" />
-
-        {/* Learning rate curve */}
-        {hasLr && lrPoints && (
-          <polyline points={lrPoints} fill="none" stroke="currentColor" strokeOpacity={0.35}
-            strokeWidth={1.5} strokeDasharray="4 3" strokeLinejoin="round" />
-        )}
-
-        {/* X axis */}
+        <polyline points={points} fill="none" stroke={color} strokeWidth={1.5} strokeLinejoin="round" />
         <line x1={pad.left} x2={W - pad.right} y1={H - pad.bottom} y2={H - pad.bottom}
-          stroke="currentColor" strokeOpacity={0.3} />
+          stroke="currentColor" strokeOpacity={0.2} />
         {xTicks.map((step, i) => (
-          <g key={i}>
-            <line x1={x(step)} x2={x(step)} y1={H - pad.bottom} y2={H - pad.bottom + 4}
-              stroke="currentColor" strokeOpacity={0.3} />
-            <text x={x(step)} y={H - pad.bottom + 16} textAnchor="middle"
-              fill="currentColor" fillOpacity={0.6} fontSize={10}>
-              {step}
-            </text>
-          </g>
+          <text key={i} x={x(step)} y={H - pad.bottom + 14} textAnchor="middle"
+            fill="currentColor" fillOpacity={0.5} fontSize={9}>{step}</text>
         ))}
-        <text x={pad.left + cw / 2} y={H - 4} textAnchor="middle"
-          fill="currentColor" fillOpacity={0.5} fontSize={10}>
-          Step
-        </text>
-
-        {/* Y axis (left - Loss) */}
         <line x1={pad.left} x2={pad.left} y1={pad.top} y2={H - pad.bottom}
-          stroke="currentColor" strokeOpacity={0.3} />
+          stroke="currentColor" strokeOpacity={0.2} />
         {yTicks.map((val, i) => (
-          <g key={i}>
-            <line x1={pad.left - 4} x2={pad.left} y1={yLoss(val)} y2={yLoss(val)}
-              stroke="currentColor" strokeOpacity={0.3} />
-            <text x={pad.left - 8} y={yLoss(val) + 3} textAnchor="end"
-              fill="currentColor" fillOpacity={0.6} fontSize={10}>
-              {formatAxisValue(val, 3)}
-            </text>
-          </g>
+          <text key={i} x={pad.left - 6} y={y(val) + 3} textAnchor="end"
+            fill="currentColor" fillOpacity={0.5} fontSize={9}>{fmtVal(val)}</text>
         ))}
-        <text x={14} y={pad.top + ch / 2} textAnchor="middle"
-          fill="currentColor" fillOpacity={0.5} fontSize={10}
-          transform={`rotate(-90, 14, ${pad.top + ch / 2})`}>
-          Loss
-        </text>
-
-        {/* Y axis (right - Learning Rate) */}
-        {hasLr && (
-          <>
-            <line x1={W - pad.right} x2={W - pad.right} y1={pad.top} y2={H - pad.bottom}
-              stroke="currentColor" strokeOpacity={0.15} />
-            {lrTicks.map((val, i) => (
-              <g key={i}>
-                <line x1={W - pad.right} x2={W - pad.right + 4} y1={yLrTick(val)} y2={yLrTick(val)}
-                  stroke="currentColor" strokeOpacity={0.2} />
-                <text x={W - pad.right + 8} y={yLrTick(val) + 3} textAnchor="start"
-                  fill="currentColor" fillOpacity={0.4} fontSize={9}>
-                  {val.toExponential(0)}
-                </text>
-              </g>
-            ))}
-            <text x={W - 8} y={pad.top + ch / 2} textAnchor="middle"
-              fill="currentColor" fillOpacity={0.4} fontSize={9}
-              transform={`rotate(90, ${W - 8}, ${pad.top + ch / 2})`}>
-              LR
-            </text>
-          </>
-        )}
-
-        {/* Tooltip */}
+        <text x={pad.left + cw / 2} y={H - 2} textAnchor="middle"
+          fill="currentColor" fillOpacity={0.4} fontSize={8}>Step</text>
         {tooltip && (
           <g>
             <line x1={tooltip.x} x2={tooltip.x} y1={pad.top} y2={H - pad.bottom}
-              stroke="var(--color-primary)" strokeOpacity={0.4} strokeDasharray="2 2" />
-            <circle cx={tooltip.x} cy={tooltip.y} r={4} fill="var(--color-primary)" />
-            <rect x={tooltip.x + 8} y={tooltip.y - 36} width={140} height={48} rx={4}
-              fill="var(--color-bg)" stroke="var(--color-border)" strokeWidth={1}
-              style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.15))' }} />
-            <text x={tooltip.x + 16} y={tooltip.y - 20} fill="currentColor" fontSize={10}>
-              Step: {tooltip.data.current_step} | Epoch: {(tooltip.data.current_epoch || 0).toFixed(1)}
+              stroke={color} strokeOpacity={0.4} strokeDasharray="2 2" />
+            <circle cx={tooltip.x} cy={tooltip.y} r={3} fill={color} />
+            <rect x={Math.min(tooltip.x + 8, W - 120)} y={tooltip.y - 24} width={110} height={30} rx={3}
+              fill="var(--color-bg)" stroke="var(--color-border)" strokeWidth={1} />
+            <text x={Math.min(tooltip.x + 14, W - 114)} y={tooltip.y - 10} fill="currentColor" fontSize={9}>
+              Step {tooltip.data.current_step}
             </text>
-            <text x={tooltip.x + 16} y={tooltip.y - 6} fill="var(--color-primary)" fontSize={10} fontWeight="bold">
-              Loss: {tooltip.data.loss?.toFixed(4)}
+            <text x={Math.min(tooltip.x + 14, W - 114)} y={tooltip.y + 2} fill={color} fontSize={9} fontWeight="bold">
+              {fmtVal(tooltip.data[valueKey])}
             </text>
-            {tooltip.data.learning_rate > 0 && (
-              <text x={tooltip.x + 16} y={tooltip.y + 8} fill="currentColor" fillOpacity={0.6} fontSize={9}>
-                LR: {tooltip.data.learning_rate?.toExponential(2)}
-              </text>
-            )}
           </g>
         )}
       </svg>
+    </div>
+  )
+}
+
+function ChartsGrid({ events }) {
+  const lossData = events.filter(e => e.loss > 0)
+  const evalData = events.filter(e => e.eval_loss > 0)
+  const lrData = events.filter(e => e.learning_rate != null && e.learning_rate > 0)
+  const gradNormData = events.filter(e => e.grad_norm != null && e.grad_norm > 0)
+
+  const fmtExp = (v) => v.toExponential(1)
+
+  if (lossData.length < 2 && lrData.length < 2 && gradNormData.length < 2) return null
+
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)', marginBottom: 'var(--spacing-md)' }}>
+      <SingleMetricChart data={lossData} valueKey="loss" label="Training Loss" color="#3b82f6" events={events} />
+      {evalData.length >= 1 ? (
+        <SingleMetricChart data={evalData} valueKey="eval_loss" label="Eval Loss" color="#ef4444" events={events} />
+      ) : (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--color-bg-secondary)', borderRadius: 'var(--radius-sm)', minHeight: 120 }}>
+          <span style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)' }}>
+            <i className="fas fa-chart-area" style={{ marginRight: 6 }} />
+            Eval Loss — waiting for eval data
+          </span>
+        </div>
+      )}
+      <SingleMetricChart data={lrData} valueKey="learning_rate" label="Learning Rate" color="#8b5cf6" formatValue={fmtExp} events={events} />
+      <SingleMetricChart data={gradNormData} valueKey="grad_norm" label="Gradient Norm" color="#f97316" events={events} />
     </div>
   )
 }
@@ -512,8 +433,8 @@ function TrainingMonitor({ job, onStop }) {
         </div>
       )}
 
-      {/* Training chart */}
-      <TrainingChart events={events} />
+      {/* Training charts (2x2 grid) */}
+      <ChartsGrid events={events} />
 
       {latest?.message && (
         <div style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>
@@ -815,6 +736,12 @@ export default function FineTune() {
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [resumeFromCheckpoint, setResumeFromCheckpoint] = useState('')
   const [saveTotalLimit, setSaveTotalLimit] = useState(0)
+  const [evalEnabled, setEvalEnabled] = useState(false)
+  const [evalStrategy, setEvalStrategy] = useState('steps')
+  const [evalSteps, setEvalSteps] = useState(0)
+  const [evalSplit, setEvalSplit] = useState('')
+  const [evalDatasetSource, setEvalDatasetSource] = useState('')
+  const [evalSplitRatio, setEvalSplitRatio] = useState(0.1)
   const [rewardFunctions, setRewardFunctions] = useState([]) // [{type, name, code?, params?}]
   const [showAddCustomReward, setShowAddCustomReward] = useState(false)
   const [customRewardName, setCustomRewardName] = useState('')
@@ -862,6 +789,15 @@ export default function FineTune() {
       if (maxSeqLength) extra.max_seq_length = String(maxSeqLength)
       if (hfToken.trim()) extra.hf_token = hfToken.trim()
       if (saveTotalLimit > 0) extra.save_total_limit = String(saveTotalLimit)
+      if (evalEnabled) {
+        extra.eval_strategy = evalStrategy || 'steps'
+        if (evalSteps > 0) extra.eval_steps = String(evalSteps)
+        if (evalSplit.trim()) extra.eval_split = evalSplit.trim()
+        if (evalDatasetSource.trim()) extra.eval_dataset_source = evalDatasetSource.trim()
+        if (evalSplitRatio > 0 && evalSplitRatio !== 0.1) extra.eval_split_ratio = String(evalSplitRatio)
+      } else {
+        extra.eval_strategy = 'no'
+      }
       for (const { key, value } of extraOptions) {
         if (key.trim()) extra[key.trim()] = value
       }
@@ -960,6 +896,11 @@ export default function FineTune() {
       seed,
       mixed_precision: mixedPrecision,
       max_seq_length: maxSeqLength,
+      eval_strategy: evalEnabled ? (evalStrategy || 'steps') : 'no',
+      eval_steps: evalSteps,
+      eval_split: evalSplit,
+      eval_dataset_source: evalDatasetSource,
+      eval_split_ratio: evalSplitRatio,
       extra_options: Object.keys(extra).length > 0 ? extra : {},
       reward_functions: rewardFunctions.length > 0 ? rewardFunctions : undefined,
     }
@@ -1001,6 +942,24 @@ export default function FineTune() {
       setMaxSeqLength(Number(config.extra_options.max_seq_length))
     }
 
+    // Eval options — detect enabled state from strategy
+    const restoreEval = (strategy, steps, split, src, ratio) => {
+      if (strategy != null && strategy !== 'no') {
+        setEvalEnabled(true)
+        setEvalStrategy(strategy)
+      } else if (strategy === 'no') {
+        setEvalEnabled(false)
+      }
+      if (steps != null) setEvalSteps(Number(steps))
+      if (split != null) setEvalSplit(split)
+      if (src != null) setEvalDatasetSource(src)
+      if (ratio != null) setEvalSplitRatio(Number(ratio))
+    }
+    restoreEval(config.eval_strategy, config.eval_steps, config.eval_split, config.eval_dataset_source, config.eval_split_ratio)
+    // Also restore from extra_options if present (overrides top-level)
+    const eo = config.extra_options
+    if (eo) restoreEval(eo.eval_strategy, eo.eval_steps, eo.eval_split, eo.eval_dataset_source, eo.eval_split_ratio)
+
     // Handle save_total_limit from extra_options
     if (config.extra_options?.save_total_limit != null) {
       setSaveTotalLimit(Number(config.extra_options.save_total_limit))
@@ -1009,7 +968,7 @@ export default function FineTune() {
     // Convert extra_options object to [{key, value}] entries, filtering out handled keys
     if (config.extra_options && typeof config.extra_options === 'object') {
       const entries = Object.entries(config.extra_options)
-        .filter(([k]) => !['max_seq_length', 'save_total_limit', 'hf_token'].includes(k))
+        .filter(([k]) => !['max_seq_length', 'save_total_limit', 'hf_token', 'eval_strategy', 'eval_steps', 'eval_split', 'eval_dataset_source', 'eval_split_ratio'].includes(k))
         .map(([key, value]) => ({ key, value: String(value) }))
       setExtraOptions(entries)
     }
@@ -1440,6 +1399,53 @@ export default function FineTune() {
                   </div>
                 </div>
 
+                <div style={{ marginBottom: 'var(--spacing-md)' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', cursor: 'pointer', marginBottom: 'var(--spacing-sm)' }}>
+                    <div
+                      onClick={() => setEvalEnabled(!evalEnabled)}
+                      style={{
+                        width: 36, height: 20, borderRadius: 10, position: 'relative',
+                        background: evalEnabled ? 'var(--color-primary)' : 'var(--color-border)',
+                        transition: 'background 0.2s', cursor: 'pointer', flexShrink: 0,
+                      }}
+                    >
+                      <div style={{
+                        width: 16, height: 16, borderRadius: '50%', background: '#fff',
+                        position: 'absolute', top: 2, left: evalEnabled ? 18 : 2,
+                        transition: 'left 0.2s', boxShadow: '0 1px 2px rgba(0,0,0,0.2)',
+                      }} />
+                    </div>
+                    <span style={{ fontSize: '0.875rem', fontWeight: 600 }}>Enable Evaluation</span>
+                  </label>
+                  {evalEnabled && (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 'var(--spacing-md)', paddingLeft: 'var(--spacing-sm)' }}>
+                      <div>
+                        <label className="form-label">Eval Strategy</label>
+                        <select value={evalStrategy} onChange={e => setEvalStrategy(e.target.value)} className="input">
+                          <option value="steps">Steps</option>
+                          <option value="epoch">Epoch</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="form-label">Eval Steps (0 = same as save)</label>
+                        <input type="number" value={evalSteps} onChange={e => setEvalSteps(Number(e.target.value))} className="input" min={0} />
+                      </div>
+                      <div>
+                        <label className="form-label">Eval Split</label>
+                        <input type="text" value={evalSplit} onChange={e => setEvalSplit(e.target.value)} placeholder="e.g. validation" className="input" />
+                      </div>
+                      <div>
+                        <label className="form-label">Eval Dataset Source</label>
+                        <input type="text" value={evalDatasetSource} onChange={e => setEvalDatasetSource(e.target.value)} placeholder="Separate HF dataset" className="input" />
+                      </div>
+                      <div>
+                        <label className="form-label">Auto-split Ratio</label>
+                        <input type="number" value={evalSplitRatio} onChange={e => setEvalSplitRatio(Number(e.target.value))} className="input" min={0.01} max={0.5} step={0.01} />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 {resumeFromCheckpoint && (
                   <div style={{ marginBottom: 'var(--spacing-md)' }}>
                     <label className="form-label">Resume from Checkpoint</label>
@@ -1474,8 +1480,31 @@ export default function FineTune() {
         </form>
       )}
 
-      {/* Jobs list */}
-      <div style={{ display: 'grid', gridTemplateColumns: selectedJob ? '1fr 2fr' : '1fr', gap: 'var(--spacing-md)' }}>
+      {/* Either show job detail OR job list — not side-by-side */}
+      {selectedJob ? (
+        <div>
+          <button className="btn" onClick={() => setSelectedJob(null)} style={{ marginBottom: 'var(--spacing-md)' }}>
+            <i className="fas fa-arrow-left" style={{ marginRight: 'var(--spacing-xs)' }} />
+            Back to Jobs
+          </button>
+          <div className="card" style={{ marginBottom: 'var(--spacing-md)', padding: 'var(--spacing-md)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <h3 style={{ margin: 0 }}>{selectedJob.model}</h3>
+                <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', marginTop: 'var(--spacing-xs)' }}>
+                  {selectedJob.backend} / {selectedJob.training_method || 'sft'} | ID: {selectedJob.id?.slice(0, 8)}... | {selectedJob.created_at}
+                </div>
+              </div>
+              <span className={`badge ${statusBadgeClass[selectedJob.status] || ''}`}>
+                {selectedJob.status}
+              </span>
+            </div>
+          </div>
+          <TrainingMonitor job={selectedJob} onStop={handleStop} />
+          <CheckpointsPanel job={selectedJob} onResume={handleResumeFromCheckpoint} onExportCheckpoint={handleExportCheckpoint} />
+          <ExportPanel job={selectedJob} prefilledCheckpoint={exportCheckpoint} />
+        </div>
+      ) : (
         <div>
           <h3 style={{ margin: '0 0 var(--spacing-sm) 0' }}>Jobs</h3>
           {jobs.length === 0 ? (
@@ -1486,19 +1515,11 @@ export default function FineTune() {
             </div>
           ) : (
             jobs.map(job => (
-              <JobCard key={job.id} job={job} isSelected={selectedJob?.id === job.id} onSelect={setSelectedJob} onUseConfig={handleUseConfig} onDelete={handleDelete} />
+              <JobCard key={job.id} job={job} isSelected={false} onSelect={setSelectedJob} onUseConfig={handleUseConfig} onDelete={handleDelete} />
             ))
           )}
         </div>
-
-        {selectedJob && (
-          <div>
-            <TrainingMonitor job={selectedJob} onStop={handleStop} />
-            <CheckpointsPanel job={selectedJob} onResume={handleResumeFromCheckpoint} onExportCheckpoint={handleExportCheckpoint} />
-            <ExportPanel job={selectedJob} prefilledCheckpoint={exportCheckpoint} />
-          </div>
-        )}
-      </div>
+      )}
     </div>
   )
 }

@@ -80,13 +80,14 @@ func UploadToCollectionEndpoint(app *application.Application) echo.HandlerFunc {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
 		}
 		defer src.Close()
-		if err := svc.UploadToCollectionForUser(userID, name, file.Filename, src); err != nil {
+		key, err := svc.UploadToCollectionForUser(userID, name, file.Filename, src)
+		if err != nil {
 			if strings.Contains(err.Error(), "not found") {
 				return c.JSON(http.StatusNotFound, map[string]string{"error": err.Error()})
 			}
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		}
-		return c.JSON(http.StatusOK, map[string]string{"status": "ok", "filename": file.Filename})
+		return c.JSON(http.StatusOK, map[string]string{"status": "ok", "filename": file.Filename, "key": key})
 	}
 }
 

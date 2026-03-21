@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -179,11 +180,12 @@ func (s *FineTuneService) StartJob(ctx context.Context, userID string, req schem
 		grpcReq.ExtraOptions["reward_funcs"] = string(rfJSON)
 	}
 
-	// Load the fine-tuning backend
+	// Load the fine-tuning backend (per-job model ID so multiple jobs can run concurrently)
+	modelID := backendName + "-finetune-" + jobID
 	backendModel, err := s.modelLoader.Load(
 		model.WithBackendString(backendName),
 		model.WithModel(backendName),
-		model.WithModelID(backendName+"-finetune"),
+		model.WithModelID(modelID),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load backend %s: %w", backendName, err)
@@ -204,6 +206,7 @@ func (s *FineTuneService) StartJob(ctx context.Context, userID string, req schem
 		UserID:         userID,
 		Model:          req.Model,
 		Backend:        backendName,
+		ModelID:        modelID,
 		TrainingType:   req.TrainingType,
 		TrainingMethod: req.TrainingMethod,
 		Status:         "queued",
@@ -237,7 +240,7 @@ func (s *FineTuneService) GetJob(userID, jobID string) (*schema.FineTuneJob, err
 	return job, nil
 }
 
-// ListJobs returns all jobs for a user.
+// ListJobs returns all jobs for a user, sorted by creation time (newest first).
 func (s *FineTuneService) ListJobs(userID string) []*schema.FineTuneJob {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -248,6 +251,11 @@ func (s *FineTuneService) ListJobs(userID string) []*schema.FineTuneJob {
 			result = append(result, job)
 		}
 	}
+
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].CreatedAt > result[j].CreatedAt
+	})
+
 	return result
 }
 
@@ -265,12 +273,12 @@ func (s *FineTuneService) StopJob(ctx context.Context, userID, jobID string, sav
 	}
 	s.mu.Unlock()
 
-	// Kill the backend process directly — gRPC stop deadlocks on single-threaded Python backends
-	modelID := job.Backend + "-finetune"
-	err := s.modelLoader.ShutdownModel(modelID)
-	if err != nil {
-		return fmt.Errorf("failed to stop backend: %w", err)
+	// Kill the backend process directly
+	stopModelID := job.ModelID
+	if stopModelID == "" {
+		stopModelID = job.Backend + "-finetune"
 	}
+	s.modelLoader.ShutdownModel(stopModelID)
 
 	s.mu.Lock()
 	job.Status = "stopped"
@@ -355,10 +363,14 @@ func (s *FineTuneService) StreamProgress(ctx context.Context, userID, jobID stri
 	}
 	s.mu.Unlock()
 
+	streamModelID := job.ModelID
+	if streamModelID == "" {
+		streamModelID = job.Backend + "-finetune"
+	}
 	backendModel, err := s.modelLoader.Load(
 		model.WithBackendString(job.Backend),
 		model.WithModel(job.Backend),
-		model.WithModelID(job.Backend+"-finetune"),
+		model.WithModelID(streamModelID),
 	)
 	if err != nil {
 		return fmt.Errorf("failed to load backend: %w", err)
@@ -424,10 +436,14 @@ func (s *FineTuneService) ListCheckpoints(ctx context.Context, userID, jobID str
 	}
 	s.mu.Unlock()
 
+	ckptModelID := job.ModelID
+	if ckptModelID == "" {
+		ckptModelID = job.Backend + "-finetune"
+	}
 	backendModel, err := s.modelLoader.Load(
 		model.WithBackendString(job.Backend),
 		model.WithModel(job.Backend),
-		model.WithModelID(job.Backend+"-finetune"),
+		model.WithModelID(ckptModelID),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load backend: %w", err)
@@ -514,10 +530,14 @@ func (s *FineTuneService) ExportModel(ctx context.Context, userID, jobID string,
 	go func() {
 		s.setExportMessage(job, "Loading export backend...")
 
+		exportModelID := job.ModelID
+		if exportModelID == "" {
+			exportModelID = job.Backend + "-finetune"
+		}
 		backendModel, err := s.modelLoader.Load(
 			model.WithBackendString(job.Backend),
 			model.WithModel(job.Backend),
-			model.WithModelID(job.Backend+"-finetune"),
+			model.WithModelID(exportModelID),
 		)
 		if err != nil {
 			s.setExportFailed(job, fmt.Sprintf("failed to load backend: %v", err))

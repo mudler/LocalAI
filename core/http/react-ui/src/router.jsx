@@ -31,6 +31,7 @@ import BackendLogs from './pages/BackendLogs'
 import Explorer from './pages/Explorer'
 import Login from './pages/Login'
 import FineTune from './pages/FineTune'
+import Studio from './pages/Studio'
 import NotFound from './pages/NotFound'
 import Usage from './pages/Usage'
 import Users from './pages/Users'
@@ -43,6 +44,7 @@ function BrowseRedirect() {
   const { '*': splat } = useParams()
   return <Navigate to={`/app/${splat || ''}`} replace />
 }
+
 
 function Admin({ children }) {
   return <RequireAdmin>{children}</RequireAdmin>
@@ -65,6 +67,7 @@ const appChildren = [
   { path: 'tts/:model', element: <TTS /> },
   { path: 'sound', element: <Sound /> },
   { path: 'sound/:model', element: <Sound /> },
+  { path: 'studio', element: <Studio /> },
   { path: 'talk', element: <Talk /> },
   { path: 'usage', element: <Usage /> },
   { path: 'account', element: <Account /> },

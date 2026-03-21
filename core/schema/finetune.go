@@ -55,6 +55,7 @@ type FineTuneJob struct {
 	UserID         string            `json:"user_id,omitempty"`
 	Model          string            `json:"model"`
 	Backend        string            `json:"backend"`
+	ModelID        string            `json:"model_id,omitempty"` // backend model loader ID
 	TrainingType   string            `json:"training_type"`
 	TrainingMethod string            `json:"training_method"`
 	Status         string            `json:"status"` // queued, loading_model, loading_dataset, training, saving, completed, failed, stopped
