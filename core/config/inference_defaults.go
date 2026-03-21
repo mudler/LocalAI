@@ -67,15 +67,27 @@ func MatchModelFamily(modelID string) map[string]float64 {
 	return nil
 }
 
-// ApplyInferenceDefaults sets recommended inference parameters on cfg based on modelID.
+// ApplyInferenceDefaults sets recommended inference parameters on cfg based on modelIDs.
+// Tries each modelID in order; the first match wins.
 // Only fills in parameters that are not already set (nil pointers or zero values).
-func ApplyInferenceDefaults(cfg *ModelConfig, modelID string) {
-	family := MatchModelFamily(modelID)
+func ApplyInferenceDefaults(cfg *ModelConfig, modelIDs ...string) {
+	var family map[string]float64
+	var matchedID string
+	for _, id := range modelIDs {
+		if id == "" {
+			continue
+		}
+		if f := MatchModelFamily(id); f != nil {
+			family = f
+			matchedID = id
+			break
+		}
+	}
 	if family == nil {
 		return
 	}
 
-	xlog.Debug("[inference_defaults] applying defaults for model", "modelID", modelID, "family", family)
+	xlog.Debug("[inference_defaults] applying defaults for model", "modelID", matchedID, "family", family)
 
 	if cfg.Temperature == nil {
 		if v, ok := family["temperature"]; ok {

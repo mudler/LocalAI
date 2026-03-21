@@ -264,6 +264,15 @@ func InstallModel(ctx context.Context, systemState *system.SystemState, nameOver
 			return nil, fmt.Errorf("failed to unmarshal updated config YAML: %v", err)
 		}
 
+		// Apply model-family-specific inference defaults so they are persisted in the config YAML.
+		lconfig.ApplyInferenceDefaults(&modelConfig, name, modelConfig.Model)
+
+		// Re-marshal to include any inference defaults that were applied.
+		updatedConfigYAML, err = yaml.Marshal(modelConfig)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal config with inference defaults: %v", err)
+		}
+
 		if valid, err := modelConfig.Validate(); !valid {
 			return nil, fmt.Errorf("failed to validate updated config YAML: %v", err)
 		}
