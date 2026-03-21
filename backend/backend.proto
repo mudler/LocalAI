@@ -46,6 +46,11 @@ service Backend {
   rpc StopFineTune(FineTuneStopRequest) returns (Result) {}
   rpc ListCheckpoints(ListCheckpointsRequest) returns (ListCheckpointsResponse) {}
   rpc ExportModel(ExportModelRequest) returns (Result) {}
+
+  // Quantization RPCs
+  rpc StartQuantization(QuantizationRequest) returns (QuantizationJobResult) {}
+  rpc QuantizationProgress(QuantizationProgressRequest) returns (stream QuantizationProgressUpdate) {}
+  rpc StopQuantization(QuantizationStopRequest) returns (Result) {}
 }
 
 // Define the empty request
@@ -636,4 +641,37 @@ message ExportModelRequest {
   string quantization_method = 4;     // for GGUF: q4_k_m, q5_k_m, q8_0, f16, etc.
   string model = 5;                   // base model name (for merge operations)
   map<string, string> extra_options = 6;
+}
+
+// Quantization messages
+
+message QuantizationRequest {
+  string model = 1;                      // HF model name or local path
+  string quantization_type = 2;          // q4_k_m, q5_k_m, q8_0, f16, etc.
+  string output_dir = 3;                 // where to write output files
+  string job_id = 4;                     // client-assigned job ID
+  map<string, string> extra_options = 5; // hf_token, custom flags, etc.
+}
+
+message QuantizationJobResult {
+  string job_id = 1;
+  bool success = 2;
+  string message = 3;
+}
+
+message QuantizationProgressRequest {
+  string job_id = 1;
+}
+
+message QuantizationProgressUpdate {
+  string job_id = 1;
+  float progress_percent = 2;
+  string status = 3;                     // queued, downloading, converting, quantizing, completed, failed, stopped
+  string message = 4;
+  string output_file = 5;               // set when completed — path to the output GGUF file
+  map<string, float> extra_metrics = 6;  // e.g. file_size_mb, compression_ratio
+}
+
+message QuantizationStopRequest {
+  string job_id = 1;
 }

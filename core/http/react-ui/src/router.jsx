@@ -32,6 +32,7 @@ import BackendLogs from './pages/BackendLogs'
 import Explorer from './pages/Explorer'
 import Login from './pages/Login'
 import FineTune from './pages/FineTune'
+import Quantize from './pages/Quantize'
 import Studio from './pages/Studio'
 import NotFound from './pages/NotFound'
 import Usage from './pages/Usage'
@@ -95,6 +96,7 @@ const appChildren = [
   { path: 'agent-jobs/tasks/:id/edit', element: <Feature feature="mcp_jobs"><AgentTaskDetails /></Feature> },
   { path: 'agent-jobs/jobs/:id', element: <Feature feature="mcp_jobs"><AgentJobDetails /></Feature> },
   { path: 'fine-tune', element: <Feature feature="fine_tuning"><FineTune /></Feature> },
+  { path: 'quantize', element: <Feature feature="quantization"><Quantize /></Feature> },
   { path: 'model-editor/:name', element: <Admin><ModelEditor /></Admin> },
   { path: 'pipeline-editor', element: <Admin><PipelineEditor /></Admin> },
   { path: 'pipeline-editor/:name', element: <Admin><PipelineEditor /></Admin> },

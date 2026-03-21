@@ -3081,3 +3081,31 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-cublas-cuda13-trl"
   mirrors:
     - localai/localai-backends:master-cublas-cuda13-trl
+## llama.cpp quantization backend
+- &llama-cpp-quantization
+  name: "llama-cpp-quantization"
+  alias: "llama-cpp-quantization"
+  license: mit
+  icon: https://user-images.githubusercontent.com/1991296/230134379-7181e485-c521-4d23-a0d6-f7b3b61ba524.png
+  description: |
+    Model quantization backend using llama.cpp. Downloads HuggingFace models, converts them to GGUF format,
+    and quantizes them to various formats (q4_k_m, q5_k_m, q8_0, f16, etc.).
+  urls:
+    - https://github.com/ggml-org/llama.cpp
+  tags:
+    - quantization
+    - GGUF
+    - CPU
+  capabilities:
+    default: "cpu-llama-cpp-quantization"
+    metal: "metal-darwin-arm64-llama-cpp-quantization"
+- !!merge <<: *llama-cpp-quantization
+  name: "cpu-llama-cpp-quantization"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-llama-cpp-quantization"
+  mirrors:
+    - localai/localai-backends:latest-cpu-llama-cpp-quantization
+- !!merge <<: *llama-cpp-quantization
+  name: "metal-darwin-arm64-llama-cpp-quantization"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-metal-darwin-arm64-llama-cpp-quantization"
+  mirrors:
+    - localai/localai-backends:latest-metal-darwin-arm64-llama-cpp-quantization

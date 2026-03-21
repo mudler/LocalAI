@@ -304,15 +304,22 @@ func API(application *application.Application) (*echo.Echo, error) {
 	routes.RegisterLocalAIRoutes(e, requestExtractor, application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig(), application.GalleryService(), opcache, application.TemplatesEvaluator(), application, adminMiddleware, mcpJobsMw, mcpMw)
 	routes.RegisterAgentPoolRoutes(e, application, agentsMw, skillsMw, collectionsMw)
 	// Fine-tuning routes
-	if application.ApplicationConfig().FineTuning.Enabled {
-		fineTuningMw := auth.RequireFeature(application.AuthDB(), auth.FeatureFineTuning)
-		ftService := services.NewFineTuneService(
-			application.ApplicationConfig(),
-			application.ModelLoader(),
-			application.ModelConfigLoader(),
-		)
-		routes.RegisterFineTuningRoutes(e, ftService, application.ApplicationConfig(), fineTuningMw)
-	}
+	fineTuningMw := auth.RequireFeature(application.AuthDB(), auth.FeatureFineTuning)
+	ftService := services.NewFineTuneService(
+		application.ApplicationConfig(),
+		application.ModelLoader(),
+		application.ModelConfigLoader(),
+	)
+	routes.RegisterFineTuningRoutes(e, ftService, application.ApplicationConfig(), fineTuningMw)
+
+	// Quantization routes
+	quantizationMw := auth.RequireFeature(application.AuthDB(), auth.FeatureQuantization)
+	qService := services.NewQuantizationService(
+		application.ApplicationConfig(),
+		application.ModelLoader(),
+		application.ModelConfigLoader(),
+	)
+	routes.RegisterQuantizationRoutes(e, qService, application.ApplicationConfig(), quantizationMw)
 
 	routes.RegisterOpenAIRoutes(e, requestExtractor, application)
 	routes.RegisterAnthropicRoutes(e, requestExtractor, application)
