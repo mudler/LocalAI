@@ -68,7 +68,7 @@ var _ = Describe("ImportLocalPath", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(cfg.Backend).To(Equal("transformers"))
 			Expect(cfg.Model).To(Equal("meta-llama/Llama-2-7b-hf"))
-			Expect(cfg.LLMConfig.LoraAdapter).To(Equal(modelDir))
+			Expect(cfg.LLMConfig.LoraAdapter).To(Equal("lora-model"))
 			Expect(cfg.TemplateConfig.UseTokenizerTemplate).To(BeTrue())
 		})
 
@@ -100,7 +100,7 @@ var _ = Describe("ImportLocalPath", func() {
 			cfg, err := importers.ImportLocalPath(modelDir, "merged")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(cfg.Backend).To(Equal("transformers"))
-			Expect(cfg.Model).To(Equal(modelDir))
+			Expect(cfg.Model).To(Equal("merged"))
 			Expect(cfg.TemplateConfig.UseTokenizerTemplate).To(BeTrue())
 		})
 
@@ -113,7 +113,7 @@ var _ = Describe("ImportLocalPath", func() {
 			cfg, err := importers.ImportLocalPath(modelDir, "merged-pt")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(cfg.Backend).To(Equal("transformers"))
-			Expect(cfg.Model).To(Equal(modelDir))
+			Expect(cfg.Model).To(Equal("merged-pt"))
 		})
 	})
 
