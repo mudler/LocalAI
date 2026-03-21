@@ -329,6 +329,7 @@ export const usageApi = {
     if (userId) url += `&user_id=${encodeURIComponent(userId)}`
     return fetchJSON(url)
   },
+  getMyQuotas: () => fetchJSON('/api/auth/quota'),
 }
 
 // Admin Users API
