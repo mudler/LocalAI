@@ -136,6 +136,7 @@ json parse_options(bool streaming, const backend::PredictOptions* predict, const
     data["mirostat_eta"] = predict->mirostateta();
     data["n_keep"] = predict->nkeep();
     data["seed"] = predict->seed();
+    data["min_p"] = predict->minp();
 
 
     std::string grammar_str = predict->grammar();

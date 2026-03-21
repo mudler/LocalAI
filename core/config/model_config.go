@@ -378,6 +378,7 @@ func (cfg *ModelConfig) SetDefaults(opts ...ConfigLoaderOption) {
 	// https://github.com/ggerganov/llama.cpp/blob/75cd4c77292034ecec587ecb401366f57338f7c0/common/sampling.h#L22
 	defaultTopP := 0.95
 	defaultTopK := 40
+	defaultMinP := 0.0
 	defaultTemp := 0.9
 	// https://github.com/mudler/LocalAI/issues/2780
 	defaultMirostat := 0
@@ -398,6 +399,10 @@ func (cfg *ModelConfig) SetDefaults(opts ...ConfigLoaderOption) {
 
 	if cfg.TopK == nil {
 		cfg.TopK = &defaultTopK
+	}
+
+	if cfg.MinP == nil {
+		cfg.MinP = &defaultMinP
 	}
 
 	if cfg.TypicalP == nil {
