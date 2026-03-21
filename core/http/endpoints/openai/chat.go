@@ -751,8 +751,8 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 							collectedToolCalls = mergeToolCallDeltas(collectedToolCalls, ev.Choices[0].Delta.ToolCalls)
 						}
 					}
-					// Collect content for MCP conversation history
-					if hasMCPToolsStream && ev.Choices[0].Delta != nil && ev.Choices[0].Delta.Content != nil {
+					// Collect content for MCP conversation history and automatic tool parsing fallback
+					if (hasMCPToolsStream || config.FunctionsConfig.AutomaticToolParsingFallback) && ev.Choices[0].Delta != nil && ev.Choices[0].Delta.Content != nil {
 						if s, ok := ev.Choices[0].Delta.Content.(string); ok {
 							collectedContent += s
 						} else if sp, ok := ev.Choices[0].Delta.Content.(*string); ok && sp != nil {
@@ -854,6 +854,43 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 
 					xlog.Debug("MCP streaming tools executed, re-running inference", "iteration", mcpStreamIter)
 					continue // next MCP stream iteration
+				}
+			}
+
+			// Automatic tool parsing fallback for streaming: when no tools were
+			// requested but the model emitted tool call markup, parse and emit them.
+			if !shouldUseFn && config.FunctionsConfig.AutomaticToolParsingFallback && collectedContent != "" && !toolsCalled {
+				parsed := functions.ParseFunctionCall(collectedContent, config.FunctionsConfig)
+				for i, fc := range parsed {
+					toolCallID := fc.ID
+					if toolCallID == "" {
+						toolCallID = id
+					}
+					toolCallMsg := schema.OpenAIResponse{
+						ID:      id,
+						Created: created,
+						Model:   input.Model,
+						Choices: []schema.Choice{{
+							Delta: &schema.Message{
+								Role: "assistant",
+								ToolCalls: []schema.ToolCall{{
+									Index: i,
+									ID:    toolCallID,
+									Type:  "function",
+									FunctionCall: schema.FunctionCall{
+										Name:      fc.Name,
+										Arguments: fc.Arguments,
+									},
+								}},
+							},
+							Index: 0,
+						}},
+						Object: "chat.completion.chunk",
+					}
+					respData, _ := json.Marshal(toolCallMsg)
+					fmt.Fprintf(c.Response().Writer, "data: %s\n\n", respData)
+					c.Response().Flush()
+					toolsCalled = true
 				}
 			}
 
