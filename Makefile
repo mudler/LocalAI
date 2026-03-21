@@ -107,7 +107,7 @@ core/http/react-ui/dist: react-ui
 
 ## Build:
 
-build: protogen-go install-go-tools core/http/react-ui/dist ## Build the project
+build: protogen-go generate install-go-tools core/http/react-ui/dist ## Build the project
 	$(info ${GREEN}I local-ai build info:${RESET})
 	$(info ${GREEN}I BUILD_TYPE: ${YELLOW}$(BUILD_TYPE)${RESET})
 	$(info ${GREEN}I GO_TAGS: ${YELLOW}$(GO_TAGS)${RESET})
@@ -397,6 +397,16 @@ protogen-go: protoc install-go-tools
 	mkdir -p pkg/grpc/proto
 	./protoc --experimental_allow_proto3_optional -Ibackend/ --go_out=pkg/grpc/proto/ --go_opt=paths=source_relative --go-grpc_out=pkg/grpc/proto/ --go-grpc_opt=paths=source_relative \
     backend/backend.proto
+
+core/config/inference_defaults.json: ## Fetch inference defaults from unsloth (only if missing)
+	$(GOCMD) generate ./core/config/...
+
+.PHONY: generate
+generate: core/config/inference_defaults.json ## Ensure inference defaults exist
+
+.PHONY: generate-force
+generate-force: ## Re-fetch inference defaults from unsloth (always)
+	$(GOCMD) generate ./core/config/...
 
 .PHONY: protogen-go-clean
 protogen-go-clean:

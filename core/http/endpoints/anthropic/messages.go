@@ -306,6 +306,35 @@ func handleAnthropicNonStream(c echo.Context, id string, input *schema.Anthropic
 			if textContent != "" {
 				contentBlocks = append([]schema.AnthropicContentBlock{{Type: "text", Text: textContent}}, contentBlocks...)
 			}
+		} else if !shouldUseFn && cfg.FunctionsConfig.AutomaticToolParsingFallback && result != "" {
+			// Automatic tool parsing fallback: no tools in request but model emitted tool call markup
+			parsed := functions.ParseFunctionCall(result, cfg.FunctionsConfig)
+			if len(parsed) > 0 {
+				stopReason = "tool_use"
+				stripped := functions.StripToolCallMarkup(result)
+				if stripped != "" {
+					contentBlocks = append(contentBlocks, schema.AnthropicContentBlock{Type: "text", Text: stripped})
+				}
+				for i, fc := range parsed {
+					var inputArgs map[string]interface{}
+					if err := json.Unmarshal([]byte(fc.Arguments), &inputArgs); err != nil {
+						inputArgs = map[string]interface{}{"raw": fc.Arguments}
+					}
+					toolCallID := fc.ID
+					if toolCallID == "" {
+						toolCallID = fmt.Sprintf("toolu_%s_%d", id, i)
+					}
+					contentBlocks = append(contentBlocks, schema.AnthropicContentBlock{
+						Type:  "tool_use",
+						ID:    toolCallID,
+						Name:  fc.Name,
+						Input: inputArgs,
+					})
+				}
+			} else {
+				stopReason = "end_turn"
+				contentBlocks = []schema.AnthropicContentBlock{{Type: "text", Text: result}}
+			}
 		} else {
 			stopReason = "end_turn"
 			contentBlocks = []schema.AnthropicContentBlock{
@@ -519,6 +548,51 @@ func handleAnthropicStream(c echo.Context, id string, input *schema.AnthropicReq
 
 				xlog.Debug("Anthropic MCP streaming tools executed, re-running inference", "iteration", mcpIteration)
 				continue // next MCP iteration
+			}
+		}
+
+		// Automatic tool parsing fallback for streaming: when no tools were requested
+		// but the model emitted tool call markup, parse and emit as tool_use blocks.
+		if !shouldUseFn && cfg.FunctionsConfig.AutomaticToolParsingFallback && accumulatedContent != "" && toolCallsEmitted == 0 {
+			parsed := functions.ParseFunctionCall(accumulatedContent, cfg.FunctionsConfig)
+			if len(parsed) > 0 {
+				// Close the text content block
+				sendAnthropicSSE(c, schema.AnthropicStreamEvent{
+					Type:  "content_block_stop",
+					Index: currentBlockIndex,
+				})
+				currentBlockIndex++
+				inToolCall = true
+
+				for i, fc := range parsed {
+					toolCallID := fc.ID
+					if toolCallID == "" {
+						toolCallID = fmt.Sprintf("toolu_%s_%d", id, i)
+					}
+					sendAnthropicSSE(c, schema.AnthropicStreamEvent{
+						Type:  "content_block_start",
+						Index: currentBlockIndex,
+						ContentBlock: &schema.AnthropicContentBlock{
+							Type: "tool_use",
+							ID:   toolCallID,
+							Name: fc.Name,
+						},
+					})
+					sendAnthropicSSE(c, schema.AnthropicStreamEvent{
+						Type:  "content_block_delta",
+						Index: currentBlockIndex,
+						Delta: &schema.AnthropicStreamDelta{
+							Type:        "input_json_delta",
+							PartialJSON: fc.Arguments,
+						},
+					})
+					sendAnthropicSSE(c, schema.AnthropicStreamEvent{
+						Type:  "content_block_stop",
+						Index: currentBlockIndex,
+					})
+					currentBlockIndex++
+					toolCallsEmitted++
+				}
 			}
 		}
 

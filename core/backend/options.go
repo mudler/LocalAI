@@ -252,6 +252,7 @@ func gRPCPredictOpts(c config.ModelConfig, modelPath string) *pb.PredictOptions 
 		TopP:                float32(*c.TopP),
 		NDraft:              c.NDraft,
 		TopK:                int32(*c.TopK),
+		MinP:                float32(*c.MinP),
 		Tokens:              int32(*c.Maxtokens),
 		Threads:             int32(*c.Threads),
 		PromptCacheAll:      c.PromptCacheAll,

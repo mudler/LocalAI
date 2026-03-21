@@ -76,6 +76,8 @@ func guessGGUFFromFile(cfg *ModelConfig, f *gguf.GGUFFile, defaultCtx int) {
 	cfg.Options = append(cfg.Options, "use_jinja:true")
 	cfg.KnownUsecaseStrings = append(cfg.KnownUsecaseStrings, "FLAG_CHAT")
 
+	// Apply per-model-family inference parameter defaults (temperature, top_p, etc.)
+	ApplyInferenceDefaults(cfg, f.Metadata().Name)
 }
 
 // DetectThinkingSupportFromBackend calls the ModelMetadata gRPC method to detect
