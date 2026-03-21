@@ -147,6 +147,22 @@ func (e *embedBackend) ExportModel(ctx context.Context, in *pb.ExportModelReques
 	return e.s.ExportModel(ctx, in)
 }
 
+func (e *embedBackend) StartQuantization(ctx context.Context, in *pb.QuantizationRequest, opts ...grpc.CallOption) (*pb.QuantizationJobResult, error) {
+	return e.s.StartQuantization(ctx, in)
+}
+
+func (e *embedBackend) QuantizationProgress(ctx context.Context, in *pb.QuantizationProgressRequest, f func(update *pb.QuantizationProgressUpdate), opts ...grpc.CallOption) error {
+	bs := &embedBackendQuantizationProgressStream{
+		ctx: ctx,
+		fn:  f,
+	}
+	return e.s.QuantizationProgress(in, bs)
+}
+
+func (e *embedBackend) StopQuantization(ctx context.Context, in *pb.QuantizationStopRequest, opts ...grpc.CallOption) (*pb.Result, error) {
+	return e.s.StopQuantization(ctx, in)
+}
+
 var _ pb.Backend_FineTuneProgressServer = new(embedBackendFineTuneProgressStream)
 
 type embedBackendFineTuneProgressStream struct {
@@ -182,6 +198,44 @@ func (e *embedBackendFineTuneProgressStream) SendMsg(m any) error {
 }
 
 func (e *embedBackendFineTuneProgressStream) RecvMsg(m any) error {
+	return nil
+}
+
+var _ pb.Backend_QuantizationProgressServer = new(embedBackendQuantizationProgressStream)
+
+type embedBackendQuantizationProgressStream struct {
+	ctx context.Context
+	fn  func(update *pb.QuantizationProgressUpdate)
+}
+
+func (e *embedBackendQuantizationProgressStream) Send(update *pb.QuantizationProgressUpdate) error {
+	e.fn(update)
+	return nil
+}
+
+func (e *embedBackendQuantizationProgressStream) SetHeader(md metadata.MD) error {
+	return nil
+}
+
+func (e *embedBackendQuantizationProgressStream) SendHeader(md metadata.MD) error {
+	return nil
+}
+
+func (e *embedBackendQuantizationProgressStream) SetTrailer(md metadata.MD) {
+}
+
+func (e *embedBackendQuantizationProgressStream) Context() context.Context {
+	return e.ctx
+}
+
+func (e *embedBackendQuantizationProgressStream) SendMsg(m any) error {
+	if x, ok := m.(*pb.QuantizationProgressUpdate); ok {
+		return e.Send(x)
+	}
+	return nil
+}
+
+func (e *embedBackendQuantizationProgressStream) RecvMsg(m any) error {
 	return nil
 }
 

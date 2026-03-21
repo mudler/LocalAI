@@ -410,6 +410,19 @@ export const fineTuneApi = {
   downloadUrl: (id) => apiUrl(`/api/fine-tuning/jobs/${enc(id)}/download`),
 }
 
+// Quantization API
+export const quantizationApi = {
+  listBackends: () => fetchJSON('/api/quantization/backends'),
+  startJob: (data) => postJSON('/api/quantization/jobs', data),
+  listJobs: () => fetchJSON('/api/quantization/jobs'),
+  getJob: (id) => fetchJSON(`/api/quantization/jobs/${enc(id)}`),
+  stopJob: (id) => fetchJSON(`/api/quantization/jobs/${enc(id)}/stop`, { method: 'POST' }),
+  deleteJob: (id) => fetchJSON(`/api/quantization/jobs/${enc(id)}`, { method: 'DELETE' }),
+  importModel: (id, data) => postJSON(`/api/quantization/jobs/${enc(id)}/import`, data),
+  progressUrl: (id) => apiUrl(`/api/quantization/jobs/${enc(id)}/progress`),
+  downloadUrl: (id) => apiUrl(`/api/quantization/jobs/${enc(id)}/download`),
+}
+
 // File to base64 helper
 export function fileToBase64(file) {
   return new Promise((resolve, reject) => {

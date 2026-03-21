@@ -121,9 +121,6 @@ type RunCMD struct {
 	AgentPoolCollectionDBPath string `env:"LOCALAI_AGENT_POOL_COLLECTION_DB_PATH" help:"Database path for agent collections" group:"agents"`
 	AgentHubURL               string `env:"LOCALAI_AGENT_HUB_URL" default:"https://agenthub.localai.io" help:"URL for the agent hub where users can browse and download agent configurations" group:"agents"`
 
-	// Fine-tuning
-	EnableFineTuning bool `env:"LOCALAI_ENABLE_FINETUNING" default:"false" help:"Enable fine-tuning support" group:"finetuning"`
-
 	// Authentication
 	AuthEnabled          bool   `env:"LOCALAI_AUTH" default:"false" help:"Enable user authentication and authorization" group:"auth"`
 	AuthDatabaseURL      string `env:"LOCALAI_AUTH_DATABASE_URL,DATABASE_URL" help:"Database URL for auth (postgres:// or file path for SQLite). Defaults to {DataPath}/database.db" group:"auth"`
@@ -327,11 +324,6 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 	}
 	if r.AgentHubURL != "" {
 		opts = append(opts, config.WithAgentHubURL(r.AgentHubURL))
-	}
-
-	// Fine-tuning
-	if r.EnableFineTuning {
-		opts = append(opts, config.EnableFineTuning)
 	}
 
 	// Authentication
