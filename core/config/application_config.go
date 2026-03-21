@@ -97,6 +97,9 @@ type ApplicationConfig struct {
 	// Agent Pool (LocalAGI integration)
 	AgentPool AgentPoolConfig
 
+	// Fine-tuning
+	FineTuning FineTuningConfig
+
 	// Authentication & Authorization
 	Auth AuthConfig
 }
@@ -140,6 +143,11 @@ type AgentPoolConfig struct {
 	ChunkOverlap     int    // default: 0
 	DatabaseURL      string
 	AgentHubURL      string // default: "https://agenthub.localai.io"
+}
+
+// FineTuningConfig holds configuration for fine-tuning support.
+type FineTuningConfig struct {
+	Enabled bool
 }
 
 type AppOption func(*ApplicationConfig)
@@ -731,6 +739,12 @@ func WithAgentHubURL(url string) AppOption {
 	return func(o *ApplicationConfig) {
 		o.AgentPool.AgentHubURL = url
 	}
+}
+
+// Fine-tuning options
+
+var EnableFineTuning = func(o *ApplicationConfig) {
+	o.FineTuning.Enabled = true
 }
 
 // Auth options

@@ -39,6 +39,13 @@ service Backend {
   rpc AudioDecode(AudioDecodeRequest) returns (AudioDecodeResult) {}
 
   rpc ModelMetadata(ModelOptions) returns (ModelMetadataResponse) {}
+
+  // Fine-tuning RPCs
+  rpc StartFineTune(FineTuneRequest) returns (FineTuneJobResult) {}
+  rpc FineTuneProgress(FineTuneProgressRequest) returns (stream FineTuneProgressUpdate) {}
+  rpc StopFineTune(FineTuneStopRequest) returns (Result) {}
+  rpc ListCheckpoints(ListCheckpointsRequest) returns (ListCheckpointsResponse) {}
+  rpc ExportModel(ExportModelRequest) returns (Result) {}
 }
 
 // Define the empty request
@@ -527,4 +534,106 @@ message ModelMetadataResponse {
   bool supports_thinking = 1;
   string rendered_template = 2;  // The rendered chat template with enable_thinking=true (empty if not applicable)
   ToolFormatMarkers tool_format = 3;  // Auto-detected tool format markers from differential template analysis
+}
+
+// Fine-tuning messages
+
+message FineTuneRequest {
+  // Model identification
+  string model = 1;                       // HF model name or local path
+  string training_type = 2;              // "lora", "loha", "lokr", "full" — what parameters to train
+  string training_method = 3;            // "sft", "dpo", "grpo", "rloo", "reward", "kto", "orpo", "network_training"
+
+  // Adapter config (universal across LoRA/LoHa/LoKr for LLM + diffusion)
+  int32 adapter_rank = 10;               // LoRA rank (r), default 16
+  int32 adapter_alpha = 11;              // scaling factor, default 16
+  float adapter_dropout = 12;            // default 0.0
+  repeated string target_modules = 13;   // layer names to adapt
+
+  // Universal training hyperparameters
+  float learning_rate = 20;              // default 2e-4
+  int32 num_epochs = 21;                 // default 3
+  int32 batch_size = 22;                 // default 2
+  int32 gradient_accumulation_steps = 23; // default 4
+  int32 warmup_steps = 24;              // default 5
+  int32 max_steps = 25;                 // 0 = use epochs
+  int32 save_steps = 26;               // 0 = only save final
+  float weight_decay = 27;             // default 0.01
+  bool gradient_checkpointing = 28;
+  string optimizer = 29;               // adamw_8bit, adamw, sgd, adafactor, prodigy
+  int32 seed = 30;                     // default 3407
+  string mixed_precision = 31;        // fp16, bf16, fp8, no
+
+  // Dataset
+  string dataset_source = 40;          // HF dataset ID, local file/dir path
+  string dataset_split = 41;           // train, test, etc.
+
+  // Output
+  string output_dir = 50;
+  string job_id = 51;                  // client-assigned or auto-generated
+
+  // Resume training from a checkpoint
+  string resume_from_checkpoint = 55;  // path to checkpoint dir to resume from
+
+  // Backend-specific AND method-specific extensibility
+  map<string, string> extra_options = 60;
+}
+
+message FineTuneJobResult {
+  string job_id = 1;
+  bool success = 2;
+  string message = 3;
+}
+
+message FineTuneProgressRequest {
+  string job_id = 1;
+}
+
+message FineTuneProgressUpdate {
+  string job_id = 1;
+  int32 current_step = 2;
+  int32 total_steps = 3;
+  float current_epoch = 4;
+  float total_epochs = 5;
+  float loss = 6;
+  float learning_rate = 7;
+  float grad_norm = 8;
+  float eval_loss = 9;
+  float eta_seconds = 10;
+  float progress_percent = 11;
+  string status = 12;                  // queued, caching, loading_model, loading_dataset, training, saving, completed, failed, stopped
+  string message = 13;
+  string checkpoint_path = 14;        // set when a checkpoint is saved
+  string sample_path = 15;           // set when a sample is generated (video/image backends)
+  map<string, float> extra_metrics = 16; // method-specific metrics
+}
+
+message FineTuneStopRequest {
+  string job_id = 1;
+  bool save_checkpoint = 2;
+}
+
+message ListCheckpointsRequest {
+  string output_dir = 1;
+}
+
+message ListCheckpointsResponse {
+  repeated CheckpointInfo checkpoints = 1;
+}
+
+message CheckpointInfo {
+  string path = 1;
+  int32 step = 2;
+  float epoch = 3;
+  float loss = 4;
+  string created_at = 5;
+}
+
+message ExportModelRequest {
+  string checkpoint_path = 1;
+  string output_path = 2;
+  string export_format = 3;           // lora, loha, lokr, merged_16bit, merged_4bit, gguf, diffusers
+  string quantization_method = 4;     // for GGUF: q4_k_m, q5_k_m, q8_0, f16, etc.
+  string model = 5;                   // base model name (for merge operations)
+  map<string, string> extra_options = 6;
 }

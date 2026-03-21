@@ -35,6 +35,13 @@ type AIModel interface {
 	AudioDecode(*pb.AudioDecodeRequest) (*pb.AudioDecodeResult, error)
 
 	ModelMetadata(*pb.ModelOptions) (*pb.ModelMetadataResponse, error)
+
+	// Fine-tuning
+	StartFineTune(*pb.FineTuneRequest) (*pb.FineTuneJobResult, error)
+	FineTuneProgress(*pb.FineTuneProgressRequest, chan *pb.FineTuneProgressUpdate) error
+	StopFineTune(*pb.FineTuneStopRequest) error
+	ListCheckpoints(*pb.ListCheckpointsRequest) (*pb.ListCheckpointsResponse, error)
+	ExportModel(*pb.ExportModelRequest) error
 }
 
 func newReply(s string) *pb.Reply {

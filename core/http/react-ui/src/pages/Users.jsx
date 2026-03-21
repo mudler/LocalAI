@@ -45,9 +45,11 @@ function PermissionSummary({ user, onClick }) {
   const perms = user.permissions || {}
   const apiFeatures = ['chat', 'images', 'audio_speech', 'audio_transcription', 'vad', 'detection', 'video', 'embeddings', 'sound']
   const agentFeatures = ['agents', 'skills', 'collections', 'mcp_jobs']
+  const generalFeatures = ['fine_tuning']
 
   const apiOn = apiFeatures.filter(f => perms[f] !== false && (perms[f] === true || perms[f] === undefined)).length
   const agentOn = agentFeatures.filter(f => perms[f]).length
+  const generalOn = generalFeatures.filter(f => perms[f]).length
 
   const modelRestricted = user.allowed_models?.enabled
 
@@ -58,7 +60,7 @@ function PermissionSummary({ user, onClick }) {
       title="Edit permissions"
     >
       <i className="fas fa-shield-halved" />
-      {apiOn}/{apiFeatures.length} API, {agentOn}/{agentFeatures.length} Agent
+      {apiOn}/{apiFeatures.length} API, {agentOn}/{agentFeatures.length} Agent, {generalOn}/{generalFeatures.length} Features
       {modelRestricted && ' | Models restricted'}
     </button>
   )
@@ -71,6 +73,7 @@ function PermissionsModal({ user, featureMeta, availableModels, onClose, onSave,
 
   const apiFeatures = featureMeta?.api_features || []
   const agentFeatures = featureMeta?.agent_features || []
+  const generalFeatures = featureMeta?.general_features || []
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -188,6 +191,33 @@ function PermissionsModal({ user, featureMeta, availableModels, onClose, onSave,
             ))}
           </div>
         </div>
+
+        {/* General Features */}
+        {generalFeatures.length > 0 && (
+        <div className="perm-section">
+          <div className="perm-section-header">
+            <strong className="perm-section-title">
+              <i className="fas fa-sliders" />
+              Features
+            </strong>
+            <div className="action-group">
+              <button className="btn btn-sm btn-secondary perm-btn-all-none" onClick={() => setAllFeatures(generalFeatures, true)}>All</button>
+              <button className="btn btn-sm btn-secondary perm-btn-all-none" onClick={() => setAllFeatures(generalFeatures, false)}>None</button>
+            </div>
+          </div>
+          <div className="perm-grid">
+            {generalFeatures.map(f => (
+              <button
+                key={f.key}
+                className={`btn btn-sm ${permissions[f.key] ? 'btn-primary' : 'btn-secondary'} perm-btn-feature`}
+                onClick={() => toggleFeature(f.key)}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        )}
 
         {/* Model Access */}
         <div className="perm-section">
@@ -509,6 +539,9 @@ export default function Users() {
           { key: 'skills', label: 'Skills', default: false },
           { key: 'collections', label: 'Collections', default: false },
           { key: 'mcp_jobs', label: 'MCP CI Jobs', default: false },
+        ],
+        general_features: [
+          { key: 'fine_tuning', label: 'Fine-Tuning', default: false },
         ],
       })
     }

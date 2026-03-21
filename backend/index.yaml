@@ -3030,3 +3030,54 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-voxtral"
   mirrors:
     - localai/localai-backends:master-metal-darwin-arm64-voxtral
+- &trl
+  name: "trl"
+  alias: "trl"
+  license: apache-2.0
+  description: |
+    HuggingFace TRL fine-tuning backend. Supports SFT, DPO, GRPO, RLOO, Reward, KTO, ORPO training methods.
+    Works on CPU and GPU.
+  urls:
+    - https://github.com/huggingface/trl
+  tags:
+    - fine-tuning
+    - LLM
+    - CPU
+    - GPU
+    - CUDA
+  capabilities:
+    default: "cpu-trl"
+    nvidia: "cuda12-trl"
+    nvidia-cuda-12: "cuda12-trl"
+    nvidia-cuda-13: "cuda13-trl"
+## TRL backend images
+- !!merge <<: *trl
+  name: "cpu-trl"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-trl"
+  mirrors:
+    - localai/localai-backends:latest-cpu-trl
+- !!merge <<: *trl
+  name: "cpu-trl-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-cpu-trl"
+  mirrors:
+    - localai/localai-backends:master-cpu-trl
+- !!merge <<: *trl
+  name: "cuda12-trl"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-cublas-cuda12-trl"
+  mirrors:
+    - localai/localai-backends:latest-cublas-cuda12-trl
+- !!merge <<: *trl
+  name: "cuda12-trl-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-cublas-cuda12-trl"
+  mirrors:
+    - localai/localai-backends:master-cublas-cuda12-trl
+- !!merge <<: *trl
+  name: "cuda13-trl"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-cublas-cuda13-trl"
+  mirrors:
+    - localai/localai-backends:latest-cublas-cuda13-trl
+- !!merge <<: *trl
+  name: "cuda13-trl-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-cublas-cuda13-trl"
+  mirrors:
+    - localai/localai-backends:master-cublas-cuda13-trl

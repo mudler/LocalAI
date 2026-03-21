@@ -777,9 +777,10 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 		}
 
 		return c.JSON(http.StatusOK, map[string]interface{}{
-			"agent_features": auth.AgentFeatureMetas(),
-			"api_features":   auth.APIFeatureMetas(),
-			"models":         modelNames,
+			"agent_features":   auth.AgentFeatureMetas(),
+			"general_features": auth.GeneralFeatureMetas(),
+			"api_features":     auth.APIFeatureMetas(),
+			"models":           modelNames,
 		})
 	}, adminMw)
 
