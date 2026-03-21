@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/subtle"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -368,6 +369,55 @@ func extractModelFromRequest(c echo.Context) string {
 		return model
 	}
 	return ""
+}
+
+// RequireQuota returns a global middleware that enforces per-user quota rules.
+// If no auth DB is provided, it's a no-op. Admin users always bypass quotas.
+// Only inference routes (those listed in RouteFeatureRegistry) count toward quota.
+func RequireQuota(db *gorm.DB) echo.MiddlewareFunc {
+	if db == nil {
+		return NoopMiddleware()
+	}
+	// Pre-build lookup set from RouteFeatureRegistry — only these routes
+	// should count toward quota. Mirrors RequireRouteFeature's approach.
+	inferenceRoutes := map[string]bool{}
+	for _, rf := range RouteFeatureRegistry {
+		inferenceRoutes[rf.Method+":"+rf.Pattern] = true
+	}
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			// Only enforce quotas on inference routes
+			path := c.Path()
+			method := c.Request().Method
+			if !inferenceRoutes[method+":"+path] && !inferenceRoutes["*:"+path] {
+				return next(c)
+			}
+
+			user := GetUser(c)
+			if user == nil {
+				return next(c)
+			}
+			if user.Role == RoleAdmin {
+				return next(c)
+			}
+
+			model := extractModelFromRequest(c)
+
+			exceeded, retryAfter, msg := QuotaExceeded(db, user.ID, model)
+			if exceeded {
+				c.Response().Header().Set("Retry-After", fmt.Sprintf("%d", retryAfter))
+				return c.JSON(http.StatusTooManyRequests, schema.ErrorResponse{
+					Error: &schema.APIError{
+						Message: msg,
+						Code:    http.StatusTooManyRequests,
+						Type:    "quota_exceeded",
+					},
+				})
+			}
+
+			return next(c)
+		}
+	}
 }
 
 // tryAuthenticate attempts to authenticate the request using the database.

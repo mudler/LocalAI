@@ -496,7 +496,7 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "not authenticated"})
 		}
 
-		return c.JSON(http.StatusOK, map[string]interface{}{
+		resp := map[string]interface{}{
 			"id":          user.ID,
 			"email":       user.Email,
 			"name":        user.Name,
@@ -504,7 +504,24 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 			"role":        user.Role,
 			"provider":    user.Provider,
 			"permissions": auth.GetPermissionMapForUser(db, user),
-		})
+		}
+		if quotas, err := auth.GetQuotaStatuses(db, user.ID); err == nil {
+			resp["quotas"] = quotas
+		}
+		return c.JSON(http.StatusOK, resp)
+	})
+
+	// GET /api/auth/quota - view own quota status
+	e.GET("/api/auth/quota", func(c echo.Context) error {
+		user := auth.GetUser(c)
+		if user == nil {
+			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "not authenticated"})
+		}
+		quotas, err := auth.GetQuotaStatuses(db, user.ID)
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to get quota status"})
+		}
+		return c.JSON(http.StatusOK, map[string]interface{}{"quotas": quotas})
 	})
 
 	// PUT /api/auth/profile - update user profile (name, avatar_url)
@@ -805,6 +822,9 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 			}
 			entry["permissions"] = auth.GetPermissionMapForUser(db, &u)
 			entry["allowed_models"] = auth.GetModelAllowlist(db, u.ID)
+			if quotas, err := auth.GetQuotaStatuses(db, u.ID); err == nil && len(quotas) > 0 {
+				entry["quotas"] = quotas
+			}
 			result = append(result, entry)
 		}
 
@@ -857,6 +877,49 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 		}
 
 		return c.JSON(http.StatusOK, map[string]string{"message": "status updated"})
+	}, adminMw)
+
+	// PUT /api/auth/admin/users/:id/password - admin reset user password
+	e.PUT("/api/auth/admin/users/:id/password", func(c echo.Context) error {
+		currentUser := auth.GetUser(c)
+		targetID := c.Param("id")
+
+		if currentUser.ID == targetID {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "cannot reset your own password via this endpoint, use self-service password change"})
+		}
+
+		var target auth.User
+		if err := db.First(&target, "id = ?", targetID).Error; err != nil {
+			return c.JSON(http.StatusNotFound, map[string]string{"error": "user not found"})
+		}
+
+		if target.Provider != auth.ProviderLocal {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "password reset is only available for local accounts"})
+		}
+
+		var body struct {
+			Password string `json:"password"`
+		}
+		if err := c.Bind(&body); err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request"})
+		}
+
+		if len(body.Password) < 8 {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "password must be at least 8 characters"})
+		}
+
+		hash, err := auth.HashPassword(body.Password)
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to hash password"})
+		}
+
+		if err := db.Model(&auth.User{}).Where("id = ?", targetID).Update("password_hash", hash).Error; err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to update password"})
+		}
+
+		auth.DeleteUserSessions(db, targetID)
+
+		return c.JSON(http.StatusOK, map[string]string{"message": "password reset successfully"})
 	}, adminMw)
 
 	// DELETE /api/auth/admin/users/:id - delete user
@@ -940,6 +1003,67 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 			"user_id":        targetID,
 			"allowed_models": allowlist,
 		})
+	}, adminMw)
+
+	// GET /api/auth/admin/users/:id/quotas - list user's quota rules
+	e.GET("/api/auth/admin/users/:id/quotas", func(c echo.Context) error {
+		targetID := c.Param("id")
+		var target auth.User
+		if err := db.First(&target, "id = ?", targetID).Error; err != nil {
+			return c.JSON(http.StatusNotFound, map[string]string{"error": "user not found"})
+		}
+		quotas, err := auth.GetQuotaStatuses(db, targetID)
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to get quotas"})
+		}
+		return c.JSON(http.StatusOK, map[string]interface{}{"quotas": quotas})
+	}, adminMw)
+
+	// PUT /api/auth/admin/users/:id/quotas - upsert quota rule (by user+model)
+	e.PUT("/api/auth/admin/users/:id/quotas", func(c echo.Context) error {
+		targetID := c.Param("id")
+		var target auth.User
+		if err := db.First(&target, "id = ?", targetID).Error; err != nil {
+			return c.JSON(http.StatusNotFound, map[string]string{"error": "user not found"})
+		}
+
+		var body struct {
+			Model          string `json:"model"`
+			MaxRequests    *int64 `json:"max_requests"`
+			MaxTotalTokens *int64 `json:"max_total_tokens"`
+			Window         string `json:"window"`
+		}
+		if err := c.Bind(&body); err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+		}
+		if body.Window == "" {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "window is required"})
+		}
+
+		windowSecs, err := auth.ParseWindowDuration(body.Window)
+		if err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+		}
+
+		rule, err := auth.CreateOrUpdateQuotaRule(db, targetID, body.Model, body.MaxRequests, body.MaxTotalTokens, windowSecs)
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to save quota rule"})
+		}
+
+		return c.JSON(http.StatusOK, map[string]interface{}{
+			"message": "quota rule saved",
+			"quota":   rule,
+		})
+	}, adminMw)
+
+	// DELETE /api/auth/admin/users/:id/quotas/:quota_id - delete a quota rule
+	e.DELETE("/api/auth/admin/users/:id/quotas/:quota_id", func(c echo.Context) error {
+		targetID := c.Param("id")
+		quotaID := c.Param("quota_id")
+		if err := auth.DeleteQuotaRule(db, quotaID, targetID); err != nil {
+			return c.JSON(http.StatusNotFound, map[string]string{"error": "quota rule not found"})
+		}
+		return c.JSON(http.StatusOK, map[string]string{"message": "quota rule deleted"})
 	}, adminMw)
 
 	// GET /api/auth/admin/usage - all users' usage (admin only)

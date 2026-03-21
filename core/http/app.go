@@ -221,6 +221,7 @@ func API(application *application.Application) (*echo.Echo, error) {
 	if application.AuthDB() != nil {
 		e.Use(auth.RequireRouteFeature(application.AuthDB()))
 		e.Use(auth.RequireModelAccess(application.AuthDB()))
+		e.Use(auth.RequireQuota(application.AuthDB()))
 	}
 
 	// CORS middleware
