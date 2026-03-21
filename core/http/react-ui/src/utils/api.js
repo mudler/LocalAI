@@ -350,6 +350,16 @@ export const adminUsersApi = {
   setModels: (id, allowlist) => fetchJSON(`/api/auth/admin/users/${encodeURIComponent(id)}/models`, {
     method: 'PUT', body: JSON.stringify(allowlist), headers: { 'Content-Type': 'application/json' },
   }),
+  getQuotas: (id) => fetchJSON(`/api/auth/admin/users/${encodeURIComponent(id)}/quotas`),
+  setQuota: (id, quota) => fetchJSON(`/api/auth/admin/users/${encodeURIComponent(id)}/quotas`, {
+    method: 'PUT', body: JSON.stringify(quota), headers: { 'Content-Type': 'application/json' },
+  }),
+  deleteQuota: (id, quotaId) => fetchJSON(`/api/auth/admin/users/${encodeURIComponent(id)}/quotas/${encodeURIComponent(quotaId)}`, {
+    method: 'DELETE',
+  }),
+  resetPassword: (id, password) => fetchJSON(`/api/auth/admin/users/${encodeURIComponent(id)}/password`, {
+    method: 'PUT', body: JSON.stringify({ password }), headers: { 'Content-Type': 'application/json' },
+  }),
 }
 
 // Profile API

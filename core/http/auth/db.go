@@ -33,9 +33,13 @@ func InitDB(databaseURL string) (*gorm.DB, error) {
 		return nil, fmt.Errorf("failed to open auth database: %w", err)
 	}
 
-	if err := db.AutoMigrate(&User{}, &Session{}, &UserAPIKey{}, &UsageRecord{}, &UserPermission{}, &InviteCode{}); err != nil {
+	if err := db.AutoMigrate(&User{}, &Session{}, &UserAPIKey{}, &UsageRecord{}, &UserPermission{}, &InviteCode{}, &QuotaRule{}); err != nil {
 		return nil, fmt.Errorf("failed to migrate auth tables: %w", err)
 	}
+
+	// Backfill: users created before the provider column existed have an empty
+	// provider — treat them as local accounts so the UI can identify them.
+	db.Exec("UPDATE users SET provider = ? WHERE provider = '' OR provider IS NULL", ProviderLocal)
 
 	// Create composite index on users(provider, subject) for fast OAuth lookups
 	if err := db.Exec("CREATE INDEX IF NOT EXISTS idx_users_provider_subject ON users(provider, subject)").Error; err != nil {
