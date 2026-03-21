@@ -1013,6 +1013,35 @@ func handleBackgroundNonStream(ctx context.Context, store *ResponseStore, respon
 					Content: []schema.ORContentPart{makeOutputTextPartWithLogprobs(result, resultLogprobs)},
 				})
 			}
+		} else if !shouldUseFn && cfg.FunctionsConfig.AutomaticToolParsingFallback && result != "" {
+			// Automatic tool parsing fallback: no tools in request but model emitted tool call markup
+			parsed := functions.ParseFunctionCall(result, cfg.FunctionsConfig)
+			if len(parsed) > 0 {
+				stripped := functions.StripToolCallMarkup(result)
+				if stripped != "" {
+					allOutputItems = append(allOutputItems, schema.ORItemField{
+						Type: "message", ID: fmt.Sprintf("msg_%s", uuid.New().String()),
+						Status: "completed", Role: "assistant",
+						Content: []schema.ORContentPart{makeOutputTextPartWithLogprobs(stripped, resultLogprobs)},
+					})
+				}
+				for _, fc := range parsed {
+					toolCallID := fc.ID
+					if toolCallID == "" {
+						toolCallID = fmt.Sprintf("fc_%s", uuid.New().String())
+					}
+					allOutputItems = append(allOutputItems, schema.ORItemField{
+						Type: "function_call", ID: fmt.Sprintf("fc_%s", uuid.New().String()),
+						Status: "completed", CallID: toolCallID, Name: fc.Name, Arguments: fc.Arguments,
+					})
+				}
+			} else {
+				allOutputItems = append(allOutputItems, schema.ORItemField{
+					Type: "message", ID: fmt.Sprintf("msg_%s", uuid.New().String()),
+					Status: "completed", Role: "assistant",
+					Content: []schema.ORContentPart{makeOutputTextPartWithLogprobs(result, resultLogprobs)},
+				})
+			}
 		} else {
 			allOutputItems = append(allOutputItems, schema.ORItemField{
 				Type: "message", ID: fmt.Sprintf("msg_%s", uuid.New().String()),
@@ -1531,6 +1560,43 @@ func handleOpenResponsesNonStream(c echo.Context, responseID string, createdAt i
 		}
 		if !hasMessageItem && cleanedResult != "" {
 			xlog.Debug("Open Responses - No parsed output, falling back to cleaned result")
+			outputItems = append(outputItems, schema.ORItemField{
+				Type:    "message",
+				ID:      fmt.Sprintf("msg_%s", uuid.New().String()),
+				Status:  "completed",
+				Role:    "assistant",
+				Content: []schema.ORContentPart{makeOutputTextPartWithLogprobs(cleanedResult, resultLogprobs)},
+			})
+		}
+	} else if !shouldUseFn && cfg.FunctionsConfig.AutomaticToolParsingFallback && cleanedResult != "" {
+		// Automatic tool parsing fallback: no tools in request but model emitted tool call markup
+		parsed := functions.ParseFunctionCall(cleanedResult, cfg.FunctionsConfig)
+		if len(parsed) > 0 {
+			stripped := functions.StripToolCallMarkup(cleanedResult)
+			if stripped != "" {
+				outputItems = append(outputItems, schema.ORItemField{
+					Type:    "message",
+					ID:      fmt.Sprintf("msg_%s", uuid.New().String()),
+					Status:  "completed",
+					Role:    "assistant",
+					Content: []schema.ORContentPart{makeOutputTextPartWithLogprobs(stripped, resultLogprobs)},
+				})
+			}
+			for _, fc := range parsed {
+				toolCallID := fc.ID
+				if toolCallID == "" {
+					toolCallID = fmt.Sprintf("fc_%s", uuid.New().String())
+				}
+				outputItems = append(outputItems, schema.ORItemField{
+					Type:      "function_call",
+					ID:        fmt.Sprintf("fc_%s", uuid.New().String()),
+					Status:    "completed",
+					CallID:    toolCallID,
+					Name:      fc.Name,
+					Arguments: fc.Arguments,
+				})
+			}
+		} else {
 			outputItems = append(outputItems, schema.ORItemField{
 				Type:    "message",
 				ID:      fmt.Sprintf("msg_%s", uuid.New().String()),
@@ -2514,6 +2580,15 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 
 	result = finalCleanedResult
 
+	// Automatic tool parsing fallback for streaming: parse tool calls from accumulated text
+	var streamFallbackToolCalls []functions.FuncCallResults
+	if cfg.FunctionsConfig.AutomaticToolParsingFallback && result != "" {
+		streamFallbackToolCalls = functions.ParseFunctionCall(result, cfg.FunctionsConfig)
+		if len(streamFallbackToolCalls) > 0 {
+			result = functions.StripToolCallMarkup(result)
+		}
+	}
+
 	// Convert logprobs for streaming events
 	mcpStreamLogprobs := convertLogprobsForStreaming(noToolLogprobs)
 
@@ -2552,10 +2627,42 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 	})
 	sequenceNumber++
 
+	// Emit function_call items from automatic tool parsing fallback
+	for _, fc := range streamFallbackToolCalls {
+		toolCallID := fc.ID
+		if toolCallID == "" {
+			toolCallID = fmt.Sprintf("fc_%s", uuid.New().String())
+		}
+		outputIndex++
+		functionCallItem := &schema.ORItemField{
+			Type:      "function_call",
+			ID:        toolCallID,
+			Status:    "completed",
+			CallID:    toolCallID,
+			Name:      fc.Name,
+			Arguments: fc.Arguments,
+		}
+		sendSSEEvent(c, &schema.ORStreamEvent{
+			Type:           "response.output_item.added",
+			SequenceNumber: sequenceNumber,
+			OutputIndex:    &outputIndex,
+			Item:           functionCallItem,
+		})
+		sequenceNumber++
+		sendSSEEvent(c, &schema.ORStreamEvent{
+			Type:           "response.output_item.done",
+			SequenceNumber: sequenceNumber,
+			OutputIndex:    &outputIndex,
+			Item:           functionCallItem,
+		})
+		sequenceNumber++
+		collectedOutputItems = append(collectedOutputItems, *functionCallItem)
+	}
+
 	// Emit response.completed
 	now := time.Now().Unix()
 
-	// Collect final output items (reasoning first, then message)
+	// Collect final output items (reasoning first, then messages, then tool calls)
 	var finalOutputItems []schema.ORItemField
 	// Add reasoning item if it exists
 	if currentReasoningID != "" && finalReasoning != "" {
@@ -2576,6 +2683,12 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 		}
 	} else {
 		finalOutputItems = append(finalOutputItems, *messageItem)
+	}
+	// Add function_call items from fallback
+	for _, item := range collectedOutputItems {
+		if item.Type == "function_call" {
+			finalOutputItems = append(finalOutputItems, item)
+		}
 	}
 	responseCompleted := buildORResponse(responseID, createdAt, &now, "completed", input, finalOutputItems, &schema.ORUsage{
 		InputTokens:  noToolTokenUsage.Prompt,

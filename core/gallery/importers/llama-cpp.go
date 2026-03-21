@@ -114,6 +114,7 @@ func (i *LlamaCPPImporter) Import(details Details) (gallery.ModelConfig, error) 
 			GrammarConfig: functions.GrammarConfig{
 				NoGrammar: true,
 			},
+			AutomaticToolParsingFallback: true,
 		},
 	}
 
@@ -248,6 +249,9 @@ func (i *LlamaCPPImporter) Import(details Details) (gallery.ModelConfig, error) 
 			break
 		}
 	}
+
+	// Apply per-model-family inference parameter defaults
+	config.ApplyInferenceDefaults(&modelConfig, details.URI)
 
 	data, err := yaml.Marshal(modelConfig)
 	if err != nil {

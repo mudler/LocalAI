@@ -1,0 +1,48 @@
+name: Bump inference defaults
+
+on:
+  schedule:
+    # Run daily at 06:00 UTC
+    - cron: '0 6 * * *'
+  workflow_dispatch: # Allow manual trigger
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Re-fetch inference defaults
+        run: make generate-force
+
+      - name: Check for changes
+        id: diff
+        run: |
+          if git diff --quiet core/config/inference_defaults.json; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create Pull Request
+        if: steps.diff.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@v7
+        with:
+          commit-message: "chore: bump inference defaults from unsloth"
+          title: "chore: bump inference defaults from unsloth"
+          body: |
+            Auto-generated update of `core/config/inference_defaults.json` from
+            [unsloth's inference_defaults.json](https://github.com/unslothai/unsloth/blob/main/studio/backend/assets/configs/inference_defaults.json).
+
+            This PR was created automatically by the `bump-inference-defaults` workflow.
+          branch: chore/bump-inference-defaults
+          delete-branch: true
+          labels: automated
