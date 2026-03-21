@@ -6,4 +6,6 @@ numba==0.60.0
 transformers>=5.0.0
 bitsandbytes
 sentence-transformers==5.2.3
+diffusers
+soundfile
 protobuf==6.33.5
