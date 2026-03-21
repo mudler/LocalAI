@@ -2569,26 +2569,20 @@ def hello():
 	})
 
 	Context("StripToolCallMarkup", func() {
-		It("removes closed tool_call blocks", func() {
-			input := "Here is my answer <tool_call>{\"name\":\"search\"}</tool_call> and more text"
+		It("removes functionary-style function blocks and keeps surrounding text", func() {
+			input := `Text before <function=search>{"q":"cats"}</function> text after`
 			result := StripToolCallMarkup(input)
-			Expect(result).To(Equal("Here is my answer  and more text"))
+			Expect(result).To(Equal("Text before text after"))
 		})
 
-		It("removes closed function blocks", func() {
-			input := "Text before <function=search>{\"q\":\"cats\"}</function> text after"
+		It("removes qwen3-coder-style tool_call blocks and keeps preceding text", func() {
+			input := `Here is my answer <tool_call><function=search><parameter=q>cats</parameter></function></tool_call>`
 			result := StripToolCallMarkup(input)
-			Expect(result).To(Equal("Text before  text after"))
-		})
-
-		It("removes open-ended tool_call at end of string", func() {
-			input := "Some text <tool_call>{\"name\":\"search\"}"
-			result := StripToolCallMarkup(input)
-			Expect(result).To(Equal("Some text"))
+			Expect(result).To(Equal("Here is my answer"))
 		})
 
 		It("returns empty string when content is only tool calls", func() {
-			input := "<tool_call>{\"name\":\"search\",\"arguments\":{}}</tool_call>"
+			input := `<function=search>{"q":"cats"}</function>`
 			result := StripToolCallMarkup(input)
 			Expect(result).To(Equal(""))
 		})

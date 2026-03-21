@@ -554,35 +554,64 @@ func getScopeOrToolStart(format *XMLToolCallFormat) string {
 	return format.ToolStart
 }
 
+// ParseResult holds tool calls and any non-tool-call content extracted by the parser.
+type ParseResult struct {
+	ToolCalls []FuncCallResults
+	Content   string
+}
+
 // tryParseXMLFromScopeStart finds the first occurrence of scopeStart (or format.ToolStart),
-// splits the input there, and parses only the suffix as XML tool calls. Returns (toolCalls, true)
-// if any tool calls were parsed, else (nil, false). This mimics llama.cpp's PEG order so that
+// splits the input there, and parses only the suffix as XML tool calls. Returns (result, true)
+// if any tool calls were parsed, else (empty, false). This mimics llama.cpp's PEG order so that
 // reasoning or content before the tool block does not cause "whitespace only before scope" to fail.
-func tryParseXMLFromScopeStart(s string, format *XMLToolCallFormat, isPartial bool) ([]FuncCallResults, bool) {
+func tryParseXMLFromScopeStart(s string, format *XMLToolCallFormat, isPartial bool) (ParseResult, bool) {
 	if format == nil {
-		return nil, false
+		return ParseResult{}, false
 	}
 	scopeStart := getScopeOrToolStart(format)
 	if scopeStart == "" {
-		return nil, false
+		return ParseResult{}, false
 	}
 	idx := strings.Index(s, scopeStart)
 	if idx < 0 {
-		return nil, false
+		return ParseResult{}, false
 	}
 	toolCallsPart := s[idx:]
 	parser := NewChatMsgParser(toolCallsPart, isPartial)
 	success, err := parser.TryConsumeXMLToolCalls(format)
 	if err != nil {
 		if _, ok := err.(*ChatMsgPartialException); ok && isPartial {
-			return parser.ToolCalls(), len(parser.ToolCalls()) > 0
+			tc := parser.ToolCalls()
+			if len(tc) > 0 {
+				return ParseResult{ToolCalls: tc, Content: buildContent(s[:idx], parser)}, true
+			}
 		}
-		return nil, false
+		return ParseResult{}, false
 	}
 	if success && len(parser.ToolCalls()) > 0 {
-		return parser.ToolCalls(), true
+		return ParseResult{
+			ToolCalls: parser.ToolCalls(),
+			Content:   buildContent(s[:idx], parser),
+		}, true
 	}
-	return nil, false
+	return ParseResult{}, false
+}
+
+// buildContent assembles the non-tool-call content from the text before the tool
+// block, any content tracked by the parser, and any unconsumed trailing text.
+func buildContent(before string, parser *ChatMsgParser) string {
+	var parts []string
+	if b := strings.TrimSpace(before); b != "" {
+		parts = append(parts, b)
+	}
+	if pc := strings.TrimSpace(parser.Content()); pc != "" {
+		parts = append(parts, pc)
+	}
+	remaining := parser.Input()[parser.Pos():]
+	if t := strings.TrimSpace(remaining); t != "" {
+		parts = append(parts, t)
+	}
+	return strings.Join(parts, " ")
 }
 
 // ParseXMLIterative parses XML tool calls using the iterative parser
@@ -592,15 +621,15 @@ func tryParseXMLFromScopeStart(s string, format *XMLToolCallFormat, isPartial bo
 func ParseXMLIterative(s string, format *XMLToolCallFormat, isPartial bool) ([]FuncCallResults, error) {
 	// Try split-on-scope first so reasoning/content before tool block is skipped
 	if format != nil {
-		if results, ok := tryParseXMLFromScopeStart(s, format, isPartial); ok {
-			return results, nil
+		if pr, ok := tryParseXMLFromScopeStart(s, format, isPartial); ok {
+			return pr.ToolCalls, nil
 		}
 	} else {
 		formats := getAllXMLFormats()
 		for _, fmtPreset := range formats {
 			if fmtPreset.format != nil {
-				if results, ok := tryParseXMLFromScopeStart(s, fmtPreset.format, isPartial); ok {
-					return results, nil
+				if pr, ok := tryParseXMLFromScopeStart(s, fmtPreset.format, isPartial); ok {
+					return pr.ToolCalls, nil
 				}
 			}
 		}

@@ -621,24 +621,38 @@ func (p *ChatMsgParser) TryConsumeXMLToolCalls(format *XMLToolCallFormat) (bool,
 	// Handle Functionary format (JSON parameters inside XML tags) - use regex parser
 	if format.KeyStart == "" && format.ToolStart == "<function=" {
 		// Fall back to regex-based parser for Functionary format
-		results, err := parseFunctionaryFormat(p.input[p.pos:], format)
+		sub := p.input[p.pos:]
+		results, err := parseFunctionaryFormat(sub, format)
 		if err != nil || len(results) == 0 {
 			return false, nil
 		}
 		for _, result := range results {
 			p.AddToolCall(result.Name, "", result.Arguments)
+		}
+		// Advance position past the last tool call end tag
+		if last := strings.LastIndex(sub, format.ToolEnd); last >= 0 {
+			p.pos += last + len(format.ToolEnd)
 		}
 		return true, nil
 	}
 
 	// Handle JSON-like formats (Apriel-1.5, Xiaomi-MiMo) - use regex parser
 	if format.ToolStart != "" && strings.Contains(format.ToolStart, "{\"name\"") {
-		results, err := parseJSONLikeXMLFormat(p.input[p.pos:], format)
+		sub := p.input[p.pos:]
+		results, err := parseJSONLikeXMLFormat(sub, format)
 		if err != nil || len(results) == 0 {
 			return false, nil
 		}
 		for _, result := range results {
 			p.AddToolCall(result.Name, "", result.Arguments)
+		}
+		// Advance position past the last scope/tool end tag
+		endTag := format.ScopeEnd
+		if endTag == "" {
+			endTag = format.ToolEnd
+		}
+		if last := strings.LastIndex(sub, endTag); last >= 0 {
+			p.pos += last + len(endTag)
 		}
 		return true, nil
 	}

@@ -1,34 +1,18 @@
 package functions
 
-import (
-	"regexp"
-	"strings"
-)
+import "strings"
 
-// toolCallBlockRe matches closed <tool_call>...</tool_call> blocks
-var toolCallBlockRe = regexp.MustCompile(`(?s)<tool_call>.*?</tool_call>`)
-
-// functionBlockRe matches closed <function=...>...</function> blocks
-var functionBlockRe = regexp.MustCompile(`(?s)<function=[^>]*>.*?</function>`)
-
-// openToolCallRe matches an open-ended <tool_call> at the end of string (no closing tag)
-var openToolCallRe = regexp.MustCompile(`(?s)<tool_call>[^<]*$`)
-
-// openFunctionRe matches an open-ended <function=...> at the end of string (no closing tag)
-var openFunctionRe = regexp.MustCompile(`(?s)<function=[^>]*>[^<]*$`)
-
-// StripToolCallMarkup removes tool call markup blocks from content.
-// It removes closed <tool_call>...</tool_call> and <function=...>...</function> blocks,
-// plus open-ended ones at the end of the string.
-// Returns the remaining text, trimmed of whitespace.
+// StripToolCallMarkup extracts the non-tool-call content from a string
+// by reusing the iterative XML parser which already separates content
+// from tool calls. Returns the remaining text, trimmed.
 func StripToolCallMarkup(content string) string {
-	// Remove closed blocks
-	content = toolCallBlockRe.ReplaceAllString(content, "")
-	content = functionBlockRe.ReplaceAllString(content, "")
-
-	// Remove open-ended blocks at end of string
-	content = openToolCallRe.ReplaceAllString(content, "")
-	content = openFunctionRe.ReplaceAllString(content, "")
-
+	for _, fmtPreset := range getAllXMLFormats() {
+		if fmtPreset.format == nil {
+			continue
+		}
+		if pr, ok := tryParseXMLFromScopeStart(content, fmtPreset.format, false); ok && len(pr.ToolCalls) > 0 {
+			return strings.TrimSpace(pr.Content)
+		}
+	}
 	return strings.TrimSpace(content)
 }
