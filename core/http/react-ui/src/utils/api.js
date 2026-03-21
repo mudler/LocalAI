@@ -380,6 +380,25 @@ export const apiKeysApi = {
   revoke: (id) => fetchJSON(`/api/auth/api-keys/${encodeURIComponent(id)}`, { method: 'DELETE' }),
 }
 
+// Fine-tuning API
+export const fineTuneApi = {
+  listBackends: () => fetchJSON('/api/fine-tuning/backends'),
+  startJob: (data) => postJSON('/api/fine-tuning/jobs', data),
+  listJobs: () => fetchJSON('/api/fine-tuning/jobs'),
+  getJob: (id) => fetchJSON(`/api/fine-tuning/jobs/${enc(id)}`),
+  stopJob: (id, saveCheckpoint) => fetchJSON(`/api/fine-tuning/jobs/${enc(id)}/stop?save_checkpoint=${saveCheckpoint ? 'true' : 'false'}`, { method: 'POST' }),
+  deleteJob: (id) => fetchJSON(`/api/fine-tuning/jobs/${enc(id)}`, { method: 'DELETE' }),
+  listCheckpoints: (id) => fetchJSON(`/api/fine-tuning/jobs/${enc(id)}/checkpoints`),
+  exportModel: (id, data) => postJSON(`/api/fine-tuning/jobs/${enc(id)}/export`, data),
+  uploadDataset: (file) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    return fetch(apiUrl('/api/fine-tuning/datasets'), { method: 'POST', body: formData }).then(handleResponse)
+  },
+  progressUrl: (id) => apiUrl(`/api/fine-tuning/jobs/${enc(id)}/progress`),
+  downloadUrl: (id) => apiUrl(`/api/fine-tuning/jobs/${enc(id)}/download`),
+}
+
 // File to base64 helper
 export function fileToBase64(file) {
   return new Promise((resolve, reject) => {

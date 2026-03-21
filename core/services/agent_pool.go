@@ -1042,7 +1042,7 @@ func (s *AgentPoolService) CreateCollection(name string) error {
 	return s.collectionsBackend.CreateCollection(name)
 }
 
-func (s *AgentPoolService) UploadToCollection(collection, filename string, fileBody io.Reader) error {
+func (s *AgentPoolService) UploadToCollection(collection, filename string, fileBody io.Reader) (string, error) {
 	return s.collectionsBackend.Upload(collection, filename, fileBody)
 }
 
@@ -1554,10 +1554,10 @@ func (s *AgentPoolService) CreateCollectionForUser(userID, name string) error {
 }
 
 // UploadToCollectionForUser uploads to a collection for a specific user.
-func (s *AgentPoolService) UploadToCollectionForUser(userID, collection, filename string, fileBody io.Reader) error {
+func (s *AgentPoolService) UploadToCollectionForUser(userID, collection, filename string, fileBody io.Reader) (string, error) {
 	backend, err := s.CollectionsBackendForUser(userID)
 	if err != nil {
-		return err
+		return "", err
 	}
 	return backend.Upload(collection, filename, fileBody)
 }

@@ -67,10 +67,18 @@ require (
 )
 
 require (
+	github.com/chasefleming/elem-go v0.30.0 // indirect
+	github.com/dave-gray101/v2keyauth v0.0.0-20240624150259-c45d584d25e2 // indirect
 	github.com/go-jose/go-jose/v4 v4.1.3 // indirect
+	github.com/gofiber/template v1.8.3 // indirect
+	github.com/gofiber/template/html/v2 v2.1.3 // indirect
+	github.com/gofiber/utils v1.1.0 // indirect
+	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
 	github.com/mattn/go-sqlite3 v1.14.22 // indirect
+	github.com/spf13/cobra v1.10.2 // indirect
+	github.com/spf13/pflag v1.0.9 // indirect
 	github.com/stretchr/testify v1.11.1 // indirect
 	github.com/tmc/langchaingo v0.1.14 // indirect
 )
@@ -136,8 +144,8 @@ require (
 	github.com/kevinburke/ssh_config v1.2.0 // indirect
 	github.com/labstack/gommon v0.4.2 // indirect
 	github.com/mschoch/smat v0.2.0 // indirect
-	github.com/mudler/LocalAGI v0.0.0-20260319174513-43c65ec7e88a
-	github.com/mudler/localrecall v0.5.9-0.20260319170742-933f68603f62 // indirect
+	github.com/mudler/LocalAGI v0.0.0-20260321004723-b485b77037c4
+	github.com/mudler/localrecall v0.5.9-0.20260321005011-810084e9369b // indirect
 	github.com/mudler/skillserver v0.0.5
 	github.com/olekukonko/tablewriter v0.0.5 // indirect
 	github.com/oxffaa/gopher-parse-sitemap v0.0.0-20191021113419-005d2eb1def4 // indirect
