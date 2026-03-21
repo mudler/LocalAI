@@ -85,6 +85,9 @@ func (i *VLLMImporter) Import(details Details) (gallery.ModelConfig, error) {
 		},
 	}
 
+	// Apply per-model-family inference parameter defaults
+	config.ApplyInferenceDefaults(&modelConfig, details.URI)
+
 	data, err := yaml.Marshal(modelConfig)
 	if err != nil {
 		return gallery.ModelConfig{}, err

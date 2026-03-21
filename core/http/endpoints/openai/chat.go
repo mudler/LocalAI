@@ -995,6 +995,16 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 					funcResults = functions.ParseFunctionCall(cbRawResult, config.FunctionsConfig)
 				}
 
+				// Content-based tool call fallback: if no tool calls were found,
+				// try parsing the raw result — ParseFunctionCall handles detection internally.
+				if len(funcResults) == 0 {
+					contentFuncResults := functions.ParseFunctionCall(cbRawResult, config.FunctionsConfig)
+					if len(contentFuncResults) > 0 {
+						funcResults = contentFuncResults
+						textContentToReturn = functions.StripToolCallMarkup(cbRawResult)
+					}
+				}
+
 				noActionsToRun := len(funcResults) > 0 && funcResults[0].Name == noActionName || len(funcResults) == 0
 
 				switch {
@@ -1066,6 +1076,48 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 
 					if len(input.Tools) > 0 {
 						result = append(result, toolChoice)
+					}
+				}
+			}
+
+			// Automatic tool parsing fallback: when no tools/functions were in the
+			// request but the model emitted tool call markup, parse and surface them.
+			if !shouldUseFn && config.FunctionsConfig.AutomaticToolParsingFallback && len(result) > 0 {
+				for i, choice := range result {
+					if choice.Message == nil || choice.Message.Content == nil {
+						continue
+					}
+					contentStr, ok := choice.Message.Content.(string)
+					if !ok || contentStr == "" {
+						continue
+					}
+					parsed := functions.ParseFunctionCall(contentStr, config.FunctionsConfig)
+					if len(parsed) == 0 {
+						continue
+					}
+					stripped := functions.StripToolCallMarkup(contentStr)
+					toolCallsReason := FinishReasonToolCalls
+					result[i].FinishReason = &toolCallsReason
+					if stripped != "" {
+						result[i].Message.Content = &stripped
+					} else {
+						result[i].Message.Content = nil
+					}
+					for _, fc := range parsed {
+						toolCallID := fc.ID
+						if toolCallID == "" {
+							toolCallID = id
+						}
+						result[i].Message.ToolCalls = append(result[i].Message.ToolCalls,
+							schema.ToolCall{
+								ID:   toolCallID,
+								Type: "function",
+								FunctionCall: schema.FunctionCall{
+									Name:      fc.Name,
+									Arguments: fc.Arguments,
+								},
+							},
+						)
 					}
 				}
 			}

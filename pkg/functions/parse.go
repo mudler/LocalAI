@@ -111,6 +111,11 @@ type FunctionsConfig struct {
 	// If set, only this format will be tried (overrides XMLFormatPreset)
 	XMLFormat *XMLToolCallFormat `yaml:"xml_format,omitempty" json:"xml_format,omitempty"`
 
+	// AutomaticToolParsingFallback enables automatic tool call parsing fallback:
+	// - Wraps raw string arguments as {"query": raw_string} when JSON parsing fails
+	// - Parses tool calls from response content even when no tools were in the request
+	AutomaticToolParsingFallback bool `yaml:"automatic_tool_parsing_fallback,omitempty" json:"automatic_tool_parsing_fallback,omitempty"`
+
 	// DisablePEGParser disables the PEG parser and falls back to the legacy iterative parser
 	DisablePEGParser bool `yaml:"disable_peg_parser,omitempty" json:"disable_peg_parser,omitempty"`
 
@@ -885,8 +890,17 @@ func ParseFunctionCall(llmresult string, functionConfig FunctionsConfig) []FuncC
 				// Marshal arguments to JSON string (handles both object and string cases)
 				var d []byte
 				if argsStr, ok := args.(string); ok {
-					// Already a string, use it directly
-					d = []byte(argsStr)
+					// Check if the string is valid JSON; if not, auto-heal if enabled
+					var testJSON map[string]any
+					if json.Unmarshal([]byte(argsStr), &testJSON) == nil {
+						d = []byte(argsStr)
+					} else if functionConfig.AutomaticToolParsingFallback {
+						healed := map[string]string{"query": argsStr}
+						d, _ = json.Marshal(healed)
+						xlog.Debug("Automatic tool parsing fallback: wrapped raw string arguments", "raw", argsStr)
+					} else {
+						d = []byte(argsStr)
+					}
 				} else {
 					// Object, marshal to JSON
 					d, _ = json.Marshal(args)

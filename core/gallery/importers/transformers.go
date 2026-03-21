@@ -97,6 +97,9 @@ func (i *TransformersImporter) Import(details Details) (gallery.ModelConfig, err
 	modelConfig.ModelType = modelType
 	modelConfig.Quantization = quantization
 
+	// Apply per-model-family inference parameter defaults
+	config.ApplyInferenceDefaults(&modelConfig, details.URI)
+
 	data, err := yaml.Marshal(modelConfig)
 	if err != nil {
 		return gallery.ModelConfig{}, err

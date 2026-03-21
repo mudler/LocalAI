@@ -2536,4 +2536,67 @@ def hello():
 			})
 		})
 	})
+
+	Context("Automatic tool parsing fallback", func() {
+		It("wraps malformed string args as query when enabled", func() {
+			input := `{"name": "web_search", "arguments": "search for cats"}`
+			cfg := FunctionsConfig{AutomaticToolParsingFallback: true}
+			results := ParseFunctionCall(input, cfg)
+			Expect(results).To(HaveLen(1))
+			Expect(results[0].Name).To(Equal("web_search"))
+
+			var args map[string]string
+			err := json.Unmarshal([]byte(results[0].Arguments), &args)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(args["query"]).To(Equal("search for cats"))
+		})
+
+		It("preserves malformed string args as-is when disabled", func() {
+			input := `{"name": "web_search", "arguments": "search for cats"}`
+			cfg := FunctionsConfig{AutomaticToolParsingFallback: false}
+			results := ParseFunctionCall(input, cfg)
+			Expect(results).To(HaveLen(1))
+			Expect(results[0].Arguments).To(Equal("search for cats"))
+		})
+
+		It("does not alter valid JSON string args", func() {
+			input := `{"name": "web_search", "arguments": "{\"query\": \"cats\"}"}`
+			cfg := FunctionsConfig{AutomaticToolParsingFallback: true}
+			results := ParseFunctionCall(input, cfg)
+			Expect(results).To(HaveLen(1))
+			Expect(results[0].Arguments).To(Equal(`{"query": "cats"}`))
+		})
+	})
+
+	Context("StripToolCallMarkup", func() {
+		It("removes closed tool_call blocks", func() {
+			input := "Here is my answer <tool_call>{\"name\":\"search\"}</tool_call> and more text"
+			result := StripToolCallMarkup(input)
+			Expect(result).To(Equal("Here is my answer  and more text"))
+		})
+
+		It("removes closed function blocks", func() {
+			input := "Text before <function=search>{\"q\":\"cats\"}</function> text after"
+			result := StripToolCallMarkup(input)
+			Expect(result).To(Equal("Text before  text after"))
+		})
+
+		It("removes open-ended tool_call at end of string", func() {
+			input := "Some text <tool_call>{\"name\":\"search\"}"
+			result := StripToolCallMarkup(input)
+			Expect(result).To(Equal("Some text"))
+		})
+
+		It("returns empty string when content is only tool calls", func() {
+			input := "<tool_call>{\"name\":\"search\",\"arguments\":{}}</tool_call>"
+			result := StripToolCallMarkup(input)
+			Expect(result).To(Equal(""))
+		})
+
+		It("preserves text with no tool call markup", func() {
+			input := "Just a normal response with no tools"
+			result := StripToolCallMarkup(input)
+			Expect(result).To(Equal("Just a normal response with no tools"))
+		})
+	})
 })
