@@ -33,7 +33,8 @@ const (
 	FeatureMCPJobs     = "mcp_jobs"
 
 	// General features (default OFF for new users)
-	FeatureFineTuning = "fine_tuning"
+	FeatureFineTuning    = "fine_tuning"
+	FeatureQuantization  = "quantization"
 
 	// API features (default ON for new users)
 	FeatureChat              = "chat"
@@ -56,7 +57,7 @@ const (
 var AgentFeatures = []string{FeatureAgents, FeatureSkills, FeatureCollections, FeatureMCPJobs}
 
 // GeneralFeatures lists general features (default OFF).
-var GeneralFeatures = []string{FeatureFineTuning}
+var GeneralFeatures = []string{FeatureFineTuning, FeatureQuantization}
 
 // APIFeatures lists API endpoint features (default ON).
 var APIFeatures = []string{

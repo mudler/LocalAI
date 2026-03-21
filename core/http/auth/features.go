@@ -97,6 +97,16 @@ var RouteFeatureRegistry = []RouteFeature{
 	{"POST", "/api/fine-tuning/jobs/:id/export", FeatureFineTuning},
 	{"GET", "/api/fine-tuning/jobs/:id/download", FeatureFineTuning},
 	{"POST", "/api/fine-tuning/datasets", FeatureFineTuning},
+
+	// Quantization
+	{"POST", "/api/quantization/jobs", FeatureQuantization},
+	{"GET", "/api/quantization/jobs", FeatureQuantization},
+	{"GET", "/api/quantization/jobs/:id", FeatureQuantization},
+	{"POST", "/api/quantization/jobs/:id/stop", FeatureQuantization},
+	{"DELETE", "/api/quantization/jobs/:id", FeatureQuantization},
+	{"GET", "/api/quantization/jobs/:id/progress", FeatureQuantization},
+	{"POST", "/api/quantization/jobs/:id/import", FeatureQuantization},
+	{"GET", "/api/quantization/jobs/:id/download", FeatureQuantization},
 }
 
 // FeatureMeta describes a feature for the admin API/UI.
@@ -120,6 +130,7 @@ func AgentFeatureMetas() []FeatureMeta {
 func GeneralFeatureMetas() []FeatureMeta {
 	return []FeatureMeta{
 		{FeatureFineTuning, "Fine-Tuning", false},
+		{FeatureQuantization, "Quantization", false},
 	}
 }
 

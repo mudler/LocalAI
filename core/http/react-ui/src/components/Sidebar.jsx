@@ -20,7 +20,8 @@ const sections = [
     id: 'tools',
     title: 'Tools',
     items: [
-      { path: '/app/fine-tune', icon: 'fas fa-graduation-cap', label: 'Fine-Tune', feature: 'fine_tuning' },
+      { path: '/app/fine-tune', icon: 'fas fa-graduation-cap', label: 'Fine-Tune (Experimental)', feature: 'fine_tuning' },
+      { path: '/app/quantize', icon: 'fas fa-compress', label: 'Quantize (Experimental)', feature: 'quantization' },
     ],
   },
   {

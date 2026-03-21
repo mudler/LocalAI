@@ -140,6 +140,18 @@ func (llm *Base) ExportModel(*pb.ExportModelRequest) error {
 	return fmt.Errorf("unimplemented")
 }
 
+func (llm *Base) StartQuantization(*pb.QuantizationRequest) (*pb.QuantizationJobResult, error) {
+	return nil, fmt.Errorf("unimplemented")
+}
+
+func (llm *Base) QuantizationProgress(*pb.QuantizationProgressRequest, chan *pb.QuantizationProgressUpdate) error {
+	return fmt.Errorf("unimplemented")
+}
+
+func (llm *Base) StopQuantization(*pb.QuantizationStopRequest) error {
+	return fmt.Errorf("unimplemented")
+}
+
 func memoryUsage() *pb.MemoryUsageData {
 	mud := pb.MemoryUsageData{
 		Breakdown: make(map[string]uint64),

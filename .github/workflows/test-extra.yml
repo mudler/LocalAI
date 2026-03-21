@@ -383,6 +383,33 @@ jobs:
         run: |
           make --jobs=5 --output-sync=target -C backend/python/voxcpm
           make --jobs=5 --output-sync=target -C backend/python/voxcpm test
+  tests-llama-cpp-quantization:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Clone
+        uses: actions/checkout@v6
+        with:
+          submodules: true
+      - name: Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake curl git python3-pip
+          # Install UV
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          pip install --user --no-cache-dir grpcio-tools==1.64.1
+      - name: Build llama-quantize from llama.cpp
+        run: |
+          git clone --depth 1 https://github.com/ggml-org/llama.cpp.git /tmp/llama.cpp
+          cmake -B /tmp/llama.cpp/build -S /tmp/llama.cpp -DGGML_NATIVE=OFF
+          cmake --build /tmp/llama.cpp/build --target llama-quantize -j$(nproc)
+          sudo cp /tmp/llama.cpp/build/bin/llama-quantize /usr/local/bin/
+      - name: Install backend
+        run: |
+          make --jobs=5 --output-sync=target -C backend/python/llama-cpp-quantization
+      - name: Test llama-cpp-quantization
+        run: |
+          make --jobs=5 --output-sync=target -C backend/python/llama-cpp-quantization test
   tests-acestep-cpp:
     runs-on: ubuntu-latest
     steps:

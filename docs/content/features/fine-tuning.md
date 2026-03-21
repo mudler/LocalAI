@@ -13,15 +13,13 @@ LocalAI supports fine-tuning LLMs directly through the API and Web UI. Fine-tuni
 |---------|--------|-------------|-----------------|---------------|
 | **trl** | LLM fine-tuning | No (CPU or GPU) | SFT, DPO, GRPO, RLOO, Reward, KTO, ORPO | LoRA, Full |
 
-## Enabling Fine-Tuning
+## Availability
 
-Fine-tuning is disabled by default. Enable it with:
+Fine-tuning is always enabled. When authentication is enabled, fine-tuning is a per-user feature (default OFF). Admins can enable it for specific users via the user management API.
 
-```bash
-LOCALAI_ENABLE_FINETUNING=true local-ai
-```
-
-When authentication is enabled, fine-tuning is a per-user feature (default OFF). Admins can enable it for specific users via the user management API.
+{{% alert note %}}
+This feature is **experimental** and may change in future releases.
+{{% /alert %}}
 
 ## Quick Start
 
