@@ -1,5 +1,7 @@
 package config
 
+//go:generate go run ./gen_inference_defaults/
+
 import (
 	_ "embed"
 	"encoding/json"
