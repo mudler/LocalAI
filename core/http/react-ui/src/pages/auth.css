@@ -254,11 +254,16 @@
 }
 
 .perm-section {
-  margin-bottom: var(--spacing-md);
-  padding: var(--spacing-sm) var(--spacing-md);
-  background: var(--color-bg-tertiary);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-md);
+  margin-bottom: var(--spacing-sm);
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: 0;
+}
+
+.perm-section + .perm-section {
+  padding-top: var(--spacing-sm);
+  border-top: 1px solid var(--color-border-subtle);
 }
 
 .perm-section-header {
@@ -269,12 +274,16 @@
 }
 
 .perm-section-title {
-  font-size: 0.875rem;
-  color: var(--color-text-primary);
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
 }
 
 .perm-section-title i {
   margin-right: var(--spacing-xs);
+  font-size: 0.7rem;
 }
 
 .perm-grid {
@@ -284,7 +293,7 @@
 }
 
 .perm-btn-all-none {
-  font-size: 0.75rem;
+  font-size: 0.6875rem;
   padding: 2px 8px;
 }
 
@@ -319,7 +328,13 @@
   display: flex;
   justify-content: flex-end;
   gap: var(--spacing-sm);
-  margin-top: var(--spacing-md);
+  padding: var(--spacing-md) var(--spacing-lg);
+  margin: 0 calc(-1 * var(--spacing-lg));
+  margin-bottom: calc(-1 * var(--spacing-lg));
+  border-top: 1px solid var(--color-border-subtle);
+  background: var(--color-bg-secondary);
+  position: sticky;
+  bottom: 0;
 }
 
 /* ─── Invite link cell ─── */
@@ -556,4 +571,183 @@
   flex-direction: column;
   overflow: auto;
   animation: slideUp 150ms ease;
+}
+
+/* ─── Model list in permissions modal ─── */
+.model-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-xs);
+}
+
+.model-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border-subtle);
+  transition: border-color 150ms;
+}
+
+.model-item input[type="checkbox"] {
+  display: none;
+}
+
+.model-item-checked {
+  border-color: var(--color-primary);
+  background: var(--color-primary-light, rgba(59,130,246,0.08));
+}
+
+.model-item-check {
+  width: 14px;
+  height: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.6rem;
+  color: var(--color-primary);
+}
+
+.model-item-name {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+}
+
+/* ─── Quota section ─── */
+.quota-empty {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) 0;
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  font-style: italic;
+}
+
+.quota-empty-icon {
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
+}
+
+.quota-rules-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.quota-card {
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-sm) var(--spacing-md);
+}
+
+.quota-card-header {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  margin-bottom: var(--spacing-sm);
+}
+
+.quota-card-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--spacing-sm);
+}
+
+.quota-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.quota-field-label {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.quota-input {
+  width: 100%;
+  padding: 5px 8px;
+  font-size: 0.8rem;
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-secondary);
+  color: var(--color-text-primary);
+  box-sizing: border-box;
+}
+
+.quota-input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+.quota-select {
+  padding: 5px 8px;
+  font-size: 0.8rem;
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-secondary);
+  color: var(--color-text-primary);
+}
+
+.quota-select--model {
+  flex: 1;
+  min-width: 0;
+}
+
+.quota-select:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+.quota-remove-btn {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+/* ─── Quota usage progress ─── */
+.quota-usage {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  margin-top: 2px;
+}
+
+.quota-progress {
+  flex: 1;
+  height: 4px;
+  background: var(--color-border-subtle);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.quota-progress-fill {
+  height: 100%;
+  background: var(--color-primary);
+  border-radius: 2px;
+  transition: width 300ms ease-out;
+}
+
+.quota-progress-fill--warning {
+  background: var(--color-warning, #eab308);
+}
+
+.quota-progress-fill--danger {
+  background: var(--color-danger, #ef4444);
+}
+
+.quota-usage-label {
+  font-size: 0.6875rem;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+  font-family: 'JetBrains Mono', monospace;
+  flex-shrink: 0;
 }
