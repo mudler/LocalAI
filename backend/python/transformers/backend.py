@@ -160,19 +160,17 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                     else:
                         xpu_4bit = False
                         xpu_8bit = False
-                    self.model = AutoModelForCausalLM.from_pretrained(model_name, 
-                                                                      trust_remote_code=request.TrustRemoteCode, 
-                                                                      use_safetensors=True,
-                                                                      device_map=device_map, 
-                                                                      load_in_4bit=xpu_4bit, 
-                                                                      load_in_8bit=xpu_8bit, 
+                    self.model = AutoModelForCausalLM.from_pretrained(model_name,
+                                                                      trust_remote_code=request.TrustRemoteCode,
+                                                                      device_map=device_map,
+                                                                      load_in_4bit=xpu_4bit,
+                                                                      load_in_8bit=xpu_8bit,
                                                                       torch_dtype=compute)
                 else:
-                    self.model = AutoModelForCausalLM.from_pretrained(model_name, 
-                                                                      trust_remote_code=request.TrustRemoteCode, 
-                                                                      use_safetensors=True, 
-                                                                      quantization_config=quantization, 
-                                                                      device_map=device_map, 
+                    self.model = AutoModelForCausalLM.from_pretrained(model_name,
+                                                                      trust_remote_code=request.TrustRemoteCode,
+                                                                      quantization_config=quantization,
+                                                                      device_map=device_map,
                                                                       torch_dtype=compute)
             elif request.Type == "OVModelForCausalLM":
                 from optimum.intel.openvino import OVModelForCausalLM
@@ -247,11 +245,10 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 self.model = MambaForCausalLM.from_pretrained(model_name)
             else:
                 print("Automodel", file=sys.stderr)
-                self.model = AutoModel.from_pretrained(model_name, 
-                                                       trust_remote_code=request.TrustRemoteCode,  
-                                                       use_safetensors=True,  
-                                                       quantization_config=quantization, 
-                                                       device_map=device_map, 
+                self.model = AutoModel.from_pretrained(model_name,
+                                                       trust_remote_code=request.TrustRemoteCode,
+                                                       quantization_config=quantization,
+                                                       device_map=device_map,
                                                        torch_dtype=compute)
             if request.ContextSize > 0:
                 self.max_tokens = request.ContextSize
@@ -261,7 +258,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 self.max_tokens = self.options.get("max_new_tokens", 512)
  
             if autoTokenizer:
-                self.tokenizer = AutoTokenizer.from_pretrained(model_name, use_safetensors=True)
+                self.tokenizer = AutoTokenizer.from_pretrained(model_name)
                 self.XPU = False
 
                 if XPU and self.OV == False:
