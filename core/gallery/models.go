@@ -264,6 +264,49 @@ func InstallModel(ctx context.Context, systemState *system.SystemState, nameOver
 			return nil, fmt.Errorf("failed to unmarshal updated config YAML: %v", err)
 		}
 
+		// Apply model-family-specific inference defaults so they are persisted in the config YAML.
+		// Apply to the typed struct for validation, and merge into configMap for serialization
+		// (configMap preserves unknown fields that ModelConfig would drop).
+		lconfig.ApplyInferenceDefaults(&modelConfig, name, modelConfig.Model)
+
+		// Merge inference defaults into configMap so they are persisted without losing unknown fields.
+		if modelConfig.Temperature != nil {
+			if _, exists := configMap["temperature"]; !exists {
+				configMap["temperature"] = *modelConfig.Temperature
+			}
+		}
+		if modelConfig.TopP != nil {
+			if _, exists := configMap["top_p"]; !exists {
+				configMap["top_p"] = *modelConfig.TopP
+			}
+		}
+		if modelConfig.TopK != nil {
+			if _, exists := configMap["top_k"]; !exists {
+				configMap["top_k"] = *modelConfig.TopK
+			}
+		}
+		if modelConfig.MinP != nil {
+			if _, exists := configMap["min_p"]; !exists {
+				configMap["min_p"] = *modelConfig.MinP
+			}
+		}
+		if modelConfig.RepeatPenalty != 0 {
+			if _, exists := configMap["repeat_penalty"]; !exists {
+				configMap["repeat_penalty"] = modelConfig.RepeatPenalty
+			}
+		}
+		if modelConfig.PresencePenalty != 0 {
+			if _, exists := configMap["presence_penalty"]; !exists {
+				configMap["presence_penalty"] = modelConfig.PresencePenalty
+			}
+		}
+
+		// Re-marshal from configMap to preserve unknown fields
+		updatedConfigYAML, err = yaml.Marshal(configMap)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal config with inference defaults: %v", err)
+		}
+
 		if valid, err := modelConfig.Validate(); !valid {
 			return nil, fmt.Errorf("failed to validate updated config YAML: %v", err)
 		}

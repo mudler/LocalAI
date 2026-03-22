@@ -2,19 +2,29 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate, useOutletContext } from 'react-router-dom'
 import { agentJobsApi, modelsApi } from '../utils/api'
 import { useModels } from '../hooks/useModels'
+import { useAuth } from '../context/AuthContext'
+import { useUserMap } from '../hooks/useUserMap'
 import LoadingSpinner from '../components/LoadingSpinner'
 import { fileToBase64 } from '../utils/api'
+import Modal from '../components/Modal'
+import UserGroupSection from '../components/UserGroupSection'
+import ConfirmDialog from '../components/ConfirmDialog'
 
 export default function AgentJobs() {
   const { addToast } = useOutletContext()
   const navigate = useNavigate()
   const { models } = useModels()
+  const { isAdmin, authEnabled, user } = useAuth()
+  const userMap = useUserMap()
   const [activeTab, setActiveTab] = useState('tasks')
   const [tasks, setTasks] = useState([])
   const [jobs, setJobs] = useState([])
   const [loading, setLoading] = useState(true)
   const [jobFilter, setJobFilter] = useState('all')
   const [hasMCPModels, setHasMCPModels] = useState(false)
+  const [confirmDialog, setConfirmDialog] = useState(null)
+  const [taskUserGroups, setTaskUserGroups] = useState(null)
+  const [jobUserGroups, setJobUserGroups] = useState(null)
 
   // Execute modal state
   const [executeModal, setExecuteModal] = useState(null)
@@ -26,19 +36,45 @@ export default function AgentJobs() {
   const fileTypeRef = useRef('images')
 
   const fetchData = useCallback(async () => {
+    const allUsers = isAdmin && authEnabled
     try {
       const [t, j] = await Promise.allSettled([
-        agentJobsApi.listTasks(),
-        agentJobsApi.listJobs(),
+        agentJobsApi.listTasks(allUsers),
+        agentJobsApi.listJobs(allUsers),
       ])
-      if (t.status === 'fulfilled') setTasks(Array.isArray(t.value) ? t.value : [])
-      if (j.status === 'fulfilled') setJobs(Array.isArray(j.value) ? j.value : [])
+      if (t.status === 'fulfilled') {
+        const tv = t.value
+        // Handle wrapped response (admin) or flat array
+        if (Array.isArray(tv)) {
+          setTasks(tv)
+          setTaskUserGroups(null)
+        } else if (tv && tv.tasks) {
+          setTasks(Array.isArray(tv.tasks) ? tv.tasks : [])
+          setTaskUserGroups(tv.user_groups || null)
+        } else {
+          setTasks(Array.isArray(tv) ? tv : [])
+          setTaskUserGroups(null)
+        }
+      }
+      if (j.status === 'fulfilled') {
+        const jv = j.value
+        if (Array.isArray(jv)) {
+          setJobs(jv)
+          setJobUserGroups(null)
+        } else if (jv && jv.jobs) {
+          setJobs(Array.isArray(jv.jobs) ? jv.jobs : [])
+          setJobUserGroups(jv.user_groups || null)
+        } else {
+          setJobs(Array.isArray(jv) ? jv : [])
+          setJobUserGroups(null)
+        }
+      }
     } catch (err) {
       addToast(`Failed to load: ${err.message}`, 'error')
     } finally {
       setLoading(false)
     }
-  }, [addToast])
+  }, [addToast, isAdmin, authEnabled])
 
   useEffect(() => {
     fetchData()
@@ -61,14 +97,22 @@ export default function AgentJobs() {
   }, [models])
 
   const handleDeleteTask = async (id) => {
-    if (!confirm('Delete this task?')) return
-    try {
-      await agentJobsApi.deleteTask(id)
-      addToast('Task deleted', 'success')
-      fetchData()
-    } catch (err) {
-      addToast(`Failed to delete: ${err.message}`, 'error')
-    }
+    setConfirmDialog({
+      title: 'Delete Task',
+      message: 'Delete this task?',
+      confirmLabel: 'Delete',
+      danger: true,
+      onConfirm: async () => {
+        setConfirmDialog(null)
+        try {
+          await agentJobsApi.deleteTask(id)
+          addToast('Task deleted', 'success')
+          fetchData()
+        } catch (err) {
+          addToast(`Failed to delete: ${err.message}`, 'error')
+        }
+      },
+    })
   }
 
   const handleCancelJob = async (id) => {
@@ -82,16 +126,24 @@ export default function AgentJobs() {
   }
 
   const handleClearHistory = async () => {
-    if (!confirm('Clear all job history?')) return
-    try {
-      // Cancel all running jobs first, then refetch
-      const running = jobs.filter(j => j.status === 'running' || j.status === 'pending')
-      await Promise.all(running.map(j => agentJobsApi.cancelJob(j.id).catch(() => {})))
-      addToast('Job history cleared', 'success')
-      fetchData()
-    } catch (err) {
-      addToast(`Failed to clear: ${err.message}`, 'error')
-    }
+    setConfirmDialog({
+      title: 'Clear Job History',
+      message: 'Clear all job history?',
+      confirmLabel: 'Clear',
+      danger: true,
+      onConfirm: async () => {
+        setConfirmDialog(null)
+        try {
+          // Cancel all running jobs first, then refetch
+          const running = jobs.filter(j => j.status === 'running' || j.status === 'pending')
+          await Promise.all(running.map(j => agentJobsApi.cancelJob(j.id).catch(() => {})))
+          addToast('Job history cleared', 'success')
+          fetchData()
+        } catch (err) {
+          addToast(`Failed to clear: ${err.message}`, 'error')
+        }
+      },
+    })
   }
 
   const openExecuteModal = (task) => {
@@ -184,10 +236,10 @@ export default function AgentJobs() {
             Agent Jobs require at least one model with MCP (Model Context Protocol) support. Install a model first, then configure MCP in the model settings.
           </p>
           <div style={{ display: 'flex', gap: 'var(--spacing-sm)', justifyContent: 'center' }}>
-            <button className="btn btn-primary" onClick={() => navigate('/browse')}>
+            <button className="btn btn-primary" onClick={() => navigate('/app/models')}>
               <i className="fas fa-store" /> Browse Models
             </button>
-            <a className="btn btn-secondary" href="https://localai.io/features/agent-jobs/" target="_blank" rel="noopener noreferrer">
+            <a className="btn btn-secondary" href="https://localai.io/features/agents/" target="_blank" rel="noopener noreferrer">
               <i className="fas fa-book" /> Documentation
             </a>
           </div>
@@ -219,10 +271,10 @@ export default function AgentJobs() {
       args: ["--flag"]`}</pre>
           </div>
           <div style={{ display: 'flex', gap: 'var(--spacing-sm)', justifyContent: 'center' }}>
-            <button className="btn btn-primary" onClick={() => navigate('/manage')}>
+            <button className="btn btn-primary" onClick={() => navigate('/app/manage')}>
               <i className="fas fa-cog" /> Manage Models
             </button>
-            <a className="btn btn-secondary" href="https://localai.io/features/agent-jobs/" target="_blank" rel="noopener noreferrer">
+            <a className="btn btn-secondary" href="https://localai.io/features/agents/" target="_blank" rel="noopener noreferrer">
               <i className="fas fa-book" /> Documentation
             </a>
           </div>
@@ -238,7 +290,7 @@ export default function AgentJobs() {
           <h1 className="page-title">Agent Jobs</h1>
           <p className="page-subtitle">Manage agent tasks and automated workflows</p>
         </div>
-        <button className="btn btn-primary" onClick={() => navigate('/agent-jobs/tasks/new')}>
+        <button className="btn btn-primary" onClick={() => navigate('/app/agent-jobs/tasks/new')}>
           <i className="fas fa-plus" /> New Task
         </button>
       </div>
@@ -255,83 +307,92 @@ export default function AgentJobs() {
       {loading ? (
         <div style={{ display: 'flex', justifyContent: 'center', padding: 'var(--spacing-xl)' }}><LoadingSpinner size="lg" /></div>
       ) : activeTab === 'tasks' ? (
-        tasks.length === 0 ? (
+        tasks.length === 0 && !taskUserGroups ? (
           <div className="empty-state">
             <div className="empty-state-icon"><i className="fas fa-robot" /></div>
             <h2 className="empty-state-title">No tasks defined</h2>
             <p className="empty-state-text">Create a task to get started with agent workflows.</p>
-            <button className="btn btn-primary" onClick={() => navigate('/agent-jobs/tasks/new')}>
+            <button className="btn btn-primary" onClick={() => navigate('/app/agent-jobs/tasks/new')}>
               <i className="fas fa-plus" /> Create Task
             </button>
           </div>
         ) : (
-          <div className="table-container">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Description</th>
-                  <th>Model</th>
-                  <th>Cron</th>
-                  <th>Status</th>
-                  <th style={{ textAlign: 'right' }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {tasks.map(task => (
-                  <tr key={task.id || task.name}>
-                    <td>
-                      <a onClick={() => navigate(`/agent-jobs/tasks/${task.id || task.name}`)} style={{ cursor: 'pointer', color: 'var(--color-primary)', fontWeight: 500 }}>
-                        {task.name || task.id}
-                      </a>
-                    </td>
-                    <td>
-                      <span style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'inline-block' }}>
-                        {task.description || '-'}
-                      </span>
-                    </td>
-                    <td>
-                      {task.model ? (
-                        <a onClick={() => navigate(`/model-editor/${encodeURIComponent(task.model)}`)} style={{ cursor: 'pointer', color: 'var(--color-primary)', fontSize: '0.8125rem' }}>
-                          {task.model}
-                        </a>
-                      ) : '-'}
-                    </td>
-                    <td>
-                      {task.cron ? (
-                        <span className="badge badge-info" style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.6875rem' }}>
-                          {task.cron}
-                        </span>
-                      ) : '-'}
-                    </td>
-                    <td>
-                      {task.enabled === false ? (
-                        <span className="badge" style={{ background: 'var(--color-bg-tertiary)', color: 'var(--color-text-muted)' }}>Disabled</span>
-                      ) : (
-                        <span className="badge badge-success">Enabled</span>
-                      )}
-                    </td>
-                    <td>
-                      <div style={{ display: 'flex', gap: 'var(--spacing-xs)', justifyContent: 'flex-end' }}>
-                        <button className="btn btn-primary btn-sm" onClick={() => openExecuteModal(task)} title="Execute">
-                          <i className="fas fa-play" />
-                        </button>
-                        <button className="btn btn-secondary btn-sm" onClick={() => navigate(`/agent-jobs/tasks/${task.id || task.name}/edit`)} title="Edit">
-                          <i className="fas fa-edit" />
-                        </button>
-                        <button className="btn btn-danger btn-sm" onClick={() => handleDeleteTask(task.id || task.name)} title="Delete">
-                          <i className="fas fa-trash" />
-                        </button>
-                      </div>
-                    </td>
+          <>
+            {taskUserGroups && <h2 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: 'var(--spacing-md)' }}>Your Tasks</h2>}
+            {tasks.length === 0 ? (
+              <p style={{ color: 'var(--color-text-secondary)', marginBottom: 'var(--spacing-md)' }}>You have no tasks yet.</p>
+            ) : (
+            <div className="table-container">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Description</th>
+                    <th>Model</th>
+                    <th>Cron</th>
+                    <th>Status</th>
+                    <th style={{ textAlign: 'right' }}>Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {tasks.map(task => (
+                    <tr key={task.id || task.name}>
+                      <td>
+                        <a onClick={() => navigate(`/app/agent-jobs/tasks/${task.id || task.name}`)} style={{ cursor: 'pointer', color: 'var(--color-primary)', fontWeight: 500 }}>
+                          {task.name || task.id}
+                        </a>
+                      </td>
+                      <td>
+                        <span style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'inline-block' }}>
+                          {task.description || '-'}
+                        </span>
+                      </td>
+                      <td>
+                        {task.model ? (
+                          <a onClick={() => navigate(`/app/model-editor/${encodeURIComponent(task.model)}`)} style={{ cursor: 'pointer', color: 'var(--color-primary)', fontSize: '0.8125rem' }}>
+                            {task.model}
+                          </a>
+                        ) : '-'}
+                      </td>
+                      <td>
+                        {task.cron ? (
+                          <span className="badge badge-info" style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.6875rem' }}>
+                            {task.cron}
+                          </span>
+                        ) : '-'}
+                      </td>
+                      <td>
+                        {task.enabled === false ? (
+                          <span className="badge" style={{ background: 'var(--color-bg-tertiary)', color: 'var(--color-text-muted)' }}>Disabled</span>
+                        ) : (
+                          <span className="badge badge-success">Enabled</span>
+                        )}
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', gap: 'var(--spacing-xs)', justifyContent: 'flex-end' }}>
+                          <button className="btn btn-primary btn-sm" onClick={() => openExecuteModal(task)} title="Execute">
+                            <i className="fas fa-play" />
+                          </button>
+                          <button className="btn btn-secondary btn-sm" onClick={() => navigate(`/app/agent-jobs/tasks/${task.id || task.name}/edit`)} title="Edit">
+                            <i className="fas fa-edit" />
+                          </button>
+                          <button className="btn btn-danger btn-sm" onClick={() => handleDeleteTask(task.id || task.name)} title="Delete">
+                            <i className="fas fa-trash" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            )}
+
+          </>
         )
       ) : (
         <>
+          {jobUserGroups && <h2 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: 'var(--spacing-md)' }}>Your Jobs</h2>}
           {/* Job History Controls */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--spacing-md)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
@@ -376,7 +437,7 @@ export default function AgentJobs() {
                   {filteredJobs.map(job => (
                     <tr key={job.id}>
                       <td>
-                        <a onClick={() => navigate(`/agent-jobs/jobs/${job.id}`)} style={{ cursor: 'pointer', color: 'var(--color-primary)', fontFamily: "'JetBrains Mono', monospace", fontSize: '0.8125rem' }}>
+                        <a onClick={() => navigate(`/app/agent-jobs/jobs/${job.id}`)} style={{ cursor: 'pointer', color: 'var(--color-primary)', fontFamily: "'JetBrains Mono', monospace", fontSize: '0.8125rem' }}>
                           {job.id?.slice(0, 12)}...
                         </a>
                       </td>
@@ -387,7 +448,7 @@ export default function AgentJobs() {
                       </td>
                       <td>
                         <div style={{ display: 'flex', gap: 'var(--spacing-xs)', justifyContent: 'flex-end' }}>
-                          <button className="btn btn-secondary btn-sm" onClick={() => navigate(`/agent-jobs/jobs/${job.id}`)} title="View">
+                          <button className="btn btn-secondary btn-sm" onClick={() => navigate(`/app/agent-jobs/jobs/${job.id}`)} title="View">
                             <i className="fas fa-eye" />
                           </button>
                           {(job.status === 'running' || job.status === 'pending') && (
@@ -403,16 +464,90 @@ export default function AgentJobs() {
               </table>
             </div>
           )}
+
         </>
       )}
 
+      {activeTab === 'tasks' && taskUserGroups && (
+        <UserGroupSection
+          title="Other Users' Tasks"
+          userGroups={taskUserGroups}
+          userMap={userMap}
+          currentUserId={user?.id}
+          itemKey="tasks"
+          renderGroup={(items) => (
+            <div className="table-container">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Description</th>
+                    <th>Model</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(items || []).map(task => (
+                    <tr key={task.id || task.name}>
+                      <td style={{ fontWeight: 500 }}>{task.name || task.id}</td>
+                      <td style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)' }}>{task.description || '-'}</td>
+                      <td style={{ fontSize: '0.8125rem' }}>{task.model || '-'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        />
+      )}
+
+      {activeTab === 'jobs' && jobUserGroups && (
+        <UserGroupSection
+          title="Other Users' Jobs"
+          userGroups={jobUserGroups}
+          userMap={userMap}
+          currentUserId={user?.id}
+          itemKey="jobs"
+          renderGroup={(items) => (
+            <div className="table-container">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Job ID</th>
+                    <th>Task</th>
+                    <th>Status</th>
+                    <th>Created</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(items || []).map(job => (
+                    <tr key={job.id}>
+                      <td style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.8125rem' }}>{job.id?.slice(0, 12)}...</td>
+                      <td>{job.task_id || '-'}</td>
+                      <td>{statusBadge(job.status)}</td>
+                      <td style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)' }}>{formatDate(job.created_at)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        />
+      )}
+
+      <ConfirmDialog
+        open={!!confirmDialog}
+        title={confirmDialog?.title}
+        message={confirmDialog?.message}
+        confirmLabel={confirmDialog?.confirmLabel}
+        danger={confirmDialog?.danger}
+        onConfirm={confirmDialog?.onConfirm}
+        onCancel={() => setConfirmDialog(null)}
+      />
+
       {/* Execute Task Modal */}
       {executeModal && (
-        <div style={{
-          position: 'fixed', inset: 0, zIndex: 1000,
-          background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }} onClick={() => setExecuteModal(null)}>
-          <div className="card" style={{ maxWidth: 600, width: '90%', maxHeight: '80vh', overflow: 'auto' }} onClick={e => e.stopPropagation()}>
+        <Modal onClose={() => setExecuteModal(null)}>
+          <div style={{ padding: 'var(--spacing-md)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-md)' }}>
               <h3 style={{ fontWeight: 600 }}>
                 <i className="fas fa-play" style={{ color: 'var(--color-primary)', marginRight: 'var(--spacing-xs)' }} />
@@ -489,7 +624,7 @@ export default function AgentJobs() {
               </button>
             </div>
           </div>
-        </div>
+        </Modal>
       )}
     </div>
   )

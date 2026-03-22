@@ -107,12 +107,136 @@ func (e *embedBackend) VAD(ctx context.Context, in *pb.VADRequest, opts ...grpc.
 	return e.s.VAD(ctx, in)
 }
 
+func (e *embedBackend) AudioEncode(ctx context.Context, in *pb.AudioEncodeRequest, opts ...grpc.CallOption) (*pb.AudioEncodeResult, error) {
+	return e.s.AudioEncode(ctx, in)
+}
+
+func (e *embedBackend) AudioDecode(ctx context.Context, in *pb.AudioDecodeRequest, opts ...grpc.CallOption) (*pb.AudioDecodeResult, error) {
+	return e.s.AudioDecode(ctx, in)
+}
+
 func (e *embedBackend) ModelMetadata(ctx context.Context, in *pb.ModelOptions, opts ...grpc.CallOption) (*pb.ModelMetadataResponse, error) {
 	return e.s.ModelMetadata(ctx, in)
 }
 
 func (e *embedBackend) GetTokenMetrics(ctx context.Context, in *pb.MetricsRequest, opts ...grpc.CallOption) (*pb.MetricsResponse, error) {
 	return e.s.GetMetrics(ctx, in)
+}
+
+func (e *embedBackend) StartFineTune(ctx context.Context, in *pb.FineTuneRequest, opts ...grpc.CallOption) (*pb.FineTuneJobResult, error) {
+	return e.s.StartFineTune(ctx, in)
+}
+
+func (e *embedBackend) FineTuneProgress(ctx context.Context, in *pb.FineTuneProgressRequest, f func(update *pb.FineTuneProgressUpdate), opts ...grpc.CallOption) error {
+	bs := &embedBackendFineTuneProgressStream{
+		ctx: ctx,
+		fn:  f,
+	}
+	return e.s.FineTuneProgress(in, bs)
+}
+
+func (e *embedBackend) StopFineTune(ctx context.Context, in *pb.FineTuneStopRequest, opts ...grpc.CallOption) (*pb.Result, error) {
+	return e.s.StopFineTune(ctx, in)
+}
+
+func (e *embedBackend) ListCheckpoints(ctx context.Context, in *pb.ListCheckpointsRequest, opts ...grpc.CallOption) (*pb.ListCheckpointsResponse, error) {
+	return e.s.ListCheckpoints(ctx, in)
+}
+
+func (e *embedBackend) ExportModel(ctx context.Context, in *pb.ExportModelRequest, opts ...grpc.CallOption) (*pb.Result, error) {
+	return e.s.ExportModel(ctx, in)
+}
+
+func (e *embedBackend) StartQuantization(ctx context.Context, in *pb.QuantizationRequest, opts ...grpc.CallOption) (*pb.QuantizationJobResult, error) {
+	return e.s.StartQuantization(ctx, in)
+}
+
+func (e *embedBackend) QuantizationProgress(ctx context.Context, in *pb.QuantizationProgressRequest, f func(update *pb.QuantizationProgressUpdate), opts ...grpc.CallOption) error {
+	bs := &embedBackendQuantizationProgressStream{
+		ctx: ctx,
+		fn:  f,
+	}
+	return e.s.QuantizationProgress(in, bs)
+}
+
+func (e *embedBackend) StopQuantization(ctx context.Context, in *pb.QuantizationStopRequest, opts ...grpc.CallOption) (*pb.Result, error) {
+	return e.s.StopQuantization(ctx, in)
+}
+
+var _ pb.Backend_FineTuneProgressServer = new(embedBackendFineTuneProgressStream)
+
+type embedBackendFineTuneProgressStream struct {
+	ctx context.Context
+	fn  func(update *pb.FineTuneProgressUpdate)
+}
+
+func (e *embedBackendFineTuneProgressStream) Send(update *pb.FineTuneProgressUpdate) error {
+	e.fn(update)
+	return nil
+}
+
+func (e *embedBackendFineTuneProgressStream) SetHeader(md metadata.MD) error {
+	return nil
+}
+
+func (e *embedBackendFineTuneProgressStream) SendHeader(md metadata.MD) error {
+	return nil
+}
+
+func (e *embedBackendFineTuneProgressStream) SetTrailer(md metadata.MD) {
+}
+
+func (e *embedBackendFineTuneProgressStream) Context() context.Context {
+	return e.ctx
+}
+
+func (e *embedBackendFineTuneProgressStream) SendMsg(m any) error {
+	if x, ok := m.(*pb.FineTuneProgressUpdate); ok {
+		return e.Send(x)
+	}
+	return nil
+}
+
+func (e *embedBackendFineTuneProgressStream) RecvMsg(m any) error {
+	return nil
+}
+
+var _ pb.Backend_QuantizationProgressServer = new(embedBackendQuantizationProgressStream)
+
+type embedBackendQuantizationProgressStream struct {
+	ctx context.Context
+	fn  func(update *pb.QuantizationProgressUpdate)
+}
+
+func (e *embedBackendQuantizationProgressStream) Send(update *pb.QuantizationProgressUpdate) error {
+	e.fn(update)
+	return nil
+}
+
+func (e *embedBackendQuantizationProgressStream) SetHeader(md metadata.MD) error {
+	return nil
+}
+
+func (e *embedBackendQuantizationProgressStream) SendHeader(md metadata.MD) error {
+	return nil
+}
+
+func (e *embedBackendQuantizationProgressStream) SetTrailer(md metadata.MD) {
+}
+
+func (e *embedBackendQuantizationProgressStream) Context() context.Context {
+	return e.ctx
+}
+
+func (e *embedBackendQuantizationProgressStream) SendMsg(m any) error {
+	if x, ok := m.(*pb.QuantizationProgressUpdate); ok {
+		return e.Send(x)
+	}
+	return nil
+}
+
+func (e *embedBackendQuantizationProgressStream) RecvMsg(m any) error {
+	return nil
 }
 
 type embedBackendServerStream struct {

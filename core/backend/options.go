@@ -4,12 +4,32 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
+	"strings"
+	"time"
 
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/trace"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/xlog"
 )
+
+// recordModelLoadFailure records a backend trace when model loading fails.
+func recordModelLoadFailure(appConfig *config.ApplicationConfig, modelName, backend string, err error, data map[string]any) {
+	if !appConfig.EnableTracing {
+		return
+	}
+	trace.InitBackendTracingIfEnabled(appConfig.TracingMaxItems)
+	trace.RecordBackendTrace(trace.BackendTrace{
+		Timestamp: time.Now(),
+		Type:      trace.BackendTraceModelLoad,
+		ModelName: modelName,
+		Backend:   backend,
+		Summary:   "Model load failed",
+		Error:     err.Error(),
+		Data:      data,
+	})
+}
 
 func ModelOptions(c config.ModelConfig, so *config.ApplicationConfig, opts ...model.Option) []model.Option {
 	name := c.Name
@@ -107,6 +127,16 @@ func grpcModelOpts(c config.ModelConfig, modelPath string) *pb.ModelOptions {
 	mmap := false
 	if c.MMap != nil {
 		mmap = *c.MMap
+	}
+
+	// Intel SYCL backend has issues with mmap enabled
+	// See: https://github.com/mudler/LocalAI/issues/9012
+	// Automatically disable mmap for Intel SYCL backends
+	if c.Backend != "" {
+		if strings.Contains(strings.ToLower(c.Backend), "intel") || strings.Contains(strings.ToLower(c.Backend), "sycl") {
+			mmap = false
+			xlog.Info("Auto-disabling mmap for Intel SYCL backend", "backend", c.Backend)
+		}
 	}
 
 	ctxSize := 4096
@@ -222,6 +252,7 @@ func gRPCPredictOpts(c config.ModelConfig, modelPath string) *pb.PredictOptions 
 		TopP:                float32(*c.TopP),
 		NDraft:              c.NDraft,
 		TopK:                int32(*c.TopK),
+		MinP:                float32(*c.MinP),
 		Tokens:              int32(*c.Maxtokens),
 		Threads:             int32(*c.Threads),
 		PromptCacheAll:      c.PromptCacheAll,

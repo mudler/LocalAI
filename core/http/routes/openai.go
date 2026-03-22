@@ -15,16 +15,19 @@ func RegisterOpenAIRoutes(app *echo.Echo,
 	application *application.Application) {
 	// openAI compatible API endpoint
 	traceMiddleware := middleware.TraceMiddleware(application)
+	usageMiddleware := middleware.UsageMiddleware(application.AuthDB())
 
 	// realtime
 	// TODO: Modify/disable the API key middleware for this endpoint to allow ephemeral keys created by sessions
 	app.GET("/v1/realtime", openai.Realtime(application))
 	app.POST("/v1/realtime/sessions", openai.RealtimeTranscriptionSession(application), traceMiddleware)
 	app.POST("/v1/realtime/transcription_session", openai.RealtimeTranscriptionSession(application), traceMiddleware)
+	app.POST("/v1/realtime/calls", openai.RealtimeCalls(application), traceMiddleware)
 
 	// chat
 	chatHandler := openai.ChatEndpoint(application.ModelConfigLoader(), application.ModelLoader(), application.TemplatesEvaluator(), application.ApplicationConfig())
 	chatMiddleware := []echo.MiddlewareFunc{
+		usageMiddleware,
 		traceMiddleware,
 		re.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_CHAT)),
 		re.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.OpenAIRequest) }),
@@ -43,6 +46,7 @@ func RegisterOpenAIRoutes(app *echo.Echo,
 	// edit
 	editHandler := openai.EditEndpoint(application.ModelConfigLoader(), application.ModelLoader(), application.TemplatesEvaluator(), application.ApplicationConfig())
 	editMiddleware := []echo.MiddlewareFunc{
+		usageMiddleware,
 		traceMiddleware,
 		re.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_EDIT)),
 		re.BuildConstantDefaultModelNameMiddleware("gpt-4o"),
@@ -62,6 +66,7 @@ func RegisterOpenAIRoutes(app *echo.Echo,
 	// completion
 	completionHandler := openai.CompletionEndpoint(application.ModelConfigLoader(), application.ModelLoader(), application.TemplatesEvaluator(), application.ApplicationConfig())
 	completionMiddleware := []echo.MiddlewareFunc{
+		usageMiddleware,
 		traceMiddleware,
 		re.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_COMPLETION)),
 		re.BuildConstantDefaultModelNameMiddleware("gpt-4o"),
@@ -82,6 +87,7 @@ func RegisterOpenAIRoutes(app *echo.Echo,
 	// embeddings
 	embeddingHandler := openai.EmbeddingsEndpoint(application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig())
 	embeddingMiddleware := []echo.MiddlewareFunc{
+		usageMiddleware,
 		traceMiddleware,
 		re.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_EMBEDDINGS)),
 		re.BuildConstantDefaultModelNameMiddleware("gpt-4o"),
@@ -153,6 +159,6 @@ func RegisterOpenAIRoutes(app *echo.Echo,
 	app.POST("/images/inpainting", inpaintingHandler, imageMiddleware...)
 
 	// List models
-	app.GET("/v1/models", openai.ListModelsEndpoint(application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig()))
-	app.GET("/models", openai.ListModelsEndpoint(application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig()))
+	app.GET("/v1/models", openai.ListModelsEndpoint(application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig(), application.AuthDB()))
+	app.GET("/models", openai.ListModelsEndpoint(application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig(), application.AuthDB()))
 }

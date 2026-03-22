@@ -1209,7 +1209,7 @@ async function promptGPT(systemPrompt, input) {
     model: model,
     messages: messages,
   };
-  
+
   // Add stream parameter for both regular chat and MCP (MCP now supports SSE streaming)
   requestBody.stream = true;
   

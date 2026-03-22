@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"time"
@@ -30,6 +31,7 @@ func ModelTTS(
 	opts := ModelOptions(modelConfig, appConfig)
 	ttsModel, err := loader.Load(opts...)
 	if err != nil {
+		recordModelLoadFailure(appConfig, modelConfig.Name, modelConfig.Backend, err, nil)
 		return "", nil, err
 	}
 
@@ -84,6 +86,16 @@ func ModelTTS(
 			errStr = fmt.Sprintf("TTS error: %s", res.Message)
 		}
 
+		data := map[string]any{
+			"text":     text,
+			"voice":    voice,
+			"language": language,
+		}
+		if err == nil && res.Success {
+			if snippet := trace.AudioSnippet(filePath); snippet != nil {
+				maps.Copy(data, snippet)
+			}
+		}
 		trace.RecordBackendTrace(trace.BackendTrace{
 			Timestamp: startTime,
 			Duration:  time.Since(startTime),
@@ -92,11 +104,7 @@ func ModelTTS(
 			Backend:   modelConfig.Backend,
 			Summary:   trace.TruncateString(text, 200),
 			Error:     errStr,
-			Data: map[string]any{
-				"text":     text,
-				"voice":    voice,
-				"language": language,
-			},
+			Data:      data,
 		})
 	}
 
@@ -124,6 +132,7 @@ func ModelTTSStream(
 	opts := ModelOptions(modelConfig, appConfig)
 	ttsModel, err := loader.Load(opts...)
 	if err != nil {
+		recordModelLoadFailure(appConfig, modelConfig.Name, modelConfig.Backend, err, nil)
 		return err
 	}
 
@@ -158,6 +167,11 @@ func ModelTTSStream(
 	headerSent := false
 	var callbackErr error
 
+	// Collect up to 30s of audio for tracing
+	var snippetPCM []byte
+	var totalPCMBytes int
+	snippetCapped := false
+
 	err = ttsModel.TTSStream(context.Background(), &proto.TTSRequest{
 		Text:     text,
 		Model:    modelPath,
@@ -166,7 +180,7 @@ func ModelTTSStream(
 	}, func(reply *proto.Reply) {
 		// First message contains sample rate info
 		if !headerSent && len(reply.Message) > 0 {
-			var info map[string]interface{}
+			var info map[string]any
 			if json.Unmarshal(reply.Message, &info) == nil {
 				if sr, ok := info["sample_rate"].(float64); ok {
 					sampleRate = uint32(sr)
@@ -207,6 +221,22 @@ func ModelTTSStream(
 			if writeErr := audioCallback(reply.Audio); writeErr != nil {
 				callbackErr = writeErr
 			}
+			// Accumulate PCM for tracing snippet
+			totalPCMBytes += len(reply.Audio)
+			if appConfig.EnableTracing && !snippetCapped {
+				maxBytes := int(sampleRate) * 2 * trace.MaxSnippetSeconds // 16-bit mono
+				if len(snippetPCM)+len(reply.Audio) <= maxBytes {
+					snippetPCM = append(snippetPCM, reply.Audio...)
+				} else {
+					remaining := maxBytes - len(snippetPCM)
+					if remaining > 0 {
+						// Align to sample boundary (2 bytes per sample)
+						remaining = remaining &^ 1
+						snippetPCM = append(snippetPCM, reply.Audio[:remaining]...)
+					}
+					snippetCapped = true
+				}
+			}
 		}
 	})
 
@@ -221,6 +251,17 @@ func ModelTTSStream(
 			errStr = resultErr.Error()
 		}
 
+		data := map[string]any{
+			"text":      text,
+			"voice":     voice,
+			"language":  language,
+			"streaming": true,
+		}
+		if resultErr == nil && len(snippetPCM) > 0 {
+			if snippet := trace.AudioSnippetFromPCM(snippetPCM, int(sampleRate), totalPCMBytes); snippet != nil {
+				maps.Copy(data, snippet)
+			}
+		}
 		trace.RecordBackendTrace(trace.BackendTrace{
 			Timestamp: startTime,
 			Duration:  time.Since(startTime),
@@ -229,12 +270,7 @@ func ModelTTSStream(
 			Backend:   modelConfig.Backend,
 			Summary:   trace.TruncateString(text, 200),
 			Error:     errStr,
-			Data: map[string]any{
-				"text":      text,
-				"voice":     voice,
-				"language":  language,
-				"streaming": true,
-			},
+			Data:      data,
 		})
 	}
 

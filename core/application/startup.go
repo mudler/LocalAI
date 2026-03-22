@@ -1,6 +1,8 @@
 package application
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -10,6 +12,7 @@ import (
 	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
+	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/services"
 	coreStartup "github.com/mudler/LocalAI/core/startup"
 	"github.com/mudler/LocalAI/internal"
@@ -70,6 +73,56 @@ func New(opts ...config.AppOption) (*Application, error) {
 		}
 	}
 
+	// Create and migrate data directory
+	if options.DataPath != "" {
+		if err := os.MkdirAll(options.DataPath, 0750); err != nil {
+			return nil, fmt.Errorf("unable to create DataPath: %q", err)
+		}
+		// Migrate data from DynamicConfigsDir to DataPath if needed
+		if options.DynamicConfigsDir != "" && options.DataPath != options.DynamicConfigsDir {
+			migrateDataFiles(options.DynamicConfigsDir, options.DataPath)
+		}
+	}
+
+	// Initialize auth database if auth is enabled
+	if options.Auth.Enabled {
+		// Auto-generate HMAC secret if not provided
+		if options.Auth.APIKeyHMACSecret == "" {
+			secretFile := filepath.Join(options.DataPath, ".hmac_secret")
+			secret, err := loadOrGenerateHMACSecret(secretFile)
+			if err != nil {
+				return nil, fmt.Errorf("failed to initialize HMAC secret: %w", err)
+			}
+			options.Auth.APIKeyHMACSecret = secret
+		}
+
+		authDB, err := auth.InitDB(options.Auth.DatabaseURL)
+		if err != nil {
+			return nil, fmt.Errorf("failed to initialize auth database: %w", err)
+		}
+		application.authDB = authDB
+		xlog.Info("Auth enabled", "database", options.Auth.DatabaseURL)
+
+		// Start session and expired API key cleanup goroutine
+		go func() {
+			ticker := time.NewTicker(1 * time.Hour)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-options.Context.Done():
+					return
+				case <-ticker.C:
+					if err := auth.CleanExpiredSessions(authDB); err != nil {
+						xlog.Error("failed to clean expired sessions", "error", err)
+					}
+					if err := auth.CleanExpiredAPIKeys(authDB); err != nil {
+						xlog.Error("failed to clean expired API keys", "error", err)
+					}
+				}
+			}
+		}()
+	}
+
 	if err := coreStartup.InstallModels(options.Context, application.GalleryService(), options.Galleries, options.BackendGalleries, options.SystemState, application.ModelLoader(), options.EnforcePredownloadScans, options.AutoloadBackendGalleries, nil, options.ModelsURL...); err != nil {
 		xlog.Error("error installing models", "error", err)
 	}
@@ -124,6 +177,8 @@ func New(opts ...config.AppOption) (*Application, error) {
 	if options.DynamicConfigsDir != "" {
 		loadRuntimeSettingsFromFile(options)
 	}
+
+	application.ModelLoader().SetBackendLoggingEnabled(options.EnableBackendLogging)
 
 	// turn off any process that was started by GRPC if the context is canceled
 	go func() {
@@ -371,6 +426,24 @@ func loadRuntimeSettingsFromFile(options *config.ApplicationConfig) {
 		}
 	}
 
+	if settings.EnableBackendLogging != nil {
+		if !options.EnableBackendLogging {
+			options.EnableBackendLogging = *settings.EnableBackendLogging
+		}
+	}
+
+	// Tracing settings
+	if settings.EnableTracing != nil {
+		if !options.EnableTracing {
+			options.EnableTracing = *settings.EnableTracing
+		}
+	}
+	if settings.TracingMaxItems != nil {
+		if options.TracingMaxItems == 0 {
+			options.TracingMaxItems = *settings.TracingMaxItems
+		}
+	}
+
 	xlog.Debug("Runtime settings loaded from runtime_settings.json")
 }
 
@@ -412,5 +485,70 @@ func initializeWatchdog(application *Application, options *config.ApplicationCon
 			xlog.Debug("Context canceled, shutting down")
 			wd.Shutdown()
 		}()
+	}
+}
+
+// loadOrGenerateHMACSecret loads an HMAC secret from the given file path,
+// or generates a random 32-byte secret and persists it if the file doesn't exist.
+func loadOrGenerateHMACSecret(path string) (string, error) {
+	data, err := os.ReadFile(path)
+	if err == nil {
+		secret := string(data)
+		if len(secret) >= 32 {
+			return secret, nil
+		}
+	}
+
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		return "", fmt.Errorf("failed to generate HMAC secret: %w", err)
+	}
+	secret := hex.EncodeToString(b)
+
+	if err := os.WriteFile(path, []byte(secret), 0600); err != nil {
+		return "", fmt.Errorf("failed to persist HMAC secret: %w", err)
+	}
+
+	xlog.Info("Generated new HMAC secret for API key hashing", "path", path)
+	return secret, nil
+}
+
+// migrateDataFiles moves persistent data files from the old config directory
+// to the new data directory. Only moves files that exist in src but not in dst.
+func migrateDataFiles(srcDir, dstDir string) {
+	// Files and directories to migrate
+	items := []string{
+		"agent_tasks.json",
+		"agent_jobs.json",
+		"collections",
+		"assets",
+	}
+
+	migrated := false
+	for _, item := range items {
+		srcPath := filepath.Join(srcDir, item)
+		dstPath := filepath.Join(dstDir, item)
+
+		// Only migrate if source exists and destination does not
+		if _, err := os.Stat(srcPath); os.IsNotExist(err) {
+			continue
+		}
+		if _, err := os.Stat(dstPath); err == nil {
+			continue // destination already exists, skip
+		}
+
+		if err := os.Rename(srcPath, dstPath); err != nil {
+			xlog.Warn("Failed to migrate data file, will copy instead", "src", srcPath, "dst", dstPath, "error", err)
+			// os.Rename fails across filesystems, fall back to leaving in place
+			// and log a warning for the user to manually move
+			xlog.Warn("Data file remains in old location, please move manually", "src", srcPath, "dst", dstPath)
+			continue
+		}
+		migrated = true
+		xlog.Info("Migrated data file to new data path", "src", srcPath, "dst", dstPath)
+	}
+
+	if migrated {
+		xlog.Info("Data migration complete", "from", srcDir, "to", dstDir)
 	}
 }

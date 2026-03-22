@@ -1,0 +1,72 @@
+---
+name: 'UI E2E Tests'
+
+on:
+  pull_request:
+    paths:
+      - 'core/http/**'
+      - 'tests/e2e-ui/**'
+      - 'tests/e2e/mock-backend/**'
+  push:
+    branches:
+      - master
+
+concurrency:
+  group: ci-tests-ui-e2e-${{ github.head_ref || github.ref }}-${{ github.repository }}
+  cancel-in-progress: true
+
+jobs:
+  tests-ui-e2e:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        go-version: ['1.26.x']
+    steps:
+      - name: Clone
+        uses: actions/checkout@v6
+        with:
+          submodules: true
+      - name: Setup Go ${{ matrix.go-version }}
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go-version }}
+          cache: false
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+      - name: Proto Dependencies
+        run: |
+          curl -L -s https://github.com/protocolbuffers/protobuf/releases/download/v26.1/protoc-26.1-linux-x86_64.zip -o protoc.zip && \
+          unzip -j -d /usr/local/bin protoc.zip bin/protoc && \
+          rm protoc.zip
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@1958fcbe2ca8bd93af633f11e97d44e567e945af
+      - name: System Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential libopus-dev
+      - name: Build UI test server
+        run: PATH="$PATH:$HOME/go/bin" make build-ui-test-server
+      - name: Install Playwright
+        working-directory: core/http/react-ui
+        run: |
+          npm install
+          npx playwright install --with-deps chromium
+      - name: Run Playwright tests
+        working-directory: core/http/react-ui
+        run: npx playwright test
+      - name: Upload Playwright report
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report
+          path: core/http/react-ui/playwright-report/
+          retention-days: 7
+      - name: Setup tmate session if tests fail
+        if: ${{ failure() }}
+        uses: mxschmitt/action-tmate@v3.23
+        with:
+          detached: true
+          connect-timeout-seconds: 180
+          limit-access-to-actor: true

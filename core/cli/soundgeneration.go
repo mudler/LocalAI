@@ -70,7 +70,6 @@ func (t *SoundGenerationCMD) Run(ctx *cliContext.Context) error {
 		backend := v[:strings.IndexByte(v, ':')]
 		uri := v[strings.IndexByte(v, ':')+1:]
 		externalBackends[backend] = uri
-		fmt.Printf("TMP externalBackends[%q]=%q\n\n", backend, uri)
 	}
 
 	opts := &config.ApplicationConfig{

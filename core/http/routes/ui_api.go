@@ -20,6 +20,7 @@ import (
 	"github.com/mudler/LocalAI/core/application"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
+	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/http/endpoints/localai"
 	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/p2p"
@@ -58,7 +59,7 @@ func getDirectorySize(path string) (int64, error) {
 }
 
 // RegisterUIAPIRoutes registers JSON API routes for the web UI
-func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig, galleryService *services.GalleryService, opcache *services.OpCache, applicationInstance *application.Application) {
+func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig, galleryService *services.GalleryService, opcache *services.OpCache, applicationInstance *application.Application, adminMiddleware echo.MiddlewareFunc) {
 
 	// Operations API - Get all current operations (models + backends)
 	app.GET("/api/operations", func(c echo.Context) error {
@@ -80,8 +81,8 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			message := ""
 
 			if status != nil {
-				// Skip completed operations (unless cancelled and not yet cleaned up)
-				if status.Processed && !status.Cancelled {
+				// Skip successfully completed operations
+				if status.Processed && !status.Cancelled && status.Error == nil {
 					continue
 				}
 				// Skip cancelled operations that are processed (they're done, no need to show)
@@ -131,7 +132,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 				}
 			}
 
-			operations = append(operations, map[string]interface{}{
+			opData := map[string]interface{}{
 				"id":          galleryID,
 				"name":        displayName,
 				"fullName":    galleryID,
@@ -144,7 +145,11 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 				"isCancelled": isCancelled,
 				"cancellable": isCancellable,
 				"message":     message,
-			})
+			}
+			if status != nil && status.Error != nil {
+				opData["error"] = status.Error.Error()
+			}
+			operations = append(operations, opData)
 		}
 
 		// Sort operations by progress (ascending), then by ID for stable display order
@@ -164,9 +169,9 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		return c.JSON(200, map[string]interface{}{
 			"operations": operations,
 		})
-	})
+	}, adminMiddleware)
 
-	// Cancel operation endpoint
+	// Cancel operation endpoint (admin only)
 	app.POST("/api/operations/:jobID/cancel", func(c echo.Context) error {
 		jobID := c.Param("jobID")
 		xlog.Debug("API request to cancel operation", "jobID", jobID)
@@ -186,18 +191,33 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			"success": true,
 			"message": "Operation cancelled",
 		})
-	})
+	}, adminMiddleware)
 
-	// Model Gallery APIs
+	// Dismiss a failed operation (acknowledge the error and remove it from the list)
+	app.POST("/api/operations/:jobID/dismiss", func(c echo.Context) error {
+		jobID := c.Param("jobID")
+		xlog.Debug("API request to dismiss operation", "jobID", jobID)
+
+		// Remove the operation from the opcache so it no longer appears
+		opcache.DeleteUUID(jobID)
+
+		return c.JSON(200, map[string]interface{}{
+			"success": true,
+			"message": "Operation dismissed",
+		})
+	}, adminMiddleware)
+
+	// Model Gallery APIs (admin only)
 	app.GET("/api/models", func(c echo.Context) error {
 		term := c.QueryParam("term")
+		tag := c.QueryParam("tag")
 		page := c.QueryParam("page")
 		if page == "" {
 			page = "1"
 		}
 		items := c.QueryParam("items")
 		if items == "" {
-			items = "21"
+			items = "9"
 		}
 
 		models, err := gallery.AvailableGalleryModels(appConfig.Galleries, appConfig.SystemState)
@@ -221,8 +241,36 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		}
 		sort.Strings(tags)
 
+		// Get all available backends (before filtering so dropdown always shows all)
+		allBackendsMap := map[string]struct{}{}
+		for _, m := range models {
+			if b := m.Backend; b != "" {
+				allBackendsMap[b] = struct{}{}
+			}
+		}
+		backendNames := make([]string, 0, len(allBackendsMap))
+		for b := range allBackendsMap {
+			backendNames = append(backendNames, b)
+		}
+		sort.Strings(backendNames)
+
+		if tag != "" {
+			models = gallery.GalleryElements[*gallery.GalleryModel](models).FilterByTag(tag)
+		}
 		if term != "" {
 			models = gallery.GalleryElements[*gallery.GalleryModel](models).Search(term)
+		}
+
+		// Filter by backend if requested
+		backendFilter := c.QueryParam("backend")
+		if backendFilter != "" {
+			var filtered gallery.GalleryElements[*gallery.GalleryModel]
+			for _, m := range models {
+				if m.Backend == backendFilter {
+					filtered = append(filtered, m)
+				}
+			}
+			models = filtered
 		}
 
 		// Get model statuses
@@ -253,7 +301,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 
 		itemsNum, err := strconv.Atoi(items)
 		if err != nil || itemsNum < 1 {
-			itemsNum = 21
+			itemsNum = 9
 		}
 
 		totalPages := int(math.Ceil(float64(len(models)) / float64(itemsNum)))
@@ -268,6 +316,25 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		seenIDs := make(map[string]bool)
 
 		weightExts := map[string]bool{".gguf": true, ".safetensors": true, ".bin": true, ".pt": true}
+		extractHFRepo := func(overrides map[string]interface{}, urls []string) string {
+			// Try overrides.parameters.model first
+			if overrides != nil {
+				if params, ok := overrides["parameters"].(map[string]interface{}); ok {
+					if modelRef, ok := params["model"].(string); ok {
+						if repoID, ok := vram.ExtractHFRepoID(modelRef); ok {
+							return repoID
+						}
+					}
+				}
+			}
+			// Fall back to the first HuggingFace URL in the metadata urls list
+			for _, u := range urls {
+				if repoID, ok := vram.ExtractHFRepoID(u); ok {
+					return repoID
+				}
+			}
+			return ""
+		}
 		hasWeightFiles := func(files []gallery.File) bool {
 			for _, f := range files {
 				ext := strings.ToLower(path.Ext(path.Base(f.URI)))
@@ -279,6 +346,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		}
 
 		const estimateTimeout = 3 * time.Second
+		const hfEstimateTimeout = 10 * time.Second
 		const estimateConcurrency = 3
 		sem := make(chan struct{}, estimateConcurrency)
 		var wg sync.WaitGroup
@@ -321,6 +389,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 				"isDeletion":      isDeletionOp,
 				"trustRemoteCode": trustRemoteCodeExists,
 				"additionalFiles": m.AdditionalFiles,
+				"backend":         m.Backend,
 			}
 
 			if hasWeightFiles(m.AdditionalFiles) {
@@ -356,6 +425,34 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 						}
 					}
 				}(files, obj)
+			} else if m.Size != "" {
+				if sizeBytes, err := vram.ParseSizeString(m.Size); err == nil && sizeBytes > 0 {
+					result := vram.EstimateFromSize(sizeBytes)
+					obj["estimated_size_bytes"] = result.SizeBytes
+					obj["estimated_size_display"] = result.SizeDisplay
+					obj["estimated_vram_bytes"] = result.VRAMBytes
+					obj["estimated_vram_display"] = result.VRAMDisplay
+				}
+			} else if hfRepoID := extractHFRepo(m.Overrides, m.URLs); hfRepoID != "" {
+				wg.Add(1)
+				go func(repoID string, out map[string]interface{}) {
+					defer wg.Done()
+					sem <- struct{}{}
+					defer func() { <-sem }()
+					ctx, cancel := context.WithTimeout(context.Background(), hfEstimateTimeout)
+					defer cancel()
+					result, err := vram.EstimateFromHFRepo(ctx, repoID)
+					if err == nil {
+						if result.SizeBytes > 0 {
+							out["estimated_size_bytes"] = result.SizeBytes
+							out["estimated_size_display"] = result.SizeDisplay
+						}
+						if result.VRAMBytes > 0 {
+							out["estimated_vram_bytes"] = result.VRAMBytes
+							out["estimated_vram_display"] = result.VRAMDisplay
+						}
+					}
+				}(hfRepoID, obj)
 			}
 
 			modelsJSON = append(modelsJSON, obj)
@@ -383,6 +480,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			"models":           modelsJSON,
 			"repositories":     appConfig.Galleries,
 			"allTags":          tags,
+			"allBackends":     backendNames,
 			"processingModels": processingModelsData,
 			"taskTypes":        taskTypes,
 			"availableModels":  totalModels,
@@ -395,7 +493,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			"prevPage":         prevPage,
 			"nextPage":         nextPage,
 		})
-	})
+	}, adminMiddleware)
 
 	// Returns installed models with their capability flags for UI filtering
 	app.GET("/api/models/capabilities", func(c echo.Context) error {
@@ -405,6 +503,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		type modelCapability struct {
 			ID           string   `json:"id"`
 			Capabilities []string `json:"capabilities"`
+			Backend      string   `json:"backend"`
 		}
 
 		result := make([]modelCapability, 0, len(modelConfigs)+len(modelsWithoutConfig))
@@ -412,6 +511,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			result = append(result, modelCapability{
 				ID:           cfg.Name,
 				Capabilities: cfg.KnownUsecaseStrings,
+				Backend:      cfg.Backend,
 			})
 		}
 		for _, name := range modelsWithoutConfig {
@@ -419,6 +519,26 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 				ID:           name,
 				Capabilities: []string{},
 			})
+		}
+
+		// Filter by user's model allowlist if auth is enabled
+		if authDB := applicationInstance.AuthDB(); authDB != nil {
+			if user := auth.GetUser(c); user != nil && user.Role != auth.RoleAdmin {
+				perm, err := auth.GetCachedUserPermissions(c, authDB, user.ID)
+				if err == nil && perm.AllowedModels.Enabled {
+					allowed := map[string]bool{}
+					for _, m := range perm.AllowedModels.Models {
+						allowed[m] = true
+					}
+					filtered := make([]modelCapability, 0, len(result))
+					for _, mc := range result {
+						if allowed[mc.ID] {
+							filtered = append(filtered, mc)
+						}
+					}
+					result = filtered
+				}
+			}
 		}
 
 		return c.JSON(200, map[string]any{
@@ -466,7 +586,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			"jobID":   uid,
 			"message": "Installation started",
 		})
-	})
+	}, adminMiddleware)
 
 	app.POST("/api/models/delete/:id", func(c echo.Context) error {
 		galleryID := c.Param("id")
@@ -509,21 +629,6 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		galleryService.StoreCancellation(uid, cancelFunc)
 		go func() {
 			galleryService.ModelGalleryChannel <- op
-			// Wait for the deletion operation to complete with a timeout
-			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-			defer cancel()
-			for {
-				select {
-				case <-ctx.Done():
-					xlog.Warn("Timeout waiting for deletion to complete", "uid", uid)
-					break
-				default:
-					if status := galleryService.GetStatus(uid); status != nil && status.Processed {
-						break
-					}
-					time.Sleep(100 * time.Millisecond)
-				}
-			}
 			cl.RemoveModelConfig(galleryName)
 		}()
 
@@ -531,7 +636,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			"jobID":   uid,
 			"message": "Deletion started",
 		})
-	})
+	}, adminMiddleware)
 
 	app.POST("/api/models/config/:id", func(c echo.Context) error {
 		galleryID := c.Param("id")
@@ -575,7 +680,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		return c.JSON(200, map[string]interface{}{
 			"message": "Configuration file saved",
 		})
-	})
+	}, adminMiddleware)
 
 	// Get installed model config as JSON (used by frontend for MCP detection, etc.)
 	app.GET("/api/models/config-json/:name", func(c echo.Context) error {
@@ -594,11 +699,14 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		}
 
 		return c.JSON(http.StatusOK, modelConfig)
-	})
+	}, adminMiddleware)
 
 	// Get installed model YAML config for the React model editor
 	app.GET("/api/models/edit/:name", func(c echo.Context) error {
 		modelName := c.Param("name")
+		if decoded, err := url.PathUnescape(modelName); err == nil {
+			modelName = decoded
+		}
 		if modelName == "" {
 			return c.JSON(http.StatusBadRequest, map[string]interface{}{
 				"error": "model name is required",
@@ -630,7 +738,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			"config": string(configData),
 			"name":   modelName,
 		})
-	})
+	}, adminMiddleware)
 
 	app.GET("/api/models/job/:uid", func(c echo.Context) error {
 		jobUID := c.Param("uid")
@@ -667,18 +775,19 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		}
 
 		return c.JSON(200, response)
-	})
+	}, adminMiddleware)
 
 	// Backend Gallery APIs
 	app.GET("/api/backends", func(c echo.Context) error {
 		term := c.QueryParam("term")
+		tag := c.QueryParam("tag")
 		page := c.QueryParam("page")
 		if page == "" {
 			page = "1"
 		}
 		items := c.QueryParam("items")
 		if items == "" {
-			items = "21"
+			items = "9"
 		}
 
 		backends, err := gallery.AvailableBackends(appConfig.BackendGalleries, appConfig.SystemState)
@@ -702,6 +811,9 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		}
 		sort.Strings(tags)
 
+		if tag != "" {
+			backends = gallery.GalleryElements[*gallery.GalleryBackend](backends).FilterByTag(tag)
+		}
 		if term != "" {
 			backends = gallery.GalleryElements[*gallery.GalleryBackend](backends).Search(term)
 		}
@@ -734,7 +846,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 
 		itemsNum, err := strconv.Atoi(items)
 		if err != nil || itemsNum < 1 {
-			itemsNum = 21
+			itemsNum = 9
 		}
 
 		totalPages := int(math.Ceil(float64(len(backends)) / float64(itemsNum)))
@@ -821,7 +933,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			"nextPage":           nextPage,
 			"systemCapability":   detectedCapability,
 		})
-	})
+	}, adminMiddleware)
 
 	app.POST("/api/backends/install/:id", func(c echo.Context) error {
 		backendID := c.Param("id")
@@ -862,7 +974,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			"jobID":   uid,
 			"message": "Backend installation started",
 		})
-	})
+	}, adminMiddleware)
 
 	// Install backend from external source (OCI image, URL, or path)
 	app.POST("/api/backends/install-external", func(c echo.Context) error {
@@ -926,7 +1038,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			"jobID":   uid,
 			"message": "External backend installation started",
 		})
-	})
+	}, adminMiddleware)
 
 	app.POST("/api/backends/delete/:id", func(c echo.Context) error {
 		backendID := c.Param("id")
@@ -974,7 +1086,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			"jobID":   uid,
 			"message": "Backend deletion started",
 		})
-	})
+	}, adminMiddleware)
 
 	app.GET("/api/backends/job/:uid", func(c echo.Context) error {
 		jobUID := c.Param("uid")
@@ -1011,7 +1123,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		}
 
 		return c.JSON(200, response)
-	})
+	}, adminMiddleware)
 
 	// System Backend Deletion API (for installed backends on index page)
 	app.POST("/api/backends/system/delete/:name", func(c echo.Context) error {
@@ -1037,15 +1149,16 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			"success": true,
 			"message": "Backend deleted successfully",
 		})
-	})
+	}, adminMiddleware)
 
 	// P2P APIs
 	app.GET("/api/p2p/workers", func(c echo.Context) error {
-		nodes := p2p.GetAvailableNodes(p2p.NetworkID(appConfig.P2PNetworkID, p2p.WorkerID))
+		llamaNodes := p2p.GetAvailableNodes(p2p.NetworkID(appConfig.P2PNetworkID, p2p.LlamaCPPWorkerID))
+		mlxNodes := p2p.GetAvailableNodes(p2p.NetworkID(appConfig.P2PNetworkID, p2p.MLXWorkerID))
 
-		nodesJSON := make([]map[string]interface{}, 0, len(nodes))
-		for _, n := range nodes {
-			nodesJSON = append(nodesJSON, map[string]interface{}{
+		llamaJSON := make([]map[string]any, 0, len(llamaNodes))
+		for _, n := range llamaNodes {
+			llamaJSON = append(llamaJSON, map[string]any{
 				"name":          n.Name,
 				"id":            n.ID,
 				"tunnelAddress": n.TunnelAddress,
@@ -1055,10 +1168,29 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			})
 		}
 
-		return c.JSON(200, map[string]interface{}{
-			"nodes": nodesJSON,
+		mlxJSON := make([]map[string]any, 0, len(mlxNodes))
+		for _, n := range mlxNodes {
+			mlxJSON = append(mlxJSON, map[string]any{
+				"name":          n.Name,
+				"id":            n.ID,
+				"tunnelAddress": n.TunnelAddress,
+				"serviceID":     n.ServiceID,
+				"lastSeen":      n.LastSeen,
+				"isOnline":      n.IsOnline(),
+			})
+		}
+
+		return c.JSON(200, map[string]any{
+			"llama_cpp": map[string]any{
+				"nodes": llamaJSON,
+			},
+			"mlx": map[string]any{
+				"nodes": mlxJSON,
+			},
+			// Keep backward-compatible "nodes" key with llama.cpp workers
+			"nodes": llamaJSON,
 		})
-	})
+	}, adminMiddleware)
 
 	app.GET("/api/p2p/federation", func(c echo.Context) error {
 		nodes := p2p.GetAvailableNodes(p2p.NetworkID(appConfig.P2PNetworkID, p2p.FederatedID))
@@ -1078,16 +1210,17 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		return c.JSON(200, map[string]interface{}{
 			"nodes": nodesJSON,
 		})
-	})
+	}, adminMiddleware)
 
 	app.GET("/api/p2p/stats", func(c echo.Context) error {
-		workerNodes := p2p.GetAvailableNodes(p2p.NetworkID(appConfig.P2PNetworkID, p2p.WorkerID))
+		llamaCPPNodes := p2p.GetAvailableNodes(p2p.NetworkID(appConfig.P2PNetworkID, p2p.LlamaCPPWorkerID))
 		federatedNodes := p2p.GetAvailableNodes(p2p.NetworkID(appConfig.P2PNetworkID, p2p.FederatedID))
+		mlxWorkerNodes := p2p.GetAvailableNodes(p2p.NetworkID(appConfig.P2PNetworkID, p2p.MLXWorkerID))
 
-		workersOnline := 0
-		for _, n := range workerNodes {
+		llamaCPPOnline := 0
+		for _, n := range llamaCPPNodes {
 			if n.IsOnline() {
-				workersOnline++
+				llamaCPPOnline++
 			}
 		}
 
@@ -1098,17 +1231,28 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			}
 		}
 
-		return c.JSON(200, map[string]interface{}{
-			"workers": map[string]interface{}{
-				"online": workersOnline,
-				"total":  len(workerNodes),
+		mlxWorkersOnline := 0
+		for _, n := range mlxWorkerNodes {
+			if n.IsOnline() {
+				mlxWorkersOnline++
+			}
+		}
+
+		return c.JSON(200, map[string]any{
+			"llama_cpp_workers": map[string]any{
+				"online": llamaCPPOnline,
+				"total":  len(llamaCPPNodes),
 			},
-			"federated": map[string]interface{}{
+			"federated": map[string]any{
 				"online": federatedOnline,
 				"total":  len(federatedNodes),
 			},
+			"mlx_workers": map[string]any{
+				"online": mlxWorkersOnline,
+				"total":  len(mlxWorkerNodes),
+			},
 		})
-	})
+	}, adminMiddleware)
 
 	// Resources API endpoint - unified memory info (GPU if available, otherwise RAM)
 	app.GET("/api/resources", func(c echo.Context) error {
@@ -1135,15 +1279,15 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		}
 
 		return c.JSON(200, response)
-	})
+	}, adminMiddleware)
 
 	if !appConfig.DisableRuntimeSettings {
 		// Settings API
-		app.GET("/api/settings", localai.GetSettingsEndpoint(applicationInstance))
-		app.POST("/api/settings", localai.UpdateSettingsEndpoint(applicationInstance))
+		app.GET("/api/settings", localai.GetSettingsEndpoint(applicationInstance), adminMiddleware)
+		app.POST("/api/settings", localai.UpdateSettingsEndpoint(applicationInstance), adminMiddleware)
 	}
 
-	// Logs API
+	// Logs API (admin only)
 	app.GET("/api/traces", func(c echo.Context) error {
 		if !appConfig.EnableTracing {
 			return c.JSON(503, map[string]any{
@@ -1154,12 +1298,12 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		return c.JSON(200, map[string]interface{}{
 			"traces": traces,
 		})
-	})
+	}, adminMiddleware)
 
 	app.POST("/api/traces/clear", func(c echo.Context) error {
 		middleware.ClearTraces()
 		return c.JSON(200, map[string]interface{}{
 			"message": "Traces cleared",
 		})
-	})
+	}, adminMiddleware)
 }

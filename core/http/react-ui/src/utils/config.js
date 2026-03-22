@@ -3,6 +3,7 @@ export const API_CONFIG = {
     // Operations
     operations: '/api/operations',
     cancelOperation: (jobID) => `/api/operations/${jobID}/cancel`,
+    dismissOperation: (jobID) => `/api/operations/${jobID}/dismiss`,
 
     // Models gallery
     models: '/api/models',
@@ -32,6 +33,11 @@ export const API_CONFIG = {
     backendTraces: '/api/backend-traces',
     clearBackendTraces: '/api/backend-traces/clear',
 
+    // Backend Logs
+    backendLogs: '/api/backend-logs',
+    backendLogsModel: (modelId) => `/api/backend-logs/${encodeURIComponent(modelId)}`,
+    clearBackendLogs: (modelId) => `/api/backend-logs/${encodeURIComponent(modelId)}/clear`,
+
     // P2P
     p2pWorkers: '/api/p2p/workers',
     p2pFederation: '/api/p2p/federation',
@@ -50,6 +56,11 @@ export const API_CONFIG = {
     // OpenAI-compatible endpoints
     chatCompletions: '/v1/chat/completions',
     mcpChatCompletions: '/v1/mcp/chat/completions',
+    mcpServers: (model) => `/v1/mcp/servers/${model}`,
+    mcpPrompts: (model) => `/v1/mcp/prompts/${model}`,
+    mcpGetPrompt: (model, prompt) => `/v1/mcp/prompts/${model}/${encodeURIComponent(prompt)}`,
+    mcpResources: (model) => `/v1/mcp/resources/${model}`,
+    mcpReadResource: (model) => `/v1/mcp/resources/${model}/read`,
     completions: '/v1/completions',
     imageGenerations: '/v1/images/generations',
     audioSpeech: '/v1/audio/speech',
@@ -58,6 +69,10 @@ export const API_CONFIG = {
     embeddings: '/v1/embeddings',
     modelsList: '/v1/models',
     modelsCapabilities: '/api/models/capabilities',
+
+    // Realtime / WebRTC
+    realtimeCalls: '/v1/realtime/calls',
+    pipelineModels: '/api/pipeline-models',
 
     // LocalAI-specific
     tts: '/tts',
@@ -78,5 +93,6 @@ export const API_CONFIG = {
     backendsInstalled: '/backends',
     version: '/version',
     system: '/system',
+    corsProxy: '/api/cors-proxy',
   },
 }

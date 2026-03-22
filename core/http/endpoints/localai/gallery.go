@@ -20,6 +20,7 @@ type ModelGalleryEndpointService struct {
 	backendGalleries []config.Gallery
 	modelPath        string
 	galleryApplier   *services.GalleryService
+	configLoader     *config.ModelConfigLoader
 }
 
 type GalleryModel struct {
@@ -27,12 +28,13 @@ type GalleryModel struct {
 	gallery.GalleryModel
 }
 
-func CreateModelGalleryEndpointService(galleries []config.Gallery, backendGalleries []config.Gallery, systemState *system.SystemState, galleryApplier *services.GalleryService) ModelGalleryEndpointService {
+func CreateModelGalleryEndpointService(galleries []config.Gallery, backendGalleries []config.Gallery, systemState *system.SystemState, galleryApplier *services.GalleryService, configLoader *config.ModelConfigLoader) ModelGalleryEndpointService {
 	return ModelGalleryEndpointService{
 		galleries:        galleries,
 		backendGalleries: backendGalleries,
 		modelPath:        systemState.Model.ModelsPath,
 		galleryApplier:   galleryApplier,
+		configLoader:     configLoader,
 	}
 }
 
@@ -102,6 +104,8 @@ func (mgs *ModelGalleryEndpointService) DeleteModelGalleryEndpoint() echo.Handle
 			Delete:             true,
 			GalleryElementName: modelName,
 		}
+
+		mgs.configLoader.RemoveModelConfig(modelName)
 
 		uuid, err := uuid.NewUUID()
 		if err != nil {

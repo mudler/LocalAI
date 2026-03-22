@@ -10,7 +10,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         ca-certificates curl wget espeak-ng libgomp1 \
-        ffmpeg libopenblas0 libopenblas-dev sox && \
+        ffmpeg libopenblas0 libopenblas-dev libopus0 sox && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
@@ -190,6 +190,7 @@ RUN apt-get update && \
         curl libssl-dev \
         git \
         git-lfs \
+        libopus-dev pkg-config \
         unzip upx-ucl python3 python-is-python3 && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
@@ -255,7 +256,7 @@ RUN apt-get update && \
 
 FROM build-requirements AS builder-base
 
-ARG GO_TAGS=""
+ARG GO_TAGS="auth"
 ARG GRPC_BACKENDS
 ARG MAKEFLAGS
 ARG LD_FLAGS="-s -w"
@@ -292,7 +293,7 @@ EOT
 ###################################
 
 # Build React UI
-FROM node:22-slim AS react-ui-builder
+FROM node:25-slim AS react-ui-builder
 WORKDIR /app
 COPY core/http/react-ui/package*.json ./
 RUN npm install
@@ -378,14 +379,17 @@ COPY ./entrypoint.sh .
 
 # Copy the binary
 COPY --from=builder /build/local-ai ./
+# Copy the opus shim if it was built
+RUN --mount=from=builder,src=/build/,dst=/mnt/build \
+    if [ -f /mnt/build/libopusshim.so ]; then cp /mnt/build/libopusshim.so ./; fi
 
 # Make sure the models directory exists
-RUN mkdir -p /models /backends
+RUN mkdir -p /models /backends /data
 
 # Define the health check command
 HEALTHCHECK --interval=1m --timeout=10m --retries=10 \
   CMD curl -f ${HEALTHCHECK_ENDPOINT} || exit 1
 
-VOLUME /models /backends /configuration
+VOLUME /models /backends /configuration /data
 EXPOSE 8080
 ENTRYPOINT [ "/entrypoint.sh" ]

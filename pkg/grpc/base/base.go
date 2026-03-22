@@ -112,6 +112,46 @@ func (llm *Base) VAD(*pb.VADRequest) (pb.VADResponse, error) {
 	return pb.VADResponse{}, fmt.Errorf("unimplemented")
 }
 
+func (llm *Base) AudioEncode(*pb.AudioEncodeRequest) (*pb.AudioEncodeResult, error) {
+	return nil, fmt.Errorf("unimplemented")
+}
+
+func (llm *Base) AudioDecode(*pb.AudioDecodeRequest) (*pb.AudioDecodeResult, error) {
+	return nil, fmt.Errorf("unimplemented")
+}
+
+func (llm *Base) StartFineTune(*pb.FineTuneRequest) (*pb.FineTuneJobResult, error) {
+	return nil, fmt.Errorf("unimplemented")
+}
+
+func (llm *Base) FineTuneProgress(*pb.FineTuneProgressRequest, chan *pb.FineTuneProgressUpdate) error {
+	return fmt.Errorf("unimplemented")
+}
+
+func (llm *Base) StopFineTune(*pb.FineTuneStopRequest) error {
+	return fmt.Errorf("unimplemented")
+}
+
+func (llm *Base) ListCheckpoints(*pb.ListCheckpointsRequest) (*pb.ListCheckpointsResponse, error) {
+	return nil, fmt.Errorf("unimplemented")
+}
+
+func (llm *Base) ExportModel(*pb.ExportModelRequest) error {
+	return fmt.Errorf("unimplemented")
+}
+
+func (llm *Base) StartQuantization(*pb.QuantizationRequest) (*pb.QuantizationJobResult, error) {
+	return nil, fmt.Errorf("unimplemented")
+}
+
+func (llm *Base) QuantizationProgress(*pb.QuantizationProgressRequest, chan *pb.QuantizationProgressUpdate) error {
+	return fmt.Errorf("unimplemented")
+}
+
+func (llm *Base) StopQuantization(*pb.QuantizationStopRequest) error {
+	return fmt.Errorf("unimplemented")
+}
+
 func memoryUsage() *pb.MemoryUsageData {
 	mud := pb.MemoryUsageData{
 		Breakdown: make(map[string]uint64),

@@ -3,6 +3,7 @@ package config
 import (
 	"context"
 
+	"github.com/mudler/LocalAI/pkg/functions"
 	"github.com/mudler/LocalAI/pkg/grpc"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"github.com/mudler/LocalAI/pkg/reasoning"
@@ -75,6 +76,8 @@ func guessGGUFFromFile(cfg *ModelConfig, f *gguf.GGUFFile, defaultCtx int) {
 	cfg.Options = append(cfg.Options, "use_jinja:true")
 	cfg.KnownUsecaseStrings = append(cfg.KnownUsecaseStrings, "FLAG_CHAT")
 
+	// Apply per-model-family inference parameter defaults (temperature, top_p, etc.)
+	ApplyInferenceDefaults(cfg, f.Metadata().Name)
 }
 
 // DetectThinkingSupportFromBackend calls the ModelMetadata gRPC method to detect
@@ -117,6 +120,46 @@ func DetectThinkingSupportFromBackend(ctx context.Context, cfg *ModelConfig, bac
 		} else {
 			cfg.ReasoningConfig.DisableReasoningTagPrefill = ptr.To(true)
 			xlog.Debug("[gguf] DetectThinkingSupportFromBackend: thinking support detected", "supports_thinking", metadata.SupportsThinking, "thinking_forced_open", false)
+		}
+
+		// Extract tool format markers from autoparser analysis
+		if tf := metadata.GetToolFormat(); tf != nil && tf.FormatType != "" {
+			cfg.FunctionsConfig.ToolFormatMarkers = &functions.ToolFormatMarkers{
+				FormatType:        tf.FormatType,
+				SectionStart:      tf.SectionStart,
+				SectionEnd:        tf.SectionEnd,
+				PerCallStart:      tf.PerCallStart,
+				PerCallEnd:        tf.PerCallEnd,
+				FuncNamePrefix:    tf.FuncNamePrefix,
+				FuncNameSuffix:    tf.FuncNameSuffix,
+				FuncClose:         tf.FuncClose,
+				ArgNamePrefix:     tf.ArgNamePrefix,
+				ArgNameSuffix:     tf.ArgNameSuffix,
+				ArgValuePrefix:    tf.ArgValuePrefix,
+				ArgValueSuffix:    tf.ArgValueSuffix,
+				ArgSeparator:      tf.ArgSeparator,
+				ArgsStart:         tf.ArgsStart,
+				ArgsEnd:           tf.ArgsEnd,
+				NameField:         tf.NameField,
+				ArgsField:         tf.ArgsField,
+				IDField:           tf.IdField,
+				FunNameIsKey:      tf.FunNameIsKey,
+				ToolsArrayWrapped: tf.ToolsArrayWrapped,
+				FunctionField:     tf.FunctionField,
+				ParameterOrder:    tf.ParameterOrder,
+				GenIDField:        tf.GenIdField,
+				CallIDPosition:    tf.CallIdPosition,
+				CallIDPrefix:      tf.CallIdPrefix,
+				CallIDSuffix:      tf.CallIdSuffix,
+				ReasoningStart:    tf.ReasoningStart,
+				ReasoningEnd:      tf.ReasoningEnd,
+				ContentStart:      tf.ContentStart,
+				ContentEnd:        tf.ContentEnd,
+			}
+			xlog.Debug("[gguf] DetectThinkingSupportFromBackend: tool format markers detected",
+				"format_type", tf.FormatType,
+				"section_start", tf.SectionStart,
+				"func_name_prefix", tf.FuncNamePrefix)
 		}
 	}
 }

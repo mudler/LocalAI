@@ -8,10 +8,24 @@ At LocalAI, we take the security of our software seriously. We understand the im
 
 We provide support and updates for certain versions of our software. The following table outlines which versions are currently supported with security updates:
 
-| Version | Supported          |
-| ------- | ------------------ |
-| > 2.0   | :white_check_mark: |
-| < 2.0   | :x:                |
+| Version Series | Support Level | Details |
+| -------------- | ------------- | ------- |
+| 3.x | :white_check_mark: Actively supported | Full security updates and bug fixes for the latest minor versions. |
+| 2.x | :warning: Security fixes only | Critical security patches only, until **December 31, 2025**. |
+| 1.x | :x: End-of-life (EOL) | No longer supported as of **January 1, 2024**. No security fixes will be provided. |
+
+### What each support level means
+
+- **Actively supported (3.x):** Receives all security updates, bug fixes, and new features. Users should stay on the latest 3.x minor release for the best protection.
+- **Security fixes only (2.x):** Receives only critical security patches (e.g., remote code execution, authentication bypass, data exposure). No bug fixes or new features. Support ends December 31, 2025.
+- **End-of-life (1.x):** No updates of any kind. Users on 1.x are strongly encouraged to upgrade immediately, as known vulnerabilities will not be patched.
+
+### Migrating from older versions
+
+If you are running an unsupported or soon-to-be-unsupported version, we recommend upgrading as soon as possible:
+
+- **From 1.x to 3.x:** Version 1.x reached end-of-life on January 1, 2024. Review the [release notes](https://github.com/mudler/LocalAI/releases) for breaking changes across major versions, and upgrade directly to the latest 3.x release.
+- **From 2.x to 3.x:** While 2.x still receives critical security patches until December 31, 2025, we recommend planning your migration to 3.x to benefit from ongoing improvements and full support.
 
 Please ensure that you are using a supported version to receive the latest security updates.
 

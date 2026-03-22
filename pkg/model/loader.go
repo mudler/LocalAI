@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/mudler/LocalAI/pkg/system"
@@ -19,6 +20,10 @@ import (
 // new idea: what if we declare a struct of these here, and use a loop to check?
 
 // TODO: Split ModelLoader and TemplateLoader? Just to keep things more organized. Left together to share a mutex until I look into that. Would split if we separate directories for .bin/.yaml and .tmpl
+// ModelUnloadHook is called when a model is about to be unloaded.
+// The model name is passed as the argument.
+type ModelUnloadHook func(modelName string)
+
 type ModelLoader struct {
 	ModelPath                string
 	mu                       sync.Mutex
@@ -28,6 +33,9 @@ type ModelLoader struct {
 	externalBackends         map[string]string
 	lruEvictionMaxRetries    int           // Maximum number of retries when waiting for busy models
 	lruEvictionRetryInterval time.Duration // Interval between retries when waiting for busy models
+	onUnloadHooks            []ModelUnloadHook
+	backendLogs              *BackendLogStore
+	backendLoggingEnabled    atomic.Bool
 }
 
 // NewModelLoader creates a new ModelLoader instance.
@@ -40,6 +48,7 @@ func NewModelLoader(system *system.SystemState) *ModelLoader {
 		externalBackends:         make(map[string]string),
 		lruEvictionMaxRetries:    30,              // Default: 30 retries
 		lruEvictionRetryInterval: 1 * time.Second, // Default: 1 second
+		backendLogs:              NewBackendLogStore(1000),
 	}
 
 	return nml
@@ -52,12 +61,31 @@ func (ml *ModelLoader) GetLoadingCount() int {
 	return len(ml.loading)
 }
 
+// OnModelUnload registers a hook that is called when a model is unloaded.
+func (ml *ModelLoader) OnModelUnload(hook ModelUnloadHook) {
+	ml.mu.Lock()
+	defer ml.mu.Unlock()
+	ml.onUnloadHooks = append(ml.onUnloadHooks, hook)
+}
+
 func (ml *ModelLoader) SetWatchDog(wd *WatchDog) {
 	ml.wd = wd
 }
 
 func (ml *ModelLoader) GetWatchDog() *WatchDog {
 	return ml.wd
+}
+
+func (ml *ModelLoader) BackendLogs() *BackendLogStore {
+	return ml.backendLogs
+}
+
+func (ml *ModelLoader) SetBackendLoggingEnabled(enabled bool) {
+	ml.backendLoggingEnabled.Store(enabled)
+}
+
+func (ml *ModelLoader) BackendLoggingEnabled() bool {
+	return ml.backendLoggingEnabled.Load()
 }
 
 // SetLRUEvictionRetrySettings updates the LRU eviction retry settings

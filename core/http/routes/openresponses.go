@@ -4,6 +4,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/application"
 	"github.com/mudler/LocalAI/core/config"
+	localai "github.com/mudler/LocalAI/core/http/endpoints/localai"
 	"github.com/mudler/LocalAI/core/http/endpoints/openresponses"
 	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/schema"
@@ -22,6 +23,10 @@ func RegisterOpenResponsesRoutes(app *echo.Echo,
 	)
 
 	responsesMiddleware := []echo.MiddlewareFunc{
+		// Intercept requests where the model name matches an agent — route directly
+		// to the agent pool without going through the model config resolution pipeline.
+		localai.AgentResponsesInterceptor(application),
+		middleware.UsageMiddleware(application.AuthDB()),
 		middleware.TraceMiddleware(application),
 		re.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_CHAT)),
 		re.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.OpenResponsesRequest) }),
@@ -36,8 +41,8 @@ func RegisterOpenResponsesRoutes(app *echo.Echo,
 
 	// WebSocket mode for Responses API
 	wsHandler := openresponses.WebSocketEndpoint(application)
-	app.GET("/v1/responses", wsHandler)
-	app.GET("/responses", wsHandler)
+	app.GET("/v1/responses", wsHandler, middleware.UsageMiddleware(application.AuthDB()), middleware.TraceMiddleware(application))
+	app.GET("/responses", wsHandler, middleware.UsageMiddleware(application.AuthDB()), middleware.TraceMiddleware(application))
 
 	// GET /responses/:id - Retrieve a response (for polling background requests)
 	getResponseHandler := openresponses.GetResponseEndpoint()

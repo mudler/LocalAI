@@ -375,9 +375,15 @@ func (cfg *ModelConfig) SetDefaults(opts ...ConfigLoaderOption) {
 	threads := lo.threads
 	f16 := lo.f16
 	debug := lo.debug
+
+	// Apply model-family-specific inference defaults before generic fallbacks.
+	// This ensures gallery-installed and runtime-loaded models get optimal parameters.
+	ApplyInferenceDefaults(cfg, cfg.Name, cfg.Model)
+
 	// https://github.com/ggerganov/llama.cpp/blob/75cd4c77292034ecec587ecb401366f57338f7c0/common/sampling.h#L22
 	defaultTopP := 0.95
 	defaultTopK := 40
+	defaultMinP := 0.0
 	defaultTemp := 0.9
 	// https://github.com/mudler/LocalAI/issues/2780
 	defaultMirostat := 0
@@ -398,6 +404,10 @@ func (cfg *ModelConfig) SetDefaults(opts ...ConfigLoaderOption) {
 
 	if cfg.TopK == nil {
 		cfg.TopK = &defaultTopK
+	}
+
+	if cfg.MinP == nil {
+		cfg.MinP = &defaultMinP
 	}
 
 	if cfg.TypicalP == nil {
@@ -660,6 +670,10 @@ func (c *ModelConfig) GuessUsecases(u ModelConfigUsecase) bool {
 		if c.Backend != "whisper" {
 			return false
 		}
+		// whisper models with vad_only option are VAD, not transcription
+		if slices.Contains(c.Options, "vad_only") {
+			return false
+		}
 	}
 	if (u & FLAG_TTS) == FLAG_TTS {
 		ttsBackends := []string{"piper", "transformers-musicgen", "kokoro"}
@@ -675,7 +689,7 @@ func (c *ModelConfig) GuessUsecases(u ModelConfigUsecase) bool {
 	}
 
 	if (u & FLAG_SOUND_GENERATION) == FLAG_SOUND_GENERATION {
-		soundGenBackends := []string{"transformers-musicgen", "ace-step", "mock-backend"}
+		soundGenBackends := []string{"transformers-musicgen", "ace-step", "acestep-cpp", "mock-backend"}
 		if !slices.Contains(soundGenBackends, c.Backend) {
 			return false
 		}
@@ -689,7 +703,7 @@ func (c *ModelConfig) GuessUsecases(u ModelConfigUsecase) bool {
 	}
 
 	if (u & FLAG_VAD) == FLAG_VAD {
-		if c.Backend != "silero-vad" {
+		if c.Backend != "silero-vad" && !(c.Backend == "whisper" && slices.Contains(c.Options, "vad_only")) {
 			return false
 		}
 	}

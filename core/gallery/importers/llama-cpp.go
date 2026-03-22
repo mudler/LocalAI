@@ -114,6 +114,7 @@ func (i *LlamaCPPImporter) Import(details Details) (gallery.ModelConfig, error) 
 			GrammarConfig: functions.GrammarConfig{
 				NoGrammar: true,
 			},
+			AutomaticToolParsingFallback: true,
 		},
 	}
 
@@ -184,7 +185,7 @@ func (i *LlamaCPPImporter) Import(details Details) (gallery.ModelConfig, error) 
 			if strings.Contains(strings.ToLower(file.Path), "mmproj") {
 				lastMMProjFile = &gallery.File{
 					URI:      file.URL,
-					Filename: filepath.Join("llama-cpp", "mmproj", filepath.Base(file.Path)),
+					Filename: filepath.Join("llama-cpp", "mmproj", name, filepath.Base(file.Path)),
 					SHA256:   file.SHA256,
 				}
 				if slices.ContainsFunc(mmprojQuantsList, func(quant string) bool {
@@ -196,7 +197,7 @@ func (i *LlamaCPPImporter) Import(details Details) (gallery.ModelConfig, error) 
 			} else if strings.HasSuffix(strings.ToLower(file.Path), "gguf") {
 				lastGGUFFile = &gallery.File{
 					URI:      file.URL,
-					Filename: filepath.Join("llama-cpp", "models", filepath.Base(file.Path)),
+					Filename: filepath.Join("llama-cpp", "models", name, filepath.Base(file.Path)),
 					SHA256:   file.SHA256,
 				}
 				// get the files of the prefered quants
@@ -248,6 +249,9 @@ func (i *LlamaCPPImporter) Import(details Details) (gallery.ModelConfig, error) 
 			break
 		}
 	}
+
+	// Apply per-model-family inference parameter defaults
+	config.ApplyInferenceDefaults(&modelConfig, details.URI)
 
 	data, err := yaml.Marshal(modelConfig)
 	if err != nil {

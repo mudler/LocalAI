@@ -84,19 +84,37 @@ func (a *Application) StartP2P() error {
 		n = node
 	}
 
-	// Attach a ServiceDiscoverer to the p2p node
+	// Attach a ServiceDiscoverer to the p2p node for llama.cpp workers
 	xlog.Info("Starting P2P server discovery...")
-	if err := p2p.ServiceDiscoverer(ctx, n, a.applicationConfig.P2PToken, p2p.NetworkID(networkID, p2p.WorkerID), func(serviceID string, node schema.NodeData) {
+	if err := p2p.ServiceDiscoverer(ctx, n, a.applicationConfig.P2PToken, p2p.NetworkID(networkID, p2p.LlamaCPPWorkerID), func(serviceID string, node schema.NodeData) {
 		var tunnelAddresses []string
-		for _, v := range p2p.GetAvailableNodes(p2p.NetworkID(networkID, p2p.WorkerID)) {
+		for _, v := range p2p.GetAvailableNodes(p2p.NetworkID(networkID, p2p.LlamaCPPWorkerID)) {
 			if v.IsOnline() {
 				tunnelAddresses = append(tunnelAddresses, v.TunnelAddress)
 			} else {
 				xlog.Info("Node is offline", "node", v.ID)
 			}
 		}
-		if a.applicationConfig.TunnelCallback != nil {
-			a.applicationConfig.TunnelCallback(tunnelAddresses)
+		if a.applicationConfig.LlamaCPPTunnelCallback != nil {
+			a.applicationConfig.LlamaCPPTunnelCallback(tunnelAddresses)
+		}
+	}, true); err != nil {
+		return err
+	}
+
+	// Attach a ServiceDiscoverer for MLX distributed workers
+	xlog.Info("Starting MLX P2P worker discovery...")
+	if err := p2p.ServiceDiscoverer(ctx, n, a.applicationConfig.P2PToken, p2p.NetworkID(networkID, p2p.MLXWorkerID), func(serviceID string, node schema.NodeData) {
+		var tunnelAddresses []string
+		for _, v := range p2p.GetAvailableNodes(p2p.NetworkID(networkID, p2p.MLXWorkerID)) {
+			if v.IsOnline() {
+				tunnelAddresses = append(tunnelAddresses, v.TunnelAddress)
+			} else {
+				xlog.Info("MLX node is offline", "node", v.ID)
+			}
+		}
+		if a.applicationConfig.MLXTunnelCallback != nil {
+			a.applicationConfig.MLXTunnelCallback(tunnelAddresses)
 		}
 	}, true); err != nil {
 		return err

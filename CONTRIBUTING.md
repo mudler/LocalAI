@@ -7,8 +7,10 @@ Thank you for your interest in contributing to LocalAI! We appreciate your time 
 - [Getting Started](#getting-started)
   - [Prerequisites](#prerequisites)
   - [Setting up the Development Environment](#setting-up-the-development-environment)
+  - [Environment Variables](#environment-variables)
 - [Contributing](#contributing)
   - [Submitting an Issue](#submitting-an-issue)
+  - [Development Workflow](#development-workflow)
   - [Creating a Pull Request (PR)](#creating-a-pull-request-pr)
 - [Coding Guidelines](#coding-guidelines)
 - [Testing](#testing)
@@ -19,18 +21,122 @@ Thank you for your interest in contributing to LocalAI! We appreciate your time 
 
 ### Prerequisites
 
-- Golang [1.21]
-- Git
-- macOS/Linux
+- **Go 1.21+** (the project currently uses Go 1.26 in `go.mod`, but 1.21 is the minimum supported version)
+  - [Download Go](https://go.dev/dl/) or install via your package manager
+  - macOS: `brew install go`
+  - Ubuntu/Debian: follow the [official instructions](https://go.dev/doc/install) (the `apt` version is often outdated)
+  - Verify: `go version`
+- **Git**
+- **GNU Make**
+- **GCC / C/C++ toolchain** (required for CGo and native backends)
+- **Protocol Buffers compiler** (`protoc`) — needed for gRPC code generation
 
-### Setting up the Development Environment and running localAI in the local environment
+#### System dependencies by platform
 
-1. Clone the repository: `git clone https://github.com/go-skynet/LocalAI.git`
-2. Navigate to the project directory: `cd LocalAI`
-3. Install the required dependencies ( see https://localai.io/basics/build/#build-localai-locally )
-4. Build LocalAI: `make build`
-5. Run LocalAI: `./local-ai`
-6. To Build and live reload: `make build-dev`
+<details>
+<summary><strong>Ubuntu / Debian</strong></summary>
+
+```bash
+sudo apt-get update
+sudo apt-get install -y build-essential gcc g++ cmake git wget \
+  protobuf-compiler libprotobuf-dev pkg-config \
+  libopencv-dev libgrpc-dev
+```
+
+</details>
+
+<details>
+<summary><strong>CentOS / RHEL / Fedora</strong></summary>
+
+```bash
+sudo dnf groupinstall -y "Development Tools"
+sudo dnf install -y cmake git wget protobuf-compiler protobuf-devel \
+  opencv-devel grpc-devel
+```
+
+</details>
+
+<details>
+<summary><strong>macOS</strong></summary>
+
+```bash
+xcode-select --install
+brew install cmake git protobuf grpc opencv wget
+```
+
+</details>
+
+<details>
+<summary><strong>Windows</strong></summary>
+
+Use [WSL 2](https://learn.microsoft.com/en-us/windows/wsl/install) with an Ubuntu distribution, then follow the Ubuntu instructions above.
+
+</details>
+
+### Setting up the Development Environment
+
+1. **Clone the repository:**
+
+   ```bash
+   git clone https://github.com/mudler/LocalAI.git
+   cd LocalAI
+   ```
+
+2. **Build LocalAI:**
+
+   ```bash
+   make build
+   ```
+
+   This runs protobuf generation, installs Go tools, builds the React UI, and compiles the `local-ai` binary. Key build variables you can set:
+
+   | Variable | Description | Example |
+   |---|---|---|
+   | `BUILD_TYPE` | GPU/accelerator type (`cublas`, `hipblas`, `intel`, ``) | `BUILD_TYPE=cublas make build` |
+   | `GO_TAGS` | Additional Go build tags | `GO_TAGS=debug make build` |
+   | `CUDA_MAJOR_VERSION` | CUDA major version (default: `13`) | `CUDA_MAJOR_VERSION=12` |
+
+3. **Run LocalAI:**
+
+   ```bash
+   ./local-ai
+   ```
+
+4. **Development mode with live reload:**
+
+   ```bash
+   make build-dev
+   ```
+
+   This installs [`air`](https://github.com/air-verse/air) automatically and watches for file changes, rebuilding and restarting the server on each save.
+
+5. **Containerized build** (no local toolchain needed):
+
+   ```bash
+   make docker
+   ```
+
+   For GPU-specific Docker builds, see the `docker-build-*` targets in the Makefile and refer to [CLAUDE.md](CLAUDE.md) for detailed backend build instructions.
+
+### Environment Variables
+
+LocalAI is configured primarily through environment variables (or equivalent CLI flags). The most useful ones for development are:
+
+| Variable | Description | Default |
+|---|---|---|
+| `LOCALAI_DEBUG` | Enable debug mode | `false` |
+| `LOCALAI_LOG_LEVEL` | Log verbosity (`error`, `warn`, `info`, `debug`, `trace`) | — |
+| `LOCALAI_LOG_FORMAT` | Log format (`default`, `text`, `json`) | `default` |
+| `LOCALAI_MODELS_PATH` | Path to model files | `./models` |
+| `LOCALAI_BACKENDS_PATH` | Path to backend binaries | `./backends` |
+| `LOCALAI_CONFIG_DIR` | Directory for dynamic config files (API keys, external backends) | `./configuration` |
+| `LOCALAI_THREADS` | Number of threads for inference | — |
+| `LOCALAI_ADDRESS` | Bind address for the API server | `:8080` |
+| `LOCALAI_API_KEY` | API key(s) for authentication | — |
+| `LOCALAI_CORS` | Enable CORS | `false` |
+| `LOCALAI_DISABLE_WEBUI` | Disable the web UI | `false` |
+
+See `core/cli/run.go` for the full list of supported environment variables.
 
 ## Contributing
 
@@ -40,43 +146,128 @@ We welcome contributions from everyone! To get started, follow these steps:
 
 If you find a bug, have a feature request, or encounter any issues, please check the [issue tracker](https://github.com/go-skynet/LocalAI/issues) to see if a similar issue has already been reported. If not, feel free to [create a new issue](https://github.com/go-skynet/LocalAI/issues/new) and provide as much detail as possible.
 
-### Creating a Pull Request (PR)
+### Development Workflow
+
+#### Branch naming conventions
+
+Use a descriptive branch name that indicates the type and scope of the change:
+
+- `feature/<short-description>` — new functionality
+- `fix/<short-description>` — bug fixes
+- `docs/<short-description>` — documentation changes
+- `refactor/<short-description>` — code refactoring
+
+#### Commit messages
+
+- Use a short, imperative subject line (e.g., "feat: add whisper backend support", not "Added whisper backend support")
+- Keep the subject under 72 characters
+- Use the body to explain **why** the change was made when the subject alone is not sufficient
+- Use [conventional commits](https://www.conventionalcommits.org/en/v1.0.0/)
+
+#### Creating a Pull Request (PR)
+
+Before jumping into a PR for a massive feature or big change, it is preferred to discuss it first via an issue.
 
 1. Fork the repository.
-2. Create a new branch with a descriptive name: `git checkout -b [branch name]`
-3. Make your changes and commit them.
-4. Push the changes to your fork: `git push origin [branch name]`
-5. Create a new pull request from your branch to the main project's `main` or `master` branch.
-6. Provide a clear description of your changes in the pull request.
-7. Make any requested changes during the review process.
-8. Once your PR is approved, it will be merged into the main project.
+2. Create a new branch: `git checkout -b feature/my-change`
+3. Make your changes, keeping commits focused and atomic.
+4. Run tests locally before pushing (see [Testing](#testing) below).
+5. Push to your fork: `git push origin feature/my-change`
+6. Open a pull request against the `master` branch.
+7. Fill in the PR description with:
+   - What the change does and why
+   - How it was tested
+   - Any breaking changes or migration steps
+8. Respond to review feedback promptly. Push follow-up commits rather than force-pushing amended commits so reviewers can see incremental changes.
+9. Once approved, a maintainer will merge your PR.
 
 ## Coding Guidelines
 
-- No specific coding guidelines at the moment. Please make sure the code can be tested. The most popular lint tools like [`golangci-lint`](https://golangci-lint.run) can help you here.
+This project uses an [`.editorconfig`](.editorconfig) file to define formatting standards (indentation, line endings, charset, etc.). Please configure your editor to respect it.
+
+For AI-assisted development, see [`CLAUDE.md`](CLAUDE.md) for agent-specific guidelines including build instructions and backend architecture details.
+
+### General Principles
+
+- Write code that can be tested. All new features and bug fixes should include test coverage.
+- Use comments sparingly to explain **why** code does something, not **what** it does. Comments should add context that would be difficult to deduce from reading the code alone.
+- Keep changes focused. Avoid unrelated refactors, formatting changes, or feature additions in the same PR.
+
+### Go Code
+
+- Prefer modern Go idioms — for example, use `any` instead of `interface{}`.
+- Use [`golangci-lint`](https://golangci-lint.run) to catch common issues before submitting a PR.
+- Use [`github.com/mudler/xlog`](https://github.com/mudler/xlog) for logging (same API as `slog`). Do not use `fmt.Println` or the standard `log` package for operational logging.
+- Use tab indentation for Go files (as defined in `.editorconfig`).
+
+### Python Code
+
+- Use 4-space indentation (as defined in `.editorconfig`).
+- Include a `requirements.txt` for any new dependencies.
+
+### Code Review
+
+- All contributions go through code review via pull requests.
+- Reviewers will check for correctness, test coverage, adherence to these guidelines, and clarity of intent.
+- Be responsive to review feedback and keep discussions constructive.
 
 ## Testing
 
-`make test` cannot handle all the model now. Please be sure to add a test case for the new features or the part was changed.
+All new features and bug fixes should include test coverage. The project uses [Ginkgo](https://onsi.github.io/ginkgo/) as its test framework.
 
-### Running AIO tests
+### Running unit tests
 
-All-In-One images has a set of tests that automatically verifies that most of the endpoints works correctly, a flow can be :
+```bash
+make test
+```
+
+This downloads test model fixtures, runs protobuf generation, and executes the full test suite including llama-gguf, TTS, and stable-diffusion tests. Note: some tests require model files to be downloaded, so the first run may take longer.
+
+To run tests for a specific package:
+
+```bash
+go test ./core/config/...
+go test ./pkg/model/...
+```
+
+To run a specific test by name using Ginkgo's `--focus` flag:
+
+```bash
+go run github.com/onsi/ginkgo/v2/ginkgo --focus="should load a model" -v -r ./core/
+```
+
+### Running end-to-end tests
+
+The e2e tests run LocalAI in a Docker container and exercise the API:
+
+```bash
+make test-e2e
+```
+
+### Running E2E container tests
+
+These tests build a standard LocalAI Docker image and run it with pre-configured model configs to verify that most endpoints work correctly:
 
 ```bash
 # Build the LocalAI docker image
-make DOCKER_IMAGE=local-ai docker
+make docker-build-e2e
 
-# Build the corresponding AIO image
-BASE_IMAGE=local-ai DOCKER_AIO_IMAGE=local-ai-aio:test make docker-aio
+# Run the e2e tests (uses model configs from tests/e2e-aio/models/)
+make e2e-aio
+```
 
-# Run the AIO e2e tests
-LOCALAI_IMAGE_TAG=test LOCALAI_IMAGE=local-ai-aio make run-e2e-aio
+### Testing backends
+
+To prepare and test extra (Python) backends:
+
+```bash
+make prepare-test-extra   # build Python backends for testing
+make test-extra           # run backend-specific tests
 ```
 
 ## Documentation
 
-We are welcome the contribution of the documents, please open new PR or create a new issue. The documentation is available under `docs/` https://github.com/mudler/LocalAI/tree/master/docs
+We welcome contributions to the documentation. Please open a new PR or create a new issue. The documentation is available under `docs/` https://github.com/mudler/LocalAI/tree/master/docs
 
 ### Gallery YAML Schema
 

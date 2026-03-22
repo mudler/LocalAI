@@ -31,7 +31,22 @@ type AIModel interface {
 
 	VAD(*pb.VADRequest) (pb.VADResponse, error)
 
+	AudioEncode(*pb.AudioEncodeRequest) (*pb.AudioEncodeResult, error)
+	AudioDecode(*pb.AudioDecodeRequest) (*pb.AudioDecodeResult, error)
+
 	ModelMetadata(*pb.ModelOptions) (*pb.ModelMetadataResponse, error)
+
+	// Fine-tuning
+	StartFineTune(*pb.FineTuneRequest) (*pb.FineTuneJobResult, error)
+	FineTuneProgress(*pb.FineTuneProgressRequest, chan *pb.FineTuneProgressUpdate) error
+	StopFineTune(*pb.FineTuneStopRequest) error
+	ListCheckpoints(*pb.ListCheckpointsRequest) (*pb.ListCheckpointsResponse, error)
+	ExportModel(*pb.ExportModelRequest) error
+
+	// Quantization
+	StartQuantization(*pb.QuantizationRequest) (*pb.QuantizationJobResult, error)
+	QuantizationProgress(*pb.QuantizationProgressRequest, chan *pb.QuantizationProgressUpdate) error
+	StopQuantization(*pb.QuantizationStopRequest) error
 }
 
 func newReply(s string) *pb.Reply {

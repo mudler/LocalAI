@@ -22,7 +22,10 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 	galleryService *services.GalleryService,
 	opcache *services.OpCache,
 	evaluator *templates.Evaluator,
-	app *application.Application) {
+	app *application.Application,
+	adminMiddleware echo.MiddlewareFunc,
+	mcpJobsMw echo.MiddlewareFunc,
+	mcpMw echo.MiddlewareFunc) {
 
 	router.GET("/swagger/*", echoswagger.WrapHandler) // default
 
@@ -36,40 +39,40 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 				"Version":                internal.PrintableVersion(),
 				"DisableRuntimeSettings": appConfig.DisableRuntimeSettings,
 			})
-		})
+		}, adminMiddleware)
 
 		// Edit model page
-		router.GET("/models/edit/:name", localai.GetEditModelPage(cl, appConfig))
-		modelGalleryEndpointService := localai.CreateModelGalleryEndpointService(appConfig.Galleries, appConfig.BackendGalleries, appConfig.SystemState, galleryService)
-		router.POST("/models/apply", modelGalleryEndpointService.ApplyModelGalleryEndpoint())
-		router.POST("/models/delete/:name", modelGalleryEndpointService.DeleteModelGalleryEndpoint())
+		router.GET("/models/edit/:name", localai.GetEditModelPage(cl, appConfig), adminMiddleware)
+		modelGalleryEndpointService := localai.CreateModelGalleryEndpointService(appConfig.Galleries, appConfig.BackendGalleries, appConfig.SystemState, galleryService, cl)
+		router.POST("/models/apply", modelGalleryEndpointService.ApplyModelGalleryEndpoint(), adminMiddleware)
+		router.POST("/models/delete/:name", modelGalleryEndpointService.DeleteModelGalleryEndpoint(), adminMiddleware)
 
-		router.GET("/models/available", modelGalleryEndpointService.ListModelFromGalleryEndpoint(appConfig.SystemState))
-		router.GET("/models/galleries", modelGalleryEndpointService.ListModelGalleriesEndpoint())
-		router.GET("/models/jobs/:uuid", modelGalleryEndpointService.GetOpStatusEndpoint())
-		router.GET("/models/jobs", modelGalleryEndpointService.GetAllStatusEndpoint())
+		router.GET("/models/available", modelGalleryEndpointService.ListModelFromGalleryEndpoint(appConfig.SystemState), adminMiddleware)
+		router.GET("/models/galleries", modelGalleryEndpointService.ListModelGalleriesEndpoint(), adminMiddleware)
+		router.GET("/models/jobs/:uuid", modelGalleryEndpointService.GetOpStatusEndpoint(), adminMiddleware)
+		router.GET("/models/jobs", modelGalleryEndpointService.GetAllStatusEndpoint(), adminMiddleware)
 
 		backendGalleryEndpointService := localai.CreateBackendEndpointService(
 			appConfig.BackendGalleries,
 			appConfig.SystemState,
 			galleryService)
-		router.POST("/backends/apply", backendGalleryEndpointService.ApplyBackendEndpoint())
-		router.POST("/backends/delete/:name", backendGalleryEndpointService.DeleteBackendEndpoint())
-		router.GET("/backends", backendGalleryEndpointService.ListBackendsEndpoint(appConfig.SystemState))
-		router.GET("/backends/available", backendGalleryEndpointService.ListAvailableBackendsEndpoint(appConfig.SystemState))
-		router.GET("/backends/galleries", backendGalleryEndpointService.ListBackendGalleriesEndpoint())
-		router.GET("/backends/jobs/:uuid", backendGalleryEndpointService.GetOpStatusEndpoint())
+		router.POST("/backends/apply", backendGalleryEndpointService.ApplyBackendEndpoint(), adminMiddleware)
+		router.POST("/backends/delete/:name", backendGalleryEndpointService.DeleteBackendEndpoint(), adminMiddleware)
+		router.GET("/backends", backendGalleryEndpointService.ListBackendsEndpoint(appConfig.SystemState), adminMiddleware)
+		router.GET("/backends/available", backendGalleryEndpointService.ListAvailableBackendsEndpoint(appConfig.SystemState), adminMiddleware)
+		router.GET("/backends/galleries", backendGalleryEndpointService.ListBackendGalleriesEndpoint(), adminMiddleware)
+		router.GET("/backends/jobs/:uuid", backendGalleryEndpointService.GetOpStatusEndpoint(), adminMiddleware)
 		// Custom model import endpoint
-		router.POST("/models/import", localai.ImportModelEndpoint(cl, appConfig))
+		router.POST("/models/import", localai.ImportModelEndpoint(cl, appConfig), adminMiddleware)
 
 		// URI model import endpoint
-		router.POST("/models/import-uri", localai.ImportModelURIEndpoint(cl, appConfig, galleryService, opcache))
+		router.POST("/models/import-uri", localai.ImportModelURIEndpoint(cl, appConfig, galleryService, opcache), adminMiddleware)
 
 		// Custom model edit endpoint
-		router.POST("/models/edit/:name", localai.EditModelEndpoint(cl, ml, appConfig))
+		router.POST("/models/edit/:name", localai.EditModelEndpoint(cl, ml, appConfig), adminMiddleware)
 
 		// Reload models endpoint
-		router.POST("/models/reload", localai.ReloadModelsEndpoint(cl, appConfig))
+		router.POST("/models/reload", localai.ReloadModelsEndpoint(cl, appConfig), adminMiddleware)
 	}
 
 	detectionHandler := localai.DetectionEndpoint(cl, ml, appConfig)
@@ -101,7 +104,7 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 	router.POST("/stores/find", localai.StoresFindEndpoint(ml, appConfig))
 
 	if !appConfig.DisableMetrics {
-		router.GET("/metrics", localai.LocalAIMetricsEndpoint())
+		router.GET("/metrics", localai.LocalAIMetricsEndpoint(), adminMiddleware)
 	}
 
 	videoHandler := localai.VideoEndpoint(cl, ml, appConfig)
@@ -113,15 +116,15 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 	// Backend Statistics Module
 	// TODO: Should these use standard middlewares? Refactor later, they are extremely simple.
 	backendMonitorService := services.NewBackendMonitorService(ml, cl, appConfig) // Split out for now
-	router.GET("/backend/monitor", localai.BackendMonitorEndpoint(backendMonitorService))
-	router.POST("/backend/shutdown", localai.BackendShutdownEndpoint(backendMonitorService))
+	router.GET("/backend/monitor", localai.BackendMonitorEndpoint(backendMonitorService), adminMiddleware)
+	router.POST("/backend/shutdown", localai.BackendShutdownEndpoint(backendMonitorService), adminMiddleware)
 	// The v1/* urls are exactly the same as above - makes local e2e testing easier if they are registered.
-	router.GET("/v1/backend/monitor", localai.BackendMonitorEndpoint(backendMonitorService))
-	router.POST("/v1/backend/shutdown", localai.BackendShutdownEndpoint(backendMonitorService))
+	router.GET("/v1/backend/monitor", localai.BackendMonitorEndpoint(backendMonitorService), adminMiddleware)
+	router.POST("/v1/backend/shutdown", localai.BackendShutdownEndpoint(backendMonitorService), adminMiddleware)
 
 	// p2p
-	router.GET("/api/p2p", localai.ShowP2PNodes(appConfig))
-	router.GET("/api/p2p/token", localai.ShowP2PToken(appConfig))
+	router.GET("/api/p2p", localai.ShowP2PNodes(appConfig), adminMiddleware)
+	router.GET("/api/p2p/token", localai.ShowP2PToken(appConfig), adminMiddleware)
 
 	router.GET("/version", func(c echo.Context) error {
 		return c.JSON(200, struct {
@@ -129,7 +132,16 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 		}{Version: internal.PrintableVersion()})
 	})
 
-	router.GET("/system", localai.SystemInformations(ml, appConfig))
+	router.GET("/api/features", func(c echo.Context) error {
+		return c.JSON(200, map[string]bool{
+			"agents":       appConfig.AgentPool.Enabled,
+			"mcp":          !appConfig.DisableMCP,
+			"fine_tuning":  true,
+			"quantization": true,
+		})
+	})
+
+	router.GET("/system", localai.SystemInformations(ml, appConfig), adminMiddleware)
 
 	// misc
 	tokenizeHandler := localai.TokenizeEndpoint(cl, ml, appConfig)
@@ -157,23 +169,39 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 		router.POST("/v1/mcp/chat/completions", mcpStreamHandler, mcpStreamMiddleware...)
 		router.POST("/mcp/v1/chat/completions", mcpStreamHandler, mcpStreamMiddleware...)
 		router.POST("/mcp/chat/completions", mcpStreamHandler, mcpStreamMiddleware...)
+
+		// MCP server listing endpoint
+		router.GET("/v1/mcp/servers/:model", localai.MCPServersEndpoint(cl, appConfig), mcpMw)
+
+		// MCP prompts endpoints
+		router.GET("/v1/mcp/prompts/:model", localai.MCPPromptsEndpoint(cl, appConfig), mcpMw)
+		router.POST("/v1/mcp/prompts/:model/:prompt", localai.MCPGetPromptEndpoint(cl, appConfig), mcpMw)
+
+		// MCP resources endpoints
+		router.GET("/v1/mcp/resources/:model", localai.MCPResourcesEndpoint(cl, appConfig), mcpMw)
+		router.POST("/v1/mcp/resources/:model/read", localai.MCPReadResourceEndpoint(cl, appConfig), mcpMw)
+
+		// CORS proxy for client-side MCP connections
+		router.GET("/api/cors-proxy", localai.CORSProxyEndpoint(appConfig), mcpMw)
+		router.POST("/api/cors-proxy", localai.CORSProxyEndpoint(appConfig), mcpMw)
+		router.OPTIONS("/api/cors-proxy", localai.CORSProxyOptionsEndpoint())
 	}
 
-	// Agent job routes
-	if app != nil && app.AgentJobService() != nil {
-		router.POST("/api/agent/tasks", localai.CreateTaskEndpoint(app))
-		router.PUT("/api/agent/tasks/:id", localai.UpdateTaskEndpoint(app))
-		router.DELETE("/api/agent/tasks/:id", localai.DeleteTaskEndpoint(app))
-		router.GET("/api/agent/tasks", localai.ListTasksEndpoint(app))
-		router.GET("/api/agent/tasks/:id", localai.GetTaskEndpoint(app))
+	// Agent job routes (MCP CI Jobs — requires MCP to be enabled)
+	if app != nil && app.AgentJobService() != nil && !appConfig.DisableMCP {
+		router.POST("/api/agent/tasks", localai.CreateTaskEndpoint(app), mcpJobsMw)
+		router.PUT("/api/agent/tasks/:id", localai.UpdateTaskEndpoint(app), mcpJobsMw)
+		router.DELETE("/api/agent/tasks/:id", localai.DeleteTaskEndpoint(app), mcpJobsMw)
+		router.GET("/api/agent/tasks", localai.ListTasksEndpoint(app), mcpJobsMw)
+		router.GET("/api/agent/tasks/:id", localai.GetTaskEndpoint(app), mcpJobsMw)
 
-		router.POST("/api/agent/jobs/execute", localai.ExecuteJobEndpoint(app))
-		router.GET("/api/agent/jobs/:id", localai.GetJobEndpoint(app))
-		router.GET("/api/agent/jobs", localai.ListJobsEndpoint(app))
-		router.POST("/api/agent/jobs/:id/cancel", localai.CancelJobEndpoint(app))
-		router.DELETE("/api/agent/jobs/:id", localai.DeleteJobEndpoint(app))
+		router.POST("/api/agent/jobs/execute", localai.ExecuteJobEndpoint(app), mcpJobsMw)
+		router.GET("/api/agent/jobs/:id", localai.GetJobEndpoint(app), mcpJobsMw)
+		router.GET("/api/agent/jobs", localai.ListJobsEndpoint(app), mcpJobsMw)
+		router.POST("/api/agent/jobs/:id/cancel", localai.CancelJobEndpoint(app), mcpJobsMw)
+		router.DELETE("/api/agent/jobs/:id", localai.DeleteJobEndpoint(app), mcpJobsMw)
 
-		router.POST("/api/agent/tasks/:name/execute", localai.ExecuteTaskByNameEndpoint(app))
+		router.POST("/api/agent/tasks/:name/execute", localai.ExecuteTaskByNameEndpoint(app), mcpJobsMw)
 	}
 
 }

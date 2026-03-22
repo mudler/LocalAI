@@ -7,7 +7,9 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui"
   },
   "dependencies": {
     "react": "^19.1.0",
@@ -16,7 +18,9 @@
     "highlight.js": "^11.11.1",
     "marked": "^15.0.7",
     "dompurify": "^3.2.5",
-    "@fortawesome/fontawesome-free": "^6.7.2"
+    "@fortawesome/fontawesome-free": "^6.7.2",
+    "@modelcontextprotocol/sdk": "^1.25.1",
+    "@modelcontextprotocol/ext-apps": "^1.2.2"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.5.2",
@@ -25,6 +29,7 @@
     "@eslint/js": "^9.27.0",
     "globals": "^16.1.0",
     "eslint-plugin-react-hooks": "^5.2.0",
-    "eslint-plugin-react-refresh": "^0.4.20"
+    "eslint-plugin-react-refresh": "^0.4.20",
+    "@playwright/test": "1.58.2"
   }
 }

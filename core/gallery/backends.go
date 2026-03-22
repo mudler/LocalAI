@@ -4,10 +4,10 @@ package gallery
 
 import (
 	"context"
+	"os"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -25,33 +25,29 @@ const (
 	runFile      = "run.sh"
 )
 
-// Environment variables for configurable fallback URI patterns
+// Default fallback tag values
 const (
-	// Default fallback tag values
 	defaultLatestTag = "latest"
 	defaultMasterTag = "master"
 	defaultDevSuffix = "development"
-
-	// Environment variable names
-	envLatestTag = "LOCALAI_BACKEND_IMAGES_RELEASE_TAG"
-	envMasterTag = "LOCALAI_BACKEND_IMAGES_BRANCH_TAG"
-	envDevSuffix = "LOCALAI_BACKEND_DEV_SUFFIX"
 )
 
-// getFallbackTagValues returns the configurable fallback tag values from environment variables
-func getFallbackTagValues() (latestTag, masterTag, devSuffix string) {
-	latestTag = os.Getenv(envLatestTag)
-	masterTag = os.Getenv(envMasterTag)
-	devSuffix = os.Getenv(envDevSuffix)
-
-	// Use defaults if environment variables are not set
-	if latestTag == "" {
+// getFallbackTagValues returns the configurable fallback tag values from SystemState
+func getFallbackTagValues(systemState *system.SystemState) (latestTag, masterTag, devSuffix string) {
+	// Use SystemState fields if set, otherwise use defaults
+	if systemState.BackendImagesReleaseTag != "" {
+		latestTag = systemState.BackendImagesReleaseTag
+	} else {
 		latestTag = defaultLatestTag
 	}
-	if masterTag == "" {
+	if systemState.BackendImagesBranchTag != "" {
+		masterTag = systemState.BackendImagesBranchTag
+	} else {
 		masterTag = defaultMasterTag
 	}
-	if devSuffix == "" {
+	if systemState.BackendDevSuffix != "" {
+		devSuffix = systemState.BackendDevSuffix
+	} else {
 		devSuffix = defaultDevSuffix
 	}
 
@@ -172,8 +168,8 @@ func InstallBackendFromGallery(ctx context.Context, galleries []config.Gallery, 
 }
 
 func InstallBackend(ctx context.Context, systemState *system.SystemState, modelLoader *model.ModelLoader, config *GalleryBackend, downloadStatus func(string, string, string, float64)) error {
-	// Get configurable fallback tag values from environment variables
-	latestTag, masterTag, devSuffix := getFallbackTagValues()
+	// Get configurable fallback tag values from SystemState
+	latestTag, masterTag, devSuffix := getFallbackTagValues(systemState)
 
 	// Create base path if it doesn't exist
 	err := os.MkdirAll(systemState.Backend.BackendsPath, 0750)
@@ -202,11 +198,8 @@ func InstallBackend(ctx context.Context, systemState *system.SystemState, modelL
 	} else {
 		xlog.Debug("Downloading backend", "uri", config.URI, "backendPath", backendPath)
 		if err := uri.DownloadFileWithContext(ctx, backendPath, "", 1, 1, downloadStatus); err != nil {
-			// Clean up the partially downloaded backend directory on failure
-			xlog.Debug("Backend download failed, cleaning up", "backendPath", backendPath, "error", err)
-			if cleanupErr := os.RemoveAll(backendPath); cleanupErr != nil {
-				xlog.Warn("Failed to clean up backend directory", "backendPath", backendPath, "error", cleanupErr)
-			}
+			// Don't remove backendPath here — fallback OCI extractions need the directory to exist
+			xlog.Debug("Backend download failed, trying fallback", "backendPath", backendPath, "error", err)
 
 			success := false
 			// Try to download from mirrors
@@ -219,34 +212,36 @@ func InstallBackend(ctx context.Context, systemState *system.SystemState, modelL
 				}
 				if err := downloader.URI(mirror).DownloadFileWithContext(ctx, backendPath, "", 1, 1, downloadStatus); err == nil {
 					success = true
-					xlog.Debug("Downloaded backend", "uri", config.URI, "backendPath", backendPath)
+					xlog.Debug("Downloaded backend from mirror", "uri", config.URI, "backendPath", backendPath)
 					break
 				}
 			}
 
-			// Try fallback: replace latestTag + "-" with masterTag + "-" in the URI
-			fallbackURI := strings.Replace(string(config.URI), latestTag + "-", masterTag + "-", 1)
-			if fallbackURI != string(config.URI) {
-				xlog.Debug("Trying fallback URI", "original", config.URI, "fallback", fallbackURI)
-				if err := downloader.URI(fallbackURI).DownloadFileWithContext(ctx, backendPath, "", 1, 1, downloadStatus); err == nil {
-					xlog.Debug("Downloaded backend using fallback URI", "uri", fallbackURI, "backendPath", backendPath)
-					success = true
-				} else {
-					// Try another fallback: add "-" + devSuffix suffix to the backend name
-					// For example: master-gpu-nvidia-cuda-13-ace-step -> master-gpu-nvidia-cuda-13-ace-step-development
-					if !strings.Contains(fallbackURI, "-" + devSuffix) {
-						// Extract backend name from URI and add -development
-						parts := strings.Split(fallbackURI, "-")
-						if len(parts) >= 2 {
-							// Find where the backend name ends (usually the last part before the tag)
-							// Pattern: quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-ace-step
-							lastDash := strings.LastIndex(fallbackURI, "-")
-							if lastDash > 0 {
-								devFallbackURI := fallbackURI[:lastDash] + "-" + devSuffix
-								xlog.Debug("Trying development fallback URI", "fallback", devFallbackURI)
-								if err := downloader.URI(devFallbackURI).DownloadFileWithContext(ctx, backendPath, "", 1, 1, downloadStatus); err == nil {
-									xlog.Debug("Downloaded backend using development fallback URI", "uri", devFallbackURI, "backendPath", backendPath)
-									success = true
+			if !success {
+				// Try fallback: replace latestTag + "-" with masterTag + "-" in the URI
+				fallbackURI := strings.Replace(string(config.URI), latestTag+"-", masterTag+"-", 1)
+				if fallbackURI != string(config.URI) {
+					xlog.Debug("Trying fallback URI", "original", config.URI, "fallback", fallbackURI)
+					if err := downloader.URI(fallbackURI).DownloadFileWithContext(ctx, backendPath, "", 1, 1, downloadStatus); err == nil {
+						xlog.Info("Downloaded backend using fallback URI", "uri", fallbackURI, "backendPath", backendPath)
+						success = true
+					} else {
+						// Try another fallback: add "-" + devSuffix suffix to the backend name
+						// For example: master-gpu-nvidia-cuda-13-ace-step -> master-gpu-nvidia-cuda-13-ace-step-development
+						if !strings.Contains(fallbackURI, "-"+devSuffix) {
+							// Extract backend name from URI and add -development
+							parts := strings.Split(fallbackURI, "-")
+							if len(parts) >= 2 {
+								// Find where the backend name ends (usually the last part before the tag)
+								// Pattern: quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-ace-step
+								lastDash := strings.LastIndex(fallbackURI, "-")
+								if lastDash > 0 {
+									devFallbackURI := fallbackURI[:lastDash] + "-" + devSuffix
+									xlog.Debug("Trying development fallback URI", "fallback", devFallbackURI)
+									if err := downloader.URI(devFallbackURI).DownloadFileWithContext(ctx, backendPath, "", 1, 1, downloadStatus); err == nil {
+										xlog.Info("Downloaded backend using development fallback URI", "uri", devFallbackURI, "backendPath", backendPath)
+										success = true
+									}
 								}
 							}
 						}
@@ -255,6 +250,10 @@ func InstallBackend(ctx context.Context, systemState *system.SystemState, modelL
 			}
 
 			if !success {
+				// Clean up backend directory only when all download attempts have failed
+				if cleanupErr := os.RemoveAll(backendPath); cleanupErr != nil {
+					xlog.Warn("Failed to clean up backend directory", "backendPath", backendPath, "error", cleanupErr)
+				}
 				xlog.Error("Failed to download backend", "uri", config.URI, "backendPath", backendPath, "error", err)
 				return fmt.Errorf("failed to download backend %q: %v", config.URI, err)
 			}
@@ -441,7 +440,7 @@ func ListSystemBackends(systemState *system.SystemState) (SystemBackends, error)
 
 		metaMap[dir] = metadata
 
-		// Concrete backend entry
+		// Concrete-backend entry
 		if _, err := os.Stat(run); err == nil {
 			backends[dir] = SystemBackend{
 				Name:     dir,

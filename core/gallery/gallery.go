@@ -92,6 +92,19 @@ func (gm GalleryElements[T]) Search(term string) GalleryElements[T] {
 	return filteredModels
 }
 
+func (gm GalleryElements[T]) FilterByTag(tag string) GalleryElements[T] {
+	var filtered GalleryElements[T]
+	for _, m := range gm {
+		for _, t := range m.GetTags() {
+			if strings.EqualFold(t, tag) {
+				filtered = append(filtered, m)
+				break
+			}
+		}
+	}
+	return filtered
+}
+
 func (gm GalleryElements[T]) SortByName(sortOrder string) GalleryElements[T] {
 	sort.Slice(gm, func(i, j int) bool {
 		if sortOrder == "asc" {
@@ -218,6 +231,36 @@ func AvailableGalleryModels(galleries []config.Gallery, systemState *system.Syst
 		if err != nil {
 			return nil, err
 		}
+
+		// Resolve model URLs locally (for local galleries) and collect unique
+		// URLs that need fetching for backend resolution.
+		uniqueURLs := map[string]struct{}{}
+		for _, m := range galleryModels {
+			if m.URL != "" {
+				m.URL = resolveModelURLLocally(m.URL, gallery.URL)
+			}
+			if m.Backend == "" && m.URL != "" {
+				uniqueURLs[m.URL] = struct{}{}
+			}
+		}
+
+		// Pre-warm cache with parallel fetches to avoid sequential HTTP
+		// requests on cold start (~50 unique gallery config files).
+		if len(uniqueURLs) > 0 {
+			urls := make([]string, 0, len(uniqueURLs))
+			for u := range uniqueURLs {
+				urls = append(urls, u)
+			}
+			prefetchModelConfigs(urls, systemState.Model.ModelsPath)
+		}
+
+		// Resolve backends from warm cache.
+		for _, m := range galleryModels {
+			if m.Backend == "" {
+				m.Backend = resolveBackend(m, systemState.Model.ModelsPath)
+			}
+		}
+
 		models = append(models, galleryModels...)
 	}
 

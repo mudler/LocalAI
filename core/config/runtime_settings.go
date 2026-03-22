@@ -36,8 +36,9 @@ type RuntimeSettings struct {
 	ContextSize     *int  `json:"context_size,omitempty"`
 	F16             *bool `json:"f16,omitempty"`
 	Debug           *bool `json:"debug,omitempty"`
-	EnableTracing   *bool `json:"enable_tracing,omitempty"`
-	TracingMaxItems *int  `json:"tracing_max_items,omitempty"`
+	EnableTracing        *bool `json:"enable_tracing,omitempty"`
+	TracingMaxItems      *int  `json:"tracing_max_items,omitempty"`
+	EnableBackendLogging *bool `json:"enable_backend_logging,omitempty"`
 
 	// Security/CORS settings
 	CORS             *bool   `json:"cors,omitempty"`
@@ -63,4 +64,13 @@ type RuntimeSettings struct {
 
 	// Open Responses settings
 	OpenResponsesStoreTTL *string `json:"open_responses_store_ttl,omitempty"` // TTL for stored responses (e.g., "1h", "30m", "0" = no expiration)
+
+	// Agent Pool settings
+	AgentPoolEnabled        *bool   `json:"agent_pool_enabled,omitempty"`
+	AgentPoolDefaultModel   *string `json:"agent_pool_default_model,omitempty"`
+	AgentPoolEmbeddingModel *string `json:"agent_pool_embedding_model,omitempty"`
+	AgentPoolMaxChunkingSize *int   `json:"agent_pool_max_chunking_size,omitempty"`
+	AgentPoolChunkOverlap    *int   `json:"agent_pool_chunk_overlap,omitempty"`
+	AgentPoolEnableLogs      *bool  `json:"agent_pool_enable_logs,omitempty"`
+	AgentPoolCollectionDBPath *string `json:"agent_pool_collection_db_path,omitempty"`
 }

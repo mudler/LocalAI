@@ -17,6 +17,7 @@ func ImageGeneration(height, width, step, seed int, positive_prompt, negative_pr
 		opts...,
 	)
 	if err != nil {
+		recordModelLoadFailure(appConfig, modelConfig.Name, modelConfig.Backend, err, nil)
 		return nil, err
 	}
 

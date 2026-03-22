@@ -35,7 +35,22 @@ service Backend {
 
   rpc VAD(VADRequest) returns (VADResponse) {}
 
+  rpc AudioEncode(AudioEncodeRequest) returns (AudioEncodeResult) {}
+  rpc AudioDecode(AudioDecodeRequest) returns (AudioDecodeResult) {}
+
   rpc ModelMetadata(ModelOptions) returns (ModelMetadataResponse) {}
+
+  // Fine-tuning RPCs
+  rpc StartFineTune(FineTuneRequest) returns (FineTuneJobResult) {}
+  rpc FineTuneProgress(FineTuneProgressRequest) returns (stream FineTuneProgressUpdate) {}
+  rpc StopFineTune(FineTuneStopRequest) returns (Result) {}
+  rpc ListCheckpoints(ListCheckpointsRequest) returns (ListCheckpointsResponse) {}
+  rpc ExportModel(ExportModelRequest) returns (Result) {}
+
+  // Quantization RPCs
+  rpc StartQuantization(QuantizationRequest) returns (QuantizationJobResult) {}
+  rpc QuantizationProgress(QuantizationProgressRequest) returns (stream QuantizationProgressUpdate) {}
+  rpc StopQuantization(QuantizationStopRequest) returns (Result) {}
 }
 
 // Define the empty request
@@ -163,6 +178,23 @@ message PredictOptions {
   int32 Logprobs = 50;  // Number of top logprobs to return (maps to OpenAI logprobs parameter)
   int32 TopLogprobs = 51;  // Number of top logprobs to return per token (maps to OpenAI top_logprobs parameter)
   map<string, string> Metadata = 52;  // Generic per-request metadata (e.g., enable_thinking)
+  float MinP = 53;  // Minimum probability sampling threshold (0.0 = disabled)
+}
+
+// ToolCallDelta represents an incremental tool call update from the C++ parser.
+// Used for both streaming (partial diffs) and non-streaming (final tool calls).
+message ToolCallDelta {
+  int32 index = 1;           // tool call index (0-based)
+  string id = 2;             // tool call ID (e.g., "call_abc123")
+  string name = 3;           // function name (set on first appearance)
+  string arguments = 4;      // arguments chunk (incremental in streaming, full in non-streaming)
+}
+
+// ChatDelta represents incremental content/reasoning/tool_call updates parsed by the C++ backend.
+message ChatDelta {
+  string content = 1;                       // content text delta
+  string reasoning_content = 2;             // reasoning/thinking text delta
+  repeated ToolCallDelta tool_calls = 3;    // tool call deltas
 }
 
 // The response message containing the result
@@ -174,6 +206,7 @@ message Reply {
   double timing_token_generation = 5;
   bytes audio = 6;
   bytes logprobs = 7;  // JSON-encoded logprobs data matching OpenAI format
+  repeated ChatDelta chat_deltas = 8;       // Parsed chat deltas from C++ autoparser (streaming + non-streaming)
 }
 
 message GrammarTrigger {
@@ -425,7 +458,221 @@ message DetectResponse {
   repeated Detection Detections = 1;
 }
 
+message ToolFormatMarkers {
+  string format_type = 1;           // "json_native", "tag_with_json", "tag_with_tagged"
+
+  // Tool section markers
+  string section_start = 2;         // e.g., "<tool_call>", "[TOOL_CALLS]"
+  string section_end = 3;           // e.g., "</tool_call>"
+  string per_call_start = 4;        // e.g., "<|tool_call_begin|>"
+  string per_call_end = 5;          // e.g., "<|tool_call_end|>"
+
+  // Function name markers (TAG_WITH_JSON / TAG_WITH_TAGGED)
+  string func_name_prefix = 6;     // e.g., "<function="
+  string func_name_suffix = 7;     // e.g., ">"
+  string func_close = 8;           // e.g., "</function>"
+
+  // Argument markers (TAG_WITH_TAGGED)
+  string arg_name_prefix = 9;      // e.g., "<param="
+  string arg_name_suffix = 10;     // e.g., ">"
+  string arg_value_prefix = 11;
+  string arg_value_suffix = 12;    // e.g., "</param>"
+  string arg_separator = 13;       // e.g., "\n"
+
+  // JSON format fields (JSON_NATIVE)
+  string name_field = 14;          // e.g., "name"
+  string args_field = 15;          // e.g., "arguments"
+  string id_field = 16;            // e.g., "id"
+  bool fun_name_is_key = 17;
+  bool tools_array_wrapped = 18;
+  reserved 19;
+
+  // Reasoning markers
+  string reasoning_start = 20;     // e.g., "<think>"
+  string reasoning_end = 21;       // e.g., "</think>"
+
+  // Content markers
+  string content_start = 22;
+  string content_end = 23;
+
+  // Args wrapper markers
+  string args_start = 24;          // e.g., "<args>"
+  string args_end = 25;            // e.g., "</args>"
+
+  // JSON parameter ordering
+  string function_field = 26;      // e.g., "function" (wrapper key in JSON)
+  repeated string parameter_order = 27;
+
+  // Generated ID field (alternative field name for generated IDs)
+  string gen_id_field = 28;        // e.g., "call_id"
+
+  // Call ID markers (position and delimiters for tool call IDs)
+  string call_id_position = 29;    // "none", "pre_func_name", "between_func_and_args", "post_args"
+  string call_id_prefix = 30;      // e.g., "[CALL_ID]"
+  string call_id_suffix = 31;      // e.g., ""
+}
+
+message AudioEncodeRequest {
+  bytes pcm_data = 1;
+  int32 sample_rate = 2;
+  int32 channels = 3;
+  map<string, string> options = 4;
+}
+
+message AudioEncodeResult {
+  repeated bytes frames = 1;
+  int32 sample_rate = 2;
+  int32 samples_per_frame = 3;
+}
+
+message AudioDecodeRequest {
+  repeated bytes frames = 1;
+  map<string, string> options = 2;
+}
+
+message AudioDecodeResult {
+  bytes pcm_data = 1;
+  int32 sample_rate = 2;
+  int32 samples_per_frame = 3;
+}
+
 message ModelMetadataResponse {
   bool supports_thinking = 1;
   string rendered_template = 2;  // The rendered chat template with enable_thinking=true (empty if not applicable)
+  ToolFormatMarkers tool_format = 3;  // Auto-detected tool format markers from differential template analysis
+}
+
+// Fine-tuning messages
+
+message FineTuneRequest {
+  // Model identification
+  string model = 1;                       // HF model name or local path
+  string training_type = 2;              // "lora", "loha", "lokr", "full" — what parameters to train
+  string training_method = 3;            // "sft", "dpo", "grpo", "rloo", "reward", "kto", "orpo", "network_training"
+
+  // Adapter config (universal across LoRA/LoHa/LoKr for LLM + diffusion)
+  int32 adapter_rank = 10;               // LoRA rank (r), default 16
+  int32 adapter_alpha = 11;              // scaling factor, default 16
+  float adapter_dropout = 12;            // default 0.0
+  repeated string target_modules = 13;   // layer names to adapt
+
+  // Universal training hyperparameters
+  float learning_rate = 20;              // default 2e-4
+  int32 num_epochs = 21;                 // default 3
+  int32 batch_size = 22;                 // default 2
+  int32 gradient_accumulation_steps = 23; // default 4
+  int32 warmup_steps = 24;              // default 5
+  int32 max_steps = 25;                 // 0 = use epochs
+  int32 save_steps = 26;               // 0 = only save final
+  float weight_decay = 27;             // default 0.01
+  bool gradient_checkpointing = 28;
+  string optimizer = 29;               // adamw_8bit, adamw, sgd, adafactor, prodigy
+  int32 seed = 30;                     // default 3407
+  string mixed_precision = 31;        // fp16, bf16, fp8, no
+
+  // Dataset
+  string dataset_source = 40;          // HF dataset ID, local file/dir path
+  string dataset_split = 41;           // train, test, etc.
+
+  // Output
+  string output_dir = 50;
+  string job_id = 51;                  // client-assigned or auto-generated
+
+  // Resume training from a checkpoint
+  string resume_from_checkpoint = 55;  // path to checkpoint dir to resume from
+
+  // Backend-specific AND method-specific extensibility
+  map<string, string> extra_options = 60;
+}
+
+message FineTuneJobResult {
+  string job_id = 1;
+  bool success = 2;
+  string message = 3;
+}
+
+message FineTuneProgressRequest {
+  string job_id = 1;
+}
+
+message FineTuneProgressUpdate {
+  string job_id = 1;
+  int32 current_step = 2;
+  int32 total_steps = 3;
+  float current_epoch = 4;
+  float total_epochs = 5;
+  float loss = 6;
+  float learning_rate = 7;
+  float grad_norm = 8;
+  float eval_loss = 9;
+  float eta_seconds = 10;
+  float progress_percent = 11;
+  string status = 12;                  // queued, caching, loading_model, loading_dataset, training, saving, completed, failed, stopped
+  string message = 13;
+  string checkpoint_path = 14;        // set when a checkpoint is saved
+  string sample_path = 15;           // set when a sample is generated (video/image backends)
+  map<string, float> extra_metrics = 16; // method-specific metrics
+}
+
+message FineTuneStopRequest {
+  string job_id = 1;
+  bool save_checkpoint = 2;
+}
+
+message ListCheckpointsRequest {
+  string output_dir = 1;
+}
+
+message ListCheckpointsResponse {
+  repeated CheckpointInfo checkpoints = 1;
+}
+
+message CheckpointInfo {
+  string path = 1;
+  int32 step = 2;
+  float epoch = 3;
+  float loss = 4;
+  string created_at = 5;
+}
+
+message ExportModelRequest {
+  string checkpoint_path = 1;
+  string output_path = 2;
+  string export_format = 3;           // lora, loha, lokr, merged_16bit, merged_4bit, gguf, diffusers
+  string quantization_method = 4;     // for GGUF: q4_k_m, q5_k_m, q8_0, f16, etc.
+  string model = 5;                   // base model name (for merge operations)
+  map<string, string> extra_options = 6;
+}
+
+// Quantization messages
+
+message QuantizationRequest {
+  string model = 1;                      // HF model name or local path
+  string quantization_type = 2;          // q4_k_m, q5_k_m, q8_0, f16, etc.
+  string output_dir = 3;                 // where to write output files
+  string job_id = 4;                     // client-assigned job ID
+  map<string, string> extra_options = 5; // hf_token, custom flags, etc.
+}
+
+message QuantizationJobResult {
+  string job_id = 1;
+  bool success = 2;
+  string message = 3;
+}
+
+message QuantizationProgressRequest {
+  string job_id = 1;
+}
+
+message QuantizationProgressUpdate {
+  string job_id = 1;
+  float progress_percent = 2;
+  string status = 3;                     // queued, downloading, converting, quantizing, completed, failed, stopped
+  string message = 4;
+  string output_file = 5;               // set when completed — path to the output GGUF file
+  map<string, float> extra_metrics = 6;  // e.g. file_size_mb, compression_ratio
+}
+
+message QuantizationStopRequest {
+  string job_id = 1;
 }

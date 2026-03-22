@@ -63,6 +63,8 @@ You can configure these settings via the web UI or through environment variables
 - **CSRF**: Enable CSRF protection middleware
 - **API Keys**: Manage API keys for authentication (one per line or comma-separated)
 
+For multi-user authentication with roles, OAuth, and usage tracking, see [Authentication & Authorization]({{%relref "features/authentication" %}}).
+
 ### P2P Settings
 
 Configure peer-to-peer networking for distributed inference:
@@ -81,6 +83,20 @@ Manage model and backend galleries:
 - **Backend Galleries**: JSON array of backend gallery objects
 - **Autoload Galleries**: Automatically load model galleries on startup
 - **Autoload Backend Galleries**: Automatically load backend galleries on startup
+
+### Agent Pool Settings
+
+Configure the built-in agent platform (see [Agents]({{%relref "features/agents" %}}) for full documentation):
+
+- **Agent Pool Enabled**: Enable or disable the agent pool feature
+- **Default Model**: Default LLM model for new agents
+- **Embedding Model**: Model used for knowledge base embeddings (default: `granite-embedding-107m-multilingual`)
+- **Max Chunking Size**: Maximum chunk size for document ingestion (default: `400`)
+- **Chunk Overlap**: Overlap between document chunks (default: `0`)
+- **Enable Logs**: Enable detailed agent logging
+- **Collection DB Path**: Custom path for the collections database
+
+> **Note:** Most agent pool settings require a restart to take effect.
 
 ## Configuration Persistence
 

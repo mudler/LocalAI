@@ -22,493 +22,6 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
-        "/api/agent/jobs": {
-            "get": {
-                "description": "Get a list of agent jobs, optionally filtered by task_id and status",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "agent-jobs"
-                ],
-                "summary": "List agent jobs",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Filter by task ID",
-                        "name": "task_id",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Filter by status (pending, running, completed, failed, cancelled)",
-                        "name": "status",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Limit number of results",
-                        "name": "limit",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "List of jobs",
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/schema.Job"
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/api/agent/jobs/execute": {
-            "post": {
-                "description": "Create and execute a new agent job",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "agent-jobs"
-                ],
-                "summary": "Execute an agent job",
-                "parameters": [
-                    {
-                        "description": "Job execution request",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/schema.JobExecutionRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "Job created",
-                        "schema": {
-                            "$ref": "#/definitions/schema.JobExecutionResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Invalid request",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/api/agent/jobs/{id}": {
-            "get": {
-                "description": "Get an agent job by ID",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "agent-jobs"
-                ],
-                "summary": "Get an agent job",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Job ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Job details",
-                        "schema": {
-                            "$ref": "#/definitions/schema.Job"
-                        }
-                    },
-                    "404": {
-                        "description": "Job not found",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    }
-                }
-            },
-            "delete": {
-                "description": "Delete an agent job by ID",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "agent-jobs"
-                ],
-                "summary": "Delete an agent job",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Job ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Job deleted",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "404": {
-                        "description": "Job not found",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/api/agent/jobs/{id}/cancel": {
-            "post": {
-                "description": "Cancel a running or pending agent job",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "agent-jobs"
-                ],
-                "summary": "Cancel an agent job",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Job ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Job cancelled",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "400": {
-                        "description": "Job cannot be cancelled",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "404": {
-                        "description": "Job not found",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/api/agent/tasks": {
-            "get": {
-                "description": "Get a list of all agent tasks",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "agent-jobs"
-                ],
-                "summary": "List all agent tasks",
-                "responses": {
-                    "200": {
-                        "description": "List of tasks",
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/schema.Task"
-                            }
-                        }
-                    }
-                }
-            },
-            "post": {
-                "description": "Create a new reusable agent task with prompt template and configuration",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "agent-jobs"
-                ],
-                "summary": "Create a new agent task",
-                "parameters": [
-                    {
-                        "description": "Task definition",
-                        "name": "task",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/schema.Task"
-                        }
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "Task created",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "400": {
-                        "description": "Invalid request",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "500": {
-                        "description": "Internal server error",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/api/agent/tasks/{id}": {
-            "get": {
-                "description": "Get an agent task by ID",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "agent-jobs"
-                ],
-                "summary": "Get an agent task",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Task ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Task details",
-                        "schema": {
-                            "$ref": "#/definitions/schema.Task"
-                        }
-                    },
-                    "404": {
-                        "description": "Task not found",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    }
-                }
-            },
-            "put": {
-                "description": "Update an existing agent task",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "agent-jobs"
-                ],
-                "summary": "Update an agent task",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Task ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "Updated task definition",
-                        "name": "task",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/schema.Task"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Task updated",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "400": {
-                        "description": "Invalid request",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "404": {
-                        "description": "Task not found",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    }
-                }
-            },
-            "delete": {
-                "description": "Delete an agent task by ID",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "agent-jobs"
-                ],
-                "summary": "Delete an agent task",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Task ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Task deleted",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "404": {
-                        "description": "Task not found",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/api/agent/tasks/{name}/execute": {
-            "post": {
-                "description": "Execute an agent task by its name (convenience endpoint). Parameters can be provided in the request body as a JSON object with string values.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "agent-jobs"
-                ],
-                "summary": "Execute a task by name",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Task name",
-                        "name": "name",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "Template parameters (JSON object with string values)",
-                        "name": "request",
-                        "in": "body",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "Job created",
-                        "schema": {
-                            "$ref": "#/definitions/schema.JobExecutionResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Invalid request",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "404": {
-                        "description": "Task not found",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    }
-                }
-            }
-        },
         "/api/p2p": {
             "get": {
                 "summary": "Returns available P2P nodes",
@@ -1176,7 +689,7 @@ const docTemplate = `{
         },
         "/v1/mcp/chat/completions": {
             "post": {
-                "summary": "Stream MCP chat completions with reasoning, tool calls, and results",
+                "summary": "MCP chat completions with automatic tool execution",
                 "parameters": [
                     {
                         "description": "query params",
@@ -1613,6 +1126,10 @@ const docTemplate = `{
                 "alias": {
                     "type": "string"
                 },
+                "backend": {
+                    "description": "Backend is the resolved backend engine for this model (e.g. \"llama-cpp\").\nPopulated at load time from overrides, inline config, or the URL-referenced config file.",
+                    "type": "string"
+                },
                 "capabilities": {
                     "type": "object",
                     "additionalProperties": {
@@ -1656,6 +1173,10 @@ const docTemplate = `{
                 "name": {
                     "type": "string"
                 },
+                "size": {
+                    "description": "Size is an optional hardcoded model size string (e.g. \"500MB\", \"14.5GB\").\nUsed when the size cannot be estimated automatically.",
+                    "type": "string"
+                },
                 "tags": {
                     "type": "array",
                     "items": {
@@ -1679,6 +1200,10 @@ const docTemplate = `{
         "gallery.GalleryModel": {
             "type": "object",
             "properties": {
+                "backend": {
+                    "description": "Backend is the resolved backend engine for this model (e.g. \"llama-cpp\").\nPopulated at load time from overrides, inline config, or the URL-referenced config file.",
+                    "type": "string"
+                },
                 "config_file": {
                     "description": "config_file is read in the situation where URL is blank - and therefore this is a base config.",
                     "type": "object",
@@ -1719,6 +1244,10 @@ const docTemplate = `{
                     "description": "Overrides are used to override the configuration of the model located at URL",
                     "type": "object",
                     "additionalProperties": true
+                },
+                "size": {
+                    "description": "Size is an optional hardcoded model size string (e.g. \"500MB\", \"14.5GB\").\nUsed when the size cannot be estimated automatically.",
+                    "type": "string"
                 },
                 "tags": {
                     "type": "array",
@@ -1748,6 +1277,10 @@ const docTemplate = `{
         "localai.GalleryModel": {
             "type": "object",
             "properties": {
+                "backend": {
+                    "description": "Backend is the resolved backend engine for this model (e.g. \"llama-cpp\").\nPopulated at load time from overrides, inline config, or the URL-referenced config file.",
+                    "type": "string"
+                },
                 "config_file": {
                     "description": "config_file is read in the situation where URL is blank - and therefore this is a base config.",
                     "type": "object",
@@ -1791,6 +1324,10 @@ const docTemplate = `{
                     "description": "Overrides are used to override the configuration of the model located at URL",
                     "type": "object",
                     "additionalProperties": true
+                },
+                "size": {
+                    "description": "Size is an optional hardcoded model size string (e.g. \"500MB\", \"14.5GB\").\nUsed when the size cannot be estimated automatically.",
+                    "type": "string"
                 },
                 "tags": {
                     "type": "array",
@@ -2311,203 +1848,6 @@ const docTemplate = `{
                 }
             }
         },
-        "schema.Job": {
-            "type": "object",
-            "properties": {
-                "audios": {
-                    "description": "List of audio URLs or base64 strings",
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "completed_at": {
-                    "type": "string"
-                },
-                "created_at": {
-                    "type": "string"
-                },
-                "error": {
-                    "description": "Error message if failed",
-                    "type": "string"
-                },
-                "files": {
-                    "description": "List of file URLs or base64 strings",
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "id": {
-                    "description": "UUID",
-                    "type": "string"
-                },
-                "images": {
-                    "description": "Multimedia content (for manual execution)\nCan contain URLs or base64-encoded data URIs",
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "parameters": {
-                    "description": "Template parameters",
-                    "type": "object",
-                    "additionalProperties": {
-                        "type": "string"
-                    }
-                },
-                "result": {
-                    "description": "Agent response",
-                    "type": "string"
-                },
-                "started_at": {
-                    "type": "string"
-                },
-                "status": {
-                    "description": "pending, running, completed, failed, cancelled",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/schema.JobStatus"
-                        }
-                    ]
-                },
-                "task_id": {
-                    "description": "Reference to Task",
-                    "type": "string"
-                },
-                "traces": {
-                    "description": "Execution traces (reasoning, tool calls, tool results)",
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/schema.JobTrace"
-                    }
-                },
-                "triggered_by": {
-                    "description": "\"manual\", \"cron\", \"api\"",
-                    "type": "string"
-                },
-                "videos": {
-                    "description": "List of video URLs or base64 strings",
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "webhook_error": {
-                    "description": "Error if webhook failed",
-                    "type": "string"
-                },
-                "webhook_sent": {
-                    "description": "Webhook delivery tracking",
-                    "type": "boolean"
-                },
-                "webhook_sent_at": {
-                    "type": "string"
-                }
-            }
-        },
-        "schema.JobExecutionRequest": {
-            "type": "object",
-            "properties": {
-                "audios": {
-                    "description": "List of audio URLs or base64 strings",
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "files": {
-                    "description": "List of file URLs or base64 strings",
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "images": {
-                    "description": "Multimedia content (optional, for manual execution)\nCan contain URLs or base64-encoded data URIs",
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "parameters": {
-                    "description": "Optional, for templating",
-                    "type": "object",
-                    "additionalProperties": {
-                        "type": "string"
-                    }
-                },
-                "task_id": {
-                    "description": "Required",
-                    "type": "string"
-                },
-                "videos": {
-                    "description": "List of video URLs or base64 strings",
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                }
-            }
-        },
-        "schema.JobExecutionResponse": {
-            "type": "object",
-            "properties": {
-                "job_id": {
-                    "type": "string"
-                },
-                "status": {
-                    "type": "string"
-                },
-                "url": {
-                    "description": "URL to check job status",
-                    "type": "string"
-                }
-            }
-        },
-        "schema.JobStatus": {
-            "type": "string",
-            "enum": [
-                "pending",
-                "running",
-                "completed",
-                "failed",
-                "cancelled"
-            ],
-            "x-enum-varnames": [
-                "JobStatusPending",
-                "JobStatusRunning",
-                "JobStatusCompleted",
-                "JobStatusFailed",
-                "JobStatusCancelled"
-            ]
-        },
-        "schema.JobTrace": {
-            "type": "object",
-            "properties": {
-                "arguments": {
-                    "description": "Tool arguments or result data",
-                    "type": "object",
-                    "additionalProperties": true
-                },
-                "content": {
-                    "description": "The actual trace content",
-                    "type": "string"
-                },
-                "timestamp": {
-                    "description": "When this trace occurred",
-                    "type": "string"
-                },
-                "tool_name": {
-                    "description": "Tool name (for tool_call/tool_result)",
-                    "type": "string"
-                },
-                "type": {
-                    "description": "\"reasoning\", \"tool_call\", \"tool_result\", \"status\"",
-                    "type": "string"
-                }
-            }
-        },
         "schema.LogprobContent": {
             "type": "object",
             "properties": {
@@ -2596,6 +1936,9 @@ const docTemplate = `{
                         "type": "string"
                     }
                 },
+                "tool_call_id": {
+                    "type": "string"
+                },
                 "tool_calls": {
                     "type": "array",
                     "items": {
@@ -2614,26 +1957,6 @@ const docTemplate = `{
                     }
                 },
                 "object": {
-                    "type": "string"
-                }
-            }
-        },
-        "schema.MultimediaSourceConfig": {
-            "type": "object",
-            "properties": {
-                "headers": {
-                    "description": "Custom headers for HTTP request (e.g., Authorization)",
-                    "type": "object",
-                    "additionalProperties": {
-                        "type": "string"
-                    }
-                },
-                "type": {
-                    "description": "\"image\", \"video\", \"audio\", \"file\"",
-                    "type": "string"
-                },
-                "url": {
-                    "description": "URL to fetch from",
                     "type": "string"
                 }
             }
@@ -3198,6 +2521,9 @@ const docTemplate = `{
                         "type": "string"
                     }
                 },
+                "min_p": {
+                    "type": "number"
+                },
                 "model": {
                     "type": "string"
                 },
@@ -3483,7 +2809,13 @@ const docTemplate = `{
                         "$ref": "#/definitions/schema.NodeData"
                     }
                 },
-                "nodes": {
+                "llama_cpp_nodes": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.NodeData"
+                    }
+                },
+                "mlx_nodes": {
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/schema.NodeData"
@@ -3549,66 +2881,6 @@ const docTemplate = `{
                 "voice": {
                     "description": "voice audio file or speaker id",
                     "type": "string"
-                }
-            }
-        },
-        "schema.Task": {
-            "type": "object",
-            "properties": {
-                "created_at": {
-                    "type": "string"
-                },
-                "cron": {
-                    "description": "Optional cron expression",
-                    "type": "string"
-                },
-                "cron_parameters": {
-                    "description": "Parameters to use when executing cron jobs",
-                    "type": "object",
-                    "additionalProperties": {
-                        "type": "string"
-                    }
-                },
-                "description": {
-                    "description": "Optional description",
-                    "type": "string"
-                },
-                "enabled": {
-                    "description": "Can be disabled without deletion",
-                    "type": "boolean"
-                },
-                "id": {
-                    "description": "UUID",
-                    "type": "string"
-                },
-                "model": {
-                    "description": "Model name (must have MCP config)",
-                    "type": "string"
-                },
-                "multimedia_sources": {
-                    "description": "Multimedia sources (for cron jobs)\nURLs to fetch multimedia content from when cron job executes\nEach source can have custom headers for authentication/authorization",
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/schema.MultimediaSourceConfig"
-                    }
-                },
-                "name": {
-                    "description": "User-friendly name",
-                    "type": "string"
-                },
-                "prompt": {
-                    "description": "Template prompt (supports {{.param}} syntax)",
-                    "type": "string"
-                },
-                "updated_at": {
-                    "type": "string"
-                },
-                "webhooks": {
-                    "description": "Webhook configuration (for notifications)\nSupport multiple webhook endpoints\nWebhooks can handle both success and failure cases using template variables:\n- {{.Job}} - Job object with all fields\n- {{.Task}} - Task object\n- {{.Result}} - Job result (if successful)\n- {{.Error}} - Error message (if failed, empty string if successful)\n- {{.Status}} - Job status string",
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/schema.WebhookConfig"
-                    }
                 }
             }
         },
@@ -3717,30 +2989,6 @@ const docTemplate = `{
                 },
                 "width": {
                     "type": "integer"
-                }
-            }
-        },
-        "schema.WebhookConfig": {
-            "type": "object",
-            "properties": {
-                "headers": {
-                    "description": "Custom headers (e.g., Authorization)",
-                    "type": "object",
-                    "additionalProperties": {
-                        "type": "string"
-                    }
-                },
-                "method": {
-                    "description": "HTTP method (POST, PUT, PATCH) - default: POST",
-                    "type": "string"
-                },
-                "payload_template": {
-                    "description": "Optional template for payload",
-                    "type": "string"
-                },
-                "url": {
-                    "description": "Webhook endpoint URL",
-                    "type": "string"
                 }
             }
         },

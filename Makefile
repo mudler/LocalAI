@@ -1,5 +1,5 @@
 # Disable parallel execution for backend builds
-.NOTPARALLEL: backends/diffusers backends/llama-cpp backends/outetts backends/piper backends/stablediffusion-ggml backends/whisper backends/faster-whisper backends/silero-vad backends/local-store backends/huggingface backends/avian backends/rfdetr backends/kitten-tts backends/kokoro backends/chatterbox backends/llama-cpp-darwin backends/neutts build-darwin-python-backend build-darwin-go-backend backends/mlx backends/diffuser-darwin backends/mlx-vlm backends/mlx-audio backends/stablediffusion-ggml-darwin backends/vllm backends/vllm-omni backends/moonshine backends/pocket-tts backends/qwen-tts backends/faster-qwen3-tts backends/qwen-asr backends/nemo backends/voxcpm backends/whisperx backends/ace-step backends/voxtral
+.NOTPARALLEL: backends/diffusers backends/llama-cpp backends/outetts backends/piper backends/stablediffusion-ggml backends/whisper backends/faster-whisper backends/silero-vad backends/local-store backends/huggingface backends/avian backends/rfdetr backends/kitten-tts backends/kokoro backends/chatterbox backends/llama-cpp-darwin backends/neutts build-darwin-python-backend build-darwin-go-backend backends/mlx backends/diffuser-darwin backends/mlx-vlm backends/mlx-audio backends/mlx-distributed backends/stablediffusion-ggml-darwin backends/vllm backends/vllm-omni backends/moonshine backends/pocket-tts backends/qwen-tts backends/faster-qwen3-tts backends/qwen-asr backends/nemo backends/voxcpm backends/whisperx backends/ace-step backends/acestep-cpp backends/fish-speech backends/voxtral backends/opus backends/trl backends/llama-cpp-quantization
 
 GOCMD=go
 GOTEST=$(GOCMD) test
@@ -106,7 +106,8 @@ react-ui-docker:
 core/http/react-ui/dist: react-ui
 
 ## Build:
-build: protogen-go install-go-tools core/http/react-ui/dist ## Build the project
+
+build: protogen-go generate install-go-tools core/http/react-ui/dist ## Build the project
 	$(info ${GREEN}I local-ai build info:${RESET})
 	$(info ${GREEN}I BUILD_TYPE: ${YELLOW}$(BUILD_TYPE)${RESET})
 	$(info ${GREEN}I GO_TAGS: ${YELLOW}$(GO_TAGS)${RESET})
@@ -163,6 +164,7 @@ test: test-models/testmodel.ggml protogen-go
 	@echo 'Running tests'
 	export GO_TAGS="debug"
 	$(MAKE) prepare-test
+	OPUS_SHIM_LIBRARY=$(abspath ./pkg/opus/shim/libopusshim.so) \
 	HUGGINGFACE_GRPC=$(abspath ./)/backend/python/transformers/run.sh TEST_DIR=$(abspath ./)/test-dir/ FIXTURES=$(abspath ./)/tests/fixtures CONFIG_FILE=$(abspath ./)/test-models/config.yaml MODELS_PATH=$(abspath ./)/test-models BACKENDS_PATH=$(abspath ./)/backends \
 	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter="!llama-gguf"  --flake-attempts $(TEST_FLAKES) --fail-fast -v -r $(TEST_PATHS)
 	$(MAKE) test-llama-gguf
@@ -170,10 +172,10 @@ test: test-models/testmodel.ggml protogen-go
 	$(MAKE) test-stablediffusion
 
 ########################################################
-## AIO tests
+## E2E AIO tests (uses standard image with pre-configured models)
 ########################################################
 
-docker-build-aio:
+docker-build-e2e:
 	docker build \
 		--build-arg MAKEFLAGS="--jobs=5 --output-sync=target" \
 		--build-arg BASE_IMAGE=$(BASE_IMAGE) \
@@ -185,13 +187,12 @@ docker-build-aio:
 		--build-arg UBUNTU_CODENAME=$(UBUNTU_CODENAME) \
 		--build-arg GO_TAGS="$(GO_TAGS)" \
 		-t local-ai:tests -f Dockerfile .
-	BASE_IMAGE=local-ai:tests DOCKER_AIO_IMAGE=local-ai-aio:test $(MAKE) docker-aio
 
 e2e-aio:
 	LOCALAI_BACKEND_DIR=$(abspath ./backends) \
-	LOCALAI_MODELS_DIR=$(abspath ./models) \
-	LOCALAI_IMAGE_TAG=test \
-	LOCALAI_IMAGE=local-ai-aio \
+	LOCALAI_MODELS_DIR=$(abspath ./tests/e2e-aio/models) \
+	LOCALAI_IMAGE_TAG=tests \
+	LOCALAI_IMAGE=local-ai \
 	$(MAKE) run-e2e-aio
 
 run-e2e-aio: protogen-go
@@ -249,6 +250,88 @@ test-stablediffusion: prepare-test
 
 test-stores:
 	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter="stores" --flake-attempts $(TEST_FLAKES) -v -r tests/integration
+
+test-opus:
+	@echo 'Running opus backend tests'
+	$(MAKE) -C backend/go/opus libopusshim.so
+	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --flake-attempts $(TEST_FLAKES) -v -r ./backend/go/opus/...
+
+test-opus-docker:
+	@echo 'Running opus backend tests in Docker'
+	docker build --target builder \
+	  --build-arg BUILD_TYPE=$(or $(BUILD_TYPE),) \
+	  --build-arg BASE_IMAGE=$(or $(BASE_IMAGE),ubuntu:24.04) \
+	  --build-arg BACKEND=opus \
+	  -t localai-opus-test -f backend/Dockerfile.golang .
+	docker run --rm localai-opus-test \
+	  bash -c 'cd /LocalAI && go run github.com/onsi/ginkgo/v2/ginkgo --flake-attempts $(TEST_FLAKES) -v -r ./backend/go/opus/...'
+
+test-realtime: build-mock-backend
+	@echo 'Running realtime e2e tests (mock backend)'
+	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter="Realtime && !real-models" --flake-attempts $(TEST_FLAKES) -v -r ./tests/e2e
+
+# Real-model realtime tests. Set REALTIME_TEST_MODEL to use your own pipeline,
+# or leave unset to auto-build one from the component env vars below.
+REALTIME_VAD?=silero-vad-ggml
+REALTIME_STT?=whisper-1
+REALTIME_LLM?=qwen3-0.6b
+REALTIME_TTS?=tts-1
+REALTIME_BACKENDS_PATH?=$(abspath ./)/backends
+
+test-realtime-models: build-mock-backend
+	@echo 'Running realtime e2e tests (real models)'
+	REALTIME_TEST_MODEL=$${REALTIME_TEST_MODEL:-realtime-test-pipeline} \
+	REALTIME_VAD=$(REALTIME_VAD) \
+	REALTIME_STT=$(REALTIME_STT) \
+	REALTIME_LLM=$(REALTIME_LLM) \
+	REALTIME_TTS=$(REALTIME_TTS) \
+	REALTIME_BACKENDS_PATH=$(REALTIME_BACKENDS_PATH) \
+	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter="Realtime" --flake-attempts $(TEST_FLAKES) -v -r ./tests/e2e
+
+# --- Container-based real-model testing ---
+
+REALTIME_BACKEND_NAMES ?= silero-vad whisper llama-cpp kokoro
+REALTIME_MODELS_DIR ?= $(abspath ./models)
+REALTIME_BACKENDS_DIR ?= $(abspath ./local-backends)
+REALTIME_DOCKER_FLAGS ?= --gpus all
+
+local-backends:
+	mkdir -p local-backends
+
+extract-backend-%: docker-build-% local-backends
+	@echo "Extracting backend $*..."
+	@CID=$$(docker create local-ai-backend:$*) && \
+	  rm -rf local-backends/$* && mkdir -p local-backends/$* && \
+	  docker cp $$CID:/ - | tar -xf - -C local-backends/$* && \
+	  docker rm $$CID > /dev/null
+
+extract-realtime-backends: $(addprefix extract-backend-,$(REALTIME_BACKEND_NAMES))
+
+test-realtime-models-docker: build-mock-backend
+	docker build --target build-requirements \
+	  --build-arg BUILD_TYPE=$(or $(BUILD_TYPE),cublas) \
+	  --build-arg CUDA_MAJOR_VERSION=$(or $(CUDA_MAJOR_VERSION),13) \
+	  --build-arg CUDA_MINOR_VERSION=$(or $(CUDA_MINOR_VERSION),0) \
+	  -t localai-test-runner .
+	docker run --rm \
+	  $(REALTIME_DOCKER_FLAGS) \
+	  -v $(abspath ./):/build \
+	  -v $(REALTIME_MODELS_DIR):/models:ro \
+	  -v $(REALTIME_BACKENDS_DIR):/backends \
+	  -v localai-go-cache:/root/go/pkg/mod \
+	  -v localai-go-build-cache:/root/.cache/go-build \
+	  -e REALTIME_TEST_MODEL=$${REALTIME_TEST_MODEL:-realtime-test-pipeline} \
+	  -e REALTIME_VAD=$(REALTIME_VAD) \
+	  -e REALTIME_STT=$(REALTIME_STT) \
+	  -e REALTIME_LLM=$(REALTIME_LLM) \
+	  -e REALTIME_TTS=$(REALTIME_TTS) \
+	  -e REALTIME_BACKENDS_PATH=/backends \
+	  -e REALTIME_MODELS_PATH=/models \
+	  -w /build \
+	  localai-test-runner \
+	  bash -c 'git config --global --add safe.directory /build && \
+	    make protogen-go && make build-mock-backend && \
+	    go run github.com/onsi/ginkgo/v2/ginkgo --label-filter="Realtime" --flake-attempts $(TEST_FLAKES) -v -r ./tests/e2e'
 
 test-container:
 	docker build --target requirements -t local-ai-test-container .
@@ -315,6 +398,16 @@ protogen-go: protoc install-go-tools
 	./protoc --experimental_allow_proto3_optional -Ibackend/ --go_out=pkg/grpc/proto/ --go_opt=paths=source_relative --go-grpc_out=pkg/grpc/proto/ --go-grpc_opt=paths=source_relative \
     backend/backend.proto
 
+core/config/inference_defaults.json: ## Fetch inference defaults from unsloth (only if missing)
+	$(GOCMD) generate ./core/config/...
+
+.PHONY: generate
+generate: core/config/inference_defaults.json ## Ensure inference defaults exist
+
+.PHONY: generate-force
+generate-force: ## Re-fetch inference defaults from unsloth (always)
+	$(GOCMD) generate ./core/config/...
+
 .PHONY: protogen-go-clean
 protogen-go-clean:
 	$(RM) pkg/grpc/proto/backend.pb.go pkg/grpc/proto/backend_grpc.pb.go
@@ -331,12 +424,14 @@ prepare-test-extra: protogen-python
 	$(MAKE) -C backend/python/moonshine
 	$(MAKE) -C backend/python/pocket-tts
 	$(MAKE) -C backend/python/qwen-tts
+	$(MAKE) -C backend/python/fish-speech
 	$(MAKE) -C backend/python/faster-qwen3-tts
 	$(MAKE) -C backend/python/qwen-asr
 	$(MAKE) -C backend/python/nemo
 	$(MAKE) -C backend/python/voxcpm
 	$(MAKE) -C backend/python/whisperx
 	$(MAKE) -C backend/python/ace-step
+	$(MAKE) -C backend/python/trl
 
 test-extra: prepare-test-extra
 	$(MAKE) -C backend/python/transformers test
@@ -349,15 +444,16 @@ test-extra: prepare-test-extra
 	$(MAKE) -C backend/python/moonshine test
 	$(MAKE) -C backend/python/pocket-tts test
 	$(MAKE) -C backend/python/qwen-tts test
+	$(MAKE) -C backend/python/fish-speech test
 	$(MAKE) -C backend/python/faster-qwen3-tts test
 	$(MAKE) -C backend/python/qwen-asr test
 	$(MAKE) -C backend/python/nemo test
 	$(MAKE) -C backend/python/voxcpm test
 	$(MAKE) -C backend/python/whisperx test
 	$(MAKE) -C backend/python/ace-step test
+	$(MAKE) -C backend/python/trl test
 
 DOCKER_IMAGE?=local-ai
-DOCKER_AIO_IMAGE?=local-ai-aio
 IMAGE_TYPE?=core
 BASE_IMAGE?=ubuntu:24.04
 
@@ -386,21 +482,6 @@ docker-cuda12:
 		--build-arg UBUNTU_VERSION=$(UBUNTU_VERSION) \
 		--build-arg UBUNTU_CODENAME=$(UBUNTU_CODENAME) \
 		-t $(DOCKER_IMAGE)-cuda-12 .
-
-docker-aio:
-	@echo "Building AIO image with base $(BASE_IMAGE) as $(DOCKER_AIO_IMAGE)"
-	docker build \
-		--build-arg BASE_IMAGE=$(BASE_IMAGE) \
-		--build-arg MAKEFLAGS="$(DOCKER_MAKEFLAGS)" \
-		--build-arg CUDA_MAJOR_VERSION=$(CUDA_MAJOR_VERSION) \
-		--build-arg CUDA_MINOR_VERSION=$(CUDA_MINOR_VERSION) \
-		--build-arg UBUNTU_VERSION=$(UBUNTU_VERSION) \
-		--build-arg UBUNTU_CODENAME=$(UBUNTU_CODENAME) \
-		-t $(DOCKER_AIO_IMAGE) -f Dockerfile.aio .
-
-docker-aio-all:
-	$(MAKE) docker-aio DOCKER_AIO_SIZE=cpu
-	$(MAKE) docker-aio DOCKER_AIO_SIZE=cpu
 
 docker-image-intel:
 	docker build \
@@ -451,6 +532,10 @@ backends/mlx-audio:
 	BACKEND=mlx-audio $(MAKE) build-darwin-python-backend
 	./local-ai backends install "ocifile://$(abspath ./backend-images/mlx-audio.tar)"
 
+backends/mlx-distributed:
+	BACKEND=mlx-distributed $(MAKE) build-darwin-python-backend
+	./local-ai backends install "ocifile://$(abspath ./backend-images/mlx-distributed.tar)"
+
 backends/stablediffusion-ggml-darwin:
 	BACKEND=stablediffusion-ggml BUILD_TYPE=metal $(MAKE) build-darwin-go-backend
 	./local-ai backends install "ocifile://$(abspath ./backend-images/stablediffusion-ggml.tar)"
@@ -471,6 +556,8 @@ BACKEND_SILERO_VAD = silero-vad|golang|.|false|true
 BACKEND_STABLEDIFFUSION_GGML = stablediffusion-ggml|golang|.|--progress=plain|true
 BACKEND_WHISPER = whisper|golang|.|false|true
 BACKEND_VOXTRAL = voxtral|golang|.|false|true
+BACKEND_ACESTEP_CPP = acestep-cpp|golang|.|false|true
+BACKEND_OPUS = opus|golang|.|false|true
 
 # Python backends with root context
 BACKEND_RERANKERS = rerankers|python|.|false|true
@@ -490,12 +577,16 @@ BACKEND_VIBEVOICE = vibevoice|python|.|--progress=plain|true
 BACKEND_MOONSHINE = moonshine|python|.|false|true
 BACKEND_POCKET_TTS = pocket-tts|python|.|false|true
 BACKEND_QWEN_TTS = qwen-tts|python|.|false|true
+BACKEND_FISH_SPEECH = fish-speech|python|.|false|true
 BACKEND_FASTER_QWEN3_TTS = faster-qwen3-tts|python|.|false|true
 BACKEND_QWEN_ASR = qwen-asr|python|.|false|true
 BACKEND_NEMO = nemo|python|.|false|true
 BACKEND_VOXCPM = voxcpm|python|.|false|true
 BACKEND_WHISPERX = whisperx|python|.|false|true
 BACKEND_ACE_STEP = ace-step|python|.|false|true
+BACKEND_MLX_DISTRIBUTED = mlx-distributed|python|./|false|true
+BACKEND_TRL = trl|python|.|false|true
+BACKEND_LLAMA_CPP_QUANTIZATION = llama-cpp-quantization|python|.|false|true
 
 # Helper function to build docker image for a backend
 # Usage: $(call docker-build-backend,BACKEND_NAME,DOCKERFILE_TYPE,BUILD_CONTEXT,PROGRESS_FLAG,NEEDS_BACKEND_ARG)
@@ -527,6 +618,7 @@ $(eval $(call generate-docker-build-target,$(BACKEND_SILERO_VAD)))
 $(eval $(call generate-docker-build-target,$(BACKEND_STABLEDIFFUSION_GGML)))
 $(eval $(call generate-docker-build-target,$(BACKEND_WHISPER)))
 $(eval $(call generate-docker-build-target,$(BACKEND_VOXTRAL)))
+$(eval $(call generate-docker-build-target,$(BACKEND_OPUS)))
 $(eval $(call generate-docker-build-target,$(BACKEND_RERANKERS)))
 $(eval $(call generate-docker-build-target,$(BACKEND_TRANSFORMERS)))
 $(eval $(call generate-docker-build-target,$(BACKEND_OUTETTS)))
@@ -544,18 +636,23 @@ $(eval $(call generate-docker-build-target,$(BACKEND_VIBEVOICE)))
 $(eval $(call generate-docker-build-target,$(BACKEND_MOONSHINE)))
 $(eval $(call generate-docker-build-target,$(BACKEND_POCKET_TTS)))
 $(eval $(call generate-docker-build-target,$(BACKEND_QWEN_TTS)))
+$(eval $(call generate-docker-build-target,$(BACKEND_FISH_SPEECH)))
 $(eval $(call generate-docker-build-target,$(BACKEND_FASTER_QWEN3_TTS)))
 $(eval $(call generate-docker-build-target,$(BACKEND_QWEN_ASR)))
 $(eval $(call generate-docker-build-target,$(BACKEND_NEMO)))
 $(eval $(call generate-docker-build-target,$(BACKEND_VOXCPM)))
 $(eval $(call generate-docker-build-target,$(BACKEND_WHISPERX)))
 $(eval $(call generate-docker-build-target,$(BACKEND_ACE_STEP)))
+$(eval $(call generate-docker-build-target,$(BACKEND_ACESTEP_CPP)))
+$(eval $(call generate-docker-build-target,$(BACKEND_MLX_DISTRIBUTED)))
+$(eval $(call generate-docker-build-target,$(BACKEND_TRL)))
+$(eval $(call generate-docker-build-target,$(BACKEND_LLAMA_CPP_QUANTIZATION)))
 
 # Pattern rule for docker-save targets
 docker-save-%: backend-images
 	docker save local-ai-backend:$* -o backend-images/$*.tar
 
-docker-build-backends: docker-build-llama-cpp docker-build-rerankers docker-build-vllm docker-build-vllm-omni docker-build-transformers docker-build-outetts docker-build-diffusers docker-build-kokoro docker-build-faster-whisper docker-build-coqui docker-build-chatterbox docker-build-vibevoice docker-build-moonshine docker-build-pocket-tts docker-build-qwen-tts docker-build-faster-qwen3-tts docker-build-qwen-asr docker-build-nemo docker-build-voxcpm docker-build-whisperx docker-build-ace-step docker-build-voxtral docker-build-avian
+docker-build-backends: docker-build-llama-cpp docker-build-rerankers docker-build-vllm docker-build-vllm-omni docker-build-transformers docker-build-outetts docker-build-diffusers docker-build-kokoro docker-build-faster-whisper docker-build-coqui docker-build-chatterbox docker-build-vibevoice docker-build-moonshine docker-build-pocket-tts docker-build-qwen-tts docker-build-fish-speech docker-build-faster-qwen3-tts docker-build-qwen-asr docker-build-nemo docker-build-voxcpm docker-build-whisperx docker-build-ace-step docker-build-acestep-cpp docker-build-voxtral docker-build-mlx-distributed docker-build-trl docker-build-llama-cpp-quantization docker-build-avian
 
 ########################################################
 ### Mock Backend for E2E Tests
@@ -566,6 +663,23 @@ build-mock-backend: protogen-go
 
 clean-mock-backend:
 	rm -f tests/e2e/mock-backend/mock-backend
+
+########################################################
+### UI E2E Test Server
+########################################################
+
+build-ui-test-server: build-mock-backend react-ui protogen-go
+	$(GOCMD) build -o tests/e2e-ui/ui-test-server ./tests/e2e-ui
+
+test-ui-e2e: build-ui-test-server
+	cd core/http/react-ui && npm install && npx playwright install --with-deps chromium && npx playwright test
+
+test-ui-e2e-docker:
+	docker build -t localai-ui-e2e -f tests/e2e-ui/Dockerfile .
+	docker run --rm localai-ui-e2e
+
+clean-ui-test-server:
+	rm -f tests/e2e-ui/ui-test-server
 
 ########################################################
 ### END Backends

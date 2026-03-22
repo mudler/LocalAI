@@ -1,18 +1,34 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useNavigate, useOutletContext } from 'react-router-dom'
+import { useNavigate, useOutletContext, useSearchParams } from 'react-router-dom'
 import ResourceMonitor from '../components/ResourceMonitor'
+import ConfirmDialog from '../components/ConfirmDialog'
 import { useModels } from '../hooks/useModels'
 import { backendControlApi, modelsApi, backendsApi, systemApi } from '../utils/api'
+
+const TABS = [
+  { key: 'models', label: 'Models', icon: 'fa-brain' },
+  { key: 'backends', label: 'Backends', icon: 'fa-server' },
+]
 
 export default function Manage() {
   const { addToast } = useOutletContext()
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const initialTab = searchParams.get('tab') || localStorage.getItem('manage-tab') || 'models'
+  const [activeTab, setActiveTab] = useState(TABS.some(t => t.key === initialTab) ? initialTab : 'models')
   const { models, loading: modelsLoading, refetch: refetchModels } = useModels()
   const [loadedModelIds, setLoadedModelIds] = useState(new Set())
   const [backends, setBackends] = useState([])
   const [backendsLoading, setBackendsLoading] = useState(true)
   const [reloading, setReloading] = useState(false)
   const [reinstallingBackends, setReinstallingBackends] = useState(new Set())
+  const [confirmDialog, setConfirmDialog] = useState(null)
+
+  const handleTabChange = (tab) => {
+    setActiveTab(tab)
+    localStorage.setItem('manage-tab', tab)
+    setSearchParams({ tab })
+  }
 
   const fetchLoadedModels = useCallback(async () => {
     try {
@@ -41,27 +57,43 @@ export default function Manage() {
     fetchBackends()
   }, [fetchLoadedModels, fetchBackends])
 
-  const handleStopModel = async (modelName) => {
-    if (!confirm(`Stop model ${modelName}?`)) return
-    try {
-      await backendControlApi.shutdown({ model: modelName })
-      addToast(`Stopped ${modelName}`, 'success')
-      setTimeout(fetchLoadedModels, 500)
-    } catch (err) {
-      addToast(`Failed to stop: ${err.message}`, 'error')
-    }
+  const handleStopModel = (modelName) => {
+    setConfirmDialog({
+      title: 'Stop Model',
+      message: `Stop model ${modelName}?`,
+      confirmLabel: 'Stop',
+      danger: true,
+      onConfirm: async () => {
+        setConfirmDialog(null)
+        try {
+          await backendControlApi.shutdown({ model: modelName })
+          addToast(`Stopped ${modelName}`, 'success')
+          setTimeout(fetchLoadedModels, 500)
+        } catch (err) {
+          addToast(`Failed to stop: ${err.message}`, 'error')
+        }
+      },
+    })
   }
 
-  const handleDeleteModel = async (modelName) => {
-    if (!confirm(`Delete model ${modelName}? This cannot be undone.`)) return
-    try {
-      await modelsApi.deleteByName(modelName)
-      addToast(`Deleted ${modelName}`, 'success')
-      refetchModels()
-      fetchLoadedModels()
-    } catch (err) {
-      addToast(`Failed to delete: ${err.message}`, 'error')
-    }
+  const handleDeleteModel = (modelName) => {
+    setConfirmDialog({
+      title: 'Delete Model',
+      message: `Delete model ${modelName}? This cannot be undone.`,
+      confirmLabel: 'Delete',
+      danger: true,
+      onConfirm: async () => {
+        setConfirmDialog(null)
+        try {
+          await modelsApi.deleteByName(modelName)
+          addToast(`Deleted ${modelName}`, 'success')
+          refetchModels()
+          fetchLoadedModels()
+        } catch (err) {
+          addToast(`Failed to delete: ${err.message}`, 'error')
+        }
+      },
+    })
   }
 
   const handleReload = async () => {
@@ -92,32 +124,55 @@ export default function Manage() {
     }
   }
 
-  const handleDeleteBackend = async (name) => {
-    if (!confirm(`Delete backend ${name}?`)) return
-    try {
-      await backendsApi.deleteInstalled(name)
-      addToast(`Deleted backend ${name}`, 'success')
-      fetchBackends()
-    } catch (err) {
-      addToast(`Failed to delete backend: ${err.message}`, 'error')
-    }
+  const handleDeleteBackend = (name) => {
+    setConfirmDialog({
+      title: 'Delete Backend',
+      message: `Delete backend ${name}?`,
+      confirmLabel: 'Delete',
+      danger: true,
+      onConfirm: async () => {
+        setConfirmDialog(null)
+        try {
+          await backendsApi.deleteInstalled(name)
+          addToast(`Deleted backend ${name}`, 'success')
+          fetchBackends()
+        } catch (err) {
+          addToast(`Failed to delete backend: ${err.message}`, 'error')
+        }
+      },
+    })
   }
 
   return (
     <div className="page">
       <div className="page-header">
-        <h1 className="page-title">Model & Backend Management</h1>
+        <h1 className="page-title">System</h1>
+        <p className="page-subtitle">Manage installed models and backends</p>
       </div>
 
       {/* Resource Monitor */}
       <ResourceMonitor />
 
-      {/* Models Section */}
-      <div style={{ marginTop: 'var(--spacing-xl)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--spacing-md)' }}>
-          <h2 style={{ fontSize: '1.125rem', fontWeight: 600 }}>
-            Models ({models.length})
-          </h2>
+      {/* Tabs */}
+      <div className="tabs" style={{ marginTop: 'var(--spacing-lg)', marginBottom: 'var(--spacing-md)' }}>
+        {TABS.map(t => (
+          <button
+            key={t.key}
+            className={`tab ${activeTab === t.key ? 'tab-active' : ''}`}
+            onClick={() => handleTabChange(t.key)}
+          >
+            <i className={`fas ${t.icon}`} style={{ marginRight: 6 }} />
+            {t.label}
+            {t.key === 'models' && !modelsLoading && ` (${models.length})`}
+            {t.key === 'backends' && !backendsLoading && ` (${backends.length})`}
+          </button>
+        ))}
+      </div>
+
+      {/* Models Tab */}
+      {activeTab === 'models' && (
+      <div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', marginBottom: 'var(--spacing-md)' }}>
           <button className="btn btn-secondary btn-sm" onClick={handleReload} disabled={reloading}>
             <i className={`fas ${reloading ? 'fa-spinner fa-spin' : 'fa-rotate'}`} />
             {reloading ? 'Updating...' : 'Update'}
@@ -136,10 +191,10 @@ export default function Manage() {
               Install a model from the gallery to get started.
             </p>
             <div style={{ display: 'flex', gap: 'var(--spacing-sm)', justifyContent: 'center' }}>
-              <button className="btn btn-primary btn-sm" onClick={() => navigate('/browse')}>
+              <button className="btn btn-primary btn-sm" onClick={() => navigate('/app/models')}>
                 <i className="fas fa-store" /> Browse Gallery
               </button>
-              <button className="btn btn-secondary btn-sm" onClick={() => navigate('/import-model')}>
+              <button className="btn btn-secondary btn-sm" onClick={() => navigate('/app/import-model')}>
                 <i className="fas fa-upload" /> Import Model
               </button>
               <a className="btn btn-secondary btn-sm" href="https://localai.io" target="_blank" rel="noopener noreferrer">
@@ -169,11 +224,19 @@ export default function Manage() {
                         <span style={{ fontWeight: 500 }}>{model.id}</span>
                         <a
                           href="#"
-                          onClick={(e) => { e.preventDefault(); navigate(`/model-editor/${encodeURIComponent(model.id)}`) }}
+                          onClick={(e) => { e.preventDefault(); navigate(`/app/model-editor/${encodeURIComponent(model.id)}`) }}
                           style={{ fontSize: '0.75rem', color: 'var(--color-primary)' }}
                           title="Edit config"
                         >
                           <i className="fas fa-pen-to-square" />
+                        </a>
+                        <a
+                          href="#"
+                          onClick={(e) => { e.preventDefault(); navigate(`/app/backend-logs/${encodeURIComponent(model.id)}`) }}
+                          style={{ fontSize: '0.75rem', color: 'var(--color-primary)' }}
+                          title="Backend logs"
+                        >
+                          <i className="fas fa-terminal" />
                         </a>
                       </div>
                     </td>
@@ -189,11 +252,11 @@ export default function Manage() {
                       )}
                     </td>
                     <td>
-                      <span className="badge badge-info">Auto</span>
+                      <span className="badge badge-info">{model.backend || 'Auto'}</span>
                     </td>
                     <td>
                       <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-                        <a href="#" onClick={(e) => { e.preventDefault(); navigate(`/chat/${encodeURIComponent(model.id)}`) }} className="badge badge-info" style={{ textDecoration: 'none', cursor: 'pointer' }}>Chat</a>
+                        <a href="#" onClick={(e) => { e.preventDefault(); navigate(`/app/chat/${encodeURIComponent(model.id)}`) }} className="badge badge-info" style={{ textDecoration: 'none', cursor: 'pointer' }}>Chat</a>
                       </div>
                     </td>
                     <td>
@@ -223,15 +286,11 @@ export default function Manage() {
           </div>
         )}
       </div>
+      )}
 
-      {/* Backends Section */}
-      <div style={{ marginTop: 'var(--spacing-xl)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--spacing-md)' }}>
-          <h2 style={{ fontSize: '1.125rem', fontWeight: 600 }}>
-            Backends ({backends.length})
-          </h2>
-        </div>
-
+      {/* Backends Tab */}
+      {activeTab === 'backends' && (
+      <div>
         {backendsLoading ? (
           <div style={{ textAlign: 'center', padding: 'var(--spacing-md)', color: 'var(--color-text-muted)', fontSize: '0.875rem' }}>
             Loading backends...
@@ -244,7 +303,7 @@ export default function Manage() {
               Install backends from the gallery to extend functionality.
             </p>
             <div style={{ display: 'flex', gap: 'var(--spacing-sm)', justifyContent: 'center' }}>
-              <button className="btn btn-primary btn-sm" onClick={() => navigate('/backends')}>
+              <button className="btn btn-primary btn-sm" onClick={() => navigate('/app/backends')}>
                 <i className="fas fa-server" /> Browse Backend Gallery
               </button>
               <a className="btn btn-secondary btn-sm" href="https://localai.io/backends/" target="_blank" rel="noopener noreferrer">
@@ -345,6 +404,17 @@ export default function Manage() {
           </div>
         )}
       </div>
+      )}
+
+      <ConfirmDialog
+        open={!!confirmDialog}
+        title={confirmDialog?.title}
+        message={confirmDialog?.message}
+        confirmLabel={confirmDialog?.confirmLabel}
+        danger={confirmDialog?.danger}
+        onConfirm={confirmDialog?.onConfirm}
+        onCancel={() => setConfirmDialog(null)}
+      />
     </div>
   )
 }

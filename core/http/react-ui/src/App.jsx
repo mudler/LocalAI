@@ -5,12 +5,17 @@ import OperationsBar from './components/OperationsBar'
 import { ToastContainer, useToast } from './components/Toast'
 import { systemApi } from './utils/api'
 
+const COLLAPSED_KEY = 'localai_sidebar_collapsed'
+
 export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    try { return localStorage.getItem(COLLAPSED_KEY) === 'true' } catch (_) { return false }
+  })
   const { toasts, addToast, removeToast } = useToast()
   const [version, setVersion] = useState('')
   const location = useLocation()
-  const isChatRoute = location.pathname.startsWith('/chat')
+  const isChatRoute = location.pathname.match(/\/chat(\/|$)/) || location.pathname.match(/\/agents\/[^/]+\/chat/)
 
   useEffect(() => {
     systemApi.version()
@@ -18,8 +23,25 @@ export default function App() {
       .catch(() => {})
   }, [])
 
+  useEffect(() => {
+    const handler = (e) => setSidebarCollapsed(e.detail.collapsed)
+    window.addEventListener('sidebar-collapse', handler)
+    return () => window.removeEventListener('sidebar-collapse', handler)
+  }, [])
+
+  // Scroll to top on route change
+  useEffect(() => {
+    window.scrollTo(0, 0)
+  }, [location.pathname])
+
+  const layoutClasses = [
+    'app-layout',
+    isChatRoute ? 'app-layout-chat' : '',
+    sidebarCollapsed ? 'sidebar-is-collapsed' : '',
+  ].filter(Boolean).join(' ')
+
   return (
-    <div className={`app-layout${isChatRoute ? ' app-layout-chat' : ''}`}>
+    <div className={layoutClasses}>
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <main className="main-content">
         <OperationsBar />
@@ -34,7 +56,9 @@ export default function App() {
           <span className="mobile-title">LocalAI</span>
         </header>
         <div className="main-content-inner">
-          <Outlet context={{ addToast }} />
+          <div className="page-transition" key={location.pathname}>
+            <Outlet context={{ addToast }} />
+          </div>
         </div>
         {!isChatRoute && (
           <footer className="app-footer">

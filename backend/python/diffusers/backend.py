@@ -741,6 +741,8 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         # populate kwargs from self.options.
         kwargs.update(self.options)
 
+        kwargs.update(options)
+
         # Set seed
         if request.seed > 0:
             kwargs["generator"] = torch.Generator(device=self.device).manual_seed(

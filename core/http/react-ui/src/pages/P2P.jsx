@@ -7,7 +7,7 @@ function NodeCard({ node, label, iconColor, iconBg }) {
   return (
     <div style={{
       background: 'var(--color-bg-primary)',
-      border: `1px solid ${node.isOnline ? 'rgba(34,197,94,0.5)' : 'rgba(239,68,68,0.5)'}`,
+      border: `1px solid ${node.isOnline ? 'var(--color-success-border)' : 'var(--color-error-border)'}`,
       borderRadius: 'var(--radius-md)',
       padding: 'var(--spacing-md)',
       transition: 'border-color 200ms',
@@ -103,8 +103,9 @@ function StepNumber({ n, bg, color }) {
 export default function P2P() {
   const { addToast } = useOutletContext()
   const [workers, setWorkers] = useState([])
+  const [mlxWorkers, setMlxWorkers] = useState([])
   const [federation, setFederation] = useState([])
-  const [stats, setStats] = useState({ workers: { online: 0, total: 0 }, federated: { online: 0, total: 0 } })
+  const [stats, setStats] = useState({ llama_cpp_workers: { online: 0, total: 0 }, federated: { online: 0, total: 0 }, mlx_workers: { online: 0, total: 0 } })
   const [loading, setLoading] = useState(true)
   const [enabled, setEnabled] = useState(false)
   const [token, setToken] = useState('')
@@ -129,7 +130,13 @@ export default function P2P() {
       if (p2pToken) {
         if (wRes.status === 'fulfilled') {
           const data = wRes.value
-          setWorkers(data?.nodes || (Array.isArray(data) ? data : []))
+          // Handle both old format ({nodes: [...]}) and new grouped format ({llama_cpp: {nodes: [...]}, mlx: {nodes: [...]}})
+          if (data?.llama_cpp) {
+            setWorkers(data.llama_cpp.nodes || [])
+            setMlxWorkers(data.mlx?.nodes || [])
+          } else {
+            setWorkers(data?.nodes || (Array.isArray(data) ? data : []))
+          }
         }
         if (fRes.status === 'fulfilled') {
           const data = fRes.value
@@ -204,7 +211,7 @@ export default function P2P() {
             <div className="card" style={{ textAlign: 'center', padding: 'var(--spacing-md)' }}>
               <div style={{
                 width: 40, height: 40, borderRadius: 'var(--radius-md)', margin: '0 auto var(--spacing-sm)',
-                background: 'rgba(34,197,94,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: 'var(--color-success-light)', display: 'flex', alignItems: 'center', justifyContent: 'center',
               }}>
                 <i className="fas fa-share-alt" style={{ color: 'var(--color-success)', fontSize: '1.25rem' }} />
               </div>
@@ -274,8 +281,10 @@ export default function P2P() {
   // ── P2P Enabled ──
   const fedOnline = stats.federated?.online ?? 0
   const fedTotal = stats.federated?.total ?? 0
-  const wrkOnline = stats.workers?.online ?? 0
-  const wrkTotal = stats.workers?.total ?? 0
+  const llamaOnline = stats.llama_cpp_workers?.online ?? 0
+  const llamaTotal = stats.llama_cpp_workers?.total ?? 0
+  const mlxOnline = stats.mlx_workers?.online ?? 0
+  const mlxTotal = stats.mlx_workers?.total ?? 0
 
   return (
     <div className="page">
@@ -296,7 +305,7 @@ export default function P2P() {
 
       {/* Network Token */}
       <div style={{
-        background: 'var(--color-bg-secondary)', border: '1px solid rgba(139,92,246,0.2)',
+        background: 'var(--color-bg-secondary)', border: '1px solid var(--color-accent-border)',
         borderRadius: 'var(--radius-lg)', padding: 'var(--spacing-lg)', marginBottom: 'var(--spacing-xl)',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', marginBottom: 'var(--spacing-md)' }}>
@@ -401,7 +410,7 @@ export default function P2P() {
                 fontSize: '0.75rem',
                 color: activeTab === 'sharding' ? 'var(--color-accent)' : 'var(--color-text-muted)',
               }}>
-                {wrkOnline}/{wrkTotal} workers
+                {llamaOnline + mlxOnline}/{llamaTotal + mlxTotal} workers
               </div>
             </div>
           </div>
@@ -411,7 +420,7 @@ export default function P2P() {
       {/* ── Federation Tab ── */}
       {activeTab === 'federation' && (
         <div style={{
-          background: 'var(--color-bg-secondary)', border: '1px solid rgba(99,102,241,0.2)',
+          background: 'var(--color-bg-secondary)', border: '1px solid var(--color-accent-border)',
           borderRadius: 'var(--radius-lg)', overflow: 'hidden',
         }}>
           <div style={{ padding: 'var(--spacing-lg)', borderBottom: '1px solid var(--color-border-subtle)' }}>
@@ -424,7 +433,7 @@ export default function P2P() {
                 <div style={{ textAlign: 'center' }}>
                   <div style={{
                     width: 48, height: 48, borderRadius: 'var(--radius-md)',
-                    background: 'rgba(245,158,11,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    background: 'var(--color-warning-light)', display: 'flex', alignItems: 'center', justifyContent: 'center',
                     margin: '0 auto var(--spacing-xs)',
                   }}>
                     <i className="fas fa-user" style={{ color: 'var(--color-warning)', fontSize: '1rem' }} />
@@ -435,7 +444,7 @@ export default function P2P() {
                 <div style={{ textAlign: 'center' }}>
                   <div style={{
                     width: 48, height: 48, borderRadius: 'var(--radius-md)',
-                    background: 'rgba(34,197,94,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    background: 'var(--color-success-light)', display: 'flex', alignItems: 'center', justifyContent: 'center',
                     margin: '0 auto var(--spacing-xs)', border: '2px solid var(--color-success)',
                   }}>
                     <i className="fas fa-scale-balanced" style={{ color: 'var(--color-success)', fontSize: '1rem' }} />
@@ -505,7 +514,7 @@ export default function P2P() {
             }}>
               {/* Step 1 */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-sm)' }}>
-                <StepNumber n={1} bg="rgba(34,197,94,0.15)" color="var(--color-success)" />
+                <StepNumber n={1} bg="var(--color-success-light)" color="var(--color-success)" />
                 <h4 style={{ fontSize: '1rem', fontWeight: 700 }}>
                   Start the Federated Server <span style={{ fontSize: '0.8125rem', fontWeight: 400, color: 'var(--color-text-muted)' }}>(load balancer)</span>
                 </h4>
@@ -558,10 +567,25 @@ export default function P2P() {
       {/* ── Model Sharding Tab ── */}
       {activeTab === 'sharding' && (
         <div style={{
-          background: 'var(--color-bg-secondary)', border: '1px solid rgba(139,92,246,0.2)',
+          background: 'var(--color-bg-secondary)', border: '1px solid var(--color-accent-border)',
           borderRadius: 'var(--radius-lg)', overflow: 'hidden',
         }}>
           <div style={{ padding: 'var(--spacing-lg)', borderBottom: '1px solid var(--color-border-subtle)' }}>
+            <div style={{
+              background: 'var(--color-accent-light)', border: '1px solid var(--color-accent-border)',
+              borderRadius: 'var(--radius-md)', padding: 'var(--spacing-sm) var(--spacing-md)',
+              fontSize: '0.8125rem', color: 'var(--color-text-secondary)', marginBottom: 'var(--spacing-md)',
+            }}>
+              <i className="fas fa-info-circle" style={{ color: 'var(--color-accent)', marginRight: 6 }} />
+              <strong>Different from federation:</strong> Federation distributes whole requests across instances. Model sharding splits a single model across machines for joint inference.
+            </div>
+
+            {/* ── llama.cpp RPC Workers Section ── */}
+            <h3 style={{ fontSize: '1.125rem', fontWeight: 700, marginBottom: 'var(--spacing-sm)', display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
+              <i className="fas fa-microchip" style={{ color: 'var(--color-accent)' }} />
+              llama.cpp RPC Workers
+            </h3>
+
             {/* Architecture diagram */}
             <div style={{
               background: 'var(--color-bg-primary)', border: '1px solid var(--color-border-subtle)',
@@ -590,7 +614,7 @@ export default function P2P() {
                         <div style={{
                           width: 56, height: 36, borderRadius: 'var(--radius-sm)',
                           background: 'var(--color-accent-light)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          border: '1px solid rgba(139,92,246,0.3)',
+                          border: '1px solid var(--color-accent-border)',
                         }}>
                           <i className="fas fa-microchip" style={{ color: 'var(--color-accent)', fontSize: '0.75rem' }} />
                         </div>
@@ -604,25 +628,15 @@ export default function P2P() {
               </div>
               <p style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)', textAlign: 'center', marginTop: 'var(--spacing-sm)', lineHeight: 1.5 }}>
                 Model weights are <strong>split across RPC workers</strong>. Each worker holds a portion of the model layers in its memory (GPU or CPU).
-                The LocalAI instance orchestrates inference by communicating with all workers via RPC.
               </p>
             </div>
 
-            <div style={{
-              background: 'var(--color-accent-light)', border: '1px solid rgba(139,92,246,0.3)',
-              borderRadius: 'var(--radius-md)', padding: 'var(--spacing-sm) var(--spacing-md)',
-              fontSize: '0.8125rem', color: 'var(--color-text-secondary)', marginBottom: 'var(--spacing-md)',
-            }}>
-              <i className="fas fa-info-circle" style={{ color: 'var(--color-accent)', marginRight: 6 }} />
-              <strong>Different from federation:</strong> Federation distributes whole requests across instances. Model sharding splits a single model's weights across machines for joint inference. Currently only supported with <strong>llama.cpp</strong> based models.
-            </div>
-
-            {/* Status + nodes */}
+            {/* llama.cpp Status + nodes */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--spacing-md)' }}>
-              <h3 style={{ fontSize: '1rem', fontWeight: 700 }}>Connected Workers</h3>
+              <h4 style={{ fontSize: '1rem', fontWeight: 600 }}>Connected Workers</h4>
               <div style={{ fontSize: '1.25rem', fontWeight: 700 }}>
-                <span style={{ color: wrkOnline > 0 ? 'var(--color-success)' : 'var(--color-error)' }}>{wrkOnline}</span>
-                <span style={{ color: 'var(--color-text-secondary)', fontSize: '1rem' }}>/{wrkTotal}</span>
+                <span style={{ color: llamaOnline > 0 ? 'var(--color-success)' : 'var(--color-error)' }}>{llamaOnline}</span>
+                <span style={{ color: 'var(--color-text-secondary)', fontSize: '1rem' }}>/{llamaTotal}</span>
               </div>
             </div>
 
@@ -633,7 +647,7 @@ export default function P2P() {
                 borderRadius: 'var(--radius-lg)',
               }}>
                 <i className="fas fa-puzzle-piece" style={{ fontSize: '2rem', color: 'var(--color-text-muted)', marginBottom: 'var(--spacing-sm)' }} />
-                <p style={{ fontWeight: 500, color: 'var(--color-text-secondary)' }}>No workers available</p>
+                <p style={{ fontWeight: 500, color: 'var(--color-text-secondary)' }}>No llama.cpp workers connected</p>
                 <p style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', marginTop: 'var(--spacing-xs)' }}>Start workers to see them here</p>
               </div>
             ) : (
@@ -645,17 +659,99 @@ export default function P2P() {
             )}
           </div>
 
-          {/* Setup Guide */}
+          {/* ── MLX Distributed Workers Section ── */}
+          <div style={{ padding: 'var(--spacing-lg)', borderBottom: '1px solid var(--color-border-subtle)' }}>
+            <h3 style={{ fontSize: '1.125rem', fontWeight: 700, marginBottom: 'var(--spacing-sm)', display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
+              <i className="fas fa-apple-whole" style={{ color: 'var(--color-warning)' }} />
+              MLX Distributed Workers
+            </h3>
+
+            {/* MLX Architecture diagram */}
+            <div style={{
+              background: 'var(--color-bg-primary)', border: '1px solid var(--color-border-subtle)',
+              borderRadius: 'var(--radius-lg)', padding: 'var(--spacing-md)', marginBottom: 'var(--spacing-md)',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--spacing-md)', flexWrap: 'wrap' }}>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{
+                    width: 48, height: 48, borderRadius: 'var(--radius-md)',
+                    background: 'var(--color-primary-light)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    margin: '0 auto var(--spacing-xs)', border: '2px solid var(--color-primary)',
+                  }}>
+                    <i className="fas fa-server" style={{ color: 'var(--color-primary)', fontSize: '1rem' }} />
+                  </div>
+                  <div style={{ fontSize: '0.75rem', fontWeight: 600 }}>LocalAI</div>
+                  <div style={{ fontSize: '0.625rem', color: 'var(--color-text-muted)' }}>Rank 0</div>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
+                  <i className="fas fa-arrows-left-right" style={{ color: 'var(--color-text-muted)', fontSize: '0.875rem' }} />
+                  <span style={{ fontSize: '0.625rem', color: 'var(--color-text-muted)' }}>Ring / JACCL</span>
+                </div>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ display: 'flex', gap: '4px', marginBottom: 'var(--spacing-xs)' }}>
+                    {['Layers 1-16', 'Layers 17-32'].map((label, i) => (
+                      <div key={i} style={{ textAlign: 'center' }}>
+                        <div style={{
+                          width: 64, height: 36, borderRadius: 'var(--radius-sm)',
+                          background: 'var(--color-warning-light)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          border: '1px solid var(--color-warning-border)',
+                        }}>
+                          <i className="fas fa-microchip" style={{ color: 'var(--color-warning)', fontSize: '0.75rem' }} />
+                        </div>
+                        <div style={{ fontSize: '0.5625rem', color: 'var(--color-text-muted)', marginTop: 2 }}>{label}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ fontSize: '0.75rem', fontWeight: 600 }}>MLX Workers</div>
+                  <div style={{ fontSize: '0.625rem', color: 'var(--color-text-muted)' }}>Pipeline parallel</div>
+                </div>
+              </div>
+              <p style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)', textAlign: 'center', marginTop: 'var(--spacing-sm)', lineHeight: 1.5 }}>
+                MLX distributed uses <strong>native Apple Silicon communication</strong>. All nodes execute model code simultaneously via pipeline or tensor parallelism.
+              </p>
+            </div>
+
+            {/* MLX Status + nodes */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--spacing-md)' }}>
+              <h4 style={{ fontSize: '1rem', fontWeight: 600 }}>Connected MLX Workers</h4>
+              <div style={{ fontSize: '1.25rem', fontWeight: 700 }}>
+                <span style={{ color: mlxOnline > 0 ? 'var(--color-success)' : 'var(--color-error)' }}>{mlxOnline}</span>
+                <span style={{ color: 'var(--color-text-secondary)', fontSize: '1rem' }}>/{mlxTotal}</span>
+              </div>
+            </div>
+
+            {mlxWorkers.length === 0 ? (
+              <div style={{
+                textAlign: 'center', padding: 'var(--spacing-lg)',
+                background: 'var(--color-bg-primary)', border: '1px solid var(--color-border-subtle)',
+                borderRadius: 'var(--radius-lg)',
+              }}>
+                <i className="fas fa-apple-whole" style={{ fontSize: '2rem', color: 'var(--color-text-muted)', marginBottom: 'var(--spacing-sm)' }} />
+                <p style={{ fontWeight: 500, color: 'var(--color-text-secondary)' }}>No MLX workers connected</p>
+                <p style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', marginTop: 'var(--spacing-xs)' }}>Start MLX workers on Apple Silicon Macs</p>
+              </div>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 'var(--spacing-md)' }}>
+                {mlxWorkers.map((node, i) => (
+                  <NodeCard key={node.id || i} node={node} label={`MLX Rank ${i + 1}`} iconColor="var(--color-warning)" iconBg="var(--color-warning-light)" />
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Setup Guides */}
           <div style={{ padding: 'var(--spacing-lg)' }}>
             <h3 style={{ fontSize: '1.125rem', fontWeight: 700, marginBottom: 'var(--spacing-md)' }}>
               <i className="fas fa-book" style={{ color: 'var(--color-accent)', marginRight: 'var(--spacing-sm)' }} />
-              Start a llama.cpp RPC Worker
+              Setup Workers
             </h3>
 
             <div style={{
               background: 'var(--color-bg-primary)', borderRadius: 'var(--radius-lg)',
               border: '1px solid var(--color-border-subtle)', padding: 'var(--spacing-lg)',
+              marginBottom: 'var(--spacing-md)',
             }}>
+              <h4 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: 'var(--spacing-sm)' }}>llama.cpp RPC Worker</h4>
               <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.875rem', marginBottom: 'var(--spacing-sm)' }}>
                 Each worker exposes its GPU/CPU memory as a shard for distributed model inference.
               </p>
@@ -663,17 +759,24 @@ export default function P2P() {
                 command={`docker run -ti --net host \\\n  -e TOKEN="${token}" \\\n  --name local-ai-worker \\\n  localai/localai:latest-cpu worker p2p-llama-cpp-rpc`}
                 addToast={addToast}
               />
-              <p style={{ color: 'var(--color-text-muted)', fontSize: '0.8125rem', marginTop: 'var(--spacing-sm)' }}>
-                Run this on each machine you want to contribute as a shard. The worker will automatically join the network and advertise its resources.
-              </p>
+            </div>
 
-              <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.875rem', marginTop: 'var(--spacing-lg)' }}>
-                For GPU images and all available options, see the{' '}
-                <a href="https://localai.io/basics/container/" target="_blank" rel="noopener noreferrer"
-                  style={{ color: 'var(--color-accent)' }}>Container images</a>
-                {' '}and{' '}
-                <a href="https://localai.io/features/distribute/#starting-workers" target="_blank" rel="noopener noreferrer"
-                  style={{ color: 'var(--color-accent)' }}>Worker</a> docs.
+            <div style={{
+              background: 'var(--color-bg-primary)', borderRadius: 'var(--radius-lg)',
+              border: '1px solid var(--color-warning-border)', padding: 'var(--spacing-lg)',
+            }}>
+              <h4 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: 'var(--spacing-sm)' }}>MLX Distributed Worker</h4>
+              <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.875rem', marginBottom: 'var(--spacing-sm)' }}>
+                Run on Apple Silicon Macs to participate in distributed MLX inference via pipeline parallelism.
+              </p>
+              <CommandBlock
+                command={`docker run -ti --net host \\\n  -e TOKEN="${token}" \\\n  --name local-ai-mlx-worker \\\n  localai/localai:latest-metal-darwin-arm64 worker p2p-mlx`}
+                addToast={addToast}
+              />
+              <p style={{ color: 'var(--color-text-muted)', fontSize: '0.8125rem', marginTop: 'var(--spacing-sm)' }}>
+                For more information, see the{' '}
+                <a href="https://localai.io/features/mlx-distributed/" target="_blank" rel="noopener noreferrer"
+                  style={{ color: 'var(--color-warning)' }}>MLX Distributed</a> docs.
               </p>
             </div>
           </div>

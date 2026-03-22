@@ -12,6 +12,12 @@ export function percentColor(pct) {
   return 'var(--color-success)'
 }
 
+export function formatTimestamp(ts) {
+  if (!ts) return '-'
+  const d = new Date(ts)
+  return d.toLocaleTimeString() + '.' + String(d.getMilliseconds()).padStart(3, '0')
+}
+
 export function vendorColor(vendor) {
   if (!vendor) return 'var(--color-accent)'
   const v = vendor.toLowerCase()

@@ -1,4 +1,223 @@
 ---
+- name: "qwen_qwen3.5-35b-a3b"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/bartowski/Qwen_Qwen3.5-35B-A3B-GGUF
+  tags:
+    - qwen
+    - qwen3.5
+    - llm
+    - gguf
+    - 35b
+    - a3b
+  overrides:
+    parameters:
+      model: llama-cpp/models/Qwen_Qwen3.5-35B-A3B-GGUF/Qwen_Qwen3.5-35B-A3B-Q4_K_M.gguf
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    mmproj: llama-cpp/mmproj/Qwen_Qwen3.5-35B-A3B-GGUF/mmproj-Qwen_Qwen3.5-35B-A3B-f16.gguf
+    description: Imported from https://huggingface.co/bartowski/Qwen_Qwen3.5-35B-A3B-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Qwen_Qwen3.5-35B-A3B-GGUF/Qwen_Qwen3.5-35B-A3B-Q4_K_M.gguf
+      sha256: ac15eef4c742ff7700cba697238b25832087b67578f213d5ea24c9e3a6dc4457
+      uri: https://huggingface.co/bartowski/Qwen_Qwen3.5-35B-A3B-GGUF/resolve/main/Qwen_Qwen3.5-35B-A3B-Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/Qwen_Qwen3.5-35B-A3B-GGUF/mmproj-Qwen_Qwen3.5-35B-A3B-f16.gguf
+      sha256: 10cf13cb1f8434f30df8fa7e5bde98d542fbf397550cb489dfa9eb8ac7069035
+      uri: https://huggingface.co/bartowski/Qwen_Qwen3.5-35B-A3B-GGUF/resolve/main/mmproj-Qwen_Qwen3.5-35B-A3B-f16.gguf
+- name: "qwen3.5-27b-claude-4.6-opus-reasoning-distilled-heretic-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-heretic-i1-GGUF
+  tags:
+    - default
+    - default
+  overrides:
+    parameters:
+      model: llama-cpp/models/Qwen3.-27B-Claude-4.6-Opus-Reasoning-Distilled-heretic.i1-Q4_K_M.gguf
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-heretic-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-heretic.i1-Q4_K_M.gguf
+      sha256: af6c2ceae20d019624cd6ec48cfffb646b0309b0a7a82d9719754297394168e1
+      uri: https://huggingface.co/mradermacher/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-heretic-i1-GGUF/resolve/main/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-heretic.i1-Q4_K_M.gguf
+- name: "qwen_qwen3.5-0.8b"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/bartowski/Qwen_Qwen3.5-0.8B-GGUF
+  license: "unknown"
+  tags:
+    - llm
+    - gguf
+    - qwen
+    - 0.8b
+    - chat
+    - instruction-tuned
+  overrides:
+    parameters:
+      model: llama-cpp/models/Qwen_Qwen3.5-0.8B-Q4_K_M.gguf
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    mmproj: llama-cpp/mmproj/mmproj-Qwen_Qwen3.5-0.8B-f16.gguf
+    description: Imported from https://huggingface.co/bartowski/Qwen_Qwen3.5-0.8B-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Qwen_Qwen3.5-0.8B-Q4_K_M.gguf
+      uri: https://huggingface.co/bartowski/Qwen_Qwen3.5-0.8B-GGUF/resolve/main/Qwen_Qwen3.5-0.8B-Q4_K_M.gguf
+      sha256: 9d8472987aed5b36a0d167543a695bcbf349939445ca5382a4245219829f4581
+    - filename: llama-cpp/mmproj/mmproj-Qwen_Qwen3.5-0.8B-f16.gguf
+      uri: https://huggingface.co/bartowski/Qwen_Qwen3.5-0.8B-GGUF/resolve/main/mmproj-Qwen_Qwen3.5-0.8B-f16.gguf
+      sha256: 1dc1351c82e41b48edb55fd6ddfa7ca60fb5a16b3d5abf3ce7054880dd022847
+- name: "qwen_qwen3.5-2b"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/bartowski/Qwen_Qwen3.5-2B-GGUF
+  tags:
+    - qwen
+    - qwen3.5
+    - quantized
+    - 2b
+    - text-to-text
+  overrides:
+    parameters:
+      model: llama-cpp/models/Qwen_Qwen3.5-2B-Q4_K_M.gguf
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    mmproj: llama-cpp/mmproj/mmproj-Qwen_Qwen3.5-2B-f16.gguf
+    description: Imported from https://huggingface.co/bartowski/Qwen_Qwen3.5-2B-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Qwen_Qwen3.5-2B-Q4_K_M.gguf
+      uri: https://huggingface.co/bartowski/Qwen_Qwen3.5-2B-GGUF/resolve/main/Qwen_Qwen3.5-2B-Q4_K_M.gguf
+      sha256: 84aeb7fe40e7b833d71303d7f1b9f9c1991b931b5dbd214e0aa48d56a0af1f85
+    - filename: llama-cpp/mmproj/mmproj-Qwen_Qwen3.5-2B-f16.gguf
+      uri: https://huggingface.co/bartowski/Qwen_Qwen3.5-2B-GGUF/resolve/main/mmproj-Qwen_Qwen3.5-2B-f16.gguf
+      sha256: 044a0ea136cca70711ae16e23b24d754b44eab6f2462d187aee4d7c7a9503d36
+- name: "qwen_qwen3.5-4b"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/bartowski/Qwen_Qwen3.5-4B-GGUF
+  tags:
+    - qwen
+    - qwen3.5
+    - 4b
+  overrides:
+    parameters:
+      model: llama-cpp/models/Qwen_Qwen3.5-4B-Q4_K_M.gguf
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    mmproj: llama-cpp/mmproj/mmproj-Qwen_Qwen3.5-4B-f16.gguf
+    description: Imported from https://huggingface.co/bartowski/Qwen_Qwen3.5-4B-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Qwen_Qwen3.5-4B-Q4_K_M.gguf
+      uri: https://huggingface.co/bartowski/Qwen_Qwen3.5-4B-GGUF/resolve/main/Qwen_Qwen3.5-4B-Q4_K_M.gguf
+      sha256: 68c9c6bfeecee13dd3b3c1de7f73b2d86e5feadc100f0f50e5e11fd2388ca66d
+    - filename: llama-cpp/mmproj/mmproj-Qwen_Qwen3.5-4B-f16.gguf
+      sha256: 659b59dd44b73b1cd34af6cc424669484b06dc80f4340adf8ea84ad776eef813
+      uri: https://huggingface.co/bartowski/Qwen_Qwen3.5-4B-GGUF/resolve/main/mmproj-Qwen_Qwen3.5-4B-f16.gguf
+- name: "qwen3.5-27b-claude-4.6-opus-reasoning-distilled-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-i1-GGUF
+  description: |
+    Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-i1-GGUF - A GGUF quantized model optimized for local inference. Specialized for reasoning and chain-of-thought tasks. Based on Qwen 3.5 architecture with enhanced language understanding. Available in multiple quantization levels for various hardware requirements. Distilled from Claude-style reasoning models for enhanced logical reasoning capabilities.
+  tags:
+    - llm
+    - qwen
+    - text-to-text
+    - distilled
+  overrides:
+    parameters:
+      model: llama-cpp/models/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled.i1-Q4_K_M.gguf
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled.i1-Q4_K_M.gguf
+      sha256: 34b9bcd8021b95d86dee8e8aaa165f28c441c08dee85dbed297f0489bfa8b899
+      uri: https://huggingface.co/mradermacher/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-i1-GGUF/resolve/main/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled.i1-Q4_K_M.gguf
+- name: "qwen3.5-4b-claude-4.6-opus-reasoning-distilled"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/Jackrong/Qwen3.5-4B-Claude-4.6-Opus-Reasoning-Distilled-GGUF
+  description: |
+    Qwen3.5-4B-Claude-4.6-Opus-Reasoning-Distilled-GGUF - A GGUF quantized model optimized for local inference. Specialized for reasoning and chain-of-thought tasks. Based on Qwen 3.5 architecture with enhanced language understanding. Available in multiple quantization levels for various hardware requirements. Distilled from Claude-style reasoning models for enhanced logical reasoning capabilities.
+  tags:
+    - llm
+    - guf
+    - cpu
+    - qwen
+    - text-to-text
+    - distilled
+    - reasoning
+  overrides:
+    parameters:
+      model: llama-cpp/models/Qwen3.5-4B.Q4_K_M.gguf
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    mmproj: llama-cpp/mmproj/Qwen3.5-4B.BF16-mmproj.gguf
+    description: Imported from https://huggingface.co/Jackrong/Qwen3.5-4B-Claude-4.6-Opus-Reasoning-Distilled-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Qwen3.5-4B.Q4_K_M.gguf
+      sha256: e1a4a9886699fecb153747ae97aeb413a7e6bd69da80037aa66cef9a3c656d85
+      uri: https://huggingface.co/Jackrong/Qwen3.5-4B-Claude-4.6-Opus-Reasoning-Distilled-GGUF/resolve/main/Qwen3.5-4B.Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/Qwen3.5-4B.BF16-mmproj.gguf
+      sha256: 5ce63ce0113f4bb7b87dc19d076fe0f951c94d4e593154c7a84f605b2f57d423
+      uri: https://huggingface.co/Jackrong/Qwen3.5-4B-Claude-4.6-Opus-Reasoning-Distilled-GGUF/resolve/main/Qwen3.5-4B.BF16-mmproj.gguf
 - name: "q3.5-bluestar-27b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
@@ -6,7 +225,6 @@
   overrides:
     parameters:
       model: llama-cpp/models/Q3.5-BlueStar-27B.Q4_K_M.gguf
-    name: Q3.5-BlueStar-27B-GGUF
     backend: llama-cpp
     template:
       use_tokenizer_template: true
@@ -16,7 +234,7 @@
       grammar:
         disable: true
     mmproj: llama-cpp/mmproj/Q3.5-BlueStar-27B.mmproj-f16.gguf
-    description: Imported from https://huggingface.co/mradermacher/Q3.5-BlueStar-27B-GGUF
+    description: Q3.5-BlueStar-27B-GGUF - A GGUF quantized model optimized for local inference. Fine-tuned variant with specialized training on instruction and roleplay datasets. Based on Qwen 3.5 architecture with enhanced language understanding. Available in multiple quantization levels for various hardware requirements.
     options:
       - use_jinja:true
   files:
@@ -33,7 +251,6 @@
   overrides:
     parameters:
       model: llama-cpp/models/Qwen3.5-9B-Q4_K_M.gguf
-    name: Qwen3.5-9B-GGUF
     backend: llama-cpp
     template:
       use_tokenizer_template: true
@@ -43,7 +260,7 @@
       grammar:
         disable: true
     mmproj: llama-cpp/mmproj/mmproj-F32.gguf
-    description: Imported from https://huggingface.co/unsloth/Qwen3.5-9B-GGUF
+    description: Qwen3.5-9B-GGUF - A GGUF quantized model optimized for local inference. Based on Qwen 3.5 architecture with enhanced language understanding. Available in multiple quantization levels for various hardware requirements. Multimodal capabilities for image-text-to-text tasks.
     options:
       - use_jinja:true
   files:
@@ -60,7 +277,6 @@
   overrides:
     parameters:
       model: llama-cpp/models/Qwen3.5-397B-A17B-Q4_K_M-00001-of-00006.gguf
-    name: Qwen3.5-397B-A17B-GGUF
     backend: llama-cpp
     template:
       use_tokenizer_template: true
@@ -70,7 +286,7 @@
       grammar:
         disable: true
     mmproj: llama-cpp/mmproj/mmproj-F32.gguf
-    description: Imported from https://huggingface.co/unsloth/Qwen3.5-397B-A17B-GGUF
+    description: Qwen3.5-397B-A17B-GGUF - A GGUF quantized model optimized for local inference. Based on Qwen 3.5 architecture with enhanced language understanding. Available in multiple quantization levels for various hardware requirements. Large-scale model with 397B parameters for advanced reasoning tasks.
     options:
       - use_jinja:true
   files:
@@ -102,7 +318,6 @@
   overrides:
     parameters:
       model: llama-cpp/models/Qwen3.5-27B-Q4_K_M.gguf
-    name: Qwen3.5-27B-GGUF
     backend: llama-cpp
     template:
       use_tokenizer_template: true
@@ -112,7 +327,7 @@
       grammar:
         disable: true
     mmproj: llama-cpp/mmproj/mmproj-F32.gguf
-    description: Imported from https://huggingface.co/unsloth/Qwen3.5-27B-GGUF
+    description: Qwen3.5-27B-GGUF - A GGUF quantized model optimized for local inference. Based on Qwen 3.5 architecture with enhanced language understanding. Available in multiple quantization levels for various hardware requirements. 27B parameter model balancing performance and efficiency.
     options:
       - use_jinja:true
   files:
@@ -129,7 +344,6 @@
   overrides:
     parameters:
       model: llama-cpp/models/Qwen3.5-122B-A10B-Q4_K_M-00001-of-00003.gguf
-    name: Qwen3.5-122B-A10B-GGUF
     backend: llama-cpp
     template:
       use_tokenizer_template: true
@@ -139,7 +353,7 @@
       grammar:
         disable: true
     mmproj: llama-cpp/mmproj/mmproj-F32.gguf
-    description: Imported from https://huggingface.co/unsloth/Qwen3.5-122B-A10B-GGUF
+    description: Qwen3.5-122B-A10B-GGUF - A GGUF quantized model optimized for local inference. Based on Qwen 3.5 architecture with enhanced language understanding. Available in multiple quantization levels for various hardware requirements. 122B parameter model with 10B active parameters for efficient inference.
     options:
       - use_jinja:true
   files:
@@ -155,33 +369,6 @@
     - filename: llama-cpp/mmproj/mmproj-F32.gguf
       sha256: ba889ce164a6cc7ffe34296851d0f2bbe139bd27deeb7fe3830d08bd776a28a6
       uri: https://huggingface.co/unsloth/Qwen3.5-122B-A10B-GGUF/resolve/main/mmproj-F32.gguf
-- name: "qwen3.5-35b-a3b"
-  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
-  urls:
-    - https://huggingface.co/unsloth/Qwen3.5-35B-A3B-GGUF
-  overrides:
-    parameters:
-      model: llama-cpp/models/Qwen3.5-35B-A3B-UD-Q4_K_M.gguf
-    name: Qwen3.5-35B-A3B-GGUF
-    backend: llama-cpp
-    template:
-      use_tokenizer_template: true
-    known_usecases:
-      - chat
-    function:
-      grammar:
-        disable: true
-    mmproj: llama-cpp/mmproj/mmproj-F32.gguf
-    description: Imported from https://huggingface.co/unsloth/Qwen3.5-35B-A3B-GGUF
-    options:
-      - use_jinja:true
-  files:
-    - filename: llama-cpp/models/Qwen3.5-35B-A3B-UD-Q4_K_M.gguf
-      sha256: 223138866b87b12e68ffb43a1d45afb572921e9cd4c594e6a736df94c5130466
-      uri: https://huggingface.co/unsloth/Qwen3.5-35B-A3B-GGUF/resolve/main/Qwen3.5-35B-A3B-UD-Q4_K_M.gguf
-    - filename: llama-cpp/mmproj/mmproj-F32.gguf
-      uri: https://huggingface.co/unsloth/Qwen3.5-35B-A3B-GGUF/resolve/main/mmproj-F32.gguf
-      sha256: 5de13d9052180b24cceda247af3023e3a2cbe785612198efe05b81905e3a5dc7
 - name: "qwen_qwen3-next-80b-a3b-thinking"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
@@ -189,7 +376,6 @@
   overrides:
     parameters:
       model: llama-cpp/models/Qwen_Qwen3-Next-80B-A3B-Thinking-Q4_K_M.gguf
-    name: Qwen_Qwen3-Next-80B-A3B-Thinking-GGUF
     backend: llama-cpp
     template:
       use_tokenizer_template: true
@@ -198,7 +384,7 @@
     function:
       grammar:
         disable: true
-    description: Imported from https://huggingface.co/bartowski/Qwen_Qwen3-Next-80B-A3B-Thinking-GGUF
+    description: Qwen3-Next-80B-A3B-Thinking-GGUF - A GGUF quantized model optimized for local inference. Next-generation Qwen model with improved efficiency and performance. Optimized for thinking and reasoning tasks with chain-of-thought prompting. 80B parameter model with 3B active parameters.
     options:
       - use_jinja:true
   files:
@@ -302,6 +488,7 @@
       sha256: 8434af1d39eba99f0ef46cf1450bf1a63fa941a26933a1ef5dbbf4adf0d00e44
 - name: moonshine-tiny
   license: apache-2.0
+  size: "108MB"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   description: |
     Moonshine Tiny is a lightweight speech-to-text model optimized for fast transcription. It is designed for efficient on-device ASR with high accuracy relative to its size.
@@ -322,6 +509,7 @@
       model: moonshine/tiny
 - name: whisperx-tiny
   license: mit
+  size: "151MB"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   description: |
     WhisperX Tiny is a fast and accurate speech recognition model with speaker diarization capabilities. Built on OpenAI's Whisper with additional features for alignment and speaker segmentation.
@@ -362,6 +550,7 @@
       model: openbmb/VoxCPM1.5
 - name: neutts-air
   license: apache-2.0
+  size: "1.5GB"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   description: |
     NeuTTS Air is the world's first super-realistic, on-device TTS speech language model with instant voice cloning. Built on a 0.5B LLM backbone, it brings natural-sounding speech, real-time performance, and speaker cloning to local devices.
@@ -522,6 +711,91 @@
       - "inference_steps:8"
       - "guidance_scale:7.0"
       - "batch_size:1"
+- name: "acestep-cpp-turbo"
+  license: mit
+  tags:
+    - music
+    - audio
+    - music-generation
+    - sound-generation
+    - acestep-cpp
+    - ace-step-1.5
+    - gguf
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/Serveurperso/ACE-Step-1.5-GGUF
+    - https://github.com/ace-step/acestep.cpp
+  description: |
+    ACE-Step 1.5 Turbo (C++ / GGML) — native C++ music generation from text descriptions and lyrics.
+    Two-stage pipeline: text-to-code (Qwen3 LM) + code-to-audio (DiT-VAE). Stereo 48kHz output.
+    Uses Q8_0 quantized models for a good balance of quality and speed.
+  overrides:
+    name: acestep-cpp-turbo
+    backend: acestep-cpp
+    parameters:
+      model: acestep-cpp/acestep-5Hz-lm-0.6B-Q8_0.gguf
+    known_usecases:
+      - sound_generation
+      - tts
+    options:
+      - "text_encoder_model:acestep-cpp/Qwen3-Embedding-0.6B-Q8_0.gguf"
+      - "dit_model:acestep-cpp/acestep-v15-turbo-Q8_0.gguf"
+      - "vae_model:acestep-cpp/vae-BF16.gguf"
+  files:
+    - filename: acestep-cpp/acestep-5Hz-lm-0.6B-Q8_0.gguf
+      uri: huggingface://Serveurperso/ACE-Step-1.5-GGUF/acestep-5Hz-lm-0.6B-Q8_0.gguf
+      sha256: bdaf9e292d4470f31c19cafeaca1b74936a114667e3a85e5d33b65247e9908ec
+    - filename: acestep-cpp/Qwen3-Embedding-0.6B-Q8_0.gguf
+      uri: huggingface://Serveurperso/ACE-Step-1.5-GGUF/Qwen3-Embedding-0.6B-Q8_0.gguf
+      sha256: 972f23255e46adfe744a0eb9a0039f3c63988f65753b0968d776e8b27168c321
+    - filename: acestep-cpp/acestep-v15-turbo-Q8_0.gguf
+      uri: huggingface://Serveurperso/ACE-Step-1.5-GGUF/acestep-v15-turbo-Q8_0.gguf
+      sha256: 288f708a61cfc241013a98a62f98ba331f83fe34d0d3559acdd9b0f6a2f7cd6b
+    - filename: acestep-cpp/vae-BF16.gguf
+      uri: huggingface://Serveurperso/ACE-Step-1.5-GGUF/vae-BF16.gguf
+      sha256: 0599862ac5d15cd308e1d2e368373aea6c02e25ebd1737ad4a4562a0901b0ef8
+- name: "acestep-cpp-turbo-4b"
+  license: mit
+  tags:
+    - music
+    - audio
+    - music-generation
+    - sound-generation
+    - acestep-cpp
+    - ace-step-1.5
+    - gguf
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/Serveurperso/ACE-Step-1.5-GGUF
+    - https://github.com/ace-step/acestep.cpp
+  description: |
+    ACE-Step 1.5 Turbo (C++ / GGML) with 4B LM — higher quality music generation from text and lyrics.
+    Uses the larger 4B parameter LM for better metadata/code generation. Stereo 48kHz output.
+  overrides:
+    name: acestep-cpp-turbo-4b
+    backend: acestep-cpp
+    parameters:
+      model: acestep-cpp/acestep-5Hz-lm-4B-Q8_0.gguf
+    known_usecases:
+      - sound_generation
+      - tts
+    options:
+      - "text_encoder_model:acestep-cpp/Qwen3-Embedding-0.6B-Q8_0.gguf"
+      - "dit_model:acestep-cpp/acestep-v15-turbo-Q8_0.gguf"
+      - "vae_model:acestep-cpp/vae-BF16.gguf"
+  files:
+    - filename: acestep-cpp/acestep-5Hz-lm-4B-Q8_0.gguf
+      uri: huggingface://Serveurperso/ACE-Step-1.5-GGUF/acestep-5Hz-lm-4B-Q8_0.gguf
+      sha256: 972f91147a167f0c041f1b158d67985a82c0f6a852e68cdf70e46030cf08b1bc
+    - filename: acestep-cpp/Qwen3-Embedding-0.6B-Q8_0.gguf
+      uri: huggingface://Serveurperso/ACE-Step-1.5-GGUF/Qwen3-Embedding-0.6B-Q8_0.gguf
+      sha256: 972f23255e46adfe744a0eb9a0039f3c63988f65753b0968d776e8b27168c321
+    - filename: acestep-cpp/acestep-v15-turbo-Q8_0.gguf
+      uri: huggingface://Serveurperso/ACE-Step-1.5-GGUF/acestep-v15-turbo-Q8_0.gguf
+      sha256: 288f708a61cfc241013a98a62f98ba331f83fe34d0d3559acdd9b0f6a2f7cd6b
+    - filename: acestep-cpp/vae-BF16.gguf
+      uri: huggingface://Serveurperso/ACE-Step-1.5-GGUF/vae-BF16.gguf
+      sha256: 0599862ac5d15cd308e1d2e368373aea6c02e25ebd1737ad4a4562a0901b0ef8
 - name: "qwen3-coder-next-mxfp4_moe"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
@@ -762,6 +1036,25 @@
       voice: Aiden # Available speakers: Vivian, Serena, Uncle_Fu, Dylan, Eric, Ryan, Aiden, Ono_Anna, Sohee
     parameters:
       model: Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice
+- &fish-speech
+  urls:
+    - https://huggingface.co/fishaudio/s2-pro
+  description: |
+    Fish Speech S2-Pro is a high-quality text-to-speech model supporting voice cloning via reference audio. Uses a two-stage pipeline: text to semantic tokens (LLaMA-based) then semantic to audio (DAC decoder).
+  tags:
+    - text-to-speech
+    - TTS
+    - voice-cloning
+  license: apache-2.0
+  icon: https://huggingface.co/fishaudio/s2-pro/resolve/main/overview.png
+  name: "fish-speech-s2-pro"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  overrides:
+    backend: fish-speech
+    known_usecases:
+      - tts
+    parameters:
+      model: fishaudio/s2-pro
 - &qwen-asr
   urls:
     - https://huggingface.co/Qwen/Qwen3-ASR-1.7B
@@ -1354,6 +1647,7 @@
       sha256: 67561d63bfa2153616e4c02fd967007c182593fc53738a6ad94bf5f84e8832ac
 - &pocket-tts
   url: "github:mudler/LocalAI/gallery/pocket-tts.yaml@master"
+  size: "236MB"
   icon: https://avatars.githubusercontent.com/u/6154722?s=200&v=4
   license: mit
   tags:
@@ -2066,6 +2360,7 @@
       uri: huggingface://bartowski/LiquidAI_LFM2-8B-A1B-GGUF/LiquidAI_LFM2-8B-A1B-Q4_K_M.gguf
 - name: "kokoro"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  size: "327MB"
   urls:
     - https://github.com/hexgrad/kokoro
   license: apache-2.0
@@ -2355,6 +2650,7 @@
       uri: huggingface://DavidAU/OpenAi-GPT-oss-20b-abliterated-uncensored-NEO-Imatrix-gguf/OpenAI-20B-NEOPlus-Uncensored-IQ4_NL.gguf
 - name: "chatterbox"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  size: "3.2GB"
   icon: https://private-user-images.githubusercontent.com/660224/448166653-bd8c5f03-e91d-4ee5-b680-57355da204d1.png
   license: "mit"
   urls:
@@ -2441,6 +2737,7 @@
 - &rfdetr
   name: "rfdetr-base"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  size: "116MB"
   icon: https://avatars.githubusercontent.com/u/53104118?s=200&v=4
   license: apache-2.0
   description: |
@@ -13695,113 +13992,6 @@
     - filename: "phi-2-orange.Q4_0.gguf"
       sha256: "49cb710ae688e1b19b1b299087fa40765a0cd677e3afcc45e5f7ef6750975dcf"
       uri: "huggingface://TheBloke/phi-2-orange-GGUF/phi-2-orange.Q4_0.gguf"
-- url: "github:mudler/LocalAI/gallery/phi-3-chat.yaml@master"
-  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/652feb6b4e527bd115ffd6c8/YFwodyNe6LmUrzQNmrl-D.png
-  license: mit
-  tags:
-    - llm
-    - gguf
-    - gpu
-    - cpu
-    - phi-3
-  name: "npc-llm-3-8b"
-  urls:
-    - https://huggingface.co/Gigax/NPC-LLM-3_8B
-    - https://huggingface.co/bartowski/NPC-LLM-3_8B-GGUF
-  description: |
-    NPC model fined-tuned from Phi-3, using LoRA.
-
-    This model parses a text description of a game scene, and outputs commands like:
-
-        - say <player1> "Hello Adventurer, care to join me on a quest?
-        - greet <player1>
-        - attack <player1>
-        - Any other <action> <param> you add to the prompt! (We call these "skills"!)
-
-    ⚠️ This model has been trained to overfit on specific input prompt format. Follow it closely to reach optimal performance ⚠️
-
-    Input prompt
-
-    Here's a sample input prompt, showing you the format on which the model has been trained:
-
-        - WORLD KNOWLEDGE: A vast open world full of mystery and adventure.
-        - KNOWN LOCATIONS: Old Town
-        - NPCS: John the Brave
-        - CURRENT LOCATION: Old Town: A quiet and peaceful town.
-        - CURRENT LOCATION ITEMS: Sword
-        - LAST EVENTS:
-        Aldren: Say Sword What a fine sword!
-        - PROTAGONIST NAME: Aldren
-        - PROTAGONIST PSYCHOLOGICAL PROFILE: Brave and curious
-        - PROTAGONIST MEMORIES:
-        Saved the village
-        Lost a friend
-        - PROTAGONIST PENDING QUESTS:
-        Find the ancient artifact
-        Defeat the evil warlock
-        - PROTAGONIST ALLOWED ACTIONS:
-        Attack <character> : Deliver a powerful blow
-        Aldren:
-  overrides:
-    context_size: 4096
-    parameters:
-      model: NPC-LLM-3_8B-Q4_K_M.gguf
-  files:
-    - filename: NPC-LLM-3_8B-Q4_K_M.gguf
-      uri: huggingface://bartowski/NPC-LLM-3_8B-GGUF/NPC-LLM-3_8B-Q4_K_M.gguf
-      sha256: 5fcfb314566f0ae9364fe80237f96b12678aafbb8e82f90c6aece5ed2a6b83fd
-### Internlm2
-- name: "internlm2_5-7b-chat-1m"
-  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
-  urls:
-    - https://huggingface.co/internlm/internlm2_5-7b-chat-1m
-    - https://huggingface.co/bartowski/internlm2_5-7b-chat-1m-GGUF
-  icon: https://avatars.githubusercontent.com/u/135356492
-  tags:
-    - internlm2
-    - gguf
-    - cpu
-    - gpu
-  description: |
-    InternLM2.5 has open-sourced a 7 billion parameter base model and a chat model tailored for practical scenarios. The model has the following characteristics:
-
-    Outstanding reasoning capability: State-of-the-art performance on Math reasoning, surpassing models like Llama3 and Gemma2-9B.
-
-    1M Context window: Nearly perfect at finding needles in the haystack with 1M-long context, with leading performance on long-context tasks like LongBench. Try it with LMDeploy for 1M-context inference and a file chat demo.
-
-    Stronger tool use: InternLM2.5 supports gathering information from more than 100 web pages, corresponding implementation will be released in Lagent soon. InternLM2.5 has better tool utilization-related capabilities in instruction following, tool selection and reflection. See examples.
-  overrides:
-    parameters:
-      model: internlm2_5-7b-chat-1m-Q4_K_M.gguf
-  files:
-    - filename: internlm2_5-7b-chat-1m-Q4_K_M.gguf
-      uri: huggingface://bartowski/internlm2_5-7b-chat-1m-GGUF/internlm2_5-7b-chat-1m-Q4_K_M.gguf
-      sha256: 10d5e18a4125f9d4d74a9284a21e0c820b150af06dee48665e54ff6e1be3a564
-### Internlm3
-- name: "internlm3-8b-instruct"
-  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
-  urls:
-    - https://huggingface.co/internlm/internlm3-8b-instruct
-    - https://huggingface.co/bartowski/internlm3-8b-instruct-GGUF
-  icon: https://avatars.githubusercontent.com/u/135356492
-  tags:
-    - internlm3
-    - gguf
-    - cpu
-    - gpu
-  description: |
-    InternLM3 has open-sourced an 8-billion parameter instruction model, InternLM3-8B-Instruct, designed for general-purpose usage and advanced reasoning.  The model has the following characteristics:
-
-    Enhanced performance at reduced cost: State-of-the-art performance on reasoning and knowledge-intensive tasks surpass models like Llama3.1-8B and Qwen2.5-7B.
-
-    Deep thinking capability: InternLM3 supports both the deep thinking mode for solving complicated reasoning tasks via the long chain-of-thought and the normal response mode for fluent user interactions.
-  overrides:
-    parameters:
-      model: internlm3-8b-instruct-Q4_K_M.gguf
-  files:
-    - filename: internlm3-8b-instruct-Q4_K_M.gguf
-      uri: huggingface://bartowski/internlm3-8b-instruct-GGUF/internlm3-8b-instruct-Q4_K_M.gguf
-      sha256: 2a9644687318e8659c9cf9b40730d5cc2f5af06f786a50439c7c51359b23896e
 - &hermes-vllm
   url: "github:mudler/LocalAI/gallery/hermes-vllm.yaml@master"
   name: "hermes-3-llama-3.1-8b:vllm"
@@ -13834,50 +14024,6 @@
   overrides:
     parameters:
       model: NousResearch/Hermes-3-Llama-3.1-405B
-- url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
-  name: "guillaumetell-7b"
-  license: apache-2
-  description: |
-    Guillaume Tell est un Large Language Model (LLM) français basé sur Mistral Open-Hermes 2.5 optimisé pour le RAG (Retrieval Augmented Generation) avec traçabilité des sources et explicabilité.
-  urls:
-    - https://huggingface.co/MaziyarPanahi/guillaumetell-7b-GGUF
-    - https://huggingface.co/AgentPublic/guillaumetell-7b
-  tags:
-    - llm
-    - gguf
-    - gpu
-    - cpu
-    - openhermes
-    - french
-  overrides:
-    context_size: 4096
-    parameters:
-      model: guillaumetell-7b.Q4_K_M.gguf
-  files:
-    - filename: guillaumetell-7b.Q4_K_M.gguf
-      sha256: bf08db5281619335f3ee87e229c8533b04262790063b061bb8f275c3e4de7061
-      uri: huggingface://MaziyarPanahi/guillaumetell-7b-GGUF/guillaumetell-7b.Q4_K_M.gguf
-### START Cerbero
-- url: "github:mudler/LocalAI/gallery/cerbero.yaml@master"
-  icon: https://huggingface.co/galatolo/cerbero-7b/resolve/main/README.md.d/cerbero.png
-  description: |
-    cerbero-7b is specifically crafted to fill the void in Italy's AI landscape.
-  urls:
-    - https://huggingface.co/galatolo/cerbero-7b
-  tags:
-    - llm
-    - gguf
-    - gpu
-    - cpu
-    - mistral
-    - italian
-  overrides:
-    parameters:
-      model: galatolo-Q4_K.gguf
-  files:
-    - filename: "galatolo-Q4_K.gguf"
-      sha256: "ca0cfd5a9ad40dc16416aa3a277015d0299b62c0803b67f5709580042202c172"
-      uri: "huggingface://galatolo/cerbero-7b-gguf/ggml-model-Q4_K.gguf"
 - &codellama
   url: "github:mudler/LocalAI/gallery/codellama.yaml@master" ### START Codellama
   name: "codellama-7b"
@@ -14568,7 +14714,7 @@
       - "diffusion_model"
       - "vae_path:stablediffusion-cpp/models/flux2-vae.safetensors"
       - "sampler:euler"
-      - llm_path:stablediffusion-cpp/models/Qwen3-4B-Q4_K_M.gguf
+      - llm_path:stablediffusion-cpp/models/Qwen3-8B-Q4_K_M.gguf
       - offload_params_to_cpu:true
     cfg_scale: 1
     parameters:
@@ -14580,9 +14726,9 @@
     - filename: stablediffusion-cpp/models/flux2-vae.safetensors
       sha256: d64f3a68e1cc4f9f4e29b6e0da38a0204fe9a49f2d4053f0ec1fa1ca02f9c4b5
       uri: https://huggingface.co/Comfy-Org/flux2-dev/resolve/main/split_files/vae/flux2-vae.safetensors
-    - filename: stablediffusion-cpp/models/Qwen3-4B-Q4_K_M.gguf
-      sha256: f6f851777709861056efcdad3af01da38b31223a3ba26e61a4f8bf3a2195813a
-      uri: https://huggingface.co/unsloth/Qwen3-4B-GGUF/resolve/main/Qwen3-4B-Q4_K_M.gguf
+    - filename: stablediffusion-cpp/models/Qwen3-8B-Q4_K_M.gguf
+      sha256: 120307ba529eb2439d6c430d94104dabd578497bc7bfe7e322b5d9933b449bd4
+      uri: https://huggingface.co/unsloth/Qwen3-8B-GGUF/resolve/main/Qwen3-8B-Q4_K_M.gguf
 - &zimage
   name: Z-Image-Turbo
   icon: https://z-image.ai/logo.png
@@ -17444,7 +17590,6 @@
     - filename: Melinoe-30B-A3B-Thinking.i1-Q4_K_M.gguf
       sha256: 7b9e8fe00faf7803e440542be01974c05b0dcb8b75e1f1c25638027bfb75dbf3
       uri: huggingface://mradermacher/Melinoe-30B-A3B-Thinking-i1-GGUF/Melinoe-30B-A3B-Thinking.i1-Q4_K_M.gguf
-
 - &ltx23
   name: "ltx-2.3"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"

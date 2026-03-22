@@ -284,6 +284,144 @@ func (s *server) VAD(ctx context.Context, in *pb.VADRequest) (*pb.VADResponse, e
 	return &res, nil
 }
 
+func (s *server) AudioEncode(ctx context.Context, in *pb.AudioEncodeRequest) (*pb.AudioEncodeResult, error) {
+	if s.llm.Locking() {
+		s.llm.Lock()
+		defer s.llm.Unlock()
+	}
+	res, err := s.llm.AudioEncode(in)
+	if err != nil {
+		return nil, err
+	}
+	return res, nil
+}
+
+func (s *server) AudioDecode(ctx context.Context, in *pb.AudioDecodeRequest) (*pb.AudioDecodeResult, error) {
+	if s.llm.Locking() {
+		s.llm.Lock()
+		defer s.llm.Unlock()
+	}
+	res, err := s.llm.AudioDecode(in)
+	if err != nil {
+		return nil, err
+	}
+	return res, nil
+}
+
+func (s *server) StartFineTune(ctx context.Context, in *pb.FineTuneRequest) (*pb.FineTuneJobResult, error) {
+	if s.llm.Locking() {
+		s.llm.Lock()
+		defer s.llm.Unlock()
+	}
+	res, err := s.llm.StartFineTune(in)
+	if err != nil {
+		return &pb.FineTuneJobResult{Success: false, Message: fmt.Sprintf("Error starting fine-tune: %s", err.Error())}, err
+	}
+	return res, nil
+}
+
+func (s *server) FineTuneProgress(in *pb.FineTuneProgressRequest, stream pb.Backend_FineTuneProgressServer) error {
+	if s.llm.Locking() {
+		s.llm.Lock()
+		defer s.llm.Unlock()
+	}
+	updateChan := make(chan *pb.FineTuneProgressUpdate)
+
+	done := make(chan bool)
+	go func() {
+		for update := range updateChan {
+			stream.Send(update)
+		}
+		done <- true
+	}()
+
+	err := s.llm.FineTuneProgress(in, updateChan)
+	<-done
+
+	return err
+}
+
+func (s *server) StopFineTune(ctx context.Context, in *pb.FineTuneStopRequest) (*pb.Result, error) {
+	if s.llm.Locking() {
+		s.llm.Lock()
+		defer s.llm.Unlock()
+	}
+	err := s.llm.StopFineTune(in)
+	if err != nil {
+		return &pb.Result{Message: fmt.Sprintf("Error stopping fine-tune: %s", err.Error()), Success: false}, err
+	}
+	return &pb.Result{Message: "Fine-tune stopped", Success: true}, nil
+}
+
+func (s *server) ListCheckpoints(ctx context.Context, in *pb.ListCheckpointsRequest) (*pb.ListCheckpointsResponse, error) {
+	if s.llm.Locking() {
+		s.llm.Lock()
+		defer s.llm.Unlock()
+	}
+	res, err := s.llm.ListCheckpoints(in)
+	if err != nil {
+		return nil, err
+	}
+	return res, nil
+}
+
+func (s *server) ExportModel(ctx context.Context, in *pb.ExportModelRequest) (*pb.Result, error) {
+	if s.llm.Locking() {
+		s.llm.Lock()
+		defer s.llm.Unlock()
+	}
+	err := s.llm.ExportModel(in)
+	if err != nil {
+		return &pb.Result{Message: fmt.Sprintf("Error exporting model: %s", err.Error()), Success: false}, err
+	}
+	return &pb.Result{Message: "Model exported", Success: true}, nil
+}
+
+func (s *server) StartQuantization(ctx context.Context, in *pb.QuantizationRequest) (*pb.QuantizationJobResult, error) {
+	if s.llm.Locking() {
+		s.llm.Lock()
+		defer s.llm.Unlock()
+	}
+	res, err := s.llm.StartQuantization(in)
+	if err != nil {
+		return &pb.QuantizationJobResult{Success: false, Message: fmt.Sprintf("Error starting quantization: %s", err.Error())}, err
+	}
+	return res, nil
+}
+
+func (s *server) QuantizationProgress(in *pb.QuantizationProgressRequest, stream pb.Backend_QuantizationProgressServer) error {
+	if s.llm.Locking() {
+		s.llm.Lock()
+		defer s.llm.Unlock()
+	}
+	updateChan := make(chan *pb.QuantizationProgressUpdate)
+
+	done := make(chan bool)
+	go func() {
+		for update := range updateChan {
+			stream.Send(update)
+		}
+		done <- true
+	}()
+
+	err := s.llm.QuantizationProgress(in, updateChan)
+	<-done
+
+	return err
+}
+
+func (s *server) StopQuantization(ctx context.Context, in *pb.QuantizationStopRequest) (*pb.Result, error) {
+	if s.llm.Locking() {
+		s.llm.Lock()
+		defer s.llm.Unlock()
+	}
+	err := s.llm.StopQuantization(in)
+	if err != nil {
+		return &pb.Result{Message: fmt.Sprintf("Error stopping quantization: %s", err.Error()), Success: false}, err
+	}
+	return &pb.Result{Message: "Quantization stopped", Success: true}, nil
+}
+
 func (s *server) ModelMetadata(ctx context.Context, in *pb.ModelOptions) (*pb.ModelMetadataResponse, error) {
 	if s.llm.Locking() {
 		s.llm.Lock()

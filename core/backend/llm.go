@@ -28,6 +28,7 @@ type LLMResponse struct {
 	Usage       TokenUsage
 	AudioOutput string
 	Logprobs    *schema.Logprobs // Logprobs from the backend response
+	ChatDeltas  []*proto.ChatDelta // Pre-parsed tool calls/content from C++ autoparser
 }
 
 type TokenUsage struct {
@@ -36,6 +37,10 @@ type TokenUsage struct {
 	TimingPromptProcessing float64
 	TimingTokenGeneration  float64
 }
+
+// ModelInferenceFunc is a test-friendly indirection to call model inference logic.
+// Tests can override this variable to provide a stub implementation.
+var ModelInferenceFunc = ModelInference
 
 func ModelInference(ctx context.Context, s string, messages schema.Messages, images, videos, audios []string, loader *model.ModelLoader, c *config.ModelConfig, cl *config.ModelConfigLoader, o *config.ApplicationConfig, tokenCallback func(string, TokenUsage) bool, tools string, toolChoice string, logprobs *int, topLogprobs *int, logitBias map[string]float64, metadata map[string]string) (func() (LLMResponse, error), error) {
 	modelFile := c.Model
@@ -60,6 +65,7 @@ func ModelInference(ctx context.Context, s string, messages schema.Messages, ima
 	opts := ModelOptions(*c, o)
 	inferenceModel, err := loader.Load(opts...)
 	if err != nil {
+		recordModelLoadFailure(o, c.Name, c.Backend, err, map[string]any{"model_file": modelFile})
 		return nil, err
 	}
 
@@ -83,6 +89,7 @@ func ModelInference(ctx context.Context, s string, messages schema.Messages, ima
 	}
 
 	// in GRPC, the backend is supposed to answer to 1 single token if stream is not supported
+	var capturedPredictOpts *proto.PredictOptions
 	fn := func() (LLMResponse, error) {
 		opts := gRPCPredictOpts(*c, loader.ModelPath)
 		// Merge request-level metadata (overrides config defaults)
@@ -110,6 +117,7 @@ func ModelInference(ctx context.Context, s string, messages schema.Messages, ima
 				opts.LogitBias = string(logitBiasJSON)
 			}
 		}
+		capturedPredictOpts = opts
 
 		tokenUsage := TokenUsage{}
 
@@ -142,6 +150,7 @@ func ModelInference(ctx context.Context, s string, messages schema.Messages, ima
 
 			ss := ""
 			var logprobs *schema.Logprobs
+			var allChatDeltas []*proto.ChatDelta
 
 			var partialRune []byte
 			err := inferenceModel.PredictStream(ctx, opts, func(reply *proto.Reply) {
@@ -152,6 +161,11 @@ func ModelInference(ctx context.Context, s string, messages schema.Messages, ima
 				tokenUsage.Completion = int(reply.Tokens)
 				tokenUsage.TimingTokenGeneration = reply.TimingTokenGeneration
 				tokenUsage.TimingPromptProcessing = reply.TimingPromptProcessing
+
+				// Collect chat deltas from C++ autoparser
+				if len(reply.ChatDeltas) > 0 {
+					allChatDeltas = append(allChatDeltas, reply.ChatDeltas...)
+				}
 
 				// Parse logprobs from reply if present (collect from last chunk that has them)
 				if len(reply.Logprobs) > 0 {
@@ -183,10 +197,14 @@ func ModelInference(ctx context.Context, s string, messages schema.Messages, ima
 					tokenCallback("", tokenUsage)
 				}
 			})
+			if len(allChatDeltas) > 0 {
+				xlog.Debug("[ChatDeltas] streaming completed, accumulated deltas from C++ autoparser", "total_deltas", len(allChatDeltas))
+			}
 			return LLMResponse{
-				Response: ss,
-				Usage:    tokenUsage,
-				Logprobs: logprobs,
+				Response:   ss,
+				Usage:      tokenUsage,
+				Logprobs:   logprobs,
+				ChatDeltas: allChatDeltas,
 			}, err
 		} else {
 			// TODO: Is the chicken bit the only way to get here? is that acceptable?
@@ -218,10 +236,14 @@ func ModelInference(ctx context.Context, s string, messages schema.Messages, ima
 				}
 			}
 
+			if len(reply.ChatDeltas) > 0 {
+				xlog.Debug("[ChatDeltas] non-streaming Predict received deltas from C++ autoparser", "total_deltas", len(reply.ChatDeltas))
+			}
 			return LLMResponse{
-				Response: response,
-				Usage:    tokenUsage,
-				Logprobs: logprobs,
+				Response:   response,
+				Usage:      tokenUsage,
+				Logprobs:   logprobs,
+				ChatDeltas: reply.ChatDeltas,
 			}, err
 		}
 	}
@@ -230,28 +252,18 @@ func ModelInference(ctx context.Context, s string, messages schema.Messages, ima
 		trace.InitBackendTracingIfEnabled(o.TracingMaxItems)
 
 		traceData := map[string]any{
-			"prompt":                 s,
-			"use_tokenizer_template": c.TemplateConfig.UseTokenizerTemplate,
-			"chat_template":          c.TemplateConfig.Chat,
-			"function_template":      c.TemplateConfig.Functions,
-			"grammar":               c.Grammar,
-			"stop_words":            c.StopWords,
-			"streaming":             tokenCallback != nil,
-			"images_count":          len(images),
-			"videos_count":          len(videos),
-			"audios_count":          len(audios),
+			"chat_template":    c.TemplateConfig.Chat,
+			"function_template": c.TemplateConfig.Functions,
+			"streaming":        tokenCallback != nil,
+			"images_count":     len(images),
+			"videos_count":     len(videos),
+			"audios_count":     len(audios),
 		}
 
 		if len(messages) > 0 {
 			if msgJSON, err := json.Marshal(messages); err == nil {
 				traceData["messages"] = string(msgJSON)
 			}
-		}
-		if tools != "" {
-			traceData["tools"] = tools
-		}
-		if toolChoice != "" {
-			traceData["tool_choice"] = toolChoice
 		}
 		if reasoningJSON, err := json.Marshal(c.ReasoningConfig); err == nil {
 			traceData["reasoning_config"] = string(reasoningJSON)
@@ -261,15 +273,6 @@ func ModelInference(ctx context.Context, s string, messages schema.Messages, ima
 			"parallel_calls":    c.FunctionsConfig.GrammarConfig.ParallelCalls,
 			"mixed_mode":        c.FunctionsConfig.GrammarConfig.MixedMode,
 			"xml_format_preset": c.FunctionsConfig.XMLFormatPreset,
-		}
-		if c.Temperature != nil {
-			traceData["temperature"] = *c.Temperature
-		}
-		if c.TopP != nil {
-			traceData["top_p"] = *c.TopP
-		}
-		if c.Maxtokens != nil {
-			traceData["max_tokens"] = *c.Maxtokens
 		}
 
 		startTime := time.Now()
@@ -282,6 +285,42 @@ func ModelInference(ctx context.Context, s string, messages schema.Messages, ima
 			traceData["token_usage"] = map[string]any{
 				"prompt":     resp.Usage.Prompt,
 				"completion": resp.Usage.Completion,
+			}
+
+			if len(resp.ChatDeltas) > 0 {
+				chatDeltasInfo := map[string]any{
+					"total_deltas": len(resp.ChatDeltas),
+				}
+				var contentParts, reasoningParts []string
+				toolCallCount := 0
+				for _, d := range resp.ChatDeltas {
+					if d.Content != "" {
+						contentParts = append(contentParts, d.Content)
+					}
+					if d.ReasoningContent != "" {
+						reasoningParts = append(reasoningParts, d.ReasoningContent)
+					}
+					toolCallCount += len(d.ToolCalls)
+				}
+				if len(contentParts) > 0 {
+					chatDeltasInfo["content"] = strings.Join(contentParts, "")
+				}
+				if len(reasoningParts) > 0 {
+					chatDeltasInfo["reasoning_content"] = strings.Join(reasoningParts, "")
+				}
+				if toolCallCount > 0 {
+					chatDeltasInfo["tool_call_count"] = toolCallCount
+				}
+				traceData["chat_deltas"] = chatDeltasInfo
+			}
+
+			if capturedPredictOpts != nil {
+				if optsJSON, err := json.Marshal(capturedPredictOpts); err == nil {
+					var optsMap map[string]any
+					if err := json.Unmarshal(optsJSON, &optsMap); err == nil {
+						traceData["predict_options"] = optsMap
+					}
+				}
 			}
 
 			errStr := ""

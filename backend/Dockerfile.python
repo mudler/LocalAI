@@ -202,6 +202,11 @@ RUN mkdir -p /${BACKEND}/lib && \
     TARGET_LIB_DIR="/${BACKEND}/lib" BUILD_TYPE="${BUILD_TYPE}" CUDA_MAJOR_VERSION="${CUDA_MAJOR_VERSION}" \
     bash /package-gpu-libs.sh "/${BACKEND}/lib"
 
+# Run backend-specific packaging if a package.sh exists
+RUN if [ -f "/${BACKEND}/package.sh" ]; then \
+        cd /${BACKEND} && bash package.sh; \
+    fi
+
 FROM scratch
 ARG BACKEND=rerankers
 COPY --from=builder /${BACKEND}/ /

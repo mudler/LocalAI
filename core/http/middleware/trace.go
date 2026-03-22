@@ -2,15 +2,16 @@ package middleware
 
 import (
 	"bytes"
-	"github.com/emirpasic/gods/v2/queues/circularbuffer"
 	"io"
 	"net/http"
 	"sort"
 	"sync"
 	"time"
 
+	"github.com/emirpasic/gods/v2/queues/circularbuffer"
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/application"
+	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/xlog"
 )
 
@@ -29,8 +30,12 @@ type APIExchangeResponse struct {
 
 type APIExchange struct {
 	Timestamp time.Time           `json:"timestamp"`
+	Duration  time.Duration       `json:"duration"`
 	Request   APIExchangeRequest  `json:"request"`
 	Response  APIExchangeResponse `json:"response"`
+	Error     string              `json:"error,omitempty"`
+	UserID    string              `json:"user_id,omitempty"`
+	UserName  string              `json:"user_name,omitempty"`
 }
 
 var traceBuffer *circularbuffer.Queue[APIExchange]
@@ -108,13 +113,18 @@ func TraceMiddleware(app *application.Application) echo.MiddlewareFunc {
 			}
 			c.Response().Writer = mw
 
-			err = next(c)
-			if err != nil {
-				c.Response().Writer = mw.ResponseWriter // Restore original writer if error
-				return err
+			handlerErr := next(c)
+
+			// Restore original writer unconditionally
+			c.Response().Writer = mw.ResponseWriter
+
+			// Determine response status (use 500 if handler errored and no status was set)
+			status := c.Response().Status
+			if status == 0 && handlerErr != nil {
+				status = http.StatusInternalServerError
 			}
 
-			// Create exchange log
+			// Create exchange log (always, even on error)
 			requestHeaders := c.Request().Header.Clone()
 			requestBody := make([]byte, len(body))
 			copy(requestBody, body)
@@ -123,6 +133,7 @@ func TraceMiddleware(app *application.Application) echo.MiddlewareFunc {
 			copy(responseBody, resBody.Bytes())
 			exchange := APIExchange{
 				Timestamp: startTime,
+				Duration:  time.Since(startTime),
 				Request: APIExchangeRequest{
 					Method:  c.Request().Method,
 					Path:    c.Path(),
@@ -130,10 +141,18 @@ func TraceMiddleware(app *application.Application) echo.MiddlewareFunc {
 					Body:    &requestBody,
 				},
 				Response: APIExchangeResponse{
-					Status:  c.Response().Status,
+					Status:  status,
 					Headers: &responseHeaders,
 					Body:    &responseBody,
 				},
+			}
+			if handlerErr != nil {
+				exchange.Error = handlerErr.Error()
+			}
+
+			if user := auth.GetUser(c); user != nil {
+				exchange.UserID = user.ID
+				exchange.UserName = user.Name
 			}
 
 			select {
@@ -142,7 +161,7 @@ func TraceMiddleware(app *application.Application) echo.MiddlewareFunc {
 				xlog.Warn("Trace channel full, dropping trace")
 			}
 
-			return nil
+			return handlerErr
 		}
 	}
 }
@@ -158,7 +177,7 @@ func GetTraces() []APIExchange {
 	mu.Unlock()
 
 	sort.Slice(traces, func(i, j int) bool {
-		return traces[i].Timestamp.Before(traces[j].Timestamp)
+		return traces[i].Timestamp.After(traces[j].Timestamp)
 	})
 
 	return traces

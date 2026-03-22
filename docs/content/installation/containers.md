@@ -93,48 +93,6 @@ CUDA 13 (for Nvidia DGX Spark):
 docker run -ti --name local-ai -p 8080:8080 --runtime nvidia --gpus all localai/localai:latest-nvidia-l4t-arm64-cuda-13
 ```
 
-### All-in-One (AIO) Images
-
-**Recommended for beginners** - These images come pre-configured with models and backends, ready to use immediately.
-
-#### CPU Image
-
-```bash
-docker run -ti --name local-ai -p 8080:8080 localai/localai:latest-aio-cpu
-# Or with Podman:
-podman run -ti --name local-ai -p 8080:8080 localai/localai:latest-aio-cpu
-```
-
-#### GPU Images
-
-**NVIDIA CUDA 13:**
-```bash
-docker run -ti --name local-ai -p 8080:8080 --gpus all localai/localai:latest-aio-gpu-nvidia-cuda-13
-# Or with Podman:
-podman run -ti --name local-ai -p 8080:8080 --device nvidia.com/gpu=all localai/localai:latest-aio-gpu-nvidia-cuda-13
-```
-
-**NVIDIA CUDA 12:**
-```bash
-docker run -ti --name local-ai -p 8080:8080 --gpus all localai/localai:latest-aio-gpu-nvidia-cuda-12
-# Or with Podman:
-podman run -ti --name local-ai -p 8080:8080 --device nvidia.com/gpu=all localai/localai:latest-aio-gpu-nvidia-cuda-12
-```
-
-**AMD GPU (ROCm):**
-```bash
-docker run -ti --name local-ai -p 8080:8080 --device=/dev/kfd --device=/dev/dri --group-add=video localai/localai:latest-aio-gpu-hipblas
-# Or with Podman:
-podman run -ti --name local-ai -p 8080:8080 --device rocm.com/gpu=all localai/localai:latest-aio-gpu-hipblas
-```
-
-**Intel GPU:**
-```bash
-docker run -ti --name local-ai -p 8080:8080 localai/localai:latest-aio-gpu-intel
-# Or with Podman:
-podman run -ti --name local-ai -p 8080:8080 --device gpu.intel.com/all localai/localai:latest-aio-gpu-intel
-```
-
 ## Using Compose
 
 For a more manageable setup, especially with persistent volumes, use Docker Compose or Podman Compose:
@@ -147,8 +105,8 @@ The CDI approach is recommended for newer versions of the NVIDIA Container Toolk
 version: "3.9"
 services:
   api:
-    image: localai/localai:latest-aio-gpu-nvidia-cuda-12
-    # For CUDA 13, use: localai/localai:latest-aio-gpu-nvidia-cuda-13
+    image: localai/localai:latest-gpu-nvidia-cuda-12
+    # For CUDA 13, use: localai/localai:latest-gpu-nvidia-cuda-13
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/readyz"]
       interval: 1m
@@ -187,8 +145,8 @@ If you are using an older version of the NVIDIA Container Toolkit (before 1.14),
 version: "3.9"
 services:
   api:
-    image: localai/localai:latest-aio-gpu-nvidia-cuda-12
-    # For CUDA 13, use: localai/localai:latest-aio-gpu-nvidia-cuda-13
+    image: localai/localai:latest-gpu-nvidia-cuda-12
+    # For CUDA 13, use: localai/localai:latest-gpu-nvidia-cuda-13
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/readyz"]
       interval: 1m
@@ -212,44 +170,46 @@ services:
 
 ## Persistent Storage
 
-To persist models and configurations, mount a volume:
+The container exposes the following volumes:
+
+| Volume | Description | CLI Flag | Environment Variable |
+|--------|-------------|----------|----------------------|
+| `/models` | Model files used for inferencing | `--models-path` | `$LOCALAI_MODELS_PATH` |
+| `/backends` | Custom backends for inferencing | `--backends-path` | `$LOCALAI_BACKENDS_PATH` |
+| `/configuration` | Dynamic config files (api_keys.json, external_backends.json, runtime_settings.json) | `--localai-config-dir` | `$LOCALAI_CONFIG_DIR` |
+| `/data` | Persistent data (collections, agent state, tasks, jobs) | `--data-path` | `$LOCALAI_DATA_PATH` |
+
+To persist models and data, mount volumes:
 
 ```bash
 docker run -ti --name local-ai -p 8080:8080 \
   -v $PWD/models:/models \
-  localai/localai:latest-aio-cpu
+  -v $PWD/data:/data \
+  localai/localai:latest
 # Or with Podman:
 podman run -ti --name local-ai -p 8080:8080 \
   -v $PWD/models:/models \
-  localai/localai:latest-aio-cpu
+  -v $PWD/data:/data \
+  localai/localai:latest
 ```
 
-Or use a named volume:
+Or use named volumes:
 
 ```bash
 docker volume create localai-models
+docker volume create localai-data
 docker run -ti --name local-ai -p 8080:8080 \
   -v localai-models:/models \
-  localai/localai:latest-aio-cpu
+  -v localai-data:/data \
+  localai/localai:latest
 # Or with Podman:
 podman volume create localai-models
+podman volume create localai-data
 podman run -ti --name local-ai -p 8080:8080 \
   -v localai-models:/models \
-  localai/localai:latest-aio-cpu
+  -v localai-data:/data \
+  localai/localai:latest
 ```
-
-## What's Included in AIO Images
-
-All-in-One images come pre-configured with:
-
-- **Text Generation**: LLM models for chat and completion
-- **Image Generation**: Stable Diffusion models
-- **Text to Speech**: TTS models
-- **Speech to Text**: Whisper models
-- **Embeddings**: Vector embedding models
-- **Function Calling**: Support for OpenAI-compatible function calling
-
-The AIO images use OpenAI-compatible model names (like `gpt-4`, `gpt-4-vision-preview`) but are backed by open-source models. See the [container images documentation](/getting-started/container-images/#all-in-one-images) for the complete mapping.
 
 ## Next Steps
 

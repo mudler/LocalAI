@@ -610,3 +610,20 @@ feature_flags:
 - See [Prompt Templates]({{%relref "advanced/advanced-usage#prompt-templates" %}}) for template examples
 - See [CLI Reference]({{%relref "reference/cli-reference" %}}) for command-line options
 
+
+### GPU Auto-Fit Mode
+
+**Note**: By default, LocalAI sets `gpu_layers` to a very large value (9999999), which effectively disables llama-cpp's auto-fit functionality. This is intentional to work with LocalAI's VRAM-based model unloading mechanism.
+
+To enable llama-cpp's auto-fit mode, set `gpu_layers: -1` in your model configuration. However, be aware of the following:
+
+1. **Trade-off**: Enabling auto-fit conflicts with LocalAI's built-in VRAM threshold-based unloading. Auto-fit attempts to fit all tensors into GPU memory automatically, while LocalAI's unloading mechanism removes models when VRAM usage exceeds thresholds.
+
+2. **Known Issues**: Setting `gpu_layers: -1` may trigger `tensor_buft_override` buffer errors in some configurations, particularly when the model exceeds available GPU memory.
+
+3. **Recommendation**: 
+   - Use the default settings for most use cases (LocalAI manages VRAM automatically)
+   - Only enable `gpu_layers: -1` if you understand the implications and have tested on your specific hardware
+   - Monitor VRAM usage carefully when using auto-fit mode
+
+This is a known limitation being tracked in issue [#8562](https://github.com/mudler/LocalAI/issues/8562). A future implementation may provide a runtime toggle or custom logic to reconcile auto-fit with threshold-based unloading.

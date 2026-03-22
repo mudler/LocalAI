@@ -3,6 +3,7 @@ import { useNavigate, useOutletContext } from 'react-router-dom'
 import { modelsApi } from '../utils/api'
 import LoadingSpinner from '../components/LoadingSpinner'
 import CodeEditor from '../components/CodeEditor'
+import SearchableSelect from '../components/SearchableSelect'
 
 const BACKENDS = [
   { value: '', label: 'Auto-detect (based on URI)' },
@@ -112,7 +113,7 @@ export default function ImportModel() {
           setIsSubmitting(false)
           setJobProgress(null)
           addToast('Model imported successfully!', 'success')
-          navigate('/manage')
+          navigate('/app/manage')
         } else if (data.error || (data.message && data.message.startsWith('error:'))) {
           clearInterval(pollRef.current)
           pollRef.current = null
@@ -185,7 +186,7 @@ export default function ImportModel() {
     try {
       await modelsApi.importConfig(yamlContent, 'application/x-yaml')
       addToast('Model configuration imported successfully!', 'success')
-      navigate('/manage')
+      navigate('/app/manage')
     } catch (err) {
       addToast(`Import failed: ${err.message}`, 'error')
     } finally {
@@ -202,7 +203,10 @@ export default function ImportModel() {
             {isAdvancedMode ? 'Configure your model settings using YAML' : 'Import a model from URI with preferences'}
           </p>
         </div>
-        <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
+        <div style={{ display: 'flex', gap: 'var(--spacing-sm)', flexWrap: 'wrap' }}>
+          <button className="btn btn-secondary" onClick={() => navigate('/app/pipeline-editor')}>
+            <i className="fas fa-diagram-project" /> Create Pipeline Model
+          </button>
           <button className="btn btn-secondary" onClick={() => setIsAdvancedMode(!isAdvancedMode)}>
             <i className={`fas ${isAdvancedMode ? 'fa-magic' : 'fa-code'}`} />
             {isAdvancedMode ? ' Simple Mode' : ' Advanced Mode'}
@@ -321,9 +325,15 @@ export default function ImportModel() {
               <div style={{ display: 'grid', gap: 'var(--spacing-md)' }}>
                 <div className="form-group" style={{ marginBottom: 0 }}>
                   <label className="form-label"><i className="fas fa-server" style={{ marginRight: '6px' }} />Backend</label>
-                  <select className="input" value={prefs.backend} onChange={e => updatePref('backend', e.target.value)} disabled={isSubmitting}>
-                    {BACKENDS.map(b => <option key={b.value} value={b.value}>{b.label}</option>)}
-                  </select>
+                  <SearchableSelect
+                    value={prefs.backend}
+                    onChange={(v) => updatePref('backend', v)}
+                    options={BACKENDS.filter(b => b.value !== '')}
+                    allOption="Auto-detect (based on URI)"
+                    placeholder="Auto-detect (based on URI)"
+                    searchPlaceholder="Search backends..."
+                    disabled={isSubmitting}
+                  />
                   <p style={hintStyle}>Force a specific backend. Leave empty to auto-detect from URI.</p>
                 </div>
 

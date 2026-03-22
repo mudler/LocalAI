@@ -7,9 +7,12 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"math"
 	"net"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"github.com/mudler/xlog"
@@ -20,9 +23,18 @@ var (
 	addr = flag.String("addr", "localhost:50051", "the address to connect to")
 )
 
-// MockBackend implements the Backend gRPC service with mocked responses
+// MockBackend implements the Backend gRPC service with mocked responses.
+// When tools are present but the prompt already contains MCP tool results
+// (indicated by the marker from the mock MCP server), it returns a plain
+// text response instead of another tool call, letting the MCP loop complete.
 type MockBackend struct {
 	pb.UnimplementedBackendServer
+}
+
+// promptHasToolResults checks if the prompt contains evidence of prior tool
+// execution — specifically the output from the mock MCP server's get_weather tool.
+func promptHasToolResults(prompt string) bool {
+	return strings.Contains(prompt, "Weather in")
 }
 
 func (m *MockBackend) Health(ctx context.Context, in *pb.HealthMessage) (*pb.Reply, error) {
@@ -40,10 +52,17 @@ func (m *MockBackend) LoadModel(ctx context.Context, in *pb.ModelOptions) (*pb.R
 
 func (m *MockBackend) Predict(ctx context.Context, in *pb.PredictOptions) (*pb.Reply, error) {
 	xlog.Debug("Predict called", "prompt", in.Prompt)
+	if strings.Contains(in.Prompt, "MOCK_ERROR") {
+		return nil, fmt.Errorf("mock backend predict error: simulated failure")
+	}
 	var response string
 	toolName := mockToolNameFromRequest(in)
-	if toolName != "" {
+	if toolName != "" && !promptHasToolResults(in.Prompt) {
+		// First call with tools: return a tool call so the MCP loop executes it.
 		response = fmt.Sprintf(`{"name": "%s", "arguments": {"location": "San Francisco"}}`, toolName)
+	} else if toolName != "" {
+		// Subsequent call: tool results already in prompt, return final text.
+		response = "Based on the tool results, the weather in San Francisco is sunny, 72°F."
 	} else {
 		response = "This is a mocked response."
 	}
@@ -58,10 +77,23 @@ func (m *MockBackend) Predict(ctx context.Context, in *pb.PredictOptions) (*pb.R
 
 func (m *MockBackend) PredictStream(in *pb.PredictOptions, stream pb.Backend_PredictStreamServer) error {
 	xlog.Debug("PredictStream called", "prompt", in.Prompt)
+	if strings.Contains(in.Prompt, "MOCK_ERROR_IMMEDIATE") {
+		return fmt.Errorf("mock backend stream error: simulated failure")
+	}
+	if strings.Contains(in.Prompt, "MOCK_ERROR_MIDSTREAM") {
+		for _, r := range "Partial resp" {
+			if err := stream.Send(&pb.Reply{Message: []byte(string(r))}); err != nil {
+				return err
+			}
+		}
+		return fmt.Errorf("mock backend stream error: simulated mid-stream failure")
+	}
 	var toStream string
 	toolName := mockToolNameFromRequest(in)
-	if toolName != "" {
+	if toolName != "" && !promptHasToolResults(in.Prompt) {
 		toStream = fmt.Sprintf(`{"name": "%s", "arguments": {"location": "San Francisco"}}`, toolName)
+	} else if toolName != "" {
+		toStream = "Based on the tool results, the weather in San Francisco is sunny, 72°F."
 	} else {
 		toStream = "This is a mocked streaming response."
 	}
@@ -177,12 +209,28 @@ func (m *MockBackend) SoundGeneration(ctx context.Context, in *pb.SoundGeneratio
 	}, nil
 }
 
-// writeMinimalWAV writes a minimal valid WAV file (short silence) so the HTTP handler can send it.
+// ttsSampleRate returns the sample rate to use for TTS output, configurable
+// via the MOCK_TTS_SAMPLE_RATE environment variable (default 16000).
+func ttsSampleRate() int {
+	if s := os.Getenv("MOCK_TTS_SAMPLE_RATE"); s != "" {
+		if v, err := strconv.Atoi(s); err == nil && v > 0 {
+			return v
+		}
+	}
+	return 16000
+}
+
+// writeMinimalWAV writes a WAV file containing a 440Hz sine wave (0.5s)
+// so that tests can verify audio integrity end-to-end. The sample rate
+// is configurable via MOCK_TTS_SAMPLE_RATE to test rate mismatch bugs.
 func writeMinimalWAV(path string) error {
-	const sampleRate = 16000
+	sampleRate := ttsSampleRate()
 	const numChannels = 1
 	const bitsPerSample = 16
-	const numSamples = 1600 // 0.1s
+	const freq = 440.0
+	const durationSec = 0.5
+	numSamples := int(float64(sampleRate) * durationSec)
+
 	dataSize := numSamples * numChannels * (bitsPerSample / 8)
 	const headerLen = 44
 	f, err := os.Create(path)
@@ -203,23 +251,56 @@ func writeMinimalWAV(path string) error {
 	_ = binary.Write(f, binary.LittleEndian, uint32(sampleRate*numChannels*(bitsPerSample/8)))
 	_ = binary.Write(f, binary.LittleEndian, uint16(numChannels*(bitsPerSample/8)))
 	_ = binary.Write(f, binary.LittleEndian, uint16(bitsPerSample))
-	// data chunk
+	// data chunk — 440Hz sine wave
 	_, _ = f.Write([]byte("data"))
 	_ = binary.Write(f, binary.LittleEndian, uint32(dataSize))
-	_, _ = f.Write(make([]byte, dataSize))
+	for i := range numSamples {
+		t := float64(i) / float64(sampleRate)
+		sample := int16(math.MaxInt16 / 2 * math.Sin(2*math.Pi*freq*t))
+		_ = binary.Write(f, binary.LittleEndian, sample)
+	}
 	return nil
 }
 
 func (m *MockBackend) AudioTranscription(ctx context.Context, in *pb.TranscriptRequest) (*pb.TranscriptResult, error) {
-	xlog.Debug("AudioTranscription called")
+	dst := in.GetDst()
+	wavSR := 0
+	dataLen := 0
+	rms := 0.0
+
+	if dst != "" {
+		if data, err := os.ReadFile(dst); err == nil {
+			if len(data) >= 44 {
+				wavSR = int(binary.LittleEndian.Uint32(data[24:28]))
+				dataLen = int(binary.LittleEndian.Uint32(data[40:44]))
+
+				// Compute RMS of the PCM payload (16-bit LE samples)
+				pcm := data[44:]
+				var sumSq float64
+				nSamples := len(pcm) / 2
+				for i := range nSamples {
+					s := int16(pcm[2*i]) | int16(pcm[2*i+1])<<8
+					v := float64(s)
+					sumSq += v * v
+				}
+				if nSamples > 0 {
+					rms = math.Sqrt(sumSq / float64(nSamples))
+				}
+			}
+		}
+	}
+
+	xlog.Debug("AudioTranscription called", "dst", dst, "wav_sample_rate", wavSR, "data_len", dataLen, "rms", rms)
+
+	text := fmt.Sprintf("transcribed: rms=%.1f samples=%d sr=%d", rms, dataLen/2, wavSR)
 	return &pb.TranscriptResult{
-		Text: "This is a mocked transcription.",
+		Text: text,
 		Segments: []*pb.TranscriptSegment{
 			{
 				Id:    0,
 				Start: 0,
 				End:   3000,
-				Text:  "This is a mocked transcription.",
+				Text:  text,
 				Tokens: []int32{1, 2, 3, 4, 5, 6},
 			},
 		},
@@ -349,18 +430,62 @@ func (m *MockBackend) GetMetrics(ctx context.Context, in *pb.MetricsRequest) (*p
 }
 
 func (m *MockBackend) VAD(ctx context.Context, in *pb.VADRequest) (*pb.VADResponse, error) {
-	xlog.Debug("VAD called", "audio_length", len(in.Audio))
+	// Compute RMS of the received float32 audio to decide whether speech is present.
+	var sumSq float64
+	for _, s := range in.Audio {
+		v := float64(s)
+		sumSq += v * v
+	}
+	rms := 0.0
+	if len(in.Audio) > 0 {
+		rms = math.Sqrt(sumSq / float64(len(in.Audio)))
+	}
+	xlog.Debug("VAD called", "audio_length", len(in.Audio), "rms", rms)
+
+	// If audio is near-silence, return no segments (no speech detected).
+	if rms < 0.001 {
+		return &pb.VADResponse{}, nil
+	}
+
+	// Audio has signal — return a single segment covering the duration.
+	duration := float64(len(in.Audio)) / 16000.0
 	return &pb.VADResponse{
 		Segments: []*pb.VADSegment{
 			{
 				Start: 0.0,
-				End:   1.5,
-			},
-			{
-				Start: 2.0,
-				End:   3.5,
+				End:   float32(duration),
 			},
 		},
+	}, nil
+}
+
+func (m *MockBackend) AudioEncode(ctx context.Context, in *pb.AudioEncodeRequest) (*pb.AudioEncodeResult, error) {
+	xlog.Debug("AudioEncode called", "pcm_len", len(in.PcmData), "sample_rate", in.SampleRate)
+	// Return a single mock Opus frame per 960-sample chunk (20ms at 48kHz).
+	numSamples := len(in.PcmData) / 2 // 16-bit samples
+	frameSize := 960
+	var frames [][]byte
+	for offset := 0; offset+frameSize <= numSamples; offset += frameSize {
+		// Minimal mock frame — just enough bytes to be non-empty.
+		frames = append(frames, []byte{0xFC, 0xFF, 0xFE})
+	}
+	return &pb.AudioEncodeResult{
+		Frames:          frames,
+		SampleRate:      48000,
+		SamplesPerFrame: int32(frameSize),
+	}, nil
+}
+
+func (m *MockBackend) AudioDecode(ctx context.Context, in *pb.AudioDecodeRequest) (*pb.AudioDecodeResult, error) {
+	xlog.Debug("AudioDecode called", "frames", len(in.Frames))
+	// Return silent PCM (960 samples per frame at 48kHz, 16-bit LE).
+	samplesPerFrame := 960
+	totalSamples := len(in.Frames) * samplesPerFrame
+	pcm := make([]byte, totalSamples*2)
+	return &pb.AudioDecodeResult{
+		PcmData:         pcm,
+		SampleRate:      48000,
+		SamplesPerFrame: int32(samplesPerFrame),
 	}, nil
 }
 

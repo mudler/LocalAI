@@ -23,6 +23,8 @@ const (
 	BackendTraceSoundGeneration  BackendTraceType = "sound_generation"
 	BackendTraceRerank           BackendTraceType = "rerank"
 	BackendTraceTokenize         BackendTraceType = "tokenize"
+	BackendTraceDetection        BackendTraceType = "detection"
+	BackendTraceModelLoad        BackendTraceType = "model_load"
 )
 
 type BackendTrace struct {
@@ -85,7 +87,7 @@ func GetBackendTraces() []BackendTrace {
 	}
 
 	sort.Slice(traces, func(i, j int) bool {
-		return traces[i].Timestamp.Before(traces[j].Timestamp)
+		return traces[i].Timestamp.After(traces[j].Timestamp)
 	})
 
 	return traces

@@ -8,6 +8,9 @@ const traceColors = {
   tool_call: { bg: 'rgba(139,92,246,0.1)', border: 'rgba(139,92,246,0.3)', icon: 'fa-wrench', color: 'var(--color-accent)' },
   tool_result: { bg: 'rgba(34,197,94,0.1)', border: 'rgba(34,197,94,0.3)', icon: 'fa-check', color: 'var(--color-success)' },
   status: { bg: 'rgba(245,158,11,0.1)', border: 'rgba(245,158,11,0.3)', icon: 'fa-info-circle', color: 'var(--color-warning)' },
+  stream_reasoning: { bg: 'rgba(99,102,241,0.06)', border: 'rgba(99,102,241,0.2)', icon: 'fa-lightbulb', color: 'var(--color-primary)' },
+  stream_content: { bg: 'rgba(59,130,246,0.08)', border: 'rgba(59,130,246,0.25)', icon: 'fa-pen-nib', color: 'var(--color-info, #3b82f6)' },
+  stream_tool_call: { bg: 'rgba(139,92,246,0.06)', border: 'rgba(139,92,246,0.2)', icon: 'fa-bolt', color: 'var(--color-accent)' },
 }
 
 function TraceCard({ trace, index }) {
@@ -165,7 +168,7 @@ export default function AgentJobDetails() {
       <div className="empty-state">
         <div className="empty-state-icon"><i className="fas fa-search" /></div>
         <h2 className="empty-state-title">Job not found</h2>
-        <button className="btn btn-secondary" onClick={() => navigate('/agent-jobs')}><i className="fas fa-arrow-left" /> Back</button>
+        <button className="btn btn-secondary" onClick={() => navigate('/app/agent-jobs')}><i className="fas fa-arrow-left" /> Back</button>
       </div>
     </div>
   )
@@ -186,7 +189,7 @@ export default function AgentJobDetails() {
               <i className="fas fa-stop" /> Cancel
             </button>
           )}
-          <button className="btn btn-secondary" onClick={() => navigate('/agent-jobs')}>
+          <button className="btn btn-secondary" onClick={() => navigate('/app/agent-jobs')}>
             <i className="fas fa-arrow-left" /> Back
           </button>
         </div>
@@ -210,7 +213,7 @@ export default function AgentJobDetails() {
             <span className="form-label">Task</span>
             <p>
               {job.task_id ? (
-                <a onClick={() => navigate(`/agent-jobs/tasks/${job.task_id}`)} style={{ cursor: 'pointer', color: 'var(--color-primary)' }}>
+                <a onClick={() => navigate(`/app/agent-jobs/tasks/${job.task_id}`)} style={{ cursor: 'pointer', color: 'var(--color-primary)' }}>
                   {job.task_id}
                 </a>
               ) : '-'}
@@ -328,7 +331,7 @@ export default function AgentJobDetails() {
             Error
           </h3>
           <pre style={{
-            background: 'rgba(239,68,68,0.05)', padding: 'var(--spacing-sm)',
+            background: 'var(--color-error-light)', padding: 'var(--spacing-sm)',
             borderRadius: 'var(--radius-md)', fontSize: '0.8125rem',
             whiteSpace: 'pre-wrap', overflow: 'auto', color: 'var(--color-error)',
           }}>

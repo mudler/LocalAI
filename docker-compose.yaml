@@ -19,9 +19,21 @@ services:
     environment:
       - MODELS_PATH=/models
     #  - DEBUG=true
+    ## Agents (LocalAGI) - https://localai.io/features/agents/
+    #  - LOCALAI_DISABLE_AGENTS=false
+    #  - LOCALAI_AGENT_POOL_DEFAULT_MODEL=hermes-3-llama3.1-8b
+    #  - LOCALAI_AGENT_POOL_ENABLE_SKILLS=true
+    #  - LOCALAI_AGENT_POOL_ENABLE_LOGS=true
+    #  - LOCALAI_AGENT_HUB_URL=https://agenthub.localai.io
+    ## Uncomment to use PostgreSQL for the knowledge base (requires the postgres service below)
+    #  - LOCALAI_AGENT_POOL_VECTOR_ENGINE=postgres
+    #  - LOCALAI_AGENT_POOL_DATABASE_URL=postgresql://localrecall:localrecall@postgres:5432/localrecall?sslmode=disable
     volumes:
       - models:/models
       - images:/tmp/generated/images/
+      - data:/data
+      - backends:/backends
+      - configuration:/configuration
     command:
     # Here we can specify a list of models to run (see quickstart https://localai.io/basics/getting_started/#running-models )
     # or an URL pointing to a YAML configuration file, for example:
@@ -46,6 +58,25 @@ services:
     #           count: 1
     #           capabilities: [gpu]
 
+  ## Uncomment for PostgreSQL-backed knowledge base (see Agents docs)
+  # postgres:
+  #   image: quay.io/mudler/localrecall:v0.5.2-postgresql
+  #   environment:
+  #     - POSTGRES_DB=localrecall
+  #     - POSTGRES_USER=localrecall
+  #     - POSTGRES_PASSWORD=localrecall
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "pg_isready -U localrecall"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+
 volumes:
   models:
   images:
+  data:
+  configuration:
+  backends:
+  # postgres_data:

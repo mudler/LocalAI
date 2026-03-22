@@ -39,7 +39,7 @@ func main() {
 	}
 
 	// Actually parse the CLI options
-	ctx := kong.Parse(&cli.CLI,
+	k := kong.Must(&cli.CLI,
 		kong.Description(
 			`  LocalAI is a drop-in replacement OpenAI API for running LLM, GPT and genAI models locally on CPU, GPUs with consumer grade hardware.
 
@@ -48,6 +48,11 @@ For a list of all available models run local-ai models list
 Copyright: Ettore Di Giacinto
 
 Version: ${version}
+
+For documentation and support:
+  Documentation: https://localai.io/
+  Getting Started: https://localai.io/basics/getting_started/
+  GitHub Issues: https://github.com/mudler/LocalAI/issues
 `,
 		),
 		kong.UsageOnError(),
@@ -58,6 +63,13 @@ Version: ${version}
 			"version":   internal.PrintableVersion(),
 		},
 	)
+	ctx, err := k.Parse(os.Args[1:])
+	if err != nil {
+		k.FatalIfErrorf(err)
+	}
+
+	// Pass Kong model to the completion command for dynamic script generation
+	cli.CLI.Completion.SetApplication(k.Model)
 
 	// Configure the logging level before we run the application
 	// This is here to preserve the existing --debug flag functionality

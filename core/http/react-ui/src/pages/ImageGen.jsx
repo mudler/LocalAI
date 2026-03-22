@@ -1,7 +1,9 @@
 import { useState, useRef } from 'react'
 import { useParams, useOutletContext } from 'react-router-dom'
 import ModelSelector from '../components/ModelSelector'
+import { CAP_IMAGE } from '../utils/capabilities'
 import LoadingSpinner from '../components/LoadingSpinner'
+import ErrorWithTraceLink from '../components/ErrorWithTraceLink'
 import { imageApi, fileToBase64 } from '../utils/api'
 
 const SIZES = ['256x256', '512x512', '768x768', '1024x1024']
@@ -17,6 +19,7 @@ export default function ImageGen() {
   const [steps, setSteps] = useState('')
   const [seed, setSeed] = useState('')
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
   const [images, setImages] = useState([])
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [showImageInputs, setShowImageInputs] = useState(false)
@@ -32,6 +35,7 @@ export default function ImageGen() {
 
     setLoading(true)
     setImages([])
+    setError(null)
 
     let combinedPrompt = prompt.trim()
     if (negativePrompt.trim()) combinedPrompt += '|' + negativePrompt.trim()
@@ -47,7 +51,7 @@ export default function ImageGen() {
       setImages(data?.data || [])
       if (!data?.data?.length) addToast('No images generated', 'warning')
     } catch (err) {
-      addToast(`Error: ${err.message}`, 'error')
+      setError(err.message)
     } finally {
       setLoading(false)
     }
@@ -73,7 +77,7 @@ export default function ImageGen() {
         <form onSubmit={handleGenerate}>
           <div className="form-group">
             <label className="form-label">Model</label>
-            <ModelSelector value={model} onChange={setModel} capability="FLAG_IMAGE" />
+            <ModelSelector value={model} onChange={setModel} capability={CAP_IMAGE} />
           </div>
           <div className="form-group">
             <label className="form-label">Prompt</label>
@@ -131,6 +135,8 @@ export default function ImageGen() {
         <div className="media-result">
           {loading ? (
             <LoadingSpinner size="lg" />
+          ) : error ? (
+            <ErrorWithTraceLink message={error} />
           ) : images.length > 0 ? (
             <div className="media-result-grid">
               {images.map((img, i) => (

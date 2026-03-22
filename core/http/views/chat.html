@@ -895,7 +895,7 @@ SOFTWARE.
 
           <div x-data="{ showPromptForm: false, showParamsForm: false }" class="space-y-2">
               <!-- MCP Toggle - Compact (shown dynamically based on model support) -->
-              <div x-data="{ 
+              <div x-data="{
                 mcpAvailable: false,
                 checkMCP() {
                   const modelSelector = document.getElementById('modelSelector');
@@ -910,7 +910,7 @@ SOFTWARE.
                   }
                   const hasMCP = selectedOption.getAttribute('data-has-mcp') === 'true';
                   this.mcpAvailable = hasMCP;
-                  
+
                   // If model doesn't support MCP, disable MCP mode
                   const activeChat = $store.chat.activeChat();
                   if (activeChat && !hasMCP) {

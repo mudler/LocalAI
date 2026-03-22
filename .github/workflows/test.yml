@@ -93,9 +93,9 @@ jobs:
       - name: Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install curl ffmpeg
+          sudo apt-get install curl ffmpeg libopus-dev
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: '22'
       - name: Build React UI
@@ -104,7 +104,7 @@ jobs:
         run: |
           make backends/transformers
           mkdir external && mv backends/transformers external/transformers
-          make backends/huggingface backends/llama-cpp backends/local-store backends/silero-vad backends/piper backends/whisper backends/stablediffusion-ggml
+          make backends/llama-cpp backends/local-store backends/silero-vad backends/piper backends/whisper backends/stablediffusion-ggml
       - name: Test
         run: |
           TRANSFORMER_BACKEND=$PWD/external/transformers/run.sh PATH="$PATH:/root/go/bin" GO_TAGS="tts" make --jobs 5 --output-sync=target test
@@ -116,7 +116,7 @@ jobs:
           connect-timeout-seconds: 180
           limit-access-to-actor: true
 
-  tests-aio-container:
+  tests-e2e-container:
     runs-on: ubuntu-latest
     steps:
       - name: Release space from worker
@@ -166,7 +166,7 @@ jobs:
           PATH="$PATH:$HOME/go/bin" make protogen-go
       - name: Test
         run: |
-            PATH="$PATH:$HOME/go/bin" make backends/local-store backends/silero-vad backends/llama-cpp backends/whisper backends/piper backends/stablediffusion-ggml docker-build-aio e2e-aio
+            PATH="$PATH:$HOME/go/bin" make backends/local-store backends/silero-vad backends/llama-cpp backends/whisper backends/piper backends/stablediffusion-ggml docker-build-e2e e2e-aio
       - name: Setup tmate session if tests fail
         if: ${{ failure() }}
         uses: mxschmitt/action-tmate@v3.23
@@ -195,10 +195,10 @@ jobs:
         run: go version
       - name: Dependencies
         run: |
-          brew install protobuf grpc make protoc-gen-go protoc-gen-go-grpc libomp llvm
+          brew install protobuf grpc make protoc-gen-go protoc-gen-go-grpc libomp llvm opus
           pip install --user --no-cache-dir grpcio-tools grpcio
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: '22'
       - name: Build React UI
