@@ -328,12 +328,10 @@ Other:
 - [How to build locally](https://localai.io/basics/build/index.html)
 - [How to install in Kubernetes](https://localai.io/basics/getting_started/index.html#run-localai-in-kubernetes)
 - [Projects integrating LocalAI](https://localai.io/docs/integrations/)
-- [How tos section](https://io.midori-ai.xyz/howtos/) (curated by our community)
 
 ## :book: 🎥 [Media, Blogs, Social](https://localai.io/basics/news/#media-blogs-social)
 
 - 🆕 [LocalAI Autonomous Dev Team Blog Post](https://mudler.pm/posts/2026/02/28/a-call-to-open-source-maintainers-stop-babysitting-ai-how-i-built-a-100-local-autonomous-dev-team-to-maintain-localai-and-why-you-should-too/)
-
 - [Run Visual studio code with LocalAI (SUSE)](https://www.suse.com/c/running-ai-locally/)
 - 🆕 [Run LocalAI on Jetson Nano Devkit](https://mudler.pm/posts/local-ai-jetson-nano-devkit/)
 - [Run LocalAI on AWS EKS with Pulumi](https://www.pulumi.com/blog/low-code-llm-apps-with-local-ai-flowise-and-pulumi/)
@@ -342,7 +340,6 @@ Other:
 - [LocalAI meets k8sgpt](https://www.youtube.com/watch?v=PKrDNuJ_dfE)
 - [Question Answering on Documents locally with LangChain, LocalAI, Chroma, and GPT4All](https://mudler.pm/posts/localai-question-answering/)
 - [Tutorial to use k8sgpt with LocalAI](https://medium.com/@tyler_97636/k8sgpt-localai-unlock-kubernetes-superpowers-for-free-584790de9b65)
-
 
 ## 🤖 Autonomous Development Team
 
