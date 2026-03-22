@@ -1005,6 +1005,8 @@ definitions:
         additionalProperties:
           type: string
         type: object
+      min_p:
+        type: number
       model:
         type: string
       model_base_name:

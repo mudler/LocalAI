@@ -2521,6 +2521,9 @@ const docTemplate = `{
                         "type": "string"
                     }
                 },
+                "min_p": {
+                    "type": "number"
+                },
                 "model": {
                     "type": "string"
                 },
