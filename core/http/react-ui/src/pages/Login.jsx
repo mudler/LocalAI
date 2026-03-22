@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { apiUrl } from '../utils/basePath'
 import './auth.css'
@@ -7,6 +7,7 @@ import './auth.css'
 export default function Login() {
   const navigate = useNavigate()
   const { code: urlInviteCode } = useParams()
+  const [searchParams] = useSearchParams()
   const { authEnabled, user, loading: authLoading, refresh } = useAuth()
   const [providers, setProviders] = useState([])
   const [hasUsers, setHasUsers] = useState(true)
@@ -41,6 +42,14 @@ export default function Login() {
       setMode('register')
     }
   }, [urlInviteCode])
+
+  // Show error from OAuth redirect (e.g. invite_required)
+  useEffect(() => {
+    const errorParam = searchParams.get('error')
+    if (errorParam === 'invite_required') {
+      setError('A valid invite code is required to register')
+    }
+  }, [searchParams])
 
   useEffect(() => {
     fetch(apiUrl('/api/auth/status'))
@@ -252,12 +261,14 @@ export default function Login() {
             <button type="submit" className="btn btn-primary login-btn-full" disabled={submitting}>
               {submitting ? 'Signing in...' : 'Sign In'}
             </button>
-            <p className="login-footer">
-              Don't have an account?{' '}
-              <button type="button" className="login-link" onClick={() => { setMode('register'); setError(''); setMessage('') }}>
-                Register
-              </button>
-            </p>
+            {!(registrationMode === 'invite' && hasUsers && !urlInviteCode) && (
+              <p className="login-footer">
+                Don't have an account?{' '}
+                <button type="button" className="login-link" onClick={() => { setMode('register'); setError(''); setMessage('') }}>
+                  Register
+                </button>
+              </p>
+            )}
           </form>
         )}
 

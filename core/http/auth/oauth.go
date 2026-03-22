@@ -213,6 +213,22 @@ func (m *OAuthManager) CallbackHandler(providerName string, db *gorm.DB, adminEm
 			})
 		}
 
+		// In invite mode, block new OAuth users who don't have a valid invite code
+		// to prevent phantom pending records from accumulating in the DB.
+		// The first user (no users in DB yet) is always allowed through.
+		if registrationMode == "invite" && inviteCode == "" {
+			var existing User
+			if err := db.Where("provider = ? AND subject = ?", providerName, userInfo.Subject).First(&existing).Error; err != nil {
+				// Check if this would be the first user (always allowed)
+				var userCount int64
+				db.Model(&User{}).Count(&userCount)
+				if userCount > 0 {
+					// New user without invite code — reject without creating a DB record
+					return c.Redirect(http.StatusTemporaryRedirect, "/login?error=invite_required")
+				}
+			}
+		}
+
 		// Upsert user (with invite code support)
 		user, err := upsertOAuthUser(db, providerName, userInfo, adminEmail, registrationMode)
 		if err != nil {
