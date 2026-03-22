@@ -29,7 +29,7 @@
 <a href="https://trendshift.io/repositories/5539" target="_blank"><img src="https://trendshift.io/api/badge/repositories/5539" alt="mudler%2FLocalAI | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
 </p>
 
-**LocalAI** is the open-source AI engine. Run any model — LLMs, vision, voice, image, video — on any hardware. No GPU required.
+**LocalAI** is the open-source AI engine. Run any model - LLMs, vision, voice, image, video - on any hardware. No GPU required.
 
 - **Drop-in API compatibility** — OpenAI, Anthropic, ElevenLabs APIs
 - **35+ backends** — llama.cpp, vLLM, transformers, whisper, diffusers, MLX...
