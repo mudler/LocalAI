@@ -16,55 +16,72 @@ LocalAI will attempt to automatically load models which are not explicitly confi
 
 ## Text Generation & Language Models
 
-| Backend and Bindings                                                             | Compatible models     | Completion/Chat endpoint | Capability | Embeddings support                | Token stream support | Acceleration |
-|----------------------------------------------------------------------------------|-----------------------|--------------------------|---------------------------|-----------------------------------|----------------------|--------------|
-| [llama.cpp]({{%relref "features/text-generation#llama.cpp" %}})        | LLama, Mamba, RWKV, Falcon, Starcoder, GPT-2, [and many others](https://github.com/ggerganov/llama.cpp?tab=readme-ov-file#description) | yes                      | GPT and Functions                        | yes | yes                  | CUDA 12/13, ROCm, Intel SYCL, Vulkan, Metal, CPU |
-| [vLLM](https://github.com/vllm-project/vllm)        | Various GPTs and quantization formats | yes                      | GPT             | no | no                  | CUDA 12/13, ROCm, Intel |
-| [transformers](https://github.com/huggingface/transformers) | Various GPTs and quantization formats  | yes                      | GPT, embeddings, Audio generation            | yes | yes*                  | CUDA 12/13, ROCm, Intel, CPU |
-| [MLX](https://github.com/ml-explore/mlx-lm)        | Various LLMs               | yes                       | GPT                        | no                                | no                   | Metal (Apple Silicon) |
-| [MLX-VLM](https://github.com/Blaizzy/mlx-vlm)        | Vision-Language Models               | yes                       | Multimodal GPT                        | no                                | no                   | Metal (Apple Silicon) |
-| [vllm-omni](https://github.com/vllm-project/vllm) | vLLM Omni multimodal | yes | Multimodal GPT | no | no | CUDA 12/13, ROCm, Intel |
-| [langchain-huggingface](https://github.com/tmc/langchaingo)                                                                    | Any text generators available on HuggingFace through API | yes                      | GPT                        | no                                | no                   | N/A |
+| Backend | Description | Capability | Embeddings | Streaming | Acceleration |
+|---------|-------------|------------|------------|-----------|-------------|
+| [llama.cpp](https://github.com/ggerganov/llama.cpp) | LLM inference in C/C++. Supports LLaMA, Mamba, RWKV, Falcon, Starcoder, GPT-2, [and many others](https://github.com/ggerganov/llama.cpp?tab=readme-ov-file#description) | GPT, Functions | yes | yes | CPU, CUDA 12/13, ROCm, Intel SYCL, Vulkan, Metal, Jetson L4T |
+| [vLLM](https://github.com/vllm-project/vllm) | Fast LLM serving with PagedAttention | GPT | no | no | CUDA 12, ROCm, Intel |
+| [vLLM Omni](https://github.com/vllm-project/vllm) | Unified multimodal generation (text, image, video, audio) | Multimodal GPT | no | no | CUDA 12, ROCm |
+| [transformers](https://github.com/huggingface/transformers) | HuggingFace Transformers framework | GPT, Embeddings, Multimodal | yes | yes* | CPU, CUDA 12/13, ROCm, Intel, Metal |
+| [MLX](https://github.com/ml-explore/mlx-lm) | Apple Silicon LLM inference | GPT | no | no | Metal |
+| [MLX-VLM](https://github.com/Blaizzy/mlx-vlm) | Vision-Language Models on Apple Silicon | Multimodal GPT | no | no | Metal |
+| [MLX Distributed](https://github.com/ml-explore/mlx-lm) | Distributed LLM inference across multiple Apple Silicon Macs | GPT | no | no | Metal |
 
-## Audio & Speech Processing
+## Speech-to-Text
 
-| Backend and Bindings                                                             | Compatible models     | Completion/Chat endpoint | Capability | Embeddings support                | Token stream support | Acceleration |
-|----------------------------------------------------------------------------------|-----------------------|--------------------------|---------------------------|-----------------------------------|----------------------|--------------|
-| [whisper.cpp](https://github.com/ggml-org/whisper.cpp)         | whisper               | no                       | Audio transcription                 | no                                | no                   | CUDA 12/13, ROCm, Intel SYCL, Vulkan, CPU |
-| [faster-whisper](https://github.com/SYSTRAN/faster-whisper)         | whisper               | no                       | Audio transcription                 | no                                | no                   | CUDA 12/13, ROCm, Intel, CPU |
-| [piper](https://github.com/rhasspy/piper) ([binding](https://github.com/mudler/go-piper))                                                                     | Any piper onnx model | no                      | Text to voice                        | no                                | no                   | CPU |
-| [coqui](https://github.com/idiap/coqui-ai-TTS) | Coqui TTS    | no                       | Audio generation and Voice cloning    | no                               | no                   | CUDA 12/13, ROCm, Intel, CPU |
-| [kokoro](https://github.com/hexgrad/kokoro) | Kokoro TTS    | no                       | Text-to-speech    | no                               | no                   | CUDA 12/13, ROCm, Intel, CPU |
-| [chatterbox](https://github.com/resemble-ai/chatterbox) | Chatterbox TTS    | no                       | Text-to-speech    | no                               | no                   | CUDA 12/13, CPU |
-| [kitten-tts](https://github.com/KittenML/KittenTTS) | Kitten TTS    | no                       | Text-to-speech    | no                               | no                   | CPU |
-| [silero-vad](https://github.com/snakers4/silero-vad) with [Golang bindings](https://github.com/streamer45/silero-vad-go) | Silero VAD    | no                       | Voice Activity Detection    | no                               | no                   | CPU |
-| [neutts](https://github.com/neuphonic/neuttsair) | NeuTTSAir    | no                       | Text-to-speech with voice cloning    | no                               | no                   | CUDA 12/13, ROCm, CPU |
-| [vibevoice](https://github.com/microsoft/VibeVoice) | VibeVoice-Realtime    | no                       | Real-time text-to-speech with voice cloning    | no                               | no                   | CUDA 12/13, ROCm, Intel, CPU |
-| [pocket-tts](https://github.com/kyutai-labs/pocket-tts) | Pocket TTS    | no                       | Lightweight CPU-based text-to-speech with voice cloning    | no                               | no                   | CUDA 12/13, ROCm, Intel, CPU |
-| [mlx-audio](https://github.com/Blaizzy/mlx-audio) | MLX | no                       | Text-tospeech    | no                               | no                   | Metal (Apple Silicon) |
-| [nemo](https://github.com/NVIDIA/NeMo) | NeMo speech models | no | Speech models | no | no | CUDA 12/13, ROCm, Intel, CPU |
-| [outetts](https://github.com/edwengc/outetts) | OuteTTS | no | Text-to-speech with voice cloning | no | no | CUDA 12/13, CPU |
-| [faster-qwen3-tts](https://github.com/andimarafioti/faster-qwen3-tts) | Faster Qwen3 TTS | no | Fast text-to-speech | no | no | CUDA 12/13, ROCm, Intel, CPU |
-| [qwen-asr](https://github.com/QwenLM/Qwen-ASR) | Qwen ASR | no | Automatic speech recognition | no | no | CUDA 12/13, ROCm, Intel, CPU |
-| [voxcpm](https://github.com/voxcpm/voxcpm) | VoxCPM | no | Speech understanding | no | no | CUDA 12/13, Metal, CPU |
-| [whisperx](https://github.com/m-bain/whisperX) | WhisperX | no | Enhanced transcription | no | no | CUDA 12/13, ROCm, Intel, CPU |
+| Backend | Description | Acceleration |
+|---------|-------------|-------------|
+| [whisper.cpp](https://github.com/ggml-org/whisper.cpp) | OpenAI Whisper in C/C++ | CPU, CUDA 12/13, ROCm, Intel SYCL, Vulkan, Metal, Jetson L4T |
+| [faster-whisper](https://github.com/SYSTRAN/faster-whisper) | Fast Whisper with CTranslate2 | CUDA 12/13, ROCm, Intel, Metal |
+| [WhisperX](https://github.com/m-bain/whisperX) | Word-level timestamps and speaker diarization | CPU, CUDA 12/13, ROCm, Metal |
+| [moonshine](https://github.com/moonshine-ai/moonshine) | Ultra-fast transcription for low-end devices | CPU, CUDA 12/13, Metal |
+| [voxtral](https://github.com/mudler/voxtral.c) | Voxtral Realtime 4B speech-to-text in C | CPU, Metal |
+| [Qwen3-ASR](https://github.com/QwenLM/Qwen3-ASR) | Qwen3 automatic speech recognition | CPU, CUDA 12/13, ROCm, Intel, Metal, Jetson L4T |
+| [NeMo](https://github.com/NVIDIA/NeMo) | NVIDIA NeMo ASR toolkit | CPU, CUDA 12/13, ROCm, Intel, Metal |
+
+## Text-to-Speech
+
+| Backend | Description | Acceleration |
+|---------|-------------|-------------|
+| [piper](https://github.com/rhasspy/piper) | Fast neural TTS | CPU |
+| [Coqui TTS](https://github.com/idiap/coqui-ai-TTS) | TTS with 1100+ languages and voice cloning | CPU, CUDA 12/13, ROCm, Intel, Metal |
+| [Kokoro](https://huggingface.co/hexgrad/Kokoro-82M) | Lightweight TTS (82M params) | CUDA 12/13, ROCm, Intel, Metal, Jetson L4T |
+| [Chatterbox](https://github.com/resemble-ai/chatterbox) | Production-grade TTS with emotion control | CPU, CUDA 12/13, Metal, Jetson L4T |
+| [VibeVoice](https://github.com/microsoft/VibeVoice) | Real-time TTS with voice cloning | CPU, CUDA 12/13, ROCm, Intel, Metal, Jetson L4T |
+| [Qwen3-TTS](https://github.com/QwenLM/Qwen3-TTS) | TTS with custom voice, voice design, and voice cloning | CPU, CUDA 12/13, ROCm, Intel, Metal, Jetson L4T |
+| [fish-speech](https://github.com/fishaudio/fish-speech) | High-quality TTS with voice cloning | CPU, CUDA 12/13, ROCm, Intel, Metal, Jetson L4T |
+| [Pocket TTS](https://github.com/kyutai-labs/pocket-tts) | Lightweight CPU-efficient TTS with voice cloning | CPU, CUDA 12/13, ROCm, Intel, Metal, Jetson L4T |
+| [OuteTTS](https://github.com/OuteAI/outetts) | TTS with custom speaker voices | CPU, CUDA 12 |
+| [faster-qwen3-tts](https://github.com/andimarafioti/faster-qwen3-tts) | Real-time Qwen3-TTS with CUDA graph capture | CUDA 12/13, Jetson L4T |
+| [NeuTTS Air](https://github.com/neuphonic/neutts-air) | Instant voice cloning TTS | CPU, CUDA 12, ROCm |
+| [VoxCPM](https://github.com/ModelBest/VoxCPM) | Expressive end-to-end TTS | CPU, CUDA 12/13, ROCm, Intel, Metal |
+| [Kitten TTS](https://github.com/KittenML/KittenTTS) | Kitten TTS model | CPU, Metal |
+| [MLX-Audio](https://github.com/Blaizzy/mlx-audio) | Audio models on Apple Silicon | Metal, CPU, CUDA 12/13, Jetson L4T |
+
+## Music Generation
+
+| Backend | Description | Acceleration |
+|---------|-------------|-------------|
+| [ACE-Step](https://github.com/ace-step/ACE-Step-1.5) | Music generation from text descriptions, lyrics, or audio | CPU, CUDA 12/13, ROCm, Intel, Metal |
+| [acestep.cpp](https://github.com/ace-step/acestep.cpp) | ACE-Step 1.5 C++ backend using GGML | CPU, CUDA 12/13, ROCm, Intel SYCL, Vulkan, Metal, Jetson L4T |
 
 ## Image & Video Generation
 
-| Backend and Bindings                                                             | Compatible models     | Completion/Chat endpoint | Capability | Embeddings support                | Token stream support | Acceleration |
-|----------------------------------------------------------------------------------|-----------------------|--------------------------|---------------------------|-----------------------------------|----------------------|--------------|
-| [stablediffusion.cpp](https://github.com/leejet/stable-diffusion.cpp)         | stablediffusion-1, stablediffusion-2, stablediffusion-3, flux, PhotoMaker               | no                       | Image                 | no                                | no                   | CUDA 12/13, Intel SYCL, Vulkan, CPU |
-| [diffusers](https://github.com/huggingface/diffusers)  | SD, various diffusion models,...                   | no                       | Image/Video generation    | no                               | no                   | CUDA 12/13, ROCm, Intel, Metal, CPU |
-| [transformers-musicgen](https://github.com/huggingface/transformers)  | MusicGen                    | no                       | Audio generation                | no                               | no                   | CUDA, CPU |
+| Backend | Description | Acceleration |
+|---------|-------------|-------------|
+| [stable-diffusion.cpp](https://github.com/leejet/stable-diffusion.cpp) | Stable Diffusion, Flux, PhotoMaker in C/C++ | CPU, CUDA 12/13, Intel SYCL, Vulkan, Metal, Jetson L4T |
+| [diffusers](https://github.com/huggingface/diffusers) | HuggingFace diffusion models (image and video generation) | CPU, CUDA 12/13, ROCm, Intel, Metal, Jetson L4T |
 
-## Specialized AI Tasks
+## Specialized Tasks
 
-| Backend and Bindings                                                             | Compatible models     | Completion/Chat endpoint | Capability | Embeddings support                | Token stream support | Acceleration |
-|----------------------------------------------------------------------------------|-----------------------|--------------------------|---------------------------|-----------------------------------|----------------------|--------------|
-| [rfdetr](https://github.com/roboflow/rf-detr) | RF-DETR    | no                       | Object Detection    | no                               | no                   | CUDA 12/13, Intel, CPU |
-| [rerankers](https://github.com/AnswerDotAI/rerankers) | Reranking API    | no                       | Reranking   | no                               | no                   | CUDA 12/13, ROCm, Intel, CPU |
-| [local-store](https://github.com/mudler/LocalAI) | Vector database    | no                       | Vector storage   | yes                               | no                   | CPU |
-| [huggingface](https://huggingface.co/docs/hub/en/api) | HuggingFace API models    | yes                       | Various AI tasks   | yes                               | yes                   | API-based |
+| Backend | Description | Acceleration |
+|---------|-------------|-------------|
+| [RF-DETR](https://github.com/roboflow/rf-detr) | Real-time transformer-based object detection | CPU, CUDA 12/13, Intel, Metal, Jetson L4T |
+| [rerankers](https://github.com/AnswerDotAI/rerankers) | Document reranking for RAG | CUDA 12/13, ROCm, Intel, Metal |
+| [local-store](https://github.com/mudler/LocalAI) | Local vector database for embeddings | CPU, Metal |
+| [Silero VAD](https://github.com/snakers4/silero-vad) | Voice Activity Detection | CPU |
+| [TRL](https://github.com/huggingface/trl) | Fine-tuning (SFT, DPO, GRPO, RLOO, KTO, ORPO) | CPU, CUDA 12/13 |
+| [llama.cpp quantization](https://github.com/ggml-org/llama.cpp) | HuggingFace → GGUF model conversion and quantization | CPU, Metal |
+| [Opus](https://opus-codec.org/) | Audio codec for WebRTC / Realtime API | CPU, Metal |
 
 ## Acceleration Support Summary
 
