@@ -34,7 +34,7 @@ jobs:
 
       - name: Create Pull Request
         if: steps.diff.outputs.changed == 'true'
-        uses: peter-evans/create-pull-request@v7
+        uses: peter-evans/create-pull-request@v8
         with:
           commit-message: "chore: bump inference defaults from unsloth"
           title: "chore: bump inference defaults from unsloth"
