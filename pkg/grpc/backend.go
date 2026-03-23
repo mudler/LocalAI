@@ -17,10 +17,19 @@ func NewClient(address string, parallel bool, wd WatchDog, enableWatchDog bool) 
 	if bc, ok := embeds[address]; ok {
 		return bc
 	}
-	return buildClient(address, parallel, wd, enableWatchDog)
+	return buildClient(address, parallel, wd, enableWatchDog, "")
 }
 
-func buildClient(address string, parallel bool, wd WatchDog, enableWatchDog bool) Backend {
+// NewClientWithToken creates a gRPC client that sends a bearer token with every call.
+// Used in distributed mode to authenticate with remote backend processes.
+func NewClientWithToken(address string, parallel bool, wd WatchDog, enableWatchDog bool, token string) Backend {
+	if bc, ok := embeds[address]; ok {
+		return bc
+	}
+	return buildClient(address, parallel, wd, enableWatchDog, token)
+}
+
+func buildClient(address string, parallel bool, wd WatchDog, enableWatchDog bool, token string) Backend {
 	if !enableWatchDog {
 		wd = nil
 	}
@@ -28,6 +37,7 @@ func buildClient(address string, parallel bool, wd WatchDog, enableWatchDog bool
 		address:  address,
 		parallel: parallel,
 		wd:       wd,
+		token:    token,
 	}
 }
 

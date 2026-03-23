@@ -16,12 +16,14 @@ import (
 
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/http/endpoints/localai"
+	mcpTools "github.com/mudler/LocalAI/core/http/endpoints/mcp"
 	httpMiddleware "github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/http/routes"
 
 	"github.com/mudler/LocalAI/core/application"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services"
+	"github.com/mudler/LocalAI/core/services/nodes"
 
 	"github.com/mudler/xlog"
 )
@@ -310,7 +312,18 @@ func API(application *application.Application) (*echo.Echo, error) {
 		application.ModelLoader(),
 		application.ModelConfigLoader(),
 	)
+	if application.NatsClient() != nil {
+		ftService.SetNATSClient(application.NatsClient())
+	}
+	if application.DistributedStores() != nil && application.DistributedStores().FineTune != nil {
+		ftService.SetFineTuneStore(application.DistributedStores().FineTune)
+	}
 	routes.RegisterFineTuningRoutes(e, ftService, application.ApplicationConfig(), fineTuningMw)
+
+	// Wire NATS client for distributed MCP tool execution routing
+	if application.NatsClient() != nil {
+		mcpTools.SetMCPNATSClient(application.NatsClient())
+	}
 
 	// Quantization routes
 	quantizationMw := auth.RequireFeature(application.AuthDB(), auth.FeatureQuantization)
@@ -320,6 +333,23 @@ func API(application *application.Application) (*echo.Echo, error) {
 		application.ModelConfigLoader(),
 	)
 	routes.RegisterQuantizationRoutes(e, qService, application.ApplicationConfig(), quantizationMw)
+
+	// Node management routes (distributed mode)
+	distCfg := application.ApplicationConfig().Distributed
+	routes.RegisterNodeSelfServiceRoutes(e, application.NodeRegistry(), distCfg.RegistrationToken, distCfg.AutoApproveNodes, application.AuthDB(), application.ApplicationConfig().Auth.APIKeyHMACSecret)
+	var remoteUnloader *nodes.RemoteUnloaderAdapter
+	if application.SmartRouter() != nil {
+		remoteUnloader = application.SmartRouter().Unloader()
+	}
+	routes.RegisterNodeAdminRoutes(e, application.NodeRegistry(), remoteUnloader, adminMiddleware, application.AuthDB(), application.ApplicationConfig().Auth.APIKeyHMACSecret, application.ApplicationConfig().Distributed.RegistrationToken)
+
+	// Distributed SSE routes (job progress + agent events via NATS)
+	if application.JobDispatcher() != nil {
+		e.GET("/api/agent/jobs/:id/progress", application.JobDispatcher().SSEHandler(), mcpJobsMw)
+	}
+	if application.AgentEventBridge() != nil {
+		e.GET("/api/agents/:name/sse/distributed", application.AgentEventBridge().SSEHandler(), agentsMw)
+	}
 
 	routes.RegisterOpenAIRoutes(e, requestExtractor, application)
 	routes.RegisterAnthropicRoutes(e, requestExtractor, application)

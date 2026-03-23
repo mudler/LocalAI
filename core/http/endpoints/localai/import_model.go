@@ -51,8 +51,10 @@ func ImportModelURIEndpoint(cl *config.ModelConfigLoader, appConfig *config.Appl
 			}
 			estCtx, cancel := context.WithTimeout(c.Request().Context(), 5*time.Second)
 			defer cancel()
-			opts := vram.EstimateOptions{ContextLength: 8192}
-			result, err := vram.Estimate(estCtx, files, opts, vram.DefaultCachedSizeResolver(), vram.DefaultCachedGGUFReader())
+			result, err := vram.EstimateModel(estCtx, vram.ModelEstimateInput{
+				Files:   files,
+				Options: vram.EstimateOptions{ContextLength: 8192},
+			})
 			if err == nil {
 				if result.SizeBytes > 0 {
 					resp.EstimatedSizeBytes = result.SizeBytes
@@ -81,7 +83,7 @@ func ImportModelURIEndpoint(cl *config.ModelConfigLoader, appConfig *config.Appl
 			opcache.Set(galleryID, uuid.String())
 		}
 
-		galleryService.ModelGalleryChannel <- services.GalleryOp[gallery.GalleryModel, gallery.ModelConfig]{
+		galleryService.ModelGalleryChannel <- services.ManagementOp[gallery.GalleryModel, gallery.ModelConfig]{
 			Req: gallery.GalleryModel{
 				Overrides: map[string]interface{}{},
 			},

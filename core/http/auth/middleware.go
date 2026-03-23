@@ -516,6 +516,11 @@ func isExemptPath(path string, appConfig *config.ApplicationConfig) bool {
 		return true
 	}
 
+	// Node self-service endpoints — authenticated via registration token, not global auth
+	if strings.HasPrefix(path, "/api/node/") {
+		return true
+	}
+
 	// Check configured exempt paths
 	for _, p := range appConfig.PathWithoutAuth {
 		if strings.HasPrefix(path, p) {

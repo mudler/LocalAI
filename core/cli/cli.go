@@ -15,7 +15,9 @@ var CLI struct {
 	TTS             TTSCMD             `cmd:"" help:"Convert text to speech"`
 	SoundGeneration SoundGenerationCMD `cmd:"" help:"Generates audio files from text or audio"`
 	Transcript      TranscriptCMD      `cmd:"" help:"Convert audio to text"`
-	Worker          worker.Worker      `cmd:"" help:"Run workers to distribute workload (llama.cpp-only)"`
+	P2PWorker       worker.Worker      `cmd:"" name:"p2p-worker" help:"Run workers to distribute workload via p2p (llama.cpp-only)"`
+	Worker          WorkerCMD          `cmd:"" help:"Start a worker for distributed mode (generic, backend-agnostic)"`
+	AgentWorker     AgentWorkerCMD     `cmd:"" name:"agent-worker" help:"Start an agent worker for distributed mode (executes agent chats via NATS)"`
 	Util            UtilCMD            `cmd:"" help:"Utility commands"`
 	Agent           AgentCMD           `cmd:"" help:"Run agents standalone without the full LocalAI server"`
 	Explorer        ExplorerCMD        `cmd:"" help:"Run p2p explorer"`

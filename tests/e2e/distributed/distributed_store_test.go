@@ -1,0 +1,207 @@
+package distributed_test
+
+import (
+	"context"
+	"time"
+
+	"github.com/mudler/LocalAI/core/services/nodes"
+	"github.com/mudler/LocalAI/pkg/model"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+
+	"github.com/testcontainers/testcontainers-go"
+	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
+	"github.com/testcontainers/testcontainers-go/wait"
+
+	pgdriver "gorm.io/driver/postgres"
+	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
+)
+
+var _ = Describe("DistributedModelStore", Label("Distributed"), func() {
+	var (
+		ctx         context.Context
+		pgContainer *tcpostgres.PostgresContainer
+		db          *gorm.DB
+		registry    *nodes.NodeRegistry
+		localStore  *model.InMemoryModelStore
+		dStore      *nodes.DistributedModelStore
+	)
+
+	BeforeEach(func() {
+		ctx = context.Background()
+
+		var err error
+		pgContainer, err = tcpostgres.Run(ctx, "postgres:16-alpine",
+			tcpostgres.WithDatabase("localai_dstore_test"),
+			tcpostgres.WithUsername("test"),
+			tcpostgres.WithPassword("test"),
+			testcontainers.WithWaitStrategy(
+				wait.ForLog("database system is ready to accept connections").
+					WithOccurrence(2).
+					WithStartupTimeout(30*time.Second),
+			),
+		)
+		Expect(err).ToNot(HaveOccurred())
+
+		pgURL, err := pgContainer.ConnectionString(ctx, "sslmode=disable")
+		Expect(err).ToNot(HaveOccurred())
+
+		db, err = gorm.Open(pgdriver.Open(pgURL), &gorm.Config{
+			Logger: logger.Default.LogMode(logger.Silent),
+		})
+		Expect(err).ToNot(HaveOccurred())
+
+		registry, err = nodes.NewNodeRegistry(db)
+		Expect(err).ToNot(HaveOccurred())
+
+		localStore = model.NewInMemoryModelStore()
+		dStore = nodes.NewDistributedModelStore(localStore, registry)
+	})
+
+	AfterEach(func() {
+		if pgContainer != nil {
+			pgContainer.Terminate(ctx)
+		}
+	})
+
+	Context("Get", func() {
+		It("returns model from local cache on hit", func() {
+			expected := model.NewModel("local-model", "local:5000", nil)
+			localStore.Set("local-model", expected)
+
+			m, ok := dStore.Get("local-model")
+			Expect(ok).To(BeTrue())
+			Expect(m).To(Equal(expected))
+		})
+
+		It("falls back to DB when local cache misses, returns model with correct address", func() {
+			// Register a node and load a model on it in the DB
+			node := &nodes.BackendNode{
+				Name: "remote-node", Address: "remote:9000",
+			}
+			Expect(registry.Register(node, true)).To(Succeed())
+			Expect(registry.SetNodeModel(node.ID, "db-model", "loaded")).To(Succeed())
+
+			m, ok := dStore.Get("db-model")
+			Expect(ok).To(BeTrue())
+			Expect(m).ToNot(BeNil())
+			Expect(m.ID).To(Equal("db-model"))
+		})
+
+		It("caches DB result locally — second Get hits local cache", func() {
+			node := &nodes.BackendNode{
+				Name: "cache-node", Address: "cache:9000",
+			}
+			Expect(registry.Register(node, true)).To(Succeed())
+			Expect(registry.SetNodeModel(node.ID, "cached-model", "loaded")).To(Succeed())
+
+			// First Get — falls back to DB
+			m1, ok := dStore.Get("cached-model")
+			Expect(ok).To(BeTrue())
+
+			// Should now be in local store
+			localM, localOK := localStore.Get("cached-model")
+			Expect(localOK).To(BeTrue())
+			Expect(localM).To(Equal(m1))
+
+			// Second Get — hits local cache (even if we remove from DB)
+			Expect(registry.RemoveNodeModel(node.ID, "cached-model")).To(Succeed())
+			m2, ok := dStore.Get("cached-model")
+			Expect(ok).To(BeTrue())
+			Expect(m2).To(Equal(m1))
+		})
+
+		It("returns (nil, false) when model not in local or DB", func() {
+			m, ok := dStore.Get("ghost-model")
+			Expect(ok).To(BeFalse())
+			Expect(m).To(BeNil())
+		})
+	})
+
+	Context("Set", func() {
+		It("delegates to local store", func() {
+			expected := model.NewModel("set-model", "addr:1234", nil)
+			dStore.Set("set-model", expected)
+
+			m, ok := localStore.Get("set-model")
+			Expect(ok).To(BeTrue())
+			Expect(m).To(Equal(expected))
+		})
+	})
+
+	Context("Delete", func() {
+		It("removes from local store", func() {
+			localStore.Set("del-model", model.NewModel("del-model", "addr", nil))
+			dStore.Delete("del-model")
+
+			_, ok := localStore.Get("del-model")
+			Expect(ok).To(BeFalse())
+		})
+	})
+
+	Context("Range", func() {
+		It("returns local-only models", func() {
+			localStore.Set("local-a", model.NewModel("local-a", "addr-a", nil))
+			localStore.Set("local-b", model.NewModel("local-b", "addr-b", nil))
+
+			visited := map[string]bool{}
+			dStore.Range(func(id string, m *model.Model) bool {
+				visited[id] = true
+				return true
+			})
+			Expect(visited).To(HaveLen(2))
+			Expect(visited).To(HaveKey("local-a"))
+			Expect(visited).To(HaveKey("local-b"))
+		})
+
+		It("returns DB-only models not in local cache", func() {
+			node := &nodes.BackendNode{
+				Name: "range-node", Address: "range:9000",
+			}
+			Expect(registry.Register(node, true)).To(Succeed())
+			Expect(registry.SetNodeModel(node.ID, "db-only-model", "loaded")).To(Succeed())
+
+			visited := map[string]bool{}
+			dStore.Range(func(id string, m *model.Model) bool {
+				visited[id] = true
+				return true
+			})
+			Expect(visited).To(HaveKey("db-only-model"))
+		})
+
+		It("deduplicates models present in both local and DB", func() {
+			node := &nodes.BackendNode{
+				Name: "dup-node", Address: "dup:9000",
+			}
+			Expect(registry.Register(node, true)).To(Succeed())
+			Expect(registry.SetNodeModel(node.ID, "shared-model", "loaded")).To(Succeed())
+
+			// Also in local store
+			localStore.Set("shared-model", model.NewModel("shared-model", "dup:9000", nil))
+
+			count := 0
+			dStore.Range(func(id string, m *model.Model) bool {
+				if id == "shared-model" {
+					count++
+				}
+				return true
+			})
+			Expect(count).To(Equal(1))
+		})
+
+		It("stops early when callback returns false", func() {
+			localStore.Set("r1", model.NewModel("r1", "a", nil))
+			localStore.Set("r2", model.NewModel("r2", "b", nil))
+			localStore.Set("r3", model.NewModel("r3", "c", nil))
+
+			count := 0
+			dStore.Range(func(id string, m *model.Model) bool {
+				count++
+				return false
+			})
+			Expect(count).To(Equal(1))
+		})
+	})
+})

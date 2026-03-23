@@ -13,6 +13,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/application"
 	"github.com/mudler/LocalAI/core/http/auth"
+	agentsPkg "github.com/mudler/LocalAI/core/services/agents"
 	"github.com/mudler/LocalAI/core/services"
 	"github.com/mudler/LocalAI/pkg/utils"
 	"github.com/mudler/LocalAGI/core/state"
@@ -42,13 +43,28 @@ func wantsAllUsers(c echo.Context) bool {
 }
 
 // effectiveUserID returns the user ID to scope operations to.
-// SECURITY: Only admins may supply ?user_id=<id> to operate on another user's
-// resources. Non-admin callers always get their own ID regardless of query params.
+// SECURITY: Only admins and agent-worker service accounts may supply
+// ?user_id=<id> to operate on another user's resources. Agent-worker users are
+// created exclusively server-side during node registration and need to access
+// collections on behalf of the user whose agent they are executing.
+// Regular callers always get their own ID regardless of query params.
 func effectiveUserID(c echo.Context) string {
-	if targetUID := c.QueryParam("user_id"); targetUID != "" && isAdminUser(c) {
+	if targetUID := c.QueryParam("user_id"); targetUID != "" && canImpersonateUser(c) {
 		return targetUID
 	}
 	return getUserID(c)
+}
+
+// canImpersonateUser returns true if the caller is allowed to use ?user_id= to
+// scope operations to another user. Allowed for admins and agent-worker service
+// accounts (ProviderAgentWorker is set server-side during node registration and
+// cannot be self-assigned).
+func canImpersonateUser(c echo.Context) bool {
+	user := auth.GetUser(c)
+	if user == nil {
+		return false
+	}
+	return user.Role == auth.RoleAdmin || user.Provider == auth.ProviderAgentWorker
 }
 
 func ListAgentsEndpoint(app *application.Application) echo.HandlerFunc {
@@ -111,6 +127,16 @@ func GetAgentEndpoint(app *application.Application) echo.HandlerFunc {
 		svc := app.AgentPoolService()
 		userID := effectiveUserID(c)
 		name := c.Param("name")
+
+		// In distributed mode, check DB instead of pool
+		if svc.IsDistributed() {
+			cfg := svc.GetAgentConfigForUser(userID, name)
+			if cfg == nil {
+				return c.JSON(http.StatusNotFound, map[string]string{"error": "Agent not found"})
+			}
+			return c.JSON(http.StatusOK, map[string]any{"active": true})
+		}
+
 		ag := svc.GetAgentForUser(userID, name)
 		if ag == nil {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": "Agent not found"})
@@ -192,6 +218,15 @@ func GetAgentStatusEndpoint(app *application.Application) echo.HandlerFunc {
 		svc := app.AgentPoolService()
 		userID := effectiveUserID(c)
 		name := c.Param("name")
+
+		// In distributed mode, status is not tracked in-process
+		if svc.IsDistributed() {
+			return c.JSON(http.StatusOK, map[string]any{
+				"Name":    name,
+				"History": []string{},
+			})
+		}
+
 		history := svc.GetAgentStatusForUser(userID, name)
 		if history == nil {
 			history = &state.Status{ActionResults: []coreTypes.ActionState{}}
@@ -221,6 +256,33 @@ func GetAgentObservablesEndpoint(app *application.Application) echo.HandlerFunc 
 		svc := app.AgentPoolService()
 		userID := effectiveUserID(c)
 		name := c.Param("name")
+
+		// In distributed mode, read observables from the database
+		if svc.IsDistributed() {
+			store := app.AgentStore()
+			if store != nil {
+				records, err := store.GetObservables(name, 100)
+				if err == nil {
+					// Unmarshal PayloadJSON into Observable-compatible objects
+					var history []map[string]any
+					for _, rec := range records {
+						var obs map[string]any
+						if json.Unmarshal([]byte(rec.PayloadJSON), &obs) == nil {
+							history = append(history, obs)
+						}
+					}
+					return c.JSON(http.StatusOK, map[string]any{
+						"Name":    name,
+						"History": history,
+					})
+				}
+			}
+			return c.JSON(http.StatusOK, map[string]any{
+				"Name":    name,
+				"History": []any{},
+			})
+		}
+
 		history, err := svc.GetAgentObservablesForUser(userID, name)
 		if err != nil {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": err.Error()})
@@ -278,11 +340,20 @@ func AgentSSEEndpoint(app *application.Application) echo.HandlerFunc {
 		svc := app.AgentPoolService()
 		userID := effectiveUserID(c)
 		name := c.Param("name")
+
+		// Try local SSE manager first
 		manager := svc.GetSSEManagerForUser(userID, name)
-		if manager == nil {
-			return c.JSON(http.StatusNotFound, map[string]string{"error": "Agent not found"})
+		if manager != nil {
+			return services.HandleSSE(c, manager)
 		}
-		return services.HandleSSE(c, manager)
+
+		// Fall back to distributed EventBridge SSE
+		bridge := app.AgentEventBridge()
+		if bridge != nil {
+			return bridge.HandleSSE(c, name, userID)
+		}
+
+		return c.JSON(http.StatusNotFound, map[string]string{"error": "Agent not found"})
 	}
 }
 
@@ -294,6 +365,20 @@ type agentConfigMetaResponse struct {
 func GetAgentConfigMetaEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		svc := app.AgentPoolService()
+
+		// In distributed mode, use native config metadata (no LocalAGI dependency)
+		if svc.IsDistributed() {
+			meta := agentsPkg.DefaultConfigMeta()
+			return c.JSON(http.StatusOK, map[string]any{
+				"Fields":      meta.Fields,
+				"Actions":     meta.Actions,
+				"Connectors":  meta.Connectors,
+				"Filters":     meta.Filters,
+				"OutputsDir":  "",
+				"distributed": true,
+			})
+		}
+
 		return c.JSON(http.StatusOK, agentConfigMetaResponse{
 			AgentConfigMeta: svc.GetConfigMeta(),
 			OutputsDir:      svc.OutputsDir(),
@@ -359,6 +444,10 @@ func ImportAgentEndpoint(app *application.Application) echo.HandlerFunc {
 func ListActionsEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		svc := app.AgentPoolService()
+		if svc.IsDistributed() {
+			// In distributed mode, actions are configured as MCP tools per agent
+			return c.JSON(http.StatusOK, map[string]any{"actions": []string{}})
+		}
 		return c.JSON(http.StatusOK, map[string]any{
 			"actions": svc.ListAvailableActions(),
 		})

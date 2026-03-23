@@ -50,6 +50,12 @@ func (ml *ModelLoader) grpcModel(backend string, o *Options) func(string, string
 
 		xlog.Debug("Loading Model with gRPC", "modelID", modelID, "file", modelFile, "backend", backend, "options", *o)
 
+		// Distributed mode: delegate to the model router if set
+		if ml.modelRouter != nil {
+			xlog.Info("Routing model to remote node via ModelRouter", "modelID", modelID, "backend", backend)
+			return ml.modelRouter(o.context, backend, modelID, modelName, modelFile, o.gRPCOptions, o.parallelRequests)
+		}
+
 		var client *Model
 
 		getFreeAddress := func() (string, error) {

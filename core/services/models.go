@@ -12,7 +12,6 @@ import (
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/mudler/LocalAI/pkg/utils"
-	"github.com/mudler/xlog"
 	"gopkg.in/yaml.v3"
 )
 
@@ -20,14 +19,26 @@ const (
 	processingMessage = "processing file: %s. Total: %s. Current: %s"
 )
 
-func (g *GalleryService) modelHandler(op *GalleryOp[gallery.GalleryModel, gallery.ModelConfig], cl *config.ModelConfigLoader, systemState *system.SystemState) error {
+func (g *GalleryService) modelHandler(op *ManagementOp[gallery.GalleryModel, gallery.ModelConfig], cl *config.ModelConfigLoader, systemState *system.SystemState) error {
 	utils.ResetDownloadTimers()
+
+	// Dedup check in distributed mode — skip if another instance is already processing this element
+	if g.galleryStore != nil && op.GalleryElementName != "" && !op.Delete {
+		dup, err := g.galleryStore.FindDuplicate(op.GalleryElementName)
+		if err == nil && dup != nil && dup.ID != op.ID {
+			g.UpdateStatus(op.ID, &OpStatus{
+				Processed: true,
+				Message:   fmt.Sprintf("already being processed by another instance (op %s)", dup.ID),
+			})
+			return nil
+		}
+	}
 
 	// Check if already cancelled
 	if op.Context != nil {
 		select {
 		case <-op.Context.Done():
-			g.UpdateStatus(op.ID, &GalleryOpStatus{
+			g.UpdateStatus(op.ID, &OpStatus{
 				Cancelled:          true,
 				Processed:          true,
 				Message:            "cancelled",
@@ -38,7 +49,7 @@ func (g *GalleryService) modelHandler(op *GalleryOp[gallery.GalleryModel, galler
 		}
 	}
 
-	g.UpdateStatus(op.ID, &GalleryOpStatus{Message: fmt.Sprintf("processing model: %s", op.GalleryElementName), Progress: 0, Cancellable: true})
+	g.UpdateStatus(op.ID, &OpStatus{Message: fmt.Sprintf("processing model: %s", op.GalleryElementName), Progress: 0, Cancellable: true})
 
 	// displayDownload displays the download progress
 	progressCallback := func(fileName string, current string, total string, percentage float64) {
@@ -50,15 +61,20 @@ func (g *GalleryService) modelHandler(op *GalleryOp[gallery.GalleryModel, galler
 			default:
 			}
 		}
-		g.UpdateStatus(op.ID, &GalleryOpStatus{Message: fmt.Sprintf(processingMessage, fileName, total, current), FileName: fileName, Progress: percentage, TotalFileSize: total, DownloadedFileSize: current, Cancellable: true})
+		g.UpdateStatus(op.ID, &OpStatus{Message: fmt.Sprintf(processingMessage, fileName, total, current), FileName: fileName, Progress: percentage, TotalFileSize: total, DownloadedFileSize: current, Cancellable: true})
 		utils.DisplayDownloadFunction(fileName, current, total, percentage)
 	}
 
-	err := processModelOperation(op, systemState, g.modelLoader, g.appConfig.EnforcePredownloadScans, g.appConfig.AutoloadBackendGalleries, progressCallback)
+	var err error
+	if op.Delete {
+		err = g.modelManager.DeleteModel(op.GalleryElementName)
+	} else {
+		err = g.modelManager.InstallModel(op.Context, op, progressCallback)
+	}
 	if err != nil {
 		// Check if error is due to cancellation
 		if op.Context != nil && errors.Is(err, op.Context.Err()) {
-			g.UpdateStatus(op.ID, &GalleryOpStatus{
+			g.UpdateStatus(op.ID, &OpStatus{
 				Cancelled:          true,
 				Processed:          true,
 				Message:            "cancelled",
@@ -73,7 +89,7 @@ func (g *GalleryService) modelHandler(op *GalleryOp[gallery.GalleryModel, galler
 	if op.Context != nil {
 		select {
 		case <-op.Context.Done():
-			g.UpdateStatus(op.ID, &GalleryOpStatus{
+			g.UpdateStatus(op.ID, &OpStatus{
 				Cancelled:          true,
 				Processed:          true,
 				Message:            "cancelled",
@@ -96,7 +112,7 @@ func (g *GalleryService) modelHandler(op *GalleryOp[gallery.GalleryModel, galler
 	}
 
 	g.UpdateStatus(op.ID,
-		&GalleryOpStatus{
+		&OpStatus{
 			Deletion:           op.Delete,
 			Processed:          true,
 			GalleryElementName: op.GalleryElementName,
@@ -174,52 +190,3 @@ func ApplyGalleryFromString(systemState *system.SystemState, modelLoader *model.
 	return processRequests(systemState, modelLoader, enforceScan, automaticallyInstallBackend, galleries, backendGalleries, requests)
 }
 
-// processModelOperation handles the installation or deletion of a model
-func processModelOperation(
-	op *GalleryOp[gallery.GalleryModel, gallery.ModelConfig],
-	systemState *system.SystemState,
-	modelLoader *model.ModelLoader,
-	enforcePredownloadScans bool,
-	automaticallyInstallBackend bool,
-	progressCallback func(string, string, string, float64),
-) error {
-	ctx := op.Context
-	if ctx == nil {
-		ctx = context.Background()
-	}
-
-	// Check for cancellation before starting
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	default:
-	}
-
-	switch {
-	case op.Delete:
-		if err := modelLoader.ShutdownModel(op.GalleryElementName); err != nil {
-			xlog.Warn("Failed to unload model during deletion", "model", op.GalleryElementName, "error", err)
-		}
-		return gallery.DeleteModelFromSystem(systemState, op.GalleryElementName)
-	case op.GalleryElement != nil:
-		installedModel, err := gallery.InstallModel(
-			ctx, systemState, op.GalleryElement.Name,
-			op.GalleryElement,
-			op.Req.Overrides,
-			progressCallback, enforcePredownloadScans)
-		if err != nil {
-			return err
-		}
-		if automaticallyInstallBackend && installedModel.Backend != "" {
-			xlog.Debug("Installing backend", "backend", installedModel.Backend)
-			if err := gallery.InstallBackendFromGallery(ctx, op.BackendGalleries, systemState, modelLoader, installedModel.Backend, progressCallback, false); err != nil {
-				return err
-			}
-		}
-		return nil
-	case op.GalleryElementName != "":
-		return gallery.InstallModelFromGallery(ctx, op.Galleries, op.BackendGalleries, systemState, modelLoader, op.GalleryElementName, op.Req, progressCallback, enforcePredownloadScans, automaticallyInstallBackend)
-	default:
-		return installModelFromRemoteConfig(ctx, systemState, modelLoader, op.Req, progressCallback, enforcePredownloadScans, automaticallyInstallBackend, op.BackendGalleries)
-	}
-}

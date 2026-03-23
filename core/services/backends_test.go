@@ -177,10 +177,10 @@ var _ = Describe("InstallExternalBackend", func() {
 	})
 })
 
-var _ = Describe("GalleryOp with External Backend", func() {
-	It("should have external backend fields in GalleryOp", func() {
-		// Test that the GalleryOp struct has the new external backend fields
-		op := services.GalleryOp[string, string]{
+var _ = Describe("ManagementOp with External Backend", func() {
+	It("should have external backend fields in ManagementOp", func() {
+		// Test that the ManagementOp struct has the new external backend fields
+		op := services.ManagementOp[string, string]{
 			ExternalURI:   "oci://example.com/backend:latest",
 			ExternalName:  "test-backend",
 			ExternalAlias: "test-alias",

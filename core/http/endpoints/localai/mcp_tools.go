@@ -2,6 +2,7 @@ package localai
 
 import (
 	"fmt"
+	"net/http"
 
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/config"
@@ -20,7 +21,11 @@ func MCPServersEndpoint(cl *config.ModelConfigLoader, appConfig *config.Applicat
 
 		cfg, exists := cl.GetModelConfig(modelName)
 		if !exists {
-			return fmt.Errorf("model %q not found", modelName)
+			return c.JSON(http.StatusNotFound, map[string]any{
+				"model":   modelName,
+				"servers": []any{},
+				"error":   fmt.Sprintf("model %q not found", modelName),
+			})
 		}
 
 		if cfg.MCP.Servers == "" && cfg.MCP.Stdio == "" {
@@ -33,6 +38,19 @@ func MCPServersEndpoint(cl *config.ModelConfigLoader, appConfig *config.Applicat
 		remote, stdio, err := cfg.MCP.MCPConfigFromYAML()
 		if err != nil {
 			return fmt.Errorf("failed to parse MCP config: %w", err)
+		}
+
+		// In distributed mode, route discovery through NATS to an agent worker
+		// that can actually connect to the MCP servers.
+		if mcpTools.IsDistributed() {
+			resp, err := mcpTools.DiscoverMCPToolsRemote(c.Request().Context(), cfg.Name, remote, stdio)
+			if err != nil {
+				return fmt.Errorf("remote MCP discovery failed: %w", err)
+			}
+			return c.JSON(200, map[string]any{
+				"model":   modelName,
+				"servers": resp.Servers,
+			})
 		}
 
 		namedSessions, err := mcpTools.NamedSessionsFromMCPConfig(cfg.Name, remote, stdio, nil)
@@ -71,6 +89,18 @@ func MCPServersEndpointFromMiddleware() echo.HandlerFunc {
 		remote, stdio, err := cfg.MCP.MCPConfigFromYAML()
 		if err != nil {
 			return fmt.Errorf("failed to parse MCP config: %w", err)
+		}
+
+		// In distributed mode, route discovery through NATS to an agent worker.
+		if mcpTools.IsDistributed() {
+			resp, err := mcpTools.DiscoverMCPToolsRemote(c.Request().Context(), cfg.Name, remote, stdio)
+			if err != nil {
+				return fmt.Errorf("remote MCP discovery failed: %w", err)
+			}
+			return c.JSON(200, map[string]any{
+				"model":   cfg.Name,
+				"servers": resp.Servers,
+			})
 		}
 
 		namedSessions, err := mcpTools.NamedSessionsFromMCPConfig(cfg.Name, remote, stdio, nil)

@@ -7,7 +7,7 @@ import (
 	"github.com/mudler/LocalAI/pkg/xsync"
 )
 
-type GalleryOp[T any, E any] struct {
+type ManagementOp[T any, E any] struct {
 	ID                 string
 	GalleryElementName string
 	Delete             bool
@@ -31,7 +31,7 @@ type GalleryOp[T any, E any] struct {
 	ExternalAlias string // Custom alias for the backend
 }
 
-type GalleryOpStatus struct {
+type OpStatus struct {
 	Deletion           bool    `json:"deletion"` // Deletion is true if the operation is a deletion
 	FileName           string  `json:"file_name"`
 	Error              error   `json:"error"`

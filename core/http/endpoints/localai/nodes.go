@@ -1,0 +1,544 @@
+package localai
+
+import (
+	"crypto/sha256"
+	"crypto/subtle"
+	"encoding/hex"
+	"fmt"
+	"io"
+	"net/http"
+	"net/url"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/gorilla/websocket"
+	"github.com/labstack/echo/v4"
+	"github.com/mudler/LocalAI/core/http/auth"
+	"github.com/mudler/LocalAI/core/services/nodes"
+	"github.com/mudler/xlog"
+	"gorm.io/gorm"
+)
+
+// ListNodesEndpoint returns all registered backend nodes.
+func ListNodesEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		nodeList, err := registry.List()
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		}
+		return c.JSON(http.StatusOK, nodeList)
+	}
+}
+
+// GetNodeEndpoint returns a single node by ID.
+func GetNodeEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		id := c.Param("id")
+		node, err := registry.Get(id)
+		if err != nil {
+			return c.JSON(http.StatusNotFound, map[string]string{"error": "node not found"})
+		}
+		return c.JSON(http.StatusOK, node)
+	}
+}
+
+// RegisterNodeRequest is the request body for registering a new worker node.
+type RegisterNodeRequest struct {
+	Name          string `json:"name"`
+	NodeType      string `json:"node_type,omitempty"` // "backend" (default) or "agent"
+	Address       string `json:"address"`
+	HTTPAddress   string `json:"http_address,omitempty"`
+	Token         string `json:"token,omitempty"`
+	TotalVRAM     uint64 `json:"total_vram,omitempty"`
+	AvailableVRAM uint64 `json:"available_vram,omitempty"`
+	TotalRAM      uint64 `json:"total_ram,omitempty"`
+	AvailableRAM  uint64 `json:"available_ram,omitempty"`
+	GPUVendor     string `json:"gpu_vendor,omitempty"`
+}
+
+// RegisterNodeEndpoint registers a new backend node.
+// expectedToken is the registration token configured on the frontend (may be empty to disable auth).
+// autoApprove controls whether new nodes go directly to "healthy" or require admin approval.
+func RegisterNodeEndpoint(registry *nodes.NodeRegistry, expectedToken string, autoApprove bool, authDB *gorm.DB, hmacSecret string) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		var req RegisterNodeRequest
+		if err := c.Bind(&req); err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+		}
+
+		// Validate registration token if one is configured on the frontend
+		if expectedToken != "" {
+			if req.Token == "" {
+				return c.JSON(http.StatusUnauthorized, map[string]string{"error": "registration token required"})
+			}
+			expectedHash := sha256.Sum256([]byte(expectedToken))
+			providedHash := sha256.Sum256([]byte(req.Token))
+			if subtle.ConstantTimeCompare(expectedHash[:], providedHash[:]) != 1 {
+				return c.JSON(http.StatusUnauthorized, map[string]string{"error": "invalid registration token"})
+			}
+		}
+
+		// Determine node type
+		nodeType := req.NodeType
+		if nodeType == "" {
+			nodeType = nodes.NodeTypeBackend
+		}
+
+		// Backend workers require address; agent workers don't serve gRPC
+		if req.Name == "" {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "name is required"})
+		}
+		if nodeType == nodes.NodeTypeBackend && req.Address == "" {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "address is required for backend workers"})
+		}
+
+		// Hash the token for storage (if provided)
+		var tokenHash string
+		if req.Token != "" {
+			h := sha256.Sum256([]byte(req.Token))
+			tokenHash = hex.EncodeToString(h[:])
+		}
+
+		node := &nodes.BackendNode{
+			Name:          req.Name,
+			NodeType:      nodeType,
+			Address:       req.Address,
+			HTTPAddress:   req.HTTPAddress,
+			TokenHash:     tokenHash,
+			TotalVRAM:     req.TotalVRAM,
+			AvailableVRAM: req.AvailableVRAM,
+			TotalRAM:      req.TotalRAM,
+			AvailableRAM:  req.AvailableRAM,
+			GPUVendor:     req.GPUVendor,
+		}
+
+		if err := registry.Register(node, autoApprove); err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		}
+
+		response := map[string]any{
+			"id":            node.ID,
+			"name":          node.Name,
+			"node_type":     node.NodeType,
+			"status":        node.Status,
+			"created_at":    node.CreatedAt,
+		}
+
+		// Provision API key for agent workers that are approved (not pending).
+		// On re-registration of a previously approved node, revoke old + provision new.
+		if nodeType == nodes.NodeTypeAgent && authDB != nil && node.Status != nodes.StatusPending {
+			// Revoke old credentials if re-registering
+			if node.AuthUserID != "" {
+				authDB.Exec("DELETE FROM users WHERE id = ?", node.AuthUserID)
+				node.AuthUserID = ""
+				node.APIKeyID = ""
+			}
+
+			if plaintext, err := provisionAgentWorkerKey(authDB, registry, node, hmacSecret); err != nil {
+				xlog.Warn("Failed to auto-provision API key for agent worker", "node", node.Name, "error", err)
+			} else {
+				response["api_token"] = plaintext
+			}
+		}
+
+		return c.JSON(http.StatusOK, response)
+	}
+}
+
+// ApproveNodeEndpoint approves a pending node, setting its status to healthy.
+// For agent workers, it also provisions an API key so they can call the inference API.
+func ApproveNodeEndpoint(registry *nodes.NodeRegistry, authDB *gorm.DB, hmacSecret string) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		id := c.Param("id")
+		if err := registry.ApproveNode(id); err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+		}
+		node, err := registry.Get(id)
+		if err != nil {
+			return c.JSON(http.StatusOK, map[string]string{"message": "node approved"})
+		}
+
+		response := map[string]any{
+			"id":        node.ID,
+			"name":      node.Name,
+			"node_type": node.NodeType,
+			"status":    node.Status,
+			"message":   "node approved",
+		}
+
+		// Provision API key for newly approved agent workers
+		if node.NodeType == nodes.NodeTypeAgent && authDB != nil && node.AuthUserID == "" {
+			if plaintext, err := provisionAgentWorkerKey(authDB, registry, node, hmacSecret); err != nil {
+				xlog.Warn("Failed to provision API key on approval", "node", node.Name, "error", err)
+			} else {
+				response["api_token"] = plaintext
+			}
+		}
+
+		return c.JSON(http.StatusOK, response)
+	}
+}
+
+// provisionAgentWorkerKey creates a dedicated user and API key for an agent worker node.
+// Returns the plaintext API key on success.
+func provisionAgentWorkerKey(authDB *gorm.DB, registry *nodes.NodeRegistry, node *nodes.BackendNode, hmacSecret string) (string, error) {
+	workerUser := &auth.User{
+		ID:        uuid.New().String(),
+		Name:      "agent-worker:" + node.Name,
+		Provider:  auth.ProviderAgentWorker,
+		Subject:   node.ID,
+		Role:      "user",
+		Status:    "active",
+		CreatedAt: time.Now(),
+	}
+	if err := authDB.Create(workerUser).Error; err != nil {
+		return "", fmt.Errorf("creating agent worker user: %w", err)
+	}
+
+	plaintext, apiKey, err := auth.CreateAPIKey(authDB, workerUser.ID, "agent-worker:"+node.Name, "user", hmacSecret, nil)
+	if err != nil {
+		return "", fmt.Errorf("creating API key: %w", err)
+	}
+
+	node.AuthUserID = workerUser.ID
+	node.APIKeyID = apiKey.ID
+	registry.UpdateAuthRefs(node.ID, workerUser.ID, apiKey.ID)
+
+	// Grant collections feature so the worker can store/retrieve KB data on behalf of users.
+	perm := &auth.UserPermission{
+		ID:          uuid.New().String(),
+		UserID:      workerUser.ID,
+		Permissions: auth.PermissionMap{auth.FeatureCollections: true},
+	}
+	if err := authDB.Create(perm).Error; err != nil {
+		xlog.Warn("Failed to grant collections permission to agent worker", "node", node.Name, "error", err)
+	}
+
+	xlog.Info("Provisioned API key for agent worker", "node", node.Name, "user", workerUser.ID)
+	return plaintext, nil
+}
+
+// DeregisterNodeEndpoint removes a backend node permanently (admin use).
+func DeregisterNodeEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		id := c.Param("id")
+		if err := registry.Deregister(id); err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		}
+		return c.JSON(http.StatusOK, map[string]string{"message": "node deregistered"})
+	}
+}
+
+// DeactivateNodeEndpoint marks a node as offline without deleting it.
+// Used by workers on graceful shutdown to preserve approval status across restarts.
+func DeactivateNodeEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		id := c.Param("id")
+		if err := registry.MarkOffline(id); err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		}
+		return c.JSON(http.StatusOK, map[string]string{"message": "node set to offline"})
+	}
+}
+
+// HeartbeatEndpoint updates the heartbeat for a node.
+func HeartbeatEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		id := c.Param("id")
+
+		// Parse optional VRAM update from body
+		var update nodes.HeartbeatUpdate
+		_ = c.Bind(&update) // best-effort — empty body is fine
+
+		var updatePtr *nodes.HeartbeatUpdate
+		if update.AvailableVRAM != nil || update.TotalVRAM != nil || update.AvailableRAM != nil || update.GPUVendor != "" {
+			updatePtr = &update
+		}
+
+		if err := registry.Heartbeat(id, updatePtr); err != nil {
+			return c.JSON(http.StatusNotFound, map[string]string{"error": err.Error()})
+		}
+		return c.JSON(http.StatusOK, map[string]string{"message": "heartbeat received"})
+	}
+}
+
+// GetNodeModelsEndpoint returns the models loaded on a node.
+func GetNodeModelsEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		id := c.Param("id")
+		models, err := registry.GetNodeModels(id)
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		}
+		return c.JSON(http.StatusOK, models)
+	}
+}
+
+// DrainNodeEndpoint sets a node to draining status (no new requests).
+func DrainNodeEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		id := c.Param("id")
+		if err := registry.MarkDraining(id); err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		}
+		return c.JSON(http.StatusOK, map[string]string{"message": "node set to draining"})
+	}
+}
+
+// InstallBackendOnNodeEndpoint triggers backend installation on a worker node via NATS.
+func InstallBackendOnNodeEndpoint(unloader *nodes.RemoteUnloaderAdapter) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		if unloader == nil {
+			return c.JSON(http.StatusServiceUnavailable, map[string]string{"error": "NATS not configured"})
+		}
+		nodeID := c.Param("id")
+		var req struct {
+			Backend          string `json:"backend"`
+			BackendGalleries string `json:"backend_galleries,omitempty"`
+		}
+		if err := c.Bind(&req); err != nil || req.Backend == "" {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "backend name required"})
+		}
+		reply, err := unloader.InstallBackend(nodeID, req.Backend, "", req.BackendGalleries)
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		}
+		if !reply.Success {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": reply.Error})
+		}
+		return c.JSON(http.StatusOK, map[string]string{"message": "backend installed"})
+	}
+}
+
+// DeleteBackendOnNodeEndpoint deletes a backend from a worker node via NATS.
+func DeleteBackendOnNodeEndpoint(unloader *nodes.RemoteUnloaderAdapter) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		if unloader == nil {
+			return c.JSON(http.StatusServiceUnavailable, map[string]string{"error": "NATS not configured"})
+		}
+		nodeID := c.Param("id")
+		var req struct {
+			Backend string `json:"backend"`
+		}
+		if err := c.Bind(&req); err != nil || req.Backend == "" {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "backend name required"})
+		}
+		reply, err := unloader.DeleteBackend(nodeID, req.Backend)
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		}
+		if !reply.Success {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": reply.Error})
+		}
+		return c.JSON(http.StatusOK, map[string]string{"message": "backend deleted"})
+	}
+}
+
+// ListBackendsOnNodeEndpoint lists installed backends on a worker node via NATS.
+func ListBackendsOnNodeEndpoint(unloader *nodes.RemoteUnloaderAdapter) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		if unloader == nil {
+			return c.JSON(http.StatusServiceUnavailable, map[string]string{"error": "NATS not configured"})
+		}
+		nodeID := c.Param("id")
+		reply, err := unloader.ListBackends(nodeID)
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		}
+		if reply.Error != "" {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": reply.Error})
+		}
+		return c.JSON(http.StatusOK, reply.Backends)
+	}
+}
+
+// UnloadModelOnNodeEndpoint unloads a model from a worker node (gRPC Free) via NATS.
+func UnloadModelOnNodeEndpoint(unloader *nodes.RemoteUnloaderAdapter, registry *nodes.NodeRegistry) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		if unloader == nil {
+			return c.JSON(http.StatusServiceUnavailable, map[string]string{"error": "NATS not configured"})
+		}
+		nodeID := c.Param("id")
+		var req struct {
+			ModelName string `json:"model_name"`
+		}
+		if err := c.Bind(&req); err != nil || req.ModelName == "" {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "model_name required"})
+		}
+		if err := unloader.UnloadModelOnNode(nodeID, req.ModelName); err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		}
+		// Also stop the backend process
+		if err := unloader.StopBackend(nodeID); err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "model unloaded but backend stop failed: " + err.Error()})
+		}
+		// Remove from registry
+		registry.RemoveNodeModel(nodeID, req.ModelName)
+		return c.JSON(http.StatusOK, map[string]string{"message": "model unloaded"})
+	}
+}
+
+// DeleteModelOnNodeEndpoint deletes model files from a worker node via NATS.
+func DeleteModelOnNodeEndpoint(unloader *nodes.RemoteUnloaderAdapter, registry *nodes.NodeRegistry) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		if unloader == nil {
+			return c.JSON(http.StatusServiceUnavailable, map[string]string{"error": "NATS not configured"})
+		}
+		nodeID := c.Param("id")
+		var req struct {
+			ModelName string `json:"model_name"`
+		}
+		if err := c.Bind(&req); err != nil || req.ModelName == "" {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "model_name required"})
+		}
+		// Stop model first if loaded
+		if err := unloader.UnloadModelOnNode(nodeID, req.ModelName); err != nil {
+			// Non-fatal — model might not be loaded
+		}
+		if err := unloader.StopBackend(nodeID); err != nil {
+			// Non-fatal
+		}
+		registry.RemoveNodeModel(nodeID, req.ModelName)
+		return c.JSON(http.StatusOK, map[string]string{"message": "model deleted from node"})
+	}
+}
+
+// NodeBackendLogsListEndpoint proxies a request to a worker node's /v1/backend-logs
+// endpoint to list model IDs that have backend logs.
+func NodeBackendLogsListEndpoint(registry *nodes.NodeRegistry, registrationToken string) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		nodeID := c.Param("id")
+		node, err := registry.Get(nodeID)
+		if err != nil {
+			return c.JSON(http.StatusNotFound, map[string]string{"error": "node not found"})
+		}
+
+		resp, err := proxyHTTPToWorker(node.HTTPAddress, "/v1/backend-logs", registrationToken)
+		if err != nil {
+			return c.JSON(http.StatusBadGateway, map[string]string{"error": fmt.Sprintf("failed to reach worker: %v", err)})
+		}
+		defer resp.Body.Close()
+
+		c.Response().Header().Set("Content-Type", "application/json")
+		c.Response().WriteHeader(resp.StatusCode)
+		io.Copy(c.Response(), resp.Body)
+		return nil
+	}
+}
+
+// NodeBackendLogsLinesEndpoint proxies a request to a worker node's
+// /v1/backend-logs/{modelId} endpoint to get buffered log lines.
+func NodeBackendLogsLinesEndpoint(registry *nodes.NodeRegistry, registrationToken string) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		nodeID := c.Param("id")
+		modelID := c.Param("modelId")
+
+		node, err := registry.Get(nodeID)
+		if err != nil {
+			return c.JSON(http.StatusNotFound, map[string]string{"error": "node not found"})
+		}
+
+		path := "/v1/backend-logs/" + url.PathEscape(modelID)
+		resp, err := proxyHTTPToWorker(node.HTTPAddress, path, registrationToken)
+		if err != nil {
+			return c.JSON(http.StatusBadGateway, map[string]string{"error": fmt.Sprintf("failed to reach worker: %v", err)})
+		}
+		defer resp.Body.Close()
+
+		c.Response().Header().Set("Content-Type", "application/json")
+		c.Response().WriteHeader(resp.StatusCode)
+		io.Copy(c.Response(), resp.Body)
+		return nil
+	}
+}
+
+// NodeBackendLogsWSEndpoint proxies a WebSocket connection to a worker node's
+// /v1/backend-logs/{modelId}/ws endpoint for real-time log streaming.
+func NodeBackendLogsWSEndpoint(registry *nodes.NodeRegistry, registrationToken string) echo.HandlerFunc {
+	browserUpgrader := websocket.Upgrader{
+		CheckOrigin: func(r *http.Request) bool { return true },
+	}
+
+	return func(c echo.Context) error {
+		nodeID := c.Param("id")
+		modelID := c.Param("modelId")
+
+		node, err := registry.Get(nodeID)
+		if err != nil {
+			return c.JSON(http.StatusNotFound, map[string]string{"error": "node not found"})
+		}
+
+		// Upgrade browser connection
+		browserWS, err := browserUpgrader.Upgrade(c.Response(), c.Request(), nil)
+		if err != nil {
+			return err
+		}
+		defer browserWS.Close()
+
+		// Dial the worker WebSocket
+		workerURL := fmt.Sprintf("ws://%s/v1/backend-logs/%s/ws", node.HTTPAddress, url.PathEscape(modelID))
+		workerHeaders := http.Header{}
+		if registrationToken != "" {
+			workerHeaders.Set("Authorization", "Bearer "+registrationToken)
+		}
+
+		workerDialer := websocket.Dialer{HandshakeTimeout: 10 * time.Second}
+		workerWS, _, err := workerDialer.Dial(workerURL, workerHeaders)
+		if err != nil {
+			browserWS.WriteMessage(websocket.CloseMessage,
+				websocket.FormatCloseMessage(websocket.CloseInternalServerErr, "failed to connect to worker"))
+			return nil
+		}
+		defer workerWS.Close()
+
+		// Bidirectional proxy
+		done := make(chan struct{})
+
+		// Worker → Browser
+		go func() {
+			defer close(done)
+			for {
+				msgType, msg, err := workerWS.ReadMessage()
+				if err != nil {
+					return
+				}
+				if err := browserWS.WriteMessage(msgType, msg); err != nil {
+					return
+				}
+			}
+		}()
+
+		// Browser → Worker (mainly for close detection)
+		go func() {
+			for {
+				msgType, msg, err := browserWS.ReadMessage()
+				if err != nil {
+					workerWS.Close()
+					return
+				}
+				if err := workerWS.WriteMessage(msgType, msg); err != nil {
+					return
+				}
+			}
+		}()
+
+		<-done
+		return nil
+	}
+}
+
+// proxyHTTPToWorker makes a GET request to a worker's HTTP server with bearer token auth.
+func proxyHTTPToWorker(httpAddress, path, token string) (*http.Response, error) {
+	reqURL := fmt.Sprintf("http://%s%s", httpAddress, path)
+	req, err := http.NewRequest("GET", reqURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	if token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
+
+	client := &http.Client{Timeout: 15 * time.Second}
+	return client.Do(req)
+}
+

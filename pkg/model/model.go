@@ -23,6 +23,16 @@ func NewModel(ID, address string, process *process.Process) *Model {
 	}
 }
 
+// NewModelWithClient creates a Model with a pre-configured gRPC client.
+// Used in distributed mode where the client is wrapped with file staging.
+func NewModelWithClient(ID, address string, client grpc.Backend) *Model {
+	return &Model{
+		ID:      ID,
+		address: address,
+		client:  client,
+	}
+}
+
 func (m *Model) Process() *process.Process {
 	return m.process
 }

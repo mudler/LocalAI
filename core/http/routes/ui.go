@@ -88,97 +88,101 @@ func RegisterUIRoutes(app *echo.Echo,
 		return c.NoContent(204)
 	}, adminMiddleware)
 
-	// Backend logs REST endpoints
-	app.GET("/api/backend-logs", func(c echo.Context) error {
-		return c.JSON(200, ml.BackendLogs().ListModels())
-	}, adminMiddleware)
+	// Backend logs endpoints — only in standalone mode.
+	// In distributed mode, backend processes run on workers and logs are
+	// streamed via /api/nodes/:id/backend-logs and /ws/nodes/:id/backend-logs/:modelId.
+	if !appConfig.Distributed.Enabled {
+		app.GET("/api/backend-logs", func(c echo.Context) error {
+			return c.JSON(200, ml.BackendLogs().ListModels())
+		}, adminMiddleware)
 
-	app.GET("/api/backend-logs/:modelId", func(c echo.Context) error {
-		modelID := c.Param("modelId")
-		return c.JSON(200, ml.BackendLogs().GetLines(modelID))
-	}, adminMiddleware)
+		app.GET("/api/backend-logs/:modelId", func(c echo.Context) error {
+			modelID := c.Param("modelId")
+			return c.JSON(200, ml.BackendLogs().GetLines(modelID))
+		}, adminMiddleware)
 
-	app.POST("/api/backend-logs/:modelId/clear", func(c echo.Context) error {
-		ml.BackendLogs().Clear(c.Param("modelId"))
-		return c.NoContent(204)
-	}, adminMiddleware)
+		app.POST("/api/backend-logs/:modelId/clear", func(c echo.Context) error {
+			ml.BackendLogs().Clear(c.Param("modelId"))
+			return c.NoContent(204)
+		}, adminMiddleware)
 
-	// Backend logs WebSocket endpoint for real-time streaming
-	app.GET("/ws/backend-logs/:modelId", func(c echo.Context) error {
-		modelID := c.Param("modelId")
+		// Backend logs WebSocket endpoint for real-time streaming
+		app.GET("/ws/backend-logs/:modelId", func(c echo.Context) error {
+			modelID := c.Param("modelId")
 
-		ws, err := backendLogsUpgrader.Upgrade(c.Response(), c.Request(), nil)
-		if err != nil {
-			return err
-		}
-		defer ws.Close()
-
-		ws.SetReadLimit(4096)
-
-		// Set up ping/pong for keepalive
-		ws.SetReadDeadline(time.Now().Add(90 * time.Second))
-		ws.SetPongHandler(func(string) error {
-			ws.SetReadDeadline(time.Now().Add(90 * time.Second))
-			return nil
-		})
-
-		conn := &backendLogsConn{Conn: ws}
-
-		// Send existing lines as initial batch
-		existingLines := ml.BackendLogs().GetLines(modelID)
-		initialMsg := map[string]any{
-			"type":  "initial",
-			"lines": existingLines,
-		}
-		if err := conn.writeJSON(initialMsg); err != nil {
-			xlog.Debug("WebSocket backend-logs initial write failed", "error", err)
-			return nil
-		}
-
-		// Subscribe to new lines
-		lineCh, unsubscribe := ml.BackendLogs().Subscribe(modelID)
-		defer unsubscribe()
-
-		// Handle close from client side
-		closeCh := make(chan struct{})
-		go func() {
-			for {
-				_, _, err := ws.ReadMessage()
-				if err != nil {
-					close(closeCh)
-					return
-				}
+			ws, err := backendLogsUpgrader.Upgrade(c.Response(), c.Request(), nil)
+			if err != nil {
+				return err
 			}
-		}()
+			defer ws.Close()
 
-		// Ping ticker for keepalive
-		pingTicker := time.NewTicker(30 * time.Second)
-		defer pingTicker.Stop()
+			ws.SetReadLimit(4096)
 
-		// Forward new lines to WebSocket
-		for {
-			select {
-			case line, ok := <-lineCh:
-				if !ok {
-					return nil
-				}
-				lineMsg := map[string]any{
-					"type": "line",
-					"line": line,
-				}
-				if err := conn.writeJSON(lineMsg); err != nil {
-					xlog.Debug("WebSocket backend-logs write error", "error", err)
-					return nil
-				}
-			case <-pingTicker.C:
-				if err := conn.writePing(); err != nil {
-					return nil
-				}
-			case <-closeCh:
+			// Set up ping/pong for keepalive
+			ws.SetReadDeadline(time.Now().Add(90 * time.Second))
+			ws.SetPongHandler(func(string) error {
+				ws.SetReadDeadline(time.Now().Add(90 * time.Second))
+				return nil
+			})
+
+			conn := &backendLogsConn{Conn: ws}
+
+			// Send existing lines as initial batch
+			existingLines := ml.BackendLogs().GetLines(modelID)
+			initialMsg := map[string]any{
+				"type":  "initial",
+				"lines": existingLines,
+			}
+			if err := conn.writeJSON(initialMsg); err != nil {
+				xlog.Debug("WebSocket backend-logs initial write failed", "error", err)
 				return nil
 			}
-		}
-	}, adminMiddleware)
+
+			// Subscribe to new lines
+			lineCh, unsubscribe := ml.BackendLogs().Subscribe(modelID)
+			defer unsubscribe()
+
+			// Handle close from client side
+			closeCh := make(chan struct{})
+			go func() {
+				for {
+					_, _, err := ws.ReadMessage()
+					if err != nil {
+						close(closeCh)
+						return
+					}
+				}
+			}()
+
+			// Ping ticker for keepalive
+			pingTicker := time.NewTicker(30 * time.Second)
+			defer pingTicker.Stop()
+
+			// Forward new lines to WebSocket
+			for {
+				select {
+				case line, ok := <-lineCh:
+					if !ok {
+						return nil
+					}
+					lineMsg := map[string]any{
+						"type": "line",
+						"line": line,
+					}
+					if err := conn.writeJSON(lineMsg); err != nil {
+						xlog.Debug("WebSocket backend-logs write error", "error", err)
+						return nil
+					}
+				case <-pingTicker.C:
+					if err := conn.writePing(); err != nil {
+						return nil
+					}
+				case <-closeCh:
+					return nil
+				}
+			}
+		}, adminMiddleware)
+	}
 }
 
 // backendLogsConn wraps a websocket connection with a mutex for safe concurrent writes

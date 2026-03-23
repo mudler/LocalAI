@@ -17,14 +17,26 @@ import (
 	"github.com/mudler/xlog"
 )
 
-func (g *GalleryService) backendHandler(op *GalleryOp[gallery.GalleryBackend, any], systemState *system.SystemState) error {
+func (g *GalleryService) backendHandler(op *ManagementOp[gallery.GalleryBackend, any], systemState *system.SystemState) error {
 	utils.ResetDownloadTimers()
+
+	// Dedup check in distributed mode — skip if another instance is already processing this element
+	if g.galleryStore != nil && op.GalleryElementName != "" {
+		dup, err := g.galleryStore.FindDuplicate(op.GalleryElementName)
+		if err == nil && dup != nil && dup.ID != op.ID {
+			g.UpdateStatus(op.ID, &OpStatus{
+				Processed: true,
+				Message:   fmt.Sprintf("already being processed by another instance (op %s)", dup.ID),
+			})
+			return nil
+		}
+	}
 
 	// Check if already cancelled
 	if op.Context != nil {
 		select {
 		case <-op.Context.Done():
-			g.UpdateStatus(op.ID, &GalleryOpStatus{
+			g.UpdateStatus(op.ID, &OpStatus{
 				Cancelled:          true,
 				Processed:          true,
 				Message:            "cancelled",
@@ -35,7 +47,7 @@ func (g *GalleryService) backendHandler(op *GalleryOp[gallery.GalleryBackend, an
 		}
 	}
 
-	g.UpdateStatus(op.ID, &GalleryOpStatus{Message: fmt.Sprintf("processing backend: %s", op.GalleryElementName), Progress: 0, Cancellable: true})
+	g.UpdateStatus(op.ID, &OpStatus{Message: fmt.Sprintf("processing backend: %s", op.GalleryElementName), Progress: 0, Cancellable: true})
 
 	// displayDownload displays the download progress
 	progressCallback := func(fileName string, current string, total string, percentage float64) {
@@ -47,7 +59,7 @@ func (g *GalleryService) backendHandler(op *GalleryOp[gallery.GalleryBackend, an
 			default:
 			}
 		}
-		g.UpdateStatus(op.ID, &GalleryOpStatus{Message: fmt.Sprintf(processingMessage, fileName, total, current), FileName: fileName, Progress: percentage, TotalFileSize: total, DownloadedFileSize: current, Cancellable: true})
+		g.UpdateStatus(op.ID, &OpStatus{Message: fmt.Sprintf(processingMessage, fileName, total, current), FileName: fileName, Progress: percentage, TotalFileSize: total, DownloadedFileSize: current, Cancellable: true})
 		utils.DisplayDownloadFunction(fileName, current, total, percentage)
 	}
 
@@ -58,26 +70,18 @@ func (g *GalleryService) backendHandler(op *GalleryOp[gallery.GalleryBackend, an
 
 	var err error
 	if op.Delete {
-		err = gallery.DeleteBackendFromSystem(g.appConfig.SystemState, op.GalleryElementName)
-		g.modelLoader.DeleteExternalBackend(op.GalleryElementName)
-	} else if op.ExternalURI != "" {
-		// External backend installation (OCI image, URL, or path)
-		xlog.Info("Installing external backend", "uri", op.ExternalURI, "name", op.ExternalName, "alias", op.ExternalAlias)
-		err = InstallExternalBackend(ctx, g.appConfig.BackendGalleries, systemState, g.modelLoader, progressCallback, op.ExternalURI, op.ExternalName, op.ExternalAlias)
+		err = g.backendManager.DeleteBackend(op.GalleryElementName)
+	} else {
+		err = g.backendManager.InstallBackend(ctx, op, progressCallback)
 		// Update GalleryElementName for status tracking if a name was derived
 		if op.ExternalName != "" {
 			op.GalleryElementName = op.ExternalName
 		}
-	} else {
-		// Standard gallery installation
-		xlog.Warn("installing backend", "backend", op.GalleryElementName)
-		xlog.Debug("backend galleries", "galleries", g.appConfig.BackendGalleries)
-		err = gallery.InstallBackendFromGallery(ctx, g.appConfig.BackendGalleries, systemState, g.modelLoader, op.GalleryElementName, progressCallback, true)
 	}
 	if err != nil {
 		// Check if error is due to cancellation
 		if op.Context != nil && errors.Is(err, op.Context.Err()) {
-			g.UpdateStatus(op.ID, &GalleryOpStatus{
+			g.UpdateStatus(op.ID, &OpStatus{
 				Cancelled:          true,
 				Processed:          true,
 				Message:            "cancelled",
@@ -94,7 +98,7 @@ func (g *GalleryService) backendHandler(op *GalleryOp[gallery.GalleryBackend, an
 	}
 
 	g.UpdateStatus(op.ID,
-		&GalleryOpStatus{
+		&OpStatus{
 			Deletion:           op.Delete,
 			Processed:          true,
 			GalleryElementName: op.GalleryElementName,

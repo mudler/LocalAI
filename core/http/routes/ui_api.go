@@ -392,56 +392,37 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 				"backend":         m.Backend,
 			}
 
+			// Build EstimateModel input from available metadata
+			var estimateInput vram.ModelEstimateInput
+			estimateInput.Options = vram.EstimateOptions{ContextLength: 8192}
+			estimateInput.Size = m.Size
+			if hfRepoID := extractHFRepo(m.Overrides, m.URLs); hfRepoID != "" {
+				estimateInput.HFRepo = hfRepoID
+			}
+
 			if hasWeightFiles(m.AdditionalFiles) {
 				files := make([]gallery.File, len(m.AdditionalFiles))
 				copy(files, m.AdditionalFiles)
-				wg.Add(1)
-				go func(files []gallery.File, out map[string]interface{}) {
-					defer wg.Done()
-					sem <- struct{}{}
-					defer func() { <-sem }()
-					inputs := make([]vram.FileInput, 0, len(files))
-					for _, f := range files {
-						ext := strings.ToLower(path.Ext(path.Base(f.URI)))
-						if weightExts[ext] {
-							inputs = append(inputs, vram.FileInput{URI: f.URI, Size: 0})
-						}
+				for _, f := range files {
+					ext := strings.ToLower(path.Ext(path.Base(f.URI)))
+					if weightExts[ext] {
+						estimateInput.Files = append(estimateInput.Files, vram.FileInput{URI: f.URI, Size: 0})
 					}
-					if len(inputs) == 0 {
-						return
-					}
-					ctx, cancel := context.WithTimeout(context.Background(), estimateTimeout)
-					defer cancel()
-					opts := vram.EstimateOptions{ContextLength: 8192}
-					result, err := vram.Estimate(ctx, inputs, opts, vram.DefaultCachedSizeResolver(), vram.DefaultCachedGGUFReader())
-					if err == nil {
-						if result.SizeBytes > 0 {
-							out["estimated_size_bytes"] = result.SizeBytes
-							out["estimated_size_display"] = result.SizeDisplay
-						}
-						if result.VRAMBytes > 0 {
-							out["estimated_vram_bytes"] = result.VRAMBytes
-							out["estimated_vram_display"] = result.VRAMDisplay
-						}
-					}
-				}(files, obj)
-			} else if m.Size != "" {
-				if sizeBytes, err := vram.ParseSizeString(m.Size); err == nil && sizeBytes > 0 {
-					result := vram.EstimateFromSize(sizeBytes)
-					obj["estimated_size_bytes"] = result.SizeBytes
-					obj["estimated_size_display"] = result.SizeDisplay
-					obj["estimated_vram_bytes"] = result.VRAMBytes
-					obj["estimated_vram_display"] = result.VRAMDisplay
 				}
-			} else if hfRepoID := extractHFRepo(m.Overrides, m.URLs); hfRepoID != "" {
+			}
+
+			// Run estimation (async for file-based and HF repo, sync for size string only)
+			needsAsync := len(estimateInput.Files) > 0 || estimateInput.HFRepo != ""
+			if needsAsync {
+				input := estimateInput
 				wg.Add(1)
-				go func(repoID string, out map[string]interface{}) {
+				go func(input vram.ModelEstimateInput, out map[string]interface{}) {
 					defer wg.Done()
 					sem <- struct{}{}
 					defer func() { <-sem }()
 					ctx, cancel := context.WithTimeout(context.Background(), hfEstimateTimeout)
 					defer cancel()
-					result, err := vram.EstimateFromHFRepo(ctx, repoID)
+					result, err := vram.EstimateModel(ctx, input)
 					if err == nil {
 						if result.SizeBytes > 0 {
 							out["estimated_size_bytes"] = result.SizeBytes
@@ -452,7 +433,17 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 							out["estimated_vram_display"] = result.VRAMDisplay
 						}
 					}
-				}(hfRepoID, obj)
+				}(input, obj)
+			} else if estimateInput.Size != "" {
+				result, _ := vram.EstimateModel(context.Background(), estimateInput)
+				if result.SizeBytes > 0 {
+					obj["estimated_size_bytes"] = result.SizeBytes
+					obj["estimated_size_display"] = result.SizeDisplay
+				}
+				if result.VRAMBytes > 0 {
+					obj["estimated_vram_bytes"] = result.VRAMBytes
+					obj["estimated_vram_display"] = result.VRAMDisplay
+				}
 			}
 
 			modelsJSON = append(modelsJSON, obj)
@@ -568,7 +559,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		opcache.Set(galleryID, uid)
 
 		ctx, cancelFunc := context.WithCancel(context.Background())
-		op := services.GalleryOp[gallery.GalleryModel, gallery.ModelConfig]{
+		op := services.ManagementOp[gallery.GalleryModel, gallery.ModelConfig]{
 			ID:                 uid,
 			GalleryElementName: galleryID,
 			Galleries:          appConfig.Galleries,
@@ -616,7 +607,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		opcache.Set(galleryID, uid)
 
 		ctx, cancelFunc := context.WithCancel(context.Background())
-		op := services.GalleryOp[gallery.GalleryModel, gallery.ModelConfig]{
+		op := services.ManagementOp[gallery.GalleryModel, gallery.ModelConfig]{
 			ID:                 uid,
 			Delete:             true,
 			GalleryElementName: galleryName,
@@ -798,6 +789,18 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			})
 		}
 
+		// Use the BackendManager's list to determine installed status.
+		// In standalone mode this checks the local filesystem; in distributed
+		// mode it aggregates from all healthy worker nodes.
+		installedBackends, listErr := galleryService.ListBackends()
+		if listErr == nil {
+			for i, b := range backends {
+				if installedBackends.Exists(b.GetName()) {
+					backends[i].Installed = true
+				}
+			}
+		}
+
 		// Get all available tags
 		allTags := map[string]struct{}{}
 		tags := []string{}
@@ -906,11 +909,15 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			nextPage = totalPages
 		}
 
-		// Calculate installed backends count
-		installedBackends, err := gallery.ListSystemBackends(appConfig.SystemState)
+		// Calculate installed backends count (reuse the already-fetched data)
 		installedBackendsCount := 0
-		if err == nil {
+		if listErr == nil {
 			installedBackendsCount = len(installedBackends)
+		} else {
+			// Fallback to local listing if manager listing failed
+			if localBackends, localErr := gallery.ListSystemBackends(appConfig.SystemState); localErr == nil {
+				installedBackendsCount = len(localBackends)
+			}
 		}
 
 		// Get the detected system capability
@@ -957,7 +964,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		opcache.SetBackend(backendID, uid)
 
 		ctx, cancelFunc := context.WithCancel(context.Background())
-		op := services.GalleryOp[gallery.GalleryBackend, any]{
+		op := services.ManagementOp[gallery.GalleryBackend, any]{
 			ID:                 uid,
 			GalleryElementName: backendID,
 			Galleries:          appConfig.BackendGalleries,
@@ -1018,7 +1025,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		opcache.SetBackend(cacheKey, uid)
 
 		ctx, cancelFunc := context.WithCancel(context.Background())
-		op := services.GalleryOp[gallery.GalleryBackend, any]{
+		op := services.ManagementOp[gallery.GalleryBackend, any]{
 			ID:                 uid,
 			GalleryElementName: req.Name, // May be empty, will be derived during installation
 			Galleries:          appConfig.BackendGalleries,
@@ -1068,7 +1075,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		opcache.SetBackend(backendID, uid)
 
 		ctx, cancelFunc := context.WithCancel(context.Background())
-		op := services.GalleryOp[gallery.GalleryBackend, any]{
+		op := services.ManagementOp[gallery.GalleryBackend, any]{
 			ID:                 uid,
 			Delete:             true,
 			GalleryElementName: backendName,
@@ -1137,8 +1144,9 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		}
 		xlog.Debug("API request to delete system backend", "backendName", backendName)
 
-		// Use the gallery package to delete the backend
-		if err := gallery.DeleteBackendFromSystem(appConfig.SystemState, backendName); err != nil {
+		// Use the gallery service's backend manager, which in distributed mode
+		// fans out deletion to worker nodes via NATS.
+		if err := galleryService.DeleteBackend(backendName); err != nil {
 			xlog.Error("Failed to delete backend", "error", err, "backendName", backendName)
 			return c.JSON(http.StatusInternalServerError, map[string]interface{}{
 				"error": err.Error(),

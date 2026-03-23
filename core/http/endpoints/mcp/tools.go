@@ -12,6 +12,9 @@ import (
 	"time"
 
 	"github.com/mudler/LocalAI/core/config"
+	mcpRemote "github.com/mudler/LocalAI/core/services/mcp"
+	"github.com/mudler/LocalAI/core/services/messaging"
+
 	"github.com/mudler/LocalAI/pkg/functions"
 	"github.com/mudler/LocalAI/pkg/signals"
 
@@ -87,7 +90,21 @@ var (
 	}
 
 	client = mcp.NewClient(&mcp.Implementation{Name: "LocalAI", Version: "v1.0.0"}, nil)
+
+	// Distributed mode: NATS client for routing MCP requests to agent workers
+	mcpNATSClient MCPNATSClient
 )
+
+// MCPNATSClient is the interface for NATS request-reply operations needed by MCP routing.
+type MCPNATSClient interface {
+	Request(subject string, data []byte, timeout time.Duration) ([]byte, error)
+}
+
+// SetMCPNATSClient sets the NATS client for distributed MCP routing.
+// When set, MCP tool execution and discovery are routed to agent workers.
+func SetMCPNATSClient(nc MCPNATSClient) {
+	mcpNATSClient = nc
+}
 
 // MCPServersFromMetadata extracts the MCP server list from the metadata map
 // and returns the list. The "mcp_servers" key is consumed (deleted from the map)
@@ -114,6 +131,29 @@ func SessionsFromMCPConfig(
 	defer cache.mu.Unlock()
 
 	sessions, exists := cache.cache[name]
+
+	// Verify cached sessions are still alive.
+	if exists {
+		pingCtx, pingCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer pingCancel()
+		alive := true
+		for _, s := range sessions {
+			if err := s.Ping(pingCtx, nil); err != nil {
+				xlog.Warn("MCP session dead, evicting cache", "name", name, "error", err)
+				alive = false
+				break
+			}
+		}
+		if !alive {
+			if cancel, ok := cache.cancels[name]; ok {
+				cancel()
+			}
+			delete(cache.cache, name)
+			delete(cache.cancels, name)
+			exists = false
+		}
+	}
+
 	if exists {
 		return sessions, nil
 	}
@@ -177,6 +217,32 @@ func NamedSessionsFromMCPConfig(
 	defer namedCache.mu.Unlock()
 
 	allSessions, exists := namedCache.cache[name]
+
+	// If cached, verify sessions are still alive via Ping.
+	// Dead sessions (e.g. exited stdio containers) are evicted so they get recreated.
+	if exists {
+		pingCtx, pingCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer pingCancel()
+		alive := true
+		for _, ns := range allSessions {
+			if err := ns.Session.Ping(pingCtx, nil); err != nil {
+				xlog.Warn("MCP session dead, evicting cache", "server", ns.Name, "error", err)
+				alive = false
+				break
+			}
+		}
+		if !alive {
+			// Close dead sessions and recreate
+			if cancel, ok := namedCache.cancels[name]; ok {
+				cancel()
+			}
+			delete(namedCache.cache, name)
+			delete(namedCache.cancels, name)
+			exists = false
+			allSessions = nil
+		}
+	}
+
 	if !exists {
 		ctx, cancel := context.WithCancel(context.Background())
 
@@ -339,6 +405,87 @@ func ExecuteMCPToolCall(ctx context.Context, tools []MCPToolInfo, toolName strin
 	}
 	combined, _ := json.Marshal(texts)
 	return string(combined), nil
+}
+
+// ExecuteMCPToolCallRemote routes an MCP tool execution request to an agent worker via NATS.
+// Used in distributed mode when the frontend doesn't hold MCP sessions locally.
+func ExecuteMCPToolCallRemote(
+	ctx context.Context,
+	modelName string,
+	remote config.MCPGenericConfig[config.MCPRemoteServers],
+	stdio config.MCPGenericConfig[config.MCPSTDIOServers],
+	toolName, arguments string,
+) (string, error) {
+	if mcpNATSClient == nil {
+		return "", fmt.Errorf("NATS client not configured for distributed MCP")
+	}
+
+	var args map[string]any
+	if arguments != "" {
+		json.Unmarshal([]byte(arguments), &args)
+	}
+
+	req := mcpRemote.MCPToolRequest{
+		ModelName:     modelName,
+		ToolName:      toolName,
+		Arguments:     args,
+		RemoteServers: remote,
+		StdioServers:  stdio,
+	}
+	reqData, _ := json.Marshal(req)
+
+	replyData, err := mcpNATSClient.Request(messaging.SubjectMCPToolExecute, reqData, 360*time.Second)
+	if err != nil {
+		return "", fmt.Errorf("NATS MCP tool request failed: %w", err)
+	}
+
+	var resp mcpRemote.MCPToolResponse
+	if err := json.Unmarshal(replyData, &resp); err != nil {
+		return "", fmt.Errorf("unmarshal MCP reply: %w", err)
+	}
+	if resp.Error != "" {
+		return "", fmt.Errorf("remote MCP tool error: %s", resp.Error)
+	}
+	return resp.Result, nil
+}
+
+// DiscoverMCPToolsRemote routes an MCP discovery request to an agent worker via NATS.
+// Returns server info and tool function schemas from the remote worker.
+func DiscoverMCPToolsRemote(
+	ctx context.Context,
+	modelName string,
+	remote config.MCPGenericConfig[config.MCPRemoteServers],
+	stdio config.MCPGenericConfig[config.MCPSTDIOServers],
+) (*mcpRemote.MCPDiscoveryResponse, error) {
+	if mcpNATSClient == nil {
+		return nil, fmt.Errorf("NATS client not configured for distributed MCP")
+	}
+
+	req := mcpRemote.MCPDiscoveryRequest{
+		ModelName:     modelName,
+		RemoteServers: remote,
+		StdioServers:  stdio,
+	}
+	reqData, _ := json.Marshal(req)
+
+	replyData, err := mcpNATSClient.Request(messaging.SubjectMCPDiscovery, reqData, 60*time.Second)
+	if err != nil {
+		return nil, fmt.Errorf("NATS MCP discovery request failed: %w", err)
+	}
+
+	var resp mcpRemote.MCPDiscoveryResponse
+	if err := json.Unmarshal(replyData, &resp); err != nil {
+		return nil, fmt.Errorf("unmarshal MCP discovery reply: %w", err)
+	}
+	if resp.Error != "" {
+		return nil, fmt.Errorf("remote MCP discovery error: %s", resp.Error)
+	}
+	return &resp, nil
+}
+
+// IsDistributed returns true if NATS-based MCP routing is configured.
+func IsDistributed() bool {
+	return mcpNATSClient != nil
 }
 
 // ListMCPServers returns server info with tool, prompt, and resource names for each session.

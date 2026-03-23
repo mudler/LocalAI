@@ -34,6 +34,8 @@ import Login from './pages/Login'
 import FineTune from './pages/FineTune'
 import Quantize from './pages/Quantize'
 import Studio from './pages/Studio'
+import Nodes from './pages/Nodes'
+import NodeBackendLogs from './pages/NodeBackendLogs'
 import NotFound from './pages/NotFound'
 import Usage from './pages/Usage'
 import Users from './pages/Users'
@@ -80,6 +82,8 @@ const appChildren = [
   { path: 'traces', element: <Admin><Traces /></Admin> },
   { path: 'backend-logs/:modelId', element: <Admin><BackendLogs /></Admin> },
   { path: 'p2p', element: <Admin><P2P /></Admin> },
+  { path: 'nodes', element: <Admin><Nodes /></Admin> },
+  { path: 'node-backend-logs/:nodeId/:modelId', element: <Admin><NodeBackendLogs /></Admin> },
   { path: 'agents', element: <Feature feature="agents"><Agents /></Feature> },
   { path: 'agents/new', element: <Feature feature="agents"><AgentCreate /></Feature> },
   { path: 'agents/:name/edit', element: <Feature feature="agents"><AgentCreate /></Feature> },

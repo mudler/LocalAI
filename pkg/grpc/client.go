@@ -12,10 +12,23 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
+// bearerToken implements credentials.PerRPCCredentials to inject a bearer token
+// into every gRPC call.
+type bearerToken struct {
+	token string
+}
+
+func (b bearerToken) GetRequestMetadata(ctx context.Context, uri ...string) (map[string]string, error) {
+	return map[string]string{"authorization": "Bearer " + b.token}, nil
+}
+
+func (b bearerToken) RequireTransportSecurity() bool { return false }
+
 type Client struct {
 	address  string
 	busy     bool
 	parallel bool
+	token    string
 	sync.Mutex
 	opMutex sync.Mutex
 	wd      WatchDog
@@ -50,6 +63,22 @@ func (c *Client) wdUnMark() {
 	}
 }
 
+// dial creates a gRPC client connection with common options.
+// If c.token is set, bearer token credentials are included.
+func (c *Client) dial() (*grpc.ClientConn, error) {
+	opts := []grpc.DialOption{
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithDefaultCallOptions(
+			grpc.MaxCallRecvMsgSize(50*1024*1024), // 50MB
+			grpc.MaxCallSendMsgSize(50*1024*1024), // 50MB
+		),
+	}
+	if c.token != "" {
+		opts = append(opts, grpc.WithPerRPCCredentials(bearerToken{token: c.token}))
+	}
+	return grpc.Dial(c.address, opts...)
+}
+
 func (c *Client) HealthCheck(ctx context.Context) (bool, error) {
 	if !c.parallel {
 		c.opMutex.Lock()
@@ -57,11 +86,7 @@ func (c *Client) HealthCheck(ctx context.Context) (bool, error) {
 	}
 	c.setBusy(true)
 	defer c.setBusy(false)
-	conn, err := grpc.Dial(c.address, grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithDefaultCallOptions(
-			grpc.MaxCallRecvMsgSize(50*1024*1024), // 50MB
-			grpc.MaxCallSendMsgSize(50*1024*1024), // 50MB
-		))
+	conn, err := c.dial()
 	if err != nil {
 		return false, err
 	}
@@ -93,11 +118,7 @@ func (c *Client) Embeddings(ctx context.Context, in *pb.PredictOptions, opts ...
 	defer c.setBusy(false)
 	c.wdMark()
 	defer c.wdUnMark()
-	conn, err := grpc.Dial(c.address, grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithDefaultCallOptions(
-			grpc.MaxCallRecvMsgSize(50*1024*1024), // 50MB
-			grpc.MaxCallSendMsgSize(50*1024*1024), // 50MB
-		))
+	conn, err := c.dial()
 	if err != nil {
 		return nil, err
 	}
@@ -116,11 +137,7 @@ func (c *Client) Predict(ctx context.Context, in *pb.PredictOptions, opts ...grp
 	defer c.setBusy(false)
 	c.wdMark()
 	defer c.wdUnMark()
-	conn, err := grpc.Dial(c.address, grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithDefaultCallOptions(
-			grpc.MaxCallRecvMsgSize(50*1024*1024), // 50MB
-			grpc.MaxCallSendMsgSize(50*1024*1024), // 50MB
-		))
+	conn, err := c.dial()
 	if err != nil {
 		return nil, err
 	}
@@ -139,11 +156,7 @@ func (c *Client) LoadModel(ctx context.Context, in *pb.ModelOptions, opts ...grp
 	defer c.setBusy(false)
 	c.wdMark()
 	defer c.wdUnMark()
-	conn, err := grpc.Dial(c.address, grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithDefaultCallOptions(
-			grpc.MaxCallRecvMsgSize(50*1024*1024), // 50MB
-			grpc.MaxCallSendMsgSize(50*1024*1024), // 50MB
-		))
+	conn, err := c.dial()
 	if err != nil {
 		return nil, err
 	}
@@ -161,11 +174,7 @@ func (c *Client) PredictStream(ctx context.Context, in *pb.PredictOptions, f fun
 	defer c.setBusy(false)
 	c.wdMark()
 	defer c.wdUnMark()
-	conn, err := grpc.Dial(c.address, grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithDefaultCallOptions(
-			grpc.MaxCallRecvMsgSize(50*1024*1024), // 50MB
-			grpc.MaxCallSendMsgSize(50*1024*1024), // 50MB
-		))
+	conn, err := c.dial()
 	if err != nil {
 		return err
 	}
@@ -213,11 +222,7 @@ func (c *Client) GenerateImage(ctx context.Context, in *pb.GenerateImageRequest,
 	defer c.setBusy(false)
 	c.wdMark()
 	defer c.wdUnMark()
-	conn, err := grpc.Dial(c.address, grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithDefaultCallOptions(
-			grpc.MaxCallRecvMsgSize(50*1024*1024), // 50MB
-			grpc.MaxCallSendMsgSize(50*1024*1024), // 50MB
-		))
+	conn, err := c.dial()
 	if err != nil {
 		return nil, err
 	}
@@ -235,11 +240,7 @@ func (c *Client) GenerateVideo(ctx context.Context, in *pb.GenerateVideoRequest,
 	defer c.setBusy(false)
 	c.wdMark()
 	defer c.wdUnMark()
-	conn, err := grpc.Dial(c.address, grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithDefaultCallOptions(
-			grpc.MaxCallRecvMsgSize(50*1024*1024), // 50MB
-			grpc.MaxCallSendMsgSize(50*1024*1024), // 50MB
-		))
+	conn, err := c.dial()
 	if err != nil {
 		return nil, err
 	}
@@ -257,11 +258,7 @@ func (c *Client) TTS(ctx context.Context, in *pb.TTSRequest, opts ...grpc.CallOp
 	defer c.setBusy(false)
 	c.wdMark()
 	defer c.wdUnMark()
-	conn, err := grpc.Dial(c.address, grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithDefaultCallOptions(
-			grpc.MaxCallRecvMsgSize(50*1024*1024), // 50MB
-			grpc.MaxCallSendMsgSize(50*1024*1024), // 50MB
-		))
+	conn, err := c.dial()
 	if err != nil {
 		return nil, err
 	}
@@ -279,11 +276,7 @@ func (c *Client) TTSStream(ctx context.Context, in *pb.TTSRequest, f func(reply 
 	defer c.setBusy(false)
 	c.wdMark()
 	defer c.wdUnMark()
-	conn, err := grpc.Dial(c.address, grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithDefaultCallOptions(
-			grpc.MaxCallRecvMsgSize(50*1024*1024), // 50MB
-			grpc.MaxCallSendMsgSize(50*1024*1024), // 50MB
-		))
+	conn, err := c.dial()
 	if err != nil {
 		return err
 	}
@@ -329,11 +322,7 @@ func (c *Client) SoundGeneration(ctx context.Context, in *pb.SoundGenerationRequ
 	defer c.setBusy(false)
 	c.wdMark()
 	defer c.wdUnMark()
-	conn, err := grpc.Dial(c.address, grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithDefaultCallOptions(
-			grpc.MaxCallRecvMsgSize(50*1024*1024), // 50MB
-			grpc.MaxCallSendMsgSize(50*1024*1024), // 50MB
-		))
+	conn, err := c.dial()
 	if err != nil {
 		return nil, err
 	}
@@ -351,11 +340,7 @@ func (c *Client) AudioTranscription(ctx context.Context, in *pb.TranscriptReques
 	defer c.setBusy(false)
 	c.wdMark()
 	defer c.wdUnMark()
-	conn, err := grpc.Dial(c.address, grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithDefaultCallOptions(
-			grpc.MaxCallRecvMsgSize(50*1024*1024), // 50MB
-			grpc.MaxCallSendMsgSize(50*1024*1024), // 50MB
-		))
+	conn, err := c.dial()
 	if err != nil {
 		return nil, err
 	}
@@ -373,11 +358,7 @@ func (c *Client) TokenizeString(ctx context.Context, in *pb.PredictOptions, opts
 	defer c.setBusy(false)
 	c.wdMark()
 	defer c.wdUnMark()
-	conn, err := grpc.Dial(c.address, grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithDefaultCallOptions(
-			grpc.MaxCallRecvMsgSize(50*1024*1024), // 50MB
-			grpc.MaxCallSendMsgSize(50*1024*1024), // 50MB
-		))
+	conn, err := c.dial()
 	if err != nil {
 		return nil, err
 	}
@@ -399,11 +380,7 @@ func (c *Client) Status(ctx context.Context) (*pb.StatusResponse, error) {
 	}
 	c.setBusy(true)
 	defer c.setBusy(false)
-	conn, err := grpc.Dial(c.address, grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithDefaultCallOptions(
-			grpc.MaxCallRecvMsgSize(50*1024*1024), // 50MB
-			grpc.MaxCallSendMsgSize(50*1024*1024), // 50MB
-		))
+	conn, err := c.dial()
 	if err != nil {
 		return nil, err
 	}
@@ -421,11 +398,7 @@ func (c *Client) StoresSet(ctx context.Context, in *pb.StoresSetOptions, opts ..
 	defer c.setBusy(false)
 	c.wdMark()
 	defer c.wdUnMark()
-	conn, err := grpc.Dial(c.address, grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithDefaultCallOptions(
-			grpc.MaxCallRecvMsgSize(50*1024*1024), // 50MB
-			grpc.MaxCallSendMsgSize(50*1024*1024), // 50MB
-		))
+	conn, err := c.dial()
 	if err != nil {
 		return nil, err
 	}
@@ -443,11 +416,7 @@ func (c *Client) StoresDelete(ctx context.Context, in *pb.StoresDeleteOptions, o
 	defer c.wdUnMark()
 	c.setBusy(true)
 	defer c.setBusy(false)
-	conn, err := grpc.Dial(c.address, grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithDefaultCallOptions(
-			grpc.MaxCallRecvMsgSize(50*1024*1024), // 50MB
-			grpc.MaxCallSendMsgSize(50*1024*1024), // 50MB
-		))
+	conn, err := c.dial()
 	if err != nil {
 		return nil, err
 	}
@@ -465,11 +434,7 @@ func (c *Client) StoresGet(ctx context.Context, in *pb.StoresGetOptions, opts ..
 	defer c.setBusy(false)
 	c.wdMark()
 	defer c.wdUnMark()
-	conn, err := grpc.Dial(c.address, grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithDefaultCallOptions(
-			grpc.MaxCallRecvMsgSize(50*1024*1024), // 50MB
-			grpc.MaxCallSendMsgSize(50*1024*1024), // 50MB
-		))
+	conn, err := c.dial()
 	if err != nil {
 		return nil, err
 	}
@@ -487,11 +452,7 @@ func (c *Client) StoresFind(ctx context.Context, in *pb.StoresFindOptions, opts 
 	defer c.setBusy(false)
 	c.wdMark()
 	defer c.wdUnMark()
-	conn, err := grpc.Dial(c.address, grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithDefaultCallOptions(
-			grpc.MaxCallRecvMsgSize(50*1024*1024), // 50MB
-			grpc.MaxCallSendMsgSize(50*1024*1024), // 50MB
-		))
+	conn, err := c.dial()
 	if err != nil {
 		return nil, err
 	}
@@ -509,11 +470,7 @@ func (c *Client) Rerank(ctx context.Context, in *pb.RerankRequest, opts ...grpc.
 	defer c.setBusy(false)
 	c.wdMark()
 	defer c.wdUnMark()
-	conn, err := grpc.Dial(c.address, grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithDefaultCallOptions(
-			grpc.MaxCallRecvMsgSize(50*1024*1024), // 50MB
-			grpc.MaxCallSendMsgSize(50*1024*1024), // 50MB
-		))
+	conn, err := c.dial()
 	if err != nil {
 		return nil, err
 	}
@@ -531,11 +488,7 @@ func (c *Client) GetTokenMetrics(ctx context.Context, in *pb.MetricsRequest, opt
 	defer c.setBusy(false)
 	c.wdMark()
 	defer c.wdUnMark()
-	conn, err := grpc.Dial(c.address, grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithDefaultCallOptions(
-			grpc.MaxCallRecvMsgSize(50*1024*1024), // 50MB
-			grpc.MaxCallSendMsgSize(50*1024*1024), // 50MB
-		))
+	conn, err := c.dial()
 	if err != nil {
 		return nil, err
 	}
@@ -553,11 +506,7 @@ func (c *Client) VAD(ctx context.Context, in *pb.VADRequest, opts ...grpc.CallOp
 	defer c.setBusy(false)
 	c.wdMark()
 	defer c.wdUnMark()
-	conn, err := grpc.Dial(c.address, grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithDefaultCallOptions(
-			grpc.MaxCallRecvMsgSize(50*1024*1024), // 50MB
-			grpc.MaxCallSendMsgSize(50*1024*1024), // 50MB
-		))
+	conn, err := c.dial()
 	if err != nil {
 		return nil, err
 	}
@@ -575,11 +524,7 @@ func (c *Client) Detect(ctx context.Context, in *pb.DetectOptions, opts ...grpc.
 	defer c.setBusy(false)
 	c.wdMark()
 	defer c.wdUnMark()
-	conn, err := grpc.Dial(c.address, grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithDefaultCallOptions(
-			grpc.MaxCallRecvMsgSize(50*1024*1024), // 50MB
-			grpc.MaxCallSendMsgSize(50*1024*1024), // 50MB
-		))
+	conn, err := c.dial()
 	if err != nil {
 		return nil, err
 	}
@@ -597,11 +542,7 @@ func (c *Client) AudioEncode(ctx context.Context, in *pb.AudioEncodeRequest, opt
 	defer c.setBusy(false)
 	c.wdMark()
 	defer c.wdUnMark()
-	conn, err := grpc.Dial(c.address, grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithDefaultCallOptions(
-			grpc.MaxCallRecvMsgSize(50*1024*1024), // 50MB
-			grpc.MaxCallSendMsgSize(50*1024*1024), // 50MB
-		))
+	conn, err := c.dial()
 	if err != nil {
 		return nil, err
 	}
@@ -619,11 +560,7 @@ func (c *Client) AudioDecode(ctx context.Context, in *pb.AudioDecodeRequest, opt
 	defer c.setBusy(false)
 	c.wdMark()
 	defer c.wdUnMark()
-	conn, err := grpc.Dial(c.address, grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithDefaultCallOptions(
-			grpc.MaxCallRecvMsgSize(50*1024*1024), // 50MB
-			grpc.MaxCallSendMsgSize(50*1024*1024), // 50MB
-		))
+	conn, err := c.dial()
 	if err != nil {
 		return nil, err
 	}
@@ -641,11 +578,7 @@ func (c *Client) StartFineTune(ctx context.Context, in *pb.FineTuneRequest, opts
 	defer c.setBusy(false)
 	c.wdMark()
 	defer c.wdUnMark()
-	conn, err := grpc.Dial(c.address, grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithDefaultCallOptions(
-			grpc.MaxCallRecvMsgSize(50*1024*1024), // 50MB
-			grpc.MaxCallSendMsgSize(50*1024*1024), // 50MB
-		))
+	conn, err := c.dial()
 	if err != nil {
 		return nil, err
 	}
@@ -663,11 +596,7 @@ func (c *Client) FineTuneProgress(ctx context.Context, in *pb.FineTuneProgressRe
 	defer c.setBusy(false)
 	c.wdMark()
 	defer c.wdUnMark()
-	conn, err := grpc.Dial(c.address, grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithDefaultCallOptions(
-			grpc.MaxCallRecvMsgSize(50*1024*1024), // 50MB
-			grpc.MaxCallSendMsgSize(50*1024*1024), // 50MB
-		))
+	conn, err := c.dial()
 	if err != nil {
 		return err
 	}
@@ -711,11 +640,7 @@ func (c *Client) StopFineTune(ctx context.Context, in *pb.FineTuneStopRequest, o
 	defer c.setBusy(false)
 	c.wdMark()
 	defer c.wdUnMark()
-	conn, err := grpc.Dial(c.address, grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithDefaultCallOptions(
-			grpc.MaxCallRecvMsgSize(50*1024*1024), // 50MB
-			grpc.MaxCallSendMsgSize(50*1024*1024), // 50MB
-		))
+	conn, err := c.dial()
 	if err != nil {
 		return nil, err
 	}
@@ -733,11 +658,7 @@ func (c *Client) ListCheckpoints(ctx context.Context, in *pb.ListCheckpointsRequ
 	defer c.setBusy(false)
 	c.wdMark()
 	defer c.wdUnMark()
-	conn, err := grpc.Dial(c.address, grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithDefaultCallOptions(
-			grpc.MaxCallRecvMsgSize(50*1024*1024), // 50MB
-			grpc.MaxCallSendMsgSize(50*1024*1024), // 50MB
-		))
+	conn, err := c.dial()
 	if err != nil {
 		return nil, err
 	}
@@ -755,11 +676,7 @@ func (c *Client) ExportModel(ctx context.Context, in *pb.ExportModelRequest, opt
 	defer c.setBusy(false)
 	c.wdMark()
 	defer c.wdUnMark()
-	conn, err := grpc.Dial(c.address, grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithDefaultCallOptions(
-			grpc.MaxCallRecvMsgSize(50*1024*1024), // 50MB
-			grpc.MaxCallSendMsgSize(50*1024*1024), // 50MB
-		))
+	conn, err := c.dial()
 	if err != nil {
 		return nil, err
 	}
@@ -777,11 +694,7 @@ func (c *Client) StartQuantization(ctx context.Context, in *pb.QuantizationReque
 	defer c.setBusy(false)
 	c.wdMark()
 	defer c.wdUnMark()
-	conn, err := grpc.Dial(c.address, grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithDefaultCallOptions(
-			grpc.MaxCallRecvMsgSize(50*1024*1024), // 50MB
-			grpc.MaxCallSendMsgSize(50*1024*1024), // 50MB
-		))
+	conn, err := c.dial()
 	if err != nil {
 		return nil, err
 	}
@@ -799,11 +712,7 @@ func (c *Client) QuantizationProgress(ctx context.Context, in *pb.QuantizationPr
 	defer c.setBusy(false)
 	c.wdMark()
 	defer c.wdUnMark()
-	conn, err := grpc.Dial(c.address, grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithDefaultCallOptions(
-			grpc.MaxCallRecvMsgSize(50*1024*1024), // 50MB
-			grpc.MaxCallSendMsgSize(50*1024*1024), // 50MB
-		))
+	conn, err := c.dial()
 	if err != nil {
 		return err
 	}
@@ -847,11 +756,7 @@ func (c *Client) StopQuantization(ctx context.Context, in *pb.QuantizationStopRe
 	defer c.setBusy(false)
 	c.wdMark()
 	defer c.wdUnMark()
-	conn, err := grpc.Dial(c.address, grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithDefaultCallOptions(
-			grpc.MaxCallRecvMsgSize(50*1024*1024), // 50MB
-			grpc.MaxCallSendMsgSize(50*1024*1024), // 50MB
-		))
+	conn, err := c.dial()
 	if err != nil {
 		return nil, err
 	}
@@ -869,11 +774,7 @@ func (c *Client) ModelMetadata(ctx context.Context, in *pb.ModelOptions, opts ..
 	defer c.setBusy(false)
 	c.wdMark()
 	defer c.wdUnMark()
-	conn, err := grpc.Dial(c.address, grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithDefaultCallOptions(
-			grpc.MaxCallRecvMsgSize(50*1024*1024), // 50MB
-			grpc.MaxCallSendMsgSize(50*1024*1024), // 50MB
-		))
+	conn, err := c.dial()
 	if err != nil {
 		return nil, err
 	}
@@ -881,3 +782,4 @@ func (c *Client) ModelMetadata(ctx context.Context, in *pb.ModelOptions, opts ..
 	client := pb.NewBackendClient(conn)
 	return client.ModelMetadata(ctx, in, opts...)
 }
+

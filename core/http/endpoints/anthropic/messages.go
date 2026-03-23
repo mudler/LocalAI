@@ -52,7 +52,7 @@ func MessagesEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evalu
 		funcs, shouldUseFn := convertAnthropicTools(input, cfg)
 
 		// MCP injection: prompts, resources, and tools
-		var mcpToolInfos []mcpTools.MCPToolInfo
+		var mcpExecutor mcpTools.ToolExecutor
 		mcpServers := mcpTools.MCPServersFromMetadata(input.Metadata)
 		mcpPromptName, mcpPromptArgs := mcpTools.MCPPromptFromMetadata(input.Metadata)
 		mcpResourceURIs := mcpTools.MCPResourcesFromMetadata(input.Metadata)
@@ -60,76 +60,75 @@ func MessagesEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evalu
 		if (len(mcpServers) > 0 || mcpPromptName != "" || len(mcpResourceURIs) > 0) && (cfg.MCP.Servers != "" || cfg.MCP.Stdio != "") {
 			remote, stdio, mcpErr := cfg.MCP.MCPConfigFromYAML()
 			if mcpErr == nil {
-				namedSessions, sessErr := mcpTools.NamedSessionsFromMCPConfig(cfg.Name, remote, stdio, mcpServers)
-				if sessErr == nil && len(namedSessions) > 0 {
-					// Prompt injection
-					if mcpPromptName != "" {
-						prompts, discErr := mcpTools.DiscoverMCPPrompts(c.Request().Context(), namedSessions)
-						if discErr == nil {
-							promptMsgs, getErr := mcpTools.GetMCPPrompt(c.Request().Context(), prompts, mcpPromptName, mcpPromptArgs)
-							if getErr == nil {
-								var injected []schema.Message
-								for _, pm := range promptMsgs {
-									injected = append(injected, schema.Message{
-										Role:    string(pm.Role),
-										Content: mcpTools.PromptMessageToText(pm),
-									})
+				mcpExecutor = mcpTools.NewToolExecutor(c.Request().Context(), cfg.Name, remote, stdio, mcpServers)
+
+				// Prompt and resource injection (local mode only)
+				if !mcpTools.IsDistributed() {
+					namedSessions, sessErr := mcpTools.NamedSessionsFromMCPConfig(cfg.Name, remote, stdio, mcpServers)
+					if sessErr == nil && len(namedSessions) > 0 {
+						if mcpPromptName != "" {
+							prompts, discErr := mcpTools.DiscoverMCPPrompts(c.Request().Context(), namedSessions)
+							if discErr == nil {
+								promptMsgs, getErr := mcpTools.GetMCPPrompt(c.Request().Context(), prompts, mcpPromptName, mcpPromptArgs)
+								if getErr == nil {
+									var injected []schema.Message
+									for _, pm := range promptMsgs {
+										injected = append(injected, schema.Message{
+											Role:    string(pm.Role),
+											Content: mcpTools.PromptMessageToText(pm),
+										})
+									}
+									openAIMessages = append(injected, openAIMessages...)
+									xlog.Debug("Anthropic MCP prompt injected", "prompt", mcpPromptName, "messages", len(injected))
+								} else {
+									xlog.Error("Failed to get MCP prompt", "error", getErr)
 								}
-								openAIMessages = append(injected, openAIMessages...)
-								xlog.Debug("Anthropic MCP prompt injected", "prompt", mcpPromptName, "messages", len(injected))
-							} else {
-								xlog.Error("Failed to get MCP prompt", "error", getErr)
 							}
 						}
-					}
-
-					// Resource injection
-					if len(mcpResourceURIs) > 0 {
-						resources, discErr := mcpTools.DiscoverMCPResources(c.Request().Context(), namedSessions)
-						if discErr == nil {
-							var resourceTexts []string
-							for _, uri := range mcpResourceURIs {
-								content, readErr := mcpTools.ReadMCPResource(c.Request().Context(), resources, uri)
-								if readErr != nil {
-									xlog.Error("Failed to read MCP resource", "error", readErr, "uri", uri)
-									continue
+						if len(mcpResourceURIs) > 0 {
+							resources, discErr := mcpTools.DiscoverMCPResources(c.Request().Context(), namedSessions)
+							if discErr == nil {
+								var resourceTexts []string
+								for _, uri := range mcpResourceURIs {
+									content, readErr := mcpTools.ReadMCPResource(c.Request().Context(), resources, uri)
+									if readErr != nil {
+										continue
+									}
+									name := uri
+									for _, r := range resources {
+										if r.URI == uri {
+											name = r.Name
+											break
+										}
+									}
+									resourceTexts = append(resourceTexts, fmt.Sprintf("--- MCP Resource: %s ---\n%s", name, content))
 								}
-								name := uri
-								for _, r := range resources {
-									if r.URI == uri {
-										name = r.Name
-										break
+								if len(resourceTexts) > 0 && len(openAIMessages) > 0 {
+									lastIdx := len(openAIMessages) - 1
+									suffix := "\n\n" + strings.Join(resourceTexts, "\n\n")
+									switch ct := openAIMessages[lastIdx].Content.(type) {
+									case string:
+										openAIMessages[lastIdx].Content = ct + suffix
+									default:
+										openAIMessages[lastIdx].Content = fmt.Sprintf("%v%s", ct, suffix)
 									}
 								}
-								resourceTexts = append(resourceTexts, fmt.Sprintf("--- MCP Resource: %s ---\n%s", name, content))
-							}
-							if len(resourceTexts) > 0 && len(openAIMessages) > 0 {
-								lastIdx := len(openAIMessages) - 1
-								suffix := "\n\n" + strings.Join(resourceTexts, "\n\n")
-								switch ct := openAIMessages[lastIdx].Content.(type) {
-								case string:
-									openAIMessages[lastIdx].Content = ct + suffix
-								default:
-									openAIMessages[lastIdx].Content = fmt.Sprintf("%v%s", ct, suffix)
-								}
-								xlog.Debug("Anthropic MCP resources injected", "count", len(resourceTexts))
 							}
 						}
 					}
+				}
 
-					// Tool injection
-					if len(mcpServers) > 0 {
-						discovered, discErr := mcpTools.DiscoverMCPTools(c.Request().Context(), namedSessions)
-						if discErr == nil {
-							mcpToolInfos = discovered
-							for _, ti := range mcpToolInfos {
-								funcs = append(funcs, ti.Function)
-							}
-							shouldUseFn = len(funcs) > 0 && cfg.ShouldUseFunctions()
-							xlog.Debug("Anthropic MCP tools injected", "count", len(mcpToolInfos), "total_funcs", len(funcs))
-						} else {
-							xlog.Error("Failed to discover MCP tools", "error", discErr)
+				// Tool injection via executor
+				if mcpExecutor.HasTools() {
+					mcpFuncs, discErr := mcpExecutor.DiscoverTools(c.Request().Context())
+					if discErr == nil {
+						for _, fn := range mcpFuncs {
+							funcs = append(funcs, fn)
 						}
+						shouldUseFn = len(funcs) > 0 && cfg.ShouldUseFunctions()
+						xlog.Debug("Anthropic MCP tools injected", "count", len(mcpFuncs), "total_funcs", len(funcs))
+					} else {
+						xlog.Error("Failed to discover MCP tools", "error", discErr)
 					}
 				}
 			} else {
@@ -177,19 +176,19 @@ func MessagesEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evalu
 		xlog.Debug("Anthropic Messages - Prompt (after templating)", "prompt", predInput)
 
 		if input.Stream {
-			return handleAnthropicStream(c, id, input, cfg, ml, cl, appConfig, predInput, openAIReq, funcs, shouldUseFn, mcpToolInfos, evaluator)
+			return handleAnthropicStream(c, id, input, cfg, ml, cl, appConfig, predInput, openAIReq, funcs, shouldUseFn, mcpExecutor, evaluator)
 		}
 
-		return handleAnthropicNonStream(c, id, input, cfg, ml, cl, appConfig, predInput, openAIReq, funcs, shouldUseFn, mcpToolInfos, evaluator)
+		return handleAnthropicNonStream(c, id, input, cfg, ml, cl, appConfig, predInput, openAIReq, funcs, shouldUseFn, mcpExecutor, evaluator)
 	}
 }
 
-func handleAnthropicNonStream(c echo.Context, id string, input *schema.AnthropicRequest, cfg *config.ModelConfig, ml *model.ModelLoader, cl *config.ModelConfigLoader, appConfig *config.ApplicationConfig, predInput string, openAIReq *schema.OpenAIRequest, funcs functions.Functions, shouldUseFn bool, mcpToolInfos []mcpTools.MCPToolInfo, evaluator *templates.Evaluator) error {
+func handleAnthropicNonStream(c echo.Context, id string, input *schema.AnthropicRequest, cfg *config.ModelConfig, ml *model.ModelLoader, cl *config.ModelConfigLoader, appConfig *config.ApplicationConfig, predInput string, openAIReq *schema.OpenAIRequest, funcs functions.Functions, shouldUseFn bool, mcpExecutor mcpTools.ToolExecutor, evaluator *templates.Evaluator) error {
 	mcpMaxIterations := 10
 	if cfg.Agent.MaxIterations > 0 {
 		mcpMaxIterations = cfg.Agent.MaxIterations
 	}
-	hasMCPTools := len(mcpToolInfos) > 0
+	hasMCPTools := mcpExecutor != nil && mcpExecutor.HasTools()
 
 	for mcpIteration := 0; mcpIteration <= mcpMaxIterations; mcpIteration++ {
 		// Re-template on each MCP iteration since messages may have changed
@@ -227,7 +226,7 @@ func handleAnthropicNonStream(c echo.Context, id string, input *schema.Anthropic
 		if hasMCPTools && shouldUseFn && len(toolCalls) > 0 {
 			var hasMCPCalls bool
 			for _, tc := range toolCalls {
-				if mcpTools.IsMCPTool(mcpToolInfos, tc.Name) {
+				if mcpExecutor != nil && mcpExecutor.IsTool(tc.Name) {
 					hasMCPCalls = true
 					break
 				}
@@ -257,13 +256,12 @@ func handleAnthropicNonStream(c echo.Context, id string, input *schema.Anthropic
 
 				// Execute each MCP tool call and append results
 				for _, tc := range assistantMsg.ToolCalls {
-					if !mcpTools.IsMCPTool(mcpToolInfos, tc.FunctionCall.Name) {
+					if mcpExecutor == nil || !mcpExecutor.IsTool(tc.FunctionCall.Name) {
 						continue
 					}
 					xlog.Debug("Executing MCP tool (Anthropic)", "tool", tc.FunctionCall.Name, "iteration", mcpIteration)
-					toolResult, toolErr := mcpTools.ExecuteMCPToolCall(
-						c.Request().Context(), mcpToolInfos,
-						tc.FunctionCall.Name, tc.FunctionCall.Arguments,
+					toolResult, toolErr := mcpExecutor.ExecuteTool(
+						c.Request().Context(), tc.FunctionCall.Name, tc.FunctionCall.Arguments,
 					)
 					if toolErr != nil {
 						xlog.Error("MCP tool execution failed", "tool", tc.FunctionCall.Name, "error", toolErr)
@@ -365,7 +363,7 @@ func handleAnthropicNonStream(c echo.Context, id string, input *schema.Anthropic
 	return sendAnthropicError(c, 500, "api_error", "MCP iteration limit reached")
 }
 
-func handleAnthropicStream(c echo.Context, id string, input *schema.AnthropicRequest, cfg *config.ModelConfig, ml *model.ModelLoader, cl *config.ModelConfigLoader, appConfig *config.ApplicationConfig, predInput string, openAIReq *schema.OpenAIRequest, funcs functions.Functions, shouldUseFn bool, mcpToolInfos []mcpTools.MCPToolInfo, evaluator *templates.Evaluator) error {
+func handleAnthropicStream(c echo.Context, id string, input *schema.AnthropicRequest, cfg *config.ModelConfig, ml *model.ModelLoader, cl *config.ModelConfigLoader, appConfig *config.ApplicationConfig, predInput string, openAIReq *schema.OpenAIRequest, funcs functions.Functions, shouldUseFn bool, mcpExecutor mcpTools.ToolExecutor, evaluator *templates.Evaluator) error {
 	c.Response().Header().Set("Content-Type", "text/event-stream")
 	c.Response().Header().Set("Cache-Control", "no-cache")
 	c.Response().Header().Set("Connection", "keep-alive")
@@ -388,7 +386,7 @@ func handleAnthropicStream(c echo.Context, id string, input *schema.AnthropicReq
 	if cfg.Agent.MaxIterations > 0 {
 		mcpMaxIterations = cfg.Agent.MaxIterations
 	}
-	hasMCPTools := len(mcpToolInfos) > 0
+	hasMCPTools := mcpExecutor != nil && mcpExecutor.HasTools()
 
 	for mcpIteration := 0; mcpIteration <= mcpMaxIterations; mcpIteration++ {
 		// Re-template on MCP iterations
@@ -495,7 +493,7 @@ func handleAnthropicStream(c echo.Context, id string, input *schema.AnthropicReq
 		if hasMCPTools && len(collectedToolCalls) > 0 {
 			var hasMCPCalls bool
 			for _, tc := range collectedToolCalls {
-				if mcpTools.IsMCPTool(mcpToolInfos, tc.Name) {
+				if mcpExecutor != nil && mcpExecutor.IsTool(tc.Name) {
 					hasMCPCalls = true
 					break
 				}
@@ -525,13 +523,12 @@ func handleAnthropicStream(c echo.Context, id string, input *schema.AnthropicReq
 
 				// Execute MCP tool calls
 				for _, tc := range assistantMsg.ToolCalls {
-					if !mcpTools.IsMCPTool(mcpToolInfos, tc.FunctionCall.Name) {
+					if mcpExecutor == nil || !mcpExecutor.IsTool(tc.FunctionCall.Name) {
 						continue
 					}
 					xlog.Debug("Executing MCP tool (Anthropic stream)", "tool", tc.FunctionCall.Name, "iteration", mcpIteration)
-					toolResult, toolErr := mcpTools.ExecuteMCPToolCall(
-						c.Request().Context(), mcpToolInfos,
-						tc.FunctionCall.Name, tc.FunctionCall.Arguments,
+					toolResult, toolErr := mcpExecutor.ExecuteTool(
+						c.Request().Context(), tc.FunctionCall.Name, tc.FunctionCall.Arguments,
 					)
 					if toolErr != nil {
 						xlog.Error("MCP tool execution failed", "tool", tc.FunctionCall.Name, "error", toolErr)

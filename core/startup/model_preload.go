@@ -51,7 +51,7 @@ func InstallModels(ctx context.Context, galleryService *services.GalleryService,
 				continue
 			}
 
-			galleryService.ModelGalleryChannel <- services.GalleryOp[gallery.GalleryModel, gallery.ModelConfig]{
+			galleryService.ModelGalleryChannel <- services.ManagementOp[gallery.GalleryModel, gallery.ModelConfig]{
 				Req: gallery.GalleryModel{
 					Overrides: map[string]interface{}{},
 				},
@@ -61,7 +61,7 @@ func InstallModels(ctx context.Context, galleryService *services.GalleryService,
 				BackendGalleries:   backendGalleries,
 			}
 
-			var status *services.GalleryOpStatus
+			var status *services.OpStatus
 			// wait for op to finish
 			for {
 				status = galleryService.GetStatus(uuid.String())

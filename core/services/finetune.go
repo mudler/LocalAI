@@ -16,12 +16,18 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery/importers"
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/services/distributed"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/utils"
 	"github.com/mudler/xlog"
 	"gopkg.in/yaml.v3"
 )
+
+// FineTuneNATSClient is the interface for NATS pub/sub used by FineTuneService in distributed mode.
+type FineTuneNATSClient interface {
+	Publish(subject string, data any) error
+}
 
 // FineTuneService manages fine-tuning jobs and their lifecycle.
 type FineTuneService struct {
@@ -31,6 +37,24 @@ type FineTuneService struct {
 
 	mu   sync.Mutex
 	jobs map[string]*schema.FineTuneJob
+
+	// Distributed mode (nil when not in distributed mode)
+	natsClient    FineTuneNATSClient
+	fineTuneStore *distributed.FineTuneStore
+}
+
+// SetNATSClient sets the NATS client for distributed progress publishing.
+func (s *FineTuneService) SetNATSClient(nc FineTuneNATSClient) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.natsClient = nc
+}
+
+// SetFineTuneStore sets the PostgreSQL fine-tune store for distributed persistence.
+func (s *FineTuneService) SetFineTuneStore(store *distributed.FineTuneStore) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.fineTuneStore = store
 }
 
 // NewFineTuneService creates a new FineTuneService.
@@ -218,6 +242,25 @@ func (s *FineTuneService) StartJob(ctx context.Context, userID string, req schem
 	s.jobs[jobID] = job
 	s.saveJobState(job)
 
+	// Persist to PostgreSQL in distributed mode
+	if s.fineTuneStore != nil {
+		configJSON, _ := json.Marshal(req)
+		extraJSON, _ := json.Marshal(req.ExtraOptions)
+		s.fineTuneStore.Create(&distributed.FineTuneJobRecord{
+			ID:             jobID,
+			UserID:         userID,
+			Model:          req.Model,
+			Backend:        backendName,
+			ModelID:        modelID,
+			TrainingType:   req.TrainingType,
+			TrainingMethod: req.TrainingMethod,
+			Status:         "queued",
+			OutputDir:      outputDir,
+			ConfigJSON:     string(configJSON),
+			ExtraOptsJSON:  string(extraJSON),
+		})
+	}
+
 	return &schema.FineTuneJobResponse{
 		ID:      jobID,
 		Status:  "queued",
@@ -284,6 +327,9 @@ func (s *FineTuneService) StopJob(ctx context.Context, userID, jobID string, sav
 	job.Status = "stopped"
 	job.Message = "Training stopped by user"
 	s.saveJobState(job)
+	if s.fineTuneStore != nil {
+		s.fineTuneStore.UpdateStatus(jobID, "stopped", "Training stopped by user")
+	}
 	s.mu.Unlock()
 
 	return nil
@@ -318,6 +364,9 @@ func (s *FineTuneService) DeleteJob(userID, jobID string) error {
 
 	exportModelName := job.ExportModelName
 	delete(s.jobs, jobID)
+	if s.fineTuneStore != nil {
+		s.fineTuneStore.Delete(jobID)
+	}
 	s.mu.Unlock()
 
 	// Remove job directory (state.json, checkpoints, output)
@@ -391,6 +440,9 @@ func (s *FineTuneService) StreamProgress(ctx context.Context, userID, jobID stri
 				j.Message = update.Message
 			}
 			s.saveJobState(j)
+			if s.fineTuneStore != nil {
+				s.fineTuneStore.UpdateStatus(jobID, j.Status, j.Message)
+			}
 		}
 		s.mu.Unlock()
 
@@ -618,6 +670,9 @@ func (s *FineTuneService) ExportModel(ctx context.Context, userID, jobID string,
 		job.ExportModelName = modelName
 		job.ExportMessage = ""
 		s.saveJobState(job)
+		if s.fineTuneStore != nil {
+			s.fineTuneStore.UpdateExportStatus(jobID, "completed", "", modelName)
+		}
 		s.mu.Unlock()
 	}()
 
@@ -672,6 +727,9 @@ func (s *FineTuneService) setExportFailed(job *schema.FineTuneJob, message strin
 	job.ExportStatus = "failed"
 	job.ExportMessage = message
 	s.saveJobState(job)
+	if s.fineTuneStore != nil {
+		s.fineTuneStore.UpdateExportStatus(job.ID, "failed", message, "")
+	}
 	s.mu.Unlock()
 }
 

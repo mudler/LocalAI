@@ -22,7 +22,7 @@ var (
 )
 
 func (ml *ModelLoader) deleteProcess(s string) error {
-	model, ok := ml.models[s]
+	model, ok := ml.store.Get(s)
 	if !ok {
 		xlog.Debug("Model not found", "model", s)
 		return modelNotFoundErr
@@ -61,9 +61,18 @@ func (ml *ModelLoader) deleteProcess(s string) error {
 
 	process := model.Process()
 	if process == nil {
-		xlog.Error("No process", "model", s)
-		// Nothing to do as there is no process
-		delete(ml.models, s)
+		// No local process — this is a remote/external backend.
+		// In distributed mode, delegate to the remote unloader to tell
+		// the backend node to free the model (GPU resources, etc.).
+		if ml.remoteUnloader != nil {
+			xlog.Debug("Delegating model unload to remote unloader", "model", s)
+			if err := ml.remoteUnloader.UnloadRemoteModel(s); err != nil {
+				xlog.Warn("Remote model unload failed", "model", s, "error", err)
+			}
+		} else {
+			xlog.Debug("No local process and no remote unloader", "model", s)
+		}
+		ml.store.Delete(s)
 		return nil
 	}
 
@@ -73,7 +82,7 @@ func (ml *ModelLoader) deleteProcess(s string) error {
 	}
 
 	if err == nil {
-		delete(ml.models, s)
+		ml.store.Delete(s)
 	}
 
 	return err
@@ -83,11 +92,17 @@ func (ml *ModelLoader) StopGRPC(filter GRPCProcessFilter) error {
 	ml.mu.Lock()
 	defer ml.mu.Unlock()
 
-	for k, m := range ml.models {
+	// Collect matching keys first — can't mutate store during Range
+	var toDelete []string
+	ml.store.Range(func(k string, m *Model) bool {
 		if filter(k, m.Process()) {
-			e := ml.deleteProcess(k)
-			err = errors.Join(err, e)
+			toDelete = append(toDelete, k)
 		}
+		return true
+	})
+	for _, k := range toDelete {
+		e := ml.deleteProcess(k)
+		err = errors.Join(err, e)
 	}
 	return err
 }
@@ -99,7 +114,7 @@ func (ml *ModelLoader) StopAllGRPC() error {
 func (ml *ModelLoader) GetGRPCPID(id string) (int, error) {
 	ml.mu.Lock()
 	defer ml.mu.Unlock()
-	p, exists := ml.models[id]
+	p, exists := ml.store.Get(id)
 	if !exists {
 		return -1, fmt.Errorf("no grpc backend found for %s", id)
 	}
@@ -107,6 +122,13 @@ func (ml *ModelLoader) GetGRPCPID(id string) (int, error) {
 		return -1, fmt.Errorf("no grpc backend found for %s", id)
 	}
 	return strconv.Atoi(p.Process().PID)
+}
+
+// StartProcess starts a gRPC backend process and returns its process handle.
+// This is the public wrapper for the internal startProcess method, used by
+// the serve-backend CLI subcommand to start a backend on a specified address.
+func (ml *ModelLoader) StartProcess(grpcProcess, id string, serverAddress string, args ...string) (*process.Process, error) {
+	return ml.startProcess(grpcProcess, id, serverAddress, args...)
 }
 
 func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string, args ...string) (*process.Process, error) {

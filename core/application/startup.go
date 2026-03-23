@@ -14,6 +14,9 @@ import (
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/services"
+	"github.com/mudler/LocalAI/core/services/jobs"
+	"github.com/mudler/LocalAI/core/services/nodes"
+	"github.com/mudler/LocalAI/core/services/storage"
 	coreStartup "github.com/mudler/LocalAI/core/startup"
 	"github.com/mudler/LocalAI/internal"
 
@@ -123,6 +126,98 @@ func New(opts ...config.AppOption) (*Application, error) {
 		}()
 	}
 
+	// Wire JobStore for DB-backed task/job persistence whenever auth DB is available.
+	// This ensures tasks and jobs survive restarts in both single-node and distributed modes.
+	if application.authDB != nil && application.agentJobService != nil {
+		dbJobStore, err := jobs.NewJobStore(application.authDB)
+		if err != nil {
+			xlog.Error("Failed to create job store for auth DB", "error", err)
+		} else {
+			application.agentJobService.SetDistributedJobStore(dbJobStore)
+		}
+	}
+
+	// Initialize distributed mode services (NATS, object storage, node registry)
+	distSvc, err := initDistributed(options, application.authDB)
+	if err != nil {
+		return nil, fmt.Errorf("distributed mode initialization failed: %w", err)
+	}
+	if distSvc != nil {
+		application.natsClient = distSvc.nats
+		application.objectStore = distSvc.store
+		application.nodeRegistry = distSvc.registry
+		application.smartRouter = distSvc.router
+		application.healthMon = distSvc.health
+		application.jobStore = distSvc.jobStore
+		application.jobDispatcher = distSvc.dispatcher
+		application.agentStore = distSvc.agentStore
+		application.agentBridge = distSvc.agentBridge
+		application.distStores = distSvc.distStores
+		application.fileManager = distSvc.fileMgr
+		// Wire remote model unloader so ShutdownModel works for remote nodes
+		// Uses NATS to tell serve-backend nodes to Free + kill their backend process
+		remoteUnloader := nodes.NewRemoteUnloaderAdapter(distSvc.registry, distSvc.nats)
+		application.modelLoader.SetRemoteUnloader(remoteUnloader)
+		distSvc.router.SetUnloader(remoteUnloader)
+		// Wire ModelRouter so grpcModel() delegates to SmartRouter in distributed mode
+		application.modelLoader.SetModelRouter(distSvc.modelAdapter.AsModelRouter())
+		// Wire DistributedModelStore so shutdown/list/watchdog can find remote models
+		distStore := nodes.NewDistributedModelStore(
+			model.NewInMemoryModelStore(),
+			distSvc.registry,
+		)
+		application.modelLoader.SetModelStore(distStore)
+		// Start health monitor
+		distSvc.health.Start(options.Context)
+		// In distributed mode, MCP CI jobs are executed by agent workers (not the frontend)
+		// because the frontend can't create MCP sessions (e.g., stdio servers using docker).
+		// The dispatcher still subscribes to jobs.new for persistence (result/progress subs)
+		// but does NOT set a workerFn — agent workers consume jobs from the same NATS queue.
+
+		// Wire model config loader so job events include model config for agent workers
+		distSvc.dispatcher.SetModelConfigLoader(application.backendLoader)
+
+		// Start job dispatcher
+		if err := distSvc.dispatcher.Start(options.Context); err != nil {
+			xlog.Error("Failed to start job dispatcher", "error", err)
+		}
+		// Start ephemeral file cleanup
+		storage.StartEphemeralCleanup(options.Context, distSvc.fileMgr, 0, 0)
+		// Wire distributed backends into AgentJobService (before Start)
+		if application.agentJobService != nil {
+			application.agentJobService.SetDistributedBackends(distSvc.dispatcher)
+			application.agentJobService.SetDistributedJobStore(distSvc.jobStore)
+		}
+		// Wire skill store into AgentPoolService (wired at pool start time via closure)
+		// The actual wiring happens in StartAgentPool since the pool doesn't exist yet.
+
+		// Wire NATS and gallery store into GalleryService for cross-instance progress/cancel
+		if application.galleryService != nil {
+			application.galleryService.SetNATSClient(distSvc.nats)
+			if distSvc.distStores != nil && distSvc.distStores.Gallery != nil {
+				// Clean up stale in-progress operations from previous crashed instances
+				if err := distSvc.distStores.Gallery.CleanStale(30 * time.Minute); err != nil {
+					xlog.Warn("Failed to clean stale gallery operations", "error", err)
+				}
+				application.galleryService.SetGalleryStore(distSvc.distStores.Gallery)
+			}
+			// Wire distributed model/backend managers so delete propagates to workers
+			application.galleryService.SetModelManager(
+				nodes.NewDistributedModelManager(options, application.modelLoader, remoteUnloader),
+			)
+			application.galleryService.SetBackendManager(
+				nodes.NewDistributedBackendManager(options, application.modelLoader, remoteUnloader, distSvc.registry),
+			)
+		}
+	}
+
+	// Start AgentJobService (after distributed wiring so it knows whether to use local or NATS)
+	if application.agentJobService != nil {
+		if err := application.agentJobService.Start(options.Context); err != nil {
+			return nil, fmt.Errorf("starting agent job service: %w", err)
+		}
+	}
+
 	if err := coreStartup.InstallModels(options.Context, application.GalleryService(), options.Galleries, options.BackendGalleries, options.SystemState, application.ModelLoader(), options.EnforcePredownloadScans, options.AutoloadBackendGalleries, nil, options.ModelsURL...); err != nil {
 		xlog.Error("error installing models", "error", err)
 	}
@@ -207,7 +302,7 @@ func New(opts ...config.AppOption) (*Application, error) {
 			var backendErr error
 			_, backendErr = application.ModelLoader().Load(o...)
 			if backendErr != nil {
-				return nil, err
+				return nil, backendErr
 			}
 		}
 	}

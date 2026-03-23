@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -15,6 +14,10 @@ import (
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/auth"
+	"github.com/mudler/LocalAI/core/services/agents"
+	"github.com/mudler/LocalAI/core/services/distributed"
+	"github.com/mudler/LocalAI/core/services/messaging"
+	skillsManager "github.com/mudler/LocalAI/core/services/skills"
 
 	"github.com/mudler/LocalAGI/core/agent"
 	"github.com/mudler/LocalAGI/core/sse"
@@ -25,13 +28,12 @@ import (
 	"github.com/mudler/LocalAGI/webui/collections"
 	"github.com/mudler/xlog"
 
-	skilldomain "github.com/mudler/skillserver/pkg/domain"
-	skillgit "github.com/mudler/skillserver/pkg/git"
 	"gorm.io/gorm"
 )
 
 // AgentPoolService wraps LocalAGI's AgentPool, Skills service, and collections backend
 // to provide agentic capabilities integrated directly into LocalAI.
+//
 type AgentPoolService struct {
 	appConfig          *config.ApplicationConfig
 	pool               *state.AgentPool
@@ -46,6 +48,41 @@ type AgentPoolService struct {
 	userServices       *UserServicesManager
 	userStorage        *UserScopedStorage
 	authDB             *gorm.DB
+	skillStore         *distributed.SkillStore // PostgreSQL skill metadata (distributed mode)
+
+	// Distributed mode fields
+	natsClient  NATSClient                // NATS client for distributed agent execution
+	eventBridge AgentEventBridge          // Event bridge for SSE + persistence
+	agentStore  AgentConfigStore          // PostgreSQL agent config store
+	dispatcher  agents.Dispatcher         // Native dispatcher (distributed or local)
+	apiURL      string                    // Resolved API URL for agent execution
+	apiKey      string                    // Resolved API key for agent execution
+}
+
+// NATSClient is the interface for NATS operations needed by AgentPoolService.
+// In distributed mode, the frontend only publishes chat events to NATS.
+// The agent-worker process handles subscriptions via the NATSDispatcher.
+type NATSClient interface {
+	Publish(subject string, data any) error
+}
+
+// AgentEventBridge is the interface for event publishing needed by AgentPoolService.
+type AgentEventBridge interface {
+	PublishMessage(agentName, userID, sender, content, messageID string) error
+	PublishStatus(agentName, userID, status string) error
+	PublishStreamEvent(agentName, userID string, data map[string]any) error
+	RegisterCancel(agentName, userID string, cancel context.CancelFunc)
+	DeregisterCancel(agentName, userID string)
+}
+
+// AgentConfigStore is the interface for agent config persistence.
+type AgentConfigStore interface {
+	SaveConfig(cfg *agents.AgentConfigRecord) error
+	GetConfig(userID, name string) (*agents.AgentConfigRecord, error)
+	ListConfigs(userID string) ([]agents.AgentConfigRecord, error)
+	DeleteConfig(userID, name string) error
+	UpdateStatus(userID, name, status string) error
+	UpdateLastRun(userID, name string) error
 }
 
 func NewAgentPoolService(appConfig *config.ApplicationConfig) (*AgentPoolService, error) {
@@ -71,6 +108,109 @@ func (s *AgentPoolService) Start(ctx context.Context) error {
 		apiKey = s.appConfig.ApiKeys[0]
 	}
 
+	s.apiURL = apiURL
+	s.apiKey = apiKey
+
+	// Distributed mode: use native executor + NATSDispatcher.
+	// No LocalAGI pool, no collections, no skills service — all stateless.
+	if s.natsClient != nil {
+		return s.startDistributed(ctx, apiURL, apiKey)
+	}
+
+	// Standalone mode: use LocalAGI pool (backward compat)
+	return s.startLocalAGI(ctx, cfg, apiURL, apiKey)
+}
+
+// startDistributed initializes the native agent executor with NATS dispatcher.
+// No LocalAGI pool is created — agent execution is stateless.
+// Skills and collections are still initialized for the frontend UI.
+func (s *AgentPoolService) startDistributed(_ context.Context, apiURL, apiKey string) error {
+	cfg := s.appConfig.AgentPool
+
+	// State dir for skills and outputs
+	stateDir := cfg.StateDir
+	if stateDir == "" {
+		stateDir = s.appConfig.DataPath
+	}
+	if stateDir == "" {
+		stateDir = s.appConfig.DynamicConfigsDir
+	}
+	if stateDir == "" {
+		stateDir = "agents"
+	}
+	if err := os.MkdirAll(stateDir, 0750); err != nil {
+		xlog.Warn("Failed to create agent state dir", "error", err)
+	}
+	s.stateDir = stateDir
+
+	// Outputs directory
+	outputsDir := filepath.Join(stateDir, "outputs")
+	if err := os.MkdirAll(outputsDir, 0750); err != nil {
+		xlog.Warn("Failed to create outputs directory", "error", err)
+	}
+	s.outputsDir = outputsDir
+
+	// Skills service — same as standalone, filesystem-based
+	skillsSvc, err := skills.NewService(stateDir)
+	if err != nil {
+		xlog.Warn("Failed to create skills service in distributed mode", "error", err)
+	} else {
+		s.skillsService = skillsSvc
+	}
+
+	// Collections backend — same as standalone, in-process
+	collectionDBPath := cfg.CollectionDBPath
+	if collectionDBPath == "" {
+		collectionDBPath = filepath.Join(stateDir, "collections")
+	}
+	fileAssets := filepath.Join(stateDir, "assets")
+
+	collectionsCfg := &collections.Config{
+		LLMAPIURL:       apiURL,
+		LLMAPIKey:       apiKey,
+		LLMModel:        cfg.DefaultModel,
+		CollectionDBPath: collectionDBPath,
+		FileAssets:       fileAssets,
+		VectorEngine:    cfg.VectorEngine,
+		EmbeddingModel:  cfg.EmbeddingModel,
+		MaxChunkingSize: cfg.MaxChunkingSize,
+		ChunkOverlap:    cfg.ChunkOverlap,
+		DatabaseURL:     cfg.DatabaseURL,
+	}
+	collectionsBackend, _ := collections.NewInProcessBackend(collectionsCfg)
+	s.collectionsBackend = collectionsBackend
+
+	// User-scoped storage
+	dataDir := s.appConfig.DataPath
+	if dataDir == "" {
+		dataDir = s.appConfig.DynamicConfigsDir
+	}
+	s.userStorage = NewUserScopedStorage(stateDir, dataDir)
+
+	// Start the background agent scheduler on the frontend.
+	// It needs DB access to list configs and update LastRunAt — the worker doesn't have DB.
+	// The advisory lock ensures only one frontend instance runs the scheduler.
+	if s.authDB != nil && s.natsClient != nil && s.agentStore != nil {
+		var schedulerOpts []agents.AgentSchedulerOpt
+		if s.skillStore != nil {
+			schedulerOpts = append(schedulerOpts, agents.WithSchedulerSkillProvider(s.buildSkillProvider()))
+		}
+		scheduler := agents.NewAgentScheduler(
+			s.authDB,
+			&natsPublisherAdapter{s.natsClient},
+			s.agentStore,
+			messaging.SubjectAgentExecute,
+			schedulerOpts...,
+		)
+		go scheduler.Start(context.Background())
+	}
+
+	xlog.Info("Agent pool started in distributed mode (frontend dispatcher only)", "apiURL", apiURL, "stateDir", stateDir)
+	return nil
+}
+
+// startLocalAGI initializes the full LocalAGI pool for standalone mode.
+func (s *AgentPoolService) startLocalAGI(_ context.Context, cfg config.AgentPoolConfig, apiURL, apiKey string) error {
 	// State dir: explicit config > DataPath > DynamicConfigsDir > fallback
 	stateDir := cfg.StateDir
 	if stateDir == "" {
@@ -93,16 +233,14 @@ func (s *AgentPoolService) Start(ctx context.Context) error {
 	}
 	fileAssets := filepath.Join(stateDir, "assets")
 
-	// Skills service — always created since the agent pool calls GetSkillsPrompt unconditionally.
-	// When EnableSkills is false, the service still exists but the skills directory will be empty.
+	// Skills service
 	skillsSvc, err := skills.NewService(stateDir)
 	if err != nil {
 		xlog.Error("Failed to create skills service", "error", err)
 	}
 	s.skillsService = skillsSvc
 
-	// Actions config map — only set CustomActionsDir if non-empty to avoid
-	// "open : no such file or directory" errors
+	// Actions config map
 	actionsConfig := map[string]string{
 		agiServices.ConfigStateDir: stateDir,
 	}
@@ -110,7 +248,7 @@ func (s *AgentPoolService) Start(ctx context.Context) error {
 		actionsConfig[agiServices.CustomActionsDir] = cfg.CustomActionsDir
 	}
 
-	// Create outputs subdirectory for action-generated files (PDFs, audio, etc.)
+	// Create outputs subdirectory
 	outputsDir := filepath.Join(stateDir, "outputs")
 	if err := os.MkdirAll(outputsDir, 0750); err != nil {
 		xlog.Error("Failed to create outputs directory", "path", outputsDir, "error", err)
@@ -151,7 +289,7 @@ func (s *AgentPoolService) Start(ctx context.Context) error {
 	}
 	s.pool = pool
 
-	// Create in-process collections backend and RAG provider directly
+	// Create in-process collections backend and RAG provider
 	collectionsCfg := &collections.Config{
 		LLMAPIURL:       apiURL,
 		LLMAPIKey:       apiKey,
@@ -167,7 +305,6 @@ func (s *AgentPoolService) Start(ctx context.Context) error {
 	collectionsBackend, collectionsState := collections.NewInProcessBackend(collectionsCfg)
 	s.collectionsBackend = collectionsBackend
 
-	// Set up in-process RAG provider from collections state
 	embedded := collections.RAGProviderFromState(collectionsState)
 	pool.SetRAGProvider(func(collectionName, _, _ string) (agent.RAGDB, state.KBCompactionClient, bool) {
 		return embedded(collectionName)
@@ -186,7 +323,7 @@ func (s *AgentPoolService) Start(ctx context.Context) error {
 		xlog.Error("Failed to start agent pool", "error", err)
 	}
 
-	xlog.Info("Agent pool started", "stateDir", stateDir, "apiURL", apiURL)
+	xlog.Info("Agent pool started (standalone/LocalAGI mode)", "stateDir", stateDir, "apiURL", apiURL)
 	return nil
 }
 
@@ -196,90 +333,52 @@ func (s *AgentPoolService) Stop() {
 	}
 }
 
+// IsDistributed returns true if the service is running in distributed mode.
+func (s *AgentPoolService) IsDistributed() bool {
+	return s.natsClient != nil
+}
+
+// APIURL returns the resolved API URL for agent execution.
+func (s *AgentPoolService) APIURL() string {
+	return s.apiURL
+}
+
+// APIKey returns the resolved API key for agent execution.
+func (s *AgentPoolService) APIKey() string {
+	return s.apiKey
+}
+
 // Pool returns the underlying AgentPool.
 func (s *AgentPoolService) Pool() *state.AgentPool {
 	return s.pool
 }
 
+// SetNATSClient sets the NATS client for distributed agent execution.
+func (s *AgentPoolService) SetNATSClient(nc NATSClient) {
+	s.natsClient = nc
+}
+
+// SetEventBridge sets the event bridge for distributed SSE + persistence.
+func (s *AgentPoolService) SetEventBridge(eb AgentEventBridge) {
+	s.eventBridge = eb
+}
+
+// SetAgentStore sets the PostgreSQL agent config store.
+func (s *AgentPoolService) SetAgentStore(store AgentConfigStore) {
+	s.agentStore = store
+}
+
+// Agent execution in distributed mode is handled by the dedicated agent-worker process
+// using the NATSDispatcher from core/services/agents/dispatcher.go.
+// The frontend only dispatches chat events to NATS via dispatchChat().
+
 // --- Agent CRUD ---
 
-func (s *AgentPoolService) ListAgents() map[string]bool {
-	statuses := map[string]bool{}
-	agents := s.pool.List()
-	for _, a := range agents {
-		ag := s.pool.GetAgent(a)
-		if ag == nil {
-			continue
-		}
-		statuses[a] = !ag.Paused()
-	}
-	return statuses
-}
-
-func (s *AgentPoolService) CreateAgent(config *state.AgentConfig) error {
-	if config.Name == "" {
-		return fmt.Errorf("name is required")
-	}
-	return s.pool.CreateAgent(config.Name, config)
-}
-
 func (s *AgentPoolService) GetAgent(name string) *agent.Agent {
+	if s.pool == nil {
+		return nil
+	}
 	return s.pool.GetAgent(name)
-}
-
-func (s *AgentPoolService) GetAgentConfig(name string) *state.AgentConfig {
-	return s.pool.GetConfig(name)
-}
-
-func (s *AgentPoolService) UpdateAgent(name string, config *state.AgentConfig) error {
-	old := s.pool.GetConfig(name)
-	if old == nil {
-		return fmt.Errorf("agent not found: %s", name)
-	}
-	return s.pool.RecreateAgent(name, config)
-}
-
-func (s *AgentPoolService) DeleteAgent(name string) error {
-	return s.pool.Remove(name)
-}
-
-func (s *AgentPoolService) PauseAgent(name string) error {
-	ag := s.pool.GetAgent(name)
-	if ag == nil {
-		return fmt.Errorf("agent not found: %s", name)
-	}
-	ag.Pause()
-	return nil
-}
-
-func (s *AgentPoolService) ResumeAgent(name string) error {
-	ag := s.pool.GetAgent(name)
-	if ag == nil {
-		return fmt.Errorf("agent not found: %s", name)
-	}
-	ag.Resume()
-	return nil
-}
-
-func (s *AgentPoolService) GetAgentStatus(name string) *state.Status {
-	return s.pool.GetStatusHistory(name)
-}
-
-func (s *AgentPoolService) GetAgentObservables(name string) ([]coreTypes.Observable, error) {
-	ag := s.pool.GetAgent(name)
-	if ag == nil {
-		return nil, fmt.Errorf("agent not found: %s", name)
-	}
-	return ag.Observer().History(), nil
-}
-
-func (s *AgentPoolService) ClearAgentObservables(name string) error {
-	ag := s.pool.GetAgent(name)
-	if ag == nil {
-		return fmt.Errorf("agent not found: %s", name)
-	}
-	ag.Observer().ClearHistory()
-	return nil
 }
 
 // Chat sends a message to an agent and returns immediately. Responses come via SSE.
@@ -445,10 +544,6 @@ func (s *AgentPoolService) collectAndCopyMetadata(metadata map[string]any, userI
 	}
 }
 
-func (s *AgentPoolService) GetSSEManager(name string) sse.Manager {
-	return s.pool.GetManager(name)
-}
-
 func (s *AgentPoolService) GetConfigMeta() state.AgentConfigMeta {
 	return s.configMeta
 }
@@ -467,623 +562,33 @@ func (s *AgentPoolService) OutputsDir() string {
 
 // ExportAgent returns the agent config as JSON bytes.
 func (s *AgentPoolService) ExportAgent(name string) ([]byte, error) {
-	cfg := s.pool.GetConfig(name)
-	if cfg == nil {
-		return nil, fmt.Errorf("agent not found: %s", name)
-	}
-	return json.MarshalIndent(cfg, "", "  ")
-}
-
-// ImportAgent creates an agent from JSON config data.
-func (s *AgentPoolService) ImportAgent(data []byte) error {
-	var cfg state.AgentConfig
-	if err := json.Unmarshal(data, &cfg); err != nil {
-		return fmt.Errorf("invalid agent config: %w", err)
-	}
-	if cfg.Name == "" {
-		return fmt.Errorf("agent name is required")
-	}
-	return s.pool.CreateAgent(cfg.Name, &cfg)
-}
-
-// --- Skills ---
-
-func (s *AgentPoolService) SkillsService() *skills.Service {
-	return s.skillsService
-}
-
-func (s *AgentPoolService) GetSkillsConfig() map[string]any {
-	if s.skillsService == nil {
-		return nil
-	}
-	return map[string]any{"skills_dir": s.skillsService.GetSkillsDir()}
-}
-
-func (s *AgentPoolService) ListSkills() ([]skilldomain.Skill, error) {
-	if s.skillsService == nil {
-		return nil, fmt.Errorf("skills service not available")
-	}
-	mgr, err := s.skillsService.GetManager()
-	if err != nil || mgr == nil {
-		if mgr == nil {
-			return []skilldomain.Skill{}, nil
-		}
-		return nil, err
-	}
-	return mgr.ListSkills()
-}
-
-func (s *AgentPoolService) GetSkill(name string) (*skilldomain.Skill, error) {
-	if s.skillsService == nil {
-		return nil, fmt.Errorf("skills service not available")
-	}
-	mgr, err := s.skillsService.GetManager()
-	if err != nil || mgr == nil {
-		return nil, fmt.Errorf("skills directory not configured")
-	}
-	return mgr.ReadSkill(name)
-}
-
-func (s *AgentPoolService) SearchSkills(query string) ([]skilldomain.Skill, error) {
-	if s.skillsService == nil {
-		return nil, fmt.Errorf("skills service not available")
-	}
-	mgr, err := s.skillsService.GetManager()
-	if err != nil || mgr == nil {
-		return nil, fmt.Errorf("skills directory not configured")
-	}
-	return mgr.SearchSkills(query)
-}
-
-func (s *AgentPoolService) CreateSkill(name, description, content, license, compatibility, allowedTools string, metadata map[string]string) (*skilldomain.Skill, error) {
-	if s.skillsService == nil {
-		return nil, fmt.Errorf("skills service not available")
-	}
-	mgr, err := s.skillsService.GetManager()
-	if err != nil || mgr == nil {
-		return nil, fmt.Errorf("skills directory not configured")
-	}
-	fsManager, ok := mgr.(*skilldomain.FileSystemManager)
-	if !ok {
-		return nil, fmt.Errorf("unsupported manager type")
-	}
-	if err := skilldomain.ValidateSkillName(name); err != nil {
-		return nil, err
-	}
-
-	skillsDir := fsManager.GetSkillsDir()
-	skillDir := filepath.Join(skillsDir, name)
-	if _, err := os.Stat(skillDir); err == nil {
-		return nil, fmt.Errorf("skill already exists")
-	}
-	if err := os.MkdirAll(skillDir, 0755); err != nil {
-		return nil, err
-	}
-
-	frontmatter := fmt.Sprintf("---\nname: %s\ndescription: %s\n", name, description)
-	if license != "" {
-		frontmatter += fmt.Sprintf("license: %s\n", license)
-	}
-	if compatibility != "" {
-		frontmatter += fmt.Sprintf("compatibility: %s\n", compatibility)
-	}
-	if len(metadata) > 0 {
-		frontmatter += "metadata:\n"
-		for k, v := range metadata {
-			frontmatter += fmt.Sprintf("  %s: %s\n", k, v)
+	if s.pool != nil {
+		cfg := s.pool.GetConfig(name)
+		if cfg != nil {
+			return json.MarshalIndent(cfg, "", "  ")
 		}
 	}
-	if allowedTools != "" {
-		frontmatter += fmt.Sprintf("allowed-tools: %s\n", allowedTools)
-	}
-	frontmatter += "---\n\n"
-
-	if err := os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte(frontmatter+content), 0644); err != nil {
-		os.RemoveAll(skillDir)
-		return nil, err
-	}
-	if err := mgr.RebuildIndex(); err != nil {
-		return nil, fmt.Errorf("failed to rebuild index: %w", err)
-	}
-	return mgr.ReadSkill(name)
-}
-
-func (s *AgentPoolService) UpdateSkill(name, description, content, license, compatibility, allowedTools string, metadata map[string]string) (*skilldomain.Skill, error) {
-	if s.skillsService == nil {
-		return nil, fmt.Errorf("skills service not available")
-	}
-	mgr, err := s.skillsService.GetManager()
-	if err != nil || mgr == nil {
-		return nil, fmt.Errorf("skills directory not configured")
-	}
-	fsManager, ok := mgr.(*skilldomain.FileSystemManager)
-	if !ok {
-		return nil, fmt.Errorf("unsupported manager type")
-	}
-	existing, err := mgr.ReadSkill(name)
-	if err != nil {
-		return nil, fmt.Errorf("skill not found")
-	}
-	if existing.ReadOnly {
-		return nil, fmt.Errorf("cannot update read-only skill from git repository")
-	}
-
-	skillDir := filepath.Join(fsManager.GetSkillsDir(), name)
-	frontmatter := fmt.Sprintf("---\nname: %s\ndescription: %s\n", name, description)
-	if license != "" {
-		frontmatter += fmt.Sprintf("license: %s\n", license)
-	}
-	if compatibility != "" {
-		frontmatter += fmt.Sprintf("compatibility: %s\n", compatibility)
-	}
-	if len(metadata) > 0 {
-		frontmatter += "metadata:\n"
-		for k, v := range metadata {
-			frontmatter += fmt.Sprintf("  %s: %s\n", k, v)
+	// Fall back to PostgreSQL in distributed mode
+	if s.agentStore != nil {
+		// Try to extract userID and agent name from the key
+		userID := ""
+		agentName := name
+		if idx := strings.Index(name, ":"); idx >= 0 {
+			userID = name[:idx]
+			agentName = name[idx+1:]
 		}
-	}
-	if allowedTools != "" {
-		frontmatter += fmt.Sprintf("allowed-tools: %s\n", allowedTools)
-	}
-	frontmatter += "---\n\n"
-
-	if err := os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte(frontmatter+content), 0644); err != nil {
-		return nil, err
-	}
-	if err := mgr.RebuildIndex(); err != nil {
-		return nil, fmt.Errorf("failed to rebuild index: %w", err)
-	}
-	return mgr.ReadSkill(name)
-}
-
-func (s *AgentPoolService) DeleteSkill(name string) error {
-	if s.skillsService == nil {
-		return fmt.Errorf("skills service not available")
-	}
-	mgr, err := s.skillsService.GetManager()
-	if err != nil || mgr == nil {
-		return fmt.Errorf("skills directory not configured")
-	}
-	fsManager, ok := mgr.(*skilldomain.FileSystemManager)
-	if !ok {
-		return fmt.Errorf("unsupported manager type")
-	}
-	existing, err := mgr.ReadSkill(name)
-	if err != nil {
-		return fmt.Errorf("skill not found")
-	}
-	if existing.ReadOnly {
-		return fmt.Errorf("cannot delete read-only skill from git repository")
-	}
-	skillDir := filepath.Join(fsManager.GetSkillsDir(), name)
-	if err := os.RemoveAll(skillDir); err != nil {
-		return err
-	}
-	return mgr.RebuildIndex()
-}
-
-func (s *AgentPoolService) ExportSkill(name string) ([]byte, error) {
-	if s.skillsService == nil {
-		return nil, fmt.Errorf("skills service not available")
-	}
-	mgr, err := s.skillsService.GetManager()
-	if err != nil || mgr == nil {
-		return nil, fmt.Errorf("skills directory not configured")
-	}
-	fsManager, ok := mgr.(*skilldomain.FileSystemManager)
-	if !ok {
-		return nil, fmt.Errorf("unsupported manager type")
-	}
-	skill, err := mgr.ReadSkill(name)
-	if err != nil {
-		return nil, fmt.Errorf("skill not found")
-	}
-	return skilldomain.ExportSkill(skill.ID, fsManager.GetSkillsDir())
-}
-
-func (s *AgentPoolService) ImportSkill(archiveData []byte) (*skilldomain.Skill, error) {
-	if s.skillsService == nil {
-		return nil, fmt.Errorf("skills service not available")
-	}
-	mgr, err := s.skillsService.GetManager()
-	if err != nil || mgr == nil {
-		return nil, fmt.Errorf("skills directory not configured")
-	}
-	fsManager, ok := mgr.(*skilldomain.FileSystemManager)
-	if !ok {
-		return nil, fmt.Errorf("unsupported manager type")
-	}
-	skillName, err := skilldomain.ImportSkill(archiveData, fsManager.GetSkillsDir())
-	if err != nil {
-		return nil, err
-	}
-	if err := mgr.RebuildIndex(); err != nil {
-		return nil, fmt.Errorf("failed to rebuild index: %w", err)
-	}
-	return mgr.ReadSkill(skillName)
-}
-
-// --- Skill Resources ---
-
-func (s *AgentPoolService) ListSkillResources(skillName string) ([]skilldomain.SkillResource, *skilldomain.Skill, error) {
-	if s.skillsService == nil {
-		return nil, nil, fmt.Errorf("skills service not available")
-	}
-	mgr, err := s.skillsService.GetManager()
-	if err != nil || mgr == nil {
-		return nil, nil, fmt.Errorf("skills directory not configured")
-	}
-	skill, err := mgr.ReadSkill(skillName)
-	if err != nil {
-		return nil, nil, fmt.Errorf("skill not found")
-	}
-	resources, err := mgr.ListSkillResources(skill.ID)
-	if err != nil {
-		return nil, nil, err
-	}
-	return resources, skill, nil
-}
-
-func (s *AgentPoolService) GetSkillResource(skillName, resourcePath string) (*skilldomain.ResourceContent, *skilldomain.SkillResource, error) {
-	if s.skillsService == nil {
-		return nil, nil, fmt.Errorf("skills service not available")
-	}
-	mgr, err := s.skillsService.GetManager()
-	if err != nil || mgr == nil {
-		return nil, nil, fmt.Errorf("skills directory not configured")
-	}
-	skill, err := mgr.ReadSkill(skillName)
-	if err != nil {
-		return nil, nil, fmt.Errorf("skill not found")
-	}
-	info, err := mgr.GetSkillResourceInfo(skill.ID, resourcePath)
-	if err != nil {
-		return nil, nil, fmt.Errorf("resource not found")
-	}
-	content, err := mgr.ReadSkillResource(skill.ID, resourcePath)
-	if err != nil {
-		return nil, nil, err
-	}
-	return content, info, nil
-}
-
-func (s *AgentPoolService) CreateSkillResource(skillName, path string, data []byte) error {
-	if s.skillsService == nil {
-		return fmt.Errorf("skills service not available")
-	}
-	mgr, err := s.skillsService.GetManager()
-	if err != nil || mgr == nil {
-		return fmt.Errorf("skills directory not configured")
-	}
-	skill, err := mgr.ReadSkill(skillName)
-	if err != nil {
-		return fmt.Errorf("skill not found")
-	}
-	if skill.ReadOnly {
-		return fmt.Errorf("cannot add resources to read-only skill")
-	}
-	if err := skilldomain.ValidateResourcePath(path); err != nil {
-		return err
-	}
-	fullPath := filepath.Join(skill.SourcePath, path)
-	if err := os.MkdirAll(filepath.Dir(fullPath), 0755); err != nil {
-		return err
-	}
-	return os.WriteFile(fullPath, data, 0644)
-}
-
-func (s *AgentPoolService) UpdateSkillResource(skillName, resourcePath, content string) error {
-	if s.skillsService == nil {
-		return fmt.Errorf("skills service not available")
-	}
-	mgr, err := s.skillsService.GetManager()
-	if err != nil || mgr == nil {
-		return fmt.Errorf("skills directory not configured")
-	}
-	skill, err := mgr.ReadSkill(skillName)
-	if err != nil {
-		return fmt.Errorf("skill not found")
-	}
-	if skill.ReadOnly {
-		return fmt.Errorf("cannot update resources in read-only skill")
-	}
-	if err := skilldomain.ValidateResourcePath(resourcePath); err != nil {
-		return err
-	}
-	fullPath := filepath.Join(skill.SourcePath, resourcePath)
-	return os.WriteFile(fullPath, []byte(content), 0644)
-}
-
-func (s *AgentPoolService) DeleteSkillResource(skillName, resourcePath string) error {
-	if s.skillsService == nil {
-		return fmt.Errorf("skills service not available")
-	}
-	mgr, err := s.skillsService.GetManager()
-	if err != nil || mgr == nil {
-		return fmt.Errorf("skills directory not configured")
-	}
-	skill, err := mgr.ReadSkill(skillName)
-	if err != nil {
-		return fmt.Errorf("skill not found")
-	}
-	if skill.ReadOnly {
-		return fmt.Errorf("cannot delete resources from read-only skill")
-	}
-	if err := skilldomain.ValidateResourcePath(resourcePath); err != nil {
-		return err
-	}
-	fullPath := filepath.Join(skill.SourcePath, resourcePath)
-	return os.Remove(fullPath)
-}
-
-// --- Git Repos ---
-
-func (s *AgentPoolService) getSkillsDir() string {
-	if s.skillsService == nil {
-		return ""
-	}
-	return s.skillsService.GetSkillsDir()
-}
-
-type GitRepoInfo struct {
-	ID      string `json:"id"`
-	URL     string `json:"url"`
-	Name    string `json:"name"`
-	Enabled bool   `json:"enabled"`
-}
-
-func (s *AgentPoolService) ListGitRepos() ([]GitRepoInfo, error) {
-	dir := s.getSkillsDir()
-	if dir == "" {
-		return []GitRepoInfo{}, nil
-	}
-	cm := skillgit.NewConfigManager(dir)
-	repos, err := cm.LoadConfig()
-	if err != nil {
-		return nil, err
-	}
-	out := make([]GitRepoInfo, len(repos))
-	for i, r := range repos {
-		out[i] = GitRepoInfo{ID: r.ID, URL: r.URL, Name: r.Name, Enabled: r.Enabled}
-	}
-	return out, nil
-}
-
-func (s *AgentPoolService) AddGitRepo(repoURL string) (*GitRepoInfo, error) {
-	dir := s.getSkillsDir()
-	if dir == "" {
-		return nil, fmt.Errorf("skills directory not configured")
-	}
-	if !strings.HasPrefix(repoURL, "http://") && !strings.HasPrefix(repoURL, "https://") && !strings.HasPrefix(repoURL, "git@") {
-		return nil, fmt.Errorf("invalid URL format")
-	}
-	cm := skillgit.NewConfigManager(dir)
-	repos, err := cm.LoadConfig()
-	if err != nil {
-		return nil, err
-	}
-	for _, r := range repos {
-		if r.URL == repoURL {
-			return nil, fmt.Errorf("repository already exists")
+		rec, err := s.agentStore.GetConfig(userID, agentName)
+		if err != nil || rec == nil {
+			return nil, fmt.Errorf("agent not found: %s", name)
 		}
-	}
-	newRepo := skillgit.GitRepoConfig{
-		ID:      skillgit.GenerateID(repoURL),
-		URL:     repoURL,
-		Name:    skillgit.ExtractRepoName(repoURL),
-		Enabled: true,
-	}
-	repos = append(repos, newRepo)
-	if err := cm.SaveConfig(repos); err != nil {
-		return nil, err
-	}
-
-	// Background sync
-	go func() {
-		mgr, err := s.skillsService.GetManager()
-		if err != nil || mgr == nil {
-			return
+		// Return the raw config JSON (already properly formatted)
+		var pretty json.RawMessage
+		if err := json.Unmarshal([]byte(rec.ConfigJSON), &pretty); err == nil {
+			return json.MarshalIndent(pretty, "", "  ")
 		}
-		syncer := skillgit.NewGitSyncer(dir, []string{repoURL}, mgr.RebuildIndex)
-		if err := syncer.Start(); err != nil {
-			xlog.Error("background sync failed", "url", repoURL, "error", err)
-			s.skillsService.RefreshManagerFromConfig()
-			return
-		}
-		syncer.Stop()
-		s.skillsService.RefreshManagerFromConfig()
-	}()
-
-	return &GitRepoInfo{ID: newRepo.ID, URL: newRepo.URL, Name: newRepo.Name, Enabled: newRepo.Enabled}, nil
-}
-
-func (s *AgentPoolService) UpdateGitRepo(id, repoURL string, enabled *bool) (*GitRepoInfo, error) {
-	dir := s.getSkillsDir()
-	if dir == "" {
-		return nil, fmt.Errorf("skills directory not configured")
+		return []byte(rec.ConfigJSON), nil
 	}
-	cm := skillgit.NewConfigManager(dir)
-	repos, err := cm.LoadConfig()
-	if err != nil {
-		return nil, err
-	}
-	idx := -1
-	for i, r := range repos {
-		if r.ID == id {
-			idx = i
-			if repoURL != "" {
-				parsedURL, err := url.Parse(repoURL)
-				if err != nil || parsedURL.Scheme == "" {
-					return nil, fmt.Errorf("invalid repository URL")
-				}
-				repos[i].URL = repoURL
-				repos[i].Name = skillgit.ExtractRepoName(repoURL)
-			}
-			if enabled != nil {
-				repos[i].Enabled = *enabled
-			}
-			break
-		}
-	}
-	if idx < 0 {
-		return nil, fmt.Errorf("repository not found")
-	}
-	if err := cm.SaveConfig(repos); err != nil {
-		return nil, err
-	}
-	s.skillsService.RefreshManagerFromConfig()
-	r := repos[idx]
-	return &GitRepoInfo{ID: r.ID, URL: r.URL, Name: r.Name, Enabled: r.Enabled}, nil
-}
-
-func (s *AgentPoolService) DeleteGitRepo(id string) error {
-	dir := s.getSkillsDir()
-	if dir == "" {
-		return fmt.Errorf("skills directory not configured")
-	}
-	cm := skillgit.NewConfigManager(dir)
-	repos, err := cm.LoadConfig()
-	if err != nil {
-		return err
-	}
-	var newRepos []skillgit.GitRepoConfig
-	var repoName string
-	for _, r := range repos {
-		if r.ID == id {
-			repoName = r.Name
-		} else {
-			newRepos = append(newRepos, r)
-		}
-	}
-	if len(newRepos) == len(repos) {
-		return fmt.Errorf("repository not found")
-	}
-	if err := cm.SaveConfig(newRepos); err != nil {
-		return err
-	}
-	if repoName != "" {
-		os.RemoveAll(filepath.Join(dir, repoName))
-	}
-	s.skillsService.RefreshManagerFromConfig()
-	return nil
-}
-
-func (s *AgentPoolService) SyncGitRepo(id string) error {
-	dir := s.getSkillsDir()
-	if dir == "" {
-		return fmt.Errorf("skills directory not configured")
-	}
-	cm := skillgit.NewConfigManager(dir)
-	repos, err := cm.LoadConfig()
-	if err != nil {
-		return err
-	}
-	var repoURL string
-	for _, r := range repos {
-		if r.ID == id {
-			repoURL = r.URL
-			break
-		}
-	}
-	if repoURL == "" {
-		return fmt.Errorf("repository not found")
-	}
-	mgr, err := s.skillsService.GetManager()
-	if err != nil || mgr == nil {
-		return fmt.Errorf("manager not ready")
-	}
-	go func() {
-		syncer := skillgit.NewGitSyncer(dir, []string{repoURL}, mgr.RebuildIndex)
-		if err := syncer.Start(); err != nil {
-			xlog.Error("background sync failed", "id", id, "error", err)
-			s.skillsService.RefreshManagerFromConfig()
-			return
-		}
-		syncer.Stop()
-		s.skillsService.RefreshManagerFromConfig()
-	}()
-	return nil
-}
-
-func (s *AgentPoolService) ToggleGitRepo(id string) (*GitRepoInfo, error) {
-	dir := s.getSkillsDir()
-	if dir == "" {
-		return nil, fmt.Errorf("skills directory not configured")
-	}
-	cm := skillgit.NewConfigManager(dir)
-	repos, err := cm.LoadConfig()
-	if err != nil {
-		return nil, err
-	}
-	for i, r := range repos {
-		if r.ID == id {
-			repos[i].Enabled = !repos[i].Enabled
-			if err := cm.SaveConfig(repos); err != nil {
-				return nil, err
-			}
-			s.skillsService.RefreshManagerFromConfig()
-			return &GitRepoInfo{ID: repos[i].ID, URL: repos[i].URL, Name: repos[i].Name, Enabled: repos[i].Enabled}, nil
-		}
-	}
-	return nil, fmt.Errorf("repository not found")
-}
-
-// --- Collections ---
-
-func (s *AgentPoolService) CollectionsBackend() collections.Backend {
-	return s.collectionsBackend
-}
-
-func (s *AgentPoolService) ListCollections() ([]string, error) {
-	return s.collectionsBackend.ListCollections()
-}
-
-func (s *AgentPoolService) CreateCollection(name string) error {
-	return s.collectionsBackend.CreateCollection(name)
-}
-
-func (s *AgentPoolService) UploadToCollection(collection, filename string, fileBody io.Reader) (string, error) {
-	return s.collectionsBackend.Upload(collection, filename, fileBody)
-}
-
-func (s *AgentPoolService) ListCollectionEntries(collection string) ([]string, error) {
-	return s.collectionsBackend.ListEntries(collection)
-}
-
-func (s *AgentPoolService) GetCollectionEntryContent(collection, entry string) (string, int, error) {
-	return s.collectionsBackend.GetEntryContent(collection, entry)
-}
-
-func (s *AgentPoolService) SearchCollection(collection, query string, maxResults int) ([]collections.SearchResult, error) {
-	return s.collectionsBackend.Search(collection, query, maxResults)
-}
-
-func (s *AgentPoolService) ResetCollection(collection string) error {
-	return s.collectionsBackend.Reset(collection)
-}
-
-func (s *AgentPoolService) DeleteCollectionEntry(collection, entry string) ([]string, error) {
-	return s.collectionsBackend.DeleteEntry(collection, entry)
-}
-
-func (s *AgentPoolService) AddCollectionSource(collection, sourceURL string, intervalMin int) error {
-	return s.collectionsBackend.AddSource(collection, sourceURL, intervalMin)
-}
-
-func (s *AgentPoolService) RemoveCollectionSource(collection, sourceURL string) error {
-	return s.collectionsBackend.RemoveSource(collection, sourceURL)
-}
-
-func (s *AgentPoolService) ListCollectionSources(collection string) ([]collections.SourceInfo, error) {
-	return s.collectionsBackend.ListSources(collection)
-}
-
-func (s *AgentPoolService) CollectionEntryExists(collection, entry string) bool {
-	return s.collectionsBackend.EntryExists(collection, entry)
-}
-
-func (s *AgentPoolService) GetCollectionEntryFilePath(collection, entry string) (string, error) {
-	return s.collectionsBackend.GetEntryFilePath(collection, entry)
+	return nil, fmt.Errorf("agent not found: %s", name)
 }
 
 // --- User Services ---
@@ -1108,6 +613,11 @@ func (s *AgentPoolService) SetAuthDB(db *gorm.DB) {
 	s.authDB = db
 }
 
+// SetSkillStore sets the distributed skill store for persisting skill metadata to PostgreSQL.
+func (s *AgentPoolService) SetSkillStore(store *distributed.SkillStore) {
+	s.skillStore = store
+}
+
 // --- Admin Aggregation ---
 
 // UserAgentInfo holds agent info for cross-user listing.
@@ -1120,6 +630,26 @@ type UserAgentInfo struct {
 // Keys without ":" go into the "" (root) group.
 func (s *AgentPoolService) ListAllAgentsGrouped() map[string][]UserAgentInfo {
 	result := map[string][]UserAgentInfo{}
+
+	// In distributed mode, read from PostgreSQL
+	if s.pool == nil && s.agentStore != nil {
+		configs, err := s.agentStore.ListConfigs("")
+		if err != nil {
+			return result
+		}
+		for _, cfg := range configs {
+			result[cfg.UserID] = append(result[cfg.UserID], UserAgentInfo{
+				Name:   cfg.Name,
+				Active: cfg.Status == "active",
+			})
+		}
+		return result
+	}
+
+	if s.pool == nil {
+		return result
+	}
+
 	agents := s.pool.List()
 	for _, a := range agents {
 		ag := s.pool.GetAgent(a)
@@ -1140,399 +670,6 @@ func (s *AgentPoolService) ListAllAgentsGrouped() map[string][]UserAgentInfo {
 	return result
 }
 
-// --- ForUser Skills ---
-
-// ListSkillsForUser lists skills for a specific user.
-func (s *AgentPoolService) ListSkillsForUser(userID string) ([]skilldomain.Skill, error) {
-	svc, err := s.SkillsServiceForUser(userID)
-	if err != nil {
-		return nil, err
-	}
-	if svc == nil {
-		return nil, fmt.Errorf("skills service not available")
-	}
-	mgr, err := svc.GetManager()
-	if err != nil || mgr == nil {
-		if mgr == nil {
-			return []skilldomain.Skill{}, nil
-		}
-		return nil, err
-	}
-	return mgr.ListSkills()
-}
-
-// GetSkillForUser gets a skill for a specific user.
-func (s *AgentPoolService) GetSkillForUser(userID, name string) (*skilldomain.Skill, error) {
-	svc, err := s.SkillsServiceForUser(userID)
-	if err != nil {
-		return nil, err
-	}
-	if svc == nil {
-		return nil, fmt.Errorf("skills service not available")
-	}
-	mgr, err := svc.GetManager()
-	if err != nil || mgr == nil {
-		return nil, fmt.Errorf("skills directory not configured")
-	}
-	return mgr.ReadSkill(name)
-}
-
-// SearchSkillsForUser searches skills for a specific user.
-func (s *AgentPoolService) SearchSkillsForUser(userID, query string) ([]skilldomain.Skill, error) {
-	svc, err := s.SkillsServiceForUser(userID)
-	if err != nil {
-		return nil, err
-	}
-	if svc == nil {
-		return nil, fmt.Errorf("skills service not available")
-	}
-	mgr, err := svc.GetManager()
-	if err != nil || mgr == nil {
-		return nil, fmt.Errorf("skills directory not configured")
-	}
-	return mgr.SearchSkills(query)
-}
-
-// CreateSkillForUser creates a skill for a specific user.
-func (s *AgentPoolService) CreateSkillForUser(userID, name, description, content, license, compatibility, allowedTools string, metadata map[string]string) (*skilldomain.Skill, error) {
-	svc, err := s.SkillsServiceForUser(userID)
-	if err != nil {
-		return nil, err
-	}
-	if svc == nil {
-		return nil, fmt.Errorf("skills service not available")
-	}
-	mgr, err := svc.GetManager()
-	if err != nil || mgr == nil {
-		return nil, fmt.Errorf("skills directory not configured")
-	}
-	fsManager, ok := mgr.(*skilldomain.FileSystemManager)
-	if !ok {
-		return nil, fmt.Errorf("unsupported manager type")
-	}
-	if err := skilldomain.ValidateSkillName(name); err != nil {
-		return nil, err
-	}
-
-	skillsDir := fsManager.GetSkillsDir()
-	skillDir := filepath.Join(skillsDir, name)
-	if _, err := os.Stat(skillDir); err == nil {
-		return nil, fmt.Errorf("skill already exists")
-	}
-	if err := os.MkdirAll(skillDir, 0755); err != nil {
-		return nil, err
-	}
-
-	frontmatter := fmt.Sprintf("---\nname: %s\ndescription: %s\n", name, description)
-	if license != "" {
-		frontmatter += fmt.Sprintf("license: %s\n", license)
-	}
-	if compatibility != "" {
-		frontmatter += fmt.Sprintf("compatibility: %s\n", compatibility)
-	}
-	if len(metadata) > 0 {
-		frontmatter += "metadata:\n"
-		for k, v := range metadata {
-			frontmatter += fmt.Sprintf("  %s: %s\n", k, v)
-		}
-	}
-	if allowedTools != "" {
-		frontmatter += fmt.Sprintf("allowed-tools: %s\n", allowedTools)
-	}
-	frontmatter += "---\n\n"
-
-	if err := os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte(frontmatter+content), 0644); err != nil {
-		os.RemoveAll(skillDir)
-		return nil, err
-	}
-	if err := mgr.RebuildIndex(); err != nil {
-		return nil, fmt.Errorf("failed to rebuild index: %w", err)
-	}
-	return mgr.ReadSkill(name)
-}
-
-// UpdateSkillForUser updates a skill for a specific user.
-func (s *AgentPoolService) UpdateSkillForUser(userID, name, description, content, license, compatibility, allowedTools string, metadata map[string]string) (*skilldomain.Skill, error) {
-	svc, err := s.SkillsServiceForUser(userID)
-	if err != nil {
-		return nil, err
-	}
-	if svc == nil {
-		return nil, fmt.Errorf("skills service not available")
-	}
-	mgr, err := svc.GetManager()
-	if err != nil || mgr == nil {
-		return nil, fmt.Errorf("skills directory not configured")
-	}
-	fsManager, ok := mgr.(*skilldomain.FileSystemManager)
-	if !ok {
-		return nil, fmt.Errorf("unsupported manager type")
-	}
-	existing, err := mgr.ReadSkill(name)
-	if err != nil {
-		return nil, fmt.Errorf("skill not found")
-	}
-	if existing.ReadOnly {
-		return nil, fmt.Errorf("cannot update read-only skill from git repository")
-	}
-
-	skillDir := filepath.Join(fsManager.GetSkillsDir(), name)
-	frontmatter := fmt.Sprintf("---\nname: %s\ndescription: %s\n", name, description)
-	if license != "" {
-		frontmatter += fmt.Sprintf("license: %s\n", license)
-	}
-	if compatibility != "" {
-		frontmatter += fmt.Sprintf("compatibility: %s\n", compatibility)
-	}
-	if len(metadata) > 0 {
-		frontmatter += "metadata:\n"
-		for k, v := range metadata {
-			frontmatter += fmt.Sprintf("  %s: %s\n", k, v)
-		}
-	}
-	if allowedTools != "" {
-		frontmatter += fmt.Sprintf("allowed-tools: %s\n", allowedTools)
-	}
-	frontmatter += "---\n\n"
-
-	if err := os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte(frontmatter+content), 0644); err != nil {
-		return nil, err
-	}
-	if err := mgr.RebuildIndex(); err != nil {
-		return nil, fmt.Errorf("failed to rebuild index: %w", err)
-	}
-	return mgr.ReadSkill(name)
-}
-
-// DeleteSkillForUser deletes a skill for a specific user.
-func (s *AgentPoolService) DeleteSkillForUser(userID, name string) error {
-	svc, err := s.SkillsServiceForUser(userID)
-	if err != nil {
-		return err
-	}
-	if svc == nil {
-		return fmt.Errorf("skills service not available")
-	}
-	mgr, err := svc.GetManager()
-	if err != nil || mgr == nil {
-		return fmt.Errorf("skills directory not configured")
-	}
-	fsManager, ok := mgr.(*skilldomain.FileSystemManager)
-	if !ok {
-		return fmt.Errorf("unsupported manager type")
-	}
-	existing, err := mgr.ReadSkill(name)
-	if err != nil {
-		return fmt.Errorf("skill not found")
-	}
-	if existing.ReadOnly {
-		return fmt.Errorf("cannot delete read-only skill from git repository")
-	}
-	skillDir := filepath.Join(fsManager.GetSkillsDir(), name)
-	if err := os.RemoveAll(skillDir); err != nil {
-		return err
-	}
-	return mgr.RebuildIndex()
-}
-
-// ExportSkillForUser exports a skill for a specific user.
-func (s *AgentPoolService) ExportSkillForUser(userID, name string) ([]byte, error) {
-	svc, err := s.SkillsServiceForUser(userID)
-	if err != nil {
-		return nil, err
-	}
-	if svc == nil {
-		return nil, fmt.Errorf("skills service not available")
-	}
-	mgr, err := svc.GetManager()
-	if err != nil || mgr == nil {
-		return nil, fmt.Errorf("skills directory not configured")
-	}
-	fsManager, ok := mgr.(*skilldomain.FileSystemManager)
-	if !ok {
-		return nil, fmt.Errorf("unsupported manager type")
-	}
-	skill, err := mgr.ReadSkill(name)
-	if err != nil {
-		return nil, fmt.Errorf("skill not found")
-	}
-	return skilldomain.ExportSkill(skill.ID, fsManager.GetSkillsDir())
-}
-
-// ImportSkillForUser imports a skill for a specific user.
-func (s *AgentPoolService) ImportSkillForUser(userID string, archiveData []byte) (*skilldomain.Skill, error) {
-	svc, err := s.SkillsServiceForUser(userID)
-	if err != nil {
-		return nil, err
-	}
-	if svc == nil {
-		return nil, fmt.Errorf("skills service not available")
-	}
-	mgr, err := svc.GetManager()
-	if err != nil || mgr == nil {
-		return nil, fmt.Errorf("skills directory not configured")
-	}
-	fsManager, ok := mgr.(*skilldomain.FileSystemManager)
-	if !ok {
-		return nil, fmt.Errorf("unsupported manager type")
-	}
-	skillName, err := skilldomain.ImportSkill(archiveData, fsManager.GetSkillsDir())
-	if err != nil {
-		return nil, err
-	}
-	if err := mgr.RebuildIndex(); err != nil {
-		return nil, fmt.Errorf("failed to rebuild index: %w", err)
-	}
-	return mgr.ReadSkill(skillName)
-}
-
-// GetSkillsConfigForUser returns the skills config for a specific user.
-func (s *AgentPoolService) GetSkillsConfigForUser(userID string) map[string]any {
-	svc, err := s.SkillsServiceForUser(userID)
-	if err != nil || svc == nil {
-		return nil
-	}
-	return map[string]any{"skills_dir": svc.GetSkillsDir()}
-}
-
-// --- ForUser Skill Resources ---
-
-// ListSkillResourcesForUser lists resources for a user's skill.
-func (s *AgentPoolService) ListSkillResourcesForUser(userID, skillName string) ([]skilldomain.SkillResource, *skilldomain.Skill, error) {
-	svc, err := s.SkillsServiceForUser(userID)
-	if err != nil {
-		return nil, nil, err
-	}
-	if svc == nil {
-		return nil, nil, fmt.Errorf("skills service not available")
-	}
-	mgr, err := svc.GetManager()
-	if err != nil || mgr == nil {
-		return nil, nil, fmt.Errorf("skills directory not configured")
-	}
-	skill, err := mgr.ReadSkill(skillName)
-	if err != nil {
-		return nil, nil, fmt.Errorf("skill not found")
-	}
-	resources, err := mgr.ListSkillResources(skill.ID)
-	if err != nil {
-		return nil, nil, err
-	}
-	return resources, skill, nil
-}
-
-// GetSkillResourceForUser gets a resource for a user's skill.
-func (s *AgentPoolService) GetSkillResourceForUser(userID, skillName, resourcePath string) (*skilldomain.ResourceContent, *skilldomain.SkillResource, error) {
-	svc, err := s.SkillsServiceForUser(userID)
-	if err != nil {
-		return nil, nil, err
-	}
-	if svc == nil {
-		return nil, nil, fmt.Errorf("skills service not available")
-	}
-	mgr, err := svc.GetManager()
-	if err != nil || mgr == nil {
-		return nil, nil, fmt.Errorf("skills directory not configured")
-	}
-	skill, err := mgr.ReadSkill(skillName)
-	if err != nil {
-		return nil, nil, fmt.Errorf("skill not found")
-	}
-	info, err := mgr.GetSkillResourceInfo(skill.ID, resourcePath)
-	if err != nil {
-		return nil, nil, fmt.Errorf("resource not found")
-	}
-	content, err := mgr.ReadSkillResource(skill.ID, resourcePath)
-	if err != nil {
-		return nil, nil, err
-	}
-	return content, info, nil
-}
-
-// CreateSkillResourceForUser creates a resource for a user's skill.
-func (s *AgentPoolService) CreateSkillResourceForUser(userID, skillName, path string, data []byte) error {
-	svc, err := s.SkillsServiceForUser(userID)
-	if err != nil {
-		return err
-	}
-	if svc == nil {
-		return fmt.Errorf("skills service not available")
-	}
-	mgr, err := svc.GetManager()
-	if err != nil || mgr == nil {
-		return fmt.Errorf("skills directory not configured")
-	}
-	skill, err := mgr.ReadSkill(skillName)
-	if err != nil {
-		return fmt.Errorf("skill not found")
-	}
-	if skill.ReadOnly {
-		return fmt.Errorf("cannot add resources to read-only skill")
-	}
-	if err := skilldomain.ValidateResourcePath(path); err != nil {
-		return err
-	}
-	fullPath := filepath.Join(skill.SourcePath, path)
-	if err := os.MkdirAll(filepath.Dir(fullPath), 0755); err != nil {
-		return err
-	}
-	return os.WriteFile(fullPath, data, 0644)
-}
-
-// UpdateSkillResourceForUser updates a resource for a user's skill.
-func (s *AgentPoolService) UpdateSkillResourceForUser(userID, skillName, resourcePath, content string) error {
-	svc, err := s.SkillsServiceForUser(userID)
-	if err != nil {
-		return err
-	}
-	if svc == nil {
-		return fmt.Errorf("skills service not available")
-	}
-	mgr, err := svc.GetManager()
-	if err != nil || mgr == nil {
-		return fmt.Errorf("skills directory not configured")
-	}
-	skill, err := mgr.ReadSkill(skillName)
-	if err != nil {
-		return fmt.Errorf("skill not found")
-	}
-	if skill.ReadOnly {
-		return fmt.Errorf("cannot update resources in read-only skill")
-	}
-	if err := skilldomain.ValidateResourcePath(resourcePath); err != nil {
-		return err
-	}
-	fullPath := filepath.Join(skill.SourcePath, resourcePath)
-	return os.WriteFile(fullPath, []byte(content), 0644)
-}
-
-// DeleteSkillResourceForUser deletes a resource for a user's skill.
-func (s *AgentPoolService) DeleteSkillResourceForUser(userID, skillName, resourcePath string) error {
-	svc, err := s.SkillsServiceForUser(userID)
-	if err != nil {
-		return err
-	}
-	if svc == nil {
-		return fmt.Errorf("skills service not available")
-	}
-	mgr, err := svc.GetManager()
-	if err != nil || mgr == nil {
-		return fmt.Errorf("skills directory not configured")
-	}
-	skill, err := mgr.ReadSkill(skillName)
-	if err != nil {
-		return fmt.Errorf("skill not found")
-	}
-	if skill.ReadOnly {
-		return fmt.Errorf("cannot delete resources from read-only skill")
-	}
-	if err := skilldomain.ValidateResourcePath(resourcePath); err != nil {
-		return err
-	}
-	fullPath := filepath.Join(skill.SourcePath, resourcePath)
-	return os.Remove(fullPath)
-}
-
 // --- ForUser Collections ---
 
 // ListCollectionsForUser lists collections for a specific user.
@@ -1549,6 +686,24 @@ func (s *AgentPoolService) CreateCollectionForUser(userID, name string) error {
 	backend, err := s.CollectionsBackendForUser(userID)
 	if err != nil {
 		return err
+	}
+	return backend.CreateCollection(name)
+}
+
+// ensureCollectionForUser creates a collection for the user if it doesn't already exist.
+func (s *AgentPoolService) ensureCollectionForUser(userID, name string) error {
+	backend, err := s.CollectionsBackendForUser(userID)
+	if err != nil {
+		return err
+	}
+	collections, err := backend.ListCollections()
+	if err != nil {
+		return err
+	}
+	for _, c := range collections {
+		if c == name {
+			return nil
+		}
 	}
 	return backend.CreateCollection(name)
 }
@@ -1652,235 +807,6 @@ func (s *AgentPoolService) GetCollectionEntryFilePathForUser(userID, collection,
 	return backend.GetEntryFilePath(collection, entry)
 }
 
-// --- ForUser Git Repos ---
-
-// getSkillsDirForUser returns the skills directory for a specific user.
-func (s *AgentPoolService) getSkillsDirForUser(userID string) string {
-	svc, err := s.SkillsServiceForUser(userID)
-	if err != nil || svc == nil {
-		return ""
-	}
-	return svc.GetSkillsDir()
-}
-
-// ListGitReposForUser lists git repos for a specific user.
-func (s *AgentPoolService) ListGitReposForUser(userID string) ([]GitRepoInfo, error) {
-	dir := s.getSkillsDirForUser(userID)
-	if dir == "" {
-		return []GitRepoInfo{}, nil
-	}
-	cm := skillgit.NewConfigManager(dir)
-	repos, err := cm.LoadConfig()
-	if err != nil {
-		return nil, err
-	}
-	out := make([]GitRepoInfo, len(repos))
-	for i, r := range repos {
-		out[i] = GitRepoInfo{ID: r.ID, URL: r.URL, Name: r.Name, Enabled: r.Enabled}
-	}
-	return out, nil
-}
-
-// AddGitRepoForUser adds a git repo for a specific user.
-func (s *AgentPoolService) AddGitRepoForUser(userID, repoURL string) (*GitRepoInfo, error) {
-	dir := s.getSkillsDirForUser(userID)
-	if dir == "" {
-		return nil, fmt.Errorf("skills directory not configured")
-	}
-	if !strings.HasPrefix(repoURL, "http://") && !strings.HasPrefix(repoURL, "https://") && !strings.HasPrefix(repoURL, "git@") {
-		return nil, fmt.Errorf("invalid URL format")
-	}
-	cm := skillgit.NewConfigManager(dir)
-	repos, err := cm.LoadConfig()
-	if err != nil {
-		return nil, err
-	}
-	for _, r := range repos {
-		if r.URL == repoURL {
-			return nil, fmt.Errorf("repository already exists")
-		}
-	}
-	newRepo := skillgit.GitRepoConfig{
-		ID:      skillgit.GenerateID(repoURL),
-		URL:     repoURL,
-		Name:    skillgit.ExtractRepoName(repoURL),
-		Enabled: true,
-	}
-	repos = append(repos, newRepo)
-	if err := cm.SaveConfig(repos); err != nil {
-		return nil, err
-	}
-
-	go func() {
-		svc, err := s.SkillsServiceForUser(userID)
-		if err != nil || svc == nil {
-			return
-		}
-		mgr, err := svc.GetManager()
-		if err != nil || mgr == nil {
-			return
-		}
-		syncer := skillgit.NewGitSyncer(dir, []string{repoURL}, mgr.RebuildIndex)
-		if err := syncer.Start(); err != nil {
-			xlog.Error("background sync failed", "url", repoURL, "error", err)
-			svc.RefreshManagerFromConfig()
-			return
-		}
-		syncer.Stop()
-		svc.RefreshManagerFromConfig()
-	}()
-
-	return &GitRepoInfo{ID: newRepo.ID, URL: newRepo.URL, Name: newRepo.Name, Enabled: newRepo.Enabled}, nil
-}
-
-// UpdateGitRepoForUser updates a git repo for a specific user.
-func (s *AgentPoolService) UpdateGitRepoForUser(userID, id, repoURL string, enabled *bool) (*GitRepoInfo, error) {
-	dir := s.getSkillsDirForUser(userID)
-	if dir == "" {
-		return nil, fmt.Errorf("skills directory not configured")
-	}
-	cm := skillgit.NewConfigManager(dir)
-	repos, err := cm.LoadConfig()
-	if err != nil {
-		return nil, err
-	}
-	idx := -1
-	for i, r := range repos {
-		if r.ID == id {
-			idx = i
-			if repoURL != "" {
-				parsedURL, err := url.Parse(repoURL)
-				if err != nil || parsedURL.Scheme == "" {
-					return nil, fmt.Errorf("invalid repository URL")
-				}
-				repos[i].URL = repoURL
-				repos[i].Name = skillgit.ExtractRepoName(repoURL)
-			}
-			if enabled != nil {
-				repos[i].Enabled = *enabled
-			}
-			break
-		}
-	}
-	if idx < 0 {
-		return nil, fmt.Errorf("repository not found")
-	}
-	if err := cm.SaveConfig(repos); err != nil {
-		return nil, err
-	}
-	svc, _ := s.SkillsServiceForUser(userID)
-	if svc != nil {
-		svc.RefreshManagerFromConfig()
-	}
-	r := repos[idx]
-	return &GitRepoInfo{ID: r.ID, URL: r.URL, Name: r.Name, Enabled: r.Enabled}, nil
-}
-
-// DeleteGitRepoForUser deletes a git repo for a specific user.
-func (s *AgentPoolService) DeleteGitRepoForUser(userID, id string) error {
-	dir := s.getSkillsDirForUser(userID)
-	if dir == "" {
-		return fmt.Errorf("skills directory not configured")
-	}
-	cm := skillgit.NewConfigManager(dir)
-	repos, err := cm.LoadConfig()
-	if err != nil {
-		return err
-	}
-	var newRepos []skillgit.GitRepoConfig
-	var repoName string
-	for _, r := range repos {
-		if r.ID == id {
-			repoName = r.Name
-		} else {
-			newRepos = append(newRepos, r)
-		}
-	}
-	if len(newRepos) == len(repos) {
-		return fmt.Errorf("repository not found")
-	}
-	if err := cm.SaveConfig(newRepos); err != nil {
-		return err
-	}
-	if repoName != "" {
-		os.RemoveAll(filepath.Join(dir, repoName))
-	}
-	svc, _ := s.SkillsServiceForUser(userID)
-	if svc != nil {
-		svc.RefreshManagerFromConfig()
-	}
-	return nil
-}
-
-// SyncGitRepoForUser syncs a git repo for a specific user.
-func (s *AgentPoolService) SyncGitRepoForUser(userID, id string) error {
-	dir := s.getSkillsDirForUser(userID)
-	if dir == "" {
-		return fmt.Errorf("skills directory not configured")
-	}
-	cm := skillgit.NewConfigManager(dir)
-	repos, err := cm.LoadConfig()
-	if err != nil {
-		return err
-	}
-	var repoURL string
-	for _, r := range repos {
-		if r.ID == id {
-			repoURL = r.URL
-			break
-		}
-	}
-	if repoURL == "" {
-		return fmt.Errorf("repository not found")
-	}
-	svc, err := s.SkillsServiceForUser(userID)
-	if err != nil || svc == nil {
-		return fmt.Errorf("skills service not available")
-	}
-	mgr, err := svc.GetManager()
-	if err != nil || mgr == nil {
-		return fmt.Errorf("manager not ready")
-	}
-	go func() {
-		syncer := skillgit.NewGitSyncer(dir, []string{repoURL}, mgr.RebuildIndex)
-		if err := syncer.Start(); err != nil {
-			xlog.Error("background sync failed", "id", id, "error", err)
-			svc.RefreshManagerFromConfig()
-			return
-		}
-		syncer.Stop()
-		svc.RefreshManagerFromConfig()
-	}()
-	return nil
-}
-
-// ToggleGitRepoForUser toggles a git repo for a specific user.
-func (s *AgentPoolService) ToggleGitRepoForUser(userID, id string) (*GitRepoInfo, error) {
-	dir := s.getSkillsDirForUser(userID)
-	if dir == "" {
-		return nil, fmt.Errorf("skills directory not configured")
-	}
-	cm := skillgit.NewConfigManager(dir)
-	repos, err := cm.LoadConfig()
-	if err != nil {
-		return nil, err
-	}
-	for i, r := range repos {
-		if r.ID == id {
-			repos[i].Enabled = !repos[i].Enabled
-			if err := cm.SaveConfig(repos); err != nil {
-				return nil, err
-			}
-			svc, _ := s.SkillsServiceForUser(userID)
-			if svc != nil {
-				svc.RefreshManagerFromConfig()
-			}
-			return &GitRepoInfo{ID: repos[i].ID, URL: repos[i].URL, Name: repos[i].Name, Enabled: repos[i].Enabled}, nil
-		}
-	}
-	return nil, fmt.Errorf("repository not found")
-}
-
 // --- ForUser Agent Methods ---
 
 // agentKey returns the namespaced key for an agent: "{userID}:{name}" or just "{name}" if no userID.
@@ -1894,6 +820,21 @@ func agentKey(userID, name string) string {
 // ListAgentsForUser lists agents belonging to a specific user.
 // If userID is empty, returns all agents (backward compat).
 func (s *AgentPoolService) ListAgentsForUser(userID string) map[string]bool {
+	// In distributed mode, read from PostgreSQL
+	if s.agentStore != nil {
+		statuses := map[string]bool{}
+		configs, err := s.agentStore.ListConfigs(userID)
+		if err != nil {
+			xlog.Error("Failed to list agents from database", "error", err)
+			return statuses
+		}
+		for _, cfg := range configs {
+			statuses[cfg.Name] = cfg.Status == "active"
+		}
+		return statuses
+	}
+
+	// Local mode: read from in-memory pool
 	statuses := map[string]bool{}
 	agents := s.pool.List()
 	prefix := ""
@@ -1936,25 +877,90 @@ func (s *AgentPoolService) CreateAgentForUser(userID string, config *state.Agent
 	}
 
 	key := agentKey(userID, config.Name)
+
+	// Persist to PostgreSQL in distributed mode
+	if s.agentStore != nil {
+		configJSON, err := json.Marshal(config)
+		if err != nil {
+			return fmt.Errorf("failed to marshal agent config: %w", err)
+		}
+		if err := s.agentStore.SaveConfig(&agents.AgentConfigRecord{
+			UserID:     userID,
+			Name:       config.Name,
+			ConfigJSON: string(configJSON),
+			Status:     "active",
+		}); err != nil {
+			return fmt.Errorf("failed to save agent config to database: %w", err)
+		}
+	}
+
+	// Auto-create collection when knowledge base or long-term memory is enabled
+	if config.EnableKnowledgeBase || config.LongTermMemory {
+		if err := s.ensureCollectionForUser(userID, config.Name); err != nil {
+			xlog.Warn("Failed to auto-create collection for agent", "agent", config.Name, "error", err)
+		}
+	}
+
+	// In distributed mode, DB save is sufficient — no local pool
+	if s.pool == nil {
+		return nil
+	}
 	config.Name = key
 	return s.pool.CreateAgent(key, config)
 }
 
 // GetAgentForUser returns the agent for a user.
 func (s *AgentPoolService) GetAgentForUser(userID, name string) *agent.Agent {
+	if s.pool == nil {
+		return nil
+	}
 	return s.pool.GetAgent(agentKey(userID, name))
 }
 
 // GetAgentConfigForUser returns the agent config for a user's agent.
 func (s *AgentPoolService) GetAgentConfigForUser(userID, name string) *state.AgentConfig {
-	return s.pool.GetConfig(agentKey(userID, name))
+	if s.pool != nil {
+		cfg := s.pool.GetConfig(agentKey(userID, name))
+		if cfg != nil {
+			// Return a copy with the original name (strip userID: prefix)
+			// to avoid leaking the internal key into the UI.
+			result := *cfg
+			result.Name = name
+			return &result
+		}
+	}
+	// Fall back to PostgreSQL in distributed mode
+	if s.agentStore != nil {
+		rec, err := s.agentStore.GetConfig(userID, name)
+		if err != nil || rec == nil {
+			return nil
+		}
+		var agentCfg state.AgentConfig
+		if json.Unmarshal([]byte(rec.ConfigJSON), &agentCfg) != nil {
+			return nil
+		}
+		return &agentCfg
+	}
+	return nil
 }
 
 // UpdateAgentForUser updates a user's agent.
 func (s *AgentPoolService) UpdateAgentForUser(userID, name string, config *state.AgentConfig) error {
 	key := agentKey(userID, name)
-	old := s.pool.GetConfig(key)
-	if old == nil {
+
+	// Check if agent exists (pool or DB)
+	found := false
+	if s.pool != nil {
+		if old := s.pool.GetConfig(key); old != nil {
+			found = true
+		}
+	}
+	if !found && s.agentStore != nil {
+		if _, err := s.agentStore.GetConfig(userID, name); err == nil {
+			found = true
+		}
+	}
+	if !found {
 		return fmt.Errorf("agent not found: %s", name)
 	}
 
@@ -1967,17 +973,58 @@ func (s *AgentPoolService) UpdateAgentForUser(userID, name string, config *state
 		config.APIKey = plaintext
 	}
 
+	// Persist to PostgreSQL in distributed mode
+	if s.agentStore != nil {
+		configJSON, err := json.Marshal(config)
+		if err != nil {
+			return fmt.Errorf("failed to marshal agent config: %w", err)
+		}
+		if err := s.agentStore.SaveConfig(&agents.AgentConfigRecord{
+			UserID:     userID,
+			Name:       config.Name,
+			ConfigJSON: string(configJSON),
+			Status:     "active",
+		}); err != nil {
+			return fmt.Errorf("failed to update agent config in database: %w", err)
+		}
+	}
+
+	// Auto-create collection when knowledge base or long-term memory is enabled
+	if config.EnableKnowledgeBase || config.LongTermMemory {
+		if err := s.ensureCollectionForUser(userID, config.Name); err != nil {
+			xlog.Warn("Failed to auto-create collection for agent", "agent", config.Name, "error", err)
+		}
+	}
+
+	if s.pool == nil {
+		return nil
+	}
 	config.Name = key
 	return s.pool.RecreateAgent(key, config)
 }
 
 // DeleteAgentForUser deletes a user's agent.
 func (s *AgentPoolService) DeleteAgentForUser(userID, name string) error {
+	if s.agentStore != nil {
+		if err := s.agentStore.DeleteConfig(userID, name); err != nil {
+			xlog.Warn("Failed to delete agent config from database", "error", err)
+		}
+	}
+	if s.pool == nil {
+		return nil
+	}
 	return s.pool.Remove(agentKey(userID, name))
 }
 
 // PauseAgentForUser pauses a user's agent.
 func (s *AgentPoolService) PauseAgentForUser(userID, name string) error {
+	// In distributed mode, update status in DB
+	if s.agentStore != nil {
+		return s.agentStore.UpdateStatus(userID, name, "paused")
+	}
+	if s.pool == nil {
+		return fmt.Errorf("agent not found: %s", name)
+	}
 	ag := s.pool.GetAgent(agentKey(userID, name))
 	if ag == nil {
 		return fmt.Errorf("agent not found: %s", name)
@@ -1988,6 +1035,12 @@ func (s *AgentPoolService) PauseAgentForUser(userID, name string) error {
 
 // ResumeAgentForUser resumes a user's agent.
 func (s *AgentPoolService) ResumeAgentForUser(userID, name string) error {
+	if s.agentStore != nil {
+		return s.agentStore.UpdateStatus(userID, name, "active")
+	}
+	if s.pool == nil {
+		return fmt.Errorf("agent not found: %s", name)
+	}
 	ag := s.pool.GetAgent(agentKey(userID, name))
 	if ag == nil {
 		return fmt.Errorf("agent not found: %s", name)
@@ -1998,11 +1051,17 @@ func (s *AgentPoolService) ResumeAgentForUser(userID, name string) error {
 
 // GetAgentStatusForUser returns the status of a user's agent.
 func (s *AgentPoolService) GetAgentStatusForUser(userID, name string) *state.Status {
+	if s.pool == nil {
+		return nil
+	}
 	return s.pool.GetStatusHistory(agentKey(userID, name))
 }
 
 // GetAgentObservablesForUser returns observables for a user's agent.
 func (s *AgentPoolService) GetAgentObservablesForUser(userID, name string) ([]coreTypes.Observable, error) {
+	if s.pool == nil {
+		return nil, nil
+	}
 	ag := s.pool.GetAgent(agentKey(userID, name))
 	if ag == nil {
 		return nil, fmt.Errorf("agent not found: %s", name)
@@ -2012,6 +1071,9 @@ func (s *AgentPoolService) GetAgentObservablesForUser(userID, name string) ([]co
 
 // ClearAgentObservablesForUser clears observables for a user's agent.
 func (s *AgentPoolService) ClearAgentObservablesForUser(userID, name string) error {
+	if s.pool == nil {
+		return nil
+	}
 	ag := s.pool.GetAgent(agentKey(userID, name))
 	if ag == nil {
 		return fmt.Errorf("agent not found: %s", name)
@@ -2022,11 +1084,68 @@ func (s *AgentPoolService) ClearAgentObservablesForUser(userID, name string) err
 
 // ChatForUser sends a message to a user's agent.
 func (s *AgentPoolService) ChatForUser(userID, name, message string) (string, error) {
+	if s.natsClient != nil {
+		// Distributed mode: dispatch via NATS queue
+		return s.dispatchChat(userID, name, message)
+	}
 	return s.Chat(agentKey(userID, name), message)
+}
+
+// dispatchChat publishes a chat event to the NATS agent execution queue.
+// The event is enriched with the full agent config and resolved skills so that
+// the worker does not need direct database access.
+func (s *AgentPoolService) dispatchChat(userID, name, message string) (string, error) {
+	messageID := fmt.Sprintf("%d", time.Now().UnixNano())
+
+	// Send user message to SSE immediately so the UI shows it right away
+	if s.eventBridge != nil {
+		agentName := name
+		s.eventBridge.PublishMessage(agentName, userID, "user", message, messageID+"-user")
+		s.eventBridge.PublishStatus(agentName, userID, "processing")
+	}
+
+	// Load config from DB to embed in the NATS payload
+	var cfg *agents.AgentConfig
+	if s.agentStore != nil {
+		rec, err := s.agentStore.GetConfig(userID, name)
+		if err != nil {
+			return "", fmt.Errorf("agent config not found: %w", err)
+		}
+		var c agents.AgentConfig
+		if err := agents.ParseConfigJSON(rec.ConfigJSON, &c); err != nil {
+			return "", fmt.Errorf("invalid agent config: %w", err)
+		}
+		cfg = &c
+	}
+
+	// Load skills if enabled — uses SkillManager which reads from filesystem/PostgreSQL
+	var skills []agents.SkillInfo
+	if cfg != nil && cfg.EnableSkills {
+		if loaded, err := s.loadSkillsForUser(userID); err == nil {
+			skills = loaded
+		}
+	}
+
+	evt := agents.AgentChatEvent{
+		AgentName: name,
+		UserID:    userID,
+		Message:   message,
+		MessageID: messageID,
+		Role:      "user",
+		Config:    cfg,
+		Skills:    skills,
+	}
+	if err := s.natsClient.Publish(messaging.SubjectAgentExecute, evt); err != nil {
+		return "", fmt.Errorf("failed to dispatch agent chat: %w", err)
+	}
+	return messageID, nil
 }
 
 // GetSSEManagerForUser returns the SSE manager for a user's agent.
 func (s *AgentPoolService) GetSSEManagerForUser(userID, name string) sse.Manager {
+	if s.pool == nil {
+		return nil
+	}
 	return s.pool.GetManager(agentKey(userID, name))
 }
 
@@ -2054,6 +1173,25 @@ func (s *AgentPoolService) ImportAgentForUser(userID string, data []byte) error 
 		cfg.APIKey = plaintext
 	}
 
+	// Persist to PostgreSQL in distributed mode
+	if s.agentStore != nil {
+		configJSON, err := json.Marshal(cfg)
+		if err != nil {
+			return fmt.Errorf("failed to marshal agent config: %w", err)
+		}
+		if err := s.agentStore.SaveConfig(&agents.AgentConfigRecord{
+			UserID:     userID,
+			Name:       cfg.Name,
+			ConfigJSON: string(configJSON),
+			Status:     "active",
+		}); err != nil {
+			return fmt.Errorf("failed to save imported agent config: %w", err)
+		}
+	}
+
+	if s.pool == nil {
+		return nil
+	}
 	key := agentKey(userID, cfg.Name)
 	cfg.Name = key
 	return s.pool.CreateAgent(key, &cfg)
@@ -2064,6 +1202,9 @@ func (s *AgentPoolService) ImportAgentForUser(userID string, data []byte) error 
 // CollectionsBackendForUser returns the collections backend for a user.
 func (s *AgentPoolService) CollectionsBackendForUser(userID string) (collections.Backend, error) {
 	if s.userServices == nil || userID == "" {
+		if s.collectionsBackend == nil {
+			return nil, fmt.Errorf("collections not available in distributed mode")
+		}
 		return s.collectionsBackend, nil
 	}
 	return s.userServices.GetCollections(userID)
@@ -2074,9 +1215,29 @@ func (s *AgentPoolService) CollectionsBackendForUser(userID string) (collections
 // SkillsServiceForUser returns the skills service for a user.
 func (s *AgentPoolService) SkillsServiceForUser(userID string) (*skills.Service, error) {
 	if s.userServices == nil || userID == "" {
+		if s.skillsService == nil {
+			return nil, fmt.Errorf("skills service not available")
+		}
 		return s.skillsService, nil
 	}
 	return s.userServices.GetSkills(userID)
+}
+
+// SkillManagerForUser returns a SkillManager for a specific user.
+// In distributed mode, returns a DistributedManager that syncs to PostgreSQL.
+// In standalone mode, returns a FilesystemManager.
+func (s *AgentPoolService) SkillManagerForUser(userID string) (skillsManager.Manager, error) {
+	svc, err := s.SkillsServiceForUser(userID)
+	if err != nil {
+		return nil, err
+	}
+	fs := skillsManager.NewFilesystemManager(svc)
+
+	// In distributed mode, wrap with PostgreSQL sync
+	if s.skillStore != nil {
+		return skillsManager.NewDistributedManager(fs, s.skillStore, userID), nil
+	}
+	return fs, nil
 }
 
 // --- ForUser Jobs ---
@@ -2119,3 +1280,53 @@ func (s *AgentPoolService) ExecuteAction(ctx context.Context, actionName string,
 	}
 	return a.Run(ctx, s.sharedState, params)
 }
+
+// loadSkillsForUser loads full skill info (name, description, content) for a user.
+// Used by dispatchChat and the scheduler to enrich NATS events.
+func (s *AgentPoolService) loadSkillsForUser(userID string) ([]agents.SkillInfo, error) {
+	mgr, err := s.SkillManagerForUser(userID)
+	if err != nil {
+		return nil, err
+	}
+	allSkills, err := mgr.List()
+	if err != nil {
+		return nil, err
+	}
+	var skills []agents.SkillInfo
+	for _, sk := range allSkills {
+		desc := ""
+		if sk.Metadata != nil && sk.Metadata.Description != "" {
+			desc = sk.Metadata.Description
+		}
+		if desc == "" {
+			d := sk.Content
+			if len(d) > 200 {
+				d = d[:200] + "..."
+			}
+			desc = d
+		}
+		skills = append(skills, agents.SkillInfo{
+			Name:        sk.Name,
+			Description: desc,
+			Content:     sk.Content,
+		})
+	}
+	return skills, nil
+}
+
+// buildSkillProvider returns a SkillContentProvider closure for the scheduler.
+func (s *AgentPoolService) buildSkillProvider() agents.SkillContentProvider {
+	return func(userID string) ([]agents.SkillInfo, error) {
+		return s.loadSkillsForUser(userID)
+	}
+}
+
+// natsPublisherAdapter wraps NATSClient (Publish-only) to satisfy agents.NATSPublisher.
+type natsPublisherAdapter struct {
+	client NATSClient
+}
+
+func (a *natsPublisherAdapter) Publish(subject string, data any) error {
+	return a.client.Publish(subject, data)
+}
+

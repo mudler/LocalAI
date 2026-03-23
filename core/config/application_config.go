@@ -99,6 +99,9 @@ type ApplicationConfig struct {
 
 	// Authentication & Authorization
 	Auth AuthConfig
+
+	// Distributed / Horizontal Scaling
+	Distributed DistributedConfig
 }
 
 // AuthConfig holds configuration for user authentication and authorization.

@@ -40,7 +40,7 @@ func CreateModelGalleryEndpointService(galleries []config.Gallery, backendGaller
 
 // GetOpStatusEndpoint returns the job status
 // @Summary Returns the job status
-// @Success 200 {object} services.GalleryOpStatus "Response"
+// @Success 200 {object} services.OpStatus "Response"
 // @Router /models/jobs/{uuid} [get]
 func (mgs *ModelGalleryEndpointService) GetOpStatusEndpoint() echo.HandlerFunc {
 	return func(c echo.Context) error {
@@ -54,7 +54,7 @@ func (mgs *ModelGalleryEndpointService) GetOpStatusEndpoint() echo.HandlerFunc {
 
 // GetAllStatusEndpoint returns all the jobs status progress
 // @Summary Returns all the jobs status progress
-// @Success 200 {object} map[string]services.GalleryOpStatus "Response"
+// @Success 200 {object} map[string]services.OpStatus "Response"
 // @Router /models/jobs [get]
 func (mgs *ModelGalleryEndpointService) GetAllStatusEndpoint() echo.HandlerFunc {
 	return func(c echo.Context) error {
@@ -79,7 +79,7 @@ func (mgs *ModelGalleryEndpointService) ApplyModelGalleryEndpoint() echo.Handler
 		if err != nil {
 			return err
 		}
-		mgs.galleryApplier.ModelGalleryChannel <- services.GalleryOp[gallery.GalleryModel, gallery.ModelConfig]{
+		mgs.galleryApplier.ModelGalleryChannel <- services.ManagementOp[gallery.GalleryModel, gallery.ModelConfig]{
 			Req:                input.GalleryModel,
 			ID:                 uuid.String(),
 			GalleryElementName: input.ID,
@@ -100,7 +100,7 @@ func (mgs *ModelGalleryEndpointService) DeleteModelGalleryEndpoint() echo.Handle
 	return func(c echo.Context) error {
 		modelName := c.Param("name")
 
-		mgs.galleryApplier.ModelGalleryChannel <- services.GalleryOp[gallery.GalleryModel, gallery.ModelConfig]{
+		mgs.galleryApplier.ModelGalleryChannel <- services.ManagementOp[gallery.GalleryModel, gallery.ModelConfig]{
 			Delete:             true,
 			GalleryElementName: modelName,
 		}

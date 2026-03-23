@@ -48,6 +48,7 @@ const sections = [
       { path: '/app/users', icon: 'fas fa-users', label: 'Users', adminOnly: true, authOnly: true },
       { path: '/app/backends', icon: 'fas fa-server', label: 'Backends', adminOnly: true },
       { path: '/app/traces', icon: 'fas fa-chart-line', label: 'Traces', adminOnly: true },
+      { path: '/app/nodes', icon: 'fas fa-network-wired', label: 'Nodes', adminOnly: true },
       { path: '/app/p2p', icon: 'fas fa-circle-nodes', label: 'Swarm', adminOnly: true },
       { path: '/app/manage', icon: 'fas fa-desktop', label: 'System', adminOnly: true },
       { path: '/app/settings', icon: 'fas fa-cog', label: 'Settings', adminOnly: true },

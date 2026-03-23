@@ -101,7 +101,7 @@ func ResponsesEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eval
 		// Handle tools
 		var funcs functions.Functions
 		var shouldUseFn bool
-		var mcpToolInfos []mcpTools.MCPToolInfo
+		var mcpExecutor mcpTools.ToolExecutor
 
 		if len(input.Tools) > 0 {
 			funcs, shouldUseFn = convertORToolsToFunctions(input, cfg)
@@ -115,112 +115,88 @@ func ResponsesEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eval
 		hasMCPRequest := len(mcpServers) > 0 || mcpPromptName != "" || len(mcpResourceURIs) > 0
 		hasMCPConfig := cfg.MCP.Servers != "" || cfg.MCP.Stdio != ""
 
-		if hasMCPRequest && hasMCPConfig {
+		if (hasMCPRequest && hasMCPConfig) || (len(input.Tools) == 0 && hasMCPConfig) {
 			remote, stdio, mcpErr := cfg.MCP.MCPConfigFromYAML()
 			if mcpErr == nil {
-				namedSessions, sessErr := mcpTools.NamedSessionsFromMCPConfig(cfg.Name, remote, stdio, mcpServers)
-				if sessErr == nil && len(namedSessions) > 0 {
-					// Prompt injection
-					if mcpPromptName != "" {
-						prompts, discErr := mcpTools.DiscoverMCPPrompts(c.Request().Context(), namedSessions)
-						if discErr == nil {
-							promptMsgs, getErr := mcpTools.GetMCPPrompt(c.Request().Context(), prompts, mcpPromptName, mcpPromptArgs)
-							if getErr == nil {
-								var injected []schema.Message
-								for _, pm := range promptMsgs {
-									injected = append(injected, schema.Message{
-										Role:    string(pm.Role),
-										Content: mcpTools.PromptMessageToText(pm),
-									})
+				enabledServers := mcpServers
+				if !hasMCPRequest {
+					enabledServers = nil // backward compat: auto-activate all servers
+				}
+				mcpExecutor = mcpTools.NewToolExecutor(c.Request().Context(), cfg.Name, remote, stdio, enabledServers)
+
+				// Prompt and resource injection (local mode only)
+				if !mcpTools.IsDistributed() && hasMCPRequest {
+					namedSessions, sessErr := mcpTools.NamedSessionsFromMCPConfig(cfg.Name, remote, stdio, mcpServers)
+					if sessErr == nil && len(namedSessions) > 0 {
+						if mcpPromptName != "" {
+							prompts, discErr := mcpTools.DiscoverMCPPrompts(c.Request().Context(), namedSessions)
+							if discErr == nil {
+								promptMsgs, getErr := mcpTools.GetMCPPrompt(c.Request().Context(), prompts, mcpPromptName, mcpPromptArgs)
+								if getErr == nil {
+									var injected []schema.Message
+									for _, pm := range promptMsgs {
+										injected = append(injected, schema.Message{
+											Role:    string(pm.Role),
+											Content: mcpTools.PromptMessageToText(pm),
+										})
+									}
+									messages = append(injected, messages...)
+									xlog.Debug("Open Responses MCP prompt injected", "prompt", mcpPromptName, "messages", len(injected))
 								}
-								messages = append(injected, messages...)
-								xlog.Debug("Open Responses MCP prompt injected", "prompt", mcpPromptName, "messages", len(injected))
-							} else {
-								xlog.Error("Failed to get MCP prompt", "error", getErr)
 							}
 						}
-					}
-
-					// Resource injection
-					if len(mcpResourceURIs) > 0 {
-						resources, discErr := mcpTools.DiscoverMCPResources(c.Request().Context(), namedSessions)
-						if discErr == nil {
-							var resourceTexts []string
-							for _, uri := range mcpResourceURIs {
-								content, readErr := mcpTools.ReadMCPResource(c.Request().Context(), resources, uri)
-								if readErr != nil {
-									xlog.Error("Failed to read MCP resource", "error", readErr, "uri", uri)
-									continue
+						if len(mcpResourceURIs) > 0 {
+							resources, discErr := mcpTools.DiscoverMCPResources(c.Request().Context(), namedSessions)
+							if discErr == nil {
+								var resourceTexts []string
+								for _, uri := range mcpResourceURIs {
+									content, readErr := mcpTools.ReadMCPResource(c.Request().Context(), resources, uri)
+									if readErr != nil {
+										continue
+									}
+									name := uri
+									for _, r := range resources {
+										if r.URI == uri {
+											name = r.Name
+											break
+										}
+									}
+									resourceTexts = append(resourceTexts, fmt.Sprintf("--- MCP Resource: %s ---\n%s", name, content))
 								}
-								name := uri
-								for _, r := range resources {
-									if r.URI == uri {
-										name = r.Name
-										break
+								if len(resourceTexts) > 0 && len(messages) > 0 {
+									lastIdx := len(messages) - 1
+									suffix := "\n\n" + strings.Join(resourceTexts, "\n\n")
+									switch ct := messages[lastIdx].Content.(type) {
+									case string:
+										messages[lastIdx].Content = ct + suffix
+									default:
+										messages[lastIdx].Content = fmt.Sprintf("%v%s", ct, suffix)
 									}
 								}
-								resourceTexts = append(resourceTexts, fmt.Sprintf("--- MCP Resource: %s ---\n%s", name, content))
-							}
-							if len(resourceTexts) > 0 && len(messages) > 0 {
-								lastIdx := len(messages) - 1
-								suffix := "\n\n" + strings.Join(resourceTexts, "\n\n")
-								switch ct := messages[lastIdx].Content.(type) {
-								case string:
-									messages[lastIdx].Content = ct + suffix
-								default:
-									messages[lastIdx].Content = fmt.Sprintf("%v%s", ct, suffix)
-								}
-								xlog.Debug("Open Responses MCP resources injected", "count", len(resourceTexts))
 							}
 						}
 					}
+				}
 
-					// Tool injection
-					if len(mcpServers) > 0 {
-						discovered, discErr := mcpTools.DiscoverMCPTools(c.Request().Context(), namedSessions)
-						if discErr == nil {
-							mcpToolInfos = discovered
-							for _, ti := range mcpToolInfos {
-								funcs = append(funcs, ti.Function)
-								input.Tools = append(input.Tools, schema.ORFunctionTool{
-									Type:        "function",
-									Name:        ti.Function.Name,
-									Description: ti.Function.Description,
-									Parameters:  ti.Function.Parameters,
-								})
-							}
-							shouldUseFn = len(funcs) > 0 && cfg.ShouldUseFunctions()
-							xlog.Debug("Open Responses MCP tools injected", "count", len(mcpToolInfos), "total_funcs", len(funcs))
-						} else {
-							xlog.Error("Failed to discover MCP tools", "error", discErr)
+				// Tool injection via executor
+				if mcpExecutor.HasTools() {
+					mcpFuncs, discErr := mcpExecutor.DiscoverTools(c.Request().Context())
+					if discErr == nil {
+						for _, fn := range mcpFuncs {
+							funcs = append(funcs, fn)
+							input.Tools = append(input.Tools, schema.ORFunctionTool{
+								Type:        "function",
+								Name:        fn.Name,
+								Description: fn.Description,
+								Parameters:  fn.Parameters,
+							})
 						}
+						shouldUseFn = len(funcs) > 0 && cfg.ShouldUseFunctions()
+						xlog.Debug("Open Responses MCP tools injected", "count", len(mcpFuncs), "total_funcs", len(funcs))
 					}
 				}
 			} else {
 				xlog.Error("Failed to parse MCP config", "error", mcpErr)
-			}
-		} else if len(input.Tools) == 0 && hasMCPConfig {
-			// Backward compat: model has MCP config, no user tools and no mcp_servers field
-			remote, stdio, mcpErr := cfg.MCP.MCPConfigFromYAML()
-			if mcpErr == nil {
-				namedSessions, sessErr := mcpTools.NamedSessionsFromMCPConfig(cfg.Name, remote, stdio, nil)
-				if sessErr == nil && len(namedSessions) > 0 {
-					discovered, discErr := mcpTools.DiscoverMCPTools(c.Request().Context(), namedSessions)
-					if discErr == nil {
-						mcpToolInfos = discovered
-						for _, ti := range mcpToolInfos {
-							funcs = append(funcs, ti.Function)
-							input.Tools = append(input.Tools, schema.ORFunctionTool{
-								Type:        "function",
-								Name:        ti.Function.Name,
-								Description: ti.Function.Description,
-								Parameters:  ti.Function.Parameters,
-							})
-						}
-						shouldUseFn = len(funcs) > 0 && cfg.ShouldUseFunctions()
-						xlog.Debug("Open Responses MCP tools auto-activated", "count", len(mcpToolInfos))
-					}
-				}
 			}
 		}
 
@@ -327,10 +303,10 @@ func ResponsesEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eval
 
 				if input.Stream {
 					// Background streaming processing (buffer events)
-					finalResponse, bgErr = handleBackgroundStream(bgCtx, store, responseID, createdAt, input, cfg, ml, cl, appConfig, predInput, openAIReq, funcs, shouldUseFn, mcpToolInfos, evaluator)
+					finalResponse, bgErr = handleBackgroundStream(bgCtx, store, responseID, createdAt, input, cfg, ml, cl, appConfig, predInput, openAIReq, funcs, shouldUseFn, mcpExecutor, evaluator)
 				} else {
 					// Background non-streaming processing
-					finalResponse, bgErr = handleBackgroundNonStream(bgCtx, store, responseID, createdAt, input, cfg, ml, cl, appConfig, predInput, openAIReq, funcs, shouldUseFn, mcpToolInfos, evaluator)
+					finalResponse, bgErr = handleBackgroundNonStream(bgCtx, store, responseID, createdAt, input, cfg, ml, cl, appConfig, predInput, openAIReq, funcs, shouldUseFn, mcpExecutor, evaluator)
 				}
 
 				if bgErr != nil {
@@ -351,10 +327,10 @@ func ResponsesEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eval
 		}
 
 		if input.Stream {
-			return handleOpenResponsesStream(c, responseID, createdAt, input, cfg, ml, cl, appConfig, predInput, openAIReq, funcs, shouldUseFn, shouldStore, mcpToolInfos, evaluator)
+			return handleOpenResponsesStream(c, responseID, createdAt, input, cfg, ml, cl, appConfig, predInput, openAIReq, funcs, shouldUseFn, shouldStore, mcpExecutor, evaluator)
 		}
 
-		return handleOpenResponsesNonStream(c, responseID, createdAt, input, cfg, ml, cl, appConfig, predInput, openAIReq, funcs, shouldUseFn, shouldStore, mcpToolInfos, evaluator, 0)
+		return handleOpenResponsesNonStream(c, responseID, createdAt, input, cfg, ml, cl, appConfig, predInput, openAIReq, funcs, shouldUseFn, shouldStore, mcpExecutor, evaluator, 0)
 	}
 }
 
@@ -866,12 +842,12 @@ func convertTextFormatToResponseFormat(textFormat interface{}) interface{} {
 }
 
 // handleBackgroundNonStream handles background non-streaming responses
-func handleBackgroundNonStream(ctx context.Context, store *ResponseStore, responseID string, createdAt int64, input *schema.OpenResponsesRequest, cfg *config.ModelConfig, ml *model.ModelLoader, cl *config.ModelConfigLoader, appConfig *config.ApplicationConfig, predInput string, openAIReq *schema.OpenAIRequest, funcs functions.Functions, shouldUseFn bool, mcpToolInfos []mcpTools.MCPToolInfo, evaluator *templates.Evaluator) (*schema.ORResponseResource, error) {
+func handleBackgroundNonStream(ctx context.Context, store *ResponseStore, responseID string, createdAt int64, input *schema.OpenResponsesRequest, cfg *config.ModelConfig, ml *model.ModelLoader, cl *config.ModelConfigLoader, appConfig *config.ApplicationConfig, predInput string, openAIReq *schema.OpenAIRequest, funcs functions.Functions, shouldUseFn bool, mcpExecutor mcpTools.ToolExecutor, evaluator *templates.Evaluator) (*schema.ORResponseResource, error) {
 	mcpMaxIterations := 10
 	if cfg.Agent.MaxIterations > 0 {
 		mcpMaxIterations = cfg.Agent.MaxIterations
 	}
-	hasMCPTools := len(mcpToolInfos) > 0
+	hasMCPTools := mcpExecutor != nil && mcpExecutor.HasTools()
 	var allOutputItems []schema.ORItemField
 
 	for mcpIteration := 0; mcpIteration <= mcpMaxIterations; mcpIteration++ {
@@ -957,7 +933,7 @@ func handleBackgroundNonStream(ctx context.Context, store *ResponseStore, respon
 			if hasMCPTools && len(toolCalls) > 0 {
 				var hasMCPCalls bool
 				for _, tc := range toolCalls {
-					if mcpTools.IsMCPTool(mcpToolInfos, tc.FunctionCall.Name) {
+					if mcpExecutor != nil && mcpExecutor.IsTool(tc.FunctionCall.Name) {
 						hasMCPCalls = true
 						break
 					}
@@ -973,10 +949,10 @@ func handleBackgroundNonStream(ctx context.Context, store *ResponseStore, respon
 							Status: "completed", CallID: tc.ID, Name: tc.FunctionCall.Name, Arguments: tc.FunctionCall.Arguments,
 						})
 
-						if !mcpTools.IsMCPTool(mcpToolInfos, tc.FunctionCall.Name) {
+						if mcpExecutor == nil || !mcpExecutor.IsTool(tc.FunctionCall.Name) {
 							continue
 						}
-						toolResult, toolErr := mcpTools.ExecuteMCPToolCall(ctx, mcpToolInfos, tc.FunctionCall.Name, tc.FunctionCall.Arguments)
+						toolResult, toolErr := mcpExecutor.ExecuteTool(ctx, tc.FunctionCall.Name, tc.FunctionCall.Arguments)
 						if toolErr != nil {
 							toolResult = fmt.Sprintf("Error: %v", toolErr)
 						}
@@ -1062,7 +1038,7 @@ func handleBackgroundNonStream(ctx context.Context, store *ResponseStore, respon
 }
 
 // handleBackgroundStream handles background streaming responses with event buffering
-func handleBackgroundStream(ctx context.Context, store *ResponseStore, responseID string, createdAt int64, input *schema.OpenResponsesRequest, cfg *config.ModelConfig, ml *model.ModelLoader, cl *config.ModelConfigLoader, appConfig *config.ApplicationConfig, predInput string, openAIReq *schema.OpenAIRequest, funcs functions.Functions, shouldUseFn bool, mcpToolInfos []mcpTools.MCPToolInfo, evaluator *templates.Evaluator) (*schema.ORResponseResource, error) {
+func handleBackgroundStream(ctx context.Context, store *ResponseStore, responseID string, createdAt int64, input *schema.OpenResponsesRequest, cfg *config.ModelConfig, ml *model.ModelLoader, cl *config.ModelConfigLoader, appConfig *config.ApplicationConfig, predInput string, openAIReq *schema.OpenAIRequest, funcs functions.Functions, shouldUseFn bool, mcpExecutor mcpTools.ToolExecutor, evaluator *templates.Evaluator) (*schema.ORResponseResource, error) {
 	// Populate openAIReq fields for ComputeChoices
 	openAIReq.Tools = convertORToolsToOpenAIFormat(input.Tools)
 	openAIReq.ToolsChoice = input.ToolChoice
@@ -1099,7 +1075,7 @@ func handleBackgroundStream(ctx context.Context, store *ResponseStore, responseI
 	if cfg.Agent.MaxIterations > 0 {
 		mcpBgStreamMaxIterations = cfg.Agent.MaxIterations
 	}
-	hasMCPTools := len(mcpToolInfos) > 0
+	hasMCPTools := mcpExecutor != nil && mcpExecutor.HasTools()
 
 	var lastTokenUsage backend.TokenUsage
 	var lastLogprobs *schema.Logprobs
@@ -1208,7 +1184,7 @@ func handleBackgroundStream(ctx context.Context, store *ResponseStore, responseI
 
 			var hasMCPCalls bool
 			for _, tc := range toolCalls {
-				if mcpTools.IsMCPTool(mcpToolInfos, tc.FunctionCall.Name) {
+				if mcpExecutor != nil && mcpExecutor.IsTool(tc.FunctionCall.Name) {
 					hasMCPCalls = true
 					break
 				}
@@ -1264,12 +1240,12 @@ func handleBackgroundStream(ctx context.Context, store *ResponseStore, responseI
 					sequenceNumber++
 					collectedOutputItems = append(collectedOutputItems, *functionCallItem)
 
-					if !mcpTools.IsMCPTool(mcpToolInfos, tc.FunctionCall.Name) {
+					if mcpExecutor == nil || !mcpExecutor.IsTool(tc.FunctionCall.Name) {
 						continue
 					}
 
 					xlog.Debug("Executing MCP tool (background stream)", "tool", tc.FunctionCall.Name, "iteration", mcpIter)
-					toolResult, toolErr := mcpTools.ExecuteMCPToolCall(ctx, mcpToolInfos, tc.FunctionCall.Name, tc.FunctionCall.Arguments)
+					toolResult, toolErr := mcpExecutor.ExecuteTool(ctx, tc.FunctionCall.Name, tc.FunctionCall.Arguments)
 					if toolErr != nil {
 						toolResult = fmt.Sprintf("Error: %v", toolErr)
 					}
@@ -1368,7 +1344,7 @@ func bufferEvent(store *ResponseStore, responseID string, event *schema.ORStream
 }
 
 // handleOpenResponsesNonStream handles non-streaming responses
-func handleOpenResponsesNonStream(c echo.Context, responseID string, createdAt int64, input *schema.OpenResponsesRequest, cfg *config.ModelConfig, ml *model.ModelLoader, cl *config.ModelConfigLoader, appConfig *config.ApplicationConfig, predInput string, openAIReq *schema.OpenAIRequest, funcs functions.Functions, shouldUseFn bool, shouldStore bool, mcpToolInfos []mcpTools.MCPToolInfo, evaluator *templates.Evaluator, mcpIteration int) error {
+func handleOpenResponsesNonStream(c echo.Context, responseID string, createdAt int64, input *schema.OpenResponsesRequest, cfg *config.ModelConfig, ml *model.ModelLoader, cl *config.ModelConfigLoader, appConfig *config.ApplicationConfig, predInput string, openAIReq *schema.OpenAIRequest, funcs functions.Functions, shouldUseFn bool, shouldStore bool, mcpExecutor mcpTools.ToolExecutor, evaluator *templates.Evaluator, mcpIteration int) error {
 	mcpMaxIterations := 10
 	if cfg.Agent.MaxIterations > 0 {
 		mcpMaxIterations = cfg.Agent.MaxIterations
@@ -1479,10 +1455,10 @@ func handleOpenResponsesNonStream(c echo.Context, responseID string, createdAt i
 		}
 
 		// MCP server-side tool execution: if any tool calls are MCP tools, execute and re-run
-		if len(mcpToolInfos) > 0 && len(toolCalls) > 0 {
+		if mcpExecutor != nil && mcpExecutor.HasTools() && len(toolCalls) > 0 {
 			var hasMCPCalls bool
 			for _, tc := range toolCalls {
-				if mcpTools.IsMCPTool(mcpToolInfos, tc.FunctionCall.Name) {
+				if mcpExecutor != nil && mcpExecutor.IsTool(tc.FunctionCall.Name) {
 					hasMCPCalls = true
 					break
 				}
@@ -1494,13 +1470,12 @@ func handleOpenResponsesNonStream(c echo.Context, responseID string, createdAt i
 
 				// Execute each MCP tool call and append results
 				for _, tc := range toolCalls {
-					if !mcpTools.IsMCPTool(mcpToolInfos, tc.FunctionCall.Name) {
+					if mcpExecutor == nil || !mcpExecutor.IsTool(tc.FunctionCall.Name) {
 						continue
 					}
 					xlog.Debug("Executing MCP tool (Open Responses)", "tool", tc.FunctionCall.Name)
-					toolResult, toolErr := mcpTools.ExecuteMCPToolCall(
-						c.Request().Context(), mcpToolInfos,
-						tc.FunctionCall.Name, tc.FunctionCall.Arguments,
+					toolResult, toolErr := mcpExecutor.ExecuteTool(
+						c.Request().Context(), tc.FunctionCall.Name, tc.FunctionCall.Arguments,
 					)
 					if toolErr != nil {
 						xlog.Error("MCP tool execution failed", "tool", tc.FunctionCall.Name, "error", toolErr)
@@ -1523,7 +1498,7 @@ func handleOpenResponsesNonStream(c echo.Context, responseID string, createdAt i
 
 				// Re-template and re-run inference
 				predInput = evaluator.TemplateMessages(*openAIReq, openAIReq.Messages, cfg, funcs, shouldUseFn)
-				return handleOpenResponsesNonStream(c, responseID, createdAt, input, cfg, ml, cl, appConfig, predInput, openAIReq, funcs, shouldUseFn, shouldStore, mcpToolInfos, evaluator, mcpIteration+1)
+				return handleOpenResponsesNonStream(c, responseID, createdAt, input, cfg, ml, cl, appConfig, predInput, openAIReq, funcs, shouldUseFn, shouldStore, mcpExecutor, evaluator, mcpIteration+1)
 			}
 		}
 
@@ -1648,7 +1623,7 @@ func handleOpenResponsesNonStream(c echo.Context, responseID string, createdAt i
 }
 
 // handleOpenResponsesStream handles streaming responses
-func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int64, input *schema.OpenResponsesRequest, cfg *config.ModelConfig, ml *model.ModelLoader, cl *config.ModelConfigLoader, appConfig *config.ApplicationConfig, predInput string, openAIReq *schema.OpenAIRequest, funcs functions.Functions, shouldUseFn bool, shouldStore bool, mcpToolInfos []mcpTools.MCPToolInfo, evaluator *templates.Evaluator) error {
+func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int64, input *schema.OpenResponsesRequest, cfg *config.ModelConfig, ml *model.ModelLoader, cl *config.ModelConfigLoader, appConfig *config.ApplicationConfig, predInput string, openAIReq *schema.OpenAIRequest, funcs functions.Functions, shouldUseFn bool, shouldStore bool, mcpExecutor mcpTools.ToolExecutor, evaluator *templates.Evaluator) error {
 	c.Response().Header().Set("Content-Type", "text/event-stream")
 	c.Response().Header().Set("Cache-Control", "no-cache")
 	c.Response().Header().Set("Connection", "keep-alive")
@@ -1712,7 +1687,7 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 		if cfg.Agent.MaxIterations > 0 {
 			mcpStreamMaxIterations = cfg.Agent.MaxIterations
 		}
-		hasMCPToolsStream := len(mcpToolInfos) > 0
+		hasMCPToolsStream := mcpExecutor != nil && mcpExecutor.HasTools()
 
 		var result, finalReasoning, finalCleanedResult string
 		var textContent string
@@ -2136,7 +2111,7 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 		if hasMCPToolsStream && len(toolCalls) > 0 {
 			var hasMCPCalls bool
 			for _, tc := range toolCalls {
-				if mcpTools.IsMCPTool(mcpToolInfos, tc.Name) {
+				if mcpExecutor != nil && mcpExecutor.IsTool(tc.Name) {
 					hasMCPCalls = true
 					break
 				}
@@ -2175,14 +2150,14 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 					sequenceNumber++
 					collectedOutputItems = append(collectedOutputItems, *functionCallItem)
 
-					if !mcpTools.IsMCPTool(mcpToolInfos, tc.Name) {
+					if mcpExecutor == nil || !mcpExecutor.IsTool(tc.Name) {
 						continue
 					}
 
 					// Execute MCP tool
 					xlog.Debug("Executing MCP tool (Open Responses stream)", "tool", tc.Name, "iteration", mcpStreamIter)
-					toolResult, toolErr := mcpTools.ExecuteMCPToolCall(
-						input.Context, mcpToolInfos, tc.Name, tc.Arguments,
+					toolResult, toolErr := mcpExecutor.ExecuteTool(
+						input.Context, tc.Name, tc.Arguments,
 					)
 					if toolErr != nil {
 						xlog.Error("MCP tool execution failed", "tool", tc.Name, "error", toolErr)

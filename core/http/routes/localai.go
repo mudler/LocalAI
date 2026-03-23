@@ -58,7 +58,7 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 			galleryService)
 		router.POST("/backends/apply", backendGalleryEndpointService.ApplyBackendEndpoint(), adminMiddleware)
 		router.POST("/backends/delete/:name", backendGalleryEndpointService.DeleteBackendEndpoint(), adminMiddleware)
-		router.GET("/backends", backendGalleryEndpointService.ListBackendsEndpoint(appConfig.SystemState), adminMiddleware)
+		router.GET("/backends", backendGalleryEndpointService.ListBackendsEndpoint(), adminMiddleware)
 		router.GET("/backends/available", backendGalleryEndpointService.ListAvailableBackendsEndpoint(appConfig.SystemState), adminMiddleware)
 		router.GET("/backends/galleries", backendGalleryEndpointService.ListBackendGalleriesEndpoint(), adminMiddleware)
 		router.GET("/backends/jobs/:uuid", backendGalleryEndpointService.GetOpStatusEndpoint(), adminMiddleware)

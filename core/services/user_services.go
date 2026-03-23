@@ -4,6 +4,7 @@ import (
 	"sync"
 
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/services/jobs"
 	"github.com/mudler/LocalAI/core/templates"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAGI/services/skills"
@@ -23,6 +24,10 @@ type UserServicesManager struct {
 	collectionsCache map[string]collections.Backend
 	skillsCache      map[string]*skills.Service
 	jobsCache        map[string]*AgentJobService
+
+	// Shared distributed backends (set once, inherited by per-user job services)
+	jobDispatcher DistributedDispatcher
+	jobDBStore    *jobs.JobStore
 }
 
 // NewUserServicesManager creates a new UserServicesManager.
@@ -151,8 +156,37 @@ func (m *UserServicesManager) GetJobs(userID string) (*AgentJobService, error) {
 		m.storage.TasksFile(userID),
 		m.storage.JobsFile(userID),
 	)
+	// Set user ID for per-user DB scoping
+	svc.SetUserID(userID)
+	// Inherit distributed backends so per-user jobs go through NATS + DB
+	if m.jobDispatcher != nil {
+		svc.SetDistributedBackends(m.jobDispatcher)
+	}
+	if m.jobDBStore != nil {
+		svc.SetDistributedJobStore(m.jobDBStore)
+		// Load tasks/jobs from DB immediately (per-user services skip Start())
+		svc.LoadFromDB()
+	} else {
+		// Load from per-user files
+		if err := svc.LoadTasksFromFile(); err != nil {
+			xlog.Warn("Failed to load tasks from file for user", "userID", userID, "error", err)
+		}
+		if err := svc.LoadJobsFromFile(); err != nil {
+			xlog.Warn("Failed to load jobs from file for user", "userID", userID, "error", err)
+		}
+	}
 	m.jobsCache[userID] = svc
 	return svc, nil
+}
+
+// SetJobDispatcher sets the distributed dispatcher for per-user job services.
+func (m *UserServicesManager) SetJobDispatcher(d DistributedDispatcher) {
+	m.jobDispatcher = d
+}
+
+// SetJobDBStore sets the database-backed job store for per-user job services.
+func (m *UserServicesManager) SetJobDBStore(s *jobs.JobStore) {
+	m.jobDBStore = s
 }
 
 // ListAllUserIDs returns all user IDs that have scoped data directories.

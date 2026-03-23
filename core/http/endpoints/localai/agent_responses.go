@@ -2,6 +2,7 @@ package localai
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -11,6 +12,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/application"
+	"github.com/mudler/LocalAI/core/services/agents"
 	coreTypes "github.com/mudler/LocalAGI/core/types"
 	"github.com/mudler/xlog"
 	"github.com/sashabaranov/go-openai"
@@ -51,44 +53,104 @@ func AgentResponsesInterceptor(app *application.Application) echo.MiddlewareFunc
 			}
 
 			// Check if this model name is an agent
-			ag := svc.GetAgent(req.Model)
-			if ag == nil {
-				return next(c)
-			}
-
-			// This is an agent — handle the request directly
 			messages := parseInputToMessages(req.Input)
 			if len(messages) == 0 {
-				return c.JSON(http.StatusBadRequest, map[string]any{
-					"error": map[string]string{
-						"type":    "invalid_request_error",
-						"message": "no input messages provided",
-					},
-				})
+				// Can't determine if this is an agent without input
+				ag := svc.GetAgent(req.Model)
+				if ag == nil {
+					return next(c)
+				}
 			}
 
-			jobOptions := []coreTypes.JobOption{
-				coreTypes.WithConversationHistory(messages),
+			// Extract the last user message for the executor
+			var userMessage string
+			for i := len(messages) - 1; i >= 0; i-- {
+				if messages[i].Role == "user" {
+					userMessage = messages[i].Content
+					break
+				}
 			}
 
-			res := ag.Ask(jobOptions...)
+			var responseText string
 
-			if res == nil {
-				return c.JSON(http.StatusInternalServerError, map[string]any{
-					"error": map[string]string{
-						"type":    "server_error",
-						"message": "agent request failed or was cancelled",
-					},
+			// Distributed mode: dispatch via NATS + wait for response synchronously
+			if svc.IsDistributed() {
+				store := app.AgentStore()
+				bridge := app.AgentEventBridge()
+				if store == nil || bridge == nil {
+					return next(c)
+				}
+				userID := effectiveUserID(c)
+				rec, err := store.GetConfig(userID, req.Model)
+				if err != nil || rec == nil {
+					return next(c) // not an agent
+				}
+
+				// Dispatch via ChatForUser (publishes to NATS) and wait for the response via EventBridge
+				messageID, err := svc.ChatForUser(userID, req.Model, userMessage)
+				if err != nil {
+					return c.JSON(http.StatusInternalServerError, map[string]any{
+						"error": map[string]string{"type": "server_error", "message": err.Error()},
+					})
+				}
+
+				// Subscribe to events and wait for the agent's response message
+				ctx, cancel := context.WithTimeout(c.Request().Context(), 5*time.Minute)
+				defer cancel()
+
+				responseCh := make(chan string, 1)
+				sub, err := bridge.SubscribeEvents(req.Model, userID, func(evt agents.AgentEvent) {
+					if evt.EventType == "json_message" && evt.Sender == "agent" {
+						responseCh <- evt.Content
+					}
 				})
-			}
-			if res.Error != nil {
-				xlog.Error("Error asking agent via responses API", "agent", req.Model, "error", res.Error)
-				return c.JSON(http.StatusInternalServerError, map[string]any{
-					"error": map[string]string{
-						"type":    "server_error",
-						"message": res.Error.Error(),
-					},
-				})
+				if err != nil {
+					return c.JSON(http.StatusInternalServerError, map[string]any{
+						"error": map[string]string{"type": "server_error", "message": "failed to subscribe to agent events"},
+					})
+				}
+				defer sub.Unsubscribe()
+
+				select {
+				case responseText = <-responseCh:
+					// Got the response
+				case <-ctx.Done():
+					return c.JSON(http.StatusGatewayTimeout, map[string]any{
+						"error": map[string]string{"type": "server_error", "message": "agent response timeout"},
+					})
+				}
+
+				_ = messageID
+			} else {
+				// Standalone mode: use LocalAGI agent directly
+				ag := svc.GetAgent(req.Model)
+				if ag == nil {
+					return next(c)
+				}
+
+				jobOptions := []coreTypes.JobOption{
+					coreTypes.WithConversationHistory(messages),
+				}
+
+				res := ag.Ask(jobOptions...)
+				if res == nil {
+					return c.JSON(http.StatusInternalServerError, map[string]any{
+						"error": map[string]string{
+							"type":    "server_error",
+							"message": "agent request failed or was cancelled",
+						},
+					})
+				}
+				if res.Error != nil {
+					xlog.Error("Error asking agent via responses API", "agent", req.Model, "error", res.Error)
+					return c.JSON(http.StatusInternalServerError, map[string]any{
+						"error": map[string]string{
+							"type":    "server_error",
+							"message": res.Error.Error(),
+						},
+					})
+				}
+				responseText = res.Response
 			}
 
 			id := fmt.Sprintf("resp_%s", uuid.New().String())
@@ -109,7 +171,7 @@ func AgentResponsesInterceptor(app *application.Application) echo.MiddlewareFunc
 						"content": []map[string]any{
 							{
 								"type":        "output_text",
-								"text":        res.Response,
+								"text":        responseText,
 								"annotations": []any{},
 							},
 						},

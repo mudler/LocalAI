@@ -9,9 +9,10 @@ import (
 
 // Auth provider constants.
 const (
-	ProviderLocal  = "local"
-	ProviderGitHub = "github"
-	ProviderOIDC   = "oidc"
+	ProviderLocal       = "local"
+	ProviderGitHub      = "github"
+	ProviderOIDC        = "oidc"
+	ProviderAgentWorker = "agent-worker"
 )
 
 // User represents an authenticated user.

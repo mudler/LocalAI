@@ -93,7 +93,7 @@ export default function AgentChat() {
   const {
     conversations, activeConversation, activeId,
     addConversation, switchConversation, deleteConversation,
-    deleteAllConversations, renameConversation, addMessage, clearMessages,
+    deleteAllConversations, renameConversation, addMessage, addMessageToConversation, clearMessages,
   } = useAgentChat(name)
 
   const messages = activeConversation?.messages || []
@@ -118,8 +118,13 @@ export default function AgentChat() {
   const messageIdCounter = useRef(0)
   const addMessageRef = useRef(addMessage)
   addMessageRef.current = addMessage
+  const addMessageToConvRef = useRef(addMessageToConversation)
+  addMessageToConvRef.current = addMessageToConversation
   const activeIdRef = useRef(activeId)
   activeIdRef.current = activeId
+  // Tracks which conversation initiated the current request — SSE responses
+  // are pinned to this ID so switching tabs doesn't misdirect them.
+  const processingChatIdRef = useRef(null)
 
   const processing = processingChatId === activeId
 
@@ -141,12 +146,21 @@ export default function AgentChat() {
           id: nextId(),
           sender: data.sender || (data.role === 'user' ? 'user' : 'agent'),
           content: data.content || data.message || '',
-          timestamp: data.timestamp || Date.now(),
+          timestamp: data.timestamp ? Math.floor(data.timestamp / 1e6) : Date.now(),
         }
         if (data.metadata && Object.keys(data.metadata).length > 0) {
           msg.metadata = data.metadata
         }
-        addMessageRef.current(msg)
+        // Pin message to the conversation that initiated the request
+        const targetId = processingChatIdRef.current || activeIdRef.current
+        addMessageToConvRef.current(targetId, msg)
+        // Clear streaming + processing state when the final agent message arrives
+        if (msg.sender === 'agent') {
+          setProcessingChatId(null)
+          setStreamContent('')
+          setStreamReasoning('')
+          setStreamToolCalls([])
+        }
       } catch (_err) {
         // ignore malformed messages
       }
@@ -156,15 +170,17 @@ export default function AgentChat() {
       try {
         const data = JSON.parse(e.data)
         if (data.status === 'processing') {
+          // Track which conversation is processing so responses go to the right place
+          processingChatIdRef.current = activeIdRef.current
           setProcessingChatId(activeIdRef.current)
           setStreamContent('')
           setStreamReasoning('')
           setStreamToolCalls([])
         } else if (data.status === 'completed') {
-          setProcessingChatId(null)
-          setStreamContent('')
-          setStreamReasoning('')
-          setStreamToolCalls([])
+          processingChatIdRef.current = null
+          // Don't clear processingChatId or streaming state here —
+          // they'll be cleared when the agent's json_message arrives,
+          // so reasoning and tool calls remain visible until the response replaces them.
         }
       } catch (_err) {
         // ignore
@@ -201,7 +217,8 @@ export default function AgentChat() {
     es.addEventListener('status', (e) => {
       const text = e.data
       if (!text) return
-      addMessageRef.current({
+      const targetId = processingChatIdRef.current || activeIdRef.current
+      addMessageToConvRef.current(targetId, {
         id: nextId(),
         sender: 'system',
         content: text,
@@ -216,6 +233,7 @@ export default function AgentChat() {
       } catch (_err) {
         addToast('Agent error', 'error')
       }
+      processingChatIdRef.current = null
       setProcessingChatId(null)
     })
 

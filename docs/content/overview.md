@@ -23,31 +23,19 @@ In today's AI landscape, privacy, control, and flexibility are paramount. LocalA
 - **Flexible Deployment**: From laptops to servers, with or without GPUs
 - **Extensible**: Add new models and features as needed
 
-## Core Components
+## What's Included
 
-LocalAI is more than just a single tool - it's a complete ecosystem:
+LocalAI is a single binary (or container) that gives you everything you need:
 
-1. **[LocalAI Core](https://github.com/mudler/LocalAI)**
-   - OpenAI-compatible API
-   - Multiple model support (LLMs, image, audio)
-   - Model Context Protocol (MCP) for agentic capabilities
-   - No GPU required
-   - Fast inference with native bindings
-   - [Github repository](https://github.com/mudler/LocalAI)
+- **OpenAI-compatible API** — Drop-in replacement for OpenAI, Anthropic, and Open Responses APIs
+- **Built-in Web Interface** — Chat, model management, agent creation, image generation, and system monitoring
+- **AI Agents** — Create autonomous agents with MCP (Model Context Protocol) tool support, directly from the UI
+- **Multiple Model Support** — LLMs, image generation, text-to-speech, speech-to-text, vision, embeddings, and more
+- **GPU Acceleration** — Automatic detection and support for NVIDIA, AMD, Intel, and Vulkan GPUs
+- **Distributed Mode** — Scale horizontally with worker nodes, P2P federation, and model sharding
+- **No GPU Required** — Runs on CPU with consumer-grade hardware
 
-2. **[LocalAGI](https://github.com/mudler/LocalAGI)**
-   - Autonomous AI agents
-   - No coding required
-   - WebUI and REST API support
-   - Extensible agent framework
-   - [Github repository](https://github.com/mudler/LocalAGI)
-
-3. **[LocalRecall](https://github.com/mudler/LocalRecall)**
-   - Semantic search
-   - Memory management
-   - Vector database
-   - Perfect for AI applications
-   - [Github repository](https://github.com/mudler/LocalRecall)
+LocalAI integrates [LocalAGI](https://github.com/mudler/LocalAGI) (agent platform) and [LocalRecall](https://github.com/mudler/LocalRecall) (semantic memory) as built-in libraries — no separate installation needed.
 
 ## Getting Started
 
@@ -58,21 +46,26 @@ LocalAI can be installed in several ways. **Docker is the recommended installati
 The quickest way to get started with LocalAI is using Docker:
 
 ```bash
-docker run -p 8080:8080 --name local-ai -ti localai/localai:latest
+docker run -p 8080:8080 --name local-ai -ti localai/localai:latest-cpu
 ```
+
+Then open **http://localhost:8080** to access the web interface, install models, and start chatting.
+
+For GPU support, see the [Container images reference]({{% relref "getting-started/container-images" %}}) or the [Quickstart guide]({{% relref "getting-started/quickstart" %}}).
 
 For complete installation instructions including Docker, macOS, Linux, Kubernetes, and building from source, see the [Installation guide](/installation/).
 
 ## Key Features
 
-- **Text Generation**: Run various LLMs locally
-- **Image Generation**: Create images with stable diffusion
+- **Text Generation**: Run various LLMs locally (llama.cpp, transformers, vLLM, and more)
+- **Image Generation**: Create images with Stable Diffusion, Flux, and other models
 - **Audio Processing**: Text-to-speech and speech-to-text
 - **Vision API**: Image understanding and analysis
-- **Embeddings**: Vector database support
-- **Functions**: OpenAI-compatible function calling
-- **MCP Support**: Model Context Protocol for agentic capabilities
-- **P2P**: Distributed inference capabilities
+- **Embeddings**: Vector representations for search and retrieval
+- **Function Calling**: OpenAI-compatible tool use
+- **AI Agents**: Autonomous agents with MCP tool support
+- **MCP Apps**: Interactive tool UIs in the web interface
+- **P2P & Distributed**: Federated inference and model sharding across machines
 
 ## Community and Support
 
@@ -88,13 +81,11 @@ LocalAI is a community-driven project. You can:
 Ready to dive in? Here are some recommended next steps:
 
 1. **[Install LocalAI](/installation/)** - Start with [Docker installation](/installation/docker/) (recommended) or choose another method
-2. [Explore available models](https://models.localai.io)
-3. [Model compatibility](/model-compatibility/)
-4. [Try out examples](https://github.com/mudler/LocalAI-examples)
-5. [Join the community](https://discord.gg/uJAeKSAGDy)
-6. [Check the LocalAI Github repository](https://github.com/mudler/LocalAI)
-7. [Check the LocalAGI Github repository](https://github.com/mudler/LocalAGI)
-
+2. **[Quickstart guide]({{% relref "getting-started/quickstart" %}})** - Get up and running in minutes
+3. [Explore available models](https://models.localai.io)
+4. [Model compatibility](/model-compatibility/)
+5. [Try out examples]({{% relref "getting-started/try-it-out" %}})
+6. [Join the community](https://discord.gg/uJAeKSAGDy)
 
 ## License
 
