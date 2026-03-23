@@ -31,7 +31,7 @@ require (
 	github.com/lithammer/fuzzysearch v1.1.8
 	github.com/mholt/archiver/v3 v3.5.1
 	github.com/microcosm-cc/bluemonday v1.0.27
-	github.com/modelcontextprotocol/go-sdk v1.4.0
+	github.com/modelcontextprotocol/go-sdk v1.4.1
 	github.com/mudler/cogito v0.9.5-0.20260315222927-63abdec7189b
 	github.com/mudler/edgevpn v0.31.1
 	github.com/mudler/go-processmanager v0.1.0
@@ -147,7 +147,7 @@ require (
 	github.com/rs/zerolog v1.31.0 // indirect
 	github.com/saintfish/chardet v0.0.0-20230101081208-5e3ef4b5456d // indirect
 	github.com/segmentio/asm v1.1.3 // indirect
-	github.com/segmentio/encoding v0.5.3 // indirect
+	github.com/segmentio/encoding v0.5.4 // indirect
 	github.com/sergi/go-diff v1.4.0 // indirect
 	github.com/skeema/knownhosts v1.3.1 // indirect
 	github.com/slack-go/slack v0.17.3 // indirect
