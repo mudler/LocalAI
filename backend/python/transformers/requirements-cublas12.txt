@@ -7,4 +7,4 @@ bitsandbytes
 sentence-transformers==5.2.3
 diffusers
 soundfile
-protobuf==6.33.5
+protobuf==7.34.1
