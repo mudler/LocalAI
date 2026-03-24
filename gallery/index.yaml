@@ -1,4 +1,30 @@
 ---
+- name: "omnicoder-9b-heretic"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/wirxer/OmniCoder-9B-heretic-GGUF
+  description: |
+    Describe the model in a clear and concise way that can be shared in a model gallery.
+  overrides:
+    parameters:
+      model: llama-cpp/models/OmniCoder-9B-heretic-GGUF/OmniCoder-9B-heretic-Q4_K_M.gguf
+    name: OmniCoder-9B-heretic-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+      automatic_tool_parsing_fallback: true
+    description: Imported from https://huggingface.co/wirxer/OmniCoder-9B-heretic-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/OmniCoder-9B-heretic-GGUF/OmniCoder-9B-heretic-Q4_K_M.gguf
+      sha256: 295262a79785cb584042ebd7964dcfc4df4a124391231402b163fdf674fd4205
+      uri: https://huggingface.co/wirxer/OmniCoder-9B-heretic-GGUF/resolve/main/OmniCoder-9B-heretic-Q4_K_M.gguf
 - name: "qwen_qwen3.5-35b-a3b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
