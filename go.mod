@@ -138,7 +138,7 @@ require (
 	github.com/mschoch/smat v0.2.0 // indirect
 	github.com/mudler/LocalAGI v0.0.0-20260321004723-b485b77037c4
 	github.com/mudler/localrecall v0.5.9-0.20260321005011-810084e9369b // indirect
-	github.com/mudler/skillserver v0.0.5
+	github.com/mudler/skillserver v0.0.6
 	github.com/olekukonko/tablewriter v0.0.5 // indirect
 	github.com/oxffaa/gopher-parse-sitemap v0.0.0-20191021113419-005d2eb1def4 // indirect
 	github.com/philippgille/chromem-go v0.7.0 // indirect
