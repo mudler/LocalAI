@@ -52,6 +52,9 @@ func (m *MockBackend) LoadModel(ctx context.Context, in *pb.ModelOptions) (*pb.R
 
 func (m *MockBackend) Predict(ctx context.Context, in *pb.PredictOptions) (*pb.Reply, error) {
 	xlog.Debug("Predict called", "prompt", in.Prompt)
+	if strings.Contains(in.Prompt, "MOCK_ERROR") {
+		return nil, fmt.Errorf("mock backend predict error: simulated failure")
+	}
 	var response string
 	toolName := mockToolNameFromRequest(in)
 	if toolName != "" && !promptHasToolResults(in.Prompt) {
@@ -74,6 +77,17 @@ func (m *MockBackend) Predict(ctx context.Context, in *pb.PredictOptions) (*pb.R
 
 func (m *MockBackend) PredictStream(in *pb.PredictOptions, stream pb.Backend_PredictStreamServer) error {
 	xlog.Debug("PredictStream called", "prompt", in.Prompt)
+	if strings.Contains(in.Prompt, "MOCK_ERROR_IMMEDIATE") {
+		return fmt.Errorf("mock backend stream error: simulated failure")
+	}
+	if strings.Contains(in.Prompt, "MOCK_ERROR_MIDSTREAM") {
+		for _, r := range "Partial resp" {
+			if err := stream.Send(&pb.Reply{Message: []byte(string(r))}); err != nil {
+				return err
+			}
+		}
+		return fmt.Errorf("mock backend stream error: simulated mid-stream failure")
+	}
 	var toStream string
 	toolName := mockToolNameFromRequest(in)
 	if toolName != "" && !promptHasToolResults(in.Prompt) {

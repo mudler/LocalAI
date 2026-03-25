@@ -32,6 +32,10 @@ const (
 	FeatureCollections = "collections"
 	FeatureMCPJobs     = "mcp_jobs"
 
+	// General features (default OFF for new users)
+	FeatureFineTuning    = "fine_tuning"
+	FeatureQuantization  = "quantization"
+
 	// API features (default ON for new users)
 	FeatureChat              = "chat"
 	FeatureImages            = "images"
@@ -52,6 +56,9 @@ const (
 // AgentFeatures lists agent-related features (default OFF).
 var AgentFeatures = []string{FeatureAgents, FeatureSkills, FeatureCollections, FeatureMCPJobs}
 
+// GeneralFeatures lists general features (default OFF).
+var GeneralFeatures = []string{FeatureFineTuning, FeatureQuantization}
+
 // APIFeatures lists API endpoint features (default ON).
 var APIFeatures = []string{
 	FeatureChat, FeatureImages, FeatureAudioSpeech, FeatureAudioTranscription,
@@ -60,7 +67,7 @@ var APIFeatures = []string{
 }
 
 // AllFeatures lists all known features (used by UI and validation).
-var AllFeatures = append(append([]string{}, AgentFeatures...), APIFeatures...)
+var AllFeatures = append(append(append([]string{}, AgentFeatures...), GeneralFeatures...), APIFeatures...)
 
 // defaultOnFeatures is the set of features that default to ON when absent from a user's permission map.
 var defaultOnFeatures = func() map[string]bool {

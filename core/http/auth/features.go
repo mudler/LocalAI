@@ -85,6 +85,28 @@ var RouteFeatureRegistry = []RouteFeature{
 	{"POST", "/stores/delete", FeatureStores},
 	{"POST", "/stores/get", FeatureStores},
 	{"POST", "/stores/find", FeatureStores},
+
+	// Fine-tuning
+	{"POST", "/api/fine-tuning/jobs", FeatureFineTuning},
+	{"GET", "/api/fine-tuning/jobs", FeatureFineTuning},
+	{"GET", "/api/fine-tuning/jobs/:id", FeatureFineTuning},
+	{"POST", "/api/fine-tuning/jobs/:id/stop", FeatureFineTuning},
+	{"DELETE", "/api/fine-tuning/jobs/:id", FeatureFineTuning},
+	{"GET", "/api/fine-tuning/jobs/:id/progress", FeatureFineTuning},
+	{"GET", "/api/fine-tuning/jobs/:id/checkpoints", FeatureFineTuning},
+	{"POST", "/api/fine-tuning/jobs/:id/export", FeatureFineTuning},
+	{"GET", "/api/fine-tuning/jobs/:id/download", FeatureFineTuning},
+	{"POST", "/api/fine-tuning/datasets", FeatureFineTuning},
+
+	// Quantization
+	{"POST", "/api/quantization/jobs", FeatureQuantization},
+	{"GET", "/api/quantization/jobs", FeatureQuantization},
+	{"GET", "/api/quantization/jobs/:id", FeatureQuantization},
+	{"POST", "/api/quantization/jobs/:id/stop", FeatureQuantization},
+	{"DELETE", "/api/quantization/jobs/:id", FeatureQuantization},
+	{"GET", "/api/quantization/jobs/:id/progress", FeatureQuantization},
+	{"POST", "/api/quantization/jobs/:id/import", FeatureQuantization},
+	{"GET", "/api/quantization/jobs/:id/download", FeatureQuantization},
 }
 
 // FeatureMeta describes a feature for the admin API/UI.
@@ -101,6 +123,14 @@ func AgentFeatureMetas() []FeatureMeta {
 		{FeatureSkills, "Skills", false},
 		{FeatureCollections, "Collections", false},
 		{FeatureMCPJobs, "MCP CI Jobs", false},
+	}
+}
+
+// GeneralFeatureMetas returns metadata for general features.
+func GeneralFeatureMetas() []FeatureMeta {
+	return []FeatureMeta{
+		{FeatureFineTuning, "Fine-Tuning", false},
+		{FeatureQuantization, "Quantization", false},
 	}
 }
 

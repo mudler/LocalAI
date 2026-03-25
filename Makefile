@@ -1,5 +1,5 @@
 # Disable parallel execution for backend builds
-.NOTPARALLEL: backends/diffusers backends/llama-cpp backends/outetts backends/piper backends/stablediffusion-ggml backends/whisper backends/faster-whisper backends/silero-vad backends/local-store backends/huggingface backends/rfdetr backends/kitten-tts backends/kokoro backends/chatterbox backends/llama-cpp-darwin backends/neutts build-darwin-python-backend build-darwin-go-backend backends/mlx backends/diffuser-darwin backends/mlx-vlm backends/mlx-audio backends/mlx-distributed backends/stablediffusion-ggml-darwin backends/vllm backends/vllm-omni backends/moonshine backends/pocket-tts backends/qwen-tts backends/faster-qwen3-tts backends/qwen-asr backends/nemo backends/voxcpm backends/whisperx backends/ace-step backends/acestep-cpp backends/fish-speech backends/voxtral backends/opus
+.NOTPARALLEL: backends/diffusers backends/llama-cpp backends/outetts backends/piper backends/stablediffusion-ggml backends/whisper backends/faster-whisper backends/silero-vad backends/local-store backends/huggingface backends/rfdetr backends/kitten-tts backends/kokoro backends/chatterbox backends/llama-cpp-darwin backends/neutts build-darwin-python-backend build-darwin-go-backend backends/mlx backends/diffuser-darwin backends/mlx-vlm backends/mlx-audio backends/mlx-distributed backends/stablediffusion-ggml-darwin backends/vllm backends/vllm-omni backends/moonshine backends/pocket-tts backends/qwen-tts backends/faster-qwen3-tts backends/qwen-asr backends/nemo backends/voxcpm backends/whisperx backends/ace-step backends/acestep-cpp backends/fish-speech backends/voxtral backends/opus backends/trl backends/llama-cpp-quantization
 
 GOCMD=go
 GOTEST=$(GOCMD) test
@@ -107,7 +107,7 @@ core/http/react-ui/dist: react-ui
 
 ## Build:
 
-build: protogen-go install-go-tools core/http/react-ui/dist ## Build the project
+build: protogen-go generate install-go-tools core/http/react-ui/dist ## Build the project
 	$(info ${GREEN}I local-ai build info:${RESET})
 	$(info ${GREEN}I BUILD_TYPE: ${YELLOW}$(BUILD_TYPE)${RESET})
 	$(info ${GREEN}I GO_TAGS: ${YELLOW}$(GO_TAGS)${RESET})
@@ -398,6 +398,16 @@ protogen-go: protoc install-go-tools
 	./protoc --experimental_allow_proto3_optional -Ibackend/ --go_out=pkg/grpc/proto/ --go_opt=paths=source_relative --go-grpc_out=pkg/grpc/proto/ --go-grpc_opt=paths=source_relative \
     backend/backend.proto
 
+core/config/inference_defaults.json: ## Fetch inference defaults from unsloth (only if missing)
+	$(GOCMD) generate ./core/config/...
+
+.PHONY: generate
+generate: core/config/inference_defaults.json ## Ensure inference defaults exist
+
+.PHONY: generate-force
+generate-force: ## Re-fetch inference defaults from unsloth (always)
+	$(GOCMD) generate ./core/config/...
+
 .PHONY: protogen-go-clean
 protogen-go-clean:
 	$(RM) pkg/grpc/proto/backend.pb.go pkg/grpc/proto/backend_grpc.pb.go
@@ -421,6 +431,7 @@ prepare-test-extra: protogen-python
 	$(MAKE) -C backend/python/voxcpm
 	$(MAKE) -C backend/python/whisperx
 	$(MAKE) -C backend/python/ace-step
+	$(MAKE) -C backend/python/trl
 
 test-extra: prepare-test-extra
 	$(MAKE) -C backend/python/transformers test
@@ -440,6 +451,7 @@ test-extra: prepare-test-extra
 	$(MAKE) -C backend/python/voxcpm test
 	$(MAKE) -C backend/python/whisperx test
 	$(MAKE) -C backend/python/ace-step test
+	$(MAKE) -C backend/python/trl test
 
 DOCKER_IMAGE?=local-ai
 IMAGE_TYPE?=core
@@ -572,6 +584,8 @@ BACKEND_VOXCPM = voxcpm|python|.|false|true
 BACKEND_WHISPERX = whisperx|python|.|false|true
 BACKEND_ACE_STEP = ace-step|python|.|false|true
 BACKEND_MLX_DISTRIBUTED = mlx-distributed|python|./|false|true
+BACKEND_TRL = trl|python|.|false|true
+BACKEND_LLAMA_CPP_QUANTIZATION = llama-cpp-quantization|python|.|false|true
 
 # Helper function to build docker image for a backend
 # Usage: $(call docker-build-backend,BACKEND_NAME,DOCKERFILE_TYPE,BUILD_CONTEXT,PROGRESS_FLAG,NEEDS_BACKEND_ARG)
@@ -629,12 +643,14 @@ $(eval $(call generate-docker-build-target,$(BACKEND_WHISPERX)))
 $(eval $(call generate-docker-build-target,$(BACKEND_ACE_STEP)))
 $(eval $(call generate-docker-build-target,$(BACKEND_ACESTEP_CPP)))
 $(eval $(call generate-docker-build-target,$(BACKEND_MLX_DISTRIBUTED)))
+$(eval $(call generate-docker-build-target,$(BACKEND_TRL)))
+$(eval $(call generate-docker-build-target,$(BACKEND_LLAMA_CPP_QUANTIZATION)))
 
 # Pattern rule for docker-save targets
 docker-save-%: backend-images
 	docker save local-ai-backend:$* -o backend-images/$*.tar
 
-docker-build-backends: docker-build-llama-cpp docker-build-rerankers docker-build-vllm docker-build-vllm-omni docker-build-transformers docker-build-outetts docker-build-diffusers docker-build-kokoro docker-build-faster-whisper docker-build-coqui docker-build-chatterbox docker-build-vibevoice docker-build-moonshine docker-build-pocket-tts docker-build-qwen-tts docker-build-fish-speech docker-build-faster-qwen3-tts docker-build-qwen-asr docker-build-nemo docker-build-voxcpm docker-build-whisperx docker-build-ace-step docker-build-acestep-cpp docker-build-voxtral docker-build-mlx-distributed
+docker-build-backends: docker-build-llama-cpp docker-build-rerankers docker-build-vllm docker-build-vllm-omni docker-build-transformers docker-build-outetts docker-build-diffusers docker-build-kokoro docker-build-faster-whisper docker-build-coqui docker-build-chatterbox docker-build-vibevoice docker-build-moonshine docker-build-pocket-tts docker-build-qwen-tts docker-build-fish-speech docker-build-faster-qwen3-tts docker-build-qwen-asr docker-build-nemo docker-build-voxcpm docker-build-whisperx docker-build-ace-step docker-build-acestep-cpp docker-build-voxtral docker-build-mlx-distributed docker-build-trl docker-build-llama-cpp-quantization
 
 ########################################################
 ### Mock Backend for E2E Tests

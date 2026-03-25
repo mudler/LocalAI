@@ -261,6 +261,13 @@ func (s URI) ResolveURL() string {
 		return fmt.Sprintf("%s/%s/%s/resolve/%s/%s", HF_ENDPOINT, owner, repo, branch, filepath)
 	}
 
+	// If a HuggingFace mirror is configured, rewrite direct https://huggingface.co/ URLs
+	// to use the mirror. This ensures gallery entries with hardcoded URLs also benefit
+	// from the mirror setting.
+	if HF_ENDPOINT != "https://huggingface.co" && strings.HasPrefix(string(s), "https://huggingface.co/") {
+		return HF_ENDPOINT + strings.TrimPrefix(string(s), "https://huggingface.co")
+	}
+
 	return string(s)
 }
 

@@ -6,6 +6,7 @@ import { renderMarkdown, highlightAll } from '../utils/markdown'
 import { extractCodeArtifacts, renderMarkdownWithArtifacts } from '../utils/artifacts'
 import CanvasPanel from '../components/CanvasPanel'
 import { fileToBase64, modelsApi, mcpApi } from '../utils/api'
+import { CAP_CHAT } from '../utils/capabilities'
 import { useMCPClient } from '../hooks/useMCPClient'
 import MCPAppFrame from '../components/MCPAppFrame'
 import UnifiedMCPDropdown from '../components/UnifiedMCPDropdown'
@@ -898,7 +899,7 @@ export default function Chat() {
           <ModelSelector
             value={activeChat.model}
             onChange={(model) => updateChatSettings(activeChat.id, { model })}
-            capability="FLAG_CHAT"
+            capability={CAP_CHAT}
             style={{ flex: '1 1 0', minWidth: 120 }}
           />
           <div className="chat-header-actions">
@@ -1142,6 +1143,11 @@ export default function Chat() {
                         }} />
                       )}
                     </div>
+                    {msg.role === 'assistant' && typeof msg.content === 'string' && msg.content.includes('Error:') && (
+                      <a href="/app/traces?tab=backend" className="chat-error-trace-link">
+                        <i className="fas fa-wave-square" /> View traces for details
+                      </a>
+                    )}
                     <div className="chat-message-actions">
                       <button onClick={() => copyMessage(msg.content)} title="Copy">
                         <i className="fas fa-copy" />

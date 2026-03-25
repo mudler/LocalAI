@@ -222,6 +222,9 @@ func mergeOpenAIRequestAndModelConfig(config *config.ModelConfig, input *schema.
 	if input.TopP != nil {
 		config.TopP = input.TopP
 	}
+	if input.MinP != nil {
+		config.MinP = input.MinP
+	}
 
 	if input.Backend != "" {
 		config.Backend = input.Backend

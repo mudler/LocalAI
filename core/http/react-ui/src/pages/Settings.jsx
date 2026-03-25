@@ -3,6 +3,7 @@ import { useOutletContext } from 'react-router-dom'
 import { settingsApi, resourcesApi } from '../utils/api'
 import LoadingSpinner from '../components/LoadingSpinner'
 import SearchableModelSelect from '../components/SearchableModelSelect'
+import { CAP_CHAT } from '../utils/capabilities'
 import Toggle from '../components/Toggle'
 import SettingRow from '../components/SettingRow'
 import { formatBytes, percentColor } from '../utils/format'
@@ -25,6 +26,7 @@ const SECTIONS = [
 export default function Settings() {
   const { addToast } = useOutletContext()
   const [settings, setSettings] = useState(null)
+  const [initialSettings, setInitialSettings] = useState(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [resources, setResources] = useState(null)
@@ -38,6 +40,7 @@ export default function Settings() {
     try {
       const data = await settingsApi.get()
       setSettings(data)
+      setInitialSettings(structuredClone(data))
     } catch (err) {
       addToast(`Failed to load settings: ${err.message}`, 'error')
     } finally {
@@ -55,6 +58,9 @@ export default function Settings() {
   const handleSave = async () => {
     setSaving(true)
     try {
+  const handleSave = async () => {
+    setSaving(true)
+    try {
       // Prepare settings for saving: convert api_keys_text to api_keys array
       const settingsToSave = { ...settings }
       if (settingsToSave.api_keys_text !== undefined && settingsToSave.api_keys_text !== null) {
@@ -69,12 +75,14 @@ export default function Settings() {
       // Remove UI-only field before sending to backend
       delete settingsToSave.api_keys_text
       await settingsApi.save(settingsToSave)
+      setInitialSettings(structuredClone(settingsToSave))
       addToast('Settings saved successfully', 'success')
     } catch (err) {
       addToast(`Save failed: ${err.message}`, 'error')
     } finally {
       setSaving(false)
     }
+  }
   }
 
   const update = (key, value) => {
@@ -110,6 +118,7 @@ export default function Settings() {
   if (loading) return <div className="page" style={{ display: 'flex', justifyContent: 'center', padding: 'var(--spacing-xl)' }}><LoadingSpinner size="lg" /></div>
   if (!settings) return <div className="page"><div className="empty-state"><p className="empty-state-text">Settings not available</p></div></div>
 
+  const isDirty = settings && initialSettings && JSON.stringify(settings) !== JSON.stringify(initialSettings)
   const watchdogEnabled = settings.watchdog_idle_enabled || settings.watchdog_busy_enabled
 
   return (
@@ -123,8 +132,8 @@ export default function Settings() {
           <h1 className="page-title">Settings</h1>
           <p className="page-subtitle">Configure LocalAI runtime settings</p>
         </div>
-        <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
-          {saving ? <><LoadingSpinner size="sm" /> Saving...</> : <><i className="fas fa-save" /> Save</>}
+        <button className={`btn ${isDirty ? 'btn-primary' : 'btn-secondary'}`} onClick={handleSave} disabled={saving || !isDirty}>
+          {saving ? <><LoadingSpinner size="sm" /> Saving...</> : <><i className="fas fa-save" /> {isDirty ? 'Save Changes' : 'Saved'}</>}
         </button>
       </div>
 
@@ -445,7 +454,7 @@ export default function Settings() {
                 <Toggle checked={settings.agent_pool_enabled ?? true} onChange={(v) => update('agent_pool_enabled', v)} />
               </SettingRow>
               <SettingRow label="Default Model" description="Default LLM model for agents">
-                <SearchableModelSelect value={settings.agent_pool_default_model || ''} onChange={(v) => update('agent_pool_default_model', v)} capability="FLAG_CHAT" placeholder="e.g. gpt-4" />
+                <SearchableModelSelect value={settings.agent_pool_default_model || ''} onChange={(v) => update('agent_pool_default_model', v)} capability={CAP_CHAT} placeholder="e.g. gpt-4" />
               </SettingRow>
               <SettingRow label="Embedding Model" description="Model used for knowledge base embeddings">
                 <SearchableModelSelect value={settings.agent_pool_embedding_model || ''} onChange={(v) => update('agent_pool_embedding_model', v)} placeholder="granite-embedding-107m-multilingual" />

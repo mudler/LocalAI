@@ -6,6 +6,15 @@ const thinkingTagRegex = /<thinking>([\s\S]*?)<\/thinking>|<think>([\s\S]*?)<\/t
 const openThinkTagRegex = /<thinking>|<think>/
 const closeThinkTagRegex = /<\/thinking>|<\/think>/
 
+async function extractHttpError(response) {
+  let errorMsg = `HTTP ${response.status}`
+  try {
+    const errorData = await response.json()
+    if (errorData.error?.message) errorMsg = errorData.error.message
+  } catch (_) {}
+  return errorMsg
+}
+
 function extractThinking(text) {
   let regularContent = ''
   let thinkingContent = ''
@@ -316,7 +325,7 @@ export function useChat(initialModel = '') {
         clearTimeout(timeoutId)
 
         if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`)
+          throw new Error(await extractHttpError(response))
         }
 
         const reader = response.body.pipeThrough(new TextDecoderStream()).getReader()
@@ -404,7 +413,7 @@ export function useChat(initialModel = '') {
                   break
 
                 case 'error':
-                  newMessages.push({ role: 'assistant', content: `Error: ${eventData.message}` })
+                  newMessages.push({ role: 'assistant', content: `Error: ${eventData.message || eventData.error?.message || 'Unknown error'}` })
                   break
               }
             } catch (_e) {
@@ -461,7 +470,7 @@ export function useChat(initialModel = '') {
           })
 
           if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`)
+            throw new Error(await extractHttpError(response))
           }
 
           const reader = response.body.getReader()
@@ -484,6 +493,16 @@ export function useChat(initialModel = '') {
 
               try {
                 const parsed = JSON.parse(data)
+
+                // Handle structured error events
+                if (parsed.error) {
+                  const errMsg = typeof parsed.error === 'string'
+                    ? parsed.error
+                    : parsed.error.message || 'Unknown error'
+                  rawContent += `\n\nError: ${errMsg}`
+                  setStreamingContent(rawContent)
+                  continue
+                }
 
                 // Handle MCP tool result events
                 if (parsed?.type === 'mcp_tool_result') {

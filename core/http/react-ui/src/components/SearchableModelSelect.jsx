@@ -27,6 +27,11 @@ export default function SearchableModelSelect({ value, onChange, capability, pla
     m.id.toLowerCase().includes(query.toLowerCase())
   )
 
+  // Which item Enter will select — matches SearchableSelect behavior
+  const enterTargetIndex = focusIndex >= 0 ? focusIndex
+    : filtered.length > 0 ? 0
+    : -1
+
   const commit = useCallback((val) => {
     setQuery(val)
     onChange(val)
@@ -39,6 +44,11 @@ export default function SearchableModelSelect({ value, onChange, capability, pla
       setOpen(true)
       return
     }
+    if (!open && e.key === 'Enter') {
+      e.preventDefault()
+      commit(query)
+      return
+    }
     if (!open) return
 
     if (e.key === 'ArrowDown') {
@@ -49,8 +59,8 @@ export default function SearchableModelSelect({ value, onChange, capability, pla
       setFocusIndex(i => Math.max(i - 1, 0))
     } else if (e.key === 'Enter') {
       e.preventDefault()
-      if (focusIndex >= 0 && focusIndex < filtered.length) {
-        commit(filtered[focusIndex].id)
+      if (enterTargetIndex >= 0) {
+        commit(filtered[enterTargetIndex].id)
       } else {
         commit(query)
       }
@@ -97,9 +107,9 @@ export default function SearchableModelSelect({ value, onChange, capability, pla
           padding: 6px 10px;
           font-size: 0.8125rem;
           cursor: pointer;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
+          display: flex;
+          align-items: center;
+          gap: 6px;
         }
         .sms-item:hover, .sms-item.sms-focused {
           background: var(--color-bg-tertiary);
@@ -137,21 +147,27 @@ export default function SearchableModelSelect({ value, onChange, capability, pla
               {query ? 'No matching models — value will be used as-is' : 'No models available'}
             </div>
           ) : (
-            filtered.map((m, i) => (
-              <div
-                key={m.id}
-                role="option"
-                aria-selected={m.id === value}
-                className={`sms-item${i === focusIndex ? ' sms-focused' : ''}${m.id === value ? ' sms-active' : ''}`}
-                onMouseEnter={() => setFocusIndex(i)}
-                onMouseDown={(e) => {
-                  e.preventDefault()
-                  commit(m.id)
-                }}
-              >
-                {m.id}
-              </div>
-            ))
+            filtered.map((m, i) => {
+              const isEnterTarget = i === enterTargetIndex
+              return (
+                <div
+                  key={m.id}
+                  role="option"
+                  aria-selected={m.id === value}
+                  className={`sms-item${i === focusIndex || isEnterTarget ? ' sms-focused' : ''}${m.id === value ? ' sms-active' : ''}`}
+                  onMouseEnter={() => setFocusIndex(i)}
+                  onMouseDown={(e) => {
+                    e.preventDefault()
+                    commit(m.id)
+                  }}
+                >
+                  <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.id}</span>
+                  {isEnterTarget && (
+                    <span style={{ color: 'var(--color-text-muted)', fontSize: '0.75rem', flexShrink: 0 }}>↵</span>
+                  )}
+                </div>
+              )
+            })
           )}
         </div>
       )}

@@ -26,10 +26,14 @@ import AgentJobs from './pages/AgentJobs'
 import AgentTaskDetails from './pages/AgentTaskDetails'
 import AgentJobDetails from './pages/AgentJobDetails'
 import ModelEditor from './pages/ModelEditor'
+import PipelineEditor from './pages/PipelineEditor'
 import ImportModel from './pages/ImportModel'
 import BackendLogs from './pages/BackendLogs'
 import Explorer from './pages/Explorer'
 import Login from './pages/Login'
+import FineTune from './pages/FineTune'
+import Quantize from './pages/Quantize'
+import Studio from './pages/Studio'
 import NotFound from './pages/NotFound'
 import Usage from './pages/Usage'
 import Users from './pages/Users'
@@ -42,6 +46,7 @@ function BrowseRedirect() {
   const { '*': splat } = useParams()
   return <Navigate to={`/app/${splat || ''}`} replace />
 }
+
 
 function Admin({ children }) {
   return <RequireAdmin>{children}</RequireAdmin>
@@ -64,6 +69,7 @@ const appChildren = [
   { path: 'tts/:model', element: <TTS /> },
   { path: 'sound', element: <Sound /> },
   { path: 'sound/:model', element: <Sound /> },
+  { path: 'studio', element: <Studio /> },
   { path: 'talk', element: <Talk /> },
   { path: 'usage', element: <Usage /> },
   { path: 'account', element: <Account /> },
@@ -89,7 +95,11 @@ const appChildren = [
   { path: 'agent-jobs/tasks/:id', element: <Feature feature="mcp_jobs"><AgentTaskDetails /></Feature> },
   { path: 'agent-jobs/tasks/:id/edit', element: <Feature feature="mcp_jobs"><AgentTaskDetails /></Feature> },
   { path: 'agent-jobs/jobs/:id', element: <Feature feature="mcp_jobs"><AgentJobDetails /></Feature> },
+  { path: 'fine-tune', element: <Feature feature="fine_tuning"><FineTune /></Feature> },
+  { path: 'quantize', element: <Feature feature="quantization"><Quantize /></Feature> },
   { path: 'model-editor/:name', element: <Admin><ModelEditor /></Admin> },
+  { path: 'pipeline-editor', element: <Admin><PipelineEditor /></Admin> },
+  { path: 'pipeline-editor/:name', element: <Admin><PipelineEditor /></Admin> },
   { path: 'import-model', element: <Admin><ImportModel /></Admin> },
   { path: '*', element: <NotFound /> },
 ]

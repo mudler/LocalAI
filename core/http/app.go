@@ -221,6 +221,7 @@ func API(application *application.Application) (*echo.Echo, error) {
 	if application.AuthDB() != nil {
 		e.Use(auth.RequireRouteFeature(application.AuthDB()))
 		e.Use(auth.RequireModelAccess(application.AuthDB()))
+		e.Use(auth.RequireQuota(application.AuthDB()))
 	}
 
 	// CORS middleware
@@ -302,6 +303,24 @@ func API(application *application.Application) (*echo.Echo, error) {
 	mcpMw := auth.RequireFeature(application.AuthDB(), auth.FeatureMCP)
 	routes.RegisterLocalAIRoutes(e, requestExtractor, application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig(), application.GalleryService(), opcache, application.TemplatesEvaluator(), application, adminMiddleware, mcpJobsMw, mcpMw)
 	routes.RegisterAgentPoolRoutes(e, application, agentsMw, skillsMw, collectionsMw)
+	// Fine-tuning routes
+	fineTuningMw := auth.RequireFeature(application.AuthDB(), auth.FeatureFineTuning)
+	ftService := services.NewFineTuneService(
+		application.ApplicationConfig(),
+		application.ModelLoader(),
+		application.ModelConfigLoader(),
+	)
+	routes.RegisterFineTuningRoutes(e, ftService, application.ApplicationConfig(), fineTuningMw)
+
+	// Quantization routes
+	quantizationMw := auth.RequireFeature(application.AuthDB(), auth.FeatureQuantization)
+	qService := services.NewQuantizationService(
+		application.ApplicationConfig(),
+		application.ModelLoader(),
+		application.ModelConfigLoader(),
+	)
+	routes.RegisterQuantizationRoutes(e, qService, application.ApplicationConfig(), quantizationMw)
+
 	routes.RegisterOpenAIRoutes(e, requestExtractor, application)
 	routes.RegisterAnthropicRoutes(e, requestExtractor, application)
 	routes.RegisterOpenResponsesRoutes(e, requestExtractor, application)

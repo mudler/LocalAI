@@ -329,6 +329,7 @@ export const usageApi = {
     if (userId) url += `&user_id=${encodeURIComponent(userId)}`
     return fetchJSON(url)
   },
+  getMyQuotas: () => fetchJSON('/api/auth/quota'),
 }
 
 // Admin Users API
@@ -348,6 +349,16 @@ export const adminUsersApi = {
   getFeatures: () => fetchJSON('/api/auth/admin/features'),
   setModels: (id, allowlist) => fetchJSON(`/api/auth/admin/users/${encodeURIComponent(id)}/models`, {
     method: 'PUT', body: JSON.stringify(allowlist), headers: { 'Content-Type': 'application/json' },
+  }),
+  getQuotas: (id) => fetchJSON(`/api/auth/admin/users/${encodeURIComponent(id)}/quotas`),
+  setQuota: (id, quota) => fetchJSON(`/api/auth/admin/users/${encodeURIComponent(id)}/quotas`, {
+    method: 'PUT', body: JSON.stringify(quota), headers: { 'Content-Type': 'application/json' },
+  }),
+  deleteQuota: (id, quotaId) => fetchJSON(`/api/auth/admin/users/${encodeURIComponent(id)}/quotas/${encodeURIComponent(quotaId)}`, {
+    method: 'DELETE',
+  }),
+  resetPassword: (id, password) => fetchJSON(`/api/auth/admin/users/${encodeURIComponent(id)}/password`, {
+    method: 'PUT', body: JSON.stringify({ password }), headers: { 'Content-Type': 'application/json' },
   }),
 }
 
@@ -378,6 +389,38 @@ export const apiKeysApi = {
   list: () => fetchJSON('/api/auth/api-keys'),
   create: (name) => postJSON('/api/auth/api-keys', { name }),
   revoke: (id) => fetchJSON(`/api/auth/api-keys/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+}
+
+// Fine-tuning API
+export const fineTuneApi = {
+  listBackends: () => fetchJSON('/api/fine-tuning/backends'),
+  startJob: (data) => postJSON('/api/fine-tuning/jobs', data),
+  listJobs: () => fetchJSON('/api/fine-tuning/jobs'),
+  getJob: (id) => fetchJSON(`/api/fine-tuning/jobs/${enc(id)}`),
+  stopJob: (id, saveCheckpoint) => fetchJSON(`/api/fine-tuning/jobs/${enc(id)}/stop?save_checkpoint=${saveCheckpoint ? 'true' : 'false'}`, { method: 'POST' }),
+  deleteJob: (id) => fetchJSON(`/api/fine-tuning/jobs/${enc(id)}`, { method: 'DELETE' }),
+  listCheckpoints: (id) => fetchJSON(`/api/fine-tuning/jobs/${enc(id)}/checkpoints`),
+  exportModel: (id, data) => postJSON(`/api/fine-tuning/jobs/${enc(id)}/export`, data),
+  uploadDataset: (file) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    return fetch(apiUrl('/api/fine-tuning/datasets'), { method: 'POST', body: formData }).then(handleResponse)
+  },
+  progressUrl: (id) => apiUrl(`/api/fine-tuning/jobs/${enc(id)}/progress`),
+  downloadUrl: (id) => apiUrl(`/api/fine-tuning/jobs/${enc(id)}/download`),
+}
+
+// Quantization API
+export const quantizationApi = {
+  listBackends: () => fetchJSON('/api/quantization/backends'),
+  startJob: (data) => postJSON('/api/quantization/jobs', data),
+  listJobs: () => fetchJSON('/api/quantization/jobs'),
+  getJob: (id) => fetchJSON(`/api/quantization/jobs/${enc(id)}`),
+  stopJob: (id) => fetchJSON(`/api/quantization/jobs/${enc(id)}/stop`, { method: 'POST' }),
+  deleteJob: (id) => fetchJSON(`/api/quantization/jobs/${enc(id)}`, { method: 'DELETE' }),
+  importModel: (id, data) => postJSON(`/api/quantization/jobs/${enc(id)}/import`, data),
+  progressUrl: (id) => apiUrl(`/api/quantization/jobs/${enc(id)}/progress`),
+  downloadUrl: (id) => apiUrl(`/api/quantization/jobs/${enc(id)}/download`),
 }
 
 // File to base64 helper

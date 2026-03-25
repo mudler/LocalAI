@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
-import { useOutletContext } from 'react-router-dom'
+import { useOutletContext, useNavigate } from 'react-router-dom'
 import { realtimeApi } from '../utils/api'
 import ModelSelector from '../components/ModelSelector'
 
@@ -15,6 +15,7 @@ const STATUS_STYLES = {
 
 export default function Talk() {
   const { addToast } = useOutletContext()
+  const navigate = useNavigate()
 
   // Pipeline models
   const [pipelineModels, setPipelineModels] = useState([])
@@ -74,7 +75,7 @@ export default function Talk() {
           if (!voiceEdited) setVoice(models[0].voice || '')
         }
       })
-      .catch(err => addToast(`Failed to load pipeline models: ${err.message}`, 'error'))
+      .catch(err => addToast(`Failed to load pipeline models: ${err.message}`, 'error', 5000, { link: { href: '/app/traces?tab=backend', text: 'View traces' } }))
       .finally(() => setModelsLoading(false))
   }, [])
 
@@ -461,6 +462,11 @@ export default function Talk() {
           }}>
             <i className={statusStyle.icon} style={{ color: statusStyle.color }} />
             <span style={{ fontWeight: 500, color: statusStyle.color }}>{statusText}</span>
+            {status === 'error' && (
+              <a href="/app/traces?tab=backend" className="chat-error-trace-link" style={{ marginLeft: 'auto' }}>
+                <i className="fas fa-wave-square" /> View traces
+              </a>
+            )}
           </div>
 
           {/* Info note */}
@@ -496,13 +502,17 @@ export default function Talk() {
               disabled={isConnected}
               searchPlaceholder="Search pipeline models..."
             />
+            <button className="btn btn-secondary btn-sm" onClick={() => navigate('/app/pipeline-editor')}
+              style={{ marginTop: 'var(--spacing-xs)' }}>
+              <i className="fas fa-plus" style={{ marginRight: 'var(--spacing-xs)' }} /> Create Pipeline Model
+            </button>
           </div>
 
           {/* Pipeline details */}
           {selectedModelInfo && (
             <div style={{
               display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 'var(--spacing-xs)',
-              marginBottom: 'var(--spacing-md)', fontSize: '0.75rem',
+              marginBottom: 'var(--spacing-xs)', fontSize: '0.75rem',
             }}>
               {[
                 { label: 'VAD', value: selectedModelInfo.vad },
@@ -518,6 +528,13 @@ export default function Talk() {
                   <div style={{ fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.value}</div>
                 </div>
               ))}
+            </div>
+          )}
+          {selectedModelInfo && !isConnected && (
+            <div style={{ marginBottom: 'var(--spacing-md)' }}>
+              <button className="btn btn-secondary btn-sm" onClick={() => navigate(`/app/pipeline-editor/${encodeURIComponent(selectedModel)}`)}>
+                <i className="fas fa-pen-to-square" style={{ marginRight: 'var(--spacing-xs)' }} /> Edit Pipeline
+              </button>
             </div>
           )}
 

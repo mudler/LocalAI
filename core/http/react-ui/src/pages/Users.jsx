@@ -45,11 +45,14 @@ function PermissionSummary({ user, onClick }) {
   const perms = user.permissions || {}
   const apiFeatures = ['chat', 'images', 'audio_speech', 'audio_transcription', 'vad', 'detection', 'video', 'embeddings', 'sound']
   const agentFeatures = ['agents', 'skills', 'collections', 'mcp_jobs']
+  const generalFeatures = ['fine_tuning']
 
   const apiOn = apiFeatures.filter(f => perms[f] !== false && (perms[f] === true || perms[f] === undefined)).length
   const agentOn = agentFeatures.filter(f => perms[f]).length
+  const generalOn = generalFeatures.filter(f => perms[f]).length
 
   const modelRestricted = user.allowed_models?.enabled
+  const quotaCount = (user.quotas || []).length
 
   return (
     <button
@@ -58,19 +61,33 @@ function PermissionSummary({ user, onClick }) {
       title="Edit permissions"
     >
       <i className="fas fa-shield-halved" />
-      {apiOn}/{apiFeatures.length} API, {agentOn}/{agentFeatures.length} Agent
+      {apiOn}/{apiFeatures.length} API, {agentOn}/{agentFeatures.length} Agent, {generalOn}/{generalFeatures.length} Features
       {modelRestricted && ' | Models restricted'}
+      {quotaCount > 0 && ` · ${quotaCount} quota${quotaCount !== 1 ? 's' : ''}`}
     </button>
   )
 }
 
+const WINDOW_OPTIONS = [
+  { value: '1m', label: '1 minute' },
+  { value: '5m', label: '5 minutes' },
+  { value: '1h', label: '1 hour' },
+  { value: '6h', label: '6 hours' },
+  { value: '1d', label: '1 day' },
+  { value: '7d', label: '7 days' },
+  { value: '30d', label: '30 days' },
+]
+
 function PermissionsModal({ user, featureMeta, availableModels, onClose, onSave, addToast }) {
   const [permissions, setPermissions] = useState({ ...(user.permissions || {}) })
   const [allowedModels, setAllowedModels] = useState(user.allowed_models || { enabled: false, models: [] })
+  const [quotas, setQuotas] = useState((user.quotas || []).map(q => ({ ...q, _dirty: false })))
+  const [deletedQuotaIds, setDeletedQuotaIds] = useState([])
   const [saving, setSaving] = useState(false)
 
   const apiFeatures = featureMeta?.api_features || []
   const agentFeatures = featureMeta?.agent_features || []
+  const generalFeatures = featureMeta?.general_features || []
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -111,12 +128,57 @@ function PermissionsModal({ user, featureMeta, availableModels, onClose, onSave,
     }
   }
 
+  const addQuota = () => {
+    setQuotas(prev => [...prev, {
+      id: null, model: '', max_requests: null, max_total_tokens: null, window: '1h',
+      current_requests: 0, current_total_tokens: 0, _dirty: true, _new: true,
+    }])
+  }
+
+  const updateQuota = (idx, field, value) => {
+    setQuotas(prev => prev.map((q, i) => i === idx ? { ...q, [field]: value, _dirty: true } : q))
+  }
+
+  const removeQuota = (idx) => {
+    const q = quotas[idx]
+    if (q.id && !q._new) {
+      setDeletedQuotaIds(prev => [...prev, q.id])
+    }
+    setQuotas(prev => prev.filter((_, i) => i !== idx))
+  }
+
   const handleSave = async () => {
     setSaving(true)
     try {
       await adminUsersApi.setPermissions(user.id, permissions)
       await adminUsersApi.setModels(user.id, allowedModels)
-      onSave(user.id, permissions, allowedModels)
+
+      // Delete removed quotas
+      for (const qid of deletedQuotaIds) {
+        await adminUsersApi.deleteQuota(user.id, qid)
+      }
+      // Upsert dirty quotas
+      for (const q of quotas) {
+        if (q._dirty || q._new) {
+          await adminUsersApi.setQuota(user.id, {
+            model: q.model,
+            max_requests: q.max_requests || null,
+            max_total_tokens: q.max_total_tokens || null,
+            window: q.window,
+          })
+        }
+      }
+
+      // Refetch quotas so caller gets fresh state (including server-assigned IDs and current usage)
+      let freshQuotas = []
+      try {
+        const qData = await adminUsersApi.getQuotas(user.id)
+        freshQuotas = Array.isArray(qData) ? qData : qData.quotas || []
+      } catch {
+        // Fall back to local state if refetch fails
+        freshQuotas = quotas.map(q => ({ ...q, _dirty: false, _new: false }))
+      }
+      onSave(user.id, permissions, allowedModels, freshQuotas)
       addToast(`Permissions updated for ${user.name || user.email}`, 'success')
       onClose()
     } catch (err) {
@@ -189,6 +251,33 @@ function PermissionsModal({ user, featureMeta, availableModels, onClose, onSave,
           </div>
         </div>
 
+        {/* General Features */}
+        {generalFeatures.length > 0 && (
+        <div className="perm-section">
+          <div className="perm-section-header">
+            <strong className="perm-section-title">
+              <i className="fas fa-sliders" />
+              Features
+            </strong>
+            <div className="action-group">
+              <button className="btn btn-sm btn-secondary perm-btn-all-none" onClick={() => setAllFeatures(generalFeatures, true)}>All</button>
+              <button className="btn btn-sm btn-secondary perm-btn-all-none" onClick={() => setAllFeatures(generalFeatures, false)}>None</button>
+            </div>
+          </div>
+          <div className="perm-grid">
+            {generalFeatures.map(f => (
+              <button
+                key={f.key}
+                className={`btn btn-sm ${permissions[f.key] ? 'btn-primary' : 'btn-secondary'} perm-btn-feature`}
+                onClick={() => toggleFeature(f.key)}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        )}
+
         {/* Model Access */}
         <div className="perm-section">
           <div className="perm-section-header">
@@ -243,6 +332,111 @@ function PermissionsModal({ user, featureMeta, availableModels, onClose, onSave,
             </>
           ) : (
             <p className="perm-hint">All models are accessible</p>
+          )}
+        </div>
+
+        {/* Quotas */}
+        <div className="perm-section">
+          <div className="perm-section-header">
+            <strong className="perm-section-title">
+              <i className="fas fa-gauge-high" />
+              Quotas
+            </strong>
+            <button className="btn btn-sm btn-primary" onClick={addQuota}>
+              <i className="fas fa-plus" /> Add rule
+            </button>
+          </div>
+          {quotas.length === 0 ? (
+            <div className="quota-empty">
+              <i className="fas fa-infinity quota-empty-icon" />
+              <span>No quota rules &mdash; unlimited access</span>
+            </div>
+          ) : (
+            <div className="quota-rules-list">
+              {quotas.map((q, idx) => {
+                const reqPct = (q.max_requests && !q._new) ? Math.min(100, Math.round(((q.current_requests ?? 0) / q.max_requests) * 100)) : null
+                const tokPct = (q.max_total_tokens && !q._new) ? Math.min(100, Math.round(((q.current_total_tokens ?? 0) / q.max_total_tokens) * 100)) : null
+                return (
+                  <div key={q.id || `new-${idx}`} className="quota-card">
+                    <div className="quota-card-header">
+                      <select
+                        className="quota-select quota-select--model"
+                        value={q.model}
+                        onChange={e => updateQuota(idx, 'model', e.target.value)}
+                      >
+                        <option value="">All models</option>
+                        {(availableModels || []).map(m => (
+                          <option key={m} value={m}>{m}</option>
+                        ))}
+                      </select>
+                      <select
+                        className="quota-select"
+                        value={q.window}
+                        onChange={e => updateQuota(idx, 'window', e.target.value)}
+                      >
+                        {WINDOW_OPTIONS.map(w => (
+                          <option key={w.value} value={w.value}>per {w.label}</option>
+                        ))}
+                      </select>
+                      <button
+                        className="btn btn-sm btn-danger quota-remove-btn"
+                        onClick={() => removeQuota(idx)}
+                        title="Remove rule"
+                        aria-label="Remove quota rule"
+                      >
+                        <i className="fas fa-trash" />
+                      </button>
+                    </div>
+                    <div className="quota-card-fields">
+                      <div className="quota-field">
+                        <label className="quota-field-label">Max requests</label>
+                        <input
+                          type="number"
+                          className="quota-input"
+                          placeholder="Unlimited"
+                          value={q.max_requests ?? ''}
+                          onChange={e => updateQuota(idx, 'max_requests', e.target.value ? parseInt(e.target.value, 10) : null)}
+                          min="0"
+                        />
+                        {reqPct !== null && (
+                          <div className="quota-usage">
+                            <div className="quota-progress">
+                              <div
+                                className={`quota-progress-fill${reqPct >= 90 ? ' quota-progress-fill--danger' : reqPct >= 70 ? ' quota-progress-fill--warning' : ''}`}
+                                style={{ width: `${reqPct}%` }}
+                              />
+                            </div>
+                            <span className="quota-usage-label">{q.current_requests ?? 0} / {q.max_requests}</span>
+                          </div>
+                        )}
+                      </div>
+                      <div className="quota-field">
+                        <label className="quota-field-label">Max tokens</label>
+                        <input
+                          type="number"
+                          className="quota-input"
+                          placeholder="Unlimited"
+                          value={q.max_total_tokens ?? ''}
+                          onChange={e => updateQuota(idx, 'max_total_tokens', e.target.value ? parseInt(e.target.value, 10) : null)}
+                          min="0"
+                        />
+                        {tokPct !== null && (
+                          <div className="quota-usage">
+                            <div className="quota-progress">
+                              <div
+                                className={`quota-progress-fill${tokPct >= 90 ? ' quota-progress-fill--danger' : tokPct >= 70 ? ' quota-progress-fill--warning' : ''}`}
+                                style={{ width: `${tokPct}%` }}
+                              />
+                            </div>
+                            <span className="quota-usage-label">{(q.current_total_tokens ?? 0).toLocaleString()} / {q.max_total_tokens.toLocaleString()}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
           )}
         </div>
 
@@ -472,6 +666,9 @@ export default function Users() {
   const [featureMeta, setFeatureMeta] = useState(null)
   const [availableModels, setAvailableModels] = useState([])
   const [confirmDialog, setConfirmDialog] = useState(null)
+  const [passwordResetUser, setPasswordResetUser] = useState(null)
+  const [newPassword, setNewPassword] = useState('')
+  const [resettingPassword, setResettingPassword] = useState(false)
 
   const fetchUsers = useCallback(async () => {
     setLoading(true)
@@ -509,6 +706,9 @@ export default function Users() {
           { key: 'skills', label: 'Skills', default: false },
           { key: 'collections', label: 'Collections', default: false },
           { key: 'mcp_jobs', label: 'MCP CI Jobs', default: false },
+        ],
+        general_features: [
+          { key: 'fine_tuning', label: 'Fine-Tuning', default: false },
         ],
       })
     }
@@ -561,14 +761,34 @@ export default function Users() {
     })
   }
 
+  const handleResetPassword = (u) => {
+    setPasswordResetUser(u)
+    setNewPassword('')
+  }
+
+  const confirmResetPassword = async () => {
+    if (!passwordResetUser || newPassword.length < 8) return
+    setResettingPassword(true)
+    try {
+      await adminUsersApi.resetPassword(passwordResetUser.id, newPassword)
+      addToast(`Password reset for ${passwordResetUser.name || passwordResetUser.email}`, 'success')
+      setPasswordResetUser(null)
+      setNewPassword('')
+    } catch (err) {
+      addToast(`Failed to reset password: ${err.message}`, 'error')
+    } finally {
+      setResettingPassword(false)
+    }
+  }
+
   const filtered = users.filter(u => {
     if (!search) return true
     const q = search.toLowerCase()
     return (u.name || '').toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q)
   })
 
-  const handlePermissionSave = (userId, newPerms, newModels) => {
-    setUsers(prev => prev.map(u => u.id === userId ? { ...u, permissions: newPerms, allowed_models: newModels } : u))
+  const handlePermissionSave = (userId, newPerms, newModels, newQuotas) => {
+    setUsers(prev => prev.map(u => u.id === userId ? { ...u, permissions: newPerms, allowed_models: newModels, quotas: newQuotas } : u))
   }
 
   const isSelf = (u) => currentUser && (u.id === currentUser.id || u.email === currentUser.email)
@@ -694,6 +914,15 @@ export default function Users() {
                             >
                               <i className={`fas fa-${u.role === 'admin' ? 'arrow-down' : 'arrow-up'}`} />
                             </button>
+                            {(!u.provider || u.provider === 'local') && (
+                              <button
+                                className="btn btn-sm btn-secondary"
+                                onClick={() => handleResetPassword(u)}
+                                title="Reset password"
+                              >
+                                <i className="fas fa-key" />
+                              </button>
+                            )}
                             <button
                               className="btn btn-sm btn-danger"
                               onClick={() => handleDelete(u)}
@@ -722,6 +951,36 @@ export default function Users() {
           onSave={handlePermissionSave}
           addToast={addToast}
         />
+      )}
+      {passwordResetUser && (
+        <Modal onClose={() => setPasswordResetUser(null)} maxWidth="400px">
+          <div className="perm-modal-body">
+            <h3>Reset Password</h3>
+            <p style={{ margin: 'var(--spacing-sm) 0' }}>
+              Set a new password for <strong>{passwordResetUser.name || passwordResetUser.email}</strong>.
+              All existing sessions will be invalidated.
+            </p>
+            <input
+              type="password"
+              className="input"
+              placeholder="New password (min 8 characters)"
+              value={newPassword}
+              onChange={e => setNewPassword(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter' && newPassword.length >= 8) confirmResetPassword() }}
+              autoFocus
+            />
+            <div className="perm-modal-actions" style={{ marginTop: 'var(--spacing-md)' }}>
+              <button className="btn btn-secondary" onClick={() => setPasswordResetUser(null)}>Cancel</button>
+              <button
+                className="btn btn-primary"
+                onClick={confirmResetPassword}
+                disabled={resettingPassword || newPassword.length < 8}
+              >
+                {resettingPassword ? 'Resetting...' : 'Reset Password'}
+              </button>
+            </div>
+          </div>
+        </Modal>
       )}
       <ConfirmDialog
         open={!!confirmDialog}

@@ -95,6 +95,7 @@ type PredictionOptions struct {
 	// Common options between all the API calls, part of the OpenAI spec
 	TopP        *float64 `json:"top_p,omitempty" yaml:"top_p,omitempty"`
 	TopK        *int     `json:"top_k,omitempty" yaml:"top_k,omitempty"`
+	MinP        *float64 `json:"min_p,omitempty" yaml:"min_p,omitempty"`
 	Temperature *float64 `json:"temperature,omitempty" yaml:"temperature,omitempty"`
 	Maxtokens   *int     `json:"max_tokens,omitempty" yaml:"max_tokens,omitempty"`
 	Echo        bool     `json:"echo,omitempty" yaml:"echo,omitempty"`

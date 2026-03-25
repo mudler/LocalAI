@@ -2536,4 +2536,61 @@ def hello():
 			})
 		})
 	})
+
+	Context("Automatic tool parsing fallback", func() {
+		It("wraps malformed string args as query when enabled", func() {
+			input := `{"name": "web_search", "arguments": "search for cats"}`
+			cfg := FunctionsConfig{AutomaticToolParsingFallback: true}
+			results := ParseFunctionCall(input, cfg)
+			Expect(results).To(HaveLen(1))
+			Expect(results[0].Name).To(Equal("web_search"))
+
+			var args map[string]string
+			err := json.Unmarshal([]byte(results[0].Arguments), &args)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(args["query"]).To(Equal("search for cats"))
+		})
+
+		It("preserves malformed string args as-is when disabled", func() {
+			input := `{"name": "web_search", "arguments": "search for cats"}`
+			cfg := FunctionsConfig{AutomaticToolParsingFallback: false}
+			results := ParseFunctionCall(input, cfg)
+			Expect(results).To(HaveLen(1))
+			Expect(results[0].Arguments).To(Equal("search for cats"))
+		})
+
+		It("does not alter valid JSON string args", func() {
+			input := `{"name": "web_search", "arguments": "{\"query\": \"cats\"}"}`
+			cfg := FunctionsConfig{AutomaticToolParsingFallback: true}
+			results := ParseFunctionCall(input, cfg)
+			Expect(results).To(HaveLen(1))
+			Expect(results[0].Arguments).To(Equal(`{"query": "cats"}`))
+		})
+	})
+
+	Context("StripToolCallMarkup", func() {
+		It("removes functionary-style function blocks and keeps surrounding text", func() {
+			input := `Text before <function=search>{"q":"cats"}</function> text after`
+			result := StripToolCallMarkup(input)
+			Expect(result).To(Equal("Text before text after"))
+		})
+
+		It("removes qwen3-coder-style tool_call blocks and keeps preceding text", func() {
+			input := `Here is my answer <tool_call><function=search><parameter=q>cats</parameter></function></tool_call>`
+			result := StripToolCallMarkup(input)
+			Expect(result).To(Equal("Here is my answer"))
+		})
+
+		It("returns empty string when content is only tool calls", func() {
+			input := `<function=search>{"q":"cats"}</function>`
+			result := StripToolCallMarkup(input)
+			Expect(result).To(Equal(""))
+		})
+
+		It("preserves text with no tool call markup", func() {
+			input := "Just a normal response with no tools"
+			result := StripToolCallMarkup(input)
+			Expect(result).To(Equal("Just a normal response with no tools"))
+		})
+	})
 })

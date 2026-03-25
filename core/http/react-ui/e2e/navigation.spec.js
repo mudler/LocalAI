@@ -14,6 +14,9 @@ test.describe('Navigation', () => {
 
   test('sidebar traces link navigates to /app/traces', async ({ page }) => {
     await page.goto('/app')
+    // Expand the "System" collapsible section so the traces link is visible
+    const systemSection = page.locator('button.sidebar-section-toggle', { hasText: 'System' })
+    await systemSection.click()
     const tracesLink = page.locator('a.nav-item[href="/app/traces"]')
     await expect(tracesLink).toBeVisible()
     await tracesLink.click()

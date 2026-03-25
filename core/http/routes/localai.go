@@ -134,8 +134,10 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 
 	router.GET("/api/features", func(c echo.Context) error {
 		return c.JSON(200, map[string]bool{
-			"agents": appConfig.AgentPool.Enabled,
-			"mcp":    !appConfig.DisableMCP,
+			"agents":       appConfig.AgentPool.Enabled,
+			"mcp":          !appConfig.DisableMCP,
+			"fine_tuning":  true,
+			"quantization": true,
 		})
 	})
 

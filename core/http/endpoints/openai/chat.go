@@ -751,8 +751,8 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 							collectedToolCalls = mergeToolCallDeltas(collectedToolCalls, ev.Choices[0].Delta.ToolCalls)
 						}
 					}
-					// Collect content for MCP conversation history
-					if hasMCPToolsStream && ev.Choices[0].Delta != nil && ev.Choices[0].Delta.Content != nil {
+					// Collect content for MCP conversation history and automatic tool parsing fallback
+					if (hasMCPToolsStream || config.FunctionsConfig.AutomaticToolParsingFallback) && ev.Choices[0].Delta != nil && ev.Choices[0].Delta.Content != nil {
 						if s, ok := ev.Choices[0].Delta.Content.(string); ok {
 							collectedContent += s
 						} else if sp, ok := ev.Choices[0].Delta.Content.(*string); ok && sp != nil {
@@ -779,25 +779,17 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 					}
 					xlog.Error("Stream ended with error", "error", err)
 
-					stopReason := FinishReasonStop
-					resp := &schema.OpenAIResponse{
-						ID:      id,
-						Created: created,
-						Model:   input.Model, // we have to return what the user sent here, due to OpenAI spec.
-						Choices: []schema.Choice{
-							{
-								FinishReason: &stopReason,
-								Index:        0,
-								Delta:        &schema.Message{Content: "Internal error: " + err.Error()},
-							}},
-						Object: "chat.completion.chunk",
-						Usage:  *usage,
+					errorResp := schema.ErrorResponse{
+						Error: &schema.APIError{
+							Message: err.Error(),
+							Type:    "server_error",
+							Code:    "server_error",
+						},
 					}
-					respData, marshalErr := json.Marshal(resp)
+					respData, marshalErr := json.Marshal(errorResp)
 					if marshalErr != nil {
 						xlog.Error("Failed to marshal error response", "error", marshalErr)
-						// Send a simple error message as fallback
-						fmt.Fprintf(c.Response().Writer, "data: {\"error\":\"Internal error\"}\n\n")
+						fmt.Fprintf(c.Response().Writer, "data: {\"error\":{\"message\":\"Internal error\",\"type\":\"server_error\"}}\n\n")
 					} else {
 						fmt.Fprintf(c.Response().Writer, "data: %s\n\n", respData)
 					}
@@ -862,6 +854,43 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 
 					xlog.Debug("MCP streaming tools executed, re-running inference", "iteration", mcpStreamIter)
 					continue // next MCP stream iteration
+				}
+			}
+
+			// Automatic tool parsing fallback for streaming: when no tools were
+			// requested but the model emitted tool call markup, parse and emit them.
+			if !shouldUseFn && config.FunctionsConfig.AutomaticToolParsingFallback && collectedContent != "" && !toolsCalled {
+				parsed := functions.ParseFunctionCall(collectedContent, config.FunctionsConfig)
+				for i, fc := range parsed {
+					toolCallID := fc.ID
+					if toolCallID == "" {
+						toolCallID = id
+					}
+					toolCallMsg := schema.OpenAIResponse{
+						ID:      id,
+						Created: created,
+						Model:   input.Model,
+						Choices: []schema.Choice{{
+							Delta: &schema.Message{
+								Role: "assistant",
+								ToolCalls: []schema.ToolCall{{
+									Index: i,
+									ID:    toolCallID,
+									Type:  "function",
+									FunctionCall: schema.FunctionCall{
+										Name:      fc.Name,
+										Arguments: fc.Arguments,
+									},
+								}},
+							},
+							Index: 0,
+						}},
+						Object: "chat.completion.chunk",
+					}
+					respData, _ := json.Marshal(toolCallMsg)
+					fmt.Fprintf(c.Response().Writer, "data: %s\n\n", respData)
+					c.Response().Flush()
+					toolsCalled = true
 				}
 			}
 
@@ -1003,6 +1032,16 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 					funcResults = functions.ParseFunctionCall(cbRawResult, config.FunctionsConfig)
 				}
 
+				// Content-based tool call fallback: if no tool calls were found,
+				// try parsing the raw result — ParseFunctionCall handles detection internally.
+				if len(funcResults) == 0 {
+					contentFuncResults := functions.ParseFunctionCall(cbRawResult, config.FunctionsConfig)
+					if len(contentFuncResults) > 0 {
+						funcResults = contentFuncResults
+						textContentToReturn = functions.StripToolCallMarkup(cbRawResult)
+					}
+				}
+
 				noActionsToRun := len(funcResults) > 0 && funcResults[0].Name == noActionName || len(funcResults) == 0
 
 				switch {
@@ -1074,6 +1113,48 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 
 					if len(input.Tools) > 0 {
 						result = append(result, toolChoice)
+					}
+				}
+			}
+
+			// Automatic tool parsing fallback: when no tools/functions were in the
+			// request but the model emitted tool call markup, parse and surface them.
+			if !shouldUseFn && config.FunctionsConfig.AutomaticToolParsingFallback && len(result) > 0 {
+				for i, choice := range result {
+					if choice.Message == nil || choice.Message.Content == nil {
+						continue
+					}
+					contentStr, ok := choice.Message.Content.(string)
+					if !ok || contentStr == "" {
+						continue
+					}
+					parsed := functions.ParseFunctionCall(contentStr, config.FunctionsConfig)
+					if len(parsed) == 0 {
+						continue
+					}
+					stripped := functions.StripToolCallMarkup(contentStr)
+					toolCallsReason := FinishReasonToolCalls
+					result[i].FinishReason = &toolCallsReason
+					if stripped != "" {
+						result[i].Message.Content = &stripped
+					} else {
+						result[i].Message.Content = nil
+					}
+					for _, fc := range parsed {
+						toolCallID := fc.ID
+						if toolCallID == "" {
+							toolCallID = id
+						}
+						result[i].Message.ToolCalls = append(result[i].Message.ToolCalls,
+							schema.ToolCall{
+								ID:   toolCallID,
+								Type: "function",
+								FunctionCall: schema.FunctionCall{
+									Name:      fc.Name,
+									Arguments: fc.Arguments,
+								},
+							},
+						)
 					}
 				}
 			}

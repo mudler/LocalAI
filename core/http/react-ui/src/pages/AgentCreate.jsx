@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useParams, useNavigate, useLocation, useOutletContext, useSearchParams } from 'react-router-dom'
 import { agentsApi } from '../utils/api'
 import SearchableModelSelect from '../components/SearchableModelSelect'
+import { CAP_CHAT, CAP_TRANSCRIPT, CAP_TTS } from '../utils/capabilities'
 import Toggle from '../components/Toggle'
 import SettingRow from '../components/SettingRow'
 
@@ -115,10 +116,10 @@ function FormField({ field, value, onChange, disabled }) {
       const isModelField = /^(model|multimodal_model|transcription_model|tts_model|embedding_model)$/.test(field.name)
       if (isModelField && !disabled && !field.disabled) {
         const capabilityMap = {
-          model: 'FLAG_CHAT',
-          multimodal_model: 'FLAG_CHAT',
-          transcription_model: 'FLAG_TRANSCRIPT',
-          tts_model: 'FLAG_TTS',
+          model: CAP_CHAT,
+          multimodal_model: CAP_CHAT,
+          transcription_model: CAP_TRANSCRIPT,
+          tts_model: CAP_TTS,
           embedding_model: undefined,
         }
         return (

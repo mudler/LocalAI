@@ -6,10 +6,20 @@ url = '/basics/news/'
 icon = "newspaper"
 +++
 
-Release notes have been now moved completely over Github releases. 
+Release notes have been now moved completely over Github releases.
 
 You can see the release notes [here](https://github.com/mudler/LocalAI/releases).
 
+## 2024 Highlights
+
+- **April 2024**: [Reranker API](https://github.com/mudler/LocalAI/pull/2121)
+- **May 2024**: [Distributed inferencing](https://github.com/mudler/LocalAI/pull/2324), [Decentralized P2P llama.cpp](https://github.com/mudler/LocalAI/pull/2343) — [Docs](https://localai.io/features/distribute/)
+- **July/August 2024**: [P2P Dashboard, Federated mode and AI Swarms](https://github.com/mudler/LocalAI/pull/2723), [P2P Global community pools](https://github.com/mudler/LocalAI/issues/3113), FLUX-1 support, [P2P Explorer](https://explorer.localai.io)
+- **October 2024**: Examples moved to [LocalAI-examples](https://github.com/mudler/LocalAI-examples)
+- **November 2024**: [Voice Activity Detection (VAD)](https://github.com/mudler/LocalAI/pull/4204), [Bark.cpp backend](https://github.com/mudler/LocalAI/pull/4287)
+- **December 2024**: [stablediffusion.cpp backend (ggml)](https://github.com/mudler/LocalAI/pull/4289)
+
+---
 
 ## 04-12-2023: __v2.0.0__
 
