@@ -59,5 +59,16 @@ func CheckIfModelExists(bcl *config.ModelConfigLoader, ml *model.ModelLoader, mo
 	if err != nil {
 		return false, err
 	}
-	return (len(models) > 0), nil
+	if len(models) > 0 {
+		return true, nil
+	}
+
+	// ListModels may not find raw model weight files (e.g. .ggml, .gguf)
+	// because ListFilesInModelPath skips known weight-file extensions.
+	// Fall back to checking if the file exists directly in the model path.
+	if ml.ExistsInModelPath(modelName) {
+		return true, nil
+	}
+
+	return false, nil
 }
