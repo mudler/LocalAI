@@ -58,9 +58,6 @@ export default function Settings() {
   const handleSave = async () => {
     setSaving(true)
     try {
-  const handleSave = async () => {
-    setSaving(true)
-    try {
       // Prepare settings for saving: convert api_keys_text to api_keys array
       const settingsToSave = { ...settings }
       if (settingsToSave.api_keys_text !== undefined && settingsToSave.api_keys_text !== null) {
