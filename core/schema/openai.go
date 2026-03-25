@@ -2,6 +2,7 @@ package schema
 
 import (
 	"context"
+	"encoding/json"
 
 	functions "github.com/mudler/LocalAI/pkg/functions"
 )
@@ -37,13 +38,40 @@ type OpenAIUsage struct {
 }
 
 type Item struct {
-	Embedding []float32 `json:"embedding"`
-	Index     int       `json:"index"`
-	Object    string    `json:"object,omitempty"`
+	Embedding       []float32 `json:"-"`
+	EmbeddingBase64 string    `json:"-"`
+	Index           int       `json:"index"`
+	Object          string    `json:"object,omitempty"`
 
 	// Images
 	URL     string `json:"url,omitempty"`
 	B64JSON string `json:"b64_json,omitempty"`
+}
+
+// MarshalJSON serialises Item so that the "embedding" field is either a float array
+// or a base64 string depending on which field is populated.  This satisfies the
+// OpenAI API encoding_format contract: the Node.js SDK (v4+) sends
+// encoding_format=base64 by default and expects a base64 string back.
+func (item Item) MarshalJSON() ([]byte, error) {
+	type itemFields struct {
+		Embedding interface{} `json:"embedding,omitempty"`
+		Index     int         `json:"index"`
+		Object    string      `json:"object,omitempty"`
+		URL       string      `json:"url,omitempty"`
+		B64JSON   string      `json:"b64_json,omitempty"`
+	}
+	f := itemFields{
+		Index:   item.Index,
+		Object:  item.Object,
+		URL:     item.URL,
+		B64JSON: item.B64JSON,
+	}
+	if item.EmbeddingBase64 != "" {
+		f.Embedding = item.EmbeddingBase64
+	} else {
+		f.Embedding = item.Embedding
+	}
+	return json.Marshal(f)
 }
 
 type OpenAIResponse struct {
