@@ -1,4 +1,30 @@
 ---
+- name: "skycog-31b-v1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Skycog-31B-v1-GGUF
+  description: |
+    Describe the model in a clear and concise way that can be shared in a model gallery.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Skycog-31B-v1-GGUF/Skycog-31B-v1.Q4_K_M.gguf
+    name: Skycog-31B-v1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+      automatic_tool_parsing_fallback: true
+    description: Imported from https://huggingface.co/mradermacher/Skycog-31B-v1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Skycog-31B-v1-GGUF/Skycog-31B-v1.Q4_K_M.gguf
+      sha256: d412013a180894f5b91ff74c19dbf367a53d1346d3810adc4b833b21d162d3bc
+      uri: https://huggingface.co/mradermacher/Skycog-31B-v1-GGUF/resolve/main/Skycog-31B-v1.Q4_K_M.gguf
 - name: "qwen_qwen3.5-35b-a3b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
