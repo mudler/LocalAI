@@ -1757,12 +1757,6 @@ const docTemplate = `{
                 "b64_json": {
                     "type": "string"
                 },
-                "embedding": {
-                    "type": "array",
-                    "items": {
-                        "type": "number"
-                    }
-                },
                 "index": {
                     "type": "integer"
                 },
@@ -2445,6 +2439,10 @@ const docTemplate = `{
                 },
                 "echo": {
                     "type": "boolean"
+                },
+                "encoding_format": {
+                    "description": "Embedding encoding format: \"float\" (default) or \"base64\" (OpenAI Node.js SDK default)",
+                    "type": "string"
                 },
                 "file": {
                     "description": "whisper",
