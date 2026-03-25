@@ -80,7 +80,6 @@ export default function Settings() {
       setSaving(false)
     }
   }
-  }
 
   const update = (key, value) => {
     setSettings(prev => ({ ...prev, [key]: value }))
