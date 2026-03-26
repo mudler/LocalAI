@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useNavigate, useOutletContext } from 'react-router-dom'
 import { backendsApi } from '../utils/api'
+import { useDebouncedCallback } from '../hooks/useDebounce'
 import React from 'react'
 import { useOperations } from '../hooks/useOperations'
 import LoadingSpinner from '../components/LoadingSpinner'
@@ -24,8 +25,6 @@ export default function Backends() {
   const [manualAlias, setManualAlias] = useState('')
   const [expandedRow, setExpandedRow] = useState(null)
   const [confirmDialog, setConfirmDialog] = useState(null)
-  const debounceRef = useRef(null)
-
   const [allBackends, setAllBackends] = useState([])
 
   const fetchBackends = useCallback(async () => {
@@ -70,11 +69,12 @@ export default function Backends() {
   const totalPages = Math.max(1, Math.ceil(filteredBackends.length / ITEMS_PER_PAGE))
   const backends = filteredBackends.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE)
 
+  const debouncedFetch = useDebouncedCallback(() => fetchBackends())
+
   const handleSearch = (value) => {
     setSearch(value)
     setPage(1)
-    if (debounceRef.current) clearTimeout(debounceRef.current)
-    debounceRef.current = setTimeout(() => fetchBackends(), 500)
+    debouncedFetch()
   }
 
   const handleSort = (col) => {

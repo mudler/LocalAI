@@ -1,6 +1,7 @@
-import { useState, useCallback, useRef, useEffect } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { API_CONFIG } from '../utils/config'
 import { apiUrl } from '../utils/basePath'
+import { useDebouncedEffect } from './useDebounce'
 
 const thinkingTagRegex = /<thinking>([\s\S]*?)<\/thinking>|<think>([\s\S]*?)<\/think>|<\|channel>thought([\s\S]*?)<channel\|>/g
 const openThinkTagRegex = /<thinking>|<think>|<\|channel>thought/
@@ -33,7 +34,6 @@ function extractThinking(text) {
 import { generateId } from '../utils/format'
 
 const CHATS_STORAGE_KEY = 'localai_chats_data'
-const SAVE_DEBOUNCE_MS = 500
 
 function loadChats() {
   try {
@@ -123,24 +123,13 @@ export function useChat(initialModel = '') {
   const [tokensPerSecond, setTokensPerSecond] = useState(null)
   const [maxTokensPerSecond, setMaxTokensPerSecond] = useState(null)
   const abortControllerRef = useRef(null)
-  const saveTimerRef = useRef(null)
   const startTimeRef = useRef(null)
   const tokenCountRef = useRef(0)
   const maxTpsRef = useRef(0)
 
   const activeChat = chats.find(c => c.id === activeChatId) || chats[0]
 
-  // Debounced save
-  const debouncedSave = useCallback(() => {
-    if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
-    saveTimerRef.current = setTimeout(() => {
-      saveChats(chats, activeChatId)
-    }, SAVE_DEBOUNCE_MS)
-  }, [chats, activeChatId])
-
-  useEffect(() => {
-    debouncedSave()
-  }, [chats, activeChatId, debouncedSave])
+  useDebouncedEffect(() => saveChats(chats, activeChatId), [chats, activeChatId])
 
   const addChat = useCallback((model = '', systemPrompt = '', mcpMode = false) => {
     const chat = createNewChat(model, systemPrompt, mcpMode)

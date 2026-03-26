@@ -49,6 +49,22 @@ var DiffusersPipelineOptions = []FieldOption{
 	{Value: "StableVideoDiffusionPipeline", Label: "StableVideoDiffusionPipeline"},
 }
 
+var UsecaseOptions = []FieldOption{
+	{Value: "chat", Label: "Chat"},
+	{Value: "completion", Label: "Completion"},
+	{Value: "edit", Label: "Edit"},
+	{Value: "embeddings", Label: "Embeddings"},
+	{Value: "rerank", Label: "Rerank"},
+	{Value: "image", Label: "Image"},
+	{Value: "transcript", Label: "Transcript"},
+	{Value: "tts", Label: "TTS"},
+	{Value: "sound_generation", Label: "Sound Generation"},
+	{Value: "tokenize", Label: "Tokenize"},
+	{Value: "vad", Label: "VAD"},
+	{Value: "video", Label: "Video"},
+	{Value: "detection", Label: "Detection"},
+}
+
 var DiffusersSchedulerOptions = []FieldOption{
 	{Value: "ddim", Label: "DDIM"},
 	{Value: "ddpm", Label: "DDPM"},

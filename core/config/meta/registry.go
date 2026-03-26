@@ -47,8 +47,9 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 		"known_usecases": {
 			Section:     "general",
 			Label:       "Known Use Cases",
-			Description: "Capabilities this model supports (e.g. FLAG_CHAT, FLAG_COMPLETION)",
+			Description: "Capabilities this model supports",
 			Component:   "string-list",
+			Options:     UsecaseOptions,
 			Order:       6,
 		},
 
@@ -285,6 +286,15 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 			Description: "Disable grammar-constrained generation for function calls",
 			Advanced:    true,
 			Order:       72,
+		},
+
+		// --- TTS ---
+		"tts.voice": {
+			Section:     "tts",
+			Label:       "Voice",
+			Description: "Default voice for TTS output",
+			Component:   "input",
+			Order:       90,
 		},
 
 		// --- Diffusers ---

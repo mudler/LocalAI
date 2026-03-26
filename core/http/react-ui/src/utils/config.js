@@ -11,6 +11,9 @@ export const API_CONFIG = {
     deleteModel: (id) => `/api/models/delete/${id}`,
     modelConfig: (id) => `/api/models/config/${id}`,
     modelConfigJson: (name) => `/api/models/config-json/${name}`,
+    configMetadata: '/api/models/config-metadata',
+    configAutocomplete: (provider) => `/api/models/config-metadata/autocomplete/${encodeURIComponent(provider)}`,
+    configPatch: (name) => `/api/models/config-json/${encodeURIComponent(name)}`,
     modelJob: (uid) => `/api/models/job/${uid}`,
 
     // Backends gallery
@@ -86,6 +89,7 @@ export const API_CONFIG = {
     modelsReload: '/models/reload',
     modelsImportUri: '/models/import-uri',
     modelsImport: '/models/import',
+    vramEstimate: '/api/models/vram-estimate',
     modelsJobStatus: (uid) => `/models/jobs/${uid}`,
     modelEditGet: (name) => `/api/models/edit/${name}`,
     modelEdit: (name) => `/models/edit/${name}`,

@@ -26,7 +26,7 @@ import AgentJobs from './pages/AgentJobs'
 import AgentTaskDetails from './pages/AgentTaskDetails'
 import AgentJobDetails from './pages/AgentJobDetails'
 import ModelEditor from './pages/ModelEditor'
-import PipelineEditor from './pages/PipelineEditor'
+// PipelineEditor removed — the Model Editor with templates handles all model types
 import ImportModel from './pages/ImportModel'
 import BackendLogs from './pages/BackendLogs'
 import Explorer from './pages/Explorer'
@@ -101,9 +101,8 @@ const appChildren = [
   { path: 'agent-jobs/jobs/:id', element: <Feature feature="mcp_jobs"><AgentJobDetails /></Feature> },
   { path: 'fine-tune', element: <Feature feature="fine_tuning"><FineTune /></Feature> },
   { path: 'quantize', element: <Feature feature="quantization"><Quantize /></Feature> },
+  { path: 'model-editor', element: <Admin><ModelEditor /></Admin> },
   { path: 'model-editor/:name', element: <Admin><ModelEditor /></Admin> },
-  { path: 'pipeline-editor', element: <Admin><PipelineEditor /></Admin> },
-  { path: 'pipeline-editor/:name', element: <Admin><PipelineEditor /></Admin> },
   { path: 'import-model', element: <Admin><ImportModel /></Admin> },
   { path: '*', element: <NotFound /> },
 ]
