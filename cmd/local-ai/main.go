@@ -83,8 +83,18 @@ For documentation and support:
 		cli.CLI.LogLevel = &logLevel
 	}
 
-	// Set xlog logger with the desired level and text format
-	xlog.SetLogger(xlog.NewLogger(xlog.LogLevel(*cli.CLI.LogLevel), *cli.CLI.LogFormat))
+	// Set xlog logger with the desired level and text format.
+	// xlog auto-enables log deduplication when output is a terminal.
+	var logOpts []xlog.LoggerOption
+	if cli.CLI.LogDedupLogs != nil {
+		if *cli.CLI.LogDedupLogs {
+			logOpts = append(logOpts, xlog.WithDedup())
+		} else {
+			logOpts = append(logOpts, xlog.WithoutDedup())
+		}
+	}
+
+	xlog.SetLogger(xlog.NewLogger(xlog.LogLevel(*cli.CLI.LogLevel), *cli.CLI.LogFormat, logOpts...))
 
 	// Run the thing!
 	err = ctx.Run(&cli.CLI.Context)
