@@ -36,7 +36,7 @@ require (
 	github.com/mudler/edgevpn v0.31.1
 	github.com/mudler/go-processmanager v0.1.0
 	github.com/mudler/memory v0.0.0-20251216220809-d1256471a6c2
-	github.com/mudler/xlog v0.0.5
+	github.com/mudler/xlog v0.0.6
 	github.com/onsi/ginkgo/v2 v2.28.1
 	github.com/onsi/gomega v1.39.1
 	github.com/openai/openai-go/v3 v3.26.0
@@ -58,6 +58,7 @@ require (
 	go.opentelemetry.io/otel/metric v1.42.0
 	go.opentelemetry.io/otel/sdk/metric v1.42.0
 	google.golang.org/grpc v1.79.1
+	google.golang.org/protobuf v1.36.11
 	gopkg.in/yaml.v3 v3.0.1
 	gorm.io/driver/postgres v1.6.0
 	gorm.io/driver/sqlite v1.6.0
@@ -72,7 +73,6 @@ require (
 	github.com/mattn/go-sqlite3 v1.14.22 // indirect
 	github.com/stretchr/testify v1.11.1 // indirect
 	github.com/tmc/langchaingo v0.1.14 // indirect
-	google.golang.org/protobuf v1.36.11 // indirect
 )
 
 require (

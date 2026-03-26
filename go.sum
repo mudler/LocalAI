@@ -682,8 +682,8 @@ github.com/mudler/skillserver v0.0.6 h1:ixz6wUekLdTmbnpAavCkTydDF6UdXAG3ncYufSPK
 github.com/mudler/skillserver v0.0.6/go.mod h1:z3yFhcL9bSykmmh6xgGu0hyoItd4CnxgtWMEWw8uFJU=
 github.com/mudler/water v0.0.0-20250808092830-dd90dcf09025 h1:WFLP5FHInarYGXi6B/Ze204x7Xy6q/I4nCZnWEyPHK0=
 github.com/mudler/water v0.0.0-20250808092830-dd90dcf09025/go.mod h1:QuIFdRstyGJt+MTTkWY+mtD7U6xwjOR6SwKUjmLZtR4=
-github.com/mudler/xlog v0.0.5 h1:2unBuVC5rNGhCC86UaA94TElWFml80NL5XLK+kAmNuU=
-github.com/mudler/xlog v0.0.5/go.mod h1:39f5vcd05Qd6GWKM8IjyHNQ7AmOx3ZM0YfhfIGhC18U=
+github.com/mudler/xlog v0.0.6 h1:3nBV4THK8kY0Y8FDXXvWAnuAJoOyO7EAXteJeAoHUC0=
+github.com/mudler/xlog v0.0.6/go.mod h1:3pO/Dsp3ViWl1QLyNtK7VQDJqMlntVu+rm5lP5PkX1g=
 github.com/muesli/reflow v0.3.0 h1:IFsN6K9NfGtjeggFP+68I4chLZV2yIKsXJFNZ+eWh6s=
 github.com/muesli/reflow v0.3.0/go.mod h1:pbwTDkVPibjO2kyvBQRBxTWEEGDGq0FlB1BIKtnHY/8=
 github.com/muesli/termenv v0.16.0 h1:S5AlUN9dENB57rsbnkPyfdGuWIlkmzJjbFf0Tf5FWUc=
