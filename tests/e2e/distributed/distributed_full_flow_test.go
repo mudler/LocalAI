@@ -22,10 +22,6 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/nats-io/nats.go"
-	"github.com/testcontainers/testcontainers-go"
-	tcnats "github.com/testcontainers/testcontainers-go/modules/nats"
-	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
-	"github.com/testcontainers/testcontainers-go/wait"
 	"google.golang.org/grpc"
 
 	pgdriver "gorm.io/driver/postgres"
@@ -197,78 +193,43 @@ func startTestHTTPFileServer(stagingDir string) (string, func(), error) {
 
 var _ = Describe("Full Distributed Inference Flow", Label("Distributed"), func() {
 	var (
-		ctx           context.Context
-		cancel        context.CancelFunc
-		pgContainer   *tcpostgres.PostgresContainer
-		natsContainer *tcnats.NATSContainer
-		nc            *messaging.Client
-		db            *gormDB.DB
-		registry      *nodes.NodeRegistry
+		infra    *TestInfra
+		cancel   context.CancelFunc
+		ctx      context.Context
+		db       *gormDB.DB
+		registry *nodes.NodeRegistry
 	)
 
 	BeforeEach(func() {
-		ctx, cancel = context.WithTimeout(context.Background(), 2*time.Minute)
+		infra = SetupInfra("localai_fullflow_test")
+		ctx, cancel = context.WithTimeout(infra.Ctx, 2*time.Minute)
 
 		var err error
-		pgContainer, err = tcpostgres.Run(ctx, "postgres:16-alpine",
-			tcpostgres.WithDatabase("localai_fullflow_test"),
-			tcpostgres.WithUsername("test"),
-			tcpostgres.WithPassword("test"),
-			testcontainers.WithWaitStrategy(
-				wait.ForLog("database system is ready to accept connections").
-					WithOccurrence(2).
-					WithStartupTimeout(30*time.Second),
-			),
-		)
-		Expect(err).ToNot(HaveOccurred())
-
-		pgURL, err := pgContainer.ConnectionString(ctx, "sslmode=disable")
-		Expect(err).ToNot(HaveOccurred())
-
-		db, err = gormDB.Open(pgdriver.Open(pgURL), &gormDB.Config{
+		db, err = gormDB.Open(pgdriver.Open(infra.PGURL), &gormDB.Config{
 			Logger: logger.Default.LogMode(logger.Silent),
 		})
 		Expect(err).ToNot(HaveOccurred())
 
 		registry, err = nodes.NewNodeRegistry(db)
 		Expect(err).ToNot(HaveOccurred())
-
-		// Start NATS for backend.install mock
-		natsContainer, err = tcnats.Run(ctx, "nats:2-alpine")
-		Expect(err).ToNot(HaveOccurred())
-
-		natsURL, err := natsContainer.ConnectionString(ctx)
-		Expect(err).ToNot(HaveOccurred())
-
-		nc, err = messaging.New(natsURL)
-		Expect(err).ToNot(HaveOccurred())
 	})
 
 	AfterEach(func() {
-		if nc != nil {
-			nc.Close()
-		}
 		cancel()
-		if pgContainer != nil {
-			pgContainer.Terminate(context.Background())
-		}
-		if natsContainer != nil {
-			natsContainer.Terminate(context.Background())
-		}
 	})
 
 	// newTestSmartRouter creates a SmartRouter with NATS wired up and a mock
 	// backend.install handler that always replies success for all registered nodes.
 	newTestSmartRouter := func(reg *nodes.NodeRegistry) *nodes.SmartRouter {
 		router := nodes.NewSmartRouter(reg)
-		unloader := nodes.NewRemoteUnloaderAdapter(reg, nc)
+		unloader := nodes.NewRemoteUnloaderAdapter(reg, infra.NC)
 		router.SetUnloader(unloader)
 
 		// Subscribe a mock backend.install handler that replies success for any node.
 		// We use a wildcard-style approach: subscribe to all nodes' install subjects
 		// by registering after each node. In practice, we rely on the test registering
 		// nodes before calling Route, so we subscribe to a catch-all pattern.
-		nc.Conn().Subscribe("nodes.*.backend.install", func(msg *nats.Msg) {
+		infra.NC.Conn().Subscribe("nodes.*.backend.install", func(msg *nats.Msg) {
 			reply := messaging.BackendInstallReply{Success: true}
 			data, _ := json.Marshal(reply)
 			msg.Respond(data)
@@ -393,19 +354,6 @@ var _ = Describe("Full Distributed Inference Flow", Label("Distributed"), func()
 	})
 
 	It("should unload remote model via NATS", func() {
-		// Start NATS container
-		natsContainer, err := tcnats.Run(ctx, "nats:2-alpine")
-		Expect(err).ToNot(HaveOccurred())
-		defer natsContainer.Terminate(context.Background())
-
-		natsURL, err := natsContainer.ConnectionString(ctx)
-		Expect(err).ToNot(HaveOccurred())
-
-		// Create NATS client via messaging package
-		natsClient, err := messaging.New(natsURL)
-		Expect(err).ToNot(HaveOccurred())
-		defer natsClient.Close()
-
 		// Register a node with a loaded model
 		node := &nodes.BackendNode{Name: "gpu-unload", Address: "127.0.0.1:50099"}
 		Expect(registry.Register(node, true)).To(Succeed())
@@ -414,7 +362,7 @@ var _ = Describe("Full Distributed Inference Flow", Label("Distributed"), func()
 		// Subscribe to NATS backend.stop for this node
 		stopSubject := messaging.SubjectNodeBackendStop(node.ID)
 		received := make(chan struct{}, 1)
-		rawConn, err := nats.Connect(natsURL)
+		rawConn, err := nats.Connect(infra.NatsURL)
 		Expect(err).ToNot(HaveOccurred())
 		defer rawConn.Close()
 
@@ -424,7 +372,7 @@ var _ = Describe("Full Distributed Inference Flow", Label("Distributed"), func()
 		Expect(err).ToNot(HaveOccurred())
 
 		// Create RemoteUnloaderAdapter and unload model
-		unloader := nodes.NewRemoteUnloaderAdapter(registry, natsClient)
+		unloader := nodes.NewRemoteUnloaderAdapter(registry, infra.NC)
 		err = unloader.UnloadRemoteModel("old-model")
 		Expect(err).ToNot(HaveOccurred())
 

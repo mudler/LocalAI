@@ -52,14 +52,14 @@ func AgentResponsesInterceptor(app *application.Application) echo.MiddlewareFunc
 				return next(c)
 			}
 
-			// Check if this model name is an agent
+			// Check if this model name is an agent — try in-process agent first,
+			// fall back to config lookup (covers distributed mode where agents
+			// don't run in-process).
 			messages := parseInputToMessages(req.Input)
-			if len(messages) == 0 {
-				// Can't determine if this is an agent without input
-				ag := svc.GetAgent(req.Model)
-				if ag == nil {
-					return next(c)
-				}
+			userID := effectiveUserID(c)
+			ag := svc.GetAgent(req.Model)
+			if ag == nil && svc.GetAgentConfigForUser(userID, req.Model) == nil {
+				return next(c) // not an agent
 			}
 
 			// Extract the last user message for the executor
@@ -73,61 +73,8 @@ func AgentResponsesInterceptor(app *application.Application) echo.MiddlewareFunc
 
 			var responseText string
 
-			// Distributed mode: dispatch via NATS + wait for response synchronously
-			if svc.IsDistributed() {
-				store := app.AgentStore()
-				bridge := app.AgentEventBridge()
-				if store == nil || bridge == nil {
-					return next(c)
-				}
-				userID := effectiveUserID(c)
-				rec, err := store.GetConfig(userID, req.Model)
-				if err != nil || rec == nil {
-					return next(c) // not an agent
-				}
-
-				// Dispatch via ChatForUser (publishes to NATS) and wait for the response via EventBridge
-				messageID, err := svc.ChatForUser(userID, req.Model, userMessage)
-				if err != nil {
-					return c.JSON(http.StatusInternalServerError, map[string]any{
-						"error": map[string]string{"type": "server_error", "message": err.Error()},
-					})
-				}
-
-				// Subscribe to events and wait for the agent's response message
-				ctx, cancel := context.WithTimeout(c.Request().Context(), 5*time.Minute)
-				defer cancel()
-
-				responseCh := make(chan string, 1)
-				sub, err := bridge.SubscribeEvents(req.Model, userID, func(evt agents.AgentEvent) {
-					if evt.EventType == "json_message" && evt.Sender == "agent" {
-						responseCh <- evt.Content
-					}
-				})
-				if err != nil {
-					return c.JSON(http.StatusInternalServerError, map[string]any{
-						"error": map[string]string{"type": "server_error", "message": "failed to subscribe to agent events"},
-					})
-				}
-				defer sub.Unsubscribe()
-
-				select {
-				case responseText = <-responseCh:
-					// Got the response
-				case <-ctx.Done():
-					return c.JSON(http.StatusGatewayTimeout, map[string]any{
-						"error": map[string]string{"type": "server_error", "message": "agent response timeout"},
-					})
-				}
-
-				_ = messageID
-			} else {
-				// Standalone mode: use LocalAGI agent directly
-				ag := svc.GetAgent(req.Model)
-				if ag == nil {
-					return next(c)
-				}
-
+			if ag != nil {
+				// Local mode: use LocalAGI agent directly
 				jobOptions := []coreTypes.JobOption{
 					coreTypes.WithConversationHistory(messages),
 				}
@@ -151,6 +98,46 @@ func AgentResponsesInterceptor(app *application.Application) echo.MiddlewareFunc
 					})
 				}
 				responseText = res.Response
+			} else {
+				// Distributed mode: dispatch via NATS + wait for response synchronously
+				bridge := app.AgentEventBridge()
+				if bridge == nil {
+					return next(c)
+				}
+
+				// Subscribe BEFORE dispatching so we never miss a fast response
+				ctx, cancel := context.WithTimeout(c.Request().Context(), 5*time.Minute)
+				defer cancel()
+
+				responseCh := make(chan string, 1)
+				sub, err := bridge.SubscribeEvents(req.Model, userID, func(evt agents.AgentEvent) {
+					if evt.EventType == "json_message" && evt.Sender == "agent" {
+						responseCh <- evt.Content
+					}
+				})
+				if err != nil {
+					return c.JSON(http.StatusInternalServerError, map[string]any{
+						"error": map[string]string{"type": "server_error", "message": "failed to subscribe to agent events"},
+					})
+				}
+				defer sub.Unsubscribe()
+
+				// Now dispatch via ChatForUser (publishes to NATS)
+				_, err = svc.ChatForUser(userID, req.Model, userMessage)
+				if err != nil {
+					return c.JSON(http.StatusInternalServerError, map[string]any{
+						"error": map[string]string{"type": "server_error", "message": err.Error()},
+					})
+				}
+
+				select {
+				case responseText = <-responseCh:
+					// Got the response
+				case <-ctx.Done():
+					return c.JSON(http.StatusGatewayTimeout, map[string]any{
+						"error": map[string]string{"type": "server_error", "message": "agent response timeout"},
+					})
+				}
 			}
 
 			id := fmt.Sprintf("resp_%s", uuid.New().String())

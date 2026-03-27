@@ -1,4 +1,4 @@
-package services_test
+package agentpool_test
 
 import (
 	"context"
@@ -7,7 +7,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/schema"
-	"github.com/mudler/LocalAI/core/services"
+	"github.com/mudler/LocalAI/core/services/agentpool"
 	"github.com/mudler/LocalAI/core/templates"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/system"
@@ -18,7 +18,7 @@ import (
 
 var _ = Describe("AgentJobService", func() {
 	var (
-		service      *services.AgentJobService
+		service      *agentpool.AgentJobService
 		tempDir      string
 		appConfig    *config.ApplicationConfig
 		modelLoader  *model.ModelLoader
@@ -46,7 +46,7 @@ var _ = Describe("AgentJobService", func() {
 		configLoader = config.NewModelConfigLoader(tempDir)
 		evaluator = templates.NewEvaluator(tempDir)
 
-		service = services.NewAgentJobService(
+		service = agentpool.NewAgentJobService(
 			appConfig,
 			modelLoader,
 			configLoader,
@@ -231,7 +231,7 @@ var _ = Describe("AgentJobService", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			// Create a new service instance to test loading
-			newService := services.NewAgentJobService(
+			newService := agentpool.NewAgentJobService(
 				appConfig,
 				modelLoader,
 				configLoader,
@@ -264,7 +264,7 @@ var _ = Describe("AgentJobService", func() {
 			service.SaveJobsToFile()
 
 			// Create a new service instance to test loading
-			newService := services.NewAgentJobService(
+			newService := agentpool.NewAgentJobService(
 				appConfig,
 				modelLoader,
 				configLoader,
@@ -383,7 +383,7 @@ var _ = Describe("AgentJobService", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				// Create a new service instance to test loading
-				newService := services.NewAgentJobService(
+				newService := agentpool.NewAgentJobService(
 					appConfig,
 					modelLoader,
 					configLoader,
@@ -496,7 +496,7 @@ var _ = Describe("AgentJobService", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				// Create a new service instance to test loading
-				newService := services.NewAgentJobService(
+				newService := agentpool.NewAgentJobService(
 					appConfig,
 					modelLoader,
 					configLoader,

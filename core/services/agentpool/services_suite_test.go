@@ -1,4 +1,4 @@
-package concurrency
+package agentpool_test
 
 import (
 	"testing"
@@ -7,7 +7,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestConcurrency(t *testing.T) {
+func TestServices(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Concurrency test suite")
+	RunSpecs(t, "LocalAI services test")
 }

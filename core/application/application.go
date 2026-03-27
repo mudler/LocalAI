@@ -8,8 +8,9 @@ import (
 
 	"github.com/mudler/LocalAI/core/config"
 	mcpTools "github.com/mudler/LocalAI/core/http/endpoints/mcp"
-	"github.com/mudler/LocalAI/core/services"
 	"github.com/mudler/LocalAI/core/services/agents"
+	"github.com/mudler/LocalAI/core/services/agentpool"
+	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/distributed"
 	"github.com/mudler/LocalAI/core/services/jobs"
 	"github.com/mudler/LocalAI/core/services/messaging"
@@ -27,9 +28,9 @@ type Application struct {
 	applicationConfig  *config.ApplicationConfig
 	startupConfig      *config.ApplicationConfig // Stores original config from env vars (before file loading)
 	templatesEvaluator *templates.Evaluator
-	galleryService     *services.GalleryService
-	agentJobService    *services.AgentJobService
-	agentPoolService   atomic.Pointer[services.AgentPoolService]
+	galleryService     *galleryop.GalleryService
+	agentJobService    *agentpool.AgentJobService
+	agentPoolService   atomic.Pointer[agentpool.AgentPoolService]
 	authDB             *gorm.DB
 	watchdogMutex      sync.Mutex
 	watchdogStop       chan bool
@@ -84,15 +85,15 @@ func (a *Application) TemplatesEvaluator() *templates.Evaluator {
 	return a.templatesEvaluator
 }
 
-func (a *Application) GalleryService() *services.GalleryService {
+func (a *Application) GalleryService() *galleryop.GalleryService {
 	return a.galleryService
 }
 
-func (a *Application) AgentJobService() *services.AgentJobService {
+func (a *Application) AgentJobService() *agentpool.AgentJobService {
 	return a.agentJobService
 }
 
-func (a *Application) AgentPoolService() *services.AgentPoolService {
+func (a *Application) AgentPoolService() *agentpool.AgentPoolService {
 	return a.agentPoolService.Load()
 }
 
@@ -169,7 +170,7 @@ func (a *Application) IsDistributed() bool {
 // waitForHealthyWorker blocks until at least one healthy backend worker is registered.
 // This prevents the agent pool from failing during startup when workers haven't connected yet.
 func (a *Application) waitForHealthyWorker() {
-	const maxWait = 5 * time.Minute
+	maxWait := a.applicationConfig.Distributed.WorkerWaitTimeoutOrDefault()
 	const pollInterval = 2 * time.Second
 
 	xlog.Info("Waiting for at least one healthy backend worker before starting agent pool")
@@ -200,7 +201,7 @@ func (a *Application) InstanceID() string {
 }
 
 func (a *Application) start() error {
-	galleryService := services.NewGalleryService(a.ApplicationConfig(), a.ModelLoader())
+	galleryService := galleryop.NewGalleryService(a.ApplicationConfig(), a.ModelLoader())
 	err := galleryService.Start(a.ApplicationConfig().Context, a.ModelConfigLoader(), a.ApplicationConfig().SystemState)
 	if err != nil {
 		return err
@@ -209,7 +210,7 @@ func (a *Application) start() error {
 	a.galleryService = galleryService
 
 	// Initialize agent job service (Start() is deferred to after distributed wiring)
-	agentJobService := services.NewAgentJobService(
+	agentJobService := agentpool.NewAgentJobService(
 		a.ApplicationConfig(),
 		a.ModelLoader(),
 		a.ModelConfigLoader(),
@@ -228,7 +229,7 @@ func (a *Application) StartAgentPool() {
 	if !a.applicationConfig.AgentPool.Enabled {
 		return
 	}
-	aps, err := services.NewAgentPoolService(a.applicationConfig)
+	aps, err := agentpool.NewAgentPoolService(a.applicationConfig)
 	if err != nil {
 		xlog.Error("Failed to create agent pool service", "error", err)
 		return
@@ -262,7 +263,7 @@ func (a *Application) StartAgentPool() {
 	}
 
 	// Wire per-user scoped services so collections, skills, and jobs are isolated per user
-	usm := services.NewUserServicesManager(
+	usm := agentpool.NewUserServicesManager(
 		aps.UserStorage(),
 		a.applicationConfig,
 		a.modelLoader,

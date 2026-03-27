@@ -15,7 +15,7 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/http/routes"
-	"github.com/mudler/LocalAI/core/services"
+	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/system"
 	. "github.com/onsi/ginkgo/v2"
@@ -32,7 +32,7 @@ var _ = Describe("Backend API Routes", func() {
 		app            *echo.Echo
 		tempDir        string
 		appConfig      *config.ApplicationConfig
-		galleryService *services.GalleryService
+		galleryService *galleryop.GalleryService
 		modelLoader    *model.ModelLoader
 		systemState    *system.SystemState
 		configLoader   *config.ModelConfigLoader
@@ -64,7 +64,7 @@ var _ = Describe("Backend API Routes", func() {
 		appConfig.SystemState = systemState
 		appConfig.BackendGalleries = []config.Gallery{}
 
-		galleryService = services.NewGalleryService(appConfig, modelLoader)
+		galleryService = galleryop.NewGalleryService(appConfig, modelLoader)
 		// Start the gallery service
 		err = galleryService.Start(context.Background(), configLoader, systemState)
 		Expect(err).NotTo(HaveOccurred())
@@ -72,7 +72,7 @@ var _ = Describe("Backend API Routes", func() {
 		app = echo.New()
 
 		// Register the API routes for backends
-		opcache := services.NewOpCache(galleryService)
+		opcache := galleryop.NewOpCache(galleryService)
 		// Use a no-op admin middleware for tests
 		noopMw := func(next echo.HandlerFunc) echo.HandlerFunc { return next }
 		routes.RegisterUIAPIRoutes(app, configLoader, modelLoader, appConfig, galleryService, opcache, nil, noopMw)

@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/mudler/LocalAI/pkg/downloader"
+	"github.com/mudler/xlog"
 )
 
 var weightExts = map[string]bool{
@@ -233,6 +234,9 @@ func EstimateModel(ctx context.Context, input ModelEstimateInput) (EstimateResul
 	// 1. Try direct file estimation
 	if len(input.Files) > 0 {
 		result, err := Estimate(ctx, input.Files, input.Options, DefaultCachedSizeResolver(), DefaultCachedGGUFReader())
+		if err != nil {
+			xlog.Debug("VRAM estimation from files failed", "error", err)
+		}
 		if err == nil && result.SizeBytes > 0 {
 			return result, nil
 		}
@@ -240,7 +244,9 @@ func EstimateModel(ctx context.Context, input ModelEstimateInput) (EstimateResul
 
 	// 2. Try size string
 	if input.Size != "" {
-		if sizeBytes, err := ParseSizeString(input.Size); err == nil && sizeBytes > 0 {
+		if sizeBytes, err := ParseSizeString(input.Size); err != nil {
+			xlog.Debug("VRAM estimation from size string failed", "error", err, "size", input.Size)
+		} else if sizeBytes > 0 {
 			return EstimateFromSize(sizeBytes), nil
 		}
 	}
@@ -252,6 +258,9 @@ func EstimateModel(ctx context.Context, input ModelEstimateInput) (EstimateResul
 	}
 	if hfRepo != "" {
 		result, err := EstimateFromHFRepo(ctx, hfRepo)
+		if err != nil {
+			xlog.Debug("VRAM estimation from HF repo failed", "error", err, "repo", hfRepo)
+		}
 		if err == nil && result.SizeBytes > 0 {
 			return result, nil
 		}

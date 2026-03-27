@@ -12,11 +12,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/testcontainers/testcontainers-go"
-	tcnats "github.com/testcontainers/testcontainers-go/modules/nats"
-	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
-	"github.com/testcontainers/testcontainers-go/wait"
-
 	pgdriver "gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -24,62 +19,22 @@ import (
 
 var _ = Describe("Phase 2: Jobs & Tasks", Label("Distributed"), func() {
 	var (
-		ctx           context.Context
-		pgContainer   *tcpostgres.PostgresContainer
-		natsContainer *tcnats.NATSContainer
-		db            *gorm.DB
-		nc            *messaging.Client
-		store         *jobs.JobStore
+		infra *TestInfra
+		db    *gorm.DB
+		store *jobs.JobStore
 	)
 
 	BeforeEach(func() {
-		ctx = context.Background()
+		infra = SetupInfra("localai_jobs_test")
 
 		var err error
-
-		pgContainer, err = tcpostgres.Run(ctx, "postgres:16-alpine",
-			tcpostgres.WithDatabase("localai_jobs_test"),
-			tcpostgres.WithUsername("test"),
-			tcpostgres.WithPassword("test"),
-			testcontainers.WithWaitStrategy(
-				wait.ForLog("database system is ready to accept connections").
-					WithOccurrence(2).
-					WithStartupTimeout(30*time.Second),
-			),
-		)
-		Expect(err).ToNot(HaveOccurred())
-
-		pgURL, err := pgContainer.ConnectionString(ctx, "sslmode=disable")
-		Expect(err).ToNot(HaveOccurred())
-
-		db, err = gorm.Open(pgdriver.Open(pgURL), &gorm.Config{
+		db, err = gorm.Open(pgdriver.Open(infra.PGURL), &gorm.Config{
 			Logger: logger.Default.LogMode(logger.Silent),
 		})
 		Expect(err).ToNot(HaveOccurred())
 
-		natsContainer, err = tcnats.Run(ctx, "nats:2-alpine")
-		Expect(err).ToNot(HaveOccurred())
-
-		natsURL, err := natsContainer.ConnectionString(ctx)
-		Expect(err).ToNot(HaveOccurred())
-
-		nc, err = messaging.New(natsURL)
-		Expect(err).ToNot(HaveOccurred())
-
 		store, err = jobs.NewJobStore(db)
 		Expect(err).ToNot(HaveOccurred())
-	})
-
-	AfterEach(func() {
-		if nc != nil {
-			nc.Close()
-		}
-		if pgContainer != nil {
-			pgContainer.Terminate(ctx)
-		}
-		if natsContainer != nil {
-			natsContainer.Terminate(ctx)
-		}
 	})
 
 	Context("Job Store (PostgreSQL)", func() {
@@ -213,7 +168,7 @@ var _ = Describe("Phase 2: Jobs & Tasks", Label("Distributed"), func() {
 
 	Context("Job Distribution via NATS", func() {
 		It("should enqueue job via NATS and worker picks it up", func() {
-			dispatcher := jobs.NewDispatcher(store, nc, db, "test-instance")
+			dispatcher := jobs.NewDispatcher(store, infra.NC, db, "test-instance")
 			var processed atomic.Int32
 			dispatcher.SetWorkerFunc(func(ctx context.Context, job *jobs.JobRecord, task *jobs.TaskRecord) error {
 				processed.Add(1)
@@ -221,7 +176,7 @@ var _ = Describe("Phase 2: Jobs & Tasks", Label("Distributed"), func() {
 				return nil
 			})
 
-			dCtx, dCancel := context.WithCancel(ctx)
+			dCtx, dCancel := context.WithCancel(infra.Ctx)
 			defer dCancel()
 			Expect(dispatcher.Start(dCtx)).To(Succeed())
 			defer dispatcher.Stop()
@@ -244,7 +199,7 @@ var _ = Describe("Phase 2: Jobs & Tasks", Label("Distributed"), func() {
 		})
 
 		It("should cancel running job via NATS", func() {
-			dispatcher := jobs.NewDispatcher(store, nc, db, "test-instance")
+			dispatcher := jobs.NewDispatcher(store, infra.NC, db, "test-instance")
 			jobStarted := make(chan struct{})
 			dispatcher.SetWorkerFunc(func(ctx context.Context, job *jobs.JobRecord, task *jobs.TaskRecord) error {
 				close(jobStarted)
@@ -253,7 +208,7 @@ var _ = Describe("Phase 2: Jobs & Tasks", Label("Distributed"), func() {
 				return ctx.Err()
 			})
 
-			dCtx, dCancel := context.WithCancel(ctx)
+			dCtx, dCancel := context.WithCancel(infra.Ctx)
 			defer dCancel()
 			Expect(dispatcher.Start(dCtx)).To(Succeed())
 			defer dispatcher.Stop()
@@ -282,7 +237,7 @@ var _ = Describe("Phase 2: Jobs & Tasks", Label("Distributed"), func() {
 		})
 
 		It("should report job progress via NATS", func() {
-			dispatcher := jobs.NewDispatcher(store, nc, db, "test-instance")
+			dispatcher := jobs.NewDispatcher(store, infra.NC, db, "test-instance")
 			dispatcher.SetWorkerFunc(func(ctx context.Context, job *jobs.JobRecord, task *jobs.TaskRecord) error {
 				dispatcher.PublishProgress(job.ID, "running", "step 1")
 				time.Sleep(50 * time.Millisecond)
@@ -291,7 +246,7 @@ var _ = Describe("Phase 2: Jobs & Tasks", Label("Distributed"), func() {
 				return nil
 			})
 
-			dCtx, dCancel := context.WithCancel(ctx)
+			dCtx, dCancel := context.WithCancel(infra.Ctx)
 			defer dCancel()
 			Expect(dispatcher.Start(dCtx)).To(Succeed())
 			defer dispatcher.Stop()
@@ -360,9 +315,9 @@ var _ = Describe("Phase 2: Jobs & Tasks", Label("Distributed"), func() {
 
 	Context("Progress Streaming (NATS → SSE bridge)", func() {
 		It("should bridge NATS progress events", func() {
-			dispatcher := jobs.NewDispatcher(store, nc, db, "test-instance")
+			dispatcher := jobs.NewDispatcher(store, infra.NC, db, "test-instance")
 
-			dCtx, dCancel := context.WithCancel(ctx)
+			dCtx, dCancel := context.WithCancel(infra.Ctx)
 			defer dCancel()
 			Expect(dispatcher.Start(dCtx)).To(Succeed())
 			defer dispatcher.Stop()
@@ -375,7 +330,7 @@ var _ = Describe("Phase 2: Jobs & Tasks", Label("Distributed"), func() {
 			Expect(err).ToNot(HaveOccurred())
 			defer sub.Unsubscribe()
 
-			time.Sleep(100 * time.Millisecond)
+			FlushNATS(infra.NC)
 
 			// Publish progress events
 			dispatcher.PublishProgress("job-123", "running", "processing")
@@ -388,9 +343,9 @@ var _ = Describe("Phase 2: Jobs & Tasks", Label("Distributed"), func() {
 		})
 
 		It("should filter SSE events by job ID", func() {
-			dispatcher := jobs.NewDispatcher(store, nc, db, "test-instance")
+			dispatcher := jobs.NewDispatcher(store, infra.NC, db, "test-instance")
 
-			dCtx, dCancel := context.WithCancel(ctx)
+			dCtx, dCancel := context.WithCancel(infra.Ctx)
 			defer dCancel()
 			Expect(dispatcher.Start(dCtx)).To(Succeed())
 			defer dispatcher.Stop()
@@ -402,7 +357,7 @@ var _ = Describe("Phase 2: Jobs & Tasks", Label("Distributed"), func() {
 			})
 			defer subA.Unsubscribe()
 
-			time.Sleep(100 * time.Millisecond)
+			FlushNATS(infra.NC)
 
 			// Publish to both job-A and job-B
 			dispatcher.PublishProgress("job-A", "running", "A progress")
@@ -419,9 +374,9 @@ var _ = Describe("Phase 2: Jobs & Tasks", Label("Distributed"), func() {
 
 	Context("Enriched Job Payload (DB-free worker)", func() {
 		It("should enrich JobEvent with full Job and Task data", func() {
-			dispatcher := jobs.NewDispatcher(store, nc, db, "enrichment-test")
+			dispatcher := jobs.NewDispatcher(store, infra.NC, db, "enrichment-test")
 
-			dCtx, dCancel := context.WithCancel(ctx)
+			dCtx, dCancel := context.WithCancel(infra.Ctx)
 			defer dCancel()
 			Expect(dispatcher.Start(dCtx)).To(Succeed())
 			defer dispatcher.Stop()
@@ -435,7 +390,7 @@ var _ = Describe("Phase 2: Jobs & Tasks", Label("Distributed"), func() {
 			// Capture the raw NATS event
 			var capturedEvt jobs.JobEvent
 			var captured atomic.Int32
-			sub, err := nc.Subscribe(messaging.SubjectJobsNew, func(data []byte) {
+			sub, err := infra.NC.Subscribe(messaging.SubjectJobsNew, func(data []byte) {
 				var evt jobs.JobEvent
 				if json.Unmarshal(data, &evt) == nil {
 					capturedEvt = evt
@@ -445,7 +400,7 @@ var _ = Describe("Phase 2: Jobs & Tasks", Label("Distributed"), func() {
 			Expect(err).ToNot(HaveOccurred())
 			defer sub.Unsubscribe()
 
-			time.Sleep(100 * time.Millisecond)
+			FlushNATS(infra.NC)
 
 			// Enqueue — this should embed Job+Task in the event
 			Expect(dispatcher.Enqueue(job.ID, task.ID, "u1")).To(Succeed())
@@ -462,7 +417,7 @@ var _ = Describe("Phase 2: Jobs & Tasks", Label("Distributed"), func() {
 
 		It("should process job from enriched payload without DB access", func() {
 			// Create a worker-side dispatcher with NO store (simulating DB-free worker)
-			workerDispatcher := jobs.NewDispatcher(nil, nc, nil, "worker-no-db")
+			workerDispatcher := jobs.NewDispatcher(nil, infra.NC, nil, "worker-no-db")
 
 			var receivedJob *jobs.JobRecord
 			var receivedTask *jobs.TaskRecord
@@ -476,12 +431,12 @@ var _ = Describe("Phase 2: Jobs & Tasks", Label("Distributed"), func() {
 				return nil
 			})
 
-			dCtx, dCancel := context.WithCancel(ctx)
+			dCtx, dCancel := context.WithCancel(infra.Ctx)
 			defer dCancel()
 			Expect(workerDispatcher.Start(dCtx)).To(Succeed())
 			defer workerDispatcher.Stop()
 
-			time.Sleep(100 * time.Millisecond)
+			FlushNATS(infra.NC)
 
 			// Publish an enriched event directly (simulating what the frontend does)
 			evt := jobs.JobEvent{
@@ -502,7 +457,7 @@ var _ = Describe("Phase 2: Jobs & Tasks", Label("Distributed"), func() {
 					Prompt: "do something",
 				},
 			}
-			Expect(nc.Publish(messaging.SubjectJobsNew, evt)).To(Succeed())
+			Expect(infra.NC.Publish(messaging.SubjectJobsNew, evt)).To(Succeed())
 
 			Eventually(processed, "10s").Should(BeClosed())
 
@@ -515,13 +470,13 @@ var _ = Describe("Phase 2: Jobs & Tasks", Label("Distributed"), func() {
 		})
 
 		It("should publish job result via NATS on completion", func() {
-			dispatcher := jobs.NewDispatcher(store, nc, db, "result-test")
+			dispatcher := jobs.NewDispatcher(store, infra.NC, db, "result-test")
 			dispatcher.SetWorkerFunc(func(ctx context.Context, job *jobs.JobRecord, task *jobs.TaskRecord) error {
 				job.Result = "job finished successfully"
 				return nil
 			})
 
-			dCtx, dCancel := context.WithCancel(ctx)
+			dCtx, dCancel := context.WithCancel(infra.Ctx)
 			defer dCancel()
 			Expect(dispatcher.Start(dCtx)).To(Succeed())
 			defer dispatcher.Stop()
@@ -534,14 +489,14 @@ var _ = Describe("Phase 2: Jobs & Tasks", Label("Distributed"), func() {
 			// Subscribe to result events
 			var resultEvt jobs.JobResultEvent
 			var received atomic.Int32
-			sub, err := nc.Subscribe(messaging.SubjectJobResult(job.ID), func(data []byte) {
+			sub, err := infra.NC.Subscribe(messaging.SubjectJobResult(job.ID), func(data []byte) {
 				json.Unmarshal(data, &resultEvt)
 				received.Add(1)
 			})
 			Expect(err).ToNot(HaveOccurred())
 			defer sub.Unsubscribe()
 
-			time.Sleep(100 * time.Millisecond)
+			FlushNATS(infra.NC)
 			dispatcher.Enqueue(job.ID, task.ID, "u1")
 
 			Eventually(func() int32 { return received.Load() }, "10s").Should(BeNumerically(">=", 1))
@@ -550,14 +505,14 @@ var _ = Describe("Phase 2: Jobs & Tasks", Label("Distributed"), func() {
 		})
 
 		It("should stream traces via NATS progress events", func() {
-			dispatcher := jobs.NewDispatcher(store, nc, db, "trace-test")
+			dispatcher := jobs.NewDispatcher(store, infra.NC, db, "trace-test")
 			dispatcher.SetWorkerFunc(func(ctx context.Context, job *jobs.JobRecord, task *jobs.TaskRecord) error {
 				dispatcher.PublishTrace(job.ID, "reasoning", "thinking about the problem")
 				dispatcher.PublishTrace(job.ID, "tool_call", "calling search tool")
 				return nil
 			})
 
-			dCtx, dCancel := context.WithCancel(ctx)
+			dCtx, dCancel := context.WithCancel(infra.Ctx)
 			defer dCancel()
 			Expect(dispatcher.Start(dCtx)).To(Succeed())
 			defer dispatcher.Stop()
@@ -631,6 +586,3 @@ var _ = Describe("Phase 2: Jobs & Tasks", Label("Distributed"), func() {
 		})
 	})
 })
-
-// suppress unused import
-var _ = json.Marshal

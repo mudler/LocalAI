@@ -1,19 +1,19 @@
 package cli
 
 import (
-	"bytes"
 	"cmp"
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"os"
 	"os/signal"
 	"strings"
 	"syscall"
 	"time"
 
+	"github.com/mudler/LocalAI/core/config"
 	cliContext "github.com/mudler/LocalAI/core/cli/context"
+	"github.com/mudler/LocalAI/core/cli/workerregistry"
 	mcpTools "github.com/mudler/LocalAI/core/http/endpoints/mcp"
 	"github.com/mudler/LocalAI/core/services/agents"
 	"github.com/mudler/LocalAI/core/services/jobs"
@@ -59,7 +59,25 @@ func (cmd *AgentWorkerCMD) Run(ctx *cliContext.Context) error {
 	apiURL := cmp.Or(cmd.APIURL, strings.TrimRight(cmd.RegisterTo, "/"))
 
 	// Register with frontend
-	nodeID, apiToken, err := cmd.registerWithFrontend()
+	regClient := &workerregistry.RegistrationClient{
+		FrontendURL:       cmd.RegisterTo,
+		RegistrationToken: cmd.RegistrationToken,
+	}
+
+	nodeName := cmd.NodeName
+	if nodeName == "" {
+		hostname, _ := os.Hostname()
+		nodeName = "agent-" + hostname
+	}
+	registrationBody := map[string]any{
+		"name":      nodeName,
+		"node_type": "agent",
+	}
+	if cmd.RegistrationToken != "" {
+		registrationBody["token"] = cmd.RegistrationToken
+	}
+
+	nodeID, apiToken, err := regClient.RegisterWithRetry(registrationBody, 10)
 	if err != nil {
 		return fmt.Errorf("registration failed: %w", err)
 	}
@@ -75,7 +93,11 @@ func (cmd *AgentWorkerCMD) Run(ctx *cliContext.Context) error {
 	if heartbeatInterval == 0 {
 		heartbeatInterval = 10 * time.Second
 	}
-	go cmd.heartbeatLoop(nodeID, heartbeatInterval)
+	// Context cancelled on shutdown — used by heartbeat and other background goroutines
+	shutdownCtx, shutdownCancel := context.WithCancel(context.Background())
+	defer shutdownCancel()
+
+	go regClient.HeartbeatLoop(shutdownCtx, nodeID, heartbeatInterval, func() map[string]any { return map[string]any{} })
 
 	// Connect to NATS
 	natsClient, err := messaging.New(cmd.NatsURL)
@@ -105,7 +127,7 @@ func (cmd *AgentWorkerCMD) Run(ctx *cliContext.Context) error {
 		cmd.Subject, cmd.Queue,
 	)
 
-	if err := dispatcher.Start(nil); err != nil {
+	if err := dispatcher.Start(shutdownCtx); err != nil {
 		return fmt.Errorf("starting dispatcher: %w", err)
 	}
 
@@ -135,126 +157,12 @@ func (cmd *AgentWorkerCMD) Run(ctx *cliContext.Context) error {
 	<-sigCh
 
 	xlog.Info("Shutting down agent worker")
-	cmd.deregister(nodeID)
+	if err := regClient.Deregister(nodeID); err != nil {
+		xlog.Warn("Failed to deregister", "error", err)
+	} else {
+		xlog.Info("Deregistered from frontend")
+	}
 	return nil
-}
-
-// registerWithFrontend registers the agent worker with the frontend.
-// Returns the assigned node ID and an auto-provisioned API token.
-func (cmd *AgentWorkerCMD) registerWithFrontend() (string, string, error) {
-	nodeName := cmd.NodeName
-	if nodeName == "" {
-		hostname, _ := os.Hostname()
-		nodeName = "agent-" + hostname
-	}
-
-	body := map[string]any{
-		"name":      nodeName,
-		"node_type": "agent",
-	}
-	if cmd.RegistrationToken != "" {
-		body["token"] = cmd.RegistrationToken
-	}
-
-	const maxRetries = 10
-	backoff := 2 * time.Second
-	maxBackoff := 30 * time.Second
-
-	var nodeID, apiToken string
-	var err error
-
-	for attempt := 1; attempt <= maxRetries; attempt++ {
-		nodeID, apiToken, err = cmd.doRegister(body)
-		if err == nil {
-			return nodeID, apiToken, nil
-		}
-		if attempt == maxRetries {
-			return "", "", fmt.Errorf("failed after %d attempts: %w", maxRetries, err)
-		}
-		xlog.Warn("Registration failed, retrying", "attempt", attempt, "next_retry", backoff, "error", err)
-		time.Sleep(backoff)
-		backoff = min(backoff*2, maxBackoff)
-	}
-	return nodeID, apiToken, err
-}
-
-func (cmd *AgentWorkerCMD) doRegister(body map[string]any) (string, string, error) {
-	jsonBody, _ := json.Marshal(body)
-	url := strings.TrimRight(cmd.RegisterTo, "/") + "/api/node/register"
-
-	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, url, bytes.NewReader(jsonBody))
-	if err != nil {
-		return "", "", fmt.Errorf("creating request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-	if cmd.RegistrationToken != "" {
-		req.Header.Set("Authorization", "Bearer "+cmd.RegistrationToken)
-	}
-
-	resp, err := (&http.Client{Timeout: 10 * time.Second}).Do(req)
-	if err != nil {
-		return "", "", fmt.Errorf("posting to %s: %w", url, err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return "", "", fmt.Errorf("registration failed with status %d", resp.StatusCode)
-	}
-
-	var result struct {
-		ID       string `json:"id"`
-		APIToken string `json:"api_token,omitempty"` // auto-provisioned for agent workers
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return "", "", fmt.Errorf("decoding response: %w", err)
-	}
-	return result.ID, result.APIToken, nil
-}
-
-// heartbeatLoop sends periodic heartbeats to the frontend.
-func (cmd *AgentWorkerCMD) heartbeatLoop(nodeID string, interval time.Duration) {
-	ticker := time.NewTicker(interval)
-	defer ticker.Stop()
-
-	url := strings.TrimRight(cmd.RegisterTo, "/") + "/api/node/" + nodeID + "/heartbeat"
-	client := &http.Client{Timeout: 5 * time.Second}
-
-	for range ticker.C {
-		body, _ := json.Marshal(map[string]any{})
-		req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, url, bytes.NewReader(body))
-		if err != nil {
-			continue
-		}
-		req.Header.Set("Content-Type", "application/json")
-		if cmd.RegistrationToken != "" {
-			req.Header.Set("Authorization", "Bearer "+cmd.RegistrationToken)
-		}
-		resp, err := client.Do(req)
-		if err != nil {
-			xlog.Warn("Heartbeat failed", "error", err)
-			continue
-		}
-		resp.Body.Close()
-	}
-}
-
-// deregister removes the agent worker from the frontend registry.
-func (cmd *AgentWorkerCMD) deregister(nodeID string) {
-	url := strings.TrimRight(cmd.RegisterTo, "/") + "/api/node/" + nodeID + "/deregister"
-	body, _ := json.Marshal(map[string]any{})
-	req, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, url, bytes.NewReader(body))
-	if req != nil {
-		req.Header.Set("Content-Type", "application/json")
-		if cmd.RegistrationToken != "" {
-			req.Header.Set("Authorization", "Bearer "+cmd.RegistrationToken)
-		}
-		resp, err := (&http.Client{Timeout: 5 * time.Second}).Do(req)
-		if err != nil {
-			xlog.Warn("Failed to deregister", "error", err)
-			return
-		}
-		resp.Body.Close()
-	}
 }
 
 // handleMCPToolRequest handles a NATS request-reply for MCP tool execution.
@@ -266,7 +174,7 @@ func handleMCPToolRequest(data []byte, reply func([]byte)) {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 360*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), config.DefaultMCPToolTimeout)
 	defer cancel()
 
 	// Create/cache named MCP sessions from the provided config
@@ -308,7 +216,7 @@ func handleMCPDiscoveryRequest(data []byte, reply func([]byte)) {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), config.DefaultMCPDiscoveryTimeout)
 	defer cancel()
 
 	// Create/cache named MCP sessions
@@ -427,14 +335,18 @@ func handleMCPCIJob(data []byte, apiURL, apiToken string, natsClient *messaging.
 	prompt := task.Prompt
 	if task.CronParametersJSON != "" {
 		var params map[string]string
-		json.Unmarshal([]byte(task.CronParametersJSON), &params)
+		if err := json.Unmarshal([]byte(task.CronParametersJSON), &params); err != nil {
+			xlog.Warn("Failed to unmarshal parameters", "error", err)
+		}
 		for k, v := range params {
 			prompt = strings.ReplaceAll(prompt, "{{."+k+"}}", v)
 		}
 	}
 	if job.ParametersJSON != "" {
 		var params map[string]string
-		json.Unmarshal([]byte(job.ParametersJSON), &params)
+		if err := json.Unmarshal([]byte(job.ParametersJSON), &params); err != nil {
+			xlog.Warn("Failed to unmarshal parameters", "error", err)
+		}
 		for k, v := range params {
 			prompt = strings.ReplaceAll(prompt, "{{."+k+"}}", v)
 		}

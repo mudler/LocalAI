@@ -13,7 +13,7 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/http/auth"
-	"github.com/mudler/LocalAI/core/services"
+	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/jobs"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/storage"
@@ -223,7 +223,7 @@ func New(opts ...config.AppOption) (*Application, error) {
 	}
 
 	for _, backend := range options.ExternalBackends {
-		if err := services.InstallExternalBackend(options.Context, options.BackendGalleries, options.SystemState, application.ModelLoader(), nil, backend, "", ""); err != nil {
+		if err := galleryop.InstallExternalBackend(options.Context, options.BackendGalleries, options.SystemState, application.ModelLoader(), nil, backend, "", ""); err != nil {
 			xlog.Error("error installing external backend", "error", err)
 		}
 	}
@@ -249,13 +249,13 @@ func New(opts ...config.AppOption) (*Application, error) {
 	}
 
 	if options.PreloadJSONModels != "" {
-		if err := services.ApplyGalleryFromString(options.SystemState, application.ModelLoader(), options.EnforcePredownloadScans, options.AutoloadBackendGalleries, options.Galleries, options.BackendGalleries, options.PreloadJSONModels); err != nil {
+		if err := galleryop.ApplyGalleryFromString(options.SystemState, application.ModelLoader(), options.EnforcePredownloadScans, options.AutoloadBackendGalleries, options.Galleries, options.BackendGalleries, options.PreloadJSONModels); err != nil {
 			return nil, err
 		}
 	}
 
 	if options.PreloadModelsFromPath != "" {
-		if err := services.ApplyGalleryFromFile(options.SystemState, application.ModelLoader(), options.EnforcePredownloadScans, options.AutoloadBackendGalleries, options.Galleries, options.BackendGalleries, options.PreloadModelsFromPath); err != nil {
+		if err := galleryop.ApplyGalleryFromFile(options.SystemState, application.ModelLoader(), options.EnforcePredownloadScans, options.AutoloadBackendGalleries, options.Galleries, options.BackendGalleries, options.PreloadModelsFromPath); err != nil {
 			return nil, err
 		}
 	}

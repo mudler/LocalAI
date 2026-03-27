@@ -5,7 +5,6 @@ import (
 	"context"
 	"io"
 	"sync/atomic"
-	"time"
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/services/advisorylock"
@@ -15,11 +14,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/testcontainers/testcontainers-go"
-	tcnats "github.com/testcontainers/testcontainers-go/modules/nats"
-	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
-	"github.com/testcontainers/testcontainers-go/wait"
-
 	pgdriver "gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -27,56 +21,18 @@ import (
 
 var _ = Describe("Phase 0: Foundation", Label("Distributed"), func() {
 	var (
-		ctx           context.Context
-		pgContainer   *tcpostgres.PostgresContainer
-		natsContainer *tcnats.NATSContainer
-		pgURL         string
-		natsURL       string
+		infra *TestInfra
 	)
 
 	BeforeEach(func() {
-		ctx = context.Background()
-
-		var err error
-
-		// Start PostgreSQL container
-		pgContainer, err = tcpostgres.Run(ctx, "postgres:16-alpine",
-			tcpostgres.WithDatabase("localai_test"),
-			tcpostgres.WithUsername("test"),
-			tcpostgres.WithPassword("test"),
-			testcontainers.WithWaitStrategy(
-				wait.ForLog("database system is ready to accept connections").
-					WithOccurrence(2).
-					WithStartupTimeout(30*time.Second),
-			),
-		)
-		Expect(err).ToNot(HaveOccurred())
-
-		pgURL, err = pgContainer.ConnectionString(ctx, "sslmode=disable")
-		Expect(err).ToNot(HaveOccurred())
-
-		// Start NATS container
-		natsContainer, err = tcnats.Run(ctx, "nats:2-alpine")
-		Expect(err).ToNot(HaveOccurred())
-
-		natsURL, err = natsContainer.ConnectionString(ctx)
-		Expect(err).ToNot(HaveOccurred())
-	})
-
-	AfterEach(func() {
-		if pgContainer != nil {
-			pgContainer.Terminate(ctx)
-		}
-		if natsContainer != nil {
-			natsContainer.Terminate(ctx)
-		}
+		infra = SetupInfra("localai_test")
 	})
 
 	Context("Distributed mode validation", func() {
 		It("should reject --distributed without PostgreSQL configured", func() {
 			appCfg := config.NewApplicationConfig(
 				config.EnableDistributed,
-				config.WithNatsURL(natsURL),
+				config.WithNatsURL(infra.NatsURL),
 				// No auth/PostgreSQL configured
 			)
 			Expect(appCfg.Distributed.Enabled).To(BeTrue())
@@ -88,7 +44,7 @@ var _ = Describe("Phase 0: Foundation", Label("Distributed"), func() {
 			appCfg := config.NewApplicationConfig(
 				config.EnableDistributed,
 				config.WithAuthEnabled(true),
-				config.WithAuthDatabaseURL(pgURL),
+				config.WithAuthDatabaseURL(infra.PGURL),
 				// No NATS URL
 			)
 			Expect(appCfg.Distributed.NatsURL).To(BeEmpty())
@@ -98,12 +54,12 @@ var _ = Describe("Phase 0: Foundation", Label("Distributed"), func() {
 			appCfg := config.NewApplicationConfig(
 				config.EnableDistributed,
 				config.WithAuthEnabled(true),
-				config.WithAuthDatabaseURL(pgURL),
-				config.WithNatsURL(natsURL),
+				config.WithAuthDatabaseURL(infra.PGURL),
+				config.WithNatsURL(infra.NatsURL),
 			)
 			Expect(appCfg.Distributed.Enabled).To(BeTrue())
 			Expect(appCfg.Auth.Enabled).To(BeTrue())
-			Expect(appCfg.Distributed.NatsURL).To(Equal(natsURL))
+			Expect(appCfg.Distributed.NatsURL).To(Equal(infra.NatsURL))
 		})
 
 		It("should generate unique frontend ID on startup", func() {
@@ -129,7 +85,7 @@ var _ = Describe("Phase 0: Foundation", Label("Distributed"), func() {
 
 	Context("NATS client", func() {
 		It("should connect, publish, and subscribe", func() {
-			client, err := messaging.New(natsURL)
+			client, err := messaging.New(infra.NatsURL)
 			Expect(err).ToNot(HaveOccurred())
 			defer client.Close()
 
@@ -143,7 +99,7 @@ var _ = Describe("Phase 0: Foundation", Label("Distributed"), func() {
 			defer sub.Unsubscribe()
 
 			// Small delay to ensure subscription is active
-			time.Sleep(100 * time.Millisecond)
+			FlushNATS(client)
 
 			err = client.Publish("test.subject", map[string]string{"msg": "hello"})
 			Expect(err).ToNot(HaveOccurred())
@@ -152,7 +108,7 @@ var _ = Describe("Phase 0: Foundation", Label("Distributed"), func() {
 		})
 
 		It("should support queue subscriptions for load balancing", func() {
-			client, err := messaging.New(natsURL)
+			client, err := messaging.New(infra.NatsURL)
 			Expect(err).ToNot(HaveOccurred())
 			defer client.Close()
 
@@ -170,7 +126,7 @@ var _ = Describe("Phase 0: Foundation", Label("Distributed"), func() {
 			Expect(err).ToNot(HaveOccurred())
 			defer sub2.Unsubscribe()
 
-			time.Sleep(100 * time.Millisecond)
+			FlushNATS(client)
 
 			// Publish multiple messages
 			for i := 0; i < 10; i++ {
@@ -189,7 +145,7 @@ var _ = Describe("Phase 0: Foundation", Label("Distributed"), func() {
 		})
 
 		It("should reconnect after disconnect", func() {
-			client, err := messaging.New(natsURL)
+			client, err := messaging.New(infra.NatsURL)
 			Expect(err).ToNot(HaveOccurred())
 			defer client.Close()
 
@@ -249,7 +205,7 @@ var _ = Describe("Phase 0: Foundation", Label("Distributed"), func() {
 
 		BeforeEach(func() {
 			var err error
-			db, err = gorm.Open(pgdriver.Open(pgURL), &gorm.Config{
+			db, err = gorm.Open(pgdriver.Open(infra.PGURL), &gorm.Config{
 				Logger: logger.Default.LogMode(logger.Silent),
 			})
 			Expect(err).ToNot(HaveOccurred())

@@ -1,4 +1,4 @@
-package services
+package agentpool
 
 import (
 	"cmp"
@@ -9,6 +9,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -50,11 +51,12 @@ type AgentPoolService struct {
 	userStorage        *UserScopedStorage
 	authDB             *gorm.DB
 	skillStore         *distributed.SkillStore // PostgreSQL skill metadata (distributed mode)
+	configBackend      AgentConfigBackend      // Abstracts local vs distributed agent operations
 
 	// Distributed mode fields
 	natsClient  NATSClient                // NATS client for distributed agent execution
 	eventBridge AgentEventBridge          // Event bridge for SSE + persistence
-	agentStore  AgentConfigStore          // PostgreSQL agent config store
+	agentStore  *agents.AgentStore        // PostgreSQL agent config store
 	dispatcher  agents.Dispatcher         // Native dispatcher (distributed or local)
 	apiURL      string                    // Resolved API URL for agent execution
 	apiKey      string                    // Resolved API key for agent execution
@@ -125,7 +127,7 @@ func (s *AgentPoolService) Start(ctx context.Context) error {
 // startDistributed initializes the native agent executor with NATS dispatcher.
 // No LocalAGI pool is created — agent execution is stateless.
 // Skills and collections are still initialized for the frontend UI.
-func (s *AgentPoolService) startDistributed(_ context.Context, apiURL, apiKey string) error {
+func (s *AgentPoolService) startDistributed(ctx context.Context, apiURL, apiKey string) error {
 	cfg := s.appConfig.AgentPool
 
 	// State dir for skills and outputs
@@ -191,8 +193,11 @@ func (s *AgentPoolService) startDistributed(_ context.Context, apiURL, apiKey st
 			messaging.SubjectAgentExecute,
 			schedulerOpts...,
 		)
-		go scheduler.Start(context.Background())
+		go scheduler.Start(ctx)
 	}
+
+	// Wire the distributed config backend
+	s.configBackend = newDistributedAgentConfigBackend(s, s.agentStore)
 
 	xlog.Info("Agent pool started in distributed mode (frontend dispatcher only)", "apiURL", apiURL, "stateDir", stateDir)
 	return nil
@@ -300,19 +305,22 @@ func (s *AgentPoolService) startLocalAGI(_ context.Context, cfg config.AgentPool
 		xlog.Error("Failed to start agent pool", "error", err)
 	}
 
+	// Wire the local config backend
+	s.configBackend = newLocalAgentConfigBackend(s)
+
 	xlog.Info("Agent pool started (standalone/LocalAGI mode)", "stateDir", stateDir, "apiURL", apiURL)
 	return nil
 }
 
 func (s *AgentPoolService) Stop() {
-	if s.pool != nil {
-		s.pool.StopAll()
+	if s.configBackend != nil {
+		s.configBackend.Stop()
 	}
 }
 
-// IsDistributed returns true if the service is running in distributed mode.
-func (s *AgentPoolService) IsDistributed() bool {
-	return s.natsClient != nil
+// ConfigBackend returns the underlying AgentConfigBackend.
+func (s *AgentPoolService) ConfigBackend() AgentConfigBackend {
+	return s.configBackend
 }
 
 // APIURL returns the resolved API URL for agent execution.
@@ -341,7 +349,7 @@ func (s *AgentPoolService) SetEventBridge(eb AgentEventBridge) {
 }
 
 // SetAgentStore sets the PostgreSQL agent config store.
-func (s *AgentPoolService) SetAgentStore(store AgentConfigStore) {
+func (s *AgentPoolService) SetAgentStore(store *agents.AgentStore) {
 	s.agentStore = store
 }
 
@@ -352,10 +360,9 @@ func (s *AgentPoolService) SetAgentStore(store AgentConfigStore) {
 // --- Agent CRUD ---
 
 func (s *AgentPoolService) GetAgent(name string) *agent.Agent {
-	if s.pool == nil {
-		return nil
-	}
-	return s.pool.GetAgent(name)
+	// GetAgent is used by the responses interceptor to check if a model name
+	// is an agent. It uses the raw pool key (no userID prefix).
+	return s.configBackend.GetAgent("", name)
 }
 
 // Chat sends a message to an agent and returns immediately. Responses come via SSE.
@@ -525,6 +532,12 @@ func (s *AgentPoolService) GetConfigMeta() state.AgentConfigMeta {
 	return s.configMeta
 }
 
+// GetConfigMetaResult returns the config metadata via the backend, which handles
+// local vs distributed differences (LocalAGI metadata vs native static metadata).
+func (s *AgentPoolService) GetConfigMetaResult() AgentConfigMetaResult {
+	return s.configBackend.GetConfigMeta()
+}
+
 func (s *AgentPoolService) AgentHubURL() string {
 	return s.appConfig.AgentPool.AgentHubURL
 }
@@ -539,33 +552,14 @@ func (s *AgentPoolService) OutputsDir() string {
 
 // ExportAgent returns the agent config as JSON bytes.
 func (s *AgentPoolService) ExportAgent(name string) ([]byte, error) {
-	if s.pool != nil {
-		cfg := s.pool.GetConfig(name)
-		if cfg != nil {
-			return json.MarshalIndent(cfg, "", "  ")
-		}
+	// Extract userID and agent name from the key (format: "userID:agentName")
+	userID := ""
+	agentName := name
+	if u, a, ok := strings.Cut(name, ":"); ok {
+		userID = u
+		agentName = a
 	}
-	// Fall back to PostgreSQL in distributed mode
-	if s.agentStore != nil {
-		// Try to extract userID and agent name from the key
-		userID := ""
-		agentName := name
-		if u, a, ok := strings.Cut(name, ":"); ok {
-			userID = u
-			agentName = a
-		}
-		rec, err := s.agentStore.GetConfig(userID, agentName)
-		if err != nil || rec == nil {
-			return nil, fmt.Errorf("agent not found: %s", name)
-		}
-		// Return the raw config JSON (already properly formatted)
-		var pretty json.RawMessage
-		if err := json.Unmarshal([]byte(rec.ConfigJSON), &pretty); err == nil {
-			return json.MarshalIndent(pretty, "", "  ")
-		}
-		return []byte(rec.ConfigJSON), nil
-	}
-	return nil, fmt.Errorf("agent not found: %s", name)
+	return s.configBackend.ExportConfig(userID, agentName)
 }
 
 // --- User Services ---
@@ -606,45 +600,7 @@ type UserAgentInfo struct {
 // ListAllAgentsGrouped returns all agents grouped by user ID.
 // Keys without ":" go into the "" (root) group.
 func (s *AgentPoolService) ListAllAgentsGrouped() map[string][]UserAgentInfo {
-	result := map[string][]UserAgentInfo{}
-
-	// In distributed mode, read from PostgreSQL
-	if s.pool == nil && s.agentStore != nil {
-		configs, err := s.agentStore.ListConfigs("")
-		if err != nil {
-			return result
-		}
-		for _, cfg := range configs {
-			result[cfg.UserID] = append(result[cfg.UserID], UserAgentInfo{
-				Name:   cfg.Name,
-				Active: cfg.Status == "active",
-			})
-		}
-		return result
-	}
-
-	if s.pool == nil {
-		return result
-	}
-
-	agents := s.pool.List()
-	for _, a := range agents {
-		ag := s.pool.GetAgent(a)
-		if ag == nil {
-			continue
-		}
-		userID := ""
-		name := a
-		if u, n, ok := strings.Cut(a, ":"); ok {
-			userID = u
-			name = n
-		}
-		result[userID] = append(result[userID], UserAgentInfo{
-			Name:   name,
-			Active: !ag.Paused(),
-		})
-	}
-	return result
+	return s.configBackend.ListAllGrouped()
 }
 
 // --- ForUser Collections ---
@@ -677,10 +633,8 @@ func (s *AgentPoolService) ensureCollectionForUser(userID, name string) error {
 	if err != nil {
 		return err
 	}
-	for _, c := range collections {
-		if c == name {
-			return nil
-		}
+	if slices.Contains(collections, name) {
+		return nil
 	}
 	return backend.CreateCollection(name)
 }
@@ -786,53 +740,10 @@ func (s *AgentPoolService) GetCollectionEntryFilePathForUser(userID, collection,
 
 // --- ForUser Agent Methods ---
 
-// agentKey returns the namespaced key for an agent: "{userID}:{name}" or just "{name}" if no userID.
-func agentKey(userID, name string) string {
-	if userID == "" {
-		return name
-	}
-	return userID + ":" + name
-}
-
 // ListAgentsForUser lists agents belonging to a specific user.
 // If userID is empty, returns all agents (backward compat).
 func (s *AgentPoolService) ListAgentsForUser(userID string) map[string]bool {
-	// In distributed mode, read from PostgreSQL
-	if s.agentStore != nil {
-		statuses := map[string]bool{}
-		configs, err := s.agentStore.ListConfigs(userID)
-		if err != nil {
-			xlog.Error("Failed to list agents from database", "error", err)
-			return statuses
-		}
-		for _, cfg := range configs {
-			statuses[cfg.Name] = cfg.Status == "active"
-		}
-		return statuses
-	}
-
-	// Local mode: read from in-memory pool
-	statuses := map[string]bool{}
-	agents := s.pool.List()
-	prefix := ""
-	if userID != "" {
-		prefix = userID + ":"
-	}
-	for _, a := range agents {
-		if userID != "" && !strings.HasPrefix(a, prefix) {
-			continue
-		}
-		ag := s.pool.GetAgent(a)
-		if ag == nil {
-			continue
-		}
-		displayName := a
-		if prefix != "" {
-			displayName = strings.TrimPrefix(a, prefix)
-		}
-		statuses[displayName] = !ag.Paused()
-	}
-	return statuses
+	return s.configBackend.ListAgents(userID)
 }
 
 // CreateAgentForUser creates an agent namespaced to a user.
@@ -853,22 +764,8 @@ func (s *AgentPoolService) CreateAgentForUser(userID string, config *state.Agent
 		xlog.Info("Auto-generated API key for agent", "agent", config.Name, "user", userID)
 	}
 
-	key := agentKey(userID, config.Name)
-
-	// Persist to PostgreSQL in distributed mode
-	if s.agentStore != nil {
-		configJSON, err := json.Marshal(config)
-		if err != nil {
-			return fmt.Errorf("failed to marshal agent config: %w", err)
-		}
-		if err := s.agentStore.SaveConfig(&agents.AgentConfigRecord{
-			UserID:     userID,
-			Name:       config.Name,
-			ConfigJSON: string(configJSON),
-			Status:     "active",
-		}); err != nil {
-			return fmt.Errorf("failed to save agent config to database: %w", err)
-		}
+	if err := s.configBackend.SaveConfig(userID, config); err != nil {
+		return err
 	}
 
 	// Auto-create collection when knowledge base or long-term memory is enabled
@@ -878,69 +775,22 @@ func (s *AgentPoolService) CreateAgentForUser(userID string, config *state.Agent
 		}
 	}
 
-	// In distributed mode, DB save is sufficient — no local pool
-	if s.pool == nil {
-		return nil
-	}
-	config.Name = key
-	return s.pool.CreateAgent(key, config)
+	return nil
 }
 
 // GetAgentForUser returns the agent for a user.
+// Returns nil in distributed mode where agents don't run in-process.
 func (s *AgentPoolService) GetAgentForUser(userID, name string) *agent.Agent {
-	if s.pool == nil {
-		return nil
-	}
-	return s.pool.GetAgent(agentKey(userID, name))
+	return s.configBackend.GetAgent(userID, name)
 }
 
 // GetAgentConfigForUser returns the agent config for a user's agent.
 func (s *AgentPoolService) GetAgentConfigForUser(userID, name string) *state.AgentConfig {
-	if s.pool != nil {
-		cfg := s.pool.GetConfig(agentKey(userID, name))
-		if cfg != nil {
-			// Return a copy with the original name (strip userID: prefix)
-			// to avoid leaking the internal key into the UI.
-			result := *cfg
-			result.Name = name
-			return &result
-		}
-	}
-	// Fall back to PostgreSQL in distributed mode
-	if s.agentStore != nil {
-		rec, err := s.agentStore.GetConfig(userID, name)
-		if err != nil || rec == nil {
-			return nil
-		}
-		var agentCfg state.AgentConfig
-		if json.Unmarshal([]byte(rec.ConfigJSON), &agentCfg) != nil {
-			return nil
-		}
-		return &agentCfg
-	}
-	return nil
+	return s.configBackend.GetConfig(userID, name)
 }
 
 // UpdateAgentForUser updates a user's agent.
 func (s *AgentPoolService) UpdateAgentForUser(userID, name string, config *state.AgentConfig) error {
-	key := agentKey(userID, name)
-
-	// Check if agent exists (pool or DB)
-	found := false
-	if s.pool != nil {
-		if old := s.pool.GetConfig(key); old != nil {
-			found = true
-		}
-	}
-	if !found && s.agentStore != nil {
-		if _, err := s.agentStore.GetConfig(userID, name); err == nil {
-			found = true
-		}
-	}
-	if !found {
-		return fmt.Errorf("agent not found: %s", name)
-	}
-
 	// Auto-generate a user API key when auth is active and none is specified
 	if s.authDB != nil && userID != "" && config.APIKey == "" {
 		plaintext, _, err := auth.CreateAPIKey(s.authDB, userID, "agent:"+name, "user", s.appConfig.Auth.APIKeyHMACSecret, nil)
@@ -950,20 +800,8 @@ func (s *AgentPoolService) UpdateAgentForUser(userID, name string, config *state
 		config.APIKey = plaintext
 	}
 
-	// Persist to PostgreSQL in distributed mode
-	if s.agentStore != nil {
-		configJSON, err := json.Marshal(config)
-		if err != nil {
-			return fmt.Errorf("failed to marshal agent config: %w", err)
-		}
-		if err := s.agentStore.SaveConfig(&agents.AgentConfigRecord{
-			UserID:     userID,
-			Name:       config.Name,
-			ConfigJSON: string(configJSON),
-			Status:     "active",
-		}); err != nil {
-			return fmt.Errorf("failed to update agent config in database: %w", err)
-		}
+	if err := s.configBackend.UpdateConfig(userID, name, config); err != nil {
+		return err
 	}
 
 	// Auto-create collection when knowledge base or long-term memory is enabled
@@ -973,99 +811,44 @@ func (s *AgentPoolService) UpdateAgentForUser(userID, name string, config *state
 		}
 	}
 
-	if s.pool == nil {
-		return nil
-	}
-	config.Name = key
-	return s.pool.RecreateAgent(key, config)
+	return nil
 }
 
 // DeleteAgentForUser deletes a user's agent.
 func (s *AgentPoolService) DeleteAgentForUser(userID, name string) error {
-	if s.agentStore != nil {
-		if err := s.agentStore.DeleteConfig(userID, name); err != nil {
-			xlog.Warn("Failed to delete agent config from database", "error", err)
-		}
-	}
-	if s.pool == nil {
-		return nil
-	}
-	return s.pool.Remove(agentKey(userID, name))
+	return s.configBackend.DeleteConfig(userID, name)
 }
 
 // PauseAgentForUser pauses a user's agent.
 func (s *AgentPoolService) PauseAgentForUser(userID, name string) error {
-	// In distributed mode, update status in DB
-	if s.agentStore != nil {
-		return s.agentStore.UpdateStatus(userID, name, "paused")
-	}
-	if s.pool == nil {
-		return fmt.Errorf("agent not found: %s", name)
-	}
-	ag := s.pool.GetAgent(agentKey(userID, name))
-	if ag == nil {
-		return fmt.Errorf("agent not found: %s", name)
-	}
-	ag.Pause()
-	return nil
+	return s.configBackend.SetStatus(userID, name, "paused")
 }
 
 // ResumeAgentForUser resumes a user's agent.
 func (s *AgentPoolService) ResumeAgentForUser(userID, name string) error {
-	if s.agentStore != nil {
-		return s.agentStore.UpdateStatus(userID, name, "active")
-	}
-	if s.pool == nil {
-		return fmt.Errorf("agent not found: %s", name)
-	}
-	ag := s.pool.GetAgent(agentKey(userID, name))
-	if ag == nil {
-		return fmt.Errorf("agent not found: %s", name)
-	}
-	ag.Resume()
-	return nil
+	return s.configBackend.SetStatus(userID, name, "active")
 }
 
 // GetAgentStatusForUser returns the status of a user's agent.
+// Returns nil in distributed mode where status is not tracked in-process.
 func (s *AgentPoolService) GetAgentStatusForUser(userID, name string) *state.Status {
-	if s.pool == nil {
-		return nil
-	}
-	return s.pool.GetStatusHistory(agentKey(userID, name))
+	return s.configBackend.GetStatus(userID, name)
 }
 
 // GetAgentObservablesForUser returns observables for a user's agent.
-func (s *AgentPoolService) GetAgentObservablesForUser(userID, name string) ([]coreTypes.Observable, error) {
-	if s.pool == nil {
-		return nil, nil
-	}
-	ag := s.pool.GetAgent(agentKey(userID, name))
-	if ag == nil {
-		return nil, fmt.Errorf("agent not found: %s", name)
-	}
-	return ag.Observer().History(), nil
+// In local mode returns []coreTypes.Observable; in distributed mode returns []map[string]any.
+func (s *AgentPoolService) GetAgentObservablesForUser(userID, name string) (any, error) {
+	return s.configBackend.GetObservables(userID, name)
 }
 
 // ClearAgentObservablesForUser clears observables for a user's agent.
 func (s *AgentPoolService) ClearAgentObservablesForUser(userID, name string) error {
-	if s.pool == nil {
-		return nil
-	}
-	ag := s.pool.GetAgent(agentKey(userID, name))
-	if ag == nil {
-		return fmt.Errorf("agent not found: %s", name)
-	}
-	ag.Observer().ClearHistory()
-	return nil
+	return s.configBackend.ClearObservables(userID, name)
 }
 
 // ChatForUser sends a message to a user's agent.
 func (s *AgentPoolService) ChatForUser(userID, name, message string) (string, error) {
-	if s.natsClient != nil {
-		// Distributed mode: dispatch via NATS queue
-		return s.dispatchChat(userID, name, message)
-	}
-	return s.Chat(agentKey(userID, name), message)
+	return s.configBackend.Chat(userID, name, message)
 }
 
 // dispatchChat publishes a chat event to the NATS agent execution queue.
@@ -1119,16 +902,14 @@ func (s *AgentPoolService) dispatchChat(userID, name, message string) (string, e
 }
 
 // GetSSEManagerForUser returns the SSE manager for a user's agent.
+// Returns nil in distributed mode where SSE is handled by EventBridge.
 func (s *AgentPoolService) GetSSEManagerForUser(userID, name string) sse.Manager {
-	if s.pool == nil {
-		return nil
-	}
-	return s.pool.GetManager(agentKey(userID, name))
+	return s.configBackend.GetSSEManager(userID, name)
 }
 
 // ExportAgentForUser exports a user's agent config.
 func (s *AgentPoolService) ExportAgentForUser(userID, name string) ([]byte, error) {
-	return s.ExportAgent(agentKey(userID, name))
+	return s.ExportAgent(agents.AgentKey(userID, name))
 }
 
 // ImportAgentForUser imports an agent for a user.
@@ -1150,28 +931,7 @@ func (s *AgentPoolService) ImportAgentForUser(userID string, data []byte) error 
 		cfg.APIKey = plaintext
 	}
 
-	// Persist to PostgreSQL in distributed mode
-	if s.agentStore != nil {
-		configJSON, err := json.Marshal(cfg)
-		if err != nil {
-			return fmt.Errorf("failed to marshal agent config: %w", err)
-		}
-		if err := s.agentStore.SaveConfig(&agents.AgentConfigRecord{
-			UserID:     userID,
-			Name:       cfg.Name,
-			ConfigJSON: string(configJSON),
-			Status:     "active",
-		}); err != nil {
-			return fmt.Errorf("failed to save imported agent config: %w", err)
-		}
-	}
-
-	if s.pool == nil {
-		return nil
-	}
-	key := agentKey(userID, cfg.Name)
-	cfg.Name = key
-	return s.pool.CreateAgent(key, &cfg)
+	return s.configBackend.ImportConfig(userID, &cfg)
 }
 
 // --- ForUser Collections ---
@@ -1230,8 +990,9 @@ func (s *AgentPoolService) JobServiceForUser(userID string) (*AgentJobService, e
 // --- Actions ---
 
 // ListAvailableActions returns the list of all available action type names.
+// In distributed mode, returns an empty list (actions are configured as MCP tools per agent).
 func (s *AgentPoolService) ListAvailableActions() []string {
-	return agiServices.AvailableActions
+	return s.configBackend.ListAvailableActions()
 }
 
 // GetActionDefinition creates an action instance by name with the given config and returns its definition.

@@ -24,6 +24,12 @@ type AgentConfigRecord struct {
 
 func (AgentConfigRecord) TableName() string { return "agent_configs" }
 
+const (
+	StatusActive  = "active"
+	StatusPaused  = "paused"
+	StatusDeleted = "deleted"
+)
+
 // AgentObservableRecord persists agent action traces (reasoning, tool calls, etc.).
 type AgentObservableRecord struct {
 	ID         string    `gorm:"primaryKey;size:36" json:"id"`
@@ -95,7 +101,7 @@ func (s *AgentStore) GetConfigByID(id string) (*AgentConfigRecord, error) {
 // ListConfigs returns all agent configs for a user.
 func (s *AgentStore) ListConfigs(userID string) ([]AgentConfigRecord, error) {
 	var configs []AgentConfigRecord
-	q := s.db.Where("status != ?", "deleted").Order("name")
+	q := s.db.Where("status != ?", StatusDeleted).Order("name")
 	if userID != "" {
 		q = q.Where("user_id = ?", userID)
 	}
@@ -109,7 +115,7 @@ func (s *AgentStore) ListConfigs(userID string) ([]AgentConfigRecord, error) {
 func (s *AgentStore) DeleteConfig(userID, name string) error {
 	return s.db.Model(&AgentConfigRecord{}).
 		Where("user_id = ? AND name = ?", userID, name).
-		Update("status", "deleted").Error
+		Update("status", StatusDeleted).Error
 }
 
 // HardDeleteConfig permanently removes an agent config.

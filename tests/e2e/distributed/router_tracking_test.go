@@ -1,9 +1,7 @@
 package distributed_test
 
 import (
-	"context"
 	"encoding/json"
-	"time"
 
 	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/nodes"
@@ -16,10 +14,6 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/nats-io/nats.go"
-	"github.com/testcontainers/testcontainers-go"
-	tcnats "github.com/testcontainers/testcontainers-go/modules/nats"
-	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
-	"github.com/testcontainers/testcontainers-go/wait"
 
 	pgdriver "gorm.io/driver/postgres"
 	gormDB "gorm.io/gorm"
@@ -43,39 +37,20 @@ func (t *trackingTestLLM) Predict(opts *pb.PredictOptions) (string, error) {
 
 var _ = Describe("SmartRouter trackingKey", Label("Distributed"), func() {
 	var (
-		ctx           context.Context
-		pgContainer   *tcpostgres.PostgresContainer
-		natsContainer *tcnats.NATSContainer
-		nc            *messaging.Client
-		db            *gormDB.DB
-		registry      *nodes.NodeRegistry
-		router        *nodes.SmartRouter
-		grpcCleanup   func()
-		grpcAddr      string
-		nodeID        string
+		infra       *TestInfra
+		db          *gormDB.DB
+		registry    *nodes.NodeRegistry
+		router      *nodes.SmartRouter
+		grpcCleanup func()
+		grpcAddr    string
+		nodeID      string
 	)
 
 	BeforeEach(func() {
-		ctx = context.Background()
+		infra = SetupInfra("localai_tracking_test")
 
-		// Start PostgreSQL
 		var err error
-		pgContainer, err = tcpostgres.Run(ctx, "postgres:16-alpine",
-			tcpostgres.WithDatabase("localai_tracking_test"),
-			tcpostgres.WithUsername("test"),
-			tcpostgres.WithPassword("test"),
-			testcontainers.WithWaitStrategy(
-				wait.ForLog("database system is ready to accept connections").
-					WithOccurrence(2).
-					WithStartupTimeout(30*time.Second),
-			),
-		)
-		Expect(err).ToNot(HaveOccurred())
-
-		pgURL, err := pgContainer.ConnectionString(ctx, "sslmode=disable")
-		Expect(err).ToNot(HaveOccurred())
-
-		db, err = gormDB.Open(pgdriver.Open(pgURL), &gormDB.Config{
+		db, err = gormDB.Open(pgdriver.Open(infra.PGURL), &gormDB.Config{
 			Logger: logger.Default.LogMode(logger.Silent),
 		})
 		Expect(err).ToNot(HaveOccurred())
@@ -83,18 +58,8 @@ var _ = Describe("SmartRouter trackingKey", Label("Distributed"), func() {
 		registry, err = nodes.NewNodeRegistry(db)
 		Expect(err).ToNot(HaveOccurred())
 
-		// Start NATS for backend.install mock
-		natsContainer, err = tcnats.Run(ctx, "nats:2-alpine")
-		Expect(err).ToNot(HaveOccurred())
-
-		natsURL, err := natsContainer.ConnectionString(ctx)
-		Expect(err).ToNot(HaveOccurred())
-
-		nc, err = messaging.New(natsURL)
-		Expect(err).ToNot(HaveOccurred())
-
 		// Mock backend.install handler — always replies success
-		nc.Conn().Subscribe("nodes.*.backend.install", func(msg *nats.Msg) {
+		infra.NC.Conn().Subscribe("nodes.*.backend.install", func(msg *nats.Msg) {
 			reply := messaging.BackendInstallReply{Success: true}
 			data, _ := json.Marshal(reply)
 			msg.Respond(data)
@@ -113,7 +78,7 @@ var _ = Describe("SmartRouter trackingKey", Label("Distributed"), func() {
 		nodeID = node.ID
 
 		router = nodes.NewSmartRouter(registry)
-		unloader := nodes.NewRemoteUnloaderAdapter(registry, nc)
+		unloader := nodes.NewRemoteUnloaderAdapter(registry, infra.NC)
 		router.SetUnloader(unloader)
 	})
 
@@ -121,19 +86,10 @@ var _ = Describe("SmartRouter trackingKey", Label("Distributed"), func() {
 		if grpcCleanup != nil {
 			grpcCleanup()
 		}
-		if nc != nil {
-			nc.Close()
-		}
-		if pgContainer != nil {
-			pgContainer.Terminate(ctx)
-		}
-		if natsContainer != nil {
-			natsContainer.Terminate(ctx)
-		}
 	})
 
 	It("records model under modelID when modelID is provided", func() {
-		result, err := router.Route(ctx, "my-model-id", "path/to/model.gguf", "llama-cpp",
+		result, err := router.Route(infra.Ctx, "my-model-id", "path/to/model.gguf", "llama-cpp",
 			&pb.ModelOptions{ModelFile: "path/to/model.gguf"}, false)
 		Expect(err).ToNot(HaveOccurred())
 		defer result.Release()
@@ -146,7 +102,7 @@ var _ = Describe("SmartRouter trackingKey", Label("Distributed"), func() {
 	})
 
 	It("records model under modelName when modelID is empty (backward compat)", func() {
-		result, err := router.Route(ctx, "", "legacy/model.bin", "llama-cpp",
+		result, err := router.Route(infra.Ctx, "", "legacy/model.bin", "llama-cpp",
 			&pb.ModelOptions{ModelFile: "legacy/model.bin"}, false)
 		Expect(err).ToNot(HaveOccurred())
 		defer result.Release()
@@ -158,7 +114,7 @@ var _ = Describe("SmartRouter trackingKey", Label("Distributed"), func() {
 	})
 
 	It("FindNodesWithModel(modelID) finds node; FindNodesWithModel(modelName) does not", func() {
-		result, err := router.Route(ctx, "distinct-id", "distinct/path.gguf", "llama-cpp",
+		result, err := router.Route(infra.Ctx, "distinct-id", "distinct/path.gguf", "llama-cpp",
 			&pb.ModelOptions{ModelFile: "distinct/path.gguf"}, false)
 		Expect(err).ToNot(HaveOccurred())
 		defer result.Release()
@@ -176,7 +132,7 @@ var _ = Describe("SmartRouter trackingKey", Label("Distributed"), func() {
 
 	It("InFlight tracking increments and decrements via registry", func() {
 		// Route to establish model record
-		result, err := router.Route(ctx, "release-model", "release/path.gguf", "llama-cpp",
+		result, err := router.Route(infra.Ctx, "release-model", "release/path.gguf", "llama-cpp",
 			&pb.ModelOptions{ModelFile: "release/path.gguf"}, false)
 		Expect(err).ToNot(HaveOccurred())
 		defer result.Release()
@@ -209,7 +165,7 @@ var _ = Describe("SmartRouter trackingKey", Label("Distributed"), func() {
 
 	It("clears stale model record when node is unreachable", func() {
 		// First route to establish the model record
-		result, err := router.Route(ctx, "stale-check", "stale/path.gguf", "llama-cpp",
+		result, err := router.Route(infra.Ctx, "stale-check", "stale/path.gguf", "llama-cpp",
 			&pb.ModelOptions{ModelFile: "stale/path.gguf"}, false)
 		Expect(err).ToNot(HaveOccurred())
 		result.Release()
@@ -226,7 +182,7 @@ var _ = Describe("SmartRouter trackingKey", Label("Distributed"), func() {
 		// Route again — should detect unreachable node and clear stale record
 		// (it will fall through to FindLeastLoadedNode + backend.install which succeeds,
 		// but the LoadModel gRPC call will fail since the server is down)
-		_, err = router.Route(ctx, "stale-check", "stale/path.gguf", "llama-cpp",
+		_, err = router.Route(infra.Ctx, "stale-check", "stale/path.gguf", "llama-cpp",
 			&pb.ModelOptions{ModelFile: "stale/path.gguf"}, false)
 		// Expect an error since the only node is down (LoadModel fails)
 		Expect(err).To(HaveOccurred())

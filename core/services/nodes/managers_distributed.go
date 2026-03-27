@@ -8,7 +8,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
-	"github.com/mudler/LocalAI/core/services"
+	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/xlog"
 )
@@ -16,7 +16,7 @@ import (
 // DistributedModelManager wraps a local ModelManager and adds NATS fan-out
 // for model deletion so worker nodes clean up stale files.
 type DistributedModelManager struct {
-	local   services.ModelManager
+	local   galleryop.ModelManager
 	adapter *RemoteUnloaderAdapter
 }
 
@@ -24,7 +24,7 @@ type DistributedModelManager struct {
 // Backend auto-install is disabled because the frontend node delegates
 // inference to workers and never runs backends locally.
 func NewDistributedModelManager(appConfig *config.ApplicationConfig, ml *model.ModelLoader, adapter *RemoteUnloaderAdapter) *DistributedModelManager {
-	local := services.NewLocalModelManager(appConfig, ml)
+	local := galleryop.NewLocalModelManager(appConfig, ml)
 	local.SetAutoInstallBackend(false)
 	return &DistributedModelManager{
 		local:   local,
@@ -41,14 +41,14 @@ func (d *DistributedModelManager) DeleteModel(name string) error {
 	return err
 }
 
-func (d *DistributedModelManager) InstallModel(ctx context.Context, op *services.ManagementOp[gallery.GalleryModel, gallery.ModelConfig], progressCb services.ProgressCallback) error {
+func (d *DistributedModelManager) InstallModel(ctx context.Context, op *galleryop.ManagementOp[gallery.GalleryModel, gallery.ModelConfig], progressCb galleryop.ProgressCallback) error {
 	return d.local.InstallModel(ctx, op, progressCb)
 }
 
 // DistributedBackendManager wraps a local BackendManager and adds NATS fan-out
 // for backend deletion so worker nodes clean up stale files.
 type DistributedBackendManager struct {
-	local    services.BackendManager
+	local    galleryop.BackendManager
 	adapter  *RemoteUnloaderAdapter
 	registry *NodeRegistry
 }
@@ -56,7 +56,7 @@ type DistributedBackendManager struct {
 // NewDistributedBackendManager creates a DistributedBackendManager.
 func NewDistributedBackendManager(appConfig *config.ApplicationConfig, ml *model.ModelLoader, adapter *RemoteUnloaderAdapter, registry *NodeRegistry) *DistributedBackendManager {
 	return &DistributedBackendManager{
-		local:    services.NewLocalBackendManager(appConfig, ml),
+		local:    galleryop.NewLocalBackendManager(appConfig, ml),
 		adapter:  adapter,
 		registry: registry,
 	}
@@ -130,7 +130,7 @@ func (d *DistributedBackendManager) ListBackends() (gallery.SystemBackends, erro
 }
 
 // InstallBackend fans out backend installation to all healthy worker nodes.
-func (d *DistributedBackendManager) InstallBackend(ctx context.Context, op *services.ManagementOp[gallery.GalleryBackend, any], progressCb services.ProgressCallback) error {
+func (d *DistributedBackendManager) InstallBackend(ctx context.Context, op *galleryop.ManagementOp[gallery.GalleryBackend, any], progressCb galleryop.ProgressCallback) error {
 	allNodes, err := d.registry.List()
 	if err != nil {
 		return err

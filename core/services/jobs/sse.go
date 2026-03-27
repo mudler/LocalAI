@@ -61,7 +61,9 @@ func (d *Dispatcher) SSEHandler() echo.HandlerFunc {
 			}
 		})
 		if err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to subscribe"})
+			// Headers already written as SSE — cannot send JSON error; use SSE event instead
+			sendEvent("error", map[string]string{"error": "failed to subscribe"})
+			return nil
 		}
 		defer sub.Unsubscribe()
 

@@ -152,7 +152,9 @@ func (d *Dispatcher) Start(ctx context.Context) error {
 		// Subscribe to trace events from workers (persist to DB)
 		d.progressSub, err = messaging.SubscribeJSON(d.nats, messaging.SubjectJobProgressWildcard, func(evt ProgressEvent) {
 			if evt.TraceType != "" && evt.TraceContent != "" {
-				d.store.AppendJobTrace(evt.JobID, evt.TraceType, evt.TraceContent)
+				if err := d.store.AppendJobTrace(evt.JobID, evt.TraceType, evt.TraceContent); err != nil {
+					xlog.Error("Failed to append job trace", "job_id", evt.JobID, "trace_type", evt.TraceType, "error", err)
+				}
 			}
 		})
 		if err != nil {
@@ -357,11 +359,16 @@ func (d *Dispatcher) cronLeaderLoop() {
 		case <-d.ctx.Done():
 			return
 		case <-ticker.C:
-			if !advisorylock.TryLock(d.db, messaging.AdvisoryLockCronScheduler) {
+			acquired, err := advisorylock.TryWithLock(d.db, messaging.AdvisoryLockCronScheduler, func() error {
+				d.runDueCronTasks()
+				return nil
+			})
+			if err != nil {
+				xlog.Error("Cron leader advisory lock error", "error", err)
+			}
+			if !acquired {
 				continue
 			}
-			d.runDueCronTasks()
-			advisorylock.Unlock(d.db, messaging.AdvisoryLockCronScheduler)
 		}
 	}
 }

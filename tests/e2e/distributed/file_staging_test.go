@@ -2,10 +2,8 @@ package distributed_test
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"path/filepath"
-	"time"
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/services/messaging"
@@ -15,11 +13,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/testcontainers/testcontainers-go"
-	tcnats "github.com/testcontainers/testcontainers-go/modules/nats"
-	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
-	"github.com/testcontainers/testcontainers-go/wait"
-
 	pgdriver "gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -27,64 +20,24 @@ import (
 
 var _ = Describe("File Staging", Label("Distributed"), func() {
 	var (
-		ctx           context.Context
-		pgContainer   *tcpostgres.PostgresContainer
-		natsContainer *tcnats.NATSContainer
-		db            *gorm.DB
-		nc            *messaging.Client
-		registry      *nodes.NodeRegistry
-		tmpDir        string
+		infra    *TestInfra
+		db       *gorm.DB
+		registry *nodes.NodeRegistry
+		tmpDir   string
 	)
 
 	BeforeEach(func() {
-		ctx = context.Background()
+		infra = SetupInfra("localai_filestaging_test")
 		tmpDir = GinkgoT().TempDir()
 
 		var err error
-
-		pgContainer, err = tcpostgres.Run(ctx, "postgres:16-alpine",
-			tcpostgres.WithDatabase("localai_filestaging_test"),
-			tcpostgres.WithUsername("test"),
-			tcpostgres.WithPassword("test"),
-			testcontainers.WithWaitStrategy(
-				wait.ForLog("database system is ready to accept connections").
-					WithOccurrence(2).
-					WithStartupTimeout(30*time.Second),
-			),
-		)
-		Expect(err).ToNot(HaveOccurred())
-
-		pgURL, err := pgContainer.ConnectionString(ctx, "sslmode=disable")
-		Expect(err).ToNot(HaveOccurred())
-
-		db, err = gorm.Open(pgdriver.Open(pgURL), &gorm.Config{
+		db, err = gorm.Open(pgdriver.Open(infra.PGURL), &gorm.Config{
 			Logger: logger.Default.LogMode(logger.Silent),
 		})
 		Expect(err).ToNot(HaveOccurred())
 
-		natsContainer, err = tcnats.Run(ctx, "nats:2-alpine")
-		Expect(err).ToNot(HaveOccurred())
-
-		natsURL, err := natsContainer.ConnectionString(ctx)
-		Expect(err).ToNot(HaveOccurred())
-
-		nc, err = messaging.New(natsURL)
-		Expect(err).ToNot(HaveOccurred())
-
 		registry, err = nodes.NewNodeRegistry(db)
 		Expect(err).ToNot(HaveOccurred())
-	})
-
-	AfterEach(func() {
-		if nc != nil {
-			nc.Close()
-		}
-		if pgContainer != nil {
-			pgContainer.Terminate(ctx)
-		}
-		if natsContainer != nil {
-			natsContainer.Terminate(ctx)
-		}
 	})
 
 	Context("S3NATSFileStager", func() {
@@ -99,7 +52,7 @@ var _ = Describe("File Staging", Label("Distributed"), func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(fm.IsConfigured()).To(BeTrue())
 
-			stager := nodes.NewS3NATSFileStager(fm, nc)
+			stager := nodes.NewS3NATSFileStager(fm, infra.NC)
 			Expect(stager).ToNot(BeNil())
 		})
 	})
@@ -112,18 +65,18 @@ var _ = Describe("File Staging", Label("Distributed"), func() {
 			Expect(stager).ToNot(BeNil())
 
 			// Should fail gracefully when node resolution fails
-			_, err := stager.EnsureRemote(ctx, "node-1", "/tmp/model.gguf", "models/model.gguf")
+			_, err := stager.EnsureRemote(infra.Ctx, "node-1", "/tmp/model.gguf", "models/model.gguf")
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("resolving HTTP address"))
 
-			err = stager.FetchRemote(ctx, "node-1", "/tmp/output.bin", "/tmp/local.bin")
+			err = stager.FetchRemote(infra.Ctx, "node-1", "/tmp/output.bin", "/tmp/local.bin")
 			Expect(err).To(HaveOccurred())
 
-			_, err = stager.AllocRemoteTemp(ctx, "node-1")
+			_, err = stager.AllocRemoteTemp(infra.Ctx, "node-1")
 			Expect(err).To(HaveOccurred())
 
 			// StageRemoteToStore is a no-op in HTTP mode
-			err = stager.StageRemoteToStore(ctx, "node-1", "/tmp/file", "key")
+			err = stager.StageRemoteToStore(infra.Ctx, "node-1", "/tmp/file", "key")
 			Expect(err).ToNot(HaveOccurred())
 		})
 	})
@@ -141,7 +94,7 @@ var _ = Describe("File Staging", Label("Distributed"), func() {
 
 			// Seed a file in the store to simulate it being in S3
 			key := storage.ModelKey("test-model.gguf")
-			Expect(store.Put(ctx, key, bytes.NewReader([]byte("model data")))).To(Succeed())
+			Expect(store.Put(infra.Ctx, key, bytes.NewReader([]byte("model data")))).To(Succeed())
 
 			node := &nodes.BackendNode{
 				Name: "staging-node", Address: "h1:50051",
@@ -171,10 +124,10 @@ var _ = Describe("File Staging", Label("Distributed"), func() {
 			Expect(fm.IsConfigured()).To(BeFalse())
 
 			// Upload and download are no-ops
-			Expect(fm.Upload(ctx, "key", "/nonexistent")).To(Succeed())
-			Expect(fm.Delete(ctx, "key")).To(Succeed())
+			Expect(fm.Upload(infra.Ctx, "key", "/nonexistent")).To(Succeed())
+			Expect(fm.Delete(infra.Ctx, "key")).To(Succeed())
 
-			exists, _ := fm.Exists(ctx, "key")
+			exists, _ := fm.Exists(infra.Ctx, "key")
 			Expect(exists).To(BeFalse())
 		})
 	})

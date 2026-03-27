@@ -1,4 +1,4 @@
-package services
+package finetune
 
 import (
 	"context"

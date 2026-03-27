@@ -20,11 +20,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/testcontainers/testcontainers-go"
-	tcnats "github.com/testcontainers/testcontainers-go/modules/nats"
-	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
-	"github.com/testcontainers/testcontainers-go/wait"
-
 	pgdriver "gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -135,6 +130,7 @@ func (p *staticSkillProviderTest) ListSkills() ([]agents.SkillInfo, error) {
 // startAgentMockLLMServer starts a mock OpenAI-compatible HTTP server that returns
 // the given response text. Supports both streaming and non-streaming requests.
 func startAgentMockLLMServer(responseText string) (string, func()) {
+	GinkgoHelper()
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/v1/chat/completions" {
 			http.NotFound(w, r)
@@ -236,46 +232,18 @@ func (a *natsAdapter) QueueSubscribe(subject, queue string, handler func([]byte)
 
 var _ = Describe("Native Agent Executor", Label("Distributed", "AgentNative"), func() {
 	var (
-		ctx           context.Context
-		pgContainer   *tcpostgres.PostgresContainer
-		natsContainer *tcnats.NATSContainer
-		db            *gorm.DB
-		nc            *messaging.Client
-		store         *agents.AgentStore
+		infra *TestInfra
+		db    *gorm.DB
+		store *agents.AgentStore
 	)
 
 	BeforeEach(func() {
-		ctx = context.Background()
+		infra = SetupInfra("localai_agent_native_test")
 
 		var err error
-
-		pgContainer, err = tcpostgres.Run(ctx, "postgres:16-alpine",
-			tcpostgres.WithDatabase("localai_agent_native_test"),
-			tcpostgres.WithUsername("test"),
-			tcpostgres.WithPassword("test"),
-			testcontainers.WithWaitStrategy(
-				wait.ForLog("database system is ready to accept connections").
-					WithOccurrence(2).
-					WithStartupTimeout(30*time.Second),
-			),
-		)
-		Expect(err).ToNot(HaveOccurred())
-
-		pgURL, err := pgContainer.ConnectionString(ctx, "sslmode=disable")
-		Expect(err).ToNot(HaveOccurred())
-
-		db, err = gorm.Open(pgdriver.Open(pgURL), &gorm.Config{
+		db, err = gorm.Open(pgdriver.Open(infra.PGURL), &gorm.Config{
 			Logger: logger.Default.LogMode(logger.Silent),
 		})
-		Expect(err).ToNot(HaveOccurred())
-
-		natsContainer, err = tcnats.Run(ctx, "nats:2-alpine")
-		Expect(err).ToNot(HaveOccurred())
-
-		natsURL, err := natsContainer.ConnectionString(ctx)
-		Expect(err).ToNot(HaveOccurred())
-
-		nc, err = messaging.New(natsURL)
 		Expect(err).ToNot(HaveOccurred())
 
 		store, err = agents.NewAgentStore(db)
@@ -283,18 +251,6 @@ var _ = Describe("Native Agent Executor", Label("Distributed", "AgentNative"), f
 
 		// Also migrate BackendNode for registration tests
 		Expect(db.AutoMigrate(&nodes.BackendNode{})).To(Succeed())
-	})
-
-	AfterEach(func() {
-		if nc != nil {
-			nc.Close()
-		}
-		if pgContainer != nil {
-			pgContainer.Terminate(ctx)
-		}
-		if natsContainer != nil {
-			natsContainer.Terminate(ctx)
-		}
 	})
 
 	Context("ExecuteChat", func() {
@@ -325,7 +281,7 @@ var _ = Describe("Native Agent Executor", Label("Distributed", "AgentNative"), f
 				},
 			}
 
-			response, err := agents.ExecuteChatWithLLM(ctx, llm, cfg, "Hi there", cb)
+			response, err := agents.ExecuteChatWithLLM(infra.Ctx, llm, cfg, "Hi there", cb)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(response).To(ContainSubstring("AI assistant"))
 
@@ -339,7 +295,7 @@ var _ = Describe("Native Agent Executor", Label("Distributed", "AgentNative"), f
 
 		It("should return error when no model is configured", func() {
 			cfg := &agents.AgentConfig{Name: "no-model"}
-			_, err := agents.ExecuteChat(ctx, "http://localhost", "", cfg, "hello", agents.Callbacks{})
+			_, err := agents.ExecuteChat(infra.Ctx, "http://localhost", "", cfg, "hello", agents.Callbacks{})
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("no model configured"))
 		})
@@ -353,7 +309,7 @@ var _ = Describe("Native Agent Executor", Label("Distributed", "AgentNative"), f
 				Model: "test",
 			}
 
-			cancelCtx, cancel := context.WithCancel(ctx)
+			cancelCtx, cancel := context.WithCancel(infra.Ctx)
 			cancel() // cancel immediately
 
 			_, err := agents.ExecuteChatWithLLM(cancelCtx, slowLLM, cfg, "hello", agents.Callbacks{})
@@ -365,7 +321,7 @@ var _ = Describe("Native Agent Executor", Label("Distributed", "AgentNative"), f
 
 	Context("NATSDispatcher", func() {
 		It("should dispatch chat via NATS and receive response", func() {
-			bridge := agents.NewEventBridge(nc, nil, "test-instance")
+			bridge := agents.NewEventBridge(infra.NC, nil, "test-instance")
 
 			configs := &mockConfigProvider{configs: map[string]*agents.AgentConfig{
 				"test-agent": {
@@ -379,7 +335,7 @@ var _ = Describe("Native Agent Executor", Label("Distributed", "AgentNative"), f
 			var receivedEvents []agents.AgentEvent
 			var eventMu sync.Mutex
 
-			sub, err := nc.Subscribe(messaging.SubjectAgentEvents("test-agent", "user1"), func(data []byte) {
+			sub, err := infra.NC.Subscribe(messaging.SubjectAgentEvents("test-agent", "user1"), func(data []byte) {
 				var evt agents.AgentEvent
 				if json.Unmarshal(data, &evt) == nil {
 					eventMu.Lock()
@@ -390,10 +346,10 @@ var _ = Describe("Native Agent Executor", Label("Distributed", "AgentNative"), f
 			Expect(err).ToNot(HaveOccurred())
 			defer sub.Unsubscribe()
 
-			adapter := &natsAdapter{client: nc}
+			adapter := &natsAdapter{client: infra.NC}
 			dispatcher := agents.NewNATSDispatcher(adapter, bridge, configs, "http://localhost:8080", "test-key", "agent.test.execute", "test-workers")
 
-			err = dispatcher.Start(ctx)
+			err = dispatcher.Start(infra.Ctx)
 			Expect(err).ToNot(HaveOccurred())
 
 			// Dispatch a chat
@@ -427,7 +383,7 @@ var _ = Describe("Native Agent Executor", Label("Distributed", "AgentNative"), f
 		})
 
 		It("should handle cancellation via EventBridge", func() {
-			bridge := agents.NewEventBridge(nc, nil, "cancel-test")
+			bridge := agents.NewEventBridge(infra.NC, nil, "cancel-test")
 
 			var cancelled atomic.Bool
 			bridge.RegisterCancel("test-agent", "user1", func() {
@@ -439,7 +395,7 @@ var _ = Describe("Native Agent Executor", Label("Distributed", "AgentNative"), f
 			Expect(err).ToNot(HaveOccurred())
 			defer cancelSub.Unsubscribe()
 
-			time.Sleep(100 * time.Millisecond)
+			FlushNATS(infra.NC)
 
 			// Cancel the execution
 			Expect(bridge.CancelExecution("test-agent", "user1")).To(Succeed())
@@ -448,17 +404,17 @@ var _ = Describe("Native Agent Executor", Label("Distributed", "AgentNative"), f
 		})
 
 		It("should execute agent chat from enriched payload without ConfigProvider", func() {
-			bridge := agents.NewEventBridge(nc, nil, "enriched-test")
+			bridge := agents.NewEventBridge(infra.NC, nil, "enriched-test")
 
 			// Create dispatcher with NO ConfigProvider (simulating DB-free worker)
-			adapter := &natsAdapter{client: nc}
+			adapter := &natsAdapter{client: infra.NC}
 			dispatcher := agents.NewNATSDispatcher(adapter, bridge, nil, "http://localhost:8080", "test-key", "agent.enriched.execute", "enriched-workers")
-			Expect(dispatcher.Start(ctx)).To(Succeed())
+			Expect(dispatcher.Start(infra.Ctx)).To(Succeed())
 
 			// Subscribe to events to verify processing
 			var receivedEvents []agents.AgentEvent
 			var eventMu sync.Mutex
-			sub, err := nc.Subscribe(messaging.SubjectAgentEvents("enriched-agent", "user1"), func(data []byte) {
+			sub, err := infra.NC.Subscribe(messaging.SubjectAgentEvents("enriched-agent", "user1"), func(data []byte) {
 				var evt agents.AgentEvent
 				if json.Unmarshal(data, &evt) == nil {
 					eventMu.Lock()
@@ -469,7 +425,7 @@ var _ = Describe("Native Agent Executor", Label("Distributed", "AgentNative"), f
 			Expect(err).ToNot(HaveOccurred())
 			defer sub.Unsubscribe()
 
-			time.Sleep(100 * time.Millisecond)
+			FlushNATS(infra.NC)
 
 			// Publish an enriched AgentChatEvent with embedded Config directly to the queue
 			evt := agents.AgentChatEvent{
@@ -484,7 +440,7 @@ var _ = Describe("Native Agent Executor", Label("Distributed", "AgentNative"), f
 					SystemPrompt: "Be helpful.",
 				},
 			}
-			Expect(nc.Publish("agent.enriched.execute", evt)).To(Succeed())
+			Expect(infra.NC.Publish("agent.enriched.execute", evt)).To(Succeed())
 
 			// The dispatcher should process this even without a ConfigProvider.
 			// It will fail at ExecuteChat (no real LLM), but it should at least
@@ -508,33 +464,33 @@ var _ = Describe("Native Agent Executor", Label("Distributed", "AgentNative"), f
 				"rr-agent": {Name: "rr-agent", Model: "test"},
 			}}
 
-			bridge1 := agents.NewEventBridge(nc, nil, "instance-1")
-			bridge2 := agents.NewEventBridge(nc, nil, "instance-2")
+			bridge1 := agents.NewEventBridge(infra.NC, nil, "instance-1")
+			bridge2 := agents.NewEventBridge(infra.NC, nil, "instance-2")
 
-			adapter := &natsAdapter{client: nc}
+			adapter := &natsAdapter{client: infra.NC}
 
 			var count1, count2 atomic.Int32
 
 			// We can't easily inject mock LLMs into NATSDispatcher since it
 			// uses ConfigProvider → ExecuteChat. Instead, we test that
 			// the NATS queue distributes messages between two subscribers.
-			sub1, err := nc.QueueSubscribe("agent.rr.execute", "rr-workers", func(data []byte) {
+			sub1, err := infra.NC.QueueSubscribe("agent.rr.execute", "rr-workers", func(data []byte) {
 				count1.Add(1)
 			})
 			Expect(err).ToNot(HaveOccurred())
 			defer sub1.Unsubscribe()
 
-			sub2, err := nc.QueueSubscribe("agent.rr.execute", "rr-workers", func(data []byte) {
+			sub2, err := infra.NC.QueueSubscribe("agent.rr.execute", "rr-workers", func(data []byte) {
 				count2.Add(1)
 			})
 			Expect(err).ToNot(HaveOccurred())
 			defer sub2.Unsubscribe()
 
-			time.Sleep(100 * time.Millisecond)
+			FlushNATS(infra.NC)
 
 			// Send 10 messages
 			for i := 0; i < 10; i++ {
-				nc.Publish("agent.rr.execute", agents.AgentChatEvent{
+				infra.NC.Publish("agent.rr.execute", agents.AgentChatEvent{
 					AgentName: "rr-agent",
 					UserID:    "user1",
 					Message:   "hello",
@@ -676,7 +632,7 @@ var _ = Describe("Native Agent Executor", Label("Distributed", "AgentNative"), f
 
 	Context("Full Distributed Chat Flow", func() {
 		It("should dispatch chat via NATS, execute, and publish response via EventBridge", func() {
-			bridge := agents.NewEventBridge(nc, nil, "flow-test")
+			bridge := agents.NewEventBridge(infra.NC, nil, "flow-test")
 
 			// Store agent config in PostgreSQL
 			cfg := agents.AgentConfig{
@@ -696,7 +652,7 @@ var _ = Describe("Native Agent Executor", Label("Distributed", "AgentNative"), f
 			// Subscribe to events to capture the full flow
 			var receivedEvents []agents.AgentEvent
 			var eventMu sync.Mutex
-			sub, err := nc.Subscribe(messaging.SubjectAgentEvents("flow-agent", "user1"), func(data []byte) {
+			sub, err := infra.NC.Subscribe(messaging.SubjectAgentEvents("flow-agent", "user1"), func(data []byte) {
 				var evt agents.AgentEvent
 				if json.Unmarshal(data, &evt) == nil {
 					eventMu.Lock()
@@ -707,13 +663,13 @@ var _ = Describe("Native Agent Executor", Label("Distributed", "AgentNative"), f
 			Expect(err).ToNot(HaveOccurred())
 			defer sub.Unsubscribe()
 
-			adapter := &natsAdapter{client: nc}
+			adapter := &natsAdapter{client: infra.NC}
 			configs := &mockConfigProvider{configs: map[string]*agents.AgentConfig{
 				"flow-agent": &cfg,
 			}}
 
 			dispatcher := agents.NewNATSDispatcher(adapter, bridge, configs, "http://localhost:8080", "test-key", "agent.flow.execute", "flow-workers")
-			Expect(dispatcher.Start(ctx)).To(Succeed())
+			Expect(dispatcher.Start(infra.Ctx)).To(Succeed())
 
 			// Dispatch
 			messageID, err := dispatcher.Dispatch("user1", "flow-agent", "Hello flow test")
@@ -756,7 +712,7 @@ var _ = Describe("Native Agent Executor", Label("Distributed", "AgentNative"), f
 
 			cb := agents.Callbacks{}
 
-			response, err := agents.ExecuteBackgroundRun(ctx, "http://localhost:8080", "key", cfg, cb)
+			response, err := agents.ExecuteBackgroundRun(infra.Ctx, "http://localhost:8080", "key", cfg, cb)
 			// The response may be empty due to mock LLM behavior with cogito,
 			// but the function should not error
 			_ = response
@@ -777,11 +733,11 @@ var _ = Describe("Native Agent Executor", Label("Distributed", "AgentNative"), f
 			Expect(agents.DefaultInnerMonologueTemplate).To(ContainSubstring("{{.Goal}}"))
 
 			// The function should not panic with empty template
-			_, _ = agents.ExecuteBackgroundRun(ctx, "http://localhost:8080", "key", cfg, agents.Callbacks{})
+			_, _ = agents.ExecuteBackgroundRun(infra.Ctx, "http://localhost:8080", "key", cfg, agents.Callbacks{})
 		})
 
 		It("should dispatch background run via NATS with system role", func() {
-			bridge := agents.NewEventBridge(nc, nil, "bg-test")
+			bridge := agents.NewEventBridge(infra.NC, nil, "bg-test")
 
 			cfg := agents.AgentConfig{
 				Name:          "bg-agent",
@@ -790,7 +746,7 @@ var _ = Describe("Native Agent Executor", Label("Distributed", "AgentNative"), f
 				SystemPrompt:  "You are a monitoring agent.",
 			}
 
-			adapter := &natsAdapter{client: nc}
+			adapter := &natsAdapter{client: infra.NC}
 			configs := &mockConfigProvider{configs: map[string]*agents.AgentConfig{
 				"bg-agent": &cfg,
 			}}
@@ -798,7 +754,7 @@ var _ = Describe("Native Agent Executor", Label("Distributed", "AgentNative"), f
 			// Subscribe to capture events
 			var receivedEvents []agents.AgentEvent
 			var eventMu sync.Mutex
-			sub, err := nc.Subscribe(messaging.SubjectAgentEvents("bg-agent", "system"), func(data []byte) {
+			sub, err := infra.NC.Subscribe(messaging.SubjectAgentEvents("bg-agent", "system"), func(data []byte) {
 				var evt agents.AgentEvent
 				if json.Unmarshal(data, &evt) == nil {
 					eventMu.Lock()
@@ -810,7 +766,7 @@ var _ = Describe("Native Agent Executor", Label("Distributed", "AgentNative"), f
 			defer sub.Unsubscribe()
 
 			dispatcher := agents.NewNATSDispatcher(adapter, bridge, configs, "http://localhost:8080", "test-key", "agent.bg.execute", "bg-workers")
-			Expect(dispatcher.Start(ctx)).To(Succeed())
+			Expect(dispatcher.Start(infra.Ctx)).To(Succeed())
 
 			// Dispatch as background/system role
 			evt := agents.AgentChatEvent{
@@ -820,7 +776,7 @@ var _ = Describe("Native Agent Executor", Label("Distributed", "AgentNative"), f
 				MessageID: "bg-1",
 				Role:      "system",
 			}
-			Expect(nc.Publish("agent.bg.execute", evt)).To(Succeed())
+			Expect(infra.NC.Publish("agent.bg.execute", evt)).To(Succeed())
 
 			// Should receive at least a processing status
 			Eventually(func() int {
@@ -917,7 +873,7 @@ var _ = Describe("Native Agent Executor", Label("Distributed", "AgentNative"), f
 			// Subscribe to NATS to capture background run events
 			var receivedEvents []agents.AgentChatEvent
 			var eventMu sync.Mutex
-			sub, err := nc.Subscribe("agent.sched.execute", func(data []byte) {
+			sub, err := infra.NC.Subscribe("agent.sched.execute", func(data []byte) {
 				var evt agents.AgentChatEvent
 				if json.Unmarshal(data, &evt) == nil {
 					eventMu.Lock()
@@ -929,10 +885,10 @@ var _ = Describe("Native Agent Executor", Label("Distributed", "AgentNative"), f
 			defer sub.Unsubscribe()
 
 			// Start scheduler with short poll interval for testing
-			adapter := &natsAdapter{client: nc}
+			adapter := &natsAdapter{client: infra.NC}
 			scheduler := agents.NewAgentScheduler(db, adapter, store, "agent.sched.execute")
 
-			schedCtx, schedCancel := context.WithCancel(ctx)
+			schedCtx, schedCancel := context.WithCancel(infra.Ctx)
 			defer schedCancel()
 			go scheduler.Start(schedCtx)
 
@@ -1053,7 +1009,7 @@ var _ = Describe("Native Agent Executor", Label("Distributed", "AgentNative"), f
 				SkillProvider: &staticSkillProviderTest{skills: skills},
 			}
 
-			response, err := agents.ExecuteChatWithLLM(ctx, llm, cfg, "Find me info about Go", cb, opts)
+			response, err := agents.ExecuteChatWithLLM(infra.Ctx, llm, cfg, "Find me info about Go", cb, opts)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(response).To(ContainSubstring("web search skill"))
 
@@ -1096,7 +1052,7 @@ var _ = Describe("Native Agent Executor", Label("Distributed", "AgentNative"), f
 				SkillProvider: &staticSkillProviderTest{skills: skills},
 			}
 
-			_, err := agents.ExecuteChatWithLLM(ctx, llm, cfg, "Analyze this data", agents.Callbacks{}, opts)
+			_, err := agents.ExecuteChatWithLLM(infra.Ctx, llm, cfg, "Analyze this data", agents.Callbacks{}, opts)
 			Expect(err).ToNot(HaveOccurred())
 
 			// Verify system prompt contains skill content
@@ -1114,12 +1070,12 @@ var _ = Describe("Native Agent Executor", Label("Distributed", "AgentNative"), f
 			llmURL, llmShutdown := startAgentMockLLMServer("I found the answer using my skills.")
 			defer llmShutdown()
 
-			bridge := agents.NewEventBridge(nc, nil, "full-e2e-test")
+			bridge := agents.NewEventBridge(infra.NC, nil, "full-e2e-test")
 
 			// Subscribe to agent events
 			var receivedEvents []agents.AgentEvent
 			var eventMu sync.Mutex
-			sub, err := nc.Subscribe(messaging.SubjectAgentEvents("e2e-agent", "user1"), func(data []byte) {
+			sub, err := infra.NC.Subscribe(messaging.SubjectAgentEvents("e2e-agent", "user1"), func(data []byte) {
 				var evt agents.AgentEvent
 				if json.Unmarshal(data, &evt) == nil {
 					eventMu.Lock()
@@ -1130,12 +1086,12 @@ var _ = Describe("Native Agent Executor", Label("Distributed", "AgentNative"), f
 			Expect(err).ToNot(HaveOccurred())
 			defer sub.Unsubscribe()
 
-			adapter := &natsAdapter{client: nc}
+			adapter := &natsAdapter{client: infra.NC}
 			// Point dispatcher at our mock LLM server
 			dispatcher := agents.NewNATSDispatcher(adapter, bridge, nil, llmURL, "test-key", "agent.e2e.execute", "e2e-workers")
-			Expect(dispatcher.Start(ctx)).To(Succeed())
+			Expect(dispatcher.Start(infra.Ctx)).To(Succeed())
 
-			time.Sleep(100 * time.Millisecond)
+			FlushNATS(infra.NC)
 
 			// Publish enriched event with skills
 			evt := agents.AgentChatEvent{
@@ -1155,7 +1111,7 @@ var _ = Describe("Native Agent Executor", Label("Distributed", "AgentNative"), f
 					{Name: "search", Description: "Search the web", Content: "Full search skill content here"},
 				},
 			}
-			Expect(nc.Publish("agent.e2e.execute", evt)).To(Succeed())
+			Expect(infra.NC.Publish("agent.e2e.execute", evt)).To(Succeed())
 
 			// Wait for the full execution: user message + processing + agent response + completed
 			Eventually(func() int {
@@ -1190,12 +1146,12 @@ var _ = Describe("Native Agent Executor", Label("Distributed", "AgentNative"), f
 			llmURL, llmShutdown := startAgentMockLLMServer("All systems operational. No issues detected.")
 			defer llmShutdown()
 
-			bridge := agents.NewEventBridge(nc, nil, "bg-e2e-test")
+			bridge := agents.NewEventBridge(infra.NC, nil, "bg-e2e-test")
 
 			// Subscribe to agent events
 			var receivedEvents []agents.AgentEvent
 			var eventMu sync.Mutex
-			sub, err := nc.Subscribe(messaging.SubjectAgentEvents("bg-e2e-agent", "system"), func(data []byte) {
+			sub, err := infra.NC.Subscribe(messaging.SubjectAgentEvents("bg-e2e-agent", "system"), func(data []byte) {
 				var evt agents.AgentEvent
 				if json.Unmarshal(data, &evt) == nil {
 					eventMu.Lock()
@@ -1206,11 +1162,11 @@ var _ = Describe("Native Agent Executor", Label("Distributed", "AgentNative"), f
 			Expect(err).ToNot(HaveOccurred())
 			defer sub.Unsubscribe()
 
-			adapter := &natsAdapter{client: nc}
+			adapter := &natsAdapter{client: infra.NC}
 			dispatcher := agents.NewNATSDispatcher(adapter, bridge, nil, llmURL, "test-key", "agent.bg-e2e.execute", "bg-e2e-workers")
-			Expect(dispatcher.Start(ctx)).To(Succeed())
+			Expect(dispatcher.Start(infra.Ctx)).To(Succeed())
 
-			time.Sleep(100 * time.Millisecond)
+			FlushNATS(infra.NC)
 
 			// Publish as system role (background/autonomous run)
 			evt := agents.AgentChatEvent{
@@ -1227,7 +1183,7 @@ var _ = Describe("Native Agent Executor", Label("Distributed", "AgentNative"), f
 					InnerMonologueTemplate: "Your goal is: {{.Goal}}. What should you do?",
 				},
 			}
-			Expect(nc.Publish("agent.bg-e2e.execute", evt)).To(Succeed())
+			Expect(infra.NC.Publish("agent.bg-e2e.execute", evt)).To(Succeed())
 
 			// Wait for agent response
 			Eventually(func() int {
@@ -1294,7 +1250,7 @@ var _ = Describe("Native Agent Executor", Label("Distributed", "AgentNative"), f
 				},
 			}
 
-			response, err := agents.ExecuteBackgroundRunWithLLM(ctx, llm, cfg, cb)
+			response, err := agents.ExecuteBackgroundRunWithLLM(infra.Ctx, llm, cfg, cb)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(response).To(ContainSubstring("System health"))
 
@@ -1337,7 +1293,7 @@ var _ = Describe("Native Agent Executor", Label("Distributed", "AgentNative"), f
 				SkillProvider: &staticSkillProviderTest{skills: skills},
 			}
 
-			response, err := agents.ExecuteBackgroundRunWithLLM(ctx, llm, cfg, agents.Callbacks{}, opts)
+			response, err := agents.ExecuteBackgroundRunWithLLM(infra.Ctx, llm, cfg, agents.Callbacks{}, opts)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(response).To(ContainSubstring("monitoring skill"))
 

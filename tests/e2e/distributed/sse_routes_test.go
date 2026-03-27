@@ -2,21 +2,13 @@ package distributed_test
 
 import (
 	"context"
-	"sync/atomic"
-	"time"
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/services/agents"
 	"github.com/mudler/LocalAI/core/services/jobs"
-	"github.com/mudler/LocalAI/core/services/messaging"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
-	"github.com/testcontainers/testcontainers-go"
-	tcnats "github.com/testcontainers/testcontainers-go/modules/nats"
-	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
-	"github.com/testcontainers/testcontainers-go/wait"
 
 	pgdriver "gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -25,58 +17,18 @@ import (
 
 var _ = Describe("SSE Routes", Label("Distributed"), func() {
 	var (
-		ctx           context.Context
-		pgContainer   *tcpostgres.PostgresContainer
-		natsContainer *tcnats.NATSContainer
-		db            *gorm.DB
-		nc            *messaging.Client
+		infra *TestInfra
+		db    *gorm.DB
 	)
 
 	BeforeEach(func() {
-		ctx = context.Background()
+		infra = SetupInfra("localai_sse_test")
 
 		var err error
-
-		pgContainer, err = tcpostgres.Run(ctx, "postgres:16-alpine",
-			tcpostgres.WithDatabase("localai_sse_test"),
-			tcpostgres.WithUsername("test"),
-			tcpostgres.WithPassword("test"),
-			testcontainers.WithWaitStrategy(
-				wait.ForLog("database system is ready to accept connections").
-					WithOccurrence(2).
-					WithStartupTimeout(30*time.Second),
-			),
-		)
-		Expect(err).ToNot(HaveOccurred())
-
-		pgURL, err := pgContainer.ConnectionString(ctx, "sslmode=disable")
-		Expect(err).ToNot(HaveOccurred())
-
-		db, err = gorm.Open(pgdriver.Open(pgURL), &gorm.Config{
+		db, err = gorm.Open(pgdriver.Open(infra.PGURL), &gorm.Config{
 			Logger: logger.Default.LogMode(logger.Silent),
 		})
 		Expect(err).ToNot(HaveOccurred())
-
-		natsContainer, err = tcnats.Run(ctx, "nats:2-alpine")
-		Expect(err).ToNot(HaveOccurred())
-
-		natsURL, err := natsContainer.ConnectionString(ctx)
-		Expect(err).ToNot(HaveOccurred())
-
-		nc, err = messaging.New(natsURL)
-		Expect(err).ToNot(HaveOccurred())
-	})
-
-	AfterEach(func() {
-		if nc != nil {
-			nc.Close()
-		}
-		if pgContainer != nil {
-			pgContainer.Terminate(ctx)
-		}
-		if natsContainer != nil {
-			natsContainer.Terminate(ctx)
-		}
 	})
 
 	Context("Job progress SSE endpoint", func() {
@@ -84,9 +36,9 @@ var _ = Describe("SSE Routes", Label("Distributed"), func() {
 			jobStore, err := jobs.NewJobStore(db)
 			Expect(err).ToNot(HaveOccurred())
 
-			dispatcher := jobs.NewDispatcher(jobStore, nc, db, "sse-instance")
+			dispatcher := jobs.NewDispatcher(jobStore, infra.NC, db, "sse-instance")
 
-			dCtx, dCancel := context.WithCancel(ctx)
+			dCtx, dCancel := context.WithCancel(infra.Ctx)
 			defer dCancel()
 			Expect(dispatcher.Start(dCtx)).To(Succeed())
 			defer dispatcher.Stop()
@@ -100,7 +52,7 @@ var _ = Describe("SSE Routes", Label("Distributed"), func() {
 			Expect(err).ToNot(HaveOccurred())
 			defer sub.Unsubscribe()
 
-			time.Sleep(100 * time.Millisecond)
+			FlushNATS(infra.NC)
 
 			dispatcher.PublishProgress("job-sse-test", "running", "step 1")
 			dispatcher.PublishProgress("job-sse-test", "running", "step 2")
@@ -117,7 +69,7 @@ var _ = Describe("SSE Routes", Label("Distributed"), func() {
 			agentStore, err := agents.NewAgentStore(db)
 			Expect(err).ToNot(HaveOccurred())
 
-			bridge := agents.NewEventBridge(nc, agentStore, "sse-instance")
+			bridge := agents.NewEventBridge(infra.NC, agentStore, "sse-instance")
 
 			// Subscribe to agent events — verifies the bridge can deliver
 			// NATS events that an SSE endpoint would consume
@@ -128,7 +80,7 @@ var _ = Describe("SSE Routes", Label("Distributed"), func() {
 			Expect(err).ToNot(HaveOccurred())
 			defer sub.Unsubscribe()
 
-			time.Sleep(100 * time.Millisecond)
+			FlushNATS(infra.NC)
 
 			bridge.PublishMessage("test-agent", "user1", "user", "Hello", "msg-1")
 			bridge.PublishStatus("test-agent", "user1", "processing")
@@ -152,6 +104,3 @@ var _ = Describe("SSE Routes", Label("Distributed"), func() {
 		})
 	})
 })
-
-// suppress unused imports
-var _ = atomic.Int32{}

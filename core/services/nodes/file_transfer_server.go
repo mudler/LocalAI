@@ -27,6 +27,16 @@ import (
 // as well as backend log REST and WebSocket endpoints when logStore is non-nil.
 // Auth is via Bearer token (registration token), using constant-time comparison.
 func StartFileTransferServer(addr, stagingDir, modelsDir, dataDir, token string, logStore ...*model.BackendLogStore) (*http.Server, error) {
+	listener, err := net.Listen("tcp", addr)
+	if err != nil {
+		return nil, fmt.Errorf("listen %s: %w", addr, err)
+	}
+	return StartFileTransferServerWithListener(listener, stagingDir, modelsDir, dataDir, token, logStore...)
+}
+
+// StartFileTransferServerWithListener starts the server on an existing listener.
+// This avoids the TOCTOU race of closing a listener and re-binding to the same port.
+func StartFileTransferServerWithListener(lis net.Listener, stagingDir, modelsDir, dataDir, token string, logStore ...*model.BackendLogStore) (*http.Server, error) {
 	if err := os.MkdirAll(stagingDir, 0750); err != nil {
 		return nil, fmt.Errorf("creating staging dir %s: %w", stagingDir, err)
 	}
@@ -86,16 +96,12 @@ func StartFileTransferServer(addr, stagingDir, modelsDir, dataDir, token string,
 		registerBackendLogHandlers(mux, token, ls)
 	}
 
-	listener, err := net.Listen("tcp", addr)
-	if err != nil {
-		return nil, fmt.Errorf("listening on %s: %w", addr, err)
-	}
-
+	addr := lis.Addr().String()
 	server := &http.Server{Handler: mux}
 
 	go func() {
 		xlog.Info("HTTP file transfer server started", "addr", addr, "stagingDir", stagingDir, "modelsDir", modelsDir, "dataDir", dataDir)
-		if err := server.Serve(listener); err != nil && err != http.ErrServerClosed {
+		if err := server.Serve(lis); err != nil && err != http.ErrServerClosed {
 			xlog.Error("HTTP file transfer server error", "error", err)
 		}
 	}()

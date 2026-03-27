@@ -9,8 +9,18 @@ import (
 	"github.com/mudler/xlog"
 )
 
-// RemoteUnloaderAdapter implements model.RemoteModelUnloader by publishing
-// NATS events for backend process lifecycle. The worker process
+// NodeCommandSender abstracts NATS-based commands to worker nodes.
+// Used by HTTP endpoint handlers to avoid coupling to the concrete RemoteUnloaderAdapter.
+type NodeCommandSender interface {
+	InstallBackend(nodeID, backendType, modelID, galleriesJSON string) (*messaging.BackendInstallReply, error)
+	DeleteBackend(nodeID, backendName string) (*messaging.BackendDeleteReply, error)
+	ListBackends(nodeID string) (*messaging.BackendListReply, error)
+	StopBackend(nodeID, backend string) error
+	UnloadModelOnNode(nodeID, modelName string) error
+}
+
+// RemoteUnloaderAdapter implements NodeCommandSender and model.RemoteModelUnloader
+// by publishing NATS events for backend process lifecycle. The worker process
 // subscribes and handles the actual process start/stop.
 //
 // This mirrors the local ModelLoader's startProcess()/deleteProcess() but
@@ -41,7 +51,7 @@ func (a *RemoteUnloaderAdapter) UnloadRemoteModel(modelName string) error {
 
 	for _, node := range nodes {
 		xlog.Info("Sending NATS backend.stop to node", "model", modelName, "node", node.Name, "nodeID", node.ID)
-		if err := a.StopBackend(node.ID); err != nil {
+		if err := a.StopBackend(node.ID, modelName); err != nil {
 			xlog.Warn("Failed to send backend.stop", "node", node.Name, "error", err)
 			continue
 		}
@@ -106,12 +116,22 @@ func (a *RemoteUnloaderAdapter) ListBackends(nodeID string) (*messaging.BackendL
 	return &reply, nil
 }
 
-// StopBackend tells a worker node to stop its gRPC backend process.
-// Equivalent to the local deleteProcess(). The node will Free() + kill.
+// StopBackend tells a worker node to stop a specific gRPC backend process.
+// If backend is empty, the worker stops ALL backends.
 // The node stays registered and can receive another InstallBackend later.
-func (a *RemoteUnloaderAdapter) StopBackend(nodeID string) error {
+func (a *RemoteUnloaderAdapter) StopBackend(nodeID, backend string) error {
 	subject := messaging.SubjectNodeBackendStop(nodeID)
-	return a.nats.Conn().Publish(subject, nil)
+	if backend == "" {
+		return a.nats.Conn().Publish(subject, nil)
+	}
+	req := struct {
+		Backend string `json:"backend"`
+	}{Backend: backend}
+	data, err := json.Marshal(req)
+	if err != nil {
+		return fmt.Errorf("marshalling stop request: %w", err)
+	}
+	return a.nats.Conn().Publish(subject, data)
 }
 
 // DeleteBackend tells a worker node to delete a backend (stop + remove files).
@@ -178,7 +198,11 @@ func (a *RemoteUnloaderAdapter) DeleteModelFiles(modelName string) error {
 		xlog.Info("Sending NATS model.delete", "nodeID", node.ID, "model", modelName)
 
 		req := messaging.ModelDeleteRequest{ModelName: modelName}
-		reqData, _ := json.Marshal(req)
+		reqData, err := json.Marshal(req)
+		if err != nil {
+			xlog.Warn("model.delete marshal failed", "node", node.Name, "error", err)
+			continue
+		}
 
 		replyData, err := a.nats.Request(subject, reqData, 30*time.Second)
 		if err != nil {

@@ -70,11 +70,18 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB) (*distribut
 	}
 	xlog.Info("Connected to NATS", "url", cfg.Distributed.NatsURL)
 
+	// Ensure NATS is closed if any subsequent initialization step fails.
+	success := false
+	defer func() {
+		if !success {
+			natsClient.Close()
+		}
+	}()
+
 	// Initialize object storage
 	var store storage.ObjectStore
 	if cfg.Distributed.StorageURL != "" {
 		if cfg.Distributed.StorageBucket == "" {
-			natsClient.Close()
 			return nil, fmt.Errorf("distributed storage bucket must be set when storage URL is configured")
 		}
 		s3Store, err := storage.NewS3Store(storage.S3Config{
@@ -86,7 +93,6 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB) (*distribut
 			ForcePathStyle:  true, // required for MinIO
 		})
 		if err != nil {
-			natsClient.Close()
 			return nil, fmt.Errorf("initializing S3 storage: %w", err)
 		}
 		xlog.Info("Object storage initialized (S3)", "endpoint", cfg.Distributed.StorageURL, "bucket", cfg.Distributed.StorageBucket)
@@ -95,7 +101,6 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB) (*distribut
 		// Fallback to filesystem storage in distributed mode (useful for single-node testing)
 		fsStore, err := storage.NewFilesystemStore(cfg.DataPath + "/objectstore")
 		if err != nil {
-			natsClient.Close()
 			return nil, fmt.Errorf("initializing filesystem storage: %w", err)
 		}
 		xlog.Info("Object storage initialized (filesystem fallback)", "path", cfg.DataPath+"/objectstore")
@@ -104,13 +109,11 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB) (*distribut
 
 	// Initialize node registry (requires the auth DB which is PostgreSQL)
 	if authDB == nil {
-		natsClient.Close()
 		return nil, fmt.Errorf("distributed mode requires auth database to be initialized first")
 	}
 
 	registry, err := nodes.NewNodeRegistry(authDB)
 	if err != nil {
-		natsClient.Close()
 		return nil, fmt.Errorf("initializing node registry: %w", err)
 	}
 	xlog.Info("Node registry initialized")
@@ -122,12 +125,14 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB) (*distribut
 	if galleriesJSON, err := json.Marshal(cfg.BackendGalleries); err == nil {
 		router.SetGalleriesJSON(string(galleriesJSON))
 	}
-	healthMon := nodes.NewHealthMonitor(registry, authDB)
+	healthMon := nodes.NewHealthMonitor(registry, authDB,
+		cfg.Distributed.HealthCheckIntervalOrDefault(),
+		cfg.Distributed.StaleNodeThresholdOrDefault(),
+	)
 
 	// Initialize job store
 	jobStore, err := jobs.NewJobStore(authDB)
 	if err != nil {
-		natsClient.Close()
 		return nil, fmt.Errorf("initializing job store: %w", err)
 	}
 	xlog.Info("Distributed job store initialized")
@@ -138,7 +143,6 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB) (*distribut
 	// Initialize agent store
 	agentStore, err := agents.NewAgentStore(authDB)
 	if err != nil {
-		natsClient.Close()
 		return nil, fmt.Errorf("initializing agent store: %w", err)
 	}
 	xlog.Info("Distributed agent store initialized")
@@ -149,7 +153,6 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB) (*distribut
 	// Initialize Phase 4 stores (MCP, Gallery, FineTune, Skills)
 	distStores, err := distributed.InitStores(authDB)
 	if err != nil {
-		natsClient.Close()
 		return nil, fmt.Errorf("initializing distributed stores: %w", err)
 	}
 
@@ -157,7 +160,6 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB) (*distribut
 	cacheDir := cfg.DataPath + "/cache"
 	fileMgr, err := storage.NewFileManager(store, cacheDir)
 	if err != nil {
-		natsClient.Close()
 		return nil, fmt.Errorf("initializing file manager: %w", err)
 	}
 	xlog.Info("File manager initialized", "cacheDir", cacheDir)
@@ -185,6 +187,7 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB) (*distribut
 	// Create ModelRouterAdapter to wire into ModelLoader
 	modelAdapter := nodes.NewModelRouterAdapter(router)
 
+	success = true
 	return &distributedServices{
 		nats:         natsClient,
 		store:        store,

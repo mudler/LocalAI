@@ -1,9 +1,7 @@
 package distributed_test
 
 import (
-	"context"
 	"sync/atomic"
-	"time"
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/services/distributed"
@@ -12,11 +10,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/testcontainers/testcontainers-go"
-	tcnats "github.com/testcontainers/testcontainers-go/modules/nats"
-	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
-	"github.com/testcontainers/testcontainers-go/wait"
-
 	pgdriver "gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -24,62 +17,22 @@ import (
 
 var _ = Describe("Gallery Distributed", Label("Distributed"), func() {
 	var (
-		ctx           context.Context
-		pgContainer   *tcpostgres.PostgresContainer
-		natsContainer *tcnats.NATSContainer
-		db            *gorm.DB
-		nc            *messaging.Client
-		galleryStore  *distributed.GalleryStore
+		infra        *TestInfra
+		db           *gorm.DB
+		galleryStore *distributed.GalleryStore
 	)
 
 	BeforeEach(func() {
-		ctx = context.Background()
+		infra = SetupInfra("localai_gallery_dist_test")
 
 		var err error
-
-		pgContainer, err = tcpostgres.Run(ctx, "postgres:16-alpine",
-			tcpostgres.WithDatabase("localai_gallery_dist_test"),
-			tcpostgres.WithUsername("test"),
-			tcpostgres.WithPassword("test"),
-			testcontainers.WithWaitStrategy(
-				wait.ForLog("database system is ready to accept connections").
-					WithOccurrence(2).
-					WithStartupTimeout(30*time.Second),
-			),
-		)
-		Expect(err).ToNot(HaveOccurred())
-
-		pgURL, err := pgContainer.ConnectionString(ctx, "sslmode=disable")
-		Expect(err).ToNot(HaveOccurred())
-
-		db, err = gorm.Open(pgdriver.Open(pgURL), &gorm.Config{
+		db, err = gorm.Open(pgdriver.Open(infra.PGURL), &gorm.Config{
 			Logger: logger.Default.LogMode(logger.Silent),
 		})
 		Expect(err).ToNot(HaveOccurred())
 
-		natsContainer, err = tcnats.Run(ctx, "nats:2-alpine")
-		Expect(err).ToNot(HaveOccurred())
-
-		natsURL, err := natsContainer.ConnectionString(ctx)
-		Expect(err).ToNot(HaveOccurred())
-
-		nc, err = messaging.New(natsURL)
-		Expect(err).ToNot(HaveOccurred())
-
 		galleryStore, err = distributed.NewGalleryStore(db)
 		Expect(err).ToNot(HaveOccurred())
-	})
-
-	AfterEach(func() {
-		if nc != nil {
-			nc.Close()
-		}
-		if pgContainer != nil {
-			pgContainer.Terminate(ctx)
-		}
-		if natsContainer != nil {
-			natsContainer.Terminate(ctx)
-		}
 	})
 
 	Context("PostgreSQL gallery operations", func() {
@@ -125,22 +78,22 @@ var _ = Describe("Gallery Distributed", Label("Distributed"), func() {
 
 			// Subscribe to gallery progress
 			var received atomic.Int32
-			sub, err := nc.Subscribe(messaging.SubjectGalleryProgress(op.ID), func(data []byte) {
+			sub, err := infra.NC.Subscribe(messaging.SubjectGalleryProgress(op.ID), func(data []byte) {
 				received.Add(1)
 			})
 			Expect(err).ToNot(HaveOccurred())
 			defer sub.Unsubscribe()
 
-			time.Sleep(100 * time.Millisecond)
+			FlushNATS(infra.NC)
 
 			// Publish progress events
-			Expect(nc.Publish(messaging.SubjectGalleryProgress(op.ID), map[string]any{
+			Expect(infra.NC.Publish(messaging.SubjectGalleryProgress(op.ID), map[string]any{
 				"op_id":    op.ID,
 				"progress": 0.25,
 				"message":  "25%",
 			})).To(Succeed())
 
-			Expect(nc.Publish(messaging.SubjectGalleryProgress(op.ID), map[string]any{
+			Expect(infra.NC.Publish(messaging.SubjectGalleryProgress(op.ID), map[string]any{
 				"op_id":    op.ID,
 				"progress": 0.50,
 				"message":  "50%",
@@ -162,16 +115,16 @@ var _ = Describe("Gallery Distributed", Label("Distributed"), func() {
 
 			// Simulate another instance listening for cancel
 			var cancelReceived atomic.Bool
-			sub, err := nc.Subscribe(messaging.SubjectGalleryCancel(op.ID), func(data []byte) {
+			sub, err := infra.NC.Subscribe(messaging.SubjectGalleryCancel(op.ID), func(data []byte) {
 				cancelReceived.Store(true)
 			})
 			Expect(err).ToNot(HaveOccurred())
 			defer sub.Unsubscribe()
 
-			time.Sleep(100 * time.Millisecond)
+			FlushNATS(infra.NC)
 
 			// Send cancel from this instance
-			Expect(nc.Publish(messaging.SubjectGalleryCancel(op.ID), map[string]string{
+			Expect(infra.NC.Publish(messaging.SubjectGalleryCancel(op.ID), map[string]string{
 				"op_id": op.ID,
 			})).To(Succeed())
 

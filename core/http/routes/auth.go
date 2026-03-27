@@ -16,7 +16,7 @@ import (
 	"github.com/mudler/LocalAI/core/application"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/auth"
-	"github.com/mudler/LocalAI/core/services"
+	"github.com/mudler/LocalAI/core/services/galleryop"
 	"gorm.io/gorm"
 )
 
@@ -785,8 +785,8 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 		// Get available models
 		modelNames := []string{}
 		if app.ModelConfigLoader() != nil && app.ModelLoader() != nil {
-			names, err := services.ListModels(
-				app.ModelConfigLoader(), app.ModelLoader(), nil, services.SKIP_IF_CONFIGURED,
+			names, err := galleryop.ListModels(
+				app.ModelConfigLoader(), app.ModelLoader(), nil, galleryop.SKIP_IF_CONFIGURED,
 			)
 			if err == nil {
 				modelNames = names

@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -29,7 +28,7 @@ import (
 // @Param request body schema.OpenResponsesRequest true "Request body"
 // @Success 200 {object} schema.ORResponseResource "Response"
 // @Router /v1/responses [post]
-func ResponsesEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator *templates.Evaluator, appConfig *config.ApplicationConfig) echo.HandlerFunc {
+func ResponsesEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator *templates.Evaluator, appConfig *config.ApplicationConfig, natsClient mcpTools.MCPNATSClient) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		createdAt := time.Now().Unix()
 		responseID := fmt.Sprintf("resp_%s", uuid.New().String())
@@ -122,58 +121,16 @@ func ResponsesEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eval
 				if !hasMCPRequest {
 					enabledServers = nil // backward compat: auto-activate all servers
 				}
-				mcpExecutor = mcpTools.NewToolExecutor(c.Request().Context(), cfg.Name, remote, stdio, enabledServers)
+				mcpExecutor = mcpTools.NewToolExecutor(c.Request().Context(), natsClient, cfg.Name, remote, stdio, enabledServers)
 
 				// Prompt and resource injection (local mode only)
-				if !mcpTools.IsDistributed() && hasMCPRequest {
+				if natsClient == nil && hasMCPRequest {
 					namedSessions, sessErr := mcpTools.NamedSessionsFromMCPConfig(cfg.Name, remote, stdio, mcpServers)
 					if sessErr == nil && len(namedSessions) > 0 {
-						if mcpPromptName != "" {
-							prompts, discErr := mcpTools.DiscoverMCPPrompts(c.Request().Context(), namedSessions)
-							if discErr == nil {
-								promptMsgs, getErr := mcpTools.GetMCPPrompt(c.Request().Context(), prompts, mcpPromptName, mcpPromptArgs)
-								if getErr == nil {
-									var injected []schema.Message
-									for _, pm := range promptMsgs {
-										injected = append(injected, schema.Message{
-											Role:    string(pm.Role),
-											Content: mcpTools.PromptMessageToText(pm),
-										})
-									}
-									messages = append(injected, messages...)
-									xlog.Debug("Open Responses MCP prompt injected", "prompt", mcpPromptName, "messages", len(injected))
-								}
-							}
-						}
-						if len(mcpResourceURIs) > 0 {
-							resources, discErr := mcpTools.DiscoverMCPResources(c.Request().Context(), namedSessions)
-							if discErr == nil {
-								var resourceTexts []string
-								for _, uri := range mcpResourceURIs {
-									content, readErr := mcpTools.ReadMCPResource(c.Request().Context(), resources, uri)
-									if readErr != nil {
-										continue
-									}
-									name := uri
-									for _, r := range resources {
-										if r.URI == uri {
-											name = r.Name
-											break
-										}
-									}
-									resourceTexts = append(resourceTexts, fmt.Sprintf("--- MCP Resource: %s ---\n%s", name, content))
-								}
-								if len(resourceTexts) > 0 && len(messages) > 0 {
-									lastIdx := len(messages) - 1
-									suffix := "\n\n" + strings.Join(resourceTexts, "\n\n")
-									switch ct := messages[lastIdx].Content.(type) {
-									case string:
-										messages[lastIdx].Content = ct + suffix
-									default:
-										messages[lastIdx].Content = fmt.Sprintf("%v%s", ct, suffix)
-									}
-								}
-							}
+						mcpCtx, _ := mcpTools.InjectMCPContext(c.Request().Context(), namedSessions, mcpPromptName, mcpPromptArgs, mcpResourceURIs)
+						if mcpCtx != nil {
+							messages = append(mcpCtx.PromptMessages, messages...)
+							mcpTools.AppendResourceSuffix(messages, mcpCtx.ResourceSuffix)
 						}
 					}
 				}

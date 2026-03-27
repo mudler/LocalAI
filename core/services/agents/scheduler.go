@@ -68,11 +68,16 @@ func (s *AgentScheduler) Start(ctx context.Context) {
 			xlog.Info("Agent scheduler stopped")
 			return
 		case <-ticker.C:
-			if !advisorylock.TryLock(s.db, messaging.AdvisoryLockAgentScheduler) {
-				continue // another instance holds the lock — skip this cycle
+			acquired, err := advisorylock.TryWithLock(s.db, messaging.AdvisoryLockAgentScheduler, func() error {
+				s.runDueAgents()
+				return nil
+			})
+			if err != nil {
+				xlog.Error("Scheduler advisory lock error", "error", err)
 			}
-			s.runDueAgents()
-			advisorylock.Unlock(s.db, messaging.AdvisoryLockAgentScheduler)
+			if !acquired {
+				continue
+			}
 		}
 	}
 }
@@ -87,7 +92,7 @@ func (s *AgentScheduler) runDueAgents() {
 	}
 
 	for _, rec := range configs {
-		if rec.Status != "active" {
+		if rec.Status != StatusActive {
 			continue
 		}
 
@@ -123,7 +128,7 @@ func (s *AgentScheduler) runDueAgents() {
 			AgentName: rec.Name,
 			UserID:    rec.UserID,
 			MessageID: fmt.Sprintf("bg-%d", time.Now().UnixNano()),
-			Role:      "system",
+			Role:      RoleSystem,
 			Config:    &cfg,
 			Skills:    skills,
 		}

@@ -86,6 +86,8 @@ func (ml *ModelLoader) OnModelUnload(hook ModelUnloadHook) {
 }
 
 func (ml *ModelLoader) SetWatchDog(wd *WatchDog) {
+	ml.mu.Lock()
+	defer ml.mu.Unlock()
 	ml.wd = wd
 }
 

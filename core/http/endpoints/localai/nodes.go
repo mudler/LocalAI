@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -294,7 +295,7 @@ func DrainNodeEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
 }
 
 // InstallBackendOnNodeEndpoint triggers backend installation on a worker node via NATS.
-func InstallBackendOnNodeEndpoint(unloader *nodes.RemoteUnloaderAdapter) echo.HandlerFunc {
+func InstallBackendOnNodeEndpoint(unloader nodes.NodeCommandSender) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		if unloader == nil {
 			return c.JSON(http.StatusServiceUnavailable, map[string]string{"error": "NATS not configured"})
@@ -319,7 +320,7 @@ func InstallBackendOnNodeEndpoint(unloader *nodes.RemoteUnloaderAdapter) echo.Ha
 }
 
 // DeleteBackendOnNodeEndpoint deletes a backend from a worker node via NATS.
-func DeleteBackendOnNodeEndpoint(unloader *nodes.RemoteUnloaderAdapter) echo.HandlerFunc {
+func DeleteBackendOnNodeEndpoint(unloader nodes.NodeCommandSender) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		if unloader == nil {
 			return c.JSON(http.StatusServiceUnavailable, map[string]string{"error": "NATS not configured"})
@@ -343,7 +344,7 @@ func DeleteBackendOnNodeEndpoint(unloader *nodes.RemoteUnloaderAdapter) echo.Han
 }
 
 // ListBackendsOnNodeEndpoint lists installed backends on a worker node via NATS.
-func ListBackendsOnNodeEndpoint(unloader *nodes.RemoteUnloaderAdapter) echo.HandlerFunc {
+func ListBackendsOnNodeEndpoint(unloader nodes.NodeCommandSender) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		if unloader == nil {
 			return c.JSON(http.StatusServiceUnavailable, map[string]string{"error": "NATS not configured"})
@@ -361,7 +362,7 @@ func ListBackendsOnNodeEndpoint(unloader *nodes.RemoteUnloaderAdapter) echo.Hand
 }
 
 // UnloadModelOnNodeEndpoint unloads a model from a worker node (gRPC Free) via NATS.
-func UnloadModelOnNodeEndpoint(unloader *nodes.RemoteUnloaderAdapter, registry *nodes.NodeRegistry) echo.HandlerFunc {
+func UnloadModelOnNodeEndpoint(unloader nodes.NodeCommandSender, registry *nodes.NodeRegistry) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		if unloader == nil {
 			return c.JSON(http.StatusServiceUnavailable, map[string]string{"error": "NATS not configured"})
@@ -377,7 +378,7 @@ func UnloadModelOnNodeEndpoint(unloader *nodes.RemoteUnloaderAdapter, registry *
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		}
 		// Also stop the backend process
-		if err := unloader.StopBackend(nodeID); err != nil {
+		if err := unloader.StopBackend(nodeID, req.ModelName); err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "model unloaded but backend stop failed: " + err.Error()})
 		}
 		// Remove from registry
@@ -387,7 +388,7 @@ func UnloadModelOnNodeEndpoint(unloader *nodes.RemoteUnloaderAdapter, registry *
 }
 
 // DeleteModelOnNodeEndpoint deletes model files from a worker node via NATS.
-func DeleteModelOnNodeEndpoint(unloader *nodes.RemoteUnloaderAdapter, registry *nodes.NodeRegistry) echo.HandlerFunc {
+func DeleteModelOnNodeEndpoint(unloader nodes.NodeCommandSender, registry *nodes.NodeRegistry) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		if unloader == nil {
 			return c.JSON(http.StatusServiceUnavailable, map[string]string{"error": "NATS not configured"})
@@ -403,7 +404,7 @@ func DeleteModelOnNodeEndpoint(unloader *nodes.RemoteUnloaderAdapter, registry *
 		if err := unloader.UnloadModelOnNode(nodeID, req.ModelName); err != nil {
 			// Non-fatal — model might not be loaded
 		}
-		if err := unloader.StopBackend(nodeID); err != nil {
+		if err := unloader.StopBackend(nodeID, req.ModelName); err != nil {
 			// Non-fatal
 		}
 		registry.RemoveNodeModel(nodeID, req.ModelName)
@@ -419,6 +420,10 @@ func NodeBackendLogsListEndpoint(registry *nodes.NodeRegistry, registrationToken
 		node, err := registry.Get(nodeID)
 		if err != nil {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": "node not found"})
+		}
+
+		if node.HTTPAddress == "" {
+			return c.JSON(http.StatusBadGateway, map[string]string{"error": "node has no HTTP address"})
 		}
 
 		resp, err := proxyHTTPToWorker(node.HTTPAddress, "/v1/backend-logs", registrationToken)
@@ -444,6 +449,10 @@ func NodeBackendLogsLinesEndpoint(registry *nodes.NodeRegistry, registrationToke
 		node, err := registry.Get(nodeID)
 		if err != nil {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": "node not found"})
+		}
+
+		if node.HTTPAddress == "" {
+			return c.JSON(http.StatusBadGateway, map[string]string{"error": "node has no HTTP address"})
 		}
 
 		path := "/v1/backend-logs/" + url.PathEscape(modelID)
@@ -481,7 +490,6 @@ func NodeBackendLogsWSEndpoint(registry *nodes.NodeRegistry, registrationToken s
 		if err != nil {
 			return err
 		}
-		defer browserWS.Close()
 
 		// Dial the worker WebSocket
 		workerURL := fmt.Sprintf("ws://%s/v1/backend-logs/%s/ws", node.HTTPAddress, url.PathEscape(modelID))
@@ -495,16 +503,23 @@ func NodeBackendLogsWSEndpoint(registry *nodes.NodeRegistry, registrationToken s
 		if err != nil {
 			browserWS.WriteMessage(websocket.CloseMessage,
 				websocket.FormatCloseMessage(websocket.CloseInternalServerErr, "failed to connect to worker"))
+			browserWS.Close()
 			return nil
 		}
-		defer workerWS.Close()
 
-		// Bidirectional proxy
+		// Use sync.Once wrappers to avoid double-close and ensure each
+		// goroutine can safely close the *other* connection to unblock
+		// its peer's ReadMessage call.
 		done := make(chan struct{})
+		var closeWorkerOnce sync.Once
+		closeWorker := func() { closeWorkerOnce.Do(func() { workerWS.Close() }) }
+		var closeBrowserOnce sync.Once
+		closeBrowser := func() { closeBrowserOnce.Do(func() { browserWS.Close() }) }
 
 		// Worker → Browser
 		go func() {
 			defer close(done)
+			defer closeBrowser() // unblock Browser→Worker goroutine
 			for {
 				msgType, msg, err := workerWS.ReadMessage()
 				if err != nil {
@@ -518,10 +533,10 @@ func NodeBackendLogsWSEndpoint(registry *nodes.NodeRegistry, registrationToken s
 
 		// Browser → Worker (mainly for close detection)
 		go func() {
+			defer closeWorker() // unblock Worker→Browser goroutine
 			for {
 				msgType, msg, err := browserWS.ReadMessage()
 				if err != nil {
-					workerWS.Close()
 					return
 				}
 				if err := workerWS.WriteMessage(msgType, msg); err != nil {
@@ -531,6 +546,8 @@ func NodeBackendLogsWSEndpoint(registry *nodes.NodeRegistry, registrationToken s
 		}()
 
 		<-done
+		closeWorker()
+		closeBrowser()
 		return nil
 	}
 }

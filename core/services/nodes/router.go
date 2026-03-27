@@ -285,12 +285,6 @@ func (r *SmartRouter) installBackendOnNode(ctx context.Context, node *BackendNod
 	return addr, nil
 }
 
-// buildClient creates a gRPC client for a node, optionally wrapping it with
-// a FileStagingClient for transparent file transfer.
-func (r *SmartRouter) buildClient(node *BackendNode, parallel bool) grpc.Backend {
-	return r.buildClientForAddr(node, node.Address, parallel)
-}
-
 func (r *SmartRouter) buildClientForAddr(node *BackendNode, addr string, parallel bool) grpc.Backend {
 	var client grpc.Backend
 	if r.authToken != "" {
@@ -386,7 +380,7 @@ func (r *SmartRouter) stageModelFiles(ctx context.Context, node *BackendNode, op
 	}
 
 	// Handle LoraAdapters (array) — rewritten to absolute remote paths
-	staged := opts.LoraAdapters[:0]
+	staged := make([]string, 0, len(opts.LoraAdapters))
 	for _, adapter := range opts.LoraAdapters {
 		if adapter == "" {
 			continue
@@ -491,13 +485,18 @@ func (r *SmartRouter) stageGenericOptions(ctx context.Context, node *BackendNode
 	}
 }
 
-// UnloadModel sends a NATS unload event to the node hosting the model.
+// UnloadModel sends a NATS unload event to a specific node for the given model.
 // The worker process handles Free() + kill + deregister.
 func (r *SmartRouter) UnloadModel(nodeID, modelName string) error {
 	if r.unloader == nil {
 		return fmt.Errorf("no remote unloader configured")
 	}
-	return r.unloader.UnloadRemoteModel(modelName)
+	// Target the specific node, not all nodes hosting this model
+	if err := r.unloader.StopBackend(nodeID, modelName); err != nil {
+		return fmt.Errorf("failed to stop backend on node %s: %w", nodeID, err)
+	}
+	r.registry.RemoveNodeModel(nodeID, modelName)
+	return nil
 }
 
 // EvictLRU evicts the least-recently-used model from a node to make room.

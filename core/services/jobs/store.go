@@ -217,38 +217,21 @@ func (s *JobStore) UpdateJobTraces(id string, traces []byte) error {
 		Update("traces", string(traces)).Error
 }
 
-// AppendJobTrace appends a single trace entry to the job's traces JSON array.
-// Thread-safe: uses PostgreSQL JSON concatenation to avoid read-modify-write races.
+// AppendJobTrace atomically appends a single trace entry to the job's traces JSON array.
+// Uses PostgreSQL jsonb concatenation to avoid read-modify-write races.
 func (s *JobStore) AppendJobTrace(jobID, traceType, traceContent string) error {
-	trace := map[string]string{
+	entry := map[string]string{
 		"type":    traceType,
 		"content": traceContent,
 	}
-	traceJSON, err := json.Marshal(trace)
+	entryJSON, err := json.Marshal([]map[string]string{entry})
 	if err != nil {
 		return err
 	}
-
-	// Read current traces, append, write back
-	var job JobRecord
-	if err := s.db.Select("traces").Where("id = ?", jobID).First(&job).Error; err != nil {
-		return err
-	}
-
-	var traces []json.RawMessage
-	if job.TracesJSON != "" {
-		if err := json.Unmarshal([]byte(job.TracesJSON), &traces); err != nil {
-			return fmt.Errorf("unmarshaling existing traces for job %s: %w", jobID, err)
-		}
-	}
-	traces = append(traces, traceJSON)
-
-	updated, err := json.Marshal(traces)
-	if err != nil {
-		return fmt.Errorf("marshaling traces for job %s: %w", jobID, err)
-	}
-	return s.db.Model(&JobRecord{}).Where("id = ?", jobID).
-		Update("traces", string(updated)).Error
+	return s.db.Exec(
+		`UPDATE jobs SET traces = COALESCE(NULLIF(traces, '')::jsonb, '[]'::jsonb) || ?::jsonb, updated_at = NOW() WHERE id = ?`,
+		string(entryJSON), jobID,
+	).Error
 }
 
 // CleanupOldJobs removes jobs older than the given duration.

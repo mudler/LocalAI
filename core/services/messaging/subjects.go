@@ -259,4 +259,6 @@ const (
 	AdvisoryLockStaleNodeCleanup int64 = 101
 	AdvisoryLockGalleryDedup     int64 = 102
 	AdvisoryLockAgentScheduler   int64 = 103
+	AdvisoryLockHealthCheck      int64 = 104
+	AdvisoryLockSchemaMigrate    int64 = 105
 )

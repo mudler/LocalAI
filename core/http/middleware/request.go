@@ -12,7 +12,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/schema"
-	"github.com/mudler/LocalAI/core/services"
+	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/templates"
 	"github.com/mudler/LocalAI/pkg/functions"
 	"github.com/mudler/LocalAI/pkg/model"
@@ -65,7 +65,7 @@ func (re *RequestExtractor) setModelNameFromRequest(c echo.Context) {
 		auth := c.Request().Header.Get("Authorization")
 		bearer := strings.TrimPrefix(auth, "Bearer ")
 		if bearer != "" && bearer != auth {
-			exists, err := services.CheckIfModelExists(re.modelConfigLoader, re.modelLoader, bearer, services.ALWAYS_INCLUDE)
+			exists, err := galleryop.CheckIfModelExists(re.modelConfigLoader, re.modelLoader, bearer, galleryop.ALWAYS_INCLUDE)
 			if err == nil && exists {
 				model = bearer
 			}
@@ -98,7 +98,7 @@ func (re *RequestExtractor) BuildFilteredFirstAvailableDefaultModel(filterFn con
 				return next(c)
 			}
 
-			modelNames, err := services.ListModels(re.modelConfigLoader, re.modelLoader, filterFn, services.SKIP_IF_CONFIGURED)
+			modelNames, err := galleryop.ListModels(re.modelConfigLoader, re.modelLoader, filterFn, galleryop.SKIP_IF_CONFIGURED)
 			if err != nil {
 				xlog.Error("non-fatal error calling ListModels during SetDefaultModelNameToFirstAvailable()", "error", err)
 				return next(c)

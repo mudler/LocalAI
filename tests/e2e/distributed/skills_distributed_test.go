@@ -1,9 +1,7 @@
 package distributed_test
 
 import (
-	"context"
 	"sync/atomic"
-	"time"
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/services/distributed"
@@ -12,11 +10,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/testcontainers/testcontainers-go"
-	tcnats "github.com/testcontainers/testcontainers-go/modules/nats"
-	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
-	"github.com/testcontainers/testcontainers-go/wait"
-
 	pgdriver "gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -24,62 +17,22 @@ import (
 
 var _ = Describe("Skills Distributed", Label("Distributed"), func() {
 	var (
-		ctx           context.Context
-		pgContainer   *tcpostgres.PostgresContainer
-		natsContainer *tcnats.NATSContainer
-		db            *gorm.DB
-		nc            *messaging.Client
-		skillStore    *distributed.SkillStore
+		infra      *TestInfra
+		db         *gorm.DB
+		skillStore *distributed.SkillStore
 	)
 
 	BeforeEach(func() {
-		ctx = context.Background()
+		infra = SetupInfra("localai_skills_dist_test")
 
 		var err error
-
-		pgContainer, err = tcpostgres.Run(ctx, "postgres:16-alpine",
-			tcpostgres.WithDatabase("localai_skills_dist_test"),
-			tcpostgres.WithUsername("test"),
-			tcpostgres.WithPassword("test"),
-			testcontainers.WithWaitStrategy(
-				wait.ForLog("database system is ready to accept connections").
-					WithOccurrence(2).
-					WithStartupTimeout(30*time.Second),
-			),
-		)
-		Expect(err).ToNot(HaveOccurred())
-
-		pgURL, err := pgContainer.ConnectionString(ctx, "sslmode=disable")
-		Expect(err).ToNot(HaveOccurred())
-
-		db, err = gorm.Open(pgdriver.Open(pgURL), &gorm.Config{
+		db, err = gorm.Open(pgdriver.Open(infra.PGURL), &gorm.Config{
 			Logger: logger.Default.LogMode(logger.Silent),
 		})
 		Expect(err).ToNot(HaveOccurred())
 
-		natsContainer, err = tcnats.Run(ctx, "nats:2-alpine")
-		Expect(err).ToNot(HaveOccurred())
-
-		natsURL, err := natsContainer.ConnectionString(ctx)
-		Expect(err).ToNot(HaveOccurred())
-
-		nc, err = messaging.New(natsURL)
-		Expect(err).ToNot(HaveOccurred())
-
 		skillStore, err = distributed.NewSkillStore(db)
 		Expect(err).ToNot(HaveOccurred())
-	})
-
-	AfterEach(func() {
-		if nc != nil {
-			nc.Close()
-		}
-		if pgContainer != nil {
-			pgContainer.Terminate(ctx)
-		}
-		if natsContainer != nil {
-			natsContainer.Terminate(ctx)
-		}
 	})
 
 	Context("PostgreSQL metadata storage", func() {
@@ -140,13 +93,13 @@ var _ = Describe("Skills Distributed", Label("Distributed"), func() {
 		It("should publish cache invalidation via NATS on skill change", func() {
 			// Subscribe to skills cache invalidation
 			var received atomic.Int32
-			sub, err := nc.Subscribe(messaging.SubjectCacheInvalidateSkills, func(data []byte) {
+			sub, err := infra.NC.Subscribe(messaging.SubjectCacheInvalidateSkills, func(data []byte) {
 				received.Add(1)
 			})
 			Expect(err).ToNot(HaveOccurred())
 			defer sub.Unsubscribe()
 
-			time.Sleep(100 * time.Millisecond)
+			FlushNATS(infra.NC)
 
 			// Save a skill and publish cache invalidation
 			rec := &distributed.SkillMetadataRecord{
@@ -155,7 +108,7 @@ var _ = Describe("Skills Distributed", Label("Distributed"), func() {
 			Expect(skillStore.Save(rec)).To(Succeed())
 
 			// Publish invalidation (in production this is done by the service layer)
-			Expect(nc.Publish(messaging.SubjectCacheInvalidateSkills, map[string]string{
+			Expect(infra.NC.Publish(messaging.SubjectCacheInvalidateSkills, map[string]string{
 				"user_id": "u1",
 				"name":    "new-skill",
 				"action":  "save",
@@ -165,7 +118,7 @@ var _ = Describe("Skills Distributed", Label("Distributed"), func() {
 
 			// Delete and publish another invalidation
 			Expect(skillStore.Delete("u1", "new-skill")).To(Succeed())
-			Expect(nc.Publish(messaging.SubjectCacheInvalidateSkills, map[string]string{
+			Expect(infra.NC.Publish(messaging.SubjectCacheInvalidateSkills, map[string]string{
 				"user_id": "u1",
 				"name":    "new-skill",
 				"action":  "delete",
@@ -176,15 +129,15 @@ var _ = Describe("Skills Distributed", Label("Distributed"), func() {
 
 		It("should broadcast collection cache invalidation", func() {
 			var received atomic.Int32
-			sub, err := nc.Subscribe(messaging.SubjectCacheInvalidateCollection("my-collection"), func(data []byte) {
+			sub, err := infra.NC.Subscribe(messaging.SubjectCacheInvalidateCollection("my-collection"), func(data []byte) {
 				received.Add(1)
 			})
 			Expect(err).ToNot(HaveOccurred())
 			defer sub.Unsubscribe()
 
-			time.Sleep(100 * time.Millisecond)
+			FlushNATS(infra.NC)
 
-			Expect(nc.Publish(messaging.SubjectCacheInvalidateCollection("my-collection"), map[string]string{
+			Expect(infra.NC.Publish(messaging.SubjectCacheInvalidateCollection("my-collection"), map[string]string{
 				"reason": "skill_updated",
 			})).To(Succeed())
 

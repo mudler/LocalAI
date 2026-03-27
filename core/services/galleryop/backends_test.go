@@ -1,4 +1,4 @@
-package services_test
+package galleryop_test
 
 import (
 	"context"
@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/mudler/LocalAI/core/config"
-	"github.com/mudler/LocalAI/core/services"
+	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/system"
 
@@ -61,7 +61,7 @@ var _ = Describe("InstallExternalBackend", func() {
 		})
 
 		It("should fail when name or alias is provided for gallery backend", func() {
-			err := services.InstallExternalBackend(
+			err := galleryop.InstallExternalBackend(
 				context.Background(),
 				galleries,
 				systemState,
@@ -76,7 +76,7 @@ var _ = Describe("InstallExternalBackend", func() {
 		})
 
 		It("should fail when backend is not found in gallery", func() {
-			err := services.InstallExternalBackend(
+			err := galleryop.InstallExternalBackend(
 				context.Background(),
 				galleries,
 				systemState,
@@ -92,7 +92,7 @@ var _ = Describe("InstallExternalBackend", func() {
 
 	Context("with OCI image", func() {
 		It("should fail when name is not provided for OCI image", func() {
-			err := services.InstallExternalBackend(
+			err := galleryop.InstallExternalBackend(
 				context.Background(),
 				galleries,
 				systemState,
@@ -124,7 +124,7 @@ var _ = Describe("InstallExternalBackend", func() {
 		It("should infer name from directory path when name is not provided", func() {
 			// This test verifies that the function attempts to install using the directory name
 			// The actual installation may fail due to test environment limitations
-			err := services.InstallExternalBackend(
+			err := galleryop.InstallExternalBackend(
 				context.Background(),
 				galleries,
 				systemState,
@@ -142,7 +142,7 @@ var _ = Describe("InstallExternalBackend", func() {
 		})
 
 		It("should use provided name when specified", func() {
-			err := services.InstallExternalBackend(
+			err := galleryop.InstallExternalBackend(
 				context.Background(),
 				galleries,
 				systemState,
@@ -159,7 +159,7 @@ var _ = Describe("InstallExternalBackend", func() {
 		})
 
 		It("should support alias when provided", func() {
-			err := services.InstallExternalBackend(
+			err := galleryop.InstallExternalBackend(
 				context.Background(),
 				galleries,
 				systemState,
@@ -180,7 +180,7 @@ var _ = Describe("InstallExternalBackend", func() {
 var _ = Describe("ManagementOp with External Backend", func() {
 	It("should have external backend fields in ManagementOp", func() {
 		// Test that the ManagementOp struct has the new external backend fields
-		op := services.ManagementOp[string, string]{
+		op := galleryop.ManagementOp[string, string]{
 			ExternalURI:   "oci://example.com/backend:latest",
 			ExternalName:  "test-backend",
 			ExternalAlias: "test-alias",

@@ -207,3 +207,11 @@ type MCPSTDIOServer struct {
 	Env  []string `json:"env"`
 	Cmd  string   `json:"cmd"`
 }
+
+// AgentKey returns the namespaced key for an agent: "{userID}:{name}" or just "{name}" if no userID.
+func AgentKey(userID, name string) string {
+	if userID == "" {
+		return name
+	}
+	return userID + ":" + name
+}

@@ -13,7 +13,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/middleware"
-	"github.com/mudler/LocalAI/core/services"
+	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/trace"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/xlog"
@@ -29,7 +29,7 @@ func RegisterUIRoutes(app *echo.Echo,
 	cl *config.ModelConfigLoader,
 	ml *model.ModelLoader,
 	appConfig *config.ApplicationConfig,
-	galleryService *services.GalleryService,
+	galleryService *galleryop.GalleryService,
 	adminMiddleware echo.MiddlewareFunc) {
 
 	// SPA routes are handled by the 404 fallback in app.go which serves

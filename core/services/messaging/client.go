@@ -154,11 +154,12 @@ func (c *Client) IsConnected() bool {
 	return c.conn != nil && c.conn.IsConnected()
 }
 
-// Close drains and closes the NATS connection.
+// Close drains and closes the NATS connection, waiting for in-flight messages.
 func (c *Client) Close() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.conn != nil {
 		c.conn.Drain()
+		c.conn.FlushTimeout(5 * time.Second)
 	}
 }

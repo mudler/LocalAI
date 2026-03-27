@@ -24,7 +24,7 @@ import (
 	"github.com/mudler/LocalAI/core/http/endpoints/localai"
 	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/p2p"
-	"github.com/mudler/LocalAI/core/services"
+	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/vram"
 	"github.com/mudler/LocalAI/pkg/xsysinfo"
@@ -59,7 +59,7 @@ func getDirectorySize(path string) (int64, error) {
 }
 
 // RegisterUIAPIRoutes registers JSON API routes for the web UI
-func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig, galleryService *services.GalleryService, opcache *services.OpCache, applicationInstance *application.Application, adminMiddleware echo.MiddlewareFunc) {
+func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig, galleryService *galleryop.GalleryService, opcache *galleryop.OpCache, applicationInstance *application.Application, adminMiddleware echo.MiddlewareFunc) {
 
 	// Operations API - Get all current operations (models + backends)
 	app.GET("/api/operations", func(c echo.Context) error {
@@ -345,7 +345,6 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			return false
 		}
 
-		const estimateTimeout = 3 * time.Second
 		const hfEstimateTimeout = 10 * time.Second
 		const estimateConcurrency = 3
 		sem := make(chan struct{}, estimateConcurrency)
@@ -415,9 +414,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			needsAsync := len(estimateInput.Files) > 0 || estimateInput.HFRepo != ""
 			if needsAsync {
 				input := estimateInput
-				wg.Add(1)
-				go func(input vram.ModelEstimateInput, out map[string]any) {
-					defer wg.Done()
+				wg.Go(func() {
 					sem <- struct{}{}
 					defer func() { <-sem }()
 					ctx, cancel := context.WithTimeout(context.Background(), hfEstimateTimeout)
@@ -425,15 +422,15 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 					result, err := vram.EstimateModel(ctx, input)
 					if err == nil {
 						if result.SizeBytes > 0 {
-							out["estimated_size_bytes"] = result.SizeBytes
-							out["estimated_size_display"] = result.SizeDisplay
+							obj["estimated_size_bytes"] = result.SizeBytes
+							obj["estimated_size_display"] = result.SizeDisplay
 						}
 						if result.VRAMBytes > 0 {
-							out["estimated_vram_bytes"] = result.VRAMBytes
-							out["estimated_vram_display"] = result.VRAMDisplay
+							obj["estimated_vram_bytes"] = result.VRAMBytes
+							obj["estimated_vram_display"] = result.VRAMDisplay
 						}
 					}
-				}(input, obj)
+				})
 			} else if estimateInput.Size != "" {
 				result, _ := vram.EstimateModel(context.Background(), estimateInput)
 				if result.SizeBytes > 0 {
@@ -462,7 +459,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 
 		// Calculate installed models count (models with configs + models without configs)
 		modelConfigs := cl.GetAllModelsConfigs()
-		modelsWithoutConfig, _ := services.ListModels(cl, ml, config.NoFilterFn, services.LOOSE_ONLY)
+		modelsWithoutConfig, _ := galleryop.ListModels(cl, ml, config.NoFilterFn, galleryop.LOOSE_ONLY)
 		installedModelsCount := len(modelConfigs) + len(modelsWithoutConfig)
 
 		ramInfo, _ := xsysinfo.GetSystemRAMInfo()
@@ -489,7 +486,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 	// Returns installed models with their capability flags for UI filtering
 	app.GET("/api/models/capabilities", func(c echo.Context) error {
 		modelConfigs := cl.GetAllModelsConfigs()
-		modelsWithoutConfig, _ := services.ListModels(cl, ml, config.NoFilterFn, services.LOOSE_ONLY)
+		modelsWithoutConfig, _ := galleryop.ListModels(cl, ml, config.NoFilterFn, galleryop.LOOSE_ONLY)
 
 		type modelCapability struct {
 			ID           string   `json:"id"`
@@ -559,7 +556,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		opcache.Set(galleryID, uid)
 
 		ctx, cancelFunc := context.WithCancel(context.Background())
-		op := services.ManagementOp[gallery.GalleryModel, gallery.ModelConfig]{
+		op := galleryop.ManagementOp[gallery.GalleryModel, gallery.ModelConfig]{
 			ID:                 uid,
 			GalleryElementName: galleryID,
 			Galleries:          appConfig.Galleries,
@@ -607,7 +604,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		opcache.Set(galleryID, uid)
 
 		ctx, cancelFunc := context.WithCancel(context.Background())
-		op := services.ManagementOp[gallery.GalleryModel, gallery.ModelConfig]{
+		op := galleryop.ManagementOp[gallery.GalleryModel, gallery.ModelConfig]{
 			ID:                 uid,
 			Delete:             true,
 			GalleryElementName: galleryName,
@@ -964,7 +961,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		opcache.SetBackend(backendID, uid)
 
 		ctx, cancelFunc := context.WithCancel(context.Background())
-		op := services.ManagementOp[gallery.GalleryBackend, any]{
+		op := galleryop.ManagementOp[gallery.GalleryBackend, any]{
 			ID:                 uid,
 			GalleryElementName: backendID,
 			Galleries:          appConfig.BackendGalleries,
@@ -1025,7 +1022,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		opcache.SetBackend(cacheKey, uid)
 
 		ctx, cancelFunc := context.WithCancel(context.Background())
-		op := services.ManagementOp[gallery.GalleryBackend, any]{
+		op := galleryop.ManagementOp[gallery.GalleryBackend, any]{
 			ID:                 uid,
 			GalleryElementName: req.Name, // May be empty, will be derived during installation
 			Galleries:          appConfig.BackendGalleries,
@@ -1075,7 +1072,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		opcache.SetBackend(backendID, uid)
 
 		ctx, cancelFunc := context.WithCancel(context.Background())
-		op := services.ManagementOp[gallery.GalleryBackend, any]{
+		op := galleryop.ManagementOp[gallery.GalleryBackend, any]{
 			ID:                 uid,
 			Delete:             true,
 			GalleryElementName: backendName,

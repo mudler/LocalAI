@@ -3,18 +3,11 @@ package distributed_test
 import (
 	"context"
 	"sync/atomic"
-	"time"
 
 	"github.com/mudler/LocalAI/core/services/agents"
-	"github.com/mudler/LocalAI/core/services/messaging"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
-	"github.com/testcontainers/testcontainers-go"
-	tcnats "github.com/testcontainers/testcontainers-go/modules/nats"
-	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
-	"github.com/testcontainers/testcontainers-go/wait"
 
 	pgdriver "gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -23,62 +16,22 @@ import (
 
 var _ = Describe("Phase 3: Agent Conversations & SSE", Label("Distributed"), func() {
 	var (
-		ctx           context.Context
-		pgContainer   *tcpostgres.PostgresContainer
-		natsContainer *tcnats.NATSContainer
-		db            *gorm.DB
-		nc            *messaging.Client
-		store         *agents.AgentStore
+		infra *TestInfra
+		db    *gorm.DB
+		store *agents.AgentStore
 	)
 
 	BeforeEach(func() {
-		ctx = context.Background()
+		infra = SetupInfra("localai_agents_test")
 
 		var err error
-
-		pgContainer, err = tcpostgres.Run(ctx, "postgres:16-alpine",
-			tcpostgres.WithDatabase("localai_agents_test"),
-			tcpostgres.WithUsername("test"),
-			tcpostgres.WithPassword("test"),
-			testcontainers.WithWaitStrategy(
-				wait.ForLog("database system is ready to accept connections").
-					WithOccurrence(2).
-					WithStartupTimeout(30*time.Second),
-			),
-		)
-		Expect(err).ToNot(HaveOccurred())
-
-		pgURL, err := pgContainer.ConnectionString(ctx, "sslmode=disable")
-		Expect(err).ToNot(HaveOccurred())
-
-		db, err = gorm.Open(pgdriver.Open(pgURL), &gorm.Config{
+		db, err = gorm.Open(pgdriver.Open(infra.PGURL), &gorm.Config{
 			Logger: logger.Default.LogMode(logger.Silent),
 		})
 		Expect(err).ToNot(HaveOccurred())
 
-		natsContainer, err = tcnats.Run(ctx, "nats:2-alpine")
-		Expect(err).ToNot(HaveOccurred())
-
-		natsURL, err := natsContainer.ConnectionString(ctx)
-		Expect(err).ToNot(HaveOccurred())
-
-		nc, err = messaging.New(natsURL)
-		Expect(err).ToNot(HaveOccurred())
-
 		store, err = agents.NewAgentStore(db)
 		Expect(err).ToNot(HaveOccurred())
-	})
-
-	AfterEach(func() {
-		if nc != nil {
-			nc.Close()
-		}
-		if pgContainer != nil {
-			pgContainer.Terminate(ctx)
-		}
-		if natsContainer != nil {
-			natsContainer.Terminate(ctx)
-		}
 	})
 
 	Context("Agent Config Store", func() {
@@ -155,7 +108,7 @@ var _ = Describe("Phase 3: Agent Conversations & SSE", Label("Distributed"), fun
 
 	Context("Agent SSE Events via NATS", func() {
 		It("should bridge agent SSE events via NATS", func() {
-			bridge := agents.NewEventBridge(nc, store, "instance-1")
+			bridge := agents.NewEventBridge(infra.NC, store, "instance-1")
 
 			var received []agents.AgentEvent
 			sub, err := bridge.SubscribeEvents("my-agent", "user1", func(evt agents.AgentEvent) {
@@ -164,7 +117,7 @@ var _ = Describe("Phase 3: Agent Conversations & SSE", Label("Distributed"), fun
 			Expect(err).ToNot(HaveOccurred())
 			defer sub.Unsubscribe()
 
-			time.Sleep(100 * time.Millisecond)
+			FlushNATS(infra.NC)
 
 			// Publish events (simulating agent execution on another instance)
 			bridge.PublishMessage("my-agent", "user1", "user", "What's the weather?", "msg-1")
@@ -182,7 +135,7 @@ var _ = Describe("Phase 3: Agent Conversations & SSE", Label("Distributed"), fun
 		// Conversation persistence removed — chat history is browser-only.
 
 		It("should cancel running agent via NATS", func() {
-			bridge := agents.NewEventBridge(nc, store, "instance-1")
+			bridge := agents.NewEventBridge(infra.NC, store, "instance-1")
 
 			// Start cancel listener
 			cancelSub, err := bridge.StartCancelListener()
@@ -190,7 +143,7 @@ var _ = Describe("Phase 3: Agent Conversations & SSE", Label("Distributed"), fun
 			defer cancelSub.Unsubscribe()
 
 			// Register a cancellable context
-			_, cancel := context.WithCancel(ctx)
+			_, cancel := context.WithCancel(infra.Ctx)
 			var cancelled atomic.Bool
 			wrappedCancel := context.CancelFunc(func() {
 				cancelled.Store(true)
@@ -198,7 +151,7 @@ var _ = Describe("Phase 3: Agent Conversations & SSE", Label("Distributed"), fun
 			})
 			bridge.RegisterCancel("my-agent", "user1", wrappedCancel)
 
-			time.Sleep(100 * time.Millisecond)
+			FlushNATS(infra.NC)
 
 			// Cancel via NATS
 			Expect(bridge.CancelExecution("my-agent", "user1")).To(Succeed())

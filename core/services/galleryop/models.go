@@ -1,4 +1,4 @@
-package services
+package galleryop
 
 import (
 	"context"
@@ -189,4 +189,3 @@ func ApplyGalleryFromString(systemState *system.SystemState, modelLoader *model.
 
 	return processRequests(systemState, modelLoader, enforceScan, automaticallyInstallBackend, galleries, backendGalleries, requests)
 }
-

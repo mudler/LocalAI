@@ -5,12 +5,20 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	coreTypes "github.com/mudler/LocalAGI/core/types"
 	"github.com/mudler/cogito"
 	"github.com/mudler/xlog"
 	"github.com/sashabaranov/go-openai"
+)
+
+const (
+	RoleUser   = "user"
+	RoleSystem = "system"
+	RoleAgent  = "agent"
 )
 
 // AgentChatEvent is the NATS message payload for agent chat jobs.
@@ -86,11 +94,8 @@ func (d *LocalDispatcher) Dispatch(userID, agentName, message string) (string, e
 		return "", fmt.Errorf("agent config not found: %w", err)
 	}
 
-	agentKey := agentName
-	if userID != "" {
-		agentKey = userID + ":" + agentName
-	}
-	writer := d.ssePool.GetWriter(agentKey)
+	key := AgentKey(userID, agentName)
+	writer := d.ssePool.GetWriter(key)
 
 	// Execute in background goroutine
 	go func() {
@@ -99,7 +104,7 @@ func (d *LocalDispatcher) Dispatch(userID, agentName, message string) (string, e
 
 		// Send user message immediately
 		if cb.OnMessage != nil {
-			cb.OnMessage("user", message, messageID+"-user")
+			cb.OnMessage(RoleUser, message, messageID+"-user")
 		}
 		if cb.OnStatus != nil {
 			cb.OnStatus("processing")
@@ -236,7 +241,7 @@ func (d *NATSDispatcher) Dispatch(userID, agentName, message string) (string, er
 
 	// Send user message to SSE immediately
 	if d.eventBridge != nil {
-		d.eventBridge.PublishMessage(agentName, userID, "user", message, messageID+"-user")
+		d.eventBridge.PublishMessage(agentName, userID, RoleUser, message, messageID+"-user")
 		d.eventBridge.PublishStatus(agentName, userID, "processing")
 	}
 
@@ -245,7 +250,7 @@ func (d *NATSDispatcher) Dispatch(userID, agentName, message string) (string, er
 		UserID:    userID,
 		Message:   message,
 		MessageID: messageID,
-		Role:      "user",
+		Role:      RoleUser,
 	}
 	if err := d.nats.Publish(d.subject, evt); err != nil {
 		return "", fmt.Errorf("failed to dispatch agent chat: %w", err)
@@ -253,7 +258,7 @@ func (d *NATSDispatcher) Dispatch(userID, agentName, message string) (string, er
 	return messageID, nil
 }
 
-func (d *NATSDispatcher) handleJob(_ context.Context, evt AgentChatEvent) {
+func (d *NATSDispatcher) handleJob(ctx context.Context, evt AgentChatEvent) {
 	xlog.Info("Processing agent chat job", "agent", evt.AgentName, "user", evt.UserID)
 
 	// Prefer config from the enriched payload (no DB needed).
@@ -278,7 +283,7 @@ func (d *NATSDispatcher) handleJob(_ context.Context, evt AgentChatEvent) {
 		return
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
 	// Register cancellation
@@ -301,7 +306,7 @@ func (d *NATSDispatcher) handleJob(_ context.Context, evt AgentChatEvent) {
 	var response string
 	var execErr error
 
-	if evt.Role == "system" {
+	if evt.Role == RoleSystem {
 		// Background/autonomous run — use inner monologue template + permanent goal
 		response, execErr = ExecuteBackgroundRun(ctx, d.apiURL, d.apiKey, cfg, cb, opts)
 	} else {
@@ -328,13 +333,13 @@ func (p *staticSkillProvider) ListSkills() ([]SkillInfo, error) {
 func (d *NATSDispatcher) buildNATSCallbacks(evt AgentChatEvent) Callbacks {
 	// Observable tracking: build LocalAGI-compatible observable records
 	// from cogito callbacks so the UI can render them properly.
-	var obsIDCounter int32
+	var obsIDCounter atomic.Int32
+	var mu sync.Mutex
 	var currentToolObs *coreTypes.Observable
 	var reasoningBuf strings.Builder
 
 	nextID := func() int32 {
-		obsIDCounter++
-		return obsIDCounter
+		return obsIDCounter.Add(1)
 	}
 
 	// Root observable for this chat job
@@ -346,7 +351,7 @@ func (d *NATSDispatcher) buildNATSCallbacks(evt AgentChatEvent) Callbacks {
 		Icon:  "comment",
 		Creation: &coreTypes.Creation{
 			ChatCompletionMessage: &openai.ChatCompletionMessage{
-				Role:    "user",
+				Role:    RoleUser,
 				Content: evt.Message,
 			},
 		},
@@ -362,7 +367,9 @@ func (d *NATSDispatcher) buildNATSCallbacks(evt AgentChatEvent) Callbacks {
 			case cogito.StreamEventReasoning:
 				data["type"] = "reasoning"
 				data["content"] = ev.Content
-				reasoningBuf.WriteString(ev.Content)
+				mu.Lock()
+			reasoningBuf.WriteString(ev.Content)
+			mu.Unlock()
 			case cogito.StreamEventContent:
 				data["type"] = "content"
 				data["content"] = ev.Content
@@ -372,7 +379,7 @@ func (d *NATSDispatcher) buildNATSCallbacks(evt AgentChatEvent) Callbacks {
 				data["tool_args"] = ev.ToolArgs
 
 				// Create child observable for the tool call
-				currentToolObs = &coreTypes.Observable{
+				obs := &coreTypes.Observable{
 					ID:       nextID(),
 					ParentID: rootID,
 					Agent:    evt.AgentName,
@@ -383,6 +390,9 @@ func (d *NATSDispatcher) buildNATSCallbacks(evt AgentChatEvent) Callbacks {
 						FunctionParams:     parseToolArgs(ev.ToolArgs),
 					},
 				}
+				mu.Lock()
+				currentToolObs = obs
+				mu.Unlock()
 			case cogito.StreamEventDone:
 				data["type"] = "done"
 			default:
@@ -398,14 +408,17 @@ func (d *NATSDispatcher) buildNATSCallbacks(evt AgentChatEvent) Callbacks {
 		},
 		OnToolResult: func(name, result string) {
 			// Persist tool result: complete the current tool observable
-			if currentToolObs != nil {
-				currentToolObs.Completion = &coreTypes.Completion{
+			mu.Lock()
+			obs := currentToolObs
+			currentToolObs = nil
+			mu.Unlock()
+			if obs != nil {
+				obs.Completion = &coreTypes.Completion{
 					ActionResult: result,
 				}
 				if d.eventBridge != nil {
-					d.eventBridge.PersistObservable(evt.AgentName, "tool_result", currentToolObs)
+					d.eventBridge.PersistObservable(evt.AgentName, "tool_result", obs)
 				}
-				currentToolObs = nil
 			}
 		},
 		OnStatus: func(status string) {
@@ -419,11 +432,14 @@ func (d *NATSDispatcher) buildNATSCallbacks(evt AgentChatEvent) Callbacks {
 			}
 
 			// On agent response, persist the root observable with completion
-			if sender == "agent" && d.eventBridge != nil {
+			if sender == RoleAgent && d.eventBridge != nil {
 				rootObs.Completion = &coreTypes.Completion{
 					ActionResult: content,
 				}
-				if reasoning := reasoningBuf.String(); reasoning != "" {
+				mu.Lock()
+			reasoning := reasoningBuf.String()
+			mu.Unlock()
+			if reasoning != "" {
 					rootObs.Completion.ChatCompletionResponse = &openai.ChatCompletionResponse{
 						Choices: []openai.ChatCompletionChoice{
 							{Message: openai.ChatCompletionMessage{Content: content, ReasoningContent: reasoning}},

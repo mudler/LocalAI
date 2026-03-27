@@ -6,11 +6,11 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/endpoints/localai"
-	"github.com/mudler/LocalAI/core/services"
+	"github.com/mudler/LocalAI/core/services/finetune"
 )
 
 // RegisterFineTuningRoutes registers fine-tuning API routes.
-func RegisterFineTuningRoutes(e *echo.Echo, ftService *services.FineTuneService, appConfig *config.ApplicationConfig, fineTuningMw echo.MiddlewareFunc) {
+func RegisterFineTuningRoutes(e *echo.Echo, ftService *finetune.FineTuneService, appConfig *config.ApplicationConfig, fineTuningMw echo.MiddlewareFunc) {
 	if ftService == nil {
 		return
 	}

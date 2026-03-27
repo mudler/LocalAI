@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/schema"
 	mcpRemote "github.com/mudler/LocalAI/core/services/mcp"
 	"github.com/mudler/LocalAI/core/services/messaging"
 
@@ -90,20 +91,11 @@ var (
 	}
 
 	client = mcp.NewClient(&mcp.Implementation{Name: "LocalAI", Version: "v1.0.0"}, nil)
-
-	// Distributed mode: NATS client for routing MCP requests to agent workers
-	mcpNATSClient MCPNATSClient
 )
 
 // MCPNATSClient is the interface for NATS request-reply operations needed by MCP routing.
 type MCPNATSClient interface {
 	Request(subject string, data []byte, timeout time.Duration) ([]byte, error)
-}
-
-// SetMCPNATSClient sets the NATS client for distributed MCP routing.
-// When set, MCP tool execution and discovery are routed to agent workers.
-func SetMCPNATSClient(nc MCPNATSClient) {
-	mcpNATSClient = nc
 }
 
 // MCPServersFromMetadata extracts the MCP server list from the metadata map
@@ -167,7 +159,7 @@ func SessionsFromMCPConfig(
 		xlog.Debug("[MCP remote server] Configuration", "server", server)
 		// Create HTTP client with custom roundtripper for bearer token injection
 		httpClient := &http.Client{
-			Timeout:   360 * time.Second,
+			Timeout:   config.DefaultMCPToolTimeout,
 			Transport: newBearerTokenRoundTripper(server.Token, http.DefaultTransport),
 		}
 
@@ -249,7 +241,7 @@ func NamedSessionsFromMCPConfig(
 		for serverName, server := range remote.Servers {
 			xlog.Debug("[MCP remote server] Configuration", "name", serverName, "server", server)
 			httpClient := &http.Client{
-				Timeout:   360 * time.Second,
+				Timeout:   config.DefaultMCPToolTimeout,
 				Transport: newBearerTokenRoundTripper(server.Token, http.DefaultTransport),
 			}
 
@@ -411,12 +403,13 @@ func ExecuteMCPToolCall(ctx context.Context, tools []MCPToolInfo, toolName strin
 // Used in distributed mode when the frontend doesn't hold MCP sessions locally.
 func ExecuteMCPToolCallRemote(
 	ctx context.Context,
+	natsClient MCPNATSClient,
 	modelName string,
 	remote config.MCPGenericConfig[config.MCPRemoteServers],
 	stdio config.MCPGenericConfig[config.MCPSTDIOServers],
 	toolName, arguments string,
 ) (string, error) {
-	if mcpNATSClient == nil {
+	if natsClient == nil {
 		return "", fmt.Errorf("NATS client not configured for distributed MCP")
 	}
 
@@ -434,7 +427,7 @@ func ExecuteMCPToolCallRemote(
 	}
 	reqData, _ := json.Marshal(req)
 
-	replyData, err := mcpNATSClient.Request(messaging.SubjectMCPToolExecute, reqData, 360*time.Second)
+	replyData, err := natsClient.Request(messaging.SubjectMCPToolExecute, reqData, config.DefaultMCPToolTimeout)
 	if err != nil {
 		return "", fmt.Errorf("NATS MCP tool request failed: %w", err)
 	}
@@ -453,11 +446,12 @@ func ExecuteMCPToolCallRemote(
 // Returns server info and tool function schemas from the remote worker.
 func DiscoverMCPToolsRemote(
 	ctx context.Context,
+	natsClient MCPNATSClient,
 	modelName string,
 	remote config.MCPGenericConfig[config.MCPRemoteServers],
 	stdio config.MCPGenericConfig[config.MCPSTDIOServers],
 ) (*mcpRemote.MCPDiscoveryResponse, error) {
-	if mcpNATSClient == nil {
+	if natsClient == nil {
 		return nil, fmt.Errorf("NATS client not configured for distributed MCP")
 	}
 
@@ -468,7 +462,7 @@ func DiscoverMCPToolsRemote(
 	}
 	reqData, _ := json.Marshal(req)
 
-	replyData, err := mcpNATSClient.Request(messaging.SubjectMCPDiscovery, reqData, 60*time.Second)
+	replyData, err := natsClient.Request(messaging.SubjectMCPDiscovery, reqData, config.DefaultMCPDiscoveryTimeout)
 	if err != nil {
 		return nil, fmt.Errorf("NATS MCP discovery request failed: %w", err)
 	}
@@ -481,11 +475,6 @@ func DiscoverMCPToolsRemote(
 		return nil, fmt.Errorf("remote MCP discovery error: %s", resp.Error)
 	}
 	return &resp, nil
-}
-
-// IsDistributed returns true if NATS-based MCP routing is configured.
-func IsDistributed() bool {
-	return mcpNATSClient != nil
 }
 
 // ListMCPServers returns server info with tool, prompt, and resource names for each session.
@@ -785,5 +774,95 @@ func newBearerTokenRoundTripper(token string, base http.RoundTripper) http.Round
 	return &bearerTokenRoundTripper{
 		token: token,
 		base:  base,
+	}
+}
+
+// MCPContextResult holds the results of MCP prompt and resource discovery
+// so callers can inject them into their message slices.
+type MCPContextResult struct {
+	// PromptMessages are schema.Message values converted from MCP prompts,
+	// intended to be prepended to the conversation.
+	PromptMessages []schema.Message
+
+	// ResourceSuffix is the formatted text of all discovered MCP resources,
+	// intended to be appended to the last user message's content.
+	// Empty string when no resources were requested or found.
+	ResourceSuffix string
+}
+
+// InjectMCPContext discovers MCP prompts and resources from the given named sessions
+// and returns them in a form ready for injection into any endpoint's message list.
+func InjectMCPContext(
+	ctx context.Context,
+	namedSessions []NamedSession,
+	mcpPromptName string,
+	mcpPromptArgs map[string]string,
+	mcpResourceURIs []string,
+) (*MCPContextResult, error) {
+	result := &MCPContextResult{}
+
+	if mcpPromptName != "" {
+		prompts, discErr := DiscoverMCPPrompts(ctx, namedSessions)
+		if discErr != nil {
+			xlog.Error("Failed to discover MCP prompts", "error", discErr)
+		} else {
+			promptMsgs, getErr := GetMCPPrompt(ctx, prompts, mcpPromptName, mcpPromptArgs)
+			if getErr != nil {
+				xlog.Error("Failed to get MCP prompt", "error", getErr)
+			} else {
+				for _, pm := range promptMsgs {
+					result.PromptMessages = append(result.PromptMessages, schema.Message{
+						Role:    string(pm.Role),
+						Content: PromptMessageToText(pm),
+					})
+				}
+				xlog.Debug("MCP prompt discovered", "prompt", mcpPromptName, "messages", len(result.PromptMessages))
+			}
+		}
+	}
+
+	if len(mcpResourceURIs) > 0 {
+		resources, discErr := DiscoverMCPResources(ctx, namedSessions)
+		if discErr != nil {
+			xlog.Error("Failed to discover MCP resources", "error", discErr)
+		} else {
+			var resourceTexts []string
+			for _, uri := range mcpResourceURIs {
+				content, readErr := ReadMCPResource(ctx, resources, uri)
+				if readErr != nil {
+					xlog.Error("Failed to read MCP resource", "error", readErr, "uri", uri)
+					continue
+				}
+				name := uri
+				for _, r := range resources {
+					if r.URI == uri {
+						name = r.Name
+						break
+					}
+				}
+				resourceTexts = append(resourceTexts, fmt.Sprintf("--- MCP Resource: %s ---\n%s", name, content))
+			}
+			if len(resourceTexts) > 0 {
+				result.ResourceSuffix = "\n\n" + strings.Join(resourceTexts, "\n\n")
+				xlog.Debug("MCP resources discovered", "count", len(resourceTexts))
+			}
+		}
+	}
+
+	return result, nil
+}
+
+// AppendResourceSuffix appends the resource suffix from an MCPContextResult
+// to the last message's content in the given message slice.
+func AppendResourceSuffix(messages []schema.Message, suffix string) {
+	if suffix == "" || len(messages) == 0 {
+		return
+	}
+	lastIdx := len(messages) - 1
+	switch ct := messages[lastIdx].Content.(type) {
+	case string:
+		messages[lastIdx].Content = ct + suffix
+	default:
+		messages[lastIdx].Content = fmt.Sprintf("%v%s", ct, suffix)
 	}
 }

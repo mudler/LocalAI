@@ -3,7 +3,6 @@ package anthropic
 import (
 	"encoding/json"
 	"fmt"
-	"strings"
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
@@ -25,7 +24,7 @@ import (
 // @Param request body schema.AnthropicRequest true "query params"
 // @Success 200 {object} schema.AnthropicResponse "Response"
 // @Router /v1/messages [post]
-func MessagesEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator *templates.Evaluator, appConfig *config.ApplicationConfig) echo.HandlerFunc {
+func MessagesEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator *templates.Evaluator, appConfig *config.ApplicationConfig, natsClient mcpTools.MCPNATSClient) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		id := uuid.New().String()
 
@@ -60,60 +59,16 @@ func MessagesEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evalu
 		if (len(mcpServers) > 0 || mcpPromptName != "" || len(mcpResourceURIs) > 0) && (cfg.MCP.Servers != "" || cfg.MCP.Stdio != "") {
 			remote, stdio, mcpErr := cfg.MCP.MCPConfigFromYAML()
 			if mcpErr == nil {
-				mcpExecutor = mcpTools.NewToolExecutor(c.Request().Context(), cfg.Name, remote, stdio, mcpServers)
+				mcpExecutor = mcpTools.NewToolExecutor(c.Request().Context(), natsClient, cfg.Name, remote, stdio, mcpServers)
 
 				// Prompt and resource injection (local mode only)
-				if !mcpTools.IsDistributed() {
+				if natsClient == nil {
 					namedSessions, sessErr := mcpTools.NamedSessionsFromMCPConfig(cfg.Name, remote, stdio, mcpServers)
 					if sessErr == nil && len(namedSessions) > 0 {
-						if mcpPromptName != "" {
-							prompts, discErr := mcpTools.DiscoverMCPPrompts(c.Request().Context(), namedSessions)
-							if discErr == nil {
-								promptMsgs, getErr := mcpTools.GetMCPPrompt(c.Request().Context(), prompts, mcpPromptName, mcpPromptArgs)
-								if getErr == nil {
-									var injected []schema.Message
-									for _, pm := range promptMsgs {
-										injected = append(injected, schema.Message{
-											Role:    string(pm.Role),
-											Content: mcpTools.PromptMessageToText(pm),
-										})
-									}
-									openAIMessages = append(injected, openAIMessages...)
-									xlog.Debug("Anthropic MCP prompt injected", "prompt", mcpPromptName, "messages", len(injected))
-								} else {
-									xlog.Error("Failed to get MCP prompt", "error", getErr)
-								}
-							}
-						}
-						if len(mcpResourceURIs) > 0 {
-							resources, discErr := mcpTools.DiscoverMCPResources(c.Request().Context(), namedSessions)
-							if discErr == nil {
-								var resourceTexts []string
-								for _, uri := range mcpResourceURIs {
-									content, readErr := mcpTools.ReadMCPResource(c.Request().Context(), resources, uri)
-									if readErr != nil {
-										continue
-									}
-									name := uri
-									for _, r := range resources {
-										if r.URI == uri {
-											name = r.Name
-											break
-										}
-									}
-									resourceTexts = append(resourceTexts, fmt.Sprintf("--- MCP Resource: %s ---\n%s", name, content))
-								}
-								if len(resourceTexts) > 0 && len(openAIMessages) > 0 {
-									lastIdx := len(openAIMessages) - 1
-									suffix := "\n\n" + strings.Join(resourceTexts, "\n\n")
-									switch ct := openAIMessages[lastIdx].Content.(type) {
-									case string:
-										openAIMessages[lastIdx].Content = ct + suffix
-									default:
-										openAIMessages[lastIdx].Content = fmt.Sprintf("%v%s", ct, suffix)
-									}
-								}
-							}
+						mcpCtx, _ := mcpTools.InjectMCPContext(c.Request().Context(), namedSessions, mcpPromptName, mcpPromptArgs, mcpResourceURIs)
+						if mcpCtx != nil {
+							openAIMessages = append(mcpCtx.PromptMessages, openAIMessages...)
+							mcpTools.AppendResourceSuffix(openAIMessages, mcpCtx.ResourceSuffix)
 						}
 					}
 				}

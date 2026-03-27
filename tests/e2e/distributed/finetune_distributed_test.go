@@ -1,9 +1,7 @@
 package distributed_test
 
 import (
-	"context"
 	"sync/atomic"
-	"time"
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/services/distributed"
@@ -12,11 +10,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/testcontainers/testcontainers-go"
-	tcnats "github.com/testcontainers/testcontainers-go/modules/nats"
-	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
-	"github.com/testcontainers/testcontainers-go/wait"
-
 	pgdriver "gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -24,62 +17,22 @@ import (
 
 var _ = Describe("Fine-Tune Distributed", Label("Distributed"), func() {
 	var (
-		ctx           context.Context
-		pgContainer   *tcpostgres.PostgresContainer
-		natsContainer *tcnats.NATSContainer
-		db            *gorm.DB
-		nc            *messaging.Client
-		ftStore       *distributed.FineTuneStore
+		infra   *TestInfra
+		db      *gorm.DB
+		ftStore *distributed.FineTuneStore
 	)
 
 	BeforeEach(func() {
-		ctx = context.Background()
+		infra = SetupInfra("localai_finetune_dist_test")
 
 		var err error
-
-		pgContainer, err = tcpostgres.Run(ctx, "postgres:16-alpine",
-			tcpostgres.WithDatabase("localai_finetune_dist_test"),
-			tcpostgres.WithUsername("test"),
-			tcpostgres.WithPassword("test"),
-			testcontainers.WithWaitStrategy(
-				wait.ForLog("database system is ready to accept connections").
-					WithOccurrence(2).
-					WithStartupTimeout(30*time.Second),
-			),
-		)
-		Expect(err).ToNot(HaveOccurred())
-
-		pgURL, err := pgContainer.ConnectionString(ctx, "sslmode=disable")
-		Expect(err).ToNot(HaveOccurred())
-
-		db, err = gorm.Open(pgdriver.Open(pgURL), &gorm.Config{
+		db, err = gorm.Open(pgdriver.Open(infra.PGURL), &gorm.Config{
 			Logger: logger.Default.LogMode(logger.Silent),
 		})
 		Expect(err).ToNot(HaveOccurred())
 
-		natsContainer, err = tcnats.Run(ctx, "nats:2-alpine")
-		Expect(err).ToNot(HaveOccurred())
-
-		natsURL, err := natsContainer.ConnectionString(ctx)
-		Expect(err).ToNot(HaveOccurred())
-
-		nc, err = messaging.New(natsURL)
-		Expect(err).ToNot(HaveOccurred())
-
 		ftStore, err = distributed.NewFineTuneStore(db)
 		Expect(err).ToNot(HaveOccurred())
-	})
-
-	AfterEach(func() {
-		if nc != nil {
-			nc.Close()
-		}
-		if pgContainer != nil {
-			pgContainer.Terminate(ctx)
-		}
-		if natsContainer != nil {
-			natsContainer.Terminate(ctx)
-		}
 	})
 
 	Context("PostgreSQL persistence", func() {
@@ -140,28 +93,28 @@ var _ = Describe("Fine-Tune Distributed", Label("Distributed"), func() {
 
 			// Subscribe to fine-tune progress
 			var received atomic.Int32
-			sub, err := nc.Subscribe(messaging.SubjectFineTuneProgress(job.ID), func(data []byte) {
+			sub, err := infra.NC.Subscribe(messaging.SubjectFineTuneProgress(job.ID), func(data []byte) {
 				received.Add(1)
 			})
 			Expect(err).ToNot(HaveOccurred())
 			defer sub.Unsubscribe()
 
-			time.Sleep(100 * time.Millisecond)
+			FlushNATS(infra.NC)
 
 			// Publish progress events simulating training steps
-			Expect(nc.Publish(messaging.SubjectFineTuneProgress(job.ID), map[string]any{
+			Expect(infra.NC.Publish(messaging.SubjectFineTuneProgress(job.ID), map[string]any{
 				"job_id":  job.ID,
 				"status":  "training",
 				"message": "Epoch 1/3, loss=2.5",
 			})).To(Succeed())
 
-			Expect(nc.Publish(messaging.SubjectFineTuneProgress(job.ID), map[string]any{
+			Expect(infra.NC.Publish(messaging.SubjectFineTuneProgress(job.ID), map[string]any{
 				"job_id":  job.ID,
 				"status":  "training",
 				"message": "Epoch 2/3, loss=1.8",
 			})).To(Succeed())
 
-			Expect(nc.Publish(messaging.SubjectFineTuneProgress(job.ID), map[string]any{
+			Expect(infra.NC.Publish(messaging.SubjectFineTuneProgress(job.ID), map[string]any{
 				"job_id":  job.ID,
 				"status":  "completed",
 				"message": "Training finished",

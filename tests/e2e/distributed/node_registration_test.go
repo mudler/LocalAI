@@ -1,17 +1,12 @@
 package distributed_test
 
 import (
-	"context"
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/nodes"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
-	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
-	"github.com/testcontainers/testcontainers-go"
-	"github.com/testcontainers/testcontainers-go/wait"
 
 	pgdriver "gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -20,44 +15,22 @@ import (
 
 var _ = Describe("Phase 1: Node Registration", Label("Distributed"), func() {
 	var (
-		ctx         context.Context
-		pgContainer *tcpostgres.PostgresContainer
-		db          *gorm.DB
-		registry    *nodes.NodeRegistry
+		infra    *TestInfra
+		db       *gorm.DB
+		registry *nodes.NodeRegistry
 	)
 
 	BeforeEach(func() {
-		ctx = context.Background()
+		infra = SetupInfra("localai_nodes_test")
 
 		var err error
-		pgContainer, err = tcpostgres.Run(ctx, "postgres:16-alpine",
-			tcpostgres.WithDatabase("localai_nodes_test"),
-			tcpostgres.WithUsername("test"),
-			tcpostgres.WithPassword("test"),
-			testcontainers.WithWaitStrategy(
-				wait.ForLog("database system is ready to accept connections").
-					WithOccurrence(2).
-					WithStartupTimeout(30*time.Second),
-			),
-		)
-		Expect(err).ToNot(HaveOccurred())
-
-		pgURL, err := pgContainer.ConnectionString(ctx, "sslmode=disable")
-		Expect(err).ToNot(HaveOccurred())
-
-		db, err = gorm.Open(pgdriver.Open(pgURL), &gorm.Config{
+		db, err = gorm.Open(pgdriver.Open(infra.PGURL), &gorm.Config{
 			Logger: logger.Default.LogMode(logger.Silent),
 		})
 		Expect(err).ToNot(HaveOccurred())
 
 		registry, err = nodes.NewNodeRegistry(db)
 		Expect(err).ToNot(HaveOccurred())
-	})
-
-	AfterEach(func() {
-		if pgContainer != nil {
-			pgContainer.Terminate(ctx)
-		}
 	})
 
 	Context("Node Registration", func() {

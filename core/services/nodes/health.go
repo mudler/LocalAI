@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/advisorylock"
+	"github.com/mudler/LocalAI/core/services/messaging"
 	grpc "github.com/mudler/LocalAI/pkg/grpc"
 	"github.com/mudler/xlog"
 	"gorm.io/gorm"
@@ -23,13 +24,19 @@ type HealthMonitor struct {
 // NewHealthMonitor creates a new HealthMonitor.
 // If db is non-nil (PostgreSQL), an advisory lock is used so that only one
 // frontend instance runs health checks at a time in distributed mode.
-func NewHealthMonitor(registry *NodeRegistry, db *gorm.DB) *HealthMonitor {
+func NewHealthMonitor(registry *NodeRegistry, db *gorm.DB, checkInterval, staleThreshold time.Duration) *HealthMonitor {
+	if checkInterval == 0 {
+		checkInterval = 15 * time.Second
+	}
+	if staleThreshold == 0 {
+		staleThreshold = 60 * time.Second
+	}
 	return &HealthMonitor{
 		registry:       registry,
 		db:             db,
-		checkInterval:  15 * time.Second,
-		staleThreshold: 60 * time.Second,
-		autoOffline: true,
+		checkInterval:  checkInterval,
+		staleThreshold: staleThreshold,
+		autoOffline:    true,
 	}
 }
 
@@ -63,12 +70,22 @@ func (hm *HealthMonitor) run(ctx context.Context) {
 func (hm *HealthMonitor) checkAll(ctx context.Context) {
 	// In distributed mode, use an advisory lock so only one frontend runs checks
 	if hm.db != nil {
-		if !advisorylock.TryLock(hm.db, advisorylock.KeyHealthCheck) {
-			return // another frontend holds the lock — skip this round
+		acquired, err := advisorylock.TryWithLock(hm.db, messaging.AdvisoryLockHealthCheck, func() error {
+			hm.doCheckAll(ctx)
+			return nil
+		})
+		if err != nil {
+			xlog.Error("Health monitor advisory lock error", "error", err)
 		}
-		defer advisorylock.Unlock(hm.db, advisorylock.KeyHealthCheck)
+		_ = acquired
+		return
 	}
 
+	hm.doCheckAll(ctx)
+}
+
+// doCheckAll performs the actual health check logic for all nodes.
+func (hm *HealthMonitor) doCheckAll(ctx context.Context) {
 	nodes, err := hm.registry.List()
 	if err != nil {
 		xlog.Error("Health monitor: failed to list nodes", "error", err)

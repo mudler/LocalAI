@@ -29,19 +29,6 @@ type Callbacks struct {
 	OnMessage func(sender, content, messageID string)
 }
 
-// NoToolToCallArgs defines the sink state tool arguments.
-type NoToolToCallArgs struct {
-	Response string `json:"response" jsonschema:"description=The response to send to the user when no tool is needed"`
-}
-
-// NoToolToCallTool is the sink state tool — called when no other tool is needed.
-type NoToolToCallTool struct{}
-
-func (t NoToolToCallTool) Run(args NoToolToCallArgs) (string, any, error) {
-	xlog.Info("no_tool_to_call selected", "response", args.Response)
-	return args.Response, nil, nil
-}
-
 // DefaultInnerMonologueTemplate is the prompt used for autonomous/background runs
 // when the agent evaluates what to do next based on its permanent goal.
 const DefaultInnerMonologueTemplate = `You are an autonomous agent. Your permanent goal is: {{.Goal}}
@@ -271,13 +258,6 @@ func ExecuteChatWithLLM(ctx context.Context, llm cogito.LLM, cfg *AgentConfig, m
 		cogitoOpts = append(cogitoOpts, cogito.WithReasoningCallback(func(s string) {
 			if s != "" {
 				cb.OnReasoning(s)
-				// Also forward as stream event for live display
-				if cb.OnStream != nil {
-					cb.OnStream(cogito.StreamEvent{
-						Type:    cogito.StreamEventReasoning,
-						Content: s,
-					})
-				}
 			}
 		}))
 	}
@@ -392,24 +372,15 @@ func stripThinkingTags(content string) string {
 	// Simple implementation — remove content between <thinking> and </thinking>
 	result := content
 	for {
-		start := indexOf(result, "<thinking>")
+		start := strings.Index(result, "<thinking>")
 		if start == -1 {
 			break
 		}
-		end := indexOf(result[start:], "</thinking>")
+		end := strings.Index(result[start:], "</thinking>")
 		if end == -1 {
 			break
 		}
 		result = result[:start] + result[start+end+len("</thinking>"):]
 	}
 	return result
-}
-
-func indexOf(s, substr string) int {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return i
-		}
-	}
-	return -1
 }

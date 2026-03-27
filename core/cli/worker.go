@@ -1,22 +1,23 @@
 package cli
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"net"
-	"net/http"
 	"os"
-	"strconv"
 	"os/signal"
 	"path/filepath"
+	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
 	"time"
 
 	cliContext "github.com/mudler/LocalAI/core/cli/context"
+	"github.com/mudler/LocalAI/core/cli/workerregistry"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/services/messaging"
@@ -94,22 +95,15 @@ func (cmd *WorkerCMD) Run(ctx *cliContext.Context) error {
 	}
 
 	// Self-registration with frontend (with retry)
-	var nodeID string
-	const maxRetries = 10
-	backoff := 2 * time.Second
-	maxBackoff := 30 * time.Second
+	regClient := &workerregistry.RegistrationClient{
+		FrontendURL:       cmd.RegisterTo,
+		RegistrationToken: cmd.RegistrationToken,
+	}
 
-	for attempt := 1; attempt <= maxRetries; attempt++ {
-		nodeID, err = cmd.registerWithFrontend()
-		if err == nil {
-			break
-		}
-		if attempt == maxRetries {
-			return fmt.Errorf("failed to register with frontend after %d attempts: %w", maxRetries, err)
-		}
-		xlog.Warn("Registration failed, retrying", "attempt", attempt, "next_retry", backoff, "error", err)
-		time.Sleep(backoff)
-		backoff = min(backoff*2, maxBackoff)
+	registrationBody := cmd.registrationBody()
+	nodeID, _, err := regClient.RegisterWithRetry(registrationBody, 10)
+	if err != nil {
+		return fmt.Errorf("failed to register with frontend: %w", err)
 	}
 
 	xlog.Info("Registered with frontend", "nodeID", nodeID, "frontend", cmd.RegisterTo)
@@ -117,7 +111,11 @@ func (cmd *WorkerCMD) Run(ctx *cliContext.Context) error {
 	if heartbeatInterval == 0 {
 		heartbeatInterval = 10 * time.Second
 	}
-	go cmd.heartbeatLoop(nodeID, heartbeatInterval)
+	// Context cancelled on shutdown — used by heartbeat and other background goroutines
+	shutdownCtx, shutdownCancel := context.WithCancel(context.Background())
+	defer shutdownCancel()
+
+	go regClient.HeartbeatLoop(shutdownCtx, nodeID, heartbeatInterval, cmd.heartbeatBody)
 
 	// Start HTTP file transfer server
 	httpAddr := cmd.resolveHTTPAddr()
@@ -150,6 +148,11 @@ func (cmd *WorkerCMD) Run(ctx *cliContext.Context) error {
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 
+	// Set the registration token once before any backends are started
+	if cmd.RegistrationToken != "" {
+		os.Setenv(grpc.AuthTokenEnvVar, cmd.RegistrationToken)
+	}
+
 	supervisor := &backendSupervisor{
 		cmd:         cmd,
 		ml:          ml,
@@ -176,7 +179,7 @@ func (cmd *WorkerCMD) Run(ctx *cliContext.Context) error {
 	xlog.Info("Shutting down worker")
 	supervisor.stopAllBackends()
 	nodes.ShutdownFileTransferServer(httpServer)
-	cmd.gracefulDeregister(nodeID)
+	regClient.GracefulDeregister(nodeID)
 	return nil
 }
 
@@ -281,6 +284,21 @@ func (cmd *WorkerCMD) subscribeFileStaging(natsClient *messaging.Client, nodeID 
 			dirPath = filepath.Join(cacheDir, "..", "data", rel)
 		}
 
+		// Sanitize to prevent directory traversal via crafted key_prefix
+		dirPath = filepath.Clean(dirPath)
+		cleanCache := filepath.Clean(cacheDir)
+		cleanModels := filepath.Clean(cmd.ModelsPath)
+		cleanData := filepath.Clean(filepath.Join(cacheDir, "..", "data"))
+		if !(strings.HasPrefix(dirPath, cleanCache+string(filepath.Separator)) ||
+			dirPath == cleanCache ||
+			(cleanModels != "." && strings.HasPrefix(dirPath, cleanModels+string(filepath.Separator))) ||
+			dirPath == cleanModels ||
+			strings.HasPrefix(dirPath, cleanData+string(filepath.Separator)) ||
+			dirPath == cleanData) {
+			replyJSON(reply, map[string]any{"error": "invalid key prefix"})
+			return
+		}
+
 		var files []string
 		filepath.WalkDir(dirPath, func(path string, d os.DirEntry, err error) error {
 			if err != nil {
@@ -313,7 +331,6 @@ func replyJSON(reply func([]byte), v any) {
 type backendProcess struct {
 	proc    *process.Process
 	backend string
-	path    string
 	addr    string // gRPC address (host:port)
 }
 
@@ -331,13 +348,7 @@ type backendSupervisor struct {
 	mu        sync.Mutex
 	processes map[string]*backendProcess // key: backend name
 	nextPort  int                        // next available port for new backends
-}
-
-// getProcess returns the process for a backend, or nil if not running.
-func (s *backendSupervisor) getProcess(backend string) *backendProcess {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return s.processes[backend]
+	freePorts []int                      // ports freed by stopBackend, reused before nextPort
 }
 
 // startBackend starts a gRPC backend process on a dynamically allocated port.
@@ -356,14 +367,16 @@ func (s *backendSupervisor) startBackend(backend, backendPath string) (string, e
 		delete(s.processes, backend)
 	}
 
-	// Allocate port — gRPC ports grow upward from basePort; HTTP file server is below
-	addr := fmt.Sprintf("0.0.0.0:%d", s.nextPort)
-	s.nextPort++
-
-	// Pass the registration token to the backend process for gRPC auth
-	if s.cmd.RegistrationToken != "" {
-		os.Setenv(grpc.AuthTokenEnvVar, s.cmd.RegistrationToken)
+	// Allocate port — recycle freed ports first, then grow upward from basePort
+	var port int
+	if len(s.freePorts) > 0 {
+		port = s.freePorts[len(s.freePorts)-1]
+		s.freePorts = s.freePorts[:len(s.freePorts)-1]
+	} else {
+		port = s.nextPort
+		s.nextPort++
 	}
+	addr := fmt.Sprintf("0.0.0.0:%d", port)
 
 	proc, err := s.ml.StartProcess(backendPath, backend, addr)
 	if err != nil {
@@ -374,13 +387,12 @@ func (s *backendSupervisor) startBackend(backend, backendPath string) (string, e
 	s.processes[backend] = &backendProcess{
 		proc:    proc,
 		backend: backend,
-		path:    backendPath,
 		addr:    addr,
 	}
 	xlog.Info("Backend process started", "backend", backend, "addr", addr)
 
 	// Release the mutex before the health-check poll loop so concurrent
-	// backend operations (getProcess, stopBackend, isRunning) are not blocked.
+	// backend operations (stopBackend, isRunning) are not blocked.
 	s.mu.Unlock()
 
 	// Wait for the gRPC server to be ready
@@ -423,16 +435,19 @@ func (s *backendSupervisor) stopBackend(backend string) {
 	if err := bp.proc.Stop(); err != nil {
 		xlog.Error("Error stopping backend process", "backend", backend, "error", err)
 	}
+	// Recycle the port for future backends
+	if _, portStr, err := net.SplitHostPort(bp.addr); err == nil {
+		if p, err := strconv.Atoi(portStr); err == nil {
+			s.freePorts = append(s.freePorts, p)
+		}
+	}
 	delete(s.processes, backend)
 }
 
 // stopAllBackends stops all running backend processes.
 func (s *backendSupervisor) stopAllBackends() {
 	s.mu.Lock()
-	backends := make([]string, 0, len(s.processes))
-	for name := range s.processes {
-		backends = append(backends, name)
-	}
+	backends := slices.Collect(maps.Keys(s.processes))
 	s.mu.Unlock()
 
 	for _, b := range backends {
@@ -541,8 +556,7 @@ func (s *backendSupervisor) subscribeLifecycleEvents() {
 		var req messaging.BackendInstallRequest
 		if err := json.Unmarshal(data, &req); err != nil {
 			resp := messaging.BackendInstallReply{Success: false, Error: fmt.Sprintf("invalid request: %v", err)}
-			respData, _ := json.Marshal(resp)
-			reply(respData)
+			replyJSON(reply, resp)
 			return
 		}
 
@@ -550,8 +564,7 @@ func (s *backendSupervisor) subscribeLifecycleEvents() {
 		if err != nil {
 			xlog.Error("Failed to install backend via NATS", "error", err)
 			resp := messaging.BackendInstallReply{Success: false, Error: err.Error()}
-			respData, _ := json.Marshal(resp)
-			reply(respData)
+			replyJSON(reply, resp)
 			return
 		}
 
@@ -564,8 +577,7 @@ func (s *backendSupervisor) subscribeLifecycleEvents() {
 			advertiseAddr = net.JoinHostPort(advertiseHost, port)
 		}
 		resp := messaging.BackendInstallReply{Success: true, Address: advertiseAddr}
-		respData, _ := json.Marshal(resp)
-		reply(respData)
+		replyJSON(reply, resp)
 	})
 
 	// backend.stop — stop a specific backend process
@@ -589,8 +601,7 @@ func (s *backendSupervisor) subscribeLifecycleEvents() {
 		var req messaging.BackendDeleteRequest
 		if err := json.Unmarshal(data, &req); err != nil {
 			resp := messaging.BackendDeleteReply{Success: false, Error: fmt.Sprintf("invalid request: %v", err)}
-			respData, _ := json.Marshal(resp)
-			reply(respData)
+			replyJSON(reply, resp)
 			return
 		}
 
@@ -603,8 +614,7 @@ func (s *backendSupervisor) subscribeLifecycleEvents() {
 		if err := gallery.DeleteBackendFromSystem(s.systemState, req.Backend); err != nil {
 			xlog.Warn("Failed to delete backend files", "backend", req.Backend, "error", err)
 			resp := messaging.BackendDeleteReply{Success: false, Error: err.Error()}
-			respData, _ := json.Marshal(resp)
-			reply(respData)
+			replyJSON(reply, resp)
 			return
 		}
 
@@ -612,8 +622,7 @@ func (s *backendSupervisor) subscribeLifecycleEvents() {
 		gallery.RegisterBackends(s.systemState, s.ml)
 
 		resp := messaging.BackendDeleteReply{Success: true}
-		respData, _ := json.Marshal(resp)
-		reply(respData)
+		replyJSON(reply, resp)
 	})
 
 	// backend.list — list installed backends (request-reply)
@@ -622,8 +631,7 @@ func (s *backendSupervisor) subscribeLifecycleEvents() {
 		backends, err := gallery.ListSystemBackends(s.systemState)
 		if err != nil {
 			resp := messaging.BackendListReply{Error: err.Error()}
-			respData, _ := json.Marshal(resp)
-			reply(respData)
+			replyJSON(reply, resp)
 			return
 		}
 
@@ -642,8 +650,7 @@ func (s *backendSupervisor) subscribeLifecycleEvents() {
 		}
 
 		resp := messaging.BackendListReply{Backends: infos}
-		respData, _ := json.Marshal(resp)
-		reply(respData)
+		replyJSON(reply, resp)
 	})
 
 	// model.unload — call gRPC Free() to release GPU memory (request-reply)
@@ -652,8 +659,7 @@ func (s *backendSupervisor) subscribeLifecycleEvents() {
 		var req messaging.ModelUnloadRequest
 		if err := json.Unmarshal(data, &req); err != nil {
 			resp := messaging.ModelUnloadReply{Success: false, Error: fmt.Sprintf("invalid request: %v", err)}
-			respData, _ := json.Marshal(resp)
-			reply(respData)
+			replyJSON(reply, resp)
 			return
 		}
 
@@ -681,8 +687,7 @@ func (s *backendSupervisor) subscribeLifecycleEvents() {
 		}
 
 		resp := messaging.ModelUnloadReply{Success: true}
-		respData, _ := json.Marshal(resp)
-		reply(respData)
+		replyJSON(reply, resp)
 	})
 
 	// model.delete — remove model files from disk (request-reply)
@@ -691,8 +696,7 @@ func (s *backendSupervisor) subscribeLifecycleEvents() {
 		var req messaging.ModelDeleteRequest
 		if err := json.Unmarshal(data, &req); err != nil {
 			resp := messaging.ModelDeleteReply{Success: false, Error: fmt.Sprintf("invalid request: %v", err)}
-			respData, _ := json.Marshal(resp)
-			reply(respData)
+			replyJSON(reply, resp)
 			return
 		}
 
@@ -710,34 +714,18 @@ func (s *backendSupervisor) subscribeLifecycleEvents() {
 		}
 
 		resp := messaging.ModelDeleteReply{Success: true}
-		respData, _ := json.Marshal(resp)
-		reply(respData)
+		replyJSON(reply, resp)
 	})
 
 	// stop — trigger the normal shutdown path via sigCh so deferred cleanup runs
 	s.nats.Subscribe(messaging.SubjectNodeStop(s.nodeID), func(data []byte) {
 		xlog.Info("Received NATS stop event — signaling shutdown")
-		s.sigCh <- syscall.SIGTERM
+		select {
+		case s.sigCh <- syscall.SIGTERM:
+		default:
+			xlog.Debug("Shutdown already signaled, ignoring duplicate stop")
+		}
 	})
-}
-
-// gracefulDeregister handles drain → deregister.
-func (cmd *WorkerCMD) gracefulDeregister(nodeID string) {
-	if cmd.RegisterTo == "" || nodeID == "" {
-		return
-	}
-
-	if err := cmd.drainNode(nodeID); err != nil {
-		xlog.Warn("Failed to set drain status", "error", err)
-	} else {
-		cmd.waitForDrain(nodeID)
-	}
-
-	if err := cmd.deregisterFromFrontend(nodeID); err != nil {
-		xlog.Error("Failed to deregister", "error", err)
-	} else {
-		xlog.Info("Deregistered from frontend")
-	}
 }
 
 // advertiseAddr returns the address the frontend should use to reach this node.
@@ -786,8 +774,8 @@ func (cmd *WorkerCMD) advertiseHTTPAddr() string {
 	return httpAddr
 }
 
-// registerWithFrontend calls POST /api/node/register on the frontend to self-register.
-func (cmd *WorkerCMD) registerWithFrontend() (string, error) {
+// registrationBody builds the JSON body for node registration.
+func (cmd *WorkerCMD) registrationBody() map[string]any {
 	nodeName := cmd.NodeName
 	if nodeName == "" {
 		hostname, err := os.Hostname()
@@ -821,149 +809,30 @@ func (cmd *WorkerCMD) registerWithFrontend() (string, error) {
 	if cmd.RegistrationToken != "" {
 		body["token"] = cmd.RegistrationToken
 	}
-
-	jsonBody, _ := json.Marshal(body)
-	url := strings.TrimRight(cmd.RegisterTo, "/") + "/api/node/register"
-	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, url, bytes.NewReader(jsonBody))
-	if err != nil {
-		return "", fmt.Errorf("creating request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-	if cmd.RegistrationToken != "" {
-		req.Header.Set("Authorization", "Bearer "+cmd.RegistrationToken)
-	}
-	resp, err := (&http.Client{Timeout: 10 * time.Second}).Do(req)
-	if err != nil {
-		return "", fmt.Errorf("posting to %s: %w", url, err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("registration failed with status %d", resp.StatusCode)
-	}
-
-	var result struct {
-		ID string `json:"id"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return "", fmt.Errorf("decoding response: %w", err)
-	}
-	return result.ID, nil
+	return body
 }
 
-// heartbeatLoop sends periodic heartbeats to the frontend with VRAM updates.
-func (cmd *WorkerCMD) heartbeatLoop(nodeID string, interval time.Duration) {
-	ticker := time.NewTicker(interval)
-	defer ticker.Stop()
-
-	url := strings.TrimRight(cmd.RegisterTo, "/") + "/api/node/" + nodeID + "/heartbeat"
-	client := &http.Client{Timeout: 5 * time.Second}
-
-	for range ticker.C {
-		// Report current VRAM usage
-		var availVRAM uint64
-		aggregate := xsysinfo.GetGPUAggregateInfo()
-		if aggregate.TotalVRAM > 0 {
-			availVRAM = aggregate.FreeVRAM
-		} else {
-			// Fallback: report total as available (no usage tracking possible)
-			availVRAM, _ = xsysinfo.TotalAvailableVRAM()
-		}
-
-		heartbeatBody := map[string]any{
-			"available_vram": availVRAM,
-		}
-
-		// If no GPU, report system RAM usage instead
-		if aggregate.TotalVRAM == 0 {
-			if ramInfo, err := xsysinfo.GetSystemRAMInfo(); err == nil {
-				heartbeatBody["available_ram"] = ramInfo.Available
-			}
-		}
-		jsonBody, _ := json.Marshal(heartbeatBody)
-
-		req, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, url, bytes.NewReader(jsonBody))
-		req.Header.Set("Content-Type", "application/json")
-		if cmd.RegistrationToken != "" {
-			req.Header.Set("Authorization", "Bearer "+cmd.RegistrationToken)
-		}
-		resp, err := client.Do(req)
-		if err != nil {
-			xlog.Warn("Heartbeat failed", "error", err)
-			continue
-		}
-		resp.Body.Close()
+// heartbeatBody returns the current VRAM/RAM stats for heartbeat payloads.
+func (cmd *WorkerCMD) heartbeatBody() map[string]any {
+	var availVRAM uint64
+	aggregate := xsysinfo.GetGPUAggregateInfo()
+	if aggregate.TotalVRAM > 0 {
+		availVRAM = aggregate.FreeVRAM
+	} else {
+		// Fallback: report total as available (no usage tracking possible)
+		availVRAM, _ = xsysinfo.TotalAvailableVRAM()
 	}
+
+	body := map[string]any{
+		"available_vram": availVRAM,
+	}
+
+	// If no GPU, report system RAM usage instead
+	if aggregate.TotalVRAM == 0 {
+		if ramInfo, err := xsysinfo.GetSystemRAMInfo(); err == nil {
+			body["available_ram"] = ramInfo.Available
+		}
+	}
+	return body
 }
 
-// drainNode sets the node to draining status via the frontend API.
-func (cmd *WorkerCMD) drainNode(nodeID string) error {
-	url := strings.TrimRight(cmd.RegisterTo, "/") + "/api/node/" + nodeID + "/drain"
-	req, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, url, nil)
-	if cmd.RegistrationToken != "" {
-		req.Header.Set("Authorization", "Bearer "+cmd.RegistrationToken)
-	}
-	resp, err := (&http.Client{Timeout: 5 * time.Second}).Do(req)
-	if err != nil {
-		return err
-	}
-	resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("drain failed with status %d", resp.StatusCode)
-	}
-	return nil
-}
-
-// waitForDrain polls until no in-flight requests remain or timeout.
-func (cmd *WorkerCMD) waitForDrain(nodeID string) {
-	url := strings.TrimRight(cmd.RegisterTo, "/") + "/api/node/" + nodeID + "/models"
-	client := &http.Client{Timeout: 5 * time.Second}
-
-	deadline := time.Now().Add(30 * time.Second)
-	for time.Now().Before(deadline) {
-		req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, url, nil)
-		if cmd.RegistrationToken != "" {
-			req.Header.Set("Authorization", "Bearer "+cmd.RegistrationToken)
-		}
-		resp, err := client.Do(req)
-		if err != nil {
-			break
-		}
-		var models []struct {
-			InFlight int `json:"in_flight"`
-		}
-		json.NewDecoder(resp.Body).Decode(&models)
-		resp.Body.Close()
-
-		total := 0
-		for _, m := range models {
-			total += m.InFlight
-		}
-		if total == 0 {
-			xlog.Info("All in-flight requests drained")
-			return
-		}
-		xlog.Info("Waiting for in-flight requests", "count", total)
-		time.Sleep(1 * time.Second)
-	}
-	xlog.Warn("Drain timeout reached, proceeding with shutdown")
-}
-
-// deregisterFromFrontend marks the node as offline via POST /api/node/:id/deregister.
-// The node row is preserved in the database so re-registration restores approval status.
-func (cmd *WorkerCMD) deregisterFromFrontend(nodeID string) error {
-	url := strings.TrimRight(cmd.RegisterTo, "/") + "/api/node/" + nodeID + "/deregister"
-	req, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, url, nil)
-	if cmd.RegistrationToken != "" {
-		req.Header.Set("Authorization", "Bearer "+cmd.RegistrationToken)
-	}
-	resp, err := (&http.Client{Timeout: 5 * time.Second}).Do(req)
-	if err != nil {
-		return err
-	}
-	resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("deregistration failed with status %d", resp.StatusCode)
-	}
-	return nil
-}

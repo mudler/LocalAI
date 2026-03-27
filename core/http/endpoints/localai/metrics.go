@@ -4,7 +4,7 @@ import (
 	"time"
 
 	"github.com/labstack/echo/v4"
-	"github.com/mudler/LocalAI/core/services"
+	"github.com/mudler/LocalAI/core/services/monitoring"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
@@ -18,10 +18,10 @@ func LocalAIMetricsEndpoint() echo.HandlerFunc {
 
 type apiMiddlewareConfig struct {
 	Filter         func(c echo.Context) bool
-	metricsService *services.LocalAIMetricsService
+	metricsService *monitoring.LocalAIMetricsService
 }
 
-func LocalAIMetricsAPIMiddleware(metrics *services.LocalAIMetricsService) echo.MiddlewareFunc {
+func LocalAIMetricsAPIMiddleware(metrics *monitoring.LocalAIMetricsService) echo.MiddlewareFunc {
 	cfg := apiMiddlewareConfig{
 		metricsService: metrics,
 		Filter: func(c echo.Context) bool {

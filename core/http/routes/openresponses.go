@@ -5,6 +5,7 @@ import (
 	"github.com/mudler/LocalAI/core/application"
 	"github.com/mudler/LocalAI/core/config"
 	localai "github.com/mudler/LocalAI/core/http/endpoints/localai"
+	mcpTools "github.com/mudler/LocalAI/core/http/endpoints/mcp"
 	"github.com/mudler/LocalAI/core/http/endpoints/openresponses"
 	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/schema"
@@ -14,12 +15,19 @@ func RegisterOpenResponsesRoutes(app *echo.Echo,
 	re *middleware.RequestExtractor,
 	application *application.Application) {
 
+	// NATS client for distributed MCP tool routing (nil when not in distributed mode)
+	var natsClient mcpTools.MCPNATSClient
+	if application.NatsClient() != nil {
+		natsClient = application.NatsClient()
+	}
+
 	// Open Responses API endpoint
 	responsesHandler := openresponses.ResponsesEndpoint(
 		application.ModelConfigLoader(),
 		application.ModelLoader(),
 		application.TemplatesEvaluator(),
 		application.ApplicationConfig(),
+		natsClient,
 	)
 
 	responsesMiddleware := []echo.MiddlewareFunc{

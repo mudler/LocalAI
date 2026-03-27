@@ -15,7 +15,7 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/trace"
 	"github.com/mudler/LocalAI/core/schema"
-	"github.com/mudler/LocalAI/core/services"
+	"github.com/mudler/LocalAI/core/services/galleryop"
 
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/pkg/grpc/proto"
@@ -47,7 +47,7 @@ func ModelInference(ctx context.Context, s string, messages schema.Messages, ima
 
 	// Check if the modelFile exists, if it doesn't try to load it from the gallery
 	if o.AutoloadGalleries { // experimental
-		modelNames, err := services.ListModels(cl, loader, nil, services.SKIP_ALWAYS)
+		modelNames, err := galleryop.ListModels(cl, loader, nil, galleryop.SKIP_ALWAYS)
 		if err != nil {
 			return nil, err
 		}

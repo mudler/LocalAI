@@ -1,15 +1,13 @@
 package distributed_test
 
 import (
-	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
 	"sync/atomic"
-	"time"
 
 	"github.com/mudler/LocalAI/core/config"
-	"github.com/mudler/LocalAI/core/services"
+	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/pkg/model"
@@ -18,11 +16,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/testcontainers/testcontainers-go"
-	tcnats "github.com/testcontainers/testcontainers-go/modules/nats"
-	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
-	"github.com/testcontainers/testcontainers-go/wait"
-
 	pgdriver "gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -30,60 +23,22 @@ import (
 
 var _ = Describe("Model and Backend Managers", Label("Distributed"), func() {
 	var (
-		ctx           context.Context
-		pgContainer   *tcpostgres.PostgresContainer
-		natsContainer *tcnats.NATSContainer
-		db            *gorm.DB
-		nc            *messaging.Client
-		registry      *nodes.NodeRegistry
+		infra    *TestInfra
+		db       *gorm.DB
+		registry *nodes.NodeRegistry
 	)
 
 	BeforeEach(func() {
-		ctx = context.Background()
+		infra = SetupInfra("localai_managers_test")
+
 		var err error
-
-		pgContainer, err = tcpostgres.Run(ctx, "postgres:16-alpine",
-			tcpostgres.WithDatabase("localai_managers_test"),
-			tcpostgres.WithUsername("test"),
-			tcpostgres.WithPassword("test"),
-			testcontainers.WithWaitStrategy(
-				wait.ForLog("database system is ready to accept connections").
-					WithOccurrence(2).WithStartupTimeout(30*time.Second),
-			),
-		)
-		Expect(err).ToNot(HaveOccurred())
-
-		pgURL, err := pgContainer.ConnectionString(ctx, "sslmode=disable")
-		Expect(err).ToNot(HaveOccurred())
-
-		db, err = gorm.Open(pgdriver.Open(pgURL), &gorm.Config{
+		db, err = gorm.Open(pgdriver.Open(infra.PGURL), &gorm.Config{
 			Logger: logger.Default.LogMode(logger.Silent),
 		})
 		Expect(err).ToNot(HaveOccurred())
 
-		natsContainer, err = tcnats.Run(ctx, "nats:2-alpine")
-		Expect(err).ToNot(HaveOccurred())
-
-		natsURL, err := natsContainer.ConnectionString(ctx)
-		Expect(err).ToNot(HaveOccurred())
-
-		nc, err = messaging.New(natsURL)
-		Expect(err).ToNot(HaveOccurred())
-
 		registry, err = nodes.NewNodeRegistry(db)
 		Expect(err).ToNot(HaveOccurred())
-	})
-
-	AfterEach(func() {
-		if nc != nil {
-			nc.Close()
-		}
-		if pgContainer != nil {
-			pgContainer.Terminate(ctx)
-		}
-		if natsContainer != nil {
-			natsContainer.Terminate(ctx)
-		}
 	})
 
 	Context("LocalModelManager", func() {
@@ -91,7 +46,7 @@ var _ = Describe("Model and Backend Managers", Label("Distributed"), func() {
 			tempDir     string
 			ss          *system.SystemState
 			ml          *model.ModelLoader
-			localMgr    *services.LocalModelManager
+			localMgr    *galleryop.LocalModelManager
 		)
 
 		BeforeEach(func() {
@@ -105,7 +60,7 @@ var _ = Describe("Model and Backend Managers", Label("Distributed"), func() {
 
 			appCfg := config.NewApplicationConfig()
 			appCfg.SystemState = ss
-			localMgr = services.NewLocalModelManager(appCfg, ml)
+			localMgr = galleryop.NewLocalModelManager(appCfg, ml)
 		})
 
 		AfterEach(func() {
@@ -132,7 +87,7 @@ var _ = Describe("Model and Backend Managers", Label("Distributed"), func() {
 			tempDir  string
 			ss       *system.SystemState
 			ml       *model.ModelLoader
-			localMgr *services.LocalBackendManager
+			localMgr *galleryop.LocalBackendManager
 		)
 
 		BeforeEach(func() {
@@ -146,7 +101,7 @@ var _ = Describe("Model and Backend Managers", Label("Distributed"), func() {
 
 			appCfg := config.NewApplicationConfig()
 			appCfg.SystemState = ss
-			localMgr = services.NewLocalBackendManager(appCfg, ml)
+			localMgr = galleryop.NewLocalBackendManager(appCfg, ml)
 		})
 
 		AfterEach(func() {
@@ -181,7 +136,7 @@ var _ = Describe("Model and Backend Managers", Label("Distributed"), func() {
 
 			// Subscribe to model.delete on both node subjects, track receipt
 			var deleteCount atomic.Int32
-			sub1, err := nc.SubscribeReply(messaging.SubjectNodeModelDelete(node1.ID), func(data []byte, reply func([]byte)) {
+			sub1, err := infra.NC.SubscribeReply(messaging.SubjectNodeModelDelete(node1.ID), func(data []byte, reply func([]byte)) {
 				var req messaging.ModelDeleteRequest
 				json.Unmarshal(data, &req)
 				Expect(req.ModelName).To(Equal("big-model"))
@@ -192,7 +147,7 @@ var _ = Describe("Model and Backend Managers", Label("Distributed"), func() {
 			Expect(err).ToNot(HaveOccurred())
 			defer sub1.Unsubscribe()
 
-			sub2, err := nc.SubscribeReply(messaging.SubjectNodeModelDelete(node2.ID), func(data []byte, reply func([]byte)) {
+			sub2, err := infra.NC.SubscribeReply(messaging.SubjectNodeModelDelete(node2.ID), func(data []byte, reply func([]byte)) {
 				var req messaging.ModelDeleteRequest
 				json.Unmarshal(data, &req)
 				deleteCount.Add(1)
@@ -202,7 +157,7 @@ var _ = Describe("Model and Backend Managers", Label("Distributed"), func() {
 			Expect(err).ToNot(HaveOccurred())
 			defer sub2.Unsubscribe()
 
-			time.Sleep(100 * time.Millisecond)
+			FlushNATS(infra.NC)
 
 			// Create temp dir for local model files
 			tempDir, err := os.MkdirTemp("", "dist-model-test-*")
@@ -219,7 +174,7 @@ var _ = Describe("Model and Backend Managers", Label("Distributed"), func() {
 			appCfg := config.NewApplicationConfig()
 			appCfg.SystemState = ss
 
-			adapter := nodes.NewRemoteUnloaderAdapter(registry, nc)
+			adapter := nodes.NewRemoteUnloaderAdapter(registry, infra.NC)
 			distMgr := nodes.NewDistributedModelManager(appCfg, ml, adapter)
 
 			err = distMgr.DeleteModel("big-model")
@@ -247,7 +202,7 @@ var _ = Describe("Model and Backend Managers", Label("Distributed"), func() {
 
 			// Subscribe to backend.delete on all 3 nodes
 			var deleteCount atomic.Int32
-			sub1, err := nc.SubscribeReply(messaging.SubjectNodeBackendDelete(node1.ID), func(data []byte, reply func([]byte)) {
+			sub1, err := infra.NC.SubscribeReply(messaging.SubjectNodeBackendDelete(node1.ID), func(data []byte, reply func([]byte)) {
 				var req messaging.BackendDeleteRequest
 				json.Unmarshal(data, &req)
 				Expect(req.Backend).To(Equal("my-backend"))
@@ -258,7 +213,7 @@ var _ = Describe("Model and Backend Managers", Label("Distributed"), func() {
 			Expect(err).ToNot(HaveOccurred())
 			defer sub1.Unsubscribe()
 
-			sub2, err := nc.SubscribeReply(messaging.SubjectNodeBackendDelete(node2.ID), func(data []byte, reply func([]byte)) {
+			sub2, err := infra.NC.SubscribeReply(messaging.SubjectNodeBackendDelete(node2.ID), func(data []byte, reply func([]byte)) {
 				var req messaging.BackendDeleteRequest
 				json.Unmarshal(data, &req)
 				deleteCount.Add(1)
@@ -269,7 +224,7 @@ var _ = Describe("Model and Backend Managers", Label("Distributed"), func() {
 			defer sub2.Unsubscribe()
 
 			var unhealthyReceived atomic.Int32
-			sub3, err := nc.SubscribeReply(messaging.SubjectNodeBackendDelete(node3.ID), func(data []byte, reply func([]byte)) {
+			sub3, err := infra.NC.SubscribeReply(messaging.SubjectNodeBackendDelete(node3.ID), func(data []byte, reply func([]byte)) {
 				unhealthyReceived.Add(1)
 				resp, _ := json.Marshal(messaging.BackendDeleteReply{Success: true})
 				reply(resp)
@@ -277,7 +232,7 @@ var _ = Describe("Model and Backend Managers", Label("Distributed"), func() {
 			Expect(err).ToNot(HaveOccurred())
 			defer sub3.Unsubscribe()
 
-			time.Sleep(100 * time.Millisecond)
+			FlushNATS(infra.NC)
 
 			// Create temp dir for local backend files
 			tempDir, err := os.MkdirTemp("", "dist-backend-test-*")
@@ -295,7 +250,7 @@ var _ = Describe("Model and Backend Managers", Label("Distributed"), func() {
 			appCfg := config.NewApplicationConfig()
 			appCfg.SystemState = ss
 
-			adapter := nodes.NewRemoteUnloaderAdapter(registry, nc)
+			adapter := nodes.NewRemoteUnloaderAdapter(registry, infra.NC)
 			distMgr := nodes.NewDistributedBackendManager(appCfg, ml, adapter, registry)
 
 			err = distMgr.DeleteBackend("my-backend")
@@ -318,7 +273,7 @@ var _ = Describe("Model and Backend Managers", Label("Distributed"), func() {
 			Expect(registry.Register(node1, true)).To(Succeed())
 
 			var deleteCount atomic.Int32
-			sub1, err := nc.SubscribeReply(messaging.SubjectNodeBackendDelete(node1.ID), func(data []byte, reply func([]byte)) {
+			sub1, err := infra.NC.SubscribeReply(messaging.SubjectNodeBackendDelete(node1.ID), func(data []byte, reply func([]byte)) {
 				var req messaging.BackendDeleteRequest
 				json.Unmarshal(data, &req)
 				Expect(req.Backend).To(Equal("remote-only-backend"))
@@ -329,7 +284,7 @@ var _ = Describe("Model and Backend Managers", Label("Distributed"), func() {
 			Expect(err).ToNot(HaveOccurred())
 			defer sub1.Unsubscribe()
 
-			time.Sleep(100 * time.Millisecond)
+			FlushNATS(infra.NC)
 
 			// Use a temp dir with NO local backend directory — simulates frontend node
 			tempDir, err := os.MkdirTemp("", "dist-backend-remote-only-*")
@@ -342,7 +297,7 @@ var _ = Describe("Model and Backend Managers", Label("Distributed"), func() {
 			appCfg := config.NewApplicationConfig()
 			appCfg.SystemState = ss
 
-			adapter := nodes.NewRemoteUnloaderAdapter(registry, nc)
+			adapter := nodes.NewRemoteUnloaderAdapter(registry, infra.NC)
 			distMgr := nodes.NewDistributedBackendManager(appCfg, ml, adapter, registry)
 
 			// Should NOT return an error even though the backend doesn't exist locally

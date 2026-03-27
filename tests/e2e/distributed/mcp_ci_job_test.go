@@ -18,12 +18,11 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	openai "github.com/sashabaranov/go-openai"
-
-	tcnats "github.com/testcontainers/testcontainers-go/modules/nats"
 )
 
 // startTestMCPServer creates an in-process MCP HTTP server with a "get_weather" tool.
 func startTestMCPServer() (string, func()) {
+	GinkgoHelper()
 	server := mcp.NewServer(
 		&mcp.Implementation{Name: "test-mcp", Version: "v1.0.0"},
 		nil,
@@ -280,32 +279,11 @@ func startMockLLMServer() (string, func()) {
 
 var _ = Describe("MCP CI Job Execution", Label("Distributed", "MCPCIJob"), func() {
 	var (
-		ctx           context.Context
-		natsContainer *tcnats.NATSContainer
-		nc            *messaging.Client
+		infra *TestInfra
 	)
 
 	BeforeEach(func() {
-		ctx = context.Background()
-
-		var err error
-		natsContainer, err = tcnats.Run(ctx, "nats:2-alpine")
-		Expect(err).ToNot(HaveOccurred())
-
-		natsURL, err := natsContainer.ConnectionString(ctx)
-		Expect(err).ToNot(HaveOccurred())
-
-		nc, err = messaging.New(natsURL)
-		Expect(err).ToNot(HaveOccurred())
-	})
-
-	AfterEach(func() {
-		if nc != nil {
-			nc.Close()
-		}
-		if natsContainer != nil {
-			natsContainer.Terminate(ctx)
-		}
+		infra = SetupNATSOnly()
 	})
 
 	Context("Full MCP CI Job Flow", func() {
@@ -325,7 +303,7 @@ var _ = Describe("MCP CI Job Execution", Label("Distributed", "MCPCIJob"), func(
 			var resultEvent *jobs.JobResultEvent
 			var eventMu sync.Mutex
 
-			progressSub, err := nc.Subscribe(messaging.SubjectJobProgress(jobID), func(data []byte) {
+			progressSub, err := infra.NC.Subscribe(messaging.SubjectJobProgress(jobID), func(data []byte) {
 				var evt jobs.ProgressEvent
 				if json.Unmarshal(data, &evt) == nil {
 					eventMu.Lock()
@@ -336,7 +314,7 @@ var _ = Describe("MCP CI Job Execution", Label("Distributed", "MCPCIJob"), func(
 			Expect(err).ToNot(HaveOccurred())
 			defer progressSub.Unsubscribe()
 
-			resultSub, err := nc.Subscribe(messaging.SubjectJobResult(jobID), func(data []byte) {
+			resultSub, err := infra.NC.Subscribe(messaging.SubjectJobResult(jobID), func(data []byte) {
 				var evt jobs.JobResultEvent
 				if json.Unmarshal(data, &evt) == nil {
 					eventMu.Lock()
@@ -347,7 +325,7 @@ var _ = Describe("MCP CI Job Execution", Label("Distributed", "MCPCIJob"), func(
 			Expect(err).ToNot(HaveOccurred())
 			defer resultSub.Unsubscribe()
 
-			time.Sleep(100 * time.Millisecond)
+			FlushNATS(infra.NC)
 
 			// Build MCP config YAML pointing to mock MCP server
 			mcpRemoteJSON := fmt.Sprintf(`{"mcpServers":{"weather-api":{"url":"%s"}}}`, mcpURL)
@@ -380,18 +358,18 @@ var _ = Describe("MCP CI Job Execution", Label("Distributed", "MCPCIJob"), func(
 			}
 
 			// Simulate the agent worker subscribing and processing
-			workerSub, err := nc.QueueSubscribe(messaging.SubjectJobsNew, messaging.QueueWorkers, func(data []byte) {
+			workerSub, err := infra.NC.QueueSubscribe(messaging.SubjectJobsNew, messaging.QueueWorkers, func(data []byte) {
 				// This is what the agent worker does — call handleMCPCIJob
 				// We import it indirectly by calling the same logic
-				go processMCPCIJobForTest(data, llmURL, "test-token", nc)
+				go processMCPCIJobForTest(data, llmURL, "test-token", infra.NC)
 			})
 			Expect(err).ToNot(HaveOccurred())
 			defer workerSub.Unsubscribe()
 
-			time.Sleep(100 * time.Millisecond)
+			FlushNATS(infra.NC)
 
 			// Publish the job event
-			Expect(nc.Publish(messaging.SubjectJobsNew, evt)).To(Succeed())
+			Expect(infra.NC.Publish(messaging.SubjectJobsNew, evt)).To(Succeed())
 
 			// Wait for result
 			Eventually(func() bool {
@@ -429,7 +407,7 @@ var _ = Describe("MCP CI Job Execution", Label("Distributed", "MCPCIJob"), func(
 			var resultEvent *jobs.JobResultEvent
 			var eventMu sync.Mutex
 
-			resultSub, err := nc.Subscribe(messaging.SubjectJobResult(jobID), func(data []byte) {
+			resultSub, err := infra.NC.Subscribe(messaging.SubjectJobResult(jobID), func(data []byte) {
 				var evt jobs.JobResultEvent
 				if json.Unmarshal(data, &evt) == nil {
 					eventMu.Lock()
@@ -440,7 +418,7 @@ var _ = Describe("MCP CI Job Execution", Label("Distributed", "MCPCIJob"), func(
 			Expect(err).ToNot(HaveOccurred())
 			defer resultSub.Unsubscribe()
 
-			time.Sleep(100 * time.Millisecond)
+			FlushNATS(infra.NC)
 
 			// MCP config pointing to unreachable server
 			mcpRemoteJSON := `{"mcpServers":{"bad-server":{"url":"http://127.0.0.1:1/mcp"}}}`
@@ -473,7 +451,7 @@ var _ = Describe("MCP CI Job Execution", Label("Distributed", "MCPCIJob"), func(
 
 			// Process directly (no worker subscription needed)
 			evtData, _ := json.Marshal(evt)
-			go processMCPCIJobForTest(evtData, "http://localhost:9999", "token", nc)
+			go processMCPCIJobForTest(evtData, "http://localhost:9999", "token", infra.NC)
 
 			// Wait for failure result
 			Eventually(func() bool {
@@ -502,7 +480,7 @@ var _ = Describe("MCP CI Job Execution", Label("Distributed", "MCPCIJob"), func(
 			var resultEvent *jobs.JobResultEvent
 			var eventMu sync.Mutex
 
-			resultSub, err := nc.Subscribe(messaging.SubjectJobResult(jobID), func(data []byte) {
+			resultSub, err := infra.NC.Subscribe(messaging.SubjectJobResult(jobID), func(data []byte) {
 				var evt jobs.JobResultEvent
 				if json.Unmarshal(data, &evt) == nil {
 					eventMu.Lock()
@@ -513,7 +491,7 @@ var _ = Describe("MCP CI Job Execution", Label("Distributed", "MCPCIJob"), func(
 			Expect(err).ToNot(HaveOccurred())
 			defer resultSub.Unsubscribe()
 
-			time.Sleep(100 * time.Millisecond)
+			FlushNATS(infra.NC)
 
 			mcpRemoteJSON := fmt.Sprintf(`{"mcpServers":{"weather-api":{"url":"%s"}}}`, mcpURL)
 			modelCfg := &config.ModelConfig{
@@ -548,7 +526,7 @@ var _ = Describe("MCP CI Job Execution", Label("Distributed", "MCPCIJob"), func(
 			}
 
 			evtData, _ := json.Marshal(evt)
-			go processMCPCIJobForTest(evtData, llmURL, "test-token", nc)
+			go processMCPCIJobForTest(evtData, llmURL, "test-token", infra.NC)
 
 			Eventually(func() bool {
 				eventMu.Lock()
@@ -570,7 +548,7 @@ var _ = Describe("MCP CI Job Execution", Label("Distributed", "MCPCIJob"), func(
 			var resultEvent *jobs.JobResultEvent
 			var eventMu sync.Mutex
 
-			resultSub, err := nc.Subscribe(messaging.SubjectJobResult(jobID), func(data []byte) {
+			resultSub, err := infra.NC.Subscribe(messaging.SubjectJobResult(jobID), func(data []byte) {
 				var evt jobs.JobResultEvent
 				if json.Unmarshal(data, &evt) == nil {
 					eventMu.Lock()
@@ -581,7 +559,7 @@ var _ = Describe("MCP CI Job Execution", Label("Distributed", "MCPCIJob"), func(
 			Expect(err).ToNot(HaveOccurred())
 			defer resultSub.Unsubscribe()
 
-			time.Sleep(100 * time.Millisecond)
+			FlushNATS(infra.NC)
 
 			// Event with no Job or Task
 			evt := jobs.JobEvent{
@@ -591,7 +569,7 @@ var _ = Describe("MCP CI Job Execution", Label("Distributed", "MCPCIJob"), func(
 			}
 
 			evtData, _ := json.Marshal(evt)
-			go processMCPCIJobForTest(evtData, "http://localhost:9999", "token", nc)
+			go processMCPCIJobForTest(evtData, "http://localhost:9999", "token", infra.NC)
 
 			Eventually(func() bool {
 				eventMu.Lock()
@@ -611,7 +589,7 @@ var _ = Describe("MCP CI Job Execution", Label("Distributed", "MCPCIJob"), func(
 			var resultEvent *jobs.JobResultEvent
 			var eventMu sync.Mutex
 
-			resultSub, err := nc.Subscribe(messaging.SubjectJobResult(jobID), func(data []byte) {
+			resultSub, err := infra.NC.Subscribe(messaging.SubjectJobResult(jobID), func(data []byte) {
 				var evt jobs.JobResultEvent
 				if json.Unmarshal(data, &evt) == nil {
 					eventMu.Lock()
@@ -622,7 +600,7 @@ var _ = Describe("MCP CI Job Execution", Label("Distributed", "MCPCIJob"), func(
 			Expect(err).ToNot(HaveOccurred())
 			defer resultSub.Unsubscribe()
 
-			time.Sleep(100 * time.Millisecond)
+			FlushNATS(infra.NC)
 
 			// ModelConfig with empty MCP
 			modelCfg := &config.ModelConfig{}
@@ -649,7 +627,7 @@ var _ = Describe("MCP CI Job Execution", Label("Distributed", "MCPCIJob"), func(
 			}
 
 			evtData, _ := json.Marshal(evt)
-			go processMCPCIJobForTest(evtData, "http://localhost:9999", "token", nc)
+			go processMCPCIJobForTest(evtData, "http://localhost:9999", "token", infra.NC)
 
 			Eventually(func() bool {
 				eventMu.Lock()

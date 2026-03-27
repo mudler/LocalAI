@@ -3,7 +3,6 @@ package distributed_test
 import (
 	"context"
 	"sync/atomic"
-	"time"
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/services/jobs"
@@ -12,11 +11,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/testcontainers/testcontainers-go"
-	tcnats "github.com/testcontainers/testcontainers-go/modules/nats"
-	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
-	"github.com/testcontainers/testcontainers-go/wait"
-
 	pgdriver "gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -24,67 +18,27 @@ import (
 
 var _ = Describe("Job Dispatch", Label("Distributed"), func() {
 	var (
-		ctx           context.Context
-		pgContainer   *tcpostgres.PostgresContainer
-		natsContainer *tcnats.NATSContainer
-		db            *gorm.DB
-		nc            *messaging.Client
-		store         *jobs.JobStore
+		infra *TestInfra
+		db    *gorm.DB
+		store *jobs.JobStore
 	)
 
 	BeforeEach(func() {
-		ctx = context.Background()
+		infra = SetupInfra("localai_dispatch_test")
 
 		var err error
-
-		pgContainer, err = tcpostgres.Run(ctx, "postgres:16-alpine",
-			tcpostgres.WithDatabase("localai_dispatch_test"),
-			tcpostgres.WithUsername("test"),
-			tcpostgres.WithPassword("test"),
-			testcontainers.WithWaitStrategy(
-				wait.ForLog("database system is ready to accept connections").
-					WithOccurrence(2).
-					WithStartupTimeout(30*time.Second),
-			),
-		)
-		Expect(err).ToNot(HaveOccurred())
-
-		pgURL, err := pgContainer.ConnectionString(ctx, "sslmode=disable")
-		Expect(err).ToNot(HaveOccurred())
-
-		db, err = gorm.Open(pgdriver.Open(pgURL), &gorm.Config{
+		db, err = gorm.Open(pgdriver.Open(infra.PGURL), &gorm.Config{
 			Logger: logger.Default.LogMode(logger.Silent),
 		})
-		Expect(err).ToNot(HaveOccurred())
-
-		natsContainer, err = tcnats.Run(ctx, "nats:2-alpine")
-		Expect(err).ToNot(HaveOccurred())
-
-		natsURL, err := natsContainer.ConnectionString(ctx)
-		Expect(err).ToNot(HaveOccurred())
-
-		nc, err = messaging.New(natsURL)
 		Expect(err).ToNot(HaveOccurred())
 
 		store, err = jobs.NewJobStore(db)
 		Expect(err).ToNot(HaveOccurred())
 	})
 
-	AfterEach(func() {
-		if nc != nil {
-			nc.Close()
-		}
-		if pgContainer != nil {
-			pgContainer.Terminate(ctx)
-		}
-		if natsContainer != nil {
-			natsContainer.Terminate(ctx)
-		}
-	})
-
 	Context("NATS job dispatch", func() {
 		It("should enqueue job via NATS when dispatcher is set", func() {
-			dispatcher := jobs.NewDispatcher(store, nc, db, "dispatch-instance")
+			dispatcher := jobs.NewDispatcher(store, infra.NC, db, "dispatch-instance")
 			var processed atomic.Int32
 			dispatcher.SetWorkerFunc(func(ctx context.Context, job *jobs.JobRecord, task *jobs.TaskRecord) error {
 				processed.Add(1)
@@ -92,7 +46,7 @@ var _ = Describe("Job Dispatch", Label("Distributed"), func() {
 				return nil
 			})
 
-			dCtx, dCancel := context.WithCancel(ctx)
+			dCtx, dCancel := context.WithCancel(infra.Ctx)
 			defer dCancel()
 			Expect(dispatcher.Start(dCtx)).To(Succeed())
 			defer dispatcher.Stop()
@@ -149,7 +103,7 @@ var _ = Describe("Job Dispatch", Label("Distributed"), func() {
 
 	Context("NATS job cancellation", func() {
 		It("should cancel running job via NATS cancel subject", func() {
-			dispatcher := jobs.NewDispatcher(store, nc, db, "cancel-instance")
+			dispatcher := jobs.NewDispatcher(store, infra.NC, db, "cancel-instance")
 			jobStarted := make(chan struct{})
 			dispatcher.SetWorkerFunc(func(ctx context.Context, job *jobs.JobRecord, task *jobs.TaskRecord) error {
 				close(jobStarted)
@@ -157,7 +111,7 @@ var _ = Describe("Job Dispatch", Label("Distributed"), func() {
 				return ctx.Err()
 			})
 
-			dCtx, dCancel := context.WithCancel(ctx)
+			dCtx, dCancel := context.WithCancel(infra.Ctx)
 			defer dCancel()
 			Expect(dispatcher.Start(dCtx)).To(Succeed())
 			defer dispatcher.Stop()

@@ -47,7 +47,7 @@ func RegisterNodeSelfServiceRoutes(e *echo.Echo, registry *nodes.NodeRegistry, r
 
 // RegisterNodeAdminRoutes registers /api/nodes/ endpoints used by admins
 // (list, get, get models, drain, delete, approve, backend management). Protected by admin middleware.
-func RegisterNodeAdminRoutes(e *echo.Echo, registry *nodes.NodeRegistry, unloader *nodes.RemoteUnloaderAdapter, adminMw echo.MiddlewareFunc, authDB *gorm.DB, hmacSecret string, registrationToken string) {
+func RegisterNodeAdminRoutes(e *echo.Echo, registry *nodes.NodeRegistry, unloader nodes.NodeCommandSender, adminMw echo.MiddlewareFunc, authDB *gorm.DB, hmacSecret string, registrationToken string) {
 	if registry == nil {
 		return
 	}

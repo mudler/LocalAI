@@ -3,7 +3,7 @@ package localai
 import (
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/schema"
-	"github.com/mudler/LocalAI/core/services"
+	"github.com/mudler/LocalAI/core/services/monitoring"
 )
 
 // BackendMonitorEndpoint returns the status of the specified backend
@@ -11,7 +11,7 @@ import (
 // @Param request body schema.BackendMonitorRequest true "Backend statistics request"
 // @Success 200 {object} proto.StatusResponse "Response"
 // @Router /backend/monitor [get]
-func BackendMonitorEndpoint(bm *services.BackendMonitorService) echo.HandlerFunc {
+func BackendMonitorEndpoint(bm *monitoring.BackendMonitorService) echo.HandlerFunc {
 	return func(c echo.Context) error {
 
 		input := new(schema.BackendMonitorRequest)
@@ -32,7 +32,7 @@ func BackendMonitorEndpoint(bm *services.BackendMonitorService) echo.HandlerFunc
 // @Summary Backend monitor endpoint
 // @Param request body schema.BackendMonitorRequest true "Backend statistics request"
 // @Router /backend/shutdown [post]
-func BackendShutdownEndpoint(bm *services.BackendMonitorService) echo.HandlerFunc {
+func BackendShutdownEndpoint(bm *monitoring.BackendMonitorService) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		input := new(schema.BackendMonitorRequest)
 		// Get input data from the request body

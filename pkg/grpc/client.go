@@ -12,6 +12,8 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
+const maxGRPCMessageSize = 50 * 1024 * 1024 // 50MB
+
 // bearerToken implements credentials.PerRPCCredentials to inject a bearer token
 // into every gRPC call.
 type bearerToken struct {
@@ -69,14 +71,14 @@ func (c *Client) dial() (*grpc.ClientConn, error) {
 	opts := []grpc.DialOption{
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithDefaultCallOptions(
-			grpc.MaxCallRecvMsgSize(50*1024*1024), // 50MB
-			grpc.MaxCallSendMsgSize(50*1024*1024), // 50MB
+			grpc.MaxCallRecvMsgSize(maxGRPCMessageSize),
+			grpc.MaxCallSendMsgSize(maxGRPCMessageSize),
 		),
 	}
 	if c.token != "" {
 		opts = append(opts, grpc.WithPerRPCCredentials(bearerToken{token: c.token}))
 	}
-	return grpc.Dial(c.address, opts...)
+	return grpc.NewClient(c.address, opts...)
 }
 
 func (c *Client) HealthCheck(ctx context.Context) (bool, error) {

@@ -8,12 +8,12 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/application"
 	"github.com/mudler/LocalAI/core/schema"
-	"github.com/mudler/LocalAI/core/services"
+	"github.com/mudler/LocalAI/core/services/agentpool"
 )
 
 // getJobService returns the job service for the current user.
 // Falls back to the global service when no user is authenticated.
-func getJobService(app *application.Application, c echo.Context) *services.AgentJobService {
+func getJobService(app *application.Application, c echo.Context) *agentpool.AgentJobService {
 	userID := getUserID(c)
 	if userID == "" {
 		return app.AgentJobService()

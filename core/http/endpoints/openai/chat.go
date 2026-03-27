@@ -3,7 +3,6 @@ package openai
 import (
 	"encoding/json"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -59,7 +58,7 @@ func mergeToolCallDeltas(existing []schema.ToolCall, deltas []schema.ToolCall) [
 // @Param request body schema.OpenAIRequest true "query params"
 // @Success 200 {object} schema.OpenAIResponse "Response"
 // @Router /v1/chat/completions [post]
-func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator *templates.Evaluator, startupOptions *config.ApplicationConfig) echo.HandlerFunc {
+func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator *templates.Evaluator, startupOptions *config.ApplicationConfig, natsClient mcpTools.MCPNATSClient) echo.HandlerFunc {
 	var id, textContentToReturn string
 	var created int
 
@@ -471,69 +470,16 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 		if (len(mcpServers) > 0 || mcpPromptName != "" || len(mcpResourceURIs) > 0) && (config.MCP.Servers != "" || config.MCP.Stdio != "") {
 			remote, stdio, mcpErr := config.MCP.MCPConfigFromYAML()
 			if mcpErr == nil {
-				mcpExecutor = mcpTools.NewToolExecutor(c.Request().Context(), config.Name, remote, stdio, mcpServers)
+				mcpExecutor = mcpTools.NewToolExecutor(c.Request().Context(), natsClient, config.Name, remote, stdio, mcpServers)
 
 				// Prompt and resource injection (local mode only — requires sessions)
-				if !mcpTools.IsDistributed() {
+				if natsClient == nil {
 					namedSessions, sessErr := mcpTools.NamedSessionsFromMCPConfig(config.Name, remote, stdio, mcpServers)
 					if sessErr == nil && len(namedSessions) > 0 {
-						// Prompt injection
-						if mcpPromptName != "" {
-							prompts, discErr := mcpTools.DiscoverMCPPrompts(c.Request().Context(), namedSessions)
-							if discErr == nil {
-								promptMsgs, getErr := mcpTools.GetMCPPrompt(c.Request().Context(), prompts, mcpPromptName, mcpPromptArgs)
-								if getErr == nil {
-									var injected []schema.Message
-									for _, pm := range promptMsgs {
-										injected = append(injected, schema.Message{
-											Role:    string(pm.Role),
-											Content: mcpTools.PromptMessageToText(pm),
-										})
-									}
-									input.Messages = append(injected, input.Messages...)
-									xlog.Debug("MCP prompt injected", "prompt", mcpPromptName, "messages", len(injected))
-								} else {
-									xlog.Error("Failed to get MCP prompt", "error", getErr)
-								}
-							} else {
-								xlog.Error("Failed to discover MCP prompts", "error", discErr)
-							}
-						}
-
-						// Resource injection
-						if len(mcpResourceURIs) > 0 {
-							resources, discErr := mcpTools.DiscoverMCPResources(c.Request().Context(), namedSessions)
-							if discErr == nil {
-								var resourceTexts []string
-								for _, uri := range mcpResourceURIs {
-									content, readErr := mcpTools.ReadMCPResource(c.Request().Context(), resources, uri)
-									if readErr != nil {
-										xlog.Error("Failed to read MCP resource", "error", readErr, "uri", uri)
-										continue
-									}
-									name := uri
-									for _, r := range resources {
-										if r.URI == uri {
-											name = r.Name
-											break
-										}
-									}
-									resourceTexts = append(resourceTexts, fmt.Sprintf("--- MCP Resource: %s ---\n%s", name, content))
-								}
-								if len(resourceTexts) > 0 && len(input.Messages) > 0 {
-									lastIdx := len(input.Messages) - 1
-									suffix := "\n\n" + strings.Join(resourceTexts, "\n\n")
-									switch ct := input.Messages[lastIdx].Content.(type) {
-									case string:
-										input.Messages[lastIdx].Content = ct + suffix
-									default:
-										input.Messages[lastIdx].Content = fmt.Sprintf("%v%s", ct, suffix)
-									}
-									xlog.Debug("MCP resources injected", "count", len(resourceTexts))
-								}
-							} else {
-								xlog.Error("Failed to discover MCP resources", "error", discErr)
-							}
+						mcpCtx, _ := mcpTools.InjectMCPContext(c.Request().Context(), namedSessions, mcpPromptName, mcpPromptArgs, mcpResourceURIs)
+						if mcpCtx != nil {
+							input.Messages = append(mcpCtx.PromptMessages, input.Messages...)
+							mcpTools.AppendResourceSuffix(input.Messages, mcpCtx.ResourceSuffix)
 						}
 					}
 				}

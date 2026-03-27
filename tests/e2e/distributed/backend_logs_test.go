@@ -1,7 +1,6 @@
 package distributed_test
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -19,10 +18,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
-	"github.com/testcontainers/testcontainers-go"
-	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
-	"github.com/testcontainers/testcontainers-go/wait"
 
 	pgdriver "gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -300,8 +295,7 @@ var _ = Describe("Distributed Backend Log Streaming", Label("Distributed"), func
 
 	Context("Frontend proxy REST endpoints", func() {
 		var (
-			ctx         context.Context
-			pgContainer *tcpostgres.PostgresContainer
+			pgInfra     *TestInfra
 			db          *gorm.DB
 			registry    *nodes.NodeRegistry
 			logStore    *model.BackendLogStore
@@ -311,24 +305,10 @@ var _ = Describe("Distributed Backend Log Streaming", Label("Distributed"), func
 		)
 
 		BeforeEach(func() {
-			ctx = context.Background()
+			pgInfra = SetupInfra("localai_backend_logs_test")
+
 			var err error
-
-			pgContainer, err = tcpostgres.Run(ctx, "postgres:16-alpine",
-				tcpostgres.WithDatabase("localai_backend_logs_test"),
-				tcpostgres.WithUsername("test"),
-				tcpostgres.WithPassword("test"),
-				testcontainers.WithWaitStrategy(
-					wait.ForLog("database system is ready to accept connections").
-						WithOccurrence(2).WithStartupTimeout(30*time.Second),
-				),
-			)
-			Expect(err).ToNot(HaveOccurred())
-
-			pgURL, err := pgContainer.ConnectionString(ctx, "sslmode=disable")
-			Expect(err).ToNot(HaveOccurred())
-
-			db, err = gorm.Open(pgdriver.Open(pgURL), &gorm.Config{
+			db, err = gorm.Open(pgdriver.Open(pgInfra.PGURL), &gorm.Config{
 				Logger: logger.Default.LogMode(logger.Silent),
 			})
 			Expect(err).ToNot(HaveOccurred())
@@ -348,9 +328,6 @@ var _ = Describe("Distributed Backend Log Streaming", Label("Distributed"), func
 		AfterEach(func() {
 			if workerClean != nil {
 				workerClean()
-			}
-			if pgContainer != nil {
-				pgContainer.Terminate(ctx)
 			}
 		})
 
@@ -416,8 +393,7 @@ var _ = Describe("Distributed Backend Log Streaming", Label("Distributed"), func
 
 	Context("Frontend WebSocket proxy (end-to-end)", func() {
 		var (
-			ctx         context.Context
-			pgContainer *tcpostgres.PostgresContainer
+			wsInfra     *TestInfra
 			db          *gorm.DB
 			registry    *nodes.NodeRegistry
 			logStore    *model.BackendLogStore
@@ -429,24 +405,10 @@ var _ = Describe("Distributed Backend Log Streaming", Label("Distributed"), func
 		)
 
 		BeforeEach(func() {
-			ctx = context.Background()
+			wsInfra = SetupInfra("localai_ws_proxy_test")
+
 			var err error
-
-			pgContainer, err = tcpostgres.Run(ctx, "postgres:16-alpine",
-				tcpostgres.WithDatabase("localai_ws_proxy_test"),
-				tcpostgres.WithUsername("test"),
-				tcpostgres.WithPassword("test"),
-				testcontainers.WithWaitStrategy(
-					wait.ForLog("database system is ready to accept connections").
-						WithOccurrence(2).WithStartupTimeout(30*time.Second),
-				),
-			)
-			Expect(err).ToNot(HaveOccurred())
-
-			pgURL, err := pgContainer.ConnectionString(ctx, "sslmode=disable")
-			Expect(err).ToNot(HaveOccurred())
-
-			db, err = gorm.Open(pgdriver.Open(pgURL), &gorm.Config{
+			db, err = gorm.Open(pgdriver.Open(wsInfra.PGURL), &gorm.Config{
 				Logger: logger.Default.LogMode(logger.Silent),
 			})
 			Expect(err).ToNot(HaveOccurred())
@@ -478,9 +440,6 @@ var _ = Describe("Distributed Backend Log Streaming", Label("Distributed"), func
 			}
 			if workerClean != nil {
 				workerClean()
-			}
-			if pgContainer != nil {
-				pgContainer.Terminate(ctx)
 			}
 		})
 
@@ -545,7 +504,7 @@ var _ = Describe("Distributed Backend Log Streaming", Label("Distributed"), func
 	})
 })
 
-// startTestFileTransferServerWithLogs starts the real nodes.StartFileTransferServer
+// startTestFileTransferServerWithLogs starts the real nodes.StartFileTransferServerWithListener
 // with a BackendLogStore, using a temporary staging directory.
 // Returns the server address, cleanup function, and error.
 func startTestFileTransferServerWithLogs(token string, logStore *model.BackendLogStore) (string, func(), error) {
@@ -554,16 +513,15 @@ func startTestFileTransferServerWithLogs(token string, logStore *model.BackendLo
 		return "", nil, err
 	}
 
-	// Listen on a free port first so we know the address
+	// Listen on a free port and pass the listener directly to avoid TOCTOU race.
 	lis, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		os.RemoveAll(stagingDir)
 		return "", nil, err
 	}
 	addr := lis.Addr().String()
-	lis.Close() // Close so StartFileTransferServer can bind to it
 
-	server, err := nodes.StartFileTransferServer(addr, stagingDir, stagingDir, stagingDir, token, logStore)
+	server, err := nodes.StartFileTransferServerWithListener(lis, stagingDir, stagingDir, stagingDir, token, logStore)
 	if err != nil {
 		os.RemoveAll(stagingDir)
 		return "", nil, err

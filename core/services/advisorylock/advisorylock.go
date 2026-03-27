@@ -8,12 +8,35 @@ import (
 	"gorm.io/gorm"
 )
 
-// Well-known advisory lock keys for distributed coordination.
-const (
-	KeyHealthCheck    int64 = 101 // Only one frontend runs node health checks
-	KeySchemaMigrate  int64 = 103 // Serialize AutoMigrate across frontend + workers
-)
+// TryWithLock attempts a non-blocking advisory lock on a dedicated connection.
+// If acquired, fn runs and the lock is released on the same connection.
+// Returns (true, fn-error) if acquired, (false, nil) if not.
+func TryWithLock(db *gorm.DB, key int64, fn func() error) (bool, error) {
+	sqlDB, err := db.DB()
+	if err != nil {
+		return false, fmt.Errorf("advisorylock: getting sql.DB: %w", err)
+	}
+	conn, err := sqlDB.Conn(context.Background())
+	if err != nil {
+		return false, fmt.Errorf("advisorylock: getting connection: %w", err)
+	}
+	defer conn.Close()
 
+	var acquired bool
+	if err := conn.QueryRowContext(context.Background(),
+		"SELECT pg_try_advisory_lock($1)", key).Scan(&acquired); err != nil {
+		return false, fmt.Errorf("advisorylock: try lock %d: %w", key, err)
+	}
+	if !acquired {
+		return false, nil
+	}
+	defer conn.ExecContext(context.Background(), "SELECT pg_advisory_unlock($1)", key)
+	return true, fn()
+}
+
+// Deprecated: TryLock may use different pool connections for lock/unlock.
+// Use TryWithLock instead, which pins a single connection.
+//
 // TryLock attempts to acquire a PostgreSQL advisory lock (non-blocking).
 // Returns true if the lock was acquired.
 func TryLock(db *gorm.DB, key int64) bool {
@@ -22,6 +45,9 @@ func TryLock(db *gorm.DB, key int64) bool {
 	return acquired
 }
 
+// Deprecated: Unlock may use a different pool connection than TryLock.
+// Use TryWithLock instead, which pins a single connection.
+//
 // Unlock releases a PostgreSQL advisory lock.
 func Unlock(db *gorm.DB, key int64) {
 	db.Exec("SELECT pg_advisory_unlock(?)", key)

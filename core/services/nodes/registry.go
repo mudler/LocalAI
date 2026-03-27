@@ -1,11 +1,13 @@
 package nodes
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/mudler/LocalAI/core/services/advisorylock"
+	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/xlog"
 	"gorm.io/gorm"
 )
@@ -74,7 +76,7 @@ type NodeRegistry struct {
 // Uses a PostgreSQL advisory lock to prevent concurrent migration races
 // when multiple instances (frontend + workers) start at the same time.
 func NewNodeRegistry(db *gorm.DB) (*NodeRegistry, error) {
-	if err := advisorylock.WithLock(db, advisorylock.KeySchemaMigrate, func() error {
+	if err := advisorylock.WithLock(db, messaging.AdvisoryLockSchemaMigrate, func() error {
 		return db.AutoMigrate(&BackendNode{}, &NodeModel{})
 	}); err != nil {
 		return nil, fmt.Errorf("migrating node tables: %w", err)
@@ -120,7 +122,7 @@ func (r *NodeRegistry) Register(node *BackendNode, autoApprove bool) error {
 		if err := r.db.Where("node_id = ?", existing.ID).Delete(&NodeModel{}).Error; err != nil {
 			xlog.Warn("Failed to clear stale model records on re-register", "node", node.Name, "error", err)
 		}
-	} else {
+	} else if errors.Is(err, gorm.ErrRecordNotFound) {
 		// Create new node
 		if node.ID == "" {
 			node.ID = uuid.New().String()
@@ -133,6 +135,8 @@ func (r *NodeRegistry) Register(node *BackendNode, autoApprove bool) error {
 		if err := r.db.Create(node).Error; err != nil {
 			return fmt.Errorf("creating node %s: %w", node.Name, err)
 		}
+	} else {
+		return fmt.Errorf("looking up node %s: %w", node.Name, err)
 	}
 
 	xlog.Info("Node registered", "name", node.Name, "address", node.Address, "status", node.Status)
@@ -437,8 +441,10 @@ func (r *NodeRegistry) FindIdleNode() (*BackendNode, error) {
 func (r *NodeRegistry) IncrementInFlight(nodeID, modelName string) error {
 	return r.db.Model(&NodeModel{}).
 		Where("node_id = ? AND model_name = ?", nodeID, modelName).
-		UpdateColumn("in_flight", gorm.Expr("in_flight + 1")).
-		UpdateColumn("last_used", time.Now()).Error
+		Updates(map[string]any{
+			"in_flight": gorm.Expr("in_flight + 1"),
+			"last_used": time.Now(),
+		}).Error
 }
 
 // DecrementInFlight atomically decrements the in-flight counter for a model on a node.

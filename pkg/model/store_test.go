@@ -1,8 +1,6 @@
 package model_test
 
 import (
-	"os"
-
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/system"
 	. "github.com/onsi/ginkgo/v2"
@@ -103,8 +101,7 @@ var _ = Describe("ModelLoader with custom ModelStore", func() {
 	)
 
 	BeforeEach(func() {
-		modelPath = "/tmp/test_model_store_path"
-		os.Mkdir(modelPath, 0755)
+		modelPath = GinkgoT().TempDir()
 
 		systemState, err := system.GetSystemState(
 			system.WithModelPath(modelPath),
@@ -113,10 +110,6 @@ var _ = Describe("ModelLoader with custom ModelStore", func() {
 		modelLoader = model.NewModelLoader(systemState)
 
 		customStore = model.NewInMemoryModelStore()
-	})
-
-	AfterEach(func() {
-		os.RemoveAll(modelPath)
 	})
 
 	Context("SetModelStore", func() {

@@ -3,7 +3,7 @@ package application
 import (
 	"time"
 
-	"github.com/mudler/LocalAI/core/services"
+	"github.com/mudler/LocalAI/core/services/agentpool"
 	"github.com/mudler/xlog"
 )
 
@@ -22,12 +22,20 @@ func (a *Application) RestartAgentJobService() error {
 	}
 
 	// Create new service instance
-	agentJobService := services.NewAgentJobService(
+	agentJobService := agentpool.NewAgentJobService(
 		a.ApplicationConfig(),
 		a.ModelLoader(),
 		a.ModelConfigLoader(),
 		a.TemplatesEvaluator(),
 	)
+
+	// Re-apply distributed wiring if available (matches startup.go logic)
+	if a.jobDispatcher != nil {
+		agentJobService.SetDistributedBackends(a.jobDispatcher)
+	}
+	if a.jobStore != nil {
+		agentJobService.SetDistributedJobStore(a.jobStore)
+	}
 
 	// Start the service
 	err := agentJobService.Start(a.ApplicationConfig().Context)

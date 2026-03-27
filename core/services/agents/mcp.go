@@ -50,5 +50,13 @@ func setupMCPSessions(ctx context.Context, cfg *AgentConfig) ([]*gomcp.ClientSes
 		sessions = append(sessions, session)
 	}
 
-	return sessions, nil, nil
+	cleanup := func() {
+		for _, s := range sessions {
+			if err := s.Close(); err != nil {
+				xlog.Warn("Failed to close MCP session", "error", err)
+			}
+		}
+	}
+
+	return sessions, cleanup, nil
 }

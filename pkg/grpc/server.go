@@ -459,7 +459,11 @@ func validateToken(ctx context.Context, expected string) error {
 	if len(values) == 0 {
 		return status.Error(codes.Unauthenticated, "missing authorization header")
 	}
-	token := strings.TrimPrefix(values[0], "Bearer ")
+	raw := values[0]
+	if !strings.HasPrefix(raw, "Bearer ") {
+		return status.Error(codes.Unauthenticated, "authorization must use Bearer scheme")
+	}
+	token := strings.TrimPrefix(raw, "Bearer ")
 	if subtle.ConstantTimeCompare([]byte(token), []byte(expected)) != 1 {
 		return status.Error(codes.Unauthenticated, "invalid token")
 	}
@@ -488,8 +492,8 @@ func tokenStreamInterceptor(token string) grpc.StreamServerInterceptor {
 // when LOCALAI_GRPC_AUTH_TOKEN is set.
 func serverOpts() []grpc.ServerOption {
 	opts := []grpc.ServerOption{
-		grpc.MaxRecvMsgSize(50 * 1024 * 1024), // 50MB
-		grpc.MaxSendMsgSize(50 * 1024 * 1024), // 50MB
+		grpc.MaxRecvMsgSize(maxGRPCMessageSize),
+		grpc.MaxSendMsgSize(maxGRPCMessageSize),
 	}
 	if token := os.Getenv(AuthTokenEnvVar); token != "" {
 		opts = append(opts,

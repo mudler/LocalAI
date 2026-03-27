@@ -1,7 +1,6 @@
 package distributed_test
 
 import (
-	"context"
 	"encoding/json"
 	"sync/atomic"
 	"time"
@@ -14,44 +13,21 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
-	tcnats "github.com/testcontainers/testcontainers-go/modules/nats"
 )
 
 var _ = Describe("MCP NATS Routing", Label("Distributed"), func() {
 	var (
-		ctx           context.Context
-		natsContainer *tcnats.NATSContainer
-		nc            *messaging.Client
+		infra *TestInfra
 	)
 
 	BeforeEach(func() {
-		ctx = context.Background()
-
-		var err error
-		natsContainer, err = tcnats.Run(ctx, "nats:2-alpine")
-		Expect(err).ToNot(HaveOccurred())
-
-		natsURL, err := natsContainer.ConnectionString(ctx)
-		Expect(err).ToNot(HaveOccurred())
-
-		nc, err = messaging.New(natsURL)
-		Expect(err).ToNot(HaveOccurred())
-	})
-
-	AfterEach(func() {
-		if nc != nil {
-			nc.Close()
-		}
-		if natsContainer != nil {
-			natsContainer.Terminate(ctx)
-		}
+		infra = SetupNATSOnly()
 	})
 
 	Context("MCP Tool Execution via NATS", func() {
 		It("should execute MCP tool call via NATS request-reply", func() {
 			// Mock worker: subscribe to tool execute requests
-			sub, err := nc.QueueSubscribeReply(messaging.SubjectMCPToolExecute, messaging.QueueAgentWorkers, func(data []byte, reply func([]byte)) {
+			sub, err := infra.NC.QueueSubscribeReply(messaging.SubjectMCPToolExecute, messaging.QueueAgentWorkers, func(data []byte, reply func([]byte)) {
 				var req mcpRemote.MCPToolRequest
 				Expect(json.Unmarshal(data, &req)).To(Succeed())
 				Expect(req.ModelName).To(Equal("test-model"))
@@ -66,14 +42,12 @@ var _ = Describe("MCP NATS Routing", Label("Distributed"), func() {
 			Expect(err).ToNot(HaveOccurred())
 			defer sub.Unsubscribe()
 
-			time.Sleep(100 * time.Millisecond)
+			FlushNATS(infra.NC)
 
-			// Frontend side: set NATS client and call remote
-			mcpTools.SetMCPNATSClient(nc)
-			defer mcpTools.SetMCPNATSClient(nil)
-
+			// Frontend side: pass NATS client and call remote
 			result, err := mcpTools.ExecuteMCPToolCallRemote(
-				ctx,
+				infra.Ctx,
+				infra.NC,
 				"test-model",
 				config.MCPGenericConfig[config.MCPRemoteServers]{},
 				config.MCPGenericConfig[config.MCPSTDIOServers]{},
@@ -85,7 +59,7 @@ var _ = Describe("MCP NATS Routing", Label("Distributed"), func() {
 		})
 
 		It("should propagate remote MCP tool errors", func() {
-			sub, err := nc.QueueSubscribeReply(messaging.SubjectMCPToolExecute, messaging.QueueAgentWorkers, func(data []byte, reply func([]byte)) {
+			sub, err := infra.NC.QueueSubscribeReply(messaging.SubjectMCPToolExecute, messaging.QueueAgentWorkers, func(data []byte, reply func([]byte)) {
 				resp, _ := json.Marshal(mcpRemote.MCPToolResponse{
 					Error: "tool 'unknown' not found",
 				})
@@ -94,13 +68,11 @@ var _ = Describe("MCP NATS Routing", Label("Distributed"), func() {
 			Expect(err).ToNot(HaveOccurred())
 			defer sub.Unsubscribe()
 
-			time.Sleep(100 * time.Millisecond)
-
-			mcpTools.SetMCPNATSClient(nc)
-			defer mcpTools.SetMCPNATSClient(nil)
+			FlushNATS(infra.NC)
 
 			_, err = mcpTools.ExecuteMCPToolCallRemote(
-				ctx,
+				infra.Ctx,
+				infra.NC,
 				"test-model",
 				config.MCPGenericConfig[config.MCPRemoteServers]{},
 				config.MCPGenericConfig[config.MCPSTDIOServers]{},
@@ -114,7 +86,7 @@ var _ = Describe("MCP NATS Routing", Label("Distributed"), func() {
 
 	Context("MCP Discovery via NATS", func() {
 		It("should discover MCP servers via NATS request-reply", func() {
-			sub, err := nc.QueueSubscribeReply(messaging.SubjectMCPDiscovery, messaging.QueueAgentWorkers, func(data []byte, reply func([]byte)) {
+			sub, err := infra.NC.QueueSubscribeReply(messaging.SubjectMCPDiscovery, messaging.QueueAgentWorkers, func(data []byte, reply func([]byte)) {
 				var req mcpRemote.MCPDiscoveryRequest
 				Expect(json.Unmarshal(data, &req)).To(Succeed())
 				Expect(req.ModelName).To(Equal("discovery-model"))
@@ -135,13 +107,11 @@ var _ = Describe("MCP NATS Routing", Label("Distributed"), func() {
 			Expect(err).ToNot(HaveOccurred())
 			defer sub.Unsubscribe()
 
-			time.Sleep(100 * time.Millisecond)
-
-			mcpTools.SetMCPNATSClient(nc)
-			defer mcpTools.SetMCPNATSClient(nil)
+			FlushNATS(infra.NC)
 
 			result, err := mcpTools.DiscoverMCPToolsRemote(
-				ctx,
+				infra.Ctx,
+				infra.NC,
 				"discovery-model",
 				config.MCPGenericConfig[config.MCPRemoteServers]{},
 				config.MCPGenericConfig[config.MCPSTDIOServers]{},
@@ -155,36 +125,20 @@ var _ = Describe("MCP NATS Routing", Label("Distributed"), func() {
 		})
 	})
 
-	Context("Distributed Mode Detection", func() {
-		It("should report distributed mode based on NATS client", func() {
-			// Before setting NATS client
-			mcpTools.SetMCPNATSClient(nil)
-			Expect(mcpTools.IsDistributed()).To(BeFalse())
-
-			// After setting NATS client
-			mcpTools.SetMCPNATSClient(nc)
-			Expect(mcpTools.IsDistributed()).To(BeTrue())
-
-			// Cleanup
-			mcpTools.SetMCPNATSClient(nil)
-			Expect(mcpTools.IsDistributed()).To(BeFalse())
-		})
-	})
-
 	Context("QueueSubscribeReply", func() {
 		It("should support queue subscribe with request-reply round-trip", func() {
 			// Subscribe with queue group
-			sub, err := nc.QueueSubscribeReply("test.echo", "echo-workers", func(data []byte, reply func([]byte)) {
+			sub, err := infra.NC.QueueSubscribeReply("test.echo", "echo-workers", func(data []byte, reply func([]byte)) {
 				// Echo back the request data with a prefix
 				reply(append([]byte("echo:"), data...))
 			})
 			Expect(err).ToNot(HaveOccurred())
 			defer sub.Unsubscribe()
 
-			time.Sleep(100 * time.Millisecond)
+			FlushNATS(infra.NC)
 
 			// Send request and wait for reply
-			replyData, err := nc.Request("test.echo", []byte("hello"), 5*time.Second)
+			replyData, err := infra.NC.Request("test.echo", []byte("hello"), 5*time.Second)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(string(replyData)).To(Equal("echo:hello"))
 		})
@@ -192,23 +146,23 @@ var _ = Describe("MCP NATS Routing", Label("Distributed"), func() {
 		It("should load-balance requests across queue subscribers", func() {
 			var worker1Count, worker2Count atomic.Int32
 
-			sub1, _ := nc.QueueSubscribeReply("test.lb", "lb-workers", func(data []byte, reply func([]byte)) {
+			sub1, _ := infra.NC.QueueSubscribeReply("test.lb", "lb-workers", func(data []byte, reply func([]byte)) {
 				worker1Count.Add(1)
 				reply([]byte("w1"))
 			})
 			defer sub1.Unsubscribe()
 
-			sub2, _ := nc.QueueSubscribeReply("test.lb", "lb-workers", func(data []byte, reply func([]byte)) {
+			sub2, _ := infra.NC.QueueSubscribeReply("test.lb", "lb-workers", func(data []byte, reply func([]byte)) {
 				worker2Count.Add(1)
 				reply([]byte("w2"))
 			})
 			defer sub2.Unsubscribe()
 
-			time.Sleep(100 * time.Millisecond)
+			FlushNATS(infra.NC)
 
 			// Send multiple requests
 			for i := 0; i < 10; i++ {
-				_, err := nc.Request("test.lb", []byte("req"), 5*time.Second)
+				_, err := infra.NC.Request("test.lb", []byte("req"), 5*time.Second)
 				Expect(err).ToNot(HaveOccurred())
 			}
 

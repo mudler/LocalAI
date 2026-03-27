@@ -1,18 +1,11 @@
 package distributed_test
 
 import (
-	"context"
-	"time"
-
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/services/nodes"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
-	"github.com/testcontainers/testcontainers-go"
-	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
-	"github.com/testcontainers/testcontainers-go/wait"
 
 	pgdriver "gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -21,44 +14,22 @@ import (
 
 var _ = Describe("Model Routing", Label("Distributed"), func() {
 	var (
-		ctx         context.Context
-		pgContainer *tcpostgres.PostgresContainer
-		db          *gorm.DB
-		registry    *nodes.NodeRegistry
+		infra    *TestInfra
+		db       *gorm.DB
+		registry *nodes.NodeRegistry
 	)
 
 	BeforeEach(func() {
-		ctx = context.Background()
+		infra = SetupInfra("localai_routing_test")
 
 		var err error
-		pgContainer, err = tcpostgres.Run(ctx, "postgres:16-alpine",
-			tcpostgres.WithDatabase("localai_routing_test"),
-			tcpostgres.WithUsername("test"),
-			tcpostgres.WithPassword("test"),
-			testcontainers.WithWaitStrategy(
-				wait.ForLog("database system is ready to accept connections").
-					WithOccurrence(2).
-					WithStartupTimeout(30*time.Second),
-			),
-		)
-		Expect(err).ToNot(HaveOccurred())
-
-		pgURL, err := pgContainer.ConnectionString(ctx, "sslmode=disable")
-		Expect(err).ToNot(HaveOccurred())
-
-		db, err = gorm.Open(pgdriver.Open(pgURL), &gorm.Config{
+		db, err = gorm.Open(pgdriver.Open(infra.PGURL), &gorm.Config{
 			Logger: logger.Default.LogMode(logger.Silent),
 		})
 		Expect(err).ToNot(HaveOccurred())
 
 		registry, err = nodes.NewNodeRegistry(db)
 		Expect(err).ToNot(HaveOccurred())
-	})
-
-	AfterEach(func() {
-		if pgContainer != nil {
-			pgContainer.Terminate(ctx)
-		}
 	})
 
 	Context("ModelRouterAdapter from SmartRouter", func() {
@@ -98,11 +69,8 @@ var _ = Describe("Model Routing", Label("Distributed"), func() {
 			router := nodes.NewSmartRouter(registry)
 			adapter := nodes.NewModelRouterAdapter(router)
 
-			// Manually register a release function that decrements
-			adapter.ReleaseModel("nonexistent-model") // should be a no-op
-
-			// Verify no crash on releasing unknown model
-			Expect(true).To(BeTrue())
+			// ReleaseModel on an unknown model should be a no-op (no panic)
+			Expect(func() { adapter.ReleaseModel("nonexistent-model") }).ToNot(Panic())
 		})
 
 		It("should use SmartRouter to find nodes with a model", func() {
@@ -139,6 +107,3 @@ var _ = Describe("Model Routing", Label("Distributed"), func() {
 		})
 	})
 })
-
-// suppress unused import
-var _ = context.Background

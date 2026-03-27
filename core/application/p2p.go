@@ -11,7 +11,7 @@ import (
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/p2p"
 	"github.com/mudler/LocalAI/core/schema"
-	"github.com/mudler/LocalAI/core/services"
+	"github.com/mudler/LocalAI/core/services/galleryop"
 
 	"github.com/mudler/edgevpn/pkg/node"
 	"github.com/mudler/xlog"
@@ -146,22 +146,14 @@ func (a *Application) RestartP2P() error {
 		return fmt.Errorf("P2P token is not set")
 	}
 
-	// Create new context for P2P
-	ctx, cancel := context.WithCancel(appConfig.Context)
-	a.p2pCtx = ctx
-	a.p2pCancel = cancel
-
-	// Get API address from config
-	address := appConfig.APIAddress
-	if address == "" {
-		address = "127.0.0.1:8080" // default
-	}
-
 	// Start P2P stack in a goroutine
+	// Note: StartP2P creates its own context and assigns a.p2pCtx/a.p2pCancel
 	go func() {
 		if err := a.StartP2P(); err != nil {
 			xlog.Error("Failed to start P2P stack", "error", err)
-			cancel() // Cancel context on error
+			if a.p2pCancel != nil {
+				a.p2pCancel()
+			}
 		}
 	}()
 	xlog.Info("P2P stack restarted with new settings")
@@ -228,7 +220,7 @@ func syncState(ctx context.Context, n *node.Node, app *Application) error {
 			continue
 		}
 
-		app.GalleryService().ModelGalleryChannel <- services.ManagementOp[gallery.GalleryModel, gallery.ModelConfig]{
+		app.GalleryService().ModelGalleryChannel <- galleryop.ManagementOp[gallery.GalleryModel, gallery.ModelConfig]{
 			ID:                 uuid.String(),
 			GalleryElementName: model,
 			Galleries:          app.ApplicationConfig().Galleries,

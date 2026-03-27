@@ -16,13 +16,16 @@ import (
 
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/http/endpoints/localai"
-	mcpTools "github.com/mudler/LocalAI/core/http/endpoints/mcp"
+
 	httpMiddleware "github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/http/routes"
 
 	"github.com/mudler/LocalAI/core/application"
 	"github.com/mudler/LocalAI/core/schema"
-	"github.com/mudler/LocalAI/core/services"
+	"github.com/mudler/LocalAI/core/services/finetune"
+	"github.com/mudler/LocalAI/core/services/galleryop"
+	"github.com/mudler/LocalAI/core/services/monitoring"
+	"github.com/mudler/LocalAI/core/services/quantization"
 	"github.com/mudler/LocalAI/core/services/nodes"
 
 	"github.com/mudler/xlog"
@@ -157,7 +160,7 @@ func API(application *application.Application) (*echo.Echo, error) {
 
 	// Metrics middleware
 	if !application.ApplicationConfig().DisableMetrics {
-		metricsService, err := services.NewLocalAIMetricsService()
+		metricsService, err := monitoring.NewLocalAIMetricsService()
 		if err != nil {
 			return nil, err
 		}
@@ -297,9 +300,9 @@ func API(application *application.Application) (*echo.Echo, error) {
 	routes.RegisterElevenLabsRoutes(e, requestExtractor, application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig())
 
 	// Create opcache for tracking UI operations (used by both UI and LocalAI routes)
-	var opcache *services.OpCache
+	var opcache *galleryop.OpCache
 	if !application.ApplicationConfig().DisableWebUI {
-		opcache = services.NewOpCache(application.GalleryService())
+		opcache = galleryop.NewOpCache(application.GalleryService())
 	}
 
 	mcpMw := auth.RequireFeature(application.AuthDB(), auth.FeatureMCP)
@@ -307,7 +310,7 @@ func API(application *application.Application) (*echo.Echo, error) {
 	routes.RegisterAgentPoolRoutes(e, application, agentsMw, skillsMw, collectionsMw)
 	// Fine-tuning routes
 	fineTuningMw := auth.RequireFeature(application.AuthDB(), auth.FeatureFineTuning)
-	ftService := services.NewFineTuneService(
+	ftService := finetune.NewFineTuneService(
 		application.ApplicationConfig(),
 		application.ModelLoader(),
 		application.ModelConfigLoader(),
@@ -320,14 +323,9 @@ func API(application *application.Application) (*echo.Echo, error) {
 	}
 	routes.RegisterFineTuningRoutes(e, ftService, application.ApplicationConfig(), fineTuningMw)
 
-	// Wire NATS client for distributed MCP tool execution routing
-	if application.NatsClient() != nil {
-		mcpTools.SetMCPNATSClient(application.NatsClient())
-	}
-
 	// Quantization routes
 	quantizationMw := auth.RequireFeature(application.AuthDB(), auth.FeatureQuantization)
-	qService := services.NewQuantizationService(
+	qService := quantization.NewQuantizationService(
 		application.ApplicationConfig(),
 		application.ModelLoader(),
 		application.ModelConfigLoader(),
@@ -337,7 +335,7 @@ func API(application *application.Application) (*echo.Echo, error) {
 	// Node management routes (distributed mode)
 	distCfg := application.ApplicationConfig().Distributed
 	routes.RegisterNodeSelfServiceRoutes(e, application.NodeRegistry(), distCfg.RegistrationToken, distCfg.AutoApproveNodes, application.AuthDB(), application.ApplicationConfig().Auth.APIKeyHMACSecret)
-	var remoteUnloader *nodes.RemoteUnloaderAdapter
+	var remoteUnloader nodes.NodeCommandSender
 	if application.SmartRouter() != nil {
 		remoteUnloader = application.SmartRouter().Unloader()
 	}

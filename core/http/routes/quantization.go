@@ -6,11 +6,11 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/endpoints/localai"
-	"github.com/mudler/LocalAI/core/services"
+	"github.com/mudler/LocalAI/core/services/quantization"
 )
 
 // RegisterQuantizationRoutes registers quantization API routes.
-func RegisterQuantizationRoutes(e *echo.Echo, qService *services.QuantizationService, appConfig *config.ApplicationConfig, quantizationMw echo.MiddlewareFunc) {
+func RegisterQuantizationRoutes(e *echo.Echo, qService *quantization.QuantizationService, appConfig *config.ApplicationConfig, quantizationMw echo.MiddlewareFunc) {
 	if qService == nil {
 		return
 	}

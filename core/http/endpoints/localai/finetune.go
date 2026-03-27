@@ -15,11 +15,11 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/schema"
-	"github.com/mudler/LocalAI/core/services"
+	"github.com/mudler/LocalAI/core/services/finetune"
 )
 
 // StartFineTuneJobEndpoint starts a new fine-tuning job.
-func StartFineTuneJobEndpoint(ftService *services.FineTuneService) echo.HandlerFunc {
+func StartFineTuneJobEndpoint(ftService *finetune.FineTuneService) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		userID := getUserID(c)
 
@@ -53,7 +53,7 @@ func StartFineTuneJobEndpoint(ftService *services.FineTuneService) echo.HandlerF
 }
 
 // ListFineTuneJobsEndpoint lists fine-tuning jobs for the current user.
-func ListFineTuneJobsEndpoint(ftService *services.FineTuneService) echo.HandlerFunc {
+func ListFineTuneJobsEndpoint(ftService *finetune.FineTuneService) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		userID := getUserID(c)
 		jobs := ftService.ListJobs(userID)
@@ -65,7 +65,7 @@ func ListFineTuneJobsEndpoint(ftService *services.FineTuneService) echo.HandlerF
 }
 
 // GetFineTuneJobEndpoint gets a specific fine-tuning job.
-func GetFineTuneJobEndpoint(ftService *services.FineTuneService) echo.HandlerFunc {
+func GetFineTuneJobEndpoint(ftService *finetune.FineTuneService) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		userID := getUserID(c)
 		jobID := c.Param("id")
@@ -82,7 +82,7 @@ func GetFineTuneJobEndpoint(ftService *services.FineTuneService) echo.HandlerFun
 }
 
 // StopFineTuneJobEndpoint stops a running fine-tuning job.
-func StopFineTuneJobEndpoint(ftService *services.FineTuneService) echo.HandlerFunc {
+func StopFineTuneJobEndpoint(ftService *finetune.FineTuneService) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		userID := getUserID(c)
 		jobID := c.Param("id")
@@ -105,7 +105,7 @@ func StopFineTuneJobEndpoint(ftService *services.FineTuneService) echo.HandlerFu
 }
 
 // DeleteFineTuneJobEndpoint deletes a fine-tuning job and its data.
-func DeleteFineTuneJobEndpoint(ftService *services.FineTuneService) echo.HandlerFunc {
+func DeleteFineTuneJobEndpoint(ftService *finetune.FineTuneService) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		userID := getUserID(c)
 		jobID := c.Param("id")
@@ -131,7 +131,7 @@ func DeleteFineTuneJobEndpoint(ftService *services.FineTuneService) echo.Handler
 }
 
 // FineTuneProgressEndpoint streams progress updates via SSE.
-func FineTuneProgressEndpoint(ftService *services.FineTuneService) echo.HandlerFunc {
+func FineTuneProgressEndpoint(ftService *finetune.FineTuneService) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		userID := getUserID(c)
 		jobID := c.Param("id")
@@ -161,7 +161,7 @@ func FineTuneProgressEndpoint(ftService *services.FineTuneService) echo.HandlerF
 }
 
 // ListCheckpointsEndpoint lists checkpoints for a job.
-func ListCheckpointsEndpoint(ftService *services.FineTuneService) echo.HandlerFunc {
+func ListCheckpointsEndpoint(ftService *finetune.FineTuneService) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		userID := getUserID(c)
 		jobID := c.Param("id")
@@ -180,7 +180,7 @@ func ListCheckpointsEndpoint(ftService *services.FineTuneService) echo.HandlerFu
 }
 
 // ExportModelEndpoint exports a model from a checkpoint.
-func ExportModelEndpoint(ftService *services.FineTuneService) echo.HandlerFunc {
+func ExportModelEndpoint(ftService *finetune.FineTuneService) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		userID := getUserID(c)
 		jobID := c.Param("id")
@@ -208,7 +208,7 @@ func ExportModelEndpoint(ftService *services.FineTuneService) echo.HandlerFunc {
 }
 
 // DownloadExportedModelEndpoint streams the exported model directory as a tar.gz archive.
-func DownloadExportedModelEndpoint(ftService *services.FineTuneService) echo.HandlerFunc {
+func DownloadExportedModelEndpoint(ftService *finetune.FineTuneService) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		userID := getUserID(c)
 		jobID := c.Param("id")
@@ -324,7 +324,7 @@ func ListFineTuneBackendsEndpoint(appConfig *config.ApplicationConfig) echo.Hand
 }
 
 // UploadDatasetEndpoint handles dataset file upload.
-func UploadDatasetEndpoint(ftService *services.FineTuneService) echo.HandlerFunc {
+func UploadDatasetEndpoint(ftService *finetune.FineTuneService) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		file, err := c.FormFile("file")
 		if err != nil {

@@ -12,7 +12,7 @@ import (
 
 // MCPServersEndpoint returns the list of MCP servers and their tools for a given model.
 // GET /v1/mcp/servers/:model
-func MCPServersEndpoint(cl *config.ModelConfigLoader, appConfig *config.ApplicationConfig) echo.HandlerFunc {
+func MCPServersEndpoint(cl *config.ModelConfigLoader, appConfig *config.ApplicationConfig, natsClient mcpTools.MCPNATSClient) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		modelName := c.Param("model")
 		if modelName == "" {
@@ -42,8 +42,8 @@ func MCPServersEndpoint(cl *config.ModelConfigLoader, appConfig *config.Applicat
 
 		// In distributed mode, route discovery through NATS to an agent worker
 		// that can actually connect to the MCP servers.
-		if mcpTools.IsDistributed() {
-			resp, err := mcpTools.DiscoverMCPToolsRemote(c.Request().Context(), cfg.Name, remote, stdio)
+		if natsClient != nil {
+			resp, err := mcpTools.DiscoverMCPToolsRemote(c.Request().Context(), natsClient, cfg.Name, remote, stdio)
 			if err != nil {
 				return fmt.Errorf("remote MCP discovery failed: %w", err)
 			}
@@ -72,7 +72,7 @@ func MCPServersEndpoint(cl *config.ModelConfigLoader, appConfig *config.Applicat
 
 // MCPServersEndpointFromMiddleware is a version that uses the middleware-resolved model config.
 // This allows it to use the same middleware chain as other endpoints.
-func MCPServersEndpointFromMiddleware() echo.HandlerFunc {
+func MCPServersEndpointFromMiddleware(natsClient mcpTools.MCPNATSClient) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		cfg, ok := c.Get(middleware.CONTEXT_LOCALS_KEY_MODEL_CONFIG).(*config.ModelConfig)
 		if !ok || cfg == nil {
@@ -92,8 +92,8 @@ func MCPServersEndpointFromMiddleware() echo.HandlerFunc {
 		}
 
 		// In distributed mode, route discovery through NATS to an agent worker.
-		if mcpTools.IsDistributed() {
-			resp, err := mcpTools.DiscoverMCPToolsRemote(c.Request().Context(), cfg.Name, remote, stdio)
+		if natsClient != nil {
+			resp, err := mcpTools.DiscoverMCPToolsRemote(c.Request().Context(), natsClient, cfg.Name, remote, stdio)
 			if err != nil {
 				return fmt.Errorf("remote MCP discovery failed: %w", err)
 			}

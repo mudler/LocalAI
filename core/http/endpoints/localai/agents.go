@@ -13,10 +13,10 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/application"
 	"github.com/mudler/LocalAI/core/http/auth"
-	agentsPkg "github.com/mudler/LocalAI/core/services/agents"
-	"github.com/mudler/LocalAI/core/services"
+	"github.com/mudler/LocalAI/core/services/agentpool"
 	"github.com/mudler/LocalAI/pkg/utils"
 	"github.com/mudler/LocalAGI/core/state"
+	"github.com/mudler/xlog"
 	coreTypes "github.com/mudler/LocalAGI/core/types"
 	agiServices "github.com/mudler/LocalAGI/services"
 )
@@ -50,6 +50,9 @@ func wantsAllUsers(c echo.Context) bool {
 // Regular callers always get their own ID regardless of query params.
 func effectiveUserID(c echo.Context) string {
 	if targetUID := c.QueryParam("user_id"); targetUID != "" && canImpersonateUser(c) {
+		if callerID := getUserID(c); callerID != targetUID {
+			xlog.Info("User impersonation", "caller", callerID, "target", targetUID, "path", c.Path())
+		}
 		return targetUID
 	}
 	return getUserID(c)
@@ -128,22 +131,12 @@ func GetAgentEndpoint(app *application.Application) echo.HandlerFunc {
 		userID := effectiveUserID(c)
 		name := c.Param("name")
 
-		// In distributed mode, check DB instead of pool
-		if svc.IsDistributed() {
-			cfg := svc.GetAgentConfigForUser(userID, name)
-			if cfg == nil {
-				return c.JSON(http.StatusNotFound, map[string]string{"error": "Agent not found"})
-			}
-			return c.JSON(http.StatusOK, map[string]any{"active": true})
-		}
-
-		ag := svc.GetAgentForUser(userID, name)
-		if ag == nil {
+		statuses := svc.ListAgentsForUser(userID)
+		active, exists := statuses[name]
+		if !exists {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": "Agent not found"})
 		}
-		return c.JSON(http.StatusOK, map[string]any{
-			"active": !ag.Paused(),
-		})
+		return c.JSON(http.StatusOK, map[string]any{"active": active})
 	}
 }
 
@@ -219,17 +212,12 @@ func GetAgentStatusEndpoint(app *application.Application) echo.HandlerFunc {
 		userID := effectiveUserID(c)
 		name := c.Param("name")
 
-		// In distributed mode, status is not tracked in-process
-		if svc.IsDistributed() {
+		history := svc.GetAgentStatusForUser(userID, name)
+		if history == nil {
 			return c.JSON(http.StatusOK, map[string]any{
 				"Name":    name,
 				"History": []string{},
 			})
-		}
-
-		history := svc.GetAgentStatusForUser(userID, name)
-		if history == nil {
-			history = &state.Status{ActionResults: []coreTypes.ActionState{}}
 		}
 		entries := []string{}
 		for i := len(history.Results()) - 1; i >= 0; i-- {
@@ -257,35 +245,12 @@ func GetAgentObservablesEndpoint(app *application.Application) echo.HandlerFunc 
 		userID := effectiveUserID(c)
 		name := c.Param("name")
 
-		// In distributed mode, read observables from the database
-		if svc.IsDistributed() {
-			store := app.AgentStore()
-			if store != nil {
-				records, err := store.GetObservables(name, 100)
-				if err == nil {
-					// Unmarshal PayloadJSON into Observable-compatible objects
-					var history []map[string]any
-					for _, rec := range records {
-						var obs map[string]any
-						if json.Unmarshal([]byte(rec.PayloadJSON), &obs) == nil {
-							history = append(history, obs)
-						}
-					}
-					return c.JSON(http.StatusOK, map[string]any{
-						"Name":    name,
-						"History": history,
-					})
-				}
-			}
-			return c.JSON(http.StatusOK, map[string]any{
-				"Name":    name,
-				"History": []any{},
-			})
-		}
-
 		history, err := svc.GetAgentObservablesForUser(userID, name)
 		if err != nil {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": err.Error()})
+		}
+		if history == nil {
+			history = []any{}
 		}
 		return c.JSON(http.StatusOK, map[string]any{
 			"Name":    name,
@@ -344,7 +309,7 @@ func AgentSSEEndpoint(app *application.Application) echo.HandlerFunc {
 		// Try local SSE manager first
 		manager := svc.GetSSEManagerForUser(userID, name)
 		if manager != nil {
-			return services.HandleSSE(c, manager)
+			return agentpool.HandleSSE(c, manager)
 		}
 
 		// Fall back to distributed EventBridge SSE
@@ -357,32 +322,10 @@ func AgentSSEEndpoint(app *application.Application) echo.HandlerFunc {
 	}
 }
 
-type agentConfigMetaResponse struct {
-	state.AgentConfigMeta
-	OutputsDir string `json:"OutputsDir"`
-}
-
 func GetAgentConfigMetaEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		svc := app.AgentPoolService()
-
-		// In distributed mode, use native config metadata (no LocalAGI dependency)
-		if svc.IsDistributed() {
-			meta := agentsPkg.DefaultConfigMeta()
-			return c.JSON(http.StatusOK, map[string]any{
-				"Fields":      meta.Fields,
-				"Actions":     meta.Actions,
-				"Connectors":  meta.Connectors,
-				"Filters":     meta.Filters,
-				"OutputsDir":  "",
-				"distributed": true,
-			})
-		}
-
-		return c.JSON(http.StatusOK, agentConfigMetaResponse{
-			AgentConfigMeta: svc.GetConfigMeta(),
-			OutputsDir:      svc.OutputsDir(),
-		})
+		return c.JSON(http.StatusOK, svc.GetConfigMetaResult())
 	}
 }
 
@@ -444,10 +387,6 @@ func ImportAgentEndpoint(app *application.Application) echo.HandlerFunc {
 func ListActionsEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		svc := app.AgentPoolService()
-		if svc.IsDistributed() {
-			// In distributed mode, actions are configured as MCP tools per agent
-			return c.JSON(http.StatusOK, map[string]any{"actions": []string{}})
-		}
 		return c.JSON(http.StatusOK, map[string]any{
 			"actions": svc.ListAvailableActions(),
 		})
