@@ -8,6 +8,15 @@ else
     source $backend_dir/../common/libbackend.sh
 fi
 
+# The PyTorch CPU/CUDA indexes mirror common packages (e.g. requests) with
+# limited, often outdated version sets. uv's default "first-index" strategy
+# locks to the first index that carries a package, so it can pick e.g.
+# requests==2.28.1 from the PyTorch index instead of a newer version from
+# PyPI. voxcpm's transitive deps (datasets>=3 → requests>=2.32.2) need the
+# PyPI versions. "unsafe-best-match" is safe here because we control both
+# indexes and there is no dependency confusion risk.
+export UV_INDEX_STRATEGY=unsafe-best-match
+
 installRequirements
  
 if [ "x${USE_PIP}" == "xtrue" ]; then

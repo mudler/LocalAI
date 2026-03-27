@@ -3,5 +3,5 @@ torch
 torchaudio
 soundfile
 numpy
-voxcpm
+voxcpm>=1.5.0
 torchcodec
