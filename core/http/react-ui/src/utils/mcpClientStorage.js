@@ -1,8 +1,6 @@
-const STORAGE_KEY = 'localai_client_mcp_servers'
+import { generateId } from './format'
 
-function generateId() {
-  return Date.now().toString(36) + Math.random().toString(36).slice(2)
-}
+const STORAGE_KEY = 'localai_client_mcp_servers'
 
 export function loadClientMCPServers() {
   try {

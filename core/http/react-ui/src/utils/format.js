@@ -18,6 +18,24 @@ export function formatTimestamp(ts) {
   return d.toLocaleTimeString() + '.' + String(d.getMilliseconds()).padStart(3, '0')
 }
 
+export function relativeTime(ts) {
+  if (!ts) return ''
+  const diff = Date.now() - ts
+  const seconds = Math.floor(diff / 1000)
+  if (seconds < 60) return 'Just now'
+  const minutes = Math.floor(seconds / 60)
+  if (minutes < 60) return `${minutes}m ago`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours}h ago`
+  const days = Math.floor(hours / 24)
+  if (days < 7) return `${days}d ago`
+  return new Date(ts).toLocaleDateString()
+}
+
+export function generateId() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2)
+}
+
 export function vendorColor(vendor) {
   if (!vendor) return 'var(--color-accent)'
   const v = vendor.toLowerCase()

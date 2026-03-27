@@ -4,7 +4,9 @@ import ModelSelector from '../components/ModelSelector'
 import { CAP_VIDEO } from '../utils/capabilities'
 import LoadingSpinner from '../components/LoadingSpinner'
 import ErrorWithTraceLink from '../components/ErrorWithTraceLink'
+import MediaHistory from '../components/MediaHistory'
 import { videoApi, fileToBase64 } from '../utils/api'
+import { useMediaHistory } from '../hooks/useMediaHistory'
 
 const SIZES = ['256x256', '512x512', '768x768', '1024x1024']
 
@@ -28,6 +30,7 @@ export default function VideoGen() {
   const [showImageInputs, setShowImageInputs] = useState(false)
   const [startImage, setStartImage] = useState(null)
   const [endImage, setEndImage] = useState(null)
+  const { addEntry, selectEntry, selectedEntry, historyProps } = useMediaHistory('video')
 
   const handleGenerate = async (e) => {
     e.preventDefault()
@@ -51,8 +54,17 @@ export default function VideoGen() {
 
     try {
       const data = await videoApi.generate(body)
-      setVideos(data?.data || [])
-      if (!data?.data?.length) addToast('No videos generated', 'warning')
+      const results = data?.data || []
+      setVideos(results)
+      if (!results.length) {
+        addToast('No videos generated', 'warning')
+      } else {
+        const urlResults = results.filter(r => r.url && !r.url.startsWith('data:')).map(r => ({ url: r.url }))
+        if (urlResults.length) {
+          addEntry({ prompt: prompt.trim(), model, params: { size, fps, seconds, frames, steps, seed, cfgScale, negativePrompt: negativePrompt.trim() || undefined }, results: urlResults })
+        }
+        selectEntry(null)
+      }
     } catch (err) {
       setError(err.message)
     } finally {
@@ -127,6 +139,7 @@ export default function VideoGen() {
             {loading ? <><LoadingSpinner size="sm" /> Generating...</> : <><i className="fas fa-video" /> Generate Video</>}
           </button>
         </form>
+        <MediaHistory {...historyProps} />
       </div>
 
       <div className="media-preview">
@@ -135,6 +148,12 @@ export default function VideoGen() {
             <LoadingSpinner size="lg" />
           ) : error ? (
             <ErrorWithTraceLink message={error} />
+          ) : selectedEntry ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)', width: '100%' }}>
+              {selectedEntry.results.map((r, i) => (
+                <video key={i} controls className="media-result" style={{ minHeight: 0 }} src={r.url} />
+              ))}
+            </div>
           ) : videos.length > 0 ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)', width: '100%' }}>
               {videos.map((v, i) => (

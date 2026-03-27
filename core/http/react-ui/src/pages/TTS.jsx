@@ -4,7 +4,9 @@ import ModelSelector from '../components/ModelSelector'
 import { CAP_TTS } from '../utils/capabilities'
 import LoadingSpinner from '../components/LoadingSpinner'
 import ErrorWithTraceLink from '../components/ErrorWithTraceLink'
+import MediaHistory from '../components/MediaHistory'
 import { ttsApi } from '../utils/api'
+import { useMediaHistory } from '../hooks/useMediaHistory'
 
 export default function TTS() {
   const { model: urlModel } = useParams()
@@ -15,6 +17,7 @@ export default function TTS() {
   const [error, setError] = useState(null)
   const [audioUrl, setAudioUrl] = useState(null)
   const audioRef = useRef(null)
+  const { addEntry, selectEntry, selectedEntry, historyProps } = useMediaHistory('tts')
 
   const handleGenerate = async (e) => {
     e.preventDefault()
@@ -26,11 +29,14 @@ export default function TTS() {
     setError(null)
 
     try {
-      const blob = await ttsApi.generate({ model, input: text.trim() })
+      const { blob, serverUrl } = await ttsApi.generate({ model, input: text.trim() })
       const url = URL.createObjectURL(blob)
       setAudioUrl(url)
       addToast('Audio generated', 'success')
-      // Auto-play
+      if (serverUrl) {
+        addEntry({ prompt: text.trim(), model, params: {}, results: [{ url: serverUrl }] })
+      }
+      selectEntry(null)
       setTimeout(() => audioRef.current?.play(), 100)
     } catch (err) {
       setError(err.message)
@@ -65,6 +71,7 @@ export default function TTS() {
             {loading ? <><LoadingSpinner size="sm" /> Generating...</> : <><i className="fas fa-headphones" /> Generate Audio</>}
           </button>
         </form>
+        <MediaHistory {...historyProps} />
       </div>
 
       <div className="media-preview">
@@ -73,6 +80,13 @@ export default function TTS() {
             <LoadingSpinner size="lg" />
           ) : error ? (
             <ErrorWithTraceLink message={error} />
+          ) : selectedEntry ? (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--spacing-md)', width: '100%' }}>
+              <audio controls src={selectedEntry.results[0]?.url} style={{ width: '100%' }} data-testid="history-audio" />
+              <div style={{ padding: 'var(--spacing-sm)', background: 'var(--color-bg-tertiary)', borderRadius: 'var(--radius-md)', color: 'var(--color-text-secondary)', fontStyle: 'italic', textAlign: 'center' }}>
+                "{selectedEntry.prompt}"
+              </div>
+            </div>
           ) : audioUrl ? (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--spacing-md)', width: '100%' }}>
               <audio ref={audioRef} controls src={audioUrl} style={{ width: '100%' }} />
