@@ -1,76 +1,23 @@
 package agents
 
-import "testing"
+import (
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+)
 
-func TestStripThinkingTags(t *testing.T) {
-	tests := []struct {
-		name  string
-		input string
-		want  string
-	}{
-		{
-			name:  "empty string",
-			input: "",
-			want:  "",
-		},
-		{
-			name:  "no tags",
-			input: "Hello, world!",
-			want:  "Hello, world!",
-		},
-		{
-			name:  "single tag pair",
-			input: "before<thinking>secret thoughts</thinking>after",
-			want:  "beforeafter",
-		},
-		{
-			name:  "multiple tag pairs",
-			input: "a<thinking>one</thinking>b<thinking>two</thinking>c",
-			want:  "abc",
-		},
-		{
-			name:  "nested tags",
-			input: "<thinking>outer<thinking>inner</thinking>still outer</thinking>visible",
-			want:  "still outer</thinking>visible",
-		},
-		{
-			name:  "unclosed opening tag",
-			input: "hello<thinking>this is unclosed",
-			want:  "hello<thinking>this is unclosed",
-		},
-		{
-			name:  "only closing tag",
-			input: "hello</thinking>world",
-			want:  "hello</thinking>world",
-		},
-		{
-			name:  "tags with whitespace around content",
-			input: "before<thinking> spaced out </thinking>after",
-			want:  "beforeafter",
-		},
-		{
-			name:  "empty thinking block",
-			input: "before<thinking></thinking>after",
-			want:  "beforeafter",
-		},
-		{
-			name:  "multiline thinking block",
-			input: "before<thinking>\nline1\nline2\n</thinking>after",
-			want:  "beforeafter",
-		},
-		{
-			name:  "adjacent tag pairs",
-			input: "<thinking>a</thinking><thinking>b</thinking>",
-			want:  "",
-		},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			got := stripThinkingTags(tc.input)
-			if got != tc.want {
-				t.Errorf("stripThinkingTags(%q) = %q, want %q", tc.input, got, tc.want)
-			}
-		})
-	}
-}
+var _ = DescribeTable("stripThinkingTags",
+	func(input, want string) {
+		Expect(stripThinkingTags(input)).To(Equal(want))
+	},
+	Entry("empty string", "", ""),
+	Entry("no tags", "Hello, world!", "Hello, world!"),
+	Entry("single tag pair", "before<thinking>secret thoughts</thinking>after", "beforeafter"),
+	Entry("multiple tag pairs", "a<thinking>one</thinking>b<thinking>two</thinking>c", "abc"),
+	Entry("nested tags", "<thinking>outer<thinking>inner</thinking>still outer</thinking>visible", "still outer</thinking>visible"),
+	Entry("unclosed opening tag", "hello<thinking>this is unclosed", "hello<thinking>this is unclosed"),
+	Entry("only closing tag", "hello</thinking>world", "hello</thinking>world"),
+	Entry("tags with whitespace around content", "before<thinking> spaced out </thinking>after", "beforeafter"),
+	Entry("empty thinking block", "before<thinking></thinking>after", "beforeafter"),
+	Entry("multiline thinking block", "before<thinking>\nline1\nline2\n</thinking>after", "beforeafter"),
+	Entry("adjacent tag pairs", "<thinking>a</thinking><thinking>b</thinking>", ""),
+)

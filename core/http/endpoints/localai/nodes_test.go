@@ -3,49 +3,32 @@ package localai
 import (
 	"crypto/sha256"
 	"crypto/subtle"
-	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
-// TestTokenValidation verifies the token hashing and comparison logic
-// used in RegisterNodeEndpoint.
-func TestTokenValidation(t *testing.T) {
-	tests := []struct {
-		name          string
-		expectedToken string
-		providedToken string
-		wantMatch     bool
-	}{
-		{"matching tokens", "my-secret-token", "my-secret-token", true},
-		{"mismatched tokens", "my-secret-token", "wrong-token", false},
-		{"empty expected (no auth)", "", "any-token", true},
-		{"empty provided when expected set", "my-secret-token", "", false},
-	}
+var _ = DescribeTable("token validation",
+	func(expectedToken, providedToken string, wantMatch bool) {
+		if expectedToken == "" {
+			// No auth required — always matches
+			Expect(wantMatch).To(BeTrue(), "no-auth should always pass")
+			return
+		}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Simulate the logic from RegisterNodeEndpoint
-			if tt.expectedToken == "" {
-				// No auth required — always matches
-				if !tt.wantMatch {
-					t.Error("expected no-auth to always pass")
-				}
-				return
-			}
+		if providedToken == "" {
+			Expect(wantMatch).To(BeFalse(), "empty token should be rejected")
+			return
+		}
 
-			if tt.providedToken == "" {
-				if tt.wantMatch {
-					t.Error("expected empty token to be rejected")
-				}
-				return
-			}
+		expectedHash := sha256.Sum256([]byte(expectedToken))
+		providedHash := sha256.Sum256([]byte(providedToken))
+		match := subtle.ConstantTimeCompare(expectedHash[:], providedHash[:]) == 1
 
-			expectedHash := sha256.Sum256([]byte(tt.expectedToken))
-			providedHash := sha256.Sum256([]byte(tt.providedToken))
-			match := subtle.ConstantTimeCompare(expectedHash[:], providedHash[:]) == 1
-
-			if match != tt.wantMatch {
-				t.Errorf("got match=%v, want %v", match, tt.wantMatch)
-			}
-		})
-	}
-}
+		Expect(match).To(Equal(wantMatch))
+	},
+	Entry("matching tokens", "my-secret-token", "my-secret-token", true),
+	Entry("mismatched tokens", "my-secret-token", "wrong-token", false),
+	Entry("empty expected (no auth)", "", "any-token", true),
+	Entry("empty provided when expected set", "my-secret-token", "", false),
+)

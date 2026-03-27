@@ -1,8 +1,12 @@
 package grpc
 
 import (
+	"context"
 	"net"
-	"testing"
+	"os"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 
 	"github.com/mudler/LocalAI/pkg/grpc/base"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
@@ -20,146 +24,92 @@ func (d *dummyModel) Predict(opts *pb.PredictOptions) (string, error) {
 	return "ok", nil
 }
 
-func startTestServer(t *testing.T, token string) (addr string, stop func()) {
-	t.Helper()
-	if token != "" {
-		t.Setenv(AuthTokenEnvVar, token)
-	} else {
-		t.Setenv(AuthTokenEnvVar, "")
-	}
+func startTestServer(token string) (addr string, stop func()) {
+	old := os.Getenv(AuthTokenEnvVar)
+	os.Setenv(AuthTokenEnvVar, token)
+	DeferCleanup(func() { os.Setenv(AuthTokenEnvVar, old) })
 
 	lis, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatalf("listen: %v", err)
-	}
+	Expect(err).ToNot(HaveOccurred())
 
 	opts := serverOpts()
 	s := gogrpc.NewServer(opts...)
 	pb.RegisterBackendServer(s, &server{llm: &dummyModel{}})
 	go s.Serve(lis)
+	DeferCleanup(func() { s.GracefulStop() })
 
-	return lis.Addr().String(), func() {
-		s.GracefulStop()
-	}
+	return lis.Addr().String(), func() {}
 }
 
-func TestAuthInterceptor(t *testing.T) {
-	// Not parallel: subtests mutate the LOCALAI_GRPC_AUTH_TOKEN env var which is process-global.
-	tests := []struct {
-		name        string
-		serverToken string
-		clientToken string
-		wantCode    codes.Code
-		wantOK      bool
-	}{
-		{"no auth, any client passes", "", "", codes.OK, true},
-		{"token set, no client rejected", "secret-token-123", "", codes.Unauthenticated, false},
-		{"token set, correct passes", "secret-token-123", "secret-token-123", codes.OK, true},
-		{"token set, wrong rejected", "secret-token-123", "wrong-token", codes.Unauthenticated, false},
-	}
+var _ = Describe("AuthInterceptor", func() {
+	// Not parallel: tests mutate the LOCALAI_GRPC_AUTH_TOKEN env var which is process-global.
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			addr, stop := startTestServer(t, tt.serverToken)
-			t.Cleanup(stop)
+	DescribeTable("token authentication",
+		func(serverToken, clientToken string, wantCode codes.Code, wantOK bool) {
+			addr, _ := startTestServer(serverToken)
 
-			client := &Client{address: addr, token: tt.clientToken}
-			ok, err := client.HealthCheck(t.Context())
+			client := &Client{address: addr, token: clientToken}
+			ok, err := client.HealthCheck(context.Background())
 
-			if tt.wantOK {
-				if err != nil {
-					t.Fatalf("health check should succeed: %v", err)
-				}
-				if !ok {
-					t.Fatal("health check should return true")
-				}
+			if wantOK {
+				Expect(err).ToNot(HaveOccurred())
+				Expect(ok).To(BeTrue())
 			} else {
-				if err == nil {
-					t.Fatal("expected error")
-				}
+				Expect(err).To(HaveOccurred())
 				st, ok := status.FromError(err)
-				if !ok {
-					t.Fatalf("expected gRPC status error, got: %v", err)
-				}
-				if st.Code() != tt.wantCode {
-					t.Fatalf("expected %v, got: %v", tt.wantCode, st.Code())
-				}
+				Expect(ok).To(BeTrue(), "expected gRPC status error")
+				Expect(st.Code()).To(Equal(wantCode))
 			}
-		})
-	}
-}
+		},
+		Entry("no auth, any client passes", "", "", codes.OK, true),
+		Entry("token set, no client rejected", "secret-token-123", "", codes.Unauthenticated, false),
+		Entry("token set, correct passes", "secret-token-123", "secret-token-123", codes.OK, true),
+		Entry("token set, wrong rejected", "secret-token-123", "wrong-token", codes.Unauthenticated, false),
+	)
 
-func TestAuthInterceptor_Predict(t *testing.T) {
-	// Not parallel: mutates LOCALAI_GRPC_AUTH_TOKEN env var.
-	addr, stop := startTestServer(t, "predict-token")
-	t.Cleanup(stop)
+	It("authenticates Predict calls", func() {
+		addr, _ := startTestServer("predict-token")
 
-	// Unary call with correct token
-	client := &Client{address: addr, token: "predict-token", parallel: true}
-	reply, err := client.Predict(t.Context(), &pb.PredictOptions{})
-	if err != nil {
-		t.Fatalf("predict should succeed with correct token: %v", err)
-	}
-	if string(reply.Message) != "ok" {
-		t.Fatalf("unexpected reply: %v", reply.Message)
-	}
+		client := &Client{address: addr, token: "predict-token", parallel: true}
+		reply, err := client.Predict(context.Background(), &pb.PredictOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(string(reply.Message)).To(Equal("ok"))
 
-	// Unary call without token should fail
-	noAuthClient := &Client{address: addr, parallel: true}
-	_, err = noAuthClient.Predict(t.Context(), &pb.PredictOptions{})
-	if err == nil {
-		t.Fatal("predict should fail without token")
-	}
-}
+		noAuthClient := &Client{address: addr, parallel: true}
+		_, err = noAuthClient.Predict(context.Background(), &pb.PredictOptions{})
+		Expect(err).To(HaveOccurred())
+	})
 
-func TestAuthInterceptor_RawTokenWithoutBearer(t *testing.T) {
-	addr, stop := startTestServer(t, "secret-token")
-	t.Cleanup(stop)
+	It("rejects raw token without Bearer prefix", func() {
+		addr, _ := startTestServer("secret-token")
 
-	// Connect without token credentials
-	conn, err := gogrpc.Dial(addr, gogrpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		t.Fatalf("dial: %v", err)
-	}
-	defer conn.Close()
+		conn, err := gogrpc.Dial(addr, gogrpc.WithTransportCredentials(insecure.NewCredentials()))
+		Expect(err).ToNot(HaveOccurred())
+		DeferCleanup(func() { conn.Close() })
 
-	client := pb.NewBackendClient(conn)
+		client := pb.NewBackendClient(conn)
 
-	// Send the raw token without "Bearer " prefix in metadata
-	ctx := metadata.AppendToOutgoingContext(t.Context(), "authorization", "secret-token")
-	_, err = client.Health(ctx, &pb.HealthMessage{})
+		ctx := metadata.AppendToOutgoingContext(context.Background(), "authorization", "secret-token")
+		_, err = client.Health(ctx, &pb.HealthMessage{})
 
-	// This SHOULD be rejected (token sent without Bearer prefix)
-	// BUG H7: currently this passes because TrimPrefix("secret-token", "Bearer ") returns "secret-token" unchanged
-	if err == nil {
-		t.Fatal("expected raw token without Bearer prefix to be rejected, but it was accepted (bug H7)")
-	}
-	st, ok := status.FromError(err)
-	if !ok {
-		t.Fatalf("expected gRPC status error, got: %v", err)
-	}
-	if st.Code() != codes.Unauthenticated {
-		t.Fatalf("expected Unauthenticated, got: %v", st.Code())
-	}
-}
+		// BUG H7: currently this passes because TrimPrefix("secret-token", "Bearer ") returns "secret-token" unchanged
+		Expect(err).To(HaveOccurred(), "expected raw token without Bearer prefix to be rejected (bug H7)")
+		st, ok := status.FromError(err)
+		Expect(ok).To(BeTrue(), "expected gRPC status error")
+		Expect(st.Code()).To(Equal(codes.Unauthenticated))
+	})
 
-func TestAuthInterceptor_EmptyBearerValue(t *testing.T) {
-	addr, stop := startTestServer(t, "secret-token")
-	t.Cleanup(stop)
+	It("rejects empty Bearer value", func() {
+		addr, _ := startTestServer("secret-token")
 
-	conn, err := gogrpc.Dial(addr, gogrpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		t.Fatalf("dial: %v", err)
-	}
-	defer conn.Close()
+		conn, err := gogrpc.Dial(addr, gogrpc.WithTransportCredentials(insecure.NewCredentials()))
+		Expect(err).ToNot(HaveOccurred())
+		DeferCleanup(func() { conn.Close() })
 
-	client := pb.NewBackendClient(conn)
+		client := pb.NewBackendClient(conn)
 
-	// Send "Bearer " with no actual token
-	ctx := metadata.AppendToOutgoingContext(t.Context(), "authorization", "Bearer ")
-	_, err = client.Health(ctx, &pb.HealthMessage{})
-
-	if err == nil {
-		t.Fatal("expected empty bearer value to be rejected")
-	}
-}
+		ctx := metadata.AppendToOutgoingContext(context.Background(), "authorization", "Bearer ")
+		_, err = client.Health(ctx, &pb.HealthMessage{})
+		Expect(err).To(HaveOccurred(), "expected empty bearer value to be rejected")
+	})
+})
