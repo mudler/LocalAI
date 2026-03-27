@@ -17,14 +17,16 @@ import (
 
 // AgentEvent is the NATS message payload for agent SSE events.
 type AgentEvent struct {
-	AgentName string `json:"agent_name"`
-	UserID    string `json:"user_id"`
-	EventType string `json:"event_type"` // "message", "status", "error", "observable"
-	Sender    string `json:"sender,omitempty"`
-	Content   string `json:"content,omitempty"`
-	MessageID string `json:"message_id,omitempty"`
-	Metadata  string `json:"metadata,omitempty"` // JSON metadata
-	Timestamp int64  `json:"timestamp"`
+	AgentName      string `json:"agent_name"`
+	UserID         string `json:"user_id"`
+	EventType      string `json:"event_type"`                // "message", "status", "error", "observable"
+	EventSubType   string `json:"event_sub_type,omitempty"`  // e.g. "chat", "tool_result" for observable_update
+	SourceInstance string `json:"source_instance,omitempty"` // instance ID that published the event (for dedup)
+	Sender         string `json:"sender,omitempty"`
+	Content        string `json:"content,omitempty"`
+	MessageID      string `json:"message_id,omitempty"`
+	Metadata       string `json:"metadata,omitempty"` // JSON metadata
+	Timestamp      int64  `json:"timestamp"`
 }
 
 // AgentCancelEvent is the NATS message payload for cancelling agent execution.
@@ -42,6 +44,9 @@ type EventBridge struct {
 
 	// Cancel registry for running agent executions
 	cancelRegistry sync.Map // "agentName:userID" -> context.CancelFunc
+
+	// Background NATS subscriptions owned by this bridge
+	obsPersisterSub *nats.Subscription
 }
 
 // NewEventBridge creates a new EventBridge.
@@ -60,27 +65,34 @@ func (b *EventBridge) PublishEvent(agentName, userID string, evt AgentEvent) err
 	return b.nats.Publish(subject, evt)
 }
 
-// PersistObservable writes a structured observable record to the database
-// and publishes an observable_update SSE event for real-time UI updates.
-// The obs should be a coreTypes.Observable or compatible struct.
+// PersistObservable publishes an observable_update SSE event for real-time UI
+// updates and, if a database store is available, writes the record to the DB.
+// When the store is nil (e.g. on agent workers), the NATS event is still
+// published so the frontend can persist it via StartObservablePersister.
 func (b *EventBridge) PersistObservable(agentName, userID, eventType string, obs any) {
-	if b.store == nil {
-		return
-	}
 	payload := mustJSON(obs)
-	b.store.AppendObservable(&AgentObservableRecord{
-		ID:          uuid.New().String(),
-		AgentName:   AgentKey(userID, agentName),
-		EventType:   eventType,
-		PayloadJSON: payload,
-		CreatedAt:   time.Now(),
-	})
-	// Publish real-time SSE update (uses plain agentName for NATS subject routing)
+	recordID := uuid.New().String()
+
+	// Persist locally if we have a store (frontend instances)
+	if b.store != nil {
+		b.store.AppendObservable(&AgentObservableRecord{
+			ID:          recordID,
+			AgentName:   AgentKey(userID, agentName),
+			EventType:   eventType,
+			PayloadJSON: payload,
+			CreatedAt:   time.Now(),
+		})
+	}
+
+	// Always publish NATS event — enables real-time SSE and remote persistence.
 	b.PublishEvent(agentName, userID, AgentEvent{
-		AgentName: agentName,
-		UserID:    userID,
-		EventType: "observable_update",
-		Metadata:  payload,
+		AgentName:      agentName,
+		UserID:         userID,
+		EventType:      "observable_update",
+		EventSubType:   eventType,
+		SourceInstance: b.instanceID,
+		MessageID:      recordID,
+		Metadata:       payload,
 	})
 }
 
@@ -185,6 +197,51 @@ func (b *EventBridge) StartCancelListener() (*nats.Subscription, error) {
 			}
 		}
 	})
+}
+
+// StartObservablePersister subscribes to all agent events via NATS and persists
+// observable_update events to the database. This runs on the frontend to capture
+// observables published by workers (which have no database access).
+// The subscription is stored on the EventBridge and cleaned up when the NATS
+// connection closes.
+func (b *EventBridge) StartObservablePersister() error {
+	if b.store == nil {
+		return fmt.Errorf("no store available for observable persistence")
+	}
+	// Subscribe to all agent events using wildcard: agent.*.events.*
+	sub, err := messaging.SubscribeJSON(b.nats, "agent.*.events.*", func(evt AgentEvent) {
+		if evt.EventType != "observable_update" {
+			return
+		}
+		// Skip events we published ourselves (already persisted locally in PersistObservable)
+		if evt.SourceInstance == b.instanceID {
+			return
+		}
+		if evt.Metadata == "" {
+			return
+		}
+		// Use the record ID from the event to ensure idempotency — if the same
+		// observable is somehow delivered twice, the primary key prevents duplicates.
+		recordID := evt.MessageID
+		if recordID == "" {
+			recordID = uuid.New().String()
+		}
+		if err := b.store.AppendObservable(&AgentObservableRecord{
+			ID:          recordID,
+			AgentName:   AgentKey(evt.UserID, evt.AgentName),
+			EventType:   evt.EventSubType,
+			PayloadJSON: evt.Metadata,
+			CreatedAt:   time.Now(),
+		}); err != nil {
+			// Primary key conflict is expected for duplicate events — ignore silently
+			xlog.Debug("Observable persist skipped (likely duplicate)", "id", recordID, "agent", evt.AgentName, "error", err)
+		}
+	})
+	if err != nil {
+		return err
+	}
+	b.obsPersisterSub = sub
+	return nil
 }
 
 // HandleSSE bridges NATS agent events to SSE for a specific agent and user.

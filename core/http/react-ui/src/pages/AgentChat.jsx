@@ -125,6 +125,8 @@ export default function AgentChat() {
   // Tracks which conversation initiated the current request — SSE responses
   // are pinned to this ID so switching tabs doesn't misdirect them.
   const processingChatIdRef = useRef(null)
+  // Maps backend messageID → conversationId for robust SSE routing across navigations.
+  const pendingRequestsRef = useRef(new Map())
 
   const processing = processingChatId === activeId
 
@@ -142,20 +144,29 @@ export default function AgentChat() {
     es.addEventListener('json_message', (e) => {
       try {
         const data = JSON.parse(e.data)
+        const sender = data.sender || (data.role === 'user' ? 'user' : 'agent')
+        // Skip user message echoes — already added locally in handleSend
+        if (sender === 'user') return
         const msg = {
           id: nextId(),
-          sender: data.sender || (data.role === 'user' ? 'user' : 'agent'),
+          sender,
           content: data.content || data.message || '',
           timestamp: data.timestamp ? Math.floor(data.timestamp / 1e6) : Date.now(),
         }
         if (data.metadata && Object.keys(data.metadata).length > 0) {
           msg.metadata = data.metadata
         }
-        // Pin message to the conversation that initiated the request
-        const targetId = processingChatIdRef.current || activeIdRef.current
+        // Route to conversation: try messageID mapping first, then processingChatIdRef, then active
+        const msgId = data.message_id || ''
+        const baseId = msgId.replace(/-agent$/, '')
+        const targetId = pendingRequestsRef.current.get(baseId)
+          || processingChatIdRef.current
+          || activeIdRef.current
         addMessageToConvRef.current(targetId, msg)
         // Clear streaming + processing state when the final agent message arrives
-        if (msg.sender === 'agent') {
+        if (sender === 'agent') {
+          pendingRequestsRef.current.delete(baseId)
+          processingChatIdRef.current = null
           setProcessingChatId(null)
           setStreamContent('')
           setStreamReasoning('')
@@ -170,17 +181,20 @@ export default function AgentChat() {
       try {
         const data = JSON.parse(e.data)
         if (data.status === 'processing') {
-          // Track which conversation is processing so responses go to the right place
-          processingChatIdRef.current = activeIdRef.current
-          setProcessingChatId(activeIdRef.current)
+          // Track which conversation is processing so responses go to the right place.
+          // Only set if not already pinned by handleSend (avoids race when user switches conversations).
+          if (!processingChatIdRef.current) {
+            processingChatIdRef.current = activeIdRef.current
+            setProcessingChatId(activeIdRef.current)
+          }
           setStreamContent('')
           setStreamReasoning('')
           setStreamToolCalls([])
         } else if (data.status === 'completed') {
-          processingChatIdRef.current = null
-          // Don't clear processingChatId or streaming state here —
+          // Don't clear processingChatIdRef, processingChatId, or streaming state here —
           // they'll be cleared when the agent's json_message arrives,
-          // so reasoning and tool calls remain visible until the response replaces them.
+          // so reasoning and tool calls remain visible until the response replaces them
+          // and late-arriving messages still route to the correct conversation.
         }
       } catch (_err) {
         // ignore
@@ -204,6 +218,16 @@ export default function AgentChat() {
             if (prev.length === 0) return prev
             const updated = [...prev]
             updated[updated.length - 1] = { ...updated[updated.length - 1], args: updated[updated.length - 1].args + args }
+            return updated
+          })
+        } else if (data.type === 'tool_result') {
+          const tname = data.tool_name || ''
+          setStreamToolCalls(prev => {
+            const updated = [...prev]
+            const idx = updated.findLastIndex(tc => tc.name === tname && !tc.result)
+            if (idx >= 0) {
+              updated[idx] = { ...updated[idx], result: data.tool_result || 'done' }
+            }
             return updated
           })
         } else if (data.type === 'done') {
@@ -244,6 +268,8 @@ export default function AgentChat() {
     return () => {
       es.close()
       eventSourceRef.current = null
+      processingChatIdRef.current = null
+      pendingRequestsRef.current.clear()
     }
   }, [name, userId, addToast, nextId])
 
@@ -325,14 +351,22 @@ export default function AgentChat() {
     if (!msg || processing) return
     setInput('')
     if (textareaRef.current) textareaRef.current.style.height = 'auto'
+    // Add user message locally immediately (like standard chat)
+    addMessage({ id: nextId(), sender: 'user', content: msg, timestamp: Date.now() })
     setProcessingChatId(activeId)
+    processingChatIdRef.current = activeId
     try {
-      await agentsApi.chat(name, msg, userId)
+      const resp = await agentsApi.chat(name, msg, userId)
+      // Map backend messageID → conversation so SSE events route correctly
+      if (resp && resp.message_id) {
+        pendingRequestsRef.current.set(resp.message_id, activeId)
+      }
     } catch (err) {
       addToast(`Failed to send message: ${err.message}`, 'error')
+      processingChatIdRef.current = null
       setProcessingChatId(null)
     }
-  }, [input, processing, name, activeId, addToast, userId])
+  }, [input, processing, name, activeId, addToast, userId, addMessage, nextId])
 
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -622,16 +656,28 @@ export default function AgentChat() {
                   </div>
                 </details>
               )}
-              {streamToolCalls.length > 0 && !streamContent && (
+              {streamToolCalls.length > 0 && (
                 <div className="chat-activity-group" style={{ marginBottom: 'var(--spacing-sm)' }}>
                   {streamToolCalls.map((tc, idx) => (
-                    <div key={idx} className="chat-activity-item chat-activity-tool-call" style={{ padding: 'var(--spacing-xs) var(--spacing-sm)' }}>
-                      <span className="chat-activity-item-label">
-                        <i className="fas fa-bolt" style={{ marginRight: 'var(--spacing-xs)' }} />
-                        {tc.name}
-                      </span>
-                      <span style={{ opacity: 0.5, fontSize: '0.85em', marginLeft: 'var(--spacing-xs)' }}>calling...</span>
-                    </div>
+                    <details key={idx} className="chat-activity-item chat-activity-tool-call" style={{ padding: 'var(--spacing-xs) var(--spacing-sm)' }} open={!tc.result}>
+                      <summary className="chat-activity-item-label" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)' }}>
+                        <i className={`fas ${tc.result ? 'fa-check' : 'fa-bolt'}`} />
+                        <strong>{tc.name}</strong>
+                        <span style={{ opacity: 0.5, fontSize: '0.85em' }}>
+                          {tc.result ? 'done' : 'calling...'}
+                        </span>
+                      </summary>
+                      {tc.args && (
+                        <pre style={{ margin: '4px 0', fontSize: '0.75rem', opacity: 0.8, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                          {(() => { try { return JSON.stringify(JSON.parse(tc.args), null, 2) } catch { return tc.args } })()}
+                        </pre>
+                      )}
+                      {tc.result && (
+                        <pre style={{ margin: '4px 0', fontSize: '0.75rem', opacity: 0.7, whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxHeight: '200px', overflow: 'auto' }}>
+                          {tc.result}
+                        </pre>
+                      )}
+                    </details>
                   ))}
                 </div>
               )}

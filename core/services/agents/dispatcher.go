@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math/rand"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -133,6 +134,9 @@ func (d *LocalDispatcher) buildLocalCallbacks(writer SSEWriter, messageID string
 			data["type"] = "content"
 			data["content"] = ev.Content
 		case cogito.StreamEventToolCall:
+			if isInternalCogitoTool(ev.ToolName) {
+				return
+			}
 			data["type"] = "tool_call"
 			data["tool_name"] = ev.ToolName
 			data["tool_args"] = ev.ToolArgs
@@ -151,6 +155,16 @@ func (d *LocalDispatcher) buildLocalCallbacks(writer SSEWriter, messageID string
 		},
 		OnToolCall: func(name, args string) {
 			// Already forwarded via OnStream
+		},
+		OnToolResult: func(name, result string) {
+			if writer != nil {
+				writer.SendEvent("stream_event", map[string]any{
+					"type":        "tool_result",
+					"tool_name":   name,
+					"tool_result": result,
+					"timestamp":   time.Now().Format(time.RFC3339),
+				})
+			}
 		},
 		OnStatus: func(status string) {
 			if writer != nil {
@@ -297,7 +311,8 @@ func (d *NATSDispatcher) handleJob(ctx context.Context, evt AgentChatEvent) {
 	// Build execution options: skills come from the enriched NATS payload
 	// (workers have no database access).
 	opts := ExecuteChatOpts{
-		UserID: evt.UserID,
+		UserID:    evt.UserID,
+		MessageID: evt.MessageID,
 	}
 	if len(evt.Skills) > 0 {
 		opts.SkillProvider = &staticSkillProvider{skills: evt.Skills}
@@ -333,13 +348,18 @@ func (p *staticSkillProvider) ListSkills() ([]SkillInfo, error) {
 func (d *NATSDispatcher) buildNATSCallbacks(evt AgentChatEvent) Callbacks {
 	// Observable tracking: build LocalAGI-compatible observable records
 	// from cogito callbacks so the UI can render them properly.
+	//
+	// IDs must be globally unique (not just per-job) because the UI's buildTree
+	// uses them as map keys. We use a random base + counter so IDs are unique
+	// across jobs while parent–child relationships still work within a job.
+	idBase := rand.Int31n(1<<30) + 1 // random base, avoids collisions across jobs
 	var obsIDCounter atomic.Int32
 	var mu sync.Mutex
 	var currentToolObs *coreTypes.Observable
 	var reasoningBuf strings.Builder
 
 	nextID := func() int32 {
-		return obsIDCounter.Add(1)
+		return idBase + obsIDCounter.Add(1)
 	}
 
 	// Root observable for this chat job
@@ -374,6 +394,9 @@ func (d *NATSDispatcher) buildNATSCallbacks(evt AgentChatEvent) Callbacks {
 				data["type"] = "content"
 				data["content"] = ev.Content
 			case cogito.StreamEventToolCall:
+				if isInternalCogitoTool(ev.ToolName) {
+					return
+				}
 				data["type"] = "tool_call"
 				data["tool_name"] = ev.ToolName
 				data["tool_args"] = ev.ToolArgs
@@ -407,6 +430,15 @@ func (d *NATSDispatcher) buildNATSCallbacks(evt AgentChatEvent) Callbacks {
 			// Tool calls tracked via OnStream
 		},
 		OnToolResult: func(name, result string) {
+			// Emit tool_result stream event for real-time UI display
+			if d.eventBridge != nil {
+				d.eventBridge.PublishStreamEvent(evt.AgentName, evt.UserID, map[string]any{
+					"type":        "tool_result",
+					"tool_name":   name,
+					"tool_result": result,
+					"timestamp":   time.Now().Format(time.RFC3339),
+				})
+			}
 			// Persist tool result: complete the current tool observable
 			mu.Lock()
 			obs := currentToolObs

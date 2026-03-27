@@ -140,6 +140,7 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 			"mcp":          !appConfig.DisableMCP,
 			"fine_tuning":  true,
 			"quantization": true,
+			"distributed":  appConfig.Distributed.Enabled,
 		})
 	})
 

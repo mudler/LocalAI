@@ -2,6 +2,7 @@ package agents
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -43,6 +44,7 @@ type ExecuteChatOpts struct {
 	APIURL        string        // resolved API URL for KB and memory operations
 	APIKey        string        // resolved API key for KB and memory operations
 	UserID        string        // owner user ID — passed in collection API calls so per-user scoping works in distributed mode
+	MessageID     string        // original message ID from the dispatch — used to correlate SSE responses with the originating request
 }
 
 // ExecuteBackgroundRun runs an autonomous/background agent execution.
@@ -265,8 +267,12 @@ func ExecuteChatWithLLM(ctx context.Context, llm cogito.LLM, cfg *AgentConfig, m
 	// Tool call result callback
 	if cb.OnToolResult != nil || cb.OnToolCall != nil {
 		cogitoOpts = append(cogitoOpts, cogito.WithToolCallResultCallback(func(t cogito.ToolStatus) {
+			if isInternalCogitoTool(t.Name) {
+				return
+			}
 			if cb.OnToolCall != nil {
-				cb.OnToolCall(t.Name, fmt.Sprintf("%v", t.ToolArguments.Arguments))
+				argsJSON, _ := json.Marshal(t.ToolArguments.Arguments)
+				cb.OnToolCall(t.Name, string(argsJSON))
 			}
 			if cb.OnToolResult != nil && t.Result != "" {
 				cb.OnToolResult(t.Name, t.Result)
@@ -278,11 +284,14 @@ func ExecuteChatWithLLM(ctx context.Context, llm cogito.LLM, cfg *AgentConfig, m
 	if cb.OnStream != nil {
 		cogitoOpts = append(cogitoOpts, cogito.WithToolCallBack(
 			func(tc *cogito.ToolChoice, _ *cogito.SessionState) cogito.ToolCallDecision {
-				cb.OnStream(cogito.StreamEvent{
-					Type:     cogito.StreamEventToolCall,
-					ToolName: tc.Name,
-					ToolArgs: fmt.Sprintf("%v", tc.Arguments),
-				})
+				if !isInternalCogitoTool(tc.Name) {
+					argsJSON, _ := json.Marshal(tc.Arguments)
+					cb.OnStream(cogito.StreamEvent{
+						Type:     cogito.StreamEventToolCall,
+						ToolName: tc.Name,
+						ToolArgs: string(argsJSON),
+					})
+				}
 				return cogito.ToolCallDecision{Approved: true}
 			},
 		))
@@ -352,10 +361,16 @@ func ExecuteChatWithLLM(ctx context.Context, llm cogito.LLM, cfg *AgentConfig, m
 		go saveConversationToKB(context.Background(), llm, effectiveURL, effectiveKey, cfg, message, response, userID)
 	}
 
-	// Publish agent response
-	messageID := fmt.Sprintf("%d-agent", time.Now().UnixNano())
+	// Publish agent response — use original messageID from the dispatch so the
+	// frontend can correlate this response with the conversation that sent it.
+	var respMsgID string
+	if len(opts) > 0 && opts[0].MessageID != "" {
+		respMsgID = opts[0].MessageID + "-agent"
+	} else {
+		respMsgID = fmt.Sprintf("%d-agent", time.Now().UnixNano())
+	}
 	if cb.OnMessage != nil {
-		cb.OnMessage("agent", response, messageID)
+		cb.OnMessage("agent", response, respMsgID)
 	}
 
 	// Mark completed
@@ -365,6 +380,17 @@ func ExecuteChatWithLLM(ctx context.Context, llm cogito.LLM, cfg *AgentConfig, m
 
 	xlog.Info("Agent chat completed", "agent", cfg.Name, "responseLen", len(response))
 	return response, nil
+}
+
+// isInternalCogitoTool returns true for tool names used internally by cogito's
+// force-reasoning pipeline (reasoning, pick_tool, pick_tools, reply).
+// These should be filtered from user-facing stream events.
+func isInternalCogitoTool(name string) bool {
+	switch name {
+	case "reasoning", "pick_tool", "pick_tools", "reply":
+		return true
+	}
+	return false
 }
 
 // stripThinkingTags removes <thinking>...</thinking> blocks from content.

@@ -150,6 +150,14 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB) (*distribut
 	// Initialize agent event bridge
 	agentBridge := agents.NewEventBridge(natsClient, agentStore, cfg.Distributed.InstanceID)
 
+	// Start observable persister — captures observable_update events from workers
+	// (which have no DB access) and persists them to PostgreSQL.
+	if err := agentBridge.StartObservablePersister(); err != nil {
+		xlog.Warn("Failed to start observable persister", "error", err)
+	} else {
+		xlog.Info("Observable persister started")
+	}
+
 	// Initialize Phase 4 stores (MCP, Gallery, FineTune, Skills)
 	distStores, err := distributed.InitStores(authDB)
 	if err != nil {
