@@ -216,7 +216,14 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         elif self.device == "cuda":
             load_dtype = torch.bfloat16
             device_map = "cuda"
-            attn_impl_primary = "flash_attention_2"
+            # Check if we are running on ROCm (hipblas) - flash_attention_2 may not be available
+            # ROCm environments can be detected by torch.version.hip or HIP_VISIBLE_DEVICES
+            is_rocm = hasattr(torch.version, "hip") or os.environ.get("HIP_VISIBLE_DEVICES")
+            if is_rocm:
+                print("Detected ROCm environment, using sdpa instead of flash_attention_2", file=sys.stderr)
+                attn_impl_primary = "sdpa"
+            else:
+                attn_impl_primary = "flash_attention_2"
         else:  # cpu
             load_dtype = torch.float32
             device_map = "cpu"
