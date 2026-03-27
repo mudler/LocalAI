@@ -60,18 +60,27 @@ func (b *EventBridge) PublishEvent(agentName, userID string, evt AgentEvent) err
 	return b.nats.Publish(subject, evt)
 }
 
-// PersistObservable writes a structured observable record to the database.
+// PersistObservable writes a structured observable record to the database
+// and publishes an observable_update SSE event for real-time UI updates.
 // The obs should be a coreTypes.Observable or compatible struct.
-func (b *EventBridge) PersistObservable(agentName, eventType string, obs any) {
+func (b *EventBridge) PersistObservable(agentName, userID, eventType string, obs any) {
 	if b.store == nil {
 		return
 	}
+	payload := mustJSON(obs)
 	b.store.AppendObservable(&AgentObservableRecord{
 		ID:          uuid.New().String(),
-		AgentName:   agentName,
+		AgentName:   AgentKey(userID, agentName),
 		EventType:   eventType,
-		PayloadJSON: mustJSON(obs),
+		PayloadJSON: payload,
 		CreatedAt:   time.Now(),
+	})
+	// Publish real-time SSE update (uses plain agentName for NATS subject routing)
+	b.PublishEvent(agentName, userID, AgentEvent{
+		AgentName: agentName,
+		UserID:    userID,
+		EventType: "observable_update",
+		Metadata:  payload,
 	})
 }
 
@@ -240,7 +249,7 @@ func (b *EventBridge) handleSSEInternal(c echo.Context, agentName, userID string
 			if evt.Metadata != "" {
 				writeSSE(evt.EventType, evt.Metadata)
 			}
-		case "stream_event":
+		case "stream_event", "observable_update":
 			// Send the metadata JSON directly — React UI expects {type, content, ...}
 			if evt.Metadata != "" {
 				writeSSE(evt.EventType, evt.Metadata)

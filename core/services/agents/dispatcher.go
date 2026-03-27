@@ -417,7 +417,7 @@ func (d *NATSDispatcher) buildNATSCallbacks(evt AgentChatEvent) Callbacks {
 					ActionResult: result,
 				}
 				if d.eventBridge != nil {
-					d.eventBridge.PersistObservable(evt.AgentName, "tool_result", obs)
+					d.eventBridge.PersistObservable(evt.AgentName, evt.UserID, "tool_result", obs)
 				}
 			}
 		},
@@ -446,7 +446,7 @@ func (d *NATSDispatcher) buildNATSCallbacks(evt AgentChatEvent) Callbacks {
 						},
 					}
 				}
-				d.eventBridge.PersistObservable(evt.AgentName, "chat", rootObs)
+				d.eventBridge.PersistObservable(evt.AgentName, evt.UserID, "chat", rootObs)
 			}
 		},
 	}

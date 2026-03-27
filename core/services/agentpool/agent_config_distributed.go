@@ -138,8 +138,8 @@ func (b *distributedAgentConfigBackend) GetObservables(userID, name string) (any
 }
 
 // ClearObservables clears observables from the PostgreSQL table.
-func (b *distributedAgentConfigBackend) ClearObservables(_, name string) error {
-	return b.store.ClearObservables(name)
+func (b *distributedAgentConfigBackend) ClearObservables(userID, name string) error {
+	return b.store.ClearObservables(agents.AgentKey(userID, name))
 }
 
 func (b *distributedAgentConfigBackend) ListAllGrouped() map[string][]UserAgentInfo {
