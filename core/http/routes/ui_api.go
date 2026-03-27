@@ -416,7 +416,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			if needsAsync {
 				input := estimateInput
 				wg.Add(1)
-				go func(input vram.ModelEstimateInput, out map[string]interface{}) {
+				go func(input vram.ModelEstimateInput, out map[string]any) {
 					defer wg.Done()
 					sem <- struct{}{}
 					defer func() { <-sem }()

@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -55,10 +56,7 @@ func (cmd *AgentWorkerCMD) Run(ctx *cliContext.Context) error {
 	xlog.Info("Starting agent worker", "nats", cmd.NatsURL, "register_to", cmd.RegisterTo)
 
 	// Resolve API URL
-	apiURL := cmd.APIURL
-	if apiURL == "" {
-		apiURL = strings.TrimRight(cmd.RegisterTo, "/")
-	}
+	apiURL := cmp.Or(cmd.APIURL, strings.TrimRight(cmd.RegisterTo, "/"))
 
 	// Register with frontend
 	nodeID, apiToken, err := cmd.registerWithFrontend()
@@ -175,10 +173,7 @@ func (cmd *AgentWorkerCMD) registerWithFrontend() (string, string, error) {
 		}
 		xlog.Warn("Registration failed, retrying", "attempt", attempt, "next_retry", backoff, "error", err)
 		time.Sleep(backoff)
-		backoff *= 2
-		if backoff > maxBackoff {
-			backoff = maxBackoff
-		}
+		backoff = min(backoff*2, maxBackoff)
 	}
 	return nodeID, apiToken, err
 }

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"sync/atomic"
 	"time"
 
 	"github.com/mudler/LocalAI/core/config"
@@ -155,17 +156,16 @@ var _ = Describe("Phase 0: Foundation", Label("Distributed"), func() {
 			Expect(err).ToNot(HaveOccurred())
 			defer client.Close()
 
-			worker1Count := 0
-			worker2Count := 0
+			var worker1Count, worker2Count atomic.Int32
 
 			sub1, err := client.QueueSubscribe("test.queue", "workers", func(data []byte) {
-				worker1Count++
+				worker1Count.Add(1)
 			})
 			Expect(err).ToNot(HaveOccurred())
 			defer sub1.Unsubscribe()
 
 			sub2, err := client.QueueSubscribe("test.queue", "workers", func(data []byte) {
-				worker2Count++
+				worker2Count.Add(1)
 			})
 			Expect(err).ToNot(HaveOccurred())
 			defer sub2.Unsubscribe()
@@ -179,13 +179,13 @@ var _ = Describe("Phase 0: Foundation", Label("Distributed"), func() {
 			}
 
 			// Wait for all messages to be processed
-			Eventually(func() int {
-				return worker1Count + worker2Count
-			}, "5s").Should(Equal(10))
+			Eventually(func() int32 {
+				return worker1Count.Load() + worker2Count.Load()
+			}, "5s").Should(Equal(int32(10)))
 
 			// Both workers should have received some messages (load-balanced)
 			// Note: with only 10 messages, distribution may not be perfectly even
-			Expect(worker1Count + worker2Count).To(Equal(10))
+			Expect(worker1Count.Load() + worker2Count.Load()).To(Equal(int32(10)))
 		})
 
 		It("should reconnect after disconnect", func() {

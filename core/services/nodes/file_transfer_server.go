@@ -112,13 +112,12 @@ func handleUpload(w http.ResponseWriter, r *http.Request, stagingDir, modelsDir,
 	// Route keyed files to the appropriate directory
 	targetDir := stagingDir
 	relName := key
-	switch {
-	case strings.HasPrefix(key, storage.ModelKeyPrefix) && modelsDir != "":
+	if rel, ok := strings.CutPrefix(key, storage.ModelKeyPrefix); ok && modelsDir != "" {
 		targetDir = modelsDir
-		relName = strings.TrimPrefix(key, storage.ModelKeyPrefix)
-	case strings.HasPrefix(key, storage.DataKeyPrefix) && dataDir != "":
+		relName = rel
+	} else if rel, ok := strings.CutPrefix(key, storage.DataKeyPrefix); ok && dataDir != "" {
 		targetDir = dataDir
-		relName = strings.TrimPrefix(key, storage.DataKeyPrefix)
+		relName = rel
 	}
 
 	dstPath := filepath.Join(targetDir, relName)
@@ -164,13 +163,12 @@ func handleDownload(w http.ResponseWriter, r *http.Request, stagingDir, modelsDi
 	// Route keyed files to the appropriate directory
 	targetDir := stagingDir
 	relName := key
-	switch {
-	case strings.HasPrefix(key, storage.ModelKeyPrefix) && modelsDir != "":
+	if rel, ok := strings.CutPrefix(key, storage.ModelKeyPrefix); ok && modelsDir != "" {
 		targetDir = modelsDir
-		relName = strings.TrimPrefix(key, storage.ModelKeyPrefix)
-	case strings.HasPrefix(key, storage.DataKeyPrefix) && dataDir != "":
+		relName = rel
+	} else if rel, ok := strings.CutPrefix(key, storage.DataKeyPrefix); ok && dataDir != "" {
 		targetDir = dataDir
-		relName = strings.TrimPrefix(key, storage.DataKeyPrefix)
+		relName = rel
 	}
 
 	srcPath := filepath.Join(targetDir, relName)
@@ -238,13 +236,12 @@ func handleListDir(w http.ResponseWriter, r *http.Request, stagingDir, modelsDir
 
 	targetDir := stagingDir
 	relName := key
-	switch {
-	case strings.HasPrefix(key, storage.ModelKeyPrefix) && modelsDir != "":
+	if rel, ok := strings.CutPrefix(key, storage.ModelKeyPrefix); ok && modelsDir != "" {
 		targetDir = modelsDir
-		relName = strings.TrimPrefix(key, storage.ModelKeyPrefix)
-	case strings.HasPrefix(key, storage.DataKeyPrefix) && dataDir != "":
+		relName = rel
+	} else if rel, ok := strings.CutPrefix(key, storage.DataKeyPrefix); ok && dataDir != "" {
 		targetDir = dataDir
-		relName = strings.TrimPrefix(key, storage.DataKeyPrefix)
+		relName = rel
 	}
 
 	dirPath := filepath.Join(targetDir, relName)

@@ -437,11 +437,11 @@ func isFilePath(s string) bool {
 		return false
 	}
 	// Base64 data URIs
-	if len(s) > 5 && s[:5] == "data:" {
+	if strings.HasPrefix(s, "data:") {
 		return false
 	}
 	// URLs
-	if len(s) > 7 && (s[:7] == "http://" || s[:8] == "https://") {
+	if strings.HasPrefix(s, "http://") || strings.HasPrefix(s, "https://") {
 		return false
 	}
 	// Starts with / (absolute path) or contains path separator

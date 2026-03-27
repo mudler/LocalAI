@@ -3,6 +3,7 @@ package distributed_test
 import (
 	"context"
 	"encoding/json"
+	"sync/atomic"
 	"time"
 
 	"github.com/mudler/LocalAI/core/config"
@@ -189,16 +190,16 @@ var _ = Describe("MCP NATS Routing", Label("Distributed"), func() {
 		})
 
 		It("should load-balance requests across queue subscribers", func() {
-			var worker1Count, worker2Count int32
+			var worker1Count, worker2Count atomic.Int32
 
 			sub1, _ := nc.QueueSubscribeReply("test.lb", "lb-workers", func(data []byte, reply func([]byte)) {
-				worker1Count++
+				worker1Count.Add(1)
 				reply([]byte("w1"))
 			})
 			defer sub1.Unsubscribe()
 
 			sub2, _ := nc.QueueSubscribeReply("test.lb", "lb-workers", func(data []byte, reply func([]byte)) {
-				worker2Count++
+				worker2Count.Add(1)
 				reply([]byte("w2"))
 			})
 			defer sub2.Unsubscribe()
@@ -212,11 +213,11 @@ var _ = Describe("MCP NATS Routing", Label("Distributed"), func() {
 			}
 
 			// Both workers should have handled some requests
-			total := worker1Count + worker2Count
+			total := worker1Count.Load() + worker2Count.Load()
 			Expect(total).To(Equal(int32(10)))
 			// NATS typically distributes evenly, but we just check both got work
-			Expect(worker1Count).To(BeNumerically(">", 0))
-			Expect(worker2Count).To(BeNumerically(">", 0))
+			Expect(worker1Count.Load()).To(BeNumerically(">", 0))
+			Expect(worker2Count.Load()).To(BeNumerically(">", 0))
 		})
 	})
 })

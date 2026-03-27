@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"context"
+	"slices"
 
 	"github.com/mudler/LocalAI/core/config"
 	mcpRemote "github.com/mudler/LocalAI/core/services/mcp"
@@ -94,12 +95,9 @@ func (e *DistributedToolExecutor) DiscoverTools(_ context.Context) ([]functions.
 }
 
 func (e *DistributedToolExecutor) IsTool(name string) bool {
-	for _, td := range e.toolDefs {
-		if td.ToolName == name {
-			return true
-		}
-	}
-	return false
+	return slices.ContainsFunc(e.toolDefs, func(td mcpRemote.MCPToolDef) bool {
+		return td.ToolName == name
+	})
 }
 
 func (e *DistributedToolExecutor) ExecuteTool(ctx context.Context, toolName, arguments string) (string, error) {

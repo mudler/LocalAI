@@ -89,14 +89,12 @@ func nodeTokenAuth(registrationToken string) echo.MiddlewareFunc {
 				return next(c)
 			}
 
-			auth := c.Request().Header.Get("Authorization")
-			if !strings.HasPrefix(auth, "Bearer ") {
+			token, ok := strings.CutPrefix(c.Request().Header.Get("Authorization"), "Bearer ")
+			if !ok {
 				return c.JSON(http.StatusUnauthorized, map[string]string{
 					"error": "missing or invalid Authorization header",
 				})
 			}
-
-			token := strings.TrimPrefix(auth, "Bearer ")
 			if subtle.ConstantTimeCompare([]byte(token), []byte(registrationToken)) != 1 {
 				return c.JSON(http.StatusUnauthorized, map[string]string{
 					"error": "invalid registration token",

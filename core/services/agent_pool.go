@@ -1,6 +1,7 @@
 package services
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -128,16 +129,7 @@ func (s *AgentPoolService) startDistributed(_ context.Context, apiURL, apiKey st
 	cfg := s.appConfig.AgentPool
 
 	// State dir for skills and outputs
-	stateDir := cfg.StateDir
-	if stateDir == "" {
-		stateDir = s.appConfig.DataPath
-	}
-	if stateDir == "" {
-		stateDir = s.appConfig.DynamicConfigsDir
-	}
-	if stateDir == "" {
-		stateDir = "agents"
-	}
+	stateDir := cmp.Or(cfg.StateDir, s.appConfig.DataPath, s.appConfig.DynamicConfigsDir, "agents")
 	if err := os.MkdirAll(stateDir, 0750); err != nil {
 		xlog.Warn("Failed to create agent state dir", "error", err)
 	}
@@ -181,10 +173,7 @@ func (s *AgentPoolService) startDistributed(_ context.Context, apiURL, apiKey st
 	s.collectionsBackend = collectionsBackend
 
 	// User-scoped storage
-	dataDir := s.appConfig.DataPath
-	if dataDir == "" {
-		dataDir = s.appConfig.DynamicConfigsDir
-	}
+	dataDir := cmp.Or(s.appConfig.DataPath, s.appConfig.DynamicConfigsDir)
 	s.userStorage = NewUserScopedStorage(stateDir, dataDir)
 
 	// Start the background agent scheduler on the frontend.
@@ -212,16 +201,7 @@ func (s *AgentPoolService) startDistributed(_ context.Context, apiURL, apiKey st
 // startLocalAGI initializes the full LocalAGI pool for standalone mode.
 func (s *AgentPoolService) startLocalAGI(_ context.Context, cfg config.AgentPoolConfig, apiURL, apiKey string) error {
 	// State dir: explicit config > DataPath > DynamicConfigsDir > fallback
-	stateDir := cfg.StateDir
-	if stateDir == "" {
-		stateDir = s.appConfig.DataPath
-	}
-	if stateDir == "" {
-		stateDir = s.appConfig.DynamicConfigsDir
-	}
-	if stateDir == "" {
-		stateDir = "agents"
-	}
+	stateDir := cmp.Or(cfg.StateDir, s.appConfig.DataPath, s.appConfig.DynamicConfigsDir, "agents")
 	if err := os.MkdirAll(stateDir, 0750); err != nil {
 		return fmt.Errorf("failed to create agent pool state dir: %w", err)
 	}
@@ -260,10 +240,7 @@ func (s *AgentPoolService) startLocalAGI(_ context.Context, cfg config.AgentPool
 	s.sharedState = coreTypes.NewAgentSharedState(5 * time.Minute)
 
 	// Initialize user-scoped storage
-	dataDir := s.appConfig.DataPath
-	if dataDir == "" {
-		dataDir = s.appConfig.DynamicConfigsDir
-	}
+	dataDir := cmp.Or(s.appConfig.DataPath, s.appConfig.DynamicConfigsDir)
 	s.userStorage = NewUserScopedStorage(stateDir, dataDir)
 
 	// Create the agent pool
@@ -573,9 +550,9 @@ func (s *AgentPoolService) ExportAgent(name string) ([]byte, error) {
 		// Try to extract userID and agent name from the key
 		userID := ""
 		agentName := name
-		if idx := strings.Index(name, ":"); idx >= 0 {
-			userID = name[:idx]
-			agentName = name[idx+1:]
+		if u, a, ok := strings.Cut(name, ":"); ok {
+			userID = u
+			agentName = a
 		}
 		rec, err := s.agentStore.GetConfig(userID, agentName)
 		if err != nil || rec == nil {
@@ -658,9 +635,9 @@ func (s *AgentPoolService) ListAllAgentsGrouped() map[string][]UserAgentInfo {
 		}
 		userID := ""
 		name := a
-		if idx := strings.Index(a, ":"); idx >= 0 {
-			userID = a[:idx]
-			name = a[idx+1:]
+		if u, n, ok := strings.Cut(a, ":"); ok {
+			userID = u
+			name = n
 		}
 		result[userID] = append(result[userID], UserAgentInfo{
 			Name:   name,

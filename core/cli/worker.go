@@ -109,10 +109,7 @@ func (cmd *WorkerCMD) Run(ctx *cliContext.Context) error {
 		}
 		xlog.Warn("Registration failed, retrying", "attempt", attempt, "next_retry", backoff, "error", err)
 		time.Sleep(backoff)
-		backoff *= 2
-		if backoff > maxBackoff {
-			backoff = maxBackoff
-		}
+		backoff = min(backoff*2, maxBackoff)
 	}
 
 	xlog.Info("Registered with frontend", "nodeID", nodeID, "frontend", cmd.RegisterTo)
@@ -149,6 +146,10 @@ func (cmd *WorkerCMD) Run(ctx *cliContext.Context) error {
 			}
 		}
 	}
+	// Buffered so NATS stop handler can send without blocking
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+
 	supervisor := &backendSupervisor{
 		cmd:         cmd,
 		ml:          ml,
@@ -156,6 +157,7 @@ func (cmd *WorkerCMD) Run(ctx *cliContext.Context) error {
 		galleries:   galleries,
 		nodeID:      nodeID,
 		nats:        natsClient,
+		sigCh:       sigCh,
 		processes:   make(map[string]*backendProcess),
 		nextPort:    basePort,
 	}
@@ -169,10 +171,6 @@ func (cmd *WorkerCMD) Run(ctx *cliContext.Context) error {
 	}
 
 	xlog.Info("Worker ready, waiting for backend.install events")
-
-	// Wait for shutdown signal
-	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 	<-sigCh
 
 	xlog.Info("Shutting down worker")
@@ -277,10 +275,10 @@ func (cmd *WorkerCMD) subscribeFileStaging(natsClient *messaging.Client, nodeID 
 
 		// Resolve key prefix to local directory
 		dirPath := filepath.Join(cacheDir, req.KeyPrefix)
-		if strings.HasPrefix(req.KeyPrefix, storage.ModelKeyPrefix) && cmd.ModelsPath != "" {
-			dirPath = filepath.Join(cmd.ModelsPath, strings.TrimPrefix(req.KeyPrefix, storage.ModelKeyPrefix))
-		} else if strings.HasPrefix(req.KeyPrefix, storage.DataKeyPrefix) {
-			dirPath = filepath.Join(cacheDir, "..", "data", strings.TrimPrefix(req.KeyPrefix, storage.DataKeyPrefix))
+		if rel, ok := strings.CutPrefix(req.KeyPrefix, storage.ModelKeyPrefix); ok && cmd.ModelsPath != "" {
+			dirPath = filepath.Join(cmd.ModelsPath, rel)
+		} else if rel, ok := strings.CutPrefix(req.KeyPrefix, storage.DataKeyPrefix); ok {
+			dirPath = filepath.Join(cacheDir, "..", "data", rel)
 		}
 
 		var files []string
@@ -328,6 +326,7 @@ type backendSupervisor struct {
 	galleries   []config.Gallery
 	nodeID      string
 	nats        *messaging.Client
+	sigCh       chan<- os.Signal // send shutdown signal instead of os.Exit
 
 	mu        sync.Mutex
 	processes map[string]*backendProcess // key: backend name
@@ -345,11 +344,11 @@ func (s *backendSupervisor) getProcess(backend string) *backendProcess {
 // Returns the gRPC address.
 func (s *backendSupervisor) startBackend(backend, backendPath string) (string, error) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
 
 	// Already running?
 	if bp, ok := s.processes[backend]; ok {
 		if bp.proc != nil && bp.proc.IsAlive() {
+			s.mu.Unlock()
 			return bp.addr, nil
 		}
 		// Process died — clean up and restart
@@ -368,6 +367,7 @@ func (s *backendSupervisor) startBackend(backend, backendPath string) (string, e
 
 	proc, err := s.ml.StartProcess(backendPath, backend, addr)
 	if err != nil {
+		s.mu.Unlock()
 		return "", fmt.Errorf("starting backend process: %w", err)
 	}
 
@@ -379,9 +379,13 @@ func (s *backendSupervisor) startBackend(backend, backendPath string) (string, e
 	}
 	xlog.Info("Backend process started", "backend", backend, "addr", addr)
 
+	// Release the mutex before the health-check poll loop so concurrent
+	// backend operations (getProcess, stopBackend, isRunning) are not blocked.
+	s.mu.Unlock()
+
 	// Wait for the gRPC server to be ready
 	client := grpc.NewClientWithToken(addr, false, nil, false, s.cmd.RegistrationToken)
-	for i := 0; i < 20; i++ {
+	for range 20 {
 		time.Sleep(200 * time.Millisecond)
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		if ok, _ := client.HealthCheck(ctx); ok {
@@ -710,12 +714,10 @@ func (s *backendSupervisor) subscribeLifecycleEvents() {
 		reply(respData)
 	})
 
-	// stop — full shutdown (deregister + exit)
+	// stop — trigger the normal shutdown path via sigCh so deferred cleanup runs
 	s.nats.Subscribe(messaging.SubjectNodeStop(s.nodeID), func(data []byte) {
-		xlog.Info("Received NATS stop event — shutting down entirely")
-		s.stopAllBackends()
-		s.cmd.gracefulDeregister(s.nodeID)
-		os.Exit(0)
+		xlog.Info("Received NATS stop event — signaling shutdown")
+		s.sigCh <- syscall.SIGTERM
 	})
 }
 

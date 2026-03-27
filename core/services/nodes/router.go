@@ -461,11 +461,10 @@ func (r *SmartRouter) stageCompanionFiles(ctx context.Context, node *BackendNode
 // Option values are NOT rewritten — backends resolve them via ModelPath.
 func (r *SmartRouter) stageGenericOptions(ctx context.Context, node *BackendNode, options []string, frontendModelsDir string) {
 	for _, opt := range options {
-		parts := strings.SplitN(opt, ":", 2)
-		if len(parts) != 2 || parts[1] == "" {
+		optKey, val, ok := strings.Cut(opt, ":")
+		if !ok || val == "" {
 			continue
 		}
-		val := parts[1]
 
 		// Check if value is an existing file path (absolute or relative to frontend models dir)
 		absPath := val
@@ -488,7 +487,7 @@ func (r *SmartRouter) stageGenericOptions(ctx context.Context, node *BackendNode
 			continue
 		}
 		// Leave option value unchanged — backend resolves relative paths via ModelPath
-		xlog.Debug("Staged option file", "option", parts[0], "localPath", absPath)
+		xlog.Debug("Staged option file", "option", optKey, "localPath", absPath)
 	}
 }
 

@@ -127,17 +127,25 @@ func RegisterNodeEndpoint(registry *nodes.NodeRegistry, expectedToken string, au
 		// Provision API key for agent workers that are approved (not pending).
 		// On re-registration of a previously approved node, revoke old + provision new.
 		if nodeType == nodes.NodeTypeAgent && authDB != nil && node.Status != nodes.StatusPending {
-			// Revoke old credentials if re-registering
-			if node.AuthUserID != "" {
-				authDB.Exec("DELETE FROM users WHERE id = ?", node.AuthUserID)
-				node.AuthUserID = ""
-				node.APIKeyID = ""
-			}
-
-			if plaintext, err := provisionAgentWorkerKey(authDB, registry, node, hmacSecret); err != nil {
-				xlog.Warn("Failed to auto-provision API key for agent worker", "node", node.Name, "error", err)
-			} else {
+			// Use a transaction so that if provisioning fails after revoking old creds,
+			// the old credentials are not lost.
+			txErr := authDB.Transaction(func(tx *gorm.DB) error {
+				if node.AuthUserID != "" {
+					if err := tx.Exec("DELETE FROM users WHERE id = ?", node.AuthUserID).Error; err != nil {
+						return fmt.Errorf("revoking old credentials: %w", err)
+					}
+					node.AuthUserID = ""
+					node.APIKeyID = ""
+				}
+				plaintext, err := provisionAgentWorkerKey(tx, registry, node, hmacSecret)
+				if err != nil {
+					return err
+				}
 				response["api_token"] = plaintext
+				return nil
+			})
+			if txErr != nil {
+				xlog.Warn("Failed to auto-provision API key for agent worker", "node", node.Name, "error", txErr)
 			}
 		}
 

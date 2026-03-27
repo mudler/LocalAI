@@ -54,7 +54,7 @@ type Item struct {
 // encoding_format=base64 by default and expects a base64 string back.
 func (item Item) MarshalJSON() ([]byte, error) {
 	type itemFields struct {
-		Embedding interface{} `json:"embedding,omitempty"`
+		Embedding any `json:"embedding,omitempty"`
 		Index     int         `json:"index"`
 		Object    string      `json:"object,omitempty"`
 		URL       string      `json:"url,omitempty"`

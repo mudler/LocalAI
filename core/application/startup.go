@@ -177,9 +177,9 @@ func New(opts ...config.AppOption) (*Application, error) {
 		// Wire model config loader so job events include model config for agent workers
 		distSvc.dispatcher.SetModelConfigLoader(application.backendLoader)
 
-		// Start job dispatcher
+		// Start job dispatcher — abort startup if it fails, as jobs would be accepted but never dispatched
 		if err := distSvc.dispatcher.Start(options.Context); err != nil {
-			xlog.Error("Failed to start job dispatcher", "error", err)
+			return nil, fmt.Errorf("starting job dispatcher: %w", err)
 		}
 		// Start ephemeral file cleanup
 		storage.StartEphemeralCleanup(options.Context, distSvc.fileMgr, 0, 0)
