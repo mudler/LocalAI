@@ -3,11 +3,14 @@ package agentpool_test
 import (
 	"context"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/agentpool"
+	"github.com/mudler/LocalAI/core/services/jobs"
+	"github.com/mudler/LocalAI/core/services/testutil"
 	"github.com/mudler/LocalAI/core/templates"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/system"
@@ -593,6 +596,274 @@ var _ = Describe("AgentJobService", func() {
 				Expect(job.Images[0]).To(Equal(""))
 				Expect(job.Videos).To(BeEmpty())
 			})
+		})
+	})
+
+	Describe("DB-backed mode", func() {
+		var (
+			dbService *agentpool.AgentJobService
+			jobStore  *jobs.JobStore
+		)
+
+		BeforeEach(func() {
+			db := testutil.SetupTestDB()
+			var err error
+			jobStore, err = jobs.NewJobStore(db)
+			Expect(err).NotTo(HaveOccurred())
+
+			tmpDir := GinkgoT().TempDir()
+			sysState := &system.SystemState{}
+			sysState.Model.ModelsPath = tmpDir
+
+			dbAppConfig := config.NewApplicationConfig(
+				config.WithDynamicConfigDir(tmpDir),
+				config.WithContext(context.Background()),
+			)
+			dbAppConfig.SystemState = sysState
+			dbAppConfig.APIAddress = "127.0.0.1:8080"
+			dbAppConfig.AgentJobRetentionDays = 30
+
+			dbService = agentpool.NewAgentJobServiceWithPaths(
+				dbAppConfig, nil, nil, nil,
+				filepath.Join(tmpDir, "tasks.json"),
+				filepath.Join(tmpDir, "jobs.json"),
+			)
+			dbService.SetDistributedJobStore(jobStore)
+		})
+
+		It("should create task and persist to DB", func() {
+			task := schema.Task{
+				Name:   "DB Task",
+				Model:  "test-model",
+				Prompt: "Hello DB",
+			}
+
+			id, err := dbService.CreateTask(task)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(id).NotTo(BeEmpty())
+
+			// Verify the task is in DB via the store
+			rec, err := jobStore.GetTask(id)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(rec).NotTo(BeNil())
+			Expect(rec.Name).To(Equal("DB Task"))
+		})
+
+		It("should update task in DB", func() {
+			task := schema.Task{
+				Name:   "Original",
+				Model:  "test-model",
+				Prompt: "Before update",
+			}
+
+			id, err := dbService.CreateTask(task)
+			Expect(err).NotTo(HaveOccurred())
+
+			updatedTask := schema.Task{
+				Name:   "Updated",
+				Model:  "test-model",
+				Prompt: "After update",
+			}
+			err = dbService.UpdateTask(id, updatedTask)
+			Expect(err).NotTo(HaveOccurred())
+
+			// Verify via DB
+			rec, err := jobStore.GetTask(id)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(rec.Name).To(Equal("Updated"))
+		})
+
+		It("should delete task from DB", func() {
+			task := schema.Task{
+				Name:   "To Delete",
+				Model:  "test-model",
+				Prompt: "Delete me",
+			}
+
+			id, err := dbService.CreateTask(task)
+			Expect(err).NotTo(HaveOccurred())
+
+			err = dbService.DeleteTask(id)
+			Expect(err).NotTo(HaveOccurred())
+
+			// Verify deleted from DB (GetTask returns error for not found)
+			_, err = jobStore.GetTask(id)
+			Expect(err).To(HaveOccurred())
+		})
+
+		It("should list tasks from memory (populated from DB on next load)", func() {
+			t1 := schema.Task{Name: "T1", Model: "m", Prompt: "p1"}
+			t2 := schema.Task{Name: "T2", Model: "m", Prompt: "p2"}
+
+			_, err := dbService.CreateTask(t1)
+			Expect(err).NotTo(HaveOccurred())
+			_, err = dbService.CreateTask(t2)
+			Expect(err).NotTo(HaveOccurred())
+
+			tasks := dbService.ListTasks()
+			Expect(len(tasks)).To(BeNumerically(">=", 2))
+		})
+
+		It("should execute job and store in memory (DB persist requires dispatcher)", func() {
+			// Note: Job DB persistence only happens when dispatcher is set (distributed mode).
+			// Without a dispatcher, jobs are stored in memory + file only.
+			task := schema.Task{
+				Name:    "Job Task",
+				Model:   "test-model",
+				Prompt:  "Run this",
+				Enabled: true,
+			}
+			taskID, err := dbService.CreateTask(task)
+			Expect(err).NotTo(HaveOccurred())
+
+			jobID, err := dbService.ExecuteJob(taskID, map[string]string{}, "test", nil)
+			Expect(err).NotTo(HaveOccurred())
+
+			// Verify job is in memory via GetJob
+			job, err := dbService.GetJob(jobID)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(job.TaskID).To(Equal(taskID))
+			Expect(job.Status).To(Equal(schema.JobStatusPending))
+		})
+
+		It("should get job from DB when DB has fresher data", func() {
+			// First create a job via the DB store directly to simulate
+			// a NATS result event that updated the DB
+			task := schema.Task{
+				Name:    "Fresh Read",
+				Model:   "test-model",
+				Prompt:  "p",
+				Enabled: true,
+			}
+			taskID, err := dbService.CreateTask(task)
+			Expect(err).NotTo(HaveOccurred())
+
+			// Create job record directly in DB (simulating a remote worker result)
+			jobRec := &jobs.JobRecord{
+				ID:     "test-job-fresh",
+				TaskID: taskID,
+				Status: "completed",
+				Result: "result-data",
+			}
+			Expect(jobStore.CreateJob(jobRec)).To(Succeed())
+
+			// GetJob should read from DB and return the fresh data
+			job, err := dbService.GetJob("test-job-fresh")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(job.Status).To(Equal(schema.JobStatusCompleted))
+			Expect(job.Result).To(Equal("result-data"))
+		})
+
+		It("should list jobs from DB with filters", func() {
+			task := schema.Task{
+				Name:    "List Task",
+				Model:   "test-model",
+				Prompt:  "p",
+				Enabled: true,
+			}
+			taskID, err := dbService.CreateTask(task)
+			Expect(err).NotTo(HaveOccurred())
+
+			// Create job records directly in DB
+			Expect(jobStore.CreateJob(&jobs.JobRecord{ID: "j1", TaskID: taskID, Status: "pending"})).To(Succeed())
+			Expect(jobStore.CreateJob(&jobs.JobRecord{ID: "j2", TaskID: taskID, Status: "completed"})).To(Succeed())
+
+			// List all
+			allJobs := dbService.ListJobs(nil, nil, 0)
+			Expect(len(allJobs)).To(BeNumerically(">=", 2))
+
+			// List by task
+			filtered := dbService.ListJobs(&taskID, nil, 0)
+			Expect(len(filtered)).To(BeNumerically(">=", 2))
+
+			// List with limit
+			limited := dbService.ListJobs(nil, nil, 1)
+			Expect(limited).To(HaveLen(1))
+		})
+
+		It("should return empty slice from ListJobs when DB has no records", func() {
+			result := dbService.ListJobs(nil, nil, 0)
+			Expect(result).NotTo(BeNil())
+			Expect(result).To(HaveLen(0))
+		})
+
+		It("should load tasks and jobs from DB on fresh service start", func() {
+			// Create task via the service (persists to DB)
+			task := schema.Task{
+				Name:    "Bootstrap Task",
+				Model:   "test-model",
+				Prompt:  "p",
+				Enabled: true,
+			}
+			taskID, err := dbService.CreateTask(task)
+			Expect(err).NotTo(HaveOccurred())
+
+			// Create job directly in DB (simulating a worker result)
+			Expect(jobStore.CreateJob(&jobs.JobRecord{
+				ID:     "bootstrap-job",
+				TaskID: taskID,
+				Status: "completed",
+				Result: "done",
+			})).To(Succeed())
+
+			// Create a new service connected to same DB
+			tmpDir2 := GinkgoT().TempDir()
+			sysState2 := &system.SystemState{}
+			sysState2.Model.ModelsPath = tmpDir2
+			newAppConfig := config.NewApplicationConfig(
+				config.WithDynamicConfigDir(tmpDir2),
+				config.WithContext(context.Background()),
+			)
+			newAppConfig.SystemState = sysState2
+			newAppConfig.APIAddress = "127.0.0.1:8080"
+			newAppConfig.AgentJobRetentionDays = 30
+
+			newService := agentpool.NewAgentJobServiceWithPaths(
+				newAppConfig, nil, nil, nil,
+				filepath.Join(tmpDir2, "tasks.json"),
+				filepath.Join(tmpDir2, "jobs.json"),
+			)
+			newService.SetDistributedJobStore(jobStore)
+			newService.LoadFromDB()
+
+			// Verify task was loaded from DB
+			loadedTask, err := newService.GetTask(taskID)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(loadedTask.Name).To(Equal("Bootstrap Task"))
+
+			// Verify job was loaded from DB
+			loadedJob, err := newService.GetJob("bootstrap-job")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(loadedJob.TaskID).To(Equal(taskID))
+			Expect(loadedJob.Status).To(Equal(schema.JobStatusCompleted))
+		})
+	})
+
+	Describe("File edge cases", func() {
+		It("should load empty state from nonexistent files", func() {
+			tmpDir := GinkgoT().TempDir()
+			sysState := &system.SystemState{}
+			sysState.Model.ModelsPath = tmpDir
+			cfg := config.NewApplicationConfig(
+				config.WithDynamicConfigDir(tmpDir),
+				config.WithContext(context.Background()),
+			)
+			cfg.SystemState = sysState
+
+			svc := agentpool.NewAgentJobServiceWithPaths(
+				cfg, nil, nil, nil,
+				filepath.Join(tmpDir, "nonexistent_tasks.json"),
+				filepath.Join(tmpDir, "nonexistent_jobs.json"),
+			)
+
+			err := svc.LoadTasksFromFile()
+			Expect(err).NotTo(HaveOccurred())
+
+			err = svc.LoadJobsFromFile()
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(svc.ListTasks()).To(BeEmpty())
+			Expect(svc.ListJobs(nil, nil, 0)).To(BeEmpty())
 		})
 	})
 })

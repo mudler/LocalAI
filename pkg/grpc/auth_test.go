@@ -92,7 +92,6 @@ var _ = Describe("AuthInterceptor", func() {
 		ctx := metadata.AppendToOutgoingContext(context.Background(), "authorization", "secret-token")
 		_, err = client.Health(ctx, &pb.HealthMessage{})
 
-		// BUG H7: currently this passes because TrimPrefix("secret-token", "Bearer ") returns "secret-token" unchanged
 		Expect(err).To(HaveOccurred(), "expected raw token without Bearer prefix to be rejected (bug H7)")
 		st, ok := status.FromError(err)
 		Expect(ok).To(BeTrue(), "expected gRPC status error")

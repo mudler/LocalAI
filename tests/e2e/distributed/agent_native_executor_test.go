@@ -704,7 +704,7 @@ var _ = Describe("Native Agent Executor", Label("Distributed", "AgentNative"), f
 
 	Context("Background Agent Execution", func() {
 		It("should use inner monologue template with permanent goal for system role", func() {
-			// ExecuteBackgroundRun should substitute {{.Goal}} in the inner monologue template
+			// ExecuteBackgroundRunWithLLM should substitute {{.Goal}} in the inner monologue template
 			cfg := &agents.AgentConfig{
 				Name:                   "bg-agent",
 				Model:                  "test-model",
@@ -713,10 +713,11 @@ var _ = Describe("Native Agent Executor", Label("Distributed", "AgentNative"), f
 				SystemPrompt:           "You are an autonomous agent.",
 			}
 
+			llm := &mockLLM{response: "I will monitor system health."}
 			cb := agents.Callbacks{}
 
-			response, err := agents.ExecuteBackgroundRun(infra.Ctx, "http://localhost:8080", "key", cfg, cb)
-			// ExecuteBackgroundRun should complete without panicking.
+			response, err := agents.ExecuteBackgroundRunWithLLM(infra.Ctx, llm, cfg, cb)
+			// ExecuteBackgroundRunWithLLM should complete without panicking.
 			// The mock LLM always succeeds, so we expect no error.
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(response)).To(BeNumerically(">=", 0))

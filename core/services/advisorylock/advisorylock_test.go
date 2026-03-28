@@ -1,6 +1,7 @@
 package advisorylock
 
 import (
+	"runtime"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -18,6 +19,9 @@ var _ = Describe("AdvisoryLock", func() {
 		var db *gorm.DB
 
 		BeforeEach(func() {
+			if runtime.GOOS == "darwin" {
+				Skip("testcontainers requires Docker, not available on macOS CI")
+			}
 			db = testutil.SetupTestDB()
 		})
 

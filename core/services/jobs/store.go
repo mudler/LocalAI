@@ -86,6 +86,15 @@ func (s *JobStore) UpdateTask(t *TaskRecord) error {
 	return s.db.Save(t).Error
 }
 
+// SaveTask creates or updates a task (upsert).
+func (s *JobStore) SaveTask(t *TaskRecord) error {
+	t.UpdatedAt = time.Now()
+	if t.CreatedAt.IsZero() {
+		t.CreatedAt = t.UpdatedAt
+	}
+	return s.db.Save(t).Error
+}
+
 // GetTask retrieves a task by ID.
 func (s *JobStore) GetTask(id string) (*TaskRecord, error) {
 	var t TaskRecord
@@ -150,6 +159,15 @@ func (s *JobStore) CreateJob(j *JobRecord) error {
 // UpdateJob updates an existing job.
 func (s *JobStore) UpdateJob(j *JobRecord) error {
 	j.UpdatedAt = time.Now()
+	return s.db.Save(j).Error
+}
+
+// SaveJob creates or updates a job (upsert).
+func (s *JobStore) SaveJob(j *JobRecord) error {
+	j.UpdatedAt = time.Now()
+	if j.CreatedAt.IsZero() {
+		j.CreatedAt = j.UpdatedAt
+	}
 	return s.db.Save(j).Error
 }
 

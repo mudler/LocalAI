@@ -117,12 +117,21 @@ func (b *localAgentConfigBackend) GetStatus(userID, name string) *state.Status {
 	return b.svc.pool.GetStatusHistory(agents.AgentKey(userID, name))
 }
 
-func (b *localAgentConfigBackend) GetObservables(userID, name string) (any, error) {
+func (b *localAgentConfigBackend) GetObservables(userID, name string) ([]json.RawMessage, error) {
 	ag := b.svc.pool.GetAgent(agents.AgentKey(userID, name))
 	if ag == nil {
 		return nil, fmt.Errorf("%w: %s", ErrAgentNotFound, name)
 	}
-	return ag.Observer().History(), nil
+	history := ag.Observer().History()
+	result := make([]json.RawMessage, 0, len(history))
+	for _, obs := range history {
+		data, err := json.Marshal(obs)
+		if err != nil {
+			continue
+		}
+		result = append(result, data)
+	}
+	return result, nil
 }
 
 func (b *localAgentConfigBackend) ClearObservables(userID, name string) error {

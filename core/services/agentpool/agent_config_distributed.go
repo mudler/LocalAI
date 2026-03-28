@@ -121,18 +121,14 @@ func (b *distributedAgentConfigBackend) GetStatus(_, _ string) *state.Status {
 }
 
 // GetObservables reads from the PostgreSQL observables table.
-func (b *distributedAgentConfigBackend) GetObservables(userID, name string) (any, error) {
+func (b *distributedAgentConfigBackend) GetObservables(userID, name string) ([]json.RawMessage, error) {
 	records, err := b.store.GetObservables(agents.AgentKey(userID, name), defaultObservableLimit)
 	if err != nil {
 		return nil, err
 	}
-	// Convert database records to generic maps for JSON serialization.
-	var result []map[string]any
+	result := make([]json.RawMessage, 0, len(records))
 	for _, rec := range records {
-		var obs map[string]any
-		if json.Unmarshal([]byte(rec.PayloadJSON), &obs) == nil {
-			result = append(result, obs)
-		}
+		result = append(result, json.RawMessage(rec.PayloadJSON))
 	}
 	return result, nil
 }

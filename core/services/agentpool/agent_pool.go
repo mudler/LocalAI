@@ -821,9 +821,8 @@ func (s *AgentPoolService) GetAgentStatusForUser(userID, name string) *state.Sta
 	return s.configBackend.GetStatus(userID, name)
 }
 
-// GetAgentObservablesForUser returns observables for a user's agent.
-// In local mode returns []coreTypes.Observable; in distributed mode returns []map[string]any.
-func (s *AgentPoolService) GetAgentObservablesForUser(userID, name string) (any, error) {
+// GetAgentObservablesForUser returns observables for a user's agent as raw JSON entries.
+func (s *AgentPoolService) GetAgentObservablesForUser(userID, name string) ([]json.RawMessage, error) {
 	return s.configBackend.GetObservables(userID, name)
 }
 

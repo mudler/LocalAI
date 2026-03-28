@@ -251,7 +251,7 @@ func GetAgentObservablesEndpoint(app *application.Application) echo.HandlerFunc 
 			return c.JSON(http.StatusNotFound, map[string]string{"error": err.Error()})
 		}
 		if history == nil {
-			history = []any{}
+			history = []json.RawMessage{}
 		}
 		return c.JSON(http.StatusOK, map[string]any{
 			"Name":    name,

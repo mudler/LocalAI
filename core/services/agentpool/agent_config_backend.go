@@ -1,6 +1,8 @@
 package agentpool
 
 import (
+	"encoding/json"
+
 	"github.com/mudler/LocalAGI/core/agent"
 	"github.com/mudler/LocalAGI/core/sse"
 	"github.com/mudler/LocalAGI/core/state"
@@ -26,7 +28,7 @@ type AgentConfigBackend interface {
 	GetAgent(userID, name string) *agent.Agent
 	GetSSEManager(userID, name string) sse.Manager
 	GetStatus(userID, name string) *state.Status
-	GetObservables(userID, name string) (any, error)
+	GetObservables(userID, name string) ([]json.RawMessage, error)
 	ClearObservables(userID, name string) error
 
 	// Admin aggregation

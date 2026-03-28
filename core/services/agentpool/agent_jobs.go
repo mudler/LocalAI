@@ -40,11 +40,12 @@ type AgentJobService struct {
 	configLoader *config.ModelConfigLoader
 	evaluator    *templates.Evaluator
 
-	// Storage (file-based with in-memory cache)
+	// Storage (in-memory primary, persister for secondary persistence)
 	tasks     *xsync.SyncedMap[string, schema.Task]
 	jobs      *xsync.SyncedMap[string, schema.Job]
-	tasksFile string // Path to agent_tasks.json
-	jobsFile  string // Path to agent_jobs.json
+	persister JobPersister
+	tasksFile string // Path to agent_tasks.json (kept for backward compat)
+	jobsFile  string // Path to agent_jobs.json (kept for backward compat)
 	userID    string // Scoping: empty for global (main service), set for per-user instances
 
 	// Job execution channel
@@ -61,8 +62,8 @@ type AgentJobService struct {
 	retentionDays int // From runtime settings, default: 30
 
 	// Distributed mode (nil when not in distributed mode)
-	dispatcher DistributedDispatcher
-	dbStore    *jobs.JobStore
+	dispatcher  DistributedDispatcher
+	rawDBStore  *jobs.JobStore // kept for DBStore() accessor
 
 	// Service lifecycle
 	ctx    context.Context
@@ -93,7 +94,8 @@ func (s *AgentJobService) SetUserID(id string) {
 // SetDistributedJobStore sets the database-backed job store for persisting tasks/jobs.
 // When set, the DB is the source of truth instead of JSON files.
 func (s *AgentJobService) SetDistributedJobStore(store *jobs.JobStore) {
-	s.dbStore = store
+	s.rawDBStore = store
+	s.persister = &dbJobPersister{store: store}
 }
 
 // Dispatcher returns the distributed dispatcher (nil if not in distributed mode).
@@ -103,51 +105,53 @@ func (s *AgentJobService) Dispatcher() DistributedDispatcher {
 
 // DBStore returns the database-backed job store (nil if not configured).
 func (s *AgentJobService) DBStore() *jobs.JobStore {
-	return s.dbStore
+	return s.rawDBStore
 }
 
-// saveTasks persists tasks to file (skipped when DB is the source of truth).
-func (s *AgentJobService) saveTasks() {
-	if s.dbStore != nil {
-		return // DB is source of truth, skip file I/O
-	}
-	if err := s.SaveTasksToFile(); err != nil {
-		xlog.Error("Failed to save tasks to file", "error", err)
+// saveTasks persists tasks via the configured persister (file or DB).
+func (s *AgentJobService) saveTasks(task schema.Task) {
+	if err := s.persister.SaveTask(s.userID, task); err != nil {
+		xlog.Warn("Failed to persist task", "error", err, "task_id", task.ID)
 	}
 }
 
-// saveJobs persists jobs to file (skipped when DB is the source of truth).
-func (s *AgentJobService) saveJobs() {
-	if s.dbStore != nil {
-		return // DB is source of truth, skip file I/O
-	}
-	if err := s.SaveJobsToFile(); err != nil {
-		xlog.Error("Failed to save jobs to file", "error", err)
+// saveJobs persists jobs via the configured persister (file or DB).
+func (s *AgentJobService) saveJobs(job schema.Job) {
+	if err := s.persister.SaveJob(s.userID, job); err != nil {
+		xlog.Warn("Failed to persist job", "error", err, "job_id", job.ID)
 	}
 }
 
 // LoadFromDB populates the in-memory maps from the database.
+// LoadFromDB loads tasks and jobs from the configured persister.
+// Kept for backward compatibility with user_services.go.
 func (s *AgentJobService) LoadFromDB() {
-	taskRecs, err := s.dbStore.ListTasks(s.userID)
-	if err != nil {
-		xlog.Error("Failed to load tasks from database", "error", err)
+	s.loadFromPersister()
+}
+
+// loadFromPersister loads tasks and jobs from the configured persister into memory.
+func (s *AgentJobService) loadFromPersister() {
+	if tasks, err := s.persister.LoadTasks(s.userID); err != nil {
+		xlog.Warn("Failed to load tasks from persister", "error", err)
 	} else {
-		for _, rec := range taskRecs {
-			task := jobs.ConvertRecordToTask(rec)
+		for _, task := range tasks {
 			s.tasks.Set(task.ID, task)
+			if task.Enabled && task.Cron != "" {
+				if err := s.ScheduleCronTask(task); err != nil {
+					xlog.Warn("Failed to schedule cron task on load", "error", err, "task_id", task.ID)
+				}
+			}
 		}
-		xlog.Info("Loaded tasks from database", "count", len(taskRecs))
+		xlog.Info("Loaded tasks from persister", "count", len(tasks))
 	}
 
-	jobRecs, err := s.dbStore.ListJobs(s.userID, "", "", 0)
-	if err != nil {
-		xlog.Error("Failed to load jobs from database", "error", err)
+	if loadedJobs, err := s.persister.LoadJobs(s.userID); err != nil {
+		xlog.Warn("Failed to load jobs from persister", "error", err)
 	} else {
-		for _, rec := range jobRecs {
-			job := jobs.ConvertRecordToJob(rec)
+		for _, job := range loadedJobs {
 			s.jobs.Set(job.ID, job)
 		}
-		xlog.Info("Loaded jobs from database", "count", len(jobRecs))
+		xlog.Info("Loaded jobs from persister", "count", len(loadedJobs))
 	}
 }
 
@@ -201,13 +205,22 @@ func NewAgentJobServiceWithPaths(
 		retentionDays = 30 // Default
 	}
 
+	tasks := xsync.NewSyncedMap[string, schema.Task]()
+	jobsMap := xsync.NewSyncedMap[string, schema.Job]()
+
 	return &AgentJobService{
 		appConfig:     appConfig,
 		modelLoader:   modelLoader,
 		configLoader:  configLoader,
 		evaluator:     evaluator,
-		tasks:         xsync.NewSyncedMap[string, schema.Task](),
-		jobs:          xsync.NewSyncedMap[string, schema.Job](),
+		tasks:         tasks,
+		jobs:          jobsMap,
+		persister: &fileJobPersister{
+			tasks:     tasks,
+			jobs:      jobsMap,
+			tasksFile: tasksFile,
+			jobsFile:  jobsFile,
+		},
 		tasksFile:     tasksFile,
 		jobsFile:      jobsFile,
 		jobQueue:      make(chan JobExecution, 100), // Buffer for 100 jobs
@@ -366,23 +379,14 @@ func (s *AgentJobService) CreateTask(task schema.Task) (string, error) {
 	// Store task
 	s.tasks.Set(id, task)
 
-	// Persist to PostgreSQL in distributed mode
-	if s.dbStore != nil {
-		rec := jobs.ConvertTaskToRecord(task, s.userID)
-		if err := s.dbStore.CreateTask(rec); err != nil {
-			xlog.Warn("Failed to persist task to database", "error", err, "task_id", id)
-		}
-	}
-
 	// Schedule cron if enabled and has cron expression
 	if task.Enabled && task.Cron != "" {
 		if err := s.ScheduleCronTask(task); err != nil {
 			xlog.Warn("Failed to schedule cron task", "error", err, "task_id", id)
-			// Don't fail task creation if cron scheduling fails
 		}
 	}
 
-	s.saveTasks()
+	s.saveTasks(task)
 	return id, nil
 }
 
@@ -406,14 +410,6 @@ func (s *AgentJobService) UpdateTask(id string, task schema.Task) error {
 	// Store updated task
 	s.tasks.Set(id, task)
 
-	// Persist to database
-	if s.dbStore != nil {
-		rec := jobs.ConvertTaskToRecord(task, s.userID)
-		if err := s.dbStore.UpdateTask(rec); err != nil {
-			xlog.Warn("Failed to update task in database", "error", err, "task_id", id)
-		}
-	}
-
 	// Schedule new cron if enabled and has cron expression
 	if task.Enabled && task.Cron != "" {
 		if err := s.ScheduleCronTask(task); err != nil {
@@ -421,7 +417,7 @@ func (s *AgentJobService) UpdateTask(id string, task schema.Task) error {
 		}
 	}
 
-	s.saveTasks()
+	s.saveTasks(task)
 	return nil
 }
 
@@ -437,14 +433,10 @@ func (s *AgentJobService) DeleteTask(id string) error {
 	// Remove from memory
 	s.tasks.Delete(id)
 
-	// Delete from database
-	if s.dbStore != nil {
-		if err := s.dbStore.DeleteTask(id); err != nil {
-			xlog.Warn("Failed to delete task from database", "error", err, "task_id", id)
-		}
+	if err := s.persister.DeleteTask(id); err != nil {
+		xlog.Warn("Failed to delete task from persister", "error", err, "task_id", id)
 	}
 
-	s.saveTasks()
 	return nil
 }
 
@@ -560,22 +552,12 @@ func (s *AgentJobService) ExecuteJob(taskID string, params map[string]string, tr
 
 	// Distributed mode: delegate to NATS dispatcher
 	if s.dispatcher != nil {
-		// Persist job to PostgreSQL so the dispatcher can enrich the NATS event
-		if s.dbStore != nil {
-			rec := jobs.ConvertJobToRecord(job, s.userID)
-			if err := s.dbStore.CreateJob(rec); err != nil {
-				xlog.Error("Failed to persist job to database", "error", err, "job_id", jobID)
-			}
-		}
-		// Save to file (async, don't block)
-		go func() {
-			s.saveJobs()
-		}()
+		go func() { s.saveJobs(job) }()
 		xlog.Info("Enqueuing job via distributed dispatcher", "job_id", jobID, "task_id", taskID)
 		return jobID, s.dispatcher.Enqueue(jobID, taskID, "")
 	}
 
-	go func() { s.saveJobs() }()
+	go func() { s.saveJobs(job) }()
 
 	// Create context for cancellation
 	ctx, cancel := context.WithCancel(context.Background())
@@ -602,16 +584,12 @@ func (s *AgentJobService) ExecuteJob(taskID string, params map[string]string, tr
 
 // GetJob retrieves a job by ID
 func (s *AgentJobService) GetJob(id string) (*schema.Job, error) {
-	// In DB mode, read the latest status from the database
-	// (NATS result events update the DB but not the in-memory map)
-	if s.dbStore != nil {
-		rec, err := s.dbStore.GetJob(id)
-		if err == nil && rec != nil {
-			job := jobs.ConvertRecordToJob(*rec)
-			s.jobs.Set(id, job) // sync back to in-memory
-			return &job, nil
-		}
+	// Try authoritative read from persister (DB returns fresh data; file returns nil)
+	if job, err := s.persister.GetJob(id); err == nil && job != nil {
+		s.jobs.Set(job.ID, *job) // sync back to in-memory
+		return job, nil
 	}
+	// Fall back to in-memory
 	job := s.jobs.Get(id)
 	if job.ID == "" {
 		return nil, fmt.Errorf("%w: %s", ErrJobNotFound, id)
@@ -621,27 +599,22 @@ func (s *AgentJobService) GetJob(id string) (*schema.Job, error) {
 
 // ListJobs returns jobs, optionally filtered by task_id and status
 func (s *AgentJobService) ListJobs(taskID *string, status *schema.JobStatus, limit int) []schema.Job {
-	// Refresh from DB to pick up status updates from NATS result events
-	if s.dbStore != nil {
-		taskFilter := ""
-		if taskID != nil {
-			taskFilter = *taskID
-		}
-		statusFilter := ""
-		if status != nil {
-			statusFilter = string(*status)
-		}
-		recs, err := s.dbStore.ListJobs(s.userID, taskFilter, statusFilter, limit)
-		if err == nil {
-			result := make([]schema.Job, 0, len(recs))
-			for _, rec := range recs {
-				job := jobs.ConvertRecordToJob(rec)
-				s.jobs.Set(job.ID, job) // sync back
-				result = append(result, job)
-			}
-			return result
-		}
+	// Try authoritative list from persister (DB returns fresh data; file returns nil)
+	taskFilter := ""
+	if taskID != nil {
+		taskFilter = *taskID
 	}
+	statusFilter := ""
+	if status != nil {
+		statusFilter = string(*status)
+	}
+	if result, err := s.persister.ListJobs(s.userID, taskFilter, statusFilter, limit); err == nil && result != nil {
+		for i := range result {
+			s.jobs.Set(result[i].ID, result[i]) // sync back
+		}
+		return result
+	}
+	// Fall back to in-memory filtering
 	allJobs := s.jobs.Values()
 	filtered := []schema.Job{}
 
@@ -701,9 +674,7 @@ func (s *AgentJobService) CancelJob(id string) error {
 	job.CompletedAt = &now
 	s.jobs.Set(id, job)
 
-	go func() {
-		s.saveJobs()
-	}()
+	go func() { s.saveJobs(job) }()
 
 	return nil
 }
@@ -716,7 +687,9 @@ func (s *AgentJobService) DeleteJob(id string) error {
 
 	s.jobs.Delete(id)
 
-	s.saveJobs()
+	if err := s.persister.DeleteJob(id); err != nil {
+		xlog.Warn("Failed to delete job from persister", "error", err, "job_id", id)
+	}
 
 	return nil
 }
@@ -1156,9 +1129,7 @@ func (s *AgentJobService) ExecuteJobInternal(job schema.Job, task schema.Task, c
 	s.jobs.Set(job.ID, job)
 	xlog.Info("Job completed", "job_id", job.ID, "status", job.Status)
 
-	go func() {
-		s.saveJobs()
-	}()
+	go func() { s.saveJobs(job) }()
 
 	// Send webhooks (non-blocking)
 	go func() {
@@ -1305,9 +1276,7 @@ func (s *AgentJobService) sendWebhooks(job schema.Job, task schema.Task) {
 
 	s.jobs.Set(job.ID, job)
 
-	go func() {
-		s.saveJobs()
-	}()
+	go func() { s.saveJobs(job) }()
 }
 
 // webhookError represents a webhook delivery error
@@ -1467,10 +1436,18 @@ func (s *AgentJobService) CleanupOldJobs() error {
 		}
 	}
 
+	// Also clean up from the persister (DB cleans via SQL, file re-serializes)
+	retention := time.Duration(s.retentionDays) * 24 * time.Hour
+	if dbRemoved, err := s.persister.CleanupOldJobs(retention); err != nil {
+		xlog.Warn("Failed to cleanup old jobs from persister", "error", err)
+	} else if dbRemoved > 0 {
+		removed += int(dbRemoved)
+	}
+
 	if removed > 0 {
 		xlog.Info("Cleaned up old jobs", "removed", removed, "retention_days", s.retentionDays)
-		// Save to file
-		s.saveJobs()
+		// For file persister, re-serialize the map after deletions
+		s.saveJobs(schema.Job{})
 	}
 
 	return nil
@@ -1488,17 +1465,8 @@ func (s *AgentJobService) Start(ctx context.Context) error {
 	}
 	s.retentionDays = retentionDays
 
-	// Load tasks and jobs from DB (if available) or files
-	if s.dbStore != nil {
-		s.LoadFromDB()
-	} else {
-		if err := s.LoadTasksFromFile(); err != nil {
-			xlog.Warn("Failed to load tasks from file", "error", err)
-		}
-		if err := s.LoadJobsFromFile(); err != nil {
-			xlog.Warn("Failed to load jobs from file", "error", err)
-		}
-	}
+	// Load tasks and jobs from persister (DB or files)
+	s.loadFromPersister()
 
 	// In distributed mode, the Dispatcher handles worker pool + cron leader election.
 	// Skip local worker pool and cron scheduler.
