@@ -157,8 +157,8 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 	// Note: streaming mode is NOT compatible with the OpenAI apis. We have a set which streams more states.
 	if evaluator != nil && !appConfig.DisableMCP {
 		var mcpNATS mcpTools.MCPNATSClient
-		if app.NatsClient() != nil {
-			mcpNATS = app.NatsClient()
+		if d := app.Distributed(); d != nil {
+			mcpNATS = d.Nats
 		}
 		mcpStreamHandler := localai.MCPEndpoint(cl, ml, evaluator, appConfig, mcpNATS)
 		mcpStreamMiddleware := []echo.MiddlewareFunc{

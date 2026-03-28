@@ -389,7 +389,7 @@ func (s *AgentJobService) CreateTask(task schema.Task) (string, error) {
 // UpdateTask updates an existing task
 func (s *AgentJobService) UpdateTask(id string, task schema.Task) error {
 	if !s.tasks.Exists(id) {
-		return fmt.Errorf("task not found: %s", id)
+		return fmt.Errorf("%w: %s", ErrTaskNotFound, id)
 	}
 	existing := s.tasks.Get(id)
 
@@ -428,7 +428,7 @@ func (s *AgentJobService) UpdateTask(id string, task schema.Task) error {
 // DeleteTask deletes a task
 func (s *AgentJobService) DeleteTask(id string) error {
 	if !s.tasks.Exists(id) {
-		return fmt.Errorf("task not found: %s", id)
+		return fmt.Errorf("%w: %s", ErrTaskNotFound, id)
 	}
 
 	// Unschedule cron
@@ -452,7 +452,7 @@ func (s *AgentJobService) DeleteTask(id string) error {
 func (s *AgentJobService) GetTask(id string) (*schema.Task, error) {
 	task := s.tasks.Get(id)
 	if task.ID == "" {
-		return nil, fmt.Errorf("task not found: %s", id)
+		return nil, fmt.Errorf("%w: %s", ErrTaskNotFound, id)
 	}
 	return &task, nil
 }
@@ -490,11 +490,11 @@ func (s *AgentJobService) buildPrompt(templateStr string, params map[string]stri
 func (s *AgentJobService) ExecuteJob(taskID string, params map[string]string, triggeredBy string, multimedia *schema.MultimediaAttachment) (string, error) {
 	task := s.tasks.Get(taskID)
 	if task.ID == "" {
-		return "", fmt.Errorf("task not found: %s", taskID)
+		return "", fmt.Errorf("%w: %s", ErrTaskNotFound, taskID)
 	}
 
 	if !task.Enabled {
-		return "", fmt.Errorf("task is disabled: %s", taskID)
+		return "", fmt.Errorf("%w: %s", ErrTaskDisabled, taskID)
 	}
 
 	// Create job
@@ -594,7 +594,7 @@ func (s *AgentJobService) ExecuteJob(taskID string, params map[string]string, tr
 		job.Status = schema.JobStatusFailed
 		job.Error = "job queue is full"
 		s.jobs.Set(jobID, job)
-		return "", fmt.Errorf("job queue is full")
+		return "", ErrJobQueueFull
 	}
 
 	return jobID, nil
@@ -614,7 +614,7 @@ func (s *AgentJobService) GetJob(id string) (*schema.Job, error) {
 	}
 	job := s.jobs.Get(id)
 	if job.ID == "" {
-		return nil, fmt.Errorf("job not found: %s", id)
+		return nil, fmt.Errorf("%w: %s", ErrJobNotFound, id)
 	}
 	return &job, nil
 }
@@ -633,7 +633,7 @@ func (s *AgentJobService) ListJobs(taskID *string, status *schema.JobStatus, lim
 		}
 		recs, err := s.dbStore.ListJobs(s.userID, taskFilter, statusFilter, limit)
 		if err == nil {
-			var result []schema.Job
+			result := make([]schema.Job, 0, len(recs))
 			for _, rec := range recs {
 				job := jobs.ConvertRecordToJob(rec)
 				s.jobs.Set(job.ID, job) // sync back
@@ -676,7 +676,7 @@ func (s *AgentJobService) ListJobs(taskID *string, status *schema.JobStatus, lim
 func (s *AgentJobService) CancelJob(id string) error {
 	job := s.jobs.Get(id)
 	if job.ID == "" {
-		return fmt.Errorf("job not found: %s", id)
+		return fmt.Errorf("%w: %s", ErrJobNotFound, id)
 	}
 
 	if job.Status != schema.JobStatusPending && job.Status != schema.JobStatusRunning {
@@ -711,7 +711,7 @@ func (s *AgentJobService) CancelJob(id string) error {
 // DeleteJob deletes a job
 func (s *AgentJobService) DeleteJob(id string) error {
 	if !s.jobs.Exists(id) {
-		return fmt.Errorf("job not found: %s", id)
+		return fmt.Errorf("%w: %s", ErrJobNotFound, id)
 	}
 
 	s.jobs.Delete(id)

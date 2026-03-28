@@ -65,7 +65,7 @@ func (b *localAgentConfigBackend) SaveConfig(userID string, cfg *state.AgentConf
 func (b *localAgentConfigBackend) UpdateConfig(userID, name string, cfg *state.AgentConfig) error {
 	key := agents.AgentKey(userID, name)
 	if old := b.svc.pool.GetConfig(key); old == nil {
-		return fmt.Errorf("agent not found: %s", name)
+		return fmt.Errorf("%w: %s", ErrAgentNotFound, name)
 	}
 	cfg.Name = key
 	return b.svc.pool.RecreateAgent(key, cfg)
@@ -84,7 +84,7 @@ func (b *localAgentConfigBackend) ImportConfig(userID string, cfg *state.AgentCo
 func (b *localAgentConfigBackend) ExportConfig(userID, name string) ([]byte, error) {
 	cfg := b.svc.pool.GetConfig(agents.AgentKey(userID, name))
 	if cfg == nil {
-		return nil, fmt.Errorf("agent not found: %s", name)
+		return nil, fmt.Errorf("%w: %s", ErrAgentNotFound, name)
 	}
 	return json.MarshalIndent(cfg, "", "  ")
 }
@@ -92,7 +92,7 @@ func (b *localAgentConfigBackend) ExportConfig(userID, name string) ([]byte, err
 func (b *localAgentConfigBackend) SetStatus(userID, name, status string) error {
 	ag := b.svc.pool.GetAgent(agents.AgentKey(userID, name))
 	if ag == nil {
-		return fmt.Errorf("agent not found: %s", name)
+		return fmt.Errorf("%w: %s", ErrAgentNotFound, name)
 	}
 	switch status {
 	case "paused":
@@ -120,7 +120,7 @@ func (b *localAgentConfigBackend) GetStatus(userID, name string) *state.Status {
 func (b *localAgentConfigBackend) GetObservables(userID, name string) (any, error) {
 	ag := b.svc.pool.GetAgent(agents.AgentKey(userID, name))
 	if ag == nil {
-		return nil, fmt.Errorf("agent not found: %s", name)
+		return nil, fmt.Errorf("%w: %s", ErrAgentNotFound, name)
 	}
 	return ag.Observer().History(), nil
 }
@@ -128,7 +128,7 @@ func (b *localAgentConfigBackend) GetObservables(userID, name string) (any, erro
 func (b *localAgentConfigBackend) ClearObservables(userID, name string) error {
 	ag := b.svc.pool.GetAgent(agents.AgentKey(userID, name))
 	if ag == nil {
-		return fmt.Errorf("agent not found: %s", name)
+		return fmt.Errorf("%w: %s", ErrAgentNotFound, name)
 	}
 	ag.Observer().ClearHistory()
 	return nil

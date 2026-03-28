@@ -17,8 +17,8 @@ func RegisterOpenResponsesRoutes(app *echo.Echo,
 
 	// NATS client for distributed MCP tool routing (nil when not in distributed mode)
 	var natsClient mcpTools.MCPNATSClient
-	if application.NatsClient() != nil {
-		natsClient = application.NatsClient()
+	if d := application.Distributed(); d != nil {
+		natsClient = d.Nats
 	}
 
 	// Open Responses API endpoint

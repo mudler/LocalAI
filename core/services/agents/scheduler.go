@@ -23,7 +23,7 @@ type SchedulerStore interface {
 // Same pattern as notetaker's runAgentScheduler and LocalAI's cronLeaderLoop.
 type AgentScheduler struct {
 	db           *gorm.DB
-	nats         NATSPublisher
+	nats         messaging.Publisher
 	store        SchedulerStore
 	skillProvider SkillContentProvider // optional: loads full skill info for enriching events
 	subject       string              // NATS subject for agent execution
@@ -41,7 +41,7 @@ func WithSchedulerSkillProvider(provider SkillContentProvider) AgentSchedulerOpt
 }
 
 // NewAgentScheduler creates a new background agent scheduler.
-func NewAgentScheduler(db *gorm.DB, nats NATSPublisher, store SchedulerStore, subject string, opts ...AgentSchedulerOpt) *AgentScheduler {
+func NewAgentScheduler(db *gorm.DB, nats messaging.Publisher, store SchedulerStore, subject string, opts ...AgentSchedulerOpt) *AgentScheduler {
 	s := &AgentScheduler{
 		db:           db,
 		nats:         nats,

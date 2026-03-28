@@ -329,8 +329,10 @@ func DiscoverMCPTools(ctx context.Context, sessions []NamedSession) ([]MCPToolIn
 				schemaBytes, err := json.Marshal(tool.InputSchema)
 				if err == nil {
 					var params map[string]interface{}
-					if json.Unmarshal(schemaBytes, &params) == nil {
+					if err := json.Unmarshal(schemaBytes, &params); err == nil {
 						f.Parameters = params
+					} else {
+						xlog.Warn("Failed to unmarshal MCP tool input schema", "tool", tool.Name, "error", err)
 					}
 				}
 			}

@@ -51,11 +51,11 @@ type RegisterResponse struct {
 
 // Register sends a single registration request and returns the node ID and
 // (optionally) an auto-provisioned API token.
-func (c *RegistrationClient) Register(body map[string]any) (string, string, error) {
+func (c *RegistrationClient) Register(ctx context.Context, body map[string]any) (string, string, error) {
 	jsonBody, _ := json.Marshal(body)
 	url := c.baseURL() + "/api/node/register"
 
-	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, url, bytes.NewReader(jsonBody))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(jsonBody))
 	if err != nil {
 		return "", "", fmt.Errorf("creating request: %w", err)
 	}
@@ -80,7 +80,7 @@ func (c *RegistrationClient) Register(body map[string]any) (string, string, erro
 }
 
 // RegisterWithRetry retries registration with exponential backoff.
-func (c *RegistrationClient) RegisterWithRetry(body map[string]any, maxRetries int) (string, string, error) {
+func (c *RegistrationClient) RegisterWithRetry(ctx context.Context, body map[string]any, maxRetries int) (string, string, error) {
 	backoff := 2 * time.Second
 	maxBackoff := 30 * time.Second
 
@@ -88,7 +88,7 @@ func (c *RegistrationClient) RegisterWithRetry(body map[string]any, maxRetries i
 	var err error
 
 	for attempt := 1; attempt <= maxRetries; attempt++ {
-		nodeID, apiToken, err = c.Register(body)
+		nodeID, apiToken, err = c.Register(ctx, body)
 		if err == nil {
 			return nodeID, apiToken, nil
 		}
@@ -103,11 +103,11 @@ func (c *RegistrationClient) RegisterWithRetry(body map[string]any, maxRetries i
 }
 
 // Heartbeat sends a single heartbeat POST with the given body.
-func (c *RegistrationClient) Heartbeat(nodeID string, body map[string]any) error {
+func (c *RegistrationClient) Heartbeat(ctx context.Context, nodeID string, body map[string]any) error {
 	jsonBody, _ := json.Marshal(body)
 	url := c.baseURL() + "/api/node/" + nodeID + "/heartbeat"
 
-	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, url, bytes.NewReader(jsonBody))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(jsonBody))
 	if err != nil {
 		return fmt.Errorf("creating heartbeat request: %w", err)
 	}
@@ -134,7 +134,7 @@ func (c *RegistrationClient) HeartbeatLoop(ctx context.Context, nodeID string, i
 			return
 		case <-ticker.C:
 			body := bodyFn()
-			if err := c.Heartbeat(nodeID, body); err != nil {
+			if err := c.Heartbeat(ctx, nodeID, body); err != nil {
 				xlog.Warn("Heartbeat failed", "error", err)
 			}
 		}
@@ -142,9 +142,9 @@ func (c *RegistrationClient) HeartbeatLoop(ctx context.Context, nodeID string, i
 }
 
 // Drain sets the node to draining status via POST /api/node/:id/drain.
-func (c *RegistrationClient) Drain(nodeID string) error {
+func (c *RegistrationClient) Drain(ctx context.Context, nodeID string) error {
 	url := c.baseURL() + "/api/node/" + nodeID + "/drain"
-	req, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, url, nil)
+	req, _ := http.NewRequestWithContext(ctx, http.MethodPost, url, nil)
 	c.setAuth(req)
 
 	resp, err := (&http.Client{Timeout: 5 * time.Second}).Do(req)
@@ -160,13 +160,13 @@ func (c *RegistrationClient) Drain(nodeID string) error {
 
 // WaitForDrain polls GET /api/node/:id/models until all models report 0
 // in-flight requests, or until timeout elapses.
-func (c *RegistrationClient) WaitForDrain(nodeID string, timeout time.Duration) {
+func (c *RegistrationClient) WaitForDrain(ctx context.Context, nodeID string, timeout time.Duration) {
 	url := c.baseURL() + "/api/node/" + nodeID + "/models"
 	client := &http.Client{Timeout: 5 * time.Second}
 
 	deadline := time.Now().Add(timeout)
 	for time.Now().Before(deadline) {
-		req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, url, nil)
+		req, _ := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 		c.setAuth(req)
 
 		resp, err := client.Do(req)
@@ -196,9 +196,9 @@ func (c *RegistrationClient) WaitForDrain(nodeID string, timeout time.Duration) 
 // Deregister marks the node as offline via POST /api/node/:id/deregister.
 // The node row is preserved in the database so re-registration restores
 // approval status.
-func (c *RegistrationClient) Deregister(nodeID string) error {
+func (c *RegistrationClient) Deregister(ctx context.Context, nodeID string) error {
 	url := c.baseURL() + "/api/node/" + nodeID + "/deregister"
-	req, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, url, nil)
+	req, _ := http.NewRequestWithContext(ctx, http.MethodPost, url, nil)
 	c.setAuth(req)
 
 	resp, err := (&http.Client{Timeout: 5 * time.Second}).Do(req)
@@ -219,13 +219,16 @@ func (c *RegistrationClient) GracefulDeregister(nodeID string) {
 		return
 	}
 
-	if err := c.Drain(nodeID); err != nil {
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	if err := c.Drain(ctx, nodeID); err != nil {
 		xlog.Warn("Failed to set drain status", "error", err)
 	} else {
-		c.WaitForDrain(nodeID, 30*time.Second)
+		c.WaitForDrain(ctx, nodeID, 30*time.Second)
 	}
 
-	if err := c.Deregister(nodeID); err != nil {
+	if err := c.Deregister(ctx, nodeID); err != nil {
 		xlog.Error("Failed to deregister", "error", err)
 	} else {
 		xlog.Info("Deregistered from frontend")

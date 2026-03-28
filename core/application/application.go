@@ -2,20 +2,16 @@ package application
 
 import (
 	"context"
+	"math/rand/v2"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/mudler/LocalAI/core/config"
 	mcpTools "github.com/mudler/LocalAI/core/http/endpoints/mcp"
-	"github.com/mudler/LocalAI/core/services/agents"
 	"github.com/mudler/LocalAI/core/services/agentpool"
 	"github.com/mudler/LocalAI/core/services/galleryop"
-	"github.com/mudler/LocalAI/core/services/distributed"
-	"github.com/mudler/LocalAI/core/services/jobs"
-	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/nodes"
-	"github.com/mudler/LocalAI/core/services/storage"
 	"github.com/mudler/LocalAI/core/templates"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/xlog"
@@ -40,17 +36,7 @@ type Application struct {
 	agentJobMutex      sync.Mutex
 
 	// Distributed mode services (nil when not in distributed mode)
-	natsClient     *messaging.Client
-	objectStore    storage.ObjectStore
-	nodeRegistry   *nodes.NodeRegistry
-	smartRouter    *nodes.SmartRouter
-	healthMon      *nodes.HealthMonitor
-	jobStore       *jobs.JobStore
-	jobDispatcher  *jobs.Dispatcher
-	agentStore     *agents.AgentStore
-	agentBridge    *agents.EventBridge
-	distStores     *distributed.Stores
-	fileManager    *storage.FileManager
+	distributed *DistributedServices
 }
 
 func newApplication(appConfig *config.ApplicationConfig) *Application {
@@ -107,77 +93,27 @@ func (a *Application) StartupConfig() *config.ApplicationConfig {
 	return a.startupConfig
 }
 
-// NatsClient returns the NATS messaging client, or nil if not in distributed mode.
-func (a *Application) NatsClient() *messaging.Client {
-	return a.natsClient
-}
-
-// ObjectStore returns the object storage backend, or nil if not in distributed mode.
-func (a *Application) ObjectStore() storage.ObjectStore {
-	return a.objectStore
-}
-
-// NodeRegistry returns the node registry, or nil if not in distributed mode.
-func (a *Application) NodeRegistry() *nodes.NodeRegistry {
-	return a.nodeRegistry
-}
-
-// SmartRouter returns the smart router, or nil if not in distributed mode.
-func (a *Application) SmartRouter() *nodes.SmartRouter {
-	return a.smartRouter
-}
-
-// JobStore returns the distributed job store, or nil if not in distributed mode.
-func (a *Application) JobStore() *jobs.JobStore {
-	return a.jobStore
-}
-
-// JobDispatcher returns the distributed job dispatcher, or nil if not in distributed mode.
-func (a *Application) JobDispatcher() *jobs.Dispatcher {
-	return a.jobDispatcher
-}
-
-// AgentStore returns the distributed agent store, or nil if not in distributed mode.
-func (a *Application) AgentStore() *agents.AgentStore {
-	return a.agentStore
-}
-
-// AgentEventBridge returns the agent event bridge, or nil if not in distributed mode.
-func (a *Application) AgentEventBridge() *agents.EventBridge {
-	return a.agentBridge
-}
-
-// DistributedStores returns the Phase 4 distributed stores, or nil if not in distributed mode.
-func (a *Application) DistributedStores() *distributed.Stores {
-	return a.distStores
-}
-
-// FileManager returns the file manager for object storage, or nil if not in distributed mode.
-func (a *Application) FileManager() *storage.FileManager {
-	return a.fileManager
-}
-
-// HealthMonitor returns the health monitor, or nil if not in distributed mode.
-func (a *Application) HealthMonitor() *nodes.HealthMonitor {
-	return a.healthMon
+// Distributed returns the distributed services, or nil if not in distributed mode.
+func (a *Application) Distributed() *DistributedServices {
+	return a.distributed
 }
 
 // IsDistributed returns true if the application is running in distributed mode.
 func (a *Application) IsDistributed() bool {
-	return a.applicationConfig.Distributed.Enabled
+	return a.distributed != nil
 }
 
 // waitForHealthyWorker blocks until at least one healthy backend worker is registered.
 // This prevents the agent pool from failing during startup when workers haven't connected yet.
 func (a *Application) waitForHealthyWorker() {
 	maxWait := a.applicationConfig.Distributed.WorkerWaitTimeoutOrDefault()
-	const pollInterval = 2 * time.Second
+	const basePoll = 2 * time.Second
 
 	xlog.Info("Waiting for at least one healthy backend worker before starting agent pool")
 	deadline := time.Now().Add(maxWait)
 
 	for time.Now().Before(deadline) {
-		registered, err := a.nodeRegistry.List()
+		registered, err := a.distributed.Registry.List()
 		if err == nil {
 			for _, n := range registered {
 				if n.NodeType == nodes.NodeTypeBackend && n.Status == nodes.StatusHealthy {
@@ -186,10 +122,12 @@ func (a *Application) waitForHealthyWorker() {
 				}
 			}
 		}
+		// Add 0-1s jitter to prevent thundering-herd on the node registry
+		jitter := time.Duration(rand.Int64N(int64(time.Second)))
 		select {
 		case <-a.applicationConfig.Context.Done():
 			return
-		case <-time.After(pollInterval):
+		case <-time.After(basePoll + jitter):
 		}
 	}
 	xlog.Warn("No healthy backend worker found after waiting, proceeding anyway")
@@ -237,24 +175,23 @@ func (a *Application) StartAgentPool() {
 	if a.authDB != nil {
 		aps.SetAuthDB(a.authDB)
 	}
-	if a.distStores != nil && a.distStores.Skills != nil {
-		aps.SetSkillStore(a.distStores.Skills)
-	}
 	// Wire distributed mode components
-	if a.natsClient != nil {
-		aps.SetNATSClient(a.natsClient)
-	}
-	if a.agentBridge != nil {
-		aps.SetEventBridge(a.agentBridge)
-	}
-	if a.agentStore != nil {
-		aps.SetAgentStore(a.agentStore)
-	}
-	// In distributed mode, wait for at least one healthy backend worker before
-	// starting the agent pool. Collections initialization calls embeddings which
-	// require a worker to be registered and subscribed to NATS.
-	if a.IsDistributed() && a.nodeRegistry != nil {
-		a.waitForHealthyWorker()
+	if d := a.Distributed(); d != nil {
+		if d.DistStores != nil && d.DistStores.Skills != nil {
+			aps.SetSkillStore(d.DistStores.Skills)
+		}
+		aps.SetNATSClient(d.Nats)
+		if d.AgentBridge != nil {
+			aps.SetEventBridge(d.AgentBridge)
+		}
+		if d.AgentStore != nil {
+			aps.SetAgentStore(d.AgentStore)
+		}
+		// Wait for at least one healthy backend worker before starting the agent pool.
+		// Collections initialization calls embeddings which require a worker.
+		if d.Registry != nil {
+			a.waitForHealthyWorker()
+		}
 	}
 
 	if err := aps.Start(a.applicationConfig.Context); err != nil {

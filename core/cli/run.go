@@ -520,14 +520,16 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 			xlog.Error("error while stopping all grpc backends", "error", err)
 		}
 		// Clean up distributed services
-		if app.HealthMonitor() != nil {
-			app.HealthMonitor().Stop()
-		}
-		if app.JobDispatcher() != nil {
-			app.JobDispatcher().Stop()
-		}
-		if app.NatsClient() != nil {
-			app.NatsClient().Close()
+		if d := app.Distributed(); d != nil {
+			if d.Health != nil {
+				d.Health.Stop()
+			}
+			if d.Dispatcher != nil {
+				d.Dispatcher.Stop()
+			}
+			if d.Nats != nil {
+				d.Nats.Close()
+			}
 		}
 	})
 

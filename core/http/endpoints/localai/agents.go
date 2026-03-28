@@ -13,6 +13,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/application"
 	"github.com/mudler/LocalAI/core/http/auth"
+	"github.com/mudler/LocalAI/core/services/agents"
 	"github.com/mudler/LocalAI/core/services/agentpool"
 	"github.com/mudler/LocalAI/pkg/utils"
 	"github.com/mudler/LocalAGI/core/state"
@@ -313,7 +314,10 @@ func AgentSSEEndpoint(app *application.Application) echo.HandlerFunc {
 		}
 
 		// Fall back to distributed EventBridge SSE
-		bridge := app.AgentEventBridge()
+		var bridge *agents.EventBridge
+		if d := app.Distributed(); d != nil {
+			bridge = d.AgentBridge
+		}
 		if bridge != nil {
 			return bridge.HandleSSE(c, name, userID)
 		}

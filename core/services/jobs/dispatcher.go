@@ -323,15 +323,7 @@ func (d *Dispatcher) processJob(evt JobEvent) {
 // publishResult publishes the terminal job result via NATS.
 // The frontend subscribes to these events and persists to DB.
 func (d *Dispatcher) publishResult(jobID, status, result, errMsg string) {
-	evt := JobResultEvent{
-		JobID:  jobID,
-		Status: status,
-		Result: result,
-		Error:  errMsg,
-	}
-	if err := d.nats.Publish(messaging.SubjectJobResult(jobID), evt); err != nil {
-		xlog.Error("Failed to publish job result", "jobID", jobID, "error", err)
-	}
+	PublishJobResult(d.nats, jobID, status, result, errMsg)
 	// Also update DB directly if store is available (frontend-side dispatcher)
 	if d.store != nil {
 		d.store.UpdateJobStatus(jobID, status, result, errMsg)

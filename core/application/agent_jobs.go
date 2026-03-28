@@ -30,11 +30,13 @@ func (a *Application) RestartAgentJobService() error {
 	)
 
 	// Re-apply distributed wiring if available (matches startup.go logic)
-	if a.jobDispatcher != nil {
-		agentJobService.SetDistributedBackends(a.jobDispatcher)
-	}
-	if a.jobStore != nil {
-		agentJobService.SetDistributedJobStore(a.jobStore)
+	if d := a.Distributed(); d != nil {
+		if d.Dispatcher != nil {
+			agentJobService.SetDistributedBackends(d.Dispatcher)
+		}
+		if d.JobStore != nil {
+			agentJobService.SetDistributedJobStore(d.JobStore)
+		}
 	}
 
 	// Start the service

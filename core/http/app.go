@@ -315,11 +315,11 @@ func API(application *application.Application) (*echo.Echo, error) {
 		application.ModelLoader(),
 		application.ModelConfigLoader(),
 	)
-	if application.NatsClient() != nil {
-		ftService.SetNATSClient(application.NatsClient())
-	}
-	if application.DistributedStores() != nil && application.DistributedStores().FineTune != nil {
-		ftService.SetFineTuneStore(application.DistributedStores().FineTune)
+	if d := application.Distributed(); d != nil {
+		ftService.SetNATSClient(d.Nats)
+		if d.DistStores != nil && d.DistStores.FineTune != nil {
+			ftService.SetFineTuneStore(d.DistStores.FineTune)
+		}
 	}
 	routes.RegisterFineTuningRoutes(e, ftService, application.ApplicationConfig(), fineTuningMw)
 
@@ -334,19 +334,25 @@ func API(application *application.Application) (*echo.Echo, error) {
 
 	// Node management routes (distributed mode)
 	distCfg := application.ApplicationConfig().Distributed
-	routes.RegisterNodeSelfServiceRoutes(e, application.NodeRegistry(), distCfg.RegistrationToken, distCfg.AutoApproveNodes, application.AuthDB(), application.ApplicationConfig().Auth.APIKeyHMACSecret)
+	var registry *nodes.NodeRegistry
 	var remoteUnloader nodes.NodeCommandSender
-	if application.SmartRouter() != nil {
-		remoteUnloader = application.SmartRouter().Unloader()
+	if d := application.Distributed(); d != nil {
+		registry = d.Registry
+		if d.Router != nil {
+			remoteUnloader = d.Router.Unloader()
+		}
 	}
-	routes.RegisterNodeAdminRoutes(e, application.NodeRegistry(), remoteUnloader, adminMiddleware, application.AuthDB(), application.ApplicationConfig().Auth.APIKeyHMACSecret, application.ApplicationConfig().Distributed.RegistrationToken)
+	routes.RegisterNodeSelfServiceRoutes(e, registry, distCfg.RegistrationToken, distCfg.AutoApproveNodes, application.AuthDB(), application.ApplicationConfig().Auth.APIKeyHMACSecret)
+	routes.RegisterNodeAdminRoutes(e, registry, remoteUnloader, adminMiddleware, application.AuthDB(), application.ApplicationConfig().Auth.APIKeyHMACSecret, application.ApplicationConfig().Distributed.RegistrationToken)
 
 	// Distributed SSE routes (job progress + agent events via NATS)
-	if application.JobDispatcher() != nil {
-		e.GET("/api/agent/jobs/:id/progress", application.JobDispatcher().SSEHandler(), mcpJobsMw)
-	}
-	if application.AgentEventBridge() != nil {
-		e.GET("/api/agents/:name/sse/distributed", application.AgentEventBridge().SSEHandler(), agentsMw)
+	if d := application.Distributed(); d != nil {
+		if d.Dispatcher != nil {
+			e.GET("/api/agent/jobs/:id/progress", d.Dispatcher.SSEHandler(), mcpJobsMw)
+		}
+		if d.AgentBridge != nil {
+			e.GET("/api/agents/:name/sse/distributed", d.AgentBridge.SSEHandler(), agentsMw)
+		}
 	}
 
 	routes.RegisterOpenAIRoutes(e, requestExtractor, application)

@@ -66,7 +66,7 @@ func (b *distributedAgentConfigBackend) SaveConfig(userID string, cfg *state.Age
 func (b *distributedAgentConfigBackend) UpdateConfig(userID, name string, cfg *state.AgentConfig) error {
 	// Check if agent exists
 	if _, err := b.store.GetConfig(userID, name); err != nil {
-		return fmt.Errorf("agent not found: %s", name)
+		return fmt.Errorf("%w: %s", ErrAgentNotFound, name)
 	}
 	configJSON, err := json.Marshal(cfg)
 	if err != nil {
@@ -91,7 +91,7 @@ func (b *distributedAgentConfigBackend) ImportConfig(userID string, cfg *state.A
 func (b *distributedAgentConfigBackend) ExportConfig(userID, name string) ([]byte, error) {
 	rec, err := b.store.GetConfig(userID, name)
 	if err != nil || rec == nil {
-		return nil, fmt.Errorf("agent not found: %s", name)
+		return nil, fmt.Errorf("%w: %s", ErrAgentNotFound, name)
 	}
 	// Return the raw config JSON (already properly formatted)
 	var pretty json.RawMessage

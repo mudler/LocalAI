@@ -16,7 +16,7 @@ const (
 
 func ListModels(bcl *config.ModelConfigLoader, ml *model.ModelLoader, filter config.ModelConfigFilterFn, looseFilePolicy LooseFilePolicy) ([]string, error) {
 
-	var skipMap map[string]interface{} = map[string]interface{}{}
+	skipMap := map[string]struct{}{}
 
 	dataModels := []string{}
 
@@ -25,7 +25,7 @@ func ListModels(bcl *config.ModelConfigLoader, ml *model.ModelLoader, filter con
 	for _, c := range bcl.GetModelConfigsByFilter(filter) {
 		// Is this better than looseFilePolicy <= SKIP_IF_CONFIGURED ? less performant but more readable?
 		if (looseFilePolicy == SKIP_IF_CONFIGURED) || (looseFilePolicy == LOOSE_ONLY) {
-			skipMap[c.Model] = nil
+			skipMap[c.Model] = struct{}{}
 		}
 		if looseFilePolicy != LOOSE_ONLY {
 			dataModels = append(dataModels, c.Name)

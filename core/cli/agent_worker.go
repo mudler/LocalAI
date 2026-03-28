@@ -77,7 +77,7 @@ func (cmd *AgentWorkerCMD) Run(ctx *cliContext.Context) error {
 		registrationBody["token"] = cmd.RegistrationToken
 	}
 
-	nodeID, apiToken, err := regClient.RegisterWithRetry(registrationBody, 10)
+	nodeID, apiToken, err := regClient.RegisterWithRetry(context.Background(), registrationBody, 10)
 	if err != nil {
 		return fmt.Errorf("registration failed: %w", err)
 	}
@@ -149,6 +149,18 @@ func (cmd *AgentWorkerCMD) Run(ctx *cliContext.Context) error {
 		handleMCPCIJob(data, apiURL, cmd.APIToken, natsClient)
 	})
 
+	// Subscribe to backend stop events to clean up cached MCP sessions.
+	// In the main application this is done via ml.OnModelUnload, but the agent
+	// worker has no model loader — we listen for the NATS stop event instead.
+	natsClient.Subscribe(messaging.SubjectNodeBackendStop(nodeID), func(data []byte) {
+		var req struct {
+			Backend string `json:"backend"`
+		}
+		if json.Unmarshal(data, &req) == nil && req.Backend != "" {
+			mcpTools.CloseMCPSessions(req.Backend)
+		}
+	})
+
 	xlog.Info("Agent worker ready, waiting for jobs", "subject", cmd.Subject, "queue", cmd.Queue)
 
 	// Wait for shutdown
@@ -157,7 +169,9 @@ func (cmd *AgentWorkerCMD) Run(ctx *cliContext.Context) error {
 	<-sigCh
 
 	xlog.Info("Shutting down agent worker")
-	if err := regClient.Deregister(nodeID); err != nil {
+	dispatcher.Stop()
+	mcpTools.CloseAllMCPSessions()
+	if err := regClient.Deregister(context.Background(), nodeID); err != nil {
 		xlog.Warn("Failed to deregister", "error", err)
 	} else {
 		xlog.Info("Deregistered from frontend")
@@ -437,26 +451,10 @@ func handleMCPCIJob(data []byte, apiURL, apiToken string, natsClient *messaging.
 }
 
 func publishJobStatus(nc *messaging.Client, jobID, status, message string) {
-	nc.Publish(messaging.SubjectJobResult(jobID), jobs.JobResultEvent{
-		JobID:  jobID,
-		Status: status,
-	})
-	nc.Publish(messaging.SubjectJobProgress(jobID), jobs.ProgressEvent{
-		JobID: jobID, Status: status, Message: message,
-	})
+	jobs.PublishJobProgress(nc, jobID, status, message)
 }
 
 func publishJobResult(nc *messaging.Client, jobID, status, result, errMsg string) {
-	nc.Publish(messaging.SubjectJobResult(jobID), jobs.JobResultEvent{
-		JobID:  jobID,
-		Status: status,
-		Result: result,
-		Error:  errMsg,
-	})
-	nc.Publish(messaging.SubjectJobProgress(jobID), jobs.ProgressEvent{
-		JobID:   jobID,
-		Status:  status,
-		Message: errMsg,
-	})
+	jobs.PublishJobResult(nc, jobID, status, result, errMsg)
 }
 

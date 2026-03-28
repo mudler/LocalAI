@@ -1,7 +1,6 @@
 package advisorylock
 
 import (
-	"context"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -10,44 +9,16 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/mudler/LocalAI/core/services/messaging"
-
-	"github.com/testcontainers/testcontainers-go"
-	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
-	"github.com/testcontainers/testcontainers-go/wait"
-	"gorm.io/driver/postgres"
+	"github.com/mudler/LocalAI/core/services/testutil"
 	"gorm.io/gorm"
-	"gorm.io/gorm/logger"
 )
-
-func setupTestDB() *gorm.DB {
-	ctx := context.Background()
-
-	pgC, err := tcpostgres.Run(ctx, "postgres:16",
-		tcpostgres.WithDatabase("testdb"),
-		tcpostgres.WithUsername("test"),
-		tcpostgres.WithPassword("test"),
-		testcontainers.WithWaitStrategyAndDeadline(60*time.Second,
-			wait.ForLog("database system is ready to accept connections").WithOccurrence(2)),
-	)
-	Expect(err).ToNot(HaveOccurred())
-	DeferCleanup(func() { pgC.Terminate(context.Background()) })
-
-	connStr, err := pgC.ConnectionString(ctx, "sslmode=disable")
-	Expect(err).ToNot(HaveOccurred())
-
-	db, err := gorm.Open(postgres.Open(connStr), &gorm.Config{
-		Logger: logger.Default.LogMode(logger.Silent),
-	})
-	Expect(err).ToNot(HaveOccurred())
-	return db
-}
 
 var _ = Describe("AdvisoryLock", func() {
 	Context("PostgreSQL advisory locks", func() {
 		var db *gorm.DB
 
 		BeforeEach(func() {
-			db = setupTestDB()
+			db = testutil.SetupTestDB()
 		})
 
 		It("prevents concurrent execution with WithLock", func() {

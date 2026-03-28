@@ -83,7 +83,7 @@ var _ = Describe("AuthInterceptor", func() {
 	It("rejects raw token without Bearer prefix", func() {
 		addr, _ := startTestServer("secret-token")
 
-		conn, err := gogrpc.Dial(addr, gogrpc.WithTransportCredentials(insecure.NewCredentials()))
+		conn, err := gogrpc.NewClient("passthrough:///"+addr, gogrpc.WithTransportCredentials(insecure.NewCredentials()))
 		Expect(err).ToNot(HaveOccurred())
 		DeferCleanup(func() { conn.Close() })
 
@@ -102,7 +102,7 @@ var _ = Describe("AuthInterceptor", func() {
 	It("rejects empty Bearer value", func() {
 		addr, _ := startTestServer("secret-token")
 
-		conn, err := gogrpc.Dial(addr, gogrpc.WithTransportCredentials(insecure.NewCredentials()))
+		conn, err := gogrpc.NewClient("passthrough:///"+addr, gogrpc.WithTransportCredentials(insecure.NewCredentials()))
 		Expect(err).ToNot(HaveOccurred())
 		DeferCleanup(func() { conn.Close() })
 

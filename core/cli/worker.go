@@ -101,7 +101,7 @@ func (cmd *WorkerCMD) Run(ctx *cliContext.Context) error {
 	}
 
 	registrationBody := cmd.registrationBody()
-	nodeID, _, err := regClient.RegisterWithRetry(registrationBody, 10)
+	nodeID, _, err := regClient.RegisterWithRetry(context.Background(), registrationBody, 10)
 	if err != nil {
 		return fmt.Errorf("failed to register with frontend: %w", err)
 	}
@@ -323,7 +323,11 @@ func (cmd *WorkerCMD) subscribeFileStaging(natsClient *messaging.Client, nodeID 
 
 // replyJSON marshals v to JSON and calls the reply function.
 func replyJSON(reply func([]byte), v any) {
-	data, _ := json.Marshal(v)
+	data, err := json.Marshal(v)
+	if err != nil {
+		xlog.Error("Failed to marshal NATS reply", "error", err)
+		data = []byte(`{"error":"internal marshal error"}`)
+	}
 	reply(data)
 }
 
@@ -391,8 +395,9 @@ func (s *backendSupervisor) startBackend(backend, backendPath string) (string, e
 	}
 	xlog.Info("Backend process started", "backend", backend, "addr", addr)
 
-	// Release the mutex before the health-check poll loop so concurrent
-	// backend operations (stopBackend, isRunning) are not blocked.
+	// Capture reference before unlocking for race-safe health check.
+	// Another goroutine could stopBackend and recycle the port while we poll.
+	bp := s.processes[backend]
 	s.mu.Unlock()
 
 	// Wait for the gRPC server to be ready
@@ -402,6 +407,13 @@ func (s *backendSupervisor) startBackend(backend, backendPath string) (string, e
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		if ok, _ := client.HealthCheck(ctx); ok {
 			cancel()
+			// Verify the process wasn't stopped/replaced while health-checking
+			s.mu.Lock()
+			currentBP, exists := s.processes[backend]
+			s.mu.Unlock()
+			if !exists || currentBP != bp {
+				return "", fmt.Errorf("backend %s was stopped during startup", backend)
+			}
 			xlog.Debug("Backend gRPC server is ready", "backend", backend, "addr", addr)
 			return addr, nil
 		}
@@ -753,8 +765,7 @@ func (cmd *WorkerCMD) resolveHTTPAddr() string {
 	if !ok {
 		return "0.0.0.0:50050"
 	}
-	var portNum int
-	fmt.Sscanf(port, "%d", &portNum)
+	portNum, _ := strconv.Atoi(port)
 	return fmt.Sprintf("%s:%d", host, portNum-1)
 }
 

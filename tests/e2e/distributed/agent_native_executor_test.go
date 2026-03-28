@@ -313,9 +313,12 @@ var _ = Describe("Native Agent Executor", Label("Distributed", "AgentNative"), f
 			cancel() // cancel immediately
 
 			_, err := agents.ExecuteChatWithLLM(cancelCtx, slowLLM, cfg, "hello", agents.Callbacks{})
-			// Should either error or return empty due to cancelled context
-			// The exact behavior depends on cogito's context handling
-			_ = err
+			// Cancelled context should produce an error
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(Or(
+				ContainSubstring("context canceled"),
+				ContainSubstring("context deadline exceeded"),
+			))
 		})
 	})
 
@@ -713,12 +716,10 @@ var _ = Describe("Native Agent Executor", Label("Distributed", "AgentNative"), f
 			cb := agents.Callbacks{}
 
 			response, err := agents.ExecuteBackgroundRun(infra.Ctx, "http://localhost:8080", "key", cfg, cb)
-			// The response may be empty due to mock LLM behavior with cogito,
-			// but the function should not error
-			_ = response
-			_ = err
-			// The inner monologue template should have been substituted
-			// (we can't verify what cogito received directly, but we test the template rendering)
+			// ExecuteBackgroundRun should complete without panicking.
+			// The mock LLM always succeeds, so we expect no error.
+			Expect(err).ToNot(HaveOccurred())
+			Expect(len(response)).To(BeNumerically(">=", 0))
 		})
 
 		It("should use default inner monologue when template is empty", func() {

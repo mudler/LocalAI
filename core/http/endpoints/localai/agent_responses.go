@@ -100,7 +100,10 @@ func AgentResponsesInterceptor(app *application.Application) echo.MiddlewareFunc
 				responseText = res.Response
 			} else {
 				// Distributed mode: dispatch via NATS + wait for response synchronously
-				bridge := app.AgentEventBridge()
+				var bridge *agents.EventBridge
+				if d := app.Distributed(); d != nil {
+					bridge = d.AgentBridge
+				}
 				if bridge == nil {
 					return next(c)
 				}

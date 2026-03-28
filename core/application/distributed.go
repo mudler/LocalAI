@@ -17,27 +17,27 @@ import (
 	"gorm.io/gorm"
 )
 
-// distributedServices holds all services initialized for distributed mode.
-type distributedServices struct {
-	nats         *messaging.Client
-	store        storage.ObjectStore
-	registry     *nodes.NodeRegistry
-	router       *nodes.SmartRouter
-	health       *nodes.HealthMonitor
-	jobStore     *jobs.JobStore
-	dispatcher   *jobs.Dispatcher
-	agentStore   *agents.AgentStore
-	agentBridge  *agents.EventBridge
-	distStores   *distributed.Stores
-	fileMgr      *storage.FileManager
-	fileStager   nodes.FileStager
-	modelAdapter *nodes.ModelRouterAdapter
+// DistributedServices holds all services initialized for distributed mode.
+type DistributedServices struct {
+	Nats         *messaging.Client
+	Store        storage.ObjectStore
+	Registry     *nodes.NodeRegistry
+	Router       *nodes.SmartRouter
+	Health       *nodes.HealthMonitor
+	JobStore     *jobs.JobStore
+	Dispatcher   *jobs.Dispatcher
+	AgentStore   *agents.AgentStore
+	AgentBridge  *agents.EventBridge
+	DistStores   *distributed.Stores
+	FileMgr      *storage.FileManager
+	FileStager   nodes.FileStager
+	ModelAdapter *nodes.ModelRouterAdapter
 }
 
 // initDistributed validates distributed mode prerequisites and initializes
 // NATS, object storage, node registry, and instance identity.
 // Returns nil if distributed mode is not enabled.
-func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB) (*distributedServices, error) {
+func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB) (*DistributedServices, error) {
 	if !cfg.Distributed.Enabled {
 		return nil, nil
 	}
@@ -196,20 +196,20 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB) (*distribut
 	modelAdapter := nodes.NewModelRouterAdapter(router)
 
 	success = true
-	return &distributedServices{
-		nats:         natsClient,
-		store:        store,
-		registry:     registry,
-		router:       router,
-		health:       healthMon,
-		jobStore:     jobStore,
-		dispatcher:   dispatcher,
-		agentStore:   agentStore,
-		agentBridge:  agentBridge,
-		distStores:   distStores,
-		fileMgr:      fileMgr,
-		fileStager:   fileStager,
-		modelAdapter: modelAdapter,
+	return &DistributedServices{
+		Nats:         natsClient,
+		Store:        store,
+		Registry:     registry,
+		Router:       router,
+		Health:       healthMon,
+		JobStore:     jobStore,
+		Dispatcher:   dispatcher,
+		AgentStore:   agentStore,
+		AgentBridge:  agentBridge,
+		DistStores:   distStores,
+		FileMgr:      fileMgr,
+		FileStager:   fileStager,
+		ModelAdapter: modelAdapter,
 	}, nil
 }
 

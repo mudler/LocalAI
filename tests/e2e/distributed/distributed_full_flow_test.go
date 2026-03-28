@@ -111,6 +111,7 @@ func startTestGRPCServer(llm grpcPkg.AIModel) (string, func(), error) {
 	pb.RegisterBackendServer(s, grpcPkg.NewBackendServer(llm))
 
 	go func() {
+		defer GinkgoRecover()
 		_ = s.Serve(lis)
 	}()
 

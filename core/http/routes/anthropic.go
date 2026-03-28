@@ -22,8 +22,8 @@ func RegisterAnthropicRoutes(app *echo.Echo,
 
 	// Anthropic Messages API endpoint
 	var natsClient mcpTools.MCPNATSClient
-	if application.NatsClient() != nil {
-		natsClient = application.NatsClient()
+	if d := application.Distributed(); d != nil {
+		natsClient = d.Nats
 	}
 
 	messagesHandler := anthropic.MessagesEndpoint(

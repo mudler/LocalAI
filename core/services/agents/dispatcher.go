@@ -189,16 +189,6 @@ func (d *LocalDispatcher) buildLocalCallbacks(writer SSEWriter, messageID string
 
 // --- NATS Dispatcher (distributed) ---
 
-// NATSPublisher publishes messages to NATS and subscribes to queues.
-type NATSPublisher interface {
-	Publish(subject string, data any) error
-}
-
-// NATSSubscriber subscribes to NATS queue groups.
-type NATSSubscriber interface {
-	QueueSubscribe(subject, queue string, handler func(data []byte)) (NATSSub, error)
-}
-
 // NATSSub is a subscription that can be unsubscribed.
 type NATSSub interface {
 	Unsubscribe() error
@@ -206,8 +196,8 @@ type NATSSub interface {
 
 // NATSClient combines publishing and subscribing for NATS.
 type NATSClient interface {
-	NATSPublisher
-	NATSSubscriber
+	Publish(subject string, data any) error
+	QueueSubscribe(subject, queue string, handler func(data []byte)) (NATSSub, error)
 }
 
 // NATSDispatcher dispatches agent chats via NATS queue group.
@@ -215,10 +205,11 @@ type NATSDispatcher struct {
 	nats        NATSClient
 	eventBridge *EventBridge
 	configs     ConfigProvider
-	apiURL string
+	apiURL      string
 	apiKey      string
 	subject     string
 	queue       string
+	sub         NATSSub // stored subscription for cleanup
 }
 
 // NewNATSDispatcher creates a dispatcher that uses NATS for distribution.
@@ -235,7 +226,7 @@ func NewNATSDispatcher(nats NATSClient, bridge *EventBridge, configs ConfigProvi
 }
 
 func (d *NATSDispatcher) Start(ctx context.Context) error {
-	_, err := d.nats.QueueSubscribe(d.subject, d.queue, func(data []byte) {
+	sub, err := d.nats.QueueSubscribe(d.subject, d.queue, func(data []byte) {
 		var evt AgentChatEvent
 		if err := json.Unmarshal(data, &evt); err != nil {
 			xlog.Error("Failed to unmarshal agent chat event", "error", err)
@@ -246,7 +237,18 @@ func (d *NATSDispatcher) Start(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("subscribing to %s: %w", d.subject, err)
 	}
+	d.sub = sub
 	xlog.Info("NATS agent dispatcher started", "subject", d.subject, "queue", d.queue)
+	return nil
+}
+
+// Stop unsubscribes from the NATS queue, stopping message delivery.
+func (d *NATSDispatcher) Stop() error {
+	if d.sub != nil {
+		err := d.sub.Unsubscribe()
+		d.sub = nil
+		return err
+	}
 	return nil
 }
 

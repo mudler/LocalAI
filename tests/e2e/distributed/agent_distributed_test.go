@@ -52,9 +52,9 @@ var _ = Describe("Phase 3: Agent Conversations & SSE", Label("Distributed"), fun
 		})
 
 		It("should list agent configs for a user", func() {
-			store.SaveConfig(&agents.AgentConfigRecord{UserID: "u1", Name: "agent-a", ConfigJSON: "{}", Status: "active"})
-			store.SaveConfig(&agents.AgentConfigRecord{UserID: "u1", Name: "agent-b", ConfigJSON: "{}", Status: "active"})
-			store.SaveConfig(&agents.AgentConfigRecord{UserID: "u2", Name: "agent-c", ConfigJSON: "{}", Status: "active"})
+			Expect(store.SaveConfig(&agents.AgentConfigRecord{UserID: "u1", Name: "agent-a", ConfigJSON: "{}", Status: "active"})).To(Succeed())
+			Expect(store.SaveConfig(&agents.AgentConfigRecord{UserID: "u1", Name: "agent-b", ConfigJSON: "{}", Status: "active"})).To(Succeed())
+			Expect(store.SaveConfig(&agents.AgentConfigRecord{UserID: "u2", Name: "agent-c", ConfigJSON: "{}", Status: "active"})).To(Succeed())
 
 			u1Agents, err := store.ListConfigs("u1")
 			Expect(err).ToNot(HaveOccurred())

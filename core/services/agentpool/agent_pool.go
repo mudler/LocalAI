@@ -54,19 +54,12 @@ type AgentPoolService struct {
 	configBackend      AgentConfigBackend      // Abstracts local vs distributed agent operations
 
 	// Distributed mode fields
-	natsClient  NATSClient                // NATS client for distributed agent execution
+	natsClient  messaging.Publisher       // NATS client for distributed agent execution
 	eventBridge AgentEventBridge          // Event bridge for SSE + persistence
 	agentStore  *agents.AgentStore        // PostgreSQL agent config store
 	dispatcher  agents.Dispatcher         // Native dispatcher (distributed or local)
 	apiURL      string                    // Resolved API URL for agent execution
 	apiKey      string                    // Resolved API key for agent execution
-}
-
-// NATSClient is the interface for NATS operations needed by AgentPoolService.
-// In distributed mode, the frontend only publishes chat events to NATS.
-// The agent-worker process handles subscriptions via the NATSDispatcher.
-type NATSClient interface {
-	Publish(subject string, data any) error
 }
 
 // AgentEventBridge is the interface for event publishing needed by AgentPoolService.
@@ -124,6 +117,22 @@ func (s *AgentPoolService) Start(ctx context.Context) error {
 	return s.startLocalAGI(ctx, cfg, apiURL, apiKey)
 }
 
+func (s *AgentPoolService) buildCollectionsConfig(apiURL, apiKey, collectionDBPath, fileAssets string) *collections.Config {
+	cfg := s.appConfig.AgentPool
+	return &collections.Config{
+		LLMAPIURL:       apiURL,
+		LLMAPIKey:       apiKey,
+		LLMModel:        cfg.DefaultModel,
+		CollectionDBPath: collectionDBPath,
+		FileAssets:       fileAssets,
+		VectorEngine:    cfg.VectorEngine,
+		EmbeddingModel:  cfg.EmbeddingModel,
+		MaxChunkingSize: cfg.MaxChunkingSize,
+		ChunkOverlap:    cfg.ChunkOverlap,
+		DatabaseURL:     cfg.DatabaseURL,
+	}
+}
+
 // startDistributed initializes the native agent executor with NATS dispatcher.
 // No LocalAGI pool is created — agent execution is stateless.
 // Skills and collections are still initialized for the frontend UI.
@@ -159,19 +168,7 @@ func (s *AgentPoolService) startDistributed(ctx context.Context, apiURL, apiKey 
 	}
 	fileAssets := filepath.Join(stateDir, "assets")
 
-	collectionsCfg := &collections.Config{
-		LLMAPIURL:       apiURL,
-		LLMAPIKey:       apiKey,
-		LLMModel:        cfg.DefaultModel,
-		CollectionDBPath: collectionDBPath,
-		FileAssets:       fileAssets,
-		VectorEngine:    cfg.VectorEngine,
-		EmbeddingModel:  cfg.EmbeddingModel,
-		MaxChunkingSize: cfg.MaxChunkingSize,
-		ChunkOverlap:    cfg.ChunkOverlap,
-		DatabaseURL:     cfg.DatabaseURL,
-	}
-	collectionsBackend, _ := collections.NewInProcessBackend(collectionsCfg)
+	collectionsBackend, _ := collections.NewInProcessBackend(s.buildCollectionsConfig(apiURL, apiKey, collectionDBPath, fileAssets))
 	s.collectionsBackend = collectionsBackend
 
 	// User-scoped storage
@@ -188,7 +185,7 @@ func (s *AgentPoolService) startDistributed(ctx context.Context, apiURL, apiKey 
 		}
 		scheduler := agents.NewAgentScheduler(
 			s.authDB,
-			&natsPublisherAdapter{s.natsClient},
+			s.natsClient,
 			s.agentStore,
 			messaging.SubjectAgentExecute,
 			schedulerOpts...,
@@ -272,18 +269,7 @@ func (s *AgentPoolService) startLocalAGI(_ context.Context, cfg config.AgentPool
 	s.pool = pool
 
 	// Create in-process collections backend and RAG provider
-	collectionsCfg := &collections.Config{
-		LLMAPIURL:       apiURL,
-		LLMAPIKey:       apiKey,
-		LLMModel:        cfg.DefaultModel,
-		CollectionDBPath: collectionDBPath,
-		FileAssets:       fileAssets,
-		VectorEngine:    cfg.VectorEngine,
-		EmbeddingModel:  cfg.EmbeddingModel,
-		MaxChunkingSize: cfg.MaxChunkingSize,
-		ChunkOverlap:    cfg.ChunkOverlap,
-		DatabaseURL:     cfg.DatabaseURL,
-	}
+	collectionsCfg := s.buildCollectionsConfig(apiURL, apiKey, collectionDBPath, fileAssets)
 	collectionsBackend, collectionsState := collections.NewInProcessBackend(collectionsCfg)
 	s.collectionsBackend = collectionsBackend
 
@@ -339,7 +325,7 @@ func (s *AgentPoolService) Pool() *state.AgentPool {
 }
 
 // SetNATSClient sets the NATS client for distributed agent execution.
-func (s *AgentPoolService) SetNATSClient(nc NATSClient) {
+func (s *AgentPoolService) SetNATSClient(nc messaging.Publisher) {
 	s.natsClient = nc
 }
 
@@ -369,7 +355,7 @@ func (s *AgentPoolService) GetAgent(name string) *agent.Agent {
 func (s *AgentPoolService) Chat(name, message string) (string, error) {
 	ag := s.pool.GetAgent(name)
 	if ag == nil {
-		return "", fmt.Errorf("agent not found: %s", name)
+		return "", fmt.Errorf("%w: %s", ErrAgentNotFound, name)
 	}
 	manager := s.pool.GetManager(name)
 	if manager == nil {
@@ -430,8 +416,8 @@ func (s *AgentPoolService) Chat(name, message string) (string, error) {
 			if len(metadata) > 0 {
 				// Extract userID from the agent key (format: "userID:agentName")
 				var chatUserID string
-				if parts := strings.SplitN(name, ":", 2); len(parts) == 2 {
-					chatUserID = parts[0]
+				if uid, _, ok := strings.Cut(name, ":"); ok {
+					chatUserID = uid
 				}
 				s.collectAndCopyMetadata(metadata, chatUserID)
 			}
@@ -1059,12 +1045,4 @@ func (s *AgentPoolService) buildSkillProvider() agents.SkillContentProvider {
 	}
 }
 
-// natsPublisherAdapter wraps NATSClient (Publish-only) to satisfy agents.NATSPublisher.
-type natsPublisherAdapter struct {
-	client NATSClient
-}
-
-func (a *natsPublisherAdapter) Publish(subject string, data any) error {
-	return a.client.Publish(subject, data)
-}
 
