@@ -9,6 +9,23 @@ import (
 	"strings"
 )
 
+// validateKey ensures the resolved path stays inside the store root.
+func (fs *FilesystemStore) validateKey(key string) error {
+	p := filepath.Join(fs.root, filepath.FromSlash(key))
+	absRoot, err := filepath.Abs(fs.root)
+	if err != nil {
+		return fmt.Errorf("resolving store root: %w", err)
+	}
+	absPath, err := filepath.Abs(p)
+	if err != nil {
+		return fmt.Errorf("resolving key path: %w", err)
+	}
+	if !strings.HasPrefix(absPath, absRoot+string(filepath.Separator)) && absPath != absRoot {
+		return fmt.Errorf("key %q resolves outside storage root", key)
+	}
+	return nil
+}
+
 // FilesystemStore implements ObjectStore backed by a local directory.
 type FilesystemStore struct {
 	root string
@@ -27,6 +44,9 @@ func (fs *FilesystemStore) path(key string) string {
 }
 
 func (fs *FilesystemStore) Put(_ context.Context, key string, r io.Reader) error {
+	if err := fs.validateKey(key); err != nil {
+		return err
+	}
 	p := fs.path(key)
 	if err := os.MkdirAll(filepath.Dir(p), 0750); err != nil {
 		return fmt.Errorf("creating directories for %s: %w", key, err)
@@ -43,6 +63,9 @@ func (fs *FilesystemStore) Put(_ context.Context, key string, r io.Reader) error
 }
 
 func (fs *FilesystemStore) Get(_ context.Context, key string) (io.ReadCloser, error) {
+	if err := fs.validateKey(key); err != nil {
+		return nil, err
+	}
 	f, err := os.Open(fs.path(key))
 	if err != nil {
 		return nil, fmt.Errorf("opening %s: %w", key, err)
@@ -51,6 +74,9 @@ func (fs *FilesystemStore) Get(_ context.Context, key string) (io.ReadCloser, er
 }
 
 func (fs *FilesystemStore) Head(_ context.Context, key string) (*ObjectMeta, error) {
+	if err := fs.validateKey(key); err != nil {
+		return nil, err
+	}
 	info, err := os.Stat(fs.path(key))
 	if err != nil {
 		return nil, fmt.Errorf("stat %s: %w", key, err)
@@ -63,6 +89,9 @@ func (fs *FilesystemStore) Head(_ context.Context, key string) (*ObjectMeta, err
 }
 
 func (fs *FilesystemStore) Exists(_ context.Context, key string) (bool, error) {
+	if err := fs.validateKey(key); err != nil {
+		return false, err
+	}
 	_, err := os.Stat(fs.path(key))
 	if err == nil {
 		return true, nil
@@ -74,6 +103,9 @@ func (fs *FilesystemStore) Exists(_ context.Context, key string) (bool, error) {
 }
 
 func (fs *FilesystemStore) Delete(_ context.Context, key string) error {
+	if err := fs.validateKey(key); err != nil {
+		return err
+	}
 	err := os.Remove(fs.path(key))
 	if err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("deleting %s: %w", key, err)
@@ -82,6 +114,9 @@ func (fs *FilesystemStore) Delete(_ context.Context, key string) error {
 }
 
 func (fs *FilesystemStore) List(_ context.Context, prefix string) ([]string, error) {
+	if err := fs.validateKey(prefix); err != nil {
+		return nil, err
+	}
 	var keys []string
 	base := fs.path(prefix)
 

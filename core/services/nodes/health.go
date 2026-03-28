@@ -3,6 +3,7 @@ package nodes
 import (
 	"cmp"
 	"context"
+	"sync"
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/advisorylock"
@@ -21,6 +22,7 @@ type HealthMonitor struct {
 	clientFactory       BackendClientFactory // creates gRPC backend clients
 	perModelHealthCheck bool                 // check each model's backend process individually
 	cancel              context.CancelFunc
+	cancelMu            sync.Mutex
 }
 
 // NewHealthMonitor creates a new HealthMonitor.
@@ -49,14 +51,19 @@ func NewHealthMonitor(registry NodeHealthStore, db *gorm.DB, checkInterval, stal
 
 // Start begins the health monitoring loop in a background goroutine.
 func (hm *HealthMonitor) Start(ctx context.Context) {
+	hm.cancelMu.Lock()
 	ctx, hm.cancel = context.WithCancel(ctx)
+	hm.cancelMu.Unlock()
 	go hm.run(ctx)
 }
 
 // Stop stops the health monitoring loop.
 func (hm *HealthMonitor) Stop() {
+	hm.cancelMu.Lock()
+	defer hm.cancelMu.Unlock()
 	if hm.cancel != nil {
 		hm.cancel()
+		hm.cancel = nil
 	}
 }
 

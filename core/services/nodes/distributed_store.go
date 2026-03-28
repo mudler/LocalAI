@@ -35,6 +35,8 @@ func (s *DistributedModelStore) Get(id string) (*model.Model, bool) {
 	}
 
 	xlog.Debug("DistributedModelStore: found model in DB, caching locally", "model", id, "node", node.Address)
+	// Stub with remote address; nil process is intentional (remote model).
+	// The gRPC client is lazily created by Model.GRPC() from the address.
 	m := model.NewModel(id, node.Address, nil)
 	s.local.Set(id, m)
 	return m, true

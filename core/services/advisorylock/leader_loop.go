@@ -21,7 +21,7 @@ func RunLeaderLoop(ctx context.Context, db *gorm.DB, lockKey int64, interval tim
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			_, err := TryWithLock(db, lockKey, func() error {
+			_, err := TryWithLockCtx(ctx, db, lockKey, func() error {
 				fn()
 				return nil
 			})

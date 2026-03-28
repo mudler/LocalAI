@@ -119,7 +119,7 @@ func (r *SmartRouter) Route(ctx context.Context, modelID, modelName, backendType
 			return &RouteResult{
 				Node:    node,
 				Client:  grpcClient,
-				Release: func() { r.registry.DecrementInFlight(ctx, node.ID, trackingKey) },
+				Release: func() { r.registry.DecrementInFlight(context.Background(), node.ID, trackingKey) },
 			}, nil
 		}
 	}
@@ -151,7 +151,7 @@ func (r *SmartRouter) Route(ctx context.Context, modelID, modelName, backendType
 				return &RouteResult{
 					Node:    node,
 					Client:  grpcClient,
-					Release: func() { r.registry.DecrementInFlight(ctx, node.ID, trackingKey) },
+					Release: func() { r.registry.DecrementInFlight(context.Background(), node.ID, trackingKey) },
 				}, nil
 			}
 		}

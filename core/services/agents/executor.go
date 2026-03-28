@@ -344,7 +344,11 @@ func ExecuteChatWithLLM(ctx context.Context, llm cogito.LLM, cfg *AgentConfig, m
 	// Use a detached context: the parent ctx may be cancelled (e.g. in distributed
 	// mode handleJob defers cancel()) before this goroutine completes.
 	if cfg.LongTermMemory && effectiveURL != "" {
-		go saveConversationToKB(context.Background(), llm, effectiveURL, effectiveKey, cfg, message, response, userID)
+		go func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+			saveConversationToKB(ctx, llm, effectiveURL, effectiveKey, cfg, message, response, userID)
+		}()
 	}
 
 	// Publish agent response — use original messageID from the dispatch so the

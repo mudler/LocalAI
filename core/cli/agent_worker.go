@@ -139,14 +139,18 @@ func (cmd *AgentWorkerCMD) Run(ctx *cliContext.Context) error {
 
 	// Subscribe to MCP tool execution requests (load-balanced across workers).
 	// The frontend routes model-level MCP tool calls here via NATS request-reply.
-	natsClient.QueueSubscribeReply(messaging.SubjectMCPToolExecute, messaging.QueueAgentWorkers, func(data []byte, reply func([]byte)) {
+	if _, err := natsClient.QueueSubscribeReply(messaging.SubjectMCPToolExecute, messaging.QueueAgentWorkers, func(data []byte, reply func([]byte)) {
 		handleMCPToolRequest(data, reply)
-	})
+	}); err != nil {
+		return fmt.Errorf("subscribing to %s: %w", messaging.SubjectMCPToolExecute, err)
+	}
 
 	// Subscribe to MCP discovery requests (load-balanced across workers).
-	natsClient.QueueSubscribeReply(messaging.SubjectMCPDiscovery, messaging.QueueAgentWorkers, func(data []byte, reply func([]byte)) {
+	if _, err := natsClient.QueueSubscribeReply(messaging.SubjectMCPDiscovery, messaging.QueueAgentWorkers, func(data []byte, reply func([]byte)) {
 		handleMCPDiscoveryRequest(data, reply)
-	})
+	}); err != nil {
+		return fmt.Errorf("subscribing to %s: %w", messaging.SubjectMCPDiscovery, err)
+	}
 
 	// Subscribe to MCP CI job execution (load-balanced across agent workers).
 	// In distributed mode, MCP CI jobs are routed here because the frontend
@@ -157,21 +161,25 @@ func (cmd *AgentWorkerCMD) Run(ctx *cliContext.Context) error {
 	}
 	mcpCIJobTimeout = cmp.Or(mcpCIJobTimeout, config.DefaultMCPCIJobTimeout)
 
-	natsClient.QueueSubscribe(messaging.SubjectMCPCIJobsNew, messaging.QueueWorkers, func(data []byte) {
+	if _, err := natsClient.QueueSubscribe(messaging.SubjectMCPCIJobsNew, messaging.QueueWorkers, func(data []byte) {
 		handleMCPCIJob(shutdownCtx, data, apiURL, cmd.APIToken, natsClient, mcpCIJobTimeout)
-	})
+	}); err != nil {
+		return fmt.Errorf("subscribing to %s: %w", messaging.SubjectMCPCIJobsNew, err)
+	}
 
 	// Subscribe to backend stop events to clean up cached MCP sessions.
 	// In the main application this is done via ml.OnModelUnload, but the agent
 	// worker has no model loader — we listen for the NATS stop event instead.
-	natsClient.Subscribe(messaging.SubjectNodeBackendStop(nodeID), func(data []byte) {
+	if _, err := natsClient.Subscribe(messaging.SubjectNodeBackendStop(nodeID), func(data []byte) {
 		var req struct {
 			Backend string `json:"backend"`
 		}
 		if json.Unmarshal(data, &req) == nil && req.Backend != "" {
 			mcpTools.CloseMCPSessions(req.Backend)
 		}
-	})
+	}); err != nil {
+		return fmt.Errorf("subscribing to %s: %w", messaging.SubjectNodeBackendStop(nodeID), err)
+	}
 
 	xlog.Info("Agent worker ready, waiting for jobs", "subject", cmd.Subject, "queue", cmd.Queue)
 

@@ -3,6 +3,7 @@ package localai
 import (
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -12,6 +13,33 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/xlog"
 )
+
+var privateNetworks []*net.IPNet
+
+func init() {
+	for _, cidr := range []string{
+		"10.0.0.0/8",
+		"172.16.0.0/12",
+		"192.168.0.0/16",
+		"127.0.0.0/8",
+		"169.254.0.0/16",
+		"::1/128",
+		"fc00::/7",
+		"fe80::/10",
+	} {
+		_, network, _ := net.ParseCIDR(cidr)
+		privateNetworks = append(privateNetworks, network)
+	}
+}
+
+func isPrivateIP(ip net.IP) bool {
+	for _, network := range privateNetworks {
+		if network.Contains(ip) {
+			return true
+		}
+	}
+	return false
+}
 
 var corsProxyClient = &http.Client{
 	Timeout: 10 * time.Minute,
@@ -36,6 +64,16 @@ func CORSProxyEndpoint(appConfig *config.ApplicationConfig) echo.HandlerFunc {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": "only http and https schemes are supported"})
 		}
 
+		ips, err := net.LookupIP(parsed.Hostname())
+		if err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "cannot resolve hostname"})
+		}
+		for _, ip := range ips {
+			if isPrivateIP(ip) {
+				return c.JSON(http.StatusForbidden, map[string]string{"error": "requests to private networks are not allowed"})
+			}
+		}
+
 		xlog.Debug("CORS proxy request", "method", c.Request().Method, "target", targetURL)
 
 		proxyReq, err := http.NewRequestWithContext(
@@ -53,6 +91,8 @@ func CORSProxyEndpoint(appConfig *config.ApplicationConfig) echo.HandlerFunc {
 			"Host": true, "Connection": true, "Keep-Alive": true,
 			"Transfer-Encoding": true, "Upgrade": true, "Origin": true,
 			"Referer": true,
+			"Authorization": true, "Cookie": true,
+			"X-Api-Key": true, "Proxy-Authorization": true,
 		}
 		for key, values := range c.Request().Header {
 			if skipHeaders[key] {

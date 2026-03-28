@@ -75,14 +75,11 @@ func setAnthropicRequestContext(appConfig *config.ApplicationConfig) echo.Middle
 			reqCtx := c.Request().Context()
 			c1, cancel := context.WithCancel(appConfig.Context)
 
-			// Cancel when request context is cancelled (client disconnects)
-			go func() {
-				select {
-				case <-reqCtx.Done():
-					cancel()
-				case <-c1.Done():
-					// Already cancelled
-				}
+			// Bridge request cancellation to c1 without spawning a goroutine.
+			stop := context.AfterFunc(reqCtx, cancel)
+			defer func() {
+				stop()   // deregister callback if it hasn't fired
+				cancel() // release c1 resources (idempotent)
 			}()
 
 			// Add the correlation ID to the new context

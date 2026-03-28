@@ -184,8 +184,5 @@ func (c DistributedConfig) MCPCIJobTimeoutOrDefault() time.Duration {
 
 // MaxUploadSizeOrDefault returns the configured max upload size or the default.
 func (c DistributedConfig) MaxUploadSizeOrDefault() int64 {
-	if c.MaxUploadSize > 0 {
-		return c.MaxUploadSize
-	}
-	return DefaultMaxUploadSize
+	return cmp.Or(c.MaxUploadSize, DefaultMaxUploadSize)
 }

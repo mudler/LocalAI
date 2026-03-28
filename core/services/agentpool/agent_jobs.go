@@ -16,6 +16,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"text/template"
 	"time"
 
@@ -686,6 +687,26 @@ func (s *AgentJobService) DeleteJob(id string) error {
 	return nil
 }
 
+// traceCollector synchronises concurrent cogito callback writes to job traces.
+type traceCollector struct {
+	mu     sync.Mutex
+	jobID  string
+	traces []schema.JobTrace
+	jobs   *xsync.SyncedMap[string, schema.Job]
+}
+
+func (tc *traceCollector) add(trace schema.JobTrace) {
+	tc.mu.Lock()
+	defer tc.mu.Unlock()
+	tc.traces = append(tc.traces, trace)
+	if tc.jobs.Exists(tc.jobID) {
+		job := tc.jobs.Get(tc.jobID)
+		job.Traces = make([]schema.JobTrace, len(tc.traces))
+		copy(job.Traces, tc.traces)
+		tc.jobs.Set(tc.jobID, job)
+	}
+}
+
 type multimediaContent struct {
 	url       string
 	mediaType string
@@ -931,6 +952,12 @@ func (s *AgentJobService) ExecuteJobInternal(job schema.Job, task schema.Task, c
 	// Initialize traces slice
 	job.Traces = []schema.JobTrace{}
 
+	tc := &traceCollector{
+		jobID:  job.ID,
+		traces: job.Traces,
+		jobs:   s.jobs,
+	}
+
 	// Build cogito options
 	cogitoOpts := modelConfig.BuildCogitoOptions()
 	cogitoOpts = append(
@@ -945,8 +972,7 @@ func (s *AgentJobService) ExecuteJobInternal(job schema.Job, task schema.Task, c
 				Content:   status,
 				Timestamp: time.Now(),
 			}
-			job.Traces = append(job.Traces, trace)
-			s.jobs.Set(job.ID, job)
+			tc.add(trace)
 		}),
 		cogito.WithReasoningCallback(func(reasoning string) {
 			xlog.Debug("Reasoning", "job_id", job.ID, "model", modelConfig.Name, "reasoning", reasoning)
@@ -956,8 +982,7 @@ func (s *AgentJobService) ExecuteJobInternal(job schema.Job, task schema.Task, c
 				Content:   reasoning,
 				Timestamp: time.Now(),
 			}
-			job.Traces = append(job.Traces, trace)
-			s.jobs.Set(job.ID, job)
+			tc.add(trace)
 		}),
 		cogito.WithToolCallBack(func(t *cogito.ToolChoice, state *cogito.SessionState) cogito.ToolCallDecision {
 			xlog.Debug("Tool call", "job_id", job.ID, "model", modelConfig.Name, "tool", t.Name, "reasoning", t.Reasoning, "arguments", t.Arguments)
@@ -973,8 +998,7 @@ func (s *AgentJobService) ExecuteJobInternal(job schema.Job, task schema.Task, c
 				ToolName:  t.Name,
 				Arguments: arguments,
 			}
-			job.Traces = append(job.Traces, trace)
-			s.jobs.Set(job.ID, job)
+			tc.add(trace)
 			return cogito.ToolCallDecision{
 				Approved: true,
 			}
@@ -998,8 +1022,7 @@ func (s *AgentJobService) ExecuteJobInternal(job schema.Job, task schema.Task, c
 				ToolName:  t.Name,
 				Arguments: arguments,
 			}
-			job.Traces = append(job.Traces, trace)
-			s.jobs.Set(job.ID, job)
+			tc.add(trace)
 		}),
 		cogito.WithStreamCallback(func(ev cogito.StreamEvent) {
 			switch ev.Type {
@@ -1009,16 +1032,14 @@ func (s *AgentJobService) ExecuteJobInternal(job schema.Job, task schema.Task, c
 					Content:   ev.Content,
 					Timestamp: time.Now(),
 				}
-				job.Traces = append(job.Traces, trace)
-				s.jobs.Set(job.ID, job)
+				tc.add(trace)
 			case cogito.StreamEventContent:
 				trace := schema.JobTrace{
 					Type:      "stream_content",
 					Content:   ev.Content,
 					Timestamp: time.Now(),
 				}
-				job.Traces = append(job.Traces, trace)
-				s.jobs.Set(job.ID, job)
+				tc.add(trace)
 			case cogito.StreamEventToolCall:
 				trace := schema.JobTrace{
 					Type:     "stream_tool_call",
@@ -1026,14 +1047,19 @@ func (s *AgentJobService) ExecuteJobInternal(job schema.Job, task schema.Task, c
 					ToolName: ev.ToolName,
 					Timestamp: time.Now(),
 				}
-				job.Traces = append(job.Traces, trace)
-				s.jobs.Set(job.ID, job)
+				tc.add(trace)
 			}
 		}),
 	)
 
 	// Execute tools
 	f, err := cogito.ExecuteTools(defaultLLM, fragment, cogitoOpts...)
+
+	// Re-read job from the store to pick up traces written by callbacks
+	if updated := s.jobs.Get(job.ID); updated.ID != "" {
+		job = updated
+	}
+
 	if err != nil && !errors.Is(err, cogito.ErrNoToolSelected) {
 		job.Status = schema.JobStatusFailed
 		job.Error = fmt.Sprintf("failed to execute tools: %v", err)
@@ -1218,7 +1244,7 @@ func (s *AgentJobService) sendWebhooks(job schema.Job, task schema.Task) {
 	// Send all webhooks concurrently and track results
 	var wg sync.WaitGroup
 	errors := make(chan webhookError, len(webhookConfigs))
-	successCount := 0
+	var successCount atomic.Int32
 
 	for _, webhookConfig := range webhookConfigs {
 		wg.Go(func() {
@@ -1228,7 +1254,7 @@ func (s *AgentJobService) sendWebhooks(job schema.Job, task schema.Task) {
 					Error: err.Error(),
 				}
 			} else {
-				successCount++
+				successCount.Add(1)
 			}
 		})
 	}
@@ -1253,11 +1279,11 @@ func (s *AgentJobService) sendWebhooks(job schema.Job, task schema.Task) {
 		job.WebhookSent = true
 		job.WebhookSentAt = &now
 		job.WebhookError = ""
-	} else if successCount > 0 {
+	} else if successCount.Load() > 0 {
 		// Some succeeded, some failed
 		job.WebhookSent = true
 		job.WebhookSentAt = &now
-		job.WebhookError = fmt.Sprintf("Some webhooks failed (%d/%d succeeded): %s", successCount, len(webhookConfigs), strings.Join(webhookErrors, "; "))
+		job.WebhookError = fmt.Sprintf("Some webhooks failed (%d/%d succeeded): %s", int(successCount.Load()), len(webhookConfigs), strings.Join(webhookErrors, "; "))
 	} else {
 		// All failed
 		job.WebhookSent = false
@@ -1386,31 +1412,40 @@ func (s *AgentJobService) executeWithRetry(client *http.Client, req *http.Reques
 	maxRetries := 3
 	backoff := []time.Duration{1 * time.Second, 2 * time.Second, 4 * time.Second}
 
-	var err error
-	for i := range maxRetries {
-		// Recreate request body if needed (it may have been consumed)
-		if req.Body != nil {
-			bodyBytes, _ := io.ReadAll(req.Body)
-			req.Body.Close()
-			req.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+	// Save body bytes once before the loop so retries can re-use them
+	var savedBody []byte
+	if req.Body != nil {
+		var err error
+		savedBody, err = io.ReadAll(req.Body)
+		req.Body.Close()
+		if err != nil {
+			return fmt.Errorf("reading request body: %w", err)
 		}
-		var resp *http.Response
-		resp, err = client.Do(req)
-		if err == nil && resp.StatusCode >= 200 && resp.StatusCode < 300 {
-			resp.Body.Close()
-			return nil // Success
+	}
+
+	var lastErr error
+	for i := range maxRetries {
+		// Reset body for each attempt
+		if savedBody != nil {
+			req.Body = io.NopCloser(bytes.NewReader(savedBody))
+			req.ContentLength = int64(len(savedBody))
 		}
 
+		var resp *http.Response
+		resp, lastErr = client.Do(req)
+		if lastErr == nil && resp.StatusCode >= 200 && resp.StatusCode < 300 {
+			resp.Body.Close()
+			return nil
+		}
 		if resp != nil {
 			resp.Body.Close()
 		}
-
 		if i < maxRetries-1 {
 			time.Sleep(backoff[i])
 		}
 	}
 
-	return fmt.Errorf("failed after %d retries: %w", maxRetries, err)
+	return fmt.Errorf("failed after %d retries: %w", maxRetries, lastErr)
 }
 
 // CleanupOldJobs removes jobs older than retention period

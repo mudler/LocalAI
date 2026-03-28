@@ -116,7 +116,9 @@ type KBSearchMemoryTool struct {
 }
 
 func (t KBSearchMemoryTool) Run(args KBSearchMemoryArgs) (string, any, error) {
-	result := KBAutoSearchPrompt(context.Background(), t.APIURL, t.APIKey, t.Collection, args.Query, t.MaxResults, t.UserID)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	result := KBAutoSearchPrompt(ctx, t.APIURL, t.APIKey, t.Collection, args.Query, t.MaxResults, t.UserID)
 	if result == "" {
 		return "No results found.", nil, nil
 	}
@@ -140,7 +142,9 @@ func (t KBAddMemoryTool) Run(args KBAddMemoryArgs) (string, any, error) {
 	if args.Content == "" {
 		return "No content provided.", nil, nil
 	}
-	err := KBStoreContent(context.Background(), t.APIURL, t.APIKey, t.Collection, args.Content, t.UserID)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	err := KBStoreContent(ctx, t.APIURL, t.APIKey, t.Collection, args.Content, t.UserID)
 	if err != nil {
 		xlog.Warn("add_memory: failed to store content", "error", err, "collection", t.Collection)
 		return fmt.Sprintf("Failed to store content: %v", err), nil, nil

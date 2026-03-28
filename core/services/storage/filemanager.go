@@ -113,7 +113,11 @@ func (fm *FileManager) Download(ctx context.Context, key string) (string, error)
 	if err != nil {
 		return "", err
 	}
-	return v.(string), nil
+	path, ok := v.(string)
+	if !ok {
+		return "", fmt.Errorf("unexpected singleflight result type %T", v)
+	}
+	return path, nil
 }
 
 // Head returns metadata about an object in storage without downloading it.

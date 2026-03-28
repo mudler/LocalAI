@@ -69,7 +69,8 @@ type LocalDispatcher struct {
 	configs  ConfigProvider
 	ssePool  SSEWriterPool // maps agentKey → SSEWriter
 	ctx      context.Context
-	cancels  sync.Map // messageID → context.CancelFunc
+	cancelMu sync.Mutex
+	cancels  map[string]context.CancelFunc
 }
 
 // SSEWriterPool provides SSE writers for agents.
@@ -85,6 +86,7 @@ func NewLocalDispatcher(ctx context.Context, apiURL, apiKey string, configs Conf
 		configs: configs,
 		ssePool: ssePool,
 		ctx:     ctx,
+		cancels: make(map[string]context.CancelFunc),
 	}
 }
 
@@ -94,8 +96,14 @@ func (d *LocalDispatcher) Start(_ context.Context) error {
 
 // Cancel cancels a running agent chat by message ID.
 func (d *LocalDispatcher) Cancel(messageID string) {
-	if v, ok := d.cancels.LoadAndDelete(messageID); ok {
-		v.(context.CancelFunc)()
+	d.cancelMu.Lock()
+	cancel, ok := d.cancels[messageID]
+	if ok {
+		delete(d.cancels, messageID)
+	}
+	d.cancelMu.Unlock()
+	if ok {
+		cancel()
 	}
 }
 
@@ -112,10 +120,16 @@ func (d *LocalDispatcher) Dispatch(userID, agentName, message string) (string, e
 
 	// Execute in background goroutine
 	ctx, cancel := context.WithCancel(d.ctx)
-	d.cancels.Store(messageID, cancel)
+	d.cancelMu.Lock()
+	d.cancels[messageID] = cancel
+	d.cancelMu.Unlock()
 
 	go func() {
-		defer d.cancels.Delete(messageID)
+		defer func() {
+			d.cancelMu.Lock()
+			delete(d.cancels, messageID)
+			d.cancelMu.Unlock()
+		}()
 		defer cancel()
 
 		cb := d.buildLocalCallbacks(writer, messageID)
@@ -217,6 +231,7 @@ type NATSDispatcher struct {
 	queue       string
 	sub         messaging.Subscription // stored subscription for cleanup
 	sem         chan struct{}           // concurrency limiter; nil = unlimited
+	wg          sync.WaitGroup
 }
 
 // NewNATSDispatcher creates a dispatcher that uses NATS for distribution.
@@ -247,7 +262,9 @@ func (d *NATSDispatcher) Start(ctx context.Context) error {
 		if d.sem != nil {
 			d.sem <- struct{}{}
 		}
+		d.wg.Add(1)
 		go func() {
+			defer d.wg.Done()
 			if d.sem != nil {
 				defer func() { <-d.sem }()
 			}
@@ -267,6 +284,7 @@ func (d *NATSDispatcher) Stop() error {
 	if d.sub != nil {
 		err := d.sub.Unsubscribe()
 		d.sub = nil
+		d.wg.Wait()
 		return err
 	}
 	return nil
