@@ -32,6 +32,7 @@ type DistributedServices struct {
 	FileMgr      *storage.FileManager
 	FileStager   nodes.FileStager
 	ModelAdapter *nodes.ModelRouterAdapter
+	Unloader     *nodes.RemoteUnloaderAdapter
 }
 
 // initDistributed validates distributed mode prerequisites and initializes
@@ -118,13 +119,17 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB) (*Distribut
 	}
 	xlog.Info("Node registry initialized")
 
-	router := nodes.NewSmartRouter(registry)
+	// Collect SmartRouter option values; the router itself is created after all
+	// dependencies (including FileStager and Unloader) are ready.
+	var routerAuthToken string
 	if cfg.Distributed.RegistrationToken != "" {
-		router.SetAuthToken(cfg.Distributed.RegistrationToken)
+		routerAuthToken = cfg.Distributed.RegistrationToken
 	}
+	var routerGalleriesJSON string
 	if galleriesJSON, err := json.Marshal(cfg.BackendGalleries); err == nil {
-		router.SetGalleriesJSON(string(galleriesJSON))
+		routerGalleriesJSON = string(galleriesJSON)
 	}
+
 	healthMon := nodes.NewHealthMonitor(registry, authDB,
 		cfg.Distributed.HealthCheckIntervalOrDefault(),
 		cfg.Distributed.StaleNodeThresholdOrDefault(),
@@ -190,7 +195,17 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB) (*Distribut
 		}, cfg.Distributed.RegistrationToken)
 		xlog.Info("File stager initialized (HTTP direct transfer)")
 	}
-	router.SetFileStager(fileStager)
+	// Create RemoteUnloaderAdapter — needed by SmartRouter and startup.go
+	remoteUnloader := nodes.NewRemoteUnloaderAdapter(registry, natsClient)
+
+	// All dependencies ready — build SmartRouter with all options at once
+	router := nodes.NewSmartRouter(registry, nodes.SmartRouterOptions{
+		Unloader:      remoteUnloader,
+		FileStager:    fileStager,
+		GalleriesJSON: routerGalleriesJSON,
+		AuthToken:     routerAuthToken,
+		DB:            authDB,
+	})
 
 	// Create ModelRouterAdapter to wire into ModelLoader
 	modelAdapter := nodes.NewModelRouterAdapter(router)
@@ -210,6 +225,7 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB) (*Distribut
 		FileMgr:      fileMgr,
 		FileStager:   fileStager,
 		ModelAdapter: modelAdapter,
+		Unloader:     remoteUnloader,
 	}, nil
 }
 

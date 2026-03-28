@@ -473,7 +473,18 @@ func NodeBackendLogsLinesEndpoint(registry *nodes.NodeRegistry, registrationToke
 // /v1/backend-logs/{modelId}/ws endpoint for real-time log streaming.
 func NodeBackendLogsWSEndpoint(registry *nodes.NodeRegistry, registrationToken string) echo.HandlerFunc {
 	browserUpgrader := websocket.Upgrader{
-		CheckOrigin: func(r *http.Request) bool { return true },
+		CheckOrigin: func(r *http.Request) bool {
+			origin := r.Header.Get("Origin")
+			if origin == "" {
+				return true // no origin header = same-origin or non-browser
+			}
+			// Parse origin URL and compare host with request host
+			u, err := url.Parse(origin)
+			if err != nil {
+				return false
+			}
+			return u.Host == r.Host
+		},
 	}
 
 	return func(c echo.Context) error {
@@ -507,14 +518,12 @@ func NodeBackendLogsWSEndpoint(registry *nodes.NodeRegistry, registrationToken s
 			return nil
 		}
 
-		// Use sync.Once wrappers to avoid double-close and ensure each
+		// Use sync.OnceFunc wrappers to avoid double-close and ensure each
 		// goroutine can safely close the *other* connection to unblock
 		// its peer's ReadMessage call.
 		done := make(chan struct{})
-		var closeWorkerOnce sync.Once
-		closeWorker := func() { closeWorkerOnce.Do(func() { workerWS.Close() }) }
-		var closeBrowserOnce sync.Once
-		closeBrowser := func() { closeBrowserOnce.Do(func() { browserWS.Close() }) }
+		closeWorker := sync.OnceFunc(func() { workerWS.Close() })
+		closeBrowser := sync.OnceFunc(func() { browserWS.Close() })
 
 		// Worker → Browser
 		go func() {

@@ -217,7 +217,7 @@ func (p *mockConfigProvider) GetAgentConfig(userID, name string) (*agents.AgentC
 	return nil, fmt.Errorf("agent not found: %s", name)
 }
 
-// natsAdapter wraps messaging.Client for NATSClient interface.
+// natsAdapter wraps messaging.Client for agents.NATSClient interface.
 type natsAdapter struct {
 	client *messaging.Client
 }
@@ -226,7 +226,7 @@ func (a *natsAdapter) Publish(subject string, data any) error {
 	return a.client.Publish(subject, data)
 }
 
-func (a *natsAdapter) QueueSubscribe(subject, queue string, handler func([]byte)) (agents.NATSSub, error) {
+func (a *natsAdapter) QueueSubscribe(subject, queue string, handler func([]byte)) (messaging.Subscription, error) {
 	return a.client.QueueSubscribe(subject, queue, handler)
 }
 

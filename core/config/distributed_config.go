@@ -28,6 +28,8 @@ type DistributedConfig struct {
 	DrainTimeout        time.Duration // Time to wait for in-flight requests during drain (default 30s)
 	HealthCheckInterval time.Duration // Health monitor check interval (default 15s)
 	StaleNodeThreshold  time.Duration // Time before a node is considered stale (default 60s)
+
+	MaxUploadSize int64 // Maximum upload body size in bytes (default 50 GB)
 }
 
 // Distributed config options
@@ -98,6 +100,9 @@ const (
 	DefaultStaleNodeThreshold  = 60 * time.Second
 )
 
+// DefaultMaxUploadSize is the default maximum upload body size (50 GB).
+const DefaultMaxUploadSize int64 = 50 << 30
+
 // MCPToolTimeoutOrDefault returns the configured timeout or the default.
 func (c DistributedConfig) MCPToolTimeoutOrDefault() time.Duration {
 	return cmp.Or(c.MCPToolTimeout, DefaultMCPToolTimeout)
@@ -126,4 +131,12 @@ func (c DistributedConfig) HealthCheckIntervalOrDefault() time.Duration {
 // StaleNodeThresholdOrDefault returns the configured threshold or the default.
 func (c DistributedConfig) StaleNodeThresholdOrDefault() time.Duration {
 	return cmp.Or(c.StaleNodeThreshold, DefaultStaleNodeThreshold)
+}
+
+// MaxUploadSizeOrDefault returns the configured max upload size or the default.
+func (c DistributedConfig) MaxUploadSizeOrDefault() int64 {
+	if c.MaxUploadSize > 0 {
+		return c.MaxUploadSize
+	}
+	return DefaultMaxUploadSize
 }

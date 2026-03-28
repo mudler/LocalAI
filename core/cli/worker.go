@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -108,9 +109,7 @@ func (cmd *WorkerCMD) Run(ctx *cliContext.Context) error {
 
 	xlog.Info("Registered with frontend", "nodeID", nodeID, "frontend", cmd.RegisterTo)
 	heartbeatInterval, _ := time.ParseDuration(cmd.HeartbeatInterval)
-	if heartbeatInterval == 0 {
-		heartbeatInterval = 10 * time.Second
-	}
+	heartbeatInterval = cmp.Or(heartbeatInterval, 10*time.Second)
 	// Context cancelled on shutdown — used by heartbeat and other background goroutines
 	shutdownCtx, shutdownCancel := context.WithCancel(context.Background())
 	defer shutdownCancel()
@@ -121,7 +120,7 @@ func (cmd *WorkerCMD) Run(ctx *cliContext.Context) error {
 	httpAddr := cmd.resolveHTTPAddr()
 	stagingDir := filepath.Join(cmd.ModelsPath, "..", "staging")
 	dataDir := filepath.Join(cmd.ModelsPath, "..", "data")
-	httpServer, err := nodes.StartFileTransferServer(httpAddr, stagingDir, cmd.ModelsPath, dataDir, cmd.RegistrationToken, ml.BackendLogs())
+	httpServer, err := nodes.StartFileTransferServer(httpAddr, stagingDir, cmd.ModelsPath, dataDir, cmd.RegistrationToken, config.DefaultMaxUploadSize, ml.BackendLogs())
 	if err != nil {
 		return fmt.Errorf("starting HTTP file transfer server: %w", err)
 	}
@@ -177,9 +176,9 @@ func (cmd *WorkerCMD) Run(ctx *cliContext.Context) error {
 	<-sigCh
 
 	xlog.Info("Shutting down worker")
+	regClient.GracefulDeregister(nodeID)
 	supervisor.stopAllBackends()
 	nodes.ShutdownFileTransferServer(httpServer)
-	regClient.GracefulDeregister(nodeID)
 	return nil
 }
 

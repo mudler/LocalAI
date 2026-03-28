@@ -6,8 +6,10 @@ import (
 	"io"
 	"sync"
 	"sync/atomic"
-	"testing"
 	"time"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
 // mockObjectStore is a test double that counts Get calls and adds a small
@@ -64,88 +66,72 @@ func (m *mockObjectStore) List(_ context.Context, prefix string) ([]string, erro
 	return keys, nil
 }
 
-func TestFileManagerSingleflightDedup(t *testing.T) {
-	store := newMockObjectStore(50 * time.Millisecond)
-	store.data["same-key"] = []byte("test-content")
+var _ = Describe("FileManager", func() {
+	Describe("singleflight deduplication", func() {
+		It("deduplicates concurrent downloads for the same key", func() {
+			store := newMockObjectStore(50 * time.Millisecond)
+			store.data["same-key"] = []byte("test-content")
 
-	cacheDir := t.TempDir()
-	fm, err := NewFileManager(store, cacheDir)
-	if err != nil {
-		t.Fatal(err)
-	}
+			cacheDir := GinkgoT().TempDir()
+			fm, err := NewFileManager(store, cacheDir)
+			Expect(err).ToNot(HaveOccurred())
 
-	const numGoroutines = 10
-	var wg sync.WaitGroup
-	errs := make([]error, numGoroutines)
-	paths := make([]string, numGoroutines)
+			const numGoroutines = 10
+			var wg sync.WaitGroup
+			errs := make([]error, numGoroutines)
+			paths := make([]string, numGoroutines)
 
-	wg.Add(numGoroutines)
-	for i := 0; i < numGoroutines; i++ {
-		go func(idx int) {
-			defer wg.Done()
-			p, e := fm.Download(context.Background(), "same-key")
-			paths[idx] = p
-			errs[idx] = e
-		}(i)
-	}
-	wg.Wait()
+			wg.Add(numGoroutines)
+			for i := 0; i < numGoroutines; i++ {
+				go func(idx int) {
+					defer GinkgoRecover()
+					defer wg.Done()
+					p, e := fm.Download(context.Background(), "same-key")
+					paths[idx] = p
+					errs[idx] = e
+				}(i)
+			}
+			wg.Wait()
 
-	// All goroutines should succeed
-	for i, e := range errs {
-		if e != nil {
-			t.Fatalf("goroutine %d: unexpected error: %v", i, e)
-		}
-	}
+			for i, e := range errs {
+				Expect(e).ToNot(HaveOccurred(), "goroutine %d", i)
+			}
+			for i, p := range paths {
+				Expect(p).To(Equal(paths[0]), "goroutine %d path differs", i)
+			}
+			Expect(store.getCalls.Load()).To(BeNumerically("==", 1))
+		})
+	})
 
-	// All goroutines should get the same path
-	for i, p := range paths {
-		if p != paths[0] {
-			t.Fatalf("goroutine %d: path %q differs from goroutine 0 path %q", i, p, paths[0])
-		}
-	}
+	Describe("different keys", func() {
+		It("does not serialize downloads for different keys", func() {
+			store := newMockObjectStore(50 * time.Millisecond)
+			store.data["key-a"] = []byte("content-a")
+			store.data["key-b"] = []byte("content-b")
 
-	// singleflight should have deduplicated to exactly 1 Get call
-	got := store.getCalls.Load()
-	if got != 1 {
-		t.Fatalf("expected exactly 1 Get call, got %d", got)
-	}
-}
+			cacheDir := GinkgoT().TempDir()
+			fm, err := NewFileManager(store, cacheDir)
+			Expect(err).ToNot(HaveOccurred())
 
-func TestFileManagerDifferentKeysNotSerialized(t *testing.T) {
-	store := newMockObjectStore(50 * time.Millisecond)
-	store.data["key-a"] = []byte("content-a")
-	store.data["key-b"] = []byte("content-b")
+			var wg sync.WaitGroup
+			wg.Add(2)
 
-	cacheDir := t.TempDir()
-	fm, err := NewFileManager(store, cacheDir)
-	if err != nil {
-		t.Fatal(err)
-	}
+			var errA, errB error
+			go func() {
+				defer GinkgoRecover()
+				defer wg.Done()
+				_, errA = fm.Download(context.Background(), "key-a")
+			}()
+			go func() {
+				defer GinkgoRecover()
+				defer wg.Done()
+				_, errB = fm.Download(context.Background(), "key-b")
+			}()
+			wg.Wait()
 
-	var wg sync.WaitGroup
-	wg.Add(2)
-
-	var errA, errB error
-	go func() {
-		defer wg.Done()
-		_, errA = fm.Download(context.Background(), "key-a")
-	}()
-	go func() {
-		defer wg.Done()
-		_, errB = fm.Download(context.Background(), "key-b")
-	}()
-	wg.Wait()
-
-	if errA != nil {
-		t.Fatalf("key-a: unexpected error: %v", errA)
-	}
-	if errB != nil {
-		t.Fatalf("key-b: unexpected error: %v", errB)
-	}
-
-	// Both keys should have triggered a separate Get call
-	got := store.getCalls.Load()
-	if got != 2 {
-		t.Fatalf("expected 2 Get calls for different keys, got %d", got)
-	}
-}
+			Expect(errA).ToNot(HaveOccurred())
+			Expect(errB).ToNot(HaveOccurred())
+			Expect(store.getCalls.Load()).To(BeNumerically("==", 2))
+		})
+	})
+})

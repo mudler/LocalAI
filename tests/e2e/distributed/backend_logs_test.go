@@ -521,7 +521,7 @@ func startTestFileTransferServerWithLogs(token string, logStore *model.BackendLo
 	}
 	addr := lis.Addr().String()
 
-	server, err := nodes.StartFileTransferServerWithListener(lis, stagingDir, stagingDir, stagingDir, token, logStore)
+	server, err := nodes.StartFileTransferServerWithListener(lis, stagingDir, stagingDir, stagingDir, token, 0, logStore)
 	if err != nil {
 		os.RemoveAll(stagingDir)
 		return "", nil, err

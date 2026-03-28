@@ -105,6 +105,11 @@ type AgentConfig struct {
 	ForceReasoningTool    bool `yaml:"force_reasoning_tool,omitempty" json:"force_reasoning_tool,omitempty"`
 }
 
+// HasMCPServers returns true if any MCP servers (remote or stdio) are configured.
+func (c MCPConfig) HasMCPServers() bool {
+	return c.Servers != "" || c.Stdio != ""
+}
+
 func (c *MCPConfig) MCPConfigFromYAML() (MCPGenericConfig[MCPRemoteServers], MCPGenericConfig[MCPSTDIOServers], error) {
 	var remote MCPGenericConfig[MCPRemoteServers]
 	var stdio MCPGenericConfig[MCPSTDIOServers]

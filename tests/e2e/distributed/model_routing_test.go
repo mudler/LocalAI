@@ -34,7 +34,7 @@ var _ = Describe("Model Routing", Label("Distributed"), func() {
 
 	Context("ModelRouterAdapter from SmartRouter", func() {
 		It("should create ModelRouterAdapter from SmartRouter", func() {
-			router := nodes.NewSmartRouter(registry)
+			router := nodes.NewSmartRouter(registry, nodes.SmartRouterOptions{})
 			Expect(router).ToNot(BeNil())
 
 			adapter := nodes.NewModelRouterAdapter(router)
@@ -60,13 +60,25 @@ var _ = Describe("Model Routing", Label("Distributed"), func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(models[0].InFlight).To(Equal(2))
 
+			// FindAndLockNodeWithModel should return this node and atomically increment in-flight
+			foundNode, foundModel, err := registry.FindAndLockNodeWithModel("llama3")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(foundNode.ID).To(Equal(node.ID))
+			Expect(foundModel.ModelName).To(Equal("llama3"))
+			Expect(foundModel.InFlight).To(Equal(2), "InFlight returned is the pre-increment snapshot from the query")
+
+			// Verify the DB now has in_flight = 3 (2 manual + 1 from FindAndLock)
+			models, err = registry.GetNodeModels(node.ID)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(models[0].InFlight).To(Equal(3))
+
 			// Simulate decrement (what Release does)
 			Expect(registry.DecrementInFlight(node.ID, "llama3")).To(Succeed())
 			models, _ = registry.GetNodeModels(node.ID)
-			Expect(models[0].InFlight).To(Equal(1))
+			Expect(models[0].InFlight).To(Equal(2))
 
 			// The ModelRouterAdapter.ReleaseModel calls the stored Release function
-			router := nodes.NewSmartRouter(registry)
+			router := nodes.NewSmartRouter(registry, nodes.SmartRouterOptions{})
 			adapter := nodes.NewModelRouterAdapter(router)
 
 			// ReleaseModel on an unknown model should be a no-op (no panic)

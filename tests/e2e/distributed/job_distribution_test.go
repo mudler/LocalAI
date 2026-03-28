@@ -6,6 +6,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/mudler/LocalAI/core/services/dbutil"
 	"github.com/mudler/LocalAI/core/services/jobs"
 	"github.com/mudler/LocalAI/core/services/messaging"
 
@@ -567,21 +568,21 @@ var _ = Describe("Phase 2: Jobs & Tasks", Label("Distributed"), func() {
 	Context("JSON helpers", func() {
 		It("should marshal and unmarshal JSON fields", func() {
 			params := map[string]string{"key": "value", "foo": "bar"}
-			encoded := jobs.MarshalJSON(params)
+			encoded := dbutil.MarshalJSON(params)
 			Expect(encoded).ToNot(BeEmpty())
 
 			var decoded map[string]string
-			Expect(jobs.UnmarshalJSON(encoded, &decoded)).To(Succeed())
+			Expect(dbutil.UnmarshalJSON(encoded, &decoded)).To(Succeed())
 			Expect(decoded).To(HaveKeyWithValue("key", "value"))
 			Expect(decoded).To(HaveKeyWithValue("foo", "bar"))
 		})
 
 		It("should handle empty/nil JSON gracefully", func() {
-			Expect(jobs.MarshalJSON(nil)).To(BeEmpty())
-			Expect(jobs.MarshalJSON([]string{})).To(BeEmpty())
+			Expect(dbutil.MarshalJSON(nil)).To(BeEmpty())
+			Expect(dbutil.MarshalJSON([]string{})).To(BeEmpty())
 
 			var result map[string]string
-			Expect(jobs.UnmarshalJSON("", &result)).To(Succeed())
+			Expect(dbutil.UnmarshalJSON("", &result)).To(Succeed())
 			Expect(result).To(BeNil())
 		})
 	})

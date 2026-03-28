@@ -146,9 +146,7 @@ func New(opts ...config.AppOption) (*Application, error) {
 		application.distributed = distSvc
 		// Wire remote model unloader so ShutdownModel works for remote nodes
 		// Uses NATS to tell serve-backend nodes to Free + kill their backend process
-		remoteUnloader := nodes.NewRemoteUnloaderAdapter(distSvc.Registry, distSvc.Nats)
-		application.modelLoader.SetRemoteUnloader(remoteUnloader)
-		distSvc.Router.SetUnloader(remoteUnloader)
+		application.modelLoader.SetRemoteUnloader(distSvc.Unloader)
 		// Wire ModelRouter so grpcModel() delegates to SmartRouter in distributed mode
 		application.modelLoader.SetModelRouter(distSvc.ModelAdapter.AsModelRouter())
 		// Wire DistributedModelStore so shutdown/list/watchdog can find remote models
@@ -193,10 +191,10 @@ func New(opts ...config.AppOption) (*Application, error) {
 			}
 			// Wire distributed model/backend managers so delete propagates to workers
 			application.galleryService.SetModelManager(
-				nodes.NewDistributedModelManager(options, application.modelLoader, remoteUnloader),
+				nodes.NewDistributedModelManager(options, application.modelLoader, distSvc.Unloader),
 			)
 			application.galleryService.SetBackendManager(
-				nodes.NewDistributedBackendManager(options, application.modelLoader, remoteUnloader, distSvc.Registry),
+				nodes.NewDistributedBackendManager(options, application.modelLoader, distSvc.Unloader, distSvc.Registry),
 			)
 		}
 	}

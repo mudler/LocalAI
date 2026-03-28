@@ -221,10 +221,29 @@ var _ = Describe("Full Distributed Inference Flow", Label("Distributed"), func()
 
 	// newTestSmartRouter creates a SmartRouter with NATS wired up and a mock
 	// backend.install handler that always replies success for all registered nodes.
-	newTestSmartRouter := func(reg *nodes.NodeRegistry) *nodes.SmartRouter {
-		router := nodes.NewSmartRouter(reg)
+	newTestSmartRouter := func(reg *nodes.NodeRegistry, extraOpts ...nodes.SmartRouterOptions) *nodes.SmartRouter {
 		unloader := nodes.NewRemoteUnloaderAdapter(reg, infra.NC)
-		router.SetUnloader(unloader)
+
+		opts := nodes.SmartRouterOptions{
+			Unloader: unloader,
+		}
+		if len(extraOpts) > 0 {
+			o := extraOpts[0]
+			if o.FileStager != nil {
+				opts.FileStager = o.FileStager
+			}
+			if o.GalleriesJSON != "" {
+				opts.GalleriesJSON = o.GalleriesJSON
+			}
+			if o.AuthToken != "" {
+				opts.AuthToken = o.AuthToken
+			}
+			if o.DB != nil {
+				opts.DB = o.DB
+			}
+		}
+
+		router := nodes.NewSmartRouter(reg, opts)
 
 		// Subscribe a mock backend.install handler that replies success for any node.
 		// We use a wildcard-style approach: subscribe to all nodes' install subjects
@@ -461,8 +480,7 @@ var _ = Describe("Full Distributed Inference Flow", Label("Distributed"), func()
 		}, "")
 
 		// Create SmartRouter with the HTTPFileStager
-		router := newTestSmartRouter(registry)
-		router.SetFileStager(stager)
+		router := newTestSmartRouter(registry, nodes.SmartRouterOptions{FileStager: stager})
 
 		// Route with ModelOptions that have file paths — SmartRouter should stage them
 		result, err := router.Route(ctx, "", "staged-model", "llama-cpp", &pb.ModelOptions{
@@ -531,8 +549,7 @@ var _ = Describe("Full Distributed Inference Flow", Label("Distributed"), func()
 		}, "")
 
 		// Create SmartRouter with FileStager
-		router := newTestSmartRouter(registry)
-		router.SetFileStager(stager)
+		router := newTestSmartRouter(registry, nodes.SmartRouterOptions{FileStager: stager})
 
 		// Route with ModelOptions — triggers LoadModel on the node
 		modelDir := GinkgoT().TempDir()
@@ -635,8 +652,7 @@ var _ = Describe("Full Distributed Inference Flow", Label("Distributed"), func()
 			return n.HTTPAddress, nil
 		}, "")
 
-		router := newTestSmartRouter(registry)
-		router.SetFileStager(stager)
+		router := newTestSmartRouter(registry, nodes.SmartRouterOptions{FileStager: stager})
 
 		result, err := router.Route(ctx, "", modelName, backendType, &pb.ModelOptions{
 			Model: modelName,

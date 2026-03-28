@@ -90,9 +90,7 @@ func (cmd *AgentWorkerCMD) Run(ctx *cliContext.Context) error {
 
 	// Start heartbeat
 	heartbeatInterval, _ := time.ParseDuration(cmd.HeartbeatInterval)
-	if heartbeatInterval == 0 {
-		heartbeatInterval = 10 * time.Second
-	}
+	heartbeatInterval = cmp.Or(heartbeatInterval, 10*time.Second)
 	// Context cancelled on shutdown — used by heartbeat and other background goroutines
 	shutdownCtx, shutdownCancel := context.WithCancel(context.Background())
 	defer shutdownCancel()
@@ -145,8 +143,8 @@ func (cmd *AgentWorkerCMD) Run(ctx *cliContext.Context) error {
 	// Subscribe to MCP CI job execution (load-balanced across agent workers).
 	// In distributed mode, MCP CI jobs are routed here because the frontend
 	// cannot create MCP sessions (e.g., stdio servers using docker).
-	natsClient.QueueSubscribe(messaging.SubjectJobsNew, messaging.QueueWorkers, func(data []byte) {
-		handleMCPCIJob(data, apiURL, cmd.APIToken, natsClient)
+	natsClient.QueueSubscribe(messaging.SubjectMCPCIJobsNew, messaging.QueueWorkers, func(data []byte) {
+		handleMCPCIJob(shutdownCtx, data, apiURL, cmd.APIToken, natsClient)
 	})
 
 	// Subscribe to backend stop events to clean up cached MCP sessions.
@@ -171,11 +169,7 @@ func (cmd *AgentWorkerCMD) Run(ctx *cliContext.Context) error {
 	xlog.Info("Shutting down agent worker")
 	dispatcher.Stop()
 	mcpTools.CloseAllMCPSessions()
-	if err := regClient.Deregister(context.Background(), nodeID); err != nil {
-		xlog.Warn("Failed to deregister", "error", err)
-	} else {
-		xlog.Info("Deregistered from frontend")
-	}
+	regClient.GracefulDeregister(nodeID)
 	return nil
 }
 
@@ -279,7 +273,9 @@ func sendMCPDiscoveryReply(reply func([]byte), servers []mcpRemote.MCPServerInfo
 	reply(data)
 }
 
-// natsClientAdapter wraps messaging.Client to satisfy NATSClient interface.
+// natsClientAdapter wraps messaging.Client to satisfy agents.NATSClient.
+// The concrete Client.QueueSubscribe returns *nats.Subscription; this adapter
+// widens it to messaging.Subscription so it matches the interface.
 type natsClientAdapter struct {
 	client *messaging.Client
 }
@@ -288,13 +284,13 @@ func (a *natsClientAdapter) Publish(subject string, data any) error {
 	return a.client.Publish(subject, data)
 }
 
-func (a *natsClientAdapter) QueueSubscribe(subject, queue string, handler func(data []byte)) (agents.NATSSub, error) {
+func (a *natsClientAdapter) QueueSubscribe(subject, queue string, handler func(data []byte)) (messaging.Subscription, error) {
 	return a.client.QueueSubscribe(subject, queue, handler)
 }
 
 // handleMCPCIJob processes an MCP CI job on the agent worker.
 // The agent worker can create MCP sessions (has docker) and call the LocalAI API for inference.
-func handleMCPCIJob(data []byte, apiURL, apiToken string, natsClient *messaging.Client) {
+func handleMCPCIJob(shutdownCtx context.Context, data []byte, apiURL, apiToken string, natsClient *messaging.Client) {
 	var evt jobs.JobEvent
 	if err := json.Unmarshal(data, &evt); err != nil {
 		xlog.Error("Failed to unmarshal job event", "error", err)
@@ -370,7 +366,7 @@ func handleMCPCIJob(data []byte, apiURL, apiToken string, natsClient *messaging.
 	llm := clients.NewLocalAILLM(task.Model, apiToken, apiURL)
 
 	// Build cogito options
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	ctx, cancel := context.WithTimeout(shutdownCtx, 10*time.Minute)
 	defer cancel()
 
 	// Update job status to running in DB

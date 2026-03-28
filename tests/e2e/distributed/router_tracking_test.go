@@ -77,9 +77,10 @@ var _ = Describe("SmartRouter trackingKey", Label("Distributed"), func() {
 		Expect(registry.Register(node, true)).To(Succeed())
 		nodeID = node.ID
 
-		router = nodes.NewSmartRouter(registry)
 		unloader := nodes.NewRemoteUnloaderAdapter(registry, infra.NC)
-		router.SetUnloader(unloader)
+		router = nodes.NewSmartRouter(registry, nodes.SmartRouterOptions{
+			Unloader: unloader,
+		})
 	})
 
 	AfterEach(func() {

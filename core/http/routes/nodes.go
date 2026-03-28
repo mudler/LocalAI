@@ -28,6 +28,11 @@ func nodeReadyMiddleware(registry *nodes.NodeRegistry) echo.MiddlewareFunc {
 // RegisterNodeSelfServiceRoutes registers /api/node/ endpoints used by backend
 // nodes themselves (register, heartbeat, drain, query own models, deregister).
 // These are authenticated via the registration token, not admin middleware.
+//
+// TODO(security): Self-service routes currently accept any node :id with a valid
+// registration token. A compromised worker can heartbeat/drain/deregister other nodes.
+// To fix: issue per-node bearer tokens during registration and validate :id matches
+// the authenticated node. See security review item S2.
 func RegisterNodeSelfServiceRoutes(e *echo.Echo, registry *nodes.NodeRegistry, registrationToken string, autoApprove bool, authDB *gorm.DB, hmacSecret string) {
 	if registry == nil {
 		return
