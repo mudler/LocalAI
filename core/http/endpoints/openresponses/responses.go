@@ -123,8 +123,8 @@ func ResponsesEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eval
 				}
 				mcpExecutor = mcpTools.NewToolExecutor(c.Request().Context(), natsClient, cfg.Name, remote, stdio, enabledServers)
 
-				// Prompt and resource injection (local mode only)
-				if natsClient == nil && hasMCPRequest {
+				// Prompt and resource injection (pre-processing step — resolves locally regardless of distributed mode)
+				if hasMCPRequest {
 					namedSessions, sessErr := mcpTools.NamedSessionsFromMCPConfig(cfg.Name, remote, stdio, mcpServers)
 					if sessErr == nil && len(namedSessions) > 0 {
 						mcpCtx, _ := mcpTools.InjectMCPContext(c.Request().Context(), namedSessions, mcpPromptName, mcpPromptArgs, mcpResourceURIs)

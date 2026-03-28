@@ -38,7 +38,7 @@ type AgentCancelEvent struct {
 // EventBridge bridges agent events between NATS and SSE connections.
 // It enables cross-instance SSE: user connects to Frontend 1, agent runs on Frontend 2.
 type EventBridge struct {
-	nats       *messaging.Client
+	nats       messaging.MessagingClient
 	store      *AgentStore
 	instanceID string
 
@@ -50,7 +50,7 @@ type EventBridge struct {
 }
 
 // NewEventBridge creates a new EventBridge.
-func NewEventBridge(nc *messaging.Client, store *AgentStore, instanceID string) *EventBridge {
+func NewEventBridge(nc messaging.MessagingClient, store *AgentStore, instanceID string) *EventBridge {
 	return &EventBridge{
 		nats:       nc,
 		store:      store,

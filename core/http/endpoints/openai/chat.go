@@ -472,15 +472,13 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 			if mcpErr == nil {
 				mcpExecutor = mcpTools.NewToolExecutor(c.Request().Context(), natsClient, config.Name, remote, stdio, mcpServers)
 
-				// Prompt and resource injection (local mode only — requires sessions)
-				if natsClient == nil {
-					namedSessions, sessErr := mcpTools.NamedSessionsFromMCPConfig(config.Name, remote, stdio, mcpServers)
-					if sessErr == nil && len(namedSessions) > 0 {
-						mcpCtx, _ := mcpTools.InjectMCPContext(c.Request().Context(), namedSessions, mcpPromptName, mcpPromptArgs, mcpResourceURIs)
-						if mcpCtx != nil {
-							input.Messages = append(mcpCtx.PromptMessages, input.Messages...)
-							mcpTools.AppendResourceSuffix(input.Messages, mcpCtx.ResourceSuffix)
-						}
+				// Prompt and resource injection (pre-processing step — resolves locally regardless of distributed mode)
+				namedSessions, sessErr := mcpTools.NamedSessionsFromMCPConfig(config.Name, remote, stdio, mcpServers)
+				if sessErr == nil && len(namedSessions) > 0 {
+					mcpCtx, _ := mcpTools.InjectMCPContext(c.Request().Context(), namedSessions, mcpPromptName, mcpPromptArgs, mcpResourceURIs)
+					if mcpCtx != nil {
+						input.Messages = append(mcpCtx.PromptMessages, input.Messages...)
+						mcpTools.AppendResourceSuffix(input.Messages, mcpCtx.ResourceSuffix)
 					}
 				}
 

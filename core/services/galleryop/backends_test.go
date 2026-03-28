@@ -48,7 +48,7 @@ var _ = Describe("InstallExternalBackend", func() {
 	Context("with gallery backend name", func() {
 		BeforeEach(func() {
 			// Create a test gallery file with a test backend
-			testBackend := []map[string]interface{}{
+			testBackend := []map[string]any{
 				{
 					"name": "test-backend",
 					"uri":  "https://gist.githubusercontent.com/mudler/71d5376bc2aa168873fa519fa9f4bd56/raw/testbackend/run.sh",

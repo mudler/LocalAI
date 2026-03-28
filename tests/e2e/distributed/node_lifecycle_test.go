@@ -1,6 +1,7 @@
 package distributed_test
 
 import (
+	"context"
 	"encoding/json"
 	"sync/atomic"
 
@@ -40,7 +41,7 @@ var _ = Describe("Node Backend Lifecycle (NATS-driven)", Label("Distributed"), f
 			node := &nodes.BackendNode{
 				Name: "gpu-node-1", Address: "h1:50051",
 			}
-			Expect(registry.Register(node, true)).To(Succeed())
+			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
 
 			// Simulate worker subscribing to backend.install and replying success
 			infra.NC.SubscribeReply(messaging.SubjectNodeBackendInstall(node.ID), func(data []byte, reply func([]byte)) {
@@ -65,7 +66,7 @@ var _ = Describe("Node Backend Lifecycle (NATS-driven)", Label("Distributed"), f
 			node := &nodes.BackendNode{
 				Name: "fail-node", Address: "h1:50051",
 			}
-			Expect(registry.Register(node, true)).To(Succeed())
+			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
 
 			// Simulate worker replying with error
 			infra.NC.SubscribeReply(messaging.SubjectNodeBackendInstall(node.ID), func(data []byte, reply func([]byte)) {
@@ -89,8 +90,8 @@ var _ = Describe("Node Backend Lifecycle (NATS-driven)", Label("Distributed"), f
 			node := &nodes.BackendNode{
 				Name: "gpu-node-2", Address: "h2:50051",
 			}
-			Expect(registry.Register(node, true)).To(Succeed())
-			Expect(registry.SetNodeModel(node.ID, "whisper-large", "loaded")).To(Succeed())
+			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), node.ID, "whisper-large", "loaded")).To(Succeed())
 
 			var stopReceived atomic.Int32
 			sub, err := infra.NC.Subscribe(messaging.SubjectNodeBackendStop(node.ID), func(data []byte) {
@@ -108,17 +109,17 @@ var _ = Describe("Node Backend Lifecycle (NATS-driven)", Label("Distributed"), f
 			Eventually(func() int32 { return stopReceived.Load() }, "5s").Should(Equal(int32(1)))
 
 			// Model should be removed from registry
-			nodesWithModel, _ := registry.FindNodesWithModel("whisper-large")
+			nodesWithModel, _ := registry.FindNodesWithModel(context.Background(),"whisper-large")
 			Expect(nodesWithModel).To(BeEmpty())
 		})
 
 		It("should send backend.stop to all nodes hosting the model", func() {
 			node1 := &nodes.BackendNode{Name: "n1", Address: "h1:50051"}
 			node2 := &nodes.BackendNode{Name: "n2", Address: "h2:50051"}
-			registry.Register(node1, true)
-			registry.Register(node2, true)
-			registry.SetNodeModel(node1.ID, "shared-model", "loaded")
-			registry.SetNodeModel(node2.ID, "shared-model", "loaded")
+			registry.Register(context.Background(), node1, true)
+			registry.Register(context.Background(), node2, true)
+			registry.SetNodeModel(context.Background(), node1.ID, "shared-model", "loaded")
+			registry.SetNodeModel(context.Background(), node2.ID, "shared-model", "loaded")
 
 			var count atomic.Int32
 			sub1, _ := infra.NC.Subscribe(messaging.SubjectNodeBackendStop(node1.ID), func(data []byte) {
@@ -149,7 +150,7 @@ var _ = Describe("Node Backend Lifecycle (NATS-driven)", Label("Distributed"), f
 			node := &nodes.BackendNode{
 				Name: "stop-me", Address: "h3:50051",
 			}
-			Expect(registry.Register(node, true)).To(Succeed())
+			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
 
 			var stopped atomic.Int32
 			sub, err := infra.NC.Subscribe(messaging.SubjectNodeStop(node.ID), func(data []byte) {

@@ -19,11 +19,11 @@ import (
 //  3. Backend downloads from S3 to local cache, replies with local path
 type S3NATSFileStager struct {
 	fm   *storage.FileManager
-	nats *messaging.Client
+	nats messaging.MessagingClient
 }
 
 // NewS3NATSFileStager creates a new S3+NATS file stager.
-func NewS3NATSFileStager(fm *storage.FileManager, nats *messaging.Client) *S3NATSFileStager {
+func NewS3NATSFileStager(fm *storage.FileManager, nats messaging.MessagingClient) *S3NATSFileStager {
 	return &S3NATSFileStager{fm: fm, nats: nats}
 }
 

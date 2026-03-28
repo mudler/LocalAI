@@ -5,6 +5,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/mudler/LocalAI/core/services/advisorylock"
+	"github.com/mudler/LocalAI/core/services/messaging"
 	"gorm.io/gorm"
 )
 
@@ -38,8 +40,12 @@ type FineTuneStore struct {
 }
 
 // NewFineTuneStore creates a new FineTuneStore and auto-migrates.
+// Uses a PostgreSQL advisory lock to prevent concurrent migration races
+// when multiple instances (frontend + workers) start at the same time.
 func NewFineTuneStore(db *gorm.DB) (*FineTuneStore, error) {
-	if err := db.AutoMigrate(&FineTuneJobRecord{}); err != nil {
+	if err := advisorylock.WithLock(db, messaging.AdvisoryLockSchemaMigrate, func() error {
+		return db.AutoMigrate(&FineTuneJobRecord{})
+	}); err != nil {
 		return nil, fmt.Errorf("migrating finetune_jobs: %w", err)
 	}
 	return &FineTuneStore{db: db}, nil

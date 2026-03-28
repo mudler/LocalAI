@@ -1,6 +1,7 @@
 package distributed_test
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -129,10 +130,10 @@ var _ = Describe("Model and Backend Managers", Label("Distributed"), func() {
 			// Register two nodes with the model
 			node1 := &nodes.BackendNode{Name: "dm-n1", Address: "h1:50051"}
 			node2 := &nodes.BackendNode{Name: "dm-n2", Address: "h2:50051"}
-			Expect(registry.Register(node1, true)).To(Succeed())
-			Expect(registry.Register(node2, true)).To(Succeed())
-			Expect(registry.SetNodeModel(node1.ID, "big-model", "loaded")).To(Succeed())
-			Expect(registry.SetNodeModel(node2.ID, "big-model", "loaded")).To(Succeed())
+			Expect(registry.Register(context.Background(), node1, true)).To(Succeed())
+			Expect(registry.Register(context.Background(), node2, true)).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), node1.ID, "big-model", "loaded")).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), node2.ID, "big-model", "loaded")).To(Succeed())
 
 			// Subscribe to model.delete on both node subjects, track receipt
 			var deleteCount atomic.Int32
@@ -195,10 +196,10 @@ var _ = Describe("Model and Backend Managers", Label("Distributed"), func() {
 			node1 := &nodes.BackendNode{Name: "db-n1", Address: "h1:50051"}
 			node2 := &nodes.BackendNode{Name: "db-n2", Address: "h2:50051"}
 			node3 := &nodes.BackendNode{Name: "db-n3", Address: "h3:50051"}
-			Expect(registry.Register(node1, true)).To(Succeed())
-			Expect(registry.Register(node2, true)).To(Succeed())
-			Expect(registry.Register(node3, true)).To(Succeed())
-			Expect(registry.MarkUnhealthy(node3.ID)).To(Succeed())
+			Expect(registry.Register(context.Background(), node1, true)).To(Succeed())
+			Expect(registry.Register(context.Background(), node2, true)).To(Succeed())
+			Expect(registry.Register(context.Background(), node3, true)).To(Succeed())
+			Expect(registry.MarkUnhealthy(context.Background(), node3.ID)).To(Succeed())
 
 			// Subscribe to backend.delete on all 3 nodes
 			var deleteCount atomic.Int32
@@ -270,7 +271,7 @@ var _ = Describe("Model and Backend Managers", Label("Distributed"), func() {
 		It("should succeed when backend exists only on remote workers (not locally)", func() {
 			// Register a healthy node
 			node1 := &nodes.BackendNode{Name: "db-remote-only", Address: "h1:50051"}
-			Expect(registry.Register(node1, true)).To(Succeed())
+			Expect(registry.Register(context.Background(), node1, true)).To(Succeed())
 
 			var deleteCount atomic.Int32
 			sub1, err := infra.NC.SubscribeReply(messaging.SubjectNodeBackendDelete(node1.ID), func(data []byte, reply func([]byte)) {

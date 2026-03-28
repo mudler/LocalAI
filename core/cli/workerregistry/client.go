@@ -68,7 +68,7 @@ func (c *RegistrationClient) Register(ctx context.Context, body map[string]any) 
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return "", "", fmt.Errorf("registration failed with status %d", resp.StatusCode)
 	}
 

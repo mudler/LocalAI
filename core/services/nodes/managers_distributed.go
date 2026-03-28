@@ -73,7 +73,7 @@ func (d *DistributedBackendManager) DeleteBackend(name string) error {
 		xlog.Debug("Backend not found locally, will attempt deletion on workers", "backend", name)
 	}
 	// Fan out backend.delete to all healthy nodes
-	allNodes, listErr := d.registry.List()
+	allNodes, listErr := d.registry.List(context.Background())
 	if listErr != nil {
 		xlog.Warn("Failed to list nodes for backend deletion fan-out", "error", listErr)
 		return listErr
@@ -94,7 +94,7 @@ func (d *DistributedBackendManager) DeleteBackend(name string) error {
 // ListBackends aggregates installed backends from all healthy worker nodes.
 func (d *DistributedBackendManager) ListBackends() (gallery.SystemBackends, error) {
 	result := make(gallery.SystemBackends)
-	allNodes, err := d.registry.List()
+	allNodes, err := d.registry.List(context.Background())
 	if err != nil {
 		return result, err
 	}
@@ -131,7 +131,7 @@ func (d *DistributedBackendManager) ListBackends() (gallery.SystemBackends, erro
 
 // InstallBackend fans out backend installation to all healthy worker nodes.
 func (d *DistributedBackendManager) InstallBackend(ctx context.Context, op *galleryop.ManagementOp[gallery.GalleryBackend, any], progressCb galleryop.ProgressCallback) error {
-	allNodes, err := d.registry.List()
+	allNodes, err := d.registry.List(context.Background())
 	if err != nil {
 		return err
 	}

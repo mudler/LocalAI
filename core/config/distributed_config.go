@@ -2,7 +2,10 @@ package config
 
 import (
 	"cmp"
+	"fmt"
 	"time"
+
+	"github.com/mudler/xlog"
 )
 
 // DistributedConfig holds configuration for horizontal scaling mode.
@@ -28,11 +31,48 @@ type DistributedConfig struct {
 	DrainTimeout        time.Duration // Time to wait for in-flight requests during drain (default 30s)
 	HealthCheckInterval time.Duration // Health monitor check interval (default 15s)
 	StaleNodeThreshold  time.Duration // Time before a node is considered stale (default 60s)
+	PerModelHealthCheck bool          // Enable per-model backend health checking (default false)
+	MCPCIJobTimeout     time.Duration // MCP CI job execution timeout (default 10m)
 
 	MaxUploadSize int64 // Maximum upload body size in bytes (default 50 GB)
 
 	AgentWorkerConcurrency int `yaml:"agent_worker_concurrency" json:"agent_worker_concurrency" env:"LOCALAI_AGENT_WORKER_CONCURRENCY"`
 	JobWorkerConcurrency   int `yaml:"job_worker_concurrency" json:"job_worker_concurrency" env:"LOCALAI_JOB_WORKER_CONCURRENCY"`
+}
+
+// Validate checks that the distributed configuration is internally consistent.
+// It returns nil if distributed mode is disabled.
+func (c DistributedConfig) Validate() error {
+	if !c.Enabled {
+		return nil
+	}
+	if c.NatsURL == "" {
+		return fmt.Errorf("distributed mode requires --nats-url / LOCALAI_NATS_URL")
+	}
+	// S3 credentials must be paired
+	if (c.StorageAccessKey != "" && c.StorageSecretKey == "") ||
+		(c.StorageAccessKey == "" && c.StorageSecretKey != "") {
+		return fmt.Errorf("storage-access-key and storage-secret-key must both be set or both empty")
+	}
+	// Warn about missing registration token (not an error)
+	if c.RegistrationToken == "" {
+		xlog.Warn("distributed mode running without registration token — node endpoints are unprotected")
+	}
+	// Check for negative durations
+	for name, d := range map[string]time.Duration{
+		"mcp-tool-timeout":      c.MCPToolTimeout,
+		"mcp-discovery-timeout": c.MCPDiscoveryTimeout,
+		"worker-wait-timeout":   c.WorkerWaitTimeout,
+		"drain-timeout":         c.DrainTimeout,
+		"health-check-interval": c.HealthCheckInterval,
+		"stale-node-threshold":  c.StaleNodeThreshold,
+		"mcp-ci-job-timeout":    c.MCPCIJobTimeout,
+	} {
+		if d < 0 {
+			return fmt.Errorf("%s must not be negative", name)
+		}
+	}
+	return nil
 }
 
 // Distributed config options
@@ -101,6 +141,7 @@ const (
 	DefaultDrainTimeout        = 30 * time.Second
 	DefaultHealthCheckInterval = 15 * time.Second
 	DefaultStaleNodeThreshold  = 60 * time.Second
+	DefaultMCPCIJobTimeout     = 10 * time.Minute
 )
 
 // DefaultMaxUploadSize is the default maximum upload body size (50 GB).
@@ -134,6 +175,11 @@ func (c DistributedConfig) HealthCheckIntervalOrDefault() time.Duration {
 // StaleNodeThresholdOrDefault returns the configured threshold or the default.
 func (c DistributedConfig) StaleNodeThresholdOrDefault() time.Duration {
 	return cmp.Or(c.StaleNodeThreshold, DefaultStaleNodeThreshold)
+}
+
+// MCPCIJobTimeoutOrDefault returns the configured MCP CI job timeout or the default.
+func (c DistributedConfig) MCPCIJobTimeoutOrDefault() time.Duration {
+	return cmp.Or(c.MCPCIJobTimeout, DefaultMCPCIJobTimeout)
 }
 
 // MaxUploadSizeOrDefault returns the configured max upload size or the default.

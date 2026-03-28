@@ -480,7 +480,7 @@ var _ = Describe("Native Agent Executor", Label("Distributed", "AgentNative"), f
 			FlushNATS(infra.NC)
 
 			// Send 10 messages
-			for i := 0; i < 10; i++ {
+			for range 10 {
 				infra.NC.Publish("agent.rr.execute", agents.AgentChatEvent{
 					AgentName: "rr-agent",
 					UserID:    "user1",
@@ -578,10 +578,10 @@ var _ = Describe("Native Agent Executor", Label("Distributed", "AgentNative"), f
 				Status:   "healthy",
 			}
 
-			Expect(registry.Register(node, true)).To(Succeed())
+			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
 
 			// Verify node type is stored
-			loaded, err := registry.Get(node.ID)
+			loaded, err := registry.Get(context.Background(), node.ID)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(loaded.NodeType).To(Equal(nodes.NodeTypeAgent))
 			Expect(loaded.Name).To(Equal("agent-worker-1"))
@@ -601,10 +601,10 @@ var _ = Describe("Native Agent Executor", Label("Distributed", "AgentNative"), f
 				NodeType: nodes.NodeTypeAgent,
 			}
 
-			Expect(registry.Register(backend, true)).To(Succeed())
-			Expect(registry.Register(agent, true)).To(Succeed())
+			Expect(registry.Register(context.Background(), backend, true)).To(Succeed())
+			Expect(registry.Register(context.Background(), agent, true)).To(Succeed())
 
-			allNodes, err := registry.List()
+			allNodes, err := registry.List(context.Background())
 			Expect(err).ToNot(HaveOccurred())
 
 			var backendCount, agentCount int

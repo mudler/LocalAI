@@ -161,7 +161,7 @@ var _ = Describe("MCP NATS Routing", Label("Distributed"), func() {
 			FlushNATS(infra.NC)
 
 			// Send multiple requests
-			for i := 0; i < 10; i++ {
+			for range 10 {
 				_, err := infra.NC.Request("test.lb", []byte("req"), 5*time.Second)
 				Expect(err).ToNot(HaveOccurred())
 			}

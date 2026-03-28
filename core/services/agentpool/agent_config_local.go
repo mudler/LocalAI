@@ -23,7 +23,7 @@ func newLocalAgentConfigBackend(svc *AgentPoolService) *localAgentConfigBackend 
 
 func (b *localAgentConfigBackend) ListAgents(userID string) map[string]bool {
 	statuses := map[string]bool{}
-	agents := b.svc.pool.List()
+	agents := b.svc.localAGI.pool.List()
 	prefix := ""
 	if userID != "" {
 		prefix = userID + ":"
@@ -32,7 +32,7 @@ func (b *localAgentConfigBackend) ListAgents(userID string) map[string]bool {
 		if userID != "" && !strings.HasPrefix(a, prefix) {
 			continue
 		}
-		ag := b.svc.pool.GetAgent(a)
+		ag := b.svc.localAGI.pool.GetAgent(a)
 		if ag == nil {
 			continue
 		}
@@ -46,7 +46,7 @@ func (b *localAgentConfigBackend) ListAgents(userID string) map[string]bool {
 }
 
 func (b *localAgentConfigBackend) GetConfig(userID, name string) *state.AgentConfig {
-	cfg := b.svc.pool.GetConfig(agents.AgentKey(userID, name))
+	cfg := b.svc.localAGI.pool.GetConfig(agents.AgentKey(userID, name))
 	if cfg == nil {
 		return nil
 	}
@@ -59,30 +59,30 @@ func (b *localAgentConfigBackend) GetConfig(userID, name string) *state.AgentCon
 func (b *localAgentConfigBackend) SaveConfig(userID string, cfg *state.AgentConfig) error {
 	key := agents.AgentKey(userID, cfg.Name)
 	cfg.Name = key
-	return b.svc.pool.CreateAgent(key, cfg)
+	return b.svc.localAGI.pool.CreateAgent(key, cfg)
 }
 
 func (b *localAgentConfigBackend) UpdateConfig(userID, name string, cfg *state.AgentConfig) error {
 	key := agents.AgentKey(userID, name)
-	if old := b.svc.pool.GetConfig(key); old == nil {
+	if old := b.svc.localAGI.pool.GetConfig(key); old == nil {
 		return fmt.Errorf("%w: %s", ErrAgentNotFound, name)
 	}
 	cfg.Name = key
-	return b.svc.pool.RecreateAgent(key, cfg)
+	return b.svc.localAGI.pool.RecreateAgent(key, cfg)
 }
 
 func (b *localAgentConfigBackend) DeleteConfig(userID, name string) error {
-	return b.svc.pool.Remove(agents.AgentKey(userID, name))
+	return b.svc.localAGI.pool.Remove(agents.AgentKey(userID, name))
 }
 
 func (b *localAgentConfigBackend) ImportConfig(userID string, cfg *state.AgentConfig) error {
 	key := agents.AgentKey(userID, cfg.Name)
 	cfg.Name = key
-	return b.svc.pool.CreateAgent(key, cfg)
+	return b.svc.localAGI.pool.CreateAgent(key, cfg)
 }
 
 func (b *localAgentConfigBackend) ExportConfig(userID, name string) ([]byte, error) {
-	cfg := b.svc.pool.GetConfig(agents.AgentKey(userID, name))
+	cfg := b.svc.localAGI.pool.GetConfig(agents.AgentKey(userID, name))
 	if cfg == nil {
 		return nil, fmt.Errorf("%w: %s", ErrAgentNotFound, name)
 	}
@@ -90,7 +90,7 @@ func (b *localAgentConfigBackend) ExportConfig(userID, name string) ([]byte, err
 }
 
 func (b *localAgentConfigBackend) SetStatus(userID, name, status string) error {
-	ag := b.svc.pool.GetAgent(agents.AgentKey(userID, name))
+	ag := b.svc.localAGI.pool.GetAgent(agents.AgentKey(userID, name))
 	if ag == nil {
 		return fmt.Errorf("%w: %s", ErrAgentNotFound, name)
 	}
@@ -106,19 +106,19 @@ func (b *localAgentConfigBackend) SetStatus(userID, name, status string) error {
 }
 
 func (b *localAgentConfigBackend) GetAgent(userID, name string) *agent.Agent {
-	return b.svc.pool.GetAgent(agents.AgentKey(userID, name))
+	return b.svc.localAGI.pool.GetAgent(agents.AgentKey(userID, name))
 }
 
 func (b *localAgentConfigBackend) GetSSEManager(userID, name string) sse.Manager {
-	return b.svc.pool.GetManager(agents.AgentKey(userID, name))
+	return b.svc.localAGI.pool.GetManager(agents.AgentKey(userID, name))
 }
 
 func (b *localAgentConfigBackend) GetStatus(userID, name string) *state.Status {
-	return b.svc.pool.GetStatusHistory(agents.AgentKey(userID, name))
+	return b.svc.localAGI.pool.GetStatusHistory(agents.AgentKey(userID, name))
 }
 
 func (b *localAgentConfigBackend) GetObservables(userID, name string) ([]json.RawMessage, error) {
-	ag := b.svc.pool.GetAgent(agents.AgentKey(userID, name))
+	ag := b.svc.localAGI.pool.GetAgent(agents.AgentKey(userID, name))
 	if ag == nil {
 		return nil, fmt.Errorf("%w: %s", ErrAgentNotFound, name)
 	}
@@ -135,7 +135,7 @@ func (b *localAgentConfigBackend) GetObservables(userID, name string) ([]json.Ra
 }
 
 func (b *localAgentConfigBackend) ClearObservables(userID, name string) error {
-	ag := b.svc.pool.GetAgent(agents.AgentKey(userID, name))
+	ag := b.svc.localAGI.pool.GetAgent(agents.AgentKey(userID, name))
 	if ag == nil {
 		return fmt.Errorf("%w: %s", ErrAgentNotFound, name)
 	}
@@ -145,9 +145,9 @@ func (b *localAgentConfigBackend) ClearObservables(userID, name string) error {
 
 func (b *localAgentConfigBackend) ListAllGrouped() map[string][]UserAgentInfo {
 	result := map[string][]UserAgentInfo{}
-	agents := b.svc.pool.List()
+	agents := b.svc.localAGI.pool.List()
 	for _, a := range agents {
-		ag := b.svc.pool.GetAgent(a)
+		ag := b.svc.localAGI.pool.GetAgent(a)
 		if ag == nil {
 			continue
 		}
@@ -166,7 +166,7 @@ func (b *localAgentConfigBackend) ListAllGrouped() map[string][]UserAgentInfo {
 }
 
 func (b *localAgentConfigBackend) GetConfigMeta() AgentConfigMetaResult {
-	meta := b.svc.configMeta
+	meta := b.svc.localAGI.configMeta
 	return AgentConfigMetaResult{
 		Fields:     meta.Fields,
 		Actions:    meta.Actions,
@@ -185,7 +185,7 @@ func (b *localAgentConfigBackend) Chat(userID, name, message string) (string, er
 }
 
 func (b *localAgentConfigBackend) Stop() {
-	if b.svc.pool != nil {
-		b.svc.pool.StopAll()
+	if b.svc.localAGI.pool != nil {
+		b.svc.localAGI.pool.StopAll()
 	}
 }

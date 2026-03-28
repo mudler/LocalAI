@@ -417,7 +417,9 @@ func ExecuteMCPToolCallRemote(
 
 	var args map[string]any
 	if arguments != "" {
-		json.Unmarshal([]byte(arguments), &args)
+		if err := json.Unmarshal([]byte(arguments), &args); err != nil {
+			return "", fmt.Errorf("invalid tool arguments JSON: %w", err)
+		}
 	}
 
 	req := mcpRemote.MCPToolRequest{

@@ -3,7 +3,16 @@ package storage
 import (
 	"context"
 	"io"
+	"time"
 )
+
+// ObjectMeta holds metadata about an object in the store.
+type ObjectMeta struct {
+	Key          string
+	Size         int64
+	LastModified time.Time
+	Metadata     map[string]string // user-defined metadata (e.g. x-amz-meta-* in S3)
+}
 
 // ObjectStore is the interface for blob storage (model files, user assets, etc.).
 // Two implementations exist: S3 (for distributed/production) and filesystem (fallback/local).
@@ -13,6 +22,9 @@ type ObjectStore interface {
 
 	// Get retrieves data for the given key. Caller must close the returned ReadCloser.
 	Get(ctx context.Context, key string) (io.ReadCloser, error)
+
+	// Head returns metadata about the object without downloading its body.
+	Head(ctx context.Context, key string) (*ObjectMeta, error)
 
 	// Exists returns true if the key exists in the store.
 	Exists(ctx context.Context, key string) (bool, error)

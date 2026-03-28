@@ -116,6 +116,14 @@ func (fm *FileManager) Download(ctx context.Context, key string) (string, error)
 	return v.(string), nil
 }
 
+// Head returns metadata about an object in storage without downloading it.
+func (fm *FileManager) Head(ctx context.Context, key string) (*ObjectMeta, error) {
+	if fm.store == nil {
+		return nil, fmt.Errorf("no object store configured")
+	}
+	return fm.store.Head(ctx, key)
+}
+
 // Exists checks if a file exists in object storage.
 func (fm *FileManager) Exists(ctx context.Context, key string) (bool, error) {
 	if fm.store == nil {

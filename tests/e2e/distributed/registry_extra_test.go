@@ -1,6 +1,8 @@
 package distributed_test
 
 import (
+	"context"
+
 	"github.com/mudler/LocalAI/core/services/nodes"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -33,7 +35,7 @@ var _ = Describe("NodeRegistry extra methods", Label("Distributed"), func() {
 
 	Context("ListAllLoadedModels", func() {
 		It("returns empty when no models loaded", func() {
-			models, err := registry.ListAllLoadedModels()
+			models, err := registry.ListAllLoadedModels(context.Background())
 			Expect(err).ToNot(HaveOccurred())
 			Expect(models).To(BeEmpty())
 		})
@@ -42,10 +44,10 @@ var _ = Describe("NodeRegistry extra methods", Label("Distributed"), func() {
 			node := &nodes.BackendNode{
 				Name: "healthy-node", Address: "h:5000",
 			}
-			Expect(registry.Register(node, true)).To(Succeed())
-			Expect(registry.SetNodeModel(node.ID, "model-a", "loaded")).To(Succeed())
+			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), node.ID, "model-a", "loaded")).To(Succeed())
 
-			models, err := registry.ListAllLoadedModels()
+			models, err := registry.ListAllLoadedModels(context.Background())
 			Expect(err).ToNot(HaveOccurred())
 			Expect(models).To(HaveLen(1))
 			Expect(models[0].ModelName).To(Equal("model-a"))
@@ -55,11 +57,11 @@ var _ = Describe("NodeRegistry extra methods", Label("Distributed"), func() {
 			node := &nodes.BackendNode{
 				Name: "sick-node", Address: "s:5000",
 			}
-			Expect(registry.Register(node, true)).To(Succeed())
-			Expect(registry.SetNodeModel(node.ID, "model-on-sick", "loaded")).To(Succeed())
-			Expect(registry.MarkUnhealthy(node.ID)).To(Succeed())
+			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), node.ID, "model-on-sick", "loaded")).To(Succeed())
+			Expect(registry.MarkUnhealthy(context.Background(), node.ID)).To(Succeed())
 
-			models, err := registry.ListAllLoadedModels()
+			models, err := registry.ListAllLoadedModels(context.Background())
 			Expect(err).ToNot(HaveOccurred())
 			Expect(models).To(BeEmpty())
 		})
@@ -68,11 +70,11 @@ var _ = Describe("NodeRegistry extra methods", Label("Distributed"), func() {
 			node := &nodes.BackendNode{
 				Name: "state-node", Address: "st:5000",
 			}
-			Expect(registry.Register(node, true)).To(Succeed())
-			Expect(registry.SetNodeModel(node.ID, "loading-model", "loading")).To(Succeed())
-			Expect(registry.SetNodeModel(node.ID, "idle-model", "idle")).To(Succeed())
+			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), node.ID, "loading-model", "loading")).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), node.ID, "idle-model", "idle")).To(Succeed())
 
-			models, err := registry.ListAllLoadedModels()
+			models, err := registry.ListAllLoadedModels(context.Background())
 			Expect(err).ToNot(HaveOccurred())
 			Expect(models).To(BeEmpty())
 		})
@@ -84,12 +86,12 @@ var _ = Describe("NodeRegistry extra methods", Label("Distributed"), func() {
 			node2 := &nodes.BackendNode{
 				Name: "multi-2", Address: "m2:5000",
 			}
-			Expect(registry.Register(node1, true)).To(Succeed())
-			Expect(registry.Register(node2, true)).To(Succeed())
-			Expect(registry.SetNodeModel(node1.ID, "model-x", "loaded")).To(Succeed())
-			Expect(registry.SetNodeModel(node2.ID, "model-y", "loaded")).To(Succeed())
+			Expect(registry.Register(context.Background(), node1, true)).To(Succeed())
+			Expect(registry.Register(context.Background(), node2, true)).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), node1.ID, "model-x", "loaded")).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), node2.ID, "model-y", "loaded")).To(Succeed())
 
-			models, err := registry.ListAllLoadedModels()
+			models, err := registry.ListAllLoadedModels(context.Background())
 			Expect(err).ToNot(HaveOccurred())
 			Expect(models).To(HaveLen(2))
 
@@ -107,17 +109,17 @@ var _ = Describe("NodeRegistry extra methods", Label("Distributed"), func() {
 			node := &nodes.BackendNode{
 				Name: "find-node", Address: "f:5000",
 			}
-			Expect(registry.Register(node, true)).To(Succeed())
-			Expect(registry.SetNodeModel(node.ID, "findable-model", "loaded")).To(Succeed())
+			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), node.ID, "findable-model", "loaded")).To(Succeed())
 
-			found, ok := registry.FindNodeForModel("findable-model")
+			found, ok := registry.FindNodeForModel(context.Background(),"findable-model")
 			Expect(ok).To(BeTrue())
 			Expect(found).ToNot(BeNil())
 			Expect(found.ID).To(Equal(node.ID))
 		})
 
 		It("returns (nil, false) when model not found", func() {
-			found, ok := registry.FindNodeForModel("no-such-model")
+			found, ok := registry.FindNodeForModel(context.Background(),"no-such-model")
 			Expect(ok).To(BeFalse())
 			Expect(found).To(BeNil())
 		})
@@ -126,11 +128,11 @@ var _ = Describe("NodeRegistry extra methods", Label("Distributed"), func() {
 			node := &nodes.BackendNode{
 				Name: "unhealthy-find", Address: "uf:5000",
 			}
-			Expect(registry.Register(node, true)).To(Succeed())
-			Expect(registry.SetNodeModel(node.ID, "unhealthy-model", "loaded")).To(Succeed())
-			Expect(registry.MarkUnhealthy(node.ID)).To(Succeed())
+			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), node.ID, "unhealthy-model", "loaded")).To(Succeed())
+			Expect(registry.MarkUnhealthy(context.Background(), node.ID)).To(Succeed())
 
-			found, ok := registry.FindNodeForModel("unhealthy-model")
+			found, ok := registry.FindNodeForModel(context.Background(),"unhealthy-model")
 			Expect(ok).To(BeFalse())
 			Expect(found).To(BeNil())
 		})
@@ -141,12 +143,12 @@ var _ = Describe("NodeRegistry extra methods", Label("Distributed"), func() {
 			node := &nodes.BackendNode{
 				Name: "stale-clear-node", Address: "sc:5000",
 			}
-			Expect(registry.Register(node, true)).To(Succeed())
-			Expect(registry.SetNodeModel(node.ID, "stale-model-1", "loaded")).To(Succeed())
-			Expect(registry.SetNodeModel(node.ID, "stale-model-2", "loaded")).To(Succeed())
+			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), node.ID, "stale-model-1", "loaded")).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), node.ID, "stale-model-2", "loaded")).To(Succeed())
 
 			// Verify models exist
-			models, err := registry.GetNodeModels(node.ID)
+			models, err := registry.GetNodeModels(context.Background(), node.ID)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(models).To(HaveLen(2))
 
@@ -154,10 +156,10 @@ var _ = Describe("NodeRegistry extra methods", Label("Distributed"), func() {
 			reNode := &nodes.BackendNode{
 				Name: "stale-clear-node", Address: "sc:5001",
 			}
-			Expect(registry.Register(reNode, true)).To(Succeed())
+			Expect(registry.Register(context.Background(), reNode, true)).To(Succeed())
 
 			// Stale models should be cleared
-			models, err = registry.GetNodeModels(node.ID)
+			models, err = registry.GetNodeModels(context.Background(), node.ID)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(models).To(BeEmpty())
 		})
@@ -168,9 +170,9 @@ var _ = Describe("NodeRegistry extra methods", Label("Distributed"), func() {
 			node := &nodes.BackendNode{
 				Name: "idle-node", Address: "idle:5000",
 			}
-			Expect(registry.Register(node, true)).To(Succeed())
+			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
 
-			found, err := registry.FindIdleNode()
+			found, err := registry.FindIdleNode(context.Background())
 			Expect(err).ToNot(HaveOccurred())
 			Expect(found).ToNot(BeNil())
 			Expect(found.ID).To(Equal(node.ID))
@@ -183,11 +185,11 @@ var _ = Describe("NodeRegistry extra methods", Label("Distributed"), func() {
 			idle := &nodes.BackendNode{
 				Name: "idle-node-2", Address: "idle2:5000",
 			}
-			Expect(registry.Register(busy, true)).To(Succeed())
-			Expect(registry.Register(idle, true)).To(Succeed())
-			Expect(registry.SetNodeModel(busy.ID, "some-model", "loaded")).To(Succeed())
+			Expect(registry.Register(context.Background(), busy, true)).To(Succeed())
+			Expect(registry.Register(context.Background(), idle, true)).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), busy.ID, "some-model", "loaded")).To(Succeed())
 
-			found, err := registry.FindIdleNode()
+			found, err := registry.FindIdleNode(context.Background())
 			Expect(err).ToNot(HaveOccurred())
 			Expect(found).ToNot(BeNil())
 			Expect(found.ID).To(Equal(idle.ID))
@@ -197,10 +199,10 @@ var _ = Describe("NodeRegistry extra methods", Label("Distributed"), func() {
 			node := &nodes.BackendNode{
 				Name: "loaded-node", Address: "loaded:5000",
 			}
-			Expect(registry.Register(node, true)).To(Succeed())
-			Expect(registry.SetNodeModel(node.ID, "model-x", "loaded")).To(Succeed())
+			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), node.ID, "model-x", "loaded")).To(Succeed())
 
-			_, err := registry.FindIdleNode()
+			_, err := registry.FindIdleNode(context.Background())
 			Expect(err).To(HaveOccurred())
 		})
 	})

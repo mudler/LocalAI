@@ -1,6 +1,8 @@
 package nodes
 
 import (
+	"context"
+
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/xlog"
 )
@@ -11,10 +13,10 @@ import (
 // the frontend process restarted or a different instance loaded the model.
 type DistributedModelStore struct {
 	local    model.ModelStore
-	registry *NodeRegistry
+	registry ModelLookup
 }
 
-func NewDistributedModelStore(local model.ModelStore, registry *NodeRegistry) *DistributedModelStore {
+func NewDistributedModelStore(local model.ModelStore, registry ModelLookup) *DistributedModelStore {
 	return &DistributedModelStore{local: local, registry: registry}
 }
 
@@ -27,7 +29,7 @@ func (s *DistributedModelStore) Get(id string) (*model.Model, bool) {
 	}
 
 	// Fall back to DB
-	node, found := s.registry.FindNodeForModel(id)
+	node, found := s.registry.FindNodeForModel(context.Background(), id)
 	if !found {
 		return nil, false
 	}
@@ -62,7 +64,8 @@ func (s *DistributedModelStore) Range(fn func(string, *model.Model) bool) {
 	})
 
 	// Query DB for models not in local cache
-	dbModels, err := s.registry.ListAllLoadedModels()
+	ctx := context.Background()
+	dbModels, err := s.registry.ListAllLoadedModels(ctx)
 	if err != nil {
 		xlog.Warn("DistributedModelStore: failed to list DB models during Range", "error", err)
 		return
@@ -75,7 +78,7 @@ func (s *DistributedModelStore) Range(fn func(string, *model.Model) bool) {
 		seen[nm.ModelName] = true
 
 		// Look up the node address
-		node, err := s.registry.Get(nm.NodeID)
+		node, err := s.registry.Get(ctx, nm.NodeID)
 		if err != nil {
 			xlog.Warn("DistributedModelStore: failed to get node for model", "model", nm.ModelName, "nodeID", nm.NodeID, "error", err)
 			continue

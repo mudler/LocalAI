@@ -272,7 +272,7 @@ var _ = Describe("Full Distributed Inference Flow", Label("Distributed"), func()
 			Name:    "test-gpu-1",
 			Address: addr,
 		}
-		Expect(registry.Register(node, true)).To(Succeed())
+		Expect(registry.Register(context.Background(), node, true)).To(Succeed())
 
 		// 3. Create SmartRouter and route a request
 		router := newTestSmartRouter(registry)
@@ -297,7 +297,7 @@ var _ = Describe("Full Distributed Inference Flow", Label("Distributed"), func()
 
 		// 6. Release and verify in-flight decremented
 		result.Release()
-		models, err := registry.GetNodeModels(node.ID)
+		models, err := registry.GetNodeModels(context.Background(), node.ID)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(models).To(HaveLen(1))
 		Expect(models[0].InFlight).To(Equal(0))
@@ -322,18 +322,18 @@ var _ = Describe("Full Distributed Inference Flow", Label("Distributed"), func()
 		// Register both nodes
 		node1 := &nodes.BackendNode{Name: "node-heavy", Address: addr1}
 		node2 := &nodes.BackendNode{Name: "node-light", Address: addr2}
-		Expect(registry.Register(node1, true)).To(Succeed())
-		Expect(registry.Register(node2, true)).To(Succeed())
+		Expect(registry.Register(context.Background(), node1, true)).To(Succeed())
+		Expect(registry.Register(context.Background(), node2, true)).To(Succeed())
 
 		// Set both as having the model loaded
-		Expect(registry.SetNodeModel(node1.ID, "test-model", "loaded")).To(Succeed())
-		Expect(registry.SetNodeModel(node2.ID, "test-model", "loaded")).To(Succeed())
+		Expect(registry.SetNodeModel(context.Background(), node1.ID, "test-model", "loaded")).To(Succeed())
+		Expect(registry.SetNodeModel(context.Background(), node2.ID, "test-model", "loaded")).To(Succeed())
 
 		// Set node-1 with high in-flight (5), node-2 with low in-flight (1)
-		for i := 0; i < 5; i++ {
-			Expect(registry.IncrementInFlight(node1.ID, "test-model")).To(Succeed())
+		for range 5 {
+			Expect(registry.IncrementInFlight(context.Background(), node1.ID, "test-model")).To(Succeed())
 		}
-		Expect(registry.IncrementInFlight(node2.ID, "test-model")).To(Succeed())
+		Expect(registry.IncrementInFlight(context.Background(), node2.ID, "test-model")).To(Succeed())
 
 		// Route should pick node-2 (least loaded) thanks to ORDER BY in_flight ASC
 		router := newTestSmartRouter(registry)
@@ -352,7 +352,7 @@ var _ = Describe("Full Distributed Inference Flow", Label("Distributed"), func()
 
 		// Register a node with NO models loaded
 		node := &nodes.BackendNode{Name: "empty-node", Address: addr}
-		Expect(registry.Register(node, true)).To(Succeed())
+		Expect(registry.Register(context.Background(), node, true)).To(Succeed())
 
 		// Route should pick this node and call LoadModel on it
 		router := newTestSmartRouter(registry)
@@ -364,7 +364,7 @@ var _ = Describe("Full Distributed Inference Flow", Label("Distributed"), func()
 		Expect(llm.loaded).To(BeTrue())
 
 		// Verify model is now recorded in registry
-		models, err := registry.GetNodeModels(node.ID)
+		models, err := registry.GetNodeModels(context.Background(), node.ID)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(models).To(HaveLen(1))
 		Expect(models[0].ModelName).To(Equal("new-model"))
@@ -376,8 +376,8 @@ var _ = Describe("Full Distributed Inference Flow", Label("Distributed"), func()
 	It("should unload remote model via NATS", func() {
 		// Register a node with a loaded model
 		node := &nodes.BackendNode{Name: "gpu-unload", Address: "127.0.0.1:50099"}
-		Expect(registry.Register(node, true)).To(Succeed())
-		Expect(registry.SetNodeModel(node.ID, "old-model", "loaded")).To(Succeed())
+		Expect(registry.Register(context.Background(), node, true)).To(Succeed())
+		Expect(registry.SetNodeModel(context.Background(), node.ID, "old-model", "loaded")).To(Succeed())
 
 		// Subscribe to NATS backend.stop for this node
 		stopSubject := messaging.SubjectNodeBackendStop(node.ID)
@@ -400,7 +400,7 @@ var _ = Describe("Full Distributed Inference Flow", Label("Distributed"), func()
 		Eventually(received, 5*time.Second).Should(Receive())
 
 		// Verify model removed from registry
-		models, err := registry.GetNodeModels(node.ID)
+		models, err := registry.GetNodeModels(context.Background(), node.ID)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(models).To(BeEmpty())
 	})
@@ -414,7 +414,7 @@ var _ = Describe("Full Distributed Inference Flow", Label("Distributed"), func()
 
 		// Register node
 		node := &nodes.BackendNode{Name: "adapter-node", Address: addr}
-		Expect(registry.Register(node, true)).To(Succeed())
+		Expect(registry.Register(context.Background(), node, true)).To(Succeed())
 
 		// Create SmartRouter + ModelRouterAdapter
 		router := newTestSmartRouter(registry)
@@ -468,11 +468,11 @@ var _ = Describe("Full Distributed Inference Flow", Label("Distributed"), func()
 
 		// Register the node in PostgreSQL
 		node := &nodes.BackendNode{Name: "staging-node", Address: addr, HTTPAddress: httpAddr}
-		Expect(registry.Register(node, true)).To(Succeed())
+		Expect(registry.Register(context.Background(), node, true)).To(Succeed())
 
 		// Create HTTPFileStager that resolves node IDs to HTTP addresses
 		stager := nodes.NewHTTPFileStager(func(nodeID string) (string, error) {
-			n, err := registry.Get(nodeID)
+			n, err := registry.Get(context.Background(), nodeID)
 			if err != nil {
 				return "", err
 			}
@@ -537,11 +537,11 @@ var _ = Describe("Full Distributed Inference Flow", Label("Distributed"), func()
 
 		// Register node
 		node := &nodes.BackendNode{Name: "mm-node", Address: addr, HTTPAddress: httpAddr}
-		Expect(registry.Register(node, true)).To(Succeed())
+		Expect(registry.Register(context.Background(), node, true)).To(Succeed())
 
 		// Create HTTPFileStager
 		stager := nodes.NewHTTPFileStager(func(nodeID string) (string, error) {
-			n, err := registry.Get(nodeID)
+			n, err := registry.Get(context.Background(), nodeID)
 			if err != nil {
 				return "", err
 			}
@@ -595,11 +595,11 @@ var _ = Describe("Full Distributed Inference Flow", Label("Distributed"), func()
 
 		// Register node
 		node := &nodes.BackendNode{Name: "output-node", Address: addr, HTTPAddress: httpAddr}
-		Expect(registry.Register(node, true)).To(Succeed())
+		Expect(registry.Register(context.Background(), node, true)).To(Succeed())
 
 		// Create HTTPFileStager
 		stager := nodes.NewHTTPFileStager(func(nodeID string) (string, error) {
-			n, err := registry.Get(nodeID)
+			n, err := registry.Get(context.Background(), nodeID)
 			if err != nil {
 				return "", err
 			}
@@ -642,10 +642,10 @@ var _ = Describe("Full Distributed Inference Flow", Label("Distributed"), func()
 		Expect(err).ToNot(HaveOccurred())
 
 		node := &nodes.BackendNode{Name: modelName + "-node", Address: addr, HTTPAddress: httpAddr}
-		Expect(registry.Register(node, true)).To(Succeed())
+		Expect(registry.Register(context.Background(), node, true)).To(Succeed())
 
 		stager := nodes.NewHTTPFileStager(func(nodeID string) (string, error) {
-			n, err := registry.Get(nodeID)
+			n, err := registry.Get(context.Background(), nodeID)
 			if err != nil {
 				return "", err
 			}

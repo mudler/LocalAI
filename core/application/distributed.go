@@ -1,6 +1,7 @@
 package application
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -36,6 +37,26 @@ type DistributedServices struct {
 	Unloader     *nodes.RemoteUnloaderAdapter
 }
 
+// Shutdown stops all distributed services in reverse initialization order.
+// It is safe to call on a nil receiver.
+func (ds *DistributedServices) Shutdown() {
+	if ds == nil {
+		return
+	}
+	if ds.Health != nil {
+		ds.Health.Stop()
+	}
+	if ds.Dispatcher != nil {
+		ds.Dispatcher.Stop()
+	}
+	// AgentBridge has no Close method — its NATS subscriptions are cleaned up
+	// when the NATS client is closed below.
+	if ds.Nats != nil {
+		ds.Nats.Close()
+	}
+	xlog.Info("Distributed services shut down")
+}
+
 // initDistributed validates distributed mode prerequisites and initializes
 // NATS, object storage, node registry, and instance identity.
 // Returns nil if distributed mode is not enabled.
@@ -46,17 +67,17 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB) (*Distribut
 
 	xlog.Info("Distributed mode enabled — validating prerequisites")
 
+	// Validate distributed config (NATS URL, S3 credential pairing, durations, etc.)
+	if err := cfg.Distributed.Validate(); err != nil {
+		return nil, err
+	}
+
 	// Validate PostgreSQL is configured (auth DB must be PostgreSQL for distributed mode)
 	if !cfg.Auth.Enabled {
 		return nil, fmt.Errorf("distributed mode requires authentication to be enabled (--auth / LOCALAI_AUTH=true)")
 	}
 	if !isPostgresURL(cfg.Auth.DatabaseURL) {
 		return nil, fmt.Errorf("distributed mode requires PostgreSQL for auth database (got %q)", sanitize.URL(cfg.Auth.DatabaseURL))
-	}
-
-	// Validate NATS
-	if cfg.Distributed.NatsURL == "" {
-		return nil, fmt.Errorf("distributed mode requires --nats-url / LOCALAI_NATS_URL")
 	}
 
 	// Generate instance ID if not set
@@ -134,6 +155,8 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB) (*Distribut
 	healthMon := nodes.NewHealthMonitor(registry, authDB,
 		cfg.Distributed.HealthCheckIntervalOrDefault(),
 		cfg.Distributed.StaleNodeThresholdOrDefault(),
+		routerAuthToken,
+		cfg.Distributed.PerModelHealthCheck,
 	)
 
 	// Initialize job store
@@ -185,7 +208,7 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB) (*Distribut
 		xlog.Info("File stager initialized (S3+NATS)")
 	} else {
 		fileStager = nodes.NewHTTPFileStager(func(nodeID string) (string, error) {
-			node, err := registry.Get(nodeID)
+			node, err := registry.Get(context.Background(), nodeID)
 			if err != nil {
 				return "", err
 			}

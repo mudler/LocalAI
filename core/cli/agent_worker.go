@@ -51,6 +51,9 @@ type AgentWorkerCMD struct {
 	// NATS subjects
 	Subject string `env:"LOCALAI_AGENT_SUBJECT" default:"agent.execute" help:"NATS subject for agent execution" group:"distributed"`
 	Queue   string `env:"LOCALAI_AGENT_QUEUE" default:"agent-workers" help:"NATS queue group name" group:"distributed"`
+
+	// Timeouts
+	MCPCIJobTimeout string `env:"LOCALAI_MCP_CI_JOB_TIMEOUT" default:"10m" help:"Timeout for MCP CI job execution" group:"distributed"`
 }
 
 func (cmd *AgentWorkerCMD) Run(ctx *cliContext.Context) error {
@@ -90,7 +93,10 @@ func (cmd *AgentWorkerCMD) Run(ctx *cliContext.Context) error {
 	}
 
 	// Start heartbeat
-	heartbeatInterval, _ := time.ParseDuration(cmd.HeartbeatInterval)
+	heartbeatInterval, err := time.ParseDuration(cmd.HeartbeatInterval)
+	if err != nil && cmd.HeartbeatInterval != "" {
+		xlog.Warn("invalid heartbeat interval, using default 10s", "input", cmd.HeartbeatInterval, "error", err)
+	}
 	heartbeatInterval = cmp.Or(heartbeatInterval, 10*time.Second)
 	// Context cancelled on shutdown — used by heartbeat and other background goroutines
 	shutdownCtx, shutdownCancel := context.WithCancel(context.Background())
@@ -145,8 +151,14 @@ func (cmd *AgentWorkerCMD) Run(ctx *cliContext.Context) error {
 	// Subscribe to MCP CI job execution (load-balanced across agent workers).
 	// In distributed mode, MCP CI jobs are routed here because the frontend
 	// cannot create MCP sessions (e.g., stdio servers using docker).
+	mcpCIJobTimeout, err := time.ParseDuration(cmd.MCPCIJobTimeout)
+	if err != nil && cmd.MCPCIJobTimeout != "" {
+		xlog.Warn("invalid MCP CI job timeout, using default 10m", "input", cmd.MCPCIJobTimeout, "error", err)
+	}
+	mcpCIJobTimeout = cmp.Or(mcpCIJobTimeout, config.DefaultMCPCIJobTimeout)
+
 	natsClient.QueueSubscribe(messaging.SubjectMCPCIJobsNew, messaging.QueueWorkers, func(data []byte) {
-		handleMCPCIJob(shutdownCtx, data, apiURL, cmd.APIToken, natsClient)
+		handleMCPCIJob(shutdownCtx, data, apiURL, cmd.APIToken, natsClient, mcpCIJobTimeout)
 	})
 
 	// Subscribe to backend stop events to clean up cached MCP sessions.
@@ -277,7 +289,7 @@ func sendMCPDiscoveryReply(reply func([]byte), servers []mcpRemote.MCPServerInfo
 
 // handleMCPCIJob processes an MCP CI job on the agent worker.
 // The agent worker can create MCP sessions (has docker) and call the LocalAI API for inference.
-func handleMCPCIJob(shutdownCtx context.Context, data []byte, apiURL, apiToken string, natsClient *messaging.Client) {
+func handleMCPCIJob(shutdownCtx context.Context, data []byte, apiURL, apiToken string, natsClient messaging.MessagingClient, jobTimeout time.Duration) {
 	var evt jobs.JobEvent
 	if err := json.Unmarshal(data, &evt); err != nil {
 		xlog.Error("Failed to unmarshal job event", "error", err)
@@ -353,7 +365,7 @@ func handleMCPCIJob(shutdownCtx context.Context, data []byte, apiURL, apiToken s
 	llm := clients.NewLocalAILLM(task.Model, apiToken, apiURL)
 
 	// Build cogito options
-	ctx, cancel := context.WithTimeout(shutdownCtx, 10*time.Minute)
+	ctx, cancel := context.WithTimeout(shutdownCtx, jobTimeout)
 	defer cancel()
 
 	// Update job status to running in DB
@@ -433,11 +445,11 @@ func handleMCPCIJob(shutdownCtx context.Context, data []byte, apiURL, apiToken s
 	xlog.Info("MCP CI job completed", "jobID", evt.JobID, "resultLen", len(result))
 }
 
-func publishJobStatus(nc *messaging.Client, jobID, status, message string) {
+func publishJobStatus(nc messaging.MessagingClient, jobID, status, message string) {
 	jobs.PublishJobProgress(nc, jobID, status, message)
 }
 
-func publishJobResult(nc *messaging.Client, jobID, status, result, errMsg string) {
+func publishJobResult(nc messaging.MessagingClient, jobID, status, result, errMsg string) {
 	jobs.PublishJobResult(nc, jobID, status, result, errMsg)
 }
 

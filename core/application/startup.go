@@ -268,6 +268,7 @@ func New(opts ...config.AppOption) (*Application, error) {
 	go func() {
 		<-options.Context.Done()
 		xlog.Debug("Context canceled, shutting down")
+		application.distributed.Shutdown()
 		err := application.ModelLoader().StopAllGRPC()
 		if err != nil {
 			xlog.Error("error while stopping all grpc backends", "error", err)

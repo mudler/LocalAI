@@ -1,6 +1,7 @@
 package distributed_test
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -338,7 +339,7 @@ var _ = Describe("Distributed Backend Log Streaming", Label("Distributed"), func
 				Address:     "127.0.0.1:50051", // gRPC address (unused here)
 				HTTPAddress: workerAddr,
 			}
-			Expect(registry.Register(node, true)).To(Succeed())
+			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
 
 			// Create an Echo test server with the proxy endpoint
 			e := echo.New()
@@ -361,7 +362,7 @@ var _ = Describe("Distributed Backend Log Streaming", Label("Distributed"), func
 				Address:     "127.0.0.1:50051",
 				HTTPAddress: workerAddr,
 			}
-			Expect(registry.Register(node, true)).To(Succeed())
+			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
 
 			e := echo.New()
 			e.GET("/api/nodes/:id/backend-logs/:modelId", localai.NodeBackendLogsLinesEndpoint(registry, token))
@@ -450,7 +451,7 @@ var _ = Describe("Distributed Backend Log Streaming", Label("Distributed"), func
 				Address:     "127.0.0.1:50051",
 				HTTPAddress: workerAddr,
 			}
-			Expect(registry.Register(node, true)).To(Succeed())
+			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
 
 			// Connect WebSocket to the frontend proxy
 			wsURL := fmt.Sprintf("ws://%s/ws/nodes/%s/backend-logs/proxy-model", echoAddr, node.ID)

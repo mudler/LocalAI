@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/mudler/LocalAI/core/services/advisorylock"
+	"github.com/mudler/LocalAI/core/services/messaging"
 	"gorm.io/gorm"
 )
 
@@ -61,8 +63,12 @@ type JobStore struct {
 }
 
 // NewJobStore creates a new JobStore and auto-migrates the schema.
+// Uses a PostgreSQL advisory lock to prevent concurrent migration races
+// when multiple instances (frontend + workers) start at the same time.
 func NewJobStore(db *gorm.DB) (*JobStore, error) {
-	if err := db.AutoMigrate(&TaskRecord{}, &JobRecord{}); err != nil {
+	if err := advisorylock.WithLock(db, messaging.AdvisoryLockSchemaMigrate, func() error {
+		return db.AutoMigrate(&TaskRecord{}, &JobRecord{})
+	}); err != nil {
 		return nil, fmt.Errorf("migrating job tables: %w", err)
 	}
 	return &JobStore{db: db}, nil

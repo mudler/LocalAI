@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
@@ -71,6 +72,9 @@ func (s *S3Store) Put(ctx context.Context, key string, r io.Reader) error {
 		Bucket: aws.String(s.bucket),
 		Key:    aws.String(key),
 		Body:   r,
+		Metadata: map[string]string{
+			"created-at": time.Now().UTC().Format(time.RFC3339),
+		},
 	})
 	if err != nil {
 		return fmt.Errorf("putting object %s: %w", key, err)
@@ -87,6 +91,22 @@ func (s *S3Store) Get(ctx context.Context, key string) (io.ReadCloser, error) {
 		return nil, fmt.Errorf("getting object %s: %w", key, err)
 	}
 	return out.Body, nil
+}
+
+func (s *S3Store) Head(ctx context.Context, key string) (*ObjectMeta, error) {
+	out, err := s.client.HeadObject(ctx, &s3.HeadObjectInput{
+		Bucket: aws.String(s.bucket),
+		Key:    aws.String(key),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("head %s: %w", key, err)
+	}
+	return &ObjectMeta{
+		Key:          key,
+		Size:         aws.ToInt64(out.ContentLength),
+		LastModified: aws.ToTime(out.LastModified),
+		Metadata:     out.Metadata,
+	}, nil
 }
 
 func (s *S3Store) Exists(ctx context.Context, key string) (bool, error) {

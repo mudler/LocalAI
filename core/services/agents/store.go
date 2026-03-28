@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/mudler/LocalAI/core/services/advisorylock"
+	"github.com/mudler/LocalAI/core/services/messaging"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -47,8 +49,12 @@ type AgentStore struct {
 }
 
 // NewAgentStore creates a new AgentStore and auto-migrates the schema.
+// Uses a PostgreSQL advisory lock to prevent concurrent migration races
+// when multiple instances (frontend + workers) start at the same time.
 func NewAgentStore(db *gorm.DB) (*AgentStore, error) {
-	if err := db.AutoMigrate(&AgentConfigRecord{}, &AgentObservableRecord{}); err != nil {
+	if err := advisorylock.WithLock(db, messaging.AdvisoryLockSchemaMigrate, func() error {
+		return db.AutoMigrate(&AgentConfigRecord{}, &AgentObservableRecord{})
+	}); err != nil {
 		return nil, fmt.Errorf("migrating agent tables: %w", err)
 	}
 	return &AgentStore{db: db}, nil

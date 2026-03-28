@@ -61,15 +61,13 @@ func MessagesEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evalu
 			if mcpErr == nil {
 				mcpExecutor = mcpTools.NewToolExecutor(c.Request().Context(), natsClient, cfg.Name, remote, stdio, mcpServers)
 
-				// Prompt and resource injection (local mode only)
-				if natsClient == nil {
-					namedSessions, sessErr := mcpTools.NamedSessionsFromMCPConfig(cfg.Name, remote, stdio, mcpServers)
-					if sessErr == nil && len(namedSessions) > 0 {
-						mcpCtx, _ := mcpTools.InjectMCPContext(c.Request().Context(), namedSessions, mcpPromptName, mcpPromptArgs, mcpResourceURIs)
-						if mcpCtx != nil {
-							openAIMessages = append(mcpCtx.PromptMessages, openAIMessages...)
-							mcpTools.AppendResourceSuffix(openAIMessages, mcpCtx.ResourceSuffix)
-						}
+				// Prompt and resource injection (pre-processing step — resolves locally regardless of distributed mode)
+				namedSessions, sessErr := mcpTools.NamedSessionsFromMCPConfig(cfg.Name, remote, stdio, mcpServers)
+				if sessErr == nil && len(namedSessions) > 0 {
+					mcpCtx, _ := mcpTools.InjectMCPContext(c.Request().Context(), namedSessions, mcpPromptName, mcpPromptArgs, mcpResourceURIs)
+					if mcpCtx != nil {
+						openAIMessages = append(mcpCtx.PromptMessages, openAIMessages...)
+						mcpTools.AppendResourceSuffix(openAIMessages, mcpCtx.ResourceSuffix)
 					}
 				}
 

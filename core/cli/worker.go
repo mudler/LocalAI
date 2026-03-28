@@ -109,7 +109,10 @@ func (cmd *WorkerCMD) Run(ctx *cliContext.Context) error {
 	}
 
 	xlog.Info("Registered with frontend", "nodeID", nodeID, "frontend", cmd.RegisterTo)
-	heartbeatInterval, _ := time.ParseDuration(cmd.HeartbeatInterval)
+	heartbeatInterval, err := time.ParseDuration(cmd.HeartbeatInterval)
+	if err != nil && cmd.HeartbeatInterval != "" {
+		xlog.Warn("invalid heartbeat interval, using default 10s", "input", cmd.HeartbeatInterval, "error", err)
+	}
 	heartbeatInterval = cmp.Or(heartbeatInterval, 10*time.Second)
 	// Context cancelled on shutdown — used by heartbeat and other background goroutines
 	shutdownCtx, shutdownCancel := context.WithCancel(context.Background())
@@ -184,7 +187,7 @@ func (cmd *WorkerCMD) Run(ctx *cliContext.Context) error {
 }
 
 // subscribeFileStaging subscribes to NATS file staging subjects for this node.
-func (cmd *WorkerCMD) subscribeFileStaging(natsClient *messaging.Client, nodeID string) error {
+func (cmd *WorkerCMD) subscribeFileStaging(natsClient messaging.MessagingClient, nodeID string) error {
 	// Create FileManager with same S3 config as the frontend
 	s3Store, err := storage.NewS3Store(storage.S3Config{
 		Endpoint:       cmd.StorageURL,
@@ -346,7 +349,7 @@ type backendSupervisor struct {
 	systemState *system.SystemState
 	galleries   []config.Gallery
 	nodeID      string
-	nats        *messaging.Client
+	nats        messaging.MessagingClient
 	sigCh       chan<- os.Signal // send shutdown signal instead of os.Exit
 
 	mu        sync.Mutex

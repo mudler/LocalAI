@@ -1,6 +1,8 @@
 package distributed_test
 
 import (
+	"context"
+
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/pkg/model"
 
@@ -52,8 +54,8 @@ var _ = Describe("DistributedModelStore", Label("Distributed"), func() {
 			node := &nodes.BackendNode{
 				Name: "remote-node", Address: "remote:9000",
 			}
-			Expect(registry.Register(node, true)).To(Succeed())
-			Expect(registry.SetNodeModel(node.ID, "db-model", "loaded")).To(Succeed())
+			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), node.ID, "db-model", "loaded")).To(Succeed())
 
 			m, ok := dStore.Get("db-model")
 			Expect(ok).To(BeTrue())
@@ -65,8 +67,8 @@ var _ = Describe("DistributedModelStore", Label("Distributed"), func() {
 			node := &nodes.BackendNode{
 				Name: "cache-node", Address: "cache:9000",
 			}
-			Expect(registry.Register(node, true)).To(Succeed())
-			Expect(registry.SetNodeModel(node.ID, "cached-model", "loaded")).To(Succeed())
+			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), node.ID, "cached-model", "loaded")).To(Succeed())
 
 			// First Get — falls back to DB
 			m1, ok := dStore.Get("cached-model")
@@ -78,7 +80,7 @@ var _ = Describe("DistributedModelStore", Label("Distributed"), func() {
 			Expect(localM).To(Equal(m1))
 
 			// Second Get — hits local cache (even if we remove from DB)
-			Expect(registry.RemoveNodeModel(node.ID, "cached-model")).To(Succeed())
+			Expect(registry.RemoveNodeModel(context.Background(), node.ID, "cached-model")).To(Succeed())
 			m2, ok := dStore.Get("cached-model")
 			Expect(ok).To(BeTrue())
 			Expect(m2).To(Equal(m1))
@@ -131,8 +133,8 @@ var _ = Describe("DistributedModelStore", Label("Distributed"), func() {
 			node := &nodes.BackendNode{
 				Name: "range-node", Address: "range:9000",
 			}
-			Expect(registry.Register(node, true)).To(Succeed())
-			Expect(registry.SetNodeModel(node.ID, "db-only-model", "loaded")).To(Succeed())
+			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), node.ID, "db-only-model", "loaded")).To(Succeed())
 
 			visited := map[string]bool{}
 			dStore.Range(func(id string, m *model.Model) bool {
@@ -146,8 +148,8 @@ var _ = Describe("DistributedModelStore", Label("Distributed"), func() {
 			node := &nodes.BackendNode{
 				Name: "dup-node", Address: "dup:9000",
 			}
-			Expect(registry.Register(node, true)).To(Succeed())
-			Expect(registry.SetNodeModel(node.ID, "shared-model", "loaded")).To(Succeed())
+			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), node.ID, "shared-model", "loaded")).To(Succeed())
 
 			// Also in local store
 			localStore.Set("shared-model", model.NewModel("shared-model", "dup:9000", nil))

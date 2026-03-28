@@ -63,7 +63,7 @@ type WorkerFunc func(ctx context.Context, job *JobRecord, task *TaskRecord) erro
 // and coordinates cron execution via PostgreSQL advisory locks.
 type Dispatcher struct {
 	store        *JobStore
-	nats         *messaging.Client
+	nats         messaging.MessagingClient
 	db           *gorm.DB
 	instanceID   string
 	configLoader ModelConfigLoader // optional: to enrich job events with model config
@@ -90,7 +90,7 @@ type Dispatcher struct {
 
 // NewDispatcher creates a new distributed job Dispatcher.
 // maxConcurrent limits the number of concurrent job goroutines; 0 means unlimited.
-func NewDispatcher(store *JobStore, nc *messaging.Client, db *gorm.DB, instanceID string, maxConcurrent int) *Dispatcher {
+func NewDispatcher(store *JobStore, nc messaging.MessagingClient, db *gorm.DB, instanceID string, maxConcurrent int) *Dispatcher {
 	d := &Dispatcher{
 		store:      store,
 		nats:       nc,
@@ -319,9 +319,25 @@ func (d *Dispatcher) processJob(evt JobEvent) {
 		return
 	}
 
-	// Create cancellable context
+	// Pre-register so cancels arriving before context creation are captured
+	cancelled := make(chan struct{}, 1)
+	d.cancelRegistry.Register(evt.JobID, func() {
+		select {
+		case cancelled <- struct{}{}:
+		default:
+		}
+	})
+
 	ctx, cancelFn := context.WithCancel(d.ctx)
-	d.cancelRegistry.Register(evt.JobID, cancelFn)
+	d.cancelRegistry.Register(evt.JobID, cancelFn) // overwrite with real cancel
+
+	// Check if cancel arrived during the registration window
+	select {
+	case <-cancelled:
+		cancelFn()
+	default:
+	}
+
 	defer func() {
 		d.cancelRegistry.Deregister(evt.JobID)
 		cancelFn()

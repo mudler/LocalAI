@@ -8,6 +8,36 @@ import (
 	"gorm.io/gorm"
 )
 
+// TryWithLockCtx attempts to acquire a PostgreSQL advisory lock using the provided context.
+// Returns (true, nil) if the lock was acquired and fn executed, (false, nil) if the lock
+// was already held, or (false, error) on failure.
+func TryWithLockCtx(ctx context.Context, db *gorm.DB, key int64, fn func() error) (bool, error) {
+	sqlDB, err := db.DB()
+	if err != nil {
+		return false, fmt.Errorf("get sql.DB: %w", err)
+	}
+	conn, err := sqlDB.Conn(ctx)
+	if err != nil {
+		return false, fmt.Errorf("advisory lock conn: %w", err)
+	}
+	defer conn.Close()
+
+	var acquired bool
+	if err := conn.QueryRowContext(ctx,
+		"SELECT pg_try_advisory_lock($1)", key).Scan(&acquired); err != nil {
+		return false, fmt.Errorf("pg_try_advisory_lock: %w", err)
+	}
+	if !acquired {
+		return false, nil
+	}
+	// Always unlock, even if context is cancelled (use Background for cleanup)
+	defer conn.ExecContext(context.Background(), "SELECT pg_advisory_unlock($1)", key)
+
+	return true, fn()
+}
+
+// Deprecated: Use TryWithLockCtx instead.
+//
 // TryWithLock attempts a non-blocking advisory lock on a dedicated connection.
 // If acquired, fn runs and the lock is released on the same connection.
 // Returns (true, fn-error) if acquired, (false, nil) if not.
@@ -53,6 +83,8 @@ func Unlock(db *gorm.DB, key int64) {
 	db.Exec("SELECT pg_advisory_unlock(?)", key)
 }
 
+// Deprecated: Use WithLockCtx instead.
+//
 // WithLock acquires a PostgreSQL advisory lock for the duration of fn.
 // Uses a dedicated database connection to ensure the lock is held correctly.
 // The lock is automatically released when fn returns (or panics).

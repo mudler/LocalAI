@@ -12,20 +12,49 @@ import (
 	"github.com/mudler/LocalAI/core/services/testutil"
 )
 
-// mockPublisher records all Publish calls for assertions.
-type mockPublisher struct {
-	calls []publishCall
-}
-
+// publishCall records a single Publish invocation.
 type publishCall struct {
 	subject string
 	data    any
 }
 
-func (m *mockPublisher) Publish(subject string, data any) error {
-	m.calls = append(m.calls, publishCall{subject: subject, data: data})
+// fakeMessagingClient implements messaging.MessagingClient and records published messages.
+type fakeMessagingClient struct {
+	calls []publishCall
+}
+
+func (f *fakeMessagingClient) Publish(subject string, data any) error {
+	f.calls = append(f.calls, publishCall{subject: subject, data: data})
 	return nil
 }
+
+func (f *fakeMessagingClient) Subscribe(string, func([]byte)) (messaging.Subscription, error) {
+	return &fakeSub{}, nil
+}
+
+func (f *fakeMessagingClient) QueueSubscribe(string, string, func([]byte)) (messaging.Subscription, error) {
+	return &fakeSub{}, nil
+}
+
+func (f *fakeMessagingClient) QueueSubscribeReply(string, string, func([]byte, func([]byte))) (messaging.Subscription, error) {
+	return &fakeSub{}, nil
+}
+
+func (f *fakeMessagingClient) SubscribeReply(string, func([]byte, func([]byte))) (messaging.Subscription, error) {
+	return &fakeSub{}, nil
+}
+
+func (f *fakeMessagingClient) Request(string, []byte, time.Duration) ([]byte, error) {
+	return nil, nil
+}
+
+func (f *fakeMessagingClient) IsConnected() bool { return true }
+func (f *fakeMessagingClient) Close()            {}
+
+// fakeSub implements messaging.Subscription.
+type fakeSub struct{}
+
+func (s *fakeSub) Unsubscribe() error { return nil }
 
 // mockConfigLoader implements ModelConfigLoader for testing Enqueue routing.
 type mockConfigLoader struct {
@@ -180,12 +209,13 @@ var _ = Describe("Dispatcher", func() {
 	})
 
 	// -----------------------------------------------------------------------
-	// Enqueue — test NATS subject routing with a mock publisher
+	// Enqueue — test NATS subject routing via real Dispatcher.Enqueue()
 	// -----------------------------------------------------------------------
 	Describe("Enqueue subject routing", func() {
 		var (
 			store *JobStore
-			pub   *mockPublisher
+			fake  *fakeMessagingClient
+			disp  *Dispatcher
 		)
 
 		BeforeEach(func() {
@@ -193,11 +223,11 @@ var _ = Describe("Dispatcher", func() {
 			var err error
 			store, err = NewJobStore(db)
 			Expect(err).ToNot(HaveOccurred())
-			pub = &mockPublisher{}
+			fake = &fakeMessagingClient{}
+			disp = NewDispatcher(store, fake, db, "test-instance", 0)
 		})
 
 		It("routes MCP jobs to SubjectMCPCIJobsNew", func() {
-			// Create task with a model that has MCP servers
 			task := &TaskRecord{
 				UserID:  "user-1",
 				Name:    "mcp-task",
@@ -214,7 +244,7 @@ var _ = Describe("Dispatcher", func() {
 			}
 			Expect(store.CreateJob(job)).To(Succeed())
 
-			loader := &mockConfigLoader{
+			disp.SetModelConfigLoader(&mockConfigLoader{
 				configs: map[string]config.ModelConfig{
 					"mcp-model": {
 						MCP: config.MCPConfig{
@@ -222,20 +252,12 @@ var _ = Describe("Dispatcher", func() {
 						},
 					},
 				},
-			}
+			})
 
-			// Since Enqueue calls d.nats.Publish and we can't substitute a mock for
-			// the concrete *messaging.Client, we replicate the routing logic here
-			// to verify subject selection.
-			evt := buildEnqueueEvent(store, loader, job.ID, task.ID, "user-1")
-			subject := messaging.SubjectJobsNew
-			if evt.ModelConfig != nil && evt.ModelConfig.MCP.HasMCPServers() {
-				subject = messaging.SubjectMCPCIJobsNew
-			}
-			Expect(pub.Publish(subject, evt)).To(Succeed())
+			Expect(disp.Enqueue(job.ID, task.ID, "user-1")).To(Succeed())
 
-			Expect(pub.calls).To(HaveLen(1))
-			Expect(pub.calls[0].subject).To(Equal(messaging.SubjectMCPCIJobsNew))
+			Expect(fake.calls).To(HaveLen(1))
+			Expect(fake.calls[0].subject).To(Equal(messaging.SubjectMCPCIJobsNew))
 		})
 
 		It("routes non-MCP jobs to SubjectJobsNew", func() {
@@ -255,21 +277,16 @@ var _ = Describe("Dispatcher", func() {
 			}
 			Expect(store.CreateJob(job)).To(Succeed())
 
-			loader := &mockConfigLoader{
+			disp.SetModelConfigLoader(&mockConfigLoader{
 				configs: map[string]config.ModelConfig{
-					"plain-model": {}, // no MCP servers
+					"plain-model": {},
 				},
-			}
+			})
 
-			evt := buildEnqueueEvent(store, loader, job.ID, task.ID, "user-1")
-			subject := messaging.SubjectJobsNew
-			if evt.ModelConfig != nil && evt.ModelConfig.MCP.HasMCPServers() {
-				subject = messaging.SubjectMCPCIJobsNew
-			}
-			Expect(pub.Publish(subject, evt)).To(Succeed())
+			Expect(disp.Enqueue(job.ID, task.ID, "user-1")).To(Succeed())
 
-			Expect(pub.calls).To(HaveLen(1))
-			Expect(pub.calls[0].subject).To(Equal(messaging.SubjectJobsNew))
+			Expect(fake.calls).To(HaveLen(1))
+			Expect(fake.calls[0].subject).To(Equal(messaging.SubjectJobsNew))
 		})
 
 		It("routes to SubjectJobsNew when model config is not found", func() {
@@ -289,34 +306,34 @@ var _ = Describe("Dispatcher", func() {
 			}
 			Expect(store.CreateJob(job)).To(Succeed())
 
-			// Config loader has no config for "unknown-model"
-			loader := &mockConfigLoader{
+			disp.SetModelConfigLoader(&mockConfigLoader{
 				configs: map[string]config.ModelConfig{},
-			}
+			})
 
-			evt := buildEnqueueEvent(store, loader, job.ID, task.ID, "user-1")
-			subject := messaging.SubjectJobsNew
-			if evt.ModelConfig != nil && evt.ModelConfig.MCP.HasMCPServers() {
-				subject = messaging.SubjectMCPCIJobsNew
-			}
-			Expect(pub.Publish(subject, evt)).To(Succeed())
+			Expect(disp.Enqueue(job.ID, task.ID, "user-1")).To(Succeed())
 
-			Expect(pub.calls).To(HaveLen(1))
-			Expect(pub.calls[0].subject).To(Equal(messaging.SubjectJobsNew))
+			Expect(fake.calls).To(HaveLen(1))
+			Expect(fake.calls[0].subject).To(Equal(messaging.SubjectJobsNew))
 		})
 	})
 
 	// -----------------------------------------------------------------------
-	// Enqueue event enrichment
+	// Enqueue event enrichment — verify the payload published by Enqueue()
 	// -----------------------------------------------------------------------
 	Describe("Enqueue event enrichment", func() {
-		var store *JobStore
+		var (
+			store *JobStore
+			fake  *fakeMessagingClient
+			disp  *Dispatcher
+		)
 
 		BeforeEach(func() {
 			db := testutil.SetupTestDB()
 			var err error
 			store, err = NewJobStore(db)
 			Expect(err).ToNot(HaveOccurred())
+			fake = &fakeMessagingClient{}
+			disp = NewDispatcher(store, fake, db, "test-instance", 0)
 		})
 
 		It("includes full job and task records in the event", func() {
@@ -339,7 +356,7 @@ var _ = Describe("Dispatcher", func() {
 			}
 			Expect(store.CreateJob(job)).To(Succeed())
 
-			loader := &mockConfigLoader{
+			disp.SetModelConfigLoader(&mockConfigLoader{
 				configs: map[string]config.ModelConfig{
 					"test-model": {
 						MCP: config.MCPConfig{
@@ -347,9 +364,13 @@ var _ = Describe("Dispatcher", func() {
 						},
 					},
 				},
-			}
+			})
 
-			evt := buildEnqueueEvent(store, loader, job.ID, task.ID, "user-1")
+			Expect(disp.Enqueue(job.ID, task.ID, "user-1")).To(Succeed())
+
+			Expect(fake.calls).To(HaveLen(1))
+			evt, ok := fake.calls[0].data.(JobEvent)
+			Expect(ok).To(BeTrue(), "published data should be a JobEvent")
 			Expect(evt.Job).ToNot(BeNil())
 			Expect(evt.Job.ID).To(Equal(job.ID))
 			Expect(evt.Task).ToNot(BeNil())
@@ -375,7 +396,12 @@ var _ = Describe("Dispatcher", func() {
 			}
 			Expect(store.CreateJob(job)).To(Succeed())
 
-			evt := buildEnqueueEvent(store, nil, job.ID, task.ID, "user-1")
+			// No config loader — Enqueue still works, just no model config enrichment.
+			Expect(disp.Enqueue(job.ID, task.ID, "user-1")).To(Succeed())
+
+			Expect(fake.calls).To(HaveLen(1))
+			evt, ok := fake.calls[0].data.(JobEvent)
+			Expect(ok).To(BeTrue())
 
 			data, err := json.Marshal(evt)
 			Expect(err).ToNot(HaveOccurred())
@@ -387,29 +413,3 @@ var _ = Describe("Dispatcher", func() {
 		})
 	})
 })
-
-// buildEnqueueEvent replicates the event-building logic from Dispatcher.Enqueue
-// so we can test enrichment and subject routing without needing a real NATS client.
-func buildEnqueueEvent(store *JobStore, loader ModelConfigLoader, jobID, taskID, userID string) JobEvent {
-	evt := JobEvent{
-		JobID:  jobID,
-		TaskID: taskID,
-		UserID: userID,
-	}
-
-	if store != nil {
-		if job, err := store.GetJob(jobID); err == nil {
-			evt.Job = job
-		}
-		if task, err := store.GetTask(taskID); err == nil {
-			evt.Task = task
-			if loader != nil && task.Model != "" {
-				if cfg, ok := loader.GetModelConfig(task.Model); ok {
-					evt.ModelConfig = &cfg
-				}
-			}
-		}
-	}
-
-	return evt
-}

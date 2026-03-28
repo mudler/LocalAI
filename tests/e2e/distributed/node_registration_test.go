@@ -1,6 +1,7 @@
 package distributed_test
 
 import (
+	"context"
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/nodes"
@@ -39,24 +40,24 @@ var _ = Describe("Phase 1: Node Registration", Label("Distributed"), func() {
 				Name:    "test-node",
 				Address: "localhost:50051",
 			}
-			err := registry.Register(node, true)
+			err := registry.Register(context.Background(), node, true)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(node.ID).ToNot(BeEmpty())
 			Expect(node.Status).To(Equal("healthy"))
 		})
 
 		It("should list registered nodes", func() {
-			err := registry.Register(&nodes.BackendNode{
+			err := registry.Register(context.Background(), &nodes.BackendNode{
 				Name: "node-1", Address: "host1:50051",
 			}, true)
 			Expect(err).ToNot(HaveOccurred())
 
-			err = registry.Register(&nodes.BackendNode{
+			err = registry.Register(context.Background(), &nodes.BackendNode{
 				Name: "node-2", Address: "host2:50051",
 			}, true)
 			Expect(err).ToNot(HaveOccurred())
 
-			list, err := registry.List()
+			list, err := registry.List(context.Background())
 			Expect(err).ToNot(HaveOccurred())
 			Expect(list).To(HaveLen(2))
 		})
@@ -65,13 +66,13 @@ var _ = Describe("Phase 1: Node Registration", Label("Distributed"), func() {
 			node := &nodes.BackendNode{
 				Name: "ephemeral", Address: "host3:50051",
 			}
-			err := registry.Register(node, true)
+			err := registry.Register(context.Background(), node, true)
 			Expect(err).ToNot(HaveOccurred())
 
-			err = registry.Deregister(node.ID)
+			err = registry.Deregister(context.Background(), node.ID)
 			Expect(err).ToNot(HaveOccurred())
 
-			list, err := registry.List()
+			list, err := registry.List(context.Background())
 			Expect(err).ToNot(HaveOccurred())
 			Expect(list).To(BeEmpty())
 		})
@@ -80,15 +81,15 @@ var _ = Describe("Phase 1: Node Registration", Label("Distributed"), func() {
 			node := &nodes.BackendNode{
 				Name: "heartbeat-node", Address: "host4:50051",
 			}
-			err := registry.Register(node, true)
+			err := registry.Register(context.Background(), node, true)
 			Expect(err).ToNot(HaveOccurred())
 
 			// Wait a bit then heartbeat
 			time.Sleep(100 * time.Millisecond)
-			err = registry.Heartbeat(node.ID, nil)
+			err = registry.Heartbeat(context.Background(), node.ID, nil)
 			Expect(err).ToNot(HaveOccurred())
 
-			updated, err := registry.Get(node.ID)
+			updated, err := registry.Get(context.Background(), node.ID)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(updated.LastHeartbeat).To(BeTemporally(">", node.LastHeartbeat))
 		})
@@ -97,13 +98,13 @@ var _ = Describe("Phase 1: Node Registration", Label("Distributed"), func() {
 			node := &nodes.BackendNode{
 				Name: "stale-node", Address: "host5:50051",
 			}
-			err := registry.Register(node, true)
+			err := registry.Register(context.Background(), node, true)
 			Expect(err).ToNot(HaveOccurred())
 
-			err = registry.MarkUnhealthy(node.ID)
+			err = registry.MarkUnhealthy(context.Background(), node.ID)
 			Expect(err).ToNot(HaveOccurred())
 
-			updated, err := registry.Get(node.ID)
+			updated, err := registry.Get(context.Background(), node.ID)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(updated.Status).To(Equal("unhealthy"))
 		})
@@ -112,14 +113,14 @@ var _ = Describe("Phase 1: Node Registration", Label("Distributed"), func() {
 			node := &nodes.BackendNode{
 				Name: "old-node", Address: "host6:50051",
 			}
-			err := registry.Register(node, true)
+			err := registry.Register(context.Background(), node, true)
 			Expect(err).ToNot(HaveOccurred())
 
 			// Set heartbeat to the past
 			db.Model(&nodes.BackendNode{}).Where("id = ?", node.ID).
 				Update("last_heartbeat", time.Now().Add(-5*time.Minute))
 
-			stale, err := registry.FindStaleNodes(1 * time.Minute)
+			stale, err := registry.FindStaleNodes(context.Background(), 1*time.Minute)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(stale).To(HaveLen(1))
 			Expect(stale[0].Name).To(Equal("old-node"))
@@ -129,7 +130,7 @@ var _ = Describe("Phase 1: Node Registration", Label("Distributed"), func() {
 			node := &nodes.BackendNode{
 				Name: "reregister-node", Address: "h1:50051",
 			}
-			err := registry.Register(node, true)
+			err := registry.Register(context.Background(), node, true)
 			Expect(err).ToNot(HaveOccurred())
 			firstID := node.ID
 
@@ -137,11 +138,11 @@ var _ = Describe("Phase 1: Node Registration", Label("Distributed"), func() {
 			node2 := &nodes.BackendNode{
 				Name: "reregister-node", Address: "h1:50052",
 			}
-			err = registry.Register(node2, true)
+			err = registry.Register(context.Background(), node2, true)
 			Expect(err).ToNot(HaveOccurred())
 
 			// Should be same node (upsert by name)
-			list, err := registry.List()
+			list, err := registry.List(context.Background())
 			Expect(err).ToNot(HaveOccurred())
 			Expect(list).To(HaveLen(1))
 			Expect(list[0].ID).To(Equal(firstID))
@@ -156,15 +157,15 @@ var _ = Describe("Phase 1: Node Registration", Label("Distributed"), func() {
 			node := &nodes.BackendNode{
 				Name: "model-node", Address: "mh:50051",
 			}
-			Expect(registry.Register(node, true)).To(Succeed())
+			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
 			nodeID = node.ID
 		})
 
 		It("should track models loaded on a node", func() {
-			err := registry.SetNodeModel(nodeID, "llama3", "loaded")
+			err := registry.SetNodeModel(context.Background(), nodeID, "llama3", "loaded")
 			Expect(err).ToNot(HaveOccurred())
 
-			models, err := registry.GetNodeModels(nodeID)
+			models, err := registry.GetNodeModels(context.Background(), nodeID)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(models).To(HaveLen(1))
 			Expect(models[0].ModelName).To(Equal("llama3"))
@@ -172,63 +173,63 @@ var _ = Describe("Phase 1: Node Registration", Label("Distributed"), func() {
 		})
 
 		It("should find nodes with a specific model", func() {
-			registry.SetNodeModel(nodeID, "llama3", "loaded")
+			registry.SetNodeModel(context.Background(), nodeID, "llama3", "loaded")
 
-			nodesWithModel, err := registry.FindNodesWithModel("llama3")
+			nodesWithModel, err := registry.FindNodesWithModel(context.Background(), "llama3")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(nodesWithModel).To(HaveLen(1))
 			Expect(nodesWithModel[0].ID).To(Equal(nodeID))
 		})
 
 		It("should increment and decrement in-flight counters", func() {
-			registry.SetNodeModel(nodeID, "llama3", "loaded")
+			registry.SetNodeModel(context.Background(), nodeID, "llama3", "loaded")
 
-			err := registry.IncrementInFlight(nodeID, "llama3")
+			err := registry.IncrementInFlight(context.Background(), nodeID, "llama3")
 			Expect(err).ToNot(HaveOccurred())
-			err = registry.IncrementInFlight(nodeID, "llama3")
+			err = registry.IncrementInFlight(context.Background(), nodeID, "llama3")
 			Expect(err).ToNot(HaveOccurred())
 
-			models, _ := registry.GetNodeModels(nodeID)
+			models, _ := registry.GetNodeModels(context.Background(), nodeID)
 			Expect(models[0].InFlight).To(Equal(2))
 
-			registry.DecrementInFlight(nodeID, "llama3")
-			models, _ = registry.GetNodeModels(nodeID)
+			registry.DecrementInFlight(context.Background(), nodeID, "llama3")
+			models, _ = registry.GetNodeModels(context.Background(), nodeID)
 			Expect(models[0].InFlight).To(Equal(1))
 		})
 
 		It("should remove model association from node", func() {
-			registry.SetNodeModel(nodeID, "llama3", "loaded")
-			err := registry.RemoveNodeModel(nodeID, "llama3")
+			registry.SetNodeModel(context.Background(), nodeID, "llama3", "loaded")
+			err := registry.RemoveNodeModel(context.Background(), nodeID, "llama3")
 			Expect(err).ToNot(HaveOccurred())
 
-			models, _ := registry.GetNodeModels(nodeID)
+			models, _ := registry.GetNodeModels(context.Background(), nodeID)
 			Expect(models).To(BeEmpty())
 		})
 
 		It("should find LRU model on a node", func() {
 			// Load two models
-			registry.SetNodeModel(nodeID, "old-model", "loaded")
+			registry.SetNodeModel(context.Background(), nodeID, "old-model", "loaded")
 			time.Sleep(10 * time.Millisecond)
-			registry.SetNodeModel(nodeID, "new-model", "loaded")
+			registry.SetNodeModel(context.Background(), nodeID, "new-model", "loaded")
 
 			// Update last_used to make old-model older
 			db.Model(&nodes.NodeModel{}).Where("node_id = ? AND model_name = ?", nodeID, "old-model").
 				Update("last_used", time.Now().Add(-10*time.Minute))
 
-			lru, err := registry.FindLRUModel(nodeID)
+			lru, err := registry.FindLRUModel(context.Background(), nodeID)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(lru.ModelName).To(Equal("old-model"))
 		})
 
 		It("should clean up models when deregistering node", func() {
-			registry.SetNodeModel(nodeID, "llama3", "loaded")
-			registry.SetNodeModel(nodeID, "whisper", "loaded")
+			registry.SetNodeModel(context.Background(), nodeID, "llama3", "loaded")
+			registry.SetNodeModel(context.Background(), nodeID, "whisper", "loaded")
 
-			err := registry.Deregister(nodeID)
+			err := registry.Deregister(context.Background(), nodeID)
 			Expect(err).ToNot(HaveOccurred())
 
 			// Models should be gone too
-			models, _ := registry.GetNodeModels(nodeID)
+			models, _ := registry.GetNodeModels(context.Background(), nodeID)
 			Expect(models).To(BeEmpty())
 		})
 	})

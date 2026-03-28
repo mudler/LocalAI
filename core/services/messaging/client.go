@@ -117,7 +117,7 @@ func (c *Client) QueueSubscribeReply(subject, queue string, handler func(data []
 
 // SubscribeJSON creates a subscription that automatically unmarshals JSON messages.
 // Invalid JSON messages are logged and skipped.
-func SubscribeJSON[T any](c *Client, subject string, handler func(T)) (Subscription, error) {
+func SubscribeJSON[T any](c MessagingClient, subject string, handler func(T)) (Subscription, error) {
 	return c.Subscribe(subject, func(data []byte) {
 		var evt T
 		if err := json.Unmarshal(data, &evt); err != nil {
@@ -130,7 +130,7 @@ func SubscribeJSON[T any](c *Client, subject string, handler func(T)) (Subscript
 
 // QueueSubscribeJSON creates a queue subscription that automatically unmarshals JSON messages.
 // Invalid JSON messages are logged and skipped.
-func QueueSubscribeJSON[T any](c *Client, subject, queue string, handler func(T)) (Subscription, error) {
+func QueueSubscribeJSON[T any](c MessagingClient, subject, queue string, handler func(T)) (Subscription, error) {
 	return c.QueueSubscribe(subject, queue, func(data []byte) {
 		var evt T
 		if err := json.Unmarshal(data, &evt); err != nil {
@@ -144,7 +144,7 @@ func QueueSubscribeJSON[T any](c *Client, subject, queue string, handler func(T)
 // RequestJSON sends a JSON request-reply via NATS, marshaling the request and
 // unmarshaling the reply. This eliminates the repeated marshal/request/unmarshal
 // boilerplate across all NATS request-reply call sites.
-func RequestJSON[Req, Reply any](c *Client, subject string, req Req, timeout time.Duration) (*Reply, error) {
+func RequestJSON[Req, Reply any](c MessagingClient, subject string, req Req, timeout time.Duration) (*Reply, error) {
 	data, err := json.Marshal(req)
 	if err != nil {
 		return nil, fmt.Errorf("marshaling request: %w", err)
@@ -161,6 +161,10 @@ func RequestJSON[Req, Reply any](c *Client, subject string, req Req, timeout tim
 }
 
 // Conn returns the underlying NATS connection for advanced usage.
+//
+// Deprecated: Prefer using the MessagingClient interface methods (Publish, Subscribe, etc.)
+// instead of accessing the raw NATS connection. This method couples callers to the
+// concrete Client type and bypasses the abstraction layer.
 func (c *Client) Conn() *nats.Conn {
 	c.mu.RLock()
 	defer c.mu.RUnlock()

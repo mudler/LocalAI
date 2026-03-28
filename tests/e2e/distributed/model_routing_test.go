@@ -1,6 +1,8 @@
 package distributed_test
 
 import (
+	"context"
+
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/services/nodes"
 
@@ -50,31 +52,31 @@ var _ = Describe("Model Routing", Label("Distributed"), func() {
 			node := &nodes.BackendNode{
 				Name: "gpu-1", Address: "h1:50051",
 			}
-			Expect(registry.Register(node, true)).To(Succeed())
-			Expect(registry.SetNodeModel(node.ID, "llama3", "loaded")).To(Succeed())
-			Expect(registry.IncrementInFlight(node.ID, "llama3")).To(Succeed())
-			Expect(registry.IncrementInFlight(node.ID, "llama3")).To(Succeed())
+			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), node.ID, "llama3", "loaded")).To(Succeed())
+			Expect(registry.IncrementInFlight(context.Background(), node.ID, "llama3")).To(Succeed())
+			Expect(registry.IncrementInFlight(context.Background(), node.ID, "llama3")).To(Succeed())
 
 			// Verify in-flight count
-			models, err := registry.GetNodeModels(node.ID)
+			models, err := registry.GetNodeModels(context.Background(), node.ID)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(models[0].InFlight).To(Equal(2))
 
 			// FindAndLockNodeWithModel should return this node and atomically increment in-flight
-			foundNode, foundModel, err := registry.FindAndLockNodeWithModel("llama3")
+			foundNode, foundModel, err := registry.FindAndLockNodeWithModel(context.Background(),"llama3")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(foundNode.ID).To(Equal(node.ID))
 			Expect(foundModel.ModelName).To(Equal("llama3"))
 			Expect(foundModel.InFlight).To(Equal(2), "InFlight returned is the pre-increment snapshot from the query")
 
 			// Verify the DB now has in_flight = 3 (2 manual + 1 from FindAndLock)
-			models, err = registry.GetNodeModels(node.ID)
+			models, err = registry.GetNodeModels(context.Background(), node.ID)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(models[0].InFlight).To(Equal(3))
 
 			// Simulate decrement (what Release does)
-			Expect(registry.DecrementInFlight(node.ID, "llama3")).To(Succeed())
-			models, _ = registry.GetNodeModels(node.ID)
+			Expect(registry.DecrementInFlight(context.Background(), node.ID, "llama3")).To(Succeed())
+			models, _ = registry.GetNodeModels(context.Background(), node.ID)
 			Expect(models[0].InFlight).To(Equal(2))
 
 			// The ModelRouterAdapter.ReleaseModel calls the stored Release function
@@ -93,14 +95,14 @@ var _ = Describe("Model Routing", Label("Distributed"), func() {
 			node2 := &nodes.BackendNode{
 				Name: "node-b", Address: "h2:50051",
 			}
-			Expect(registry.Register(node1, true)).To(Succeed())
-			Expect(registry.Register(node2, true)).To(Succeed())
+			Expect(registry.Register(context.Background(), node1, true)).To(Succeed())
+			Expect(registry.Register(context.Background(), node2, true)).To(Succeed())
 
 			// Load model on node1
-			Expect(registry.SetNodeModel(node1.ID, "llama3", "loaded")).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), node1.ID, "llama3", "loaded")).To(Succeed())
 
 			// Verify routing can find the model
-			nodesWithModel, err := registry.FindNodesWithModel("llama3")
+			nodesWithModel, err := registry.FindNodesWithModel(context.Background(), "llama3")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(nodesWithModel).To(HaveLen(1))
 			Expect(nodesWithModel[0].ID).To(Equal(node1.ID))

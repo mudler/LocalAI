@@ -2,6 +2,7 @@ package testutil
 
 import (
 	"context"
+	"runtime"
 	"time"
 
 	"github.com/testcontainers/testcontainers-go"
@@ -18,6 +19,9 @@ import (
 // SetupTestDB creates a fresh PostgreSQL 16 container and returns a gorm.DB.
 // The container is cleaned up via DeferCleanup when the test completes.
 func SetupTestDB() *gorm.DB {
+	if runtime.GOOS == "darwin" {
+		Skip("testcontainers requires Docker, not available on macOS CI")
+	}
 	ctx := context.Background()
 	pgC, err := tcpostgres.Run(ctx, "postgres:16",
 		tcpostgres.WithDatabase("testdb"),

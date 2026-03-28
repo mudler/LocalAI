@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"os"
+	"path/filepath"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -46,6 +48,17 @@ func (m *mockObjectStore) Get(_ context.Context, key string) (io.ReadCloser, err
 	return io.NopCloser(bytes.NewReader(b)), nil
 }
 
+func (m *mockObjectStore) Head(_ context.Context, key string) (*ObjectMeta, error) {
+	b, ok := m.data[key]
+	if !ok {
+		return nil, io.EOF
+	}
+	return &ObjectMeta{
+		Key:  key,
+		Size: int64(len(b)),
+	}, nil
+}
+
 func (m *mockObjectStore) Exists(_ context.Context, key string) (bool, error) {
 	_, ok := m.data[key]
 	return ok, nil
@@ -67,6 +80,128 @@ func (m *mockObjectStore) List(_ context.Context, prefix string) ([]string, erro
 }
 
 var _ = Describe("FileManager", func() {
+	Describe("Upload", func() {
+		It("sends file data to the object store", func() {
+			store := newMockObjectStore(0)
+			cacheDir := GinkgoT().TempDir()
+			fm, err := NewFileManager(store, cacheDir)
+			Expect(err).ToNot(HaveOccurred())
+
+			// Write a temp file to upload
+			tmpFile := filepath.Join(GinkgoT().TempDir(), "upload-test.txt")
+			Expect(os.WriteFile(tmpFile, []byte("upload-content"), 0644)).To(Succeed())
+
+			Expect(fm.Upload(context.Background(), "my/key", tmpFile)).To(Succeed())
+
+			// Verify the mock store received the data
+			Expect(store.data).To(HaveKey("my/key"))
+			Expect(store.data["my/key"]).To(Equal([]byte("upload-content")))
+		})
+
+		It("returns error when local file does not exist", func() {
+			store := newMockObjectStore(0)
+			cacheDir := GinkgoT().TempDir()
+			fm, err := NewFileManager(store, cacheDir)
+			Expect(err).ToNot(HaveOccurred())
+
+			err = fm.Upload(context.Background(), "key", "/nonexistent/path")
+			Expect(err).To(HaveOccurred())
+		})
+	})
+
+	Describe("Download cache hit", func() {
+		It("serves from cache on second download without calling store again", func() {
+			store := newMockObjectStore(0)
+			store.data["cached-key"] = []byte("cached-content")
+
+			cacheDir := GinkgoT().TempDir()
+			fm, err := NewFileManager(store, cacheDir)
+			Expect(err).ToNot(HaveOccurred())
+
+			// First download populates cache
+			path1, err := fm.Download(context.Background(), "cached-key")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(path1).ToNot(BeEmpty())
+
+			content, err := os.ReadFile(path1)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(content).To(Equal([]byte("cached-content")))
+
+			Expect(store.getCalls.Load()).To(BeNumerically("==", 1))
+
+			// Second download should hit cache
+			path2, err := fm.Download(context.Background(), "cached-key")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(path2).To(Equal(path1))
+
+			// store.Get should NOT have been called again
+			Expect(store.getCalls.Load()).To(BeNumerically("==", 1))
+		})
+	})
+
+	Describe("Delete", func() {
+		It("removes from both local cache and remote store", func() {
+			store := newMockObjectStore(0)
+			store.data["del-key"] = []byte("delete-me")
+
+			cacheDir := GinkgoT().TempDir()
+			fm, err := NewFileManager(store, cacheDir)
+			Expect(err).ToNot(HaveOccurred())
+
+			// Download to populate cache
+			localPath, err := fm.Download(context.Background(), "del-key")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(localPath).ToNot(BeEmpty())
+
+			// Verify cache file exists
+			_, err = os.Stat(localPath)
+			Expect(err).ToNot(HaveOccurred())
+
+			// Delete
+			Expect(fm.Delete(context.Background(), "del-key")).To(Succeed())
+
+			// Local cache should be gone
+			_, err = os.Stat(localPath)
+			Expect(os.IsNotExist(err)).To(BeTrue())
+
+			// Remote store should be gone
+			Expect(store.data).ToNot(HaveKey("del-key"))
+		})
+	})
+
+	Describe("nil store (single-node mode)", func() {
+		var fm *FileManager
+
+		BeforeEach(func() {
+			cacheDir := GinkgoT().TempDir()
+			var err error
+			fm, err = NewFileManager(nil, cacheDir)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("Upload is a no-op", func() {
+			tmpFile := filepath.Join(GinkgoT().TempDir(), "nil-upload.txt")
+			Expect(os.WriteFile(tmpFile, []byte("data"), 0644)).To(Succeed())
+
+			err := fm.Upload(context.Background(), "key", tmpFile)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("Download returns an error", func() {
+			_, err := fm.Download(context.Background(), "key")
+			Expect(err).To(HaveOccurred())
+		})
+
+		It("Delete is a no-op", func() {
+			err := fm.Delete(context.Background(), "key")
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("IsConfigured returns false", func() {
+			Expect(fm.IsConfigured()).To(BeFalse())
+		})
+	})
+
 	Describe("singleflight deduplication", func() {
 		It("deduplicates concurrent downloads for the same key", func() {
 			store := newMockObjectStore(50 * time.Millisecond)
@@ -112,19 +247,15 @@ var _ = Describe("FileManager", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			var wg sync.WaitGroup
-			wg.Add(2)
-
 			var errA, errB error
-			go func() {
+			wg.Go(func() {
 				defer GinkgoRecover()
-				defer wg.Done()
 				_, errA = fm.Download(context.Background(), "key-a")
-			}()
-			go func() {
+			})
+			wg.Go(func() {
 				defer GinkgoRecover()
-				defer wg.Done()
 				_, errB = fm.Download(context.Background(), "key-b")
-			}()
+			})
 			wg.Wait()
 
 			Expect(errA).ToNot(HaveOccurred())

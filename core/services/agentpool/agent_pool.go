@@ -33,33 +33,45 @@ import (
 	"gorm.io/gorm"
 )
 
+// localAGICore manages the in-process LocalAGI agent pool (standalone mode only).
+type localAGICore struct {
+	pool          *state.AgentPool
+	skillsService *skills.Service
+	configMeta    state.AgentConfigMeta
+	sharedState   *coreTypes.AgentSharedState
+	actionsConfig map[string]string
+}
+
+// distributedBridge connects to the NATS-based distributed agent system.
+type distributedBridge struct {
+	natsClient  messaging.Publisher  // NATS client for distributed agent execution
+	agentStore  *agents.AgentStore   // PostgreSQL agent config store
+	eventBridge AgentEventBridge     // Event bridge for SSE + persistence
+	skillStore  *distributed.SkillStore // PostgreSQL skill metadata (distributed mode)
+	dispatcher  agents.Dispatcher    // Native dispatcher (distributed or local)
+}
+
+// userManager handles per-user services, storage, and auth.
+type userManager struct {
+	userServices *UserServicesManager
+	userStorage  *UserScopedStorage
+	authDB       *gorm.DB
+}
+
 // AgentPoolService wraps LocalAGI's AgentPool, Skills service, and collections backend
 // to provide agentic capabilities integrated directly into LocalAI.
-//
 type AgentPoolService struct {
 	appConfig          *config.ApplicationConfig
-	pool               *state.AgentPool
-	skillsService      *skills.Service
 	collectionsBackend collections.Backend
-	configMeta         state.AgentConfigMeta
-	actionsConfig      map[string]string
-	sharedState        *coreTypes.AgentSharedState
+	configBackend      AgentConfigBackend // Abstracts local vs distributed agent operations
+	localAGI           localAGICore
+	distributed        distributedBridge
+	users              userManager
 	stateDir           string
 	outputsDir         string
+	apiURL             string // Resolved API URL for agent execution
+	apiKey             string // Resolved API key for agent execution
 	mu                 sync.Mutex
-	userServices       *UserServicesManager
-	userStorage        *UserScopedStorage
-	authDB             *gorm.DB
-	skillStore         *distributed.SkillStore // PostgreSQL skill metadata (distributed mode)
-	configBackend      AgentConfigBackend      // Abstracts local vs distributed agent operations
-
-	// Distributed mode fields
-	natsClient  messaging.Publisher       // NATS client for distributed agent execution
-	eventBridge AgentEventBridge          // Event bridge for SSE + persistence
-	agentStore  *agents.AgentStore        // PostgreSQL agent config store
-	dispatcher  agents.Dispatcher         // Native dispatcher (distributed or local)
-	apiURL      string                    // Resolved API URL for agent execution
-	apiKey      string                    // Resolved API key for agent execution
 }
 
 // AgentEventBridge is the interface for event publishing needed by AgentPoolService.
@@ -109,7 +121,7 @@ func (s *AgentPoolService) Start(ctx context.Context) error {
 
 	// Distributed mode: use native executor + NATSDispatcher.
 	// No LocalAGI pool, no collections, no skills service — all stateless.
-	if s.natsClient != nil {
+	if s.distributed.natsClient != nil {
 		return s.startDistributed(ctx, apiURL, apiKey)
 	}
 
@@ -158,7 +170,7 @@ func (s *AgentPoolService) startDistributed(ctx context.Context, apiURL, apiKey 
 	if err != nil {
 		xlog.Warn("Failed to create skills service in distributed mode", "error", err)
 	} else {
-		s.skillsService = skillsSvc
+		s.localAGI.skillsService = skillsSvc
 	}
 
 	// Collections backend — same as standalone, in-process
@@ -173,20 +185,20 @@ func (s *AgentPoolService) startDistributed(ctx context.Context, apiURL, apiKey 
 
 	// User-scoped storage
 	dataDir := cmp.Or(s.appConfig.DataPath, s.appConfig.DynamicConfigsDir)
-	s.userStorage = NewUserScopedStorage(stateDir, dataDir)
+	s.users.userStorage = NewUserScopedStorage(stateDir, dataDir)
 
 	// Start the background agent scheduler on the frontend.
 	// It needs DB access to list configs and update LastRunAt — the worker doesn't have DB.
 	// The advisory lock ensures only one frontend instance runs the scheduler.
-	if s.authDB != nil && s.natsClient != nil && s.agentStore != nil {
+	if s.users.authDB != nil && s.distributed.natsClient != nil && s.distributed.agentStore != nil {
 		var schedulerOpts []agents.AgentSchedulerOpt
-		if s.skillStore != nil {
+		if s.distributed.skillStore != nil {
 			schedulerOpts = append(schedulerOpts, agents.WithSchedulerSkillProvider(s.buildSkillProvider()))
 		}
 		scheduler := agents.NewAgentScheduler(
-			s.authDB,
-			s.natsClient,
-			s.agentStore,
+			s.users.authDB,
+			s.distributed.natsClient,
+			s.distributed.agentStore,
 			messaging.SubjectAgentExecute,
 			schedulerOpts...,
 		)
@@ -194,7 +206,7 @@ func (s *AgentPoolService) startDistributed(ctx context.Context, apiURL, apiKey 
 	}
 
 	// Wire the distributed config backend
-	s.configBackend = newDistributedAgentConfigBackend(s, s.agentStore)
+	s.configBackend = newDistributedAgentConfigBackend(s, s.distributed.agentStore)
 
 	xlog.Info("Agent pool started in distributed mode (frontend dispatcher only)", "apiURL", apiURL, "stateDir", stateDir)
 	return nil
@@ -220,7 +232,7 @@ func (s *AgentPoolService) startLocalAGI(_ context.Context, cfg config.AgentPool
 	if err != nil {
 		xlog.Error("Failed to create skills service", "error", err)
 	}
-	s.skillsService = skillsSvc
+	s.localAGI.skillsService = skillsSvc
 
 	// Actions config map
 	actionsConfig := map[string]string{
@@ -236,14 +248,14 @@ func (s *AgentPoolService) startLocalAGI(_ context.Context, cfg config.AgentPool
 		xlog.Error("Failed to create outputs directory", "path", outputsDir, "error", err)
 	}
 
-	s.actionsConfig = actionsConfig
+	s.localAGI.actionsConfig = actionsConfig
 	s.stateDir = stateDir
 	s.outputsDir = outputsDir
-	s.sharedState = coreTypes.NewAgentSharedState(5 * time.Minute)
+	s.localAGI.sharedState = coreTypes.NewAgentSharedState(5 * time.Minute)
 
 	// Initialize user-scoped storage
 	dataDir := cmp.Or(s.appConfig.DataPath, s.appConfig.DynamicConfigsDir)
-	s.userStorage = NewUserScopedStorage(stateDir, dataDir)
+	s.users.userStorage = NewUserScopedStorage(stateDir, dataDir)
 
 	// Create the agent pool
 	pool, err := state.NewAgentPool(
@@ -266,7 +278,7 @@ func (s *AgentPoolService) startLocalAGI(_ context.Context, cfg config.AgentPool
 	if err != nil {
 		return fmt.Errorf("failed to create agent pool: %w", err)
 	}
-	s.pool = pool
+	s.localAGI.pool = pool
 
 	// Create in-process collections backend and RAG provider
 	collectionsCfg := s.buildCollectionsConfig(apiURL, apiKey, collectionDBPath, fileAssets)
@@ -279,7 +291,7 @@ func (s *AgentPoolService) startLocalAGI(_ context.Context, cfg config.AgentPool
 	})
 
 	// Build config metadata for UI
-	s.configMeta = state.NewAgentConfigMeta(
+	s.localAGI.configMeta = state.NewAgentConfigMeta(
 		agiServices.ActionsConfigMeta(cfg.CustomActionsDir),
 		agiServices.ConnectorsConfigMeta(),
 		agiServices.DynamicPromptsConfigMeta(cfg.CustomActionsDir),
@@ -321,22 +333,22 @@ func (s *AgentPoolService) APIKey() string {
 
 // Pool returns the underlying AgentPool.
 func (s *AgentPoolService) Pool() *state.AgentPool {
-	return s.pool
+	return s.localAGI.pool
 }
 
 // SetNATSClient sets the NATS client for distributed agent execution.
 func (s *AgentPoolService) SetNATSClient(nc messaging.Publisher) {
-	s.natsClient = nc
+	s.distributed.natsClient = nc
 }
 
 // SetEventBridge sets the event bridge for distributed SSE + persistence.
 func (s *AgentPoolService) SetEventBridge(eb AgentEventBridge) {
-	s.eventBridge = eb
+	s.distributed.eventBridge = eb
 }
 
 // SetAgentStore sets the PostgreSQL agent config store.
 func (s *AgentPoolService) SetAgentStore(store *agents.AgentStore) {
-	s.agentStore = store
+	s.distributed.agentStore = store
 }
 
 // Agent execution in distributed mode is handled by the dedicated agent-worker process
@@ -353,11 +365,11 @@ func (s *AgentPoolService) GetAgent(name string) *agent.Agent {
 
 // Chat sends a message to an agent and returns immediately. Responses come via SSE.
 func (s *AgentPoolService) Chat(name, message string) (string, error) {
-	ag := s.pool.GetAgent(name)
+	ag := s.localAGI.pool.GetAgent(name)
 	if ag == nil {
 		return "", fmt.Errorf("%w: %s", ErrAgentNotFound, name)
 	}
-	manager := s.pool.GetManager(name)
+	manager := s.localAGI.pool.GetManager(name)
 	if manager == nil {
 		return "", fmt.Errorf("SSE manager not found for agent: %s", name)
 	}
@@ -515,7 +527,7 @@ func (s *AgentPoolService) collectAndCopyMetadata(metadata map[string]any, userI
 }
 
 func (s *AgentPoolService) GetConfigMeta() state.AgentConfigMeta {
-	return s.configMeta
+	return s.localAGI.configMeta
 }
 
 // GetConfigMetaResult returns the config metadata via the backend, which handles
@@ -552,27 +564,27 @@ func (s *AgentPoolService) ExportAgent(name string) ([]byte, error) {
 
 // SetUserServicesManager sets the user services manager for per-user scoping.
 func (s *AgentPoolService) SetUserServicesManager(usm *UserServicesManager) {
-	s.userServices = usm
+	s.users.userServices = usm
 }
 
 // UserStorage returns the user-scoped storage.
 func (s *AgentPoolService) UserStorage() *UserScopedStorage {
-	return s.userStorage
+	return s.users.userStorage
 }
 
 // UserServicesManager returns the user services manager.
 func (s *AgentPoolService) UserServicesManager() *UserServicesManager {
-	return s.userServices
+	return s.users.userServices
 }
 
 // SetAuthDB sets the auth database for API key generation.
 func (s *AgentPoolService) SetAuthDB(db *gorm.DB) {
-	s.authDB = db
+	s.users.authDB = db
 }
 
 // SetSkillStore sets the distributed skill store for persisting skill metadata to PostgreSQL.
 func (s *AgentPoolService) SetSkillStore(store *distributed.SkillStore) {
-	s.skillStore = store
+	s.distributed.skillStore = store
 }
 
 // --- Admin Aggregation ---
@@ -741,8 +753,8 @@ func (s *AgentPoolService) CreateAgentForUser(userID string, config *state.Agent
 	}
 
 	// Auto-generate a user API key when auth is active and none is specified
-	if s.authDB != nil && userID != "" && config.APIKey == "" {
-		plaintext, _, err := auth.CreateAPIKey(s.authDB, userID, "agent:"+config.Name, "user", s.appConfig.Auth.APIKeyHMACSecret, nil)
+	if s.users.authDB != nil && userID != "" && config.APIKey == "" {
+		plaintext, _, err := auth.CreateAPIKey(s.users.authDB, userID, "agent:"+config.Name, "user", s.appConfig.Auth.APIKeyHMACSecret, nil)
 		if err != nil {
 			return fmt.Errorf("failed to create API key for agent: %w", err)
 		}
@@ -778,8 +790,8 @@ func (s *AgentPoolService) GetAgentConfigForUser(userID, name string) *state.Age
 // UpdateAgentForUser updates a user's agent.
 func (s *AgentPoolService) UpdateAgentForUser(userID, name string, config *state.AgentConfig) error {
 	// Auto-generate a user API key when auth is active and none is specified
-	if s.authDB != nil && userID != "" && config.APIKey == "" {
-		plaintext, _, err := auth.CreateAPIKey(s.authDB, userID, "agent:"+name, "user", s.appConfig.Auth.APIKeyHMACSecret, nil)
+	if s.users.authDB != nil && userID != "" && config.APIKey == "" {
+		plaintext, _, err := auth.CreateAPIKey(s.users.authDB, userID, "agent:"+name, "user", s.appConfig.Auth.APIKeyHMACSecret, nil)
 		if err != nil {
 			return fmt.Errorf("failed to create API key for agent: %w", err)
 		}
@@ -843,16 +855,16 @@ func (s *AgentPoolService) dispatchChat(userID, name, message string) (string, e
 	messageID := fmt.Sprintf("%d", time.Now().UnixNano())
 
 	// Send user message to SSE immediately so the UI shows it right away
-	if s.eventBridge != nil {
+	if s.distributed.eventBridge != nil {
 		agentName := name
-		s.eventBridge.PublishMessage(agentName, userID, "user", message, messageID+"-user")
-		s.eventBridge.PublishStatus(agentName, userID, "processing")
+		s.distributed.eventBridge.PublishMessage(agentName, userID, "user", message, messageID+"-user")
+		s.distributed.eventBridge.PublishStatus(agentName, userID, "processing")
 	}
 
 	// Load config from DB to embed in the NATS payload
 	var cfg *agents.AgentConfig
-	if s.agentStore != nil {
-		rec, err := s.agentStore.GetConfig(userID, name)
+	if s.distributed.agentStore != nil {
+		rec, err := s.distributed.agentStore.GetConfig(userID, name)
 		if err != nil {
 			return "", fmt.Errorf("agent config not found: %w", err)
 		}
@@ -880,7 +892,7 @@ func (s *AgentPoolService) dispatchChat(userID, name, message string) (string, e
 		Config:    cfg,
 		Skills:    skills,
 	}
-	if err := s.natsClient.Publish(messaging.SubjectAgentExecute, evt); err != nil {
+	if err := s.distributed.natsClient.Publish(messaging.SubjectAgentExecute, evt); err != nil {
 		return "", fmt.Errorf("failed to dispatch agent chat: %w", err)
 	}
 	return messageID, nil
@@ -908,8 +920,8 @@ func (s *AgentPoolService) ImportAgentForUser(userID string, data []byte) error 
 	}
 
 	// Auto-generate a user API key when auth is active and none is specified
-	if s.authDB != nil && userID != "" && cfg.APIKey == "" {
-		plaintext, _, err := auth.CreateAPIKey(s.authDB, userID, "agent:"+cfg.Name, "user", s.appConfig.Auth.APIKeyHMACSecret, nil)
+	if s.users.authDB != nil && userID != "" && cfg.APIKey == "" {
+		plaintext, _, err := auth.CreateAPIKey(s.users.authDB, userID, "agent:"+cfg.Name, "user", s.appConfig.Auth.APIKeyHMACSecret, nil)
 		if err != nil {
 			return fmt.Errorf("failed to create API key for agent: %w", err)
 		}
@@ -923,26 +935,26 @@ func (s *AgentPoolService) ImportAgentForUser(userID string, data []byte) error 
 
 // CollectionsBackendForUser returns the collections backend for a user.
 func (s *AgentPoolService) CollectionsBackendForUser(userID string) (collections.Backend, error) {
-	if s.userServices == nil || userID == "" {
+	if s.users.userServices == nil || userID == "" {
 		if s.collectionsBackend == nil {
 			return nil, fmt.Errorf("collections not available in distributed mode")
 		}
 		return s.collectionsBackend, nil
 	}
-	return s.userServices.GetCollections(userID)
+	return s.users.userServices.GetCollections(userID)
 }
 
 // --- ForUser Skills ---
 
 // SkillsServiceForUser returns the skills service for a user.
 func (s *AgentPoolService) SkillsServiceForUser(userID string) (*skills.Service, error) {
-	if s.userServices == nil || userID == "" {
-		if s.skillsService == nil {
+	if s.users.userServices == nil || userID == "" {
+		if s.localAGI.skillsService == nil {
 			return nil, fmt.Errorf("skills service not available")
 		}
-		return s.skillsService, nil
+		return s.localAGI.skillsService, nil
 	}
-	return s.userServices.GetSkills(userID)
+	return s.users.userServices.GetSkills(userID)
 }
 
 // SkillManagerForUser returns a SkillManager for a specific user.
@@ -956,8 +968,8 @@ func (s *AgentPoolService) SkillManagerForUser(userID string) (skillsManager.Man
 	fs := skillsManager.NewFilesystemManager(svc)
 
 	// In distributed mode, wrap with PostgreSQL sync
-	if s.skillStore != nil {
-		return skillsManager.NewDistributedManager(fs, s.skillStore, userID), nil
+	if s.distributed.skillStore != nil {
+		return skillsManager.NewDistributedManager(fs, s.distributed.skillStore, userID), nil
 	}
 	return fs, nil
 }
@@ -966,10 +978,10 @@ func (s *AgentPoolService) SkillManagerForUser(userID string) (skillsManager.Man
 
 // JobServiceForUser returns the agent job service for a user.
 func (s *AgentPoolService) JobServiceForUser(userID string) (*AgentJobService, error) {
-	if s.userServices == nil || userID == "" {
+	if s.users.userServices == nil || userID == "" {
 		return nil, fmt.Errorf("no user services manager or empty user ID")
 	}
-	return s.userServices.GetJobs(userID)
+	return s.users.userServices.GetJobs(userID)
 }
 
 // --- Actions ---
@@ -985,7 +997,7 @@ func (s *AgentPoolService) GetActionDefinition(actionName string, actionConfig m
 	if actionConfig == nil {
 		actionConfig = map[string]string{}
 	}
-	a, err := agiServices.Action(actionName, "", actionConfig, s.pool, s.actionsConfig)
+	a, err := agiServices.Action(actionName, "", actionConfig, s.localAGI.pool, s.localAGI.actionsConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -997,11 +1009,11 @@ func (s *AgentPoolService) ExecuteAction(ctx context.Context, actionName string,
 	if actionConfig == nil {
 		actionConfig = map[string]string{}
 	}
-	a, err := agiServices.Action(actionName, "", actionConfig, s.pool, s.actionsConfig)
+	a, err := agiServices.Action(actionName, "", actionConfig, s.localAGI.pool, s.localAGI.actionsConfig)
 	if err != nil {
 		return coreTypes.ActionResult{}, err
 	}
-	return a.Run(ctx, s.sharedState, params)
+	return a.Run(ctx, s.localAGI.sharedState, params)
 }
 
 // loadSkillsForUser loads full skill info (name, description, content) for a user.

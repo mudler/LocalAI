@@ -113,7 +113,7 @@ func (a *Application) waitForHealthyWorker() {
 	deadline := time.Now().Add(maxWait)
 
 	for time.Now().Before(deadline) {
-		registered, err := a.distributed.Registry.List()
+		registered, err := a.distributed.Registry.List(context.Background())
 		if err == nil {
 			for _, n := range registered {
 				if n.NodeType == nodes.NodeTypeBackend && n.Status == nodes.StatusHealthy {

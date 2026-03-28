@@ -3,7 +3,6 @@ package storage
 import (
 	"cmp"
 	"context"
-	"os"
 	"strings"
 	"time"
 
@@ -40,6 +39,9 @@ func StartEphemeralCleanup(ctx context.Context, fm *FileManager, ttl time.Durati
 }
 
 // cleanEphemeralKeys lists and deletes ephemeral keys older than TTL.
+// It uses object store metadata (Head) to determine age, so any instance
+// in a multi-node deployment can clean up orphaned keys — even those
+// uploaded by a different (or crashed) instance.
 func cleanEphemeralKeys(ctx context.Context, fm *FileManager, ttl time.Duration) {
 	keys, err := fm.List(ctx, "ephemeral/")
 	if err != nil {
@@ -59,26 +61,41 @@ func cleanEphemeralKeys(ctx context.Context, fm *FileManager, ttl time.Duration)
 			continue
 		}
 
-		// Use local cache file's modification time as a proxy for age
-		cachePath := fm.CachePath(key)
-		info, err := os.Stat(cachePath)
-		if err == nil && info.ModTime().Before(cutoff) {
+		created, err := objectCreatedAt(ctx, fm, key)
+		if err != nil {
+			xlog.Warn("Ephemeral cleanup: failed to head object", "key", key, "error", err)
+			continue
+		}
+
+		if created.Before(cutoff) {
 			if err := fm.Delete(ctx, key); err != nil {
 				xlog.Warn("Ephemeral cleanup: failed to delete", "key", key, "error", err)
 			} else {
 				deleted++
 			}
 		}
-		// If no local cache exists, the key may have been left by another instance.
-		// We can't determine its age without object metadata, so skip for now.
-		// A more robust approach would use S3 object metadata (LastModified).
-		// TODO(distributed): In multi-instance deployments, ephemeral keys uploaded by crashed
-		// instances are never cleaned up because cleanup relies on local cache file timestamps.
-		// Future: use S3 object metadata (x-amz-meta-created-at) or lifecycle rules to expire
-		// orphaned ephemeral objects. Operators should configure S3 lifecycle rules as a safety net.
 	}
 
 	if deleted > 0 {
 		xlog.Info("Ephemeral cleanup: deleted old keys", "count", deleted)
 	}
+}
+
+// objectCreatedAt returns the creation time of an object. It first checks
+// the "created-at" user metadata (set by S3Store.Put), and falls back to
+// the object's LastModified timestamp if the metadata is absent (e.g. for
+// objects written before this change or by external tools).
+func objectCreatedAt(ctx context.Context, fm *FileManager, key string) (time.Time, error) {
+	meta, err := fm.Head(ctx, key)
+	if err != nil {
+		return time.Time{}, err
+	}
+
+	if v, ok := meta.Metadata["created-at"]; ok {
+		if t, err := time.Parse(time.RFC3339, v); err == nil {
+			return t, nil
+		}
+	}
+
+	return meta.LastModified, nil
 }

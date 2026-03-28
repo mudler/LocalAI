@@ -1,6 +1,7 @@
 package nodes
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"time"
@@ -90,12 +91,12 @@ func NewNodeRegistry(db *gorm.DB) (*NodeRegistry, error) {
 // If false, new nodes start in "pending" status and must be approved by an admin.
 // On re-registration (same name), previously approved nodes return to "healthy";
 // nodes that were never approved stay in "pending".
-func (r *NodeRegistry) Register(node *BackendNode, autoApprove bool) error {
+func (r *NodeRegistry) Register(ctx context.Context, node *BackendNode, autoApprove bool) error {
 	node.LastHeartbeat = time.Now()
 
 	// Try to find existing node by name
 	var existing BackendNode
-	err := r.db.Where("name = ?", node.Name).First(&existing).Error
+	err := r.db.WithContext(ctx).Where("name = ?", node.Name).First(&existing).Error
 	if err == nil {
 		// Re-registration (node restart): preserve ID, respect approval history
 		node.ID = existing.ID
@@ -106,7 +107,7 @@ func (r *NodeRegistry) Register(node *BackendNode, autoApprove bool) error {
 			// Node was never approved — keep pending
 			node.Status = StatusPending
 		}
-		if err := r.db.Model(&existing).Updates(node).Error; err != nil {
+		if err := r.db.WithContext(ctx).Model(&existing).Updates(node).Error; err != nil {
 			return fmt.Errorf("updating node %s: %w", node.Name, err)
 		}
 		// Preserve auth references from existing record.
@@ -120,7 +121,7 @@ func (r *NodeRegistry) Register(node *BackendNode, autoApprove bool) error {
 			node.APIKeyID = existing.APIKeyID
 		}
 		// Clear stale model records — the node restarted and has nothing loaded
-		if err := r.db.Where("node_id = ?", existing.ID).Delete(&NodeModel{}).Error; err != nil {
+		if err := r.db.WithContext(ctx).Where("node_id = ?", existing.ID).Delete(&NodeModel{}).Error; err != nil {
 			xlog.Warn("Failed to clear stale model records on re-register", "node", node.Name, "error", err)
 		}
 	} else if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -133,7 +134,7 @@ func (r *NodeRegistry) Register(node *BackendNode, autoApprove bool) error {
 		} else {
 			node.Status = StatusPending
 		}
-		if err := r.db.Create(node).Error; err != nil {
+		if err := r.db.WithContext(ctx).Create(node).Error; err != nil {
 			return fmt.Errorf("creating node %s: %w", node.Name, err)
 		}
 	} else {
@@ -145,16 +146,16 @@ func (r *NodeRegistry) Register(node *BackendNode, autoApprove bool) error {
 }
 
 // UpdateAuthRefs stores the auto-provisioned user and API key IDs on a node.
-func (r *NodeRegistry) UpdateAuthRefs(nodeID, authUserID, apiKeyID string) error {
-	return r.db.Model(&BackendNode{}).Where("id = ?", nodeID).Updates(map[string]any{
+func (r *NodeRegistry) UpdateAuthRefs(ctx context.Context, nodeID, authUserID, apiKeyID string) error {
+	return r.db.WithContext(ctx).Model(&BackendNode{}).Where("id = ?", nodeID).Updates(map[string]any{
 		"auth_user_id": authUserID,
 		"api_key_id":   apiKeyID,
 	}).Error
 }
 
 // ApproveNode sets a pending node's status to healthy.
-func (r *NodeRegistry) ApproveNode(nodeID string) error {
-	result := r.db.Model(&BackendNode{}).
+func (r *NodeRegistry) ApproveNode(ctx context.Context, nodeID string) error {
+	result := r.db.WithContext(ctx).Model(&BackendNode{}).
 		Where("id = ? AND status = ?", nodeID, StatusPending).
 		Update("status", StatusHealthy)
 	if result.Error != nil {
@@ -169,8 +170,8 @@ func (r *NodeRegistry) ApproveNode(nodeID string) error {
 // MarkOffline sets a node to offline status and clears its model records.
 // Used on graceful shutdown — preserves the node row so re-registration
 // can restore the previous approval status.
-func (r *NodeRegistry) MarkOffline(nodeID string) error {
-	result := r.db.Model(&BackendNode{}).Where("id = ?", nodeID).Update("status", StatusOffline)
+func (r *NodeRegistry) MarkOffline(ctx context.Context, nodeID string) error {
+	result := r.db.WithContext(ctx).Model(&BackendNode{}).Where("id = ?", nodeID).Update("status", StatusOffline)
 	if result.Error != nil {
 		return fmt.Errorf("marking node %s offline: %w", nodeID, result.Error)
 	}
@@ -178,7 +179,7 @@ func (r *NodeRegistry) MarkOffline(nodeID string) error {
 		return fmt.Errorf("node %s not found", nodeID)
 	}
 	// Clear model records — node is shutting down
-	if err := r.db.Where("node_id = ?", nodeID).Delete(&NodeModel{}).Error; err != nil {
+	if err := r.db.WithContext(ctx).Where("node_id = ?", nodeID).Delete(&NodeModel{}).Error; err != nil {
 		xlog.Warn("Failed to clear model records on offline", "node", nodeID, "error", err)
 	}
 	return nil
@@ -186,26 +187,28 @@ func (r *NodeRegistry) MarkOffline(nodeID string) error {
 
 // FindNodeWithVRAM returns healthy nodes with at least minBytes available VRAM,
 // ordered idle-first then least-loaded.
-func (r *NodeRegistry) FindNodeWithVRAM(minBytes uint64) (*BackendNode, error) {
-	loadedModels := r.db.Model(&NodeModel{}).
+func (r *NodeRegistry) FindNodeWithVRAM(ctx context.Context, minBytes uint64) (*BackendNode, error) {
+	db := r.db.WithContext(ctx)
+
+	loadedModels := db.Model(&NodeModel{}).
 		Select("node_id").
 		Where("state = ?", "loaded").
 		Group("node_id")
 
-	subquery := r.db.Model(&NodeModel{}).
+	subquery := db.Model(&NodeModel{}).
 		Select("node_id, COALESCE(SUM(in_flight), 0) as total_inflight").
 		Group("node_id")
 
 	// Try idle nodes with enough VRAM first
 	var node BackendNode
-	err := r.db.Where("status = ? AND node_type = ? AND available_vram >= ? AND id NOT IN (?)", StatusHealthy, NodeTypeBackend, minBytes, loadedModels).
+	err := db.Where("status = ? AND node_type = ? AND available_vram >= ? AND id NOT IN (?)", StatusHealthy, NodeTypeBackend, minBytes, loadedModels).
 		First(&node).Error
 	if err == nil {
 		return &node, nil
 	}
 
 	// Fall back to least-loaded nodes with enough VRAM
-	err = r.db.Where("status = ? AND node_type = ? AND available_vram >= ?", StatusHealthy, NodeTypeBackend, minBytes).
+	err = db.Where("status = ? AND node_type = ? AND available_vram >= ?", StatusHealthy, NodeTypeBackend, minBytes).
 		Joins("LEFT JOIN (?) AS load ON load.node_id = backend_nodes.id", subquery).
 		Order("COALESCE(load.total_inflight, 0) ASC").
 		First(&node).Error
@@ -216,14 +219,16 @@ func (r *NodeRegistry) FindNodeWithVRAM(minBytes uint64) (*BackendNode, error) {
 }
 
 // Deregister removes a backend node, its model associations, and any auto-provisioned auth credentials.
-func (r *NodeRegistry) Deregister(nodeID string) error {
+func (r *NodeRegistry) Deregister(ctx context.Context, nodeID string) error {
+	db := r.db.WithContext(ctx)
+
 	// Read the node first to get auth references for cleanup
 	var node BackendNode
-	if err := r.db.Where("id = ?", nodeID).First(&node).Error; err != nil {
+	if err := db.Where("id = ?", nodeID).First(&node).Error; err != nil {
 		return fmt.Errorf("node %s not found: %w", nodeID, err)
 	}
 
-	tx := r.db.Begin()
+	tx := db.Begin()
 	if err := tx.Where("node_id = ?", nodeID).Delete(&NodeModel{}).Error; err != nil {
 		tx.Rollback()
 		return fmt.Errorf("deleting node models for %s: %w", nodeID, err)
@@ -256,7 +261,9 @@ type HeartbeatUpdate struct {
 // Heartbeat updates the heartbeat timestamp and status for a node.
 // Nodes in "pending" or "offline" status stay in their current status —
 // they must be approved or re-register respectively.
-func (r *NodeRegistry) Heartbeat(nodeID string, update *HeartbeatUpdate) error {
+func (r *NodeRegistry) Heartbeat(ctx context.Context, nodeID string, update *HeartbeatUpdate) error {
+	db := r.db.WithContext(ctx)
+
 	updates := map[string]any{
 		ColLastHeartbeat: time.Now(),
 	}
@@ -278,7 +285,7 @@ func (r *NodeRegistry) Heartbeat(nodeID string, update *HeartbeatUpdate) error {
 
 	// Only update all fields (including status promotion) for active nodes.
 	// Pending and offline nodes must go through approval or re-registration.
-	result := r.db.Model(&BackendNode{}).
+	result := db.Model(&BackendNode{}).
 		Where("id = ? AND status NOT IN ?", nodeID, []string{StatusPending, StatusOffline}).
 		Updates(updates)
 	if result.Error != nil {
@@ -286,7 +293,7 @@ func (r *NodeRegistry) Heartbeat(nodeID string, update *HeartbeatUpdate) error {
 	}
 	if result.RowsAffected == 0 {
 		// May be pending or offline — still update heartbeat timestamp
-		result = r.db.Model(&BackendNode{}).Where("id = ?", nodeID).Update(ColLastHeartbeat, time.Now())
+		result = db.Model(&BackendNode{}).Where("id = ?", nodeID).Update(ColLastHeartbeat, time.Now())
 		if result.Error != nil {
 			return fmt.Errorf("heartbeat for %s: %w", nodeID, result.Error)
 		}
@@ -298,50 +305,50 @@ func (r *NodeRegistry) Heartbeat(nodeID string, update *HeartbeatUpdate) error {
 }
 
 // List returns all registered nodes.
-func (r *NodeRegistry) List() ([]BackendNode, error) {
+func (r *NodeRegistry) List(ctx context.Context) ([]BackendNode, error) {
 	var nodes []BackendNode
-	if err := r.db.Order("name").Find(&nodes).Error; err != nil {
+	if err := r.db.WithContext(ctx).Order("name").Find(&nodes).Error; err != nil {
 		return nil, fmt.Errorf("listing nodes: %w", err)
 	}
 	return nodes, nil
 }
 
 // Get returns a single node by ID.
-func (r *NodeRegistry) Get(nodeID string) (*BackendNode, error) {
+func (r *NodeRegistry) Get(ctx context.Context, nodeID string) (*BackendNode, error) {
 	var node BackendNode
-	if err := r.db.First(&node, "id = ?", nodeID).Error; err != nil {
+	if err := r.db.WithContext(ctx).First(&node, "id = ?", nodeID).Error; err != nil {
 		return nil, fmt.Errorf("getting node %s: %w", nodeID, err)
 	}
 	return &node, nil
 }
 
 // GetByName returns a single node by name.
-func (r *NodeRegistry) GetByName(name string) (*BackendNode, error) {
+func (r *NodeRegistry) GetByName(ctx context.Context, name string) (*BackendNode, error) {
 	var node BackendNode
-	if err := r.db.First(&node, "name = ?", name).Error; err != nil {
+	if err := r.db.WithContext(ctx).First(&node, "name = ?", name).Error; err != nil {
 		return nil, fmt.Errorf("getting node by name %s: %w", name, err)
 	}
 	return &node, nil
 }
 
 // MarkUnhealthy sets a node status to unhealthy.
-func (r *NodeRegistry) MarkUnhealthy(nodeID string) error {
-	return r.db.Model(&BackendNode{}).Where("id = ?", nodeID).
+func (r *NodeRegistry) MarkUnhealthy(ctx context.Context, nodeID string) error {
+	return r.db.WithContext(ctx).Model(&BackendNode{}).Where("id = ?", nodeID).
 		Update("status", StatusUnhealthy).Error
 }
 
 // MarkDraining sets a node status to draining (no new requests).
-func (r *NodeRegistry) MarkDraining(nodeID string) error {
-	return r.db.Model(&BackendNode{}).Where("id = ?", nodeID).
+func (r *NodeRegistry) MarkDraining(ctx context.Context, nodeID string) error {
+	return r.db.WithContext(ctx).Model(&BackendNode{}).Where("id = ?", nodeID).
 		Update("status", StatusDraining).Error
 }
 
 // FindStaleNodes returns nodes that haven't sent a heartbeat within the given threshold.
 // Excludes unhealthy, offline, and pending nodes since they're not actively participating.
-func (r *NodeRegistry) FindStaleNodes(threshold time.Duration) ([]BackendNode, error) {
+func (r *NodeRegistry) FindStaleNodes(ctx context.Context, threshold time.Duration) ([]BackendNode, error) {
 	var nodes []BackendNode
 	cutoff := time.Now().Add(-threshold)
-	if err := r.db.Where("last_heartbeat < ? AND status NOT IN ?", cutoff,
+	if err := r.db.WithContext(ctx).Where("last_heartbeat < ? AND status NOT IN ?", cutoff,
 		[]string{StatusUnhealthy, StatusOffline, StatusPending}).
 		Find(&nodes).Error; err != nil {
 		return nil, fmt.Errorf("finding stale nodes: %w", err)
@@ -352,7 +359,7 @@ func (r *NodeRegistry) FindStaleNodes(threshold time.Duration) ([]BackendNode, e
 // --- NodeModel operations ---
 
 // SetNodeModel records that a model is loaded on a node.
-func (r *NodeRegistry) SetNodeModel(nodeID, modelName, state string, address ...string) error {
+func (r *NodeRegistry) SetNodeModel(ctx context.Context, nodeID, modelName, state string, address ...string) error {
 	addr := ""
 	if len(address) > 0 {
 		addr = address[0]
@@ -365,21 +372,21 @@ func (r *NodeRegistry) SetNodeModel(nodeID, modelName, state string, address ...
 		State:     state,
 		LastUsed:  time.Now(),
 	}
-	result := r.db.Where("node_id = ? AND model_name = ?", nodeID, modelName).
+	result := r.db.WithContext(ctx).Where("node_id = ? AND model_name = ?", nodeID, modelName).
 		Assign(nm).FirstOrCreate(nm)
 	return result.Error
 }
 
 // RemoveNodeModel removes a model association from a node.
-func (r *NodeRegistry) RemoveNodeModel(nodeID, modelName string) error {
-	return r.db.Where("node_id = ? AND model_name = ?", nodeID, modelName).
+func (r *NodeRegistry) RemoveNodeModel(ctx context.Context, nodeID, modelName string) error {
+	return r.db.WithContext(ctx).Where("node_id = ? AND model_name = ?", nodeID, modelName).
 		Delete(&NodeModel{}).Error
 }
 
 // FindNodesWithModel returns nodes that have the given model loaded.
-func (r *NodeRegistry) FindNodesWithModel(modelName string) ([]BackendNode, error) {
+func (r *NodeRegistry) FindNodesWithModel(ctx context.Context, modelName string) ([]BackendNode, error) {
 	var nodes []BackendNode
-	if err := r.db.Joins("JOIN node_models ON node_models.node_id = backend_nodes.id").
+	if err := r.db.WithContext(ctx).Joins("JOIN node_models ON node_models.node_id = backend_nodes.id").
 		Where("node_models.model_name = ? AND node_models.state = ? AND backend_nodes.status = ?",
 			modelName, "loaded", StatusHealthy).
 		Order("node_models.in_flight ASC").
@@ -393,11 +400,11 @@ func (r *NodeRegistry) FindNodesWithModel(modelName string) ([]BackendNode, erro
 // model loaded and increments its in-flight counter within a single transaction.
 // The SELECT FOR UPDATE row lock prevents concurrent eviction from removing the
 // NodeModel row between the find and increment operations.
-func (r *NodeRegistry) FindAndLockNodeWithModel(modelName string) (*BackendNode, *NodeModel, error) {
+func (r *NodeRegistry) FindAndLockNodeWithModel(ctx context.Context, modelName string) (*BackendNode, *NodeModel, error) {
 	var nm NodeModel
 	var node BackendNode
 
-	err := r.db.Transaction(func(tx *gorm.DB) error {
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
 			Where("model_name = ? AND state = ?", modelName, "loaded").
 			Order("in_flight ASC").
@@ -427,15 +434,15 @@ func (r *NodeRegistry) FindAndLockNodeWithModel(modelName string) (*BackendNode,
 }
 
 // TouchNodeModel updates the last_used timestamp for LRU tracking.
-func (r *NodeRegistry) TouchNodeModel(nodeID, modelName string) {
-	r.db.Model(&NodeModel{}).Where("node_id = ? AND model_name = ?", nodeID, modelName).
+func (r *NodeRegistry) TouchNodeModel(ctx context.Context, nodeID, modelName string) {
+	r.db.WithContext(ctx).Model(&NodeModel{}).Where("node_id = ? AND model_name = ?", nodeID, modelName).
 		Update("last_used", time.Now())
 }
 
 // GetNodeModel returns the NodeModel record for a specific node+model combination.
-func (r *NodeRegistry) GetNodeModel(nodeID, modelName string) (*NodeModel, error) {
+func (r *NodeRegistry) GetNodeModel(ctx context.Context, nodeID, modelName string) (*NodeModel, error) {
 	var nm NodeModel
-	err := r.db.Where("node_id = ? AND model_name = ?", nodeID, modelName).First(&nm).Error
+	err := r.db.WithContext(ctx).Where("node_id = ? AND model_name = ?", nodeID, modelName).First(&nm).Error
 	if err != nil {
 		return nil, err
 	}
@@ -443,11 +450,13 @@ func (r *NodeRegistry) GetNodeModel(nodeID, modelName string) (*NodeModel, error
 }
 
 // FindLeastLoadedNode returns the healthy node with the fewest in-flight requests.
-func (r *NodeRegistry) FindLeastLoadedNode() (*BackendNode, error) {
+func (r *NodeRegistry) FindLeastLoadedNode(ctx context.Context) (*BackendNode, error) {
+	db := r.db.WithContext(ctx)
+
 	var node BackendNode
-	query := r.db.Where("status = ? AND node_type = ?", StatusHealthy, NodeTypeBackend)
+	query := db.Where("status = ? AND node_type = ?", StatusHealthy, NodeTypeBackend)
 	// Order by total in-flight across all models on the node
-	subquery := r.db.Model(&NodeModel{}).
+	subquery := db.Model(&NodeModel{}).
 		Select("node_id, COALESCE(SUM(in_flight), 0) as total_inflight").
 		Group("node_id")
 
@@ -462,13 +471,15 @@ func (r *NodeRegistry) FindLeastLoadedNode() (*BackendNode, error) {
 
 // FindIdleNode returns a healthy node with zero in-flight requests and zero loaded models.
 // Used by the scheduler to prefer truly idle nodes for new backend assignments.
-func (r *NodeRegistry) FindIdleNode() (*BackendNode, error) {
+func (r *NodeRegistry) FindIdleNode(ctx context.Context) (*BackendNode, error) {
+	db := r.db.WithContext(ctx)
+
 	var node BackendNode
-	loadedModels := r.db.Model(&NodeModel{}).
+	loadedModels := db.Model(&NodeModel{}).
 		Select("node_id").
 		Where("state = ?", "loaded").
 		Group("node_id")
-	err := r.db.Where("status = ? AND node_type = ? AND id NOT IN (?)", StatusHealthy, NodeTypeBackend, loadedModels).
+	err := db.Where("status = ? AND node_type = ? AND id NOT IN (?)", StatusHealthy, NodeTypeBackend, loadedModels).
 		First(&node).Error
 	if err != nil {
 		return nil, err
@@ -477,8 +488,8 @@ func (r *NodeRegistry) FindIdleNode() (*BackendNode, error) {
 }
 
 // IncrementInFlight atomically increments the in-flight counter for a model on a node.
-func (r *NodeRegistry) IncrementInFlight(nodeID, modelName string) error {
-	return r.db.Model(&NodeModel{}).
+func (r *NodeRegistry) IncrementInFlight(ctx context.Context, nodeID, modelName string) error {
+	return r.db.WithContext(ctx).Model(&NodeModel{}).
 		Where("node_id = ? AND model_name = ?", nodeID, modelName).
 		Updates(map[string]any{
 			"in_flight": gorm.Expr("in_flight + 1"),
@@ -487,16 +498,16 @@ func (r *NodeRegistry) IncrementInFlight(nodeID, modelName string) error {
 }
 
 // DecrementInFlight atomically decrements the in-flight counter for a model on a node.
-func (r *NodeRegistry) DecrementInFlight(nodeID, modelName string) error {
-	return r.db.Model(&NodeModel{}).
+func (r *NodeRegistry) DecrementInFlight(ctx context.Context, nodeID, modelName string) error {
+	return r.db.WithContext(ctx).Model(&NodeModel{}).
 		Where("node_id = ? AND model_name = ? AND in_flight > 0", nodeID, modelName).
 		UpdateColumn("in_flight", gorm.Expr("in_flight - 1")).Error
 }
 
 // GetNodeModels returns all models loaded on a given node.
-func (r *NodeRegistry) GetNodeModels(nodeID string) ([]NodeModel, error) {
+func (r *NodeRegistry) GetNodeModels(ctx context.Context, nodeID string) ([]NodeModel, error) {
 	var models []NodeModel
-	if err := r.db.Where("node_id = ?", nodeID).Find(&models).Error; err != nil {
+	if err := r.db.WithContext(ctx).Where("node_id = ?", nodeID).Find(&models).Error; err != nil {
 		return nil, fmt.Errorf("getting models for node %s: %w", nodeID, err)
 	}
 	return models, nil
@@ -504,9 +515,9 @@ func (r *NodeRegistry) GetNodeModels(nodeID string) ([]NodeModel, error) {
 
 // ListAllLoadedModels returns all models that are loaded on healthy nodes.
 // Used by DistributedModelStore.Range() to discover models not in local cache.
-func (r *NodeRegistry) ListAllLoadedModels() ([]NodeModel, error) {
+func (r *NodeRegistry) ListAllLoadedModels(ctx context.Context) ([]NodeModel, error) {
 	var models []NodeModel
-	err := r.db.Joins("JOIN backend_nodes ON backend_nodes.id = node_models.node_id").
+	err := r.db.WithContext(ctx).Joins("JOIN backend_nodes ON backend_nodes.id = node_models.node_id").
 		Where("node_models.state = ? AND backend_nodes.status = ?", "loaded", StatusHealthy).
 		Find(&models).Error
 	if err != nil {
@@ -517,8 +528,8 @@ func (r *NodeRegistry) ListAllLoadedModels() ([]NodeModel, error) {
 
 // FindNodeForModel returns the first healthy node that has the given model loaded.
 // Returns the node and true if found, nil and false otherwise.
-func (r *NodeRegistry) FindNodeForModel(modelName string) (*BackendNode, bool) {
-	nodes, err := r.FindNodesWithModel(modelName)
+func (r *NodeRegistry) FindNodeForModel(ctx context.Context, modelName string) (*BackendNode, bool) {
+	nodes, err := r.FindNodesWithModel(ctx, modelName)
 	if err != nil || len(nodes) == 0 {
 		return nil, false
 	}
@@ -526,9 +537,9 @@ func (r *NodeRegistry) FindNodeForModel(modelName string) (*BackendNode, bool) {
 }
 
 // FindLRUModel returns the least-recently-used model on a node.
-func (r *NodeRegistry) FindLRUModel(nodeID string) (*NodeModel, error) {
+func (r *NodeRegistry) FindLRUModel(ctx context.Context, nodeID string) (*NodeModel, error) {
 	var nm NodeModel
-	err := r.db.Where("node_id = ? AND state = ? AND in_flight = 0", nodeID, "loaded").
+	err := r.db.WithContext(ctx).Where("node_id = ? AND state = ? AND in_flight = 0", nodeID, "loaded").
 		Order("last_used ASC").First(&nm).Error
 	if err != nil {
 		return nil, fmt.Errorf("finding LRU model on node %s: %w", nodeID, err)
@@ -539,9 +550,9 @@ func (r *NodeRegistry) FindLRUModel(nodeID string) (*NodeModel, error) {
 // FindGlobalLRUModelWithZeroInFlight returns the least-recently-used model
 // across all healthy backend nodes that has zero in-flight requests.
 // Used by the router for preemptive eviction when no node has free VRAM.
-func (r *NodeRegistry) FindGlobalLRUModelWithZeroInFlight() (*NodeModel, error) {
+func (r *NodeRegistry) FindGlobalLRUModelWithZeroInFlight(ctx context.Context) (*NodeModel, error) {
 	var nm NodeModel
-	err := r.db.Joins("JOIN backend_nodes ON backend_nodes.id = node_models.node_id").
+	err := r.db.WithContext(ctx).Joins("JOIN backend_nodes ON backend_nodes.id = node_models.node_id").
 		Where("node_models.state = ? AND node_models.in_flight = 0 AND backend_nodes.status = ? AND backend_nodes.node_type = ?",
 			"loaded", StatusHealthy, NodeTypeBackend).
 		Order("node_models.last_used ASC").

@@ -2,6 +2,7 @@ package distributed_test
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"path/filepath"
 
@@ -100,7 +101,7 @@ var _ = Describe("File Staging", Label("Distributed"), func() {
 			node := &nodes.BackendNode{
 				Name: "staging-node", Address: "h1:50051",
 			}
-			Expect(registry.Register(node, true)).To(Succeed())
+			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
 
 			// Verify NATS file staging subjects are correctly formed
 			ensureSubj := messaging.SubjectNodeFilesEnsure(node.ID)

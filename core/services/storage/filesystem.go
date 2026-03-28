@@ -50,6 +50,18 @@ func (fs *FilesystemStore) Get(_ context.Context, key string) (io.ReadCloser, er
 	return f, nil
 }
 
+func (fs *FilesystemStore) Head(_ context.Context, key string) (*ObjectMeta, error) {
+	info, err := os.Stat(fs.path(key))
+	if err != nil {
+		return nil, fmt.Errorf("stat %s: %w", key, err)
+	}
+	return &ObjectMeta{
+		Key:          key,
+		Size:         info.Size(),
+		LastModified: info.ModTime(),
+	}, nil
+}
+
 func (fs *FilesystemStore) Exists(_ context.Context, key string) (bool, error) {
 	_, err := os.Stat(fs.path(key))
 	if err == nil {

@@ -129,7 +129,7 @@ var _ = Describe("Phase 0: Foundation", Label("Distributed"), func() {
 			FlushNATS(client)
 
 			// Publish multiple messages
-			for i := 0; i < 10; i++ {
+			for i := range 10 {
 				err = client.Publish("test.queue", map[string]int{"n": i})
 				Expect(err).ToNot(HaveOccurred())
 			}

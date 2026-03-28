@@ -1,7 +1,7 @@
 package nodes
 
 import (
-	"encoding/json"
+	"context"
 	"fmt"
 	"time"
 
@@ -31,12 +31,12 @@ type NodeCommandSender interface {
 // This mirrors the local ModelLoader's startProcess()/deleteProcess() but
 // over NATS for remote nodes.
 type RemoteUnloaderAdapter struct {
-	registry *NodeRegistry
-	nats     *messaging.Client
+	registry ModelLocator
+	nats     messaging.MessagingClient
 }
 
 // NewRemoteUnloaderAdapter creates a new adapter.
-func NewRemoteUnloaderAdapter(registry *NodeRegistry, nats *messaging.Client) *RemoteUnloaderAdapter {
+func NewRemoteUnloaderAdapter(registry ModelLocator, nats messaging.MessagingClient) *RemoteUnloaderAdapter {
 	return &RemoteUnloaderAdapter{
 		registry: registry,
 		nats:     nats,
@@ -48,7 +48,8 @@ func NewRemoteUnloaderAdapter(registry *NodeRegistry, nats *messaging.Client) *R
 // The worker process handles: Free() → kill process.
 // This is called by ModelLoader.deleteProcess() when process == nil (remote model).
 func (a *RemoteUnloaderAdapter) UnloadRemoteModel(modelName string) error {
-	nodes, err := a.registry.FindNodesWithModel(modelName)
+	ctx := context.Background()
+	nodes, err := a.registry.FindNodesWithModel(ctx, modelName)
 	if err != nil || len(nodes) == 0 {
 		xlog.Debug("No remote nodes found with model", "model", modelName)
 		return nil
@@ -61,7 +62,7 @@ func (a *RemoteUnloaderAdapter) UnloadRemoteModel(modelName string) error {
 			continue
 		}
 		// Remove model from registry — the node will handle the actual cleanup
-		a.registry.RemoveNodeModel(node.ID, modelName)
+		a.registry.RemoveNodeModel(ctx, node.ID, modelName)
 	}
 
 	return nil
@@ -96,16 +97,12 @@ func (a *RemoteUnloaderAdapter) ListBackends(nodeID string) (*messaging.BackendL
 func (a *RemoteUnloaderAdapter) StopBackend(nodeID, backend string) error {
 	subject := messaging.SubjectNodeBackendStop(nodeID)
 	if backend == "" {
-		return a.nats.Conn().Publish(subject, nil)
+		return a.nats.Publish(subject, nil)
 	}
 	req := struct {
 		Backend string `json:"backend"`
 	}{Backend: backend}
-	data, err := json.Marshal(req)
-	if err != nil {
-		return fmt.Errorf("marshalling stop request: %w", err)
-	}
-	return a.nats.Conn().Publish(subject, data)
+	return a.nats.Publish(subject, req)
 }
 
 // DeleteBackend tells a worker node to delete a backend (stop + remove files).
@@ -135,7 +132,7 @@ func (a *RemoteUnloaderAdapter) UnloadModelOnNode(nodeID, modelName string) erro
 // DeleteModelFiles sends model.delete to all nodes that have the model cached.
 // This removes model files from worker disks.
 func (a *RemoteUnloaderAdapter) DeleteModelFiles(modelName string) error {
-	nodes, err := a.registry.FindNodesWithModel(modelName)
+	nodes, err := a.registry.FindNodesWithModel(context.Background(), modelName)
 	if err != nil || len(nodes) == 0 {
 		xlog.Debug("No nodes with model for file deletion", "model", modelName)
 		return nil
@@ -160,5 +157,5 @@ func (a *RemoteUnloaderAdapter) DeleteModelFiles(modelName string) error {
 // StopNode tells a worker node to shut down entirely (deregister + exit).
 func (a *RemoteUnloaderAdapter) StopNode(nodeID string) error {
 	subject := messaging.SubjectNodeStop(nodeID)
-	return a.nats.Conn().Publish(subject, nil)
+	return a.nats.Publish(subject, nil)
 }

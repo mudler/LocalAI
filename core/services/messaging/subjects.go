@@ -1,5 +1,16 @@
 package messaging
 
+import "strings"
+
+// sanitizeSubjectToken replaces NATS-reserved characters in a subject token.
+// NATS uses '.' as hierarchy delimiter and '*'/'>' as wildcards.
+func sanitizeSubjectToken(s string) string {
+	s = strings.ReplaceAll(s, ".", "-")
+	s = strings.ReplaceAll(s, "*", "-")
+	s = strings.ReplaceAll(s, ">", "-")
+	return s
+}
+
 // NATS subject constants for the distributed architecture.
 // Following the notetaker pattern: <entity>.<action>
 
@@ -25,17 +36,17 @@ func SubjectAgentEvents(agentName, userID string) string {
 	if userID == "" {
 		userID = "anonymous"
 	}
-	return subjectAgentEventsPrefix + agentName + ".events." + userID
+	return subjectAgentEventsPrefix + sanitizeSubjectToken(agentName) + ".events." + sanitizeSubjectToken(userID)
 }
 
 // SubjectJobProgress returns the NATS subject for job progress updates.
 func SubjectJobProgress(jobID string) string {
-	return subjectJobProgressPrefix + jobID + ".progress"
+	return subjectJobProgressPrefix + sanitizeSubjectToken(jobID) + ".progress"
 }
 
 // SubjectJobResult returns the NATS subject for the final job result (terminal state).
 func SubjectJobResult(jobID string) string {
-	return subjectJobProgressPrefix + jobID + ".result"
+	return subjectJobProgressPrefix + sanitizeSubjectToken(jobID) + ".result"
 }
 
 // MCP Tool Execution (Request-Reply via NATS — load-balanced across agent workers)
@@ -47,12 +58,12 @@ const (
 
 // SubjectFineTuneProgress returns the NATS subject for fine-tune progress.
 func SubjectFineTuneProgress(jobID string) string {
-	return subjectFineTunePrefix + jobID + ".progress"
+	return subjectFineTunePrefix + sanitizeSubjectToken(jobID) + ".progress"
 }
 
 // SubjectGalleryProgress returns the NATS subject for gallery download progress.
 func SubjectGalleryProgress(opID string) string {
-	return subjectGalleryPrefix + opID + ".progress"
+	return subjectGalleryPrefix + sanitizeSubjectToken(opID) + ".progress"
 }
 
 // Control Signals (Pub/Sub — targeted cancellation)
@@ -75,22 +86,22 @@ const (
 
 // SubjectJobCancel returns the NATS subject to cancel a running job.
 func SubjectJobCancel(jobID string) string {
-	return subjectJobCancelPrefix + jobID + ".cancel"
+	return subjectJobCancelPrefix + sanitizeSubjectToken(jobID) + ".cancel"
 }
 
 // SubjectAgentCancel returns the NATS subject to cancel agent execution.
 func SubjectAgentCancel(agentID string) string {
-	return subjectAgentCancelPrefix + agentID + ".cancel"
+	return subjectAgentCancelPrefix + sanitizeSubjectToken(agentID) + ".cancel"
 }
 
 // SubjectFineTuneCancel returns the NATS subject to stop fine-tuning.
 func SubjectFineTuneCancel(jobID string) string {
-	return subjectFineTuneCancelPrefix + jobID + ".cancel"
+	return subjectFineTuneCancelPrefix + sanitizeSubjectToken(jobID) + ".cancel"
 }
 
 // SubjectGalleryCancel returns the NATS subject to cancel a gallery download.
 func SubjectGalleryCancel(opID string) string {
-	return subjectGalleryCancelPrefix + opID + ".cancel"
+	return subjectGalleryCancelPrefix + sanitizeSubjectToken(opID) + ".cancel"
 }
 
 // Node Backend Lifecycle (Pub/Sub — targeted to specific nodes)
@@ -109,7 +120,7 @@ const (
 // the backend from gallery (if not already installed), starts the gRPC process,
 // and replies when ready.
 func SubjectNodeBackendInstall(nodeID string) string {
-	return subjectNodePrefix + nodeID + ".backend.install"
+	return subjectNodePrefix + sanitizeSubjectToken(nodeID) + ".backend.install"
 }
 
 // BackendInstallRequest is the payload for a backend.install NATS request.
@@ -129,7 +140,7 @@ type BackendInstallReply struct {
 // SubjectNodeBackendList queries a worker node for its installed backends.
 // Uses NATS request-reply.
 func SubjectNodeBackendList(nodeID string) string {
-	return subjectNodePrefix + nodeID + ".backend.list"
+	return subjectNodePrefix + sanitizeSubjectToken(nodeID) + ".backend.list"
 }
 
 // BackendListRequest is the payload for a backend.list NATS request.
@@ -156,13 +167,13 @@ type NodeBackendInfo struct {
 // 2. Kill the backend process
 // 3. Can be restarted via another backend.start event.
 func SubjectNodeBackendStop(nodeID string) string {
-	return subjectNodePrefix + nodeID + ".backend.stop"
+	return subjectNodePrefix + sanitizeSubjectToken(nodeID) + ".backend.stop"
 }
 
 // SubjectNodeBackendDelete tells a worker node to delete a backend (stop + remove files).
 // Uses NATS request-reply.
 func SubjectNodeBackendDelete(nodeID string) string {
-	return subjectNodePrefix + nodeID + ".backend.delete"
+	return subjectNodePrefix + sanitizeSubjectToken(nodeID) + ".backend.delete"
 }
 
 // BackendDeleteRequest is the payload for a backend.delete NATS request.
@@ -179,7 +190,7 @@ type BackendDeleteReply struct {
 // SubjectNodeModelUnload tells a worker node to unload a model (gRPC Free) without killing the backend.
 // Uses NATS request-reply.
 func SubjectNodeModelUnload(nodeID string) string {
-	return subjectNodePrefix + nodeID + ".model.unload"
+	return subjectNodePrefix + sanitizeSubjectToken(nodeID) + ".model.unload"
 }
 
 // ModelUnloadRequest is the payload for a model.unload NATS request.
@@ -197,7 +208,7 @@ type ModelUnloadReply struct {
 // SubjectNodeModelDelete tells a worker node to delete model files from disk.
 // Uses NATS request-reply.
 func SubjectNodeModelDelete(nodeID string) string {
-	return subjectNodePrefix + nodeID + ".model.delete"
+	return subjectNodePrefix + sanitizeSubjectToken(nodeID) + ".model.delete"
 }
 
 // ModelDeleteRequest is the payload for a model.delete NATS request.
@@ -214,7 +225,7 @@ type ModelDeleteReply struct {
 // SubjectNodeStop tells a serve-backend node to shut down entirely
 // (deregister + exit). The node will not restart the backend process.
 func SubjectNodeStop(nodeID string) string {
-	return subjectNodePrefix + nodeID + ".stop"
+	return subjectNodePrefix + sanitizeSubjectToken(nodeID) + ".stop"
 }
 
 // File Staging (Request-Reply — targeted to specific nodes)
@@ -223,25 +234,25 @@ func SubjectNodeStop(nodeID string) string {
 // SubjectNodeFilesEnsure tells a serve-backend node to download an S3 key to its local cache.
 // Reply: {local_path, error}
 func SubjectNodeFilesEnsure(nodeID string) string {
-	return subjectNodePrefix + nodeID + ".files.ensure"
+	return subjectNodePrefix + sanitizeSubjectToken(nodeID) + ".files.ensure"
 }
 
 // SubjectNodeFilesStage tells a serve-backend node to upload a local file to S3.
 // Reply: {key, error}
 func SubjectNodeFilesStage(nodeID string) string {
-	return subjectNodePrefix + nodeID + ".files.stage"
+	return subjectNodePrefix + sanitizeSubjectToken(nodeID) + ".files.stage"
 }
 
 // SubjectNodeFilesTemp tells a serve-backend node to allocate a temp file.
 // Reply: {local_path, error}
 func SubjectNodeFilesTemp(nodeID string) string {
-	return subjectNodePrefix + nodeID + ".files.temp"
+	return subjectNodePrefix + sanitizeSubjectToken(nodeID) + ".files.temp"
 }
 
 // SubjectNodeFilesListDir tells a serve-backend node to list files in a directory.
 // Reply: {files: [...], error}
 func SubjectNodeFilesListDir(nodeID string) string {
-	return subjectNodePrefix + nodeID + ".files.listdir"
+	return subjectNodePrefix + sanitizeSubjectToken(nodeID) + ".files.listdir"
 }
 
 // Cache Invalidation (Pub/Sub — broadcast to all instances)
@@ -251,7 +262,7 @@ const (
 
 // SubjectCacheInvalidateCollection returns the NATS subject for collection cache invalidation.
 func SubjectCacheInvalidateCollection(name string) string {
-	return "cache.invalidate.collections." + name
+	return "cache.invalidate.collections." + sanitizeSubjectToken(name)
 }
 
 // PostgreSQL Advisory Lock Keys (used with advisorylock package, NOT NATS)
