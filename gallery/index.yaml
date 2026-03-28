@@ -1,4 +1,30 @@
 ---
+- name: "trinity-mini-lora-2-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Trinity-Mini-Lora-2-i1-GGUF
+  description: |
+    Describe the model in a clear and concise way that can be shared in a model gallery.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Trinity-Mini-Lora-2-i1-GGUF/Trinity-Mini-Lora-2.i1-Q4_K_M.gguf
+    name: Trinity-Mini-Lora-2-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+      automatic_tool_parsing_fallback: true
+    description: Imported from https://huggingface.co/mradermacher/Trinity-Mini-Lora-2-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Trinity-Mini-Lora-2-i1-GGUF/Trinity-Mini-Lora-2.i1-Q4_K_M.gguf
+      sha256: c45785fed7a1c760b0d1582b0f9964de1e2ed1bac1ce739aa7fc3431b0ecd81b
+      uri: https://huggingface.co/mradermacher/Trinity-Mini-Lora-2-i1-GGUF/resolve/main/Trinity-Mini-Lora-2.i1-Q4_K_M.gguf
 - name: "qwen_qwen3.5-35b-a3b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
