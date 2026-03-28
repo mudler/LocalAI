@@ -2,7 +2,6 @@ package nodes
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"time"
 
@@ -49,9 +48,20 @@ type fileStageReply struct {
 	Error string `json:"error,omitempty"`
 }
 
+type fileTempRequest struct{}
+
 type fileTempReply struct {
 	LocalPath string `json:"local_path"`
 	Error     string `json:"error,omitempty"`
+}
+
+type fileListDirRequest struct {
+	KeyPrefix string `json:"key_prefix"`
+}
+
+type fileListDirReply struct {
+	Files []string `json:"files"`
+	Error string   `json:"error,omitempty"`
 }
 
 // EnsureRemote uploads a local file to S3 (if not already there) and sends
@@ -66,17 +76,10 @@ func (s *S3NATSFileStager) EnsureRemote(ctx context.Context, nodeID, localPath, 
 	}
 
 	// Send NATS request-reply to backend
-	reqData, _ := json.Marshal(fileEnsureRequest{Key: key})
 	subject := messaging.SubjectNodeFilesEnsure(nodeID)
-
-	replyData, err := s.nats.Request(subject, reqData, 10*time.Minute)
+	reply, err := messaging.RequestJSON[fileEnsureRequest, fileEnsureReply](s.nats, subject, fileEnsureRequest{Key: key}, 10*time.Minute)
 	if err != nil {
-		return "", fmt.Errorf("NATS request to %s: %w", subject, err)
-	}
-
-	var reply fileEnsureReply
-	if err := json.Unmarshal(replyData, &reply); err != nil {
-		return "", fmt.Errorf("decoding ensure reply: %w", err)
+		return "", err
 	}
 	if reply.Error != "" {
 		return "", fmt.Errorf("backend ensure failed: %s", reply.Error)
@@ -103,17 +106,10 @@ func (s *S3NATSFileStager) FetchRemoteByKey(ctx context.Context, nodeID, key, lo
 }
 
 func (s *S3NATSFileStager) fetchRemoteWithKey(ctx context.Context, nodeID, remotePath, key, localDst string, cleanup bool) error {
-	reqData, _ := json.Marshal(fileStageRequest{LocalPath: remotePath, Key: key})
 	subject := messaging.SubjectNodeFilesStage(nodeID)
-
-	replyData, err := s.nats.Request(subject, reqData, 10*time.Minute)
+	reply, err := messaging.RequestJSON[fileStageRequest, fileStageReply](s.nats, subject, fileStageRequest{LocalPath: remotePath, Key: key}, 10*time.Minute)
 	if err != nil {
-		return fmt.Errorf("NATS request to %s: %w", subject, err)
-	}
-
-	var reply fileStageReply
-	if err := json.Unmarshal(replyData, &reply); err != nil {
-		return fmt.Errorf("decoding stage reply: %w", err)
+		return err
 	}
 	if reply.Error != "" {
 		return fmt.Errorf("backend stage failed: %s", reply.Error)
@@ -141,15 +137,9 @@ func (s *S3NATSFileStager) fetchRemoteWithKey(ctx context.Context, nodeID, remot
 // AllocRemoteTemp asks the backend to allocate a temp file via NATS request-reply.
 func (s *S3NATSFileStager) AllocRemoteTemp(ctx context.Context, nodeID string) (string, error) {
 	subject := messaging.SubjectNodeFilesTemp(nodeID)
-
-	replyData, err := s.nats.Request(subject, []byte("{}"), 30*time.Second)
+	reply, err := messaging.RequestJSON[fileTempRequest, fileTempReply](s.nats, subject, fileTempRequest{}, 30*time.Second)
 	if err != nil {
-		return "", fmt.Errorf("NATS request to %s: %w", subject, err)
-	}
-
-	var reply fileTempReply
-	if err := json.Unmarshal(replyData, &reply); err != nil {
-		return "", fmt.Errorf("decoding temp reply: %w", err)
+		return "", err
 	}
 	if reply.Error != "" {
 		return "", fmt.Errorf("backend temp alloc failed: %s", reply.Error)
@@ -159,22 +149,10 @@ func (s *S3NATSFileStager) AllocRemoteTemp(ctx context.Context, nodeID string) (
 }
 
 func (s *S3NATSFileStager) ListRemoteDir(ctx context.Context, nodeID, keyPrefix string) ([]string, error) {
-	reqData, _ := json.Marshal(struct {
-		KeyPrefix string `json:"key_prefix"`
-	}{KeyPrefix: keyPrefix})
 	subject := messaging.SubjectNodeFilesListDir(nodeID)
-
-	replyData, err := s.nats.Request(subject, reqData, 30*time.Second)
+	reply, err := messaging.RequestJSON[fileListDirRequest, fileListDirReply](s.nats, subject, fileListDirRequest{KeyPrefix: keyPrefix}, 30*time.Second)
 	if err != nil {
-		return nil, fmt.Errorf("NATS request to %s: %w", subject, err)
-	}
-
-	var reply struct {
-		Files []string `json:"files"`
-		Error string   `json:"error,omitempty"`
-	}
-	if err := json.Unmarshal(replyData, &reply); err != nil {
-		return nil, fmt.Errorf("decoding listdir reply: %w", err)
+		return nil, err
 	}
 	if reply.Error != "" {
 		return nil, fmt.Errorf("backend listdir failed: %s", reply.Error)
@@ -185,17 +163,10 @@ func (s *S3NATSFileStager) ListRemoteDir(ctx context.Context, nodeID, keyPrefix 
 
 // StageRemoteToStore tells the backend to upload a local file to S3.
 func (s *S3NATSFileStager) StageRemoteToStore(ctx context.Context, nodeID, remotePath, key string) error {
-	reqData, _ := json.Marshal(fileStageRequest{LocalPath: remotePath, Key: key})
 	subject := messaging.SubjectNodeFilesStage(nodeID)
-
-	replyData, err := s.nats.Request(subject, reqData, 10*time.Minute)
+	reply, err := messaging.RequestJSON[fileStageRequest, fileStageReply](s.nats, subject, fileStageRequest{LocalPath: remotePath, Key: key}, 10*time.Minute)
 	if err != nil {
-		return fmt.Errorf("NATS request to %s: %w", subject, err)
-	}
-
-	var reply fileStageReply
-	if err := json.Unmarshal(replyData, &reply); err != nil {
-		return fmt.Errorf("decoding stage reply: %w", err)
+		return err
 	}
 	if reply.Error != "" {
 		return fmt.Errorf("backend stage failed: %s", reply.Error)

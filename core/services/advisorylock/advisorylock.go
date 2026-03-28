@@ -84,3 +84,32 @@ func KeyFromUUID(b [16]byte) int64 {
 	h.Write(b[:])
 	return int64(h.Sum64()>>1) | 0x100000000
 }
+
+// KeyFromString converts an arbitrary string to an advisory lock key via FNV-1a hashing.
+func KeyFromString(s string) int64 {
+	h := fnv.New64a()
+	h.Write([]byte(s))
+	return int64(h.Sum64()>>1) | 0x100000000
+}
+
+// WithLockCtx is like WithLock but respects context cancellation.
+// If ctx is cancelled while waiting for the lock, the function returns ctx.Err().
+func WithLockCtx(ctx context.Context, db *gorm.DB, key int64, fn func() error) error {
+	sqlDB, err := db.DB()
+	if err != nil {
+		return fmt.Errorf("advisorylock: getting sql.DB: %w", err)
+	}
+	conn, err := sqlDB.Conn(ctx)
+	if err != nil {
+		return fmt.Errorf("advisorylock: getting connection: %w", err)
+	}
+	defer conn.Close()
+
+	if _, err := conn.ExecContext(ctx, "SELECT pg_advisory_lock($1)", key); err != nil {
+		return fmt.Errorf("advisorylock: acquiring lock %d: %w", key, err)
+	}
+	// Always release the lock, even if ctx is cancelled
+	defer conn.ExecContext(context.Background(), "SELECT pg_advisory_unlock($1)", key)
+
+	return fn()
+}

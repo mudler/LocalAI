@@ -9,6 +9,11 @@ import (
 	"github.com/mudler/xlog"
 )
 
+// backendStopRequest is the request payload for backend.stop (fire-and-forget).
+type backendStopRequest struct {
+	Backend string `json:"backend"`
+}
+
 // NodeCommandSender abstracts NATS-based commands to worker nodes.
 // Used by HTTP endpoint handlers to avoid coupling to the concrete RemoteUnloaderAdapter.
 type NodeCommandSender interface {
@@ -70,27 +75,11 @@ func (a *RemoteUnloaderAdapter) InstallBackend(nodeID, backendType, modelID, gal
 	subject := messaging.SubjectNodeBackendInstall(nodeID)
 	xlog.Info("Sending NATS backend.install", "nodeID", nodeID, "backend", backendType, "modelID", modelID)
 
-	req := messaging.BackendInstallRequest{
+	return messaging.RequestJSON[messaging.BackendInstallRequest, messaging.BackendInstallReply](a.nats, subject, messaging.BackendInstallRequest{
 		Backend:          backendType,
 		ModelID:          modelID,
 		BackendGalleries: galleriesJSON,
-	}
-	reqData, err := json.Marshal(req)
-	if err != nil {
-		return nil, fmt.Errorf("marshalling install request: %w", err)
-	}
-
-	replyData, err := a.nats.Request(subject, reqData, 5*time.Minute)
-	if err != nil {
-		return nil, fmt.Errorf("backend.install request to node %s: %w", nodeID, err)
-	}
-
-	var reply messaging.BackendInstallReply
-	if err := json.Unmarshal(replyData, &reply); err != nil {
-		return nil, fmt.Errorf("unmarshalling install reply: %w", err)
-	}
-
-	return &reply, nil
+	}, 5*time.Minute)
 }
 
 // ListBackends queries a worker node for its installed backends via NATS request-reply.
@@ -98,22 +87,7 @@ func (a *RemoteUnloaderAdapter) ListBackends(nodeID string) (*messaging.BackendL
 	subject := messaging.SubjectNodeBackendList(nodeID)
 	xlog.Debug("Sending NATS backend.list", "nodeID", nodeID)
 
-	reqData, err := json.Marshal(messaging.BackendListRequest{})
-	if err != nil {
-		return nil, fmt.Errorf("marshalling list request: %w", err)
-	}
-
-	replyData, err := a.nats.Request(subject, reqData, 30*time.Second)
-	if err != nil {
-		return nil, fmt.Errorf("backend.list request to node %s: %w", nodeID, err)
-	}
-
-	var reply messaging.BackendListReply
-	if err := json.Unmarshal(replyData, &reply); err != nil {
-		return nil, fmt.Errorf("unmarshalling list reply: %w", err)
-	}
-
-	return &reply, nil
+	return messaging.RequestJSON[messaging.BackendListRequest, messaging.BackendListReply](a.nats, subject, messaging.BackendListRequest{}, 30*time.Second)
 }
 
 // StopBackend tells a worker node to stop a specific gRPC backend process.
@@ -139,22 +113,7 @@ func (a *RemoteUnloaderAdapter) DeleteBackend(nodeID, backendName string) (*mess
 	subject := messaging.SubjectNodeBackendDelete(nodeID)
 	xlog.Info("Sending NATS backend.delete", "nodeID", nodeID, "backend", backendName)
 
-	req := messaging.BackendDeleteRequest{Backend: backendName}
-	reqData, err := json.Marshal(req)
-	if err != nil {
-		return nil, fmt.Errorf("marshalling delete request: %w", err)
-	}
-
-	replyData, err := a.nats.Request(subject, reqData, 2*time.Minute)
-	if err != nil {
-		return nil, fmt.Errorf("backend.delete request to node %s: %w", nodeID, err)
-	}
-
-	var reply messaging.BackendDeleteReply
-	if err := json.Unmarshal(replyData, &reply); err != nil {
-		return nil, fmt.Errorf("unmarshalling delete reply: %w", err)
-	}
-	return &reply, nil
+	return messaging.RequestJSON[messaging.BackendDeleteRequest, messaging.BackendDeleteReply](a.nats, subject, messaging.BackendDeleteRequest{Backend: backendName}, 2*time.Minute)
 }
 
 // UnloadModelOnNode sends a model.unload request to a specific node.
@@ -163,20 +122,9 @@ func (a *RemoteUnloaderAdapter) UnloadModelOnNode(nodeID, modelName string) erro
 	subject := messaging.SubjectNodeModelUnload(nodeID)
 	xlog.Info("Sending NATS model.unload", "nodeID", nodeID, "model", modelName)
 
-	req := messaging.ModelUnloadRequest{ModelName: modelName}
-	reqData, err := json.Marshal(req)
+	reply, err := messaging.RequestJSON[messaging.ModelUnloadRequest, messaging.ModelUnloadReply](a.nats, subject, messaging.ModelUnloadRequest{ModelName: modelName}, 30*time.Second)
 	if err != nil {
-		return fmt.Errorf("marshalling unload request: %w", err)
-	}
-
-	replyData, err := a.nats.Request(subject, reqData, 30*time.Second)
-	if err != nil {
-		return fmt.Errorf("model.unload request to node %s: %w", nodeID, err)
-	}
-
-	var reply messaging.ModelUnloadReply
-	if err := json.Unmarshal(replyData, &reply); err != nil {
-		return fmt.Errorf("unmarshalling unload reply: %w", err)
+		return err
 	}
 	if !reply.Success {
 		return fmt.Errorf("model.unload on node %s: %s", nodeID, reply.Error)
@@ -197,21 +145,9 @@ func (a *RemoteUnloaderAdapter) DeleteModelFiles(modelName string) error {
 		subject := messaging.SubjectNodeModelDelete(node.ID)
 		xlog.Info("Sending NATS model.delete", "nodeID", node.ID, "model", modelName)
 
-		req := messaging.ModelDeleteRequest{ModelName: modelName}
-		reqData, err := json.Marshal(req)
-		if err != nil {
-			xlog.Warn("model.delete marshal failed", "node", node.Name, "error", err)
-			continue
-		}
-
-		replyData, err := a.nats.Request(subject, reqData, 30*time.Second)
+		reply, err := messaging.RequestJSON[messaging.ModelDeleteRequest, messaging.ModelDeleteReply](a.nats, subject, messaging.ModelDeleteRequest{ModelName: modelName}, 30*time.Second)
 		if err != nil {
 			xlog.Warn("model.delete failed on node", "node", node.Name, "error", err)
-			continue
-		}
-		var reply messaging.ModelDeleteReply
-		if err := json.Unmarshal(replyData, &reply); err != nil {
-			xlog.Warn("model.delete reply unmarshal failed", "node", node.Name, "error", err)
 			continue
 		}
 		if !reply.Success {

@@ -1,6 +1,7 @@
 package nodes
 
 import (
+	"cmp"
 	"context"
 	"time"
 
@@ -25,12 +26,8 @@ type HealthMonitor struct {
 // If db is non-nil (PostgreSQL), an advisory lock is used so that only one
 // frontend instance runs health checks at a time in distributed mode.
 func NewHealthMonitor(registry *NodeRegistry, db *gorm.DB, checkInterval, staleThreshold time.Duration) *HealthMonitor {
-	if checkInterval == 0 {
-		checkInterval = 15 * time.Second
-	}
-	if staleThreshold == 0 {
-		staleThreshold = 60 * time.Second
-	}
+	checkInterval = cmp.Or(checkInterval, 15*time.Second)
+	staleThreshold = cmp.Or(staleThreshold, 60*time.Second)
 	return &HealthMonitor{
 		registry:       registry,
 		db:             db,

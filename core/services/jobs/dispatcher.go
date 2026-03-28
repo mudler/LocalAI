@@ -2,12 +2,13 @@ package jobs
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/services/advisorylock"
+	"github.com/mudler/LocalAI/core/services/dbutil"
 	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/xlog"
 	"github.com/nats-io/nats.go"
@@ -72,7 +73,7 @@ type Dispatcher struct {
 	workerFn WorkerFunc
 
 	// Cancel registry (notetaker pattern)
-	cancelRegistry sync.Map // jobID -> context.CancelFunc
+	cancelRegistry messaging.CancelRegistry
 
 	// NATS subscriptions
 	jobSub      *nats.Subscription
@@ -113,6 +114,27 @@ func (d *Dispatcher) SetModelConfigLoader(cl ModelConfigLoader) {
 // Start begins listening for jobs via NATS and starts the cron leader loop.
 func (d *Dispatcher) Start(ctx context.Context) error {
 	d.ctx, d.cancel = context.WithCancel(ctx)
+	success := false
+	defer func() {
+		if !success {
+			if d.jobSub != nil {
+				d.jobSub.Unsubscribe()
+				d.jobSub = nil
+			}
+			if d.cancelSub != nil {
+				d.cancelSub.Unsubscribe()
+				d.cancelSub = nil
+			}
+			if d.resultSub != nil {
+				d.resultSub.Unsubscribe()
+				d.resultSub = nil
+			}
+			if d.progressSub != nil {
+				d.progressSub.Unsubscribe()
+				d.progressSub = nil
+			}
+		}
+	}()
 
 	// Subscribe to job queue only if a worker function is configured.
 	// In distributed mode, the frontend dispatcher publishes jobs but does not consume them —
@@ -129,11 +151,8 @@ func (d *Dispatcher) Start(ctx context.Context) error {
 
 	// Subscribe to cancel events (broadcast to all — each instance checks its registry)
 	d.cancelSub, err = messaging.SubscribeJSON(d.nats, messaging.SubjectJobCancelWildcard, func(evt CancelEvent) {
-		if fn, ok := d.cancelRegistry.LoadAndDelete(evt.JobID); ok {
-			if cancelFn, ok := fn.(context.CancelFunc); ok {
-				cancelFn()
-				xlog.Info("Cancelled job via NATS", "jobID", evt.JobID)
-			}
+		if d.cancelRegistry.Cancel(evt.JobID) {
+			xlog.Info("Cancelled job via NATS", "jobID", evt.JobID)
 		}
 	})
 	if err != nil {
@@ -158,7 +177,6 @@ func (d *Dispatcher) Start(ctx context.Context) error {
 			}
 		})
 		if err != nil {
-			d.resultSub.Unsubscribe()
 			return fmt.Errorf("subscribing to progress events: %w", err)
 		}
 	}
@@ -166,6 +184,7 @@ func (d *Dispatcher) Start(ctx context.Context) error {
 	// Start cron leader loop
 	go d.cronLeaderLoop()
 
+	success = true
 	xlog.Info("Job dispatcher started", "instance", d.instanceID)
 	return nil
 }
@@ -215,7 +234,12 @@ func (d *Dispatcher) Enqueue(jobID, taskID, userID string) error {
 		}
 	}
 
-	return d.nats.Publish(messaging.SubjectJobsNew, evt)
+	subject := messaging.SubjectJobsNew
+	if evt.ModelConfig != nil && evt.ModelConfig.MCP.HasMCPServers() {
+		subject = messaging.SubjectMCPCIJobsNew
+	}
+
+	return d.nats.Publish(subject, evt)
 }
 
 // Cancel publishes a cancel event to NATS (broadcast to all instances).
@@ -282,9 +306,9 @@ func (d *Dispatcher) processJob(evt JobEvent) {
 
 	// Create cancellable context
 	ctx, cancelFn := context.WithCancel(d.ctx)
-	d.cancelRegistry.Store(evt.JobID, cancelFn)
+	d.cancelRegistry.Register(evt.JobID, cancelFn)
 	defer func() {
-		d.cancelRegistry.Delete(evt.JobID)
+		d.cancelRegistry.Deregister(evt.JobID)
 		cancelFn()
 	}()
 
@@ -303,7 +327,7 @@ func (d *Dispatcher) processJob(evt JobEvent) {
 	// Execute
 	err := d.workerFn(ctx, job, task)
 
-	if ctx.Err() == context.Canceled {
+	if errors.Is(ctx.Err(), context.Canceled) {
 		d.publishResult(evt.JobID, "cancelled", "", "")
 		d.PublishProgress(evt.JobID, "cancelled", "Job cancelled")
 		return
@@ -343,26 +367,7 @@ func (d *Dispatcher) PublishTrace(jobID, traceType, traceContent string) error {
 // cronLeaderLoop runs every 15 seconds. Only one instance wins the advisory lock
 // and runs due cron tasks. Other instances skip. (notetaker pattern)
 func (d *Dispatcher) cronLeaderLoop() {
-	ticker := time.NewTicker(15 * time.Second)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-d.ctx.Done():
-			return
-		case <-ticker.C:
-			acquired, err := advisorylock.TryWithLock(d.db, messaging.AdvisoryLockCronScheduler, func() error {
-				d.runDueCronTasks()
-				return nil
-			})
-			if err != nil {
-				xlog.Error("Cron leader advisory lock error", "error", err)
-			}
-			if !acquired {
-				continue
-			}
-		}
-	}
+	advisorylock.RunLeaderLoop(d.ctx, d.db, messaging.AdvisoryLockCronScheduler, 15*time.Second, d.runDueCronTasks)
 }
 
 // runDueCronTasks checks all cron tasks and enqueues any that are due.
@@ -384,7 +389,7 @@ func (d *Dispatcher) runDueCronTasks() {
 
 		// Create and enqueue a job for this cron task
 		var params map[string]string
-		UnmarshalJSON(task.CronParametersJSON, &params)
+		dbutil.UnmarshalJSON(task.CronParametersJSON, &params)
 
 		job := &JobRecord{
 			TaskID:         task.ID,

@@ -10,6 +10,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/mudler/LocalAI/core/services/messaging"
+
 	coreTypes "github.com/mudler/LocalAGI/core/types"
 	"github.com/mudler/cogito"
 	"github.com/mudler/xlog"
@@ -189,15 +191,13 @@ func (d *LocalDispatcher) buildLocalCallbacks(writer SSEWriter, messageID string
 
 // --- NATS Dispatcher (distributed) ---
 
-// NATSSub is a subscription that can be unsubscribed.
-type NATSSub interface {
-	Unsubscribe() error
-}
-
 // NATSClient combines publishing and subscribing for NATS.
+// It uses messaging.Subscription so that the concrete *messaging.Client
+// (whose subscribe methods return *nats.Subscription) satisfies it via
+// a thin adapter that widens the return type.
 type NATSClient interface {
 	Publish(subject string, data any) error
-	QueueSubscribe(subject, queue string, handler func(data []byte)) (NATSSub, error)
+	QueueSubscribe(subject, queue string, handler func(data []byte)) (messaging.Subscription, error)
 }
 
 // NATSDispatcher dispatches agent chats via NATS queue group.
@@ -209,7 +209,7 @@ type NATSDispatcher struct {
 	apiKey      string
 	subject     string
 	queue       string
-	sub         NATSSub // stored subscription for cleanup
+	sub         messaging.Subscription // stored subscription for cleanup
 }
 
 // NewNATSDispatcher creates a dispatcher that uses NATS for distribution.

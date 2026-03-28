@@ -6,6 +6,7 @@ package messaging
 // Job Distribution (Queue Groups — load-balanced, one consumer gets each message)
 const (
 	SubjectJobsNew             = "jobs.new"
+	SubjectMCPCIJobsNew        = "jobs.mcp-ci.new"
 	SubjectAgentExecute        = "agent.execute"
 	QueueWorkers               = "workers"
 )

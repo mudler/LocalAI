@@ -26,17 +26,17 @@ import (
 // It provides PUT/GET/POST endpoints for uploading, downloading, and allocating temp files,
 // as well as backend log REST and WebSocket endpoints when logStore is non-nil.
 // Auth is via Bearer token (registration token), using constant-time comparison.
-func StartFileTransferServer(addr, stagingDir, modelsDir, dataDir, token string, logStore ...*model.BackendLogStore) (*http.Server, error) {
+func StartFileTransferServer(addr, stagingDir, modelsDir, dataDir, token string, maxUploadSize int64, logStore ...*model.BackendLogStore) (*http.Server, error) {
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
 		return nil, fmt.Errorf("listen %s: %w", addr, err)
 	}
-	return StartFileTransferServerWithListener(listener, stagingDir, modelsDir, dataDir, token, logStore...)
+	return StartFileTransferServerWithListener(listener, stagingDir, modelsDir, dataDir, token, maxUploadSize, logStore...)
 }
 
 // StartFileTransferServerWithListener starts the server on an existing listener.
 // This avoids the TOCTOU race of closing a listener and re-binding to the same port.
-func StartFileTransferServerWithListener(lis net.Listener, stagingDir, modelsDir, dataDir, token string, logStore ...*model.BackendLogStore) (*http.Server, error) {
+func StartFileTransferServerWithListener(lis net.Listener, stagingDir, modelsDir, dataDir, token string, maxUploadSize int64, logStore ...*model.BackendLogStore) (*http.Server, error) {
 	if err := os.MkdirAll(stagingDir, 0750); err != nil {
 		return nil, fmt.Errorf("creating staging dir %s: %w", stagingDir, err)
 	}
@@ -73,7 +73,7 @@ func StartFileTransferServerWithListener(lis net.Listener, stagingDir, modelsDir
 
 		switch r.Method {
 		case http.MethodPut:
-			handleUpload(w, r, stagingDir, modelsDir, dataDir, key)
+			handleUpload(w, r, stagingDir, modelsDir, dataDir, key, maxUploadSize)
 		case http.MethodGet:
 			handleDownload(w, r, stagingDir, modelsDir, dataDir, key)
 		case http.MethodPost:
@@ -109,22 +109,18 @@ func StartFileTransferServerWithListener(lis net.Listener, stagingDir, modelsDir
 	return server, nil
 }
 
-func handleUpload(w http.ResponseWriter, r *http.Request, stagingDir, modelsDir, dataDir, key string) {
+func handleUpload(w http.ResponseWriter, r *http.Request, stagingDir, modelsDir, dataDir, key string, maxUploadSize int64) {
 	if key == "" {
 		http.Error(w, "key is required", http.StatusBadRequest)
 		return
 	}
 
-	// Route keyed files to the appropriate directory
-	targetDir := stagingDir
-	relName := key
-	if rel, ok := strings.CutPrefix(key, storage.ModelKeyPrefix); ok && modelsDir != "" {
-		targetDir = modelsDir
-		relName = rel
-	} else if rel, ok := strings.CutPrefix(key, storage.DataKeyPrefix); ok && dataDir != "" {
-		targetDir = dataDir
-		relName = rel
+	if maxUploadSize > 0 {
+		r.Body = http.MaxBytesReader(w, r.Body, maxUploadSize)
 	}
+
+	// Route keyed files to the appropriate directory
+	targetDir, relName := resolveKeyToDir(key, stagingDir, modelsDir, dataDir)
 
 	dstPath := filepath.Join(targetDir, relName)
 
@@ -167,15 +163,7 @@ func handleDownload(w http.ResponseWriter, r *http.Request, stagingDir, modelsDi
 	}
 
 	// Route keyed files to the appropriate directory
-	targetDir := stagingDir
-	relName := key
-	if rel, ok := strings.CutPrefix(key, storage.ModelKeyPrefix); ok && modelsDir != "" {
-		targetDir = modelsDir
-		relName = rel
-	} else if rel, ok := strings.CutPrefix(key, storage.DataKeyPrefix); ok && dataDir != "" {
-		targetDir = dataDir
-		relName = rel
-	}
+	targetDir, relName := resolveKeyToDir(key, stagingDir, modelsDir, dataDir)
 
 	srcPath := filepath.Join(targetDir, relName)
 
@@ -240,15 +228,7 @@ func handleListDir(w http.ResponseWriter, r *http.Request, stagingDir, modelsDir
 		return
 	}
 
-	targetDir := stagingDir
-	relName := key
-	if rel, ok := strings.CutPrefix(key, storage.ModelKeyPrefix); ok && modelsDir != "" {
-		targetDir = modelsDir
-		relName = rel
-	} else if rel, ok := strings.CutPrefix(key, storage.DataKeyPrefix); ok && dataDir != "" {
-		targetDir = dataDir
-		relName = rel
-	}
+	targetDir, relName := resolveKeyToDir(key, stagingDir, modelsDir, dataDir)
 
 	dirPath := filepath.Join(targetDir, relName)
 
@@ -281,6 +261,21 @@ func handleListDir(w http.ResponseWriter, r *http.Request, stagingDir, modelsDir
 	if err := json.NewEncoder(w).Encode(map[string]any{"files": files}); err != nil {
 		xlog.Warn("Failed to encode list-files response", "error", err)
 	}
+}
+
+// resolveKeyToDir maps a storage key to the appropriate local directory and
+// relative path. Keys prefixed with "models/" route to modelsDir, "data/" to
+// dataDir, and everything else to stagingDir.
+func resolveKeyToDir(key, stagingDir, modelsDir, dataDir string) (targetDir, relName string) {
+	targetDir = stagingDir
+	relName = key
+	if rel, ok := strings.CutPrefix(key, storage.ModelKeyPrefix); ok && modelsDir != "" {
+		return modelsDir, rel
+	}
+	if rel, ok := strings.CutPrefix(key, storage.DataKeyPrefix); ok && dataDir != "" {
+		return dataDir, rel
+	}
+	return
 }
 
 // checkBearerToken validates a Bearer token from the Authorization header
@@ -339,7 +334,18 @@ func ShutdownFileTransferServer(server *http.Server) {
 // backend process logs from the worker's BackendLogStore.
 func registerBackendLogHandlers(mux *http.ServeMux, token string, logStore *model.BackendLogStore) {
 	wsUpgrader := websocket.Upgrader{
-		CheckOrigin: func(r *http.Request) bool { return true },
+		CheckOrigin: func(r *http.Request) bool {
+			origin := r.Header.Get("Origin")
+			if origin == "" {
+				return true // no origin header = same-origin or non-browser
+			}
+			// Parse origin URL and compare host with request host
+			u, err := url.Parse(origin)
+			if err != nil {
+				return false
+			}
+			return u.Host == r.Host
+		},
 	}
 
 	// GET /v1/backend-logs — list model IDs with logs

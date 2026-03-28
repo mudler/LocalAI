@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
+	"github.com/mudler/LocalAI/core/services/dbutil"
 	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/xlog"
 	"github.com/nats-io/nats.go"
@@ -43,7 +44,7 @@ type EventBridge struct {
 	instanceID string
 
 	// Cancel registry for running agent executions
-	cancelRegistry sync.Map // "agentName:userID" -> context.CancelFunc
+	cancelRegistry messaging.CancelRegistry
 
 	// Background NATS subscriptions owned by this bridge
 	obsPersisterSub *nats.Subscription
@@ -70,7 +71,7 @@ func (b *EventBridge) PublishEvent(agentName, userID string, evt AgentEvent) err
 // When the store is nil (e.g. on agent workers), the NATS event is still
 // published so the frontend can persist it via StartObservablePersister.
 func (b *EventBridge) PersistObservable(agentName, userID, eventType string, obs any) {
-	payload := mustJSON(obs)
+	payload := dbutil.MarshalJSON(obs)
 	recordID := uuid.New().String()
 
 	// Persist locally if we have a store (frontend instances)
@@ -143,28 +144,16 @@ func (b *EventBridge) PublishStreamEvent(agentName, userID string, data map[stri
 		AgentName: agentName,
 		UserID:    userID,
 		EventType: "stream_event",
-		Metadata:  mustJSON(data),
+		Metadata:  dbutil.MarshalJSON(data),
 	})
-}
-
-func mustJSON(v any) string {
-	data, err := json.Marshal(v)
-	if err != nil {
-		xlog.Warn("Failed to marshal JSON", "error", err)
-		return "{}"
-	}
-	return string(data)
 }
 
 // CancelExecution publishes a cancel event and also checks the local registry.
 func (b *EventBridge) CancelExecution(agentName, userID string) error {
 	// Try local cancel first
 	key := agentName + ":" + userID
-	if fn, ok := b.cancelRegistry.LoadAndDelete(key); ok {
-		if cancelFn, ok := fn.(context.CancelFunc); ok {
-			cancelFn()
-			xlog.Info("Cancelled agent execution locally", "agent", agentName, "user", userID)
-		}
+	if b.cancelRegistry.Cancel(key) {
+		xlog.Info("Cancelled agent execution locally", "agent", agentName, "user", userID)
 	}
 
 	// Also publish via NATS for other instances
@@ -177,24 +166,21 @@ func (b *EventBridge) CancelExecution(agentName, userID string) error {
 // RegisterCancel registers a cancel function for a running agent execution.
 func (b *EventBridge) RegisterCancel(agentName, userID string, cancel context.CancelFunc) {
 	key := agentName + ":" + userID
-	b.cancelRegistry.Store(key, cancel)
+	b.cancelRegistry.Register(key, cancel)
 }
 
 // DeregisterCancel removes a cancel function from the registry.
 func (b *EventBridge) DeregisterCancel(agentName, userID string) {
 	key := agentName + ":" + userID
-	b.cancelRegistry.Delete(key)
+	b.cancelRegistry.Deregister(key)
 }
 
 // StartCancelListener subscribes to NATS cancel events (broadcast to all instances).
 func (b *EventBridge) StartCancelListener() (*nats.Subscription, error) {
 	return messaging.SubscribeJSON(b.nats, messaging.SubjectAgentCancelWildcard, func(evt AgentCancelEvent) {
 		key := evt.AgentName + ":" + evt.UserID
-		if fn, ok := b.cancelRegistry.LoadAndDelete(key); ok {
-			if cancelFn, ok := fn.(context.CancelFunc); ok {
-				cancelFn()
-				xlog.Info("Cancelled agent via NATS", "agent", evt.AgentName, "user", evt.UserID)
-			}
+		if b.cancelRegistry.Cancel(key) {
+			xlog.Info("Cancelled agent via NATS", "agent", evt.AgentName, "user", evt.UserID)
 		}
 	})
 }
@@ -268,16 +254,17 @@ func (b *EventBridge) SSEHandler() echo.HandlerFunc {
 func (b *EventBridge) handleSSEInternal(c echo.Context, agentName, userID string) error {
 	xlog.Debug("SSE connection opened (distributed)", "agent", agentName, "user", userID)
 
+	// Check flusher support before writing any headers
+	flusher, ok := c.Response().Writer.(http.Flusher)
+	if !ok {
+		return fmt.Errorf("streaming not supported")
+	}
+
 	// Set SSE headers
 	c.Response().Header().Set("Content-Type", "text/event-stream")
 	c.Response().Header().Set("Cache-Control", "no-cache")
 	c.Response().Header().Set("Connection", "keep-alive")
 	c.Response().WriteHeader(http.StatusOK)
-
-	flusher, ok := c.Response().Writer.(http.Flusher)
-	if !ok {
-		return fmt.Errorf("streaming not supported")
-	}
 
 	var mu sync.Mutex
 	writeSSE := func(event, data string) {

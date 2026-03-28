@@ -5,6 +5,7 @@ import (
 
 	"github.com/mudler/LocalAI/pkg/grpc"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
+	"github.com/mudler/xlog"
 	ggrpc "google.golang.org/grpc"
 )
 
@@ -29,7 +30,10 @@ func NewInFlightTrackingClient(inner grpc.Backend, registry *NodeRegistry, nodeI
 }
 
 func (c *InFlightTrackingClient) track() func() {
-	c.registry.IncrementInFlight(c.nodeID, c.modelName)
+	if err := c.registry.IncrementInFlight(c.nodeID, c.modelName); err != nil {
+		xlog.Warn("Failed to increment in-flight counter", "node", c.nodeID, "model", c.modelName, "error", err)
+		return func() {}
+	}
 	return func() { c.registry.DecrementInFlight(c.nodeID, c.modelName) }
 }
 

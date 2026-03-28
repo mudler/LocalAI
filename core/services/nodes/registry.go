@@ -10,6 +10,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/xlog"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // BackendNode represents a remote worker node.
@@ -385,6 +386,43 @@ func (r *NodeRegistry) FindNodesWithModel(modelName string) ([]BackendNode, erro
 		return nil, fmt.Errorf("finding nodes with model %s: %w", modelName, err)
 	}
 	return nodes, nil
+}
+
+// FindAndLockNodeWithModel atomically finds the least-loaded node with the given
+// model loaded and increments its in-flight counter within a single transaction.
+// The SELECT FOR UPDATE row lock prevents concurrent eviction from removing the
+// NodeModel row between the find and increment operations.
+func (r *NodeRegistry) FindAndLockNodeWithModel(modelName string) (*BackendNode, *NodeModel, error) {
+	var nm NodeModel
+	var node BackendNode
+
+	err := r.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+			Where("model_name = ? AND state = ?", modelName, "loaded").
+			Order("in_flight ASC").
+			First(&nm).Error; err != nil {
+			return err
+		}
+
+		if err := tx.Model(&nm).Updates(map[string]any{
+			"in_flight": gorm.Expr("in_flight + 1"),
+			"last_used": time.Now(),
+		}).Error; err != nil {
+			return err
+		}
+
+		if err := tx.Where("id = ? AND status = ?", nm.NodeID, StatusHealthy).
+			First(&node).Error; err != nil {
+			return err
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return nil, nil, err
+	}
+	return &node, &nm, nil
 }
 
 // TouchNodeModel updates the last_used timestamp for LRU tracking.

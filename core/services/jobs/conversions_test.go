@@ -43,6 +43,7 @@ var _ = Describe("Conversions", func() {
 
 			Expect(result.ID).To(Equal(original.ID))
 			Expect(result.Name).To(Equal(original.Name))
+			Expect(result.Description).To(Equal(original.Description))
 			Expect(result.Model).To(Equal(original.Model))
 			Expect(result.Prompt).To(Equal(original.Prompt))
 			Expect(result.Enabled).To(Equal(original.Enabled))

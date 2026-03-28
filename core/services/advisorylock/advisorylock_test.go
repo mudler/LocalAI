@@ -1,6 +1,7 @@
 package advisorylock
 
 import (
+	"context"
 	"runtime"
 	"sync"
 	"sync/atomic"
@@ -107,6 +108,96 @@ var _ = Describe("AdvisoryLock", func() {
 			}
 
 			Expect(keys).To(HaveLen(6), "some advisory lock keys have the same value")
+		})
+
+		It("KeyFromString is deterministic", func() {
+			k1 := KeyFromString("foo")
+			k2 := KeyFromString("foo")
+			Expect(k1).To(Equal(k2), "KeyFromString should return the same value for the same input")
+		})
+
+		It("KeyFromString returns different keys for different inputs", func() {
+			kFoo := KeyFromString("foo")
+			kBar := KeyFromString("bar")
+			Expect(kFoo).ToNot(Equal(kBar), "KeyFromString should return different keys for different inputs")
+		})
+	})
+
+	Context("WithLockCtx (PostgreSQL)", func() {
+		var db *gorm.DB
+
+		BeforeEach(func() {
+			if runtime.GOOS == "darwin" {
+				Skip("testcontainers requires Docker, not available on macOS CI")
+			}
+			db = testutil.SetupTestDB()
+		})
+
+		It("acquires lock and executes the function", func() {
+			const lockKey int64 = 700
+			executed := false
+
+			err := WithLockCtx(context.Background(), db, lockKey, func() error {
+				executed = true
+				return nil
+			})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(executed).To(BeTrue(), "function should have been executed under lock")
+		})
+
+		It("returns error when context is already cancelled", func() {
+			const lockKey int64 = 701
+			ctx, cancel := context.WithCancel(context.Background())
+			cancel() // cancel immediately
+
+			err := WithLockCtx(ctx, db, lockKey, func() error {
+				Fail("function should not run with cancelled context")
+				return nil
+			})
+			Expect(err).To(HaveOccurred())
+		})
+
+		It("serializes concurrent WithLockCtx on same key", func() {
+			const lockKey int64 = 702
+
+			var (
+				mu          sync.Mutex
+				maxRunning  int32
+				running     int32
+				concurrency int32
+			)
+
+			var wg sync.WaitGroup
+			wg.Add(2)
+
+			for i := 0; i < 2; i++ {
+				go func() {
+					defer GinkgoRecover()
+					defer wg.Done()
+					err := WithLockCtx(context.Background(), db, lockKey, func() error {
+						cur := atomic.AddInt32(&running, 1)
+						mu.Lock()
+						if cur > maxRunning {
+							maxRunning = cur
+						}
+						if cur > 1 {
+							atomic.AddInt32(&concurrency, 1)
+						}
+						mu.Unlock()
+
+						time.Sleep(50 * time.Millisecond)
+
+						atomic.AddInt32(&running, -1)
+						return nil
+					})
+					Expect(err).ToNot(HaveOccurred())
+				}()
+			}
+
+			wg.Wait()
+
+			Expect(maxRunning).To(BeNumerically("<=", 1), "expected max 1 goroutine inside lock at a time")
+			Expect(concurrency).To(BeZero(), "detected concurrent execution inside advisory lock")
 		})
 	})
 })

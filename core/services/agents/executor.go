@@ -1,6 +1,7 @@
 package agents
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -52,10 +53,7 @@ type ExecuteChatOpts struct {
 // its permanent goal using the inner monologue template and decides what to do.
 func ExecuteBackgroundRun(ctx context.Context, apiURL, apiKey string, cfg *AgentConfig, cb Callbacks, opts ...ExecuteChatOpts) (string, error) {
 	// Build the inner monologue message
-	monologue := cfg.InnerMonologueTemplate
-	if monologue == "" {
-		monologue = DefaultInnerMonologueTemplate
-	}
+	monologue := cmp.Or(cfg.InnerMonologueTemplate, DefaultInnerMonologueTemplate)
 
 	// Simple template substitution for {{.Goal}}
 	message := strings.ReplaceAll(monologue, "{{.Goal}}", cfg.PermanentGoal)
@@ -66,10 +64,7 @@ func ExecuteBackgroundRun(ctx context.Context, apiURL, apiKey string, cfg *Agent
 // ExecuteBackgroundRunWithLLM is like ExecuteBackgroundRun but accepts a pre-built LLM client.
 // This enables testing background agent execution with mock LLMs.
 func ExecuteBackgroundRunWithLLM(ctx context.Context, llm cogito.LLM, cfg *AgentConfig, cb Callbacks, opts ...ExecuteChatOpts) (string, error) {
-	monologue := cfg.InnerMonologueTemplate
-	if monologue == "" {
-		monologue = DefaultInnerMonologueTemplate
-	}
+	monologue := cmp.Or(cfg.InnerMonologueTemplate, DefaultInnerMonologueTemplate)
 	message := strings.ReplaceAll(monologue, "{{.Goal}}", cfg.PermanentGoal)
 	return ExecuteChatWithLLM(ctx, llm, cfg, message, cb, opts...)
 }
@@ -126,17 +121,11 @@ func ExecuteChatWithLLM(ctx context.Context, llm cogito.LLM, cfg *AgentConfig, m
 	fragment := cogito.NewEmptyFragment()
 
 	// System prompt
-	systemPrompt := cfg.SystemPrompt
-	if systemPrompt == "" {
-		systemPrompt = "You are a helpful assistant."
-	}
+	systemPrompt := cmp.Or(cfg.SystemPrompt, "You are a helpful assistant.")
 
 	// Inject skills (if enabled)
 	if cfg.EnableSkills && skillProvider != nil {
-		skillsMode := cfg.SkillsMode
-		if skillsMode == "" {
-			skillsMode = SkillsModePrompt
-		}
+		skillsMode := cmp.Or(cfg.SkillsMode, SkillsModePrompt)
 
 		allSkills, err := skillProvider.ListSkills()
 		if err == nil && len(allSkills) > 0 {
@@ -227,10 +216,7 @@ func ExecuteChatWithLLM(ctx context.Context, llm cogito.LLM, cfg *AgentConfig, m
 
 	// Skill tools — when skills_mode is "tools" or "both"
 	if cfg.EnableSkills && skillProvider != nil {
-		skillsMode := cfg.SkillsMode
-		if skillsMode == "" {
-			skillsMode = SkillsModePrompt
-		}
+		skillsMode := cmp.Or(cfg.SkillsMode, SkillsModePrompt)
 		if skillsMode == SkillsModeTools || skillsMode == SkillsModeBoth {
 			allSkills, _ := skillProvider.ListSkills()
 			filtered := FilterSkills(allSkills, cfg.SelectedSkills)

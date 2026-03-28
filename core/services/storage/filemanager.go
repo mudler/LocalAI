@@ -7,9 +7,9 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 
 	"github.com/mudler/xlog"
+	"golang.org/x/sync/singleflight"
 )
 
 // FileManager provides a unified file access layer that abstracts over
@@ -19,7 +19,7 @@ import (
 type FileManager struct {
 	store    ObjectStore
 	cacheDir string // local cache directory for downloaded files
-	mu       sync.Mutex
+	flight singleflight.Group
 }
 
 // NewFileManager creates a new FileManager.
@@ -66,53 +66,54 @@ func (fm *FileManager) Download(ctx context.Context, key string) (string, error)
 
 	localPath := fm.cachePath(key)
 
-	// Check local cache first
+	// Fast path: check local cache without any locking
 	if _, err := os.Stat(localPath); err == nil {
 		xlog.Debug("File found in local cache", "key", key, "path", localPath)
 		return localPath, nil
 	}
 
-	// Download from object store
-	fm.mu.Lock()
-	defer fm.mu.Unlock()
+	// singleflight deduplicates concurrent downloads for the same key
+	v, err, _ := fm.flight.Do(key, func() (any, error) {
+		// Re-check cache (another goroutine may have just finished)
+		if _, err := os.Stat(localPath); err == nil {
+			return localPath, nil
+		}
 
-	// Double-check after acquiring lock
-	if _, err := os.Stat(localPath); err == nil {
-		return localPath, nil
-	}
+		r, err := fm.store.Get(ctx, key)
+		if err != nil {
+			return "", fmt.Errorf("downloading %s: %w", key, err)
+		}
+		defer r.Close()
 
-	r, err := fm.store.Get(ctx, key)
-	if err != nil {
-		return "", fmt.Errorf("downloading %s: %w", key, err)
-	}
-	defer r.Close()
+		if err := os.MkdirAll(filepath.Dir(localPath), 0750); err != nil {
+			return "", fmt.Errorf("creating cache dir for %s: %w", key, err)
+		}
 
-	// Ensure parent directory exists
-	if err := os.MkdirAll(filepath.Dir(localPath), 0750); err != nil {
-		return "", fmt.Errorf("creating cache dir for %s: %w", key, err)
-	}
+		tmpPath := localPath + ".tmp"
+		f, err := os.Create(tmpPath)
+		if err != nil {
+			return "", fmt.Errorf("creating temp file for %s: %w", key, err)
+		}
 
-	// Write to temp file first, then rename (atomic)
-	tmpPath := localPath + ".tmp"
-	f, err := os.Create(tmpPath)
-	if err != nil {
-		return "", fmt.Errorf("creating temp file for %s: %w", key, err)
-	}
-
-	if _, err := io.Copy(f, r); err != nil {
+		if _, err := io.Copy(f, r); err != nil {
+			f.Close()
+			os.Remove(tmpPath)
+			return "", fmt.Errorf("writing %s to cache: %w", key, err)
+		}
 		f.Close()
-		os.Remove(tmpPath)
-		return "", fmt.Errorf("writing %s to cache: %w", key, err)
-	}
-	f.Close()
 
-	if err := os.Rename(tmpPath, localPath); err != nil {
-		os.Remove(tmpPath)
-		return "", fmt.Errorf("renaming temp file for %s: %w", key, err)
-	}
+		if err := os.Rename(tmpPath, localPath); err != nil {
+			os.Remove(tmpPath)
+			return "", fmt.Errorf("renaming temp file for %s: %w", key, err)
+		}
 
-	xlog.Debug("Downloaded file from object storage", "key", key, "path", localPath)
-	return localPath, nil
+		xlog.Debug("Downloaded file from object storage", "key", key, "path", localPath)
+		return localPath, nil
+	})
+	if err != nil {
+		return "", err
+	}
+	return v.(string), nil
 }
 
 // Exists checks if a file exists in object storage.

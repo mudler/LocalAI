@@ -18,16 +18,17 @@ func (d *Dispatcher) SSEHandler() echo.HandlerFunc {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": "job ID required"})
 		}
 
+		// Check flusher support before writing any headers
+		flusher, ok := c.Response().Writer.(http.Flusher)
+		if !ok {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "streaming not supported"})
+		}
+
 		// Set SSE headers
 		c.Response().Header().Set("Content-Type", "text/event-stream")
 		c.Response().Header().Set("Cache-Control", "no-cache")
 		c.Response().Header().Set("Connection", "keep-alive")
 		c.Response().WriteHeader(http.StatusOK)
-
-		flusher, ok := c.Response().Writer.(http.Flusher)
-		if !ok {
-			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "streaming not supported"})
-		}
 
 		// Thread-safe event writer
 		var mu sync.Mutex

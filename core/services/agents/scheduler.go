@@ -58,28 +58,8 @@ func NewAgentScheduler(db *gorm.DB, nats messaging.Publisher, store SchedulerSto
 // Start begins the scheduler loop. Blocks until ctx is cancelled.
 func (s *AgentScheduler) Start(ctx context.Context) {
 	xlog.Info("Agent scheduler started", "pollInterval", s.pollInterval, "subject", s.subject)
-
-	ticker := time.NewTicker(s.pollInterval)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			xlog.Info("Agent scheduler stopped")
-			return
-		case <-ticker.C:
-			acquired, err := advisorylock.TryWithLock(s.db, messaging.AdvisoryLockAgentScheduler, func() error {
-				s.runDueAgents()
-				return nil
-			})
-			if err != nil {
-				xlog.Error("Scheduler advisory lock error", "error", err)
-			}
-			if !acquired {
-				continue
-			}
-		}
-	}
+	advisorylock.RunLeaderLoop(ctx, s.db, messaging.AdvisoryLockAgentScheduler, s.pollInterval, s.runDueAgents)
+	xlog.Info("Agent scheduler stopped")
 }
 
 // runDueAgents finds all agents with standalone_job=true that are due for a run

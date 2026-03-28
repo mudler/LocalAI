@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"cmp"
 	"context"
 	"os"
 	"strings"
@@ -18,12 +19,8 @@ func StartEphemeralCleanup(ctx context.Context, fm *FileManager, ttl time.Durati
 		return
 	}
 
-	if ttl == 0 {
-		ttl = 1 * time.Hour
-	}
-	if interval == 0 {
-		interval = 15 * time.Minute
-	}
+	ttl = cmp.Or(ttl, 1*time.Hour)
+	interval = cmp.Or(interval, 15*time.Minute)
 
 	go func() {
 		ticker := time.NewTicker(interval)

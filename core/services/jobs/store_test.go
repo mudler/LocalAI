@@ -82,11 +82,11 @@ var _ = Describe("JobStore", func() {
 		errs := make([]error, n)
 
 		for i := 0; i < n; i++ {
-			go func(idx int) {
+			go func() {
 				defer GinkgoRecover()
 				defer wg.Done()
-				errs[idx] = store.AppendJobTrace(job.ID, "step", fmt.Sprintf("step-%d", idx))
-			}(i)
+				errs[i] = store.AppendJobTrace(job.ID, "step", fmt.Sprintf("step-%d", i))
+			}()
 		}
 		wg.Wait()
 

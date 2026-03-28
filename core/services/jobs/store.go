@@ -259,28 +259,3 @@ func (s *JobStore) CleanupOldJobs(retention time.Duration) (int64, error) {
 	return result.RowsAffected, result.Error
 }
 
-// --- JSON helpers ---
-
-// MarshalJSON marshals a value to a JSON string for storage.
-func MarshalJSON(v any) string {
-	if v == nil {
-		return ""
-	}
-	b, err := json.Marshal(v)
-	if err != nil {
-		return ""
-	}
-	s := string(b)
-	if s == "null" || s == "[]" || s == "{}" {
-		return ""
-	}
-	return s
-}
-
-// UnmarshalJSON unmarshals a JSON string into the target.
-func UnmarshalJSON(s string, v any) error {
-	if s == "" {
-		return nil
-	}
-	return json.Unmarshal([]byte(s), v)
-}

@@ -140,6 +140,25 @@ func QueueSubscribeJSON[T any](c *Client, subject, queue string, handler func(T)
 	})
 }
 
+// RequestJSON sends a JSON request-reply via NATS, marshaling the request and
+// unmarshaling the reply. This eliminates the repeated marshal/request/unmarshal
+// boilerplate across all NATS request-reply call sites.
+func RequestJSON[Req, Reply any](c *Client, subject string, req Req, timeout time.Duration) (*Reply, error) {
+	data, err := json.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("marshaling request: %w", err)
+	}
+	replyData, err := c.Request(subject, data, timeout)
+	if err != nil {
+		return nil, fmt.Errorf("NATS request to %s: %w", subject, err)
+	}
+	var reply Reply
+	if err := json.Unmarshal(replyData, &reply); err != nil {
+		return nil, fmt.Errorf("unmarshaling reply from %s: %w", subject, err)
+	}
+	return &reply, nil
+}
+
 // Conn returns the underlying NATS connection for advanced usage.
 func (c *Client) Conn() *nats.Conn {
 	c.mu.RLock()

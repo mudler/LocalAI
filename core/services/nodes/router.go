@@ -2,17 +2,21 @@ package nodes
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
+	"github.com/mudler/LocalAI/core/services/advisorylock"
+	"github.com/mudler/LocalAI/core/services/storage"
 	grpc "github.com/mudler/LocalAI/pkg/grpc"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"github.com/mudler/LocalAI/pkg/vram"
-	"github.com/mudler/LocalAI/core/services/storage"
 	"github.com/mudler/xlog"
+	"google.golang.org/protobuf/proto"
+	"gorm.io/gorm"
 )
 
 // companionSuffixes maps a file extension to additional suffixes that should
@@ -20,6 +24,16 @@ import (
 // when given an ".onnx" model file.
 var companionSuffixes = map[string][]string{
 	".onnx": {".onnx.json"},
+}
+
+// SmartRouterOptions holds all dependencies for constructing a SmartRouter.
+// Passing them at construction time eliminates data races from post-creation setters.
+type SmartRouterOptions struct {
+	Unloader      *RemoteUnloaderAdapter
+	FileStager    FileStager
+	GalleriesJSON string
+	AuthToken     string
+	DB            *gorm.DB // for advisory locks during routing
 }
 
 // SmartRouter routes inference requests to the best available backend node.
@@ -30,28 +44,21 @@ type SmartRouter struct {
 	fileStager    FileStager             // optional, for distributed file transfer
 	galleriesJSON string                 // backend gallery config for dynamic installation
 	authToken     string                 // gRPC bearer token for distributed auth
+	db            *gorm.DB               // for advisory locks during routing
 }
 
 // NewSmartRouter creates a new SmartRouter backed by the given NodeRegistry.
-func NewSmartRouter(registry *NodeRegistry) *SmartRouter {
-	return &SmartRouter{registry: registry}
+// All optional dependencies are passed via SmartRouterOptions to avoid post-creation races.
+func NewSmartRouter(registry *NodeRegistry, opts SmartRouterOptions) *SmartRouter {
+	return &SmartRouter{
+		registry:      registry,
+		unloader:      opts.Unloader,
+		fileStager:    opts.FileStager,
+		galleriesJSON: opts.GalleriesJSON,
+		authToken:     opts.AuthToken,
+		db:            opts.DB,
+	}
 }
-
-// SetUnloader sets the remote unloader for NATS-driven model lifecycle.
-func (r *SmartRouter) SetUnloader(u *RemoteUnloaderAdapter) {
-	r.unloader = u
-}
-
-// SetFileStager sets the file stager for distributed file transfer.
-func (r *SmartRouter) SetFileStager(fs FileStager) {
-	r.fileStager = fs
-}
-
-// SetGalleriesJSON sets the backend gallery config for dynamic backend installation.
-func (r *SmartRouter) SetGalleriesJSON(g string) { r.galleriesJSON = g }
-
-// SetAuthToken sets the gRPC bearer token for authenticating with remote backends.
-func (r *SmartRouter) SetAuthToken(t string) { r.authToken = t }
 
 // Unloader returns the remote unloader adapter for external use.
 func (r *SmartRouter) Unloader() *RemoteUnloaderAdapter { return r.unloader }
@@ -80,86 +87,131 @@ func (r *SmartRouter) Route(ctx context.Context, modelID, modelName, backendType
 		trackingKey = modelName
 	}
 
-	// Step 1: Find nodes that already have this model loaded
-	nodes, err := r.registry.FindNodesWithModel(trackingKey)
-	if err == nil && len(nodes) > 0 {
-		// Pick the least loaded among them
-		node := r.pickLeastLoaded(nodes)
-		if node != nil {
-			// Get the per-model address (the gRPC port for this model's backend process)
-			nm, nmErr := r.registry.GetNodeModel(node.ID, trackingKey)
-			modelAddr := node.Address // fallback to node base address
-			if nmErr == nil && nm.Address != "" {
+	// Step 1: Find and atomically lock a node with this model loaded
+	node, nm, err := r.registry.FindAndLockNodeWithModel(trackingKey)
+	if err == nil && node != nil {
+		modelAddr := node.Address
+		if nm.Address != "" {
+			modelAddr = nm.Address
+		}
+
+		// Verify the backend process is still alive via gRPC health check
+		healthClient := r.buildClientForAddr(node, modelAddr, false)
+		checkCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+		defer cancel()
+		if ok, _ := healthClient.HealthCheck(checkCtx); !ok {
+			// Stale — roll back the increment, remove the model record, fall through
+			r.registry.DecrementInFlight(node.ID, trackingKey)
+			r.registry.RemoveNodeModel(node.ID, trackingKey)
+			xlog.Warn("Backend not reachable for cached model, falling through to reload",
+				"node", node.Name, "model", modelName)
+		} else {
+			// Node is alive — build client with per-request tracking
+			r.registry.TouchNodeModel(node.ID, trackingKey)
+			grpcClient := r.buildClientForAddr(node, modelAddr, parallel)
+			tracked := NewInFlightTrackingClient(grpcClient, r.registry, node.ID, trackingKey)
+			return &RouteResult{
+				Node:    node,
+				Client:  tracked,
+				Release: func() { r.registry.DecrementInFlight(node.ID, trackingKey) },
+			}, nil
+		}
+	}
+
+	// Step 2: Model not loaded — schedule loading with distributed lock to prevent duplicates
+	loadModel := func() (*RouteResult, error) {
+		// Re-check after acquiring lock — another request may have loaded it
+		node, nm, err := r.registry.FindAndLockNodeWithModel(trackingKey)
+		if err == nil && node != nil {
+			modelAddr := node.Address
+			if nm.Address != "" {
 				modelAddr = nm.Address
 			}
 
-			// Verify the backend process is actually running via gRPC health check
+			// Verify the backend process is still alive via gRPC health check
 			healthClient := r.buildClientForAddr(node, modelAddr, false)
 			checkCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
 			defer cancel()
 			if ok, _ := healthClient.HealthCheck(checkCtx); !ok {
-				// Stale — clear and fall through to Step 2
-				xlog.Warn("Backend not reachable for cached model, falling through to reload",
-					"node", node.Name, "model", modelName)
+				// Stale — roll back the increment, remove the model record, continue loading
+				r.registry.DecrementInFlight(node.ID, trackingKey)
 				r.registry.RemoveNodeModel(node.ID, trackingKey)
+				xlog.Warn("Backend not reachable for cached model inside lock, proceeding to load",
+					"node", node.Name, "model", modelName)
 			} else {
-				// Node is alive, use it
+				// Model loaded while we waited — reuse it
 				r.registry.TouchNodeModel(node.ID, trackingKey)
 				grpcClient := r.buildClientForAddr(node, modelAddr, parallel)
 				tracked := NewInFlightTrackingClient(grpcClient, r.registry, node.ID, trackingKey)
 				return &RouteResult{
 					Node:    node,
 					Client:  tracked,
-					Release: func() {},
+					Release: func() { r.registry.DecrementInFlight(node.ID, trackingKey) },
 				}, nil
 			}
 		}
-	}
 
-	// Step 2: Model not loaded anywhere — find a node and install the backend
-	node, backendAddr, err := r.scheduleNewModel(ctx, backendType, trackingKey, modelOpts)
-	if err != nil {
-		return nil, fmt.Errorf("no available nodes: %w", err)
-	}
-
-	// Pre-stage model files via FileStager before loading
-	if r.fileStager != nil && modelOpts != nil {
-		stagedOpts, err := r.stageModelFiles(ctx, node, modelOpts)
+		// Still not loaded — proceed with scheduling
+		node, backendAddr, err := r.scheduleNewModel(ctx, backendType, trackingKey, modelOpts)
 		if err != nil {
-			return nil, fmt.Errorf("staging model files for node %s: %w", node.Name, err)
+			return nil, fmt.Errorf("no available nodes: %w", err)
 		}
-		modelOpts = stagedOpts
+
+		// Pre-stage model files via FileStager before loading
+		if r.fileStager != nil && modelOpts != nil {
+			stagedOpts, err := r.stageModelFiles(ctx, node, modelOpts)
+			if err != nil {
+				return nil, fmt.Errorf("staging model files for node %s: %w", node.Name, err)
+			}
+			modelOpts = stagedOpts
+		}
+
+		client := r.buildClientForAddr(node, backendAddr, parallel)
+
+		// Load the model on this node
+		if modelOpts != nil {
+			xlog.Info("Loading model on remote node", "node", node.Name, "model", modelName, "addr", backendAddr)
+
+			loadCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+			defer cancel()
+
+			res, err := client.LoadModel(loadCtx, modelOpts)
+			if err != nil {
+				return nil, fmt.Errorf("loading model %s on node %s: %w", modelName, node.Name, err)
+			}
+			if !res.Success {
+				return nil, fmt.Errorf("loading model %s on node %s: %s", modelName, node.Name, res.Message)
+			}
+		}
+
+		// Record the model as loaded on this node with its per-process address
+		if err := r.registry.SetNodeModel(node.ID, trackingKey, "loaded", backendAddr); err != nil {
+			xlog.Warn("Failed to record model on node", "node", node.Name, "model", trackingKey, "error", err)
+		}
+
+		tracked := NewInFlightTrackingClient(client, r.registry, node.ID, trackingKey)
+		return &RouteResult{
+			Node:    node,
+			Client:  tracked,
+			Release: func() {},
+		}, nil
 	}
 
-	client := r.buildClientForAddr(node, backendAddr, parallel)
-
-	// Load the model on this node
-	if modelOpts != nil {
-		xlog.Info("Loading model on remote node", "node", node.Name, "model", modelName, "addr", backendAddr)
-
-		loadCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
-		defer cancel()
-
-		res, err := client.LoadModel(loadCtx, modelOpts)
-		if err != nil {
-			return nil, fmt.Errorf("loading model %s on node %s: %w", modelName, node.Name, err)
+	if r.db != nil {
+		lockKey := advisorylock.KeyFromString("model-load:" + trackingKey)
+		var result *RouteResult
+		lockErr := advisorylock.WithLockCtx(ctx, r.db, lockKey, func() error {
+			var err error
+			result, err = loadModel()
+			return err
+		})
+		if lockErr != nil {
+			return nil, fmt.Errorf("loading model %s: %w", trackingKey, lockErr)
 		}
-		if !res.Success {
-			return nil, fmt.Errorf("loading model %s on node %s: %s", modelName, node.Name, res.Message)
-		}
+		return result, nil
 	}
-
-	// Record the model as loaded on this node with its per-process address
-	if err := r.registry.SetNodeModel(node.ID, trackingKey, "loaded", backendAddr); err != nil {
-		xlog.Warn("Failed to record model on node", "node", node.Name, "model", trackingKey, "error", err)
-	}
-
-	tracked := NewInFlightTrackingClient(client, r.registry, node.ID, trackingKey)
-	return &RouteResult{
-		Node:   node,
-		Client: tracked,
-		Release: func() {},
-	}, nil
+	// No DB (non-distributed) — proceed without lock
+	return loadModel()
 }
 
 // scheduleNewModel picks the best node for loading a new model.
@@ -197,6 +249,9 @@ func (r *SmartRouter) scheduleNewModel(ctx context.Context, backendType, modelID
 	if node == nil {
 		evictedNode, evictErr := r.evictLRUAndFreeNode(ctx)
 		if evictErr != nil {
+			if errors.Is(evictErr, ErrEvictionBusy) {
+				return nil, "", fmt.Errorf("no healthy nodes available: %w", evictErr)
+			}
 			return nil, "", fmt.Errorf("no healthy nodes available and eviction failed: %w", evictErr)
 		}
 		node = evictedNode
@@ -305,6 +360,7 @@ func (r *SmartRouter) buildClientForAddr(node *BackendNode, addr string, paralle
 // to absolute remote paths. Generic options (vae_path, etc.) are left as relative
 // paths — backends resolve them via ModelPath.
 func (r *SmartRouter) stageModelFiles(ctx context.Context, node *BackendNode, opts *pb.ModelOptions) (*pb.ModelOptions, error) {
+	opts = proto.Clone(opts).(*pb.ModelOptions)
 	xlog.Debug("Staging model files for remote node", "node", node.Name, "modelFile", opts.ModelFile)
 
 	// Derive the frontend models directory from ModelFile and Model.
@@ -513,13 +569,17 @@ func (r *SmartRouter) EvictLRU(nodeID string) (string, error) {
 	return lru.ModelName, nil
 }
 
-// evictLRUAndFreeNode finds the globally least-recently-used model with zero in-flight,
-// unloads it, and returns its node for reuse. If all models are busy, waits with timeout.
-func (r *SmartRouter) evictLRUAndFreeNode(ctx context.Context) (*BackendNode, error) {
-	const maxRetries = 30
-	const retryInterval = time.Second
+// ErrEvictionBusy is returned when all loaded models have in-flight requests
+// and none can be evicted to make room.
+var ErrEvictionBusy = fmt.Errorf("all models busy, cannot evict")
 
-	for attempt := 0; attempt < maxRetries; attempt++ {
+// evictLRUAndFreeNode finds the globally least-recently-used model with zero in-flight,
+// unloads it, and returns its node for reuse. If all models are busy, retries briefly.
+func (r *SmartRouter) evictLRUAndFreeNode(ctx context.Context) (*BackendNode, error) {
+	const maxEvictionRetries = 5
+	const evictionRetryInterval = 500 * time.Millisecond
+
+	for attempt := range maxEvictionRetries {
 		lru, err := r.registry.FindGlobalLRUModelWithZeroInFlight()
 		if err == nil {
 			xlog.Info("Evicting LRU model to free capacity",
@@ -547,19 +607,11 @@ func (r *SmartRouter) evictLRUAndFreeNode(ctx context.Context) (*BackendNode, er
 		select {
 		case <-ctx.Done():
 			return nil, fmt.Errorf("context cancelled while waiting for eviction")
-		case <-time.After(retryInterval):
+		case <-time.After(evictionRetryInterval):
 			// retry
 		}
 	}
 
-	return nil, fmt.Errorf("no evictable models after %d retries (all models busy)", maxRetries)
+	return nil, ErrEvictionBusy
 }
 
-// pickLeastLoaded selects the node with the fewest in-flight requests from a list.
-func (r *SmartRouter) pickLeastLoaded(nodes []BackendNode) *BackendNode {
-	if len(nodes) == 0 {
-		return nil
-	}
-	// Simple: just pick the first one (they come from the DB query which can be ordered)
-	return &nodes[0]
-}

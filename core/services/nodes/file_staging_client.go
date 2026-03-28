@@ -23,18 +23,21 @@ import (
 // Uses the FileStager interface — agnostic to transport (S3+NATS or gRPC).
 // The caller gets a grpc.Backend that behaves identically to a local one —
 // no changes needed in core/backend/*.go.
+//
+// Methods that require no file staging are inherited from the embedded
+// grpc.Backend; only methods with staging logic are overridden below.
 type FileStagingClient struct {
-	inner  grpc.Backend
-	stager FileStager
-	nodeID string
+	grpc.Backend // embedded for pass-through of non-staging methods
+	stager       FileStager
+	nodeID       string
 }
 
 // NewFileStagingClient creates a new file staging wrapper.
 func NewFileStagingClient(inner grpc.Backend, stager FileStager, nodeID string) *FileStagingClient {
 	return &FileStagingClient{
-		inner:  inner,
-		stager: stager,
-		nodeID: nodeID,
+		Backend: inner,
+		stager:  stager,
+		nodeID:  nodeID,
 	}
 }
 
@@ -62,34 +65,18 @@ func (f *FileStagingClient) retrieveOutputFile(ctx context.Context, backendPath,
 	return f.stager.FetchRemote(ctx, f.nodeID, backendPath, frontendDst)
 }
 
-// --- grpc.Backend interface implementation ---
-
-func (f *FileStagingClient) IsBusy() bool {
-	return f.inner.IsBusy()
-}
-
-func (f *FileStagingClient) HealthCheck(ctx context.Context) (bool, error) {
-	return f.inner.HealthCheck(ctx)
-}
-
-func (f *FileStagingClient) Embeddings(ctx context.Context, in *pb.PredictOptions, opts ...ggrpc.CallOption) (*pb.EmbeddingResult, error) {
-	return f.inner.Embeddings(ctx, in, opts...)
-}
-
-func (f *FileStagingClient) LoadModel(ctx context.Context, in *pb.ModelOptions, opts ...ggrpc.CallOption) (*pb.Result, error) {
-	return f.inner.LoadModel(ctx, in, opts...)
-}
+// --- grpc.Backend overrides (methods with file staging logic) ---
 
 func (f *FileStagingClient) Predict(ctx context.Context, in *pb.PredictOptions, opts ...ggrpc.CallOption) (*pb.Reply, error) {
 	reqID := requestID()
 	in, _ = f.stageMultimodalInputs(ctx, reqID, in)
-	return f.inner.Predict(ctx, in, opts...)
+	return f.Backend.Predict(ctx, in, opts...)
 }
 
 func (f *FileStagingClient) PredictStream(ctx context.Context, in *pb.PredictOptions, fn func(reply *pb.Reply), opts ...ggrpc.CallOption) error {
 	reqID := requestID()
 	in, _ = f.stageMultimodalInputs(ctx, reqID, in)
-	return f.inner.PredictStream(ctx, in, fn, opts...)
+	return f.Backend.PredictStream(ctx, in, fn, opts...)
 }
 
 func (f *FileStagingClient) GenerateImage(ctx context.Context, in *pb.GenerateImageRequest, opts ...ggrpc.CallOption) (*pb.Result, error) {
@@ -125,7 +112,7 @@ func (f *FileStagingClient) GenerateImage(ctx context.Context, in *pb.GenerateIm
 		in.Dst = tmpPath
 	}
 
-	result, err := f.inner.GenerateImage(ctx, in, opts...)
+	result, err := f.Backend.GenerateImage(ctx, in, opts...)
 	if err != nil {
 		return result, err
 	}
@@ -169,7 +156,7 @@ func (f *FileStagingClient) GenerateVideo(ctx context.Context, in *pb.GenerateVi
 		in.Dst = tmpPath
 	}
 
-	result, err := f.inner.GenerateVideo(ctx, in, opts...)
+	result, err := f.Backend.GenerateVideo(ctx, in, opts...)
 	if err != nil {
 		return result, err
 	}
@@ -194,7 +181,7 @@ func (f *FileStagingClient) TTS(ctx context.Context, in *pb.TTSRequest, opts ...
 		in.Dst = tmpPath
 	}
 
-	result, err := f.inner.TTS(ctx, in, opts...)
+	result, err := f.Backend.TTS(ctx, in, opts...)
 	if err != nil {
 		return result, err
 	}
@@ -206,11 +193,6 @@ func (f *FileStagingClient) TTS(ctx context.Context, in *pb.TTSRequest, opts ...
 	}
 
 	return result, nil
-}
-
-func (f *FileStagingClient) TTSStream(ctx context.Context, in *pb.TTSRequest, fn func(reply *pb.Reply), opts ...ggrpc.CallOption) error {
-	// TTSStream sends audio chunks inline — no file staging needed
-	return f.inner.TTSStream(ctx, in, fn, opts...)
 }
 
 func (f *FileStagingClient) SoundGeneration(ctx context.Context, in *pb.SoundGenerationRequest, opts ...ggrpc.CallOption) (*pb.Result, error) {
@@ -235,7 +217,7 @@ func (f *FileStagingClient) SoundGeneration(ctx context.Context, in *pb.SoundGen
 		in.Dst = tmpPath
 	}
 
-	result, err := f.inner.SoundGeneration(ctx, in, opts...)
+	result, err := f.Backend.SoundGeneration(ctx, in, opts...)
 	if err != nil {
 		return result, err
 	}
@@ -261,75 +243,7 @@ func (f *FileStagingClient) AudioTranscription(ctx context.Context, in *pb.Trans
 		in.Dst = backendPath
 	}
 
-	return f.inner.AudioTranscription(ctx, in, opts...)
-}
-
-func (f *FileStagingClient) Detect(ctx context.Context, in *pb.DetectOptions, opts ...ggrpc.CallOption) (*pb.DetectResponse, error) {
-	return f.inner.Detect(ctx, in, opts...)
-}
-
-func (f *FileStagingClient) TokenizeString(ctx context.Context, in *pb.PredictOptions, opts ...ggrpc.CallOption) (*pb.TokenizationResponse, error) {
-	return f.inner.TokenizeString(ctx, in, opts...)
-}
-
-func (f *FileStagingClient) Status(ctx context.Context) (*pb.StatusResponse, error) {
-	return f.inner.Status(ctx)
-}
-
-func (f *FileStagingClient) StoresSet(ctx context.Context, in *pb.StoresSetOptions, opts ...ggrpc.CallOption) (*pb.Result, error) {
-	return f.inner.StoresSet(ctx, in, opts...)
-}
-
-func (f *FileStagingClient) StoresDelete(ctx context.Context, in *pb.StoresDeleteOptions, opts ...ggrpc.CallOption) (*pb.Result, error) {
-	return f.inner.StoresDelete(ctx, in, opts...)
-}
-
-func (f *FileStagingClient) StoresGet(ctx context.Context, in *pb.StoresGetOptions, opts ...ggrpc.CallOption) (*pb.StoresGetResult, error) {
-	return f.inner.StoresGet(ctx, in, opts...)
-}
-
-func (f *FileStagingClient) StoresFind(ctx context.Context, in *pb.StoresFindOptions, opts ...ggrpc.CallOption) (*pb.StoresFindResult, error) {
-	return f.inner.StoresFind(ctx, in, opts...)
-}
-
-func (f *FileStagingClient) Rerank(ctx context.Context, in *pb.RerankRequest, opts ...ggrpc.CallOption) (*pb.RerankResult, error) {
-	return f.inner.Rerank(ctx, in, opts...)
-}
-
-func (f *FileStagingClient) GetTokenMetrics(ctx context.Context, in *pb.MetricsRequest, opts ...ggrpc.CallOption) (*pb.MetricsResponse, error) {
-	return f.inner.GetTokenMetrics(ctx, in, opts...)
-}
-
-func (f *FileStagingClient) VAD(ctx context.Context, in *pb.VADRequest, opts ...ggrpc.CallOption) (*pb.VADResponse, error) {
-	return f.inner.VAD(ctx, in, opts...)
-}
-
-func (f *FileStagingClient) AudioEncode(ctx context.Context, in *pb.AudioEncodeRequest, opts ...ggrpc.CallOption) (*pb.AudioEncodeResult, error) {
-	return f.inner.AudioEncode(ctx, in, opts...)
-}
-
-func (f *FileStagingClient) AudioDecode(ctx context.Context, in *pb.AudioDecodeRequest, opts ...ggrpc.CallOption) (*pb.AudioDecodeResult, error) {
-	return f.inner.AudioDecode(ctx, in, opts...)
-}
-
-func (f *FileStagingClient) ModelMetadata(ctx context.Context, in *pb.ModelOptions, opts ...ggrpc.CallOption) (*pb.ModelMetadataResponse, error) {
-	return f.inner.ModelMetadata(ctx, in, opts...)
-}
-
-func (f *FileStagingClient) StartFineTune(ctx context.Context, in *pb.FineTuneRequest, opts ...ggrpc.CallOption) (*pb.FineTuneJobResult, error) {
-	return f.inner.StartFineTune(ctx, in, opts...)
-}
-
-func (f *FileStagingClient) FineTuneProgress(ctx context.Context, in *pb.FineTuneProgressRequest, fn func(update *pb.FineTuneProgressUpdate), opts ...ggrpc.CallOption) error {
-	return f.inner.FineTuneProgress(ctx, in, fn, opts...)
-}
-
-func (f *FileStagingClient) StopFineTune(ctx context.Context, in *pb.FineTuneStopRequest, opts ...ggrpc.CallOption) (*pb.Result, error) {
-	return f.inner.StopFineTune(ctx, in, opts...)
-}
-
-func (f *FileStagingClient) ListCheckpoints(ctx context.Context, in *pb.ListCheckpointsRequest, opts ...ggrpc.CallOption) (*pb.ListCheckpointsResponse, error) {
-	return f.inner.ListCheckpoints(ctx, in, opts...)
+	return f.Backend.AudioTranscription(ctx, in, opts...)
 }
 
 func (f *FileStagingClient) ExportModel(ctx context.Context, in *pb.ExportModelRequest, opts ...ggrpc.CallOption) (*pb.Result, error) {
@@ -338,7 +252,7 @@ func (f *FileStagingClient) ExportModel(ctx context.Context, in *pb.ExportModelR
 		os.MkdirAll(frontendOutputPath, 0750)
 	}
 
-	result, err := f.inner.ExportModel(ctx, in, opts...)
+	result, err := f.Backend.ExportModel(ctx, in, opts...)
 	if err != nil {
 		return result, err
 	}
@@ -379,11 +293,11 @@ func (f *FileStagingClient) StartQuantization(ctx context.Context, in *pb.Quanti
 	if in.OutputDir != "" {
 		os.MkdirAll(in.OutputDir, 0750)
 	}
-	return f.inner.StartQuantization(ctx, in, opts...)
+	return f.Backend.StartQuantization(ctx, in, opts...)
 }
 
 func (f *FileStagingClient) QuantizationProgress(ctx context.Context, in *pb.QuantizationProgressRequest, fn func(update *pb.QuantizationProgressUpdate), opts ...ggrpc.CallOption) error {
-	return f.inner.QuantizationProgress(ctx, in, func(update *pb.QuantizationProgressUpdate) {
+	return f.Backend.QuantizationProgress(ctx, in, func(update *pb.QuantizationProgressUpdate) {
 		// When quantization completes, fetch the output file from the worker
 		if update.OutputFile != "" && update.Status == "completed" {
 			relPath := strings.TrimPrefix(update.OutputFile, "/"+storage.DataKeyPrefix)
@@ -394,10 +308,6 @@ func (f *FileStagingClient) QuantizationProgress(ctx context.Context, in *pb.Qua
 		}
 		fn(update)
 	}, opts...)
-}
-
-func (f *FileStagingClient) StopQuantization(ctx context.Context, in *pb.QuantizationStopRequest, opts ...ggrpc.CallOption) (*pb.Result, error) {
-	return f.inner.StopQuantization(ctx, in, opts...)
 }
 
 // --- helpers ---

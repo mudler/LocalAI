@@ -2,13 +2,14 @@ package jobs
 
 import (
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/services/dbutil"
 	"github.com/mudler/xlog"
 )
 
 // ConvertTaskToRecord converts a schema.Task to a TaskRecord for DB storage.
 func ConvertTaskToRecord(task schema.Task, userID ...string) *TaskRecord {
-	cronParamsJSON := MarshalJSON(task.CronParameters)
-	webhooksJSON := MarshalJSON(task.Webhooks)
+	cronParamsJSON := dbutil.MarshalJSON(task.CronParameters)
+	webhooksJSON := dbutil.MarshalJSON(task.Webhooks)
 
 	uid := ""
 	if len(userID) > 0 {
@@ -19,6 +20,7 @@ func ConvertTaskToRecord(task schema.Task, userID ...string) *TaskRecord {
 		ID:                 task.ID,
 		UserID:             uid,
 		Name:               task.Name,
+		Description:        task.Description,
 		Model:              task.Model,
 		Prompt:             task.Prompt,
 		Enabled:            task.Enabled,
@@ -35,18 +37,19 @@ func ConvertRecordToTask(rec TaskRecord) schema.Task {
 	task := schema.Task{
 		ID:        rec.ID,
 		// UserID not in schema.Task/Job — stored only in DB record
-		Name:      rec.Name,
-		Model:     rec.Model,
+		Name:        rec.Name,
+		Description: rec.Description,
+		Model:       rec.Model,
 		Prompt:    rec.Prompt,
 		Enabled:   rec.Enabled,
 		Cron:      rec.Cron,
 		CreatedAt: rec.CreatedAt,
 		UpdatedAt: rec.UpdatedAt,
 	}
-	if err := UnmarshalJSON(rec.CronParametersJSON, &task.CronParameters); err != nil {
+	if err := dbutil.UnmarshalJSON(rec.CronParametersJSON, &task.CronParameters); err != nil {
 		xlog.Warn("Failed to unmarshal task cron parameters", "task_id", rec.ID, "error", err)
 	}
-	if err := UnmarshalJSON(rec.WebhooksJSON, &task.Webhooks); err != nil {
+	if err := dbutil.UnmarshalJSON(rec.WebhooksJSON, &task.Webhooks); err != nil {
 		xlog.Warn("Failed to unmarshal task webhooks", "task_id", rec.ID, "error", err)
 	}
 	return task
@@ -54,12 +57,12 @@ func ConvertRecordToTask(rec TaskRecord) schema.Task {
 
 // ConvertJobToRecord converts a schema.Job to a JobRecord for DB storage.
 func ConvertJobToRecord(job schema.Job, userID ...string) *JobRecord {
-	paramsJSON := MarshalJSON(job.Parameters)
-	imagesJSON := MarshalJSON(job.Images)
-	videosJSON := MarshalJSON(job.Videos)
-	audiosJSON := MarshalJSON(job.Audios)
-	filesJSON := MarshalJSON(job.Files)
-	tracesJSON := MarshalJSON(job.Traces)
+	paramsJSON := dbutil.MarshalJSON(job.Parameters)
+	imagesJSON := dbutil.MarshalJSON(job.Images)
+	videosJSON := dbutil.MarshalJSON(job.Videos)
+	audiosJSON := dbutil.MarshalJSON(job.Audios)
+	filesJSON := dbutil.MarshalJSON(job.Files)
+	tracesJSON := dbutil.MarshalJSON(job.Traces)
 
 	uid := ""
 	if len(userID) > 0 {
@@ -100,22 +103,22 @@ func ConvertRecordToJob(rec JobRecord) schema.Job {
 		StartedAt:   rec.StartedAt,
 		CompletedAt: rec.CompletedAt,
 	}
-	if err := UnmarshalJSON(rec.ParametersJSON, &job.Parameters); err != nil {
+	if err := dbutil.UnmarshalJSON(rec.ParametersJSON, &job.Parameters); err != nil {
 		xlog.Warn("Failed to unmarshal job parameters", "job_id", rec.ID, "error", err)
 	}
-	if err := UnmarshalJSON(rec.ImagesJSON, &job.Images); err != nil {
+	if err := dbutil.UnmarshalJSON(rec.ImagesJSON, &job.Images); err != nil {
 		xlog.Warn("Failed to unmarshal job images", "job_id", rec.ID, "error", err)
 	}
-	if err := UnmarshalJSON(rec.VideosJSON, &job.Videos); err != nil {
+	if err := dbutil.UnmarshalJSON(rec.VideosJSON, &job.Videos); err != nil {
 		xlog.Warn("Failed to unmarshal job videos", "job_id", rec.ID, "error", err)
 	}
-	if err := UnmarshalJSON(rec.AudiosJSON, &job.Audios); err != nil {
+	if err := dbutil.UnmarshalJSON(rec.AudiosJSON, &job.Audios); err != nil {
 		xlog.Warn("Failed to unmarshal job audios", "job_id", rec.ID, "error", err)
 	}
-	if err := UnmarshalJSON(rec.FilesJSON, &job.Files); err != nil {
+	if err := dbutil.UnmarshalJSON(rec.FilesJSON, &job.Files); err != nil {
 		xlog.Warn("Failed to unmarshal job files", "job_id", rec.ID, "error", err)
 	}
-	if err := UnmarshalJSON(rec.TracesJSON, &job.Traces); err != nil {
+	if err := dbutil.UnmarshalJSON(rec.TracesJSON, &job.Traces); err != nil {
 		xlog.Warn("Failed to unmarshal job traces", "job_id", rec.ID, "error", err)
 	}
 	return job
