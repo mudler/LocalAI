@@ -75,9 +75,10 @@ var _ = Describe("File Staging", Label("Distributed"), func() {
 			_, err = stager.AllocRemoteTemp(infra.Ctx, "node-1")
 			Expect(err).To(HaveOccurred())
 
-			// StageRemoteToStore is a no-op in HTTP mode
+			// StageRemoteToStore is not supported in HTTP mode
 			err = stager.StageRemoteToStore(infra.Ctx, "node-1", "/tmp/file", "key")
-			Expect(err).ToNot(HaveOccurred())
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("not supported"))
 		})
 	})
 

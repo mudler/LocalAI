@@ -243,10 +243,10 @@ func handleAnthropicNonStream(c echo.Context, id string, input *schema.Anthropic
 		if shouldUseFn && len(toolCalls) > 0 {
 			stopReason = "tool_use"
 			for _, tc := range toolCalls {
-				var inputArgs map[string]interface{}
+				var inputArgs map[string]any
 				if err := json.Unmarshal([]byte(tc.Arguments), &inputArgs); err != nil {
 					xlog.Warn("Failed to parse tool call arguments as JSON", "error", err, "args", tc.Arguments)
-					inputArgs = map[string]interface{}{"raw": tc.Arguments}
+					inputArgs = map[string]any{"raw": tc.Arguments}
 				}
 				contentBlocks = append(contentBlocks, schema.AnthropicContentBlock{
 					Type:  "tool_use",
@@ -269,9 +269,9 @@ func handleAnthropicNonStream(c echo.Context, id string, input *schema.Anthropic
 					contentBlocks = append(contentBlocks, schema.AnthropicContentBlock{Type: "text", Text: stripped})
 				}
 				for i, fc := range parsed {
-					var inputArgs map[string]interface{}
+					var inputArgs map[string]any
 					if err := json.Unmarshal([]byte(fc.Arguments), &inputArgs); err != nil {
-						inputArgs = map[string]interface{}{"raw": fc.Arguments}
+						inputArgs = map[string]any{"raw": fc.Arguments}
 					}
 					toolCallID := fc.ID
 					if toolCallID == "" {
@@ -638,7 +638,7 @@ func convertAnthropicToOpenAIMessages(input *schema.AnthropicRequest) []schema.M
 		case string:
 			openAIMsg.StringContent = content
 			openAIMsg.Content = content
-		case []interface{}:
+		case []any:
 			// Handle array of content blocks
 			var textContent string
 			var stringImages []string
@@ -646,7 +646,7 @@ func convertAnthropicToOpenAIMessages(input *schema.AnthropicRequest) []schema.M
 			toolCallIndex := 0
 
 			for _, block := range content {
-				if blockMap, ok := block.(map[string]interface{}); ok {
+				if blockMap, ok := block.(map[string]any); ok {
 					blockType, _ := blockMap["type"].(string)
 					switch blockType {
 					case "text":
@@ -655,7 +655,7 @@ func convertAnthropicToOpenAIMessages(input *schema.AnthropicRequest) []schema.M
 						}
 					case "image":
 						// Handle image content
-						if source, ok := blockMap["source"].(map[string]interface{}); ok {
+						if source, ok := blockMap["source"].(map[string]any); ok {
 							if sourceType, ok := source["type"].(string); ok && sourceType == "base64" {
 								if data, ok := source["data"].(string); ok {
 									mediaType, _ := source["media_type"].(string)
@@ -703,10 +703,10 @@ func convertAnthropicToOpenAIMessages(input *schema.AnthropicRequest) []schema.M
 							switch rc := resultContent.(type) {
 							case string:
 								resultText = rc
-							case []interface{}:
+							case []any:
 								// Array of content blocks
 								for _, cb := range rc {
-									if cbMap, ok := cb.(map[string]interface{}); ok {
+									if cbMap, ok := cb.(map[string]any); ok {
 										if cbMap["type"] == "text" {
 											if text, ok := cbMap["text"].(string); ok {
 												resultText += text
@@ -775,7 +775,7 @@ func convertAnthropicTools(input *schema.AnthropicRequest, cfg *config.ModelConf
 				return nil, false
 			}
 			// "auto" is the default - let model decide
-		case map[string]interface{}:
+		case map[string]any:
 			// Specific tool selection: {"type": "tool", "name": "tool_name"}
 			if tcType, ok := tc["type"].(string); ok && tcType == "tool" {
 				if name, ok := tc["name"].(string); ok {

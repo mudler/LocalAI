@@ -324,11 +324,11 @@ func DiscoverMCPTools(ctx context.Context, sessions []NamedSession) ([]MCPToolIn
 				Description: tool.Description,
 			}
 
-			// Convert InputSchema to map[string]interface{} for functions.Function
+			// Convert InputSchema to map[string]any for functions.Function
 			if tool.InputSchema != nil {
 				schemaBytes, err := json.Marshal(tool.InputSchema)
 				if err == nil {
-					var params map[string]interface{}
+					var params map[string]any
 					if err := json.Unmarshal(schemaBytes, &params); err == nil {
 						f.Parameters = params
 					} else {
@@ -337,9 +337,9 @@ func DiscoverMCPTools(ctx context.Context, sessions []NamedSession) ([]MCPToolIn
 				}
 			}
 			if f.Parameters == nil {
-				f.Parameters = map[string]interface{}{
+				f.Parameters = map[string]any{
 					"type":       "object",
-					"properties": map[string]interface{}{},
+					"properties": map[string]any{},
 				}
 			}
 

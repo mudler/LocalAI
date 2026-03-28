@@ -579,9 +579,9 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 			noActionGrammar := functions.Function{
 				Name:        noActionName,
 				Description: noActionDescription,
-				Parameters: map[string]interface{}{
-					"properties": map[string]interface{}{
-						"message": map[string]interface{}{
+				Parameters: map[string]any{
+					"properties": map[string]any{
+						"message": map[string]any{
 							"type":        "string",
 							"description": "The message to reply the user with",
 						}},
@@ -1042,7 +1042,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 							message := &schema.Message{
 								Role:    "assistant",
 								Content: &textContentToReturn,
-								FunctionCall: map[string]interface{}{
+								FunctionCall: map[string]any{
 									"name":      name,
 									"arguments": args,
 								},
@@ -1216,7 +1216,7 @@ func handleQuestion(config *config.ModelConfig, funcResults []functions.FuncCall
 		arg = funcResults[0].Arguments
 	}
 	// If there is a message that the LLM already sends as part of the JSON reply, use it
-	arguments := map[string]interface{}{}
+	arguments := map[string]any{}
 	if err := json.Unmarshal([]byte(arg), &arguments); err != nil {
 		xlog.Debug("handleQuestion: function result did not contain a valid JSON object")
 	}

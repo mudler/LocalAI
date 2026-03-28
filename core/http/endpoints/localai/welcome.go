@@ -42,7 +42,7 @@ func WelcomeEndpoint(appConfig *config.ApplicationConfig,
 		// Get model statuses to display in the UI the operation in progress
 		processingModels, taskTypes := opcache.GetStatus()
 
-		summary := map[string]interface{}{
+		summary := map[string]any{
 			"Title":                  "LocalAI API - " + internal.PrintableVersion(),
 			"Version":                internal.PrintableVersion(),
 			"BaseURL":                middleware.BaseURL(c),

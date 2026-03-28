@@ -35,7 +35,7 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 	if !appConfig.DisableGalleryEndpoint {
 		// Import model page
 		router.GET("/import-model", func(c echo.Context) error {
-			return c.Render(200, "views/model-editor", map[string]interface{}{
+			return c.Render(200, "views/model-editor", map[string]any{
 				"Title":                  "LocalAI - Import Model",
 				"BaseURL":                middleware.BaseURL(c),
 				"Version":                internal.PrintableVersion(),

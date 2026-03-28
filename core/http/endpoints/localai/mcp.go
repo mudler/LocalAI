@@ -23,7 +23,7 @@ type MCPReasoningEvent struct {
 type MCPToolCallEvent struct {
 	Type      string                 `json:"type"`
 	Name      string                 `json:"name"`
-	Arguments map[string]interface{} `json:"arguments"`
+	Arguments map[string]any `json:"arguments"`
 	Reasoning string                 `json:"reasoning"`
 }
 

@@ -66,7 +66,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 	app.GET("/api/operations", func(c echo.Context) error {
 		processingData, taskTypes := opcache.GetStatus()
 
-		operations := []map[string]interface{}{}
+		operations := []map[string]any{}
 		for galleryID, jobID := range processingData {
 			taskType := "installation"
 			if tt, ok := taskTypes[galleryID]; ok {
@@ -133,7 +133,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 				}
 			}
 
-			opData := map[string]interface{}{
+			opData := map[string]any{
 				"id":          galleryID,
 				"name":        displayName,
 				"fullName":    galleryID,
@@ -154,7 +154,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		}
 
 		// Sort operations by progress (ascending), then by ID for stable display order
-		slices.SortFunc(operations, func(a, b map[string]interface{}) int {
+		slices.SortFunc(operations, func(a, b map[string]any) int {
 			progressA := a["progress"].(int)
 			progressB := b["progress"].(int)
 
@@ -167,7 +167,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			return cmp.Compare(a["id"].(string), b["id"].(string))
 		})
 
-		return c.JSON(200, map[string]interface{}{
+		return c.JSON(200, map[string]any{
 			"operations": operations,
 		})
 	}, adminMiddleware)
@@ -180,7 +180,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		err := galleryService.CancelOperation(jobID)
 		if err != nil {
 			xlog.Error("Failed to cancel operation", "error", err, "jobID", jobID)
-			return c.JSON(http.StatusBadRequest, map[string]interface{}{
+			return c.JSON(http.StatusBadRequest, map[string]any{
 				"error": err.Error(),
 			})
 		}
@@ -188,7 +188,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		// Clean up opcache for cancelled operation
 		opcache.DeleteUUID(jobID)
 
-		return c.JSON(200, map[string]interface{}{
+		return c.JSON(200, map[string]any{
 			"success": true,
 			"message": "Operation cancelled",
 		})
@@ -202,7 +202,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		// Remove the operation from the opcache so it no longer appears
 		opcache.DeleteUUID(jobID)
 
-		return c.JSON(200, map[string]interface{}{
+		return c.JSON(200, map[string]any{
 			"success": true,
 			"message": "Operation dismissed",
 		})
@@ -224,7 +224,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		models, err := gallery.AvailableGalleryModels(appConfig.Galleries, appConfig.SystemState)
 		if err != nil {
 			xlog.Error("could not list models from galleries", "error", err)
-			return c.JSON(http.StatusInternalServerError, map[string]interface{}{
+			return c.JSON(http.StatusInternalServerError, map[string]any{
 				"error": err.Error(),
 			})
 		}
@@ -313,14 +313,14 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		}
 
 		// Convert models to JSON-friendly format and deduplicate by ID
-		modelsJSON := make([]map[string]interface{}, 0, len(models))
+		modelsJSON := make([]map[string]any, 0, len(models))
 		seenIDs := make(map[string]bool)
 
 		weightExts := map[string]bool{".gguf": true, ".safetensors": true, ".bin": true, ".pt": true}
-		extractHFRepo := func(overrides map[string]interface{}, urls []string) string {
+		extractHFRepo := func(overrides map[string]any, urls []string) string {
 			// Try overrides.parameters.model first
 			if overrides != nil {
-				if params, ok := overrides["parameters"].(map[string]interface{}); ok {
+				if params, ok := overrides["parameters"].(map[string]any); ok {
 					if modelRef, ok := params["model"].(string); ok {
 						if repoID, ok := vram.ExtractHFRepoID(modelRef); ok {
 							return repoID
@@ -374,7 +374,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 
 			_, trustRemoteCodeExists := m.Overrides["trust_remote_code"]
 
-			obj := map[string]interface{}{
+			obj := map[string]any{
 				"id":              modelID,
 				"name":            m.Name,
 				"description":     m.Description,
@@ -465,7 +465,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 
 		ramInfo, _ := xsysinfo.GetSystemRAMInfo()
 
-		return c.JSON(200, map[string]interface{}{
+		return c.JSON(200, map[string]any{
 			"models":           modelsJSON,
 			"repositories":     appConfig.Galleries,
 			"allTags":          tags,
@@ -540,7 +540,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		// URL decode the gallery ID (e.g., "localai%40model" -> "localai@model")
 		galleryID, err := url.QueryUnescape(galleryID)
 		if err != nil {
-			return c.JSON(http.StatusBadRequest, map[string]interface{}{
+			return c.JSON(http.StatusBadRequest, map[string]any{
 				"error": "invalid model ID",
 			})
 		}
@@ -548,7 +548,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 
 		id, err := uuid.NewUUID()
 		if err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]interface{}{
+			return c.JSON(http.StatusInternalServerError, map[string]any{
 				"error": err.Error(),
 			})
 		}
@@ -571,7 +571,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			galleryService.ModelGalleryChannel <- op
 		}()
 
-		return c.JSON(200, map[string]interface{}{
+		return c.JSON(200, map[string]any{
 			"jobID":   uid,
 			"message": "Installation started",
 		})
@@ -582,7 +582,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		// URL decode the gallery ID
 		galleryID, err := url.QueryUnescape(galleryID)
 		if err != nil {
-			return c.JSON(http.StatusBadRequest, map[string]interface{}{
+			return c.JSON(http.StatusBadRequest, map[string]any{
 				"error": "invalid model ID",
 			})
 		}
@@ -595,7 +595,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 
 		id, err := uuid.NewUUID()
 		if err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]interface{}{
+			return c.JSON(http.StatusInternalServerError, map[string]any{
 				"error": err.Error(),
 			})
 		}
@@ -621,7 +621,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			cl.RemoveModelConfig(galleryName)
 		}()
 
-		return c.JSON(200, map[string]interface{}{
+		return c.JSON(200, map[string]any{
 			"jobID":   uid,
 			"message": "Deletion started",
 		})
@@ -632,7 +632,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		// URL decode the gallery ID
 		galleryID, err := url.QueryUnescape(galleryID)
 		if err != nil {
-			return c.JSON(http.StatusBadRequest, map[string]interface{}{
+			return c.JSON(http.StatusBadRequest, map[string]any{
 				"error": "invalid model ID",
 			})
 		}
@@ -640,33 +640,33 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 
 		models, err := gallery.AvailableGalleryModels(appConfig.Galleries, appConfig.SystemState)
 		if err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]interface{}{
+			return c.JSON(http.StatusInternalServerError, map[string]any{
 				"error": err.Error(),
 			})
 		}
 
 		model := gallery.FindGalleryElement(models, galleryID)
 		if model == nil {
-			return c.JSON(http.StatusNotFound, map[string]interface{}{
+			return c.JSON(http.StatusNotFound, map[string]any{
 				"error": "model not found",
 			})
 		}
 
 		config, err := gallery.GetGalleryConfigFromURL[gallery.ModelConfig](model.URL, appConfig.SystemState.Model.ModelsPath)
 		if err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]interface{}{
+			return c.JSON(http.StatusInternalServerError, map[string]any{
 				"error": err.Error(),
 			})
 		}
 
 		_, err = gallery.InstallModel(context.Background(), appConfig.SystemState, model.Name, &config, model.Overrides, nil, false)
 		if err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]interface{}{
+			return c.JSON(http.StatusInternalServerError, map[string]any{
 				"error": err.Error(),
 			})
 		}
 
-		return c.JSON(200, map[string]interface{}{
+		return c.JSON(200, map[string]any{
 			"message": "Configuration file saved",
 		})
 	}, adminMiddleware)
@@ -675,14 +675,14 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 	app.GET("/api/models/config-json/:name", func(c echo.Context) error {
 		modelName := c.Param("name")
 		if modelName == "" {
-			return c.JSON(http.StatusBadRequest, map[string]interface{}{
+			return c.JSON(http.StatusBadRequest, map[string]any{
 				"error": "model name is required",
 			})
 		}
 
 		modelConfig, exists := cl.GetModelConfig(modelName)
 		if !exists {
-			return c.JSON(http.StatusNotFound, map[string]interface{}{
+			return c.JSON(http.StatusNotFound, map[string]any{
 				"error": "model configuration not found",
 			})
 		}
@@ -697,33 +697,33 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			modelName = decoded
 		}
 		if modelName == "" {
-			return c.JSON(http.StatusBadRequest, map[string]interface{}{
+			return c.JSON(http.StatusBadRequest, map[string]any{
 				"error": "model name is required",
 			})
 		}
 
 		modelConfig, exists := cl.GetModelConfig(modelName)
 		if !exists {
-			return c.JSON(http.StatusNotFound, map[string]interface{}{
+			return c.JSON(http.StatusNotFound, map[string]any{
 				"error": "model configuration not found",
 			})
 		}
 
 		modelConfigFile := modelConfig.GetModelConfigFile()
 		if modelConfigFile == "" {
-			return c.JSON(http.StatusNotFound, map[string]interface{}{
+			return c.JSON(http.StatusNotFound, map[string]any{
 				"error": "model configuration file not found",
 			})
 		}
 
 		configData, err := os.ReadFile(modelConfigFile)
 		if err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]interface{}{
+			return c.JSON(http.StatusInternalServerError, map[string]any{
 				"error": "failed to read configuration file: " + err.Error(),
 			})
 		}
 
-		return c.JSON(http.StatusOK, map[string]interface{}{
+		return c.JSON(http.StatusOK, map[string]any{
 			"config": string(configData),
 			"name":   modelName,
 		})
@@ -735,7 +735,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		status := galleryService.GetStatus(jobUID)
 		if status == nil {
 			// Job is queued but hasn't started processing yet
-			return c.JSON(200, map[string]interface{}{
+			return c.JSON(200, map[string]any{
 				"progress":           0,
 				"message":            "Operation queued",
 				"galleryElementName": "",
@@ -745,7 +745,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			})
 		}
 
-		response := map[string]interface{}{
+		response := map[string]any{
 			"progress":           status.Progress,
 			"message":            status.Message,
 			"galleryElementName": status.GalleryElementName,
@@ -782,7 +782,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		backends, err := gallery.AvailableBackends(appConfig.BackendGalleries, appConfig.SystemState)
 		if err != nil {
 			xlog.Error("could not list backends from galleries", "error", err)
-			return c.JSON(http.StatusInternalServerError, map[string]interface{}{
+			return c.JSON(http.StatusInternalServerError, map[string]any{
 				"error": err.Error(),
 			})
 		}
@@ -858,7 +858,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		}
 
 		// Convert backends to JSON-friendly format and deduplicate by ID
-		backendsJSON := make([]map[string]interface{}, 0, len(backends))
+		backendsJSON := make([]map[string]any, 0, len(backends))
 		seenBackendIDs := make(map[string]bool)
 
 		for _, b := range backends {
@@ -882,7 +882,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 				}
 			}
 
-			backendsJSON = append(backendsJSON, map[string]interface{}{
+			backendsJSON = append(backendsJSON, map[string]any{
 				"id":          backendID,
 				"name":        b.Name,
 				"description": b.Description,
@@ -924,7 +924,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			detectedCapability = appConfig.SystemState.DetectedCapability()
 		}
 
-		return c.JSON(200, map[string]interface{}{
+		return c.JSON(200, map[string]any{
 			"backends":           backendsJSON,
 			"repositories":       appConfig.BackendGalleries,
 			"allTags":            tags,
@@ -945,7 +945,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		// URL decode the backend ID
 		backendID, err := url.QueryUnescape(backendID)
 		if err != nil {
-			return c.JSON(http.StatusBadRequest, map[string]interface{}{
+			return c.JSON(http.StatusBadRequest, map[string]any{
 				"error": "invalid backend ID",
 			})
 		}
@@ -953,7 +953,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 
 		id, err := uuid.NewUUID()
 		if err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]interface{}{
+			return c.JSON(http.StatusInternalServerError, map[string]any{
 				"error": err.Error(),
 			})
 		}
@@ -975,7 +975,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			galleryService.BackendGalleryChannel <- op
 		}()
 
-		return c.JSON(200, map[string]interface{}{
+		return c.JSON(200, map[string]any{
 			"jobID":   uid,
 			"message": "Backend installation started",
 		})
@@ -992,14 +992,14 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 
 		var req ExternalBackendRequest
 		if err := c.Bind(&req); err != nil {
-			return c.JSON(http.StatusBadRequest, map[string]interface{}{
+			return c.JSON(http.StatusBadRequest, map[string]any{
 				"error": "invalid request body",
 			})
 		}
 
 		// Validate required fields
 		if req.URI == "" {
-			return c.JSON(http.StatusBadRequest, map[string]interface{}{
+			return c.JSON(http.StatusBadRequest, map[string]any{
 				"error": "uri is required",
 			})
 		}
@@ -1008,7 +1008,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 
 		id, err := uuid.NewUUID()
 		if err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]interface{}{
+			return c.JSON(http.StatusInternalServerError, map[string]any{
 				"error": err.Error(),
 			})
 		}
@@ -1039,7 +1039,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			galleryService.BackendGalleryChannel <- op
 		}()
 
-		return c.JSON(200, map[string]interface{}{
+		return c.JSON(200, map[string]any{
 			"jobID":   uid,
 			"message": "External backend installation started",
 		})
@@ -1050,7 +1050,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		// URL decode the backend ID
 		backendID, err := url.QueryUnescape(backendID)
 		if err != nil {
-			return c.JSON(http.StatusBadRequest, map[string]interface{}{
+			return c.JSON(http.StatusBadRequest, map[string]any{
 				"error": "invalid backend ID",
 			})
 		}
@@ -1063,7 +1063,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 
 		id, err := uuid.NewUUID()
 		if err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]interface{}{
+			return c.JSON(http.StatusInternalServerError, map[string]any{
 				"error": err.Error(),
 			})
 		}
@@ -1087,7 +1087,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			galleryService.BackendGalleryChannel <- op
 		}()
 
-		return c.JSON(200, map[string]interface{}{
+		return c.JSON(200, map[string]any{
 			"jobID":   uid,
 			"message": "Backend deletion started",
 		})
@@ -1099,7 +1099,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		status := galleryService.GetStatus(jobUID)
 		if status == nil {
 			// Job is queued but hasn't started processing yet
-			return c.JSON(200, map[string]interface{}{
+			return c.JSON(200, map[string]any{
 				"progress":           0,
 				"message":            "Operation queued",
 				"galleryElementName": "",
@@ -1109,7 +1109,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			})
 		}
 
-		response := map[string]interface{}{
+		response := map[string]any{
 			"progress":           status.Progress,
 			"message":            status.Message,
 			"galleryElementName": status.GalleryElementName,
@@ -1136,7 +1136,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		// URL decode the backend name
 		backendName, err := url.QueryUnescape(backendName)
 		if err != nil {
-			return c.JSON(http.StatusBadRequest, map[string]interface{}{
+			return c.JSON(http.StatusBadRequest, map[string]any{
 				"error": "invalid backend name",
 			})
 		}
@@ -1146,12 +1146,12 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		// fans out deletion to worker nodes via NATS.
 		if err := galleryService.DeleteBackend(backendName); err != nil {
 			xlog.Error("Failed to delete backend", "error", err, "backendName", backendName)
-			return c.JSON(http.StatusInternalServerError, map[string]interface{}{
+			return c.JSON(http.StatusInternalServerError, map[string]any{
 				"error": err.Error(),
 			})
 		}
 
-		return c.JSON(200, map[string]interface{}{
+		return c.JSON(200, map[string]any{
 			"success": true,
 			"message": "Backend deleted successfully",
 		})
@@ -1201,9 +1201,9 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 	app.GET("/api/p2p/federation", func(c echo.Context) error {
 		nodes := p2p.GetAvailableNodes(p2p.NetworkID(appConfig.P2PNetworkID, p2p.FederatedID))
 
-		nodesJSON := make([]map[string]interface{}, 0, len(nodes))
+		nodesJSON := make([]map[string]any, 0, len(nodes))
 		for _, n := range nodes {
-			nodesJSON = append(nodesJSON, map[string]interface{}{
+			nodesJSON = append(nodesJSON, map[string]any{
 				"name":          n.Name,
 				"id":            n.ID,
 				"tunnelAddress": n.TunnelAddress,
@@ -1213,7 +1213,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			})
 		}
 
-		return c.JSON(200, map[string]interface{}{
+		return c.JSON(200, map[string]any{
 			"nodes": nodesJSON,
 		})
 	}, adminMiddleware)
@@ -1272,7 +1272,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 
 		storageSize, _ := getDirectorySize(appConfig.SystemState.Model.ModelsPath)
 
-		response := map[string]interface{}{
+		response := map[string]any{
 			"type":                resourceInfo.Type, // "gpu" or "ram"
 			"available":           resourceInfo.Available,
 			"gpus":                resourceInfo.GPUs,
@@ -1301,14 +1301,14 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			})
 		}
 		traces := middleware.GetTraces()
-		return c.JSON(200, map[string]interface{}{
+		return c.JSON(200, map[string]any{
 			"traces": traces,
 		})
 	}, adminMiddleware)
 
 	app.POST("/api/traces/clear", func(c echo.Context) error {
 		middleware.ClearTraces()
-		return c.JSON(200, map[string]interface{}{
+		return c.JSON(200, map[string]any{
 			"message": "Traces cleared",
 		})
 	}, adminMiddleware)

@@ -192,9 +192,9 @@ func ResponsesEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eval
 			noActionGrammar := functions.Function{
 				Name:        noActionName,
 				Description: noActionDescription,
-				Parameters: map[string]interface{}{
-					"properties": map[string]interface{}{
-						"message": map[string]interface{}{
+				Parameters: map[string]any{
+					"properties": map[string]any{
+						"message": map[string]any{
 							"type":        "string",
 							"description": "The message to reply the user with",
 						},
@@ -292,17 +292,17 @@ func ResponsesEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eval
 }
 
 // convertORInputToMessages converts Open Responses input to internal Messages
-func convertORInputToMessages(input interface{}, cfg *config.ModelConfig) ([]schema.Message, error) {
+func convertORInputToMessages(input any, cfg *config.ModelConfig) ([]schema.Message, error) {
 	var messages []schema.Message
 
 	switch v := input.(type) {
 	case string:
 		// Simple string = user message
 		return []schema.Message{{Role: "user", StringContent: v}}, nil
-	case []interface{}:
+	case []any:
 		// Array of items
 		for _, itemRaw := range v {
-			itemMap, ok := itemRaw.(map[string]interface{})
+			itemMap, ok := itemRaw.(map[string]any)
 			if !ok {
 				continue
 			}
@@ -378,14 +378,14 @@ func convertORInputToMessages(input interface{}, cfg *config.ModelConfig) ([]sch
 }
 
 // convertORReasoningItemToMessage converts an Open Responses reasoning item to an assistant Message fragment (for merging).
-func convertORReasoningItemToMessage(itemMap map[string]interface{}) (schema.Message, error) {
+func convertORReasoningItemToMessage(itemMap map[string]any) (schema.Message, error) {
 	var reasoning string
 	if content := itemMap["content"]; content != nil {
 		if s, ok := content.(string); ok {
 			reasoning = s
-		} else if parts, ok := content.([]interface{}); ok {
+		} else if parts, ok := content.([]any); ok {
 			for _, p := range parts {
-				if partMap, ok := p.(map[string]interface{}); ok {
+				if partMap, ok := p.(map[string]any); ok {
 					if t, _ := partMap["type"].(string); (t == "output_text" || t == "input_text") && partMap["text"] != nil {
 						if tStr, ok := partMap["text"].(string); ok {
 							reasoning += tStr
@@ -399,7 +399,7 @@ func convertORReasoningItemToMessage(itemMap map[string]interface{}) (schema.Mes
 }
 
 // convertORFunctionCallItemToMessage converts an Open Responses function_call item to an assistant Message fragment (for merging).
-func convertORFunctionCallItemToMessage(itemMap map[string]interface{}) (schema.Message, error) {
+func convertORFunctionCallItemToMessage(itemMap map[string]any) (schema.Message, error) {
 	callID, _ := itemMap["call_id"].(string)
 	name, _ := itemMap["name"].(string)
 	arguments, _ := itemMap["arguments"].(string)
@@ -627,7 +627,7 @@ func flushAssistantAccumulator(out *[]schema.Message, acc **schema.Message) {
 }
 
 // convertORMessageItem converts an Open Responses message item to internal Message
-func convertORMessageItem(itemMap map[string]interface{}, cfg *config.ModelConfig) (schema.Message, error) {
+func convertORMessageItem(itemMap map[string]any, cfg *config.ModelConfig) (schema.Message, error) {
 	role, _ := itemMap["role"].(string)
 	msg := schema.Message{Role: role}
 
@@ -636,7 +636,7 @@ func convertORMessageItem(itemMap map[string]interface{}, cfg *config.ModelConfi
 	case string:
 		msg.StringContent = contentVal
 		msg.Content = contentVal
-	case []interface{}:
+	case []any:
 		// Array of content parts
 		var textContent string
 		var stringImages []string
@@ -644,7 +644,7 @@ func convertORMessageItem(itemMap map[string]interface{}, cfg *config.ModelConfi
 		var stringAudios []string
 
 		for _, partRaw := range contentVal {
-			partMap, ok := partRaw.(map[string]interface{})
+			partMap, ok := partRaw.(map[string]any)
 			if !ok {
 				continue
 			}
@@ -767,7 +767,7 @@ func convertORToolsToFunctions(input *schema.OpenResponsesRequest, cfg *config.M
 				// "auto" is the default - let model decide whether to use tools
 				// Tools are available but not forced
 			}
-		case map[string]interface{}:
+		case map[string]any:
 			if tcType, ok := tc["type"].(string); ok && tcType == "function" {
 				if name, ok := tc["name"].(string); ok {
 					cfg.SetFunctionCallString(name)
@@ -780,20 +780,20 @@ func convertORToolsToFunctions(input *schema.OpenResponsesRequest, cfg *config.M
 }
 
 // convertTextFormatToResponseFormat converts Open Responses text_format to OpenAI response_format
-func convertTextFormatToResponseFormat(textFormat interface{}) interface{} {
+func convertTextFormatToResponseFormat(textFormat any) any {
 	switch tf := textFormat.(type) {
-	case map[string]interface{}:
+	case map[string]any:
 		if tfType, ok := tf["type"].(string); ok {
 			if tfType == "json_schema" {
-				return map[string]interface{}{
+				return map[string]any{
 					"type":        "json_schema",
 					"json_schema": tf,
 				}
 			}
-			return map[string]interface{}{"type": tfType}
+			return map[string]any{"type": tfType}
 		}
 	case string:
-		return map[string]interface{}{"type": tf}
+		return map[string]any{"type": tf}
 	}
 	return nil
 }
@@ -866,7 +866,7 @@ func handleBackgroundNonStream(ctx context.Context, store *ResponseStore, respon
 			for i, fc := range funcCallResults {
 				if fc.Name == noActionName {
 					if fc.Arguments != "" {
-						var args map[string]interface{}
+						var args map[string]any
 						if err := json.Unmarshal([]byte(fc.Arguments), &args); err == nil {
 							if msg, ok := args["message"].(string); ok && msg != "" {
 								textContent = msg
@@ -1391,7 +1391,7 @@ func handleOpenResponsesNonStream(c echo.Context, responseID string, createdAt i
 				// This is a text response, not a tool call
 				// Try to extract the message from the arguments
 				if fc.Arguments != "" {
-					var args map[string]interface{}
+					var args map[string]any
 					if err := json.Unmarshal([]byte(fc.Arguments), &args); err == nil {
 						if msg, ok := args["message"].(string); ok && msg != "" {
 							textContent = msg
@@ -2050,7 +2050,7 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 			if fc.Name == noActionName {
 				// This is a text response, not a tool call
 				if fc.Arguments != "" {
-					var args map[string]interface{}
+					var args map[string]any
 					if err := json.Unmarshal([]byte(fc.Arguments), &args); err == nil {
 						if msg, ok := args["message"].(string); ok && msg != "" {
 							textContent = msg
@@ -2806,7 +2806,7 @@ func buildORResponse(responseID string, createdAt int64, completedAt *int64, sta
 	}
 
 	// Default tool_choice: "auto" if tools are present, "none" otherwise
-	var toolChoice interface{}
+	var toolChoice any
 	if input.ToolChoice != nil {
 		toolChoice = input.ToolChoice
 	} else if len(tools) > 0 {
@@ -2899,14 +2899,14 @@ func buildORResponse(responseID string, createdAt int64, completedAt *int64, sta
 
 // sendOpenResponsesError sends an error response
 func sendOpenResponsesError(c echo.Context, statusCode int, errorType, message, param string) error {
-	errorResp := map[string]interface{}{
-		"error": map[string]interface{}{
+	errorResp := map[string]any{
+		"error": map[string]any{
 			"type":    errorType,
 			"message": message,
 		},
 	}
 	if param != "" {
-		errorResp["error"].(map[string]interface{})["param"] = param
+		errorResp["error"].(map[string]any)["param"] = param
 	}
 	return c.JSON(statusCode, errorResp)
 }
@@ -2937,8 +2937,8 @@ func convertORToolsToOpenAIFormat(orTools []schema.ORFunctionTool) []functions.T
 // @Param stream query string false "Set to 'true' to resume streaming"
 // @Param starting_after query int false "Sequence number to resume from (for streaming)"
 // @Success 200 {object} schema.ORResponseResource "Response"
-// @Failure 400 {object} map[string]interface{} "Bad Request"
-// @Failure 404 {object} map[string]interface{} "Not Found"
+// @Failure 400 {object} map[string]any "Bad Request"
+// @Failure 404 {object} map[string]any "Not Found"
 // @Router /v1/responses/{id} [get]
 func GetResponseEndpoint() func(c echo.Context) error {
 	return func(c echo.Context) error {
@@ -3076,8 +3076,8 @@ func handleStreamResume(c echo.Context, store *ResponseStore, responseID string,
 // @Description Cancel a background response if it's still in progress
 // @Param id path string true "Response ID"
 // @Success 200 {object} schema.ORResponseResource "Response"
-// @Failure 400 {object} map[string]interface{} "Bad Request"
-// @Failure 404 {object} map[string]interface{} "Not Found"
+// @Failure 400 {object} map[string]any "Bad Request"
+// @Failure 404 {object} map[string]any "Not Found"
 // @Router /v1/responses/{id}/cancel [post]
 func CancelResponseEndpoint() func(c echo.Context) error {
 	return func(c echo.Context) error {

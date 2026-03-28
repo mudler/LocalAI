@@ -85,7 +85,7 @@ func ImportModelURIEndpoint(cl *config.ModelConfigLoader, appConfig *config.Appl
 
 		galleryService.ModelGalleryChannel <- galleryop.ManagementOp[gallery.GalleryModel, gallery.ModelConfig]{
 			Req: gallery.GalleryModel{
-				Overrides: map[string]interface{}{},
+				Overrides: map[string]any{},
 			},
 			ID:                 uuid.String(),
 			GalleryElementName: galleryID,

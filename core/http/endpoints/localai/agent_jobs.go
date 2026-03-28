@@ -275,7 +275,7 @@ func ExecuteTaskByNameEndpoint(app *application.Application) echo.HandlerFunc {
 
 		if c.Request().ContentLength > 0 {
 			if err := c.Bind(&params); err != nil {
-				body := make(map[string]interface{})
+				body := make(map[string]any)
 				if err := c.Bind(&body); err == nil {
 					params = make(map[string]string)
 					for k, v := range body {
