@@ -54,7 +54,7 @@ var _ = Describe("Dispatcher", func() {
 			store, err = NewJobStore(db)
 			Expect(err).ToNot(HaveOccurred())
 
-			disp = NewDispatcher(store, nil, db, "test-instance")
+			disp = NewDispatcher(store, nil, db, "test-instance", 0)
 		})
 
 		It("returns true when no previous job exists", func() {

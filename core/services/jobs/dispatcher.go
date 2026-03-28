@@ -11,7 +11,6 @@ import (
 	"github.com/mudler/LocalAI/core/services/dbutil"
 	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/xlog"
-	"github.com/nats-io/nats.go"
 	"github.com/robfig/cron/v3"
 	"gorm.io/gorm"
 )
@@ -76,10 +75,13 @@ type Dispatcher struct {
 	cancelRegistry messaging.CancelRegistry
 
 	// NATS subscriptions
-	jobSub      *nats.Subscription
-	cancelSub   *nats.Subscription
-	resultSub   *nats.Subscription
-	progressSub *nats.Subscription
+	jobSub      messaging.Subscription
+	cancelSub   messaging.Subscription
+	resultSub   messaging.Subscription
+	progressSub messaging.Subscription
+
+	// Concurrency limiter; nil = unlimited
+	sem chan struct{}
 
 	// Lifecycle
 	ctx    context.Context
@@ -87,13 +89,18 @@ type Dispatcher struct {
 }
 
 // NewDispatcher creates a new distributed job Dispatcher.
-func NewDispatcher(store *JobStore, nc *messaging.Client, db *gorm.DB, instanceID string) *Dispatcher {
-	return &Dispatcher{
+// maxConcurrent limits the number of concurrent job goroutines; 0 means unlimited.
+func NewDispatcher(store *JobStore, nc *messaging.Client, db *gorm.DB, instanceID string, maxConcurrent int) *Dispatcher {
+	d := &Dispatcher{
 		store:      store,
 		nats:       nc,
 		db:         db,
 		instanceID: instanceID,
 	}
+	if maxConcurrent > 0 {
+		d.sem = make(chan struct{}, maxConcurrent)
+	}
+	return d
 }
 
 // ModelConfigLoader loads model configurations by name.
@@ -142,7 +149,15 @@ func (d *Dispatcher) Start(ctx context.Context) error {
 	var err error
 	if d.workerFn != nil {
 		d.jobSub, err = messaging.QueueSubscribeJSON(d.nats, messaging.SubjectJobsNew, messaging.QueueWorkers, func(evt JobEvent) {
-			go d.processJob(evt)
+			if d.sem != nil {
+				d.sem <- struct{}{}
+			}
+			go func() {
+				if d.sem != nil {
+					defer func() { <-d.sem }()
+				}
+				d.processJob(evt)
+			}()
 		})
 		if err != nil {
 			return fmt.Errorf("subscribing to job queue: %w", err)
@@ -259,7 +274,7 @@ func (d *Dispatcher) PublishProgress(jobID, status, message string) error {
 }
 
 // SubscribeProgress subscribes to progress events for a specific job (for SSE bridging).
-func (d *Dispatcher) SubscribeProgress(jobID string, handler func(ProgressEvent)) (*nats.Subscription, error) {
+func (d *Dispatcher) SubscribeProgress(jobID string, handler func(ProgressEvent)) (messaging.Subscription, error) {
 	return messaging.SubscribeJSON(d.nats, messaging.SubjectJobProgress(jobID), handler)
 }
 
@@ -348,10 +363,6 @@ func (d *Dispatcher) processJob(evt JobEvent) {
 // The frontend subscribes to these events and persists to DB.
 func (d *Dispatcher) publishResult(jobID, status, result, errMsg string) {
 	PublishJobResult(d.nats, jobID, status, result, errMsg)
-	// Also update DB directly if store is available (frontend-side dispatcher)
-	if d.store != nil {
-		d.store.UpdateJobStatus(jobID, status, result, errMsg)
-	}
 }
 
 // PublishTrace publishes a trace event for a running job via NATS.

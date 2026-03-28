@@ -9,7 +9,8 @@ import (
 	"net/http"
 	"net/url"
 	"path"
-	"sort"
+	"cmp"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -153,17 +154,17 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		}
 
 		// Sort operations by progress (ascending), then by ID for stable display order
-		sort.Slice(operations, func(i, j int) bool {
-			progressI := operations[i]["progress"].(int)
-			progressJ := operations[j]["progress"].(int)
+		slices.SortFunc(operations, func(a, b map[string]interface{}) int {
+			progressA := a["progress"].(int)
+			progressB := b["progress"].(int)
 
 			// Primary sort by progress
-			if progressI != progressJ {
-				return progressI < progressJ
+			if progressA != progressB {
+				return cmp.Compare(progressA, progressB)
 			}
 
 			// Secondary sort by ID for stability when progress is the same
-			return operations[i]["id"].(string) < operations[j]["id"].(string)
+			return cmp.Compare(a["id"].(string), b["id"].(string))
 		})
 
 		return c.JSON(200, map[string]interface{}{
@@ -239,7 +240,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		for t := range allTags {
 			tags = append(tags, t)
 		}
-		sort.Strings(tags)
+		slices.Sort(tags)
 
 		// Get all available backends (before filtering so dropdown always shows all)
 		allBackendsMap := map[string]struct{}{}
@@ -252,7 +253,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		for b := range allBackendsMap {
 			backendNames = append(backendNames, b)
 		}
-		sort.Strings(backendNames)
+		slices.Sort(backendNames)
 
 		if tag != "" {
 			models = gallery.GalleryElements[*gallery.GalleryModel](models).FilterByTag(tag)
@@ -809,7 +810,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		for t := range allTags {
 			tags = append(tags, t)
 		}
-		sort.Strings(tags)
+		slices.Sort(tags)
 
 		if tag != "" {
 			backends = gallery.GalleryElements[*gallery.GalleryBackend](backends).FilterByTag(tag)

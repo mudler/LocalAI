@@ -37,12 +37,10 @@ var _ = Describe("AdvisoryLock", func() {
 			)
 
 			var wg sync.WaitGroup
-			wg.Add(2)
 
-			for i := 0; i < 2; i++ {
-				go func() {
+			for range 2 {
+				wg.Go(func() {
 					defer GinkgoRecover()
-					defer wg.Done()
 					err := WithLock(db, lockKey, func() error {
 						cur := atomic.AddInt32(&running, 1)
 						mu.Lock()
@@ -60,7 +58,7 @@ var _ = Describe("AdvisoryLock", func() {
 						return nil
 					})
 					Expect(err).ToNot(HaveOccurred())
-				}()
+				})
 			}
 
 			wg.Wait()
@@ -168,12 +166,10 @@ var _ = Describe("AdvisoryLock", func() {
 			)
 
 			var wg sync.WaitGroup
-			wg.Add(2)
 
-			for i := 0; i < 2; i++ {
-				go func() {
+			for range 2 {
+				wg.Go(func() {
 					defer GinkgoRecover()
-					defer wg.Done()
 					err := WithLockCtx(context.Background(), db, lockKey, func() error {
 						cur := atomic.AddInt32(&running, 1)
 						mu.Lock()
@@ -191,7 +187,7 @@ var _ = Describe("AdvisoryLock", func() {
 						return nil
 					})
 					Expect(err).ToNot(HaveOccurred())
-				}()
+				})
 			}
 
 			wg.Wait()

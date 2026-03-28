@@ -7,7 +7,8 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"sort"
+	"cmp"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -224,8 +225,8 @@ func (s *QuantizationService) ListJobs(userID string) []*schema.QuantizationJob 
 		}
 	}
 
-	sort.Slice(result, func(i, j int) bool {
-		return result[i].CreatedAt > result[j].CreatedAt
+	slices.SortFunc(result, func(a, b *schema.QuantizationJob) int {
+		return cmp.Compare(b.CreatedAt, a.CreatedAt)
 	})
 
 	return result

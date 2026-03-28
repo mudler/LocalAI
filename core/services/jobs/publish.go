@@ -26,12 +26,6 @@ func PublishJobResult(pub messaging.Publisher, jobID, status, result, errMsg str
 
 // PublishJobProgress publishes a status-only update (no result) via NATS.
 func PublishJobProgress(pub messaging.Publisher, jobID, status, message string) {
-	if err := pub.Publish(messaging.SubjectJobResult(jobID), JobResultEvent{
-		JobID:  jobID,
-		Status: status,
-	}); err != nil {
-		xlog.Error("Failed to publish job result", "jobID", jobID, "error", err)
-	}
 	if err := pub.Publish(messaging.SubjectJobProgress(jobID), ProgressEvent{
 		JobID:   jobID,
 		Status:  status,

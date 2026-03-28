@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/mudler/LocalAI/pkg/sanitize"
 	"github.com/mudler/xlog"
 	"github.com/nats-io/nats.go"
 )
@@ -34,7 +35,7 @@ func New(url string) (*Client, error) {
 		}),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("connecting to NATS at %s: %w", url, err)
+		return nil, fmt.Errorf("connecting to NATS at %s: %w", sanitize.URL(url), err)
 	}
 
 	return &Client{conn: nc}, nil
@@ -52,7 +53,7 @@ func (c *Client) Publish(subject string, data any) error {
 }
 
 // Subscribe creates a subscription on the given subject. All subscribers receive every message.
-func (c *Client) Subscribe(subject string, handler func([]byte)) (*nats.Subscription, error) {
+func (c *Client) Subscribe(subject string, handler func([]byte)) (Subscription, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.conn.Subscribe(subject, func(msg *nats.Msg) {
@@ -62,7 +63,7 @@ func (c *Client) Subscribe(subject string, handler func([]byte)) (*nats.Subscrip
 
 // QueueSubscribe creates a queue subscription. Within the same queue group,
 // only one subscriber receives each message (load-balanced).
-func (c *Client) QueueSubscribe(subject, queue string, handler func([]byte)) (*nats.Subscription, error) {
+func (c *Client) QueueSubscribe(subject, queue string, handler func([]byte)) (Subscription, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.conn.QueueSubscribe(subject, queue, func(msg *nats.Msg) {
@@ -84,7 +85,7 @@ func (c *Client) Request(subject string, data []byte, timeout time.Duration) ([]
 
 // SubscribeReply creates a subscription that supports replying to requests.
 // The handler receives the raw request data and the reply subject.
-func (c *Client) SubscribeReply(subject string, handler func(data []byte, reply func([]byte))) (*nats.Subscription, error) {
+func (c *Client) SubscribeReply(subject string, handler func(data []byte, reply func([]byte))) (Subscription, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.conn.Subscribe(subject, func(msg *nats.Msg) {
@@ -100,7 +101,7 @@ func (c *Client) SubscribeReply(subject string, handler func(data []byte, reply 
 
 // QueueSubscribeReply creates a queue subscription that supports replying to requests.
 // Load-balanced across subscribers in the same queue group, with request-reply support.
-func (c *Client) QueueSubscribeReply(subject, queue string, handler func(data []byte, reply func([]byte))) (*nats.Subscription, error) {
+func (c *Client) QueueSubscribeReply(subject, queue string, handler func(data []byte, reply func([]byte))) (Subscription, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.conn.QueueSubscribe(subject, queue, func(msg *nats.Msg) {
@@ -116,7 +117,7 @@ func (c *Client) QueueSubscribeReply(subject, queue string, handler func(data []
 
 // SubscribeJSON creates a subscription that automatically unmarshals JSON messages.
 // Invalid JSON messages are logged and skipped.
-func SubscribeJSON[T any](c *Client, subject string, handler func(T)) (*nats.Subscription, error) {
+func SubscribeJSON[T any](c *Client, subject string, handler func(T)) (Subscription, error) {
 	return c.Subscribe(subject, func(data []byte) {
 		var evt T
 		if err := json.Unmarshal(data, &evt); err != nil {
@@ -129,7 +130,7 @@ func SubscribeJSON[T any](c *Client, subject string, handler func(T)) (*nats.Sub
 
 // QueueSubscribeJSON creates a queue subscription that automatically unmarshals JSON messages.
 // Invalid JSON messages are logged and skipped.
-func QueueSubscribeJSON[T any](c *Client, subject, queue string, handler func(T)) (*nats.Subscription, error) {
+func QueueSubscribeJSON[T any](c *Client, subject, queue string, handler func(T)) (Subscription, error) {
 	return c.QueueSubscribe(subject, queue, func(data []byte) {
 		var evt T
 		if err := json.Unmarshal(data, &evt); err != nil {

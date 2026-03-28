@@ -13,7 +13,6 @@ import (
 	"github.com/mudler/LocalAI/core/services/dbutil"
 	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/xlog"
-	"github.com/nats-io/nats.go"
 )
 
 // AgentEvent is the NATS message payload for agent SSE events.
@@ -47,7 +46,7 @@ type EventBridge struct {
 	cancelRegistry messaging.CancelRegistry
 
 	// Background NATS subscriptions owned by this bridge
-	obsPersisterSub *nats.Subscription
+	obsPersisterSub messaging.Subscription
 }
 
 // NewEventBridge creates a new EventBridge.
@@ -132,7 +131,7 @@ func (b *EventBridge) PublishStatus(agentName, userID, status string) error {
 }
 
 // SubscribeEvents subscribes to agent events for a specific agent+user.
-func (b *EventBridge) SubscribeEvents(agentName, userID string, handler func(AgentEvent)) (*nats.Subscription, error) {
+func (b *EventBridge) SubscribeEvents(agentName, userID string, handler func(AgentEvent)) (messaging.Subscription, error) {
 	subject := messaging.SubjectAgentEvents(agentName, userID)
 	return messaging.SubscribeJSON(b.nats, subject, handler)
 }
@@ -176,7 +175,7 @@ func (b *EventBridge) DeregisterCancel(agentName, userID string) {
 }
 
 // StartCancelListener subscribes to NATS cancel events (broadcast to all instances).
-func (b *EventBridge) StartCancelListener() (*nats.Subscription, error) {
+func (b *EventBridge) StartCancelListener() (messaging.Subscription, error) {
 	return messaging.SubscribeJSON(b.nats, messaging.SubjectAgentCancelWildcard, func(evt AgentCancelEvent) {
 		key := evt.AgentName + ":" + evt.UserID
 		if b.cancelRegistry.Cancel(key) {

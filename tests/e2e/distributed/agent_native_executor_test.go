@@ -217,18 +217,6 @@ func (p *mockConfigProvider) GetAgentConfig(userID, name string) (*agents.AgentC
 	return nil, fmt.Errorf("agent not found: %s", name)
 }
 
-// natsAdapter wraps messaging.Client for agents.NATSClient interface.
-type natsAdapter struct {
-	client *messaging.Client
-}
-
-func (a *natsAdapter) Publish(subject string, data any) error {
-	return a.client.Publish(subject, data)
-}
-
-func (a *natsAdapter) QueueSubscribe(subject, queue string, handler func([]byte)) (messaging.Subscription, error) {
-	return a.client.QueueSubscribe(subject, queue, handler)
-}
 
 var _ = Describe("Native Agent Executor", Label("Distributed", "AgentNative"), func() {
 	var (
@@ -349,8 +337,8 @@ var _ = Describe("Native Agent Executor", Label("Distributed", "AgentNative"), f
 			Expect(err).ToNot(HaveOccurred())
 			defer sub.Unsubscribe()
 
-			adapter := &natsAdapter{client: infra.NC}
-			dispatcher := agents.NewNATSDispatcher(adapter, bridge, configs, "http://localhost:8080", "test-key", "agent.test.execute", "test-workers")
+			adapter := infra.NC
+			dispatcher := agents.NewNATSDispatcher(adapter, bridge, configs, "http://localhost:8080", "test-key", "agent.test.execute", "test-workers", 0)
 
 			err = dispatcher.Start(infra.Ctx)
 			Expect(err).ToNot(HaveOccurred())
@@ -410,8 +398,8 @@ var _ = Describe("Native Agent Executor", Label("Distributed", "AgentNative"), f
 			bridge := agents.NewEventBridge(infra.NC, nil, "enriched-test")
 
 			// Create dispatcher with NO ConfigProvider (simulating DB-free worker)
-			adapter := &natsAdapter{client: infra.NC}
-			dispatcher := agents.NewNATSDispatcher(adapter, bridge, nil, "http://localhost:8080", "test-key", "agent.enriched.execute", "enriched-workers")
+			adapter := infra.NC
+			dispatcher := agents.NewNATSDispatcher(adapter, bridge, nil, "http://localhost:8080", "test-key", "agent.enriched.execute", "enriched-workers", 0)
 			Expect(dispatcher.Start(infra.Ctx)).To(Succeed())
 
 			// Subscribe to events to verify processing
@@ -470,7 +458,7 @@ var _ = Describe("Native Agent Executor", Label("Distributed", "AgentNative"), f
 			bridge1 := agents.NewEventBridge(infra.NC, nil, "instance-1")
 			bridge2 := agents.NewEventBridge(infra.NC, nil, "instance-2")
 
-			adapter := &natsAdapter{client: infra.NC}
+			adapter := infra.NC
 
 			var count1, count2 atomic.Int32
 
@@ -666,12 +654,12 @@ var _ = Describe("Native Agent Executor", Label("Distributed", "AgentNative"), f
 			Expect(err).ToNot(HaveOccurred())
 			defer sub.Unsubscribe()
 
-			adapter := &natsAdapter{client: infra.NC}
+			adapter := infra.NC
 			configs := &mockConfigProvider{configs: map[string]*agents.AgentConfig{
 				"flow-agent": &cfg,
 			}}
 
-			dispatcher := agents.NewNATSDispatcher(adapter, bridge, configs, "http://localhost:8080", "test-key", "agent.flow.execute", "flow-workers")
+			dispatcher := agents.NewNATSDispatcher(adapter, bridge, configs, "http://localhost:8080", "test-key", "agent.flow.execute", "flow-workers", 0)
 			Expect(dispatcher.Start(infra.Ctx)).To(Succeed())
 
 			// Dispatch
@@ -748,7 +736,7 @@ var _ = Describe("Native Agent Executor", Label("Distributed", "AgentNative"), f
 				SystemPrompt:  "You are a monitoring agent.",
 			}
 
-			adapter := &natsAdapter{client: infra.NC}
+			adapter := infra.NC
 			configs := &mockConfigProvider{configs: map[string]*agents.AgentConfig{
 				"bg-agent": &cfg,
 			}}
@@ -767,7 +755,7 @@ var _ = Describe("Native Agent Executor", Label("Distributed", "AgentNative"), f
 			Expect(err).ToNot(HaveOccurred())
 			defer sub.Unsubscribe()
 
-			dispatcher := agents.NewNATSDispatcher(adapter, bridge, configs, "http://localhost:8080", "test-key", "agent.bg.execute", "bg-workers")
+			dispatcher := agents.NewNATSDispatcher(adapter, bridge, configs, "http://localhost:8080", "test-key", "agent.bg.execute", "bg-workers", 0)
 			Expect(dispatcher.Start(infra.Ctx)).To(Succeed())
 
 			// Dispatch as background/system role
@@ -887,7 +875,7 @@ var _ = Describe("Native Agent Executor", Label("Distributed", "AgentNative"), f
 			defer sub.Unsubscribe()
 
 			// Start scheduler with short poll interval for testing
-			adapter := &natsAdapter{client: infra.NC}
+			adapter := infra.NC
 			scheduler := agents.NewAgentScheduler(db, adapter, store, "agent.sched.execute")
 
 			schedCtx, schedCancel := context.WithCancel(infra.Ctx)
@@ -1088,9 +1076,9 @@ var _ = Describe("Native Agent Executor", Label("Distributed", "AgentNative"), f
 			Expect(err).ToNot(HaveOccurred())
 			defer sub.Unsubscribe()
 
-			adapter := &natsAdapter{client: infra.NC}
+			adapter := infra.NC
 			// Point dispatcher at our mock LLM server
-			dispatcher := agents.NewNATSDispatcher(adapter, bridge, nil, llmURL, "test-key", "agent.e2e.execute", "e2e-workers")
+			dispatcher := agents.NewNATSDispatcher(adapter, bridge, nil, llmURL, "test-key", "agent.e2e.execute", "e2e-workers", 0)
 			Expect(dispatcher.Start(infra.Ctx)).To(Succeed())
 
 			FlushNATS(infra.NC)
@@ -1164,8 +1152,8 @@ var _ = Describe("Native Agent Executor", Label("Distributed", "AgentNative"), f
 			Expect(err).ToNot(HaveOccurred())
 			defer sub.Unsubscribe()
 
-			adapter := &natsAdapter{client: infra.NC}
-			dispatcher := agents.NewNATSDispatcher(adapter, bridge, nil, llmURL, "test-key", "agent.bg-e2e.execute", "bg-e2e-workers")
+			adapter := infra.NC
+			dispatcher := agents.NewNATSDispatcher(adapter, bridge, nil, llmURL, "test-key", "agent.bg-e2e.execute", "bg-e2e-workers", 0)
 			Expect(dispatcher.Start(infra.Ctx)).To(Succeed())
 
 			FlushNATS(infra.NC)

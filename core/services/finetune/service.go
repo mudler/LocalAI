@@ -7,13 +7,15 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"sort"
+	"cmp"
+	"slices"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/gallery/importers"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/distributed"
@@ -23,11 +25,6 @@ import (
 	"github.com/mudler/xlog"
 	"gopkg.in/yaml.v3"
 )
-
-// FineTuneNATSClient is the interface for NATS pub/sub used by FineTuneService in distributed mode.
-type FineTuneNATSClient interface {
-	Publish(subject string, data any) error
-}
 
 // FineTuneService manages fine-tuning jobs and their lifecycle.
 type FineTuneService struct {
@@ -39,12 +36,12 @@ type FineTuneService struct {
 	jobs map[string]*schema.FineTuneJob
 
 	// Distributed mode (nil when not in distributed mode)
-	natsClient    FineTuneNATSClient
+	natsClient    messaging.Publisher
 	fineTuneStore *distributed.FineTuneStore
 }
 
 // SetNATSClient sets the NATS client for distributed progress publishing.
-func (s *FineTuneService) SetNATSClient(nc FineTuneNATSClient) {
+func (s *FineTuneService) SetNATSClient(nc messaging.Publisher) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.natsClient = nc
@@ -295,8 +292,8 @@ func (s *FineTuneService) ListJobs(userID string) []*schema.FineTuneJob {
 		}
 	}
 
-	sort.Slice(result, func(i, j int) bool {
-		return result[i].CreatedAt > result[j].CreatedAt
+	slices.SortFunc(result, func(a, b *schema.FineTuneJob) int {
+		return cmp.Compare(b.CreatedAt, a.CreatedAt)
 	})
 
 	return result

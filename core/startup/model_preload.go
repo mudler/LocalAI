@@ -53,7 +53,7 @@ func InstallModels(ctx context.Context, galleryService *galleryop.GalleryService
 
 			galleryService.ModelGalleryChannel <- galleryop.ManagementOp[gallery.GalleryModel, gallery.ModelConfig]{
 				Req: gallery.GalleryModel{
-					Overrides: map[string]interface{}{},
+					Overrides: map[string]any{},
 				},
 				ID:                 uuid.String(),
 				GalleryElementName: modelConfig.Name,

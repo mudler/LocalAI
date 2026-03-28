@@ -72,6 +72,10 @@ func cleanEphemeralKeys(ctx context.Context, fm *FileManager, ttl time.Duration)
 		// If no local cache exists, the key may have been left by another instance.
 		// We can't determine its age without object metadata, so skip for now.
 		// A more robust approach would use S3 object metadata (LastModified).
+		// TODO(distributed): In multi-instance deployments, ephemeral keys uploaded by crashed
+		// instances are never cleaned up because cleanup relies on local cache file timestamps.
+		// Future: use S3 object metadata (x-amz-meta-created-at) or lifecycle rules to expire
+		// orphaned ephemeral objects. Operators should configure S3 lifecycle rules as a safety net.
 	}
 
 	if deleted > 0 {

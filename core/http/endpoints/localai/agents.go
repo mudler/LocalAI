@@ -4,10 +4,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"maps"
 	"net/http"
 	"os"
 	"path/filepath"
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/labstack/echo/v4"
@@ -76,11 +77,7 @@ func ListAgentsEndpoint(app *application.Application) echo.HandlerFunc {
 		svc := app.AgentPoolService()
 		userID := getUserID(c)
 		statuses := svc.ListAgentsForUser(userID)
-		agents := make([]string, 0, len(statuses))
-		for name := range statuses {
-			agents = append(agents, name)
-		}
-		sort.Strings(agents)
+		agents := slices.Sorted(maps.Keys(statuses))
 		resp := map[string]any{
 			"agents":     agents,
 			"agentCount": len(agents),

@@ -29,10 +29,10 @@ func nodeReadyMiddleware(registry *nodes.NodeRegistry) echo.MiddlewareFunc {
 // nodes themselves (register, heartbeat, drain, query own models, deregister).
 // These are authenticated via the registration token, not admin middleware.
 //
-// TODO(security): Self-service routes currently accept any node :id with a valid
-// registration token. A compromised worker can heartbeat/drain/deregister other nodes.
-// To fix: issue per-node bearer tokens during registration and validate :id matches
-// the authenticated node. See security review item S2.
+// TODO(security): Node self-service endpoints authenticate via shared registration
+// token but do not verify per-node identity. A compromised worker can heartbeat/drain/
+// deregister other nodes. Future: issue per-node JWT at registration, validate node
+// identity on subsequent requests (compare :id param with token subject).
 func RegisterNodeSelfServiceRoutes(e *echo.Echo, registry *nodes.NodeRegistry, registrationToken string, autoApprove bool, authDB *gorm.DB, hmacSecret string) {
 	if registry == nil {
 		return
@@ -84,9 +84,14 @@ func RegisterNodeAdminRoutes(e *echo.Echo, registry *nodes.NodeRegistry, unloade
 	e.GET("/ws/nodes/:id/backend-logs/:modelId", localai.NodeBackendLogsWSEndpoint(registry, registrationToken), readyMw, adminMw)
 }
 
-// nodeTokenAuth returns middleware that validates the registration token
-// from an Authorization: Bearer <token> header using constant-time comparison.
-// If registrationToken is empty, all requests are allowed (no auth required).
+// nodeTokenAuth validates the registration token for node self-service endpoints.
+// When registrationToken is empty (single-node / non-distributed mode), these
+// endpoints are unprotected. This is intentional: in single-node mode there are
+// no remote workers to authenticate. Operators enabling distributed mode MUST
+// set a registration token via LOCALAI_REGISTRATION_TOKEN or config.
+//
+// It validates the token from an Authorization: Bearer <token> header using
+// constant-time comparison.
 func nodeTokenAuth(registrationToken string) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {

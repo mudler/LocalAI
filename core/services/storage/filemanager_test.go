@@ -81,15 +81,13 @@ var _ = Describe("FileManager", func() {
 			errs := make([]error, numGoroutines)
 			paths := make([]string, numGoroutines)
 
-			wg.Add(numGoroutines)
-			for i := 0; i < numGoroutines; i++ {
-				go func(idx int) {
+			for i := range numGoroutines {
+				wg.Go(func() {
 					defer GinkgoRecover()
-					defer wg.Done()
 					p, e := fm.Download(context.Background(), "same-key")
-					paths[idx] = p
-					errs[idx] = e
-				}(i)
+					paths[i] = p
+					errs[i] = e
+				})
 			}
 			wg.Wait()
 

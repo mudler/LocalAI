@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"math/rand"
+	"math/rand/v2"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -68,6 +68,8 @@ type LocalDispatcher struct {
 	apiKey   string
 	configs  ConfigProvider
 	ssePool  SSEWriterPool // maps agentKey → SSEWriter
+	ctx      context.Context
+	cancels  sync.Map // messageID → context.CancelFunc
 }
 
 // SSEWriterPool provides SSE writers for agents.
@@ -76,17 +78,25 @@ type SSEWriterPool interface {
 }
 
 // NewLocalDispatcher creates a dispatcher that executes locally.
-func NewLocalDispatcher(apiURL, apiKey string, configs ConfigProvider, ssePool SSEWriterPool) *LocalDispatcher {
+func NewLocalDispatcher(ctx context.Context, apiURL, apiKey string, configs ConfigProvider, ssePool SSEWriterPool) *LocalDispatcher {
 	return &LocalDispatcher{
 		apiURL:  apiURL,
 		apiKey:  apiKey,
 		configs: configs,
 		ssePool: ssePool,
+		ctx:     ctx,
 	}
 }
 
 func (d *LocalDispatcher) Start(_ context.Context) error {
 	return nil // nothing to start for local mode
+}
+
+// Cancel cancels a running agent chat by message ID.
+func (d *LocalDispatcher) Cancel(messageID string) {
+	if v, ok := d.cancels.LoadAndDelete(messageID); ok {
+		v.(context.CancelFunc)()
+	}
 }
 
 func (d *LocalDispatcher) Dispatch(userID, agentName, message string) (string, error) {
@@ -101,8 +111,13 @@ func (d *LocalDispatcher) Dispatch(userID, agentName, message string) (string, e
 	writer := d.ssePool.GetWriter(key)
 
 	// Execute in background goroutine
+	ctx, cancel := context.WithCancel(d.ctx)
+	d.cancels.Store(messageID, cancel)
+
 	go func() {
-		ctx := context.Background()
+		defer d.cancels.Delete(messageID)
+		defer cancel()
+
 		cb := d.buildLocalCallbacks(writer, messageID)
 
 		// Send user message immediately
@@ -191,18 +206,9 @@ func (d *LocalDispatcher) buildLocalCallbacks(writer SSEWriter, messageID string
 
 // --- NATS Dispatcher (distributed) ---
 
-// NATSClient combines publishing and subscribing for NATS.
-// It uses messaging.Subscription so that the concrete *messaging.Client
-// (whose subscribe methods return *nats.Subscription) satisfies it via
-// a thin adapter that widens the return type.
-type NATSClient interface {
-	Publish(subject string, data any) error
-	QueueSubscribe(subject, queue string, handler func(data []byte)) (messaging.Subscription, error)
-}
-
 // NATSDispatcher dispatches agent chats via NATS queue group.
 type NATSDispatcher struct {
-	nats        NATSClient
+	nats        messaging.MessagingClient
 	eventBridge *EventBridge
 	configs     ConfigProvider
 	apiURL      string
@@ -210,11 +216,13 @@ type NATSDispatcher struct {
 	subject     string
 	queue       string
 	sub         messaging.Subscription // stored subscription for cleanup
+	sem         chan struct{}           // concurrency limiter; nil = unlimited
 }
 
 // NewNATSDispatcher creates a dispatcher that uses NATS for distribution.
-func NewNATSDispatcher(nats NATSClient, bridge *EventBridge, configs ConfigProvider, apiURL, apiKey, subject, queue string) *NATSDispatcher {
-	return &NATSDispatcher{
+// maxConcurrent limits the number of concurrent agent jobs; 0 means unlimited.
+func NewNATSDispatcher(nats messaging.MessagingClient, bridge *EventBridge, configs ConfigProvider, apiURL, apiKey, subject, queue string, maxConcurrent int) *NATSDispatcher {
+	d := &NATSDispatcher{
 		nats:        nats,
 		eventBridge: bridge,
 		configs:     configs,
@@ -223,6 +231,10 @@ func NewNATSDispatcher(nats NATSClient, bridge *EventBridge, configs ConfigProvi
 		subject:     subject,
 		queue:       queue,
 	}
+	if maxConcurrent > 0 {
+		d.sem = make(chan struct{}, maxConcurrent)
+	}
+	return d
 }
 
 func (d *NATSDispatcher) Start(ctx context.Context) error {
@@ -232,7 +244,15 @@ func (d *NATSDispatcher) Start(ctx context.Context) error {
 			xlog.Error("Failed to unmarshal agent chat event", "error", err)
 			return
 		}
-		d.handleJob(ctx, evt)
+		if d.sem != nil {
+			d.sem <- struct{}{}
+		}
+		go func() {
+			if d.sem != nil {
+				defer func() { <-d.sem }()
+			}
+			d.handleJob(ctx, evt)
+		}()
 	})
 	if err != nil {
 		return fmt.Errorf("subscribing to %s: %w", d.subject, err)
@@ -354,7 +374,7 @@ func (d *NATSDispatcher) buildNATSCallbacks(evt AgentChatEvent) Callbacks {
 	// IDs must be globally unique (not just per-job) because the UI's buildTree
 	// uses them as map keys. We use a random base + counter so IDs are unique
 	// across jobs while parent–child relationships still work within a job.
-	idBase := rand.Int31n(1<<30) + 1 // random base, avoids collisions across jobs
+	idBase := rand.Int32N(1<<30) + 1 // random base, avoids collisions across jobs
 	var obsIDCounter atomic.Int32
 	var mu sync.Mutex
 	var currentToolObs *coreTypes.Observable

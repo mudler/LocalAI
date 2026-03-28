@@ -13,11 +13,6 @@ import (
 	"github.com/mudler/LocalAI/pkg/system"
 )
 
-// GalleryNATSClient is the interface for NATS pub/sub used by GalleryService in distributed mode.
-type GalleryNATSClient interface {
-	Publish(subject string, data any) error
-}
-
 type GalleryService struct {
 	appConfig *config.ApplicationConfig
 	sync.Mutex
@@ -31,7 +26,7 @@ type GalleryService struct {
 	cancellations  map[string]context.CancelFunc
 
 	// Distributed mode (nil when not in distributed mode)
-	natsClient   GalleryNATSClient
+	natsClient   messaging.Publisher
 	galleryStore *distributed.GalleryStore
 }
 
@@ -63,7 +58,7 @@ func (g *GalleryService) SetBackendManager(b BackendManager) {
 }
 
 // SetNATSClient sets the NATS client for distributed progress publishing.
-func (g *GalleryService) SetNATSClient(nc GalleryNATSClient) {
+func (g *GalleryService) SetNATSClient(nc messaging.Publisher) {
 	g.Lock()
 	defer g.Unlock()
 	g.natsClient = nc

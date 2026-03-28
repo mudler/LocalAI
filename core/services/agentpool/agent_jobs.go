@@ -12,7 +12,8 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"sort"
+	"cmp"
+	"slices"
 	"strings"
 	"sync"
 	"text/template"
@@ -200,10 +201,7 @@ func NewAgentJobServiceWithPaths(
 	evaluator *templates.Evaluator,
 	tasksFile, jobsFile string,
 ) *AgentJobService {
-	retentionDays := appConfig.AgentJobRetentionDays
-	if retentionDays == 0 {
-		retentionDays = 30 // Default
-	}
+	retentionDays := cmp.Or(appConfig.AgentJobRetentionDays, 30)
 
 	tasks := xsync.NewSyncedMap[string, schema.Task]()
 	jobsMap := xsync.NewSyncedMap[string, schema.Job]()
@@ -453,11 +451,11 @@ func (s *AgentJobService) GetTask(id string) (*schema.Task, error) {
 func (s *AgentJobService) ListTasks() []schema.Task {
 	tasks := s.tasks.Values()
 	// Sort by CreatedAt descending (newest first), then by Name for stability
-	sort.Slice(tasks, func(i, j int) bool {
-		if tasks[i].CreatedAt.Equal(tasks[j].CreatedAt) {
-			return tasks[i].Name < tasks[j].Name
+	slices.SortFunc(tasks, func(a, b schema.Task) int {
+		if a.CreatedAt.Equal(b.CreatedAt) {
+			return cmp.Compare(a.Name, b.Name)
 		}
-		return tasks[i].CreatedAt.After(tasks[j].CreatedAt)
+		return b.CreatedAt.Compare(a.CreatedAt)
 	})
 	return tasks
 }
@@ -629,13 +627,7 @@ func (s *AgentJobService) ListJobs(taskID *string, status *schema.JobStatus, lim
 	}
 
 	// Sort by CreatedAt descending (newest first)
-	for i := 0; i < len(filtered)-1; i++ {
-		for j := i + 1; j < len(filtered); j++ {
-			if filtered[i].CreatedAt.Before(filtered[j].CreatedAt) {
-				filtered[i], filtered[j] = filtered[j], filtered[i]
-			}
-		}
-	}
+	slices.SortFunc(filtered, func(a, b schema.Job) int { return b.CreatedAt.Compare(a.CreatedAt) })
 
 	// Apply limit
 	if limit > 0 && limit < len(filtered) {
@@ -970,7 +962,7 @@ func (s *AgentJobService) ExecuteJobInternal(job schema.Job, task schema.Task, c
 		cogito.WithToolCallBack(func(t *cogito.ToolChoice, state *cogito.SessionState) cogito.ToolCallDecision {
 			xlog.Debug("Tool call", "job_id", job.ID, "model", modelConfig.Name, "tool", t.Name, "reasoning", t.Reasoning, "arguments", t.Arguments)
 			// Store trace
-			arguments := make(map[string]interface{})
+			arguments := make(map[string]any)
 			if t.Arguments != nil {
 				arguments = t.Arguments
 			}
@@ -990,10 +982,10 @@ func (s *AgentJobService) ExecuteJobInternal(job schema.Job, task schema.Task, c
 		cogito.WithToolCallResultCallback(func(t cogito.ToolStatus) {
 			xlog.Debug("Tool call result", "job_id", job.ID, "model", modelConfig.Name, "tool", t.Name, "result", t.Result, "tool_arguments", t.ToolArguments)
 			// Store trace
-			arguments := make(map[string]interface{})
+			arguments := make(map[string]any)
 			// Convert ToolArguments to map via JSON marshaling
 			if toolArgsBytes, err := json.Marshal(t.ToolArguments); err == nil {
-				var toolArgsMap map[string]interface{}
+				var toolArgsMap map[string]any
 				if err := json.Unmarshal(toolArgsBytes, &toolArgsMap); err == nil {
 					arguments = toolArgsMap
 				}
@@ -1070,10 +1062,10 @@ func (s *AgentJobService) ExecuteJobInternal(job schema.Job, task schema.Task, c
 			for _, toolCallInterface := range f.Status.ToolsCalled {
 				// Marshal to JSON and unmarshal to extract fields
 				if toolCallBytes, err := json.Marshal(toolCallInterface); err == nil {
-					var toolCallData map[string]interface{}
+					var toolCallData map[string]any
 					if err := json.Unmarshal(toolCallBytes, &toolCallData); err == nil {
-						arguments := make(map[string]interface{})
-						if args, ok := toolCallData["arguments"].(map[string]interface{}); ok {
+						arguments := make(map[string]any)
+						if args, ok := toolCallData["arguments"].(map[string]any); ok {
 							arguments = args
 						}
 						reasoning := ""
@@ -1100,10 +1092,10 @@ func (s *AgentJobService) ExecuteJobInternal(job schema.Job, task schema.Task, c
 		// Extract tool results from Status.ToolResults
 		if len(f.Status.ToolResults) > 0 {
 			for _, toolResult := range f.Status.ToolResults {
-				arguments := make(map[string]interface{})
+				arguments := make(map[string]any)
 				// Convert ToolArguments to map via JSON marshaling
 				if toolArgsBytes, err := json.Marshal(toolResult.ToolArguments); err == nil {
-					var toolArgsMap map[string]interface{}
+					var toolArgsMap map[string]any
 					if err := json.Unmarshal(toolArgsBytes, &toolArgsMap); err == nil {
 						arguments = toolArgsMap
 					}
@@ -1229,18 +1221,16 @@ func (s *AgentJobService) sendWebhooks(job schema.Job, task schema.Task) {
 	successCount := 0
 
 	for _, webhookConfig := range webhookConfigs {
-		wg.Add(1)
-		go func(config schema.WebhookConfig) {
-			defer wg.Done()
-			if err := s.sendWebhook(job, task, config); err != nil {
+		wg.Go(func() {
+			if err := s.sendWebhook(job, task, webhookConfig); err != nil {
 				errors <- webhookError{
-					URL:   config.URL,
+					URL:   webhookConfig.URL,
 					Error: err.Error(),
 				}
 			} else {
 				successCount++
 			}
-		}(webhookConfig)
+		})
 	}
 	wg.Wait()
 	close(errors)
@@ -1337,7 +1327,7 @@ func (s *AgentJobService) buildWebhookPayload(job schema.Job, task schema.Task, 
 
 	// Use default format
 	// Include Error field (empty string if no error)
-	payload := map[string]interface{}{
+	payload := map[string]any{
 		"job_id":       job.ID,
 		"task_id":      job.TaskID,
 		"task_name":    task.Name,
@@ -1361,7 +1351,7 @@ func (s *AgentJobService) buildPayloadFromTemplate(job schema.Job, task schema.T
 	// - .Result - Job result (if successful)
 	// - .Error - Error message (if failed, empty string if successful)
 	// - .Status - Job status string
-	ctx := map[string]interface{}{
+	ctx := map[string]any{
 		"Job":        job,
 		"Task":       task,
 		"Result":     job.Result,
@@ -1372,7 +1362,7 @@ func (s *AgentJobService) buildPayloadFromTemplate(job schema.Job, task schema.T
 
 	// Add json function for template
 	funcMap := template.FuncMap{
-		"json": func(v interface{}) string {
+		"json": func(v any) string {
 			b, _ := json.Marshal(v)
 			return string(b)
 		},
@@ -1397,7 +1387,7 @@ func (s *AgentJobService) executeWithRetry(client *http.Client, req *http.Reques
 	backoff := []time.Duration{1 * time.Second, 2 * time.Second, 4 * time.Second}
 
 	var err error
-	for i := 0; i < maxRetries; i++ {
+	for i := range maxRetries {
 		// Recreate request body if needed (it may have been consumed)
 		if req.Body != nil {
 			bodyBytes, _ := io.ReadAll(req.Body)
@@ -1459,11 +1449,7 @@ func (s *AgentJobService) Start(ctx context.Context) error {
 	s.ctx, s.cancel = context.WithCancel(ctx)
 
 	// Update retention days from config
-	retentionDays := s.appConfig.AgentJobRetentionDays
-	if retentionDays == 0 {
-		retentionDays = 30 // Default
-	}
-	s.retentionDays = retentionDays
+	s.retentionDays = cmp.Or(s.appConfig.AgentJobRetentionDays, 30)
 
 	// Load tasks and jobs from persister (DB or files)
 	s.loadFromPersister()
@@ -1480,7 +1466,7 @@ func (s *AgentJobService) Start(ctx context.Context) error {
 
 	// Start worker pool (5 workers)
 	workerCount := 5
-	for i := 0; i < workerCount; i++ {
+	for range workerCount {
 		go s.worker(s.ctx)
 	}
 
@@ -1518,9 +1504,6 @@ func (s *AgentJobService) Stop() error {
 
 // UpdateRetentionDays updates the retention days setting
 func (s *AgentJobService) UpdateRetentionDays(days int) {
-	s.retentionDays = days
-	if days == 0 {
-		s.retentionDays = 30 // Default
-	}
+	s.retentionDays = cmp.Or(days, 30)
 	xlog.Info("Updated agent job retention days", "retention_days", s.retentionDays)
 }

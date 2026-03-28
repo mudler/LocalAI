@@ -2,7 +2,7 @@ package agentpool
 
 import (
 	"fmt"
-	"math/rand"
+	"math/rand/v2"
 
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAGI/core/sse"
@@ -47,7 +47,7 @@ var letterRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 func randString(n int) string {
 	b := make([]rune, n)
 	for i := range b {
-		b[i] = letterRunes[rand.Intn(len(letterRunes))]
+		b[i] = letterRunes[rand.IntN(len(letterRunes))]
 	}
 	return string(b)
 }

@@ -78,15 +78,13 @@ var _ = Describe("JobStore", func() {
 
 		const n = 10
 		var wg sync.WaitGroup
-		wg.Add(n)
 		errs := make([]error, n)
 
-		for i := 0; i < n; i++ {
-			go func() {
+		for i := range n {
+			wg.Go(func() {
 				defer GinkgoRecover()
-				defer wg.Done()
 				errs[i] = store.AppendJobTrace(job.ID, "step", fmt.Sprintf("step-%d", i))
-			}()
+			})
 		}
 		wg.Wait()
 

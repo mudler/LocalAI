@@ -24,6 +24,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/storage"
+	"github.com/mudler/LocalAI/pkg/sanitize"
 	grpc "github.com/mudler/LocalAI/pkg/grpc"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/system"
@@ -126,7 +127,7 @@ func (cmd *WorkerCMD) Run(ctx *cliContext.Context) error {
 	}
 
 	// Connect to NATS
-	xlog.Info("Connecting to NATS", "url", cmd.NatsURL)
+	xlog.Info("Connecting to NATS", "url", sanitize.URL(cmd.NatsURL))
 	natsClient, err := messaging.New(cmd.NatsURL)
 	if err != nil {
 		return fmt.Errorf("connecting to NATS: %w", err)

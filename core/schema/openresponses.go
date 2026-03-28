@@ -26,9 +26,9 @@ type ORWebSocketMessage struct {
 // https://www.openresponses.org/specification
 type OpenResponsesRequest struct {
 	Model              string            `json:"model"`
-	Input              interface{}       `json:"input"` // string or []ORItemParam
+	Input              any       `json:"input"` // string or []ORItemParam
 	Tools              []ORFunctionTool  `json:"tools,omitempty"`
-	ToolChoice         interface{}       `json:"tool_choice,omitempty"` // "auto"|"required"|"none"|{type:"function",name:"..."}
+	ToolChoice         any       `json:"tool_choice,omitempty"` // "auto"|"required"|"none"|{type:"function",name:"..."}
 	Stream             bool              `json:"stream,omitempty"`
 	MaxOutputTokens    *int              `json:"max_output_tokens,omitempty"`
 	Temperature        *float64          `json:"temperature,omitempty"`
@@ -40,7 +40,7 @@ type OpenResponsesRequest struct {
 	PreviousResponseID string            `json:"previous_response_id,omitempty"`
 
 	// Additional parameters from spec
-	TextFormat        interface{} `json:"text_format,omitempty"`         // TextResponseFormat or JsonSchemaResponseFormatParam
+	TextFormat        any `json:"text_format,omitempty"`         // TextResponseFormat or JsonSchemaResponseFormatParam
 	ServiceTier       string      `json:"service_tier,omitempty"`        // "auto"|"default"|priority hint
 	AllowedTools      []string    `json:"allowed_tools,omitempty"`       // Restrict which tools can be invoked
 	Store             *bool       `json:"store,omitempty"`               // Whether to store the response
@@ -73,7 +73,7 @@ type ORFunctionTool struct {
 	Type        string                 `json:"type"` // always "function"
 	Name        string                 `json:"name"`
 	Description string                 `json:"description,omitempty"`
-	Parameters  map[string]interface{} `json:"parameters,omitempty"`
+	Parameters  map[string]any `json:"parameters,omitempty"`
 	Strict      bool                   `json:"strict"` // Always include in response
 }
 
@@ -91,7 +91,7 @@ type ORItemParam struct {
 
 	// Message fields
 	Role    string      `json:"role,omitempty"`    // user|assistant|system|developer
-	Content interface{} `json:"content,omitempty"` // string or []ORContentPart for messages
+	Content any `json:"content,omitempty"` // string or []ORContentPart for messages
 
 	// Function call fields
 	CallID    string `json:"call_id,omitempty"`
@@ -99,7 +99,7 @@ type ORItemParam struct {
 	Arguments string `json:"arguments"`
 
 	// Function call output fields
-	Output interface{} `json:"output,omitempty"` // string or []ORContentPart
+	Output any `json:"output,omitempty"` // string or []ORContentPart
 
 	// Reasoning fields (for type == "reasoning")
 	Summary          []ORContentPart `json:"summary"`                     // Array of summary parts
@@ -146,7 +146,7 @@ type ORResponseResource struct {
 
 	// Tool-related fields
 	Tools             []ORFunctionTool `json:"tools"` // Always present, empty array if no tools
-	ToolChoice        interface{}      `json:"tool_choice"`
+	ToolChoice        any      `json:"tool_choice"`
 	ParallelToolCalls bool             `json:"parallel_tool_calls"`
 	MaxToolCalls      *int             `json:"max_tool_calls"` // nullable
 

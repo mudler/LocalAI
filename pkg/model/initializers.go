@@ -114,7 +114,7 @@ func (ml *ModelLoader) grpcModel(backend string, o *Options) func(string, string
 
 		// Wait for the service to start up
 		ready := false
-		for i := 0; i < o.grpcAttempts; i++ {
+		for i := range o.grpcAttempts {
 			alive, err := client.GRPC(o.parallelRequests, ml.wd).HealthCheck(context.Background())
 			if alive {
 				xlog.Debug("GRPC Service Ready")
@@ -208,7 +208,7 @@ func (ml *ModelLoader) enforceLRULimit() {
 	retryInterval := ml.lruEvictionRetryInterval
 	ml.mu.Unlock()
 
-	for attempt := 0; attempt < maxRetries; attempt++ {
+	for attempt := range maxRetries {
 		result := ml.wd.EnforceLRULimit(pendingLoads)
 
 		if !result.NeedMore {

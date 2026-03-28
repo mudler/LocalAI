@@ -13,6 +13,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/storage"
+	"github.com/mudler/LocalAI/pkg/sanitize"
 	"github.com/mudler/xlog"
 	"gorm.io/gorm"
 )
@@ -50,7 +51,7 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB) (*Distribut
 		return nil, fmt.Errorf("distributed mode requires authentication to be enabled (--auth / LOCALAI_AUTH=true)")
 	}
 	if !isPostgresURL(cfg.Auth.DatabaseURL) {
-		return nil, fmt.Errorf("distributed mode requires PostgreSQL for auth database (got %q)", cfg.Auth.DatabaseURL)
+		return nil, fmt.Errorf("distributed mode requires PostgreSQL for auth database (got %q)", sanitize.URL(cfg.Auth.DatabaseURL))
 	}
 
 	// Validate NATS
@@ -69,7 +70,7 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB) (*Distribut
 	if err != nil {
 		return nil, fmt.Errorf("connecting to NATS: %w", err)
 	}
-	xlog.Info("Connected to NATS", "url", cfg.Distributed.NatsURL)
+	xlog.Info("Connected to NATS", "url", sanitize.URL(cfg.Distributed.NatsURL))
 
 	// Ensure NATS is closed if any subsequent initialization step fails.
 	success := false
@@ -143,7 +144,7 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB) (*Distribut
 	xlog.Info("Distributed job store initialized")
 
 	// Initialize job dispatcher
-	dispatcher := jobs.NewDispatcher(jobStore, natsClient, authDB, cfg.Distributed.InstanceID)
+	dispatcher := jobs.NewDispatcher(jobStore, natsClient, authDB, cfg.Distributed.InstanceID, cfg.Distributed.JobWorkerConcurrency)
 
 	// Initialize agent store
 	agentStore, err := agents.NewAgentStore(authDB)

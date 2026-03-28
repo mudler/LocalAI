@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"sort"
+	"slices"
 	"strings"
 )
 
@@ -111,7 +111,7 @@ func (s *UserScopedStorage) ListUserDirs() ([]string, error) {
 			ids = append(ids, e.Name())
 		}
 	}
-	sort.Strings(ids)
+	slices.Sort(ids)
 	return ids, nil
 }
 

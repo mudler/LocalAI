@@ -30,6 +30,9 @@ type DistributedConfig struct {
 	StaleNodeThreshold  time.Duration // Time before a node is considered stale (default 60s)
 
 	MaxUploadSize int64 // Maximum upload body size in bytes (default 50 GB)
+
+	AgentWorkerConcurrency int `yaml:"agent_worker_concurrency" json:"agent_worker_concurrency" env:"LOCALAI_AGENT_WORKER_CONCURRENCY"`
+	JobWorkerConcurrency   int `yaml:"job_worker_concurrency" json:"job_worker_concurrency" env:"LOCALAI_JOB_WORKER_CONCURRENCY"`
 }
 
 // Distributed config options

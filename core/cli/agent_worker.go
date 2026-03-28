@@ -19,6 +19,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/jobs"
 	mcpRemote "github.com/mudler/LocalAI/core/services/mcp"
 	"github.com/mudler/LocalAI/core/services/messaging"
+	"github.com/mudler/LocalAI/pkg/sanitize"
 	"github.com/mudler/cogito"
 	"github.com/mudler/cogito/clients"
 	"github.com/mudler/xlog"
@@ -53,7 +54,7 @@ type AgentWorkerCMD struct {
 }
 
 func (cmd *AgentWorkerCMD) Run(ctx *cliContext.Context) error {
-	xlog.Info("Starting agent worker", "nats", cmd.NatsURL, "register_to", cmd.RegisterTo)
+	xlog.Info("Starting agent worker", "nats", sanitize.URL(cmd.NatsURL), "register_to", cmd.RegisterTo)
 
 	// Resolve API URL
 	apiURL := cmp.Or(cmd.APIURL, strings.TrimRight(cmd.RegisterTo, "/"))
@@ -118,11 +119,12 @@ func (cmd *AgentWorkerCMD) Run(ctx *cliContext.Context) error {
 	// Create and start the NATS dispatcher.
 	// No ConfigProvider or SkillStore needed — config and skills arrive in the job payload.
 	dispatcher := agents.NewNATSDispatcher(
-		&natsClientAdapter{natsClient},
+		natsClient,
 		eventBridge,
 		nil, // no ConfigProvider: config comes in the enriched NATS payload
 		apiURL, cmd.APIToken,
 		cmd.Subject, cmd.Queue,
+		0, // no concurrency limit (CLI worker)
 	)
 
 	if err := dispatcher.Start(shutdownCtx); err != nil {
@@ -271,21 +273,6 @@ func sendMCPDiscoveryReply(reply func([]byte), servers []mcpRemote.MCPServerInfo
 	resp := mcpRemote.MCPDiscoveryResponse{Servers: servers, Tools: tools, Error: errMsg}
 	data, _ := json.Marshal(resp)
 	reply(data)
-}
-
-// natsClientAdapter wraps messaging.Client to satisfy agents.NATSClient.
-// The concrete Client.QueueSubscribe returns *nats.Subscription; this adapter
-// widens it to messaging.Subscription so it matches the interface.
-type natsClientAdapter struct {
-	client *messaging.Client
-}
-
-func (a *natsClientAdapter) Publish(subject string, data any) error {
-	return a.client.Publish(subject, data)
-}
-
-func (a *natsClientAdapter) QueueSubscribe(subject, queue string, handler func(data []byte)) (messaging.Subscription, error) {
-	return a.client.QueueSubscribe(subject, queue, handler)
 }
 
 // handleMCPCIJob processes an MCP CI job on the agent worker.

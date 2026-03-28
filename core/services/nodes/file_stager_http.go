@@ -94,7 +94,7 @@ func (h *HTTPFileStager) EnsureRemote(ctx context.Context, nodeID, localPath, ke
 }
 
 func (h *HTTPFileStager) FetchRemote(ctx context.Context, nodeID, remotePath, localDst string) error {
-	key := filepath.Base(remotePath)
+	key := fmt.Sprintf("%s/%s", nodeID, remotePath)
 	return h.FetchRemoteByKey(ctx, nodeID, key, localDst)
 }
 
@@ -188,9 +188,7 @@ func (h *HTTPFileStager) AllocRemoteTemp(ctx context.Context, nodeID string) (st
 }
 
 func (h *HTTPFileStager) StageRemoteToStore(ctx context.Context, nodeID, remotePath, key string) error {
-	// In HTTP mode, there's no shared store — files are transferred directly.
-	// The caller should use FetchRemote instead. This is a no-op.
-	return nil
+	return fmt.Errorf("StageRemoteToStore not supported in HTTP file transfer mode; use FetchRemote for direct transfer")
 }
 
 func (h *HTTPFileStager) ListRemoteDir(ctx context.Context, nodeID, keyPrefix string) ([]string, error) {

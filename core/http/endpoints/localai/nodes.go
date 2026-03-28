@@ -211,7 +211,9 @@ func provisionAgentWorkerKey(authDB *gorm.DB, registry *nodes.NodeRegistry, node
 
 	node.AuthUserID = workerUser.ID
 	node.APIKeyID = apiKey.ID
-	registry.UpdateAuthRefs(node.ID, workerUser.ID, apiKey.ID)
+	if err := registry.UpdateAuthRefs(node.ID, workerUser.ID, apiKey.ID); err != nil {
+		xlog.Warn("Failed to update auth refs on node", "node", node.Name, "error", err)
+	}
 
 	// Grant collections feature so the worker can store/retrieve KB data on behalf of users.
 	perm := &auth.UserPermission{

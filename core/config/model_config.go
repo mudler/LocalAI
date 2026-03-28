@@ -50,7 +50,7 @@ type ModelConfig struct {
 	InputToken                                 [][]int                `yaml:"-" json:"-"`
 	functionCallString, functionCallNameString string                 `yaml:"-" json:"-"`
 	ResponseFormat                             string                 `yaml:"-" json:"-"`
-	ResponseFormatMap                          map[string]interface{} `yaml:"-" json:"-"`
+	ResponseFormatMap                          map[string]any `yaml:"-" json:"-"`
 
 	FunctionsConfig functions.FunctionsConfig `yaml:"function,omitempty" json:"function,omitempty"`
 	ReasoningConfig reasoning.Config          `yaml:"reasoning,omitempty" json:"reasoning,omitempty"`

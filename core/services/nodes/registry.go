@@ -145,11 +145,11 @@ func (r *NodeRegistry) Register(node *BackendNode, autoApprove bool) error {
 }
 
 // UpdateAuthRefs stores the auto-provisioned user and API key IDs on a node.
-func (r *NodeRegistry) UpdateAuthRefs(nodeID, authUserID, apiKeyID string) {
-	r.db.Model(&BackendNode{}).Where("id = ?", nodeID).Updates(map[string]any{
+func (r *NodeRegistry) UpdateAuthRefs(nodeID, authUserID, apiKeyID string) error {
+	return r.db.Model(&BackendNode{}).Where("id = ?", nodeID).Updates(map[string]any{
 		"auth_user_id": authUserID,
 		"api_key_id":   apiKeyID,
-	})
+	}).Error
 }
 
 // ApproveNode sets a pending node's status to healthy.
@@ -235,9 +235,10 @@ func (r *NodeRegistry) Deregister(nodeID string) error {
 
 	// Clean up auto-provisioned auth user (cascades to API keys via FK)
 	if node.AuthUserID != "" {
+		tx.Exec("SAVEPOINT auth_cleanup")
 		if err := tx.Exec("DELETE FROM users WHERE id = ?", node.AuthUserID).Error; err != nil {
+			tx.Exec("ROLLBACK TO SAVEPOINT auth_cleanup")
 			xlog.Warn("Failed to clean up agent worker user", "node", node.Name, "userID", node.AuthUserID, "error", err)
-			// Non-fatal: node is already deleted, user is orphaned but harmless
 		}
 	}
 

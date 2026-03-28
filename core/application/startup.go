@@ -21,6 +21,7 @@ import (
 	"github.com/mudler/LocalAI/internal"
 
 	"github.com/mudler/LocalAI/pkg/model"
+	"github.com/mudler/LocalAI/pkg/sanitize"
 	"github.com/mudler/LocalAI/pkg/xsysinfo"
 	"github.com/mudler/xlog"
 )
@@ -104,7 +105,7 @@ func New(opts ...config.AppOption) (*Application, error) {
 			return nil, fmt.Errorf("failed to initialize auth database: %w", err)
 		}
 		application.authDB = authDB
-		xlog.Info("Auth enabled", "database", options.Auth.DatabaseURL)
+		xlog.Info("Auth enabled", "database", sanitize.URL(options.Auth.DatabaseURL))
 
 		// Start session and expired API key cleanup goroutine
 		go func() {

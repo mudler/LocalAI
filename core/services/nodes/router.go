@@ -29,7 +29,7 @@ var companionSuffixes = map[string][]string{
 // SmartRouterOptions holds all dependencies for constructing a SmartRouter.
 // Passing them at construction time eliminates data races from post-creation setters.
 type SmartRouterOptions struct {
-	Unloader      *RemoteUnloaderAdapter
+	Unloader      NodeCommandSender
 	FileStager    FileStager
 	GalleriesJSON string
 	AuthToken     string
@@ -40,7 +40,7 @@ type SmartRouterOptions struct {
 // It uses the NodeRegistry (PostgreSQL) for routing decisions.
 type SmartRouter struct {
 	registry      *NodeRegistry
-	unloader      *RemoteUnloaderAdapter // optional, for NATS-driven load/unload
+	unloader      NodeCommandSender // optional, for NATS-driven load/unload
 	fileStager    FileStager             // optional, for distributed file transfer
 	galleriesJSON string                 // backend gallery config for dynamic installation
 	authToken     string                 // gRPC bearer token for distributed auth
@@ -61,7 +61,7 @@ func NewSmartRouter(registry *NodeRegistry, opts SmartRouterOptions) *SmartRoute
 }
 
 // Unloader returns the remote unloader adapter for external use.
-func (r *SmartRouter) Unloader() *RemoteUnloaderAdapter { return r.unloader }
+func (r *SmartRouter) Unloader() NodeCommandSender { return r.unloader }
 
 // RouteResult contains the routing decision.
 type RouteResult struct {
