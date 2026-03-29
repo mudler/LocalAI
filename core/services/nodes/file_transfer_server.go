@@ -309,7 +309,15 @@ func validatePathInDir(targetPath, baseDir string) error {
 	}
 	realTarget, err := filepath.EvalSymlinks(absTarget)
 	if err != nil {
-		realTarget = filepath.Clean(absTarget)
+		// File may not exist yet (e.g. upload). Resolve the parent directory
+		// and re-join the filename so symlinks like /tmp -> /private/tmp on
+		// macOS are still resolved correctly.
+		parentReal, perr := filepath.EvalSymlinks(filepath.Dir(absTarget))
+		if perr == nil {
+			realTarget = filepath.Join(parentReal, filepath.Base(absTarget))
+		} else {
+			realTarget = filepath.Clean(absTarget)
+		}
 	}
 
 	if !strings.HasPrefix(realTarget, realBase+string(filepath.Separator)) && realTarget != realBase {

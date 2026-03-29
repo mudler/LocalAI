@@ -459,6 +459,10 @@ func (d *Dispatcher) isCronDue(task TaskRecord) bool {
 		return true
 	}
 
+	// Compute the cron interval from two consecutive ticks after the last job.
+	// Use elapsed time since the last job rather than clock-aligned ticks to
+	// avoid re-triggering when the job was created shortly before a tick boundary.
 	nextRun := schedule.Next(lastJob.CreatedAt)
-	return time.Now().After(nextRun)
+	minInterval := schedule.Next(nextRun).Sub(nextRun)
+	return time.Since(lastJob.CreatedAt) >= minInterval
 }
