@@ -309,14 +309,25 @@ func validatePathInDir(targetPath, baseDir string) error {
 	}
 	realTarget, err := filepath.EvalSymlinks(absTarget)
 	if err != nil {
-		// File may not exist yet (e.g. upload). Resolve the parent directory
-		// and re-join the filename so symlinks like /tmp -> /private/tmp on
-		// macOS are still resolved correctly.
-		parentReal, perr := filepath.EvalSymlinks(filepath.Dir(absTarget))
-		if perr == nil {
-			realTarget = filepath.Join(parentReal, filepath.Base(absTarget))
-		} else {
-			realTarget = filepath.Clean(absTarget)
+		// File may not exist yet (e.g. upload). Walk up to the first
+		// existing ancestor so platform symlinks (e.g. /tmp → /private/tmp
+		// on macOS) are resolved even for deeply nested new paths.
+		remaining := filepath.Base(absTarget)
+		dir := filepath.Dir(absTarget)
+		for {
+			resolved, resolveErr := filepath.EvalSymlinks(dir)
+			if resolveErr == nil {
+				realTarget = filepath.Join(resolved, remaining)
+				break
+			}
+			remaining = filepath.Join(filepath.Base(dir), remaining)
+			parent := filepath.Dir(dir)
+			if parent == dir {
+				// Reached filesystem root without resolving
+				realTarget = filepath.Clean(absTarget)
+				break
+			}
+			dir = parent
 		}
 	}
 

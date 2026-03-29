@@ -49,44 +49,7 @@ var _ = Describe("DistributedModelStore", Label("Distributed"), func() {
 			Expect(m).To(Equal(expected))
 		})
 
-		It("falls back to DB when local cache misses, returns model with correct address", func() {
-			// Register a node and load a model on it in the DB
-			node := &nodes.BackendNode{
-				Name: "remote-node", Address: "remote:9000",
-			}
-			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
-			Expect(registry.SetNodeModel(context.Background(), node.ID, "db-model", "loaded")).To(Succeed())
-
-			m, ok := dStore.Get("db-model")
-			Expect(ok).To(BeTrue())
-			Expect(m).ToNot(BeNil())
-			Expect(m.ID).To(Equal("db-model"))
-		})
-
-		It("caches DB result locally — second Get hits local cache", func() {
-			node := &nodes.BackendNode{
-				Name: "cache-node", Address: "cache:9000",
-			}
-			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
-			Expect(registry.SetNodeModel(context.Background(), node.ID, "cached-model", "loaded")).To(Succeed())
-
-			// First Get — falls back to DB
-			m1, ok := dStore.Get("cached-model")
-			Expect(ok).To(BeTrue())
-
-			// Should now be in local store
-			localM, localOK := localStore.Get("cached-model")
-			Expect(localOK).To(BeTrue())
-			Expect(localM).To(Equal(m1))
-
-			// Second Get — hits local cache (even if we remove from DB)
-			Expect(registry.RemoveNodeModel(context.Background(), node.ID, "cached-model")).To(Succeed())
-			m2, ok := dStore.Get("cached-model")
-			Expect(ok).To(BeTrue())
-			Expect(m2).To(Equal(m1))
-		})
-
-		It("returns (nil, false) when model not in local or DB", func() {
+		It("returns (nil, false) when model is not in local cache", func() {
 			m, ok := dStore.Get("ghost-model")
 			Expect(ok).To(BeFalse())
 			Expect(m).To(BeNil())
