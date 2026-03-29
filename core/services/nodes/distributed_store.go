@@ -20,26 +20,12 @@ func NewDistributedModelStore(local model.ModelStore, registry ModelLookup) *Dis
 	return &DistributedModelStore{local: local, registry: registry}
 }
 
-// Get checks the local cache first, then falls back to PostgreSQL.
-// If a model is found in the DB but not locally, a Model stub is constructed
-// with the remote node's address and cached locally.
+// Get checks the local cache only. In distributed mode, models must be routed
+// through SmartRouter which handles in-flight tracking, file staging, and load
+// balancing. The DB fallback was removed to prevent bare model stubs that
+// bypass these mechanisms.
 func (s *DistributedModelStore) Get(id string) (*model.Model, bool) {
-	if m, ok := s.local.Get(id); ok {
-		return m, true
-	}
-
-	// Fall back to DB
-	node, found := s.registry.FindNodeForModel(context.Background(), id)
-	if !found {
-		return nil, false
-	}
-
-	xlog.Debug("DistributedModelStore: found model in DB, caching locally", "model", id, "node", node.Address)
-	// Stub with remote address; nil process is intentional (remote model).
-	// The gRPC client is lazily created by Model.GRPC() from the address.
-	m := model.NewModel(id, node.Address, nil)
-	s.local.Set(id, m)
-	return m, true
+	return s.local.Get(id)
 }
 
 // Set delegates to the local cache. The DB record is already written by

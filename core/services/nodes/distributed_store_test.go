@@ -69,7 +69,7 @@ var _ = Describe("DistributedModelStore", func() {
 			Expect(got).To(Equal(m))
 		})
 
-		It("falls back to DB when not local", func() {
+		It("does not fall back to DB — only returns locally-managed models", func() {
 			node := &BackendNode{
 				ID:      "node-1",
 				Address: "10.0.0.2:50051",
@@ -77,14 +77,8 @@ var _ = Describe("DistributedModelStore", func() {
 			lookup.nodesByModel["remote-model"] = node
 
 			got, ok := store.Get("remote-model")
-			Expect(ok).To(BeTrue())
-			Expect(got).NotTo(BeNil())
-			Expect(got.ID).To(Equal("remote-model"))
-
-			// Should also be cached locally now
-			cached, ok := local.Get("remote-model")
-			Expect(ok).To(BeTrue())
-			Expect(cached).To(Equal(got))
+			Expect(ok).To(BeFalse())
+			Expect(got).To(BeNil())
 		})
 
 		It("returns nil when not in DB either", func() {

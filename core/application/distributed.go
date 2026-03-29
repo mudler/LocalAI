@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"strings"
 
 	"github.com/google/uuid"
@@ -48,6 +49,9 @@ func (ds *DistributedServices) Shutdown() {
 	}
 	if ds.Dispatcher != nil {
 		ds.Dispatcher.Stop()
+	}
+	if closer, ok := ds.Store.(io.Closer); ok {
+		closer.Close()
 	}
 	// AgentBridge has no Close method — its NATS subscriptions are cleaned up
 	// when the NATS client is closed below.
@@ -107,7 +111,7 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB) (*Distribut
 		if cfg.Distributed.StorageBucket == "" {
 			return nil, fmt.Errorf("distributed storage bucket must be set when storage URL is configured")
 		}
-		s3Store, err := storage.NewS3Store(storage.S3Config{
+		s3Store, err := storage.NewS3Store(context.Background(), storage.S3Config{
 			Endpoint:        cfg.Distributed.StorageURL,
 			Region:          cfg.Distributed.StorageRegion,
 			Bucket:          cfg.Distributed.StorageBucket,

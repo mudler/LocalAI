@@ -377,7 +377,7 @@ var _ = Describe("Native Agent Executor", Label("Distributed", "AgentNative"), f
 			bridge := agents.NewEventBridge(infra.NC, nil, "cancel-test")
 
 			var cancelled atomic.Bool
-			bridge.RegisterCancel("test-agent", "user1", func() {
+			bridge.RegisterCancel("test-msg-id", func() {
 				cancelled.Store(true)
 			})
 
@@ -389,7 +389,7 @@ var _ = Describe("Native Agent Executor", Label("Distributed", "AgentNative"), f
 			FlushNATS(infra.NC)
 
 			// Cancel the execution
-			Expect(bridge.CancelExecution("test-agent", "user1")).To(Succeed())
+			Expect(bridge.CancelExecution("test-agent", "user1", "test-msg-id")).To(Succeed())
 
 			Eventually(func() bool { return cancelled.Load() }, "5s").Should(BeTrue())
 		})

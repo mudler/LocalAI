@@ -79,8 +79,8 @@ type AgentEventBridge interface {
 	PublishMessage(agentName, userID, sender, content, messageID string) error
 	PublishStatus(agentName, userID, status string) error
 	PublishStreamEvent(agentName, userID string, data map[string]any) error
-	RegisterCancel(agentName, userID string, cancel context.CancelFunc)
-	DeregisterCancel(agentName, userID string)
+	RegisterCancel(key string, cancel context.CancelFunc)
+	DeregisterCancel(key string)
 }
 
 // AgentConfigStore is the interface for agent config persistence.
@@ -93,10 +93,39 @@ type AgentConfigStore interface {
 	UpdateLastRun(userID, name string) error
 }
 
-func NewAgentPoolService(appConfig *config.ApplicationConfig) (*AgentPoolService, error) {
-	return &AgentPoolService{
+// AgentPoolOptions holds optional dependencies for AgentPoolService.
+// Zero values are fine — the service degrades gracefully without them.
+type AgentPoolOptions struct {
+	AuthDB      *gorm.DB
+	SkillStore  *distributed.SkillStore
+	NATSClient  messaging.Publisher
+	EventBridge AgentEventBridge
+	AgentStore  *agents.AgentStore
+}
+
+func NewAgentPoolService(appConfig *config.ApplicationConfig, opts ...AgentPoolOptions) (*AgentPoolService, error) {
+	svc := &AgentPoolService{
 		appConfig: appConfig,
-	}, nil
+	}
+	if len(opts) > 0 {
+		o := opts[0]
+		if o.AuthDB != nil {
+			svc.users.authDB = o.AuthDB
+		}
+		if o.SkillStore != nil {
+			svc.distributed.skillStore = o.SkillStore
+		}
+		if o.NATSClient != nil {
+			svc.distributed.natsClient = o.NATSClient
+		}
+		if o.EventBridge != nil {
+			svc.distributed.eventBridge = o.EventBridge
+		}
+		if o.AgentStore != nil {
+			svc.distributed.agentStore = o.AgentStore
+		}
+	}
+	return svc, nil
 }
 
 func (s *AgentPoolService) Start(ctx context.Context) error {
@@ -337,16 +366,19 @@ func (s *AgentPoolService) Pool() *state.AgentPool {
 }
 
 // SetNATSClient sets the NATS client for distributed agent execution.
+// Deprecated: prefer passing NATSClient via AgentPoolOptions at construction time.
 func (s *AgentPoolService) SetNATSClient(nc messaging.Publisher) {
 	s.distributed.natsClient = nc
 }
 
 // SetEventBridge sets the event bridge for distributed SSE + persistence.
+// Deprecated: prefer passing EventBridge via AgentPoolOptions at construction time.
 func (s *AgentPoolService) SetEventBridge(eb AgentEventBridge) {
 	s.distributed.eventBridge = eb
 }
 
 // SetAgentStore sets the PostgreSQL agent config store.
+// Deprecated: prefer passing AgentStore via AgentPoolOptions at construction time.
 func (s *AgentPoolService) SetAgentStore(store *agents.AgentStore) {
 	s.distributed.agentStore = store
 }
@@ -578,11 +610,13 @@ func (s *AgentPoolService) UserServicesManager() *UserServicesManager {
 }
 
 // SetAuthDB sets the auth database for API key generation.
+// Deprecated: prefer passing AuthDB via AgentPoolOptions at construction time.
 func (s *AgentPoolService) SetAuthDB(db *gorm.DB) {
 	s.users.authDB = db
 }
 
 // SetSkillStore sets the distributed skill store for persisting skill metadata to PostgreSQL.
+// Deprecated: prefer passing SkillStore via AgentPoolOptions at construction time.
 func (s *AgentPoolService) SetSkillStore(store *distributed.SkillStore) {
 	s.distributed.skillStore = store
 }

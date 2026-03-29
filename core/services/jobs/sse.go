@@ -50,6 +50,14 @@ func (d *Dispatcher) SSEHandler() echo.HandlerFunc {
 				JobID:  jobID,
 				Status: job.Status,
 			})
+			// If already terminal, send done and close — no need to subscribe
+			if job.Status == "completed" || job.Status == "failed" || job.Status == "cancelled" {
+				sendEvent("done", ProgressEvent{
+					JobID:  jobID,
+					Status: job.Status,
+				})
+				return nil
+			}
 		}
 
 		// Subscribe to progress events for this job

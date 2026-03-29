@@ -7,7 +7,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/mudler/LocalAI/core/services/advisorylock"
-	"github.com/mudler/LocalAI/core/services/messaging"
 	"gorm.io/gorm"
 )
 
@@ -66,7 +65,7 @@ type JobStore struct {
 // Uses a PostgreSQL advisory lock to prevent concurrent migration races
 // when multiple instances (frontend + workers) start at the same time.
 func NewJobStore(db *gorm.DB) (*JobStore, error) {
-	if err := advisorylock.WithLock(db, messaging.AdvisoryLockSchemaMigrate, func() error {
+	if err := advisorylock.WithLock(db, advisorylock.KeySchemaMigrate, func() error {
 		return db.AutoMigrate(&TaskRecord{}, &JobRecord{})
 	}); err != nil {
 		return nil, fmt.Errorf("migrating job tables: %w", err)
@@ -264,4 +263,26 @@ func (s *JobStore) CleanupOldJobs(retention time.Duration) (int64, error) {
 	result := s.db.Where("created_at < ?", cutoff).Delete(&JobRecord{})
 	return result.RowsAffected, result.Error
 }
+
+// JobStoreReader provides read access to jobs and tasks.
+type JobStoreReader interface {
+	GetJob(id string) (*JobRecord, error)
+	GetTask(id string) (*TaskRecord, error)
+	ListCronTasks() ([]TaskRecord, error)
+	ListTasks(userID string) ([]TaskRecord, error)
+	ListJobs(userID, taskID, status string, limit int) ([]JobRecord, error)
+}
+
+// JobStoreWriter provides write access to jobs and tasks.
+type JobStoreWriter interface {
+	CreateTask(task *TaskRecord) error
+	CreateJob(job *JobRecord) error
+	UpdateJobStatus(id, status, result, errMsg string) error
+	AppendJobTrace(jobID, traceType, traceContent string) error
+	CleanupOldJobs(retention time.Duration) (int64, error)
+}
+
+// Compile-time interface compliance checks.
+var _ JobStoreReader = (*JobStore)(nil)
+var _ JobStoreWriter = (*JobStore)(nil)
 

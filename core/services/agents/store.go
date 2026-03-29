@@ -7,7 +7,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/mudler/LocalAI/core/services/advisorylock"
-	"github.com/mudler/LocalAI/core/services/messaging"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -52,34 +51,40 @@ type AgentStore struct {
 // Uses a PostgreSQL advisory lock to prevent concurrent migration races
 // when multiple instances (frontend + workers) start at the same time.
 func NewAgentStore(db *gorm.DB) (*AgentStore, error) {
-	if err := advisorylock.WithLock(db, messaging.AdvisoryLockSchemaMigrate, func() error {
+	if err := advisorylock.WithLock(db, advisorylock.KeySchemaMigrate, func() error {
 		return db.AutoMigrate(&AgentConfigRecord{}, &AgentObservableRecord{})
 	}); err != nil {
 		return nil, fmt.Errorf("migrating agent tables: %w", err)
 	}
-	return &AgentStore{db: db}, nil
+	s := &AgentStore{db: db}
+	s.db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_agent_configs_user_name ON agent_configs(user_id, name)")
+	return s, nil
 }
 
 // --- Agent Config CRUD ---
 
 // SaveConfig creates or updates an agent config.
 func (s *AgentStore) SaveConfig(cfg *AgentConfigRecord) error {
-	if cfg.ID == "" {
-		cfg.ID = uuid.New().String()
-	}
 	cfg.UpdatedAt = time.Now()
 	if cfg.CreatedAt.IsZero() {
 		cfg.CreatedAt = cfg.UpdatedAt
 	}
 
+	// Use FirstOrCreate for atomic upsert: if a record with the same
+	// (user_id, name) already exists, update it in place; otherwise create.
 	var existing AgentConfigRecord
-	err := s.db.Where("user_id = ? AND name = ?", cfg.UserID, cfg.Name).First(&existing).Error
-	if err == nil {
-		cfg.ID = existing.ID
-		cfg.CreatedAt = existing.CreatedAt
-		return s.db.Model(&existing).Updates(cfg).Error
+	result := s.db.Where("user_id = ? AND name = ?", cfg.UserID, cfg.Name).
+		Attrs(AgentConfigRecord{ID: uuid.New().String()}).
+		FirstOrCreate(&existing)
+	if result.Error != nil {
+		return result.Error
 	}
-	return s.db.Create(cfg).Error
+
+	// Preserve the original ID and creation timestamp.
+	cfg.ID = existing.ID
+	cfg.CreatedAt = existing.CreatedAt
+
+	return s.db.Model(&existing).Updates(cfg).Error
 }
 
 // GetConfig retrieves an agent config by user and name.
@@ -181,6 +186,19 @@ func (s *AgentStore) ClearObservables(agentName string) error {
 func (s *AgentStore) DB() *gorm.DB {
 	return s.db
 }
+
+// AgentConfigStoreInterface defines the operations for agent config persistence.
+type AgentConfigStoreInterface interface {
+	SaveConfig(cfg *AgentConfigRecord) error
+	GetConfig(userID, name string) (*AgentConfigRecord, error)
+	ListConfigs(userID string) ([]AgentConfigRecord, error)
+	DeleteConfig(userID, name string) error
+	UpdateStatus(userID, name, status string) error
+	UpdateLastRun(userID, name string) error
+}
+
+// Compile-time interface compliance check.
+var _ AgentConfigStoreInterface = (*AgentStore)(nil)
 
 // --- Helpers ---
 

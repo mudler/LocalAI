@@ -2,6 +2,7 @@ package nodes
 
 import (
 	"context"
+	"time"
 
 	"github.com/mudler/LocalAI/pkg/grpc"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
@@ -34,7 +35,11 @@ func (c *InFlightTrackingClient) track(ctx context.Context) func() {
 		xlog.Warn("Failed to increment in-flight counter", "node", c.nodeID, "model", c.modelName, "error", err)
 		return func() {}
 	}
-	return func() { c.registry.DecrementInFlight(ctx, c.nodeID, c.modelName) }
+	return func() {
+		decCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		c.registry.DecrementInFlight(decCtx, c.nodeID, c.modelName)
+	}
 }
 
 // --- Tracked inference methods ---

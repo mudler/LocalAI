@@ -167,26 +167,27 @@ func (a *Application) StartAgentPool() {
 	if !a.applicationConfig.AgentPool.Enabled {
 		return
 	}
-	aps, err := agentpool.NewAgentPoolService(a.applicationConfig)
+	// Build options struct from available dependencies
+	opts := agentpool.AgentPoolOptions{
+		AuthDB: a.authDB,
+	}
+	if d := a.Distributed(); d != nil {
+		if d.DistStores != nil && d.DistStores.Skills != nil {
+			opts.SkillStore = d.DistStores.Skills
+		}
+		opts.NATSClient = d.Nats
+		opts.EventBridge = d.AgentBridge
+		opts.AgentStore = d.AgentStore
+	}
+
+	aps, err := agentpool.NewAgentPoolService(a.applicationConfig, opts)
 	if err != nil {
 		xlog.Error("Failed to create agent pool service", "error", err)
 		return
 	}
-	if a.authDB != nil {
-		aps.SetAuthDB(a.authDB)
-	}
+
 	// Wire distributed mode components
 	if d := a.Distributed(); d != nil {
-		if d.DistStores != nil && d.DistStores.Skills != nil {
-			aps.SetSkillStore(d.DistStores.Skills)
-		}
-		aps.SetNATSClient(d.Nats)
-		if d.AgentBridge != nil {
-			aps.SetEventBridge(d.AgentBridge)
-		}
-		if d.AgentStore != nil {
-			aps.SetAgentStore(d.AgentStore)
-		}
 		// Wait for at least one healthy backend worker before starting the agent pool.
 		// Collections initialization calls embeddings which require a worker.
 		if d.Registry != nil {

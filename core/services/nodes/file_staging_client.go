@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/mudler/LocalAI/core/services/storage"
@@ -298,11 +299,15 @@ func (f *FileStagingClient) StartQuantization(ctx context.Context, in *pb.Quanti
 
 func (f *FileStagingClient) QuantizationProgress(ctx context.Context, in *pb.QuantizationProgressRequest, fn func(update *pb.QuantizationProgressUpdate), opts ...ggrpc.CallOption) error {
 	return f.Backend.QuantizationProgress(ctx, in, func(update *pb.QuantizationProgressUpdate) {
-		// When quantization completes, fetch the output file from the worker
+		// When quantization completes, fetch the output file from the worker.
+		// Use a fresh context because quantization can take hours and the
+		// original request context may have expired by the time this fires.
 		if update.OutputFile != "" && update.Status == "completed" {
 			relPath := strings.TrimPrefix(update.OutputFile, "/"+storage.DataKeyPrefix)
 			key := storage.DataKey(relPath)
-			if err := f.stager.FetchRemoteByKey(ctx, f.nodeID, key, update.OutputFile); err != nil {
+			fetchCtx, fetchCancel := context.WithTimeout(context.Background(), 10*time.Minute)
+			defer fetchCancel()
+			if err := f.stager.FetchRemoteByKey(fetchCtx, f.nodeID, key, update.OutputFile); err != nil {
 				xlog.Warn("Failed to retrieve quantization output", "file", update.OutputFile, "error", err)
 			}
 		}

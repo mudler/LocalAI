@@ -108,12 +108,24 @@ type ModelConfigLoader interface {
 	GetModelConfig(name string) (config.ModelConfig, bool)
 }
 
+// NewWorkerDispatcher creates a dispatcher that also consumes and processes jobs.
+// Use this instead of NewDispatcher + SetWorkerFunc + SetModelConfigLoader when both
+// the worker function and config loader are available at construction time.
+func NewWorkerDispatcher(store *JobStore, nc messaging.MessagingClient, db *gorm.DB, instanceID string, maxConcurrent int, workerFn WorkerFunc, configLoader ModelConfigLoader) *Dispatcher {
+	d := NewDispatcher(store, nc, db, instanceID, maxConcurrent)
+	d.workerFn = workerFn
+	d.configLoader = configLoader
+	return d
+}
+
 // SetWorkerFunc sets the function that processes jobs.
+// Deprecated: prefer NewWorkerDispatcher when the worker function is available at construction time.
 func (d *Dispatcher) SetWorkerFunc(fn WorkerFunc) {
 	d.workerFn = fn
 }
 
 // SetModelConfigLoader sets the model config loader for enriching job events.
+// Deprecated: prefer NewWorkerDispatcher when the config loader is available at construction time.
 func (d *Dispatcher) SetModelConfigLoader(cl ModelConfigLoader) {
 	d.configLoader = cl
 }
@@ -394,7 +406,7 @@ func (d *Dispatcher) PublishTrace(jobID, traceType, traceContent string) error {
 // cronLeaderLoop runs every 15 seconds. Only one instance wins the advisory lock
 // and runs due cron tasks. Other instances skip. (notetaker pattern)
 func (d *Dispatcher) cronLeaderLoop() {
-	advisorylock.RunLeaderLoop(d.ctx, d.db, messaging.AdvisoryLockCronScheduler, 15*time.Second, d.runDueCronTasks)
+	advisorylock.RunLeaderLoop(d.ctx, d.db, advisorylock.KeyCronScheduler, 15*time.Second, d.runDueCronTasks)
 }
 
 // runDueCronTasks checks all cron tasks and enqueues any that are due.
@@ -431,7 +443,8 @@ func (d *Dispatcher) runDueCronTasks() {
 		}
 
 		if err := d.Enqueue(job.ID, task.ID, task.UserID); err != nil {
-			xlog.Error("Failed to enqueue cron job", "jobID", job.ID, "error", err)
+			xlog.Error("Failed to enqueue cron job, marking as failed", "jobID", job.ID, "error", err)
+			d.store.UpdateJobStatus(job.ID, "failed", "", "NATS enqueue failed: "+err.Error())
 		} else {
 			xlog.Info("Cron job enqueued", "taskID", task.ID, "jobID", job.ID)
 		}
@@ -457,6 +470,11 @@ func (d *Dispatcher) isCronDue(task TaskRecord) bool {
 	if err != nil {
 		// No previous job — it's due
 		return true
+	}
+
+	// Guard: don't create if a recent cron job is still pending/running
+	if lastJob.Status == "pending" || lastJob.Status == "running" {
+		return false
 	}
 
 	// Compute the cron interval from two consecutive ticks after the last job.

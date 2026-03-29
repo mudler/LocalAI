@@ -5,10 +5,8 @@ import "strings"
 // sanitizeSubjectToken replaces NATS-reserved characters in a subject token.
 // NATS uses '.' as hierarchy delimiter and '*'/'>' as wildcards.
 func sanitizeSubjectToken(s string) string {
-	s = strings.ReplaceAll(s, ".", "-")
-	s = strings.ReplaceAll(s, "*", "-")
-	s = strings.ReplaceAll(s, ">", "-")
-	return s
+	r := strings.NewReplacer(".", "-", "*", "-", ">", "-", " ", "-", "\t", "-", "\n", "-")
+	return r.Replace(s)
 }
 
 // NATS subject constants for the distributed architecture.
@@ -265,12 +263,3 @@ func SubjectCacheInvalidateCollection(name string) string {
 	return "cache.invalidate.collections." + sanitizeSubjectToken(name)
 }
 
-// PostgreSQL Advisory Lock Keys (used with advisorylock package, NOT NATS)
-const (
-	AdvisoryLockCronScheduler    int64 = 100
-	AdvisoryLockStaleNodeCleanup int64 = 101
-	AdvisoryLockGalleryDedup     int64 = 102
-	AdvisoryLockAgentScheduler   int64 = 103
-	AdvisoryLockHealthCheck      int64 = 104
-	AdvisoryLockSchemaMigrate    int64 = 105
-)

@@ -10,6 +10,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/mudler/LocalAI/core/services/messaging"
 
 	coreTypes "github.com/mudler/LocalAGI/core/types"
@@ -108,7 +109,7 @@ func (d *LocalDispatcher) Cancel(messageID string) {
 }
 
 func (d *LocalDispatcher) Dispatch(userID, agentName, message string) (string, error) {
-	messageID := fmt.Sprintf("%d", time.Now().UnixNano())
+	messageID := uuid.New().String()
 
 	cfg, err := d.configs.GetAgentConfig(userID, agentName)
 	if err != nil {
@@ -291,7 +292,7 @@ func (d *NATSDispatcher) Stop() error {
 }
 
 func (d *NATSDispatcher) Dispatch(userID, agentName, message string) (string, error) {
-	messageID := fmt.Sprintf("%d", time.Now().UnixNano())
+	messageID := uuid.New().String()
 
 	// Send user message to SSE immediately
 	if d.eventBridge != nil {
@@ -342,8 +343,8 @@ func (d *NATSDispatcher) handleJob(ctx context.Context, evt AgentChatEvent) {
 
 	// Register cancellation
 	if d.eventBridge != nil {
-		d.eventBridge.RegisterCancel(evt.AgentName, evt.UserID, cancel)
-		defer d.eventBridge.DeregisterCancel(evt.AgentName, evt.UserID)
+		d.eventBridge.RegisterCancel(evt.MessageID, cancel)
+		defer d.eventBridge.DeregisterCancel(evt.MessageID)
 	}
 
 	cb := d.buildNATSCallbacks(evt)
@@ -370,6 +371,11 @@ func (d *NATSDispatcher) handleJob(ctx context.Context, evt AgentChatEvent) {
 
 	if execErr != nil {
 		xlog.Error("Distributed agent execution failed", "agent", evt.AgentName, "error", execErr)
+		if d.eventBridge != nil {
+			d.eventBridge.PublishStatus(evt.AgentName, evt.UserID, "error")
+			d.eventBridge.PublishMessage(evt.AgentName, evt.UserID, RoleAgent,
+				fmt.Sprintf("Agent execution failed: %v", execErr), evt.MessageID+"-error")
+		}
 		return
 	}
 

@@ -31,7 +31,7 @@ type S3Config struct {
 }
 
 // NewS3Store creates a new S3-backed ObjectStore.
-func NewS3Store(cfg S3Config) (*S3Store, error) {
+func NewS3Store(ctx context.Context, cfg S3Config) (*S3Store, error) {
 	var opts []func(*awsconfig.LoadOptions) error
 
 	if cfg.Region != "" {
@@ -46,7 +46,7 @@ func NewS3Store(cfg S3Config) (*S3Store, error) {
 		))
 	}
 
-	awsCfg, err := awsconfig.LoadDefaultConfig(context.Background(), opts...)
+	awsCfg, err := awsconfig.LoadDefaultConfig(ctx, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("loading AWS config: %w", err)
 	}
@@ -139,6 +139,10 @@ func (s *S3Store) Delete(ctx context.Context, key string) error {
 	}
 	return nil
 }
+
+// Close implements io.Closer. The underlying AWS S3 client does not hold
+// persistent connections that need explicit cleanup, so this is a no-op.
+func (s *S3Store) Close() error { return nil }
 
 func (s *S3Store) List(ctx context.Context, prefix string) ([]string, error) {
 	var keys []string

@@ -33,6 +33,7 @@ type AgentEvent struct {
 type AgentCancelEvent struct {
 	AgentName string `json:"agent_name"`
 	UserID    string `json:"user_id"`
+	MessageID string `json:"message_id,omitempty"`
 }
 
 // EventBridge bridges agent events between NATS and SSE connections.
@@ -148,38 +149,37 @@ func (b *EventBridge) PublishStreamEvent(agentName, userID string, data map[stri
 }
 
 // CancelExecution publishes a cancel event and also checks the local registry.
-func (b *EventBridge) CancelExecution(agentName, userID string) error {
+func (b *EventBridge) CancelExecution(agentName, userID, messageID string) error {
 	// Try local cancel first
-	key := agentName + ":" + userID
-	if b.cancelRegistry.Cancel(key) {
-		xlog.Info("Cancelled agent execution locally", "agent", agentName, "user", userID)
+	if b.cancelRegistry.Cancel(messageID) {
+		xlog.Info("Cancelled agent execution locally", "agent", agentName, "user", userID, "messageID", messageID)
 	}
 
 	// Also publish via NATS for other instances
 	return b.nats.Publish(messaging.SubjectAgentCancel(agentName), AgentCancelEvent{
 		AgentName: agentName,
 		UserID:    userID,
+		MessageID: messageID,
 	})
 }
 
 // RegisterCancel registers a cancel function for a running agent execution.
-func (b *EventBridge) RegisterCancel(agentName, userID string, cancel context.CancelFunc) {
-	key := agentName + ":" + userID
+func (b *EventBridge) RegisterCancel(key string, cancel context.CancelFunc) {
 	b.cancelRegistry.Register(key, cancel)
 }
 
 // DeregisterCancel removes a cancel function from the registry.
-func (b *EventBridge) DeregisterCancel(agentName, userID string) {
-	key := agentName + ":" + userID
+func (b *EventBridge) DeregisterCancel(key string) {
 	b.cancelRegistry.Deregister(key)
 }
 
 // StartCancelListener subscribes to NATS cancel events (broadcast to all instances).
 func (b *EventBridge) StartCancelListener() (messaging.Subscription, error) {
 	return messaging.SubscribeJSON(b.nats, messaging.SubjectAgentCancelWildcard, func(evt AgentCancelEvent) {
-		key := evt.AgentName + ":" + evt.UserID
-		if b.cancelRegistry.Cancel(key) {
-			xlog.Info("Cancelled agent via NATS", "agent", evt.AgentName, "user", evt.UserID)
+		if evt.MessageID != "" {
+			if b.cancelRegistry.Cancel(evt.MessageID) {
+				xlog.Info("Cancelled agent via NATS", "agent", evt.AgentName, "user", evt.UserID, "messageID", evt.MessageID)
+			}
 		}
 	})
 }

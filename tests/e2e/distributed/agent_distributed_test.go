@@ -149,12 +149,12 @@ var _ = Describe("Phase 3: Agent Conversations & SSE", Label("Distributed"), fun
 				cancelled.Store(true)
 				cancel()
 			})
-			bridge.RegisterCancel("my-agent", "user1", wrappedCancel)
+			bridge.RegisterCancel("test-msg-id", wrappedCancel)
 
 			FlushNATS(infra.NC)
 
 			// Cancel via NATS
-			Expect(bridge.CancelExecution("my-agent", "user1")).To(Succeed())
+			Expect(bridge.CancelExecution("my-agent", "user1", "test-msg-id")).To(Succeed())
 
 			Eventually(func() bool { return cancelled.Load() }, "5s").Should(BeTrue())
 		})

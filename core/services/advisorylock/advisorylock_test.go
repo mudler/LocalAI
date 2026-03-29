@@ -10,7 +10,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/testutil"
 	"gorm.io/gorm"
 )
@@ -97,12 +96,12 @@ var _ = Describe("AdvisoryLock", func() {
 
 		It("all advisory lock keys are unique", func() {
 			keys := map[int64]string{
-				messaging.AdvisoryLockCronScheduler:    "messaging.AdvisoryLockCronScheduler",
-				messaging.AdvisoryLockStaleNodeCleanup: "messaging.AdvisoryLockStaleNodeCleanup",
-				messaging.AdvisoryLockGalleryDedup:     "messaging.AdvisoryLockGalleryDedup",
-				messaging.AdvisoryLockAgentScheduler:   "messaging.AdvisoryLockAgentScheduler",
-				messaging.AdvisoryLockHealthCheck:      "messaging.AdvisoryLockHealthCheck",
-				messaging.AdvisoryLockSchemaMigrate:    "messaging.AdvisoryLockSchemaMigrate",
+				KeyCronScheduler:    "KeyCronScheduler",
+				KeyStaleNodeCleanup: "KeyStaleNodeCleanup",
+				KeyGalleryDedup:     "KeyGalleryDedup",
+				KeyAgentScheduler:   "KeyAgentScheduler",
+				KeyHealthCheck:      "KeyHealthCheck",
+				KeySchemaMigrate:    "KeySchemaMigrate",
 			}
 
 			Expect(keys).To(HaveLen(6), "some advisory lock keys have the same value")

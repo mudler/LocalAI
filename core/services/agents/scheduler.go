@@ -58,7 +58,7 @@ func NewAgentScheduler(db *gorm.DB, nats messaging.Publisher, store SchedulerSto
 // Start begins the scheduler loop. Blocks until ctx is cancelled.
 func (s *AgentScheduler) Start(ctx context.Context) {
 	xlog.Info("Agent scheduler started", "pollInterval", s.pollInterval, "subject", s.subject)
-	advisorylock.RunLeaderLoop(ctx, s.db, messaging.AdvisoryLockAgentScheduler, s.pollInterval, s.runDueAgents)
+	advisorylock.RunLeaderLoop(ctx, s.db, advisorylock.KeyAgentScheduler, s.pollInterval, s.runDueAgents)
 	xlog.Info("Agent scheduler stopped")
 }
 

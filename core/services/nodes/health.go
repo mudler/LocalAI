@@ -3,11 +3,11 @@ package nodes
 import (
 	"cmp"
 	"context"
+	"io"
 	"sync"
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/advisorylock"
-	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/xlog"
 	"gorm.io/gorm"
 )
@@ -84,7 +84,7 @@ func (hm *HealthMonitor) run(ctx context.Context) {
 func (hm *HealthMonitor) checkAll(ctx context.Context) {
 	// In distributed mode, use an advisory lock so only one frontend runs checks
 	if hm.db != nil {
-		acquired, err := advisorylock.TryWithLockCtx(ctx, hm.db, messaging.AdvisoryLockHealthCheck, func() error {
+		acquired, err := advisorylock.TryWithLockCtx(ctx, hm.db, advisorylock.KeyHealthCheck, func() error {
 			hm.doCheckAll(ctx)
 			return nil
 		})
@@ -144,7 +144,15 @@ func (hm *HealthMonitor) doCheckAll(ctx context.Context) {
 		if !alive || err != nil {
 			xlog.Warn("Node health check failed", "node", node.Name, "address", node.Address, "error", err)
 			hm.registry.MarkUnhealthy(ctx, node.ID)
+			if closer, ok := client.(io.Closer); ok {
+				closer.Close()
+			}
 			continue
+		}
+
+		// Close the node-level gRPC client now that we're done with it
+		if closer, ok := client.(io.Closer); ok {
+			closer.Close()
 		}
 
 		if node.Status == StatusUnhealthy {
@@ -167,6 +175,9 @@ func (hm *HealthMonitor) doCheckAll(ctx context.Context) {
 					hm.registry.RemoveNodeModel(ctx, node.ID, m.ModelName)
 				}
 				mCancel()
+				if closer, ok := mClient.(io.Closer); ok {
+					closer.Close()
+				}
 			}
 		}
 	}

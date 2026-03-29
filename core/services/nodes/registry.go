@@ -8,7 +8,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/mudler/LocalAI/core/services/advisorylock"
-	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/xlog"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -78,7 +77,7 @@ type NodeRegistry struct {
 // Uses a PostgreSQL advisory lock to prevent concurrent migration races
 // when multiple instances (frontend + workers) start at the same time.
 func NewNodeRegistry(db *gorm.DB) (*NodeRegistry, error) {
-	if err := advisorylock.WithLock(db, messaging.AdvisoryLockSchemaMigrate, func() error {
+	if err := advisorylock.WithLock(db, advisorylock.KeySchemaMigrate, func() error {
 		return db.AutoMigrate(&BackendNode{}, &NodeModel{})
 	}); err != nil {
 		return nil, fmt.Errorf("migrating node tables: %w", err)
@@ -222,32 +221,27 @@ func (r *NodeRegistry) FindNodeWithVRAM(ctx context.Context, minBytes uint64) (*
 func (r *NodeRegistry) Deregister(ctx context.Context, nodeID string) error {
 	db := r.db.WithContext(ctx)
 
-	// Read the node first to get auth references for cleanup
 	var node BackendNode
 	if err := db.Where("id = ?", nodeID).First(&node).Error; err != nil {
 		return fmt.Errorf("node %s not found: %w", nodeID, err)
 	}
 
-	tx := db.Begin()
-	if err := tx.Where("node_id = ?", nodeID).Delete(&NodeModel{}).Error; err != nil {
-		tx.Rollback()
-		return fmt.Errorf("deleting node models for %s: %w", nodeID, err)
-	}
-	if err := tx.Where("id = ?", nodeID).Delete(&BackendNode{}).Error; err != nil {
-		tx.Rollback()
-		return fmt.Errorf("deleting node %s: %w", nodeID, err)
-	}
-
-	// Clean up auto-provisioned auth user (cascades to API keys via FK)
-	if node.AuthUserID != "" {
-		tx.Exec("SAVEPOINT auth_cleanup")
-		if err := tx.Exec("DELETE FROM users WHERE id = ?", node.AuthUserID).Error; err != nil {
-			tx.Exec("ROLLBACK TO SAVEPOINT auth_cleanup")
-			xlog.Warn("Failed to clean up agent worker user", "node", node.Name, "userID", node.AuthUserID, "error", err)
+	return db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("node_id = ?", nodeID).Delete(&NodeModel{}).Error; err != nil {
+			return fmt.Errorf("deleting node models for %s: %w", nodeID, err)
 		}
-	}
-
-	return tx.Commit().Error
+		if err := tx.Where("id = ?", nodeID).Delete(&BackendNode{}).Error; err != nil {
+			return fmt.Errorf("deleting node %s: %w", nodeID, err)
+		}
+		// Clean up auto-provisioned auth user (cascades to API keys via FK)
+		if node.AuthUserID != "" {
+			if err := tx.Exec("DELETE FROM users WHERE id = ?", node.AuthUserID).Error; err != nil {
+				xlog.Warn("Failed to clean up agent worker user", "node", node.Name, "userID", node.AuthUserID, "error", err)
+				// non-fatal: don't rollback the whole deregistration for auth cleanup
+			}
+		}
+		return nil
+	})
 }
 
 // HeartbeatUpdate contains optional fields to update on heartbeat.
@@ -333,14 +327,28 @@ func (r *NodeRegistry) GetByName(ctx context.Context, name string) (*BackendNode
 
 // MarkUnhealthy sets a node status to unhealthy.
 func (r *NodeRegistry) MarkUnhealthy(ctx context.Context, nodeID string) error {
-	return r.db.WithContext(ctx).Model(&BackendNode{}).Where("id = ?", nodeID).
-		Update("status", StatusUnhealthy).Error
+	result := r.db.WithContext(ctx).Model(&BackendNode{}).Where("id = ?", nodeID).
+		Update("status", StatusUnhealthy)
+	if result.Error != nil {
+		return fmt.Errorf("marking node %s unhealthy: %w", nodeID, result.Error)
+	}
+	if result.RowsAffected == 0 {
+		return fmt.Errorf("node %s not found", nodeID)
+	}
+	return nil
 }
 
 // MarkDraining sets a node status to draining (no new requests).
 func (r *NodeRegistry) MarkDraining(ctx context.Context, nodeID string) error {
-	return r.db.WithContext(ctx).Model(&BackendNode{}).Where("id = ?", nodeID).
-		Update("status", StatusDraining).Error
+	result := r.db.WithContext(ctx).Model(&BackendNode{}).Where("id = ?", nodeID).
+		Update("status", StatusDraining)
+	if result.Error != nil {
+		return fmt.Errorf("marking node %s draining: %w", nodeID, result.Error)
+	}
+	if result.RowsAffected == 0 {
+		return fmt.Errorf("node %s not found", nodeID)
+	}
+	return nil
 }
 
 // FindStaleNodes returns nodes that haven't sent a heartbeat within the given threshold.
@@ -489,19 +497,33 @@ func (r *NodeRegistry) FindIdleNode(ctx context.Context) (*BackendNode, error) {
 
 // IncrementInFlight atomically increments the in-flight counter for a model on a node.
 func (r *NodeRegistry) IncrementInFlight(ctx context.Context, nodeID, modelName string) error {
-	return r.db.WithContext(ctx).Model(&NodeModel{}).
+	result := r.db.WithContext(ctx).Model(&NodeModel{}).
 		Where("node_id = ? AND model_name = ?", nodeID, modelName).
 		Updates(map[string]any{
 			"in_flight": gorm.Expr("in_flight + 1"),
 			"last_used": time.Now(),
-		}).Error
+		})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return fmt.Errorf("node model %s/%s not found", nodeID, modelName)
+	}
+	return nil
 }
 
 // DecrementInFlight atomically decrements the in-flight counter for a model on a node.
 func (r *NodeRegistry) DecrementInFlight(ctx context.Context, nodeID, modelName string) error {
-	return r.db.WithContext(ctx).Model(&NodeModel{}).
+	result := r.db.WithContext(ctx).Model(&NodeModel{}).
 		Where("node_id = ? AND model_name = ? AND in_flight > 0", nodeID, modelName).
-		UpdateColumn("in_flight", gorm.Expr("in_flight - 1")).Error
+		UpdateColumn("in_flight", gorm.Expr("in_flight - 1"))
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		xlog.Warn("DecrementInFlight: no matching row or already zero", "node", nodeID, "model", modelName)
+	}
+	return nil
 }
 
 // GetNodeModels returns all models loaded on a given node.

@@ -189,7 +189,8 @@ func (cmd *WorkerCMD) Run(ctx *cliContext.Context) error {
 // subscribeFileStaging subscribes to NATS file staging subjects for this node.
 func (cmd *WorkerCMD) subscribeFileStaging(natsClient messaging.MessagingClient, nodeID string) error {
 	// Create FileManager with same S3 config as the frontend
-	s3Store, err := storage.NewS3Store(storage.S3Config{
+	// TODO: propagate a caller-provided context once WorkerCMD carries one
+	s3Store, err := storage.NewS3Store(context.Background(), storage.S3Config{
 		Endpoint:       cmd.StorageURL,
 		Region:         cmd.StorageRegion,
 		Bucket:         cmd.StorageBucket,
@@ -383,9 +384,10 @@ func (s *backendSupervisor) startBackend(backend, backendPath string) (string, e
 		port = s.nextPort
 		s.nextPort++
 	}
-	addr := fmt.Sprintf("0.0.0.0:%d", port)
+	bindAddr := fmt.Sprintf("0.0.0.0:%d", port)
+	clientAddr := fmt.Sprintf("127.0.0.1:%d", port)
 
-	proc, err := s.ml.StartProcess(backendPath, backend, addr)
+	proc, err := s.ml.StartProcess(backendPath, backend, bindAddr)
 	if err != nil {
 		s.mu.Unlock()
 		return "", fmt.Errorf("starting backend process: %w", err)
@@ -394,9 +396,9 @@ func (s *backendSupervisor) startBackend(backend, backendPath string) (string, e
 	s.processes[backend] = &backendProcess{
 		proc:    proc,
 		backend: backend,
-		addr:    addr,
+		addr:    clientAddr,
 	}
-	xlog.Info("Backend process started", "backend", backend, "addr", addr)
+	xlog.Info("Backend process started", "backend", backend, "addr", clientAddr)
 
 	// Capture reference before unlocking for race-safe health check.
 	// Another goroutine could stopBackend and recycle the port while we poll.
@@ -404,7 +406,7 @@ func (s *backendSupervisor) startBackend(backend, backendPath string) (string, e
 	s.mu.Unlock()
 
 	// Wait for the gRPC server to be ready
-	client := grpc.NewClientWithToken(addr, false, nil, false, s.cmd.RegistrationToken)
+	client := grpc.NewClientWithToken(clientAddr, false, nil, false, s.cmd.RegistrationToken)
 	for range 20 {
 		time.Sleep(200 * time.Millisecond)
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
@@ -417,27 +419,34 @@ func (s *backendSupervisor) startBackend(backend, backendPath string) (string, e
 			if !exists || currentBP != bp {
 				return "", fmt.Errorf("backend %s was stopped during startup", backend)
 			}
-			xlog.Debug("Backend gRPC server is ready", "backend", backend, "addr", addr)
-			return addr, nil
+			xlog.Debug("Backend gRPC server is ready", "backend", backend, "addr", clientAddr)
+			return clientAddr, nil
 		}
 		cancel()
 	}
 
-	xlog.Warn("Backend gRPC server not ready after waiting, proceeding anyway", "backend", backend, "addr", addr)
-	return addr, nil
+	xlog.Warn("Backend gRPC server not ready after waiting, proceeding anyway", "backend", backend, "addr", clientAddr)
+	return clientAddr, nil
 }
 
 // stopBackend stops a specific backend's gRPC process.
 func (s *backendSupervisor) stopBackend(backend string) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	bp, ok := s.processes[backend]
 	if !ok || bp.proc == nil {
+		s.mu.Unlock()
 		return
 	}
+	// Clean up map and recycle port while holding lock
+	delete(s.processes, backend)
+	if _, portStr, err := net.SplitHostPort(bp.addr); err == nil {
+		if p, err := strconv.Atoi(portStr); err == nil {
+			s.freePorts = append(s.freePorts, p)
+		}
+	}
+	s.mu.Unlock()
 
-	// Best-effort Free() to release GPU memory
+	// Network I/O outside the lock
 	client := grpc.NewClientWithToken(bp.addr, false, nil, false, s.cmd.RegistrationToken)
 	if freeFunc, ok := client.(interface{ Free() error }); ok {
 		xlog.Debug("Calling Free() before stopping backend", "backend", backend)
@@ -450,13 +459,6 @@ func (s *backendSupervisor) stopBackend(backend string) {
 	if err := bp.proc.Stop(); err != nil {
 		xlog.Error("Error stopping backend process", "backend", backend, "error", err)
 	}
-	// Recycle the port for future backends
-	if _, portStr, err := net.SplitHostPort(bp.addr); err == nil {
-		if p, err := strconv.Atoi(portStr); err == nil {
-			s.freePorts = append(s.freePorts, p)
-		}
-	}
-	delete(s.processes, backend)
 }
 
 // stopAllBackends stops all running backend processes.

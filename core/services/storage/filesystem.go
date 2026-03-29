@@ -113,6 +113,10 @@ func (fs *FilesystemStore) Delete(_ context.Context, key string) error {
 	return nil
 }
 
+// Close implements io.Closer. FilesystemStore holds no resources that need
+// explicit cleanup, so this is a no-op.
+func (fs *FilesystemStore) Close() error { return nil }
+
 func (fs *FilesystemStore) List(_ context.Context, prefix string) ([]string, error) {
 	if err := fs.validateKey(prefix); err != nil {
 		return nil, err

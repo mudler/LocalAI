@@ -432,7 +432,7 @@ var _ = Describe("SmartRouter", func() {
 				Unloader: unloader,
 			})
 
-			err := router.UnloadModel("node-1", "model-a")
+			err := router.UnloadModel(context.Background(), "node-1", "model-a")
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(unloader.stopCalls).To(ContainElement("node-1:model-a"))
@@ -443,7 +443,7 @@ var _ = Describe("SmartRouter", func() {
 			reg := &fakeModelRouter{}
 			router := NewSmartRouter(reg, SmartRouterOptions{})
 
-			err := router.UnloadModel("node-1", "model-a")
+			err := router.UnloadModel(context.Background(), "node-1", "model-a")
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("no remote unloader"))
 		})
@@ -460,7 +460,7 @@ var _ = Describe("SmartRouter", func() {
 				Unloader: unloader,
 			})
 
-			evicted, err := router.EvictLRU("n1")
+			evicted, err := router.EvictLRU(context.Background(), "n1")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(evicted).To(Equal("old-model"))
 			Expect(unloader.stopCalls).To(ContainElement("n1:old-model"))
@@ -476,7 +476,7 @@ var _ = Describe("SmartRouter", func() {
 				Unloader: &fakeUnloader{},
 			})
 
-			_, err := router.EvictLRU("n1")
+			_, err := router.EvictLRU(context.Background(), "n1")
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("finding LRU model"))
 		})

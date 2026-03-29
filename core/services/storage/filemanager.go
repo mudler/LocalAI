@@ -94,13 +94,12 @@ func (fm *FileManager) Download(ctx context.Context, key string) (string, error)
 		if err != nil {
 			return "", fmt.Errorf("creating temp file for %s: %w", key, err)
 		}
+		defer f.Close()
 
 		if _, err := io.Copy(f, r); err != nil {
-			f.Close()
 			os.Remove(tmpPath)
 			return "", fmt.Errorf("writing %s to cache: %w", key, err)
 		}
-		f.Close()
 
 		if err := os.Rename(tmpPath, localPath); err != nil {
 			os.Remove(tmpPath)

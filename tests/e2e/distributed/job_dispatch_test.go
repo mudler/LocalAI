@@ -5,8 +5,8 @@ import (
 	"sync/atomic"
 
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/services/advisorylock"
 	"github.com/mudler/LocalAI/core/services/jobs"
-	"github.com/mudler/LocalAI/core/services/messaging"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -153,25 +153,25 @@ var _ = Describe("Job Dispatch", Label("Distributed"), func() {
 			// Instance 1 acquires the cron leader lock
 			var acquired1 bool
 			conn1.QueryRowContext(context.Background(),
-				"SELECT pg_try_advisory_lock($1)", messaging.AdvisoryLockCronScheduler).Scan(&acquired1)
+				"SELECT pg_try_advisory_lock($1)", advisorylock.KeyCronScheduler).Scan(&acquired1)
 			Expect(acquired1).To(BeTrue())
 
 			// Instance 2 cannot acquire
 			var acquired2 bool
 			conn2.QueryRowContext(context.Background(),
-				"SELECT pg_try_advisory_lock($1)", messaging.AdvisoryLockCronScheduler).Scan(&acquired2)
+				"SELECT pg_try_advisory_lock($1)", advisorylock.KeyCronScheduler).Scan(&acquired2)
 			Expect(acquired2).To(BeFalse())
 
 			// Instance 1 releases
 			conn1.ExecContext(context.Background(),
-				"SELECT pg_advisory_unlock($1)", messaging.AdvisoryLockCronScheduler)
+				"SELECT pg_advisory_unlock($1)", advisorylock.KeyCronScheduler)
 
 			// Now instance 2 can acquire
 			conn2.QueryRowContext(context.Background(),
-				"SELECT pg_try_advisory_lock($1)", messaging.AdvisoryLockCronScheduler).Scan(&acquired2)
+				"SELECT pg_try_advisory_lock($1)", advisorylock.KeyCronScheduler).Scan(&acquired2)
 			Expect(acquired2).To(BeTrue())
 			conn2.ExecContext(context.Background(),
-				"SELECT pg_advisory_unlock($1)", messaging.AdvisoryLockCronScheduler)
+				"SELECT pg_advisory_unlock($1)", advisorylock.KeyCronScheduler)
 		})
 	})
 

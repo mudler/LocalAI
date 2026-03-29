@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -104,8 +105,12 @@ func (r *SmartRouter) Route(ctx context.Context, modelID, modelName, backendType
 		// Verify the backend process is still alive via gRPC health check
 		healthClient := r.buildClientForAddr(node, modelAddr, false)
 		checkCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
-		defer cancel()
-		if ok, _ := healthClient.HealthCheck(checkCtx); !ok {
+		ok, _ := healthClient.HealthCheck(checkCtx)
+		cancel()
+		if closer, ok := healthClient.(io.Closer); ok {
+			closer.Close()
+		}
+		if !ok {
 			// Stale — roll back the increment, remove the model record, fall through
 			r.registry.DecrementInFlight(ctx, node.ID, trackingKey)
 			r.registry.RemoveNodeModel(ctx, node.ID, trackingKey)
@@ -119,7 +124,12 @@ func (r *SmartRouter) Route(ctx context.Context, modelID, modelName, backendType
 			return &RouteResult{
 				Node:    node,
 				Client:  grpcClient,
-				Release: func() { r.registry.DecrementInFlight(context.Background(), node.ID, trackingKey) },
+				Release: func() {
+					r.registry.DecrementInFlight(context.Background(), node.ID, trackingKey)
+					if closer, ok := grpcClient.(io.Closer); ok {
+						closer.Close()
+					}
+				},
 			}, nil
 		}
 	}
@@ -137,8 +147,12 @@ func (r *SmartRouter) Route(ctx context.Context, modelID, modelName, backendType
 			// Verify the backend process is still alive via gRPC health check
 			healthClient := r.buildClientForAddr(node, modelAddr, false)
 			checkCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
-			defer cancel()
-			if ok, _ := healthClient.HealthCheck(checkCtx); !ok {
+			ok, _ := healthClient.HealthCheck(checkCtx)
+			cancel()
+			if closer, ok := healthClient.(io.Closer); ok {
+				closer.Close()
+			}
+			if !ok {
 				// Stale — roll back the increment, remove the model record, continue loading
 				r.registry.DecrementInFlight(ctx, node.ID, trackingKey)
 				r.registry.RemoveNodeModel(ctx, node.ID, trackingKey)
@@ -151,7 +165,12 @@ func (r *SmartRouter) Route(ctx context.Context, modelID, modelName, backendType
 				return &RouteResult{
 					Node:    node,
 					Client:  grpcClient,
-					Release: func() { r.registry.DecrementInFlight(context.Background(), node.ID, trackingKey) },
+					Release: func() {
+						r.registry.DecrementInFlight(context.Background(), node.ID, trackingKey)
+						if closer, ok := grpcClient.(io.Closer); ok {
+							closer.Close()
+						}
+					},
 				}, nil
 			}
 		}
@@ -198,7 +217,11 @@ func (r *SmartRouter) Route(ctx context.Context, modelID, modelName, backendType
 		return &RouteResult{
 			Node:    node,
 			Client:  tracked,
-			Release: func() {},
+			Release: func() {
+				if closer, ok := client.(io.Closer); ok {
+					closer.Close()
+				}
+			},
 		}, nil
 	}
 
@@ -543,7 +566,7 @@ func (r *SmartRouter) stageGenericOptions(ctx context.Context, node *BackendNode
 
 // UnloadModel sends a NATS unload event to a specific node for the given model.
 // The worker process handles Free() + kill + deregister.
-func (r *SmartRouter) UnloadModel(nodeID, modelName string) error {
+func (r *SmartRouter) UnloadModel(ctx context.Context, nodeID, modelName string) error {
 	if r.unloader == nil {
 		return fmt.Errorf("no remote unloader configured")
 	}
@@ -551,19 +574,19 @@ func (r *SmartRouter) UnloadModel(nodeID, modelName string) error {
 	if err := r.unloader.StopBackend(nodeID, modelName); err != nil {
 		return fmt.Errorf("failed to stop backend on node %s: %w", nodeID, err)
 	}
-	r.registry.RemoveNodeModel(context.Background(), nodeID, modelName)
+	r.registry.RemoveNodeModel(ctx, nodeID, modelName)
 	return nil
 }
 
 // EvictLRU evicts the least-recently-used model from a node to make room.
 // Returns the name of the evicted model, or empty string if nothing could be evicted.
-func (r *SmartRouter) EvictLRU(nodeID string) (string, error) {
-	lru, err := r.registry.FindLRUModel(context.Background(), nodeID)
+func (r *SmartRouter) EvictLRU(ctx context.Context, nodeID string) (string, error) {
+	lru, err := r.registry.FindLRUModel(ctx, nodeID)
 	if err != nil {
 		return "", fmt.Errorf("finding LRU model on node %s: %w", nodeID, err)
 	}
 
-	if err := r.UnloadModel(nodeID, lru.ModelName); err != nil {
+	if err := r.UnloadModel(ctx, nodeID, lru.ModelName); err != nil {
 		return "", err
 	}
 	return lru.ModelName, nil

@@ -181,10 +181,7 @@ func ExecuteChatWithLLM(ctx context.Context, llm cogito.LLM, cfg *AgentConfig, m
 	var cogitoOpts []cogito.Option
 
 	// MCP sessions
-	sessions, cleanup, err := setupMCPSessions(ctx, cfg)
-	if err != nil {
-		xlog.Warn("Failed to set up MCP sessions", "error", err)
-	}
+	sessions, cleanup := setupMCPSessions(ctx, cfg)
 	if cleanup != nil {
 		defer cleanup()
 	}

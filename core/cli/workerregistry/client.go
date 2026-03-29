@@ -21,6 +21,7 @@ type RegistrationClient struct {
 	FrontendURL       string
 	RegistrationToken string
 	HTTPTimeout       time.Duration // used for registration calls; defaults to 10s
+	client            *http.Client
 }
 
 // httpTimeout returns the configured timeout or a sensible default.
@@ -29,6 +30,14 @@ func (c *RegistrationClient) httpTimeout() time.Duration {
 		return c.HTTPTimeout
 	}
 	return 10 * time.Second
+}
+
+// httpClient returns the shared HTTP client, initializing it on first use.
+func (c *RegistrationClient) httpClient() *http.Client {
+	if c.client == nil {
+		c.client = &http.Client{Timeout: c.httpTimeout()}
+	}
+	return c.client
 }
 
 // baseURL returns FrontendURL with any trailing slash stripped.
@@ -62,7 +71,7 @@ func (c *RegistrationClient) Register(ctx context.Context, body map[string]any) 
 	req.Header.Set("Content-Type", "application/json")
 	c.setAuth(req)
 
-	resp, err := (&http.Client{Timeout: c.httpTimeout()}).Do(req)
+	resp, err := c.httpClient().Do(req)
 	if err != nil {
 		return "", "", fmt.Errorf("posting to %s: %w", url, err)
 	}
@@ -114,11 +123,11 @@ func (c *RegistrationClient) Heartbeat(ctx context.Context, nodeID string, body 
 	req.Header.Set("Content-Type", "application/json")
 	c.setAuth(req)
 
-	resp, err := (&http.Client{Timeout: 5 * time.Second}).Do(req)
+	resp, err := c.httpClient().Do(req)
 	if err != nil {
 		return err
 	}
-	resp.Body.Close()
+	defer resp.Body.Close()
 	return nil
 }
 
@@ -147,11 +156,11 @@ func (c *RegistrationClient) Drain(ctx context.Context, nodeID string) error {
 	req, _ := http.NewRequestWithContext(ctx, http.MethodPost, url, nil)
 	c.setAuth(req)
 
-	resp, err := (&http.Client{Timeout: 5 * time.Second}).Do(req)
+	resp, err := c.httpClient().Do(req)
 	if err != nil {
 		return err
 	}
-	resp.Body.Close()
+	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("drain failed with status %d", resp.StatusCode)
 	}
@@ -162,16 +171,17 @@ func (c *RegistrationClient) Drain(ctx context.Context, nodeID string) error {
 // in-flight requests, or until timeout elapses.
 func (c *RegistrationClient) WaitForDrain(ctx context.Context, nodeID string, timeout time.Duration) {
 	url := c.baseURL() + "/api/node/" + nodeID + "/models"
-	client := &http.Client{Timeout: 5 * time.Second}
 
 	deadline := time.Now().Add(timeout)
 	for time.Now().Before(deadline) {
 		req, _ := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 		c.setAuth(req)
 
-		resp, err := client.Do(req)
+		resp, err := c.httpClient().Do(req)
 		if err != nil {
-			break
+			xlog.Warn("Drain poll failed, will retry", "error", err)
+			time.Sleep(1 * time.Second)
+			continue
 		}
 		var models []struct {
 			InFlight int `json:"in_flight"`
@@ -201,11 +211,11 @@ func (c *RegistrationClient) Deregister(ctx context.Context, nodeID string) erro
 	req, _ := http.NewRequestWithContext(ctx, http.MethodPost, url, nil)
 	c.setAuth(req)
 
-	resp, err := (&http.Client{Timeout: 5 * time.Second}).Do(req)
+	resp, err := c.httpClient().Do(req)
 	if err != nil {
 		return err
 	}
-	resp.Body.Close()
+	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("deregistration failed with status %d", resp.StatusCode)
 	}

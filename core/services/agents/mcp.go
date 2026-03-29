@@ -10,7 +10,7 @@ import (
 
 // setupMCPSessions creates MCP client sessions from the agent config.
 // Returns the sessions, a cleanup function, and any error.
-func setupMCPSessions(ctx context.Context, cfg *AgentConfig) ([]*gomcp.ClientSession, func(), error) {
+func setupMCPSessions(ctx context.Context, cfg *AgentConfig) ([]*gomcp.ClientSession, func()) {
 	var sessions []*gomcp.ClientSession
 
 	client := gomcp.NewClient(&gomcp.Implementation{
@@ -58,5 +58,5 @@ func setupMCPSessions(ctx context.Context, cfg *AgentConfig) ([]*gomcp.ClientSes
 		}
 	}
 
-	return sessions, cleanup, nil
+	return sessions, cleanup
 }
