@@ -326,6 +326,15 @@ func (ml *ModelLoader) checkIsLoaded(s string) *Model {
 	}
 
 	xlog.Debug("Model already loaded in memory", "model", s)
+
+	// Skip the gRPC health check if the model was recently verified.
+	// This avoids serializing concurrent requests behind ml.mu while each
+	// one does a network round-trip (especially costly in distributed mode).
+	if m.IsRecentlyHealthy() {
+		xlog.Debug("Model health check cached, skipping gRPC probe", "model", s)
+		return m
+	}
+
 	client := m.GRPC(false, ml.wd)
 
 	xlog.Debug("Checking model availability", "model", s)
@@ -352,5 +361,6 @@ func (ml *ModelLoader) checkIsLoaded(s string) *Model {
 		}
 	}
 
+	m.MarkHealthy()
 	return m
 }
