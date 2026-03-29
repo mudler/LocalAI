@@ -217,7 +217,7 @@
       uri: https://huggingface.co/Jackrong/Qwen3.5-4B-Claude-4.6-Opus-Reasoning-Distilled-GGUF/resolve/main/Qwen3.5-4B.Q4_K_M.gguf
     - filename: llama-cpp/mmproj/Qwen3.5-4B.BF16-mmproj.gguf
       sha256: 5ce63ce0113f4bb7b87dc19d076fe0f951c94d4e593154c7a84f605b2f57d423
-      uri: https://huggingface.co/Jackrong/Qwen3.5-4B-Claude-4.6-Opus-Reasoning-Distilled-GGUF/resolve/main/Qwen3.5-4B.BF16-mmproj.gguf
+      uri: https://huggingface.co/Jackrong/Qwen3.5-4B-Claude-4.6-Opus-Reasoning-Distilled-GGUF/resolve/main/mmproj-BF16.gguf
 - name: "q3.5-bluestar-27b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
