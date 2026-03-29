@@ -195,6 +195,9 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
+# Install uv package manager for Python backend installations
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+
 # Install CMake (the version in 22.04 is too old)
 RUN <<EOT bash
     if [ "${CMAKE_FROM_SOURCE}" = "true" ]; then
