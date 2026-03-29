@@ -194,48 +194,35 @@ export const videoApi = {
   generate: (body) => postJSON(API_CONFIG.endpoints.video, body),
 }
 
+async function postAudioBlob(endpoint, body) {
+  const response = await fetch(apiUrl(endpoint), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}))
+    throw new Error(data?.error?.message || `HTTP ${response.status}`)
+  }
+  let serverUrl = null
+  const disposition = response.headers.get('content-disposition')
+  if (disposition) {
+    const match = disposition.match(/filename[^;=\n]*=["']?([^"';\n]*)["']?/)
+    if (match && match[1]) serverUrl = '/generated-audio/' + match[1]
+  }
+  const blob = await response.blob()
+  return { blob, serverUrl }
+}
+
 // TTS
 export const ttsApi = {
-  generate: async (body) => {
-    const response = await fetch(apiUrl(API_CONFIG.endpoints.tts), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    })
-    if (!response.ok) {
-      const data = await response.json().catch(() => ({}))
-      throw new Error(data?.error?.message || `HTTP ${response.status}`)
-    }
-    return response.blob()
-  },
-  generateV1: async (body) => {
-    const response = await fetch(apiUrl(API_CONFIG.endpoints.audioSpeech), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    })
-    if (!response.ok) {
-      const data = await response.json().catch(() => ({}))
-      throw new Error(data?.error?.message || `HTTP ${response.status}`)
-    }
-    return response.blob()
-  },
+  generate: (body) => postAudioBlob(API_CONFIG.endpoints.tts, body),
+  generateV1: (body) => postAudioBlob(API_CONFIG.endpoints.audioSpeech, body),
 }
 
 // Sound generation
 export const soundApi = {
-  generate: async (body) => {
-    const response = await fetch(apiUrl(API_CONFIG.endpoints.soundGeneration), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    })
-    if (!response.ok) {
-      const data = await response.json().catch(() => ({}))
-      throw new Error(data?.error?.message || `HTTP ${response.status}`)
-    }
-    return response.blob()
-  },
+  generate: (body) => postAudioBlob(API_CONFIG.endpoints.soundGeneration, body),
 }
 
 // Audio transcription

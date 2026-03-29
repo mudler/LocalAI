@@ -1,11 +1,8 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
+import { generateId } from '../utils/format'
 
 const STORAGE_KEY_PREFIX = 'localai_agent_chats_'
 const SAVE_DEBOUNCE_MS = 500
-
-function generateId() {
-  return Date.now().toString(36) + Math.random().toString(36).slice(2)
-}
 
 function storageKey(agentName) {
   return STORAGE_KEY_PREFIX + agentName
