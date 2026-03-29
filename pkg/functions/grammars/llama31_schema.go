@@ -1,10 +1,11 @@
 package grammars
 
 import (
+	"cmp"
 	"encoding/json"
 	"fmt"
 	"regexp"
-	"sort"
+	"slices"
 	"strings"
 )
 
@@ -33,7 +34,7 @@ var GRAMMAR_LITERAL_ESCAPESLlama = map[string]string{
 
 var GRAMMAR_LITERAL_ESCAPE_RELlama = regexp.MustCompile(`[\r\n]`)
 
-func (sc *LLama31SchemaConverter) formatLiteral(literal interface{}) (string, error) {
+func (sc *LLama31SchemaConverter) formatLiteral(literal any) (string, error) {
 	jLiteral, err := jsonString(literal)
 	if err != nil {
 		return "", err
@@ -44,7 +45,7 @@ func (sc *LLama31SchemaConverter) formatLiteral(literal interface{}) (string, er
 	return escaped, nil
 }
 
-func (sc *LLama31SchemaConverter) formatLiteralQuoted(literal interface{}) (string, error) {
+func (sc *LLama31SchemaConverter) formatLiteralQuoted(literal any) (string, error) {
 	jLiteral, err := jsonString(literal)
 	if err != nil {
 		return "", err
@@ -72,7 +73,7 @@ func (sc *LLama31SchemaConverter) addRule(name, rule string) string {
 	return key
 }
 
-func (sc *LLama31SchemaConverter) visit(schema map[string]interface{}, name string, rootSchema map[string]interface{}) (string, error) {
+func (sc *LLama31SchemaConverter) visit(schema map[string]any, name string, rootSchema map[string]any) (string, error) {
 	st, existType := schema["type"]
 	var schemaType string
 	if existType {
@@ -86,12 +87,12 @@ func (sc *LLama31SchemaConverter) visit(schema map[string]interface{}, name stri
 	_, anyOfExists := schema["anyOf"]
 	if oneOfExists || anyOfExists {
 		var alternatives []string
-		oneOfSchemas, oneOfExists := schema["oneOf"].([]interface{})
-		anyOfSchemas, anyOfExists := schema["anyOf"].([]interface{})
+		oneOfSchemas, oneOfExists := schema["oneOf"].([]any)
+		anyOfSchemas, anyOfExists := schema["anyOf"].([]any)
 
 		if oneOfExists {
 			for i, altSchema := range oneOfSchemas {
-				alternative, err := sc.visit(altSchema.(map[string]interface{}), fmt.Sprintf("%s-%d", ruleName, i), rootSchema)
+				alternative, err := sc.visit(altSchema.(map[string]any), fmt.Sprintf("%s-%d", ruleName, i), rootSchema)
 				if err != nil {
 					return "", err
 				}
@@ -99,7 +100,7 @@ func (sc *LLama31SchemaConverter) visit(schema map[string]interface{}, name stri
 			}
 		} else if anyOfExists {
 			for i, altSchema := range anyOfSchemas {
-				alternative, err := sc.visit(altSchema.(map[string]interface{}), fmt.Sprintf("%s-%d", ruleName, i), rootSchema)
+				alternative, err := sc.visit(altSchema.(map[string]any), fmt.Sprintf("%s-%d", ruleName, i), rootSchema)
 				if err != nil {
 					return "", err
 				}
@@ -122,7 +123,7 @@ func (sc *LLama31SchemaConverter) visit(schema map[string]interface{}, name stri
 			return "", err
 		}
 		return sc.addRule(ruleName, literal), nil
-	} else if enumVals, exists := schema["enum"].([]interface{}); exists {
+	} else if enumVals, exists := schema["enum"].([]any); exists {
 		var enumRules []string
 		for _, enumVal := range enumVals {
 			enumRule, err := sc.formatLiteralQuoted(enumVal)
@@ -133,7 +134,7 @@ func (sc *LLama31SchemaConverter) visit(schema map[string]interface{}, name stri
 		}
 		rule := strings.Join(enumRules, " | ")
 		return sc.addRule(ruleName, rule), nil
-	} else if properties, exists := schema["properties"].(map[string]interface{}); schemaType == "object" && exists {
+	} else if properties, exists := schema["properties"].(map[string]any); schemaType == "object" && exists {
 		baseProperty := false
 		depth := strings.Split(name, "-")
 		if len(depth) == 2 {
@@ -141,19 +142,22 @@ func (sc *LLama31SchemaConverter) visit(schema map[string]interface{}, name stri
 		}
 		type propData []struct {
 			propName   string
-			propSchema map[string]interface{}
+			propSchema map[string]any
 		}
 		var propPairs propData
 
 		for propName, propSchema := range properties {
 			propPairs = append(propPairs, struct {
 				propName   string
-				propSchema map[string]interface{}
-			}{propName: propName, propSchema: propSchema.(map[string]interface{})})
+				propSchema map[string]any
+			}{propName: propName, propSchema: propSchema.(map[string]any)})
 		}
 
-		sort.Slice(propPairs, func(i, j int) bool {
-			return propPairs[i].propName < propPairs[j].propName
+		slices.SortFunc(propPairs, func(a, b struct {
+			propName   string
+			propSchema map[string]any
+		}) int {
+			return cmp.Compare(a.propName, b.propName)
 		})
 
 		var rule strings.Builder
@@ -225,7 +229,7 @@ func (sc *LLama31SchemaConverter) visit(schema map[string]interface{}, name stri
 		}
 
 		return sc.addRule(ruleName, rule.String()), nil
-	} else if items, exists := schema["items"].(map[string]interface{}); schemaType == "array" && exists {
+	} else if items, exists := schema["items"].(map[string]any); schemaType == "array" && exists {
 		itemRuleName, err := sc.visit(items, fmt.Sprintf("%s-item", ruleName), rootSchema)
 		if err != nil {
 			return "", err
@@ -243,18 +247,18 @@ func (sc *LLama31SchemaConverter) visit(schema map[string]interface{}, name stri
 		return sc.addRule(schemaType, primitiveRule), nil
 	}
 }
-func (sc *LLama31SchemaConverter) resolveReference(ref string, rootSchema map[string]interface{}) (map[string]interface{}, error) {
+func (sc *LLama31SchemaConverter) resolveReference(ref string, rootSchema map[string]any) (map[string]any, error) {
 	if !strings.HasPrefix(ref, "#/$defs/") {
 		return nil, fmt.Errorf("invalid reference format: %s", ref)
 	}
 
 	defKey := strings.TrimPrefix(ref, "#/$defs/")
-	definitions, exists := rootSchema["$defs"].(map[string]interface{})
+	definitions, exists := rootSchema["$defs"].(map[string]any)
 	if !exists {
 		return nil, fmt.Errorf("no definitions found in the schema: %s", rootSchema)
 	}
 
-	def, exists := definitions[defKey].(map[string]interface{})
+	def, exists := definitions[defKey].(map[string]any)
 	if !exists {
 		return nil, fmt.Errorf("definition not found: %s %+v", defKey, definitions)
 	}
@@ -262,7 +266,7 @@ func (sc *LLama31SchemaConverter) resolveReference(ref string, rootSchema map[st
 	return def, nil
 }
 
-func (sc *LLama31SchemaConverter) Grammar(schema map[string]interface{}, options ...func(*GrammarOption)) (string, error) {
+func (sc *LLama31SchemaConverter) Grammar(schema map[string]any, options ...func(*GrammarOption)) (string, error) {
 	sc.addRule("freestring", PRIMITIVE_RULES["freestring"])
 	_, err := sc.visit(schema, "", schema)
 	if err != nil {
@@ -272,7 +276,7 @@ func (sc *LLama31SchemaConverter) Grammar(schema map[string]interface{}, options
 }
 
 func (sc *LLama31SchemaConverter) GrammarFromBytes(b []byte, options ...func(*GrammarOption)) (string, error) {
-	var schema map[string]interface{}
+	var schema map[string]any
 	err := json.Unmarshal(b, &schema)
 	if err != nil {
 		return "", err

@@ -17,6 +17,10 @@ import time
 from concurrent import futures
 
 import grpc
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'common'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'common'))
+from grpc_auth import get_auth_interceptors
+
 import backend_pb2
 import backend_pb2_grpc
 
@@ -398,7 +402,9 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
 
 
 def serve(address):
-    server = grpc.server(futures.ThreadPoolExecutor(max_workers=MAX_WORKERS))
+    server = grpc.server(futures.ThreadPoolExecutor(max_workers=MAX_WORKERS),
+        interceptors=get_auth_interceptors(),
+    )
     backend_pb2_grpc.add_BackendServicer_to_server(BackendServicer(), server)
     server.add_insecure_port(address)
     server.start()

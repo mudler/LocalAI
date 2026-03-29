@@ -51,6 +51,7 @@ service Backend {
   rpc StartQuantization(QuantizationRequest) returns (QuantizationJobResult) {}
   rpc QuantizationProgress(QuantizationProgressRequest) returns (stream QuantizationProgressUpdate) {}
   rpc StopQuantization(QuantizationStopRequest) returns (Result) {}
+
 }
 
 // Define the empty request
@@ -676,3 +677,4 @@ message QuantizationProgressUpdate {
 message QuantizationStopRequest {
   string job_id = 1;
 }
+

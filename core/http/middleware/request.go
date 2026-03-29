@@ -12,7 +12,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/schema"
-	"github.com/mudler/LocalAI/core/services"
+	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/templates"
 	"github.com/mudler/LocalAI/pkg/functions"
 	"github.com/mudler/LocalAI/pkg/model"
@@ -65,7 +65,7 @@ func (re *RequestExtractor) setModelNameFromRequest(c echo.Context) {
 		auth := c.Request().Header.Get("Authorization")
 		bearer := strings.TrimPrefix(auth, "Bearer ")
 		if bearer != "" && bearer != auth {
-			exists, err := services.CheckIfModelExists(re.modelConfigLoader, re.modelLoader, bearer, services.ALWAYS_INCLUDE)
+			exists, err := galleryop.CheckIfModelExists(re.modelConfigLoader, re.modelLoader, bearer, galleryop.ALWAYS_INCLUDE)
 			if err == nil && exists {
 				model = bearer
 			}
@@ -98,7 +98,7 @@ func (re *RequestExtractor) BuildFilteredFirstAvailableDefaultModel(filterFn con
 				return next(c)
 			}
 
-			modelNames, err := services.ListModels(re.modelConfigLoader, re.modelLoader, filterFn, services.SKIP_IF_CONFIGURED)
+			modelNames, err := galleryop.ListModels(re.modelConfigLoader, re.modelLoader, filterFn, galleryop.SKIP_IF_CONFIGURED)
 			if err != nil {
 				xlog.Error("non-fatal error calling ListModels during SetDefaultModelNameToFirstAvailable()", "error", err)
 				return next(c)
@@ -266,7 +266,7 @@ func mergeOpenAIRequestAndModelConfig(config *config.ModelConfig, input *schema.
 		switch responseFormat := input.ResponseFormat.(type) {
 		case string:
 			config.ResponseFormat = responseFormat
-		case map[string]interface{}:
+		case map[string]any:
 			config.ResponseFormatMap = responseFormat
 		}
 	}
@@ -276,7 +276,7 @@ func mergeOpenAIRequestAndModelConfig(config *config.ModelConfig, input *schema.
 		if stop != "" {
 			config.StopWords = append(config.StopWords, stop)
 		}
-	case []interface{}:
+	case []any:
 		for _, pp := range stop {
 			if s, ok := pp.(string); ok {
 				config.StopWords = append(config.StopWords, s)
@@ -296,11 +296,11 @@ func mergeOpenAIRequestAndModelConfig(config *config.ModelConfig, input *schema.
 		switch content := input.ToolsChoice.(type) {
 		case string:
 			_ = json.Unmarshal([]byte(content), &toolChoice)
-		case map[string]interface{}:
+		case map[string]any:
 			dat, _ := json.Marshal(content)
 			_ = json.Unmarshal(dat, &toolChoice)
 		}
-		input.FunctionCall = map[string]interface{}{
+		input.FunctionCall = map[string]any{
 			"name": toolChoice.Function.Name,
 		}
 	}
@@ -315,7 +315,7 @@ func mergeOpenAIRequestAndModelConfig(config *config.ModelConfig, input *schema.
 		switch content := m.Content.(type) {
 		case string:
 			input.Messages[i].StringContent = content
-		case []interface{}:
+		case []any:
 			dat, _ := json.Marshal(content)
 			c := []schema.Content{}
 			json.Unmarshal(dat, &c)
@@ -451,7 +451,7 @@ func mergeOpenAIRequestAndModelConfig(config *config.ModelConfig, input *schema.
 		if fnc != "" {
 			config.SetFunctionCallString(fnc)
 		}
-	case map[string]interface{}:
+	case map[string]any:
 		var name string
 		n, exists := fnc["name"]
 		if exists {
@@ -466,7 +466,7 @@ func mergeOpenAIRequestAndModelConfig(config *config.ModelConfig, input *schema.
 	switch p := input.Prompt.(type) {
 	case string:
 		config.PromptStrings = append(config.PromptStrings, p)
-	case []interface{}:
+	case []any:
 		for _, pp := range p {
 			if s, ok := pp.(string); ok {
 				config.PromptStrings = append(config.PromptStrings, s)
@@ -575,7 +575,7 @@ func MergeOpenResponsesConfig(config *config.ModelConfig, input *schema.OpenResp
 				// Don't use tools - handled in endpoint
 			}
 			// "auto" is default - let model decide
-		case map[string]interface{}:
+		case map[string]any:
 			// Specific tool: {type:"function", name:"..."}
 			if tcType, ok := tc["type"].(string); ok && tcType == "function" {
 				if name, ok := tc["name"].(string); ok {

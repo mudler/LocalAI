@@ -15,10 +15,10 @@ type SizeResolver interface {
 
 // GGUFMeta holds parsed GGUF metadata used for VRAM estimation.
 type GGUFMeta struct {
-	BlockCount       uint32
-	EmbeddingLength  uint32
-	HeadCount        uint32
-	HeadCountKV      uint32
+	BlockCount      uint32
+	EmbeddingLength uint32
+	HeadCount       uint32
+	HeadCountKV     uint32
 }
 
 // GGUFMetadataReader reads GGUF metadata from a URI (e.g. via HTTP Range).
@@ -35,8 +35,8 @@ type EstimateOptions struct {
 
 // EstimateResult holds estimated download size and VRAM with display strings.
 type EstimateResult struct {
-	SizeBytes    uint64
-	SizeDisplay  string
-	VRAMBytes    uint64
-	VRAMDisplay  string
+	SizeBytes   uint64
+	SizeDisplay string
+	VRAMBytes   uint64
+	VRAMDisplay string
 }

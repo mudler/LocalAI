@@ -25,20 +25,20 @@ import (
 )
 
 var (
-	anthropicBaseURL   string
-	tmpDir             string
-	backendPath        string
-	modelsPath         string
-	configPath         string
-	app                *echo.Echo
-	appCtx             context.Context
-	appCancel          context.CancelFunc
-	client             openai.Client
-	apiPort            int
-	apiURL             string
-	mockBackendPath    string
-	mcpServerURL       string
-	mcpServerShutdown  func()
+	anthropicBaseURL  string
+	tmpDir            string
+	backendPath       string
+	modelsPath        string
+	configPath        string
+	app               *echo.Echo
+	appCtx            context.Context
+	appCancel         context.CancelFunc
+	client            openai.Client
+	apiPort           int
+	apiURL            string
+	mockBackendPath   string
+	mcpServerURL      string
+	mcpServerShutdown func()
 )
 
 var _ = BeforeSuite(func() {

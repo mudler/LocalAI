@@ -7,14 +7,14 @@ import (
 )
 
 type Item struct {
-	Type       string                 `json:"type"`
-	Properties map[string]interface{} `json:"properties"`
+	Type       string         `json:"type"`
+	Properties map[string]any `json:"properties"`
 }
 
 type JSONFunctionStructure struct {
-	OneOf []Item                 `json:"oneOf,omitempty"`
-	AnyOf []Item                 `json:"anyOf,omitempty"`
-	Defs  map[string]interface{} `json:"$defs,omitempty"`
+	OneOf []Item         `json:"oneOf,omitempty"`
+	AnyOf []Item         `json:"anyOf,omitempty"`
+	Defs  map[string]any `json:"$defs,omitempty"`
 }
 
 func (j JSONFunctionStructure) Grammar(options ...func(*grammars.GrammarOption)) (string, error) {

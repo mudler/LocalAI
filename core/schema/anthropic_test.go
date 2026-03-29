@@ -84,9 +84,9 @@ var _ = Describe("Anthropic Schema", func() {
 		It("should get string content from array content", func() {
 			msg := schema.AnthropicMessage{
 				Role: "user",
-				Content: []interface{}{
-					map[string]interface{}{"type": "text", "text": "Hello, "},
-					map[string]interface{}{"type": "text", "text": "world!"},
+				Content: []any{
+					map[string]any{"type": "text", "text": "Hello, "},
+					map[string]any{"type": "text", "text": "world!"},
 				},
 			}
 			Expect(msg.GetStringContent()).To(Equal("Hello, world!"))
@@ -106,9 +106,9 @@ var _ = Describe("Anthropic Schema", func() {
 		It("should get content blocks from array content", func() {
 			msg := schema.AnthropicMessage{
 				Role: "user",
-				Content: []interface{}{
-					map[string]interface{}{"type": "text", "text": "Hello"},
-					map[string]interface{}{"type": "image", "source": map[string]interface{}{"type": "base64", "data": "abc123"}},
+				Content: []any{
+					map[string]any{"type": "text", "text": "Hello"},
+					map[string]any{"type": "image", "source": map[string]any{"type": "base64", "data": "abc123"}},
 				},
 			}
 			blocks := msg.GetContentBlocks()
@@ -139,7 +139,7 @@ var _ = Describe("Anthropic Schema", func() {
 			data, err := json.Marshal(resp)
 			Expect(err).ToNot(HaveOccurred())
 
-			var result map[string]interface{}
+			var result map[string]any
 			err = json.Unmarshal(data, &result)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -162,7 +162,7 @@ var _ = Describe("Anthropic Schema", func() {
 						Type: "tool_use",
 						ID:   "toolu_123",
 						Name: "get_weather",
-						Input: map[string]interface{}{
+						Input: map[string]any{
 							"location": "San Francisco",
 						},
 					},
@@ -176,14 +176,14 @@ var _ = Describe("Anthropic Schema", func() {
 			data, err := json.Marshal(resp)
 			Expect(err).ToNot(HaveOccurred())
 
-			var result map[string]interface{}
+			var result map[string]any
 			err = json.Unmarshal(data, &result)
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(result["stop_reason"]).To(Equal("tool_use"))
-			content := result["content"].([]interface{})
+			content := result["content"].([]any)
 			Expect(len(content)).To(Equal(1))
-			toolUse := content[0].(map[string]interface{})
+			toolUse := content[0].(map[string]any)
 			Expect(toolUse["type"]).To(Equal("tool_use"))
 			Expect(toolUse["id"]).To(Equal("toolu_123"))
 			Expect(toolUse["name"]).To(Equal("get_weather"))
@@ -203,12 +203,12 @@ var _ = Describe("Anthropic Schema", func() {
 			data, err := json.Marshal(resp)
 			Expect(err).ToNot(HaveOccurred())
 
-			var result map[string]interface{}
+			var result map[string]any
 			err = json.Unmarshal(data, &result)
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(result["type"]).To(Equal("error"))
-			errorObj := result["error"].(map[string]interface{})
+			errorObj := result["error"].(map[string]any)
 			Expect(errorObj["type"]).To(Equal("invalid_request_error"))
 			Expect(errorObj["message"]).To(Equal("max_tokens is required"))
 		})

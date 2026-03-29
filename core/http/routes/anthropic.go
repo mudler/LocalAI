@@ -10,6 +10,7 @@ import (
 	"github.com/mudler/LocalAI/core/application"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/endpoints/anthropic"
+	mcpTools "github.com/mudler/LocalAI/core/http/endpoints/mcp"
 	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/xlog"
@@ -20,11 +21,17 @@ func RegisterAnthropicRoutes(app *echo.Echo,
 	application *application.Application) {
 
 	// Anthropic Messages API endpoint
+	var natsClient mcpTools.MCPNATSClient
+	if d := application.Distributed(); d != nil {
+		natsClient = d.Nats
+	}
+
 	messagesHandler := anthropic.MessagesEndpoint(
 		application.ModelConfigLoader(),
 		application.ModelLoader(),
 		application.TemplatesEvaluator(),
 		application.ApplicationConfig(),
+		natsClient,
 	)
 
 	messagesMiddleware := []echo.MiddlewareFunc{
@@ -68,14 +75,11 @@ func setAnthropicRequestContext(appConfig *config.ApplicationConfig) echo.Middle
 			reqCtx := c.Request().Context()
 			c1, cancel := context.WithCancel(appConfig.Context)
 
-			// Cancel when request context is cancelled (client disconnects)
-			go func() {
-				select {
-				case <-reqCtx.Done():
-					cancel()
-				case <-c1.Done():
-					// Already cancelled
-				}
+			// Bridge request cancellation to c1 without spawning a goroutine.
+			stop := context.AfterFunc(reqCtx, cancel)
+			defer func() {
+				stop()   // deregister callback if it hasn't fired
+				cancel() // release c1 resources (idempotent)
 			}()
 
 			// Add the correlation ID to the new context

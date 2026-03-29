@@ -54,11 +54,11 @@ type Item struct {
 // encoding_format=base64 by default and expects a base64 string back.
 func (item Item) MarshalJSON() ([]byte, error) {
 	type itemFields struct {
-		Embedding interface{} `json:"embedding,omitempty"`
-		Index     int         `json:"index"`
-		Object    string      `json:"object,omitempty"`
-		URL       string      `json:"url,omitempty"`
-		B64JSON   string      `json:"b64_json,omitempty"`
+		Embedding any    `json:"embedding,omitempty"`
+		Index     int    `json:"index"`
+		Object    string `json:"object,omitempty"`
+		URL       string `json:"url,omitempty"`
+		B64JSON   string `json:"b64_json,omitempty"`
 	}
 	f := itemFields{
 		Index:   item.Index,
@@ -174,27 +174,27 @@ type OpenAIRequest struct {
 	// Reference images for models that support them (e.g., Flux Kontext)
 	RefImages []string `json:"ref_images,omitempty"`
 	//whisper/image
-	ResponseFormat interface{} `json:"response_format,omitempty"`
+	ResponseFormat any `json:"response_format,omitempty"`
 	// image
 	Size string `json:"size"`
 	// Prompt is read only by completion/image API calls
-	Prompt interface{} `json:"prompt" yaml:"prompt"`
+	Prompt any `json:"prompt" yaml:"prompt"`
 
 	// Edit endpoint
-	Instruction string      `json:"instruction" yaml:"instruction"`
-	Input       interface{} `json:"input" yaml:"input"`
+	Instruction string `json:"instruction" yaml:"instruction"`
+	Input       any    `json:"input" yaml:"input"`
 
-	Stop interface{} `json:"stop" yaml:"stop"`
+	Stop any `json:"stop" yaml:"stop"`
 
 	// Messages is read only by chat/completion API calls
 	Messages []Message `json:"messages" yaml:"messages"`
 
 	// A list of available functions to call
 	Functions    functions.Functions `json:"functions" yaml:"functions"`
-	FunctionCall interface{}         `json:"function_call" yaml:"function_call"` // might be a string or an object
+	FunctionCall any                 `json:"function_call" yaml:"function_call"` // might be a string or an object
 
 	Tools       []functions.Tool `json:"tools,omitempty" yaml:"tools"`
-	ToolsChoice interface{}      `json:"tool_choice,omitempty" yaml:"tool_choice"`
+	ToolsChoice any              `json:"tool_choice,omitempty" yaml:"tool_choice"`
 
 	Stream bool `json:"stream"`
 

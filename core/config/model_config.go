@@ -46,11 +46,11 @@ type ModelConfig struct {
 	KnownUsecases       *ModelConfigUsecase `yaml:"-" json:"-"`
 	Pipeline            Pipeline            `yaml:"pipeline,omitempty" json:"pipeline,omitempty"`
 
-	PromptStrings, InputStrings                []string               `yaml:"-" json:"-"`
-	InputToken                                 [][]int                `yaml:"-" json:"-"`
-	functionCallString, functionCallNameString string                 `yaml:"-" json:"-"`
-	ResponseFormat                             string                 `yaml:"-" json:"-"`
-	ResponseFormatMap                          map[string]interface{} `yaml:"-" json:"-"`
+	PromptStrings, InputStrings                []string       `yaml:"-" json:"-"`
+	InputToken                                 [][]int        `yaml:"-" json:"-"`
+	functionCallString, functionCallNameString string         `yaml:"-" json:"-"`
+	ResponseFormat                             string         `yaml:"-" json:"-"`
+	ResponseFormatMap                          map[string]any `yaml:"-" json:"-"`
 
 	FunctionsConfig functions.FunctionsConfig `yaml:"function,omitempty" json:"function,omitempty"`
 	ReasoningConfig reasoning.Config          `yaml:"reasoning,omitempty" json:"reasoning,omitempty"`
@@ -103,6 +103,11 @@ type AgentConfig struct {
 	LoopDetection         int  `yaml:"loop_detection,omitempty" json:"loop_detection,omitempty"`
 	MaxAdjustmentAttempts int  `yaml:"max_adjustment_attempts,omitempty" json:"max_adjustment_attempts,omitempty"`
 	ForceReasoningTool    bool `yaml:"force_reasoning_tool,omitempty" json:"force_reasoning_tool,omitempty"`
+}
+
+// HasMCPServers returns true if any MCP servers (remote or stdio) are configured.
+func (c MCPConfig) HasMCPServers() bool {
+	return c.Servers != "" || c.Stdio != ""
 }
 
 func (c *MCPConfig) MCPConfigFromYAML() (MCPGenericConfig[MCPRemoteServers], MCPGenericConfig[MCPSTDIOServers], error) {
@@ -619,13 +624,30 @@ func (c *ModelConfig) HasUsecases(u ModelConfigUsecase) bool {
 // In its current state, this function should ideally check for properties of the config like templates, rather than the direct backend name checks for the lower half.
 // This avoids the maintenance burden of updating this list for each new backend - but unfortunately, that's the best option for some services currently.
 func (c *ModelConfig) GuessUsecases(u ModelConfigUsecase) bool {
+	// Backends that are clearly not text-generation
+	nonTextGenBackends := []string{
+		"whisper", "piper", "kokoro",
+		"diffusers", "stablediffusion", "stablediffusion-ggml",
+		"rerankers", "silero-vad", "rfdetr",
+		"transformers-musicgen", "ace-step", "acestep-cpp",
+	}
+
 	if (u & FLAG_CHAT) == FLAG_CHAT {
 		if c.TemplateConfig.Chat == "" && c.TemplateConfig.ChatMessage == "" && !c.TemplateConfig.UseTokenizerTemplate {
+			return false
+		}
+		if slices.Contains(nonTextGenBackends, c.Backend) {
+			return false
+		}
+		if c.Embeddings != nil && *c.Embeddings {
 			return false
 		}
 	}
 	if (u & FLAG_COMPLETION) == FLAG_COMPLETION {
 		if c.TemplateConfig.Completion == "" {
+			return false
+		}
+		if slices.Contains(nonTextGenBackends, c.Backend) {
 			return false
 		}
 	}

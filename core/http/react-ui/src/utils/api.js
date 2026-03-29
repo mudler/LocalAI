@@ -177,7 +177,7 @@ export const agentJobsApi = {
   createTask: (body) => postJSON(API_CONFIG.endpoints.agentTasks, body),
   updateTask: (id, body) => fetchJSON(API_CONFIG.endpoints.agentTask(id), { method: 'PUT', body: JSON.stringify(body), headers: { 'Content-Type': 'application/json' } }),
   deleteTask: (id) => fetchJSON(API_CONFIG.endpoints.agentTask(id), { method: 'DELETE' }),
-  executeTask: (name) => postJSON(API_CONFIG.endpoints.executeAgentTask(name), {}),
+  executeTask: (name, body = {}) => postJSON(API_CONFIG.endpoints.executeAgentTask(name), body),
   listJobs: (allUsers) => fetchJSON(`${API_CONFIG.endpoints.agentJobs}${allUsers ? '?all_users=true' : ''}`),
   getJob: (id) => fetchJSON(API_CONFIG.endpoints.agentJob(id)),
   cancelJob: (id) => postJSON(API_CONFIG.endpoints.cancelAgentJob(id), {}),
@@ -421,6 +421,21 @@ export const quantizationApi = {
   importModel: (id, data) => postJSON(`/api/quantization/jobs/${enc(id)}/import`, data),
   progressUrl: (id) => apiUrl(`/api/quantization/jobs/${enc(id)}/progress`),
   downloadUrl: (id) => apiUrl(`/api/quantization/jobs/${enc(id)}/download`),
+}
+
+// Nodes API (distributed)
+export const nodesApi = {
+  list: () => fetchJSON(API_CONFIG.endpoints.nodes),
+  get: (id) => fetchJSON(API_CONFIG.endpoints.node(id)),
+  delete: (id) => fetchJSON(API_CONFIG.endpoints.node(id), { method: 'DELETE' }),
+  drain: (id) => postJSON(API_CONFIG.endpoints.nodeDrain(id), {}),
+  approve: (id) => postJSON(API_CONFIG.endpoints.nodeApprove(id), {}),
+  getModels: (id) => fetchJSON(API_CONFIG.endpoints.nodeModels(id)),
+  getBackends: (id) => fetchJSON(API_CONFIG.endpoints.nodeBackends(id)),
+  installBackend: (id, backend) => postJSON(API_CONFIG.endpoints.nodeBackendsInstall(id), { backend }),
+  deleteBackend: (id, backend) => postJSON(API_CONFIG.endpoints.nodeBackendsDelete(id), { backend }),
+  getBackendLogs: (id) => fetchJSON(API_CONFIG.endpoints.nodeBackendLogs(id)),
+  getBackendLogLines: (id, modelId) => fetchJSON(API_CONFIG.endpoints.nodeBackendLogsModel(id, modelId)),
 }
 
 // File to base64 helper

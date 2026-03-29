@@ -10,11 +10,11 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/schema"
-	"github.com/mudler/LocalAI/core/services"
+	"github.com/mudler/LocalAI/core/services/quantization"
 )
 
 // StartQuantizationJobEndpoint starts a new quantization job.
-func StartQuantizationJobEndpoint(qService *services.QuantizationService) echo.HandlerFunc {
+func StartQuantizationJobEndpoint(qService *quantization.QuantizationService) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		userID := getUserID(c)
 
@@ -43,7 +43,7 @@ func StartQuantizationJobEndpoint(qService *services.QuantizationService) echo.H
 }
 
 // ListQuantizationJobsEndpoint lists quantization jobs for the current user.
-func ListQuantizationJobsEndpoint(qService *services.QuantizationService) echo.HandlerFunc {
+func ListQuantizationJobsEndpoint(qService *quantization.QuantizationService) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		userID := getUserID(c)
 		jobs := qService.ListJobs(userID)
@@ -55,7 +55,7 @@ func ListQuantizationJobsEndpoint(qService *services.QuantizationService) echo.H
 }
 
 // GetQuantizationJobEndpoint gets a specific quantization job.
-func GetQuantizationJobEndpoint(qService *services.QuantizationService) echo.HandlerFunc {
+func GetQuantizationJobEndpoint(qService *quantization.QuantizationService) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		userID := getUserID(c)
 		jobID := c.Param("id")
@@ -72,7 +72,7 @@ func GetQuantizationJobEndpoint(qService *services.QuantizationService) echo.Han
 }
 
 // StopQuantizationJobEndpoint stops a running quantization job.
-func StopQuantizationJobEndpoint(qService *services.QuantizationService) echo.HandlerFunc {
+func StopQuantizationJobEndpoint(qService *quantization.QuantizationService) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		userID := getUserID(c)
 		jobID := c.Param("id")
@@ -92,7 +92,7 @@ func StopQuantizationJobEndpoint(qService *services.QuantizationService) echo.Ha
 }
 
 // DeleteQuantizationJobEndpoint deletes a quantization job and its data.
-func DeleteQuantizationJobEndpoint(qService *services.QuantizationService) echo.HandlerFunc {
+func DeleteQuantizationJobEndpoint(qService *quantization.QuantizationService) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		userID := getUserID(c)
 		jobID := c.Param("id")
@@ -118,7 +118,7 @@ func DeleteQuantizationJobEndpoint(qService *services.QuantizationService) echo.
 }
 
 // QuantizationProgressEndpoint streams progress updates via SSE.
-func QuantizationProgressEndpoint(qService *services.QuantizationService) echo.HandlerFunc {
+func QuantizationProgressEndpoint(qService *quantization.QuantizationService) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		userID := getUserID(c)
 		jobID := c.Param("id")
@@ -148,7 +148,7 @@ func QuantizationProgressEndpoint(qService *services.QuantizationService) echo.H
 }
 
 // ImportQuantizedModelEndpoint imports a quantized model into LocalAI.
-func ImportQuantizedModelEndpoint(qService *services.QuantizationService) echo.HandlerFunc {
+func ImportQuantizedModelEndpoint(qService *quantization.QuantizationService) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		userID := getUserID(c)
 		jobID := c.Param("id")
@@ -176,7 +176,7 @@ func ImportQuantizedModelEndpoint(qService *services.QuantizationService) echo.H
 }
 
 // DownloadQuantizedModelEndpoint streams the quantized model file.
-func DownloadQuantizedModelEndpoint(qService *services.QuantizationService) echo.HandlerFunc {
+func DownloadQuantizedModelEndpoint(qService *quantization.QuantizationService) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		userID := getUserID(c)
 		jobID := c.Param("id")

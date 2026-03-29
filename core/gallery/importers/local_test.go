@@ -59,7 +59,7 @@ var _ = Describe("ImportLocalPath", func() {
 
 			adapterConfig := map[string]any{
 				"base_model_name_or_path": "meta-llama/Llama-2-7b-hf",
-				"peft_type":              "LORA",
+				"peft_type":               "LORA",
 			}
 			data, _ := json.Marshal(adapterConfig)
 			Expect(os.WriteFile(filepath.Join(modelDir, "adapter_config.json"), data, 0644)).To(Succeed())

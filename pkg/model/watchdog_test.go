@@ -320,7 +320,7 @@ var _ = Describe("WatchDog", func() {
 		})
 
 		It("should handle rapid model switches", func() {
-			for i := 0; i < 5; i++ {
+			for range 5 {
 				wd.AddAddressModelMap("addr", "model")
 				wd.Mark("addr")
 				wd.UnMark("addr") // Unmark to make it idle

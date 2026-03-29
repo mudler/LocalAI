@@ -20,7 +20,7 @@ import (
 // testRenderer is a simple renderer for tests that returns JSON
 type testRenderer struct{}
 
-func (t *testRenderer) Render(w io.Writer, name string, data interface{}, c echo.Context) error {
+func (t *testRenderer) Render(w io.Writer, name string, data any, c echo.Context) error {
 	// For tests, just return the data as JSON
 	return json.NewEncoder(w).Encode(data)
 }

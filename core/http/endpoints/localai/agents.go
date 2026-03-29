@@ -4,20 +4,23 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"maps"
 	"net/http"
 	"os"
 	"path/filepath"
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/labstack/echo/v4"
-	"github.com/mudler/LocalAI/core/application"
-	"github.com/mudler/LocalAI/core/http/auth"
-	"github.com/mudler/LocalAI/core/services"
-	"github.com/mudler/LocalAI/pkg/utils"
 	"github.com/mudler/LocalAGI/core/state"
 	coreTypes "github.com/mudler/LocalAGI/core/types"
 	agiServices "github.com/mudler/LocalAGI/services"
+	"github.com/mudler/LocalAI/core/application"
+	"github.com/mudler/LocalAI/core/http/auth"
+	"github.com/mudler/LocalAI/core/services/agentpool"
+	"github.com/mudler/LocalAI/core/services/agents"
+	"github.com/mudler/LocalAI/pkg/utils"
+	"github.com/mudler/xlog"
 )
 
 // getUserID extracts the scoped user ID from the request context.
@@ -42,13 +45,31 @@ func wantsAllUsers(c echo.Context) bool {
 }
 
 // effectiveUserID returns the user ID to scope operations to.
-// SECURITY: Only admins may supply ?user_id=<id> to operate on another user's
-// resources. Non-admin callers always get their own ID regardless of query params.
+// SECURITY: Only admins and agent-worker service accounts may supply
+// ?user_id=<id> to operate on another user's resources. Agent-worker users are
+// created exclusively server-side during node registration and need to access
+// collections on behalf of the user whose agent they are executing.
+// Regular callers always get their own ID regardless of query params.
 func effectiveUserID(c echo.Context) string {
-	if targetUID := c.QueryParam("user_id"); targetUID != "" && isAdminUser(c) {
+	if targetUID := c.QueryParam("user_id"); targetUID != "" && canImpersonateUser(c) {
+		if callerID := getUserID(c); callerID != targetUID {
+			xlog.Info("User impersonation", "caller", callerID, "target", targetUID, "path", c.Path())
+		}
 		return targetUID
 	}
 	return getUserID(c)
+}
+
+// canImpersonateUser returns true if the caller is allowed to use ?user_id= to
+// scope operations to another user. Allowed for admins and agent-worker service
+// accounts (ProviderAgentWorker is set server-side during node registration and
+// cannot be self-assigned).
+func canImpersonateUser(c echo.Context) bool {
+	user := auth.GetUser(c)
+	if user == nil {
+		return false
+	}
+	return user.Role == auth.RoleAdmin || user.Provider == auth.ProviderAgentWorker
 }
 
 func ListAgentsEndpoint(app *application.Application) echo.HandlerFunc {
@@ -56,11 +77,7 @@ func ListAgentsEndpoint(app *application.Application) echo.HandlerFunc {
 		svc := app.AgentPoolService()
 		userID := getUserID(c)
 		statuses := svc.ListAgentsForUser(userID)
-		agents := make([]string, 0, len(statuses))
-		for name := range statuses {
-			agents = append(agents, name)
-		}
-		sort.Strings(agents)
+		agents := slices.Sorted(maps.Keys(statuses))
 		resp := map[string]any{
 			"agents":     agents,
 			"agentCount": len(agents),
@@ -111,13 +128,13 @@ func GetAgentEndpoint(app *application.Application) echo.HandlerFunc {
 		svc := app.AgentPoolService()
 		userID := effectiveUserID(c)
 		name := c.Param("name")
-		ag := svc.GetAgentForUser(userID, name)
-		if ag == nil {
+
+		statuses := svc.ListAgentsForUser(userID)
+		active, exists := statuses[name]
+		if !exists {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": "Agent not found"})
 		}
-		return c.JSON(http.StatusOK, map[string]any{
-			"active": !ag.Paused(),
-		})
+		return c.JSON(http.StatusOK, map[string]any{"active": active})
 	}
 }
 
@@ -192,9 +209,13 @@ func GetAgentStatusEndpoint(app *application.Application) echo.HandlerFunc {
 		svc := app.AgentPoolService()
 		userID := effectiveUserID(c)
 		name := c.Param("name")
+
 		history := svc.GetAgentStatusForUser(userID, name)
 		if history == nil {
-			history = &state.Status{ActionResults: []coreTypes.ActionState{}}
+			return c.JSON(http.StatusOK, map[string]any{
+				"Name":    name,
+				"History": []string{},
+			})
 		}
 		entries := []string{}
 		for i := len(history.Results()) - 1; i >= 0; i-- {
@@ -221,9 +242,13 @@ func GetAgentObservablesEndpoint(app *application.Application) echo.HandlerFunc 
 		svc := app.AgentPoolService()
 		userID := effectiveUserID(c)
 		name := c.Param("name")
+
 		history, err := svc.GetAgentObservablesForUser(userID, name)
 		if err != nil {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": err.Error()})
+		}
+		if history == nil {
+			history = []json.RawMessage{}
 		}
 		return c.JSON(http.StatusOK, map[string]any{
 			"Name":    name,
@@ -278,26 +303,30 @@ func AgentSSEEndpoint(app *application.Application) echo.HandlerFunc {
 		svc := app.AgentPoolService()
 		userID := effectiveUserID(c)
 		name := c.Param("name")
-		manager := svc.GetSSEManagerForUser(userID, name)
-		if manager == nil {
-			return c.JSON(http.StatusNotFound, map[string]string{"error": "Agent not found"})
-		}
-		return services.HandleSSE(c, manager)
-	}
-}
 
-type agentConfigMetaResponse struct {
-	state.AgentConfigMeta
-	OutputsDir string `json:"OutputsDir"`
+		// Try local SSE manager first
+		manager := svc.GetSSEManagerForUser(userID, name)
+		if manager != nil {
+			return agentpool.HandleSSE(c, manager)
+		}
+
+		// Fall back to distributed EventBridge SSE
+		var bridge *agents.EventBridge
+		if d := app.Distributed(); d != nil {
+			bridge = d.AgentBridge
+		}
+		if bridge != nil {
+			return bridge.HandleSSE(c, name, userID)
+		}
+
+		return c.JSON(http.StatusNotFound, map[string]string{"error": "Agent not found"})
+	}
 }
 
 func GetAgentConfigMetaEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		svc := app.AgentPoolService()
-		return c.JSON(http.StatusOK, agentConfigMetaResponse{
-			AgentConfigMeta: svc.GetConfigMeta(),
-			OutputsDir:      svc.OutputsDir(),
-		})
+		return c.JSON(http.StatusOK, svc.GetConfigMetaResult())
 	}
 }
 

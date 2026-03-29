@@ -27,15 +27,15 @@ type RuntimeSettings struct {
 	MemoryReclaimerThreshold *float64 `json:"memory_reclaimer_threshold,omitempty"` // Threshold 0.0-1.0 (e.g., 0.95 = 95%)
 
 	// Eviction settings
-	ForceEvictionWhenBusy      *bool   `json:"force_eviction_when_busy,omitempty"`      // Force eviction even when models have active API calls (default: false for safety)
-	LRUEvictionMaxRetries      *int    `json:"lru_eviction_max_retries,omitempty"`      // Maximum number of retries when waiting for busy models to become idle (default: 30)
-	LRUEvictionRetryInterval   *string `json:"lru_eviction_retry_interval,omitempty"`   // Interval between retries when waiting for busy models (e.g., 1s, 2s) (default: 1s)
+	ForceEvictionWhenBusy    *bool   `json:"force_eviction_when_busy,omitempty"`    // Force eviction even when models have active API calls (default: false for safety)
+	LRUEvictionMaxRetries    *int    `json:"lru_eviction_max_retries,omitempty"`    // Maximum number of retries when waiting for busy models to become idle (default: 30)
+	LRUEvictionRetryInterval *string `json:"lru_eviction_retry_interval,omitempty"` // Interval between retries when waiting for busy models (e.g., 1s, 2s) (default: 1s)
 
 	// Performance settings
-	Threads         *int  `json:"threads,omitempty"`
-	ContextSize     *int  `json:"context_size,omitempty"`
-	F16             *bool `json:"f16,omitempty"`
-	Debug           *bool `json:"debug,omitempty"`
+	Threads              *int  `json:"threads,omitempty"`
+	ContextSize          *int  `json:"context_size,omitempty"`
+	F16                  *bool `json:"f16,omitempty"`
+	Debug                *bool `json:"debug,omitempty"`
 	EnableTracing        *bool `json:"enable_tracing,omitempty"`
 	TracingMaxItems      *int  `json:"tracing_max_items,omitempty"`
 	EnableBackendLogging *bool `json:"enable_backend_logging,omitempty"`
@@ -66,11 +66,11 @@ type RuntimeSettings struct {
 	OpenResponsesStoreTTL *string `json:"open_responses_store_ttl,omitempty"` // TTL for stored responses (e.g., "1h", "30m", "0" = no expiration)
 
 	// Agent Pool settings
-	AgentPoolEnabled        *bool   `json:"agent_pool_enabled,omitempty"`
-	AgentPoolDefaultModel   *string `json:"agent_pool_default_model,omitempty"`
-	AgentPoolEmbeddingModel *string `json:"agent_pool_embedding_model,omitempty"`
-	AgentPoolMaxChunkingSize *int   `json:"agent_pool_max_chunking_size,omitempty"`
-	AgentPoolChunkOverlap    *int   `json:"agent_pool_chunk_overlap,omitempty"`
-	AgentPoolEnableLogs      *bool  `json:"agent_pool_enable_logs,omitempty"`
+	AgentPoolEnabled          *bool   `json:"agent_pool_enabled,omitempty"`
+	AgentPoolDefaultModel     *string `json:"agent_pool_default_model,omitempty"`
+	AgentPoolEmbeddingModel   *string `json:"agent_pool_embedding_model,omitempty"`
+	AgentPoolMaxChunkingSize  *int    `json:"agent_pool_max_chunking_size,omitempty"`
+	AgentPoolChunkOverlap     *int    `json:"agent_pool_chunk_overlap,omitempty"`
+	AgentPoolEnableLogs       *bool   `json:"agent_pool_enable_logs,omitempty"`
 	AgentPoolCollectionDBPath *string `json:"agent_pool_collection_db_path,omitempty"`
 }

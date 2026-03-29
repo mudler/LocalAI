@@ -80,14 +80,14 @@ var _ = Describe("WebSocket Responses API E2E Tests", Label("WebSocket"), func()
 			Expect(err).ToNot(HaveOccurred())
 			defer conn.Close()
 
-			msg := map[string]interface{}{
+			msg := map[string]any{
 				"type":  "response.create",
 				"model": "mock-model",
-				"input": []map[string]interface{}{
+				"input": []map[string]any{
 					{
 						"type": "message",
 						"role": "user",
-						"content": []map[string]interface{}{
+						"content": []map[string]any{
 							{"type": "input_text", "text": "Hello"},
 						},
 					},
@@ -134,15 +134,15 @@ var _ = Describe("WebSocket Responses API E2E Tests", Label("WebSocket"), func()
 			defer conn.Close()
 
 			// First turn
-			msg1 := map[string]interface{}{
+			msg1 := map[string]any{
 				"type":  "response.create",
 				"model": "mock-model",
 				"store": true,
-				"input": []map[string]interface{}{
+				"input": []map[string]any{
 					{
 						"type": "message",
 						"role": "user",
-						"content": []map[string]interface{}{
+						"content": []map[string]any{
 							{"type": "input_text", "text": "Hello"},
 						},
 					},
@@ -163,15 +163,15 @@ var _ = Describe("WebSocket Responses API E2E Tests", Label("WebSocket"), func()
 			Expect(firstResp.ID).ToNot(BeEmpty())
 
 			// Second turn with previous_response_id
-			msg2 := map[string]interface{}{
+			msg2 := map[string]any{
 				"type":                 "response.create",
 				"model":                "mock-model",
 				"previous_response_id": firstResp.ID,
-				"input": []map[string]interface{}{
+				"input": []map[string]any{
 					{
 						"type": "message",
 						"role": "user",
-						"content": []map[string]interface{}{
+						"content": []map[string]any{
 							{"type": "input_text", "text": "Follow up question"},
 						},
 					},
@@ -204,7 +204,7 @@ var _ = Describe("WebSocket Responses API E2E Tests", Label("WebSocket"), func()
 			Expect(err).ToNot(HaveOccurred())
 			defer conn.Close()
 
-			msg := map[string]interface{}{
+			msg := map[string]any{
 				"type":                 "response.create",
 				"model":                "mock-model",
 				"previous_response_id": "resp_nonexistent",
@@ -224,7 +224,7 @@ var _ = Describe("WebSocket Responses API E2E Tests", Label("WebSocket"), func()
 			Expect(err).ToNot(HaveOccurred())
 			defer conn.Close()
 
-			msg := map[string]interface{}{
+			msg := map[string]any{
 				"type": "unknown.type",
 			}
 			Expect(conn.WriteJSON(msg)).To(Succeed())
@@ -241,7 +241,7 @@ var _ = Describe("WebSocket Responses API E2E Tests", Label("WebSocket"), func()
 			Expect(err).ToNot(HaveOccurred())
 			defer conn.Close()
 
-			msg := map[string]interface{}{
+			msg := map[string]any{
 				"type":  "response.create",
 				"input": "Hello",
 			}
@@ -261,15 +261,15 @@ var _ = Describe("WebSocket Responses API E2E Tests", Label("WebSocket"), func()
 			Expect(err).ToNot(HaveOccurred())
 			defer conn.Close()
 
-			for i := 0; i < 3; i++ {
-				msg := map[string]interface{}{
+			for i := range 3 {
+				msg := map[string]any{
 					"type":  "response.create",
 					"model": "mock-model",
-					"input": []map[string]interface{}{
+					"input": []map[string]any{
 						{
 							"type": "message",
 							"role": "user",
-							"content": []map[string]interface{}{
+							"content": []map[string]any{
 								{"type": "input_text", "text": fmt.Sprintf("Message %d", i)},
 							},
 						},
@@ -297,14 +297,14 @@ var _ = Describe("WebSocket Responses API E2E Tests", Label("WebSocket"), func()
 			Expect(err).ToNot(HaveOccurred())
 			defer conn.Close()
 
-			msg := map[string]interface{}{
+			msg := map[string]any{
 				"type":  "response.create",
 				"model": "mock-model",
-				"input": []map[string]interface{}{
+				"input": []map[string]any{
 					{
 						"type": "message",
 						"role": "user",
-						"content": []map[string]interface{}{
+						"content": []map[string]any{
 							{"type": "input_text", "text": "Hello"},
 						},
 					},

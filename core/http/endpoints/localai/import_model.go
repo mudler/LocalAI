@@ -18,7 +18,7 @@ import (
 	"github.com/mudler/LocalAI/core/gallery/importers"
 	httpUtils "github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/schema"
-	"github.com/mudler/LocalAI/core/services"
+	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/pkg/utils"
 	"github.com/mudler/LocalAI/pkg/vram"
 
@@ -26,7 +26,7 @@ import (
 )
 
 // ImportModelURIEndpoint handles creating new model configurations from a URI
-func ImportModelURIEndpoint(cl *config.ModelConfigLoader, appConfig *config.ApplicationConfig, galleryService *services.GalleryService, opcache *services.OpCache) echo.HandlerFunc {
+func ImportModelURIEndpoint(cl *config.ModelConfigLoader, appConfig *config.ApplicationConfig, galleryService *galleryop.GalleryService, opcache *galleryop.OpCache) echo.HandlerFunc {
 	return func(c echo.Context) error {
 
 		input := new(schema.ImportModelRequest)
@@ -51,8 +51,10 @@ func ImportModelURIEndpoint(cl *config.ModelConfigLoader, appConfig *config.Appl
 			}
 			estCtx, cancel := context.WithTimeout(c.Request().Context(), 5*time.Second)
 			defer cancel()
-			opts := vram.EstimateOptions{ContextLength: 8192}
-			result, err := vram.Estimate(estCtx, files, opts, vram.DefaultCachedSizeResolver(), vram.DefaultCachedGGUFReader())
+			result, err := vram.EstimateModel(estCtx, vram.ModelEstimateInput{
+				Files:   files,
+				Options: vram.EstimateOptions{ContextLength: 8192},
+			})
 			if err == nil {
 				if result.SizeBytes > 0 {
 					resp.EstimatedSizeBytes = result.SizeBytes
@@ -81,9 +83,9 @@ func ImportModelURIEndpoint(cl *config.ModelConfigLoader, appConfig *config.Appl
 			opcache.Set(galleryID, uuid.String())
 		}
 
-		galleryService.ModelGalleryChannel <- services.GalleryOp[gallery.GalleryModel, gallery.ModelConfig]{
+		galleryService.ModelGalleryChannel <- galleryop.ManagementOp[gallery.GalleryModel, gallery.ModelConfig]{
 			Req: gallery.GalleryModel{
-				Overrides: map[string]interface{}{},
+				Overrides: map[string]any{},
 			},
 			ID:                 uuid.String(),
 			GalleryElementName: galleryID,

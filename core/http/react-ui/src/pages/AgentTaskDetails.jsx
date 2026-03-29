@@ -117,6 +117,8 @@ export default function AgentTaskDetails() {
           }
         })
         body.cron_parameters = params
+      } else if (!body.cron_parameters || body.cron_parameters === '') {
+        delete body.cron_parameters
       }
 
       // Parse webhook headers from JSON strings

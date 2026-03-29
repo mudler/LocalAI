@@ -126,18 +126,16 @@ var _ = Describe("ModelLoader", func() {
 			errs := make([]error, 5)
 
 			// Start 5 concurrent requests for the same model
-			for i := 0; i < 5; i++ {
-				wg.Add(1)
-				go func(idx int) {
-					defer wg.Done()
-					results[idx], errs[idx] = modelLoader.LoadModel("concurrent-model", "test.model", mockLoader)
-				}(i)
+			for i := range 5 {
+				wg.Go(func() {
+					results[i], errs[i] = modelLoader.LoadModel("concurrent-model", "test.model", mockLoader)
+				})
 			}
 
 			wg.Wait()
 
 			// All requests should succeed
-			for i := 0; i < 5; i++ {
+			for i := range 5 {
 				Expect(errs[i]).To(BeNil())
 				Expect(results[i]).ToNot(BeNil())
 			}
@@ -163,14 +161,12 @@ var _ = Describe("ModelLoader", func() {
 			modelCount := 3
 
 			// Start concurrent requests for different models
-			for i := 0; i < modelCount; i++ {
-				wg.Add(1)
-				go func(idx int) {
-					defer wg.Done()
-					modelID := "model-" + string(rune('A'+idx))
+			for i := range modelCount {
+				wg.Go(func() {
+					modelID := "model-" + string(rune('A'+i))
 					_, err := modelLoader.LoadModel(modelID, "test.model", mockLoader)
 					Expect(err).To(BeNil())
-				}(i)
+				})
 			}
 
 			wg.Wait()
@@ -227,23 +223,20 @@ var _ = Describe("ModelLoader", func() {
 
 			// First goroutine will fail
 			var wg sync.WaitGroup
-			wg.Add(2)
 
 			var err1, err2 error
 			var m1, m2 *model.Model
 
-			go func() {
-				defer wg.Done()
+			wg.Go(func() {
 				m1, err1 = modelLoader.LoadModel("retry-model", "test.model", mockLoader)
-			}()
+			})
 
 			// Give first goroutine a head start
 			time.Sleep(10 * time.Millisecond)
 
-			go func() {
-				defer wg.Done()
+			wg.Go(func() {
 				m2, err2 = modelLoader.LoadModel("retry-model", "test.model", mockLoader)
-			}()
+			})
 
 			wg.Wait()
 

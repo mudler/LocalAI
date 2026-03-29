@@ -5,7 +5,7 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/schema"
-	"github.com/mudler/LocalAI/core/services"
+	"github.com/mudler/LocalAI/core/services/galleryop"
 	model "github.com/mudler/LocalAI/pkg/model"
 	"gorm.io/gorm"
 )
@@ -24,12 +24,12 @@ func ListModelsEndpoint(bcl *config.ModelConfigLoader, ml *model.ModelLoader, ap
 		filter := c.QueryParam("filter")
 
 		// By default, exclude any loose files that are already referenced by a configuration file.
-		var policy services.LooseFilePolicy
+		var policy galleryop.LooseFilePolicy
 		excludeConfigured := c.QueryParam("excludeConfigured")
 		if excludeConfigured == "" || excludeConfigured == "true" {
-			policy = services.SKIP_IF_CONFIGURED
+			policy = galleryop.SKIP_IF_CONFIGURED
 		} else {
-			policy = services.ALWAYS_INCLUDE // This replicates current behavior. TODO: give more options to the user?
+			policy = galleryop.ALWAYS_INCLUDE // This replicates current behavior. TODO: give more options to the user?
 		}
 
 		filterFn, err := config.BuildNameFilterFn(filter)
@@ -37,7 +37,7 @@ func ListModelsEndpoint(bcl *config.ModelConfigLoader, ml *model.ModelLoader, ap
 			return err
 		}
 
-		modelNames, err := services.ListModels(bcl, ml, filterFn, policy)
+		modelNames, err := galleryop.ListModels(bcl, ml, filterFn, policy)
 		if err != nil {
 			return err
 		}

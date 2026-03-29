@@ -106,10 +106,10 @@ func TestLoadModel(t *testing.T) {
 	defer conn.Close()
 
 	client := pb.NewBackendClient(conn)
-	
+
 	// Get base directory from main model file for relative paths
 	mainModelPath := filepath.Join(modelDir, "acestep-5Hz-lm-0.6B-Q8_0.gguf")
-	
+
 	resp, err := client.LoadModel(context.Background(), &pb.ModelOptions{
 		ModelFile: mainModelPath,
 		ModelPath: modelDir,
@@ -134,7 +134,7 @@ func TestSoundGeneration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(tmpDir)
+	t.Cleanup(func() { os.RemoveAll(tmpDir) })
 
 	outputFile := filepath.Join(tmpDir, "output.wav")
 

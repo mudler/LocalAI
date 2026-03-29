@@ -12,6 +12,10 @@ import backend_pb2
 import backend_pb2_grpc
 
 import grpc
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'common'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'common'))
+from grpc_auth import get_auth_interceptors
+
 from mlx_lm import load, generate, stream_generate
 from mlx_lm.sample_utils import make_sampler
 from mlx_lm.models.cache import make_prompt_cache, can_trim_prompt_cache, trim_prompt_cache
@@ -421,7 +425,9 @@ async def serve(address):
             ('grpc.max_message_length', 50 * 1024 * 1024),  # 50MB
             ('grpc.max_send_message_length', 50 * 1024 * 1024),  # 50MB
             ('grpc.max_receive_message_length', 50 * 1024 * 1024),  # 50MB
-        ])
+        ],
+        interceptors=get_auth_interceptors(aio=True),
+    )
     # Add the servicer to the server
     backend_pb2_grpc.add_BackendServicer_to_server(BackendServicer(), server)
     # Bind the server to the address

@@ -13,7 +13,6 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/schema"
-	"github.com/mudler/LocalAI/pkg/format"
 	model "github.com/mudler/LocalAI/pkg/model"
 
 	"github.com/mudler/xlog"
@@ -82,7 +81,7 @@ func TranscriptEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, app
 
 		switch responseFormat {
 		case schema.TranscriptionResponseFormatLrc, schema.TranscriptionResponseFormatText, schema.TranscriptionResponseFormatSrt, schema.TranscriptionResponseFormatVtt:
-			return c.String(http.StatusOK, format.TranscriptionResponse(tr, responseFormat))
+			return c.String(http.StatusOK, schema.TranscriptionResponse(tr, responseFormat))
 		case schema.TranscriptionResponseFormatJson:
 			tr.Segments = nil
 			fallthrough

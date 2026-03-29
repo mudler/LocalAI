@@ -4,8 +4,8 @@ import (
 	"time"
 
 	"github.com/mudler/LocalAI/core/config"
-	"github.com/mudler/LocalAI/core/trace"
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/trace"
 	"github.com/mudler/LocalAI/pkg/grpc"
 	"github.com/mudler/LocalAI/pkg/model"
 )

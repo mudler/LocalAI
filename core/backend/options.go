@@ -1,7 +1,7 @@
 package backend
 
 import (
-	"math/rand"
+	"math/rand/v2"
 	"os"
 	"path/filepath"
 	"strings"
@@ -86,7 +86,7 @@ func getSeed(c config.ModelConfig) int32 {
 	}
 
 	if seed == config.RAND_SEED {
-		seed = rand.Int31()
+		seed = rand.Int32()
 	}
 
 	return seed

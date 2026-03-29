@@ -20,7 +20,7 @@ func computeCorrelation(a, b []int16) float64 {
 		return 0
 	}
 	var sumAB, sumA2, sumB2 float64
-	for i := 0; i < n; i++ {
+	for i := range n {
 		fa, fb := float64(a[i]), float64(b[i])
 		sumAB += fa * fb
 		sumA2 += fa * fa

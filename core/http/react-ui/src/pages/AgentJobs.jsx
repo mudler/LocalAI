@@ -157,29 +157,18 @@ export default function AgentJobs() {
     if (!executeModal) return
     setExecuting(true)
     try {
-      const body = { name: executeModal.name || executeModal.id }
-
-      // Parse parameters
+      // Parse parameters from key=value lines into a flat map
+      const params = {}
       if (executeParams.trim()) {
-        const params = {}
         executeParams.split('\n').forEach(line => {
           const [key, ...rest] = line.split('=')
           if (key?.trim() && rest.length > 0) {
             params[key.trim()] = rest.join('=').trim()
           }
         })
-        body.parameters = params
       }
 
-      // Add multimedia
-      const mm = {}
-      if (executeMultimedia.images.length > 0) mm.images = executeMultimedia.images
-      if (executeMultimedia.videos.length > 0) mm.videos = executeMultimedia.videos
-      if (executeMultimedia.audios.length > 0) mm.audios = executeMultimedia.audios
-      if (executeMultimedia.files.length > 0) mm.files = executeMultimedia.files
-      if (Object.keys(mm).length > 0) body.multimedia = mm
-
-      await agentJobsApi.executeTask(executeModal.name || executeModal.id)
+      await agentJobsApi.executeTask(executeModal.name || executeModal.id, params)
       addToast(`Task "${executeModal.name}" started`, 'success')
       setExecuteModal(null)
       fetchData()

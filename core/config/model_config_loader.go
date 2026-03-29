@@ -1,12 +1,13 @@
 package config
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
-	"sort"
+	"slices"
 	"strings"
 	"sync"
 
@@ -215,8 +216,8 @@ func (bcl *ModelConfigLoader) GetAllModelsConfigs() []ModelConfig {
 		res = append(res, v)
 	}
 
-	sort.SliceStable(res, func(i, j int) bool {
-		return res[i].Name < res[j].Name
+	slices.SortStableFunc(res, func(a, b ModelConfig) int {
+		return cmp.Compare(a.Name, b.Name)
 	})
 
 	return res

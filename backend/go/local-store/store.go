@@ -332,7 +332,7 @@ func normalizedCosineSimilarity(k1, k2 []float32) float32 {
 	assert(len(k1) == len(k2), fmt.Sprintf("normalizedCosineSimilarity: len(k1) = %d, len(k2) = %d", len(k1), len(k2)))
 
 	var dot float32
-	for i := 0; i < len(k1); i++ {
+	for i := range len(k1) {
 		dot += k1[i] * k2[i]
 	}
 
@@ -419,7 +419,7 @@ func cosineSimilarity(k1, k2 []float32, mag1 float64) float32 {
 	assert(len(k1) == len(k2), fmt.Sprintf("cosineSimilarity: len(k1) = %d, len(k2) = %d", len(k1), len(k2)))
 
 	var dot, mag2 float64
-	for i := 0; i < len(k1); i++ {
+	for i := range len(k1) {
 		dot += float64(k1[i] * k2[i])
 		mag2 += float64(k2[i] * k2[i])
 	}

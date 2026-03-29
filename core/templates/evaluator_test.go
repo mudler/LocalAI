@@ -50,7 +50,7 @@ Function response:
 {{ end -}}
 <|eot_id|>`
 
-var llama3TestMatch map[string]map[string]interface{} = map[string]map[string]interface{}{
+var llama3TestMatch map[string]map[string]any = map[string]map[string]any{
 	"user": {
 		"expected": "<|start_header_id|>user<|end_header_id|>\n\nA long time ago in a galaxy far, far away...<|eot_id|>",
 		"config": &config.ModelConfig{
@@ -118,7 +118,7 @@ var llama3TestMatch map[string]map[string]interface{} = map[string]map[string]in
 	},
 }
 
-var chatMLTestMatch map[string]map[string]interface{} = map[string]map[string]interface{}{
+var chatMLTestMatch map[string]map[string]any = map[string]map[string]any{
 	"user": {
 		"expected": "<|im_start|>user\nA long time ago in a galaxy far, far away...<|im_end|>",
 		"config": &config.ModelConfig{

@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useParams, useNavigate, useLocation, useOutletContext, useSearchParams } from 'react-router-dom'
-import { agentsApi } from '../utils/api'
+import { agentsApi, skillsApi } from '../utils/api'
 import SearchableModelSelect from '../components/SearchableModelSelect'
 import { CAP_CHAT, CAP_TRANSCRIPT, CAP_TTS } from '../utils/capabilities'
 import Toggle from '../components/Toggle'
@@ -263,6 +263,21 @@ const SECTIONS = [
 // Fields handled by custom editors in the MCP section
 const CUSTOM_FIELDS = new Set(['mcp_stdio_servers'])
 
+// Fields not implemented in the native executor (distributed mode).
+// These are hidden from the form when meta.distributed is true.
+const HIDDEN_IN_DISTRIBUTED = new Set([
+  'mcp_prepare_script',
+  'multimodal_model', 'transcription_model', 'transcription_language', 'tts_model',
+  'plan_reviewer_model',
+  'enable_planning', 'initiate_conversations', 'can_stop_itself',
+  'scheduler_poll_interval', 'scheduler_task_template',
+  'enable_reasoning', 'enable_reasoning_tool', // replaced by enable_reasoning_for_instruct
+  'kb_auto_search', 'kb_as_tools', // replaced by kb_mode select
+  'disable_sink_state', // always disabled in native executor
+  'enable_kb_compaction', 'kb_compaction_interval', 'kb_compaction_summarize',
+  'parallel_jobs', 'cancel_previous_on_new_message',
+])
+
 // --- Main component ---
 
 export default function AgentCreate() {
@@ -285,7 +300,11 @@ export default function AgentCreate() {
   const [filters, setFilters] = useState([])
   const [dynamicPrompts, setDynamicPrompts] = useState([])
   const [mcpHttpServers, setMcpHttpServers] = useState([])
+  const [mcpJsonMode, setMcpJsonMode] = useState(false)
+  const [mcpRawJson, setMcpRawJson] = useState('')
   const [stdioServers, setStdioServers] = useState([])
+  const [availableSkills, setAvailableSkills] = useState([])
+  const [selectedSkills, setSelectedSkills] = useState([])
 
   // Group metadata Fields by tags.section
   const fieldsBySection = useMemo(() => {
@@ -293,6 +312,7 @@ export default function AgentCreate() {
     const groups = {}
     for (const field of meta.Fields) {
       if (CUSTOM_FIELDS.has(field.name)) continue
+      if (meta?.distributed && HIDDEN_IN_DISTRIBUTED.has(field.name)) continue
       const section = field.tags?.section || 'BasicInfo'
       if (!groups[section]) groups[section] = []
       groups[section].push(field)
@@ -301,19 +321,26 @@ export default function AgentCreate() {
   }, [meta])
 
   const visibleSections = useMemo(() => {
-    const items = [...SECTIONS]
+    let items = [...SECTIONS]
+    // In distributed mode, hide LocalAGI-specific sections — use MCP Servers instead
+    if (meta?.distributed) {
+      const hiddenInDistributed = new Set(['actions', 'connectors', 'filters', 'dynamic_prompts'])
+      items = items.filter(s => !hiddenInDistributed.has(s.id))
+    }
     if (isEdit) items.push({ id: 'export', icon: 'fa-download', label: 'Export' })
     return items
-  }, [isEdit])
+  }, [isEdit, meta])
 
   useEffect(() => {
     const init = async () => {
       try {
-        const [metaData, config] = await Promise.all([
+        const [metaData, config, skillsList] = await Promise.all([
           agentsApi.configMeta().catch(() => null),
           isEdit ? agentsApi.getConfig(name, userId).catch(() => null) : Promise.resolve(null),
+          skillsApi.list().catch(() => null),
         ])
         if (metaData) setMeta(metaData)
+        if (skillsList?.skills) setAvailableSkills(skillsList.skills)
 
         // Build defaults from metadata
         const initialForm = {}
@@ -343,6 +370,7 @@ export default function AgentCreate() {
           setDynamicPrompts(Array.isArray(sourceConfig.dynamic_prompts) ? sourceConfig.dynamic_prompts : [])
           setMcpHttpServers(Array.isArray(sourceConfig.mcp_servers) ? sourceConfig.mcp_servers : [])
           setStdioServers(parseStdioServers(sourceConfig.mcp_stdio_servers))
+          if (Array.isArray(sourceConfig.selected_skills)) setSelectedSkills(sourceConfig.selected_skills)
         }
 
         setForm(initialForm)
@@ -365,6 +393,10 @@ export default function AgentCreate() {
       addToast('Agent name is required', 'warning')
       return
     }
+    if (!form.model?.toString().trim()) {
+      addToast('Model is required', 'warning')
+      return
+    }
     setSaving(true)
     try {
       const payload = { ...form }
@@ -382,8 +414,15 @@ export default function AgentCreate() {
       payload.dynamic_prompts = dynamicPrompts
       payload.mcp_servers = mcpHttpServers.filter(s => s.url)
       // Send STDIO servers as JSON string in expected format
-      if (stdioServers.length > 0) {
+      if (mcpJsonMode && mcpRawJson.trim()) {
+        // In JSON editor mode, use the raw JSON directly
+        payload.mcp_stdio_servers = mcpRawJson
+      } else if (stdioServers.length > 0) {
         payload.mcp_stdio_servers = buildStdioJson(stdioServers)
+      }
+      // Send selected skills
+      if (selectedSkills.length > 0) {
+        payload.selected_skills = selectedSkills
       }
 
       if (isEdit) {
@@ -424,15 +463,21 @@ export default function AgentCreate() {
     if (!fields.length) {
       return <p style={{ color: 'var(--color-text-muted)', fontSize: '0.875rem' }}>No fields available for this section.</p>
     }
-    return fields.map(field => (
-      <FormField
-        key={field.name}
-        field={field.name === 'name' && isEdit ? { ...field, disabled: true, helpText: 'Agent name cannot be changed after creation' } : field}
-        value={form[field.name]}
-        onChange={updateField}
-        disabled={field.name === 'name' && isEdit}
-      />
-    ))
+    return fields
+      .filter(field => {
+        // Hide fields whose depends_on parent is falsy
+        if (field.tags?.depends_on && !form[field.tags.depends_on]) return false
+        return true
+      })
+      .map(field => (
+        <FormField
+          key={field.name}
+          field={field.name === 'name' && isEdit ? { ...field, disabled: true, helpText: 'Agent name cannot be changed after creation' } : field}
+          value={form[field.name]}
+          onChange={updateField}
+          disabled={field.name === 'name' && isEdit}
+        />
+      ))
   }
 
   const renderSection = () => {
@@ -442,13 +487,151 @@ export default function AgentCreate() {
       case 'MemorySettings':
       case 'PromptsGoals':
       case 'AdvancedSettings':
-        return renderFieldSection(activeSection)
+        return (
+          <>
+            {renderFieldSection(activeSection)}
+            {/* Skills picker — shown only in AdvancedSettings when enable_skills is checked */}
+            {activeSection === 'AdvancedSettings' && form.enable_skills && availableSkills.length > 0 && (
+              <div style={{ marginTop: 'var(--spacing-lg)', borderTop: '1px solid var(--color-border)', paddingTop: 'var(--spacing-lg)' }}>
+                <h4 className="agent-subsection-title">
+                  <i className="fas fa-puzzle-piece" style={{ color: 'var(--color-primary)', marginRight: 'var(--spacing-xs)' }} />
+                  Select Skills
+                </h4>
+                <p className="agent-section-desc">Choose which skills this agent can use. If none selected, all available skills are included.</p>
+                <div style={{ marginBottom: 'var(--spacing-sm)' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem' }}>
+                    <input
+                      type="checkbox"
+                      checked={selectedSkills.length === 0}
+                      onChange={(e) => {
+                        if (e.target.checked) setSelectedSkills([])
+                        else setSelectedSkills(availableSkills.map(s => s.name))
+                      }}
+                    />
+                    All Skills (default)
+                  </label>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: 'var(--spacing-sm)' }}>
+                  {availableSkills.map(skill => (
+                    <label key={skill.name} style={{
+                      display: 'flex', alignItems: 'flex-start', gap: 'var(--spacing-xs)',
+                      padding: 'var(--spacing-sm)', borderRadius: 'var(--radius-sm)',
+                      border: '1px solid var(--color-border)', cursor: 'pointer',
+                      background: selectedSkills.includes(skill.name) || selectedSkills.length === 0 ? 'var(--color-bg-secondary)' : 'transparent',
+                    }}>
+                      <input
+                        type="checkbox"
+                        checked={selectedSkills.length === 0 || selectedSkills.includes(skill.name)}
+                        onChange={(e) => {
+                          if (selectedSkills.length === 0) {
+                            // Switching from "all" to specific — select all except this one
+                            setSelectedSkills(availableSkills.filter(s => s.name !== skill.name).map(s => s.name))
+                          } else if (e.target.checked) {
+                            const updated = [...selectedSkills, skill.name]
+                            // If all selected, go back to "all" mode (empty array)
+                            if (updated.length === availableSkills.length) setSelectedSkills([])
+                            else setSelectedSkills(updated)
+                          } else {
+                            setSelectedSkills(selectedSkills.filter(n => n !== skill.name))
+                          }
+                        }}
+                        style={{ marginTop: '2px' }}
+                      />
+                      <div>
+                        <div style={{ fontWeight: 600, fontSize: '0.85rem' }}>{skill.name}</div>
+                        {skill.description && (
+                          <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '2px' }}>
+                            {skill.description.length > 80 ? skill.description.slice(0, 80) + '...' : skill.description}
+                          </div>
+                        )}
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
+        )
 
       case 'MCP':
         return (
           <>
-            {/* Other MCP metadata fields (mcp_prepare_script, etc.) */}
-            {renderFieldSection('MCP')}
+            {/* Mode toggle + import buttons */}
+            <div style={{ marginBottom: 'var(--spacing-md)', display: 'flex', gap: 'var(--spacing-sm)', alignItems: 'center', flexWrap: 'wrap' }}>
+              <button type="button" className={`btn btn-sm ${mcpJsonMode ? 'btn-secondary' : 'btn-primary'}`} onClick={() => {
+                if (mcpJsonMode) {
+                  // Switching from JSON to form — parse the JSON back
+                  try {
+                    const parsed = JSON.parse(mcpRawJson)
+                    const servers = parsed.mcpServers || parsed
+                    const newStdio = []
+                    const newHttp = []
+                    for (const [name, srv] of Object.entries(servers)) {
+                      if (srv.command || srv.cmd) {
+                        newStdio.push({
+                          name: name,
+                          command: srv.command || srv.cmd || '',
+                          args: srv.args || [],
+                          env: srv.env ? Object.entries(srv.env).map(([k, v]) => ({ key: k, value: v })) : [],
+                        })
+                      } else if (srv.url) {
+                        newHttp.push({ url: srv.url, token: srv.token || srv.apiKey || '' })
+                      }
+                    }
+                    setStdioServers(newStdio)
+                    setMcpHttpServers(newHttp)
+                  } catch (e) {
+                    addToast(`Invalid JSON: ${e.message}`, 'error')
+                    return
+                  }
+                } else {
+                  // Switching from form to JSON — serialize current config
+                  const mcpServers = {}
+                  for (const s of stdioServers) {
+                    const envObj = {}
+                    for (const e of (s.env || [])) {
+                      if (e.key) envObj[e.key] = e.value || ''
+                    }
+                    mcpServers[s.name || `server-${Object.keys(mcpServers).length + 1}`] = {
+                      command: s.command || '',
+                      args: s.args || [],
+                      ...(Object.keys(envObj).length > 0 ? { env: envObj } : {}),
+                    }
+                  }
+                  for (const h of mcpHttpServers) {
+                    mcpServers[`http-${Object.keys(mcpServers).length + 1}`] = {
+                      url: h.url || '',
+                      ...(h.token ? { token: h.token } : {}),
+                    }
+                  }
+                  setMcpRawJson(JSON.stringify({ mcpServers }, null, 2))
+                }
+                setMcpJsonMode(!mcpJsonMode)
+              }}>
+                <i className={`fas ${mcpJsonMode ? 'fa-list' : 'fa-code'}`} />
+                {mcpJsonMode ? ' Form Editor' : ' JSON Editor'}
+              </button>
+              <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
+                {mcpJsonMode ? 'Edit as Claude Desktop JSON format' : 'Configure MCP servers visually'}
+              </span>
+            </div>
+
+            {mcpJsonMode ? (
+              <div className="form-group">
+                <label className="form-label">MCP Configuration (Claude Desktop format)</label>
+                <textarea
+                  className="input"
+                  value={mcpRawJson}
+                  onChange={(e) => setMcpRawJson(e.target.value)}
+                  rows={16}
+                  style={{ fontFamily: 'monospace', fontSize: '0.85rem', whiteSpace: 'pre' }}
+                  placeholder={'{\n  "mcpServers": {\n    "my-server": {\n      "command": "npx",\n      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"],\n      "env": {}\n    }\n  }\n}'}
+                />
+              </div>
+            ) : (
+              <>
+                {/* Other MCP metadata fields (mcp_prepare_script, etc.) */}
+                {renderFieldSection('MCP')}
 
             {/* STDIO Servers */}
             <div style={{ marginTop: 'var(--spacing-lg)' }}>
@@ -543,6 +726,8 @@ export default function AgentCreate() {
                 <i className="fas fa-plus" /> Add HTTP Server
               </button>
             </div>
+              </>
+            )}
           </>
         )
 

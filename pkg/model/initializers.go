@@ -50,6 +50,15 @@ func (ml *ModelLoader) grpcModel(backend string, o *Options) func(string, string
 
 		xlog.Debug("Loading Model with gRPC", "modelID", modelID, "file", modelFile, "backend", backend, "options", *o)
 
+		// Distributed mode: delegate to the model router if set
+		ml.mu.Lock()
+		router := ml.modelRouter
+		ml.mu.Unlock()
+		if router != nil {
+			xlog.Info("Routing model to remote node via ModelRouter", "modelID", modelID, "backend", backend)
+			return router(o.context, backend, modelID, modelName, modelFile, o.gRPCOptions, o.parallelRequests)
+		}
+
 		var client *Model
 
 		getFreeAddress := func() (string, error) {
@@ -105,7 +114,7 @@ func (ml *ModelLoader) grpcModel(backend string, o *Options) func(string, string
 
 		// Wait for the service to start up
 		ready := false
-		for i := 0; i < o.grpcAttempts; i++ {
+		for i := range o.grpcAttempts {
 			alive, err := client.GRPC(o.parallelRequests, ml.wd).HealthCheck(context.Background())
 			if alive {
 				xlog.Debug("GRPC Service Ready")
@@ -199,7 +208,7 @@ func (ml *ModelLoader) enforceLRULimit() {
 	retryInterval := ml.lruEvictionRetryInterval
 	ml.mu.Unlock()
 
-	for attempt := 0; attempt < maxRetries; attempt++ {
+	for attempt := range maxRetries {
 		result := ml.wd.EnforceLRULimit(pendingLoads)
 
 		if !result.NeedMore {

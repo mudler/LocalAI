@@ -13,11 +13,15 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/http/auth"
-	"github.com/mudler/LocalAI/core/services"
+	"github.com/mudler/LocalAI/core/services/galleryop"
+	"github.com/mudler/LocalAI/core/services/jobs"
+	"github.com/mudler/LocalAI/core/services/nodes"
+	"github.com/mudler/LocalAI/core/services/storage"
 	coreStartup "github.com/mudler/LocalAI/core/startup"
 	"github.com/mudler/LocalAI/internal"
 
 	"github.com/mudler/LocalAI/pkg/model"
+	"github.com/mudler/LocalAI/pkg/sanitize"
 	"github.com/mudler/LocalAI/pkg/xsysinfo"
 	"github.com/mudler/xlog"
 )
@@ -101,7 +105,7 @@ func New(opts ...config.AppOption) (*Application, error) {
 			return nil, fmt.Errorf("failed to initialize auth database: %w", err)
 		}
 		application.authDB = authDB
-		xlog.Info("Auth enabled", "database", options.Auth.DatabaseURL)
+		xlog.Info("Auth enabled", "database", sanitize.URL(options.Auth.DatabaseURL))
 
 		// Start session and expired API key cleanup goroutine
 		go func() {
@@ -123,12 +127,92 @@ func New(opts ...config.AppOption) (*Application, error) {
 		}()
 	}
 
+	// Wire JobStore for DB-backed task/job persistence whenever auth DB is available.
+	// This ensures tasks and jobs survive restarts in both single-node and distributed modes.
+	if application.authDB != nil && application.agentJobService != nil {
+		dbJobStore, err := jobs.NewJobStore(application.authDB)
+		if err != nil {
+			xlog.Error("Failed to create job store for auth DB", "error", err)
+		} else {
+			application.agentJobService.SetDistributedJobStore(dbJobStore)
+		}
+	}
+
+	// Initialize distributed mode services (NATS, object storage, node registry)
+	distSvc, err := initDistributed(options, application.authDB)
+	if err != nil {
+		return nil, fmt.Errorf("distributed mode initialization failed: %w", err)
+	}
+	if distSvc != nil {
+		application.distributed = distSvc
+		// Wire remote model unloader so ShutdownModel works for remote nodes
+		// Uses NATS to tell serve-backend nodes to Free + kill their backend process
+		application.modelLoader.SetRemoteUnloader(distSvc.Unloader)
+		// Wire ModelRouter so grpcModel() delegates to SmartRouter in distributed mode
+		application.modelLoader.SetModelRouter(distSvc.ModelAdapter.AsModelRouter())
+		// Wire DistributedModelStore so shutdown/list/watchdog can find remote models
+		distStore := nodes.NewDistributedModelStore(
+			model.NewInMemoryModelStore(),
+			distSvc.Registry,
+		)
+		application.modelLoader.SetModelStore(distStore)
+		// Start health monitor
+		distSvc.Health.Start(options.Context)
+		// In distributed mode, MCP CI jobs are executed by agent workers (not the frontend)
+		// because the frontend can't create MCP sessions (e.g., stdio servers using docker).
+		// The dispatcher still subscribes to jobs.new for persistence (result/progress subs)
+		// but does NOT set a workerFn — agent workers consume jobs from the same NATS queue.
+
+		// Wire model config loader so job events include model config for agent workers
+		distSvc.Dispatcher.SetModelConfigLoader(application.backendLoader)
+
+		// Start job dispatcher — abort startup if it fails, as jobs would be accepted but never dispatched
+		if err := distSvc.Dispatcher.Start(options.Context); err != nil {
+			return nil, fmt.Errorf("starting job dispatcher: %w", err)
+		}
+		// Start ephemeral file cleanup
+		storage.StartEphemeralCleanup(options.Context, distSvc.FileMgr, 0, 0)
+		// Wire distributed backends into AgentJobService (before Start)
+		if application.agentJobService != nil {
+			application.agentJobService.SetDistributedBackends(distSvc.Dispatcher)
+			application.agentJobService.SetDistributedJobStore(distSvc.JobStore)
+		}
+		// Wire skill store into AgentPoolService (wired at pool start time via closure)
+		// The actual wiring happens in StartAgentPool since the pool doesn't exist yet.
+
+		// Wire NATS and gallery store into GalleryService for cross-instance progress/cancel
+		if application.galleryService != nil {
+			application.galleryService.SetNATSClient(distSvc.Nats)
+			if distSvc.DistStores != nil && distSvc.DistStores.Gallery != nil {
+				// Clean up stale in-progress operations from previous crashed instances
+				if err := distSvc.DistStores.Gallery.CleanStale(30 * time.Minute); err != nil {
+					xlog.Warn("Failed to clean stale gallery operations", "error", err)
+				}
+				application.galleryService.SetGalleryStore(distSvc.DistStores.Gallery)
+			}
+			// Wire distributed model/backend managers so delete propagates to workers
+			application.galleryService.SetModelManager(
+				nodes.NewDistributedModelManager(options, application.modelLoader, distSvc.Unloader),
+			)
+			application.galleryService.SetBackendManager(
+				nodes.NewDistributedBackendManager(options, application.modelLoader, distSvc.Unloader, distSvc.Registry),
+			)
+		}
+	}
+
+	// Start AgentJobService (after distributed wiring so it knows whether to use local or NATS)
+	if application.agentJobService != nil {
+		if err := application.agentJobService.Start(options.Context); err != nil {
+			return nil, fmt.Errorf("starting agent job service: %w", err)
+		}
+	}
+
 	if err := coreStartup.InstallModels(options.Context, application.GalleryService(), options.Galleries, options.BackendGalleries, options.SystemState, application.ModelLoader(), options.EnforcePredownloadScans, options.AutoloadBackendGalleries, nil, options.ModelsURL...); err != nil {
 		xlog.Error("error installing models", "error", err)
 	}
 
 	for _, backend := range options.ExternalBackends {
-		if err := services.InstallExternalBackend(options.Context, options.BackendGalleries, options.SystemState, application.ModelLoader(), nil, backend, "", ""); err != nil {
+		if err := galleryop.InstallExternalBackend(options.Context, options.BackendGalleries, options.SystemState, application.ModelLoader(), nil, backend, "", ""); err != nil {
 			xlog.Error("error installing external backend", "error", err)
 		}
 	}
@@ -154,13 +238,13 @@ func New(opts ...config.AppOption) (*Application, error) {
 	}
 
 	if options.PreloadJSONModels != "" {
-		if err := services.ApplyGalleryFromString(options.SystemState, application.ModelLoader(), options.EnforcePredownloadScans, options.AutoloadBackendGalleries, options.Galleries, options.BackendGalleries, options.PreloadJSONModels); err != nil {
+		if err := galleryop.ApplyGalleryFromString(options.SystemState, application.ModelLoader(), options.EnforcePredownloadScans, options.AutoloadBackendGalleries, options.Galleries, options.BackendGalleries, options.PreloadJSONModels); err != nil {
 			return nil, err
 		}
 	}
 
 	if options.PreloadModelsFromPath != "" {
-		if err := services.ApplyGalleryFromFile(options.SystemState, application.ModelLoader(), options.EnforcePredownloadScans, options.AutoloadBackendGalleries, options.Galleries, options.BackendGalleries, options.PreloadModelsFromPath); err != nil {
+		if err := galleryop.ApplyGalleryFromFile(options.SystemState, application.ModelLoader(), options.EnforcePredownloadScans, options.AutoloadBackendGalleries, options.Galleries, options.BackendGalleries, options.PreloadModelsFromPath); err != nil {
 			return nil, err
 		}
 	}
@@ -184,6 +268,7 @@ func New(opts ...config.AppOption) (*Application, error) {
 	go func() {
 		<-options.Context.Done()
 		xlog.Debug("Context canceled, shutting down")
+		application.distributed.Shutdown()
 		err := application.ModelLoader().StopAllGRPC()
 		if err != nil {
 			xlog.Error("error while stopping all grpc backends", "error", err)
@@ -207,7 +292,7 @@ func New(opts ...config.AppOption) (*Application, error) {
 			var backendErr error
 			_, backendErr = application.ModelLoader().Load(o...)
 			if backendErr != nil {
-				return nil, err
+				return nil, backendErr
 			}
 		}
 	}

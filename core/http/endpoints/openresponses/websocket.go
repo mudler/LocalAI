@@ -262,9 +262,9 @@ func handleWSResponseCreate(connCtx context.Context, conn *lockedConn, input *sc
 		noActionGrammar := functions.Function{
 			Name:        noActionName,
 			Description: noActionDescription,
-			Parameters: map[string]interface{}{
-				"properties": map[string]interface{}{
-					"message": map[string]interface{}{
+			Parameters: map[string]any{
+				"properties": map[string]any{
+					"message": map[string]any{
 						"type":        "string",
 						"description": "The message to reply the user with",
 					},
