@@ -33,6 +33,29 @@ import (
 	"github.com/mudler/xlog"
 )
 
+// isPathAllowed checks if path is within one of the allowed directories.
+func isPathAllowed(path string, allowedDirs []string) bool {
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return false
+	}
+	resolved, err := filepath.EvalSymlinks(absPath)
+	if err != nil {
+		// Path may not exist yet; use the absolute path
+		resolved = absPath
+	}
+	for _, dir := range allowedDirs {
+		absDir, err := filepath.Abs(dir)
+		if err != nil {
+			continue
+		}
+		if strings.HasPrefix(resolved, absDir+string(filepath.Separator)) || resolved == absDir {
+			return true
+		}
+	}
+	return false
+}
+
 // WorkerCMD starts a generic worker process for distributed mode.
 // Workers are backend-agnostic — they wait for backend.install NATS events
 // from the SmartRouter to install and start the required backend.
@@ -118,8 +141,6 @@ func (cmd *WorkerCMD) Run(ctx *cliContext.Context) error {
 	shutdownCtx, shutdownCancel := context.WithCancel(context.Background())
 	defer shutdownCancel()
 
-	go regClient.HeartbeatLoop(shutdownCtx, nodeID, heartbeatInterval, cmd.heartbeatBody)
-
 	// Start HTTP file transfer server
 	httpAddr := cmd.resolveHTTPAddr()
 	stagingDir := filepath.Join(cmd.ModelsPath, "..", "staging")
@@ -137,6 +158,27 @@ func (cmd *WorkerCMD) Run(ctx *cliContext.Context) error {
 		return fmt.Errorf("connecting to NATS: %w", err)
 	}
 	defer natsClient.Close()
+
+	// Start heartbeat goroutine (after NATS is connected so IsConnected check works)
+	go func() {
+		ticker := time.NewTicker(heartbeatInterval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-shutdownCtx.Done():
+				return
+			case <-ticker.C:
+				if !natsClient.IsConnected() {
+					xlog.Warn("Skipping heartbeat: NATS disconnected")
+					continue
+				}
+				body := cmd.heartbeatBody()
+				if err := regClient.Heartbeat(shutdownCtx, nodeID, body); err != nil {
+					xlog.Warn("Heartbeat failed", "error", err)
+				}
+			}
+		}
+	}()
 
 	// Process supervisor — manages multiple backend gRPC processes on different ports
 	basePort := 50051
@@ -239,6 +281,15 @@ func (cmd *WorkerCMD) subscribeFileStaging(natsClient messaging.MessagingClient,
 		}
 		if err := json.Unmarshal(data, &req); err != nil {
 			replyJSON(reply, map[string]string{"error": "invalid request"})
+			return
+		}
+
+		allowedDirs := []string{cacheDir}
+		if cmd.ModelsPath != "" {
+			allowedDirs = append(allowedDirs, cmd.ModelsPath)
+		}
+		if !isPathAllowed(req.LocalPath, allowedDirs) {
+			replyJSON(reply, map[string]string{"error": "path outside allowed directories"})
 			return
 		}
 
@@ -450,9 +501,9 @@ func (s *backendSupervisor) stopBackend(backend string) {
 
 	// Network I/O outside the lock
 	client := grpc.NewClientWithToken(bp.addr, false, nil, false, s.cmd.RegistrationToken)
-	if freeFunc, ok := client.(interface{ Free() error }); ok {
+	if freeFunc, ok := client.(interface{ Free(context.Context) error }); ok {
 		xlog.Debug("Calling Free() before stopping backend", "backend", backend)
-		if err := freeFunc.Free(); err != nil {
+		if err := freeFunc.Free(context.Background()); err != nil {
 			xlog.Warn("Free() failed (best-effort)", "backend", backend, "error", err)
 		}
 	}
@@ -698,8 +749,8 @@ func (s *backendSupervisor) subscribeLifecycleEvents() {
 		if targetAddr != "" {
 			// Best-effort gRPC Free()
 			client := grpc.NewClientWithToken(targetAddr, false, nil, false, s.cmd.RegistrationToken)
-			if freeFunc, ok := client.(interface{ Free() error }); ok {
-				if err := freeFunc.Free(); err != nil {
+			if freeFunc, ok := client.(interface{ Free(context.Context) error }); ok {
+				if err := freeFunc.Free(context.Background()); err != nil {
 					xlog.Warn("Free() failed during model.unload", "error", err, "addr", targetAddr)
 				}
 			}

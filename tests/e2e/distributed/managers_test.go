@@ -132,8 +132,8 @@ var _ = Describe("Model and Backend Managers", Label("Distributed"), func() {
 			node2 := &nodes.BackendNode{Name: "dm-n2", Address: "h2:50051"}
 			Expect(registry.Register(context.Background(), node1, true)).To(Succeed())
 			Expect(registry.Register(context.Background(), node2, true)).To(Succeed())
-			Expect(registry.SetNodeModel(context.Background(), node1.ID, "big-model", "loaded")).To(Succeed())
-			Expect(registry.SetNodeModel(context.Background(), node2.ID, "big-model", "loaded")).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), node1.ID, "big-model", "loaded", "", 0)).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), node2.ID, "big-model", "loaded", "", 0)).To(Succeed())
 
 			// Subscribe to model.delete on both node subjects, track receipt
 			var deleteCount atomic.Int32

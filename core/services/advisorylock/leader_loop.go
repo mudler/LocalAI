@@ -2,6 +2,7 @@ package advisorylock
 
 import (
 	"context"
+	"runtime/debug"
 	"time"
 
 	"github.com/mudler/xlog"
@@ -21,13 +22,20 @@ func RunLeaderLoop(ctx context.Context, db *gorm.DB, lockKey int64, interval tim
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			_, err := TryWithLockCtx(ctx, db, lockKey, func() error {
-				fn()
-				return nil
-			})
-			if err != nil {
-				xlog.Error("Leader loop advisory lock error", "key", lockKey, "error", err)
-			}
+			func() {
+				defer func() {
+					if r := recover(); r != nil {
+						xlog.Error("Leader loop callback panicked", "key", lockKey, "panic", r, "stack", string(debug.Stack()))
+					}
+				}()
+				_, err := TryWithLockCtx(ctx, db, lockKey, func() error {
+					fn()
+					return nil
+				})
+				if err != nil {
+					xlog.Error("Leader loop advisory lock error", "key", lockKey, "error", err)
+				}
+			}()
 		}
 	}
 }

@@ -97,7 +97,7 @@ var _ = Describe("DistributedModelStore", Label("Distributed"), func() {
 				Name: "range-node", Address: "range:9000",
 			}
 			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
-			Expect(registry.SetNodeModel(context.Background(), node.ID, "db-only-model", "loaded")).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), node.ID, "db-only-model", "loaded", "", 0)).To(Succeed())
 
 			visited := map[string]bool{}
 			dStore.Range(func(id string, m *model.Model) bool {
@@ -112,7 +112,7 @@ var _ = Describe("DistributedModelStore", Label("Distributed"), func() {
 				Name: "dup-node", Address: "dup:9000",
 			}
 			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
-			Expect(registry.SetNodeModel(context.Background(), node.ID, "shared-model", "loaded")).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), node.ID, "shared-model", "loaded", "", 0)).To(Succeed())
 
 			// Also in local store
 			localStore.Set("shared-model", model.NewModel("shared-model", "dup:9000", nil))

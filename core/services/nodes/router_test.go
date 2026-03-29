@@ -117,12 +117,8 @@ func (f *fakeModelRouter) TouchNodeModel(_ context.Context, nodeID, modelName st
 	f.touchCalls = append(f.touchCalls, nodeID+":"+modelName)
 }
 
-func (f *fakeModelRouter) SetNodeModel(_ context.Context, nodeID, modelName, state string, address ...string) error {
-	addr := ""
-	if len(address) > 0 {
-		addr = address[0]
-	}
-	f.setCalls = append(f.setCalls, fmt.Sprintf("%s:%s:%s:%s", nodeID, modelName, state, addr))
+func (f *fakeModelRouter) SetNodeModel(_ context.Context, nodeID, modelName, state, address string, _ int) error {
+	f.setCalls = append(f.setCalls, fmt.Sprintf("%s:%s:%s:%s", nodeID, modelName, state, address))
 	return nil
 }
 
@@ -510,7 +506,7 @@ var _ = Describe("SmartRouter", func() {
 			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
 
 			// Load a model and give it in-flight requests so it cannot be evicted
-			Expect(registry.SetNodeModel(context.Background(), node.ID, "busy-model", "loaded")).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), node.ID, "busy-model", "loaded", "", 0)).To(Succeed())
 			Expect(registry.IncrementInFlight(context.Background(), node.ID, "busy-model")).To(Succeed())
 
 			router := NewSmartRouter(registry, SmartRouterOptions{DB: db})
@@ -531,7 +527,7 @@ var _ = Describe("SmartRouter", func() {
 				Address:  "10.0.0.101:50051",
 			}
 			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
-			Expect(registry.SetNodeModel(context.Background(), node.ID, "cancel-model", "loaded")).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), node.ID, "cancel-model", "loaded", "", 0)).To(Succeed())
 			Expect(registry.IncrementInFlight(context.Background(), node.ID, "cancel-model")).To(Succeed())
 
 			router := NewSmartRouter(registry, SmartRouterOptions{DB: db})

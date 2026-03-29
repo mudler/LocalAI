@@ -191,7 +191,7 @@ func (r *SmartRouter) Route(ctx context.Context, modelID, modelName, backendType
 		}
 
 		// Record the model as loaded on this node with its per-process address
-		if err := r.registry.SetNodeModel(ctx, node.ID, trackingKey, "loaded", backendAddr); err != nil {
+		if err := r.registry.SetNodeModel(ctx, node.ID, trackingKey, "loaded", backendAddr, 1); err != nil {
 			xlog.Warn("Failed to record model on node", "node", node.Name, "model", trackingKey, "error", err)
 		}
 
@@ -200,6 +200,7 @@ func (r *SmartRouter) Route(ctx context.Context, modelID, modelName, backendType
 			Node:   node,
 			Client: tracked,
 			Release: func() {
+				r.registry.DecrementInFlight(context.Background(), node.ID, trackingKey)
 				closeClient(client)
 			},
 		}, nil

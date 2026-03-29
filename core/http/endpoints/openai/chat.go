@@ -59,10 +59,7 @@ func mergeToolCallDeltas(existing []schema.ToolCall, deltas []schema.ToolCall) [
 // @Success 200 {object} schema.OpenAIResponse "Response"
 // @Router /v1/chat/completions [post]
 func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator *templates.Evaluator, startupOptions *config.ApplicationConfig, natsClient mcpTools.MCPNATSClient) echo.HandlerFunc {
-	var id, textContentToReturn string
-	var created int
-
-	process := func(s string, req *schema.OpenAIRequest, config *config.ModelConfig, loader *model.ModelLoader, responses chan schema.OpenAIResponse, extraUsage bool) error {
+	process := func(s string, req *schema.OpenAIRequest, config *config.ModelConfig, loader *model.ModelLoader, responses chan schema.OpenAIResponse, extraUsage bool, id string, created int) error {
 		initialMessage := schema.OpenAIResponse{
 			ID:      id,
 			Created: created,
@@ -119,7 +116,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 		close(responses)
 		return err
 	}
-	processTools := func(noAction string, prompt string, req *schema.OpenAIRequest, config *config.ModelConfig, loader *model.ModelLoader, responses chan schema.OpenAIResponse, extraUsage bool) error {
+	processTools := func(noAction string, prompt string, req *schema.OpenAIRequest, config *config.ModelConfig, loader *model.ModelLoader, responses chan schema.OpenAIResponse, extraUsage bool, id string, created int, textContentToReturn *string) error {
 		// Detect if thinking token is already in prompt or template
 		var template string
 		if config.TemplateConfig.UseTokenizerTemplate {
@@ -308,18 +305,18 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 			xlog.Debug("[ChatDeltas] Using pre-parsed tool calls from C++ autoparser", "count", len(deltaToolCalls))
 			functionResults = deltaToolCalls
 			// Use content/reasoning from deltas too
-			textContentToReturn = functions.ContentFromChatDeltas(chatDeltas)
+			*textContentToReturn = functions.ContentFromChatDeltas(chatDeltas)
 			reasoning = functions.ReasoningFromChatDeltas(chatDeltas)
 		} else {
 			// Fallback: parse tool calls from raw text (no chat deltas from backend)
 			xlog.Debug("[ChatDeltas] no pre-parsed tool calls, falling back to Go-side text parsing")
 			reasoning = extractor.Reasoning()
 			cleanedResult := extractor.CleanedContent()
-			textContentToReturn = functions.ParseTextContent(cleanedResult, config.FunctionsConfig)
+			*textContentToReturn = functions.ParseTextContent(cleanedResult, config.FunctionsConfig)
 			cleanedResult = functions.CleanupLLMResult(cleanedResult, config.FunctionsConfig)
 			functionResults = functions.ParseFunctionCall(cleanedResult, config.FunctionsConfig)
 		}
-		xlog.Debug("[ChatDeltas] final tool call decision", "tool_calls", len(functionResults), "text_content", textContentToReturn)
+		xlog.Debug("[ChatDeltas] final tool call decision", "tool_calls", len(functionResults), "text_content", *textContentToReturn)
 		noActionToRun := len(functionResults) > 0 && functionResults[0].Name == noAction || len(functionResults) == 0
 
 		switch {
@@ -412,7 +409,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 					Choices: []schema.Choice{{
 						Delta: &schema.Message{
 							Role:    "assistant",
-							Content: &textContentToReturn,
+							Content: textContentToReturn,
 							ToolCalls: []schema.ToolCall{
 								{
 									Index: i,
@@ -437,9 +434,9 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 	}
 
 	return func(c echo.Context) error {
-		textContentToReturn = ""
-		id = uuid.New().String()
-		created = int(time.Now().Unix())
+		var textContentToReturn string
+		id := uuid.New().String()
+		created := int(time.Now().Unix())
 
 		input, ok := c.Get(middleware.CONTEXT_LOCALS_KEY_LOCALAI_REQUEST).(*schema.OpenAIRequest)
 		if !ok || input.Model == "" {
@@ -666,9 +663,9 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 
 				go func() {
 					if !shouldUseFn {
-						ended <- process(predInput, input, config, ml, responses, extraUsage)
+						ended <- process(predInput, input, config, ml, responses, extraUsage, id, created)
 					} else {
-						ended <- processTools(noActionName, predInput, input, config, ml, responses, extraUsage)
+						ended <- processTools(noActionName, predInput, input, config, ml, responses, extraUsage, id, created, &textContentToReturn)
 					}
 				}()
 
@@ -745,6 +742,14 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 
 						return nil
 					}
+				}
+
+				// Drain responses channel to unblock the background goroutine if it's
+				// still trying to send (e.g., after client disconnect). The goroutine
+				// calls close(responses) when done, which terminates the drain.
+				if input.Context.Err() != nil {
+					go func() { for range responses {} }()
+					<-ended
 				}
 
 				// MCP streaming tool execution: if we collected MCP tool calls, execute and loop

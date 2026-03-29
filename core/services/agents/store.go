@@ -1,6 +1,7 @@
 package agents
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"time"
@@ -51,7 +52,7 @@ type AgentStore struct {
 // Uses a PostgreSQL advisory lock to prevent concurrent migration races
 // when multiple instances (frontend + workers) start at the same time.
 func NewAgentStore(db *gorm.DB) (*AgentStore, error) {
-	if err := advisorylock.WithLock(db, advisorylock.KeySchemaMigrate, func() error {
+	if err := advisorylock.WithLockCtx(context.Background(), db, advisorylock.KeySchemaMigrate, func() error {
 		return db.AutoMigrate(&AgentConfigRecord{}, &AgentObservableRecord{})
 	}); err != nil {
 		return nil, fmt.Errorf("migrating agent tables: %w", err)

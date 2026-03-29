@@ -768,6 +768,27 @@ func (c *Client) StopQuantization(ctx context.Context, in *pb.QuantizationStopRe
 	return client.StopQuantization(ctx, in, opts...)
 }
 
+func (c *Client) Free(ctx context.Context) error {
+	if !c.parallel {
+		c.opMutex.Lock()
+		defer c.opMutex.Unlock()
+	}
+	c.setBusy(true)
+	defer c.setBusy(false)
+	c.wdMark()
+	defer c.wdUnMark()
+
+	conn, err := c.dial()
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	client := pb.NewBackendClient(conn)
+	_, err = client.Free(ctx, &pb.HealthMessage{})
+	return err
+}
+
 func (c *Client) ModelMetadata(ctx context.Context, in *pb.ModelOptions, opts ...grpc.CallOption) (*pb.ModelMetadataResponse, error) {
 	if !c.parallel {
 		c.opMutex.Lock()

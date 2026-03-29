@@ -1,6 +1,7 @@
 package jobs
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"time"
@@ -65,7 +66,7 @@ type JobStore struct {
 // Uses a PostgreSQL advisory lock to prevent concurrent migration races
 // when multiple instances (frontend + workers) start at the same time.
 func NewJobStore(db *gorm.DB) (*JobStore, error) {
-	if err := advisorylock.WithLock(db, advisorylock.KeySchemaMigrate, func() error {
+	if err := advisorylock.WithLockCtx(context.Background(), db, advisorylock.KeySchemaMigrate, func() error {
 		return db.AutoMigrate(&TaskRecord{}, &JobRecord{})
 	}); err != nil {
 		return nil, fmt.Errorf("migrating job tables: %w", err)
@@ -231,7 +232,24 @@ func (s *JobStore) UpdateJobStatus(id, status, result, errMsg string) error {
 	if status == "completed" || status == "failed" || status == "cancelled" {
 		updates["completed_at"] = &now
 	}
-	return s.db.Model(&JobRecord{}).Where("id = ?", id).Updates(updates).Error
+	return s.db.Model(&JobRecord{}).
+		Where("id = ? AND status NOT IN ?", id, []string{"completed", "failed", "cancelled"}).
+		Updates(updates).Error
+}
+
+// ReapStuckJobs marks jobs that have been running longer than maxAge as failed.
+// This recovers from worker crashes where no result event was ever published.
+func (s *JobStore) ReapStuckJobs(maxAge time.Duration) (int64, error) {
+	cutoff := time.Now().Add(-maxAge)
+	result := s.db.Model(&JobRecord{}).
+		Where("status = ? AND started_at IS NOT NULL AND started_at < ?", "running", cutoff).
+		Updates(map[string]any{
+			"status":       "failed",
+			"error":        "job timed out (worker may have crashed)",
+			"completed_at": time.Now(),
+			"updated_at":   time.Now(),
+		})
+	return result.RowsAffected, result.Error
 }
 
 // UpdateJobTraces updates the traces JSON for a job.

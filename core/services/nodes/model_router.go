@@ -57,6 +57,9 @@ func (a *ModelRouterAdapter) Route(ctx context.Context, backend, modelID, modelN
 
 	// Store release function for cleanup on unload
 	a.mu.Lock()
+	if oldRelease, ok := a.release[modelID]; ok {
+		go oldRelease() // clean up previous route in background
+	}
 	a.release[modelID] = result.Release
 	a.mu.Unlock()
 

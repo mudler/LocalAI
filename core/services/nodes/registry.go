@@ -77,7 +77,7 @@ type NodeRegistry struct {
 // Uses a PostgreSQL advisory lock to prevent concurrent migration races
 // when multiple instances (frontend + workers) start at the same time.
 func NewNodeRegistry(db *gorm.DB) (*NodeRegistry, error) {
-	if err := advisorylock.WithLock(db, advisorylock.KeySchemaMigrate, func() error {
+	if err := advisorylock.WithLockCtx(context.Background(), db, advisorylock.KeySchemaMigrate, func() error {
 		return db.AutoMigrate(&BackendNode{}, &NodeModel{})
 	}); err != nil {
 		return nil, fmt.Errorf("migrating node tables: %w", err)
@@ -365,11 +365,7 @@ func (r *NodeRegistry) FindStaleNodes(ctx context.Context, threshold time.Durati
 // --- NodeModel operations ---
 
 // SetNodeModel records that a model is loaded on a node.
-func (r *NodeRegistry) SetNodeModel(ctx context.Context, nodeID, modelName, state string, address ...string) error {
-	addr := ""
-	if len(address) > 0 {
-		addr = address[0]
-	}
+func (r *NodeRegistry) SetNodeModel(ctx context.Context, nodeID, modelName, state, address string, initialInFlight int) error {
 	now := time.Now()
 	// Use Attrs for creation-only fields (ID) and Assign for update-only fields.
 	// Attrs is applied only when creating a new record. Assign is applied on
@@ -378,7 +374,7 @@ func (r *NodeRegistry) SetNodeModel(ctx context.Context, nodeID, modelName, stat
 	var nm NodeModel
 	result := r.db.WithContext(ctx).Where("node_id = ? AND model_name = ?", nodeID, modelName).
 		Attrs(NodeModel{ID: uuid.New().String(), NodeID: nodeID, ModelName: modelName}).
-		Assign(map[string]any{"address": addr, "state": state, "last_used": now}).
+		Assign(map[string]any{"address": address, "state": state, "last_used": now, "in_flight": initialInFlight}).
 		FirstOrCreate(&nm)
 	return result.Error
 }

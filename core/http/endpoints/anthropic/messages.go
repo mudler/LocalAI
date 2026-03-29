@@ -434,7 +434,14 @@ func handleAnthropicStream(c echo.Context, id string, input *schema.AnthropicReq
 		_, tokenUsage, chatDeltas, err := openaiEndpoint.ComputeChoices(openAIReq, predInput, cfg, cl, appConfig, ml, func(s string, c *[]schema.Choice) {}, tokenCallback)
 		if err != nil {
 			xlog.Error("Anthropic stream model inference failed", "error", err)
-			return sendAnthropicError(c, 500, "api_error", fmt.Sprintf("model inference failed: %v", err))
+			sendAnthropicSSE(c, schema.AnthropicStreamEvent{
+				Type: "error",
+				Error: &schema.AnthropicError{
+					Type:    "api_error",
+					Message: fmt.Sprintf("model inference failed: %v", err),
+				},
+			})
+			return nil
 		}
 
 		// Also check chat deltas for tool calls

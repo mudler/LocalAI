@@ -329,8 +329,8 @@ var _ = Describe("Full Distributed Inference Flow", Label("Distributed"), func()
 		Expect(registry.Register(context.Background(), node2, true)).To(Succeed())
 
 		// Set both as having the model loaded
-		Expect(registry.SetNodeModel(context.Background(), node1.ID, "test-model", "loaded")).To(Succeed())
-		Expect(registry.SetNodeModel(context.Background(), node2.ID, "test-model", "loaded")).To(Succeed())
+		Expect(registry.SetNodeModel(context.Background(), node1.ID, "test-model", "loaded", "", 0)).To(Succeed())
+		Expect(registry.SetNodeModel(context.Background(), node2.ID, "test-model", "loaded", "", 0)).To(Succeed())
 
 		// Set node-1 with high in-flight (5), node-2 with low in-flight (1)
 		for range 5 {
@@ -380,7 +380,7 @@ var _ = Describe("Full Distributed Inference Flow", Label("Distributed"), func()
 		// Register a node with a loaded model
 		node := &nodes.BackendNode{Name: "gpu-unload", Address: "127.0.0.1:50099"}
 		Expect(registry.Register(context.Background(), node, true)).To(Succeed())
-		Expect(registry.SetNodeModel(context.Background(), node.ID, "old-model", "loaded")).To(Succeed())
+		Expect(registry.SetNodeModel(context.Background(), node.ID, "old-model", "loaded", "", 0)).To(Succeed())
 
 		// Subscribe to NATS backend.stop for this node
 		stopSubject := messaging.SubjectNodeBackendStop(node.ID)

@@ -139,11 +139,21 @@ var _ = Describe("SmartRouter trackingKey", Label("Distributed"), func() {
 		Expect(err).ToNot(HaveOccurred())
 		defer result.Release()
 
+		// Read the baseline in-flight count (Route sets initialInFlight=1)
+		models, err := registry.GetNodeModels(context.Background(), nodeID)
+		Expect(err).ToNot(HaveOccurred())
+		var baseline int
+		for _, m := range models {
+			if m.ModelName == "release-model" {
+				baseline = m.InFlight
+			}
+		}
+
 		// Manually increment in-flight (simulates what InFlightTrackingClient.track() does during inference)
 		Expect(registry.IncrementInFlight(context.Background(), nodeID, "release-model")).To(Succeed())
 
-		// Check in-flight is > 0
-		models, err := registry.GetNodeModels(context.Background(), nodeID)
+		// Check in-flight increased
+		models, err = registry.GetNodeModels(context.Background(), nodeID)
 		Expect(err).ToNot(HaveOccurred())
 		var inflight int
 		for _, m := range models {
@@ -151,16 +161,16 @@ var _ = Describe("SmartRouter trackingKey", Label("Distributed"), func() {
 				inflight = m.InFlight
 			}
 		}
-		Expect(inflight).To(BeNumerically(">", 0))
+		Expect(inflight).To(Equal(baseline + 1))
 
-		// Decrement and check in-flight goes back to 0
+		// Decrement and check in-flight goes back to baseline
 		Expect(registry.DecrementInFlight(context.Background(), nodeID, "release-model")).To(Succeed())
 
 		models, err = registry.GetNodeModels(context.Background(), nodeID)
 		Expect(err).ToNot(HaveOccurred())
 		for _, m := range models {
 			if m.ModelName == "release-model" {
-				Expect(m.InFlight).To(Equal(0))
+				Expect(m.InFlight).To(Equal(baseline))
 			}
 		}
 	})

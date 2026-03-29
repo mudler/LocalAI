@@ -121,6 +121,7 @@ type AnthropicStreamEvent struct {
 	Delta        *AnthropicStreamDelta   `json:"delta,omitempty"`
 	Message      *AnthropicStreamMessage `json:"message,omitempty"`
 	Usage        *AnthropicUsage         `json:"usage,omitempty"`
+	Error        *AnthropicError         `json:"error,omitempty"`
 }
 
 // AnthropicStreamDelta represents the delta in a streaming response

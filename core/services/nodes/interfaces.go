@@ -14,7 +14,7 @@ type ModelRouter interface {
 	IncrementInFlight(ctx context.Context, nodeID, modelName string) error
 	RemoveNodeModel(ctx context.Context, nodeID, modelName string) error
 	TouchNodeModel(ctx context.Context, nodeID, modelName string)
-	SetNodeModel(ctx context.Context, nodeID, modelName, state string, address ...string) error
+	SetNodeModel(ctx context.Context, nodeID, modelName, state, address string, initialInFlight int) error
 	FindNodeWithVRAM(ctx context.Context, minBytes uint64) (*BackendNode, error)
 	FindIdleNode(ctx context.Context) (*BackendNode, error)
 	FindLeastLoadedNode(ctx context.Context) (*BackendNode, error)

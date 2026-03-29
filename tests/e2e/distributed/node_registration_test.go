@@ -162,7 +162,7 @@ var _ = Describe("Phase 1: Node Registration", Label("Distributed"), func() {
 		})
 
 		It("should track models loaded on a node", func() {
-			err := registry.SetNodeModel(context.Background(), nodeID, "llama3", "loaded")
+			err := registry.SetNodeModel(context.Background(), nodeID, "llama3", "loaded", "", 0)
 			Expect(err).ToNot(HaveOccurred())
 
 			models, err := registry.GetNodeModels(context.Background(), nodeID)
@@ -173,7 +173,7 @@ var _ = Describe("Phase 1: Node Registration", Label("Distributed"), func() {
 		})
 
 		It("should find nodes with a specific model", func() {
-			registry.SetNodeModel(context.Background(), nodeID, "llama3", "loaded")
+			registry.SetNodeModel(context.Background(), nodeID, "llama3", "loaded", "", 0)
 
 			nodesWithModel, err := registry.FindNodesWithModel(context.Background(), "llama3")
 			Expect(err).ToNot(HaveOccurred())
@@ -182,7 +182,7 @@ var _ = Describe("Phase 1: Node Registration", Label("Distributed"), func() {
 		})
 
 		It("should increment and decrement in-flight counters", func() {
-			registry.SetNodeModel(context.Background(), nodeID, "llama3", "loaded")
+			registry.SetNodeModel(context.Background(), nodeID, "llama3", "loaded", "", 0)
 
 			err := registry.IncrementInFlight(context.Background(), nodeID, "llama3")
 			Expect(err).ToNot(HaveOccurred())
@@ -198,7 +198,7 @@ var _ = Describe("Phase 1: Node Registration", Label("Distributed"), func() {
 		})
 
 		It("should remove model association from node", func() {
-			registry.SetNodeModel(context.Background(), nodeID, "llama3", "loaded")
+			registry.SetNodeModel(context.Background(), nodeID, "llama3", "loaded", "", 0)
 			err := registry.RemoveNodeModel(context.Background(), nodeID, "llama3")
 			Expect(err).ToNot(HaveOccurred())
 
@@ -208,9 +208,9 @@ var _ = Describe("Phase 1: Node Registration", Label("Distributed"), func() {
 
 		It("should find LRU model on a node", func() {
 			// Load two models
-			registry.SetNodeModel(context.Background(), nodeID, "old-model", "loaded")
+			registry.SetNodeModel(context.Background(), nodeID, "old-model", "loaded", "", 0)
 			time.Sleep(10 * time.Millisecond)
-			registry.SetNodeModel(context.Background(), nodeID, "new-model", "loaded")
+			registry.SetNodeModel(context.Background(), nodeID, "new-model", "loaded", "", 0)
 
 			// Update last_used to make old-model older
 			db.Model(&nodes.NodeModel{}).Where("node_id = ? AND model_name = ?", nodeID, "old-model").
@@ -222,8 +222,8 @@ var _ = Describe("Phase 1: Node Registration", Label("Distributed"), func() {
 		})
 
 		It("should clean up models when deregistering node", func() {
-			registry.SetNodeModel(context.Background(), nodeID, "llama3", "loaded")
-			registry.SetNodeModel(context.Background(), nodeID, "whisper", "loaded")
+			registry.SetNodeModel(context.Background(), nodeID, "llama3", "loaded", "", 0)
+			registry.SetNodeModel(context.Background(), nodeID, "whisper", "loaded", "", 0)
 
 			err := registry.Deregister(context.Background(), nodeID)
 			Expect(err).ToNot(HaveOccurred())

@@ -8,6 +8,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/services/advisorylock"
+	"github.com/mudler/LocalAI/pkg/concurrency"
 	"github.com/mudler/LocalAI/core/services/dbutil"
 	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/xlog"
@@ -146,15 +147,13 @@ func (d *Dispatcher) Start(ctx context.Context) error {
 	var err error
 	if d.workerFn != nil {
 		d.jobSub, err = messaging.QueueSubscribeJSON(d.nats, messaging.SubjectJobsNew, messaging.QueueWorkers, func(evt JobEvent) {
-			if d.sem != nil {
-				d.sem <- struct{}{}
-			}
-			go func() {
+			concurrency.SafeGo(func() {
 				if d.sem != nil {
+					d.sem <- struct{}{}
 					defer func() { <-d.sem }()
 				}
 				d.processJob(evt)
-			}()
+			})
 		})
 		if err != nil {
 			return fmt.Errorf("subscribing to job queue: %w", err)
@@ -413,6 +412,15 @@ func (d *Dispatcher) cronLeaderLoop() {
 
 // runDueCronTasks checks all cron tasks and enqueues any that are due.
 func (d *Dispatcher) runDueCronTasks() {
+	// Reap jobs stuck in "running" state (worker crash recovery)
+	if d.store != nil {
+		if reaped, err := d.store.ReapStuckJobs(30 * time.Minute); err != nil {
+			xlog.Warn("Failed to reap stuck jobs", "error", err)
+		} else if reaped > 0 {
+			xlog.Info("Reaped stuck jobs", "count", reaped)
+		}
+	}
+
 	tasks, err := d.store.ListCronTasks()
 	if err != nil {
 		xlog.Error("Failed to list cron tasks", "error", err)

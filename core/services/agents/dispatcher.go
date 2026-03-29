@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/mudler/LocalAI/core/services/messaging"
+	"github.com/mudler/LocalAI/pkg/concurrency"
 
 	coreTypes "github.com/mudler/LocalAGI/core/types"
 	"github.com/mudler/cogito"
@@ -125,7 +126,7 @@ func (d *LocalDispatcher) Dispatch(userID, agentName, message string) (string, e
 	d.cancels[messageID] = cancel
 	d.cancelMu.Unlock()
 
-	go func() {
+	concurrency.SafeGo(func() {
 		defer func() {
 			d.cancelMu.Lock()
 			delete(d.cancels, messageID)
@@ -147,7 +148,7 @@ func (d *LocalDispatcher) Dispatch(userID, agentName, message string) (string, e
 		if execErr != nil {
 			xlog.Error("Local agent execution failed", "agent", agentName, "error", execErr)
 		}
-	}()
+	})
 
 	return messageID, nil
 }
@@ -268,13 +269,13 @@ func (d *NATSDispatcher) Start(ctx context.Context) error {
 			}
 		}
 		d.wg.Add(1)
-		go func() {
+		concurrency.SafeGo(func() {
 			defer d.wg.Done()
 			if d.sem != nil {
 				defer func() { <-d.sem }()
 			}
 			d.handleJob(ctx, evt)
-		}()
+		})
 	})
 	if err != nil {
 		return fmt.Errorf("subscribing to %s: %w", d.subject, err)

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"sync"
+	"sync/atomic"
 
 	"github.com/labstack/echo/v4"
 )
@@ -30,9 +31,13 @@ func (d *Dispatcher) SSEHandler() echo.HandlerFunc {
 		c.Response().Header().Set("Connection", "keep-alive")
 		c.Response().WriteHeader(http.StatusOK)
 
-		// Thread-safe event writer
+		// Thread-safe event writer with close guard to prevent writes after handler returns
 		var mu sync.Mutex
+		var closed atomic.Bool
 		sendEvent := func(event string, data any) {
+			if closed.Load() {
+				return
+			}
 			jsonData, err := json.Marshal(data)
 			if err != nil {
 				return
@@ -80,13 +85,13 @@ func (d *Dispatcher) SSEHandler() echo.HandlerFunc {
 			sendEvent("error", map[string]string{"error": "failed to subscribe"})
 			return nil
 		}
-		defer sub.Unsubscribe()
-
 		// Wait for client disconnect or terminal state
 		select {
 		case <-c.Request().Context().Done():
 		case <-done:
 		}
+		closed.Store(true)
+		sub.Unsubscribe()
 		return nil
 	}
 }

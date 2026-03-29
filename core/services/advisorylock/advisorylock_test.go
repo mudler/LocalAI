@@ -40,7 +40,7 @@ var _ = Describe("AdvisoryLock", func() {
 			for range 2 {
 				wg.Go(func() {
 					defer GinkgoRecover()
-					err := WithLock(db, lockKey, func() error {
+					err := WithLockCtx(context.Background(), db, lockKey, func() error {
 						cur := atomic.AddInt32(&running, 1)
 						mu.Lock()
 						if cur > maxRunning {
@@ -66,18 +66,22 @@ var _ = Describe("AdvisoryLock", func() {
 			Expect(concurrency).To(BeZero(), "detected concurrent execution inside advisory lock")
 		})
 
-		It("acquires and unlocks with TryLock", func() {
+		It("acquires and releases with TryWithLockCtx", func() {
 			const lockKey int64 = 888
 
-			acquired := TryLock(db, lockKey)
-			Expect(acquired).To(BeTrue(), "expected TryLock to acquire the lock")
+			acquired, err := TryWithLockCtx(context.Background(), db, lockKey, func() error {
+				// Lock is held here
+				return nil
+			})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(acquired).To(BeTrue(), "expected TryWithLockCtx to acquire the lock")
 
-			Unlock(db, lockKey)
-
-			reacquired := TryLock(db, lockKey)
-			Expect(reacquired).To(BeTrue(), "expected TryLock to re-acquire the lock after Unlock")
-
-			Unlock(db, lockKey)
+			// Lock released — should be re-acquirable
+			reacquired, err := TryWithLockCtx(context.Background(), db, lockKey, func() error {
+				return nil
+			})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(reacquired).To(BeTrue(), "expected TryWithLockCtx to re-acquire the lock")
 		})
 	})
 

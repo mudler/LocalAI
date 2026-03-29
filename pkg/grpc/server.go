@@ -441,6 +441,13 @@ func (s *server) ModelMetadata(ctx context.Context, in *pb.ModelOptions) (*pb.Mo
 	return res, nil
 }
 
+func (s *server) Free(ctx context.Context, in *pb.HealthMessage) (*pb.Result, error) {
+	if err := s.llm.Free(); err != nil {
+		return &pb.Result{Success: false, Message: err.Error()}, nil
+	}
+	return &pb.Result{Success: true}, nil
+}
+
 // NewBackendServer creates a pb.BackendServer.
 func NewBackendServer(model AIModel) pb.BackendServer {
 	return &server{llm: model}

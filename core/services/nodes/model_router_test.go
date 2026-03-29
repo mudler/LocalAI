@@ -46,7 +46,7 @@ func (f *fakeModelRouterForSmartRouter) RemoveNodeModel(_ context.Context, _, _ 
 	return nil
 }
 func (f *fakeModelRouterForSmartRouter) TouchNodeModel(_ context.Context, _, _ string) {}
-func (f *fakeModelRouterForSmartRouter) SetNodeModel(_ context.Context, _, _, _ string, _ ...string) error {
+func (f *fakeModelRouterForSmartRouter) SetNodeModel(_ context.Context, _, _, _, _ string, _ int) error {
 	return nil
 }
 func (f *fakeModelRouterForSmartRouter) FindNodeWithVRAM(_ context.Context, _ uint64) (*BackendNode, error) {

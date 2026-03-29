@@ -212,10 +212,14 @@ var _ = Describe("Phase 0: Foundation", Label("Distributed"), func() {
 		})
 
 		It("should acquire and release advisory lock", func() {
-			acquired := advisorylock.TryLock(db, 42)
+			executed := false
+			acquired, err := advisorylock.TryWithLockCtx(context.Background(), db, 42, func() error {
+				executed = true
+				return nil
+			})
+			Expect(err).ToNot(HaveOccurred())
 			Expect(acquired).To(BeTrue())
-
-			advisorylock.Unlock(db, 42)
+			Expect(executed).To(BeTrue())
 		})
 
 		It("should prevent concurrent acquisition", func() {
@@ -258,9 +262,9 @@ var _ = Describe("Phase 0: Foundation", Label("Distributed"), func() {
 			conn2.ExecContext(context.Background(), "SELECT pg_advisory_unlock($1)", int64(43))
 		})
 
-		It("should support WithLock for scoped locking", func() {
+		It("should support WithLockCtx for scoped locking", func() {
 			executed := false
-			err := advisorylock.WithLock(db, 44, func() error {
+			err := advisorylock.WithLockCtx(context.Background(), db, 44, func() error {
 				executed = true
 				return nil
 			})

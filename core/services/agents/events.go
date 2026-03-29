@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
@@ -265,8 +266,12 @@ func (b *EventBridge) handleSSEInternal(c echo.Context, agentName, userID string
 	c.Response().Header().Set("Connection", "keep-alive")
 	c.Response().WriteHeader(http.StatusOK)
 
+	var closed atomic.Bool
 	var mu sync.Mutex
 	writeSSE := func(event, data string) {
+		if closed.Load() {
+			return
+		}
 		mu.Lock()
 		defer mu.Unlock()
 		fmt.Fprintf(c.Response(), "event: %s\ndata: %s\n\n", event, data)
@@ -306,9 +311,9 @@ func (b *EventBridge) handleSSEInternal(c echo.Context, agentName, userID string
 		writeSSE("json_error", `{"error":"failed to subscribe to agent events"}`)
 		return nil
 	}
-	defer sub.Unsubscribe()
-
 	// Wait for client disconnect
 	<-c.Request().Context().Done()
+	closed.Store(true)
+	sub.Unsubscribe()
 	return nil
 }

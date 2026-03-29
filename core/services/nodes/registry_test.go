@@ -125,7 +125,7 @@ var _ = Describe("NodeRegistry", func() {
 			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
 
 			// Load a model on the node
-			Expect(registry.SetNodeModel(context.Background(), node.ID, "llama-7b", "loaded", "10.0.0.7:50052")).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), node.ID, "llama-7b", "loaded", "10.0.0.7:50052", 0)).To(Succeed())
 			models, err := registry.GetNodeModels(context.Background(), node.ID)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(models).To(HaveLen(1))
@@ -155,12 +155,12 @@ var _ = Describe("NodeRegistry", func() {
 			node := makeNode("stable-id-node", "10.0.0.99:50051", 8_000_000_000)
 			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
 
-			Expect(registry.SetNodeModel(context.Background(), node.ID, "my-model", "loaded", "10.0.0.99:50052")).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), node.ID, "my-model", "loaded", "10.0.0.99:50052", 0)).To(Succeed())
 			nm1, err := registry.GetNodeModel(context.Background(), node.ID, "my-model")
 			Expect(err).ToNot(HaveOccurred())
 
 			// Call again with different state/address
-			Expect(registry.SetNodeModel(context.Background(), node.ID, "my-model", "loaded", "10.0.0.99:50053")).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), node.ID, "my-model", "loaded", "10.0.0.99:50053", 0)).To(Succeed())
 			nm2, err := registry.GetNodeModel(context.Background(), node.ID, "my-model")
 			Expect(err).ToNot(HaveOccurred())
 
@@ -199,7 +199,7 @@ var _ = Describe("NodeRegistry", func() {
 			Expect(registry.Register(context.Background(), idle, true)).To(Succeed())
 
 			// Load a model on the busy node
-			Expect(registry.SetNodeModel(context.Background(), busy.ID, "model-a", "loaded")).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), busy.ID, "model-a", "loaded", "", 0)).To(Succeed())
 
 			found, err := registry.FindIdleNode(context.Background())
 			Expect(err).ToNot(HaveOccurred())
@@ -209,7 +209,7 @@ var _ = Describe("NodeRegistry", func() {
 		It("returns error when all nodes have models loaded", func() {
 			n := makeNode("all-busy", "10.0.0.22:50051", 8_000_000_000)
 			Expect(registry.Register(context.Background(), n, true)).To(Succeed())
-			Expect(registry.SetNodeModel(context.Background(), n.ID, "model-x", "loaded")).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), n.ID, "model-x", "loaded", "", 0)).To(Succeed())
 
 			_, err := registry.FindIdleNode(context.Background())
 			Expect(err).To(HaveOccurred())
@@ -224,12 +224,12 @@ var _ = Describe("NodeRegistry", func() {
 			Expect(registry.Register(context.Background(), light, true)).To(Succeed())
 
 			// Set up models with different in-flight counts
-			Expect(registry.SetNodeModel(context.Background(), heavy.ID, "model-a", "loaded")).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), heavy.ID, "model-a", "loaded", "", 0)).To(Succeed())
 			Expect(registry.IncrementInFlight(context.Background(), heavy.ID, "model-a")).To(Succeed())
 			Expect(registry.IncrementInFlight(context.Background(), heavy.ID, "model-a")).To(Succeed())
 			Expect(registry.IncrementInFlight(context.Background(), heavy.ID, "model-a")).To(Succeed())
 
-			Expect(registry.SetNodeModel(context.Background(), light.ID, "model-b", "loaded")).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), light.ID, "model-b", "loaded", "", 0)).To(Succeed())
 			Expect(registry.IncrementInFlight(context.Background(), light.ID, "model-b")).To(Succeed())
 
 			found, err := registry.FindLeastLoadedNode(context.Background())
@@ -242,7 +242,7 @@ var _ = Describe("NodeRegistry", func() {
 		It("returns the correct node and increments in-flight", func() {
 			node := makeNode("lock-node", "10.0.0.40:50051", 8_000_000_000)
 			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
-			Expect(registry.SetNodeModel(context.Background(), node.ID, "my-model", "loaded", "10.0.0.40:50052")).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), node.ID, "my-model", "loaded", "10.0.0.40:50052", 0)).To(Succeed())
 
 			foundNode, foundNM, err := registry.FindAndLockNodeWithModel(context.Background(), "my-model")
 			Expect(err).ToNot(HaveOccurred())
@@ -266,8 +266,8 @@ var _ = Describe("NodeRegistry", func() {
 			Expect(registry.Register(context.Background(), n1, true)).To(Succeed())
 			Expect(registry.Register(context.Background(), n2, true)).To(Succeed())
 
-			Expect(registry.SetNodeModel(context.Background(), n1.ID, "shared-model", "loaded")).To(Succeed())
-			Expect(registry.SetNodeModel(context.Background(), n2.ID, "shared-model", "loaded")).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), n1.ID, "shared-model", "loaded", "", 0)).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), n2.ID, "shared-model", "loaded", "", 0)).To(Succeed())
 
 			// Add in-flight to n1
 			Expect(registry.IncrementInFlight(context.Background(), n1.ID, "shared-model")).To(Succeed())
@@ -309,7 +309,7 @@ var _ = Describe("NodeRegistry", func() {
 		It("does not go below zero", func() {
 			node := makeNode("dec-node", "10.0.0.50:50051", 4_000_000_000)
 			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
-			Expect(registry.SetNodeModel(context.Background(), node.ID, "dec-model", "loaded")).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), node.ID, "dec-model", "loaded", "", 0)).To(Succeed())
 
 			// in_flight starts at 0 — decrement should be a no-op
 			Expect(registry.DecrementInFlight(context.Background(), node.ID, "dec-model")).To(Succeed())
@@ -322,7 +322,7 @@ var _ = Describe("NodeRegistry", func() {
 		It("decrements correctly from a positive value", func() {
 			node := makeNode("dec-node-2", "10.0.0.51:50051", 4_000_000_000)
 			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
-			Expect(registry.SetNodeModel(context.Background(), node.ID, "dec-model-2", "loaded")).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), node.ID, "dec-model-2", "loaded", "", 0)).To(Succeed())
 
 			Expect(registry.IncrementInFlight(context.Background(), node.ID, "dec-model-2")).To(Succeed())
 			Expect(registry.IncrementInFlight(context.Background(), node.ID, "dec-model-2")).To(Succeed())
