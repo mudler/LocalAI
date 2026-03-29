@@ -103,6 +103,13 @@ func (hm *HealthMonitor) checkAll(ctx context.Context) {
 }
 
 // doCheckAll performs the actual health check logic for all nodes.
+// Node liveness is determined by heartbeat freshness — both backend and agent
+// workers send periodic HTTP heartbeats to the frontend, so a stale heartbeat
+// means the worker supervisor is down. This is simpler and more reliable than
+// probing individual gRPC backend processes (which can crash independently).
+//
+// Per-model health checks (opt-in) separately probe each model's gRPC address
+// and remove stale model records without affecting the node's overall status.
 func (hm *HealthMonitor) doCheckAll(ctx context.Context) {
 	nodes, err := hm.registry.List(ctx)
 	if err != nil {
@@ -115,12 +122,12 @@ func (hm *HealthMonitor) doCheckAll(ctx context.Context) {
 			continue
 		}
 
-		// Check heartbeat staleness first
+		// Node liveness: heartbeat staleness check.
+		// Workers (both backend and agent) send HTTP heartbeats to the frontend.
+		// If the heartbeat is stale, the worker is presumed down.
 		if time.Since(node.LastHeartbeat) > hm.staleThreshold {
 			xlog.Warn("Node heartbeat stale", "node", node.Name, "lastHeartbeat", node.LastHeartbeat)
 			if hm.autoOffline {
-				// Mark offline instead of deregistering — preserves the node row
-				// so re-registration restores the previous approval status
 				xlog.Info("Marking stale node offline", "node", node.Name)
 				if err := hm.registry.MarkOffline(ctx, node.ID); err != nil {
 					xlog.Error("Failed to mark stale node offline", "node", node.Name, "error", err)
@@ -131,44 +138,19 @@ func (hm *HealthMonitor) doCheckAll(ctx context.Context) {
 			continue
 		}
 
-		// Only gRPC health-check nodes that have models loaded.
-		// Idle nodes (no models) haven't started their gRPC process yet
-		// in NATS mode — connection refused is expected, not a failure.
-		// Heartbeats alone are sufficient to prove the supervisor is alive.
-		models, _ := hm.registry.GetNodeModels(ctx, node.ID)
-		if len(models) == 0 {
-			continue
-		}
-
-		client := hm.clientFactory.NewClient(node.Address, false)
-		checkCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-		alive, err := client.HealthCheck(checkCtx)
-		cancel()
-
-		if !alive || err != nil {
-			xlog.Warn("Node health check failed", "node", node.Name, "address", node.Address, "error", err)
-			hm.registry.MarkUnhealthy(ctx, node.ID)
-			if closer, ok := client.(io.Closer); ok {
-				closer.Close()
-			}
-			continue
-		}
-
-		// Close the node-level gRPC client now that we're done with it
-		if closer, ok := client.(io.Closer); ok {
-			closer.Close()
-		}
-
+		// Heartbeat is fresh — node is alive
 		if node.Status == StatusUnhealthy {
-			// Node recovered
 			xlog.Info("Node recovered", "node", node.Name)
 			if err := hm.registry.MarkHealthy(ctx, node.ID); err != nil {
 				xlog.Error("Failed to mark node healthy", "node", node.Name, "error", err)
 			}
 		}
 
-		// Per-model backend health check: probe each model's distinct gRPC address
+		// Per-model backend health check (opt-in): probe each model's gRPC address
+		// and remove stale model records. This does NOT affect the node's status —
+		// a crashed backend process is a model-level issue, not a node-level one.
 		if hm.perModelHealthCheck {
+			models, _ := hm.registry.GetNodeModels(ctx, node.ID)
 			for _, m := range models {
 				if m.Address == "" || m.Address == node.Address {
 					continue

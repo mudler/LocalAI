@@ -95,7 +95,7 @@ var _ = Describe("HealthMonitor", func() {
 			Expect(fetched.Status).To(Equal(StatusHealthy))
 		})
 
-		It("recovers unhealthy node when gRPC check succeeds", func() {
+		It("recovers unhealthy node when heartbeat is fresh", func() {
 			node := makeNode("unhealthy-worker", "10.0.0.5:50051", 8_000_000_000)
 			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
 			Expect(node.Status).To(Equal(StatusHealthy))
@@ -106,15 +106,11 @@ var _ = Describe("HealthMonitor", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(fetched.Status).To(Equal(StatusUnhealthy))
 
-			// Load a model so gRPC check is attempted
-			Expect(registry.SetNodeModel(context.Background(), node.ID, "test-model", "loaded", "10.0.0.5:50052")).To(Succeed())
+			// Refresh heartbeat (simulates the worker sending a heartbeat)
+			Expect(db.Model(&BackendNode{}).Where("id = ?", node.ID).
+				Update("last_heartbeat", time.Now()).Error).ToNot(HaveOccurred())
 
-			// Create health monitor with a factory that returns healthy clients
-			factory := newFakeBackendClientFactory()
-			factory.setClient("10.0.0.5:50051", &fakeBackendClient{healthy: true})
-			hmWithFactory := NewHealthMonitor(registry, nil, 15*time.Second, 30*time.Second, "", false, factory)
-
-			hmWithFactory.doCheckAll(context.Background())
+			hm.doCheckAll(context.Background())
 
 			fetched, err = registry.Get(context.Background(), node.ID)
 			Expect(err).ToNot(HaveOccurred())
@@ -207,44 +203,77 @@ var _ = Describe("HealthMonitor (mock-based)", func() {
 			Expect(calls).NotTo(ContainElement(ContainSubstring("MarkOffline")))
 		})
 
-		It("marks node unhealthy when gRPC check fails", func() {
+		It("keeps node healthy when heartbeat is fresh (with models loaded)", func() {
 			store := newFakeNodeHealthStore()
 			factory := newFakeBackendClientFactory()
 			hm := newTestHealthMonitor(store, factory, true, staleThreshold)
 
-			node := makeTestNode("node-5", "failing-worker", "10.0.0.5:50051", StatusHealthy, freshTime())
+			node := makeTestNode("node-5", "active-worker", "10.0.0.5:50051", StatusHealthy, freshTime())
 			store.addNode(node)
 			store.addNodeModel("node-5", NodeModel{NodeID: "node-5", ModelName: "llama-7b"})
 
-			// Configure gRPC health check to fail
-			factory.setClient("10.0.0.5:50051", &fakeBackendClient{
-				healthy: false,
-				err:     fmt.Errorf("connection refused"),
-			})
-
+			// No gRPC client needed — health is determined by heartbeat, not gRPC probe
 			hm.doCheckAll(context.Background())
 
-			Expect(store.getNode("node-5").Status).To(Equal(StatusUnhealthy))
-			Expect(store.getCalls()).To(ContainElement("MarkUnhealthy:node-5"))
+			Expect(store.getNode("node-5").Status).To(Equal(StatusHealthy))
+			calls := store.getCalls()
+			Expect(calls).NotTo(ContainElement(ContainSubstring("MarkUnhealthy")))
 		})
 
-		It("recovers unhealthy node when gRPC check succeeds", func() {
+		It("recovers unhealthy node when heartbeat is fresh", func() {
 			store := newFakeNodeHealthStore()
 			factory := newFakeBackendClientFactory()
 			hm := newTestHealthMonitor(store, factory, true, staleThreshold)
 
 			node := makeTestNode("node-6", "recovering-worker", "10.0.0.6:50051", StatusUnhealthy, freshTime())
 			store.addNode(node)
-			store.addNodeModel("node-6", NodeModel{NodeID: "node-6", ModelName: "llama-7b"})
-
-			// Configure gRPC health check to succeed
-			factory.setClient("10.0.0.6:50051", &fakeBackendClient{healthy: true})
 
 			hm.doCheckAll(context.Background())
 
-			// Should have called MarkHealthy to recover the node
 			Expect(store.getCalls()).To(ContainElement("MarkHealthy:node-6"))
 			Expect(store.getNode("node-6").Status).To(Equal(StatusHealthy))
+		})
+
+		It("node stays healthy when gRPC backend crashes but heartbeat is fresh", func() {
+			store := newFakeNodeHealthStore()
+			factory := newFakeBackendClientFactory()
+			hm := newTestHealthMonitor(store, factory, true, staleThreshold)
+
+			// Worker has a model loaded but the backend process crashed —
+			// node should remain healthy because heartbeat is fresh
+			node := makeTestNode("node-crash", "crash-worker", "10.0.0.9:50051", StatusHealthy, freshTime())
+			store.addNode(node)
+			store.addNodeModel("node-crash", NodeModel{NodeID: "node-crash", ModelName: "piper-model", Address: "10.0.0.9:50053"})
+
+			// gRPC backend is dead — but health is heartbeat-based, not gRPC-based
+			factory.setClient("10.0.0.9:50051", &fakeBackendClient{healthy: false, err: fmt.Errorf("connection refused")})
+
+			hm.doCheckAll(context.Background())
+
+			Expect(store.getNode("node-crash").Status).To(Equal(StatusHealthy))
+			calls := store.getCalls()
+			Expect(calls).NotTo(ContainElement(ContainSubstring("MarkUnhealthy")))
+		})
+
+		It("removes stale model via per-model health check without affecting node status", func() {
+			store := newFakeNodeHealthStore()
+			factory := newFakeBackendClientFactory()
+			hm := newTestHealthMonitor(store, factory, true, staleThreshold)
+			hm.perModelHealthCheck = true
+
+			node := makeTestNode("node-model", "model-worker", "10.0.0.10:50051", StatusHealthy, freshTime())
+			store.addNode(node)
+			store.addNodeModel("node-model", NodeModel{NodeID: "node-model", ModelName: "piper-model", Address: "10.0.0.10:50053"})
+
+			// Model backend is dead
+			factory.setClient("10.0.0.10:50053", &fakeBackendClient{healthy: false, err: fmt.Errorf("connection refused")})
+
+			hm.doCheckAll(context.Background())
+
+			// Node should remain healthy — only the model record is removed
+			Expect(store.getNode("node-model").Status).To(Equal(StatusHealthy))
+			Expect(store.getCalls()).To(ContainElement("RemoveNodeModel:node-model:piper-model"))
+			Expect(store.getCalls()).NotTo(ContainElement(ContainSubstring("MarkUnhealthy")))
 		})
 	})
 })

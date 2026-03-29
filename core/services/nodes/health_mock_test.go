@@ -275,6 +275,13 @@ func makeTestNode(id, name, address string, status string, lastHeartbeat time.Ti
 	}
 }
 
+// makeTestNodeWithHTTP creates a BackendNode with HTTPAddress set
+func makeTestNodeWithHTTP(id, name, address, httpAddress string, status string, lastHeartbeat time.Time) *BackendNode {
+	n := makeTestNode(id, name, address, status, lastHeartbeat)
+	n.HTTPAddress = httpAddress
+	return n
+}
+
 // helper to build a HealthMonitor with fakes
 func newTestHealthMonitor(store NodeHealthStore, factory BackendClientFactory, autoOffline bool, staleThreshold time.Duration) *HealthMonitor {
 	return &HealthMonitor{
