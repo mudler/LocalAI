@@ -624,13 +624,30 @@ func (c *ModelConfig) HasUsecases(u ModelConfigUsecase) bool {
 // In its current state, this function should ideally check for properties of the config like templates, rather than the direct backend name checks for the lower half.
 // This avoids the maintenance burden of updating this list for each new backend - but unfortunately, that's the best option for some services currently.
 func (c *ModelConfig) GuessUsecases(u ModelConfigUsecase) bool {
+	// Backends that are clearly not text-generation
+	nonTextGenBackends := []string{
+		"whisper", "piper", "kokoro",
+		"diffusers", "stablediffusion", "stablediffusion-ggml",
+		"rerankers", "silero-vad", "rfdetr",
+		"transformers-musicgen", "ace-step", "acestep-cpp",
+	}
+
 	if (u & FLAG_CHAT) == FLAG_CHAT {
 		if c.TemplateConfig.Chat == "" && c.TemplateConfig.ChatMessage == "" && !c.TemplateConfig.UseTokenizerTemplate {
+			return false
+		}
+		if slices.Contains(nonTextGenBackends, c.Backend) {
+			return false
+		}
+		if c.Embeddings != nil && *c.Embeddings {
 			return false
 		}
 	}
 	if (u & FLAG_COMPLETION) == FLAG_COMPLETION {
 		if c.TemplateConfig.Completion == "" {
+			return false
+		}
+		if slices.Contains(nonTextGenBackends, c.Backend) {
 			return false
 		}
 	}
