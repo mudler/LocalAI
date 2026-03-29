@@ -58,7 +58,7 @@
     - filename: llama-cpp/models/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-heretic.i1-Q4_K_M.gguf
       sha256: af6c2ceae20d019624cd6ec48cfffb646b0309b0a7a82d9719754297394168e1
       uri: https://huggingface.co/mradermacher/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-heretic-i1-GGUF/resolve/main/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-heretic.i1-Q4_K_M.gguf
-    - filename: llama-cpp/models/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-heretic.mmproj-f16.gguf
+    - filename: llama-cpp/mmproj/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-heretic.mmproj-f16.gguf
       sha256: 4068f60ebe62c4e191ce0a2bc184c608c4ab5f8ff0fcbf3978179aa1d74725cf
       uri: https://huggingface.co/mradermacher/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-heretic-GGUF/resolve/main/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-heretic.mmproj-f16.gguf
 - name: "qwen_qwen3.5-0.8b"
@@ -187,7 +187,7 @@
     - filename: llama-cpp/models/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled.i1-Q4_K_M.gguf
       sha256: 34b9bcd8021b95d86dee8e8aaa165f28c441c08dee85dbed297f0489bfa8b899
       uri: https://huggingface.co/mradermacher/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-i1-GGUF/resolve/main/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled.i1-Q4_K_M.gguf
-    - filename: llama-cpp/models/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled.mmproj-f16.gguf
+    - filename: llama-cpp/mmproj/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled.mmproj-f16.gguf
       sha256: adcc3bac7505c7e2b513cbbbe986626ac8a874ed20bfd0c1008eeedfcb9e85de
       uri: https://huggingface.co/mradermacher/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-GGUF/resolve/main/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled.mmproj-f16.gguf
 - name: "qwen3.5-4b-claude-4.6-opus-reasoning-distilled"
