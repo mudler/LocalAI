@@ -4,10 +4,10 @@ package gallery
 
 import (
 	"context"
-	"os"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"

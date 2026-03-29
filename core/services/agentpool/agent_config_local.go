@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/mudler/LocalAI/core/services/agents"
 	"github.com/mudler/LocalAGI/core/agent"
 	"github.com/mudler/LocalAGI/core/sse"
 	"github.com/mudler/LocalAGI/core/state"
 	agiServices "github.com/mudler/LocalAGI/services"
+	"github.com/mudler/LocalAI/core/services/agents"
 )
 
 // localAgentConfigBackend wraps the in-memory LocalAGI AgentPool for standalone mode.

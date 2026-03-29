@@ -97,7 +97,7 @@ var _ = Describe("SmartRouter trackingKey", Label("Distributed"), func() {
 		defer result.Release()
 
 		// The DB should have the model tracked under "my-model-id"
-		nodesWithModel, err := registry.FindNodesWithModel(context.Background(),"my-model-id")
+		nodesWithModel, err := registry.FindNodesWithModel(context.Background(), "my-model-id")
 		Expect(err).ToNot(HaveOccurred())
 		Expect(nodesWithModel).To(HaveLen(1))
 		Expect(nodesWithModel[0].ID).To(Equal(nodeID))
@@ -110,7 +110,7 @@ var _ = Describe("SmartRouter trackingKey", Label("Distributed"), func() {
 		defer result.Release()
 
 		// The DB should have the model tracked under the modelName
-		nodesWithModel, err := registry.FindNodesWithModel(context.Background(),"legacy/model.bin")
+		nodesWithModel, err := registry.FindNodesWithModel(context.Background(), "legacy/model.bin")
 		Expect(err).ToNot(HaveOccurred())
 		Expect(nodesWithModel).To(HaveLen(1))
 	})
@@ -122,12 +122,12 @@ var _ = Describe("SmartRouter trackingKey", Label("Distributed"), func() {
 		defer result.Release()
 
 		// Should find by modelID
-		found, err := registry.FindNodesWithModel(context.Background(),"distinct-id")
+		found, err := registry.FindNodesWithModel(context.Background(), "distinct-id")
 		Expect(err).ToNot(HaveOccurred())
 		Expect(found).To(HaveLen(1))
 
 		// Should NOT find by modelName (different from modelID)
-		notFound, err := registry.FindNodesWithModel(context.Background(),"distinct/path.gguf")
+		notFound, err := registry.FindNodesWithModel(context.Background(), "distinct/path.gguf")
 		Expect(err).ToNot(HaveOccurred())
 		Expect(notFound).To(BeEmpty())
 	})
@@ -173,7 +173,7 @@ var _ = Describe("SmartRouter trackingKey", Label("Distributed"), func() {
 		result.Release()
 
 		// Model should be in DB
-		found, err := registry.FindNodesWithModel(context.Background(),"stale-check")
+		found, err := registry.FindNodesWithModel(context.Background(), "stale-check")
 		Expect(err).ToNot(HaveOccurred())
 		Expect(found).To(HaveLen(1))
 
@@ -190,7 +190,7 @@ var _ = Describe("SmartRouter trackingKey", Label("Distributed"), func() {
 		Expect(err).To(HaveOccurred())
 
 		// The stale model record should have been cleared
-		found, err = registry.FindNodesWithModel(context.Background(),"stale-check")
+		found, err = registry.FindNodesWithModel(context.Background(), "stale-check")
 		Expect(err).ToNot(HaveOccurred())
 		Expect(found).To(BeEmpty())
 	})

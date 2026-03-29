@@ -39,7 +39,8 @@ func ListNodesEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
 		ctx := c.Request().Context()
 		nodeList, err := registry.List(ctx)
 		if err != nil {
-			return c.JSON(http.StatusInternalServerError, nodeError(http.StatusInternalServerError, err.Error()))
+			xlog.Error("Failed to list nodes", "error", err)
+			return c.JSON(http.StatusInternalServerError, nodeError(http.StatusInternalServerError, "failed to list nodes"))
 		}
 		return c.JSON(http.StatusOK, nodeList)
 	}
@@ -99,6 +100,10 @@ func RegisterNodeEndpoint(registry *nodes.NodeRegistry, expectedToken string, au
 		if nodeType == "" {
 			nodeType = nodes.NodeTypeBackend
 		}
+		if nodeType != nodes.NodeTypeBackend && nodeType != nodes.NodeTypeAgent {
+			return c.JSON(http.StatusBadRequest, nodeError(http.StatusBadRequest,
+				fmt.Sprintf("invalid node_type %q; must be %q or %q", nodeType, nodes.NodeTypeBackend, nodes.NodeTypeAgent)))
+		}
 
 		// Backend workers require address; agent workers don't serve gRPC
 		if req.Name == "" {
@@ -139,15 +144,16 @@ func RegisterNodeEndpoint(registry *nodes.NodeRegistry, expectedToken string, au
 
 		ctx := c.Request().Context()
 		if err := registry.Register(ctx, node, autoApprove); err != nil {
-			return c.JSON(http.StatusInternalServerError, nodeError(http.StatusInternalServerError, err.Error()))
+			xlog.Error("Failed to register node", "name", req.Name, "error", err)
+			return c.JSON(http.StatusInternalServerError, nodeError(http.StatusInternalServerError, "failed to register node"))
 		}
 
 		response := map[string]any{
-			"id":            node.ID,
-			"name":          node.Name,
-			"node_type":     node.NodeType,
-			"status":        node.Status,
-			"created_at":    node.CreatedAt,
+			"id":         node.ID,
+			"name":       node.Name,
+			"node_type":  node.NodeType,
+			"status":     node.Status,
+			"created_at": node.CreatedAt,
 		}
 
 		// Provision API key for agent workers that are approved (not pending).
@@ -186,7 +192,8 @@ func ApproveNodeEndpoint(registry *nodes.NodeRegistry, authDB *gorm.DB, hmacSecr
 		ctx := c.Request().Context()
 		id := c.Param("id")
 		if err := registry.ApproveNode(ctx, id); err != nil {
-			return c.JSON(http.StatusBadRequest, nodeError(http.StatusBadRequest, err.Error()))
+			xlog.Error("Failed to approve node", "id", id, "error", err)
+			return c.JSON(http.StatusBadRequest, nodeError(http.StatusBadRequest, "failed to approve node"))
 		}
 		node, err := registry.Get(ctx, id)
 		if err != nil {
@@ -261,7 +268,8 @@ func DeregisterNodeEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
 		ctx := c.Request().Context()
 		id := c.Param("id")
 		if err := registry.Deregister(ctx, id); err != nil {
-			return c.JSON(http.StatusInternalServerError, nodeError(http.StatusInternalServerError, err.Error()))
+			xlog.Error("Failed to deregister node", "id", id, "error", err)
+			return c.JSON(http.StatusInternalServerError, nodeError(http.StatusInternalServerError, "failed to deregister node"))
 		}
 		return c.JSON(http.StatusOK, map[string]string{"message": "node deregistered"})
 	}
@@ -274,7 +282,8 @@ func DeactivateNodeEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
 		ctx := c.Request().Context()
 		id := c.Param("id")
 		if err := registry.MarkOffline(ctx, id); err != nil {
-			return c.JSON(http.StatusInternalServerError, nodeError(http.StatusInternalServerError, err.Error()))
+			xlog.Error("Failed to deactivate node", "id", id, "error", err)
+			return c.JSON(http.StatusInternalServerError, nodeError(http.StatusInternalServerError, "failed to deactivate node"))
 		}
 		return c.JSON(http.StatusOK, map[string]string{"message": "node set to offline"})
 	}
@@ -296,7 +305,8 @@ func HeartbeatEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
 
 		ctx := c.Request().Context()
 		if err := registry.Heartbeat(ctx, id, updatePtr); err != nil {
-			return c.JSON(http.StatusNotFound, nodeError(http.StatusNotFound, err.Error()))
+			xlog.Warn("Heartbeat failed for node", "id", id, "error", err)
+			return c.JSON(http.StatusNotFound, nodeError(http.StatusNotFound, "node not found"))
 		}
 		return c.JSON(http.StatusOK, map[string]string{"message": "heartbeat received"})
 	}
@@ -309,7 +319,8 @@ func GetNodeModelsEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
 		id := c.Param("id")
 		models, err := registry.GetNodeModels(ctx, id)
 		if err != nil {
-			return c.JSON(http.StatusInternalServerError, nodeError(http.StatusInternalServerError, err.Error()))
+			xlog.Error("Failed to get node models", "id", id, "error", err)
+			return c.JSON(http.StatusInternalServerError, nodeError(http.StatusInternalServerError, "failed to get node models"))
 		}
 		return c.JSON(http.StatusOK, models)
 	}
@@ -321,7 +332,8 @@ func DrainNodeEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
 		ctx := c.Request().Context()
 		id := c.Param("id")
 		if err := registry.MarkDraining(ctx, id); err != nil {
-			return c.JSON(http.StatusInternalServerError, nodeError(http.StatusInternalServerError, err.Error()))
+			xlog.Error("Failed to drain node", "id", id, "error", err)
+			return c.JSON(http.StatusInternalServerError, nodeError(http.StatusInternalServerError, "failed to drain node"))
 		}
 		return c.JSON(http.StatusOK, map[string]string{"message": "node set to draining"})
 	}
@@ -343,10 +355,12 @@ func InstallBackendOnNodeEndpoint(unloader nodes.NodeCommandSender) echo.Handler
 		}
 		reply, err := unloader.InstallBackend(nodeID, req.Backend, "", req.BackendGalleries)
 		if err != nil {
-			return c.JSON(http.StatusInternalServerError, nodeError(http.StatusInternalServerError, err.Error()))
+			xlog.Error("Failed to install backend on node", "node", nodeID, "backend", req.Backend, "error", err)
+			return c.JSON(http.StatusInternalServerError, nodeError(http.StatusInternalServerError, "failed to install backend on node"))
 		}
 		if !reply.Success {
-			return c.JSON(http.StatusInternalServerError, nodeError(http.StatusInternalServerError, reply.Error))
+			xlog.Error("Backend install failed on node", "node", nodeID, "backend", req.Backend, "error", reply.Error)
+			return c.JSON(http.StatusInternalServerError, nodeError(http.StatusInternalServerError, "backend installation failed"))
 		}
 		return c.JSON(http.StatusOK, map[string]string{"message": "backend installed"})
 	}
@@ -367,10 +381,12 @@ func DeleteBackendOnNodeEndpoint(unloader nodes.NodeCommandSender) echo.HandlerF
 		}
 		reply, err := unloader.DeleteBackend(nodeID, req.Backend)
 		if err != nil {
-			return c.JSON(http.StatusInternalServerError, nodeError(http.StatusInternalServerError, err.Error()))
+			xlog.Error("Failed to delete backend on node", "node", nodeID, "backend", req.Backend, "error", err)
+			return c.JSON(http.StatusInternalServerError, nodeError(http.StatusInternalServerError, "failed to delete backend on node"))
 		}
 		if !reply.Success {
-			return c.JSON(http.StatusInternalServerError, nodeError(http.StatusInternalServerError, reply.Error))
+			xlog.Error("Backend delete failed on node", "node", nodeID, "backend", req.Backend, "error", reply.Error)
+			return c.JSON(http.StatusInternalServerError, nodeError(http.StatusInternalServerError, "backend deletion failed"))
 		}
 		return c.JSON(http.StatusOK, map[string]string{"message": "backend deleted"})
 	}
@@ -385,10 +401,12 @@ func ListBackendsOnNodeEndpoint(unloader nodes.NodeCommandSender) echo.HandlerFu
 		nodeID := c.Param("id")
 		reply, err := unloader.ListBackends(nodeID)
 		if err != nil {
-			return c.JSON(http.StatusInternalServerError, nodeError(http.StatusInternalServerError, err.Error()))
+			xlog.Error("Failed to list backends on node", "node", nodeID, "error", err)
+			return c.JSON(http.StatusInternalServerError, nodeError(http.StatusInternalServerError, "failed to list backends on node"))
 		}
 		if reply.Error != "" {
-			return c.JSON(http.StatusInternalServerError, nodeError(http.StatusInternalServerError, reply.Error))
+			xlog.Error("List backends failed on node", "node", nodeID, "error", reply.Error)
+			return c.JSON(http.StatusInternalServerError, nodeError(http.StatusInternalServerError, "failed to list backends on node"))
 		}
 		return c.JSON(http.StatusOK, reply.Backends)
 	}
@@ -408,11 +426,13 @@ func UnloadModelOnNodeEndpoint(unloader nodes.NodeCommandSender, registry *nodes
 			return c.JSON(http.StatusBadRequest, nodeError(http.StatusBadRequest, "model_name required"))
 		}
 		if err := unloader.UnloadModelOnNode(nodeID, req.ModelName); err != nil {
-			return c.JSON(http.StatusInternalServerError, nodeError(http.StatusInternalServerError, err.Error()))
+			xlog.Error("Failed to unload model on node", "node", nodeID, "model", req.ModelName, "error", err)
+			return c.JSON(http.StatusInternalServerError, nodeError(http.StatusInternalServerError, "failed to unload model on node"))
 		}
 		// Also stop the backend process
 		if err := unloader.StopBackend(nodeID, req.ModelName); err != nil {
-			return c.JSON(http.StatusInternalServerError, nodeError(http.StatusInternalServerError, "model unloaded but backend stop failed: "+err.Error()))
+			xlog.Error("Failed to stop backend after model unload", "node", nodeID, "model", req.ModelName, "error", err)
+			return c.JSON(http.StatusInternalServerError, nodeError(http.StatusInternalServerError, "model unloaded but backend stop failed"))
 		}
 		// Remove from registry
 		registry.RemoveNodeModel(c.Request().Context(), nodeID, req.ModelName)
@@ -433,12 +453,13 @@ func DeleteModelOnNodeEndpoint(unloader nodes.NodeCommandSender, registry *nodes
 		if err := c.Bind(&req); err != nil || req.ModelName == "" {
 			return c.JSON(http.StatusBadRequest, nodeError(http.StatusBadRequest, "model_name required"))
 		}
-		// Stop model first if loaded
+		// Unload model first if loaded
 		if err := unloader.UnloadModelOnNode(nodeID, req.ModelName); err != nil {
-			// Non-fatal — model might not be loaded
+			return c.JSON(http.StatusInternalServerError, nodeError(http.StatusInternalServerError, "failed to unload model before deletion"))
 		}
 		if err := unloader.StopBackend(nodeID, req.ModelName); err != nil {
-			// Non-fatal
+			// Non-fatal — backend process may not be running
+			xlog.Warn("StopBackend failed during model deletion (non-fatal)", "node", nodeID, "model", req.ModelName, "error", err)
 		}
 		registry.RemoveNodeModel(c.Request().Context(), nodeID, req.ModelName)
 		return c.JSON(http.StatusOK, map[string]string{"message": "model deleted from node"})
@@ -611,4 +632,3 @@ func proxyHTTPToWorker(httpAddress, path, token string) (*http.Response, error) 
 	client := &http.Client{Timeout: 15 * time.Second}
 	return client.Do(req)
 }
-

@@ -60,6 +60,11 @@ func (d *Dispatcher) SSEHandler() echo.HandlerFunc {
 			}
 		}
 
+		// done is closed when a terminal state event is received, so the
+		// handler can return promptly instead of waiting for client disconnect.
+		done := make(chan struct{})
+		closeOnce := sync.Once{}
+
 		// Subscribe to progress events for this job
 		sub, err := d.SubscribeProgress(jobID, func(evt ProgressEvent) {
 			sendEvent("progress", evt)
@@ -67,6 +72,7 @@ func (d *Dispatcher) SSEHandler() echo.HandlerFunc {
 			// Close the stream on terminal states
 			if evt.Status == "completed" || evt.Status == "failed" || evt.Status == "cancelled" {
 				sendEvent("done", evt)
+				closeOnce.Do(func() { close(done) })
 			}
 		})
 		if err != nil {
@@ -76,8 +82,11 @@ func (d *Dispatcher) SSEHandler() echo.HandlerFunc {
 		}
 		defer sub.Unsubscribe()
 
-		// Wait for client disconnect
-		<-c.Request().Context().Done()
+		// Wait for client disconnect or terminal state
+		select {
+		case <-c.Request().Context().Done():
+		case <-done:
+		}
 		return nil
 	}
 }

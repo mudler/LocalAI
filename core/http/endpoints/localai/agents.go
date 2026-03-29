@@ -12,15 +12,15 @@ import (
 	"strings"
 
 	"github.com/labstack/echo/v4"
-	"github.com/mudler/LocalAI/core/application"
-	"github.com/mudler/LocalAI/core/http/auth"
-	"github.com/mudler/LocalAI/core/services/agents"
-	"github.com/mudler/LocalAI/core/services/agentpool"
-	"github.com/mudler/LocalAI/pkg/utils"
 	"github.com/mudler/LocalAGI/core/state"
-	"github.com/mudler/xlog"
 	coreTypes "github.com/mudler/LocalAGI/core/types"
 	agiServices "github.com/mudler/LocalAGI/services"
+	"github.com/mudler/LocalAI/core/application"
+	"github.com/mudler/LocalAI/core/http/auth"
+	"github.com/mudler/LocalAI/core/services/agentpool"
+	"github.com/mudler/LocalAI/core/services/agents"
+	"github.com/mudler/LocalAI/pkg/utils"
+	"github.com/mudler/xlog"
 )
 
 // getUserID extracts the scoped user ID from the request context.

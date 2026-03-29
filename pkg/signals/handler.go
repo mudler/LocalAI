@@ -10,8 +10,13 @@ import (
 var (
 	signalHandlers      []func()
 	signalHandlersMutex sync.Mutex
-	signalHandlersOnce  sync.Once
 )
+
+var setupSignalHandler = sync.OnceFunc(func() {
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
+	go signalHandler(c)
+})
 
 func RegisterGracefulTerminationHandler(fn func()) {
 	signalHandlersMutex.Lock()
@@ -20,11 +25,7 @@ func RegisterGracefulTerminationHandler(fn func()) {
 }
 
 func init() {
-	signalHandlersOnce.Do(func() {
-		c := make(chan os.Signal, 1)
-		signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
-		go signalHandler(c)
-	})
+	setupSignalHandler()
 }
 
 func signalHandler(c chan os.Signal) {

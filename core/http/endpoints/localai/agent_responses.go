@@ -11,9 +11,9 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
+	coreTypes "github.com/mudler/LocalAGI/core/types"
 	"github.com/mudler/LocalAI/core/application"
 	"github.com/mudler/LocalAI/core/services/agents"
-	coreTypes "github.com/mudler/LocalAGI/core/types"
 	"github.com/mudler/xlog"
 	"github.com/sashabaranov/go-openai"
 )
@@ -146,11 +146,11 @@ func AgentResponsesInterceptor(app *application.Application) echo.MiddlewareFunc
 			id := fmt.Sprintf("resp_%s", uuid.New().String())
 
 			return c.JSON(http.StatusOK, map[string]any{
-				"id":                  id,
-				"object":              "response",
-				"created_at":          time.Now().Unix(),
-				"status":              "completed",
-				"model":               req.Model,
+				"id":                   id,
+				"object":               "response",
+				"created_at":           time.Now().Unix(),
+				"status":               "completed",
+				"model":                req.Model,
 				"previous_response_id": nil,
 				"output": []any{
 					map[string]any{

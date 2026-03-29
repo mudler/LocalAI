@@ -22,12 +22,12 @@ type SchedulerStore interface {
 // Uses a PostgreSQL advisory lock so only one instance fires the cron.
 // Same pattern as notetaker's runAgentScheduler and LocalAI's cronLeaderLoop.
 type AgentScheduler struct {
-	db           *gorm.DB
-	nats         messaging.Publisher
-	store        SchedulerStore
+	db            *gorm.DB
+	nats          messaging.Publisher
+	store         SchedulerStore
 	skillProvider SkillContentProvider // optional: loads full skill info for enriching events
-	subject       string              // NATS subject for agent execution
-	pollInterval time.Duration      // how often to check for due agents
+	subject       string               // NATS subject for agent execution
+	pollInterval  time.Duration        // how often to check for due agents
 }
 
 // AgentSchedulerOpt is a functional option for AgentScheduler.

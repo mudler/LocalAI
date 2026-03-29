@@ -4,10 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/mudler/LocalAI/core/services/agents"
 	"github.com/mudler/LocalAGI/core/agent"
 	"github.com/mudler/LocalAGI/core/sse"
 	"github.com/mudler/LocalAGI/core/state"
+	"github.com/mudler/LocalAI/core/services/agents"
 	"github.com/mudler/xlog"
 )
 
@@ -17,8 +17,8 @@ const (
 
 // distributedAgentConfigBackend wraps PostgreSQL (AgentStore) + NATS for distributed mode.
 type distributedAgentConfigBackend struct {
-	svc   *AgentPoolService    // back-reference for dispatchChat, eventBridge, etc.
-	store *agents.AgentStore   // concrete store for full access (observables, etc.)
+	svc   *AgentPoolService  // back-reference for dispatchChat, eventBridge, etc.
+	store *agents.AgentStore // concrete store for full access (observables, etc.)
 }
 
 func newDistributedAgentConfigBackend(svc *AgentPoolService, store *agents.AgentStore) *distributedAgentConfigBackend {

@@ -48,9 +48,9 @@ var _ ModelLookup = (*fakeModelLookup)(nil)
 
 var _ = Describe("DistributedModelStore", func() {
 	var (
-		local    *model.InMemoryModelStore
-		lookup   *fakeModelLookup
-		store    *DistributedModelStore
+		local  *model.InMemoryModelStore
+		lookup *fakeModelLookup
+		store  *DistributedModelStore
 	)
 
 	BeforeEach(func() {

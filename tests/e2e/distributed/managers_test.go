@@ -44,10 +44,10 @@ var _ = Describe("Model and Backend Managers", Label("Distributed"), func() {
 
 	Context("LocalModelManager", func() {
 		var (
-			tempDir     string
-			ss          *system.SystemState
-			ml          *model.ModelLoader
-			localMgr    *galleryop.LocalModelManager
+			tempDir  string
+			ss       *system.SystemState
+			ml       *model.ModelLoader
+			localMgr *galleryop.LocalModelManager
 		)
 
 		BeforeEach(func() {

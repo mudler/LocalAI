@@ -209,10 +209,10 @@ func (d *LocalDispatcher) buildLocalCallbacks(writer SSEWriter, messageID string
 		OnMessage: func(sender, content, msgID string) {
 			if writer != nil {
 				writer.SendEvent("json_message", map[string]any{
-					"sender":    sender,
-					"content":   content,
+					"sender":     sender,
+					"content":    content,
 					"message_id": msgID,
-					"timestamp": time.Now().UnixMilli(),
+					"timestamp":  time.Now().UnixMilli(),
 				})
 			}
 		},
@@ -231,7 +231,7 @@ type NATSDispatcher struct {
 	subject     string
 	queue       string
 	sub         messaging.Subscription // stored subscription for cleanup
-	sem         chan struct{}           // concurrency limiter; nil = unlimited
+	sem         chan struct{}          // concurrency limiter; nil = unlimited
 	wg          sync.WaitGroup
 }
 
@@ -261,7 +261,11 @@ func (d *NATSDispatcher) Start(ctx context.Context) error {
 			return
 		}
 		if d.sem != nil {
-			d.sem <- struct{}{}
+			select {
+			case d.sem <- struct{}{}:
+			case <-ctx.Done():
+				return
+			}
 		}
 		d.wg.Add(1)
 		go func() {
@@ -434,8 +438,8 @@ func (d *NATSDispatcher) buildNATSCallbacks(evt AgentChatEvent) Callbacks {
 				data["type"] = "reasoning"
 				data["content"] = ev.Content
 				mu.Lock()
-			reasoningBuf.WriteString(ev.Content)
-			mu.Unlock()
+				reasoningBuf.WriteString(ev.Content)
+				mu.Unlock()
 			case cogito.StreamEventContent:
 				data["type"] = "content"
 				data["content"] = ev.Content
@@ -515,9 +519,9 @@ func (d *NATSDispatcher) buildNATSCallbacks(evt AgentChatEvent) Callbacks {
 					ActionResult: content,
 				}
 				mu.Lock()
-			reasoning := reasoningBuf.String()
-			mu.Unlock()
-			if reasoning != "" {
+				reasoning := reasoningBuf.String()
+				mu.Unlock()
+				if reasoning != "" {
 					rootObs.Completion.ChatCompletionResponse = &openai.ChatCompletionResponse{
 						Choices: []openai.ChatCompletionChoice{
 							{Message: openai.ChatCompletionMessage{Content: content, ReasoningContent: reasoning}},

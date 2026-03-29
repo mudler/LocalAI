@@ -44,17 +44,13 @@ type StoredResponse struct {
 	mu            sync.RWMutex       // Protect concurrent access to this response
 }
 
-var (
-	globalStore *ResponseStore
-	storeOnce   sync.Once
-)
+var getGlobalStore = sync.OnceValue(func() *ResponseStore {
+	return NewResponseStore(0) // Default: no TTL, will be updated from appConfig
+})
 
 // GetGlobalStore returns the singleton response store instance
 func GetGlobalStore() *ResponseStore {
-	storeOnce.Do(func() {
-		globalStore = NewResponseStore(0) // Default: no TTL, will be updated from appConfig
-	})
-	return globalStore
+	return getGlobalStore()
 }
 
 // SetTTL updates the TTL for the store

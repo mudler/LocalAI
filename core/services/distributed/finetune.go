@@ -16,8 +16,8 @@ type FineTuneJobRecord struct {
 	Model           string    `gorm:"size:255" json:"model"`
 	Backend         string    `gorm:"size:64" json:"backend"`
 	ModelID         string    `gorm:"size:255" json:"model_id,omitempty"`
-	TrainingType    string    `gorm:"size:32" json:"training_type"`   // lora, loha, lokr, full
-	TrainingMethod  string    `gorm:"size:32" json:"training_method"` // sft, dpo, grpo, etc.
+	TrainingType    string    `gorm:"size:32" json:"training_type"`               // lora, loha, lokr, full
+	TrainingMethod  string    `gorm:"size:32" json:"training_method"`             // sft, dpo, grpo, etc.
 	Status          string    `gorm:"index;size:32;default:queued" json:"status"` // queued, loading_model, training, saving, completed, failed, stopped
 	Message         string    `gorm:"type:text" json:"message,omitempty"`
 	OutputDir       string    `gorm:"size:512" json:"output_dir,omitempty"`

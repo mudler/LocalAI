@@ -228,9 +228,9 @@ var _ = Describe("SmartRouter", func() {
 	// -----------------------------------------------------------------------
 	Describe("Route (mock-based)", func() {
 		var (
-			reg     *fakeModelRouter
-			backend *stubBackend
-			factory *stubClientFactory
+			reg      *fakeModelRouter
+			backend  *stubBackend
+			factory  *stubClientFactory
 			unloader *fakeUnloader
 		)
 
@@ -594,7 +594,7 @@ var _ = Describe("SmartRouter", func() {
 			// Since none of our test paths exist on disk, stageModelFiles will
 			// skip them (clearing non-existent optional fields). The key property
 			// is that the original proto pointer is not modified.
-			_, _ = router.stageModelFiles(context.Background(), node, original)
+			_, _ = router.stageModelFiles(context.Background(), node, original, "test-model")
 
 			// Verify the original proto was not mutated
 			Expect(original.Model).To(Equal(origModel))

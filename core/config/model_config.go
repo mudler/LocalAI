@@ -46,10 +46,10 @@ type ModelConfig struct {
 	KnownUsecases       *ModelConfigUsecase `yaml:"-" json:"-"`
 	Pipeline            Pipeline            `yaml:"pipeline,omitempty" json:"pipeline,omitempty"`
 
-	PromptStrings, InputStrings                []string               `yaml:"-" json:"-"`
-	InputToken                                 [][]int                `yaml:"-" json:"-"`
-	functionCallString, functionCallNameString string                 `yaml:"-" json:"-"`
-	ResponseFormat                             string                 `yaml:"-" json:"-"`
+	PromptStrings, InputStrings                []string       `yaml:"-" json:"-"`
+	InputToken                                 [][]int        `yaml:"-" json:"-"`
+	functionCallString, functionCallNameString string         `yaml:"-" json:"-"`
+	ResponseFormat                             string         `yaml:"-" json:"-"`
 	ResponseFormatMap                          map[string]any `yaml:"-" json:"-"`
 
 	FunctionsConfig functions.FunctionsConfig `yaml:"function,omitempty" json:"function,omitempty"`

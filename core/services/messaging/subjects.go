@@ -14,19 +14,19 @@ func sanitizeSubjectToken(s string) string {
 
 // Job Distribution (Queue Groups — load-balanced, one consumer gets each message)
 const (
-	SubjectJobsNew             = "jobs.new"
-	SubjectMCPCIJobsNew        = "jobs.mcp-ci.new"
-	SubjectAgentExecute        = "agent.execute"
-	QueueWorkers               = "workers"
+	SubjectJobsNew      = "jobs.new"
+	SubjectMCPCIJobsNew = "jobs.mcp-ci.new"
+	SubjectAgentExecute = "agent.execute"
+	QueueWorkers        = "workers"
 )
 
 // Status Updates (Pub/Sub — all subscribers get every message, for SSE bridging)
 // These use parameterized subjects: e.g. SubjectAgentEvents("myagent", "user1")
 const (
-	subjectAgentEventsPrefix    = "agent."
-	subjectJobProgressPrefix    = "jobs."
-	subjectFineTunePrefix       = "finetune."
-	subjectGalleryPrefix        = "gallery."
+	subjectAgentEventsPrefix = "agent."
+	subjectJobProgressPrefix = "jobs."
+	subjectFineTunePrefix    = "finetune."
+	subjectGalleryPrefix     = "gallery."
 )
 
 // SubjectAgentEvents returns the NATS subject for agent SSE events.
@@ -66,19 +66,19 @@ func SubjectGalleryProgress(opID string) string {
 
 // Control Signals (Pub/Sub — targeted cancellation)
 const (
-	subjectJobCancelPrefix     = "jobs."
-	subjectAgentCancelPrefix   = "agent."
+	subjectJobCancelPrefix      = "jobs."
+	subjectAgentCancelPrefix    = "agent."
 	subjectFineTuneCancelPrefix = "finetune."
 	subjectGalleryCancelPrefix  = "gallery."
 )
 
 // Wildcard subjects for NATS subscriptions that match all IDs.
 const (
-	SubjectJobCancelWildcard   = "jobs.*.cancel"
-	SubjectJobResultWildcard   = "jobs.*.result"
-	SubjectJobProgressWildcard = "jobs.*.progress"
-	SubjectAgentCancelWildcard = "agent.*.cancel"
-	SubjectGalleryCancelWildcard  = "gallery.*.cancel"
+	SubjectJobCancelWildcard       = "jobs.*.cancel"
+	SubjectJobResultWildcard       = "jobs.*.result"
+	SubjectJobProgressWildcard     = "jobs.*.progress"
+	SubjectAgentCancelWildcard     = "agent.*.cancel"
+	SubjectGalleryCancelWildcard   = "gallery.*.cancel"
 	SubjectGalleryProgressWildcard = "gallery.*.progress"
 )
 
@@ -124,7 +124,7 @@ func SubjectNodeBackendInstall(nodeID string) string {
 // BackendInstallRequest is the payload for a backend.install NATS request.
 type BackendInstallRequest struct {
 	Backend          string `json:"backend"`
-	ModelID          string `json:"model_id,omitempty"`          // unique model identifier — each model gets its own gRPC process
+	ModelID          string `json:"model_id,omitempty"` // unique model identifier — each model gets its own gRPC process
 	BackendGalleries string `json:"backend_galleries,omitempty"`
 }
 
@@ -262,4 +262,3 @@ const (
 func SubjectCacheInvalidateCollection(name string) string {
 	return "cache.invalidate.collections." + sanitizeSubjectToken(name)
 }
-

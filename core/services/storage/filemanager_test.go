@@ -236,6 +236,52 @@ var _ = Describe("FileManager", func() {
 		})
 	})
 
+	Describe("cachePath directory traversal prevention", func() {
+		var fm *FileManager
+		var cacheDir string
+
+		BeforeEach(func() {
+			cacheDir = GinkgoT().TempDir()
+			var err error
+			fm, err = NewFileManager(nil, cacheDir)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("rejects keys with .. that escape the cache directory", func() {
+			_, err := fm.CachePath("../escape")
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("escapes cache directory"))
+		})
+
+		It("rejects keys with nested .. traversal", func() {
+			_, err := fm.CachePath("foo/../../bar")
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("escapes cache directory"))
+		})
+
+		It("allows normal keys", func() {
+			p, err := fm.CachePath("models/llama/weights.bin")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(p).To(HavePrefix(cacheDir))
+		})
+
+		It("allows simple keys without slashes", func() {
+			p, err := fm.CachePath("myfile.txt")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(p).To(Equal(filepath.Join(cacheDir, "myfile.txt")))
+		})
+
+		It("CacheExists returns false for traversal keys", func() {
+			Expect(fm.CacheExists("../etc/passwd")).To(BeFalse())
+		})
+
+		It("EvictCache returns error for traversal keys", func() {
+			err := fm.EvictCache("../../etc/shadow")
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("escapes cache directory"))
+		})
+	})
+
 	Describe("different keys", func() {
 		It("does not serialize downloads for different keys", func() {
 			store := newMockObjectStore(50 * time.Millisecond)

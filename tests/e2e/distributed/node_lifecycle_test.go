@@ -109,7 +109,7 @@ var _ = Describe("Node Backend Lifecycle (NATS-driven)", Label("Distributed"), f
 			Eventually(func() int32 { return stopReceived.Load() }, "5s").Should(Equal(int32(1)))
 
 			// Model should be removed from registry
-			nodesWithModel, _ := registry.FindNodesWithModel(context.Background(),"whisper-large")
+			nodesWithModel, _ := registry.FindNodesWithModel(context.Background(), "whisper-large")
 			Expect(nodesWithModel).To(BeEmpty())
 		})
 

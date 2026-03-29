@@ -112,14 +112,14 @@ var _ = Describe("NodeRegistry extra methods", Label("Distributed"), func() {
 			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
 			Expect(registry.SetNodeModel(context.Background(), node.ID, "findable-model", "loaded")).To(Succeed())
 
-			found, ok := registry.FindNodeForModel(context.Background(),"findable-model")
+			found, ok := registry.FindNodeForModel(context.Background(), "findable-model")
 			Expect(ok).To(BeTrue())
 			Expect(found).ToNot(BeNil())
 			Expect(found.ID).To(Equal(node.ID))
 		})
 
 		It("returns (nil, false) when model not found", func() {
-			found, ok := registry.FindNodeForModel(context.Background(),"no-such-model")
+			found, ok := registry.FindNodeForModel(context.Background(), "no-such-model")
 			Expect(ok).To(BeFalse())
 			Expect(found).To(BeNil())
 		})
@@ -132,7 +132,7 @@ var _ = Describe("NodeRegistry extra methods", Label("Distributed"), func() {
 			Expect(registry.SetNodeModel(context.Background(), node.ID, "unhealthy-model", "loaded")).To(Succeed())
 			Expect(registry.MarkUnhealthy(context.Background(), node.ID)).To(Succeed())
 
-			found, ok := registry.FindNodeForModel(context.Background(),"unhealthy-model")
+			found, ok := registry.FindNodeForModel(context.Background(), "unhealthy-model")
 			Expect(ok).To(BeFalse())
 			Expect(found).To(BeNil())
 		})

@@ -2,6 +2,7 @@ package agentpool
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -12,7 +13,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"cmp"
 	"slices"
 	"strings"
 	"sync"
@@ -64,8 +64,8 @@ type AgentJobService struct {
 	retentionDays int // From runtime settings, default: 30
 
 	// Distributed mode (nil when not in distributed mode)
-	dispatcher  DistributedDispatcher
-	rawDBStore  *jobs.JobStore // kept for DBStore() accessor
+	dispatcher DistributedDispatcher
+	rawDBStore *jobs.JobStore // kept for DBStore() accessor
 
 	// Service lifecycle
 	ctx    context.Context
@@ -208,12 +208,12 @@ func NewAgentJobServiceWithPaths(
 	jobsMap := xsync.NewSyncedMap[string, schema.Job]()
 
 	return &AgentJobService{
-		appConfig:     appConfig,
-		modelLoader:   modelLoader,
-		configLoader:  configLoader,
-		evaluator:     evaluator,
-		tasks:         tasks,
-		jobs:          jobsMap,
+		appConfig:    appConfig,
+		modelLoader:  modelLoader,
+		configLoader: configLoader,
+		evaluator:    evaluator,
+		tasks:        tasks,
+		jobs:         jobsMap,
 		persister: &fileJobPersister{
 			tasks:     tasks,
 			jobs:      jobsMap,
@@ -1042,9 +1042,9 @@ func (s *AgentJobService) ExecuteJobInternal(job schema.Job, task schema.Task, c
 				tc.add(trace)
 			case cogito.StreamEventToolCall:
 				trace := schema.JobTrace{
-					Type:     "stream_tool_call",
-					Content:  ev.ToolArgs,
-					ToolName: ev.ToolName,
+					Type:      "stream_tool_call",
+					Content:   ev.ToolArgs,
+					ToolName:  ev.ToolName,
 					Timestamp: time.Now(),
 				}
 				tc.add(trace)

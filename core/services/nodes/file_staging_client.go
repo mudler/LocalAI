@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -31,6 +32,9 @@ type FileStagingClient struct {
 	grpc.Backend // embedded for pass-through of non-staging methods
 	stager       FileStager
 	nodeID       string
+
+	mu              sync.RWMutex
+	remoteModelPath string // set during LoadModel from staged ModelPath
 }
 
 // NewFileStagingClient creates a new file staging wrapper.
@@ -67,6 +71,33 @@ func (f *FileStagingClient) retrieveOutputFile(ctx context.Context, backendPath,
 }
 
 // --- grpc.Backend overrides (methods with file staging logic) ---
+
+func (f *FileStagingClient) LoadModel(ctx context.Context, in *pb.ModelOptions, opts ...ggrpc.CallOption) (*pb.Result, error) {
+	// Capture the remote ModelPath so TTS/TTSStream can translate model file paths.
+	// By the time LoadModel is called, stageModelFiles has already rewritten ModelPath
+	// to the worker's absolute path (e.g. "/models/voice-it-paola-medium").
+	if in.ModelPath != "" {
+		f.mu.Lock()
+		f.remoteModelPath = in.ModelPath
+		f.mu.Unlock()
+	}
+	return f.Backend.LoadModel(ctx, in, opts...)
+}
+
+// translateModelPath converts a frontend model file path to the remote worker path.
+// The frontend constructs paths like filepath.Join(loader.ModelPath, model) = "/models/model.onnx",
+// but on the worker the file is under the staging namespace (e.g. "/models/tracking-key/model.onnx").
+// Returns the original path unchanged if no translation is possible.
+func (f *FileStagingClient) translateModelPath(frontendPath string) string {
+	f.mu.RLock()
+	rmp := f.remoteModelPath
+	f.mu.RUnlock()
+	if rmp == "" || frontendPath == "" {
+		return frontendPath
+	}
+	// Use the basename of the frontend path joined with the remote ModelPath
+	return filepath.Join(rmp, filepath.Base(frontendPath))
+}
 
 func (f *FileStagingClient) Predict(ctx context.Context, in *pb.PredictOptions, opts ...ggrpc.CallOption) (*pb.Reply, error) {
 	reqID := requestID()
@@ -172,6 +203,13 @@ func (f *FileStagingClient) GenerateVideo(ctx context.Context, in *pb.GenerateVi
 }
 
 func (f *FileStagingClient) TTS(ctx context.Context, in *pb.TTSRequest, opts ...ggrpc.CallOption) (*pb.Result, error) {
+	// Translate model path from frontend to remote worker path.
+	// The model and its companion files (e.g. .onnx.json) were already staged
+	// during LoadModel, so we just need to point to the correct remote location.
+	if in.Model != "" && isFilePath(in.Model) {
+		in.Model = f.translateModelPath(in.Model)
+	}
+
 	// Handle output destination
 	frontendDst := in.Dst
 	if frontendDst != "" {
@@ -194,6 +232,15 @@ func (f *FileStagingClient) TTS(ctx context.Context, in *pb.TTSRequest, opts ...
 	}
 
 	return result, nil
+}
+
+func (f *FileStagingClient) TTSStream(ctx context.Context, in *pb.TTSRequest, fn func(*pb.Reply), opts ...ggrpc.CallOption) error {
+	// Translate model path from frontend to remote worker path (same as TTS above)
+	if in.Model != "" && isFilePath(in.Model) {
+		in.Model = f.translateModelPath(in.Model)
+	}
+
+	return f.Backend.TTSStream(ctx, in, fn, opts...)
 }
 
 func (f *FileStagingClient) SoundGeneration(ctx context.Context, in *pb.SoundGenerationRequest, opts ...ggrpc.CallOption) (*pb.Result, error) {

@@ -29,6 +29,7 @@ type NodeHealthStore interface {
 	GetNodeModels(ctx context.Context, nodeID string) ([]NodeModel, error)
 	MarkOffline(ctx context.Context, nodeID string) error
 	MarkUnhealthy(ctx context.Context, nodeID string) error
+	MarkHealthy(ctx context.Context, nodeID string) error
 	Heartbeat(ctx context.Context, nodeID string, update *HeartbeatUpdate) error
 	FindStaleNodes(ctx context.Context, threshold time.Duration) ([]BackendNode, error)
 	RemoveNodeModel(ctx context.Context, nodeID, modelName string) error

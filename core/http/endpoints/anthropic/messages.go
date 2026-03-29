@@ -668,14 +668,14 @@ func convertAnthropicToOpenAIMessages(input *schema.AnthropicRequest) []schema.M
 						toolID, _ := blockMap["id"].(string)
 						toolName, _ := blockMap["name"].(string)
 						toolInput := blockMap["input"]
-						
+
 						// Serialize input to JSON string
 						inputJSON, err := json.Marshal(toolInput)
 						if err != nil {
 							xlog.Warn("Failed to marshal tool input", "error", err)
 							inputJSON = []byte("{}")
 						}
-						
+
 						toolCalls = append(toolCalls, schema.ToolCall{
 							Index: toolCallIndex,
 							ID:    toolID,
@@ -695,7 +695,7 @@ func convertAnthropicToOpenAIMessages(input *schema.AnthropicRequest) []schema.M
 						if isErrorPtr, ok := blockMap["is_error"].(*bool); ok && isErrorPtr != nil {
 							isError = *isErrorPtr
 						}
-						
+
 						var resultText string
 						if resultContent, ok := blockMap["content"]; ok {
 							switch rc := resultContent.(type) {
@@ -714,7 +714,7 @@ func convertAnthropicToOpenAIMessages(input *schema.AnthropicRequest) []schema.M
 								}
 							}
 						}
-						
+
 						// Add tool result as a tool role message
 						// We need to handle this differently - create a new message
 						if msg.Role == "user" {
@@ -731,7 +731,7 @@ func convertAnthropicToOpenAIMessages(input *schema.AnthropicRequest) []schema.M
 			openAIMsg.StringContent = textContent
 			openAIMsg.Content = textContent
 			openAIMsg.StringImages = stringImages
-			
+
 			// Add tool calls if present
 			if len(toolCalls) > 0 {
 				openAIMsg.ToolCalls = toolCalls
@@ -749,7 +749,7 @@ func convertAnthropicTools(input *schema.AnthropicRequest, cfg *config.ModelConf
 	if len(input.Tools) == 0 {
 		return nil, false
 	}
-	
+
 	var funcs functions.Functions
 	for _, tool := range input.Tools {
 		f := functions.Function{
@@ -759,7 +759,7 @@ func convertAnthropicTools(input *schema.AnthropicRequest, cfg *config.ModelConf
 		}
 		funcs = append(funcs, f)
 	}
-	
+
 	// Handle tool_choice
 	if input.ToolChoice != nil {
 		switch tc := input.ToolChoice.(type) {
@@ -783,6 +783,6 @@ func convertAnthropicTools(input *schema.AnthropicRequest, cfg *config.ModelConf
 			}
 		}
 	}
-	
+
 	return funcs, len(funcs) > 0 && cfg.ShouldUseFunctions()
 }

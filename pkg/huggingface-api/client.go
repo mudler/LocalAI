@@ -11,21 +11,21 @@ import (
 
 // Model represents a model from the Hugging Face API
 type Model struct {
-	ModelID        string                 `json:"modelId"`
-	Author         string                 `json:"author"`
-	Downloads      int                    `json:"downloads"`
-	LastModified   string                 `json:"lastModified"`
-	PipelineTag    string                 `json:"pipelineTag"`
-	Private        bool                   `json:"private"`
-	Tags           []string               `json:"tags"`
-	CreatedAt      string                 `json:"createdAt"`
-	UpdatedAt      string                 `json:"updatedAt"`
-	Sha            string                 `json:"sha"`
-	Config         map[string]interface{} `json:"config"`
-	ModelIndex     string                 `json:"model_index"`
-	LibraryName    string                 `json:"library_name"`
-	MaskToken      string                 `json:"mask_token"`
-	TokenizerClass string                 `json:"tokenizer_class"`
+	ModelID        string         `json:"modelId"`
+	Author         string         `json:"author"`
+	Downloads      int            `json:"downloads"`
+	LastModified   string         `json:"lastModified"`
+	PipelineTag    string         `json:"pipelineTag"`
+	Private        bool           `json:"private"`
+	Tags           []string       `json:"tags"`
+	CreatedAt      string         `json:"createdAt"`
+	UpdatedAt      string         `json:"updatedAt"`
+	Sha            string         `json:"sha"`
+	Config         map[string]any `json:"config"`
+	ModelIndex     string         `json:"model_index"`
+	LibraryName    string         `json:"library_name"`
+	MaskToken      string         `json:"mask_token"`
+	TokenizerClass string         `json:"tokenizer_class"`
 }
 
 // FileInfo represents file information from HuggingFace

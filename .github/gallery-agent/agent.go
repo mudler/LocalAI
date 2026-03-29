@@ -406,7 +406,7 @@ func getHuggingFaceAvatarURL(author string) string {
 	}
 
 	// Parse the response to get avatar URL
-	var userInfo map[string]interface{}
+	var userInfo map[string]any
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return ""

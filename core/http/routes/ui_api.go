@@ -3,13 +3,13 @@ package routes
 import "os"
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"math"
 	"net/http"
 	"net/url"
 	"path"
-	"cmp"
 	"slices"
 	"strconv"
 	"strings"
@@ -469,7 +469,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			"models":           modelsJSON,
 			"repositories":     appConfig.Galleries,
 			"allTags":          tags,
-			"allBackends":     backendNames,
+			"allBackends":      backendNames,
 			"processingModels": processingModelsData,
 			"taskTypes":        taskTypes,
 			"availableModels":  totalModels,

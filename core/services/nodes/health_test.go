@@ -95,6 +95,32 @@ var _ = Describe("HealthMonitor", func() {
 			Expect(fetched.Status).To(Equal(StatusHealthy))
 		})
 
+		It("recovers unhealthy node when gRPC check succeeds", func() {
+			node := makeNode("unhealthy-worker", "10.0.0.5:50051", 8_000_000_000)
+			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
+			Expect(node.Status).To(Equal(StatusHealthy))
+
+			// Mark unhealthy
+			Expect(registry.MarkUnhealthy(context.Background(), node.ID)).To(Succeed())
+			fetched, err := registry.Get(context.Background(), node.ID)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(fetched.Status).To(Equal(StatusUnhealthy))
+
+			// Load a model so gRPC check is attempted
+			Expect(registry.SetNodeModel(context.Background(), node.ID, "test-model", "loaded", "10.0.0.5:50052")).To(Succeed())
+
+			// Create health monitor with a factory that returns healthy clients
+			factory := newFakeBackendClientFactory()
+			factory.setClient("10.0.0.5:50051", &fakeBackendClient{healthy: true})
+			hmWithFactory := NewHealthMonitor(registry, nil, 15*time.Second, 30*time.Second, "", false, factory)
+
+			hmWithFactory.doCheckAll(context.Background())
+
+			fetched, err = registry.Get(context.Background(), node.ID)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(fetched.Status).To(Equal(StatusHealthy))
+		})
+
 		It("does not change healthy nodes with fresh heartbeat", func() {
 			node := makeNode("fresh-worker", "10.0.0.4:50051", 8_000_000_000)
 			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
@@ -216,8 +242,8 @@ var _ = Describe("HealthMonitor (mock-based)", func() {
 
 			hm.doCheckAll(context.Background())
 
-			// Should have called Heartbeat to recover the node
-			Expect(store.getCalls()).To(ContainElement("Heartbeat:node-6"))
+			// Should have called MarkHealthy to recover the node
+			Expect(store.getCalls()).To(ContainElement("MarkHealthy:node-6"))
 			Expect(store.getNode("node-6").Status).To(Equal(StatusHealthy))
 		})
 	})

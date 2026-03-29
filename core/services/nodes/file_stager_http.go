@@ -8,8 +8,10 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
+	"github.com/mudler/LocalAI/core/services/storage"
 	"github.com/mudler/xlog"
 )
 
@@ -94,7 +96,15 @@ func (h *HTTPFileStager) EnsureRemote(ctx context.Context, nodeID, localPath, ke
 }
 
 func (h *HTTPFileStager) FetchRemote(ctx context.Context, nodeID, remotePath, localDst string) error {
-	key := fmt.Sprintf("%s/%s", nodeID, remotePath)
+	// For staging files (not under models/ or data/), the worker's file transfer
+	// server resolves the key as a relative path under its staging directory.
+	// remotePath is an absolute path on the worker (e.g. "/staging/localai-output-123.tmp"),
+	// so we use just the basename as the key. For model/data files the full
+	// relative key is already correct.
+	key := remotePath
+	if !strings.HasPrefix(remotePath, storage.ModelKeyPrefix) && !strings.HasPrefix(remotePath, storage.DataKeyPrefix) {
+		key = filepath.Base(remotePath)
+	}
 	return h.FetchRemoteByKey(ctx, nodeID, key, localDst)
 }
 
@@ -226,4 +236,3 @@ func (h *HTTPFileStager) ListRemoteDir(ctx context.Context, nodeID, keyPrefix st
 
 	return result.Files, nil
 }
-

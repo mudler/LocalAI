@@ -10,15 +10,15 @@ import (
 
 // UsageRecord represents a single API request's token usage.
 type UsageRecord struct {
-	ID               uint      `gorm:"primaryKey;autoIncrement"`
-	UserID           string    `gorm:"size:36;index:idx_usage_user_time"`
-	UserName         string    `gorm:"size:255"`
-	Model            string    `gorm:"size:255;index"`
-	Endpoint         string    `gorm:"size:255"`
+	ID               uint   `gorm:"primaryKey;autoIncrement"`
+	UserID           string `gorm:"size:36;index:idx_usage_user_time"`
+	UserName         string `gorm:"size:255"`
+	Model            string `gorm:"size:255;index"`
+	Endpoint         string `gorm:"size:255"`
 	PromptTokens     int64
 	CompletionTokens int64
 	TotalTokens      int64
-	Duration         int64 // milliseconds
+	Duration         int64     // milliseconds
 	CreatedAt        time.Time `gorm:"index:idx_usage_user_time"`
 }
 
@@ -127,10 +127,10 @@ func GetAllUsage(db *gorm.DB, period, userID string) ([]UsageBucket, error) {
 	bucketExpr := fmt.Sprintf("%s as bucket", dateFmt)
 
 	query := db.Model(&UsageRecord{}).
-		Select(bucketExpr+", model, user_id, user_name, "+
-			"SUM(prompt_tokens) as prompt_tokens, "+
-			"SUM(completion_tokens) as completion_tokens, "+
-			"SUM(total_tokens) as total_tokens, "+
+		Select(bucketExpr + ", model, user_id, user_name, " +
+			"SUM(prompt_tokens) as prompt_tokens, " +
+			"SUM(completion_tokens) as completion_tokens, " +
+			"SUM(total_tokens) as total_tokens, " +
 			"COUNT(*) as request_count").
 		Group("bucket, model, user_id, user_name").
 		Order("bucket ASC")

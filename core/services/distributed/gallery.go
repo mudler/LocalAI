@@ -13,7 +13,7 @@ type GalleryOperationRecord struct {
 	ID                 string    `gorm:"primaryKey;size:36" json:"id"`
 	UserID             string    `gorm:"index;size:36" json:"user_id,omitempty"`
 	GalleryElementName string    `gorm:"size:255" json:"gallery_element_name"`
-	OpType             string    `gorm:"size:32" json:"op_type"` // "model_install", "model_delete", "backend_install"
+	OpType             string    `gorm:"size:32" json:"op_type"`                // "model_install", "model_delete", "backend_install"
 	Status             string    `gorm:"size:32;default:pending" json:"status"` // pending, downloading, processing, completed, failed, cancelled
 	Progress           float64   `json:"progress"`                              // 0.0 to 1.0
 	Message            string    `gorm:"type:text" json:"message,omitempty"`

@@ -12,46 +12,46 @@ import (
 
 // TaskRecord is the GORM model for persisting tasks in PostgreSQL.
 type TaskRecord struct {
-	ID                string    `gorm:"primaryKey;size:36" json:"id"`
-	UserID            string    `gorm:"index;size:36" json:"user_id"`
-	Name              string    `gorm:"index;size:255" json:"name"`
-	Description       string    `gorm:"type:text" json:"description"`
-	Model             string    `gorm:"size:255" json:"model"`
-	Prompt            string    `gorm:"type:text" json:"prompt"`
-	Enabled           bool      `gorm:"default:true" json:"enabled"`
-	Cron              string    `gorm:"size:64" json:"cron,omitempty"`
-	CronParametersJSON string  `gorm:"column:cron_parameters;type:text" json:"-"`
-	WebhooksJSON      string   `gorm:"column:webhooks;type:text" json:"-"`
-	MultimediaJSON    string   `gorm:"column:multimedia_sources;type:text" json:"-"`
-	CreatedAt         time.Time `json:"created_at"`
-	UpdatedAt         time.Time `json:"updated_at"`
+	ID                 string    `gorm:"primaryKey;size:36" json:"id"`
+	UserID             string    `gorm:"index;size:36" json:"user_id"`
+	Name               string    `gorm:"index;size:255" json:"name"`
+	Description        string    `gorm:"type:text" json:"description"`
+	Model              string    `gorm:"size:255" json:"model"`
+	Prompt             string    `gorm:"type:text" json:"prompt"`
+	Enabled            bool      `gorm:"default:true" json:"enabled"`
+	Cron               string    `gorm:"size:64" json:"cron,omitempty"`
+	CronParametersJSON string    `gorm:"column:cron_parameters;type:text" json:"-"`
+	WebhooksJSON       string    `gorm:"column:webhooks;type:text" json:"-"`
+	MultimediaJSON     string    `gorm:"column:multimedia_sources;type:text" json:"-"`
+	CreatedAt          time.Time `json:"created_at"`
+	UpdatedAt          time.Time `json:"updated_at"`
 }
 
 func (TaskRecord) TableName() string { return "tasks" }
 
 // JobRecord is the GORM model for persisting jobs in PostgreSQL.
 type JobRecord struct {
-	ID              string     `gorm:"primaryKey;size:36" json:"id"`
-	TaskID          string     `gorm:"index;size:36" json:"task_id"`
-	UserID          string     `gorm:"index;size:36" json:"user_id"`
-	Status          string     `gorm:"index;size:32;default:pending" json:"status"`
-	ParametersJSON  string     `gorm:"column:parameters;type:text" json:"-"`
-	Result          string     `gorm:"type:text" json:"result,omitempty"`
-	Error           string     `gorm:"type:text" json:"error,omitempty"`
-	TriggeredBy     string     `gorm:"size:32" json:"triggered_by"`
-	FrontendID      string     `gorm:"size:36" json:"frontend_id,omitempty"`
-	TracesJSON      string     `gorm:"column:traces;type:text" json:"-"`
-	WebhookSent     bool       `json:"webhook_sent"`
-	WebhookSentAt   *time.Time `json:"webhook_sent_at,omitempty"`
-	WebhookError    string     `gorm:"type:text" json:"webhook_error,omitempty"`
-	ImagesJSON      string     `gorm:"column:images;type:text" json:"-"`
-	VideosJSON      string     `gorm:"column:videos;type:text" json:"-"`
-	AudiosJSON      string     `gorm:"column:audios;type:text" json:"-"`
-	FilesJSON       string     `gorm:"column:files;type:text" json:"-"`
-	StartedAt       *time.Time `json:"started_at,omitempty"`
-	CompletedAt     *time.Time `json:"completed_at,omitempty"`
-	CreatedAt       time.Time  `json:"created_at"`
-	UpdatedAt       time.Time  `json:"updated_at"`
+	ID             string     `gorm:"primaryKey;size:36" json:"id"`
+	TaskID         string     `gorm:"index;size:36" json:"task_id"`
+	UserID         string     `gorm:"index;size:36" json:"user_id"`
+	Status         string     `gorm:"index;size:32;default:pending" json:"status"`
+	ParametersJSON string     `gorm:"column:parameters;type:text" json:"-"`
+	Result         string     `gorm:"type:text" json:"result,omitempty"`
+	Error          string     `gorm:"type:text" json:"error,omitempty"`
+	TriggeredBy    string     `gorm:"size:32" json:"triggered_by"`
+	FrontendID     string     `gorm:"size:36" json:"frontend_id,omitempty"`
+	TracesJSON     string     `gorm:"column:traces;type:text" json:"-"`
+	WebhookSent    bool       `json:"webhook_sent"`
+	WebhookSentAt  *time.Time `json:"webhook_sent_at,omitempty"`
+	WebhookError   string     `gorm:"type:text" json:"webhook_error,omitempty"`
+	ImagesJSON     string     `gorm:"column:images;type:text" json:"-"`
+	VideosJSON     string     `gorm:"column:videos;type:text" json:"-"`
+	AudiosJSON     string     `gorm:"column:audios;type:text" json:"-"`
+	FilesJSON      string     `gorm:"column:files;type:text" json:"-"`
+	StartedAt      *time.Time `json:"started_at,omitempty"`
+	CompletedAt    *time.Time `json:"completed_at,omitempty"`
+	CreatedAt      time.Time  `json:"created_at"`
+	UpdatedAt      time.Time  `json:"updated_at"`
 }
 
 func (JobRecord) TableName() string { return "jobs" }
@@ -285,4 +285,3 @@ type JobStoreWriter interface {
 // Compile-time interface compliance checks.
 var _ JobStoreReader = (*JobStore)(nil)
 var _ JobStoreWriter = (*JobStore)(nil)
-

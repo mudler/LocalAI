@@ -24,9 +24,9 @@ import (
 	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/storage"
-	"github.com/mudler/LocalAI/pkg/sanitize"
 	grpc "github.com/mudler/LocalAI/pkg/grpc"
 	"github.com/mudler/LocalAI/pkg/model"
+	"github.com/mudler/LocalAI/pkg/sanitize"
 	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/mudler/LocalAI/pkg/xsysinfo"
 	process "github.com/mudler/go-processmanager"
@@ -133,6 +133,7 @@ func (cmd *WorkerCMD) Run(ctx *cliContext.Context) error {
 	xlog.Info("Connecting to NATS", "url", sanitize.URL(cmd.NatsURL))
 	natsClient, err := messaging.New(cmd.NatsURL)
 	if err != nil {
+		nodes.ShutdownFileTransferServer(httpServer)
 		return fmt.Errorf("connecting to NATS: %w", err)
 	}
 	defer natsClient.Close()
@@ -180,6 +181,7 @@ func (cmd *WorkerCMD) Run(ctx *cliContext.Context) error {
 	<-sigCh
 
 	xlog.Info("Shutting down worker")
+	shutdownCancel() // stop heartbeat loop immediately
 	regClient.GracefulDeregister(nodeID)
 	supervisor.stopAllBackends()
 	nodes.ShutdownFileTransferServer(httpServer)
@@ -191,12 +193,12 @@ func (cmd *WorkerCMD) subscribeFileStaging(natsClient messaging.MessagingClient,
 	// Create FileManager with same S3 config as the frontend
 	// TODO: propagate a caller-provided context once WorkerCMD carries one
 	s3Store, err := storage.NewS3Store(context.Background(), storage.S3Config{
-		Endpoint:       cmd.StorageURL,
-		Region:         cmd.StorageRegion,
-		Bucket:         cmd.StorageBucket,
-		AccessKeyID:    cmd.StorageAccessKey,
+		Endpoint:        cmd.StorageURL,
+		Region:          cmd.StorageRegion,
+		Bucket:          cmd.StorageBucket,
+		AccessKeyID:     cmd.StorageAccessKey,
 		SecretAccessKey: cmd.StorageSecretKey,
-		ForcePathStyle: true,
+		ForcePathStyle:  true,
 	})
 	if err != nil {
 		return fmt.Errorf("initializing S3 store: %w", err)
@@ -712,26 +714,17 @@ func (s *backendSupervisor) subscribeLifecycleEvents() {
 		xlog.Info("Received NATS model.delete event")
 		var req messaging.ModelDeleteRequest
 		if err := json.Unmarshal(data, &req); err != nil {
-			resp := messaging.ModelDeleteReply{Success: false, Error: fmt.Sprintf("invalid request: %v", err)}
-			replyJSON(reply, resp)
+			replyJSON(reply, messaging.ModelDeleteReply{Success: false, Error: "invalid request"})
 			return
 		}
 
-		// Remove model files from models path
-		modelPath := filepath.Join(s.cmd.ModelsPath, req.ModelName)
-		if _, err := os.Stat(modelPath); err == nil {
-			if err := os.RemoveAll(modelPath); err != nil {
-				xlog.Warn("Failed to remove model directory", "path", modelPath, "error", err)
-			}
-		}
-		// Also try removing as a single file (model_name.gguf etc.)
-		matches, _ := filepath.Glob(filepath.Join(s.cmd.ModelsPath, req.ModelName+"*"))
-		for _, m := range matches {
-			os.Remove(m)
+		if err := gallery.DeleteStagedModelFiles(s.cmd.ModelsPath, req.ModelName); err != nil {
+			xlog.Warn("Failed to delete model files", "model", req.ModelName, "error", err)
+			replyJSON(reply, messaging.ModelDeleteReply{Success: false, Error: err.Error()})
+			return
 		}
 
-		resp := messaging.ModelDeleteReply{Success: true}
-		replyJSON(reply, resp)
+		replyJSON(reply, messaging.ModelDeleteReply{Success: true})
 	})
 
 	// stop — trigger the normal shutdown path via sigCh so deferred cleanup runs
@@ -851,4 +844,3 @@ func (cmd *WorkerCMD) heartbeatBody() map[string]any {
 	}
 	return body
 }
-

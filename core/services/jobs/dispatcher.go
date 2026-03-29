@@ -22,8 +22,8 @@ type JobEvent struct {
 	UserID string `json:"user_id"`
 
 	// Enriched payload: set by the frontend so the worker needs no DB access.
-	Job         *JobRecord         `json:"job,omitempty"`
-	Task        *TaskRecord        `json:"task,omitempty"`
+	Job         *JobRecord          `json:"job,omitempty"`
+	Task        *TaskRecord         `json:"task,omitempty"`
 	ModelConfig *config.ModelConfig `json:"model_config,omitempty"` // included so agent workers don't need API access for model config
 }
 
@@ -136,22 +136,7 @@ func (d *Dispatcher) Start(ctx context.Context) error {
 	success := false
 	defer func() {
 		if !success {
-			if d.jobSub != nil {
-				d.jobSub.Unsubscribe()
-				d.jobSub = nil
-			}
-			if d.cancelSub != nil {
-				d.cancelSub.Unsubscribe()
-				d.cancelSub = nil
-			}
-			if d.resultSub != nil {
-				d.resultSub.Unsubscribe()
-				d.resultSub = nil
-			}
-			if d.progressSub != nil {
-				d.progressSub.Unsubscribe()
-				d.progressSub = nil
-			}
+			d.unsubscribeAll()
 		}
 	}()
 
@@ -216,23 +201,33 @@ func (d *Dispatcher) Start(ctx context.Context) error {
 	return nil
 }
 
+// unsubscribeAll nil-checks, unsubscribes, and nils out each NATS subscription.
+// Safe to call multiple times.
+func (d *Dispatcher) unsubscribeAll() {
+	if d.jobSub != nil {
+		d.jobSub.Unsubscribe()
+		d.jobSub = nil
+	}
+	if d.cancelSub != nil {
+		d.cancelSub.Unsubscribe()
+		d.cancelSub = nil
+	}
+	if d.resultSub != nil {
+		d.resultSub.Unsubscribe()
+		d.resultSub = nil
+	}
+	if d.progressSub != nil {
+		d.progressSub.Unsubscribe()
+		d.progressSub = nil
+	}
+}
+
 // Stop cleans up subscriptions and cancels running jobs.
 func (d *Dispatcher) Stop() {
 	if d.cancel != nil {
 		d.cancel()
 	}
-	if d.jobSub != nil {
-		d.jobSub.Unsubscribe()
-	}
-	if d.cancelSub != nil {
-		d.cancelSub.Unsubscribe()
-	}
-	if d.resultSub != nil {
-		d.resultSub.Unsubscribe()
-	}
-	if d.progressSub != nil {
-		d.progressSub.Unsubscribe()
-	}
+	d.unsubscribeAll()
 }
 
 // Enqueue publishes a job to the NATS queue for distributed processing.
@@ -348,6 +343,13 @@ func (d *Dispatcher) processJob(evt JobEvent) {
 	case <-cancelled:
 		cancelFn()
 	default:
+	}
+
+	// Check if job was cancelled in the DB before we picked it up
+	if d.store != nil {
+		if dbJob, err := d.store.GetJob(evt.JobID); err == nil && dbJob.Status == "cancelled" {
+			cancelFn()
+		}
 	}
 
 	defer func() {

@@ -16,10 +16,10 @@ import (
 
 // fakeInFlightTracker implements InFlightTracker, counting calls.
 type fakeInFlightTracker struct {
-	mu             sync.Mutex
-	increments     int
-	decrements     int
-	incrementErr   error
+	mu           sync.Mutex
+	increments   int
+	decrements   int
+	incrementErr error
 }
 
 func (f *fakeInFlightTracker) IncrementInFlight(_ context.Context, _, _ string) error {
@@ -46,7 +46,7 @@ type fakeGRPCBackend struct {
 	streamErr     error
 }
 
-func (f *fakeGRPCBackend) IsBusy() bool                     { return false }
+func (f *fakeGRPCBackend) IsBusy() bool                                { return false }
 func (f *fakeGRPCBackend) HealthCheck(_ context.Context) (bool, error) { return true, nil }
 func (f *fakeGRPCBackend) LoadModel(_ context.Context, _ *pb.ModelOptions, _ ...ggrpc.CallOption) (*pb.Result, error) {
 	return &pb.Result{}, nil

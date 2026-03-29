@@ -19,7 +19,7 @@ import (
 type FileManager struct {
 	store    ObjectStore
 	cacheDir string // local cache directory for downloaded files
-	flight singleflight.Group
+	flight   singleflight.Group
 }
 
 // NewFileManager creates a new FileManager.
@@ -64,7 +64,10 @@ func (fm *FileManager) Download(ctx context.Context, key string) (string, error)
 		return "", fmt.Errorf("no object store configured")
 	}
 
-	localPath := fm.cachePath(key)
+	localPath, err := fm.cachePath(key)
+	if err != nil {
+		return "", err
+	}
 
 	// Fast path: check local cache without any locking
 	if _, err := os.Stat(localPath); err == nil {
@@ -142,8 +145,10 @@ func (fm *FileManager) Delete(ctx context.Context, key string) error {
 	}
 
 	// Remove from local cache
-	localPath := fm.cachePath(key)
-	os.Remove(localPath)
+	localPath, err := fm.cachePath(key)
+	if err == nil {
+		os.Remove(localPath)
+	}
 
 	return fm.store.Delete(ctx, key)
 }
@@ -158,18 +163,27 @@ func (fm *FileManager) List(ctx context.Context, prefix string) ([]string, error
 
 // CacheExists checks if a file is in the local cache.
 func (fm *FileManager) CacheExists(key string) bool {
-	_, err := os.Stat(fm.cachePath(key))
+	p, err := fm.cachePath(key)
+	if err != nil {
+		return false
+	}
+	_, err = os.Stat(p)
 	return err == nil
 }
 
 // CachePath returns the local cache path for a key.
-func (fm *FileManager) CachePath(key string) string {
+// Returns an error if the key would escape the cache directory.
+func (fm *FileManager) CachePath(key string) (string, error) {
 	return fm.cachePath(key)
 }
 
 // EvictCache removes a file from the local cache (but keeps it in object storage).
 func (fm *FileManager) EvictCache(key string) error {
-	return os.Remove(fm.cachePath(key))
+	p, err := fm.cachePath(key)
+	if err != nil {
+		return err
+	}
+	return os.Remove(p)
 }
 
 // IsConfigured returns true if an object store is configured.
@@ -177,10 +191,14 @@ func (fm *FileManager) IsConfigured() bool {
 	return fm.store != nil
 }
 
-func (fm *FileManager) cachePath(key string) string {
+func (fm *FileManager) cachePath(key string) (string, error) {
 	// Convert key to safe filesystem path
 	safe := strings.ReplaceAll(key, "/", string(filepath.Separator))
-	return filepath.Join(fm.cacheDir, safe)
+	full := filepath.Clean(filepath.Join(fm.cacheDir, safe))
+	if !strings.HasPrefix(full, filepath.Clean(fm.cacheDir)+string(filepath.Separator)) {
+		return "", fmt.Errorf("key %q escapes cache directory", key)
+	}
+	return full, nil
 }
 
 // EphemeralKey returns an S3 key for ephemeral (per-request) files.

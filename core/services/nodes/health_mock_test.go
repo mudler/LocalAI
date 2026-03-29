@@ -16,7 +16,7 @@ type fakeNodeHealthStore struct {
 	mu     sync.Mutex
 	nodes  map[string]*BackendNode
 	models map[string][]NodeModel // nodeID -> models
-	calls  []string              // track method calls
+	calls  []string               // track method calls
 }
 
 func newFakeNodeHealthStore() *fakeNodeHealthStore {
@@ -92,6 +92,16 @@ func (f *fakeNodeHealthStore) MarkUnhealthy(_ context.Context, nodeID string) er
 	defer f.mu.Unlock()
 	if n, ok := f.nodes[nodeID]; ok {
 		n.Status = StatusUnhealthy
+	}
+	return nil
+}
+
+func (f *fakeNodeHealthStore) MarkHealthy(_ context.Context, nodeID string) error {
+	f.record("MarkHealthy:" + nodeID)
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if n, ok := f.nodes[nodeID]; ok {
+		n.Status = StatusHealthy
 	}
 	return nil
 }

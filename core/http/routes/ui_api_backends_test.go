@@ -98,7 +98,7 @@ var _ = Describe("Backend API Routes", func() {
 
 			Expect(rec.Code).To(Equal(http.StatusBadRequest))
 
-			var response map[string]interface{}
+			var response map[string]any
 			err = json.Unmarshal(rec.Body.Bytes(), &response)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(response["error"]).To(Equal("uri is required"))
@@ -121,7 +121,7 @@ var _ = Describe("Backend API Routes", func() {
 
 			Expect(rec.Code).To(Equal(http.StatusOK))
 
-			var response map[string]interface{}
+			var response map[string]any
 			err = json.Unmarshal(rec.Body.Bytes(), &response)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(response["jobID"]).NotTo(BeEmpty())
@@ -143,7 +143,7 @@ var _ = Describe("Backend API Routes", func() {
 
 			Expect(rec.Code).To(Equal(http.StatusOK))
 
-			var response map[string]interface{}
+			var response map[string]any
 			err = json.Unmarshal(rec.Body.Bytes(), &response)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(response["jobID"]).NotTo(BeEmpty())
@@ -169,7 +169,7 @@ var _ = Describe("Backend API Routes", func() {
 
 			Expect(rec.Code).To(Equal(http.StatusOK))
 
-			var response map[string]interface{}
+			var response map[string]any
 			err := json.Unmarshal(rec.Body.Bytes(), &response)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(response["queued"]).To(Equal(true))
@@ -179,7 +179,7 @@ var _ = Describe("Backend API Routes", func() {
 })
 
 // Helper function to make POST request
-func postRequest(url string, body interface{}) (*http.Response, error) {
+func postRequest(url string, body any) (*http.Response, error) {
 	jsonBody, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
@@ -196,14 +196,14 @@ func postRequest(url string, body interface{}) (*http.Response, error) {
 }
 
 // Helper function to read response body
-func readResponseBody(resp *http.Response) (map[string]interface{}, error) {
+func readResponseBody(resp *http.Response) (map[string]any, error) {
 	defer resp.Body.Close()
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}
 
-	var result map[string]interface{}
+	var result map[string]any
 	err = json.Unmarshal(body, &result)
 	return result, err
 }

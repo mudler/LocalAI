@@ -75,7 +75,7 @@ type Session struct {
 	DefaultConversationID   string
 	ModelInterface          Model
 	// The pipeline model config or the config for an any-to-any model
-	ModelConfig     *config.ModelConfig
+	ModelConfig      *config.ModelConfig
 	InputSampleRate  int
 	OutputSampleRate int
 	MaxOutputTokens  types.IntOrInf
@@ -336,12 +336,10 @@ func runRealtimeSession(application *application.Application, t Transport, model
 		if session.TurnDetection != nil && session.TurnDetection.ServerVad != nil && !vadServerStarted {
 			xlog.Debug("Starting VAD goroutine...")
 			done = make(chan struct{})
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
+			wg.Go(func() {
 				conversation := session.Conversations[session.DefaultConversationID]
 				handleVAD(session, conversation, t, done)
-			}()
+			})
 			vadServerStarted = true
 		} else if (session.TurnDetection == nil || session.TurnDetection.ServerVad == nil) && vadServerStarted {
 			xlog.Debug("Stopping VAD goroutine...")
@@ -684,7 +682,7 @@ func sendTestTone(t Transport) {
 	)
 
 	pcm := make([]byte, numSamples*2) // 16-bit samples = 2 bytes each
-	for i := 0; i < numSamples; i++ {
+	for i := range numSamples {
 		sample := int16(amplitude * math.Sin(2*math.Pi*freq*float64(i)/sampleRate))
 		binary.LittleEndian.PutUint16(pcm[i*2:], uint16(sample))
 	}
@@ -1337,7 +1335,7 @@ func triggerResponse(ctx context.Context, session *Session, conv *Conversation, 
 
 	if isNoAction {
 		arg := toolCalls[0].Arguments
-		arguments := map[string]interface{}{}
+		arguments := map[string]any{}
 		if err := json.Unmarshal([]byte(arg), &arguments); err == nil {
 			if m, exists := arguments["message"]; exists {
 				if message, ok := m.(string); ok {

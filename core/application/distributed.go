@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"sync"
 
 	"github.com/google/uuid"
 	"github.com/mudler/LocalAI/core/config"
@@ -36,29 +37,33 @@ type DistributedServices struct {
 	FileStager   nodes.FileStager
 	ModelAdapter *nodes.ModelRouterAdapter
 	Unloader     *nodes.RemoteUnloaderAdapter
+
+	shutdownOnce sync.Once
 }
 
 // Shutdown stops all distributed services in reverse initialization order.
-// It is safe to call on a nil receiver.
+// It is safe to call on a nil receiver and is idempotent (uses sync.Once).
 func (ds *DistributedServices) Shutdown() {
 	if ds == nil {
 		return
 	}
-	if ds.Health != nil {
-		ds.Health.Stop()
-	}
-	if ds.Dispatcher != nil {
-		ds.Dispatcher.Stop()
-	}
-	if closer, ok := ds.Store.(io.Closer); ok {
-		closer.Close()
-	}
-	// AgentBridge has no Close method — its NATS subscriptions are cleaned up
-	// when the NATS client is closed below.
-	if ds.Nats != nil {
-		ds.Nats.Close()
-	}
-	xlog.Info("Distributed services shut down")
+	ds.shutdownOnce.Do(func() {
+		if ds.Health != nil {
+			ds.Health.Stop()
+		}
+		if ds.Dispatcher != nil {
+			ds.Dispatcher.Stop()
+		}
+		if closer, ok := ds.Store.(io.Closer); ok {
+			closer.Close()
+		}
+		// AgentBridge has no Close method — its NATS subscriptions are cleaned up
+		// when the NATS client is closed below.
+		if ds.Nats != nil {
+			ds.Nats.Close()
+		}
+		xlog.Info("Distributed services shut down")
+	})
 }
 
 // initDistributed validates distributed mode prerequisites and initializes

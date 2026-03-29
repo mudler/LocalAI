@@ -2,18 +2,18 @@ package schema
 
 // RewardFunctionSpec defines a reward function for GRPO training.
 type RewardFunctionSpec struct {
-	Type   string            `json:"type"`             // "builtin" or "inline"
+	Type   string            `json:"type"` // "builtin" or "inline"
 	Name   string            `json:"name"`
-	Code   string            `json:"code,omitempty"`   // inline only
+	Code   string            `json:"code,omitempty"` // inline only
 	Params map[string]string `json:"params,omitempty"`
 }
 
 // FineTuneJobRequest is the REST API request to start a fine-tuning job.
 type FineTuneJobRequest struct {
-	Model          string            `json:"model"`
-	Backend        string            `json:"backend"`                    // "trl"
-	TrainingType   string            `json:"training_type,omitempty"`    // lora, loha, lokr, full
-	TrainingMethod string            `json:"training_method,omitempty"`  // sft, dpo, grpo, rloo, reward, kto, orpo
+	Model          string `json:"model"`
+	Backend        string `json:"backend"`                   // "trl"
+	TrainingType   string `json:"training_type,omitempty"`   // lora, loha, lokr, full
+	TrainingMethod string `json:"training_method,omitempty"` // sft, dpo, grpo, rloo, reward, kto, orpo
 
 	// Adapter config
 	AdapterRank    int32    `json:"adapter_rank,omitempty"`
@@ -65,7 +65,7 @@ type FineTuneJob struct {
 	CreatedAt      string            `json:"created_at"`
 
 	// Export state (tracked separately from training status)
-	ExportStatus    string `json:"export_status,omitempty"`     // "", "exporting", "completed", "failed"
+	ExportStatus    string `json:"export_status,omitempty"` // "", "exporting", "completed", "failed"
 	ExportMessage   string `json:"export_message,omitempty"`
 	ExportModelName string `json:"export_model_name,omitempty"` // registered model name after export
 
@@ -102,10 +102,10 @@ type FineTuneProgressEvent struct {
 
 // ExportRequest is the REST API request to export a model.
 type ExportRequest struct {
-	Name               string            `json:"name,omitempty"`              // model name for LocalAI (auto-generated if empty)
+	Name               string            `json:"name,omitempty"` // model name for LocalAI (auto-generated if empty)
 	CheckpointPath     string            `json:"checkpoint_path"`
-	ExportFormat       string            `json:"export_format"`               // lora, merged_16bit, merged_4bit, gguf
-	QuantizationMethod string            `json:"quantization_method"`         // for GGUF: q4_k_m, q5_k_m, q8_0, f16
-	Model              string            `json:"model,omitempty"`             // base model name for merge
+	ExportFormat       string            `json:"export_format"`       // lora, merged_16bit, merged_4bit, gguf
+	QuantizationMethod string            `json:"quantization_method"` // for GGUF: q4_k_m, q5_k_m, q8_0, f16
+	Model              string            `json:"model,omitempty"`     // base model name for merge
 	ExtraOptions       map[string]string `json:"extra_options,omitempty"`
 }

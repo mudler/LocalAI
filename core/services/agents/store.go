@@ -16,9 +16,9 @@ type AgentConfigRecord struct {
 	ID         string     `gorm:"primaryKey;size:36" json:"id"`
 	UserID     string     `gorm:"index;size:36" json:"user_id"`
 	Name       string     `gorm:"size:255;index" json:"name"`
-	ConfigJSON string     `gorm:"column:config;type:text" json:"-"`  // Full agent config as JSON
+	ConfigJSON string     `gorm:"column:config;type:text" json:"-"`     // Full agent config as JSON
 	Status     string     `gorm:"size:32;default:active" json:"status"` // active, paused, deleted
-	LastRunAt  *time.Time `json:"last_run_at,omitempty"`               // Last autonomous/background run
+	LastRunAt  *time.Time `json:"last_run_at,omitempty"`                // Last autonomous/background run
 	CreatedAt  time.Time  `json:"created_at"`
 	UpdatedAt  time.Time  `json:"updated_at"`
 }
@@ -33,11 +33,11 @@ const (
 
 // AgentObservableRecord persists agent action traces (reasoning, tool calls, etc.).
 type AgentObservableRecord struct {
-	ID         string    `gorm:"primaryKey;size:36" json:"id"`
-	AgentName  string    `gorm:"index;size:255" json:"agent_name"`
-	EventType  string    `gorm:"size:64" json:"event_type"` // status, action, error
-	PayloadJSON string   `gorm:"column:payload;type:text" json:"-"`
-	CreatedAt  time.Time `gorm:"index" json:"created_at"`
+	ID          string    `gorm:"primaryKey;size:36" json:"id"`
+	AgentName   string    `gorm:"index;size:255" json:"agent_name"`
+	EventType   string    `gorm:"size:64" json:"event_type"` // status, action, error
+	PayloadJSON string    `gorm:"column:payload;type:text" json:"-"`
+	CreatedAt   time.Time `gorm:"index" json:"created_at"`
 }
 
 func (AgentObservableRecord) TableName() string { return "agent_observables" }

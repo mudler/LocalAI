@@ -46,10 +46,18 @@ func (s *DistributedModelStore) Range(fn func(string, *model.Model) bool) {
 	// Track which IDs we've already visited
 	seen := make(map[string]bool)
 
+	stopped := false
 	s.local.Range(func(id string, m *model.Model) bool {
 		seen[id] = true
-		return fn(id, m)
+		if !fn(id, m) {
+			stopped = true
+			return false
+		}
+		return true
 	})
+	if stopped {
+		return // caller said stop, respect it
+	}
 
 	// Query DB for models not in local cache
 	ctx := context.Background()

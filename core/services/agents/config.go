@@ -18,8 +18,8 @@ const (
 
 // Conversation storage mode constants for AgentConfig.ConversationStorageMode.
 const (
-	ConvStorageUserOnly         = "user_only"          // default: store only user messages
-	ConvStorageUserAndAssistant = "user_and_assistant"  // store user and assistant messages separately
+	ConvStorageUserOnly          = "user_only"          // default: store only user messages
+	ConvStorageUserAndAssistant  = "user_and_assistant" // store user and assistant messages separately
 	ConvStorageWholeConversation = "whole_conversation" // store entire conversation as single block
 )
 
@@ -27,13 +27,13 @@ const (
 // JSON field names match LocalAGI's state.AgentConfig for import/export compatibility.
 type AgentConfig struct {
 	// Integrations
-	Connector      []ConnectorConfig      `json:"connectors"`
-	Actions        []ActionsConfig        `json:"actions"`
-	DynamicPrompts []DynamicPromptsConfig `json:"dynamic_prompts"`
-	MCPServers     []MCPServer            `json:"mcp_servers"`
-	MCPSTDIOServers MCPSTDIOServers       `json:"mcp_stdio_servers"`
-	MCPPrepareScript string               `json:"mcp_prepare_script"`
-	Filters        []FiltersConfig        `json:"filters"`
+	Connector        []ConnectorConfig      `json:"connectors"`
+	Actions          []ActionsConfig        `json:"actions"`
+	DynamicPrompts   []DynamicPromptsConfig `json:"dynamic_prompts"`
+	MCPServers       []MCPServer            `json:"mcp_servers"`
+	MCPSTDIOServers  MCPSTDIOServers        `json:"mcp_stdio_servers"`
+	MCPPrepareScript string                 `json:"mcp_prepare_script"`
+	Filters          []FiltersConfig        `json:"filters"`
 
 	// Basic info
 	Description string `json:"description"`
@@ -58,16 +58,16 @@ type AgentConfig struct {
 	SchedulerPollInterval string `json:"scheduler_poll_interval"`
 
 	// Behavior
-	StandaloneJob              bool   `json:"standalone_job"`
-	InitiateConversations      bool   `json:"initiate_conversations"`
-	CanPlan                    bool   `json:"enable_planning"`
-	PlanReviewerModel          string `json:"plan_reviewer_model"`
-	DisableSinkState           bool   `json:"disable_sink_state"` // legacy, kept for JSON compat — sink state is always disabled
-	PermanentGoal              string `json:"permanent_goal"`
-	SystemPrompt               string `json:"system_prompt"`
-	SkillsPrompt               string `json:"skills_prompt"`
-	InnerMonologueTemplate     string `json:"inner_monologue_template"`
-	SchedulerTaskTemplate      string `json:"scheduler_task_template"`
+	StandaloneJob          bool   `json:"standalone_job"`
+	InitiateConversations  bool   `json:"initiate_conversations"`
+	CanPlan                bool   `json:"enable_planning"`
+	PlanReviewerModel      string `json:"plan_reviewer_model"`
+	DisableSinkState       bool   `json:"disable_sink_state"` // legacy, kept for JSON compat — sink state is always disabled
+	PermanentGoal          string `json:"permanent_goal"`
+	SystemPrompt           string `json:"system_prompt"`
+	SkillsPrompt           string `json:"skills_prompt"`
+	InnerMonologueTemplate string `json:"inner_monologue_template"`
+	SchedulerTaskTemplate  string `json:"scheduler_task_template"`
 
 	// Knowledge base
 	EnableKnowledgeBase   bool   `json:"enable_kb"`
@@ -92,8 +92,8 @@ type AgentConfig struct {
 	SelectedSkills []string `json:"selected_skills,omitempty"` // Per-agent skill selection
 
 	// Memory
-	LongTermMemory        bool   `json:"long_term_memory"`
-	SummaryLongTermMemory bool   `json:"summary_long_term_memory"`
+	LongTermMemory          bool   `json:"long_term_memory"`
+	SummaryLongTermMemory   bool   `json:"summary_long_term_memory"`
 	ConversationStorageMode string `json:"conversation_storage_mode"`
 
 	// Execution
@@ -102,11 +102,11 @@ type AgentConfig struct {
 	StripThinkingTags          bool  `json:"strip_thinking_tags"`
 	EnableEvaluation           bool  `json:"enable_evaluation"`
 	MaxEvaluationLoops         int   `json:"max_evaluation_loops"`
-	MaxAttempts             int  `json:"max_attempts"`
-	MaxIterations           int  `json:"max_iterations"` // max tool loop iterations
-	LoopDetection           int  `json:"loop_detection"`
-	EnableAutoCompaction    bool `json:"enable_auto_compaction"`
-	AutoCompactionThreshold int  `json:"auto_compaction_threshold"`
+	MaxAttempts                int   `json:"max_attempts"`
+	MaxIterations              int   `json:"max_iterations"` // max tool loop iterations
+	LoopDetection              int   `json:"loop_detection"`
+	EnableAutoCompaction       bool  `json:"enable_auto_compaction"`
+	AutoCompactionThreshold    int   `json:"auto_compaction_threshold"`
 }
 
 // ConnectorConfig defines a connector integration (Slack, Discord, etc.).

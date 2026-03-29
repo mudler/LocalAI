@@ -27,8 +27,8 @@ import (
 
 // mockLLM is a test LLM that returns a fixed response.
 type mockLLM struct {
-	response string
-	toolCall *openai.ToolCall // if set, first call returns a tool call
+	response  string
+	toolCall  *openai.ToolCall // if set, first call returns a tool call
 	callCount atomic.Int32
 }
 
@@ -138,7 +138,7 @@ func startAgentMockLLMServer(responseText string) (string, func()) {
 		}
 
 		var req struct {
-			Stream bool `json:"stream"`
+			Stream bool   `json:"stream"`
 			Model  string `json:"model"`
 		}
 		data, _ := io.ReadAll(r.Body)
@@ -157,7 +157,9 @@ func startAgentMockLLMServer(responseText string) (string, func()) {
 			}
 			d, _ := json.Marshal(chunk)
 			fmt.Fprintf(w, "data: %s\n\n", d)
-			if flusher != nil { flusher.Flush() }
+			if flusher != nil {
+				flusher.Flush()
+			}
 
 			done := map[string]any{
 				"id": "chatcmpl-mock-done", "model": req.Model,
@@ -168,14 +170,16 @@ func startAgentMockLLMServer(responseText string) (string, func()) {
 			d, _ = json.Marshal(done)
 			fmt.Fprintf(w, "data: %s\n\n", d)
 			fmt.Fprintf(w, "data: [DONE]\n\n")
-			if flusher != nil { flusher.Flush() }
+			if flusher != nil {
+				flusher.Flush()
+			}
 		} else {
 			w.Header().Set("Content-Type", "application/json")
 			resp := map[string]any{
 				"id": "chatcmpl-mock", "model": req.Model,
 				"choices": []map[string]any{{
-					"index": 0,
-					"message": map[string]any{"role": "assistant", "content": responseText},
+					"index":         0,
+					"message":       map[string]any{"role": "assistant", "content": responseText},
 					"finish_reason": "stop",
 				}},
 			}
@@ -216,7 +220,6 @@ func (p *mockConfigProvider) GetAgentConfig(userID, name string) (*agents.AgentC
 	}
 	return nil, fmt.Errorf("agent not found: %s", name)
 }
-
 
 var _ = Describe("Native Agent Executor", Label("Distributed", "AgentNative"), func() {
 	var (
@@ -537,10 +540,10 @@ var _ = Describe("Native Agent Executor", Label("Distributed", "AgentNative"), f
 
 		It("should survive PostgreSQL round-trip", func() {
 			cfg := agents.AgentConfig{
-				Name:         "db-test",
-				Model:        "qwen",
-				SystemPrompt: "Hello world",
-				EnableSkills: true,
+				Name:           "db-test",
+				Model:          "qwen",
+				SystemPrompt:   "Hello world",
+				EnableSkills:   true,
 				SelectedSkills: []string{"skill-a", "skill-b"},
 			}
 

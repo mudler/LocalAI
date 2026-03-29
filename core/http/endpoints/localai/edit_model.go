@@ -60,14 +60,14 @@ func GetEditModelPage(cl *config.ModelConfigLoader, appConfig *config.Applicatio
 
 		// Render the edit page with the current configuration
 		templateData := struct {
-			Title                   string
-			ModelName               string
-			Config                  *config.ModelConfig
-			ConfigJSON              string
-			ConfigYAML              string
-			BaseURL                 string
-			Version                 string
-			DisableRuntimeSettings  bool
+			Title                  string
+			ModelName              string
+			Config                 *config.ModelConfig
+			ConfigJSON             string
+			ConfigYAML             string
+			BaseURL                string
+			Version                string
+			DisableRuntimeSettings bool
 		}{
 			Title:                  "LocalAI - Edit Model " + modelName,
 			ModelName:              modelName,

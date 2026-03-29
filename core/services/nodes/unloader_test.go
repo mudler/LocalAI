@@ -17,8 +17,8 @@ import (
 
 // fakeModelLocator implements ModelLocator with configurable node lists.
 type fakeModelLocator struct {
-	nodes       []BackendNode
-	findErr     error
+	nodes        []BackendNode
+	findErr      error
 	removedPairs []modelNodePair // records RemoveNodeModel calls
 }
 
@@ -39,12 +39,12 @@ func (f *fakeModelLocator) RemoveNodeModel(_ context.Context, nodeID, modelName 
 // fakeMessagingClient implements messaging.MessagingClient, recording Publish
 // and Request calls so we can assert on subjects and payloads.
 type fakeMessagingClient struct {
-	mu            sync.Mutex
-	published     []publishCall
-	publishErr    error // error to return from Publish
-	requestReply  []byte
-	requestErr    error
-	requestCalls  []requestCall
+	mu           sync.Mutex
+	published    []publishCall
+	publishErr   error // error to return from Publish
+	requestReply []byte
+	requestErr   error
+	requestCalls []requestCall
 }
 
 type publishCall struct {

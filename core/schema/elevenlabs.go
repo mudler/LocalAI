@@ -13,12 +13,12 @@ type ElevenLabsSoundGenerationRequest struct {
 	Temperature *float32 `json:"prompt_influence,omitempty" yaml:"prompt_influence,omitempty"`
 	DoSample    *bool    `json:"do_sample,omitempty" yaml:"do_sample,omitempty"`
 	// Advanced mode
-	Think        *bool  `json:"think,omitempty" yaml:"think,omitempty"`
-	Caption      string `json:"caption,omitempty" yaml:"caption,omitempty"`
-	Lyrics       string `json:"lyrics,omitempty" yaml:"lyrics,omitempty"`
-	BPM          *int   `json:"bpm,omitempty" yaml:"bpm,omitempty"`
-	Keyscale     string `json:"keyscale,omitempty" yaml:"keyscale,omitempty"`
-	Language     string `json:"language,omitempty" yaml:"language,omitempty"`
+	Think         *bool  `json:"think,omitempty" yaml:"think,omitempty"`
+	Caption       string `json:"caption,omitempty" yaml:"caption,omitempty"`
+	Lyrics        string `json:"lyrics,omitempty" yaml:"lyrics,omitempty"`
+	BPM           *int   `json:"bpm,omitempty" yaml:"bpm,omitempty"`
+	Keyscale      string `json:"keyscale,omitempty" yaml:"keyscale,omitempty"`
+	Language      string `json:"language,omitempty" yaml:"language,omitempty"`
 	VocalLanguage string `json:"vocal_language,omitempty" yaml:"vocal_language,omitempty"`
 	Timesignature string `json:"timesignature,omitempty" yaml:"timesignature,omitempty"`
 	// Simple mode: use text as description; optional instrumental / vocal_language

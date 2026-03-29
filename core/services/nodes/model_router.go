@@ -15,10 +15,10 @@ import (
 // it calls this adapter instead of starting a local process.
 //
 // The adapter:
-// 1. Calls SmartRouter.Route() to find/load the model on a remote node
-//    (SmartRouter pre-stages model files via FileStager in Route())
-// 2. Returns a Model with a FileStagingClient-wrapped gRPC client
-// 3. Tracks Release() functions for cleanup on model unload
+//  1. Calls SmartRouter.Route() to find/load the model on a remote node
+//     (SmartRouter pre-stages model files via FileStager in Route())
+//  2. Returns a Model with a FileStagingClient-wrapped gRPC client
+//  3. Tracks Release() functions for cleanup on model unload
 type ModelRouterAdapter struct {
 	router  *SmartRouter
 	mu      sync.Mutex

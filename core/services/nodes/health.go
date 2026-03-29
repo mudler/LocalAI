@@ -18,7 +18,7 @@ type HealthMonitor struct {
 	db                  *gorm.DB // if non-nil, use advisory lock so only one frontend runs checks
 	checkInterval       time.Duration
 	staleThreshold      time.Duration
-	autoOffline         bool // mark stale nodes as offline (preserves approval status)
+	autoOffline         bool                 // mark stale nodes as offline (preserves approval status)
 	clientFactory       BackendClientFactory // creates gRPC backend clients
 	perModelHealthCheck bool                 // check each model's backend process individually
 	cancel              context.CancelFunc
@@ -50,8 +50,12 @@ func NewHealthMonitor(registry NodeHealthStore, db *gorm.DB, checkInterval, stal
 }
 
 // Start begins the health monitoring loop in a background goroutine.
+// If a previous instance is running, it is stopped first.
 func (hm *HealthMonitor) Start(ctx context.Context) {
 	hm.cancelMu.Lock()
+	if hm.cancel != nil {
+		hm.cancel() // stop previous instance
+	}
 	ctx, hm.cancel = context.WithCancel(ctx)
 	hm.cancelMu.Unlock()
 	go hm.run(ctx)
@@ -158,7 +162,9 @@ func (hm *HealthMonitor) doCheckAll(ctx context.Context) {
 		if node.Status == StatusUnhealthy {
 			// Node recovered
 			xlog.Info("Node recovered", "node", node.Name)
-			hm.registry.Heartbeat(ctx, node.ID, nil)
+			if err := hm.registry.MarkHealthy(ctx, node.ID); err != nil {
+				xlog.Error("Failed to mark node healthy", "node", node.Name, "error", err)
+			}
 		}
 
 		// Per-model backend health check: probe each model's distinct gRPC address

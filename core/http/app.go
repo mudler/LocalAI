@@ -25,8 +25,8 @@ import (
 	"github.com/mudler/LocalAI/core/services/finetune"
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/monitoring"
-	"github.com/mudler/LocalAI/core/services/quantization"
 	"github.com/mudler/LocalAI/core/services/nodes"
+	"github.com/mudler/LocalAI/core/services/quantization"
 
 	"github.com/mudler/xlog"
 )

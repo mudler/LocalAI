@@ -19,18 +19,18 @@ import (
 type BackendNode struct {
 	ID            string    `gorm:"primaryKey;size:36" json:"id"`
 	Name          string    `gorm:"uniqueIndex;size:255" json:"name"`
-	NodeType      string    `gorm:"size:32;default:backend" json:"node_type"` // backend, agent
-	Address       string    `gorm:"size:255" json:"address"`             // host:port for gRPC
-	HTTPAddress   string    `gorm:"size:255" json:"http_address"`        // host:port for HTTP file transfer
-	Status        string    `gorm:"size:32;default:registering" json:"status"` // registering, healthy, unhealthy, draining, pending
-	TokenHash     string    `gorm:"size:64" json:"-"`                    // SHA-256 of registration token
-	TotalVRAM     uint64    `gorm:"column:total_vram" json:"total_vram"`           // Total GPU VRAM in bytes
-	AvailableVRAM uint64    `gorm:"column:available_vram" json:"available_vram"`   // Available GPU VRAM in bytes
-	TotalRAM      uint64    `gorm:"column:total_ram" json:"total_ram"`             // Total system RAM in bytes (fallback when no GPU)
-	AvailableRAM  uint64    `gorm:"column:available_ram" json:"available_ram"`     // Available system RAM in bytes
-	GPUVendor     string    `gorm:"column:gpu_vendor;size:32" json:"gpu_vendor"`   // nvidia, amd, intel, vulkan, unknown
-	APIKeyID      string    `gorm:"size:36" json:"-"`                    // auto-provisioned API key ID (for cleanup)
-	AuthUserID    string    `gorm:"size:36" json:"-"`                    // auto-provisioned user ID (for cleanup)
+	NodeType      string    `gorm:"size:32;default:backend" json:"node_type"`    // backend, agent
+	Address       string    `gorm:"size:255" json:"address"`                     // host:port for gRPC
+	HTTPAddress   string    `gorm:"size:255" json:"http_address"`                // host:port for HTTP file transfer
+	Status        string    `gorm:"size:32;default:registering" json:"status"`   // registering, healthy, unhealthy, draining, pending
+	TokenHash     string    `gorm:"size:64" json:"-"`                            // SHA-256 of registration token
+	TotalVRAM     uint64    `gorm:"column:total_vram" json:"total_vram"`         // Total GPU VRAM in bytes
+	AvailableVRAM uint64    `gorm:"column:available_vram" json:"available_vram"` // Available GPU VRAM in bytes
+	TotalRAM      uint64    `gorm:"column:total_ram" json:"total_ram"`           // Total system RAM in bytes (fallback when no GPU)
+	AvailableRAM  uint64    `gorm:"column:available_ram" json:"available_ram"`   // Available system RAM in bytes
+	GPUVendor     string    `gorm:"column:gpu_vendor;size:32" json:"gpu_vendor"` // nvidia, amd, intel, vulkan, unknown
+	APIKeyID      string    `gorm:"size:36" json:"-"`                            // auto-provisioned API key ID (for cleanup)
+	AuthUserID    string    `gorm:"size:36" json:"-"`                            // auto-provisioned user ID (for cleanup)
 	LastHeartbeat time.Time `gorm:"column:last_heartbeat" json:"last_heartbeat"`
 	CreatedAt     time.Time `json:"created_at"`
 	UpdatedAt     time.Time `json:"updated_at"`
@@ -166,16 +166,25 @@ func (r *NodeRegistry) ApproveNode(ctx context.Context, nodeID string) error {
 	return nil
 }
 
+// setStatus updates a node's status column in the database.
+func (r *NodeRegistry) setStatus(ctx context.Context, nodeID, status string) error {
+	result := r.db.WithContext(ctx).Model(&BackendNode{}).
+		Where("id = ?", nodeID).Update("status", status)
+	if result.Error != nil {
+		return fmt.Errorf("setting node %s to %s: %w", nodeID, status, result.Error)
+	}
+	if result.RowsAffected == 0 {
+		return fmt.Errorf("node %s not found", nodeID)
+	}
+	return nil
+}
+
 // MarkOffline sets a node to offline status and clears its model records.
 // Used on graceful shutdown — preserves the node row so re-registration
 // can restore the previous approval status.
 func (r *NodeRegistry) MarkOffline(ctx context.Context, nodeID string) error {
-	result := r.db.WithContext(ctx).Model(&BackendNode{}).Where("id = ?", nodeID).Update("status", StatusOffline)
-	if result.Error != nil {
-		return fmt.Errorf("marking node %s offline: %w", nodeID, result.Error)
-	}
-	if result.RowsAffected == 0 {
-		return fmt.Errorf("node %s not found", nodeID)
+	if err := r.setStatus(ctx, nodeID, StatusOffline); err != nil {
+		return err
 	}
 	// Clear model records — node is shutting down
 	if err := r.db.WithContext(ctx).Where("node_id = ?", nodeID).Delete(&NodeModel{}).Error; err != nil {
@@ -327,28 +336,17 @@ func (r *NodeRegistry) GetByName(ctx context.Context, name string) (*BackendNode
 
 // MarkUnhealthy sets a node status to unhealthy.
 func (r *NodeRegistry) MarkUnhealthy(ctx context.Context, nodeID string) error {
-	result := r.db.WithContext(ctx).Model(&BackendNode{}).Where("id = ?", nodeID).
-		Update("status", StatusUnhealthy)
-	if result.Error != nil {
-		return fmt.Errorf("marking node %s unhealthy: %w", nodeID, result.Error)
-	}
-	if result.RowsAffected == 0 {
-		return fmt.Errorf("node %s not found", nodeID)
-	}
-	return nil
+	return r.setStatus(ctx, nodeID, StatusUnhealthy)
+}
+
+// MarkHealthy sets a node status to healthy.
+func (r *NodeRegistry) MarkHealthy(ctx context.Context, nodeID string) error {
+	return r.setStatus(ctx, nodeID, StatusHealthy)
 }
 
 // MarkDraining sets a node status to draining (no new requests).
 func (r *NodeRegistry) MarkDraining(ctx context.Context, nodeID string) error {
-	result := r.db.WithContext(ctx).Model(&BackendNode{}).Where("id = ?", nodeID).
-		Update("status", StatusDraining)
-	if result.Error != nil {
-		return fmt.Errorf("marking node %s draining: %w", nodeID, result.Error)
-	}
-	if result.RowsAffected == 0 {
-		return fmt.Errorf("node %s not found", nodeID)
-	}
-	return nil
+	return r.setStatus(ctx, nodeID, StatusDraining)
 }
 
 // FindStaleNodes returns nodes that haven't sent a heartbeat within the given threshold.
@@ -372,16 +370,16 @@ func (r *NodeRegistry) SetNodeModel(ctx context.Context, nodeID, modelName, stat
 	if len(address) > 0 {
 		addr = address[0]
 	}
-	nm := &NodeModel{
-		ID:        uuid.New().String(),
-		NodeID:    nodeID,
-		ModelName: modelName,
-		Address:   addr,
-		State:     state,
-		LastUsed:  time.Now(),
-	}
+	now := time.Now()
+	// Use Attrs for creation-only fields (ID) and Assign for update-only fields.
+	// Attrs is applied only when creating a new record. Assign is applied on
+	// both create and update. This prevents overwriting the primary key on
+	// subsequent calls for the same node+model.
+	var nm NodeModel
 	result := r.db.WithContext(ctx).Where("node_id = ? AND model_name = ?", nodeID, modelName).
-		Assign(nm).FirstOrCreate(nm)
+		Attrs(NodeModel{ID: uuid.New().String(), NodeID: nodeID, ModelName: modelName}).
+		Assign(map[string]any{"address": addr, "state": state, "last_used": now}).
+		FirstOrCreate(&nm)
 	return result.Error
 }
 

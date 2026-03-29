@@ -3,9 +3,10 @@ package explorer
 // A simple JSON database for storing and retrieving p2p network tokens and a name and description.
 
 import (
+	"cmp"
 	"encoding/json"
 	"os"
-	"sort"
+	"slices"
 	"sync"
 
 	"github.com/gofrs/flock"
@@ -89,9 +90,8 @@ func (db *Database) TokenList() []string {
 		tokens = append(tokens, k)
 	}
 
-	sort.Slice(tokens, func(i, j int) bool {
-		// sort by token
-		return tokens[i] < tokens[j]
+	slices.SortFunc(tokens, func(a, b string) int {
+		return cmp.Compare(a, b)
 	})
 
 	return tokens

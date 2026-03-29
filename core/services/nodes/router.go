@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/advisorylock"
-	"github.com/mudler/LocalAI/core/services/storage"
 	grpc "github.com/mudler/LocalAI/pkg/grpc"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"github.com/mudler/LocalAI/pkg/vram"
@@ -43,11 +42,11 @@ type SmartRouterOptions struct {
 // It uses the ModelRouter interface (backed by NodeRegistry in production) for routing decisions.
 type SmartRouter struct {
 	registry      ModelRouter
-	unloader      NodeCommandSender      // optional, for NATS-driven load/unload
-	fileStager    FileStager             // optional, for distributed file transfer
-	galleriesJSON string                 // backend gallery config for dynamic installation
-	clientFactory BackendClientFactory   // creates gRPC backend clients
-	db            *gorm.DB               // for advisory locks during routing
+	unloader      NodeCommandSender    // optional, for NATS-driven load/unload
+	fileStager    FileStager           // optional, for distributed file transfer
+	galleriesJSON string               // backend gallery config for dynamic installation
+	clientFactory BackendClientFactory // creates gRPC backend clients
+	db            *gorm.DB             // for advisory locks during routing
 }
 
 // NewSmartRouter creates a new SmartRouter backed by the given ModelRouter.
@@ -79,9 +78,10 @@ type RouteResult struct {
 
 // Route finds the best node for the given model and backend type.
 // It tries:
-// 1. Nodes that already have the model loaded (least loaded first) — verified via gRPC health check
-// 2. Idle-first scheduling: pick an idle node, then fall back to least-loaded.
-//    Sends backend.install via NATS to ensure the right backend is running.
+//  1. Nodes that already have the model loaded (least loaded first) — verified via gRPC health check
+//  2. Idle-first scheduling: pick an idle node, then fall back to least-loaded.
+//     Sends backend.install via NATS to ensure the right backend is running.
+//
 // Returns a RouteResult with a release function that must be called when done.
 //
 // modelID is the logical model identifier used for DB tracking (e.g. "qwen_qwen3.5-0.8b").
@@ -103,14 +103,7 @@ func (r *SmartRouter) Route(ctx context.Context, modelID, modelName, backendType
 		}
 
 		// Verify the backend process is still alive via gRPC health check
-		healthClient := r.buildClientForAddr(node, modelAddr, false)
-		checkCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
-		ok, _ := healthClient.HealthCheck(checkCtx)
-		cancel()
-		if closer, ok := healthClient.(io.Closer); ok {
-			closer.Close()
-		}
-		if !ok {
+		if !r.probeHealth(ctx, node, modelAddr) {
 			// Stale — roll back the increment, remove the model record, fall through
 			r.registry.DecrementInFlight(ctx, node.ID, trackingKey)
 			r.registry.RemoveNodeModel(ctx, node.ID, trackingKey)
@@ -122,13 +115,11 @@ func (r *SmartRouter) Route(ctx context.Context, modelID, modelName, backendType
 			r.registry.TouchNodeModel(ctx, node.ID, trackingKey)
 			grpcClient := r.buildClientForAddr(node, modelAddr, parallel)
 			return &RouteResult{
-				Node:    node,
-				Client:  grpcClient,
+				Node:   node,
+				Client: grpcClient,
 				Release: func() {
 					r.registry.DecrementInFlight(context.Background(), node.ID, trackingKey)
-					if closer, ok := grpcClient.(io.Closer); ok {
-						closer.Close()
-					}
+					closeClient(grpcClient)
 				},
 			}, nil
 		}
@@ -145,14 +136,7 @@ func (r *SmartRouter) Route(ctx context.Context, modelID, modelName, backendType
 			}
 
 			// Verify the backend process is still alive via gRPC health check
-			healthClient := r.buildClientForAddr(node, modelAddr, false)
-			checkCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
-			ok, _ := healthClient.HealthCheck(checkCtx)
-			cancel()
-			if closer, ok := healthClient.(io.Closer); ok {
-				closer.Close()
-			}
-			if !ok {
+			if !r.probeHealth(ctx, node, modelAddr) {
 				// Stale — roll back the increment, remove the model record, continue loading
 				r.registry.DecrementInFlight(ctx, node.ID, trackingKey)
 				r.registry.RemoveNodeModel(ctx, node.ID, trackingKey)
@@ -163,13 +147,11 @@ func (r *SmartRouter) Route(ctx context.Context, modelID, modelName, backendType
 				r.registry.TouchNodeModel(ctx, node.ID, trackingKey)
 				grpcClient := r.buildClientForAddr(node, modelAddr, parallel)
 				return &RouteResult{
-					Node:    node,
-					Client:  grpcClient,
+					Node:   node,
+					Client: grpcClient,
 					Release: func() {
 						r.registry.DecrementInFlight(context.Background(), node.ID, trackingKey)
-						if closer, ok := grpcClient.(io.Closer); ok {
-							closer.Close()
-						}
+						closeClient(grpcClient)
 					},
 				}, nil
 			}
@@ -183,7 +165,7 @@ func (r *SmartRouter) Route(ctx context.Context, modelID, modelName, backendType
 
 		// Pre-stage model files via FileStager before loading
 		if r.fileStager != nil && modelOpts != nil {
-			stagedOpts, err := r.stageModelFiles(ctx, node, modelOpts)
+			stagedOpts, err := r.stageModelFiles(ctx, node, modelOpts, trackingKey)
 			if err != nil {
 				return nil, fmt.Errorf("staging model files for node %s: %w", node.Name, err)
 			}
@@ -215,12 +197,10 @@ func (r *SmartRouter) Route(ctx context.Context, modelID, modelName, backendType
 
 		tracked := NewInFlightTrackingClient(client, r.registry, node.ID, trackingKey)
 		return &RouteResult{
-			Node:    node,
-			Client:  tracked,
+			Node:   node,
+			Client: tracked,
 			Release: func() {
-				if closer, ok := client.(io.Closer); ok {
-					closer.Close()
-				}
+				closeClient(client)
 			},
 		}, nil
 	}
@@ -382,9 +362,12 @@ func (r *SmartRouter) buildClientForAddr(node *BackendNode, addr string, paralle
 // Returns the ModelOptions with ModelFile and similar direct-path fields rewritten
 // to absolute remote paths. Generic options (vae_path, etc.) are left as relative
 // paths — backends resolve them via ModelPath.
-func (r *SmartRouter) stageModelFiles(ctx context.Context, node *BackendNode, opts *pb.ModelOptions) (*pb.ModelOptions, error) {
+//
+// All files are namespaced under trackingKey so that worker-side deletion can
+// simply remove the {ModelsPath}/{trackingKey}/ directory.
+func (r *SmartRouter) stageModelFiles(ctx context.Context, node *BackendNode, opts *pb.ModelOptions, trackingKey string) (*pb.ModelOptions, error) {
 	opts = proto.Clone(opts).(*pb.ModelOptions)
-	xlog.Debug("Staging model files for remote node", "node", node.Name, "modelFile", opts.ModelFile)
+	xlog.Debug("Staging model files for remote node", "node", node.Name, "modelFile", opts.ModelFile, "trackingKey", trackingKey)
 
 	// Derive the frontend models directory from ModelFile and Model.
 	// Example: ModelFile="/models/sd-cpp/models/flux.gguf", Model="sd-cpp/models/flux.gguf"
@@ -394,15 +377,13 @@ func (r *SmartRouter) stageModelFiles(ctx context.Context, node *BackendNode, op
 		frontendModelsDir = filepath.Clean(strings.TrimSuffix(opts.ModelFile, opts.Model))
 	}
 
-	// relKey computes a storage key preserving subdirectory structure relative
-	// to the frontend models dir. Falls back to basename if Rel fails.
-	relKey := func(localPath string) string {
-		if frontendModelsDir != "" {
-			if rel, err := filepath.Rel(frontendModelsDir, localPath); err == nil && !strings.HasPrefix(rel, "..") && rel != "." {
-				return storage.ModelKey(rel)
-			}
-		}
-		return storage.ModelKey(filepath.Base(localPath))
+	// keyMapper generates storage keys namespaced under trackingKey, preserving
+	// subdirectory structure relative to frontendModelsDir. This ensures:
+	// 1. All files for a model land in one directory on the worker for clean deletion
+	// 2. Relative option paths (vae_path, etc.) resolve correctly via ModelPath
+	keyMapper := &StagingKeyMapper{
+		TrackingKey:       trackingKey,
+		FrontendModelsDir: frontendModelsDir,
 	}
 
 	// Stage each model file path field. These fields are used directly by the
@@ -432,7 +413,7 @@ func (r *SmartRouter) stageModelFiles(ctx context.Context, node *BackendNode, op
 			continue
 		}
 		localPath := *f.val
-		key := relKey(localPath)
+		key := keyMapper.Key(localPath)
 		remotePath, err := r.fileStager.EnsureRemote(ctx, node.ID, localPath, key)
 		if err != nil {
 			// ModelFile is required — fail the whole operation
@@ -448,14 +429,16 @@ func (r *SmartRouter) stageModelFiles(ctx context.Context, node *BackendNode, op
 		*f.val = remotePath
 
 		// Derive ModelPath from the first staged file (ModelFile).
-		// remotePath = "/models/sd-cpp/models/flux.gguf", relFromModels = "sd-cpp/models/flux.gguf"
-		// → ModelPath = "/models" (the worker's equivalent of frontendModelsDir)
+		// With tracking key namespacing:
+		// remotePath = "/worker/models/{trackingKey}/sd-cpp/models/flux.gguf"
+		// Model = "sd-cpp/models/flux.gguf"
+		// → ModelPath = "/worker/models/{trackingKey}"
 		if f.name == "ModelFile" && opts.Model != "" {
-			opts.ModelPath = filepath.Clean(strings.TrimSuffix(remotePath, opts.Model))
+			opts.ModelPath = DeriveRemoteModelPath(remotePath, opts.Model)
 			xlog.Debug("Derived remote ModelPath", "modelPath", opts.ModelPath)
 		}
 
-		r.stageCompanionFiles(ctx, node, localPath, frontendModelsDir)
+		r.stageCompanionFiles(ctx, node, localPath, keyMapper.Key)
 	}
 
 	// Handle LoraAdapters (array) — rewritten to absolute remote paths
@@ -468,7 +451,7 @@ func (r *SmartRouter) stageModelFiles(ctx context.Context, node *BackendNode, op
 			xlog.Debug("Skipping staging for non-existent lora adapter", "path", adapter)
 			continue
 		}
-		key := relKey(adapter)
+		key := keyMapper.Key(adapter)
 		remotePath, err := r.fileStager.EnsureRemote(ctx, node.ID, adapter, key)
 		if err != nil {
 			xlog.Warn("Failed to stage lora adapter, skipping", "path", adapter, "error", err)
@@ -481,7 +464,7 @@ func (r *SmartRouter) stageModelFiles(ctx context.Context, node *BackendNode, op
 	// Handle LoraBase field — rewritten to absolute remote path
 	if opts.LoraBase != "" {
 		if _, err := os.Stat(opts.LoraBase); err == nil {
-			key := relKey(opts.LoraBase)
+			key := keyMapper.Key(opts.LoraBase)
 			if remotePath, err := r.fileStager.EnsureRemote(ctx, node.ID, opts.LoraBase, key); err == nil {
 				opts.LoraBase = remotePath
 			} else {
@@ -493,8 +476,8 @@ func (r *SmartRouter) stageModelFiles(ctx context.Context, node *BackendNode, op
 
 	// Stage file paths referenced in generic Options (key:value pairs where values
 	// are file paths). Options stay as relative paths — backends resolve them via ModelPath.
-	r.stageGenericOptions(ctx, node, opts.Options, frontendModelsDir)
-	r.stageGenericOptions(ctx, node, opts.Overrides, frontendModelsDir)
+	r.stageGenericOptions(ctx, node, opts.Options, frontendModelsDir, keyMapper.Key)
+	r.stageGenericOptions(ctx, node, opts.Overrides, frontendModelsDir, keyMapper.Key)
 
 	return opts, nil
 }
@@ -502,7 +485,8 @@ func (r *SmartRouter) stageModelFiles(ctx context.Context, node *BackendNode, op
 // stageCompanionFiles stages known companion files that exist alongside
 // localPath. For example, piper TTS implicitly loads ".onnx.json" next to
 // the ".onnx" model file. Errors are logged but not propagated.
-func (r *SmartRouter) stageCompanionFiles(ctx context.Context, node *BackendNode, localPath, frontendModelsDir string) {
+// keyFn generates the namespaced storage key for each file path.
+func (r *SmartRouter) stageCompanionFiles(ctx context.Context, node *BackendNode, localPath string, keyFn func(string) string) {
 	ext := filepath.Ext(localPath)
 	suffixes, ok := companionSuffixes[ext]
 	if !ok {
@@ -514,13 +498,7 @@ func (r *SmartRouter) stageCompanionFiles(ctx context.Context, node *BackendNode
 		if _, err := os.Stat(companion); err != nil {
 			continue
 		}
-		// Preserve subdirectory structure in the key
-		key := storage.ModelKey(filepath.Base(companion))
-		if frontendModelsDir != "" {
-			if rel, err := filepath.Rel(frontendModelsDir, companion); err == nil && !strings.HasPrefix(rel, "..") {
-				key = storage.ModelKey(rel)
-			}
-		}
+		key := keyFn(companion)
 		if _, err := r.fileStager.EnsureRemote(ctx, node.ID, companion, key); err != nil {
 			xlog.Warn("Failed to stage companion file", "path", companion, "error", err)
 		} else {
@@ -532,7 +510,8 @@ func (r *SmartRouter) stageCompanionFiles(ctx context.Context, node *BackendNode
 // stageGenericOptions iterates key:value option strings and stages any values
 // that resolve to existing files relative to the frontend models directory.
 // Option values are NOT rewritten — backends resolve them via ModelPath.
-func (r *SmartRouter) stageGenericOptions(ctx context.Context, node *BackendNode, options []string, frontendModelsDir string) {
+// keyFn generates the namespaced storage key for each file path.
+func (r *SmartRouter) stageGenericOptions(ctx context.Context, node *BackendNode, options []string, frontendModelsDir string, keyFn func(string) string) {
 	for _, opt := range options {
 		optKey, val, ok := strings.Cut(opt, ":")
 		if !ok || val == "" {
@@ -548,19 +527,32 @@ func (r *SmartRouter) stageGenericOptions(ctx context.Context, node *BackendNode
 			continue
 		}
 
-		// Stage the file to the worker, preserving subdirectory structure
-		key := storage.ModelKey(filepath.Base(absPath))
-		if frontendModelsDir != "" {
-			if rel, err := filepath.Rel(frontendModelsDir, absPath); err == nil && !strings.HasPrefix(rel, "..") {
-				key = storage.ModelKey(rel)
-			}
-		}
+		// Stage the file to the worker using the namespaced key
+		key := keyFn(absPath)
 		if _, err := r.fileStager.EnsureRemote(ctx, node.ID, absPath, key); err != nil {
 			xlog.Warn("Failed to stage option file, skipping", "option", opt, "path", absPath, "error", err)
 			continue
 		}
 		// Leave option value unchanged — backend resolves relative paths via ModelPath
 		xlog.Debug("Staged option file", "option", optKey, "localPath", absPath)
+	}
+}
+
+// probeHealth checks whether a backend process on the given node/addr is alive
+// via a gRPC health check with a 2-second timeout. The client is closed after the check.
+func (r *SmartRouter) probeHealth(ctx context.Context, node *BackendNode, addr string) bool {
+	client := r.buildClientForAddr(node, addr, false)
+	defer closeClient(client)
+	checkCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+	ok, _ := client.HealthCheck(checkCtx)
+	return ok
+}
+
+// closeClient closes a gRPC backend client if it implements io.Closer.
+func closeClient(client grpc.Backend) {
+	if closer, ok := client.(io.Closer); ok {
+		closer.Close()
 	}
 }
 
@@ -658,4 +650,3 @@ func (r *SmartRouter) evictLRUAndFreeNode(ctx context.Context) (*BackendNode, er
 
 	return nil, ErrEvictionBusy
 }
-

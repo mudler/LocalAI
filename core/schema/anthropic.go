@@ -36,18 +36,18 @@ func (s *AnthropicSystemParam) UnmarshalJSON(data []byte) error {
 // AnthropicRequest represents a request to the Anthropic Messages API
 // https://docs.anthropic.com/claude/reference/messages_post
 type AnthropicRequest struct {
-	Model         string                 `json:"model"`
-	Messages      []AnthropicMessage     `json:"messages"`
-	MaxTokens     int                    `json:"max_tokens"`
-	Metadata      map[string]string      `json:"metadata,omitempty"`
-	StopSequences []string               `json:"stop_sequences,omitempty"`
-	Stream        bool                   `json:"stream,omitempty"`
-	System        AnthropicSystemParam   `json:"system,omitempty"`
-	Temperature   *float64           `json:"temperature,omitempty"`
-	TopK          *int               `json:"top_k,omitempty"`
-	TopP          *float64           `json:"top_p,omitempty"`
-	Tools         []AnthropicTool    `json:"tools,omitempty"`
-	ToolChoice    any        `json:"tool_choice,omitempty"`
+	Model         string               `json:"model"`
+	Messages      []AnthropicMessage   `json:"messages"`
+	MaxTokens     int                  `json:"max_tokens"`
+	Metadata      map[string]string    `json:"metadata,omitempty"`
+	StopSequences []string             `json:"stop_sequences,omitempty"`
+	Stream        bool                 `json:"stream,omitempty"`
+	System        AnthropicSystemParam `json:"system,omitempty"`
+	Temperature   *float64             `json:"temperature,omitempty"`
+	TopK          *int                 `json:"top_k,omitempty"`
+	TopP          *float64             `json:"top_p,omitempty"`
+	Tools         []AnthropicTool      `json:"tools,omitempty"`
+	ToolChoice    any                  `json:"tool_choice,omitempty"`
 
 	// Internal fields for request handling
 	Context context.Context    `json:"-"`
@@ -64,28 +64,28 @@ func (ar *AnthropicRequest) ModelName(s *string) string {
 
 // AnthropicTool represents a tool definition in the Anthropic format
 type AnthropicTool struct {
-	Name        string                 `json:"name"`
-	Description string                 `json:"description,omitempty"`
+	Name        string         `json:"name"`
+	Description string         `json:"description,omitempty"`
 	InputSchema map[string]any `json:"input_schema"`
 }
 
 // AnthropicMessage represents a message in the Anthropic format
 type AnthropicMessage struct {
-	Role    string      `json:"role"`
-	Content any `json:"content"`
+	Role    string `json:"role"`
+	Content any    `json:"content"`
 }
 
 // AnthropicContentBlock represents a content block in an Anthropic message
 type AnthropicContentBlock struct {
-	Type       string                 `json:"type"`
-	Text       string                 `json:"text,omitempty"`
-	Source     *AnthropicImageSource  `json:"source,omitempty"`
-	ID         string                 `json:"id,omitempty"`
-	Name       string                 `json:"name,omitempty"`
-	Input      map[string]any `json:"input,omitempty"`
-	ToolUseID  string                 `json:"tool_use_id,omitempty"`
-	Content    any            `json:"content,omitempty"`
-	IsError    *bool                  `json:"is_error,omitempty"`
+	Type      string                `json:"type"`
+	Text      string                `json:"text,omitempty"`
+	Source    *AnthropicImageSource `json:"source,omitempty"`
+	ID        string                `json:"id,omitempty"`
+	Name      string                `json:"name,omitempty"`
+	Input     map[string]any        `json:"input,omitempty"`
+	ToolUseID string                `json:"tool_use_id,omitempty"`
+	Content   any                   `json:"content,omitempty"`
+	IsError   *bool                 `json:"is_error,omitempty"`
 }
 
 // AnthropicImageSource represents an image source in Anthropic format

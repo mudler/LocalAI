@@ -61,8 +61,8 @@ func (m *DistributedManager) List() ([]skillserver.Skill, error) {
 			continue
 		}
 		skills = append(skills, skillserver.Skill{
-			Name: r.Name,
-			ID:   r.Name,
+			Name:    r.Name,
+			ID:      r.Name,
 			Content: r.Definition,
 			Metadata: &skillserver.SkillMetadata{
 				Name:        r.Name,

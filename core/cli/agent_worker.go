@@ -11,9 +11,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/mudler/LocalAI/core/config"
 	cliContext "github.com/mudler/LocalAI/core/cli/context"
 	"github.com/mudler/LocalAI/core/cli/workerregistry"
+	"github.com/mudler/LocalAI/core/config"
 	mcpTools "github.com/mudler/LocalAI/core/http/endpoints/mcp"
 	"github.com/mudler/LocalAI/core/services/agents"
 	"github.com/mudler/LocalAI/core/services/jobs"
@@ -189,6 +189,7 @@ func (cmd *AgentWorkerCMD) Run(ctx *cliContext.Context) error {
 	<-sigCh
 
 	xlog.Info("Shutting down agent worker")
+	shutdownCancel() // stop heartbeat loop immediately
 	dispatcher.Stop()
 	mcpTools.CloseAllMCPSessions()
 	regClient.GracefulDeregister(nodeID)
@@ -460,4 +461,3 @@ func publishJobStatus(nc messaging.MessagingClient, jobID, status, message strin
 func publishJobResult(nc messaging.MessagingClient, jobID, status, result, errMsg string) {
 	jobs.PublishJobResult(nc, jobID, status, result, errMsg)
 }
-

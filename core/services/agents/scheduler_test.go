@@ -120,9 +120,9 @@ var _ = Describe("AgentScheduler", func() {
 	// -----------------------------------------------------------------------
 	Describe("runDueAgents", func() {
 		var (
-			pub   *mockPublisher
+			pub    *mockPublisher
 			mStore *mockSchedulerStore
-			sched *AgentScheduler
+			sched  *AgentScheduler
 		)
 
 		BeforeEach(func() {
@@ -144,12 +144,12 @@ var _ = Describe("AgentScheduler", func() {
 
 			mStore.configs = []AgentConfigRecord{
 				{
-					ID:        "rec-1",
-					UserID:    "user-1",
-					Name:      "background-agent",
+					ID:         "rec-1",
+					UserID:     "user-1",
+					Name:       "background-agent",
 					ConfigJSON: string(cfgJSON),
-					Status:    StatusActive,
-					LastRunAt: &past,
+					Status:     StatusActive,
+					LastRunAt:  &past,
 				},
 			}
 
@@ -177,12 +177,12 @@ var _ = Describe("AgentScheduler", func() {
 
 			mStore.configs = []AgentConfigRecord{
 				{
-					ID:        "rec-2",
-					UserID:    "user-1",
-					Name:      "not-yet-agent",
+					ID:         "rec-2",
+					UserID:     "user-1",
+					Name:       "not-yet-agent",
 					ConfigJSON: string(cfgJSON),
-					Status:    StatusActive,
-					LastRunAt: &recent,
+					Status:     StatusActive,
+					LastRunAt:  &recent,
 				},
 			}
 
@@ -201,12 +201,12 @@ var _ = Describe("AgentScheduler", func() {
 
 			mStore.configs = []AgentConfigRecord{
 				{
-					ID:        "rec-3",
-					UserID:    "user-1",
-					Name:      "interactive-agent",
+					ID:         "rec-3",
+					UserID:     "user-1",
+					Name:       "interactive-agent",
 					ConfigJSON: string(cfgJSON),
-					Status:    StatusActive,
-					LastRunAt: &past,
+					Status:     StatusActive,
+					LastRunAt:  &past,
 				},
 			}
 
@@ -225,12 +225,12 @@ var _ = Describe("AgentScheduler", func() {
 
 			mStore.configs = []AgentConfigRecord{
 				{
-					ID:        "rec-4",
-					UserID:    "user-1",
-					Name:      "paused-agent",
+					ID:         "rec-4",
+					UserID:     "user-1",
+					Name:       "paused-agent",
 					ConfigJSON: string(cfgJSON),
-					Status:    StatusPaused,
-					LastRunAt: &past,
+					Status:     StatusPaused,
+					LastRunAt:  &past,
 				},
 			}
 
@@ -244,12 +244,12 @@ var _ = Describe("AgentScheduler", func() {
 
 			mStore.configs = []AgentConfigRecord{
 				{
-					ID:        "rec-5",
-					UserID:    "user-1",
-					Name:      "broken-agent",
+					ID:         "rec-5",
+					UserID:     "user-1",
+					Name:       "broken-agent",
 					ConfigJSON: `{invalid json`,
-					Status:    StatusActive,
-					LastRunAt: &past,
+					Status:     StatusActive,
+					LastRunAt:  &past,
 				},
 			}
 
@@ -267,12 +267,12 @@ var _ = Describe("AgentScheduler", func() {
 
 			mStore.configs = []AgentConfigRecord{
 				{
-					ID:        "rec-6",
-					UserID:    "user-1",
-					Name:      "track-agent",
+					ID:         "rec-6",
+					UserID:     "user-1",
+					Name:       "track-agent",
 					ConfigJSON: string(cfgJSON),
-					Status:    StatusActive,
-					LastRunAt: nil, // never run — due immediately
+					Status:     StatusActive,
+					LastRunAt:  nil, // never run — due immediately
 				},
 			}
 
@@ -294,12 +294,12 @@ var _ = Describe("AgentScheduler", func() {
 
 			mStore.configs = []AgentConfigRecord{
 				{
-					ID:        "rec-7",
-					UserID:    "user-1",
-					Name:      "skilled-agent",
+					ID:         "rec-7",
+					UserID:     "user-1",
+					Name:       "skilled-agent",
 					ConfigJSON: string(cfgJSON),
-					Status:    StatusActive,
-					LastRunAt: nil,
+					Status:     StatusActive,
+					LastRunAt:  nil,
 				},
 			}
 
@@ -370,12 +370,12 @@ var _ = Describe("AgentScheduler", func() {
 
 			mStore.configs = []AgentConfigRecord{
 				{
-					ID:        "rec-8",
-					UserID:    "user-1",
-					Name:      "default-interval-agent",
+					ID:         "rec-8",
+					UserID:     "user-1",
+					Name:       "default-interval-agent",
 					ConfigJSON: string(cfgJSON),
-					Status:    StatusActive,
-					LastRunAt: &past,
+					Status:     StatusActive,
+					LastRunAt:  &past,
 				},
 			}
 

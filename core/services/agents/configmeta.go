@@ -16,18 +16,18 @@ const (
 
 // ConfigField describes a single form field.
 type ConfigField struct {
-	Name         string             `json:"name"`
-	Type         string             `json:"type"`
-	Label        string             `json:"label"`
-	DefaultValue any                `json:"defaultValue"`
-	Placeholder  string             `json:"placeholder,omitempty"`
-	HelpText     string             `json:"helpText,omitempty"`
-	Required     bool               `json:"required,omitempty"`
+	Name         string              `json:"name"`
+	Type         string              `json:"type"`
+	Label        string              `json:"label"`
+	DefaultValue any                 `json:"defaultValue"`
+	Placeholder  string              `json:"placeholder,omitempty"`
+	HelpText     string              `json:"helpText,omitempty"`
+	Required     bool                `json:"required,omitempty"`
 	Options      []ConfigFieldOption `json:"options,omitempty"`
-	Min          float32            `json:"min,omitempty"`
-	Max          float32            `json:"max,omitempty"`
-	Step         float32            `json:"step,omitempty"`
-	Tags         ConfigFieldTags    `json:"tags,omitempty"`
+	Min          float32             `json:"min,omitempty"`
+	Max          float32             `json:"max,omitempty"`
+	Step         float32             `json:"step,omitempty"`
+	Tags         ConfigFieldTags     `json:"tags,omitempty"`
 }
 
 // ConfigFieldOption is a select field option.
@@ -61,7 +61,7 @@ type AgentConfigMeta struct {
 // Field names and sections match LocalAGI's state.NewAgentConfigMeta() for compatibility.
 func DefaultConfigMeta() AgentConfigMeta {
 	return AgentConfigMeta{
-		Fields: defaultFields(),
+		Fields:     defaultFields(),
 		Actions:    []ConfigFieldGroup{},
 		Connectors: []ConfigFieldGroup{},
 		Filters:    []ConfigFieldGroup{},

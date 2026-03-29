@@ -9,8 +9,8 @@ import (
 
 func getTestApp() *kong.Application {
 	var testCLI struct {
-		Run        struct{} `cmd:"" help:"Run the server"`
-		Models     struct {
+		Run    struct{} `cmd:"" help:"Run the server"`
+		Models struct {
 			List    struct{} `cmd:"" help:"List models"`
 			Install struct{} `cmd:"" help:"Install a model"`
 		} `cmd:"" help:"Manage models"`

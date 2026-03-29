@@ -1149,8 +1149,8 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 				"id":         inv.ID,
 				"codePrefix": inv.CodePrefix,
 				"expiresAt":  inv.ExpiresAt,
-				"createdAt": inv.CreatedAt,
-				"usedAt":    inv.UsedAt,
+				"createdAt":  inv.CreatedAt,
+				"usedAt":     inv.UsedAt,
 				"createdBy": map[string]any{
 					"id":   inv.Creator.ID,
 					"name": inv.Creator.Name,

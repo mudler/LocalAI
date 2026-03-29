@@ -47,7 +47,7 @@ func KBAutoSearchPrompt(ctx context.Context, apiURL, apiKey, collection, query s
 		searchURL += "?user_id=" + userID
 	}
 	reqBody, _ := json.Marshal(map[string]any{
-		"query":      query,
+		"query":       query,
 		"max_results": maxResults,
 	})
 

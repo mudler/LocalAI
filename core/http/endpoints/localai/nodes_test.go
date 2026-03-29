@@ -132,6 +132,25 @@ var _ = Describe("Node HTTP handlers", func() {
 			Expect(errObj["message"]).To(ContainSubstring("address is required"))
 		})
 
+		It("returns 400 when node_type is invalid", func() {
+			e := echo.New()
+			body := `{"name":"bad-type","address":"10.0.0.1:50051","node_type":"invalid"}`
+			req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(body))
+			req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+			rec := httptest.NewRecorder()
+			c := e.NewContext(req, rec)
+
+			handler := RegisterNodeEndpoint(registry, "", true, nil, "")
+			Expect(handler(c)).To(Succeed())
+			Expect(rec.Code).To(Equal(http.StatusBadRequest))
+
+			var resp map[string]any
+			Expect(json.Unmarshal(rec.Body.Bytes(), &resp)).To(Succeed())
+			errObj, ok := resp["error"].(map[string]any)
+			Expect(ok).To(BeTrue())
+			Expect(errObj["message"]).To(ContainSubstring("invalid node_type"))
+		})
+
 		It("returns 401 when registration token is wrong", func() {
 			e := echo.New()
 			body := `{"name":"worker-1","address":"10.0.0.1:50051","token":"wrong-token"}`

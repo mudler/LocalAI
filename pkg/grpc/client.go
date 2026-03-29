@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"sync"
@@ -197,7 +198,7 @@ func (c *Client) PredictStream(ctx context.Context, in *pb.PredictOptions, f fun
 		}
 
 		reply, err := stream.Recv()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
@@ -299,7 +300,7 @@ func (c *Client) TTSStream(ctx context.Context, in *pb.TTSRequest, f func(reply 
 		}
 
 		reply, err := stream.Recv()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
@@ -618,7 +619,7 @@ func (c *Client) FineTuneProgress(ctx context.Context, in *pb.FineTuneProgressRe
 		}
 
 		update, err := stream.Recv()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
@@ -734,7 +735,7 @@ func (c *Client) QuantizationProgress(ctx context.Context, in *pb.QuantizationPr
 		}
 
 		update, err := stream.Recv()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
@@ -784,4 +785,3 @@ func (c *Client) ModelMetadata(ctx context.Context, in *pb.ModelOptions, opts ..
 	client := pb.NewBackendClient(conn)
 	return client.ModelMetadata(ctx, in, opts...)
 }
-

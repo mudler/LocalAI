@@ -13,7 +13,7 @@ import (
 
 const (
 	sessionDuration         = 30 * 24 * time.Hour // 30 days
-	sessionIDBytes          = 32                   // 32 bytes = 64 hex chars
+	sessionIDBytes          = 32                  // 32 bytes = 64 hex chars
 	sessionCookie           = "session"
 	sessionRotationInterval = 1 * time.Hour
 )

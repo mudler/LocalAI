@@ -69,23 +69,16 @@ type ResourceInfo struct {
 	Aggregate AggregateMemoryInfo `json:"aggregate"`
 }
 
-var (
-	gpuCache     []*gpu.GraphicsCard
-	gpuCacheOnce sync.Once
-	gpuCacheErr  error
-)
+var gpusOnce = sync.OnceValues(func() ([]*gpu.GraphicsCard, error) {
+	gpu, err := ghw.GPU()
+	if err != nil {
+		return nil, err
+	}
+	return gpu.GraphicsCards, nil
+})
 
 func GPUs() ([]*gpu.GraphicsCard, error) {
-	gpuCacheOnce.Do(func() {
-		gpu, err := ghw.GPU()
-		if err != nil {
-			gpuCacheErr = err
-			return
-		}
-		gpuCache = gpu.GraphicsCards
-	})
-
-	return gpuCache, gpuCacheErr
+	return gpusOnce()
 }
 
 func TotalAvailableVRAM() (uint64, error) {
@@ -591,7 +584,7 @@ func getIntelGPUTop() []GPUMemoryInfo {
 	}
 
 	var result struct {
-		Engines map[string]interface{} `json:"engines"`
+		Engines map[string]any `json:"engines"`
 		// Memory info if available
 	}
 

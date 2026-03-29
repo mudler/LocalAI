@@ -12,10 +12,10 @@ const (
 )
 
 type Function struct {
-	Name        string                 `json:"name"`
-	Description string                 `json:"description"`
-	Strict      bool                   `json:"strict"`
-	Parameters  map[string]interface{} `json:"parameters"`
+	Name        string         `json:"name"`
+	Description string         `json:"description"`
+	Strict      bool           `json:"strict"`
+	Parameters  map[string]any `json:"parameters"`
 }
 type Functions []Function
 
@@ -24,8 +24,8 @@ type FunctionName struct {
 }
 
 type Argument struct {
-	Type       string                 `json:"type"`
-	Properties map[string]interface{} `json:"properties"`
+	Type       string         `json:"type"`
+	Properties map[string]any `json:"properties"`
 }
 
 type Tool struct {
@@ -54,8 +54,8 @@ func (f Functions) ToJSONStructure(name, args string) JSONFunctionStructure {
 		defs := function.Parameters["$defs"]
 		dat, _ := json.Marshal(properties)
 		dat2, _ := json.Marshal(defs)
-		prop := map[string]interface{}{}
-		defsD := map[string]interface{}{}
+		prop := map[string]any{}
+		defsD := map[string]any{}
 
 		err := json.Unmarshal(dat, &prop)
 		if err != nil {
@@ -69,7 +69,7 @@ func (f Functions) ToJSONStructure(name, args string) JSONFunctionStructure {
 			js.Defs = defsD
 		}
 
-		property := map[string]interface{}{}
+		property := map[string]any{}
 		property[nameKey] = FunctionName{Const: function.Name}
 		property[argsKey] = Argument{
 			Type:       "object",

@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/mudler/xlog"
@@ -22,6 +23,7 @@ type RegistrationClient struct {
 	RegistrationToken string
 	HTTPTimeout       time.Duration // used for registration calls; defaults to 10s
 	client            *http.Client
+	clientOnce        sync.Once
 }
 
 // httpTimeout returns the configured timeout or a sensible default.
@@ -34,9 +36,9 @@ func (c *RegistrationClient) httpTimeout() time.Duration {
 
 // httpClient returns the shared HTTP client, initializing it on first use.
 func (c *RegistrationClient) httpClient() *http.Client {
-	if c.client == nil {
+	c.clientOnce.Do(func() {
 		c.client = &http.Client{Timeout: c.httpTimeout()}
-	}
+	})
 	return c.client
 }
 
@@ -105,7 +107,11 @@ func (c *RegistrationClient) RegisterWithRetry(ctx context.Context, body map[str
 			return "", "", fmt.Errorf("failed after %d attempts: %w", maxRetries, err)
 		}
 		xlog.Warn("Registration failed, retrying", "attempt", attempt, "next_retry", backoff, "error", err)
-		time.Sleep(backoff)
+		select {
+		case <-ctx.Done():
+			return "", "", ctx.Err()
+		case <-time.After(backoff):
+		}
 		backoff = min(backoff*2, maxBackoff)
 	}
 	return nodeID, apiToken, err
@@ -153,7 +159,10 @@ func (c *RegistrationClient) HeartbeatLoop(ctx context.Context, nodeID string, i
 // Drain sets the node to draining status via POST /api/node/:id/drain.
 func (c *RegistrationClient) Drain(ctx context.Context, nodeID string) error {
 	url := c.baseURL() + "/api/node/" + nodeID + "/drain"
-	req, _ := http.NewRequestWithContext(ctx, http.MethodPost, url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, nil)
+	if err != nil {
+		return fmt.Errorf("creating drain request: %w", err)
+	}
 	c.setAuth(req)
 
 	resp, err := c.httpClient().Do(req)
@@ -174,13 +183,22 @@ func (c *RegistrationClient) WaitForDrain(ctx context.Context, nodeID string, ti
 
 	deadline := time.Now().Add(timeout)
 	for time.Now().Before(deadline) {
-		req, _ := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+		if err != nil {
+			xlog.Warn("Failed to create drain poll request", "error", err)
+			return
+		}
 		c.setAuth(req)
 
 		resp, err := c.httpClient().Do(req)
 		if err != nil {
 			xlog.Warn("Drain poll failed, will retry", "error", err)
-			time.Sleep(1 * time.Second)
+			select {
+			case <-ctx.Done():
+				xlog.Warn("Drain wait cancelled")
+				return
+			case <-time.After(1 * time.Second):
+			}
 			continue
 		}
 		var models []struct {
@@ -198,7 +216,12 @@ func (c *RegistrationClient) WaitForDrain(ctx context.Context, nodeID string, ti
 			return
 		}
 		xlog.Info("Waiting for in-flight requests", "count", total)
-		time.Sleep(1 * time.Second)
+		select {
+		case <-ctx.Done():
+			xlog.Warn("Drain wait cancelled")
+			return
+		case <-time.After(1 * time.Second):
+		}
 	}
 	xlog.Warn("Drain timeout reached, proceeding with shutdown")
 }
@@ -208,7 +231,10 @@ func (c *RegistrationClient) WaitForDrain(ctx context.Context, nodeID string, ti
 // approval status.
 func (c *RegistrationClient) Deregister(ctx context.Context, nodeID string) error {
 	url := c.baseURL() + "/api/node/" + nodeID + "/deregister"
-	req, _ := http.NewRequestWithContext(ctx, http.MethodPost, url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, nil)
+	if err != nil {
+		return fmt.Errorf("creating deregister request: %w", err)
+	}
 	c.setAuth(req)
 
 	resp, err := c.httpClient().Do(req)

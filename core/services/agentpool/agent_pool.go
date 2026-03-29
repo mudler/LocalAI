@@ -44,11 +44,11 @@ type localAGICore struct {
 
 // distributedBridge connects to the NATS-based distributed agent system.
 type distributedBridge struct {
-	natsClient  messaging.Publisher  // NATS client for distributed agent execution
-	agentStore  *agents.AgentStore   // PostgreSQL agent config store
-	eventBridge AgentEventBridge     // Event bridge for SSE + persistence
+	natsClient  messaging.Publisher     // NATS client for distributed agent execution
+	agentStore  *agents.AgentStore      // PostgreSQL agent config store
+	eventBridge AgentEventBridge        // Event bridge for SSE + persistence
 	skillStore  *distributed.SkillStore // PostgreSQL skill metadata (distributed mode)
-	dispatcher  agents.Dispatcher    // Native dispatcher (distributed or local)
+	dispatcher  agents.Dispatcher       // Native dispatcher (distributed or local)
 }
 
 // userManager handles per-user services, storage, and auth.
@@ -161,16 +161,16 @@ func (s *AgentPoolService) Start(ctx context.Context) error {
 func (s *AgentPoolService) buildCollectionsConfig(apiURL, apiKey, collectionDBPath, fileAssets string) *collections.Config {
 	cfg := s.appConfig.AgentPool
 	return &collections.Config{
-		LLMAPIURL:       apiURL,
-		LLMAPIKey:       apiKey,
-		LLMModel:        cfg.DefaultModel,
+		LLMAPIURL:        apiURL,
+		LLMAPIKey:        apiKey,
+		LLMModel:         cfg.DefaultModel,
 		CollectionDBPath: collectionDBPath,
 		FileAssets:       fileAssets,
-		VectorEngine:    cfg.VectorEngine,
-		EmbeddingModel:  cfg.EmbeddingModel,
-		MaxChunkingSize: cfg.MaxChunkingSize,
-		ChunkOverlap:    cfg.ChunkOverlap,
-		DatabaseURL:     cfg.DatabaseURL,
+		VectorEngine:     cfg.VectorEngine,
+		EmbeddingModel:   cfg.EmbeddingModel,
+		MaxChunkingSize:  cfg.MaxChunkingSize,
+		ChunkOverlap:     cfg.ChunkOverlap,
+		DatabaseURL:      cfg.DatabaseURL,
 	}
 }
 
@@ -1089,5 +1089,3 @@ func (s *AgentPoolService) buildSkillProvider() agents.SkillContentProvider {
 		return s.loadSkillsForUser(userID)
 	}
 }
-
-

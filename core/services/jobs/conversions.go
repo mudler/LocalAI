@@ -35,16 +35,16 @@ func ConvertTaskToRecord(task schema.Task, userID ...string) *TaskRecord {
 // ConvertRecordToTask converts a TaskRecord back to a schema.Task.
 func ConvertRecordToTask(rec TaskRecord) schema.Task {
 	task := schema.Task{
-		ID:        rec.ID,
+		ID: rec.ID,
 		// UserID not in schema.Task/Job — stored only in DB record
 		Name:        rec.Name,
 		Description: rec.Description,
 		Model:       rec.Model,
-		Prompt:    rec.Prompt,
-		Enabled:   rec.Enabled,
-		Cron:      rec.Cron,
-		CreatedAt: rec.CreatedAt,
-		UpdatedAt: rec.UpdatedAt,
+		Prompt:      rec.Prompt,
+		Enabled:     rec.Enabled,
+		Cron:        rec.Cron,
+		CreatedAt:   rec.CreatedAt,
+		UpdatedAt:   rec.UpdatedAt,
 	}
 	if err := dbutil.UnmarshalJSON(rec.CronParametersJSON, &task.CronParameters); err != nil {
 		xlog.Warn("Failed to unmarshal task cron parameters", "task_id", rec.ID, "error", err)
@@ -92,8 +92,8 @@ func ConvertJobToRecord(job schema.Job, userID ...string) *JobRecord {
 // ConvertRecordToJob converts a JobRecord back to a schema.Job.
 func ConvertRecordToJob(rec JobRecord) schema.Job {
 	job := schema.Job{
-		ID:          rec.ID,
-		TaskID:      rec.TaskID,
+		ID:     rec.ID,
+		TaskID: rec.TaskID,
 		// UserID not in schema.Job — stored only in DB record
 		Status:      schema.JobStatus(rec.Status),
 		Result:      rec.Result,

@@ -535,4 +535,3 @@ func startTestFileTransferServerWithLogs(token string, logStore *model.BackendLo
 
 	return addr, cleanup, nil
 }
-

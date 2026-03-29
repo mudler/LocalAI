@@ -88,7 +88,7 @@ var _ = Describe("Open Responses API", func() {
 
 		Context("HTTP Protocol Compliance", func() {
 			It("MUST accept application/json Content-Type", func() {
-				reqBody := map[string]interface{}{
+				reqBody := map[string]any{
 					"model": testModel,
 					"input": "Hello",
 				}
@@ -110,7 +110,7 @@ var _ = Describe("Open Responses API", func() {
 			})
 
 			It("MUST return application/json for non-streaming responses", func() {
-				reqBody := map[string]interface{}{
+				reqBody := map[string]any{
 					"model":  testModel,
 					"input":  "Hello",
 					"stream": false,
@@ -135,7 +135,7 @@ var _ = Describe("Open Responses API", func() {
 			})
 
 			It("MUST return text/event-stream for streaming responses", func() {
-				reqBody := map[string]interface{}{
+				reqBody := map[string]any{
 					"model":  testModel,
 					"input":  "Hello",
 					"stream": true,
@@ -160,7 +160,7 @@ var _ = Describe("Open Responses API", func() {
 			})
 
 			It("MUST end streaming with [DONE] terminal event", func() {
-				reqBody := map[string]interface{}{
+				reqBody := map[string]any{
 					"model":  testModel,
 					"input":  "Hello",
 					"stream": true,
@@ -188,7 +188,7 @@ var _ = Describe("Open Responses API", func() {
 			})
 
 			It("MUST have event field matching type in body", func() {
-				reqBody := map[string]interface{}{
+				reqBody := map[string]any{
 					"model":  testModel,
 					"input":  "Hello",
 					"stream": true,
@@ -219,7 +219,7 @@ var _ = Describe("Open Responses API", func() {
 							// Next line should be data: with matching type
 							if i+1 < len(lines) && strings.HasPrefix(lines[i+1], "data: ") {
 								dataLine := strings.TrimPrefix(lines[i+1], "data: ")
-								var eventData map[string]interface{}
+								var eventData map[string]any
 								if err := json.Unmarshal([]byte(dataLine), &eventData); err == nil {
 									if typeVal, ok := eventData["type"].(string); ok {
 										Expect(typeVal).To(Equal(eventType))
@@ -234,7 +234,7 @@ var _ = Describe("Open Responses API", func() {
 
 		Context("Response Structure", func() {
 			It("MUST return id field", func() {
-				reqBody := map[string]interface{}{
+				reqBody := map[string]any{
 					"model": testModel,
 					"input": "Hello",
 				}
@@ -252,7 +252,7 @@ var _ = Describe("Open Responses API", func() {
 				defer resp.Body.Close()
 
 				if resp.StatusCode == 200 {
-					var response map[string]interface{}
+					var response map[string]any
 					body, _ := io.ReadAll(resp.Body)
 					err = json.Unmarshal(body, &response)
 					Expect(err).ToNot(HaveOccurred())
@@ -262,7 +262,7 @@ var _ = Describe("Open Responses API", func() {
 			})
 
 			It("MUST return object field as 'response'", func() {
-				reqBody := map[string]interface{}{
+				reqBody := map[string]any{
 					"model": testModel,
 					"input": "Hello",
 				}
@@ -280,7 +280,7 @@ var _ = Describe("Open Responses API", func() {
 				defer resp.Body.Close()
 
 				if resp.StatusCode == 200 {
-					var response map[string]interface{}
+					var response map[string]any
 					body, _ := io.ReadAll(resp.Body)
 					err = json.Unmarshal(body, &response)
 					Expect(err).ToNot(HaveOccurred())
@@ -290,7 +290,7 @@ var _ = Describe("Open Responses API", func() {
 			})
 
 			It("MUST return created_at timestamp", func() {
-				reqBody := map[string]interface{}{
+				reqBody := map[string]any{
 					"model": testModel,
 					"input": "Hello",
 				}
@@ -308,7 +308,7 @@ var _ = Describe("Open Responses API", func() {
 				defer resp.Body.Close()
 
 				if resp.StatusCode == 200 {
-					var response map[string]interface{}
+					var response map[string]any
 					body, _ := io.ReadAll(resp.Body)
 					err = json.Unmarshal(body, &response)
 					Expect(err).ToNot(HaveOccurred())
@@ -321,7 +321,7 @@ var _ = Describe("Open Responses API", func() {
 			})
 
 			It("MUST return status field", func() {
-				reqBody := map[string]interface{}{
+				reqBody := map[string]any{
 					"model": testModel,
 					"input": "Hello",
 				}
@@ -339,7 +339,7 @@ var _ = Describe("Open Responses API", func() {
 				defer resp.Body.Close()
 
 				if resp.StatusCode == 200 {
-					var response map[string]interface{}
+					var response map[string]any
 					body, _ := io.ReadAll(resp.Body)
 					err = json.Unmarshal(body, &response)
 					Expect(err).ToNot(HaveOccurred())
@@ -351,7 +351,7 @@ var _ = Describe("Open Responses API", func() {
 			})
 
 			It("MUST return model field", func() {
-				reqBody := map[string]interface{}{
+				reqBody := map[string]any{
 					"model": testModel,
 					"input": "Hello",
 				}
@@ -369,7 +369,7 @@ var _ = Describe("Open Responses API", func() {
 				defer resp.Body.Close()
 
 				if resp.StatusCode == 200 {
-					var response map[string]interface{}
+					var response map[string]any
 					body, _ := io.ReadAll(resp.Body)
 					err = json.Unmarshal(body, &response)
 					Expect(err).ToNot(HaveOccurred())
@@ -379,7 +379,7 @@ var _ = Describe("Open Responses API", func() {
 			})
 
 			It("MUST return output array of items", func() {
-				reqBody := map[string]interface{}{
+				reqBody := map[string]any{
 					"model": testModel,
 					"input": "Hello",
 				}
@@ -397,12 +397,12 @@ var _ = Describe("Open Responses API", func() {
 				defer resp.Body.Close()
 
 				if resp.StatusCode == 200 {
-					var response map[string]interface{}
+					var response map[string]any
 					body, _ := io.ReadAll(resp.Body)
 					err = json.Unmarshal(body, &response)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(response).To(HaveKey("output"))
-					output, ok := response["output"].([]interface{})
+					output, ok := response["output"].([]any)
 					Expect(ok).To(BeTrue())
 					Expect(output).ToNot(BeNil())
 				}
@@ -411,7 +411,7 @@ var _ = Describe("Open Responses API", func() {
 
 		Context("Items", func() {
 			It("MUST include id field on all items", func() {
-				reqBody := map[string]interface{}{
+				reqBody := map[string]any{
 					"model": testModel,
 					"input": "Hello",
 				}
@@ -429,15 +429,15 @@ var _ = Describe("Open Responses API", func() {
 				defer resp.Body.Close()
 
 				if resp.StatusCode == 200 {
-					var response map[string]interface{}
+					var response map[string]any
 					body, _ := io.ReadAll(resp.Body)
 					err = json.Unmarshal(body, &response)
 					Expect(err).ToNot(HaveOccurred())
 
-					output, ok := response["output"].([]interface{})
+					output, ok := response["output"].([]any)
 					if ok {
 						for _, item := range output {
-							itemMap, ok := item.(map[string]interface{})
+							itemMap, ok := item.(map[string]any)
 							Expect(ok).To(BeTrue())
 							Expect(itemMap).To(HaveKey("id"))
 							Expect(itemMap["id"]).ToNot(BeEmpty())
@@ -447,7 +447,7 @@ var _ = Describe("Open Responses API", func() {
 			})
 
 			It("MUST include type field on all items", func() {
-				reqBody := map[string]interface{}{
+				reqBody := map[string]any{
 					"model": testModel,
 					"input": "Hello",
 				}
@@ -465,15 +465,15 @@ var _ = Describe("Open Responses API", func() {
 				defer resp.Body.Close()
 
 				if resp.StatusCode == 200 {
-					var response map[string]interface{}
+					var response map[string]any
 					body, _ := io.ReadAll(resp.Body)
 					err = json.Unmarshal(body, &response)
 					Expect(err).ToNot(HaveOccurred())
 
-					output, ok := response["output"].([]interface{})
+					output, ok := response["output"].([]any)
 					if ok {
 						for _, item := range output {
-							itemMap, ok := item.(map[string]interface{})
+							itemMap, ok := item.(map[string]any)
 							Expect(ok).To(BeTrue())
 							Expect(itemMap).To(HaveKey("type"))
 							Expect(itemMap["type"]).ToNot(BeEmpty())
@@ -483,7 +483,7 @@ var _ = Describe("Open Responses API", func() {
 			})
 
 			It("MUST include status field on all items", func() {
-				reqBody := map[string]interface{}{
+				reqBody := map[string]any{
 					"model": testModel,
 					"input": "Hello",
 				}
@@ -501,15 +501,15 @@ var _ = Describe("Open Responses API", func() {
 				defer resp.Body.Close()
 
 				if resp.StatusCode == 200 {
-					var response map[string]interface{}
+					var response map[string]any
 					body, _ := io.ReadAll(resp.Body)
 					err = json.Unmarshal(body, &response)
 					Expect(err).ToNot(HaveOccurred())
 
-					output, ok := response["output"].([]interface{})
+					output, ok := response["output"].([]any)
 					if ok {
 						for _, item := range output {
-							itemMap, ok := item.(map[string]interface{})
+							itemMap, ok := item.(map[string]any)
 							Expect(ok).To(BeTrue())
 							Expect(itemMap).To(HaveKey("status"))
 							status, ok := itemMap["status"].(string)
@@ -521,13 +521,13 @@ var _ = Describe("Open Responses API", func() {
 			})
 
 			It("MUST support message items with role field", func() {
-				reqBody := map[string]interface{}{
+				reqBody := map[string]any{
 					"model": testModel,
-					"input": []map[string]interface{}{
+					"input": []map[string]any{
 						{
 							"type": "message",
 							"role": "user",
-							"content": []map[string]interface{}{
+							"content": []map[string]any{
 								{
 									"type": "input_text",
 									"text": "Hello",
@@ -550,14 +550,14 @@ var _ = Describe("Open Responses API", func() {
 				defer resp.Body.Close()
 
 				if resp.StatusCode == 200 {
-					var response map[string]interface{}
+					var response map[string]any
 					body, _ := io.ReadAll(resp.Body)
 					err = json.Unmarshal(body, &response)
 					Expect(err).ToNot(HaveOccurred())
 
-					output, ok := response["output"].([]interface{})
+					output, ok := response["output"].([]any)
 					if ok && len(output) > 0 {
-						itemMap, ok := output[0].(map[string]interface{})
+						itemMap, ok := output[0].(map[string]any)
 						Expect(ok).To(BeTrue())
 						if itemMap["type"] == "message" {
 							Expect(itemMap).To(HaveKey("role"))
@@ -572,13 +572,13 @@ var _ = Describe("Open Responses API", func() {
 
 		Context("Content Types", func() {
 			It("MUST support input_text content", func() {
-				reqBody := map[string]interface{}{
+				reqBody := map[string]any{
 					"model": testModel,
-					"input": []map[string]interface{}{
+					"input": []map[string]any{
 						{
 							"type": "message",
 							"role": "user",
-							"content": []map[string]interface{}{
+							"content": []map[string]any{
 								{
 									"type": "input_text",
 									"text": "Hello world",
@@ -605,13 +605,13 @@ var _ = Describe("Open Responses API", func() {
 			})
 
 			It("MUST support input_image content with URL", func() {
-				reqBody := map[string]interface{}{
+				reqBody := map[string]any{
 					"model": testModel,
-					"input": []map[string]interface{}{
+					"input": []map[string]any{
 						{
 							"type": "message",
 							"role": "user",
-							"content": []map[string]interface{}{
+							"content": []map[string]any{
 								{
 									"type":      "input_image",
 									"image_url": "https://example.com/image.png",
@@ -639,13 +639,13 @@ var _ = Describe("Open Responses API", func() {
 			})
 
 			It("MUST support input_image content with base64", func() {
-				reqBody := map[string]interface{}{
+				reqBody := map[string]any{
 					"model": testModel,
-					"input": []map[string]interface{}{
+					"input": []map[string]any{
 						{
 							"type": "message",
 							"role": "user",
-							"content": []map[string]interface{}{
+							"content": []map[string]any{
 								{
 									"type":      "input_image",
 									"image_url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
@@ -673,7 +673,7 @@ var _ = Describe("Open Responses API", func() {
 			})
 
 			It("MUST support output_text content", func() {
-				reqBody := map[string]interface{}{
+				reqBody := map[string]any{
 					"model": testModel,
 					"input": "Hello",
 				}
@@ -691,19 +691,19 @@ var _ = Describe("Open Responses API", func() {
 				defer resp.Body.Close()
 
 				if resp.StatusCode == 200 {
-					var response map[string]interface{}
+					var response map[string]any
 					body, _ := io.ReadAll(resp.Body)
 					err = json.Unmarshal(body, &response)
 					Expect(err).ToNot(HaveOccurred())
 
-					output, ok := response["output"].([]interface{})
+					output, ok := response["output"].([]any)
 					if ok && len(output) > 0 {
-						itemMap, ok := output[0].(map[string]interface{})
+						itemMap, ok := output[0].(map[string]any)
 						Expect(ok).To(BeTrue())
 						if itemMap["type"] == "message" {
-							content, ok := itemMap["content"].([]interface{})
+							content, ok := itemMap["content"].([]any)
 							if ok && len(content) > 0 {
-								contentMap, ok := content[0].(map[string]interface{})
+								contentMap, ok := content[0].(map[string]any)
 								if ok {
 									contentType, _ := contentMap["type"].(string)
 									if contentType == "output_text" {
@@ -719,7 +719,7 @@ var _ = Describe("Open Responses API", func() {
 
 		Context("Streaming Events", func() {
 			It("MUST emit response.created as first event", func() {
-				reqBody := map[string]interface{}{
+				reqBody := map[string]any{
 					"model":  testModel,
 					"input":  "Hello",
 					"stream": true,
@@ -748,7 +748,7 @@ var _ = Describe("Open Responses API", func() {
 			})
 
 			It("MUST include sequence_number in all events", func() {
-				reqBody := map[string]interface{}{
+				reqBody := map[string]any{
 					"model":  testModel,
 					"input":  "Hello",
 					"stream": true,
@@ -777,7 +777,7 @@ var _ = Describe("Open Responses API", func() {
 						if strings.HasPrefix(line, "data: ") {
 							dataLine := strings.TrimPrefix(line, "data: ")
 							if dataLine != "[DONE]" {
-								var eventData map[string]interface{}
+								var eventData map[string]any
 								if err := json.Unmarshal([]byte(dataLine), &eventData); err == nil {
 									if _, hasType := eventData["type"]; hasType {
 										Expect(eventData).To(HaveKey("sequence_number"))
@@ -792,7 +792,7 @@ var _ = Describe("Open Responses API", func() {
 
 		Context("Error Handling", func() {
 			It("MUST return structured error with type and message fields", func() {
-				reqBody := map[string]interface{}{
+				reqBody := map[string]any{
 					"model": "nonexistent-model",
 					"input": "Hello",
 				}
@@ -810,12 +810,12 @@ var _ = Describe("Open Responses API", func() {
 				defer resp.Body.Close()
 
 				if resp.StatusCode >= 400 {
-					var errorResp map[string]interface{}
+					var errorResp map[string]any
 					body, _ := io.ReadAll(resp.Body)
 					json.Unmarshal(body, &errorResp)
 
 					if errorResp["error"] != nil {
-						errorObj, ok := errorResp["error"].(map[string]interface{})
+						errorObj, ok := errorResp["error"].(map[string]any)
 						if ok {
 							Expect(errorObj).To(HaveKey("type"))
 							Expect(errorObj).To(HaveKey("message"))
@@ -828,7 +828,7 @@ var _ = Describe("Open Responses API", func() {
 		Context("Previous Response ID", func() {
 			It("should load previous response and concatenate context", func() {
 				// First, create a response
-				reqBody1 := map[string]interface{}{
+				reqBody1 := map[string]any{
 					"model": testModel,
 					"input": "What is 2+2?",
 				}
@@ -850,7 +850,7 @@ var _ = Describe("Open Responses API", func() {
 					Skip("First response failed, skipping previous_response_id test (backend may not be available)")
 				}
 
-				var response1 map[string]interface{}
+				var response1 map[string]any
 				body1, err := io.ReadAll(resp1.Body)
 				Expect(err).ToNot(HaveOccurred())
 				err = json.Unmarshal(body1, &response1)
@@ -861,7 +861,7 @@ var _ = Describe("Open Responses API", func() {
 				Expect(responseID).ToNot(BeEmpty())
 
 				// Now create a new response with previous_response_id
-				reqBody2 := map[string]interface{}{
+				reqBody2 := map[string]any{
 					"model":                testModel,
 					"input":                "What about 3+3?",
 					"previous_response_id": responseID,
@@ -878,7 +878,7 @@ var _ = Describe("Open Responses API", func() {
 				Expect(err).ToNot(HaveOccurred())
 				defer resp2.Body.Close()
 
-				var response2 map[string]interface{}
+				var response2 map[string]any
 				body2, err := io.ReadAll(resp2.Body)
 				Expect(err).ToNot(HaveOccurred())
 				err = json.Unmarshal(body2, &response2)
@@ -889,7 +889,7 @@ var _ = Describe("Open Responses API", func() {
 			})
 
 			It("should return error for invalid previous_response_id", func() {
-				reqBody := map[string]interface{}{
+				reqBody := map[string]any{
 					"model":                testModel,
 					"input":                "Test",
 					"previous_response_id": "nonexistent_response_id",
@@ -909,12 +909,12 @@ var _ = Describe("Open Responses API", func() {
 
 				Expect(resp.StatusCode).To(Equal(404))
 
-				var errorResp map[string]interface{}
+				var errorResp map[string]any
 				body, _ := io.ReadAll(resp.Body)
 				json.Unmarshal(body, &errorResp)
 
 				if errorResp["error"] != nil {
-					errorObj, ok := errorResp["error"].(map[string]interface{})
+					errorObj, ok := errorResp["error"].(map[string]any)
 					if ok {
 						Expect(errorObj["type"]).To(Equal("not_found"))
 						Expect(errorObj["param"]).To(Equal("previous_response_id"))
@@ -926,7 +926,7 @@ var _ = Describe("Open Responses API", func() {
 		Context("Item Reference", func() {
 			It("should resolve item_reference in input", func() {
 				// First, create a response with items
-				reqBody1 := map[string]interface{}{
+				reqBody1 := map[string]any{
 					"model": testModel,
 					"input": "Hello",
 				}
@@ -948,32 +948,32 @@ var _ = Describe("Open Responses API", func() {
 					Skip("First response failed, skipping item_reference test (backend may not be available)")
 				}
 
-				var response1 map[string]interface{}
+				var response1 map[string]any
 				body1, err := io.ReadAll(resp1.Body)
 				Expect(err).ToNot(HaveOccurred())
 				err = json.Unmarshal(body1, &response1)
 				Expect(err).ToNot(HaveOccurred())
 
 				// Get the first output item ID
-				output, ok := response1["output"].([]interface{})
+				output, ok := response1["output"].([]any)
 				Expect(ok).To(BeTrue())
 				Expect(len(output)).To(BeNumerically(">", 0))
 
-				firstItem, ok := output[0].(map[string]interface{})
+				firstItem, ok := output[0].(map[string]any)
 				Expect(ok).To(BeTrue())
 				itemID, ok := firstItem["id"].(string)
 				Expect(ok).To(BeTrue())
 				Expect(itemID).ToNot(BeEmpty())
 
 				// Now create a new response with item_reference
-				reqBody2 := map[string]interface{}{
+				reqBody2 := map[string]any{
 					"model": testModel,
-					"input": []interface{}{
-						map[string]interface{}{
+					"input": []any{
+						map[string]any{
 							"type":    "item_reference",
 							"item_id": itemID,
 						},
-						map[string]interface{}{
+						map[string]any{
 							"type":    "message",
 							"role":    "user",
 							"content": "Continue from the previous message",
@@ -997,10 +997,10 @@ var _ = Describe("Open Responses API", func() {
 			})
 
 			It("should return error for invalid item_reference", func() {
-				reqBody := map[string]interface{}{
+				reqBody := map[string]any{
 					"model": testModel,
-					"input": []interface{}{
-						map[string]interface{}{
+					"input": []any{
+						map[string]any{
 							"type":    "item_reference",
 							"item_id": "nonexistent_item_id",
 						},

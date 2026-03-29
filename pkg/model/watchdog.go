@@ -1,7 +1,7 @@
 package model
 
 import (
-	"sort"
+	"slices"
 	"sync"
 	"time"
 
@@ -300,8 +300,8 @@ func (wd *WatchDog) EnforceLRULimit(pendingLoads int) EnforceLRULimitResult {
 	}
 
 	// Sort by lastUsed time (oldest first)
-	sort.Slice(models, func(i, j int) bool {
-		return models[i].lastUsed.Before(models[j].lastUsed)
+	slices.SortFunc(models, func(a, b modelUsageInfo) int {
+		return a.lastUsed.Compare(b.lastUsed)
 	})
 
 	// Collect models to evict (the oldest ones)
@@ -510,13 +510,13 @@ func (wd *WatchDog) evictLRUModel() {
 	}
 
 	// Sort by lastUsed time (oldest first)
-	sort.Slice(models, func(i, j int) bool {
-		return models[i].lastUsed.Before(models[j].lastUsed)
+	slices.SortFunc(models, func(a, b modelUsageInfo) int {
+		return a.lastUsed.Compare(b.lastUsed)
 	})
 
 	// Find the first non-busy model (or first model if forceEvictionWhenBusy is true)
 	var lruModel *modelUsageInfo
-	for i := 0; i < len(models); i++ {
+	for i := range len(models) {
 		m := models[i]
 		_, isBusy := wd.busyTime[m.address]
 		if isBusy && !forceEvictionWhenBusy {

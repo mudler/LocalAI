@@ -200,7 +200,7 @@ var _ = Describe("Phase 5: Object Storage & File Manager", Label("Distributed"),
 
 			Expect(fm.IsConfigured()).To(BeFalse())
 			Expect(fm.Upload(ctx, "key", "/nonexistent")).To(Succeed()) // no-op
-			Expect(fm.Delete(ctx, "key")).To(Succeed())                // no-op
+			Expect(fm.Delete(ctx, "key")).To(Succeed())                 // no-op
 
 			exists, _ := fm.Exists(ctx, "key")
 			Expect(exists).To(BeFalse())
