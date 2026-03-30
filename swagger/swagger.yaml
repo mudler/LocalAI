@@ -14,7 +14,7 @@ definitions:
       name:
         type: string
       parameters:
-        additionalProperties: true
+        additionalProperties: {}
         type: object
       strict:
         type: boolean
@@ -22,7 +22,7 @@ definitions:
   functions.Item:
     properties:
       properties:
-        additionalProperties: true
+        additionalProperties: {}
         type: object
       type:
         type: string
@@ -30,7 +30,7 @@ definitions:
   functions.JSONFunctionStructure:
     properties:
       $defs:
-        additionalProperties: true
+        additionalProperties: {}
         type: object
       anyOf:
         items:
@@ -120,7 +120,7 @@ definitions:
           Populated at load time from overrides, inline config, or the URL-referenced config file.
         type: string
       config_file:
-        additionalProperties: true
+        additionalProperties: {}
         description: config_file is read in the situation where URL is blank - and
           therefore this is a base config.
         type: object
@@ -145,7 +145,7 @@ definitions:
       name:
         type: string
       overrides:
-        additionalProperties: true
+        additionalProperties: {}
         description: Overrides are used to override the configuration of the model
           located at URL
         type: object
@@ -165,6 +165,33 @@ definitions:
           type: string
         type: array
     type: object
+  galleryop.OpStatus:
+    properties:
+      cancellable:
+        description: Cancellable is true if the operation can be cancelled
+        type: boolean
+      cancelled:
+        description: Cancelled is true if the operation was cancelled
+        type: boolean
+      deletion:
+        description: Deletion is true if the operation is a deletion
+        type: boolean
+      downloaded_size:
+        type: string
+      error: {}
+      file_name:
+        type: string
+      file_size:
+        type: string
+      gallery_element_name:
+        type: string
+      message:
+        type: string
+      processed:
+        type: boolean
+      progress:
+        type: number
+    type: object
   localai.GalleryBackend:
     properties:
       id:
@@ -178,7 +205,7 @@ definitions:
           Populated at load time from overrides, inline config, or the URL-referenced config file.
         type: string
       config_file:
-        additionalProperties: true
+        additionalProperties: {}
         description: config_file is read in the situation where URL is blank - and
           therefore this is a base config.
         type: object
@@ -205,7 +232,7 @@ definitions:
       name:
         type: string
       overrides:
-        additionalProperties: true
+        additionalProperties: {}
         description: Overrides are used to override the configuration of the model
           located at URL
         type: object
@@ -275,7 +302,7 @@ definitions:
       id:
         type: string
       input:
-        additionalProperties: true
+        additionalProperties: {}
         type: object
       is_error:
         type: boolean
@@ -365,7 +392,7 @@ definitions:
       description:
         type: string
       input_schema:
-        additionalProperties: true
+        additionalProperties: {}
         type: object
       name:
         type: string
@@ -706,7 +733,7 @@ definitions:
       name:
         type: string
       parameters:
-        additionalProperties: true
+        additionalProperties: {}
         type: object
       strict:
         description: Always include in response
@@ -1331,33 +1358,6 @@ definitions:
       width:
         type: integer
     type: object
-  services.GalleryOpStatus:
-    properties:
-      cancellable:
-        description: Cancellable is true if the operation can be cancelled
-        type: boolean
-      cancelled:
-        description: Cancelled is true if the operation was cancelled
-        type: boolean
-      deletion:
-        description: Deletion is true if the operation is a deletion
-        type: boolean
-      downloaded_size:
-        type: string
-      error: {}
-      file_name:
-        type: string
-      file_size:
-        type: string
-      gallery_element_name:
-        type: string
-      message:
-        type: string
-      processed:
-        type: boolean
-      progress:
-        type: number
-    type: object
 info:
   contact:
     name: LocalAI
@@ -1479,7 +1479,7 @@ paths:
           description: Response
           schema:
             additionalProperties:
-              $ref: '#/definitions/services.GalleryOpStatus'
+              $ref: '#/definitions/galleryop.OpStatus'
             type: object
       summary: Returns all the jobs status progress
   /backends/jobs/{uuid}:
@@ -1488,7 +1488,7 @@ paths:
         "200":
           description: Response
           schema:
-            $ref: '#/definitions/services.GalleryOpStatus'
+            $ref: '#/definitions/galleryop.OpStatus'
       summary: Returns the job status
   /metrics:
     get:
@@ -1557,7 +1557,7 @@ paths:
           description: Response
           schema:
             additionalProperties:
-              $ref: '#/definitions/services.GalleryOpStatus'
+              $ref: '#/definitions/galleryop.OpStatus'
             type: object
       summary: Returns all the jobs status progress
   /models/jobs/{uuid}:
@@ -1566,7 +1566,7 @@ paths:
         "200":
           description: Response
           schema:
-            $ref: '#/definitions/services.GalleryOpStatus'
+            $ref: '#/definitions/galleryop.OpStatus'
       summary: Returns the job status
   /system:
     get:
