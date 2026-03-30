@@ -476,9 +476,22 @@ func (s *backendSupervisor) startBackend(backend, backendPath string) (string, e
 			return clientAddr, nil
 		}
 		cancel()
+
+		// Check if the process died (e.g. OOM, CUDA error, missing libs)
+		if !proc.IsAlive() {
+			stderrTail := readLastLinesFromFile(proc.StderrPath(), 20)
+			xlog.Warn("Backend process died during startup", "backend", backend, "stderr", stderrTail)
+			s.mu.Lock()
+			delete(s.processes, backend)
+			s.freePorts = append(s.freePorts, port)
+			s.mu.Unlock()
+			return "", fmt.Errorf("backend process %s died during startup. Last stderr:\n%s", backend, stderrTail)
+		}
 	}
 
-	xlog.Warn("Backend gRPC server not ready after waiting, proceeding anyway", "backend", backend, "addr", clientAddr)
+	// Log stderr to help diagnose why the backend isn't responding
+	stderrTail := readLastLinesFromFile(proc.StderrPath(), 20)
+	xlog.Warn("Backend gRPC server not ready after waiting, proceeding anyway", "backend", backend, "addr", clientAddr, "stderr", stderrTail)
 	return clientAddr, nil
 }
 
@@ -523,6 +536,20 @@ func (s *backendSupervisor) stopAllBackends() {
 	for _, b := range backends {
 		s.stopBackend(b)
 	}
+}
+
+// readLastLinesFromFile reads the last n lines from a file.
+// Returns an empty string if the file cannot be read.
+func readLastLinesFromFile(path string, n int) string {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return ""
+	}
+	lines := strings.Split(strings.TrimRight(string(data), "\n"), "\n")
+	if len(lines) > n {
+		lines = lines[len(lines)-n:]
+	}
+	return strings.Join(lines, "\n")
 }
 
 // isRunning returns whether a specific backend process is currently running.
