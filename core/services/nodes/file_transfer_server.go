@@ -97,7 +97,10 @@ func StartFileTransferServerWithListener(lis net.Listener, stagingDir, modelsDir
 	}
 
 	addr := lis.Addr().String()
-	server := &http.Server{Handler: mux}
+	server := &http.Server{
+		Handler:           mux,
+		ReadHeaderTimeout: 30 * time.Second, // prevent slowloris; does not affect body reads
+	}
 
 	go func() {
 		xlog.Info("HTTP file transfer server started", "addr", addr, "stagingDir", stagingDir, "modelsDir", modelsDir, "dataDir", dataDir)
@@ -118,6 +121,8 @@ func handleUpload(w http.ResponseWriter, r *http.Request, stagingDir, modelsDir,
 	if maxUploadSize > 0 {
 		r.Body = http.MaxBytesReader(w, r.Body, maxUploadSize)
 	}
+
+	xlog.Info("Receiving file upload", "key", key, "contentLength", r.ContentLength, "remote", r.RemoteAddr)
 
 	// Route keyed files to the appropriate directory
 	targetDir, relName := resolveKeyToDir(key, stagingDir, modelsDir, dataDir)
@@ -144,11 +149,12 @@ func handleUpload(w http.ResponseWriter, r *http.Request, stagingDir, modelsDir,
 	n, err := io.Copy(f, r.Body)
 	if err != nil {
 		os.Remove(dstPath)
+		xlog.Error("File upload failed", "key", key, "bytesReceived", n, "contentLength", r.ContentLength, "remote", r.RemoteAddr, "error", err)
 		http.Error(w, fmt.Sprintf("writing file: %v", err), http.StatusInternalServerError)
 		return
 	}
 
-	xlog.Debug("HTTP file upload complete", "key", key, "path", dstPath, "size", n)
+	xlog.Info("File upload complete", "key", key, "path", dstPath, "size", n)
 
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(map[string]string{"local_path": dstPath}); err != nil {
