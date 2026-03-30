@@ -368,7 +368,7 @@ func (r *SmartRouter) buildClientForAddr(node *BackendNode, addr string, paralle
 // simply remove the {ModelsPath}/{trackingKey}/ directory.
 func (r *SmartRouter) stageModelFiles(ctx context.Context, node *BackendNode, opts *pb.ModelOptions, trackingKey string) (*pb.ModelOptions, error) {
 	opts = proto.Clone(opts).(*pb.ModelOptions)
-	xlog.Debug("Staging model files for remote node", "node", node.Name, "modelFile", opts.ModelFile, "trackingKey", trackingKey)
+	xlog.Info("Staging model files for remote node", "node", node.Name, "modelFile", opts.ModelFile, "trackingKey", trackingKey)
 
 	// Derive the frontend models directory from ModelFile and Model.
 	// Example: ModelFile="/models/sd-cpp/models/flux.gguf", Model="sd-cpp/models/flux.gguf"
@@ -419,6 +419,7 @@ func (r *SmartRouter) stageModelFiles(ctx context.Context, node *BackendNode, op
 		if err != nil {
 			// ModelFile is required — fail the whole operation
 			if f.name == "ModelFile" {
+				xlog.Error("Failed to stage model file for remote node", "node", node.Name, "field", f.name, "path", localPath, "error", err)
 				return nil, fmt.Errorf("staging model file: %w", err)
 			}
 			// Optional files: clear the path so the backend doesn't try a non-existent frontend path
