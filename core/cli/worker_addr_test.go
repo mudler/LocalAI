@@ -3,204 +3,81 @@ package cli
 import (
 	"os"
 	"strings"
-	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
-func TestEffectiveBasePort(t *testing.T) {
-	tests := []struct {
-		name     string
-		addr     string
-		serve    string
-		wantPort int
-	}{
-		{
-			name:     "Addr takes priority",
-			addr:     "worker1.example.com:60000",
-			serve:    "0.0.0.0:50051",
-			wantPort: 60000,
-		},
-		{
-			name:     "Falls back to ServeAddr",
-			addr:     "",
-			serve:    "0.0.0.0:50051",
-			wantPort: 50051,
-		},
-		{
-			name:     "Returns 50051 when neither set",
-			addr:     "",
-			serve:    "",
-			wantPort: 50051,
-		},
-		{
-			name:     "Addr with custom port",
-			addr:     "10.0.0.5:7000",
-			serve:    "",
-			wantPort: 7000,
-		},
-		{
-			name:     "Invalid port in Addr falls through to ServeAddr",
-			addr:     "host:notanumber",
-			serve:    "0.0.0.0:9999",
-			wantPort: 9999,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			cmd := &WorkerCMD{Addr: tt.addr, ServeAddr: tt.serve}
-			got := cmd.effectiveBasePort()
-			if got != tt.wantPort {
-				t.Errorf("effectiveBasePort() = %d, want %d", got, tt.wantPort)
-			}
-		})
-	}
-}
+var _ = Describe("WorkerCMD address resolution", func() {
+	Describe("effectiveBasePort", func() {
+		DescribeTable("returns the correct port",
+			func(addr, serve string, want int) {
+				cmd := &WorkerCMD{Addr: addr, ServeAddr: serve}
+				Expect(cmd.effectiveBasePort()).To(Equal(want))
+			},
+			Entry("Addr takes priority", "worker1.example.com:60000", "0.0.0.0:50051", 60000),
+			Entry("falls back to ServeAddr", "", "0.0.0.0:50051", 50051),
+			Entry("returns 50051 when neither set", "", "", 50051),
+			Entry("Addr with custom port", "10.0.0.5:7000", "", 7000),
+			Entry("invalid port in Addr falls through to ServeAddr", "host:notanumber", "0.0.0.0:9999", 9999),
+		)
+	})
 
-func TestAdvertiseAddr(t *testing.T) {
-	hostname, _ := os.Hostname()
-
-	tests := []struct {
-		name      string
-		advertise string
-		addr      string
-		serve     string
-		want      string // exact match, or prefix check if empty
-		wantHost  string // if non-empty, check host portion
-		wantPort  string // if non-empty, check port portion
-	}{
-		{
-			name:      "AdvertiseAddr takes priority",
-			advertise: "public.example.com:50051",
-			addr:      "10.0.0.5:60000",
-			want:      "public.example.com:50051",
-		},
-		{
-			name: "Returns Addr when set",
-			addr: "worker1.example.com:60000",
-			want: "worker1.example.com:60000",
-		},
-		{
-			name:     "Falls back to hostname:basePort",
-			addr:     "",
-			serve:    "0.0.0.0:50051",
-			wantPort: "50051",
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	Describe("advertiseAddr", func() {
+		It("returns AdvertiseAddr when set", func() {
 			cmd := &WorkerCMD{
-				AdvertiseAddr: tt.advertise,
-				Addr:          tt.addr,
-				ServeAddr:     tt.serve,
+				AdvertiseAddr: "public.example.com:50051",
+				Addr:          "10.0.0.5:60000",
 			}
+			Expect(cmd.advertiseAddr()).To(Equal("public.example.com:50051"))
+		})
+
+		It("returns Addr when set", func() {
+			cmd := &WorkerCMD{Addr: "worker1.example.com:60000"}
+			Expect(cmd.advertiseAddr()).To(Equal("worker1.example.com:60000"))
+		})
+
+		It("falls back to hostname:basePort", func() {
+			cmd := &WorkerCMD{ServeAddr: "0.0.0.0:50051"}
 			got := cmd.advertiseAddr()
-			if tt.want != "" && got != tt.want {
-				t.Errorf("advertiseAddr() = %q, want %q", got, tt.want)
-			}
-			if tt.wantHost != "" {
-				host, _, _ := strings.Cut(got, ":")
-				if host != tt.wantHost {
-					t.Errorf("advertiseAddr() host = %q, want %q", host, tt.wantHost)
-				}
-			}
-			if tt.wantPort != "" {
-				_, port, _ := strings.Cut(got, ":")
-				if port != tt.wantPort {
-					t.Errorf("advertiseAddr() port = %q, want %q", port, tt.wantPort)
-				}
-			}
-			// When falling back, host should be hostname or localhost
-			if tt.want == "" && tt.wantHost == "" {
-				host, _, _ := strings.Cut(got, ":")
-				if hostname != "" && host != hostname {
-					t.Errorf("advertiseAddr() host = %q, want hostname %q", host, hostname)
-				}
-			}
-		})
-	}
-}
+			_, port, _ := strings.Cut(got, ":")
+			Expect(port).To(Equal("50051"))
 
-func TestResolveHTTPAddr(t *testing.T) {
-	tests := []struct {
-		name     string
-		httpAddr string
-		addr     string
-		serve    string
-		want     string
-	}{
-		{
-			name:     "HTTPAddr takes priority",
-			httpAddr: "0.0.0.0:8080",
-			want:     "0.0.0.0:8080",
-		},
-		{
-			name:  "Derives from Addr port minus 1",
-			addr:  "worker1:60000",
-			serve: "0.0.0.0:50051",
-			want:  "0.0.0.0:59999",
-		},
-		{
-			name:  "Derives from ServeAddr port minus 1",
-			serve: "0.0.0.0:50051",
-			want:  "0.0.0.0:50050",
-		},
-		{
-			name: "Default when nothing set",
-			want: "0.0.0.0:50050",
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			cmd := &WorkerCMD{
-				HTTPAddr:  tt.httpAddr,
-				Addr:      tt.addr,
-				ServeAddr: tt.serve,
-			}
-			got := cmd.resolveHTTPAddr()
-			if got != tt.want {
-				t.Errorf("resolveHTTPAddr() = %q, want %q", got, tt.want)
+			hostname, _ := os.Hostname()
+			if hostname != "" {
+				host, _, _ := strings.Cut(got, ":")
+				Expect(host).To(Equal(hostname))
 			}
 		})
-	}
-}
+	})
 
-func TestAdvertiseHTTPAddr(t *testing.T) {
-	tests := []struct {
-		name          string
-		advertiseHTTP string
-		advertise     string
-		addr          string
-		serve         string
-		want          string
-	}{
-		{
-			name:          "AdvertiseHTTPAddr takes priority",
-			advertiseHTTP: "public.example.com:8080",
-			want:          "public.example.com:8080",
-		},
-		{
-			name: "Derives from advertiseAddr host + basePort-1",
-			addr: "worker1.example.com:60000",
-			want: "worker1.example.com:59999",
-		},
-		{
-			name:      "Uses AdvertiseAddr host with basePort-1",
-			advertise: "public.example.com:60000",
-			addr:      "10.0.0.5:60000",
-			want:      "public.example.com:59999",
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			cmd := &WorkerCMD{
-				AdvertiseHTTPAddr: tt.advertiseHTTP,
-				AdvertiseAddr:     tt.advertise,
-				Addr:              tt.addr,
-				ServeAddr:         tt.serve,
-			}
-			got := cmd.advertiseHTTPAddr()
-			if got != tt.want {
-				t.Errorf("advertiseHTTPAddr() = %q, want %q", got, tt.want)
-			}
-		})
-	}
-}
+	Describe("resolveHTTPAddr", func() {
+		DescribeTable("returns the correct address",
+			func(httpAddr, addr, serve, want string) {
+				cmd := &WorkerCMD{HTTPAddr: httpAddr, Addr: addr, ServeAddr: serve}
+				Expect(cmd.resolveHTTPAddr()).To(Equal(want))
+			},
+			Entry("HTTPAddr takes priority", "0.0.0.0:8080", "", "", "0.0.0.0:8080"),
+			Entry("derives from Addr port minus 1", "", "worker1:60000", "0.0.0.0:50051", "0.0.0.0:59999"),
+			Entry("derives from ServeAddr port minus 1", "", "", "0.0.0.0:50051", "0.0.0.0:50050"),
+			Entry("default when nothing set", "", "", "", "0.0.0.0:50050"),
+		)
+	})
+
+	Describe("advertiseHTTPAddr", func() {
+		DescribeTable("returns the correct address",
+			func(advertiseHTTP, advertise, addr, serve, want string) {
+				cmd := &WorkerCMD{
+					AdvertiseHTTPAddr: advertiseHTTP,
+					AdvertiseAddr:     advertise,
+					Addr:              addr,
+					ServeAddr:         serve,
+				}
+				Expect(cmd.advertiseHTTPAddr()).To(Equal(want))
+			},
+			Entry("AdvertiseHTTPAddr takes priority", "public.example.com:8080", "", "", "", "public.example.com:8080"),
+			Entry("derives from advertiseAddr host + basePort-1", "", "", "worker1.example.com:60000", "", "worker1.example.com:59999"),
+			Entry("uses AdvertiseAddr host with basePort-1", "", "public.example.com:60000", "10.0.0.5:60000", "", "public.example.com:59999"),
+		)
+	})
+})
