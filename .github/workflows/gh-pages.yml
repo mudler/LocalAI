@@ -47,7 +47,7 @@ jobs:
 
       - name: Setup Pages
         id: pages
-        uses: actions/configure-pages@v5
+        uses: actions/configure-pages@v6
 
       - name: Generate gallery
         run: go run ./.github/ci/modelslist.go ./gallery/index.yaml > docs/static/gallery.html
