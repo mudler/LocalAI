@@ -14,6 +14,37 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      run-all: ${{ steps.detect.outputs.run-all }}
+      transformers: ${{ steps.detect.outputs.transformers }}
+      rerankers: ${{ steps.detect.outputs.rerankers }}
+      diffusers: ${{ steps.detect.outputs.diffusers }}
+      coqui: ${{ steps.detect.outputs.coqui }}
+      moonshine: ${{ steps.detect.outputs.moonshine }}
+      pocket-tts: ${{ steps.detect.outputs.pocket-tts }}
+      qwen-tts: ${{ steps.detect.outputs.qwen-tts }}
+      qwen-asr: ${{ steps.detect.outputs.qwen-asr }}
+      nemo: ${{ steps.detect.outputs.nemo }}
+      voxcpm: ${{ steps.detect.outputs.voxcpm }}
+      llama-cpp-quantization: ${{ steps.detect.outputs.llama-cpp-quantization }}
+      acestep-cpp: ${{ steps.detect.outputs.acestep-cpp }}
+      voxtral: ${{ steps.detect.outputs.voxtral }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+      - name: Install dependencies
+        run: bun add js-yaml @octokit/core
+      - name: Detect changed backends
+        id: detect
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_EVENT_PATH: ${{ github.event_path }}
+        run: bun run scripts/changed-backends.js
+
   # Requires CUDA
   # tests-chatterbox-tts:
   #   runs-on: ubuntu-latest
@@ -37,6 +68,8 @@ jobs:
   #          make --jobs=5 --output-sync=target -C backend/python/chatterbox
   #          make --jobs=5 --output-sync=target -C backend/python/chatterbox test
   tests-transformers:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.transformers == 'true' || needs.detect-changes.outputs.run-all == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Clone
@@ -58,6 +91,8 @@ jobs:
            make --jobs=5 --output-sync=target -C backend/python/transformers
            make --jobs=5 --output-sync=target -C backend/python/transformers test
   tests-rerankers:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.rerankers == 'true' || needs.detect-changes.outputs.run-all == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Clone
@@ -80,6 +115,8 @@ jobs:
            make --jobs=5 --output-sync=target -C backend/python/rerankers test
 
   tests-diffusers:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.diffusers == 'true' || needs.detect-changes.outputs.run-all == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Clone
@@ -229,6 +266,8 @@ jobs:
   #          make --jobs=5 --output-sync=target -C backend/python/vllm test
 
   tests-coqui:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.coqui == 'true' || needs.detect-changes.outputs.run-all == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Clone
@@ -248,6 +287,8 @@ jobs:
           make --jobs=5 --output-sync=target -C backend/python/coqui
           make --jobs=5 --output-sync=target -C backend/python/coqui test
   tests-moonshine:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.moonshine == 'true' || needs.detect-changes.outputs.run-all == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Clone
@@ -267,6 +308,8 @@ jobs:
           make --jobs=5 --output-sync=target -C backend/python/moonshine
           make --jobs=5 --output-sync=target -C backend/python/moonshine test
   tests-pocket-tts:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.pocket-tts == 'true' || needs.detect-changes.outputs.run-all == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Clone
@@ -286,6 +329,8 @@ jobs:
           make --jobs=5 --output-sync=target -C backend/python/pocket-tts
           make --jobs=5 --output-sync=target -C backend/python/pocket-tts test
   tests-qwen-tts:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.qwen-tts == 'true' || needs.detect-changes.outputs.run-all == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Clone
@@ -327,6 +372,8 @@ jobs:
   #         make --jobs=5 --output-sync=target -C backend/python/fish-speech
   #         make --jobs=5 --output-sync=target -C backend/python/fish-speech test
   tests-qwen-asr:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.qwen-asr == 'true' || needs.detect-changes.outputs.run-all == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Clone
@@ -346,6 +393,8 @@ jobs:
           make --jobs=5 --output-sync=target -C backend/python/qwen-asr
           make --jobs=5 --output-sync=target -C backend/python/qwen-asr test
   tests-nemo:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.nemo == 'true' || needs.detect-changes.outputs.run-all == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Clone
@@ -365,6 +414,8 @@ jobs:
           make --jobs=5 --output-sync=target -C backend/python/nemo
           make --jobs=5 --output-sync=target -C backend/python/nemo test
   tests-voxcpm:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.voxcpm == 'true' || needs.detect-changes.outputs.run-all == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Clone
@@ -384,6 +435,8 @@ jobs:
           make --jobs=5 --output-sync=target -C backend/python/voxcpm
           make --jobs=5 --output-sync=target -C backend/python/voxcpm test
   tests-llama-cpp-quantization:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.llama-cpp-quantization == 'true' || needs.detect-changes.outputs.run-all == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -411,6 +464,8 @@ jobs:
         run: |
           make --jobs=5 --output-sync=target -C backend/python/llama-cpp-quantization test
   tests-acestep-cpp:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.acestep-cpp == 'true' || needs.detect-changes.outputs.run-all == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Clone
@@ -441,6 +496,8 @@ jobs:
         run: |
           make --jobs=5 --output-sync=target -C backend/go/acestep-cpp test
   tests-voxtral:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.voxtral == 'true' || needs.detect-changes.outputs.run-all == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Clone
