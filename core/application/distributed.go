@@ -7,6 +7,7 @@ import (
 	"io"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/mudler/LocalAI/core/config"
@@ -28,6 +29,7 @@ type DistributedServices struct {
 	Registry     *nodes.NodeRegistry
 	Router       *nodes.SmartRouter
 	Health       *nodes.HealthMonitor
+	Reconciler   *nodes.ReplicaReconciler
 	JobStore     *jobs.JobStore
 	Dispatcher   *jobs.Dispatcher
 	AgentStore   *agents.AgentStore
@@ -240,6 +242,16 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB) (*Distribut
 		DB:            authDB,
 	})
 
+	// Create ReplicaReconciler for auto-scaling model replicas
+	reconciler := nodes.NewReplicaReconciler(nodes.ReplicaReconcilerOptions{
+		Registry:       registry,
+		Scheduler:      router,
+		Unloader:       remoteUnloader,
+		DB:             authDB,
+		Interval:       30 * time.Second,
+		ScaleDownDelay: 5 * time.Minute,
+	})
+
 	// Create ModelRouterAdapter to wire into ModelLoader
 	modelAdapter := nodes.NewModelRouterAdapter(router)
 
@@ -250,6 +262,7 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB) (*Distribut
 		Registry:     registry,
 		Router:       router,
 		Health:       healthMon,
+		Reconciler:   reconciler,
 		JobStore:     jobStore,
 		Dispatcher:   dispatcher,
 		AgentStore:   agentStore,

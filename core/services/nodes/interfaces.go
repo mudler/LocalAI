@@ -21,6 +21,12 @@ type ModelRouter interface {
 	FindGlobalLRUModelWithZeroInFlight(ctx context.Context) (*NodeModel, error)
 	FindLRUModel(ctx context.Context, nodeID string) (*NodeModel, error)
 	Get(ctx context.Context, nodeID string) (*BackendNode, error)
+	GetModelScheduling(ctx context.Context, modelName string) (*ModelSchedulingConfig, error)
+	FindNodesBySelector(ctx context.Context, selector map[string]string) ([]BackendNode, error)
+	FindNodeWithVRAMFromSet(ctx context.Context, minBytes uint64, nodeIDs []string) (*BackendNode, error)
+	FindIdleNodeFromSet(ctx context.Context, nodeIDs []string) (*BackendNode, error)
+	FindLeastLoadedNodeFromSet(ctx context.Context, nodeIDs []string) (*BackendNode, error)
+	GetNodeLabels(ctx context.Context, nodeID string) ([]NodeLabel, error)
 }
 
 // NodeHealthStore is used by HealthMonitor for node status management.

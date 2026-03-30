@@ -158,6 +158,10 @@ func New(opts ...config.AppOption) (*Application, error) {
 		application.modelLoader.SetModelStore(distStore)
 		// Start health monitor
 		distSvc.Health.Start(options.Context)
+		// Start replica reconciler for auto-scaling model replicas
+		if distSvc.Reconciler != nil {
+			go distSvc.Reconciler.Run(options.Context)
+		}
 		// In distributed mode, MCP CI jobs are executed by agent workers (not the frontend)
 		// because the frontend can't create MCP sessions (e.g., stdio servers using docker).
 		// The dispatcher still subscribes to jobs.new for persistence (result/progress subs)

@@ -72,6 +72,24 @@ func (f *fakeModelRouterForSmartRouter) Get(_ context.Context, nodeID string) (*
 	}
 	return nil, nil
 }
+func (f *fakeModelRouterForSmartRouter) GetModelScheduling(_ context.Context, _ string) (*ModelSchedulingConfig, error) {
+	return nil, nil
+}
+func (f *fakeModelRouterForSmartRouter) FindNodesBySelector(_ context.Context, _ map[string]string) ([]BackendNode, error) {
+	return nil, nil
+}
+func (f *fakeModelRouterForSmartRouter) FindNodeWithVRAMFromSet(_ context.Context, _ uint64, _ []string) (*BackendNode, error) {
+	return nil, nil
+}
+func (f *fakeModelRouterForSmartRouter) FindIdleNodeFromSet(_ context.Context, _ []string) (*BackendNode, error) {
+	return nil, nil
+}
+func (f *fakeModelRouterForSmartRouter) FindLeastLoadedNodeFromSet(_ context.Context, _ []string) (*BackendNode, error) {
+	return nil, nil
+}
+func (f *fakeModelRouterForSmartRouter) GetNodeLabels(_ context.Context, _ string) ([]NodeLabel, error) {
+	return nil, nil
+}
 
 // Compile-time check
 var _ ModelRouter = (*fakeModelRouterForSmartRouter)(nil)

@@ -2,6 +2,7 @@ package nodes
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -69,6 +70,18 @@ func NewSmartRouter(registry ModelRouter, opts SmartRouterOptions) *SmartRouter 
 // Unloader returns the remote unloader adapter for external use.
 func (r *SmartRouter) Unloader() NodeCommandSender { return r.unloader }
 
+// ScheduleAndLoadModel implements ModelScheduler for the reconciler.
+// It schedules a model on a suitable node (optionally from candidates) and loads it.
+func (r *SmartRouter) ScheduleAndLoadModel(ctx context.Context, modelName string, candidateNodeIDs []string) (*BackendNode, error) {
+	// Use scheduleNewModel with empty backend type and nil model options.
+	// The reconciler doesn't know the backend type — it will be determined by the model config.
+	node, _, err := r.scheduleNewModel(ctx, "", modelName, nil)
+	if err != nil {
+		return nil, err
+	}
+	return node, nil
+}
+
 // RouteResult contains the routing decision.
 type RouteResult struct {
 	Node    *BackendNode
@@ -110,18 +123,26 @@ func (r *SmartRouter) Route(ctx context.Context, modelID, modelName, backendType
 			xlog.Warn("Backend not reachable for cached model, falling through to reload",
 				"node", node.Name, "model", modelName)
 		} else {
-			// Node is alive — use raw client; FindAndLockNodeWithModel already incremented in-flight,
-			// and Release decrements it. No InFlightTrackingClient to avoid double-counting.
-			r.registry.TouchNodeModel(ctx, node.ID, trackingKey)
-			grpcClient := r.buildClientForAddr(node, modelAddr, parallel)
-			return &RouteResult{
-				Node:   node,
-				Client: grpcClient,
-				Release: func() {
-					r.registry.DecrementInFlight(context.Background(), node.ID, trackingKey)
-					closeClient(grpcClient)
-				},
-			}, nil
+			// Verify node still matches scheduling constraints
+			if !r.nodeMatchesScheduling(ctx, node, trackingKey) {
+				r.registry.DecrementInFlight(ctx, node.ID, trackingKey)
+				xlog.Info("Cached model on node that no longer matches selector, falling through",
+					"node", node.Name, "model", trackingKey)
+				// Fall through to step 2 (scheduleNewModel)
+			} else {
+				// Node is alive — use raw client; FindAndLockNodeWithModel already incremented in-flight,
+				// and Release decrements it. No InFlightTrackingClient to avoid double-counting.
+				r.registry.TouchNodeModel(ctx, node.ID, trackingKey)
+				grpcClient := r.buildClientForAddr(node, modelAddr, parallel)
+				return &RouteResult{
+					Node:   node,
+					Client: grpcClient,
+					Release: func() {
+						r.registry.DecrementInFlight(context.Background(), node.ID, trackingKey)
+						closeClient(grpcClient)
+					},
+				}, nil
+			}
 		}
 	}
 
@@ -143,17 +164,25 @@ func (r *SmartRouter) Route(ctx context.Context, modelID, modelName, backendType
 				xlog.Warn("Backend not reachable for cached model inside lock, proceeding to load",
 					"node", node.Name, "model", modelName)
 			} else {
-				// Model loaded while we waited — reuse it; no InFlightTrackingClient to avoid double-counting
-				r.registry.TouchNodeModel(ctx, node.ID, trackingKey)
-				grpcClient := r.buildClientForAddr(node, modelAddr, parallel)
-				return &RouteResult{
-					Node:   node,
-					Client: grpcClient,
-					Release: func() {
-						r.registry.DecrementInFlight(context.Background(), node.ID, trackingKey)
-						closeClient(grpcClient)
-					},
-				}, nil
+				// Verify node still matches scheduling constraints
+				if !r.nodeMatchesScheduling(ctx, node, trackingKey) {
+					r.registry.DecrementInFlight(ctx, node.ID, trackingKey)
+					xlog.Info("Cached model on node that no longer matches selector, falling through",
+						"node", node.Name, "model", trackingKey)
+					// Fall through to scheduling below
+				} else {
+					// Model loaded while we waited — reuse it; no InFlightTrackingClient to avoid double-counting
+					r.registry.TouchNodeModel(ctx, node.ID, trackingKey)
+					grpcClient := r.buildClientForAddr(node, modelAddr, parallel)
+					return &RouteResult{
+						Node:   node,
+						Client: grpcClient,
+						Release: func() {
+							r.registry.DecrementInFlight(context.Background(), node.ID, trackingKey)
+							closeClient(grpcClient)
+						},
+					}, nil
+				}
 			}
 		}
 
@@ -223,6 +252,59 @@ func (r *SmartRouter) Route(ctx context.Context, modelID, modelName, backendType
 	return loadModel()
 }
 
+// parseSelectorJSON decodes a JSON node selector string into a map.
+func parseSelectorJSON(selectorJSON string) map[string]string {
+	if selectorJSON == "" {
+		return nil
+	}
+	var selector map[string]string
+	if err := json.Unmarshal([]byte(selectorJSON), &selector); err != nil {
+		xlog.Warn("Failed to parse node selector", "selector", selectorJSON, "error", err)
+		return nil
+	}
+	return selector
+}
+
+func extractNodeIDs(nodes []BackendNode) []string {
+	ids := make([]string, len(nodes))
+	for i, n := range nodes {
+		ids[i] = n.ID
+	}
+	return ids
+}
+
+// nodeMatchesScheduling checks if a node satisfies the scheduling constraints for a model.
+// Returns true if no constraints exist or the node matches all selector labels.
+func (r *SmartRouter) nodeMatchesScheduling(ctx context.Context, node *BackendNode, modelName string) bool {
+	sched, err := r.registry.GetModelScheduling(ctx, modelName)
+	if err != nil || sched == nil || sched.NodeSelector == "" {
+		return true // no constraints
+	}
+
+	selector := parseSelectorJSON(sched.NodeSelector)
+	if len(selector) == 0 {
+		return true
+	}
+
+	labels, err := r.registry.GetNodeLabels(ctx, node.ID)
+	if err != nil {
+		xlog.Warn("Failed to get node labels for selector check", "node", node.ID, "error", err)
+		return true // fail open
+	}
+
+	labelMap := make(map[string]string)
+	for _, l := range labels {
+		labelMap[l.Key] = l.Value
+	}
+
+	for k, v := range selector {
+		if labelMap[k] != v {
+			return false
+		}
+	}
+	return true
+}
+
 // scheduleNewModel picks the best node for loading a new model.
 // Strategy: VRAM-aware → idle-first → least-loaded.
 // Sends backend.install via NATS so the chosen node has the right backend running.
@@ -233,12 +315,30 @@ func (r *SmartRouter) scheduleNewModel(ctx context.Context, backendType, modelID
 		estimatedVRAM = r.estimateModelVRAM(ctx, modelOpts)
 	}
 
+	// Check for scheduling constraints (node selector)
+	sched, _ := r.registry.GetModelScheduling(ctx, modelID)
+	var candidateNodeIDs []string // nil = all nodes eligible
+
+	if sched != nil && sched.NodeSelector != "" {
+		selector := parseSelectorJSON(sched.NodeSelector)
+		if len(selector) > 0 {
+			candidates, err := r.registry.FindNodesBySelector(ctx, selector)
+			if err != nil || len(candidates) == 0 {
+				return nil, "", fmt.Errorf("no healthy nodes match selector for model %s: %v", modelID, sched.NodeSelector)
+			}
+			candidateNodeIDs = extractNodeIDs(candidates)
+		}
+	}
+
 	var node *BackendNode
 	var err error
 
 	if estimatedVRAM > 0 {
-		// 1. Prefer nodes with enough VRAM (idle-first, then least-loaded)
-		node, err = r.registry.FindNodeWithVRAM(ctx, estimatedVRAM)
+		if candidateNodeIDs != nil {
+			node, err = r.registry.FindNodeWithVRAMFromSet(ctx, estimatedVRAM, candidateNodeIDs)
+		} else {
+			node, err = r.registry.FindNodeWithVRAM(ctx, estimatedVRAM)
+		}
 		if err != nil {
 			xlog.Warn("No nodes with enough VRAM, falling back to standard scheduling",
 				"required_vram", vram.FormatBytes(estimatedVRAM), "error", err)
@@ -246,11 +346,16 @@ func (r *SmartRouter) scheduleNewModel(ctx context.Context, backendType, modelID
 	}
 
 	if node == nil {
-		// 2. Prefer truly idle nodes (no loaded models, no in-flight)
-		node, err = r.registry.FindIdleNode(ctx)
-		if err != nil {
-			// 3. Fall back to least-loaded node (can run an additional backend process)
-			node, err = r.registry.FindLeastLoadedNode(ctx)
+		if candidateNodeIDs != nil {
+			node, err = r.registry.FindIdleNodeFromSet(ctx, candidateNodeIDs)
+			if err != nil {
+				node, err = r.registry.FindLeastLoadedNodeFromSet(ctx, candidateNodeIDs)
+			}
+		} else {
+			node, err = r.registry.FindIdleNode(ctx)
+			if err != nil {
+				node, err = r.registry.FindLeastLoadedNode(ctx)
+			}
 		}
 	}
 
@@ -610,7 +715,12 @@ func (r *SmartRouter) evictLRUAndFreeNode(ctx context.Context) (*BackendNode, er
 			// Lock the row so no other frontend can evict the same model
 			if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
 				Joins("JOIN backend_nodes ON backend_nodes.id = node_models.node_id").
-				Where("node_models.in_flight = 0 AND node_models.state = ? AND backend_nodes.status = ?", "loaded", StatusHealthy).
+				Where(`node_models.in_flight = 0 AND node_models.state = ? AND backend_nodes.status = ?
+  AND (
+    NOT EXISTS (SELECT 1 FROM model_scheduling_configs sc WHERE sc.model_name = node_models.model_name AND (sc.min_replicas > 0 OR sc.max_replicas > 0))
+    OR (SELECT COUNT(*) FROM node_models nm2 WHERE nm2.model_name = node_models.model_name AND nm2.state = 'loaded')
+       > COALESCE((SELECT sc2.min_replicas FROM model_scheduling_configs sc2 WHERE sc2.model_name = node_models.model_name), 1)
+  )`, "loaded", StatusHealthy).
 				Order("node_models.last_used ASC").
 				First(&lru).Error; err != nil {
 				return err

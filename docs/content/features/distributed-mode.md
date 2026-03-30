@@ -134,6 +134,47 @@ local-ai worker \
 **HTTP file transfer:** Each worker also runs a small HTTP server for file transfer (model files, configs). By default it listens on the gRPC base port - 1 (e.g., if gRPC base is 50051, HTTP is on 50050). gRPC ports grow upward from the base port as additional models are loaded. Set `--advertise-http-addr` if the auto-detected address is not routable from the frontend.
 {{% /notice %}}
 
+### Worker Address Configuration
+
+The simplest way to configure a worker's network address is with a single variable:
+
+| Variable | Description |
+|----------|-------------|
+| `LOCALAI_ADDR` | Reachable address of this worker (`host:port`). The port is used as the base for gRPC backend processes, and `port-1` for the HTTP file transfer server. |
+
+**Example:**
+```yaml
+environment:
+  LOCALAI_ADDR: "192.168.1.100:50051"
+  LOCALAI_NATS_URL: "nats://frontend:4222"
+  LOCALAI_REGISTER_TO: "http://frontend:8080"
+  LOCALAI_REGISTRATION_TOKEN: "my-secret"
+```
+
+For advanced networking scenarios (NAT, load balancers, separate gRPC/HTTP ports), the following override variables are available:
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `LOCALAI_SERVE_ADDR` | gRPC base port bind address | `0.0.0.0:50051` |
+| `LOCALAI_HTTP_ADDR` | HTTP file transfer bind address | `0.0.0.0:{gRPC port - 1}` |
+| `LOCALAI_ADVERTISE_ADDR` | Public gRPC address (if different from `LOCALAI_ADDR`) | Derived from `LOCALAI_ADDR` |
+| `LOCALAI_ADVERTISE_HTTP_ADDR` | Public HTTP address (if different from gRPC host) | Derived from advertise host + HTTP port |
+
+### Node Labels
+
+Workers can declare labels at startup for scheduling constraints:
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `LOCALAI_NODE_LABELS` | Comma-separated `key=value` labels | `tier=premium,gpu=a100,zone=us-east` |
+
+Labels can also be managed via the admin API (see [Label Management API](#label-management-api) below).
+
+The system automatically applies hardware-detected labels on registration:
+- `gpu.vendor` -- GPU vendor (nvidia, amd, intel, vulkan)
+- `gpu.vram` -- GPU VRAM bucket (8GB, 16GB, 24GB, 48GB, 80GB+)
+- `node.name` -- The node's registered name
+
 ### How Workers Operate
 
 Workers start as generic processes with no backend installed. When the SmartRouter needs to load a model on a worker, it sends a NATS `backend.install` event with the backend name and model ID. The worker:
@@ -261,6 +302,75 @@ local-ai worker \
 ```
 
 **Multiple frontend replicas:** Run multiple LocalAI frontends behind a load balancer. Since all state is in PostgreSQL and coordination is via NATS, frontends are fully stateless and interchangeable.
+
+## Model Scheduling
+
+Model scheduling controls where models are placed and how many replicas are maintained. It combines two optional features:
+
+### Node Selectors
+
+Pin models to nodes with specific labels. Only nodes matching **all** selector labels are eligible:
+
+```bash
+# Only schedule on NVIDIA nodes in the us-east zone
+curl -X POST http://frontend:8080/api/nodes/scheduling \
+  -H "Content-Type: application/json" \
+  -d '{"model_name": "llama3", "node_selector": {"gpu.vendor": "nvidia", "zone": "us-east"}}'
+```
+
+Without a node selector, models can schedule on any healthy node (default behavior).
+
+### Replica Auto-Scaling
+
+Control the number of model replicas across the cluster:
+
+| Field | Description |
+|-------|-------------|
+| `min_replicas` | Minimum replicas to maintain (0 = no minimum, single replica default) |
+| `max_replicas` | Maximum replicas allowed (0 = unlimited) |
+
+Auto-scaling is **only active** when `min_replicas > 0` or `max_replicas > 0`.
+
+```bash
+# Scale llama3 between 2 and 4 replicas on NVIDIA nodes
+curl -X POST http://frontend:8080/api/nodes/scheduling \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model_name": "llama3",
+    "node_selector": {"gpu.vendor": "nvidia"},
+    "min_replicas": 2,
+    "max_replicas": 4
+  }'
+```
+
+The **Replica Reconciler** runs as a background process on the frontend:
+- **Scale up**: Adds replicas when all existing replicas are busy (have in-flight requests)
+- **Scale down**: Removes idle replicas after 5 minutes of inactivity
+- **Maintain minimum**: Ensures `min_replicas` are always loaded (recovers from node failures)
+- **Eviction protection**: Models with auto-scaling enabled are never evicted below `min_replicas`
+
+All fields are optional and composable:
+- Node selector only: pin model to matching nodes, single replica
+- Replicas only: auto-scale across all nodes
+- Both: auto-scale on matching nodes only
+
+## Label Management API
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/nodes/:id/labels` | Get labels for a node |
+| `PUT` | `/api/nodes/:id/labels` | Replace all labels (JSON object) |
+| `PATCH` | `/api/nodes/:id/labels` | Merge labels (add/update) |
+| `DELETE` | `/api/nodes/:id/labels/:key` | Remove a single label |
+
+## Scheduling API
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/nodes/scheduling` | List all scheduling configs |
+| `GET` | `/api/nodes/scheduling/:model` | Get config for a model |
+| `POST` | `/api/nodes/scheduling` | Create/update config |
+| `DELETE` | `/api/nodes/scheduling/:model` | Remove config |
 
 ## Comparison with P2P
 

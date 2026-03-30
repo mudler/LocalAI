@@ -68,6 +68,39 @@ type NodeModel struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
+// NodeLabel is a key-value label on a node (like K8s labels).
+type NodeLabel struct {
+	ID     string `gorm:"primaryKey;size:36" json:"id"`
+	NodeID string `gorm:"uniqueIndex:idx_node_label;size:36" json:"node_id"`
+	Key    string `gorm:"uniqueIndex:idx_node_label;size:128" json:"key"`
+	Value  string `gorm:"size:255" json:"value"`
+}
+
+// ModelSchedulingConfig defines how a model should be scheduled across the cluster.
+// All fields are optional:
+//   - NodeSelector only → constrain nodes, single replica
+//   - MinReplicas/MaxReplicas only → auto-scale on any node
+//   - Both → auto-scale on matching nodes
+//   - Neither → no-op (default behavior)
+//
+// Auto-scaling is enabled when MinReplicas > 0 or MaxReplicas > 0.
+type ModelSchedulingConfig struct {
+	ID           string    `gorm:"primaryKey;size:36" json:"id"`
+	ModelName    string    `gorm:"uniqueIndex;size:255" json:"model_name"`
+	NodeSelector string    `gorm:"type:text" json:"node_selector,omitempty"` // JSON {"key":"value",...}
+	MinReplicas  int       `gorm:"default:0" json:"min_replicas"`
+	MaxReplicas  int       `gorm:"default:0" json:"max_replicas"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
+}
+
+// NodeWithExtras extends BackendNode with computed fields for list views.
+type NodeWithExtras struct {
+	BackendNode
+	ModelCount int               `json:"model_count"`
+	Labels     map[string]string `json:"labels,omitempty"`
+}
+
 // NodeRegistry manages backend node registration and lookup in PostgreSQL.
 type NodeRegistry struct {
 	db *gorm.DB
@@ -78,7 +111,7 @@ type NodeRegistry struct {
 // when multiple instances (frontend + workers) start at the same time.
 func NewNodeRegistry(db *gorm.DB) (*NodeRegistry, error) {
 	if err := advisorylock.WithLockCtx(context.Background(), db, advisorylock.KeySchemaMigrate, func() error {
-		return db.AutoMigrate(&BackendNode{}, &NodeModel{})
+		return db.AutoMigrate(&BackendNode{}, &NodeModel{}, &NodeLabel{}, &ModelSchedulingConfig{})
 	}); err != nil {
 		return nil, fmt.Errorf("migrating node tables: %w", err)
 	}
@@ -577,4 +610,286 @@ func (r *NodeRegistry) FindGlobalLRUModelWithZeroInFlight(ctx context.Context) (
 		return nil, fmt.Errorf("no evictable model found: %w", err)
 	}
 	return &nm, nil
+}
+
+// --- NodeLabel operations ---
+
+// SetNodeLabel upserts a single label on a node.
+func (r *NodeRegistry) SetNodeLabel(ctx context.Context, nodeID, key, value string) error {
+	label := NodeLabel{
+		ID:     uuid.New().String(),
+		NodeID: nodeID,
+		Key:    key,
+		Value:  value,
+	}
+	return r.db.WithContext(ctx).
+		Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "node_id"}, {Name: "key"}},
+			DoUpdates: clause.AssignmentColumns([]string{"value"}),
+		}).
+		Create(&label).Error
+}
+
+// SetNodeLabels replaces all labels for a node with the given map.
+func (r *NodeRegistry) SetNodeLabels(ctx context.Context, nodeID string, labels map[string]string) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("node_id = ?", nodeID).Delete(&NodeLabel{}).Error; err != nil {
+			return err
+		}
+		for k, v := range labels {
+			label := NodeLabel{ID: uuid.New().String(), NodeID: nodeID, Key: k, Value: v}
+			if err := tx.Create(&label).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+// RemoveNodeLabel removes a single label from a node.
+func (r *NodeRegistry) RemoveNodeLabel(ctx context.Context, nodeID, key string) error {
+	return r.db.WithContext(ctx).Where("node_id = ? AND key = ?", nodeID, key).Delete(&NodeLabel{}).Error
+}
+
+// GetNodeLabels returns all labels for a node.
+func (r *NodeRegistry) GetNodeLabels(ctx context.Context, nodeID string) ([]NodeLabel, error) {
+	var labels []NodeLabel
+	err := r.db.WithContext(ctx).Where("node_id = ?", nodeID).Find(&labels).Error
+	return labels, err
+}
+
+// GetAllNodeLabelsMap returns all labels grouped by node ID.
+func (r *NodeRegistry) GetAllNodeLabelsMap(ctx context.Context) (map[string]map[string]string, error) {
+	var labels []NodeLabel
+	if err := r.db.WithContext(ctx).Find(&labels).Error; err != nil {
+		return nil, err
+	}
+	result := make(map[string]map[string]string)
+	for _, l := range labels {
+		if result[l.NodeID] == nil {
+			result[l.NodeID] = make(map[string]string)
+		}
+		result[l.NodeID][l.Key] = l.Value
+	}
+	return result, nil
+}
+
+// --- Selector-based queries ---
+
+// FindNodesBySelector returns healthy backend nodes matching ALL key-value pairs in the selector.
+func (r *NodeRegistry) FindNodesBySelector(ctx context.Context, selector map[string]string) ([]BackendNode, error) {
+	if len(selector) == 0 {
+		// Empty selector matches all healthy backend nodes
+		var nodes []BackendNode
+		err := r.db.WithContext(ctx).Where("status = ? AND node_type = ?", StatusHealthy, NodeTypeBackend).Find(&nodes).Error
+		return nodes, err
+	}
+
+	db := r.db.WithContext(ctx).Where("status = ? AND node_type = ?", StatusHealthy, NodeTypeBackend)
+	for k, v := range selector {
+		db = db.Where("EXISTS (SELECT 1 FROM node_labels WHERE node_labels.node_id = backend_nodes.id AND node_labels.key = ? AND node_labels.value = ?)", k, v)
+	}
+
+	var nodes []BackendNode
+	err := db.Find(&nodes).Error
+	return nodes, err
+}
+
+// FindNodeWithVRAMFromSet is like FindNodeWithVRAM but restricted to the given node IDs.
+func (r *NodeRegistry) FindNodeWithVRAMFromSet(ctx context.Context, minBytes uint64, nodeIDs []string) (*BackendNode, error) {
+	db := r.db.WithContext(ctx)
+
+	loadedModels := db.Model(&NodeModel{}).
+		Select("node_id").
+		Where("state = ?", "loaded").
+		Group("node_id")
+
+	subquery := db.Model(&NodeModel{}).
+		Select("node_id, COALESCE(SUM(in_flight), 0) as total_inflight").
+		Group("node_id")
+
+	// Try idle nodes with enough VRAM first
+	var node BackendNode
+	err := db.Where("status = ? AND node_type = ? AND available_vram >= ? AND id NOT IN (?) AND id IN ?", StatusHealthy, NodeTypeBackend, minBytes, loadedModels, nodeIDs).
+		First(&node).Error
+	if err == nil {
+		return &node, nil
+	}
+
+	// Fall back to least-loaded nodes with enough VRAM
+	err = db.Where("status = ? AND node_type = ? AND available_vram >= ? AND backend_nodes.id IN ?", StatusHealthy, NodeTypeBackend, minBytes, nodeIDs).
+		Joins("LEFT JOIN (?) AS load ON load.node_id = backend_nodes.id", subquery).
+		Order("COALESCE(load.total_inflight, 0) ASC").
+		First(&node).Error
+	if err != nil {
+		return nil, fmt.Errorf("no healthy nodes in set with %d bytes available VRAM: %w", minBytes, err)
+	}
+	return &node, nil
+}
+
+// FindIdleNodeFromSet is like FindIdleNode but restricted to the given node IDs.
+func (r *NodeRegistry) FindIdleNodeFromSet(ctx context.Context, nodeIDs []string) (*BackendNode, error) {
+	db := r.db.WithContext(ctx)
+
+	var node BackendNode
+	loadedModels := db.Model(&NodeModel{}).
+		Select("node_id").
+		Where("state = ?", "loaded").
+		Group("node_id")
+	err := db.Where("status = ? AND node_type = ? AND id NOT IN (?) AND id IN ?", StatusHealthy, NodeTypeBackend, loadedModels, nodeIDs).
+		First(&node).Error
+	if err != nil {
+		return nil, err
+	}
+	return &node, nil
+}
+
+// FindLeastLoadedNodeFromSet is like FindLeastLoadedNode but restricted to the given node IDs.
+func (r *NodeRegistry) FindLeastLoadedNodeFromSet(ctx context.Context, nodeIDs []string) (*BackendNode, error) {
+	db := r.db.WithContext(ctx)
+
+	var node BackendNode
+	query := db.Where("status = ? AND node_type = ? AND backend_nodes.id IN ?", StatusHealthy, NodeTypeBackend, nodeIDs)
+	// Order by total in-flight across all models on the node
+	subquery := db.Model(&NodeModel{}).
+		Select("node_id, COALESCE(SUM(in_flight), 0) as total_inflight").
+		Group("node_id")
+
+	err := query.Joins("LEFT JOIN (?) AS load ON load.node_id = backend_nodes.id", subquery).
+		Order("COALESCE(load.total_inflight, 0) ASC").
+		First(&node).Error
+	if err != nil {
+		return nil, fmt.Errorf("finding least loaded node in set: %w", err)
+	}
+	return &node, nil
+}
+
+// --- ModelSchedulingConfig operations ---
+
+// SetModelScheduling creates or updates a scheduling config for a model.
+func (r *NodeRegistry) SetModelScheduling(ctx context.Context, config *ModelSchedulingConfig) error {
+	if config.ID == "" {
+		config.ID = uuid.New().String()
+	}
+	return r.db.WithContext(ctx).
+		Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "model_name"}},
+			DoUpdates: clause.AssignmentColumns([]string{"node_selector", "min_replicas", "max_replicas", "updated_at"}),
+		}).
+		Create(config).Error
+}
+
+// GetModelScheduling returns the scheduling config for a model, or nil if none exists.
+func (r *NodeRegistry) GetModelScheduling(ctx context.Context, modelName string) (*ModelSchedulingConfig, error) {
+	var config ModelSchedulingConfig
+	err := r.db.WithContext(ctx).Where("model_name = ?", modelName).First(&config).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &config, nil
+}
+
+// ListModelSchedulings returns all scheduling configs.
+func (r *NodeRegistry) ListModelSchedulings(ctx context.Context) ([]ModelSchedulingConfig, error) {
+	var configs []ModelSchedulingConfig
+	err := r.db.WithContext(ctx).Find(&configs).Error
+	return configs, err
+}
+
+// ListAutoScalingConfigs returns scheduling configs where auto-scaling is enabled.
+func (r *NodeRegistry) ListAutoScalingConfigs(ctx context.Context) ([]ModelSchedulingConfig, error) {
+	var configs []ModelSchedulingConfig
+	err := r.db.WithContext(ctx).Where("min_replicas > 0 OR max_replicas > 0").Find(&configs).Error
+	return configs, err
+}
+
+// DeleteModelScheduling removes a scheduling config by model name.
+func (r *NodeRegistry) DeleteModelScheduling(ctx context.Context, modelName string) error {
+	return r.db.WithContext(ctx).Where("model_name = ?", modelName).Delete(&ModelSchedulingConfig{}).Error
+}
+
+// CountLoadedReplicas returns the number of loaded replicas for a model.
+func (r *NodeRegistry) CountLoadedReplicas(ctx context.Context, modelName string) (int64, error) {
+	var count int64
+	err := r.db.WithContext(ctx).Model(&NodeModel{}).Where("model_name = ? AND state = ?", modelName, "loaded").Count(&count).Error
+	return count, err
+}
+
+// --- Composite queries ---
+
+// ListWithExtras returns all nodes with model counts and labels.
+func (r *NodeRegistry) ListWithExtras(ctx context.Context) ([]NodeWithExtras, error) {
+	// Get all nodes
+	var nodes []BackendNode
+	if err := r.db.WithContext(ctx).Find(&nodes).Error; err != nil {
+		return nil, err
+	}
+
+	// Get model counts per node
+	type modelCount struct {
+		NodeID string
+		Count  int
+	}
+	var counts []modelCount
+	if err := r.db.WithContext(ctx).Model(&NodeModel{}).
+		Select("node_id, COUNT(*) as count").
+		Where("state = ?", "loaded").
+		Group("node_id").
+		Find(&counts).Error; err != nil {
+		xlog.Warn("ListWithExtras: failed to get model counts", "error", err)
+	}
+
+	countMap := make(map[string]int)
+	for _, c := range counts {
+		countMap[c.NodeID] = c.Count
+	}
+
+	// Get all labels
+	labelsMap, err := r.GetAllNodeLabelsMap(ctx)
+	if err != nil {
+		xlog.Warn("ListWithExtras: failed to get labels", "error", err)
+	}
+
+	// Build result
+	result := make([]NodeWithExtras, len(nodes))
+	for i, n := range nodes {
+		result[i] = NodeWithExtras{
+			BackendNode: n,
+			ModelCount:  countMap[n.ID],
+			Labels:      labelsMap[n.ID],
+		}
+	}
+	return result, nil
+}
+
+// ApplyAutoLabels sets automatic labels based on node hardware info.
+func (r *NodeRegistry) ApplyAutoLabels(ctx context.Context, nodeID string, node *BackendNode) {
+	if node.GPUVendor != "" {
+		_ = r.SetNodeLabel(ctx, nodeID, "gpu.vendor", node.GPUVendor)
+	}
+	if node.TotalVRAM > 0 {
+		gb := node.TotalVRAM / (1024 * 1024 * 1024)
+		var bucket string
+		switch {
+		case gb >= 80:
+			bucket = "80GB+"
+		case gb >= 48:
+			bucket = "48GB"
+		case gb >= 24:
+			bucket = "24GB"
+		case gb >= 16:
+			bucket = "16GB"
+		case gb >= 8:
+			bucket = "8GB"
+		default:
+			bucket = fmt.Sprintf("%dGB", gb)
+		}
+		_ = r.SetNodeLabel(ctx, nodeID, "gpu.vram", bucket)
+	}
+	if node.Name != "" {
+		_ = r.SetNodeLabel(ctx, nodeID, "node.name", node.Name)
+	}
 }

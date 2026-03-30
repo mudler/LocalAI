@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -37,7 +38,7 @@ func nodeError(code int, message string) schema.ErrorResponse {
 func ListNodesEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		ctx := c.Request().Context()
-		nodeList, err := registry.List(ctx)
+		nodeList, err := registry.ListWithExtras(ctx)
 		if err != nil {
 			xlog.Error("Failed to list nodes", "error", err)
 			return c.JSON(http.StatusInternalServerError, nodeError(http.StatusInternalServerError, "failed to list nodes"))
@@ -70,7 +71,8 @@ type RegisterNodeRequest struct {
 	AvailableVRAM uint64 `json:"available_vram,omitempty"`
 	TotalRAM      uint64 `json:"total_ram,omitempty"`
 	AvailableRAM  uint64 `json:"available_ram,omitempty"`
-	GPUVendor     string `json:"gpu_vendor,omitempty"`
+	GPUVendor     string            `json:"gpu_vendor,omitempty"`
+	Labels        map[string]string `json:"labels,omitempty"`
 }
 
 // RegisterNodeEndpoint registers a new backend node.
@@ -147,6 +149,14 @@ func RegisterNodeEndpoint(registry *nodes.NodeRegistry, expectedToken string, au
 			xlog.Error("Failed to register node", "name", req.Name, "error", err)
 			return c.JSON(http.StatusInternalServerError, nodeError(http.StatusInternalServerError, "failed to register node"))
 		}
+
+		// Store static labels from worker and apply auto-labels
+		if len(req.Labels) > 0 {
+			if err := registry.SetNodeLabels(ctx, node.ID, req.Labels); err != nil {
+				xlog.Warn("Failed to set node labels", "node", node.ID, "error", err)
+			}
+		}
+		registry.ApplyAutoLabels(ctx, node.ID, node)
 
 		response := map[string]any{
 			"id":         node.ID,
@@ -615,6 +625,178 @@ func NodeBackendLogsWSEndpoint(registry *nodes.NodeRegistry, registrationToken s
 		closeWorker()
 		closeBrowser()
 		return nil
+	}
+}
+
+// GetNodeLabelsEndpoint returns labels for a specific node.
+func GetNodeLabelsEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		ctx := c.Request().Context()
+		nodeID := c.Param("id")
+		labels, err := registry.GetNodeLabels(ctx, nodeID)
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, nodeError(http.StatusInternalServerError, "failed to get labels"))
+		}
+		// Convert to map for cleaner API response
+		result := make(map[string]string)
+		for _, l := range labels {
+			result[l.Key] = l.Value
+		}
+		return c.JSON(http.StatusOK, result)
+	}
+}
+
+// SetNodeLabelsEndpoint replaces all labels for a node.
+func SetNodeLabelsEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		ctx := c.Request().Context()
+		nodeID := c.Param("id")
+		if _, err := registry.Get(ctx, nodeID); err != nil {
+			return c.JSON(http.StatusNotFound, nodeError(http.StatusNotFound, "node not found"))
+		}
+		var labels map[string]string
+		if err := c.Bind(&labels); err != nil {
+			return c.JSON(http.StatusBadRequest, nodeError(http.StatusBadRequest, "invalid request body"))
+		}
+		if err := registry.SetNodeLabels(ctx, nodeID, labels); err != nil {
+			return c.JSON(http.StatusInternalServerError, nodeError(http.StatusInternalServerError, "failed to set labels"))
+		}
+		return c.JSON(http.StatusOK, labels)
+	}
+}
+
+// MergeNodeLabelsEndpoint adds/updates labels without removing existing ones.
+func MergeNodeLabelsEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		ctx := c.Request().Context()
+		nodeID := c.Param("id")
+		if _, err := registry.Get(ctx, nodeID); err != nil {
+			return c.JSON(http.StatusNotFound, nodeError(http.StatusNotFound, "node not found"))
+		}
+		var labels map[string]string
+		if err := c.Bind(&labels); err != nil {
+			return c.JSON(http.StatusBadRequest, nodeError(http.StatusBadRequest, "invalid request body"))
+		}
+		for k, v := range labels {
+			if err := registry.SetNodeLabel(ctx, nodeID, k, v); err != nil {
+				return c.JSON(http.StatusInternalServerError, nodeError(http.StatusInternalServerError, "failed to merge labels"))
+			}
+		}
+		// Return updated labels
+		updated, _ := registry.GetNodeLabels(ctx, nodeID)
+		result := make(map[string]string)
+		for _, l := range updated {
+			result[l.Key] = l.Value
+		}
+		return c.JSON(http.StatusOK, result)
+	}
+}
+
+// DeleteNodeLabelEndpoint removes a single label from a node.
+func DeleteNodeLabelEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		ctx := c.Request().Context()
+		nodeID := c.Param("id")
+		key := c.Param("key")
+		if key == "" {
+			return c.JSON(http.StatusBadRequest, nodeError(http.StatusBadRequest, "label key is required"))
+		}
+		if err := registry.RemoveNodeLabel(ctx, nodeID, key); err != nil {
+			return c.JSON(http.StatusInternalServerError, nodeError(http.StatusInternalServerError, "failed to remove label"))
+		}
+		return c.NoContent(http.StatusNoContent)
+	}
+}
+
+// ListSchedulingEndpoint returns all model scheduling configs.
+func ListSchedulingEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		ctx := c.Request().Context()
+		configs, err := registry.ListModelSchedulings(ctx)
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, nodeError(http.StatusInternalServerError, "failed to list scheduling configs"))
+		}
+		return c.JSON(http.StatusOK, configs)
+	}
+}
+
+// GetSchedulingEndpoint returns the scheduling config for a specific model.
+func GetSchedulingEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		ctx := c.Request().Context()
+		modelName := c.Param("model")
+		config, err := registry.GetModelScheduling(ctx, modelName)
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, nodeError(http.StatusInternalServerError, "failed to get scheduling config"))
+		}
+		if config == nil {
+			return c.JSON(http.StatusNotFound, nodeError(http.StatusNotFound, "no scheduling config for model"))
+		}
+		return c.JSON(http.StatusOK, config)
+	}
+}
+
+// SetSchedulingRequest is the request body for creating/updating a scheduling config.
+type SetSchedulingRequest struct {
+	ModelName    string            `json:"model_name"`
+	NodeSelector map[string]string `json:"node_selector,omitempty"`
+	MinReplicas  int               `json:"min_replicas"`
+	MaxReplicas  int               `json:"max_replicas"`
+}
+
+// SetSchedulingEndpoint creates or updates a model scheduling config.
+func SetSchedulingEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		ctx := c.Request().Context()
+		var req SetSchedulingRequest
+		if err := c.Bind(&req); err != nil {
+			return c.JSON(http.StatusBadRequest, nodeError(http.StatusBadRequest, "invalid request body"))
+		}
+		if req.ModelName == "" {
+			return c.JSON(http.StatusBadRequest, nodeError(http.StatusBadRequest, "model_name is required"))
+		}
+		if req.MinReplicas < 0 {
+			return c.JSON(http.StatusBadRequest, nodeError(http.StatusBadRequest, "min_replicas must be >= 0"))
+		}
+		if req.MaxReplicas < 0 {
+			return c.JSON(http.StatusBadRequest, nodeError(http.StatusBadRequest, "max_replicas must be >= 0"))
+		}
+		if req.MaxReplicas > 0 && req.MinReplicas > req.MaxReplicas {
+			return c.JSON(http.StatusBadRequest, nodeError(http.StatusBadRequest, "min_replicas must be <= max_replicas"))
+		}
+
+		// Serialize node selector to JSON
+		var selectorJSON string
+		if len(req.NodeSelector) > 0 {
+			b, err := json.Marshal(req.NodeSelector)
+			if err != nil {
+				return c.JSON(http.StatusBadRequest, nodeError(http.StatusBadRequest, "invalid node_selector"))
+			}
+			selectorJSON = string(b)
+		}
+
+		config := &nodes.ModelSchedulingConfig{
+			ModelName:    req.ModelName,
+			NodeSelector: selectorJSON,
+			MinReplicas:  req.MinReplicas,
+			MaxReplicas:  req.MaxReplicas,
+		}
+		if err := registry.SetModelScheduling(ctx, config); err != nil {
+			return c.JSON(http.StatusInternalServerError, nodeError(http.StatusInternalServerError, "failed to set scheduling config"))
+		}
+		return c.JSON(http.StatusOK, config)
+	}
+}
+
+// DeleteSchedulingEndpoint removes a model scheduling config.
+func DeleteSchedulingEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		ctx := c.Request().Context()
+		modelName := c.Param("model")
+		if err := registry.DeleteModelScheduling(ctx, modelName); err != nil {
+			return c.JSON(http.StatusInternalServerError, nodeError(http.StatusInternalServerError, "failed to delete scheduling config"))
+		}
+		return c.NoContent(http.StatusNoContent)
 	}
 }
 

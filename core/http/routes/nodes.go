@@ -61,6 +61,13 @@ func RegisterNodeAdminRoutes(e *echo.Echo, registry *nodes.NodeRegistry, unloade
 
 	admin := e.Group("/api/nodes", readyMw, adminMw)
 	admin.GET("", localai.ListNodesEndpoint(registry))
+
+	// Model scheduling (registered before /:id to avoid route conflicts)
+	admin.GET("/scheduling", localai.ListSchedulingEndpoint(registry))
+	admin.GET("/scheduling/:model", localai.GetSchedulingEndpoint(registry))
+	admin.POST("/scheduling", localai.SetSchedulingEndpoint(registry))
+	admin.DELETE("/scheduling/:model", localai.DeleteSchedulingEndpoint(registry))
+
 	admin.GET("/:id", localai.GetNodeEndpoint(registry))
 	admin.GET("/:id/models", localai.GetNodeModelsEndpoint(registry))
 	admin.DELETE("/:id", localai.DeregisterNodeEndpoint(registry))
@@ -79,6 +86,12 @@ func RegisterNodeAdminRoutes(e *echo.Echo, registry *nodes.NodeRegistry, unloade
 	// Backend log streaming (proxied from worker HTTP server)
 	admin.GET("/:id/backend-logs", localai.NodeBackendLogsListEndpoint(registry, registrationToken))
 	admin.GET("/:id/backend-logs/:modelId", localai.NodeBackendLogsLinesEndpoint(registry, registrationToken))
+
+	// Label management
+	admin.GET("/:id/labels", localai.GetNodeLabelsEndpoint(registry))
+	admin.PUT("/:id/labels", localai.SetNodeLabelsEndpoint(registry))
+	admin.PATCH("/:id/labels", localai.MergeNodeLabelsEndpoint(registry))
+	admin.DELETE("/:id/labels/:key", localai.DeleteNodeLabelEndpoint(registry))
 
 	// WebSocket proxy for real-time log streaming from workers
 	e.GET("/ws/nodes/:id/backend-logs/:modelId", localai.NodeBackendLogsWSEndpoint(registry, registrationToken), readyMw, adminMw)
