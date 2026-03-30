@@ -59,9 +59,7 @@ func ModelOptions(c config.ModelConfig, so *config.ApplicationConfig, opts ...mo
 	grpcOpts := grpcModelOpts(c, so.SystemState.Model.ModelsPath)
 	defOpts = append(defOpts, model.WithLoadGRPCLoadModelOpts(grpcOpts))
 
-	if so.ParallelBackendRequests {
-		defOpts = append(defOpts, model.EnableParallelRequests)
-	}
+	defOpts = append(defOpts, model.EnableParallelRequests)
 
 	if c.GRPC.Attempts != 0 {
 		defOpts = append(defOpts, model.WithGRPCAttempts(c.GRPC.Attempts))

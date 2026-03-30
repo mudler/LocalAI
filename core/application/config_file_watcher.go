@@ -199,7 +199,6 @@ func readRuntimeSettingsJson(startupAppConfig config.ApplicationConfig) fileHand
 		envWatchdogBusyTimeout := appConfig.WatchDogBusyTimeout == startupAppConfig.WatchDogBusyTimeout
 		envSingleBackend := appConfig.SingleBackend == startupAppConfig.SingleBackend
 		envMaxActiveBackends := appConfig.MaxActiveBackends == startupAppConfig.MaxActiveBackends
-		envParallelRequests := appConfig.ParallelBackendRequests == startupAppConfig.ParallelBackendRequests
 		envMemoryReclaimerEnabled := appConfig.MemoryReclaimerEnabled == startupAppConfig.MemoryReclaimerEnabled
 		envMemoryReclaimerThreshold := appConfig.MemoryReclaimerThreshold == startupAppConfig.MemoryReclaimerThreshold
 		envThreads := appConfig.Threads == startupAppConfig.Threads
@@ -270,9 +269,6 @@ func readRuntimeSettingsJson(startupAppConfig config.ApplicationConfig) fileHand
 				} else {
 					appConfig.MaxActiveBackends = 0
 				}
-			}
-			if settings.ParallelBackendRequests != nil && !envParallelRequests {
-				appConfig.ParallelBackendRequests = *settings.ParallelBackendRequests
 			}
 			if settings.MemoryReclaimerEnabled != nil && !envMemoryReclaimerEnabled {
 				appConfig.MemoryReclaimerEnabled = *settings.MemoryReclaimerEnabled

@@ -439,11 +439,6 @@ func loadRuntimeSettingsFromFile(options *config.ApplicationConfig) {
 			}
 		}
 	}
-	if settings.ParallelBackendRequests != nil {
-		if !options.ParallelBackendRequests {
-			options.ParallelBackendRequests = *settings.ParallelBackendRequests
-		}
-	}
 	if settings.MemoryReclaimerEnabled != nil {
 		// Only apply if current value is default (false), suggesting it wasn't set from env var
 		if !options.MemoryReclaimerEnabled {
