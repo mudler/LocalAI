@@ -261,6 +261,7 @@ export default function Nodes() {
   const [nodeModels, setNodeModels] = useState({})
   const [nodeBackends, setNodeBackends] = useState({})
   const [confirmDelete, setConfirmDelete] = useState(null)
+  const [confirmUnload, setConfirmUnload] = useState(null)
   const [showTips, setShowTips] = useState(false)
   const [activeTab, setActiveTab] = useState('backend') // 'backend', 'agent', or 'scheduling'
   const [schedulingConfigs, setSchedulingConfigs] = useState([])
@@ -819,13 +820,15 @@ export default function Nodes() {
                                         <td style={{ textAlign: 'right' }}>
                                           <button
                                             className="btn btn-danger btn-sm"
-                                            disabled={m.in_flight > 0}
-                                            title={m.in_flight > 0 ? 'Cannot unload while serving requests' : 'Unload model'}
+                                            title={m.in_flight > 0 ? 'Unload model (has in-flight requests)' : 'Unload model'}
                                             onClick={(e) => {
                                               e.stopPropagation()
-                                              if (confirm(`Unload "${m.model_name}" from ${node.name}?`)) {
-                                                handleUnloadModel(node.id, m.model_name)
-                                              }
+                                              setConfirmUnload({
+                                                nodeId: node.id,
+                                                nodeName: node.name,
+                                                modelName: m.model_name,
+                                                inFlight: m.in_flight ?? 0,
+                                              })
                                             }}
                                           >
                                             <i className="fas fa-stop" />
@@ -1056,6 +1059,27 @@ export default function Nodes() {
         danger
         onConfirm={() => confirmDelete && handleDelete(confirmDelete.id)}
         onCancel={() => setConfirmDelete(null)}
+      />
+
+      <ConfirmDialog
+        open={!!confirmUnload}
+        title="Unload Model"
+        message={
+          confirmUnload
+            ? confirmUnload.inFlight > 0
+              ? `"${confirmUnload.modelName}" on ${confirmUnload.nodeName} currently has ${confirmUnload.inFlight} in-flight request(s). Unloading will interrupt them. Continue?`
+              : `Unload "${confirmUnload.modelName}" from ${confirmUnload.nodeName}?`
+            : ''
+        }
+        confirmLabel="Unload"
+        danger={confirmUnload?.inFlight > 0}
+        onConfirm={() => {
+          if (confirmUnload) {
+            handleUnloadModel(confirmUnload.nodeId, confirmUnload.modelName)
+          }
+          setConfirmUnload(null)
+        }}
+        onCancel={() => setConfirmUnload(null)}
       />
     </div>
   )
