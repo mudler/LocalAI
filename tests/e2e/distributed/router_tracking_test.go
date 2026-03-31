@@ -139,7 +139,7 @@ var _ = Describe("SmartRouter trackingKey", Label("Distributed"), func() {
 		Expect(err).ToNot(HaveOccurred())
 		defer result.Release()
 
-		// Read the baseline in-flight count (Route sets initialInFlight=1)
+		// Read the baseline in-flight count (Route sets initialInFlight=1, decremented after first inference)
 		models, err := registry.GetNodeModels(context.Background(), nodeID)
 		Expect(err).ToNot(HaveOccurred())
 		var baseline int

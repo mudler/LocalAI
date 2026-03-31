@@ -130,15 +130,20 @@ func (r *SmartRouter) Route(ctx context.Context, modelID, modelName, backendType
 					"node", node.Name, "model", trackingKey)
 				// Fall through to step 2 (scheduleNewModel)
 			} else {
-				// Node is alive — use raw client; FindAndLockNodeWithModel already incremented in-flight,
-				// and Release decrements it. No InFlightTrackingClient to avoid double-counting.
+				// Node is alive — FindAndLockNodeWithModel already incremented in-flight as a
+				// reservation. InFlightTrackingClient handles per-inference tracking, and its
+				// onFirstComplete callback releases the reservation after the first inference
+				// call finishes, so in-flight returns to 0 when idle.
 				r.registry.TouchNodeModel(ctx, node.ID, trackingKey)
 				grpcClient := r.buildClientForAddr(node, modelAddr, parallel)
+				tracked := NewInFlightTrackingClient(grpcClient, r.registry, node.ID, trackingKey)
+				tracked.OnFirstComplete(func() {
+					r.registry.DecrementInFlight(context.Background(), node.ID, trackingKey)
+				})
 				return &RouteResult{
 					Node:   node,
-					Client: grpcClient,
+					Client: tracked,
 					Release: func() {
-						r.registry.DecrementInFlight(context.Background(), node.ID, trackingKey)
 						closeClient(grpcClient)
 					},
 				}, nil
@@ -171,14 +176,18 @@ func (r *SmartRouter) Route(ctx context.Context, modelID, modelName, backendType
 						"node", node.Name, "model", trackingKey)
 					// Fall through to scheduling below
 				} else {
-					// Model loaded while we waited — reuse it; no InFlightTrackingClient to avoid double-counting
+					// Model loaded while we waited — FindAndLockNodeWithModel already incremented
+					// in-flight as a reservation. Release it after the first inference completes.
 					r.registry.TouchNodeModel(ctx, node.ID, trackingKey)
 					grpcClient := r.buildClientForAddr(node, modelAddr, parallel)
+					tracked := NewInFlightTrackingClient(grpcClient, r.registry, node.ID, trackingKey)
+					tracked.OnFirstComplete(func() {
+						r.registry.DecrementInFlight(context.Background(), node.ID, trackingKey)
+					})
 					return &RouteResult{
 						Node:   node,
-						Client: grpcClient,
+						Client: tracked,
 						Release: func() {
-							r.registry.DecrementInFlight(context.Background(), node.ID, trackingKey)
 							closeClient(grpcClient)
 						},
 					}, nil
@@ -225,11 +234,13 @@ func (r *SmartRouter) Route(ctx context.Context, modelID, modelName, backendType
 		}
 
 		tracked := NewInFlightTrackingClient(client, r.registry, node.ID, trackingKey)
+		tracked.OnFirstComplete(func() {
+			r.registry.DecrementInFlight(context.Background(), node.ID, trackingKey)
+		})
 		return &RouteResult{
 			Node:   node,
 			Client: tracked,
 			Release: func() {
-				r.registry.DecrementInFlight(context.Background(), node.ID, trackingKey)
 				closeClient(client)
 			},
 		}, nil
