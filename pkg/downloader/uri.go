@@ -433,7 +433,7 @@ func (uri URI) DownloadFileWithContext(ctx context.Context, filePath, sha string
 			// File exists, check SHA
 			if sha != "" {
 				// Verify SHA
-				calculatedSHA, err := calculateSHA(filePath)
+				calculatedSHA, err := CalculateSHA(filePath)
 				if err != nil {
 					return fmt.Errorf("failed to calculate SHA for file %q: %v", filePath, err)
 				}
@@ -609,7 +609,7 @@ func formatBytes(bytes int64) string {
 	return fmt.Sprintf("%.1f %ciB", float64(bytes)/float64(div), "KMGTPE"[exp])
 }
 
-func calculateSHA(filePath string) (string, error) {
+func CalculateSHA(filePath string) (string, error) {
 	file, err := os.Open(filePath)
 	if err != nil {
 		return "", err

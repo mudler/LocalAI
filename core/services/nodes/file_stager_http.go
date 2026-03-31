@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/storage"
+	"github.com/mudler/LocalAI/pkg/downloader"
 	"github.com/mudler/xlog"
 )
 
@@ -85,6 +86,12 @@ func (h *HTTPFileStager) EnsureRemote(ctx context.Context, nodeID, localPath, ke
 	addr, err := h.httpAddrFor(nodeID)
 	if err != nil {
 		return "", fmt.Errorf("resolving HTTP address for node %s: %w", nodeID, err)
+	}
+
+	// Probe: check if the remote already has the file with matching content hash.
+	if remotePath, ok := h.probeExisting(ctx, addr, localPath, key); ok {
+		xlog.Info("Upload skipped (file already exists with matching hash)", "node", nodeID, "key", key, "remotePath", remotePath)
+		return remotePath, nil
 	}
 
 	fi, err := os.Stat(localPath)
@@ -215,6 +222,49 @@ func isTransientError(err error) bool {
 		return true
 	}
 	return false
+}
+
+// probeExisting sends a HEAD request to check if the remote already has the
+// file with a matching SHA-256 hash. Returns the remote path and true if the
+// upload can be skipped. Any errors (including 405 from older servers) silently
+// fall through so the caller proceeds with a normal PUT.
+func (h *HTTPFileStager) probeExisting(ctx context.Context, addr, localPath, key string) (string, bool) {
+	url := fmt.Sprintf("http://%s/v1/files/%s", addr, key)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodHead, url, nil)
+	if err != nil {
+		return "", false
+	}
+	if h.token != "" {
+		req.Header.Set("Authorization", "Bearer "+h.token)
+	}
+
+	resp, err := h.client.Do(req)
+	if err != nil {
+		return "", false
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", false
+	}
+
+	remotePath := resp.Header.Get(HeaderLocalPath)
+	remoteHash := resp.Header.Get(HeaderContentSHA256)
+	if remotePath == "" || remoteHash == "" {
+		return "", false
+	}
+
+	localHash, err := downloader.CalculateSHA(localPath)
+	if err != nil {
+		return "", false
+	}
+
+	if localHash != remoteHash {
+		return "", false
+	}
+
+	return remotePath, true
 }
 
 // progressReader wraps an io.Reader and logs upload progress periodically.
