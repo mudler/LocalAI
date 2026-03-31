@@ -59,8 +59,6 @@ type ApplicationConfig struct {
 
 	SingleBackend           bool // Deprecated: use MaxActiveBackends = 1 instead
 	MaxActiveBackends       int  // Maximum number of active backends (0 = unlimited, 1 = single backend mode)
-	ParallelBackendRequests bool
-
 	WatchDogIdle bool
 	WatchDogBusy bool
 	WatchDog     bool
@@ -377,10 +375,6 @@ func WithLRUEvictionRetryInterval(interval time.Duration) AppOption {
 			o.LRUEvictionRetryInterval = interval
 		}
 	}
-}
-
-var EnableParallelBackendRequests = func(o *ApplicationConfig) {
-	o.ParallelBackendRequests = true
 }
 
 var EnableGalleriesAutoload = func(o *ApplicationConfig) {
@@ -842,7 +836,6 @@ func (o *ApplicationConfig) ToRuntimeSettings() RuntimeSettings {
 	watchdogBusy := o.WatchDogBusy
 	singleBackend := o.SingleBackend
 	maxActiveBackends := o.MaxActiveBackends
-	parallelBackendRequests := o.ParallelBackendRequests
 	memoryReclaimerEnabled := o.MemoryReclaimerEnabled
 	memoryReclaimerThreshold := o.MemoryReclaimerThreshold
 	forceEvictionWhenBusy := o.ForceEvictionWhenBusy
@@ -915,7 +908,6 @@ func (o *ApplicationConfig) ToRuntimeSettings() RuntimeSettings {
 		WatchdogInterval:          &watchdogInterval,
 		SingleBackend:             &singleBackend,
 		MaxActiveBackends:         &maxActiveBackends,
-		ParallelBackendRequests:   &parallelBackendRequests,
 		MemoryReclaimerEnabled:    &memoryReclaimerEnabled,
 		MemoryReclaimerThreshold:  &memoryReclaimerThreshold,
 		ForceEvictionWhenBusy:     &forceEvictionWhenBusy,
@@ -1007,9 +999,6 @@ func (o *ApplicationConfig) ApplyRuntimeSettings(settings *RuntimeSettings) (req
 			o.MaxActiveBackends = 0
 		}
 		requireRestart = true
-	}
-	if settings.ParallelBackendRequests != nil {
-		o.ParallelBackendRequests = *settings.ParallelBackendRequests
 	}
 	if settings.MemoryReclaimerEnabled != nil {
 		o.MemoryReclaimerEnabled = *settings.MemoryReclaimerEnabled

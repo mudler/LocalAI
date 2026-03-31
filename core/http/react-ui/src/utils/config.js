@@ -107,5 +107,10 @@ export const API_CONFIG = {
     nodeBackendsDelete: (id) => `/api/nodes/${id}/backends/delete`,
     nodeBackendLogs: (id) => `/api/nodes/${id}/backend-logs`,
     nodeBackendLogsModel: (id, modelId) => `/api/nodes/${id}/backend-logs/${encodeURIComponent(modelId)}`,
+    nodeModelsUnload: (id) => `/api/nodes/${id}/models/unload`,
+    nodeLabels: (id) => `/api/nodes/${id}/labels`,
+    nodeLabelKey: (id, key) => `/api/nodes/${id}/labels/${key}`,
+    nodesScheduling: '/api/nodes/scheduling',
+    nodesSchedulingModel: (model) => `/api/nodes/scheduling/${encodeURIComponent(model)}`,
   },
 }

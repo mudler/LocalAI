@@ -159,6 +159,62 @@ function WorkerHintCard({ addToast, activeTab, hasWorkers }) {
   )
 }
 
+function SchedulingForm({ onSave, onCancel }) {
+  const [modelName, setModelName] = useState('')
+  const [selectorText, setSelectorText] = useState('')
+  const [minReplicas, setMinReplicas] = useState(0)
+  const [maxReplicas, setMaxReplicas] = useState(0)
+
+  const handleSubmit = () => {
+    let nodeSelector = null
+    if (selectorText.trim()) {
+      const pairs = {}
+      selectorText.split(',').forEach(p => {
+        const [k, v] = p.split('=').map(s => s.trim())
+        if (k) pairs[k] = v || ''
+      })
+      nodeSelector = pairs
+    }
+    onSave({
+      model_name: modelName,
+      node_selector: nodeSelector ? JSON.stringify(nodeSelector) : '',
+      min_replicas: minReplicas,
+      max_replicas: maxReplicas,
+    })
+  }
+
+  return (
+    <div className="card" style={{ padding: 'var(--spacing-md)', marginBottom: 'var(--spacing-md)' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-sm)' }}>
+        <div>
+          <label style={{ fontSize: '0.75rem', fontWeight: 500 }}>Model Name</label>
+          <input type="text" value={modelName} onChange={e => setModelName(e.target.value)}
+            placeholder="e.g. llama3" style={{ width: '100%' }} />
+        </div>
+        <div>
+          <label style={{ fontSize: '0.75rem', fontWeight: 500 }}>Node Selector (key=value, comma-separated)</label>
+          <input type="text" value={selectorText} onChange={e => setSelectorText(e.target.value)}
+            placeholder="e.g. gpu.vendor=nvidia,tier=fast" style={{ width: '100%' }} />
+        </div>
+        <div>
+          <label style={{ fontSize: '0.75rem', fontWeight: 500 }}>Min Replicas (0 = no minimum)</label>
+          <input type="number" min={0} value={minReplicas} onChange={e => setMinReplicas(parseInt(e.target.value) || 0)}
+            style={{ width: '100%' }} />
+        </div>
+        <div>
+          <label style={{ fontSize: '0.75rem', fontWeight: 500 }}>Max Replicas (0 = unlimited)</label>
+          <input type="number" min={0} value={maxReplicas} onChange={e => setMaxReplicas(parseInt(e.target.value) || 0)}
+            style={{ width: '100%' }} />
+        </div>
+      </div>
+      <div style={{ display: 'flex', gap: 'var(--spacing-sm)', marginTop: 'var(--spacing-sm)', justifyContent: 'flex-end' }}>
+        <button className="btn btn-secondary btn-sm" onClick={onCancel}>Cancel</button>
+        <button className="btn btn-primary btn-sm" onClick={handleSubmit} disabled={!modelName}>Save</button>
+      </div>
+    </div>
+  )
+}
+
 export default function Nodes() {
   const { addToast } = useOutletContext()
   const navigate = useNavigate()
@@ -170,7 +226,9 @@ export default function Nodes() {
   const [nodeBackends, setNodeBackends] = useState({})
   const [confirmDelete, setConfirmDelete] = useState(null)
   const [showTips, setShowTips] = useState(false)
-  const [activeTab, setActiveTab] = useState('backend') // 'backend' or 'agent'
+  const [activeTab, setActiveTab] = useState('backend') // 'backend', 'agent', or 'scheduling'
+  const [schedulingConfigs, setSchedulingConfigs] = useState([])
+  const [showSchedulingForm, setShowSchedulingForm] = useState(false)
 
   const fetchNodes = useCallback(async () => {
     try {
@@ -186,11 +244,19 @@ export default function Nodes() {
     }
   }, [])
 
+  const fetchScheduling = useCallback(async () => {
+    try {
+      const data = await nodesApi.listScheduling()
+      setSchedulingConfigs(Array.isArray(data) ? data : [])
+    } catch { setSchedulingConfigs([]) }
+  }, [])
+
   useEffect(() => {
     fetchNodes()
+    fetchScheduling()
     const interval = setInterval(fetchNodes, 5000)
     return () => clearInterval(interval)
-  }, [fetchNodes])
+  }, [fetchNodes, fetchScheduling])
 
   const fetchModels = useCallback(async (nodeId) => {
     try {
@@ -251,6 +317,36 @@ export default function Nodes() {
       fetchNodes()
     } catch (err) {
       addToast(`Failed to approve node: ${err.message}`, 'error')
+    }
+  }
+
+  const handleUnloadModel = async (nodeId, modelName) => {
+    try {
+      await nodesApi.unloadModel(nodeId, modelName)
+      addToast(`Model "${modelName}" unloaded`, 'success')
+      fetchModels(nodeId)
+    } catch (err) {
+      addToast(`Failed to unload model: ${err.message}`, 'error')
+    }
+  }
+
+  const handleAddLabel = async (nodeId, key, value) => {
+    try {
+      await nodesApi.mergeLabels(nodeId, { [key]: value })
+      addToast(`Label "${key}=${value}" added`, 'success')
+      fetchNodes()
+    } catch (err) {
+      addToast(`Failed to add label: ${err.message}`, 'error')
+    }
+  }
+
+  const handleDeleteLabel = async (nodeId, key) => {
+    try {
+      await nodesApi.deleteLabel(nodeId, key)
+      addToast(`Label "${key}" removed`, 'success')
+      fetchNodes()
+    } catch (err) {
+      addToast(`Failed to remove label: ${err.message}`, 'error')
     }
   }
 
@@ -422,8 +518,23 @@ export default function Nodes() {
           <i className="fas fa-robot" style={{ marginRight: 6 }} />
           Agent Workers ({agentNodes.length})
         </button>
+        <button
+          onClick={() => setActiveTab('scheduling')}
+          style={{
+            padding: 'var(--spacing-sm) var(--spacing-lg)',
+            border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '0.875rem',
+            background: 'none',
+            color: activeTab === 'scheduling' ? 'var(--color-primary)' : 'var(--color-text-muted)',
+            borderBottom: activeTab === 'scheduling' ? '2px solid var(--color-primary)' : '2px solid transparent',
+            marginBottom: '-2px',
+          }}
+        >
+          <i className="fas fa-calendar-alt" style={{ marginRight: 6 }} />
+          Scheduling ({schedulingConfigs.length})
+        </button>
       </div>
 
+      {activeTab !== 'scheduling' && <>
       {/* Stat cards */}
       <div style={{ display: 'flex', gap: 'var(--spacing-md)', marginBottom: 'var(--spacing-xl)', flexWrap: 'wrap' }}>
         <StatCard icon={activeTab === 'agent' ? 'fas fa-robot' : 'fas fa-server'} label={`Total ${activeTab === 'agent' ? 'Agent' : 'Backend'} Workers`} value={total} />
@@ -433,6 +544,23 @@ export default function Nodes() {
         {pending > 0 && (
           <StatCard icon="fas fa-clock" label="Pending" value={pending} color="var(--color-warning)" />
         )}
+        {activeTab === 'backend' && (() => {
+          const clusterTotalVRAM = backendNodes.reduce((sum, n) => sum + (n.total_vram || 0), 0)
+          const clusterUsedVRAM = backendNodes.reduce((sum, n) => {
+            if (n.total_vram && n.available_vram != null) return sum + (n.total_vram - n.available_vram)
+            return sum
+          }, 0)
+          const totalModelsLoaded = backendNodes.reduce((sum, n) => sum + (n.model_count || 0), 0)
+          return (
+            <>
+              {clusterTotalVRAM > 0 && (
+                <StatCard icon="fas fa-microchip" label="Cluster VRAM"
+                  value={`${formatVRAM(clusterUsedVRAM) || '0'} / ${formatVRAM(clusterTotalVRAM)}`} />
+              )}
+              <StatCard icon="fas fa-cube" label="Models Loaded" value={totalModelsLoaded} />
+            </>
+          )
+        })()}
       </div>
 
       {/* Worker tips */}
@@ -506,6 +634,22 @@ export default function Nodes() {
                             <div style={{ fontSize: '0.75rem', fontFamily: "'JetBrains Mono', monospace", color: 'var(--color-text-muted)' }}>
                               {node.address}
                             </div>
+                            {node.labels && Object.keys(node.labels).length > 0 && (
+                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3, marginTop: 3 }}>
+                                {Object.entries(node.labels).slice(0, 5).map(([k, v]) => (
+                                  <span key={k} style={{
+                                    fontSize: '0.625rem', padding: '1px 5px', borderRadius: 3,
+                                    background: 'var(--color-bg-tertiary)', color: 'var(--color-text-muted)',
+                                    fontFamily: "'JetBrains Mono', monospace", border: '1px solid var(--color-border-subtle)',
+                                  }}>{k}={v}</span>
+                                ))}
+                                {Object.keys(node.labels).length > 5 && (
+                                  <span style={{ fontSize: '0.625rem', color: 'var(--color-text-muted)' }}>
+                                    +{Object.keys(node.labels).length - 5} more
+                                  </span>
+                                )}
+                              </div>
+                            )}
                           </div>
                         </div>
                       </td>
@@ -593,6 +737,7 @@ export default function Nodes() {
                                     <th>State</th>
                                     <th>In-Flight</th>
                                     <th style={{ width: 40 }}>Logs</th>
+                                    <th style={{ textAlign: 'right' }}>Actions</th>
                                   </tr>
                                 </thead>
                                 <tbody>
@@ -627,6 +772,21 @@ export default function Nodes() {
                                           >
                                             <i className="fas fa-terminal" />
                                           </a>
+                                        </td>
+                                        <td style={{ textAlign: 'right' }}>
+                                          <button
+                                            className="btn btn-danger btn-sm"
+                                            disabled={m.in_flight > 0}
+                                            title={m.in_flight > 0 ? 'Cannot unload while serving requests' : 'Unload model'}
+                                            onClick={(e) => {
+                                              e.stopPropagation()
+                                              if (confirm(`Unload "${m.model_name}" from ${node.name}?`)) {
+                                                handleUnloadModel(node.id, m.model_name)
+                                              }
+                                            }}
+                                          >
+                                            <i className="fas fa-stop" />
+                                          </button>
                                         </td>
                                       </tr>
                                     )
@@ -689,6 +849,50 @@ export default function Nodes() {
                                 </tbody>
                               </table>
                             )}
+
+                            {/* Labels */}
+                            <div style={{ marginTop: 'var(--spacing-md)' }}>
+                              <h4 style={{ fontSize: '0.8125rem', fontWeight: 600, marginBottom: 'var(--spacing-sm)', color: 'var(--color-text-secondary)' }}>
+                                <i className="fas fa-tags" style={{ marginRight: 6 }} />
+                                Labels
+                              </h4>
+                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--spacing-xs)', marginBottom: 'var(--spacing-sm)' }}>
+                                {node.labels && Object.entries(node.labels).map(([k, v]) => (
+                                  <span key={k} style={{
+                                    display: 'inline-flex', alignItems: 'center', gap: 4,
+                                    fontSize: '0.75rem', padding: '2px 8px', borderRadius: 4,
+                                    background: 'var(--color-bg-tertiary)', border: '1px solid var(--color-border-subtle)',
+                                    fontFamily: "'JetBrains Mono', monospace",
+                                  }}>
+                                    {k}={v}
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); handleDeleteLabel(node.id, k) }}
+                                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)', fontSize: '0.625rem', padding: 0 }}
+                                      title="Remove label"
+                                    >
+                                      <i className="fas fa-times" />
+                                    </button>
+                                  </span>
+                                ))}
+                              </div>
+                              {/* Add label form */}
+                              <div style={{ display: 'flex', gap: 'var(--spacing-xs)', alignItems: 'center' }}>
+                                <input
+                                  type="text" placeholder="key" style={{ width: 100, fontSize: '0.75rem' }}
+                                  id={`label-key-${node.id}`}
+                                />
+                                <input
+                                  type="text" placeholder="value" style={{ width: 100, fontSize: '0.75rem' }}
+                                  id={`label-value-${node.id}`}
+                                />
+                                <button className="btn btn-secondary btn-sm" onClick={(e) => {
+                                  e.stopPropagation()
+                                  const key = document.getElementById(`label-key-${node.id}`).value.trim()
+                                  const val = document.getElementById(`label-value-${node.id}`).value.trim()
+                                  if (key) handleAddLabel(node.id, key, val)
+                                }}>Add</button>
+                              </div>
+                            </div>
                           </div>
                         </td>
                       </tr>
@@ -698,6 +902,78 @@ export default function Nodes() {
               })}
             </tbody>
           </table>
+        </div>
+      )}
+      </>}
+
+      {activeTab === 'scheduling' && (
+        <div>
+          <button className="btn btn-primary btn-sm" style={{ marginBottom: 'var(--spacing-md)' }}
+            onClick={() => setShowSchedulingForm(f => !f)}>
+            <i className="fas fa-plus" style={{ marginRight: 6 }} />
+            Add Scheduling Rule
+          </button>
+          {showSchedulingForm && <SchedulingForm onSave={async (config) => {
+            try {
+              await nodesApi.setScheduling(config)
+              fetchScheduling()
+              setShowSchedulingForm(false)
+              addToast('Scheduling rule saved', 'success')
+            } catch (err) {
+              addToast(`Failed to save rule: ${err.message}`, 'error')
+            }
+          }} onCancel={() => setShowSchedulingForm(false)} />}
+          {schedulingConfigs.length === 0 && !showSchedulingForm ? (
+            <p style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)', textAlign: 'center', padding: 'var(--spacing-xl) 0' }}>
+              No scheduling rules configured. Add a rule to control how models are placed on nodes.
+            </p>
+          ) : schedulingConfigs.length > 0 && (
+            <div className="table-container">
+              <table className="table">
+                <thead><tr>
+                  <th>Model</th>
+                  <th>Node Selector</th>
+                  <th>Min Replicas</th>
+                  <th>Max Replicas</th>
+                  <th style={{ textAlign: 'right' }}>Actions</th>
+                </tr></thead>
+                <tbody>
+                  {schedulingConfigs.map(cfg => (
+                    <tr key={cfg.id || cfg.model_name}>
+                      <td style={{ fontWeight: 600, fontSize: '0.875rem' }}>{cfg.model_name}</td>
+                      <td>
+                        {cfg.node_selector ? (() => {
+                          try {
+                            const sel = typeof cfg.node_selector === 'string' ? JSON.parse(cfg.node_selector) : cfg.node_selector
+                            return Object.entries(sel).map(([k,v]) => (
+                              <span key={k} style={{
+                                display: 'inline-block', fontSize: '0.75rem', padding: '2px 6px', borderRadius: 3,
+                                background: 'var(--color-bg-tertiary)', border: '1px solid var(--color-border-subtle)',
+                                fontFamily: "'JetBrains Mono', monospace", marginRight: 4,
+                              }}>{k}={v}</span>
+                            ))
+                          } catch { return <span style={{ color: 'var(--color-text-muted)', fontSize: '0.8125rem' }}>{cfg.node_selector}</span> }
+                        })() : <span style={{ color: 'var(--color-text-muted)', fontSize: '0.8125rem' }}>Any node</span>}
+                      </td>
+                      <td style={{ fontFamily: "'JetBrains Mono', monospace" }}>{cfg.min_replicas || '-'}</td>
+                      <td style={{ fontFamily: "'JetBrains Mono', monospace" }}>{cfg.max_replicas || 'unlimited'}</td>
+                      <td style={{ textAlign: 'right' }}>
+                        <button className="btn btn-danger btn-sm" onClick={async () => {
+                          try {
+                            await nodesApi.deleteScheduling(cfg.model_name)
+                            fetchScheduling()
+                            addToast('Rule deleted', 'success')
+                          } catch (err) {
+                            addToast(`Failed to delete rule: ${err.message}`, 'error')
+                          }
+                        }}><i className="fas fa-trash" /></button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
 

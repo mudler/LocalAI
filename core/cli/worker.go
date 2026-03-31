@@ -67,22 +67,28 @@ func isPathAllowed(path string, allowedDirs []string) bool {
 //
 // Model loading (LoadModel) is always via direct gRPC — no NATS needed for that.
 type WorkerCMD struct {
-	Addr               string `env:"LOCALAI_SERVE_ADDR" default:"0.0.0.0:50051" help:"Address to bind the gRPC server to" group:"server"`
+	// Primary address — the reachable address of this worker.
+	// Host is used for advertise, port is the base for gRPC backends.
+	// HTTP file transfer runs on port-1.
+	Addr      string `env:"LOCALAI_ADDR" help:"Address where this worker is reachable (host:port). Port is base for gRPC backends, port-1 for HTTP." group:"server"`
+	ServeAddr string `env:"LOCALAI_SERVE_ADDR" default:"0.0.0.0:50051" help:"(Advanced) gRPC base port bind address" group:"server" hidden:""`
+
 	BackendsPath       string `env:"LOCALAI_BACKENDS_PATH,BACKENDS_PATH" type:"path" default:"${basepath}/backends" help:"Path containing backends" group:"server"`
 	BackendsSystemPath string `env:"LOCALAI_BACKENDS_SYSTEM_PATH" type:"path" default:"/var/lib/local-ai/backends" help:"Path containing system backends" group:"server"`
 	BackendGalleries   string `env:"LOCALAI_BACKEND_GALLERIES,BACKEND_GALLERIES" help:"JSON list of backend galleries" group:"server" default:"${backends}"`
 	ModelsPath         string `env:"LOCALAI_MODELS_PATH,MODELS_PATH" type:"path" default:"${basepath}/models" help:"Path containing models" group:"server"`
 
 	// HTTP file transfer
-	HTTPAddr          string `env:"LOCALAI_HTTP_ADDR" default:"" help:"HTTP file transfer server address (default: gRPC port + 1)" group:"server"`
-	AdvertiseHTTPAddr string `env:"LOCALAI_ADVERTISE_HTTP_ADDR" help:"HTTP address the frontend uses to reach this node for file transfer" group:"server"`
+	HTTPAddr          string `env:"LOCALAI_HTTP_ADDR" default:"" help:"HTTP file transfer server address (default: gRPC port + 1)" group:"server" hidden:""`
+	AdvertiseHTTPAddr string `env:"LOCALAI_ADVERTISE_HTTP_ADDR" help:"HTTP address the frontend uses to reach this node for file transfer" group:"server" hidden:""`
 
 	// Registration (required)
-	AdvertiseAddr     string `env:"LOCALAI_ADVERTISE_ADDR" help:"Address the frontend uses to reach this node (defaults to hostname:port from Addr)" group:"registration"`
+	AdvertiseAddr     string `env:"LOCALAI_ADVERTISE_ADDR" help:"Address the frontend uses to reach this node (defaults to hostname:port from Addr)" group:"registration" hidden:""`
 	RegisterTo        string `env:"LOCALAI_REGISTER_TO" required:"" help:"Frontend URL for registration" group:"registration"`
 	NodeName          string `env:"LOCALAI_NODE_NAME" help:"Node name for registration (defaults to hostname)" group:"registration"`
 	RegistrationToken string `env:"LOCALAI_REGISTRATION_TOKEN" help:"Token for authenticating with the frontend" group:"registration"`
 	HeartbeatInterval string `env:"LOCALAI_HEARTBEAT_INTERVAL" default:"10s" help:"Interval between heartbeats" group:"registration"`
+	NodeLabels        string `env:"LOCALAI_NODE_LABELS" help:"Comma-separated key=value labels for this node (e.g. tier=fast,gpu=a100)" group:"registration"`
 
 	// NATS (required)
 	NatsURL string `env:"LOCALAI_NATS_URL" required:"" help:"NATS server URL" group:"distributed"`
@@ -96,7 +102,7 @@ type WorkerCMD struct {
 }
 
 func (cmd *WorkerCMD) Run(ctx *cliContext.Context) error {
-	xlog.Info("Starting worker", "addr", cmd.Addr)
+	xlog.Info("Starting worker", "advertise", cmd.advertiseAddr(), "basePort", cmd.effectiveBasePort())
 
 	systemState, err := system.GetSystemState(
 		system.WithModelPath(cmd.ModelsPath),
@@ -181,15 +187,7 @@ func (cmd *WorkerCMD) Run(ctx *cliContext.Context) error {
 	}()
 
 	// Process supervisor — manages multiple backend gRPC processes on different ports
-	basePort := 50051
-	if cmd.Addr != "" {
-		// Extract port from addr (e.g., "0.0.0.0:50051" → 50051)
-		if _, portStr, err := net.SplitHostPort(cmd.Addr); err == nil {
-			if p, err := strconv.Atoi(portStr); err == nil {
-				basePort = p
-			}
-		}
-	}
+	basePort := cmd.effectiveBasePort()
 	// Buffered so NATS stop handler can send without blocking
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
@@ -667,10 +665,10 @@ func (s *backendSupervisor) subscribeLifecycleEvents() {
 
 		// Return the gRPC address so the router knows which port to use
 		advertiseAddr := addr
-		if s.cmd.AdvertiseAddr != "" {
-			// Replace 0.0.0.0 with the advertised host but keep the dynamic port
+		advAddr := s.cmd.advertiseAddr()
+		if advAddr != addr { // only remap if advertise differs from bind
 			_, port, _ := net.SplitHostPort(addr)
-			advertiseHost, _, _ := net.SplitHostPort(s.cmd.AdvertiseAddr)
+			advertiseHost, _, _ := net.SplitHostPort(advAddr)
 			advertiseAddr = net.JoinHostPort(advertiseHost, port)
 		}
 		resp := messaging.BackendInstallReply{Success: true, Address: advertiseAddr}
@@ -816,18 +814,31 @@ func (s *backendSupervisor) subscribeLifecycleEvents() {
 	})
 }
 
+// effectiveBasePort returns the port used as base for gRPC backend processes.
+// Priority: Addr port → ServeAddr port → 50051
+func (cmd *WorkerCMD) effectiveBasePort() int {
+	for _, addr := range []string{cmd.Addr, cmd.ServeAddr} {
+		if addr != "" {
+			if _, portStr, ok := strings.Cut(addr, ":"); ok {
+				if p, _ := strconv.Atoi(portStr); p > 0 {
+					return p
+				}
+			}
+		}
+	}
+	return 50051
+}
+
 // advertiseAddr returns the address the frontend should use to reach this node.
 func (cmd *WorkerCMD) advertiseAddr() string {
 	if cmd.AdvertiseAddr != "" {
 		return cmd.AdvertiseAddr
 	}
-	host, port, ok := strings.Cut(cmd.Addr, ":")
-	if ok && (host == "0.0.0.0" || host == "") {
-		if hostname, err := os.Hostname(); err == nil {
-			return hostname + ":" + port
-		}
+	if cmd.Addr != "" {
+		return cmd.Addr
 	}
-	return cmd.Addr
+	hostname, _ := os.Hostname()
+	return fmt.Sprintf("%s:%d", cmp.Or(hostname, "localhost"), cmd.effectiveBasePort())
 }
 
 // resolveHTTPAddr returns the address to bind the HTTP file transfer server to.
@@ -837,12 +848,7 @@ func (cmd *WorkerCMD) resolveHTTPAddr() string {
 	if cmd.HTTPAddr != "" {
 		return cmd.HTTPAddr
 	}
-	host, port, ok := strings.Cut(cmd.Addr, ":")
-	if !ok {
-		return "0.0.0.0:50050"
-	}
-	portNum, _ := strconv.Atoi(port)
-	return fmt.Sprintf("%s:%d", host, portNum-1)
+	return fmt.Sprintf("0.0.0.0:%d", cmd.effectiveBasePort()-1)
 }
 
 // advertiseHTTPAddr returns the HTTP address the frontend should use to reach
@@ -851,14 +857,9 @@ func (cmd *WorkerCMD) advertiseHTTPAddr() string {
 	if cmd.AdvertiseHTTPAddr != "" {
 		return cmd.AdvertiseHTTPAddr
 	}
-	httpAddr := cmd.resolveHTTPAddr()
-	host, port, ok := strings.Cut(httpAddr, ":")
-	if ok && (host == "0.0.0.0" || host == "") {
-		if hostname, err := os.Hostname(); err == nil {
-			return hostname + ":" + port
-		}
-	}
-	return httpAddr
+	advHost, _, _ := strings.Cut(cmd.advertiseAddr(), ":")
+	httpPort := cmd.effectiveBasePort() - 1
+	return fmt.Sprintf("%s:%d", advHost, httpPort)
 }
 
 // registrationBody builds the JSON body for node registration.
@@ -896,6 +897,21 @@ func (cmd *WorkerCMD) registrationBody() map[string]any {
 	if cmd.RegistrationToken != "" {
 		body["token"] = cmd.RegistrationToken
 	}
+
+	// Parse and add static node labels
+	if cmd.NodeLabels != "" {
+		labels := make(map[string]string)
+		for _, pair := range strings.Split(cmd.NodeLabels, ",") {
+			pair = strings.TrimSpace(pair)
+			if k, v, ok := strings.Cut(pair, "="); ok {
+				labels[strings.TrimSpace(k)] = strings.TrimSpace(v)
+			}
+		}
+		if len(labels) > 0 {
+			body["labels"] = labels
+		}
+	}
+
 	return body
 }
 

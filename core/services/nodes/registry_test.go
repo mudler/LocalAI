@@ -305,6 +305,252 @@ var _ = Describe("NodeRegistry", func() {
 		})
 	})
 
+	Describe("NodeLabel CRUD", func() {
+		It("sets and retrieves labels for a node", func() {
+			node := makeNode("label-node", "10.0.0.70:50051", 8_000_000_000)
+			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
+
+			Expect(registry.SetNodeLabel(context.Background(), node.ID, "env", "prod")).To(Succeed())
+			Expect(registry.SetNodeLabel(context.Background(), node.ID, "region", "us-east")).To(Succeed())
+
+			labels, err := registry.GetNodeLabels(context.Background(), node.ID)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(labels).To(HaveLen(2))
+
+			labelMap := make(map[string]string)
+			for _, l := range labels {
+				labelMap[l.Key] = l.Value
+			}
+			Expect(labelMap["env"]).To(Equal("prod"))
+			Expect(labelMap["region"]).To(Equal("us-east"))
+		})
+
+		It("overwrites existing label with same key", func() {
+			node := makeNode("label-overwrite", "10.0.0.71:50051", 8_000_000_000)
+			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
+
+			Expect(registry.SetNodeLabel(context.Background(), node.ID, "env", "dev")).To(Succeed())
+			Expect(registry.SetNodeLabel(context.Background(), node.ID, "env", "prod")).To(Succeed())
+
+			labels, err := registry.GetNodeLabels(context.Background(), node.ID)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(labels).To(HaveLen(1))
+			Expect(labels[0].Value).To(Equal("prod"))
+		})
+
+		It("removes a single label by key", func() {
+			node := makeNode("label-remove", "10.0.0.72:50051", 8_000_000_000)
+			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
+
+			Expect(registry.SetNodeLabel(context.Background(), node.ID, "env", "prod")).To(Succeed())
+			Expect(registry.SetNodeLabel(context.Background(), node.ID, "region", "us-east")).To(Succeed())
+
+			Expect(registry.RemoveNodeLabel(context.Background(), node.ID, "env")).To(Succeed())
+
+			labels, err := registry.GetNodeLabels(context.Background(), node.ID)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(labels).To(HaveLen(1))
+			Expect(labels[0].Key).To(Equal("region"))
+		})
+
+		It("SetNodeLabels replaces all labels", func() {
+			node := makeNode("label-replace", "10.0.0.73:50051", 8_000_000_000)
+			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
+
+			Expect(registry.SetNodeLabel(context.Background(), node.ID, "old-key", "old-val")).To(Succeed())
+
+			newLabels := map[string]string{"new-a": "val-a", "new-b": "val-b"}
+			Expect(registry.SetNodeLabels(context.Background(), node.ID, newLabels)).To(Succeed())
+
+			labels, err := registry.GetNodeLabels(context.Background(), node.ID)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(labels).To(HaveLen(2))
+
+			labelMap := make(map[string]string)
+			for _, l := range labels {
+				labelMap[l.Key] = l.Value
+			}
+			Expect(labelMap).To(Equal(newLabels))
+		})
+	})
+
+	Describe("FindNodesBySelector", func() {
+		It("returns nodes matching all labels in selector", func() {
+			n1 := makeNode("sel-match", "10.0.0.80:50051", 8_000_000_000)
+			n2 := makeNode("sel-nomatch", "10.0.0.81:50051", 8_000_000_000)
+			Expect(registry.Register(context.Background(), n1, true)).To(Succeed())
+			Expect(registry.Register(context.Background(), n2, true)).To(Succeed())
+
+			Expect(registry.SetNodeLabel(context.Background(), n1.ID, "env", "prod")).To(Succeed())
+			Expect(registry.SetNodeLabel(context.Background(), n1.ID, "region", "us-east")).To(Succeed())
+			Expect(registry.SetNodeLabel(context.Background(), n2.ID, "env", "dev")).To(Succeed())
+
+			nodes, err := registry.FindNodesBySelector(context.Background(), map[string]string{"env": "prod", "region": "us-east"})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(nodes).To(HaveLen(1))
+			Expect(nodes[0].Name).To(Equal("sel-match"))
+		})
+
+		It("returns empty when no nodes match", func() {
+			n := makeNode("sel-empty", "10.0.0.82:50051", 8_000_000_000)
+			Expect(registry.Register(context.Background(), n, true)).To(Succeed())
+			Expect(registry.SetNodeLabel(context.Background(), n.ID, "env", "dev")).To(Succeed())
+
+			nodes, err := registry.FindNodesBySelector(context.Background(), map[string]string{"env": "prod"})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(nodes).To(BeEmpty())
+		})
+
+		It("ignores unhealthy nodes", func() {
+			n := makeNode("sel-unhealthy", "10.0.0.83:50051", 8_000_000_000)
+			Expect(registry.Register(context.Background(), n, true)).To(Succeed())
+			Expect(registry.SetNodeLabel(context.Background(), n.ID, "env", "prod")).To(Succeed())
+			Expect(registry.MarkUnhealthy(context.Background(), n.ID)).To(Succeed())
+
+			nodes, err := registry.FindNodesBySelector(context.Background(), map[string]string{"env": "prod"})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(nodes).To(BeEmpty())
+		})
+
+		It("matches nodes with more labels than selector requires", func() {
+			n := makeNode("sel-superset", "10.0.0.84:50051", 8_000_000_000)
+			Expect(registry.Register(context.Background(), n, true)).To(Succeed())
+			Expect(registry.SetNodeLabel(context.Background(), n.ID, "env", "prod")).To(Succeed())
+			Expect(registry.SetNodeLabel(context.Background(), n.ID, "region", "us-east")).To(Succeed())
+			Expect(registry.SetNodeLabel(context.Background(), n.ID, "tier", "gpu")).To(Succeed())
+
+			nodes, err := registry.FindNodesBySelector(context.Background(), map[string]string{"env": "prod"})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(nodes).To(HaveLen(1))
+			Expect(nodes[0].Name).To(Equal("sel-superset"))
+		})
+
+		It("returns all healthy nodes for empty selector", func() {
+			n1 := makeNode("sel-all-1", "10.0.0.85:50051", 8_000_000_000)
+			n2 := makeNode("sel-all-2", "10.0.0.86:50051", 8_000_000_000)
+			Expect(registry.Register(context.Background(), n1, true)).To(Succeed())
+			Expect(registry.Register(context.Background(), n2, true)).To(Succeed())
+
+			nodes, err := registry.FindNodesBySelector(context.Background(), map[string]string{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(len(nodes)).To(BeNumerically(">=", 2))
+		})
+	})
+
+	Describe("ModelSchedulingConfig CRUD", func() {
+		It("creates and retrieves a scheduling config", func() {
+			config := &ModelSchedulingConfig{
+				ModelName:    "llama-7b",
+				NodeSelector: `{"gpu.vendor":"nvidia"}`,
+				MinReplicas:  1,
+				MaxReplicas:  3,
+			}
+			Expect(registry.SetModelScheduling(context.Background(), config)).To(Succeed())
+			Expect(config.ID).ToNot(BeEmpty())
+
+			fetched, err := registry.GetModelScheduling(context.Background(), "llama-7b")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(fetched).ToNot(BeNil())
+			Expect(fetched.ModelName).To(Equal("llama-7b"))
+			Expect(fetched.NodeSelector).To(Equal(`{"gpu.vendor":"nvidia"}`))
+			Expect(fetched.MinReplicas).To(Equal(1))
+			Expect(fetched.MaxReplicas).To(Equal(3))
+		})
+
+		It("updates existing config via SetModelScheduling", func() {
+			config := &ModelSchedulingConfig{
+				ModelName:   "update-model",
+				MinReplicas: 1,
+				MaxReplicas: 2,
+			}
+			Expect(registry.SetModelScheduling(context.Background(), config)).To(Succeed())
+
+			config2 := &ModelSchedulingConfig{
+				ModelName:   "update-model",
+				MinReplicas: 2,
+				MaxReplicas: 5,
+			}
+			Expect(registry.SetModelScheduling(context.Background(), config2)).To(Succeed())
+
+			fetched, err := registry.GetModelScheduling(context.Background(), "update-model")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(fetched.MinReplicas).To(Equal(2))
+			Expect(fetched.MaxReplicas).To(Equal(5))
+		})
+
+		It("lists all configs", func() {
+			Expect(registry.SetModelScheduling(context.Background(), &ModelSchedulingConfig{ModelName: "list-a", MinReplicas: 1})).To(Succeed())
+			Expect(registry.SetModelScheduling(context.Background(), &ModelSchedulingConfig{ModelName: "list-b", MaxReplicas: 2})).To(Succeed())
+
+			configs, err := registry.ListModelSchedulings(context.Background())
+			Expect(err).ToNot(HaveOccurred())
+			Expect(len(configs)).To(BeNumerically(">=", 2))
+		})
+
+		It("lists only auto-scaling configs", func() {
+			Expect(registry.SetModelScheduling(context.Background(), &ModelSchedulingConfig{ModelName: "auto-a", MinReplicas: 2})).To(Succeed())
+			Expect(registry.SetModelScheduling(context.Background(), &ModelSchedulingConfig{ModelName: "auto-b", MaxReplicas: 3})).To(Succeed())
+			Expect(registry.SetModelScheduling(context.Background(), &ModelSchedulingConfig{ModelName: "no-auto", NodeSelector: `{"env":"prod"}`})).To(Succeed())
+
+			configs, err := registry.ListAutoScalingConfigs(context.Background())
+			Expect(err).ToNot(HaveOccurred())
+
+			names := make([]string, len(configs))
+			for i, c := range configs {
+				names[i] = c.ModelName
+			}
+			Expect(names).To(ContainElement("auto-a"))
+			Expect(names).To(ContainElement("auto-b"))
+			Expect(names).ToNot(ContainElement("no-auto"))
+		})
+
+		It("deletes a config", func() {
+			Expect(registry.SetModelScheduling(context.Background(), &ModelSchedulingConfig{ModelName: "delete-me", MinReplicas: 1})).To(Succeed())
+
+			Expect(registry.DeleteModelScheduling(context.Background(), "delete-me")).To(Succeed())
+
+			fetched, err := registry.GetModelScheduling(context.Background(), "delete-me")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(fetched).To(BeNil())
+		})
+
+		It("returns nil for non-existent model", func() {
+			fetched, err := registry.GetModelScheduling(context.Background(), "does-not-exist")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(fetched).To(BeNil())
+		})
+	})
+
+	Describe("CountLoadedReplicas", func() {
+		It("returns correct count of loaded replicas", func() {
+			n1 := makeNode("replica-node-1", "10.0.0.90:50051", 8_000_000_000)
+			n2 := makeNode("replica-node-2", "10.0.0.91:50051", 8_000_000_000)
+			Expect(registry.Register(context.Background(), n1, true)).To(Succeed())
+			Expect(registry.Register(context.Background(), n2, true)).To(Succeed())
+
+			Expect(registry.SetNodeModel(context.Background(), n1.ID, "counted-model", "loaded", "", 0)).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), n2.ID, "counted-model", "loaded", "", 0)).To(Succeed())
+
+			count, err := registry.CountLoadedReplicas(context.Background(), "counted-model")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(count).To(Equal(int64(2)))
+		})
+
+		It("excludes non-loaded states", func() {
+			n1 := makeNode("replica-loaded", "10.0.0.92:50051", 8_000_000_000)
+			n2 := makeNode("replica-loading", "10.0.0.93:50051", 8_000_000_000)
+			Expect(registry.Register(context.Background(), n1, true)).To(Succeed())
+			Expect(registry.Register(context.Background(), n2, true)).To(Succeed())
+
+			Expect(registry.SetNodeModel(context.Background(), n1.ID, "state-model", "loaded", "", 0)).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), n2.ID, "state-model", "loading", "", 0)).To(Succeed())
+
+			count, err := registry.CountLoadedReplicas(context.Background(), "state-model")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(count).To(Equal(int64(1)))
+		})
+	})
+
 	Describe("DecrementInFlight", func() {
 		It("does not go below zero", func() {
 			node := makeNode("dec-node", "10.0.0.50:50051", 4_000_000_000)

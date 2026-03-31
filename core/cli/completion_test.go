@@ -1,10 +1,9 @@
 package cli
 
 import (
-	"strings"
-	"testing"
-
 	"github.com/alecthomas/kong"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
 func getTestApp() *kong.Application {
@@ -21,76 +20,55 @@ func getTestApp() *kong.Application {
 	return k.Model
 }
 
-func TestGenerateBashCompletion(t *testing.T) {
-	app := getTestApp()
-	script := generateBashCompletion(app)
+var _ = Describe("Shell completions", func() {
+	var app *kong.Application
 
-	if !strings.Contains(script, "complete -F _local_ai_completions local-ai") {
-		t.Error("bash completion missing complete command registration")
-	}
-	if !strings.Contains(script, "run") {
-		t.Error("bash completion missing 'run' command")
-	}
-	if !strings.Contains(script, "models") {
-		t.Error("bash completion missing 'models' command")
-	}
-	if !strings.Contains(script, "completion") {
-		t.Error("bash completion missing 'completion' command")
-	}
-}
+	BeforeEach(func() {
+		app = getTestApp()
+	})
 
-func TestGenerateZshCompletion(t *testing.T) {
-	app := getTestApp()
-	script := generateZshCompletion(app)
+	Describe("generateBashCompletion", func() {
+		It("generates valid bash completion script", func() {
+			script := generateBashCompletion(app)
+			Expect(script).To(ContainSubstring("complete -F _local_ai_completions local-ai"))
+			Expect(script).To(ContainSubstring("run"))
+			Expect(script).To(ContainSubstring("models"))
+			Expect(script).To(ContainSubstring("completion"))
+		})
+	})
 
-	if !strings.Contains(script, "#compdef local-ai") {
-		t.Error("zsh completion missing compdef header")
-	}
-	if !strings.Contains(script, "run") {
-		t.Error("zsh completion missing 'run' command")
-	}
-	if !strings.Contains(script, "models") {
-		t.Error("zsh completion missing 'models' command")
-	}
-}
+	Describe("generateZshCompletion", func() {
+		It("generates valid zsh completion script", func() {
+			script := generateZshCompletion(app)
+			Expect(script).To(ContainSubstring("#compdef local-ai"))
+			Expect(script).To(ContainSubstring("run"))
+			Expect(script).To(ContainSubstring("models"))
+		})
+	})
 
-func TestGenerateFishCompletion(t *testing.T) {
-	app := getTestApp()
-	script := generateFishCompletion(app)
+	Describe("generateFishCompletion", func() {
+		It("generates valid fish completion script", func() {
+			script := generateFishCompletion(app)
+			Expect(script).To(ContainSubstring("complete -c local-ai"))
+			Expect(script).To(ContainSubstring("__fish_use_subcommand"))
+			Expect(script).To(ContainSubstring("run"))
+			Expect(script).To(ContainSubstring("models"))
+		})
+	})
 
-	if !strings.Contains(script, "complete -c local-ai") {
-		t.Error("fish completion missing complete command")
-	}
-	if !strings.Contains(script, "__fish_use_subcommand") {
-		t.Error("fish completion missing subcommand detection")
-	}
-	if !strings.Contains(script, "run") {
-		t.Error("fish completion missing 'run' command")
-	}
-	if !strings.Contains(script, "models") {
-		t.Error("fish completion missing 'models' command")
-	}
-}
+	Describe("collectCommands", func() {
+		It("collects all commands and subcommands", func() {
+			cmds := collectCommands(app.Node, "")
 
-func TestCollectCommands(t *testing.T) {
-	app := getTestApp()
-	cmds := collectCommands(app.Node, "")
+			names := make(map[string]bool)
+			for _, cmd := range cmds {
+				names[cmd.fullName] = true
+			}
 
-	names := make(map[string]bool)
-	for _, cmd := range cmds {
-		names[cmd.fullName] = true
-	}
-
-	if !names["run"] {
-		t.Error("missing 'run' command")
-	}
-	if !names["models"] {
-		t.Error("missing 'models' command")
-	}
-	if !names["models list"] {
-		t.Error("missing 'models list' subcommand")
-	}
-	if !names["models install"] {
-		t.Error("missing 'models install' subcommand")
-	}
-}
+			Expect(names).To(HaveKey("run"))
+			Expect(names).To(HaveKey("models"))
+			Expect(names).To(HaveKey("models list"))
+			Expect(names).To(HaveKey("models install"))
+		})
+	})
+})

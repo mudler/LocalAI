@@ -20,8 +20,6 @@ type RuntimeSettings struct {
 	// Backend management
 	SingleBackend           *bool `json:"single_backend,omitempty"`      // Deprecated: use MaxActiveBackends = 1 instead
 	MaxActiveBackends       *int  `json:"max_active_backends,omitempty"` // Maximum number of active backends (0 = unlimited, 1 = single backend mode)
-	ParallelBackendRequests *bool `json:"parallel_backend_requests,omitempty"`
-
 	// Memory Reclaimer settings (works with GPU if available, otherwise RAM)
 	MemoryReclaimerEnabled   *bool    `json:"memory_reclaimer_enabled,omitempty"`   // Enable memory threshold monitoring
 	MemoryReclaimerThreshold *float64 `json:"memory_reclaimer_threshold,omitempty"` // Threshold 0.0-1.0 (e.g., 0.95 = 95%)

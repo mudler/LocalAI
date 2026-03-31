@@ -86,6 +86,26 @@ type fakeModelRouter struct {
 	getNode *BackendNode
 	getErr  error
 
+	// GetModelScheduling returns
+	getModelScheduling *ModelSchedulingConfig
+	getModelSchedErr   error
+
+	// FindNodesBySelector returns
+	findBySelectorNodes []BackendNode
+	findBySelectorErr   error
+
+	// *FromSet variants
+	findVRAMFromSetNode        *BackendNode
+	findVRAMFromSetErr         error
+	findIdleFromSetNode        *BackendNode
+	findIdleFromSetErr         error
+	findLeastLoadedFromSetNode *BackendNode
+	findLeastLoadedFromSetErr  error
+
+	// GetNodeLabels returns
+	getNodeLabels    []NodeLabel
+	getNodeLabelsErr error
+
 	// Track calls for assertions
 	decrementCalls []string // "nodeID:modelName"
 	incrementCalls []string
@@ -144,6 +164,30 @@ func (f *fakeModelRouter) FindLRUModel(_ context.Context, _ string) (*NodeModel,
 
 func (f *fakeModelRouter) Get(_ context.Context, _ string) (*BackendNode, error) {
 	return f.getNode, f.getErr
+}
+
+func (f *fakeModelRouter) GetModelScheduling(_ context.Context, _ string) (*ModelSchedulingConfig, error) {
+	return f.getModelScheduling, f.getModelSchedErr
+}
+
+func (f *fakeModelRouter) FindNodesBySelector(_ context.Context, _ map[string]string) ([]BackendNode, error) {
+	return f.findBySelectorNodes, f.findBySelectorErr
+}
+
+func (f *fakeModelRouter) FindNodeWithVRAMFromSet(_ context.Context, _ uint64, _ []string) (*BackendNode, error) {
+	return f.findVRAMFromSetNode, f.findVRAMFromSetErr
+}
+
+func (f *fakeModelRouter) FindIdleNodeFromSet(_ context.Context, _ []string) (*BackendNode, error) {
+	return f.findIdleFromSetNode, f.findIdleFromSetErr
+}
+
+func (f *fakeModelRouter) FindLeastLoadedNodeFromSet(_ context.Context, _ []string) (*BackendNode, error) {
+	return f.findLeastLoadedFromSetNode, f.findLeastLoadedFromSetErr
+}
+
+func (f *fakeModelRouter) GetNodeLabels(_ context.Context, _ string) ([]NodeLabel, error) {
+	return f.getNodeLabels, f.getNodeLabelsErr
 }
 
 // ---------------------------------------------------------------------------
@@ -475,6 +519,135 @@ var _ = Describe("SmartRouter", func() {
 			_, err := router.EvictLRU(context.Background(), "n1")
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("finding LRU model"))
+		})
+	})
+
+	Describe("scheduleNewModel with node selector (mock-based, via Route)", func() {
+		var (
+			reg      *fakeModelRouter
+			backend  *stubBackend
+			factory  *stubClientFactory
+			unloader *fakeUnloader
+		)
+
+		BeforeEach(func() {
+			reg = &fakeModelRouter{
+				findAndLockErr: errors.New("not found"),
+			}
+			backend = &stubBackend{
+				loadResult: &pb.Result{Success: true},
+			}
+			factory = &stubClientFactory{client: backend}
+			unloader = &fakeUnloader{
+				installReply: &messaging.BackendInstallReply{
+					Success: true,
+					Address: "10.0.0.1:9001",
+				},
+			}
+		})
+
+		It("uses *FromSet methods when model has a node selector", func() {
+			gpuNode := &BackendNode{ID: "gpu-1", Name: "gpu-node", Address: "10.0.0.50:50051"}
+			reg.getModelScheduling = &ModelSchedulingConfig{
+				ModelName:    "selector-model",
+				NodeSelector: `{"gpu.vendor":"nvidia"}`,
+			}
+			reg.findBySelectorNodes = []BackendNode{*gpuNode}
+			reg.findIdleFromSetNode = gpuNode
+
+			router := NewSmartRouter(reg, SmartRouterOptions{
+				Unloader:      unloader,
+				ClientFactory: factory,
+			})
+
+			result, err := router.Route(context.Background(), "selector-model", "models/selector.gguf", "llama-cpp", nil, false)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(result).ToNot(BeNil())
+			Expect(result.Node.ID).To(Equal("gpu-1"))
+		})
+
+		It("returns error when no nodes match selector", func() {
+			reg.getModelScheduling = &ModelSchedulingConfig{
+				ModelName:    "no-match-model",
+				NodeSelector: `{"gpu.vendor":"tpu"}`,
+			}
+			reg.findBySelectorNodes = nil
+			reg.findBySelectorErr = nil
+
+			router := NewSmartRouter(reg, SmartRouterOptions{
+				Unloader:      unloader,
+				ClientFactory: factory,
+			})
+
+			_, err := router.Route(context.Background(), "no-match-model", "models/nomatch.gguf", "llama-cpp", nil, false)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("no healthy nodes match selector"))
+		})
+
+		It("uses regular methods when model has no scheduling config", func() {
+			reg.getModelScheduling = nil
+			idleNode := &BackendNode{ID: "regular-1", Name: "regular-node", Address: "10.0.0.60:50051"}
+			reg.findIdleNode = idleNode
+
+			router := NewSmartRouter(reg, SmartRouterOptions{
+				Unloader:      unloader,
+				ClientFactory: factory,
+			})
+
+			result, err := router.Route(context.Background(), "regular-model", "models/regular.gguf", "llama-cpp", nil, false)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(result).ToNot(BeNil())
+			Expect(result.Node.ID).To(Equal("regular-1"))
+		})
+	})
+
+	Describe("Route with selector validation on cached model (mock-based)", func() {
+		It("falls through when cached node no longer matches selector", func() {
+			cachedNode := &BackendNode{ID: "n-old", Name: "old-node", Address: "10.0.0.70:50051"}
+			newNode := &BackendNode{ID: "n-new", Name: "new-node", Address: "10.0.0.71:50051"}
+
+			backend := &stubBackend{
+				healthResult: true,
+				loadResult:   &pb.Result{Success: true},
+			}
+			factory := &stubClientFactory{client: backend}
+			unloader := &fakeUnloader{
+				installReply: &messaging.BackendInstallReply{
+					Success: true,
+					Address: "10.0.0.71:9001",
+				},
+			}
+
+			reg := &fakeModelRouter{
+				// Step 1: cached model found on old node
+				findAndLockNode: cachedNode,
+				findAndLockNM:   &NodeModel{NodeID: "n-old", ModelName: "sel-model", Address: "10.0.0.70:9001"},
+				// Scheduling config with selector that old node does NOT match
+				getModelScheduling: &ModelSchedulingConfig{
+					ModelName:    "sel-model",
+					NodeSelector: `{"gpu.vendor":"nvidia"}`,
+				},
+				// Old node has no labels matching the selector
+				getNodeLabels: []NodeLabel{
+					{NodeID: "n-old", Key: "gpu.vendor", Value: "amd"},
+				},
+				// For scheduling fallthrough: selector matches new node
+				findBySelectorNodes: []BackendNode{*newNode},
+				findIdleFromSetNode: newNode,
+			}
+
+			router := NewSmartRouter(reg, SmartRouterOptions{
+				Unloader:      unloader,
+				ClientFactory: factory,
+			})
+
+			result, err := router.Route(context.Background(), "sel-model", "models/sel.gguf", "llama-cpp", nil, false)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(result).ToNot(BeNil())
+			// Should have fallen through to the new node
+			Expect(result.Node.ID).To(Equal("n-new"))
+			// Old node should have had its in-flight decremented
+			Expect(reg.decrementCalls).To(ContainElement("n-old:sel-model"))
 		})
 	})
 
