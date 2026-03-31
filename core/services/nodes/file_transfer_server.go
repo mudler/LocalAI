@@ -2,6 +2,9 @@ package nodes
 
 import (
 	"context"
+	"crypto/sha256"
+	"crypto/subtle"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -10,16 +13,24 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
-	"crypto/subtle"
-
 	"github.com/gorilla/websocket"
 	"github.com/mudler/LocalAI/core/services/storage"
+	"github.com/mudler/LocalAI/pkg/downloader"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/xlog"
+)
+
+// Headers used by the HEAD probe / skip-if-exists protocol.
+const (
+	HeaderContentSHA256 = "X-Content-SHA256"
+	HeaderLocalPath     = "X-Local-Path"
+	HeaderFileSize      = "X-File-Size"
+	hashSidecarSuffix   = ".sha256"
 )
 
 // StartFileTransferServer starts a small HTTP server for file transfer in distributed mode.
@@ -72,6 +83,8 @@ func StartFileTransferServerWithListener(lis net.Listener, stagingDir, modelsDir
 		xlog.Debug("HTTP file transfer request", "method", r.Method, "key", key, "remote", r.RemoteAddr)
 
 		switch r.Method {
+		case http.MethodHead:
+			handleHead(w, r, stagingDir, modelsDir, dataDir, key)
 		case http.MethodPut:
 			handleUpload(w, r, stagingDir, modelsDir, dataDir, key, maxUploadSize)
 		case http.MethodGet:
@@ -112,6 +125,47 @@ func StartFileTransferServerWithListener(lis net.Listener, stagingDir, modelsDir
 	return server, nil
 }
 
+func handleHead(w http.ResponseWriter, r *http.Request, stagingDir, modelsDir, dataDir, key string) {
+	if key == "" {
+		http.Error(w, "key is required", http.StatusBadRequest)
+		return
+	}
+
+	targetDir, relName := resolveKeyToDir(key, stagingDir, modelsDir, dataDir)
+	filePath := filepath.Join(targetDir, relName)
+
+	if err := validatePathInDir(filePath, targetDir); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	info, err := os.Stat(filePath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			http.Error(w, "not found", http.StatusNotFound)
+		} else {
+			http.Error(w, fmt.Sprintf("stat error: %v", err), http.StatusInternalServerError)
+		}
+		return
+	}
+	if info.IsDir() {
+		http.Error(w, "is a directory", http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set(HeaderFileSize, strconv.FormatInt(info.Size(), 10))
+	w.Header().Set(HeaderLocalPath, filePath)
+
+	hashHex, err := computeAndCacheHash(filePath)
+	if err != nil {
+		xlog.Warn("Failed to compute hash for HEAD", "path", filePath, "error", err)
+	} else {
+		w.Header().Set(HeaderContentSHA256, hashHex)
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
 func handleUpload(w http.ResponseWriter, r *http.Request, stagingDir, modelsDir, dataDir, key string, maxUploadSize int64) {
 	if key == "" {
 		http.Error(w, "key is required", http.StatusBadRequest)
@@ -146,20 +200,58 @@ func handleUpload(w http.ResponseWriter, r *http.Request, stagingDir, modelsDir,
 	}
 	defer f.Close()
 
-	n, err := io.Copy(f, r.Body)
+	hasher := sha256.New()
+	n, err := io.Copy(f, io.TeeReader(r.Body, hasher))
 	if err != nil {
 		os.Remove(dstPath)
+		os.Remove(dstPath + hashSidecarSuffix)
 		xlog.Error("File upload failed", "key", key, "bytesReceived", n, "contentLength", r.ContentLength, "remote", r.RemoteAddr, "error", err)
 		http.Error(w, fmt.Sprintf("writing file: %v", err), http.StatusInternalServerError)
 		return
 	}
 
-	xlog.Info("File upload complete", "key", key, "path", dstPath, "size", n)
+	hashHex := hex.EncodeToString(hasher.Sum(nil))
+	if err := os.WriteFile(dstPath+hashSidecarSuffix, []byte(hashHex), 0640); err != nil {
+		xlog.Warn("Failed to write hash sidecar", "path", dstPath+hashSidecarSuffix, "error", err)
+	}
+
+	xlog.Info("File upload complete", "key", key, "path", dstPath, "size", n, "sha256", hashHex)
 
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(map[string]string{"local_path": dstPath}); err != nil {
 		xlog.Warn("Failed to encode upload response", "error", err)
 	}
+}
+
+// computeAndCacheHash returns the SHA-256 hex digest for filePath.
+// It reads a cached sidecar when available and still fresh (sidecar mtime >=
+// file mtime), otherwise computes the hash and writes/updates the sidecar.
+func computeAndCacheHash(filePath string) (string, error) {
+	sidecar := filePath + hashSidecarSuffix
+
+	fileStat, err := os.Stat(filePath)
+	if err != nil {
+		return "", err
+	}
+
+	if sidecarStat, err := os.Stat(sidecar); err == nil && !sidecarStat.ModTime().Before(fileStat.ModTime()) {
+		if data, err := os.ReadFile(sidecar); err == nil {
+			h := strings.TrimSpace(string(data))
+			if len(h) == 64 { // valid hex-encoded SHA-256
+				return h, nil
+			}
+		}
+	}
+
+	hashHex, err := downloader.CalculateSHA(filePath)
+	if err != nil {
+		return "", err
+	}
+
+	if err := os.WriteFile(sidecar, []byte(hashHex), 0640); err != nil {
+		xlog.Warn("Failed to write hash sidecar", "path", sidecar, "error", err)
+	}
+	return hashHex, nil
 }
 
 func handleDownload(w http.ResponseWriter, r *http.Request, stagingDir, modelsDir, dataDir, key string) {
