@@ -802,7 +802,7 @@ func (r *NodeRegistry) GetModelScheduling(ctx context.Context, modelName string)
 // ListModelSchedulings returns all scheduling configs.
 func (r *NodeRegistry) ListModelSchedulings(ctx context.Context) ([]ModelSchedulingConfig, error) {
 	var configs []ModelSchedulingConfig
-	err := r.db.WithContext(ctx).Find(&configs).Error
+	err := r.db.WithContext(ctx).Order("model_name ASC").Find(&configs).Error
 	return configs, err
 }
 
@@ -831,7 +831,7 @@ func (r *NodeRegistry) CountLoadedReplicas(ctx context.Context, modelName string
 func (r *NodeRegistry) ListWithExtras(ctx context.Context) ([]NodeWithExtras, error) {
 	// Get all nodes
 	var nodes []BackendNode
-	if err := r.db.WithContext(ctx).Find(&nodes).Error; err != nil {
+	if err := r.db.WithContext(ctx).Order("name ASC").Find(&nodes).Error; err != nil {
 		return nil, err
 	}
 

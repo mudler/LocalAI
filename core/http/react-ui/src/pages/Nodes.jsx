@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, Fragment } from 'react'
 import { useOutletContext, useNavigate } from 'react-router-dom'
 import { nodesApi } from '../utils/api'
+import { useModels } from '../hooks/useModels'
 import LoadingSpinner from '../components/LoadingSpinner'
 import ConfirmDialog from '../components/ConfirmDialog'
 import ImageSelector, { useImageSelector, dockerImage, dockerFlags } from '../components/ImageSelector'
@@ -37,6 +38,7 @@ function gpuVendorLabel(vendor) {
 const statusConfig = {
   healthy: { color: 'var(--color-success)', label: 'Healthy' },
   unhealthy: { color: 'var(--color-error)', label: 'Unhealthy' },
+  offline: { color: 'var(--color-error)', label: 'Offline' },
   registering: { color: 'var(--color-primary)', label: 'Registering' },
   draining: { color: 'var(--color-warning)', label: 'Draining' },
   pending: { color: 'var(--color-warning)', label: 'Pending Approval' },
@@ -160,56 +162,90 @@ function WorkerHintCard({ addToast, activeTab, hasWorkers }) {
 }
 
 function SchedulingForm({ onSave, onCancel }) {
+  const [mode, setMode] = useState('placement')
   const [modelName, setModelName] = useState('')
   const [selectorText, setSelectorText] = useState('')
-  const [minReplicas, setMinReplicas] = useState(0)
+  const [minReplicas, setMinReplicas] = useState(1)
   const [maxReplicas, setMaxReplicas] = useState(0)
+  const { models } = useModels()
+
+  const parseSelector = () => {
+    if (!selectorText.trim()) return null
+    const pairs = {}
+    selectorText.split(',').forEach(p => {
+      const [k, v] = p.split('=').map(s => s.trim())
+      if (k) pairs[k] = v || ''
+    })
+    return Object.keys(pairs).length > 0 ? pairs : null
+  }
+
+  const isValid = () => {
+    if (!modelName) return false
+    if (mode === 'placement') return !!parseSelector()
+    return minReplicas > 0 || maxReplicas > 0
+  }
 
   const handleSubmit = () => {
-    let nodeSelector = null
-    if (selectorText.trim()) {
-      const pairs = {}
-      selectorText.split(',').forEach(p => {
-        const [k, v] = p.split('=').map(s => s.trim())
-        if (k) pairs[k] = v || ''
-      })
-      nodeSelector = pairs
-    }
+    const nodeSelector = parseSelector()
     onSave({
       model_name: modelName,
-      node_selector: nodeSelector ? JSON.stringify(nodeSelector) : '',
-      min_replicas: minReplicas,
-      max_replicas: maxReplicas,
+      node_selector: nodeSelector || undefined,
+      min_replicas: mode === 'placement' ? 0 : minReplicas,
+      max_replicas: mode === 'placement' ? 0 : maxReplicas,
     })
   }
 
+  const modeBtn = (value, label) => (
+    <button
+      className={`btn btn-sm ${mode === value ? 'btn-primary' : 'btn-secondary'}`}
+      onClick={() => setMode(value)}
+      style={{ flex: 1 }}
+    >{label}</button>
+  )
+
   return (
     <div className="card" style={{ padding: 'var(--spacing-md)', marginBottom: 'var(--spacing-md)' }}>
+      <div style={{ display: 'flex', gap: 'var(--spacing-xs)', marginBottom: 'var(--spacing-sm)' }}>
+        {modeBtn('placement', 'Node Placement')}
+        {modeBtn('autoscaling', 'Auto-Scaling')}
+      </div>
+      <p style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', margin: '0 0 var(--spacing-sm) 0' }}>
+        {mode === 'placement'
+          ? 'Constrain which nodes this model can run on. Model loads on-demand and can be evicted when idle.'
+          : 'Automatically maintain replica counts across nodes. Models with min \u2265 1 are protected from eviction.'}
+      </p>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-sm)' }}>
         <div>
-          <label style={{ fontSize: '0.75rem', fontWeight: 500 }}>Model Name</label>
-          <input type="text" value={modelName} onChange={e => setModelName(e.target.value)}
-            placeholder="e.g. llama3" style={{ width: '100%' }} />
+          <label className="form-label">Model</label>
+          <select className="input" value={modelName} onChange={e => setModelName(e.target.value)}>
+            <option value="">Select a model...</option>
+            {models.map(m => <option key={m.id} value={m.id}>{m.id}</option>)}
+          </select>
         </div>
         <div>
-          <label style={{ fontSize: '0.75rem', fontWeight: 500 }}>Node Selector (key=value, comma-separated)</label>
-          <input type="text" value={selectorText} onChange={e => setSelectorText(e.target.value)}
-            placeholder="e.g. gpu.vendor=nvidia,tier=fast" style={{ width: '100%' }} />
+          <label className="form-label">Node Selector{mode === 'placement' ? '' : ' (optional)'}</label>
+          <input className="input" type="text" value={selectorText} onChange={e => setSelectorText(e.target.value)}
+            placeholder="e.g. gpu.vendor=nvidia,tier=fast" />
+          {mode === 'autoscaling' && !selectorText.trim() && (
+            <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>Empty = all nodes</span>
+          )}
         </div>
-        <div>
-          <label style={{ fontSize: '0.75rem', fontWeight: 500 }}>Min Replicas (0 = no minimum)</label>
-          <input type="number" min={0} value={minReplicas} onChange={e => setMinReplicas(parseInt(e.target.value) || 0)}
-            style={{ width: '100%' }} />
-        </div>
-        <div>
-          <label style={{ fontSize: '0.75rem', fontWeight: 500 }}>Max Replicas (0 = unlimited)</label>
-          <input type="number" min={0} value={maxReplicas} onChange={e => setMaxReplicas(parseInt(e.target.value) || 0)}
-            style={{ width: '100%' }} />
-        </div>
+        {mode === 'autoscaling' && <>
+          <div>
+            <label className="form-label">Min Replicas</label>
+            <input className="input" type="number" min={0} value={minReplicas}
+              onChange={e => setMinReplicas(parseInt(e.target.value) || 0)} />
+          </div>
+          <div>
+            <label className="form-label">Max Replicas (0 = no limit)</label>
+            <input className="input" type="number" min={0} value={maxReplicas}
+              onChange={e => setMaxReplicas(parseInt(e.target.value) || 0)} />
+          </div>
+        </>}
       </div>
       <div style={{ display: 'flex', gap: 'var(--spacing-sm)', marginTop: 'var(--spacing-sm)', justifyContent: 'flex-end' }}>
         <button className="btn btn-secondary btn-sm" onClick={onCancel}>Cancel</button>
-        <button className="btn btn-primary btn-sm" onClick={handleSubmit} disabled={!modelName}>Save</button>
+        <button className="btn btn-primary btn-sm" onClick={handleSubmit} disabled={!isValid()}>Save</button>
       </div>
     </div>
   )
@@ -229,6 +265,13 @@ export default function Nodes() {
   const [activeTab, setActiveTab] = useState('backend') // 'backend', 'agent', or 'scheduling'
   const [schedulingConfigs, setSchedulingConfigs] = useState([])
   const [showSchedulingForm, setShowSchedulingForm] = useState(false)
+  const [labelInputs, setLabelInputs] = useState({})
+
+  const setLabelInput = (nodeId, field, val) =>
+    setLabelInputs(prev => ({
+      ...prev,
+      [nodeId]: { ...(prev[nodeId] || { key: '', value: '' }), [field]: val }
+    }))
 
   const fetchNodes = useCallback(async () => {
     try {
@@ -472,7 +515,7 @@ export default function Nodes() {
   // Compute stats for current tab
   const total = filteredNodes.length
   const healthy = filteredNodes.filter(n => n.status === 'healthy').length
-  const unhealthy = filteredNodes.filter(n => n.status === 'unhealthy').length
+  const unhealthy = filteredNodes.filter(n => n.status === 'unhealthy' || n.status === 'offline').length
   const draining = filteredNodes.filter(n => n.status === 'draining').length
   const pending = filteredNodes.filter(n => n.status === 'pending').length
 
@@ -878,18 +921,28 @@ export default function Nodes() {
                               {/* Add label form */}
                               <div style={{ display: 'flex', gap: 'var(--spacing-xs)', alignItems: 'center' }}>
                                 <input
-                                  type="text" placeholder="key" style={{ width: 100, fontSize: '0.75rem' }}
-                                  id={`label-key-${node.id}`}
+                                  className="input"
+                                  type="text"
+                                  placeholder="key"
+                                  style={{ width: '8rem' }}
+                                  value={(labelInputs[node.id] || {}).key || ''}
+                                  onChange={e => setLabelInput(node.id, 'key', e.target.value)}
                                 />
                                 <input
-                                  type="text" placeholder="value" style={{ width: 100, fontSize: '0.75rem' }}
-                                  id={`label-value-${node.id}`}
+                                  className="input"
+                                  type="text"
+                                  placeholder="value"
+                                  style={{ width: '8rem' }}
+                                  value={(labelInputs[node.id] || {}).value || ''}
+                                  onChange={e => setLabelInput(node.id, 'value', e.target.value)}
                                 />
-                                <button className="btn btn-secondary btn-sm" onClick={(e) => {
+                                <button className="btn btn-secondary btn-sm" onClick={async (e) => {
                                   e.stopPropagation()
-                                  const key = document.getElementById(`label-key-${node.id}`).value.trim()
-                                  const val = document.getElementById(`label-value-${node.id}`).value.trim()
-                                  if (key) handleAddLabel(node.id, key, val)
+                                  const { key = '', value: val = '' } = labelInputs[node.id] || {}
+                                  if (key.trim()) {
+                                    await handleAddLabel(node.id, key.trim(), val.trim())
+                                    setLabelInputs(prev => ({ ...prev, [node.id]: { key: '', value: '' } }))
+                                  }
                                 }}>Add</button>
                               </div>
                             </div>
@@ -932,15 +985,28 @@ export default function Nodes() {
               <table className="table">
                 <thead><tr>
                   <th>Model</th>
+                  <th>Mode</th>
                   <th>Node Selector</th>
                   <th>Min Replicas</th>
                   <th>Max Replicas</th>
                   <th style={{ textAlign: 'right' }}>Actions</th>
                 </tr></thead>
                 <tbody>
-                  {schedulingConfigs.map(cfg => (
+                  {schedulingConfigs.map(cfg => {
+                    const isAutoScaling = cfg.min_replicas > 0 || cfg.max_replicas > 0
+                    const hasSelector = !!cfg.node_selector
+                    const modeLabel = isAutoScaling ? 'Auto-scaling' : hasSelector ? 'Placement' : 'Inactive'
+                    const modeColor = isAutoScaling ? 'var(--color-success)' : hasSelector ? 'var(--color-primary)' : 'var(--color-text-muted)'
+                    return (
                     <tr key={cfg.id || cfg.model_name}>
                       <td style={{ fontWeight: 600, fontSize: '0.875rem' }}>{cfg.model_name}</td>
+                      <td>
+                        <span style={{
+                          display: 'inline-block', fontSize: '0.75rem', padding: '2px 8px', borderRadius: 3,
+                          background: 'var(--color-bg-tertiary)', border: `1px solid ${modeColor}`,
+                          color: modeColor, fontWeight: 600,
+                        }}>{modeLabel}</span>
+                      </td>
                       <td>
                         {cfg.node_selector ? (() => {
                           try {
@@ -955,8 +1021,12 @@ export default function Nodes() {
                           } catch { return <span style={{ color: 'var(--color-text-muted)', fontSize: '0.8125rem' }}>{cfg.node_selector}</span> }
                         })() : <span style={{ color: 'var(--color-text-muted)', fontSize: '0.8125rem' }}>Any node</span>}
                       </td>
-                      <td style={{ fontFamily: "'JetBrains Mono', monospace" }}>{cfg.min_replicas || '-'}</td>
-                      <td style={{ fontFamily: "'JetBrains Mono', monospace" }}>{cfg.max_replicas || 'unlimited'}</td>
+                      <td style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                        {isAutoScaling ? cfg.min_replicas : '-'}
+                      </td>
+                      <td style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                        {isAutoScaling ? (cfg.max_replicas || 'no limit') : '-'}
+                      </td>
                       <td style={{ textAlign: 'right' }}>
                         <button className="btn btn-danger btn-sm" onClick={async () => {
                           try {
@@ -969,7 +1039,8 @@ export default function Nodes() {
                         }}><i className="fas fa-trash" /></button>
                       </td>
                     </tr>
-                  ))}
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
