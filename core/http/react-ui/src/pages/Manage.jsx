@@ -3,7 +3,7 @@ import { useNavigate, useOutletContext, useSearchParams } from 'react-router-dom
 import ResourceMonitor from '../components/ResourceMonitor'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { useModels } from '../hooks/useModels'
-import { backendControlApi, modelsApi, backendsApi, systemApi } from '../utils/api'
+import { backendControlApi, modelsApi, backendsApi, systemApi, nodesApi } from '../utils/api'
 
 const TABS = [
   { key: 'models', label: 'Models', icon: 'fa-brain' },
@@ -23,6 +23,7 @@ export default function Manage() {
   const [reloading, setReloading] = useState(false)
   const [reinstallingBackends, setReinstallingBackends] = useState(new Set())
   const [confirmDialog, setConfirmDialog] = useState(null)
+  const [distributedMode, setDistributedMode] = useState(false)
 
   const handleTabChange = (tab) => {
     setActiveTab(tab)
@@ -55,6 +56,8 @@ export default function Manage() {
   useEffect(() => {
     fetchLoadedModels()
     fetchBackends()
+    // Detect distributed mode (nodes API returns 503 when not enabled)
+    nodesApi.list().then(() => setDistributedMode(true)).catch(() => {})
   }, [fetchLoadedModels, fetchBackends])
 
   const handleStopModel = (modelName) => {
@@ -230,14 +233,16 @@ export default function Manage() {
                         >
                           <i className="fas fa-pen-to-square" />
                         </a>
-                        <a
-                          href="#"
-                          onClick={(e) => { e.preventDefault(); navigate(`/app/backend-logs/${encodeURIComponent(model.id)}`) }}
-                          style={{ fontSize: '0.75rem', color: 'var(--color-primary)' }}
-                          title="Backend logs"
-                        >
-                          <i className="fas fa-terminal" />
-                        </a>
+                        {!distributedMode && (
+                          <a
+                            href="#"
+                            onClick={(e) => { e.preventDefault(); navigate(`/app/backend-logs/${encodeURIComponent(model.id)}`) }}
+                            style={{ fontSize: '0.75rem', color: 'var(--color-primary)' }}
+                            title="Backend logs"
+                          >
+                            <i className="fas fa-terminal" />
+                          </a>
+                        )}
                       </div>
                     </td>
                     <td>

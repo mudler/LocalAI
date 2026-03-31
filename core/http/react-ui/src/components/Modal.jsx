@@ -4,6 +4,8 @@ import '../pages/auth.css'
 export default function Modal({ onClose, children, maxWidth = '600px' }) {
   const dialogRef = useRef(null)
   const lastFocusRef = useRef(null)
+  const onCloseRef = useRef(onClose)
+  onCloseRef.current = onClose
 
   useEffect(() => {
     lastFocusRef.current = document.activeElement
@@ -20,7 +22,7 @@ export default function Modal({ onClose, children, maxWidth = '600px' }) {
 
     const handleKeyDown = (e) => {
       if (e.key === 'Escape') {
-        onClose?.()
+        onCloseRef.current?.()
         return
       }
       if (e.key !== 'Tab') return
@@ -46,7 +48,7 @@ export default function Modal({ onClose, children, maxWidth = '600px' }) {
       document.removeEventListener('keydown', handleKeyDown)
       lastFocusRef.current?.focus()
     }
-  }, [onClose])
+  }, []) // Run once on mount — onClose accessed via stable ref
 
   return (
     <div

@@ -37,17 +37,17 @@ func TemplateMultiModal(templateString string, opts MultiModalOptions, text stri
 	}
 
 	videos := []MultimodalContent{}
-	for i := 0; i < opts.VideosInMessage; i++ {
+	for i := range opts.VideosInMessage {
 		videos = append(videos, MultimodalContent{ID: i + (opts.TotalVideos - opts.VideosInMessage)})
 	}
 
 	audios := []MultimodalContent{}
-	for i := 0; i < opts.AudiosInMessage; i++ {
+	for i := range opts.AudiosInMessage {
 		audios = append(audios, MultimodalContent{ID: i + (opts.TotalAudios - opts.AudiosInMessage)})
 	}
 
 	images := []MultimodalContent{}
-	for i := 0; i < opts.ImagesInMessage; i++ {
+	for i := range opts.ImagesInMessage {
 		images = append(images, MultimodalContent{ID: i + (opts.TotalImages - opts.ImagesInMessage)})
 	}
 

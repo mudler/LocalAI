@@ -195,7 +195,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
-                                "$ref": "#/definitions/services.GalleryOpStatus"
+                                "$ref": "#/definitions/galleryop.OpStatus"
                             }
                         }
                     }
@@ -209,7 +209,7 @@ const docTemplate = `{
                     "200": {
                         "description": "Response",
                         "schema": {
-                            "$ref": "#/definitions/services.GalleryOpStatus"
+                            "$ref": "#/definitions/galleryop.OpStatus"
                         }
                     }
                 }
@@ -319,7 +319,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
-                                "$ref": "#/definitions/services.GalleryOpStatus"
+                                "$ref": "#/definitions/galleryop.OpStatus"
                             }
                         }
                     }
@@ -333,7 +333,7 @@ const docTemplate = `{
                     "200": {
                         "description": "Response",
                         "schema": {
-                            "$ref": "#/definitions/services.GalleryOpStatus"
+                            "$ref": "#/definitions/galleryop.OpStatus"
                         }
                     }
                 }
@@ -1055,7 +1055,7 @@ const docTemplate = `{
                 },
                 "parameters": {
                     "type": "object",
-                    "additionalProperties": true
+                    "additionalProperties": {}
                 },
                 "strict": {
                     "type": "boolean"
@@ -1067,7 +1067,7 @@ const docTemplate = `{
             "properties": {
                 "properties": {
                     "type": "object",
-                    "additionalProperties": true
+                    "additionalProperties": {}
                 },
                 "type": {
                     "type": "string"
@@ -1079,7 +1079,7 @@ const docTemplate = `{
             "properties": {
                 "$defs": {
                     "type": "object",
-                    "additionalProperties": true
+                    "additionalProperties": {}
                 },
                 "anyOf": {
                     "type": "array",
@@ -1207,7 +1207,7 @@ const docTemplate = `{
                 "config_file": {
                     "description": "config_file is read in the situation where URL is blank - and therefore this is a base config.",
                     "type": "object",
-                    "additionalProperties": true
+                    "additionalProperties": {}
                 },
                 "description": {
                     "type": "string"
@@ -1243,7 +1243,7 @@ const docTemplate = `{
                 "overrides": {
                     "description": "Overrides are used to override the configuration of the model located at URL",
                     "type": "object",
-                    "additionalProperties": true
+                    "additionalProperties": {}
                 },
                 "size": {
                     "description": "Size is an optional hardcoded model size string (e.g. \"500MB\", \"14.5GB\").\nUsed when the size cannot be estimated automatically.",
@@ -1266,6 +1266,45 @@ const docTemplate = `{
                 }
             }
         },
+        "galleryop.OpStatus": {
+            "type": "object",
+            "properties": {
+                "cancellable": {
+                    "description": "Cancellable is true if the operation can be cancelled",
+                    "type": "boolean"
+                },
+                "cancelled": {
+                    "description": "Cancelled is true if the operation was cancelled",
+                    "type": "boolean"
+                },
+                "deletion": {
+                    "description": "Deletion is true if the operation is a deletion",
+                    "type": "boolean"
+                },
+                "downloaded_size": {
+                    "type": "string"
+                },
+                "error": {},
+                "file_name": {
+                    "type": "string"
+                },
+                "file_size": {
+                    "type": "string"
+                },
+                "gallery_element_name": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "processed": {
+                    "type": "boolean"
+                },
+                "progress": {
+                    "type": "number"
+                }
+            }
+        },
         "localai.GalleryBackend": {
             "type": "object",
             "properties": {
@@ -1284,7 +1323,7 @@ const docTemplate = `{
                 "config_file": {
                     "description": "config_file is read in the situation where URL is blank - and therefore this is a base config.",
                     "type": "object",
-                    "additionalProperties": true
+                    "additionalProperties": {}
                 },
                 "description": {
                     "type": "string"
@@ -1323,7 +1362,7 @@ const docTemplate = `{
                 "overrides": {
                     "description": "Overrides are used to override the configuration of the model located at URL",
                     "type": "object",
-                    "additionalProperties": true
+                    "additionalProperties": {}
                 },
                 "size": {
                     "description": "Size is an optional hardcoded model size string (e.g. \"500MB\", \"14.5GB\").\nUsed when the size cannot be estimated automatically.",
@@ -1419,7 +1458,7 @@ const docTemplate = `{
                 },
                 "input": {
                     "type": "object",
-                    "additionalProperties": true
+                    "additionalProperties": {}
                 },
                 "is_error": {
                     "type": "boolean"
@@ -1555,7 +1594,7 @@ const docTemplate = `{
                 },
                 "input_schema": {
                     "type": "object",
-                    "additionalProperties": true
+                    "additionalProperties": {}
                 },
                 "name": {
                     "type": "string"
@@ -2071,7 +2110,7 @@ const docTemplate = `{
                 },
                 "parameters": {
                     "type": "object",
-                    "additionalProperties": true
+                    "additionalProperties": {}
                 },
                 "strict": {
                     "description": "Always include in response",
@@ -2987,45 +3026,6 @@ const docTemplate = `{
                 },
                 "width": {
                     "type": "integer"
-                }
-            }
-        },
-        "services.GalleryOpStatus": {
-            "type": "object",
-            "properties": {
-                "cancellable": {
-                    "description": "Cancellable is true if the operation can be cancelled",
-                    "type": "boolean"
-                },
-                "cancelled": {
-                    "description": "Cancelled is true if the operation was cancelled",
-                    "type": "boolean"
-                },
-                "deletion": {
-                    "description": "Deletion is true if the operation is a deletion",
-                    "type": "boolean"
-                },
-                "downloaded_size": {
-                    "type": "string"
-                },
-                "error": {},
-                "file_name": {
-                    "type": "string"
-                },
-                "file_size": {
-                    "type": "string"
-                },
-                "gallery_element_name": {
-                    "type": "string"
-                },
-                "message": {
-                    "type": "string"
-                },
-                "processed": {
-                    "type": "boolean"
-                },
-                "progress": {
-                    "type": "number"
                 }
             }
         }

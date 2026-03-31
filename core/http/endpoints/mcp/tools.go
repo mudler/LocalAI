@@ -12,6 +12,10 @@ import (
 	"time"
 
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/schema"
+	mcpRemote "github.com/mudler/LocalAI/core/services/mcp"
+	"github.com/mudler/LocalAI/core/services/messaging"
+
 	"github.com/mudler/LocalAI/pkg/functions"
 	"github.com/mudler/LocalAI/pkg/signals"
 
@@ -89,6 +93,11 @@ var (
 	client = mcp.NewClient(&mcp.Implementation{Name: "LocalAI", Version: "v1.0.0"}, nil)
 )
 
+// MCPNATSClient is the interface for NATS request-reply operations needed by MCP routing.
+type MCPNATSClient interface {
+	Request(subject string, data []byte, timeout time.Duration) ([]byte, error)
+}
+
 // MCPServersFromMetadata extracts the MCP server list from the metadata map
 // and returns the list. The "mcp_servers" key is consumed (deleted from the map)
 // so it doesn't leak to the backend.
@@ -114,6 +123,29 @@ func SessionsFromMCPConfig(
 	defer cache.mu.Unlock()
 
 	sessions, exists := cache.cache[name]
+
+	// Verify cached sessions are still alive.
+	if exists {
+		pingCtx, pingCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer pingCancel()
+		alive := true
+		for _, s := range sessions {
+			if err := s.Ping(pingCtx, nil); err != nil {
+				xlog.Warn("MCP session dead, evicting cache", "name", name, "error", err)
+				alive = false
+				break
+			}
+		}
+		if !alive {
+			if cancel, ok := cache.cancels[name]; ok {
+				cancel()
+			}
+			delete(cache.cache, name)
+			delete(cache.cancels, name)
+			exists = false
+		}
+	}
+
 	if exists {
 		return sessions, nil
 	}
@@ -127,7 +159,7 @@ func SessionsFromMCPConfig(
 		xlog.Debug("[MCP remote server] Configuration", "server", server)
 		// Create HTTP client with custom roundtripper for bearer token injection
 		httpClient := &http.Client{
-			Timeout:   360 * time.Second,
+			Timeout:   config.DefaultMCPToolTimeout,
 			Transport: newBearerTokenRoundTripper(server.Token, http.DefaultTransport),
 		}
 
@@ -177,13 +209,39 @@ func NamedSessionsFromMCPConfig(
 	defer namedCache.mu.Unlock()
 
 	allSessions, exists := namedCache.cache[name]
+
+	// If cached, verify sessions are still alive via Ping.
+	// Dead sessions (e.g. exited stdio containers) are evicted so they get recreated.
+	if exists {
+		pingCtx, pingCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer pingCancel()
+		alive := true
+		for _, ns := range allSessions {
+			if err := ns.Session.Ping(pingCtx, nil); err != nil {
+				xlog.Warn("MCP session dead, evicting cache", "server", ns.Name, "error", err)
+				alive = false
+				break
+			}
+		}
+		if !alive {
+			// Close dead sessions and recreate
+			if cancel, ok := namedCache.cancels[name]; ok {
+				cancel()
+			}
+			delete(namedCache.cache, name)
+			delete(namedCache.cancels, name)
+			exists = false
+			allSessions = nil
+		}
+	}
+
 	if !exists {
 		ctx, cancel := context.WithCancel(context.Background())
 
 		for serverName, server := range remote.Servers {
 			xlog.Debug("[MCP remote server] Configuration", "name", serverName, "server", server)
 			httpClient := &http.Client{
-				Timeout:   360 * time.Second,
+				Timeout:   config.DefaultMCPToolTimeout,
 				Transport: newBearerTokenRoundTripper(server.Token, http.DefaultTransport),
 			}
 
@@ -266,20 +324,22 @@ func DiscoverMCPTools(ctx context.Context, sessions []NamedSession) ([]MCPToolIn
 				Description: tool.Description,
 			}
 
-			// Convert InputSchema to map[string]interface{} for functions.Function
+			// Convert InputSchema to map[string]any for functions.Function
 			if tool.InputSchema != nil {
 				schemaBytes, err := json.Marshal(tool.InputSchema)
 				if err == nil {
-					var params map[string]interface{}
-					if json.Unmarshal(schemaBytes, &params) == nil {
+					var params map[string]any
+					if err := json.Unmarshal(schemaBytes, &params); err == nil {
 						f.Parameters = params
+					} else {
+						xlog.Warn("Failed to unmarshal MCP tool input schema", "tool", tool.Name, "error", err)
 					}
 				}
 			}
 			if f.Parameters == nil {
-				f.Parameters = map[string]interface{}{
+				f.Parameters = map[string]any{
 					"type":       "object",
-					"properties": map[string]interface{}{},
+					"properties": map[string]any{},
 				}
 			}
 
@@ -339,6 +399,86 @@ func ExecuteMCPToolCall(ctx context.Context, tools []MCPToolInfo, toolName strin
 	}
 	combined, _ := json.Marshal(texts)
 	return string(combined), nil
+}
+
+// ExecuteMCPToolCallRemote routes an MCP tool execution request to an agent worker via NATS.
+// Used in distributed mode when the frontend doesn't hold MCP sessions locally.
+func ExecuteMCPToolCallRemote(
+	ctx context.Context,
+	natsClient MCPNATSClient,
+	modelName string,
+	remote config.MCPGenericConfig[config.MCPRemoteServers],
+	stdio config.MCPGenericConfig[config.MCPSTDIOServers],
+	toolName, arguments string,
+) (string, error) {
+	if natsClient == nil {
+		return "", fmt.Errorf("NATS client not configured for distributed MCP")
+	}
+
+	var args map[string]any
+	if arguments != "" {
+		if err := json.Unmarshal([]byte(arguments), &args); err != nil {
+			return "", fmt.Errorf("invalid tool arguments JSON: %w", err)
+		}
+	}
+
+	req := mcpRemote.MCPToolRequest{
+		ModelName:     modelName,
+		ToolName:      toolName,
+		Arguments:     args,
+		RemoteServers: remote,
+		StdioServers:  stdio,
+	}
+	reqData, _ := json.Marshal(req)
+
+	replyData, err := natsClient.Request(messaging.SubjectMCPToolExecute, reqData, config.DefaultMCPToolTimeout)
+	if err != nil {
+		return "", fmt.Errorf("NATS MCP tool request failed: %w", err)
+	}
+
+	var resp mcpRemote.MCPToolResponse
+	if err := json.Unmarshal(replyData, &resp); err != nil {
+		return "", fmt.Errorf("unmarshal MCP reply: %w", err)
+	}
+	if resp.Error != "" {
+		return "", fmt.Errorf("remote MCP tool error: %s", resp.Error)
+	}
+	return resp.Result, nil
+}
+
+// DiscoverMCPToolsRemote routes an MCP discovery request to an agent worker via NATS.
+// Returns server info and tool function schemas from the remote worker.
+func DiscoverMCPToolsRemote(
+	ctx context.Context,
+	natsClient MCPNATSClient,
+	modelName string,
+	remote config.MCPGenericConfig[config.MCPRemoteServers],
+	stdio config.MCPGenericConfig[config.MCPSTDIOServers],
+) (*mcpRemote.MCPDiscoveryResponse, error) {
+	if natsClient == nil {
+		return nil, fmt.Errorf("NATS client not configured for distributed MCP")
+	}
+
+	req := mcpRemote.MCPDiscoveryRequest{
+		ModelName:     modelName,
+		RemoteServers: remote,
+		StdioServers:  stdio,
+	}
+	reqData, _ := json.Marshal(req)
+
+	replyData, err := natsClient.Request(messaging.SubjectMCPDiscovery, reqData, config.DefaultMCPDiscoveryTimeout)
+	if err != nil {
+		return nil, fmt.Errorf("NATS MCP discovery request failed: %w", err)
+	}
+
+	var resp mcpRemote.MCPDiscoveryResponse
+	if err := json.Unmarshal(replyData, &resp); err != nil {
+		return nil, fmt.Errorf("unmarshal MCP discovery reply: %w", err)
+	}
+	if resp.Error != "" {
+		return nil, fmt.Errorf("remote MCP discovery error: %s", resp.Error)
+	}
+	return &resp, nil
 }
 
 // ListMCPServers returns server info with tool, prompt, and resource names for each session.
@@ -638,5 +778,95 @@ func newBearerTokenRoundTripper(token string, base http.RoundTripper) http.Round
 	return &bearerTokenRoundTripper{
 		token: token,
 		base:  base,
+	}
+}
+
+// MCPContextResult holds the results of MCP prompt and resource discovery
+// so callers can inject them into their message slices.
+type MCPContextResult struct {
+	// PromptMessages are schema.Message values converted from MCP prompts,
+	// intended to be prepended to the conversation.
+	PromptMessages []schema.Message
+
+	// ResourceSuffix is the formatted text of all discovered MCP resources,
+	// intended to be appended to the last user message's content.
+	// Empty string when no resources were requested or found.
+	ResourceSuffix string
+}
+
+// InjectMCPContext discovers MCP prompts and resources from the given named sessions
+// and returns them in a form ready for injection into any endpoint's message list.
+func InjectMCPContext(
+	ctx context.Context,
+	namedSessions []NamedSession,
+	mcpPromptName string,
+	mcpPromptArgs map[string]string,
+	mcpResourceURIs []string,
+) (*MCPContextResult, error) {
+	result := &MCPContextResult{}
+
+	if mcpPromptName != "" {
+		prompts, discErr := DiscoverMCPPrompts(ctx, namedSessions)
+		if discErr != nil {
+			xlog.Error("Failed to discover MCP prompts", "error", discErr)
+		} else {
+			promptMsgs, getErr := GetMCPPrompt(ctx, prompts, mcpPromptName, mcpPromptArgs)
+			if getErr != nil {
+				xlog.Error("Failed to get MCP prompt", "error", getErr)
+			} else {
+				for _, pm := range promptMsgs {
+					result.PromptMessages = append(result.PromptMessages, schema.Message{
+						Role:    string(pm.Role),
+						Content: PromptMessageToText(pm),
+					})
+				}
+				xlog.Debug("MCP prompt discovered", "prompt", mcpPromptName, "messages", len(result.PromptMessages))
+			}
+		}
+	}
+
+	if len(mcpResourceURIs) > 0 {
+		resources, discErr := DiscoverMCPResources(ctx, namedSessions)
+		if discErr != nil {
+			xlog.Error("Failed to discover MCP resources", "error", discErr)
+		} else {
+			var resourceTexts []string
+			for _, uri := range mcpResourceURIs {
+				content, readErr := ReadMCPResource(ctx, resources, uri)
+				if readErr != nil {
+					xlog.Error("Failed to read MCP resource", "error", readErr, "uri", uri)
+					continue
+				}
+				name := uri
+				for _, r := range resources {
+					if r.URI == uri {
+						name = r.Name
+						break
+					}
+				}
+				resourceTexts = append(resourceTexts, fmt.Sprintf("--- MCP Resource: %s ---\n%s", name, content))
+			}
+			if len(resourceTexts) > 0 {
+				result.ResourceSuffix = "\n\n" + strings.Join(resourceTexts, "\n\n")
+				xlog.Debug("MCP resources discovered", "count", len(resourceTexts))
+			}
+		}
+	}
+
+	return result, nil
+}
+
+// AppendResourceSuffix appends the resource suffix from an MCPContextResult
+// to the last message's content in the given message slice.
+func AppendResourceSuffix(messages []schema.Message, suffix string) {
+	if suffix == "" || len(messages) == 0 {
+		return
+	}
+	lastIdx := len(messages) - 1
+	switch ct := messages[lastIdx].Content.(type) {
+	case string:
+		messages[lastIdx].Content = ct + suffix
+	default:
+		messages[lastIdx].Content = fmt.Sprintf("%v%s", ct, suffix)
 	}
 }

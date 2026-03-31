@@ -1,0 +1,74 @@
+package galleryop
+
+import (
+	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/pkg/model"
+)
+
+type LooseFilePolicy int
+
+const (
+	LOOSE_ONLY LooseFilePolicy = iota
+	SKIP_IF_CONFIGURED
+	SKIP_ALWAYS
+	ALWAYS_INCLUDE
+)
+
+func ListModels(bcl *config.ModelConfigLoader, ml *model.ModelLoader, filter config.ModelConfigFilterFn, looseFilePolicy LooseFilePolicy) ([]string, error) {
+
+	skipMap := map[string]struct{}{}
+
+	dataModels := []string{}
+
+	// Start with known configurations
+
+	for _, c := range bcl.GetModelConfigsByFilter(filter) {
+		// Is this better than looseFilePolicy <= SKIP_IF_CONFIGURED ? less performant but more readable?
+		if (looseFilePolicy == SKIP_IF_CONFIGURED) || (looseFilePolicy == LOOSE_ONLY) {
+			skipMap[c.Model] = struct{}{}
+		}
+		if looseFilePolicy != LOOSE_ONLY {
+			dataModels = append(dataModels, c.Name)
+		}
+	}
+
+	// Then iterate through the loose files if requested.
+	if looseFilePolicy != SKIP_ALWAYS {
+
+		models, err := ml.ListFilesInModelPath()
+		if err != nil {
+			return nil, err
+		}
+		for _, m := range models {
+			// And only adds them if they shouldn't be skipped.
+			if _, exists := skipMap[m]; !exists && filter(m, nil) {
+				dataModels = append(dataModels, m)
+			}
+		}
+	}
+
+	return dataModels, nil
+}
+
+func CheckIfModelExists(bcl *config.ModelConfigLoader, ml *model.ModelLoader, modelName string, looseFilePolicy LooseFilePolicy) (bool, error) {
+	filter, err := config.BuildNameFilterFn(modelName)
+	if err != nil {
+		return false, err
+	}
+	models, err := ListModels(bcl, ml, filter, looseFilePolicy)
+	if err != nil {
+		return false, err
+	}
+	if len(models) > 0 {
+		return true, nil
+	}
+
+	// ListModels may not find raw model weight files (e.g. .ggml, .gguf)
+	// because ListFilesInModelPath skips known weight-file extensions.
+	// Fall back to checking if the file exists directly in the model path.
+	if ml.ExistsInModelPath(modelName) {
+		return true, nil
+	}
+
+	return false, nil
+}

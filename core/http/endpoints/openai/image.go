@@ -154,7 +154,7 @@ func ImageEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfi
 			if input.N == 0 {
 				n = 1
 			}
-			for j := 0; j < n; j++ {
+			for range n {
 				prompts := strings.Split(i, "|")
 				positive_prompt := prompts[0]
 				negative_prompt := ""

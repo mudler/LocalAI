@@ -5,9 +5,11 @@ import (
 	"github.com/mudler/LocalAI/core/application"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/endpoints/localai"
+	mcpTools "github.com/mudler/LocalAI/core/http/endpoints/mcp"
 	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/schema"
-	"github.com/mudler/LocalAI/core/services"
+	"github.com/mudler/LocalAI/core/services/galleryop"
+	"github.com/mudler/LocalAI/core/services/monitoring"
 	"github.com/mudler/LocalAI/core/templates"
 	"github.com/mudler/LocalAI/internal"
 	"github.com/mudler/LocalAI/pkg/model"
@@ -19,8 +21,8 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 	cl *config.ModelConfigLoader,
 	ml *model.ModelLoader,
 	appConfig *config.ApplicationConfig,
-	galleryService *services.GalleryService,
-	opcache *services.OpCache,
+	galleryService *galleryop.GalleryService,
+	opcache *galleryop.OpCache,
 	evaluator *templates.Evaluator,
 	app *application.Application,
 	adminMiddleware echo.MiddlewareFunc,
@@ -33,7 +35,7 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 	if !appConfig.DisableGalleryEndpoint {
 		// Import model page
 		router.GET("/import-model", func(c echo.Context) error {
-			return c.Render(200, "views/model-editor", map[string]interface{}{
+			return c.Render(200, "views/model-editor", map[string]any{
 				"Title":                  "LocalAI - Import Model",
 				"BaseURL":                middleware.BaseURL(c),
 				"Version":                internal.PrintableVersion(),
@@ -58,7 +60,7 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 			galleryService)
 		router.POST("/backends/apply", backendGalleryEndpointService.ApplyBackendEndpoint(), adminMiddleware)
 		router.POST("/backends/delete/:name", backendGalleryEndpointService.DeleteBackendEndpoint(), adminMiddleware)
-		router.GET("/backends", backendGalleryEndpointService.ListBackendsEndpoint(appConfig.SystemState), adminMiddleware)
+		router.GET("/backends", backendGalleryEndpointService.ListBackendsEndpoint(), adminMiddleware)
 		router.GET("/backends/available", backendGalleryEndpointService.ListAvailableBackendsEndpoint(appConfig.SystemState), adminMiddleware)
 		router.GET("/backends/galleries", backendGalleryEndpointService.ListBackendGalleriesEndpoint(), adminMiddleware)
 		router.GET("/backends/jobs/:uuid", backendGalleryEndpointService.GetOpStatusEndpoint(), adminMiddleware)
@@ -115,7 +117,7 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 
 	// Backend Statistics Module
 	// TODO: Should these use standard middlewares? Refactor later, they are extremely simple.
-	backendMonitorService := services.NewBackendMonitorService(ml, cl, appConfig) // Split out for now
+	backendMonitorService := monitoring.NewBackendMonitorService(ml, cl, appConfig) // Split out for now
 	router.GET("/backend/monitor", localai.BackendMonitorEndpoint(backendMonitorService), adminMiddleware)
 	router.POST("/backend/shutdown", localai.BackendShutdownEndpoint(backendMonitorService), adminMiddleware)
 	// The v1/* urls are exactly the same as above - makes local e2e testing easier if they are registered.
@@ -138,6 +140,7 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 			"mcp":          !appConfig.DisableMCP,
 			"fine_tuning":  true,
 			"quantization": true,
+			"distributed":  appConfig.Distributed.Enabled,
 		})
 	})
 
@@ -153,7 +156,11 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 	// MCP endpoint - supports both streaming and non-streaming modes
 	// Note: streaming mode is NOT compatible with the OpenAI apis. We have a set which streams more states.
 	if evaluator != nil && !appConfig.DisableMCP {
-		mcpStreamHandler := localai.MCPEndpoint(cl, ml, evaluator, appConfig)
+		var mcpNATS mcpTools.MCPNATSClient
+		if d := app.Distributed(); d != nil {
+			mcpNATS = d.Nats
+		}
+		mcpStreamHandler := localai.MCPEndpoint(cl, ml, evaluator, appConfig, mcpNATS)
 		mcpStreamMiddleware := []echo.MiddlewareFunc{
 			requestExtractor.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_CHAT)),
 			requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.OpenAIRequest) }),
@@ -171,7 +178,7 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 		router.POST("/mcp/chat/completions", mcpStreamHandler, mcpStreamMiddleware...)
 
 		// MCP server listing endpoint
-		router.GET("/v1/mcp/servers/:model", localai.MCPServersEndpoint(cl, appConfig), mcpMw)
+		router.GET("/v1/mcp/servers/:model", localai.MCPServersEndpoint(cl, appConfig, mcpNATS), mcpMw)
 
 		// MCP prompts endpoints
 		router.GET("/v1/mcp/prompts/:model", localai.MCPPromptsEndpoint(cl, appConfig), mcpMw)

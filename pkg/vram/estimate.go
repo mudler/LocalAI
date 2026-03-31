@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/mudler/LocalAI/pkg/downloader"
+	"github.com/mudler/xlog"
 )
 
 var weightExts = map[string]bool{
@@ -212,4 +213,59 @@ func DefaultSizeResolver() SizeResolver {
 
 func DefaultGGUFReader() GGUFMetadataReader {
 	return defaultGGUFReader{}
+}
+
+// ModelEstimateInput describes the inputs for a unified VRAM/size estimation.
+// The estimator cascades through available data: files → size string → HF repo → zero.
+type ModelEstimateInput struct {
+	Files   []FileInput     // weight files with optional pre-known sizes
+	Size    string          // gallery hardcoded size (e.g. "14.5GB")
+	HFRepo  string          // HF repo ID or URL
+	Options EstimateOptions // context length, GPU layers, KV quant bits
+}
+
+// EstimateModel provides a unified VRAM estimation entry point.
+// It tries (in order):
+//  1. Direct file-based estimation (GGUF metadata or file size heuristic)
+//  2. ParseSizeString from Size field
+//  3. EstimateFromHFRepo
+//  4. Zero result
+func EstimateModel(ctx context.Context, input ModelEstimateInput) (EstimateResult, error) {
+	// 1. Try direct file estimation
+	if len(input.Files) > 0 {
+		result, err := Estimate(ctx, input.Files, input.Options, DefaultCachedSizeResolver(), DefaultCachedGGUFReader())
+		if err != nil {
+			xlog.Debug("VRAM estimation from files failed", "error", err)
+		}
+		if err == nil && result.SizeBytes > 0 {
+			return result, nil
+		}
+	}
+
+	// 2. Try size string
+	if input.Size != "" {
+		if sizeBytes, err := ParseSizeString(input.Size); err != nil {
+			xlog.Debug("VRAM estimation from size string failed", "error", err, "size", input.Size)
+		} else if sizeBytes > 0 {
+			return EstimateFromSize(sizeBytes), nil
+		}
+	}
+
+	// 3. Try HF repo
+	hfRepo := input.HFRepo
+	if repoID, ok := ExtractHFRepoID(hfRepo); ok {
+		hfRepo = repoID
+	}
+	if hfRepo != "" {
+		result, err := EstimateFromHFRepo(ctx, hfRepo)
+		if err != nil {
+			xlog.Debug("VRAM estimation from HF repo failed", "error", err, "repo", hfRepo)
+		}
+		if err == nil && result.SizeBytes > 0 {
+			return result, nil
+		}
+	}
+
+	// 4. No estimation possible
+	return EstimateResult{}, nil
 }

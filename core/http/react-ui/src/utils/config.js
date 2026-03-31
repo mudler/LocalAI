@@ -94,5 +94,23 @@ export const API_CONFIG = {
     version: '/version',
     system: '/system',
     corsProxy: '/api/cors-proxy',
+
+    // Nodes (distributed)
+    nodes: '/api/nodes',
+    node: (id) => `/api/nodes/${id}`,
+    nodeModels: (id) => `/api/nodes/${id}/models`,
+    nodeDrain: (id) => `/api/nodes/${id}/drain`,
+    nodeApprove: (id) => `/api/nodes/${id}/approve`,
+    nodeHeartbeat: (id) => `/api/nodes/${id}/heartbeat`,
+    nodeBackends: (id) => `/api/nodes/${id}/backends`,
+    nodeBackendsInstall: (id) => `/api/nodes/${id}/backends/install`,
+    nodeBackendsDelete: (id) => `/api/nodes/${id}/backends/delete`,
+    nodeBackendLogs: (id) => `/api/nodes/${id}/backend-logs`,
+    nodeBackendLogsModel: (id, modelId) => `/api/nodes/${id}/backend-logs/${encodeURIComponent(modelId)}`,
+    nodeModelsUnload: (id) => `/api/nodes/${id}/models/unload`,
+    nodeLabels: (id) => `/api/nodes/${id}/labels`,
+    nodeLabelKey: (id, key) => `/api/nodes/${id}/labels/${key}`,
+    nodesScheduling: '/api/nodes/scheduling',
+    nodesSchedulingModel: (model) => `/api/nodes/scheduling/${encodeURIComponent(model)}`,
   },
 }

@@ -94,7 +94,7 @@ func (c *StoreClient) Find(req FindRequest) (*FindResponse, error) {
 }
 
 // Helper function to perform a request without expecting a response body
-func (c *StoreClient) doRequest(path string, data interface{}) error {
+func (c *StoreClient) doRequest(path string, data any) error {
 	jsonData, err := json.Marshal(data)
 	if err != nil {
 		return err
@@ -120,7 +120,7 @@ func (c *StoreClient) doRequest(path string, data interface{}) error {
 }
 
 // Helper function to perform a request and parse the response body
-func (c *StoreClient) doRequestWithResponse(path string, data interface{}) ([]byte, error) {
+func (c *StoreClient) doRequestWithResponse(path string, data any) ([]byte, error) {
 	jsonData, err := json.Marshal(data)
 	if err != nil {
 		return nil, err

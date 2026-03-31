@@ -3,7 +3,6 @@ package openai
 import (
 	"encoding/json"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -59,11 +58,8 @@ func mergeToolCallDeltas(existing []schema.ToolCall, deltas []schema.ToolCall) [
 // @Param request body schema.OpenAIRequest true "query params"
 // @Success 200 {object} schema.OpenAIResponse "Response"
 // @Router /v1/chat/completions [post]
-func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator *templates.Evaluator, startupOptions *config.ApplicationConfig) echo.HandlerFunc {
-	var id, textContentToReturn string
-	var created int
-
-	process := func(s string, req *schema.OpenAIRequest, config *config.ModelConfig, loader *model.ModelLoader, responses chan schema.OpenAIResponse, extraUsage bool) error {
+func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator *templates.Evaluator, startupOptions *config.ApplicationConfig, natsClient mcpTools.MCPNATSClient) echo.HandlerFunc {
+	process := func(s string, req *schema.OpenAIRequest, config *config.ModelConfig, loader *model.ModelLoader, responses chan schema.OpenAIResponse, extraUsage bool, id string, created int) error {
 		initialMessage := schema.OpenAIResponse{
 			ID:      id,
 			Created: created,
@@ -120,7 +116,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 		close(responses)
 		return err
 	}
-	processTools := func(noAction string, prompt string, req *schema.OpenAIRequest, config *config.ModelConfig, loader *model.ModelLoader, responses chan schema.OpenAIResponse, extraUsage bool) error {
+	processTools := func(noAction string, prompt string, req *schema.OpenAIRequest, config *config.ModelConfig, loader *model.ModelLoader, responses chan schema.OpenAIResponse, extraUsage bool, id string, created int, textContentToReturn *string) error {
 		// Detect if thinking token is already in prompt or template
 		var template string
 		if config.TemplateConfig.UseTokenizerTemplate {
@@ -309,18 +305,18 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 			xlog.Debug("[ChatDeltas] Using pre-parsed tool calls from C++ autoparser", "count", len(deltaToolCalls))
 			functionResults = deltaToolCalls
 			// Use content/reasoning from deltas too
-			textContentToReturn = functions.ContentFromChatDeltas(chatDeltas)
+			*textContentToReturn = functions.ContentFromChatDeltas(chatDeltas)
 			reasoning = functions.ReasoningFromChatDeltas(chatDeltas)
 		} else {
 			// Fallback: parse tool calls from raw text (no chat deltas from backend)
 			xlog.Debug("[ChatDeltas] no pre-parsed tool calls, falling back to Go-side text parsing")
 			reasoning = extractor.Reasoning()
 			cleanedResult := extractor.CleanedContent()
-			textContentToReturn = functions.ParseTextContent(cleanedResult, config.FunctionsConfig)
+			*textContentToReturn = functions.ParseTextContent(cleanedResult, config.FunctionsConfig)
 			cleanedResult = functions.CleanupLLMResult(cleanedResult, config.FunctionsConfig)
 			functionResults = functions.ParseFunctionCall(cleanedResult, config.FunctionsConfig)
 		}
-		xlog.Debug("[ChatDeltas] final tool call decision", "tool_calls", len(functionResults), "text_content", textContentToReturn)
+		xlog.Debug("[ChatDeltas] final tool call decision", "tool_calls", len(functionResults), "text_content", *textContentToReturn)
 		noActionToRun := len(functionResults) > 0 && functionResults[0].Name == noAction || len(functionResults) == 0
 
 		switch {
@@ -413,7 +409,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 					Choices: []schema.Choice{{
 						Delta: &schema.Message{
 							Role:    "assistant",
-							Content: &textContentToReturn,
+							Content: textContentToReturn,
 							ToolCalls: []schema.ToolCall{
 								{
 									Index: i,
@@ -438,9 +434,9 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 	}
 
 	return func(c echo.Context) error {
-		textContentToReturn = ""
-		id = uuid.New().String()
-		created = int(time.Now().Unix())
+		var textContentToReturn string
+		id := uuid.New().String()
+		created := int(time.Now().Unix())
 
 		input, ok := c.Get(middleware.CONTEXT_LOCALS_KEY_LOCALAI_REQUEST).(*schema.OpenAIRequest)
 		if !ok || input.Model == "" {
@@ -461,7 +457,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 		strictMode := false
 
 		// MCP tool injection: when mcp_servers is set in metadata and model has MCP config
-		var mcpToolInfos []mcpTools.MCPToolInfo
+		var mcpExecutor mcpTools.ToolExecutor
 		mcpServers := mcpTools.MCPServersFromMetadata(input.Metadata)
 
 		// MCP prompt and resource injection (extracted before tool injection)
@@ -471,82 +467,30 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 		if (len(mcpServers) > 0 || mcpPromptName != "" || len(mcpResourceURIs) > 0) && (config.MCP.Servers != "" || config.MCP.Stdio != "") {
 			remote, stdio, mcpErr := config.MCP.MCPConfigFromYAML()
 			if mcpErr == nil {
+				mcpExecutor = mcpTools.NewToolExecutor(c.Request().Context(), natsClient, config.Name, remote, stdio, mcpServers)
+
+				// Prompt and resource injection (pre-processing step — resolves locally regardless of distributed mode)
 				namedSessions, sessErr := mcpTools.NamedSessionsFromMCPConfig(config.Name, remote, stdio, mcpServers)
 				if sessErr == nil && len(namedSessions) > 0 {
-					// Prompt injection: prepend prompt messages to the conversation
-					if mcpPromptName != "" {
-						prompts, discErr := mcpTools.DiscoverMCPPrompts(c.Request().Context(), namedSessions)
-						if discErr == nil {
-							promptMsgs, getErr := mcpTools.GetMCPPrompt(c.Request().Context(), prompts, mcpPromptName, mcpPromptArgs)
-							if getErr == nil {
-								var injected []schema.Message
-								for _, pm := range promptMsgs {
-									injected = append(injected, schema.Message{
-										Role:    string(pm.Role),
-										Content: mcpTools.PromptMessageToText(pm),
-									})
-								}
-								input.Messages = append(injected, input.Messages...)
-								xlog.Debug("MCP prompt injected", "prompt", mcpPromptName, "messages", len(injected))
-							} else {
-								xlog.Error("Failed to get MCP prompt", "error", getErr)
-							}
-						} else {
-							xlog.Error("Failed to discover MCP prompts", "error", discErr)
-						}
+					mcpCtx, _ := mcpTools.InjectMCPContext(c.Request().Context(), namedSessions, mcpPromptName, mcpPromptArgs, mcpResourceURIs)
+					if mcpCtx != nil {
+						input.Messages = append(mcpCtx.PromptMessages, input.Messages...)
+						mcpTools.AppendResourceSuffix(input.Messages, mcpCtx.ResourceSuffix)
 					}
+				}
 
-					// Resource injection: append resource content to the last user message
-					if len(mcpResourceURIs) > 0 {
-						resources, discErr := mcpTools.DiscoverMCPResources(c.Request().Context(), namedSessions)
-						if discErr == nil {
-							var resourceTexts []string
-							for _, uri := range mcpResourceURIs {
-								content, readErr := mcpTools.ReadMCPResource(c.Request().Context(), resources, uri)
-								if readErr != nil {
-									xlog.Error("Failed to read MCP resource", "error", readErr, "uri", uri)
-									continue
-								}
-								// Find resource name
-								name := uri
-								for _, r := range resources {
-									if r.URI == uri {
-										name = r.Name
-										break
-									}
-								}
-								resourceTexts = append(resourceTexts, fmt.Sprintf("--- MCP Resource: %s ---\n%s", name, content))
-							}
-							if len(resourceTexts) > 0 && len(input.Messages) > 0 {
-								lastIdx := len(input.Messages) - 1
-								suffix := "\n\n" + strings.Join(resourceTexts, "\n\n")
-								switch ct := input.Messages[lastIdx].Content.(type) {
-								case string:
-									input.Messages[lastIdx].Content = ct + suffix
-								default:
-									input.Messages[lastIdx].Content = fmt.Sprintf("%v%s", ct, suffix)
-								}
-								xlog.Debug("MCP resources injected", "count", len(resourceTexts))
-							}
-						} else {
-							xlog.Error("Failed to discover MCP resources", "error", discErr)
+				// Tool injection via executor
+				if mcpExecutor.HasTools() {
+					mcpFuncs, discErr := mcpExecutor.DiscoverTools(c.Request().Context())
+					if discErr == nil {
+						for _, fn := range mcpFuncs {
+							funcs = append(funcs, fn)
+							input.Tools = append(input.Tools, functions.Tool{Type: "function", Function: fn})
 						}
-					}
-
-					// Tool injection
-					if len(mcpServers) > 0 {
-						discovered, discErr := mcpTools.DiscoverMCPTools(c.Request().Context(), namedSessions)
-						if discErr == nil {
-							mcpToolInfos = discovered
-							for _, ti := range mcpToolInfos {
-								funcs = append(funcs, ti.Function)
-								input.Tools = append(input.Tools, functions.Tool{Type: "function", Function: ti.Function})
-							}
-							shouldUseFn = len(funcs) > 0 && config.ShouldUseFunctions()
-							xlog.Debug("MCP tools injected", "count", len(mcpToolInfos), "total_funcs", len(funcs))
-						} else {
-							xlog.Error("Failed to discover MCP tools", "error", discErr)
-						}
+						shouldUseFn = len(funcs) > 0 && config.ShouldUseFunctions()
+						xlog.Debug("MCP tools injected", "count", len(mcpFuncs), "total_funcs", len(funcs))
+					} else {
+						xlog.Error("Failed to discover MCP tools", "error", discErr)
 					}
 				}
 			} else {
@@ -630,9 +574,9 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 			noActionGrammar := functions.Function{
 				Name:        noActionName,
 				Description: noActionDescription,
-				Parameters: map[string]interface{}{
-					"properties": map[string]interface{}{
-						"message": map[string]interface{}{
+				Parameters: map[string]any{
+					"properties": map[string]any{
+						"message": map[string]any{
 							"type":        "string",
 							"description": "The message to reply the user with",
 						}},
@@ -705,223 +649,228 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 			if config.Agent.MaxIterations > 0 {
 				mcpStreamMaxIterations = config.Agent.MaxIterations
 			}
-			hasMCPToolsStream := len(mcpToolInfos) > 0
+			hasMCPToolsStream := mcpExecutor != nil && mcpExecutor.HasTools()
 
 			for mcpStreamIter := 0; mcpStreamIter <= mcpStreamMaxIterations; mcpStreamIter++ {
-			// Re-template on MCP iterations
-			if mcpStreamIter > 0 && !config.TemplateConfig.UseTokenizerTemplate {
-				predInput = evaluator.TemplateMessages(*input, input.Messages, config, funcs, shouldUseFn)
-				xlog.Debug("MCP stream re-templating", "iteration", mcpStreamIter)
-			}
-
-			responses := make(chan schema.OpenAIResponse)
-			ended := make(chan error, 1)
-
-			go func() {
-				if !shouldUseFn {
-					ended <- process(predInput, input, config, ml, responses, extraUsage)
-				} else {
-					ended <- processTools(noActionName, predInput, input, config, ml, responses, extraUsage)
+				// Re-template on MCP iterations
+				if mcpStreamIter > 0 && !config.TemplateConfig.UseTokenizerTemplate {
+					predInput = evaluator.TemplateMessages(*input, input.Messages, config, funcs, shouldUseFn)
+					xlog.Debug("MCP stream re-templating", "iteration", mcpStreamIter)
 				}
-			}()
 
-			usage := &schema.OpenAIUsage{}
-			toolsCalled := false
-			var collectedToolCalls []schema.ToolCall
-			var collectedContent string
+				responses := make(chan schema.OpenAIResponse)
+				ended := make(chan error, 1)
 
-		LOOP:
-			for {
-				select {
-				case <-input.Context.Done():
-					// Context was cancelled (client disconnected or request cancelled)
-					xlog.Debug("Request context cancelled, stopping stream")
-					input.Cancel()
-					break LOOP
-				case ev := <-responses:
-					if len(ev.Choices) == 0 {
-						xlog.Debug("No choices in the response, skipping")
-						continue
-					}
-					usage = &ev.Usage // Copy a pointer to the latest usage chunk so that the stop message can reference it
-					if len(ev.Choices[0].Delta.ToolCalls) > 0 {
-						toolsCalled = true
-						// Collect and merge tool call deltas for MCP execution
-						if hasMCPToolsStream {
-							collectedToolCalls = mergeToolCallDeltas(collectedToolCalls, ev.Choices[0].Delta.ToolCalls)
-						}
-					}
-					// Collect content for MCP conversation history and automatic tool parsing fallback
-					if (hasMCPToolsStream || config.FunctionsConfig.AutomaticToolParsingFallback) && ev.Choices[0].Delta != nil && ev.Choices[0].Delta.Content != nil {
-						if s, ok := ev.Choices[0].Delta.Content.(string); ok {
-							collectedContent += s
-						} else if sp, ok := ev.Choices[0].Delta.Content.(*string); ok && sp != nil {
-							collectedContent += *sp
-						}
-					}
-					respData, err := json.Marshal(ev)
-					if err != nil {
-						xlog.Debug("Failed to marshal response", "error", err)
-						input.Cancel()
-						continue
-					}
-					xlog.Debug("Sending chunk", "chunk", string(respData))
-					_, err = fmt.Fprintf(c.Response().Writer, "data: %s\n\n", string(respData))
-					if err != nil {
-						xlog.Debug("Sending chunk failed", "error", err)
-						input.Cancel()
-						return err
-					}
-					c.Response().Flush()
-				case err := <-ended:
-					if err == nil {
-						break LOOP
-					}
-					xlog.Error("Stream ended with error", "error", err)
-
-					errorResp := schema.ErrorResponse{
-						Error: &schema.APIError{
-							Message: err.Error(),
-							Type:    "server_error",
-							Code:    "server_error",
-						},
-					}
-					respData, marshalErr := json.Marshal(errorResp)
-					if marshalErr != nil {
-						xlog.Error("Failed to marshal error response", "error", marshalErr)
-						fmt.Fprintf(c.Response().Writer, "data: {\"error\":{\"message\":\"Internal error\",\"type\":\"server_error\"}}\n\n")
+				go func() {
+					if !shouldUseFn {
+						ended <- process(predInput, input, config, ml, responses, extraUsage, id, created)
 					} else {
-						fmt.Fprintf(c.Response().Writer, "data: %s\n\n", respData)
+						ended <- processTools(noActionName, predInput, input, config, ml, responses, extraUsage, id, created, &textContentToReturn)
 					}
-					fmt.Fprintf(c.Response().Writer, "data: [DONE]\n\n")
-					c.Response().Flush()
+				}()
 
-					return nil
-				}
-			}
+				usage := &schema.OpenAIUsage{}
+				toolsCalled := false
+				var collectedToolCalls []schema.ToolCall
+				var collectedContent string
 
-			// MCP streaming tool execution: if we collected MCP tool calls, execute and loop
-			if hasMCPToolsStream && toolsCalled && len(collectedToolCalls) > 0 {
-				var hasMCPCalls bool
-				for _, tc := range collectedToolCalls {
-					if mcpTools.IsMCPTool(mcpToolInfos, tc.FunctionCall.Name) {
-						hasMCPCalls = true
-						break
-					}
-				}
-				if hasMCPCalls {
-					// Append assistant message with tool_calls
-					assistantMsg := schema.Message{
-						Role:      "assistant",
-						Content:   collectedContent,
-						ToolCalls: collectedToolCalls,
-					}
-					input.Messages = append(input.Messages, assistantMsg)
-
-					// Execute MCP tool calls and stream results as tool_result events
-					for _, tc := range collectedToolCalls {
-						if !mcpTools.IsMCPTool(mcpToolInfos, tc.FunctionCall.Name) {
+			LOOP:
+				for {
+					select {
+					case <-input.Context.Done():
+						// Context was cancelled (client disconnected or request cancelled)
+						xlog.Debug("Request context cancelled, stopping stream")
+						input.Cancel()
+						break LOOP
+					case ev := <-responses:
+						if len(ev.Choices) == 0 {
+							xlog.Debug("No choices in the response, skipping")
 							continue
 						}
-						xlog.Debug("Executing MCP tool (stream)", "tool", tc.FunctionCall.Name, "iteration", mcpStreamIter)
-						toolResult, toolErr := mcpTools.ExecuteMCPToolCall(
-							c.Request().Context(), mcpToolInfos,
-							tc.FunctionCall.Name, tc.FunctionCall.Arguments,
-						)
-						if toolErr != nil {
-							xlog.Error("MCP tool execution failed", "tool", tc.FunctionCall.Name, "error", toolErr)
-							toolResult = fmt.Sprintf("Error: %v", toolErr)
+						usage = &ev.Usage // Copy a pointer to the latest usage chunk so that the stop message can reference it
+						if len(ev.Choices[0].Delta.ToolCalls) > 0 {
+							toolsCalled = true
+							// Collect and merge tool call deltas for MCP execution
+							if hasMCPToolsStream {
+								collectedToolCalls = mergeToolCallDeltas(collectedToolCalls, ev.Choices[0].Delta.ToolCalls)
+							}
 						}
-						input.Messages = append(input.Messages, schema.Message{
-							Role:          "tool",
-							Content:       toolResult,
-							StringContent: toolResult,
-							ToolCallID:    tc.ID,
-							Name:          tc.FunctionCall.Name,
-						})
-
-						// Stream tool result event to client
-						mcpEvent := map[string]any{
-							"type":   "mcp_tool_result",
-							"name":   tc.FunctionCall.Name,
-							"result": toolResult,
+						// Collect content for MCP conversation history and automatic tool parsing fallback
+						if (hasMCPToolsStream || config.FunctionsConfig.AutomaticToolParsingFallback) && ev.Choices[0].Delta != nil && ev.Choices[0].Delta.Content != nil {
+							if s, ok := ev.Choices[0].Delta.Content.(string); ok {
+								collectedContent += s
+							} else if sp, ok := ev.Choices[0].Delta.Content.(*string); ok && sp != nil {
+								collectedContent += *sp
+							}
 						}
-						if mcpEventData, err := json.Marshal(mcpEvent); err == nil {
-							fmt.Fprintf(c.Response().Writer, "data: %s\n\n", mcpEventData)
-							c.Response().Flush()
+						respData, err := json.Marshal(ev)
+						if err != nil {
+							xlog.Debug("Failed to marshal response", "error", err)
+							input.Cancel()
+							continue
 						}
-					}
+						xlog.Debug("Sending chunk", "chunk", string(respData))
+						_, err = fmt.Fprintf(c.Response().Writer, "data: %s\n\n", string(respData))
+						if err != nil {
+							xlog.Debug("Sending chunk failed", "error", err)
+							input.Cancel()
+							return err
+						}
+						c.Response().Flush()
+					case err := <-ended:
+						if err == nil {
+							break LOOP
+						}
+						xlog.Error("Stream ended with error", "error", err)
 
-					xlog.Debug("MCP streaming tools executed, re-running inference", "iteration", mcpStreamIter)
-					continue // next MCP stream iteration
-				}
-			}
-
-			// Automatic tool parsing fallback for streaming: when no tools were
-			// requested but the model emitted tool call markup, parse and emit them.
-			if !shouldUseFn && config.FunctionsConfig.AutomaticToolParsingFallback && collectedContent != "" && !toolsCalled {
-				parsed := functions.ParseFunctionCall(collectedContent, config.FunctionsConfig)
-				for i, fc := range parsed {
-					toolCallID := fc.ID
-					if toolCallID == "" {
-						toolCallID = id
-					}
-					toolCallMsg := schema.OpenAIResponse{
-						ID:      id,
-						Created: created,
-						Model:   input.Model,
-						Choices: []schema.Choice{{
-							Delta: &schema.Message{
-								Role: "assistant",
-								ToolCalls: []schema.ToolCall{{
-									Index: i,
-									ID:    toolCallID,
-									Type:  "function",
-									FunctionCall: schema.FunctionCall{
-										Name:      fc.Name,
-										Arguments: fc.Arguments,
-									},
-								}},
+						errorResp := schema.ErrorResponse{
+							Error: &schema.APIError{
+								Message: err.Error(),
+								Type:    "server_error",
+								Code:    "server_error",
 							},
-							Index: 0,
-						}},
-						Object: "chat.completion.chunk",
+						}
+						respData, marshalErr := json.Marshal(errorResp)
+						if marshalErr != nil {
+							xlog.Error("Failed to marshal error response", "error", marshalErr)
+							fmt.Fprintf(c.Response().Writer, "data: {\"error\":{\"message\":\"Internal error\",\"type\":\"server_error\"}}\n\n")
+						} else {
+							fmt.Fprintf(c.Response().Writer, "data: %s\n\n", respData)
+						}
+						fmt.Fprintf(c.Response().Writer, "data: [DONE]\n\n")
+						c.Response().Flush()
+
+						return nil
 					}
-					respData, _ := json.Marshal(toolCallMsg)
-					fmt.Fprintf(c.Response().Writer, "data: %s\n\n", respData)
-					c.Response().Flush()
-					toolsCalled = true
 				}
-			}
 
-			// No MCP tools to execute, send final stop message
-			finishReason := FinishReasonStop
-			if toolsCalled && len(input.Tools) > 0 {
-				finishReason = FinishReasonToolCalls
-			} else if toolsCalled {
-				finishReason = FinishReasonFunctionCall
-			}
+				// Drain responses channel to unblock the background goroutine if it's
+				// still trying to send (e.g., after client disconnect). The goroutine
+				// calls close(responses) when done, which terminates the drain.
+				if input.Context.Err() != nil {
+					go func() { for range responses {} }()
+					<-ended
+				}
 
-			resp := &schema.OpenAIResponse{
-				ID:      id,
-				Created: created,
-				Model:   input.Model, // we have to return what the user sent here, due to OpenAI spec.
-				Choices: []schema.Choice{
-					{
-						FinishReason: &finishReason,
-						Index:        0,
-						Delta:        &schema.Message{},
-					}},
-				Object: "chat.completion.chunk",
-				Usage:  *usage,
-			}
-			respData, _ := json.Marshal(resp)
+				// MCP streaming tool execution: if we collected MCP tool calls, execute and loop
+				if hasMCPToolsStream && toolsCalled && len(collectedToolCalls) > 0 {
+					var hasMCPCalls bool
+					for _, tc := range collectedToolCalls {
+						if mcpExecutor != nil && mcpExecutor.IsTool(tc.FunctionCall.Name) {
+							hasMCPCalls = true
+							break
+						}
+					}
+					if hasMCPCalls {
+						// Append assistant message with tool_calls
+						assistantMsg := schema.Message{
+							Role:      "assistant",
+							Content:   collectedContent,
+							ToolCalls: collectedToolCalls,
+						}
+						input.Messages = append(input.Messages, assistantMsg)
 
-			fmt.Fprintf(c.Response().Writer, "data: %s\n\n", respData)
-			fmt.Fprintf(c.Response().Writer, "data: [DONE]\n\n")
-			c.Response().Flush()
-			xlog.Debug("Stream ended")
-			return nil
+						// Execute MCP tool calls and stream results as tool_result events
+						for _, tc := range collectedToolCalls {
+							if mcpExecutor == nil || !mcpExecutor.IsTool(tc.FunctionCall.Name) {
+								continue
+							}
+							xlog.Debug("Executing MCP tool (stream)", "tool", tc.FunctionCall.Name, "iteration", mcpStreamIter)
+							toolResult, toolErr := mcpExecutor.ExecuteTool(c.Request().Context(), tc.FunctionCall.Name, tc.FunctionCall.Arguments)
+							if toolErr != nil {
+								xlog.Error("MCP tool execution failed", "tool", tc.FunctionCall.Name, "error", toolErr)
+								toolResult = fmt.Sprintf("Error: %v", toolErr)
+							}
+							input.Messages = append(input.Messages, schema.Message{
+								Role:          "tool",
+								Content:       toolResult,
+								StringContent: toolResult,
+								ToolCallID:    tc.ID,
+								Name:          tc.FunctionCall.Name,
+							})
+
+							// Stream tool result event to client
+							mcpEvent := map[string]any{
+								"type":   "mcp_tool_result",
+								"name":   tc.FunctionCall.Name,
+								"result": toolResult,
+							}
+							if mcpEventData, err := json.Marshal(mcpEvent); err == nil {
+								fmt.Fprintf(c.Response().Writer, "data: %s\n\n", mcpEventData)
+								c.Response().Flush()
+							}
+						}
+
+						xlog.Debug("MCP streaming tools executed, re-running inference", "iteration", mcpStreamIter)
+						continue // next MCP stream iteration
+					}
+				}
+
+				// Automatic tool parsing fallback for streaming: when no tools were
+				// requested but the model emitted tool call markup, parse and emit them.
+				if !shouldUseFn && config.FunctionsConfig.AutomaticToolParsingFallback && collectedContent != "" && !toolsCalled {
+					parsed := functions.ParseFunctionCall(collectedContent, config.FunctionsConfig)
+					for i, fc := range parsed {
+						toolCallID := fc.ID
+						if toolCallID == "" {
+							toolCallID = id
+						}
+						toolCallMsg := schema.OpenAIResponse{
+							ID:      id,
+							Created: created,
+							Model:   input.Model,
+							Choices: []schema.Choice{{
+								Delta: &schema.Message{
+									Role: "assistant",
+									ToolCalls: []schema.ToolCall{{
+										Index: i,
+										ID:    toolCallID,
+										Type:  "function",
+										FunctionCall: schema.FunctionCall{
+											Name:      fc.Name,
+											Arguments: fc.Arguments,
+										},
+									}},
+								},
+								Index: 0,
+							}},
+							Object: "chat.completion.chunk",
+						}
+						respData, _ := json.Marshal(toolCallMsg)
+						fmt.Fprintf(c.Response().Writer, "data: %s\n\n", respData)
+						c.Response().Flush()
+						toolsCalled = true
+					}
+				}
+
+				// No MCP tools to execute, send final stop message
+				finishReason := FinishReasonStop
+				if toolsCalled && len(input.Tools) > 0 {
+					finishReason = FinishReasonToolCalls
+				} else if toolsCalled {
+					finishReason = FinishReasonFunctionCall
+				}
+
+				resp := &schema.OpenAIResponse{
+					ID:      id,
+					Created: created,
+					Model:   input.Model, // we have to return what the user sent here, due to OpenAI spec.
+					Choices: []schema.Choice{
+						{
+							FinishReason: &finishReason,
+							Index:        0,
+							Delta:        &schema.Message{},
+						}},
+					Object: "chat.completion.chunk",
+					Usage:  *usage,
+				}
+				respData, _ := json.Marshal(resp)
+
+				fmt.Fprintf(c.Response().Writer, "data: %s\n\n", respData)
+				fmt.Fprintf(c.Response().Writer, "data: [DONE]\n\n")
+				c.Response().Flush()
+				xlog.Debug("Stream ended")
+				return nil
 			} // end MCP stream iteration loop
 
 			// Safety fallback
@@ -935,322 +884,319 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 			if config.Agent.MaxIterations > 0 {
 				mcpMaxIterations = config.Agent.MaxIterations
 			}
-			hasMCPTools := len(mcpToolInfos) > 0
+			hasMCPTools := mcpExecutor != nil && mcpExecutor.HasTools()
 
 			for mcpIteration := 0; mcpIteration <= mcpMaxIterations; mcpIteration++ {
-			// Re-template on each MCP iteration since messages may have changed
-			if mcpIteration > 0 && !config.TemplateConfig.UseTokenizerTemplate {
-				predInput = evaluator.TemplateMessages(*input, input.Messages, config, funcs, shouldUseFn)
-				xlog.Debug("MCP re-templating", "iteration", mcpIteration, "prompt_len", len(predInput))
-			}
-
-			// Detect if thinking token is already in prompt or template
-			var template string
-			if config.TemplateConfig.UseTokenizerTemplate {
-				template = config.GetModelTemplate() // TODO: this should be the parsed jinja template. But for now this is the best we can do.
-			} else {
-				template = predInput
-			}
-			thinkingStartToken := reason.DetectThinkingStartToken(template, &config.ReasoningConfig)
-
-			xlog.Debug("Thinking start token", "thinkingStartToken", thinkingStartToken, "template", template)
-
-			// When shouldUseFn, the callback just stores the raw text — tool parsing
-			// is deferred to after ComputeChoices so we can check chat deltas first
-			// and avoid redundant Go-side parsing.
-			var cbRawResult, cbReasoning string
-
-			tokenCallback := func(s string, c *[]schema.Choice) {
-				reasoning, s := reason.ExtractReasoningWithConfig(s, thinkingStartToken, config.ReasoningConfig)
-
-				if !shouldUseFn {
-					stopReason := FinishReasonStop
-					message := &schema.Message{Role: "assistant", Content: &s}
-					if reasoning != "" {
-						message.Reasoning = &reasoning
-					}
-					*c = append(*c, schema.Choice{FinishReason: &stopReason, Index: 0, Message: message})
-					return
+				// Re-template on each MCP iteration since messages may have changed
+				if mcpIteration > 0 && !config.TemplateConfig.UseTokenizerTemplate {
+					predInput = evaluator.TemplateMessages(*input, input.Messages, config, funcs, shouldUseFn)
+					xlog.Debug("MCP re-templating", "iteration", mcpIteration, "prompt_len", len(predInput))
 				}
 
-				// Store raw text for deferred tool parsing
-				cbRawResult = s
-				cbReasoning = reasoning
-			}
-
-			var result []schema.Choice
-			var tokenUsage backend.TokenUsage
-			var err error
-
-			var chatDeltas []*pb.ChatDelta
-			result, tokenUsage, chatDeltas, err = ComputeChoices(
-				input,
-				predInput,
-				config,
-				cl,
-				startupOptions,
-				ml,
-				tokenCallback,
-				nil,
-				func(attempt int) bool {
-					if !shouldUseFn {
-						return false
-					}
-					// Retry when backend produced only reasoning and no content/tool calls.
-					// Full tool parsing is deferred until after ComputeChoices returns
-					// (when chat deltas are available), but we can detect the empty case here.
-					if cbRawResult == "" && textContentToReturn == "" {
-						xlog.Warn("Backend produced reasoning without actionable content, retrying",
-							"reasoning_len", len(cbReasoning), "attempt", attempt+1)
-						cbRawResult = ""
-						cbReasoning = ""
-						textContentToReturn = ""
-						return true
-					}
-					return false
-				},
-			)
-			if err != nil {
-				return err
-			}
-
-			// Tool parsing is deferred here (only when shouldUseFn) so chat deltas are available
-			if shouldUseFn {
-				var funcResults []functions.FuncCallResults
-
-				// Try pre-parsed tool calls from C++ autoparser first
-				if deltaToolCalls := functions.ToolCallsFromChatDeltas(chatDeltas); len(deltaToolCalls) > 0 {
-					xlog.Debug("[ChatDeltas] non-SSE: using C++ autoparser tool calls, skipping Go-side parsing", "count", len(deltaToolCalls))
-					funcResults = deltaToolCalls
-					textContentToReturn = functions.ContentFromChatDeltas(chatDeltas)
-					cbReasoning = functions.ReasoningFromChatDeltas(chatDeltas)
+				// Detect if thinking token is already in prompt or template
+				var template string
+				if config.TemplateConfig.UseTokenizerTemplate {
+					template = config.GetModelTemplate() // TODO: this should be the parsed jinja template. But for now this is the best we can do.
 				} else {
-					// Fallback: parse tool calls from raw text
-					xlog.Debug("[ChatDeltas] non-SSE: no chat deltas, falling back to Go-side text parsing")
-					textContentToReturn = functions.ParseTextContent(cbRawResult, config.FunctionsConfig)
-					cbRawResult = functions.CleanupLLMResult(cbRawResult, config.FunctionsConfig)
-					funcResults = functions.ParseFunctionCall(cbRawResult, config.FunctionsConfig)
+					template = predInput
 				}
+				thinkingStartToken := reason.DetectThinkingStartToken(template, &config.ReasoningConfig)
 
-				// Content-based tool call fallback: if no tool calls were found,
-				// try parsing the raw result — ParseFunctionCall handles detection internally.
-				if len(funcResults) == 0 {
-					contentFuncResults := functions.ParseFunctionCall(cbRawResult, config.FunctionsConfig)
-					if len(contentFuncResults) > 0 {
-						funcResults = contentFuncResults
-						textContentToReturn = functions.StripToolCallMarkup(cbRawResult)
-					}
-				}
+				xlog.Debug("Thinking start token", "thinkingStartToken", thinkingStartToken, "template", template)
 
-				noActionsToRun := len(funcResults) > 0 && funcResults[0].Name == noActionName || len(funcResults) == 0
+				// When shouldUseFn, the callback just stores the raw text — tool parsing
+				// is deferred to after ComputeChoices so we can check chat deltas first
+				// and avoid redundant Go-side parsing.
+				var cbRawResult, cbReasoning string
 
-				switch {
-				case noActionsToRun:
-					qResult, qErr := handleQuestion(config, funcResults, cbRawResult, predInput)
-					if qErr != nil {
-						xlog.Error("error handling question", "error", qErr)
-					}
+				tokenCallback := func(s string, c *[]schema.Choice) {
+					reasoning, s := reason.ExtractReasoningWithConfig(s, thinkingStartToken, config.ReasoningConfig)
 
-					stopReason := FinishReasonStop
-					message := &schema.Message{Role: "assistant", Content: &qResult}
-					if cbReasoning != "" {
-						message.Reasoning = &cbReasoning
-					}
-					result = append(result, schema.Choice{
-						FinishReason: &stopReason,
-						Message:      message,
-					})
-				default:
-					toolCallsReason := FinishReasonToolCalls
-					toolChoice := schema.Choice{
-						FinishReason: &toolCallsReason,
-						Message: &schema.Message{
-							Role: "assistant",
-						},
-					}
-					if cbReasoning != "" {
-						toolChoice.Message.Reasoning = &cbReasoning
-					}
-
-					for _, ss := range funcResults {
-						name, args := ss.Name, ss.Arguments
-						toolCallID := ss.ID
-						if toolCallID == "" {
-							toolCallID = id
+					if !shouldUseFn {
+						stopReason := FinishReasonStop
+						message := &schema.Message{Role: "assistant", Content: &s}
+						if reasoning != "" {
+							message.Reasoning = &reasoning
 						}
+						*c = append(*c, schema.Choice{FinishReason: &stopReason, Index: 0, Message: message})
+						return
+					}
+
+					// Store raw text for deferred tool parsing
+					cbRawResult = s
+					cbReasoning = reasoning
+				}
+
+				var result []schema.Choice
+				var tokenUsage backend.TokenUsage
+				var err error
+
+				var chatDeltas []*pb.ChatDelta
+				result, tokenUsage, chatDeltas, err = ComputeChoices(
+					input,
+					predInput,
+					config,
+					cl,
+					startupOptions,
+					ml,
+					tokenCallback,
+					nil,
+					func(attempt int) bool {
+						if !shouldUseFn {
+							return false
+						}
+						// Retry when backend produced only reasoning and no content/tool calls.
+						// Full tool parsing is deferred until after ComputeChoices returns
+						// (when chat deltas are available), but we can detect the empty case here.
+						if cbRawResult == "" && textContentToReturn == "" {
+							xlog.Warn("Backend produced reasoning without actionable content, retrying",
+								"reasoning_len", len(cbReasoning), "attempt", attempt+1)
+							cbRawResult = ""
+							cbReasoning = ""
+							textContentToReturn = ""
+							return true
+						}
+						return false
+					},
+				)
+				if err != nil {
+					return err
+				}
+
+				// Tool parsing is deferred here (only when shouldUseFn) so chat deltas are available
+				if shouldUseFn {
+					var funcResults []functions.FuncCallResults
+
+					// Try pre-parsed tool calls from C++ autoparser first
+					if deltaToolCalls := functions.ToolCallsFromChatDeltas(chatDeltas); len(deltaToolCalls) > 0 {
+						xlog.Debug("[ChatDeltas] non-SSE: using C++ autoparser tool calls, skipping Go-side parsing", "count", len(deltaToolCalls))
+						funcResults = deltaToolCalls
+						textContentToReturn = functions.ContentFromChatDeltas(chatDeltas)
+						cbReasoning = functions.ReasoningFromChatDeltas(chatDeltas)
+					} else {
+						// Fallback: parse tool calls from raw text
+						xlog.Debug("[ChatDeltas] non-SSE: no chat deltas, falling back to Go-side text parsing")
+						textContentToReturn = functions.ParseTextContent(cbRawResult, config.FunctionsConfig)
+						cbRawResult = functions.CleanupLLMResult(cbRawResult, config.FunctionsConfig)
+						funcResults = functions.ParseFunctionCall(cbRawResult, config.FunctionsConfig)
+					}
+
+					// Content-based tool call fallback: if no tool calls were found,
+					// try parsing the raw result — ParseFunctionCall handles detection internally.
+					if len(funcResults) == 0 {
+						contentFuncResults := functions.ParseFunctionCall(cbRawResult, config.FunctionsConfig)
+						if len(contentFuncResults) > 0 {
+							funcResults = contentFuncResults
+							textContentToReturn = functions.StripToolCallMarkup(cbRawResult)
+						}
+					}
+
+					noActionsToRun := len(funcResults) > 0 && funcResults[0].Name == noActionName || len(funcResults) == 0
+
+					switch {
+					case noActionsToRun:
+						qResult, qErr := handleQuestion(config, funcResults, cbRawResult, predInput)
+						if qErr != nil {
+							xlog.Error("error handling question", "error", qErr)
+						}
+
+						stopReason := FinishReasonStop
+						message := &schema.Message{Role: "assistant", Content: &qResult}
+						if cbReasoning != "" {
+							message.Reasoning = &cbReasoning
+						}
+						result = append(result, schema.Choice{
+							FinishReason: &stopReason,
+							Message:      message,
+						})
+					default:
+						toolCallsReason := FinishReasonToolCalls
+						toolChoice := schema.Choice{
+							FinishReason: &toolCallsReason,
+							Message: &schema.Message{
+								Role: "assistant",
+							},
+						}
+						if cbReasoning != "" {
+							toolChoice.Message.Reasoning = &cbReasoning
+						}
+
+						for _, ss := range funcResults {
+							name, args := ss.Name, ss.Arguments
+							toolCallID := ss.ID
+							if toolCallID == "" {
+								toolCallID = id
+							}
+							if len(input.Tools) > 0 {
+								toolChoice.Message.Content = textContentToReturn
+								toolChoice.Message.ToolCalls = append(toolChoice.Message.ToolCalls,
+									schema.ToolCall{
+										ID:   toolCallID,
+										Type: "function",
+										FunctionCall: schema.FunctionCall{
+											Name:      name,
+											Arguments: args,
+										},
+									},
+								)
+							} else {
+								// Deprecated function_call format
+								functionCallReason := FinishReasonFunctionCall
+								message := &schema.Message{
+									Role:    "assistant",
+									Content: &textContentToReturn,
+									FunctionCall: map[string]any{
+										"name":      name,
+										"arguments": args,
+									},
+								}
+								if cbReasoning != "" {
+									message.Reasoning = &cbReasoning
+								}
+								result = append(result, schema.Choice{
+									FinishReason: &functionCallReason,
+									Message:      message,
+								})
+							}
+						}
+
 						if len(input.Tools) > 0 {
-							toolChoice.Message.Content = textContentToReturn
-							toolChoice.Message.ToolCalls = append(toolChoice.Message.ToolCalls,
+							result = append(result, toolChoice)
+						}
+					}
+				}
+
+				// Automatic tool parsing fallback: when no tools/functions were in the
+				// request but the model emitted tool call markup, parse and surface them.
+				if !shouldUseFn && config.FunctionsConfig.AutomaticToolParsingFallback && len(result) > 0 {
+					for i, choice := range result {
+						if choice.Message == nil || choice.Message.Content == nil {
+							continue
+						}
+						contentStr, ok := choice.Message.Content.(string)
+						if !ok || contentStr == "" {
+							continue
+						}
+						parsed := functions.ParseFunctionCall(contentStr, config.FunctionsConfig)
+						if len(parsed) == 0 {
+							continue
+						}
+						stripped := functions.StripToolCallMarkup(contentStr)
+						toolCallsReason := FinishReasonToolCalls
+						result[i].FinishReason = &toolCallsReason
+						if stripped != "" {
+							result[i].Message.Content = &stripped
+						} else {
+							result[i].Message.Content = nil
+						}
+						for _, fc := range parsed {
+							toolCallID := fc.ID
+							if toolCallID == "" {
+								toolCallID = id
+							}
+							result[i].Message.ToolCalls = append(result[i].Message.ToolCalls,
 								schema.ToolCall{
 									ID:   toolCallID,
 									Type: "function",
 									FunctionCall: schema.FunctionCall{
-										Name:      name,
-										Arguments: args,
+										Name:      fc.Name,
+										Arguments: fc.Arguments,
 									},
 								},
 							)
-						} else {
-							// Deprecated function_call format
-							functionCallReason := FinishReasonFunctionCall
-							message := &schema.Message{
-								Role:    "assistant",
-								Content: &textContentToReturn,
-								FunctionCall: map[string]interface{}{
-									"name":      name,
-									"arguments": args,
-								},
-							}
-							if cbReasoning != "" {
-								message.Reasoning = &cbReasoning
-							}
-							result = append(result, schema.Choice{
-								FinishReason: &functionCallReason,
-								Message:      message,
-							})
 						}
-					}
-
-					if len(input.Tools) > 0 {
-						result = append(result, toolChoice)
 					}
 				}
-			}
 
-			// Automatic tool parsing fallback: when no tools/functions were in the
-			// request but the model emitted tool call markup, parse and surface them.
-			if !shouldUseFn && config.FunctionsConfig.AutomaticToolParsingFallback && len(result) > 0 {
-				for i, choice := range result {
-					if choice.Message == nil || choice.Message.Content == nil {
-						continue
-					}
-					contentStr, ok := choice.Message.Content.(string)
-					if !ok || contentStr == "" {
-						continue
-					}
-					parsed := functions.ParseFunctionCall(contentStr, config.FunctionsConfig)
-					if len(parsed) == 0 {
-						continue
-					}
-					stripped := functions.StripToolCallMarkup(contentStr)
-					toolCallsReason := FinishReasonToolCalls
-					result[i].FinishReason = &toolCallsReason
-					if stripped != "" {
-						result[i].Message.Content = &stripped
-					} else {
-						result[i].Message.Content = nil
-					}
-					for _, fc := range parsed {
-						toolCallID := fc.ID
-						if toolCallID == "" {
-							toolCallID = id
-						}
-						result[i].Message.ToolCalls = append(result[i].Message.ToolCalls,
-							schema.ToolCall{
-								ID:   toolCallID,
-								Type: "function",
-								FunctionCall: schema.FunctionCall{
-									Name:      fc.Name,
-									Arguments: fc.Arguments,
-								},
-							},
-						)
-					}
-				}
-			}
-
-			// MCP server-side tool execution loop:
-			// If we have MCP tools and the model returned tool_calls, execute MCP tools
-			// and re-run inference with the results appended to the conversation.
-			if hasMCPTools && len(result) > 0 {
-				var mcpCallsExecuted bool
-				for _, choice := range result {
-					if choice.Message == nil || len(choice.Message.ToolCalls) == 0 {
-						continue
-					}
-					// Check if any tool calls are MCP tools
-					var hasMCPCalls bool
-					for _, tc := range choice.Message.ToolCalls {
-						if mcpTools.IsMCPTool(mcpToolInfos, tc.FunctionCall.Name) {
-							hasMCPCalls = true
-							break
-						}
-					}
-					if !hasMCPCalls {
-						continue
-					}
-
-					// Append assistant message with tool_calls to conversation
-					assistantContent := ""
-					if choice.Message.Content != nil {
-						if s, ok := choice.Message.Content.(string); ok {
-							assistantContent = s
-						} else if sp, ok := choice.Message.Content.(*string); ok && sp != nil {
-							assistantContent = *sp
-						}
-					}
-					assistantMsg := schema.Message{
-						Role:      "assistant",
-						Content:   assistantContent,
-						ToolCalls: choice.Message.ToolCalls,
-					}
-					input.Messages = append(input.Messages, assistantMsg)
-
-					// Execute each MCP tool call and append results
-					for _, tc := range choice.Message.ToolCalls {
-						if !mcpTools.IsMCPTool(mcpToolInfos, tc.FunctionCall.Name) {
+				// MCP server-side tool execution loop:
+				// If we have MCP tools and the model returned tool_calls, execute MCP tools
+				// and re-run inference with the results appended to the conversation.
+				if hasMCPTools && len(result) > 0 {
+					var mcpCallsExecuted bool
+					for _, choice := range result {
+						if choice.Message == nil || len(choice.Message.ToolCalls) == 0 {
 							continue
 						}
-						xlog.Debug("Executing MCP tool", "tool", tc.FunctionCall.Name, "arguments", tc.FunctionCall.Arguments, "iteration", mcpIteration)
-						toolResult, toolErr := mcpTools.ExecuteMCPToolCall(
-							c.Request().Context(), mcpToolInfos,
-							tc.FunctionCall.Name, tc.FunctionCall.Arguments,
-						)
-						if toolErr != nil {
-							xlog.Error("MCP tool execution failed", "tool", tc.FunctionCall.Name, "error", toolErr)
-							toolResult = fmt.Sprintf("Error: %v", toolErr)
+						// Check if any tool calls are MCP tools
+						var hasMCPCalls bool
+						for _, tc := range choice.Message.ToolCalls {
+							if mcpExecutor != nil && mcpExecutor.IsTool(tc.FunctionCall.Name) {
+								hasMCPCalls = true
+								break
+							}
 						}
-						input.Messages = append(input.Messages, schema.Message{
-							Role:          "tool",
-							Content:       toolResult,
-							StringContent: toolResult,
-							ToolCallID:    tc.ID,
-							Name:          tc.FunctionCall.Name,
-						})
-						mcpCallsExecuted = true
+						if !hasMCPCalls {
+							continue
+						}
+
+						// Append assistant message with tool_calls to conversation
+						assistantContent := ""
+						if choice.Message.Content != nil {
+							if s, ok := choice.Message.Content.(string); ok {
+								assistantContent = s
+							} else if sp, ok := choice.Message.Content.(*string); ok && sp != nil {
+								assistantContent = *sp
+							}
+						}
+						assistantMsg := schema.Message{
+							Role:      "assistant",
+							Content:   assistantContent,
+							ToolCalls: choice.Message.ToolCalls,
+						}
+						input.Messages = append(input.Messages, assistantMsg)
+
+						// Execute each MCP tool call and append results
+						for _, tc := range choice.Message.ToolCalls {
+							if mcpExecutor == nil || !mcpExecutor.IsTool(tc.FunctionCall.Name) {
+								continue
+							}
+							xlog.Debug("Executing MCP tool", "tool", tc.FunctionCall.Name, "arguments", tc.FunctionCall.Arguments, "iteration", mcpIteration)
+							toolResult, toolErr := mcpExecutor.ExecuteTool(c.Request().Context(), tc.FunctionCall.Name, tc.FunctionCall.Arguments)
+							if toolErr != nil {
+								xlog.Error("MCP tool execution failed", "tool", tc.FunctionCall.Name, "error", toolErr)
+								toolResult = fmt.Sprintf("Error: %v", toolErr)
+							}
+							input.Messages = append(input.Messages, schema.Message{
+								Role:          "tool",
+								Content:       toolResult,
+								StringContent: toolResult,
+								ToolCallID:    tc.ID,
+								Name:          tc.FunctionCall.Name,
+							})
+							mcpCallsExecuted = true
+						}
+					}
+
+					if mcpCallsExecuted {
+						xlog.Debug("MCP tools executed, re-running inference", "iteration", mcpIteration, "messages", len(input.Messages))
+						continue // next MCP iteration
 					}
 				}
 
-				if mcpCallsExecuted {
-					xlog.Debug("MCP tools executed, re-running inference", "iteration", mcpIteration, "messages", len(input.Messages))
-					continue // next MCP iteration
+				// No MCP tools to execute (or no MCP tools configured), return response
+				usage := schema.OpenAIUsage{
+					PromptTokens:     tokenUsage.Prompt,
+					CompletionTokens: tokenUsage.Completion,
+					TotalTokens:      tokenUsage.Prompt + tokenUsage.Completion,
 				}
-			}
+				if extraUsage {
+					usage.TimingTokenGeneration = tokenUsage.TimingTokenGeneration
+					usage.TimingPromptProcessing = tokenUsage.TimingPromptProcessing
+				}
 
-			// No MCP tools to execute (or no MCP tools configured), return response
-			usage := schema.OpenAIUsage{
-				PromptTokens:     tokenUsage.Prompt,
-				CompletionTokens: tokenUsage.Completion,
-				TotalTokens:      tokenUsage.Prompt + tokenUsage.Completion,
-			}
-			if extraUsage {
-				usage.TimingTokenGeneration = tokenUsage.TimingTokenGeneration
-				usage.TimingPromptProcessing = tokenUsage.TimingPromptProcessing
-			}
+				resp := &schema.OpenAIResponse{
+					ID:      id,
+					Created: created,
+					Model:   input.Model, // we have to return what the user sent here, due to OpenAI spec.
+					Choices: result,
+					Object:  "chat.completion",
+					Usage:   usage,
+				}
+				respData, _ := json.Marshal(resp)
+				xlog.Debug("Response", "response", string(respData))
 
-			resp := &schema.OpenAIResponse{
-				ID:      id,
-				Created: created,
-				Model:   input.Model, // we have to return what the user sent here, due to OpenAI spec.
-				Choices: result,
-				Object:  "chat.completion",
-				Usage:   usage,
-			}
-			respData, _ := json.Marshal(resp)
-			xlog.Debug("Response", "response", string(respData))
-
-			// Return the prediction in the response body
-			return c.JSON(200, resp)
+				// Return the prediction in the response body
+				return c.JSON(200, resp)
 			} // end MCP iteration loop
 
 			// Should not reach here, but safety fallback
@@ -1273,7 +1219,7 @@ func handleQuestion(config *config.ModelConfig, funcResults []functions.FuncCall
 		arg = funcResults[0].Arguments
 	}
 	// If there is a message that the LLM already sends as part of the JSON reply, use it
-	arguments := map[string]interface{}{}
+	arguments := map[string]any{}
 	if err := json.Unmarshal([]byte(arg), &arguments); err != nil {
 		xlog.Debug("handleQuestion: function result did not contain a valid JSON object")
 	}

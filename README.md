@@ -154,6 +154,7 @@ For older news and full release notes, see [GitHub Releases](https://github.com/
 - [Object Detection](https://localai.io/features/object-detection/)
 - [Reranker API](https://localai.io/features/reranker/)
 - [P2P Inferencing](https://localai.io/features/distribute/)
+- [Distributed Mode](https://localai.io/features/distributed-mode/) — Horizontal scaling with PostgreSQL + NATS
 - [Model Context Protocol (MCP)](https://localai.io/docs/features/mcp/)
 - [Built-in Agents](https://localai.io/features/agents/) — Autonomous AI agents with tool use, RAG, skills, SSE streaming, and [Agent Hub](https://agenthub.localai.io)
 - [Backend Gallery](https://localai.io/backends/) — Install/remove backends on the fly via OCI images

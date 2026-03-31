@@ -48,12 +48,12 @@ var _ = Describe("LLM tests", func() {
 			messages := Messages{
 				{
 					Role: "user",
-					Content: []interface{}{
-						map[string]interface{}{
+					Content: []any{
+						map[string]any{
 							"type": "text",
 							"text": "Hello",
 						},
-						map[string]interface{}{
+						map[string]any{
 							"type": "text",
 							"text": " World",
 						},
@@ -241,12 +241,12 @@ var _ = Describe("LLM tests", func() {
 			messages := Messages{
 				{
 					Role: "user",
-					Content: []interface{}{
-						map[string]interface{}{
+					Content: []any{
+						map[string]any{
 							"type": "text",
 							"text": "Hello",
 						},
-						map[string]interface{}{
+						map[string]any{
 							"type": "image",
 							"url":  "https://example.com/image.jpg",
 						},

@@ -149,8 +149,8 @@ var _ = Describe("Anthropic API E2E test", func() {
 								Description: anthropic.Opt("Get the current weather in a given location"),
 								InputSchema: anthropic.ToolInputSchemaParam{
 									Type: constant.ValueOf[constant.Object](),
-									Properties: map[string]interface{}{
-										"location": map[string]interface{}{
+									Properties: map[string]any{
+										"location": map[string]any{
 											"type":        "string",
 											"description": "The city and state, e.g. San Francisco, CA",
 										},
@@ -173,7 +173,7 @@ var _ = Describe("Anthropic API E2E test", func() {
 						Expect(block.Name).To(Equal("get_weather"))
 						Expect(block.ID).ToNot(BeEmpty())
 						// Verify that input contains location
-						var inputMap map[string]interface{}
+						var inputMap map[string]any
 						err := json.Unmarshal(block.Input, &inputMap)
 						Expect(err).ToNot(HaveOccurred())
 						_, hasLocation := inputMap["location"]
@@ -200,8 +200,8 @@ var _ = Describe("Anthropic API E2E test", func() {
 								Description: anthropic.Opt("Get the current weather"),
 								InputSchema: anthropic.ToolInputSchemaParam{
 									Type: constant.ValueOf[constant.Object](),
-									Properties: map[string]interface{}{
-										"location": map[string]interface{}{
+									Properties: map[string]any{
+										"location": map[string]any{
 											"type": "string",
 										},
 									},
@@ -235,8 +235,8 @@ var _ = Describe("Anthropic API E2E test", func() {
 								Description: anthropic.Opt("Get weather"),
 								InputSchema: anthropic.ToolInputSchemaParam{
 									Type: constant.ValueOf[constant.Object](),
-									Properties: map[string]interface{}{
-										"location": map[string]interface{}{"type": "string"},
+									Properties: map[string]any{
+										"location": map[string]any{"type": "string"},
 									},
 								},
 							},
@@ -264,7 +264,7 @@ var _ = Describe("Anthropic API E2E test", func() {
 				contentBlocks := make([]anthropic.ContentBlockParamUnion, len(firstMessage.Content))
 				for i, block := range firstMessage.Content {
 					if block.Type == "tool_use" {
-						var inputMap map[string]interface{}
+						var inputMap map[string]any
 						if err := json.Unmarshal(block.Input, &inputMap); err == nil {
 							contentBlocks[i] = anthropic.NewToolUseBlock(block.ID, inputMap, block.Name)
 						} else {
@@ -293,8 +293,8 @@ var _ = Describe("Anthropic API E2E test", func() {
 								Description: anthropic.Opt("Get weather"),
 								InputSchema: anthropic.ToolInputSchemaParam{
 									Type: constant.ValueOf[constant.Object](),
-									Properties: map[string]interface{}{
-										"location": map[string]interface{}{"type": "string"},
+									Properties: map[string]any{
+										"location": map[string]any{"type": "string"},
 									},
 								},
 							},
@@ -320,8 +320,8 @@ var _ = Describe("Anthropic API E2E test", func() {
 								Description: anthropic.Opt("Get the current weather in a given location"),
 								InputSchema: anthropic.ToolInputSchemaParam{
 									Type: constant.ValueOf[constant.Object](),
-									Properties: map[string]interface{}{
-										"location": map[string]interface{}{
+									Properties: map[string]any{
+										"location": map[string]any{
 											"type":        "string",
 											"description": "The city and state, e.g. San Francisco, CA",
 										},

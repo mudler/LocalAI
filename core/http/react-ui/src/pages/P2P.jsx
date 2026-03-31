@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import { p2pApi } from '../utils/api'
 import LoadingSpinner from '../components/LoadingSpinner'
+import ImageSelector, { useImageSelector, dockerImage, dockerFlags } from '../components/ImageSelector'
 
 function NodeCard({ node, label, iconColor, iconBg }) {
   return (
@@ -110,6 +111,7 @@ export default function P2P() {
   const [enabled, setEnabled] = useState(false)
   const [token, setToken] = useState('')
   const [activeTab, setActiveTab] = useState('federation')
+  const imgSelector = useImageSelector('cpu')
 
   const fetchData = useCallback(async () => {
     try {
@@ -227,13 +229,16 @@ export default function P2P() {
             <i className="fas fa-rocket" style={{ color: 'var(--color-accent)', marginRight: 'var(--spacing-sm)' }} />
             How to Enable P2P
           </h3>
+          <p style={{ fontWeight: 600, fontSize: '0.8125rem', marginBottom: 'var(--spacing-xs)' }}>Select your hardware</p>
+          <ImageSelector selected={imgSelector.selected} onSelect={imgSelector.setSelected} dev={imgSelector.dev} onDevChange={imgSelector.setDev} />
+
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
             <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
               <StepNumber n={1} bg="var(--color-accent-light)" color="var(--color-accent)" />
               <div style={{ flex: 1 }}>
                 <p style={{ fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>Start LocalAI with P2P enabled</p>
                 <CommandBlock
-                  command={`docker run -ti --net host --name local-ai \\\n  localai/localai:latest-cpu run --p2p`}
+                  command={`docker run -ti --net host ${dockerFlags(imgSelector.option) ? dockerFlags(imgSelector.option) + ' ' : ''}\\\n  --name local-ai \\\n  ${dockerImage(imgSelector.option, imgSelector.dev)} run --p2p`}
                   addToast={addToast}
                 />
                 <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.8125rem', marginTop: 'var(--spacing-xs)' }}>
@@ -246,7 +251,7 @@ export default function P2P() {
               <div style={{ flex: 1 }}>
                 <p style={{ fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>Or use an existing token</p>
                 <CommandBlock
-                  command={`docker run -ti --net host \\\n  -e TOKEN="your-token-here" \\\n  --name local-ai \\\n  localai/localai:latest-cpu run --p2p`}
+                  command={`docker run -ti --net host ${dockerFlags(imgSelector.option) ? dockerFlags(imgSelector.option) + ' ' : ''}\\\n  -e TOKEN="your-token-here" \\\n  --name local-ai \\\n  ${dockerImage(imgSelector.option, imgSelector.dev)} run --p2p`}
                   addToast={addToast}
                 />
                 <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.8125rem', marginTop: 'var(--spacing-xs)' }}>
@@ -512,6 +517,9 @@ export default function P2P() {
               background: 'var(--color-bg-primary)', borderRadius: 'var(--radius-lg)',
               border: '1px solid var(--color-border-subtle)', padding: 'var(--spacing-lg)',
             }}>
+              <p style={{ fontWeight: 600, fontSize: '0.8125rem', marginBottom: 'var(--spacing-xs)' }}>Select your hardware</p>
+              <ImageSelector selected={imgSelector.selected} onSelect={imgSelector.setSelected} dev={imgSelector.dev} onDevChange={imgSelector.setDev} />
+
               {/* Step 1 */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-sm)' }}>
                 <StepNumber n={1} bg="var(--color-success-light)" color="var(--color-success)" />
@@ -523,7 +531,7 @@ export default function P2P() {
                 This is the entry point for your API clients. It receives requests and distributes them to federated instances.
               </p>
               <CommandBlock
-                command={`docker run -ti --net host \\\n  -e TOKEN="${token}" \\\n  --name local-ai-federated \\\n  localai/localai:latest-cpu federated`}
+                command={`docker run -ti --net host ${dockerFlags(imgSelector.option) ? dockerFlags(imgSelector.option) + ' ' : ''}\\\n  -e TOKEN="${token}" \\\n  --name local-ai-federated \\\n  ${dockerImage(imgSelector.option, imgSelector.dev)} federated`}
                 addToast={addToast}
               />
               <p style={{ color: 'var(--color-text-muted)', fontSize: '0.8125rem', marginTop: 'var(--spacing-sm)' }}>
@@ -544,20 +552,11 @@ export default function P2P() {
                 Run this on each machine you want to add as a worker. Each instance runs your models and receives tasks from the federated server.
               </p>
               <CommandBlock
-                command={`docker run -ti --net host \\\n  -e TOKEN="${token}" \\\n  --name local-ai \\\n  localai/localai:latest-cpu run --federated --p2p`}
+                command={`docker run -ti --net host ${dockerFlags(imgSelector.option) ? dockerFlags(imgSelector.option) + ' ' : ''}\\\n  -e TOKEN="${token}" \\\n  --name local-ai \\\n  ${dockerImage(imgSelector.option, imgSelector.dev)} run --federated --p2p`}
                 addToast={addToast}
               />
               <p style={{ color: 'var(--color-text-muted)', fontSize: '0.8125rem', marginTop: 'var(--spacing-sm)' }}>
                 Listens on port <code>8080</code> by default. To change it, add <code>-e ADDRESS=:9090</code>.
-              </p>
-
-              <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.875rem', marginTop: 'var(--spacing-lg)' }}>
-                For GPU images and all available options, see the{' '}
-                <a href="https://localai.io/basics/container/" target="_blank" rel="noopener noreferrer"
-                  style={{ color: 'var(--color-primary)' }}>Container images</a>
-                {' '}and{' '}
-                <a href="https://localai.io/features/distribute/" target="_blank" rel="noopener noreferrer"
-                  style={{ color: 'var(--color-primary)' }}>Distribution</a> docs.
               </p>
             </div>
           </div>
@@ -755,8 +754,10 @@ export default function P2P() {
               <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.875rem', marginBottom: 'var(--spacing-sm)' }}>
                 Each worker exposes its GPU/CPU memory as a shard for distributed model inference.
               </p>
+              <p style={{ fontWeight: 600, fontSize: '0.8125rem', marginBottom: 'var(--spacing-xs)' }}>Select your hardware</p>
+              <ImageSelector selected={imgSelector.selected} onSelect={imgSelector.setSelected} dev={imgSelector.dev} onDevChange={imgSelector.setDev} />
               <CommandBlock
-                command={`docker run -ti --net host \\\n  -e TOKEN="${token}" \\\n  --name local-ai-worker \\\n  localai/localai:latest-cpu worker p2p-llama-cpp-rpc`}
+                command={`docker run -ti --net host ${dockerFlags(imgSelector.option) ? dockerFlags(imgSelector.option) + ' ' : ''}\\\n  -e TOKEN="${token}" \\\n  --name local-ai-worker \\\n  ${dockerImage(imgSelector.option, imgSelector.dev)} worker p2p-llama-cpp-rpc`}
                 addToast={addToast}
               />
             </div>

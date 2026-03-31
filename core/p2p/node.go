@@ -9,9 +9,9 @@ import (
 )
 
 const (
-	defaultServicesID  = "services"
-	LlamaCPPWorkerID   = "worker"
-	MLXWorkerID        = "mlx_worker"
+	defaultServicesID = "services"
+	LlamaCPPWorkerID  = "worker"
+	MLXWorkerID       = "mlx_worker"
 )
 
 var mu sync.Mutex

@@ -22,8 +22,10 @@
 #include <grpcpp/ext/proto_server_reflection_plugin.h>
 #include <grpcpp/grpcpp.h>
 #include <grpcpp/health_check_service_interface.h>
+#include <grpcpp/security/server_credentials.h>
 #include <regex>
 #include <atomic>
+#include <cstdlib>
 #include <mutex>
 #include <signal.h>
 #include <thread>
@@ -37,6 +39,47 @@ using grpc::Server;
 using grpc::ServerBuilder;
 using grpc::ServerContext;
 using grpc::Status;
+
+// gRPC bearer token auth via AuthMetadataProcessor for distributed mode.
+// Reads LOCALAI_GRPC_AUTH_TOKEN from the environment. When set, rejects
+// requests without a matching "authorization: Bearer <token>" metadata header.
+class TokenAuthMetadataProcessor : public grpc::AuthMetadataProcessor {
+public:
+    explicit TokenAuthMetadataProcessor(const std::string& token) : token_(token) {}
+
+    bool IsBlocking() const override { return false; }
+
+    grpc::Status Process(const InputMetadata& auth_metadata,
+                         grpc::AuthContext* /*context*/,
+                         OutputMetadata* /*consumed_auth_metadata*/,
+                         OutputMetadata* /*response_metadata*/) override {
+        auto it = auth_metadata.find("authorization");
+        if (it != auth_metadata.end()) {
+            std::string expected = "Bearer " + token_;
+            std::string got(it->second.data(), it->second.size());
+            // Constant-time comparison
+            if (expected.size() == got.size() && ct_memcmp(expected.data(), got.data(), expected.size()) == 0) {
+                return grpc::Status::OK;
+            }
+        }
+        return grpc::Status(grpc::StatusCode::UNAUTHENTICATED, "invalid token");
+    }
+
+private:
+    std::string token_;
+
+    // Minimal constant-time comparison (avoids OpenSSL dependency)
+    static int ct_memcmp(const void* a, const void* b, size_t n) {
+        const unsigned char* pa = static_cast<const unsigned char*>(a);
+        const unsigned char* pb = static_cast<const unsigned char*>(b);
+        unsigned char result = 0;
+        for (size_t i = 0; i < n; i++) {
+            result |= pa[i] ^ pb[i];
+        }
+        return result;
+    }
+};
+
 // END LocalAI
 
 
@@ -2760,11 +2803,24 @@ int main(int argc, char** argv) {
     BackendServiceImpl service(ctx_server);
 
     ServerBuilder builder;
-    builder.AddListeningPort(server_address, grpc::InsecureServerCredentials());
+    // Add bearer token auth via AuthMetadataProcessor if LOCALAI_GRPC_AUTH_TOKEN is set
+    const char* auth_token = std::getenv("LOCALAI_GRPC_AUTH_TOKEN");
+    std::shared_ptr<grpc::ServerCredentials> creds;
+    if (auth_token != nullptr && auth_token[0] != '\0') {
+        creds = grpc::InsecureServerCredentials();
+        creds->SetAuthMetadataProcessor(
+            std::make_shared<TokenAuthMetadataProcessor>(auth_token));
+        std::cout << "gRPC auth enabled via LOCALAI_GRPC_AUTH_TOKEN" << std::endl;
+    } else {
+        creds = grpc::InsecureServerCredentials();
+    }
+
+    builder.AddListeningPort(server_address, creds);
     builder.RegisterService(&service);
     builder.SetMaxMessageSize(50 * 1024 * 1024); // 50MB
     builder.SetMaxSendMessageSize(50 * 1024 * 1024); // 50MB
     builder.SetMaxReceiveMessageSize(50 * 1024 * 1024); // 50MB
+
     std::unique_ptr<Server> server(builder.BuildAndStart());
    // run the HTTP server in a thread - see comment below
     std::thread t([&]()

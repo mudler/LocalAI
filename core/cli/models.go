@@ -8,7 +8,7 @@ import (
 
 	cliContext "github.com/mudler/LocalAI/core/cli/context"
 	"github.com/mudler/LocalAI/core/config"
-	"github.com/mudler/LocalAI/core/services"
+	"github.com/mudler/LocalAI/core/services/galleryop"
 
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/startup"
@@ -80,7 +80,7 @@ func (mi *ModelsInstall) Run(ctx *cliContext.Context) error {
 		return err
 	}
 
-	galleryService := services.NewGalleryService(&config.ApplicationConfig{
+	galleryService := galleryop.NewGalleryService(&config.ApplicationConfig{
 		SystemState: systemState,
 	}, model.NewModelLoader(systemState))
 	err = galleryService.Start(context.Background(), config.NewModelConfigLoader(mi.ModelsPath), systemState)

@@ -10,7 +10,7 @@ type AnthropicSystemParam string
 
 // UnmarshalJSON accepts string or array of blocks with "text" field.
 func (s *AnthropicSystemParam) UnmarshalJSON(data []byte) error {
-	var raw interface{}
+	var raw any
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return err
 	}
@@ -18,10 +18,10 @@ func (s *AnthropicSystemParam) UnmarshalJSON(data []byte) error {
 	case string:
 		*s = AnthropicSystemParam(v)
 		return nil
-	case []interface{}:
+	case []any:
 		var out string
 		for _, block := range v {
-			if m, ok := block.(map[string]interface{}); ok && m["type"] == "text" {
+			if m, ok := block.(map[string]any); ok && m["type"] == "text" {
 				if t, ok := m["text"].(string); ok {
 					out += t
 				}
@@ -36,18 +36,18 @@ func (s *AnthropicSystemParam) UnmarshalJSON(data []byte) error {
 // AnthropicRequest represents a request to the Anthropic Messages API
 // https://docs.anthropic.com/claude/reference/messages_post
 type AnthropicRequest struct {
-	Model         string                 `json:"model"`
-	Messages      []AnthropicMessage     `json:"messages"`
-	MaxTokens     int                    `json:"max_tokens"`
-	Metadata      map[string]string      `json:"metadata,omitempty"`
-	StopSequences []string               `json:"stop_sequences,omitempty"`
-	Stream        bool                   `json:"stream,omitempty"`
-	System        AnthropicSystemParam   `json:"system,omitempty"`
-	Temperature   *float64           `json:"temperature,omitempty"`
-	TopK          *int               `json:"top_k,omitempty"`
-	TopP          *float64           `json:"top_p,omitempty"`
-	Tools         []AnthropicTool    `json:"tools,omitempty"`
-	ToolChoice    interface{}        `json:"tool_choice,omitempty"`
+	Model         string               `json:"model"`
+	Messages      []AnthropicMessage   `json:"messages"`
+	MaxTokens     int                  `json:"max_tokens"`
+	Metadata      map[string]string    `json:"metadata,omitempty"`
+	StopSequences []string             `json:"stop_sequences,omitempty"`
+	Stream        bool                 `json:"stream,omitempty"`
+	System        AnthropicSystemParam `json:"system,omitempty"`
+	Temperature   *float64             `json:"temperature,omitempty"`
+	TopK          *int                 `json:"top_k,omitempty"`
+	TopP          *float64             `json:"top_p,omitempty"`
+	Tools         []AnthropicTool      `json:"tools,omitempty"`
+	ToolChoice    any                  `json:"tool_choice,omitempty"`
 
 	// Internal fields for request handling
 	Context context.Context    `json:"-"`
@@ -64,28 +64,28 @@ func (ar *AnthropicRequest) ModelName(s *string) string {
 
 // AnthropicTool represents a tool definition in the Anthropic format
 type AnthropicTool struct {
-	Name        string                 `json:"name"`
-	Description string                 `json:"description,omitempty"`
-	InputSchema map[string]interface{} `json:"input_schema"`
+	Name        string         `json:"name"`
+	Description string         `json:"description,omitempty"`
+	InputSchema map[string]any `json:"input_schema"`
 }
 
 // AnthropicMessage represents a message in the Anthropic format
 type AnthropicMessage struct {
-	Role    string      `json:"role"`
-	Content interface{} `json:"content"`
+	Role    string `json:"role"`
+	Content any    `json:"content"`
 }
 
 // AnthropicContentBlock represents a content block in an Anthropic message
 type AnthropicContentBlock struct {
-	Type       string                 `json:"type"`
-	Text       string                 `json:"text,omitempty"`
-	Source     *AnthropicImageSource  `json:"source,omitempty"`
-	ID         string                 `json:"id,omitempty"`
-	Name       string                 `json:"name,omitempty"`
-	Input      map[string]interface{} `json:"input,omitempty"`
-	ToolUseID  string                 `json:"tool_use_id,omitempty"`
-	Content    interface{}            `json:"content,omitempty"`
-	IsError    *bool                  `json:"is_error,omitempty"`
+	Type      string                `json:"type"`
+	Text      string                `json:"text,omitempty"`
+	Source    *AnthropicImageSource `json:"source,omitempty"`
+	ID        string                `json:"id,omitempty"`
+	Name      string                `json:"name,omitempty"`
+	Input     map[string]any        `json:"input,omitempty"`
+	ToolUseID string                `json:"tool_use_id,omitempty"`
+	Content   any                   `json:"content,omitempty"`
+	IsError   *bool                 `json:"is_error,omitempty"`
 }
 
 // AnthropicImageSource represents an image source in Anthropic format
@@ -121,6 +121,7 @@ type AnthropicStreamEvent struct {
 	Delta        *AnthropicStreamDelta   `json:"delta,omitempty"`
 	Message      *AnthropicStreamMessage `json:"message,omitempty"`
 	Usage        *AnthropicUsage         `json:"usage,omitempty"`
+	Error        *AnthropicError         `json:"error,omitempty"`
 }
 
 // AnthropicStreamDelta represents the delta in a streaming response
@@ -162,10 +163,10 @@ func (m *AnthropicMessage) GetStringContent() string {
 	switch content := m.Content.(type) {
 	case string:
 		return content
-	case []interface{}:
+	case []any:
 		var result string
 		for _, block := range content {
-			if blockMap, ok := block.(map[string]interface{}); ok {
+			if blockMap, ok := block.(map[string]any); ok {
 				if blockMap["type"] == "text" {
 					if text, ok := blockMap["text"].(string); ok {
 						result += text
@@ -183,10 +184,10 @@ func (m *AnthropicMessage) GetContentBlocks() []AnthropicContentBlock {
 	switch content := m.Content.(type) {
 	case string:
 		return []AnthropicContentBlock{{Type: "text", Text: content}}
-	case []interface{}:
+	case []any:
 		var blocks []AnthropicContentBlock
 		for _, block := range content {
-			if blockMap, ok := block.(map[string]interface{}); ok {
+			if blockMap, ok := block.(map[string]any); ok {
 				cb := AnthropicContentBlock{}
 				data, err := json.Marshal(blockMap)
 				if err != nil {

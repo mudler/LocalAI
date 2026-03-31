@@ -4,10 +4,10 @@ package gallery
 
 import (
 	"context"
-	"os"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -19,6 +19,9 @@ import (
 	"github.com/mudler/xlog"
 	cp "github.com/otiai10/copy"
 )
+
+// ErrBackendNotFound is returned when a backend is not found in the system.
+var ErrBackendNotFound = errors.New("backend not found")
 
 const (
 	metadataFile = "metadata.json"
@@ -198,8 +201,15 @@ func InstallBackend(ctx context.Context, systemState *system.SystemState, modelL
 	} else {
 		xlog.Debug("Downloading backend", "uri", config.URI, "backendPath", backendPath)
 		if err := uri.DownloadFileWithContext(ctx, backendPath, "", 1, 1, downloadStatus); err != nil {
-			// Don't remove backendPath here — fallback OCI extractions need the directory to exist
 			xlog.Debug("Backend download failed, trying fallback", "backendPath", backendPath, "error", err)
+
+			// resetBackendPath cleans up partial state from a failed OCI extraction
+			// so the next download attempt starts fresh. The directory is re-created
+			// because OCI image extractors need it to exist for writing files into.
+			resetBackendPath := func() {
+				os.RemoveAll(backendPath)
+				os.MkdirAll(backendPath, 0750)
+			}
 
 			success := false
 			// Try to download from mirrors
@@ -210,6 +220,7 @@ func InstallBackend(ctx context.Context, systemState *system.SystemState, modelL
 					return ctx.Err()
 				default:
 				}
+				resetBackendPath()
 				if err := downloader.URI(mirror).DownloadFileWithContext(ctx, backendPath, "", 1, 1, downloadStatus); err == nil {
 					success = true
 					xlog.Debug("Downloaded backend from mirror", "uri", config.URI, "backendPath", backendPath)
@@ -221,28 +232,22 @@ func InstallBackend(ctx context.Context, systemState *system.SystemState, modelL
 				// Try fallback: replace latestTag + "-" with masterTag + "-" in the URI
 				fallbackURI := strings.Replace(string(config.URI), latestTag+"-", masterTag+"-", 1)
 				if fallbackURI != string(config.URI) {
-					xlog.Debug("Trying fallback URI", "original", config.URI, "fallback", fallbackURI)
+					resetBackendPath()
+					xlog.Info("Trying fallback URI", "original", config.URI, "fallback", fallbackURI)
 					if err := downloader.URI(fallbackURI).DownloadFileWithContext(ctx, backendPath, "", 1, 1, downloadStatus); err == nil {
 						xlog.Info("Downloaded backend using fallback URI", "uri", fallbackURI, "backendPath", backendPath)
 						success = true
 					} else {
-						// Try another fallback: add "-" + devSuffix suffix to the backend name
-						// For example: master-gpu-nvidia-cuda-13-ace-step -> master-gpu-nvidia-cuda-13-ace-step-development
+						xlog.Info("Fallback URI failed", "fallback", fallbackURI, "error", err)
 						if !strings.Contains(fallbackURI, "-"+devSuffix) {
-							// Extract backend name from URI and add -development
-							parts := strings.Split(fallbackURI, "-")
-							if len(parts) >= 2 {
-								// Find where the backend name ends (usually the last part before the tag)
-								// Pattern: quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-ace-step
-								lastDash := strings.LastIndex(fallbackURI, "-")
-								if lastDash > 0 {
-									devFallbackURI := fallbackURI[:lastDash] + "-" + devSuffix
-									xlog.Debug("Trying development fallback URI", "fallback", devFallbackURI)
-									if err := downloader.URI(devFallbackURI).DownloadFileWithContext(ctx, backendPath, "", 1, 1, downloadStatus); err == nil {
-										xlog.Info("Downloaded backend using development fallback URI", "uri", devFallbackURI, "backendPath", backendPath)
-										success = true
-									}
-								}
+							resetBackendPath()
+							devFallbackURI := fallbackURI + "-" + devSuffix
+							xlog.Info("Trying development fallback URI", "fallback", devFallbackURI)
+							if err := downloader.URI(devFallbackURI).DownloadFileWithContext(ctx, backendPath, "", 1, 1, downloadStatus); err == nil {
+								xlog.Info("Downloaded backend using development fallback URI", "uri", devFallbackURI, "backendPath", backendPath)
+								success = true
+							} else {
+								xlog.Info("Development fallback URI failed", "fallback", devFallbackURI, "error", err)
 							}
 						}
 					}
@@ -295,7 +300,7 @@ func DeleteBackendFromSystem(systemState *system.SystemState, name string) error
 
 	backend, ok := backends.Get(name)
 	if !ok {
-		return fmt.Errorf("backend %q not found", name)
+		return fmt.Errorf("backend %q: %w", name, ErrBackendNotFound)
 	}
 
 	if backend.IsSystem {

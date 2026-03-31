@@ -105,11 +105,11 @@ type Job struct {
 
 // JobTrace represents a single execution trace entry
 type JobTrace struct {
-	Type      string                 `json:"type"`                // "reasoning", "tool_call", "tool_result", "status"
-	Content   string                 `json:"content"`             // The actual trace content
-	Timestamp time.Time              `json:"timestamp"`           // When this trace occurred
-	ToolName  string                 `json:"tool_name,omitempty"` // Tool name (for tool_call/tool_result)
-	Arguments map[string]interface{} `json:"arguments,omitempty"` // Tool arguments or result data
+	Type      string         `json:"type"`                // "reasoning", "tool_call", "tool_result", "status"
+	Content   string         `json:"content"`             // The actual trace content
+	Timestamp time.Time      `json:"timestamp"`           // When this trace occurred
+	ToolName  string         `json:"tool_name,omitempty"` // Tool name (for tool_call/tool_result)
+	Arguments map[string]any `json:"arguments,omitempty"` // Tool arguments or result data
 }
 
 // JobExecutionRequest represents a request to execute a job

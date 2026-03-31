@@ -113,7 +113,7 @@ func getApiKeyErrorHandler(applicationConfig *config.ApplicationConfig) func(err
 				})
 			}
 
-			return c.Render(http.StatusUnauthorized, "views/login", map[string]interface{}{
+			return c.Render(http.StatusUnauthorized, "views/login", map[string]any{
 				"BaseURL": BaseURL(c),
 			})
 		}

@@ -6,6 +6,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/config"
+	mcpTools "github.com/mudler/LocalAI/core/http/endpoints/mcp"
 	"github.com/mudler/LocalAI/core/http/endpoints/openai"
 	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/schema"
@@ -20,10 +21,10 @@ type MCPReasoningEvent struct {
 }
 
 type MCPToolCallEvent struct {
-	Type      string                 `json:"type"`
-	Name      string                 `json:"name"`
-	Arguments map[string]interface{} `json:"arguments"`
-	Reasoning string                 `json:"reasoning"`
+	Type      string         `json:"type"`
+	Name      string         `json:"name"`
+	Arguments map[string]any `json:"arguments"`
+	Reasoning string         `json:"reasoning"`
 }
 
 type MCPToolResultEvent struct {
@@ -55,8 +56,8 @@ type MCPErrorEvent struct {
 // @Param request body schema.OpenAIRequest true "query params"
 // @Success 200 {object} schema.OpenAIResponse "Response"
 // @Router /v1/mcp/chat/completions [post]
-func MCPEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator *templates.Evaluator, appConfig *config.ApplicationConfig) echo.HandlerFunc {
-	chatHandler := openai.ChatEndpoint(cl, ml, evaluator, appConfig)
+func MCPEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator *templates.Evaluator, appConfig *config.ApplicationConfig, natsClient mcpTools.MCPNATSClient) echo.HandlerFunc {
+	chatHandler := openai.ChatEndpoint(cl, ml, evaluator, appConfig, natsClient)
 
 	return func(c echo.Context) error {
 		input, ok := c.Get(middleware.CONTEXT_LOCALS_KEY_LOCALAI_REQUEST).(*schema.OpenAIRequest)

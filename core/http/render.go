@@ -26,7 +26,7 @@ type TemplateRenderer struct {
 }
 
 // Render renders a template document
-func (t *TemplateRenderer) Render(w io.Writer, name string, data interface{}, c echo.Context) error {
+func (t *TemplateRenderer) Render(w io.Writer, name string, data any, c echo.Context) error {
 	return t.templates.ExecuteTemplate(w, name, data)
 }
 
@@ -41,7 +41,7 @@ func notFoundHandler(c echo.Context) error {
 		})
 	} else {
 		// The client expects an HTML response
-		return c.Render(http.StatusNotFound, "views/404", map[string]interface{}{
+		return c.Render(http.StatusNotFound, "views/404", map[string]any{
 			"BaseURL": middleware.BaseURL(c),
 		})
 	}
@@ -83,7 +83,7 @@ func renderEngine() *TemplateRenderer {
 	}
 }
 
-func markDowner(args ...interface{}) template.HTML {
+func markDowner(args ...any) template.HTML {
 	s := blackfriday.MarkdownCommon([]byte(fmt.Sprintf("%s", args...)))
 	return template.HTML(bluemonday.UGCPolicy().Sanitize(string(s)))
 }

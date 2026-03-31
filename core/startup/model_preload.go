@@ -11,7 +11,7 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/gallery/importers"
-	"github.com/mudler/LocalAI/core/services"
+	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/mudler/LocalAI/pkg/utils"
@@ -21,7 +21,7 @@ import (
 // InstallModels will preload models from the given list of URLs and galleries
 // It will download the model if it is not already present in the model path
 // It will also try to resolve if the model is an embedded model YAML configuration
-func InstallModels(ctx context.Context, galleryService *services.GalleryService, galleries, backendGalleries []config.Gallery, systemState *system.SystemState, modelLoader *model.ModelLoader, enforceScan, autoloadBackendGalleries bool, downloadStatus func(string, string, string, float64), models ...string) error {
+func InstallModels(ctx context.Context, galleryService *galleryop.GalleryService, galleries, backendGalleries []config.Gallery, systemState *system.SystemState, modelLoader *model.ModelLoader, enforceScan, autoloadBackendGalleries bool, downloadStatus func(string, string, string, float64), models ...string) error {
 	// create an error that groups all errors
 	var err error
 	for _, url := range models {
@@ -51,9 +51,9 @@ func InstallModels(ctx context.Context, galleryService *services.GalleryService,
 				continue
 			}
 
-			galleryService.ModelGalleryChannel <- services.GalleryOp[gallery.GalleryModel, gallery.ModelConfig]{
+			galleryService.ModelGalleryChannel <- galleryop.ManagementOp[gallery.GalleryModel, gallery.ModelConfig]{
 				Req: gallery.GalleryModel{
-					Overrides: map[string]interface{}{},
+					Overrides: map[string]any{},
 				},
 				ID:                 uuid.String(),
 				GalleryElementName: modelConfig.Name,
@@ -61,7 +61,7 @@ func InstallModels(ctx context.Context, galleryService *services.GalleryService,
 				BackendGalleries:   backendGalleries,
 			}
 
-			var status *services.GalleryOpStatus
+			var status *galleryop.OpStatus
 			// wait for op to finish
 			for {
 				status = galleryService.GetStatus(uuid.String())

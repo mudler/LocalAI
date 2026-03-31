@@ -1,9 +1,10 @@
 package explorer
 
 import (
+	"cmp"
 	"encoding/base64"
 	"net/http"
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/labstack/echo/v4"
@@ -14,7 +15,7 @@ import (
 
 func Dashboard() echo.HandlerFunc {
 	return func(c echo.Context) error {
-		summary := map[string]interface{}{
+		summary := map[string]any{
 			"Title":   "LocalAI API - " + internal.PrintableVersion(),
 			"Version": internal.PrintableVersion(),
 			"BaseURL": middleware.BaseURL(c),
@@ -61,8 +62,8 @@ func ShowNetworks(db *explorer.Database) echo.HandlerFunc {
 		}
 
 		// order by number of clusters
-		sort.Slice(results, func(i, j int) bool {
-			return len(results[i].Clusters) > len(results[j].Clusters)
+		slices.SortFunc(results, func(a, b Network) int {
+			return cmp.Compare(len(b.Clusters), len(a.Clusters))
 		})
 
 		return c.JSON(http.StatusOK, results)
@@ -73,36 +74,36 @@ func AddNetwork(db *explorer.Database) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		request := new(AddNetworkRequest)
 		if err := c.Bind(request); err != nil {
-			return c.JSON(http.StatusBadRequest, map[string]interface{}{"error": "Cannot parse JSON"})
+			return c.JSON(http.StatusBadRequest, map[string]any{"error": "Cannot parse JSON"})
 		}
 
 		if request.Token == "" {
-			return c.JSON(http.StatusBadRequest, map[string]interface{}{"error": "Token is required"})
+			return c.JSON(http.StatusBadRequest, map[string]any{"error": "Token is required"})
 		}
 
 		if request.Name == "" {
-			return c.JSON(http.StatusBadRequest, map[string]interface{}{"error": "Name is required"})
+			return c.JSON(http.StatusBadRequest, map[string]any{"error": "Name is required"})
 		}
 
 		if request.Description == "" {
-			return c.JSON(http.StatusBadRequest, map[string]interface{}{"error": "Description is required"})
+			return c.JSON(http.StatusBadRequest, map[string]any{"error": "Description is required"})
 		}
 
 		// TODO: check if token is valid, otherwise reject
 		// try to decode the token from base64
 		_, err := base64.StdEncoding.DecodeString(request.Token)
 		if err != nil {
-			return c.JSON(http.StatusBadRequest, map[string]interface{}{"error": "Invalid token"})
+			return c.JSON(http.StatusBadRequest, map[string]any{"error": "Invalid token"})
 		}
 
 		if _, exists := db.Get(request.Token); exists {
-			return c.JSON(http.StatusBadRequest, map[string]interface{}{"error": "Token already exists"})
+			return c.JSON(http.StatusBadRequest, map[string]any{"error": "Token already exists"})
 		}
 		err = db.Set(request.Token, explorer.TokenData{Name: request.Name, Description: request.Description})
 		if err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]interface{}{"error": "Cannot add token"})
+			return c.JSON(http.StatusInternalServerError, map[string]any{"error": "Cannot add token"})
 		}
 
-		return c.JSON(http.StatusOK, map[string]interface{}{"message": "Token added"})
+		return c.JSON(http.StatusOK, map[string]any{"message": "Token added"})
 	}
 }

@@ -30,12 +30,10 @@ function extractThinking(text) {
   return { regularContent, thinkingContent }
 }
 
+import { generateId } from '../utils/format'
+
 const CHATS_STORAGE_KEY = 'localai_chats_data'
 const SAVE_DEBOUNCE_MS = 500
-
-function generateId() {
-  return Date.now().toString(36) + Math.random().toString(36).slice(2)
-}
 
 function loadChats() {
   try {

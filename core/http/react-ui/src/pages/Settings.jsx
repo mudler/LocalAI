@@ -266,9 +266,6 @@ export default function Settings() {
               <SettingRow label="Max Active Backends" description="Maximum models to keep loaded simultaneously (0 = unlimited)">
                 <input className="input" type="number" style={{ width: 120 }} value={settings.max_active_backends ?? ''} onChange={(e) => update('max_active_backends', parseInt(e.target.value) || 0)} placeholder="0" />
               </SettingRow>
-              <SettingRow label="Parallel Backend Requests" description="Enable parallel request handling per backend">
-                <Toggle checked={settings.parallel_backend_requests} onChange={(v) => update('parallel_backend_requests', v)} />
-              </SettingRow>
             </div>
           </div>
 

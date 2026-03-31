@@ -2,7 +2,7 @@ package trace
 
 import (
 	"encoding/json"
-	"sort"
+	"slices"
 	"sync"
 	"time"
 
@@ -14,17 +14,17 @@ import (
 type BackendTraceType string
 
 const (
-	BackendTraceLLM              BackendTraceType = "llm"
-	BackendTraceEmbedding        BackendTraceType = "embedding"
-	BackendTraceTranscription    BackendTraceType = "transcription"
-	BackendTraceImageGeneration  BackendTraceType = "image_generation"
-	BackendTraceVideoGeneration  BackendTraceType = "video_generation"
-	BackendTraceTTS              BackendTraceType = "tts"
-	BackendTraceSoundGeneration  BackendTraceType = "sound_generation"
-	BackendTraceRerank           BackendTraceType = "rerank"
-	BackendTraceTokenize         BackendTraceType = "tokenize"
-	BackendTraceDetection        BackendTraceType = "detection"
-	BackendTraceModelLoad        BackendTraceType = "model_load"
+	BackendTraceLLM             BackendTraceType = "llm"
+	BackendTraceEmbedding       BackendTraceType = "embedding"
+	BackendTraceTranscription   BackendTraceType = "transcription"
+	BackendTraceImageGeneration BackendTraceType = "image_generation"
+	BackendTraceVideoGeneration BackendTraceType = "video_generation"
+	BackendTraceTTS             BackendTraceType = "tts"
+	BackendTraceSoundGeneration BackendTraceType = "sound_generation"
+	BackendTraceRerank          BackendTraceType = "rerank"
+	BackendTraceTokenize        BackendTraceType = "tokenize"
+	BackendTraceDetection       BackendTraceType = "detection"
+	BackendTraceModelLoad       BackendTraceType = "model_load"
 )
 
 type BackendTrace struct {
@@ -86,8 +86,8 @@ func GetBackendTraces() []BackendTrace {
 		traces[i] = *p
 	}
 
-	sort.Slice(traces, func(i, j int) bool {
-		return traces[i].Timestamp.After(traces[j].Timestamp)
+	slices.SortFunc(traces, func(a, b BackendTrace) int {
+		return b.Timestamp.Compare(a.Timestamp)
 	})
 
 	return traces

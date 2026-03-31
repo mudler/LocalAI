@@ -44,14 +44,14 @@ Say hello.
 ### Response:`
 
 type modelApplyRequest struct {
-	ID        string                 `json:"id"`
-	URL       string                 `json:"url"`
-	ConfigURL string                 `json:"config_url"`
-	Name      string                 `json:"name"`
-	Overrides map[string]interface{} `json:"overrides"`
+	ID        string         `json:"id"`
+	URL       string         `json:"url"`
+	ConfigURL string         `json:"config_url"`
+	Name      string         `json:"name"`
+	Overrides map[string]any `json:"overrides"`
 }
 
-func getModelStatus(url string) (response map[string]interface{}) {
+func getModelStatus(url string) (response map[string]any) {
 	// Create the HTTP request
 	req, err := http.NewRequest("GET", url, nil)
 	req.Header.Set("Content-Type", "application/json")
@@ -94,7 +94,7 @@ func getModels(url string) ([]gallery.GalleryModel, error) {
 	return response, err
 }
 
-func postModelApplyRequest(url string, request modelApplyRequest) (response map[string]interface{}) {
+func postModelApplyRequest(url string, request modelApplyRequest) (response map[string]any) {
 
 	//url := "http://localhost:AI/models/apply"
 
@@ -336,7 +336,7 @@ var _ = Describe("API test", func() {
 						Name: "bert",
 						URL:  bertEmbeddingsURL,
 					},
-					Overrides: map[string]interface{}{"backend": "llama-cpp"},
+					Overrides: map[string]any{"backend": "llama-cpp"},
 				},
 				{
 					Metadata: gallery.Metadata{
@@ -344,7 +344,7 @@ var _ = Describe("API test", func() {
 						URL:             bertEmbeddingsURL,
 						AdditionalFiles: []gallery.File{{Filename: "foo.yaml", URI: bertEmbeddingsURL}},
 					},
-					Overrides: map[string]interface{}{"foo": "bar"},
+					Overrides: map[string]any{"foo": "bar"},
 				},
 			}
 			out, err := yaml.Marshal(g)
@@ -464,7 +464,7 @@ var _ = Describe("API test", func() {
 				Expect(response["uuid"]).ToNot(BeEmpty(), fmt.Sprint(response))
 
 				uuid := response["uuid"].(string)
-				resp := map[string]interface{}{}
+				resp := map[string]any{}
 				Eventually(func() bool {
 					response := getModelStatus("http://127.0.0.1:9090/models/jobs/" + uuid)
 					fmt.Println(response)
@@ -479,7 +479,7 @@ var _ = Describe("API test", func() {
 				_, err = os.ReadFile(filepath.Join(modelDir, "foo.yaml"))
 				Expect(err).ToNot(HaveOccurred())
 
-				content := map[string]interface{}{}
+				content := map[string]any{}
 				err = yaml.Unmarshal(dat, &content)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(content["usage"]).To(ContainSubstring("You can test this model with curl like this"))
@@ -503,7 +503,7 @@ var _ = Describe("API test", func() {
 				response := postModelApplyRequest("http://127.0.0.1:9090/models/apply", modelApplyRequest{
 					URL:  bertEmbeddingsURL,
 					Name: "bert",
-					Overrides: map[string]interface{}{
+					Overrides: map[string]any{
 						"backend": "llama",
 					},
 				})
@@ -520,7 +520,7 @@ var _ = Describe("API test", func() {
 				dat, err := os.ReadFile(filepath.Join(modelDir, "bert.yaml"))
 				Expect(err).ToNot(HaveOccurred())
 
-				content := map[string]interface{}{}
+				content := map[string]any{}
 				err = yaml.Unmarshal(dat, &content)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(content["backend"]).To(Equal("llama"))
@@ -529,7 +529,7 @@ var _ = Describe("API test", func() {
 				response := postModelApplyRequest("http://127.0.0.1:9090/models/apply", modelApplyRequest{
 					URL:       bertEmbeddingsURL,
 					Name:      "bert",
-					Overrides: map[string]interface{}{},
+					Overrides: map[string]any{},
 				})
 
 				Expect(response["uuid"]).ToNot(BeEmpty(), fmt.Sprint(response))
@@ -544,7 +544,7 @@ var _ = Describe("API test", func() {
 				dat, err := os.ReadFile(filepath.Join(modelDir, "bert.yaml"))
 				Expect(err).ToNot(HaveOccurred())
 
-				content := map[string]interface{}{}
+				content := map[string]any{}
 				err = yaml.Unmarshal(dat, &content)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(content["usage"]).To(ContainSubstring("You can test this model with curl like this"))
@@ -586,7 +586,7 @@ parameters:
 				Expect(response.ID).ToNot(BeEmpty())
 
 				uuid := response.ID
-				resp := map[string]interface{}{}
+				resp := map[string]any{}
 				Eventually(func() bool {
 					response := getModelStatus("http://127.0.0.1:9090/models/jobs/" + uuid)
 					resp = response
@@ -601,7 +601,7 @@ parameters:
 				dat, err := os.ReadFile(filepath.Join(modelDir, "test-import-model.yaml"))
 				Expect(err).ToNot(HaveOccurred())
 
-				content := map[string]interface{}{}
+				content := map[string]any{}
 				err = yaml.Unmarshal(dat, &content)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(content["name"]).To(Equal("test-import-model"))
@@ -657,7 +657,7 @@ parameters:
 				Expect(response.ID).ToNot(BeEmpty())
 
 				uuid := response.ID
-				resp := map[string]interface{}{}
+				resp := map[string]any{}
 				Eventually(func() bool {
 					response := getModelStatus("http://127.0.0.1:9090/models/jobs/" + uuid)
 					resp = response
@@ -1065,7 +1065,7 @@ parameters:
 		It("returns errors", func() {
 			_, err := client.CreateCompletion(context.TODO(), openai.CompletionRequest{Model: "foomodel", Prompt: testPrompt})
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("error, status code: 500, status: 500 Internal Server Error, message: could not load model - all backends returned error:"))
+			Expect(err.Error()).To(ContainSubstring("error, status code: 404, status: 404 Not Found"))
 		})
 
 		It("shows the external backend", func() {
@@ -1248,7 +1248,7 @@ parameters:
 			Context("Agent Jobs", Label("agent-jobs"), func() {
 				It("creates and manages tasks", func() {
 					// Create a task
-					taskBody := map[string]interface{}{
+					taskBody := map[string]any{
 						"name":        "Test Task",
 						"description": "Test Description",
 						"model":       "testmodel.ggml",
@@ -1256,7 +1256,7 @@ parameters:
 						"enabled":     true,
 					}
 
-					var createResp map[string]interface{}
+					var createResp map[string]any
 					err := postRequestResponseJSON("http://127.0.0.1:9090/api/agent/tasks", &taskBody, &createResp)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(createResp["id"]).ToNot(BeEmpty())
@@ -1302,20 +1302,20 @@ parameters:
 
 				It("executes and monitors jobs", func() {
 					// Create a task first
-					taskBody := map[string]interface{}{
+					taskBody := map[string]any{
 						"name":    "Job Test Task",
 						"model":   "testmodel.ggml",
 						"prompt":  "Say hello",
 						"enabled": true,
 					}
 
-					var createResp map[string]interface{}
+					var createResp map[string]any
 					err := postRequestResponseJSON("http://127.0.0.1:9090/api/agent/tasks", &taskBody, &createResp)
 					Expect(err).ToNot(HaveOccurred())
 					taskID := createResp["id"].(string)
 
 					// Execute a job
-					jobBody := map[string]interface{}{
+					jobBody := map[string]any{
 						"task_id":    taskID,
 						"parameters": map[string]string{},
 					}
@@ -1357,14 +1357,14 @@ parameters:
 
 				It("executes task by name", func() {
 					// Create a task with a specific name
-					taskBody := map[string]interface{}{
+					taskBody := map[string]any{
 						"name":    "Named Task",
 						"model":   "testmodel.ggml",
 						"prompt":  "Hello",
 						"enabled": true,
 					}
 
-					var createResp map[string]interface{}
+					var createResp map[string]any
 					err := postRequestResponseJSON("http://127.0.0.1:9090/api/agent/tasks", &taskBody, &createResp)
 					Expect(err).ToNot(HaveOccurred())
 

@@ -1,11 +1,8 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
+import { generateId } from '../utils/format'
 
 const STORAGE_KEY_PREFIX = 'localai_agent_chats_'
 const SAVE_DEBOUNCE_MS = 500
-
-function generateId() {
-  return Date.now().toString(36) + Math.random().toString(36).slice(2)
-}
 
 function storageKey(agentName) {
   return STORAGE_KEY_PREFIX + agentName
@@ -111,18 +108,21 @@ export function useAgentChat(agentName) {
     setConversations(prev => {
       if (prev.length <= 1) return prev
       const filtered = prev.filter(c => c.id !== id)
-      if (id === activeId && filtered.length > 0) {
-        setActiveId(filtered[0].id)
+      const newActiveId = id === activeId && filtered.length > 0 ? filtered[0].id : activeId
+      if (id === activeId) {
+        setActiveId(newActiveId)
       }
+      saveConversations(agentName, filtered, newActiveId)
       return filtered
     })
-  }, [activeId])
+  }, [activeId, agentName])
 
   const deleteAllConversations = useCallback(() => {
     const conv = createConversation()
     setConversations([conv])
     setActiveId(conv.id)
-  }, [])
+    saveConversations(agentName, [conv], conv.id)
+  }, [agentName])
 
   const renameConversation = useCallback((id, name) => {
     setConversations(prev => prev.map(c =>
@@ -147,11 +147,34 @@ export function useAgentChat(agentName) {
     }))
   }, [activeId])
 
+  // Add a message to a specific conversation by ID, regardless of which is active.
+  // Used by SSE handlers to pin responses to the conversation that initiated the request.
+  const addMessageToConversation = useCallback((conversationId, msg) => {
+    setConversations(prev => prev.map(c => {
+      if (c.id !== conversationId) return c
+      const updated = {
+        ...c,
+        messages: [...c.messages, msg],
+        updatedAt: Date.now(),
+      }
+      if (c.messages.length === 0 && msg.sender === 'user') {
+        const text = msg.content || ''
+        updated.name = text.slice(0, 40) + (text.length > 40 ? '...' : '')
+      }
+      return updated
+    }))
+  }, [])
+
   const clearMessages = useCallback(() => {
-    setConversations(prev => prev.map(c =>
-      c.id === activeId ? { ...c, messages: [], updatedAt: Date.now() } : c
-    ))
-  }, [activeId])
+    setConversations(prev => {
+      const updated = prev.map(c =>
+        c.id === activeId ? { ...c, messages: [], updatedAt: Date.now() } : c
+      )
+      // Save immediately so a page refresh doesn't restore the old messages
+      saveConversations(agentName, updated, activeId)
+      return updated
+    })
+  }, [activeId, agentName])
 
   const getMessages = useCallback(() => {
     return activeConversation?.messages || []
@@ -167,6 +190,7 @@ export function useAgentChat(agentName) {
     deleteAllConversations,
     renameConversation,
     addMessage,
+    addMessageToConversation,
     clearMessages,
     getMessages,
   }

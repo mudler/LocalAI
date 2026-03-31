@@ -177,7 +177,7 @@ export const agentJobsApi = {
   createTask: (body) => postJSON(API_CONFIG.endpoints.agentTasks, body),
   updateTask: (id, body) => fetchJSON(API_CONFIG.endpoints.agentTask(id), { method: 'PUT', body: JSON.stringify(body), headers: { 'Content-Type': 'application/json' } }),
   deleteTask: (id) => fetchJSON(API_CONFIG.endpoints.agentTask(id), { method: 'DELETE' }),
-  executeTask: (name) => postJSON(API_CONFIG.endpoints.executeAgentTask(name), {}),
+  executeTask: (name, body = {}) => postJSON(API_CONFIG.endpoints.executeAgentTask(name), body),
   listJobs: (allUsers) => fetchJSON(`${API_CONFIG.endpoints.agentJobs}${allUsers ? '?all_users=true' : ''}`),
   getJob: (id) => fetchJSON(API_CONFIG.endpoints.agentJob(id)),
   cancelJob: (id) => postJSON(API_CONFIG.endpoints.cancelAgentJob(id), {}),
@@ -194,48 +194,35 @@ export const videoApi = {
   generate: (body) => postJSON(API_CONFIG.endpoints.video, body),
 }
 
+async function postAudioBlob(endpoint, body) {
+  const response = await fetch(apiUrl(endpoint), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}))
+    throw new Error(data?.error?.message || `HTTP ${response.status}`)
+  }
+  let serverUrl = null
+  const disposition = response.headers.get('content-disposition')
+  if (disposition) {
+    const match = disposition.match(/filename[^;=\n]*=["']?([^"';\n]*)["']?/)
+    if (match && match[1]) serverUrl = '/generated-audio/' + match[1]
+  }
+  const blob = await response.blob()
+  return { blob, serverUrl }
+}
+
 // TTS
 export const ttsApi = {
-  generate: async (body) => {
-    const response = await fetch(apiUrl(API_CONFIG.endpoints.tts), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    })
-    if (!response.ok) {
-      const data = await response.json().catch(() => ({}))
-      throw new Error(data?.error?.message || `HTTP ${response.status}`)
-    }
-    return response.blob()
-  },
-  generateV1: async (body) => {
-    const response = await fetch(apiUrl(API_CONFIG.endpoints.audioSpeech), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    })
-    if (!response.ok) {
-      const data = await response.json().catch(() => ({}))
-      throw new Error(data?.error?.message || `HTTP ${response.status}`)
-    }
-    return response.blob()
-  },
+  generate: (body) => postAudioBlob(API_CONFIG.endpoints.tts, body),
+  generateV1: (body) => postAudioBlob(API_CONFIG.endpoints.audioSpeech, body),
 }
 
 // Sound generation
 export const soundApi = {
-  generate: async (body) => {
-    const response = await fetch(apiUrl(API_CONFIG.endpoints.soundGeneration), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    })
-    if (!response.ok) {
-      const data = await response.json().catch(() => ({}))
-      throw new Error(data?.error?.message || `HTTP ${response.status}`)
-    }
-    return response.blob()
-  },
+  generate: (body) => postAudioBlob(API_CONFIG.endpoints.soundGeneration, body),
 }
 
 // Audio transcription
@@ -421,6 +408,28 @@ export const quantizationApi = {
   importModel: (id, data) => postJSON(`/api/quantization/jobs/${enc(id)}/import`, data),
   progressUrl: (id) => apiUrl(`/api/quantization/jobs/${enc(id)}/progress`),
   downloadUrl: (id) => apiUrl(`/api/quantization/jobs/${enc(id)}/download`),
+}
+
+// Nodes API (distributed)
+export const nodesApi = {
+  list: () => fetchJSON(API_CONFIG.endpoints.nodes),
+  get: (id) => fetchJSON(API_CONFIG.endpoints.node(id)),
+  delete: (id) => fetchJSON(API_CONFIG.endpoints.node(id), { method: 'DELETE' }),
+  drain: (id) => postJSON(API_CONFIG.endpoints.nodeDrain(id), {}),
+  approve: (id) => postJSON(API_CONFIG.endpoints.nodeApprove(id), {}),
+  getModels: (id) => fetchJSON(API_CONFIG.endpoints.nodeModels(id)),
+  getBackends: (id) => fetchJSON(API_CONFIG.endpoints.nodeBackends(id)),
+  installBackend: (id, backend) => postJSON(API_CONFIG.endpoints.nodeBackendsInstall(id), { backend }),
+  deleteBackend: (id, backend) => postJSON(API_CONFIG.endpoints.nodeBackendsDelete(id), { backend }),
+  getBackendLogs: (id) => fetchJSON(API_CONFIG.endpoints.nodeBackendLogs(id)),
+  getBackendLogLines: (id, modelId) => fetchJSON(API_CONFIG.endpoints.nodeBackendLogsModel(id, modelId)),
+  unloadModel: (id, modelName) => postJSON(API_CONFIG.endpoints.nodeModelsUnload(id), { model_name: modelName }),
+  getLabels: (id) => fetchJSON(API_CONFIG.endpoints.nodeLabels(id)),
+  mergeLabels: (id, labels) => fetchJSON(API_CONFIG.endpoints.nodeLabels(id), { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(labels) }),
+  deleteLabel: (id, key) => fetchJSON(API_CONFIG.endpoints.nodeLabelKey(id, key), { method: 'DELETE' }),
+  listScheduling: () => fetchJSON(API_CONFIG.endpoints.nodesScheduling),
+  setScheduling: (config) => postJSON(API_CONFIG.endpoints.nodesScheduling, config),
+  deleteScheduling: (model) => fetchJSON(API_CONFIG.endpoints.nodesSchedulingModel(model), { method: 'DELETE' }),
 }
 
 // File to base64 helper

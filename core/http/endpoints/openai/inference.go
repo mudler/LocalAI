@@ -103,7 +103,7 @@ func ComputeChoices(
 
 	const maxRetries = 5
 
-	for i := 0; i < n; i++ {
+	for range n {
 		var prediction backend.LLMResponse
 
 		for attempt := 0; attempt <= maxRetries; attempt++ {

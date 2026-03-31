@@ -24,13 +24,13 @@ type WebRTCTransport struct {
 	audioTrack  *webrtc.TrackLocalStaticRTP
 	opusBackend grpc.Backend
 	inEvents    chan []byte
-	outEvents  chan []byte   // buffered outbound event queue
-	closed     chan struct{}
-	closeOnce  sync.Once
-	flushed    chan struct{} // closed when sender goroutine has drained outEvents
-	dcReady    chan struct{} // closed when data channel is open
-	dcReadyOnce sync.Once
-	sessionCh  chan *Session // delivers session from runRealtimeSession to handleIncomingAudioTrack
+	outEvents   chan []byte // buffered outbound event queue
+	closed    chan struct{}
+	closeDone func() // sync.OnceFunc that closes t.closed
+	flushed   chan struct{} // closed when sender goroutine has drained outEvents
+	dcReady   chan struct{} // closed when data channel is open
+	dcDone    func() // sync.OnceFunc that closes t.dcReady
+	sessionCh chan *Session // delivers session from runRealtimeSession to handleIncomingAudioTrack
 
 	// RTP state for outbound audio — protected by rtpMu
 	rtpMu        sync.Mutex
@@ -54,6 +54,8 @@ func NewWebRTCTransport(pc *webrtc.PeerConnection, audioTrack *webrtc.TrackLocal
 		rtpTimestamp: rand.Uint32(),
 		rtpMarker:    true, // first packet of the stream gets marker
 	}
+	t.closeDone = sync.OnceFunc(func() { close(t.closed) })
+	t.dcDone = sync.OnceFunc(func() { close(t.dcReady) })
 
 	// The client creates the "oai-events" data channel (so m=application is
 	// included in the SDP offer). We receive it here via OnDataChannel.
@@ -63,7 +65,7 @@ func NewWebRTCTransport(pc *webrtc.PeerConnection, audioTrack *webrtc.TrackLocal
 		}
 		t.dc = dc
 		dc.OnOpen(func() {
-			t.dcReadyOnce.Do(func() { close(t.dcReady) })
+			t.dcDone()
 		})
 		dc.OnMessage(func(msg webrtc.DataChannelMessage) {
 			select {
@@ -73,7 +75,7 @@ func NewWebRTCTransport(pc *webrtc.PeerConnection, audioTrack *webrtc.TrackLocal
 		})
 		// The channel may already be open by the time OnDataChannel fires
 		if dc.ReadyState() == webrtc.DataChannelStateOpen {
-			t.dcReadyOnce.Do(func() { close(t.dcReady) })
+			t.dcDone()
 		}
 	})
 
@@ -82,7 +84,7 @@ func NewWebRTCTransport(pc *webrtc.PeerConnection, audioTrack *webrtc.TrackLocal
 		if state == webrtc.PeerConnectionStateFailed ||
 			state == webrtc.PeerConnectionStateClosed ||
 			state == webrtc.PeerConnectionStateDisconnected {
-			t.closeOnce.Do(func() { close(t.closed) })
+			t.closeDone()
 		}
 	})
 
@@ -244,7 +246,7 @@ func (t *WebRTCTransport) WaitForSession() *Session {
 
 func (t *WebRTCTransport) Close() error {
 	// Signal no more events and unblock the sender if it's waiting
-	t.closeOnce.Do(func() { close(t.closed) })
+	t.closeDone()
 	// Wait for the sender to drain any remaining queued events
 	<-t.flushed
 	return t.pc.Close()

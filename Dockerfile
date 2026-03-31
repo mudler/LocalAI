@@ -176,7 +176,7 @@ ENV PATH=/opt/rocm/bin:${PATH}
 # The requirements-core target is common to all images.  It should not be placed in requirements-core unless every single build will use it.
 FROM requirements-drivers AS build-requirements
 
-ARG GO_VERSION=1.25.4
+ARG GO_VERSION=1.26.0
 ARG CMAKE_VERSION=3.31.10
 ARG CMAKE_FROM_SOURCE=false
 ARG TARGETARCH
@@ -319,7 +319,6 @@ COPY ./.git ./.git
 # Some of the Go backends use libs from the main src, we could further optimize the caching by building the CPP backends before here
 COPY ./pkg/grpc ./pkg/grpc
 COPY ./pkg/utils ./pkg/utils
-COPY ./pkg/langchain ./pkg/langchain
 
 RUN ls -l ./
 RUN make protogen-go

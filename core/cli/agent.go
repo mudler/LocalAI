@@ -8,11 +8,11 @@ import (
 	"os/signal"
 	"syscall"
 
-	cliContext "github.com/mudler/LocalAI/core/cli/context"
-	"github.com/mudler/LocalAI/core/config"
-	"github.com/mudler/LocalAI/core/services"
 	"github.com/mudler/LocalAGI/core/state"
 	coreTypes "github.com/mudler/LocalAGI/core/types"
+	cliContext "github.com/mudler/LocalAI/core/cli/context"
+	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/services/agentpool"
 	"github.com/mudler/xlog"
 )
 
@@ -59,7 +59,7 @@ func (r *AgentRunCMD) Run(ctx *cliContext.Context) error {
 
 	appConfig := r.buildAppConfig()
 
-	poolService, err := services.NewAgentPoolService(appConfig)
+	poolService, err := agentpool.NewAgentPoolService(appConfig)
 	if err != nil {
 		return fmt.Errorf("failed to create agent pool service: %w", err)
 	}

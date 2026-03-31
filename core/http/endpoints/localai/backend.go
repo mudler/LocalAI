@@ -10,7 +10,7 @@ import (
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/schema"
-	"github.com/mudler/LocalAI/core/services"
+	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/mudler/xlog"
 )
@@ -19,14 +19,14 @@ type BackendEndpointService struct {
 	galleries         []config.Gallery
 	backendPath       string
 	backendSystemPath string
-	backendApplier    *services.GalleryService
+	backendApplier    *galleryop.GalleryService
 }
 
 type GalleryBackend struct {
 	ID string `json:"id"`
 }
 
-func CreateBackendEndpointService(galleries []config.Gallery, systemState *system.SystemState, backendApplier *services.GalleryService) BackendEndpointService {
+func CreateBackendEndpointService(galleries []config.Gallery, systemState *system.SystemState, backendApplier *galleryop.GalleryService) BackendEndpointService {
 	return BackendEndpointService{
 		galleries:         galleries,
 		backendPath:       systemState.Backend.BackendsPath,
@@ -37,7 +37,7 @@ func CreateBackendEndpointService(galleries []config.Gallery, systemState *syste
 
 // GetOpStatusEndpoint returns the job status
 // @Summary Returns the job status
-// @Success 200 {object} services.GalleryOpStatus "Response"
+// @Success 200 {object} galleryop.OpStatus "Response"
 // @Router /backends/jobs/{uuid} [get]
 func (mgs *BackendEndpointService) GetOpStatusEndpoint() echo.HandlerFunc {
 	return func(c echo.Context) error {
@@ -51,7 +51,7 @@ func (mgs *BackendEndpointService) GetOpStatusEndpoint() echo.HandlerFunc {
 
 // GetAllStatusEndpoint returns all the jobs status progress
 // @Summary Returns all the jobs status progress
-// @Success 200 {object} map[string]services.GalleryOpStatus "Response"
+// @Success 200 {object} map[string]galleryop.OpStatus "Response"
 // @Router /backends/jobs [get]
 func (mgs *BackendEndpointService) GetAllStatusEndpoint() echo.HandlerFunc {
 	return func(c echo.Context) error {
@@ -76,7 +76,7 @@ func (mgs *BackendEndpointService) ApplyBackendEndpoint() echo.HandlerFunc {
 		if err != nil {
 			return err
 		}
-		mgs.backendApplier.BackendGalleryChannel <- services.GalleryOp[gallery.GalleryBackend, any]{
+		mgs.backendApplier.BackendGalleryChannel <- galleryop.ManagementOp[gallery.GalleryBackend, any]{
 			ID:                 uuid.String(),
 			GalleryElementName: input.ID,
 			Galleries:          mgs.galleries,
@@ -95,7 +95,7 @@ func (mgs *BackendEndpointService) DeleteBackendEndpoint() echo.HandlerFunc {
 	return func(c echo.Context) error {
 		backendName := c.Param("name")
 
-		mgs.backendApplier.BackendGalleryChannel <- services.GalleryOp[gallery.GalleryBackend, any]{
+		mgs.backendApplier.BackendGalleryChannel <- galleryop.ManagementOp[gallery.GalleryBackend, any]{
 			Delete:             true,
 			GalleryElementName: backendName,
 			Galleries:          mgs.galleries,
@@ -114,9 +114,9 @@ func (mgs *BackendEndpointService) DeleteBackendEndpoint() echo.HandlerFunc {
 // @Summary List all Backends
 // @Success 200 {object} []gallery.GalleryBackend "Response"
 // @Router /backends [get]
-func (mgs *BackendEndpointService) ListBackendsEndpoint(systemState *system.SystemState) echo.HandlerFunc {
+func (mgs *BackendEndpointService) ListBackendsEndpoint() echo.HandlerFunc {
 	return func(c echo.Context) error {
-		backends, err := gallery.ListSystemBackends(systemState)
+		backends, err := mgs.backendApplier.ListBackends()
 		if err != nil {
 			return err
 		}

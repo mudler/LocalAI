@@ -1,6 +1,7 @@
 package localai
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -8,12 +9,12 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/application"
 	"github.com/mudler/LocalAI/core/schema"
-	"github.com/mudler/LocalAI/core/services"
+	"github.com/mudler/LocalAI/core/services/agentpool"
 )
 
 // getJobService returns the job service for the current user.
 // Falls back to the global service when no user is authenticated.
-func getJobService(app *application.Application, c echo.Context) *services.AgentJobService {
+func getJobService(app *application.Application, c echo.Context) *agentpool.AgentJobService {
 	userID := getUserID(c)
 	if userID == "" {
 		return app.AgentJobService()
@@ -54,7 +55,7 @@ func UpdateTaskEndpoint(app *application.Application) echo.HandlerFunc {
 		}
 
 		if err := getJobService(app, c).UpdateTask(id, task); err != nil {
-			if err.Error() == "task not found: "+id {
+			if errors.Is(err, agentpool.ErrTaskNotFound) {
 				return c.JSON(http.StatusNotFound, map[string]string{"error": err.Error()})
 			}
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
@@ -68,7 +69,7 @@ func DeleteTaskEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		id := c.Param("id")
 		if err := getJobService(app, c).DeleteTask(id); err != nil {
-			if err.Error() == "task not found: "+id {
+			if errors.Is(err, agentpool.ErrTaskNotFound) {
 				return c.JSON(http.StatusNotFound, map[string]string{"error": err.Error()})
 			}
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
@@ -244,7 +245,7 @@ func CancelJobEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		id := c.Param("id")
 		if err := getJobService(app, c).CancelJob(id); err != nil {
-			if err.Error() == "job not found: "+id {
+			if errors.Is(err, agentpool.ErrJobNotFound) {
 				return c.JSON(http.StatusNotFound, map[string]string{"error": err.Error()})
 			}
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
@@ -258,7 +259,7 @@ func DeleteJobEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		id := c.Param("id")
 		if err := getJobService(app, c).DeleteJob(id); err != nil {
-			if err.Error() == "job not found: "+id {
+			if errors.Is(err, agentpool.ErrJobNotFound) {
 				return c.JSON(http.StatusNotFound, map[string]string{"error": err.Error()})
 			}
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
@@ -275,7 +276,7 @@ func ExecuteTaskByNameEndpoint(app *application.Application) echo.HandlerFunc {
 
 		if c.Request().ContentLength > 0 {
 			if err := c.Bind(&params); err != nil {
-				body := make(map[string]interface{})
+				body := make(map[string]any)
 				if err := c.Bind(&body); err == nil {
 					params = make(map[string]string)
 					for k, v := range body {

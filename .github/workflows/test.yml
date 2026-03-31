@@ -21,7 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        go-version: ['1.25.x']
+        go-version: ['1.26.x']
     steps:
       - name: Free Disk Space (Ubuntu)
         uses: jlumbroso/free-disk-space@main
@@ -179,7 +179,7 @@ jobs:
     runs-on: macos-latest
     strategy:
       matrix:
-        go-version: ['1.25.x']
+        go-version: ['1.26.x']
     steps:
       - name: Clone
         uses: actions/checkout@v6
