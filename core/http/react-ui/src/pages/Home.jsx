@@ -7,8 +7,14 @@ import { CAP_CHAT } from '../utils/capabilities'
 import UnifiedMCPDropdown from '../components/UnifiedMCPDropdown'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { useResources } from '../hooks/useResources'
-import { fileToBase64, backendControlApi, systemApi, modelsApi, mcpApi } from '../utils/api'
+import { fileToBase64, backendControlApi, systemApi, modelsApi, mcpApi, nodesApi } from '../utils/api'
 import { API_CONFIG } from '../utils/config'
+
+function formatBytes(bytes) {
+  if (!bytes || bytes === 0) return null
+  const gb = bytes / (1024 * 1024 * 1024)
+  return gb >= 1 ? `${gb.toFixed(1)} GB` : `${(bytes / (1024 * 1024)).toFixed(0)} MB`
+}
 
 export default function Home() {
   const navigate = useNavigate()
@@ -32,9 +38,54 @@ export default function Home() {
   const [mcpSelectedServers, setMcpSelectedServers] = useState([])
   const [clientMCPSelectedIds, setClientMCPSelectedIds] = useState([])
   const [confirmDialog, setConfirmDialog] = useState(null)
+  const [distributedMode, setDistributedMode] = useState(false)
+  const [clusterData, setClusterData] = useState(null)
   const imageInputRef = useRef(null)
   const audioInputRef = useRef(null)
   const fileInputRef = useRef(null)
+
+  // Detect distributed mode
+  useEffect(() => {
+    fetch(apiUrl('/api/features'))
+      .then(r => r.json())
+      .then(data => setDistributedMode(!!data.distributed))
+      .catch(() => {})
+  }, [])
+
+  // Poll cluster node data in distributed mode
+  useEffect(() => {
+    if (!distributedMode) return
+    const fetchCluster = async () => {
+      try {
+        const data = await nodesApi.list()
+        const nodes = Array.isArray(data) ? data : []
+        const backendNodes = nodes.filter(n => !n.node_type || n.node_type === 'backend')
+        const totalVRAM = backendNodes.reduce((sum, n) => sum + (n.total_vram || 0), 0)
+        const usedVRAM = backendNodes.reduce((sum, n) => {
+          if (n.total_vram && n.available_vram != null) return sum + (n.total_vram - n.available_vram)
+          return sum
+        }, 0)
+        const totalRAM = backendNodes.reduce((sum, n) => sum + (n.total_ram || 0), 0)
+        const usedRAM = backendNodes.reduce((sum, n) => {
+          if (n.total_ram && n.available_ram != null) return sum + (n.total_ram - n.available_ram)
+          return sum
+        }, 0)
+        const isGPU = totalVRAM > 0
+        const healthyCount = backendNodes.filter(n => n.status === 'healthy').length
+        const totalCount = backendNodes.length
+        setClusterData({
+          totalMem: isGPU ? totalVRAM : totalRAM,
+          usedMem: isGPU ? usedVRAM : usedRAM,
+          isGPU,
+          healthyCount,
+          totalCount,
+        })
+      } catch { setClusterData(null) }
+    }
+    fetchCluster()
+    const interval = setInterval(fetchCluster, 5000)
+    return () => clearInterval(interval)
+  }, [distributedMode])
 
   // Fetch configured models (to know if any exist) and loaded models (currently running)
   const fetchSystemInfo = useCallback(async () => {
@@ -205,6 +256,10 @@ export default function Home() {
   const usagePct = resources?.aggregate?.usage_percent ?? resources?.ram?.usage_percent ?? 0
   const pctColor = usagePct > 90 ? 'var(--color-error)' : usagePct > 70 ? 'var(--color-warning)' : 'var(--color-success)'
 
+  // Cluster resource display (distributed mode)
+  const clusterUsagePct = clusterData?.totalMem > 0 ? ((clusterData.usedMem / clusterData.totalMem) * 100) : 0
+  const clusterPctColor = clusterUsagePct > 90 ? 'var(--color-error)' : clusterUsagePct > 70 ? 'var(--color-warning)' : 'var(--color-success)'
+
   return (
     <div className="home-page">
       {hasModels ? (
@@ -215,7 +270,27 @@ export default function Home() {
           </div>
 
           {/* Resource monitor - prominent placement */}
-          {resources && (
+          {distributedMode && clusterData && clusterData.totalMem > 0 ? (
+            <div className="home-resource-bar">
+              <div className="home-resource-bar-header">
+                <i className={`fas ${clusterData.isGPU ? 'fa-microchip' : 'fa-memory'}`} />
+                <span className="home-resource-label">Cluster {clusterData.isGPU ? 'VRAM' : 'RAM'}</span>
+                <span className="home-resource-pct" style={{ color: clusterPctColor }}>
+                  {formatBytes(clusterData.usedMem)} / {formatBytes(clusterData.totalMem)}
+                </span>
+              </div>
+              <div className="home-resource-track">
+                <div
+                  className="home-resource-fill"
+                  style={{ width: `${clusterUsagePct}%`, background: clusterPctColor }}
+                />
+              </div>
+              <div className="home-cluster-status">
+                <span className="home-cluster-dot" style={clusterData.healthyCount === 0 ? { background: 'var(--color-error)' } : undefined} />
+                <span>{clusterData.healthyCount}/{clusterData.totalCount} nodes online</span>
+              </div>
+            </div>
+          ) : !distributedMode && resources ? (
             <div className="home-resource-bar">
               <div className="home-resource-bar-header">
                 <i className={`fas ${resType === 'gpu' ? 'fa-microchip' : 'fa-memory'}`} />
@@ -231,7 +306,7 @@ export default function Home() {
                 />
               </div>
             </div>
-          )}
+          ) : null}
 
           {/* Chat input form */}
           <div className="home-chat-card">

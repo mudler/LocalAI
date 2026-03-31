@@ -3421,7 +3421,7 @@
 /* Home resource bar - prominent */
 .home-resource-bar {
   width: 100%;
-  max-width: 320px;
+  max-width: 380px;
   padding: var(--spacing-sm) var(--spacing-md);
   background: var(--color-bg-secondary);
   border: 1px solid var(--color-border-subtle);
@@ -3455,6 +3455,21 @@
   height: 100%;
   border-radius: 3px;
   transition: width 500ms ease;
+}
+.home-cluster-status {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  margin-top: var(--spacing-xs);
+}
+.home-cluster-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-success);
+  display: inline-block;
 }
 
 /* Home chat card */
