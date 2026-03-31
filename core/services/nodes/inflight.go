@@ -2,6 +2,7 @@ package nodes
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"github.com/mudler/LocalAI/pkg/grpc"
@@ -18,6 +19,9 @@ type InFlightTrackingClient struct {
 	registry     InFlightTracker
 	nodeID       string
 	modelName    string
+
+	firstOnce     sync.Once  // guards onFirstComplete
+	onFirstComplete func()   // called once after the first tracked inference call completes
 }
 
 // NewInFlightTrackingClient wraps a gRPC backend client with in-flight tracking.
@@ -30,6 +34,14 @@ func NewInFlightTrackingClient(inner grpc.Backend, registry InFlightTracker, nod
 	}
 }
 
+// OnFirstComplete registers a callback that fires once after the first tracked
+// inference call completes. This is used to release the initial in-flight
+// reservation (set during model load) after the triggering request finishes,
+// so that in-flight returns to 0 when the model is idle.
+func (c *InFlightTrackingClient) OnFirstComplete(fn func()) {
+	c.onFirstComplete = fn
+}
+
 func (c *InFlightTrackingClient) track(ctx context.Context) func() {
 	if err := c.registry.IncrementInFlight(ctx, c.nodeID, c.modelName); err != nil {
 		xlog.Warn("Failed to increment in-flight counter", "node", c.nodeID, "model", c.modelName, "error", err)
@@ -39,6 +51,10 @@ func (c *InFlightTrackingClient) track(ctx context.Context) func() {
 		decCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		c.registry.DecrementInFlight(decCtx, c.nodeID, c.modelName)
+		// Release the initial reservation after the first inference call completes
+		if c.onFirstComplete != nil {
+			c.firstOnce.Do(c.onFirstComplete)
+		}
 	}
 }
 

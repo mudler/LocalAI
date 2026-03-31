@@ -160,13 +160,19 @@ var _ = Describe("ModelRouterAdapter", func() {
 			adapter.mu.Unlock()
 			Expect(hasRelease).To(BeTrue())
 
-			// Verify calling ReleaseModel triggers the release (which decrements in-flight)
-			adapter.ReleaseModel("test-model")
-
+			// The initial in-flight reservation is released via OnFirstComplete after
+			// the first inference call, not during ReleaseModel. ReleaseModel only
+			// closes the client.
 			fakeReg.mu.Lock()
-			count := fakeReg.decrementCalled["node-1:test-model"]
+			countBeforeRelease := fakeReg.decrementCalled["node-1:test-model"]
 			fakeReg.mu.Unlock()
-			Expect(count).To(Equal(1))
+			Expect(countBeforeRelease).To(Equal(0))
+
+			adapter.ReleaseModel("test-model")
+			fakeReg.mu.Lock()
+			countAfterRelease := fakeReg.decrementCalled["node-1:test-model"]
+			fakeReg.mu.Unlock()
+			Expect(countAfterRelease).To(Equal(0))
 		})
 	})
 })

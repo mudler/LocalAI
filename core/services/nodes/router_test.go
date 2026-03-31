@@ -307,9 +307,12 @@ var _ = Describe("SmartRouter", func() {
 				// TouchNodeModel should have been called
 				Expect(reg.touchCalls).To(ContainElement("n1:my-model"))
 
-				// Call release — should decrement in-flight
+				// The initial in-flight reservation from FindAndLockNodeWithModel is released
+				// after the first inference call completes via OnFirstComplete callback.
+				// Release only closes the client.
 				result.Release()
-				Expect(reg.decrementCalls).To(ContainElement("n1:my-model"))
+				// No decrement on Release — it happens via OnFirstComplete after first Predict
+				Expect(reg.decrementCalls).To(BeEmpty())
 			})
 		})
 
