@@ -139,7 +139,7 @@ func (hm *HealthMonitor) doCheckAll(ctx context.Context) {
 		}
 
 		// Heartbeat is fresh — node is alive
-		if node.Status == StatusUnhealthy {
+		if node.Status == StatusUnhealthy || node.Status == StatusOffline {
 			xlog.Info("Node recovered", "node", node.Name)
 			if err := hm.registry.MarkHealthy(ctx, node.ID); err != nil {
 				xlog.Error("Failed to mark node healthy", "node", node.Name, "error", err)
