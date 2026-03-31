@@ -1065,7 +1065,7 @@ parameters:
 		It("returns errors", func() {
 			_, err := client.CreateCompletion(context.TODO(), openai.CompletionRequest{Model: "foomodel", Prompt: testPrompt})
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("error, status code: 500, status: 500 Internal Server Error, message: could not load model - all backends returned error:"))
+			Expect(err.Error()).To(ContainSubstring("error, status code: 404, status: 404 Not Found"))
 		})
 
 		It("shows the external backend", func() {

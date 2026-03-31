@@ -140,13 +140,31 @@ func (re *RequestExtractor) SetModelAndConfig(initializer func() schema.LocalAIR
 				}
 			}
 
-			cfg, err := re.modelConfigLoader.LoadModelConfigFileByNameDefaultOptions(input.ModelName(nil), re.applicationConfig)
+			modelName := input.ModelName(nil)
+			cfg, err := re.modelConfigLoader.LoadModelConfigFileByNameDefaultOptions(modelName, re.applicationConfig)
 
 			if err != nil {
-				xlog.Warn("Model Configuration File not found", "model", input.ModelName(nil), "error", err)
-			} else if cfg.Model == "" && input.ModelName(nil) != "" {
-				xlog.Debug("config does not include model, using input", "input.ModelName", input.ModelName(nil))
-				cfg.Model = input.ModelName(nil)
+				xlog.Warn("Model Configuration File not found", "model", modelName, "error", err)
+			} else if cfg.Model == "" && modelName != "" {
+				xlog.Debug("config does not include model, using input", "input.ModelName", modelName)
+				cfg.Model = modelName
+			}
+
+			// If a model name was specified, verify it actually exists before proceeding.
+			// Check both configured models and loose model files in the model path.
+			// Skip the check for HuggingFace model IDs (contain "/") since backends
+			// like diffusers may download these on the fly.
+			if modelName != "" && !strings.Contains(modelName, "/") {
+				exists, existsErr := galleryop.CheckIfModelExists(re.modelConfigLoader, re.modelLoader, modelName, galleryop.ALWAYS_INCLUDE)
+				if existsErr == nil && !exists {
+					return c.JSON(http.StatusNotFound, schema.ErrorResponse{
+						Error: &schema.APIError{
+							Message: fmt.Sprintf("model %q not found. To see available models, call GET /v1/models", modelName),
+							Code:    http.StatusNotFound,
+							Type:    "invalid_request_error",
+						},
+					})
+				}
 			}
 
 			c.Set(CONTEXT_LOCALS_KEY_LOCALAI_REQUEST, input)
