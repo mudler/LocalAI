@@ -3,6 +3,7 @@ package xsysinfo
 import (
 	"bytes"
 	"encoding/json"
+	"os"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -183,6 +184,12 @@ func DetectGPUVendor() (string, error) {
 		return VendorIntel, nil
 	}
 
+	// Check for NVIDIA Tegra/Jetson (no nvidia-smi on these devices)
+	if isTegraDevice() {
+		xlog.Debug("GPU vendor detected via Tegra SoC", "vendor", VendorNVIDIA)
+		return VendorNVIDIA, nil
+	}
+
 	// Check for vulkaninfo (Vulkan - lowest priority as it can detect any GPU)
 	if _, err := exec.LookPath("vulkaninfo"); err == nil {
 		xlog.Debug("GPU vendor detected via binary", "vendor", VendorVulkan, "binary", "vulkaninfo")
@@ -237,6 +244,12 @@ func GetGPUMemoryUsage() []GPUMemoryInfo {
 			intelGPUs[i].Index = startIdx + i
 		}
 		gpus = append(gpus, intelGPUs...)
+	}
+
+	// Try NVIDIA Tegra/Jetson (unified memory iGPU, no nvidia-smi)
+	if len(gpus) == 0 {
+		tegraGPUs := getTegraGPUMemory()
+		gpus = append(gpus, tegraGPUs...)
 	}
 
 	// Try Vulkan as fallback for device detection (limited real-time data)
@@ -596,6 +609,59 @@ func getIntelGPUTop() []GPUMemoryInfo {
 	// intel_gpu_top doesn't always provide memory info
 	// Return empty if we can't get useful data
 	return nil
+}
+
+// isTegraDevice checks if the system is an NVIDIA Tegra/Jetson device.
+// This works both on the host and inside Docker containers.
+func isTegraDevice() bool {
+	data, err := os.ReadFile("/sys/devices/soc0/family")
+	if err == nil && strings.TrimSpace(string(data)) == "Tegra" {
+		return true
+	}
+	return false
+}
+
+// getTegraGPUMemory detects NVIDIA Tegra/Jetson iGPU.
+// Jetson devices (Orin, Xavier, etc.) have an integrated GPU that shares
+// system RAM (unified memory). They don't have nvidia-smi, so the normal
+// NVIDIA detection path fails. We detect via /sys/devices/soc0/family.
+func getTegraGPUMemory() []GPUMemoryInfo {
+	if !isTegraDevice() {
+		return nil
+	}
+
+	// Get device name from device tree
+	name := "NVIDIA Jetson"
+	if data, err := os.ReadFile("/proc/device-tree/model"); err == nil {
+		name = strings.TrimRight(string(data), "\x00 \n")
+	}
+
+	// Unified memory - use system RAM
+	ramInfo, err := GetSystemRAMInfo()
+	if err != nil {
+		xlog.Debug("Tegra detected but failed to get system RAM", "error", err)
+		return []GPUMemoryInfo{{
+			Index:  0,
+			Name:   name,
+			Vendor: VendorNVIDIA,
+		}}
+	}
+
+	usagePercent := 0.0
+	if ramInfo.Total > 0 {
+		usagePercent = float64(ramInfo.Used) / float64(ramInfo.Total) * 100
+	}
+
+	xlog.Debug("Tegra iGPU detected (unified memory)", "device", name, "total_ram", ramInfo.Total)
+	return []GPUMemoryInfo{{
+		Index:        0,
+		Name:         name,
+		Vendor:       VendorNVIDIA,
+		TotalVRAM:    ramInfo.Total,
+		UsedVRAM:     ramInfo.Used,
+		FreeVRAM:     ramInfo.Free,
+		UsagePercent: usagePercent,
+	}}
 }
 
 // GetResourceInfo returns GPU info if available, otherwise system RAM info
