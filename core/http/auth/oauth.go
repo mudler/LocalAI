@@ -213,41 +213,84 @@ func (m *OAuthManager) CallbackHandler(providerName string, db *gorm.DB, adminEm
 			})
 		}
 
-		// In invite mode, block new OAuth users who don't have a valid invite code
-		// to prevent phantom pending records from accumulating in the DB.
-		// The first user (no users in DB yet) is always allowed through.
-		if registrationMode == "invite" && inviteCode == "" {
-			var existing User
-			if err := db.Where("provider = ? AND subject = ?", providerName, userInfo.Subject).First(&existing).Error; err != nil {
-				// Check if this would be the first user (always allowed)
-				var userCount int64
-				db.Model(&User{}).Count(&userCount)
-				if userCount > 0 {
-					// New user without invite code — reject without creating a DB record
+		// Check if user already exists
+		var existingUser User
+		userExists := db.Where("provider = ? AND subject = ?", providerName, userInfo.Subject).First(&existingUser).Error == nil
+
+		var user *User
+		if userExists {
+			// Existing user — update profile fields, no invite gating needed
+			existingUser.Name = userInfo.Name
+			existingUser.AvatarURL = userInfo.AvatarURL
+			if userInfo.Email != "" {
+				existingUser.Email = strings.ToLower(strings.TrimSpace(userInfo.Email))
+			}
+			db.Save(&existingUser)
+			user = &existingUser
+		} else {
+			// New user — validate invite BEFORE creating, inside a transaction
+			var validInvite *InviteCode
+			txErr := db.Transaction(func(tx *gorm.DB) error {
+				email := ""
+				if userInfo.Email != "" {
+					email = strings.ToLower(strings.TrimSpace(userInfo.Email))
+				}
+
+				role := AssignRole(tx, email, adminEmail)
+				status := StatusActive
+
+				if NeedsInviteOrApproval(tx, email, adminEmail, registrationMode) {
+					if registrationMode == "invite" {
+						if inviteCode == "" {
+							return fmt.Errorf("invite_required")
+						}
+						invite, err := ValidateInvite(tx, inviteCode, hmacSecret)
+						if err != nil {
+							return fmt.Errorf("invalid_invite")
+						}
+						validInvite = invite
+						status = StatusActive
+					} else {
+						// approval mode — create as pending
+						status = StatusPending
+					}
+				}
+
+				newUser := User{
+					ID:        uuid.New().String(),
+					Email:     email,
+					Name:      userInfo.Name,
+					AvatarURL: userInfo.AvatarURL,
+					Provider:  providerName,
+					Subject:   userInfo.Subject,
+					Role:      role,
+					Status:    status,
+				}
+				if err := tx.Create(&newUser).Error; err != nil {
+					return fmt.Errorf("failed to create user: %w", err)
+				}
+
+				if validInvite != nil {
+					ConsumeInvite(tx, validInvite, newUser.ID)
+				}
+
+				user = &newUser
+				return nil
+			})
+
+			if txErr != nil {
+				msg := txErr.Error()
+				if msg == "invite_required" {
 					return c.Redirect(http.StatusTemporaryRedirect, "/login?error=invite_required")
 				}
-			}
-		}
-
-		// Upsert user (with invite code support)
-		user, err := upsertOAuthUser(db, providerName, userInfo, adminEmail, registrationMode)
-		if err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to create user"})
-		}
-
-		// For new users that are pending, check if they have a valid invite
-		if user.Status != StatusActive && inviteCode != "" {
-			if invite, err := ValidateInvite(db, inviteCode, hmacSecret); err == nil {
-				user.Status = StatusActive
-				db.Model(user).Update("status", StatusActive)
-				ConsumeInvite(db, invite, user.ID)
+				if msg == "invalid_invite" {
+					return c.Redirect(http.StatusTemporaryRedirect, "/login?error=invalid_invite")
+				}
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to create user"})
 			}
 		}
 
 		if user.Status != StatusActive {
-			if registrationMode == "invite" {
-				return c.JSON(http.StatusForbidden, map[string]string{"error": "a valid invite code is required to register"})
-			}
 			return c.JSON(http.StatusForbidden, map[string]string{"error": "account pending approval"})
 		}
 
@@ -393,58 +436,6 @@ func fetchGitHubPrimaryEmail(ctx context.Context, accessToken string) (string, e
 	return "", fmt.Errorf("no verified email found")
 }
 
-func upsertOAuthUser(db *gorm.DB, provider string, info *oauthUserInfo, adminEmail, registrationMode string) (*User, error) {
-	// Normalize email from provider (#10)
-	if info.Email != "" {
-		info.Email = strings.ToLower(strings.TrimSpace(info.Email))
-	}
-
-	var user User
-	err := db.Where("provider = ? AND subject = ?", provider, info.Subject).First(&user).Error
-	if err == nil {
-		// Existing user — update profile fields
-		user.Name = info.Name
-		user.AvatarURL = info.AvatarURL
-		if info.Email != "" {
-			user.Email = info.Email
-		}
-		db.Save(&user)
-		return &user, nil
-	}
-
-	// New user — empty registration mode defaults to "approval"
-	effectiveMode := registrationMode
-	if effectiveMode == "" {
-		effectiveMode = "approval"
-	}
-	status := StatusActive
-	if effectiveMode == "approval" || effectiveMode == "invite" {
-		status = StatusPending
-	}
-
-	role := AssignRole(db, info.Email, adminEmail)
-	// First user is always active regardless of registration mode
-	if role == RoleAdmin {
-		status = StatusActive
-	}
-
-	user = User{
-		ID:        uuid.New().String(),
-		Email:     info.Email,
-		Name:      info.Name,
-		AvatarURL: info.AvatarURL,
-		Provider:  provider,
-		Subject:   info.Subject,
-		Role:      role,
-		Status:    status,
-	}
-
-	if err := db.Create(&user).Error; err != nil {
-		return nil, err
-	}
-
-	return &user, nil
-}
 
 func generateState() (string, error) {
 	b := make([]byte, 16)
