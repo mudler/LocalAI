@@ -63,6 +63,3 @@ jobs:
           branch: "update/${{ matrix.variable }}"
           body: ${{ steps.bump.outputs.message }}
           signoff: true
-
-
-

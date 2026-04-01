@@ -1,0 +1,9 @@
+# Patch sources for the llama-cpp backend.
+# Each source declares a fork whose commits are extracted as patches
+# and applied on top of upstream llama.cpp during the build.
+# See scripts/patch_utils/apply_patches.sh for the generic patch engine.
+sources:
+  - name: turboquant
+    repo: https://github.com/TheTom/llama-cpp-turboquant.git
+    branch: feature/turboquant-kv-cache
+    upstream_repo: https://github.com/ggml-org/llama.cpp.git
