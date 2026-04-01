@@ -11,10 +11,29 @@
 #      - If patches/<name>/ already has .patch files: skip fetching (vendored)
 #      - Otherwise: clone the fork, auto-detect the fork base via merge-base
 #        with the upstream repo, and generate patches
-#   2. Apply all patches from source subdirectories (alphabetical), then top-level .patch files
+#   2. Apply all patches using patch --forward (skips already-applied patches)
 #   3. Fails fast on any patch application error
 
 set -e
+
+# Use /tmp for patch temp files to avoid macOS long-path issues
+export TMPDIR="${TMPDIR_OVERRIDE:-/tmp}"
+
+apply_one_patch() {
+    local target_dir="$1"
+    local patch_file="$2"
+    local label="$3"
+
+    # --forward skips patches that appear already applied (exit code 0 with a message)
+    # We check dry-run first: if reverse-apply succeeds, patch is already in.
+    if patch -d "$target_dir" -p1 --reverse --dry-run < "$patch_file" >/dev/null 2>&1; then
+        echo "  Already applied, skipping: $label"
+        return 0
+    fi
+
+    echo "  Applying: $label"
+    patch -d "$target_dir" -p1 --forward < "$patch_file" || { echo "FAILED: $patch_file"; exit 1; }
+}
 
 apply_patches() {
     local SOURCE_DIR="$(cd "$1" && pwd)"
@@ -46,11 +65,11 @@ apply_patches() {
             else
                 echo "Patches [$NAME]: fetching from $REPO ($BRANCH)"
 
-                local TMPDIR
-                TMPDIR=$(mktemp -d)
+                local TMPDIR_CLONE
+                TMPDIR_CLONE=$(mktemp -d)
 
-                if git clone --single-branch -b "$BRANCH" "$REPO" "$TMPDIR/fork" 2>&1; then
-                    cd "$TMPDIR/fork"
+                if git clone --single-branch -b "$BRANCH" "$REPO" "$TMPDIR_CLONE/fork" 2>&1; then
+                    cd "$TMPDIR_CLONE/fork"
 
                     # Auto-detect fork base: merge-base between fork and upstream
                     git remote add upstream "$UPSTREAM_REPO"
@@ -63,7 +82,7 @@ apply_patches() {
                     if [ -z "$FORK_BASE" ]; then
                         echo "WARNING: Could not find merge-base with upstream — skipping source '$NAME'"
                         cd "$SOURCE_DIR"
-                        rm -rf "$TMPDIR"
+                        rm -rf "$TMPDIR_CLONE"
                         continue
                     fi
 
@@ -81,7 +100,7 @@ apply_patches() {
                     echo "WARNING: Failed to clone $REPO — skipping source '$NAME'"
                 fi
 
-                rm -rf "$TMPDIR"
+                rm -rf "$TMPDIR_CLONE"
             fi
         done
     elif [ -f "$PATCHES_DIR/sources.yaml" ]; then
@@ -91,13 +110,11 @@ apply_patches() {
     # Phase 2: Apply patches (subdirectories first, then top-level)
     for source_dir in $(find "$PATCHES_DIR" -mindepth 1 -maxdepth 1 -type d | sort); do
         for p in $(ls "$source_dir"/*.patch 2>/dev/null | sort); do
-            echo "Applying: $(basename "$source_dir")/$(basename "$p")"
-            patch -d "$TARGET_DIR" -p1 < "$p" || { echo "FAILED: $p"; exit 1; }
+            apply_one_patch "$TARGET_DIR" "$p" "$(basename "$source_dir")/$(basename "$p")"
         done
     done
     for p in $(ls "$PATCHES_DIR"/*.patch 2>/dev/null | sort); do
-        echo "Applying: $(basename "$p")"
-        patch -d "$TARGET_DIR" -p1 < "$p" || { echo "FAILED: $p"; exit 1; }
+        apply_one_patch "$TARGET_DIR" "$p" "$(basename "$p")"
     done
 }
 
