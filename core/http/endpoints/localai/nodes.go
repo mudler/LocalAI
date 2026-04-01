@@ -349,6 +349,19 @@ func DrainNodeEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
 	}
 }
 
+// ResumeNodeEndpoint sets a draining node back to healthy status.
+func ResumeNodeEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		ctx := c.Request().Context()
+		id := c.Param("id")
+		if err := registry.MarkHealthy(ctx, id); err != nil {
+			xlog.Error("Failed to resume node", "id", id, "error", err)
+			return c.JSON(http.StatusInternalServerError, nodeError(http.StatusInternalServerError, "failed to resume node"))
+		}
+		return c.JSON(http.StatusOK, map[string]string{"message": "node resumed"})
+	}
+}
+
 // InstallBackendOnNodeEndpoint triggers backend installation on a worker node via NATS.
 func InstallBackendOnNodeEndpoint(unloader nodes.NodeCommandSender) echo.HandlerFunc {
 	return func(c echo.Context) error {

@@ -70,6 +70,7 @@ type NodeManager interface {
 	ApproveNode(ctx context.Context, nodeID string) error
 	MarkOffline(ctx context.Context, nodeID string) error
 	MarkDraining(ctx context.Context, nodeID string) error
+	MarkHealthy(ctx context.Context, nodeID string) error
 	Heartbeat(ctx context.Context, nodeID string, update *HeartbeatUpdate) error
 	GetNodeModels(ctx context.Context, nodeID string) ([]NodeModel, error)
 	UpdateAuthRefs(ctx context.Context, nodeID, authUserID, apiKeyID string) error

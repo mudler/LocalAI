@@ -100,6 +100,7 @@ export const API_CONFIG = {
     node: (id) => `/api/nodes/${id}`,
     nodeModels: (id) => `/api/nodes/${id}/models`,
     nodeDrain: (id) => `/api/nodes/${id}/drain`,
+    nodeResume: (id) => `/api/nodes/${id}/resume`,
     nodeApprove: (id) => `/api/nodes/${id}/approve`,
     nodeHeartbeat: (id) => `/api/nodes/${id}/heartbeat`,
     nodeBackends: (id) => `/api/nodes/${id}/backends`,

@@ -354,6 +354,16 @@ export default function Nodes() {
     }
   }
 
+  const handleResume = async (nodeId) => {
+    try {
+      await nodesApi.resume(nodeId)
+      addToast('Node resumed', 'success')
+      fetchNodes()
+    } catch (err) {
+      addToast(`Failed to resume node: ${err.message}`, 'error')
+    }
+  }
+
   const handleApprove = async (nodeId) => {
     try {
       await nodesApi.approve(nodeId)
@@ -595,6 +605,7 @@ export default function Nodes() {
             return sum
           }, 0)
           const totalModelsLoaded = backendNodes.reduce((sum, n) => sum + (n.model_count || 0), 0)
+          const totalInFlight = backendNodes.reduce((sum, n) => sum + (n.in_flight_count || 0), 0)
           return (
             <>
               {clusterTotalVRAM > 0 && (
@@ -602,6 +613,8 @@ export default function Nodes() {
                   value={`${formatVRAM(clusterUsedVRAM) || '0'} / ${formatVRAM(clusterTotalVRAM)}`} />
               )}
               <StatCard icon="fas fa-cube" label="Models Loaded" value={totalModelsLoaded} />
+              <StatCard icon="fas fa-exchange-alt" label="In-Flight Requests" value={totalInFlight}
+                color={totalInFlight > 0 ? 'var(--color-primary)' : undefined} />
             </>
           )
         })()}
@@ -740,6 +753,15 @@ export default function Nodes() {
                               title="Approve node"
                             >
                               <i className="fas fa-check" />
+                            </button>
+                          )}
+                          {node.status === 'draining' && (
+                            <button
+                              className="btn btn-secondary btn-sm"
+                              onClick={() => handleResume(node.id)}
+                              title="Resume node"
+                            >
+                              <i className="fas fa-play" />
                             </button>
                           )}
                           {node.status !== 'draining' && node.status !== 'pending' && (

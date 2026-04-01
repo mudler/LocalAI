@@ -416,6 +416,7 @@ export const nodesApi = {
   get: (id) => fetchJSON(API_CONFIG.endpoints.node(id)),
   delete: (id) => fetchJSON(API_CONFIG.endpoints.node(id), { method: 'DELETE' }),
   drain: (id) => postJSON(API_CONFIG.endpoints.nodeDrain(id), {}),
+  resume: (id) => postJSON(API_CONFIG.endpoints.nodeResume(id), {}),
   approve: (id) => postJSON(API_CONFIG.endpoints.nodeApprove(id), {}),
   getModels: (id) => fetchJSON(API_CONFIG.endpoints.nodeModels(id)),
   getBackends: (id) => fetchJSON(API_CONFIG.endpoints.nodeBackends(id)),
