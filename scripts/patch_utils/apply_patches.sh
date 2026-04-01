@@ -9,23 +9,32 @@
 # Behavior (idempotent):
 #   1. If patches/sources.yaml exists and yq is available, for each source:
 #      - If patches/<name>/ already has .patch files: skip fetching (vendored)
-#      - Otherwise: clone the fork, auto-detect the fork base via merge-base
-#        with the upstream repo, and generate patches
-#   2. Apply all patches using patch --forward (skips already-applied patches)
+#      - Otherwise: clone the fork at a pinned SHA, diff against the pinned
+#        upstream SHA, and generate patches
+#   2. Apply all patches (skips already-applied ones)
 #   3. Fails fast on any patch application error
+#
+# sources.yaml fields:
+#   name         — subdirectory name for this source's patches
+#   repo         — fork git URL
+#   version_var  — Makefile variable holding the pinned fork commit SHA
+#   base_var     — Makefile variable holding the pinned upstream commit SHA
+#   version_file — Makefile path (relative to backend dir)
 
 set -e
 
 # Use /tmp for patch temp files to avoid macOS long-path issues
 export TMPDIR="${TMPDIR_OVERRIDE:-/tmp}"
 
+read_makefile_var() {
+    grep -m1 "^${1}?=" "$2" | cut -d'=' -f2
+}
+
 apply_one_patch() {
     local target_dir="$1"
     local patch_file="$2"
     local label="$3"
 
-    # --forward skips patches that appear already applied (exit code 0 with a message)
-    # We check dry-run first: if reverse-apply succeeds, patch is already in.
     if patch -d "$target_dir" -p1 --reverse --dry-run < "$patch_file" >/dev/null 2>&1; then
         echo "  Already applied, skipping: $label"
         return 0
@@ -50,11 +59,22 @@ apply_patches() {
         SOURCE_COUNT=$(yq '.sources | length' "$PATCHES_DIR/sources.yaml")
 
         for i in $(seq 0 $((SOURCE_COUNT - 1))); do
-            local NAME REPO BRANCH UPSTREAM_REPO
+            local NAME REPO VERSION_VAR BASE_VAR VERSION_FILE
             NAME=$(yq ".sources[$i].name" "$PATCHES_DIR/sources.yaml")
             REPO=$(yq ".sources[$i].repo" "$PATCHES_DIR/sources.yaml")
-            BRANCH=$(yq ".sources[$i].branch" "$PATCHES_DIR/sources.yaml")
-            UPSTREAM_REPO=$(yq ".sources[$i].upstream_repo" "$PATCHES_DIR/sources.yaml")
+            VERSION_VAR=$(yq ".sources[$i].version_var" "$PATCHES_DIR/sources.yaml")
+            BASE_VAR=$(yq ".sources[$i].base_var" "$PATCHES_DIR/sources.yaml")
+            VERSION_FILE=$(yq ".sources[$i].version_file" "$PATCHES_DIR/sources.yaml")
+
+            local MAKEFILE="$SOURCE_DIR/$VERSION_FILE"
+            local FORK_SHA BASE_SHA
+            FORK_SHA=$(read_makefile_var "$VERSION_VAR" "$MAKEFILE")
+            BASE_SHA=$(read_makefile_var "$BASE_VAR" "$MAKEFILE")
+
+            if [ -z "$FORK_SHA" ] || [ -z "$BASE_SHA" ]; then
+                echo "WARNING: Could not read $VERSION_VAR or $BASE_VAR from $MAKEFILE — skipping '$NAME'"
+                continue
+            fi
 
             local SOURCE_PATCH_DIR="$PATCHES_DIR/$NAME"
             local EXISTING
@@ -63,36 +83,41 @@ apply_patches() {
             if [ "$EXISTING" -gt 0 ]; then
                 echo "Patches [$NAME]: $EXISTING patches already present — skipping fetch."
             else
-                echo "Patches [$NAME]: fetching from $REPO ($BRANCH)"
+                echo "Patches [$NAME]: generating from $REPO"
+                echo "  base (upstream): ${BASE_SHA:0:12}"
+                echo "  head (fork):     ${FORK_SHA:0:12}"
 
                 local TMPDIR_CLONE
                 TMPDIR_CLONE=$(mktemp -d)
 
-                if git clone --single-branch -b "$BRANCH" "$REPO" "$TMPDIR_CLONE/fork" 2>&1; then
+                if git clone "$REPO" "$TMPDIR_CLONE/fork" 2>&1; then
                     cd "$TMPDIR_CLONE/fork"
 
-                    # Auto-detect fork base: merge-base between fork and upstream
-                    git remote add upstream "$UPSTREAM_REPO"
-                    git fetch upstream 2>&1
+                    # Fetch the upstream base commit (may not be in the fork's history)
+                    git fetch origin "$FORK_SHA" 2>&1 || true
+                    git checkout "$FORK_SHA" 2>&1
 
-                    local FORK_BASE
-                    FORK_BASE=$(git merge-base HEAD upstream/master 2>/dev/null || \
-                                git merge-base HEAD upstream/main 2>/dev/null || echo "")
-
-                    if [ -z "$FORK_BASE" ]; then
-                        echo "WARNING: Could not find merge-base with upstream — skipping source '$NAME'"
-                        cd "$SOURCE_DIR"
-                        rm -rf "$TMPDIR_CLONE"
-                        continue
+                    # We need the base commit in the history to compute the diff.
+                    # If the fork is a real GitHub fork, it shares history with upstream.
+                    # Otherwise, fetch it explicitly.
+                    if ! git cat-file -e "$BASE_SHA" 2>/dev/null; then
+                        echo "  Base commit not in fork history — fetching from upstream"
+                        local UPSTREAM_URL
+                        # Derive upstream URL from base_var context or use llama.cpp default
+                        UPSTREAM_URL=$(yq ".sources[$i].upstream_repo // \"\"" "$PATCHES_DIR/sources.yaml")
+                        if [ -n "$UPSTREAM_URL" ] && [ "$UPSTREAM_URL" != "null" ]; then
+                            git remote add upstream "$UPSTREAM_URL" 2>/dev/null || true
+                            git fetch upstream 2>&1
+                        fi
                     fi
 
                     local PATCH_COUNT
-                    PATCH_COUNT=$(git rev-list --count "$FORK_BASE"..HEAD 2>/dev/null || echo "0")
-                    echo "  Fork base: ${FORK_BASE:0:12} ($PATCH_COUNT commits to extract)"
+                    PATCH_COUNT=$(git rev-list --count "$BASE_SHA".."$FORK_SHA" 2>/dev/null || echo "0")
+                    echo "  $PATCH_COUNT commits in diff"
 
                     if [ "$PATCH_COUNT" -gt 0 ]; then
                         mkdir -p "$SOURCE_PATCH_DIR"
-                        git format-patch "$FORK_BASE"..HEAD -o "$SOURCE_PATCH_DIR/" >/dev/null 2>&1
+                        git format-patch "$BASE_SHA".."$FORK_SHA" -o "$SOURCE_PATCH_DIR/" >/dev/null 2>&1
                         echo "  Generated $PATCH_COUNT patches in patches/$NAME/"
                     fi
                     cd "$SOURCE_DIR"

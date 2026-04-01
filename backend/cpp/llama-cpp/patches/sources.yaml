@@ -2,8 +2,13 @@
 # Each source declares a fork whose commits are extracted as patches
 # and applied on top of upstream llama.cpp during the build.
 # See scripts/patch_utils/apply_patches.sh for the generic patch engine.
+#
+# version_var: Makefile variable with the pinned fork commit SHA
+# base_var:    Makefile variable with the upstream base commit SHA
+# Both are read from version_file (relative to backend dir) to compute the diff.
 sources:
   - name: turboquant
     repo: https://github.com/TheTom/llama-cpp-turboquant.git
-    branch: feature/turboquant-kv-cache
-    upstream_repo: https://github.com/ggml-org/llama.cpp.git
+    version_var: TURBOQUANT_VERSION
+    base_var: LLAMA_VERSION
+    version_file: Makefile

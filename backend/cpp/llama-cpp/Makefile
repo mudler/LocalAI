@@ -2,6 +2,8 @@
 LLAMA_VERSION?=0fcb3760b2b9a3a496ef14621a7e4dad7a8df90f
 LLAMA_REPO?=https://github.com/ggerganov/llama.cpp
 
+TURBOQUANT_VERSION?=8ad0f00e9a38df6c29fc10363341dde300f92ae4
+
 CMAKE_ARGS?=
 BUILD_TYPE?=
 NATIVE?=false
