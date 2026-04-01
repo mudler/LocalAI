@@ -97,8 +97,9 @@ type ModelSchedulingConfig struct {
 // NodeWithExtras extends BackendNode with computed fields for list views.
 type NodeWithExtras struct {
 	BackendNode
-	ModelCount int               `json:"model_count"`
-	Labels     map[string]string `json:"labels,omitempty"`
+	ModelCount    int               `json:"model_count"`
+	InFlightCount int               `json:"in_flight_count"`
+	Labels        map[string]string `json:"labels,omitempty"`
 }
 
 // NodeRegistry manages backend node registration and lookup in PostgreSQL.
@@ -854,6 +855,25 @@ func (r *NodeRegistry) ListWithExtras(ctx context.Context) ([]NodeWithExtras, er
 		countMap[c.NodeID] = c.Count
 	}
 
+	// Get in-flight counts per node
+	type inFlightCount struct {
+		NodeID string
+		Total  int
+	}
+	var inFlights []inFlightCount
+	if err := r.db.WithContext(ctx).Model(&NodeModel{}).
+		Select("node_id, COALESCE(SUM(in_flight), 0) as total").
+		Where("state IN ?", []string{"loaded", "unloading"}).
+		Group("node_id").
+		Find(&inFlights).Error; err != nil {
+		xlog.Warn("ListWithExtras: failed to get in-flight counts", "error", err)
+	}
+
+	inFlightMap := make(map[string]int)
+	for _, f := range inFlights {
+		inFlightMap[f.NodeID] = f.Total
+	}
+
 	// Get all labels
 	labelsMap, err := r.GetAllNodeLabelsMap(ctx)
 	if err != nil {
@@ -864,9 +884,10 @@ func (r *NodeRegistry) ListWithExtras(ctx context.Context) ([]NodeWithExtras, er
 	result := make([]NodeWithExtras, len(nodes))
 	for i, n := range nodes {
 		result[i] = NodeWithExtras{
-			BackendNode: n,
-			ModelCount:  countMap[n.ID],
-			Labels:      labelsMap[n.ID],
+			BackendNode:   n,
+			ModelCount:    countMap[n.ID],
+			InFlightCount: inFlightMap[n.ID],
+			Labels:        labelsMap[n.ID],
 		}
 	}
 	return result, nil
