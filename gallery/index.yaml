@@ -1,4 +1,73 @@
 ---
+- name: "arcee-ai.trinity-large-thinking"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/DevQuasar/arcee-ai.Trinity-Large-Thinking-GGUF
+  description: |
+    Describe the model in a clear and concise way that can be shared in a model gallery.
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/arcee-ai.Trinity-Large-Thinking-GGUF/arcee-ai.Trinity-Large-Thinking.Q4_K_M-00001-of-00016.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/arcee-ai.Trinity-Large-Thinking-GGUF/arcee-ai.Trinity-Large-Thinking.Q4_K_M-00001-of-00016.gguf
+      sha256: 390a9a07d11d53b707596409ebcb4965438629b330e23f402051e2d2b641d88c
+      uri: https://huggingface.co/DevQuasar/arcee-ai.Trinity-Large-Thinking-GGUF/resolve/main/arcee-ai.Trinity-Large-Thinking.Q4_K_M-00001-of-00016.gguf
+    - filename: llama-cpp/models/arcee-ai.Trinity-Large-Thinking-GGUF/arcee-ai.Trinity-Large-Thinking.Q4_K_M-00002-of-00016.gguf
+      sha256: cdb629023cec0029b8e7f2214826c5e55a6e1211187ee1fa29f1114a10934199
+      uri: https://huggingface.co/DevQuasar/arcee-ai.Trinity-Large-Thinking-GGUF/resolve/main/arcee-ai.Trinity-Large-Thinking.Q4_K_M-00002-of-00016.gguf
+    - filename: llama-cpp/models/arcee-ai.Trinity-Large-Thinking-GGUF/arcee-ai.Trinity-Large-Thinking.Q4_K_M-00003-of-00016.gguf
+      sha256: 0598631e677684c16913731439f737e04596885859130479999c2da8cbc4c9c7
+      uri: https://huggingface.co/DevQuasar/arcee-ai.Trinity-Large-Thinking-GGUF/resolve/main/arcee-ai.Trinity-Large-Thinking.Q4_K_M-00003-of-00016.gguf
+    - filename: llama-cpp/models/arcee-ai.Trinity-Large-Thinking-GGUF/arcee-ai.Trinity-Large-Thinking.Q4_K_M-00004-of-00016.gguf
+      sha256: e159e350456f9bab75110dfd73221b935287e988108893112f69a388815b8de4
+      uri: https://huggingface.co/DevQuasar/arcee-ai.Trinity-Large-Thinking-GGUF/resolve/main/arcee-ai.Trinity-Large-Thinking.Q4_K_M-00004-of-00016.gguf
+    - filename: llama-cpp/models/arcee-ai.Trinity-Large-Thinking-GGUF/arcee-ai.Trinity-Large-Thinking.Q4_K_M-00005-of-00016.gguf
+      sha256: 37195bf8e4db38338146a418f10b37a1038775e9e60ddf22180b990c5fe1fdae
+      uri: https://huggingface.co/DevQuasar/arcee-ai.Trinity-Large-Thinking-GGUF/resolve/main/arcee-ai.Trinity-Large-Thinking.Q4_K_M-00005-of-00016.gguf
+    - filename: llama-cpp/models/arcee-ai.Trinity-Large-Thinking-GGUF/arcee-ai.Trinity-Large-Thinking.Q4_K_M-00006-of-00016.gguf
+      sha256: ead08eab5d6dadfe0946c409d4e3ddd2c1adcf7dfcf8fec3e0ca5606bd74072c
+      uri: https://huggingface.co/DevQuasar/arcee-ai.Trinity-Large-Thinking-GGUF/resolve/main/arcee-ai.Trinity-Large-Thinking.Q4_K_M-00006-of-00016.gguf
+    - filename: llama-cpp/models/arcee-ai.Trinity-Large-Thinking-GGUF/arcee-ai.Trinity-Large-Thinking.Q4_K_M-00007-of-00016.gguf
+      sha256: 947d025c3def6a0beb848eac15037738044ddb3d0b176136b4ccff3a3c670d70
+      uri: https://huggingface.co/DevQuasar/arcee-ai.Trinity-Large-Thinking-GGUF/resolve/main/arcee-ai.Trinity-Large-Thinking.Q4_K_M-00007-of-00016.gguf
+    - filename: llama-cpp/models/arcee-ai.Trinity-Large-Thinking-GGUF/arcee-ai.Trinity-Large-Thinking.Q4_K_M-00008-of-00016.gguf
+      sha256: 82424960b4f94448796f9b7d45b545c57a31da5986a1f657a8f185d3a886e46e
+      uri: https://huggingface.co/DevQuasar/arcee-ai.Trinity-Large-Thinking-GGUF/resolve/main/arcee-ai.Trinity-Large-Thinking.Q4_K_M-00008-of-00016.gguf
+    - filename: llama-cpp/models/arcee-ai.Trinity-Large-Thinking-GGUF/arcee-ai.Trinity-Large-Thinking.Q4_K_M-00009-of-00016.gguf
+      sha256: 5b4f2815a25fcb9f955feeb89cedb9bf92fc928e24a68be668e27eaa384d0574
+      uri: https://huggingface.co/DevQuasar/arcee-ai.Trinity-Large-Thinking-GGUF/resolve/main/arcee-ai.Trinity-Large-Thinking.Q4_K_M-00009-of-00016.gguf
+    - filename: llama-cpp/models/arcee-ai.Trinity-Large-Thinking-GGUF/arcee-ai.Trinity-Large-Thinking.Q4_K_M-00010-of-00016.gguf
+      sha256: dfdc808d62a165cd3daa2e22076c5f0b9da49063277243c4a694ee5d9a6bcae8
+      uri: https://huggingface.co/DevQuasar/arcee-ai.Trinity-Large-Thinking-GGUF/resolve/main/arcee-ai.Trinity-Large-Thinking.Q4_K_M-00010-of-00016.gguf
+    - filename: llama-cpp/models/arcee-ai.Trinity-Large-Thinking-GGUF/arcee-ai.Trinity-Large-Thinking.Q4_K_M-00011-of-00016.gguf
+      sha256: 43352a5b6d4d73950455f936c3bfd87b2c25562077ab7a0f7a96b8a77dd69dfc
+      uri: https://huggingface.co/DevQuasar/arcee-ai.Trinity-Large-Thinking-GGUF/resolve/main/arcee-ai.Trinity-Large-Thinking.Q4_K_M-00011-of-00016.gguf
+    - filename: llama-cpp/models/arcee-ai.Trinity-Large-Thinking-GGUF/arcee-ai.Trinity-Large-Thinking.Q4_K_M-00012-of-00016.gguf
+      sha256: c8feed24ce8f0979bd4dc67ae5dc4264951c33cccb5cd4cc19fe2adcb894d486
+      uri: https://huggingface.co/DevQuasar/arcee-ai.Trinity-Large-Thinking-GGUF/resolve/main/arcee-ai.Trinity-Large-Thinking.Q4_K_M-00012-of-00016.gguf
+    - filename: llama-cpp/models/arcee-ai.Trinity-Large-Thinking-GGUF/arcee-ai.Trinity-Large-Thinking.Q4_K_M-00013-of-00016.gguf
+      sha256: 7613cd6846289f626aab40c4e4e9a7e66206327f2eca308667ecefd03c8016ed
+      uri: https://huggingface.co/DevQuasar/arcee-ai.Trinity-Large-Thinking-GGUF/resolve/main/arcee-ai.Trinity-Large-Thinking.Q4_K_M-00013-of-00016.gguf
+    - filename: llama-cpp/models/arcee-ai.Trinity-Large-Thinking-GGUF/arcee-ai.Trinity-Large-Thinking.Q4_K_M-00014-of-00016.gguf
+      sha256: b93e68f49f7ccb3c194be33a4da89fa5419716e98894e0ba04cd17330316a362
+      uri: https://huggingface.co/DevQuasar/arcee-ai.Trinity-Large-Thinking-GGUF/resolve/main/arcee-ai.Trinity-Large-Thinking.Q4_K_M-00014-of-00016.gguf
+    - filename: llama-cpp/models/arcee-ai.Trinity-Large-Thinking-GGUF/arcee-ai.Trinity-Large-Thinking.Q4_K_M-00015-of-00016.gguf
+      sha256: 92aa90b2a07a1c3709012058bc9d898f6938500224127c70802e14f782e226ae
+      uri: https://huggingface.co/DevQuasar/arcee-ai.Trinity-Large-Thinking-GGUF/resolve/main/arcee-ai.Trinity-Large-Thinking.Q4_K_M-00015-of-00016.gguf
+    - filename: llama-cpp/models/arcee-ai.Trinity-Large-Thinking-GGUF/arcee-ai.Trinity-Large-Thinking.Q4_K_M-00016-of-00016.gguf
+      sha256: 1cef05446db03561c56b1e19bafd8e07622702d3f0819b774209da57421e890f
+      uri: https://huggingface.co/DevQuasar/arcee-ai.Trinity-Large-Thinking-GGUF/resolve/main/arcee-ai.Trinity-Large-Thinking.Q4_K_M-00016-of-00016.gguf
 - name: "qwen_qwen3.5-35b-a3b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
