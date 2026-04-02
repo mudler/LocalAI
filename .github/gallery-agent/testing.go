@@ -17,7 +17,7 @@ func runSyntheticMode() error {
 	fmt.Printf("Generating %d synthetic models for testing...\n", numModels)
 
 	var models []ProcessedModel
-	for i := range numModels {
+	for range numModels {
 		model := generator.GenerateProcessedModel()
 		models = append(models, model)
 		fmt.Printf("Generated synthetic model: %s\n", model.ModelID)

@@ -133,6 +133,7 @@ func getRealReadme(ctx context.Context, repository string) (string, error) {
 	result, err := cogito.ExecuteTools(llm, fragment,
 		cogito.WithIterations(3),
 		cogito.WithMaxAttempts(3),
+		cogito.DisableSinkState,
 		cogito.WithTools(&HFReadmeTool{client: hfapi.NewClient()}))
 	if err != nil {
 		return "", err

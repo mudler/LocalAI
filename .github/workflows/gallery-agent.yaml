@@ -55,7 +55,7 @@ jobs:
       - name: Run gallery agent
         env:
           #OPENAI_MODEL: ${{ secrets.OPENAI_MODEL }}
-          OPENAI_MODE: Qwen3.5-2B-GGUF
+          OPENAI_MODEL: Qwen3.5-2B-GGUF
           OPENAI_BASE_URL: "http://localhost:8080"
           OPENAI_KEY: ${{ secrets.OPENAI_KEY }}
           #OPENAI_BASE_URL: ${{ secrets.OPENAI_BASE_URL }}
