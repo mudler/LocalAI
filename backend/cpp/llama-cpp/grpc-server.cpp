@@ -17,7 +17,9 @@
 #include "backend.pb.h"
 #include "backend.grpc.pb.h"
 #include "common.h"
+#ifdef HAS_AUTOPARSER
 #include "chat-auto-parser.h"
+#endif
 #include <getopt.h>
 #include <grpcpp/ext/proto_server_reflection_plugin.h>
 #include <grpcpp/grpcpp.h>
@@ -2665,6 +2667,7 @@ public:
         
         response->set_rendered_template(rendered_template);
 
+#ifdef HAS_AUTOPARSER
         // Run differential template analysis to detect tool format markers
         if (params_base.use_jinja) {
             try {
@@ -2770,6 +2773,7 @@ public:
                 SRV_WRN("ModelMetadata: failed to run autoparser analysis: %s\n", e.what());
             }
         }
+#endif
 
         return grpc::Status::OK;
     }

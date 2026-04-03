@@ -5,14 +5,21 @@
 
 set -e
 
-CURDIR=$(dirname "$(realpath $0)")
-REPO_ROOT="${CURDIR}/../../.."
+# Use working directory (not script location) so forks that share this script work correctly
+CURDIR=$(pwd)
+SCRIPT_DIR=$(dirname "$(realpath $0)")
+REPO_ROOT="${SCRIPT_DIR}/../../.."
 
 # Create lib directory
 mkdir -p $CURDIR/package/lib
 
 cp -avrf $CURDIR/llama-cpp-* $CURDIR/package/
-cp -rfv $CURDIR/run.sh $CURDIR/package/
+# Copy run.sh — prefer local copy, fall back to shared dir (script location)
+if [ -f "$CURDIR/run.sh" ]; then
+    cp -rfv $CURDIR/run.sh $CURDIR/package/
+else
+    cp -rfv $SCRIPT_DIR/run.sh $CURDIR/package/
+fi
 
 # Detect architecture and copy appropriate libraries
 if [ -f "/lib64/ld-linux-x86-64.so.2" ]; then

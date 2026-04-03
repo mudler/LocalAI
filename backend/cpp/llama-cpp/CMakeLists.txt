@@ -59,6 +59,11 @@ add_library(hw_grpc_proto
 
 add_executable(${TARGET} grpc-server.cpp json.hpp httplib.h)
 
+# Enable autoparser support if the header exists (not present in all llama.cpp forks)
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/chat-auto-parser.h")
+    target_compile_definitions(${TARGET} PRIVATE HAS_AUTOPARSER)
+endif()
+
 target_include_directories(${TARGET} PRIVATE ../llava)
 target_include_directories(${TARGET} PRIVATE ${CMAKE_SOURCE_DIR})
 

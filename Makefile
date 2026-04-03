@@ -544,8 +544,9 @@ backend-images:
 	mkdir -p backend-images
 
 # Backend metadata: BACKEND_NAME | DOCKERFILE_TYPE | BUILD_CONTEXT | PROGRESS_FLAG | NEEDS_BACKEND_ARG
-# llama-cpp is special - uses llama-cpp Dockerfile and doesn't need BACKEND arg
+# llama-cpp and forks - use llama-cpp Dockerfile
 BACKEND_LLAMA_CPP = llama-cpp|llama-cpp|.|false|false
+BACKEND_LLAMA_CPP_TQ = llama-cpp-tq|llama-cpp|.|false|true
 
 # Golang backends
 BACKEND_PIPER = piper|golang|.|false|true
@@ -609,6 +610,7 @@ endef
 
 # Generate all docker-build targets
 $(eval $(call generate-docker-build-target,$(BACKEND_LLAMA_CPP)))
+$(eval $(call generate-docker-build-target,$(BACKEND_LLAMA_CPP_TQ)))
 $(eval $(call generate-docker-build-target,$(BACKEND_PIPER)))
 $(eval $(call generate-docker-build-target,$(BACKEND_LOCAL_STORE)))
 $(eval $(call generate-docker-build-target,$(BACKEND_HUGGINGFACE)))
