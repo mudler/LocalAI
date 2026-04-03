@@ -72,9 +72,10 @@ Feel free to open up a Pull request (by clicking at the "Edit page" below) to ge
 
 ### Home Automation
 
-- [hass-openai-custom-conversation](https://github.com/drndos/hass-openai-custom-conversation) — Home Assistant integration
-- [ha-llmvision](https://github.com/valentinfrlch/ha-llmvision) — Home Assistant LLM Vision
-- [HA-LocalAI-Monitor](https://github.com/loryanstrant/HA-LocalAI-Monitor) — Home Assistant monitoring
+- [Extended OpenAI Conversation](https://github.com/jekalmin/extended_openai_conversation) — Conversation agent for Home Assistant that supports a custom OpenAI endpoint
+- [LLM Vision](https://github.com/valentinfrlch/ha-llmvision) — Image & video feed analysis for Home Assistant
+- [OpenAI TTS Speech Service](https://github.com/sfortis/openai_tts) - OpenAI TTS custom component for Home Assistant
+- [LocalAI Monitor](https://github.com/loryanstrant/HA-LocalAI-Monitor) — Monitor & control of LocalAI from Home Assistant
 - Nextcloud [integration plugin](https://apps.nextcloud.com/apps/integration_openai) and [AI assistant](https://apps.nextcloud.com/apps/assistant)
 
 ### Automation & DevOps
