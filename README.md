@@ -44,7 +44,7 @@ Created and maintained by [Ettore Di Giacinto](https://github.com/mudler).
 
 ## Guided tour
 
-https://github.com/user-attachments/assets/ed88e34c-fed3-4b83-8a67-4716a9feeb7b
+https://github.com/user-attachments/assets/08cbb692-57da-48f7-963d-2e7b43883c18
 
 <details>
 
@@ -70,7 +70,7 @@ https://github.com/user-attachments/assets/5ba4ace9-d3df-4795-b7d4-b0b404ea71ee
 
 #### WebRTC
 
-https://github.com/user-attachments/assets/08cbb692-57da-48f7-963d-2e7b43883c18
+https://github.com/user-attachments/assets/ed88e34c-fed3-4b83-8a67-4716a9feeb7b
 
 </details>
 
