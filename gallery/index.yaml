@@ -1,4 +1,28 @@
 ---
+- name: "gemma-4-26b-a4b-it-apex"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mudler/gemma-4-26B-A4B-it-APEX-GGUF
+  description: |
+    AI model: gemma-4-26b-a4b-it-apex
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/gemma-4-26B-A4B-it-APEX-GGUF/gemma-4-26B-A4B-APEX-Quality.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/gemma-4-26B-A4B-it-APEX-GGUF/gemma-4-26B-A4B-APEX-Quality.gguf
+      sha256: e557146506ae45d155d498cf9098e61dc286550c8dcb1fc01a9d3f9708e75126
+      uri: https://huggingface.co/mudler/gemma-4-26B-A4B-it-APEX-GGUF/resolve/main/gemma-4-26B-A4B-APEX-Quality.gguf
 - name: "qwen3.5-35b-a3b-apex"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
