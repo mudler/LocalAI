@@ -1,0 +1,27 @@
+[package]
+name = "kokoros-grpc"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "kokoros-grpc"
+path = "src/main.rs"
+
+[dependencies]
+kokoros = { path = "sources/Kokoros/kokoros" }
+
+tonic = "0.13"
+prost = "0.13"
+tokio = { version = "1", features = ["full"] }
+tokio-stream = "0.1"
+clap = { version = "4", features = ["derive"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+[build-dependencies]
+tonic-build = "0.13"
+
+[features]
+default = ["cpu"]
+cpu = ["kokoros/cpu"]
+cuda = ["kokoros/cuda"]
