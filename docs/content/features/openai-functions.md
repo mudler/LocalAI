@@ -1,7 +1,7 @@
 
 +++
 disableToc = false
-title = "🔥 OpenAI functions and tools"
+title = "OpenAI Functions and Tools"
 weight = 17
 url = "/features/openai-functions/"
 +++

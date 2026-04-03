@@ -5,7 +5,7 @@ weight = 14
 url = "/features/distributed-mode/"
 +++
 
-Distributed mode enables horizontal scaling of LocalAI across multiple machines using **PostgreSQL** for state and node registry, and **NATS** for real-time coordination. Unlike the [P2P/federation approach](/features/distribute/), distributed mode is designed for production deployments and Kubernetes environments where you need centralized management, health monitoring, and deterministic routing.
+Distributed mode enables horizontal scaling of LocalAI across multiple machines using **PostgreSQL** for state and node registry, and **NATS** for real-time coordination. Unlike the [P2P/federation approach]({{% relref "features/distributed_inferencing" %}}), distributed mode is designed for production deployments and Kubernetes environments where you need centralized management, health monitoring, and deterministic routing.
 
 {{% notice note %}}
 Distributed mode requires authentication enabled with a **PostgreSQL** database — SQLite is not supported. This is because the node registry, job store, and other distributed state are stored in PostgreSQL tables.

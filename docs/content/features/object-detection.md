@@ -1,6 +1,6 @@
 +++
 disableToc = false
-title = "🔍 Object detection"
+title = "Object Detection"
 weight = 13
 url = "/features/object-detection/"
 +++

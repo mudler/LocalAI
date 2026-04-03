@@ -1,6 +1,6 @@
 +++
 disableToc = false
-title = "🔈 Audio to text"
+title = "Audio to Text"
 weight = 16
 url = "/features/audio-to-text/"
 +++

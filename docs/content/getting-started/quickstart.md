@@ -119,7 +119,7 @@ For production deployments or when you need more compute, LocalAI supports distr
 - **P2P federation**: Connect multiple LocalAI instances for load-balanced inference
 - **Model sharding**: Split large models across multiple machines
 
-See the **Nodes** page in the web interface or the [Distribution docs]({{% relref "features/distribute" %}}) for setup instructions.
+See the **Nodes** page in the web interface or the [Distribution docs]({{% relref "features/distribution" %}}) for setup instructions.
 
 ## What's Next?
 

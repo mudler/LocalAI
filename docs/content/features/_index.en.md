@@ -27,8 +27,7 @@ LocalAI provides a comprehensive set of features for running AI models locally. 
 - **[Realtime API](openai-realtime/)** - Low-latency multi-modal conversations (voice+text) over WebSocket
 - **[Constrained Grammars](constrained_grammars/)** - Control model output format with BNF grammars
 - **[GPU Acceleration](GPU-acceleration/)** - Optimize performance with GPU support
-- **[Distributed Inference](distributed_inferencing/)** - Scale inference across multiple nodes
-- **[Distributed Mode](distributed-mode/)** - Horizontal scaling with PostgreSQL, NATS, and remote backend nodes
+- **[Distribution](distribution/)** - Scale inference across multiple nodes (P2P federation or production distributed mode)
 - **[P2P API](p2p/)** - Monitor and manage P2P worker and federated nodes
 - **[Model Context Protocol (MCP)](mcp/)** - Enable agentic capabilities with MCP integration
 - **[Agents](agents/)** - Autonomous AI agents with tools, knowledge base, and skills

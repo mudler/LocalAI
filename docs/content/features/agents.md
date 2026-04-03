@@ -1,6 +1,6 @@
 +++
 disableToc = false
-title = "🤖 Agents"
+title = "Agents"
 weight = 21
 url = '/features/agents'
 +++

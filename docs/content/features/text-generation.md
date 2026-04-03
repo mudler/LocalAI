@@ -1,7 +1,7 @@
 
 +++
 disableToc = false
-title = "📖 Text generation (GPT)"
+title = "Text Generation (GPT)"
 weight = 10
 url = "/features/text-generation/"
 +++
