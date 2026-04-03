@@ -196,6 +196,7 @@ See the full [Backend & Model Compatibility Table](https://localai.io/model-comp
 - [Build from source](https://localai.io/basics/build/)
 - [Kubernetes installation](https://localai.io/basics/getting_started/#run-localai-in-kubernetes)
 - [Integrations & community projects](https://localai.io/docs/integrations/)
+- [Installation video walkthrough](https://www.youtube.com/watch?v=cMVNnlqwfw4)
 - [Media & blog posts](https://localai.io/basics/news/#media-blogs-social)
 - [Examples](https://github.com/mudler/LocalAI-examples)
 
