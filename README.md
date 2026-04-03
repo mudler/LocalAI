@@ -42,15 +42,37 @@ Created and maintained by [Ettore Di Giacinto](https://github.com/mudler).
 
 > [:book: Documentation](https://localai.io/) | [:speech_balloon: Discord](https://discord.gg/uJAeKSAGDy) | [💻 Quickstart](https://localai.io/basics/getting_started/) | [🖼️ Models](https://models.localai.io/) | [❓FAQ](https://localai.io/faq/)
 
-## Screenshots
+## Guided tour
 
-### Chat, Model gallery
+https://github.com/user-attachments/assets/ed88e34c-fed3-4b83-8a67-4716a9feeb7b
+
+<details>
+
+<summary>
+Click to see more!
+</summary>
+
+#### User and auth
+
+https://github.com/user-attachments/assets/228fa9ad-81a3-4d43-bfb9-31557e14a36c
+
+#### Agents
+
+https://github.com/user-attachments/assets/6270b331-e21d-4087-a540-6290006b381a
+
+#### Usage metrics per user
+
+https://github.com/user-attachments/assets/cbb03379-23b4-4e3d-bd26-d152f057007f
+
+#### Fine-tuning and Quantization
+
+https://github.com/user-attachments/assets/5ba4ace9-d3df-4795-b7d4-b0b404ea71ee
+
+#### WebRTC
 
 https://github.com/user-attachments/assets/08cbb692-57da-48f7-963d-2e7b43883c18
 
-### Agents
-
-https://github.com/user-attachments/assets/6270b331-e21d-4087-a540-6290006b381a
+</details>
 
 ## Quickstart
 
