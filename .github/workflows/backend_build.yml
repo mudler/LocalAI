@@ -64,9 +64,9 @@ on:
         default: '6'
         type: string
       rocm-arch:
-        description: 'ROCm GPU architecture for ROCm 7.x arch-specific packages (e.g. gfx1151)'
+        description: 'Comma-separated GPU architectures for ROCm 7.x. Default covers all GPUs supported by ROCm 7.12. Override to a single arch (e.g. gfx1151) for smaller images.'
         required: false
-        default: 'gfx1151'
+        default: 'gfx803,gfx900,gfx906,gfx908,gfx90a,gfx942,gfx950,gfx1012,gfx1030,gfx1031,gfx1032,gfx1100,gfx1101,gfx1102,gfx1103,gfx1150,gfx1151,gfx1152,gfx1200,gfx1201'
         type: string
     secrets:
       dockerUsername:

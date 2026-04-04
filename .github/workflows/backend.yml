@@ -31,7 +31,7 @@ jobs:
       context: ${{ matrix.context }}
       ubuntu-version: ${{ matrix.ubuntu-version }}
       rocm-version: ${{ matrix.rocm-version || '6' }}
-      rocm-arch: ${{ matrix.rocm-arch || 'gfx1151' }}
+      rocm-arch: ${{ matrix.rocm-arch || 'gfx803,gfx900,gfx906,gfx908,gfx90a,gfx942,gfx950,gfx1012,gfx1030,gfx1031,gfx1032,gfx1100,gfx1101,gfx1102,gfx1103,gfx1150,gfx1151,gfx1152,gfx1200,gfx1201' }}
     secrets:
       dockerUsername: ${{ secrets.DOCKERHUB_USERNAME }}
       dockerPassword: ${{ secrets.DOCKERHUB_PASSWORD }}
@@ -1426,7 +1426,6 @@ jobs:
             context: "./"
             ubuntu-version: '2404'
             rocm-version: '7'
-            rocm-arch: 'gfx1151'
           - build-type: 'hipblas'
             cuda-major-version: ""
             cuda-minor-version: ""
@@ -1441,7 +1440,6 @@ jobs:
             context: "./"
             ubuntu-version: '2404'
             rocm-version: '7'
-            rocm-arch: 'gfx1151'
           - build-type: 'hipblas'
             cuda-major-version: ""
             cuda-minor-version: ""
@@ -1456,7 +1454,6 @@ jobs:
             context: "./"
             ubuntu-version: '2404'
             rocm-version: '7'
-            rocm-arch: 'gfx1151'
           - build-type: 'hipblas'
             cuda-major-version: ""
             cuda-minor-version: ""
@@ -1471,7 +1468,6 @@ jobs:
             context: "./"
             ubuntu-version: '2404'
             rocm-version: '7'
-            rocm-arch: 'gfx1151'
           - build-type: 'hipblas'
             cuda-major-version: ""
             cuda-minor-version: ""
@@ -1486,7 +1482,6 @@ jobs:
             context: "./"
             ubuntu-version: '2404'
             rocm-version: '7'
-            rocm-arch: 'gfx1151'
           - build-type: 'hipblas'
             cuda-major-version: ""
             cuda-minor-version: ""
@@ -1501,7 +1496,6 @@ jobs:
             context: "./"
             ubuntu-version: '2404'
             rocm-version: '7'
-            rocm-arch: 'gfx1151'
           - build-type: 'hipblas'
             cuda-major-version: ""
             cuda-minor-version: ""
@@ -1516,7 +1510,6 @@ jobs:
             context: "./"
             ubuntu-version: '2404'
             rocm-version: '7'
-            rocm-arch: 'gfx1151'
           - build-type: 'hipblas'
             cuda-major-version: ""
             cuda-minor-version: ""
@@ -1531,7 +1524,6 @@ jobs:
             context: "./"
             ubuntu-version: '2404'
             rocm-version: '7'
-            rocm-arch: 'gfx1151'
           - build-type: 'hipblas'
             cuda-major-version: ""
             cuda-minor-version: ""
@@ -1546,7 +1538,6 @@ jobs:
             context: "./"
             ubuntu-version: '2404'
             rocm-version: '7'
-            rocm-arch: 'gfx1151'
           - build-type: 'hipblas'
             cuda-major-version: ""
             cuda-minor-version: ""
@@ -1561,7 +1552,6 @@ jobs:
             context: "./"
             ubuntu-version: '2404'
             rocm-version: '7'
-            rocm-arch: 'gfx1151'
           - build-type: 'hipblas'
             cuda-major-version: ""
             cuda-minor-version: ""
@@ -1576,7 +1566,6 @@ jobs:
             context: "./"
             ubuntu-version: '2404'
             rocm-version: '7'
-            rocm-arch: 'gfx1151'
           - build-type: 'hipblas'
             cuda-major-version: ""
             cuda-minor-version: ""
@@ -1591,7 +1580,6 @@ jobs:
             context: "./"
             ubuntu-version: '2404'
             rocm-version: '7'
-            rocm-arch: 'gfx1151'
           - build-type: 'hipblas'
             cuda-major-version: ""
             cuda-minor-version: ""
@@ -1606,7 +1594,6 @@ jobs:
             context: "./"
             ubuntu-version: '2404'
             rocm-version: '7'
-            rocm-arch: 'gfx1151'
           - build-type: 'hipblas'
             cuda-major-version: ""
             cuda-minor-version: ""
@@ -1621,7 +1608,6 @@ jobs:
             context: "./"
             ubuntu-version: '2404'
             rocm-version: '7'
-            rocm-arch: 'gfx1151'
           - build-type: 'hipblas'
             cuda-major-version: ""
             cuda-minor-version: ""
@@ -1636,7 +1622,6 @@ jobs:
             context: "./"
             ubuntu-version: '2404'
             rocm-version: '7'
-            rocm-arch: 'gfx1151'
           - build-type: 'hipblas'
             cuda-major-version: ""
             cuda-minor-version: ""
@@ -1651,7 +1636,6 @@ jobs:
             context: "./"
             ubuntu-version: '2404'
             rocm-version: '7'
-            rocm-arch: 'gfx1151'
           - build-type: 'hipblas'
             cuda-major-version: ""
             cuda-minor-version: ""
@@ -1666,7 +1650,6 @@ jobs:
             context: "./"
             ubuntu-version: '2404'
             rocm-version: '7'
-            rocm-arch: 'gfx1151'
           - build-type: 'hipblas'
             cuda-major-version: ""
             cuda-minor-version: ""
@@ -1681,7 +1664,6 @@ jobs:
             context: "./"
             ubuntu-version: '2404'
             rocm-version: '7'
-            rocm-arch: 'gfx1151'
             # sycl builds
           - build-type: 'intel'
             cuda-major-version: ""

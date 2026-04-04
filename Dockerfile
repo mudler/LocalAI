@@ -29,11 +29,12 @@ ARG TARGETVARIANT
 # - "7": install from AMD's new repo.amd.com/rocm/packages/ubuntu2404 repo and use
 #   the new amdrocm-* package names introduced in ROCm 7.x
 ARG ROCM_VERSION=6
-# ROCM_ARCH: GPU architecture target for ROCm 7.x architecture-specific packages.
-# In ROCm 7.x each GPU family has a dedicated metapackage (amdrocm-core-sdk-gfxNNNN)
-# that includes the BLAS kernel objects for that architecture.
-# Examples: gfx1151 (Strix Halo / Radeon 8060S), gfx1100 (RX 7900 XTX), gfx942 (MI300X)
-ARG ROCM_ARCH=gfx1151
+# ROCM_ARCH: comma-separated GPU architecture targets for ROCm 7.x.
+# Controls both the apt packages installed (amdrocm-core-sdk-gfxNNNN per arch)
+# and the AMDGPU_TARGETS passed to cmake/hipcc.
+# Default: all GPU architectures supported by ROCm 7.12.
+# Override to a single arch for smaller images, e.g. ROCM_ARCH=gfx1151.
+ARG ROCM_ARCH=gfx803,gfx900,gfx906,gfx908,gfx90a,gfx942,gfx950,gfx1012,gfx1030,gfx1031,gfx1032,gfx1100,gfx1101,gfx1102,gfx1103,gfx1150,gfx1151,gfx1152,gfx1200,gfx1201
 ENV BUILD_TYPE=${BUILD_TYPE}
 ARG UBUNTU_VERSION=2404
 
@@ -172,7 +173,15 @@ RUN if [ "${BUILD_TYPE}" = "hipblas" ] && [ "${SKIP_DRIVERS}" = "false" ]; then 
         # amdrocm-core-sdk-${ROCM_ARCH}: GPU-family metapackage with BLAS kernel objects.
         # In ROCm 7.x the old hipblas-dev/rocblas-dev packages no longer exist; each GPU
         # family gets its own amdrocm-core-sdk-gfxNNNN package instead.
-        apt-get install -y --no-install-recommends amdrocm-llvm amdrocm-core-sdk-${ROCM_ARCH} && \
+        apt-get install -y --no-install-recommends amdrocm-llvm && \
+        # Install arch-specific SDK packages for each GPU target in ROCM_ARCH.
+        # amdrocm-core-sdk-gfxNNNN provides pre-compiled BLAS/CK/DNN kernels for
+        # that GPU family. Packages for old GCN arches (gfx803/900/906) may not
+        # exist in the ROCm 7.x repo; the || true skips unavailable packages.
+        for _arch in $(echo "${ROCM_ARCH}" | tr ',' ' '); do \
+            apt-get install -y --no-install-recommends "amdrocm-core-sdk-${_arch}" || \
+            echo "Note: amdrocm-core-sdk-${_arch} not available in ROCm 7.x repo, skipping" >&2 ; \
+        done && \
         apt-get clean && \
         rm -rf /var/lib/apt/lists/* && \
         # ROCm 7.x installs to /opt/rocm/core-7.XX/ with update-alternatives managing

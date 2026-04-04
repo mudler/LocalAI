@@ -33,7 +33,9 @@ else ifeq ($(BUILD_TYPE),hipblas)
 	ROCM_PATH ?= /opt/rocm
 	export CXX=$(ROCM_HOME)/llvm/bin/clang++
 	export CC=$(ROCM_HOME)/llvm/bin/clang
-	AMDGPU_TARGETS?=gfx803,gfx900,gfx906,gfx908,gfx90a,gfx942,gfx1010,gfx1030,gfx1032,gfx1100,gfx1101,gfx1102,gfx1151,gfx1200,gfx1201
+	# Full list of GPU architectures supported by ROCm 7.12 (https://rocm.docs.amd.com/en/7.12.0-preview/).
+	# gfx1010 was removed — it was dropped in ROCm 6.x and is not present in 7.x.
+	AMDGPU_TARGETS?=gfx803,gfx900,gfx906,gfx908,gfx90a,gfx942,gfx950,gfx1012,gfx1030,gfx1031,gfx1032,gfx1100,gfx1101,gfx1102,gfx1103,gfx1150,gfx1151,gfx1152,gfx1200,gfx1201
 	# -DHIP_PLATFORM=amd is required for ROCm 7.x cmake find_package(hip) to locate the HIP SDK.
 	# -DGGML_HIP_ROCWMMA_FATTN=ON enables rocWMMA-accelerated Flash Attention on RDNA 3+ (gfx1100+).
 	CMAKE_ARGS+=-DGGML_HIP=ON -DAMDGPU_TARGETS=$(AMDGPU_TARGETS) -DHIP_PLATFORM=amd -DROCM_PATH=$(ROCM_PATH) -DCMAKE_PREFIX_PATH=$(ROCM_PATH) -DGGML_HIP_ROCWMMA_FATTN=ON

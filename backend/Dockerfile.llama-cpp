@@ -74,8 +74,10 @@ ARG UBUNTU_VERSION=2404
 # ROCM_VERSION: major ROCm version. '6' = ROCm 6.x (hipblas-dev/rocblas-dev from
 # rocm/dev-ubuntu base image); '7' = ROCm 7.x (amdrocm-* packages from AMD apt repo).
 ARG ROCM_VERSION=6
-# ROCM_ARCH: GPU-family for ROCm 7.x arch-specific metapackage (amdrocm-core-sdk-gfxNNNN).
-ARG ROCM_ARCH=gfx1151
+# ROCM_ARCH: comma-separated GPU architecture targets for ROCm 7.x.
+# Default: all GPU architectures supported by ROCm 7.12.
+# Override to a single arch for smaller images, e.g. ROCM_ARCH=gfx1151.
+ARG ROCM_ARCH=gfx803,gfx900,gfx906,gfx908,gfx90a,gfx942,gfx950,gfx1012,gfx1030,gfx1031,gfx1032,gfx1100,gfx1101,gfx1102,gfx1103,gfx1150,gfx1151,gfx1152,gfx1200,gfx1201
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
@@ -220,7 +222,11 @@ RUN if [ "${BUILD_TYPE}" = "hipblas" ] && [ "${SKIP_DRIVERS}" = "false" ]; then 
         # amdrocm-core-sdk-${ROCM_ARCH}: GPU-family metapackage with BLAS kernel objects.
         # In ROCm 7.x the old hipblas-dev/rocblas-dev packages no longer exist; each GPU
         # family gets its own amdrocm-core-sdk-gfxNNNN package instead.
-        apt-get install -y --no-install-recommends amdrocm-llvm amdrocm-core-sdk-${ROCM_ARCH} && \
+        apt-get install -y --no-install-recommends amdrocm-llvm && \
+        for _arch in $(echo "${ROCM_ARCH}" | tr ',' ' '); do \
+            apt-get install -y --no-install-recommends "amdrocm-core-sdk-${_arch}" || \
+            echo "Note: amdrocm-core-sdk-${_arch} not available, skipping" >&2 ; \
+        done && \
         apt-get clean && \
         rm -rf /var/lib/apt/lists/* && \
         # ROCm 7.x installs to /opt/rocm/core-7.XX/ with update-alternatives managing
