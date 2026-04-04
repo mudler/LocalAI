@@ -151,14 +151,14 @@ llama_init_from_file: kv self size  =  512.00 MB
 
 ## ROCM(AMD) acceleration
 
-There are a limited number of tested configurations for ROCm systems however most newer deditated GPU consumer grade devices seem to be supported under the current ROCm6 implementation.
+There are a limited number of tested configurations for ROCm systems however most newer dedicated GPU consumer grade devices seem to be supported under the current ROCm implementation.
 
 Due to the nature of ROCm it is best to run all implementations in containers as this limits the number of packages required for installation on host system, compatibility and package versions for dependencies across all variations of OS must be tested independently if desired, please refer to the [build]({{%relref "installation/build#Acceleration" %}}) documentation.
 
 ### Requirements
 
-- `ROCm 6.x.x` compatible GPU/accelerator
-- OS: `Ubuntu` (22.04, 20.04), `RHEL` (9.3, 9.2, 8.9, 8.8), `SLES` (15.5, 15.4)
+- `ROCm 6.x.x` or `ROCm 7.x.x` compatible GPU/accelerator
+- OS: `Ubuntu` (22.04, 24.04), `RHEL` (9.3, 9.2, 8.9, 8.8), `SLES` (15.5, 15.4)
 - Installed to host: `amdgpu-dkms` and `rocm` >=6.0.0 as per ROCm documentation.
 
 ### Recommendations
@@ -166,30 +166,64 @@ Due to the nature of ROCm it is best to run all implementations in containers as
 - Make sure to do not use GPU assigned for compute for desktop rendering.
 - Ensure at least 100GB of free space on disk hosting container runtime and storing images prior to installation.
 
+### AMD Strix Halo / gfx1151 (RDNA 3.5)
+
+AMD Ryzen AI MAX+ (Strix Halo) APUs with an integrated Radeon 8060S (gfx1151 / RDNA 3.5) are
+supported with ROCm 7.11.0+. These systems (e.g. Geekom A9 Mega, ASUS ROG Flow Z13 2025)
+provide up to 96 GB of unified VRAM accessible by the GPU.
+
+**Required kernel boot parameters** (add to `GRUB_CMDLINE_LINUX` and run `update-grub`):
+```
+iommu=pt amdgpu.gttsize=126976 ttm.pages_limit=32505856
+```
+
+**Required runtime environment variables** (set automatically in LocalAI containers):
+```bash
+HSA_OVERRIDE_GFX_VERSION=11.5.1
+ROCBLAS_USE_HIPBLASLT=1
+```
+
+**Running LocalAI on gfx1151:**
+```yaml
+    image: quay.io/go-skynet/local-ai:master-gpu-hipblas
+    environment:
+      - HSA_OVERRIDE_GFX_VERSION=11.5.1
+      - ROCBLAS_USE_HIPBLASLT=1
+      - GPU_TARGETS=gfx1151
+    devices:
+      - /dev/dri
+      - /dev/kfd
+    group_add:
+      - video
+```
+
+For llama.cpp models, enable flash attention (`--flash-attention`) and disable mmap (`--no-mmap`) for best performance on APU systems.
+
 ### Limitations
 
 Ongoing verification testing of ROCm compatibility with integrated backends.
 Please note the following list of verified backends and devices.
 
-LocalAI hipblas images are built against the following targets: gfx900,gfx906,gfx908,gfx940,gfx941,gfx942,gfx90a,gfx1030,gfx1031,gfx1100,gfx1101
+LocalAI hipblas images are built against the following targets: gfx900,gfx906,gfx908,gfx940,gfx941,gfx942,gfx90a,gfx1030,gfx1031,gfx1100,gfx1101,gfx1151
 
 If your device is not one of these you must specify the corresponding `GPU_TARGETS` and specify `REBUILD=true`. Otherwise you don't need to specify these in the commands below.
 
 ### Verified
 
-The devices in the following list have been tested with `hipblas` images running `ROCm 6.0.0`
+The devices in the following list have been tested with `hipblas` images.
 
-| Backend | Verified | Devices |
-| ---- | ---- | ---- |
-| llama.cpp | yes | Radeon VII (gfx906) |
-| diffusers | yes | Radeon VII (gfx906) |
-| piper | yes | Radeon VII (gfx906) |
-| whisper | no | none |
-| coqui | no | none |
-| transformers | no | none |
-| sentencetransformers | no | none |
-| transformers-musicgen | no | none |
-| vllm | no | none |
+| Backend | Verified | Devices | ROCm Version |
+| ---- | ---- | ---- | ---- |
+| llama.cpp | yes | Radeon VII (gfx906) | 6.0.0 |
+| llama.cpp | yes | Radeon 8060S / gfx1151 (Strix Halo) | 7.11.0 |
+| diffusers | yes | Radeon VII (gfx906) | 6.0.0 |
+| piper | yes | Radeon VII (gfx906) | 6.0.0 |
+| whisper | no | none | - |
+| coqui | no | none | - |
+| transformers | no | none | - |
+| sentencetransformers | no | none | - |
+| transformers-musicgen | no | none | - |
+| vllm | no | none | - |
 
 **You can help by expanding this list.**
 
