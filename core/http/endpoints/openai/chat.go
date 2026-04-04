@@ -84,24 +84,18 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 		_, _, _, err := ComputeChoices(req, s, config, cl, startupOptions, loader, func(s string, c *[]schema.Choice) {}, func(s string, tokenUsage backend.TokenUsage) bool {
 			var reasoningDelta, contentDelta string
 
-			// Always keep the Go-side extractor in sync with raw tokens
-			// (needed for backends that never send chat deltas).
+			// Always keep the Go-side extractor in sync with raw tokens so it
+			// can serve as fallback for backends without an autoparser (e.g. vLLM).
 			goReasoning, goContent := extractor.ProcessToken(s)
 
-			// Prefer pre-parsed chat deltas from C++ autoparser when available.
+			// When C++ autoparser chat deltas are available, prefer them — they
+			// handle model-specific formats (Gemma 4, etc.) without Go-side tags.
+			// Otherwise fall back to Go-side extraction.
 			if tokenUsage.HasChatDeltaContent() {
 				rawReasoning, cd := tokenUsage.ChatDeltaReasoningAndContent()
 				contentDelta = cd
-				// Strip reasoning tags (e.g. <|channel>thought / <channel|>) that
-				// the C++ autoparser includes as part of reasoning content.
 				reasoningDelta = extractor.ProcessChatDeltaReasoning(rawReasoning)
-			} else if config.TemplateConfig.UseTokenizerTemplate {
-				// C++ autoparser is active (jinja templates) but hasn't emitted
-				// chat deltas for this chunk yet — PEG parser is still warming up
-				// (e.g. accumulating "<|channel>thought\n" for Gemma 4).
-				// Suppress Go-side output to avoid leaking partial tag tokens.
 			} else {
-				// No autoparser — use Go-side extraction as the sole source.
 				reasoningDelta = goReasoning
 				contentDelta = goContent
 			}
@@ -159,20 +153,13 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 
 			var reasoningDelta, contentDelta string
 
-			// Always keep the Go-side extractor in sync with raw tokens
 			goReasoning, goContent := extractor.ProcessToken(s)
 
-			// Prefer pre-parsed chat deltas from C++ autoparser when available.
 			if usage.HasChatDeltaContent() {
 				rawReasoning, cd := usage.ChatDeltaReasoningAndContent()
 				contentDelta = cd
-				// Strip reasoning tags (e.g. <|channel>thought / <channel|>) that
-				// the C++ autoparser includes as part of reasoning content.
 				reasoningDelta = extractor.ProcessChatDeltaReasoning(rawReasoning)
-			} else if config.TemplateConfig.UseTokenizerTemplate {
-				// C++ autoparser warming up — suppress Go-side to avoid tag leaks.
 			} else {
-				// No autoparser — use Go-side extraction.
 				reasoningDelta = goReasoning
 				contentDelta = goContent
 			}

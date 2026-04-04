@@ -1821,14 +1821,15 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 				// If no tool calls detected yet, handle reasoning and text
 				if !inToolCallMode {
 					var reasoningDelta, contentDelta string
-					// Prefer pre-parsed chat deltas from C++ autoparser when available
+					goReasoning, goContent := extractor.ProcessToken(token)
+
 					if tokenUsage.HasChatDeltaContent() {
 						rawReasoning, cd := tokenUsage.ChatDeltaReasoningAndContent()
 						contentDelta = cd
 						reasoningDelta = extractor.ProcessChatDeltaReasoning(rawReasoning)
-						extractor.ProcessToken(token) // keep state consistent
 					} else {
-						reasoningDelta, contentDelta = extractor.ProcessToken(token)
+						reasoningDelta = goReasoning
+						contentDelta = goContent
 					}
 
 					// Handle reasoning item
@@ -2350,14 +2351,15 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 		accumulatedText += token
 
 		var reasoningDelta, contentDelta string
-		// Prefer pre-parsed chat deltas from C++ autoparser when available
+		goReasoning, goContent := extractor.ProcessToken(token)
+
 		if tokenUsage.HasChatDeltaContent() {
 			rawReasoning, cd := tokenUsage.ChatDeltaReasoningAndContent()
 			contentDelta = cd
 			reasoningDelta = extractor.ProcessChatDeltaReasoning(rawReasoning)
-			extractor.ProcessToken(token) // keep state consistent
 		} else {
-			reasoningDelta, contentDelta = extractor.ProcessToken(token)
+			reasoningDelta = goReasoning
+			contentDelta = goContent
 		}
 
 		// Handle reasoning item

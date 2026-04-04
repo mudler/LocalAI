@@ -1608,8 +1608,18 @@ public:
         auto attach_chat_deltas = [](backend::Reply & reply, server_task_result * raw_result) {
             // Try streaming partial result first
             auto* partial = dynamic_cast<server_task_result_cmpl_partial*>(raw_result);
-            if (partial && !partial->oaicompat_msg_diffs.empty()) {
-                populate_chat_deltas_from_diffs(reply, partial->oaicompat_msg_diffs);
+            if (partial) {
+                if (!partial->oaicompat_msg_diffs.empty()) {
+                    populate_chat_deltas_from_diffs(reply, partial->oaicompat_msg_diffs);
+                } else if (partial->is_updated) {
+                    // Autoparser is active but hasn't classified this chunk yet
+                    // (PEG parser warming up). Clear the raw message so the Go
+                    // side doesn't try to parse partial tag tokens (e.g. "<|channel>"
+                    // before the full "<|channel>thought\n" is received).
+                    // This matches llama.cpp server behavior which only emits SSE
+                    // chunks when the parser produces diffs.
+                    reply.set_message("");
+                }
                 return;
             }
             // Try final result
