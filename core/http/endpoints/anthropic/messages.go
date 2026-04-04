@@ -21,6 +21,7 @@ import (
 // MessagesEndpoint is the Anthropic Messages API endpoint
 // https://docs.anthropic.com/claude/reference/messages_post
 // @Summary Generate a message response for the given messages and model.
+// @Tags inference
 // @Param request body schema.AnthropicRequest true "query params"
 // @Success 200 {object} schema.AnthropicResponse "Response"
 // @Router /v1/messages [post]

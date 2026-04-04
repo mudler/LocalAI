@@ -33,31 +33,31 @@ type GalleryResponse struct {
 
 type VideoRequest struct {
 	BasicModelRequest
-	Prompt         string  `json:"prompt" yaml:"prompt"`
-	NegativePrompt string  `json:"negative_prompt" yaml:"negative_prompt"`
-	StartImage     string  `json:"start_image" yaml:"start_image"`
-	EndImage       string  `json:"end_image" yaml:"end_image"`
-	Width          int32   `json:"width" yaml:"width"`
-	Height         int32   `json:"height" yaml:"height"`
-	NumFrames      int32   `json:"num_frames" yaml:"num_frames"`
-	FPS            int32   `json:"fps" yaml:"fps"`
-	Seconds        string  `json:"seconds,omitempty" yaml:"seconds,omitempty"`
-	Size           string  `json:"size,omitempty" yaml:"size,omitempty"`
-	InputReference string  `json:"input_reference,omitempty" yaml:"input_reference,omitempty"`
-	Seed           int32   `json:"seed" yaml:"seed"`
-	CFGScale       float32 `json:"cfg_scale" yaml:"cfg_scale"`
-	Step           int32   `json:"step" yaml:"step"`
-	ResponseFormat string  `json:"response_format" yaml:"response_format"`
+	Prompt         string  `json:"prompt" yaml:"prompt"`                                     // text description of the video to generate
+	NegativePrompt string  `json:"negative_prompt" yaml:"negative_prompt"`                   // things to avoid in the output
+	StartImage     string  `json:"start_image" yaml:"start_image"`                           // URL or base64 of the first frame
+	EndImage       string  `json:"end_image" yaml:"end_image"`                               // URL or base64 of the last frame
+	Width          int32   `json:"width" yaml:"width"`                                       // output width in pixels
+	Height         int32   `json:"height" yaml:"height"`                                     // output height in pixels
+	NumFrames      int32   `json:"num_frames" yaml:"num_frames"`                             // total number of frames to generate
+	FPS            int32   `json:"fps" yaml:"fps"`                                           // frames per second
+	Seconds        string  `json:"seconds,omitempty" yaml:"seconds,omitempty"`               // duration in seconds (alternative to num_frames)
+	Size           string  `json:"size,omitempty" yaml:"size,omitempty"`                     // WxH shorthand (e.g. "512x512")
+	InputReference string  `json:"input_reference,omitempty" yaml:"input_reference,omitempty"` // reference image or video URL
+	Seed           int32   `json:"seed" yaml:"seed"`                                         // random seed for reproducibility
+	CFGScale       float32 `json:"cfg_scale" yaml:"cfg_scale"`                               // classifier-free guidance scale
+	Step           int32   `json:"step" yaml:"step"`                                         // number of diffusion steps
+	ResponseFormat string  `json:"response_format" yaml:"response_format"`                   // output format (url or b64_json)
 }
 
 // @Description TTS request body
 type TTSRequest struct {
 	BasicModelRequest
-	Input      string `json:"input" yaml:"input"` // text input
-	Voice      string `json:"voice" yaml:"voice"` // voice audio file or speaker id
-	Backend    string `json:"backend" yaml:"backend"`
-	Language   string `json:"language,omitempty" yaml:"language,omitempty"`               // (optional) language to use with TTS model
-	Format     string `json:"response_format,omitempty" yaml:"response_format,omitempty"` // (optional) output format
+	Input    string `json:"input" yaml:"input"` // text input
+	Voice    string `json:"voice" yaml:"voice"` // voice audio file or speaker id
+	Backend  string `json:"backend" yaml:"backend"` // backend engine override
+	Language string `json:"language,omitempty" yaml:"language,omitempty"`               // (optional) language to use with TTS model
+	Format   string `json:"response_format,omitempty" yaml:"response_format,omitempty"` // (optional) output format
 	Stream     bool   `json:"stream,omitempty" yaml:"stream,omitempty"`                   // (optional) enable streaming TTS
 	SampleRate int    `json:"sample_rate,omitempty" yaml:"sample_rate,omitempty"`         // (optional) desired output sample rate
 }
@@ -65,7 +65,7 @@ type TTSRequest struct {
 // @Description VAD request body
 type VADRequest struct {
 	BasicModelRequest
-	Audio []float32 `json:"audio" yaml:"audio"` // model name or full path
+	Audio []float32 `json:"audio" yaml:"audio"` // raw audio samples as float32 PCM
 }
 
 type VADSegment struct {
@@ -146,13 +146,13 @@ type SysInfoModel struct {
 }
 
 type SystemInformationResponse struct {
-	Backends []string       `json:"backends"`
-	Models   []SysInfoModel `json:"loaded_models"`
+	Backends []string       `json:"backends"`      // available backend engines
+	Models   []SysInfoModel `json:"loaded_models"` // currently loaded models
 }
 
 type DetectionRequest struct {
 	BasicModelRequest
-	Image string `json:"image"`
+	Image string `json:"image"` // URL or base64-encoded image to analyze
 }
 
 type DetectionResponse struct {

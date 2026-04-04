@@ -37,6 +37,7 @@ func CreateBackendEndpointService(galleries []config.Gallery, systemState *syste
 
 // GetOpStatusEndpoint returns the job status
 // @Summary Returns the job status
+// @Tags backends
 // @Success 200 {object} galleryop.OpStatus "Response"
 // @Router /backends/jobs/{uuid} [get]
 func (mgs *BackendEndpointService) GetOpStatusEndpoint() echo.HandlerFunc {
@@ -51,6 +52,7 @@ func (mgs *BackendEndpointService) GetOpStatusEndpoint() echo.HandlerFunc {
 
 // GetAllStatusEndpoint returns all the jobs status progress
 // @Summary Returns all the jobs status progress
+// @Tags backends
 // @Success 200 {object} map[string]galleryop.OpStatus "Response"
 // @Router /backends/jobs [get]
 func (mgs *BackendEndpointService) GetAllStatusEndpoint() echo.HandlerFunc {
@@ -61,6 +63,7 @@ func (mgs *BackendEndpointService) GetAllStatusEndpoint() echo.HandlerFunc {
 
 // ApplyBackendEndpoint installs a new backend to a LocalAI instance
 // @Summary Install backends to LocalAI.
+// @Tags backends
 // @Param request body GalleryBackend true "query params"
 // @Success 200 {object} schema.BackendResponse "Response"
 // @Router /backends/apply [post]
@@ -88,6 +91,7 @@ func (mgs *BackendEndpointService) ApplyBackendEndpoint() echo.HandlerFunc {
 
 // DeleteBackendEndpoint lets delete backends from a LocalAI instance
 // @Summary delete backends from LocalAI.
+// @Tags backends
 // @Param name	path string	true	"Backend name"
 // @Success 200 {object} schema.BackendResponse "Response"
 // @Router /backends/delete/{name} [post]
@@ -112,6 +116,7 @@ func (mgs *BackendEndpointService) DeleteBackendEndpoint() echo.HandlerFunc {
 
 // ListBackendsEndpoint list the available backends configured in LocalAI
 // @Summary List all Backends
+// @Tags backends
 // @Success 200 {object} []gallery.GalleryBackend "Response"
 // @Router /backends [get]
 func (mgs *BackendEndpointService) ListBackendsEndpoint() echo.HandlerFunc {
@@ -126,6 +131,7 @@ func (mgs *BackendEndpointService) ListBackendsEndpoint() echo.HandlerFunc {
 
 // ListModelGalleriesEndpoint list the available galleries configured in LocalAI
 // @Summary List all Galleries
+// @Tags backends
 // @Success 200 {object} []config.Gallery "Response"
 // @Router /backends/galleries [get]
 // NOTE: This is different (and much simpler!) than above! This JUST lists the model galleries that have been loaded, not their contents!
@@ -142,6 +148,7 @@ func (mgs *BackendEndpointService) ListBackendGalleriesEndpoint() echo.HandlerFu
 
 // ListAvailableBackendsEndpoint list the available backends in the galleries configured in LocalAI
 // @Summary List all available Backends
+// @Tags backends
 // @Success 200 {object} []gallery.GalleryBackend "Response"
 // @Router /backends/available [get]
 func (mgs *BackendEndpointService) ListAvailableBackendsEndpoint(systemState *system.SystemState) echo.HandlerFunc {

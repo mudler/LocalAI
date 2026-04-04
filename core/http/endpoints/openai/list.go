@@ -12,6 +12,7 @@ import (
 
 // ListModelsEndpoint is the OpenAI Models API endpoint https://platform.openai.com/docs/api-reference/models
 // @Summary List and describe the various models available in the API.
+// @Tags models
 // @Success 200 {object} schema.ModelsDataResponse "Response"
 // @Router /v1/models [get]
 func ListModelsEndpoint(bcl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig, db ...*gorm.DB) echo.HandlerFunc {

@@ -14,12 +14,12 @@ var weightExts = map[string]bool{
 	".gguf": true, ".safetensors": true, ".bin": true, ".pt": true,
 }
 
-func isWeightFile(nameOrURI string) bool {
+func IsWeightFile(nameOrURI string) bool {
 	ext := strings.ToLower(path.Ext(path.Base(nameOrURI)))
 	return weightExts[ext]
 }
 
-func isGGUF(nameOrURI string) bool {
+func IsGGUF(nameOrURI string) bool {
 	return strings.ToLower(path.Ext(path.Base(nameOrURI))) == ".gguf"
 }
 
@@ -36,7 +36,7 @@ func Estimate(ctx context.Context, files []FileInput, opts EstimateOptions, size
 	var firstGGUFURI string
 	for i := range files {
 		f := &files[i]
-		if !isWeightFile(f.URI) {
+		if !IsWeightFile(f.URI) {
 			continue
 		}
 		sz := f.Size
@@ -48,7 +48,7 @@ func Estimate(ctx context.Context, files []FileInput, opts EstimateOptions, size
 			}
 		}
 		sizeBytes += uint64(sz)
-		if isGGUF(f.URI) {
+		if IsGGUF(f.URI) {
 			ggufSize += uint64(sz)
 			if firstGGUFURI == "" {
 				firstGGUFURI = f.URI

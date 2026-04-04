@@ -16,6 +16,7 @@ import (
 // TokenMetricsEndpoint is an endpoint to get TokensProcessed Per Second for Active SlotID
 //
 //	@Summary	Get TokenMetrics for Active Slot.
+//	@Tags tokenize
 //	@Accept json
 //	@Produce audio/x-wav
 //	@Success	200		{string}	binary				"generated audio/wav file"

@@ -20,6 +20,7 @@ import (
 
 // TranscriptEndpoint is the OpenAI Whisper API endpoint https://platform.openai.com/docs/api-reference/audio/create
 // @Summary Transcribes audio into the input language.
+// @Tags audio
 // @accept multipart/form-data
 // @Param model formData string true "model"
 // @Param file formData file true "file"

@@ -15,6 +15,7 @@ import (
 
 // JINARerankEndpoint acts like the Jina reranker endpoint (https://jina.ai/reranker/)
 // @Summary Reranks a list of phrases by relevance to a given text query.
+// @Tags rerank
 // @Param request body schema.JINARerankRequest true "query params"
 // @Success 200 {object} schema.JINARerankResponse "Response"
 // @Router /v1/rerank [post]

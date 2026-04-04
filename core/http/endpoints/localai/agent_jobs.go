@@ -30,6 +30,15 @@ func getJobService(app *application.Application, c echo.Context) *agentpool.Agen
 	return jobSvc
 }
 
+// CreateTaskEndpoint creates a new agent task definition.
+// @Summary Create a new agent task
+// @Tags agent-jobs
+// @Accept json
+// @Produce json
+// @Param request body schema.Task true "Task definition"
+// @Success 201 {object} map[string]string "id"
+// @Failure 400 {object} map[string]string "error"
+// @Router /api/agent/tasks [post]
 func CreateTaskEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		var task schema.Task
@@ -46,6 +55,17 @@ func CreateTaskEndpoint(app *application.Application) echo.HandlerFunc {
 	}
 }
 
+// UpdateTaskEndpoint updates an existing agent task.
+// @Summary Update an agent task
+// @Tags agent-jobs
+// @Accept json
+// @Produce json
+// @Param id path string true "Task ID"
+// @Param request body schema.Task true "Updated task definition"
+// @Success 200 {object} map[string]string "message"
+// @Failure 400 {object} map[string]string "error"
+// @Failure 404 {object} map[string]string "error"
+// @Router /api/agent/tasks/{id} [put]
 func UpdateTaskEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		id := c.Param("id")
@@ -65,6 +85,14 @@ func UpdateTaskEndpoint(app *application.Application) echo.HandlerFunc {
 	}
 }
 
+// DeleteTaskEndpoint deletes an agent task.
+// @Summary Delete an agent task
+// @Tags agent-jobs
+// @Produce json
+// @Param id path string true "Task ID"
+// @Success 200 {object} map[string]string "message"
+// @Failure 404 {object} map[string]string "error"
+// @Router /api/agent/tasks/{id} [delete]
 func DeleteTaskEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		id := c.Param("id")
@@ -79,6 +107,13 @@ func DeleteTaskEndpoint(app *application.Application) echo.HandlerFunc {
 	}
 }
 
+// ListTasksEndpoint lists all agent tasks for the current user.
+// @Summary List agent tasks
+// @Tags agent-jobs
+// @Produce json
+// @Param all_users query string false "Set to 'true' for admin cross-user listing"
+// @Success 200 {object} []schema.Task "tasks"
+// @Router /api/agent/tasks [get]
 func ListTasksEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		jobSvc := getJobService(app, c)
@@ -121,6 +156,14 @@ func ListTasksEndpoint(app *application.Application) echo.HandlerFunc {
 	}
 }
 
+// GetTaskEndpoint returns a single agent task by ID.
+// @Summary Get an agent task
+// @Tags agent-jobs
+// @Produce json
+// @Param id path string true "Task ID"
+// @Success 200 {object} schema.Task "task"
+// @Failure 404 {object} map[string]string "error"
+// @Router /api/agent/tasks/{id} [get]
 func GetTaskEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		id := c.Param("id")
@@ -133,6 +176,15 @@ func GetTaskEndpoint(app *application.Application) echo.HandlerFunc {
 	}
 }
 
+// ExecuteJobEndpoint creates and runs a new job for a task.
+// @Summary Execute an agent job
+// @Tags agent-jobs
+// @Accept json
+// @Produce json
+// @Param request body schema.JobExecutionRequest true "Job execution request"
+// @Success 201 {object} schema.JobExecutionResponse "job created"
+// @Failure 400 {object} map[string]string "error"
+// @Router /api/agent/jobs/execute [post]
 func ExecuteJobEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		var req schema.JobExecutionRequest
@@ -168,6 +220,14 @@ func ExecuteJobEndpoint(app *application.Application) echo.HandlerFunc {
 	}
 }
 
+// GetJobEndpoint returns a single job by ID.
+// @Summary Get an agent job
+// @Tags agent-jobs
+// @Produce json
+// @Param id path string true "Job ID"
+// @Success 200 {object} schema.Job "job"
+// @Failure 404 {object} map[string]string "error"
+// @Router /api/agent/jobs/{id} [get]
 func GetJobEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		id := c.Param("id")
@@ -180,6 +240,16 @@ func GetJobEndpoint(app *application.Application) echo.HandlerFunc {
 	}
 }
 
+// ListJobsEndpoint lists jobs, optionally filtered by task or status.
+// @Summary List agent jobs
+// @Tags agent-jobs
+// @Produce json
+// @Param task_id query string false "Filter by task ID"
+// @Param status query string false "Filter by status (pending, running, completed, failed, cancelled)"
+// @Param limit query integer false "Max number of jobs to return"
+// @Param all_users query string false "Set to 'true' for admin cross-user listing"
+// @Success 200 {object} []schema.Job "jobs"
+// @Router /api/agent/jobs [get]
 func ListJobsEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		var taskID *string
@@ -241,6 +311,15 @@ func ListJobsEndpoint(app *application.Application) echo.HandlerFunc {
 	}
 }
 
+// CancelJobEndpoint cancels a running job.
+// @Summary Cancel an agent job
+// @Tags agent-jobs
+// @Produce json
+// @Param id path string true "Job ID"
+// @Success 200 {object} map[string]string "message"
+// @Failure 400 {object} map[string]string "error"
+// @Failure 404 {object} map[string]string "error"
+// @Router /api/agent/jobs/{id}/cancel [post]
 func CancelJobEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		id := c.Param("id")
@@ -255,6 +334,14 @@ func CancelJobEndpoint(app *application.Application) echo.HandlerFunc {
 	}
 }
 
+// DeleteJobEndpoint deletes a job by ID.
+// @Summary Delete an agent job
+// @Tags agent-jobs
+// @Produce json
+// @Param id path string true "Job ID"
+// @Success 200 {object} map[string]string "message"
+// @Failure 404 {object} map[string]string "error"
+// @Router /api/agent/jobs/{id} [delete]
 func DeleteJobEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		id := c.Param("id")
@@ -269,6 +356,17 @@ func DeleteJobEndpoint(app *application.Application) echo.HandlerFunc {
 	}
 }
 
+// ExecuteTaskByNameEndpoint looks up a task by name and executes it.
+// @Summary Execute an agent task by name
+// @Tags agent-jobs
+// @Accept json
+// @Produce json
+// @Param name path string true "Task name"
+// @Param parameters body object false "Optional template parameters"
+// @Success 201 {object} schema.JobExecutionResponse "job created"
+// @Failure 400 {object} map[string]string "error"
+// @Failure 404 {object} map[string]string "error"
+// @Router /api/agent/tasks/{name}/execute [post]
 func ExecuteTaskByNameEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		name := c.Param("name")

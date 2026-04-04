@@ -25,6 +25,7 @@ import (
 // ResponsesEndpoint is the Open Responses API endpoint
 // https://www.openresponses.org/specification
 // @Summary Create a response using the Open Responses API
+// @Tags inference
 // @Param request body schema.OpenResponsesRequest true "Request body"
 // @Success 200 {object} schema.ORResponseResource "Response"
 // @Router /v1/responses [post]
@@ -2946,6 +2947,7 @@ func convertORToolsToOpenAIFormat(orTools []schema.ORFunctionTool) []functions.T
 // GetResponseEndpoint returns a handler for GET /responses/:id
 // This endpoint is used for polling background responses or resuming streaming
 // @Summary Get a response by ID
+// @Tags inference
 // @Description Retrieve a response by ID. Can be used for polling background responses or resuming streaming responses.
 // @Param id path string true "Response ID"
 // @Param stream query string false "Set to 'true' to resume streaming"
@@ -3087,6 +3089,7 @@ func handleStreamResume(c echo.Context, store *ResponseStore, responseID string,
 // CancelResponseEndpoint returns a handler for POST /responses/:id/cancel
 // This endpoint cancels a background response if it's still in progress
 // @Summary Cancel a response
+// @Tags inference
 // @Description Cancel a background response if it's still in progress
 // @Param id path string true "Response ID"
 // @Success 200 {object} schema.ORResponseResource "Response"

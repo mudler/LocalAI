@@ -12,6 +12,7 @@ import (
 
 // VADEndpoint is Voice-Activation-Detection endpoint
 // @Summary	Detect voice fragments in an audio stream
+// @Tags audio
 // @Accept json
 // @Param		request	body		schema.VADRequest	true	"query params"
 // @Success 200 {object} proto.VADResponse "Response"

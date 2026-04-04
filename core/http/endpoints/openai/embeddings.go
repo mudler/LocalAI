@@ -42,6 +42,7 @@ func embeddingItem(embeddings []float32, index int, encodingFormat string) schem
 
 // EmbeddingsEndpoint is the OpenAI Embeddings API endpoint https://platform.openai.com/docs/api-reference/embeddings
 // @Summary Get a vector representation of a given input that can be easily consumed by machine learning models and algorithms.
+// @Tags embeddings
 // @Param request body schema.OpenAIRequest true "query params"
 // @Success 200 {object} schema.OpenAIResponse "Response"
 // @Router /v1/embeddings [post]

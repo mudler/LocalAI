@@ -9,6 +9,7 @@ import (
 
 // SystemInformations returns the system informations
 // @Summary Show the LocalAI instance information
+// @Tags monitoring
 // @Success 200 {object} schema.SystemInformationResponse "Response"
 // @Router /system [get]
 func SystemInformations(ml *model.ModelLoader, appConfig *config.ApplicationConfig) echo.HandlerFunc {

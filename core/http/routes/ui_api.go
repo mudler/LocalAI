@@ -690,6 +690,18 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		return c.JSON(http.StatusOK, modelConfig)
 	}, adminMiddleware)
 
+	// Config metadata API - returns field metadata for all ~170 config fields
+	app.GET("/api/models/config-metadata", localai.ConfigMetadataEndpoint(), adminMiddleware)
+
+	// Autocomplete providers for config fields (dynamic values only)
+	app.GET("/api/models/config-metadata/autocomplete/:provider", localai.AutocompleteEndpoint(cl, ml, appConfig), adminMiddleware)
+
+	// PATCH config endpoint - partial update using nested JSON merge
+	app.PATCH("/api/models/config-json/:name", localai.PatchConfigEndpoint(cl, ml, appConfig), adminMiddleware)
+
+	// VRAM estimation endpoint
+	app.POST("/api/models/vram-estimate", localai.VRAMEstimateEndpoint(cl, appConfig), adminMiddleware)
+
 	// Get installed model YAML config for the React model editor
 	app.GET("/api/models/edit/:name", func(c echo.Context) error {
 		modelName := c.Param("name")
@@ -1313,3 +1325,4 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		})
 	}, adminMiddleware)
 }
+

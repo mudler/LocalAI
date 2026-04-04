@@ -53,6 +53,7 @@ type MCPErrorEvent struct {
 // which handles MCP tool injection and server-side execution.
 // Both streaming and non-streaming modes use standard OpenAI response format.
 // @Summary MCP chat completions with automatic tool execution
+// @Tags mcp
 // @Param request body schema.OpenAIRequest true "query params"
 // @Success 200 {object} schema.OpenAIResponse "Response"
 // @Router /v1/mcp/chat/completions [post]
