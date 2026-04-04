@@ -84,18 +84,26 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 		_, _, _, err := ComputeChoices(req, s, config, cl, startupOptions, loader, func(s string, c *[]schema.Choice) {}, func(s string, tokenUsage backend.TokenUsage) bool {
 			var reasoningDelta, contentDelta string
 
-			// Prefer pre-parsed chat deltas from C++ autoparser when available
+			// Always keep the Go-side extractor in sync with raw tokens
+			// (needed for backends that never send chat deltas).
+			goReasoning, goContent := extractor.ProcessToken(s)
+
+			// Prefer pre-parsed chat deltas from C++ autoparser when available.
 			if tokenUsage.HasChatDeltaContent() {
 				rawReasoning, cd := tokenUsage.ChatDeltaReasoningAndContent()
 				contentDelta = cd
 				// Strip reasoning tags (e.g. <|channel>thought / <channel|>) that
 				// the C++ autoparser includes as part of reasoning content.
 				reasoningDelta = extractor.ProcessChatDeltaReasoning(rawReasoning)
-				// Keep extractor state consistent for fallback
-				extractor.ProcessToken(s)
+			} else if config.TemplateConfig.UseTokenizerTemplate {
+				// C++ autoparser is active (jinja templates) but hasn't emitted
+				// chat deltas for this chunk yet — PEG parser is still warming up
+				// (e.g. accumulating "<|channel>thought\n" for Gemma 4).
+				// Suppress Go-side output to avoid leaking partial tag tokens.
 			} else {
-				// Fallback: Go-side extraction from raw text
-				reasoningDelta, contentDelta = extractor.ProcessToken(s)
+				// No autoparser — use Go-side extraction as the sole source.
+				reasoningDelta = goReasoning
+				contentDelta = goContent
 			}
 
 			usage := schema.OpenAIUsage{
@@ -151,18 +159,22 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 
 			var reasoningDelta, contentDelta string
 
-			// Prefer pre-parsed chat deltas from C++ autoparser when available
+			// Always keep the Go-side extractor in sync with raw tokens
+			goReasoning, goContent := extractor.ProcessToken(s)
+
+			// Prefer pre-parsed chat deltas from C++ autoparser when available.
 			if usage.HasChatDeltaContent() {
 				rawReasoning, cd := usage.ChatDeltaReasoningAndContent()
 				contentDelta = cd
 				// Strip reasoning tags (e.g. <|channel>thought / <channel|>) that
 				// the C++ autoparser includes as part of reasoning content.
 				reasoningDelta = extractor.ProcessChatDeltaReasoning(rawReasoning)
-				// Keep extractor state consistent for fallback
-				extractor.ProcessToken(s)
+			} else if config.TemplateConfig.UseTokenizerTemplate {
+				// C++ autoparser warming up — suppress Go-side to avoid tag leaks.
 			} else {
-				// Fallback: Go-side extraction from raw text
-				reasoningDelta, contentDelta = extractor.ProcessToken(s)
+				// No autoparser — use Go-side extraction.
+				reasoningDelta = goReasoning
+				contentDelta = goContent
 			}
 
 			// Emit reasoning deltas in their own SSE chunks before any tool-call chunks
@@ -991,6 +1003,24 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 				)
 				if err != nil {
 					return err
+				}
+
+				// For non-tool requests: prefer C++ autoparser chat deltas over
+				// Go-side tag extraction (which can mangle output when thinkingStartToken
+				// differs from the model's actual reasoning tags, e.g. Gemma 4).
+				if !shouldUseFn && len(chatDeltas) > 0 {
+					deltaContent := functions.ContentFromChatDeltas(chatDeltas)
+					deltaReasoning := functions.ReasoningFromChatDeltas(chatDeltas)
+					if deltaContent != "" || deltaReasoning != "" {
+						xlog.Debug("[ChatDeltas] non-SSE no-tools: overriding result with C++ autoparser deltas",
+							"content_len", len(deltaContent), "reasoning_len", len(deltaReasoning))
+						stopReason := FinishReasonStop
+						message := &schema.Message{Role: "assistant", Content: &deltaContent}
+						if deltaReasoning != "" {
+							message.Reasoning = &deltaReasoning
+						}
+						result = []schema.Choice{{FinishReason: &stopReason, Index: 0, Message: message}}
+					}
 				}
 
 				// Tool parsing is deferred here (only when shouldUseFn) so chat deltas are available
