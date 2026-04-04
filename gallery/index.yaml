@@ -21,8 +21,8 @@
       use_tokenizer_template: true
   files:
     - filename: llama-cpp/models/gemma-4-26B-A4B-it-APEX-GGUF/gemma-4-26B-A4B-APEX-Quality.gguf
-      sha256: e557146506ae45d155d498cf9098e61dc286550c8dcb1fc01a9d3f9708e75126
       uri: https://huggingface.co/mudler/gemma-4-26B-A4B-it-APEX-GGUF/resolve/main/gemma-4-26B-A4B-APEX-Quality.gguf
+      sha256: a6591d7b41978e6f465acd9d03e96286f70912402c695158fb267ccbfbb740ed
 - name: "qwen3.5-35b-a3b-apex"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
