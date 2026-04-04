@@ -1823,7 +1823,9 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 					var reasoningDelta, contentDelta string
 					// Prefer pre-parsed chat deltas from C++ autoparser when available
 					if tokenUsage.HasChatDeltaContent() {
-						reasoningDelta, contentDelta = tokenUsage.ChatDeltaReasoningAndContent()
+						rawReasoning, cd := tokenUsage.ChatDeltaReasoningAndContent()
+						contentDelta = cd
+						reasoningDelta = extractor.ProcessChatDeltaReasoning(rawReasoning)
 						extractor.ProcessToken(token) // keep state consistent
 					} else {
 						reasoningDelta, contentDelta = extractor.ProcessToken(token)
@@ -2350,7 +2352,9 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 		var reasoningDelta, contentDelta string
 		// Prefer pre-parsed chat deltas from C++ autoparser when available
 		if tokenUsage.HasChatDeltaContent() {
-			reasoningDelta, contentDelta = tokenUsage.ChatDeltaReasoningAndContent()
+			rawReasoning, cd := tokenUsage.ChatDeltaReasoningAndContent()
+			contentDelta = cd
+			reasoningDelta = extractor.ProcessChatDeltaReasoning(rawReasoning)
 			extractor.ProcessToken(token) // keep state consistent
 		} else {
 			reasoningDelta, contentDelta = extractor.ProcessToken(token)

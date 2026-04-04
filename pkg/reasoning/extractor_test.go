@@ -195,4 +195,91 @@ var _ = Describe("ReasoningExtractor", func() {
 			Expect(ext.CleanedContent()).To(Equal("visible content"))
 		})
 	})
+
+	Context("ProcessChatDeltaReasoning with Gemma 4 tags", func() {
+		It("should strip <|channel>thought and <channel|> tags from streaming deltas", func() {
+			ext := NewReasoningExtractor("<|channel>thought", Config{})
+
+			// Simulate C++ autoparser sending tag tokens as reasoning
+			d1 := ext.ProcessChatDeltaReasoning("<|channel>")
+			Expect(d1).To(BeEmpty(), "start tag prefix should be buffered, not emitted")
+
+			d2 := ext.ProcessChatDeltaReasoning("thought")
+			Expect(d2).To(BeEmpty(), "start tag suffix should be buffered, not emitted")
+
+			d3 := ext.ProcessChatDeltaReasoning("\n")
+			Expect(d3).To(BeEmpty(), "newline after start tag should not emit yet")
+
+			d4 := ext.ProcessChatDeltaReasoning("The")
+			Expect(d4).To(Equal("The"))
+
+			d5 := ext.ProcessChatDeltaReasoning(" user")
+			Expect(d5).To(Equal(" user"))
+
+			d6 := ext.ProcessChatDeltaReasoning(" asks")
+			Expect(d6).To(Equal(" asks"))
+
+			// Trailing newline gets TrimSpaced by ExtractReasoning,
+			// so it appears delayed with the next non-whitespace token
+			d7 := ext.ProcessChatDeltaReasoning("\n")
+			Expect(d7).To(BeEmpty(), "trailing newline is buffered by TrimSpace")
+
+			d8 := ext.ProcessChatDeltaReasoning("2+2=4")
+			Expect(d8).To(Equal("\n2+2=4"), "delayed newline emitted with next content")
+
+			d9 := ext.ProcessChatDeltaReasoning("<channel|>")
+			Expect(d9).To(BeEmpty(), "close tag should be consumed, not emitted")
+		})
+
+		It("should handle empty deltas", func() {
+			ext := NewReasoningExtractor("<|channel>thought", Config{})
+			d := ext.ProcessChatDeltaReasoning("")
+			Expect(d).To(BeEmpty())
+		})
+
+		It("should pass through reasoning without tags unchanged", func() {
+			ext := NewReasoningExtractor("<think>", Config{})
+
+			// When C++ autoparser already strips tags (e.g. <think> models),
+			// reasoning arrives clean — just pass it through.
+			d1 := ext.ProcessChatDeltaReasoning("I need to")
+			Expect(d1).To(Equal("I need to"))
+
+			d2 := ext.ProcessChatDeltaReasoning(" think carefully")
+			Expect(d2).To(Equal(" think carefully"))
+		})
+
+		It("should strip <think> tags if C++ autoparser includes them", func() {
+			ext := NewReasoningExtractor("<think>", Config{})
+
+			d1 := ext.ProcessChatDeltaReasoning("<think>")
+			Expect(d1).To(BeEmpty())
+
+			d2 := ext.ProcessChatDeltaReasoning("reasoning")
+			Expect(d2).To(Equal("reasoning"))
+
+			d3 := ext.ProcessChatDeltaReasoning("</think>")
+			Expect(d3).To(BeEmpty())
+		})
+
+		It("should respect suppressReasoning", func() {
+			ext := NewReasoningExtractor("<|channel>thought", Config{})
+			ext.ResetAndSuppressReasoning()
+
+			d := ext.ProcessChatDeltaReasoning("some reasoning")
+			Expect(d).To(BeEmpty())
+		})
+
+		It("should reset ChatDelta state on Reset", func() {
+			ext := NewReasoningExtractor("<|channel>thought", Config{})
+
+			ext.ProcessChatDeltaReasoning("<|channel>thought")
+			ext.ProcessChatDeltaReasoning("\nfirst reasoning")
+			ext.Reset()
+
+			// After reset, should start fresh
+			d := ext.ProcessChatDeltaReasoning("clean reasoning")
+			Expect(d).To(Equal("clean reasoning"))
+		})
+	})
 })
