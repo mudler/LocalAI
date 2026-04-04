@@ -86,7 +86,11 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 
 			// Prefer pre-parsed chat deltas from C++ autoparser when available
 			if tokenUsage.HasChatDeltaContent() {
-				reasoningDelta, contentDelta = tokenUsage.ChatDeltaReasoningAndContent()
+				rawReasoning, cd := tokenUsage.ChatDeltaReasoningAndContent()
+				contentDelta = cd
+				// Strip reasoning tags (e.g. <|channel>thought / <channel|>) that
+				// the C++ autoparser includes as part of reasoning content.
+				reasoningDelta = extractor.ProcessChatDeltaReasoning(rawReasoning)
 				// Keep extractor state consistent for fallback
 				extractor.ProcessToken(s)
 			} else {
@@ -149,7 +153,11 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 
 			// Prefer pre-parsed chat deltas from C++ autoparser when available
 			if usage.HasChatDeltaContent() {
-				reasoningDelta, contentDelta = usage.ChatDeltaReasoningAndContent()
+				rawReasoning, cd := usage.ChatDeltaReasoningAndContent()
+				contentDelta = cd
+				// Strip reasoning tags (e.g. <|channel>thought / <channel|>) that
+				// the C++ autoparser includes as part of reasoning content.
+				reasoningDelta = extractor.ProcessChatDeltaReasoning(rawReasoning)
 				// Keep extractor state consistent for fallback
 				extractor.ProcessToken(s)
 			} else {
