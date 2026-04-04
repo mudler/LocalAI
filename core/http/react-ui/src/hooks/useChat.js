@@ -2,9 +2,9 @@ import { useState, useCallback, useRef, useEffect } from 'react'
 import { API_CONFIG } from '../utils/config'
 import { apiUrl } from '../utils/basePath'
 
-const thinkingTagRegex = /<thinking>([\s\S]*?)<\/thinking>|<think>([\s\S]*?)<\/think>/g
-const openThinkTagRegex = /<thinking>|<think>/
-const closeThinkTagRegex = /<\/thinking>|<\/think>/
+const thinkingTagRegex = /<thinking>([\s\S]*?)<\/thinking>|<think>([\s\S]*?)<\/think>|<\|channel>thought([\s\S]*?)<channel\|>/g
+const openThinkTagRegex = /<thinking>|<think>|<\|channel>thought/
+const closeThinkTagRegex = /<\/thinking>|<\/think>|<channel\|>/
 
 async function extractHttpError(response) {
   let errorMsg = `HTTP ${response.status}`
@@ -23,7 +23,7 @@ function extractThinking(text) {
   thinkingTagRegex.lastIndex = 0
   while ((match = thinkingTagRegex.exec(text)) !== null) {
     regularContent += text.slice(lastIdx, match.index)
-    thinkingContent += match[1] || match[2] || ''
+    thinkingContent += match[1] || match[2] || match[3] || ''
     lastIdx = match.index + match[0].length
   }
   regularContent += text.slice(lastIdx)
@@ -578,9 +578,9 @@ export function useChat(initialModel = '') {
                     }
 
                     if (insideThinkTag) {
-                      const lastOpen = Math.max(rawContent.lastIndexOf('<thinking>'), rawContent.lastIndexOf('<think>'))
+                      const lastOpen = Math.max(rawContent.lastIndexOf('<thinking>'), rawContent.lastIndexOf('<think>'), rawContent.lastIndexOf('<|channel>thought'))
                       if (lastOpen >= 0) {
-                        const partial = rawContent.slice(lastOpen).replace(/<thinking>|<think>/, '')
+                        const partial = rawContent.slice(lastOpen).replace(/<thinking>|<think>|<\|channel>thought/, '')
                         setStreamingReasoning(partial)
                         const beforeThink = rawContent.slice(0, lastOpen)
                         const { regularContent: contentBeforeThink } = extractThinking(beforeThink)
