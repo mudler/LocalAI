@@ -13,6 +13,11 @@ ENV DEBIAN_FRONTEND=noninteractive
 ARG TARGETARCH
 ARG TARGETVARIANT
 ARG UBUNTU_VERSION=2404
+# ROCM_VERSION: major ROCm version. '6' = ROCm 6.x (hipblas-dev/rocblas-dev from
+# rocm/dev-ubuntu base image); '7' = ROCm 7.x (amdrocm-* packages from AMD apt repo).
+ARG ROCM_VERSION=6
+# ROCM_ARCH: GPU-family for ROCm 7.x arch-specific metapackage (amdrocm-core-sdk-gfxNNNN).
+ARG ROCM_ARCH=gfx1151
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
@@ -158,20 +163,40 @@ RUN if [ "${BUILD_TYPE}" = "clblas" ] && [ "${SKIP_DRIVERS}" = "false" ]; then \
     ; fi
 
 RUN if [ "${BUILD_TYPE}" = "hipblas" ] && [ "${SKIP_DRIVERS}" = "false" ]; then \
+    if [ "${ROCM_VERSION}" = "7" ]; then \
+        # ROCm 7.x ships under a new apt repo with renamed packages.
+        # repo.amd.com/rocm/packages/ubuntu2404 uses amdrocm-* names; the old
+        # hipblas-dev / rocblas-dev packages no longer exist.
+        mkdir -p /etc/apt/keyrings && \
+        apt-get update && \
+        apt-get install -y --no-install-recommends wget gpg git && \
+        wget -qO- https://repo.amd.com/rocm/packages/gpg/rocm.gpg | gpg --dearmor > /etc/apt/keyrings/amdrocm.gpg && \
+        echo 'deb [arch=amd64 signed-by=/etc/apt/keyrings/amdrocm.gpg] https://repo.amd.com/rocm/packages/ubuntu2404 stable main' > /etc/apt/sources.list.d/rocm.list && \
+        apt-get update && \
+        apt-get install -y --no-install-recommends amdrocm-llvm amdrocm-core-sdk-${ROCM_ARCH} && \
+        apt-get clean && \
+        rm -rf /var/lib/apt/lists/* && \
+        ln -sf /opt/rocm/core-7/lib/llvm /opt/rocm/llvm && \
+        ln -sf /opt/rocm/core-7/bin      /opt/rocm/bin  && \
+        ln -sf /opt/rocm/core-7          /opt/rocm/hip  && \
+        ln -sf /opt/rocm/core-7/lib      /opt/rocm/lib  && \
+        ln -sf /opt/rocm/core-7/include  /opt/rocm/include && \
+        ldconfig ; \
+    else \
+        # ROCm 6.x: packages come pre-installed in the rocm/dev-ubuntu-* base image.
         apt-get update && \
         apt-get install -y --no-install-recommends \
             hipblas-dev \
             rocblas-dev && \
         apt-get clean && \
         rm -rf /var/lib/apt/lists/* && \
-        # I have no idea why, but the ROCM lib packages don't trigger ldconfig after they install, which results in local-ai and others not being able
-        # to locate the libraries. We run ldconfig ourselves to work around this packaging deficiency
-        ldconfig \
-    ; fi
+        ldconfig ; \
+    fi \
+; fi
 
 RUN if [ "${BUILD_TYPE}" = "hipblas" ]; then \
-    ln -s /opt/rocm-**/lib/llvm/lib/libomp.so /usr/lib/libomp.so \
-    ; fi
+    ln -sf /opt/rocm/llvm/lib/libomp.so /usr/lib/libomp.so ; \
+fi
 
 # Install uv as a system package
 RUN curl -LsSf https://astral.sh/uv/install.sh | UV_INSTALL_DIR=/usr/bin sh

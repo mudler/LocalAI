@@ -58,6 +58,16 @@ on:
         required: false
         default: '2204'
         type: string
+      rocm-version:
+        description: 'ROCm major version (6 = ROCm 6.x with hipblas-dev/rocblas-dev, 7 = ROCm 7.x with amdrocm-* packages)'
+        required: false
+        default: '6'
+        type: string
+      rocm-arch:
+        description: 'ROCm GPU architecture for ROCm 7.x arch-specific packages (e.g. gfx1151)'
+        required: false
+        default: 'gfx1151'
+        type: string
     secrets:
       dockerUsername:
         required: false
@@ -214,6 +224,8 @@ jobs:
             BASE_IMAGE=${{ inputs.base-image }}
             BACKEND=${{ inputs.backend }}
             UBUNTU_VERSION=${{ inputs.ubuntu-version }}
+            ROCM_VERSION=${{ inputs.rocm-version }}
+            ROCM_ARCH=${{ inputs.rocm-arch }}
           context: ${{ inputs.context }}
           file: ${{ inputs.dockerfile }}
           cache-from: type=gha
@@ -235,6 +247,8 @@ jobs:
             BASE_IMAGE=${{ inputs.base-image }}
             BACKEND=${{ inputs.backend }}
             UBUNTU_VERSION=${{ inputs.ubuntu-version }}
+            ROCM_VERSION=${{ inputs.rocm-version }}
+            ROCM_ARCH=${{ inputs.rocm-arch }}
           context: ${{ inputs.context }}
           file: ${{ inputs.dockerfile }}
           cache-from: type=gha
