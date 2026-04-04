@@ -15,6 +15,7 @@ import (
 // - <|inner_prefix|>        (Apertus models)
 // - <seed:think>            (Seed models)
 // - <think>    (DeepSeek, Granite, ExaOne models)
+// - <|channel>thought        (Gemma 4 models)
 // - <|think|>               (Solar Open models)
 // - <thinking>              (General thinking tag)
 // - [THINK]                 (Magistral models)
@@ -28,6 +29,7 @@ func DetectThinkingStartToken(prompt string, config *Config) string {
 		"<seed:think>",       // Seed models
 		"<think>",            // DeepSeek, Granite, ExaOne models
 		"<|think|>",          // Solar Open models
+		"<|channel>thought",  // Gemma 4 models
 		"<thinking>",         // General thinking tag
 		"[THINK]",            // Magistral models
 	}
@@ -146,6 +148,7 @@ func ExtractReasoning(content string, config *Config) (reasoning string, cleaned
 		{"<seed:think>", "</seed:think>"},                     // Seed models
 		{"<think>", "</think>"},                               // DeepSeek, Granite, ExaOne models
 		{"<|think|>", "<|end|><|begin|>assistant<|content|>"}, // Solar Open models (complex end)
+		{"<|channel>thought", "<channel|>"},                    // Gemma 4 models
 		{"<thinking>", "</thinking>"},                         // General thinking tag
 		{"[THINK]", "[/THINK]"},                               // Magistral models
 	}
