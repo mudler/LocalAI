@@ -264,7 +264,8 @@ RUN if [ "${BUILD_TYPE}" = "hipblas" ] && [ "${SKIP_DRIVERS}" = "false" ]; then 
 
 # Set CPATH so the compiler finds rocWMMA headers during compilation.
 # This ENV is a no-op on non-hipblas builds (the path does not exist there).
-ENV CPATH=/opt/rocwmma-headers:${CPATH:-}
+ARG CPATH=""
+ENV CPATH=/opt/rocwmma-headers:${CPATH}
 
 RUN if [ "${BUILD_TYPE}" = "hipblas" ]; then \
     ln -sf /opt/rocm/llvm/lib/libomp.so /usr/lib/libomp.so ; \
