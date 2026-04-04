@@ -175,6 +175,10 @@ func (f *fakeGRPCBackend) StopQuantization(_ context.Context, _ *pb.Quantization
 	return &pb.Result{}, nil
 }
 
+func (f *fakeGRPCBackend) Free(_ context.Context) error {
+	return nil
+}
+
 // --- Tests ---
 
 var _ = Describe("InFlightTrackingClient", func() {

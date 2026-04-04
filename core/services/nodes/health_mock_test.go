@@ -231,6 +231,9 @@ func (c *fakeBackendClient) QuantizationProgress(_ context.Context, _ *pb.Quanti
 func (c *fakeBackendClient) StopQuantization(_ context.Context, _ *pb.QuantizationStopRequest, _ ...ggrpc.CallOption) (*pb.Result, error) {
 	return nil, nil
 }
+func (c *fakeBackendClient) Free(_ context.Context) error {
+	return nil
+}
 
 // --- fakeBackendClientFactory ---
 

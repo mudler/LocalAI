@@ -1,6 +1,7 @@
 package model
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -52,11 +53,9 @@ func (ml *ModelLoader) deleteProcess(s string) error {
 	}
 
 	// Free GPU resources before stopping the process to ensure VRAM is released
-	if freeFunc, ok := model.GRPC(false, ml.wd).(interface{ Free() error }); ok {
-		xlog.Debug("Calling Free() to release GPU resources", "model", s)
-		if err := freeFunc.Free(); err != nil {
-			xlog.Warn("Error freeing GPU resources", "error", err, "model", s)
-		}
+	xlog.Debug("Calling Free() to release GPU resources", "model", s)
+	if err := model.GRPC(false, ml.wd).Free(context.Background()); err != nil {
+		xlog.Warn("Error freeing GPU resources", "error", err, "model", s)
 	}
 
 	process := model.Process()

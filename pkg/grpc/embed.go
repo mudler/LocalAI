@@ -163,6 +163,11 @@ func (e *embedBackend) StopQuantization(ctx context.Context, in *pb.Quantization
 	return e.s.StopQuantization(ctx, in)
 }
 
+func (e *embedBackend) Free(ctx context.Context) error {
+	_, err := e.s.Free(ctx, &pb.HealthMessage{})
+	return err
+}
+
 var _ pb.Backend_FineTuneProgressServer = new(embedBackendFineTuneProgressStream)
 
 type embedBackendFineTuneProgressStream struct {
