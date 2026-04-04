@@ -33,14 +33,18 @@ else ifeq ($(BUILD_TYPE),hipblas)
 	ROCM_PATH ?= /opt/rocm
 	export CXX=$(ROCM_HOME)/llvm/bin/clang++
 	export CC=$(ROCM_HOME)/llvm/bin/clang
-	# Full list of GPU architectures supported by ROCm 7.12 (https://rocm.docs.amd.com/en/7.12.0-preview/).
-	# gfx1010 was removed — it was dropped in ROCm 6.x and is not present in 7.x.
-	AMDGPU_TARGETS?=gfx803,gfx900,gfx906,gfx908,gfx90a,gfx942,gfx950,gfx1012,gfx1030,gfx1031,gfx1032,gfx1100,gfx1101,gfx1102,gfx1103,gfx1150,gfx1151,gfx1152,gfx1200,gfx1201
+	# AMDGPU_TARGETS: GPU architectures that support rocWMMA (https://github.com/ROCm/rocWMMA).
+	# rocWMMA is required for GGML_HIP_ROCWMMA_FATTN below (~50% FlashAttention speedup).
+	# Architectures NOT in rocWMMA (gfx803, gfx900, gfx906, gfx1012, gfx1030-gfx1032,
+	# gfx1103, gfx1152) are excluded because -DGGML_HIP_ROCWMMA_FATTN=ON would trigger
+	# a static_assert("Unsupported architecture") in the rocWMMA headers for those targets.
+	# To build for all ROCm 7.12 GPUs at the cost of the rocWMMA optimisation, override with:
+	#   make ... AMDGPU_TARGETS=gfx803,...,gfx1201 and remove -DGGML_HIP_ROCWMMA_FATTN=ON
+	AMDGPU_TARGETS?=gfx908,gfx90a,gfx942,gfx950,gfx1100,gfx1101,gfx1102,gfx1150,gfx1151,gfx1200,gfx1201
 	# -DHIP_PLATFORM=amd is required for ROCm 7.x cmake find_package(hip) to locate the HIP SDK.
-	# GGML_HIP_ROCWMMA_FATTN is left at its cmake default (OFF) because rocWMMA does not
-	# support all architectures in the AMDGPU_TARGETS list (e.g. gfx1103 is unsupported),
-	# which would cause a build failure in fattn-wmma-f16.cu for multi-arch fat binaries.
-	CMAKE_ARGS+=-DGGML_HIP=ON -DAMDGPU_TARGETS=$(AMDGPU_TARGETS) -DHIP_PLATFORM=amd -DROCM_PATH=$(ROCM_PATH) -DCMAKE_PREFIX_PATH=$(ROCM_PATH)
+	# -DGGML_HIP_ROCWMMA_FATTN=ON enables rocWMMA-accelerated FlashAttention (~50% speedup
+	# on supported RDNA 3+ and CDNA 2+ architectures listed in AMDGPU_TARGETS above).
+	CMAKE_ARGS+=-DGGML_HIP=ON -DAMDGPU_TARGETS=$(AMDGPU_TARGETS) -DHIP_PLATFORM=amd -DROCM_PATH=$(ROCM_PATH) -DCMAKE_PREFIX_PATH=$(ROCM_PATH) -DGGML_HIP_ROCWMMA_FATTN=ON
 else ifeq ($(BUILD_TYPE),vulkan)
 	CMAKE_ARGS+=-DGGML_VULKAN=1
 else ifeq ($(OS),Darwin)
