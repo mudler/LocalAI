@@ -81,7 +81,17 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 		extractor := reason.NewReasoningExtractor(thinkingStartToken, config.ReasoningConfig)
 
 		_, _, _, err := ComputeChoices(req, s, config, cl, startupOptions, loader, func(s string, c *[]schema.Choice) {}, func(s string, tokenUsage backend.TokenUsage) bool {
-			reasoningDelta, contentDelta := extractor.ProcessToken(s)
+			var reasoningDelta, contentDelta string
+
+			// Prefer pre-parsed chat deltas from C++ autoparser when available
+			if tokenUsage.HasChatDeltaContent() {
+				reasoningDelta, contentDelta = tokenUsage.ChatDeltaReasoningAndContent()
+				// Keep extractor state consistent for fallback
+				extractor.ProcessToken(s)
+			} else {
+				// Fallback: Go-side extraction from raw text
+				reasoningDelta, contentDelta = extractor.ProcessToken(s)
+			}
 
 			usage := schema.OpenAIUsage{
 				PromptTokens:     tokenUsage.Prompt,
@@ -133,7 +143,18 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 
 		_, tokenUsage, chatDeltas, err := ComputeChoices(req, prompt, config, cl, startupOptions, loader, func(s string, c *[]schema.Choice) {}, func(s string, usage backend.TokenUsage) bool {
 			result += s
-			reasoningDelta, contentDelta := extractor.ProcessToken(s)
+
+			var reasoningDelta, contentDelta string
+
+			// Prefer pre-parsed chat deltas from C++ autoparser when available
+			if usage.HasChatDeltaContent() {
+				reasoningDelta, contentDelta = usage.ChatDeltaReasoningAndContent()
+				// Keep extractor state consistent for fallback
+				extractor.ProcessToken(s)
+			} else {
+				// Fallback: Go-side extraction from raw text
+				reasoningDelta, contentDelta = extractor.ProcessToken(s)
+			}
 
 			// Emit reasoning deltas in their own SSE chunks before any tool-call chunks
 			// (OpenAI spec: reasoning and tool_calls never share a delta)
