@@ -11,6 +11,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/xlog"
+	"github.com/nats-io/nats.go"
 )
 
 // DistributedModelManager wraps a local ModelManager and adds NATS fan-out
@@ -84,6 +85,13 @@ func (d *DistributedBackendManager) DeleteBackend(name string) error {
 			continue
 		}
 		if _, delErr := d.adapter.DeleteBackend(node.ID, name); delErr != nil {
+			if errors.Is(delErr, nats.ErrNoResponders) {
+				// Node's NATS subscription is gone — likely restarted with a new ID.
+				// Mark it unhealthy so future fan-outs skip it.
+				xlog.Warn("No NATS responders for node, marking unhealthy", "node", node.Name, "nodeID", node.ID)
+				d.registry.MarkUnhealthy(context.Background(), node.ID)
+				continue
+			}
 			xlog.Warn("Failed to propagate backend deletion to worker", "node", node.Name, "backend", name, "error", delErr)
 			errs = append(errs, fmt.Errorf("node %s: %w", node.Name, delErr))
 		}
@@ -105,6 +113,11 @@ func (d *DistributedBackendManager) ListBackends() (gallery.SystemBackends, erro
 		}
 		reply, err := d.adapter.ListBackends(node.ID)
 		if err != nil {
+			if errors.Is(err, nats.ErrNoResponders) {
+				xlog.Warn("No NATS responders for node, marking unhealthy", "node", node.Name, "nodeID", node.ID)
+				d.registry.MarkUnhealthy(context.Background(), node.ID)
+				continue
+			}
 			xlog.Warn("Failed to list backends on worker", "node", node.Name, "error", err)
 			continue
 		}
@@ -145,6 +158,11 @@ func (d *DistributedBackendManager) InstallBackend(ctx context.Context, op *gall
 		}
 		reply, err := d.adapter.InstallBackend(node.ID, backendName, "", string(galleriesJSON))
 		if err != nil {
+			if errors.Is(err, nats.ErrNoResponders) {
+				xlog.Warn("No NATS responders for node, marking unhealthy", "node", node.Name, "nodeID", node.ID)
+				d.registry.MarkUnhealthy(context.Background(), node.ID)
+				continue
+			}
 			xlog.Warn("Failed to install backend on worker", "node", node.Name, "backend", backendName, "error", err)
 			continue
 		}
