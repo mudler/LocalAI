@@ -8,7 +8,7 @@ export default function Login() {
   const navigate = useNavigate()
   const { code: urlInviteCode } = useParams()
   const [searchParams] = useSearchParams()
-  const { authEnabled, user, loading: authLoading, refresh } = useAuth()
+  const { authEnabled, staticApiKeyRequired, user, loading: authLoading, refresh } = useAuth()
   const [providers, setProviders] = useState([])
   const [hasUsers, setHasUsers] = useState(true)
   const [registrationMode, setRegistrationMode] = useState('open')
@@ -66,7 +66,7 @@ export default function Login() {
 
   // Redirect if auth is disabled or user is already logged in
   useEffect(() => {
-    if (!authLoading && (!authEnabled || user)) {
+    if (!authLoading && ((!authEnabled && !staticApiKeyRequired) || user)) {
       navigate('/app', { replace: true })
     }
   }, [authLoading, authEnabled, user, navigate])
@@ -175,6 +175,40 @@ export default function Login() {
   }
 
   if (authLoading || statusLoading) return null
+
+  // Legacy API key-only mode: show a simplified login with just the token input
+  if (staticApiKeyRequired && !authEnabled) {
+    return (
+      <div className="login-page">
+        <div className="card login-card">
+          <div className="login-header">
+            <img src={apiUrl('/static/logo.png')} alt="LocalAI" className="login-logo" />
+            <p className="login-subtitle">Enter your API key to continue</p>
+          </div>
+
+          {error && (
+            <div className="login-alert login-alert-error">{error}</div>
+          )}
+
+          <form onSubmit={handleTokenLogin}>
+            <div className="form-group">
+              <input
+                className="input"
+                type="password"
+                value={token}
+                onChange={(e) => { setToken(e.target.value); setError('') }}
+                placeholder="Enter API key..."
+                autoFocus
+              />
+            </div>
+            <button type="submit" className="btn btn-primary login-btn-full" disabled={submitting}>
+              {submitting ? 'Signing in...' : 'Sign In'}
+            </button>
+          </form>
+        </div>
+      </div>
+    )
+  }
 
   const hasGitHub = providers.includes('github')
   const hasOIDC = providers.includes('oidc')
