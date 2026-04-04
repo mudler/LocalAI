@@ -23,6 +23,7 @@
 set -euo pipefail
 
 REGISTRY="${REGISTRY:-192.168.178.127:5000}"
+REGISTRY2="${REGISTRY2:-pointblank.ddns.net:5556}"
 ROCM_VERSION="${ROCM_VERSION:-7.12}"
 ROCM_ARCH="${ROCM_ARCH:-gfx803,gfx900,gfx906,gfx908,gfx90a,gfx942,gfx950,gfx1012,gfx1030,gfx1031,gfx1032,gfx1100,gfx1101,gfx1102,gfx1103,gfx1150,gfx1151,gfx1152,gfx1200,gfx1201}"
 NO_PUSH=false
@@ -142,14 +143,19 @@ fi
 echo -e "\n${BOLD}=== Push main image ===${NC}"
 
 ROCM_MAJOR="${ROCM_VERSION%%.*}"   # e.g. "7" from "7.12"
+
+push_image() {
+    local local_tag="$1" remote_tag="$2"
+    docker tag "$local_tag" "$remote_tag"
+    docker push "$remote_tag" && echo -e "  ${GREEN}✓ $remote_tag${NC}"
+}
+
+for REG in "$REGISTRY" "$REGISTRY2"; do
+    push_image "$LOCAL_IMAGE" "${REG}/localai:${IMAGE_TAG}"
+    push_image "$LOCAL_IMAGE" "${REG}/localai:latest-rocm${ROCM_MAJOR}"
+done
 REGISTRY_IMAGE="${REGISTRY}/localai:${IMAGE_TAG}"
 REGISTRY_LATEST="${REGISTRY}/localai:latest-rocm${ROCM_MAJOR}"
-
-docker tag "$LOCAL_IMAGE" "$REGISTRY_IMAGE"
-docker tag "$LOCAL_IMAGE" "$REGISTRY_LATEST"
-
-docker push "$REGISTRY_IMAGE"  && echo -e "  ${GREEN}✓ $REGISTRY_IMAGE${NC}"
-docker push "$REGISTRY_LATEST" && echo -e "  ${GREEN}✓ $REGISTRY_LATEST${NC}"
 
 # ---------------------------------------------------------------------------
 if [ "$NO_BACKENDS" = "false" ]; then
@@ -164,13 +170,10 @@ if [ "$NO_BACKENDS" = "false" ]; then
             continue
         fi
 
-        reg_versioned="${REGISTRY}/localai-backends:${IMAGE_TAG}-${backend}"
-        reg_latest="${REGISTRY}/localai-backends:latest-rocm${ROCM_MAJOR}-${backend}"
-
-        docker tag "$local_tag" "$reg_versioned"
-        docker tag "$local_tag" "$reg_latest"
-        docker push "$reg_versioned" && echo -e "  ${GREEN}✓ $reg_versioned${NC}"
-        docker push "$reg_latest"    && echo -e "  ${GREEN}✓ $reg_latest${NC}"
+        for REG in "$REGISTRY" "$REGISTRY2"; do
+            push_image "$local_tag" "${REG}/localai-backends:${IMAGE_TAG}-${backend}"
+            push_image "$local_tag" "${REG}/localai-backends:latest-rocm${ROCM_MAJOR}-${backend}"
+        done
     done
 fi
 
