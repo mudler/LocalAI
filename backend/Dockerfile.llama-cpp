@@ -207,6 +207,20 @@ RUN if [ "${BUILD_TYPE}" = "clblas" ] && [ "${SKIP_DRIVERS}" = "false" ]; then \
         rm -rf /var/lib/apt/lists/* \
     ; fi
 
+# Install CMake before ROCm packages.
+# ROCm 7.x sysdeps packages break libarchive13t64 which cmake depends on, so cmake
+# must be installed first while the apt environment is still clean.
+RUN <<EOT bash
+    if [ "${CMAKE_FROM_SOURCE}" = "true" ]; then
+        curl -L -s https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/cmake-${CMAKE_VERSION}.tar.gz -o cmake.tar.gz && tar xvf cmake.tar.gz && cd cmake-${CMAKE_VERSION} && ./configure && make && make install
+    else
+        apt-get update && \
+        apt-get install -y cmake && \
+        apt-get clean && \
+        rm -rf /var/lib/apt/lists/*
+    fi
+EOT
+
 RUN if [ "${BUILD_TYPE}" = "hipblas" ] && [ "${SKIP_DRIVERS}" = "false" ]; then \
     if [ "${ROCM_VERSION}" = "7" ]; then \
         # ROCm 7.x ships under a new apt repo with renamed packages.
@@ -224,7 +238,9 @@ RUN if [ "${BUILD_TYPE}" = "hipblas" ] && [ "${SKIP_DRIVERS}" = "false" ]; then 
         # family gets its own amdrocm-core-sdk-gfxNNNN package instead.
         apt-get install -y --no-install-recommends amdrocm-llvm && \
         for _arch in $(echo "${ROCM_ARCH}" | tr ',' ' '); do \
-            apt-get install -y --no-install-recommends "amdrocm-core-sdk-${_arch}" || \
+            apt-get install -y --no-install-recommends \
+                -o Dpkg::Options::="--force-overwrite" \
+                "amdrocm-core-sdk-${_arch}" || \
             echo "Note: amdrocm-core-sdk-${_arch} not available, skipping" >&2 ; \
         done && \
         apt-get clean && \
@@ -289,21 +305,10 @@ RUN <<EOT bash
     fi
 EOT
 
-# Install CMake (the version in 22.04 is too old)
-RUN <<EOT bash
-    if [ "${CMAKE_FROM_SOURCE}" = "true" ]; then
-        curl -L -s https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/cmake-${CMAKE_VERSION}.tar.gz -o cmake.tar.gz && tar xvf cmake.tar.gz && cd cmake-${CMAKE_VERSION} && ./configure && make && make install
-    else
-        apt-get update && \
-        apt-get install -y \
-            cmake && \
-        apt-get clean && \
-        rm -rf /var/lib/apt/lists/*
-    fi
-EOT
-
 COPY --from=grpc /opt/grpc /usr/local
 
+# cmake was already installed before the ROCm packages above.
+# (ROCm 7.x sysdeps break libarchive13t64 which cmake depends on, so order matters.)
 
 COPY . /LocalAI
 
