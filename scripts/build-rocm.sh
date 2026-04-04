@@ -1,22 +1,26 @@
 #!/bin/bash
 # =============================================================================
-# LocalAI ROCm 7.x Rebuild Script — gfx1151 Fork
+# LocalAI ROCm 7.x Rebuild Script
 # =============================================================================
 # Builds (and optionally pushes) the main LocalAI image plus all ROCm 7.x
 # backend images. No git sync — use sync-upstream.sh for merge + build + push.
+#
+# By default builds for ALL GPU architectures supported by ROCm 7.12.
+# Override ROCM_ARCH to a subset for faster/smaller local builds, e.g.:
+#   ROCM_ARCH=gfx1151 bash scripts/build-rocm.sh
 #
 # Usage:
 #   bash scripts/build-rocm.sh               # build all + push
 #   bash scripts/build-rocm.sh --no-push     # build all, no registry push
 #   bash scripts/build-rocm.sh --no-backends # main image only
 #   ROCM_VERSION=7.13 bash scripts/build-rocm.sh
-#   ROCM_ARCH=gfx1150 bash scripts/build-rocm.sh
+#   ROCM_ARCH=gfx1150,gfx1151 bash scripts/build-rocm.sh
 # =============================================================================
 set -euo pipefail
 
 REGISTRY="${REGISTRY:-192.168.178.127:5000}"
 ROCM_VERSION="${ROCM_VERSION:-7.12}"
-ROCM_ARCH="${ROCM_ARCH:-gfx1151}"
+ROCM_ARCH="${ROCM_ARCH:-gfx803,gfx900,gfx906,gfx908,gfx90a,gfx942,gfx950,gfx1012,gfx1030,gfx1031,gfx1032,gfx1100,gfx1101,gfx1102,gfx1103,gfx1150,gfx1151,gfx1152,gfx1200,gfx1201}"
 NO_PUSH=false
 NO_BACKENDS=false
 

@@ -309,11 +309,14 @@ COPY . /LocalAI
 RUN <<'EOT' bash
 set -euxo pipefail
 
+# Always remove stale variant build dirs so the Makefile re-clones llama.cpp
+# at the correct commit instead of reusing a stale host-side checkout.
+rm -rf /LocalAI/backend/cpp/llama-cpp-*-build
+
 if [[ -n "${CUDA_DOCKER_ARCH:-}" ]]; then
   CUDA_ARCH_ESC="${CUDA_DOCKER_ARCH//;/\\;}"
   export CMAKE_ARGS="${CMAKE_ARGS:-} -DCMAKE_CUDA_ARCHITECTURES=${CUDA_ARCH_ESC}"
   echo "CMAKE_ARGS(env) = ${CMAKE_ARGS}"
-  rm -rf /LocalAI/backend/cpp/llama-cpp-*-build
 fi
 
 if [ "${TARGETARCH}" = "arm64" ] || [ "${BUILD_TYPE}" = "hipblas" ]; then
