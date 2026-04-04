@@ -263,7 +263,7 @@ func New(opts ...config.AppOption) (*Application, error) {
 	// This applies file settings with env var precedence (env vars take priority)
 	// Note: startupConfigCopy was already created above, so it has the original env var values
 	if options.DynamicConfigsDir != "" {
-		loadRuntimeSettingsFromFile(options)
+		loadRuntimeSettingsFromFile(options, &startupConfigCopy)
 	}
 
 	application.ModelLoader().SetBackendLoggingEnabled(options.EnableBackendLogging)
@@ -336,21 +336,9 @@ func startWatcher(options *config.ApplicationConfig) {
 // loadRuntimeSettingsFromFile loads settings from runtime_settings.json with env var precedence
 // This function is called at startup, before env vars are applied via AppOptions.
 // Since env vars are applied via AppOptions in run.go, we need to check if they're set.
-// We do this by checking if the current options values differ from defaults, which would
-// indicate they were set from env vars. However, a simpler approach is to just apply
-// file settings here, and let the AppOptions (which are applied after this) override them.
-// But actually, this is called AFTER AppOptions are applied in New(), so we need to check env vars.
-// The cleanest solution: Store original values before applying file, or check if values match
-// what would be set from env vars. For now, we'll apply file settings and they'll be
-// overridden by AppOptions if env vars were set (but AppOptions are already applied).
-// Actually, this function is called in New() before AppOptions are fully processed for watchdog.
-// Let's check the call order: New() -> loadRuntimeSettingsFromFile() -> initializeWatchdog()
-// But AppOptions are applied in NewApplicationConfig() which is called first.
-// So at this point, options already has values from env vars. We should compare against
-// defaults to see if env vars were set. But we don't have defaults stored.
-// Simplest: Just apply file settings. If env vars were set, they're already in options.
-// The file watcher handler will handle runtime changes properly by comparing with startupAppConfig.
-func loadRuntimeSettingsFromFile(options *config.ApplicationConfig) {
+// We do this by comparing current values with startupConfig (values before file loading).
+// If current value matches startup value, it wasn't set from env var, so we can apply file.
+func loadRuntimeSettingsFromFile(options *config.ApplicationConfig, startupConfig *config.ApplicationConfig) {
 	settingsFile := filepath.Join(options.DynamicConfigsDir, "runtime_settings.json")
 	fileContent, err := os.ReadFile(settingsFile)
 	if err != nil {
@@ -370,16 +358,14 @@ func loadRuntimeSettingsFromFile(options *config.ApplicationConfig) {
 	}
 
 	// At this point, options already has values from env vars (via AppOptions in run.go).
-	// To avoid env var duplication, we determine if env vars were set by checking if
-	// current values differ from defaults. Defaults are: false for bools, 0 for durations.
-	// If current value is at default, it likely wasn't set from env var, so we can apply file.
-	// If current value is non-default, it was likely set from env var, so we preserve it.
-	// Note: This means env vars explicitly setting to false/0 won't be distinguishable from defaults,
-	// but that's an acceptable limitation to avoid env var duplication.
+	// startupConfig is a snapshot taken right after AppOptions were applied, so at this point
+	// options == startupConfig for all fields. The comparison ensures file settings are applied
+	// consistently with the file watcher logic in config_file_watcher.go.
+	// Note: At startup, file settings always override env vars. After startup, the file watcher
+	// only applies changes when values haven't been modified via API.
 
 	if settings.WatchdogIdleEnabled != nil {
-		// Only apply if current value is default (false), suggesting it wasn't set from env var
-		if !options.WatchDogIdle {
+		if options.WatchDogIdle == startupConfig.WatchDogIdle {
 			options.WatchDogIdle = *settings.WatchdogIdleEnabled
 			if options.WatchDogIdle {
 				options.WatchDog = true
@@ -387,7 +373,7 @@ func loadRuntimeSettingsFromFile(options *config.ApplicationConfig) {
 		}
 	}
 	if settings.WatchdogBusyEnabled != nil {
-		if !options.WatchDogBusy {
+		if options.WatchDogBusy == startupConfig.WatchDogBusy {
 			options.WatchDogBusy = *settings.WatchdogBusyEnabled
 			if options.WatchDogBusy {
 				options.WatchDog = true
@@ -395,8 +381,7 @@ func loadRuntimeSettingsFromFile(options *config.ApplicationConfig) {
 		}
 	}
 	if settings.WatchdogIdleTimeout != nil {
-		// Only apply if current value is default (0), suggesting it wasn't set from env var
-		if options.WatchDogIdleTimeout == 0 {
+		if options.WatchDogIdleTimeout == startupConfig.WatchDogIdleTimeout {
 			dur, err := time.ParseDuration(*settings.WatchdogIdleTimeout)
 			if err == nil {
 				options.WatchDogIdleTimeout = dur
@@ -406,7 +391,7 @@ func loadRuntimeSettingsFromFile(options *config.ApplicationConfig) {
 		}
 	}
 	if settings.WatchdogBusyTimeout != nil {
-		if options.WatchDogBusyTimeout == 0 {
+		if options.WatchDogBusyTimeout == startupConfig.WatchDogBusyTimeout {
 			dur, err := time.ParseDuration(*settings.WatchdogBusyTimeout)
 			if err == nil {
 				options.WatchDogBusyTimeout = dur
@@ -416,27 +401,24 @@ func loadRuntimeSettingsFromFile(options *config.ApplicationConfig) {
 		}
 	}
 	if settings.WatchdogInterval != nil {
-		if options.WatchDogInterval == 0 {
+		if options.WatchDogInterval == startupConfig.WatchDogInterval {
 			dur, err := time.ParseDuration(*settings.WatchdogInterval)
 			if err == nil {
 				options.WatchDogInterval = dur
 			} else {
 				xlog.Warn("invalid watchdog interval in runtime_settings.json", "error", err, "interval", *settings.WatchdogInterval)
-				options.WatchDogInterval = model.DefaultWatchdogInterval
 			}
 		}
 	}
 	// Handle MaxActiveBackends (new) and SingleBackend (deprecated)
 	if settings.MaxActiveBackends != nil {
-		// Only apply if current value is default (0), suggesting it wasn't set from env var
-		if options.MaxActiveBackends == 0 {
+		if options.MaxActiveBackends == startupConfig.MaxActiveBackends {
 			options.MaxActiveBackends = *settings.MaxActiveBackends
 			// For backward compatibility, also set SingleBackend if MaxActiveBackends == 1
 			options.SingleBackend = (*settings.MaxActiveBackends == 1)
 		}
 	} else if settings.SingleBackend != nil {
-		// Legacy: SingleBackend maps to MaxActiveBackends = 1
-		if !options.SingleBackend {
+		if options.SingleBackend == startupConfig.SingleBackend {
 			options.SingleBackend = *settings.SingleBackend
 			if *settings.SingleBackend {
 				options.MaxActiveBackends = 1
@@ -444,8 +426,7 @@ func loadRuntimeSettingsFromFile(options *config.ApplicationConfig) {
 		}
 	}
 	if settings.MemoryReclaimerEnabled != nil {
-		// Only apply if current value is default (false), suggesting it wasn't set from env var
-		if !options.MemoryReclaimerEnabled {
+		if options.MemoryReclaimerEnabled == startupConfig.MemoryReclaimerEnabled {
 			options.MemoryReclaimerEnabled = *settings.MemoryReclaimerEnabled
 			if options.MemoryReclaimerEnabled {
 				options.WatchDog = true // Memory reclaimer requires watchdog
@@ -453,26 +434,22 @@ func loadRuntimeSettingsFromFile(options *config.ApplicationConfig) {
 		}
 	}
 	if settings.MemoryReclaimerThreshold != nil {
-		// Only apply if current value is default (0), suggesting it wasn't set from env var
-		if options.MemoryReclaimerThreshold == 0 {
+		if options.MemoryReclaimerThreshold == startupConfig.MemoryReclaimerThreshold {
 			options.MemoryReclaimerThreshold = *settings.MemoryReclaimerThreshold
 		}
 	}
 	if settings.ForceEvictionWhenBusy != nil {
-		// Only apply if current value is default (false), suggesting it wasn't set from env var
-		if !options.ForceEvictionWhenBusy {
+		if options.ForceEvictionWhenBusy == startupConfig.ForceEvictionWhenBusy {
 			options.ForceEvictionWhenBusy = *settings.ForceEvictionWhenBusy
 		}
 	}
 	if settings.LRUEvictionMaxRetries != nil {
-		// Only apply if current value is default (30), suggesting it wasn't set from env var
-		if options.LRUEvictionMaxRetries == 0 {
+		if options.LRUEvictionMaxRetries == startupConfig.LRUEvictionMaxRetries {
 			options.LRUEvictionMaxRetries = *settings.LRUEvictionMaxRetries
 		}
 	}
 	if settings.LRUEvictionRetryInterval != nil {
-		// Only apply if current value is default (1s), suggesting it wasn't set from env var
-		if options.LRUEvictionRetryInterval == 0 {
+		if options.LRUEvictionRetryInterval == startupConfig.LRUEvictionRetryInterval {
 			dur, err := time.ParseDuration(*settings.LRUEvictionRetryInterval)
 			if err == nil {
 				options.LRUEvictionRetryInterval = dur
@@ -482,8 +459,7 @@ func loadRuntimeSettingsFromFile(options *config.ApplicationConfig) {
 		}
 	}
 	if settings.AgentJobRetentionDays != nil {
-		// Only apply if current value is default (0), suggesting it wasn't set from env var
-		if options.AgentJobRetentionDays == 0 {
+		if options.AgentJobRetentionDays == startupConfig.AgentJobRetentionDays {
 			options.AgentJobRetentionDays = *settings.AgentJobRetentionDays
 		}
 	}
@@ -495,36 +471,88 @@ func loadRuntimeSettingsFromFile(options *config.ApplicationConfig) {
 
 	// P2P settings
 	if settings.P2PToken != nil {
-		if options.P2PToken == "" {
+		if options.P2PToken == startupConfig.P2PToken {
 			options.P2PToken = *settings.P2PToken
 		}
 	}
 	if settings.P2PNetworkID != nil {
-		if options.P2PNetworkID == "" {
+		if options.P2PNetworkID == startupConfig.P2PNetworkID {
 			options.P2PNetworkID = *settings.P2PNetworkID
 		}
 	}
 	if settings.Federated != nil {
-		if !options.Federated {
+		if options.Federated == startupConfig.Federated {
 			options.Federated = *settings.Federated
 		}
 	}
 
 	if settings.EnableBackendLogging != nil {
-		if !options.EnableBackendLogging {
+		if options.EnableBackendLogging == startupConfig.EnableBackendLogging {
 			options.EnableBackendLogging = *settings.EnableBackendLogging
 		}
 	}
 
 	// Tracing settings
 	if settings.EnableTracing != nil {
-		if !options.EnableTracing {
+		if options.EnableTracing == startupConfig.EnableTracing {
 			options.EnableTracing = *settings.EnableTracing
 		}
 	}
 	if settings.TracingMaxItems != nil {
-		if options.TracingMaxItems == 0 {
+		if options.TracingMaxItems == startupConfig.TracingMaxItems {
 			options.TracingMaxItems = *settings.TracingMaxItems
+		}
+	}
+
+	// Agent Pool settings
+	if settings.AgentPoolEnabled != nil {
+		if options.AgentPool.Enabled == startupConfig.AgentPool.Enabled {
+			options.AgentPool.Enabled = *settings.AgentPoolEnabled
+		}
+	}
+	if settings.AgentPoolDefaultModel != nil {
+		if options.AgentPool.DefaultModel == startupConfig.AgentPool.DefaultModel {
+			options.AgentPool.DefaultModel = *settings.AgentPoolDefaultModel
+		}
+	}
+	if settings.AgentPoolEmbeddingModel != nil {
+		if options.AgentPool.EmbeddingModel == startupConfig.AgentPool.EmbeddingModel {
+			options.AgentPool.EmbeddingModel = *settings.AgentPoolEmbeddingModel
+		}
+	}
+	if settings.AgentPoolMaxChunkingSize != nil {
+		if options.AgentPool.MaxChunkingSize == startupConfig.AgentPool.MaxChunkingSize {
+			options.AgentPool.MaxChunkingSize = *settings.AgentPoolMaxChunkingSize
+		}
+	}
+	if settings.AgentPoolChunkOverlap != nil {
+		if options.AgentPool.ChunkOverlap == startupConfig.AgentPool.ChunkOverlap {
+			options.AgentPool.ChunkOverlap = *settings.AgentPoolChunkOverlap
+		}
+	}
+	if settings.AgentPoolEnableLogs != nil {
+		if options.AgentPool.EnableLogs == startupConfig.AgentPool.EnableLogs {
+			options.AgentPool.EnableLogs = *settings.AgentPoolEnableLogs
+		}
+	}
+	if settings.AgentPoolCollectionDBPath != nil {
+		if options.AgentPool.CollectionDBPath == startupConfig.AgentPool.CollectionDBPath {
+			options.AgentPool.CollectionDBPath = *settings.AgentPoolCollectionDBPath
+		}
+	}
+	if settings.AgentPoolVectorEngine != nil {
+		if options.AgentPool.VectorEngine == startupConfig.AgentPool.VectorEngine {
+			options.AgentPool.VectorEngine = *settings.AgentPoolVectorEngine
+		}
+	}
+	if settings.AgentPoolDatabaseURL != nil {
+		if options.AgentPool.DatabaseURL == startupConfig.AgentPool.DatabaseURL {
+			options.AgentPool.DatabaseURL = *settings.AgentPoolDatabaseURL
+		}
+	}
+	if settings.AgentPoolAgentHubURL != nil {
+		if options.AgentPool.AgentHubURL == startupConfig.AgentPool.AgentHubURL {
+			options.AgentPool.AgentHubURL = *settings.AgentPoolAgentHubURL
 		}
 	}
 

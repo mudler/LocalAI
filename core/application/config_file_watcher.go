@@ -189,10 +189,11 @@ func readRuntimeSettingsJson(startupAppConfig config.ApplicationConfig) fileHand
 	handler := func(fileContent []byte, appConfig *config.ApplicationConfig) error {
 		xlog.Debug("processing runtime_settings.json")
 
-		// Determine if settings came from env vars by comparing with startup config
-		// startupAppConfig contains the original values set from env vars at startup.
-		// If current values match startup values, they came from env vars (or defaults).
-		// We apply file settings only if current values match startup values (meaning not from env vars).
+		// Determine if settings were changed via API after startup.
+		// startupAppConfig contains values set from env vars at startup.
+		// If current value matches startup value, it was NOT changed via API,
+		// so it's safe to apply file settings. If it differs, it was changed
+		// via API and should NOT be overwritten by the file.
 		envWatchdogIdle := appConfig.WatchDogIdle == startupAppConfig.WatchDogIdle
 		envWatchdogBusy := appConfig.WatchDogBusy == startupAppConfig.WatchDogBusy
 		envWatchdogIdleTimeout := appConfig.WatchDogIdleTimeout == startupAppConfig.WatchDogIdleTimeout
@@ -219,6 +220,16 @@ func readRuntimeSettingsJson(startupAppConfig config.ApplicationConfig) fileHand
 		envForceEvictionWhenBusy := appConfig.ForceEvictionWhenBusy == startupAppConfig.ForceEvictionWhenBusy
 		envLRUEvictionMaxRetries := appConfig.LRUEvictionMaxRetries == startupAppConfig.LRUEvictionMaxRetries
 		envLRUEvictionRetryInterval := appConfig.LRUEvictionRetryInterval == startupAppConfig.LRUEvictionRetryInterval
+		envAgentPoolEnabled := appConfig.AgentPool.Enabled == startupAppConfig.AgentPool.Enabled
+		envAgentPoolDefaultModel := appConfig.AgentPool.DefaultModel == startupAppConfig.AgentPool.DefaultModel
+		envAgentPoolEmbeddingModel := appConfig.AgentPool.EmbeddingModel == startupAppConfig.AgentPool.EmbeddingModel
+		envAgentPoolMaxChunkingSize := appConfig.AgentPool.MaxChunkingSize == startupAppConfig.AgentPool.MaxChunkingSize
+		envAgentPoolChunkOverlap := appConfig.AgentPool.ChunkOverlap == startupAppConfig.AgentPool.ChunkOverlap
+		envAgentPoolEnableLogs := appConfig.AgentPool.EnableLogs == startupAppConfig.AgentPool.EnableLogs
+		envAgentPoolCollectionDBPath := appConfig.AgentPool.CollectionDBPath == startupAppConfig.AgentPool.CollectionDBPath
+		envAgentPoolVectorEngine := appConfig.AgentPool.VectorEngine == startupAppConfig.AgentPool.VectorEngine
+		envAgentPoolDatabaseURL := appConfig.AgentPool.DatabaseURL == startupAppConfig.AgentPool.DatabaseURL
+		envAgentPoolAgentHubURL := appConfig.AgentPool.AgentHubURL == startupAppConfig.AgentPool.AgentHubURL
 
 		if len(fileContent) > 0 {
 			var settings config.RuntimeSettings
@@ -227,20 +238,20 @@ func readRuntimeSettingsJson(startupAppConfig config.ApplicationConfig) fileHand
 				return err
 			}
 
-			// Apply file settings only if they don't match startup values (i.e., not from env vars)
-			if settings.WatchdogIdleEnabled != nil && !envWatchdogIdle {
+			// Apply file settings only if current values match startup values (i.e., not changed via API)
+			if settings.WatchdogIdleEnabled != nil && envWatchdogIdle {
 				appConfig.WatchDogIdle = *settings.WatchdogIdleEnabled
 				if appConfig.WatchDogIdle {
 					appConfig.WatchDog = true
 				}
 			}
-			if settings.WatchdogBusyEnabled != nil && !envWatchdogBusy {
+			if settings.WatchdogBusyEnabled != nil && envWatchdogBusy {
 				appConfig.WatchDogBusy = *settings.WatchdogBusyEnabled
 				if appConfig.WatchDogBusy {
 					appConfig.WatchDog = true
 				}
 			}
-			if settings.WatchdogIdleTimeout != nil && !envWatchdogIdleTimeout {
+			if settings.WatchdogIdleTimeout != nil && envWatchdogIdleTimeout {
 				dur, err := time.ParseDuration(*settings.WatchdogIdleTimeout)
 				if err == nil {
 					appConfig.WatchDogIdleTimeout = dur
@@ -248,7 +259,7 @@ func readRuntimeSettingsJson(startupAppConfig config.ApplicationConfig) fileHand
 					xlog.Warn("invalid watchdog idle timeout in runtime_settings.json", "error", err, "timeout", *settings.WatchdogIdleTimeout)
 				}
 			}
-			if settings.WatchdogBusyTimeout != nil && !envWatchdogBusyTimeout {
+			if settings.WatchdogBusyTimeout != nil && envWatchdogBusyTimeout {
 				dur, err := time.ParseDuration(*settings.WatchdogBusyTimeout)
 				if err == nil {
 					appConfig.WatchDogBusyTimeout = dur
@@ -257,11 +268,11 @@ func readRuntimeSettingsJson(startupAppConfig config.ApplicationConfig) fileHand
 				}
 			}
 			// Handle MaxActiveBackends (new) and SingleBackend (deprecated)
-			if settings.MaxActiveBackends != nil && !envMaxActiveBackends {
+			if settings.MaxActiveBackends != nil && envMaxActiveBackends {
 				appConfig.MaxActiveBackends = *settings.MaxActiveBackends
 				// For backward compatibility, also set SingleBackend if MaxActiveBackends == 1
 				appConfig.SingleBackend = (*settings.MaxActiveBackends == 1)
-			} else if settings.SingleBackend != nil && !envSingleBackend {
+			} else if settings.SingleBackend != nil && envSingleBackend {
 				// Legacy: SingleBackend maps to MaxActiveBackends = 1
 				appConfig.SingleBackend = *settings.SingleBackend
 				if *settings.SingleBackend {
@@ -270,22 +281,22 @@ func readRuntimeSettingsJson(startupAppConfig config.ApplicationConfig) fileHand
 					appConfig.MaxActiveBackends = 0
 				}
 			}
-			if settings.MemoryReclaimerEnabled != nil && !envMemoryReclaimerEnabled {
+			if settings.MemoryReclaimerEnabled != nil && envMemoryReclaimerEnabled {
 				appConfig.MemoryReclaimerEnabled = *settings.MemoryReclaimerEnabled
 				if appConfig.MemoryReclaimerEnabled {
 					appConfig.WatchDog = true // Memory reclaimer requires watchdog
 				}
 			}
-			if settings.MemoryReclaimerThreshold != nil && !envMemoryReclaimerThreshold {
+			if settings.MemoryReclaimerThreshold != nil && envMemoryReclaimerThreshold {
 				appConfig.MemoryReclaimerThreshold = *settings.MemoryReclaimerThreshold
 			}
-			if settings.ForceEvictionWhenBusy != nil && !envForceEvictionWhenBusy {
+			if settings.ForceEvictionWhenBusy != nil && envForceEvictionWhenBusy {
 				appConfig.ForceEvictionWhenBusy = *settings.ForceEvictionWhenBusy
 			}
-			if settings.LRUEvictionMaxRetries != nil && !envLRUEvictionMaxRetries {
+			if settings.LRUEvictionMaxRetries != nil && envLRUEvictionMaxRetries {
 				appConfig.LRUEvictionMaxRetries = *settings.LRUEvictionMaxRetries
 			}
-			if settings.LRUEvictionRetryInterval != nil && !envLRUEvictionRetryInterval {
+			if settings.LRUEvictionRetryInterval != nil && envLRUEvictionRetryInterval {
 				dur, err := time.ParseDuration(*settings.LRUEvictionRetryInterval)
 				if err == nil {
 					appConfig.LRUEvictionRetryInterval = dur
@@ -293,46 +304,46 @@ func readRuntimeSettingsJson(startupAppConfig config.ApplicationConfig) fileHand
 					xlog.Warn("invalid LRU eviction retry interval in runtime_settings.json", "error", err, "interval", *settings.LRUEvictionRetryInterval)
 				}
 			}
-			if settings.Threads != nil && !envThreads {
+			if settings.Threads != nil && envThreads {
 				appConfig.Threads = *settings.Threads
 			}
-			if settings.ContextSize != nil && !envContextSize {
+			if settings.ContextSize != nil && envContextSize {
 				appConfig.ContextSize = *settings.ContextSize
 			}
-			if settings.F16 != nil && !envF16 {
+			if settings.F16 != nil && envF16 {
 				appConfig.F16 = *settings.F16
 			}
-			if settings.Debug != nil && !envDebug {
+			if settings.Debug != nil && envDebug {
 				appConfig.Debug = *settings.Debug
 			}
-			if settings.CORS != nil && !envCORS {
+			if settings.CORS != nil && envCORS {
 				appConfig.CORS = *settings.CORS
 			}
-			if settings.CSRF != nil && !envCSRF {
+			if settings.CSRF != nil && envCSRF {
 				appConfig.DisableCSRF = *settings.CSRF
 			}
-			if settings.CORSAllowOrigins != nil && !envCORSAllowOrigins {
+			if settings.CORSAllowOrigins != nil && envCORSAllowOrigins {
 				appConfig.CORSAllowOrigins = *settings.CORSAllowOrigins
 			}
-			if settings.P2PToken != nil && !envP2PToken {
+			if settings.P2PToken != nil && envP2PToken {
 				appConfig.P2PToken = *settings.P2PToken
 			}
-			if settings.P2PNetworkID != nil && !envP2PNetworkID {
+			if settings.P2PNetworkID != nil && envP2PNetworkID {
 				appConfig.P2PNetworkID = *settings.P2PNetworkID
 			}
-			if settings.Federated != nil && !envFederated {
+			if settings.Federated != nil && envFederated {
 				appConfig.Federated = *settings.Federated
 			}
-			if settings.Galleries != nil && !envGalleries {
+			if settings.Galleries != nil && envGalleries {
 				appConfig.Galleries = *settings.Galleries
 			}
-			if settings.BackendGalleries != nil && !envBackendGalleries {
+			if settings.BackendGalleries != nil && envBackendGalleries {
 				appConfig.BackendGalleries = *settings.BackendGalleries
 			}
-			if settings.AutoloadGalleries != nil && !envAutoloadGalleries {
+			if settings.AutoloadGalleries != nil && envAutoloadGalleries {
 				appConfig.AutoloadGalleries = *settings.AutoloadGalleries
 			}
-			if settings.AutoloadBackendGalleries != nil && !envAutoloadBackendGalleries {
+			if settings.AutoloadBackendGalleries != nil && envAutoloadBackendGalleries {
 				appConfig.AutoloadBackendGalleries = *settings.AutoloadBackendGalleries
 			}
 			if settings.ApiKeys != nil {
@@ -344,12 +355,42 @@ func readRuntimeSettingsJson(startupAppConfig config.ApplicationConfig) fileHand
 				// Replace all runtime keys with what's in runtime_settings.json
 				appConfig.ApiKeys = append(envKeys, runtimeKeys...)
 			}
-			if settings.AgentJobRetentionDays != nil && !envAgentJobRetentionDays {
+			if settings.AgentJobRetentionDays != nil && envAgentJobRetentionDays {
 				appConfig.AgentJobRetentionDays = *settings.AgentJobRetentionDays
+			}
+			if settings.AgentPoolEnabled != nil && envAgentPoolEnabled {
+				appConfig.AgentPool.Enabled = *settings.AgentPoolEnabled
+			}
+			if settings.AgentPoolDefaultModel != nil && envAgentPoolDefaultModel {
+				appConfig.AgentPool.DefaultModel = *settings.AgentPoolDefaultModel
+			}
+			if settings.AgentPoolEmbeddingModel != nil && envAgentPoolEmbeddingModel {
+				appConfig.AgentPool.EmbeddingModel = *settings.AgentPoolEmbeddingModel
+			}
+			if settings.AgentPoolMaxChunkingSize != nil && envAgentPoolMaxChunkingSize {
+				appConfig.AgentPool.MaxChunkingSize = *settings.AgentPoolMaxChunkingSize
+			}
+			if settings.AgentPoolChunkOverlap != nil && envAgentPoolChunkOverlap {
+				appConfig.AgentPool.ChunkOverlap = *settings.AgentPoolChunkOverlap
+			}
+			if settings.AgentPoolEnableLogs != nil && envAgentPoolEnableLogs {
+				appConfig.AgentPool.EnableLogs = *settings.AgentPoolEnableLogs
+			}
+			if settings.AgentPoolCollectionDBPath != nil && envAgentPoolCollectionDBPath {
+				appConfig.AgentPool.CollectionDBPath = *settings.AgentPoolCollectionDBPath
+			}
+			if settings.AgentPoolVectorEngine != nil && envAgentPoolVectorEngine {
+				appConfig.AgentPool.VectorEngine = *settings.AgentPoolVectorEngine
+			}
+			if settings.AgentPoolDatabaseURL != nil && envAgentPoolDatabaseURL {
+				appConfig.AgentPool.DatabaseURL = *settings.AgentPoolDatabaseURL
+			}
+			if settings.AgentPoolAgentHubURL != nil && envAgentPoolAgentHubURL {
+				appConfig.AgentPool.AgentHubURL = *settings.AgentPoolAgentHubURL
 			}
 
 			// If watchdog is enabled via file but not via env, ensure WatchDog flag is set
-			if !envWatchdogIdle && !envWatchdogBusy {
+			if envWatchdogIdle && envWatchdogBusy {
 				if settings.WatchdogEnabled != nil && *settings.WatchdogEnabled {
 					appConfig.WatchDog = true
 				}
