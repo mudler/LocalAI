@@ -45,9 +45,10 @@ func newTestAuthApp(db *gorm.DB, appConfig *config.ApplicationConfig) *echo.Echo
 		}
 
 		resp := map[string]any{
-			"authEnabled": authEnabled,
-			"providers":   providers,
-			"hasUsers":    hasUsers,
+			"authEnabled":          authEnabled,
+			"staticApiKeyRequired": !authEnabled && len(appConfig.ApiKeys) > 0,
+			"providers":            providers,
+			"hasUsers":             hasUsers,
 		}
 
 		user := auth.GetUser(c)
@@ -406,6 +407,29 @@ var _ = Describe("Auth Routes", Label("auth"), func() {
 			var resp map[string]any
 			json.Unmarshal(rec.Body.Bytes(), &resp)
 			Expect(resp["hasUsers"]).To(BeFalse())
+		})
+
+		It("returns staticApiKeyRequired=true when no DB but API keys configured", func() {
+			cfg := config.NewApplicationConfig()
+			config.WithApiKeys([]string{"test-key-123"})(cfg)
+			app := newTestAuthApp(nil, cfg)
+			rec := doAuthRequest(app, "GET", "/api/auth/status", nil)
+			Expect(rec.Code).To(Equal(http.StatusOK))
+
+			var resp map[string]any
+			json.Unmarshal(rec.Body.Bytes(), &resp)
+			Expect(resp["authEnabled"]).To(BeFalse())
+			Expect(resp["staticApiKeyRequired"]).To(BeTrue())
+		})
+
+		It("returns staticApiKeyRequired=false when no DB and no API keys", func() {
+			app := newTestAuthApp(nil, config.NewApplicationConfig())
+			rec := doAuthRequest(app, "GET", "/api/auth/status", nil)
+			Expect(rec.Code).To(Equal(http.StatusOK))
+
+			var resp map[string]any
+			json.Unmarshal(rec.Body.Bytes(), &resp)
+			Expect(resp["staticApiKeyRequired"]).To(BeFalse())
 		})
 	})
 

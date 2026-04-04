@@ -157,10 +157,11 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 		}
 
 		resp := map[string]any{
-			"authEnabled":      authEnabled,
-			"providers":        providers,
-			"hasUsers":         hasUsers,
-			"registrationMode": registrationMode,
+			"authEnabled":            authEnabled,
+			"staticApiKeyRequired":   !authEnabled && len(appConfig.ApiKeys) > 0,
+			"providers":              providers,
+			"hasUsers":               hasUsers,
+			"registrationMode":       registrationMode,
 		}
 
 		// Include current user if authenticated
