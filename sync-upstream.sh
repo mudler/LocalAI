@@ -1,6 +1,6 @@
 #!/bin/bash
 # =============================================================================
-# LocalAI Upstream Sync — gfx1151 / ROCm 7.x Fork
+# LocalAI Upstream Sync — ROCm 7.x Fork
 # =============================================================================
 # Usage:
 #   bash sync-upstream.sh               # fetch + merge + build all + push
@@ -9,14 +9,18 @@
 #   bash sync-upstream.sh --no-backends # main image only, skip backend images
 #   ROCM_VERSION=7.13 bash sync-upstream.sh
 #
+# Image tags use rocm<ROCM_VERSION> (e.g. rocm7.12), not a GPU-specific name,
+# because ROCm 7.x is a distinct build/install paradigm from ROCm 6.x and the
+# resulting images support all rocWMMA-capable architectures.
+#
 # Image tags (main image):
-#   <REGISTRY>/localai:<VERSION>-gfx1151-rocm<ROCM_VERSION>-<GIT_SHA>  (build-specific)
-#   <REGISTRY>/localai:<VERSION>-gfx1151-rocm<ROCM_VERSION>            (rolling per version)
-#   <REGISTRY>/localai:latest-gfx1151                                   (rolling latest)
+#   <REGISTRY>/localai:<VERSION>-rocm<ROCM_VERSION>-<GIT_SHA>  (build-specific)
+#   <REGISTRY>/localai:<VERSION>-rocm<ROCM_VERSION>            (rolling per version)
+#   <REGISTRY>/localai:latest-rocm<ROCM_MAJOR>                  (rolling latest, e.g. latest-rocm7)
 #
 # Image tags (each backend):
-#   <REGISTRY>/localai-backends:<VERSION>-gfx1151-rocm<ROCM_VERSION>-<GIT_SHA>-<BACKEND>
-#   <REGISTRY>/localai-backends:latest-gfx1151-<BACKEND>
+#   <REGISTRY>/localai-backends:<VERSION>-rocm<ROCM_VERSION>-<GIT_SHA>-<BACKEND>
+#   <REGISTRY>/localai-backends:latest-rocm<ROCM_MAJOR>-<BACKEND>
 #
 # ROCm version changes only when a new ROCm release ships — override via env var.
 # On conflict: script stops, resolve manually, git commit, then re-run.
@@ -25,7 +29,7 @@ set -euo pipefail
 
 REGISTRY="${REGISTRY:-192.168.178.127:5000}"
 ROCM_VERSION="${ROCM_VERSION:-7.12}"
-ROCM_ARCH="${ROCM_ARCH:-gfx1151}"
+ROCM_ARCH="${ROCM_ARCH:-gfx803,gfx900,gfx906,gfx908,gfx90a,gfx942,gfx950,gfx1012,gfx1030,gfx1031,gfx1032,gfx1100,gfx1101,gfx1102,gfx1103,gfx1150,gfx1151,gfx1152,gfx1200,gfx1201}"
 UPSTREAM_REMOTE="${UPSTREAM_REMOTE:-upstream}"
 UPSTREAM_BRANCH="${UPSTREAM_BRANCH:-master}"
 DRY_RUN=false
@@ -69,7 +73,7 @@ BACKENDS=(
     "coqui|python"
 )
 
-OUR_SUFFIX="gfx1151-rocm${ROCM_VERSION}"
+OUR_SUFFIX="rocm${ROCM_VERSION}"
 
 # ---------------------------------------------------------------------------
 echo -e "${BOLD}=== 1. Upstream fetch ===${NC}"
@@ -89,7 +93,7 @@ else
     # -------------------------------------------------------------------------
     echo -e "\n${BOLD}=== 2. Merge upstream/$UPSTREAM_BRANCH ===${NC}"
     if ! git merge "$UPSTREAM_REMOTE/$UPSTREAM_BRANCH" --no-edit \
-            -m "chore: merge upstream $UPSTREAM_VERSION into gfx1151 fork"; then
+            -m "chore: merge upstream $UPSTREAM_VERSION into rocm7 fork"; then
         echo -e "\n${RED}✗ Merge conflicts! Manual resolution required:${NC}"
         echo ""
         git diff --name-only --diff-filter=U
@@ -141,7 +145,7 @@ LOCAL_IMAGE="localai:${OUR_SUFFIX}"
 echo -e "\n${BOLD}=== 4. Build main image ===${NC}"
 echo -e "  Build tag:   ${YELLOW}$IMAGE_TAG${NC}"
 echo -e "  Version tag: ${YELLOW}$VERSION_TAG${NC}"
-echo -e "  Latest tag:  ${YELLOW}latest-gfx1151${NC}"
+echo -e "  Latest tag:  ${YELLOW}latest-rocm${ROCM_VERSION%%.*}${NC}"
 
 docker build \
     --build-arg BUILD_TYPE=hipblas \
@@ -204,9 +208,10 @@ fi
 # ---------------------------------------------------------------------------
 echo -e "\n${BOLD}=== 6. Push main image ===${NC}"
 
+ROCM_MAJOR="${ROCM_VERSION%%.*}"   # e.g. "7" from "7.12"
 REGISTRY_IMAGE="${REGISTRY}/localai:${IMAGE_TAG}"
 REGISTRY_VERSION="${REGISTRY}/localai:${VERSION_TAG}"
-REGISTRY_LATEST="${REGISTRY}/localai:latest-gfx1151"
+REGISTRY_LATEST="${REGISTRY}/localai:latest-rocm${ROCM_MAJOR}"
 
 docker tag "$LOCAL_IMAGE" "$REGISTRY_IMAGE"
 docker tag "$LOCAL_IMAGE" "$REGISTRY_VERSION"
@@ -231,7 +236,7 @@ if [ "$NO_BACKENDS" = "false" ]; then
         fi
 
         reg_versioned="${REGISTRY}/localai-backends:${IMAGE_TAG}-${backend}"
-        reg_latest="${REGISTRY}/localai-backends:latest-gfx1151-${backend}"
+        reg_latest="${REGISTRY}/localai-backends:latest-rocm${ROCM_MAJOR}-${backend}"
 
         docker tag "$local_tag" "$reg_versioned"
         docker tag "$local_tag" "$reg_latest"
@@ -258,11 +263,11 @@ echo -e "  ROCm:       ${GREEN}$ROCM_VERSION / $ROCM_ARCH${NC}"
 echo -e "  Main image: ${GREEN}$REGISTRY_IMAGE${NC}"
 echo -e "  Latest:     ${GREEN}$REGISTRY_LATEST${NC}"
 if [ "$NO_BACKENDS" = "false" ]; then
-    echo -e "  Backends:   ${GREEN}${#BACKENDS[@]} images tagged as latest-gfx1151-<name>${NC}"
+    echo -e "  Backends:   ${GREEN}${#BACKENDS[@]} images tagged as latest-rocm${ROCM_MAJOR}-<name>${NC}"
 fi
 echo ""
 echo -e "  Deploy:"
-echo -e "  ${YELLOW}docker compose -f docker-compose-gfx1151.yaml up -d localai --force-recreate${NC}"
+echo -e "  ${YELLOW}docker compose pull localai && docker compose up -d localai --force-recreate${NC}"
 echo ""
 echo -e "  Next run:"
 echo -e "  ${YELLOW}bash sync-upstream.sh${NC}"

@@ -5,6 +5,10 @@
 # Builds (and optionally pushes) the main LocalAI image plus all ROCm 7.x
 # backend images. No git sync — use sync-upstream.sh for merge + build + push.
 #
+# Tags use the scheme rocm<ROCM_VERSION> (e.g. rocm7.12), not a GPU-specific
+# name, because ROCm 7.x is a distinct build/install paradigm vs. ROCm 6.x and
+# the resulting images support all rocWMMA-capable architectures.
+#
 # By default builds for ALL GPU architectures supported by ROCm 7.12.
 # Override ROCM_ARCH to a subset for faster/smaller local builds, e.g.:
 #   ROCM_ARCH=gfx1151 bash scripts/build-rocm.sh
@@ -58,7 +62,9 @@ BACKENDS=(
     "coqui|python"
 )
 
-OUR_SUFFIX="gfx1151-rocm${ROCM_VERSION}"
+# Tag suffix: rocm<version> reflects the ROCm 7.x build paradigm
+# (new amdrocm-* packages, different install path) not a specific GPU arch.
+OUR_SUFFIX="rocm${ROCM_VERSION}"
 BUILD_SHA=$(git rev-parse --short HEAD 2>/dev/null || echo "local")
 UPSTREAM_VERSION=$(git describe --tags --abbrev=0 upstream/master 2>/dev/null \
                     || git describe --tags --abbrev=0 2>/dev/null \
@@ -135,8 +141,9 @@ fi
 # ---------------------------------------------------------------------------
 echo -e "\n${BOLD}=== Push main image ===${NC}"
 
+ROCM_MAJOR="${ROCM_VERSION%%.*}"   # e.g. "7" from "7.12"
 REGISTRY_IMAGE="${REGISTRY}/localai:${IMAGE_TAG}"
-REGISTRY_LATEST="${REGISTRY}/localai:latest-gfx1151"
+REGISTRY_LATEST="${REGISTRY}/localai:latest-rocm${ROCM_MAJOR}"
 
 docker tag "$LOCAL_IMAGE" "$REGISTRY_IMAGE"
 docker tag "$LOCAL_IMAGE" "$REGISTRY_LATEST"
@@ -158,7 +165,7 @@ if [ "$NO_BACKENDS" = "false" ]; then
         fi
 
         reg_versioned="${REGISTRY}/localai-backends:${IMAGE_TAG}-${backend}"
-        reg_latest="${REGISTRY}/localai-backends:latest-gfx1151-${backend}"
+        reg_latest="${REGISTRY}/localai-backends:latest-rocm${ROCM_MAJOR}-${backend}"
 
         docker tag "$local_tag" "$reg_versioned"
         docker tag "$local_tag" "$reg_latest"
@@ -172,8 +179,8 @@ echo -e "\n${GREEN}${BOLD}=== Done ===${NC}"
 echo -e "  Main image: ${GREEN}$REGISTRY_IMAGE${NC}"
 echo -e "  Latest:     ${GREEN}$REGISTRY_LATEST${NC}"
 if [ "$NO_BACKENDS" = "false" ]; then
-    echo -e "  Backends:   ${GREEN}${#BACKENDS[@]} images tagged as latest-gfx1151-<name>${NC}"
+    echo -e "  Backends:   ${GREEN}${#BACKENDS[@]} images tagged as latest-rocm${ROCM_MAJOR}-<name>${NC}"
 fi
 echo ""
 echo -e "  Deploy:"
-echo -e "  ${YELLOW}docker compose -f docker-compose-gfx1151.yaml up -d localai --force-recreate${NC}"
+echo -e "  ${YELLOW}docker compose pull localai && docker compose up -d localai --force-recreate${NC}"
