@@ -169,33 +169,46 @@ Due to the nature of ROCm it is best to run all implementations in containers as
 ### AMD Strix Halo / gfx1151 (RDNA 3.5)
 
 AMD Ryzen AI MAX+ (Strix Halo) APUs with an integrated Radeon 8060S (gfx1151 / RDNA 3.5) are
-supported with ROCm 7.11.0+. These systems (e.g. Geekom A9 Mega, ASUS ROG Flow Z13 2025)
-provide up to 96 GB of unified VRAM accessible by the GPU.
+supported with ROCm 7.11.0+. These systems provide up to 96 GB of unified VRAM accessible by the GPU.
 
-**Required kernel boot parameters** (add to `GRUB_CMDLINE_LINUX` and run `update-grub`):
+Tested on: Geekom A9 Mega (AMD Ryzen AI MAX+ 395, ROCm 7.11.0, Ubuntu 24.04, kernel 6.14).
+
+**Required kernel boot parameters** (add to `GRUB_CMDLINE_LINUX` in `/etc/default/grub`, then run `update-grub`):
 ```
 iommu=pt amdgpu.gttsize=126976 ttm.pages_limit=32505856
 ```
 
-**Required runtime environment variables** (set automatically in LocalAI containers):
-```bash
-HSA_OVERRIDE_GFX_VERSION=11.5.1
-ROCBLAS_USE_HIPBLASLT=1
-```
+**Required environment variables** for gfx1151 (set automatically in the ROCm 7.x image):
 
-**Running LocalAI on gfx1151:**
+| Variable | Value | Purpose |
+|----------|-------|---------|
+| `HSA_OVERRIDE_GFX_VERSION` | `11.5.1` | Tells the HSA runtime to use gfx1151 code objects |
+| `ROCBLAS_USE_HIPBLASLT` | `1` | Prefer hipBLASLt over rocBLAS for GEMM (required for gfx1151) |
+| `HSA_XNACK` | `1` | Enable XNACK (memory-fault retry) for APU unified memory |
+| `HSA_ENABLE_SDMA` | `0` | Disable SDMA engine — causes hangs on APU/iGPU configs |
+
+> **Warning:** Do **not** set `GGML_CUDA_ENABLE_UNIFIED_MEMORY`. The C-level check is
+> `getenv(...) != nullptr`, so even `=0` activates `hipMallocManaged` (allocates from
+> system RAM instead of the 96 GB VRAM pool).
+
+**Running LocalAI on gfx1151** (using the ROCm 7.x image, tag suffix `-gpu-hipblas-rocm7`):
 ```yaml
-    image: quay.io/go-skynet/local-ai:master-gpu-hipblas
+    image: quay.io/go-skynet/local-ai:master-gpu-hipblas-rocm7
     environment:
       - HSA_OVERRIDE_GFX_VERSION=11.5.1
       - ROCBLAS_USE_HIPBLASLT=1
-      - GPU_TARGETS=gfx1151
+      - HSA_XNACK=1
+      - HSA_ENABLE_SDMA=0
     devices:
       - /dev/dri
       - /dev/kfd
     group_add:
       - video
 ```
+
+> **Note:** When updating the image, always recreate the container (`docker compose up --force-recreate`)
+> rather than just restarting it. `docker compose restart` preserves the old container environment
+> and will not pick up updated env vars from the image.
 
 For llama.cpp models, enable flash attention (`--flash-attention`) and disable mmap (`--no-mmap`) for best performance on APU systems.
 
