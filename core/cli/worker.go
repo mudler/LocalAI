@@ -692,13 +692,13 @@ func (s *backendSupervisor) subscribeLifecycleEvents() {
 
 	// backend.delete — stop backend + delete files (request-reply)
 	s.nats.SubscribeReply(messaging.SubjectNodeBackendDelete(s.nodeID), func(data []byte, reply func([]byte)) {
-		xlog.Info("Received NATS backend.delete event")
 		var req messaging.BackendDeleteRequest
 		if err := json.Unmarshal(data, &req); err != nil {
 			resp := messaging.BackendDeleteReply{Success: false, Error: fmt.Sprintf("invalid request: %v", err)}
 			replyJSON(reply, resp)
 			return
 		}
+		xlog.Info("Received NATS backend.delete event", "backend", req.Backend)
 
 		// Stop if running this backend
 		if s.isRunning(req.Backend) {

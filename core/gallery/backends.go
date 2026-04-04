@@ -300,14 +300,29 @@ func DeleteBackendFromSystem(systemState *system.SystemState, name string) error
 
 	backend, ok := backends.Get(name)
 	if !ok {
-		return fmt.Errorf("backend %q: %w", name, ErrBackendNotFound)
+		// Not found by direct key — try matching by gallery name (metadata.Name)
+		// The UI may send gallery-style names like "localai@llama-cpp" which
+		// don't match the directory-based keys used in the backends map.
+		for _, b := range backends {
+			if b.Metadata != nil && b.Metadata.Name == name && !b.IsMeta {
+				backend = b
+				ok = true
+				break
+			}
+		}
+		if !ok {
+			return fmt.Errorf("backend %q: %w", name, ErrBackendNotFound)
+		}
 	}
 
 	if backend.IsSystem {
 		return fmt.Errorf("system backend %q cannot be deleted", name)
 	}
 
-	backendDirectory := filepath.Join(systemState.Backend.BackendsPath, name)
+	// Use the backend's actual Name (directory key) for path resolution,
+	// not the caller-supplied name which may be a gallery-style name.
+	dirName := backend.Name
+	backendDirectory := filepath.Join(systemState.Backend.BackendsPath, dirName)
 
 	// check if the backend dir exists
 	if _, err := os.Stat(backendDirectory); os.IsNotExist(err) {
@@ -325,7 +340,7 @@ func DeleteBackendFromSystem(systemState *system.SystemState, name string) error
 				if err != nil {
 					return err
 				}
-				if metadata != nil && metadata.Alias == name {
+				if metadata != nil && (metadata.Alias == name || metadata.Alias == dirName) {
 					backendDirectory = filepath.Join(systemState.Backend.BackendsPath, backend.Name())
 					foundBackend = true
 					break
