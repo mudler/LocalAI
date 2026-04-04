@@ -166,12 +166,45 @@ Due to the nature of ROCm it is best to run all implementations in containers as
 - Make sure to do not use GPU assigned for compute for desktop rendering.
 - Ensure at least 100GB of free space on disk hosting container runtime and storing images prior to installation.
 
+### AMD Strix Halo / gfx1151 (RDNA 3.5)
+
+AMD Ryzen AI MAX+ (Strix Halo) APUs with an integrated Radeon 8060S (gfx1151 / RDNA 3.5) are
+supported with ROCm 7.11.0+. These systems (e.g. Geekom A9 Mega, ASUS ROG Flow Z13 2025)
+provide up to 96 GB of unified VRAM accessible by the GPU.
+
+**Required kernel boot parameters** (add to `GRUB_CMDLINE_LINUX` and run `update-grub`):
+```
+iommu=pt amdgpu.gttsize=126976 ttm.pages_limit=32505856
+```
+
+**Required runtime environment variables** (set automatically in LocalAI containers):
+```bash
+HSA_OVERRIDE_GFX_VERSION=11.5.1
+ROCBLAS_USE_HIPBLASLT=1
+```
+
+**Running LocalAI on gfx1151:**
+```yaml
+    image: quay.io/go-skynet/local-ai:master-gpu-hipblas
+    environment:
+      - HSA_OVERRIDE_GFX_VERSION=11.5.1
+      - ROCBLAS_USE_HIPBLASLT=1
+      - GPU_TARGETS=gfx1151
+    devices:
+      - /dev/dri
+      - /dev/kfd
+    group_add:
+      - video
+```
+
+For llama.cpp models, enable flash attention (`--flash-attention`) and disable mmap (`--no-mmap`) for best performance on APU systems.
+
 ### Limitations
 
 Ongoing verification testing of ROCm compatibility with integrated backends.
 Please note the following list of verified backends and devices.
 
-LocalAI hipblas images are built against the following targets: gfx908, gfx90a, gfx942, gfx950, gfx1030, gfx1100, gfx1101, gfx1102, gfx1200, gfx1201
+LocalAI hipblas images are built against the following targets: gfx908, gfx90a, gfx942, gfx950, gfx1030, gfx1100, gfx1101, gfx1102, gfx1151, gfx1200, gfx1201
 
 **Note:** Starting with ROCm 6.4, AMD removed rocBLAS kernel support for older architectures (gfx803, gfx900, gfx906). Since llama.cpp and other backends depend on rocBLAS for matrix operations, these GPUs (e.g. Radeon VII) are no longer supported in pre-built images.
 
@@ -181,14 +214,15 @@ If your device is not one of the above targets, you must specify the correspondi
 
 The devices in the following list have been tested with `hipblas` images.
 
-| Backend | Verified | Devices |
-| ---- | ---- | ---- |
-| llama.cpp | yes | MI100 (gfx908), MI210/250 (gfx90a) |
-| diffusers | yes | MI100 (gfx908), MI210/250 (gfx90a) |
-| whisper | no | none |
-| coqui | no | none |
-| transformers | no | none |
-| vllm | no | none |
+| Backend | Verified | Devices | ROCm Version |
+| ---- | ---- | ---- | ---- |
+| llama.cpp | yes | MI100 (gfx908), MI210/250 (gfx90a) | 7.x |
+| llama.cpp | yes | Radeon 8060S / gfx1151 (Strix Halo) | 7.11.0 |
+| diffusers | yes | MI100 (gfx908), MI210/250 (gfx90a) | 7.x |
+| whisper | no | none | - |
+| coqui | no | none | - |
+| transformers | no | none | - |
+| vllm | no | none | - |
 
 **You can help by expanding this list.**
 
