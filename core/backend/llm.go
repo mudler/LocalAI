@@ -36,6 +36,27 @@ type TokenUsage struct {
 	Completion             int
 	TimingPromptProcessing float64
 	TimingTokenGeneration  float64
+	ChatDeltas             []*proto.ChatDelta // per-chunk deltas from C++ autoparser (only set during streaming)
+}
+
+// HasChatDeltaContent returns true if any chat delta carries content or reasoning text.
+// Used to decide whether to prefer C++ autoparser deltas over Go-side tag extraction.
+func (t TokenUsage) HasChatDeltaContent() bool {
+	for _, d := range t.ChatDeltas {
+		if d.Content != "" || d.ReasoningContent != "" {
+			return true
+		}
+	}
+	return false
+}
+
+// ChatDeltaReasoningAndContent extracts accumulated reasoning and content from chat deltas.
+func (t TokenUsage) ChatDeltaReasoningAndContent() (reasoning, content string) {
+	for _, d := range t.ChatDeltas {
+		content += d.Content
+		reasoning += d.ReasoningContent
+	}
+	return reasoning, content
 }
 
 // ModelInferenceFunc is a test-friendly indirection to call model inference logic.
@@ -171,6 +192,9 @@ func ModelInference(ctx context.Context, s string, messages schema.Messages, ima
 					allChatDeltas = append(allChatDeltas, reply.ChatDeltas...)
 				}
 
+				// Attach per-chunk chat deltas to tokenUsage so the callback can use them
+				tokenUsage.ChatDeltas = reply.ChatDeltas
+
 				// Parse logprobs from reply if present (collect from last chunk that has them)
 				if len(reply.Logprobs) > 0 {
 					var parsedLogprobs schema.Logprobs
@@ -200,6 +224,9 @@ func ModelInference(ctx context.Context, s string, messages schema.Messages, ima
 				if len(msg) == 0 {
 					tokenCallback("", tokenUsage)
 				}
+
+				// Clear per-chunk deltas so they don't leak to the next chunk
+				tokenUsage.ChatDeltas = nil
 			})
 			if len(allChatDeltas) > 0 {
 				xlog.Debug("[ChatDeltas] streaming completed, accumulated deltas from C++ autoparser", "total_deltas", len(allChatDeltas))
