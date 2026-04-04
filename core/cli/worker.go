@@ -512,11 +512,9 @@ func (s *backendSupervisor) stopBackend(backend string) {
 
 	// Network I/O outside the lock
 	client := grpc.NewClientWithToken(bp.addr, false, nil, false, s.cmd.RegistrationToken)
-	if freeFunc, ok := client.(interface{ Free(context.Context) error }); ok {
-		xlog.Debug("Calling Free() before stopping backend", "backend", backend)
-		if err := freeFunc.Free(context.Background()); err != nil {
-			xlog.Warn("Free() failed (best-effort)", "backend", backend, "error", err)
-		}
+	xlog.Debug("Calling Free() before stopping backend", "backend", backend)
+	if err := client.Free(context.Background()); err != nil {
+		xlog.Warn("Free() failed (best-effort)", "backend", backend, "error", err)
 	}
 
 	xlog.Info("Stopping backend process", "backend", backend, "addr", bp.addr)
@@ -774,10 +772,8 @@ func (s *backendSupervisor) subscribeLifecycleEvents() {
 		if targetAddr != "" {
 			// Best-effort gRPC Free()
 			client := grpc.NewClientWithToken(targetAddr, false, nil, false, s.cmd.RegistrationToken)
-			if freeFunc, ok := client.(interface{ Free(context.Context) error }); ok {
-				if err := freeFunc.Free(context.Background()); err != nil {
-					xlog.Warn("Free() failed during model.unload", "error", err, "addr", targetAddr)
-				}
+			if err := client.Free(context.Background()); err != nil {
+				xlog.Warn("Free() failed during model.unload", "error", err, "addr", targetAddr)
 			}
 		}
 

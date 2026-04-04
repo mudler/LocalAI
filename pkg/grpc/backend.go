@@ -85,4 +85,7 @@ type Backend interface {
 	StartQuantization(ctx context.Context, in *pb.QuantizationRequest, opts ...grpc.CallOption) (*pb.QuantizationJobResult, error)
 	QuantizationProgress(ctx context.Context, in *pb.QuantizationProgressRequest, f func(update *pb.QuantizationProgressUpdate), opts ...grpc.CallOption) error
 	StopQuantization(ctx context.Context, in *pb.QuantizationStopRequest, opts ...grpc.CallOption) (*pb.Result, error)
+
+	// Free releases GPU/model resources (e.g. VRAM) without stopping the process.
+	Free(ctx context.Context) error
 }
