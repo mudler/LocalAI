@@ -357,7 +357,7 @@ func handleAnthropicStream(c echo.Context, id string, input *schema.AnthropicReq
 		// Send initial content_block_start event
 		contentBlockStart := schema.AnthropicStreamEvent{
 			Type:         "content_block_start",
-			Index:        currentBlockIndex,
+			Index:        intPtr(currentBlockIndex),
 			ContentBlock: &schema.AnthropicContentBlock{Type: "text", Text: ""},
 		}
 		sendAnthropicSSE(c, contentBlockStart)
@@ -376,7 +376,7 @@ func handleAnthropicStream(c echo.Context, id string, input *schema.AnthropicReq
 					if !inToolCall && currentBlockIndex == 0 {
 						sendAnthropicSSE(c, schema.AnthropicStreamEvent{
 							Type:  "content_block_stop",
-							Index: currentBlockIndex,
+							Index: intPtr(currentBlockIndex),
 						})
 						currentBlockIndex++
 						inToolCall = true
@@ -386,7 +386,7 @@ func handleAnthropicStream(c echo.Context, id string, input *schema.AnthropicReq
 						tc := toolCalls[i]
 						sendAnthropicSSE(c, schema.AnthropicStreamEvent{
 							Type:  "content_block_start",
-							Index: currentBlockIndex,
+							Index: intPtr(currentBlockIndex),
 							ContentBlock: &schema.AnthropicContentBlock{
 								Type: "tool_use",
 								ID:   fmt.Sprintf("toolu_%s_%d", id, i),
@@ -395,7 +395,7 @@ func handleAnthropicStream(c echo.Context, id string, input *schema.AnthropicReq
 						})
 						sendAnthropicSSE(c, schema.AnthropicStreamEvent{
 							Type:  "content_block_delta",
-							Index: currentBlockIndex,
+							Index: intPtr(currentBlockIndex),
 							Delta: &schema.AnthropicStreamDelta{
 								Type:        "input_json_delta",
 								PartialJSON: tc.Arguments,
@@ -403,7 +403,7 @@ func handleAnthropicStream(c echo.Context, id string, input *schema.AnthropicReq
 						})
 						sendAnthropicSSE(c, schema.AnthropicStreamEvent{
 							Type:  "content_block_stop",
-							Index: currentBlockIndex,
+							Index: intPtr(currentBlockIndex),
 						})
 						currentBlockIndex++
 					}
@@ -416,7 +416,7 @@ func handleAnthropicStream(c echo.Context, id string, input *schema.AnthropicReq
 			if !inToolCall {
 				sendAnthropicSSE(c, schema.AnthropicStreamEvent{
 					Type:  "content_block_delta",
-					Index: 0,
+					Index: intPtr(0),
 					Delta: &schema.AnthropicStreamDelta{
 						Type: "text_delta",
 						Text: token,
@@ -516,7 +516,7 @@ func handleAnthropicStream(c echo.Context, id string, input *schema.AnthropicReq
 				// Close the text content block
 				sendAnthropicSSE(c, schema.AnthropicStreamEvent{
 					Type:  "content_block_stop",
-					Index: currentBlockIndex,
+					Index: intPtr(currentBlockIndex),
 				})
 				currentBlockIndex++
 				inToolCall = true
@@ -528,7 +528,7 @@ func handleAnthropicStream(c echo.Context, id string, input *schema.AnthropicReq
 					}
 					sendAnthropicSSE(c, schema.AnthropicStreamEvent{
 						Type:  "content_block_start",
-						Index: currentBlockIndex,
+						Index: intPtr(currentBlockIndex),
 						ContentBlock: &schema.AnthropicContentBlock{
 							Type: "tool_use",
 							ID:   toolCallID,
@@ -537,7 +537,7 @@ func handleAnthropicStream(c echo.Context, id string, input *schema.AnthropicReq
 					})
 					sendAnthropicSSE(c, schema.AnthropicStreamEvent{
 						Type:  "content_block_delta",
-						Index: currentBlockIndex,
+						Index: intPtr(currentBlockIndex),
 						Delta: &schema.AnthropicStreamDelta{
 							Type:        "input_json_delta",
 							PartialJSON: fc.Arguments,
@@ -545,7 +545,7 @@ func handleAnthropicStream(c echo.Context, id string, input *schema.AnthropicReq
 					})
 					sendAnthropicSSE(c, schema.AnthropicStreamEvent{
 						Type:  "content_block_stop",
-						Index: currentBlockIndex,
+						Index: intPtr(currentBlockIndex),
 					})
 					currentBlockIndex++
 					toolCallsEmitted++
@@ -557,7 +557,7 @@ func handleAnthropicStream(c echo.Context, id string, input *schema.AnthropicReq
 		if !inToolCall {
 			sendAnthropicSSE(c, schema.AnthropicStreamEvent{
 				Type:  "content_block_stop",
-				Index: 0,
+				Index: intPtr(0),
 			})
 		}
 
@@ -597,6 +597,8 @@ func convertFuncsToOpenAITools(funcs functions.Functions) []functions.Tool {
 	}
 	return tools
 }
+
+func intPtr(i int) *int { return &i }
 
 func sendAnthropicSSE(c echo.Context, event schema.AnthropicStreamEvent) {
 	data, err := json.Marshal(event)
