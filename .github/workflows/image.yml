@@ -29,6 +29,7 @@
         makeflags: ${{ matrix.makeflags }}
         ubuntu-version: ${{ matrix.ubuntu-version }}
         ubuntu-codename: ${{ matrix.ubuntu-codename }}
+        rocm-version: ${{ matrix.rocm-version || '6' }}
       secrets:
         dockerUsername: ${{ secrets.DOCKERHUB_USERNAME }}
         dockerPassword: ${{ secrets.DOCKERHUB_PASSWORD }}
@@ -47,6 +48,20 @@
               makeflags: "--jobs=3 --output-sync=target"
               ubuntu-version: '2404'
               ubuntu-codename: 'noble'
+              rocm-version: '6'
+            # ROCm 7.x build for AMD Strix Halo / RDNA 3.5 (gfx1151) and other ROCm 7+ devices.
+            # Uses plain Ubuntu 24.04 and installs ROCm 7 from AMD's new apt repo (repo.amd.com).
+            - build-type: 'hipblas'
+              platforms: 'linux/amd64'
+              tag-latest: 'false'
+              tag-suffix: '-gpu-hipblas-rocm7'
+              base-image: "ubuntu:24.04"
+              grpc-base-image: "ubuntu:24.04"
+              runs-on: 'ubuntu-latest'
+              makeflags: "--jobs=3 --output-sync=target"
+              ubuntu-version: '2404'
+              ubuntu-codename: 'noble'
+              rocm-version: '7'
   
     core-image-build:
       if: github.repository == 'mudler/LocalAI'

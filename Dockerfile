@@ -23,6 +23,12 @@ ARG CUDA_MINOR_VERSION=0
 ARG SKIP_DRIVERS=false
 ARG TARGETARCH
 ARG TARGETVARIANT
+# ROCM_VERSION: major version of ROCm to install.
+# - "6" (default/blank): use packages already present in the rocm/dev-ubuntu-* base image
+#   (hipblas-dev, rocblas-dev — the legacy names used up to ROCm 6.x)
+# - "7": install from AMD's new repo.amd.com/rocm/packages/ubuntu2404 repo and use
+#   the new amdrocm-* package names introduced in ROCm 7.x
+ARG ROCM_VERSION=6
 ENV BUILD_TYPE=${BUILD_TYPE}
 ARG UBUNTU_VERSION=2404
 
@@ -146,6 +152,32 @@ RUN if [ "${BUILD_TYPE}" = "clblas" ] && [ "${SKIP_DRIVERS}" = "false" ]; then \
     ; fi
 
 RUN if [ "${BUILD_TYPE}" = "hipblas" ] && [ "${SKIP_DRIVERS}" = "false" ]; then \
+    if [ "${ROCM_VERSION}" = "7" ]; then \
+        # ROCm 7.x ships under a new apt repo with renamed packages.
+        # repo.amd.com/rocm/packages/ubuntu2404 uses amdrocm-* names; the old
+        # hipblas-dev / rocblas-dev packages no longer exist.
+        mkdir -p /etc/apt/keyrings && \
+        apt-get update && \
+        apt-get install -y --no-install-recommends wget gpg && \
+        wget -qO- https://repo.amd.com/rocm/packages/gpg/rocm.gpg | gpg --dearmor > /etc/apt/keyrings/amdrocm.gpg && \
+        echo 'deb [arch=amd64 signed-by=/etc/apt/keyrings/amdrocm.gpg] https://repo.amd.com/rocm/packages/ubuntu2404 stable main' > /etc/apt/sources.list.d/rocm.list && \
+        apt-get update && \
+        apt-get install -y --no-install-recommends amdrocm-llvm amdrocm-hip-dev && \
+        apt-get clean && \
+        rm -rf /var/lib/apt/lists/* && \
+        # ROCm 7.x installs to /opt/rocm/core-7.XX/ with update-alternatives managing
+        # /opt/rocm/core-7 -> /opt/rocm/core-7.XX.  Create /opt/rocm/* compat symlinks
+        # so that cmake find_package(hip) and existing linker flags work unchanged.
+        ln -sf /opt/rocm/core-7/lib/llvm /opt/rocm/llvm && \
+        ln -sf /opt/rocm/core-7/bin      /opt/rocm/bin  && \
+        ln -sf /opt/rocm/core-7          /opt/rocm/hip  && \
+        ln -sf /opt/rocm/core-7/lib      /opt/rocm/lib  && \
+        ln -sf /opt/rocm/core-7/include  /opt/rocm/include && \
+        echo "amd" > /run/localai/capability && \
+        ldconfig ; \
+    else \
+        # ROCm 6.x: packages come pre-installed in the rocm/dev-ubuntu-* base image.
+        # ROCm lib packages don't trigger ldconfig - run it manually.
         apt-get update && \
         apt-get install -y --no-install-recommends \
             hipblas-dev \
@@ -153,14 +185,24 @@ RUN if [ "${BUILD_TYPE}" = "hipblas" ] && [ "${SKIP_DRIVERS}" = "false" ]; then 
         apt-get clean && \
         rm -rf /var/lib/apt/lists/* && \
         echo "amd" > /run/localai/capability && \
-        # I have no idea why, but the ROCM lib packages don't trigger ldconfig after they install, which results in local-ai and others not being able
-        # to locate the libraries. We run ldconfig ourselves to work around this packaging deficiency
-        ldconfig \
-    ; fi
+        ldconfig ; \
+    fi \
+; fi
 
 RUN if [ "${BUILD_TYPE}" = "hipblas" ]; then \
-    ln -s /opt/rocm-**/lib/llvm/lib/libomp.so /usr/lib/libomp.so \
-    ; fi
+    if [ "${ROCM_VERSION}" = "7" ]; then \
+        ln -sf /opt/rocm/llvm/lib/libomp.so /usr/lib/libomp.so ; \
+    else \
+        ln -sf $(find /opt/rocm-*/lib/llvm/lib -name libomp.so 2>/dev/null | head -1) /usr/lib/libomp.so ; \
+    fi \
+; fi
+
+# ROCm 7.x: libamd_comgr.so depends on LLVM shared libs (libLLVM.so, libclang-cpp.so)
+# that live in /opt/rocm/llvm/lib which is not in the default ldconfig search path.
+# Without this, HIP backends will fail to load libamd_comgr via dlopen at runtime.
+RUN if [ "${BUILD_TYPE}" = "hipblas" ] && [ "${ROCM_VERSION}" = "7" ]; then \
+    echo /opt/rocm/llvm/lib > /etc/ld.so.conf.d/rocm-llvm.conf && ldconfig ; \
+fi
 
 RUN expr "${BUILD_TYPE}" = intel && echo "intel" > /run/localai/capability || echo "not intel"
 

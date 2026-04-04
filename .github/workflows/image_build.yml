@@ -61,6 +61,11 @@ on:
         required: false
         default: 'noble'
         type: string
+      rocm-version:
+        description: 'ROCm major version (6 or 7). Controls which apt packages are installed for hipblas builds.'
+        required: false
+        default: '6'
+        type: string
     secrets:
       dockerUsername:
         required: true
@@ -217,6 +222,7 @@ jobs:
             SKIP_DRIVERS=${{ inputs.skip-drivers }}
             UBUNTU_VERSION=${{ inputs.ubuntu-version }}
             UBUNTU_CODENAME=${{ inputs.ubuntu-codename }}
+            ROCM_VERSION=${{ inputs.rocm-version }}
           context: .
           file: ./Dockerfile
           cache-from: type=gha
@@ -246,6 +252,7 @@ jobs:
             SKIP_DRIVERS=${{ inputs.skip-drivers }}
             UBUNTU_VERSION=${{ inputs.ubuntu-version }}
             UBUNTU_CODENAME=${{ inputs.ubuntu-codename }}
+            ROCM_VERSION=${{ inputs.rocm-version }}
           context: .
           file: ./Dockerfile
           cache-from: type=gha

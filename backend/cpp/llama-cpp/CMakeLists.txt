@@ -61,6 +61,12 @@ add_executable(${TARGET} grpc-server.cpp json.hpp httplib.h)
 
 target_include_directories(${TARGET} PRIVATE ../llava)
 target_include_directories(${TARGET} PRIVATE ${CMAKE_SOURCE_DIR})
+# grpc-server lives at llama.cpp/tools/grpc-server/; common/ is two levels up
+# at the llama.cpp root.  Add it so that chat-auto-parser.h and its transitive
+# includes (jinja/, minja/) are found without relying on cmake's include
+# propagation from the common library target, which proved unreliable.
+get_filename_component(LLAMA_COMMON_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../common" ABSOLUTE)
+target_include_directories(${TARGET} PRIVATE "${LLAMA_COMMON_DIR}")
 
 target_link_libraries(${TARGET} PRIVATE common llama mtmd ${CMAKE_THREAD_LIBS_INIT} absl::flags hw_grpc_proto
   absl::flags_parse
