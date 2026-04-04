@@ -2452,8 +2452,12 @@ public:
 
         std::cout << "[DEBUG] Responses size: " << responses.size() << std::endl;
 
-        // Process the responses and extract embeddings
+        // Process the responses and extract embeddings.
+        // When request->dimensions() > 0 truncate each vector to that many dimensions
+        // (implements the OpenAI-compatible `dimensions` parameter for Matryoshka models).
+        const int n_truncate = request->dimensions();
         for (const auto & response_elem : responses) {
+            int dims_added = 0;
             // Check if the response has an "embedding" field
             if (response_elem.contains("embedding")) {
                 json embedding_data = json_value(response_elem, "embedding", json::array());
@@ -2462,7 +2466,9 @@ public:
                     for (const auto & embedding_vector : embedding_data) {
                         if (embedding_vector.is_array()) {
                             for (const auto & embedding_value : embedding_vector) {
+                                if (n_truncate > 0 && dims_added >= n_truncate) break;
                                 embeddingResult->add_embeddings(embedding_value.get<float>());
+                                dims_added++;
                             }
                         }
                     }
@@ -2471,7 +2477,9 @@ public:
                 // Check if the response itself contains the embedding data directly
                 if (response_elem.is_array()) {
                     for (const auto & embedding_value : response_elem) {
+                        if (n_truncate > 0 && dims_added >= n_truncate) break;
                         embeddingResult->add_embeddings(embedding_value.get<float>());
+                        dims_added++;
                     }
                 }
             }

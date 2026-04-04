@@ -284,6 +284,10 @@ func gRPCPredictOpts(c config.ModelConfig, modelPath string) *pb.PredictOptions 
 		TypicalP:            float32(*c.TypicalP),
 	}
 
+	if c.Dimensions != nil {
+		pbOpts.Dimensions = int32(*c.Dimensions)
+	}
+
 	metadata := map[string]string{}
 	if c.ReasoningConfig.DisableReasoning != nil {
 		if *c.ReasoningConfig.DisableReasoning {

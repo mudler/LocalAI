@@ -180,6 +180,7 @@ message PredictOptions {
   int32 TopLogprobs = 51;  // Number of top logprobs to return per token (maps to OpenAI top_logprobs parameter)
   map<string, string> Metadata = 52;  // Generic per-request metadata (e.g., enable_thinking)
   float MinP = 53;  // Minimum probability sampling threshold (0.0 = disabled)
+  int32 Dimensions = 54;  // Truncate embedding vectors to this many dimensions (OpenAI-compatible `dimensions` parameter for Matryoshka models)
 }
 
 // ToolCallDelta represents an incremental tool call update from the C++ parser.
