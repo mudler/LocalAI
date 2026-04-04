@@ -78,7 +78,7 @@ type AnthropicMessage struct {
 // AnthropicContentBlock represents a content block in an Anthropic message
 type AnthropicContentBlock struct {
 	Type      string                `json:"type"`
-	Text      string                `json:"text,omitempty"`
+	Text      string                `json:"text"`
 	Source    *AnthropicImageSource `json:"source,omitempty"`
 	ID        string                `json:"id,omitempty"`
 	Name      string                `json:"name,omitempty"`
@@ -116,7 +116,7 @@ type AnthropicUsage struct {
 // AnthropicStreamEvent represents a streaming event from the Anthropic API
 type AnthropicStreamEvent struct {
 	Type         string                  `json:"type"`
-	Index        int                     `json:"index,omitempty"`
+	Index        *int                    `json:"index,omitempty"`
 	ContentBlock *AnthropicContentBlock  `json:"content_block,omitempty"`
 	Delta        *AnthropicStreamDelta   `json:"delta,omitempty"`
 	Message      *AnthropicStreamMessage `json:"message,omitempty"`
