@@ -37,8 +37,10 @@ else ifeq ($(BUILD_TYPE),hipblas)
 	# gfx1010 was removed — it was dropped in ROCm 6.x and is not present in 7.x.
 	AMDGPU_TARGETS?=gfx803,gfx900,gfx906,gfx908,gfx90a,gfx942,gfx950,gfx1012,gfx1030,gfx1031,gfx1032,gfx1100,gfx1101,gfx1102,gfx1103,gfx1150,gfx1151,gfx1152,gfx1200,gfx1201
 	# -DHIP_PLATFORM=amd is required for ROCm 7.x cmake find_package(hip) to locate the HIP SDK.
-	# -DGGML_HIP_ROCWMMA_FATTN=ON enables rocWMMA-accelerated Flash Attention on RDNA 3+ (gfx1100+).
-	CMAKE_ARGS+=-DGGML_HIP=ON -DAMDGPU_TARGETS=$(AMDGPU_TARGETS) -DHIP_PLATFORM=amd -DROCM_PATH=$(ROCM_PATH) -DCMAKE_PREFIX_PATH=$(ROCM_PATH) -DGGML_HIP_ROCWMMA_FATTN=ON
+	# GGML_HIP_ROCWMMA_FATTN is left at its cmake default (OFF) because rocWMMA does not
+	# support all architectures in the AMDGPU_TARGETS list (e.g. gfx1103 is unsupported),
+	# which would cause a build failure in fattn-wmma-f16.cu for multi-arch fat binaries.
+	CMAKE_ARGS+=-DGGML_HIP=ON -DAMDGPU_TARGETS=$(AMDGPU_TARGETS) -DHIP_PLATFORM=amd -DROCM_PATH=$(ROCM_PATH) -DCMAKE_PREFIX_PATH=$(ROCM_PATH)
 else ifeq ($(BUILD_TYPE),vulkan)
 	CMAKE_ARGS+=-DGGML_VULKAN=1
 else ifeq ($(OS),Darwin)
