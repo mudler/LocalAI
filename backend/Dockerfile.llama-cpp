@@ -58,7 +58,9 @@ ARG CUDA_DOCKER_ARCH
 ENV CUDA_DOCKER_ARCH=${CUDA_DOCKER_ARCH}
 ARG CMAKE_ARGS
 ENV CMAKE_ARGS=${CMAKE_ARGS}
-ARG BACKEND=rerankers
+ARG BACKEND=llama-cpp
+ARG LLAMA_BACKEND_DIR=${BACKEND}
+ENV LLAMA_BACKEND_DIR=${LLAMA_BACKEND_DIR}
 ARG BUILD_TYPE
 ENV BUILD_TYPE=${BUILD_TYPE}
 ARG CUDA_MAJOR_VERSION
@@ -255,32 +257,27 @@ if [[ -n "${CUDA_DOCKER_ARCH:-}" ]]; then
   CUDA_ARCH_ESC="${CUDA_DOCKER_ARCH//;/\\;}"
   export CMAKE_ARGS="${CMAKE_ARGS:-} -DCMAKE_CUDA_ARCHITECTURES=${CUDA_ARCH_ESC}"
   echo "CMAKE_ARGS(env) = ${CMAKE_ARGS}"
-  rm -rf /LocalAI/backend/cpp/llama-cpp-*-build
+  rm -rf /LocalAI/backend/cpp/${LLAMA_BACKEND_DIR}-*-build
 fi
 
+cd /LocalAI/backend/cpp/${LLAMA_BACKEND_DIR}
+
 if [ "${TARGETARCH}" = "arm64" ] || [ "${BUILD_TYPE}" = "hipblas" ]; then
-  cd /LocalAI/backend/cpp/llama-cpp
-  make llama-cpp-fallback
-  make llama-cpp-grpc
-  make llama-cpp-rpc-server
+  make ARCH=aarch64 build-variants
 else
-  cd /LocalAI/backend/cpp/llama-cpp
-  make llama-cpp-avx
-  make llama-cpp-avx2
-  make llama-cpp-avx512
-  make llama-cpp-fallback
-  make llama-cpp-grpc
-  make llama-cpp-rpc-server
+  make build-variants
 fi
 EOT
 
 
 # Copy libraries using a script to handle architecture differences
-RUN make -BC /LocalAI/backend/cpp/llama-cpp package
+RUN make -BC /LocalAI/backend/cpp/${LLAMA_BACKEND_DIR} package
 
 
 FROM scratch
 
+ARG BACKEND=llama-cpp
+ARG LLAMA_BACKEND_DIR=${BACKEND}
 
 # Copy all available binaries (the build process only creates the appropriate ones for the target architecture)
-COPY --from=builder /LocalAI/backend/cpp/llama-cpp/package/. ./
+COPY --from=builder /LocalAI/backend/cpp/${LLAMA_BACKEND_DIR}/package/. ./

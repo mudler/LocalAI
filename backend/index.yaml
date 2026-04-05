@@ -29,6 +29,34 @@
     nvidia-cuda-12: "cuda12-llama-cpp"
     nvidia-l4t-cuda-12: "nvidia-l4t-arm64-llama-cpp"
     nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-llama-cpp"
+- &llamacpp_tq
+  name: "llama-cpp-tq"
+  alias: "llama-cpp-tq"
+  license: mit
+  description: |
+    TurboQuant llama.cpp fork - quantization research
+  urls:
+    - https://github.com/TheTom/llama-cpp-turboquant
+  tags:
+    - text-to-text
+    - LLM
+    - CPU
+    - GPU
+    - Metal
+    - CUDA
+    - HIP
+  capabilities:
+    default: "cpu-llama-cpp-tq"
+    nvidia: "cuda12-llama-cpp-tq"
+    intel: "intel-sycl-f16-llama-cpp-tq"
+    amd: "rocm-llama-cpp-tq"
+    metal: "metal-llama-cpp-tq"
+    vulkan: "vulkan-llama-cpp-tq"
+    nvidia-l4t: "nvidia-l4t-arm64-llama-cpp-tq"
+    nvidia-cuda-13: "cuda13-llama-cpp-tq"
+    nvidia-cuda-12: "cuda12-llama-cpp-tq"
+    nvidia-l4t-cuda-12: "nvidia-l4t-arm64-llama-cpp-tq"
+    nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-llama-cpp-tq"
 - &whispercpp
   name: "whisper"
   alias: "whisper"
@@ -1252,6 +1280,57 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-llama-cpp"
   mirrors:
     - localai/localai-backends:master-gpu-nvidia-cuda-13-llama-cpp
+# llama-cpp-tq (TurboQuant) concrete backends
+- !!merge <<: *llamacpp_tq
+  name: "cpu-llama-cpp-tq"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-llama-cpp-tq"
+  mirrors:
+    - localai/localai-backends:latest-cpu-llama-cpp-tq
+- !!merge <<: *llamacpp_tq
+  name: "cuda12-llama-cpp-tq"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-llama-cpp-tq"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-12-llama-cpp-tq
+- !!merge <<: *llamacpp_tq
+  name: "cuda13-llama-cpp-tq"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-13-llama-cpp-tq"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-13-llama-cpp-tq
+- !!merge <<: *llamacpp_tq
+  name: "rocm-llama-cpp-tq"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-rocm-hipblas-llama-cpp-tq"
+  mirrors:
+    - localai/localai-backends:latest-gpu-rocm-hipblas-llama-cpp-tq
+- !!merge <<: *llamacpp_tq
+  name: "intel-sycl-f16-llama-cpp-tq"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-sycl-f16-llama-cpp-tq"
+  mirrors:
+    - localai/localai-backends:latest-gpu-intel-sycl-f16-llama-cpp-tq
+- !!merge <<: *llamacpp_tq
+  name: "intel-sycl-f32-llama-cpp-tq"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-sycl-f32-llama-cpp-tq"
+  mirrors:
+    - localai/localai-backends:latest-gpu-intel-sycl-f32-llama-cpp-tq
+- !!merge <<: *llamacpp_tq
+  name: "vulkan-llama-cpp-tq"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-vulkan-llama-cpp-tq"
+  mirrors:
+    - localai/localai-backends:latest-gpu-vulkan-llama-cpp-tq
+- !!merge <<: *llamacpp_tq
+  name: "metal-llama-cpp-tq"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-metal-darwin-arm64-llama-cpp-tq"
+  mirrors:
+    - localai/localai-backends:latest-metal-darwin-arm64-llama-cpp-tq
+- !!merge <<: *llamacpp_tq
+  name: "nvidia-l4t-arm64-llama-cpp-tq"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-nvidia-l4t-arm64-llama-cpp-tq"
+  mirrors:
+    - localai/localai-backends:latest-nvidia-l4t-arm64-llama-cpp-tq
+- !!merge <<: *llamacpp_tq
+  name: "cuda13-nvidia-l4t-arm64-llama-cpp-tq"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-nvidia-l4t-cuda-13-arm64-llama-cpp-tq"
+  mirrors:
+    - localai/localai-backends:latest-nvidia-l4t-cuda-13-arm64-llama-cpp-tq
 ## whisper
 - !!merge <<: *whispercpp
   name: "nvidia-l4t-arm64-whisper"

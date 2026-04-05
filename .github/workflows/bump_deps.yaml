@@ -14,6 +14,11 @@ jobs:
             variable: "LLAMA_VERSION"
             branch: "master"
             file: "backend/cpp/llama-cpp/Makefile"
+          - repository: "TheTom/llama-cpp-turboquant"
+            variable: "LLAMA_VERSION"
+            branch: "master"
+            file: "backend/cpp/llama-cpp-tq/Makefile"
+            branch_suffix: "-tq"
           - repository: "ggml-org/whisper.cpp"
             variable: "WHISPER_CPP_VERSION"
             branch: "master"
@@ -60,7 +65,7 @@ jobs:
           push-to-fork: ci-forks/LocalAI
           commit-message: ':arrow_up: Update ${{ matrix.repository }}'
           title: 'chore: :arrow_up: Update ${{ matrix.repository }} to `${{ steps.bump.outputs.commit }}`'
-          branch: "update/${{ matrix.variable }}"
+          branch: "update/${{ matrix.variable }}${{ matrix.branch_suffix }}"
           body: ${{ steps.bump.outputs.message }}
           signoff: true
 
