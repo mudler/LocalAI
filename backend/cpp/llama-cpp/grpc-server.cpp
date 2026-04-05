@@ -1616,8 +1616,11 @@ public:
                         data);
                 task.id_slot = json_value(data, "id_slot", -1);
 
-                // OAI-compat
-                task.params.res_type                 = TASK_RESPONSE_TYPE_NONE;
+                // OAI-compat: enable autoparser (PEG-based chat parsing) so that
+                // reasoning, tool calls, and content are classified into ChatDeltas.
+                // Without this, the PEG parser never produces diffs and the Go side
+                // cannot detect tool calls or separate reasoning from content.
+                task.params.res_type                 = TASK_RESPONSE_TYPE_OAI_CHAT;
                 task.params.oaicompat_cmpl_id         = completion_id;
                 // oaicompat_model is already populated by params_from_json_cmpl
 
@@ -1642,10 +1645,27 @@ public:
             return grpc::Status(grpc::StatusCode::INTERNAL, error_json.value("message", "Error occurred"));
         }
 
-        // Lambda to build a Reply from JSON + attach chat deltas from a result
+        // Lambda to build a Reply from JSON + attach chat deltas from a result.
+        // Handles both native format ({"content": "..."}) and OAI chat format
+        // ({"choices": [{"delta": {"content": "...", "reasoning": "..."}}]}).
         auto build_reply_from_json = [](const json & res_json, server_task_result * raw_result) -> backend::Reply {
             backend::Reply reply;
-            std::string completion_text = res_json.value("content", "");
+            std::string completion_text;
+
+            if (res_json.contains("choices")) {
+                // OAI chat format — extract content from choices[0].delta
+                const auto & choices = res_json.at("choices");
+                if (!choices.empty()) {
+                    const auto & delta = choices[0].value("delta", json::object());
+                    if (delta.contains("content") && !delta.at("content").is_null()) {
+                        completion_text = delta.at("content").get<std::string>();
+                    }
+                }
+            } else {
+                // Native llama.cpp format
+                completion_text = res_json.value("content", "");
+            }
+
             reply.set_message(completion_text);
             reply.set_tokens(res_json.value("tokens_predicted", 0));
             reply.set_prompt_tokens(res_json.value("tokens_evaluated", 0));
@@ -1663,21 +1683,17 @@ public:
             return reply;
         };
 
+        // Attach chat deltas from the autoparser to a Reply.
+        // When diffs are available, populate ChatDeltas on the reply.
+        // The raw message is always preserved so the Go side can use it
+        // for reasoning extraction and tool call parsing as a fallback
+        // (important in distributed mode where ChatDeltas may not be
+        // the primary parsing path).
         auto attach_chat_deltas = [](backend::Reply & reply, server_task_result * raw_result) {
             // Try streaming partial result first
             auto* partial = dynamic_cast<server_task_result_cmpl_partial*>(raw_result);
-            if (partial) {
-                if (!partial->oaicompat_msg_diffs.empty()) {
-                    populate_chat_deltas_from_diffs(reply, partial->oaicompat_msg_diffs);
-                } else if (partial->is_updated) {
-                    // Autoparser is active but hasn't classified this chunk yet
-                    // (PEG parser warming up). Clear the raw message so the Go
-                    // side doesn't try to parse partial tag tokens (e.g. "<|channel>"
-                    // before the full "<|channel>thought\n" is received).
-                    // This matches llama.cpp server behavior which only emits SSE
-                    // chunks when the parser produces diffs.
-                    reply.set_message("");
-                }
+            if (partial && !partial->oaicompat_msg_diffs.empty()) {
+                populate_chat_deltas_from_diffs(reply, partial->oaicompat_msg_diffs);
                 return;
             }
             // Try final result
@@ -2357,8 +2373,11 @@ public:
                         data);
                 task.id_slot = json_value(data, "id_slot", -1);
 
-                // OAI-compat
-                task.params.res_type                 = TASK_RESPONSE_TYPE_NONE;
+                // OAI-compat: enable autoparser (PEG-based chat parsing) so that
+                // reasoning, tool calls, and content are classified into ChatDeltas.
+                // Without this, the PEG parser never produces diffs and the Go side
+                // cannot detect tool calls or separate reasoning from content.
+                task.params.res_type                 = TASK_RESPONSE_TYPE_OAI_CHAT;
                 task.params.oaicompat_cmpl_id         = completion_id;
                 // oaicompat_model is already populated by params_from_json_cmpl
 

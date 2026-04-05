@@ -134,6 +134,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 		return err
 	}
 	processTools := func(noAction string, prompt string, req *schema.OpenAIRequest, config *config.ModelConfig, loader *model.ModelLoader, responses chan schema.OpenAIResponse, extraUsage bool, id string, created int, textContentToReturn *string) error {
+		xlog.Warn("[StreamDebug] processTools ENTERED", "model", req.Model, "useTokenizerTemplate", config.TemplateConfig.UseTokenizerTemplate)
 		// Detect if thinking token is already in prompt or template
 		var template string
 		if config.TemplateConfig.UseTokenizerTemplate {
@@ -158,10 +159,17 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 			for _, d := range usage.ChatDeltas {
 				if len(d.ToolCalls) > 0 {
 					hasChatDeltaToolCalls = true
+					xlog.Debug("[StreamDebug] ChatDelta with tool calls detected", "tool_count", len(d.ToolCalls))
 				}
 				if d.Content != "" {
 					hasChatDeltaContent = true
 				}
+				if d.ReasoningContent != "" {
+					xlog.Debug("[StreamDebug] ChatDelta reasoning chunk", "len", len(d.ReasoningContent))
+				}
+			}
+			if len(usage.ChatDeltas) == 0 {
+				xlog.Warn("[StreamDebug] No ChatDeltas in chunk", "raw_len", len(s), "raw_empty", s == "")
 			}
 
 			var reasoningDelta, contentDelta string
