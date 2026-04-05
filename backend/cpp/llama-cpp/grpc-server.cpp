@@ -284,6 +284,12 @@ json parse_options(bool streaming, const backend::PredictOptions* predict, const
     data["ignore_eos"] = predict->ignoreeos();
     data["embeddings"] = predict->embeddings();
 
+    // Speculative decoding per-request overrides
+    // NDraft maps to speculative.n_max (maximum draft tokens per speculation step)
+    if (predict->ndraft() > 0) {
+        data["speculative.n_max"] = predict->ndraft();
+    }
+
     // Add the correlationid to json data
     data["correlation_id"] = predict->correlationid();
 
@@ -402,6 +408,16 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
     if (!request->mmproj().empty()) {
       params.mmproj.path = request->mmproj();
     }
+
+    // Draft model for speculative decoding
+    if (!request->draftmodel().empty()) {
+        params.speculative.mparams_dft.path = request->draftmodel();
+        // Default to draft type if a draft model is set but no explicit type
+        if (params.speculative.type == COMMON_SPECULATIVE_TYPE_NONE) {
+            params.speculative.type = COMMON_SPECULATIVE_TYPE_DRAFT;
+        }
+    }
+
     //  params.model_alias ??
     params.model_alias.insert(request->modelfile());
     if (!request->cachetypekey().empty()) {
@@ -608,6 +624,48 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
                 } catch (const std::exception& e) {
                     // If conversion fails, keep default value (8)
                 }
+            }
+        // Speculative decoding options
+        } else if (!strcmp(optname, "spec_type") || !strcmp(optname, "speculative_type")) {
+            auto type = common_speculative_type_from_name(optval_str);
+            if (type != COMMON_SPECULATIVE_TYPE_COUNT) {
+                params.speculative.type = type;
+            }
+        } else if (!strcmp(optname, "spec_n_max") || !strcmp(optname, "draft_max")) {
+            if (optval != NULL) {
+                try { params.speculative.n_max = std::stoi(optval_str); } catch (...) {}
+            }
+        } else if (!strcmp(optname, "spec_n_min") || !strcmp(optname, "draft_min")) {
+            if (optval != NULL) {
+                try { params.speculative.n_min = std::stoi(optval_str); } catch (...) {}
+            }
+        } else if (!strcmp(optname, "spec_p_min") || !strcmp(optname, "draft_p_min")) {
+            if (optval != NULL) {
+                try { params.speculative.p_min = std::stof(optval_str); } catch (...) {}
+            }
+        } else if (!strcmp(optname, "spec_p_split")) {
+            if (optval != NULL) {
+                try { params.speculative.p_split = std::stof(optval_str); } catch (...) {}
+            }
+        } else if (!strcmp(optname, "spec_ngram_size_n") || !strcmp(optname, "ngram_size_n")) {
+            if (optval != NULL) {
+                try { params.speculative.ngram_size_n = (uint16_t)std::stoi(optval_str); } catch (...) {}
+            }
+        } else if (!strcmp(optname, "spec_ngram_size_m") || !strcmp(optname, "ngram_size_m")) {
+            if (optval != NULL) {
+                try { params.speculative.ngram_size_m = (uint16_t)std::stoi(optval_str); } catch (...) {}
+            }
+        } else if (!strcmp(optname, "spec_ngram_min_hits") || !strcmp(optname, "ngram_min_hits")) {
+            if (optval != NULL) {
+                try { params.speculative.ngram_min_hits = (uint16_t)std::stoi(optval_str); } catch (...) {}
+            }
+        } else if (!strcmp(optname, "draft_gpu_layers")) {
+            if (optval != NULL) {
+                try { params.speculative.n_gpu_layers = std::stoi(optval_str); } catch (...) {}
+            }
+        } else if (!strcmp(optname, "draft_ctx_size")) {
+            if (optval != NULL) {
+                try { params.speculative.n_ctx = std::stoi(optval_str); } catch (...) {}
             }
         }
     }

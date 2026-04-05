@@ -189,8 +189,8 @@ These settings apply to most LLM backends (llama.cpp, vLLM, etc.):
 | Field | Type | Description |
 |-------|------|-------------|
 | `no_mulmatq` | bool | Disable matrix multiplication queuing |
-| `draft_model` | string | Draft model for speculative decoding |
-| `n_draft` | int32 | Number of draft tokens |
+| `draft_model` | string | Draft model GGUF file for speculative decoding (see [Speculative Decoding](#speculative-decoding)) |
+| `n_draft` | int32 | Maximum number of draft tokens per speculative step (default: 16) |
 | `quantization` | string | Quantization format |
 | `load_format` | string | Model load format |
 | `numa` | bool | Enable NUMA (Non-Uniform Memory Access) |
@@ -210,6 +210,76 @@ YARN (Yet Another RoPE extensioN) settings for context extension:
 | `yarn_attn_factor` | float32 | YARN attention factor |
 | `yarn_beta_fast` | float32 | YARN beta fast parameter |
 | `yarn_beta_slow` | float32 | YARN beta slow parameter |
+
+### Speculative Decoding
+
+Speculative decoding speeds up text generation by predicting multiple tokens ahead and verifying them in a single forward pass. The output is identical to normal decoding — only faster. This feature is only available with the `llama-cpp` backend.
+
+There are two approaches:
+
+#### Draft Model Speculative Decoding
+
+Uses a smaller, faster model from the same model family to draft candidate tokens, which the main model then verifies. Requires a separate GGUF file for the draft model.
+
+```yaml
+name: my-model
+backend: llama-cpp
+parameters:
+  model: large-model.gguf
+draft_model: small-draft-model.gguf
+n_draft: 8
+options:
+  - spec_p_min:0.8
+  - draft_gpu_layers:99
+```
+
+#### N-gram Self-Speculative Decoding
+
+Uses patterns from the token history to predict future tokens — no extra model required. Works well for repetitive or structured output (code, JSON, lists).
+
+```yaml
+name: my-model
+backend: llama-cpp
+parameters:
+  model: my-model.gguf
+options:
+  - spec_type:ngram_simple
+  - spec_n_max:16
+```
+
+#### Speculative Decoding Options
+
+These are set via the `options:` array in the model configuration (format: `key:value`):
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `spec_type` | string | `none` | Speculative decoding type (see table below) |
+| `spec_n_max` / `draft_max` | int | 16 | Maximum number of tokens to draft per step |
+| `spec_n_min` / `draft_min` | int | 0 | Minimum draft tokens required to use speculation |
+| `spec_p_min` / `draft_p_min` | float | 0.75 | Minimum probability threshold for greedy acceptance |
+| `spec_p_split` | float | 0.1 | Split probability for tree-based branching |
+| `spec_ngram_size_n` / `ngram_size_n` | int | 12 | N-gram lookup size |
+| `spec_ngram_size_m` / `ngram_size_m` | int | 48 | M-gram proposal size |
+| `spec_ngram_min_hits` / `ngram_min_hits` | int | 1 | Minimum hits for accepting n-gram proposals |
+| `draft_gpu_layers` | int | -1 | GPU layers for the draft model (-1 = use default) |
+| `draft_ctx_size` | int | 0 | Context size for the draft model (0 = auto) |
+
+#### Speculative Type Values
+
+| Type | Description |
+|------|-------------|
+| `none` | No speculative decoding (default) |
+| `draft` | Draft model-based speculation (auto-set when `draft_model` is configured) |
+| `eagle3` | EAGLE3 draft model architecture |
+| `ngram_simple` | Simple self-speculative using token history |
+| `ngram_map_k` | N-gram with key-only map |
+| `ngram_map_k4v` | N-gram with keys and 4 m-gram values |
+| `ngram_mod` | Modified n-gram speculation |
+| `ngram_cache` | 3-level n-gram cache |
+
+{{% notice note %}}
+Speculative decoding is automatically disabled when multimodal models (with `mmproj`) are active. The `n_draft` parameter can also be overridden per-request.
+{{% /notice %}}
 
 ### Prompt Caching
 
