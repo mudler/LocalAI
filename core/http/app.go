@@ -331,6 +331,7 @@ func API(application *application.Application) (*echo.Echo, error) {
 	routes.RegisterAuthRoutes(e, application)
 
 	routes.RegisterElevenLabsRoutes(e, requestExtractor, application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig())
+	routes.RegisterCambAIRoutes(e, requestExtractor, application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig())
 
 	// Create opcache for tracking UI operations (used by both UI and LocalAI routes)
 	var opcache *galleryop.OpCache
