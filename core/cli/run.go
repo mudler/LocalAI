@@ -492,7 +492,7 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 
 	app, err := application.New(opts...)
 	if err != nil {
-		return fmt.Errorf("failed basic startup tasks with error %s", err.Error())
+		return fmt.Errorf("LocalAI failed to start: %w.\nTroubleshooting steps:\n  1. Check that your models directory exists and is accessible: %s\n  2. Verify model config files are valid YAML: 'local-ai util usecase-heuristic <config>'\n  3. Check available disk space and file permissions\n  4. Run with --log-level=debug for more details\nSee https://localai.io/basics/troubleshooting/ for more help", err, r.ModelsPath)
 	}
 
 	appHTTP, err := http.API(app)

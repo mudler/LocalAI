@@ -74,7 +74,7 @@ func (u *CreateOCIImageCMD) Run(ctx *cliContext.Context) error {
 
 func (u *GGUFInfoCMD) Run(ctx *cliContext.Context) error {
 	if len(u.Args) == 0 {
-		return fmt.Errorf("no GGUF file provided")
+		return fmt.Errorf("no GGUF file provided. Usage: local-ai util gguf-info <path-to-file.gguf>\nGGUF is a binary format for storing quantized language models. You can download GGUF models from https://huggingface.co or install one with 'local-ai models install <model>'")
 	}
 	// We try to guess only if we don't have a template defined already
 	f, err := gguf.ParseGGUFFile(u.Args[0])
