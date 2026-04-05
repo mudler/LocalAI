@@ -2514,6 +2514,120 @@
       - lang_code:a
     known_usecases:
       - tts
+- name: "kokoros"
+  url: "github:mudler/LocalAI/gallery/kokoros.yaml@master"
+  size: "327MB"
+  urls:
+    - https://github.com/lucasjinreal/Kokoros
+  license: apache-2.0
+  tags:
+    - tts
+    - kokoros
+    - cpu
+    - text-to-speech
+    - rust
+  description: |
+    Kokoros is a pure Rust TTS backend using the Kokoro v1.0 ONNX model (82M parameters).
+    Fast, streaming TTS with high quality. American English with af_heart voice.
+  overrides:
+    backend: "kokoros"
+    name: "kokoros"
+    description: "Kokoros Rust TTS - American English"
+    parameters:
+      voice: "af_heart"
+    options:
+      - lang_code:en-us
+    known_usecases:
+      - tts
+  files:
+    - filename: "kokoro-v1.0.onnx"
+      uri: "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/kokoro-v1.0.onnx"
+    - filename: "voices-v1.0.bin"
+      uri: "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/voices-v1.0.bin"
+- name: "kokoros-ja"
+  url: "github:mudler/LocalAI/gallery/kokoros.yaml@master"
+  size: "327MB"
+  urls:
+    - https://github.com/lucasjinreal/Kokoros
+  license: apache-2.0
+  tags:
+    - tts
+    - kokoros
+    - japanese
+    - text-to-speech
+  description: |
+    Kokoros Rust TTS - Japanese. Uses the Kokoro v1.0 ONNX model with Japanese phonemization.
+  overrides:
+    backend: "kokoros"
+    name: "kokoros-ja"
+    description: "Kokoros Rust TTS - Japanese"
+    parameters:
+      voice: "jf_alpha"
+    options:
+      - lang_code:ja
+    known_usecases:
+      - tts
+  files:
+    - filename: "kokoro-v1.0.onnx"
+      uri: "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/kokoro-v1.0.onnx"
+    - filename: "voices-v1.0.bin"
+      uri: "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/voices-v1.0.bin"
+- name: "kokoros-cmn"
+  url: "github:mudler/LocalAI/gallery/kokoros.yaml@master"
+  size: "327MB"
+  urls:
+    - https://github.com/lucasjinreal/Kokoros
+  license: apache-2.0
+  tags:
+    - tts
+    - kokoros
+    - chinese
+    - text-to-speech
+  description: |
+    Kokoros Rust TTS - Mandarin Chinese.
+  overrides:
+    backend: "kokoros"
+    name: "kokoros-cmn"
+    description: "Kokoros Rust TTS - Mandarin Chinese"
+    parameters:
+      voice: "zf_xiaobei"
+    options:
+      - lang_code:cmn
+    known_usecases:
+      - tts
+  files:
+    - filename: "kokoro-v1.0.onnx"
+      uri: "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/kokoro-v1.0.onnx"
+    - filename: "voices-v1.0.bin"
+      uri: "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/voices-v1.0.bin"
+- name: "kokoros-de"
+  url: "github:mudler/LocalAI/gallery/kokoros.yaml@master"
+  size: "327MB"
+  urls:
+    - https://github.com/lucasjinreal/Kokoros
+  license: apache-2.0
+  tags:
+    - tts
+    - kokoros
+    - german
+    - text-to-speech
+  description: |
+    Kokoros Rust TTS - German.
+  overrides:
+    backend: "kokoros"
+    name: "kokoros-de"
+    description: "Kokoros Rust TTS - German"
+    parameters:
+      voice: "df_greta"
+    options:
+      - lang_code:de
+    known_usecases:
+      - tts
+  files:
+    - filename: "kokoro-v1.0.onnx"
+      uri: "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/kokoro-v1.0.onnx"
+    - filename: "voices-v1.0.bin"
+      uri: "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/voices-v1.0.bin"
 - name: "kitten-tts"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:

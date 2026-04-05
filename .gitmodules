@@ -1,3 +1,6 @@
 [submodule "docs/themes/hugo-theme-relearn"]
 	path = docs/themes/hugo-theme-relearn
 	url = https://github.com/McShelby/hugo-theme-relearn.git
+[submodule "backend/rust/kokoros/sources/Kokoros"]
+	path = backend/rust/kokoros/sources/Kokoros
+	url = https://github.com/lucasjinreal/Kokoros

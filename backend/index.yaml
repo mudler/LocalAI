@@ -468,6 +468,28 @@
     nvidia-cuda-13: "cuda13-kokoro"
     nvidia-cuda-12: "cuda12-kokoro"
     nvidia-l4t-cuda-12: "nvidia-l4t-arm64-kokoro"
+- &kokoros
+  icon: https://avatars.githubusercontent.com/u/166769057?v=4
+  description: |
+    Kokoros is a pure Rust TTS backend using the Kokoro ONNX model (82M parameters).
+    It provides fast, high-quality text-to-speech with streaming support, built on
+    ONNX Runtime for efficient CPU inference. Supports English, Japanese, Mandarin
+    Chinese, and German.
+  urls:
+    - https://huggingface.co/hexgrad/Kokoro-82M
+    - https://github.com/lucasjinreal/Kokoros
+  tags:
+    - text-to-speech
+    - TTS
+    - Rust
+    - ONNX
+  license: apache-2.0
+  alias: "kokoros"
+  name: "kokoros"
+  capabilities:
+    default: "cpu-kokoros"
+    nvidia: "cuda12-kokoros"
+    nvidia-cuda-12: "cuda12-kokoros"
 - &coqui
   urls:
     - https://github.com/idiap/coqui-ai-TTS
@@ -2042,6 +2064,32 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-kokoro"
   mirrors:
     - localai/localai-backends:master-metal-darwin-arm64-kokoro
+## kokoros (Rust)
+- !!merge <<: *kokoros
+  name: "kokoros-development"
+  capabilities:
+    default: "cpu-kokoros-development"
+    nvidia: "cuda12-kokoros-development"
+- !!merge <<: *kokoros
+  name: "cpu-kokoros"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-kokoros"
+  mirrors:
+    - localai/localai-backends:latest-cpu-kokoros
+- !!merge <<: *kokoros
+  name: "cpu-kokoros-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-cpu-kokoros"
+  mirrors:
+    - localai/localai-backends:master-cpu-kokoros
+- !!merge <<: *kokoros
+  name: "cuda12-kokoros"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-kokoros"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-12-kokoros
+- !!merge <<: *kokoros
+  name: "cuda12-kokoros-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-kokoros"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-12-kokoros
 ## faster-whisper
 - !!merge <<: *faster-whisper
   name: "faster-whisper-development"
