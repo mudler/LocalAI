@@ -30,6 +30,8 @@ jobs:
       skip-drivers: ${{ matrix.skip-drivers }}
       context: ${{ matrix.context }}
       ubuntu-version: ${{ matrix.ubuntu-version }}
+      rocm-version: ${{ matrix.rocm-version || '6' }}
+      rocm-arch: ${{ matrix.rocm-arch || 'gfx803,gfx900,gfx906,gfx908,gfx90a,gfx942,gfx950,gfx1012,gfx1030,gfx1031,gfx1032,gfx1100,gfx1101,gfx1102,gfx1103,gfx1150,gfx1151,gfx1152,gfx1200,gfx1201' }}
     secrets:
       dockerUsername: ${{ secrets.DOCKERHUB_USERNAME }}
       dockerPassword: ${{ secrets.DOCKERHUB_PASSWORD }}
@@ -1409,6 +1411,259 @@ jobs:
             dockerfile: "./backend/Dockerfile.python"
             context: "./"
             ubuntu-version: '2404'
+          # ROCm 7.x hipblas builds (ubuntu:24.04 base + AMD apt repo; supports gfx1151/RDNA3.5+)
+          - build-type: 'hipblas'
+            cuda-major-version: ""
+            cuda-minor-version: ""
+            platforms: 'linux/amd64'
+            tag-latest: 'false'
+            tag-suffix: '-gpu-rocm7-hipblas-rerankers'
+            runs-on: 'ubuntu-latest'
+            base-image: "ubuntu:24.04"
+            skip-drivers: 'false'
+            backend: "rerankers"
+            dockerfile: "./backend/Dockerfile.python"
+            context: "./"
+            ubuntu-version: '2404'
+            rocm-version: '7'
+          - build-type: 'hipblas'
+            cuda-major-version: ""
+            cuda-minor-version: ""
+            platforms: 'linux/amd64'
+            tag-latest: 'false'
+            tag-suffix: '-gpu-rocm7-hipblas-llama-cpp'
+            runs-on: 'ubuntu-latest'
+            base-image: "ubuntu:24.04"
+            skip-drivers: 'false'
+            backend: "llama-cpp"
+            dockerfile: "./backend/Dockerfile.llama-cpp"
+            context: "./"
+            ubuntu-version: '2404'
+            rocm-version: '7'
+          - build-type: 'hipblas'
+            cuda-major-version: ""
+            cuda-minor-version: ""
+            platforms: 'linux/amd64'
+            tag-latest: 'false'
+            tag-suffix: '-gpu-rocm7-hipblas-vllm'
+            runs-on: 'arc-runner-set'
+            base-image: "ubuntu:24.04"
+            skip-drivers: 'false'
+            backend: "vllm"
+            dockerfile: "./backend/Dockerfile.python"
+            context: "./"
+            ubuntu-version: '2404'
+            rocm-version: '7'
+          - build-type: 'hipblas'
+            cuda-major-version: ""
+            cuda-minor-version: ""
+            platforms: 'linux/amd64'
+            tag-latest: 'false'
+            tag-suffix: '-gpu-rocm7-hipblas-vllm-omni'
+            runs-on: 'arc-runner-set'
+            base-image: "ubuntu:24.04"
+            skip-drivers: 'false'
+            backend: "vllm-omni"
+            dockerfile: "./backend/Dockerfile.python"
+            context: "./"
+            ubuntu-version: '2404'
+            rocm-version: '7'
+          - build-type: 'hipblas'
+            cuda-major-version: ""
+            cuda-minor-version: ""
+            platforms: 'linux/amd64'
+            tag-latest: 'false'
+            tag-suffix: '-gpu-rocm7-hipblas-transformers'
+            runs-on: 'arc-runner-set'
+            base-image: "ubuntu:24.04"
+            skip-drivers: 'false'
+            backend: "transformers"
+            dockerfile: "./backend/Dockerfile.python"
+            context: "./"
+            ubuntu-version: '2404'
+            rocm-version: '7'
+          - build-type: 'hipblas'
+            cuda-major-version: ""
+            cuda-minor-version: ""
+            platforms: 'linux/amd64'
+            tag-latest: 'false'
+            tag-suffix: '-gpu-rocm7-hipblas-diffusers'
+            runs-on: 'arc-runner-set'
+            base-image: "ubuntu:24.04"
+            skip-drivers: 'false'
+            backend: "diffusers"
+            dockerfile: "./backend/Dockerfile.python"
+            context: "./"
+            ubuntu-version: '2404'
+            rocm-version: '7'
+          - build-type: 'hipblas'
+            cuda-major-version: ""
+            cuda-minor-version: ""
+            platforms: 'linux/amd64'
+            tag-latest: 'false'
+            tag-suffix: '-gpu-rocm7-hipblas-ace-step'
+            runs-on: 'arc-runner-set'
+            base-image: "ubuntu:24.04"
+            skip-drivers: 'false'
+            backend: "ace-step"
+            dockerfile: "./backend/Dockerfile.python"
+            context: "./"
+            ubuntu-version: '2404'
+            rocm-version: '7'
+          - build-type: 'hipblas'
+            cuda-major-version: ""
+            cuda-minor-version: ""
+            platforms: 'linux/amd64'
+            tag-latest: 'false'
+            tag-suffix: '-gpu-rocm7-hipblas-kokoro'
+            runs-on: 'arc-runner-set'
+            base-image: "ubuntu:24.04"
+            skip-drivers: 'false'
+            backend: "kokoro"
+            dockerfile: "./backend/Dockerfile.python"
+            context: "./"
+            ubuntu-version: '2404'
+            rocm-version: '7'
+          - build-type: 'hipblas'
+            cuda-major-version: ""
+            cuda-minor-version: ""
+            platforms: 'linux/amd64'
+            tag-latest: 'false'
+            tag-suffix: '-gpu-rocm7-hipblas-vibevoice'
+            runs-on: 'arc-runner-set'
+            base-image: "ubuntu:24.04"
+            skip-drivers: 'false'
+            backend: "vibevoice"
+            dockerfile: "./backend/Dockerfile.python"
+            context: "./"
+            ubuntu-version: '2404'
+            rocm-version: '7'
+          - build-type: 'hipblas'
+            cuda-major-version: ""
+            cuda-minor-version: ""
+            platforms: 'linux/amd64'
+            tag-latest: 'false'
+            tag-suffix: '-gpu-rocm7-hipblas-qwen-asr'
+            runs-on: 'arc-runner-set'
+            base-image: "ubuntu:24.04"
+            skip-drivers: 'false'
+            backend: "qwen-asr"
+            dockerfile: "./backend/Dockerfile.python"
+            context: "./"
+            ubuntu-version: '2404'
+            rocm-version: '7'
+          - build-type: 'hipblas'
+            cuda-major-version: ""
+            cuda-minor-version: ""
+            platforms: 'linux/amd64'
+            tag-latest: 'false'
+            tag-suffix: '-gpu-rocm7-hipblas-nemo'
+            runs-on: 'arc-runner-set'
+            base-image: "ubuntu:24.04"
+            skip-drivers: 'false'
+            backend: "nemo"
+            dockerfile: "./backend/Dockerfile.python"
+            context: "./"
+            ubuntu-version: '2404'
+            rocm-version: '7'
+          - build-type: 'hipblas'
+            cuda-major-version: ""
+            cuda-minor-version: ""
+            platforms: 'linux/amd64'
+            tag-latest: 'false'
+            tag-suffix: '-gpu-rocm7-hipblas-qwen-tts'
+            runs-on: 'arc-runner-set'
+            base-image: "ubuntu:24.04"
+            skip-drivers: 'false'
+            backend: "qwen-tts"
+            dockerfile: "./backend/Dockerfile.python"
+            context: "./"
+            ubuntu-version: '2404'
+            rocm-version: '7'
+          - build-type: 'hipblas'
+            cuda-major-version: ""
+            cuda-minor-version: ""
+            platforms: 'linux/amd64'
+            tag-latest: 'false'
+            tag-suffix: '-gpu-rocm7-hipblas-fish-speech'
+            runs-on: 'arc-runner-set'
+            base-image: "ubuntu:24.04"
+            skip-drivers: 'false'
+            backend: "fish-speech"
+            dockerfile: "./backend/Dockerfile.python"
+            context: "./"
+            ubuntu-version: '2404'
+            rocm-version: '7'
+          - build-type: 'hipblas'
+            cuda-major-version: ""
+            cuda-minor-version: ""
+            platforms: 'linux/amd64'
+            tag-latest: 'false'
+            tag-suffix: '-gpu-rocm7-hipblas-voxcpm'
+            runs-on: 'arc-runner-set'
+            base-image: "ubuntu:24.04"
+            skip-drivers: 'false'
+            backend: "voxcpm"
+            dockerfile: "./backend/Dockerfile.python"
+            context: "./"
+            ubuntu-version: '2404'
+            rocm-version: '7'
+          - build-type: 'hipblas'
+            cuda-major-version: ""
+            cuda-minor-version: ""
+            platforms: 'linux/amd64'
+            tag-latest: 'false'
+            tag-suffix: '-gpu-rocm7-hipblas-pocket-tts'
+            runs-on: 'arc-runner-set'
+            base-image: "ubuntu:24.04"
+            skip-drivers: 'false'
+            backend: "pocket-tts"
+            dockerfile: "./backend/Dockerfile.python"
+            context: "./"
+            ubuntu-version: '2404'
+            rocm-version: '7'
+          - build-type: 'hipblas'
+            cuda-major-version: ""
+            cuda-minor-version: ""
+            platforms: 'linux/amd64'
+            tag-latest: 'false'
+            tag-suffix: '-gpu-rocm7-hipblas-faster-whisper'
+            runs-on: 'bigger-runner'
+            base-image: "ubuntu:24.04"
+            skip-drivers: 'false'
+            backend: "faster-whisper"
+            dockerfile: "./backend/Dockerfile.python"
+            context: "./"
+            ubuntu-version: '2404'
+            rocm-version: '7'
+          - build-type: 'hipblas'
+            cuda-major-version: ""
+            cuda-minor-version: ""
+            platforms: 'linux/amd64'
+            tag-latest: 'false'
+            tag-suffix: '-gpu-rocm7-hipblas-whisperx'
+            runs-on: 'bigger-runner'
+            base-image: "ubuntu:24.04"
+            skip-drivers: 'false'
+            backend: "whisperx"
+            dockerfile: "./backend/Dockerfile.python"
+            context: "./"
+            ubuntu-version: '2404'
+            rocm-version: '7'
+          - build-type: 'hipblas'
+            cuda-major-version: ""
+            cuda-minor-version: ""
+            platforms: 'linux/amd64'
+            tag-latest: 'false'
+            tag-suffix: '-gpu-rocm7-hipblas-coqui'
+            runs-on: 'bigger-runner'
+            base-image: "ubuntu:24.04"
+            skip-drivers: 'false'
+            backend: "coqui"
+            dockerfile: "./backend/Dockerfile.python"
+            context: "./"
+            ubuntu-version: '2404'
+            rocm-version: '7'
             # sycl builds
           - build-type: 'intel'
             cuda-major-version: ""

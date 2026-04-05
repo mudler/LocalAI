@@ -166,10 +166,16 @@ package_rocm_libs() {
         "/opt/rocm/hip/lib"
     )
 
-    # Find the actual ROCm versioned directory
-    for rocm_dir in /opt/rocm-*; do
+    # Find the actual ROCm versioned directory (supports both rocm-X.Y and core-X.Y layouts)
+    for rocm_dir in /opt/rocm-* /opt/rocm/core-*; do
         if [ -d "$rocm_dir/lib" ]; then
             rocm_lib_paths+=("$rocm_dir/lib")
+        fi
+        # ROCm 7.x bundles sysdeps (elf, drm, zstd, etc.) under core-X.Y/lib/rocm_sysdeps/lib/
+        # These are NOT in the standard lib path and are NOT reached via RPATH when a custom
+        # ld.so is used to execute the backend binary, so they must be bundled explicitly.
+        if [ -d "$rocm_dir/lib/rocm_sysdeps/lib" ]; then
+            rocm_lib_paths+=("$rocm_dir/lib/rocm_sysdeps/lib")
         fi
     done
 
@@ -177,6 +183,7 @@ package_rocm_libs() {
     local rocm_libs=(
         "libamdhip64.so*"
         "libhipblas.so*"
+        "libhipblaslt.so*"
         "librocblas.so*"
         "librocrand.so*"
         "librocsparse.so*"
@@ -186,8 +193,13 @@ package_rocm_libs() {
         "libroctx64.so*"
         "libhsa-runtime64.so*"
         "libamd_comgr.so*"
+        "libamd_comgr_loader.so*"
         "libhip_hcc.so*"
         "libhiprtc.so*"
+        "librocroller.so*"
+        "librocprofiler-register.so*"
+        # ROCm 7.x sysdeps — bundled libc replacements (elf, drm, zstd, lzma, bz2, etc.)
+        "librocm_sysdeps_*.so*"
     )
 
     for lib_path in "${rocm_lib_paths[@]}"; do
@@ -201,18 +213,23 @@ package_rocm_libs() {
     # Copy rocblas library data (tuning files, etc.)
     local old_nullglob=$(shopt -p nullglob)
     shopt -s nullglob
-    local rocm_dirs=(/opt/rocm /opt/rocm-*)
+    # ROCm 7.x installs to core-X.Y subdirectory; include both old and new layout
+    local rocm_dirs=(/opt/rocm /opt/rocm-* /opt/rocm/core-*)
     eval "$old_nullglob"
     for rocm_base in "${rocm_dirs[@]}"; do
         if [ -d "$rocm_base/lib/rocblas" ]; then
             mkdir -p "$TARGET_LIB_DIR/rocblas"
             cp -arfL "$rocm_base/lib/rocblas/"* "$TARGET_LIB_DIR/rocblas/" 2>/dev/null || true
         fi
+        if [ -d "$rocm_base/lib/hipblaslt" ]; then
+            mkdir -p "$TARGET_LIB_DIR/hipblaslt"
+            cp -arfL "$rocm_base/lib/hipblaslt/"* "$TARGET_LIB_DIR/hipblaslt/" 2>/dev/null || true
+        fi
     done
 
     # Copy libomp from LLVM (required for ROCm)
     shopt -s nullglob
-    local omp_libs=(/opt/rocm*/lib/llvm/lib/libomp.so*)
+    local omp_libs=(/opt/rocm*/lib/llvm/lib/libomp.so* /opt/rocm/core-*/lib/llvm/lib/libomp.so*)
     eval "$old_nullglob"
     for omp_path in "${omp_libs[@]}"; do
         if [ -e "$omp_path" ]; then
