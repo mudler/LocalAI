@@ -13,6 +13,7 @@
         disable: true
     known_usecases:
       - chat
+    mmproj: llama-cpp/mmproj/gemma-4-26B-A4B-it-APEX-GGUF/mmproj-F16.gguf
     options:
       - use_jinja:true
     parameters:
@@ -20,6 +21,9 @@
     template:
       use_tokenizer_template: true
   files:
+    - filename: llama-cpp/mmproj/gemma-4-26B-A4B-it-APEX-GGUF/mmproj-F16.gguf
+      sha256: cfc8dc4e41ab1d0c4846ed63ba4a62186846b04eb25fb38e1f2555ce2d00cb26
+      uri: https://huggingface.co/mudler/gemma-4-26B-A4B-it-APEX-GGUF/resolve/main/mmproj-F16.gguf
     - filename: llama-cpp/models/gemma-4-26B-A4B-it-APEX-GGUF/gemma-4-26B-A4B-APEX-Quality.gguf
       uri: https://huggingface.co/mudler/gemma-4-26B-A4B-it-APEX-GGUF/resolve/main/gemma-4-26B-A4B-APEX-Quality.gguf
       sha256: a6591d7b41978e6f465acd9d03e96286f70912402c695158fb267ccbfbb740ed
