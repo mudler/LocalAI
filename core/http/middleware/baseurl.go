@@ -11,8 +11,12 @@ import (
 // The returned URL is guaranteed to end with `/`.
 // The method should be used in conjunction with the StripPathPrefix middleware.
 func BaseURL(c echo.Context) string {
-	path := c.Path()
-	origPath := c.Request().URL.Path
+	// Use the current request path (after StripPathPrefix has stripped the prefix)
+	// NOT c.Path() which returns the route pattern (e.g., '/app/*')
+	currentPath := c.Request().URL.Path
+	
+	// Get the original path before stripping
+	origPath := currentPath
 
 	// Check if StripPathPrefix middleware stored the original path
 	if storedPath, ok := c.Get("_original_path").(string); ok && storedPath != "" {
@@ -33,15 +37,14 @@ func BaseURL(c echo.Context) string {
 		host = forwardedHost
 	}
 
-	if path != origPath && strings.HasSuffix(origPath, path) && len(path) > 0 {
-		prefixLen := len(origPath) - len(path)
-		if prefixLen > 0 && prefixLen <= len(origPath) {
-			pathPrefix := origPath[:prefixLen]
-			if !strings.HasSuffix(pathPrefix, "/") {
-				pathPrefix += "/"
-			}
-			return scheme + "://" + host + pathPrefix
+	// Calculate the prefix by comparing original path with current (stripped) path
+	// The prefix is what was stripped from the beginning of origPath to get currentPath
+	if origPath != currentPath && strings.HasSuffix(origPath, currentPath) && len(origPath) > len(currentPath) {
+		pathPrefix := origPath[:len(origPath)-len(currentPath)]
+		if !strings.HasSuffix(pathPrefix, "/") {
+			pathPrefix += "/"
 		}
+		return scheme + "://" + host + pathPrefix
 	}
 
 	return scheme + "://" + host + "/"
