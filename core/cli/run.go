@@ -56,6 +56,7 @@ type RunCMD struct {
 	ContextSize int  `env:"LOCALAI_CONTEXT_SIZE,CONTEXT_SIZE" help:"Default context size for models" group:"performance"`
 
 	Address                            string   `env:"LOCALAI_ADDRESS,ADDRESS" default:":8080" help:"Bind address for the API server" group:"api"`
+	IpAllowList                        string   `env:"LOCALAI_IP_ALLOWLIST,IP_ALLOWLIST" help:"A list of IP addresses or CIDR ranges to allow access" group:"api"`
 	CORS                               bool     `env:"LOCALAI_CORS,CORS" help:"" group:"api"`
 	CORSAllowOrigins                   string   `env:"LOCALAI_CORS_ALLOW_ORIGINS,CORS_ALLOW_ORIGINS" group:"api"`
 	DisableCSRF                        bool     `env:"LOCALAI_DISABLE_CSRF" help:"Disable CSRF middleware (enabled by default)" group:"api"`
@@ -219,6 +220,7 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 			os.Setenv("MLX_DISTRIBUTED_HOSTFILE", hostfile)
 			xlog.Debug("setting MLX_DISTRIBUTED_HOSTFILE", "value", hostfile, "tunnels", tunnels)
 		}),
+		config.WithIPAllowList(r.IpAllowList),
 	}
 
 	// Distributed mode
