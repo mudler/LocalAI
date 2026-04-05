@@ -90,6 +90,12 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
 
         self.device = device
         self._torch_device = torch.device(device)
+        
+        # Detect ROCm environment for flash_attention_2 compatibility
+        # ROCm environments can be detected by torch.version.hip or HIP_VISIBLE_DEVICES
+        self.is_rocm = hasattr(torch.version, "hip") or os.environ.get("HIP_VISIBLE_DEVICES")
+        if self.is_rocm:
+            print("Detected ROCm environment, flash_attention_2 may not be available", file=sys.stderr)
 
         options = request.Options
 
@@ -220,7 +226,8 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         elif self.device == "cuda":
             load_dtype = torch.bfloat16
             device_map = "cuda"
-            attn_impl_primary = "flash_attention_2"
+            # Use sdpa for ROCm environments, flash_attention_2 for CUDA
+            attn_impl_primary = "sdpa" if self.is_rocm else "flash_attention_2"
         else:  # cpu
             load_dtype = torch.float32
             device_map = "cpu"
