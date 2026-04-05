@@ -101,6 +101,25 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 	Expect(os.WriteFile(configPath, configYAML, 0644)).To(Succeed())
 
+	// Create model config for autoparser tests (NoGrammar so tool calls
+	// are driven entirely by the backend's ChatDeltas, not grammar enforcement)
+	autoparserConfig := map[string]any{
+		"name":    "mock-model-autoparser",
+		"backend": "mock-backend",
+		"parameters": map[string]any{
+			"model": "mock-model.bin",
+		},
+		"function": map[string]any{
+			"grammar": map[string]any{
+				"disable": true,
+			},
+		},
+	}
+	autoparserPath := filepath.Join(modelsPath, "mock-model-autoparser.yaml")
+	autoparserYAML, err := yaml.Marshal(autoparserConfig)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(os.WriteFile(autoparserPath, autoparserYAML, 0644)).To(Succeed())
+
 	// Start mock MCP server and create MCP-enabled model config
 	mcpServerURL, mcpServerShutdown = startMockMCPServer()
 	mcpConfig := mcpModelConfig(mcpServerURL)

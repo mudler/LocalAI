@@ -55,6 +55,46 @@ func (m *MockBackend) Predict(ctx context.Context, in *pb.PredictOptions) (*pb.R
 	if strings.Contains(in.Prompt, "MOCK_ERROR") {
 		return nil, fmt.Errorf("mock backend predict error: simulated failure")
 	}
+
+	// Simulate C++ autoparser: tool call via ChatDeltas, empty message
+	if strings.Contains(in.Prompt, "AUTOPARSER_TOOL_CALL") {
+		toolName := mockToolNameFromRequest(in)
+		if toolName == "" {
+			toolName = "search_collections"
+		}
+		return &pb.Reply{
+			Message:      []byte{},
+			Tokens:       10,
+			PromptTokens: 5,
+			ChatDeltas: []*pb.ChatDelta{
+				{ReasoningContent: "I need to search for information."},
+				{
+					ToolCalls: []*pb.ToolCallDelta{
+						{
+							Index:     0,
+							Id:        "call_mock_123",
+							Name:      toolName,
+							Arguments: `{"query":"localai"}`,
+						},
+					},
+				},
+			},
+		}, nil
+	}
+
+	// Simulate C++ autoparser: content via ChatDeltas, empty message
+	if strings.Contains(in.Prompt, "AUTOPARSER_CONTENT") {
+		return &pb.Reply{
+			Message:      []byte{},
+			Tokens:       10,
+			PromptTokens: 5,
+			ChatDeltas: []*pb.ChatDelta{
+				{ReasoningContent: "Let me compose a response."},
+				{Content: "LocalAI is an open-source AI platform."},
+			},
+		}, nil
+	}
+
 	var response string
 	toolName := mockToolNameFromRequest(in)
 	if toolName != "" && !promptHasToolResults(in.Prompt) {
@@ -88,6 +128,77 @@ func (m *MockBackend) PredictStream(in *pb.PredictOptions, stream pb.Backend_Pre
 		}
 		return fmt.Errorf("mock backend stream error: simulated mid-stream failure")
 	}
+
+	// Simulate C++ autoparser behavior: tool calls delivered via ChatDeltas
+	// with empty message (autoparser clears raw message during parsing).
+	if strings.Contains(in.Prompt, "AUTOPARSER_TOOL_CALL") {
+		toolName := mockToolNameFromRequest(in)
+		if toolName == "" {
+			toolName = "search_collections"
+		}
+		// Phase 1: Stream reasoning tokens with empty message (autoparser active)
+		reasoning := "I need to search for information."
+		for _, r := range reasoning {
+			if err := stream.Send(&pb.Reply{
+				Message: []byte{}, // autoparser clears raw message
+				ChatDeltas: []*pb.ChatDelta{
+					{ReasoningContent: string(r)},
+				},
+			}); err != nil {
+				return err
+			}
+		}
+		// Phase 2: Emit tool call via ChatDeltas (no raw message)
+		if err := stream.Send(&pb.Reply{
+			Message: []byte{}, // autoparser clears raw message
+			ChatDeltas: []*pb.ChatDelta{
+				{
+					ToolCalls: []*pb.ToolCallDelta{
+						{
+							Index:     0,
+							Id:        "call_mock_123",
+							Name:      toolName,
+							Arguments: `{"query":"localai"}`,
+						},
+					},
+				},
+			},
+		}); err != nil {
+			return err
+		}
+		return nil
+	}
+
+	// Simulate C++ autoparser behavior: content delivered via ChatDeltas
+	// with empty message (autoparser clears raw message during parsing).
+	if strings.Contains(in.Prompt, "AUTOPARSER_CONTENT") {
+		// Phase 1: Stream reasoning via ChatDeltas
+		reasoning := "Let me compose a response."
+		for _, r := range reasoning {
+			if err := stream.Send(&pb.Reply{
+				Message: []byte{},
+				ChatDeltas: []*pb.ChatDelta{
+					{ReasoningContent: string(r)},
+				},
+			}); err != nil {
+				return err
+			}
+		}
+		// Phase 2: Stream content via ChatDeltas (no raw message)
+		content := "LocalAI is an open-source AI platform."
+		for _, r := range content {
+			if err := stream.Send(&pb.Reply{
+				Message: []byte{},
+				ChatDeltas: []*pb.ChatDelta{
+					{Content: string(r)},
+				},
+			}); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+
 	var toStream string
 	toolName := mockToolNameFromRequest(in)
 	if toolName != "" && !promptHasToolResults(in.Prompt) {
