@@ -1006,7 +1006,12 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 						if deltaReasoning != "" {
 							message.Reasoning = &deltaReasoning
 						}
-						result = []schema.Choice{{FinishReason: &stopReason, Index: 0, Message: message}}
+						newChoice := schema.Choice{FinishReason: &stopReason, Index: 0, Message: message}
+						// Preserve logprobs from the original result
+						if len(result) > 0 && result[0].Logprobs != nil {
+							newChoice.Logprobs = result[0].Logprobs
+						}
+						result = []schema.Choice{newChoice}
 					}
 				}
 
