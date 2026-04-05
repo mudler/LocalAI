@@ -451,6 +451,15 @@ export default function Settings() {
               <SettingRow label="Collection DB Path" description="Database path for agent collections">
                 <input className="input" style={{ width: 280 }} value={settings.agent_pool_collection_db_path || ''} onChange={(e) => update('agent_pool_collection_db_path', e.target.value)} placeholder="Leave empty for default" />
               </SettingRow>
+              <SettingRow label="Vector Engine" description="Vector engine type for agent knowledge base">
+                <input className="input" style={{ width: 200 }} value={settings.agent_pool_vector_engine || ''} onChange={(e) => update('agent_pool_vector_engine', e.target.value)} placeholder="chromem" />
+              </SettingRow>
+              <SettingRow label="Database URL" description="Database URL for agent collections (e.g. postgres://...)">
+                <input className="input" style={{ width: 280 }} value={settings.agent_pool_database_url || ''} onChange={(e) => update('agent_pool_database_url', e.target.value)} placeholder="Leave empty for default" />
+              </SettingRow>
+              <SettingRow label="Agent Hub URL" description="URL for the agent hub">
+                <input className="input" style={{ width: 280 }} value={settings.agent_pool_agent_hub_url || ''} onChange={(e) => update('agent_pool_agent_hub_url', e.target.value)} placeholder="https://agenthub.localai.io" />
+              </SettingRow>
             </div>
           </div>
 

@@ -71,4 +71,7 @@ type RuntimeSettings struct {
 	AgentPoolChunkOverlap     *int    `json:"agent_pool_chunk_overlap,omitempty"`
 	AgentPoolEnableLogs       *bool   `json:"agent_pool_enable_logs,omitempty"`
 	AgentPoolCollectionDBPath *string `json:"agent_pool_collection_db_path,omitempty"`
+	AgentPoolVectorEngine     *string `json:"agent_pool_vector_engine,omitempty"`
+	AgentPoolDatabaseURL      *string `json:"agent_pool_database_url,omitempty"`
+	AgentPoolAgentHubURL      *string `json:"agent_pool_agent_hub_url,omitempty"`
 }

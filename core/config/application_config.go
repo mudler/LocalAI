@@ -898,6 +898,9 @@ func (o *ApplicationConfig) ToRuntimeSettings() RuntimeSettings {
 	agentPoolChunkOverlap := o.AgentPool.ChunkOverlap
 	agentPoolEnableLogs := o.AgentPool.EnableLogs
 	agentPoolCollectionDBPath := o.AgentPool.CollectionDBPath
+	agentPoolVectorEngine := o.AgentPool.VectorEngine
+	agentPoolDatabaseURL := o.AgentPool.DatabaseURL
+	agentPoolAgentHubURL := o.AgentPool.AgentHubURL
 
 	return RuntimeSettings{
 		WatchdogEnabled:           &watchdogEnabled,
@@ -940,6 +943,9 @@ func (o *ApplicationConfig) ToRuntimeSettings() RuntimeSettings {
 		AgentPoolChunkOverlap:     &agentPoolChunkOverlap,
 		AgentPoolEnableLogs:       &agentPoolEnableLogs,
 		AgentPoolCollectionDBPath: &agentPoolCollectionDBPath,
+		AgentPoolVectorEngine:     &agentPoolVectorEngine,
+		AgentPoolDatabaseURL:      &agentPoolDatabaseURL,
+		AgentPoolAgentHubURL:      &agentPoolAgentHubURL,
 	}
 }
 
@@ -1116,6 +1122,18 @@ func (o *ApplicationConfig) ApplyRuntimeSettings(settings *RuntimeSettings) (req
 	}
 	if settings.AgentPoolCollectionDBPath != nil {
 		o.AgentPool.CollectionDBPath = *settings.AgentPoolCollectionDBPath
+		requireRestart = true
+	}
+	if settings.AgentPoolVectorEngine != nil {
+		o.AgentPool.VectorEngine = *settings.AgentPoolVectorEngine
+		requireRestart = true
+	}
+	if settings.AgentPoolDatabaseURL != nil {
+		o.AgentPool.DatabaseURL = *settings.AgentPoolDatabaseURL
+		requireRestart = true
+	}
+	if settings.AgentPoolAgentHubURL != nil {
+		o.AgentPool.AgentHubURL = *settings.AgentPoolAgentHubURL
 		requireRestart = true
 	}
 
