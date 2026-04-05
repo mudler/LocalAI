@@ -197,6 +197,7 @@ func readRuntimeSettingsJson(startupAppConfig config.ApplicationConfig) fileHand
 		envWatchdogBusy := appConfig.WatchDogBusy == startupAppConfig.WatchDogBusy
 		envWatchdogIdleTimeout := appConfig.WatchDogIdleTimeout == startupAppConfig.WatchDogIdleTimeout
 		envWatchdogBusyTimeout := appConfig.WatchDogBusyTimeout == startupAppConfig.WatchDogBusyTimeout
+		envWatchdog := appConfig.WatchDog == startupAppConfig.WatchDog
 		envSingleBackend := appConfig.SingleBackend == startupAppConfig.SingleBackend
 		envMaxActiveBackends := appConfig.MaxActiveBackends == startupAppConfig.MaxActiveBackends
 		envMemoryReclaimerEnabled := appConfig.MemoryReclaimerEnabled == startupAppConfig.MemoryReclaimerEnabled
@@ -348,10 +349,12 @@ func readRuntimeSettingsJson(startupAppConfig config.ApplicationConfig) fileHand
 				appConfig.AgentJobRetentionDays = *settings.AgentJobRetentionDays
 			}
 
-			// If watchdog is enabled via file but not via env, ensure WatchDog flag is set
-			if !envWatchdogIdle && !envWatchdogBusy {
-				if settings.WatchdogEnabled != nil && *settings.WatchdogEnabled {
-					appConfig.WatchDog = true
+			if settings.WatchdogEnabled != nil && !envWatchdog {
+				appConfig.WatchDog = *settings.WatchdogEnabled
+				// If watchdog is being disabled, also disable the sub-features
+				if !appConfig.WatchDog {
+					appConfig.WatchDogIdle = false
+					appConfig.WatchDogBusy = false
 				}
 			}
 		}
