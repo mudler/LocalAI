@@ -2108,6 +2108,20 @@ jobs:
             dockerfile: "./backend/Dockerfile.golang"
             context: "./"
             ubuntu-version: '2404'
+          # avian
+          - build-type: ''
+            cuda-major-version: ""
+            cuda-minor-version: ""
+            platforms: 'linux/amd64,linux/arm64'
+            tag-latest: 'auto'
+            tag-suffix: '-avian'
+            runs-on: 'ubuntu-latest'
+            base-image: "ubuntu:24.04"
+            skip-drivers: 'false'
+            backend: "avian"
+            dockerfile: "./backend/Dockerfile.golang"
+            context: "./"
+            ubuntu-version: '2404'
           # rfdetr
           - build-type: ''
             cuda-major-version: ""
@@ -2423,6 +2437,10 @@ jobs:
             lang: "go"
           - backend: "local-store"
             tag-suffix: "-metal-darwin-arm64-local-store"
+            build-type: "metal"
+            lang: "go"
+          - backend: "avian"
+            tag-suffix: "-metal-darwin-arm64-avian"
             build-type: "metal"
             lang: "go"
           - backend: "llama-cpp-quantization"

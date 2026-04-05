@@ -1,5 +1,5 @@
 # Disable parallel execution for backend builds
-.NOTPARALLEL: backends/diffusers backends/llama-cpp backends/outetts backends/piper backends/stablediffusion-ggml backends/whisper backends/faster-whisper backends/silero-vad backends/local-store backends/huggingface backends/rfdetr backends/kitten-tts backends/kokoro backends/chatterbox backends/llama-cpp-darwin backends/neutts build-darwin-python-backend build-darwin-go-backend backends/mlx backends/diffuser-darwin backends/mlx-vlm backends/mlx-audio backends/mlx-distributed backends/stablediffusion-ggml-darwin backends/vllm backends/vllm-omni backends/moonshine backends/pocket-tts backends/qwen-tts backends/faster-qwen3-tts backends/qwen-asr backends/nemo backends/voxcpm backends/whisperx backends/ace-step backends/acestep-cpp backends/fish-speech backends/voxtral backends/opus backends/trl backends/llama-cpp-quantization
+.NOTPARALLEL: backends/diffusers backends/llama-cpp backends/outetts backends/piper backends/stablediffusion-ggml backends/whisper backends/faster-whisper backends/silero-vad backends/local-store backends/huggingface backends/avian backends/rfdetr backends/kitten-tts backends/kokoro backends/chatterbox backends/llama-cpp-darwin backends/neutts build-darwin-python-backend build-darwin-go-backend backends/mlx backends/diffuser-darwin backends/mlx-vlm backends/mlx-audio backends/mlx-distributed backends/stablediffusion-ggml-darwin backends/vllm backends/vllm-omni backends/moonshine backends/pocket-tts backends/qwen-tts backends/faster-qwen3-tts backends/qwen-asr backends/nemo backends/voxcpm backends/whisperx backends/ace-step backends/acestep-cpp backends/fish-speech backends/voxtral backends/opus backends/trl backends/llama-cpp-quantization
 
 GOCMD=go
 GOTEST=$(GOCMD) test
@@ -551,6 +551,7 @@ BACKEND_LLAMA_CPP = llama-cpp|llama-cpp|.|false|false
 BACKEND_PIPER = piper|golang|.|false|true
 BACKEND_LOCAL_STORE = local-store|golang|.|false|true
 BACKEND_HUGGINGFACE = huggingface|golang|.|false|true
+BACKEND_AVIAN = avian|golang|.|false|true
 BACKEND_SILERO_VAD = silero-vad|golang|.|false|true
 BACKEND_STABLEDIFFUSION_GGML = stablediffusion-ggml|golang|.|--progress=plain|true
 BACKEND_WHISPER = whisper|golang|.|false|true
@@ -612,6 +613,7 @@ $(eval $(call generate-docker-build-target,$(BACKEND_LLAMA_CPP)))
 $(eval $(call generate-docker-build-target,$(BACKEND_PIPER)))
 $(eval $(call generate-docker-build-target,$(BACKEND_LOCAL_STORE)))
 $(eval $(call generate-docker-build-target,$(BACKEND_HUGGINGFACE)))
+$(eval $(call generate-docker-build-target,$(BACKEND_AVIAN)))
 $(eval $(call generate-docker-build-target,$(BACKEND_SILERO_VAD)))
 $(eval $(call generate-docker-build-target,$(BACKEND_STABLEDIFFUSION_GGML)))
 $(eval $(call generate-docker-build-target,$(BACKEND_WHISPER)))
@@ -650,7 +652,7 @@ $(eval $(call generate-docker-build-target,$(BACKEND_LLAMA_CPP_QUANTIZATION)))
 docker-save-%: backend-images
 	docker save local-ai-backend:$* -o backend-images/$*.tar
 
-docker-build-backends: docker-build-llama-cpp docker-build-rerankers docker-build-vllm docker-build-vllm-omni docker-build-transformers docker-build-outetts docker-build-diffusers docker-build-kokoro docker-build-faster-whisper docker-build-coqui docker-build-chatterbox docker-build-vibevoice docker-build-moonshine docker-build-pocket-tts docker-build-qwen-tts docker-build-fish-speech docker-build-faster-qwen3-tts docker-build-qwen-asr docker-build-nemo docker-build-voxcpm docker-build-whisperx docker-build-ace-step docker-build-acestep-cpp docker-build-voxtral docker-build-mlx-distributed docker-build-trl docker-build-llama-cpp-quantization
+docker-build-backends: docker-build-llama-cpp docker-build-rerankers docker-build-vllm docker-build-vllm-omni docker-build-transformers docker-build-outetts docker-build-diffusers docker-build-kokoro docker-build-faster-whisper docker-build-coqui docker-build-chatterbox docker-build-vibevoice docker-build-moonshine docker-build-pocket-tts docker-build-qwen-tts docker-build-fish-speech docker-build-faster-qwen3-tts docker-build-qwen-asr docker-build-nemo docker-build-voxcpm docker-build-whisperx docker-build-ace-step docker-build-acestep-cpp docker-build-voxtral docker-build-mlx-distributed docker-build-trl docker-build-llama-cpp-quantization docker-build-avian
 
 ########################################################
 ### Mock Backend for E2E Tests
