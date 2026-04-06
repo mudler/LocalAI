@@ -516,8 +516,8 @@ github.com/jackc/puddle/v2 v2.2.2 h1:PR8nw+E/1w0GLuRFSmiioY6UooMp6KJv0/61nB7icHo
 github.com/jackc/puddle/v2 v2.2.2/go.mod h1:vriiEXHvEE654aYKXXjOvZM39qJ0q+azkZFrfEOc3H4=
 github.com/jackpal/go-nat-pmp v1.0.2 h1:KzKSgb7qkJvOUTqYl9/Hg/me3pWgBmERKrTGD7BdWus=
 github.com/jackpal/go-nat-pmp v1.0.2/go.mod h1:QPH045xvCAeXUZOxsnwmrtiCoxIr9eob+4orBN1SBKc=
-github.com/jaypipes/ghw v0.23.0 h1:WOL4hpLcIu1kIm+z5Oz19Tk1HNw/Sncrx/6GS8O0Kl0=
-github.com/jaypipes/ghw v0.23.0/go.mod h1:fUNUjMZ0cjahKo+/u+32m9FutIx53Nkbi0Ti0m7j5HY=
+github.com/jaypipes/ghw v0.24.0 h1:6RBrJzvHvZ0t+hSvqPmOd5b21C4fMsyiyFzWljEj8Wg=
+github.com/jaypipes/ghw v0.24.0/go.mod h1:Qk3UjdH8Xu/OiVyb/eDJqnDsUc+awHU75y23ErZU33s=
 github.com/jaypipes/pcidb v1.1.1 h1:QmPhpsbmmnCwZmHeYAATxEaoRuiMAJusKYkUncMC0ro=
 github.com/jaypipes/pcidb v1.1.1/go.mod h1:x27LT2krrUgjf875KxQXKB0Ha/YXLdZRVmw6hH0G7g8=
 github.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99 h1:BQSFePA1RWJOlocH6Fxy8MmwDt+yVQYULKfN0RoTN8A=
