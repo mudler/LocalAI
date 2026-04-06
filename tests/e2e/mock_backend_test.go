@@ -2,6 +2,7 @@ package e2e_test
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"net/http"
 	"strings"
@@ -263,6 +264,203 @@ var _ = Describe("Mock Backend E2E Tests", Label("MockBackend"), func() {
 				defer resp.Body.Close()
 				Expect(resp.StatusCode).To(BeNumerically("<", 500))
 			}
+		})
+	})
+
+	Describe("Autoparser ChatDelta Streaming", Label("Autoparser"), func() {
+		// These tests verify that when the C++ autoparser handles tool calls
+		// and content via ChatDeltas (with empty raw message), the streaming
+		// endpoint does NOT unnecessarily retry. This is a regression test for
+		// the bug where the retry logic only checked Go-side parsing, ignoring
+		// ChatDelta results, causing up to 6 retries and concatenated output.
+
+		Context("Streaming with tools and ChatDelta tool calls", func() {
+			It("should return tool calls without unnecessary retries", func() {
+				body := `{
+					"model": "mock-model-autoparser",
+					"messages": [{"role": "user", "content": "AUTOPARSER_TOOL_CALL"}],
+					"tools": [{"type": "function", "function": {"name": "search_collections", "description": "Search documents", "parameters": {"type": "object", "properties": {"query": {"type": "string"}}, "required": ["query"]}}}],
+					"stream": true
+				}`
+				req, err := http.NewRequest("POST", apiURL+"/chat/completions", strings.NewReader(body))
+				Expect(err).ToNot(HaveOccurred())
+				req.Header.Set("Content-Type", "application/json")
+
+				httpClient := &http.Client{Timeout: 60 * time.Second}
+				resp, err := httpClient.Do(req)
+				Expect(err).ToNot(HaveOccurred())
+				defer resp.Body.Close()
+				Expect(resp.StatusCode).To(Equal(200))
+
+				data, err := io.ReadAll(resp.Body)
+				Expect(err).ToNot(HaveOccurred())
+				bodyStr := string(data)
+
+				// Parse all SSE events
+				lines := strings.Split(bodyStr, "\n")
+				var toolCallChunks int
+				var reasoningChunks int
+				hasFinishReason := false
+
+				for _, line := range lines {
+					line = strings.TrimSpace(line)
+					if !strings.HasPrefix(line, "data: ") || line == "data: [DONE]" {
+						continue
+					}
+					jsonData := strings.TrimPrefix(line, "data: ")
+					var chunk map[string]any
+					if err := json.Unmarshal([]byte(jsonData), &chunk); err != nil {
+						continue
+					}
+					choices, ok := chunk["choices"].([]any)
+					if !ok || len(choices) == 0 {
+						continue
+					}
+					choice := choices[0].(map[string]any)
+					delta, _ := choice["delta"].(map[string]any)
+					if delta == nil {
+						continue
+					}
+					if _, ok := delta["tool_calls"]; ok {
+						toolCallChunks++
+					}
+					if _, ok := delta["reasoning"]; ok {
+						reasoningChunks++
+					}
+					if fr, ok := choice["finish_reason"].(string); ok && fr != "" {
+						hasFinishReason = true
+					}
+				}
+
+				// The key assertion: tool calls from ChatDeltas should be present
+				Expect(toolCallChunks).To(BeNumerically(">", 0),
+					"Expected tool_calls in streaming response from ChatDeltas, but got none. "+
+						"This likely means the retry logic discarded ChatDelta tool calls.")
+
+				// Should have a finish reason
+				Expect(hasFinishReason).To(BeTrue(), "Expected a finish_reason in the streaming response")
+
+				// Reasoning should be present (from ChatDelta reasoning)
+				Expect(reasoningChunks).To(BeNumerically(">", 0),
+					"Expected reasoning deltas from ChatDeltas")
+			})
+		})
+
+		Context("Streaming with tools and ChatDelta content (no tool calls)", func() {
+			It("should return content without retrying and without concatenation", func() {
+				body := `{
+					"model": "mock-model-autoparser",
+					"messages": [{"role": "user", "content": "AUTOPARSER_CONTENT"}],
+					"tools": [{"type": "function", "function": {"name": "search_collections", "description": "Search documents", "parameters": {"type": "object", "properties": {"query": {"type": "string"}}, "required": ["query"]}}}],
+					"stream": true
+				}`
+				req, err := http.NewRequest("POST", apiURL+"/chat/completions", strings.NewReader(body))
+				Expect(err).ToNot(HaveOccurred())
+				req.Header.Set("Content-Type", "application/json")
+
+				httpClient := &http.Client{Timeout: 60 * time.Second}
+				resp, err := httpClient.Do(req)
+				Expect(err).ToNot(HaveOccurred())
+				defer resp.Body.Close()
+				Expect(resp.StatusCode).To(Equal(200))
+
+				data, err := io.ReadAll(resp.Body)
+				Expect(err).ToNot(HaveOccurred())
+				bodyStr := string(data)
+
+				// Parse all SSE events and collect content
+				lines := strings.Split(bodyStr, "\n")
+				var contentParts []string
+				var reasoningParts []string
+
+				for _, line := range lines {
+					line = strings.TrimSpace(line)
+					if !strings.HasPrefix(line, "data: ") || line == "data: [DONE]" {
+						continue
+					}
+					jsonData := strings.TrimPrefix(line, "data: ")
+					var chunk map[string]any
+					if err := json.Unmarshal([]byte(jsonData), &chunk); err != nil {
+						continue
+					}
+					choices, ok := chunk["choices"].([]any)
+					if !ok || len(choices) == 0 {
+						continue
+					}
+					choice := choices[0].(map[string]any)
+					delta, _ := choice["delta"].(map[string]any)
+					if delta == nil {
+						continue
+					}
+					if content, ok := delta["content"].(string); ok && content != "" {
+						contentParts = append(contentParts, content)
+					}
+					if reasoning, ok := delta["reasoning"].(string); ok && reasoning != "" {
+						reasoningParts = append(reasoningParts, reasoning)
+					}
+				}
+
+				fullContent := strings.Join(contentParts, "")
+				fullReasoning := strings.Join(reasoningParts, "")
+
+				// Content should be present and match the expected answer
+				Expect(fullContent).To(ContainSubstring("LocalAI"),
+					"Expected content from ChatDeltas to contain 'LocalAI'. "+
+						"The retry logic may have discarded ChatDelta content.")
+
+				// Content should NOT be duplicated (no retry concatenation)
+				occurrences := strings.Count(fullContent, "LocalAI is an open-source AI platform.")
+				Expect(occurrences).To(Equal(1),
+					"Expected content to appear exactly once, but found %d occurrences. "+
+						"This indicates unnecessary retries are concatenating output.", occurrences)
+
+				// Reasoning should be present
+				Expect(fullReasoning).To(ContainSubstring("compose"),
+					"Expected reasoning content from ChatDeltas")
+			})
+		})
+
+		Context("Non-streaming with tools and ChatDelta tool calls", func() {
+			It("should return tool calls from ChatDeltas", func() {
+				body := `{
+					"model": "mock-model-autoparser",
+					"messages": [{"role": "user", "content": "AUTOPARSER_TOOL_CALL"}],
+					"tools": [{"type": "function", "function": {"name": "search_collections", "description": "Search documents", "parameters": {"type": "object", "properties": {"query": {"type": "string"}}, "required": ["query"]}}}]
+				}`
+				req, err := http.NewRequest("POST", apiURL+"/chat/completions", strings.NewReader(body))
+				Expect(err).ToNot(HaveOccurred())
+				req.Header.Set("Content-Type", "application/json")
+
+				httpClient := &http.Client{Timeout: 60 * time.Second}
+				resp, err := httpClient.Do(req)
+				Expect(err).ToNot(HaveOccurred())
+				defer resp.Body.Close()
+				Expect(resp.StatusCode).To(Equal(200))
+
+				data, err := io.ReadAll(resp.Body)
+				Expect(err).ToNot(HaveOccurred())
+
+				var result map[string]any
+				Expect(json.Unmarshal(data, &result)).To(Succeed())
+
+				choices, ok := result["choices"].([]any)
+				Expect(ok).To(BeTrue())
+				Expect(choices).To(HaveLen(1))
+
+				choice := choices[0].(map[string]any)
+				msg, _ := choice["message"].(map[string]any)
+				Expect(msg).ToNot(BeNil())
+
+				toolCalls, ok := msg["tool_calls"].([]any)
+				Expect(ok).To(BeTrue(),
+					"Expected tool_calls in non-streaming response from ChatDeltas, "+
+						"but got: %s", string(data))
+				Expect(toolCalls).To(HaveLen(1))
+
+				tc := toolCalls[0].(map[string]any)
+				fn, _ := tc["function"].(map[string]any)
+				Expect(fn["name"]).To(Equal("search_collections"))
+			})
 		})
 	})
 })

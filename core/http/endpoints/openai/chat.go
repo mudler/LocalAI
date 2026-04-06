@@ -147,9 +147,22 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 		result := ""
 		lastEmittedCount := 0
 		sentInitialRole := false
+		hasChatDeltaToolCalls := false
+		hasChatDeltaContent := false
 
 		_, tokenUsage, chatDeltas, err := ComputeChoices(req, prompt, config, cl, startupOptions, loader, func(s string, c *[]schema.Choice) {}, func(s string, usage backend.TokenUsage) bool {
 			result += s
+
+			// Track whether ChatDeltas from the C++ autoparser contain
+			// tool calls or content, so the retry decision can account for them.
+			for _, d := range usage.ChatDeltas {
+				if len(d.ToolCalls) > 0 {
+					hasChatDeltaToolCalls = true
+				}
+				if d.Content != "" {
+					hasChatDeltaContent = true
+				}
+			}
 
 			var reasoningDelta, contentDelta string
 
@@ -309,15 +322,22 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 				// After streaming completes: check if we got actionable content
 				cleaned := extractor.CleanedContent()
 				// Check for tool calls from chat deltas (will be re-checked after ComputeChoices,
-				// but we need to know here whether to retry)
-				hasToolCalls := lastEmittedCount > 0
-				if cleaned == "" && !hasToolCalls {
+				// but we need to know here whether to retry).
+				// Also check ChatDelta flags — when the C++ autoparser is active,
+				// tool calls and content are delivered via ChatDeltas while the
+				// raw message is cleared. Without this check, we'd retry
+				// unnecessarily, losing valid results and concatenating output.
+				hasToolCalls := lastEmittedCount > 0 || hasChatDeltaToolCalls
+				hasContent := cleaned != "" || hasChatDeltaContent
+				if !hasContent && !hasToolCalls {
 					xlog.Warn("Streaming: backend produced only reasoning, retrying",
 						"reasoning_len", len(extractor.Reasoning()), "attempt", attempt+1)
 					extractor.ResetAndSuppressReasoning()
 					result = ""
 					lastEmittedCount = 0
 					sentInitialRole = false
+					hasChatDeltaToolCalls = false
+					hasChatDeltaContent = false
 					return true
 				}
 				return false
