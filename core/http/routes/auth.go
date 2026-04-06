@@ -157,11 +157,11 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 		}
 
 		resp := map[string]any{
-			"authEnabled":            authEnabled,
-			"staticApiKeyRequired":   !authEnabled && len(appConfig.ApiKeys) > 0,
-			"providers":              providers,
-			"hasUsers":               hasUsers,
-			"registrationMode":       registrationMode,
+			"authEnabled":          authEnabled,
+			"staticApiKeyRequired": !authEnabled && len(appConfig.ApiKeys) > 0,
+			"providers":            providers,
+			"hasUsers":             hasUsers,
+			"registrationMode":     registrationMode,
 		}
 
 		// Include current user if authenticated
@@ -186,7 +186,73 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 		return c.JSON(http.StatusOK, resp)
 	})
 
-	// OAuth routes - only registered when auth is enabled
+	// Rate limiter for auth endpoints: 5 attempts per minute per IP
+	authRL := newRateLimiter(1*time.Minute, 5)
+	authRateLimitMw := rateLimitMiddleware(authRL)
+
+	// Start background goroutine to periodically prune stale IP entries
+	go func() {
+		ticker := time.NewTicker(10 * time.Minute)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-appConfig.Context.Done():
+				return
+			case <-ticker.C:
+				authRL.cleanup()
+			}
+		}
+	}()
+
+	// POST /api/auth/token-login - authenticate with API key/token.
+	// Registered when auth DB or legacy API keys are configured.
+	if db != nil || len(appConfig.ApiKeys) > 0 {
+		e.POST("/api/auth/token-login", func(c echo.Context) error {
+			var body struct {
+				Token string `json:"token"`
+			}
+			if err := c.Bind(&body); err != nil || strings.TrimSpace(body.Token) == "" {
+				return c.JSON(http.StatusBadRequest, map[string]string{"error": "token is required"})
+			}
+
+			token := strings.TrimSpace(body.Token)
+
+			// Try as user API key (only when auth DB is available)
+			if db != nil {
+				if apiKey, err := auth.ValidateAPIKey(db, token, appConfig.Auth.APIKeyHMACSecret); err == nil {
+					sessionID, err := auth.CreateSession(db, apiKey.User.ID, appConfig.Auth.APIKeyHMACSecret)
+					if err != nil {
+						return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to create session"})
+					}
+					auth.SetSessionCookie(c, sessionID)
+					return c.JSON(http.StatusOK, map[string]any{
+						"user": map[string]any{
+							"id":    apiKey.User.ID,
+							"email": apiKey.User.Email,
+							"name":  apiKey.User.Name,
+							"role":  apiKey.User.Role,
+						},
+					})
+				}
+			}
+
+			// Try as legacy API key
+			if len(appConfig.ApiKeys) > 0 && isValidLegacyKey(token, appConfig) {
+				auth.SetTokenCookie(c, token)
+				return c.JSON(http.StatusOK, map[string]any{
+					"user": map[string]any{
+						"id":   "legacy-api-key",
+						"name": "API Key User",
+						"role": auth.RoleAdmin,
+					},
+				})
+			}
+
+			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "invalid token"})
+		}, authRateLimitMw)
+	}
+
+	// Remaining routes require auth DB
 	if db == nil {
 		return
 	}
@@ -218,24 +284,6 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 			}
 		}
 	}
-
-	// Rate limiter for auth endpoints: 5 attempts per minute per IP
-	authRL := newRateLimiter(1*time.Minute, 5)
-	authRateLimitMw := rateLimitMiddleware(authRL)
-
-	// Start background goroutine to periodically prune stale IP entries (#12)
-	go func() {
-		ticker := time.NewTicker(10 * time.Minute)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-appConfig.Context.Done():
-				return
-			case <-ticker.C:
-				authRL.cleanup()
-			}
-		}
-	}()
 
 	// POST /api/auth/register - public, email/password registration
 	e.POST("/api/auth/register", func(c echo.Context) error {
@@ -425,53 +473,6 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 				"role":  user.Role,
 			},
 		})
-	}, authRateLimitMw)
-
-	// POST /api/auth/token-login - public, authenticate with API key/token (#3)
-	e.POST("/api/auth/token-login", func(c echo.Context) error {
-		var body struct {
-			Token string `json:"token"`
-		}
-		if err := c.Bind(&body); err != nil || strings.TrimSpace(body.Token) == "" {
-			return c.JSON(http.StatusBadRequest, map[string]string{"error": "token is required"})
-		}
-
-		token := strings.TrimSpace(body.Token)
-		hmacSecret := appConfig.Auth.APIKeyHMACSecret
-
-		// Try as user API key
-		if apiKey, err := auth.ValidateAPIKey(db, token, hmacSecret); err == nil {
-			sessionID, err := auth.CreateSession(db, apiKey.User.ID, appConfig.Auth.APIKeyHMACSecret)
-			if err != nil {
-				return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to create session"})
-			}
-			auth.SetSessionCookie(c, sessionID)
-
-			return c.JSON(http.StatusOK, map[string]any{
-				"user": map[string]any{
-					"id":    apiKey.User.ID,
-					"email": apiKey.User.Email,
-					"name":  apiKey.User.Name,
-					"role":  apiKey.User.Role,
-				},
-			})
-		}
-
-		// Try as legacy API key
-		if len(appConfig.ApiKeys) > 0 && isValidLegacyKey(token, appConfig) {
-			// Create a synthetic session cookie with the token for legacy mode
-			auth.SetTokenCookie(c, token)
-
-			return c.JSON(http.StatusOK, map[string]any{
-				"user": map[string]any{
-					"id":   "legacy-api-key",
-					"name": "API Key User",
-					"role": auth.RoleAdmin,
-				},
-			})
-		}
-
-		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "invalid token"})
 	}, authRateLimitMw)
 
 	// POST /api/auth/logout - requires auth
