@@ -3,6 +3,8 @@ package anthropic
 import (
 	"encoding/json"
 	"fmt"
+	"sync"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
@@ -366,7 +368,33 @@ func handleAnthropicStream(c echo.Context, id string, input *schema.AnthropicReq
 		// Collect tool calls for MCP execution
 		var collectedToolCalls []functions.FuncCallResults
 
+		// SSE keepalive: send comment pings every 3s until the first token arrives.
+		// This prevents clients (e.g. Claude Code) from timing out while the model loads or processes the prompt.
+		firstTokenReceived := make(chan struct{})
+		keepaliveDone := make(chan struct{})
+		go func() {
+			defer close(keepaliveDone)
+			ticker := time.NewTicker(3 * time.Second)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-firstTokenReceived:
+					return
+				case <-c.Request().Context().Done():
+					return
+				case <-ticker.C:
+					fmt.Fprintf(c.Response().Writer, "event: ping\ndata: {\"type\": \"ping\"}\n\n")
+					c.Response().Flush()
+				}
+			}
+		}()
+		firstTokenOnce := sync.Once{}
+
 		tokenCallback := func(token string, usage backend.TokenUsage) bool {
+			firstTokenOnce.Do(func() {
+				close(firstTokenReceived)
+				<-keepaliveDone // wait for keepalive goroutine to exit before writing
+			})
 			accumulatedContent += token
 
 			if shouldUseFn {
@@ -414,7 +442,7 @@ func handleAnthropicStream(c echo.Context, id string, input *schema.AnthropicReq
 				}
 			}
 
-			if !inToolCall {
+			if !inToolCall && token != "" {
 				sendAnthropicSSE(c, schema.AnthropicStreamEvent{
 					Type:  "content_block_delta",
 					Index: intPtr(0),
@@ -433,6 +461,11 @@ func handleAnthropicStream(c echo.Context, id string, input *schema.AnthropicReq
 		openAIReq.Metadata = input.Metadata
 
 		_, tokenUsage, chatDeltas, err := openaiEndpoint.ComputeChoices(openAIReq, predInput, cfg, cl, appConfig, ml, func(s string, c *[]schema.Choice) {}, tokenCallback)
+
+		// Stop the keepalive goroutine now that inference is done
+		firstTokenOnce.Do(func() { close(firstTokenReceived) })
+		<-keepaliveDone
+
 		if err != nil {
 			xlog.Error("Anthropic stream model inference failed", "error", err)
 			sendAnthropicSSE(c, schema.AnthropicStreamEvent{
@@ -445,9 +478,68 @@ func handleAnthropicStream(c echo.Context, id string, input *schema.AnthropicReq
 			return nil
 		}
 
-		// Also check chat deltas for tool calls
-		if deltaToolCalls := functions.ToolCallsFromChatDeltas(chatDeltas); len(deltaToolCalls) > 0 && len(collectedToolCalls) == 0 {
-			collectedToolCalls = deltaToolCalls
+		// Check chat deltas from C++ autoparser — when active, the raw
+		// message is cleared and content/tool calls arrive via ChatDeltas.
+		if len(chatDeltas) > 0 {
+			deltaContent := functions.ContentFromChatDeltas(chatDeltas)
+			deltaToolCalls := functions.ToolCallsFromChatDeltas(chatDeltas)
+
+			// Emit text content from ChatDeltas only when the tokenCallback
+			// didn't already stream it (autoparser clears raw text, so
+			// accumulatedContent will be empty in that case).
+			if deltaContent != "" && !inToolCall && accumulatedContent == "" {
+				sendAnthropicSSE(c, schema.AnthropicStreamEvent{
+					Type:  "content_block_delta",
+					Index: intPtr(0),
+					Delta: &schema.AnthropicStreamDelta{
+						Type: "text_delta",
+						Text: deltaContent,
+					},
+				})
+			}
+
+			// Emit tool_use blocks from ChatDeltas
+			if len(deltaToolCalls) > 0 && len(collectedToolCalls) == 0 {
+				collectedToolCalls = deltaToolCalls
+
+				if !inToolCall && currentBlockIndex == 0 {
+					sendAnthropicSSE(c, schema.AnthropicStreamEvent{
+						Type:  "content_block_stop",
+						Index: intPtr(currentBlockIndex),
+					})
+					currentBlockIndex++
+					inToolCall = true
+				}
+				for i, tc := range deltaToolCalls {
+					toolCallID := tc.ID
+					if toolCallID == "" {
+						toolCallID = fmt.Sprintf("toolu_%s_%d", id, i)
+					}
+					sendAnthropicSSE(c, schema.AnthropicStreamEvent{
+						Type:  "content_block_start",
+						Index: intPtr(currentBlockIndex),
+						ContentBlock: &schema.AnthropicContentBlock{
+							Type: "tool_use",
+							ID:   toolCallID,
+							Name: tc.Name,
+						},
+					})
+					sendAnthropicSSE(c, schema.AnthropicStreamEvent{
+						Type:  "content_block_delta",
+						Index: intPtr(currentBlockIndex),
+						Delta: &schema.AnthropicStreamDelta{
+							Type:        "input_json_delta",
+							PartialJSON: tc.Arguments,
+						},
+					})
+					sendAnthropicSSE(c, schema.AnthropicStreamEvent{
+						Type:  "content_block_stop",
+						Index: intPtr(currentBlockIndex),
+					})
+					currentBlockIndex++
+					toolCallsEmitted++
+				}
+			}
 		}
 
 		// MCP streaming tool execution: if we collected MCP tool calls, execute and loop

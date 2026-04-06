@@ -383,5 +383,144 @@ var _ = Describe("Anthropic API E2E test", func() {
 				Expect(string(message.StopReason)).To(Equal("tool_use"))
 			})
 		})
+
+		Context("ChatDeltas (C++ autoparser)", func() {
+			It("streams tool calls via ChatDeltas", func() {
+				stream := client.Messages.NewStreaming(context.TODO(), anthropic.MessageNewParams{
+					Model:     "mock-model-autoparser",
+					MaxTokens: 1024,
+					Messages: []anthropic.MessageParam{
+						anthropic.NewUserMessage(anthropic.NewTextBlock("AUTOPARSER_TOOL_CALL What's the weather like in San Francisco?")),
+					},
+					Tools: []anthropic.ToolUnionParam{
+						anthropic.ToolUnionParam{
+							OfTool: &anthropic.ToolParam{
+								Name:        "get_weather",
+								Description: anthropic.Opt("Get the current weather in a given location"),
+								InputSchema: anthropic.ToolInputSchemaParam{
+									Type: constant.ValueOf[constant.Object](),
+									Properties: map[string]any{
+										"location": map[string]any{
+											"type":        "string",
+											"description": "The city and state",
+										},
+									},
+									Required: []string{"location"},
+								},
+							},
+						},
+					},
+				})
+
+				message := anthropic.Message{}
+				hasToolUseStart := false
+
+				for stream.Next() {
+					event := stream.Current()
+					err := message.Accumulate(event)
+					Expect(err).ToNot(HaveOccurred())
+
+					if e, ok := event.AsAny().(anthropic.ContentBlockStartEvent); ok {
+						if e.ContentBlock.Type == "tool_use" {
+							hasToolUseStart = true
+						}
+					}
+				}
+
+				Expect(stream.Err()).ToNot(HaveOccurred())
+				Expect(hasToolUseStart).To(BeTrue(), "Should have tool_use content_block_start event from ChatDeltas")
+				Expect(string(message.StopReason)).To(Equal("tool_use"))
+
+				// Verify tool call is present in accumulated message
+				foundToolUse := false
+				for _, block := range message.Content {
+					if block.Type == "tool_use" {
+						foundToolUse = true
+						Expect(block.ID).ToNot(BeEmpty())
+					}
+				}
+				Expect(foundToolUse).To(BeTrue(), "Accumulated message should contain tool_use block from ChatDeltas")
+			})
+
+			It("streams content via ChatDeltas without duplication", func() {
+				stream := client.Messages.NewStreaming(context.TODO(), anthropic.MessageNewParams{
+					Model:     "mock-model-autoparser",
+					MaxTokens: 1024,
+					Messages: []anthropic.MessageParam{
+						anthropic.NewUserMessage(anthropic.NewTextBlock("AUTOPARSER_CONTENT Tell me about LocalAI")),
+					},
+				})
+
+				message := anthropic.Message{}
+				var textDeltas []string
+
+				for stream.Next() {
+					event := stream.Current()
+					err := message.Accumulate(event)
+					Expect(err).ToNot(HaveOccurred())
+
+					if e, ok := event.AsAny().(anthropic.ContentBlockDeltaEvent); ok {
+						if e.Delta.Type == "text_delta" && e.Delta.Text != "" {
+							textDeltas = append(textDeltas, e.Delta.Text)
+						}
+					}
+				}
+
+				Expect(stream.Err()).ToNot(HaveOccurred())
+				Expect(message.Content).ToNot(BeEmpty())
+				Expect(string(message.StopReason)).To(Equal("end_turn"))
+
+				// Content should appear exactly once (no duplication)
+				fullText := ""
+				for _, block := range message.Content {
+					if block.Type == "text" {
+						fullText += block.Text
+					}
+				}
+				Expect(fullText).To(ContainSubstring("LocalAI"))
+				// Check that the content is not duplicated by counting occurrences
+				Expect(len(fullText)).To(BeNumerically("<", 200), "Content should not be duplicated")
+			})
+
+			It("handles tool calls via ChatDeltas in non-streaming mode", func() {
+				message, err := client.Messages.New(context.TODO(), anthropic.MessageNewParams{
+					Model:     "mock-model-autoparser",
+					MaxTokens: 1024,
+					Messages: []anthropic.MessageParam{
+						anthropic.NewUserMessage(anthropic.NewTextBlock("AUTOPARSER_TOOL_CALL What's the weather like in San Francisco?")),
+					},
+					Tools: []anthropic.ToolUnionParam{
+						anthropic.ToolUnionParam{
+							OfTool: &anthropic.ToolParam{
+								Name:        "get_weather",
+								Description: anthropic.Opt("Get the current weather"),
+								InputSchema: anthropic.ToolInputSchemaParam{
+									Type: constant.ValueOf[constant.Object](),
+									Properties: map[string]any{
+										"location": map[string]any{
+											"type": "string",
+										},
+									},
+									Required: []string{"location"},
+								},
+							},
+						},
+					},
+				})
+
+				Expect(err).ToNot(HaveOccurred())
+				Expect(message.Content).ToNot(BeEmpty())
+				Expect(string(message.StopReason)).To(Equal("tool_use"))
+
+				foundToolUse := false
+				for _, block := range message.Content {
+					if block.Type == "tool_use" {
+						foundToolUse = true
+						Expect(block.ID).ToNot(BeEmpty())
+					}
+				}
+				Expect(foundToolUse).To(BeTrue(), "Should have tool_use block from ChatDeltas")
+			})
+		})
 	})
 })
