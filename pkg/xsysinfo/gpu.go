@@ -19,6 +19,7 @@ const (
 	VendorNVIDIA  = "nvidia"
 	VendorAMD     = "amd"
 	VendorIntel   = "intel"
+	VendorApple   = "apple"
 	VendorVulkan  = "vulkan"
 	VendorUnknown = "unknown"
 )
@@ -29,7 +30,8 @@ const (
 var UnifiedMemoryDevices = []string{
 	"NVIDIA GB10",
 	"GB10",
-	// Add more unified memory devices here as needed
+	"NVIDIA Thor",
+	"Thor",
 }
 
 // GPUMemoryInfo contains real-time GPU memory usage information
@@ -196,6 +198,12 @@ func DetectGPUVendor() (string, error) {
 		return VendorVulkan, nil
 	}
 
+	// Check for Apple Silicon (macOS)
+	if appleGPUs := getAppleGPUMemory(); len(appleGPUs) > 0 {
+		xlog.Debug("GPU vendor detected via system_profiler", "vendor", VendorApple)
+		return VendorApple, nil
+	}
+
 	// No vendor detected
 	return "", nil
 }
@@ -256,6 +264,12 @@ func GetGPUMemoryUsage() []GPUMemoryInfo {
 	if len(gpus) == 0 {
 		vulkanGPUs := getVulkanGPUMemory()
 		gpus = append(gpus, vulkanGPUs...)
+	}
+
+	// Try Apple Silicon (macOS only)
+	if len(gpus) == 0 {
+		appleGPUs := getAppleGPUMemory()
+		gpus = append(gpus, appleGPUs...)
 	}
 
 	return gpus
@@ -351,18 +365,44 @@ func getNVIDIAGPUMemory() []GPUMemoryInfo {
 				usagePercent = float64(usedBytes) / float64(totalBytes) * 100
 			}
 		} else if isNA {
-			// Unknown device with N/A values - skip memory info
-			xlog.Debug("nvidia-smi returned N/A for unknown device", "device", name)
-			gpus = append(gpus, GPUMemoryInfo{
-				Index:        idx,
-				Name:         name,
-				Vendor:       VendorNVIDIA,
-				TotalVRAM:    0,
-				UsedVRAM:     0,
-				FreeVRAM:     0,
-				UsagePercent: 0,
-			})
-			continue
+			// Check if this is a Tegra/Jetson device — if so, it uses unified memory
+			if isTegraDevice() {
+				xlog.Debug("nvidia-smi returned N/A on Tegra device, using system RAM", "device", name)
+				sysInfo, err := GetSystemRAMInfo()
+				if err != nil {
+					xlog.Debug("failed to get system RAM for Tegra device", "error", err, "device", name)
+					gpus = append(gpus, GPUMemoryInfo{
+						Index:        idx,
+						Name:         name,
+						Vendor:       VendorNVIDIA,
+						TotalVRAM:    0,
+						UsedVRAM:     0,
+						FreeVRAM:     0,
+						UsagePercent: 0,
+					})
+					continue
+				}
+
+				totalBytes = sysInfo.Total
+				usedBytes = sysInfo.Used
+				freeBytes = sysInfo.Free
+				if totalBytes > 0 {
+					usagePercent = float64(usedBytes) / float64(totalBytes) * 100
+				}
+			} else {
+				// Truly unknown device with N/A values - skip memory info
+				xlog.Debug("nvidia-smi returned N/A for unknown device", "device", name)
+				gpus = append(gpus, GPUMemoryInfo{
+					Index:        idx,
+					Name:         name,
+					Vendor:       VendorNVIDIA,
+					TotalVRAM:    0,
+					UsedVRAM:     0,
+					FreeVRAM:     0,
+					UsagePercent: 0,
+				})
+				continue
+			}
 		} else {
 			// Normal GPU with dedicated VRAM
 			totalMB, _ := strconv.ParseFloat(totalStr, 64)
@@ -785,6 +825,87 @@ func getVulkanGPUMemory() []GPUMemoryInfo {
 			UsedVRAM:     0, // Vulkan doesn't provide real-time usage
 			FreeVRAM:     totalVRAM,
 			UsagePercent: 0,
+		})
+	}
+
+	return gpus
+}
+
+// getAppleGPUMemory detects Apple Silicon GPUs using system_profiler (macOS only).
+// Apple Silicon uses unified memory, so GPU memory is reported as system RAM.
+func getAppleGPUMemory() []GPUMemoryInfo {
+	if _, err := exec.LookPath("system_profiler"); err != nil {
+		return nil
+	}
+
+	cmd := exec.Command("system_profiler", "SPDisplaysDataType", "-json")
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	if err := cmd.Run(); err != nil {
+		xlog.Debug("system_profiler failed", "error", err, "stderr", stderr.String())
+		return nil
+	}
+
+	var result struct {
+		SPDisplaysDataType []struct {
+			Name       string `json:"_name"`
+			Model      string `json:"sppci_model"`
+			Cores      string `json:"sppci_cores"`
+			DeviceType string `json:"sppci_device_type"`
+			Vendor     string `json:"spdisplays_vendor"`
+		} `json:"SPDisplaysDataType"`
+	}
+
+	if err := json.Unmarshal(stdout.Bytes(), &result); err != nil {
+		xlog.Debug("failed to parse system_profiler output", "error", err)
+		return nil
+	}
+
+	var gpus []GPUMemoryInfo
+	for i, display := range result.SPDisplaysDataType {
+		if display.DeviceType != "spdisplays_gpu" {
+			continue
+		}
+		if !strings.Contains(strings.ToLower(display.Vendor), "apple") {
+			continue
+		}
+
+		name := display.Model
+		if name == "" {
+			name = display.Name
+		}
+		if name == "" {
+			name = "Apple GPU"
+		}
+
+		// Apple Silicon uses unified memory — report system RAM
+		ramInfo, err := GetSystemRAMInfo()
+		if err != nil {
+			xlog.Debug("Apple GPU detected but failed to get system RAM", "error", err)
+			gpus = append(gpus, GPUMemoryInfo{
+				Index:  i,
+				Name:   name,
+				Vendor: VendorApple,
+			})
+			continue
+		}
+
+		usagePercent := 0.0
+		if ramInfo.Total > 0 {
+			usagePercent = float64(ramInfo.Used) / float64(ramInfo.Total) * 100
+		}
+
+		xlog.Debug("Apple Silicon GPU detected (unified memory)", "device", name, "total_ram", ramInfo.Total)
+		gpus = append(gpus, GPUMemoryInfo{
+			Index:        i,
+			Name:         name,
+			Vendor:       VendorApple,
+			TotalVRAM:    ramInfo.Total,
+			UsedVRAM:     ramInfo.Used,
+			FreeVRAM:     ramInfo.Free,
+			UsagePercent: usagePercent,
 		})
 	}
 

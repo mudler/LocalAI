@@ -42,5 +42,6 @@ export function vendorColor(vendor) {
   if (v.includes('nvidia')) return '#76b900'
   if (v.includes('amd')) return '#ed1c24'
   if (v.includes('intel')) return '#0071c5'
+  if (v.includes('apple')) return '#a2aaad'
   return 'var(--color-accent)'
 }
