@@ -8,7 +8,7 @@ JOBS?=$(shell nproc --ignore=1)
 
 # acestep.cpp version
 ACESTEP_REPO?=https://github.com/ace-step/acestep.cpp
-ACESTEP_CPP_VERSION?=6f35c874ee11e86d511b860019b84976f5b52d3a
+ACESTEP_CPP_VERSION?=e0c8d75a672fca5684c88c68dbf6d12f58754258
 SO_TARGET?=libgoacestepcpp.so
 
 CMAKE_ARGS+=-DBUILD_SHARED_LIBS=OFF
