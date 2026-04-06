@@ -2377,6 +2377,8 @@ public:
                 // reasoning, tool calls, and content are classified into ChatDeltas.
                 // Without this, the PEG parser never produces diffs and the Go side
                 // cannot detect tool calls or separate reasoning from content.
+                // OAI-compat: enable autoparser (PEG-based chat parsing) so that
+                // reasoning, tool calls, and content are classified into ChatDeltas.
                 task.params.res_type                 = TASK_RESPONSE_TYPE_OAI_CHAT;
                 task.params.oaicompat_cmpl_id         = completion_id;
                 // oaicompat_model is already populated by params_from_json_cmpl
@@ -2408,7 +2410,22 @@ public:
                 auto* final_res = dynamic_cast<server_task_result_cmpl_final*>(all_results.results[0].get());
                 GGML_ASSERT(final_res != nullptr);
                 json result_json = all_results.results[0]->to_json();
-                reply->set_message(result_json.value("content", ""));
+
+                // Handle both native format ({"content": "..."}) and OAI chat
+                // format ({"choices": [{"message": {"content": "..."}}]}).
+                std::string completion_text;
+                if (result_json.contains("choices")) {
+                    const auto & choices = result_json.at("choices");
+                    if (!choices.empty()) {
+                        const auto & msg = choices[0].value("message", json::object());
+                        if (msg.contains("content") && !msg.at("content").is_null()) {
+                            completion_text = msg.at("content").get<std::string>();
+                        }
+                    }
+                } else {
+                    completion_text = result_json.value("content", "");
+                }
+                reply->set_message(completion_text);
 
                 int32_t tokens_predicted = result_json.value("tokens_predicted", 0);
                 reply->set_tokens(tokens_predicted);
@@ -2420,6 +2437,15 @@ public:
                     reply->set_timing_prompt_processing(timing_prompt_processing);
                     double timing_token_generation = result_json.at("timings").value("predicted_ms", 0.0);
                     reply->set_timing_token_generation(timing_token_generation);
+                } else if (result_json.contains("usage")) {
+                    // OAI chat format stores timings in usage
+                    const auto & usage = result_json.at("usage");
+                    if (usage.contains("prompt_ms")) {
+                        reply->set_timing_prompt_processing(usage.value("prompt_ms", 0.0));
+                    }
+                    if (usage.contains("predicted_ms")) {
+                        reply->set_timing_token_generation(usage.value("predicted_ms", 0.0));
+                    }
                 }
 
                 // Extract and set logprobs if present
