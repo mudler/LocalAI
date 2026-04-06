@@ -565,10 +565,38 @@ const (
 	FLAG_VAD              ModelConfigUsecase = 0b010000000000
 	FLAG_VIDEO            ModelConfigUsecase = 0b100000000000
 	FLAG_DETECTION        ModelConfigUsecase = 0b1000000000000
+	FLAG_VISION           ModelConfigUsecase = 0b10000000000000
 
 	// Common Subsets
 	FLAG_LLM ModelConfigUsecase = FLAG_CHAT | FLAG_COMPLETION | FLAG_EDIT
 )
+
+// ModalityGroups defines groups of usecases that belong to the same modality.
+// Flags within the same group are NOT orthogonal (e.g., chat and completion are
+// both text/language). A model is multimodal when its usecases span 2+ groups.
+var ModalityGroups = []ModelConfigUsecase{
+	FLAG_CHAT | FLAG_COMPLETION | FLAG_EDIT, // text/language
+	FLAG_VISION | FLAG_DETECTION,            // visual understanding
+	FLAG_TRANSCRIPT,                         // speech input
+	FLAG_TTS | FLAG_SOUND_GENERATION,        // audio output
+	FLAG_IMAGE | FLAG_VIDEO,                 // visual generation
+}
+
+// IsMultimodal returns true if the given usecases span two or more orthogonal
+// modality groups. For example chat+vision is multimodal, but chat+completion
+// is not (both belong to the text/language group).
+func IsMultimodal(usecases ModelConfigUsecase) bool {
+	groupCount := 0
+	for _, group := range ModalityGroups {
+		if usecases&group != 0 {
+			groupCount++
+			if groupCount >= 2 {
+				return true
+			}
+		}
+	}
+	return false
+}
 
 func GetAllModelConfigUsecases() map[string]ModelConfigUsecase {
 	return map[string]ModelConfigUsecase{
@@ -588,6 +616,7 @@ func GetAllModelConfigUsecases() map[string]ModelConfigUsecase {
 		"FLAG_LLM":              FLAG_LLM,
 		"FLAG_VIDEO":            FLAG_VIDEO,
 		"FLAG_DETECTION":        FLAG_DETECTION,
+		"FLAG_VISION":           FLAG_VISION,
 	}
 }
 

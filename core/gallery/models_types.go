@@ -52,3 +52,23 @@ func (m *GalleryModel) GetTags() []string {
 func (m *GalleryModel) GetDescription() string {
 	return m.Description
 }
+
+// GetKnownUsecases extracts known_usecases from the model's Overrides and
+// returns the parsed usecase flags. Returns nil when no usecases are declared.
+func (m *GalleryModel) GetKnownUsecases() *config.ModelConfigUsecase {
+	raw, ok := m.Overrides["known_usecases"]
+	if !ok {
+		return nil
+	}
+	list, ok := raw.([]any)
+	if !ok {
+		return nil
+	}
+	strs := make([]string, 0, len(list))
+	for _, v := range list {
+		if s, ok := v.(string); ok {
+			strs = append(strs, s)
+		}
+	}
+	return config.GetUsecasesFromYAML(strs)
+}

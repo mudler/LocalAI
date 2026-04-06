@@ -120,13 +120,13 @@ func AutocompleteEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, a
 			capability := strings.TrimPrefix(provider, "models:")
 			var filterFn config.ModelConfigFilterFn
 			switch capability {
-			case "chat":
+			case config.UsecaseChat:
 				filterFn = config.BuildUsecaseFilterFn(config.FLAG_CHAT)
-			case "tts":
+			case config.UsecaseTTS:
 				filterFn = config.BuildUsecaseFilterFn(config.FLAG_TTS)
-			case "vad":
+			case config.UsecaseVAD:
 				filterFn = config.BuildUsecaseFilterFn(config.FLAG_VAD)
-			case "transcript":
+			case config.UsecaseTranscript:
 				filterFn = config.BuildUsecaseFilterFn(config.FLAG_TRANSCRIPT)
 			default:
 				filterFn = config.NoFilterFn

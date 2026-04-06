@@ -104,7 +104,7 @@ func (i *LlamaCPPImporter) Import(details Details) (gallery.ModelConfig, error) 
 	modelConfig := config.ModelConfig{
 		Name:                name,
 		Description:         description,
-		KnownUsecaseStrings: []string{"chat"},
+		KnownUsecaseStrings: []string{config.UsecaseChat},
 		Options:             []string{"use_jinja:true"},
 		Backend:             "llama-cpp",
 		TemplateConfig: config.TemplateConfig{

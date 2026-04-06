@@ -94,3 +94,44 @@ var (
 	defaultCachedSizeResolver = CachedSizeResolver(defaultSizeResolver{}, defaultEstimateCacheTTL)
 	defaultCachedGGUFReader   = CachedGGUFReader(defaultGGUFReader{}, defaultEstimateCacheTTL)
 )
+
+// Model-level estimate result cache — keyed by model ID, avoids re-running
+// the full estimation pipeline (HTTP HEAD, GGUF reads, HF API) on every
+// gallery page load.
+
+const estimateResultTTL = 1 * time.Hour
+
+type estimateResultEntry struct {
+	result EstimateResult
+	until  time.Time
+}
+
+var (
+	estimateResultMu    sync.Mutex
+	estimateResultCache = make(map[string]estimateResultEntry)
+)
+
+// GetCachedEstimate returns a previously cached EstimateResult for the given
+// key (typically a model ID). Returns false on cache miss or expiry.
+func GetCachedEstimate(key string) (EstimateResult, bool) {
+	estimateResultMu.Lock()
+	defer estimateResultMu.Unlock()
+	e, ok := estimateResultCache[key]
+	if !ok || time.Now().After(e.until) {
+		if ok {
+			delete(estimateResultCache, key)
+		}
+		return EstimateResult{}, false
+	}
+	return e.result, true
+}
+
+// SetCachedEstimate stores an EstimateResult for the given key with a 1-hour TTL.
+func SetCachedEstimate(key string, result EstimateResult) {
+	estimateResultMu.Lock()
+	defer estimateResultMu.Unlock()
+	estimateResultCache[key] = estimateResultEntry{
+		result: result,
+		until:  time.Now().Add(estimateResultTTL),
+	}
+}
