@@ -9,6 +9,7 @@ export const API_CONFIG = {
     models: '/api/models',
     installModel: (id) => `/api/models/install/${id}`,
     deleteModel: (id) => `/api/models/delete/${id}`,
+    modelEstimate: (id) => `/api/models/estimate/${id}`,
     modelConfig: (id) => `/api/models/config/${id}`,
     modelConfigJson: (name) => `/api/models/config-json/${name}`,
     modelJob: (uid) => `/api/models/job/${uid}`,

@@ -42,7 +42,7 @@ func ImportLocalPath(dirPath, name string) (*config.ModelConfig, error) {
 		cfg := &config.ModelConfig{
 			Name:                name,
 			Backend:             "llama-cpp",
-			KnownUsecaseStrings: []string{"chat"},
+			KnownUsecaseStrings: []string{config.UsecaseChat},
 			Options:             []string{"use_jinja:true"},
 		}
 		cfg.Model = relPath(ggufFile)
@@ -60,7 +60,7 @@ func ImportLocalPath(dirPath, name string) (*config.ModelConfig, error) {
 		cfg := &config.ModelConfig{
 			Name:                name,
 			Backend:             "transformers",
-			KnownUsecaseStrings: []string{"chat"},
+			KnownUsecaseStrings: []string{config.UsecaseChat},
 		}
 		cfg.Model = baseModel
 		cfg.TemplateConfig.UseTokenizerTemplate = true
@@ -76,7 +76,7 @@ func ImportLocalPath(dirPath, name string) (*config.ModelConfig, error) {
 		cfg := &config.ModelConfig{
 			Name:                name,
 			Backend:             "transformers",
-			KnownUsecaseStrings: []string{"chat"},
+			KnownUsecaseStrings: []string{config.UsecaseChat},
 		}
 		cfg.Model = baseModel
 		cfg.TemplateConfig.UseTokenizerTemplate = true
@@ -91,7 +91,7 @@ func ImportLocalPath(dirPath, name string) (*config.ModelConfig, error) {
 		cfg := &config.ModelConfig{
 			Name:                name,
 			Backend:             "transformers",
-			KnownUsecaseStrings: []string{"chat"},
+			KnownUsecaseStrings: []string{config.UsecaseChat},
 		}
 		cfg.Model = relPath(dirPath)
 		cfg.TemplateConfig.UseTokenizerTemplate = true

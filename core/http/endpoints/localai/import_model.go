@@ -51,18 +51,17 @@ func ImportModelURIEndpoint(cl *config.ModelConfigLoader, appConfig *config.Appl
 			}
 			estCtx, cancel := context.WithTimeout(c.Request().Context(), 5*time.Second)
 			defer cancel()
-			result, err := vram.EstimateModel(estCtx, vram.ModelEstimateInput{
-				Files:   files,
-				Options: vram.EstimateOptions{ContextLength: 8192},
-			})
+			result, err := vram.EstimateModelMultiContext(estCtx, vram.ModelEstimateInput{
+				Files: files,
+			}, []uint32{8192})
 			if err == nil {
 				if result.SizeBytes > 0 {
 					resp.EstimatedSizeBytes = result.SizeBytes
 					resp.EstimatedSizeDisplay = result.SizeDisplay
 				}
-				if result.VRAMBytes > 0 {
-					resp.EstimatedVRAMBytes = result.VRAMBytes
-					resp.EstimatedVRAMDisplay = result.VRAMDisplay
+				if v := result.VRAMForContext(8192); v > 0 {
+					resp.EstimatedVRAMBytes = v
+					resp.EstimatedVRAMDisplay = vram.FormatBytes(v)
 				}
 			}
 		}

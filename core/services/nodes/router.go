@@ -396,10 +396,14 @@ func (r *SmartRouter) estimateModelVRAM(ctx context.Context, opts *pb.ModelOptio
 	estCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
+	ctxSize := uint32(opts.ContextSize)
+	if ctxSize == 0 {
+		ctxSize = 8192
+	}
+
 	input := vram.ModelEstimateInput{
 		Options: vram.EstimateOptions{
-			ContextLength: uint32(opts.ContextSize),
-			GPULayers:     int(opts.NGPULayers),
+			GPULayers: int(opts.NGPULayers),
 		},
 	}
 
@@ -417,28 +421,15 @@ func (r *SmartRouter) estimateModelVRAM(ctx context.Context, opts *pb.ModelOptio
 		}
 	}
 
-	// If model file exists, get its size as fallback
-	if opts.ModelFile != "" && len(input.Files) == 0 {
-		if info, err := os.Stat(opts.ModelFile); err == nil {
-			return vram.EstimateFromSize(uint64(info.Size())).VRAMBytes
-		}
-	}
-
 	if len(input.Files) == 0 && input.HFRepo == "" && input.Size == "" {
 		return 0
 	}
 
-	result, err := vram.EstimateModel(estCtx, input)
-	if err != nil || result.VRAMBytes == 0 {
-		// Last resort: try model file size
-		if opts.ModelFile != "" {
-			if info, statErr := os.Stat(opts.ModelFile); statErr == nil {
-				return vram.EstimateFromSize(uint64(info.Size())).VRAMBytes
-			}
-		}
+	result, err := vram.EstimateModelMultiContext(estCtx, input, []uint32{ctxSize})
+	if err != nil {
 		return 0
 	}
-	return result.VRAMBytes
+	return result.VRAMForContext(ctxSize)
 }
 
 // installBackendOnNode sends a NATS backend.install request-reply to the node.

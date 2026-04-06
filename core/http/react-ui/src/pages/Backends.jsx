@@ -139,11 +139,11 @@ export default function Backends() {
 
   const FILTERS = [
     { key: '', label: 'All', icon: 'fa-layer-group' },
-    { key: 'llm', label: 'LLM', icon: 'fa-brain' },
+    { key: 'chat', label: 'Chat', icon: 'fa-brain' },
     { key: 'image', label: 'Image', icon: 'fa-image' },
     { key: 'video', label: 'Video', icon: 'fa-video' },
     { key: 'tts', label: 'TTS', icon: 'fa-microphone' },
-    { key: 'stt', label: 'STT', icon: 'fa-headphones' },
+    { key: 'transcript', label: 'STT', icon: 'fa-headphones' },
     { key: 'vision', label: 'Vision', icon: 'fa-eye' },
   ]
 

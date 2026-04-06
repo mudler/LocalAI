@@ -83,7 +83,7 @@ func (i *TransformersImporter) Import(details Details) (gallery.ModelConfig, err
 	modelConfig := config.ModelConfig{
 		Name:                name,
 		Description:         description,
-		KnownUsecaseStrings: []string{"chat"},
+		KnownUsecaseStrings: []string{config.UsecaseChat},
 		Backend:             backend,
 		PredictionOptions: schema.PredictionOptions{
 			BasicModelRequest: schema.BasicModelRequest{

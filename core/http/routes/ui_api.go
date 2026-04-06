@@ -9,11 +9,9 @@ import (
 	"math"
 	"net/http"
 	"net/url"
-	"path"
 	"slices"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -38,7 +36,74 @@ const (
 	licenseSortFieldName    = "license"
 	statusSortFieldName     = "status"
 	ascSortOrder            = "asc"
+	multimodalFilterKey     = "multimodal"
 )
+
+// usecaseFilters maps UI filter keys to ModelConfigUsecase flags for
+// capability-based gallery filtering.
+var usecaseFilters = map[string]config.ModelConfigUsecase{
+	config.UsecaseChat:       config.FLAG_CHAT,
+	config.UsecaseImage:      config.FLAG_IMAGE,
+	config.UsecaseVision:     config.FLAG_VISION,
+	config.UsecaseTTS:        config.FLAG_TTS,
+	config.UsecaseTranscript: config.FLAG_TRANSCRIPT,
+	config.UsecaseEmbeddings: config.FLAG_EMBEDDINGS,
+	config.UsecaseRerank:     config.FLAG_RERANK,
+}
+
+
+// extractHFRepo tries to find a HuggingFace repo ID from model overrides or URLs.
+func extractHFRepo(overrides map[string]any, urls []string) string {
+	if overrides != nil {
+		if params, ok := overrides["parameters"].(map[string]any); ok {
+			if modelRef, ok := params["model"].(string); ok {
+				if repoID, ok := vram.ExtractHFRepoID(modelRef); ok {
+					return repoID
+				}
+			}
+		}
+	}
+	for _, u := range urls {
+		if repoID, ok := vram.ExtractHFRepoID(u); ok {
+			return repoID
+		}
+	}
+	return ""
+}
+
+// buildEstimateInput creates a vram.ModelEstimateInput from gallery model metadata.
+func buildEstimateInput(m *gallery.GalleryModel) vram.ModelEstimateInput {
+	var input vram.ModelEstimateInput
+	input.Size = m.Size
+	if hfRepoID := extractHFRepo(m.Overrides, m.URLs); hfRepoID != "" {
+		input.HFRepo = hfRepoID
+	}
+	for _, f := range m.AdditionalFiles {
+		if vram.IsWeightFile(f.URI) {
+			input.Files = append(input.Files, vram.FileInput{URI: f.URI, Size: 0})
+		}
+	}
+	return input
+}
+
+// parseContextSizes parses a comma-separated list of context sizes from a query param.
+// Returns a default of [8192] if the param is empty or unparseable.
+func parseContextSizes(raw string) []uint32 {
+	if raw == "" {
+		return []uint32{8192}
+	}
+	var sizes []uint32
+	for _, s := range strings.Split(raw, ",") {
+		s = strings.TrimSpace(s)
+		if v, err := strconv.ParseUint(s, 10, 32); err == nil && v > 0 {
+			sizes = append(sizes, uint32(v))
+		}
+	}
+	if len(sizes) == 0 {
+		return []uint32{8192}
+	}
+	return sizes
+}
 
 // getDirectorySize calculates the total size of files in a directory
 func getDirectorySize(path string) (int64, error) {
@@ -221,7 +286,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			items = "9"
 		}
 
-		models, err := gallery.AvailableGalleryModels(appConfig.Galleries, appConfig.SystemState)
+		models, err := gallery.AvailableGalleryModelsCached(appConfig.Galleries, appConfig.SystemState)
 		if err != nil {
 			xlog.Error("could not list models from galleries", "error", err)
 			return c.JSON(http.StatusInternalServerError, map[string]any{
@@ -255,8 +320,30 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		}
 		slices.Sort(backendNames)
 
+		// Filter by usecase tags (comma-separated for multi-select).
 		if tag != "" {
-			models = gallery.GalleryElements[*gallery.GalleryModel](models).FilterByTag(tag)
+			var combinedFlag config.ModelConfigUsecase
+			hasMultimodal := false
+			var plainTags []string
+			for _, t := range strings.Split(tag, ",") {
+				t = strings.TrimSpace(t)
+				if t == multimodalFilterKey {
+					hasMultimodal = true
+				} else if flag, ok := usecaseFilters[t]; ok {
+					combinedFlag |= flag
+				} else if t != "" {
+					plainTags = append(plainTags, t)
+				}
+			}
+			if hasMultimodal {
+				models = gallery.FilterGalleryModelsByMultimodal(models)
+			}
+			if combinedFlag != config.FLAG_ANY {
+				models = gallery.FilterGalleryModelsByUsecase(models, combinedFlag)
+			}
+			for _, pt := range plainTags {
+				models = gallery.GalleryElements[*gallery.GalleryModel](models).FilterByTag(pt)
+			}
 		}
 		if term != "" {
 			models = gallery.GalleryElements[*gallery.GalleryModel](models).Search(term)
@@ -316,41 +403,6 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		modelsJSON := make([]map[string]any, 0, len(models))
 		seenIDs := make(map[string]bool)
 
-		weightExts := map[string]bool{".gguf": true, ".safetensors": true, ".bin": true, ".pt": true}
-		extractHFRepo := func(overrides map[string]any, urls []string) string {
-			// Try overrides.parameters.model first
-			if overrides != nil {
-				if params, ok := overrides["parameters"].(map[string]any); ok {
-					if modelRef, ok := params["model"].(string); ok {
-						if repoID, ok := vram.ExtractHFRepoID(modelRef); ok {
-							return repoID
-						}
-					}
-				}
-			}
-			// Fall back to the first HuggingFace URL in the metadata urls list
-			for _, u := range urls {
-				if repoID, ok := vram.ExtractHFRepoID(u); ok {
-					return repoID
-				}
-			}
-			return ""
-		}
-		hasWeightFiles := func(files []gallery.File) bool {
-			for _, f := range files {
-				ext := strings.ToLower(path.Ext(path.Base(f.URI)))
-				if weightExts[ext] {
-					return true
-				}
-			}
-			return false
-		}
-
-		const hfEstimateTimeout = 10 * time.Second
-		const estimateConcurrency = 3
-		sem := make(chan struct{}, estimateConcurrency)
-		var wg sync.WaitGroup
-
 		for _, m := range models {
 			modelID := m.ID()
 
@@ -392,62 +444,8 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 				"backend":         m.Backend,
 			}
 
-			// Build EstimateModel input from available metadata
-			var estimateInput vram.ModelEstimateInput
-			estimateInput.Options = vram.EstimateOptions{ContextLength: 8192}
-			estimateInput.Size = m.Size
-			if hfRepoID := extractHFRepo(m.Overrides, m.URLs); hfRepoID != "" {
-				estimateInput.HFRepo = hfRepoID
-			}
-
-			if hasWeightFiles(m.AdditionalFiles) {
-				files := make([]gallery.File, len(m.AdditionalFiles))
-				copy(files, m.AdditionalFiles)
-				for _, f := range files {
-					ext := strings.ToLower(path.Ext(path.Base(f.URI)))
-					if weightExts[ext] {
-						estimateInput.Files = append(estimateInput.Files, vram.FileInput{URI: f.URI, Size: 0})
-					}
-				}
-			}
-
-			// Run estimation (async for file-based and HF repo, sync for size string only)
-			needsAsync := len(estimateInput.Files) > 0 || estimateInput.HFRepo != ""
-			if needsAsync {
-				input := estimateInput
-				wg.Go(func() {
-					sem <- struct{}{}
-					defer func() { <-sem }()
-					ctx, cancel := context.WithTimeout(context.Background(), hfEstimateTimeout)
-					defer cancel()
-					result, err := vram.EstimateModel(ctx, input)
-					if err == nil {
-						if result.SizeBytes > 0 {
-							obj["estimated_size_bytes"] = result.SizeBytes
-							obj["estimated_size_display"] = result.SizeDisplay
-						}
-						if result.VRAMBytes > 0 {
-							obj["estimated_vram_bytes"] = result.VRAMBytes
-							obj["estimated_vram_display"] = result.VRAMDisplay
-						}
-					}
-				})
-			} else if estimateInput.Size != "" {
-				result, _ := vram.EstimateModel(context.Background(), estimateInput)
-				if result.SizeBytes > 0 {
-					obj["estimated_size_bytes"] = result.SizeBytes
-					obj["estimated_size_display"] = result.SizeDisplay
-				}
-				if result.VRAMBytes > 0 {
-					obj["estimated_vram_bytes"] = result.VRAMBytes
-					obj["estimated_vram_display"] = result.VRAMDisplay
-				}
-			}
-
 			modelsJSON = append(modelsJSON, obj)
 		}
-
-		wg.Wait()
 
 		prevPage := pageNum - 1
 		nextPage := pageNum + 1
@@ -534,6 +532,65 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			"data": result,
 		})
 	})
+
+	// Returns a mapping of backend names to the usecase filter keys they support.
+	// Used by the gallery frontend to grey out usecase filter buttons when a
+	// backend is selected.
+	app.GET("/api/backends/usecases", func(c echo.Context) error {
+		result := make(map[string][]string, len(config.BackendCapabilities))
+		for name, cap := range config.BackendCapabilities {
+			var keys []string
+			for _, uc := range cap.PossibleUsecases {
+				if _, ok := usecaseFilters[uc]; ok {
+					keys = append(keys, uc)
+				}
+			}
+			slices.Sort(keys)
+			result[name] = keys
+		}
+
+		return c.JSON(200, result)
+	}, adminMiddleware)
+
+	// Returns VRAM/size estimates for a single gallery model at multiple
+	// context sizes. The frontend calls this per-model so the gallery page
+	// can load instantly and fill in estimates asynchronously.
+	// Query params:
+	//   contexts - comma-separated context sizes (default: 8192)
+	app.GET("/api/models/estimate/:id", func(c echo.Context) error {
+		modelID, err := url.QueryUnescape(c.Param("id"))
+		if err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]any{"error": "invalid model ID"})
+		}
+
+		contextSizes := parseContextSizes(c.QueryParam("contexts"))
+
+		// Look up the model from the gallery to build the estimate input.
+		models, err := gallery.AvailableGalleryModelsCached(appConfig.Galleries, appConfig.SystemState)
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]any{"error": err.Error()})
+		}
+
+		model := gallery.FindGalleryElement(models, modelID)
+		if model == nil {
+			return c.JSON(http.StatusNotFound, map[string]any{"error": "model not found"})
+		}
+
+		input := buildEstimateInput(model)
+		if len(input.Files) == 0 && input.HFRepo == "" && input.Size == "" {
+			return c.JSON(200, vram.MultiContextEstimate{})
+		}
+
+		ctx, cancel := context.WithTimeout(c.Request().Context(), 10*time.Second)
+		defer cancel()
+		result, err := vram.EstimateModelMultiContext(ctx, input, contextSizes)
+		if err != nil {
+			xlog.Debug("model estimate failed", "model", modelID, "error", err)
+			return c.JSON(200, vram.MultiContextEstimate{})
+		}
+
+		return c.JSON(200, result)
+	}, adminMiddleware)
 
 	app.POST("/api/models/install/:id", func(c echo.Context) error {
 		galleryID := c.Param("id")
@@ -638,7 +695,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		}
 		xlog.Debug("API job submitted to get config", "galleryID", galleryID)
 
-		models, err := gallery.AvailableGalleryModels(appConfig.Galleries, appConfig.SystemState)
+		models, err := gallery.AvailableGalleryModelsCached(appConfig.Galleries, appConfig.SystemState)
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]any{
 				"error": err.Error(),

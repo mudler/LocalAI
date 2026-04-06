@@ -73,7 +73,7 @@ func (i *VLLMImporter) Import(details Details) (gallery.ModelConfig, error) {
 	modelConfig := config.ModelConfig{
 		Name:                name,
 		Description:         description,
-		KnownUsecaseStrings: []string{"chat"},
+		KnownUsecaseStrings: []string{config.UsecaseChat},
 		Backend:             backend,
 		PredictionOptions: schema.PredictionOptions{
 			BasicModelRequest: schema.BasicModelRequest{

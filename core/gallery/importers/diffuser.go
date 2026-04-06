@@ -93,7 +93,7 @@ func (i *DiffuserImporter) Import(details Details) (gallery.ModelConfig, error) 
 	modelConfig := config.ModelConfig{
 		Name:                name,
 		Description:         description,
-		KnownUsecaseStrings: []string{"image"},
+		KnownUsecaseStrings: []string{config.UsecaseImage},
 		Backend:             backend,
 		PredictionOptions: schema.PredictionOptions{
 			BasicModelRequest: schema.BasicModelRequest{
