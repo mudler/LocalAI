@@ -1309,6 +1309,7 @@ public:
 
                 body_json["messages"] = messages_json;
                 body_json["stream"] = true; // PredictStream is always streaming
+                body_json["stream_options"] = {{"include_usage", true}}; // Ensure token counts in final chunk
 
                 // Check if grammar is provided from Go layer (NoGrammar=false)
                 // If grammar is provided, we must use it and NOT let template generate grammar from tools
@@ -1667,14 +1668,25 @@ public:
             }
 
             reply.set_message(completion_text);
-            reply.set_tokens(res_json.value("tokens_predicted", 0));
-            reply.set_prompt_tokens(res_json.value("tokens_evaluated", 0));
 
+            // Token counts: native format has top-level fields,
+            // OAI format has them in "usage" (final chunk only)
+            if (res_json.contains("usage")) {
+                const auto & usage = res_json.at("usage");
+                reply.set_tokens(usage.value("completion_tokens", 0));
+                reply.set_prompt_tokens(usage.value("prompt_tokens", 0));
+            } else {
+                reply.set_tokens(res_json.value("tokens_predicted", 0));
+                reply.set_prompt_tokens(res_json.value("tokens_evaluated", 0));
+            }
+
+            // Timings: present as top-level "timings" in both formats
             if (res_json.contains("timings")) {
                 reply.set_timing_prompt_processing(res_json.at("timings").value("prompt_ms", 0.0));
                 reply.set_timing_token_generation(res_json.at("timings").value("predicted_ms", 0.0));
             }
 
+            // Logprobs: extract_logprobs_from_json handles both formats
             json logprobs_json = extract_logprobs_from_json(res_json);
             if (!logprobs_json.empty() && !logprobs_json.is_null()) {
                 reply.set_logprobs(logprobs_json.dump());
@@ -2375,10 +2387,6 @@ public:
 
                 // OAI-compat: enable autoparser (PEG-based chat parsing) so that
                 // reasoning, tool calls, and content are classified into ChatDeltas.
-                // Without this, the PEG parser never produces diffs and the Go side
-                // cannot detect tool calls or separate reasoning from content.
-                // OAI-compat: enable autoparser (PEG-based chat parsing) so that
-                // reasoning, tool calls, and content are classified into ChatDeltas.
                 task.params.res_type                 = TASK_RESPONSE_TYPE_OAI_CHAT;
                 task.params.oaicompat_cmpl_id         = completion_id;
                 // oaicompat_model is already populated by params_from_json_cmpl
@@ -2411,10 +2419,15 @@ public:
                 GGML_ASSERT(final_res != nullptr);
                 json result_json = all_results.results[0]->to_json();
 
-                // Handle both native format ({"content": "..."}) and OAI chat
-                // format ({"choices": [{"message": {"content": "..."}}]}).
+                // Handle both native format ({"content": "...", "tokens_predicted": N})
+                // and OAI chat format ({"choices": [{"message": {"content": "..."}}],
+                // "usage": {"completion_tokens": N, "prompt_tokens": N}}).
                 std::string completion_text;
+                int32_t tokens_predicted = 0;
+                int32_t tokens_evaluated = 0;
+
                 if (result_json.contains("choices")) {
+                    // OAI chat format
                     const auto & choices = result_json.at("choices");
                     if (!choices.empty()) {
                         const auto & msg = choices[0].value("message", json::object());
@@ -2422,37 +2435,31 @@ public:
                             completion_text = msg.at("content").get<std::string>();
                         }
                     }
+                    if (result_json.contains("usage")) {
+                        const auto & usage = result_json.at("usage");
+                        tokens_predicted = usage.value("completion_tokens", 0);
+                        tokens_evaluated = usage.value("prompt_tokens", 0);
+                    }
                 } else {
+                    // Native llama.cpp format
                     completion_text = result_json.value("content", "");
+                    tokens_predicted = result_json.value("tokens_predicted", 0);
+                    tokens_evaluated = result_json.value("tokens_evaluated", 0);
                 }
                 reply->set_message(completion_text);
-
-                int32_t tokens_predicted = result_json.value("tokens_predicted", 0);
                 reply->set_tokens(tokens_predicted);
-                int32_t tokens_evaluated = result_json.value("tokens_evaluated", 0);
                 reply->set_prompt_tokens(tokens_evaluated);
 
+                // Timings: present in both formats as a top-level "timings" object
                 if (result_json.contains("timings")) {
-                    double timing_prompt_processing = result_json.at("timings").value("prompt_ms", 0.0);
-                    reply->set_timing_prompt_processing(timing_prompt_processing);
-                    double timing_token_generation = result_json.at("timings").value("predicted_ms", 0.0);
-                    reply->set_timing_token_generation(timing_token_generation);
-                } else if (result_json.contains("usage")) {
-                    // OAI chat format stores timings in usage
-                    const auto & usage = result_json.at("usage");
-                    if (usage.contains("prompt_ms")) {
-                        reply->set_timing_prompt_processing(usage.value("prompt_ms", 0.0));
-                    }
-                    if (usage.contains("predicted_ms")) {
-                        reply->set_timing_token_generation(usage.value("predicted_ms", 0.0));
-                    }
+                    reply->set_timing_prompt_processing(result_json.at("timings").value("prompt_ms", 0.0));
+                    reply->set_timing_token_generation(result_json.at("timings").value("predicted_ms", 0.0));
                 }
 
-                // Extract and set logprobs if present
+                // Logprobs: extract_logprobs_from_json handles both formats
                 json logprobs_json = extract_logprobs_from_json(result_json);
                 if (!logprobs_json.empty() && !logprobs_json.is_null()) {
-                    std::string logprobs_str = logprobs_json.dump();
-                    reply->set_logprobs(logprobs_str);
+                    reply->set_logprobs(logprobs_json.dump());
                 }
 
                 // Populate chat deltas from the autoparser's final parsed message
@@ -2468,7 +2475,20 @@ public:
                 for (auto & res : all_results.results) {
                     GGML_ASSERT(dynamic_cast<server_task_result_cmpl_final*>(res.get()) != nullptr);
                     json res_json = res->to_json();
-                    arr.push_back(res_json.value("content", ""));
+                    // Handle both native and OAI chat formats
+                    std::string result_content;
+                    if (res_json.contains("choices")) {
+                        const auto & choices = res_json.at("choices");
+                        if (!choices.empty()) {
+                            const auto & msg = choices[0].value("message", json::object());
+                            if (msg.contains("content") && !msg.at("content").is_null()) {
+                                result_content = msg.at("content").get<std::string>();
+                            }
+                        }
+                    } else {
+                        result_content = res_json.value("content", "");
+                    }
+                    arr.push_back(result_content);
 
                     // Extract logprobs for each result
                     json logprobs_json = extract_logprobs_from_json(res_json);
