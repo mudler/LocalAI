@@ -1,8 +1,8 @@
-import { useState, useCallback, useRef, useEffect } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { generateId } from '../utils/format'
+import { useDebouncedEffect } from './useDebounce'
 
 const STORAGE_KEY_PREFIX = 'localai_agent_chats_'
-const SAVE_DEBOUNCE_MS = 500
 
 function storageKey(agentName) {
   return STORAGE_KEY_PREFIX + agentName
@@ -67,24 +67,9 @@ export function useAgentChat(agentName) {
     return conversations[0]?.id
   })
 
-  const saveTimerRef = useRef(null)
-
   const activeConversation = conversations.find(c => c.id === activeId) || conversations[0]
 
-  // Debounced save
-  const debouncedSave = useCallback(() => {
-    if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
-    saveTimerRef.current = setTimeout(() => {
-      saveConversations(agentName, conversations, activeId)
-    }, SAVE_DEBOUNCE_MS)
-  }, [agentName, conversations, activeId])
-
-  useEffect(() => {
-    debouncedSave()
-    return () => {
-      if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
-    }
-  }, [conversations, activeId, debouncedSave])
+  useDebouncedEffect(() => saveConversations(agentName, conversations, activeId), [agentName, conversations, activeId])
 
   // Save immediately on unmount
   useEffect(() => {

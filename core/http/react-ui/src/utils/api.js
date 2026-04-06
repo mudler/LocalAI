@@ -97,6 +97,16 @@ export const modelsApi = {
   getJobStatus: (uid) => fetchJSON(API_CONFIG.endpoints.modelsJobStatus(uid)),
   getEditConfig: (name) => fetchJSON(API_CONFIG.endpoints.modelEditGet(name)),
   editConfig: (name, body) => postJSON(API_CONFIG.endpoints.modelEdit(name), body),
+  getConfigMetadata: (section) => fetchJSON(
+    section ? `${API_CONFIG.endpoints.configMetadata}?section=${section}`
+            : API_CONFIG.endpoints.configMetadata
+  ),
+  getAutocomplete: (provider) => fetchJSON(API_CONFIG.endpoints.configAutocomplete(provider)),
+  estimateVram: (body, options) => postJSON(API_CONFIG.endpoints.vramEstimate, body, options),
+  patchConfig: (name, patch) => fetchJSON(API_CONFIG.endpoints.configPatch(name), {
+    method: 'PATCH',
+    body: JSON.stringify(patch),
+  }),
 }
 
 // Backends API

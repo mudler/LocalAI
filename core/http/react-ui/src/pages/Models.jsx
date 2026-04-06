@@ -1,6 +1,7 @@
-import { useState, useCallback, useEffect, useRef } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useNavigate, useOutletContext } from 'react-router-dom'
 import { modelsApi } from '../utils/api'
+import { useDebouncedCallback } from '../hooks/useDebounce'
 import { useOperations } from '../hooks/useOperations'
 import { useResources } from '../hooks/useResources'
 import SearchableSelect from '../components/SearchableSelect'
@@ -117,7 +118,6 @@ export default function Models() {
   const [stats, setStats] = useState({ total: 0, installed: 0, repositories: 0 })
   const [backendFilter, setBackendFilter] = useState('')
   const [allBackends, setAllBackends] = useState([])
-  const debounceRef = useRef(null)
   const [confirmDialog, setConfirmDialog] = useState(null)
 
   // Total GPU memory for "fits" check
@@ -165,13 +165,14 @@ export default function Models() {
     if (!loading) fetchModels()
   }, [operations.length])
 
+  const debouncedFetch = useDebouncedCallback((value) => {
+    setPage(1)
+    fetchModels({ search: value, page: 1 })
+  })
+
   const handleSearch = (value) => {
     setSearch(value)
-    if (debounceRef.current) clearTimeout(debounceRef.current)
-    debounceRef.current = setTimeout(() => {
-      setPage(1)
-      fetchModels({ search: value, page: 1 })
-    }, 500)
+    debouncedFetch(value)
   }
 
   const handleSort = (col) => {
@@ -272,6 +273,9 @@ export default function Models() {
               </a>
             </div>
           </div>
+          <button className="btn btn-primary btn-sm" onClick={() => navigate('/app/model-editor')}>
+            <i className="fas fa-plus" /> Add Model
+          </button>
           <button className="btn btn-secondary btn-sm" onClick={() => navigate('/app/import-model')}>
             <i className="fas fa-upload" /> Import Model
           </button>

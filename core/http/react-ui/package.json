@@ -20,7 +20,17 @@
     "dompurify": "^3.2.5",
     "@fortawesome/fontawesome-free": "^6.7.2",
     "@modelcontextprotocol/sdk": "^1.25.1",
-    "@modelcontextprotocol/ext-apps": "^1.2.2"
+    "@modelcontextprotocol/ext-apps": "^1.2.2",
+    "yaml": "^2.8.3",
+    "@codemirror/autocomplete": "^6.18.6",
+    "@codemirror/commands": "^6.8.1",
+    "@codemirror/lang-yaml": "^6.1.2",
+    "@codemirror/language": "^6.11.0",
+    "@codemirror/lint": "^6.8.5",
+    "@codemirror/search": "^6.5.10",
+    "@codemirror/state": "^6.5.2",
+    "@codemirror/view": "^6.36.8",
+    "@lezer/highlight": "^1.2.1"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.5.2",

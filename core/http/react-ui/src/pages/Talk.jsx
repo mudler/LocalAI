@@ -502,7 +502,7 @@ export default function Talk() {
               disabled={isConnected}
               searchPlaceholder="Search pipeline models..."
             />
-            <button className="btn btn-secondary btn-sm" onClick={() => navigate('/app/pipeline-editor')}
+            <button className="btn btn-secondary btn-sm" onClick={() => navigate('/app/model-editor?template=pipeline')}
               style={{ marginTop: 'var(--spacing-xs)' }}>
               <i className="fas fa-plus" style={{ marginRight: 'var(--spacing-xs)' }} /> Create Pipeline Model
             </button>
@@ -532,7 +532,7 @@ export default function Talk() {
           )}
           {selectedModelInfo && !isConnected && (
             <div style={{ marginBottom: 'var(--spacing-md)' }}>
-              <button className="btn btn-secondary btn-sm" onClick={() => navigate(`/app/pipeline-editor/${encodeURIComponent(selectedModel)}`)}>
+              <button className="btn btn-secondary btn-sm" onClick={() => navigate(`/app/model-editor/${encodeURIComponent(selectedModel)}`)}>
                 <i className="fas fa-pen-to-square" style={{ marginRight: 'var(--spacing-xs)' }} /> Edit Pipeline
               </button>
             </div>

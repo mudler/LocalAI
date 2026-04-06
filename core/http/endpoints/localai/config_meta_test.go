@@ -239,5 +239,54 @@ backend: llama-cpp
 			Expect(err).NotTo(HaveOccurred())
 			Expect(string(data)).To(ContainSubstring("vllm"))
 		})
+
+		It("should not persist runtime defaults (SetDefaults values) to disk", func() {
+			// Create a minimal pipeline config - no sampling params
+			seedConfig := `name: gpt-realtime
+pipeline:
+    vad: silero-vad
+    transcription: whisper-base
+    llm: llama3
+    tts: piper
+`
+			configPath := filepath.Join(tempDir, "gpt-realtime.yaml")
+			Expect(os.WriteFile(configPath, []byte(seedConfig), 0644)).To(Succeed())
+			Expect(configLoader.LoadModelConfigsFromPath(tempDir)).To(Succeed())
+
+			// PATCH with a small change to the pipeline
+			body := bytes.NewBufferString(`{"pipeline": {"tts": "vibevoice"}}`)
+			req := httptest.NewRequest(http.MethodPatch, "/api/models/config-json/gpt-realtime", body)
+			req.Header.Set("Content-Type", "application/json")
+			rec := httptest.NewRecorder()
+			app.ServeHTTP(rec, req)
+
+			Expect(rec.Code).To(Equal(http.StatusOK))
+
+			// Read the file from disk and verify no spurious defaults leaked
+			data, err := os.ReadFile(configPath)
+			Expect(err).NotTo(HaveOccurred())
+			fileContent := string(data)
+
+			// The patched value should be present
+			Expect(fileContent).To(ContainSubstring("vibevoice"))
+
+			// Runtime-only defaults from SetDefaults() should NOT be in the file
+			Expect(fileContent).NotTo(ContainSubstring("top_p"))
+			Expect(fileContent).NotTo(ContainSubstring("top_k"))
+			Expect(fileContent).NotTo(ContainSubstring("temperature"))
+			Expect(fileContent).NotTo(ContainSubstring("mirostat"))
+			Expect(fileContent).NotTo(ContainSubstring("mmap"))
+			Expect(fileContent).NotTo(ContainSubstring("mmlock"))
+			Expect(fileContent).NotTo(ContainSubstring("threads"))
+			Expect(fileContent).NotTo(ContainSubstring("low_vram"))
+			Expect(fileContent).NotTo(ContainSubstring("embeddings"))
+			Expect(fileContent).NotTo(ContainSubstring("f16"))
+
+			// Original fields should still be present
+			Expect(fileContent).To(ContainSubstring("gpt-realtime"))
+			Expect(fileContent).To(ContainSubstring("silero-vad"))
+			Expect(fileContent).To(ContainSubstring("whisper-base"))
+			Expect(fileContent).To(ContainSubstring("llama3"))
+		})
 	})
 })

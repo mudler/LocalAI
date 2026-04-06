@@ -119,48 +119,20 @@ func ImportModelEndpoint(cl *config.ModelConfigLoader, appConfig *config.Applica
 			return c.JSON(http.StatusBadRequest, response)
 		}
 
-		// Check content type to determine how to parse
+		// Detect format once and reuse for both typed and map parsing
 		contentType := c.Request().Header.Get("Content-Type")
-		var modelConfig config.ModelConfig
+		trimmed := strings.TrimSpace(string(body))
+		isJSON := strings.Contains(contentType, "application/json") ||
+			(!strings.Contains(contentType, "yaml") && len(trimmed) > 0 && trimmed[0] == '{')
 
-		if strings.Contains(contentType, "application/json") {
-			// Parse JSON
+		var modelConfig config.ModelConfig
+		if isJSON {
 			if err := json.Unmarshal(body, &modelConfig); err != nil {
-				response := ModelResponse{
-					Success: false,
-					Error:   "Failed to parse JSON: " + err.Error(),
-				}
-				return c.JSON(http.StatusBadRequest, response)
-			}
-		} else if strings.Contains(contentType, "application/x-yaml") || strings.Contains(contentType, "text/yaml") {
-			// Parse YAML
-			if err := yaml.Unmarshal(body, &modelConfig); err != nil {
-				response := ModelResponse{
-					Success: false,
-					Error:   "Failed to parse YAML: " + err.Error(),
-				}
-				return c.JSON(http.StatusBadRequest, response)
+				return c.JSON(http.StatusBadRequest, ModelResponse{Success: false, Error: "Failed to parse JSON: " + err.Error()})
 			}
 		} else {
-			// Try to auto-detect format
-			if len(body) > 0 && strings.TrimSpace(string(body))[0] == '{' {
-				// Looks like JSON
-				if err := json.Unmarshal(body, &modelConfig); err != nil {
-					response := ModelResponse{
-						Success: false,
-						Error:   "Failed to parse JSON: " + err.Error(),
-					}
-					return c.JSON(http.StatusBadRequest, response)
-				}
-			} else {
-				// Assume YAML
-				if err := yaml.Unmarshal(body, &modelConfig); err != nil {
-					response := ModelResponse{
-						Success: false,
-						Error:   "Failed to parse YAML: " + err.Error(),
-					}
-					return c.JSON(http.StatusBadRequest, response)
-				}
+			if err := yaml.Unmarshal(body, &modelConfig); err != nil {
+				return c.JSON(http.StatusBadRequest, ModelResponse{Success: false, Error: "Failed to parse YAML: " + err.Error()})
 			}
 		}
 
@@ -173,10 +145,9 @@ func ImportModelEndpoint(cl *config.ModelConfigLoader, appConfig *config.Applica
 			return c.JSON(http.StatusBadRequest, response)
 		}
 
-		// Set defaults
-		modelConfig.SetDefaults(appConfig.ToConfigLoaderOptions()...)
-
-		// Validate the configuration
+		// Validate without calling SetDefaults() — runtime defaults should not
+		// be persisted to disk. SetDefaults() is called when loading configs
+		// for inference via LoadModelConfigsFromPath().
 		if valid, _ := modelConfig.Validate(); !valid {
 			response := ModelResponse{
 				Success: false,
@@ -195,8 +166,21 @@ func ImportModelEndpoint(cl *config.ModelConfigLoader, appConfig *config.Applica
 			return c.JSON(http.StatusBadRequest, response)
 		}
 
-		// Marshal to YAML for storage
-		yamlData, err := yaml.Marshal(&modelConfig)
+		// Write only the user-provided fields to disk by parsing the original
+		// body into a map (not the typed struct, which includes Go zero values).
+		var bodyMap map[string]any
+		if isJSON {
+			_ = json.Unmarshal(body, &bodyMap)
+		} else {
+			_ = yaml.Unmarshal(body, &bodyMap)
+		}
+
+		var yamlData []byte
+		if bodyMap != nil {
+			yamlData, err = yaml.Marshal(bodyMap)
+		} else {
+			yamlData, err = yaml.Marshal(&modelConfig)
+		}
 		if err != nil {
 			response := ModelResponse{
 				Success: false,

@@ -180,27 +180,39 @@ func PatchConfigEndpoint(cl *config.ModelConfigLoader, _ *model.ModelLoader, app
 			return c.JSON(http.StatusBadRequest, map[string]any{"error": "invalid JSON: " + err.Error()})
 		}
 
-		existingJSON, err := json.Marshal(modelConfig)
+		// Read the raw YAML from disk rather than serializing the in-memory config.
+		// The in-memory config has SetDefaults() applied, which would persist
+		// runtime-only defaults (top_p, temperature, mirostat, etc.) to the file.
+		configPath := modelConfig.GetModelConfigFile()
+		if err := utils.VerifyPath(configPath, appConfig.SystemState.Model.ModelsPath); err != nil {
+			return c.JSON(http.StatusForbidden, map[string]any{"error": "config path not trusted: " + err.Error()})
+		}
+
+		diskYAML, err := os.ReadFile(configPath)
 		if err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]any{"error": "failed to marshal existing config"})
+			return c.JSON(http.StatusInternalServerError, map[string]any{"error": "failed to read config file: " + err.Error()})
 		}
 
 		var existingMap map[string]any
-		if err := json.Unmarshal(existingJSON, &existingMap); err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]any{"error": "failed to parse existing config"})
+		if err := yaml.Unmarshal(diskYAML, &existingMap); err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]any{"error": "failed to parse existing config: " + err.Error()})
+		}
+		if existingMap == nil {
+			existingMap = map[string]any{}
 		}
 
 		if err := mergo.Merge(&existingMap, patchMap, mergo.WithOverride); err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]any{"error": "failed to merge configs: " + err.Error()})
 		}
 
-		mergedJSON, err := json.Marshal(existingMap)
+		// Marshal once and reuse for both validation and writing
+		yamlData, err := yaml.Marshal(existingMap)
 		if err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]any{"error": "failed to marshal merged config"})
+			return c.JSON(http.StatusInternalServerError, map[string]any{"error": "failed to marshal YAML"})
 		}
 
 		var updatedConfig config.ModelConfig
-		if err := json.Unmarshal(mergedJSON, &updatedConfig); err != nil {
+		if err := yaml.Unmarshal(yamlData, &updatedConfig); err != nil {
 			return c.JSON(http.StatusBadRequest, map[string]any{"error": "merged config is invalid: " + err.Error()})
 		}
 
@@ -210,16 +222,6 @@ func PatchConfigEndpoint(cl *config.ModelConfigLoader, _ *model.ModelLoader, app
 				errMsg = err.Error()
 			}
 			return c.JSON(http.StatusBadRequest, map[string]any{"error": errMsg})
-		}
-
-		configPath := modelConfig.GetModelConfigFile()
-		if err := utils.VerifyPath(configPath, appConfig.SystemState.Model.ModelsPath); err != nil {
-			return c.JSON(http.StatusForbidden, map[string]any{"error": "config path not trusted: " + err.Error()})
-		}
-
-		yamlData, err := yaml.Marshal(updatedConfig)
-		if err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]any{"error": "failed to marshal YAML"})
 		}
 
 		if err := os.WriteFile(configPath, yamlData, 0644); err != nil {
