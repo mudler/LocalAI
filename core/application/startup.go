@@ -17,6 +17,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/jobs"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/storage"
+	"github.com/mudler/LocalAI/pkg/vram"
 	coreStartup "github.com/mudler/LocalAI/core/startup"
 	"github.com/mudler/LocalAI/internal"
 
@@ -230,6 +231,10 @@ func New(opts ...config.AppOption) (*Application, error) {
 	if err := gallery.RegisterBackends(options.SystemState, application.ModelLoader()); err != nil {
 		xlog.Error("error registering external backends", "error", err)
 	}
+
+	// Wire gallery generation counter into VRAM caches so they invalidate
+	// when gallery data refreshes instead of using a fixed TTL.
+	vram.SetGalleryGenerationFunc(gallery.GalleryGeneration)
 
 	if options.ConfigFile != "" {
 		if err := application.ModelConfigLoader().LoadMultipleModelConfigsSingleFile(options.ConfigFile, configLoaderOpts...); err != nil {

@@ -1,6 +1,9 @@
 package vram
 
-import "context"
+import (
+	"context"
+	"fmt"
+)
 
 // FileInput represents a single model file for estimation (URI and optional pre-known size).
 type FileInput struct {
@@ -28,16 +31,33 @@ type GGUFMetadataReader interface {
 }
 
 // EstimateOptions configures VRAM/size estimation.
+// GPULayers and KVQuantBits apply uniformly across all context sizes.
 type EstimateOptions struct {
-	ContextLength uint32
-	GPULayers     int
-	KVQuantBits   int
+	GPULayers   int
+	KVQuantBits int
 }
 
-// EstimateResult holds estimated download size and VRAM with display strings.
-type EstimateResult struct {
-	SizeBytes   uint64 `json:"sizeBytes"`   // total model weight size in bytes
-	SizeDisplay string `json:"sizeDisplay"` // human-readable size (e.g. "4.2 GB")
-	VRAMBytes   uint64 `json:"vramBytes"`   // estimated VRAM usage in bytes
-	VRAMDisplay string `json:"vramDisplay"` // human-readable VRAM (e.g. "6.1 GB")
+// VRAMAt holds the VRAM estimate at a specific context size.
+type VRAMAt struct {
+	ContextLength uint32 `json:"contextLength"`
+	VRAMBytes     uint64 `json:"vramBytes"`
+	VRAMDisplay   string `json:"vramDisplay"`
+}
+
+// MultiContextEstimate holds VRAM estimates for one or more context sizes,
+// computed from a single metadata fetch.
+type MultiContextEstimate struct {
+	SizeBytes       uint64            `json:"sizeBytes"`
+	SizeDisplay     string            `json:"sizeDisplay"`
+	Estimates       map[string]VRAMAt `json:"estimates"`                // keys: context size as string
+	ModelMaxContext uint64            `json:"modelMaxContext,omitempty"` // from GGUF metadata
+}
+
+// VRAMForContext is a convenience method that returns the VRAMBytes for a
+// specific context size, or 0 if not present.
+func (m MultiContextEstimate) VRAMForContext(ctxLen uint32) uint64 {
+	if e, ok := m.Estimates[fmt.Sprint(ctxLen)]; ok {
+		return e.VRAMBytes
+	}
+	return 0
 }

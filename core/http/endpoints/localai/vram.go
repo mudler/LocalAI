@@ -2,9 +2,9 @@ package localai
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -14,16 +14,10 @@ import (
 )
 
 type vramEstimateRequest struct {
-	Model       string `json:"model"`                      // model name (must be installed)
-	ContextSize uint32 `json:"context_size,omitempty"`     // context length to estimate for (default 8192)
-	GPULayers   int    `json:"gpu_layers,omitempty"`       // number of layers to offload to GPU (0 = all)
-	KVQuantBits int    `json:"kv_quant_bits,omitempty"`    // KV cache quantization bits (0 = fp16)
-}
-
-type vramEstimateResponse struct {
-	vram.EstimateResult
-	ContextNote     string `json:"context_note,omitempty"`      // note when context_size was defaulted
-	ModelMaxContext uint64 `json:"model_max_context,omitempty"` // model's trained maximum context length
+	Model        string   `json:"model"`                       // model name (must be installed)
+	ContextSizes []uint32 `json:"context_sizes,omitempty"`     // context sizes to estimate (default [8192])
+	GPULayers    int      `json:"gpu_layers,omitempty"`        // number of layers to offload to GPU (0 = all)
+	KVQuantBits  int      `json:"kv_quant_bits,omitempty"`     // KV cache quantization bits (0 = fp16)
 }
 
 // resolveModelURI converts a relative model path to a file:// URI so the
@@ -36,8 +30,8 @@ func resolveModelURI(uri, modelsPath string) string {
 	return "file://" + filepath.Join(modelsPath, uri)
 }
 
-// addWeightFile appends a resolved weight file to files and tracks the first GGUF.
-func addWeightFile(uri, modelsPath string, files *[]vram.FileInput, firstGGUF *string, seen map[string]bool) {
+// addWeightFile appends a resolved weight file to files.
+func addWeightFile(uri, modelsPath string, files *[]vram.FileInput, seen map[string]bool) {
 	if !vram.IsWeightFile(uri) {
 		return
 	}
@@ -47,21 +41,17 @@ func addWeightFile(uri, modelsPath string, files *[]vram.FileInput, firstGGUF *s
 	}
 	seen[resolved] = true
 	*files = append(*files, vram.FileInput{URI: resolved, Size: 0})
-	if *firstGGUF == "" && vram.IsGGUF(uri) {
-		*firstGGUF = resolved
-	}
 }
 
 // VRAMEstimateEndpoint returns a handler that estimates VRAM usage for an
-// installed model configuration. For uninstalled models (gallery URLs), use
-// the gallery-level estimates in /api/models instead.
+// installed model configuration at multiple context sizes.
 // @Summary Estimate VRAM usage for a model
-// @Description Estimates VRAM based on model weight files, context size, and GPU layers
+// @Description Estimates VRAM based on model weight files at multiple context sizes
 // @Tags config
 // @Accept json
 // @Produce json
 // @Param request body vramEstimateRequest true "VRAM estimation parameters"
-// @Success 200 {object} vramEstimateResponse "VRAM estimate"
+// @Success 200 {object} vram.MultiContextEstimate "VRAM estimate"
 // @Router /api/models/vram-estimate [post]
 func VRAMEstimateEndpoint(cl *config.ModelConfigLoader, appConfig *config.ApplicationConfig) echo.HandlerFunc {
 	return func(c echo.Context) error {
@@ -82,17 +72,16 @@ func VRAMEstimateEndpoint(cl *config.ModelConfigLoader, appConfig *config.Applic
 		modelsPath := appConfig.SystemState.Model.ModelsPath
 
 		var files []vram.FileInput
-		var firstGGUF string
 		seen := make(map[string]bool)
 
 		for _, f := range modelConfig.DownloadFiles {
-			addWeightFile(string(f.URI), modelsPath, &files, &firstGGUF, seen)
+			addWeightFile(string(f.URI), modelsPath, &files, seen)
 		}
 		if modelConfig.Model != "" {
-			addWeightFile(modelConfig.Model, modelsPath, &files, &firstGGUF, seen)
+			addWeightFile(modelConfig.Model, modelsPath, &files, seen)
 		}
 		if modelConfig.MMProj != "" {
-			addWeightFile(modelConfig.MMProj, modelsPath, &files, &firstGGUF, seen)
+			addWeightFile(modelConfig.MMProj, modelsPath, &files, seen)
 		}
 
 		if len(files) == 0 {
@@ -101,45 +90,36 @@ func VRAMEstimateEndpoint(cl *config.ModelConfigLoader, appConfig *config.Applic
 			})
 		}
 
-		contextDefaulted := false
-		opts := vram.EstimateOptions{
-			ContextLength: req.ContextSize,
-			GPULayers:     req.GPULayers,
-			KVQuantBits:   req.KVQuantBits,
-		}
-		if opts.ContextLength == 0 {
+		contextSizes := req.ContextSizes
+		if len(contextSizes) == 0 {
 			if modelConfig.ContextSize != nil {
-				opts.ContextLength = uint32(*modelConfig.ContextSize)
+				contextSizes = []uint32{uint32(*modelConfig.ContextSize)}
 			} else {
-				opts.ContextLength = 8192
-				contextDefaulted = true
+				contextSizes = []uint32{8192}
 			}
+		}
+
+		// Include model's configured context size alongside requested sizes
+		if modelConfig.ContextSize != nil {
+			modelCtx := uint32(*modelConfig.ContextSize)
+			if !slices.Contains(contextSizes, modelCtx) {
+				contextSizes = append(contextSizes, modelCtx)
+			}
+		}
+
+		opts := vram.EstimateOptions{
+			GPULayers:   req.GPULayers,
+			KVQuantBits: req.KVQuantBits,
 		}
 
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 
-		result, err := vram.Estimate(ctx, files, opts, vram.DefaultCachedSizeResolver(), vram.DefaultCachedGGUFReader())
+		result, err := vram.EstimateMultiContext(ctx, files, contextSizes, opts, vram.DefaultCachedSizeResolver(), vram.DefaultCachedGGUFReader())
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]any{"error": err.Error()})
 		}
 
-		resp := vramEstimateResponse{EstimateResult: result}
-
-		// When context was defaulted to 8192, read the GGUF metadata to report
-		// the model's trained maximum context length so callers know the estimate
-		// may be conservative.
-		if contextDefaulted && firstGGUF != "" {
-			ggufMeta, err := vram.DefaultCachedGGUFReader().ReadMetadata(ctx, firstGGUF)
-			if err == nil && ggufMeta != nil && ggufMeta.MaximumContextLength > 0 {
-				resp.ModelMaxContext = ggufMeta.MaximumContextLength
-				resp.ContextNote = fmt.Sprintf(
-					"Estimate used default context_size=8192. The model's trained maximum context is %d; VRAM usage will be higher at larger context sizes.",
-					ggufMeta.MaximumContextLength,
-				)
-			}
-		}
-
-		return c.JSON(http.StatusOK, resp)
+		return c.JSON(http.StatusOK, result)
 	}
 }

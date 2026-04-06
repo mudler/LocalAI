@@ -301,7 +301,13 @@ var (
 	availableModelsMu    sync.RWMutex
 	availableModelsCache GalleryElements[*GalleryModel]
 	refreshing           atomic.Bool
+	galleryGeneration    atomic.Uint64
 )
+
+// GalleryGeneration returns a counter that increments each time the gallery
+// model list is refreshed from upstream. VRAM estimation caches use this to
+// invalidate entries when the gallery data changes.
+func GalleryGeneration() uint64 { return galleryGeneration.Load() }
 
 // AvailableGalleryModelsCached returns gallery models from an in-memory cache.
 // Local-only fields (installed status) are refreshed on every call. A background
@@ -335,6 +341,7 @@ func AvailableGalleryModelsCached(galleries []config.Gallery, systemState *syste
 
 	availableModelsMu.Lock()
 	availableModelsCache = models
+	galleryGeneration.Add(1)
 	availableModelsMu.Unlock()
 
 	return models, nil
@@ -356,6 +363,7 @@ func triggerGalleryRefresh(galleries []config.Gallery, systemState *system.Syste
 		}
 		availableModelsMu.Lock()
 		availableModelsCache = models
+		galleryGeneration.Add(1)
 		availableModelsMu.Unlock()
 	}()
 }

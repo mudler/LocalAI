@@ -86,6 +86,9 @@ function GalleryLoader() {
 }
 
 
+const CONTEXT_SIZES = [8192, 16384, 32768, 65536, 131072, 262144]
+const CONTEXT_LABELS = ['8K', '16K', '32K', '64K', '128K', '256K']
+
 const FILTERS = [
   { key: '', label: 'All', icon: 'fa-layer-group' },
   { key: 'chat', label: 'Chat', icon: 'fa-brain' },
@@ -119,6 +122,7 @@ export default function Models() {
   const [allBackends, setAllBackends] = useState([])
   const [backendUsecases, setBackendUsecases] = useState({})
   const [estimates, setEstimates] = useState({})
+  const [contextSize, setContextSize] = useState(CONTEXT_SIZES[0])
   const debounceRef = useRef(null)
   const [confirmDialog, setConfirmDialog] = useState(null)
 
@@ -190,9 +194,9 @@ export default function Models() {
     models.forEach(model => {
       const id = model.name || model.id
       if (estimates[id]) return
-      modelsApi.estimate(id).then(est => {
+      modelsApi.estimate(id, CONTEXT_SIZES).then(est => {
         if (cancelled) return
-        if (est && (est.SizeBytes || est.VRAMBytes)) {
+        if (est && (est.sizeBytes || est.estimates)) {
           setEstimates(prev => ({ ...prev, [id]: est }))
         }
       }).catch(() => {})
@@ -371,6 +375,25 @@ export default function Models() {
         )}
       </div>
 
+      {/* Context size slider for VRAM estimates */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-md)', fontSize: '0.8125rem' }}>
+        <label style={{ color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>
+          <i className="fas fa-memory" style={{ marginRight: 4 }} />
+          Context:
+        </label>
+        <input
+          type="range"
+          min={0}
+          max={CONTEXT_SIZES.length - 1}
+          value={CONTEXT_SIZES.indexOf(contextSize)}
+          onChange={(e) => setContextSize(CONTEXT_SIZES[e.target.value])}
+          style={{ width: 140, accentColor: 'var(--color-primary)' }}
+        />
+        <span style={{ fontWeight: 600, minWidth: '3em' }}>
+          {CONTEXT_LABELS[CONTEXT_SIZES.indexOf(contextSize)]}
+        </span>
+      </div>
+
       {/* Table */}
       {loading ? (
         <GalleryLoader />
@@ -415,10 +438,11 @@ export default function Models() {
               <tbody>
                 {models.map((model, idx) => {
                   const name = model.name || model.id
-                  const est = estimates[name] || {}
-                  const sizeDisplay = est.SizeDisplay || model.estimated_size_display
-                  const vramDisplay = est.VRAMDisplay || model.estimated_vram_display
-                  const vramBytes = est.VRAMBytes || model.estimated_vram_bytes
+                  const estData = estimates[name]
+                  const sizeDisplay = estData?.sizeDisplay
+                  const ctxEst = estData?.estimates?.[String(contextSize)]
+                  const vramDisplay = ctxEst?.vramDisplay
+                  const vramBytes = ctxEst?.vramBytes
                   const installing = isInstalling(name)
                   const progress = getOperationProgress(name)
                   const fit = fitsGpu(vramBytes)

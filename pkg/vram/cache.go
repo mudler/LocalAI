@@ -3,135 +3,93 @@ package vram
 import (
 	"context"
 	"sync"
-	"time"
 )
 
-const defaultEstimateCacheTTL = 15 * time.Minute
+// galleryGenFunc returns the current gallery generation counter.
+// When set, cache entries are invalidated when the generation changes.
+// When nil (e.g., in tests or non-gallery contexts), entries never expire.
+var galleryGenFunc func() uint64
+
+// SetGalleryGenerationFunc wires the gallery generation counter into the
+// VRAM caches. Call this once at application startup.
+func SetGalleryGenerationFunc(fn func() uint64) {
+	galleryGenFunc = fn
+}
+
+func currentGeneration() uint64 {
+	if galleryGenFunc != nil {
+		return galleryGenFunc()
+	}
+	return 0
+}
 
 type sizeCacheEntry struct {
-	size  int64
-	err   error
-	until time.Time
+	size       int64
+	err        error
+	generation uint64
 }
 
 type cachedSizeResolver struct {
 	underlying SizeResolver
-	ttl        time.Duration
 	mu         sync.Mutex
 	cache      map[string]sizeCacheEntry
 }
 
 func (c *cachedSizeResolver) ContentLength(ctx context.Context, uri string) (int64, error) {
+	gen := currentGeneration()
 	c.mu.Lock()
 	e, ok := c.cache[uri]
 	c.mu.Unlock()
-	if ok && time.Now().Before(e.until) {
+	if ok && e.generation == gen {
 		return e.size, e.err
 	}
 	size, err := c.underlying.ContentLength(ctx, uri)
 	c.mu.Lock()
-	if c.cache == nil {
-		c.cache = make(map[string]sizeCacheEntry)
-	}
-	c.cache[uri] = sizeCacheEntry{size: size, err: err, until: time.Now().Add(c.ttl)}
+	c.cache[uri] = sizeCacheEntry{size: size, err: err, generation: gen}
 	c.mu.Unlock()
 	return size, err
 }
 
 type ggufCacheEntry struct {
-	meta  *GGUFMeta
-	err   error
-	until time.Time
+	meta       *GGUFMeta
+	err        error
+	generation uint64
 }
 
 type cachedGGUFReader struct {
 	underlying GGUFMetadataReader
-	ttl        time.Duration
 	mu         sync.Mutex
 	cache      map[string]ggufCacheEntry
 }
 
 func (c *cachedGGUFReader) ReadMetadata(ctx context.Context, uri string) (*GGUFMeta, error) {
+	gen := currentGeneration()
 	c.mu.Lock()
 	e, ok := c.cache[uri]
 	c.mu.Unlock()
-	if ok && time.Now().Before(e.until) {
+	if ok && e.generation == gen {
 		return e.meta, e.err
 	}
 	meta, err := c.underlying.ReadMetadata(ctx, uri)
 	c.mu.Lock()
-	if c.cache == nil {
-		c.cache = make(map[string]ggufCacheEntry)
-	}
-	c.cache[uri] = ggufCacheEntry{meta: meta, err: err, until: time.Now().Add(c.ttl)}
+	c.cache[uri] = ggufCacheEntry{meta: meta, err: err, generation: gen}
 	c.mu.Unlock()
 	return meta, err
 }
 
-// CachedSizeResolver returns a SizeResolver that caches ContentLength results by URI for the given TTL.
-func CachedSizeResolver(underlying SizeResolver, ttl time.Duration) SizeResolver {
-	return &cachedSizeResolver{underlying: underlying, ttl: ttl, cache: make(map[string]sizeCacheEntry)}
-}
-
-// CachedGGUFReader returns a GGUFMetadataReader that caches ReadMetadata results by URI for the given TTL.
-func CachedGGUFReader(underlying GGUFMetadataReader, ttl time.Duration) GGUFMetadataReader {
-	return &cachedGGUFReader{underlying: underlying, ttl: ttl, cache: make(map[string]ggufCacheEntry)}
-}
-
-// DefaultCachedSizeResolver returns a cached SizeResolver using the default implementation and default TTL (15 min).
-// A single shared cache is used so repeated HEAD requests for the same URI are avoided across requests.
+// DefaultCachedSizeResolver returns a cached SizeResolver using the default implementation.
+// Entries are invalidated when the gallery generation changes.
 func DefaultCachedSizeResolver() SizeResolver {
 	return defaultCachedSizeResolver
 }
 
-// DefaultCachedGGUFReader returns a cached GGUFMetadataReader using the default implementation and default TTL (15 min).
-// A single shared cache is used so repeated GGUF metadata fetches for the same URI are avoided across requests.
+// DefaultCachedGGUFReader returns a cached GGUFMetadataReader using the default implementation.
+// Entries are invalidated when the gallery generation changes.
 func DefaultCachedGGUFReader() GGUFMetadataReader {
 	return defaultCachedGGUFReader
 }
 
 var (
-	defaultCachedSizeResolver = CachedSizeResolver(defaultSizeResolver{}, defaultEstimateCacheTTL)
-	defaultCachedGGUFReader   = CachedGGUFReader(defaultGGUFReader{}, defaultEstimateCacheTTL)
+	defaultCachedSizeResolver = &cachedSizeResolver{underlying: defaultSizeResolver{}, cache: make(map[string]sizeCacheEntry)}
+	defaultCachedGGUFReader   = &cachedGGUFReader{underlying: defaultGGUFReader{}, cache: make(map[string]ggufCacheEntry)}
 )
-
-// Model-level estimate result cache — keyed by model ID, avoids re-running
-// the full estimation pipeline (HTTP HEAD, GGUF reads, HF API) on every
-// gallery page load.
-
-const estimateResultTTL = 1 * time.Hour
-
-type estimateResultEntry struct {
-	result EstimateResult
-	until  time.Time
-}
-
-var (
-	estimateResultMu    sync.Mutex
-	estimateResultCache = make(map[string]estimateResultEntry)
-)
-
-// GetCachedEstimate returns a previously cached EstimateResult for the given
-// key (typically a model ID). Returns false on cache miss or expiry.
-func GetCachedEstimate(key string) (EstimateResult, bool) {
-	estimateResultMu.Lock()
-	defer estimateResultMu.Unlock()
-	e, ok := estimateResultCache[key]
-	if !ok || time.Now().After(e.until) {
-		if ok {
-			delete(estimateResultCache, key)
-		}
-		return EstimateResult{}, false
-	}
-	return e.result, true
-}
-
-// SetCachedEstimate stores an EstimateResult for the given key with a 1-hour TTL.
-func SetCachedEstimate(key string, result EstimateResult) {
-	estimateResultMu.Lock()
-	defer estimateResultMu.Unlock()
-	estimateResultCache[key] = estimateResultEntry{
-		result: result,
-		until:  time.Now().Add(estimateResultTTL),
-	}
-}
