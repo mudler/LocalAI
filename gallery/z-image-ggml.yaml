@@ -10,6 +10,7 @@ config_file: |
       - llm_path:Qwen3-4B.Q4_K_M.gguf
       - vae_path:ae.safetensors
       - offload_params_to_cpu:true
+      - diffusion_flash_attn:true
   parameters:
-      model: z_image_turbo-Q4_K.gguf
+      model: z_image_turbo-Q4_0.gguf
   step: 25
