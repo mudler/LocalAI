@@ -2,6 +2,7 @@ package nodes
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -48,6 +49,12 @@ func (f *fakeModelRouterForSmartRouter) RemoveNodeModel(_ context.Context, _, _ 
 func (f *fakeModelRouterForSmartRouter) TouchNodeModel(_ context.Context, _, _ string) {}
 func (f *fakeModelRouterForSmartRouter) SetNodeModel(_ context.Context, _, _, _, _ string, _ int) error {
 	return nil
+}
+func (f *fakeModelRouterForSmartRouter) SetNodeModelLoadInfo(_ context.Context, _, _, _ string, _ []byte) error {
+	return nil
+}
+func (f *fakeModelRouterForSmartRouter) GetModelLoadInfo(_ context.Context, _ string) (string, []byte, error) {
+	return "", nil, fmt.Errorf("not found")
 }
 func (f *fakeModelRouterForSmartRouter) FindNodeWithVRAM(_ context.Context, _ uint64) (*BackendNode, error) {
 	return nil, nil

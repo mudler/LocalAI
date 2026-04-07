@@ -70,16 +70,97 @@ func NewSmartRouter(registry ModelRouter, opts SmartRouterOptions) *SmartRouter 
 // Unloader returns the remote unloader adapter for external use.
 func (r *SmartRouter) Unloader() NodeCommandSender { return r.unloader }
 
+// scheduleLoadResult holds the result of scheduling and loading a model on a node.
+type scheduleLoadResult struct {
+	Node        *BackendNode
+	Client      grpc.Backend
+	BackendAddr string
+}
+
+// scheduleAndLoad is the shared core for loading a model on a new node.
+// Used by both Route() (for first-time loads) and ScheduleAndLoadModel() (for reconciler scale-ups).
+//
+// Steps: pick node → install backend → stage files → LoadModel → SetNodeModel.
+func (r *SmartRouter) scheduleAndLoad(ctx context.Context, backendType, trackingKey, modelName string,
+	modelOpts *pb.ModelOptions, parallel bool, initialInFlight int) (*scheduleLoadResult, error) {
+
+	node, backendAddr, err := r.scheduleNewModel(ctx, backendType, trackingKey, modelOpts)
+	if err != nil {
+		return nil, fmt.Errorf("no available nodes: %w", err)
+	}
+
+	// Pre-stage model files via FileStager before loading
+	loadOpts := modelOpts
+	if r.fileStager != nil && modelOpts != nil {
+		staged, err := r.stageModelFiles(ctx, node, modelOpts, trackingKey)
+		if err != nil {
+			return nil, fmt.Errorf("staging model files for node %s: %w", node.Name, err)
+		}
+		loadOpts = staged
+	}
+
+	client := r.buildClientForAddr(node, backendAddr, parallel)
+
+	// Load the model on the remote node
+	if loadOpts != nil {
+		xlog.Info("Loading model on remote node", "node", node.Name, "model", modelName, "addr", backendAddr)
+
+		loadCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+		defer cancel()
+
+		res, err := client.LoadModel(loadCtx, loadOpts)
+		if err != nil {
+			return nil, fmt.Errorf("loading model %s on node %s: %w", modelName, node.Name, err)
+		}
+		if !res.Success {
+			return nil, fmt.Errorf("loading model %s on node %s: %s", modelName, node.Name, res.Message)
+		}
+	}
+
+	// Record the model as loaded on this node
+	if err := r.registry.SetNodeModel(ctx, node.ID, trackingKey, "loaded", backendAddr, initialInFlight); err != nil {
+		xlog.Warn("Failed to record model on node", "node", node.Name, "model", trackingKey, "error", err)
+	}
+
+	// Store load metadata for future replica scale-ups by the reconciler
+	if modelOpts != nil {
+		if optsBlob, marshalErr := proto.Marshal(modelOpts); marshalErr == nil {
+			if storeErr := r.registry.SetNodeModelLoadInfo(ctx, node.ID, trackingKey, backendType, optsBlob); storeErr != nil {
+				xlog.Warn("Failed to store model load info", "node", node.Name, "model", trackingKey, "error", storeErr)
+			}
+		}
+	}
+
+	return &scheduleLoadResult{Node: node, Client: client, BackendAddr: backendAddr}, nil
+}
+
 // ScheduleAndLoadModel implements ModelScheduler for the reconciler.
-// It schedules a model on a suitable node (optionally from candidates) and loads it.
+// It retrieves stored model options from an existing replica and performs the
+// full load sequence (stage files, LoadModel, SetNodeModel) on a new node.
 func (r *SmartRouter) ScheduleAndLoadModel(ctx context.Context, modelName string, candidateNodeIDs []string) (*BackendNode, error) {
-	// Use scheduleNewModel with empty backend type and nil model options.
-	// The reconciler doesn't know the backend type — it will be determined by the model config.
-	node, _, err := r.scheduleNewModel(ctx, "", modelName, nil)
+	// Get load info from an existing replica (stored when Route() first loaded the model)
+	backendType, optsBlob, err := r.registry.GetModelLoadInfo(ctx, modelName)
+	if err != nil {
+		// No existing replica with stored opts — fall back to install-only.
+		// This happens on the very first load (before Route() has stored opts).
+		xlog.Warn("No stored model load info for reconciler scale-up, falling back to backend install only",
+			"model", modelName, "error", err)
+		node, _, schedErr := r.scheduleNewModel(ctx, "", modelName, nil)
+		return node, schedErr
+	}
+
+	// Deserialize the stored model options
+	var modelOpts pb.ModelOptions
+	if err := proto.Unmarshal(optsBlob, &modelOpts); err != nil {
+		return nil, fmt.Errorf("unmarshalling stored model options for %s: %w", modelName, err)
+	}
+
+	// initialInFlight=0: reconciler is pre-loading, not serving a request
+	result, err := r.scheduleAndLoad(ctx, backendType, modelName, modelName, &modelOpts, false, 0)
 	if err != nil {
 		return nil, err
 	}
-	return node, nil
+	return result.Node, nil
 }
 
 // RouteResult contains the routing decision.
@@ -195,53 +276,21 @@ func (r *SmartRouter) Route(ctx context.Context, modelID, modelName, backendType
 			}
 		}
 
-		// Still not loaded — proceed with scheduling
-		node, backendAddr, err := r.scheduleNewModel(ctx, backendType, trackingKey, modelOpts)
+		// Still not loaded — use shared schedule-and-load logic
+		result, err := r.scheduleAndLoad(ctx, backendType, trackingKey, modelName, modelOpts, parallel, 1)
 		if err != nil {
-			return nil, fmt.Errorf("no available nodes: %w", err)
+			return nil, err
 		}
 
-		// Pre-stage model files via FileStager before loading
-		if r.fileStager != nil && modelOpts != nil {
-			stagedOpts, err := r.stageModelFiles(ctx, node, modelOpts, trackingKey)
-			if err != nil {
-				return nil, fmt.Errorf("staging model files for node %s: %w", node.Name, err)
-			}
-			modelOpts = stagedOpts
-		}
-
-		client := r.buildClientForAddr(node, backendAddr, parallel)
-
-		// Load the model on this node
-		if modelOpts != nil {
-			xlog.Info("Loading model on remote node", "node", node.Name, "model", modelName, "addr", backendAddr)
-
-			loadCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
-			defer cancel()
-
-			res, err := client.LoadModel(loadCtx, modelOpts)
-			if err != nil {
-				return nil, fmt.Errorf("loading model %s on node %s: %w", modelName, node.Name, err)
-			}
-			if !res.Success {
-				return nil, fmt.Errorf("loading model %s on node %s: %s", modelName, node.Name, res.Message)
-			}
-		}
-
-		// Record the model as loaded on this node with its per-process address
-		if err := r.registry.SetNodeModel(ctx, node.ID, trackingKey, "loaded", backendAddr, 1); err != nil {
-			xlog.Warn("Failed to record model on node", "node", node.Name, "model", trackingKey, "error", err)
-		}
-
-		tracked := NewInFlightTrackingClient(client, r.registry, node.ID, trackingKey)
+		tracked := NewInFlightTrackingClient(result.Client, r.registry, result.Node.ID, trackingKey)
 		tracked.OnFirstComplete(func() {
-			r.registry.DecrementInFlight(context.Background(), node.ID, trackingKey)
+			r.registry.DecrementInFlight(context.Background(), result.Node.ID, trackingKey)
 		})
 		return &RouteResult{
-			Node:   node,
+			Node:   result.Node,
 			Client: tracked,
 			Release: func() {
-				closeClient(client)
+				closeClient(result.Client)
 			},
 		}, nil
 	}

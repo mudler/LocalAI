@@ -56,16 +56,18 @@ const (
 
 // NodeModel tracks which models are loaded on which nodes.
 type NodeModel struct {
-	ID        string    `gorm:"primaryKey;size:36" json:"id"`
-	NodeID    string    `gorm:"index;size:36" json:"node_id"`
-	ModelName string    `gorm:"index;size:255" json:"model_name"`
-	Address   string    `gorm:"size:255" json:"address"`           // gRPC address for this model's backend process
-	State     string    `gorm:"size:32;default:idle" json:"state"` // loading, loaded, unloading, idle
-	InFlight  int       `json:"in_flight"`                         // number of active requests
-	LastUsed  time.Time `json:"last_used"`
-	LoadingBy string    `gorm:"size:36" json:"loading_by,omitempty"` // frontend ID that triggered loading
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID            string    `gorm:"primaryKey;size:36" json:"id"`
+	NodeID        string    `gorm:"index;size:36" json:"node_id"`
+	ModelName     string    `gorm:"index;size:255" json:"model_name"`
+	Address       string    `gorm:"size:255" json:"address"`           // gRPC address for this model's backend process
+	State         string    `gorm:"size:32;default:idle" json:"state"` // loading, loaded, unloading, idle
+	InFlight      int       `json:"in_flight"`                         // number of active requests
+	LastUsed      time.Time `json:"last_used"`
+	LoadingBy     string    `gorm:"size:36" json:"loading_by,omitempty"` // frontend ID that triggered loading
+	BackendType   string    `gorm:"size:128" json:"backend_type,omitempty"`  // e.g. "llama-cpp"; used by reconciler to replicate loads
+	ModelOptsBlob []byte    `gorm:"type:bytea" json:"-"`                     // serialized pb.ModelOptions for replica scale-ups
+	CreatedAt     time.Time `json:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at"`
 }
 
 // NodeLabel is a key-value label on a node (like K8s labels).
@@ -412,6 +414,29 @@ func (r *NodeRegistry) SetNodeModel(ctx context.Context, nodeID, modelName, stat
 		Assign(map[string]any{"address": address, "state": state, "last_used": now, "in_flight": initialInFlight}).
 		FirstOrCreate(&nm)
 	return result.Error
+}
+
+// SetNodeModelLoadInfo stores the backend type and serialized model options on
+// an existing NodeModel record. This metadata is used by the reconciler to
+// replicate model loads during scale-up.
+func (r *NodeRegistry) SetNodeModelLoadInfo(ctx context.Context, nodeID, modelName, backendType string, optsBlob []byte) error {
+	return r.db.WithContext(ctx).Model(&NodeModel{}).
+		Where("node_id = ? AND model_name = ?", nodeID, modelName).
+		Updates(map[string]any{"backend_type": backendType, "model_opts_blob": optsBlob}).Error
+}
+
+// GetModelLoadInfo retrieves the stored backend type and serialized model
+// options from any existing loaded replica. Returns gorm.ErrRecordNotFound
+// if no replica has stored options.
+func (r *NodeRegistry) GetModelLoadInfo(ctx context.Context, modelName string) (backendType string, optsBlob []byte, err error) {
+	var nm NodeModel
+	err = r.db.WithContext(ctx).
+		Where("model_name = ? AND state = ? AND model_opts_blob IS NOT NULL", modelName, "loaded").
+		First(&nm).Error
+	if err != nil {
+		return "", nil, err
+	}
+	return nm.BackendType, nm.ModelOptsBlob, nil
 }
 
 // RemoveNodeModel removes a model association from a node.

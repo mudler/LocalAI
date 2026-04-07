@@ -142,6 +142,14 @@ func (f *fakeModelRouter) SetNodeModel(_ context.Context, nodeID, modelName, sta
 	return nil
 }
 
+func (f *fakeModelRouter) SetNodeModelLoadInfo(_ context.Context, _, _, _ string, _ []byte) error {
+	return nil
+}
+
+func (f *fakeModelRouter) GetModelLoadInfo(_ context.Context, _ string) (string, []byte, error) {
+	return "", nil, fmt.Errorf("not found")
+}
+
 func (f *fakeModelRouter) FindNodeWithVRAM(_ context.Context, _ uint64) (*BackendNode, error) {
 	return f.findVRAMNode, f.findVRAMErr
 }

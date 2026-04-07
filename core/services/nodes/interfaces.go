@@ -15,6 +15,8 @@ type ModelRouter interface {
 	RemoveNodeModel(ctx context.Context, nodeID, modelName string) error
 	TouchNodeModel(ctx context.Context, nodeID, modelName string)
 	SetNodeModel(ctx context.Context, nodeID, modelName, state, address string, initialInFlight int) error
+	SetNodeModelLoadInfo(ctx context.Context, nodeID, modelName, backendType string, optsBlob []byte) error
+	GetModelLoadInfo(ctx context.Context, modelName string) (backendType string, optsBlob []byte, err error)
 	FindNodeWithVRAM(ctx context.Context, minBytes uint64) (*BackendNode, error)
 	FindIdleNode(ctx context.Context) (*BackendNode, error)
 	FindLeastLoadedNode(ctx context.Context) (*BackendNode, error)
