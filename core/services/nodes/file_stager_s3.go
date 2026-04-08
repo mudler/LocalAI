@@ -70,7 +70,14 @@ func (s *S3NATSFileStager) EnsureRemote(ctx context.Context, nodeID, localPath, 
 	// Upload to S3 if not already present
 	exists, _ := s.fm.Exists(ctx, key)
 	if !exists {
-		if err := s.fm.Upload(ctx, key, localPath); err != nil {
+		// Wrap with progress reporting if a staging callback is available
+		var progressFn storage.UploadProgressFunc
+		if cb := StagingProgressFromContext(ctx); cb != nil {
+			progressFn = func(fileName string, bytesWritten, totalBytes int64) {
+				cb(fileName, bytesWritten, totalBytes)
+			}
+		}
+		if err := s.fm.UploadWithProgress(ctx, key, localPath, progressFn); err != nil {
 			return "", fmt.Errorf("uploading %s to S3: %w", localPath, err)
 		}
 	}

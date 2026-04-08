@@ -13,6 +13,7 @@ import UnifiedMCPDropdown from '../components/UnifiedMCPDropdown'
 import { loadClientMCPServers } from '../utils/mcpClientStorage'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { useAuth } from '../context/AuthContext'
+import { useOperations } from '../hooks/useOperations'
 import { relativeTime } from '../utils/format'
 
 function getLastMessagePreview(chat) {
@@ -277,12 +278,19 @@ export default function Chat() {
   const { addToast } = useOutletContext()
   const navigate = useNavigate()
   const { isAdmin } = useAuth()
+  const { operations } = useOperations()
   const {
     chats, activeChat, activeChatId, isStreaming, streamingChatId, streamingContent,
     streamingReasoning, streamingToolCalls, tokensPerSecond, maxTokensPerSecond,
     addChat, switchChat, deleteChat, deleteAllChats, renameChat, updateChatSettings,
     sendMessage, stopGeneration, clearHistory, getContextUsagePercent, addMessage,
   } = useChat(urlModel || '')
+
+  // Detect active staging operation for the current chat's model
+  const stagingOp = useMemo(() => {
+    if (!isStreaming || !activeChat?.model) return null
+    return operations.find(op => op.taskType === 'staging' && op.name === activeChat.model) || null
+  }, [operations, isStreaming, activeChat?.model])
 
   const [input, setInput] = useState('')
   const [files, setFiles] = useState([])
@@ -1187,9 +1195,28 @@ export default function Chat() {
               </div>
               <div className="chat-message-bubble">
                 <div className="chat-message-content chat-thinking-indicator">
-                  <span className="chat-thinking-dots">
-                    <span /><span /><span />
-                  </span>
+                  {stagingOp ? (
+                    <div className="chat-staging-progress">
+                      <div className="chat-staging-label">
+                        <i className="fas fa-cloud-arrow-up" /> Transferring model{stagingOp.nodeName ? ` to ${stagingOp.nodeName}` : ''}...
+                      </div>
+                      {stagingOp.progress > 0 && (
+                        <div className="chat-staging-detail">
+                          <div className="chat-staging-bar-container">
+                            <div className="chat-staging-bar" style={{ width: `${stagingOp.progress}%` }} />
+                          </div>
+                          <span className="chat-staging-pct">{Math.round(stagingOp.progress)}%</span>
+                        </div>
+                      )}
+                      {stagingOp.message && (
+                        <div className="chat-staging-file">{stagingOp.message}</div>
+                      )}
+                    </div>
+                  ) : (
+                    <span className="chat-thinking-dots">
+                      <span /><span /><span />
+                    </span>
+                  )}
                 </div>
               </div>
             </div>

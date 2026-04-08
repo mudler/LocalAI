@@ -39,6 +39,14 @@ func NewFileManager(store ObjectStore, cacheDir string) (*FileManager, error) {
 // Upload stores a file in object storage under the given key.
 // The file is read from the local path.
 func (fm *FileManager) Upload(ctx context.Context, key, localPath string) error {
+	return fm.UploadWithProgress(ctx, key, localPath, nil)
+}
+
+// UploadProgressFunc is called periodically during upload with the file name and bytes written/total.
+type UploadProgressFunc func(fileName string, bytesWritten, totalBytes int64)
+
+// UploadWithProgress stores a file in object storage, calling progressFn with byte-level updates.
+func (fm *FileManager) UploadWithProgress(ctx context.Context, key, localPath string, progressFn UploadProgressFunc) error {
 	if fm.store == nil {
 		return nil // no-op in single-node mode
 	}
@@ -49,12 +57,44 @@ func (fm *FileManager) Upload(ctx context.Context, key, localPath string) error 
 	}
 	defer f.Close()
 
-	if err := fm.store.Put(ctx, key, f); err != nil {
+	var r io.Reader = f
+	if progressFn != nil {
+		fi, err := f.Stat()
+		if err != nil {
+			return fmt.Errorf("stat %s: %w", localPath, err)
+		}
+		r = &uploadProgressReader{
+			reader:     f,
+			total:      fi.Size(),
+			fileName:   filepath.Base(localPath),
+			progressFn: progressFn,
+		}
+	}
+
+	if err := fm.store.Put(ctx, key, r); err != nil {
 		return fmt.Errorf("uploading %s to %s: %w", localPath, key, err)
 	}
 
 	xlog.Debug("Uploaded file to object storage", "key", key, "localPath", localPath)
 	return nil
+}
+
+// uploadProgressReader wraps an io.Reader and calls a progress function.
+type uploadProgressReader struct {
+	reader     io.Reader
+	total      int64
+	written    int64
+	fileName   string
+	progressFn UploadProgressFunc
+}
+
+func (r *uploadProgressReader) Read(p []byte) (int, error) {
+	n, err := r.reader.Read(p)
+	if n > 0 {
+		r.written += int64(n)
+		r.progressFn(r.fileName, r.written, r.total)
+	}
+	return n, err
 }
 
 // Download retrieves a file from object storage and caches it locally.

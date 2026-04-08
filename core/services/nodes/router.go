@@ -42,12 +42,13 @@ type SmartRouterOptions struct {
 // SmartRouter routes inference requests to the best available backend node.
 // It uses the ModelRouter interface (backed by NodeRegistry in production) for routing decisions.
 type SmartRouter struct {
-	registry      ModelRouter
-	unloader      NodeCommandSender    // optional, for NATS-driven load/unload
-	fileStager    FileStager           // optional, for distributed file transfer
-	galleriesJSON string               // backend gallery config for dynamic installation
-	clientFactory BackendClientFactory // creates gRPC backend clients
-	db            *gorm.DB             // for advisory locks during routing
+	registry       ModelRouter
+	unloader       NodeCommandSender    // optional, for NATS-driven load/unload
+	fileStager     FileStager           // optional, for distributed file transfer
+	galleriesJSON  string               // backend gallery config for dynamic installation
+	clientFactory  BackendClientFactory // creates gRPC backend clients
+	db             *gorm.DB             // for advisory locks during routing
+	stagingTracker *StagingTracker      // tracks file staging progress for UI visibility
 }
 
 // NewSmartRouter creates a new SmartRouter backed by the given ModelRouter.
@@ -58,17 +59,21 @@ func NewSmartRouter(registry ModelRouter, opts SmartRouterOptions) *SmartRouter 
 		factory = &tokenClientFactory{token: opts.AuthToken}
 	}
 	return &SmartRouter{
-		registry:      registry,
-		unloader:      opts.Unloader,
-		fileStager:    opts.FileStager,
-		galleriesJSON: opts.GalleriesJSON,
-		clientFactory: factory,
-		db:            opts.DB,
+		registry:       registry,
+		unloader:       opts.Unloader,
+		fileStager:     opts.FileStager,
+		galleriesJSON:  opts.GalleriesJSON,
+		clientFactory:  factory,
+		db:             opts.DB,
+		stagingTracker: NewStagingTracker(),
 	}
 }
 
 // Unloader returns the remote unloader adapter for external use.
 func (r *SmartRouter) Unloader() NodeCommandSender { return r.unloader }
+
+// StagingTracker returns the staging progress tracker for UI visibility.
+func (r *SmartRouter) StagingTracker() *StagingTracker { return r.stagingTracker }
 
 // scheduleLoadResult holds the result of scheduling and loading a model on a node.
 type scheduleLoadResult struct {
@@ -568,6 +573,33 @@ func (r *SmartRouter) stageModelFiles(ctx context.Context, node *BackendNode, op
 		{"AudioPath", &opts.AudioPath},
 	}
 
+	// Count stageable files for progress tracking
+	totalFiles := 0
+	for _, f := range fields {
+		if *f.val != "" {
+			if _, err := os.Stat(*f.val); err == nil {
+				totalFiles++
+			}
+		}
+	}
+	for _, adapter := range opts.LoraAdapters {
+		if adapter != "" {
+			if _, err := os.Stat(adapter); err == nil {
+				totalFiles++
+			}
+		}
+	}
+	if opts.LoraBase != "" {
+		if _, err := os.Stat(opts.LoraBase); err == nil {
+			totalFiles++
+		}
+	}
+
+	// Start tracking staging progress
+	r.stagingTracker.Start(trackingKey, node.Name, totalFiles)
+	defer r.stagingTracker.Complete(trackingKey)
+
+	fileIdx := 0
 	for _, f := range fields {
 		if *f.val == "" {
 			continue
@@ -578,9 +610,17 @@ func (r *SmartRouter) stageModelFiles(ctx context.Context, node *BackendNode, op
 			*f.val = ""
 			continue
 		}
+		fileIdx++
 		localPath := *f.val
 		key := keyMapper.Key(localPath)
-		remotePath, err := r.fileStager.EnsureRemote(ctx, node.ID, localPath, key)
+
+		// Attach progress callback to context for byte-level tracking
+		fileName := filepath.Base(localPath)
+		stageCtx := r.withStagingCallback(ctx, trackingKey, fileName, fileIdx, totalFiles)
+
+		xlog.Info("Staging file", "model", trackingKey, "node", node.Name, "field", f.name, "file", fileName, "fileIndex", fileIdx, "totalFiles", totalFiles)
+
+		remotePath, err := r.fileStager.EnsureRemote(stageCtx, node.ID, localPath, key)
 		if err != nil {
 			// ModelFile is required — fail the whole operation
 			if f.name == "ModelFile" {
@@ -592,6 +632,8 @@ func (r *SmartRouter) stageModelFiles(ctx context.Context, node *BackendNode, op
 			*f.val = ""
 			continue
 		}
+
+		r.stagingTracker.FileComplete(trackingKey, fileIdx, totalFiles)
 		xlog.Debug("Staged model field", "field", f.name, "remotePath", remotePath)
 		*f.val = remotePath
 
@@ -609,7 +651,7 @@ func (r *SmartRouter) stageModelFiles(ctx context.Context, node *BackendNode, op
 	}
 
 	// Handle LoraAdapters (array) — rewritten to absolute remote paths
-	staged := make([]string, 0, len(opts.LoraAdapters))
+	stagedAdapters := make([]string, 0, len(opts.LoraAdapters))
 	for _, adapter := range opts.LoraAdapters {
 		if adapter == "" {
 			continue
@@ -618,21 +660,31 @@ func (r *SmartRouter) stageModelFiles(ctx context.Context, node *BackendNode, op
 			xlog.Debug("Skipping staging for non-existent lora adapter", "path", adapter)
 			continue
 		}
+		fileIdx++
+		fileName := filepath.Base(adapter)
+		stageCtx := r.withStagingCallback(ctx, trackingKey, fileName, fileIdx, totalFiles)
+
 		key := keyMapper.Key(adapter)
-		remotePath, err := r.fileStager.EnsureRemote(ctx, node.ID, adapter, key)
+		remotePath, err := r.fileStager.EnsureRemote(stageCtx, node.ID, adapter, key)
 		if err != nil {
 			xlog.Warn("Failed to stage lora adapter, skipping", "path", adapter, "error", err)
 			continue
 		}
-		staged = append(staged, remotePath)
+		r.stagingTracker.FileComplete(trackingKey, fileIdx, totalFiles)
+		stagedAdapters = append(stagedAdapters, remotePath)
 	}
-	opts.LoraAdapters = staged
+	opts.LoraAdapters = stagedAdapters
 
 	// Handle LoraBase field — rewritten to absolute remote path
 	if opts.LoraBase != "" {
 		if _, err := os.Stat(opts.LoraBase); err == nil {
+			fileIdx++
+			fileName := filepath.Base(opts.LoraBase)
+			stageCtx := r.withStagingCallback(ctx, trackingKey, fileName, fileIdx, totalFiles)
+
 			key := keyMapper.Key(opts.LoraBase)
-			if remotePath, err := r.fileStager.EnsureRemote(ctx, node.ID, opts.LoraBase, key); err == nil {
+			if remotePath, err := r.fileStager.EnsureRemote(stageCtx, node.ID, opts.LoraBase, key); err == nil {
+				r.stagingTracker.FileComplete(trackingKey, fileIdx, totalFiles)
 				opts.LoraBase = remotePath
 			} else {
 				xlog.Warn("Failed to stage LoraBase, clearing field", "path", opts.LoraBase, "error", err)
@@ -647,6 +699,20 @@ func (r *SmartRouter) stageModelFiles(ctx context.Context, node *BackendNode, op
 	r.stageGenericOptions(ctx, node, opts.Overrides, frontendModelsDir, keyMapper.Key)
 
 	return opts, nil
+}
+
+// withStagingCallback creates a context with a progress callback that updates the staging tracker.
+func (r *SmartRouter) withStagingCallback(ctx context.Context, trackingKey, fileName string, fileIdx, totalFiles int) context.Context {
+	start := time.Now()
+	return WithStagingProgress(ctx, func(fn string, bytesSent, totalBytes int64) {
+		var speed string
+		elapsed := time.Since(start)
+		if elapsed > 0 {
+			bytesPerSec := float64(bytesSent) / elapsed.Seconds()
+			speed = humanFileSize(int64(bytesPerSec)) + "/s"
+		}
+		r.stagingTracker.UpdateFile(trackingKey, fn, fileIdx, bytesSent, totalBytes, speed)
+	})
 }
 
 // stageCompanionFiles stages known companion files that exist alongside

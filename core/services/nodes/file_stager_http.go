@@ -146,10 +146,11 @@ func (h *HTTPFileStager) doUpload(ctx context.Context, addr, nodeID, localPath, 
 	defer f.Close()
 
 	var body io.Reader = f
-	// For files > 100MB, wrap with progress logging
+	cb := StagingProgressFromContext(ctx)
+	// For files > 100MB or when a progress callback is set, wrap with progress reporting
 	const progressThreshold = 100 << 20
-	if fileSize > progressThreshold {
-		body = newProgressReader(f, fileSize, filepath.Base(localPath), nodeID)
+	if fileSize > progressThreshold || cb != nil {
+		body = newProgressReader(f, fileSize, filepath.Base(localPath), nodeID, cb)
 	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPut, url, body)
@@ -268,26 +269,30 @@ func (h *HTTPFileStager) probeExisting(ctx context.Context, addr, localPath, key
 }
 
 // progressReader wraps an io.Reader and logs upload progress periodically.
+// If a StagingProgressCallback is present in the context, it also calls it
+// for UI-visible progress updates.
 type progressReader struct {
-	reader   io.Reader
-	total    int64
-	read     int64
-	file     string
-	node     string
-	lastLog  time.Time
-	lastPct  int
-	start    time.Time
-	mu       sync.Mutex
+	reader     io.Reader
+	total      int64
+	read       int64
+	file       string
+	node       string
+	lastLog    time.Time
+	lastPct    int
+	start      time.Time
+	mu         sync.Mutex
+	progressCb StagingProgressCallback
 }
 
-func newProgressReader(r io.Reader, total int64, file, node string) *progressReader {
+func newProgressReader(r io.Reader, total int64, file, node string, cb StagingProgressCallback) *progressReader {
 	return &progressReader{
-		reader:  r,
-		total:   total,
-		file:    file,
-		node:    node,
-		start:   time.Now(),
-		lastLog: time.Now(),
+		reader:     r,
+		total:      total,
+		file:       file,
+		node:       node,
+		start:      time.Now(),
+		lastLog:    time.Now(),
+		progressCb: cb,
 	}
 }
 
@@ -312,6 +317,10 @@ func (pr *progressReader) Read(p []byte) (int, error) {
 				"speed", speed)
 			pr.lastLog = now
 			pr.lastPct = pct
+		}
+		// Call external progress callback for UI visibility
+		if pr.progressCb != nil {
+			pr.progressCb(pr.file, pr.read, pr.total)
 		}
 		pr.mu.Unlock()
 	}
@@ -385,7 +394,19 @@ func (h *HTTPFileStager) FetchRemoteByKey(ctx context.Context, nodeID, key, loca
 	}
 	defer f.Close()
 
-	written, err := io.Copy(f, resp.Body)
+	// Wrap response body with progress reporting if callback is set or file is large
+	var src io.Reader = resp.Body
+	cb := StagingProgressFromContext(ctx)
+	totalSize := resp.ContentLength
+	const progressThreshold = 100 << 20
+	if totalSize > progressThreshold || cb != nil {
+		if totalSize <= 0 {
+			totalSize = 0 // unknown size — progress reader will still report bytes
+		}
+		src = newProgressReader(resp.Body, totalSize, filepath.Base(key), nodeID, cb)
+	}
+
+	written, err := io.Copy(f, src)
 	if err != nil {
 		os.Remove(localDst)
 		return fmt.Errorf("writing to %s: %w", localDst, err)

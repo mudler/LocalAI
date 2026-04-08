@@ -153,6 +153,27 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			operations = append(operations, opData)
 		}
 
+		// Append active file staging operations (distributed mode only)
+		if d := applicationInstance.Distributed(); d != nil && d.Router != nil {
+			for modelID, status := range d.Router.StagingTracker().GetAll() {
+				operations = append(operations, map[string]any{
+					"id":          "staging:" + modelID,
+					"name":        modelID,
+					"fullName":    modelID,
+					"jobID":       "staging:" + modelID,
+					"progress":    int(status.Progress),
+					"taskType":    "staging",
+					"isDeletion":  false,
+					"isBackend":   false,
+					"isQueued":    false,
+					"isCancelled": false,
+					"cancellable": false,
+					"message":     status.Message,
+					"nodeName":    status.NodeName,
+				})
+			}
+		}
+
 		// Sort operations by progress (ascending), then by ID for stable display order
 		slices.SortFunc(operations, func(a, b map[string]any) int {
 			progressA := a["progress"].(int)

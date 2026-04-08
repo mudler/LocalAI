@@ -1936,6 +1936,56 @@
   40% { transform: scale(1); opacity: 1; }
 }
 
+/* Staging progress indicator (replaces thinking dots during model transfer) */
+.chat-staging-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 200px;
+  max-width: 320px;
+}
+.chat-staging-label {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.chat-staging-label i {
+  color: var(--color-primary);
+}
+.chat-staging-detail {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.chat-staging-bar-container {
+  flex: 1;
+  height: 4px;
+  background: var(--color-bg-tertiary);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.chat-staging-bar {
+  height: 100%;
+  background: var(--color-primary);
+  border-radius: 2px;
+  transition: width 300ms ease;
+}
+.chat-staging-pct {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  min-width: 32px;
+  text-align: right;
+}
+.chat-staging-file {
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* Message completion flash */
 .chat-message-bubble {
   transition: border-color 300ms ease;
