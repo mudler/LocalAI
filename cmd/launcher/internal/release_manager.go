@@ -53,12 +53,19 @@ type ReleaseManager struct {
 	HTTPClient *http.Client
 }
 
+const launcherHTTPTimeoutEnv = "LOCALAI_LAUNCHER_HTTP_TIMEOUT"
+
 // NewReleaseManager creates a new release manager
 func NewReleaseManager() *ReleaseManager {
 	homeDir, _ := os.UserHomeDir()
 	binaryPath := filepath.Join(homeDir, ".localai", "bin")
 	checksumsPath := filepath.Join(homeDir, ".localai", "checksums")
 	metadataPath := filepath.Join(homeDir, ".localai", "metadata")
+	httpClient := &http.Client{}
+
+	if timeout, ok := releaseManagerHTTPTimeout(); ok {
+		httpClient.Timeout = timeout
+	}
 
 	return &ReleaseManager{
 		GitHubOwner:    "mudler",
@@ -67,10 +74,28 @@ func NewReleaseManager() *ReleaseManager {
 		CurrentVersion: internal.PrintableVersion(),
 		ChecksumsPath:  checksumsPath,
 		MetadataPath:   metadataPath,
-		HTTPClient: &http.Client{
-			Timeout: 30 * time.Second,
-		},
+		HTTPClient:     httpClient,
 	}
+}
+
+func releaseManagerHTTPTimeout() (time.Duration, bool) {
+	value := strings.TrimSpace(os.Getenv(launcherHTTPTimeoutEnv))
+	if value == "" {
+		return 0, false
+	}
+
+	timeout, err := time.ParseDuration(value)
+	if err != nil {
+		log.Printf("Warning: ignoring invalid %s value %q: %v", launcherHTTPTimeoutEnv, value, err)
+		return 0, false
+	}
+
+	if timeout < 0 {
+		log.Printf("Warning: ignoring negative %s value %q", launcherHTTPTimeoutEnv, value)
+		return 0, false
+	}
+
+	return timeout, true
 }
 
 // GetLatestRelease fetches the latest release information from GitHub

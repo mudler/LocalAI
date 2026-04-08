@@ -34,12 +34,30 @@ var _ = Describe("ReleaseManager", func() {
 
 	Describe("NewReleaseManager", func() {
 		It("should create a release manager with correct defaults", func() {
+			Expect(os.Unsetenv("LOCALAI_LAUNCHER_HTTP_TIMEOUT")).To(Succeed())
+
 			newRM := launcher.NewReleaseManager()
 			Expect(newRM.GitHubOwner).To(Equal("mudler"))
 			Expect(newRM.GitHubRepo).To(Equal("LocalAI"))
 			Expect(newRM.BinaryPath).To(ContainSubstring(".localai"))
 			Expect(newRM.HTTPClient).ToNot(BeNil())
-			Expect(newRM.HTTPClient.Timeout).To(Equal(30 * time.Second))
+			Expect(newRM.HTTPClient.Timeout).To(BeZero())
+		})
+
+		It("should apply HTTP timeout from environment", func() {
+			Expect(os.Setenv("LOCALAI_LAUNCHER_HTTP_TIMEOUT", "45s")).To(Succeed())
+			defer os.Unsetenv("LOCALAI_LAUNCHER_HTTP_TIMEOUT")
+
+			newRM := launcher.NewReleaseManager()
+			Expect(newRM.HTTPClient.Timeout).To(Equal(45 * time.Second))
+		})
+
+		It("should ignore invalid HTTP timeout from environment", func() {
+			Expect(os.Setenv("LOCALAI_LAUNCHER_HTTP_TIMEOUT", "not-a-duration")).To(Succeed())
+			defer os.Unsetenv("LOCALAI_LAUNCHER_HTTP_TIMEOUT")
+
+			newRM := launcher.NewReleaseManager()
+			Expect(newRM.HTTPClient.Timeout).To(BeZero())
 		})
 	})
 
