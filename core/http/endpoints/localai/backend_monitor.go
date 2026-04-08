@@ -9,7 +9,7 @@ import (
 // BackendMonitorEndpoint returns the status of the specified backend
 // @Summary Backend monitor endpoint
 // @Tags monitoring
-// @Param request body schema.BackendMonitorRequest true "Backend statistics request"
+// @Param model query string true "Model name"
 // @Success 200 {object} proto.StatusResponse "Response"
 // @Router /backend/monitor [get]
 func BackendMonitorEndpoint(bm *monitoring.BackendMonitorService) echo.HandlerFunc {
