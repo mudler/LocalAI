@@ -20,6 +20,7 @@
     "vision": "视觉",
     "tts": "TTS",
     "stt": "STT",
+    "diarization": "说话人分离",
     "embedding": "嵌入",
     "rerank": "重排",
     "allBackends": "所有后端",

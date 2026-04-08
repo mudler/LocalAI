@@ -23,26 +23,25 @@ func (f fakeGGUFReader) ReadMetadata(ctx context.Context, uri string) (*GGUFMeta
 	return f[uri], nil
 }
 
-var _ = Describe("Estimate", func() {
+var _ = Describe("EstimateMultiContext", func() {
 	ctx := context.Background()
+	defaultCtx := []uint32{8192}
 
 	Describe("empty or non-GGUF inputs", func() {
 		It("returns zero size and vram for nil files", func() {
-			opts := EstimateOptions{ContextLength: 8192}
-			res, err := Estimate(ctx, nil, opts, nil, nil)
+			res, err := EstimateMultiContext(ctx, nil, defaultCtx, EstimateOptions{}, nil, nil)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(res.SizeBytes).To(Equal(uint64(0)))
-			Expect(res.VRAMBytes).To(Equal(uint64(0)))
+			Expect(res.Estimates["8192"].VRAMBytes).To(Equal(uint64(0)))
 			Expect(res.SizeDisplay).To(Equal("0 B"))
 		})
 
-		It("counts only .gguf files and ignores other extensions", func() {
+		It("counts only weight files and ignores other extensions", func() {
 			files := []FileInput{
 				{URI: "http://a/model.gguf", Size: 1_000_000_000},
 				{URI: "http://a/readme.txt", Size: 100},
 			}
-			opts := EstimateOptions{ContextLength: 8192}
-			res, err := Estimate(ctx, files, opts, nil, nil)
+			res, err := EstimateMultiContext(ctx, files, defaultCtx, EstimateOptions{}, nil, nil)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(res.SizeBytes).To(Equal(uint64(1_000_000_000)))
 		})
@@ -52,8 +51,7 @@ var _ = Describe("Estimate", func() {
 				{URI: "http://hf.co/model/model.safetensors", Size: 2_000_000_000},
 				{URI: "http://hf.co/model/model2.safetensors", Size: 3_000_000_000},
 			}
-			opts := EstimateOptions{ContextLength: 8192}
-			res, err := Estimate(ctx, files, opts, nil, nil)
+			res, err := EstimateMultiContext(ctx, files, defaultCtx, EstimateOptions{}, nil, nil)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(res.SizeBytes).To(Equal(uint64(5_000_000_000)))
 		})
@@ -62,24 +60,22 @@ var _ = Describe("Estimate", func() {
 	Describe("GGUF size and resolver", func() {
 		It("uses size resolver when file size is not set", func() {
 			sizes := fakeSizeResolver{"http://example.com/model.gguf": 1_500_000_000}
-			opts := EstimateOptions{ContextLength: 8192}
 			files := []FileInput{{URI: "http://example.com/model.gguf"}}
 
-			res, err := Estimate(ctx, files, opts, sizes, nil)
+			res, err := EstimateMultiContext(ctx, files, defaultCtx, EstimateOptions{}, sizes, nil)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(res.SizeBytes).To(Equal(uint64(1_500_000_000)))
-			Expect(res.VRAMBytes).To(BeNumerically(">=", res.SizeBytes))
+			Expect(res.Estimates["8192"].VRAMBytes).To(BeNumerically(">=", res.SizeBytes))
 			Expect(res.SizeDisplay).To(Equal("1.5 GB"))
 		})
 
 		It("uses size-only VRAM formula when metadata is missing and size is large", func() {
 			sizes := fakeSizeResolver{"http://a/model.gguf": 10_000_000_000}
-			opts := EstimateOptions{ContextLength: 8192}
 			files := []FileInput{{URI: "http://a/model.gguf"}}
 
-			res, err := Estimate(ctx, files, opts, sizes, nil)
+			res, err := EstimateMultiContext(ctx, files, defaultCtx, EstimateOptions{}, sizes, nil)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(res.VRAMBytes).To(BeNumerically(">", 10_000_000_000))
+			Expect(res.Estimates["8192"].VRAMBytes).To(BeNumerically(">", 10_000_000_000))
 		})
 
 		It("sums size for multiple GGUF shards", func() {
@@ -87,18 +83,16 @@ var _ = Describe("Estimate", func() {
 				{URI: "http://a/shard1.gguf", Size: 10_000_000_000},
 				{URI: "http://a/shard2.gguf", Size: 5_000_000_000},
 			}
-			opts := EstimateOptions{ContextLength: 8192}
 
-			res, err := Estimate(ctx, files, opts, nil, nil)
+			res, err := EstimateMultiContext(ctx, files, defaultCtx, EstimateOptions{}, nil, nil)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(res.SizeBytes).To(Equal(uint64(15_000_000_000)))
 		})
 
 		It("formats size display correctly", func() {
 			files := []FileInput{{URI: "http://a/model.gguf", Size: 2_500_000_000}}
-			opts := EstimateOptions{ContextLength: 8192}
 
-			res, err := Estimate(ctx, files, opts, nil, nil)
+			res, err := EstimateMultiContext(ctx, files, defaultCtx, EstimateOptions{}, nil, nil)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(res.SizeDisplay).To(Equal("2.5 GB"))
 		})
@@ -108,24 +102,94 @@ var _ = Describe("Estimate", func() {
 		It("uses metadata for VRAM when reader returns meta and partial offload", func() {
 			meta := &GGUFMeta{BlockCount: 32, EmbeddingLength: 4096}
 			reader := fakeGGUFReader{"http://a/model.gguf": meta}
-			opts := EstimateOptions{ContextLength: 8192, GPULayers: 20}
+			opts := EstimateOptions{GPULayers: 20}
 			files := []FileInput{{URI: "http://a/model.gguf", Size: 8_000_000_000}}
 
-			res, err := Estimate(ctx, files, opts, nil, reader)
+			res, err := EstimateMultiContext(ctx, files, defaultCtx, opts, nil, reader)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(res.VRAMBytes).To(BeNumerically(">", 0))
+			Expect(res.Estimates["8192"].VRAMBytes).To(BeNumerically(">", 0))
 		})
 
 		It("uses metadata head counts for KV and yields vram > size", func() {
 			files := []FileInput{{URI: "http://a/model.gguf", Size: 15_000_000_000}}
 			meta := &GGUFMeta{BlockCount: 32, EmbeddingLength: 4096, HeadCount: 32, HeadCountKV: 8}
 			reader := fakeGGUFReader{"http://a/model.gguf": meta}
-			opts := EstimateOptions{ContextLength: 8192}
 
-			res, err := Estimate(ctx, files, opts, nil, reader)
+			res, err := EstimateMultiContext(ctx, files, defaultCtx, EstimateOptions{}, nil, reader)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(res.SizeBytes).To(Equal(uint64(15_000_000_000)))
-			Expect(res.VRAMBytes).To(BeNumerically(">", res.SizeBytes))
+			Expect(res.Estimates["8192"].VRAMBytes).To(BeNumerically(">", res.SizeBytes))
+		})
+
+		It("populates ModelMaxContext from GGUF metadata", func() {
+			meta := &GGUFMeta{BlockCount: 32, EmbeddingLength: 4096, MaximumContextLength: 131072}
+			reader := fakeGGUFReader{"http://a/model.gguf": meta}
+			files := []FileInput{{URI: "http://a/model.gguf", Size: 8_000_000_000}}
+
+			res, err := EstimateMultiContext(ctx, files, defaultCtx, EstimateOptions{}, nil, reader)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(res.ModelMaxContext).To(Equal(uint64(131072)))
+		})
+	})
+
+	Describe("multi-context behavior", func() {
+		It("returns estimates for all requested context sizes", func() {
+			files := []FileInput{{URI: "http://a/model.gguf", Size: 4_000_000_000}}
+			sizes := []uint32{8192, 32768, 131072}
+
+			res, err := EstimateMultiContext(ctx, files, sizes, EstimateOptions{}, nil, nil)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(res.Estimates).To(HaveLen(3))
+			Expect(res.Estimates).To(HaveKey("8192"))
+			Expect(res.Estimates).To(HaveKey("32768"))
+			Expect(res.Estimates).To(HaveKey("131072"))
+		})
+
+		It("VRAM increases monotonically with context size", func() {
+			files := []FileInput{{URI: "http://a/model.gguf", Size: 4_000_000_000}}
+			meta := &GGUFMeta{BlockCount: 32, EmbeddingLength: 4096, HeadCount: 32, HeadCountKV: 8}
+			reader := fakeGGUFReader{"http://a/model.gguf": meta}
+			sizes := []uint32{8192, 16384, 32768, 65536, 131072, 262144}
+
+			res, err := EstimateMultiContext(ctx, files, sizes, EstimateOptions{}, nil, reader)
+			Expect(err).ToNot(HaveOccurred())
+
+			prev := uint64(0)
+			for _, sz := range sizes {
+				v := res.VRAMForContext(sz)
+				Expect(v).To(BeNumerically(">", prev), "VRAM should increase at context %d", sz)
+				prev = v
+			}
+		})
+
+		It("size is constant across context sizes", func() {
+			files := []FileInput{{URI: "http://a/model.gguf", Size: 4_000_000_000}}
+			sizes := []uint32{8192, 32768}
+
+			res, err := EstimateMultiContext(ctx, files, sizes, EstimateOptions{}, nil, nil)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(res.SizeBytes).To(Equal(uint64(4_000_000_000)))
+		})
+
+		It("defaults to [8192] when contextSizes is empty", func() {
+			files := []FileInput{{URI: "http://a/model.gguf", Size: 4_000_000_000}}
+
+			res, err := EstimateMultiContext(ctx, files, nil, EstimateOptions{}, nil, nil)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(res.Estimates).To(HaveLen(1))
+			Expect(res.Estimates).To(HaveKey("8192"))
+		})
+	})
+
+	Describe("VRAMForContext helper", func() {
+		It("returns 0 for missing context size", func() {
+			res := MultiContextEstimate{
+				Estimates: map[string]VRAMAt{
+					"8192": {VRAMBytes: 5000},
+				},
+			}
+			Expect(res.VRAMForContext(99999)).To(Equal(uint64(0)))
+			Expect(res.VRAMForContext(8192)).To(Equal(uint64(5000)))
 		})
 	})
 })

@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/lithammer/fuzzysearch/fuzzy"
@@ -90,6 +92,34 @@ func (gm GalleryElements[T]) Search(term string) GalleryElements[T] {
 	}
 
 	return filteredModels
+}
+
+// FilterGalleryModelsByUsecase returns models whose known_usecases include all
+// the bits set in usecase. For example, passing FLAG_CHAT matches any model
+// with the chat usecase; passing FLAG_CHAT|FLAG_VISION matches only models
+// that have both.
+func FilterGalleryModelsByUsecase(models GalleryElements[*GalleryModel], usecase config.ModelConfigUsecase) GalleryElements[*GalleryModel] {
+	var filtered GalleryElements[*GalleryModel]
+	for _, m := range models {
+		u := m.GetKnownUsecases()
+		if u != nil && (*u&usecase) == usecase {
+			filtered = append(filtered, m)
+		}
+	}
+	return filtered
+}
+
+// FilterGalleryModelsByMultimodal returns models whose known_usecases span two
+// or more orthogonal modality groups (e.g. chat+vision, tts+transcript).
+func FilterGalleryModelsByMultimodal(models GalleryElements[*GalleryModel]) GalleryElements[*GalleryModel] {
+	var filtered GalleryElements[*GalleryModel]
+	for _, m := range models {
+		u := m.GetKnownUsecases()
+		if u != nil && config.IsMultimodal(*u) {
+			filtered = append(filtered, m)
+		}
+	}
+	return filtered
 }
 
 func (gm GalleryElements[T]) FilterByTag(tag string) GalleryElements[T] {
@@ -265,6 +295,77 @@ func AvailableGalleryModels(galleries []config.Gallery, systemState *system.Syst
 	}
 
 	return models, nil
+}
+
+var (
+	availableModelsMu    sync.RWMutex
+	availableModelsCache GalleryElements[*GalleryModel]
+	refreshing           atomic.Bool
+	galleryGeneration    atomic.Uint64
+)
+
+// GalleryGeneration returns a counter that increments each time the gallery
+// model list is refreshed from upstream. VRAM estimation caches use this to
+// invalidate entries when the gallery data changes.
+func GalleryGeneration() uint64 { return galleryGeneration.Load() }
+
+// AvailableGalleryModelsCached returns gallery models from an in-memory cache.
+// Local-only fields (installed status) are refreshed on every call. A background
+// goroutine is triggered to re-fetch the full model list (including network
+// calls) so subsequent requests pick up changes without blocking the caller.
+// The first call with an empty cache blocks until the initial load completes.
+func AvailableGalleryModelsCached(galleries []config.Gallery, systemState *system.SystemState) (GalleryElements[*GalleryModel], error) {
+	availableModelsMu.RLock()
+	cached := availableModelsCache
+	availableModelsMu.RUnlock()
+
+	if cached != nil {
+		// Refresh installed status under write lock to avoid races with
+		// concurrent readers and the background refresh goroutine.
+		availableModelsMu.Lock()
+		for _, m := range cached {
+			_, err := os.Stat(filepath.Join(systemState.Model.ModelsPath, fmt.Sprintf("%s.yaml", m.GetName())))
+			m.SetInstalled(err == nil)
+		}
+		availableModelsMu.Unlock()
+		// Trigger a background refresh if one is not already running.
+		triggerGalleryRefresh(galleries, systemState)
+		return cached, nil
+	}
+
+	// No cache yet — must do a blocking load.
+	models, err := AvailableGalleryModels(galleries, systemState)
+	if err != nil {
+		return nil, err
+	}
+
+	availableModelsMu.Lock()
+	availableModelsCache = models
+	galleryGeneration.Add(1)
+	availableModelsMu.Unlock()
+
+	return models, nil
+}
+
+// triggerGalleryRefresh starts a background goroutine that refreshes the
+// gallery model cache. Only one refresh runs at a time; concurrent calls
+// are no-ops.
+func triggerGalleryRefresh(galleries []config.Gallery, systemState *system.SystemState) {
+	if !refreshing.CompareAndSwap(false, true) {
+		return
+	}
+	go func() {
+		defer refreshing.Store(false)
+		models, err := AvailableGalleryModels(galleries, systemState)
+		if err != nil {
+			xlog.Error("background gallery refresh failed", "error", err)
+			return
+		}
+		availableModelsMu.Lock()
+		availableModelsCache = models
+		galleryGeneration.Add(1)
+		availableModelsMu.Unlock()
+	}()
 }
 
 // List available backends

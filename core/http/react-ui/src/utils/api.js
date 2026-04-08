@@ -86,6 +86,10 @@ export const modelsApi = {
   listCapabilities: () => fetchJSON(API_CONFIG.endpoints.modelsCapabilities),
   install: (id) => postJSON(API_CONFIG.endpoints.installModel(id), {}),
   delete: (id) => postJSON(API_CONFIG.endpoints.deleteModel(id), {}),
+  estimate: (id, contexts) => fetchJSON(
+    buildUrl(API_CONFIG.endpoints.modelEstimate(id),
+      contexts?.length ? { contexts: contexts.join(',') } : {})
+  ),
   getConfig: (id) => postJSON(API_CONFIG.endpoints.modelConfig(id), {}),
   getConfigJson: (name) => fetchJSON(API_CONFIG.endpoints.modelConfigJson(name)),
   getJob: (uid) => fetchJSON(API_CONFIG.endpoints.modelJob(uid)),
@@ -116,6 +120,7 @@ export const modelsApi = {
     method: 'PATCH',
     body: JSON.stringify(patch),
   }),
+  backendUsecases: () => fetchJSON('/api/backends/usecases'),
 }
 
 // Backends API

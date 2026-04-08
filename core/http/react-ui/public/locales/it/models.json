@@ -20,6 +20,7 @@
     "vision": "Visione",
     "tts": "TTS",
     "stt": "STT",
+    "diarization": "Diarizzazione",
     "embedding": "Embedding",
     "rerank": "Rerank",
     "allBackends": "Tutti i backend",

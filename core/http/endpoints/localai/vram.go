@@ -9,10 +9,9 @@ import (
 )
 
 // VRAMEstimateEndpoint returns a handler that estimates VRAM usage for an
-// installed model configuration. For uninstalled models (gallery URLs), use
-// the gallery-level estimates in /api/models instead.
+// installed model configuration at multiple context sizes.
 // @Summary Estimate VRAM usage for a model
-// @Description Estimates VRAM based on model weight files, context size, and GPU layers
+// @Description Estimates VRAM based on model weight files at multiple context sizes
 // @Tags config
 // @Accept json
 // @Produce json

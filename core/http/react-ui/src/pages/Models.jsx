@@ -11,16 +11,26 @@ import GalleryLoader from '../components/GalleryLoader'
 import React from 'react'
 
 
+const CONTEXT_SIZES = [8192, 16384, 32768, 65536, 131072, 262144]
+const CONTEXT_LABELS = ['8K', '16K', '32K', '64K', '128K', '256K']
+
+
 const FILTERS = [
   { key: '', labelKey: 'filters.all', icon: 'fa-layer-group' },
-  { key: 'llm', labelKey: 'filters.llm', icon: 'fa-brain' },
-  { key: 'sd', labelKey: 'filters.image', icon: 'fa-image' },
+  { key: 'chat', labelKey: 'filters.llm', icon: 'fa-brain' },
+  { key: 'image', labelKey: 'filters.image', icon: 'fa-image' },
+  { key: 'video', labelKey: 'filters.video', icon: 'fa-video' },
   { key: 'multimodal', labelKey: 'filters.multimodal', icon: 'fa-shapes' },
   { key: 'vision', labelKey: 'filters.vision', icon: 'fa-eye' },
   { key: 'tts', labelKey: 'filters.tts', icon: 'fa-microphone' },
-  { key: 'stt', labelKey: 'filters.stt', icon: 'fa-headphones' },
-  { key: 'embedding', labelKey: 'filters.embedding', icon: 'fa-vector-square' },
-  { key: 'reranker', labelKey: 'filters.rerank', icon: 'fa-sort' },
+  { key: 'transcript', labelKey: 'filters.stt', icon: 'fa-headphones' },
+  { key: 'diarization', labelKey: 'filters.diarization', icon: 'fa-users' },
+  { key: 'sound_generation', labelKey: 'filters.soundGen', icon: 'fa-music' },
+  { key: 'audio_transform', labelKey: 'filters.audioTransform', icon: 'fa-sliders' },
+  { key: 'embeddings', labelKey: 'filters.embedding', icon: 'fa-vector-square' },
+  { key: 'rerank', labelKey: 'filters.rerank', icon: 'fa-sort' },
+  { key: 'detection', labelKey: 'filters.detection', icon: 'fa-bullseye' },
+  { key: 'vad', labelKey: 'filters.vad', icon: 'fa-wave-square' },
 ]
 
 export default function Models() {
@@ -34,7 +44,7 @@ export default function Models() {
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [search, setSearch] = useState('')
-  const [filter, setFilter] = useState('')
+  const [filters, setFilters] = useState([])
   const [sort, setSort] = useState('')
   const [order, setOrder] = useState('asc')
   const [installing, setInstalling] = useState(new Map())
@@ -43,6 +53,9 @@ export default function Models() {
   const [stats, setStats] = useState({ total: 0, installed: 0, repositories: 0 })
   const [backendFilter, setBackendFilter] = useState('')
   const [allBackends, setAllBackends] = useState([])
+  const [backendUsecases, setBackendUsecases] = useState({})
+  const [estimates, setEstimates] = useState({})
+  const [contextSize, setContextSize] = useState(CONTEXT_SIZES[0])
   const [confirmDialog, setConfirmDialog] = useState(null)
 
   // Total GPU memory for "fits" check
@@ -52,14 +65,14 @@ export default function Models() {
     try {
       setLoading(true)
       const searchVal = params.search !== undefined ? params.search : search
-      const filterVal = params.filter !== undefined ? params.filter : filter
+      const filtersVal = params.filters !== undefined ? params.filters : filters
       const sortVal = params.sort !== undefined ? params.sort : sort
       const backendVal = params.backendFilter !== undefined ? params.backendFilter : backendFilter
       const queryParams = {
         page: params.page || page,
         items: 9,
       }
-      if (filterVal) queryParams.tag = filterVal
+      if (filtersVal.length > 0) queryParams.tag = filtersVal.join(',')
       if (searchVal) queryParams.term = searchVal
       if (backendVal) queryParams.backend = backendVal
       if (sortVal) {
@@ -79,11 +92,27 @@ export default function Models() {
     } finally {
       setLoading(false)
     }
-  }, [page, search, filter, sort, order, backendFilter, addToast, t])
+  }, [page, search, filters, sort, order, backendFilter, addToast, t])
 
   useEffect(() => {
     fetchModels()
-  }, [page, filter, sort, order, backendFilter])
+  }, [page, filters, sort, order, backendFilter])
+
+  // Fetch backend→usecase mapping once on mount
+  useEffect(() => {
+    modelsApi.backendUsecases().then(setBackendUsecases).catch(() => {})
+  }, [])
+
+  // When backend changes, remove selected filters that aren't available
+  useEffect(() => {
+    if (backendFilter && backendUsecases[backendFilter]) {
+      setFilters(prev => {
+        const possible = backendUsecases[backendFilter]
+        const filtered = prev.filter(k => k === 'multimodal' || possible.includes(k))
+        return filtered.length !== prev.length ? filtered : prev
+      })
+    }
+  }, [backendFilter, backendUsecases])
 
   // Re-fetch when operations change (install/delete completion)
   useEffect(() => {
@@ -95,9 +124,40 @@ export default function Models() {
     fetchModels({ search: value, page: 1 })
   })
 
+  // Fetch VRAM/size estimates asynchronously for visible models.
+  useEffect(() => {
+    if (models.length === 0) return
+    let cancelled = false
+    models.forEach(model => {
+      const id = model.name || model.id
+      if (estimates[id]) return
+      modelsApi.estimate(id, CONTEXT_SIZES).then(est => {
+        if (cancelled) return
+        if (est && (est.sizeBytes || est.estimates)) {
+          setEstimates(prev => ({ ...prev, [id]: est }))
+        }
+      }).catch(() => {})
+    })
+    return () => { cancelled = true }
+  }, [models])
+
   const handleSearch = (value) => {
     setSearch(value)
     debouncedFetch(value)
+  }
+
+  const toggleFilter = (key) => {
+    if (key === '') { setFilters([]); setPage(1); return }
+    setFilters(prev =>
+      prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]
+    )
+    setPage(1)
+  }
+
+  const isFilterAvailable = (key) => {
+    if (!backendFilter || key === '' || key === 'multimodal') return true
+    const possible = backendUsecases[backendFilter]
+    return !possible || possible.includes(key)
   }
 
   const handleSort = (col) => {
@@ -221,16 +281,23 @@ export default function Models() {
 
       {/* Filter buttons */}
       <div className="filter-bar">
-        {FILTERS.map(f => (
-          <button
-            key={f.key}
-            className={`filter-btn ${filter === f.key ? 'active' : ''}`}
-            onClick={() => { setFilter(f.key); setPage(1) }}
-          >
-            <i className={`fas ${f.icon}`} style={{ marginRight: 4 }} />
-            {t(f.labelKey)}
-          </button>
-        ))}
+        {FILTERS.map(f => {
+          const isAll = f.key === ''
+          const active = isAll ? filters.length === 0 : filters.includes(f.key)
+          const available = isFilterAvailable(f.key)
+          return (
+            <button
+              key={f.key}
+              className={`filter-btn ${active ? 'active' : ''}`}
+              disabled={!available}
+              style={!available ? { opacity: 0.4, cursor: 'not-allowed' } : undefined}
+              onClick={() => toggleFilter(f.key)}
+            >
+              <i className={`fas ${f.icon}`} style={{ marginRight: 4 }} />
+              {t(f.labelKey)}
+            </button>
+          )
+        })}
         {allBackends.length > 0 && (
           <SearchableSelect
             value={backendFilter}
@@ -244,6 +311,25 @@ export default function Models() {
         )}
       </div>
 
+      {/* Context size slider for VRAM estimates */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-md)', fontSize: '0.8125rem' }}>
+        <label style={{ color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>
+          <i className="fas fa-memory" style={{ marginRight: 4 }} />
+          Context:
+        </label>
+        <input
+          type="range"
+          min={0}
+          max={CONTEXT_SIZES.length - 1}
+          value={CONTEXT_SIZES.indexOf(contextSize)}
+          onChange={(e) => setContextSize(CONTEXT_SIZES[e.target.value])}
+          style={{ width: 140, accentColor: 'var(--color-primary)' }}
+        />
+        <span style={{ fontWeight: 600, minWidth: '3em' }}>
+          {CONTEXT_LABELS[CONTEXT_SIZES.indexOf(contextSize)]}
+        </span>
+      </div>
+
       {/* Table */}
       {loading ? (
         <GalleryLoader />
@@ -252,12 +338,12 @@ export default function Models() {
           <div className="empty-state-icon"><i className="fas fa-search" /></div>
           <h2 className="empty-state-title">{t('empty.title')}</h2>
           <p className="empty-state-text">
-            {search || filter || backendFilter ? t('empty.withFilters') : t('empty.noFilters')}
+            {search || filters.length > 0 || backendFilter ? t('empty.withFilters') : t('empty.noFilters')}
           </p>
-          {(search || filter || backendFilter) && (
+          {(search || filters.length > 0 || backendFilter) && (
             <button
               className="btn btn-secondary btn-sm"
-              onClick={() => { handleSearch(''); setFilter(''); setBackendFilter(''); setPage(1) }}
+              onClick={() => { handleSearch(''); setFilters([]); setBackendFilter(''); setPage(1) }}
             >
               <i className="fas fa-times" /> {t('search.clearFilters')}
             </button>
@@ -286,9 +372,14 @@ export default function Models() {
               <tbody>
                 {models.map((model, idx) => {
                   const name = model.name || model.id
+                  const estData = estimates[name]
+                  const sizeDisplay = estData?.sizeDisplay
+                  const ctxEst = estData?.estimates?.[String(contextSize)]
+                  const vramDisplay = ctxEst?.vramDisplay
+                  const vramBytes = ctxEst?.vramBytes
                   const installing = isInstalling(name)
                   const progress = getOperationProgress(name)
-                  const fit = fitsGpu(model.estimated_vram_bytes)
+                  const fit = fitsGpu(vramBytes)
                   const isExpanded = expandedRow === idx
 
                   return (
@@ -355,15 +446,15 @@ export default function Models() {
                       {/* Size / VRAM */}
                       <td>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                          {(model.estimated_size_display || model.estimated_vram_display) ? (
+                          {(sizeDisplay || vramDisplay) ? (
                             <>
                               <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>
-                                {model.estimated_size_display && model.estimated_size_display !== '0 B' && (
-                                  <span>{t('table.size', { size: model.estimated_size_display })}</span>
+                                {sizeDisplay && sizeDisplay !== '0 B' && (
+                                  <span>{t('table.size', { size: sizeDisplay })}</span>
                                 )}
-                                {model.estimated_size_display && model.estimated_size_display !== '0 B' && model.estimated_vram_display && model.estimated_vram_display !== '0 B' && ' · '}
-                                {model.estimated_vram_display && model.estimated_vram_display !== '0 B' && (
-                                  <span>{t('table.vram', { vram: model.estimated_vram_display })}</span>
+                                {sizeDisplay && sizeDisplay !== '0 B' && vramDisplay && vramDisplay !== '0 B' && ' · '}
+                                {vramDisplay && vramDisplay !== '0 B' && (
+                                  <span>{t('table.vram', { vram: vramDisplay })}</span>
                                 )}
                               </span>
                               {fit !== null && (
@@ -437,7 +528,7 @@ export default function Models() {
                     {isExpanded && (
                       <tr>
                         <td colSpan="8" style={{ padding: 0 }}>
-                          <ModelDetail model={model} fit={fit} expandedFiles={expandedFiles} setExpandedFiles={setExpandedFiles} t={t} />
+                          <ModelDetail model={model} fit={fit} sizeDisplay={sizeDisplay} vramDisplay={vramDisplay} expandedFiles={expandedFiles} setExpandedFiles={setExpandedFiles} t={t} />
                         </td>
                       </tr>
                     )}
@@ -490,7 +581,7 @@ function DetailRow({ label, children }) {
   )
 }
 
-function ModelDetail({ model, fit, expandedFiles, setExpandedFiles, t }) {
+function ModelDetail({ model, fit, sizeDisplay, vramDisplay, expandedFiles, setExpandedFiles, t }) {
   const files = model.additionalFiles || model.files || []
   return (
     <div style={{ padding: 'var(--spacing-md) var(--spacing-lg)', background: 'var(--color-bg-primary)', borderTop: '1px solid var(--color-border-subtle)' }}>
@@ -516,12 +607,12 @@ function ModelDetail({ model, fit, expandedFiles, setExpandedFiles, t }) {
             )}
           </DetailRow>
           <DetailRow label={t('detail.size')}>
-            {model.estimated_size_display && model.estimated_size_display !== '0 B' ? model.estimated_size_display : null}
+            {sizeDisplay && sizeDisplay !== '0 B' ? sizeDisplay : null}
           </DetailRow>
           <DetailRow label={t('detail.vram')}>
-            {model.estimated_vram_display && model.estimated_vram_display !== '0 B' ? (
+            {vramDisplay && vramDisplay !== '0 B' ? (
               <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
-                {model.estimated_vram_display}
+                {vramDisplay}
                 {fit !== null && (
                   <span style={{ fontSize: '0.75rem', color: fit ? 'var(--color-success)' : 'var(--color-error)' }}>
                     <i className="fas fa-microchip" /> {fit ? t('detail.fitsGpu') : t('detail.mayNotFitGpu')}

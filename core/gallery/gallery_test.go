@@ -581,4 +581,42 @@ var _ = Describe("Gallery", func() {
 			Expect(mergedParams["model"]).To(Equal("nanbeige4.1-3b-q4_k_m.gguf"))
 		})
 	})
+
+	Describe("GetKnownUsecases", func() {
+		It("uses explicit known_usecases from overrides when present", func() {
+			m := &GalleryModel{
+				Metadata: Metadata{Backend: "stablediffusion-ggml"},
+				Overrides: map[string]any{
+					"known_usecases": []any{"chat"},
+				},
+			}
+			u := m.GetKnownUsecases()
+			Expect(u).NotTo(BeNil())
+			// Override wins over the backend's image default.
+			Expect(*u & config.FLAG_CHAT).To(Equal(config.FLAG_CHAT))
+			Expect(*u & config.FLAG_IMAGE).To(Equal(config.ModelConfigUsecase(0)))
+		})
+
+		It("falls back to backend defaults when no override is set", func() {
+			m := &GalleryModel{Metadata: Metadata{Backend: "stablediffusion-ggml"}}
+			u := m.GetKnownUsecases()
+			Expect(u).NotTo(BeNil())
+			Expect(*u & config.FLAG_IMAGE).To(Equal(config.FLAG_IMAGE))
+		})
+
+		It("returns nil when neither overrides nor a known backend provide usecases", func() {
+			m := &GalleryModel{}
+			Expect(m.GetKnownUsecases()).To(BeNil())
+		})
+
+		It("filters models without explicit known_usecases via backend defaults", func() {
+			models := GalleryElements[*GalleryModel]{
+				&GalleryModel{Metadata: Metadata{Name: "sd-model", Backend: "stablediffusion-ggml"}},
+				&GalleryModel{Metadata: Metadata{Name: "whisper-model", Backend: "whisper"}},
+			}
+			filtered := FilterGalleryModelsByUsecase(models, config.FLAG_IMAGE)
+			Expect(filtered).To(HaveLen(1))
+			Expect(filtered[0].Name).To(Equal("sd-model"))
+		})
+	})
 })

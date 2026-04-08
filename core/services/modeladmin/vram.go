@@ -43,17 +43,16 @@ func EstimateVRAM(ctx context.Context, req VRAMRequest, cl *config.ModelConfigLo
 	modelsPath := sysState.Model.ModelsPath
 
 	var files []vram.FileInput
-	var firstGGUF string
 	seen := make(map[string]bool)
 
 	for _, f := range cfg.DownloadFiles {
-		addWeightFile(string(f.URI), modelsPath, &files, &firstGGUF, seen)
+		addWeightFile(string(f.URI), modelsPath, &files, seen)
 	}
 	if cfg.Model != "" {
-		addWeightFile(cfg.Model, modelsPath, &files, &firstGGUF, seen)
+		addWeightFile(cfg.Model, modelsPath, &files, seen)
 	}
 	if cfg.MMProj != "" {
-		addWeightFile(cfg.MMProj, modelsPath, &files, &firstGGUF, seen)
+		addWeightFile(cfg.MMProj, modelsPath, &files, seen)
 	}
 
 	if len(files) == 0 {
@@ -64,39 +63,46 @@ func EstimateVRAM(ctx context.Context, req VRAMRequest, cl *config.ModelConfigLo
 	}
 
 	contextDefaulted := false
-	opts := vram.EstimateOptions{
-		ContextLength: req.ContextSize,
-		GPULayers:     req.GPULayers,
-		KVQuantBits:   req.KVQuantBits,
-	}
-	if opts.ContextLength == 0 {
+	ctxLen := req.ContextSize
+	if ctxLen == 0 {
 		if cfg.ContextSize != nil {
-			opts.ContextLength = uint32(*cfg.ContextSize)
+			ctxLen = uint32(*cfg.ContextSize)
 		} else {
-			opts.ContextLength = 8192
+			ctxLen = 8192
 			contextDefaulted = true
 		}
+	}
+
+	opts := vram.EstimateOptions{
+		GPULayers:   req.GPULayers,
+		KVQuantBits: req.KVQuantBits,
 	}
 
 	subCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
-	result, err := vram.Estimate(subCtx, files, opts, vram.DefaultCachedSizeResolver(), vram.DefaultCachedGGUFReader())
+	multi, err := vram.EstimateMultiContext(subCtx, files, []uint32{ctxLen}, opts, vram.DefaultCachedSizeResolver(), vram.DefaultCachedGGUFReader())
 	if err != nil {
 		return nil, fmt.Errorf("vram estimate: %w", err)
 	}
 
-	resp := &VRAMResponse{EstimateResult: result}
+	at := multi.Estimates[fmt.Sprint(ctxLen)]
+	resp := &VRAMResponse{
+		EstimateResult: vram.EstimateResult{
+			SizeBytes:     multi.SizeBytes,
+			SizeDisplay:   multi.SizeDisplay,
+			ContextLength: at.ContextLength,
+			VRAMBytes:     at.VRAMBytes,
+			VRAMDisplay:   at.VRAMDisplay,
+		},
+		ModelMaxContext: multi.ModelMaxContext,
+	}
 
-	if contextDefaulted && firstGGUF != "" {
-		ggufMeta, err := vram.DefaultCachedGGUFReader().ReadMetadata(subCtx, firstGGUF)
-		if err == nil && ggufMeta != nil && ggufMeta.MaximumContextLength > 0 {
-			resp.ModelMaxContext = ggufMeta.MaximumContextLength
-			resp.ContextNote = fmt.Sprintf(
-				"Estimate used default context_size=8192. The model's trained maximum context is %d; VRAM usage will be higher at larger context sizes.",
-				ggufMeta.MaximumContextLength,
-			)
-		}
+	if contextDefaulted && multi.ModelMaxContext > 0 {
+		resp.ContextNote = fmt.Sprintf(
+			"Estimate used default context_size=8192. The model's trained maximum context is %d; VRAM usage will be higher at larger context sizes.",
+			multi.ModelMaxContext,
+		)
 	}
 	return resp, nil
 }
@@ -111,8 +117,8 @@ func resolveModelURI(uri, modelsPath string) string {
 	return "file://" + filepath.Join(modelsPath, uri)
 }
 
-// addWeightFile appends a resolved weight file to files and tracks the first GGUF.
-func addWeightFile(uri, modelsPath string, files *[]vram.FileInput, firstGGUF *string, seen map[string]bool) {
+// addWeightFile appends a resolved weight file to files.
+func addWeightFile(uri, modelsPath string, files *[]vram.FileInput, seen map[string]bool) {
 	if !vram.IsWeightFile(uri) {
 		return
 	}
@@ -122,7 +128,4 @@ func addWeightFile(uri, modelsPath string, files *[]vram.FileInput, firstGGUF *s
 	}
 	seen[resolved] = true
 	*files = append(*files, vram.FileInput{URI: resolved, Size: 0})
-	if *firstGGUF == "" && vram.IsGGUF(uri) {
-		*firstGGUF = resolved
-	}
 }
