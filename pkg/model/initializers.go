@@ -253,7 +253,14 @@ func (ml *ModelLoader) Load(opts ...Option) (grpc.Backend, error) {
 		xlog.Debug("Model already loaded", "model", o.modelID)
 		// Update last used time for LRU tracking
 		ml.updateModelLastUsed(m)
-		return m.GRPC(o.parallelRequests, ml.wd), nil
+		client := m.GRPC(o.parallelRequests, ml.wd)
+		// Wrap remote models so connection errors during inference trigger eviction
+		if m.Process() == nil {
+			client = newConnectionEvictingClient(client, o.modelID, func() {
+				ml.ShutdownModel(o.modelID)
+			})
+		}
+		return client, nil
 	}
 
 	// Enforce LRU limit before loading a new model
@@ -264,6 +271,12 @@ func (ml *ModelLoader) Load(opts ...Option) (grpc.Backend, error) {
 		client, err := ml.backendLoader(opts...)
 		if err != nil {
 			return nil, err
+		}
+		// Wrap remote models so connection errors during inference trigger eviction
+		if m := ml.CheckIsLoaded(o.modelID); m != nil && m.Process() == nil {
+			client = newConnectionEvictingClient(client, o.modelID, func() {
+				ml.ShutdownModel(o.modelID)
+			})
 		}
 		return client, nil
 	}
@@ -297,6 +310,12 @@ func (ml *ModelLoader) Load(opts ...Option) (grpc.Backend, error) {
 		model, modelerr := ml.backendLoader(options...)
 		if modelerr == nil && model != nil {
 			xlog.Info("Loads OK", "backend", key)
+			// Wrap remote models so connection errors during inference trigger eviction
+			if m := ml.CheckIsLoaded(o.modelID); m != nil && m.Process() == nil {
+				model = newConnectionEvictingClient(model, o.modelID, func() {
+					ml.ShutdownModel(o.modelID)
+				})
+			}
 			return model, nil
 		} else if modelerr != nil {
 			err = errors.Join(err, fmt.Errorf("[%s]: %w", key, modelerr))

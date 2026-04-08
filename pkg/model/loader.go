@@ -347,7 +347,17 @@ func (ml *ModelLoader) checkIsLoaded(s string) *Model {
 		xlog.Warn("Deleting the process in order to recreate it")
 		process := m.Process()
 		if process == nil {
-			xlog.Error("Process not found and the model is not responding anymore", "model", s)
+			// Remote/distributed model — no local process to check.
+			// Only evict on definitive connection errors (node is down).
+			// Timeouts may mean the node is busy, so keep the model cached.
+			if isConnectionError(err) {
+				xlog.Warn("Remote model unreachable (connection error), removing from cache", "model", s, "error", err)
+				if delErr := ml.deleteProcess(s); delErr != nil {
+					xlog.Error("error cleaning up remote model", "error", delErr, "model", s)
+				}
+				return nil
+			}
+			xlog.Warn("Remote model health check failed (possible timeout), keeping cached", "model", s, "error", err)
 			return m
 		}
 		if !process.IsAlive() {
