@@ -428,6 +428,7 @@ prepare-test-extra: protogen-python
 	$(MAKE) -C backend/python/qwen-asr
 	$(MAKE) -C backend/python/nemo
 	$(MAKE) -C backend/python/voxcpm
+	$(MAKE) -C backend/python/faster-whisper
 	$(MAKE) -C backend/python/whisperx
 	$(MAKE) -C backend/python/ace-step
 	$(MAKE) -C backend/python/trl
@@ -448,6 +449,7 @@ test-extra: prepare-test-extra
 	$(MAKE) -C backend/python/qwen-asr test
 	$(MAKE) -C backend/python/nemo test
 	$(MAKE) -C backend/python/voxcpm test
+	$(MAKE) -C backend/python/faster-whisper test
 	$(MAKE) -C backend/python/whisperx test
 	$(MAKE) -C backend/python/ace-step test
 	$(MAKE) -C backend/python/trl test

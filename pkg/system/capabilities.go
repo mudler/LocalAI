@@ -18,7 +18,8 @@ const (
 	Intel  = "intel"
 
 	// Private constants - only used within this package
-	defaultCapability = "default"
+	defaultCapability  = "default"
+	disableCapability  = "disable"
 	nvidiaL4T         = "nvidia-l4t"
 	darwinX86         = "darwin-x86"
 	metal             = "metal"
@@ -54,6 +55,12 @@ func init() {
 	cuda13DirExists = err == nil
 	_, err = os.Stat(filepath.Join(string(os.PathSeparator), "usr", "local", "cuda-12"))
 	cuda12DirExists = err == nil
+}
+
+// CapabilityFilterDisabled returns true when capability-based backend filtering
+// is disabled via LOCALAI_FORCE_META_BACKEND_CAPABILITY=disable.
+func (s *SystemState) CapabilityFilterDisabled() bool {
+	return s.getSystemCapabilities() == disableCapability
 }
 
 func (s *SystemState) Capability(capMap map[string]string) string {
@@ -196,6 +203,10 @@ func (s *SystemState) DetectedCapability() string {
 // with the current system capability. This function uses getSystemCapabilities to ensure
 // consistency with capability detection (including VRAM checks, environment overrides, etc.).
 func (s *SystemState) IsBackendCompatible(name, uri string) bool {
+	if s.CapabilityFilterDisabled() {
+		return true
+	}
+
 	combined := strings.ToLower(name + " " + uri)
 	capability := s.getSystemCapabilities()
 

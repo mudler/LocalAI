@@ -71,6 +71,10 @@ func (m *GalleryBackend) IsCompatibleWith(systemState *system.SystemState) bool 
 		return true
 	}
 
+	if systemState.CapabilityFilterDisabled() {
+		return true
+	}
+
 	// Meta backends are compatible if the system capability matches one of the keys
 	if m.IsMeta() {
 		capability := systemState.Capability(m.CapabilitiesMap)
