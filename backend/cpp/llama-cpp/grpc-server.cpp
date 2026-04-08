@@ -1614,6 +1614,7 @@ public:
                         ctx_server.impl->vocab,
                         params_base,
                         ctx_server.get_meta().slot_n_ctx,
+                        ctx_server.get_meta().logit_bias_eog,
                         data);
                 task.id_slot = json_value(data, "id_slot", -1);
 
@@ -2382,6 +2383,7 @@ public:
                         ctx_server.impl->vocab,
                         params_base,
                         ctx_server.get_meta().slot_n_ctx,
+                        ctx_server.get_meta().logit_bias_eog,
                         data);
                 task.id_slot = json_value(data, "id_slot", -1);
 
