@@ -34,6 +34,10 @@ jobs:
             variable: "ACESTEP_CPP_VERSION"
             branch: "master"
             file: "backend/go/acestep-cpp/Makefile"
+          - repository: "PABannier/sam3.cpp"
+            variable: "SAM3_VERSION"
+            branch: "main"
+            file: "backend/go/sam3-cpp/Makefile"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6

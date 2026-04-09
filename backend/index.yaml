@@ -125,6 +125,31 @@
     nvidia-cuda-13: "cuda13-rfdetr"
     nvidia-cuda-12: "cuda12-rfdetr"
     nvidia-l4t-cuda-12: "nvidia-l4t-arm64-rfdetr"
+- &sam3cpp
+  name: "sam3-cpp"
+  alias: "sam3-cpp"
+  license: mit
+  description: |
+    Segment Anything Model (SAM 3/2/EdgeTAM) in C/C++ using GGML.
+    Supports text-prompted and point/box-prompted image segmentation.
+  urls:
+    - https://github.com/PABannier/sam3.cpp
+  tags:
+    - image-segmentation
+    - object-detection
+    - sam3
+    - gpu
+    - cpu
+  capabilities:
+    default: "cpu-sam3-cpp"
+    nvidia: "cuda12-sam3-cpp"
+    nvidia-cuda-12: "cuda12-sam3-cpp"
+    nvidia-cuda-13: "cuda13-sam3-cpp"
+    nvidia-l4t: "nvidia-l4t-arm64-sam3-cpp"
+    nvidia-l4t-cuda-12: "nvidia-l4t-arm64-sam3-cpp"
+    nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-sam3-cpp"
+    intel: "intel-sycl-f32-sam3-cpp"
+    vulkan: "vulkan-sam3-cpp"
 - &vllm
   name: "vllm"
   license: apache-2.0
@@ -1628,6 +1653,89 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-rfdetr"
   mirrors:
     - localai/localai-backends:master-metal-darwin-arm64-rfdetr
+## sam3-cpp
+- !!merge <<: *sam3cpp
+  name: "sam3-cpp-development"
+  capabilities:
+    default: "cpu-sam3-cpp-development"
+    nvidia: "cuda12-sam3-cpp-development"
+    nvidia-cuda-12: "cuda12-sam3-cpp-development"
+    nvidia-cuda-13: "cuda13-sam3-cpp-development"
+    nvidia-l4t: "nvidia-l4t-arm64-sam3-cpp-development"
+    nvidia-l4t-cuda-12: "nvidia-l4t-arm64-sam3-cpp-development"
+    nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-sam3-cpp-development"
+    intel: "intel-sycl-f32-sam3-cpp-development"
+    vulkan: "vulkan-sam3-cpp-development"
+- !!merge <<: *sam3cpp
+  name: "cpu-sam3-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-sam3-cpp"
+  mirrors:
+    - localai/localai-backends:latest-cpu-sam3-cpp
+- !!merge <<: *sam3cpp
+  name: "cpu-sam3-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-cpu-sam3-cpp"
+  mirrors:
+    - localai/localai-backends:master-cpu-sam3-cpp
+- !!merge <<: *sam3cpp
+  name: "cuda12-sam3-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-sam3-cpp"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-12-sam3-cpp
+- !!merge <<: *sam3cpp
+  name: "cuda12-sam3-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-sam3-cpp"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-12-sam3-cpp
+- !!merge <<: *sam3cpp
+  name: "cuda13-sam3-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-13-sam3-cpp"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-13-sam3-cpp
+- !!merge <<: *sam3cpp
+  name: "cuda13-sam3-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-sam3-cpp"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-13-sam3-cpp
+- !!merge <<: *sam3cpp
+  name: "nvidia-l4t-arm64-sam3-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-nvidia-l4t-arm64-sam3-cpp"
+  mirrors:
+    - localai/localai-backends:latest-nvidia-l4t-arm64-sam3-cpp
+- !!merge <<: *sam3cpp
+  name: "nvidia-l4t-arm64-sam3-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-arm64-sam3-cpp"
+  mirrors:
+    - localai/localai-backends:master-nvidia-l4t-arm64-sam3-cpp
+- !!merge <<: *sam3cpp
+  name: "cuda13-nvidia-l4t-arm64-sam3-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-nvidia-l4t-cuda-13-arm64-sam3-cpp"
+  mirrors:
+    - localai/localai-backends:latest-nvidia-l4t-cuda-13-arm64-sam3-cpp
+- !!merge <<: *sam3cpp
+  name: "cuda13-nvidia-l4t-arm64-sam3-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-cuda-13-arm64-sam3-cpp"
+  mirrors:
+    - localai/localai-backends:master-nvidia-l4t-cuda-13-arm64-sam3-cpp
+- !!merge <<: *sam3cpp
+  name: "intel-sycl-f32-sam3-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-sycl-f32-sam3-cpp"
+  mirrors:
+    - localai/localai-backends:latest-gpu-intel-sycl-f32-sam3-cpp
+- !!merge <<: *sam3cpp
+  name: "intel-sycl-f32-sam3-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-sycl-f32-sam3-cpp"
+  mirrors:
+    - localai/localai-backends:master-gpu-intel-sycl-f32-sam3-cpp
+- !!merge <<: *sam3cpp
+  name: "vulkan-sam3-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-vulkan-sam3-cpp"
+  mirrors:
+    - localai/localai-backends:latest-gpu-vulkan-sam3-cpp
+- !!merge <<: *sam3cpp
+  name: "vulkan-sam3-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-vulkan-sam3-cpp"
+  mirrors:
+    - localai/localai-backends:master-gpu-vulkan-sam3-cpp
 ## Rerankers
 - !!merge <<: *rerankers
   name: "rerankers-development"

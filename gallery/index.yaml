@@ -3134,6 +3134,37 @@
       model: rfdetr-base
     known_usecases:
       - detection
+- &sam3cpp
+  name: "edgetam"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  size: "16MB"
+  license: apache-2.0
+  description: |
+    EdgeTAM is an ultra-efficient variant of the Segment Anything Model (SAM) for image segmentation.
+    It uses a RepViT backbone and is only ~16MB quantized (Q4_0), making it ideal for edge deployment.
+    Supports point-prompted and box-prompted image segmentation via the /v1/detection endpoint.
+    Powered by sam3.cpp (C/C++ with GGML).
+  tags:
+    - image-segmentation
+    - object-detection
+    - sam3
+    - edgetam
+    - cpu
+    - gpu
+  urls:
+    - https://github.com/PABannier/sam3.cpp
+    - https://huggingface.co/PABannier/sam3.cpp
+  overrides:
+    backend: sam3-cpp
+    parameters:
+      model: edgetam_q4_0.ggml
+      threads: 4
+    known_usecases:
+      - detection
+  files:
+    - filename: edgetam_q4_0.ggml
+      sha256: a8a35e35fb9a1b6f099c3f35e3024548b0fc979c2a4184642562804192496e09
+      uri: huggingface://PABannier/sam3.cpp/edgetam_q4_0.ggml
 - name: "dream-org_dream-v0-instruct-7b"
   # chatml
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"

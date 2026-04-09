@@ -705,7 +705,8 @@ func (c *ModelConfig) GuessUsecases(u ModelConfigUsecase) bool {
 	}
 
 	if (u & FLAG_DETECTION) == FLAG_DETECTION {
-		if c.Backend != "rfdetr" {
+		detectionBackends := []string{"rfdetr", "sam3-cpp"}
+		if !slices.Contains(detectionBackends, c.Backend) {
 			return false
 		}
 	}

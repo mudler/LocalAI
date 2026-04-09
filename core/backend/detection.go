@@ -13,6 +13,10 @@ import (
 
 func Detection(
 	sourceFile string,
+	prompt string,
+	points []float32,
+	boxes []float32,
+	threshold float32,
 	loader *model.ModelLoader,
 	appConfig *config.ApplicationConfig,
 	modelConfig config.ModelConfig,
@@ -35,7 +39,11 @@ func Detection(
 	}
 
 	res, err := detectionModel.Detect(context.Background(), &proto.DetectOptions{
-		Src: sourceFile,
+		Src:       sourceFile,
+		Prompt:    prompt,
+		Points:    points,
+		Boxes:     boxes,
+		Threshold: threshold,
 	})
 
 	if appConfig.EnableTracing {

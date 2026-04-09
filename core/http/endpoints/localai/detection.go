@@ -1,6 +1,8 @@
 package localai
 
 import (
+	"encoding/base64"
+
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
@@ -37,7 +39,7 @@ func DetectionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appC
 			return err
 		}
 
-		res, err := backend.Detection(image, ml, appConfig, *cfg)
+		res, err := backend.Detection(image, input.Prompt, input.Points, input.Boxes, input.Threshold, ml, appConfig, *cfg)
 		if err != nil {
 			return err
 		}
@@ -46,12 +48,18 @@ func DetectionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appC
 			Detections: make([]schema.Detection, len(res.Detections)),
 		}
 		for i, detection := range res.Detections {
+			var mask string
+			if len(detection.Mask) > 0 {
+				mask = base64.StdEncoding.EncodeToString(detection.Mask)
+			}
 			response.Detections[i] = schema.Detection{
-				X:         detection.X,
-				Y:         detection.Y,
-				Width:     detection.Width,
-				Height:    detection.Height,
-				ClassName: detection.ClassName,
+				X:          detection.X,
+				Y:          detection.Y,
+				Width:      detection.Width,
+				Height:     detection.Height,
+				ClassName:  detection.ClassName,
+				Confidence: detection.Confidence,
+				Mask:       mask,
 			}
 		}
 

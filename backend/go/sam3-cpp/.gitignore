@@ -1,0 +1,7 @@
+sources/
+build*/
+package/
+libgosam3*.so
+sam3-cpp
+test-models/
+test-data/

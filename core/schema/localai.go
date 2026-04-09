@@ -152,7 +152,11 @@ type SystemInformationResponse struct {
 
 type DetectionRequest struct {
 	BasicModelRequest
-	Image string `json:"image"` // URL or base64-encoded image to analyze
+	Image     string    `json:"image"`               // URL or base64-encoded image to analyze
+	Prompt    string    `json:"prompt,omitempty"`     // Text prompt (for SAM 3 PCS mode)
+	Points    []float32 `json:"points,omitempty"`     // Point coordinates as [x,y,label,...] triples (label: 1=pos, 0=neg)
+	Boxes     []float32 `json:"boxes,omitempty"`      // Box coordinates as [x1,y1,x2,y2,...] quads
+	Threshold float32   `json:"threshold,omitempty"`  // Detection confidence threshold
 }
 
 type DetectionResponse struct {
@@ -160,11 +164,13 @@ type DetectionResponse struct {
 }
 
 type Detection struct {
-	X         float32 `json:"x"`
-	Y         float32 `json:"y"`
-	Width     float32 `json:"width"`
-	Height    float32 `json:"height"`
-	ClassName string  `json:"class_name"`
+	X          float32 `json:"x"`
+	Y          float32 `json:"y"`
+	Width      float32 `json:"width"`
+	Height     float32 `json:"height"`
+	ClassName  string  `json:"class_name"`
+	Confidence float32 `json:"confidence,omitempty"`
+	Mask       string  `json:"mask,omitempty"` // base64-encoded PNG segmentation mask
 }
 
 type ImportModelRequest struct {

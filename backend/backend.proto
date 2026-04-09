@@ -444,6 +444,10 @@ message Message {
 
 message DetectOptions {
   string src = 1;
+  string prompt = 2;           // Text prompt (for SAM 3 PCS mode)
+  repeated float points = 3;   // Point coordinates as [x1, y1, label1, x2, y2, label2, ...] (label: 1=pos, 0=neg)
+  repeated float boxes = 4;    // Box coordinates as [x1, y1, x2, y2, ...]
+  float threshold = 5;         // Detection confidence threshold
 }
 
 message Detection {
@@ -453,6 +457,7 @@ message Detection {
   float height = 4;
   float confidence = 5;
   string class_name = 6;
+  bytes mask = 7;              // PNG-encoded binary segmentation mask
 }
 
 message DetectResponse {
