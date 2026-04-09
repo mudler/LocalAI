@@ -2698,8 +2698,15 @@ const docTemplate = `{
                 "class_name": {
                     "type": "string"
                 },
+                "confidence": {
+                    "type": "number"
+                },
                 "height": {
                     "type": "number"
+                },
+                "mask": {
+                    "description": "base64-encoded PNG segmentation mask",
+                    "type": "string"
                 },
                 "width": {
                     "type": "number"
@@ -2715,12 +2722,34 @@ const docTemplate = `{
         "schema.DetectionRequest": {
             "type": "object",
             "properties": {
+                "boxes": {
+                    "description": "Box coordinates as [x1,y1,x2,y2,...] quads",
+                    "type": "array",
+                    "items": {
+                        "type": "number"
+                    }
+                },
                 "image": {
                     "description": "URL or base64-encoded image to analyze",
                     "type": "string"
                 },
                 "model": {
                     "type": "string"
+                },
+                "points": {
+                    "description": "Point coordinates as [x,y,label,...] triples (label: 1=pos, 0=neg)",
+                    "type": "array",
+                    "items": {
+                        "type": "number"
+                    }
+                },
+                "prompt": {
+                    "description": "Text prompt (for SAM 3 PCS mode)",
+                    "type": "string"
+                },
+                "threshold": {
+                    "description": "Detection confidence threshold",
+                    "type": "number"
                 }
             }
         },
