@@ -1045,6 +1045,13 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 						funcResults = deltaToolCalls
 						textContentToReturn = functions.ContentFromChatDeltas(chatDeltas)
 						cbReasoning = functions.ReasoningFromChatDeltas(chatDeltas)
+					} else if deltaContent := functions.ContentFromChatDeltas(chatDeltas); len(chatDeltas) > 0 && deltaContent != "" {
+						// ChatDeltas have content but no tool calls — model answered without using tools.
+						// This happens with thinking models (e.g. Gemma 4) where the Go-side reasoning
+						// extraction misclassifies clean content as reasoning, leaving cbRawResult empty.
+						xlog.Debug("[ChatDeltas] non-SSE: using C++ autoparser content (no tool calls)", "content_len", len(deltaContent))
+						textContentToReturn = deltaContent
+						cbReasoning = functions.ReasoningFromChatDeltas(chatDeltas)
 					} else {
 						// Fallback: parse tool calls from raw text
 						xlog.Debug("[ChatDeltas] non-SSE: no chat deltas, falling back to Go-side text parsing")
@@ -1067,7 +1074,13 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 
 					switch {
 					case noActionsToRun:
-						qResult, qErr := handleQuestion(config, funcResults, cbRawResult, predInput)
+						// Use textContentToReturn if available (e.g. from ChatDeltas),
+						// otherwise fall back to cbRawResult for legacy Go-side parsing.
+						questionInput := cbRawResult
+						if textContentToReturn != "" {
+							questionInput = textContentToReturn
+						}
+						qResult, qErr := handleQuestion(config, funcResults, questionInput, predInput)
 						if qErr != nil {
 							xlog.Error("error handling question", "error", qErr)
 						}

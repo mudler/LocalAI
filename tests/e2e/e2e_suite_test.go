@@ -120,6 +120,31 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 	Expect(os.WriteFile(autoparserPath, autoparserYAML, 0644)).To(Succeed())
 
+	// Create model config for thinking model + autoparser tests.
+	// The chat template ends with <|channel>thought to simulate Gemma 4 thinking models.
+	// This triggers DetectThinkingStartToken and PrependThinkingTokenIfNeeded in the
+	// reasoning extraction path, reproducing a bug where clean content from the C++
+	// autoparser gets misclassified as unclosed reasoning.
+	thinkingAutoparserConfig := map[string]any{
+		"name":    "mock-model-thinking-autoparser",
+		"backend": "mock-backend",
+		"parameters": map[string]any{
+			"model": "mock-model.bin",
+		},
+		"template": map[string]any{
+			"chat": "{{.Input}}\n<|turn>model\n<|channel>thought\n<channel|>",
+		},
+		"function": map[string]any{
+			"grammar": map[string]any{
+				"disable": true,
+			},
+		},
+	}
+	thinkingAutoparserPath := filepath.Join(modelsPath, "mock-model-thinking-autoparser.yaml")
+	thinkingAutoparserYAML, err := yaml.Marshal(thinkingAutoparserConfig)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(os.WriteFile(thinkingAutoparserPath, thinkingAutoparserYAML, 0644)).To(Succeed())
+
 	// Start mock MCP server and create MCP-enabled model config
 	mcpServerURL, mcpServerShutdown = startMockMCPServer()
 	mcpConfig := mcpModelConfig(mcpServerURL)

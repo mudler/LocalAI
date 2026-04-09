@@ -95,6 +95,26 @@ func (m *MockBackend) Predict(ctx context.Context, in *pb.PredictOptions) (*pb.R
 		}, nil
 	}
 
+	// Simulate Gemma 4 / thinking model with C++ autoparser:
+	// - Message contains the clean content (autoparser extracts it from OAI choices[0].message.content)
+	// - ChatDeltas contain both reasoning and content separately
+	// This reproduces the bug where Go-side PrependThinkingTokenIfNeeded
+	// incorrectly prepends a thinking start token to the clean content,
+	// causing the entire response to be classified as unclosed reasoning.
+	if strings.Contains(in.Prompt, "AUTOPARSER_THINKING_CONTENT") {
+		return &pb.Reply{
+			Message:      []byte("I am a helpful AI assistant designed to assist you with a wide range of tasks."),
+			Tokens:       20,
+			PromptTokens: 50,
+			ChatDeltas: []*pb.ChatDelta{
+				{
+					ReasoningContent: "The user is asking a simple introductory question. I should respond directly.",
+					Content:          "I am a helpful AI assistant designed to assist you with a wide range of tasks.",
+				},
+			},
+		}, nil
+	}
+
 	var response string
 	toolName := mockToolNameFromRequest(in)
 	if toolName != "" && !promptHasToolResults(in.Prompt) {

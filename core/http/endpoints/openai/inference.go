@@ -143,12 +143,15 @@ func ComputeChoices(
 			cb(finetunedResponse, &result)
 
 			// Caller-driven retry (tool parsing, reasoning-only, etc.).
-			// When the C++ autoparser is active, it clears the raw response
-			// and delivers data via ChatDeltas. If the response is empty but
-			// ChatDeltas contain actionable data, skip the caller retry —
-			// the autoparser already parsed the response successfully.
+			// When the C++ autoparser is active, it may deliver parsed data
+			// via ChatDeltas while also keeping the raw response. If ChatDeltas
+			// contain actionable data (content or tool calls), skip the caller
+			// retry — the autoparser already parsed the response successfully.
+			// Note: we check ChatDeltas regardless of whether Response is empty,
+			// because thinking models (e.g. Gemma 4) produce a non-empty Response
+			// that the Go-side reasoning extraction can misclassify as reasoning-only.
 			skipCallerRetry := false
-			if strings.TrimSpace(prediction.Response) == "" && len(prediction.ChatDeltas) > 0 {
+			if len(prediction.ChatDeltas) > 0 {
 				for _, d := range prediction.ChatDeltas {
 					if d.Content != "" || len(d.ToolCalls) > 0 {
 						skipCallerRetry = true

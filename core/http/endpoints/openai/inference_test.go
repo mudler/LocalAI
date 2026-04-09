@@ -242,11 +242,13 @@ var _ = Describe("ComputeChoices", func() {
 	})
 
 	Context("chat deltas from latest attempt", func() {
-		It("should return chat deltas from the last attempt only", func() {
+		It("should return chat deltas from the last attempt when retry is allowed", func() {
+			// When the first attempt has only reasoning (no content/tool calls),
+			// the caller-driven retry proceeds and we get deltas from the last attempt.
 			mockInference([]backend.LLMResponse{
 				{
 					Response:   "retry-me",
-					ChatDeltas: []*pb.ChatDelta{{Content: "old"}},
+					ChatDeltas: []*pb.ChatDelta{{ReasoningContent: "thinking..."}},
 				},
 				{
 					Response:   "final",
@@ -266,6 +268,40 @@ var _ = Describe("ComputeChoices", func() {
 			Expect(deltas).To(HaveLen(1))
 			Expect(deltas[0].Content).To(Equal("new"))
 		})
+
+		It("should keep first attempt deltas when ChatDeltas have content (skip retry)", func() {
+			// When the first attempt has content in ChatDeltas, skipCallerRetry
+			// prevents the retry — the autoparser already parsed successfully.
+			mockInference([]backend.LLMResponse{
+				{
+					Response:   "autoparser-content",
+					ChatDeltas: []*pb.ChatDelta{{Content: "first-content"}},
+				},
+				{
+					Response:   "should-not-reach",
+					ChatDeltas: []*pb.ChatDelta{{Content: "second-content"}},
+				},
+			})
+
+			retryRequested := false
+			_, _, deltas, err := ComputeChoices(
+				makeReq(), "test", cfg, nil, appCfg, nil,
+				func(s string, c *[]schema.Choice) {
+					*c = append(*c, schema.Choice{Text: s})
+				},
+				nil,
+				func(attempt int) bool {
+					retryRequested = true
+					return true
+				},
+			)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(retryRequested).To(BeFalse(),
+				"shouldRetry should not be called when ChatDeltas have content")
+			Expect(deltas).To(HaveLen(1))
+			Expect(deltas[0].Content).To(Equal("first-content"))
+		})
+
 	})
 
 	Context("result choices cleared on retry", func() {

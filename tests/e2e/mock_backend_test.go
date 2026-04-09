@@ -462,5 +462,51 @@ var _ = Describe("Mock Backend E2E Tests", Label("MockBackend"), func() {
 				Expect(fn["name"]).To(Equal("search_collections"))
 			})
 		})
+
+		// Regression test: thinking model (Gemma 4-style) with tools, where the
+		// model responds with content only (no tool calls). The C++ autoparser
+		// puts clean content in Message AND reasoning+content in ChatDeltas.
+		// Bug: Go-side PrependThinkingTokenIfNeeded prepends <|channel>thought
+		// to the clean content, causing it to be classified as unclosed reasoning,
+		// leading to "Backend produced reasoning without actionable content, retrying".
+		Context("Non-streaming thinking model with tools and ChatDelta content (no tool calls)", func() {
+			It("should return content without retrying", func() {
+				body := `{
+					"model": "mock-model-thinking-autoparser",
+					"messages": [{"role": "user", "content": "AUTOPARSER_THINKING_CONTENT"}],
+					"tools": [{"type": "function", "function": {"name": "search_collections", "description": "Search documents", "parameters": {"type": "object", "properties": {"query": {"type": "string"}}, "required": ["query"]}}}]
+				}`
+				req, err := http.NewRequest("POST", apiURL+"/chat/completions", strings.NewReader(body))
+				Expect(err).ToNot(HaveOccurred())
+				req.Header.Set("Content-Type", "application/json")
+
+				httpClient := &http.Client{Timeout: 60 * time.Second}
+				resp, err := httpClient.Do(req)
+				Expect(err).ToNot(HaveOccurred())
+				defer resp.Body.Close()
+				Expect(resp.StatusCode).To(Equal(200))
+
+				data, err := io.ReadAll(resp.Body)
+				Expect(err).ToNot(HaveOccurred())
+
+				var result map[string]any
+				Expect(json.Unmarshal(data, &result)).To(Succeed())
+
+				choices, ok := result["choices"].([]any)
+				Expect(ok).To(BeTrue(), "Expected choices array, got: %s", string(data))
+				Expect(choices).To(HaveLen(1))
+
+				choice := choices[0].(map[string]any)
+				msg, _ := choice["message"].(map[string]any)
+				Expect(msg).ToNot(BeNil())
+
+				content, _ := msg["content"].(string)
+				Expect(content).ToNot(BeEmpty(),
+					"Expected non-empty content in thinking model response with tools, "+
+						"but got empty content. Full response: %s", string(data))
+				Expect(content).To(ContainSubstring("helpful AI assistant"),
+					"Expected content to contain the model's response text, got: %s", content)
+			})
+		})
 	})
 })
