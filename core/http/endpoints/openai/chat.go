@@ -420,6 +420,15 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 
 		default:
 			for i, ss := range functionResults {
+				// Skip tool calls that were already emitted incrementally by the
+				// streaming JSON/XML parser during ComputeChoices (tracked by
+				// lastEmittedCount). Re-emitting them would produce duplicate
+				// delta.tool_calls events, causing clients to accumulate
+				// "{args}{args}" which is invalid JSON (cogito streaming bug).
+				if i < lastEmittedCount {
+					continue
+				}
+
 				name, args := ss.Name, ss.Arguments
 				toolCallID := ss.ID
 				if toolCallID == "" {
