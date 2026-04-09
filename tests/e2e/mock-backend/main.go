@@ -115,6 +115,15 @@ func (m *MockBackend) Predict(ctx context.Context, in *pb.PredictOptions) (*pb.R
 		}, nil
 	}
 
+	// Simulate multiple tool calls in a single response (Go-side JSON parser path).
+	if strings.Contains(in.Prompt, "MULTI_TOOL_CALL") {
+		return &pb.Reply{
+			Message:      []byte(`{"name": "get_weather", "arguments": {"location": "Rome"}}
+{"name": "get_weather", "arguments": {"location": "Paris"}}`),
+			Tokens:       30,
+			PromptTokens: 10,
+		}, nil
+	}
 	var response string
 	toolName := mockToolNameFromRequest(in)
 	if toolName != "" && !promptHasToolResults(in.Prompt) {
@@ -215,6 +224,38 @@ func (m *MockBackend) PredictStream(in *pb.PredictOptions, stream pb.Backend_Pre
 			}); err != nil {
 				return err
 			}
+		}
+		return nil
+	}
+
+	// Simulate tool calls streamed as whole JSON objects (Go-side parser path).
+	// Each object is sent as a complete chunk so the incremental parser can
+	// detect tool calls mid-stream (unlike char-by-char which only parses after
+	// streaming completes).
+	if strings.Contains(in.Prompt, "MULTI_TOOL_CALL") {
+		chunks := []string{
+			`{"name": "get_weather", "arguments": {"location": "Rome"}}`,
+			"\n",
+			`{"name": "get_weather", "arguments": {"location": "Paris"}}`,
+		}
+		for i, chunk := range chunks {
+			if err := stream.Send(&pb.Reply{
+				Message: []byte(chunk),
+				Tokens:  int32(i + 1),
+			}); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+
+	// Simulate single tool call streamed as whole JSON (Go-side parser path).
+	if strings.Contains(in.Prompt, "SINGLE_TOOL_CALL") {
+		if err := stream.Send(&pb.Reply{
+			Message: []byte(`{"name": "get_weather", "arguments": {"location": "San Francisco"}}`),
+			Tokens:  1,
+		}); err != nil {
+			return err
 		}
 		return nil
 	}

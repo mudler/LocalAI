@@ -509,4 +509,138 @@ var _ = Describe("Mock Backend E2E Tests", Label("MockBackend"), func() {
 			})
 		})
 	})
+
+	// Tests for duplicate tool call emissions during streaming.
+	// The Go-side incremental JSON parser was emitting the same tool call on
+	// every streaming token, and the post-streaming default: case re-emitted
+	// all tool calls again, producing massive duplication.
+	Describe("Streaming Tool Call Deduplication", Label("ToolDedup"), func() {
+		// Helper: parse SSE lines and count tool call name/arguments chunks
+		parseToolCallChunks := func(data []byte) (nameChunks int, argChunks int) {
+			for _, line := range strings.Split(string(data), "\n") {
+				line = strings.TrimSpace(line)
+				if !strings.HasPrefix(line, "data: ") || line == "data: [DONE]" {
+					continue
+				}
+				var chunk map[string]any
+				if err := json.Unmarshal([]byte(strings.TrimPrefix(line, "data: ")), &chunk); err != nil {
+					continue
+				}
+				choices, _ := chunk["choices"].([]any)
+				if len(choices) == 0 {
+					continue
+				}
+				delta, _ := choices[0].(map[string]any)["delta"].(map[string]any)
+				if delta == nil {
+					continue
+				}
+				toolCalls, _ := delta["tool_calls"].([]any)
+				for _, tc := range toolCalls {
+					tcMap, _ := tc.(map[string]any)
+					fn, _ := tcMap["function"].(map[string]any)
+					if fn == nil {
+						continue
+					}
+					if name, _ := fn["name"].(string); name != "" {
+						nameChunks++
+					}
+					if args, _ := fn["arguments"].(string); args != "" {
+						argChunks++
+					}
+				}
+			}
+			return
+		}
+
+		Context("Single tool call via Go-side JSON parser", func() {
+			It("should emit exactly one tool call name without duplicates", func() {
+				body := `{
+					"model": "mock-model-autoparser",
+					"messages": [{"role": "user", "content": "SINGLE_TOOL_CALL"}],
+					"tools": [{"type": "function", "function": {"name": "get_weather", "description": "Get weather", "parameters": {"type": "object", "properties": {"location": {"type": "string"}}, "required": ["location"]}}}],
+					"stream": true
+				}`
+				req, err := http.NewRequest("POST", apiURL+"/chat/completions", strings.NewReader(body))
+				Expect(err).ToNot(HaveOccurred())
+				req.Header.Set("Content-Type", "application/json")
+
+				httpClient := &http.Client{Timeout: 60 * time.Second}
+				resp, err := httpClient.Do(req)
+				Expect(err).ToNot(HaveOccurred())
+				defer resp.Body.Close()
+				Expect(resp.StatusCode).To(Equal(200))
+
+				data, err := io.ReadAll(resp.Body)
+				Expect(err).ToNot(HaveOccurred())
+
+				nameChunks, argChunks := parseToolCallChunks(data)
+
+				Expect(nameChunks).To(Equal(1),
+					"Expected exactly 1 tool call name chunk, got %d. Full SSE:\n%s",
+					nameChunks, string(data))
+				Expect(argChunks).To(BeNumerically(">=", 1),
+					"Expected at least 1 arguments chunk. Full SSE:\n%s", string(data))
+			})
+		})
+
+		Context("ChatDelta tool calls (regression guard)", func() {
+			It("should emit exactly one tool call name per tool", func() {
+				body := `{
+					"model": "mock-model-autoparser",
+					"messages": [{"role": "user", "content": "AUTOPARSER_TOOL_CALL"}],
+					"tools": [{"type": "function", "function": {"name": "search_collections", "description": "Search documents", "parameters": {"type": "object", "properties": {"query": {"type": "string"}}, "required": ["query"]}}}],
+					"stream": true
+				}`
+				req, err := http.NewRequest("POST", apiURL+"/chat/completions", strings.NewReader(body))
+				Expect(err).ToNot(HaveOccurred())
+				req.Header.Set("Content-Type", "application/json")
+
+				httpClient := &http.Client{Timeout: 60 * time.Second}
+				resp, err := httpClient.Do(req)
+				Expect(err).ToNot(HaveOccurred())
+				defer resp.Body.Close()
+				Expect(resp.StatusCode).To(Equal(200))
+
+				data, err := io.ReadAll(resp.Body)
+				Expect(err).ToNot(HaveOccurred())
+
+				nameChunks, _ := parseToolCallChunks(data)
+
+				Expect(nameChunks).To(Equal(1),
+					"Expected exactly 1 tool call name chunk from ChatDeltas, got %d. Full SSE:\n%s",
+					nameChunks, string(data))
+			})
+		})
+
+		Context("Multiple tool calls via Go-side JSON parser", func() {
+			It("should emit exactly two tool call names without duplicates", func() {
+				body := `{
+					"model": "mock-model-autoparser",
+					"messages": [{"role": "user", "content": "MULTI_TOOL_CALL"}],
+					"tools": [{"type": "function", "function": {"name": "get_weather", "description": "Get weather", "parameters": {"type": "object", "properties": {"location": {"type": "string"}}, "required": ["location"]}}}],
+					"stream": true
+				}`
+				req, err := http.NewRequest("POST", apiURL+"/chat/completions", strings.NewReader(body))
+				Expect(err).ToNot(HaveOccurred())
+				req.Header.Set("Content-Type", "application/json")
+
+				httpClient := &http.Client{Timeout: 60 * time.Second}
+				resp, err := httpClient.Do(req)
+				Expect(err).ToNot(HaveOccurred())
+				defer resp.Body.Close()
+				Expect(resp.StatusCode).To(Equal(200))
+
+				data, err := io.ReadAll(resp.Body)
+				Expect(err).ToNot(HaveOccurred())
+
+				nameChunks, argChunks := parseToolCallChunks(data)
+
+				Expect(nameChunks).To(Equal(2),
+					"Expected exactly 2 tool call name chunks (one per tool), got %d. Full SSE:\n%s",
+					nameChunks, string(data))
+				Expect(argChunks).To(BeNumerically(">=", 2),
+					"Expected at least 2 arguments chunks. Full SSE:\n%s", string(data))
+			})
+		})
+	})
 })

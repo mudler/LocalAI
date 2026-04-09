@@ -265,55 +265,52 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 					lastEmittedCount = len(partialResults)
 				}
 			} else {
-				// Try JSON tool call parsing for streaming
-				// Check if the result looks like JSON tool calls
+				// Try JSON tool call parsing for streaming.
+				// Only emit NEW tool calls (same guard as XML parser above).
 				jsonResults, jsonErr := functions.ParseJSONIterative(cleanedResult, true)
-				if jsonErr == nil && len(jsonResults) > 0 {
-					// Check if these are tool calls (have "name" and optionally "arguments")
-					for _, jsonObj := range jsonResults {
-						if name, ok := jsonObj["name"].(string); ok && name != "" {
-							// This looks like a tool call
-							args := "{}"
-							if argsVal, ok := jsonObj["arguments"]; ok {
-								if argsStr, ok := argsVal.(string); ok {
-									args = argsStr
-								} else {
-									argsBytes, _ := json.Marshal(argsVal)
-									args = string(argsBytes)
-								}
+				if jsonErr == nil && len(jsonResults) > lastEmittedCount {
+					for i := lastEmittedCount; i < len(jsonResults); i++ {
+						jsonObj := jsonResults[i]
+						name, ok := jsonObj["name"].(string)
+						if !ok || name == "" {
+							continue
+						}
+						args := "{}"
+						if argsVal, ok := jsonObj["arguments"]; ok {
+							if argsStr, ok := argsVal.(string); ok {
+								args = argsStr
+							} else {
+								argsBytes, _ := json.Marshal(argsVal)
+								args = string(argsBytes)
 							}
-							// Emit tool call
-							initialMessage := schema.OpenAIResponse{
-								ID:      id,
-								Created: created,
-								Model:   req.Model,
-								Choices: []schema.Choice{{
-									Delta: &schema.Message{
-										Role: "assistant",
-										ToolCalls: []schema.ToolCall{
-											{
-												Index: lastEmittedCount,
-												ID:    id,
-												Type:  "function",
-												FunctionCall: schema.FunctionCall{
-													Name:      name,
-													Arguments: args,
-												},
+						}
+						initialMessage := schema.OpenAIResponse{
+							ID:      id,
+							Created: created,
+							Model:   req.Model,
+							Choices: []schema.Choice{{
+								Delta: &schema.Message{
+									Role: "assistant",
+									ToolCalls: []schema.ToolCall{
+										{
+											Index: i,
+											ID:    id,
+											Type:  "function",
+											FunctionCall: schema.FunctionCall{
+												Name:      name,
+												Arguments: args,
 											},
 										},
 									},
-									Index:        0,
-									FinishReason: nil,
-								}},
-								Object: "chat.completion.chunk",
-							}
-							select {
-							case responses <- initialMessage:
-							default:
-							}
-							lastEmittedCount++
+								},
+								Index:        0,
+								FinishReason: nil,
+							}},
+							Object: "chat.completion.chunk",
 						}
+						responses <- initialMessage
 					}
+					lastEmittedCount = len(jsonResults)
 				}
 			}
 			return true
@@ -426,10 +423,17 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 					toolCallID = id
 				}
 
+				if i < lastEmittedCount {
+					// Already emitted during streaming by the incremental
+					// JSON/XML parser — skip to avoid duplicate tool calls.
+					continue
+				}
+
+				// Tool call not yet emitted — send name + args (two chunks).
 				initialMessage := schema.OpenAIResponse{
 					ID:      id,
 					Created: created,
-					Model:   req.Model, // we have to return what the user sent here, due to OpenAI spec.
+					Model:   req.Model,
 					Choices: []schema.Choice{{
 						Delta: &schema.Message{
 							Role: "assistant",
@@ -454,7 +458,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 				responses <- schema.OpenAIResponse{
 					ID:      id,
 					Created: created,
-					Model:   req.Model, // we have to return what the user sent here, due to OpenAI spec.
+					Model:   req.Model,
 					Choices: []schema.Choice{{
 						Delta: &schema.Message{
 							Role:    "assistant",
