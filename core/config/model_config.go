@@ -77,6 +77,7 @@ type ModelConfig struct {
 
 	Description string `yaml:"description,omitempty" json:"description,omitempty"`
 	Usage       string `yaml:"usage,omitempty" json:"usage,omitempty"`
+	Disabled    *bool  `yaml:"disabled,omitempty" json:"disabled,omitempty"`
 
 	Options   []string `yaml:"options,omitempty" json:"options,omitempty"`
 	Overrides []string `yaml:"overrides,omitempty" json:"overrides,omitempty"`
@@ -546,6 +547,11 @@ func (c *ModelConfig) GetModelConfigFile() string {
 // GetModelTemplate returns the model's chat template if available
 func (c *ModelConfig) GetModelTemplate() string {
 	return c.modelTemplate
+}
+
+// IsDisabled returns true if the model is disabled
+func (c *ModelConfig) IsDisabled() bool {
+	return c.Disabled != nil && *c.Disabled
 }
 
 type ModelConfigUsecase int

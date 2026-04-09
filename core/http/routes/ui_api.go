@@ -514,6 +514,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			ID           string   `json:"id"`
 			Capabilities []string `json:"capabilities"`
 			Backend      string   `json:"backend"`
+			Disabled     bool     `json:"disabled"`
 		}
 
 		result := make([]modelCapability, 0, len(modelConfigs)+len(modelsWithoutConfig))
@@ -522,6 +523,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 				ID:           cfg.Name,
 				Capabilities: cfg.KnownUsecaseStrings,
 				Backend:      cfg.Backend,
+				Disabled:     cfg.IsDisabled(),
 			})
 		}
 		for _, name := range modelsWithoutConfig {

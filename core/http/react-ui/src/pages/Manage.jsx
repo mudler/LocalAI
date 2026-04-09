@@ -24,6 +24,7 @@ export default function Manage() {
   const [reinstallingBackends, setReinstallingBackends] = useState(new Set())
   const [confirmDialog, setConfirmDialog] = useState(null)
   const [distributedMode, setDistributedMode] = useState(false)
+  const [togglingModels, setTogglingModels] = useState(new Set())
 
   const handleTabChange = (tab) => {
     setActiveTab(tab)
@@ -97,6 +98,28 @@ export default function Manage() {
         }
       },
     })
+  }
+
+  const handleToggleModel = async (modelId, currentlyDisabled) => {
+    const action = currentlyDisabled ? 'enable' : 'disable'
+    setTogglingModels(prev => new Set(prev).add(modelId))
+    try {
+      await modelsApi.toggle(modelId, action)
+      addToast(`Model ${modelId} ${action}d`, 'success')
+      refetchModels()
+      if (!currentlyDisabled) {
+        // Model was just disabled, refresh loaded models since it may have been shut down
+        setTimeout(fetchLoadedModels, 500)
+      }
+    } catch (err) {
+      addToast(`Failed to ${action} model: ${err.message}`, 'error')
+    } finally {
+      setTogglingModels(prev => {
+        const next = new Set(prev)
+        next.delete(modelId)
+        return next
+      })
+    }
   }
 
   const handleReload = async () => {
@@ -219,11 +242,11 @@ export default function Manage() {
               </thead>
               <tbody>
                 {models.map(model => (
-                  <tr key={model.id}>
+                  <tr key={model.id} style={{ opacity: model.disabled ? 0.55 : 1, transition: 'opacity 0.2s' }}>
                     <td>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
-                        <i className="fas fa-brain" style={{ color: 'var(--color-accent)' }} />
-                        <span className="badge badge-success" style={{ width: 6, height: 6, padding: 0, borderRadius: '50%', minWidth: 'auto' }} />
+                        <i className="fas fa-brain" style={{ color: model.disabled ? 'var(--color-text-muted)' : 'var(--color-accent)' }} />
+                        <span className={`badge ${model.disabled ? '' : 'badge-success'}`} style={{ width: 6, height: 6, padding: 0, borderRadius: '50%', minWidth: 'auto', background: model.disabled ? 'var(--color-text-muted)' : undefined }} />
                         <span style={{ fontWeight: 500 }}>{model.id}</span>
                         <a
                           href="#"
@@ -246,7 +269,11 @@ export default function Manage() {
                       </div>
                     </td>
                     <td>
-                      {loadedModelIds.has(model.id) ? (
+                      {model.disabled ? (
+                        <span className="badge" style={{ background: 'var(--color-danger, #ef4444)', color: 'white' }}>
+                          <i className="fas fa-ban" style={{ fontSize: '6px' }} /> Disabled
+                        </span>
+                      ) : loadedModelIds.has(model.id) ? (
                         <span className="badge badge-success">
                           <i className="fas fa-circle" style={{ fontSize: '6px' }} /> Running
                         </span>
@@ -265,7 +292,47 @@ export default function Manage() {
                       </div>
                     </td>
                     <td>
-                      <div style={{ display: 'flex', gap: 'var(--spacing-xs)', justifyContent: 'flex-end' }}>
+                      <div style={{ display: 'flex', gap: 'var(--spacing-sm)', justifyContent: 'flex-end', alignItems: 'center' }}>
+                        {/* Toggle switch for enabling/disabling model loading on demand */}
+                        <label
+                          title={model.disabled ? 'Model is disabled — click to enable loading on demand' : 'Model is enabled — click to disable loading on demand'}
+                          style={{
+                            position: 'relative',
+                            display: 'inline-block',
+                            width: 36,
+                            height: 20,
+                            cursor: togglingModels.has(model.id) ? 'wait' : 'pointer',
+                            opacity: togglingModels.has(model.id) ? 0.5 : 1,
+                            flexShrink: 0,
+                          }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={!model.disabled}
+                            onChange={() => handleToggleModel(model.id, model.disabled)}
+                            disabled={togglingModels.has(model.id)}
+                            style={{ opacity: 0, width: 0, height: 0 }}
+                          />
+                          <span style={{
+                            position: 'absolute',
+                            top: 0, left: 0, right: 0, bottom: 0,
+                            backgroundColor: model.disabled ? 'var(--color-bg-tertiary)' : 'var(--color-success, #22c55e)',
+                            borderRadius: 20,
+                            transition: 'background-color 0.2s',
+                          }}>
+                            <span style={{
+                              position: 'absolute',
+                              content: '""',
+                              height: 14,
+                              width: 14,
+                              left: model.disabled ? 3 : 19,
+                              bottom: 3,
+                              backgroundColor: 'white',
+                              borderRadius: '50%',
+                              transition: 'left 0.2s',
+                            }} />
+                          </span>
+                        </label>
                         {loadedModelIds.has(model.id) && (
                           <button
                             className="btn btn-secondary btn-sm"

@@ -166,6 +166,18 @@ func (re *RequestExtractor) SetModelAndConfig(initializer func() schema.LocalAIR
 					})
 				}
 			}
+			}
+
+			// Check if the model is disabled
+			if cfg != nil && cfg.IsDisabled() {
+				return c.JSON(http.StatusForbidden, schema.ErrorResponse{
+					Error: &schema.APIError{
+						Message: fmt.Sprintf("model %q is disabled and cannot be loaded. Enable it via the System page or API to use it.", modelName),
+						Code:    http.StatusForbidden,
+						Type:    "model_disabled",
+					},
+				})
+			}
 
 			c.Set(CONTEXT_LOCALS_KEY_LOCALAI_REQUEST, input)
 			c.Set(CONTEXT_LOCALS_KEY_MODEL_CONFIG, cfg)
