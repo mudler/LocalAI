@@ -40,6 +40,7 @@ type ApplicationConfig struct {
 	Federated                     bool
 
 	DisableWebUI                       bool
+	OllamaAPIRootEndpoint              bool
 	EnforcePredownloadScans            bool
 	OpaqueErrors                       bool
 	UseSubtleKeyComparison             bool
@@ -261,6 +262,10 @@ var EnableWatchDogBusyCheck = func(o *ApplicationConfig) {
 
 var DisableWebUI = func(o *ApplicationConfig) {
 	o.DisableWebUI = true
+}
+
+var EnableOllamaAPIRootEndpoint = func(o *ApplicationConfig) {
+	o.OllamaAPIRootEndpoint = true
 }
 
 var DisableRuntimeSettings = func(o *ApplicationConfig) {

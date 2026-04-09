@@ -391,6 +391,10 @@ func API(application *application.Application) (*echo.Echo, error) {
 	routes.RegisterOpenAIRoutes(e, requestExtractor, application)
 	routes.RegisterAnthropicRoutes(e, requestExtractor, application)
 	routes.RegisterOpenResponsesRoutes(e, requestExtractor, application)
+	routes.RegisterOllamaRoutes(e, requestExtractor, application)
+	if application.ApplicationConfig().OllamaAPIRootEndpoint {
+		routes.RegisterOllamaRootEndpoint(e)
+	}
 	if !application.ApplicationConfig().DisableWebUI {
 		routes.RegisterUIAPIRoutes(e, application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig(), application.GalleryService(), opcache, application, adminMiddleware)
 		routes.RegisterUIRoutes(e, application.ModelConfigLoader(), application.ApplicationConfig(), application.GalleryService(), adminMiddleware)

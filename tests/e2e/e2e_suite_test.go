@@ -26,6 +26,7 @@ import (
 
 var (
 	anthropicBaseURL  string
+	ollamaBaseURL     string
 	tmpDir            string
 	backendPath       string
 	modelsPath        string
@@ -245,6 +246,8 @@ var _ = BeforeSuite(func() {
 	apiURL = fmt.Sprintf("http://127.0.0.1:%d/v1", apiPort)
 	// Anthropic SDK appends /v1/messages to base URL; use base without /v1 so requests go to /v1/messages
 	anthropicBaseURL = fmt.Sprintf("http://127.0.0.1:%d", apiPort)
+	// Ollama client uses base URL directly
+	ollamaBaseURL = fmt.Sprintf("http://127.0.0.1:%d", apiPort)
 
 	// Start server in goroutine
 	go func() {
