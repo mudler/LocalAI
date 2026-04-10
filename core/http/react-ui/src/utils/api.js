@@ -97,7 +97,7 @@ export const modelsApi = {
   getJobStatus: (uid) => fetchJSON(API_CONFIG.endpoints.modelsJobStatus(uid)),
   getEditConfig: (name) => fetchJSON(API_CONFIG.endpoints.modelEditGet(name)),
   editConfig: (name, body) => postJSON(API_CONFIG.endpoints.modelEdit(name), body),
-  toggle: (name, action) => fetchJSON(API_CONFIG.endpoints.modelToggle(name, action), { method: 'PUT' }),
+  toggleState: (name, action) => fetchJSON(API_CONFIG.endpoints.modelToggleState(name, action), { method: 'PUT' }),
   getConfigMetadata: (section) => fetchJSON(
     section ? `${API_CONFIG.endpoints.configMetadata}?section=${section}`
             : API_CONFIG.endpoints.configMetadata

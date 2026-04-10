@@ -27,7 +27,7 @@ import (
 // @Failure      404  {object}  ModelResponse
 // @Failure      500  {object}  ModelResponse
 // @Router       /api/models/{name}/{action} [put]
-func ToggleModelEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) echo.HandlerFunc {
+func ToggleStateModelEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		modelName := c.Param("name")
 		if decoded, err := url.PathUnescape(modelName); err == nil {

@@ -104,7 +104,7 @@ export default function Manage() {
     const action = currentlyDisabled ? 'enable' : 'disable'
     setTogglingModels(prev => new Set(prev).add(modelId))
     try {
-      await modelsApi.toggle(modelId, action)
+      await modelsApi.toggleState(modelId, action)
       addToast(`Model ${modelId} ${action}d`, 'success')
       refetchModels()
       if (!currentlyDisabled) {

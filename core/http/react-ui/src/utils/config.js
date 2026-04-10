@@ -93,7 +93,7 @@ export const API_CONFIG = {
     modelsJobStatus: (uid) => `/models/jobs/${uid}`,
     modelEditGet: (name) => `/api/models/edit/${name}`,
     modelEdit: (name) => `/models/edit/${name}`,
-    modelToggle: (name, action) => `/models/toggle/${name}/${action}`,
+    modelToggleState: (name, action) => `/models/toggle-state/${name}/${action}`,
     backendsAvailable: '/backends/available',
     backendsInstalled: '/backends',
     version: '/version',
