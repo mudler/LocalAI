@@ -166,7 +166,6 @@ func (re *RequestExtractor) SetModelAndConfig(initializer func() schema.LocalAIR
 					})
 				}
 			}
-			}
 
 			// Check if the model is disabled
 			if cfg != nil && cfg.IsDisabled() {
