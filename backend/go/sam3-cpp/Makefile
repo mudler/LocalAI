@@ -8,7 +8,7 @@ JOBS?=$(shell nproc --ignore=1)
 
 # sam3.cpp
 SAM3_REPO?=https://github.com/PABannier/sam3.cpp
-SAM3_VERSION?=8cc6e62bc740d7972746fcd47465ddf1c2b1e3c3
+SAM3_VERSION?=01832ef85fcc8eb6488f1d01cd247f07e96ff5a9
 
 ifeq ($(NATIVE),false)
 	CMAKE_ARGS+=-DGGML_NATIVE=OFF
