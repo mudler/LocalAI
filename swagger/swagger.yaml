@@ -256,6 +256,22 @@ definitions:
           type: string
         type: array
     type: object
+  localai.ModelResponse:
+    properties:
+      config: {}
+      details:
+        items:
+          type: string
+        type: array
+      error:
+        type: string
+      filename:
+        type: string
+      message:
+        type: string
+      success:
+        type: boolean
+    type: object
   localai.vramEstimateRequest:
     properties:
       context_size:
@@ -2125,6 +2141,41 @@ paths:
       summary: Get an instruction's API guide or OpenAPI fragment
       tags:
       - instructions
+  /api/models/{name}/{action}:
+    put:
+      description: Enable or disable a model from being loaded on demand. Disabled
+        models remain installed but cannot be loaded.
+      parameters:
+      - description: Model name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: 'Action: ''enable'' or ''disable'''
+        in: path
+        name: action
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/localai.ModelResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/localai.ModelResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/localai.ModelResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/localai.ModelResponse'
+      summary: Toggle model enabled/disabled status
+      tags:
+      - config
   /api/models/config-json/{name}:
     patch:
       consumes:

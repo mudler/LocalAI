@@ -805,6 +805,57 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/models/{name}/{action}": {
+            "put": {
+                "description": "Enable or disable a model from being loaded on demand. Disabled models remain installed but cannot be loaded.",
+                "tags": [
+                    "config"
+                ],
+                "summary": "Toggle model enabled/disabled status",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Model name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Action: 'enable' or 'disable'",
+                        "name": "action",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/localai.ModelResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/localai.ModelResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/localai.ModelResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/localai.ModelResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/p2p": {
             "get": {
                 "tags": [
@@ -2355,6 +2406,30 @@ const docTemplate = `{
                     "items": {
                         "type": "string"
                     }
+                }
+            }
+        },
+        "localai.ModelResponse": {
+            "type": "object",
+            "properties": {
+                "config": {},
+                "details": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "error": {
+                    "type": "string"
+                },
+                "filename": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "success": {
+                    "type": "boolean"
                 }
             }
         },
