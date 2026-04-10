@@ -25,6 +25,7 @@ export default function Manage() {
   const [confirmDialog, setConfirmDialog] = useState(null)
   const [distributedMode, setDistributedMode] = useState(false)
   const [togglingModels, setTogglingModels] = useState(new Set())
+  const [pinningModels, setPinningModels] = useState(new Set())
 
   const handleTabChange = (tab) => {
     setActiveTab(tab)
@@ -115,6 +116,24 @@ export default function Manage() {
       addToast(`Failed to ${action} model: ${err.message}`, 'error')
     } finally {
       setTogglingModels(prev => {
+        const next = new Set(prev)
+        next.delete(modelId)
+        return next
+      })
+    }
+  }
+
+  const handleTogglePinned = async (modelId, currentlyPinned) => {
+    const action = currentlyPinned ? 'unpin' : 'pin'
+    setPinningModels(prev => new Set(prev).add(modelId))
+    try {
+      await modelsApi.togglePinned(modelId, action)
+      addToast(`Model ${modelId} ${action}ned`, 'success')
+      refetchModels()
+    } catch (err) {
+      addToast(`Failed to ${action} model: ${err.message}`, 'error')
+    } finally {
+      setPinningModels(prev => {
         const next = new Set(prev)
         next.delete(modelId)
         return next
@@ -303,6 +322,22 @@ export default function Manage() {
                             <i className="fas fa-stop" />
                           </button>
                         )}
+                        {/* Pin button - prevents model from being unloaded */}
+                        <button
+                          className="btn btn-sm"
+                          onClick={() => handleTogglePinned(model.id, model.pinned)}
+                          disabled={pinningModels.has(model.id) || model.disabled}
+                          title={model.pinned ? 'Unpin model (allow idle unloading)' : 'Pin model (prevent idle unloading)'}
+                          style={{
+                            padding: '2px 6px',
+                            minWidth: 28,
+                            color: model.pinned ? 'var(--color-warning, #f59e0b)' : 'var(--color-text-muted)',
+                            opacity: model.disabled ? 0.3 : (pinningModels.has(model.id) ? 0.5 : 1),
+                            cursor: pinningModels.has(model.id) ? 'wait' : (model.disabled ? 'not-allowed' : 'pointer'),
+                          }}
+                        >
+                          <i className={`fas fa-thumbtack${pinningModels.has(model.id) ? ' fa-spin' : ''}`} />
+                        </button>
                         {/* Toggle switch for enabling/disabling model loading on demand */}
                         <label
                           title={model.disabled ? 'Model is disabled — click to enable loading on demand' : 'Model is enabled — click to disable loading on demand'}

@@ -98,6 +98,7 @@ export const modelsApi = {
   getEditConfig: (name) => fetchJSON(API_CONFIG.endpoints.modelEditGet(name)),
   editConfig: (name, body) => postJSON(API_CONFIG.endpoints.modelEdit(name), body),
   toggleState: (name, action) => fetchJSON(API_CONFIG.endpoints.modelToggleState(name, action), { method: 'PUT' }),
+  togglePinned: (name, action) => fetchJSON(API_CONFIG.endpoints.modelTogglePinned(name, action), { method: 'PUT' }),
   getConfigMetadata: (section) => fetchJSON(
     section ? `${API_CONFIG.endpoints.configMetadata}?section=${section}`
             : API_CONFIG.endpoints.configMetadata

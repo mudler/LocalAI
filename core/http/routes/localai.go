@@ -78,6 +78,11 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 		// Toggle model enable/disable endpoint
 		router.PUT("/models/toggle-state/:name/:action", localai.ToggleStateModelEndpoint(cl, ml, appConfig), adminMiddleware)
 
+		// Toggle model pinned status endpoint
+		router.PUT("/models/toggle-pinned/:name/:action", localai.TogglePinnedModelEndpoint(cl, appConfig, func() {
+			app.SyncPinnedModelsToWatchdog()
+		}), adminMiddleware)
+
 		// Reload models endpoint
 		router.POST("/models/reload", localai.ReloadModelsEndpoint(cl, appConfig), adminMiddleware)
 	}

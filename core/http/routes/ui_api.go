@@ -515,6 +515,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			Capabilities []string `json:"capabilities"`
 			Backend      string   `json:"backend"`
 			Disabled     bool     `json:"disabled"`
+			Pinned       bool     `json:"pinned"`
 		}
 
 		result := make([]modelCapability, 0, len(modelConfigs)+len(modelsWithoutConfig))
@@ -524,6 +525,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 				Capabilities: cfg.KnownUsecaseStrings,
 				Backend:      cfg.Backend,
 				Disabled:     cfg.IsDisabled(),
+				Pinned:       cfg.IsPinned(),
 			})
 		}
 		for _, name := range modelsWithoutConfig {

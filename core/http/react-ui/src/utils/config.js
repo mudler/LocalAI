@@ -94,6 +94,7 @@ export const API_CONFIG = {
     modelEditGet: (name) => `/api/models/edit/${name}`,
     modelEdit: (name) => `/models/edit/${name}`,
     modelToggleState: (name, action) => `/models/toggle-state/${name}/${action}`,
+    modelTogglePinned: (name, action) => `/models/toggle-pinned/${name}/${action}`,
     backendsAvailable: '/backends/available',
     backendsInstalled: '/backends',
     version: '/version',

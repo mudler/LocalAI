@@ -5,6 +5,27 @@ import (
 	"github.com/mudler/xlog"
 )
 
+// SyncPinnedModelsToWatchdog reads pinned status from all model configs and updates the watchdog
+func (a *Application) SyncPinnedModelsToWatchdog() {
+	cl := a.ModelConfigLoader()
+	if cl == nil {
+		return
+	}
+	wd := a.modelLoader.GetWatchDog()
+	if wd == nil {
+		return
+	}
+	configs := cl.GetAllModelsConfigs()
+	var pinned []string
+	for _, cfg := range configs {
+		if cfg.IsPinned() {
+			pinned = append(pinned, cfg.Name)
+		}
+	}
+	wd.SetPinnedModels(pinned)
+	xlog.Debug("Synced pinned models to watchdog", "count", len(pinned))
+}
+
 func (a *Application) StopWatchdog() error {
 	if a.watchdogStop != nil {
 		close(a.watchdogStop)
@@ -43,6 +64,9 @@ func (a *Application) startWatchdog() error {
 
 		// Set the watchdog on the model loader
 		a.modelLoader.SetWatchDog(wd)
+
+		// Sync pinned models from config to the watchdog
+		a.SyncPinnedModelsToWatchdog()
 
 		// Start watchdog goroutine if any periodic checks are enabled
 		// LRU eviction doesn't need the Run() loop - it's triggered on model load
@@ -123,6 +147,9 @@ func (a *Application) RestartWatchdog() error {
 	if newWD != nil && len(oldState.AddressModelMap) > 0 {
 		newWD.RestoreState(oldState)
 	}
+
+	// Re-sync pinned models after restart
+	a.SyncPinnedModelsToWatchdog()
 
 	return nil
 }
