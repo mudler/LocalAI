@@ -293,6 +293,16 @@ export default function Manage() {
                     </td>
                     <td>
                       <div style={{ display: 'flex', gap: 'var(--spacing-sm)', justifyContent: 'flex-end', alignItems: 'center' }}>
+                        {/* Stop button - shown when model is loaded */}
+                        {loadedModelIds.has(model.id) && (
+                          <button
+                            className="btn btn-secondary btn-sm"
+                            onClick={() => handleStopModel(model.id)}
+                            title="Stop model"
+                          >
+                            <i className="fas fa-stop" />
+                          </button>
+                        )}
                         {/* Toggle switch for enabling/disabling model loading on demand */}
                         <label
                           title={model.disabled ? 'Model is disabled — click to enable loading on demand' : 'Model is enabled — click to disable loading on demand'}
@@ -333,15 +343,6 @@ export default function Manage() {
                             }} />
                           </span>
                         </label>
-                        {loadedModelIds.has(model.id) && (
-                          <button
-                            className="btn btn-secondary btn-sm"
-                            onClick={() => handleStopModel(model.id)}
-                            title="Stop model"
-                          >
-                            <i className="fas fa-stop" />
-                          </button>
-                        )}
                         <button
                           className="btn btn-danger btn-sm"
                           onClick={() => handleDeleteModel(model.id)}
