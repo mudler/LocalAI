@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useNavigate, useOutletContext, useSearchParams } from 'react-router-dom'
 import ResourceMonitor from '../components/ResourceMonitor'
 import ConfirmDialog from '../components/ConfirmDialog'
+import Toggle from '../components/Toggle'
 import { useModels } from '../hooks/useModels'
 import { backendControlApi, modelsApi, backendsApi, systemApi, nodesApi } from '../utils/api'
 
@@ -278,6 +279,7 @@ export default function Manage() {
             <table className="table">
               <thead>
                 <tr>
+                  <th style={{ width: 36 }}>Enabled</th>
                   <th>Name</th>
                   <th>Status</th>
                   <th>Backend</th>
@@ -288,34 +290,49 @@ export default function Manage() {
               <tbody>
                 {models.map(model => (
                   <tr key={model.id} style={{ opacity: model.disabled ? 0.55 : 1, transition: 'opacity 0.2s' }}>
+                    {/* Enable/Disable toggle */}
+                    <td>
+                      <Toggle
+                        checked={!model.disabled}
+                        onChange={() => handleToggleModel(model.id, model.disabled)}
+                        disabled={togglingModels.has(model.id)}
+                      />
+                    </td>
+                    {/* Name */}
                     <td>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
-                        <i className="fas fa-brain" style={{ color: model.disabled ? 'var(--color-text-muted)' : 'var(--color-accent)' }} />
-                        <span className={`badge ${model.disabled ? '' : 'badge-success'}`} style={{ width: 6, height: 6, padding: 0, borderRadius: '50%', minWidth: 'auto', background: model.disabled ? 'var(--color-text-muted)' : undefined }} />
                         <span style={{ fontWeight: 500 }}>{model.id}</span>
-                        <a
-                          href="#"
-                          onClick={(e) => { e.preventDefault(); navigate(`/app/model-editor/${encodeURIComponent(model.id)}`) }}
-                          style={{ fontSize: '0.75rem', color: 'var(--color-primary)' }}
-                          title="Edit config"
-                        >
-                          <i className="fas fa-pen-to-square" />
-                        </a>
-                        {!distributedMode && (
+                        {model.pinned && (
+                          <i className="fas fa-thumbtack" style={{ fontSize: '0.625rem', color: 'var(--color-warning)' }} title="Pinned — won't be idle-unloaded" />
+                        )}
+                        <div style={{ display: 'flex', gap: '2px', marginLeft: 'auto' }}>
                           <a
                             href="#"
-                            onClick={(e) => { e.preventDefault(); navigate(`/app/backend-logs/${encodeURIComponent(model.id)}`) }}
-                            style={{ fontSize: '0.75rem', color: 'var(--color-primary)' }}
-                            title="Backend logs"
+                            onClick={(e) => { e.preventDefault(); navigate(`/app/model-editor/${encodeURIComponent(model.id)}`) }}
+                            className="btn btn-secondary btn-sm"
+                            style={{ padding: '2px 5px', fontSize: '0.625rem' }}
+                            title="Edit config"
                           >
-                            <i className="fas fa-terminal" />
+                            <i className="fas fa-pen-to-square" />
                           </a>
-                        )}
+                          {!distributedMode && (
+                            <a
+                              href="#"
+                              onClick={(e) => { e.preventDefault(); navigate(`/app/backend-logs/${encodeURIComponent(model.id)}`) }}
+                              className="btn btn-secondary btn-sm"
+                              style={{ padding: '2px 5px', fontSize: '0.625rem' }}
+                              title="Backend logs"
+                            >
+                              <i className="fas fa-terminal" />
+                            </a>
+                          )}
+                        </div>
                       </div>
                     </td>
+                    {/* Status */}
                     <td>
                       {model.disabled ? (
-                        <span className="badge" style={{ background: 'var(--color-danger, #ef4444)', color: 'white' }}>
+                        <span className="badge" style={{ background: 'var(--color-bg-tertiary)', color: 'var(--color-text-muted)' }}>
                           <i className="fas fa-ban" style={{ fontSize: '6px' }} /> Disabled
                         </span>
                       ) : loadedModelIds.has(model.id) ? (
@@ -328,17 +345,19 @@ export default function Manage() {
                         </span>
                       )}
                     </td>
+                    {/* Backend */}
                     <td>
                       <span className="badge badge-info">{model.backend || 'Auto'}</span>
                     </td>
+                    {/* Use Cases */}
                     <td>
                       <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
                         <a href="#" onClick={(e) => { e.preventDefault(); navigate(`/app/chat/${encodeURIComponent(model.id)}`) }} className="badge badge-info" style={{ textDecoration: 'none', cursor: 'pointer' }}>Chat</a>
                       </div>
                     </td>
+                    {/* Actions */}
                     <td>
-                      <div style={{ display: 'flex', gap: 'var(--spacing-sm)', justifyContent: 'flex-end', alignItems: 'center' }}>
-                        {/* Stop button - shown when model is loaded */}
+                      <div style={{ display: 'flex', gap: 'var(--spacing-xs)', justifyContent: 'flex-end', alignItems: 'center' }}>
                         {loadedModelIds.has(model.id) && (
                           <button
                             className="btn btn-secondary btn-sm"
@@ -348,62 +367,17 @@ export default function Manage() {
                             <i className="fas fa-stop" />
                           </button>
                         )}
-                        {/* Pin button - prevents model from being unloaded */}
                         <button
-                          className="btn btn-sm"
+                          className="btn btn-secondary btn-sm"
                           onClick={() => handleTogglePinned(model.id, model.pinned)}
                           disabled={pinningModels.has(model.id) || model.disabled}
                           title={model.pinned ? 'Unpin model (allow idle unloading)' : 'Pin model (prevent idle unloading)'}
                           style={{
-                            padding: '2px 6px',
-                            minWidth: 28,
-                            color: model.pinned ? 'var(--color-warning, #f59e0b)' : 'var(--color-text-muted)',
-                            opacity: model.disabled ? 0.3 : (pinningModels.has(model.id) ? 0.5 : 1),
-                            cursor: pinningModels.has(model.id) ? 'wait' : (model.disabled ? 'not-allowed' : 'pointer'),
+                            color: model.pinned ? 'var(--color-warning)' : undefined,
                           }}
                         >
                           <i className={`fas fa-thumbtack${pinningModels.has(model.id) ? ' fa-spin' : ''}`} />
                         </button>
-                        {/* Toggle switch for enabling/disabling model loading on demand */}
-                        <label
-                          title={model.disabled ? 'Model is disabled — click to enable loading on demand' : 'Model is enabled — click to disable loading on demand'}
-                          style={{
-                            position: 'relative',
-                            display: 'inline-block',
-                            width: 36,
-                            height: 20,
-                            cursor: togglingModels.has(model.id) ? 'wait' : 'pointer',
-                            opacity: togglingModels.has(model.id) ? 0.5 : 1,
-                            flexShrink: 0,
-                          }}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={!model.disabled}
-                            onChange={() => handleToggleModel(model.id, model.disabled)}
-                            disabled={togglingModels.has(model.id)}
-                            style={{ opacity: 0, width: 0, height: 0 }}
-                          />
-                          <span style={{
-                            position: 'absolute',
-                            top: 0, left: 0, right: 0, bottom: 0,
-                            backgroundColor: model.disabled ? 'var(--color-bg-tertiary)' : 'var(--color-success, #22c55e)',
-                            borderRadius: 20,
-                            transition: 'background-color 0.2s',
-                          }}>
-                            <span style={{
-                              position: 'absolute',
-                              content: '""',
-                              height: 14,
-                              width: 14,
-                              left: model.disabled ? 3 : 19,
-                              bottom: 3,
-                              backgroundColor: 'white',
-                              borderRadius: '50%',
-                              transition: 'left 0.2s',
-                            }} />
-                          </span>
-                        </label>
                         <button
                           className="btn btn-danger btn-sm"
                           onClick={() => handleDeleteModel(model.id)}

@@ -7,6 +7,7 @@ import { useOperations } from '../hooks/useOperations'
 import LoadingSpinner from '../components/LoadingSpinner'
 import { renderMarkdown } from '../utils/markdown'
 import ConfirmDialog from '../components/ConfirmDialog'
+import Toggle from '../components/Toggle'
 
 export default function Backends() {
   const { addToast } = useOutletContext()
@@ -27,6 +28,10 @@ export default function Backends() {
   const [confirmDialog, setConfirmDialog] = useState(null)
   const [allBackends, setAllBackends] = useState([])
   const [upgrades, setUpgrades] = useState({})
+  const [upgradingAll, setUpgradingAll] = useState(false)
+  const [showAllBackends, setShowAllBackends] = useState(false)
+  const [showDevelopment, setShowDevelopment] = useState(false)
+  const [preferDevLoaded, setPreferDevLoaded] = useState(false)
 
   const fetchBackends = useCallback(async () => {
     try {
@@ -37,6 +42,11 @@ export default function Backends() {
       const list = Array.isArray(data?.backends) ? data.backends : Array.isArray(data) ? data : []
       setAllBackends(list)
       setInstalledCount(list.filter(b => b.installed).length)
+      // On first load, use server preference for development toggle
+      if (!preferDevLoaded && data?.preferDevelopmentBackends) {
+        setShowDevelopment(true)
+        setPreferDevLoaded(true)
+      }
     } catch (err) {
       addToast(`Failed to load backends: ${err.message}`, 'error')
     } finally {
@@ -60,17 +70,33 @@ export default function Backends() {
       .catch(() => {})
   }, [operations.length])
 
-  // Client-side filtering by tag
-  const filteredBackends = filter
-    ? allBackends.filter(b => {
+  // Client-side filtering by meta/development toggles and tag
+  const filteredBackends = (() => {
+    let result = allBackends
+
+    // Show only meta backends unless "Show all" is toggled
+    if (!showAllBackends) {
+      result = result.filter(b => b.isMeta)
+    }
+
+    // Hide development backends unless toggled on
+    if (!showDevelopment) {
+      result = result.filter(b => !b.isDevelopment)
+    }
+
+    // Apply tag filter
+    if (filter) {
+      result = result.filter(b => {
         const tags = (b.tags || []).map(t => t.toLowerCase())
         const name = (b.name || '').toLowerCase()
         const desc = (b.description || '').toLowerCase()
         const f = filter.toLowerCase()
-        // Match against tags, or name/description containing the filter keyword
         return tags.some(t => t.includes(f)) || name.includes(f) || desc.includes(f)
       })
-    : allBackends
+    }
+
+    return result
+  })()
 
   // Client-side pagination
   const ITEMS_PER_PAGE = 21
@@ -131,6 +157,22 @@ export default function Backends() {
     }
   }
 
+  const handleUpgradeAll = async () => {
+    const names = Object.keys(upgrades)
+    if (names.length === 0) return
+    setUpgradingAll(true)
+    try {
+      for (const name of names) {
+        await backendsApi.upgrade(name)
+      }
+      addToast(`Upgrading ${names.length} backend${names.length > 1 ? 's' : ''}...`, 'info')
+    } catch (err) {
+      addToast(`Upgrade failed: ${err.message}`, 'error')
+    } finally {
+      setUpgradingAll(false)
+    }
+  }
+
   const handleManualInstall = async (e) => {
     e.preventDefault()
     if (!manualUri.trim()) { addToast('Please enter a URI', 'warning'); return }
@@ -153,6 +195,9 @@ export default function Backends() {
     if (!operations.length) return null
     return operations.find(op => op.name === backend.name || op.name === backend.id) || null
   }
+
+  const handleToggleAllBackends = () => { setShowAllBackends(v => !v); setPage(1) }
+  const handleToggleDev = () => { setShowDevelopment(v => !v); setPage(1) }
 
   const FILTERS = [
     { key: '', label: 'All', icon: 'fa-layer-group' },
@@ -211,6 +256,33 @@ export default function Backends() {
         </div>
       </div>
 
+      {/* Upgrade Banner */}
+      {Object.keys(upgrades).length > 0 && (
+        <div className="card" style={{
+          marginBottom: 'var(--spacing-md)',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: 'var(--spacing-sm) var(--spacing-md)',
+          background: 'var(--color-warning-bg, #fef3cd)',
+          border: '1px solid var(--color-warning, #ffc107)',
+          borderRadius: 'var(--radius-md)',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
+            <i className="fas fa-arrow-up" style={{ color: 'var(--color-warning, #856404)' }} />
+            <span style={{ color: 'var(--color-warning, #856404)', fontWeight: 500, fontSize: '0.875rem' }}>
+              {Object.keys(upgrades).length} backend{Object.keys(upgrades).length > 1 ? 's have' : ' has'} updates available
+            </span>
+          </div>
+          <button
+            className="btn btn-primary btn-sm"
+            onClick={handleUpgradeAll}
+            disabled={upgradingAll}
+          >
+            <i className={`fas ${upgradingAll ? 'fa-spinner fa-spin' : 'fa-arrow-up'}`} style={{ marginRight: 4 }} />
+            Upgrade All
+          </button>
+        </div>
+      )}
+
       {/* Manual Install */}
       <div style={{ marginBottom: 'var(--spacing-md)' }}>
         <button className="btn btn-secondary btn-sm" onClick={() => setShowManualInstall(!showManualInstall)}>
@@ -252,17 +324,32 @@ export default function Backends() {
         </div>
       </div>
 
-      <div className="filter-bar" style={{ marginBottom: 'var(--spacing-md)' }}>
-        {FILTERS.map(f => (
-          <button
-            key={f.key}
-            className={`filter-btn ${filter === f.key ? 'active' : ''}`}
-            onClick={() => { setFilter(f.key); setPage(1) }}
-          >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-md)', marginBottom: 'var(--spacing-md)', flexWrap: 'wrap' }}>
+        <div className="filter-bar" style={{ margin: 0, flex: 1 }}>
+          {FILTERS.map(f => (
+            <button
+              key={f.key}
+              className={`filter-btn ${filter === f.key ? 'active' : ''}`}
+              onClick={() => { setFilter(f.key); setPage(1) }}
+            >
             <i className={`fas ${f.icon}`} style={{ marginRight: 4 }} />
             {f.label}
           </button>
         ))}
+        </div>
+
+        <div style={{ display: 'flex', gap: 'var(--spacing-md)', alignItems: 'center', borderLeft: '1px solid var(--color-border-subtle)', paddingLeft: 'var(--spacing-md)' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)', fontSize: '0.75rem', color: 'var(--color-text-secondary)', cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
+            <Toggle checked={showAllBackends} onChange={handleToggleAllBackends} />
+            <i className="fas fa-cubes" style={{ fontSize: '0.625rem' }} />
+            Show all
+          </label>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)', fontSize: '0.75rem', color: 'var(--color-text-secondary)', cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
+            <Toggle checked={showDevelopment} onChange={handleToggleDev} />
+            <i className="fas fa-flask" style={{ fontSize: '0.625rem' }} />
+            Development
+          </label>
+        </div>
       </div>
 
       {/* Table */}

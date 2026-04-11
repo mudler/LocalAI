@@ -72,14 +72,28 @@ func CheckBackendUpgrades(ctx context.Context, galleries []config.Gallery, syste
 			continue
 		}
 
-		// If either version is empty, fall back to OCI digest comparison
-		if installed.Metadata.Digest != "" && downloader.URI(galleryEntry.URI).LooksLikeOCI() {
+		// Gallery has a version but installed doesn't — this happens for backends
+		// installed before version tracking was added. Flag as upgradeable so
+		// users can re-install to pick up version metadata.
+		if galleryVersion != "" && installedVersion == "" {
+			result[installed.Metadata.Name] = UpgradeInfo{
+				BackendName:      installed.Metadata.Name,
+				InstalledVersion: "",
+				AvailableVersion: galleryVersion,
+			}
+			continue
+		}
+
+		// Fall back to OCI digest comparison when versions are unavailable
+		if downloader.URI(galleryEntry.URI).LooksLikeOCI() {
 			remoteDigest, err := oci.GetImageDigest(galleryEntry.URI, "", nil, nil)
 			if err != nil {
 				xlog.Warn("Failed to get remote OCI digest for upgrade check", "backend", installed.Metadata.Name, "error", err)
 				continue
 			}
-			if remoteDigest != installed.Metadata.Digest {
+			// If we have a stored digest, compare; otherwise any remote digest
+			// means we can't confirm we're up to date — flag as upgradeable
+			if installed.Metadata.Digest == "" || remoteDigest != installed.Metadata.Digest {
 				result[installed.Metadata.Name] = UpgradeInfo{
 					BackendName:     installed.Metadata.Name,
 					InstalledDigest: installed.Metadata.Digest,
@@ -87,7 +101,7 @@ func CheckBackendUpgrades(ctx context.Context, galleries []config.Gallery, syste
 				}
 			}
 		}
-		// No version info and no digest to compare — skip
+		// No version info and non-OCI URI — cannot determine, skip
 	}
 
 	return result, nil

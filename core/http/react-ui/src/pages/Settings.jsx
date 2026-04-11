@@ -269,6 +269,9 @@ export default function Settings() {
               <SettingRow label="Auto-upgrade Backends" description="Automatically upgrade backends when new versions are detected">
                 <Toggle checked={settings.auto_upgrade_backends} onChange={(v) => update('auto_upgrade_backends', v)} />
               </SettingRow>
+              <SettingRow label="Prefer Development Backends" description="Default to showing development backend versions in the backends gallery">
+                <Toggle checked={settings.prefer_development_backends} onChange={(v) => update('prefer_development_backends', v)} />
+              </SettingRow>
             </div>
           </div>
 
