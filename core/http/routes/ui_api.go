@@ -816,7 +816,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			items = "9"
 		}
 
-		backends, err := gallery.AvailableBackends(appConfig.BackendGalleries, appConfig.SystemState)
+		backends, err := gallery.AvailableBackendsUnfiltered(appConfig.BackendGalleries, appConfig.SystemState)
 		if err != nil {
 			xlog.Error("could not list backends from galleries", "error", err)
 			return c.JSON(http.StatusInternalServerError, map[string]any{
@@ -894,6 +894,12 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			backends = backends.Paginate(pageNum, itemsNum)
 		}
 
+		// Get dev suffix from SystemState for development backend detection
+		devSuffix := ""
+		if appConfig.SystemState != nil {
+			devSuffix = appConfig.SystemState.BackendDevSuffix
+		}
+
 		// Convert backends to JSON-friendly format and deduplicate by ID
 		backendsJSON := make([]map[string]any, 0, len(backends))
 		seenBackendIDs := make(map[string]bool)
@@ -920,19 +926,21 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			}
 
 			backendsJSON = append(backendsJSON, map[string]any{
-				"id":          backendID,
-				"name":        b.Name,
-				"description": b.Description,
-				"icon":        b.Icon,
-				"license":     b.License,
-				"urls":        b.URLs,
-				"tags":        b.Tags,
-				"gallery":     b.Gallery.Name,
-				"installed":   b.Installed,
-				"version":     b.Version,
-				"processing":  currentlyProcessing,
-				"jobID":       jobID,
-				"isDeletion":  isDeletionOp,
+				"id":            backendID,
+				"name":          b.Name,
+				"description":   b.Description,
+				"icon":          b.Icon,
+				"license":       b.License,
+				"urls":          b.URLs,
+				"tags":          b.Tags,
+				"gallery":       b.Gallery.Name,
+				"installed":     b.Installed,
+				"version":       b.Version,
+				"processing":    currentlyProcessing,
+				"jobID":         jobID,
+				"isDeletion":    isDeletionOp,
+				"isMeta":        b.IsMeta(),
+				"isDevelopment": b.IsDevelopment(devSuffix),
 			})
 		}
 
@@ -974,7 +982,8 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			"totalPages":         totalPages,
 			"prevPage":           prevPage,
 			"nextPage":           nextPage,
-			"systemCapability":   detectedCapability,
+			"systemCapability":          detectedCapability,
+			"preferDevelopmentBackends": appConfig.PreferDevelopmentBackends,
 		})
 	}, adminMiddleware)
 

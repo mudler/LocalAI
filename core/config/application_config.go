@@ -58,6 +58,7 @@ type ApplicationConfig struct {
 
 	AutoloadGalleries, AutoloadBackendGalleries bool
 	AutoUpgradeBackends                         bool
+	PreferDevelopmentBackends                   bool
 
 	SingleBackend           bool // Deprecated: use MaxActiveBackends = 1 instead
 	MaxActiveBackends       int  // Maximum number of active backends (0 = unlimited, 1 = single backend mode)
@@ -393,6 +394,10 @@ var EnableBackendGalleriesAutoload = func(o *ApplicationConfig) {
 
 func WithAutoUpgradeBackends(v bool) AppOption {
 	return func(o *ApplicationConfig) { o.AutoUpgradeBackends = v }
+}
+
+func WithPreferDevelopmentBackends(v bool) AppOption {
+	return func(o *ApplicationConfig) { o.PreferDevelopmentBackends = v }
 }
 
 var EnableFederated = func(o *ApplicationConfig) {
@@ -868,6 +873,7 @@ func (o *ApplicationConfig) ToRuntimeSettings() RuntimeSettings {
 	autoloadGalleries := o.AutoloadGalleries
 	autoloadBackendGalleries := o.AutoloadBackendGalleries
 	autoUpgradeBackends := o.AutoUpgradeBackends
+	preferDevelopmentBackends := o.PreferDevelopmentBackends
 	apiKeys := o.ApiKeys
 	agentJobRetentionDays := o.AgentJobRetentionDays
 
@@ -942,6 +948,7 @@ func (o *ApplicationConfig) ToRuntimeSettings() RuntimeSettings {
 		AutoloadGalleries:         &autoloadGalleries,
 		AutoloadBackendGalleries:  &autoloadBackendGalleries,
 		AutoUpgradeBackends:       &autoUpgradeBackends,
+		PreferDevelopmentBackends: &preferDevelopmentBackends,
 		ApiKeys:                   &apiKeys,
 		AgentJobRetentionDays:     &agentJobRetentionDays,
 		OpenResponsesStoreTTL:     &openResponsesStoreTTL,
@@ -1092,6 +1099,9 @@ func (o *ApplicationConfig) ApplyRuntimeSettings(settings *RuntimeSettings) (req
 	}
 	if settings.AutoUpgradeBackends != nil {
 		o.AutoUpgradeBackends = *settings.AutoUpgradeBackends
+	}
+	if settings.PreferDevelopmentBackends != nil {
+		o.PreferDevelopmentBackends = *settings.PreferDevelopmentBackends
 	}
 	if settings.AgentJobRetentionDays != nil {
 		o.AgentJobRetentionDays = *settings.AgentJobRetentionDays

@@ -338,6 +338,9 @@ func readRuntimeSettingsJson(startupAppConfig config.ApplicationConfig) fileHand
 			if settings.AutoUpgradeBackends != nil {
 				appConfig.AutoUpgradeBackends = *settings.AutoUpgradeBackends
 			}
+			if settings.PreferDevelopmentBackends != nil {
+				appConfig.PreferDevelopmentBackends = *settings.PreferDevelopmentBackends
+			}
 			if settings.ApiKeys != nil {
 				// API keys from env vars (startup) should be kept, runtime settings keys replace all runtime keys
 				// If runtime_settings.json specifies ApiKeys (even if empty), it replaces all runtime keys

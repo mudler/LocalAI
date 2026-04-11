@@ -2,6 +2,7 @@ package gallery
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/pkg/system"
@@ -68,6 +69,13 @@ func (m *GalleryBackend) SetGallery(gallery config.Gallery) {
 
 func (m *GalleryBackend) IsMeta() bool {
 	return len(m.CapabilitiesMap) > 0 && m.URI == ""
+}
+
+func (m *GalleryBackend) IsDevelopment(devSuffix string) bool {
+	if devSuffix == "" {
+		devSuffix = defaultDevSuffix
+	}
+	return strings.HasSuffix(m.Name, "-"+devSuffix)
 }
 
 // IsCompatibleWith checks if the backend is compatible with the current system capability.
