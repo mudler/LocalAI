@@ -150,8 +150,8 @@
       use_tokenizer_template: true
   files:
     - filename: gemma-4-31B-it-Q4_K_M.gguf
-      sha256: 5783acab7217360984ea957abc36f89d35cdeba2f5dd30b0e9e33f9f294bad82
       uri: huggingface://unsloth/gemma-4-31B-it-GGUF/gemma-4-31B-it-Q4_K_M.gguf
+      sha256: 3bf13fff7c0d4deff809b7ab168428f54855f3ef0279339dda278a81ea853474
     - filename: mmproj-F16.gguf
       sha256: 1be2a32013e0d29c6c746513b5f5e7d38f47b694351e74a69c7172acdbbb11a6
       uri: https://huggingface.co/unsloth/gemma-4-31B-it-GGUF/resolve/main/mmproj-F16.gguf
