@@ -1259,7 +1259,7 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-rocm-hipblas-rerankers'
             runs-on: 'ubuntu-latest'
-            base-image: "rocm/dev-ubuntu-24.04:6.4.4"
+            base-image: "rocm/dev-ubuntu-24.04:7.2.1"
             skip-drivers: 'false'
             backend: "rerankers"
             dockerfile: "./backend/Dockerfile.python"
@@ -1272,7 +1272,7 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-rocm-hipblas-llama-cpp'
             runs-on: 'ubuntu-latest'
-            base-image: "rocm/dev-ubuntu-24.04:6.4.4"
+            base-image: "rocm/dev-ubuntu-24.04:7.2.1"
             skip-drivers: 'false'
             backend: "llama-cpp"
             dockerfile: "./backend/Dockerfile.llama-cpp"
@@ -1285,7 +1285,7 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-rocm-hipblas-vllm'
             runs-on: 'arc-runner-set'
-            base-image: "rocm/dev-ubuntu-24.04:6.4.4"
+            base-image: "rocm/dev-ubuntu-24.04:7.2.1"
             skip-drivers: 'false'
             backend: "vllm"
             dockerfile: "./backend/Dockerfile.python"
@@ -1298,7 +1298,7 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-rocm-hipblas-vllm-omni'
             runs-on: 'arc-runner-set'
-            base-image: "rocm/dev-ubuntu-24.04:6.4.4"
+            base-image: "rocm/dev-ubuntu-24.04:7.2.1"
             skip-drivers: 'false'
             backend: "vllm-omni"
             dockerfile: "./backend/Dockerfile.python"
@@ -1311,7 +1311,7 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-rocm-hipblas-transformers'
             runs-on: 'arc-runner-set'
-            base-image: "rocm/dev-ubuntu-24.04:6.4.4"
+            base-image: "rocm/dev-ubuntu-24.04:7.2.1"
             skip-drivers: 'false'
             backend: "transformers"
             dockerfile: "./backend/Dockerfile.python"
@@ -1324,7 +1324,7 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-rocm-hipblas-diffusers'
             runs-on: 'arc-runner-set'
-            base-image: "rocm/dev-ubuntu-24.04:6.4.4"
+            base-image: "rocm/dev-ubuntu-24.04:7.2.1"
             skip-drivers: 'false'
             backend: "diffusers"
             dockerfile: "./backend/Dockerfile.python"
@@ -1337,7 +1337,7 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-rocm-hipblas-ace-step'
             runs-on: 'arc-runner-set'
-            base-image: "rocm/dev-ubuntu-24.04:6.4.4"
+            base-image: "rocm/dev-ubuntu-24.04:7.2.1"
             skip-drivers: 'false'
             backend: "ace-step"
             dockerfile: "./backend/Dockerfile.python"
@@ -1351,7 +1351,7 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-rocm-hipblas-kokoro'
             runs-on: 'arc-runner-set'
-            base-image: "rocm/dev-ubuntu-24.04:6.4.4"
+            base-image: "rocm/dev-ubuntu-24.04:7.2.1"
             skip-drivers: 'false'
             backend: "kokoro"
             dockerfile: "./backend/Dockerfile.python"
@@ -1364,7 +1364,7 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-rocm-hipblas-vibevoice'
             runs-on: 'arc-runner-set'
-            base-image: "rocm/dev-ubuntu-24.04:6.4.4"
+            base-image: "rocm/dev-ubuntu-24.04:7.2.1"
             skip-drivers: 'false'
             backend: "vibevoice"
             dockerfile: "./backend/Dockerfile.python"
@@ -1377,7 +1377,7 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-rocm-hipblas-qwen-asr'
             runs-on: 'arc-runner-set'
-            base-image: "rocm/dev-ubuntu-24.04:6.4.4"
+            base-image: "rocm/dev-ubuntu-24.04:7.2.1"
             skip-drivers: 'false'
             backend: "qwen-asr"
             dockerfile: "./backend/Dockerfile.python"
@@ -1390,7 +1390,7 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-rocm-hipblas-nemo'
             runs-on: 'arc-runner-set'
-            base-image: "rocm/dev-ubuntu-24.04:6.4.4"
+            base-image: "rocm/dev-ubuntu-24.04:7.2.1"
             skip-drivers: 'false'
             backend: "nemo"
             dockerfile: "./backend/Dockerfile.python"
@@ -1403,7 +1403,7 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-rocm-hipblas-qwen-tts'
             runs-on: 'arc-runner-set'
-            base-image: "rocm/dev-ubuntu-24.04:6.4.4"
+            base-image: "rocm/dev-ubuntu-24.04:7.2.1"
             skip-drivers: 'false'
             backend: "qwen-tts"
             dockerfile: "./backend/Dockerfile.python"
@@ -1416,7 +1416,7 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-rocm-hipblas-fish-speech'
             runs-on: 'arc-runner-set'
-            base-image: "rocm/dev-ubuntu-24.04:6.4.4"
+            base-image: "rocm/dev-ubuntu-24.04:7.2.1"
             skip-drivers: 'false'
             backend: "fish-speech"
             dockerfile: "./backend/Dockerfile.python"
@@ -1429,7 +1429,7 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-rocm-hipblas-voxcpm'
             runs-on: 'arc-runner-set'
-            base-image: "rocm/dev-ubuntu-24.04:6.4.4"
+            base-image: "rocm/dev-ubuntu-24.04:7.2.1"
             skip-drivers: 'false'
             backend: "voxcpm"
             dockerfile: "./backend/Dockerfile.python"
@@ -1442,7 +1442,7 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-rocm-hipblas-pocket-tts'
             runs-on: 'arc-runner-set'
-            base-image: "rocm/dev-ubuntu-24.04:6.4.4"
+            base-image: "rocm/dev-ubuntu-24.04:7.2.1"
             skip-drivers: 'false'
             backend: "pocket-tts"
             dockerfile: "./backend/Dockerfile.python"
@@ -1455,7 +1455,7 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-rocm-hipblas-faster-whisper'
             runs-on: 'bigger-runner'
-            base-image: "rocm/dev-ubuntu-24.04:6.4.4"
+            base-image: "rocm/dev-ubuntu-24.04:7.2.1"
             skip-drivers: 'false'
             backend: "faster-whisper"
             dockerfile: "./backend/Dockerfile.python"
@@ -1468,7 +1468,7 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-rocm-hipblas-whisperx'
             runs-on: 'bigger-runner'
-            base-image: "rocm/dev-ubuntu-24.04:6.4.4"
+            base-image: "rocm/dev-ubuntu-24.04:7.2.1"
             skip-drivers: 'false'
             backend: "whisperx"
             dockerfile: "./backend/Dockerfile.python"
@@ -1481,7 +1481,7 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-rocm-hipblas-coqui'
             runs-on: 'bigger-runner'
-            base-image: "rocm/dev-ubuntu-24.04:6.4.4"
+            base-image: "rocm/dev-ubuntu-24.04:7.2.1"
             skip-drivers: 'false'
             backend: "coqui"
             dockerfile: "./backend/Dockerfile.python"
@@ -2136,7 +2136,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-rocm-hipblas-whisper'
-            base-image: "rocm/dev-ubuntu-24.04:6.4.4"
+            base-image: "rocm/dev-ubuntu-24.04:7.2.1"
             runs-on: 'ubuntu-latest'
             skip-drivers: 'false'
             backend: "whisper"
@@ -2215,7 +2215,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-rocm-hipblas-acestep-cpp'
-            base-image: "rocm/dev-ubuntu-24.04:6.4.4"
+            base-image: "rocm/dev-ubuntu-24.04:7.2.1"
             runs-on: 'ubuntu-latest'
             skip-drivers: 'false'
             backend: "acestep-cpp"
@@ -2338,7 +2338,7 @@ jobs:
           #   platforms: 'linux/amd64'
           #   tag-latest: 'auto'
           #   tag-suffix: '-gpu-hipblas-rfdetr'
-          #   base-image: "rocm/dev-ubuntu-24.04:6.4.4"
+          #   base-image: "rocm/dev-ubuntu-24.04:7.2.1"
           #   runs-on: 'ubuntu-latest'
           #   skip-drivers: 'false'
           #   backend: "rfdetr"
@@ -2379,7 +2379,7 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-rocm-hipblas-neutts'
             runs-on: 'arc-runner-set'
-            base-image: "rocm/dev-ubuntu-24.04:6.4.4"
+            base-image: "rocm/dev-ubuntu-24.04:7.2.1"
             skip-drivers: 'false'
             backend: "neutts"
             dockerfile: "./backend/Dockerfile.python"

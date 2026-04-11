@@ -198,17 +198,25 @@ package_rocm_libs() {
         fi
     done
 
-    # Copy rocblas library data (tuning files, etc.)
+    # Copy rocblas library data (tuning files, TensileLibrary, etc.)
     local old_nullglob=$(shopt -p nullglob)
     shopt -s nullglob
     local rocm_dirs=(/opt/rocm /opt/rocm-*)
     eval "$old_nullglob"
+    local rocblas_found=false
     for rocm_base in "${rocm_dirs[@]}"; do
-        if [ -d "$rocm_base/lib/rocblas" ]; then
-            mkdir -p "$TARGET_LIB_DIR/rocblas"
-            cp -arfL "$rocm_base/lib/rocblas/"* "$TARGET_LIB_DIR/rocblas/" 2>/dev/null || true
-        fi
+        for lib_subdir in lib lib64; do
+            if [ -d "$rocm_base/$lib_subdir/rocblas" ]; then
+                echo "Found rocblas data at $rocm_base/$lib_subdir/rocblas"
+                mkdir -p "$TARGET_LIB_DIR/rocblas"
+                cp -arfL "$rocm_base/$lib_subdir/rocblas/"* "$TARGET_LIB_DIR/rocblas/" || echo "WARNING: Failed to copy rocblas data from $rocm_base/$lib_subdir/rocblas"
+                rocblas_found=true
+            fi
+        done
     done
+    if [ "$rocblas_found" = false ]; then
+        echo "WARNING: No rocblas library data found in /opt/rocm*/lib{,64}/rocblas"
+    fi
 
     # Copy libomp from LLVM (required for ROCm)
     shopt -s nullglob

@@ -209,7 +209,11 @@ RUN if [ "${BUILD_TYPE}" = "hipblas" ] && [ "${SKIP_DRIVERS}" = "false" ]; then 
         rm -rf /var/lib/apt/lists/* && \
         # I have no idea why, but the ROCM lib packages don't trigger ldconfig after they install, which results in local-ai and others not being able
         # to locate the libraries. We run ldconfig ourselves to work around this packaging deficiency
-        ldconfig \
+        ldconfig && \
+        # Log which GPU architectures have rocBLAS kernel support
+        echo "rocBLAS library data architectures:" && \
+        (ls /opt/rocm*/lib/rocblas/library/Kernels* 2>/dev/null || ls /opt/rocm*/lib64/rocblas/library/Kernels* 2>/dev/null) | grep -oP 'gfx[0-9a-z+-]+' | sort -u || \
+        echo "WARNING: No rocBLAS kernel data found" \
     ; fi
 
 RUN echo "TARGETARCH: $TARGETARCH"
