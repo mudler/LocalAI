@@ -32,7 +32,7 @@
 **LocalAI** is the open-source AI engine. Run any model - LLMs, vision, voice, image, video - on any hardware. No GPU required.
 
 - **Drop-in API compatibility** — OpenAI, Anthropic, ElevenLabs APIs
-- **35+ backends** — llama.cpp, vLLM, transformers, whisper, diffusers, MLX...
+- **36+ backends** — llama.cpp, vLLM, transformers, whisper, diffusers, MLX...
 - **Any hardware** — NVIDIA, AMD, Intel, Apple Silicon, Vulkan, or CPU-only
 - **Multi-user ready** — API key auth, user quotas, role-based access
 - **Built-in AI agents** — autonomous agents with tool use, RAG, MCP, and skills
@@ -185,7 +185,7 @@ For older news and full release notes, see [GitHub Releases](https://github.com/
 
 ## Supported Backends & Acceleration
 
-LocalAI supports **35+ backends** including llama.cpp, vLLM, transformers, whisper.cpp, diffusers, MLX, MLX-VLM, and many more. Hardware acceleration is available for **NVIDIA** (CUDA 12/13), **AMD** (ROCm), **Intel** (oneAPI/SYCL), **Apple Silicon** (Metal), **Vulkan**, and **NVIDIA Jetson** (L4T). All backends can be installed on-the-fly from the [Backend Gallery](https://localai.io/backends/).
+LocalAI supports **36+ backends** including llama.cpp, vLLM, transformers, whisper.cpp, diffusers, MLX, MLX-VLM, and many more. Hardware acceleration is available for **NVIDIA** (CUDA 12/13), **AMD** (ROCm), **Intel** (oneAPI/SYCL), **Apple Silicon** (Metal), **Vulkan**, and **NVIDIA Jetson** (L4T). All backends can be installed on-the-fly from the [Backend Gallery](https://localai.io/backends/).
 
 See the full [Backend & Model Compatibility Table](https://localai.io/model-compatibility/) and [GPU Acceleration guide](https://localai.io/features/gpu-acceleration/).
 
