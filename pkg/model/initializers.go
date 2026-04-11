@@ -14,12 +14,14 @@ import (
 )
 
 const (
-	LLamaCPP = "llama-cpp"
+	LLamaCPP   = "llama-cpp"
+	IkLlamaCPP = "ik-llama-cpp"
 )
 
 var Aliases = map[string]string{
 	"go-llama":               LLamaCPP,
 	"llama":                  LLamaCPP,
+	"ik-llama":               IkLlamaCPP,
 	"embedded-store":         LocalStoreBackend,
 	"huggingface-embeddings": TransformersBackend,
 	"transformers-musicgen":  TransformersBackend,

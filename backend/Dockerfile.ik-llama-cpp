@@ -1,0 +1,201 @@
+ARG BASE_IMAGE=ubuntu:24.04
+ARG GRPC_BASE_IMAGE=${BASE_IMAGE}
+
+
+# The grpc target does one thing, it builds and installs GRPC.  This is in it's own layer so that it can be effectively cached by CI.
+# You probably don't need to change anything here, and if you do, make sure that CI is adjusted so that the cache continues to work.
+FROM ${GRPC_BASE_IMAGE} AS grpc
+
+# This is a bit of a hack, but it's required in order to be able to effectively cache this layer in CI
+ARG GRPC_MAKEFLAGS="-j4 -Otarget"
+ARG GRPC_VERSION=v1.65.0
+ARG CMAKE_FROM_SOURCE=false
+# CUDA Toolkit 13.x compatibility: CMake 3.31.9+ fixes toolchain detection/arch table issues
+ARG CMAKE_VERSION=3.31.10
+
+ENV MAKEFLAGS=${GRPC_MAKEFLAGS}
+
+WORKDIR /build
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        ca-certificates \
+        build-essential curl libssl-dev \
+        git wget && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Install CMake (the version in 22.04 is too old)
+RUN <<EOT bash
+    if [ "${CMAKE_FROM_SOURCE}" = "true" ]; then
+        curl -L -s https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/cmake-${CMAKE_VERSION}.tar.gz -o cmake.tar.gz && tar xvf cmake.tar.gz && cd cmake-${CMAKE_VERSION} && ./configure && make && make install
+    else
+        apt-get update && \
+        apt-get install -y \
+            cmake && \
+        apt-get clean && \
+        rm -rf /var/lib/apt/lists/*
+    fi
+EOT
+
+# We install GRPC to a different prefix here so that we can copy in only the build artifacts later
+# saves several hundred MB on the final docker image size vs copying in the entire GRPC source tree
+# and running make install in the target container
+RUN git clone --recurse-submodules --jobs 4 -b ${GRPC_VERSION} --depth 1 --shallow-submodules https://github.com/grpc/grpc && \
+    mkdir -p /build/grpc/cmake/build && \
+    cd /build/grpc/cmake/build && \
+    sed -i "216i\  TESTONLY" "../../third_party/abseil-cpp/absl/container/CMakeLists.txt" && \
+    cmake -DgRPC_INSTALL=ON -DgRPC_BUILD_TESTS=OFF -DCMAKE_INSTALL_PREFIX:PATH=/opt/grpc ../.. && \
+    make && \
+    make install && \
+    rm -rf /build
+
+FROM ${BASE_IMAGE} AS builder
+ARG CMAKE_FROM_SOURCE=false
+ARG CMAKE_VERSION=3.31.10
+# We can target specific CUDA ARCHITECTURES like --build-arg CUDA_DOCKER_ARCH='75;86;89;120'
+ARG CUDA_DOCKER_ARCH
+ENV CUDA_DOCKER_ARCH=${CUDA_DOCKER_ARCH}
+ARG CMAKE_ARGS
+ENV CMAKE_ARGS=${CMAKE_ARGS}
+ARG BACKEND=rerankers
+ARG BUILD_TYPE
+ENV BUILD_TYPE=${BUILD_TYPE}
+ARG CUDA_MAJOR_VERSION
+ARG CUDA_MINOR_VERSION
+ARG SKIP_DRIVERS=false
+ENV CUDA_MAJOR_VERSION=${CUDA_MAJOR_VERSION}
+ENV CUDA_MINOR_VERSION=${CUDA_MINOR_VERSION}
+ENV DEBIAN_FRONTEND=noninteractive
+ARG TARGETARCH
+ARG TARGETVARIANT
+ARG GO_VERSION=1.25.4
+ARG UBUNTU_VERSION=2404
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        build-essential \
+        ccache git \
+        ca-certificates \
+        make \
+        pkg-config libcurl4-openssl-dev \
+        curl unzip \
+        libssl-dev wget && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Cuda
+ENV PATH=/usr/local/cuda/bin:${PATH}
+
+# CuBLAS requirements (CUDA 12 and 13 support for partial offload)
+RUN <<EOT bash
+    if ( [ "${BUILD_TYPE}" = "cublas" ] || [ "${BUILD_TYPE}" = "l4t" ] ) && [ "${SKIP_DRIVERS}" = "false" ]; then
+        apt-get update && \
+        apt-get install -y  --no-install-recommends \
+            software-properties-common pciutils
+        if [ "amd64" = "$TARGETARCH" ]; then
+            curl -O https://developer.download.nvidia.com/compute/cuda/repos/ubuntu${UBUNTU_VERSION}/x86_64/cuda-keyring_1.1-1_all.deb
+        fi
+        if [ "arm64" = "$TARGETARCH" ]; then
+            if [ "${CUDA_MAJOR_VERSION}" = "13" ]; then
+                curl -O https://developer.download.nvidia.com/compute/cuda/repos/ubuntu${UBUNTU_VERSION}/sbsa/cuda-keyring_1.1-1_all.deb
+            else
+                curl -O https://developer.download.nvidia.com/compute/cuda/repos/ubuntu${UBUNTU_VERSION}/arm64/cuda-keyring_1.1-1_all.deb
+            fi
+        fi
+        dpkg -i cuda-keyring_1.1-1_all.deb && \
+        rm -f cuda-keyring_1.1-1_all.deb && \
+        apt-get update && \
+        apt-get install -y --no-install-recommends \
+            cuda-nvcc-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} \
+            libcufft-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} \
+            libcurand-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} \
+            libcublas-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} \
+            libcusparse-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} \
+            libcusolver-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION}
+        apt-get clean && \
+        rm -rf /var/lib/apt/lists/*
+    fi
+EOT
+
+# If we are building with clblas support, we need the libraries for the builds
+RUN if [ "${BUILD_TYPE}" = "clblas" ] && [ "${SKIP_DRIVERS}" = "false" ]; then \
+        apt-get update && \
+        apt-get install -y --no-install-recommends \
+            libclblast-dev && \
+        apt-get clean && \
+        rm -rf /var/lib/apt/lists/* \
+    ; fi
+
+RUN echo "TARGETARCH: $TARGETARCH"
+
+# We need protoc installed, and the version in 22.04 is too old.  We will create one as part installing the GRPC build below
+# but that will also being in a newer version of absl which stablediffusion cannot compile with.  This version of protoc is only
+# here so that we can generate the grpc code for the stablediffusion build
+RUN <<EOT bash
+    if [ "amd64" = "$TARGETARCH" ]; then
+        curl -L -s https://github.com/protocolbuffers/protobuf/releases/download/v27.1/protoc-27.1-linux-x86_64.zip -o protoc.zip && \
+        unzip -j -d /usr/local/bin protoc.zip bin/protoc && \
+        rm protoc.zip
+    fi
+    if [ "arm64" = "$TARGETARCH" ]; then
+        curl -L -s https://github.com/protocolbuffers/protobuf/releases/download/v27.1/protoc-27.1-linux-aarch_64.zip -o protoc.zip && \
+        unzip -j -d /usr/local/bin protoc.zip bin/protoc && \
+        rm protoc.zip
+    fi
+EOT
+
+# Install CMake (the version in 22.04 is too old)
+RUN <<EOT bash
+    if [ "${CMAKE_FROM_SOURCE}" = "true" ]; then
+        curl -L -s https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/cmake-${CMAKE_VERSION}.tar.gz -o cmake.tar.gz && tar xvf cmake.tar.gz && cd cmake-${CMAKE_VERSION} && ./configure && make && make install
+    else
+        apt-get update && \
+        apt-get install -y \
+            cmake && \
+        apt-get clean && \
+        rm -rf /var/lib/apt/lists/*
+    fi
+EOT
+
+COPY --from=grpc /opt/grpc /usr/local
+
+
+COPY . /LocalAI
+
+RUN <<'EOT' bash
+set -euxo pipefail
+
+if [[ -n "${CUDA_DOCKER_ARCH:-}" ]]; then
+  CUDA_ARCH_ESC="${CUDA_DOCKER_ARCH//;/\\;}"
+  export CMAKE_ARGS="${CMAKE_ARGS:-} -DCMAKE_CUDA_ARCHITECTURES=${CUDA_ARCH_ESC}"
+  echo "CMAKE_ARGS(env) = ${CMAKE_ARGS}"
+  rm -rf /LocalAI/backend/cpp/ik-llama-cpp-*-build
+fi
+
+if [ "${TARGETARCH}" = "arm64" ]; then
+  cd /LocalAI/backend/cpp/ik-llama-cpp
+  make ik-llama-cpp-fallback
+  make ik-llama-cpp-grpc
+  make ik-llama-cpp-rpc-server
+else
+  cd /LocalAI/backend/cpp/ik-llama-cpp
+  make ik-llama-cpp-avx
+  make ik-llama-cpp-avx2
+  make ik-llama-cpp-avx512
+  make ik-llama-cpp-fallback
+  make ik-llama-cpp-grpc
+  make ik-llama-cpp-rpc-server
+fi
+EOT
+
+
+# Copy libraries using a script to handle architecture differences
+RUN make -BC /LocalAI/backend/cpp/ik-llama-cpp package
+
+
+FROM scratch
+
+
+# Copy all available binaries (the build process only creates the appropriate ones for the target architecture)
+COPY --from=builder /LocalAI/backend/cpp/ik-llama-cpp/package/. ./

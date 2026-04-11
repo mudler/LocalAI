@@ -29,6 +29,28 @@
     nvidia-cuda-12: "cuda12-llama-cpp"
     nvidia-l4t-cuda-12: "nvidia-l4t-arm64-llama-cpp"
     nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-llama-cpp"
+- &ikllamacpp
+  name: "ik-llama-cpp"
+  alias: "ik-llama-cpp"
+  license: mit
+  icon: https://user-images.githubusercontent.com/1991296/230134379-7181e485-c521-4d23-a0d6-f7b3b61ba524.png
+  description: |
+    llama.cpp fork with additional SOTA quants (IQ1_KT, IQ2_KT, Trellis) and improved
+    CPU/hybrid GPU performance. Enables partial offload of large models with significantly
+    better throughput on modern hardware (Turing+ CUDA, AVX2+ CPU).
+  urls:
+    - https://github.com/ikawrakow/ik_llama.cpp
+  tags:
+    - text-to-text
+    - LLM
+    - CPU
+    - GPU
+    - CUDA
+  capabilities:
+    default: "cpu-ik-llama-cpp"
+    nvidia: "cuda12-ik-llama-cpp"
+    nvidia-cuda-13: "cuda13-ik-llama-cpp"
+    nvidia-cuda-12: "cuda12-ik-llama-cpp"
 - &whispercpp
   name: "whisper"
   alias: "whisper"
