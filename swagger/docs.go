@@ -771,6 +771,57 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/models/toggle-pinned/{name}/{action}": {
+            "put": {
+                "description": "Pin or unpin a model. Pinned models stay loaded and are excluded from automatic eviction.",
+                "tags": [
+                    "config"
+                ],
+                "summary": "Toggle model pinned status",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Model name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Action: 'pin' or 'unpin'",
+                        "name": "action",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/localai.ModelResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/localai.ModelResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/localai.ModelResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/localai.ModelResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/models/vram-estimate": {
             "post": {
                 "description": "Estimates VRAM based on model weight files, context size, and GPU layers",

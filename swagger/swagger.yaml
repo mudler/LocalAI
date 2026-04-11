@@ -2241,6 +2241,41 @@ paths:
       summary: Get dynamic autocomplete values for a config field
       tags:
       - config
+  /api/models/toggle-pinned/{name}/{action}:
+    put:
+      description: Pin or unpin a model. Pinned models stay loaded and are excluded
+        from automatic eviction.
+      parameters:
+      - description: Model name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: 'Action: ''pin'' or ''unpin'''
+        in: path
+        name: action
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/localai.ModelResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/localai.ModelResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/localai.ModelResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/localai.ModelResponse'
+      summary: Toggle model pinned status
+      tags:
+      - config
   /api/models/vram-estimate:
     post:
       consumes:
