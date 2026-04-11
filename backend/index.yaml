@@ -412,6 +412,30 @@
     nvidia-l4t: "nvidia-l4t-arm64-acestep-cpp"
     nvidia-l4t-cuda-12: "nvidia-l4t-arm64-acestep-cpp"
     nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-acestep-cpp"
+- &qwen3ttscpp
+  name: "qwen3-tts-cpp"
+  description: |
+    Qwen3-TTS C++ backend using GGML. Native C++ text-to-speech with voice cloning support.
+    Generates 24kHz mono audio from text with optional reference audio for voice cloning via ECAPA-TDNN speaker embeddings.
+  urls:
+    - https://github.com/predict-woo/qwen3-tts.cpp
+  tags:
+    - text-to-speech
+    - tts
+    - voice-cloning
+  alias: "qwen3-tts-cpp"
+  capabilities:
+    default: "cpu-qwen3-tts-cpp"
+    nvidia: "cuda12-qwen3-tts-cpp"
+    nvidia-cuda-13: "cuda13-qwen3-tts-cpp"
+    nvidia-cuda-12: "cuda12-qwen3-tts-cpp"
+    intel: "intel-sycl-f16-qwen3-tts-cpp"
+    metal: "metal-qwen3-tts-cpp"
+    amd: "rocm-qwen3-tts-cpp"
+    vulkan: "vulkan-qwen3-tts-cpp"
+    nvidia-l4t: "nvidia-l4t-arm64-qwen3-tts-cpp"
+    nvidia-l4t-cuda-12: "nvidia-l4t-arm64-qwen3-tts-cpp"
+    nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-qwen3-tts-cpp"
 - &faster-whisper
   icon: https://avatars.githubusercontent.com/u/1520500?s=200&v=4
   description: |
@@ -2107,6 +2131,107 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-acestep-cpp"
   mirrors:
     - localai/localai-backends:master-gpu-nvidia-cuda-13-acestep-cpp
+## qwen3-tts-cpp
+- !!merge <<: *qwen3ttscpp
+  name: "nvidia-l4t-arm64-qwen3-tts-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-nvidia-l4t-arm64-qwen3-tts-cpp"
+  mirrors:
+    - localai/localai-backends:latest-nvidia-l4t-arm64-qwen3-tts-cpp
+- !!merge <<: *qwen3ttscpp
+  name: "nvidia-l4t-arm64-qwen3-tts-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-arm64-qwen3-tts-cpp"
+  mirrors:
+    - localai/localai-backends:master-nvidia-l4t-arm64-qwen3-tts-cpp
+- !!merge <<: *qwen3ttscpp
+  name: "cuda13-nvidia-l4t-arm64-qwen3-tts-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-nvidia-l4t-cuda-13-arm64-qwen3-tts-cpp"
+  mirrors:
+    - localai/localai-backends:latest-nvidia-l4t-cuda-13-arm64-qwen3-tts-cpp
+- !!merge <<: *qwen3ttscpp
+  name: "cuda13-nvidia-l4t-arm64-qwen3-tts-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-cuda-13-arm64-qwen3-tts-cpp"
+  mirrors:
+    - localai/localai-backends:master-nvidia-l4t-cuda-13-arm64-qwen3-tts-cpp
+- !!merge <<: *qwen3ttscpp
+  name: "cpu-qwen3-tts-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-qwen3-tts-cpp"
+  mirrors:
+    - localai/localai-backends:latest-cpu-qwen3-tts-cpp
+- !!merge <<: *qwen3ttscpp
+  name: "metal-qwen3-tts-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-metal-darwin-arm64-qwen3-tts-cpp"
+  mirrors:
+    - localai/localai-backends:latest-metal-darwin-arm64-qwen3-tts-cpp
+- !!merge <<: *qwen3ttscpp
+  name: "metal-qwen3-tts-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-qwen3-tts-cpp"
+  mirrors:
+    - localai/localai-backends:master-metal-darwin-arm64-qwen3-tts-cpp
+- !!merge <<: *qwen3ttscpp
+  name: "cpu-qwen3-tts-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-cpu-qwen3-tts-cpp"
+  mirrors:
+    - localai/localai-backends:master-cpu-qwen3-tts-cpp
+- !!merge <<: *qwen3ttscpp
+  name: "cuda12-qwen3-tts-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-qwen3-tts-cpp"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-12-qwen3-tts-cpp
+- !!merge <<: *qwen3ttscpp
+  name: "rocm-qwen3-tts-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-rocm-hipblas-qwen3-tts-cpp"
+  mirrors:
+    - localai/localai-backends:latest-gpu-rocm-hipblas-qwen3-tts-cpp
+- !!merge <<: *qwen3ttscpp
+  name: "intel-sycl-f32-qwen3-tts-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-sycl-f32-qwen3-tts-cpp"
+  mirrors:
+    - localai/localai-backends:latest-gpu-intel-sycl-f32-qwen3-tts-cpp
+- !!merge <<: *qwen3ttscpp
+  name: "intel-sycl-f16-qwen3-tts-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-sycl-f16-qwen3-tts-cpp"
+  mirrors:
+    - localai/localai-backends:latest-gpu-intel-sycl-f16-qwen3-tts-cpp
+- !!merge <<: *qwen3ttscpp
+  name: "vulkan-qwen3-tts-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-vulkan-qwen3-tts-cpp"
+  mirrors:
+    - localai/localai-backends:latest-gpu-vulkan-qwen3-tts-cpp
+- !!merge <<: *qwen3ttscpp
+  name: "vulkan-qwen3-tts-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-vulkan-qwen3-tts-cpp"
+  mirrors:
+    - localai/localai-backends:master-gpu-vulkan-qwen3-tts-cpp
+- !!merge <<: *qwen3ttscpp
+  name: "cuda12-qwen3-tts-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-qwen3-tts-cpp"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-12-qwen3-tts-cpp
+- !!merge <<: *qwen3ttscpp
+  name: "rocm-qwen3-tts-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-rocm-hipblas-qwen3-tts-cpp"
+  mirrors:
+    - localai/localai-backends:master-gpu-rocm-hipblas-qwen3-tts-cpp
+- !!merge <<: *qwen3ttscpp
+  name: "intel-sycl-f32-qwen3-tts-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-sycl-f32-qwen3-tts-cpp"
+  mirrors:
+    - localai/localai-backends:master-gpu-intel-sycl-f32-qwen3-tts-cpp
+- !!merge <<: *qwen3ttscpp
+  name: "intel-sycl-f16-qwen3-tts-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-sycl-f16-qwen3-tts-cpp"
+  mirrors:
+    - localai/localai-backends:master-gpu-intel-sycl-f16-qwen3-tts-cpp
+- !!merge <<: *qwen3ttscpp
+  name: "cuda13-qwen3-tts-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-13-qwen3-tts-cpp"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-13-qwen3-tts-cpp
+- !!merge <<: *qwen3ttscpp
+  name: "cuda13-qwen3-tts-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-qwen3-tts-cpp"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-13-qwen3-tts-cpp
 ## kokoro
 - !!merge <<: *kokoro
   name: "kokoro-development"

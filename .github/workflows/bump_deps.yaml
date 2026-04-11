@@ -38,6 +38,10 @@ jobs:
             variable: "SAM3_VERSION"
             branch: "main"
             file: "backend/go/sam3-cpp/Makefile"
+          - repository: "predict-woo/qwen3-tts.cpp"
+            variable: "QWEN3TTS_CPP_VERSION"
+            branch: "main"
+            file: "backend/go/qwen3-tts-cpp/Makefile"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6

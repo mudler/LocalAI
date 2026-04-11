@@ -994,6 +994,67 @@
     - filename: acestep-cpp/vae-BF16.gguf
       uri: huggingface://Serveurperso/ACE-Step-1.5-GGUF/vae-BF16.gguf
       sha256: 0599862ac5d15cd308e1d2e368373aea6c02e25ebd1737ad4a4562a0901b0ef8
+- name: "qwen3-tts-cpp"
+  license: apache-2.0
+  tags:
+    - tts
+    - text-to-speech
+    - qwen3-tts
+    - qwen3-tts-cpp
+    - gguf
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/endo5501/qwen3-tts.cpp
+    - https://github.com/predict-woo/qwen3-tts.cpp
+  description: |
+    Qwen3-TTS 0.6B (C++ / GGML) — native C++ text-to-speech from text input.
+    Generates 24kHz mono audio. Supports 10 languages (en, zh, ja, ko, de, fr, es, it, pt, ru).
+    Uses F16 GGUF models (~2 GB total).
+  overrides:
+    name: qwen3-tts-cpp
+    backend: qwen3-tts-cpp
+    parameters:
+      model: qwen3-tts-cpp
+    known_usecases:
+      - tts
+  files:
+    - filename: qwen3-tts-cpp/qwen3-tts-0.6b-f16.gguf
+      uri: huggingface://endo5501/qwen3-tts.cpp/qwen3-tts-0.6b-f16.gguf
+      sha256: 0b89770118463af8f2467d824a8de57d96df6a09f927a9769a3f7b7fffa7087d
+    - filename: qwen3-tts-cpp/qwen3-tts-tokenizer-f16.gguf
+      uri: huggingface://endo5501/qwen3-tts.cpp/qwen3-tts-tokenizer-f16.gguf
+      sha256: d1ad9660bd99343f4851d5a4b17e31f65648feb3559f6ea062ae6575e5cd9d90
+- name: "qwen3-tts-cpp-customvoice"
+  license: apache-2.0
+  tags:
+    - tts
+    - text-to-speech
+    - voice-cloning
+    - qwen3-tts
+    - qwen3-tts-cpp
+    - gguf
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/endo5501/qwen3-tts.cpp
+    - https://github.com/predict-woo/qwen3-tts.cpp
+  description: |
+    Qwen3-TTS 0.6B Custom Voice (C++ / GGML) — text-to-speech with voice cloning support.
+    Generates 24kHz mono audio with optional reference audio for voice cloning via ECAPA-TDNN speaker embeddings.
+    Supports 10 languages (en, zh, ja, ko, de, fr, es, it, pt, ru).
+  overrides:
+    name: qwen3-tts-cpp-customvoice
+    backend: qwen3-tts-cpp
+    parameters:
+      model: qwen3-tts-cpp-customvoice
+    known_usecases:
+      - tts
+  files:
+    - filename: qwen3-tts-cpp-customvoice/qwen3-tts-0.6b-customvoice-f16.gguf
+      uri: huggingface://endo5501/qwen3-tts.cpp/qwen3-tts-0.6b-customvoice-f16.gguf
+      sha256: 40b985b71be0970d41eb042488766db556cf17290aa1cff631cabfa0bd3b0431
+    - filename: qwen3-tts-cpp-customvoice/qwen3-tts-tokenizer-f16.gguf
+      uri: huggingface://endo5501/qwen3-tts.cpp/qwen3-tts-tokenizer-f16.gguf
+      sha256: d1ad9660bd99343f4851d5a4b17e31f65648feb3559f6ea062ae6575e5cd9d90
 - name: "qwen3-coder-next-mxfp4_moe"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:

@@ -30,6 +30,7 @@ jobs:
       voxcpm: ${{ steps.detect.outputs.voxcpm }}
       llama-cpp-quantization: ${{ steps.detect.outputs.llama-cpp-quantization }}
       acestep-cpp: ${{ steps.detect.outputs.acestep-cpp }}
+      qwen3-tts-cpp: ${{ steps.detect.outputs.qwen3-tts-cpp }}
       voxtral: ${{ steps.detect.outputs.voxtral }}
       kokoros: ${{ steps.detect.outputs.kokoros }}
     steps:
@@ -496,6 +497,38 @@ jobs:
       - name: Test acestep-cpp
         run: |
           make --jobs=5 --output-sync=target -C backend/go/acestep-cpp test
+  tests-qwen3-tts-cpp:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.qwen3-tts-cpp == 'true' || needs.detect-changes.outputs.run-all == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone
+        uses: actions/checkout@v6
+        with:
+          submodules: true
+      - name: Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake curl libopenblas-dev ffmpeg
+      - name: Setup Go
+        uses: actions/setup-go@v5
+      - name: Display Go version
+        run: go version
+      - name: Proto Dependencies
+        run: |
+          # Install protoc
+          curl -L -s https://github.com/protocolbuffers/protobuf/releases/download/v26.1/protoc-26.1-linux-x86_64.zip -o protoc.zip && \
+          unzip -j -d /usr/local/bin protoc.zip bin/protoc && \
+          rm protoc.zip
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@1958fcbe2ca8bd93af633f11e97d44e567e945af
+          PATH="$PATH:$HOME/go/bin" make protogen-go
+      - name: Build qwen3-tts-cpp
+        run: |
+          make --jobs=5 --output-sync=target -C backend/go/qwen3-tts-cpp
+      - name: Test qwen3-tts-cpp
+        run: |
+          make --jobs=5 --output-sync=target -C backend/go/qwen3-tts-cpp test
   tests-voxtral:
     needs: detect-changes
     if: needs.detect-changes.outputs.voxtral == 'true' || needs.detect-changes.outputs.run-all == 'true'
