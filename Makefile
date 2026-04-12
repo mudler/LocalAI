@@ -480,7 +480,8 @@ test-extra: prepare-test-extra
 BACKEND_TEST_MODEL_URL?=https://huggingface.co/Qwen/Qwen3-0.6B-GGUF/resolve/main/Qwen3-0.6B-Q8_0.gguf
 
 ## Generic target — runs the suite against whatever BACKEND_IMAGE points at.
-test-extra-backend:
+## Depends on protogen-go so pkg/grpc/proto is generated before `go test`.
+test-extra-backend: protogen-go
 	@test -n "$$BACKEND_IMAGE" || { echo "BACKEND_IMAGE must be set" >&2; exit 1; }
 	BACKEND_IMAGE="$$BACKEND_IMAGE" \
 	BACKEND_TEST_MODEL_URL="$${BACKEND_TEST_MODEL_URL:-$(BACKEND_TEST_MODEL_URL)}" \
