@@ -539,6 +539,47 @@ options:
 - [llama](https://github.com/ggerganov/llama.cpp)
 
 
+### ik_llama.cpp
+
+[ik_llama.cpp](https://github.com/ikawrakow/ik_llama.cpp) is a hard fork of `llama.cpp` by Iwan Kawrakow that focuses on superior CPU and hybrid GPU/CPU performance. It ships additional quantization types (IQK quants), custom quantization mixes, Multi-head Latent Attention (MLA) for DeepSeek models, and fine-grained tensor offload controls — particularly useful for running very large models on commodity CPU hardware.
+
+{{% notice note %}}
+
+The `ik-llama-cpp` backend requires a CPU with **AVX2** support. The IQK kernels are not compatible with older CPUs.
+
+{{% /notice %}}
+
+#### Features
+
+The `ik-llama-cpp` backend supports the following features:
+- [📖 Text generation (GPT)]({{%relref "features/text-generation" %}})
+- [🧠 Embeddings]({{%relref "features/embeddings" %}})
+- IQK quantization types for better CPU inference performance
+- Multimodal models (via clip/llava)
+
+#### Setup
+
+The backend is distributed as a separate container image and can be installed from the LocalAI backend gallery, or specified directly in a model configuration. GGUF models loaded with this backend benefit from ik_llama.cpp's optimized CPU kernels — especially useful for MoE models and large quantized models that would otherwise be GPU-bound.
+
+#### YAML configuration
+
+To use the `ik-llama-cpp` backend, specify it as the backend in the YAML file:
+
+```yaml
+name: my-model
+backend: ik-llama-cpp
+parameters:
+  # Relative to the models path
+  model: file.gguf
+```
+
+The aliases `ik-llama` and `ik_llama` are also accepted.
+
+#### Reference
+
+- [ik_llama.cpp](https://github.com/ikawrakow/ik_llama.cpp)
+
+
 ### vLLM
 
 [vLLM](https://github.com/vllm-project/vllm) is a fast and easy-to-use library for LLM inference.

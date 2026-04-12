@@ -456,6 +456,46 @@ test-extra: prepare-test-extra
 	$(MAKE) -C backend/python/trl test
 	$(MAKE) -C backend/rust/kokoros test
 
+##
+## End-to-end gRPC tests that exercise a built backend container image.
+##
+## The test suite in tests/e2e-backends is backend-agnostic. You drive it via env
+## vars (see tests/e2e-backends/backend_test.go for the full list) and the
+## capability-driven harness picks which gRPC RPCs to exercise:
+##
+##   BACKEND_IMAGE            Required. Docker image to test, e.g. local-ai-backend:llama-cpp.
+##   BACKEND_TEST_MODEL_URL   URL of a model file to download and load.
+##   BACKEND_TEST_MODEL_FILE  Path to an already-downloaded model (skips download).
+##   BACKEND_TEST_CAPS        Comma-separated capabilities, default "health,load,predict,stream".
+##   BACKEND_TEST_PROMPT      Override the prompt used in predict/stream specs.
+##
+## Direct usage (image already built, no docker-build-* dependency):
+##
+##   make test-extra-backend BACKEND_IMAGE=local-ai-backend:llama-cpp \
+##       BACKEND_TEST_MODEL_URL=https://.../model.gguf
+##
+## Convenience wrappers below build a specific backend image first, then run the
+## suite against it.
+##
+BACKEND_TEST_MODEL_URL?=https://huggingface.co/Qwen/Qwen3-0.6B-GGUF/resolve/main/Qwen3-0.6B-Q8_0.gguf
+
+## Generic target — runs the suite against whatever BACKEND_IMAGE points at.
+test-extra-backend:
+	@test -n "$$BACKEND_IMAGE" || { echo "BACKEND_IMAGE must be set" >&2; exit 1; }
+	BACKEND_IMAGE="$$BACKEND_IMAGE" \
+	BACKEND_TEST_MODEL_URL="$${BACKEND_TEST_MODEL_URL:-$(BACKEND_TEST_MODEL_URL)}" \
+	BACKEND_TEST_MODEL_FILE="$$BACKEND_TEST_MODEL_FILE" \
+	BACKEND_TEST_CAPS="$$BACKEND_TEST_CAPS" \
+	BACKEND_TEST_PROMPT="$$BACKEND_TEST_PROMPT" \
+	go test -v -timeout 15m ./tests/e2e-backends/...
+
+## Convenience wrappers: build the image, then exercise it.
+test-extra-backend-llama-cpp: docker-build-llama-cpp
+	BACKEND_IMAGE=local-ai-backend:llama-cpp $(MAKE) test-extra-backend
+
+test-extra-backend-ik-llama-cpp: docker-build-ik-llama-cpp
+	BACKEND_IMAGE=local-ai-backend:ik-llama-cpp $(MAKE) test-extra-backend
+
 DOCKER_IMAGE?=local-ai
 IMAGE_TYPE?=core
 BASE_IMAGE?=ubuntu:24.04

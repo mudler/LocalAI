@@ -19,6 +19,7 @@ LocalAI will attempt to automatically load models which are not explicitly confi
 | Backend | Description | Capability | Embeddings | Streaming | Acceleration |
 |---------|-------------|------------|------------|-----------|-------------|
 | [llama.cpp](https://github.com/ggerganov/llama.cpp) | LLM inference in C/C++. Supports LLaMA, Mamba, RWKV, Falcon, Starcoder, GPT-2, [and many others](https://github.com/ggerganov/llama.cpp?tab=readme-ov-file#description) | GPT, Functions | yes | yes | CPU, CUDA 12/13, ROCm, Intel SYCL, Vulkan, Metal, Jetson L4T |
+| [ik_llama.cpp](https://github.com/ikawrakow/ik_llama.cpp) | Hard fork of llama.cpp optimized for CPU/hybrid CPU+GPU with IQK quants, custom quant mixes, and MLA for DeepSeek | GPT | yes | yes | CPU (AVX2+) |
 | [vLLM](https://github.com/vllm-project/vllm) | Fast LLM serving with PagedAttention | GPT | no | no | CUDA 12, ROCm, Intel |
 | [vLLM Omni](https://github.com/vllm-project/vllm) | Unified multimodal generation (text, image, video, audio) | Multimodal GPT | no | no | CUDA 12, ROCm |
 | [transformers](https://github.com/huggingface/transformers) | HuggingFace Transformers framework | GPT, Embeddings, Multimodal | yes | yes* | CPU, CUDA 12/13, ROCm, Intel, Metal |

@@ -29,6 +29,8 @@ jobs:
       nemo: ${{ steps.detect.outputs.nemo }}
       voxcpm: ${{ steps.detect.outputs.voxcpm }}
       llama-cpp-quantization: ${{ steps.detect.outputs.llama-cpp-quantization }}
+      llama-cpp: ${{ steps.detect.outputs.llama-cpp }}
+      ik-llama-cpp: ${{ steps.detect.outputs.ik-llama-cpp }}
       acestep-cpp: ${{ steps.detect.outputs.acestep-cpp }}
       qwen3-tts-cpp: ${{ steps.detect.outputs.qwen3-tts-cpp }}
       voxtral: ${{ steps.detect.outputs.voxtral }}
@@ -465,6 +467,40 @@ jobs:
       - name: Test llama-cpp-quantization
         run: |
           make --jobs=5 --output-sync=target -C backend/python/llama-cpp-quantization test
+  tests-llama-cpp-grpc:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.llama-cpp == 'true' || needs.detect-changes.outputs.run-all == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Clone
+        uses: actions/checkout@v6
+        with:
+          submodules: true
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.4'
+      - name: Build llama-cpp backend image and run gRPC e2e tests
+        run: |
+          make test-extra-backend-llama-cpp
+  tests-ik-llama-cpp-grpc:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.ik-llama-cpp == 'true' || needs.detect-changes.outputs.run-all == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Clone
+        uses: actions/checkout@v6
+        with:
+          submodules: true
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.4'
+      - name: Build ik-llama-cpp backend image and run gRPC e2e tests
+        run: |
+          make test-extra-backend-ik-llama-cpp
   tests-acestep-cpp:
     needs: detect-changes
     if: needs.detect-changes.outputs.acestep-cpp == 'true' || needs.detect-changes.outputs.run-all == 'true'
