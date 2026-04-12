@@ -29,6 +29,20 @@
     nvidia-cuda-12: "cuda12-llama-cpp"
     nvidia-l4t-cuda-12: "nvidia-l4t-arm64-llama-cpp"
     nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-llama-cpp"
+- &ikllamacpp
+  name: "ik-llama-cpp"
+  alias: "ik-llama-cpp"
+  license: mit
+  description: |
+    Fork of llama.cpp optimized for CPU performance by ikawrakow
+  urls:
+    - https://github.com/ikawrakow/ik_llama.cpp
+  tags:
+    - text-to-text
+    - LLM
+    - CPU
+  capabilities:
+    default: "cpu-ik-llama-cpp"
 - &whispercpp
   name: "whisper"
   alias: "whisper"
@@ -897,6 +911,10 @@
     nvidia-cuda-12: "cuda12-llama-cpp-development"
     nvidia-l4t-cuda-12: "nvidia-l4t-arm64-llama-cpp-development"
     nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-llama-cpp-development"
+- !!merge <<: *ikllamacpp
+  name: "ik-llama-cpp-development"
+  capabilities:
+    default: "cpu-ik-llama-cpp-development"
 - !!merge <<: *neutts
   name: "cpu-neutts"
   uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-neutts"
@@ -1327,6 +1345,17 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-llama-cpp"
   mirrors:
     - localai/localai-backends:master-gpu-nvidia-cuda-13-llama-cpp
+## ik-llama-cpp
+- !!merge <<: *ikllamacpp
+  name: "cpu-ik-llama-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-ik-llama-cpp"
+  mirrors:
+    - localai/localai-backends:latest-cpu-ik-llama-cpp
+- !!merge <<: *ikllamacpp
+  name: "cpu-ik-llama-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-cpu-ik-llama-cpp"
+  mirrors:
+    - localai/localai-backends:master-cpu-ik-llama-cpp
 ## whisper
 - !!merge <<: *whispercpp
   name: "nvidia-l4t-arm64-whisper"

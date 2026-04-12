@@ -24,6 +24,9 @@ function inferBackendPath(item) {
   if (item.dockerfile.endsWith("rust")) {
     return `backend/rust/${item.backend}/`;
   }
+  if (item.dockerfile.endsWith("ik-llama-cpp")) {
+    return `backend/cpp/ik-llama-cpp/`;
+  }
   if (item.dockerfile.endsWith("llama-cpp")) {
     return `backend/cpp/llama-cpp/`;
   }
