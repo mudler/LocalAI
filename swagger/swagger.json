@@ -1165,6 +1165,69 @@
                 }
             }
         },
+        "/backends/upgrade/{name}": {
+            "post": {
+                "tags": [
+                    "backends"
+                ],
+                "summary": "Upgrade a backend",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Backend name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "$ref": "#/definitions/schema.BackendResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/backends/upgrades": {
+            "get": {
+                "tags": [
+                    "backends"
+                ],
+                "summary": "Get available backend upgrades",
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "$ref": "#/definitions/gallery.UpgradeInfo"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/backends/upgrades/check": {
+            "post": {
+                "tags": [
+                    "backends"
+                ],
+                "summary": "Force backend upgrade check",
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "$ref": "#/definitions/gallery.UpgradeInfo"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/metrics": {
             "get": {
                 "produces": [
@@ -2255,6 +2318,9 @@
                     "items": {
                         "type": "string"
                     }
+                },
+                "version": {
+                    "type": "string"
                 }
             }
         },
@@ -2314,6 +2380,26 @@
                     "items": {
                         "type": "string"
                     }
+                }
+            }
+        },
+        "gallery.UpgradeInfo": {
+            "type": "object",
+            "properties": {
+                "available_digest": {
+                    "type": "string"
+                },
+                "available_version": {
+                    "type": "string"
+                },
+                "backend_name": {
+                    "type": "string"
+                },
+                "installed_digest": {
+                    "type": "string"
+                },
+                "installed_version": {
+                    "type": "string"
                 }
             }
         },

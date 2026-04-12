@@ -111,6 +111,8 @@ definitions:
         items:
           type: string
         type: array
+      version:
+        type: string
     type: object
   gallery.Metadata:
     properties:
@@ -154,6 +156,19 @@ definitions:
         items:
           type: string
         type: array
+    type: object
+  gallery.UpgradeInfo:
+    properties:
+      available_digest:
+        type: string
+      available_version:
+        type: string
+      backend_name:
+        type: string
+      installed_digest:
+        type: string
+      installed_version:
+        type: string
     type: object
   galleryop.OpStatus:
     properties:
@@ -2464,6 +2479,46 @@ paths:
           schema:
             $ref: '#/definitions/galleryop.OpStatus'
       summary: Returns the job status
+      tags:
+      - backends
+  /backends/upgrade/{name}:
+    post:
+      parameters:
+      - description: Backend name
+        in: path
+        name: name
+        required: true
+        type: string
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/schema.BackendResponse'
+      summary: Upgrade a backend
+      tags:
+      - backends
+  /backends/upgrades:
+    get:
+      responses:
+        "200":
+          description: Response
+          schema:
+            additionalProperties:
+              $ref: '#/definitions/gallery.UpgradeInfo'
+            type: object
+      summary: Get available backend upgrades
+      tags:
+      - backends
+  /backends/upgrades/check:
+    post:
+      responses:
+        "200":
+          description: Response
+          schema:
+            additionalProperties:
+              $ref: '#/definitions/gallery.UpgradeInfo'
+            type: object
+      summary: Force backend upgrade check
       tags:
       - backends
   /metrics:
