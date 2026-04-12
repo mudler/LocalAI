@@ -21,7 +21,6 @@ const (
 var Aliases = map[string]string{
 	"go-llama":               LLamaCPP,
 	"llama":                  LLamaCPP,
-	"ik-llama":               IKLLamaCPP,
 	"ik_llama":               IKLLamaCPP,
 	"embedded-store":         LocalStoreBackend,
 	"huggingface-embeddings": TransformersBackend,
