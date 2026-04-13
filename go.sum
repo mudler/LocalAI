@@ -1016,8 +1016,8 @@ github.com/temoto/robotstxt v1.1.2 h1:W2pOjSJ6SWvldyEuiFXNxz3xZ8aiWX5LbfDiOFd7Fx
 github.com/temoto/robotstxt v1.1.2/go.mod h1:+1AmkuG3IYkh1kv0d2qEB9Le88ehNO0zwOr3ujewlOo=
 github.com/testcontainers/testcontainers-go v0.42.0 h1:He3IhTzTZOygSXLJPMX7n44XtK+qhjat1nI9cneBbUY=
 github.com/testcontainers/testcontainers-go v0.42.0/go.mod h1:vZjdY1YmUA1qEForxOIOazfsrdyORJAbhi0bp8plN30=
-github.com/testcontainers/testcontainers-go/modules/nats v0.41.0 h1:ONiEuMwUgOLL3DiIHDgS4NvjwsSND4zkAhFlxkXWdb0=
-github.com/testcontainers/testcontainers-go/modules/nats v0.41.0/go.mod h1:XSx4gGxmUaj3EHx3+ySOjge3ZCfOeV6yq/SrNhoYmso=
+github.com/testcontainers/testcontainers-go/modules/nats v0.42.0 h1:WQR0+1r4GkM5QgOBoLxlP41empovt5PxtaiDpC0G7ow=
+github.com/testcontainers/testcontainers-go/modules/nats v0.42.0/go.mod h1:ZAI9iisjDNJmcRcycQFKSLpiBN9u2g1v9AJRq1afriE=
 github.com/testcontainers/testcontainers-go/modules/postgres v0.41.0 h1:AOtFXssrDlLm84A2sTTR/AhvJiYbrIuCO59d+Ro9Tb0=
 github.com/testcontainers/testcontainers-go/modules/postgres v0.41.0/go.mod h1:k2a09UKhgSp6vNpliIY0QSgm4Hi7GXVTzWvWgUemu/8=
 github.com/thoj/go-ircevent v0.0.0-20210723090443-73e444401d64 h1:l/T7dYuJEQZOwVOpjIXr1180aM9PZL/d1MnMVIxefX4=
