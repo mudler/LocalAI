@@ -519,6 +519,22 @@ test-extra-backend-vllm: docker-build-vllm
 	BACKEND_TEST_OPTIONS=tool_parser:hermes \
 	$(MAKE) test-extra-backend
 
+## mlx is Apple-Silicon-first — the MLX backend auto-detects the right tool
+## parser from the chat template, so no tool_parser: option is needed (it
+## would be ignored at runtime). Run this on macOS / arm64 with Metal; the
+## Linux/CPU mlx variant is untested in CI.
+test-extra-backend-mlx: docker-build-mlx
+	BACKEND_IMAGE=local-ai-backend:mlx \
+	BACKEND_TEST_MODEL_NAME=mlx-community/Qwen2.5-0.5B-Instruct-4bit \
+	BACKEND_TEST_CAPS=health,load,predict,stream,tools \
+	$(MAKE) test-extra-backend
+
+test-extra-backend-mlx-vlm: docker-build-mlx-vlm
+	BACKEND_IMAGE=local-ai-backend:mlx-vlm \
+	BACKEND_TEST_MODEL_NAME=mlx-community/Qwen2.5-0.5B-Instruct-4bit \
+	BACKEND_TEST_CAPS=health,load,predict,stream,tools \
+	$(MAKE) test-extra-backend
+
 DOCKER_IMAGE?=local-ai
 IMAGE_TYPE?=core
 BASE_IMAGE?=ubuntu:24.04
@@ -652,6 +668,8 @@ BACKEND_NEMO = nemo|python|.|false|true
 BACKEND_VOXCPM = voxcpm|python|.|false|true
 BACKEND_WHISPERX = whisperx|python|.|false|true
 BACKEND_ACE_STEP = ace-step|python|.|false|true
+BACKEND_MLX = mlx|python|.|false|true
+BACKEND_MLX_VLM = mlx-vlm|python|.|false|true
 BACKEND_MLX_DISTRIBUTED = mlx-distributed|python|./|false|true
 BACKEND_TRL = trl|python|.|false|true
 BACKEND_LLAMA_CPP_QUANTIZATION = llama-cpp-quantization|python|.|false|true
@@ -720,6 +738,8 @@ $(eval $(call generate-docker-build-target,$(BACKEND_WHISPERX)))
 $(eval $(call generate-docker-build-target,$(BACKEND_ACE_STEP)))
 $(eval $(call generate-docker-build-target,$(BACKEND_ACESTEP_CPP)))
 $(eval $(call generate-docker-build-target,$(BACKEND_QWEN3_TTS_CPP)))
+$(eval $(call generate-docker-build-target,$(BACKEND_MLX)))
+$(eval $(call generate-docker-build-target,$(BACKEND_MLX_VLM)))
 $(eval $(call generate-docker-build-target,$(BACKEND_MLX_DISTRIBUTED)))
 $(eval $(call generate-docker-build-target,$(BACKEND_TRL)))
 $(eval $(call generate-docker-build-target,$(BACKEND_LLAMA_CPP_QUANTIZATION)))
