@@ -344,7 +344,16 @@ function ensureVenv() {
 
     if [ ! -d "${EDIR}/venv" ]; then
         if [ "x${USE_PIP}" == "xtrue" ]; then
-            "${interpreter}" -m venv --copies "${EDIR}/venv"
+            # --copies is only needed when we will later relocate the venv via
+            # _makeVenvPortable (PORTABLE_PYTHON=true). Some Python builds —
+            # notably macOS system Python — refuse to create a venv with
+            # --copies because the build doesn't support it. Fall back to
+            # symlinks in that case.
+            local venv_args=""
+            if [ "x${PORTABLE_PYTHON}" == "xtrue" ]; then
+                venv_args="--copies"
+            fi
+            "${interpreter}" -m venv ${venv_args} "${EDIR}/venv"
             source "${EDIR}/venv/bin/activate"
             "${interpreter}" -m pip install --upgrade pip
         else
