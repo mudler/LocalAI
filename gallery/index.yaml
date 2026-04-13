@@ -63,8 +63,8 @@
       use_tokenizer_template: true
   files:
     - filename: gemma-4-26B-A4B-it-Q4_K_M.gguf
-      sha256: 23c6997912cb7fa36147fe05877de73ddbb2a80ff69b18ff171b354dccf2b5b5
       uri: huggingface://ggml-org/gemma-4-26B-A4B-it-GGUF/gemma-4-26B-A4B-it-Q4_K_M.gguf
+      sha256: 88f4a13b0bb95f031a7fad973e10854122fb67ebc34d214d39a2f65053046abc
     - filename: mmproj-gemma-4-26B-A4B-it-f16.gguf
       sha256: 4107c1c3c299095fbc323f87f4e4cac81dd9527db5ff90808fea669e08244531
       uri: huggingface://ggml-org/gemma-4-26B-A4B-it-GGUF/mmproj-gemma-4-26B-A4B-it-f16.gguf
