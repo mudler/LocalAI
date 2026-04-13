@@ -1,3 +1,6 @@
+import os
+import sys
+import types
 import unittest
 import subprocess
 import time
@@ -5,6 +8,12 @@ import time
 import grpc
 import backend_pb2
 import backend_pb2_grpc
+
+# Make the shared helpers importable so we can unit-test them without a
+# running gRPC server.
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'common'))
+from python_utils import messages_to_dicts, parse_options
+from mlx_utils import parse_tool_calls, split_reasoning
 
 
 class TestBackendServicer(unittest.TestCase):
@@ -85,3 +94,44 @@ class TestBackendServicer(unittest.TestCase):
             self.fail("sampling params service failed")
         finally:
             self.tearDown()
+
+
+class TestSharedHelpers(unittest.TestCase):
+    """Server-less unit tests for the helpers the mlx-distributed backend depends on."""
+
+    def test_parse_options_typed(self):
+        opts = parse_options(["temperature:0.7", "max_tokens:128", "trust:true"])
+        self.assertEqual(opts["temperature"], 0.7)
+        self.assertEqual(opts["max_tokens"], 128)
+        self.assertIs(opts["trust"], True)
+
+    def test_messages_to_dicts_roundtrip(self):
+        msgs = [
+            backend_pb2.Message(role="user", content="hi"),
+            backend_pb2.Message(
+                role="assistant",
+                content="",
+                tool_calls='[{"id":"call_1","type":"function","function":{"name":"f","arguments":"{}"}}]',
+            ),
+            backend_pb2.Message(role="tool", content="42", tool_call_id="call_1", name="f"),
+        ]
+        out = messages_to_dicts(msgs)
+        self.assertEqual(out[0], {"role": "user", "content": "hi"})
+        self.assertEqual(out[1]["tool_calls"][0]["function"]["name"], "f")
+        self.assertEqual(out[2]["tool_call_id"], "call_1")
+
+    def test_split_reasoning(self):
+        r, c = split_reasoning("<think>plan</think>final", "<think>", "</think>")
+        self.assertEqual(r, "plan")
+        self.assertEqual(c, "final")
+
+    def test_parse_tool_calls_with_shim(self):
+        tm = types.SimpleNamespace(
+            tool_call_start="<tool_call>",
+            tool_call_end="</tool_call>",
+            parse_tool_call=lambda body, tools: {"name": "get_weather", "arguments": {"location": body.strip()}},
+        )
+        calls, remaining = parse_tool_calls("<tool_call>Paris</tool_call>", tm, tools=None)
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(calls[0]["name"], "get_weather")
+        self.assertEqual(calls[0]["arguments"], '{"location": "Paris"}')
