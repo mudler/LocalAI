@@ -270,8 +270,11 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 del self.config
             self.tool_module = None
             gc.collect()
+            # mlx.clear_cache (mlx >= 0.30) supersedes mlx.metal.clear_cache.
             try:
-                if hasattr(mx, "metal") and hasattr(mx.metal, "clear_cache"):
+                if hasattr(mx, "clear_cache"):
+                    mx.clear_cache()
+                elif hasattr(mx, "metal") and hasattr(mx.metal, "clear_cache"):
                     mx.metal.clear_cache()
             except Exception:
                 pass

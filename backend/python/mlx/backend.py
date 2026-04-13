@@ -93,20 +93,18 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             else:
                 self.model, self.tokenizer = load(request.Model)
 
-            # mlx_lm.load() returns a TokenizerWrapper which auto-infers a
-            # tool parser from the model's chat template and exposes
-            # has_tool_calling / has_thinking / tool_call_start / think_start.
-            # No user configuration is needed — log what was detected.
+            # mlx_lm.load() returns a TokenizerWrapper that detects tool
+            # calling and thinking markers from the chat template / vocab.
+            # mlx-lm >= 0.30 also exposes a parser callable on the wrapper;
+            # earlier versions don't (we fall back to json.loads inside
+            # _tool_module_from_tokenizer below).
             has_tools = bool(getattr(self.tokenizer, "has_tool_calling", False))
             has_thinking = bool(getattr(self.tokenizer, "has_thinking", False))
-            tool_parser_type = None
-            try:
-                tool_parser_type = self.tokenizer._tokenizer.init_kwargs.get("tool_parser_type")
-            except Exception:
-                pass
+            tcs = getattr(self.tokenizer, "tool_call_start", None)
+            tce = getattr(self.tokenizer, "tool_call_end", None)
             print(
                 f"MLX tokenizer capabilities: has_tool_calling={has_tools} "
-                f"has_thinking={has_thinking} tool_parser_type={tool_parser_type}",
+                f"has_thinking={has_thinking} tool_call_start={tcs!r} tool_call_end={tce!r}",
                 file=sys.stderr,
             )
 
@@ -269,9 +267,12 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                     pass
                 self.lru_cache = None
             gc.collect()
-            # Metal: drop the cached allocator if available (mlx >= 0.22)
+            # Metal: drop the cached allocator. mlx.clear_cache (mlx >= 0.30)
+            # supersedes the now-deprecated mlx.metal.clear_cache.
             try:
-                if hasattr(mx, "metal") and hasattr(mx.metal, "clear_cache"):
+                if hasattr(mx, "clear_cache"):
+                    mx.clear_cache()
+                elif hasattr(mx, "metal") and hasattr(mx.metal, "clear_cache"):
                     mx.metal.clear_cache()
             except Exception:
                 pass
@@ -562,14 +563,21 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
     def _tool_module_from_tokenizer(self):
         """Build a duck-typed tool module from the TokenizerWrapper.
 
-        Avoids importing the real mlx_lm.tool_parsers module — the wrapper
-        already resolved it at load time and cached the callable.
+        On mlx-lm >= 0.30 the wrapper exposes a ``tool_parser`` callable
+        that's been resolved from the model's chat template. On older
+        releases (e.g. 0.29.x) the wrapper only carries the start/end
+        markers — fall back to ``json.loads`` of the body, which matches
+        what ``mlx_lm.tool_parsers.json_tools.parse_tool_call`` does on
+        HEAD and covers the only format 0.29 detects (``<tool_call>``).
         """
-        parse_fn = getattr(self.tokenizer, "tool_parser", None)
         start = getattr(self.tokenizer, "tool_call_start", None)
         end = getattr(self.tokenizer, "tool_call_end", None)
-        if parse_fn is None or not start:
+        if not start:
             return None
+        parse_fn = getattr(self.tokenizer, "tool_parser", None)
+        if parse_fn is None:
+            def parse_fn(body, tools):  # noqa: E306 — local fallback
+                return json.loads(body.strip())
         return types.SimpleNamespace(
             tool_call_start=start,
             tool_call_end=end or "",
@@ -591,8 +599,10 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             reasoning_content, content = split_reasoning(content, think_start, think_end)
 
         tool_calls_proto: List[backend_pb2.ToolCallDelta] = []
+        tool_module = None
         if getattr(self.tokenizer, "has_tool_calling", False):
             tool_module = self._tool_module_from_tokenizer()
+        if tool_module is not None:
             parsed_tools = None
             if request.Tools:
                 try:
