@@ -105,6 +105,11 @@ func (c *InFlightTrackingClient) AudioTranscription(ctx context.Context, in *pb.
 	return c.Backend.AudioTranscription(ctx, in, opts...)
 }
 
+func (c *InFlightTrackingClient) AudioTranscriptionStream(ctx context.Context, in *pb.TranscriptRequest, f func(chunk *pb.TranscriptStreamResponse), opts ...ggrpc.CallOption) error {
+	defer c.track(ctx)()
+	return c.Backend.AudioTranscriptionStream(ctx, in, f, opts...)
+}
+
 func (c *InFlightTrackingClient) Detect(ctx context.Context, in *pb.DetectOptions, opts ...ggrpc.CallOption) (*pb.DetectResponse, error) {
 	defer c.track(ctx)()
 	return c.Backend.Detect(ctx, in, opts...)

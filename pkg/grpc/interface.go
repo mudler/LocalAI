@@ -18,6 +18,7 @@ type AIModel interface {
 	GenerateVideo(*pb.GenerateVideoRequest) error
 	Detect(*pb.DetectOptions) (pb.DetectResponse, error)
 	AudioTranscription(*pb.TranscriptRequest) (pb.TranscriptResult, error)
+	AudioTranscriptionStream(*pb.TranscriptRequest, chan *pb.TranscriptStreamResponse) error
 	TTS(*pb.TTSRequest) error
 	TTSStream(*pb.TTSRequest, chan []byte) error
 	SoundGeneration(*pb.SoundGenerationRequest) error

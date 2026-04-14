@@ -35,9 +35,16 @@ import (
 //
 // Optional:
 //
+//	BACKEND_TEST_MMPROJ_URL  HTTP(S) URL of an mmproj file (audio/vision encoder)
+//	                         to download alongside the main model — required for
+//	                         multimodal models like Qwen3-ASR-0.6B-GGUF.
+//	BACKEND_TEST_MMPROJ_FILE Path to an already-available mmproj file.
+//	BACKEND_TEST_AUDIO_URL   HTTP(S) URL of a sample audio file used by the
+//	                         transcription specs.
+//	BACKEND_TEST_AUDIO_FILE  Path to an already-available sample audio file.
 //	BACKEND_TEST_CAPS        Comma-separated list of capabilities to exercise.
 //	                         Supported values: health, load, predict, stream,
-//	                         embeddings, tools.
+//	                         embeddings, tools, transcription.
 //	                         Defaults to "health,load,predict,stream".
 //	                         A backend that only does embeddings would set this to
 //	                         "health,load,embeddings"; an image/TTS backend that cannot
@@ -58,12 +65,13 @@ import (
 // file path to LoadModel, so GGUF, ONNX, safetensors, .bin etc. all work so
 // long as the backend under test accepts that format.
 const (
-	capHealth     = "health"
-	capLoad       = "load"
-	capPredict    = "predict"
-	capStream     = "stream"
-	capEmbeddings = "embeddings"
-	capTools      = "tools"
+	capHealth        = "health"
+	capLoad          = "load"
+	capPredict       = "predict"
+	capStream        = "stream"
+	capEmbeddings    = "embeddings"
+	capTools         = "tools"
+	capTranscription = "transcription"
 
 	defaultPrompt     = "The capital of France is"
 	streamPrompt      = "Once upon a time"
@@ -99,17 +107,19 @@ func parseCaps() map[string]bool {
 
 var _ = Describe("Backend container", Ordered, func() {
 	var (
-		caps      map[string]bool
-		workDir   string
-		binaryDir string
-		modelFile string // set when a local file is used
-		modelName string // set when a HuggingFace model id is used
-		addr      string
-		serverCmd *exec.Cmd
-		conn      *grpc.ClientConn
-		client    pb.BackendClient
-		prompt    string
-		options   []string
+		caps       map[string]bool
+		workDir    string
+		binaryDir  string
+		modelFile  string // set when a local file is used
+		modelName  string // set when a HuggingFace model id is used
+		mmprojFile string // optional multimodal projector
+		audioFile  string // optional audio fixture for transcription specs
+		addr       string
+		serverCmd  *exec.Cmd
+		conn       *grpc.ClientConn
+		client     pb.BackendClient
+		prompt     string
+		options    []string
 	)
 
 	BeforeAll(func() {
@@ -153,6 +163,25 @@ var _ = Describe("Backend container", Ordered, func() {
 		if modelFile == "" && modelName == "" {
 			modelFile = filepath.Join(workDir, "model.bin")
 			downloadFile(modelURL, modelFile)
+		}
+
+		// Multimodal projector (mmproj): required by audio/vision-capable
+		// llama.cpp models like Qwen3-ASR-0.6B-GGUF. Either file or URL.
+		mmprojFile = os.Getenv("BACKEND_TEST_MMPROJ_FILE")
+		if mmprojFile == "" {
+			if url := os.Getenv("BACKEND_TEST_MMPROJ_URL"); url != "" {
+				mmprojFile = filepath.Join(workDir, "mmproj.bin")
+				downloadFile(url, mmprojFile)
+			}
+		}
+
+		// Audio fixture for the transcription specs.
+		audioFile = os.Getenv("BACKEND_TEST_AUDIO_FILE")
+		if audioFile == "" {
+			if url := os.Getenv("BACKEND_TEST_AUDIO_URL"); url != "" {
+				audioFile = filepath.Join(workDir, "sample.wav")
+				downloadFile(url, audioFile)
+			}
 		}
 
 		// Pick a free port and launch the backend.
@@ -244,6 +273,7 @@ var _ = Describe("Backend container", Ordered, func() {
 			MMap:        true,
 			NBatch:      128,
 			Options:     options,
+			MMProj:      mmprojFile,
 		})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(res.GetSuccess()).To(BeTrue(), "LoadModel failed: %s", res.GetMessage())
@@ -384,6 +414,75 @@ var _ = Describe("Backend container", Ordered, func() {
 		}
 		Expect(matched).To(BeTrue(),
 			"Expected a tool call named %q in ChatDelta.tool_calls", toolName)
+	})
+
+	It("transcribes audio via AudioTranscription", func() {
+		if !caps[capTranscription] {
+			Skip("transcription capability not enabled")
+		}
+		Expect(audioFile).NotTo(BeEmpty(),
+			"BACKEND_TEST_AUDIO_FILE or BACKEND_TEST_AUDIO_URL must be set when transcription cap is enabled")
+
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+		defer cancel()
+		res, err := client.AudioTranscription(ctx, &pb.TranscriptRequest{
+			Dst:         audioFile,
+			Threads:     uint32(envInt32("BACKEND_TEST_THREADS", 4)),
+			Temperature: 0.0,
+		})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(strings.TrimSpace(res.GetText())).NotTo(BeEmpty(),
+			"AudioTranscription returned empty text")
+		GinkgoWriter.Printf("AudioTranscription: text=%q language=%q duration=%v\n",
+			res.GetText(), res.GetLanguage(), res.GetDuration())
+	})
+
+	It("streams audio transcription via AudioTranscriptionStream", func() {
+		if !caps[capTranscription] {
+			Skip("transcription capability not enabled")
+		}
+		Expect(audioFile).NotTo(BeEmpty(),
+			"BACKEND_TEST_AUDIO_FILE or BACKEND_TEST_AUDIO_URL must be set when transcription cap is enabled")
+
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+		defer cancel()
+		stream, err := client.AudioTranscriptionStream(ctx, &pb.TranscriptRequest{
+			Dst:         audioFile,
+			Threads:     uint32(envInt32("BACKEND_TEST_THREADS", 4)),
+			Temperature: 0.0,
+			Stream:      true,
+		})
+		Expect(err).NotTo(HaveOccurred())
+
+		var deltas []string
+		var assembled strings.Builder
+		var finalText string
+		for {
+			chunk, err := stream.Recv()
+			if err == io.EOF {
+				break
+			}
+			Expect(err).NotTo(HaveOccurred())
+			if d := chunk.GetDelta(); d != "" {
+				deltas = append(deltas, d)
+				assembled.WriteString(d)
+			}
+			if final := chunk.GetFinalResult(); final != nil && final.GetText() != "" {
+				finalText = final.GetText()
+			}
+		}
+		// At least one of: a delta arrived, or the final event carried text.
+		Expect(deltas).NotTo(BeEmpty(),
+			"AudioTranscriptionStream did not emit any deltas (assembled=%q final=%q)",
+			assembled.String(), finalText)
+
+		// If both arrived, the final event should match the assembled deltas.
+		if finalText != "" && assembled.Len() > 0 {
+			Expect(finalText).To(Equal(assembled.String()),
+				"final transcript should match concatenated deltas")
+		}
+		GinkgoWriter.Printf("AudioTranscriptionStream: deltas=%d assembled=%q final=%q\n",
+			len(deltas), assembled.String(), finalText)
 	})
 })
 

@@ -168,16 +168,40 @@ func (s *server) AudioTranscription(ctx context.Context, in *pb.TranscriptReques
 		}
 		tresult.Segments = append(tresult.Segments,
 			&pb.TranscriptSegment{
-				Text:   s.Text,
-				Id:     int32(s.Id),
-				Start:  int64(s.Start),
-				End:    int64(s.End),
-				Tokens: tks,
+				Text:    s.Text,
+				Id:      int32(s.Id),
+				Start:   int64(s.Start),
+				End:     int64(s.End),
+				Tokens:  tks,
+				Speaker: s.Speaker,
 			})
 	}
 
 	tresult.Text = result.Text
+	tresult.Language = result.Language
+	tresult.Duration = result.Duration
 	return tresult, nil
+}
+
+func (s *server) AudioTranscriptionStream(in *pb.TranscriptRequest, stream pb.Backend_AudioTranscriptionStreamServer) error {
+	if s.llm.Locking() {
+		s.llm.Lock()
+		defer s.llm.Unlock()
+	}
+	resultChan := make(chan *pb.TranscriptStreamResponse)
+
+	done := make(chan bool)
+	go func() {
+		for chunk := range resultChan {
+			stream.Send(chunk)
+		}
+		done <- true
+	}()
+
+	err := s.llm.AudioTranscriptionStream(in, resultChan)
+	<-done
+
+	return err
 }
 
 func (s *server) PredictStream(in *pb.PredictOptions, stream pb.Backend_PredictStreamServer) error {

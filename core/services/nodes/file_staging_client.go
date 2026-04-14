@@ -294,6 +294,21 @@ func (f *FileStagingClient) AudioTranscription(ctx context.Context, in *pb.Trans
 	return f.Backend.AudioTranscription(ctx, in, opts...)
 }
 
+func (f *FileStagingClient) AudioTranscriptionStream(ctx context.Context, in *pb.TranscriptRequest, fn func(chunk *pb.TranscriptStreamResponse), opts ...ggrpc.CallOption) error {
+	reqID := requestID()
+
+	// Stage input audio file
+	if in.Dst != "" && isFilePath(in.Dst) {
+		backendPath, _, err := f.stageInputFile(ctx, reqID, in.Dst, "inputs")
+		if err != nil {
+			return fmt.Errorf("staging audio for transcription stream: %w", err)
+		}
+		in.Dst = backendPath
+	}
+
+	return f.Backend.AudioTranscriptionStream(ctx, in, fn, opts...)
+}
+
 func (f *FileStagingClient) ExportModel(ctx context.Context, in *pb.ExportModelRequest, opts ...ggrpc.CallOption) (*pb.Result, error) {
 	frontendOutputPath := in.OutputPath
 	if frontendOutputPath != "" {

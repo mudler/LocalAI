@@ -493,6 +493,10 @@ test-extra-backend: protogen-go
 	BACKEND_TEST_MODEL_URL="$${BACKEND_TEST_MODEL_URL:-$(BACKEND_TEST_MODEL_URL)}" \
 	BACKEND_TEST_MODEL_FILE="$$BACKEND_TEST_MODEL_FILE" \
 	BACKEND_TEST_MODEL_NAME="$$BACKEND_TEST_MODEL_NAME" \
+	BACKEND_TEST_MMPROJ_URL="$$BACKEND_TEST_MMPROJ_URL" \
+	BACKEND_TEST_MMPROJ_FILE="$$BACKEND_TEST_MMPROJ_FILE" \
+	BACKEND_TEST_AUDIO_URL="$$BACKEND_TEST_AUDIO_URL" \
+	BACKEND_TEST_AUDIO_FILE="$$BACKEND_TEST_AUDIO_FILE" \
 	BACKEND_TEST_CAPS="$$BACKEND_TEST_CAPS" \
 	BACKEND_TEST_PROMPT="$$BACKEND_TEST_PROMPT" \
 	BACKEND_TEST_OPTIONS="$$BACKEND_TEST_OPTIONS" \
@@ -506,6 +510,19 @@ test-extra-backend-llama-cpp: docker-build-llama-cpp
 
 test-extra-backend-ik-llama-cpp: docker-build-ik-llama-cpp
 	BACKEND_IMAGE=local-ai-backend:ik-llama-cpp $(MAKE) test-extra-backend
+
+## Audio transcription wrapper for the llama-cpp backend.
+## Drives the new AudioTranscription / AudioTranscriptionStream RPCs against
+## ggml-org/Qwen3-ASR-0.6B-GGUF (a small ASR model that requires its mmproj
+## audio encoder companion). The audio fixture is a short public-domain
+## "jfk.wav" clip ggml-org bundles with whisper.cpp's CI assets.
+test-extra-backend-llama-cpp-transcription: docker-build-llama-cpp
+	BACKEND_IMAGE=local-ai-backend:llama-cpp \
+	BACKEND_TEST_MODEL_URL=https://huggingface.co/ggml-org/Qwen3-ASR-0.6B-GGUF/resolve/main/Qwen3-ASR-0.6B-Q8_0.gguf \
+	BACKEND_TEST_MMPROJ_URL=https://huggingface.co/ggml-org/Qwen3-ASR-0.6B-GGUF/resolve/main/mmproj-Qwen3-ASR-0.6B-Q8_0.gguf \
+	BACKEND_TEST_AUDIO_URL=https://github.com/ggml-org/whisper.cpp/raw/master/samples/jfk.wav \
+	BACKEND_TEST_CAPS=health,load,transcription \
+	$(MAKE) test-extra-backend
 
 ## vllm is resolved from a HuggingFace model id (no file download) and
 ## exercises Predict + streaming + tool-call extraction via the hermes parser.

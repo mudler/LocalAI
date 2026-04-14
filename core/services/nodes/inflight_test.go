@@ -95,6 +95,10 @@ func (f *fakeGRPCBackend) AudioTranscription(_ context.Context, _ *pb.Transcript
 	return &pb.TranscriptResult{}, nil
 }
 
+func (f *fakeGRPCBackend) AudioTranscriptionStream(_ context.Context, _ *pb.TranscriptRequest, _ func(chunk *pb.TranscriptStreamResponse), _ ...ggrpc.CallOption) error {
+	return nil
+}
+
 func (f *fakeGRPCBackend) TokenizeString(_ context.Context, _ *pb.PredictOptions, _ ...ggrpc.CallOption) (*pb.TokenizationResponse, error) {
 	return &pb.TokenizationResponse{}, nil
 }

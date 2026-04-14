@@ -171,6 +171,9 @@ func (c *fakeBackendClient) Detect(_ context.Context, _ *pb.DetectOptions, _ ...
 func (c *fakeBackendClient) AudioTranscription(_ context.Context, _ *pb.TranscriptRequest, _ ...ggrpc.CallOption) (*pb.TranscriptResult, error) {
 	return nil, nil
 }
+func (c *fakeBackendClient) AudioTranscriptionStream(_ context.Context, _ *pb.TranscriptRequest, _ func(chunk *pb.TranscriptStreamResponse), _ ...ggrpc.CallOption) error {
+	return nil
+}
 func (c *fakeBackendClient) TokenizeString(_ context.Context, _ *pb.PredictOptions, _ ...ggrpc.CallOption) (*pb.TokenizationResponse, error) {
 	return nil, nil
 }

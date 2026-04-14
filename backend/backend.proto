@@ -17,6 +17,7 @@ service Backend {
   rpc GenerateImage(GenerateImageRequest) returns (Result) {}
   rpc GenerateVideo(GenerateVideoRequest) returns (Result) {}
   rpc AudioTranscription(TranscriptRequest) returns (TranscriptResult) {}
+  rpc AudioTranscriptionStream(TranscriptRequest) returns (stream TranscriptStreamResponse) {}
   rpc TTS(TTSRequest) returns (Result) {}
   rpc TTSStream(TTSRequest) returns (stream Reply) {}
   rpc SoundGeneration(SoundGenerationRequest) returns (Result) {}
@@ -322,11 +323,21 @@ message TranscriptRequest {
   bool translate = 5;
   bool diarize = 6;
   string prompt = 7;
+  float temperature = 8;
+  repeated string timestamp_granularities = 9;
+  bool stream = 10;
 }
 
 message TranscriptResult {
   repeated TranscriptSegment segments = 1;
   string text = 2;
+  string language = 3;
+  float duration = 4;
+}
+
+message TranscriptStreamResponse {
+  string delta = 1;
+  TranscriptResult final_result = 2;
 }
 
 message TranscriptSegment {

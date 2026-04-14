@@ -120,6 +120,12 @@ func (w *Whisper) AudioTranscription(opts *pb.TranscriptRequest) (pb.TranscriptR
 	}
 
 	data := buf.AsFloat32Buffer().Data
+	// whisper.cpp resamples to 16 kHz internally; this matches buf.Format.SampleRate
+	// for the converted file produced by AudioToWav above.
+	var duration float32
+	if buf.Format != nil && buf.Format.SampleRate > 0 {
+		duration = float32(len(data)) / float32(buf.Format.SampleRate)
+	}
 	segsLen := uintptr(0xdeadbeef)
 	segsLenPtr := unsafe.Pointer(&segsLen)
 
@@ -158,5 +164,7 @@ func (w *Whisper) AudioTranscription(opts *pb.TranscriptRequest) (pb.TranscriptR
 	return pb.TranscriptResult{
 		Segments: segments,
 		Text:     strings.TrimSpace(text),
+		Language: opts.Language,
+		Duration: duration,
 	}, nil
 }

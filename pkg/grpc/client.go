@@ -352,6 +352,50 @@ func (c *Client) AudioTranscription(ctx context.Context, in *pb.TranscriptReques
 	return client.AudioTranscription(ctx, in, opts...)
 }
 
+func (c *Client) AudioTranscriptionStream(ctx context.Context, in *pb.TranscriptRequest, f func(chunk *pb.TranscriptStreamResponse), opts ...grpc.CallOption) error {
+	if !c.parallel {
+		c.opMutex.Lock()
+		defer c.opMutex.Unlock()
+	}
+	c.setBusy(true)
+	defer c.setBusy(false)
+	c.wdMark()
+	defer c.wdUnMark()
+	conn, err := c.dial()
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+	client := pb.NewBackendClient(conn)
+
+	stream, err := client.AudioTranscriptionStream(ctx, in, opts...)
+	if err != nil {
+		return err
+	}
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
+		chunk, err := stream.Recv()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
+			return err
+		}
+		f(chunk)
+	}
+
+	return nil
+}
+
 func (c *Client) TokenizeString(ctx context.Context, in *pb.PredictOptions, opts ...grpc.CallOption) (*pb.TokenizationResponse, error) {
 	if !c.parallel {
 		c.opMutex.Lock()

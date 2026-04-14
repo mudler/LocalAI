@@ -96,6 +96,12 @@ func (c *ConnectionEvictingClient) AudioTranscription(ctx context.Context, in *p
 	return result, err
 }
 
+func (c *ConnectionEvictingClient) AudioTranscriptionStream(ctx context.Context, in *pb.TranscriptRequest, f func(chunk *pb.TranscriptStreamResponse), opts ...ggrpc.CallOption) error {
+	err := c.Backend.AudioTranscriptionStream(ctx, in, f, opts...)
+	c.checkErr(err)
+	return err
+}
+
 func (c *ConnectionEvictingClient) Detect(ctx context.Context, in *pb.DetectOptions, opts ...ggrpc.CallOption) (*pb.DetectResponse, error) {
 	result, err := c.Backend.Detect(ctx, in, opts...)
 	c.checkErr(err)

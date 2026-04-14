@@ -61,6 +61,10 @@ func (llm *Base) AudioTranscription(*pb.TranscriptRequest) (pb.TranscriptResult,
 	return pb.TranscriptResult{}, fmt.Errorf("unimplemented")
 }
 
+func (llm *Base) AudioTranscriptionStream(*pb.TranscriptRequest, chan *pb.TranscriptStreamResponse) error {
+	return fmt.Errorf("unimplemented")
+}
+
 func (llm *Base) TTS(*pb.TTSRequest) error {
 	return fmt.Errorf("unimplemented")
 }

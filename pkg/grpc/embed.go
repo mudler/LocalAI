@@ -75,6 +75,14 @@ func (e *embedBackend) AudioTranscription(ctx context.Context, in *pb.Transcript
 	return e.s.AudioTranscription(ctx, in)
 }
 
+func (e *embedBackend) AudioTranscriptionStream(ctx context.Context, in *pb.TranscriptRequest, f func(chunk *pb.TranscriptStreamResponse), opts ...grpc.CallOption) error {
+	bs := &embedBackendAudioTranscriptionStream{
+		ctx: ctx,
+		fn:  f,
+	}
+	return e.s.AudioTranscriptionStream(in, bs)
+}
+
 func (e *embedBackend) TokenizeString(ctx context.Context, in *pb.PredictOptions, opts ...grpc.CallOption) (*pb.TokenizationResponse, error) {
 	return e.s.TokenizeString(ctx, in)
 }
@@ -166,6 +174,44 @@ func (e *embedBackend) StopQuantization(ctx context.Context, in *pb.Quantization
 func (e *embedBackend) Free(ctx context.Context) error {
 	_, err := e.s.Free(ctx, &pb.HealthMessage{})
 	return err
+}
+
+var _ pb.Backend_AudioTranscriptionStreamServer = new(embedBackendAudioTranscriptionStream)
+
+type embedBackendAudioTranscriptionStream struct {
+	ctx context.Context
+	fn  func(chunk *pb.TranscriptStreamResponse)
+}
+
+func (e *embedBackendAudioTranscriptionStream) Send(chunk *pb.TranscriptStreamResponse) error {
+	e.fn(chunk)
+	return nil
+}
+
+func (e *embedBackendAudioTranscriptionStream) SetHeader(md metadata.MD) error {
+	return nil
+}
+
+func (e *embedBackendAudioTranscriptionStream) SendHeader(md metadata.MD) error {
+	return nil
+}
+
+func (e *embedBackendAudioTranscriptionStream) SetTrailer(md metadata.MD) {
+}
+
+func (e *embedBackendAudioTranscriptionStream) Context() context.Context {
+	return e.ctx
+}
+
+func (e *embedBackendAudioTranscriptionStream) SendMsg(m any) error {
+	if x, ok := m.(*pb.TranscriptStreamResponse); ok {
+		return e.Send(x)
+	}
+	return nil
+}
+
+func (e *embedBackendAudioTranscriptionStream) RecvMsg(m any) error {
+	return nil
 }
 
 var _ pb.Backend_FineTuneProgressServer = new(embedBackendFineTuneProgressStream)

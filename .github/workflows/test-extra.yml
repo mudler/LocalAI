@@ -485,6 +485,23 @@ jobs:
       - name: Build llama-cpp backend image and run gRPC e2e tests
         run: |
           make test-extra-backend-llama-cpp
+  tests-llama-cpp-grpc-transcription:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.llama-cpp == 'true' || needs.detect-changes.outputs.run-all == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Clone
+        uses: actions/checkout@v6
+        with:
+          submodules: true
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.4'
+      - name: Build llama-cpp backend image and run audio transcription gRPC e2e tests
+        run: |
+          make test-extra-backend-llama-cpp-transcription
   tests-ik-llama-cpp-grpc:
     needs: detect-changes
     if: needs.detect-changes.outputs.ik-llama-cpp == 'true' || needs.detect-changes.outputs.run-all == 'true'

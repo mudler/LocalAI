@@ -26,6 +26,8 @@
 #include <regex>
 #include <atomic>
 #include <cstdlib>
+#include <fstream>
+#include <iterator>
 #include <mutex>
 #include <signal.h>
 #include <thread>
@@ -74,6 +76,27 @@ static grpc::Status checkAuth(grpc::ServerContext* context) {
         }
     }
     return grpc::Status(grpc::StatusCode::UNAUTHENTICATED, "invalid token");
+}
+
+// Minimal base64 encoder. The C++ backend already pulls in base64_decode from
+// llama.cpp's server-common.cpp, but no encoder is exposed — and we need one to
+// hand audio bytes to the existing PredictOptions.audios path (which expects
+// base64-encoded strings, just like images).
+static std::string base64_encode_bytes(const unsigned char* data, size_t len) {
+    static const char tbl[] =
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    std::string out;
+    out.reserve(((len + 2) / 3) * 4);
+    for (size_t i = 0; i < len; i += 3) {
+        uint32_t triple = (uint32_t(data[i]) << 16);
+        if (i + 1 < len) triple |= (uint32_t(data[i + 1]) << 8);
+        if (i + 2 < len) triple |= uint32_t(data[i + 2]);
+        out.push_back(tbl[(triple >> 18) & 0x3F]);
+        out.push_back(tbl[(triple >> 12) & 0x3F]);
+        out.push_back(i + 1 < len ? tbl[(triple >> 6) & 0x3F] : '=');
+        out.push_back(i + 2 < len ? tbl[triple & 0x3F]        : '=');
+    }
+    return out;
 }
 
 // END LocalAI
@@ -2929,6 +2952,119 @@ public:
             }
         }
 
+        return grpc::Status::OK;
+    }
+
+    // runTranscriptionAsCompletion implements OAI /v1/audio/transcriptions on
+    // top of the existing chat-completion + multimodal-audio pipeline, exactly
+    // the way upstream llama.cpp's server does it (see
+    // tools/server/server-context.cpp post_transcriptions_oai → forwards into
+    // handle_completions_impl with a single user message attaching the audio
+    // file via the mtmd marker).
+    //
+    // We synthesize a backend::PredictOptions with one user message
+    // ("Transcribe audio to text" + optional language hint) and the audio
+    // bytes attached via the existing PredictOptions.audios field, then
+    // delegate to our own Predict() handler. This keeps every multimodal
+    // codepath identical to the chat path and avoids duplicating ~700 lines
+    // of task-construction logic.
+    grpc::Status runTranscriptionAsCompletion(grpc::ServerContext* context,
+                                              const backend::TranscriptRequest* request,
+                                              backend::Reply* out_reply) {
+        if (params_base.model.path.empty()) {
+            return grpc::Status(grpc::StatusCode::FAILED_PRECONDITION, "Model not loaded");
+        }
+        if (request->dst().empty()) {
+            return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, "dst (audio file path) is required");
+        }
+
+        // Read audio bytes from the path LocalAI's HTTP layer wrote.
+        std::ifstream f(request->dst(), std::ios::binary);
+        if (!f.is_open()) {
+            return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, "failed to open audio file: " + request->dst());
+        }
+        std::vector<unsigned char> bytes((std::istreambuf_iterator<char>(f)),
+                                          std::istreambuf_iterator<char>());
+        f.close();
+        if (bytes.empty()) {
+            return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, "audio file is empty: " + request->dst());
+        }
+
+        std::string b64 = base64_encode_bytes(bytes.data(), bytes.size());
+
+        // Build the same prompt upstream uses in convert_transcriptions_to_chatcmpl.
+        std::string user_prompt = "Transcribe audio to text";
+        if (!request->language().empty()) {
+            user_prompt += " (language: " + request->language() + ")";
+        }
+        if (!request->prompt().empty()) {
+            // Optional context hint from the caller.
+            user_prompt += "\n" + request->prompt();
+        }
+
+        backend::PredictOptions synthetic;
+        synthetic.set_usetokenizertemplate(true);
+        synthetic.set_temperature(request->temperature());
+        // Generation length: leave at 0 so parse_options uses -1 (model default).
+        // The model's stop tokens / EOS handle termination naturally for ASR.
+        backend::Message* msg = synthetic.add_messages();
+        msg->set_role("user");
+        msg->set_content(user_prompt);
+        synthetic.add_audios(b64);
+
+        return Predict(context, &synthetic, out_reply);
+    }
+
+    grpc::Status AudioTranscription(ServerContext* context,
+                                    const backend::TranscriptRequest* request,
+                                    backend::TranscriptResult* response) override {
+        auto auth = checkAuth(context);
+        if (!auth.ok()) return auth;
+
+        backend::Reply reply;
+        grpc::Status st = runTranscriptionAsCompletion(context, request, &reply);
+        if (!st.ok()) {
+            return st;
+        }
+        response->set_text(reply.message());
+        if (!request->language().empty()) {
+            response->set_language(request->language());
+        }
+        return grpc::Status::OK;
+    }
+
+    grpc::Status AudioTranscriptionStream(ServerContext* context,
+                                          const backend::TranscriptRequest* request,
+                                          grpc::ServerWriter<backend::TranscriptStreamResponse>* writer) override {
+        auto auth = checkAuth(context);
+        if (!auth.ok()) return auth;
+
+        // Buffered streaming: run the transcription as a normal chat
+        // completion, then emit one delta + one final event. Real
+        // token-by-token streaming would require refactoring PredictStream's
+        // 700-line writer-coupled body; the HTTP/SSE contract is identical
+        // either way, and clients that only consume the assembled text don't
+        // notice the difference.
+        backend::Reply reply;
+        grpc::Status st = runTranscriptionAsCompletion(context, request, &reply);
+        if (!st.ok()) {
+            return st;
+        }
+
+        const std::string& text = reply.message();
+        if (!text.empty()) {
+            backend::TranscriptStreamResponse delta_chunk;
+            delta_chunk.set_delta(text);
+            writer->Write(delta_chunk);
+        }
+
+        backend::TranscriptStreamResponse final_chunk;
+        backend::TranscriptResult* final_result = final_chunk.mutable_final_result();
+        final_result->set_text(text);
+        if (!request->language().empty()) {
+            final_result->set_language(request->language());
+        }
+        writer->Write(final_chunk);
         return grpc::Status::OK;
     }
 };
