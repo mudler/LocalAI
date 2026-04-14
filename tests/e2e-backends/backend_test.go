@@ -56,6 +56,9 @@ import (
 //	BACKEND_TEST_THREADS     Override Threads passed to LoadModel (default 4).
 //	BACKEND_TEST_OPTIONS     Comma-separated Options[] entries passed to LoadModel,
 //	                         e.g. "tool_parser:hermes,reasoning_parser:qwen3".
+//	BACKEND_TEST_CACHE_TYPE_K Sets ModelOptions.CacheTypeKey (llama.cpp -ctk),
+//	                         e.g. "q8_0" — exercises KV-cache quantization code paths.
+//	BACKEND_TEST_CACHE_TYPE_V Sets ModelOptions.CacheTypeValue (llama.cpp -ctv).
 //	BACKEND_TEST_TOOL_PROMPT Override the user prompt for the tools spec
 //	                         (default: "What's the weather like in Paris, France?").
 //	BACKEND_TEST_TOOL_NAME   Override the function name expected in the tool call
@@ -265,15 +268,17 @@ var _ = Describe("Backend container", Ordered, func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 		defer cancel()
 		res, err := client.LoadModel(ctx, &pb.ModelOptions{
-			Model:       modelRef,
-			ModelFile:   modelPath,
-			ContextSize: ctxSize,
-			Threads:     threads,
-			NGPULayers:  0,
-			MMap:        true,
-			NBatch:      128,
-			Options:     options,
-			MMProj:      mmprojFile,
+			Model:          modelRef,
+			ModelFile:      modelPath,
+			ContextSize:    ctxSize,
+			Threads:        threads,
+			NGPULayers:     0,
+			MMap:           true,
+			NBatch:         128,
+			Options:        options,
+			MMProj:         mmprojFile,
+			CacheTypeKey:   os.Getenv("BACKEND_TEST_CACHE_TYPE_K"),
+			CacheTypeValue: os.Getenv("BACKEND_TEST_CACHE_TYPE_V"),
 		})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(res.GetSuccess()).To(BeTrue(), "LoadModel failed: %s", res.GetMessage())

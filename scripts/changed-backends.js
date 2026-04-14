@@ -27,6 +27,11 @@ function inferBackendPath(item) {
   if (item.dockerfile.endsWith("ik-llama-cpp")) {
     return `backend/cpp/ik-llama-cpp/`;
   }
+  if (item.dockerfile.endsWith("turboquant")) {
+    // turboquant is a llama.cpp fork that reuses backend/cpp/llama-cpp sources
+    // via a thin wrapper Makefile. Changes to either dir should retrigger it.
+    return `backend/cpp/turboquant/`;
+  }
   if (item.dockerfile.endsWith("llama-cpp")) {
     return `backend/cpp/llama-cpp/`;
   }
@@ -132,7 +137,12 @@ async function getChangedFiles() {
 
   // Per-backend boolean outputs
   for (const [backend, pathPrefix] of allBackendPaths) {
-    const changed = changedFiles.some(file => file.startsWith(pathPrefix));
+    let changed = changedFiles.some(file => file.startsWith(pathPrefix));
+    // turboquant reuses backend/cpp/llama-cpp sources via a thin wrapper;
+    // changes to either directory should retrigger its pipeline.
+    if (backend === "turboquant" && !changed) {
+      changed = changedFiles.some(file => file.startsWith("backend/cpp/llama-cpp/"));
+    }
     fs.appendFileSync(process.env.GITHUB_OUTPUT, `${backend}=${changed ? 'true' : 'false'}\n`);
   }
 })();

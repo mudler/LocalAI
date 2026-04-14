@@ -43,6 +43,35 @@
     - CPU
   capabilities:
     default: "cpu-ik-llama-cpp"
+- &turboquant
+  name: "turboquant"
+  alias: "turboquant"
+  license: mit
+  description: |
+    Fork of llama.cpp adding the TurboQuant KV-cache quantization scheme.
+    Reuses the LocalAI llama.cpp gRPC server sources against the fork's libllama.
+  urls:
+    - https://github.com/TheTom/llama-cpp-turboquant
+  tags:
+    - text-to-text
+    - LLM
+    - CPU
+    - GPU
+    - CUDA
+    - HIP
+    - turboquant
+    - kv-cache
+  capabilities:
+    default: "cpu-turboquant"
+    nvidia: "cuda12-turboquant"
+    intel: "intel-sycl-f16-turboquant"
+    amd: "rocm-turboquant"
+    vulkan: "vulkan-turboquant"
+    nvidia-l4t: "nvidia-l4t-arm64-turboquant"
+    nvidia-cuda-13: "cuda13-turboquant"
+    nvidia-cuda-12: "cuda12-turboquant"
+    nvidia-l4t-cuda-12: "nvidia-l4t-arm64-turboquant"
+    nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-turboquant"
 - &whispercpp
   name: "whisper"
   alias: "whisper"
@@ -916,6 +945,19 @@
   name: "ik-llama-cpp-development"
   capabilities:
     default: "cpu-ik-llama-cpp-development"
+- !!merge <<: *turboquant
+  name: "turboquant-development"
+  capabilities:
+    default: "cpu-turboquant-development"
+    nvidia: "cuda12-turboquant-development"
+    intel: "intel-sycl-f16-turboquant-development"
+    amd: "rocm-turboquant-development"
+    vulkan: "vulkan-turboquant-development"
+    nvidia-l4t: "nvidia-l4t-arm64-turboquant-development"
+    nvidia-cuda-13: "cuda13-turboquant-development"
+    nvidia-cuda-12: "cuda12-turboquant-development"
+    nvidia-l4t-cuda-12: "nvidia-l4t-arm64-turboquant-development"
+    nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-turboquant-development"
 - !!merge <<: *neutts
   name: "cpu-neutts"
   uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-neutts"
@@ -1357,6 +1399,97 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-cpu-ik-llama-cpp"
   mirrors:
     - localai/localai-backends:master-cpu-ik-llama-cpp
+## turboquant
+- !!merge <<: *turboquant
+  name: "cpu-turboquant"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-turboquant"
+  mirrors:
+    - localai/localai-backends:latest-cpu-turboquant
+- !!merge <<: *turboquant
+  name: "cpu-turboquant-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-cpu-turboquant"
+  mirrors:
+    - localai/localai-backends:master-cpu-turboquant
+- !!merge <<: *turboquant
+  name: "cuda12-turboquant"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-turboquant"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-12-turboquant
+- !!merge <<: *turboquant
+  name: "cuda12-turboquant-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-turboquant"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-12-turboquant
+- !!merge <<: *turboquant
+  name: "cuda13-turboquant"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-13-turboquant"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-13-turboquant
+- !!merge <<: *turboquant
+  name: "cuda13-turboquant-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-turboquant"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-13-turboquant
+- !!merge <<: *turboquant
+  name: "rocm-turboquant"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-rocm-hipblas-turboquant"
+  mirrors:
+    - localai/localai-backends:latest-gpu-rocm-hipblas-turboquant
+- !!merge <<: *turboquant
+  name: "rocm-turboquant-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-rocm-hipblas-turboquant"
+  mirrors:
+    - localai/localai-backends:master-gpu-rocm-hipblas-turboquant
+- !!merge <<: *turboquant
+  name: "intel-sycl-f32-turboquant"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-sycl-f32-turboquant"
+  mirrors:
+    - localai/localai-backends:latest-gpu-intel-sycl-f32-turboquant
+- !!merge <<: *turboquant
+  name: "intel-sycl-f32-turboquant-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-sycl-f32-turboquant"
+  mirrors:
+    - localai/localai-backends:master-gpu-intel-sycl-f32-turboquant
+- !!merge <<: *turboquant
+  name: "intel-sycl-f16-turboquant"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-sycl-f16-turboquant"
+  mirrors:
+    - localai/localai-backends:latest-gpu-intel-sycl-f16-turboquant
+- !!merge <<: *turboquant
+  name: "intel-sycl-f16-turboquant-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-sycl-f16-turboquant"
+  mirrors:
+    - localai/localai-backends:master-gpu-intel-sycl-f16-turboquant
+- !!merge <<: *turboquant
+  name: "vulkan-turboquant"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-vulkan-turboquant"
+  mirrors:
+    - localai/localai-backends:latest-gpu-vulkan-turboquant
+- !!merge <<: *turboquant
+  name: "vulkan-turboquant-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-vulkan-turboquant"
+  mirrors:
+    - localai/localai-backends:master-gpu-vulkan-turboquant
+- !!merge <<: *turboquant
+  name: "nvidia-l4t-arm64-turboquant"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-nvidia-l4t-arm64-turboquant"
+  mirrors:
+    - localai/localai-backends:latest-nvidia-l4t-arm64-turboquant
+- !!merge <<: *turboquant
+  name: "nvidia-l4t-arm64-turboquant-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-arm64-turboquant"
+  mirrors:
+    - localai/localai-backends:master-nvidia-l4t-arm64-turboquant
+- !!merge <<: *turboquant
+  name: "cuda13-nvidia-l4t-arm64-turboquant"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-nvidia-l4t-cuda-13-arm64-turboquant"
+  mirrors:
+    - localai/localai-backends:latest-nvidia-l4t-cuda-13-arm64-turboquant
+- !!merge <<: *turboquant
+  name: "cuda13-nvidia-l4t-arm64-turboquant-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-cuda-13-arm64-turboquant"
+  mirrors:
+    - localai/localai-backends:master-nvidia-l4t-cuda-13-arm64-turboquant
 ## whisper
 - !!merge <<: *whispercpp
   name: "nvidia-l4t-arm64-whisper"

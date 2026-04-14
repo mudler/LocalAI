@@ -31,6 +31,7 @@ jobs:
       llama-cpp-quantization: ${{ steps.detect.outputs.llama-cpp-quantization }}
       llama-cpp: ${{ steps.detect.outputs.llama-cpp }}
       ik-llama-cpp: ${{ steps.detect.outputs.ik-llama-cpp }}
+      turboquant: ${{ steps.detect.outputs.turboquant }}
       vllm: ${{ steps.detect.outputs.vllm }}
       acestep-cpp: ${{ steps.detect.outputs.acestep-cpp }}
       qwen3-tts-cpp: ${{ steps.detect.outputs.qwen3-tts-cpp }}
@@ -519,6 +520,29 @@ jobs:
       - name: Build ik-llama-cpp backend image and run gRPC e2e tests
         run: |
           make test-extra-backend-ik-llama-cpp
+  tests-turboquant-grpc:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.turboquant == 'true' || needs.detect-changes.outputs.run-all == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Clone
+        uses: actions/checkout@v6
+        with:
+          submodules: true
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.4'
+      # Exercises the turboquant (llama.cpp fork) backend with KV-cache
+      # quantization enabled. The convenience target sets
+      # BACKEND_TEST_CACHE_TYPE_K / _V=q8_0, which are plumbed into the
+      # ModelOptions.CacheTypeKey/Value gRPC fields. LoadModel-success +
+      # backend stdout/stderr (captured by the Ginkgo suite) prove the
+      # cache-type config path reaches the fork's KV-cache init.
+      - name: Build turboquant backend image and run gRPC e2e tests
+        run: |
+          make test-extra-backend-turboquant
   # tests-vllm-grpc is currently disabled in CI.
   #
   # The prebuilt vllm CPU wheel is compiled with AVX-512 VNNI/BF16
