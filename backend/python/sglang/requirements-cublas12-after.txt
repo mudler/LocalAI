@@ -1,0 +1,3 @@
+# Bump this pin deliberately — sglang releases weekly and API surfaces
+# (FunctionCallParser, ReasoningParser) move between releases.
+sglang[all]>=0.4.0

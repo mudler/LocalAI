@@ -12,6 +12,7 @@ const BACKENDS = [
   { value: 'mlx-vlm', label: 'mlx-vlm' },
   { value: 'transformers', label: 'transformers' },
   { value: 'vllm', label: 'vllm' },
+  { value: 'sglang', label: 'sglang' },
   { value: 'diffusers', label: 'diffusers' },
 ]
 

@@ -227,6 +227,28 @@
     intel: "intel-vllm"
     nvidia-cuda-12: "cuda12-vllm"
     cpu: "cpu-vllm"
+- &sglang
+  name: "sglang"
+  license: apache-2.0
+  urls:
+    - https://github.com/sgl-project/sglang
+  tags:
+    - text-to-text
+    - multimodal
+  icon: https://raw.githubusercontent.com/sgl-project/sglang/main/assets/logo.png
+  description: |
+    SGLang is a fast serving framework for large language models and vision language models.
+    It co-designs the backend runtime (RadixAttention, continuous batching, structured
+    decoding) and the frontend language to make interaction with models faster and more
+    controllable. Features include fast backend runtime, flexible frontend language,
+    extensive model support, and an active community.
+  alias: "sglang"
+  capabilities:
+    nvidia: "cuda12-sglang"
+    amd: "rocm-sglang"
+    intel: "intel-sglang"
+    nvidia-cuda-12: "cuda12-sglang"
+    cpu: "cpu-sglang"
 - &vllm-omni
   name: "vllm-omni"
   license: apache-2.0
@@ -1766,6 +1788,54 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-cpu-vllm"
   mirrors:
     - localai/localai-backends:master-cpu-vllm
+# sglang
+- !!merge <<: *sglang
+  name: "sglang-development"
+  capabilities:
+    nvidia: "cuda12-sglang-development"
+    amd: "rocm-sglang-development"
+    intel: "intel-sglang-development"
+    cpu: "cpu-sglang-development"
+- !!merge <<: *sglang
+  name: "cuda12-sglang"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-sglang"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-12-sglang
+- !!merge <<: *sglang
+  name: "rocm-sglang"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-rocm-hipblas-sglang"
+  mirrors:
+    - localai/localai-backends:latest-gpu-rocm-hipblas-sglang
+- !!merge <<: *sglang
+  name: "intel-sglang"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-sglang"
+  mirrors:
+    - localai/localai-backends:latest-gpu-intel-sglang
+- !!merge <<: *sglang
+  name: "cpu-sglang"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-sglang"
+  mirrors:
+    - localai/localai-backends:latest-cpu-sglang
+- !!merge <<: *sglang
+  name: "cuda12-sglang-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-sglang"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-12-sglang
+- !!merge <<: *sglang
+  name: "rocm-sglang-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-rocm-hipblas-sglang"
+  mirrors:
+    - localai/localai-backends:master-gpu-rocm-hipblas-sglang
+- !!merge <<: *sglang
+  name: "intel-sglang-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-sglang"
+  mirrors:
+    - localai/localai-backends:master-gpu-intel-sglang
+- !!merge <<: *sglang
+  name: "cpu-sglang-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-cpu-sglang"
+  mirrors:
+    - localai/localai-backends:master-cpu-sglang
 # vllm-omni
 - !!merge <<: *vllm-omni
   name: "vllm-omni-development"

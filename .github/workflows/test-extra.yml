@@ -33,6 +33,7 @@ jobs:
       ik-llama-cpp: ${{ steps.detect.outputs.ik-llama-cpp }}
       turboquant: ${{ steps.detect.outputs.turboquant }}
       vllm: ${{ steps.detect.outputs.vllm }}
+      sglang: ${{ steps.detect.outputs.sglang }}
       acestep-cpp: ${{ steps.detect.outputs.acestep-cpp }}
       qwen3-tts-cpp: ${{ steps.detect.outputs.qwen3-tts-cpp }}
       voxtral: ${{ steps.detect.outputs.voxtral }}
@@ -589,6 +590,32 @@ jobs:
   #     - name: Build vllm (cpu) backend image and run gRPC e2e tests
   #       run: |
   #         make test-extra-backend-vllm
+  tests-sglang-grpc:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.sglang == 'true' || needs.detect-changes.outputs.run-all == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Clone
+        uses: actions/checkout@v6
+        with:
+          submodules: true
+      - name: Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+              make build-essential curl unzip ca-certificates git tar
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.4'
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android /opt/hostedtoolcache/CodeQL || true
+          df -h
+      - name: Build sglang (cpu) backend image and run gRPC e2e tests
+        run: |
+          make test-extra-backend-sglang
   tests-acestep-cpp:
     needs: detect-changes
     if: needs.detect-changes.outputs.acestep-cpp == 'true' || needs.detect-changes.outputs.run-all == 'true'

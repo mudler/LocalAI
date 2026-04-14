@@ -1,0 +1,72 @@
+#!/bin/bash
+set -e
+
+EXTRA_PIP_INSTALL_FLAGS="--no-build-isolation"
+
+# Avoid overcommitting the CPU during builds that compile native code.
+export NVCC_THREADS=2
+export MAX_JOBS=1
+
+backend_dir=$(dirname $0)
+
+if [ -d $backend_dir/common ]; then
+    source $backend_dir/common/libbackend.sh
+else
+    source $backend_dir/../common/libbackend.sh
+fi
+
+if [ "x${BUILD_PROFILE}" == "xintel" ]; then
+    EXTRA_PIP_INSTALL_FLAGS+=" --upgrade --index-strategy=unsafe-first-match"
+fi
+
+if [ "x${BUILD_PROFILE}" == "xcpu" ]; then
+    EXTRA_PIP_INSTALL_FLAGS+=" --index-strategy=unsafe-best-match"
+fi
+
+# sglang's CPU path has no prebuilt wheel on PyPI — upstream publishes
+# a separate pyproject_cpu.toml that must be swapped in before `pip install`.
+# Reference: docker/xeon.Dockerfile in the sglang upstream repo.
+#
+# When BUILD_TYPE is empty (CPU profile) or FROM_SOURCE=true is forced,
+# install torch/transformers/etc from requirements-cpu.txt, then clone
+# sglang and install its python/ and sgl-kernel/ packages from source
+# using the CPU pyproject.
+if [ "x${BUILD_TYPE}" == "x" ] || [ "x${FROM_SOURCE:-}" == "xtrue" ]; then
+    # sgl-kernel's CPU build links against libnuma and libtbb. Install
+    # them here (Docker builder stage) before running the source build.
+    # Harmless no-op on runs outside the docker build since installRequirements
+    # below still needs them only if we reach the source build branch.
+    if command -v apt-get >/dev/null 2>&1 && [ "$(id -u)" = "0" ]; then
+        apt-get update
+        DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            libnuma-dev numactl libtbb-dev libgomp1 libomp-dev google-perftools \
+            build-essential cmake ninja-build
+    fi
+
+    installRequirements
+
+    # sgl-kernel's pyproject_cpu.toml uses scikit-build-core as its build
+    # backend. With --no-build-isolation, that (and ninja/cmake) must be
+    # present in the venv before we build from source.
+    uv pip install --no-build-isolation "scikit-build-core>=0.10" ninja cmake
+
+    _sgl_src=$(mktemp -d)
+    trap 'rm -rf "${_sgl_src}"' EXIT
+    git clone --depth 1 https://github.com/sgl-project/sglang "${_sgl_src}/sglang"
+
+    pushd "${_sgl_src}/sglang/sgl-kernel"
+        if [ -f pyproject_cpu.toml ]; then
+            cp pyproject_cpu.toml pyproject.toml
+        fi
+        uv pip install ${EXTRA_PIP_INSTALL_FLAGS:-} .
+    popd
+
+    pushd "${_sgl_src}/sglang/python"
+        if [ -f pyproject_cpu.toml ]; then
+            cp pyproject_cpu.toml pyproject.toml
+        fi
+        uv pip install ${EXTRA_PIP_INSTALL_FLAGS:-} .
+    popd
+else
+    installRequirements
+fi
