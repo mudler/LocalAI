@@ -1502,6 +1502,28 @@ const docTemplate = `{
                         "name": "file",
                         "in": "formData",
                         "required": true
+                    },
+                    {
+                        "type": "number",
+                        "description": "sampling temperature",
+                        "name": "temperature",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "collectionFormat": "csv",
+                        "description": "timestamp granularities (word, segment)",
+                        "name": "timestamp_granularities",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "stream partial results as SSE",
+                        "name": "stream",
+                        "in": "formData"
                     }
                 ],
                 "responses": {

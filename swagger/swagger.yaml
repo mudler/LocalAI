@@ -2693,6 +2693,21 @@ paths:
         name: file
         required: true
         type: file
+      - description: sampling temperature
+        in: formData
+        name: temperature
+        type: number
+      - collectionFormat: csv
+        description: timestamp granularities (word, segment)
+        in: formData
+        items:
+          type: string
+        name: timestamp_granularities
+        type: array
+      - description: stream partial results as SSE
+        in: formData
+        name: stream
+        type: boolean
       responses:
         "200":
           description: Response
