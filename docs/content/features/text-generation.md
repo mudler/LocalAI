@@ -580,6 +580,55 @@ The aliases `ik-llama` and `ik_llama` are also accepted.
 - [ik_llama.cpp](https://github.com/ikawrakow/ik_llama.cpp)
 
 
+### turboquant (llama.cpp fork with TurboQuant KV-cache)
+
+[llama-cpp-turboquant](https://github.com/TheTom/llama-cpp-turboquant) is a `llama.cpp` fork that adds the **TurboQuant KV-cache** quantization scheme. It reuses the upstream `llama.cpp` codebase and ships as a drop-in alternative backend inside LocalAI, sharing the same gRPC server sources as the stock `llama-cpp` backend — so any GGUF model that runs on `llama-cpp` also runs on `turboquant`.
+
+You would pick `turboquant` when you want **smaller KV-cache memory pressure** (longer contexts on the same VRAM) or to experiment with the fork's quantized KV representations on top of the standard `cache_type_k` / `cache_type_v` knobs already supported by upstream `llama.cpp`.
+
+#### Features
+
+- Drop-in GGUF compatibility with upstream `llama.cpp`.
+- TurboQuant KV-cache quantization (see fork README for the current set of accepted `cache_type_k` / `cache_type_v` values).
+- Same feature surface as the `llama-cpp` backend: text generation, embeddings, tool calls, multimodal via mmproj.
+- Available on CPU (AVX/AVX2/AVX512/fallback), NVIDIA CUDA 12/13, AMD ROCm/HIP, Intel SYCL f32/f16, Vulkan, and NVIDIA L4T.
+
+#### Setup
+
+`turboquant` ships as a separate container image in the LocalAI backend gallery. Install it like any other backend:
+
+```bash
+local-ai backends install turboquant
+```
+
+Or pick a specific flavor for your hardware (example tags: `cpu-turboquant`, `cuda12-turboquant`, `cuda13-turboquant`, `rocm-turboquant`, `intel-sycl-f16-turboquant`, `vulkan-turboquant`).
+
+#### YAML configuration
+
+To run a model with `turboquant`, set the backend in your model YAML and optionally pick quantized KV-cache types:
+
+```yaml
+name: my-model
+backend: turboquant
+parameters:
+  # Relative to the models path
+  model: file.gguf
+# Quantize the KV-cache to shrink memory footprint.
+# Accepts llama.cpp standard types (f16, f32, q8_0, q4_0, q4_1, q5_0, q5_1)
+# plus any TurboQuant-specific types the fork exposes.
+cache_type_k: q8_0
+cache_type_v: q8_0
+context_size: 8192
+```
+
+The `cache_type_k` / `cache_type_v` fields map to llama.cpp's `-ctk` / `-ctv` flags and are what TurboQuant hooks into — the same fields work for the stock `llama-cpp` backend too, but `turboquant` is where the fork's additional quantization schemes take effect.
+
+#### Reference
+
+- [llama-cpp-turboquant](https://github.com/TheTom/llama-cpp-turboquant)
+- [Tracked branch: `feature/turboquant-kv-cache`](https://github.com/TheTom/llama-cpp-turboquant/tree/feature/turboquant-kv-cache)
+
+
 ### vLLM
 
 [vLLM](https://github.com/vllm-project/vllm) is a fast and easy-to-use library for LLM inference.
