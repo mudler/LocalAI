@@ -31,30 +31,27 @@ fi
 
 echo "==> patching $SRC to allow turbo2/turbo3/turbo4 KV-cache types"
 
-# Insert the three TURBO entries right after the existing GGML_TYPE_Q5_1 line.
-# Using a here-doc for readability; sed's `a\` is brittle with multi-line on macOS.
-python3 - "$SRC" <<'PY'
-import sys
-path = sys.argv[1]
-with open(path) as f:
-    src = f.read()
-
-needle = "    GGML_TYPE_Q5_1,\n"
-addition = (
-    "    GGML_TYPE_Q5_1,\n"
-    "    // turboquant fork extras — accepted only when building the\n"
-    "    // backend/cpp/turboquant variant (patched in by patch-grpc-server.sh)\n"
-    "    GGML_TYPE_TURBO2_0,\n"
-    "    GGML_TYPE_TURBO3_0,\n"
-    "    GGML_TYPE_TURBO4_0,\n"
-)
-
-if needle not in src:
-    sys.exit(f"could not find anchor '{needle.strip()}' in {path}")
-
-# Replace only the first occurrence — there's exactly one kv_cache_types[] array.
-with open(path, "w") as f:
-    f.write(src.replace(needle, addition, 1))
-PY
+# Insert the three TURBO entries right after the first `    GGML_TYPE_Q5_1,`
+# line (the kv_cache_types[] allow-list). Using awk because the builder image
+# does not ship python3, and GNU sed's multi-line `a\` quoting is awkward.
+awk '
+    /^    GGML_TYPE_Q5_1,$/ && !done {
+        print
+        print "    // turboquant fork extras — added by patch-grpc-server.sh"
+        print "    GGML_TYPE_TURBO2_0,"
+        print "    GGML_TYPE_TURBO3_0,"
+        print "    GGML_TYPE_TURBO4_0,"
+        done = 1
+        next
+    }
+    { print }
+    END {
+        if (!done) {
+            print "patch-grpc-server.sh: anchor `    GGML_TYPE_Q5_1,` not found" > "/dev/stderr"
+            exit 1
+        }
+    }
+' "$SRC" > "$SRC.tmp"
+mv "$SRC.tmp" "$SRC"
 
 echo "==> patched OK"
