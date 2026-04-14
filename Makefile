@@ -521,7 +521,7 @@ test-extra-backend-ik-llama-cpp: docker-build-ik-llama-cpp
 ## when turbo3/turbo4 are active, so we don't need to set it explicitly.
 test-extra-backend-turboquant: docker-build-turboquant
 	BACKEND_IMAGE=local-ai-backend:turboquant \
-	BACKEND_TEST_CACHE_TYPE_K=turbo3 \
+	BACKEND_TEST_CACHE_TYPE_K=q8_0 \
 	BACKEND_TEST_CACHE_TYPE_V=turbo3 \
 	$(MAKE) test-extra-backend
 
