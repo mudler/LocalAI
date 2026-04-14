@@ -513,14 +513,16 @@ test-extra-backend-llama-cpp: docker-build-llama-cpp
 test-extra-backend-ik-llama-cpp: docker-build-ik-llama-cpp
 	BACKEND_IMAGE=local-ai-backend:ik-llama-cpp $(MAKE) test-extra-backend
 
-## turboquant: exercises the llama.cpp-fork backend with KV-cache quantization
-## enabled (q8_0 K and V). This proves the cache_type_k / cache_type_v config
-## plumbing reaches the fork's KV-cache init; check the captured backend stdout
-## for the cache-type marker the fork prints on load.
+## turboquant: exercises the llama.cpp-fork backend with the fork's
+## *TurboQuant-specific* KV-cache types (turbo3 for both K and V). turbo3
+## is what makes this backend distinct from stock llama-cpp — picking q8_0
+## here would only test the standard llama.cpp code path that the upstream
+## llama-cpp backend already covers. The fork auto-enables flash_attention
+## when turbo3/turbo4 are active, so we don't need to set it explicitly.
 test-extra-backend-turboquant: docker-build-turboquant
 	BACKEND_IMAGE=local-ai-backend:turboquant \
-	BACKEND_TEST_CACHE_TYPE_K=q8_0 \
-	BACKEND_TEST_CACHE_TYPE_V=q8_0 \
+	BACKEND_TEST_CACHE_TYPE_K=turbo3 \
+	BACKEND_TEST_CACHE_TYPE_V=turbo3 \
 	$(MAKE) test-extra-backend
 
 ## Audio transcription wrapper for the llama-cpp backend.

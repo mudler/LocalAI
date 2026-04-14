@@ -613,15 +613,17 @@ backend: turboquant
 parameters:
   # Relative to the models path
   model: file.gguf
-# Quantize the KV-cache to shrink memory footprint.
-# Accepts llama.cpp standard types (f16, f32, q8_0, q4_0, q4_1, q5_0, q5_1)
-# plus any TurboQuant-specific types the fork exposes.
-cache_type_k: q8_0
-cache_type_v: q8_0
+# Use TurboQuant's own KV-cache quantization schemes. The fork accepts
+# the standard llama.cpp types (f16, f32, q8_0, q4_0, q4_1, q5_0, q5_1)
+# and adds three TurboQuant-specific ones: turbo2, turbo3, turbo4.
+# turbo3 / turbo4 auto-enable flash_attention (required for turbo K/V)
+# and offer progressively more aggressive compression.
+cache_type_k: turbo3
+cache_type_v: turbo3
 context_size: 8192
 ```
 
-The `cache_type_k` / `cache_type_v` fields map to llama.cpp's `-ctk` / `-ctv` flags and are what TurboQuant hooks into — the same fields work for the stock `llama-cpp` backend too, but `turboquant` is where the fork's additional quantization schemes take effect.
+The `cache_type_k` / `cache_type_v` fields map to llama.cpp's `-ctk` / `-ctv` flags. The stock `llama-cpp` backend only accepts the standard llama.cpp types — to use `turbo2` / `turbo3` / `turbo4` you need this `turboquant` backend, which is where the fork's TurboQuant code paths actually take effect. Pick `q8_0` here and you're just running stock llama.cpp KV quantization; pick `turbo*` and you're running TurboQuant.
 
 #### Reference
 

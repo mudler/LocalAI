@@ -320,8 +320,8 @@ These options apply when using the `vllm` backend:
 | `disable_log_stats` | bool | Disable logging statistics |
 | `dtype` | string | Data type (e.g., `float16`, `bfloat16`) |
 | `flash_attention` | string | Flash attention configuration |
-| `cache_type_k` | string | Key cache quantization type. Maps to llama.cpp's `-ctk`. Accepted values for llama.cpp-family backends (`llama-cpp`, `ik-llama-cpp`, `turboquant`): `f16`, `f32`, `q8_0`, `q4_0`, `q4_1`, `q5_0`, `q5_1`. The `turboquant` backend additionally accepts the TurboQuant KV-cache types exposed by the fork. |
-| `cache_type_v` | string | Value cache quantization type. Maps to llama.cpp's `-ctv`. Same accepted values as `cache_type_k`. |
+| `cache_type_k` | string | Key cache quantization type. Maps to llama.cpp's `-ctk`. Accepted values for llama.cpp-family backends (`llama-cpp`, `ik-llama-cpp`, `turboquant`): `f16`, `f32`, `q8_0`, `q4_0`, `q4_1`, `q5_0`, `q5_1`. The `turboquant` backend additionally accepts `turbo2`, `turbo3`, `turbo4` — the fork's TurboQuant KV-cache schemes. `turbo3`/`turbo4` auto-enable flash_attention. |
+| `cache_type_v` | string | Value cache quantization type. Maps to llama.cpp's `-ctv`. Same accepted values as `cache_type_k`. Note: any quantized V cache requires flash_attention to be enabled. |
 | `limit_mm_per_prompt` | object | Limit multimodal content per prompt: `{image: int, video: int, audio: int}` |
 
 ## Template Configuration
