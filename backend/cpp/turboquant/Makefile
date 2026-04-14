@@ -23,14 +23,28 @@ RESET := \033[0m
 # fetch step pulls. Each flavor target copies ../llama-cpp into a sibling ../turboquant-<flavor>-build
 # directory, then invokes llama-cpp's own build-llama-cpp-grpc-server with LLAMA_REPO/LLAMA_VERSION
 # overridden to point at the fork.
+PATCHES_DIR := $(CURRENT_MAKEFILE_DIR)/patches
+
+# Each flavor target:
+#   1. copies backend/cpp/llama-cpp/ (grpc-server.cpp + prepare.sh + CMakeLists.txt + Makefile)
+#      into a sibling turboquant-<flavor>-build directory;
+#   2. clones the turboquant fork into turboquant-<flavor>-build/llama.cpp via the copy's
+#      own `llama.cpp` target, overriding LLAMA_REPO/LLAMA_VERSION;
+#   3. applies patches from backend/cpp/turboquant/patches/ to the cloned fork sources
+#      (needed until the fork catches up with upstream server-context.cpp changes);
+#   4. runs the copy's `grpc-server` target, which produces the binary we copy up as
+#      turboquant-<flavor>.
 define turboquant-build
 	rm -rf $(CURRENT_MAKEFILE_DIR)/../turboquant-$(1)-build
 	cp -rf $(LLAMA_CPP_DIR) $(CURRENT_MAKEFILE_DIR)/../turboquant-$(1)-build
 	$(MAKE) -C $(CURRENT_MAKEFILE_DIR)/../turboquant-$(1)-build purge
 	$(info $(GREEN)I turboquant build info:$(1)$(RESET))
+	LLAMA_REPO=$(LLAMA_REPO) LLAMA_VERSION=$(TURBOQUANT_VERSION) \
+	$(MAKE) -C $(CURRENT_MAKEFILE_DIR)/../turboquant-$(1)-build llama.cpp
+	bash $(CURRENT_MAKEFILE_DIR)/apply-patches.sh $(CURRENT_MAKEFILE_DIR)/../turboquant-$(1)-build/llama.cpp $(PATCHES_DIR)
 	CMAKE_ARGS="$(CMAKE_ARGS) $(2)" TARGET="$(3)" \
 	LLAMA_REPO=$(LLAMA_REPO) LLAMA_VERSION=$(TURBOQUANT_VERSION) \
-	$(MAKE) -C $(LLAMA_CPP_DIR) VARIANT="turboquant-$(1)-build" build-llama-cpp-grpc-server
+	$(MAKE) -C $(CURRENT_MAKEFILE_DIR)/../turboquant-$(1)-build grpc-server
 	cp -rfv $(CURRENT_MAKEFILE_DIR)/../turboquant-$(1)-build/grpc-server turboquant-$(1)
 endef
 
