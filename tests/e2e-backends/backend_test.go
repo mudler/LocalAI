@@ -44,13 +44,20 @@ import (
 //	BACKEND_TEST_AUDIO_FILE  Path to an already-available sample audio file.
 //	BACKEND_TEST_CAPS        Comma-separated list of capabilities to exercise.
 //	                         Supported values: health, load, predict, stream,
-//	                         embeddings, tools, transcription.
+//	                         embeddings, tools, transcription, image.
 //	                         Defaults to "health,load,predict,stream".
 //	                         A backend that only does embeddings would set this to
-//	                         "health,load,embeddings"; an image/TTS backend that cannot
-//	                         be driven by a text prompt can set it to "health,load".
+//	                         "health,load,embeddings"; an image-generation backend
+//	                         that cannot be driven by a text prompt can set it to
+//	                         "health,load,image".
 //	                         "tools" asks the backend to extract a tool call from the
 //	                         model output into ChatDelta.tool_calls.
+//	                         "image" exercises the GenerateImage RPC and asserts a
+//	                         non-empty file is written to the requested dst path.
+//	BACKEND_TEST_IMAGE_PROMPT Override the positive prompt for the image spec
+//	                         (default: "a photograph of an astronaut riding a horse").
+//	BACKEND_TEST_IMAGE_STEPS Override the diffusion step count for the image spec
+//	                         (default: 4 — keeps CPU-only runs under a few minutes).
 //	BACKEND_TEST_PROMPT      Override the prompt used by predict/stream specs.
 //	BACKEND_TEST_CTX_SIZE    Override the context size passed to LoadModel (default 512).
 //	BACKEND_TEST_THREADS     Override Threads passed to LoadModel (default 4).
@@ -75,11 +82,14 @@ const (
 	capEmbeddings    = "embeddings"
 	capTools         = "tools"
 	capTranscription = "transcription"
+	capImage         = "image"
 
-	defaultPrompt     = "The capital of France is"
-	streamPrompt      = "Once upon a time"
-	defaultToolPrompt = "What's the weather like in Paris, France?"
-	defaultToolName   = "get_weather"
+	defaultPrompt      = "The capital of France is"
+	streamPrompt       = "Once upon a time"
+	defaultToolPrompt  = "What's the weather like in Paris, France?"
+	defaultToolName    = "get_weather"
+	defaultImagePrompt = "a photograph of an astronaut riding a horse"
+	defaultImageSteps  = 4
 )
 
 func defaultCaps() map[string]bool {
@@ -347,6 +357,40 @@ var _ = Describe("Backend container", Ordered, func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(res.GetEmbeddings()).NotTo(BeEmpty(), "Embedding returned empty vector")
 		GinkgoWriter.Printf("Embedding: %d dims\n", len(res.GetEmbeddings()))
+	})
+
+	It("generates an image via GenerateImage", func() {
+		if !caps[capImage] {
+			Skip("image capability not enabled")
+		}
+
+		imgPrompt := os.Getenv("BACKEND_TEST_IMAGE_PROMPT")
+		if imgPrompt == "" {
+			imgPrompt = defaultImagePrompt
+		}
+		steps := envInt32("BACKEND_TEST_IMAGE_STEPS", defaultImageSteps)
+
+		dst := filepath.Join(workDir, "generated.png")
+
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
+		defer cancel()
+		res, err := client.GenerateImage(ctx, &pb.GenerateImageRequest{
+			PositivePrompt: imgPrompt,
+			NegativePrompt: "",
+			Width:          512,
+			Height:         512,
+			Step:           steps,
+			Seed:           42,
+			Dst:            dst,
+		})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(res.GetSuccess()).To(BeTrue(), "GenerateImage failed: %s", res.GetMessage())
+
+		info, err := os.Stat(dst)
+		Expect(err).NotTo(HaveOccurred(), "GenerateImage did not write a file at %s", dst)
+		Expect(info.Size()).To(BeNumerically(">", int64(0)),
+			"GenerateImage wrote an empty file at %s", dst)
+		GinkgoWriter.Printf("GenerateImage: wrote %s (%d bytes)\n", dst, info.Size())
 	})
 
 	It("extracts tool calls into ChatDelta", func() {

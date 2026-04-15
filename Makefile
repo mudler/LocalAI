@@ -1,5 +1,5 @@
 # Disable parallel execution for backend builds
-.NOTPARALLEL: backends/diffusers backends/llama-cpp backends/turboquant backends/outetts backends/piper backends/stablediffusion-ggml backends/whisper backends/faster-whisper backends/silero-vad backends/local-store backends/huggingface backends/rfdetr backends/kitten-tts backends/kokoro backends/chatterbox backends/llama-cpp-darwin backends/neutts build-darwin-python-backend build-darwin-go-backend backends/mlx backends/diffuser-darwin backends/mlx-vlm backends/mlx-audio backends/mlx-distributed backends/stablediffusion-ggml-darwin backends/vllm backends/vllm-omni backends/moonshine backends/pocket-tts backends/qwen-tts backends/faster-qwen3-tts backends/qwen-asr backends/nemo backends/voxcpm backends/whisperx backends/ace-step backends/acestep-cpp backends/fish-speech backends/voxtral backends/opus backends/trl backends/llama-cpp-quantization backends/kokoros backends/sam3-cpp backends/qwen3-tts-cpp
+.NOTPARALLEL: backends/diffusers backends/llama-cpp backends/turboquant backends/outetts backends/piper backends/stablediffusion-ggml backends/whisper backends/faster-whisper backends/silero-vad backends/local-store backends/huggingface backends/rfdetr backends/kitten-tts backends/kokoro backends/chatterbox backends/llama-cpp-darwin backends/neutts build-darwin-python-backend build-darwin-go-backend backends/mlx backends/diffuser-darwin backends/mlx-vlm backends/mlx-audio backends/mlx-distributed backends/stablediffusion-ggml-darwin backends/vllm backends/vllm-omni backends/moonshine backends/pocket-tts backends/qwen-tts backends/faster-qwen3-tts backends/qwen-asr backends/nemo backends/voxcpm backends/whisperx backends/ace-step backends/acestep-cpp backends/fish-speech backends/voxtral backends/opus backends/trl backends/llama-cpp-quantization backends/kokoros backends/sam3-cpp backends/qwen3-tts-cpp backends/tinygrad
 
 GOCMD=go
 GOTEST=$(GOCMD) test
@@ -432,6 +432,7 @@ prepare-test-extra: protogen-python
 	$(MAKE) -C backend/python/whisperx
 	$(MAKE) -C backend/python/ace-step
 	$(MAKE) -C backend/python/trl
+	$(MAKE) -C backend/python/tinygrad
 	$(MAKE) -C backend/rust/kokoros kokoros-grpc
 
 test-extra: prepare-test-extra
@@ -454,6 +455,7 @@ test-extra: prepare-test-extra
 	$(MAKE) -C backend/python/whisperx test
 	$(MAKE) -C backend/python/ace-step test
 	$(MAKE) -C backend/python/trl test
+	$(MAKE) -C backend/python/tinygrad test
 	$(MAKE) -C backend/rust/kokoros test
 
 ##
@@ -549,6 +551,56 @@ test-extra-backend-vllm: docker-build-vllm
 	BACKEND_TEST_CAPS=health,load,predict,stream,tools \
 	BACKEND_TEST_OPTIONS=tool_parser:hermes \
 	$(MAKE) test-extra-backend
+
+## tinygrad mirrors the vllm target (same model, same caps, same parser) so
+## the two backends are directly comparable. The LLM path covers Predict,
+## streaming and native tool-call extraction. Companion targets below cover
+## embeddings, Stable Diffusion and Whisper — run them individually or via
+## the `test-extra-backend-tinygrad-all` aggregate.
+test-extra-backend-tinygrad: docker-build-tinygrad
+	BACKEND_IMAGE=local-ai-backend:tinygrad \
+	BACKEND_TEST_MODEL_NAME=Qwen/Qwen2.5-0.5B-Instruct \
+	BACKEND_TEST_CAPS=health,load,predict,stream,tools \
+	BACKEND_TEST_OPTIONS=tool_parser:hermes \
+	$(MAKE) test-extra-backend
+
+## tinygrad — embeddings via LLM last-hidden-state pooling. Reuses the same
+## Qwen2.5-0.5B-Instruct as the chat target so we don't need a separate BERT
+## vendor; the Embedding RPC mean-pools and L2-normalizes the last-layer
+## hidden state.
+test-extra-backend-tinygrad-embeddings: docker-build-tinygrad
+	BACKEND_IMAGE=local-ai-backend:tinygrad \
+	BACKEND_TEST_MODEL_NAME=Qwen/Qwen2.5-0.5B-Instruct \
+	BACKEND_TEST_CAPS=health,load,embeddings \
+	$(MAKE) test-extra-backend
+
+## tinygrad — Stable Diffusion 1.5. The original CompVis/runwayml repos have
+## been gated, so we use the community-maintained mirror at
+## stable-diffusion-v1-5/stable-diffusion-v1-5 with the EMA-only pruned
+## checkpoint (~4.3GB). Step count is kept low (4) so a CPU-only run finishes
+## in a few minutes; bump BACKEND_TEST_IMAGE_STEPS for higher quality.
+test-extra-backend-tinygrad-sd: docker-build-tinygrad
+	BACKEND_IMAGE=local-ai-backend:tinygrad \
+	BACKEND_TEST_MODEL_NAME=stable-diffusion-v1-5/stable-diffusion-v1-5 \
+	BACKEND_TEST_CAPS=health,load,image \
+	$(MAKE) test-extra-backend
+
+## tinygrad — Whisper. Loads OpenAI's tiny.en checkpoint (smallest at ~75MB)
+## from the original azure CDN through tinygrad's `fetch` helper, and
+## transcribes the canonical jfk.wav fixture from whisper.cpp's CI samples.
+## Exercises both AudioTranscription and AudioTranscriptionStream.
+test-extra-backend-tinygrad-whisper: docker-build-tinygrad
+	BACKEND_IMAGE=local-ai-backend:tinygrad \
+	BACKEND_TEST_MODEL_NAME=openai/whisper-tiny.en \
+	BACKEND_TEST_AUDIO_URL=https://github.com/ggml-org/whisper.cpp/raw/master/samples/jfk.wav \
+	BACKEND_TEST_CAPS=health,load,transcription \
+	$(MAKE) test-extra-backend
+
+test-extra-backend-tinygrad-all: \
+	test-extra-backend-tinygrad \
+	test-extra-backend-tinygrad-embeddings \
+	test-extra-backend-tinygrad-sd \
+	test-extra-backend-tinygrad-whisper
 
 ## mlx is Apple-Silicon-first — the MLX backend auto-detects the right tool
 ## parser from the chat template, so no tool_parser: option is needed (it
@@ -707,6 +759,7 @@ BACKEND_MLX_VLM = mlx-vlm|python|.|false|true
 BACKEND_MLX_DISTRIBUTED = mlx-distributed|python|./|false|true
 BACKEND_TRL = trl|python|.|false|true
 BACKEND_LLAMA_CPP_QUANTIZATION = llama-cpp-quantization|python|.|false|true
+BACKEND_TINYGRAD = tinygrad|python|.|false|true
 
 # Rust backends
 BACKEND_KOKOROS = kokoros|rust|.|false|true
@@ -778,6 +831,7 @@ $(eval $(call generate-docker-build-target,$(BACKEND_MLX_VLM)))
 $(eval $(call generate-docker-build-target,$(BACKEND_MLX_DISTRIBUTED)))
 $(eval $(call generate-docker-build-target,$(BACKEND_TRL)))
 $(eval $(call generate-docker-build-target,$(BACKEND_LLAMA_CPP_QUANTIZATION)))
+$(eval $(call generate-docker-build-target,$(BACKEND_TINYGRAD)))
 $(eval $(call generate-docker-build-target,$(BACKEND_KOKOROS)))
 $(eval $(call generate-docker-build-target,$(BACKEND_SAM3_CPP)))
 
@@ -785,7 +839,7 @@ $(eval $(call generate-docker-build-target,$(BACKEND_SAM3_CPP)))
 docker-save-%: backend-images
 	docker save local-ai-backend:$* -o backend-images/$*.tar
 
-docker-build-backends: docker-build-llama-cpp docker-build-ik-llama-cpp docker-build-turboquant docker-build-rerankers docker-build-vllm docker-build-vllm-omni docker-build-transformers docker-build-outetts docker-build-diffusers docker-build-kokoro docker-build-faster-whisper docker-build-coqui docker-build-chatterbox docker-build-vibevoice docker-build-moonshine docker-build-pocket-tts docker-build-qwen-tts docker-build-fish-speech docker-build-faster-qwen3-tts docker-build-qwen-asr docker-build-nemo docker-build-voxcpm docker-build-whisperx docker-build-ace-step docker-build-acestep-cpp docker-build-voxtral docker-build-mlx-distributed docker-build-trl docker-build-llama-cpp-quantization docker-build-kokoros docker-build-sam3-cpp docker-build-qwen3-tts-cpp
+docker-build-backends: docker-build-llama-cpp docker-build-ik-llama-cpp docker-build-turboquant docker-build-rerankers docker-build-vllm docker-build-vllm-omni docker-build-transformers docker-build-outetts docker-build-diffusers docker-build-kokoro docker-build-faster-whisper docker-build-coqui docker-build-chatterbox docker-build-vibevoice docker-build-moonshine docker-build-pocket-tts docker-build-qwen-tts docker-build-fish-speech docker-build-faster-qwen3-tts docker-build-qwen-asr docker-build-nemo docker-build-voxcpm docker-build-whisperx docker-build-ace-step docker-build-acestep-cpp docker-build-voxtral docker-build-mlx-distributed docker-build-trl docker-build-llama-cpp-quantization docker-build-tinygrad docker-build-kokoros docker-build-sam3-cpp docker-build-qwen3-tts-cpp
 
 ########################################################
 ### Mock Backend for E2E Tests
