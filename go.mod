@@ -153,7 +153,7 @@ require (
 	github.com/go-telegram/bot v1.17.0 // indirect
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/gocolly/colly v1.2.0 // indirect
-	github.com/gofiber/fiber/v2 v2.52.9 // indirect
+	github.com/gofiber/fiber/v2 v2.52.11 // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/gomarkdown/markdown v0.0.0-20250311123330-531bef5e742b // indirect
 	github.com/google/go-github/v69 v69.2.0 // indirect
@@ -168,8 +168,8 @@ require (
 	github.com/kevinburke/ssh_config v1.2.0 // indirect
 	github.com/labstack/gommon v0.4.2 // indirect
 	github.com/mschoch/smat v0.2.0 // indirect
-	github.com/mudler/LocalAGI v0.0.0-20260325172845-736ccbb95ec8
-	github.com/mudler/localrecall v0.5.9-0.20260321005011-810084e9369b // indirect
+	github.com/mudler/LocalAGI v0.0.0-20260415165142-3369136c7380
+	github.com/mudler/localrecall v0.5.9-0.20260415164846-8ad831f840fc // indirect
 	github.com/mudler/skillserver v0.0.6
 	github.com/olekukonko/tablewriter v0.0.5 // indirect
 	github.com/oxffaa/gopher-parse-sitemap v0.0.0-20191021113419-005d2eb1def4 // indirect
@@ -318,7 +318,7 @@ require (
 	github.com/docker/cli v29.4.0+incompatible // indirect
 	github.com/docker/docker v28.5.2+incompatible
 	github.com/docker/docker-credential-helpers v0.9.3 // indirect
-	github.com/docker/go-connections v0.6.0
+	github.com/docker/go-connections v0.6.0 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/dsnet/compress v0.0.2-0.20210315054119-f66993602bf5 // indirect
 	github.com/flynn/noise v1.1.0 // indirect

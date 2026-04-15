@@ -85,10 +85,31 @@ func UploadToCollectionEndpoint(app *application.Application) echo.HandlerFunc {
 			if strings.Contains(err.Error(), "not found") {
 				return c.JSON(http.StatusNotFound, map[string]string{"error": err.Error()})
 			}
+			if isEmbeddingDimensionMismatch(err) {
+				return c.JSON(http.StatusConflict, map[string]string{
+					"error": "embedding model dimensionality changed and the collection could not be migrated automatically; restart LocalAI to trigger re-embedding, or reset the collection",
+				})
+			}
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		}
 		return c.JSON(http.StatusOK, map[string]string{"status": "ok", "filename": file.Filename, "key": key})
 	}
+}
+
+// isEmbeddingDimensionMismatch detects the pgvector-side error that bubbles up
+// from LocalRecall when the configured embedding model returns vectors of a
+// different dimensionality than the collection's vector column. LocalRecall
+// migrates the column on startup; this guard only fires for edge cases the
+// migration path doesn't cover (e.g. a model swapped at runtime), so we
+// surface a 409 with an actionable message instead of an opaque 500.
+func isEmbeddingDimensionMismatch(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	return strings.Contains(msg, "SQLSTATE 22000") &&
+		strings.Contains(msg, "expected ") &&
+		strings.Contains(msg, " dimensions, not ")
 }
 
 func ListCollectionEntriesEndpoint(app *application.Application) echo.HandlerFunc {
