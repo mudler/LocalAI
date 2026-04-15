@@ -372,8 +372,16 @@
     covers LLM text generation (Llama / Qwen / Mistral via safetensors or
     GGUF) with native tool-call extraction, BERT-family embeddings,
     Stable Diffusion 1.x / 2 / XL image generation, and Whisper speech-to-text.
+
+    Single image: tinygrad generates its own GPU kernels and dlopens the
+    host driver libraries at runtime, so there is no per-toolkit build
+    split. The same image runs CPU-only or accelerates against
+    CUDA / ROCm / Metal when the host driver is visible.
   urls:
     - https://github.com/tinygrad/tinygrad
+  uri: "quay.io/go-skynet/local-ai-backends:latest-tinygrad"
+  mirrors:
+    - localai/localai-backends:latest-tinygrad
   tags:
     - text-to-text
     - LLM
@@ -381,11 +389,6 @@
     - image-generation
     - transcription
     - multimodal
-  capabilities:
-    nvidia: "cuda12-tinygrad"
-    nvidia-cuda-12: "cuda12-tinygrad"
-    nvidia-cuda-13: "cuda13-tinygrad"
-    default: "cpu-tinygrad"
 - &transformers
   name: "transformers"
   icon: https://avatars.githubusercontent.com/u/25720743?s=200&v=4
@@ -2019,43 +2022,14 @@
   mirrors:
     - localai/localai-backends:master-metal-darwin-arm64-rerankers
 ## tinygrad
+## Single image — the meta anchor above carries the latest uri directly
+## since there is only one variant. The development entry below points at
+## the master tag.
 - !!merge <<: *tinygrad
   name: "tinygrad-development"
-  capabilities:
-    nvidia: "cuda12-tinygrad-development"
-    nvidia-cuda-12: "cuda12-tinygrad-development"
-    nvidia-cuda-13: "cuda13-tinygrad-development"
-    default: "cpu-tinygrad-development"
-- !!merge <<: *tinygrad
-  name: "cpu-tinygrad"
-  uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-tinygrad"
+  uri: "quay.io/go-skynet/local-ai-backends:master-tinygrad"
   mirrors:
-    - localai/localai-backends:latest-cpu-tinygrad
-- !!merge <<: *tinygrad
-  name: "cpu-tinygrad-development"
-  uri: "quay.io/go-skynet/local-ai-backends:master-cpu-tinygrad"
-  mirrors:
-    - localai/localai-backends:master-cpu-tinygrad
-- !!merge <<: *tinygrad
-  name: "cuda12-tinygrad"
-  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-tinygrad"
-  mirrors:
-    - localai/localai-backends:latest-gpu-nvidia-cuda-12-tinygrad
-- !!merge <<: *tinygrad
-  name: "cuda12-tinygrad-development"
-  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-tinygrad"
-  mirrors:
-    - localai/localai-backends:master-gpu-nvidia-cuda-12-tinygrad
-- !!merge <<: *tinygrad
-  name: "cuda13-tinygrad"
-  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-13-tinygrad"
-  mirrors:
-    - localai/localai-backends:latest-gpu-nvidia-cuda-13-tinygrad
-- !!merge <<: *tinygrad
-  name: "cuda13-tinygrad-development"
-  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-tinygrad"
-  mirrors:
-    - localai/localai-backends:master-gpu-nvidia-cuda-13-tinygrad
+    - localai/localai-backends:master-tinygrad
 ## Transformers
 - !!merge <<: *transformers
   name: "transformers-development"

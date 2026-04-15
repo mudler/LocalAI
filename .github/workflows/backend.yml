@@ -105,12 +105,18 @@ jobs:
             dockerfile: "./backend/Dockerfile.python"
             context: "./"
             ubuntu-version: '2404'
+          # tinygrad ships a single image — its CPU device uses bundled
+          # libLLVM, and its CUDA / HIP / Metal devices dlopen the host
+          # driver libraries at runtime via tinygrad's ctypes autogen
+          # wrappers. There is no toolkit-version split because tinygrad
+          # generates kernels itself (PTX renderer for CUDA) and never
+          # links against cuDNN/cuBLAS/torch.
           - build-type: ''
             cuda-major-version: ""
             cuda-minor-version: ""
             platforms: 'linux/amd64'
             tag-latest: 'auto'
-            tag-suffix: '-cpu-tinygrad'
+            tag-suffix: '-tinygrad'
             runs-on: 'ubuntu-latest'
             base-image: "ubuntu:24.04"
             skip-drivers: 'true'
@@ -415,19 +421,6 @@ jobs:
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "transformers"
-            dockerfile: "./backend/Dockerfile.python"
-            context: "./"
-            ubuntu-version: '2404'
-          - build-type: 'cublas'
-            cuda-major-version: "12"
-            cuda-minor-version: "8"
-            platforms: 'linux/amd64'
-            tag-latest: 'auto'
-            tag-suffix: '-gpu-nvidia-cuda-12-tinygrad'
-            runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:24.04"
-            skip-drivers: 'false'
-            backend: "tinygrad"
             dockerfile: "./backend/Dockerfile.python"
             context: "./"
             ubuntu-version: '2404'
@@ -884,19 +877,6 @@ jobs:
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "transformers"
-            dockerfile: "./backend/Dockerfile.python"
-            context: "./"
-            ubuntu-version: '2404'
-          - build-type: 'cublas'
-            cuda-major-version: "13"
-            cuda-minor-version: "0"
-            platforms: 'linux/amd64'
-            tag-latest: 'auto'
-            tag-suffix: '-gpu-nvidia-cuda-13-tinygrad'
-            runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:24.04"
-            skip-drivers: 'false'
-            backend: "tinygrad"
             dockerfile: "./backend/Dockerfile.python"
             context: "./"
             ubuntu-version: '2404'

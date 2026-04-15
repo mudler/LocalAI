@@ -42,20 +42,17 @@ MAX_WORKERS = int(os.environ.get('PYTHON_GRPC_MAX_WORKERS', '1'))
 
 # ---------------------------------------------------------------------------
 # Device selection — must run BEFORE `import tinygrad` anywhere.
+#
+# In production this is set by run.sh based on which driver libraries the
+# host has injected into the container (libcuda.so.1 → CUDA, libamdhip64
+# → HIP, otherwise CLANG). This helper is only a fallback for direct
+# invocations like the unit tests.
 # ---------------------------------------------------------------------------
 
 def _select_tinygrad_device() -> None:
     if any(os.environ.get(k) == "1" for k in ("CUDA", "HIP", "METAL", "CLANG", "AMD", "NV")):
         return
-    build_type = os.environ.get("BUILD_TYPE", "").lower()
-    if build_type in ("cublas", "cuda", "cuda12", "cuda13"):
-        os.environ["CUDA"] = "1"
-    elif build_type in ("hipblas", "rocm"):
-        os.environ["HIP"] = "1"
-    elif build_type == "metal":
-        os.environ["METAL"] = "1"
-    else:
-        os.environ["CLANG"] = "1"
+    os.environ["CLANG"] = "1"
 
 
 # ---------------------------------------------------------------------------
