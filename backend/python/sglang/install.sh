@@ -50,6 +50,16 @@ if [ "x${BUILD_TYPE}" == "x" ] || [ "x${FROM_SOURCE:-}" == "xtrue" ]; then
     # present in the venv before we build from source.
     uv pip install --no-build-isolation "scikit-build-core>=0.10" ninja cmake
 
+    # sgl-kernel's CPU shm.cpp uses __m512 AVX-512 intrinsics unconditionally.
+    # CMakeLists passes -march=native, which on runners without AVX-512 in
+    # /proc/cpuinfo (ubuntu-latest, most shared CI pools) fails with
+    # "__m512 return without 'avx512f' enabled changes the ABI".
+    # Force Sapphire Rapids ISA at compile time so the build always succeeds;
+    # the resulting binary still requires an AVX-512 capable CPU at runtime,
+    # same constraint sglang upstream documents in docker/xeon.Dockerfile.
+    export CXXFLAGS="${CXXFLAGS:-} -march=sapphirerapids"
+    export CFLAGS="${CFLAGS:-} -march=sapphirerapids"
+
     _sgl_src=$(mktemp -d)
     trap 'rm -rf "${_sgl_src}"' EXIT
     git clone --depth 1 https://github.com/sgl-project/sglang "${_sgl_src}/sglang"

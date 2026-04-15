@@ -590,32 +590,48 @@ jobs:
   #     - name: Build vllm (cpu) backend image and run gRPC e2e tests
   #       run: |
   #         make test-extra-backend-vllm
-  tests-sglang-grpc:
-    needs: detect-changes
-    if: needs.detect-changes.outputs.sglang == 'true' || needs.detect-changes.outputs.run-all == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 90
-    steps:
-      - name: Clone
-        uses: actions/checkout@v6
-        with:
-          submodules: true
-      - name: Dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-              make build-essential curl unzip ca-certificates git tar
-      - name: Setup Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.25.4'
-      - name: Free disk space
-        run: |
-          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android /opt/hostedtoolcache/CodeQL || true
-          df -h
-      - name: Build sglang (cpu) backend image and run gRPC e2e tests
-        run: |
-          make test-extra-backend-sglang
+  # tests-sglang-grpc is currently disabled in CI for the same reason as
+  # tests-vllm-grpc: sglang's CPU kernel (sgl-kernel) uses __m512 AVX-512
+  # intrinsics unconditionally in shm.cpp, so the from-source build
+  # requires `-march=sapphirerapids` (already set in install.sh) and the
+  # resulting binary SIGILLs at import on CPUs without AVX-512 VNNI/BF16.
+  # The ubuntu-latest runner pool does not guarantee that ISA baseline.
+  #
+  # The test itself (tests/e2e-backends + make test-extra-backend-sglang)
+  # is fully working and validated locally on a host with the right
+  # SIMD baseline. Run it manually with:
+  #
+  #   make test-extra-backend-sglang
+  #
+  # Re-enable this job once we have a self-hosted runner label with
+  # guaranteed AVX-512 VNNI/BF16 support.
+  #
+  # tests-sglang-grpc:
+  #   needs: detect-changes
+  #   if: needs.detect-changes.outputs.sglang == 'true' || needs.detect-changes.outputs.run-all == 'true'
+  #   runs-on: bigger-runner
+  #   timeout-minutes: 90
+  #   steps:
+  #     - name: Clone
+  #       uses: actions/checkout@v6
+  #       with:
+  #         submodules: true
+  #     - name: Dependencies
+  #       run: |
+  #         sudo apt-get update
+  #         sudo apt-get install -y --no-install-recommends \
+  #             make build-essential curl unzip ca-certificates git tar
+  #     - name: Setup Go
+  #       uses: actions/setup-go@v5
+  #       with:
+  #         go-version: '1.25.4'
+  #     - name: Free disk space
+  #       run: |
+  #         sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android /opt/hostedtoolcache/CodeQL || true
+  #         df -h
+  #     - name: Build sglang (cpu) backend image and run gRPC e2e tests
+  #       run: |
+  #         make test-extra-backend-sglang
   tests-acestep-cpp:
     needs: detect-changes
     if: needs.detect-changes.outputs.acestep-cpp == 'true' || needs.detect-changes.outputs.run-all == 'true'
