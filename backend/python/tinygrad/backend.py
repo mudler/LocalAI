@@ -2,15 +2,28 @@
 """
 LocalAI gRPC backend for tinygrad.
 
-Multimodal scope (landing incrementally):
-  - LLM text generation (Llama 3 / Qwen 2.5 / Mistral via HF safetensors + GGUF)
-  - Native tool-call extraction via pluggable parsers (hermes, llama3_json, ...)
-  - Embeddings, Stable Diffusion, Whisper — planned; currently return UNIMPLEMENTED.
+LLM execution is delegated to `tinygrad.apps.llm.Transformer` — we keep
+only a thin HF → GGUF-name adapter (vendor/appsllm_adapter.py) for the
+safetensors path; GGUF models load through `Transformer.from_gguf()`
+with native Q4/Q6/Q8 support.
 
-The heavy imports (tinygrad, tokenizers, vendor.llama) are deferred until
-`LoadModel`, because tinygrad binds its compute device at import time from
-env vars. `_select_tinygrad_device()` maps LocalAI's BUILD_TYPE onto the
-corresponding tinygrad env flag before any import happens.
+Scope:
+  - LLM text generation via apps.llm (Qwen3 / Qwen3.5 / Llama 3.x /
+    GLM-4 / OLMoE / Kimi-K2 / Moonlight — anything apps.llm supports).
+  - Native tool-call extraction via pluggable parsers (hermes,
+    llama3_json, qwen3_xml, mistral).
+  - Embeddings — mean-pooled last-hidden-state over the block stack.
+  - Stable Diffusion 1.x, Whisper — handled by the vendored paths.
+
+Sampling is greedy-only because `apps.llm.Transformer.generate` (in the
+tinygrad 0.12.0 PyPI release) ends with `.argmax(-1)` and takes no
+temperature / top-k / top-p / repetition-penalty arguments. These
+request fields are accepted and ignored.
+
+The heavy imports (tinygrad, tokenizers, tinygrad.apps.llm) are deferred
+until `LoadModel`, because tinygrad binds its compute device at import
+time from env vars. `_select_tinygrad_device()` maps LocalAI's BUILD_TYPE
+onto the corresponding tinygrad env flag before any import happens.
 """
 from __future__ import annotations
 
@@ -62,8 +75,10 @@ def _select_tinygrad_device() -> None:
 def _resolve_model_assets(model_ref: str) -> Path:
     """
     Accept either a local path or a HuggingFace repo id (e.g.
-    "Qwen/Qwen2.5-0.5B-Instruct") and return the local directory / file.
-    HF ids are materialized via `huggingface_hub.snapshot_download`.
+    "unsloth/Qwen3.5-0.8B-GGUF") and return the local directory / file.
+    HF ids are materialized via `huggingface_hub.snapshot_download` — we
+    pull both safetensors (for fp16 HF repos) and GGUF (for quantized
+    repos) so the same code path handles either.
     """
     p = Path(model_ref)
     if p.exists():
@@ -80,23 +95,27 @@ def _resolve_model_assets(model_ref: str) -> Path:
                 "generation_config.json",
                 "*.safetensors",
                 "*.safetensors.index.json",
+                "*.gguf",
             ],
         )
         return Path(local)
     raise FileNotFoundError(f"Model not found: {model_ref}")
 
 
-def _load_llm_weights(model_dir: Path):
-    """Load HF safetensors weights from a directory or a single file."""
-    from tinygrad import Device, Tensor, dtypes
-    from tinygrad.nn.state import safe_load, gguf_load
+def _gguf_path(model_ref: Path) -> Optional[Path]:
+    """Return the GGUF file to load from a path that may be a file or dir."""
+    if model_ref.is_file() and str(model_ref).endswith(".gguf"):
+        return model_ref
+    if model_ref.is_dir():
+        ggufs = sorted(model_ref.glob("*.gguf"))
+        if ggufs:
+            return ggufs[0]
+    return None
 
-    if model_dir.is_file():
-        if str(model_dir).endswith(".gguf"):
-            gguf_tensor = Tensor.empty(os.stat(model_dir).st_size, dtype=dtypes.uint8,
-                                       device=f"disk:{model_dir}").to(Device.DEFAULT)
-            return gguf_load(gguf_tensor)[1], "gguf"
-        return safe_load(str(model_dir)), "safetensors"
+
+def _load_hf_safetensors(model_dir: Path) -> dict[str, Any]:
+    """Load sharded or single-file HF safetensors from a directory."""
+    from tinygrad.nn.state import safe_load
 
     index = model_dir / "model.safetensors.index.json"
     if index.exists():
@@ -105,28 +124,13 @@ def _load_llm_weights(model_dir: Path):
         shards: dict[str, Any] = {}
         for shard_name in set(weight_map.values()):
             shards[shard_name] = safe_load(str(model_dir / shard_name))
-        merged = {k: shards[n][k] for k, n in weight_map.items()}
-        return merged, "safetensors"
+        return {k: shards[n][k] for k, n in weight_map.items()}
 
     single = model_dir / "model.safetensors"
     if single.exists():
-        return safe_load(str(single)), "safetensors"
+        return safe_load(str(single))
 
-    ggufs = sorted(model_dir.glob("*.gguf"))
-    if ggufs:
-        gguf_tensor = Tensor.empty(os.stat(ggufs[0]).st_size, dtype=dtypes.uint8,
-                                   device=f"disk:{ggufs[0]}").to(Device.DEFAULT)
-        return gguf_load(gguf_tensor)[1], "gguf"
-
-    raise FileNotFoundError(f"No safetensors or gguf weights found under {model_dir}")
-
-
-def _infer_qkv_bias(config: dict) -> bool:
-    """Qwen2-family uses Q/K/V projection bias; Llama/Mistral do not."""
-    architectures = [a.lower() for a in config.get("architectures", [])]
-    if any("qwen" in a for a in architectures):
-        return True
-    return bool(config.get("attention_bias", False)) or bool(config.get("qkv_bias", False))
+    raise FileNotFoundError(f"No safetensors weights found under {model_dir}")
 
 
 def _auto_tool_parser(model_ref: Optional[str], config: dict) -> Optional[str]:
@@ -252,69 +256,102 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             messages=self._messages_to_dicts(request.Messages),
             tools=tools,
             add_generation_prompt=True,
+            # Qwen3's chat template enables <think>...</think> reasoning
+            # by default. On small models (0.6B) that reasoning preamble
+            # eats the whole token budget before a tool call emerges, so
+            # we disable it. Templates that don't know this var ignore it.
+            enable_thinking=False,
         )
 
     # --------------------- LLM path -------------------------------------
 
-    def _load_llm(self, model_dir: Path) -> None:
-        config_path = model_dir / "config.json" if model_dir.is_dir() else None
-        if config_path is None or not config_path.exists():
-            raise FileNotFoundError(f"config.json not found under {model_dir}")
-        with open(config_path) as fp:
-            config = json.load(fp)
-        self.llm_config = config
+    def _load_llm(self, model_path: Path) -> None:
+        """Load an LLM through `tinygrad.apps.llm.Transformer`.
 
-        from tinygrad import nn
+        Two paths:
+          - GGUF file (anywhere in the tree) → `Transformer.from_gguf()`
+            handles config, weight conversion (incl. Q4/Q6/Q8 quantization)
+            and RoPE permute natively.
+          - HF safetensors directory → build `TransformerConfig` from
+            config.json and load weights via a small HF→GGUF-name adapter.
+        """
+        from tinygrad import Device, Tensor, dtypes
+        from tinygrad.apps.llm import Transformer
+        from tinygrad.nn.state import load_state_dict
 
-        from vendor.llama import Transformer, convert_from_huggingface, convert_from_gguf, fix_bf16
-
-        n_layers = config["num_hidden_layers"]
-        n_heads = config["num_attention_heads"]
-        n_kv_heads = config.get("num_key_value_heads", n_heads)
-        dim = config["hidden_size"]
-        hidden_dim = config["intermediate_size"]
-        vocab_size = config["vocab_size"]
-        norm_eps = config.get("rms_norm_eps", 1e-5)
-        rope_theta = config.get("rope_theta", 10000)
-        self.max_context = min(config.get("max_position_embeddings", 4096), 8192)
-        qkv_bias = _infer_qkv_bias(config)
-
-        weights, weight_format = _load_llm_weights(model_dir)
-
-        model = Transformer(
-            dim=dim,
-            hidden_dim=hidden_dim,
-            n_heads=n_heads,
-            n_layers=n_layers,
-            norm_eps=norm_eps,
-            vocab_size=vocab_size,
-            linear=nn.Linear,
-            embedding=nn.Embedding,
-            n_kv_heads=n_kv_heads,
-            rope_theta=rope_theta,
-            max_context=self.max_context,
-            jit=True,
-            qkv_bias=qkv_bias,
+        from vendor.appsllm_adapter import (
+            _hf_to_appsllm_state_dict,
+            _hf_to_transformer_kwargs,
         )
 
-        if weight_format == "safetensors":
-            weights = convert_from_huggingface(weights, n_layers, n_heads, n_kv_heads)
+        max_context_cap = 8192
+
+        gguf_file = _gguf_path(model_path)
+        if gguf_file is not None:
+            # GGUF path: apps.llm handles everything — config, quant, RoPE.
+            gguf_tensor = Tensor.empty(
+                os.stat(gguf_file).st_size, dtype=dtypes.uint8,
+                device=f"disk:{gguf_file}",
+            ).to(Device.DEFAULT)
+            model, kv = Transformer.from_gguf(gguf_tensor, max_context=max_context_cap)
+            self.llm_model = model
+            self.max_context = model.max_context
+            # Preserve a config-shaped dict for tool-parser heuristics and
+            # the "loaded" message.
+            arch = kv.get("general.architecture", "")
+            self.llm_config = {
+                "architectures": [kv.get("general.name", arch) or arch],
+                "gguf_kv": kv,
+            }
+
+            # Tokenizer: prefer sidecar tokenizer.json (richer HF Jinja2
+            # templates), fall back to apps.llm's SimpleTokenizer built
+            # from GGUF metadata.
+            self._load_tokenizer_for_dir(model_path if model_path.is_dir() else gguf_file.parent, gguf_kv=kv)
         else:
-            weights = convert_from_gguf(weights, n_layers)
-        weights = fix_bf16(weights)
+            # HF safetensors path.
+            if not model_path.is_dir():
+                raise FileNotFoundError(f"Expected HF model directory, got file: {model_path}")
+            config_path = model_path / "config.json"
+            if not config_path.exists():
+                raise FileNotFoundError(f"config.json not found under {model_path}")
+            with open(config_path) as fp:
+                hf_config = json.load(fp)
+            self.llm_config = hf_config
 
-        from tinygrad.nn.state import load_state_dict
-        load_state_dict(model, weights, strict=False, consume=True)
-        self.llm_model = model
+            raw_weights = _load_hf_safetensors(model_path)
+            n_layers = hf_config["num_hidden_layers"]
+            state_dict = _hf_to_appsllm_state_dict(raw_weights, n_layers)
 
-        # Tokenizer
+            kwargs = _hf_to_transformer_kwargs(hf_config, state_dict, max_context_cap)
+            self.max_context = kwargs["max_context"]
+
+            model = Transformer(**kwargs)
+            load_state_dict(model, state_dict, strict=False, consume=True)
+            self.llm_model = model
+
+            self._load_tokenizer_for_dir(model_path, gguf_kv=None)
+
+        # Auto-pick tool parser from options or model family.
+        parser_name = self.options.get("tool_parser") or _auto_tool_parser(self.model_ref, self.llm_config)
+        self.tool_parser = resolve_parser(parser_name)
+
+    def _load_tokenizer_for_dir(self, model_dir: Path, gguf_kv: Optional[dict]) -> None:
+        """Load HF tokenizer + chat template + EOS ids from a model directory.
+
+        Falls back to apps.llm's `SimpleTokenizer.from_gguf_kv` when there
+        is no `tokenizer.json` sidecar (single-file GGUF, no HF repo).
+        """
         tokenizer_json = model_dir / "tokenizer.json"
-        if not tokenizer_json.exists():
+        if tokenizer_json.exists():
+            from tokenizers import Tokenizer as HFTokenizer
+            self.llm_tokenizer = HFTokenizer.from_file(str(tokenizer_json))
+        elif gguf_kv is not None:
+            from tinygrad.apps.llm import SimpleTokenizer
+            self.llm_tokenizer = SimpleTokenizer.from_gguf_kv(gguf_kv)
+        else:
             raise FileNotFoundError(f"tokenizer.json not found under {model_dir}")
-        from tokenizers import Tokenizer as HFTokenizer
-        self.llm_tokenizer = HFTokenizer.from_file(str(tokenizer_json))
 
-        # Chat template + EOS ids (from tokenizer_config.json + generation_config.json)
         tok_cfg_path = model_dir / "tokenizer_config.json"
         if tok_cfg_path.exists():
             with open(tok_cfg_path) as fp:
@@ -322,25 +359,23 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             self.chat_template = tok_cfg.get("chat_template")
 
         self.llm_eos_ids = []
-        gen_cfg_path = model_dir / "generation_config.json"
-        if gen_cfg_path.exists():
-            with open(gen_cfg_path) as fp:
-                gen_cfg = json.load(fp)
-            eos = gen_cfg.get("eos_token_id")
+        for cfg_name in ("generation_config.json", "config.json"):
+            cfg_path = model_dir / cfg_name
+            if not cfg_path.exists():
+                continue
+            with open(cfg_path) as fp:
+                cfg = json.load(fp)
+            eos = cfg.get("eos_token_id")
             if isinstance(eos, list):
                 self.llm_eos_ids.extend(int(x) for x in eos)
             elif isinstance(eos, int):
                 self.llm_eos_ids.append(eos)
-        if not self.llm_eos_ids:
-            eos = config.get("eos_token_id")
-            if isinstance(eos, list):
-                self.llm_eos_ids.extend(int(x) for x in eos)
-            elif isinstance(eos, int):
+            if self.llm_eos_ids:
+                break
+        if not self.llm_eos_ids and gguf_kv is not None:
+            eos = gguf_kv.get("tokenizer.ggml.eos_token_id")
+            if isinstance(eos, int):
                 self.llm_eos_ids.append(eos)
-
-        # Auto-pick tool parser from options or model family.
-        parser_name = self.options.get("tool_parser") or _auto_tool_parser(self.model_ref, config)
-        self.tool_parser = resolve_parser(parser_name)
 
     # --------------------- Stable Diffusion path ------------------------
 
@@ -400,28 +435,37 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
 
     # --------------------- LLM generation -------------------------------
 
-    def _generate_tokens(self, prompt: str, max_new_tokens: int, temperature: float, top_p: float, top_k: int):
-        """Synchronous generator yielding (token_id, token_text) pairs."""
-        from tinygrad import Tensor
-
+    def _encode_prompt(self, prompt: str) -> list[int]:
+        """Normalize tokenizer output: HF `tokenizers.Tokenizer.encode()`
+        returns an `Encoding` with `.ids`; apps.llm's `SimpleTokenizer.encode()`
+        returns `list[int]` directly."""
         encoded = self.llm_tokenizer.encode(prompt)
-        ids = encoded.ids
+        return list(getattr(encoded, "ids", encoded))
+
+    def _decode_tokens(self, ids: list[int]) -> str:
+        return self.llm_tokenizer.decode(ids)
+
+    def _generate_tokens(self, prompt: str, max_new_tokens: int, temperature: float):
+        """Yield (token_id, token_text) pairs using `apps.llm.Transformer.generate()`.
+
+        tinygrad 0.12.0's `generate()` is greedy-only (its `forward` ends
+        with `.argmax(-1)` and it takes no temperature / top-k / top-p
+        knobs). We accept `temperature` in the signature for API
+        compatibility but it is ignored.
+        """
+        del temperature  # tinygrad.apps.llm.Transformer.generate is greedy-only
+        ids = self._encode_prompt(prompt)
         if not ids:
             return
 
-        # Prefill: run one forward pass over the full prompt, sampling from the last token.
-        prompt_tensor = Tensor([ids])
-        next_tok = int(self.llm_model(prompt_tensor, 0, temperature=temperature, top_k=top_k, top_p=top_p).item())
-        pos = len(ids)
-
-        for _ in range(max_new_tokens):
+        count = 0
+        for next_tok in self.llm_model.generate(list(ids)):
             if next_tok in self.llm_eos_ids:
                 break
-            text = self.llm_tokenizer.decode([next_tok])
-            yield next_tok, text
-            next_tok = int(self.llm_model(Tensor([[next_tok]]), pos, temperature=temperature,
-                                          top_k=top_k, top_p=top_p).item())
-            pos += 1
+            yield next_tok, self._decode_tokens([next_tok])
+            count += 1
+            if count >= max_new_tokens:
+                break
 
     # --------------------- gRPC methods ---------------------------------
 
@@ -455,12 +499,6 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 )
 
             model_path = _resolve_model_assets(self.model_ref)
-            if model_path.is_file():
-                return backend_pb2.Result(
-                    success=False,
-                    message=("tinygrad currently requires an HF model directory with config.json + "
-                             "tokenizer.json; single-file GGUF support lands with gallery metadata wiring."),
-                )
             self._load_llm(model_path)
 
             return backend_pb2.Result(
@@ -483,13 +521,11 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             prompt = self._render_prompt(request)
             max_new = request.Tokens if request.Tokens > 0 else 256
             temperature = request.Temperature if request.Temperature > 0 else 0.7
-            top_p = request.TopP if request.TopP > 0 else 0.95
-            top_k = request.TopK if request.TopK > 0 else 0
 
             t0 = time.monotonic()
             pieces: list[str] = []
             ntok = 0
-            for _, text in self._generate_tokens(prompt, max_new, temperature, top_p, top_k):
+            for _, text in self._generate_tokens(prompt, max_new, temperature):
                 pieces.append(text)
                 ntok += 1
             elapsed = time.monotonic() - t0
@@ -534,11 +570,9 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             prompt = self._render_prompt(request)
             max_new = request.Tokens if request.Tokens > 0 else 256
             temperature = request.Temperature if request.Temperature > 0 else 0.7
-            top_p = request.TopP if request.TopP > 0 else 0.95
-            top_k = request.TopK if request.TopK > 0 else 0
 
             buffer = ""
-            for _, text in self._generate_tokens(prompt, max_new, temperature, top_p, top_k):
+            for _, text in self._generate_tokens(prompt, max_new, temperature):
                 buffer += text
                 yield backend_pb2.Reply(
                     message=text.encode("utf-8"),
@@ -585,8 +619,9 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 return backend_pb2.EmbeddingResult()
 
             from tinygrad import Tensor, dtypes
+            from vendor.appsllm_adapter import _embed_hidden
 
-            ids = self.llm_tokenizer.encode(text).ids
+            ids = self._encode_prompt(text)
             if not ids:
                 return backend_pb2.EmbeddingResult(embeddings=[])
 
@@ -594,7 +629,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             ids = ids[: self.max_context]
             tokens = Tensor([ids])
 
-            hidden = self.llm_model.embed(tokens)  # (1, seqlen, dim)
+            hidden = _embed_hidden(self.llm_model, tokens)  # (1, seqlen, dim)
             # Mean pool over sequence dim
             pooled = hidden.mean(axis=1).squeeze(0)  # (dim,)
             # L2 normalize

@@ -559,18 +559,18 @@ test-extra-backend-vllm: docker-build-vllm
 ## the `test-extra-backend-tinygrad-all` aggregate.
 test-extra-backend-tinygrad: docker-build-tinygrad
 	BACKEND_IMAGE=local-ai-backend:tinygrad \
-	BACKEND_TEST_MODEL_NAME=Qwen/Qwen2.5-0.5B-Instruct \
+	BACKEND_TEST_MODEL_NAME=Qwen/Qwen3-0.6B \
 	BACKEND_TEST_CAPS=health,load,predict,stream,tools \
 	BACKEND_TEST_OPTIONS=tool_parser:hermes \
 	$(MAKE) test-extra-backend
 
 ## tinygrad — embeddings via LLM last-hidden-state pooling. Reuses the same
-## Qwen2.5-0.5B-Instruct as the chat target so we don't need a separate BERT
-## vendor; the Embedding RPC mean-pools and L2-normalizes the last-layer
-## hidden state.
+## Qwen3-0.6B as the chat target so we don't need a separate BERT vendor;
+## the Embedding RPC mean-pools and L2-normalizes the last-layer hidden
+## state.
 test-extra-backend-tinygrad-embeddings: docker-build-tinygrad
 	BACKEND_IMAGE=local-ai-backend:tinygrad \
-	BACKEND_TEST_MODEL_NAME=Qwen/Qwen2.5-0.5B-Instruct \
+	BACKEND_TEST_MODEL_NAME=Qwen/Qwen3-0.6B \
 	BACKEND_TEST_CAPS=health,load,embeddings \
 	$(MAKE) test-extra-backend
 
