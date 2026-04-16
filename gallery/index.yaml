@@ -54,7 +54,7 @@
         disable: true
     known_usecases:
       - chat
-    mmproj: mmproj-gemma-4-26B-A4B-it-f16.gguf
+    mmproj: mmproj-gemma-4-26B-A4B-it-bf16.gguf
     options:
       - use_jinja:true
     parameters:
@@ -65,9 +65,9 @@
     - filename: gemma-4-26B-A4B-it-Q4_K_M.gguf
       uri: huggingface://ggml-org/gemma-4-26B-A4B-it-GGUF/gemma-4-26B-A4B-it-Q4_K_M.gguf
       sha256: 88f4a13b0bb95f031a7fad973e10854122fb67ebc34d214d39a2f65053046abc
-    - filename: mmproj-gemma-4-26B-A4B-it-f16.gguf
-      sha256: 4107c1c3c299095fbc323f87f4e4cac81dd9527db5ff90808fea669e08244531
-      uri: huggingface://ggml-org/gemma-4-26B-A4B-it-GGUF/mmproj-gemma-4-26B-A4B-it-f16.gguf
+    - filename: mmproj-gemma-4-26B-A4B-it-bf16.gguf
+      sha256: 2aa99ffb47033ead4a3f1584fec5283905302c1c16fed59c99e0eec131c6dc53
+      uri: huggingface://ggml-org/gemma-4-26B-A4B-it-GGUF/mmproj-gemma-4-26B-A4B-it-bf16.gguf
 - !!merge <<: *gemma4
   name: "gemma-4-e2b-it"
   urls:
@@ -83,20 +83,20 @@
         disable: true
     known_usecases:
       - chat
-    mmproj: mmproj-gemma-4-e2b-it-f16.gguf
+    mmproj: mmproj-gemma-4-E2B-it-bf16.gguf
     options:
       - use_jinja:true
     parameters:
-      model: gemma-4-e2b-it-Q8_0.gguf
+      model: gemma-4-E2B-it-Q8_0.gguf
     template:
       use_tokenizer_template: true
   files:
-    - filename: gemma-4-e2b-it-Q8_0.gguf
-      sha256: 12d878964d21f1779dea15abeee048855151b27089fe98b32c628f85740933f3
-      uri: huggingface://ggml-org/gemma-4-E2B-it-GGUF/gemma-4-e2b-it-Q8_0.gguf
-    - filename: mmproj-gemma-4-e2b-it-f16.gguf
-      sha256: 9165f3d9674c3731ae29373d95b860d141eee030b0ec0bf4577e2de8596a7767
-      uri: huggingface://ggml-org/gemma-4-E2B-it-GGUF/mmproj-gemma-4-e2b-it-f16.gguf
+    - filename: gemma-4-E2B-it-Q8_0.gguf
+      sha256: e049411c01fb7a81161768c52e38828970e55a64e22738957adcbe51d20f1c8e
+      uri: huggingface://ggml-org/gemma-4-E2B-it-GGUF/gemma-4-E2B-it-Q8_0.gguf
+    - filename: mmproj-gemma-4-E2B-it-bf16.gguf
+      sha256: e42083b71a9e31e0f722171d551f6d92b101544001c4dde040306a8f2160fe8c
+      uri: huggingface://ggml-org/gemma-4-E2B-it-GGUF/mmproj-gemma-4-E2B-it-bf16.gguf
 - !!merge <<: *gemma4
   name: "gemma-4-e4b-it"
   urls:
@@ -112,20 +112,20 @@
         disable: true
     known_usecases:
       - chat
-    mmproj: mmproj-gemma-4-e4b-it-f16.gguf
+    mmproj: mmproj-gemma-4-E4B-it-bf16.gguf
     options:
       - use_jinja:true
     parameters:
-      model: gemma-4-e4b-it-Q4_K_M.gguf
+      model: gemma-4-E4B-it-Q4_K_M.gguf
     template:
       use_tokenizer_template: true
   files:
-    - filename: gemma-4-e4b-it-Q4_K_M.gguf
-      sha256: dff4e4ca848e33e678a63b5b7d1f8bfa4a17e764415d0c0aaaad07c84f4d8fad
-      uri: huggingface://ggml-org/gemma-4-E4B-it-GGUF/gemma-4-e4b-it-Q4_K_M.gguf
-    - filename: mmproj-gemma-4-e4b-it-f16.gguf
-      sha256: a7e94f39cee4569fae49c852cbfb574c54e225aafb8b75313a8bf06b89e17712
-      uri: huggingface://ggml-org/gemma-4-E4B-it-GGUF/mmproj-gemma-4-e4b-it-f16.gguf
+    - filename: gemma-4-E4B-it-Q4_K_M.gguf
+      sha256: 90ce98129eb3e8cc57e62433d500c97c624b1e3af1fcc85dd3b55ad7e0313e9f
+      uri: huggingface://ggml-org/gemma-4-E4B-it-GGUF/gemma-4-E4B-it-Q4_K_M.gguf
+    - filename: mmproj-gemma-4-E4B-it-bf16.gguf
+      sha256: 4c199e460410ba219a8c63930a7121154e1c70cdf66044858f767966332e5a54
+      uri: huggingface://ggml-org/gemma-4-E4B-it-GGUF/mmproj-gemma-4-E4B-it-bf16.gguf
 - !!merge <<: *gemma4
   name: "gemma-4-31b-it"
   urls:
