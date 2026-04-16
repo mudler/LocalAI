@@ -307,8 +307,10 @@ export default function ModelEditor() {
         }
         // Refresh interactive state from saved YAML
         setSavedYamlText(yamlText)
+        let parsedName = null
         try {
           const parsed = YAML.parse(yamlText)
+          parsedName = parsed?.name ?? null
           const flat = flattenConfig(parsed || {})
           setValues(flat)
           setInitialValues(structuredClone(flat))
@@ -316,6 +318,12 @@ export default function ModelEditor() {
         } catch { /* ignore parse failure */ }
         setTabSwitchWarning(false)
         addToast('Config saved', 'success')
+        // When the model was renamed via the YAML `name:` field, the current
+        // editor URL points at a name that no longer exists on the backend.
+        // Redirect so refreshes and subsequent saves hit the new name.
+        if (parsedName && parsedName !== name) {
+          navigate(`/app/model-editor/${encodeURIComponent(parsedName)}`, { replace: true })
+        }
       }
     } catch (err) {
       addToast(`Save failed: ${err.message}`, 'error')

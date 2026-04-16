@@ -335,6 +335,12 @@ func galleryFileName(name string) string {
 	return "._gallery_" + name + ".yaml"
 }
 
+// GalleryFileName returns the on-disk filename of the gallery metadata file
+// for a given installed model name (e.g. "._gallery_<name>.yaml").
+func GalleryFileName(name string) string {
+	return galleryFileName(name)
+}
+
 func GetLocalModelConfiguration(basePath string, name string) (*ModelConfig, error) {
 	name = strings.ReplaceAll(name, string(os.PathSeparator), "__")
 	galleryFile := filepath.Join(basePath, galleryFileName(name))
