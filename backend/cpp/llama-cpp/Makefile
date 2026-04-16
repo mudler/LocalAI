@@ -132,7 +132,7 @@ llama.cpp:
 	cd llama.cpp && \
 	git init && \
 	git remote add origin $(LLAMA_REPO)  && \
-	git fetch origin && \
+	git fetch --all --tags && \
 	git checkout -b build $(LLAMA_VERSION) && \
 	git submodule update --init --recursive --depth 1 --single-branch
 
