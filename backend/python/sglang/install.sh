@@ -51,18 +51,23 @@ if [ "x${BUILD_TYPE}" == "x" ] || [ "x${FROM_SOURCE:-}" == "xtrue" ]; then
     uv pip install --no-build-isolation "scikit-build-core>=0.10" ninja cmake
 
     # sgl-kernel's CPU shm.cpp uses __m512 AVX-512 intrinsics unconditionally.
-    # CMakeLists passes -march=native, which on runners without AVX-512 in
-    # /proc/cpuinfo (ubuntu-latest, most shared CI pools) fails with
+    # csrc/cpu/CMakeLists.txt hard-codes add_compile_options(-march=native),
+    # which on runners without AVX-512 in /proc/cpuinfo fails with
     # "__m512 return without 'avx512f' enabled changes the ABI".
-    # Force Sapphire Rapids ISA at compile time so the build always succeeds;
-    # the resulting binary still requires an AVX-512 capable CPU at runtime,
+    # CXXFLAGS alone is insufficient because CMake's add_compile_options()
+    # appends -march=native *after* CXXFLAGS, overriding it.
+    # We therefore patch the CMakeLists.txt to replace -march=native with
+    # -march=sapphirerapids so the flag is consistent throughout the build.
+    # The resulting binary still requires an AVX-512 capable CPU at runtime,
     # same constraint sglang upstream documents in docker/xeon.Dockerfile.
-    export CXXFLAGS="${CXXFLAGS:-} -march=sapphirerapids"
-    export CFLAGS="${CFLAGS:-} -march=sapphirerapids"
 
     _sgl_src=$(mktemp -d)
     trap 'rm -rf "${_sgl_src}"' EXIT
     git clone --depth 1 https://github.com/sgl-project/sglang "${_sgl_src}/sglang"
+
+    # Patch -march=native → -march=sapphirerapids in the CPU kernel CMakeLists
+    sed -i 's/-march=native/-march=sapphirerapids/g' \
+        "${_sgl_src}/sglang/sgl-kernel/csrc/cpu/CMakeLists.txt"
 
     pushd "${_sgl_src}/sglang/sgl-kernel"
         if [ -f pyproject_cpu.toml ]; then
