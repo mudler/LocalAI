@@ -1,10 +1,10 @@
 --extra-index-url https://download.pytorch.org/whl/rocm7.0
-torch==2.10.0+rocm7.0
+torch==2.11.0+xpu
 torchaudio
 torchvision
 
 # Core dependencies
-transformers>=4.51.0,<4.58.0
+transformers>=4.51.0,<5.6.0
 diffusers
 gradio>=6.5.1
 matplotlib>=3.7.5
