@@ -1,4 +1,78 @@
 ---
+- name: "minimax-m2.7"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/unsloth/MiniMax-M2.7-GGUF
+  description: |
+    Join Our
+
+    💬 WeChat
+
+    🧩 Discord
+
+    community.
+
+    MiniMax Agent
+
+    ⚡️ API
+
+    CLI
+
+    MiniMax Website
+
+    🤗 Hugging Face
+
+    🐙 GitHub
+
+    🤖️ ModelScope
+
+    📄 LICENSE
+
+    **MiniMax-M2.7** is our first model deeply participating in its own evolution. M2.7 is capable of building complex agent harnesses and completing highly elaborate productivity tasks, leveraging Agent Teams, complex Skills, and dynamic tool search. For more details, see our blog post.
+
+    ## Model Self-Evolution
+
+    M2.7 initiates a cycle of model self-evolution: during development, we let the model update its own memory, build dozens of complex skills for RL experiments, and improve its own learning process based on experiment results. An internal version of M2.7 autonomously optimized a programming scaffold over 100+ rounds — analyzing failure trajectories, modifying code, running evaluations, and deciding to keep or revert — achieving a **30% performance improvement**. On MLE Bench Lite (22 ML competitions), M2.7 achieved a **66.6% medal rate**, second only to Opus-4.6 and GPT-5.4.
+
+    ## Professional Software Engineering
+
+    ...
+  license: "other"
+  tags:
+    - llm
+    - gguf
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      min_p: 0.01
+      model: llama-cpp/models/MiniMax-M2.7-GGUF/MiniMax-M2.7-UD-Q4_K_M-00001-of-00004.gguf
+      repeat_penalty: 1
+      temperature: 1
+      top_k: 40
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/MiniMax-M2.7-GGUF/MiniMax-M2.7-UD-Q4_K_M-00001-of-00004.gguf
+      sha256: 92986e39a0c0b5f12c2c9b6a811dad59e3317caaf1b7ad5c7f0d7d12abc4a6e8
+      uri: https://huggingface.co/unsloth/MiniMax-M2.7-GGUF/resolve/main/UD-Q4_K_M/MiniMax-M2.7-UD-Q4_K_M-00001-of-00004.gguf
+    - filename: llama-cpp/models/MiniMax-M2.7-GGUF/MiniMax-M2.7-UD-Q4_K_M-00002-of-00004.gguf
+      sha256: 425e6827c5c62ff11d56d99dae144524b0bfb655b51d50bac287e4a581518e46
+      uri: https://huggingface.co/unsloth/MiniMax-M2.7-GGUF/resolve/main/UD-Q4_K_M/MiniMax-M2.7-UD-Q4_K_M-00002-of-00004.gguf
+    - filename: llama-cpp/models/MiniMax-M2.7-GGUF/MiniMax-M2.7-UD-Q4_K_M-00003-of-00004.gguf
+      sha256: 27cfd98b49138aae1f30f4681a0a1123f38150b5d054a2f33fd2c8be85ff1fc5
+      uri: https://huggingface.co/unsloth/MiniMax-M2.7-GGUF/resolve/main/UD-Q4_K_M/MiniMax-M2.7-UD-Q4_K_M-00003-of-00004.gguf
+    - filename: llama-cpp/models/MiniMax-M2.7-GGUF/MiniMax-M2.7-UD-Q4_K_M-00004-of-00004.gguf
+      sha256: 73882cea9908fb8e84b3dbd5d58c75bdbe187e243aeabc93d2d63fa175322eee
+      uri: https://huggingface.co/unsloth/MiniMax-M2.7-GGUF/resolve/main/UD-Q4_K_M/MiniMax-M2.7-UD-Q4_K_M-00004-of-00004.gguf
 - name: "qwen3.6-35b-a3b-apex"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
