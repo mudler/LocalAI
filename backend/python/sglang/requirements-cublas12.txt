@@ -1,5 +1,5 @@
 accelerate
-torch==2.7.1
+torch==2.7.1+cpu
 torchvision
 torchaudio==2.7.1
 transformers
