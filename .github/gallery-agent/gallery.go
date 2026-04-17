@@ -7,8 +7,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/ghodss/yaml"
 	"github.com/mudler/LocalAI/core/gallery/importers"
+	"sigs.k8s.io/yaml"
 )
 
 func formatTextContent(text string) string {

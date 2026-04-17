@@ -9,8 +9,8 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/ghodss/yaml"
 	hfapi "github.com/mudler/LocalAI/pkg/huggingface-api"
+	"sigs.k8s.io/yaml"
 )
 
 var galleryIndexPath = os.Getenv("GALLERY_INDEX_PATH")
