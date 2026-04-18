@@ -14,11 +14,13 @@ LocalAI provides endpoints to monitor and manage running backends. The `/backend
 
 ### Request
 
-The request body is JSON:
+The model to monitor is passed as a query parameter:
 
-| Parameter | Type     | Required | Description                    |
-|-----------|----------|----------|--------------------------------|
-| `model`   | `string` | Yes      | Name of the model to monitor   |
+| Parameter | Type     | Required | Location | Description                    |
+|-----------|----------|----------|----------|--------------------------------|
+| `model`   | `string` | Yes      | query    | Name of the model to monitor   |
+
+For backwards compatibility, a JSON body with the same field is still accepted when the `model` query parameter is not set, but new clients should use the query parameter.
 
 ### Response
 
@@ -42,9 +44,7 @@ If the gRPC status call fails, the endpoint falls back to local process metrics:
 ### Usage
 
 ```bash
-curl http://localhost:8080/backend/monitor \
-  -H "Content-Type: application/json" \
-  -d '{"model": "my-model"}'
+curl "http://localhost:8080/backend/monitor?model=my-model"
 ```
 
 ### Example response

@@ -985,13 +985,11 @@ const docTemplate = `{
                 "summary": "Backend monitor endpoint",
                 "parameters": [
                     {
-                        "description": "Backend statistics request",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/schema.BackendMonitorRequest"
-                        }
+                        "type": "string",
+                        "description": "Name of the model to monitor",
+                        "name": "model",
+                        "in": "query",
+                        "required": true
                     }
                 ],
                 "responses": {

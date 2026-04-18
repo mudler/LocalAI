@@ -2363,12 +2363,11 @@ paths:
   /backend/monitor:
     get:
       parameters:
-      - description: Backend statistics request
-        in: body
-        name: request
+      - description: Name of the model to monitor
+        in: query
+        name: model
         required: true
-        schema:
-          $ref: '#/definitions/schema.BackendMonitorRequest'
+        type: string
       responses:
         "200":
           description: Response
