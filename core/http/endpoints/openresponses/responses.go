@@ -709,8 +709,10 @@ func convertORMessageItem(itemMap map[string]any, cfg *config.ModelConfig) (sche
 		msg.StringVideos = stringVideos
 		msg.StringAudios = stringAudios
 
-		// Template multimodal content
-		if len(stringImages) > 0 || len(stringVideos) > 0 || len(stringAudios) > 0 {
+		// Template multimodal content. Skipped when the backend handles templating
+		// itself (UseTokenizerTemplate) — it also injects markers server-side and
+		// StringContent is not consumed by the evaluator in that path.
+		if (len(stringImages) > 0 || len(stringVideos) > 0 || len(stringAudios) > 0) && !cfg.TemplateConfig.UseTokenizerTemplate {
 			msg.StringContent, _ = templates.TemplateMultiModal(cfg.TemplateConfig.Multimodal, templates.MultiModalOptions{
 				TotalImages:     len(stringImages),
 				TotalVideos:     len(stringVideos),

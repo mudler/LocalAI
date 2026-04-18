@@ -398,14 +398,23 @@ func mergeOpenAIRequestAndModelConfig(config *config.ModelConfig, input *schema.
 				}
 			}
 
-			input.Messages[i].StringContent, _ = templates.TemplateMultiModal(config.TemplateConfig.Multimodal, templates.MultiModalOptions{
-				TotalImages:     imgIndex,
-				TotalVideos:     vidIndex,
-				TotalAudios:     audioIndex,
-				ImagesInMessage: nrOfImgsInMessage,
-				VideosInMessage: nrOfVideosInMessage,
-				AudiosInMessage: nrOfAudiosInMessage,
-			}, textContent)
+			// When the backend handles templating itself (UseTokenizerTemplate),
+			// it also injects media markers server-side (see
+			// oaicompat_chat_params_parse in llama.cpp). Emitting our own markers
+			// here would double-mark them and downstream consumers ignore
+			// StringContent in that path anyway, so just pass through plain text.
+			if config.TemplateConfig.UseTokenizerTemplate {
+				input.Messages[i].StringContent = textContent
+			} else {
+				input.Messages[i].StringContent, _ = templates.TemplateMultiModal(config.TemplateConfig.Multimodal, templates.MultiModalOptions{
+					TotalImages:     imgIndex,
+					TotalVideos:     vidIndex,
+					TotalAudios:     audioIndex,
+					ImagesInMessage: nrOfImgsInMessage,
+					VideosInMessage: nrOfVideosInMessage,
+					AudiosInMessage: nrOfAudiosInMessage,
+				}, textContent)
+			}
 		}
 	}
 

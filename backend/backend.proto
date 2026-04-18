@@ -557,6 +557,7 @@ message ModelMetadataResponse {
   bool supports_thinking = 1;
   string rendered_template = 2;  // The rendered chat template with enable_thinking=true (empty if not applicable)
   ToolFormatMarkers tool_format = 3;  // Auto-detected tool format markers from differential template analysis
+  string media_marker = 4;  // Marker the backend expects in the prompt for each multimodal input (images/audio/video). Empty when the backend does not use a marker.
 }
 
 // Fine-tuning messages

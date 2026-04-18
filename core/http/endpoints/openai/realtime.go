@@ -1179,7 +1179,7 @@ func triggerResponse(ctx context.Context, session *Session, conv *Conversation, 
 					nrOfImgsInMessage++
 				}
 			}
-			if nrOfImgsInMessage > 0 {
+			if nrOfImgsInMessage > 0 && !config.TemplateConfig.UseTokenizerTemplate {
 				templated, err := templates.TemplateMultiModal(config.TemplateConfig.Multimodal, templates.MultiModalOptions{
 					TotalImages:     imgIndex,
 					ImagesInMessage: nrOfImgsInMessage,

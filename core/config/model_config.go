@@ -52,6 +52,12 @@ type ModelConfig struct {
 	ResponseFormat                             string         `yaml:"-" json:"-"`
 	ResponseFormatMap                          map[string]any `yaml:"-" json:"-"`
 
+	// MediaMarker is the runtime-discovered multimodal marker the backend expects
+	// in the prompt (e.g. "<__media__>" or a random "<__media_<rand>__>" picked by
+	// llama.cpp). Populated on first successful ModelMetadata call. Empty until
+	// then — callers must fall back to templates.DefaultMultiMediaMarker.
+	MediaMarker string `yaml:"-" json:"-"`
+
 	FunctionsConfig functions.FunctionsConfig `yaml:"function,omitempty" json:"function,omitempty"`
 	ReasoningConfig reasoning.Config          `yaml:"reasoning,omitempty" json:"reasoning,omitempty"`
 

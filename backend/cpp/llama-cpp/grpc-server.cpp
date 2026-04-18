@@ -2814,6 +2814,13 @@ public:
             return grpc::Status(grpc::StatusCode::FAILED_PRECONDITION, "Model not loaded");
         }
 
+        // Report the active multimodal media marker so the Go layer can emit the
+        // same string when rendering prompts outside the tokenizer-template path.
+        // Only meaningful when an mtmd context was initialized (vision/audio models).
+        if (ctx_server.impl->mctx != nullptr) {
+            response->set_media_marker(get_media_marker());
+        }
+
         // Check if chat templates are initialized
         if (ctx_server.impl->chat_params.tmpls == nullptr) {
             // If templates are not initialized, we can't detect thinking support

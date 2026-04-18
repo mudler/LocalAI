@@ -15,6 +15,7 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/galleryop"
+	"github.com/mudler/LocalAI/core/templates"
 	"github.com/mudler/LocalAI/core/trace"
 
 	"github.com/mudler/LocalAI/core/gallery"
@@ -94,15 +95,25 @@ func ModelInference(ctx context.Context, s string, messages schema.Messages, ima
 		return nil, err
 	}
 
-	// Detect thinking support after model load (only if not already detected)
-	// This needs to happen after LoadModel succeeds so the backend can render templates
-	if (c.ReasoningConfig.DisableReasoning == nil && c.ReasoningConfig.DisableReasoningTagPrefill == nil) && c.TemplateConfig.UseTokenizerTemplate {
+	// Probe the backend for model-scoped metadata after LoadModel succeeds.
+	// Two signals are captured: thinking-mode detection (only meaningful when the
+	// tokenizer template path is active) and the multimodal media marker (needed
+	// by custom chat templates so markers line up with what mtmd expects).
+	// We probe whenever any of those slots is still empty.
+	needsThinkingProbe := c.TemplateConfig.UseTokenizerTemplate &&
+		c.ReasoningConfig.DisableReasoning == nil &&
+		c.ReasoningConfig.DisableReasoningTagPrefill == nil
+	needsMarkerProbe := c.MediaMarker == ""
+	if needsThinkingProbe || needsMarkerProbe {
 		modelOpts := grpcModelOpts(*c, o.SystemState.Model.ModelsPath)
 		config.DetectThinkingSupportFromBackend(ctx, c, inferenceModel, modelOpts)
 		// Update the config in the loader so it persists for future requests
 		cl.UpdateModelConfig(c.Name, func(cfg *config.ModelConfig) {
 			cfg.ReasoningConfig.DisableReasoning = c.ReasoningConfig.DisableReasoning
 			cfg.ReasoningConfig.DisableReasoningTagPrefill = c.ReasoningConfig.DisableReasoningTagPrefill
+			if c.MediaMarker != "" {
+				cfg.MediaMarker = c.MediaMarker
+			}
 		})
 	}
 
@@ -121,7 +132,17 @@ func ModelInference(ctx context.Context, s string, messages schema.Messages, ima
 		for k, v := range metadata {
 			opts.Metadata[k] = v
 		}
-		opts.Prompt = s
+		// The prompt was rendered with the sentinel "<__media__>" marker because
+		// middleware templating runs before the backend is loaded and probed.
+		// Once we know the backend's actual media marker, substitute so marker
+		// count matches the bitmap count passed through opts.Images/Videos/Audios.
+		// No-op when MediaMarker is unset, matches the sentinel, or the prompt has
+		// no media placeholders.
+		prompt := s
+		if c.MediaMarker != "" && c.MediaMarker != templates.DefaultMultiMediaMarker {
+			prompt = strings.ReplaceAll(prompt, templates.DefaultMultiMediaMarker, c.MediaMarker)
+		}
+		opts.Prompt = prompt
 		opts.Messages = protoMessages
 		opts.UseTokenizerTemplate = c.TemplateConfig.UseTokenizerTemplate
 		opts.Images = images
