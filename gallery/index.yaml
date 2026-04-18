@@ -15167,6 +15167,62 @@
     - sd-3
     - gpu
   url: "github:mudler/LocalAI/gallery/stablediffusion3.yaml@master"
+- name: wan-2.1-t2v-1.3b-ggml
+  license: apache-2.0
+  url: "github:mudler/LocalAI/gallery/wan-ggml.yaml@master"
+  description: |
+    Wan 2.1 T2V 1.3B — text-to-video diffusion model, GGUF-quantized for the
+    stable-diffusion.cpp backend. Generates short (33-frame) 832x480 clips
+    from a text prompt. Cheapest Wan variant, suitable for CPU-offloaded
+    inference with ~10 GB of usable RAM.
+  urls:
+    - https://huggingface.co/calcuis/wan-gguf
+    - https://huggingface.co/city96/umt5-xxl-encoder-gguf
+  tags:
+    - text-to-video
+    - wan
+    - video-generation
+    - cpu
+    - gpu
+  overrides:
+    parameters:
+      model: wan2.1-t2v-1.3B-Q8_0.gguf
+  files:
+    - filename: "wan2.1-t2v-1.3B-Q8_0.gguf"
+      uri: "huggingface://calcuis/wan-gguf/wan2.1-t2v-1.3B-Q8_0.gguf"
+    - filename: "wan_2.1_vae.safetensors"
+      uri: "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/vae/wan_2.1_vae.safetensors"
+    - filename: "umt5-xxl-encoder-Q8_0.gguf"
+      uri: "huggingface://city96/umt5-xxl-encoder-gguf/umt5-xxl-encoder-Q8_0.gguf"
+- name: wan-2.1-i2v-14b-480p-ggml
+  license: apache-2.0
+  url: "github:mudler/LocalAI/gallery/wan-ggml.yaml@master"
+  description: |
+    Wan 2.1 I2V 14B 480P — image-to-video diffusion, GGUF Q4 quantization.
+    Animates a reference image into a 33-frame 480p clip. Requires more
+    RAM than the 1.3B T2V variant; CPU offload enabled by default.
+  urls:
+    - https://huggingface.co/city96/Wan2.1-I2V-14B-480P-gguf
+  tags:
+    - image-to-video
+    - wan
+    - video-generation
+    - cpu
+    - gpu
+  overrides:
+    parameters:
+      model: wan2.1-i2v-14b-480p-Q4_K_M.gguf
+    options:
+      - "clip_vision_path:clip_vision_h.safetensors"
+  files:
+    - filename: "wan2.1-i2v-14b-480p-Q4_K_M.gguf"
+      uri: "huggingface://city96/Wan2.1-I2V-14B-480P-gguf/wan2.1-i2v-14b-480p-Q4_K_M.gguf"
+    - filename: "wan_2.1_vae.safetensors"
+      uri: "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/vae/wan_2.1_vae.safetensors"
+    - filename: "umt5-xxl-encoder-Q8_0.gguf"
+      uri: "huggingface://city96/umt5-xxl-encoder-gguf/umt5-xxl-encoder-Q8_0.gguf"
+    - filename: "clip_vision_h.safetensors"
+      uri: "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/clip_vision/clip_vision_h.safetensors"
 - name: sd-1.5-ggml
   icon: https://avatars.githubusercontent.com/u/37351293
   license: creativeml-openrail-m
