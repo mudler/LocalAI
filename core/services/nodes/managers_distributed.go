@@ -106,6 +106,13 @@ func (d *DistributedBackendManager) enqueueAndDrainBackendOp(ctx context.Context
 		if node.Status == StatusPending {
 			continue
 		}
+		// Backend lifecycle ops only make sense on backend-type workers.
+		// Agent workers don't subscribe to backend.install/delete/list, so
+		// enqueueing for them guarantees a forever-retrying row that the
+		// reconciler can never drain. Silently skip — they aren't consumers.
+		if node.NodeType != "" && node.NodeType != NodeTypeBackend {
+			continue
+		}
 		if err := d.registry.UpsertPendingBackendOp(ctx, node.ID, backend, op, galleriesJSON); err != nil {
 			xlog.Warn("Failed to enqueue backend op", "op", op, "node", node.Name, "backend", backend, "error", err)
 			result.Nodes = append(result.Nodes, NodeOpStatus{

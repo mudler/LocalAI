@@ -148,6 +148,30 @@ func NewNodeRegistry(db *gorm.DB) (*NodeRegistry, error) {
 	}); err != nil {
 		return nil, fmt.Errorf("migrating node tables: %w", err)
 	}
+
+	// One-shot cleanup of queue rows that can never drain: ops targeted at
+	// agent workers (wrong subscription set), at non-existent nodes, or with
+	// an empty backend name. The guard in enqueueAndDrainBackendOp prevents
+	// new ones from being written, but rows persisted by earlier versions
+	// keep the reconciler busy retrying a permanently-failing NATS request
+	// every 30s. Guarded by the same migration advisory lock so only one
+	// frontend runs it.
+	_ = advisorylock.WithLockCtx(context.Background(), db, advisorylock.KeySchemaMigrate, func() error {
+		res := db.Exec(`
+			DELETE FROM pending_backend_ops
+			WHERE backend = ''
+			   OR node_id NOT IN (SELECT id FROM backend_nodes WHERE node_type = ? OR node_type = '')
+		`, NodeTypeBackend)
+		if res.Error != nil {
+			xlog.Warn("Failed to prune malformed pending_backend_ops rows", "error", res.Error)
+			return res.Error
+		}
+		if res.RowsAffected > 0 {
+			xlog.Info("Pruned pending_backend_ops rows (wrong node type or empty backend)", "count", res.RowsAffected)
+		}
+		return nil
+	})
+
 	return &NodeRegistry{db: db}, nil
 }
 

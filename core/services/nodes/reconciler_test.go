@@ -373,4 +373,30 @@ var _ = Describe("ReplicaReconciler — state reconciliation", func() {
 			Expect(row.NextRetryAt).To(BeTemporally(">", before))
 		})
 	})
+
+	Describe("NewNodeRegistry malformed-row pruning", func() {
+		It("drops queue rows for agent nodes and non-existent nodes on startup", func() {
+			agent := &BackendNode{Name: "agent-1", NodeType: NodeTypeAgent, Address: "x"}
+			Expect(registry.Register(context.Background(), agent, true)).To(Succeed())
+			backend := &BackendNode{Name: "backend-1", NodeType: NodeTypeBackend, Address: "y"}
+			Expect(registry.Register(context.Background(), backend, true)).To(Succeed())
+
+			// Three rows: one for a valid backend node (should survive),
+			// one for an agent node (pruned), one for an empty backend name
+			// on the valid node (pruned).
+			Expect(registry.UpsertPendingBackendOp(context.Background(), backend.ID, "foo", OpBackendInstall, nil)).To(Succeed())
+			Expect(registry.UpsertPendingBackendOp(context.Background(), agent.ID, "foo", OpBackendInstall, nil)).To(Succeed())
+			Expect(registry.UpsertPendingBackendOp(context.Background(), backend.ID, "", OpBackendInstall, nil)).To(Succeed())
+
+			// Re-instantiating the registry runs the cleanup migration.
+			_, err := NewNodeRegistry(db)
+			Expect(err).ToNot(HaveOccurred())
+
+			var rows []PendingBackendOp
+			Expect(db.Find(&rows).Error).To(Succeed())
+			Expect(rows).To(HaveLen(1))
+			Expect(rows[0].NodeID).To(Equal(backend.ID))
+			Expect(rows[0].Backend).To(Equal("foo"))
+		})
+	})
 })

@@ -3,12 +3,14 @@ package nodes
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/advisorylock"
 	grpcclient "github.com/mudler/LocalAI/pkg/grpc"
 	"github.com/mudler/xlog"
+	"github.com/nats-io/nats.go"
 	"gorm.io/gorm"
 )
 
@@ -206,11 +208,46 @@ func (rc *ReplicaReconciler) drainPendingBackendOps(ctx context.Context) {
 			}
 			continue
 		}
+
+		// ErrNoResponders means the node has no active NATS subscription for
+		// this subject. Either its connection dropped, or it's the wrong
+		// node type entirely. Mark unhealthy so the health monitor's
+		// heartbeat-only pass doesn't immediately flip it back — and so
+		// ListDuePendingBackendOps (which filters by status=healthy) stops
+		// picking the row until the node genuinely recovers.
+		if errors.Is(applyErr, nats.ErrNoResponders) {
+			xlog.Warn("Reconciler: no NATS responders — marking node unhealthy",
+				"op", op.Op, "backend", op.Backend, "node", op.NodeID)
+			_ = rc.registry.MarkUnhealthy(ctx, op.NodeID)
+		}
+
+		// Dead-letter cap: after maxAttempts the row is the reconciler
+		// equivalent of a poison message. Delete it loudly so the queue
+		// doesn't churn NATS every tick forever — operators can re-issue
+		// the op from the UI if they still want it applied.
+		if op.Attempts+1 >= maxPendingBackendOpAttempts {
+			xlog.Error("Reconciler: abandoning pending backend op after max attempts",
+				"op", op.Op, "backend", op.Backend, "node", op.NodeID,
+				"attempts", op.Attempts+1, "last_error", applyErr)
+			if err := rc.registry.DeletePendingBackendOp(ctx, op.ID); err != nil {
+				xlog.Warn("Reconciler: failed to delete abandoned op row", "id", op.ID, "error", err)
+			}
+			continue
+		}
+
 		_ = rc.registry.RecordPendingBackendOpFailure(ctx, op.ID, applyErr.Error())
 		xlog.Warn("Reconciler: pending backend op retry failed",
 			"op", op.Op, "backend", op.Backend, "node", op.NodeID, "attempts", op.Attempts+1, "error", applyErr)
 	}
 }
+
+// maxPendingBackendOpAttempts caps how many times the reconciler retries a
+// failing row before dead-lettering it. Ten attempts at exponential backoff
+// (30s → 15m cap) is >1h of wall-clock patience — well past any transient
+// worker restart or network blip. Poisoned rows beyond that are almost
+// certainly structural (wrong node type, non-existent gallery entry) and no
+// amount of further retrying will help.
+const maxPendingBackendOpAttempts = 10
 
 // probeLoadedModels gRPC-health-checks model addresses that the DB says are
 // loaded. If a model's backend process is gone (OOM, crash, manual restart)
