@@ -1106,6 +1106,11 @@ static int ffmpeg_mux_raw_to_mp4(sd_image_t* frames, int num_frames, int fps, co
             const_cast<char*>("-c:v"), const_cast<char*>("libx264"),
             const_cast<char*>("-pix_fmt"), const_cast<char*>("yuv420p"),
             const_cast<char*>("-movflags"), const_cast<char*>("+faststart"),
+            // Force MP4 container. Distributed LocalAI hands us a staging
+            // path (e.g. /staging/localai-output-NNN.tmp) with a non-standard
+            // extension; relying on filename suffix makes ffmpeg bail with
+            // "Unable to choose an output format".
+            const_cast<char*>("-f"), const_cast<char*>("mp4"),
             const_cast<char*>(dst),
             nullptr
         };
