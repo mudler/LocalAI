@@ -2224,7 +2224,7 @@ select.input {
 
 .chat-message-user .chat-message-avatar {
   background: var(--color-primary);
-  color: white;
+  color: var(--color-primary-text);
 }
 
 .chat-message-assistant .chat-message-avatar {
@@ -2260,7 +2260,7 @@ select.input {
 
 .chat-message-user .chat-message-content {
   background: var(--color-primary);
-  color: white;
+  color: var(--color-primary-text);
   border-color: var(--color-primary);
   border-radius: 16px 4px 16px 16px;
 }
@@ -2276,8 +2276,17 @@ select.input {
 }
 
 .chat-message-user .chat-message-content pre {
-  background: rgba(0, 0, 0, 0.15);
-  border-color: rgba(255, 255, 255, 0.1);
+  background: color-mix(in oklab, var(--color-primary-text) 12%, transparent);
+  border-color: color-mix(in oklab, var(--color-primary-text) 18%, transparent);
+  color: var(--color-primary-text);
+}
+.chat-message-user .chat-message-content code {
+  color: var(--color-primary-text);
+}
+.chat-message-user .chat-message-content a {
+  color: var(--color-primary-text);
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .chat-message-content code {
@@ -2405,7 +2414,7 @@ select.input {
 .chat-send-btn {
   padding: var(--spacing-xs);
   background: var(--color-primary);
-  color: white;
+  color: var(--color-primary-text);
   border: none;
   border-radius: var(--radius-md);
   cursor: pointer;
@@ -2415,7 +2424,7 @@ select.input {
   width: 36px;
   height: 36px;
   flex-shrink: 0;
-  transition: background var(--duration-fast);
+  transition: background var(--duration-fast), transform var(--duration-fast);
 }
 
 .chat-send-btn:hover:not(:disabled) {
@@ -2556,9 +2565,20 @@ select.input {
   white-space: nowrap;
 }
 
-/* Message completion flash */
-.chat-message-bubble {
-  transition: border-color 300ms ease;
+/* Message completion flash — briefly highlights the last assistant bubble when streaming ends */
+@keyframes messageCompletionFlash {
+  0% { box-shadow: 0 0 0 0 var(--color-primary-border); }
+  40% { box-shadow: 0 0 0 3px var(--color-primary-light); }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+.chat-message-new .chat-message-content {
+  animation: messageCompletionFlash 600ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-message { animation: none; }
+  .chat-message-new .chat-message-content { animation: none; }
+  .chat-thinking-dots span { animation: none; opacity: 0.7; }
 }
 
 /* Chat empty state */
@@ -2813,13 +2833,13 @@ select.input {
   overflow-y: auto;
 }
 .chat-activity-thinking {
-  border-left-color: rgba(59, 130, 246, 0.3);
+  border-left-color: var(--color-info-border);
 }
 .chat-activity-tool-call {
-  border-left-color: rgba(245, 158, 11, 0.3);
+  border-left-color: var(--color-warning-border);
 }
 .chat-activity-tool-result {
-  border-left-color: rgba(34, 197, 94, 0.3);
+  border-left-color: var(--color-success-border);
 }
 
 /* Context window progress bar */
@@ -3228,7 +3248,7 @@ select.input {
   align-items: center;
   gap: 4px;
   padding: 2px 6px;
-  background: rgba(59, 130, 246, 0.1);
+  background: color-mix(in oklab, currentColor 12%, transparent);
   border-radius: var(--radius-sm);
   font-size: 0.7rem;
   color: var(--color-text-secondary);
