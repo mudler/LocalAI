@@ -110,7 +110,13 @@ func InstallBackendFromGallery(ctx context.Context, galleries []config.Gallery, 
 		if err != nil {
 			return err
 		}
-		if backends.Exists(name) {
+		// Only short-circuit if the install is *actually usable*. An orphaned
+		// meta entry whose concrete was removed still shows up in
+		// ListSystemBackends with a RunFile pointing at a path that no longer
+		// exists; returning early there leaves the caller with a broken
+		// alias and the worker fails with "backend not found after install
+		// attempt" on every retry. Re-install in that case.
+		if existing, ok := backends.Get(name); ok && isBackendRunnable(existing) {
 			return nil
 		}
 	}
@@ -375,15 +381,42 @@ func DeleteBackendFromSystem(systemState *system.SystemState, name string) error
 	}
 
 	if metadata != nil && metadata.MetaBackendFor != "" {
-		metaBackendDirectory := filepath.Join(systemState.Backend.BackendsPath, metadata.MetaBackendFor)
-		xlog.Debug("Deleting meta backend", "backendDirectory", metaBackendDirectory)
-		if _, err := os.Stat(metaBackendDirectory); os.IsNotExist(err) {
-			return fmt.Errorf("meta backend %q not found", metadata.MetaBackendFor)
+		concreteDirectory := filepath.Join(systemState.Backend.BackendsPath, metadata.MetaBackendFor)
+		xlog.Debug("Deleting concrete backend referenced by meta", "concreteDirectory", concreteDirectory)
+		// If the concrete the meta points to is already gone (earlier delete,
+		// partial install, or manual cleanup), keep going and remove the
+		// orphaned meta dir. Previously we returned an error here, which made
+		// the orphaned meta impossible to uninstall from the UI — the delete
+		// kept failing and every subsequent install short-circuited because
+		// the stale meta metadata made ListSystemBackends.Exists(name) true.
+		if _, statErr := os.Stat(concreteDirectory); statErr == nil {
+			os.RemoveAll(concreteDirectory)
+		} else if os.IsNotExist(statErr) {
+			xlog.Warn("Concrete backend referenced by meta not found — removing orphaned meta only",
+				"meta", name, "concrete", metadata.MetaBackendFor)
+		} else {
+			return statErr
 		}
-		os.RemoveAll(metaBackendDirectory)
 	}
 
 	return os.RemoveAll(backendDirectory)
+}
+
+// isBackendRunnable reports whether the given backend entry can actually be
+// invoked. A meta backend is runnable only if its concrete's run.sh still
+// exists on disk; concrete backends are considered runnable as long as their
+// RunFile is set (ListSystemBackends only emits them when the runfile is
+// present). Used to guard the "already installed" short-circuit so an
+// orphaned meta pointing at a missing concrete triggers a real reinstall
+// rather than being silently skipped.
+func isBackendRunnable(b SystemBackend) bool {
+	if b.RunFile == "" {
+		return false
+	}
+	if fi, err := os.Stat(b.RunFile); err != nil || fi.IsDir() {
+		return false
+	}
+	return true
 }
 
 type SystemBackend struct {

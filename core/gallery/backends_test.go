@@ -952,6 +952,58 @@ var _ = Describe("Gallery Backends", func() {
 			err = DeleteBackendFromSystem(systemState, "non-existent")
 			Expect(err).To(HaveOccurred())
 		})
+
+		It("removes an orphaned meta backend whose concrete is missing", func() {
+			// Real scenario from the dev cluster: the concrete got wiped
+			// (partial install, manual cleanup, previous crash) but the meta
+			// directory + metadata.json still points at it. The old code
+			// errored with "meta backend X not found" and left the orphan in
+			// place, making the backend impossible to uninstall.
+			metaName := "meta-backend"
+			concreteName := "concrete-backend-that-vanished"
+			metaPath := filepath.Join(tempDir, metaName)
+			Expect(os.MkdirAll(metaPath, 0750)).To(Succeed())
+
+			meta := BackendMetadata{Name: metaName, MetaBackendFor: concreteName}
+			data, err := json.MarshalIndent(meta, "", "  ")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(os.WriteFile(filepath.Join(metaPath, "metadata.json"), data, 0644)).To(Succeed())
+
+			// Concrete directory intentionally absent.
+			systemState, err := system.GetSystemState(system.WithBackendPath(tempDir))
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(DeleteBackendFromSystem(systemState, metaName)).To(Succeed())
+			Expect(metaPath).NotTo(BeADirectory())
+		})
+	})
+
+	Describe("InstallBackendFromGallery — orphaned meta reinstall", func() {
+		It("re-runs install when the meta's concrete is missing", func() {
+			// Seed state: meta dir exists with metadata pointing at a
+			// concrete that was removed from disk. ListSystemBackends still
+			// surfaces the meta via its metadata.Name → the old short-circuit
+			// at `if backends.Exists(name) { return nil }` returned silently,
+			// leaving the worker's findBackend() with a dead alias forever.
+			// The fix: require the backend to be runnable before we skip.
+			metaName := "meta-orphan"
+			concreteName := "concrete-gone"
+			metaPath := filepath.Join(tempDir, metaName)
+			Expect(os.MkdirAll(metaPath, 0750)).To(Succeed())
+			meta := BackendMetadata{Name: metaName, MetaBackendFor: concreteName}
+			data, err := json.MarshalIndent(meta, "", "  ")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(os.WriteFile(filepath.Join(metaPath, "metadata.json"), data, 0644)).To(Succeed())
+
+			systemState, err := system.GetSystemState(system.WithBackendPath(tempDir))
+			Expect(err).NotTo(HaveOccurred())
+
+			listed, err := ListSystemBackends(systemState)
+			Expect(err).NotTo(HaveOccurred())
+			b, ok := listed.Get(metaName)
+			Expect(ok).To(BeTrue())
+			Expect(isBackendRunnable(b)).To(BeFalse()) // concrete run.sh absent
+		})
 	})
 
 	Describe("ListSystemBackends", func() {
