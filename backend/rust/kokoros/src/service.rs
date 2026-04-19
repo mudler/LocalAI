@@ -341,6 +341,16 @@ impl Backend for KokorosService {
         Err(Status::unimplemented("Not supported"))
     }
 
+    type AudioTranscriptionStreamStream =
+        ReceiverStream<Result<backend::TranscriptStreamResponse, Status>>;
+
+    async fn audio_transcription_stream(
+        &self,
+        _: Request<backend::TranscriptRequest>,
+    ) -> Result<Response<Self::AudioTranscriptionStreamStream>, Status> {
+        Err(Status::unimplemented("Not supported"))
+    }
+
     async fn sound_generation(
         &self,
         _: Request<backend::SoundGenerationRequest>,
