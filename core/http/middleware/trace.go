@@ -3,6 +3,7 @@ package middleware
 import (
 	"bytes"
 	"io"
+	"mime"
 	"net/http"
 	"slices"
 	"sync"
@@ -94,7 +95,8 @@ func TraceMiddleware(app *application.Application) echo.MiddlewareFunc {
 
 			initializeTracing(app.ApplicationConfig().TracingMaxItems)
 
-			if c.Request().Header.Get("Content-Type") != "application/json" {
+			ct, _, _ := mime.ParseMediaType(c.Request().Header.Get("Content-Type"))
+			if ct != "application/json" {
 				return next(c)
 			}
 
