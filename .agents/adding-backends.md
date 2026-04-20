@@ -153,6 +153,29 @@ ls /tmp/check    # expect the bundled .so files + symlinks
 
 Then boot it inside a fresh `ubuntu:24.04` (which intentionally does *not* have the lib installed) to confirm it actually loads from the backend dir.
 
+## Importer integration
+
+When you add a new backend, you MUST also make it importable via the model import form (`/import-model`). The import form dropdown is sourced dynamically from `GET /backends/known` — it reads the importer registry at `core/gallery/importers/importers.go`, so the steps below are the ONLY way to make your backend show up.
+
+Required steps:
+
+1. **If your backend has unambiguous detection signals** (unique file extension, HF `pipeline_tag`, unique repo name pattern, unique artefact like `modules.json`):
+   - Create an importer file at `core/gallery/importers/<backend>.go` following the Match/Import pattern in `llama-cpp.go`.
+   - Register it in `importers.go:defaultImporters` in **specificity order** — more specific detectors must appear BEFORE more generic ones (e.g. `sentencetransformers` before `transformers`, `stablediffusion-ggml` before `llama-cpp`, `vllm-omni` before `vllm`). First match wins.
+2. **If your backend is a drop-in replacement** (same artefacts as another backend, e.g. `ik-llama-cpp` and `turboquant` both consume GGUF the same way `llama-cpp` does):
+   - Do NOT create a new importer. Extend the existing importer's `Import()` to swap the emitted `backend:` field when `preferences.backend` matches. See `llama-cpp.go` for the pattern.
+3. **If your backend has no reliable auto-detect signal** (preference-only — e.g. `sglang`, `tinygrad`, `whisperx`):
+   - Do NOT create an importer. Instead add the backend name to the curated pref-only slice in `core/http/endpoints/localai/backend.go` that feeds `/backends/known`. A single line addition.
+4. **Always** add a table-driven test in `core/gallery/importers/importers_test.go` (Ginkgo/Gomega):
+   - Use a real public HuggingFace repo URI as the test fixture (existing tests already hit the live HF API — follow that pattern).
+   - Cover detection (auto-match without preferences), preference-override (explicit `backend:` in preferences wins), and — if the backend's modality has a common `pipeline_tag` but ambiguous artefacts — an ambiguity test asserting `errors.Is(err, importers.ErrAmbiguousImport)`.
+
+Rules of thumb:
+
+- When in doubt, lean pref-only. A wrong auto-detect is worse than a forced preference.
+- Never silently emit a modality mismatch (e.g. emit `llama-cpp` for a TTS repo because `.gguf` is present). Return `ErrAmbiguousImport` instead.
+- Registration order is the single most common source of bugs. Check by running `go test ./core/gallery/importers/...` — the existing suite will fail if you've shadowed a pre-existing detector.
+
 ## 6. Example: Adding a Python Backend
 
 For reference, when `moonshine` was added:
