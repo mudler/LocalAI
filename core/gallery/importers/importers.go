@@ -47,6 +47,7 @@ var defaultImporters = []Importer{
 	&PiperImporter{},
 	&BarkImporter{},
 	&FishSpeechImporter{},
+	&OutettsImporter{},
 	// Existing
 	&LlamaCPPImporter{},
 	&MLXImporter{},
