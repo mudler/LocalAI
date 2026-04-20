@@ -51,6 +51,7 @@ var defaultImporters = []Importer{
 	&VoxCPMImporter{},
 	&KokoroImporter{},
 	&KittenTTSImporter{},
+	&NeuTTSImporter{},
 	// Existing
 	&LlamaCPPImporter{},
 	&MLXImporter{},
