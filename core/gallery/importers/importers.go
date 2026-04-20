@@ -46,6 +46,7 @@ var defaultImporters = []Importer{
 	// TTS (Batch 2)
 	&PiperImporter{},
 	&BarkImporter{},
+	&FishSpeechImporter{},
 	// Existing
 	&LlamaCPPImporter{},
 	&MLXImporter{},
