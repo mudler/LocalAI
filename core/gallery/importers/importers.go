@@ -74,6 +74,9 @@ var defaultImporters = []Importer{
 	// sentence-transformers repos ship tokenizer.json which transformers
 	// would otherwise claim.
 	&SentenceTransformersImporter{},
+	// RFDetrImporter must run before TransformersImporter — RF-DETR
+	// checkpoints may carry tokenizer-adjacent artefacts.
+	&RFDetrImporter{},
 	// Existing
 	&LlamaCPPImporter{},
 	&MLXImporter{},
