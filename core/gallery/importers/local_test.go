@@ -117,6 +117,47 @@ var _ = Describe("ImportLocalPath", func() {
 		})
 	})
 
+	Context("Whisper ggml-*.bin detection", func() {
+		It("maps ggml-base.en.bin to the whisper backend", func() {
+			modelDir := filepath.Join(tmpDir, "whisper-base")
+			Expect(os.MkdirAll(modelDir, 0755)).To(Succeed())
+			Expect(os.WriteFile(filepath.Join(modelDir, "ggml-base.en.bin"), []byte("fake"), 0644)).To(Succeed())
+
+			cfg, err := importers.ImportLocalPath(modelDir, "whisper-base")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(cfg.Backend).To(Equal("whisper"))
+			Expect(cfg.Model).To(ContainSubstring("ggml-base.en.bin"))
+			Expect(cfg.KnownUsecaseStrings).To(ContainElement("transcript"))
+		})
+	})
+
+	Context("Piper ONNX + ONNX config detection", func() {
+		It("maps the .onnx + .onnx.json pair to the piper backend", func() {
+			modelDir := filepath.Join(tmpDir, "piper-amy")
+			Expect(os.MkdirAll(modelDir, 0755)).To(Succeed())
+			Expect(os.WriteFile(filepath.Join(modelDir, "en_US-amy-medium.onnx"), []byte("fake"), 0644)).To(Succeed())
+			Expect(os.WriteFile(filepath.Join(modelDir, "en_US-amy-medium.onnx.json"), []byte("{}"), 0644)).To(Succeed())
+
+			cfg, err := importers.ImportLocalPath(modelDir, "piper-amy")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(cfg.Backend).To(Equal("piper"))
+			Expect(cfg.Model).To(ContainSubstring("en_US-amy-medium.onnx"))
+		})
+	})
+
+	Context("Silero VAD detection", func() {
+		It("maps silero_vad.onnx to the silero-vad backend", func() {
+			modelDir := filepath.Join(tmpDir, "silero")
+			Expect(os.MkdirAll(modelDir, 0755)).To(Succeed())
+			Expect(os.WriteFile(filepath.Join(modelDir, "silero_vad.onnx"), []byte("fake"), 0644)).To(Succeed())
+
+			cfg, err := importers.ImportLocalPath(modelDir, "silero")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(cfg.Backend).To(Equal("silero-vad"))
+			Expect(cfg.Model).To(ContainSubstring("silero_vad.onnx"))
+		})
+	})
+
 	Context("fallback", func() {
 		It("returns error for empty directory", func() {
 			modelDir := filepath.Join(tmpDir, "empty")

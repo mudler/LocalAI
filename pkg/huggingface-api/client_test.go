@@ -740,6 +740,78 @@ var _ = Describe("HuggingFace API Client", func() {
 				}
 			}
 		})
+
+		It("should populate PipelineTag and LibraryName on ModelDetails", func() {
+			// Sentence-transformers/all-MiniLM-L6-v2 is a public, stable repo:
+			// pipeline_tag: sentence-similarity, library_name: sentence-transformers.
+			// This exercises the /api/models/{repo} metadata fetch layered on top
+			// of ListFiles in GetModelDetails.
+			realClient := hfapi.NewClient()
+			details, err := realClient.GetModelDetails("sentence-transformers/all-MiniLM-L6-v2")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(details).ToNot(BeNil())
+			Expect(details.PipelineTag).To(Equal("sentence-similarity"))
+			Expect(details.LibraryName).To(Equal("sentence-transformers"))
+		})
+	})
+
+	Context("when model metadata endpoint returns fields", func() {
+		It("should populate PipelineTag and LibraryName from /api/models/{repo}", func() {
+			// Serve both the tree listing and the single-model metadata endpoint.
+			mockFilesResponse := `[
+				{"type": "file", "path": "config.json", "size": 100, "oid": "cfg1"}
+			]`
+			mockModelResponse := `{
+				"modelId": "fake/model",
+				"pipeline_tag": "text-to-speech",
+				"library_name": "transformers"
+			}`
+			server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				switch {
+				case strings.Contains(r.URL.Path, "/tree/main"):
+					w.WriteHeader(http.StatusOK)
+					w.Write([]byte(mockFilesResponse))
+				case strings.HasSuffix(r.URL.Path, "/api/models/fake/model"):
+					w.WriteHeader(http.StatusOK)
+					w.Write([]byte(mockModelResponse))
+				default:
+					w.WriteHeader(http.StatusNotFound)
+				}
+			}))
+			client.SetBaseURL(server.URL + "/api/models")
+
+			details, err := client.GetModelDetails("fake/model")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(details).ToNot(BeNil())
+			Expect(details.PipelineTag).To(Equal("text-to-speech"))
+			Expect(details.LibraryName).To(Equal("transformers"))
+		})
+
+		It("should tolerate a failing metadata endpoint and still return file details", func() {
+			mockFilesResponse := `[
+				{"type": "file", "path": "config.json", "size": 100, "oid": "cfg1"}
+			]`
+			server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				switch {
+				case strings.Contains(r.URL.Path, "/tree/main"):
+					w.WriteHeader(http.StatusOK)
+					w.Write([]byte(mockFilesResponse))
+				default:
+					// Simulate metadata endpoint outage.
+					w.WriteHeader(http.StatusInternalServerError)
+				}
+			}))
+			client.SetBaseURL(server.URL + "/api/models")
+
+			details, err := client.GetModelDetails("fake/model")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(details).ToNot(BeNil())
+			Expect(details.Files).To(HaveLen(1))
+			Expect(details.PipelineTag).To(BeEmpty())
+			Expect(details.LibraryName).To(BeEmpty())
+		})
 	})
 })
 

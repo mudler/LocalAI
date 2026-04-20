@@ -2,6 +2,7 @@ package importers_test
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -198,6 +199,15 @@ var _ = Describe("DiscoverModelConfig", func() {
 			// The exact behavior depends on implementation, but typically an error is returned
 			Expect(modelConfig.Name).To(BeEmpty())
 			Expect(err).To(HaveOccurred())
+		})
+	})
+
+	Context("ErrAmbiguousImport sentinel", func() {
+		It("is defined so callers can match with errors.Is", func() {
+			Expect(importers.ErrAmbiguousImport).ToNot(BeNil())
+			// Wrapping-sanity: fmt.Errorf("%w", err) preserves identity.
+			wrapped := fmt.Errorf("context: %w", importers.ErrAmbiguousImport)
+			Expect(errors.Is(wrapped, importers.ErrAmbiguousImport)).To(BeTrue())
 		})
 	})
 
