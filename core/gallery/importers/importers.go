@@ -48,6 +48,7 @@ var defaultImporters = []Importer{
 	&BarkImporter{},
 	&FishSpeechImporter{},
 	&OutettsImporter{},
+	&VoxCPMImporter{},
 	// Existing
 	&LlamaCPPImporter{},
 	&MLXImporter{},
