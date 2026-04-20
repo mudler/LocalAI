@@ -242,14 +242,20 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB) (*Distribut
 		DB:            authDB,
 	})
 
-	// Create ReplicaReconciler for auto-scaling model replicas
+	// Create ReplicaReconciler for auto-scaling model replicas. Adapter +
+	// RegistrationToken feed the state-reconciliation passes: pending op
+	// drain uses the adapter, and model health probes use the token to auth
+	// against workers' gRPC HealthCheck.
 	reconciler := nodes.NewReplicaReconciler(nodes.ReplicaReconcilerOptions{
-		Registry:       registry,
-		Scheduler:      router,
-		Unloader:       remoteUnloader,
-		DB:             authDB,
-		Interval:       30 * time.Second,
-		ScaleDownDelay: 5 * time.Minute,
+		Registry:          registry,
+		Scheduler:         router,
+		Unloader:          remoteUnloader,
+		Adapter:           remoteUnloader,
+		RegistrationToken: cfg.Distributed.RegistrationToken,
+		DB:                authDB,
+		Interval:          30 * time.Second,
+		ScaleDownDelay:    5 * time.Minute,
+		ProbeStaleAfter:   2 * time.Minute,
 	})
 
 	// Create ModelRouterAdapter to wire into ModelLoader

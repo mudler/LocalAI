@@ -11,4 +11,5 @@ const (
 	KeyHealthCheck      int64 = 104
 	KeySchemaMigrate        int64 = 105
 	KeyBackendUpgradeCheck  int64 = 106
+	KeyStateReconciler      int64 = 107
 )

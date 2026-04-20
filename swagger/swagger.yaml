@@ -157,6 +157,17 @@ definitions:
           type: string
         type: array
     type: object
+  gallery.NodeDriftInfo:
+    properties:
+      digest:
+        type: string
+      node_id:
+        type: string
+      node_name:
+        type: string
+      version:
+        type: string
+    type: object
   gallery.UpgradeInfo:
     properties:
       available_digest:
@@ -169,6 +180,14 @@ definitions:
         type: string
       installed_version:
         type: string
+      node_drift:
+        description: |-
+          NodeDrift lists nodes whose installed version or digest differs from
+          the cluster majority. Non-empty means the cluster has diverged and an
+          upgrade will realign it. Empty in single-node mode.
+        items:
+          $ref: '#/definitions/gallery.NodeDriftInfo'
+        type: array
     type: object
   galleryop.OpStatus:
     properties:

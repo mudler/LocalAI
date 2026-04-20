@@ -157,6 +157,12 @@ type NodeBackendInfo struct {
 	IsMeta      bool   `json:"is_meta"`
 	InstalledAt string `json:"installed_at,omitempty"`
 	GalleryURL  string `json:"gallery_url,omitempty"`
+	// Version, URI and Digest enable cluster-wide upgrade detection —
+	// without them, the frontend cannot tell whether the installed OCI
+	// image matches the gallery entry, and upgrades silently never surface.
+	Version string `json:"version,omitempty"`
+	URI     string `json:"uri,omitempty"`
+	Digest  string `json:"digest,omitempty"`
 }
 
 // SubjectNodeBackendStop tells a worker node to stop its gRPC backend process.

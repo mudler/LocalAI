@@ -738,6 +738,9 @@ func (s *backendSupervisor) subscribeLifecycleEvents() {
 			if b.Metadata != nil {
 				info.InstalledAt = b.Metadata.InstalledAt
 				info.GalleryURL = b.Metadata.GalleryURL
+				info.Version = b.Metadata.Version
+				info.URI = b.Metadata.URI
+				info.Digest = b.Metadata.Digest
 			}
 			infos = append(infos, info)
 		}

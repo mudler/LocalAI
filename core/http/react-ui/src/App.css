@@ -1529,6 +1529,401 @@ select.input {
   background: var(--color-warning-light);
   color: var(--color-warning);
 }
+.badge-accent {
+  background: var(--color-accent-light);
+  color: var(--color-accent);
+}
+
+/* Horizontal row of badges used inside table cells — consistent spacing so
+   cells line up regardless of how many badges are present. */
+.badge-row {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+}
+
+/* Vertically stacked cell content (e.g. version + update chip + drift chip).
+   Keeps rows readable at scale without inline style={{...}} everywhere. */
+.cell-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: flex-start;
+}
+
+.cell-mono {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: var(--text-xs);
+  color: var(--color-text-primary);
+}
+
+.cell-muted {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+}
+
+.cell-subtle {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  font-weight: 400;
+  margin-left: 8px;
+}
+
+.cell-name {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  font-weight: 500;
+}
+.cell-name > i {
+  color: var(--color-accent);
+  font-size: var(--text-xs);
+}
+
+.row-actions {
+  display: flex;
+  gap: var(--spacing-xs);
+  justify-content: flex-end;
+  align-items: center;
+}
+
+/* Softer delete button for dense tables — the destructive confirm dialog
+   already owns the "are you sure" affordance, so the button itself doesn't
+   need to scream. Keeps the delete red readable without dominating rows. */
+.btn.btn-danger-ghost {
+  background: transparent;
+  color: var(--color-error);
+  border-color: transparent;
+}
+.btn.btn-danger-ghost:hover:not(:disabled) {
+  background: var(--color-error-light);
+  color: var(--color-error);
+  border-color: var(--color-error-light);
+}
+
+/* Small count pill used inside tabs ("(3) ↑ 2") so update counts are
+   glanceable without extra rows of UI. */
+.tab-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  line-height: 1.4;
+}
+.tab-pill--warning {
+  background: var(--color-warning-light);
+  color: var(--color-warning);
+}
+
+/* Stat cards — uniform-height cluster metrics for the Nodes dashboard.
+   Left accent bar ties the color to the metric's semantic (success/warning/
+   error/primary), icon chip sits top-right, value is left-aligned and
+   prominent so you can scan a row of cards without reading labels. */
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-xl);
+}
+
+.stat-card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-md);
+  min-height: 96px;
+  background: var(--color-bg-raised, var(--color-bg-secondary));
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+  transition: transform var(--duration-fast) var(--ease-default),
+              box-shadow var(--duration-fast) var(--ease-default),
+              border-color var(--duration-fast) var(--ease-default);
+  overflow: hidden;
+}
+.stat-card::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: var(--stat-accent, var(--color-border-subtle));
+  transition: background var(--duration-fast) var(--ease-default);
+}
+.stat-card:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+  border-color: var(--color-border);
+}
+
+.stat-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.stat-card__label {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  white-space: normal;
+  line-height: 1.2;
+}
+.stat-card__value {
+  font-size: var(--text-2xl);
+  font-weight: 600;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  line-height: 1;
+  color: var(--color-text-primary);
+  word-break: break-word;
+}
+.stat-card__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--stat-accent, var(--color-text-muted)) 12%, transparent);
+  color: var(--stat-accent, var(--color-text-muted));
+  font-size: var(--text-lg);
+  flex-shrink: 0;
+}
+
+/* Subtle "Register a new worker" trigger replacing the broken-text chevron
+   link. Still opens the same hint card — just reads like a button now. */
+.nodes-add-worker {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  background: transparent;
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+  font-family: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  margin-bottom: var(--spacing-md);
+  transition: background var(--duration-fast) var(--ease-default),
+              border-color var(--duration-fast) var(--ease-default),
+              color var(--duration-fast) var(--ease-default);
+}
+.nodes-add-worker:hover {
+  background: var(--color-bg-raised, var(--color-bg-secondary));
+  border-color: var(--color-border-strong);
+  color: var(--color-text-primary);
+}
+
+/* Shared FilterBar layout — search strip + chip row + toggle strip. Lives
+   outside the .filter-bar chip row so the padding and wrapping behavior is
+   consistent between the Backends gallery and the System tabs. */
+.filter-bar-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-md);
+}
+.filter-bar-group__search {
+  min-width: 200px;
+  flex: 1;
+}
+.filter-bar-group__row {
+  display: flex;
+  gap: var(--spacing-md);
+  align-items: center;
+  flex-wrap: wrap;
+}
+.filter-bar-group__right {
+  display: flex;
+  gap: var(--spacing-md);
+  align-items: center;
+  flex-wrap: wrap;
+  padding-left: var(--spacing-md);
+  border-left: 1px solid var(--color-border-subtle);
+}
+.filter-bar-group__toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+.filter-btn__count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 6px;
+  min-width: 18px;
+  padding: 0 5px;
+  background: color-mix(in srgb, currentColor 18%, transparent);
+  border-radius: var(--radius-full);
+  font-size: 0.625rem;
+  font-weight: 600;
+}
+
+/* Popover — floating surface anchored to a trigger element. Uses the .card
+   base so theming is free, adds z-index + fixed-position + scroll cap so it
+   behaves on tables with many rows. Kept deliberately unstyled beyond that
+   — content is expected to provide its own header/body structure. */
+.popover {
+  position: fixed;
+  z-index: 200;
+  min-width: 260px;
+  max-width: min(420px, 95vw);
+  max-height: min(420px, 70vh);
+  display: flex;
+  flex-direction: column;
+  padding: 0; /* sections provide their own padding */
+  overflow: hidden;
+  box-shadow: var(--shadow-lg);
+  animation: popoverIn var(--duration-fast) var(--ease-default);
+}
+
+@keyframes popoverIn {
+  from { opacity: 0; transform: translateY(-4px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.popover__header {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-bottom: 1px solid var(--color-border-subtle);
+  font-size: var(--text-sm);
+}
+
+.popover__scroll {
+  overflow: auto;
+  padding: 0;
+}
+
+.popover__table {
+  margin: 0;
+  width: 100%;
+}
+.popover__table th {
+  position: sticky;
+  top: 0;
+  background: var(--color-bg-raised, var(--color-bg-secondary));
+  z-index: 1;
+}
+
+/* Inline-table chip trigger — looks like a badge but is a button (cursor,
+   focus ring inherited from global :focus-visible). */
+.chip-trigger {
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+}
+.chip-trigger:hover {
+  filter: brightness(1.08);
+}
+
+/* Truncate + ellipsize a long cell (e.g. OCI digest) without breaking the
+   table layout. Tooltip preserves the full value. */
+.cell-truncate {
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Compact empty-state used inside expanded drawer sections (e.g. "No
+   models loaded on this node"). Dimmer than the page-level .empty-state
+   because it lives inside another container and shouldn't compete with
+   the row's primary content. */
+.drawer-empty {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--color-bg-tertiary);
+  border: 1px dashed var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+.drawer-empty > i {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  opacity: 0.8;
+}
+
+/* Node-status indicator — replaces the tiny bullet with a proper LED-style
+   dot next to a bold status label. Colors are applied inline from statusConfig
+   so one primitive handles healthy/unhealthy/draining/pending in one shape. */
+.node-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+.node-status__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 15%, transparent);
+  flex-shrink: 0;
+}
+
+/* Row-chevron cell — small 20px toggle used in table rows that expand.
+   The row itself is still clickable; the chevron provides the visible
+   affordance users were missing. */
+.row-chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  transition: transform var(--duration-fast) var(--ease-default);
+}
+.row-chevron.is-expanded {
+  transform: rotate(90deg);
+  color: var(--color-text-primary);
+}
+
+/* Upgrade banner — the yellow strip operators see when updates are available.
+   Mirrors the gallery so both pages speak the same visual language. */
+.upgrade-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-md);
+  padding: var(--spacing-sm) var(--spacing-md);
+  margin-bottom: var(--spacing-md);
+  background: var(--color-warning-light);
+  border: 1px solid var(--color-warning);
+  border-radius: var(--radius-md);
+  color: var(--color-warning);
+}
+.upgrade-banner__text {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  font-weight: 500;
+  font-size: var(--text-sm);
+}
+.upgrade-banner__actions {
+  display: inline-flex;
+  gap: var(--spacing-xs);
+  align-items: center;
+}
 
 /* Tabs */
 .tabs {

@@ -1,4 +1,110 @@
 ---
+- name: "supergemma4-26b-uncensored-v2"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/Jiunsong/supergemma4-26b-uncensored-gguf-v2
+  description: |
+    Hugging Face |
+    GitHub |
+    Launch Blog |
+    Documentation
+
+    License: Apache 2.0 | Authors: Google DeepMind
+
+    Gemma is a family of open models built by Google DeepMind. Gemma 4 models are multimodal, handling text and image input (with audio supported on small models) and generating text output. This release includes open-weights models in both pre-trained and instruction-tuned variants. Gemma 4 features a context window of up to 256K tokens and maintains multilingual support in over 140 languages.
+
+    Featuring both Dense and Mixture-of-Experts (MoE) architectures, Gemma 4 is well-suited for tasks like text generation, coding, and reasoning. The models are available in four distinct sizes: **E2B**, **E4B**, **26B A4B**, and **31B**. Their diverse sizes make them deployable in environments ranging from high-end phones to laptops and servers, democratizing access to state-of-the-art AI.
+
+    Gemma 4 introduces key **capability and architectural advancements**:
+
+    * **Reasoning** – All models in the family are designed as highly capable reasoners, with configurable thinking modes.
+
+    ...
+  license: "gemma"
+  tags:
+    - llm
+    - gguf
+  icon: https://ai.google.dev/gemma/images/gemma4_banner.png
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/supergemma4-26b-uncensored-gguf-v2/supergemma4-26b-uncensored-fast-v2-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/supergemma4-26b-uncensored-gguf-v2/supergemma4-26b-uncensored-fast-v2-Q4_K_M.gguf
+      sha256: e773b0a209d48524f9d485bca0818247f75d7ddde7cce951367a7e441fb59137
+      uri: https://huggingface.co/Jiunsong/supergemma4-26b-uncensored-gguf-v2/resolve/main/supergemma4-26b-uncensored-fast-v2-Q4_K_M.gguf
+- name: "qwopus-glm-18b-merged"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/Jackrong/Qwopus-GLM-18B-Merged-GGUF
+  description: |
+    # 🪐 Qwen3.5-9B-GLM5.1-Distill-v1
+
+    ## 📌 Model Overview
+
+    **Model Name:** `Jackrong/Qwen3.5-9B-GLM5.1-Distill-v1`
+    **Base Model:** Qwen3.5-9B
+    **Training Type:** Supervised Fine-Tuning (SFT, Distillation)
+    **Parameter Scale:** 9B
+    **Training Framework:** Unsloth
+
+    This model is a distilled variant of **Qwen3.5-9B**, trained on high-quality reasoning data derived from **GLM-5.1**.
+
+    The primary goals are to:
+
+      - Improve **structured reasoning ability**
+      - Enhance **instruction-following consistency**
+      - Activate **latent knowledge via better reasoning structure**
+
+    ## 📊 Training Data
+
+    ### Main Dataset
+
+      - `Jackrong/GLM-5.1-Reasoning-1M-Cleaned`
+      - Cleaned from the original `Kassadin88/GLM-5.1-1000000x` dataset.
+      - Generated from a **GLM-5.1 teacher model**
+      - Approximately **700x** the scale of `Qwen3.5-reasoning-700x`
+      - Training used a **filtered subset**, not the full source dataset.
+
+    ### Auxiliary Dataset
+
+      - `Jackrong/Qwen3.5-reasoning-700x`
+
+    ...
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - reasoning
+  icon: https://cdn-uploads.huggingface.co/production/uploads/66309bd090589b7c65950665/BnSg_x99v9bG9T5-8sKa1.png
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/Qwopus-GLM-18B-Merged-GGUF/Qwopus-GLM-18B-Healed-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Qwopus-GLM-18B-Merged-GGUF/Qwopus-GLM-18B-Healed-Q4_K_M.gguf
+      sha256: 13bd039f95c9ea46ef1d75905faa7be6ca4e47a5af9d4cf62e298a738a5b195f
+      uri: https://huggingface.co/Jackrong/Qwopus-GLM-18B-Merged-GGUF/resolve/main/Qwopus-GLM-18B-Healed-Q4_K_M.gguf
 - name: "qwen3.6-35b-a3b-apex"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
@@ -15186,10 +15292,10 @@
     - gpu
   overrides:
     parameters:
-      model: wan2.1-t2v-1.3B-Q8_0.gguf
+      model: wan2.1_t2v_1.3b-q8_0.gguf
   files:
-    - filename: "wan2.1-t2v-1.3B-Q8_0.gguf"
-      uri: "huggingface://calcuis/wan-gguf/wan2.1-t2v-1.3B-Q8_0.gguf"
+    - filename: "wan2.1_t2v_1.3b-q8_0.gguf"
+      uri: "huggingface://calcuis/wan-gguf/wan2.1_t2v_1.3b-q8_0.gguf"
     - filename: "wan_2.1_vae.safetensors"
       uri: "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/vae/wan_2.1_vae.safetensors"
     - filename: "umt5-xxl-encoder-Q8_0.gguf"
@@ -15214,9 +15320,56 @@
       model: wan2.1-i2v-14b-480p-Q4_K_M.gguf
     options:
       - "clip_vision_path:clip_vision_h.safetensors"
+      - "diffusion_model"
+      - "vae_decode_only:false"
+      - "sampler:euler"
+      - "flow_shift:3.0"
+      - "t5xxl_path:umt5-xxl-encoder-Q8_0.gguf"
+      - "vae_path:wan_2.1_vae.safetensors"
   files:
     - filename: "wan2.1-i2v-14b-480p-Q4_K_M.gguf"
       uri: "huggingface://city96/Wan2.1-I2V-14B-480P-gguf/wan2.1-i2v-14b-480p-Q4_K_M.gguf"
+    - filename: "wan_2.1_vae.safetensors"
+      uri: "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/vae/wan_2.1_vae.safetensors"
+    - filename: "umt5-xxl-encoder-Q8_0.gguf"
+      uri: "huggingface://city96/umt5-xxl-encoder-gguf/umt5-xxl-encoder-Q8_0.gguf"
+    - filename: "clip_vision_h.safetensors"
+      uri: "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/clip_vision/clip_vision_h.safetensors"
+- name: wan-2.1-flf2v-14b-720p-ggml
+  license: apache-2.0
+  url: "github:mudler/LocalAI/gallery/wan-ggml.yaml@master"
+  description: |
+    Wan 2.1 FLF2V 14B 720P — first-last-frame-to-video diffusion, GGUF Q4_K_M.
+    Takes a start and end reference image and interpolates a 33-frame clip
+    between them. Unlike the plain I2V variant this model feeds the end
+    frame through clip_vision as well, so it conditions semantically (not
+    just in pixel-space) on both endpoints. That makes it the right choice
+    for seamless loops (start_image == end_image) and clean narrative cuts.
+    Native 720p but accepts 480p resolutions; shares the same VAE, t5xxl
+    text encoder, and clip_vision_h as I2V 14B.
+  urls:
+    - https://huggingface.co/city96/Wan2.1-FLF2V-14B-720P-gguf
+  tags:
+    - image-to-video
+    - first-last-frame-to-video
+    - wan
+    - video-generation
+    - cpu
+    - gpu
+  overrides:
+    parameters:
+      model: wan2.1-flf2v-14b-720p-Q4_K_M.gguf
+    options:
+      - "clip_vision_path:clip_vision_h.safetensors"
+      - "diffusion_model"
+      - "vae_decode_only:false"
+      - "sampler:euler"
+      - "flow_shift:3.0"
+      - "t5xxl_path:umt5-xxl-encoder-Q8_0.gguf"
+      - "vae_path:wan_2.1_vae.safetensors"
+  files:
+    - filename: "wan2.1-flf2v-14b-720p-Q4_K_M.gguf"
+      uri: "huggingface://city96/Wan2.1-FLF2V-14B-720P-gguf/wan2.1-flf2v-14b-720p-Q4_K_M.gguf"
     - filename: "wan_2.1_vae.safetensors"
       uri: "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/vae/wan_2.1_vae.safetensors"
     - filename: "umt5-xxl-encoder-Q8_0.gguf"

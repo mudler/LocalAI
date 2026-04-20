@@ -1,11 +1,23 @@
 # LocalAI Agent Instructions
 
-This file is an index to detailed topic guides in the `.agents/` directory. Read the relevant file(s) for the task at hand — you don't need to load all of them.
+This file is the entry point for AI coding assistants (Claude Code, Cursor, Copilot, Codex, Aider, etc.) working on LocalAI. It is an index to detailed topic guides in the `.agents/` directory. Read the relevant file(s) for the task at hand — you don't need to load all of them.
+
+Human contributors: see [CONTRIBUTING.md](CONTRIBUTING.md) for the development workflow.
+
+## Policy for AI-Assisted Contributions
+
+LocalAI follows the Linux kernel project's [guidelines for AI coding assistants](https://docs.kernel.org/process/coding-assistants.html). Before submitting AI-assisted code, read [.agents/ai-coding-assistants.md](.agents/ai-coding-assistants.md). Key rules:
+
+- **No `Signed-off-by` from AI.** Only the human submitter may sign off on the Developer Certificate of Origin.
+- **No `Co-Authored-By: <AI>` trailers.** The human contributor owns the change.
+- **Use an `Assisted-by:` trailer** to attribute AI involvement. Format: `Assisted-by: AGENT_NAME:MODEL_VERSION [TOOL1] [TOOL2]`.
+- **The human submitter is responsible** for reviewing, testing, and understanding every line of generated code.
 
 ## Topics
 
 | File | When to read |
 |------|-------------|
+| [.agents/ai-coding-assistants.md](.agents/ai-coding-assistants.md) | Policy for AI-assisted contributions — licensing, DCO, attribution |
 | [.agents/building-and-testing.md](.agents/building-and-testing.md) | Building the project, running tests, Docker builds for specific platforms |
 | [.agents/adding-backends.md](.agents/adding-backends.md) | Adding a new backend (Python, Go, or C++) — full step-by-step checklist |
 | [.agents/coding-style.md](.agents/coding-style.md) | Code style, editorconfig, logging, documentation conventions |

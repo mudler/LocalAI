@@ -8,6 +8,7 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/services/advisorylock"
+	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/mudler/xlog"
@@ -26,6 +27,12 @@ type UpgradeChecker struct {
 	galleries   []config.Gallery
 	systemState *system.SystemState
 	db          *gorm.DB // non-nil in distributed mode
+	// backendManagerFn lazily returns the current backend manager (may be
+	// swapped from Local to Distributed after startup). Pulled through each
+	// check so the UpgradeChecker uses whichever is active. In distributed
+	// mode this ensures CheckUpgrades asks workers instead of the (empty)
+	// frontend filesystem — fixing the bug where upgrades never surfaced.
+	backendManagerFn func() galleryop.BackendManager
 
 	checkInterval time.Duration
 	stop          chan struct{}
@@ -40,18 +47,22 @@ type UpgradeChecker struct {
 // NewUpgradeChecker creates a new UpgradeChecker service.
 // Pass db=nil for standalone mode, or a *gorm.DB for distributed mode
 // (uses advisory locks so only one instance runs periodic checks).
-func NewUpgradeChecker(appConfig *config.ApplicationConfig, ml *model.ModelLoader, db *gorm.DB) *UpgradeChecker {
+// backendManagerFn is optional; when set, CheckUpgrades is routed through
+// the active backend manager — required in distributed mode so the check
+// aggregates from workers rather than the empty frontend filesystem.
+func NewUpgradeChecker(appConfig *config.ApplicationConfig, ml *model.ModelLoader, db *gorm.DB, backendManagerFn func() galleryop.BackendManager) *UpgradeChecker {
 	return &UpgradeChecker{
-		appConfig:     appConfig,
-		modelLoader:   ml,
-		galleries:     appConfig.BackendGalleries,
-		systemState:   appConfig.SystemState,
-		db:            db,
-		checkInterval: 6 * time.Hour,
-		stop:          make(chan struct{}),
-		done:          make(chan struct{}),
-		triggerCh:     make(chan struct{}, 1),
-		lastUpgrades:  make(map[string]gallery.UpgradeInfo),
+		appConfig:        appConfig,
+		modelLoader:      ml,
+		galleries:        appConfig.BackendGalleries,
+		systemState:      appConfig.SystemState,
+		db:               db,
+		backendManagerFn: backendManagerFn,
+		checkInterval:    6 * time.Hour,
+		stop:             make(chan struct{}),
+		done:             make(chan struct{}),
+		triggerCh:        make(chan struct{}, 1),
+		lastUpgrades:     make(map[string]gallery.UpgradeInfo),
 	}
 }
 
@@ -64,13 +75,16 @@ func NewUpgradeChecker(appConfig *config.ApplicationConfig, ml *model.ModelLoade
 func (uc *UpgradeChecker) Run(ctx context.Context) {
 	defer close(uc.done)
 
-	// Initial delay: don't slow down startup
+	// Initial delay: don't slow down startup. Short enough that operators
+	// don't stare at an empty upgrade banner for long; long enough that
+	// workers have registered and reported their installed backends.
+	initialDelay := 10 * time.Second
 	select {
 	case <-ctx.Done():
 		return
 	case <-uc.stop:
 		return
-	case <-time.After(30 * time.Second):
+	case <-time.After(initialDelay):
 	}
 
 	// First check always runs locally (to warm the cache on this instance)
@@ -144,7 +158,18 @@ func (uc *UpgradeChecker) GetAvailableUpgrades() map[string]gallery.UpgradeInfo 
 }
 
 func (uc *UpgradeChecker) runCheck(ctx context.Context) {
-	upgrades, err := gallery.CheckBackendUpgrades(ctx, uc.galleries, uc.systemState)
+	var (
+		upgrades map[string]gallery.UpgradeInfo
+		err      error
+	)
+	if uc.backendManagerFn != nil {
+		if bm := uc.backendManagerFn(); bm != nil {
+			upgrades, err = bm.CheckUpgrades(ctx)
+		}
+	}
+	if upgrades == nil && err == nil {
+		upgrades, err = gallery.CheckBackendUpgrades(ctx, uc.galleries, uc.systemState)
+	}
 
 	uc.mu.Lock()
 	uc.lastCheckTime = time.Now()

@@ -239,3 +239,164 @@ var _ = Describe("ReplicaReconciler", func() {
 		})
 	})
 })
+
+// fakeProber lets tests control whether a model's gRPC address "responds".
+type fakeProber struct {
+	alive map[string]bool
+	calls int
+}
+
+func (f *fakeProber) IsAlive(_ context.Context, address string) bool {
+	f.calls++
+	if f.alive == nil {
+		return false
+	}
+	return f.alive[address]
+}
+
+var _ = Describe("ReplicaReconciler — state reconciliation", func() {
+	var (
+		db       *gorm.DB
+		registry *NodeRegistry
+	)
+
+	BeforeEach(func() {
+		if runtime.GOOS == "darwin" {
+			Skip("testcontainers requires Docker, not available on macOS CI")
+		}
+		db = testutil.SetupTestDB()
+		var err error
+		registry, err = NewNodeRegistry(db)
+		Expect(err).ToNot(HaveOccurred())
+	})
+
+	Describe("probeLoadedModels", func() {
+		It("removes loaded models whose gRPC address is unreachable", func() {
+			node := &BackendNode{Name: "n1", NodeType: NodeTypeBackend, Address: "10.0.0.1:50051"}
+			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
+			// Two loaded models — one stale (will probe), one fresh (skipped).
+			stale := &NodeModel{
+				ID:        "stale-1",
+				NodeID:    node.ID,
+				ModelName: "stale-model",
+				Address:   "10.0.0.1:12345",
+				State:     "loaded",
+				UpdatedAt: time.Now().Add(-5 * time.Minute),
+			}
+			fresh := &NodeModel{
+				ID:        "fresh-1",
+				NodeID:    node.ID,
+				ModelName: "fresh-model",
+				Address:   "10.0.0.1:54321",
+				State:     "loaded",
+				UpdatedAt: time.Now(), // within probeStaleAfter
+			}
+			Expect(db.Create(stale).Error).To(Succeed())
+			Expect(db.Create(fresh).Error).To(Succeed())
+
+			prober := &fakeProber{alive: map[string]bool{"10.0.0.1:12345": false}}
+			rc := NewReplicaReconciler(ReplicaReconcilerOptions{
+				Registry:        registry,
+				DB:              db,
+				Prober:          prober,
+				ProbeStaleAfter: 2 * time.Minute,
+			})
+
+			rc.probeLoadedModels(context.Background())
+
+			// Stale was unreachable — row removed.
+			var after []NodeModel
+			Expect(db.Find(&after).Error).To(Succeed())
+			Expect(after).To(HaveLen(1))
+			Expect(after[0].ModelName).To(Equal("fresh-model"))
+			// Prober was only called once (the fresh row was filtered out).
+			Expect(prober.calls).To(Equal(1))
+		})
+
+		It("keeps reachable models and bumps their updated_at", func() {
+			node := &BackendNode{Name: "n1", NodeType: NodeTypeBackend, Address: "10.0.0.1:50051"}
+			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
+			stale := &NodeModel{
+				ID:        "stale-2",
+				NodeID:    node.ID,
+				ModelName: "alive-model",
+				Address:   "10.0.0.1:12345",
+				State:     "loaded",
+				UpdatedAt: time.Now().Add(-5 * time.Minute),
+			}
+			Expect(db.Create(stale).Error).To(Succeed())
+
+			prober := &fakeProber{alive: map[string]bool{"10.0.0.1:12345": true}}
+			rc := NewReplicaReconciler(ReplicaReconcilerOptions{
+				Registry:        registry,
+				DB:              db,
+				Prober:          prober,
+				ProbeStaleAfter: 2 * time.Minute,
+			})
+
+			rc.probeLoadedModels(context.Background())
+
+			var after NodeModel
+			Expect(db.First(&after, "id = ?", "stale-2").Error).To(Succeed())
+			Expect(after.UpdatedAt).To(BeTemporally("~", time.Now(), time.Second))
+		})
+	})
+
+	Describe("UpsertPendingBackendOp + RecordPendingBackendOpFailure", func() {
+		It("upserts on the composite key rather than duplicating rows", func() {
+			node := &BackendNode{Name: "n1", NodeType: NodeTypeBackend, Address: "10.0.0.1:50051"}
+			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
+
+			Expect(registry.UpsertPendingBackendOp(context.Background(), node.ID, "foo", OpBackendDelete, nil)).To(Succeed())
+			// Second call for the same (node, backend, op) should not create a
+			// new row — that's how re-issuing a delete works.
+			Expect(registry.UpsertPendingBackendOp(context.Background(), node.ID, "foo", OpBackendDelete, nil)).To(Succeed())
+
+			var rows []PendingBackendOp
+			Expect(db.Find(&rows).Error).To(Succeed())
+			Expect(rows).To(HaveLen(1))
+		})
+
+		It("increments attempts and moves next_retry_at out on failure", func() {
+			node := &BackendNode{Name: "n1", NodeType: NodeTypeBackend, Address: "10.0.0.1:50051"}
+			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
+			Expect(registry.UpsertPendingBackendOp(context.Background(), node.ID, "foo", OpBackendDelete, nil)).To(Succeed())
+
+			var row PendingBackendOp
+			Expect(db.First(&row).Error).To(Succeed())
+			before := row.NextRetryAt
+
+			Expect(registry.RecordPendingBackendOpFailure(context.Background(), row.ID, "boom")).To(Succeed())
+			Expect(db.First(&row, row.ID).Error).To(Succeed())
+			Expect(row.Attempts).To(Equal(1))
+			Expect(row.LastError).To(Equal("boom"))
+			Expect(row.NextRetryAt).To(BeTemporally(">", before))
+		})
+	})
+
+	Describe("NewNodeRegistry malformed-row pruning", func() {
+		It("drops queue rows for agent nodes and non-existent nodes on startup", func() {
+			agent := &BackendNode{Name: "agent-1", NodeType: NodeTypeAgent, Address: "x"}
+			Expect(registry.Register(context.Background(), agent, true)).To(Succeed())
+			backend := &BackendNode{Name: "backend-1", NodeType: NodeTypeBackend, Address: "y"}
+			Expect(registry.Register(context.Background(), backend, true)).To(Succeed())
+
+			// Three rows: one for a valid backend node (should survive),
+			// one for an agent node (pruned), one for an empty backend name
+			// on the valid node (pruned).
+			Expect(registry.UpsertPendingBackendOp(context.Background(), backend.ID, "foo", OpBackendInstall, nil)).To(Succeed())
+			Expect(registry.UpsertPendingBackendOp(context.Background(), agent.ID, "foo", OpBackendInstall, nil)).To(Succeed())
+			Expect(registry.UpsertPendingBackendOp(context.Background(), backend.ID, "", OpBackendInstall, nil)).To(Succeed())
+
+			// Re-instantiating the registry runs the cleanup migration.
+			_, err := NewNodeRegistry(db)
+			Expect(err).ToNot(HaveOccurred())
+
+			var rows []PendingBackendOp
+			Expect(db.Find(&rows).Error).To(Succeed())
+			Expect(rows).To(HaveLen(1))
+			Expect(rows[0].NodeID).To(Equal(backend.ID))
+			Expect(rows[0].Backend).To(Equal("foo"))
+		})
+	})
+})

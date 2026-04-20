@@ -51,15 +51,22 @@ const modelStateConfig = {
   idle: { bg: 'var(--color-bg-tertiary)', color: 'var(--color-text-muted)', border: 'var(--color-border-subtle)' },
 }
 
-function StatCard({ icon, label, value, color }) {
+function StatCard({ icon, label, value, color, accentVar }) {
+  // accentVar: optional CSS variable for the left edge + icon chip, e.g.
+  // "--color-success". When unset the card reads neutral — used for simple
+  // counts so they don't compete with the semantic cards for attention.
+  const accent = color || (accentVar ? `var(${accentVar})` : 'var(--color-text-primary)')
   return (
-    <div className="card" style={{ padding: 'var(--spacing-sm) var(--spacing-md)', flex: '1 1 0', minWidth: 120 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-        <i className={icon} style={{ color: 'var(--color-text-muted)', fontSize: '0.75rem' }} />
-        <span style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.03em' }}>{label}</span>
+    <div
+      className="stat-card"
+      style={accentVar ? { ['--stat-accent']: `var(${accentVar})` } : undefined}
+    >
+      <div className="stat-card__body">
+        <div className="stat-card__label">{label}</div>
+        <div className="stat-card__value" style={{ color: accent }}>{value}</div>
       </div>
-      <div style={{ fontSize: '1.375rem', fontWeight: 700, fontFamily: 'JetBrains Mono, monospace', color: color || 'var(--color-text-primary)' }}>
-        {value}
+      <div className="stat-card__icon" style={accentVar ? { color: accent } : undefined}>
+        <i className={icon} />
       </div>
     </div>
   )
@@ -543,45 +550,24 @@ export default function Nodes() {
       </div>
 
       {/* Tabs */}
-      <div style={{ display: 'flex', gap: 'var(--spacing-xs)', marginBottom: 'var(--spacing-lg)', borderBottom: '2px solid var(--color-border)' }}>
+      <div className="tabs" style={{ marginBottom: 'var(--spacing-lg)' }}>
         <button
           onClick={() => setActiveTab('backend')}
-          style={{
-            padding: 'var(--spacing-sm) var(--spacing-lg)',
-            border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '0.875rem',
-            background: 'none',
-            color: activeTab === 'backend' ? 'var(--color-primary)' : 'var(--color-text-muted)',
-            borderBottom: activeTab === 'backend' ? '2px solid var(--color-primary)' : '2px solid transparent',
-            marginBottom: '-2px',
-          }}
+          className={`tab ${activeTab === 'backend' ? 'tab-active' : ''}`}
         >
           <i className="fas fa-server" style={{ marginRight: 6 }} />
           Backend Workers ({backendNodes.length})
         </button>
         <button
           onClick={() => setActiveTab('agent')}
-          style={{
-            padding: 'var(--spacing-sm) var(--spacing-lg)',
-            border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '0.875rem',
-            background: 'none',
-            color: activeTab === 'agent' ? 'var(--color-primary)' : 'var(--color-text-muted)',
-            borderBottom: activeTab === 'agent' ? '2px solid var(--color-primary)' : '2px solid transparent',
-            marginBottom: '-2px',
-          }}
+          className={`tab ${activeTab === 'agent' ? 'tab-active' : ''}`}
         >
           <i className="fas fa-robot" style={{ marginRight: 6 }} />
           Agent Workers ({agentNodes.length})
         </button>
         <button
           onClick={() => setActiveTab('scheduling')}
-          style={{
-            padding: 'var(--spacing-sm) var(--spacing-lg)',
-            border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '0.875rem',
-            background: 'none',
-            color: activeTab === 'scheduling' ? 'var(--color-primary)' : 'var(--color-text-muted)',
-            borderBottom: activeTab === 'scheduling' ? '2px solid var(--color-primary)' : '2px solid transparent',
-            marginBottom: '-2px',
-          }}
+          className={`tab ${activeTab === 'scheduling' ? 'tab-active' : ''}`}
         >
           <i className="fas fa-calendar-alt" style={{ marginRight: 6 }} />
           Scheduling ({schedulingConfigs.length})
@@ -590,13 +576,17 @@ export default function Nodes() {
 
       {activeTab !== 'scheduling' && <>
       {/* Stat cards */}
-      <div style={{ display: 'flex', gap: 'var(--spacing-md)', marginBottom: 'var(--spacing-xl)', flexWrap: 'wrap' }}>
-        <StatCard icon={activeTab === 'agent' ? 'fas fa-robot' : 'fas fa-server'} label={`Total ${activeTab === 'agent' ? 'Agent' : 'Backend'} Workers`} value={total} />
-        <StatCard icon="fas fa-check-circle" label="Healthy" value={healthy} color="var(--color-success)" />
-        <StatCard icon="fas fa-exclamation-circle" label="Unhealthy" value={unhealthy} color={unhealthy > 0 ? 'var(--color-error)' : undefined} />
-        <StatCard icon="fas fa-hourglass-half" label="Draining" value={draining} color={draining > 0 ? 'var(--color-warning)' : undefined} />
+      <div className="stat-grid">
+        <StatCard icon={activeTab === 'agent' ? 'fas fa-robot' : 'fas fa-server'}
+          label={`Total ${activeTab === 'agent' ? 'Agent' : 'Backend'} Workers`} value={total} />
+        <StatCard icon="fas fa-check-circle" label="Healthy" value={healthy}
+          accentVar={healthy > 0 ? '--color-success' : undefined} />
+        <StatCard icon="fas fa-exclamation-circle" label="Unhealthy" value={unhealthy}
+          accentVar={unhealthy > 0 ? '--color-error' : undefined} />
+        <StatCard icon="fas fa-hourglass-half" label="Draining" value={draining}
+          accentVar={draining > 0 ? '--color-warning' : undefined} />
         {pending > 0 && (
-          <StatCard icon="fas fa-clock" label="Pending" value={pending} color="var(--color-warning)" />
+          <StatCard icon="fas fa-clock" label="Pending" value={pending} accentVar="--color-warning" />
         )}
         {activeTab === 'backend' && (() => {
           const clusterTotalVRAM = backendNodes.reduce((sum, n) => sum + (n.total_vram || 0), 0)
@@ -614,7 +604,7 @@ export default function Nodes() {
               )}
               <StatCard icon="fas fa-cube" label="Models Loaded" value={totalModelsLoaded} />
               <StatCard icon="fas fa-exchange-alt" label="In-Flight Requests" value={totalInFlight}
-                color={totalInFlight > 0 ? 'var(--color-primary)' : undefined} />
+                accentVar={totalInFlight > 0 ? '--color-primary' : undefined} />
             </>
           )
         })()}
@@ -627,15 +617,11 @@ export default function Nodes() {
         <>
           <button
             onClick={() => setShowTips(t => !t)}
-            style={{
-              background: 'none', border: 'none', cursor: 'pointer',
-              color: 'var(--color-primary)', fontSize: '0.8125rem', fontWeight: 500,
-              display: 'flex', alignItems: 'center', gap: 6,
-              padding: 0, marginBottom: 'var(--spacing-md)',
-            }}
+            className="nodes-add-worker"
+            aria-expanded={showTips}
           >
-            <i className={`fas fa-chevron-${showTips ? 'down' : 'right'}`} style={{ fontSize: '0.625rem' }} />
-            Add more workers
+            <i className={`fas ${showTips ? 'fa-chevron-down' : 'fa-plus'}`} />
+            {showTips ? 'Hide instructions' : 'Register a new worker'}
           </button>
           {showTips && <WorkerHintCard addToast={addToast} activeTab={activeTab} hasWorkers />}
         </>
@@ -685,23 +671,28 @@ export default function Nodes() {
                     >
                       <td>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
-                          <i className="fas fa-server" style={{ color: 'var(--color-text-muted)', fontSize: '0.875rem' }} />
+                          {canExpand && (
+                            <span className={`row-chevron${isExpanded ? ' is-expanded' : ''}`} aria-hidden="true">
+                              <i className="fas fa-chevron-right" />
+                            </span>
+                          )}
+                          <i className="fas fa-server" style={{ color: 'var(--color-text-muted)', fontSize: 'var(--text-sm)' }} />
                           <div>
-                            <div style={{ fontWeight: 600, fontSize: '0.875rem' }}>{node.name}</div>
-                            <div style={{ fontSize: '0.75rem', fontFamily: "'JetBrains Mono', monospace", color: 'var(--color-text-muted)' }}>
+                            <div style={{ fontWeight: 600, fontSize: 'var(--text-sm)' }}>{node.name}</div>
+                            <div className="cell-mono cell-muted">
                               {node.address}
                             </div>
                             {node.labels && Object.keys(node.labels).length > 0 && (
                               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3, marginTop: 3 }}>
                                 {Object.entries(node.labels).slice(0, 5).map(([k, v]) => (
-                                  <span key={k} style={{
-                                    fontSize: '0.625rem', padding: '1px 5px', borderRadius: 3,
-                                    background: 'var(--color-bg-tertiary)', color: 'var(--color-text-muted)',
-                                    fontFamily: "'JetBrains Mono', monospace", border: '1px solid var(--color-border-subtle)',
+                                  <span key={k} className="cell-mono" style={{
+                                    padding: '1px 5px', borderRadius: 3,
+                                    background: 'var(--color-bg-tertiary)',
+                                    border: '1px solid var(--color-border-subtle)',
                                   }}>{k}={v}</span>
                                 ))}
                                 {Object.keys(node.labels).length > 5 && (
-                                  <span style={{ fontSize: '0.625rem', color: 'var(--color-text-muted)' }}>
+                                  <span className="cell-muted">
                                     +{Object.keys(node.labels).length - 5} more
                                   </span>
                                 )}
@@ -711,12 +702,10 @@ export default function Nodes() {
                         </div>
                       </td>
                       <td>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <i className="fas fa-circle" style={{ fontSize: '0.5rem', color: status.color }} />
-                          <span style={{ fontSize: '0.8125rem', color: status.color, fontWeight: 500 }}>
-                            {status.label}
-                          </span>
-                        </div>
+                        <span className="node-status" style={{ color: status.color }}>
+                          <span className="node-status__dot" style={{ background: status.color }} />
+                          {status.label}
+                        </span>
                       </td>
                       <td>
                         {hasGPU && totalVRAMStr ? (
@@ -745,38 +734,37 @@ export default function Nodes() {
                         </span>
                       </td>
                       <td style={{ textAlign: 'right' }}>
-                        <div style={{ display: 'flex', gap: 'var(--spacing-xs)', justifyContent: 'flex-end' }} onClick={e => e.stopPropagation()}>
+                        <div className="row-actions" onClick={e => e.stopPropagation()}>
                           {node.status === 'pending' && (
                             <button
                               className="btn btn-primary btn-sm"
                               onClick={() => handleApprove(node.id)}
-                              title="Approve node"
                             >
-                              <i className="fas fa-check" />
+                              <i className="fas fa-check" /> Approve
                             </button>
                           )}
                           {node.status === 'draining' && (
                             <button
                               className="btn btn-secondary btn-sm"
                               onClick={() => handleResume(node.id)}
-                              title="Resume node"
+                              title="Resume accepting requests"
                             >
-                              <i className="fas fa-play" />
+                              <i className="fas fa-play" /> Resume
                             </button>
                           )}
                           {node.status !== 'draining' && node.status !== 'pending' && (
                             <button
                               className="btn btn-secondary btn-sm"
                               onClick={() => handleDrain(node.id)}
-                              title="Drain node"
+                              title="Stop sending new requests to this node"
                             >
-                              <i className="fas fa-pause" />
+                              <i className="fas fa-pause" /> Drain
                             </button>
                           )}
                           <button
-                            className="btn btn-danger btn-sm"
+                            className="btn btn-danger-ghost btn-sm"
                             onClick={() => setConfirmDelete(node)}
-                            title="Remove node"
+                            title="Remove node from cluster"
                           >
                             <i className="fas fa-trash" />
                           </button>
@@ -794,7 +782,10 @@ export default function Nodes() {
                             {!models ? (
                               <LoadingSpinner size="sm" />
                             ) : models.length === 0 ? (
-                              <p style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)' }}>No models loaded on this node</p>
+                              <div className="drawer-empty">
+                                <i className="fas fa-cube" />
+                                <span>No models loaded on this node yet.</span>
+                              </div>
                             ) : (
                               <table className="table" style={{ margin: 0 }}>
                                 <thead>
@@ -870,7 +861,10 @@ export default function Nodes() {
                             {!backends ? (
                               <LoadingSpinner size="sm" />
                             ) : backends.length === 0 ? (
-                              <p style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)' }}>No backends installed on this node</p>
+                              <div className="drawer-empty">
+                                <i className="fas fa-cogs" />
+                                <span>No backends installed on this node. Install one from the gallery to schedule models here.</span>
+                              </div>
                             ) : (
                               <table className="table" style={{ margin: 0 }}>
                                 <thead>

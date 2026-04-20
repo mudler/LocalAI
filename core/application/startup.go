@@ -235,7 +235,12 @@ func New(opts ...config.AppOption) (*Application, error) {
 	// In distributed mode, uses PostgreSQL advisory lock so only one frontend
 	// instance runs periodic checks (avoids duplicate upgrades across replicas).
 	if len(options.BackendGalleries) > 0 {
-		uc := NewUpgradeChecker(options, application.ModelLoader(), application.distributedDB())
+		// Pass a lazy getter for the backend manager so the checker always
+		// uses the active one — DistributedBackendManager is swapped in above
+		// and asks workers for their installed backends, which is what
+		// upgrade detection needs in distributed mode.
+		bmFn := func() galleryop.BackendManager { return application.GalleryService().BackendManager() }
+		uc := NewUpgradeChecker(options, application.ModelLoader(), application.distributedDB(), bmFn)
 		application.upgradeChecker = uc
 		go uc.Run(options.Context)
 	}

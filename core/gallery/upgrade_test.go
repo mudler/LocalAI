@@ -144,6 +144,97 @@ var _ = Describe("Upgrade Detection and Execution", func() {
 		})
 	})
 
+	// CheckUpgradesAgainst is the entry point used by DistributedBackendManager.
+	// It takes installed backends directly — typically aggregated from workers —
+	// instead of reading the frontend filesystem. These tests exercise drift
+	// detection, which is the feature the distributed path relies on.
+	Describe("CheckUpgradesAgainst (distributed)", func() {
+		It("flags upgrade when cluster nodes disagree on version, even if gallery matches majority", func() {
+			writeGalleryYAML([]GalleryBackend{
+				{
+					Metadata: Metadata{Name: "my-backend"},
+					URI:      filepath.Join(tempDir, "some-source"),
+					Version:  "2.0.0",
+				},
+			})
+
+			installed := SystemBackends{
+				"my-backend": SystemBackend{
+					Name:     "my-backend",
+					Metadata: &BackendMetadata{Name: "my-backend", Version: "2.0.0"},
+					Nodes: []NodeBackendRef{
+						{NodeID: "a", NodeName: "worker-1", Version: "2.0.0"},
+						{NodeID: "b", NodeName: "worker-2", Version: "2.0.0"},
+						{NodeID: "c", NodeName: "worker-3", Version: "1.0.0"}, // drift
+					},
+				},
+			}
+
+			upgrades, err := CheckUpgradesAgainst(context.Background(), galleries, systemState, installed)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(upgrades).To(HaveKey("my-backend"))
+			info := upgrades["my-backend"]
+			Expect(info.AvailableVersion).To(Equal("2.0.0"))
+			Expect(info.NodeDrift).To(HaveLen(1))
+			Expect(info.NodeDrift[0].NodeName).To(Equal("worker-3"))
+			Expect(info.NodeDrift[0].Version).To(Equal("1.0.0"))
+		})
+
+		It("does not flag upgrade when all nodes agree and match gallery", func() {
+			writeGalleryYAML([]GalleryBackend{
+				{
+					Metadata: Metadata{Name: "my-backend"},
+					URI:      filepath.Join(tempDir, "some-source"),
+					Version:  "2.0.0",
+				},
+			})
+
+			installed := SystemBackends{
+				"my-backend": SystemBackend{
+					Name:     "my-backend",
+					Metadata: &BackendMetadata{Name: "my-backend", Version: "2.0.0"},
+					Nodes: []NodeBackendRef{
+						{NodeID: "a", NodeName: "worker-1", Version: "2.0.0"},
+						{NodeID: "b", NodeName: "worker-2", Version: "2.0.0"},
+					},
+				},
+			}
+
+			upgrades, err := CheckUpgradesAgainst(context.Background(), galleries, systemState, installed)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(upgrades).To(BeEmpty())
+		})
+
+		It("surfaces empty-installed-version path the old distributed code silently missed", func() {
+			// Simulates the real-world bug: worker has a backend, its version
+			// is empty (pre-tracking or OCI-pinned-to-latest), gallery has a
+			// version. Pre-fix CheckUpgrades returned nothing; now it surfaces.
+			writeGalleryYAML([]GalleryBackend{
+				{
+					Metadata: Metadata{Name: "my-backend"},
+					URI:      filepath.Join(tempDir, "some-source"),
+					Version:  "2.0.0",
+				},
+			})
+
+			installed := SystemBackends{
+				"my-backend": SystemBackend{
+					Name:     "my-backend",
+					Metadata: &BackendMetadata{Name: "my-backend"},
+					Nodes: []NodeBackendRef{
+						{NodeID: "a", NodeName: "worker-1"},
+					},
+				},
+			}
+
+			upgrades, err := CheckUpgradesAgainst(context.Background(), galleries, systemState, installed)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(upgrades).To(HaveKey("my-backend"))
+			Expect(upgrades["my-backend"].InstalledVersion).To(BeEmpty())
+			Expect(upgrades["my-backend"].AvailableVersion).To(Equal("2.0.0"))
+		})
+	})
+
 	Describe("UpgradeBackend", func() {
 		It("should replace backend directory and update metadata", func() {
 			// Install v1

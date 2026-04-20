@@ -509,28 +509,89 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		modelConfigs := cl.GetAllModelsConfigs()
 		modelsWithoutConfig, _ := galleryop.ListModels(cl, ml, config.NoFilterFn, galleryop.LOOSE_ONLY)
 
+		type loadedOn struct {
+			NodeID     string `json:"node_id"`
+			NodeName   string `json:"node_name"`
+			State      string `json:"state"`
+			NodeStatus string `json:"node_status"`
+		}
 		type modelCapability struct {
-			ID           string   `json:"id"`
-			Capabilities []string `json:"capabilities"`
-			Backend      string   `json:"backend"`
-			Disabled     bool     `json:"disabled"`
-			Pinned       bool     `json:"pinned"`
+			ID           string     `json:"id"`
+			Capabilities []string   `json:"capabilities"`
+			Backend      string     `json:"backend"`
+			Disabled     bool       `json:"disabled"`
+			Pinned       bool       `json:"pinned"`
+			// LoadedOn is populated only when the node registry is active
+			// (distributed mode). Lets the UI show "loaded on worker-1" without
+			// the operator having to expand every node manually. An empty slice
+			// with nil reports "no loaded replicas" vs. nil reports "not in
+			// cluster mode" — the frontend treats both as "no distribution info".
+			LoadedOn []loadedOn `json:"loaded_on,omitempty"`
+			// Source="registry-only" marks models adopted from the cluster that
+			// have no local config yet (ghosts that the reconciler discovered).
+			Source string `json:"source,omitempty"`
+		}
+
+		// Join with the node registry when we have one (distributed mode). A
+		// single registry fetch + map join beats per-model queries for the
+		// 100-model case.
+		var loadedByModel map[string][]loadedOn
+		if ds := applicationInstance.Distributed(); ds != nil && ds.Registry != nil {
+			nodeModels, err := ds.Registry.ListAllLoadedModels(c.Request().Context())
+			if err == nil {
+				allNodes, _ := ds.Registry.List(c.Request().Context())
+				nameByID := make(map[string]string, len(allNodes))
+				statusByID := make(map[string]string, len(allNodes))
+				for _, n := range allNodes {
+					nameByID[n.ID] = n.Name
+					statusByID[n.ID] = n.Status
+				}
+				loadedByModel = make(map[string][]loadedOn)
+				for _, nm := range nodeModels {
+					loadedByModel[nm.ModelName] = append(loadedByModel[nm.ModelName], loadedOn{
+						NodeID:     nm.NodeID,
+						NodeName:   nameByID[nm.NodeID],
+						State:      nm.State,
+						NodeStatus: statusByID[nm.NodeID],
+					})
+				}
+			}
 		}
 
 		result := make([]modelCapability, 0, len(modelConfigs)+len(modelsWithoutConfig))
+		seen := make(map[string]bool, len(modelConfigs)+len(modelsWithoutConfig))
 		for _, cfg := range modelConfigs {
+			seen[cfg.Name] = true
 			result = append(result, modelCapability{
 				ID:           cfg.Name,
 				Capabilities: cfg.KnownUsecaseStrings,
 				Backend:      cfg.Backend,
 				Disabled:     cfg.IsDisabled(),
 				Pinned:       cfg.IsPinned(),
+				LoadedOn:     loadedByModel[cfg.Name],
 			})
 		}
 		for _, name := range modelsWithoutConfig {
+			seen[name] = true
 			result = append(result, modelCapability{
 				ID:           name,
 				Capabilities: []string{},
+				LoadedOn:     loadedByModel[name],
+			})
+		}
+		// Emit entries for cluster models that have no local config — these
+		// are the actual ghosts. Without this the operator would have no way
+		// to see a model the cluster is running if its config file wasn't
+		// synced to this frontend's filesystem.
+		for name, loc := range loadedByModel {
+			if seen[name] {
+				continue
+			}
+			result = append(result, modelCapability{
+				ID:           name,
+				Capabilities: []string{},
+				LoadedOn:     loc,
+				Source:       "registry-only",
 			})
 		}
 

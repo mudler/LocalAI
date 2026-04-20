@@ -2408,6 +2408,23 @@ const docTemplate = `{
                 }
             }
         },
+        "gallery.NodeDriftInfo": {
+            "type": "object",
+            "properties": {
+                "digest": {
+                    "type": "string"
+                },
+                "node_id": {
+                    "type": "string"
+                },
+                "node_name": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "string"
+                }
+            }
+        },
         "gallery.UpgradeInfo": {
             "type": "object",
             "properties": {
@@ -2425,6 +2442,13 @@ const docTemplate = `{
                 },
                 "installed_version": {
                     "type": "string"
+                },
+                "node_drift": {
+                    "description": "NodeDrift lists nodes whose installed version or digest differs from\nthe cluster majority. Non-empty means the cluster has diverged and an\nupgrade will realign it. Empty in single-node mode.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/gallery.NodeDriftInfo"
+                    }
                 }
             }
         },

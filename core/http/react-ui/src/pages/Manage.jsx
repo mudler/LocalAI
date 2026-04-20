@@ -3,6 +3,8 @@ import { useNavigate, useOutletContext, useSearchParams } from 'react-router-dom
 import ResourceMonitor from '../components/ResourceMonitor'
 import ConfirmDialog from '../components/ConfirmDialog'
 import Toggle from '../components/Toggle'
+import NodeDistributionChip from '../components/NodeDistributionChip'
+import FilterBar from '../components/FilterBar'
 import { useModels } from '../hooks/useModels'
 import { backendControlApi, modelsApi, backendsApi, systemApi, nodesApi } from '../utils/api'
 
@@ -10,6 +12,22 @@ const TABS = [
   { key: 'models', label: 'Models', icon: 'fa-brain' },
   { key: 'backends', label: 'Backends', icon: 'fa-server' },
 ]
+
+// formatInstalledAt renders an installed_at timestamp as a short relative/abs
+// string suitable for dense tables. Returns the raw value if parsing fails so
+// we never display "Invalid Date".
+function formatInstalledAt(value) {
+  if (!value) return '—'
+  const d = new Date(value)
+  if (isNaN(d.getTime())) return value
+  const now = Date.now()
+  const diffMin = Math.floor((now - d.getTime()) / 60000)
+  if (diffMin < 1) return 'just now'
+  if (diffMin < 60) return `${diffMin}m ago`
+  if (diffMin < 60 * 24) return `${Math.floor(diffMin / 60)}h ago`
+  if (diffMin < 60 * 24 * 30) return `${Math.floor(diffMin / (60 * 24))}d ago`
+  return d.toISOString().slice(0, 10)
+}
 
 export default function Manage() {
   const { addToast } = useOutletContext()
@@ -28,6 +46,24 @@ export default function Manage() {
   const [distributedMode, setDistributedMode] = useState(false)
   const [togglingModels, setTogglingModels] = useState(new Set())
   const [pinningModels, setPinningModels] = useState(new Set())
+  // Filter state per tab. Persisted in the URL query so switching tabs
+  // doesn't lose the filter the operator just set.
+  const [modelsSearch, setModelsSearch] = useState(() => searchParams.get('mq') || '')
+  const [modelsFilter, setModelsFilter] = useState(() => searchParams.get('mf') || 'all')
+  const [backendsSearch, setBackendsSearch] = useState(() => searchParams.get('bq') || '')
+  const [backendsFilter, setBackendsFilter] = useState(() => searchParams.get('bf') || 'all')
+
+  // Sync filter state into the URL so deep-links + tab switches survive.
+  useEffect(() => {
+    const p = new URLSearchParams(searchParams)
+    const setOrDelete = (k, v) => { if (v && v !== 'all') p.set(k, v); else p.delete(k) }
+    setOrDelete('mq', modelsSearch)
+    setOrDelete('mf', modelsFilter)
+    setOrDelete('bq', backendsSearch)
+    setOrDelete('bf', backendsFilter)
+    setSearchParams(p, { replace: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [modelsSearch, modelsFilter, backendsSearch, backendsFilter])
 
   const handleTabChange = (tab) => {
     setActiveTab(tab)
@@ -63,6 +99,35 @@ export default function Manage() {
     // Detect distributed mode (nodes API returns 503 when not enabled)
     nodesApi.list().then(() => setDistributedMode(true)).catch(() => {})
   }, [fetchLoadedModels, fetchBackends])
+
+  // Auto-refresh the Models tab every 10s in distributed mode so ghost models
+  // (loaded on a worker but absent from this frontend's in-memory cache)
+  // clear on their own without the user clicking Update.
+  const [lastSyncedAt, setLastSyncedAt] = useState(() => Date.now())
+  const [nowTick, setNowTick] = useState(() => Date.now())
+  useEffect(() => {
+    if (!distributedMode || activeTab !== 'models') return
+    const interval = setInterval(() => {
+      refetchModels()
+      fetchLoadedModels()
+      setLastSyncedAt(Date.now())
+    }, 10000)
+    return () => clearInterval(interval)
+  }, [distributedMode, activeTab, refetchModels, fetchLoadedModels])
+
+  // Drive the "last synced Ns ago" label without over-rendering the table.
+  useEffect(() => {
+    if (!distributedMode) return
+    const interval = setInterval(() => setNowTick(Date.now()), 1000)
+    return () => clearInterval(interval)
+  }, [distributedMode])
+  const lastSyncedAgo = (() => {
+    const s = Math.max(0, Math.floor((nowTick - lastSyncedAt) / 1000))
+    if (s < 5) return 'just now'
+    if (s < 60) return `${s}s ago`
+    const m = Math.floor(s / 60)
+    return `${m}m ago`
+  })()
 
   // Fetch available backend upgrades
   useEffect(() => {
@@ -196,6 +261,29 @@ export default function Manage() {
     }
   }
 
+  const [upgradingAll, setUpgradingAll] = useState(false)
+  const [showOnlyUpgradable, setShowOnlyUpgradable] = useState(false)
+  const handleUpgradeAll = async () => {
+    const names = Object.keys(upgrades)
+    if (names.length === 0) return
+    setUpgradingAll(true)
+    try {
+      // Serial upgrade — matches the gallery's Upgrade All behavior.
+      // Each backend upgrade is itself a cluster-wide fan-out, so parallel
+      // calls would multiply load on every worker.
+      for (const name of names) {
+        try {
+          await backendsApi.upgrade(name)
+        } catch (err) {
+          addToast(`Upgrade failed for ${name}: ${err.message}`, 'error')
+        }
+      }
+      addToast(`Upgrade started for ${names.length} backend${names.length === 1 ? '' : 's'}`, 'info')
+    } finally {
+      setUpgradingAll(false)
+    }
+  }
+
   const handleDeleteBackend = (name) => {
     setConfirmDialog({
       title: 'Delete Backend',
@@ -227,29 +315,74 @@ export default function Manage() {
 
       {/* Tabs */}
       <div className="tabs" style={{ marginTop: 'var(--spacing-lg)', marginBottom: 'var(--spacing-md)' }}>
-        {TABS.map(t => (
-          <button
-            key={t.key}
-            className={`tab ${activeTab === t.key ? 'tab-active' : ''}`}
-            onClick={() => handleTabChange(t.key)}
-          >
-            <i className={`fas ${t.icon}`} style={{ marginRight: 6 }} />
-            {t.label}
-            {t.key === 'models' && !modelsLoading && ` (${models.length})`}
-            {t.key === 'backends' && !backendsLoading && ` (${backends.length})`}
-          </button>
-        ))}
+        {TABS.map(t => {
+          const upgradeCount = t.key === 'backends' ? Object.keys(upgrades).length : 0
+          return (
+            <button
+              key={t.key}
+              className={`tab ${activeTab === t.key ? 'tab-active' : ''}`}
+              onClick={() => handleTabChange(t.key)}
+            >
+              <i className={`fas ${t.icon}`} style={{ marginRight: 6 }} />
+              {t.label}
+              {t.key === 'models' && !modelsLoading && ` (${models.length})`}
+              {t.key === 'backends' && !backendsLoading && ` (${backends.length})`}
+              {upgradeCount > 0 && (
+                <span className="tab-pill tab-pill--warning" title={`${upgradeCount} update${upgradeCount === 1 ? '' : 's'} available`}>
+                  <i className="fas fa-arrow-up" /> {upgradeCount}
+                </span>
+              )}
+            </button>
+          )
+        })}
       </div>
 
       {/* Models Tab */}
-      {activeTab === 'models' && (
+      {activeTab === 'models' && (() => {
+        // Computed filters — done here so the result is available both to
+        // the FilterBar counts and to the table body.
+        const MODEL_FILTERS = [
+          { key: 'all',      label: 'All',      icon: 'fa-layer-group' },
+          { key: 'running',  label: 'Running',  icon: 'fa-circle-play' },
+          { key: 'idle',     label: 'Idle',     icon: 'fa-pause' },
+          { key: 'disabled', label: 'Disabled', icon: 'fa-ban' },
+          { key: 'pinned',   label: 'Pinned',   icon: 'fa-thumbtack' },
+          ...(distributedMode ? [{ key: 'distributed', label: 'Distributed', icon: 'fa-server' }] : []),
+        ]
+        const passesFilter = (m) => {
+          if (modelsFilter === 'running') return !m.disabled && (loadedModelIds.has(m.id) || (m.loaded_on && m.loaded_on.length > 0))
+          if (modelsFilter === 'idle')    return !m.disabled && !loadedModelIds.has(m.id) && !(m.loaded_on && m.loaded_on.length > 0)
+          if (modelsFilter === 'disabled') return !!m.disabled
+          if (modelsFilter === 'pinned')   return !!m.pinned
+          if (modelsFilter === 'distributed') return Array.isArray(m.loaded_on) && m.loaded_on.length > 0
+          return true
+        }
+        const q = modelsSearch.trim().toLowerCase()
+        const passesSearch = (m) => !q || (m.id || '').toLowerCase().includes(q) || (m.backend || '').toLowerCase().includes(q)
+        const visibleModels = models.filter(m => passesFilter(m) && passesSearch(m))
+        return (
       <div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', marginBottom: 'var(--spacing-md)' }}>
-          <button className="btn btn-secondary btn-sm" onClick={handleReload} disabled={reloading}>
-            <i className={`fas ${reloading ? 'fa-spinner fa-spin' : 'fa-rotate'}`} />
-            {reloading ? 'Updating...' : 'Update'}
-          </button>
-        </div>
+        <FilterBar
+          search={modelsSearch}
+          onSearchChange={setModelsSearch}
+          searchPlaceholder="Search models by name or backend..."
+          filters={MODEL_FILTERS}
+          activeFilter={modelsFilter}
+          onFilterChange={setModelsFilter}
+          rightSlot={(
+            <>
+              {distributedMode && (
+                <span className="cell-muted" title="Auto-refreshes every 10s in distributed mode so ghost models clear promptly">
+                  <i className="fas fa-rotate" /> Last synced {lastSyncedAgo}
+                </span>
+              )}
+              <button className="btn btn-secondary btn-sm" onClick={handleReload} disabled={reloading}>
+                <i className={`fas ${reloading ? 'fa-spinner fa-spin' : 'fa-rotate'}`} />
+                {reloading ? ' Updating...' : ' Update'}
+              </button>
+            </>
+          )}
+        />
 
         {modelsLoading ? (
           <div className="card" style={{ padding: 'var(--spacing-xl)', textAlign: 'center', color: 'var(--color-text-muted)' }}>
@@ -274,6 +407,12 @@ export default function Manage() {
               </a>
             </div>
           </div>
+        ) : visibleModels.length === 0 ? (
+          <div className="empty-state">
+            <i className="fas fa-filter" />
+            <p>No models match the current filter.</p>
+            <button className="btn btn-ghost btn-sm" onClick={() => { setModelsSearch(''); setModelsFilter('all') }}>Clear filters</button>
+          </div>
         ) : (
           <div className="table-container">
             <table className="table">
@@ -288,7 +427,7 @@ export default function Manage() {
                 </tr>
               </thead>
               <tbody>
-                {models.map(model => (
+                {visibleModels.map(model => (
                   <tr key={model.id} style={{ opacity: model.disabled ? 0.55 : 1, transition: 'opacity 0.2s' }}>
                     {/* Enable/Disable toggle */}
                     <td>
@@ -329,21 +468,33 @@ export default function Manage() {
                         </div>
                       </div>
                     </td>
-                    {/* Status */}
+                    {/* Status / Distribution */}
                     <td>
-                      {model.disabled ? (
-                        <span className="badge" style={{ background: 'var(--color-bg-tertiary)', color: 'var(--color-text-muted)' }}>
-                          <i className="fas fa-ban" style={{ fontSize: '6px' }} /> Disabled
-                        </span>
-                      ) : loadedModelIds.has(model.id) ? (
-                        <span className="badge badge-success">
-                          <i className="fas fa-circle" style={{ fontSize: '6px' }} /> Running
-                        </span>
-                      ) : (
-                        <span className="badge" style={{ background: 'var(--color-bg-tertiary)', color: 'var(--color-text-muted)' }}>
-                          <i className="fas fa-circle" style={{ fontSize: '6px' }} /> Idle
-                        </span>
-                      )}
+                      <div className="cell-stack">
+                        {model.disabled ? (
+                          <span className="badge" style={{ background: 'var(--color-bg-tertiary)', color: 'var(--color-text-muted)' }}>
+                            <i className="fas fa-ban" /> Disabled
+                          </span>
+                        ) : model.loaded_on && model.loaded_on.length > 0 ? (
+                          // Distributed mode: surface where the model is
+                          // actually loaded. Shared chip scales to any cluster
+                          // size (inline for <=3, popover for larger).
+                          <NodeDistributionChip nodes={model.loaded_on} context="models" />
+                        ) : loadedModelIds.has(model.id) ? (
+                          <span className="badge badge-success">
+                            <i className="fas fa-circle" style={{ fontSize: '6px' }} /> Running
+                          </span>
+                        ) : (
+                          <span className="badge" style={{ background: 'var(--color-bg-tertiary)', color: 'var(--color-text-muted)' }}>
+                            <i className="fas fa-circle" style={{ fontSize: '6px' }} /> Idle
+                          </span>
+                        )}
+                        {model.source === 'registry-only' && (
+                          <span className="badge badge-warning" title="Discovered on a worker but not configured locally. Persist the config to make it permanent.">
+                            <i className="fas fa-ghost" /> Adopted
+                          </span>
+                        )}
+                      </div>
                     </td>
                     {/* Backend */}
                     <td>
@@ -394,11 +545,34 @@ export default function Manage() {
           </div>
         )}
       </div>
-      )}
+        )
+      })()}
 
       {/* Backends Tab */}
       {activeTab === 'backends' && (
       <div>
+        {/* Upgrade banner — mirrors the gallery so operators can't miss updates */}
+        {!backendsLoading && Object.keys(upgrades).length > 0 && (
+          <div className="upgrade-banner">
+            <div className="upgrade-banner__text">
+              <i className="fas fa-arrow-up" />
+              <span>
+                {Object.keys(upgrades).length} backend{Object.keys(upgrades).length === 1 ? ' has' : 's have'} updates available
+              </span>
+            </div>
+            <div className="upgrade-banner__actions">
+              <button
+                className="btn btn-primary btn-sm"
+                onClick={handleUpgradeAll}
+                disabled={upgradingAll}
+              >
+                <i className={`fas ${upgradingAll ? 'fa-spinner fa-spin' : 'fa-arrow-up'}`} />
+                {upgradingAll ? ' Upgrading...' : ' Upgrade all'}
+              </button>
+            </div>
+          </div>
+        )}
+
         {backendsLoading ? (
           <div style={{ textAlign: 'center', padding: 'var(--spacing-md)', color: 'var(--color-text-muted)', fontSize: '0.875rem' }}>
             Loading backends...
@@ -419,109 +593,217 @@ export default function Manage() {
               </a>
             </div>
           </div>
-        ) : (
-          <div className="table-container">
+        ) : (() => {
+          // Count chip badges: show N in the filter buttons so operators can
+          // see at a glance how their chips bucket the list.
+          const upgradableCount = backends.filter(b => upgrades[b.Name]).length
+          const userCount       = backends.filter(b => !b.IsSystem).length
+          const systemCount     = backends.filter(b => b.IsSystem).length
+          const metaCount       = backends.filter(b => b.IsMeta).length
+          const offlineCount    = backends.filter(b => {
+            const n = b.Nodes || b.nodes || []
+            return n.some(x => {
+              const s = x.node_status || x.NodeStatus
+              return s && s !== 'healthy' && s !== 'draining'
+            })
+          }).length
+
+          const BACKEND_FILTERS = [
+            { key: 'all',        label: 'All',        icon: 'fa-layer-group', count: backends.length },
+            { key: 'user',       label: 'User',       icon: 'fa-download',    count: userCount },
+            { key: 'system',     label: 'System',     icon: 'fa-shield-alt',  count: systemCount },
+            { key: 'meta',       label: 'Meta',       icon: 'fa-layer-group', count: metaCount },
+            ...(upgradableCount > 0 ? [{ key: 'upgradable', label: 'Updates', icon: 'fa-arrow-up', count: upgradableCount }] : []),
+            ...(distributedMode && offlineCount > 0 ? [{ key: 'offline', label: 'Offline nodes', icon: 'fa-exclamation-circle', count: offlineCount }] : []),
+          ]
+          const q = backendsSearch.trim().toLowerCase()
+          const passesSearch = (b) => !q
+            || (b.Name || '').toLowerCase().includes(q)
+            || (b.Metadata?.alias || '').toLowerCase().includes(q)
+            || (b.Metadata?.meta_backend_for || '').toLowerCase().includes(q)
+          const passesFilter = (b) => {
+            switch (backendsFilter) {
+              case 'user':       return !b.IsSystem
+              case 'system':     return !!b.IsSystem
+              case 'meta':       return !!b.IsMeta
+              case 'upgradable': return !!upgrades[b.Name]
+              case 'offline': {
+                const n = b.Nodes || b.nodes || []
+                return n.some(x => {
+                  const s = x.node_status || x.NodeStatus
+                  return s && s !== 'healthy' && s !== 'draining'
+                })
+              }
+              default: return true
+            }
+          }
+          // Legacy "showOnlyUpgradable" toggle is now the 'upgradable' chip —
+          // keep backward-compat by mapping it onto the new filter.
+          if (showOnlyUpgradable && backendsFilter !== 'upgradable') {
+            // One-shot reconciliation — the old state becomes the new chip.
+            setBackendsFilter('upgradable')
+            setShowOnlyUpgradable(false)
+          }
+          const visibleBackends = backends.filter(b => passesFilter(b) && passesSearch(b))
+          if (visibleBackends.length === 0) {
+            return (
+              <>
+                <FilterBar
+                  search={backendsSearch}
+                  onSearchChange={setBackendsSearch}
+                  searchPlaceholder="Search backends by name or alias..."
+                  filters={BACKEND_FILTERS}
+                  activeFilter={backendsFilter}
+                  onFilterChange={setBackendsFilter}
+                />
+                <div className="empty-state">
+                  <i className="fas fa-filter" />
+                  <p>No backends match the current filter.</p>
+                  <button className="btn btn-ghost btn-sm" onClick={() => { setBackendsSearch(''); setBackendsFilter('all') }}>Clear filters</button>
+                </div>
+              </>
+            )
+          }
+          return (
+          <>
+            <FilterBar
+              search={backendsSearch}
+              onSearchChange={setBackendsSearch}
+              searchPlaceholder="Search backends by name or alias..."
+              filters={BACKEND_FILTERS}
+              activeFilter={backendsFilter}
+              onFilterChange={setBackendsFilter}
+            />
+            <div className="table-container">
             <table className="table">
               <thead>
                 <tr>
                   <th>Name</th>
                   <th>Type</th>
-                  <th>Metadata</th>
+                  <th>Version</th>
+                  {distributedMode && <th>Nodes</th>}
+                  <th>Installed</th>
                   <th style={{ textAlign: 'right' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {backends.map((backend, i) => (
+                {visibleBackends.map((backend, i) => {
+                  const upgradeInfo = upgrades[backend.Name]
+                  const hasDrift = upgradeInfo?.node_drift?.length > 0
+                  const nodes = backend.Nodes || backend.nodes || []
+                  return (
                   <tr key={backend.Name || i}>
                     <td>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
-                        <i className="fas fa-cog" style={{ color: 'var(--color-accent)', fontSize: '0.75rem' }} />
-                        <span style={{ fontWeight: 500 }}>{backend.Name}</span>
+                      <div className="cell-name">
+                        <i className="fas fa-cog" />
+                        <span>{backend.Name}</span>
+                        {backend.Metadata?.alias && (
+                          <span className="cell-subtle">alias: {backend.Metadata.alias}</span>
+                        )}
+                        {backend.Metadata?.meta_backend_for && (
+                          <span className="cell-subtle">for: {backend.Metadata.meta_backend_for}</span>
+                        )}
                       </div>
                     </td>
                     <td>
-                      <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                      <div className="badge-row">
                         {backend.IsSystem ? (
-                          <span className="badge badge-info" style={{ fontSize: '0.625rem' }}>
-                            <i className="fas fa-shield-alt" style={{ fontSize: '0.5rem', marginRight: 2 }} />System
+                          <span className="badge badge-info">
+                            <i className="fas fa-shield-alt" /> System
                           </span>
                         ) : (
-                          <span className="badge badge-success" style={{ fontSize: '0.625rem' }}>
-                            <i className="fas fa-download" style={{ fontSize: '0.5rem', marginRight: 2 }} />User
+                          <span className="badge badge-success">
+                            <i className="fas fa-download" /> User
                           </span>
                         )}
                         {backend.IsMeta && (
-                          <span className="badge" style={{ background: 'var(--color-accent-light)', color: 'var(--color-accent)', fontSize: '0.625rem' }}>
-                            <i className="fas fa-layer-group" style={{ fontSize: '0.5rem', marginRight: 2 }} />Meta
+                          <span className="badge badge-accent">
+                            <i className="fas fa-layer-group" /> Meta
                           </span>
                         )}
                       </div>
                     </td>
                     <td>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 2, fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>
-                        {backend.Metadata?.alias && (
-                          <span>
-                            <i className="fas fa-tag" style={{ fontSize: '0.5rem', marginRight: 4 }} />
-                            Alias: <span style={{ color: 'var(--color-text-primary)' }}>{backend.Metadata.alias}</span>
+                      <div className="cell-stack">
+                        {backend.Metadata?.version ? (
+                          <span className="cell-mono">v{backend.Metadata.version}</span>
+                        ) : (
+                          <span className="cell-muted">—</span>
+                        )}
+                        {upgradeInfo && (
+                          <span className="badge badge-warning" title={upgradeInfo.available_version ? `Upgrade to v${upgradeInfo.available_version}` : 'Update available'}>
+                            <i className="fas fa-arrow-up" />
+                            {upgradeInfo.available_version ? ` v${upgradeInfo.available_version}` : ' Update available'}
                           </span>
                         )}
-                        {backend.Metadata?.meta_backend_for && (
-                          <span>
-                            <i className="fas fa-link" style={{ fontSize: '0.5rem', marginRight: 4 }} />
-                            For: <span style={{ color: 'var(--color-accent)' }}>{backend.Metadata.meta_backend_for}</span>
+                        {hasDrift && (
+                          <span
+                            className="badge badge-warning"
+                            title={`Drift: ${upgradeInfo.node_drift.map(d => `${d.node_name}${d.version ? ' v' + d.version : ''}`).join(', ')}`}
+                          >
+                            <i className="fas fa-code-branch" />
+                            {' '}Drift: {upgradeInfo.node_drift.length} node{upgradeInfo.node_drift.length === 1 ? '' : 's'}
                           </span>
                         )}
-                        {backend.Metadata?.version && (
-                          <span>
-                            <i className="fas fa-code-branch" style={{ fontSize: '0.5rem', marginRight: 4 }} />
-                            Version: <span style={{ color: 'var(--color-text-primary)' }}>v{backend.Metadata.version}</span>
-                            {upgrades[backend.Name] && (
-                              <span style={{ color: '#856404', marginLeft: 4 }}>
-                                → v{upgrades[backend.Name].available_version}
-                              </span>
-                            )}
-                          </span>
-                        )}
-                        {backend.Metadata?.installed_at && (
-                          <span>
-                            <i className="fas fa-calendar" style={{ fontSize: '0.5rem', marginRight: 4 }} />
-                            {backend.Metadata.installed_at}
-                          </span>
-                        )}
-                        {!backend.Metadata?.alias && !backend.Metadata?.meta_backend_for && !backend.Metadata?.installed_at && '—'}
                       </div>
                     </td>
+                    {distributedMode && (
+                      <td>
+                        <NodeDistributionChip nodes={nodes} context="backends" />
+                      </td>
+                    )}
                     <td>
-                      <div style={{ display: 'flex', gap: 'var(--spacing-xs)', justifyContent: 'flex-end' }}>
-                        {!backend.IsSystem ? (
+                      <span className="cell-muted cell-mono">
+                        {backend.Metadata?.installed_at ? formatInstalledAt(backend.Metadata.installed_at) : '—'}
+                      </span>
+                    </td>
+                    <td>
+                      <div className="row-actions">
+                        {backend.IsSystem ? (
+                          <span className="badge" title="System backends are managed outside the gallery">
+                            <i className="fas fa-lock" /> Protected
+                          </span>
+                        ) : (
                           <>
+                            {upgradeInfo ? (
+                              <button
+                                className="btn btn-primary btn-sm"
+                                onClick={() => handleUpgradeBackend(backend.Name)}
+                                disabled={reinstallingBackends.has(backend.Name)}
+                              >
+                                <i className={`fas ${reinstallingBackends.has(backend.Name) ? 'fa-spinner fa-spin' : 'fa-arrow-up'}`} />
+                                {' '}Upgrade{upgradeInfo.available_version ? ` to v${upgradeInfo.available_version}` : ''}
+                              </button>
+                            ) : (
+                              <button
+                                className="btn btn-secondary btn-sm"
+                                onClick={() => handleReinstallBackend(backend.Name)}
+                                disabled={reinstallingBackends.has(backend.Name)}
+                              >
+                                <i className={`fas ${reinstallingBackends.has(backend.Name) ? 'fa-spinner fa-spin' : 'fa-rotate'}`} />
+                                {' '}Reinstall
+                              </button>
+                            )}
                             <button
-                              className={`btn ${upgrades[backend.Name] ? 'btn-primary' : 'btn-secondary'} btn-sm`}
-                              onClick={() => upgrades[backend.Name] ? handleUpgradeBackend(backend.Name) : handleReinstallBackend(backend.Name)}
-                              disabled={reinstallingBackends.has(backend.Name)}
-                              title={upgrades[backend.Name] ? `Upgrade to v${upgrades[backend.Name]?.available_version || 'latest'}` : 'Reinstall'}
-                            >
-                              <i className={`fas ${reinstallingBackends.has(backend.Name) ? 'fa-spinner fa-spin' : upgrades[backend.Name] ? 'fa-arrow-up' : 'fa-rotate'}`} />
-                            </button>
-                            <button
-                              className="btn btn-danger btn-sm"
+                              className="btn btn-danger-ghost btn-sm"
                               onClick={() => handleDeleteBackend(backend.Name)}
-                              title="Delete"
+                              title="Delete backend (removes from all nodes)"
                             >
                               <i className="fas fa-trash" />
                             </button>
                           </>
-                        ) : (
-                          <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>—</span>
                         )}
                       </div>
                     </td>
                   </tr>
-                ))}
+                  )
+                })}
               </tbody>
             </table>
-          </div>
-        )}
+            </div>
+          </>
+          )
+        })()}
       </div>
       )}
 

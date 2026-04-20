@@ -104,6 +104,36 @@ type NodeWithExtras struct {
 	Labels        map[string]string `json:"labels,omitempty"`
 }
 
+// PendingBackendOp is a durable intent for a backend lifecycle operation
+// (delete/install/upgrade) that needs to eventually apply on a specific node.
+//
+// Without this table, a backend delete against an offline node silently
+// dropped: the frontend skipped the node, the node came back later with the
+// backend still installed, and the operator saw a zombie. Now the intent is
+// recorded regardless of node status; the state reconciler drains the queue
+// whenever a node is healthy and removes the row on success. Reissuing the
+// same operation while a row exists updates NextRetryAt instead of stacking
+// duplicates (see the unique index).
+type PendingBackendOp struct {
+	ID          uint      `gorm:"primaryKey;autoIncrement" json:"id"`
+	NodeID      string    `gorm:"index;size:36;not null;uniqueIndex:idx_pending_backend_op,priority:1" json:"node_id"`
+	Backend     string    `gorm:"index;size:255;not null;uniqueIndex:idx_pending_backend_op,priority:2" json:"backend"`
+	Op          string    `gorm:"size:16;not null;uniqueIndex:idx_pending_backend_op,priority:3" json:"op"`
+	Galleries   []byte    `gorm:"type:bytea" json:"-"` // serialized JSON for install/upgrade retries
+	Attempts    int       `gorm:"default:0" json:"attempts"`
+	LastError   string    `gorm:"type:text" json:"last_error,omitempty"`
+	CreatedAt   time.Time `json:"created_at"`
+	NextRetryAt time.Time `gorm:"index" json:"next_retry_at"`
+}
+
+// Op constants mirror the operation names used by DistributedBackendManager
+// so callers don't repeat stringly-typed values.
+const (
+	OpBackendDelete  = "delete"
+	OpBackendInstall = "install"
+	OpBackendUpgrade = "upgrade"
+)
+
 // NodeRegistry manages backend node registration and lookup in PostgreSQL.
 type NodeRegistry struct {
 	db *gorm.DB
@@ -114,10 +144,34 @@ type NodeRegistry struct {
 // when multiple instances (frontend + workers) start at the same time.
 func NewNodeRegistry(db *gorm.DB) (*NodeRegistry, error) {
 	if err := advisorylock.WithLockCtx(context.Background(), db, advisorylock.KeySchemaMigrate, func() error {
-		return db.AutoMigrate(&BackendNode{}, &NodeModel{}, &NodeLabel{}, &ModelSchedulingConfig{})
+		return db.AutoMigrate(&BackendNode{}, &NodeModel{}, &NodeLabel{}, &ModelSchedulingConfig{}, &PendingBackendOp{})
 	}); err != nil {
 		return nil, fmt.Errorf("migrating node tables: %w", err)
 	}
+
+	// One-shot cleanup of queue rows that can never drain: ops targeted at
+	// agent workers (wrong subscription set), at non-existent nodes, or with
+	// an empty backend name. The guard in enqueueAndDrainBackendOp prevents
+	// new ones from being written, but rows persisted by earlier versions
+	// keep the reconciler busy retrying a permanently-failing NATS request
+	// every 30s. Guarded by the same migration advisory lock so only one
+	// frontend runs it.
+	_ = advisorylock.WithLockCtx(context.Background(), db, advisorylock.KeySchemaMigrate, func() error {
+		res := db.Exec(`
+			DELETE FROM pending_backend_ops
+			WHERE backend = ''
+			   OR node_id NOT IN (SELECT id FROM backend_nodes WHERE node_type = ? OR node_type = '')
+		`, NodeTypeBackend)
+		if res.Error != nil {
+			xlog.Warn("Failed to prune malformed pending_backend_ops rows", "error", res.Error)
+			return res.Error
+		}
+		if res.RowsAffected > 0 {
+			xlog.Info("Pruned pending_backend_ops rows (wrong node type or empty backend)", "count", res.RowsAffected)
+		}
+		return nil
+	})
+
 	return &NodeRegistry{db: db}, nil
 }
 
@@ -945,4 +999,115 @@ func (r *NodeRegistry) ApplyAutoLabels(ctx context.Context, nodeID string, node 
 	if node.Name != "" {
 		_ = r.SetNodeLabel(ctx, nodeID, "node.name", node.Name)
 	}
+}
+
+// UpsertPendingBackendOp records or refreshes a pending backend operation for
+// a node. If a row already exists for (nodeID, backend, op) we keep its
+// Attempts/LastError but reset NextRetryAt to now, so reissuing the same
+// delete/upgrade nudges it to the front of the queue instead of stacking a
+// duplicate intent.
+func (r *NodeRegistry) UpsertPendingBackendOp(ctx context.Context, nodeID, backend, op string, galleries []byte) error {
+	row := PendingBackendOp{
+		NodeID:      nodeID,
+		Backend:     backend,
+		Op:          op,
+		Galleries:   galleries,
+		NextRetryAt: time.Now(),
+	}
+	return r.db.WithContext(ctx).Clauses(clause.OnConflict{
+		Columns: []clause.Column{{Name: "node_id"}, {Name: "backend"}, {Name: "op"}},
+		DoUpdates: clause.AssignmentColumns([]string{"galleries", "next_retry_at"}),
+	}).Create(&row).Error
+}
+
+// ListDuePendingBackendOps returns queued ops whose NextRetryAt has passed
+// AND whose node is currently healthy. The reconciler drains this list; we
+// filter by node status in the query so a tick doesn't hammer NATS for
+// nodes that obviously can't answer.
+func (r *NodeRegistry) ListDuePendingBackendOps(ctx context.Context) ([]PendingBackendOp, error) {
+	var ops []PendingBackendOp
+	err := r.db.WithContext(ctx).
+		Joins("JOIN backend_nodes ON backend_nodes.id = pending_backend_ops.node_id").
+		Where("pending_backend_ops.next_retry_at <= ? AND backend_nodes.status = ?", time.Now(), StatusHealthy).
+		Order("pending_backend_ops.next_retry_at ASC").
+		Find(&ops).Error
+	if err != nil {
+		return nil, fmt.Errorf("listing due pending backend ops: %w", err)
+	}
+	return ops, nil
+}
+
+// ListPendingBackendOps returns every queued row (for the UI "pending on N
+// nodes" chip and the pre-delete ConfirmDialog).
+func (r *NodeRegistry) ListPendingBackendOps(ctx context.Context) ([]PendingBackendOp, error) {
+	var ops []PendingBackendOp
+	if err := r.db.WithContext(ctx).Order("backend ASC, created_at ASC").Find(&ops).Error; err != nil {
+		return nil, fmt.Errorf("listing pending backend ops: %w", err)
+	}
+	return ops, nil
+}
+
+// DeletePendingBackendOp removes a queue row — called after the op succeeds.
+func (r *NodeRegistry) DeletePendingBackendOp(ctx context.Context, id uint) error {
+	if err := r.db.WithContext(ctx).Delete(&PendingBackendOp{}, id).Error; err != nil {
+		return fmt.Errorf("deleting pending backend op %d: %w", id, err)
+	}
+	return nil
+}
+
+// RecordPendingBackendOpFailure bumps Attempts, captures the error, and
+// pushes NextRetryAt out with exponential backoff capped at 15 minutes.
+func (r *NodeRegistry) RecordPendingBackendOpFailure(ctx context.Context, id uint, errMsg string) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var row PendingBackendOp
+		if err := tx.First(&row, id).Error; err != nil {
+			return err
+		}
+		row.Attempts++
+		row.LastError = errMsg
+		row.NextRetryAt = time.Now().Add(backoffForAttempt(row.Attempts))
+		return tx.Save(&row).Error
+	})
+}
+
+// backoffForAttempt is exponential from 30s doubling up to a 15m cap. The
+// reconciler tick is 30s so anything shorter would just re-fire immediately.
+func backoffForAttempt(attempts int) time.Duration {
+	const cap = 15 * time.Minute
+	base := 30 * time.Second
+	shift := attempts - 1
+	if shift < 0 {
+		shift = 0
+	}
+	if shift > 10 { // 2^10 * 30s already exceeds the cap
+		shift = 10
+	}
+	d := base << shift
+	if d > cap {
+		return cap
+	}
+	return d
+}
+
+// CountPendingBackendOpsByBackend returns a map of backend name to the count
+// of pending rows. Used to decorate Manage → Backends with a "pending on N
+// nodes" chip without exposing the full queue.
+func (r *NodeRegistry) CountPendingBackendOpsByBackend(ctx context.Context) (map[string]int, error) {
+	type row struct {
+		Backend string
+		Count   int
+	}
+	var rows []row
+	err := r.db.WithContext(ctx).Model(&PendingBackendOp{}).
+		Select("backend, COUNT(*) as count").
+		Group("backend").
+		Scan(&rows).Error
+	if err != nil {
+		return nil, fmt.Errorf("counting pending backend ops: %w", err)
+	}
+	out := make(map[string]int, len(rows))
+	for _, r := range rows {
+		out[r.Backend] = r.Count
+	}
+	return out, nil
 }

@@ -1008,6 +1008,20 @@
     nvidia-cuda-12: "cuda12-turboquant-development"
     nvidia-l4t-cuda-12: "nvidia-l4t-arm64-turboquant-development"
     nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-turboquant-development"
+- !!merge <<: *stablediffusionggml
+  name: "stablediffusion-ggml-development"
+  capabilities:
+    default: "cpu-stablediffusion-ggml-development"
+    nvidia: "cuda12-stablediffusion-ggml-development"
+    intel: "intel-sycl-f16-stablediffusion-ggml-development"
+    # amd: "rocm-stablediffusion-ggml-development"
+    vulkan: "vulkan-stablediffusion-ggml-development"
+    nvidia-l4t: "nvidia-l4t-arm64-stablediffusion-ggml-development"
+    metal: "metal-stablediffusion-ggml-development"
+    nvidia-cuda-13: "cuda13-stablediffusion-ggml-development"
+    nvidia-cuda-12: "cuda12-stablediffusion-ggml-development"
+    nvidia-l4t-cuda-12: "nvidia-l4t-arm64-stablediffusion-ggml-development"
+    nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-stablediffusion-ggml-development"
 - !!merge <<: *neutts
   name: "cpu-neutts"
   uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-neutts"

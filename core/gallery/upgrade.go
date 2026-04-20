@@ -23,20 +23,43 @@ type UpgradeInfo struct {
 	AvailableVersion string `json:"available_version"`
 	InstalledDigest  string `json:"installed_digest,omitempty"`
 	AvailableDigest  string `json:"available_digest,omitempty"`
+	// NodeDrift lists nodes whose installed version or digest differs from
+	// the cluster majority. Non-empty means the cluster has diverged and an
+	// upgrade will realign it. Empty in single-node mode.
+	NodeDrift []NodeDriftInfo `json:"node_drift,omitempty"`
 }
 
-// CheckBackendUpgrades compares installed backends against gallery entries
-// and returns a map of backend names to UpgradeInfo for those that have
-// newer versions or different OCI digests available.
+// NodeDriftInfo describes one node that disagrees with the cluster majority
+// on which version/digest of a backend is installed.
+type NodeDriftInfo struct {
+	NodeID   string `json:"node_id"`
+	NodeName string `json:"node_name"`
+	Version  string `json:"version,omitempty"`
+	Digest   string `json:"digest,omitempty"`
+}
+
+// CheckBackendUpgrades is the single-node entrypoint. Distributed callers use
+// CheckUpgradesAgainst directly with their aggregated SystemBackends.
 func CheckBackendUpgrades(ctx context.Context, galleries []config.Gallery, systemState *system.SystemState) (map[string]UpgradeInfo, error) {
+	installed, err := ListSystemBackends(systemState)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list installed backends: %w", err)
+	}
+	return CheckUpgradesAgainst(ctx, galleries, systemState, installed)
+}
+
+// CheckUpgradesAgainst compares a caller-supplied SystemBackends set against
+// the gallery. Fixes the distributed-mode bug where the old code passed the
+// frontend's (empty) local filesystem through ListSystemBackends and so never
+// surfaced any upgrades.
+//
+// Cluster drift policy: if a backend's per-node versions/digests disagree, the
+// row is flagged upgradeable regardless of whether any node matches the gallery
+// — next Upgrade All realigns the cluster. NodeDrift lists the outliers.
+func CheckUpgradesAgainst(ctx context.Context, galleries []config.Gallery, systemState *system.SystemState, installedBackends SystemBackends) (map[string]UpgradeInfo, error) {
 	galleryBackends, err := AvailableBackends(galleries, systemState)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list available backends: %w", err)
-	}
-
-	installedBackends, err := ListSystemBackends(systemState)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list installed backends: %w", err)
 	}
 
 	result := make(map[string]UpgradeInfo)
@@ -57,34 +80,48 @@ func CheckBackendUpgrades(ctx context.Context, galleries []config.Gallery, syste
 		}
 
 		installedVersion := installed.Metadata.Version
+		installedDigest := installed.Metadata.Digest
 		galleryVersion := galleryEntry.Version
 
-		// If both sides have versions, compare them
+		// Detect cluster drift: does every node report the same version+digest?
+		// In single-node mode this stays empty (Nodes is nil).
+		majority, drift := summarizeNodeDrift(installed.Nodes)
+		if majority.version != "" {
+			installedVersion = majority.version
+		}
+		if majority.digest != "" {
+			installedDigest = majority.digest
+		}
+
+		makeInfo := func(info UpgradeInfo) UpgradeInfo {
+			info.NodeDrift = drift
+			return info
+		}
+
+		// If versions are available on both sides, they're the source of truth.
 		if galleryVersion != "" && installedVersion != "" {
-			if galleryVersion != installedVersion {
-				result[installed.Metadata.Name] = UpgradeInfo{
+			if galleryVersion != installedVersion || len(drift) > 0 {
+				result[installed.Metadata.Name] = makeInfo(UpgradeInfo{
 					BackendName:      installed.Metadata.Name,
 					InstalledVersion: installedVersion,
 					AvailableVersion: galleryVersion,
-				}
+				})
 			}
-			// Versions match — no upgrade needed
 			continue
 		}
 
-		// Gallery has a version but installed doesn't — this happens for backends
-		// installed before version tracking was added. Flag as upgradeable so
-		// users can re-install to pick up version metadata.
+		// Gallery has a version but installed doesn't — backends installed before
+		// version tracking was added. Flag as upgradeable to pick up metadata.
 		if galleryVersion != "" && installedVersion == "" {
-			result[installed.Metadata.Name] = UpgradeInfo{
+			result[installed.Metadata.Name] = makeInfo(UpgradeInfo{
 				BackendName:      installed.Metadata.Name,
 				InstalledVersion: "",
 				AvailableVersion: galleryVersion,
-			}
+			})
 			continue
 		}
 
-		// Fall back to OCI digest comparison when versions are unavailable
+		// Fall back to OCI digest comparison when versions are unavailable.
 		if downloader.URI(galleryEntry.URI).LooksLikeOCI() {
 			remoteDigest, err := oci.GetImageDigest(galleryEntry.URI, "", nil, nil)
 			if err != nil {
@@ -92,19 +129,66 @@ func CheckBackendUpgrades(ctx context.Context, galleries []config.Gallery, syste
 				continue
 			}
 			// If we have a stored digest, compare; otherwise any remote digest
-			// means we can't confirm we're up to date — flag as upgradeable
-			if installed.Metadata.Digest == "" || remoteDigest != installed.Metadata.Digest {
-				result[installed.Metadata.Name] = UpgradeInfo{
+			// means we can't confirm we're up to date — flag as upgradeable.
+			if installedDigest == "" || remoteDigest != installedDigest || len(drift) > 0 {
+				result[installed.Metadata.Name] = makeInfo(UpgradeInfo{
 					BackendName:     installed.Metadata.Name,
-					InstalledDigest: installed.Metadata.Digest,
+					InstalledDigest: installedDigest,
 					AvailableDigest: remoteDigest,
-				}
+				})
 			}
+		} else if len(drift) > 0 {
+			// No version/digest path but nodes disagree — still worth flagging.
+			result[installed.Metadata.Name] = makeInfo(UpgradeInfo{
+				BackendName:      installed.Metadata.Name,
+				InstalledVersion: installedVersion,
+				InstalledDigest:  installedDigest,
+			})
 		}
-		// No version info and non-OCI URI — cannot determine, skip
 	}
 
 	return result, nil
+}
+
+// summarizeNodeDrift collapses per-node version/digest tuples to a majority
+// pair and returns the outliers. In single-node mode (empty nodes slice) this
+// returns zero values and a nil drift list.
+func summarizeNodeDrift(nodes []NodeBackendRef) (majority struct{ version, digest string }, drift []NodeDriftInfo) {
+	if len(nodes) == 0 {
+		return majority, nil
+	}
+
+	type key struct{ version, digest string }
+	counts := map[key]int{}
+	var topKey key
+	var topCount int
+	for _, n := range nodes {
+		k := key{n.Version, n.Digest}
+		counts[k]++
+		if counts[k] > topCount {
+			topCount = counts[k]
+			topKey = k
+		}
+	}
+
+	majority.version = topKey.version
+	majority.digest = topKey.digest
+
+	if len(counts) == 1 {
+		return majority, nil // unanimous — no drift
+	}
+	for _, n := range nodes {
+		if n.Version == majority.version && n.Digest == majority.digest {
+			continue
+		}
+		drift = append(drift, NodeDriftInfo{
+			NodeID:   n.NodeID,
+			NodeName: n.NodeName,
+			Version:  n.Version,
+			Digest:   n.Digest,
+		})
+	}
+	return majority, drift
 }
 
 // UpgradeBackend upgrades a single backend to the latest gallery version using

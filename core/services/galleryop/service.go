@@ -57,6 +57,16 @@ func (g *GalleryService) SetBackendManager(b BackendManager) {
 	g.backendManager = b
 }
 
+// BackendManager returns the current backend manager. Callers like the
+// periodic upgrade checker need this so they run CheckUpgrades through the
+// distributed implementation (which asks workers) instead of the frontend's
+// local filesystem — the latter is always empty in distributed deployments.
+func (g *GalleryService) BackendManager() BackendManager {
+	g.Lock()
+	defer g.Unlock()
+	return g.backendManager
+}
+
 // SetNATSClient sets the NATS client for distributed progress publishing.
 func (g *GalleryService) SetNATSClient(nc messaging.Publisher) {
 	g.Lock()
