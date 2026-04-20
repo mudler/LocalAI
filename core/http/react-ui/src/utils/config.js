@@ -99,6 +99,7 @@ export const API_CONFIG = {
     modelToggleState: (name, action) => `/models/toggle-state/${name}/${action}`,
     modelTogglePinned: (name, action) => `/models/toggle-pinned/${name}/${action}`,
     backendsAvailable: '/backends/available',
+    backendsKnown: '/backends/known',
     backendsInstalled: '/backends',
     version: '/version',
     system: '/system',

@@ -17,6 +17,11 @@ export default function SearchableSelect({
     [options]
   )
 
+  // Section headers (items marked isHeader) are rendered as non-selectable
+  // dividers. They are hidden while the user types a search query so the
+  // filtered list stays relevant.
+  const isHeader = (o) => !!(o && o.isHeader)
+
   useEffect(() => {
     const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
     document.addEventListener('mousedown', handler)
@@ -24,14 +29,18 @@ export default function SearchableSelect({
   }, [])
 
   const filtered = query
-    ? items.filter(o => o.label.toLowerCase().includes(query.toLowerCase()))
+    ? items.filter(o => !isHeader(o) && o.label.toLowerCase().includes(query.toLowerCase()))
     : items
 
+  // First selectable index used when focusIndex is -1 and user presses
+  // Enter — skip section headers that would otherwise swallow the key.
+  const firstSelectableIndex = filtered.findIndex(o => !isHeader(o))
+
   // Determine which item Enter will select
-  const enterTarget = focusIndex >= 0
+  const enterTarget = focusIndex >= 0 && !isHeader(filtered[focusIndex])
     ? { type: 'item', index: focusIndex }
-    : filtered.length > 0
-      ? { type: 'item', index: 0 }
+    : firstSelectableIndex >= 0
+      ? { type: 'item', index: firstSelectableIndex }
       : allOption
         ? { type: 'all' }
         : null
@@ -47,17 +56,27 @@ export default function SearchableSelect({
   const handleKeyDown = (e) => {
     if (e.key === 'ArrowDown') {
       e.preventDefault()
-      setFocusIndex(i => Math.min(i + 1, filtered.length - 1))
+      // Skip section headers when moving focus.
+      setFocusIndex(i => {
+        let next = i + 1
+        while (next < filtered.length && isHeader(filtered[next])) next++
+        return Math.min(next, filtered.length - 1)
+      })
     } else if (e.key === 'ArrowUp') {
       e.preventDefault()
-      setFocusIndex(i => Math.max(i - 1, -1))
+      setFocusIndex(i => {
+        let next = i - 1
+        while (next >= 0 && isHeader(filtered[next])) next--
+        return Math.max(next, -1)
+      })
     } else if (e.key === 'Enter') {
       e.preventDefault()
       if (!enterTarget) return
       if (enterTarget.type === 'all') {
         select('')
       } else {
-        select(filtered[enterTarget.index].value)
+        const target = filtered[enterTarget.index]
+        if (target && !isHeader(target)) select(target.value)
       }
     } else if (e.key === 'Escape') {
       setOpen(false)
@@ -145,6 +164,28 @@ export default function SearchableSelect({
               </div>
             )}
             {filtered.map((o, i) => {
+              if (isHeader(o)) {
+                return (
+                  <div
+                    key={`__header_${i}_${o.label}`}
+                    role="presentation"
+                    style={{
+                      padding: '6px 10px',
+                      fontSize: '0.6875rem',
+                      fontWeight: 600,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.05em',
+                      color: 'var(--color-text-muted)',
+                      background: 'var(--color-bg-tertiary)',
+                      borderTop: '1px solid var(--color-border-subtle)',
+                      borderBottom: '1px solid var(--color-border-subtle)',
+                      cursor: 'default',
+                    }}
+                  >
+                    {o.label}
+                  </div>
+                )
+              }
               const isActive = value === o.value
               const isEnterTarget = enterTarget?.type === 'item' && enterTarget.index === i
               const isFocused = focusIndex === i || isEnterTarget

@@ -1,20 +1,48 @@
-import { useState, useRef, useCallback, useEffect } from 'react'
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
 import { useNavigate, useOutletContext } from 'react-router-dom'
-import { modelsApi } from '../utils/api'
+import { modelsApi, backendsApi } from '../utils/api'
 import LoadingSpinner from '../components/LoadingSpinner'
 import CodeEditor from '../components/CodeEditor'
 import SearchableSelect from '../components/SearchableSelect'
 
-const BACKENDS = [
-  { value: '', label: 'Auto-detect (based on URI)' },
-  { value: 'llama-cpp', label: 'llama-cpp' },
-  { value: 'mlx', label: 'mlx' },
-  { value: 'mlx-vlm', label: 'mlx-vlm' },
-  { value: 'transformers', label: 'transformers' },
-  { value: 'vllm', label: 'vllm' },
-  { value: 'sglang', label: 'sglang' },
-  { value: 'diffusers', label: 'diffusers' },
-]
+// Fallback list used when /backends/known fails — keeps the form usable
+// with auto-detect only rather than showing an empty dropdown.
+const BACKENDS_FALLBACK_EMPTY = []
+
+const MODALITY_LABELS = {
+  text: 'Text LLM',
+  asr: 'Speech recognition',
+  tts: 'Text-to-speech',
+  image: 'Image / Video',
+  embeddings: 'Embeddings',
+  reranker: 'Rerankers',
+  detection: 'Object detection',
+  vad: 'Voice activity detection',
+}
+
+// buildBackendOptions groups known backends by modality and flags
+// preference-only entries with a trailing suffix.
+function buildBackendOptions(list) {
+  if (!Array.isArray(list) || list.length === 0) return BACKENDS_FALLBACK_EMPTY
+  const groups = new Map()
+  for (const b of list) {
+    const key = b.modality || 'other'
+    if (!groups.has(key)) groups.set(key, [])
+    groups.get(key).push(b)
+  }
+  const keys = Array.from(groups.keys()).sort()
+  const out = []
+  for (const key of keys) {
+    const label = MODALITY_LABELS[key] || (key ? key : 'Other')
+    out.push({ value: `__header_${key}`, label, isHeader: true })
+    const sorted = groups.get(key).slice().sort((a, b) => a.name.localeCompare(b.name))
+    for (const b of sorted) {
+      const suffix = b.auto_detect ? '' : ' (preference-only)'
+      out.push({ value: b.name, label: `${b.name}${suffix}` })
+    }
+  }
+  return out
+}
 
 const URI_FORMATS = [
   {
@@ -87,11 +115,39 @@ export default function ImportModel() {
   })
   const [customPrefs, setCustomPrefs] = useState([])
 
+  const [backends, setBackends] = useState([])
+  const [backendsLoading, setBackendsLoading] = useState(true)
+  const [backendsError, setBackendsError] = useState(false)
+
   const pollRef = useRef(null)
 
   useEffect(() => {
     return () => { if (pollRef.current) clearInterval(pollRef.current) }
   }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    setBackendsLoading(true)
+    setBackendsError(false)
+    backendsApi.listKnown()
+      .then(data => {
+        if (cancelled) return
+        setBackends(Array.isArray(data) ? data : [])
+      })
+      .catch(err => {
+        if (cancelled) return
+        console.error('Failed to load /backends/known:', err)
+        setBackendsError(true)
+        setBackends([])
+        addToast('Could not load backend list — using auto-detect only', 'warning')
+      })
+      .finally(() => {
+        if (!cancelled) setBackendsLoading(false)
+      })
+    return () => { cancelled = true }
+  }, [addToast])
+
+  const backendOptions = useMemo(() => buildBackendOptions(backends), [backends])
 
   const updatePref = (key, value) => setPrefs(p => ({ ...p, [key]: value }))
   const addCustomPref = () => setCustomPrefs(p => [...p, { key: '', value: '' }])
@@ -326,13 +382,20 @@ export default function ImportModel() {
                   <SearchableSelect
                     value={prefs.backend}
                     onChange={(v) => updatePref('backend', v)}
-                    options={BACKENDS.filter(b => b.value !== '')}
+                    options={backendOptions}
                     allOption="Auto-detect (based on URI)"
-                    placeholder="Auto-detect (based on URI)"
+                    placeholder={backendsLoading ? 'Loading backends…' : 'Auto-detect (based on URI)'}
                     searchPlaceholder="Search backends..."
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || backendsLoading}
                   />
-                  <p style={hintStyle}>Force a specific backend. Leave empty to auto-detect from URI.</p>
+                  <p style={hintStyle}>
+                    Force a specific backend. Leave empty to auto-detect from URI.
+                    {backendsError && (
+                      <span style={{ color: 'var(--color-warning)', marginLeft: '6px' }}>
+                        Could not load backend list — auto-detect only.
+                      </span>
+                    )}
+                  </p>
                 </div>
 
                 <div className="form-group" style={{ marginBottom: 0 }}>

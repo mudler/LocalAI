@@ -115,6 +115,7 @@ export const modelsApi = {
 export const backendsApi = {
   list: (params) => fetchJSON(buildUrl(API_CONFIG.endpoints.backends, params)),
   listInstalled: () => fetchJSON(API_CONFIG.endpoints.backendsInstalled),
+  listKnown: () => fetchJSON(API_CONFIG.endpoints.backendsKnown),
   install: (id) => postJSON(API_CONFIG.endpoints.installBackend(id), {}),
   delete: (id) => postJSON(API_CONFIG.endpoints.deleteBackend(id), {}),
   installExternal: (body) => postJSON(API_CONFIG.endpoints.installExternalBackend, body),
