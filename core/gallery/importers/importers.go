@@ -57,6 +57,7 @@ var defaultImporters = []Importer{
 	&CoquiImporter{},
 	// Image/Video (Batch 3)
 	&StableDiffusionGGMLImporter{},
+	&ACEStepImporter{},
 	// Existing
 	&LlamaCPPImporter{},
 	&MLXImporter{},
