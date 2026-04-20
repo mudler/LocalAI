@@ -244,7 +244,7 @@ type fakeUnloader struct {
 	unloadErr    error
 }
 
-func (f *fakeUnloader) InstallBackend(_, _, _, _ string) (*messaging.BackendInstallReply, error) {
+func (f *fakeUnloader) InstallBackend(_, _, _, _, _, _, _ string) (*messaging.BackendInstallReply, error) {
 	return f.installReply, f.installErr
 }
 

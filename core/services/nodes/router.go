@@ -504,7 +504,7 @@ func (r *SmartRouter) installBackendOnNode(ctx context.Context, node *BackendNod
 		return "", fmt.Errorf("no NATS connection for backend installation")
 	}
 
-	reply, err := r.unloader.InstallBackend(node.ID, backendType, modelID, r.galleriesJSON)
+	reply, err := r.unloader.InstallBackend(node.ID, backendType, modelID, r.galleriesJSON, "", "", "")
 	if err != nil {
 		return "", err
 	}
