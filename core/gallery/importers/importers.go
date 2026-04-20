@@ -59,6 +59,10 @@ var defaultImporters = []Importer{
 	// Image/Video (Batch 3)
 	&StableDiffusionGGMLImporter{},
 	&ACEStepImporter{},
+	// Text LLM (Batch 4) — VLLMOmniImporter must stay ahead of
+	// VLLMImporter so Qwen Omni repos (which also carry tokenizer
+	// files) route to vllm-omni rather than plain vllm.
+	&VLLMOmniImporter{},
 	// Existing
 	&LlamaCPPImporter{},
 	&MLXImporter{},
