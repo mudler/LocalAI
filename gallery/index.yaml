@@ -15335,6 +15335,47 @@
       uri: "huggingface://city96/umt5-xxl-encoder-gguf/umt5-xxl-encoder-Q8_0.gguf"
     - filename: "clip_vision_h.safetensors"
       uri: "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/clip_vision/clip_vision_h.safetensors"
+- name: wan-2.1-flf2v-14b-720p-ggml
+  license: apache-2.0
+  url: "github:mudler/LocalAI/gallery/wan-ggml.yaml@master"
+  description: |
+    Wan 2.1 FLF2V 14B 720P — first-last-frame-to-video diffusion, GGUF Q4_K_M.
+    Takes a start and end reference image and interpolates a 33-frame clip
+    between them. Unlike the plain I2V variant this model feeds the end
+    frame through clip_vision as well, so it conditions semantically (not
+    just in pixel-space) on both endpoints. That makes it the right choice
+    for seamless loops (start_image == end_image) and clean narrative cuts.
+    Native 720p but accepts 480p resolutions; shares the same VAE, t5xxl
+    text encoder, and clip_vision_h as I2V 14B.
+  urls:
+    - https://huggingface.co/city96/Wan2.1-FLF2V-14B-720P-gguf
+  tags:
+    - image-to-video
+    - first-last-frame-to-video
+    - wan
+    - video-generation
+    - cpu
+    - gpu
+  overrides:
+    parameters:
+      model: wan2.1-flf2v-14b-720p-Q4_K_M.gguf
+    options:
+      - "clip_vision_path:clip_vision_h.safetensors"
+      - "diffusion_model"
+      - "vae_decode_only:false"
+      - "sampler:euler"
+      - "flow_shift:3.0"
+      - "t5xxl_path:umt5-xxl-encoder-Q8_0.gguf"
+      - "vae_path:wan_2.1_vae.safetensors"
+  files:
+    - filename: "wan2.1-flf2v-14b-720p-Q4_K_M.gguf"
+      uri: "huggingface://city96/Wan2.1-FLF2V-14B-720P-gguf/wan2.1-flf2v-14b-720p-Q4_K_M.gguf"
+    - filename: "wan_2.1_vae.safetensors"
+      uri: "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/vae/wan_2.1_vae.safetensors"
+    - filename: "umt5-xxl-encoder-Q8_0.gguf"
+      uri: "huggingface://city96/umt5-xxl-encoder-gguf/umt5-xxl-encoder-Q8_0.gguf"
+    - filename: "clip_vision_h.safetensors"
+      uri: "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/clip_vision/clip_vision_h.safetensors"
 - name: sd-1.5-ggml
   icon: https://avatars.githubusercontent.com/u/37351293
   license: creativeml-openrail-m
