@@ -70,6 +70,10 @@ var defaultImporters = []Importer{
 	// Transformers — some reranker repos ship modules.json and tokenizer
 	// files that those importers would otherwise claim.
 	&RerankersImporter{},
+	// SentenceTransformersImporter must run before TransformersImporter:
+	// sentence-transformers repos ship tokenizer.json which transformers
+	// would otherwise claim.
+	&SentenceTransformersImporter{},
 	// Existing
 	&LlamaCPPImporter{},
 	&MLXImporter{},
