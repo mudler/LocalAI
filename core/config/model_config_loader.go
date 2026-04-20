@@ -373,9 +373,9 @@ func (bcl *ModelConfigLoader) LoadModelConfigsFromPath(path string, opts ...Conf
 		files = append(files, info)
 	}
 	for _, file := range files {
-		// Skip templates, YAML and .keep files
-		if !strings.Contains(file.Name(), ".yaml") && !strings.Contains(file.Name(), ".yml") ||
-			strings.HasPrefix(file.Name(), ".") {
+		// Only load real YAML config files and ignore dotfiles or backup variants
+		ext := strings.ToLower(filepath.Ext(file.Name()))
+		if (ext != ".yaml" && ext != ".yml") || strings.HasPrefix(file.Name(), ".") {
 			continue
 		}
 
