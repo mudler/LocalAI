@@ -34,6 +34,7 @@ var ambiguousModalities = map[string]struct{}{
 	"sentence-similarity":          {},
 	"text-classification":          {},
 	"object-detection":             {},
+	"text-to-image":                {},
 }
 
 var defaultImporters = []Importer{
