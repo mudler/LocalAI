@@ -41,6 +41,7 @@ var defaultImporters = []Importer{
 	&MoonshineImporter{},
 	&NemoImporter{},
 	&FasterWhisperImporter{},
+	&QwenASRImporter{},
 	&LlamaCPPImporter{},
 	&MLXImporter{},
 	&VLLMImporter{},
