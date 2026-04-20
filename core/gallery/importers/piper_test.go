@@ -11,10 +11,12 @@ import (
 
 var _ = Describe("PiperImporter", func() {
 	Context("detection from HuggingFace", func() {
-		It("matches rhasspy/piper-voices by .onnx + .onnx.json pair", func() {
-			// rhasspy/piper-voices ships hundreds of <voice>.onnx +
-			// <voice>.onnx.json pairs — the canonical piper packaging.
-			uri := "https://huggingface.co/rhasspy/piper-voices"
+		It("matches a single-voice piper repo by .onnx + .onnx.json pair", func() {
+			// rhasspy/piper-voices is the canonical piper distribution but
+			// its tree is too deep to recurse via the HF API inside a unit
+			// test — per-voice mirrors exercise the same onnx+onnx.json
+			// packaging with a flat directory.
+			uri := "https://huggingface.co/HirCoir/piper-voice-es-mx-lucas-melor"
 			preferences := json.RawMessage(`{}`)
 
 			modelConfig, err := importers.DiscoverModelConfig(uri, preferences)
