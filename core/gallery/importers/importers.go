@@ -55,6 +55,8 @@ var defaultImporters = []Importer{
 	&ChatterboxImporter{},
 	&VibeVoiceImporter{},
 	&CoquiImporter{},
+	// Image/Video (Batch 3)
+	&StableDiffusionGGMLImporter{},
 	// Existing
 	&LlamaCPPImporter{},
 	&MLXImporter{},
