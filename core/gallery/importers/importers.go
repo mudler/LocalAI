@@ -53,6 +53,7 @@ var defaultImporters = []Importer{
 	&KittenTTSImporter{},
 	&NeuTTSImporter{},
 	&ChatterboxImporter{},
+	&VibeVoiceImporter{},
 	// Existing
 	&LlamaCPPImporter{},
 	&MLXImporter{},
