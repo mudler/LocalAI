@@ -52,6 +52,7 @@ var defaultImporters = []Importer{
 	&KokoroImporter{},
 	&KittenTTSImporter{},
 	&NeuTTSImporter{},
+	&ChatterboxImporter{},
 	// Existing
 	&LlamaCPPImporter{},
 	&MLXImporter{},
