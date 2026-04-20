@@ -1,4 +1,48 @@
 ---
+- name: "supergemma4-26b-uncensored-v2"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/Jiunsong/supergemma4-26b-uncensored-gguf-v2
+  description: |
+    Hugging Face |
+    GitHub |
+    Launch Blog |
+    Documentation
+
+    License: Apache 2.0 | Authors: Google DeepMind
+
+    Gemma is a family of open models built by Google DeepMind. Gemma 4 models are multimodal, handling text and image input (with audio supported on small models) and generating text output. This release includes open-weights models in both pre-trained and instruction-tuned variants. Gemma 4 features a context window of up to 256K tokens and maintains multilingual support in over 140 languages.
+
+    Featuring both Dense and Mixture-of-Experts (MoE) architectures, Gemma 4 is well-suited for tasks like text generation, coding, and reasoning. The models are available in four distinct sizes: **E2B**, **E4B**, **26B A4B**, and **31B**. Their diverse sizes make them deployable in environments ranging from high-end phones to laptops and servers, democratizing access to state-of-the-art AI.
+
+    Gemma 4 introduces key **capability and architectural advancements**:
+
+    * **Reasoning** – All models in the family are designed as highly capable reasoners, with configurable thinking modes.
+
+    ...
+  license: "gemma"
+  tags:
+    - llm
+    - gguf
+  icon: https://ai.google.dev/gemma/images/gemma4_banner.png
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/supergemma4-26b-uncensored-gguf-v2/supergemma4-26b-uncensored-fast-v2-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/supergemma4-26b-uncensored-gguf-v2/supergemma4-26b-uncensored-fast-v2-Q4_K_M.gguf
+      sha256: e773b0a209d48524f9d485bca0818247f75d7ddde7cce951367a7e441fb59137
+      uri: https://huggingface.co/Jiunsong/supergemma4-26b-uncensored-gguf-v2/resolve/main/supergemma4-26b-uncensored-fast-v2-Q4_K_M.gguf
 - name: "qwopus-glm-18b-merged"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
