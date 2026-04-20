@@ -38,6 +38,7 @@ var ambiguousModalities = map[string]struct{}{
 
 var defaultImporters = []Importer{
 	&WhisperImporter{},
+	&MoonshineImporter{},
 	&LlamaCPPImporter{},
 	&MLXImporter{},
 	&VLLMImporter{},

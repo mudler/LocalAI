@@ -11,7 +11,7 @@ import (
 
 var _ = Describe("MoonshineImporter", func() {
 	Context("detection from HuggingFace", func() {
-		It("matches UsefulSensors/moonshine-tiny (owner + onnx files)", func() {
+		It("matches UsefulSensors/moonshine-tiny (owner + ASR pipeline_tag)", func() {
 			uri := "https://huggingface.co/UsefulSensors/moonshine-tiny"
 			preferences := json.RawMessage(`{}`)
 
