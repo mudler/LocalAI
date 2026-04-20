@@ -211,6 +211,74 @@ var _ = Describe("DiscoverModelConfig", func() {
 		})
 	})
 
+	Context("Importer interface metadata", func() {
+		// These tests drive the /backends/known endpoint: each importer must
+		// self-describe its canonical name, primary modality, and whether it
+		// can auto-detect without an explicit preference.
+		It("Registry returns all default importers", func() {
+			registry := importers.Registry()
+			Expect(registry).ToNot(BeEmpty())
+			names := make([]string, 0, len(registry))
+			for _, imp := range registry {
+				names = append(names, imp.Name())
+			}
+			Expect(names).To(ContainElements("llama-cpp", "mlx", "vllm", "transformers", "diffusers"))
+		})
+
+		It("LlamaCPPImporter exposes name/modality/autodetect", func() {
+			imp := &importers.LlamaCPPImporter{}
+			Expect(imp.Name()).To(Equal("llama-cpp"))
+			Expect(imp.Modality()).To(Equal("text"))
+			Expect(imp.AutoDetects()).To(BeTrue())
+		})
+
+		It("MLXImporter exposes name/modality/autodetect", func() {
+			imp := &importers.MLXImporter{}
+			Expect(imp.Name()).To(Equal("mlx"))
+			Expect(imp.Modality()).To(Equal("text"))
+			Expect(imp.AutoDetects()).To(BeTrue())
+		})
+
+		It("VLLMImporter exposes name/modality/autodetect", func() {
+			imp := &importers.VLLMImporter{}
+			Expect(imp.Name()).To(Equal("vllm"))
+			Expect(imp.Modality()).To(Equal("text"))
+			Expect(imp.AutoDetects()).To(BeTrue())
+		})
+
+		It("TransformersImporter exposes name/modality/autodetect", func() {
+			imp := &importers.TransformersImporter{}
+			Expect(imp.Name()).To(Equal("transformers"))
+			Expect(imp.Modality()).To(Equal("text"))
+			Expect(imp.AutoDetects()).To(BeTrue())
+		})
+
+		It("DiffuserImporter exposes name/modality/autodetect", func() {
+			imp := &importers.DiffuserImporter{}
+			Expect(imp.Name()).To(Equal("diffusers"))
+			Expect(imp.Modality()).To(Equal("image"))
+			Expect(imp.AutoDetects()).To(BeTrue())
+		})
+
+		It("LlamaCPPImporter advertises drop-in replacements", func() {
+			imp := &importers.LlamaCPPImporter{}
+			provider, ok := any(imp).(importers.AdditionalBackendsProvider)
+			Expect(ok).To(BeTrue(), "LlamaCPPImporter must implement AdditionalBackendsProvider")
+
+			extras := provider.AdditionalBackends()
+			names := make([]string, 0, len(extras))
+			modalities := make([]string, 0, len(extras))
+			for _, e := range extras {
+				names = append(names, e.Name)
+				modalities = append(modalities, e.Modality)
+			}
+			Expect(names).To(ContainElements("ik-llama-cpp", "turboquant"))
+			for _, m := range modalities {
+				Expect(m).To(Equal("text"))
+			}
+		})
+	})
+
 	Context("with invalid JSON preferences", func() {
 		It("should return error when JSON is invalid even if URI matches", func() {
 			uri := "https://example.com/model.gguf"
