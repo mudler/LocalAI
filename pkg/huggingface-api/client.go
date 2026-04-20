@@ -61,6 +61,16 @@ type ModelDetails struct {
 	Files         []ModelFile
 	ReadmeFile    *ModelFile
 	ReadmeContent string
+
+	// PipelineTag mirrors the HuggingFace model-level "pipeline_tag" field
+	// (e.g. "text-to-speech", "sentence-similarity"). Empty when the /api/models
+	// metadata endpoint is unreachable or the repo does not declare one.
+	PipelineTag string
+
+	// LibraryName mirrors the HuggingFace "library_name" field
+	// (e.g. "transformers", "diffusers", "sentence-transformers"). Empty when
+	// the metadata endpoint is unreachable or the repo does not declare one.
+	LibraryName string
 }
 
 // SearchParams represents the parameters for searching models
@@ -256,6 +266,51 @@ func (c *Client) GetFileSHA(repoID, fileName string) (string, error) {
 	return "", fmt.Errorf("file %s not found", fileName)
 }
 
+// modelMetadataResponse mirrors the subset of fields returned by
+// GET /api/models/{repoID} that we care about. The public HF endpoint uses
+// snake_case (pipeline_tag, library_name) while the list endpoint used by
+// SearchModels historically returned camelCase — hence the dedicated struct
+// rather than reusing Model.
+type modelMetadataResponse struct {
+	PipelineTag string `json:"pipeline_tag"`
+	LibraryName string `json:"library_name"`
+}
+
+// fetchModelMetadata hits GET /api/models/{repoID} to retrieve high-level
+// model metadata such as pipeline_tag and library_name. Best-effort: a non-
+// 200 response or transport error returns a zero value and a nil error so
+// callers can proceed with file-only data.
+func (c *Client) fetchModelMetadata(repoID string) (modelMetadataResponse, error) {
+	baseURL := strings.TrimSuffix(c.baseURL, "/api/models")
+	url := fmt.Sprintf("%s/api/models/%s", baseURL, repoID)
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return modelMetadataResponse{}, err
+	}
+
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return modelMetadataResponse{}, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return modelMetadataResponse{}, nil
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return modelMetadataResponse{}, err
+	}
+
+	var m modelMetadataResponse
+	if err := json.Unmarshal(body, &m); err != nil {
+		return modelMetadataResponse{}, err
+	}
+	return m, nil
+}
+
 // GetModelDetails gets detailed information about a model including files and checksums
 func (c *Client) GetModelDetails(repoID string) (*ModelDetails, error) {
 	files, err := c.ListFiles(repoID)
@@ -267,6 +322,14 @@ func (c *Client) GetModelDetails(repoID string) (*ModelDetails, error) {
 		ModelID: repoID,
 		Author:  strings.Split(repoID, "/")[0],
 		Files:   make([]ModelFile, 0, len(files)),
+	}
+
+	// Best-effort: PipelineTag / LibraryName are advisory — some callers
+	// (offline tests, restricted networks) can't reach the metadata endpoint.
+	// Swallow errors so downstream file detection still works.
+	if meta, err := c.fetchModelMetadata(repoID); err == nil {
+		details.PipelineTag = meta.PipelineTag
+		details.LibraryName = meta.LibraryName
 	}
 
 	// Process each file

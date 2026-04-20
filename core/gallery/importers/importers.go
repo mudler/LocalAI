@@ -2,6 +2,7 @@ package importers
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -14,6 +15,26 @@ import (
 	"github.com/mudler/LocalAI/pkg/downloader"
 	hfapi "github.com/mudler/LocalAI/pkg/huggingface-api"
 )
+
+// ErrAmbiguousImport is returned when HuggingFace metadata hints at a known
+// modality (e.g. pipeline_tag: "automatic-speech-recognition") but no
+// importer's artefact-level detection matches the repository. Callers should
+// pass preferences.backend to disambiguate. Use errors.Is to match regardless
+// of wrapping — DiscoverModelConfig wraps with fmt.Errorf("%w: ...") so the
+// full context reaches HTTP consumers without losing sentinel identity.
+var ErrAmbiguousImport = errors.New("importer: ambiguous — specify preferences.backend")
+
+// ambiguousModalities enumerates the HF pipeline_tag values that are narrow
+// enough to be confident we should surface ambiguity instead of a generic
+// "no importer matched" error. Tags outside this whitelist keep the previous
+// behaviour (plain error) so we don't block uncommon-but-still-valid imports.
+var ambiguousModalities = map[string]struct{}{
+	"automatic-speech-recognition": {},
+	"text-to-speech":               {},
+	"sentence-similarity":          {},
+	"text-classification":          {},
+	"object-detection":             {},
+}
 
 var defaultImporters = []Importer{
 	&LlamaCPPImporter{},
@@ -115,6 +136,14 @@ func DiscoverModelConfig(uri string, preferences json.RawMessage) (gallery.Model
 		}
 	}
 	if !importerMatched {
+		// When HuggingFace metadata hints at a known, narrow modality but no
+		// importer matched the artefacts, surface an explicit ambiguity so the
+		// caller knows to pass preferences.backend rather than silently guess.
+		if hfDetails != nil {
+			if _, known := ambiguousModalities[hfDetails.PipelineTag]; known && hfDetails.PipelineTag != "" {
+				return gallery.ModelConfig{}, fmt.Errorf("%w: detected modality %q for %s", ErrAmbiguousImport, hfDetails.PipelineTag, uri)
+			}
+		}
 		return gallery.ModelConfig{}, fmt.Errorf("no importer matched for %s", uri)
 	}
 	return modelConfig, nil

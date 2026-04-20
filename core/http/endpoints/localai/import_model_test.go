@@ -47,11 +47,11 @@ var _ = Describe("ImportModelURIEndpoint ambiguity handling", func() {
 	})
 
 	It("returns HTTP 400 with a structured ambiguity body when the HF pipeline_tag matches a known modality but no importer matches", func() {
-		// UsefulSensors/moonshine-tiny:
-		//   - pipeline_tag: "automatic-speech-recognition" (whitelisted modality)
-		//   - no .gguf, no tokenizer.json, no mlx-community/, no diffuser markers
-		// That combination deterministically exercises the ambiguity path.
-		body := bytes.NewBufferString(`{"uri": "https://huggingface.co/UsefulSensors/moonshine-tiny", "preferences": {}}`)
+		// hexgrad/Kokoro-82M:
+		//   - pipeline_tag: "text-to-speech" (whitelisted modality)
+		//   - no tokenizer.json, no .gguf, no model_index.json, not mlx-community/
+		// No importer matches, yet the modality is known → ErrAmbiguousImport.
+		body := bytes.NewBufferString(`{"uri": "https://huggingface.co/hexgrad/Kokoro-82M", "preferences": {}}`)
 		req := httptest.NewRequest("POST", "/models/import-uri", body)
 		req.Header.Set("Content-Type", "application/json")
 		rec := httptest.NewRecorder()

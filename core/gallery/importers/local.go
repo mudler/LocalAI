@@ -18,8 +18,11 @@ import (
 //
 // Detection order:
 //  1. GGUF files (*.gguf) — uses llama-cpp backend
-//  2. LoRA adapter (adapter_config.json) — uses transformers backend with lora_adapter
-//  3. Merged model (*.safetensors or pytorch_model*.bin + config.json) — uses transformers backend
+//  2. whisper.cpp ggml-*.bin — uses whisper backend
+//  3. silero_vad*.onnx — uses silero-vad backend
+//  4. piper .onnx + .onnx.json pair — uses piper backend
+//  5. LoRA adapter (adapter_config.json) — uses transformers backend with lora_adapter
+//  6. Merged model (*.safetensors or pytorch_model*.bin + config.json) — uses transformers backend
 func ImportLocalPath(dirPath, name string) (*config.ModelConfig, error) {
 	// Make paths relative to the models directory (parent of dirPath)
 	// so config YAML stays portable.
@@ -51,7 +54,48 @@ func ImportLocalPath(dirPath, name string) (*config.ModelConfig, error) {
 		return cfg, nil
 	}
 
-	// 2. LoRA adapter: look for adapter_config.json
+	// 2. whisper.cpp ggml-*.bin models
+	if ggmlFile := findFileByPrefixSuffix(dirPath, "ggml-", ".bin"); ggmlFile != "" {
+		xlog.Info("ImportLocalPath: detected whisper.cpp GGML model", "path", ggmlFile)
+		cfg := &config.ModelConfig{
+			Name:                name,
+			Backend:             "whisper",
+			KnownUsecaseStrings: []string{"transcript"},
+		}
+		cfg.Model = relPath(ggmlFile)
+		cfg.Description = buildDescription(dirPath, "Whisper GGML")
+		return cfg, nil
+	}
+
+	// 3/4. Single .onnx file in dir — silero-vad or piper depending on signals.
+	if onnxFile := findSingleONNX(dirPath); onnxFile != "" {
+		base := filepath.Base(onnxFile)
+		lowerBase := strings.ToLower(base)
+		switch {
+		case strings.HasPrefix(lowerBase, "silero"):
+			xlog.Info("ImportLocalPath: detected Silero VAD model", "path", onnxFile)
+			cfg := &config.ModelConfig{
+				Name:    name,
+				Backend: "silero-vad",
+			}
+			cfg.Model = relPath(onnxFile)
+			cfg.Description = buildDescription(dirPath, "Silero VAD")
+			return cfg, nil
+		case fileExists(onnxFile + ".json"):
+			xlog.Info("ImportLocalPath: detected Piper voice", "path", onnxFile)
+			cfg := &config.ModelConfig{
+				Name:    name,
+				Backend: "piper",
+			}
+			cfg.Model = relPath(onnxFile)
+			cfg.Description = buildDescription(dirPath, "Piper voice")
+			return cfg, nil
+		}
+		// Lone .onnx without piper config and without silero prefix: fall
+		// through — no reliable backend to assign.
+	}
+
+	// 5. LoRA adapter: look for adapter_config.json
 
 	adapterConfigPath := filepath.Join(dirPath, "adapter_config.json")
 	if fileExists(adapterConfigPath) {
@@ -110,6 +154,41 @@ func findGGUF(dir string) string {
 	}
 	for _, e := range entries {
 		if !e.IsDir() && strings.HasSuffix(strings.ToLower(e.Name()), ".gguf") {
+			return filepath.Join(dir, e.Name())
+		}
+	}
+	return ""
+}
+
+// findFileByPrefixSuffix returns the path to the first file in dir matching
+// both prefix (case-sensitive) and suffix (case-insensitive), or "".
+func findFileByPrefixSuffix(dir, prefix, suffix string) string {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return ""
+	}
+	lowerSuffix := strings.ToLower(suffix)
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		name := e.Name()
+		if strings.HasPrefix(name, prefix) && strings.HasSuffix(strings.ToLower(name), lowerSuffix) {
+			return filepath.Join(dir, name)
+		}
+	}
+	return ""
+}
+
+// findSingleONNX returns the path to the first .onnx file found in dir, or "".
+// Subdirectories are ignored — callers expect a flat layout.
+func findSingleONNX(dir string) string {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return ""
+	}
+	for _, e := range entries {
+		if !e.IsDir() && strings.HasSuffix(strings.ToLower(e.Name()), ".onnx") {
 			return filepath.Join(dir, e.Name())
 		}
 	}
