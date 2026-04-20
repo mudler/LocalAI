@@ -63,6 +63,9 @@ var defaultImporters = []Importer{
 	// VLLMImporter so Qwen Omni repos (which also carry tokenizer
 	// files) route to vllm-omni rather than plain vllm.
 	&VLLMOmniImporter{},
+	// Embeddings / rerankers / detection / VAD (Batch 5)
+	// SileroVADImporter first — unique filename signal, cannot collide.
+	&SileroVADImporter{},
 	// Existing
 	&LlamaCPPImporter{},
 	&MLXImporter{},
