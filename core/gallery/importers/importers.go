@@ -45,6 +45,7 @@ var defaultImporters = []Importer{
 	&QwenASRImporter{},
 	// TTS (Batch 2)
 	&PiperImporter{},
+	&BarkImporter{},
 	// Existing
 	&LlamaCPPImporter{},
 	&MLXImporter{},

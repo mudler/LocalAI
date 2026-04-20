@@ -55,6 +55,24 @@ func HasONNXConfigPair(files []hfapi.ModelFile) bool {
 	return false
 }
 
+// HFOwnerRepoFromURI extracts the "owner", "repo" pair from an HF URI.
+// Accepted prefixes: "https://huggingface.co/", "huggingface://", "hf://".
+// Returns ok=false when the URI is not an HF URI or is missing either
+// component. This exists so importers can fall back to URI-based matching
+// when pkg/huggingface-api's recursive tree listing errors out on repos
+// with nested subdirectories (a known pre-existing bug).
+func HFOwnerRepoFromURI(uri string) (owner, repo string, ok bool) {
+	stripped := uri
+	for _, pfx := range []string{"https://huggingface.co/", "huggingface://", "hf://"} {
+		stripped = strings.TrimPrefix(stripped, pfx)
+	}
+	parts := strings.SplitN(stripped, "/", 2)
+	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+		return "", "", false
+	}
+	return parts[0], parts[1], true
+}
+
 // HasGGMLFile returns true when any file matches "<prefix>*.bin", which is
 // the whisper.cpp packaging convention (e.g. "ggml-base.en.bin"). Both prefix
 // and suffix match is case-sensitive on prefix and case-insensitive on the
