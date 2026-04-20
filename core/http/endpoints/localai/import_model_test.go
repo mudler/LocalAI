@@ -47,11 +47,15 @@ var _ = Describe("ImportModelURIEndpoint ambiguity handling", func() {
 	})
 
 	It("returns HTTP 400 with a structured ambiguity body when the HF pipeline_tag matches a known modality but no importer matches", func() {
-		// hexgrad/Kokoro-82M:
+		// nari-labs/Dia-1.6B:
 		//   - pipeline_tag: "text-to-speech" (whitelisted modality)
 		//   - no tokenizer.json, no .gguf, no model_index.json, not mlx-community/
+		//   - owner/repo-name match none of the Batch-2 TTS importers
 		// No importer matches, yet the modality is known → ErrAmbiguousImport.
-		body := bytes.NewBufferString(`{"uri": "https://huggingface.co/hexgrad/Kokoro-82M", "preferences": {}}`)
+		// (Previously referenced hexgrad/Kokoro-82M; Batch 2 added a dedicated
+		// kokoro importer that now matches that repo, so the ambiguity fixture
+		// moved to nari-labs/Dia-1.6B which remains unclaimed.)
+		body := bytes.NewBufferString(`{"uri": "https://huggingface.co/nari-labs/Dia-1.6B", "preferences": {}}`)
 		req := httptest.NewRequest("POST", "/models/import-uri", body)
 		req.Header.Set("Content-Type", "application/json")
 		rec := httptest.NewRecorder()
