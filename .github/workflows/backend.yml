@@ -30,6 +30,7 @@ jobs:
       skip-drivers: ${{ matrix.skip-drivers }}
       context: ${{ matrix.context }}
       ubuntu-version: ${{ matrix.ubuntu-version }}
+      amdgpu-targets: ${{ matrix.amdgpu-targets }}
     secrets:
       dockerUsername: ${{ secrets.DOCKERHUB_USERNAME }}
       dockerPassword: ${{ secrets.DOCKERHUB_PASSWORD }}

@@ -58,6 +58,11 @@ on:
         required: false
         default: '2204'
         type: string
+      amdgpu-targets:
+        description: 'AMD GPU targets for ROCm/HIP builds'
+        required: false
+        default: 'gfx908,gfx90a,gfx942,gfx950,gfx1030,gfx1100,gfx1101,gfx1102,gfx1151,gfx1200,gfx1201'
+        type: string
     secrets:
       dockerUsername:
         required: false
@@ -214,6 +219,7 @@ jobs:
             BASE_IMAGE=${{ inputs.base-image }}
             BACKEND=${{ inputs.backend }}
             UBUNTU_VERSION=${{ inputs.ubuntu-version }}
+            AMDGPU_TARGETS=${{ inputs.amdgpu-targets }}
           context: ${{ inputs.context }}
           file: ${{ inputs.dockerfile }}
           cache-from: type=gha
@@ -235,6 +241,7 @@ jobs:
             BASE_IMAGE=${{ inputs.base-image }}
             BACKEND=${{ inputs.backend }}
             UBUNTU_VERSION=${{ inputs.ubuntu-version }}
+            AMDGPU_TARGETS=${{ inputs.amdgpu-targets }}
           context: ${{ inputs.context }}
           file: ${{ inputs.dockerfile }}
           cache-from: type=gha
