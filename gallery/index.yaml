@@ -47,40 +47,7 @@
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
     - https://huggingface.co/Jackrong/Qwopus-GLM-18B-Merged-GGUF
-  description: |
-    # 🪐 Qwen3.5-9B-GLM5.1-Distill-v1
-
-    ## 📌 Model Overview
-
-    **Model Name:** `Jackrong/Qwen3.5-9B-GLM5.1-Distill-v1`
-    **Base Model:** Qwen3.5-9B
-    **Training Type:** Supervised Fine-Tuning (SFT, Distillation)
-    **Parameter Scale:** 9B
-    **Training Framework:** Unsloth
-
-    This model is a distilled variant of **Qwen3.5-9B**, trained on high-quality reasoning data derived from **GLM-5.1**.
-
-    The primary goals are to:
-
-      - Improve **structured reasoning ability**
-      - Enhance **instruction-following consistency**
-      - Activate **latent knowledge via better reasoning structure**
-
-    ## 📊 Training Data
-
-    ### Main Dataset
-
-      - `Jackrong/GLM-5.1-Reasoning-1M-Cleaned`
-      - Cleaned from the original `Kassadin88/GLM-5.1-1000000x` dataset.
-      - Generated from a **GLM-5.1 teacher model**
-      - Approximately **700x** the scale of `Qwen3.5-reasoning-700x`
-      - Training used a **filtered subset**, not the full source dataset.
-
-    ### Auxiliary Dataset
-
-      - `Jackrong/Qwen3.5-reasoning-700x`
-
-    ...
+  description: "# \U0001FA90 Qwen3.5-9B-GLM5.1-Distill-v1\n\n## \U0001F4CC Model Overview\n\n**Model Name:** `Jackrong/Qwen3.5-9B-GLM5.1-Distill-v1`\n**Base Model:** Qwen3.5-9B\n**Training Type:** Supervised Fine-Tuning (SFT, Distillation)\n**Parameter Scale:** 9B\n**Training Framework:** Unsloth\n\nThis model is a distilled variant of **Qwen3.5-9B**, trained on high-quality reasoning data derived from **GLM-5.1**.\n\nThe primary goals are to:\n\n  - Improve **structured reasoning ability**\n  - Enhance **instruction-following consistency**\n  - Activate **latent knowledge via better reasoning structure**\n\n## \U0001F4CA Training Data\n\n### Main Dataset\n\n  - `Jackrong/GLM-5.1-Reasoning-1M-Cleaned`\n  - Cleaned from the original `Kassadin88/GLM-5.1-1000000x` dataset.\n  - Generated from a **GLM-5.1 teacher model**\n  - Approximately **700x** the scale of `Qwen3.5-reasoning-700x`\n  - Training used a **filtered subset**, not the full source dataset.\n\n### Auxiliary Dataset\n\n  - `Jackrong/Qwen3.5-reasoning-700x`\n\n...\n"
   license: "apache-2.0"
   tags:
     - llm
@@ -15296,10 +15263,12 @@
   files:
     - filename: "wan2.1_t2v_1.3b-q8_0.gguf"
       uri: "huggingface://calcuis/wan-gguf/wan2.1_t2v_1.3b-q8_0.gguf"
+      sha256: 8f10260cc26498fee303851ee1c2047918934125731b9b78d4babfce4ec27458
     - filename: "wan_2.1_vae.safetensors"
       uri: "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/vae/wan_2.1_vae.safetensors"
     - filename: "umt5-xxl-encoder-Q8_0.gguf"
       uri: "huggingface://city96/umt5-xxl-encoder-gguf/umt5-xxl-encoder-Q8_0.gguf"
+      sha256: 2521d4de0bf9e1cc6549866463ceae85e4ec3239bc6063f7488810be39033bbc
 - name: wan-2.1-i2v-14b-480p-ggml
   license: apache-2.0
   url: "github:mudler/LocalAI/gallery/wan-ggml.yaml@master"
@@ -15329,10 +15298,12 @@
   files:
     - filename: "wan2.1-i2v-14b-480p-Q4_K_M.gguf"
       uri: "huggingface://city96/Wan2.1-I2V-14B-480P-gguf/wan2.1-i2v-14b-480p-Q4_K_M.gguf"
+      sha256: d91f7139acadb42ea05cdf97b311e5099f714f11fbe4d90916500e2f53cbba82
     - filename: "wan_2.1_vae.safetensors"
       uri: "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/vae/wan_2.1_vae.safetensors"
     - filename: "umt5-xxl-encoder-Q8_0.gguf"
       uri: "huggingface://city96/umt5-xxl-encoder-gguf/umt5-xxl-encoder-Q8_0.gguf"
+      sha256: 2521d4de0bf9e1cc6549866463ceae85e4ec3239bc6063f7488810be39033bbc
     - filename: "clip_vision_h.safetensors"
       uri: "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/clip_vision/clip_vision_h.safetensors"
 - name: wan-2.1-flf2v-14b-720p-ggml
@@ -15370,10 +15341,12 @@
   files:
     - filename: "wan2.1-flf2v-14b-720p-Q4_K_M.gguf"
       uri: "huggingface://city96/Wan2.1-FLF2V-14B-720P-gguf/wan2.1-flf2v-14b-720p-Q4_K_M.gguf"
+      sha256: 7652d7d8b0795009ff21ed83d806af762aae8a8faa8640dd07b3a67e4dfab445
     - filename: "wan_2.1_vae.safetensors"
       uri: "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/vae/wan_2.1_vae.safetensors"
     - filename: "umt5-xxl-encoder-Q8_0.gguf"
       uri: "huggingface://city96/umt5-xxl-encoder-gguf/umt5-xxl-encoder-Q8_0.gguf"
+      sha256: 2521d4de0bf9e1cc6549866463ceae85e4ec3239bc6063f7488810be39033bbc
     - filename: "clip_vision_h.safetensors"
       uri: "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/clip_vision/clip_vision_h.safetensors"
 - name: sd-1.5-ggml
