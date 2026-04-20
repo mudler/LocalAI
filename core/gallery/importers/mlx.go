@@ -15,6 +15,10 @@ var _ Importer = &MLXImporter{}
 
 type MLXImporter struct{}
 
+func (i *MLXImporter) Name() string      { return "mlx" }
+func (i *MLXImporter) Modality() string  { return "text" }
+func (i *MLXImporter) AutoDetects() bool { return true }
+
 func (i *MLXImporter) Match(details Details) bool {
 	preferences, err := details.Preferences.MarshalJSON()
 	if err != nil {

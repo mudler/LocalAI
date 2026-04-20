@@ -15,6 +15,10 @@ var _ Importer = &VLLMImporter{}
 
 type VLLMImporter struct{}
 
+func (i *VLLMImporter) Name() string      { return "vllm" }
+func (i *VLLMImporter) Modality() string  { return "text" }
+func (i *VLLMImporter) AutoDetects() bool { return true }
+
 func (i *VLLMImporter) Match(details Details) bool {
 	preferences, err := details.Preferences.MarshalJSON()
 	if err != nil {

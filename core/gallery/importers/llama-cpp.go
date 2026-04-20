@@ -15,9 +15,27 @@ import (
 	"go.yaml.in/yaml/v2"
 )
 
-var _ Importer = &LlamaCPPImporter{}
+var (
+	_ Importer                   = &LlamaCPPImporter{}
+	_ AdditionalBackendsProvider = &LlamaCPPImporter{}
+)
 
 type LlamaCPPImporter struct{}
+
+func (i *LlamaCPPImporter) Name() string     { return "llama-cpp" }
+func (i *LlamaCPPImporter) Modality() string { return "text" }
+func (i *LlamaCPPImporter) AutoDetects() bool { return true }
+
+// AdditionalBackends advertises drop-in replacements that share the
+// llama-cpp detection logic. They are preference-only: selecting one
+// from the import form swaps the emitted YAML backend field but reuses
+// the llama-cpp Match/Import pipeline.
+func (i *LlamaCPPImporter) AdditionalBackends() []KnownBackendEntry {
+	return []KnownBackendEntry{
+		{Name: "ik-llama-cpp", Modality: "text", Description: "llama-cpp drop-in replacement (IK fork)"},
+		{Name: "turboquant", Modality: "text", Description: "llama-cpp drop-in replacement (TurboQuant)"},
+	}
+}
 
 func (i *LlamaCPPImporter) Match(details Details) bool {
 	preferences, err := details.Preferences.MarshalJSON()

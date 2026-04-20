@@ -53,6 +53,42 @@ type Details struct {
 type Importer interface {
 	Match(details Details) bool
 	Import(details Details) (gallery.ModelConfig, error)
+	// Name is the canonical backend name (e.g. "llama-cpp"). Used by
+	// /backends/known to populate the import form dropdown.
+	Name() string
+	// Modality is the backend's primary modality ("text", "asr", "tts",
+	// "image", "embeddings", "reranker", "detection", "vad"). Used for
+	// grouping in the UI.
+	Modality() string
+	// AutoDetects is true when Match() can fire without an explicit
+	// preferences.backend. Preference-only entries surface as
+	// AutoDetect=false in /backends/known.
+	AutoDetects() bool
+}
+
+// KnownBackendEntry describes one backend advertised by an importer.
+// Importers that host drop-in replacements (e.g. llama-cpp hosting
+// ik-llama-cpp and turboquant) return additional entries via
+// AdditionalBackendsProvider so the endpoint can surface them without
+// registering separate importers.
+type KnownBackendEntry struct {
+	Name        string
+	Modality    string
+	Description string
+}
+
+// AdditionalBackendsProvider is implemented by importers that advertise
+// drop-in replacements sharing their Match/Import logic. The entries
+// appear in /backends/known with AutoDetect=false since they are
+// preference-only.
+type AdditionalBackendsProvider interface {
+	AdditionalBackends() []KnownBackendEntry
+}
+
+// Registry returns the list of registered importers. Callers must not
+// mutate the returned slice.
+func Registry() []Importer {
+	return defaultImporters
 }
 
 func hasYAMLExtension(uri string) bool {

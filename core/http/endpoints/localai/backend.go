@@ -3,17 +3,40 @@ package localai
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
+	"github.com/mudler/LocalAI/core/gallery/importers"
 	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/mudler/xlog"
 )
+
+// knownPrefOnlyBackends lists backends that have no dedicated importer
+// and no importer-hosted drop-in entry, but users may still pick them
+// via the preference-only path. Edit this slice to add new pref-only
+// backends that should appear in the import form dropdown.
+var knownPrefOnlyBackends = []schema.KnownBackend{
+	// Text LLM
+	{Name: "sglang", Modality: "text", AutoDetect: false, Description: "SGLang runtime (preference-only)"},
+	{Name: "tinygrad", Modality: "text", AutoDetect: false, Description: "tinygrad runtime (preference-only)"},
+	{Name: "trl", Modality: "text", AutoDetect: false, Description: "Transformers Reinforcement Learning (preference-only)"},
+	{Name: "mlx-vlm", Modality: "text", AutoDetect: false, Description: "MLX vision-language models (preference-only)"},
+	// ASR
+	{Name: "whisperx", Modality: "asr", AutoDetect: false, Description: "WhisperX transcription (preference-only)"},
+	// TTS
+	{Name: "kokoros", Modality: "tts", AutoDetect: false, Description: "Kokoros TTS (preference-only)"},
+	{Name: "qwen-tts", Modality: "tts", AutoDetect: false, Description: "Qwen TTS (preference-only)"},
+	{Name: "qwen3-tts-cpp", Modality: "tts", AutoDetect: false, Description: "Qwen3 TTS C++ (preference-only)"},
+	{Name: "faster-qwen3-tts", Modality: "tts", AutoDetect: false, Description: "Faster Qwen3 TTS (preference-only)"},
+	// Detection
+	{Name: "sam3-cpp", Modality: "detection", AutoDetect: false, Description: "SAM3 C++ object detection (preference-only)"},
+}
 
 // UpgradeInfoProvider is an interface for querying cached backend upgrade information.
 type UpgradeInfoProvider interface {
@@ -222,5 +245,86 @@ func (mgs *BackendEndpointService) ListAvailableBackendsEndpoint(systemState *sy
 			return err
 		}
 		return c.JSON(200, backends)
+	}
+}
+
+// ListKnownBackendsEndpoint returns every backend the import system is
+// aware of, regardless of install state or host compatibility. This is
+// the source of truth for the import form dropdown — users may pick a
+// backend that is not yet installed so LocalAI can auto-install it.
+// @Summary List all known Backends (importer registry + curated pref-only + installed-on-disk)
+// @Tags backends
+// @Success 200 {object} []schema.KnownBackend "Response"
+// @Router /backends/known [get]
+func (mgs *BackendEndpointService) ListKnownBackendsEndpoint(systemState *system.SystemState) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		// byName dedupes entries while preserving "importer wins over
+		// pref-only" priority. Insertion order: importers → drop-ins →
+		// pref-only → installed-on-disk.
+		byName := make(map[string]schema.KnownBackend)
+
+		for _, imp := range importers.Registry() {
+			byName[imp.Name()] = schema.KnownBackend{
+				Name:       imp.Name(),
+				Modality:   imp.Modality(),
+				AutoDetect: imp.AutoDetects(),
+			}
+
+			if host, ok := imp.(importers.AdditionalBackendsProvider); ok {
+				for _, extra := range host.AdditionalBackends() {
+					if _, exists := byName[extra.Name]; exists {
+						continue
+					}
+					byName[extra.Name] = schema.KnownBackend{
+						Name:        extra.Name,
+						Modality:    extra.Modality,
+						AutoDetect:  false,
+						Description: extra.Description,
+					}
+				}
+			}
+		}
+
+		for _, pref := range knownPrefOnlyBackends {
+			if _, exists := byName[pref.Name]; exists {
+				continue
+			}
+			byName[pref.Name] = pref
+		}
+
+		// Surface backends installed on this host that the importer layer
+		// doesn't know about. Empty Modality because we can't classify
+		// them automatically; AutoDetect=false because they require an
+		// explicit preference.
+		if systemState != nil {
+			installed, err := gallery.ListSystemBackends(systemState)
+			if err != nil {
+				xlog.Debug("ListKnownBackendsEndpoint: failed to list installed backends", "error", err)
+			} else {
+				for name := range installed {
+					if _, exists := byName[name]; exists {
+						continue
+					}
+					byName[name] = schema.KnownBackend{
+						Name:       name,
+						Modality:   "",
+						AutoDetect: false,
+					}
+				}
+			}
+		}
+
+		out := make([]schema.KnownBackend, 0, len(byName))
+		for _, b := range byName {
+			out = append(out, b)
+		}
+		sort.SliceStable(out, func(i, j int) bool {
+			if out[i].Modality != out[j].Modality {
+				return out[i].Modality < out[j].Modality
+			}
+			return out[i].Name < out[j].Name
+		})
+
+		return c.JSON(200, out)
 	}
 }

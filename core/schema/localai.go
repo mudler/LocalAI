@@ -178,6 +178,15 @@ type ImportModelRequest struct {
 	Preferences json.RawMessage `json:"preferences,omitempty"`
 }
 
+// KnownBackend describes a backend that the importer knows about.
+// Used by GET /backends/known to populate the import form dropdown.
+type KnownBackend struct {
+	Name        string `json:"name"`
+	Modality    string `json:"modality"`
+	AutoDetect  bool   `json:"auto_detect"`
+	Description string `json:"description,omitempty"`
+}
+
 // SettingsResponse is the response type for settings API operations
 type SettingsResponse struct {
 	Success bool   `json:"success"`
