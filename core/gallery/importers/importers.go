@@ -66,6 +66,10 @@ var defaultImporters = []Importer{
 	// Embeddings / rerankers / detection / VAD (Batch 5)
 	// SileroVADImporter first — unique filename signal, cannot collide.
 	&SileroVADImporter{},
+	// RerankersImporter must run before SentenceTransformers and
+	// Transformers — some reranker repos ship modules.json and tokenizer
+	// files that those importers would otherwise claim.
+	&RerankersImporter{},
 	// Existing
 	&LlamaCPPImporter{},
 	&MLXImporter{},
