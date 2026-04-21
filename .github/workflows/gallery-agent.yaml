@@ -54,24 +54,41 @@ jobs:
           REPO: ${{ github.repository }}
           SEARCH: 'gallery agent in:title'
         run: |
-          # Walk open gallery-agent PRs and act on maintainer comments:
+          # Walk gallery-agent PRs and act on maintainer comments:
           #   /gallery-agent blacklist → label `gallery-agent/blacklisted` + close (never repropose)
           #   /gallery-agent recreate  → close without label (next run may repropose)
           # Only comments from OWNER / MEMBER / COLLABORATOR are honored so
           # random users can't drive the bot.
+          #
+          # We scan both open PRs AND recently-closed PRs that don't already
+          # carry the blacklist label. This covers the common flow where a
+          # maintainer writes /gallery-agent blacklist and immediately clicks
+          # Close — without this, the next scheduled run wouldn't see the
+          # command (PR is already closed) and would repropose the model.
           gh label create gallery-agent/blacklisted \
             --repo "$REPO" --color ededed \
             --description "gallery-agent must not repropose this model" 2>/dev/null || true
 
-          prs=$(gh pr list --repo "$REPO" --state open --search "$SEARCH" --json number --jq '.[].number')
+          prs_open=$(gh pr list --repo "$REPO" --state open --search "$SEARCH" \
+            --json number --jq '.[].number')
+          # Closed PRs from the last 14 days that don't yet have the blacklist label.
+          # Bounded window keeps the scan cheap while covering late-applied commands.
+          since=$(date -u -d '14 days ago' +%Y-%m-%d)
+          prs_closed=$(gh pr list --repo "$REPO" --state closed \
+            --search "$SEARCH closed:>=$since -label:gallery-agent/blacklisted" \
+            --json number --jq '.[].number')
+          prs=$(printf '%s\n%s\n' "$prs_open" "$prs_closed" | sort -u | sed '/^$/d')
           for pr in $prs; do
+            state=$(gh pr view "$pr" --repo "$REPO" --json state --jq '.state')
             cmds=$(gh pr view "$pr" --repo "$REPO" --json comments \
               --jq '.comments[] | select(.authorAssociation=="OWNER" or .authorAssociation=="MEMBER" or .authorAssociation=="COLLABORATOR") | .body')
             if echo "$cmds" | grep -qE '(^|[[:space:]])/gallery-agent[[:space:]]+blacklist([[:space:]]|$)'; then
-              echo "PR #$pr: blacklist command found"
+              echo "PR #$pr: blacklist command found (state=$state)"
               gh pr edit "$pr" --repo "$REPO" --add-label gallery-agent/blacklisted || true
-              gh pr close "$pr" --repo "$REPO" --comment "Blacklisted via \`/gallery-agent blacklist\`. This model will not be reproposed." || true
-            elif echo "$cmds" | grep -qE '(^|[[:space:]])/gallery-agent[[:space:]]+recreate([[:space:]]|$)'; then
+              if [ "$state" = "OPEN" ]; then
+                gh pr close "$pr" --repo "$REPO" --comment "Blacklisted via \`/gallery-agent blacklist\`. This model will not be reproposed." || true
+              fi
+            elif [ "$state" = "OPEN" ] && echo "$cmds" | grep -qE '(^|[[:space:]])/gallery-agent[[:space:]]+recreate([[:space:]]|$)'; then
               echo "PR #$pr: recreate command found"
               gh pr close "$pr" --repo "$REPO" --comment "Closed via \`/gallery-agent recreate\`. The next scheduled run will propose this model again." || true
             fi
