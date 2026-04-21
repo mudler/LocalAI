@@ -352,11 +352,6 @@ export default function ImportModel() {
       {/* Simple Import Mode */}
       {!isAdvancedMode && (
         <div className="card" style={{ padding: 'var(--spacing-lg)' }}>
-          <h2 style={{ fontSize: '1.25rem', fontWeight: 600, marginBottom: 'var(--spacing-md)', display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
-            <i className="fas fa-link" style={{ color: 'var(--color-success)' }} />
-            Import from URI
-          </h2>
-
           {ambiguity && (
             <AmbiguityAlert
               modality={ambiguity.modality}
@@ -373,9 +368,9 @@ export default function ImportModel() {
               <label className="form-label" style={{ marginBottom: 0 }}>
                 <i className="fas fa-link" style={{ marginRight: '6px' }} />Model URI
               </label>
-              <a href="https://huggingface.co/models?search=gguf&sort=trending" target="_blank" rel="noreferrer"
+              <a href="https://huggingface.co/models?sort=trending" target="_blank" rel="noreferrer"
                 className="btn btn-secondary" style={{ fontSize: '0.7rem', padding: '3px 8px' }}>
-                Search GGUF on HF <i className="fas fa-external-link-alt" style={{ marginLeft: '4px' }} />
+                Browse models on HF <i className="fas fa-external-link-alt" style={{ marginLeft: '4px' }} />
               </a>
             </div>
             <input
@@ -428,7 +423,7 @@ export default function ImportModel() {
 
             <div style={{ padding: 'var(--spacing-md)', background: 'var(--color-bg-primary)', border: '1px solid var(--color-border-default)', borderRadius: 'var(--radius-md)' }}>
               <h3 style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--color-text-secondary)', marginBottom: 'var(--spacing-md)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <i className="fas fa-star" style={{ color: 'var(--color-warning)' }} />
+                <i className="fas fa-sliders" style={{ color: 'var(--color-primary)' }} aria-hidden="true" />
                 Common Preferences
               </h3>
 
@@ -549,7 +544,7 @@ export default function ImportModel() {
             <div style={{ marginTop: 'var(--spacing-md)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-sm)' }}>
                 <span style={{ fontSize: '0.875rem', fontWeight: 500, color: 'var(--color-text-secondary)' }}>
-                  <i className="fas fa-sliders-h" style={{ marginRight: '6px' }} />Custom Preferences
+                  <i className="fas fa-plus-circle" style={{ marginRight: '6px' }} aria-hidden="true" />Custom Preferences
                 </span>
                 <button className="btn btn-secondary" onClick={addCustomPref} disabled={isSubmitting} style={{ fontSize: '0.75rem' }}>
                   <i className="fas fa-plus" /> Add Custom
