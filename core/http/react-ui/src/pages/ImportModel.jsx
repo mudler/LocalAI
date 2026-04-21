@@ -521,7 +521,7 @@ export default function ImportModel() {
           </label>
           <a href="https://huggingface.co/models?sort=trending" target="_blank" rel="noreferrer"
             className="btn btn-secondary" style={{ fontSize: '0.7rem', padding: '3px 8px' }}>
-            Browse models on HF <i className="fas fa-external-link-alt" style={{ marginLeft: '4px' }} />
+            Browse models on HF <i className="fas fa-external-link-alt" aria-hidden="true" style={{ marginLeft: '4px' }} />
           </a>
         </div>
         <input
@@ -538,8 +538,8 @@ export default function ImportModel() {
           onClick={() => setShowGuide(!showGuide)}
           style={{ marginTop: 'var(--spacing-sm)', background: 'none', border: 'none', color: 'var(--color-text-secondary)', cursor: 'pointer', fontSize: '0.8125rem', display: 'flex', alignItems: 'center', gap: '6px', padding: 0 }}
         >
-          <i className={`fas ${showGuide ? 'fa-chevron-down' : 'fa-chevron-right'}`} />
-          <i className="fas fa-info-circle" />
+          <i className={`fas ${showGuide ? 'fa-chevron-down' : 'fa-chevron-right'}`} aria-hidden="true" />
+          <i className="fas fa-info-circle" aria-hidden="true" />
           Supported URI Formats
         </button>
         {showGuide && (
@@ -547,7 +547,7 @@ export default function ImportModel() {
             {URI_FORMATS.map((fmt, i) => (
               <div key={i} style={{ marginBottom: i < URI_FORMATS.length - 1 ? 'var(--spacing-md)' : 0 }}>
                 <h4 style={{ fontSize: '0.8125rem', fontWeight: 600, marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <i className={fmt.icon} style={{ color: fmt.color }} />
+                  <i className={fmt.icon} aria-hidden="true" style={{ color: fmt.color }} />
                   {fmt.title}
                 </h4>
                 <div style={{ paddingLeft: '20px', fontSize: '0.75rem', fontFamily: 'monospace' }}>
@@ -626,7 +626,7 @@ export default function ImportModel() {
   const renderFullPreferences = () => (
     <div style={{ marginTop: 'var(--spacing-lg)' }}>
       <div style={{ fontSize: '0.875rem', fontWeight: 500, color: 'var(--color-text-secondary)', marginBottom: 'var(--spacing-sm)' }}>
-        <i className="fas fa-cog" style={{ marginRight: '6px' }} />Preferences (Optional)
+        <i className="fas fa-cog" aria-hidden="true" style={{ marginRight: '6px' }} />Preferences (Optional)
       </div>
 
       <div style={{ padding: 'var(--spacing-md)', background: 'var(--color-bg-primary)', border: '1px solid var(--color-border-default)', borderRadius: 'var(--radius-md)' }}>
@@ -712,7 +712,7 @@ export default function ImportModel() {
             <i className="fas fa-plus-circle" style={{ marginRight: '6px' }} aria-hidden="true" />Custom Preferences
           </span>
           <button className="btn btn-secondary" onClick={addCustomPref} disabled={isSubmitting} style={{ fontSize: '0.75rem' }}>
-            <i className="fas fa-plus" /> Add Custom
+            <i className="fas fa-plus" aria-hidden="true" /> Add Custom
           </button>
         </div>
         {customPrefs.map((cp, i) => (
@@ -721,7 +721,7 @@ export default function ImportModel() {
             <span style={{ color: 'var(--color-text-secondary)' }}>:</span>
             <input className="input" type="text" value={cp.value} onChange={e => updateCustomPref(i, 'value', e.target.value)} placeholder="Value" disabled={isSubmitting} style={{ flex: 1 }} />
             <button className="btn btn-secondary" onClick={() => removeCustomPref(i)} disabled={isSubmitting} style={{ color: 'var(--color-error)' }}>
-              <i className="fas fa-trash" />
+              <i className="fas fa-trash" aria-hidden="true" />
             </button>
           </div>
         ))}
@@ -741,11 +741,11 @@ export default function ImportModel() {
           <SimplePowerSwitch value={mode} onChange={requestModeSwitch} disabled={isSubmitting} />
           {isPowerYaml ? (
             <button className="btn btn-primary" onClick={handleAdvancedImport} disabled={isSubmitting}>
-              {isSubmitting ? <><LoadingSpinner size="sm" /> Saving...</> : <><i className="fas fa-save" /> Create</>}
+              {isSubmitting ? <><LoadingSpinner size="sm" /> Saving...</> : <><i className="fas fa-save" aria-hidden="true" /> Create</>}
             </button>
           ) : (
             <button className="btn btn-primary" onClick={() => handleSimpleImport()} disabled={isSubmitting || !importUri.trim()}>
-              {isSubmitting ? <><LoadingSpinner size="sm" /> Importing...</> : <><i className="fas fa-upload" /> Import Model</>}
+              {isSubmitting ? <><LoadingSpinner size="sm" /> Importing...</> : <><i className="fas fa-upload" aria-hidden="true" /> Import Model</>}
             </button>
           )}
         </div>
@@ -755,13 +755,13 @@ export default function ImportModel() {
       {!isPowerYaml && estimate && (
         <div className="card" style={{ marginBottom: 'var(--spacing-md)', padding: 'var(--spacing-md)', borderColor: 'var(--color-primary)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', fontSize: '0.875rem', flexWrap: 'wrap' }}>
-            <i className="fas fa-memory" style={{ color: 'var(--color-primary)' }} />
+            <i className="fas fa-memory" aria-hidden="true" style={{ color: 'var(--color-primary)' }} />
             <strong>Estimated requirements</strong>
             {estimate.sizeDisplay && estimate.sizeDisplay !== '0 B' && (
-              <span><i className="fas fa-download" style={{ color: 'var(--color-primary)', marginRight: '4px' }} />Download: {estimate.sizeDisplay}</span>
+              <span><i className="fas fa-download" aria-hidden="true" style={{ color: 'var(--color-primary)', marginRight: '4px' }} />Download: {estimate.sizeDisplay}</span>
             )}
             {estimate.vramDisplay && estimate.vramDisplay !== '0 B' && (
-              <span><i className="fas fa-microchip" style={{ color: 'var(--color-primary)', marginRight: '4px' }} />VRAM: {estimate.vramDisplay}</span>
+              <span><i className="fas fa-microchip" aria-hidden="true" style={{ color: 'var(--color-primary)', marginRight: '4px' }} />VRAM: {estimate.vramDisplay}</span>
             )}
           </div>
         </div>
@@ -862,11 +862,11 @@ export default function ImportModel() {
               </div>
               <div style={{ padding: 'var(--spacing-md)', borderTop: '1px solid var(--color-border-default)', borderBottom: '1px solid var(--color-border-default)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <h2 style={{ fontSize: '1.125rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <i className="fas fa-code" style={{ color: 'var(--color-data-3)' }} />
+                  <i className="fas fa-code" aria-hidden="true" style={{ color: 'var(--color-data-3)' }} />
                   YAML Configuration Editor
                 </h2>
                 <button className="btn btn-secondary" style={{ fontSize: '0.75rem' }} onClick={() => { navigator.clipboard.writeText(yamlContent); addToast('Copied to clipboard', 'success') }}>
-                  <i className="fas fa-copy" /> Copy
+                  <i className="fas fa-copy" aria-hidden="true" /> Copy
                 </button>
               </div>
               <CodeEditor value={yamlContent} onChange={setYamlContent} disabled={isSubmitting} minHeight="calc(100vh - 400px)" />

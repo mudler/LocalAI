@@ -126,7 +126,7 @@ export default function SearchableSelect({
         }}
       >
         <span style={{ flex: 1, textAlign: 'left' }}>{displayLabel}</span>
-        <i className="fas fa-chevron-down" style={{ fontSize: '0.5rem', color: 'var(--color-text-muted)' }} />
+        <i className="fas fa-chevron-down" aria-hidden="true" style={{ fontSize: '0.5rem', color: 'var(--color-text-muted)' }} />
       </button>
       {open && (
         <div style={{
