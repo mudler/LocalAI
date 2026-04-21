@@ -159,7 +159,6 @@ var _ = Describe("CapabilityFilterDisabled", func() {
 		os.Setenv(capabilityEnv, "disable")
 		s := &SystemState{}
 		Expect(s.IsBackendCompatible("cuda12-whisperx", "quay.io/nvidia-cuda-12")).To(BeTrue())
-		Expect(s.IsBackendCompatible("rocm-whisperx", "quay.io/rocm")).To(BeTrue())
 		Expect(s.IsBackendCompatible("metal-whisperx", "quay.io/metal-darwin")).To(BeTrue())
 		Expect(s.IsBackendCompatible("intel-whisperx", "quay.io/intel-sycl")).To(BeTrue())
 		Expect(s.IsBackendCompatible("cpu-whisperx", "quay.io/cpu")).To(BeTrue())

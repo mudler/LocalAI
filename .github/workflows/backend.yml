@@ -1629,19 +1629,6 @@ jobs:
             cuda-minor-version: ""
             platforms: 'linux/amd64'
             tag-latest: 'auto'
-            tag-suffix: '-gpu-rocm-hipblas-whisperx'
-            runs-on: 'bigger-runner'
-            base-image: "rocm/dev-ubuntu-24.04:7.2.1"
-            skip-drivers: 'false'
-            backend: "whisperx"
-            dockerfile: "./backend/Dockerfile.python"
-            context: "./"
-            ubuntu-version: '2404'
-          - build-type: 'hipblas'
-            cuda-major-version: ""
-            cuda-minor-version: ""
-            platforms: 'linux/amd64'
-            tag-latest: 'auto'
             tag-suffix: '-gpu-rocm-hipblas-coqui'
             runs-on: 'bigger-runner'
             base-image: "rocm/dev-ubuntu-24.04:7.2.1"

@@ -587,7 +587,6 @@
   alias: "whisperx"
   capabilities:
     nvidia: "cuda12-whisperx"
-    amd: "rocm-whisperx"
     metal: "metal-whisperx"
     default: "cpu-whisperx"
     nvidia-cuda-13: "cuda13-whisperx"
@@ -2745,7 +2744,6 @@
   name: "whisperx-development"
   capabilities:
     nvidia: "cuda12-whisperx-development"
-    amd: "rocm-whisperx-development"
     metal: "metal-whisperx-development"
     default: "cpu-whisperx-development"
     nvidia-cuda-13: "cuda13-whisperx-development"
@@ -2771,16 +2769,6 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-whisperx"
   mirrors:
     - localai/localai-backends:master-gpu-nvidia-cuda-12-whisperx
-- !!merge <<: *whisperx
-  name: "rocm-whisperx"
-  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-rocm-hipblas-whisperx"
-  mirrors:
-    - localai/localai-backends:latest-gpu-rocm-hipblas-whisperx
-- !!merge <<: *whisperx
-  name: "rocm-whisperx-development"
-  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-rocm-hipblas-whisperx"
-  mirrors:
-    - localai/localai-backends:master-gpu-rocm-hipblas-whisperx
 - !!merge <<: *whisperx
   name: "cuda13-whisperx"
   uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-13-whisperx"

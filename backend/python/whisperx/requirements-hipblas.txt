@@ -1,6 +1,0 @@
-# whisperx hard-pins torch~=2.8.0, which is not available in the rocm7.x indexes
-# (they start at torch 2.10). Keep rocm6.4 wheels here — they still load against
-# the rocm7.2.1 runtime via AMD's forward-compatibility window.
---extra-index-url https://download.pytorch.org/whl/rocm6.4
-torch==2.8.0+rocm6.4
-whisperx @ git+https://github.com/m-bain/whisperX.git

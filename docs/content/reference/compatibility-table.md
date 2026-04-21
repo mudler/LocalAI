@@ -33,7 +33,7 @@ LocalAI will attempt to automatically load models which are not explicitly confi
 |---------|-------------|-------------|
 | [whisper.cpp](https://github.com/ggml-org/whisper.cpp) | OpenAI Whisper in C/C++ | CPU, CUDA 12/13, ROCm, Intel SYCL, Vulkan, Metal, Jetson L4T |
 | [faster-whisper](https://github.com/SYSTRAN/faster-whisper) | Fast Whisper with CTranslate2 | CUDA 12/13, ROCm, Intel, Metal |
-| [WhisperX](https://github.com/m-bain/whisperX) | Word-level timestamps and speaker diarization | CPU, CUDA 12/13, ROCm, Metal |
+| [WhisperX](https://github.com/m-bain/whisperX) | Word-level timestamps and speaker diarization | CPU, CUDA 12/13, Metal |
 | [moonshine](https://github.com/moonshine-ai/moonshine) | Ultra-fast transcription for low-end devices | CPU, CUDA 12/13, Metal |
 | [voxtral](https://github.com/mudler/voxtral.c) | Voxtral Realtime 4B speech-to-text in C | CPU, Metal |
 | [Qwen3-ASR](https://github.com/QwenLM/Qwen3-ASR) | Qwen3 automatic speech recognition | CPU, CUDA 12/13, ROCm, Intel, Metal, Jetson L4T |
