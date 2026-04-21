@@ -292,23 +292,27 @@ func (mgs *BackendEndpointService) ListKnownBackendsEndpoint(systemState *system
 			byName[pref.Name] = pref
 		}
 
-		// Surface backends installed on this host that the importer layer
-		// doesn't know about. Empty Modality because we can't classify
-		// them automatically; AutoDetect=false because they require an
-		// explicit preference.
+		// Surface backends installed on this host and flag them as such.
+		// Importer/pref-only entries that are also on disk get Installed=true
+		// while keeping their metadata. System-only backends join the map
+		// with empty Modality (we can't classify them) and AutoDetect=false
+		// because they require an explicit preference.
 		if systemState != nil {
 			installed, err := gallery.ListSystemBackends(systemState)
 			if err != nil {
 				xlog.Debug("ListKnownBackendsEndpoint: failed to list installed backends", "error", err)
 			} else {
 				for name := range installed {
-					if _, exists := byName[name]; exists {
+					if entry, exists := byName[name]; exists {
+						entry.Installed = true
+						byName[name] = entry
 						continue
 					}
 					byName[name] = schema.KnownBackend{
 						Name:       name,
 						Modality:   "",
 						AutoDetect: false,
+						Installed:  true,
 					}
 				}
 			}

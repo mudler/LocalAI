@@ -185,6 +185,12 @@ type KnownBackend struct {
 	Modality    string `json:"modality"`
 	AutoDetect  bool   `json:"auto_detect"`
 	Description string `json:"description,omitempty"`
+	// Installed is true when the backend is currently present on disk — i.e. it
+	// appears in gallery.ListSystemBackends(systemState). Importer-registered or
+	// curated pref-only backends default to false unless they also show up on
+	// disk. The import form uses this to warn users that submitting an import
+	// may trigger an automatic backend download.
+	Installed bool `json:"installed"`
 }
 
 // SettingsResponse is the response type for settings API operations
