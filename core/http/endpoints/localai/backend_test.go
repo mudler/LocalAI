@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"sort"
 
 	"github.com/labstack/echo/v4"
@@ -15,6 +16,15 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
+
+// writeFakeSystemBackend creates a directory layout that
+// gallery.ListSystemBackends recognises as an installed backend: a folder
+// named after the backend containing a run.sh file.
+func writeFakeSystemBackend(root, name string) {
+	dir := filepath.Join(root, name)
+	Expect(os.MkdirAll(dir, 0o755)).To(Succeed())
+	Expect(os.WriteFile(filepath.Join(dir, "run.sh"), []byte("#!/bin/sh\n"), 0o755)).To(Succeed())
+}
 
 var _ = Describe("Backend Endpoints", func() {
 	var (
@@ -173,6 +183,73 @@ var _ = Describe("Backend Endpoints", func() {
 			for name, count := range seen {
 				Expect(count).To(Equal(1), "backend %s appears %d times", name, count)
 			}
+		})
+
+		It("exposes an Installed field on every entry via the JSON payload", func() {
+			req := httptest.NewRequest(http.MethodGet, "/backends/known", nil)
+			rec := httptest.NewRecorder()
+			app.ServeHTTP(rec, req)
+
+			// Round-trip through a map so we assert on JSON field presence
+			// rather than on the Go struct shape — a handler that forgot to
+			// emit the field would still unmarshal cleanly into KnownBackend.
+			var raw []map[string]any
+			Expect(json.Unmarshal(rec.Body.Bytes(), &raw)).To(Succeed())
+			Expect(raw).NotTo(BeEmpty())
+			for _, entry := range raw {
+				_, ok := entry["installed"]
+				Expect(ok).To(BeTrue(), "entry %v is missing the installed field", entry)
+			}
+		})
+
+		It("marks backends present on disk as Installed=true and others false", func() {
+			// llama-cpp is surfaced by the importer registry; planting its
+			// directory on disk should flip its Installed flag to true
+			// without otherwise altering its importer-supplied metadata.
+			writeFakeSystemBackend(tmpDir, "llama-cpp")
+
+			req := httptest.NewRequest(http.MethodGet, "/backends/known", nil)
+			rec := httptest.NewRecorder()
+			app.ServeHTTP(rec, req)
+
+			var payload []schema.KnownBackend
+			Expect(json.Unmarshal(rec.Body.Bytes(), &payload)).To(Succeed())
+
+			byName := map[string]schema.KnownBackend{}
+			for _, b := range payload {
+				byName[b.Name] = b
+			}
+
+			llama, ok := byName["llama-cpp"]
+			Expect(ok).To(BeTrue())
+			Expect(llama.Installed).To(BeTrue(), "installed on-disk backend must be Installed=true")
+			Expect(llama.AutoDetect).To(BeTrue(), "importer-owned metadata must be preserved")
+
+			sg, ok := byName["sglang"]
+			Expect(ok).To(BeTrue())
+			Expect(sg.Installed).To(BeFalse(), "pref-only backend not on disk must be Installed=false")
+		})
+
+		It("adds system-only backends with Installed=true and empty modality", func() {
+			writeFakeSystemBackend(tmpDir, "custom-local-backend")
+
+			req := httptest.NewRequest(http.MethodGet, "/backends/known", nil)
+			rec := httptest.NewRecorder()
+			app.ServeHTTP(rec, req)
+
+			var payload []schema.KnownBackend
+			Expect(json.Unmarshal(rec.Body.Bytes(), &payload)).To(Succeed())
+
+			byName := map[string]schema.KnownBackend{}
+			for _, b := range payload {
+				byName[b.Name] = b
+			}
+
+			entry, ok := byName["custom-local-backend"]
+			Expect(ok).To(BeTrue(), "system-only backend must appear in response")
+			Expect(entry.Installed).To(BeTrue())
+			Expect(entry.Modality).To(Equal(""))
+			Expect(entry.AutoDetect).To(BeFalse())
 		})
 
 		It("is sorted by Modality then Name", func() {
