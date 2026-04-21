@@ -131,7 +131,7 @@ export default function SearchableSelect({
       {open && (
         <div style={{
           position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 100, marginTop: 4,
-          minWidth: 200, maxHeight: 260, background: 'var(--color-bg-secondary)',
+          minWidth: 200, maxHeight: 'min(260px, 60vh)', background: 'var(--color-bg-secondary)',
           border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)',
           boxShadow: 'var(--shadow-md)', display: 'flex', flexDirection: 'column',
           animation: 'dropdownIn 120ms ease-out',
@@ -148,14 +148,14 @@ export default function SearchableSelect({
               style={{ width: '100%', padding: '4px 8px', fontSize: '0.8125rem' }}
             />
           </div>
-          <div ref={listRef} role="listbox" style={{ overflowY: 'auto', maxHeight: 200 }}>
+          <div ref={listRef} role="listbox" style={{ overflowY: 'auto', maxHeight: 'min(200px, 50vh)' }}>
             {allOption && (
               <div
                 role="option"
                 aria-selected={!value}
                 onClick={() => select('')}
                 style={itemStyle(!value, focusIndex === -1 && enterTarget?.type === 'all')}
-                onMouseEnter={() => setFocusIndex(-1)}
+                onMouseEnter={focusIndex !== -1 ? () => setFocusIndex(-1) : undefined}
               >
                 <span style={{ flex: 1 }}>{allOption}</span>
                 {enterTarget?.type === 'all' && (
@@ -196,7 +196,7 @@ export default function SearchableSelect({
                   aria-selected={isActive}
                   onClick={() => select(o.value)}
                   style={itemStyle(isActive, isFocused)}
-                  onMouseEnter={() => setFocusIndex(i)}
+                  onMouseEnter={focusIndex !== i ? () => setFocusIndex(i) : undefined}
                 >
                   <span style={{ flex: 1 }}>{o.label}</span>
                   {o.badge && (
