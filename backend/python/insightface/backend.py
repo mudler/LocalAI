@@ -72,6 +72,15 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
 
     def LoadModel(self, request, context):
         options = _parse_options(list(request.Options))
+        # Surface LocalAI's models directory (ModelPath) so engines can
+        # anchor relative paths — OnnxDirectEngine's detector_onnx /
+        # recognizer_onnx point at gallery-managed files that LocalAI
+        # dropped there, and InsightFaceEngine auto-downloads its packs
+        # into that same directory alongside every other managed model.
+        # Private key to avoid clashing with user-provided options.
+        if request.ModelPath:
+            options["_model_dir"] = request.ModelPath
+
         engine_name = options.get("engine", "insightface")
         try:
             self.engine = build_engine(engine_name)

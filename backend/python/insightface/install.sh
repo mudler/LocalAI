@@ -10,27 +10,19 @@ fi
 
 installRequirements
 
-# Pre-bake the default model bundles so first-run is offline-clean.
+# We deliberately do NOT pre-bake any model weights here. Two reasons:
 #
-# IMPORTANT: the final image is built FROM scratch with
-# `COPY --from=builder /${BACKEND}/ /`, so only paths under the backend
-# directory survive. We must stage models inside this directory rather
-# than /root/.insightface or /opt/.
-MODELS_ROOT="${backend_dir}/models/insightface"
-OPENCV_DIR="${backend_dir}/models/opencv"
-install -d "${MODELS_ROOT}/models"
-install -d "${OPENCV_DIR}"
-
-# 1. buffalo_l (insightface default; NON-COMMERCIAL research use only).
-#    FaceAnalysis auto-downloads to <root>/models/<name>/; we override
-#    the root so the download lands under ${backend_dir}.
-python -c "from insightface.app import FaceAnalysis; \
-           FaceAnalysis(name='buffalo_l', root='${MODELS_ROOT}', providers=['CPUExecutionProvider']).prepare(ctx_id=-1)"
-
-# 2. OpenCV Zoo (Apache 2.0 — commercial-safe).
-#    These are not on pypi: fetch the ONNX files directly so the
-#    OnnxDirectEngine can load them without network access at runtime.
-curl -fsSL -o "${OPENCV_DIR}/yunet.onnx" \
-    https://github.com/opencv/opencv_zoo/raw/main/models/face_detection_yunet/face_detection_yunet_2023mar.onnx
-curl -fsSL -o "${OPENCV_DIR}/sface.onnx" \
-    https://github.com/opencv/opencv_zoo/raw/main/models/face_recognition_sface/face_recognition_sface_2021dec.onnx
+#   1. Weights should follow LocalAI's gallery-managed download flow
+#      like every other backend. For OpenCV Zoo (YuNet + SFace) the
+#      gallery entries in gallery/index.yaml list the ONNX files via
+#      `files:` with URI + SHA-256 — LocalAI fetches them into the
+#      models directory on `local-ai models install`.
+#
+#   2. For insightface model packs (buffalo_l, buffalo_s, buffalo_m,
+#      buffalo_sc, antelopev2), upstream distributes zip archives
+#      only (no individual ONNX URLs). We rely on insightface's own
+#      auto-download machinery (`FaceAnalysis(name=<pack>, root=<dir>)`)
+#      at first LoadModel, pointed at a writable directory. This
+#      matches how rfdetr behaves (uses `inference.get_model()`).
+#
+# Net effect: the backend image ships only Python deps (~150MB CPU).

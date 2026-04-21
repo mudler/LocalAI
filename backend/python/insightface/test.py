@@ -23,8 +23,21 @@ import backend_pb2  # noqa: E402
 
 from backend import BackendServicer  # noqa: E402
 
-OPENCV_DETECTOR = "/models/opencv/yunet.onnx"
-OPENCV_RECOGNIZER = "/models/opencv/sface.onnx"
+# OpenCV Zoo face ONNX files — downloaded on demand in OnnxDirectEngineTest
+# to mirror LocalAI's gallery `files:` flow (the backend image itself
+# doesn't ship model weights).
+OPENCV_FILES = [
+    (
+        "face_detection_yunet_2023mar.onnx",
+        "https://github.com/opencv/opencv_zoo/raw/main/models/face_detection_yunet/face_detection_yunet_2023mar.onnx",
+        "8f2383e4dd3cfbb4553ea8718107fc0423210dc964f9f4280604804ed2552fa4",
+    ),
+    (
+        "face_recognition_sface_2021dec.onnx",
+        "https://github.com/opencv/opencv_zoo/raw/main/models/face_recognition_sface/face_recognition_sface_2021dec.onnx",
+        "0ba9fbfa01b5270c96627c4ef784da859931e02f04419c829e83484087c34e79",
+    ),
+]
 
 
 def _encode(img: np.ndarray) -> str:
@@ -67,9 +80,9 @@ class _Harness:
     def health(self):
         return self.svc.Health(backend_pb2.HealthMessage(), _FakeContext())
 
-    def load(self, options: list[str]):
+    def load(self, options: list[str], model_path: str = ""):
         return self.svc.LoadModel(
-            backend_pb2.ModelOptions(Model="test", Options=options),
+            backend_pb2.ModelOptions(Model="test", Options=options, ModelPath=model_path),
             _FakeContext(),
         )
 
@@ -148,21 +161,47 @@ class InsightFaceEngineTest(unittest.TestCase):
             self.assertIn(face.dominant_gender, ("Man", "Woman"))
 
 
-@unittest.skipUnless(
-    os.path.exists(OPENCV_DETECTOR) and os.path.exists(OPENCV_RECOGNIZER),
-    "OpenCV Zoo ONNX files not pre-baked",
-)
+def _prepare_opencv_models_dir() -> str | None:
+    """Download OpenCV Zoo face ONNX files into a temp dir the way
+    LocalAI's gallery would. Returns the directory, or None if
+    downloads failed (network-restricted sandbox).
+    """
+    import hashlib
+    import tempfile
+    import urllib.request
+
+    root = os.environ.get("OPENCV_FACE_MODELS_DIR") or tempfile.mkdtemp(
+        prefix="opencv-face-"
+    )
+    for filename, uri, sha256 in OPENCV_FILES:
+        dest = os.path.join(root, filename)
+        if os.path.isfile(dest):
+            if hashlib.sha256(open(dest, "rb").read()).hexdigest() == sha256:
+                continue
+        try:
+            urllib.request.urlretrieve(uri, dest)
+        except Exception:
+            return None
+        if hashlib.sha256(open(dest, "rb").read()).hexdigest() != sha256:
+            return None
+    return root
+
+
 class OnnxDirectEngineTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.samples = _load_insightface_samples()
+        cls.model_dir = _prepare_opencv_models_dir()
+        if cls.model_dir is None:
+            raise unittest.SkipTest("OpenCV Zoo ONNX files could not be downloaded")
         cls.harness = _Harness(BackendServicer())
         load = cls.harness.load(
             [
                 "engine:onnx_direct",
-                f"detector_onnx:{OPENCV_DETECTOR}",
-                f"recognizer_onnx:{OPENCV_RECOGNIZER}",
-            ]
+                "detector_onnx:face_detection_yunet_2023mar.onnx",
+                "recognizer_onnx:face_recognition_sface_2021dec.onnx",
+            ],
+            model_path=cls.model_dir,
         )
         if not load.success:
             raise unittest.SkipTest(f"LoadModel failed: {load.message}")

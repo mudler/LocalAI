@@ -23,9 +23,11 @@ type StoreResolver func(ctx context.Context, storeName string) (grpc.Backend, er
 // StoresSet / StoresFind / StoresDelete gRPC surface.
 //
 // storeName selects which vector-store model to use (defaults to the
-// local-store Go backend). dim is the expected embedding dimension
-// (512 for buffalo_l ArcFace R50); mismatched inputs fail with
-// ErrDimensionMismatch before any gRPC call.
+// local-store Go backend). `dim` is the expected embedding dimension;
+// pass 0 to accept whatever dimension arrives (useful when the face
+// backend exposes multiple recognizers of different sizes, e.g.
+// ArcFace R50 at 512 vs SFace at 128). A non-zero dim is enforced at
+// Register time and fails fast with ErrDimensionMismatch.
 func NewStoreRegistry(resolve StoreResolver, storeName string, dim int) Registry {
 	return &storeRegistry{
 		resolve:   resolve,
@@ -52,7 +54,7 @@ func (r *storeRegistry) Register(ctx context.Context, embedding []float32, meta 
 	if len(embedding) == 0 {
 		return Metadata{}, ErrEmptyEmbedding
 	}
-	if len(embedding) != r.dim {
+	if r.dim != 0 && len(embedding) != r.dim {
 		return Metadata{}, fmt.Errorf("%w: expected %d, got %d", ErrDimensionMismatch, r.dim, len(embedding))
 	}
 
@@ -85,7 +87,7 @@ func (r *storeRegistry) Identify(ctx context.Context, probe []float32, topK int)
 	if len(probe) == 0 {
 		return nil, ErrEmptyEmbedding
 	}
-	if len(probe) != r.dim {
+	if r.dim != 0 && len(probe) != r.dim {
 		return nil, fmt.Errorf("%w: expected %d, got %d", ErrDimensionMismatch, r.dim, len(probe))
 	}
 	if topK <= 0 {

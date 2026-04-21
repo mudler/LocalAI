@@ -184,12 +184,14 @@
     (/v1/face/analyze), face embedding (/v1/embeddings), face
     detection (/v1/detection), and 1:N identification
     (/v1/face/{register,identify,forget}).
-    Ships two engines in a single image: the insightface model packs
-    (buffalo_l, buffalo_s — non-commercial) and the OpenCV Zoo
-    YuNet + SFace pair (Apache 2.0). Select via `options: ["engine:..."]`
+    Ships two engines in a single image: one that drives the insightface
+    model packs (buffalo_l/s/m/sc, antelopev2 — non-commercial research
+    use only) and one that drives OpenCV Zoo's YuNet + SFace pair
+    (Apache 2.0 — commercial-safe). Select via `options: ["engine:..."]`
     in your model YAML, or install one of the ready-made model-gallery
-    entries (insightface-buffalo-l / insightface-opencv /
-    insightface-buffalo-s).
+    entries under the `insightface-*` prefix.
+    The backend image contains only code and Python deps; all model
+    weights are managed by LocalAI's gallery download mechanism.
   urls:
     - https://github.com/deepinsight/insightface
     - https://github.com/opencv/opencv_zoo

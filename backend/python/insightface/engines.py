@@ -74,24 +74,46 @@ class InsightFaceEngine:
         self.det_size = _parse_det_size(options.get("det_size", "640x640"))
         self.det_thresh = float(options.get("det_thresh", "0.5"))
 
-        # Resolve the model root. Order: explicit `root:` option wins,
-        # then DEFAULT_ROOT (docker scratch image at /models/insightface),
-        # then <script_dir>/models/insightface (e2e-backends extracts the
-        # rootfs to a temp dir and runs from there), and finally
-        # insightface's ~/.insightface autodownload fallback for local dev.
+        # Resolve the model root. Order:
+        #   1. explicit `root:` option wins;
+        #   2. LoadModel's `model_dir` (dirname of ModelOptions.ModelFile) —
+        #      this is the LocalAI models directory, matching how every
+        #      other gallery-managed model is stored. insightface's
+        #      FaceAnalysis will auto-download packs to <root>/models/<name>/
+        #      so they live alongside other LocalAI-managed models;
+        #   3. <script_dir>/models/insightface — dev fallback;
+        #   4. ~/.insightface — upstream's own default (last resort).
         root = options.get("root")
         if not root:
-            script_dir_root = os.path.join(os.path.dirname(os.path.abspath(__file__)), "models", "insightface")
-            for candidate in (self.DEFAULT_ROOT, script_dir_root):
-                if os.path.isdir(candidate):
+            model_dir = options.get("_model_dir")
+            script_dir_root = os.path.join(
+                os.path.dirname(os.path.abspath(__file__)), "models", "insightface"
+            )
+            for candidate in (model_dir, self.DEFAULT_ROOT, script_dir_root):
+                if candidate and os.path.isdir(candidate):
                     root = candidate
                     break
             if not root:
-                root = "~/.insightface"
+                root = model_dir or "~/.insightface"
 
-        # CUDAExecutionProvider is picked automatically by onnxruntime-gpu when
-        # available; falling back to CPU keeps the CPU-only image working.
+        # CUDAExecutionProvider is picked automatically by onnxruntime-gpu
+        # when available; falling back to CPU keeps the CPU-only image
+        # working.
         self._providers = ["CUDAExecutionProvider", "CPUExecutionProvider"]
+
+        # Trigger the pack download first via ensure_available (not
+        # FaceAnalysis) so we can normalize the extracted layout before
+        # the router enumerates it. Upstream is inconsistent: buffalo_l
+        # and buffalo_s zips expand flat (ONNX files at pack root);
+        # buffalo_m and antelopev2 wrap their ONNX files in a redundant
+        # <name>/ subdirectory, and insightface's own loader looks one
+        # level too shallow.
+        from insightface.utils import ensure_available
+
+        expanded_root = os.path.expanduser(root)
+        ensure_available("models", self.model_pack, root=expanded_root)
+        _flatten_insightface_pack(expanded_root, self.model_pack)
+
         self.app = FaceAnalysis(name=self.model_pack, root=root, providers=self._providers)
         # ctx_id=0 selects the first available GPU; onnxruntime falls back to
         # CPU automatically when CUDAExecutionProvider isn't present.
@@ -172,8 +194,9 @@ class OnnxDirectEngine:
             raise ValueError(
                 "onnx_direct engine requires both detector_onnx and recognizer_onnx options"
             )
-        self.detector_path = _resolve_model_path(raw_det)
-        self.recognizer_path = _resolve_model_path(raw_rec)
+        model_dir = options.get("_model_dir")
+        self.detector_path = _resolve_model_path(raw_det, model_dir=model_dir)
+        self.recognizer_path = _resolve_model_path(raw_rec, model_dir=model_dir)
         self.input_size = _parse_det_size(options.get("det_size", "320x320"))
         self.det_thresh = float(options.get("det_thresh", "0.5"))
 
@@ -255,25 +278,78 @@ def _parse_det_size(raw: str) -> tuple[int, int]:
     return (n, n)
 
 
-def _resolve_model_path(path: str) -> str:
-    """Resolve an ONNX file path tolerant to the two runtime layouts.
+def _flatten_insightface_pack(root: str, name: str) -> None:
+    """Work around upstream's inconsistent zip packaging.
 
-    In a docker image the backend is rooted at /, so /models/opencv/foo.onnx
-    resolves directly. When the container is extracted to a temp dir (as the
-    tests/e2e-backends harness does), the same path needs to be rewritten
-    relative to the script directory. We try the literal path first and
-    fall back to <script_dir>/<stripped>.
+    Some insightface packs (buffalo_l, buffalo_s, buffalo_sc) ship with
+    ONNX files at the zip's top level, so extraction into
+    `<root>/models/<name>/` places them directly where FaceAnalysis
+    expects them. Others (buffalo_m, antelopev2) wrap their files in a
+    redundant `<name>/` directory inside the zip, leaving
+    `<root>/models/<name>/<name>/*.onnx` after extraction — which
+    FaceAnalysis then can't find.
+
+    Detect the nested layout and move the ONNX files up one level.
+    """
+    import os
+    import shutil
+
+    pack_dir = os.path.join(root, "models", name)
+    if not os.path.isdir(pack_dir):
+        return
+
+    # If the pack dir already contains ONNX files, we're flat — done.
+    if any(fn.endswith(".onnx") for fn in os.listdir(pack_dir)):
+        return
+
+    nested = os.path.join(pack_dir, name)
+    if not os.path.isdir(nested):
+        return
+    if not any(fn.endswith(".onnx") for fn in os.listdir(nested)):
+        return
+
+    for fn in os.listdir(nested):
+        src = os.path.join(nested, fn)
+        dst = os.path.join(pack_dir, fn)
+        if os.path.exists(dst):
+            continue
+        shutil.move(src, dst)
+    try:
+        os.rmdir(nested)
+    except OSError:
+        pass  # leave behind non-onnx leftovers if any
+
+
+def _resolve_model_path(path: str, model_dir: str | None = None) -> str:
+    """Resolve an ONNX file path across the paths LocalAI might deliver it from.
+
+    Search order:
+      1. The path itself if it already resolves (absolute, or relative to CWD).
+      2. `model_dir` (typically `os.path.dirname(ModelOptions.ModelFile)`) —
+         this is how LocalAI surfaces gallery-managed files. When the gallery
+         entry lists `files:`, each one lands under the models directory and
+         backends load them via filename anchored by ModelFile.
+      3. `<script_dir>/<path-without-leading-slash>` — covers dev layouts
+         where someone manually dropped weights inside the backend dir.
+
+    If none hit, return the literal input so cv2/insightface surfaces a
+    clearer error naming the actually-attempted path.
     """
     import os
 
     if os.path.isfile(path):
         return path
     stripped = path.lstrip("/")
+    candidates: list[str] = []
+    if model_dir:
+        candidates.append(os.path.join(model_dir, os.path.basename(path)))
+        candidates.append(os.path.join(model_dir, stripped))
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    candidate = os.path.join(script_dir, stripped)
-    if os.path.isfile(candidate):
-        return candidate
-    return path  # let the caller surface a clearer error
+    candidates.append(os.path.join(script_dir, stripped))
+    for c in candidates:
+        if os.path.isfile(c):
+            return c
+    return path
 
 
 def build_engine(name: str) -> FaceEngine:

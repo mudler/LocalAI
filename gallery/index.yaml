@@ -3655,101 +3655,151 @@
   name: "insightface-buffalo-l"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   icon: https://avatars.githubusercontent.com/u/53104118?s=200&v=4
-  # The insightface library is MIT but the `buffalo_l` weights are
-  # released for NON-COMMERCIAL research use only.
+  # insightface library is MIT; pretrained packs are NON-COMMERCIAL.
   license: "insightface-non-commercial"
   description: |
-    Face recognition model using insightface's `buffalo_l` pack
-    (SCRFD-10GF detector + ResNet50 ArcFace 512-d embedder + genderage head).
-    Highest accuracy among the shipped options. Pre-baked inside the
-    `insightface` backend image (~326MB).
+    Face recognition using insightface's `buffalo_l` pack
+    (SCRFD-10GF detector + ResNet50 ArcFace 512-d embedder + genderage head, ~326MB).
+    Default choice, highest accuracy.
 
-    NON-COMMERCIAL RESEARCH USE ONLY — the model weights carry upstream's
-    research-only license. For commercial use install `insightface-opencv`
-    (Apache 2.0).
-  tags:
-    - face-recognition
-    - face-verification
-    - face-embedding
-    - research-only
-    - gpu
-    - cpu
-  urls:
-    - https://github.com/deepinsight/insightface
+    Downloaded on first use by insightface's own mechanism into the
+    LocalAI models directory (upstream distributes packs as zip archives).
+    NON-COMMERCIAL RESEARCH USE ONLY. For commercial use see `insightface-opencv`.
+  tags: [face-recognition, face-verification, face-embedding, research-only, gpu, cpu]
+  urls: [https://github.com/deepinsight/insightface]
   overrides:
     backend: insightface
-    parameters:
-      model: insightface-buffalo-l
-    options:
-      - "engine:insightface"
-      - "model_pack:buffalo_l"
-    known_usecases:
-      - face_recognition
-      - detection
-      - embeddings
-- &insightface_opencv
-  name: "insightface-opencv"
+    parameters: {model: insightface-buffalo-l}
+    options: ["engine:insightface", "model_pack:buffalo_l"]
+    known_usecases: [face_recognition, detection, embeddings]
+- &insightface_buffalo_m
+  name: "insightface-buffalo-m"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
-  license: apache-2.0
+  icon: https://avatars.githubusercontent.com/u/53104118?s=200&v=4
+  license: "insightface-non-commercial"
   description: |
-    Face recognition model using OpenCV Zoo weights: YuNet detector +
-    SFace recognizer. APACHE 2.0 — safe for commercial use.
-    Lower accuracy than `buffalo_l` and no age/gender analysis
-    (SFace has no demographic head). Pre-baked inside the
-    `insightface` backend image (~40MB).
-  tags:
-    - face-recognition
-    - face-verification
-    - face-embedding
-    - commercial-ok
-    - gpu
-    - cpu
-  urls:
-    - https://github.com/opencv/opencv_zoo
+    Mid-tier insightface pack (SCRFD-2.5GF detector + ResNet50 ArcFace +
+    genderage, ~313MB). Same recognition accuracy as `buffalo_l` with a
+    cheaper detector — good balance on mid-range hardware.
+    NOT pre-baked: auto-downloaded on first LoadModel from upstream's
+    GitHub release.
+    NON-COMMERCIAL RESEARCH USE ONLY.
+  tags: [face-recognition, face-verification, face-embedding, research-only, gpu, cpu]
+  urls: [https://github.com/deepinsight/insightface]
   overrides:
     backend: insightface
-    parameters:
-      model: insightface-opencv
-    options:
-      - "engine:onnx_direct"
-      - "detector_onnx:models/opencv/yunet.onnx"
-      - "recognizer_onnx:models/opencv/sface.onnx"
-    known_usecases:
-      - face_recognition
-      - detection
-      - embeddings
+    parameters: {model: insightface-buffalo-m}
+    options: ["engine:insightface", "model_pack:buffalo_m"]
+    known_usecases: [face_recognition, detection, embeddings]
 - &insightface_buffalo_s
   name: "insightface-buffalo-s"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   icon: https://avatars.githubusercontent.com/u/53104118?s=200&v=4
   license: "insightface-non-commercial"
   description: |
-    Smaller insightface pack for low-resource deployments
-    (SCRFD-500MF detector + MBF embedder + genderage head, ~159MB).
-    NOT pre-baked: weights are downloaded on first use into the
-    backend's working directory.
-
+    Small insightface pack (SCRFD-500MF detector + MBF 512-d embedder +
+    genderage, ~159MB). Good fit for mid-range CPU deployments.
+    NOT pre-baked: auto-downloaded on first LoadModel.
     NON-COMMERCIAL RESEARCH USE ONLY.
-  tags:
-    - face-recognition
-    - face-verification
-    - face-embedding
-    - research-only
-    - edge
-    - cpu
-  urls:
-    - https://github.com/deepinsight/insightface
+  tags: [face-recognition, face-verification, face-embedding, research-only, edge, cpu]
+  urls: [https://github.com/deepinsight/insightface]
   overrides:
     backend: insightface
-    parameters:
-      model: insightface-buffalo-s
+    parameters: {model: insightface-buffalo-s}
+    options: ["engine:insightface", "model_pack:buffalo_s"]
+    known_usecases: [face_recognition, detection, embeddings]
+- &insightface_buffalo_sc
+  name: "insightface-buffalo-sc"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  icon: https://avatars.githubusercontent.com/u/53104118?s=200&v=4
+  license: "insightface-non-commercial"
+  description: |
+    Ultra-small insightface pack (SCRFD-500MF + MBF recognition only, ~16MB).
+    NO landmarks, NO age/gender head — `/v1/face/analyze` returns empty
+    attributes for this pack. Ideal for edge/embedded deployments where
+    only verification and embedding are needed.
+
+    Downloaded on first use into the LocalAI models directory.
+    NON-COMMERCIAL RESEARCH USE ONLY.
+  tags: [face-recognition, face-verification, face-embedding, research-only, edge, cpu]
+  urls: [https://github.com/deepinsight/insightface]
+  overrides:
+    backend: insightface
+    parameters: {model: insightface-buffalo-sc}
+    options: ["engine:insightface", "model_pack:buffalo_sc"]
+    known_usecases: [face_recognition, detection, embeddings]
+- &insightface_antelopev2
+  name: "insightface-antelopev2"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  icon: https://avatars.githubusercontent.com/u/53104118?s=200&v=4
+  license: "insightface-non-commercial"
+  description: |
+    Largest insightface pack (SCRFD-10GF + ResNet100@Glint360K recognizer +
+    genderage, ~407MB). Higher recognition accuracy than `buffalo_l` on
+    harder benchmarks; pays for it in GPU memory.
+    NOT pre-baked: auto-downloaded on first LoadModel.
+    NON-COMMERCIAL RESEARCH USE ONLY.
+  tags: [face-recognition, face-verification, face-embedding, research-only, gpu]
+  urls: [https://github.com/deepinsight/insightface]
+  overrides:
+    backend: insightface
+    parameters: {model: insightface-antelopev2}
+    options: ["engine:insightface", "model_pack:antelopev2"]
+    known_usecases: [face_recognition, detection, embeddings]
+- &insightface_opencv
+  name: "insightface-opencv"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  license: apache-2.0
+  description: |
+    Face recognition using OpenCV Zoo weights: YuNet detector + SFace
+    128-d recognizer (fp32). APACHE 2.0 — safe for commercial use.
+    Lower accuracy than insightface packs, no demographic head
+    (`/v1/face/analyze` returns detection regions only).
+    Weights are downloaded on install via LocalAI's gallery mechanism
+    (~40MB).
+  tags: [face-recognition, face-verification, face-embedding, commercial-ok, gpu, cpu]
+  urls: [https://github.com/opencv/opencv_zoo]
+  overrides:
+    backend: insightface
+    parameters: {model: face_detection_yunet_2023mar.onnx}
     options:
-      - "engine:insightface"
-      - "model_pack:buffalo_s"
-    known_usecases:
-      - face_recognition
-      - detection
-      - embeddings
+      - "engine:onnx_direct"
+      - "detector_onnx:face_detection_yunet_2023mar.onnx"
+      - "recognizer_onnx:face_recognition_sface_2021dec.onnx"
+    known_usecases: [face_recognition, detection, embeddings]
+  files:
+    - filename: face_detection_yunet_2023mar.onnx
+      sha256: 8f2383e4dd3cfbb4553ea8718107fc0423210dc964f9f4280604804ed2552fa4
+      uri: https://github.com/opencv/opencv_zoo/raw/main/models/face_detection_yunet/face_detection_yunet_2023mar.onnx
+    - filename: face_recognition_sface_2021dec.onnx
+      sha256: 0ba9fbfa01b5270c96627c4ef784da859931e02f04419c829e83484087c34e79
+      uri: https://github.com/opencv/opencv_zoo/raw/main/models/face_recognition_sface/face_recognition_sface_2021dec.onnx
+- &insightface_opencv_int8
+  name: "insightface-opencv-int8"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  license: apache-2.0
+  description: |
+    Int8-quantized OpenCV Zoo face pair (YuNet int8 + SFace int8, ~12MB).
+    Roughly 3x smaller and noticeably faster on CPU than the fp32 variant
+    at comparable accuracy for face tasks. APACHE 2.0 — commercial-safe.
+    Weights are downloaded on install via LocalAI's gallery mechanism.
+  tags: [face-recognition, face-verification, face-embedding, commercial-ok, edge, cpu]
+  urls: [https://github.com/opencv/opencv_zoo]
+  overrides:
+    backend: insightface
+    parameters: {model: face_detection_yunet_2023mar_int8.onnx}
+    options:
+      - "engine:onnx_direct"
+      - "detector_onnx:face_detection_yunet_2023mar_int8.onnx"
+      - "recognizer_onnx:face_recognition_sface_2021dec_int8.onnx"
+    known_usecases: [face_recognition, detection, embeddings]
+  files:
+    - filename: face_detection_yunet_2023mar_int8.onnx
+      sha256: 321aa5a6afabf7ecc46a3d06bfab2b579dc96eb5c3be7edd365fa04502ad9294
+      uri: https://github.com/opencv/opencv_zoo/raw/main/models/face_detection_yunet/face_detection_yunet_2023mar_int8.onnx
+    - filename: face_recognition_sface_2021dec_int8.onnx
+      sha256: 2b0e941e6f16cc048c20aee0c8e31f569118f65d702914540f7bfdc14048d78a
+      uri: https://github.com/opencv/opencv_zoo/raw/main/models/face_recognition_sface/face_recognition_sface_2021dec_int8.onnx
 - &rfdetr
   name: "rfdetr-base"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"

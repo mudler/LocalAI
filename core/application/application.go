@@ -21,11 +21,13 @@ import (
 	"gorm.io/gorm"
 )
 
-// FaceEmbeddingDim is the dimension of the face embeddings produced by
-// the default insightface ArcFace R50 recognizer in the buffalo_l
-// model pack. Other recognizers (e.g. OpenCV SFace, 128-d) need a
-// dedicated Registry instance — future work.
-const FaceEmbeddingDim = 512
+// faceEmbeddingDim is the expected dimension for face embeddings.
+// Set to 0 so the Registry accepts whatever dim the loaded recognizer
+// produces — ArcFace R50 is 512-d, MBF is 512-d, SFace is 128-d, and
+// the insightface backend can load any of them via LoadModel options.
+// Locking this to a specific value would force a single recognizer
+// family per deployment; we keep the door open instead.
+const faceEmbeddingDim = 0
 
 type Application struct {
 	backendLoader      *config.ModelConfigLoader
@@ -74,7 +76,7 @@ func newApplication(appConfig *config.ApplicationConfig) *Application {
 	faceStoreResolver := func(_ context.Context, storeName string) (pkggrpc.Backend, error) {
 		return corebackend.StoreBackend(ml, appConfig, storeName, "")
 	}
-	app.faceRegistry = facerecognition.NewStoreRegistry(faceStoreResolver, "", FaceEmbeddingDim)
+	app.faceRegistry = facerecognition.NewStoreRegistry(faceStoreResolver, "", faceEmbeddingDim)
 
 	return app
 }
