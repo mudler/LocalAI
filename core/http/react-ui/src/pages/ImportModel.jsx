@@ -717,10 +717,34 @@ export default function ImportModel() {
         </div>
         {customPrefs.map((cp, i) => (
           <div key={i} style={{ display: 'flex', gap: 'var(--spacing-sm)', alignItems: 'center', marginBottom: 'var(--spacing-xs)' }}>
-            <input className="input" type="text" value={cp.key} onChange={e => updateCustomPref(i, 'key', e.target.value)} placeholder="Key" disabled={isSubmitting} style={{ flex: 1 }} />
+            <input
+              className="input"
+              type="text"
+              value={cp.key}
+              onChange={e => updateCustomPref(i, 'key', e.target.value)}
+              placeholder="Key"
+              aria-label={`Preference key for row ${i + 1}`}
+              disabled={isSubmitting}
+              style={{ flex: 1 }}
+            />
             <span style={{ color: 'var(--color-text-secondary)' }}>:</span>
-            <input className="input" type="text" value={cp.value} onChange={e => updateCustomPref(i, 'value', e.target.value)} placeholder="Value" disabled={isSubmitting} style={{ flex: 1 }} />
-            <button className="btn btn-secondary" onClick={() => removeCustomPref(i)} disabled={isSubmitting} style={{ color: 'var(--color-error)' }}>
+            <input
+              className="input"
+              type="text"
+              value={cp.value}
+              onChange={e => updateCustomPref(i, 'value', e.target.value)}
+              placeholder="Value"
+              aria-label={`Preference value for row ${i + 1}`}
+              disabled={isSubmitting}
+              style={{ flex: 1 }}
+            />
+            <button
+              className="btn btn-secondary"
+              onClick={() => removeCustomPref(i)}
+              disabled={isSubmitting}
+              aria-label="Remove this preference"
+              style={{ color: 'var(--color-error)' }}
+            >
               <i className="fas fa-trash" aria-hidden="true" />
             </button>
           </div>
