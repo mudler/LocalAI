@@ -318,6 +318,24 @@ export default function ImportModel() {
 
   const backendOptions = useMemo(() => buildBackendOptions(backends), [backends])
 
+  // Progressive disclosure — hide preference fields that don't apply to the
+  // currently selected backend. When the backend is unset we keep everything
+  // visible so users exploring the form can see the full menu. Hidden
+  // fields' state is preserved (we guard the JSX, not the state) so a user
+  // flipping backends back and forth doesn't lose input.
+  const showQuantizations = useMemo(() => {
+    if (!prefs.backend) return true
+    return ['llama-cpp', 'ik-llama-cpp', 'turboquant', 'stablediffusion-ggml'].includes(prefs.backend)
+  }, [prefs.backend])
+  const showMmprojQuantizations = useMemo(() => {
+    if (!prefs.backend) return true
+    return ['llama-cpp', 'ik-llama-cpp', 'turboquant'].includes(prefs.backend)
+  }, [prefs.backend])
+  const showModelType = useMemo(() => {
+    if (!prefs.backend) return true
+    return ['transformers', 'sentencetransformers', 'rerankers', 'rfdetr'].includes(prefs.backend)
+  }, [prefs.backend])
+
   const updatePref = (key, value) => setPrefs(p => ({ ...p, [key]: value }))
   const addCustomPref = () => setCustomPrefs(p => [...p, { key: '', value: '' }])
   const removeCustomPref = (i) => setCustomPrefs(p => p.filter((_, idx) => idx !== i))
@@ -599,7 +617,7 @@ export default function ImportModel() {
   const renderDescriptionField = () => (
     <div className="form-group" style={{ marginBottom: 0 }}>
       <label className="form-label">Description</label>
-      <textarea className="textarea" rows={3} value={prefs.description} onChange={e => updatePref('description', e.target.value)} placeholder="Leave empty to use default description" disabled={isSubmitting} />
+      <textarea className="textarea" rows={2} value={prefs.description} onChange={e => updatePref('description', e.target.value)} placeholder="Leave empty to use default description" disabled={isSubmitting} />
       <p style={hintStyle}>Custom description for the model.</p>
     </div>
   )
@@ -622,17 +640,21 @@ export default function ImportModel() {
           {renderNameField()}
           {renderDescriptionField()}
 
-          <div className="form-group" style={{ marginBottom: 0 }}>
-            <label className="form-label">Quantizations</label>
-            <input className="input" type="text" value={prefs.quantizations} onChange={e => updatePref('quantizations', e.target.value)} placeholder="q4_k_m,q4_k_s,q3_k_m (comma-separated)" disabled={isSubmitting} />
-            <p style={hintStyle}>Preferred quantizations (comma-separated). Leave empty for default (q4_k_m).</p>
-          </div>
+          {showQuantizations && (
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">Quantizations</label>
+              <input className="input" type="text" value={prefs.quantizations} onChange={e => updatePref('quantizations', e.target.value)} placeholder="q4_k_m,q4_k_s,q3_k_m (comma-separated)" disabled={isSubmitting} />
+              <p style={hintStyle}>Preferred quantizations (comma-separated). Leave empty for default (q4_k_m).</p>
+            </div>
+          )}
 
-          <div className="form-group" style={{ marginBottom: 0 }}>
-            <label className="form-label">MMProj Quantizations</label>
-            <input className="input" type="text" value={prefs.mmproj_quantizations} onChange={e => updatePref('mmproj_quantizations', e.target.value)} placeholder="fp16,fp32 (comma-separated)" disabled={isSubmitting} />
-            <p style={hintStyle}>Preferred MMProj quantizations. Leave empty for default (fp16).</p>
-          </div>
+          {showMmprojQuantizations && (
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">MMProj Quantizations</label>
+              <input className="input" type="text" value={prefs.mmproj_quantizations} onChange={e => updatePref('mmproj_quantizations', e.target.value)} placeholder="fp16,fp32 (comma-separated)" disabled={isSubmitting} />
+              <p style={hintStyle}>Preferred MMProj quantizations. Leave empty for default (fp16).</p>
+            </div>
+          )}
 
           <div>
             <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
@@ -644,11 +666,13 @@ export default function ImportModel() {
             <p style={{ ...hintStyle, marginLeft: '28px' }}>Enable embeddings support for this model.</p>
           </div>
 
-          <div className="form-group" style={{ marginBottom: 0 }}>
-            <label className="form-label">Model Type</label>
-            <input className="input" type="text" value={prefs.type} onChange={e => updatePref('type', e.target.value)} placeholder="AutoModelForCausalLM (for transformers backend)" disabled={isSubmitting} />
-            <p style={hintStyle}>Model type for transformers backend. Examples: AutoModelForCausalLM, SentenceTransformer, Mamba.</p>
-          </div>
+          {showModelType && (
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">Model Type</label>
+              <input className="input" type="text" value={prefs.type} onChange={e => updatePref('type', e.target.value)} placeholder="AutoModelForCausalLM (for transformers backend)" disabled={isSubmitting} />
+              <p style={hintStyle}>Model type for transformers backend. Examples: AutoModelForCausalLM, SentenceTransformer, Mamba.</p>
+            </div>
+          )}
 
           {prefs.backend === 'diffusers' && (
             <>
