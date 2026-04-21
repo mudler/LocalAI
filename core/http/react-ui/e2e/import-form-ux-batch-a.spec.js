@@ -29,6 +29,8 @@ test.describe('Import form UX — Batch A1 (manual-pick badge)', () => {
 
   test('A1 — manual-pick badge renders for preference-only backends with tooltip', async ({ page }) => {
     await page.goto('/app/import-model')
+    // Simple mode hides preferences behind the Options disclosure (Batch B).
+    await page.locator('[data-testid="simple-options-toggle"]').click()
     // Open the Backend dropdown
     const backendButton = page.locator('button', { hasText: /Auto-detect/ }).first()
     await backendButton.click()
@@ -107,6 +109,9 @@ test.describe('Import form UX — Batch A2 (inline ambiguity picker)', () => {
     await alert.locator('[data-testid="ambiguity-chip-piper"]').click()
 
     await expect(alert).toHaveCount(0)
+    // The Backend dropdown now lives behind the Simple-mode Options disclosure.
+    // Expand it to assert the picked backend landed in the dropdown.
+    await page.locator('[data-testid="simple-options-toggle"]').click()
     await expect(page.locator('button', { hasText: 'piper' }).first()).toBeVisible()
     await expect.poll(() => hits, { timeout: 5_000 }).toBeGreaterThanOrEqual(2)
   })
@@ -135,6 +140,8 @@ test.describe('Import form UX — Batch A2 (inline ambiguity picker)', () => {
 
     await alert.locator('[data-testid="ambiguity-dismiss"]').click()
     await expect(alert).toHaveCount(0)
+    // Backend dropdown now lives under the Options disclosure in Simple mode.
+    await page.locator('[data-testid="simple-options-toggle"]').click()
     await expect(page.locator('button', { hasText: /Auto-detect/ }).first()).toBeVisible()
   })
 })
@@ -151,6 +158,8 @@ test.describe('Import form UX — Batch A3 (auto-install warning)', () => {
 
   test('A3 — picking a not-installed backend shows the auto-install note', async ({ page }) => {
     await page.goto('/app/import-model')
+    // Simple mode hides the Backend dropdown behind Options (Batch B).
+    await page.locator('[data-testid="simple-options-toggle"]').click()
 
     const backendButton = page.locator('button', { hasText: /Auto-detect/ }).first()
     await backendButton.click()
@@ -164,6 +173,7 @@ test.describe('Import form UX — Batch A3 (auto-install warning)', () => {
 
   test('A3 — picking an installed backend does not show the auto-install note', async ({ page }) => {
     await page.goto('/app/import-model')
+    await page.locator('[data-testid="simple-options-toggle"]').click()
     const backendButton = page.locator('button', { hasText: /Auto-detect/ }).first()
     await backendButton.click()
     // llama-cpp is installed: true in the mock.
