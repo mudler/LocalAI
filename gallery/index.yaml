@@ -15264,7 +15264,6 @@
     - filename: "wan2.1_t2v_1.3b-q8_0.gguf"
       sha256: "8f10260cc26498fee303851ee1c2047918934125731b9b78d4babfce4ec27458"
       uri: "huggingface://calcuis/wan-gguf/wan2.1_t2v_1.3b-q8_0.gguf"
-      sha256: 8f10260cc26498fee303851ee1c2047918934125731b9b78d4babfce4ec27458
     - filename: "wan_2.1_vae.safetensors"
       uri: "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/vae/wan_2.1_vae.safetensors"
     - filename: "umt5-xxl-encoder-Q8_0.gguf"
@@ -15300,7 +15299,6 @@
     - filename: "wan2.1-i2v-14b-480p-Q4_K_M.gguf"
       sha256: "d91f7139acadb42ea05cdf97b311e5099f714f11fbe4d90916500e2f53cbba82"
       uri: "huggingface://city96/Wan2.1-I2V-14B-480P-gguf/wan2.1-i2v-14b-480p-Q4_K_M.gguf"
-      sha256: d91f7139acadb42ea05cdf97b311e5099f714f11fbe4d90916500e2f53cbba82
     - filename: "wan_2.1_vae.safetensors"
       uri: "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/vae/wan_2.1_vae.safetensors"
     - filename: "umt5-xxl-encoder-Q8_0.gguf"
@@ -15344,7 +15342,6 @@
     - filename: "wan2.1-flf2v-14b-720p-Q4_K_M.gguf"
       sha256: "7652d7d8b0795009ff21ed83d806af762aae8a8faa8640dd07b3a67e4dfab445"
       uri: "huggingface://city96/Wan2.1-FLF2V-14B-720P-gguf/wan2.1-flf2v-14b-720p-Q4_K_M.gguf"
-      sha256: 7652d7d8b0795009ff21ed83d806af762aae8a8faa8640dd07b3a67e4dfab445
     - filename: "wan_2.1_vae.safetensors"
       uri: "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/vae/wan_2.1_vae.safetensors"
     - filename: "umt5-xxl-encoder-Q8_0.gguf"
