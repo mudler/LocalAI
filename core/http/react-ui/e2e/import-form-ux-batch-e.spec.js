@@ -101,9 +101,11 @@ test.describe('Import form UX — Batch E (modality chip row)', () => {
     await page.locator('[data-testid="mode-power"]').click()
 
     // Baseline: default chip is Any, dropdown contains llama-cpp + piper.
+    const baselineOption = (text) =>
+      page.locator('[role="option"] > span').filter({ hasText: new RegExp(`^${text}$`) })
     await backendTrigger(page).click()
-    await expect(page.getByRole('option', { name: 'llama-cpp', exact: true })).toBeVisible()
-    await expect(page.getByRole('option', { name: 'piper', exact: true })).toBeVisible()
+    await expect(baselineOption('llama-cpp').first()).toBeVisible()
+    await expect(baselineOption('piper').first()).toBeVisible()
     // Close dropdown before clicking the chip.
     await page.keyboard.press('Escape')
 
@@ -112,13 +114,18 @@ test.describe('Import form UX — Batch E (modality chip row)', () => {
     await expect(chip(page, '')).toHaveAttribute('aria-checked', 'false')
 
     await backendTrigger(page).click()
-    // TTS backends remain; non-TTS backends disappear.
-    await expect(page.getByRole('option', { name: 'piper', exact: true })).toBeVisible()
-    await expect(page.getByRole('option', { name: 'bark', exact: true })).toBeVisible()
-    await expect(page.getByRole('option', { name: 'kokoro', exact: true })).toBeVisible()
-    await expect(page.getByRole('option', { name: 'llama-cpp', exact: true })).toHaveCount(0)
-    await expect(page.getByRole('option', { name: 'vllm', exact: true })).toHaveCount(0)
-    await expect(page.getByRole('option', { name: 'diffusers', exact: true })).toHaveCount(0)
+    // TTS backends remain; non-TTS backends disappear. Match on the
+    // option's label <span> (first flex:1 child) — the currently-focused
+    // row carries a trailing "↵" keybind hint, so accessible-name
+    // matching is unstable across reruns.
+    const optionText = (name) =>
+      page.locator('[role="option"] > span').filter({ hasText: new RegExp(`^${name}$`) })
+    await expect(optionText('piper')).toHaveCount(1)
+    await expect(optionText('bark')).toHaveCount(1)
+    await expect(optionText('kokoro')).toHaveCount(1)
+    await expect(optionText('llama-cpp')).toHaveCount(0)
+    await expect(optionText('vllm')).toHaveCount(0)
+    await expect(optionText('diffusers')).toHaveCount(0)
   })
 
   test('E — clicking Any after a filter restores the full list', async ({ page }) => {
@@ -129,9 +136,11 @@ test.describe('Import form UX — Batch E (modality chip row)', () => {
     await expect(chip(page, '')).toHaveAttribute('aria-checked', 'true')
 
     await backendTrigger(page).click()
-    await expect(page.getByRole('option', { name: 'llama-cpp', exact: true })).toBeVisible()
-    await expect(page.getByRole('option', { name: 'piper', exact: true })).toBeVisible()
-    await expect(page.getByRole('option', { name: 'diffusers', exact: true })).toBeVisible()
+    const optionByText = (text) =>
+      page.locator('[role="option"] > span').filter({ hasText: new RegExp(`^${text}$`) })
+    await expect(optionByText('llama-cpp').first()).toBeVisible()
+    await expect(optionByText('piper').first()).toBeVisible()
+    await expect(optionByText('diffusers').first()).toBeVisible()
   })
 
   test('E — switching filter clears a mismatched backend selection and shows a toast', async ({ page }) => {

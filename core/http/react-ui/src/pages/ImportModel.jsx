@@ -6,6 +6,7 @@ import CodeEditor from '../components/CodeEditor'
 import SearchableSelect from '../components/SearchableSelect'
 import AmbiguityAlert from '../components/AmbiguityAlert'
 import SimplePowerSwitch from '../components/SimplePowerSwitch'
+import ModalityChips from '../components/ModalityChips'
 
 // Fallback list used when /backends/known fails — keeps the form usable
 // with auto-detect only rather than showing an empty dropdown.
@@ -29,11 +30,18 @@ const MANUAL_PICK_TOOLTIP = "Auto-detect won't route to this backend. Pick it he
 
 // buildBackendOptions groups known backends by modality and tags
 // auto_detect=false entries with a muted "manual pick" badge so users
-// understand auto-detect won't route to them.
-function buildBackendOptions(list) {
+// understand auto-detect won't route to them. When modalityFilter is set
+// the list is narrowed before grouping so the dropdown shows only
+// backends the user asked about — grouping is preserved even if the
+// result ends up being a single section.
+function buildBackendOptions(list, modalityFilter = '') {
   if (!Array.isArray(list) || list.length === 0) return BACKENDS_FALLBACK_EMPTY
+  const filtered = modalityFilter
+    ? list.filter(b => b && b.modality === modalityFilter)
+    : list
+  if (filtered.length === 0) return BACKENDS_FALLBACK_EMPTY
   const groups = new Map()
-  for (const b of list) {
+  for (const b of filtered) {
     const key = b.modality || 'other'
     if (!groups.has(key)) groups.set(key, [])
     groups.get(key).push(b)
@@ -275,6 +283,11 @@ export default function ImportModel() {
   // with a structured ambiguity body. Cleared on pick, dismiss, URI change,
   // or a manual backend pick.
   const [ambiguity, setAmbiguity] = useState(null)
+  // modalityFilter narrows the Backend dropdown to entries whose modality
+  // matches. Empty string means "Any" — no filter. Auto-populated when
+  // the server returns an ambiguity alert so the dropdown is already
+  // scoped if the user dismisses the alert and browses manually.
+  const [modalityFilter, setModalityFilter] = useState('')
 
   const [backends, setBackends] = useState([])
   const [backendsLoading, setBackendsLoading] = useState(true)
@@ -316,7 +329,10 @@ export default function ImportModel() {
     return () => { cancelled = true }
   }, [addToast])
 
-  const backendOptions = useMemo(() => buildBackendOptions(backends), [backends])
+  const backendOptions = useMemo(
+    () => buildBackendOptions(backends, modalityFilter),
+    [backends, modalityFilter]
+  )
 
   // Progressive disclosure — hide preference fields that don't apply to the
   // currently selected backend. When the backend is unset we keep everything
@@ -477,6 +493,32 @@ export default function ImportModel() {
     if (prefs.backend) setAmbiguity(null)
   }, [prefs.backend])
 
+  // Auto-activate the matching modality chip whenever an ambiguity alert
+  // fires. The server already told us which modality it detected, so the
+  // dropdown should scope itself even if the user dismisses the alert and
+  // browses manually. Leaving `modalityFilter` as-is on dismiss / pick /
+  // URI change matches the spec.
+  useEffect(() => {
+    if (ambiguity && ambiguity.modality) {
+      setModalityFilter(ambiguity.modality)
+    }
+  }, [ambiguity])
+
+  // handleModalityChange drops a mismatched backend selection when the
+  // user narrows the filter so the dropdown doesn't display a selection
+  // that can no longer be found inside the list. A toast explains the
+  // auto-clear so the change is visible.
+  const handleModalityChange = useCallback((next) => {
+    setModalityFilter(next)
+    if (!next) return
+    const selected = backends.find(b => b.name === prefs.backend)
+    if (selected && selected.modality !== next) {
+      setPrefs(p => ({ ...p, backend: '' }))
+      const label = (MODALITY_LABELS[next] || next)
+      addToast(`Cleared backend selection — it wasn't in the ${label} group.`, 'info')
+    }
+  }, [backends, prefs.backend, addToast])
+
   const handleAdvancedImport = async () => {
     if (!yamlContent.trim()) { addToast('Please enter YAML configuration', 'error'); return }
     setIsSubmitting(true)
@@ -628,6 +670,12 @@ export default function ImportModel() {
       <div style={{ fontSize: '0.875rem', fontWeight: 500, color: 'var(--color-text-secondary)', marginBottom: 'var(--spacing-sm)' }}>
         <i className="fas fa-cog" aria-hidden="true" style={{ marginRight: '6px' }} />Preferences (Optional)
       </div>
+
+      <ModalityChips
+        value={modalityFilter}
+        onChange={handleModalityChange}
+        disabled={isSubmitting || backendsLoading}
+      />
 
       <div style={{ padding: 'var(--spacing-md)', background: 'var(--color-bg-primary)', border: '1px solid var(--color-border-default)', borderRadius: 'var(--radius-md)' }}>
         <h3 style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--color-text-secondary)', marginBottom: 'var(--spacing-md)', display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -853,6 +901,11 @@ export default function ImportModel() {
                     gap: 'var(--spacing-md)',
                   }}
                 >
+                  <ModalityChips
+                    value={modalityFilter}
+                    onChange={handleModalityChange}
+                    disabled={isSubmitting || backendsLoading}
+                  />
                   {renderBackendField()}
                   {renderNameField()}
                   {renderDescriptionField()}
