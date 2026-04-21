@@ -125,19 +125,7 @@ func DetectThinkingSupportFromBackend(ctx context.Context, cfg *ModelConfig, bac
 			return
 		}
 
-		cfg.ReasoningConfig.DisableReasoning = ptr.To(!metadata.SupportsThinking)
-
-		// Use the rendered template to detect if thinking token is at the end
-		// This reuses the existing DetectThinkingStartToken function
-		if metadata.RenderedTemplate != "" {
-			thinkingStartToken := reasoning.DetectThinkingStartToken(metadata.RenderedTemplate, &cfg.ReasoningConfig)
-			thinkingForcedOpen := thinkingStartToken != ""
-			cfg.ReasoningConfig.DisableReasoningTagPrefill = ptr.To(!thinkingForcedOpen)
-			xlog.Debug("[gguf] DetectThinkingSupportFromBackend: thinking support detected", "supports_thinking", metadata.SupportsThinking, "thinking_forced_open", thinkingForcedOpen, "thinking_start_token", thinkingStartToken)
-		} else {
-			cfg.ReasoningConfig.DisableReasoningTagPrefill = ptr.To(true)
-			xlog.Debug("[gguf] DetectThinkingSupportFromBackend: thinking support detected", "supports_thinking", metadata.SupportsThinking, "thinking_forced_open", false)
-		}
+		applyDetectedThinkingConfig(cfg, metadata)
 
 		// Extract tool format markers from autoparser analysis
 		if tf := metadata.GetToolFormat(); tf != nil && tf.FormatType != "" {
@@ -179,4 +167,35 @@ func DetectThinkingSupportFromBackend(ctx context.Context, cfg *ModelConfig, bac
 				"func_name_prefix", tf.FuncNamePrefix)
 		}
 	}
+}
+
+func applyDetectedThinkingConfig(cfg *ModelConfig, metadata *pb.ModelMetadataResponse) {
+	if cfg == nil || metadata == nil {
+		return
+	}
+
+	// Respect explicit YAML/user config. Backend probing should only fill defaults
+	// when the reasoning mode has not already been set.
+	if cfg.ReasoningConfig.DisableReasoning == nil {
+		cfg.ReasoningConfig.DisableReasoning = ptr.To(!metadata.SupportsThinking)
+	}
+
+	// Respect explicit prefill config for the same reason. Only infer the
+	// default prefill behavior when the user did not set it.
+	if cfg.ReasoningConfig.DisableReasoningTagPrefill == nil {
+		// Use the rendered template to detect if thinking token is at the end.
+		// This reuses the existing DetectThinkingStartToken function.
+		if metadata.RenderedTemplate != "" {
+			thinkingStartToken := reasoning.DetectThinkingStartToken(metadata.RenderedTemplate, &cfg.ReasoningConfig)
+			thinkingForcedOpen := thinkingStartToken != ""
+			cfg.ReasoningConfig.DisableReasoningTagPrefill = ptr.To(!thinkingForcedOpen)
+			xlog.Debug("[gguf] DetectThinkingSupportFromBackend: thinking support detected", "supports_thinking", metadata.SupportsThinking, "thinking_forced_open", thinkingForcedOpen, "thinking_start_token", thinkingStartToken)
+		} else {
+			cfg.ReasoningConfig.DisableReasoningTagPrefill = ptr.To(true)
+			xlog.Debug("[gguf] DetectThinkingSupportFromBackend: thinking support detected", "supports_thinking", metadata.SupportsThinking, "thinking_forced_open", false)
+		}
+		return
+	}
+
+	xlog.Debug("[gguf] DetectThinkingSupportFromBackend: preserving explicit reasoning config", "supports_thinking", metadata.SupportsThinking, "disable_reasoning", *cfg.ReasoningConfig.DisableReasoning, "disable_reasoning_tag_prefill", *cfg.ReasoningConfig.DisableReasoningTagPrefill)
 }

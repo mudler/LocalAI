@@ -40,6 +40,12 @@ type TokenUsage struct {
 	ChatDeltas             []*proto.ChatDelta // per-chunk deltas from C++ autoparser (only set during streaming)
 }
 
+func needsThinkingProbe(c *config.ModelConfig) bool {
+	return c.TemplateConfig.UseTokenizerTemplate &&
+		(c.ReasoningConfig.DisableReasoning == nil ||
+			c.ReasoningConfig.DisableReasoningTagPrefill == nil)
+}
+
 // HasChatDeltaContent returns true if any chat delta carries content or reasoning text.
 // Used to decide whether to prefer C++ autoparser deltas over Go-side tag extraction.
 func (t TokenUsage) HasChatDeltaContent() bool {
@@ -100,11 +106,9 @@ func ModelInference(ctx context.Context, s string, messages schema.Messages, ima
 	// tokenizer template path is active) and the multimodal media marker (needed
 	// by custom chat templates so markers line up with what mtmd expects).
 	// We probe whenever any of those slots is still empty.
-	needsThinkingProbe := c.TemplateConfig.UseTokenizerTemplate &&
-		c.ReasoningConfig.DisableReasoning == nil &&
-		c.ReasoningConfig.DisableReasoningTagPrefill == nil
+	shouldProbeThinking := needsThinkingProbe(c)
 	needsMarkerProbe := c.MediaMarker == ""
-	if needsThinkingProbe || needsMarkerProbe {
+	if shouldProbeThinking || needsMarkerProbe {
 		modelOpts := grpcModelOpts(*c, o.SystemState.Model.ModelsPath)
 		config.DetectThinkingSupportFromBackend(ctx, c, inferenceModel, modelOpts)
 		// Update the config in the loader so it persists for future requests
