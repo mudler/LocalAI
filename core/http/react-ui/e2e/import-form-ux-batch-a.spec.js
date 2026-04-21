@@ -159,7 +159,7 @@ test.describe('Import form UX — Batch A3 (auto-install warning)', () => {
 
     const note = page.locator('[data-testid="auto-install-note"]')
     await expect(note).toBeVisible()
-    await expect(note).toContainText(/isn't installed yet/i)
+    await expect(note).toContainText(/isn.t installed yet/i)
   })
 
   test('A3 — picking an installed backend does not show the auto-install note', async ({ page }) => {

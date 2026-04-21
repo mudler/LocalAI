@@ -452,6 +452,25 @@ export default function ImportModel() {
                       </span>
                     )}
                   </p>
+                  {(() => {
+                    // Warn when the user picked a backend that is not
+                    // installed yet — submitting import will trigger an
+                    // auto-download. Hidden when auto-detect is selected
+                    // (prefs.backend === '') since we can't know which
+                    // backend the server will end up picking.
+                    if (!prefs.backend) return null
+                    const selected = backends.find(b => b.name === prefs.backend)
+                    if (!selected || selected.installed) return null
+                    return (
+                      <p
+                        data-testid="auto-install-note"
+                        style={{ ...hintStyle, display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px' }}
+                      >
+                        <i className="fas fa-download" aria-hidden="true" />
+                        This backend isn&rsquo;t installed yet. Submitting import will download it first.
+                      </p>
+                    )
+                  })()}
                 </div>
 
                 <div className="form-group" style={{ marginBottom: 0 }}>
