@@ -499,7 +499,7 @@ export default function ImportModel() {
       <div className="form-group">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
           <label className="form-label" style={{ marginBottom: 0 }}>
-            <i className="fas fa-link" style={{ marginRight: '6px' }} />Model URI
+            Model URI
           </label>
           <a href="https://huggingface.co/models?sort=trending" target="_blank" rel="noreferrer"
             className="btn btn-secondary" style={{ fontSize: '0.7rem', padding: '3px 8px' }}>
@@ -553,7 +553,7 @@ export default function ImportModel() {
   // and Power/Preferences.
   const renderBackendField = () => (
     <div className="form-group" style={{ marginBottom: 0 }}>
-      <label className="form-label"><i className="fas fa-server" style={{ marginRight: '6px' }} />Backend</label>
+      <label className="form-label">Backend</label>
       <SearchableSelect
         value={prefs.backend}
         onChange={(v) => updatePref('backend', v)}
@@ -590,7 +590,7 @@ export default function ImportModel() {
 
   const renderNameField = () => (
     <div className="form-group" style={{ marginBottom: 0 }}>
-      <label className="form-label"><i className="fas fa-tag" style={{ marginRight: '6px' }} />Model Name</label>
+      <label className="form-label">Model Name</label>
       <input className="input" type="text" value={prefs.name} onChange={e => updatePref('name', e.target.value)} placeholder="Leave empty to use filename" disabled={isSubmitting} />
       <p style={hintStyle}>Custom name for the model. If empty, the filename will be used.</p>
     </div>
@@ -598,7 +598,7 @@ export default function ImportModel() {
 
   const renderDescriptionField = () => (
     <div className="form-group" style={{ marginBottom: 0 }}>
-      <label className="form-label"><i className="fas fa-align-left" style={{ marginRight: '6px' }} />Description</label>
+      <label className="form-label">Description</label>
       <textarea className="textarea" rows={3} value={prefs.description} onChange={e => updatePref('description', e.target.value)} placeholder="Leave empty to use default description" disabled={isSubmitting} />
       <p style={hintStyle}>Custom description for the model.</p>
     </div>
@@ -623,13 +623,13 @@ export default function ImportModel() {
           {renderDescriptionField()}
 
           <div className="form-group" style={{ marginBottom: 0 }}>
-            <label className="form-label"><i className="fas fa-layer-group" style={{ marginRight: '6px' }} />Quantizations</label>
+            <label className="form-label">Quantizations</label>
             <input className="input" type="text" value={prefs.quantizations} onChange={e => updatePref('quantizations', e.target.value)} placeholder="q4_k_m,q4_k_s,q3_k_m (comma-separated)" disabled={isSubmitting} />
             <p style={hintStyle}>Preferred quantizations (comma-separated). Leave empty for default (q4_k_m).</p>
           </div>
 
           <div className="form-group" style={{ marginBottom: 0 }}>
-            <label className="form-label"><i className="fas fa-image" style={{ marginRight: '6px' }} />MMProj Quantizations</label>
+            <label className="form-label">MMProj Quantizations</label>
             <input className="input" type="text" value={prefs.mmproj_quantizations} onChange={e => updatePref('mmproj_quantizations', e.target.value)} placeholder="fp16,fp32 (comma-separated)" disabled={isSubmitting} />
             <p style={hintStyle}>Preferred MMProj quantizations. Leave empty for default (fp16).</p>
           </div>
@@ -638,14 +638,14 @@ export default function ImportModel() {
             <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
               <input type="checkbox" checked={prefs.embeddings} onChange={e => updatePref('embeddings', e.target.checked)} disabled={isSubmitting} />
               <span style={{ fontSize: '0.875rem', fontWeight: 500, color: 'var(--color-text-secondary)' }}>
-                <i className="fas fa-vector-square" style={{ marginRight: '6px' }} />Embeddings
+                Embeddings
               </span>
             </label>
             <p style={{ ...hintStyle, marginLeft: '28px' }}>Enable embeddings support for this model.</p>
           </div>
 
           <div className="form-group" style={{ marginBottom: 0 }}>
-            <label className="form-label"><i className="fas fa-tag" style={{ marginRight: '6px' }} />Model Type</label>
+            <label className="form-label">Model Type</label>
             <input className="input" type="text" value={prefs.type} onChange={e => updatePref('type', e.target.value)} placeholder="AutoModelForCausalLM (for transformers backend)" disabled={isSubmitting} />
             <p style={hintStyle}>Model type for transformers backend. Examples: AutoModelForCausalLM, SentenceTransformer, Mamba.</p>
           </div>
@@ -653,17 +653,17 @@ export default function ImportModel() {
           {prefs.backend === 'diffusers' && (
             <>
               <div className="form-group" style={{ marginBottom: 0 }}>
-                <label className="form-label"><i className="fas fa-stream" style={{ marginRight: '6px' }} />Pipeline Type</label>
+                <label className="form-label">Pipeline Type</label>
                 <input className="input" type="text" value={prefs.pipeline_type} onChange={e => updatePref('pipeline_type', e.target.value)} placeholder="StableDiffusionPipeline" disabled={isSubmitting} />
                 <p style={hintStyle}>Pipeline type for diffusers backend.</p>
               </div>
               <div className="form-group" style={{ marginBottom: 0 }}>
-                <label className="form-label"><i className="fas fa-clock" style={{ marginRight: '6px' }} />Scheduler Type</label>
+                <label className="form-label">Scheduler Type</label>
                 <input className="input" type="text" value={prefs.scheduler_type} onChange={e => updatePref('scheduler_type', e.target.value)} placeholder="k_dpmpp_2m (optional)" disabled={isSubmitting} />
                 <p style={hintStyle}>Scheduler type for diffusers backend. Examples: k_dpmpp_2m, euler_a, ddim.</p>
               </div>
               <div className="form-group" style={{ marginBottom: 0 }}>
-                <label className="form-label"><i className="fas fa-cogs" style={{ marginRight: '6px' }} />Enable Parameters</label>
+                <label className="form-label">Enable Parameters</label>
                 <input className="input" type="text" value={prefs.enable_parameters} onChange={e => updatePref('enable_parameters', e.target.value)} placeholder="negative_prompt,num_inference_steps (comma-separated)" disabled={isSubmitting} />
                 <p style={hintStyle}>Enabled parameters for diffusers backend (comma-separated).</p>
               </div>
@@ -671,7 +671,7 @@ export default function ImportModel() {
                 <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
                   <input type="checkbox" checked={prefs.cuda} onChange={e => updatePref('cuda', e.target.checked)} disabled={isSubmitting} />
                   <span style={{ fontSize: '0.875rem', fontWeight: 500, color: 'var(--color-text-secondary)' }}>
-                    <i className="fas fa-microchip" style={{ marginRight: '6px' }} />CUDA
+                    CUDA
                   </span>
                 </label>
                 <p style={{ ...hintStyle, marginLeft: '28px' }}>Enable CUDA support for GPU acceleration.</p>
