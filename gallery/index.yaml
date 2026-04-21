@@ -1,4 +1,78 @@
 ---
+- name: "qwen3.5-9b-glm5.1-distill-v1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/Jackrong/Qwen3.5-9B-GLM5.1-Distill-v1-GGUF
+  description: |
+    # 🪐 Qwen3.5-9B-GLM5.1-Distill-v1
+
+    ## 📌 Model Overview
+
+    **Model Name:** `Jackrong/Qwen3.5-9B-GLM5.1-Distill-v1`
+    **Base Model:** Qwen3.5-9B
+    **Training Type:** Supervised Fine-Tuning (SFT, Distillation)
+    **Parameter Scale:** 9B
+    **Training Framework:** Unsloth
+
+    This model is a distilled variant of **Qwen3.5-9B**, trained on high-quality reasoning data derived from **GLM-5.1**.
+
+    The primary goals are to:
+
+      - Improve **structured reasoning ability**
+      - Enhance **instruction-following consistency**
+      - Activate **latent knowledge via better reasoning structure**
+
+    ## 📊 Training Data
+
+    ### Main Dataset
+
+      - `Jackrong/GLM-5.1-Reasoning-1M-Cleaned`
+      - Cleaned from the original `Kassadin88/GLM-5.1-1000000x` dataset.
+      - Generated from a **GLM-5.1 teacher model**
+      - Approximately **700x** the scale of `Qwen3.5-reasoning-700x`
+      - Training used a **filtered subset**, not the full source dataset.
+
+    ### Auxiliary Dataset
+
+      - `Jackrong/Qwen3.5-reasoning-700x`
+
+    ...
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - qwen
+    - instruction-tuned
+    - reasoning
+  icon: https://cdn-uploads.huggingface.co/production/uploads/66309bd090589b7c65950665/BnSg_x99v9bG9T5-8sKa1.png
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/Qwen3.5-9B-GLM5.1-Distill-v1-GGUF/mmproj.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/Qwen3.5-9B-GLM5.1-Distill-v1-GGUF/Qwen3.5-9B-GLM5.1-Distill-v1-Q4_K_M.gguf
+      presence_penalty: 1.5
+      repeat_penalty: 1
+      temperature: 0.7
+      top_k: 20
+      top_p: 0.8
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Qwen3.5-9B-GLM5.1-Distill-v1-GGUF/Qwen3.5-9B-GLM5.1-Distill-v1-Q4_K_M.gguf
+      sha256: f6f1d2b8efb2339ce9d4dd0f0329d2f2e4cf765eda49aa3f6df8f629f871a151
+      uri: https://huggingface.co/Jackrong/Qwen3.5-9B-GLM5.1-Distill-v1-GGUF/resolve/main/Qwen3.5-9B-GLM5.1-Distill-v1-Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/Qwen3.5-9B-GLM5.1-Distill-v1-GGUF/mmproj.gguf
+      sha256: e42c1c2ed0eaf6ea88a6ba10b26b4adf00a96a8c3d1803534a4c41060ad9e86b
+      uri: https://huggingface.co/Jackrong/Qwen3.5-9B-GLM5.1-Distill-v1-GGUF/resolve/main/mmproj.gguf
 - name: "supergemma4-26b-uncensored-v2"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
