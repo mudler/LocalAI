@@ -209,6 +209,22 @@ var _ = Describe("DiscoverModelConfig", func() {
 			wrapped := fmt.Errorf("context: %w", importers.ErrAmbiguousImport)
 			Expect(errors.Is(wrapped, importers.ErrAmbiguousImport)).To(BeTrue())
 		})
+
+		It("surfaces modality and candidates on the typed error for HTTP consumers", func() {
+			// TTS fixture — pipeline_tag=text-to-speech, no importer matches.
+			uri := "https://huggingface.co/nari-labs/Dia-1.6B"
+			preferences := json.RawMessage(`{}`)
+
+			_, err := importers.DiscoverModelConfig(uri, preferences)
+			Expect(err).To(HaveOccurred())
+			Expect(errors.Is(err, importers.ErrAmbiguousImport)).To(BeTrue())
+
+			var amb *importers.AmbiguousImportError
+			Expect(errors.As(err, &amb)).To(BeTrue(), "expected AmbiguousImportError, got: %v", err)
+			Expect(amb.Modality).To(Equal("tts"))
+			Expect(amb.Candidates).To(ContainElements("piper", "bark", "kokoro"))
+			Expect(amb.Candidates).ToNot(ContainElement("llama-cpp"))
+		})
 	})
 
 	Context("Importer interface metadata", func() {

@@ -73,4 +73,50 @@ var _ = Describe("ImportModelURIEndpoint ambiguity handling", func() {
 		Expect(parsed).To(HaveKey("detail"))
 		Expect(parsed).To(HaveKey("hint"))
 	})
+
+	It("exposes the HF modality on the structured ambiguity body", func() {
+		body := bytes.NewBufferString(`{"uri": "https://huggingface.co/nari-labs/Dia-1.6B", "preferences": {}}`)
+		req := httptest.NewRequest("POST", "/models/import-uri", body)
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+
+		app.ServeHTTP(rec, req)
+
+		Expect(rec.Code).To(Equal(http.StatusBadRequest))
+		respBody, err := io.ReadAll(rec.Body)
+		Expect(err).ToNot(HaveOccurred())
+		var parsed map[string]any
+		Expect(json.Unmarshal(respBody, &parsed)).To(Succeed())
+		Expect(parsed).To(HaveKey("modality"))
+		Expect(parsed["modality"]).To(Equal("tts"))
+	})
+
+	It("returns TTS candidate backends on the ambiguity body", func() {
+		body := bytes.NewBufferString(`{"uri": "https://huggingface.co/nari-labs/Dia-1.6B", "preferences": {}}`)
+		req := httptest.NewRequest("POST", "/models/import-uri", body)
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+
+		app.ServeHTTP(rec, req)
+
+		Expect(rec.Code).To(Equal(http.StatusBadRequest))
+		respBody, err := io.ReadAll(rec.Body)
+		Expect(err).ToNot(HaveOccurred())
+		var parsed map[string]any
+		Expect(json.Unmarshal(respBody, &parsed)).To(Succeed())
+		Expect(parsed).To(HaveKey("candidates"))
+
+		candidatesRaw, ok := parsed["candidates"].([]any)
+		Expect(ok).To(BeTrue(), "candidates should be a JSON array")
+		candidates := make([]string, 0, len(candidatesRaw))
+		for _, c := range candidatesRaw {
+			s, ok := c.(string)
+			Expect(ok).To(BeTrue())
+			candidates = append(candidates, s)
+		}
+		// TTS importers must appear; text-LLM backends must not.
+		Expect(candidates).To(ContainElements("piper", "bark", "kokoro"))
+		Expect(candidates).ToNot(ContainElement("llama-cpp"))
+		Expect(candidates).ToNot(ContainElement("vllm"))
+	})
 })
