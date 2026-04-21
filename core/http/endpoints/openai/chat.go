@@ -147,6 +147,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 		result := ""
 		lastEmittedCount := 0
 		sentInitialRole := false
+		sentReasoning := false
 		hasChatDeltaToolCalls := false
 		hasChatDeltaContent := false
 
@@ -190,6 +191,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 					}},
 					Object: "chat.completion.chunk",
 				}
+				sentReasoning = true
 			}
 
 			// Stream content deltas (cleaned of reasoning tags) while no tool calls
@@ -416,69 +418,13 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 			}
 
 		default:
-			for i, ss := range functionResults {
-				name, args := ss.Name, ss.Arguments
-				toolCallID := ss.ID
-				if toolCallID == "" {
-					toolCallID = id
-				}
-
-				if i < lastEmittedCount {
-					// Already emitted during streaming by the incremental
-					// JSON/XML parser — skip to avoid duplicate tool calls.
-					continue
-				}
-
-				// Tool call not yet emitted — send name + args (two chunks).
-				initialMessage := schema.OpenAIResponse{
-					ID:      id,
-					Created: created,
-					Model:   req.Model,
-					Choices: []schema.Choice{{
-						Delta: &schema.Message{
-							Role: "assistant",
-							ToolCalls: []schema.ToolCall{
-								{
-									Index: i,
-									ID:    toolCallID,
-									Type:  "function",
-									FunctionCall: schema.FunctionCall{
-										Name: name,
-									},
-								},
-							},
-						},
-						Index:        0,
-						FinishReason: nil,
-					}},
-					Object: "chat.completion.chunk",
-				}
-				responses <- initialMessage
-
-				responses <- schema.OpenAIResponse{
-					ID:      id,
-					Created: created,
-					Model:   req.Model,
-					Choices: []schema.Choice{{
-						Delta: &schema.Message{
-							Role:    "assistant",
-							Content: textContentToReturn,
-							ToolCalls: []schema.ToolCall{
-								{
-									Index: i,
-									ID:    toolCallID,
-									Type:  "function",
-									FunctionCall: schema.FunctionCall{
-										Arguments: args,
-									},
-								},
-							},
-						},
-						Index:        0,
-						FinishReason: nil,
-					}},
-					Object: "chat.completion.chunk",
-				}
+			for _, chunk := range buildDeferredToolCallChunks(
+				id, req.Model, created,
+				functionResults, lastEmittedCount,
+				sentInitialRole, *textContentToReturn,
+				sentReasoning, reasoning,
+			) {
+				responses <- chunk
 			}
 		}
 
