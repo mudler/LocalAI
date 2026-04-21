@@ -106,23 +106,161 @@ parameters:
   model: /path/to/model.gguf
 `
 
+const DEFAULT_PREFS = {
+  backend: '', name: '', description: '', quantizations: '',
+  mmproj_quantizations: '', embeddings: false, type: '',
+  pipeline_type: '', scheduler_type: '', enable_parameters: '', cuda: false,
+}
+
+// Preference keys considered "advanced" — anything the Simple-mode Options
+// disclosure does NOT expose. `hasCustomPrefs` uses this list to decide
+// whether switching Power -> Simple should warn the user.
+const ADVANCED_PREF_KEYS = [
+  'quantizations', 'mmproj_quantizations', 'embeddings', 'type',
+  'pipeline_type', 'scheduler_type', 'enable_parameters', 'cuda',
+]
+
 const hintStyle = { marginTop: '4px', fontSize: '0.75rem', color: 'var(--color-text-muted)' }
+
+// hasCustomPrefs returns true when the user has set any preference beyond
+// backend/name/description, added a custom key-value pref with a non-empty
+// key, or edited the YAML away from its default. That triggers the switch
+// warning so Simple mode never silently hides state.
+function hasCustomPrefs(prefs, customPrefs, yamlContent) {
+  for (const key of ADVANCED_PREF_KEYS) {
+    const v = prefs[key]
+    if (typeof v === 'boolean' ? v : (typeof v === 'string' ? v.trim() !== '' : v != null && v !== '')) {
+      return true
+    }
+  }
+  if (Array.isArray(customPrefs) && customPrefs.some(cp => (cp.key || '').trim() !== '')) {
+    return true
+  }
+  if (typeof yamlContent === 'string' && yamlContent !== DEFAULT_YAML) {
+    return true
+  }
+  return false
+}
+
+// PowerTabs renders the in-page Preferences/YAML tab strip. Kept inline
+// (not a separate component) — the strip is tiny and lives inside the
+// Power-mode card so extracting it would just add indirection.
+function PowerTabs({ value, onChange }) {
+  return (
+    <div
+      className="segmented"
+      role="tablist"
+      aria-label="Power mode tab"
+      data-testid="power-tabs"
+      style={{ marginBottom: 'var(--spacing-md)' }}
+    >
+      <button
+        type="button"
+        role="tab"
+        aria-selected={value === 'preferences'}
+        className={`segmented__item${value === 'preferences' ? ' is-active' : ''}`}
+        onClick={() => onChange('preferences')}
+        data-testid="power-tab-preferences"
+      >
+        <i className="fas fa-sliders" aria-hidden="true" />
+        Preferences
+      </button>
+      <button
+        type="button"
+        role="tab"
+        aria-selected={value === 'yaml'}
+        className={`segmented__item${value === 'yaml' ? ' is-active' : ''}`}
+        onClick={() => onChange('yaml')}
+        data-testid="power-tab-yaml"
+      >
+        <i className="fas fa-code" aria-hidden="true" />
+        YAML
+      </button>
+    </div>
+  )
+}
+
+// SwitchModeDialog — 3-button confirmation that fires when switching from
+// Power -> Simple with custom prefs. Not using ConfirmDialog because that
+// component is 2-button (confirm/cancel); the UX here needs Keep / Discard
+// / Cancel with distinct semantics.
+function SwitchModeDialog({ onKeep, onDiscard, onCancel }) {
+  const keepRef = useRef(null)
+  useEffect(() => {
+    keepRef.current?.focus()
+    const handleKey = (e) => { if (e.key === 'Escape') onCancel?.() }
+    document.addEventListener('keydown', handleKey)
+    return () => document.removeEventListener('keydown', handleKey)
+  }, [onCancel])
+
+  return (
+    <div
+      className="confirm-dialog-backdrop"
+      onClick={onCancel}
+      data-testid="switch-mode-dialog"
+    >
+      <div
+        className="confirm-dialog"
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="switch-mode-title"
+        aria-describedby="switch-mode-body"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="confirm-dialog-header">
+          <span id="switch-mode-title" className="confirm-dialog-title">Keep your custom preferences?</span>
+        </div>
+        <div id="switch-mode-body" className="confirm-dialog-body">
+          Switching to Simple mode hides preferences beyond backend, name, and description. They&rsquo;ll still be sent when you import.
+        </div>
+        <div className="confirm-dialog-actions">
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            onClick={onCancel}
+            data-testid="switch-mode-cancel"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="btn btn-danger btn-sm"
+            onClick={onDiscard}
+            data-testid="switch-mode-discard"
+          >
+            Discard &amp; switch
+          </button>
+          <button
+            ref={keepRef}
+            type="button"
+            className="btn btn-primary btn-sm"
+            onClick={onKeep}
+            data-testid="switch-mode-keep"
+          >
+            Keep &amp; switch
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 export default function ImportModel() {
   const navigate = useNavigate()
   const { addToast } = useOutletContext()
 
-  // Mode state replaces the old isAdvancedMode boolean. Simple is the
-  // default; Power subsumes the previous Advanced surface. Persisted to
-  // localStorage so reloads land on the same view. Later commits split
-  // Power into tabs and add Simple-mode disclosure + switch dialog.
+  // Mode + tab state. Persisted to localStorage so reloads keep the user
+  // on the same surface they last picked. `showOptions` is Simple-mode
+  // local state — no need to persist (it's a one-click expansion).
   const [mode, setMode] = useState(() => {
     try { return localStorage.getItem('import-form-mode') || 'simple' } catch { return 'simple' }
   })
-  useEffect(() => {
-    try { localStorage.setItem('import-form-mode', mode) } catch { /* ignore quota / privacy mode */ }
-  }, [mode])
-  const isAdvancedMode = mode === 'power'
+  const [powerTab, setPowerTab] = useState(() => {
+    try { return localStorage.getItem('import-form-power-tab') || 'preferences' } catch { return 'preferences' }
+  })
+  const [showOptions, setShowOptions] = useState(false)
+  // null | { onKeep, onDiscard, onCancel } — when non-null the dialog renders.
+  const [switchDialog, setSwitchDialog] = useState(null)
 
   const [importUri, setImportUri] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -131,11 +269,7 @@ export default function ImportModel() {
   const [estimate, setEstimate] = useState(null)
   const [jobProgress, setJobProgress] = useState(null)
 
-  const [prefs, setPrefs] = useState({
-    backend: '', name: '', description: '', quantizations: '',
-    mmproj_quantizations: '', embeddings: false, type: '',
-    pipeline_type: '', scheduler_type: '', enable_parameters: '', cuda: false,
-  })
+  const [prefs, setPrefs] = useState(DEFAULT_PREFS)
   const [customPrefs, setCustomPrefs] = useState([])
   // ambiguity state: { modality, candidates } when the server returns 400
   // with a structured ambiguity body. Cleared on pick, dismiss, URI change,
@@ -151,6 +285,14 @@ export default function ImportModel() {
   useEffect(() => {
     return () => { if (pollRef.current) clearInterval(pollRef.current) }
   }, [])
+
+  useEffect(() => {
+    try { localStorage.setItem('import-form-mode', mode) } catch { /* ignore quota / privacy mode */ }
+  }, [mode])
+
+  useEffect(() => {
+    try { localStorage.setItem('import-form-power-tab', powerTab) } catch { /* ignore */ }
+  }, [powerTab])
 
   useEffect(() => {
     let cancelled = false
@@ -182,6 +324,28 @@ export default function ImportModel() {
   const updateCustomPref = (i, field, value) => {
     setCustomPrefs(p => p.map((item, idx) => idx === i ? { ...item, [field]: value } : item))
   }
+
+  // requestModeSwitch — routed through the SimplePowerSwitch onChange. When
+  // going Power -> Simple we gate on custom prefs so the user never loses
+  // hidden state silently.
+  const requestModeSwitch = useCallback((next) => {
+    if (next === mode) return
+    if (mode === 'power' && next === 'simple' && hasCustomPrefs(prefs, customPrefs, yamlContent)) {
+      setSwitchDialog({
+        onKeep: () => { setSwitchDialog(null); setMode('simple') },
+        onDiscard: () => {
+          setSwitchDialog(null)
+          setPrefs(DEFAULT_PREFS)
+          setCustomPrefs([])
+          setYamlContent(DEFAULT_YAML)
+          setMode('simple')
+        },
+        onCancel: () => setSwitchDialog(null),
+      })
+      return
+    }
+    setMode(next)
+  }, [mode, prefs, customPrefs, yamlContent])
 
   const startJobPolling = useCallback((jobId) => {
     if (pollRef.current) clearInterval(pollRef.current)
@@ -309,35 +473,262 @@ export default function ImportModel() {
     }
   }
 
+  const isSimple = mode === 'simple'
+  const isPowerYaml = mode === 'power' && powerTab === 'yaml'
+
+  const subtitle = isSimple
+    ? 'Import a model from a URI — auto-detect picks the backend.'
+    : (powerTab === 'yaml'
+      ? 'Write the full model YAML configuration.'
+      : 'Fine-grained import preferences.')
+
+  // The Ambiguity alert + URI input live at the top of both Simple and
+  // Power/Preferences modes. Extracted so both branches stay readable.
+  const renderUriAndAmbiguity = () => (
+    <>
+      {ambiguity && (
+        <AmbiguityAlert
+          modality={ambiguity.modality}
+          candidates={ambiguity.candidates}
+          knownBackends={backends}
+          onPick={pickAmbiguityCandidate}
+          onDismiss={() => setAmbiguity(null)}
+        />
+      )}
+
+      <div className="form-group">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+          <label className="form-label" style={{ marginBottom: 0 }}>
+            <i className="fas fa-link" style={{ marginRight: '6px' }} />Model URI
+          </label>
+          <a href="https://huggingface.co/models?sort=trending" target="_blank" rel="noreferrer"
+            className="btn btn-secondary" style={{ fontSize: '0.7rem', padding: '3px 8px' }}>
+            Browse models on HF <i className="fas fa-external-link-alt" style={{ marginLeft: '4px' }} />
+          </a>
+        </div>
+        <input
+          className="input"
+          type="text"
+          value={importUri}
+          onChange={(e) => setImportUri(e.target.value)}
+          placeholder="huggingface://TheBloke/Llama-2-7B-Chat-GGUF or https://example.com/model.gguf"
+          disabled={isSubmitting}
+        />
+        <p style={hintStyle}>Enter the URI or path to the model file you want to import</p>
+
+        <button
+          onClick={() => setShowGuide(!showGuide)}
+          style={{ marginTop: 'var(--spacing-sm)', background: 'none', border: 'none', color: 'var(--color-text-secondary)', cursor: 'pointer', fontSize: '0.8125rem', display: 'flex', alignItems: 'center', gap: '6px', padding: 0 }}
+        >
+          <i className={`fas ${showGuide ? 'fa-chevron-down' : 'fa-chevron-right'}`} />
+          <i className="fas fa-info-circle" />
+          Supported URI Formats
+        </button>
+        {showGuide && (
+          <div style={{ marginTop: 'var(--spacing-sm)', padding: 'var(--spacing-md)', background: 'var(--color-bg-primary)', border: '1px solid var(--color-border-default)', borderRadius: 'var(--radius-md)' }}>
+            {URI_FORMATS.map((fmt, i) => (
+              <div key={i} style={{ marginBottom: i < URI_FORMATS.length - 1 ? 'var(--spacing-md)' : 0 }}>
+                <h4 style={{ fontSize: '0.8125rem', fontWeight: 600, marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <i className={fmt.icon} style={{ color: fmt.color }} />
+                  {fmt.title}
+                </h4>
+                <div style={{ paddingLeft: '20px', fontSize: '0.75rem', fontFamily: 'monospace' }}>
+                  {fmt.examples.map((ex, j) => (
+                    <div key={j} style={{ marginBottom: '4px' }}>
+                      <code style={{ color: 'var(--color-success)' }}>{ex.prefix}</code>
+                      <span style={{ color: 'var(--color-text-secondary)' }}>{ex.suffix}</span>
+                      <p style={{ color: 'var(--color-text-muted)', marginTop: '1px', fontFamily: 'inherit' }}>{ex.desc}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </>
+  )
+
+  // Backend dropdown + auto-install note — shared between Simple/Options
+  // and Power/Preferences.
+  const renderBackendField = () => (
+    <div className="form-group" style={{ marginBottom: 0 }}>
+      <label className="form-label"><i className="fas fa-server" style={{ marginRight: '6px' }} />Backend</label>
+      <SearchableSelect
+        value={prefs.backend}
+        onChange={(v) => updatePref('backend', v)}
+        options={backendOptions}
+        allOption="Auto-detect (based on URI)"
+        placeholder={backendsLoading ? 'Loading backends…' : 'Auto-detect (based on URI)'}
+        searchPlaceholder="Search backends..."
+        disabled={isSubmitting || backendsLoading}
+      />
+      <p style={hintStyle}>
+        Force a specific backend. Leave empty to auto-detect from the URI. Items marked &ldquo;manual pick&rdquo; aren&rsquo;t auto-detectable &mdash; pick them yourself if you know what the model needs.
+        {backendsError && (
+          <span style={{ color: 'var(--color-warning)', marginLeft: '6px' }}>
+            Could not load backend list — auto-detect only.
+          </span>
+        )}
+      </p>
+      {(() => {
+        if (!prefs.backend) return null
+        const selected = backends.find(b => b.name === prefs.backend)
+        if (!selected || selected.installed) return null
+        return (
+          <p
+            data-testid="auto-install-note"
+            style={{ ...hintStyle, display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px' }}
+          >
+            <i className="fas fa-download" aria-hidden="true" />
+            This backend isn&rsquo;t installed yet. Submitting import will download it first.
+          </p>
+        )
+      })()}
+    </div>
+  )
+
+  const renderNameField = () => (
+    <div className="form-group" style={{ marginBottom: 0 }}>
+      <label className="form-label"><i className="fas fa-tag" style={{ marginRight: '6px' }} />Model Name</label>
+      <input className="input" type="text" value={prefs.name} onChange={e => updatePref('name', e.target.value)} placeholder="Leave empty to use filename" disabled={isSubmitting} />
+      <p style={hintStyle}>Custom name for the model. If empty, the filename will be used.</p>
+    </div>
+  )
+
+  const renderDescriptionField = () => (
+    <div className="form-group" style={{ marginBottom: 0 }}>
+      <label className="form-label"><i className="fas fa-align-left" style={{ marginRight: '6px' }} />Description</label>
+      <textarea className="textarea" rows={3} value={prefs.description} onChange={e => updatePref('description', e.target.value)} placeholder="Leave empty to use default description" disabled={isSubmitting} />
+      <p style={hintStyle}>Custom description for the model.</p>
+    </div>
+  )
+
+  // Full preferences panel — identical to the previous Simple-mode panel.
+  const renderFullPreferences = () => (
+    <div style={{ marginTop: 'var(--spacing-lg)' }}>
+      <div style={{ fontSize: '0.875rem', fontWeight: 500, color: 'var(--color-text-secondary)', marginBottom: 'var(--spacing-sm)' }}>
+        <i className="fas fa-cog" style={{ marginRight: '6px' }} />Preferences (Optional)
+      </div>
+
+      <div style={{ padding: 'var(--spacing-md)', background: 'var(--color-bg-primary)', border: '1px solid var(--color-border-default)', borderRadius: 'var(--radius-md)' }}>
+        <h3 style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--color-text-secondary)', marginBottom: 'var(--spacing-md)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <i className="fas fa-sliders" style={{ color: 'var(--color-primary)' }} aria-hidden="true" />
+          Common Preferences
+        </h3>
+
+        <div style={{ display: 'grid', gap: 'var(--spacing-md)' }}>
+          {renderBackendField()}
+          {renderNameField()}
+          {renderDescriptionField()}
+
+          <div className="form-group" style={{ marginBottom: 0 }}>
+            <label className="form-label"><i className="fas fa-layer-group" style={{ marginRight: '6px' }} />Quantizations</label>
+            <input className="input" type="text" value={prefs.quantizations} onChange={e => updatePref('quantizations', e.target.value)} placeholder="q4_k_m,q4_k_s,q3_k_m (comma-separated)" disabled={isSubmitting} />
+            <p style={hintStyle}>Preferred quantizations (comma-separated). Leave empty for default (q4_k_m).</p>
+          </div>
+
+          <div className="form-group" style={{ marginBottom: 0 }}>
+            <label className="form-label"><i className="fas fa-image" style={{ marginRight: '6px' }} />MMProj Quantizations</label>
+            <input className="input" type="text" value={prefs.mmproj_quantizations} onChange={e => updatePref('mmproj_quantizations', e.target.value)} placeholder="fp16,fp32 (comma-separated)" disabled={isSubmitting} />
+            <p style={hintStyle}>Preferred MMProj quantizations. Leave empty for default (fp16).</p>
+          </div>
+
+          <div>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+              <input type="checkbox" checked={prefs.embeddings} onChange={e => updatePref('embeddings', e.target.checked)} disabled={isSubmitting} />
+              <span style={{ fontSize: '0.875rem', fontWeight: 500, color: 'var(--color-text-secondary)' }}>
+                <i className="fas fa-vector-square" style={{ marginRight: '6px' }} />Embeddings
+              </span>
+            </label>
+            <p style={{ ...hintStyle, marginLeft: '28px' }}>Enable embeddings support for this model.</p>
+          </div>
+
+          <div className="form-group" style={{ marginBottom: 0 }}>
+            <label className="form-label"><i className="fas fa-tag" style={{ marginRight: '6px' }} />Model Type</label>
+            <input className="input" type="text" value={prefs.type} onChange={e => updatePref('type', e.target.value)} placeholder="AutoModelForCausalLM (for transformers backend)" disabled={isSubmitting} />
+            <p style={hintStyle}>Model type for transformers backend. Examples: AutoModelForCausalLM, SentenceTransformer, Mamba.</p>
+          </div>
+
+          {prefs.backend === 'diffusers' && (
+            <>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label"><i className="fas fa-stream" style={{ marginRight: '6px' }} />Pipeline Type</label>
+                <input className="input" type="text" value={prefs.pipeline_type} onChange={e => updatePref('pipeline_type', e.target.value)} placeholder="StableDiffusionPipeline" disabled={isSubmitting} />
+                <p style={hintStyle}>Pipeline type for diffusers backend.</p>
+              </div>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label"><i className="fas fa-clock" style={{ marginRight: '6px' }} />Scheduler Type</label>
+                <input className="input" type="text" value={prefs.scheduler_type} onChange={e => updatePref('scheduler_type', e.target.value)} placeholder="k_dpmpp_2m (optional)" disabled={isSubmitting} />
+                <p style={hintStyle}>Scheduler type for diffusers backend. Examples: k_dpmpp_2m, euler_a, ddim.</p>
+              </div>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label"><i className="fas fa-cogs" style={{ marginRight: '6px' }} />Enable Parameters</label>
+                <input className="input" type="text" value={prefs.enable_parameters} onChange={e => updatePref('enable_parameters', e.target.value)} placeholder="negative_prompt,num_inference_steps (comma-separated)" disabled={isSubmitting} />
+                <p style={hintStyle}>Enabled parameters for diffusers backend (comma-separated).</p>
+              </div>
+              <div>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                  <input type="checkbox" checked={prefs.cuda} onChange={e => updatePref('cuda', e.target.checked)} disabled={isSubmitting} />
+                  <span style={{ fontSize: '0.875rem', fontWeight: 500, color: 'var(--color-text-secondary)' }}>
+                    <i className="fas fa-microchip" style={{ marginRight: '6px' }} />CUDA
+                  </span>
+                </label>
+                <p style={{ ...hintStyle, marginLeft: '28px' }}>Enable CUDA support for GPU acceleration.</p>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Custom Preferences */}
+      <div style={{ marginTop: 'var(--spacing-md)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-sm)' }}>
+          <span style={{ fontSize: '0.875rem', fontWeight: 500, color: 'var(--color-text-secondary)' }}>
+            <i className="fas fa-plus-circle" style={{ marginRight: '6px' }} aria-hidden="true" />Custom Preferences
+          </span>
+          <button className="btn btn-secondary" onClick={addCustomPref} disabled={isSubmitting} style={{ fontSize: '0.75rem' }}>
+            <i className="fas fa-plus" /> Add Custom
+          </button>
+        </div>
+        {customPrefs.map((cp, i) => (
+          <div key={i} style={{ display: 'flex', gap: 'var(--spacing-sm)', alignItems: 'center', marginBottom: 'var(--spacing-xs)' }}>
+            <input className="input" type="text" value={cp.key} onChange={e => updateCustomPref(i, 'key', e.target.value)} placeholder="Key" disabled={isSubmitting} style={{ flex: 1 }} />
+            <span style={{ color: 'var(--color-text-secondary)' }}>:</span>
+            <input className="input" type="text" value={cp.value} onChange={e => updateCustomPref(i, 'value', e.target.value)} placeholder="Value" disabled={isSubmitting} style={{ flex: 1 }} />
+            <button className="btn btn-secondary" onClick={() => removeCustomPref(i)} disabled={isSubmitting} style={{ color: 'var(--color-error)' }}>
+              <i className="fas fa-trash" />
+            </button>
+          </div>
+        ))}
+        <p style={hintStyle}>Add custom key-value pairs for advanced configuration.</p>
+      </div>
+    </div>
+  )
+
   return (
     <div className="page" style={{ maxWidth: '900px' }}>
       <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--spacing-sm)' }}>
         <div>
           <h1 className="page-title">Import New Model</h1>
-          <p className="page-subtitle">
-            {isAdvancedMode ? 'Fine-grained import preferences and YAML editor.' : 'Import a model from a URI — auto-detect picks the backend.'}
-          </p>
+          <p className="page-subtitle">{subtitle}</p>
         </div>
         <div style={{ display: 'flex', gap: 'var(--spacing-sm)', flexWrap: 'wrap', alignItems: 'center' }}>
-          <SimplePowerSwitch
-            value={mode}
-            onChange={setMode}
-            disabled={isSubmitting}
-          />
-          {!isAdvancedMode ? (
-            <button className="btn btn-primary" onClick={() => handleSimpleImport()} disabled={isSubmitting || !importUri.trim()}>
-              {isSubmitting ? <><LoadingSpinner size="sm" /> Importing...</> : <><i className="fas fa-upload" /> Import Model</>}
-            </button>
-          ) : (
+          <SimplePowerSwitch value={mode} onChange={requestModeSwitch} disabled={isSubmitting} />
+          {isPowerYaml ? (
             <button className="btn btn-primary" onClick={handleAdvancedImport} disabled={isSubmitting}>
               {isSubmitting ? <><LoadingSpinner size="sm" /> Saving...</> : <><i className="fas fa-save" /> Create</>}
+            </button>
+          ) : (
+            <button className="btn btn-primary" onClick={() => handleSimpleImport()} disabled={isSubmitting || !importUri.trim()}>
+              {isSubmitting ? <><LoadingSpinner size="sm" /> Importing...</> : <><i className="fas fa-upload" /> Import Model</>}
             </button>
           )}
         </div>
       </div>
 
       {/* Estimate banner */}
-      {!isAdvancedMode && estimate && (
+      {!isPowerYaml && estimate && (
         <div className="card" style={{ marginBottom: 'var(--spacing-md)', padding: 'var(--spacing-md)', borderColor: 'var(--color-primary)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', fontSize: '0.875rem', flexWrap: 'wrap' }}>
             <i className="fas fa-memory" style={{ color: 'var(--color-primary)' }} />
@@ -362,237 +753,94 @@ export default function ImportModel() {
         </div>
       )}
 
-      {/* Simple Import Mode */}
-      {!isAdvancedMode && (
+      {/* Simple mode */}
+      {isSimple && (
         <div className="card" style={{ padding: 'var(--spacing-lg)' }}>
-          {ambiguity && (
-            <AmbiguityAlert
-              modality={ambiguity.modality}
-              candidates={ambiguity.candidates}
-              knownBackends={backends}
-              onPick={pickAmbiguityCandidate}
-              onDismiss={() => setAmbiguity(null)}
-            />
-          )}
+          {renderUriAndAmbiguity()}
 
-          {/* URI Input */}
-          <div className="form-group">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-              <label className="form-label" style={{ marginBottom: 0 }}>
-                <i className="fas fa-link" style={{ marginRight: '6px' }} />Model URI
-              </label>
-              <a href="https://huggingface.co/models?sort=trending" target="_blank" rel="noreferrer"
-                className="btn btn-secondary" style={{ fontSize: '0.7rem', padding: '3px 8px' }}>
-                Browse models on HF <i className="fas fa-external-link-alt" style={{ marginLeft: '4px' }} />
-              </a>
-            </div>
-            <input
-              className="input"
-              type="text"
-              value={importUri}
-              onChange={(e) => setImportUri(e.target.value)}
-              placeholder="huggingface://TheBloke/Llama-2-7B-Chat-GGUF or https://example.com/model.gguf"
-              disabled={isSubmitting}
-            />
-            <p style={hintStyle}>Enter the URI or path to the model file you want to import</p>
-
-            {/* URI format guide */}
+          <div style={{ marginTop: 'var(--spacing-md)' }}>
             <button
-              onClick={() => setShowGuide(!showGuide)}
-              style={{ marginTop: 'var(--spacing-sm)', background: 'none', border: 'none', color: 'var(--color-text-secondary)', cursor: 'pointer', fontSize: '0.8125rem', display: 'flex', alignItems: 'center', gap: '6px', padding: 0 }}
+              type="button"
+              onClick={() => setShowOptions(v => !v)}
+              data-testid="simple-options-toggle"
+              aria-expanded={showOptions}
+              aria-controls="simple-options-panel"
+              style={{
+                background: 'none',
+                border: 'none',
+                color: 'var(--color-text-secondary)',
+                cursor: 'pointer',
+                fontSize: '0.8125rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: 0,
+              }}
             >
-              <i className={`fas ${showGuide ? 'fa-chevron-down' : 'fa-chevron-right'}`} />
-              <i className="fas fa-info-circle" />
-              Supported URI Formats
+              <i className={`fas ${showOptions ? 'fa-chevron-down' : 'fa-chevron-right'}`} aria-hidden="true" />
+              <i className="fas fa-sliders" aria-hidden="true" />
+              Options
             </button>
-            {showGuide && (
-              <div style={{ marginTop: 'var(--spacing-sm)', padding: 'var(--spacing-md)', background: 'var(--color-bg-primary)', border: '1px solid var(--color-border-default)', borderRadius: 'var(--radius-md)' }}>
-                {URI_FORMATS.map((fmt, i) => (
-                  <div key={i} style={{ marginBottom: i < URI_FORMATS.length - 1 ? 'var(--spacing-md)' : 0 }}>
-                    <h4 style={{ fontSize: '0.8125rem', fontWeight: 600, marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <i className={fmt.icon} style={{ color: fmt.color }} />
-                      {fmt.title}
-                    </h4>
-                    <div style={{ paddingLeft: '20px', fontSize: '0.75rem', fontFamily: 'monospace' }}>
-                      {fmt.examples.map((ex, j) => (
-                        <div key={j} style={{ marginBottom: '4px' }}>
-                          <code style={{ color: 'var(--color-success)' }}>{ex.prefix}</code>
-                          <span style={{ color: 'var(--color-text-secondary)' }}>{ex.suffix}</span>
-                          <p style={{ color: 'var(--color-text-muted)', marginTop: '1px', fontFamily: 'inherit' }}>{ex.desc}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
+
+            {showOptions && (
+              <div
+                id="simple-options-panel"
+                data-testid="simple-options-panel"
+                style={{
+                  marginTop: 'var(--spacing-sm)',
+                  padding: 'var(--spacing-md)',
+                  background: 'var(--color-bg-primary)',
+                  border: '1px solid var(--color-border-default)',
+                  borderRadius: 'var(--radius-md)',
+                  display: 'grid',
+                  gap: 'var(--spacing-md)',
+                }}
+              >
+                {renderBackendField()}
+                {renderNameField()}
+                {renderDescriptionField()}
               </div>
             )}
-          </div>
-
-          {/* Preferences */}
-          <div style={{ marginTop: 'var(--spacing-lg)' }}>
-            <div style={{ fontSize: '0.875rem', fontWeight: 500, color: 'var(--color-text-secondary)', marginBottom: 'var(--spacing-sm)' }}>
-              <i className="fas fa-cog" style={{ marginRight: '6px' }} />Preferences (Optional)
-            </div>
-
-            <div style={{ padding: 'var(--spacing-md)', background: 'var(--color-bg-primary)', border: '1px solid var(--color-border-default)', borderRadius: 'var(--radius-md)' }}>
-              <h3 style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--color-text-secondary)', marginBottom: 'var(--spacing-md)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <i className="fas fa-sliders" style={{ color: 'var(--color-primary)' }} aria-hidden="true" />
-                Common Preferences
-              </h3>
-
-              <div style={{ display: 'grid', gap: 'var(--spacing-md)' }}>
-                <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label"><i className="fas fa-server" style={{ marginRight: '6px' }} />Backend</label>
-                  <SearchableSelect
-                    value={prefs.backend}
-                    onChange={(v) => updatePref('backend', v)}
-                    options={backendOptions}
-                    allOption="Auto-detect (based on URI)"
-                    placeholder={backendsLoading ? 'Loading backends…' : 'Auto-detect (based on URI)'}
-                    searchPlaceholder="Search backends..."
-                    disabled={isSubmitting || backendsLoading}
-                  />
-                  <p style={hintStyle}>
-                    Force a specific backend. Leave empty to auto-detect from the URI. Items marked &ldquo;manual pick&rdquo; aren&rsquo;t auto-detectable &mdash; pick them yourself if you know what the model needs.
-                    {backendsError && (
-                      <span style={{ color: 'var(--color-warning)', marginLeft: '6px' }}>
-                        Could not load backend list — auto-detect only.
-                      </span>
-                    )}
-                  </p>
-                  {(() => {
-                    // Warn when the user picked a backend that is not
-                    // installed yet — submitting import will trigger an
-                    // auto-download. Hidden when auto-detect is selected
-                    // (prefs.backend === '') since we can't know which
-                    // backend the server will end up picking.
-                    if (!prefs.backend) return null
-                    const selected = backends.find(b => b.name === prefs.backend)
-                    if (!selected || selected.installed) return null
-                    return (
-                      <p
-                        data-testid="auto-install-note"
-                        style={{ ...hintStyle, display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px' }}
-                      >
-                        <i className="fas fa-download" aria-hidden="true" />
-                        This backend isn&rsquo;t installed yet. Submitting import will download it first.
-                      </p>
-                    )
-                  })()}
-                </div>
-
-                <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label"><i className="fas fa-tag" style={{ marginRight: '6px' }} />Model Name</label>
-                  <input className="input" type="text" value={prefs.name} onChange={e => updatePref('name', e.target.value)} placeholder="Leave empty to use filename" disabled={isSubmitting} />
-                  <p style={hintStyle}>Custom name for the model. If empty, the filename will be used.</p>
-                </div>
-
-                <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label"><i className="fas fa-align-left" style={{ marginRight: '6px' }} />Description</label>
-                  <textarea className="textarea" rows={3} value={prefs.description} onChange={e => updatePref('description', e.target.value)} placeholder="Leave empty to use default description" disabled={isSubmitting} />
-                  <p style={hintStyle}>Custom description for the model.</p>
-                </div>
-
-                <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label"><i className="fas fa-layer-group" style={{ marginRight: '6px' }} />Quantizations</label>
-                  <input className="input" type="text" value={prefs.quantizations} onChange={e => updatePref('quantizations', e.target.value)} placeholder="q4_k_m,q4_k_s,q3_k_m (comma-separated)" disabled={isSubmitting} />
-                  <p style={hintStyle}>Preferred quantizations (comma-separated). Leave empty for default (q4_k_m).</p>
-                </div>
-
-                <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label"><i className="fas fa-image" style={{ marginRight: '6px' }} />MMProj Quantizations</label>
-                  <input className="input" type="text" value={prefs.mmproj_quantizations} onChange={e => updatePref('mmproj_quantizations', e.target.value)} placeholder="fp16,fp32 (comma-separated)" disabled={isSubmitting} />
-                  <p style={hintStyle}>Preferred MMProj quantizations. Leave empty for default (fp16).</p>
-                </div>
-
-                <div>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                    <input type="checkbox" checked={prefs.embeddings} onChange={e => updatePref('embeddings', e.target.checked)} disabled={isSubmitting} />
-                    <span style={{ fontSize: '0.875rem', fontWeight: 500, color: 'var(--color-text-secondary)' }}>
-                      <i className="fas fa-vector-square" style={{ marginRight: '6px' }} />Embeddings
-                    </span>
-                  </label>
-                  <p style={{ ...hintStyle, marginLeft: '28px' }}>Enable embeddings support for this model.</p>
-                </div>
-
-                <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label"><i className="fas fa-tag" style={{ marginRight: '6px' }} />Model Type</label>
-                  <input className="input" type="text" value={prefs.type} onChange={e => updatePref('type', e.target.value)} placeholder="AutoModelForCausalLM (for transformers backend)" disabled={isSubmitting} />
-                  <p style={hintStyle}>Model type for transformers backend. Examples: AutoModelForCausalLM, SentenceTransformer, Mamba.</p>
-                </div>
-
-                {/* Diffusers-specific fields */}
-                {prefs.backend === 'diffusers' && (
-                  <>
-                    <div className="form-group" style={{ marginBottom: 0 }}>
-                      <label className="form-label"><i className="fas fa-stream" style={{ marginRight: '6px' }} />Pipeline Type</label>
-                      <input className="input" type="text" value={prefs.pipeline_type} onChange={e => updatePref('pipeline_type', e.target.value)} placeholder="StableDiffusionPipeline" disabled={isSubmitting} />
-                      <p style={hintStyle}>Pipeline type for diffusers backend.</p>
-                    </div>
-                    <div className="form-group" style={{ marginBottom: 0 }}>
-                      <label className="form-label"><i className="fas fa-clock" style={{ marginRight: '6px' }} />Scheduler Type</label>
-                      <input className="input" type="text" value={prefs.scheduler_type} onChange={e => updatePref('scheduler_type', e.target.value)} placeholder="k_dpmpp_2m (optional)" disabled={isSubmitting} />
-                      <p style={hintStyle}>Scheduler type for diffusers backend. Examples: k_dpmpp_2m, euler_a, ddim.</p>
-                    </div>
-                    <div className="form-group" style={{ marginBottom: 0 }}>
-                      <label className="form-label"><i className="fas fa-cogs" style={{ marginRight: '6px' }} />Enable Parameters</label>
-                      <input className="input" type="text" value={prefs.enable_parameters} onChange={e => updatePref('enable_parameters', e.target.value)} placeholder="negative_prompt,num_inference_steps (comma-separated)" disabled={isSubmitting} />
-                      <p style={hintStyle}>Enabled parameters for diffusers backend (comma-separated).</p>
-                    </div>
-                    <div>
-                      <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                        <input type="checkbox" checked={prefs.cuda} onChange={e => updatePref('cuda', e.target.checked)} disabled={isSubmitting} />
-                        <span style={{ fontSize: '0.875rem', fontWeight: 500, color: 'var(--color-text-secondary)' }}>
-                          <i className="fas fa-microchip" style={{ marginRight: '6px' }} />CUDA
-                        </span>
-                      </label>
-                      <p style={{ ...hintStyle, marginLeft: '28px' }}>Enable CUDA support for GPU acceleration.</p>
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
-
-            {/* Custom Preferences */}
-            <div style={{ marginTop: 'var(--spacing-md)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-sm)' }}>
-                <span style={{ fontSize: '0.875rem', fontWeight: 500, color: 'var(--color-text-secondary)' }}>
-                  <i className="fas fa-plus-circle" style={{ marginRight: '6px' }} aria-hidden="true" />Custom Preferences
-                </span>
-                <button className="btn btn-secondary" onClick={addCustomPref} disabled={isSubmitting} style={{ fontSize: '0.75rem' }}>
-                  <i className="fas fa-plus" /> Add Custom
-                </button>
-              </div>
-              {customPrefs.map((cp, i) => (
-                <div key={i} style={{ display: 'flex', gap: 'var(--spacing-sm)', alignItems: 'center', marginBottom: 'var(--spacing-xs)' }}>
-                  <input className="input" type="text" value={cp.key} onChange={e => updateCustomPref(i, 'key', e.target.value)} placeholder="Key" disabled={isSubmitting} style={{ flex: 1 }} />
-                  <span style={{ color: 'var(--color-text-secondary)' }}>:</span>
-                  <input className="input" type="text" value={cp.value} onChange={e => updateCustomPref(i, 'value', e.target.value)} placeholder="Value" disabled={isSubmitting} style={{ flex: 1 }} />
-                  <button className="btn btn-secondary" onClick={() => removeCustomPref(i)} disabled={isSubmitting} style={{ color: 'var(--color-error)' }}>
-                    <i className="fas fa-trash" />
-                  </button>
-                </div>
-              ))}
-              <p style={hintStyle}>Add custom key-value pairs for advanced configuration.</p>
-            </div>
           </div>
         </div>
       )}
 
-      {/* Advanced YAML Editor Mode */}
-      {isAdvancedMode && (
-        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-          <div style={{ padding: 'var(--spacing-md)', borderBottom: '1px solid var(--color-border-default)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <h2 style={{ fontSize: '1.125rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <i className="fas fa-code" style={{ color: 'var(--color-data-3)' }} />
-              YAML Configuration Editor
-            </h2>
-            <button className="btn btn-secondary" style={{ fontSize: '0.75rem' }} onClick={() => { navigator.clipboard.writeText(yamlContent); addToast('Copied to clipboard', 'success') }}>
-              <i className="fas fa-copy" /> Copy
-            </button>
-          </div>
-          <CodeEditor value={yamlContent} onChange={setYamlContent} disabled={isSubmitting} minHeight="calc(100vh - 400px)" />
+      {/* Power mode */}
+      {mode === 'power' && (
+        <div className="card" style={{ padding: isPowerYaml ? 0 : 'var(--spacing-lg)', overflow: 'hidden' }}>
+          {!isPowerYaml && (
+            <>
+              <PowerTabs value={powerTab} onChange={setPowerTab} />
+              {renderUriAndAmbiguity()}
+              {renderFullPreferences()}
+            </>
+          )}
+          {isPowerYaml && (
+            <>
+              <div style={{ padding: 'var(--spacing-md)' }}>
+                <PowerTabs value={powerTab} onChange={setPowerTab} />
+              </div>
+              <div style={{ padding: 'var(--spacing-md)', borderTop: '1px solid var(--color-border-default)', borderBottom: '1px solid var(--color-border-default)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h2 style={{ fontSize: '1.125rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <i className="fas fa-code" style={{ color: 'var(--color-data-3)' }} />
+                  YAML Configuration Editor
+                </h2>
+                <button className="btn btn-secondary" style={{ fontSize: '0.75rem' }} onClick={() => { navigator.clipboard.writeText(yamlContent); addToast('Copied to clipboard', 'success') }}>
+                  <i className="fas fa-copy" /> Copy
+                </button>
+              </div>
+              <CodeEditor value={yamlContent} onChange={setYamlContent} disabled={isSubmitting} minHeight="calc(100vh - 400px)" />
+            </>
+          )}
         </div>
+      )}
+
+      {switchDialog && (
+        <SwitchModeDialog
+          onKeep={switchDialog.onKeep}
+          onDiscard={switchDialog.onDiscard}
+          onCancel={switchDialog.onCancel}
+        />
       )}
     </div>
   )
