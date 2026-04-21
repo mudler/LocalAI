@@ -5,6 +5,7 @@ import LoadingSpinner from '../components/LoadingSpinner'
 import CodeEditor from '../components/CodeEditor'
 import SearchableSelect from '../components/SearchableSelect'
 import AmbiguityAlert from '../components/AmbiguityAlert'
+import SimplePowerSwitch from '../components/SimplePowerSwitch'
 
 // Fallback list used when /backends/known fails — keeps the form usable
 // with auto-detect only rather than showing an empty dropdown.
@@ -111,7 +112,18 @@ export default function ImportModel() {
   const navigate = useNavigate()
   const { addToast } = useOutletContext()
 
-  const [isAdvancedMode, setIsAdvancedMode] = useState(false)
+  // Mode state replaces the old isAdvancedMode boolean. Simple is the
+  // default; Power subsumes the previous Advanced surface. Persisted to
+  // localStorage so reloads land on the same view. Later commits split
+  // Power into tabs and add Simple-mode disclosure + switch dialog.
+  const [mode, setMode] = useState(() => {
+    try { return localStorage.getItem('import-form-mode') || 'simple' } catch { return 'simple' }
+  })
+  useEffect(() => {
+    try { localStorage.setItem('import-form-mode', mode) } catch { /* ignore quota / privacy mode */ }
+  }, [mode])
+  const isAdvancedMode = mode === 'power'
+
   const [importUri, setImportUri] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showGuide, setShowGuide] = useState(false)
@@ -303,14 +315,15 @@ export default function ImportModel() {
         <div>
           <h1 className="page-title">Import New Model</h1>
           <p className="page-subtitle">
-            {isAdvancedMode ? 'Configure your model settings using YAML' : 'Import a model from URI with preferences'}
+            {isAdvancedMode ? 'Fine-grained import preferences and YAML editor.' : 'Import a model from a URI — auto-detect picks the backend.'}
           </p>
         </div>
-        <div style={{ display: 'flex', gap: 'var(--spacing-sm)', flexWrap: 'wrap' }}>
-          <button className="btn btn-secondary" onClick={() => setIsAdvancedMode(!isAdvancedMode)}>
-            <i className={`fas ${isAdvancedMode ? 'fa-magic' : 'fa-code'}`} />
-            {isAdvancedMode ? ' Simple Mode' : ' Advanced Mode'}
-          </button>
+        <div style={{ display: 'flex', gap: 'var(--spacing-sm)', flexWrap: 'wrap', alignItems: 'center' }}>
+          <SimplePowerSwitch
+            value={mode}
+            onChange={setMode}
+            disabled={isSubmitting}
+          />
           {!isAdvancedMode ? (
             <button className="btn btn-primary" onClick={() => handleSimpleImport()} disabled={isSubmitting || !importUri.trim()}>
               {isSubmitting ? <><LoadingSpinner size="sm" /> Importing...</> : <><i className="fas fa-upload" /> Import Model</>}
