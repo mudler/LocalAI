@@ -19,7 +19,7 @@ const MOCK_BACKENDS = [
 
 test.describe('Import form UX — Batch A1 (manual-pick badge)', () => {
   test.beforeEach(async ({ page }) => {
-    await page.route('**/api/backends/known', (route) => {
+    await page.route('**/backends/known', (route) => {
       route.fulfill({
         contentType: 'application/json',
         body: JSON.stringify(MOCK_BACKENDS),
@@ -53,7 +53,7 @@ test.describe('Import form UX — Batch A1 (manual-pick badge)', () => {
 
 test.describe('Import form UX — Batch A2 (inline ambiguity picker)', () => {
   test.beforeEach(async ({ page }) => {
-    await page.route('**/api/backends/known', (route) => {
+    await page.route('**/backends/known', (route) => {
       route.fulfill({
         contentType: 'application/json',
         body: JSON.stringify(MOCK_BACKENDS),
@@ -63,7 +63,7 @@ test.describe('Import form UX — Batch A2 (inline ambiguity picker)', () => {
 
   test('A2 — ambiguity alert with TTS candidate chips, clicking sets backend and resubmits', async ({ page }) => {
     let hits = 0
-    await page.route('**/api/models/import-uri', (route) => {
+    await page.route('**/models/import-uri', (route) => {
       hits += 1
       if (hits === 1) {
         route.fulfill({
@@ -85,7 +85,7 @@ test.describe('Import form UX — Batch A2 (inline ambiguity picker)', () => {
       }
     })
     // Job polling endpoint — reply completed so the second submit settles.
-    await page.route('**/api/models/jobs/*', (route) => {
+    await page.route('**/models/jobs/**', (route) => {
       route.fulfill({
         contentType: 'application/json',
         body: JSON.stringify({ completed: true, message: 'done' }),
@@ -112,7 +112,7 @@ test.describe('Import form UX — Batch A2 (inline ambiguity picker)', () => {
   })
 
   test('A2 — dismissing the ambiguity alert clears it without setting a backend', async ({ page }) => {
-    await page.route('**/api/models/import-uri', (route) => {
+    await page.route('**/models/import-uri', (route) => {
       route.fulfill({
         status: 400,
         contentType: 'application/json',

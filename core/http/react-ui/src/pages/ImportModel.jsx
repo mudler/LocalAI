@@ -4,6 +4,7 @@ import { modelsApi, backendsApi } from '../utils/api'
 import LoadingSpinner from '../components/LoadingSpinner'
 import CodeEditor from '../components/CodeEditor'
 import SearchableSelect from '../components/SearchableSelect'
+import AmbiguityAlert from '../components/AmbiguityAlert'
 
 // Fallback list used when /backends/known fails — keeps the form usable
 // with auto-detect only rather than showing an empty dropdown.
@@ -124,6 +125,10 @@ export default function ImportModel() {
     pipeline_type: '', scheduler_type: '', enable_parameters: '', cuda: false,
   })
   const [customPrefs, setCustomPrefs] = useState([])
+  // ambiguity state: { modality, candidates } when the server returns 400
+  // with a structured ambiguity body. Cleared on pick, dismiss, URI change,
+  // or a manual backend pick.
+  const [ambiguity, setAmbiguity] = useState(null)
 
   const [backends, setBackends] = useState([])
   const [backendsLoading, setBackendsLoading] = useState(true)
@@ -199,13 +204,14 @@ export default function ImportModel() {
     }, 1000)
   }, [addToast, navigate])
 
-  const handleSimpleImport = async () => {
+  const handleSimpleImport = useCallback(async (overrideBackend) => {
     if (!importUri.trim()) { addToast('Please enter a model URI', 'error'); return }
     setIsSubmitting(true)
     setEstimate(null)
     try {
       const prefsObj = {}
-      if (prefs.backend) prefsObj.backend = prefs.backend
+      const effectiveBackend = overrideBackend !== undefined ? overrideBackend : prefs.backend
+      if (effectiveBackend) prefsObj.backend = effectiveBackend
       if (prefs.name.trim()) prefsObj.name = prefs.name.trim()
       if (prefs.description.trim()) prefsObj.description = prefs.description.trim()
       if (prefs.quantizations.trim()) prefsObj.quantizations = prefs.quantizations.trim()
@@ -240,12 +246,42 @@ export default function ImportModel() {
       if (hasVram) parts.push(`VRAM: ${result.estimated_vram_display}`)
       if (parts.length) msg += ` (${parts.join(' \u00b7 ')})`
       addToast(msg, 'success')
+      // Clear any prior ambiguity alert once the server accepts the import.
+      setAmbiguity(null)
       startJobPolling(jobId)
     } catch (err) {
+      // Structured ambiguity response — render the inline picker instead of
+      // a toast. The server returns HTTP 400 with { error, modality,
+      // candidates } which api.handleResponse attaches as err.body.
+      if (err?.status === 400 && err?.body && err.body.error === 'ambiguous import') {
+        setAmbiguity({
+          modality: err.body.modality || '',
+          candidates: Array.isArray(err.body.candidates) ? err.body.candidates : [],
+        })
+        setIsSubmitting(false)
+        return
+      }
       addToast(`Failed to start import: ${err.message}`, 'error')
       setIsSubmitting(false)
     }
-  }
+  }, [importUri, prefs, customPrefs, addToast, startJobPolling])
+
+  const pickAmbiguityCandidate = useCallback((backend) => {
+    setPrefs(p => ({ ...p, backend }))
+    setAmbiguity(null)
+    // Resubmit immediately so the user only has to click the chip once.
+    // Pass the picked backend as an override — setPrefs is async so
+    // handleSimpleImport would otherwise see the stale prefs.backend.
+    handleSimpleImport(backend)
+  }, [handleSimpleImport])
+
+  // Clear stale ambiguity alerts when the URI changes (fresh attempt) or
+  // the user picks a backend manually — in both cases the alert's context
+  // no longer applies.
+  useEffect(() => { setAmbiguity(null) }, [importUri])
+  useEffect(() => {
+    if (prefs.backend) setAmbiguity(null)
+  }, [prefs.backend])
 
   const handleAdvancedImport = async () => {
     if (!yamlContent.trim()) { addToast('Please enter YAML configuration', 'error'); return }
@@ -276,7 +312,7 @@ export default function ImportModel() {
             {isAdvancedMode ? ' Simple Mode' : ' Advanced Mode'}
           </button>
           {!isAdvancedMode ? (
-            <button className="btn btn-primary" onClick={handleSimpleImport} disabled={isSubmitting || !importUri.trim()}>
+            <button className="btn btn-primary" onClick={() => handleSimpleImport()} disabled={isSubmitting || !importUri.trim()}>
               {isSubmitting ? <><LoadingSpinner size="sm" /> Importing...</> : <><i className="fas fa-upload" /> Import Model</>}
             </button>
           ) : (
@@ -320,6 +356,16 @@ export default function ImportModel() {
             <i className="fas fa-link" style={{ color: 'var(--color-success)' }} />
             Import from URI
           </h2>
+
+          {ambiguity && (
+            <AmbiguityAlert
+              modality={ambiguity.modality}
+              candidates={ambiguity.candidates}
+              knownBackends={backends}
+              onPick={pickAmbiguityCandidate}
+              onDismiss={() => setAmbiguity(null)}
+            />
+          )}
 
           {/* URI Input */}
           <div className="form-group">
