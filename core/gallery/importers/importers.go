@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 
 	"github.com/mudler/xlog"
@@ -20,21 +21,91 @@ import (
 // modality (e.g. pipeline_tag: "automatic-speech-recognition") but no
 // importer's artefact-level detection matches the repository. Callers should
 // pass preferences.backend to disambiguate. Use errors.Is to match regardless
-// of wrapping — DiscoverModelConfig wraps with fmt.Errorf("%w: ...") so the
-// full context reaches HTTP consumers without losing sentinel identity.
+// of wrapping — DiscoverModelConfig returns a typed AmbiguousImportError that
+// carries the detected modality + candidate backends, and whose Is() matches
+// this sentinel so legacy callers keep working.
 var ErrAmbiguousImport = errors.New("importer: ambiguous — specify preferences.backend")
+
+// AmbiguousImportError is the concrete error DiscoverModelConfig returns when
+// it can't pick an importer automatically. It carries the importer-modality
+// key (e.g. "tts", "asr") and the list of candidate backend names so HTTP
+// consumers can render a picker without re-deriving the mapping from HF
+// pipeline_tag values.
+type AmbiguousImportError struct {
+	// Modality is the importer modality key ("text", "asr", "tts", "image",
+	// "embeddings", "reranker", "detection"). Pre-mapped from the HF
+	// pipeline_tag so the UI doesn't have to.
+	Modality string
+	// Candidates is the list of backend names whose Modality() matches — a
+	// subset of the importer registry plus AdditionalBackendsProvider
+	// drop-ins.
+	Candidates []string
+	// URI is the original URI that triggered the ambiguity.
+	URI string
+	// PipelineTag is the raw HF pipeline_tag value as reported by the model
+	// metadata — preserved for logging / debugging.
+	PipelineTag string
+}
+
+func (e *AmbiguousImportError) Error() string {
+	return fmt.Sprintf("importer: ambiguous — detected modality %q (pipeline_tag=%q) for %s, candidates: %v",
+		e.Modality, e.PipelineTag, e.URI, e.Candidates)
+}
+
+// Is lets callers match with errors.Is(err, ErrAmbiguousImport) without caring
+// about the typed shape.
+func (e *AmbiguousImportError) Is(target error) bool {
+	return target == ErrAmbiguousImport
+}
 
 // ambiguousModalities enumerates the HF pipeline_tag values that are narrow
 // enough to be confident we should surface ambiguity instead of a generic
 // "no importer matched" error. Tags outside this whitelist keep the previous
 // behaviour (plain error) so we don't block uncommon-but-still-valid imports.
-var ambiguousModalities = map[string]struct{}{
-	"automatic-speech-recognition": {},
-	"text-to-speech":               {},
-	"sentence-similarity":          {},
-	"text-classification":          {},
-	"object-detection":             {},
-	"text-to-image":                {},
+// The mapped value is the importer modality key used to filter candidates.
+var ambiguousModalities = map[string]string{
+	"automatic-speech-recognition": "asr",
+	"text-to-speech":               "tts",
+	"sentence-similarity":          "embeddings",
+	"text-classification":          "reranker",
+	"object-detection":             "detection",
+	"text-to-image":                "image",
+}
+
+// PipelineTagToModality maps HF pipeline_tag strings to the importer modality
+// key used internally (and by /backends/known). Returns the modality + true
+// when the tag is in the ambiguous whitelist; "" + false otherwise.
+func PipelineTagToModality(pipelineTag string) (string, bool) {
+	m, ok := ambiguousModalities[pipelineTag]
+	return m, ok
+}
+
+// CandidatesForModality returns the backend names whose importer modality
+// matches the requested key. Includes AdditionalBackendsProvider drop-ins so
+// entries like ik-llama-cpp surface for text modalities. Results are sorted
+// for deterministic ordering in API responses.
+func CandidatesForModality(modality string) []string {
+	seen := make(map[string]struct{})
+	for _, imp := range defaultImporters {
+		if imp.Modality() != modality {
+			continue
+		}
+		seen[imp.Name()] = struct{}{}
+		if host, ok := imp.(AdditionalBackendsProvider); ok {
+			for _, extra := range host.AdditionalBackends() {
+				if extra.Modality != modality {
+					continue
+				}
+				seen[extra.Name] = struct{}{}
+			}
+		}
+	}
+	out := make([]string, 0, len(seen))
+	for n := range seen {
+		out = append(out, n)
+	}
+	sort.Strings(out)
+	return out
 }
 
 var defaultImporters = []Importer{
@@ -216,9 +287,14 @@ func DiscoverModelConfig(uri string, preferences json.RawMessage) (gallery.Model
 		// When HuggingFace metadata hints at a known, narrow modality but no
 		// importer matched the artefacts, surface an explicit ambiguity so the
 		// caller knows to pass preferences.backend rather than silently guess.
-		if hfDetails != nil {
-			if _, known := ambiguousModalities[hfDetails.PipelineTag]; known && hfDetails.PipelineTag != "" {
-				return gallery.ModelConfig{}, fmt.Errorf("%w: detected modality %q for %s", ErrAmbiguousImport, hfDetails.PipelineTag, uri)
+		if hfDetails != nil && hfDetails.PipelineTag != "" {
+			if modality, known := ambiguousModalities[hfDetails.PipelineTag]; known {
+				return gallery.ModelConfig{}, &AmbiguousImportError{
+					Modality:    modality,
+					Candidates:  CandidatesForModality(modality),
+					URI:         uri,
+					PipelineTag: hfDetails.PipelineTag,
+				}
 			}
 		}
 		return gallery.ModelConfig{}, fmt.Errorf("no importer matched for %s", uri)
