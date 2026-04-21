@@ -780,52 +780,68 @@ export default function ImportModel() {
       {/* Simple mode */}
       {isSimple && (
         <div className="card" style={{ padding: 'var(--spacing-lg)' }}>
-          {renderUriAndAmbiguity()}
+          {/* Wrapping the Simple-mode content in a <form> gives us Enter-to-
+              submit for free: focus in the URI input triggers onSubmit without
+              a keyDown handler. The Import button in the page header submits
+              by calling handleSimpleImport directly (type="button") — it lives
+              outside this form, so the form owns keyboard submit only. */}
+          <form
+            data-testid="simple-form"
+            onSubmit={(e) => { e.preventDefault(); handleSimpleImport() }}
+          >
+            {renderUriAndAmbiguity()}
 
-          <div style={{ marginTop: 'var(--spacing-md)' }}>
-            <button
-              type="button"
-              onClick={() => setShowOptions(v => !v)}
-              data-testid="simple-options-toggle"
-              aria-expanded={showOptions}
-              aria-controls="simple-options-panel"
-              style={{
-                background: 'none',
-                border: 'none',
-                color: 'var(--color-text-secondary)',
-                cursor: 'pointer',
-                fontSize: '0.8125rem',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: 0,
-              }}
-            >
-              <i className={`fas ${showOptions ? 'fa-chevron-down' : 'fa-chevron-right'}`} aria-hidden="true" />
-              <i className="fas fa-sliders" aria-hidden="true" />
-              Options
-            </button>
-
-            {showOptions && (
-              <div
-                id="simple-options-panel"
-                data-testid="simple-options-panel"
+            <div style={{ marginTop: 'var(--spacing-md)' }}>
+              <button
+                type="button"
+                onClick={() => setShowOptions(v => !v)}
+                data-testid="simple-options-toggle"
+                aria-expanded={showOptions}
+                aria-controls="simple-options-panel"
                 style={{
-                  marginTop: 'var(--spacing-sm)',
-                  padding: 'var(--spacing-md)',
-                  background: 'var(--color-bg-primary)',
-                  border: '1px solid var(--color-border-default)',
-                  borderRadius: 'var(--radius-md)',
-                  display: 'grid',
-                  gap: 'var(--spacing-md)',
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--color-text-secondary)',
+                  cursor: 'pointer',
+                  fontSize: '0.8125rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: 0,
                 }}
               >
-                {renderBackendField()}
-                {renderNameField()}
-                {renderDescriptionField()}
-              </div>
-            )}
-          </div>
+                <i className={`fas ${showOptions ? 'fa-chevron-down' : 'fa-chevron-right'}`} aria-hidden="true" />
+                <i className="fas fa-sliders" aria-hidden="true" />
+                Options
+              </button>
+
+              {showOptions && (
+                <div
+                  id="simple-options-panel"
+                  data-testid="simple-options-panel"
+                  style={{
+                    marginTop: 'var(--spacing-sm)',
+                    padding: 'var(--spacing-md)',
+                    background: 'var(--color-bg-primary)',
+                    border: '1px solid var(--color-border-default)',
+                    borderRadius: 'var(--radius-md)',
+                    display: 'grid',
+                    gap: 'var(--spacing-md)',
+                  }}
+                >
+                  {renderBackendField()}
+                  {renderNameField()}
+                  {renderDescriptionField()}
+                </div>
+              )}
+            </div>
+            {/* Hidden submit button — required because the visible Import
+                button lives outside this <form> in the page header. Browsers
+                only trigger implicit Enter submit when the form contains at
+                least one submit-capable element; this keeps the behaviour
+                consistent even if the form ever holds a single text input. */}
+            <button type="submit" aria-hidden="true" tabIndex={-1} style={{ display: 'none' }} />
+          </form>
         </div>
       )}
 
