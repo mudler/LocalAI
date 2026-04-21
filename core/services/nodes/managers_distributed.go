@@ -293,7 +293,7 @@ func (d *DistributedBackendManager) InstallBackend(ctx context.Context, op *gall
 	backendName := op.GalleryElementName
 
 	_, err := d.enqueueAndDrainBackendOp(ctx, OpBackendInstall, backendName, galleriesJSON, func(node BackendNode) error {
-		reply, err := d.adapter.InstallBackend(node.ID, backendName, "", string(galleriesJSON))
+		reply, err := d.adapter.InstallBackend(node.ID, backendName, "", string(galleriesJSON), op.ExternalURI, op.ExternalName, op.ExternalAlias)
 		if err != nil {
 			return err
 		}
@@ -311,7 +311,7 @@ func (d *DistributedBackendManager) UpgradeBackend(ctx context.Context, name str
 	galleriesJSON, _ := json.Marshal(d.backendGalleries)
 
 	_, err := d.enqueueAndDrainBackendOp(ctx, OpBackendUpgrade, name, galleriesJSON, func(node BackendNode) error {
-		reply, err := d.adapter.InstallBackend(node.ID, name, "", string(galleriesJSON))
+		reply, err := d.adapter.InstallBackend(node.ID, name, "", string(galleriesJSON), "", "", "")
 		if err != nil {
 			return err
 		}

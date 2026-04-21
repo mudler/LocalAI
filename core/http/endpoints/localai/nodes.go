@@ -376,7 +376,7 @@ func InstallBackendOnNodeEndpoint(unloader nodes.NodeCommandSender) echo.Handler
 		if err := c.Bind(&req); err != nil || req.Backend == "" {
 			return c.JSON(http.StatusBadRequest, nodeError(http.StatusBadRequest, "backend name required"))
 		}
-		reply, err := unloader.InstallBackend(nodeID, req.Backend, "", req.BackendGalleries)
+		reply, err := unloader.InstallBackend(nodeID, req.Backend, "", req.BackendGalleries, "", "", "")
 		if err != nil {
 			xlog.Error("Failed to install backend on node", "node", nodeID, "backend", req.Backend, "error", err)
 			return c.JSON(http.StatusInternalServerError, nodeError(http.StatusInternalServerError, "failed to install backend on node"))

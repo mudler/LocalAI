@@ -124,8 +124,13 @@ func SubjectNodeBackendInstall(nodeID string) string {
 // BackendInstallRequest is the payload for a backend.install NATS request.
 type BackendInstallRequest struct {
 	Backend          string `json:"backend"`
-	ModelID          string `json:"model_id,omitempty"` // unique model identifier — each model gets its own gRPC process
+	ModelID          string `json:"model_id,omitempty"`
 	BackendGalleries string `json:"backend_galleries,omitempty"`
+	// URI is set for external installs (OCI image, URL, or path). When non-empty
+	// the worker routes to InstallExternalBackend instead of the gallery lookup.
+	URI   string `json:"uri,omitempty"`
+	Name  string `json:"name,omitempty"`
+	Alias string `json:"alias,omitempty"`
 }
 
 // BackendInstallReply is the response from a backend.install NATS request.

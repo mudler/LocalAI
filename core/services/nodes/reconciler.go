@@ -188,7 +188,7 @@ func (rc *ReplicaReconciler) drainPendingBackendOps(ctx context.Context) {
 		case OpBackendDelete:
 			_, applyErr = rc.adapter.DeleteBackend(op.NodeID, op.Backend)
 		case OpBackendInstall, OpBackendUpgrade:
-			reply, err := rc.adapter.InstallBackend(op.NodeID, op.Backend, "", string(op.Galleries))
+			reply, err := rc.adapter.InstallBackend(op.NodeID, op.Backend, "", string(op.Galleries), "", "", "")
 			if err != nil {
 				applyErr = err
 			} else if !reply.Success {

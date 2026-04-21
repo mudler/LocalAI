@@ -21,6 +21,7 @@ import (
 	"github.com/mudler/LocalAI/core/cli/workerregistry"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
+	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/storage"
@@ -597,12 +598,20 @@ func (s *backendSupervisor) installBackend(req messaging.BackendInstallRequest) 
 	// Try to find the backend binary
 	backendPath := s.findBackend(req.Backend)
 	if backendPath == "" {
-		// Backend not found locally — try auto-installing from gallery
-		xlog.Info("Backend not found locally, attempting gallery install", "backend", req.Backend)
-		if err := gallery.InstallBackendFromGallery(
-			context.Background(), galleries, s.systemState, s.ml, req.Backend, nil, false,
-		); err != nil {
-			return "", fmt.Errorf("installing backend from gallery: %w", err)
+		if req.URI != "" {
+			xlog.Info("Backend not found locally, attempting external install", "backend", req.Backend, "uri", req.URI)
+			if err := galleryop.InstallExternalBackend(
+				context.Background(), galleries, s.systemState, s.ml, nil, req.URI, req.Name, req.Alias,
+			); err != nil {
+				return "", fmt.Errorf("installing backend from gallery: %w", err)
+			}
+		} else {
+			xlog.Info("Backend not found locally, attempting gallery install", "backend", req.Backend)
+			if err := gallery.InstallBackendFromGallery(
+				context.Background(), galleries, s.systemState, s.ml, req.Backend, nil, false,
+			); err != nil {
+				return "", fmt.Errorf("installing backend from gallery: %w", err)
+			}
 		}
 		// Re-register after install and retry
 		gallery.RegisterBackends(s.systemState, s.ml)

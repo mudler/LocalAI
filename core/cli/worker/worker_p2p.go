@@ -38,7 +38,7 @@ func (r *P2P) Run(ctx *cliContext.Context) error {
 	// Check if the token is set
 	// as we always need it.
 	if r.Token == "" {
-		return fmt.Errorf("Token is required")
+		return fmt.Errorf("a P2P token is required to join the network. Set it via the LOCALAI_TOKEN environment variable or the --token flag. You can generate a token by running 'local-ai run --p2p' on the main node. See https://localai.io/features/distribute/ for more information")
 	}
 
 	port, err := freeport.GetFreePort()
