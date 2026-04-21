@@ -379,42 +379,21 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 				usage.TimingPromptProcessing = tokenUsage.TimingPromptProcessing
 			}
 
-			if sentInitialRole {
-				// Content was already streamed during the callback — just emit usage.
-				delta := &schema.Message{}
-				if reasoning != "" && extractor.Reasoning() == "" {
-					delta.Reasoning = &reasoning
+			var result string
+			if !sentInitialRole {
+				var hqErr error
+				result, hqErr = handleQuestion(config, functionResults, extractor.CleanedContent(), prompt)
+				if hqErr != nil {
+					xlog.Error("error handling question", "error", hqErr)
+					return hqErr
 				}
-				responses <- schema.OpenAIResponse{
-					ID: id, Created: created, Model: req.Model,
-					Choices: []schema.Choice{{Delta: delta, Index: 0}},
-					Object:  "chat.completion.chunk",
-					Usage:   usage,
-				}
-			} else {
-				// Content was NOT streamed — send everything at once (fallback).
-				responses <- schema.OpenAIResponse{
-					ID: id, Created: created, Model: req.Model,
-					Choices: []schema.Choice{{Delta: &schema.Message{Role: "assistant"}, Index: 0}},
-					Object:  "chat.completion.chunk",
-				}
-
-				result, err := handleQuestion(config, functionResults, extractor.CleanedContent(), prompt)
-				if err != nil {
-					xlog.Error("error handling question", "error", err)
-					return err
-				}
-
-				delta := &schema.Message{Content: &result}
-				if reasoning != "" {
-					delta.Reasoning = &reasoning
-				}
-				responses <- schema.OpenAIResponse{
-					ID: id, Created: created, Model: req.Model,
-					Choices: []schema.Choice{{Delta: delta, Index: 0}},
-					Object:  "chat.completion.chunk",
-					Usage:   usage,
-				}
+			}
+			for _, chunk := range buildNoActionFinalChunks(
+				id, req.Model, created,
+				sentInitialRole, sentReasoning,
+				result, reasoning, usage,
+			) {
+				responses <- chunk
 			}
 
 		default:

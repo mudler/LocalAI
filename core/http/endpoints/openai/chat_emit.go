@@ -7,6 +7,73 @@ import (
 	"github.com/mudler/LocalAI/pkg/functions"
 )
 
+// buildNoActionFinalChunks produces the closing SSE chunks for the
+// noActionToRun branch of processTools (i.e. the model chose the "answer"
+// pseudo-function or emitted no tool calls at all).
+//
+// When content was already streamed (contentAlreadyStreamed=true) the
+// helper emits a single trailing usage chunk, optionally carrying
+// reasoning that was produced but not streamed incrementally. When
+// content was not streamed it emits a role chunk followed by a
+// content+reasoning+usage chunk — the "send everything at once" fallback.
+//
+// Reasoning re-emission is guarded by reasoningAlreadyStreamed, not by
+// probing the extractor's Go-side state: the C++ autoparser delivers
+// reasoning through ProcessChatDeltaReasoning which populates a
+// separate accumulator that extractor.Reasoning() does not expose.
+// Without this guard the callback would stream reasoning incrementally
+// and the final chunk would duplicate it.
+func buildNoActionFinalChunks(
+	id, model string,
+	created int,
+	contentAlreadyStreamed bool,
+	reasoningAlreadyStreamed bool,
+	content string,
+	reasoning string,
+	usage schema.OpenAIUsage,
+) []schema.OpenAIResponse {
+	var out []schema.OpenAIResponse
+
+	if contentAlreadyStreamed {
+		delta := &schema.Message{}
+		if reasoning != "" && !reasoningAlreadyStreamed {
+			r := reasoning
+			delta.Reasoning = &r
+		}
+		out = append(out, schema.OpenAIResponse{
+			ID: id, Created: created, Model: model,
+			Choices: []schema.Choice{{Delta: delta, Index: 0}},
+			Object:  "chat.completion.chunk",
+			Usage:   usage,
+		})
+		return out
+	}
+
+	// Content was not streamed — send role, then content (+reasoning) + usage.
+	out = append(out, schema.OpenAIResponse{
+		ID: id, Created: created, Model: model,
+		Choices: []schema.Choice{{
+			Delta: &schema.Message{Role: "assistant"},
+			Index: 0,
+		}},
+		Object: "chat.completion.chunk",
+	})
+
+	c := content
+	delta := &schema.Message{Content: &c}
+	if reasoning != "" && !reasoningAlreadyStreamed {
+		r := reasoning
+		delta.Reasoning = &r
+	}
+	out = append(out, schema.OpenAIResponse{
+		ID: id, Created: created, Model: model,
+		Choices: []schema.Choice{{Delta: delta, Index: 0}},
+		Object:  "chat.completion.chunk",
+		Usage:   usage,
+	})
+	return out
+}
+
 // buildDeferredToolCallChunks produces the SSE chunks for tool calls that
 // were discovered only during final parsing (i.e. after the streaming
 // callback finished). The caller forwards every returned chunk to the

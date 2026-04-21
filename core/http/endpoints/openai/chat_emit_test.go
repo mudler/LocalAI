@@ -559,3 +559,116 @@ var _ = Describe("buildDeferredToolCallChunks", func() {
 		})
 	})
 })
+
+var _ = Describe("buildNoActionFinalChunks", func() {
+	const (
+		testID      = "req"
+		testModel   = "test-model"
+		testCreated = 1700000000
+	)
+	usage := schema.OpenAIUsage{PromptTokens: 5, CompletionTokens: 7, TotalTokens: 12}
+
+	Describe("Content streamed — trailing usage chunk", func() {
+		It("emits just one chunk with usage, no content, no reasoning when reasoning was streamed", func() {
+			chunks := buildNoActionFinalChunks(
+				testID, testModel, testCreated,
+				true, true,
+				"", "already-streamed-reasoning", usage,
+			)
+
+			Expect(chunks).To(HaveLen(1))
+			Expect(chunks[0].Usage.TotalTokens).To(Equal(12))
+			Expect(contentOf(chunks[0])).To(BeEmpty())
+			Expect(reasoningOf(chunks[0])).To(BeEmpty(),
+				"reasoning must not be re-emitted once it was streamed via the callback")
+		})
+
+		It("emits a trailing reasoning delivery when reasoning came only at end", func() {
+			chunks := buildNoActionFinalChunks(
+				testID, testModel, testCreated,
+				true, false,
+				"", "autoparser final reasoning", usage,
+			)
+
+			Expect(chunks).To(HaveLen(1))
+			Expect(reasoningOf(chunks[0])).To(Equal("autoparser final reasoning"))
+			Expect(contentOf(chunks[0])).To(BeEmpty())
+			Expect(chunks[0].Usage.TotalTokens).To(Equal(12))
+		})
+
+		It("omits reasoning when it's empty regardless of streamed flag", func() {
+			chunks := buildNoActionFinalChunks(
+				testID, testModel, testCreated,
+				true, false,
+				"", "", usage,
+			)
+
+			Expect(chunks).To(HaveLen(1))
+			Expect(reasoningOf(chunks[0])).To(BeEmpty())
+		})
+	})
+
+	Describe("Content not streamed — role, then content+usage", func() {
+		It("emits role chunk then content chunk without reasoning when reasoning was streamed", func() {
+			chunks := buildNoActionFinalChunks(
+				testID, testModel, testCreated,
+				false, true,
+				"the answer", "already-streamed-reasoning", usage,
+			)
+
+			Expect(chunks).To(HaveLen(2))
+			Expect(chunks[0].Choices[0].Delta.Role).To(Equal("assistant"))
+			Expect(contentOf(chunks[0])).To(BeEmpty())
+
+			Expect(contentOf(chunks[1])).To(Equal("the answer"))
+			Expect(reasoningOf(chunks[1])).To(BeEmpty(),
+				"reasoning must not be re-emitted if it was streamed earlier")
+			Expect(chunks[1].Usage.TotalTokens).To(Equal(12))
+		})
+
+		It("emits role, then content+reasoning when reasoning was not streamed", func() {
+			chunks := buildNoActionFinalChunks(
+				testID, testModel, testCreated,
+				false, false,
+				"the answer", "autoparser final reasoning", usage,
+			)
+
+			Expect(chunks).To(HaveLen(2))
+			Expect(chunks[0].Choices[0].Delta.Role).To(Equal("assistant"))
+
+			Expect(contentOf(chunks[1])).To(Equal("the answer"))
+			Expect(reasoningOf(chunks[1])).To(Equal("autoparser final reasoning"))
+			Expect(chunks[1].Usage.TotalTokens).To(Equal(12))
+		})
+
+		It("still emits content even when reasoning is empty", func() {
+			chunks := buildNoActionFinalChunks(
+				testID, testModel, testCreated,
+				false, false,
+				"just an answer", "", usage,
+			)
+
+			Expect(chunks).To(HaveLen(2))
+			Expect(contentOf(chunks[1])).To(Equal("just an answer"))
+			Expect(reasoningOf(chunks[1])).To(BeEmpty())
+		})
+	})
+
+	Describe("Metadata and shape invariants", func() {
+		It("stamps every chunk with the same id/model/created and object", func() {
+			chunks := buildNoActionFinalChunks(
+				testID, testModel, testCreated,
+				false, false,
+				"hi", "reasoning", usage,
+			)
+			for i, ch := range chunks {
+				Expect(ch.ID).To(Equal(testID), "chunk[%d] ID", i)
+				Expect(ch.Model).To(Equal(testModel), "chunk[%d] Model", i)
+				Expect(ch.Created).To(Equal(testCreated), "chunk[%d] Created", i)
+				Expect(ch.Object).To(Equal("chat.completion.chunk"), "chunk[%d] Object", i)
+				Expect(ch.Choices).To(HaveLen(1))
+				Expect(ch.Choices[0].Index).To(Equal(0))
+			}
+		})
+	})
+})
