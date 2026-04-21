@@ -138,3 +138,42 @@ test.describe('Import form UX — Batch A2 (inline ambiguity picker)', () => {
     await expect(page.locator('button', { hasText: /Auto-detect/ }).first()).toBeVisible()
   })
 })
+
+test.describe('Import form UX — Batch A3 (auto-install warning)', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.route('**/backends/known', (route) => {
+      route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify(MOCK_BACKENDS),
+      })
+    })
+  })
+
+  test('A3 — picking a not-installed backend shows the auto-install note', async ({ page }) => {
+    await page.goto('/app/import-model')
+
+    const backendButton = page.locator('button', { hasText: /Auto-detect/ }).first()
+    await backendButton.click()
+    // vllm is installed: false in the mock.
+    await page.locator('[role="option"]', { hasText: /^vllm/ }).click()
+
+    const note = page.locator('[data-testid="auto-install-note"]')
+    await expect(note).toBeVisible()
+    await expect(note).toContainText(/isn't installed yet/i)
+  })
+
+  test('A3 — picking an installed backend does not show the auto-install note', async ({ page }) => {
+    await page.goto('/app/import-model')
+    const backendButton = page.locator('button', { hasText: /Auto-detect/ }).first()
+    await backendButton.click()
+    // llama-cpp is installed: true in the mock.
+    await page.locator('[role="option"]', { hasText: /^llama-cpp/ }).click()
+    await expect(page.locator('[data-testid="auto-install-note"]')).toHaveCount(0)
+  })
+
+  test('A3 — Auto-detect (empty backend) does not show the note', async ({ page }) => {
+    await page.goto('/app/import-model')
+    // Default state is Auto-detect; the note must not be present.
+    await expect(page.locator('[data-testid="auto-install-note"]')).toHaveCount(0)
+  })
+})
