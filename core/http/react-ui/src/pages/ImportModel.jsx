@@ -20,8 +20,14 @@ const MODALITY_LABELS = {
   vad: 'Voice activity detection',
 }
 
-// buildBackendOptions groups known backends by modality and flags
-// preference-only entries with a trailing suffix.
+// Tooltip shown on the "manual pick" badge so screen reader + hover users
+// understand what opting into a non-autodetectable backend means. Kept at
+// module scope so the Playwright locator can assert the exact copy.
+const MANUAL_PICK_TOOLTIP = "Auto-detect won't route to this backend. Pick it here if you know that's what you want."
+
+// buildBackendOptions groups known backends by modality and tags
+// auto_detect=false entries with a muted "manual pick" badge so users
+// understand auto-detect won't route to them.
 function buildBackendOptions(list) {
   if (!Array.isArray(list) || list.length === 0) return BACKENDS_FALLBACK_EMPTY
   const groups = new Map()
@@ -37,8 +43,12 @@ function buildBackendOptions(list) {
     out.push({ value: `__header_${key}`, label, isHeader: true })
     const sorted = groups.get(key).slice().sort((a, b) => a.name.localeCompare(b.name))
     for (const b of sorted) {
-      const suffix = b.auto_detect ? '' : ' (preference-only)'
-      out.push({ value: b.name, label: `${b.name}${suffix}` })
+      const opt = { value: b.name, label: b.name }
+      if (b.auto_detect === false) {
+        opt.badge = 'manual pick'
+        opt.badgeTooltip = MANUAL_PICK_TOOLTIP
+      }
+      out.push(opt)
     }
   }
   return out
@@ -389,7 +399,7 @@ export default function ImportModel() {
                     disabled={isSubmitting || backendsLoading}
                   />
                   <p style={hintStyle}>
-                    Force a specific backend. Leave empty to auto-detect from URI.
+                    Force a specific backend. Leave empty to auto-detect from the URI. Items marked &ldquo;manual pick&rdquo; aren&rsquo;t auto-detectable &mdash; pick them yourself if you know what the model needs.
                     {backendsError && (
                       <span style={{ color: 'var(--color-warning)', marginLeft: '6px' }}>
                         Could not load backend list — auto-detect only.

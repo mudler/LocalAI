@@ -199,8 +199,26 @@ export default function SearchableSelect({
                   onMouseEnter={() => setFocusIndex(i)}
                 >
                   <span style={{ flex: 1 }}>{o.label}</span>
+                  {o.badge && (
+                    <span
+                      title={o.badgeTooltip || undefined}
+                      style={{
+                        marginLeft: 'auto',
+                        padding: '1px 6px',
+                        borderRadius: '999px',
+                        fontSize: '0.6875rem',
+                        fontWeight: 500,
+                        color: 'var(--color-text-muted)',
+                        background: 'var(--color-bg-tertiary)',
+                        border: '1px solid var(--color-border-subtle)',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {o.badge}
+                    </span>
+                  )}
                   {isEnterTarget && (
-                    <span style={{ marginLeft: 'auto', color: 'var(--color-text-muted)', fontSize: '0.75rem' }}>↵</span>
+                    <span style={{ marginLeft: o.badge ? '6px' : 'auto', color: 'var(--color-text-muted)', fontSize: '0.75rem' }}>↵</span>
                   )}
                 </div>
               )
