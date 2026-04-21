@@ -27,7 +27,7 @@ test.describe('Import form UX — Batch A1 (manual-pick badge)', () => {
     })
   })
 
-  test('manual-pick badge renders for preference-only backends with tooltip', async ({ page }) => {
+  test('A1 — manual-pick badge renders for preference-only backends with tooltip', async ({ page }) => {
     await page.goto('/app/import-model')
     // Open the Backend dropdown
     const backendButton = page.locator('button', { hasText: /Auto-detect/ }).first()
@@ -48,5 +48,93 @@ test.describe('Import form UX — Batch A1 (manual-pick badge)', () => {
 
     // Labels must NOT contain the legacy " (preference-only)" suffix.
     await expect(page.locator('text=(preference-only)')).toHaveCount(0)
+  })
+})
+
+test.describe('Import form UX — Batch A2 (inline ambiguity picker)', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.route('**/api/backends/known', (route) => {
+      route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify(MOCK_BACKENDS),
+      })
+    })
+  })
+
+  test('A2 — ambiguity alert with TTS candidate chips, clicking sets backend and resubmits', async ({ page }) => {
+    let hits = 0
+    await page.route('**/api/models/import-uri', (route) => {
+      hits += 1
+      if (hits === 1) {
+        route.fulfill({
+          status: 400,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            error: 'ambiguous import',
+            detail: 'importer: ambiguous — detected modality "tts" (pipeline_tag="text-to-speech")',
+            modality: 'tts',
+            candidates: ['piper', 'bark', 'kokoro'],
+            hint: 'Pass preferences.backend to pick one of the candidates.',
+          }),
+        })
+      } else {
+        route.fulfill({
+          contentType: 'application/json',
+          body: JSON.stringify({ uuid: 'test-job-123', ID: 'test-job-123' }),
+        })
+      }
+    })
+    // Job polling endpoint — reply completed so the second submit settles.
+    await page.route('**/api/models/jobs/*', (route) => {
+      route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify({ completed: true, message: 'done' }),
+      })
+    })
+
+    await page.goto('/app/import-model')
+    await page.locator('input[placeholder*="huggingface://"]').fill('https://huggingface.co/nari-labs/Dia-1.6B')
+    await page.locator('button', { hasText: /Import Model/ }).click()
+
+    const alert = page.locator('[data-testid="ambiguity-alert"]')
+    await expect(alert).toBeVisible({ timeout: 5_000 })
+    await expect(alert).toContainText(/text-to-speech/i)
+    await expect(alert.locator('[data-testid="ambiguity-chip-piper"]')).toBeVisible()
+    await expect(alert.locator('[data-testid="ambiguity-chip-bark"]')).toBeVisible()
+    await expect(alert.locator('[data-testid="ambiguity-chip-kokoro"]')).toBeVisible()
+
+    // Click piper — the form should update the dropdown + auto-resubmit.
+    await alert.locator('[data-testid="ambiguity-chip-piper"]').click()
+
+    await expect(alert).toHaveCount(0)
+    await expect(page.locator('button', { hasText: 'piper' }).first()).toBeVisible()
+    await expect.poll(() => hits, { timeout: 5_000 }).toBeGreaterThanOrEqual(2)
+  })
+
+  test('A2 — dismissing the ambiguity alert clears it without setting a backend', async ({ page }) => {
+    await page.route('**/api/models/import-uri', (route) => {
+      route.fulfill({
+        status: 400,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          error: 'ambiguous import',
+          detail: 'ambiguous',
+          modality: 'tts',
+          candidates: ['piper', 'bark'],
+          hint: 'pick one',
+        }),
+      })
+    })
+
+    await page.goto('/app/import-model')
+    await page.locator('input[placeholder*="huggingface://"]').fill('https://huggingface.co/nari-labs/Dia-1.6B')
+    await page.locator('button', { hasText: /Import Model/ }).click()
+
+    const alert = page.locator('[data-testid="ambiguity-alert"]')
+    await expect(alert).toBeVisible({ timeout: 5_000 })
+
+    await alert.locator('[data-testid="ambiguity-dismiss"]').click()
+    await expect(alert).toHaveCount(0)
+    await expect(page.locator('button', { hasText: /Auto-detect/ }).first()).toBeVisible()
   })
 })
