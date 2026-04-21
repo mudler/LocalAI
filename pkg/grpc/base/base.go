@@ -81,6 +81,14 @@ func (llm *Base) Detect(*pb.DetectOptions) (pb.DetectResponse, error) {
 	return pb.DetectResponse{}, fmt.Errorf("unimplemented")
 }
 
+func (llm *Base) FaceVerify(*pb.FaceVerifyRequest) (pb.FaceVerifyResponse, error) {
+	return pb.FaceVerifyResponse{}, fmt.Errorf("unimplemented")
+}
+
+func (llm *Base) FaceAnalyze(*pb.FaceAnalyzeRequest) (pb.FaceAnalyzeResponse, error) {
+	return pb.FaceAnalyzeResponse{}, fmt.Errorf("unimplemented")
+}
+
 func (llm *Base) TokenizeString(opts *pb.PredictOptions) (pb.TokenizationResponse, error) {
 	return pb.TokenizationResponse{}, fmt.Errorf("unimplemented")
 }

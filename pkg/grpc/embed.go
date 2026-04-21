@@ -71,6 +71,14 @@ func (e *embedBackend) Detect(ctx context.Context, in *pb.DetectOptions, opts ..
 	return e.s.Detect(ctx, in)
 }
 
+func (e *embedBackend) FaceVerify(ctx context.Context, in *pb.FaceVerifyRequest, opts ...grpc.CallOption) (*pb.FaceVerifyResponse, error) {
+	return e.s.FaceVerify(ctx, in)
+}
+
+func (e *embedBackend) FaceAnalyze(ctx context.Context, in *pb.FaceAnalyzeRequest, opts ...grpc.CallOption) (*pb.FaceAnalyzeResponse, error) {
+	return e.s.FaceAnalyze(ctx, in)
+}
+
 func (e *embedBackend) AudioTranscription(ctx context.Context, in *pb.TranscriptRequest, opts ...grpc.CallOption) (*pb.TranscriptResult, error) {
 	return e.s.AudioTranscription(ctx, in)
 }

@@ -1,5 +1,5 @@
 # Disable parallel execution for backend builds
-.NOTPARALLEL: backends/diffusers backends/llama-cpp backends/turboquant backends/outetts backends/piper backends/stablediffusion-ggml backends/whisper backends/faster-whisper backends/silero-vad backends/local-store backends/huggingface backends/rfdetr backends/kitten-tts backends/kokoro backends/chatterbox backends/llama-cpp-darwin backends/neutts build-darwin-python-backend build-darwin-go-backend backends/mlx backends/diffuser-darwin backends/mlx-vlm backends/mlx-audio backends/mlx-distributed backends/stablediffusion-ggml-darwin backends/vllm backends/vllm-omni backends/sglang backends/moonshine backends/pocket-tts backends/qwen-tts backends/faster-qwen3-tts backends/qwen-asr backends/nemo backends/voxcpm backends/whisperx backends/ace-step backends/acestep-cpp backends/fish-speech backends/voxtral backends/opus backends/trl backends/llama-cpp-quantization backends/kokoros backends/sam3-cpp backends/qwen3-tts-cpp backends/tinygrad
+.NOTPARALLEL: backends/diffusers backends/llama-cpp backends/turboquant backends/outetts backends/piper backends/stablediffusion-ggml backends/whisper backends/faster-whisper backends/silero-vad backends/local-store backends/huggingface backends/rfdetr backends/insightface backends/kitten-tts backends/kokoro backends/chatterbox backends/llama-cpp-darwin backends/neutts build-darwin-python-backend build-darwin-go-backend backends/mlx backends/diffuser-darwin backends/mlx-vlm backends/mlx-audio backends/mlx-distributed backends/stablediffusion-ggml-darwin backends/vllm backends/vllm-omni backends/sglang backends/moonshine backends/pocket-tts backends/qwen-tts backends/faster-qwen3-tts backends/qwen-asr backends/nemo backends/voxcpm backends/whisperx backends/ace-step backends/acestep-cpp backends/fish-speech backends/voxtral backends/opus backends/trl backends/llama-cpp-quantization backends/kokoros backends/sam3-cpp backends/qwen3-tts-cpp backends/tinygrad
 
 GOCMD=go
 GOTEST=$(GOCMD) test
@@ -434,6 +434,7 @@ prepare-test-extra: protogen-python
 	$(MAKE) -C backend/python/ace-step
 	$(MAKE) -C backend/python/trl
 	$(MAKE) -C backend/python/tinygrad
+	$(MAKE) -C backend/python/insightface
 	$(MAKE) -C backend/rust/kokoros kokoros-grpc
 
 test-extra: prepare-test-extra
@@ -457,6 +458,7 @@ test-extra: prepare-test-extra
 	$(MAKE) -C backend/python/ace-step test
 	$(MAKE) -C backend/python/trl test
 	$(MAKE) -C backend/python/tinygrad test
+	$(MAKE) -C backend/python/insightface test
 	$(MAKE) -C backend/rust/kokoros test
 
 ##
@@ -507,6 +509,13 @@ test-extra-backend: protogen-go
 	BACKEND_TEST_TOOL_NAME="$$BACKEND_TEST_TOOL_NAME" \
 	BACKEND_TEST_CACHE_TYPE_K="$$BACKEND_TEST_CACHE_TYPE_K" \
 	BACKEND_TEST_CACHE_TYPE_V="$$BACKEND_TEST_CACHE_TYPE_V" \
+	BACKEND_TEST_FACE_IMAGE_1_URL="$$BACKEND_TEST_FACE_IMAGE_1_URL" \
+	BACKEND_TEST_FACE_IMAGE_1_FILE="$$BACKEND_TEST_FACE_IMAGE_1_FILE" \
+	BACKEND_TEST_FACE_IMAGE_2_URL="$$BACKEND_TEST_FACE_IMAGE_2_URL" \
+	BACKEND_TEST_FACE_IMAGE_2_FILE="$$BACKEND_TEST_FACE_IMAGE_2_FILE" \
+	BACKEND_TEST_FACE_IMAGE_3_URL="$$BACKEND_TEST_FACE_IMAGE_3_URL" \
+	BACKEND_TEST_FACE_IMAGE_3_FILE="$$BACKEND_TEST_FACE_IMAGE_3_FILE" \
+	BACKEND_TEST_VERIFY_DISTANCE_CEILING="$$BACKEND_TEST_VERIFY_DISTANCE_CEILING" \
 	go test -v -timeout 30m ./tests/e2e-backends/...
 
 ## Convenience wrappers: build the image, then exercise it.
@@ -602,6 +611,51 @@ test-extra-backend-tinygrad-all: \
 	test-extra-backend-tinygrad-embeddings \
 	test-extra-backend-tinygrad-sd \
 	test-extra-backend-tinygrad-whisper
+
+## insightface — face recognition.
+##
+## Face fixtures default to the sample images shipped in the
+## deepinsight/insightface repository (MIT-licensed). For offline/local
+## runs override with BACKEND_TEST_FACE_IMAGE_{1,2,3}_FILE pointing at
+## local paths.
+FACE_IMAGE_1_URL ?= https://github.com/deepinsight/insightface/raw/master/python-package/insightface/data/images/t1.jpg
+FACE_IMAGE_2_URL ?= https://github.com/deepinsight/insightface/raw/master/python-package/insightface/data/images/t1.jpg
+FACE_IMAGE_3_URL ?= https://github.com/deepinsight/insightface/raw/master/python-package/insightface/data/images/mask_white.jpg
+
+## buffalo_l — insightface default, non-commercial research use only.
+## Pre-baked in the image. Full face-recognition capability matrix
+## including face_analyze (buffalo_l ships a genderage head).
+test-extra-backend-insightface-buffalo-l: docker-build-insightface
+	BACKEND_IMAGE=local-ai-backend:insightface \
+	BACKEND_TEST_MODEL_NAME=insightface-buffalo-l \
+	BACKEND_TEST_OPTIONS=engine:insightface,model_pack:buffalo_l \
+	BACKEND_TEST_CAPS=health,load,face_detect,face_embed,face_verify,face_analyze \
+	BACKEND_TEST_FACE_IMAGE_1_URL=$(FACE_IMAGE_1_URL) \
+	BACKEND_TEST_FACE_IMAGE_2_URL=$(FACE_IMAGE_2_URL) \
+	BACKEND_TEST_FACE_IMAGE_3_URL=$(FACE_IMAGE_3_URL) \
+	BACKEND_TEST_VERIFY_DISTANCE_CEILING=0.6 \
+	$(MAKE) test-extra-backend
+
+## OpenCV Zoo YuNet + SFace — Apache 2.0, commercial-safe. Pre-baked
+## at /opt/face-models/opencv/*.onnx. face_analyze cap is dropped
+## (SFace has no demographic head). Distance distribution is wider
+## than ArcFace so the verify ceiling is looser.
+test-extra-backend-insightface-opencv: docker-build-insightface
+	BACKEND_IMAGE=local-ai-backend:insightface \
+	BACKEND_TEST_MODEL_NAME=insightface-opencv \
+	BACKEND_TEST_OPTIONS=engine:onnx_direct,detector_onnx:models/opencv/yunet.onnx,recognizer_onnx:models/opencv/sface.onnx \
+	BACKEND_TEST_CAPS=health,load,face_detect,face_embed,face_verify \
+	BACKEND_TEST_FACE_IMAGE_1_URL=$(FACE_IMAGE_1_URL) \
+	BACKEND_TEST_FACE_IMAGE_2_URL=$(FACE_IMAGE_2_URL) \
+	BACKEND_TEST_FACE_IMAGE_3_URL=$(FACE_IMAGE_3_URL) \
+	BACKEND_TEST_VERIFY_DISTANCE_CEILING=0.55 \
+	$(MAKE) test-extra-backend
+
+## Aggregate — runs both face-recognition model configurations so CI
+## catches regressions across engines together.
+test-extra-backend-insightface-all: \
+	test-extra-backend-insightface-buffalo-l \
+	test-extra-backend-insightface-opencv
 
 ## sglang mirrors the vllm setup: HuggingFace model id, same tiny Qwen,
 ## tool-call extraction via sglang's native qwen parser. CPU builds use
@@ -748,6 +802,7 @@ BACKEND_OUTETTS = outetts|python|.|false|true
 BACKEND_FASTER_WHISPER = faster-whisper|python|.|false|true
 BACKEND_COQUI = coqui|python|.|false|true
 BACKEND_RFDETR = rfdetr|python|.|false|true
+BACKEND_INSIGHTFACE = insightface|python|.|false|true
 BACKEND_KITTEN_TTS = kitten-tts|python|.|false|true
 BACKEND_NEUTTS = neutts|python|.|false|true
 BACKEND_KOKORO = kokoro|python|.|false|true
@@ -819,6 +874,7 @@ $(eval $(call generate-docker-build-target,$(BACKEND_OUTETTS)))
 $(eval $(call generate-docker-build-target,$(BACKEND_FASTER_WHISPER)))
 $(eval $(call generate-docker-build-target,$(BACKEND_COQUI)))
 $(eval $(call generate-docker-build-target,$(BACKEND_RFDETR)))
+$(eval $(call generate-docker-build-target,$(BACKEND_INSIGHTFACE)))
 $(eval $(call generate-docker-build-target,$(BACKEND_KITTEN_TTS)))
 $(eval $(call generate-docker-build-target,$(BACKEND_NEUTTS)))
 $(eval $(call generate-docker-build-target,$(BACKEND_KOKORO)))
@@ -853,7 +909,7 @@ $(eval $(call generate-docker-build-target,$(BACKEND_SAM3_CPP)))
 docker-save-%: backend-images
 	docker save local-ai-backend:$* -o backend-images/$*.tar
 
-docker-build-backends: docker-build-llama-cpp docker-build-ik-llama-cpp docker-build-turboquant docker-build-rerankers docker-build-vllm docker-build-vllm-omni docker-build-sglang docker-build-transformers docker-build-outetts docker-build-diffusers docker-build-kokoro docker-build-faster-whisper docker-build-coqui docker-build-chatterbox docker-build-vibevoice docker-build-moonshine docker-build-pocket-tts docker-build-qwen-tts docker-build-fish-speech docker-build-faster-qwen3-tts docker-build-qwen-asr docker-build-nemo docker-build-voxcpm docker-build-whisperx docker-build-ace-step docker-build-acestep-cpp docker-build-voxtral docker-build-mlx-distributed docker-build-trl docker-build-llama-cpp-quantization docker-build-tinygrad docker-build-kokoros docker-build-sam3-cpp docker-build-qwen3-tts-cpp
+docker-build-backends: docker-build-llama-cpp docker-build-ik-llama-cpp docker-build-turboquant docker-build-rerankers docker-build-vllm docker-build-vllm-omni docker-build-sglang docker-build-transformers docker-build-outetts docker-build-diffusers docker-build-kokoro docker-build-faster-whisper docker-build-coqui docker-build-chatterbox docker-build-vibevoice docker-build-moonshine docker-build-pocket-tts docker-build-qwen-tts docker-build-fish-speech docker-build-faster-qwen3-tts docker-build-qwen-asr docker-build-nemo docker-build-voxcpm docker-build-whisperx docker-build-ace-step docker-build-acestep-cpp docker-build-voxtral docker-build-mlx-distributed docker-build-trl docker-build-llama-cpp-quantization docker-build-tinygrad docker-build-kokoros docker-build-sam3-cpp docker-build-qwen3-tts-cpp docker-build-insightface
 
 ########################################################
 ### Mock Backend for E2E Tests

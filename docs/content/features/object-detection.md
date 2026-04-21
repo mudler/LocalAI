@@ -7,6 +7,11 @@ url = "/features/object-detection/"
 
 LocalAI supports object detection and image segmentation through various backends. This feature allows you to identify and locate objects within images with high accuracy and real-time performance. Available backends include [RF-DETR](https://github.com/roboflow/rf-detr) for object detection and [sam3.cpp](https://github.com/PABannier/sam3.cpp) for image segmentation (SAM 3/2/EdgeTAM).
 
+For detecting **faces** specifically, see the dedicated
+[Face Recognition](/features/face-recognition/) feature — its
+`/v1/detection` support is tuned for face bounding boxes and ships
+with commercially-safe model options.
+
 ## Overview
 
 Object detection in LocalAI is implemented through dedicated backends that can identify and locate objects within images. Each backend provides different capabilities and model architectures.

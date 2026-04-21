@@ -10,6 +10,10 @@ Release notes have been now moved completely over Github releases.
 
 You can see the release notes [here](https://github.com/mudler/LocalAI/releases).
 
+## 2026 Highlights
+
+- **April 2026**: [Face recognition backend](/features/face-recognition/) — `insightface`-powered 1:1 verification, 1:N identification, face embedding, face detection, and demographic analysis. Ships both a non-commercial `buffalo_l` model and an Apache 2.0 OpenCV Zoo alternative.
+
 ## 2024 Highlights
 
 - **April 2024**: [Reranker API](https://github.com/mudler/LocalAI/pull/2121)

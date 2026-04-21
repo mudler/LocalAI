@@ -168,6 +168,67 @@
     nvidia-cuda-13: "cuda13-rfdetr"
     nvidia-cuda-12: "cuda12-rfdetr"
     nvidia-l4t-cuda-12: "nvidia-l4t-arm64-rfdetr"
+- &insightface
+  name: "insightface-buffalo-l"
+  alias: "insightface-buffalo-l"
+  # Upstream insightface is MIT but the buffalo_l *weights* are
+  # released for NON-COMMERCIAL research use only.
+  license: "insightface-non-commercial"
+  description: |
+    Face recognition backend using insightface's buffalo_l model pack
+    (SCRFD-10GF detector + ResNet50 ArcFace embedder + genderage head).
+    Best accuracy among the shipped options. NON-COMMERCIAL RESEARCH USE
+    ONLY — the model weights carry upstream's research-only license.
+    For commercial use see the insightface-opencv entry (Apache 2.0).
+    Weights are pre-baked into the container at build time (~326MB).
+  urls:
+    - https://github.com/deepinsight/insightface
+  tags:
+    - face-recognition
+    - face-verification
+    - face-embedding
+    - research-only
+    - gpu
+    - cpu
+  options:
+    - "engine:insightface"
+    - "model_pack:buffalo_l"
+  capabilities:
+    default: "cpu-insightface"
+    nvidia: "cuda12-insightface"
+    nvidia-cuda-12: "cuda12-insightface"
+- &insightface_opencv
+  !!merge <<: *insightface
+  name: "insightface-opencv"
+  alias: "insightface-opencv"
+  license: "apache-2.0"
+  description: |
+    Face recognition backend using OpenCV Zoo models (YuNet detector +
+    SFace recognizer). APACHE 2.0 — safe for commercial use.
+    Lower accuracy than buffalo_l and no age/gender analysis.
+    Weights (~40MB) are pre-baked inside the backend image.
+  tags:
+    - face-recognition
+    - face-verification
+    - face-embedding
+    - commercial-ok
+    - gpu
+    - cpu
+  options:
+    - "engine:onnx_direct"
+    - "detector_onnx:models/opencv/yunet.onnx"
+    - "recognizer_onnx:models/opencv/sface.onnx"
+- &insightface_buffalo_s
+  !!merge <<: *insightface
+  name: "insightface-buffalo-s"
+  alias: "insightface-buffalo-s"
+  description: |
+    Smaller insightface pack for low-resource deployments (SCRFD-500MF
+    detector + MBF embedder + genderage head). NON-COMMERCIAL RESEARCH
+    USE ONLY. Not pre-baked; downloaded at first use (~159MB).
+  options:
+    - "engine:insightface"
+    - "model_pack:buffalo_s"
 - &sam3cpp
   name: "sam3-cpp"
   alias: "sam3-cpp"
@@ -3721,3 +3782,42 @@
   uri: "quay.io/go-skynet/local-ai-backends:latest-metal-darwin-arm64-llama-cpp-quantization"
   mirrors:
     - localai/localai-backends:latest-metal-darwin-arm64-llama-cpp-quantization
+# insightface (face recognition)
+- !!merge <<: *insightface
+  name: "insightface-buffalo-l-development"
+  capabilities:
+    default: "cpu-insightface-development"
+    nvidia: "cuda12-insightface-development"
+    nvidia-cuda-12: "cuda12-insightface-development"
+- !!merge <<: *insightface_opencv
+  name: "insightface-opencv-development"
+  capabilities:
+    default: "cpu-insightface-development"
+    nvidia: "cuda12-insightface-development"
+    nvidia-cuda-12: "cuda12-insightface-development"
+- !!merge <<: *insightface_buffalo_s
+  name: "insightface-buffalo-s-development"
+  capabilities:
+    default: "cpu-insightface-development"
+    nvidia: "cuda12-insightface-development"
+    nvidia-cuda-12: "cuda12-insightface-development"
+- !!merge <<: *insightface
+  name: "cpu-insightface"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-insightface"
+  mirrors:
+    - localai/localai-backends:latest-cpu-insightface
+- !!merge <<: *insightface
+  name: "cuda12-insightface"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-insightface"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-12-insightface
+- !!merge <<: *insightface
+  name: "cpu-insightface-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-cpu-insightface"
+  mirrors:
+    - localai/localai-backends:master-cpu-insightface
+- !!merge <<: *insightface
+  name: "cuda12-insightface-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-insightface"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-12-insightface

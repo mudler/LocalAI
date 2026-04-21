@@ -173,6 +173,109 @@ type Detection struct {
 	Mask       string  `json:"mask,omitempty"` // base64-encoded PNG segmentation mask
 }
 
+// ─── Face recognition ──────────────────────────────────────────────
+//
+// FacialArea describes a bounding box for a detected face.
+type FacialArea struct {
+	X float32 `json:"x"`
+	Y float32 `json:"y"`
+	W float32 `json:"w"`
+	H float32 `json:"h"`
+}
+
+// FaceVerifyRequest compares two images to decide whether they depict
+// the same person. Img1 and Img2 accept URL, base64, or data-URI.
+type FaceVerifyRequest struct {
+	BasicModelRequest
+	Img1         string  `json:"img1"`
+	Img2         string  `json:"img2"`
+	Threshold    float32 `json:"threshold,omitempty"`
+	AntiSpoofing bool    `json:"anti_spoofing,omitempty"`
+}
+
+type FaceVerifyResponse struct {
+	Verified         bool       `json:"verified"`
+	Distance         float32    `json:"distance"`
+	Threshold        float32    `json:"threshold"`
+	Confidence       float32    `json:"confidence"`
+	Model            string     `json:"model"`
+	Img1Area         FacialArea `json:"img1_area"`
+	Img2Area         FacialArea `json:"img2_area"`
+	ProcessingTimeMs float32    `json:"processing_time_ms,omitempty"`
+}
+
+// FaceAnalyzeRequest asks the backend for demographic attributes on
+// every face detected in Img.
+type FaceAnalyzeRequest struct {
+	BasicModelRequest
+	Img          string   `json:"img"`
+	Actions      []string `json:"actions,omitempty"` // subset of {"age","gender","emotion","race"}
+	AntiSpoofing bool     `json:"anti_spoofing,omitempty"`
+}
+
+type FaceAnalyzeResponse struct {
+	Faces []FaceAnalysis `json:"faces"`
+}
+
+type FaceAnalysis struct {
+	Region          FacialArea         `json:"region"`
+	FaceConfidence  float32            `json:"face_confidence"`
+	Age             float32            `json:"age,omitempty"`
+	DominantGender  string             `json:"dominant_gender,omitempty"`
+	Gender          map[string]float32 `json:"gender,omitempty"`
+	DominantEmotion string             `json:"dominant_emotion,omitempty"`
+	Emotion         map[string]float32 `json:"emotion,omitempty"`
+	DominantRace    string             `json:"dominant_race,omitempty"`
+	Race            map[string]float32 `json:"race,omitempty"`
+	IsReal          bool               `json:"is_real,omitempty"`
+	AntispoofScore  float32            `json:"antispoof_score,omitempty"`
+}
+
+// FaceRegisterRequest enrolls a face into the 1:N recognition store.
+type FaceRegisterRequest struct {
+	BasicModelRequest
+	Img    string            `json:"img"`
+	Name   string            `json:"name"`
+	Labels map[string]string `json:"labels,omitempty"`
+	Store  string            `json:"store,omitempty"` // vector store model; empty = local-store default
+}
+
+type FaceRegisterResponse struct {
+	ID           string    `json:"id"`
+	Name         string    `json:"name"`
+	RegisteredAt time.Time `json:"registered_at"`
+}
+
+// FaceIdentifyRequest runs 1:N recognition: embed the probe and
+// return the top-K nearest registered faces.
+type FaceIdentifyRequest struct {
+	BasicModelRequest
+	Img       string  `json:"img"`
+	TopK      int     `json:"top_k,omitempty"`
+	Threshold float32 `json:"threshold,omitempty"` // optional cutoff on distance
+	Store     string  `json:"store,omitempty"`
+}
+
+type FaceIdentifyResponse struct {
+	Matches []FaceIdentifyMatch `json:"matches"`
+}
+
+type FaceIdentifyMatch struct {
+	ID         string            `json:"id"`
+	Name       string            `json:"name"`
+	Labels     map[string]string `json:"labels,omitempty"`
+	Distance   float32           `json:"distance"`
+	Confidence float32           `json:"confidence"`
+	Match      bool              `json:"match"` // true when distance <= threshold
+}
+
+// FaceForgetRequest removes a previously-registered face by ID.
+type FaceForgetRequest struct {
+	BasicModelRequest
+	ID    string `json:"id"`
+	Store string `json:"store,omitempty"`
+}
+
 type ImportModelRequest struct {
 	URI         string          `json:"uri"`
 	Preferences json.RawMessage `json:"preferences,omitempty"`

@@ -24,6 +24,8 @@ service Backend {
   rpc TokenizeString(PredictOptions) returns (TokenizationResponse) {}
   rpc Status(HealthMessage) returns (StatusResponse) {}
   rpc Detect(DetectOptions) returns (DetectResponse) {}
+  rpc FaceVerify(FaceVerifyRequest) returns (FaceVerifyResponse) {}
+  rpc FaceAnalyze(FaceAnalyzeRequest) returns (FaceAnalyzeResponse) {}
 
   rpc StoresSet(StoresSetOptions) returns (Result) {}
   rpc StoresDelete(StoresDeleteOptions) returns (Result) {}
@@ -473,6 +475,57 @@ message Detection {
 
 message DetectResponse {
   repeated Detection Detections = 1;
+}
+
+// --- Face recognition messages ---
+
+message FacialArea {
+  float x = 1;
+  float y = 2;
+  float w = 3;
+  float h = 4;
+}
+
+message FaceVerifyRequest {
+  string img1 = 1;              // base64-encoded image
+  string img2 = 2;              // base64-encoded image
+  float  threshold = 3;         // cosine-distance threshold; 0 = use backend default
+  bool   anti_spoofing = 4;     // reserved for future MiniFASNet bolt-on
+}
+
+message FaceVerifyResponse {
+  bool       verified = 1;
+  float      distance = 2;      // 1 - cosine_similarity
+  float      threshold = 3;
+  float      confidence = 4;    // 0-100
+  string     model = 5;         // e.g. "buffalo_l"
+  FacialArea img1_area = 6;
+  FacialArea img2_area = 7;
+  float      processing_time_ms = 8;
+}
+
+message FaceAnalyzeRequest {
+  string          img = 1;          // base64-encoded image
+  repeated string actions = 2;      // subset of ["age","gender","emotion","race"]; empty = all-supported
+  bool            anti_spoofing = 3;
+}
+
+message FaceAnalysis {
+  FacialArea         region = 1;
+  float              face_confidence = 2;
+  float              age = 3;
+  string             dominant_gender = 4;   // "Man" | "Woman"
+  map<string, float> gender = 5;
+  string             dominant_emotion = 6;  // reserved; empty in MVP
+  map<string, float> emotion = 7;
+  string             dominant_race = 8;     // not populated
+  map<string, float> race = 9;
+  bool               is_real = 10;          // anti-spoofing result when enabled
+  float              antispoof_score = 11;
+}
+
+message FaceAnalyzeResponse {
+  repeated FaceAnalysis faces = 1;
 }
 
 message ToolFormatMarkers {

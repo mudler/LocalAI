@@ -588,6 +588,7 @@ const (
 	FLAG_VAD              ModelConfigUsecase = 0b010000000000
 	FLAG_VIDEO            ModelConfigUsecase = 0b100000000000
 	FLAG_DETECTION        ModelConfigUsecase = 0b1000000000000
+	FLAG_FACE_RECOGNITION ModelConfigUsecase = 0b10000000000000
 
 	// Common Subsets
 	FLAG_LLM ModelConfigUsecase = FLAG_CHAT | FLAG_COMPLETION | FLAG_EDIT
@@ -611,6 +612,7 @@ func GetAllModelConfigUsecases() map[string]ModelConfigUsecase {
 		"FLAG_LLM":              FLAG_LLM,
 		"FLAG_VIDEO":            FLAG_VIDEO,
 		"FLAG_DETECTION":        FLAG_DETECTION,
+		"FLAG_FACE_RECOGNITION": FLAG_FACE_RECOGNITION,
 	}
 }
 
@@ -651,7 +653,7 @@ func (c *ModelConfig) GuessUsecases(u ModelConfigUsecase) bool {
 	nonTextGenBackends := []string{
 		"whisper", "piper", "kokoro",
 		"diffusers", "stablediffusion", "stablediffusion-ggml",
-		"rerankers", "silero-vad", "rfdetr",
+		"rerankers", "silero-vad", "rfdetr", "insightface",
 		"transformers-musicgen", "ace-step", "acestep-cpp",
 	}
 
@@ -728,8 +730,15 @@ func (c *ModelConfig) GuessUsecases(u ModelConfigUsecase) bool {
 	}
 
 	if (u & FLAG_DETECTION) == FLAG_DETECTION {
-		detectionBackends := []string{"rfdetr", "sam3-cpp"}
+		detectionBackends := []string{"rfdetr", "sam3-cpp", "insightface"}
 		if !slices.Contains(detectionBackends, c.Backend) {
+			return false
+		}
+	}
+
+	if (u & FLAG_FACE_RECOGNITION) == FLAG_FACE_RECOGNITION {
+		faceBackends := []string{"insightface"}
+		if !slices.Contains(faceBackends, c.Backend) {
 			return false
 		}
 	}

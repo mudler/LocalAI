@@ -7,6 +7,10 @@ url = "/features/embeddings/"
 
 LocalAI supports generating embeddings for text or list of tokens.
 
+For face embeddings specifically, see the
+[Face Recognition](/features/face-recognition/) feature — it produces
+512-d L2-normalized vectors tuned for face similarity.
+
 For the API documentation you can refer to the OpenAI docs: https://platform.openai.com/docs/api-reference/embeddings
 
 ## Model compatibility

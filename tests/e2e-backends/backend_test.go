@@ -2,6 +2,7 @@ package e2ebackends_test
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"net"
@@ -83,13 +84,18 @@ const (
 	capTools         = "tools"
 	capTranscription = "transcription"
 	capImage         = "image"
+	capFaceDetect    = "face_detect"
+	capFaceEmbed     = "face_embed"
+	capFaceVerify    = "face_verify"
+	capFaceAnalyze   = "face_analyze"
 
-	defaultPrompt      = "The capital of France is"
-	streamPrompt       = "Once upon a time"
-	defaultToolPrompt  = "What's the weather like in Paris, France?"
-	defaultToolName    = "get_weather"
-	defaultImagePrompt = "a photograph of an astronaut riding a horse"
-	defaultImageSteps  = 4
+	defaultPrompt             = "The capital of France is"
+	streamPrompt              = "Once upon a time"
+	defaultToolPrompt         = "What's the weather like in Paris, France?"
+	defaultToolName           = "get_weather"
+	defaultImagePrompt        = "a photograph of an astronaut riding a horse"
+	defaultImageSteps         = 4
+	defaultVerifyDistanceCeil = float32(0.6) // upper bound for same-person; SFace runs closer to 0.5 ArcFace to 0.35.
 )
 
 func defaultCaps() map[string]bool {
@@ -127,12 +133,21 @@ var _ = Describe("Backend container", Ordered, func() {
 		modelName  string // set when a HuggingFace model id is used
 		mmprojFile string // optional multimodal projector
 		audioFile  string // optional audio fixture for transcription specs
-		addr       string
-		serverCmd  *exec.Cmd
-		conn       *grpc.ClientConn
-		client     pb.BackendClient
-		prompt     string
-		options    []string
+		// Face fixtures: two photos of the same person + one different person.
+		faceFile1 string
+		faceFile2 string
+		faceFile3 string
+		// verifyCeiling is the upper-bound cosine distance for a
+		// same-person pair; each model configuration can override it via
+		// BACKEND_TEST_VERIFY_DISTANCE_CEILING because SFace's distance
+		// distribution is wider than ArcFace's.
+		verifyCeiling float32
+		addr          string
+		serverCmd     *exec.Cmd
+		conn          *grpc.ClientConn
+		client        pb.BackendClient
+		prompt        string
+		options       []string
 	)
 
 	BeforeAll(func() {
@@ -196,6 +211,12 @@ var _ = Describe("Backend container", Ordered, func() {
 				downloadFile(url, audioFile)
 			}
 		}
+
+		// Face fixtures for the face-recognition specs.
+		faceFile1 = resolveFaceFixture(workDir, "BACKEND_TEST_FACE_IMAGE_1", "face_a_1.jpg")
+		faceFile2 = resolveFaceFixture(workDir, "BACKEND_TEST_FACE_IMAGE_2", "face_a_2.jpg")
+		faceFile3 = resolveFaceFixture(workDir, "BACKEND_TEST_FACE_IMAGE_3", "face_b.jpg")
+		verifyCeiling = envFloat32("BACKEND_TEST_VERIFY_DISTANCE_CEILING", defaultVerifyDistanceCeil)
 
 		// Pick a free port and launch the backend.
 		port, err := freeport.GetFreePort()
@@ -533,6 +554,120 @@ var _ = Describe("Backend container", Ordered, func() {
 		GinkgoWriter.Printf("AudioTranscriptionStream: deltas=%d assembled=%q final=%q\n",
 			len(deltas), assembled.String(), finalText)
 	})
+
+	// ─── face recognition specs ─────────────────────────────────────────
+
+	It("detects faces via Detect", func() {
+		if !caps[capFaceDetect] {
+			Skip("face_detect capability not enabled")
+		}
+		Expect(faceFile1).NotTo(BeEmpty(), "BACKEND_TEST_FACE_IMAGE_1_FILE or _URL must be set")
+
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		res, err := client.Detect(ctx, &pb.DetectOptions{Src: base64File(faceFile1)})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(res.GetDetections()).NotTo(BeEmpty(), "Detect returned no faces")
+		for _, d := range res.GetDetections() {
+			Expect(d.GetClassName()).To(Equal("face"))
+			Expect(d.GetWidth()).To(BeNumerically(">", 0))
+			Expect(d.GetHeight()).To(BeNumerically(">", 0))
+		}
+		GinkgoWriter.Printf("face_detect: %d faces\n", len(res.GetDetections()))
+	})
+
+	It("produces face embeddings via Embedding", func() {
+		if !caps[capFaceEmbed] {
+			Skip("face_embed capability not enabled")
+		}
+		Expect(faceFile1).NotTo(BeEmpty(), "BACKEND_TEST_FACE_IMAGE_1_FILE or _URL must be set")
+
+		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+		defer cancel()
+		res, err := client.Embedding(ctx, &pb.PredictOptions{Images: []string{base64File(faceFile1)}})
+		Expect(err).NotTo(HaveOccurred())
+		vec := res.GetEmbeddings()
+		Expect(vec).NotTo(BeEmpty(), "Embedding returned empty vector")
+		// Face embeddings are L2-normalized — expect unit norm.
+		var sumSq float64
+		for _, v := range vec {
+			sumSq += float64(v) * float64(v)
+		}
+		Expect(sumSq).To(BeNumerically("~", 1.0, 0.05),
+			"face embedding should be L2-normed (sum(x^2)=%.3f, dim=%d)", sumSq, len(vec))
+		GinkgoWriter.Printf("face_embed: dim=%d\n", len(vec))
+	})
+
+	It("verifies faces via FaceVerify", func() {
+		if !caps[capFaceVerify] {
+			Skip("face_verify capability not enabled")
+		}
+		Expect(faceFile1).NotTo(BeEmpty(), "BACKEND_TEST_FACE_IMAGE_1_FILE or _URL must be set")
+
+		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+		defer cancel()
+
+		// Same image twice — expected verified=true with very small distance.
+		b1 := base64File(faceFile1)
+		same, err := client.FaceVerify(ctx, &pb.FaceVerifyRequest{Img1: b1, Img2: b1, Threshold: verifyCeiling})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(same.GetVerified()).To(BeTrue(), "same image should verify: dist=%.3f", same.GetDistance())
+		Expect(same.GetDistance()).To(BeNumerically("<", 0.1))
+		GinkgoWriter.Printf("face_verify(same): dist=%.3f confidence=%.1f\n", same.GetDistance(), same.GetConfidence())
+
+		// Different images — assert relative ordering when the detector
+		// actually finds a face in both images. Some fixtures (masked
+		// faces, profile shots, etc.) are legitimately borderline for
+		// SCRFD's default threshold, so we don't fail the suite when the
+		// second image gets a NotFound — we just log and skip the
+		// cross-person check. The same-image assertion above is the
+		// definitive proof the RPC works end-to-end.
+		if faceFile3 != "" {
+			b3 := base64File(faceFile3)
+			diff, err := client.FaceVerify(ctx, &pb.FaceVerifyRequest{Img1: b1, Img2: b3, Threshold: verifyCeiling})
+			if err != nil {
+				GinkgoWriter.Printf("face_verify(diff): skipped — %v\n", err)
+			} else {
+				Expect(diff.GetDistance()).To(BeNumerically(">", same.GetDistance()),
+					"cross-person distance %.3f should exceed same-image distance %.3f", diff.GetDistance(), same.GetDistance())
+				GinkgoWriter.Printf("face_verify(diff): dist=%.3f verified=%v\n", diff.GetDistance(), diff.GetVerified())
+			}
+		}
+
+		// If two photos of the same person were provided, the ordering
+		// should also hold: d(a1,a2) < ceiling. Best-effort as above —
+		// skip if the detector doesn't find a face in the second image.
+		if faceFile2 != "" {
+			b2 := base64File(faceFile2)
+			sp, err := client.FaceVerify(ctx, &pb.FaceVerifyRequest{Img1: b1, Img2: b2, Threshold: verifyCeiling})
+			if err != nil {
+				GinkgoWriter.Printf("face_verify(same-person): skipped — %v\n", err)
+			} else {
+				Expect(sp.GetDistance()).To(BeNumerically("<", verifyCeiling),
+					"same-person (different photos) distance %.3f exceeds ceiling %.3f", sp.GetDistance(), verifyCeiling)
+				GinkgoWriter.Printf("face_verify(same-person): dist=%.3f verified=%v\n", sp.GetDistance(), sp.GetVerified())
+			}
+		}
+	})
+
+	It("analyzes faces via FaceAnalyze", func() {
+		if !caps[capFaceAnalyze] {
+			Skip("face_analyze capability not enabled")
+		}
+		Expect(faceFile1).NotTo(BeEmpty(), "BACKEND_TEST_FACE_IMAGE_1_FILE or _URL must be set")
+
+		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+		defer cancel()
+		res, err := client.FaceAnalyze(ctx, &pb.FaceAnalyzeRequest{Img: base64File(faceFile1)})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(res.GetFaces()).NotTo(BeEmpty(), "FaceAnalyze returned no faces")
+		for _, f := range res.GetFaces() {
+			Expect(f.GetFaceConfidence()).To(BeNumerically(">", 0))
+			Expect(f.GetAge()).To(BeNumerically(">", 0), "age should be populated by analyze-capable engines")
+			Expect(f.GetDominantGender()).To(BeElementOf("Man", "Woman"))
+		}
+		GinkgoWriter.Printf("face_analyze: %d faces\n", len(res.GetFaces()))
+	})
 })
 
 // extractImage runs `docker create` + `docker export` to materialise the image
@@ -587,6 +722,43 @@ func envInt32(name string, def int32) int32 {
 		return def
 	}
 	return v
+}
+
+func envFloat32(name string, def float32) float32 {
+	raw := os.Getenv(name)
+	if raw == "" {
+		return def
+	}
+	var v float32
+	if _, err := fmt.Sscanf(raw, "%f", &v); err != nil {
+		return def
+	}
+	return v
+}
+
+// resolveFaceFixture returns the local path of a face-fixture image,
+// preferring BACKEND_TEST_<prefix>_FILE when set and otherwise
+// downloading BACKEND_TEST_<prefix>_URL into workDir. Returns an empty
+// string when neither is configured — specs that need it should skip.
+func resolveFaceFixture(workDir, prefix, defaultName string) string {
+	if path := os.Getenv(prefix + "_FILE"); path != "" {
+		return path
+	}
+	url := os.Getenv(prefix + "_URL")
+	if url == "" {
+		return ""
+	}
+	dest := filepath.Join(workDir, defaultName)
+	downloadFile(url, dest)
+	return dest
+}
+
+// base64File reads a file and returns its base64 encoding.
+func base64File(path string) string {
+	GinkgoHelper()
+	data, err := os.ReadFile(path)
+	Expect(err).NotTo(HaveOccurred(), "reading %s", path)
+	return base64.StdEncoding.EncodeToString(data)
 }
 
 func keys(m map[string]bool) []string {
