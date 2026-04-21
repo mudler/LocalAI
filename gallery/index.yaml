@@ -1,4 +1,60 @@
 ---
+- name: "ernie-image-turbo"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/unsloth/ERNIE-Image-Turbo-GGUF
+  description: |
+    # ERNIE-Image-Turbo
+
+    🤗 ERNIE-Image &nbsp;|&nbsp;
+    🤗 ERNIE-Image-Turbo &nbsp;|&nbsp;
+    🤖 ERNIE-Image &nbsp;|&nbsp;
+    🤖 ERNIE-Image-Turbo &nbsp;
+
+    🖥️ Huggingface Demo1 &nbsp;|&nbsp;
+    🖥️ Huggingface Demo2(ZeroGPU) &nbsp;|&nbsp;
+    🖥️ AI Studio Demo &nbsp;&nbsp;
+
+    Github &nbsp;|&nbsp;
+    📖 Blog &nbsp;|&nbsp;
+    🖼️ Art Gallery
+
+    💬 WeChat(微信) &nbsp;|&nbsp;
+    🫨 Discord &nbsp;|&nbsp;
+    🏷️ X
+
+    ...
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+  icon: https://cdn-uploads.huggingface.co/production/uploads/5f8d780e5d083370c711f575/QRt1mPSU9SCkcxxFWQje2.jpeg
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      min_p: 0.01
+      model: llama-cpp/models/ERNIE-Image-Turbo-GGUF/ernie-image-turbo-Q4_K_M.gguf
+      repeat_penalty: 1
+      temperature: 0.7
+      top_k: -1
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/ERNIE-Image-Turbo-GGUF/ernie-image-turbo-Q4_K_M.gguf
+      sha256: ed3e035b631da47b0469b314dcce0afc3618fc9386f1af3d3e28710181e21d93
+      uri: https://huggingface.co/unsloth/ERNIE-Image-Turbo-GGUF/resolve/main/ernie-image-turbo-Q4_K_M.gguf
+    - filename: llama-cpp/models/ERNIE-Image-Turbo-GGUF/ernie-image-turbo-UD-Q4_K_M.gguf
+      sha256: b55c6a0104d7635097665527267bbd934d5fa43c00722ef6c42dd1e6470d64c4
+      uri: https://huggingface.co/unsloth/ERNIE-Image-Turbo-GGUF/resolve/main/ernie-image-turbo-UD-Q4_K_M.gguf
 - name: "qwen3.5-9b-glm5.1-distill-v1"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
