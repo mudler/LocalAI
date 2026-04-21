@@ -560,6 +560,49 @@ var _ = Describe("buildDeferredToolCallChunks", func() {
 	})
 })
 
+var _ = Describe("hasRealCall", func() {
+	const noAction = "answer"
+
+	It("returns false for nil and empty slices", func() {
+		Expect(hasRealCall(nil, noAction)).To(BeFalse())
+		Expect(hasRealCall([]functions.FuncCallResults{}, noAction)).To(BeFalse())
+	})
+
+	It("returns false when every entry is the noAction sentinel", func() {
+		results := []functions.FuncCallResults{
+			{Name: noAction, Arguments: `{"message":"hi"}`},
+			{Name: noAction, Arguments: `{"message":"hello"}`},
+		}
+		Expect(hasRealCall(results, noAction)).To(BeFalse())
+	})
+
+	It("returns true when only one entry is a real call", func() {
+		results := []functions.FuncCallResults{
+			{Name: "search", Arguments: "{}"},
+		}
+		Expect(hasRealCall(results, noAction)).To(BeTrue())
+	})
+
+	It("returns true when a real call follows a noAction entry", func() {
+		// This is the regression the follow-up fixes: the old
+		// functionResults[0].Name == noAction check would declare this
+		// noActionToRun and drop the real call entirely.
+		results := []functions.FuncCallResults{
+			{Name: noAction, Arguments: `{"message":"hi"}`},
+			{Name: "search", Arguments: "{}"},
+		}
+		Expect(hasRealCall(results, noAction)).To(BeTrue())
+	})
+
+	It("returns true when a real call precedes a noAction entry", func() {
+		results := []functions.FuncCallResults{
+			{Name: "search", Arguments: "{}"},
+			{Name: noAction, Arguments: `{"message":"hi"}`},
+		}
+		Expect(hasRealCall(results, noAction)).To(BeTrue())
+	})
+})
+
 var _ = Describe("buildNoActionFinalChunks", func() {
 	const (
 		testID      = "req"

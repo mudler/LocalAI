@@ -365,7 +365,12 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 			functionResults = functions.ParseFunctionCall(cleanedResult, config.FunctionsConfig)
 		}
 		xlog.Debug("[ChatDeltas] final tool call decision", "tool_calls", len(functionResults), "text_content", *textContentToReturn)
-		noActionToRun := len(functionResults) > 0 && functionResults[0].Name == noAction || len(functionResults) == 0
+		// noAction is a sentinel "just answer" pseudo-function — not a real
+		// tool call. Scan the whole slice rather than only index 0 so we
+		// don't drop a real tool call that happens to follow a noAction
+		// entry, and so the default branch isn't entered with only noAction
+		// entries to emit as tool_calls.
+		noActionToRun := !hasRealCall(functionResults, noAction)
 
 		switch {
 		case noActionToRun:

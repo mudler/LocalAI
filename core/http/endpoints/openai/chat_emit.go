@@ -7,6 +7,19 @@ import (
 	"github.com/mudler/LocalAI/pkg/functions"
 )
 
+// hasRealCall reports whether functionResults contains at least one
+// entry whose Name is something other than the noAction sentinel.
+// Used by processTools to decide between the "answer the question"
+// path and the real tool-call flush.
+func hasRealCall(functionResults []functions.FuncCallResults, noAction string) bool {
+	for _, fc := range functionResults {
+		if fc.Name != noAction {
+			return true
+		}
+	}
+	return false
+}
+
 // buildNoActionFinalChunks produces the closing SSE chunks for the
 // noActionToRun branch of processTools (i.e. the model chose the "answer"
 // pseudo-function or emitted no tool calls at all).
