@@ -1669,6 +1669,165 @@
                 }
             }
         },
+        "/v1/face/analyze": {
+            "post": {
+                "tags": [
+                    "face-recognition"
+                ],
+                "summary": "Analyze demographic attributes (age, gender, ...) of faces.",
+                "parameters": [
+                    {
+                        "description": "query params",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.FaceAnalyzeRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "$ref": "#/definitions/schema.FaceAnalyzeResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/face/embed": {
+            "post": {
+                "tags": [
+                    "face-recognition"
+                ],
+                "summary": "Extract a face embedding from an image.",
+                "parameters": [
+                    {
+                        "description": "query params",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.FaceEmbedRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "$ref": "#/definitions/schema.FaceEmbedResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/face/forget": {
+            "post": {
+                "tags": [
+                    "face-recognition"
+                ],
+                "summary": "Remove a previously-registered face by ID.",
+                "parameters": [
+                    {
+                        "description": "query params",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.FaceForgetRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    }
+                }
+            }
+        },
+        "/v1/face/identify": {
+            "post": {
+                "tags": [
+                    "face-recognition"
+                ],
+                "summary": "Identify a face against the registered database (1:N recognition).",
+                "parameters": [
+                    {
+                        "description": "query params",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.FaceIdentifyRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "$ref": "#/definitions/schema.FaceIdentifyResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/face/register": {
+            "post": {
+                "tags": [
+                    "face-recognition"
+                ],
+                "summary": "Register a face for 1:N identification.",
+                "parameters": [
+                    {
+                        "description": "query params",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.FaceRegisterRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "$ref": "#/definitions/schema.FaceRegisterResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/face/verify": {
+            "post": {
+                "tags": [
+                    "face-recognition"
+                ],
+                "summary": "Verify that two images depict the same person.",
+                "parameters": [
+                    {
+                        "description": "query params",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.FaceVerifyRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "$ref": "#/definitions/schema.FaceVerifyResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/v1/images/generations": {
             "post": {
                 "tags": [
@@ -3063,6 +3222,293 @@
                 },
                 "vocal_language": {
                     "type": "string"
+                }
+            }
+        },
+        "schema.FaceAnalysis": {
+            "type": "object",
+            "properties": {
+                "age": {
+                    "type": "number"
+                },
+                "antispoof_score": {
+                    "type": "number"
+                },
+                "dominant_emotion": {
+                    "type": "string"
+                },
+                "dominant_gender": {
+                    "type": "string"
+                },
+                "dominant_race": {
+                    "type": "string"
+                },
+                "emotion": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "number",
+                        "format": "float32"
+                    }
+                },
+                "face_confidence": {
+                    "type": "number"
+                },
+                "gender": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "number",
+                        "format": "float32"
+                    }
+                },
+                "is_real": {
+                    "type": "boolean"
+                },
+                "race": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "number",
+                        "format": "float32"
+                    }
+                },
+                "region": {
+                    "$ref": "#/definitions/schema.FacialArea"
+                }
+            }
+        },
+        "schema.FaceAnalyzeRequest": {
+            "type": "object",
+            "properties": {
+                "actions": {
+                    "description": "subset of {\"age\",\"gender\",\"emotion\",\"race\"}",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "anti_spoofing": {
+                    "type": "boolean"
+                },
+                "img": {
+                    "type": "string"
+                },
+                "model": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.FaceAnalyzeResponse": {
+            "type": "object",
+            "properties": {
+                "faces": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.FaceAnalysis"
+                    }
+                }
+            }
+        },
+        "schema.FaceEmbedRequest": {
+            "type": "object",
+            "properties": {
+                "img": {
+                    "type": "string"
+                },
+                "model": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.FaceEmbedResponse": {
+            "type": "object",
+            "properties": {
+                "dim": {
+                    "type": "integer"
+                },
+                "embedding": {
+                    "type": "array",
+                    "items": {
+                        "type": "number"
+                    }
+                },
+                "model": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.FaceForgetRequest": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "model": {
+                    "type": "string"
+                },
+                "store": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.FaceIdentifyMatch": {
+            "type": "object",
+            "properties": {
+                "confidence": {
+                    "type": "number"
+                },
+                "distance": {
+                    "type": "number"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "labels": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "match": {
+                    "description": "true when distance \u003c= threshold",
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.FaceIdentifyRequest": {
+            "type": "object",
+            "properties": {
+                "img": {
+                    "type": "string"
+                },
+                "model": {
+                    "type": "string"
+                },
+                "store": {
+                    "type": "string"
+                },
+                "threshold": {
+                    "description": "optional cutoff on distance",
+                    "type": "number"
+                },
+                "top_k": {
+                    "type": "integer"
+                }
+            }
+        },
+        "schema.FaceIdentifyResponse": {
+            "type": "object",
+            "properties": {
+                "matches": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.FaceIdentifyMatch"
+                    }
+                }
+            }
+        },
+        "schema.FaceRegisterRequest": {
+            "type": "object",
+            "properties": {
+                "img": {
+                    "type": "string"
+                },
+                "labels": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "model": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "store": {
+                    "description": "vector store model; empty = local-store default",
+                    "type": "string"
+                }
+            }
+        },
+        "schema.FaceRegisterResponse": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "registered_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.FaceVerifyRequest": {
+            "type": "object",
+            "properties": {
+                "anti_spoofing": {
+                    "type": "boolean"
+                },
+                "img1": {
+                    "type": "string"
+                },
+                "img2": {
+                    "type": "string"
+                },
+                "model": {
+                    "type": "string"
+                },
+                "threshold": {
+                    "type": "number"
+                }
+            }
+        },
+        "schema.FaceVerifyResponse": {
+            "type": "object",
+            "properties": {
+                "confidence": {
+                    "type": "number"
+                },
+                "distance": {
+                    "type": "number"
+                },
+                "img1_area": {
+                    "$ref": "#/definitions/schema.FacialArea"
+                },
+                "img2_area": {
+                    "$ref": "#/definitions/schema.FacialArea"
+                },
+                "model": {
+                    "type": "string"
+                },
+                "processing_time_ms": {
+                    "type": "number"
+                },
+                "threshold": {
+                    "type": "number"
+                },
+                "verified": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "schema.FacialArea": {
+            "type": "object",
+            "properties": {
+                "h": {
+                    "type": "number"
+                },
+                "w": {
+                    "type": "number"
+                },
+                "x": {
+                    "type": "number"
+                },
+                "y": {
+                    "type": "number"
                 }
             }
         },

@@ -615,6 +615,195 @@ definitions:
       vocal_language:
         type: string
     type: object
+  schema.FaceAnalysis:
+    properties:
+      age:
+        type: number
+      antispoof_score:
+        type: number
+      dominant_emotion:
+        type: string
+      dominant_gender:
+        type: string
+      dominant_race:
+        type: string
+      emotion:
+        additionalProperties:
+          format: float32
+          type: number
+        type: object
+      face_confidence:
+        type: number
+      gender:
+        additionalProperties:
+          format: float32
+          type: number
+        type: object
+      is_real:
+        type: boolean
+      race:
+        additionalProperties:
+          format: float32
+          type: number
+        type: object
+      region:
+        $ref: '#/definitions/schema.FacialArea'
+    type: object
+  schema.FaceAnalyzeRequest:
+    properties:
+      actions:
+        description: subset of {"age","gender","emotion","race"}
+        items:
+          type: string
+        type: array
+      anti_spoofing:
+        type: boolean
+      img:
+        type: string
+      model:
+        type: string
+    type: object
+  schema.FaceAnalyzeResponse:
+    properties:
+      faces:
+        items:
+          $ref: '#/definitions/schema.FaceAnalysis'
+        type: array
+    type: object
+  schema.FaceEmbedRequest:
+    properties:
+      img:
+        type: string
+      model:
+        type: string
+    type: object
+  schema.FaceEmbedResponse:
+    properties:
+      dim:
+        type: integer
+      embedding:
+        items:
+          type: number
+        type: array
+      model:
+        type: string
+    type: object
+  schema.FaceForgetRequest:
+    properties:
+      id:
+        type: string
+      model:
+        type: string
+      store:
+        type: string
+    type: object
+  schema.FaceIdentifyMatch:
+    properties:
+      confidence:
+        type: number
+      distance:
+        type: number
+      id:
+        type: string
+      labels:
+        additionalProperties:
+          type: string
+        type: object
+      match:
+        description: true when distance <= threshold
+        type: boolean
+      name:
+        type: string
+    type: object
+  schema.FaceIdentifyRequest:
+    properties:
+      img:
+        type: string
+      model:
+        type: string
+      store:
+        type: string
+      threshold:
+        description: optional cutoff on distance
+        type: number
+      top_k:
+        type: integer
+    type: object
+  schema.FaceIdentifyResponse:
+    properties:
+      matches:
+        items:
+          $ref: '#/definitions/schema.FaceIdentifyMatch'
+        type: array
+    type: object
+  schema.FaceRegisterRequest:
+    properties:
+      img:
+        type: string
+      labels:
+        additionalProperties:
+          type: string
+        type: object
+      model:
+        type: string
+      name:
+        type: string
+      store:
+        description: vector store model; empty = local-store default
+        type: string
+    type: object
+  schema.FaceRegisterResponse:
+    properties:
+      id:
+        type: string
+      name:
+        type: string
+      registered_at:
+        type: string
+    type: object
+  schema.FaceVerifyRequest:
+    properties:
+      anti_spoofing:
+        type: boolean
+      img1:
+        type: string
+      img2:
+        type: string
+      model:
+        type: string
+      threshold:
+        type: number
+    type: object
+  schema.FaceVerifyResponse:
+    properties:
+      confidence:
+        type: number
+      distance:
+        type: number
+      img1_area:
+        $ref: '#/definitions/schema.FacialArea'
+      img2_area:
+        $ref: '#/definitions/schema.FacialArea'
+      model:
+        type: string
+      processing_time_ms:
+        type: number
+      threshold:
+        type: number
+      verified:
+        type: boolean
+    type: object
+  schema.FacialArea:
+    properties:
+      h:
+        type: number
+      w:
+        type: number
+      x:
+        type: number
+      "y":
+        type: number
+    type: object
   schema.FunctionCall:
     properties:
       arguments:
@@ -2822,6 +3011,106 @@ paths:
         by machine learning models and algorithms.
       tags:
       - embeddings
+  /v1/face/analyze:
+    post:
+      parameters:
+      - description: query params
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.FaceAnalyzeRequest'
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/schema.FaceAnalyzeResponse'
+      summary: Analyze demographic attributes (age, gender, ...) of faces.
+      tags:
+      - face-recognition
+  /v1/face/embed:
+    post:
+      parameters:
+      - description: query params
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.FaceEmbedRequest'
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/schema.FaceEmbedResponse'
+      summary: Extract a face embedding from an image.
+      tags:
+      - face-recognition
+  /v1/face/forget:
+    post:
+      parameters:
+      - description: query params
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.FaceForgetRequest'
+      responses:
+        "204":
+          description: No Content
+      summary: Remove a previously-registered face by ID.
+      tags:
+      - face-recognition
+  /v1/face/identify:
+    post:
+      parameters:
+      - description: query params
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.FaceIdentifyRequest'
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/schema.FaceIdentifyResponse'
+      summary: Identify a face against the registered database (1:N recognition).
+      tags:
+      - face-recognition
+  /v1/face/register:
+    post:
+      parameters:
+      - description: query params
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.FaceRegisterRequest'
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/schema.FaceRegisterResponse'
+      summary: Register a face for 1:N identification.
+      tags:
+      - face-recognition
+  /v1/face/verify:
+    post:
+      parameters:
+      - description: query params
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.FaceVerifyRequest'
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/schema.FaceVerifyResponse'
+      summary: Verify that two images depict the same person.
+      tags:
+      - face-recognition
   /v1/images/generations:
     post:
       parameters:
