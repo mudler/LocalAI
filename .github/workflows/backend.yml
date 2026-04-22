@@ -2584,6 +2584,20 @@ jobs:
             dockerfile: "./backend/Dockerfile.golang"
             context: "./"
             ubuntu-version: '2404'
+          # kokoros (Rust TTS)
+          - build-type: ''
+            cuda-major-version: ""
+            cuda-minor-version: ""
+            platforms: 'linux/amd64'
+            tag-latest: 'auto'
+            tag-suffix: '-cpu-kokoros'
+            runs-on: 'ubuntu-latest'
+            base-image: "ubuntu:24.04"
+            skip-drivers: 'false'
+            backend: "kokoros"
+            dockerfile: "./backend/Dockerfile.rust"
+            context: "./"
+            ubuntu-version: '2404'
           # local-store
           - build-type: ''
             cuda-major-version: ""
