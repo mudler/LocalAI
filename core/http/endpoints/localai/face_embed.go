@@ -9,7 +9,6 @@ import (
 	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/pkg/model"
-	"github.com/mudler/LocalAI/pkg/utils"
 	"github.com/mudler/xlog"
 )
 
@@ -36,7 +35,7 @@ func FaceEmbedEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appC
 			return echo.ErrBadRequest
 		}
 
-		img, err := utils.GetContentURIAsBase64(input.Img)
+		img, err := decodeImageInput(input.Img)
 		if err != nil {
 			return err
 		}
@@ -44,7 +43,7 @@ func FaceEmbedEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appC
 		xlog.Debug("FaceEmbed", "model", cfg.Name, "backend", cfg.Backend)
 		vec, err := backend.FaceEmbed(img, ml, appConfig, *cfg)
 		if err != nil {
-			return err
+			return mapBackendError(err)
 		}
 		return c.JSON(http.StatusOK, schema.FaceEmbedResponse{
 			Embedding: vec,

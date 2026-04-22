@@ -11,7 +11,6 @@ import (
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/facerecognition"
 	"github.com/mudler/LocalAI/pkg/model"
-	"github.com/mudler/LocalAI/pkg/utils"
 	"github.com/mudler/xlog"
 )
 
@@ -37,7 +36,7 @@ func FaceIdentifyEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, a
 			return echo.ErrBadRequest
 		}
 
-		img, err := utils.GetContentURIAsBase64(input.Img)
+		img, err := decodeImageInput(input.Img)
 		if err != nil {
 			return err
 		}
@@ -48,7 +47,7 @@ func FaceIdentifyEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, a
 		xlog.Debug("FaceIdentify", "model", cfg.Name, "topK", topK, "threshold", threshold)
 		probe, err := backend.FaceEmbed(img, ml, appConfig, *cfg)
 		if err != nil {
-			return err
+			return mapBackendError(err)
 		}
 
 		matches, err := registry.Identify(c.Request().Context(), probe, topK)

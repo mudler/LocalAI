@@ -9,7 +9,6 @@ import (
 	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/pkg/model"
-	"github.com/mudler/LocalAI/pkg/utils"
 	"github.com/mudler/xlog"
 )
 
@@ -30,11 +29,11 @@ func FaceVerifyEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, app
 			return echo.ErrBadRequest
 		}
 
-		img1, err := utils.GetContentURIAsBase64(input.Img1)
+		img1, err := decodeImageInput(input.Img1)
 		if err != nil {
 			return err
 		}
-		img2, err := utils.GetContentURIAsBase64(input.Img2)
+		img2, err := decodeImageInput(input.Img2)
 		if err != nil {
 			return err
 		}
@@ -42,7 +41,7 @@ func FaceVerifyEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, app
 		xlog.Debug("FaceVerify", "model", cfg.Name, "backend", cfg.Backend)
 		res, err := backend.FaceVerify(img1, img2, input.Threshold, input.AntiSpoofing, ml, appConfig, *cfg)
 		if err != nil {
-			return err
+			return mapBackendError(err)
 		}
 
 		return c.JSON(http.StatusOK, schema.FaceVerifyResponse{

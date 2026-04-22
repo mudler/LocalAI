@@ -9,7 +9,6 @@ import (
 	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/pkg/model"
-	"github.com/mudler/LocalAI/pkg/utils"
 	"github.com/mudler/xlog"
 )
 
@@ -34,14 +33,14 @@ func DetectionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appC
 
 		xlog.Debug("Detection", "image", input.Image, "modelFile", "modelFile", "backend", cfg.Backend)
 
-		image, err := utils.GetContentURIAsBase64(input.Image)
+		image, err := decodeImageInput(input.Image)
 		if err != nil {
 			return err
 		}
 
 		res, err := backend.Detection(image, input.Prompt, input.Points, input.Boxes, input.Threshold, ml, appConfig, *cfg)
 		if err != nil {
-			return err
+			return mapBackendError(err)
 		}
 
 		response := schema.DetectionResponse{

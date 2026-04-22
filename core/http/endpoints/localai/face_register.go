@@ -10,7 +10,6 @@ import (
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/facerecognition"
 	"github.com/mudler/LocalAI/pkg/model"
-	"github.com/mudler/LocalAI/pkg/utils"
 	"github.com/mudler/xlog"
 )
 
@@ -34,7 +33,7 @@ func FaceRegisterEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, a
 			return echo.NewHTTPError(http.StatusBadRequest, "name is required")
 		}
 
-		img, err := utils.GetContentURIAsBase64(input.Img)
+		img, err := decodeImageInput(input.Img)
 		if err != nil {
 			return err
 		}
@@ -42,7 +41,7 @@ func FaceRegisterEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, a
 		xlog.Debug("FaceRegister", "model", cfg.Name, "name", input.Name)
 		embedding, err := backend.FaceEmbed(img, ml, appConfig, *cfg)
 		if err != nil {
-			return err
+			return mapBackendError(err)
 		}
 
 		stored, err := registry.Register(c.Request().Context(), embedding, facerecognition.Metadata{

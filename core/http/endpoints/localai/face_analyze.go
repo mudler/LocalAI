@@ -9,7 +9,6 @@ import (
 	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/pkg/model"
-	"github.com/mudler/LocalAI/pkg/utils"
 	"github.com/mudler/xlog"
 )
 
@@ -30,7 +29,7 @@ func FaceAnalyzeEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, ap
 			return echo.ErrBadRequest
 		}
 
-		img, err := utils.GetContentURIAsBase64(input.Img)
+		img, err := decodeImageInput(input.Img)
 		if err != nil {
 			return err
 		}
@@ -38,7 +37,7 @@ func FaceAnalyzeEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, ap
 		xlog.Debug("FaceAnalyze", "model", cfg.Name, "backend", cfg.Backend, "actions", input.Actions)
 		res, err := backend.FaceAnalyze(img, input.Actions, input.AntiSpoofing, ml, appConfig, *cfg)
 		if err != nil {
-			return err
+			return mapBackendError(err)
 		}
 
 		response := schema.FaceAnalyzeResponse{
