@@ -150,3 +150,159 @@ var _ = Describe("SetModelAndConfig middleware", func() {
 		})
 	})
 })
+
+// ---------------------------------------------------------------------------
+// MergeOpenResponsesConfig — tool_choice parsing
+// ---------------------------------------------------------------------------
+//
+// The OpenAI chat/completions spec nests the function name under "function":
+//     {"type":"function", "function":{"name":"my_function"}}
+// The legacy Anthropic-compat shape puts it at the top level:
+//     {"type":"function", "name":"my_function"}
+// Both need to reach SetFunctionCallNameString (not SetFunctionCallString,
+// which is the mode field "none"/"auto"/"required").
+//
+// These specs assert both shapes populate the specific-function name and that
+// downstream predicates (ShouldCallSpecificFunction, FunctionToCall) return
+// the expected values so grammar-based forcing actually engages.
+var _ = Describe("MergeOpenResponsesConfig tool_choice parsing", func() {
+	var cfg *config.ModelConfig
+
+	BeforeEach(func() {
+		cfg = &config.ModelConfig{}
+	})
+
+	Context("string tool_choice", func() {
+		It("sets mode to required for tool_choice=\"required\"", func() {
+			req := &schema.OpenResponsesRequest{ToolChoice: "required"}
+			Expect(MergeOpenResponsesConfig(cfg, req)).To(Succeed())
+
+			// "required" is a mode, not a specific function.
+			Expect(cfg.ShouldCallSpecificFunction()).To(BeFalse())
+			// ShouldUseFunctions must be true so tools are sent to the model.
+			Expect(cfg.ShouldUseFunctions()).To(BeTrue())
+		})
+
+		It("leaves config untouched for tool_choice=\"auto\"", func() {
+			req := &schema.OpenResponsesRequest{ToolChoice: "auto"}
+			Expect(MergeOpenResponsesConfig(cfg, req)).To(Succeed())
+
+			Expect(cfg.ShouldCallSpecificFunction()).To(BeFalse())
+			Expect(cfg.FunctionToCall()).To(Equal(""))
+		})
+
+		It("leaves config untouched for tool_choice=\"none\"", func() {
+			req := &schema.OpenResponsesRequest{ToolChoice: "none"}
+			Expect(MergeOpenResponsesConfig(cfg, req)).To(Succeed())
+
+			Expect(cfg.ShouldCallSpecificFunction()).To(BeFalse())
+			Expect(cfg.FunctionToCall()).To(Equal(""))
+		})
+	})
+
+	Context("specific-function tool_choice (OpenAI spec shape)", func() {
+		It("parses {type:function, function:{name:...}} and sets the specific-function name", func() {
+			req := &schema.OpenResponsesRequest{
+				ToolChoice: map[string]any{
+					"type":     "function",
+					"function": map[string]any{"name": "get_weather"},
+				},
+			}
+			Expect(MergeOpenResponsesConfig(cfg, req)).To(Succeed())
+
+			// This is the key invariant the fix restores: a correctly-formed
+			// OpenAI tool_choice must result in ShouldCallSpecificFunction()=true.
+			Expect(cfg.ShouldCallSpecificFunction()).To(BeTrue())
+			Expect(cfg.FunctionToCall()).To(Equal("get_weather"))
+		})
+
+		It("prefers the nested function.name over a stray top-level name", func() {
+			// Defense-in-depth: both shapes present, OpenAI spec wins.
+			req := &schema.OpenResponsesRequest{
+				ToolChoice: map[string]any{
+					"type":     "function",
+					"function": map[string]any{"name": "correct_name"},
+					"name":     "legacy_name",
+				},
+			}
+			Expect(MergeOpenResponsesConfig(cfg, req)).To(Succeed())
+
+			Expect(cfg.FunctionToCall()).To(Equal("correct_name"))
+		})
+	})
+
+	Context("specific-function tool_choice (legacy Anthropic-compat shape)", func() {
+		It("parses {type:function, name:...} and sets the specific-function name", func() {
+			req := &schema.OpenResponsesRequest{
+				ToolChoice: map[string]any{
+					"type": "function",
+					"name": "get_weather",
+				},
+			}
+			Expect(MergeOpenResponsesConfig(cfg, req)).To(Succeed())
+
+			Expect(cfg.ShouldCallSpecificFunction()).To(BeTrue())
+			Expect(cfg.FunctionToCall()).To(Equal("get_weather"))
+		})
+	})
+
+	Context("malformed tool_choice", func() {
+		It("is a no-op when type is missing", func() {
+			req := &schema.OpenResponsesRequest{
+				ToolChoice: map[string]any{
+					"function": map[string]any{"name": "get_weather"},
+				},
+			}
+			Expect(MergeOpenResponsesConfig(cfg, req)).To(Succeed())
+
+			Expect(cfg.ShouldCallSpecificFunction()).To(BeFalse())
+		})
+
+		It("is a no-op when type is not \"function\"", func() {
+			req := &schema.OpenResponsesRequest{
+				ToolChoice: map[string]any{
+					"type":     "object",
+					"function": map[string]any{"name": "get_weather"},
+				},
+			}
+			Expect(MergeOpenResponsesConfig(cfg, req)).To(Succeed())
+
+			Expect(cfg.ShouldCallSpecificFunction()).To(BeFalse())
+		})
+
+		It("is a no-op when name is missing from both shapes", func() {
+			req := &schema.OpenResponsesRequest{
+				ToolChoice: map[string]any{
+					"type":     "function",
+					"function": map[string]any{},
+				},
+			}
+			Expect(MergeOpenResponsesConfig(cfg, req)).To(Succeed())
+
+			Expect(cfg.ShouldCallSpecificFunction()).To(BeFalse())
+			Expect(cfg.FunctionToCall()).To(Equal(""))
+		})
+
+		It("is a no-op when name is empty string", func() {
+			req := &schema.OpenResponsesRequest{
+				ToolChoice: map[string]any{
+					"type":     "function",
+					"function": map[string]any{"name": ""},
+				},
+			}
+			Expect(MergeOpenResponsesConfig(cfg, req)).To(Succeed())
+
+			Expect(cfg.ShouldCallSpecificFunction()).To(BeFalse())
+		})
+	})
+
+	Context("nil tool_choice", func() {
+		It("is a no-op", func() {
+			req := &schema.OpenResponsesRequest{ToolChoice: nil}
+			Expect(MergeOpenResponsesConfig(cfg, req)).To(Succeed())
+
+			Expect(cfg.ShouldCallSpecificFunction()).To(BeFalse())
+			Expect(cfg.FunctionToCall()).To(Equal(""))
+		})
+	})
+})

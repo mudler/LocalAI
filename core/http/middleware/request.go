@@ -614,10 +614,31 @@ func MergeOpenResponsesConfig(config *config.ModelConfig, input *schema.OpenResp
 			}
 			// "auto" is default - let model decide
 		case map[string]any:
-			// Specific tool: {type:"function", name:"..."}
+			// Specific tool. OpenAI spec nests the function name under "function":
+			//   {"type":"function", "function":{"name":"..."}}
+			// Legacy/Anthropic-compat form puts it at the top level:
+			//   {"type":"function", "name":"..."}
+			// The old code only handled the legacy shape AND used the wrong
+			// setter (SetFunctionCallString writes the mode field; the
+			// specific-function name lives in a separate field read by
+			// ShouldCallSpecificFunction / FunctionToCall). Net effect: a
+			// correctly-formed OpenAI tool_choice never engaged grammar-based
+			// forcing, the model got the tools but no selection hint, and
+			// streamed raw JSON as delta.content instead of delta.tool_calls.
 			if tcType, ok := tc["type"].(string); ok && tcType == "function" {
-				if name, ok := tc["name"].(string); ok {
-					config.SetFunctionCallString(name)
+				var name string
+				if fn, ok := tc["function"].(map[string]any); ok {
+					if n, ok := fn["name"].(string); ok {
+						name = n
+					}
+				}
+				if name == "" {
+					if n, ok := tc["name"].(string); ok {
+						name = n
+					}
+				}
+				if name != "" {
+					config.SetFunctionCallNameString(name)
 				}
 			}
 		}
