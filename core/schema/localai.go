@@ -349,6 +349,51 @@ type VoiceEmbedResponse struct {
 	Model     string    `json:"model,omitempty"`
 }
 
+// VoiceRegisterRequest enrolls a speaker into the 1:N identification store.
+type VoiceRegisterRequest struct {
+	BasicModelRequest
+	Audio  string            `json:"audio"`
+	Name   string            `json:"name"`
+	Labels map[string]string `json:"labels,omitempty"`
+	Store  string            `json:"store,omitempty"`
+}
+
+type VoiceRegisterResponse struct {
+	ID           string    `json:"id"`
+	Name         string    `json:"name"`
+	RegisteredAt time.Time `json:"registered_at"`
+}
+
+// VoiceIdentifyRequest runs 1:N recognition: embed the probe and
+// return the top-K nearest registered speakers.
+type VoiceIdentifyRequest struct {
+	BasicModelRequest
+	Audio     string  `json:"audio"`
+	TopK      int     `json:"top_k,omitempty"`
+	Threshold float32 `json:"threshold,omitempty"`
+	Store     string  `json:"store,omitempty"`
+}
+
+type VoiceIdentifyResponse struct {
+	Matches []VoiceIdentifyMatch `json:"matches"`
+}
+
+type VoiceIdentifyMatch struct {
+	ID         string            `json:"id"`
+	Name       string            `json:"name"`
+	Labels     map[string]string `json:"labels,omitempty"`
+	Distance   float32           `json:"distance"`
+	Confidence float32           `json:"confidence"`
+	Match      bool              `json:"match"`
+}
+
+// VoiceForgetRequest removes a previously-registered speaker by ID.
+type VoiceForgetRequest struct {
+	BasicModelRequest
+	ID    string `json:"id"`
+	Store string `json:"store,omitempty"`
+}
+
 type ImportModelRequest struct {
 	URI         string          `json:"uri"`
 	Preferences json.RawMessage `json:"preferences,omitempty"`

@@ -83,7 +83,7 @@ var instructionDefs = []instructionDef{
 		Name:        "voice-recognition",
 		Description: "Speaker verification (1:1), embedding, and demographic analysis from voice",
 		Tags:        []string{"voice-recognition"},
-		Intro:       "Voice (speaker) recognition — the audio analog to /v1/face/*. Use /v1/voice/verify for 1:1 speaker comparison, /v1/voice/embed for a raw speaker-encoder vector, and /v1/voice/analyze for age / gender / emotion inferred from speech. Audio inputs accept URL, base64, or data-URI; /v1/embeddings remains text-only.",
+		Intro:       "Voice (speaker) recognition — the audio analog to /v1/face/*. Use /v1/voice/verify for 1:1 speaker comparison, /v1/voice/identify for 1:N match against the registered store, /v1/voice/{register,forget} to manage that store, /v1/voice/embed for a raw speaker-encoder vector, and /v1/voice/analyze for age / gender / emotion inferred from speech. Registrations are in-memory by default and lost on restart. Audio inputs accept URL, base64, or data-URI; /v1/embeddings remains text-only.",
 	},
 }
 

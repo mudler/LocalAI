@@ -2334,6 +2334,84 @@ const docTemplate = `{
                 }
             }
         },
+        "/v1/voice/forget": {
+            "post": {
+                "tags": [
+                    "voice-recognition"
+                ],
+                "summary": "Remove a previously-registered speaker by ID.",
+                "parameters": [
+                    {
+                        "description": "query params",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.VoiceForgetRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    }
+                }
+            }
+        },
+        "/v1/voice/identify": {
+            "post": {
+                "tags": [
+                    "voice-recognition"
+                ],
+                "summary": "Identify a speaker against the registered database (1:N recognition).",
+                "parameters": [
+                    {
+                        "description": "query params",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.VoiceIdentifyRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "$ref": "#/definitions/schema.VoiceIdentifyResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/voice/register": {
+            "post": {
+                "tags": [
+                    "voice-recognition"
+                ],
+                "summary": "Register a speaker for 1:N identification.",
+                "parameters": [
+                    {
+                        "description": "query params",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.VoiceRegisterRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "$ref": "#/definitions/schema.VoiceRegisterResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/v1/voice/verify": {
             "post": {
                 "tags": [
@@ -5306,6 +5384,114 @@ const docTemplate = `{
                     }
                 },
                 "model": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.VoiceForgetRequest": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "model": {
+                    "type": "string"
+                },
+                "store": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.VoiceIdentifyMatch": {
+            "type": "object",
+            "properties": {
+                "confidence": {
+                    "type": "number"
+                },
+                "distance": {
+                    "type": "number"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "labels": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "match": {
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.VoiceIdentifyRequest": {
+            "type": "object",
+            "properties": {
+                "audio": {
+                    "type": "string"
+                },
+                "model": {
+                    "type": "string"
+                },
+                "store": {
+                    "type": "string"
+                },
+                "threshold": {
+                    "type": "number"
+                },
+                "top_k": {
+                    "type": "integer"
+                }
+            }
+        },
+        "schema.VoiceIdentifyResponse": {
+            "type": "object",
+            "properties": {
+                "matches": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.VoiceIdentifyMatch"
+                    }
+                }
+            }
+        },
+        "schema.VoiceRegisterRequest": {
+            "type": "object",
+            "properties": {
+                "audio": {
+                    "type": "string"
+                },
+                "labels": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "model": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "store": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.VoiceRegisterResponse": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "registered_at": {
                     "type": "string"
                 }
             }

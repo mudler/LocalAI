@@ -133,6 +133,14 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 	router.POST("/v1/voice/embed",
 		localai.VoiceEmbedEndpoint(cl, ml, appConfig),
 		append(voiceMw, requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.VoiceEmbedRequest) }))...)
+	router.POST("/v1/voice/register",
+		localai.VoiceRegisterEndpoint(cl, ml, appConfig, app.VoiceRegistry()),
+		append(voiceMw, requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.VoiceRegisterRequest) }))...)
+	router.POST("/v1/voice/identify",
+		localai.VoiceIdentifyEndpoint(cl, ml, appConfig, app.VoiceRegistry()),
+		append(voiceMw, requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.VoiceIdentifyRequest) }))...)
+	// Forget does not load a voice model — it only needs the registry.
+	router.POST("/v1/voice/forget", localai.VoiceForgetEndpoint(app.VoiceRegistry()))
 
 	ttsHandler := localai.TTSEndpoint(cl, ml, appConfig)
 	router.POST("/tts",

@@ -69,6 +69,9 @@ var RouteFeatureRegistry = []RouteFeature{
 	{"POST", "/v1/voice/verify", FeatureVoiceRecognition},
 	{"POST", "/v1/voice/analyze", FeatureVoiceRecognition},
 	{"POST", "/v1/voice/embed", FeatureVoiceRecognition},
+	{"POST", "/v1/voice/register", FeatureVoiceRecognition},
+	{"POST", "/v1/voice/identify", FeatureVoiceRecognition},
+	{"POST", "/v1/voice/forget", FeatureVoiceRecognition},
 
 	// Video
 	{"POST", "/video", FeatureVideo},

@@ -14,6 +14,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/facerecognition"
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/nodes"
+	"github.com/mudler/LocalAI/core/services/voicerecognition"
 	"github.com/mudler/LocalAI/core/templates"
 	pkggrpc "github.com/mudler/LocalAI/pkg/grpc"
 	"github.com/mudler/LocalAI/pkg/model"
@@ -29,6 +30,12 @@ import (
 // family per deployment; we keep the door open instead.
 const faceEmbeddingDim = 0
 
+// voiceEmbeddingDim is the expected dimension for speaker embeddings.
+// 0 so the Registry accepts whatever dim the loaded recognizer
+// produces — ECAPA-TDNN is 192, WeSpeaker ResNet34 is 256, 3D-Speaker
+// ERes2Net is 192, CAM++ is 512.
+const voiceEmbeddingDim = 0
+
 type Application struct {
 	backendLoader      *config.ModelConfigLoader
 	modelLoader        *model.ModelLoader
@@ -39,6 +46,7 @@ type Application struct {
 	agentJobService    *agentpool.AgentJobService
 	agentPoolService   atomic.Pointer[agentpool.AgentPoolService]
 	faceRegistry       facerecognition.Registry
+	voiceRegistry      voicerecognition.Registry
 	authDB             *gorm.DB
 	watchdogMutex      sync.Mutex
 	watchdogStop       chan bool
@@ -77,6 +85,14 @@ func newApplication(appConfig *config.ApplicationConfig) *Application {
 		return corebackend.StoreBackend(ml, appConfig, storeName, "")
 	}
 	app.faceRegistry = facerecognition.NewStoreRegistry(faceStoreResolver, "", faceEmbeddingDim)
+
+	// Voice (speaker) recognition registry — same plumbing, separate
+	// registry so embedding spaces stay isolated (a face vector and a
+	// speaker vector are not comparable).
+	voiceStoreResolver := func(_ context.Context, storeName string) (pkggrpc.Backend, error) {
+		return corebackend.StoreBackend(ml, appConfig, storeName, "")
+	}
+	app.voiceRegistry = voicerecognition.NewStoreRegistry(voiceStoreResolver, "", voiceEmbeddingDim)
 
 	return app
 }
@@ -128,6 +144,14 @@ func (a *Application) AgentPoolService() *agentpool.AgentPoolService {
 // for the interface and the postgres TODO.
 func (a *Application) FaceRegistry() facerecognition.Registry {
 	return a.faceRegistry
+}
+
+// VoiceRegistry returns the voice (speaker) recognition registry used
+// for 1:N identification. Same in-memory local-store backing as
+// FaceRegistry but a separate instance — voice embeddings live in
+// their own vector space.
+func (a *Application) VoiceRegistry() voicerecognition.Registry {
+	return a.voiceRegistry
 }
 
 // AuthDB returns the auth database connection, or nil if auth is not enabled.
