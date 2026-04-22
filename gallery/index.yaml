@@ -3931,6 +3931,61 @@
     - filename: face_recognition_sface_2021dec_int8.onnx
       sha256: 2b0e941e6f16cc048c20aee0c8e31f569118f65d702914540f7bfdc14048d78a
       uri: https://github.com/opencv/opencv_zoo/raw/main/models/face_recognition_sface/face_recognition_sface_2021dec_int8.onnx
+- &speechbrain_ecapa_tdnn
+  name: "speechbrain-ecapa-tdnn"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  license: apache-2.0
+  description: |
+    Speaker (voice) recognition with SpeechBrain's ECAPA-TDNN trained
+    on VoxCeleb. 192-d L2-normalised embeddings, ~1.9% Equal Error
+    Rate on VoxCeleb1-O. APACHE 2.0 — commercial-safe.
+
+    The checkpoint is auto-downloaded from HuggingFace on first
+    LoadModel (no separate weight file in gallery `files:`). Points at
+    the upstream SpeechBrain HF repo directly — same bytes every
+    deployment.
+  tags: [voice-recognition, speaker-verification, speaker-embedding, commercial-ok, cpu, gpu]
+  urls:
+    - https://speechbrain.github.io/
+    - https://huggingface.co/speechbrain/spkrec-ecapa-voxceleb
+  overrides:
+    backend: speaker-recognition
+    parameters: {model: speechbrain/spkrec-ecapa-voxceleb}
+    options:
+      - "engine:speechbrain"
+      - "source:speechbrain/spkrec-ecapa-voxceleb"
+    known_usecases: [speaker_recognition]
+- &wespeaker_resnet34
+  name: "wespeaker-resnet34"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  license: apache-2.0
+  description: |
+    Speaker recognition with WeSpeaker's ResNet34 trained on VoxCeleb,
+    exported to ONNX. 256-d embeddings, CPU-friendly — avoids the
+    PyTorch runtime entirely (onnxruntime only). APACHE 2.0.
+
+    Pair with the `speaker-recognition` backend's OnnxDirectEngine.
+    Use when ECAPA-TDNN's torch dependency is undesirable (small
+    images, edge deployments).
+  tags: [voice-recognition, speaker-verification, speaker-embedding, commercial-ok, edge, cpu]
+  urls:
+    - https://github.com/wenet-e2e/wespeaker
+  overrides:
+    backend: speaker-recognition
+    parameters: {model: wespeaker_voxceleb_resnet34.onnx}
+    options:
+      - "engine:onnx"
+      - "model_path:wespeaker_voxceleb_resnet34.onnx"
+      - "sample_rate:16000"
+    known_usecases: [speaker_recognition]
+  files:
+    # TODO: fill the real SHA-256 on first install — the value below is a
+    # placeholder so `local-ai models install` fails fast with a clear
+    # checksum error rather than silently accepting whatever upstream
+    # serves. Compute with: curl -L <uri> | sha256sum
+    - filename: wespeaker_voxceleb_resnet34.onnx
+      sha256: 0000000000000000000000000000000000000000000000000000000000000000
+      uri: https://huggingface.co/Wespeaker/wespeaker-voxceleb-resnet34-LM/resolve/main/voxceleb_resnet34_LM.onnx
 - &rfdetr
   name: "rfdetr-base"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"

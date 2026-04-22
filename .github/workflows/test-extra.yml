@@ -39,6 +39,7 @@ jobs:
       voxtral: ${{ steps.detect.outputs.voxtral }}
       kokoros: ${{ steps.detect.outputs.kokoros }}
       insightface: ${{ steps.detect.outputs.insightface }}
+      speaker-recognition: ${{ steps.detect.outputs.speaker-recognition }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -778,3 +779,29 @@ jobs:
       - name: Build insightface backend image and run both model configurations
         run: |
           make test-extra-backend-insightface-all
+  tests-speaker-recognition-grpc:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.speaker-recognition == 'true' || needs.detect-changes.outputs.run-all == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Clone
+        uses: actions/checkout@v6
+        with:
+          submodules: true
+      - name: Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+              make build-essential curl ca-certificates git tar
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.0'
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android /opt/hostedtoolcache/CodeQL || true
+          df -h
+      - name: Build speaker-recognition backend image and run the ECAPA-TDNN configuration
+        run: |
+          make test-extra-backend-speaker-recognition-all

@@ -3773,3 +3773,64 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-insightface"
   mirrors:
     - localai/localai-backends:master-gpu-nvidia-cuda-12-insightface
+
+# speaker-recognition (voice/speaker biometrics) — Apache-2.0 stack
+- &speakerrecognition
+  name: "speaker-recognition"
+  alias: "speaker-recognition"
+  # SpeechBrain is Apache-2.0. WeSpeaker / 3D-Speaker ONNX exports are
+  # Apache-2.0. The backend itself ships only Python deps — all model
+  # weights flow through LocalAI's gallery download mechanism (or
+  # SpeechBrain's built-in HF auto-download at first LoadModel).
+  license: apache-2.0
+  description: |
+    Speaker (voice) recognition backend — the audio analog to
+    insightface. Wraps SpeechBrain ECAPA-TDNN (default engine, 192-d
+    embeddings, ~1.9% EER on VoxCeleb) plus an OnnxDirectEngine for
+    pre-exported WeSpeaker / 3D-Speaker ONNX models.
+
+    Exposes speaker verification (/v1/voice/verify), speaker embedding
+    (/v1/voice/embed), speaker analysis (/v1/voice/analyze), and 1:N
+    speaker identification (/v1/voice/{register,identify,forget}).
+    Registrations use LocalAI's built-in vector store — same in-memory
+    backing the face-recognition registry uses, separate instance.
+  urls:
+    - https://speechbrain.github.io/
+    - https://github.com/wenet-e2e/wespeaker
+    - https://github.com/modelscope/3D-Speaker
+  tags:
+    - voice-recognition
+    - speaker-verification
+    - speaker-embedding
+    - gpu
+    - cpu
+  capabilities:
+    default: "cpu-speaker-recognition"
+    nvidia: "cuda12-speaker-recognition"
+    nvidia-cuda-12: "cuda12-speaker-recognition"
+- !!merge <<: *speakerrecognition
+  name: "speaker-recognition-development"
+  capabilities:
+    default: "cpu-speaker-recognition-development"
+    nvidia: "cuda12-speaker-recognition-development"
+    nvidia-cuda-12: "cuda12-speaker-recognition-development"
+- !!merge <<: *speakerrecognition
+  name: "cpu-speaker-recognition"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-speaker-recognition"
+  mirrors:
+    - localai/localai-backends:latest-cpu-speaker-recognition
+- !!merge <<: *speakerrecognition
+  name: "cuda12-speaker-recognition"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-speaker-recognition"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-12-speaker-recognition
+- !!merge <<: *speakerrecognition
+  name: "cpu-speaker-recognition-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-cpu-speaker-recognition"
+  mirrors:
+    - localai/localai-backends:master-cpu-speaker-recognition
+- !!merge <<: *speakerrecognition
+  name: "cuda12-speaker-recognition-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-speaker-recognition"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-12-speaker-recognition

@@ -1,5 +1,5 @@
 # Disable parallel execution for backend builds
-.NOTPARALLEL: backends/diffusers backends/llama-cpp backends/turboquant backends/outetts backends/piper backends/stablediffusion-ggml backends/whisper backends/faster-whisper backends/silero-vad backends/local-store backends/huggingface backends/rfdetr backends/insightface backends/kitten-tts backends/kokoro backends/chatterbox backends/llama-cpp-darwin backends/neutts build-darwin-python-backend build-darwin-go-backend backends/mlx backends/diffuser-darwin backends/mlx-vlm backends/mlx-audio backends/mlx-distributed backends/stablediffusion-ggml-darwin backends/vllm backends/vllm-omni backends/sglang backends/moonshine backends/pocket-tts backends/qwen-tts backends/faster-qwen3-tts backends/qwen-asr backends/nemo backends/voxcpm backends/whisperx backends/ace-step backends/acestep-cpp backends/fish-speech backends/voxtral backends/opus backends/trl backends/llama-cpp-quantization backends/kokoros backends/sam3-cpp backends/qwen3-tts-cpp backends/tinygrad
+.NOTPARALLEL: backends/diffusers backends/llama-cpp backends/turboquant backends/outetts backends/piper backends/stablediffusion-ggml backends/whisper backends/faster-whisper backends/silero-vad backends/local-store backends/huggingface backends/rfdetr backends/insightface backends/speaker-recognition backends/kitten-tts backends/kokoro backends/chatterbox backends/llama-cpp-darwin backends/neutts build-darwin-python-backend build-darwin-go-backend backends/mlx backends/diffuser-darwin backends/mlx-vlm backends/mlx-audio backends/mlx-distributed backends/stablediffusion-ggml-darwin backends/vllm backends/vllm-omni backends/sglang backends/moonshine backends/pocket-tts backends/qwen-tts backends/faster-qwen3-tts backends/qwen-asr backends/nemo backends/voxcpm backends/whisperx backends/ace-step backends/acestep-cpp backends/fish-speech backends/voxtral backends/opus backends/trl backends/llama-cpp-quantization backends/kokoros backends/sam3-cpp backends/qwen3-tts-cpp backends/tinygrad
 
 GOCMD=go
 GOTEST=$(GOCMD) test
@@ -435,6 +435,7 @@ prepare-test-extra: protogen-python
 	$(MAKE) -C backend/python/trl
 	$(MAKE) -C backend/python/tinygrad
 	$(MAKE) -C backend/python/insightface
+	$(MAKE) -C backend/python/speaker-recognition
 	$(MAKE) -C backend/rust/kokoros kokoros-grpc
 
 test-extra: prepare-test-extra
@@ -459,6 +460,7 @@ test-extra: prepare-test-extra
 	$(MAKE) -C backend/python/trl test
 	$(MAKE) -C backend/python/tinygrad test
 	$(MAKE) -C backend/python/insightface test
+	$(MAKE) -C backend/python/speaker-recognition test
 	$(MAKE) -C backend/rust/kokoros test
 
 ##
@@ -713,6 +715,37 @@ test-extra-backend-insightface-all: \
 	test-extra-backend-insightface-buffalo-sc \
 	test-extra-backend-insightface-opencv
 
+## speaker-recognition — voice (speaker) biometrics.
+##
+## Audio fixtures default to VCTK samples via HuggingFace (two clips of
+## p225 for same-speaker, one clip of p226 for cross-speaker). Override
+## with BACKEND_TEST_VOICE_AUDIO_{1,2,3}_FILE for offline runs.
+VOICE_AUDIO_1_URL ?= https://huggingface.co/datasets/CSTR-Edinburgh/vctk/resolve/main/wav48_silence_trimmed/p225/p225_001_mic1.flac
+VOICE_AUDIO_2_URL ?= https://huggingface.co/datasets/CSTR-Edinburgh/vctk/resolve/main/wav48_silence_trimmed/p225/p225_002_mic1.flac
+VOICE_AUDIO_3_URL ?= https://huggingface.co/datasets/CSTR-Edinburgh/vctk/resolve/main/wav48_silence_trimmed/p226/p226_001_mic1.flac
+
+## ECAPA-TDNN via SpeechBrain — default CI configuration. Auto-downloads
+## the checkpoint from HuggingFace on first LoadModel (bundled in the
+## backend image pip install). 192-d embeddings, cosine-distance based.
+## The e2e suite drives LoadModel directly so we don't rely on LocalAI's
+## gallery flow here.
+test-extra-backend-speaker-recognition-ecapa: docker-build-speaker-recognition
+	BACKEND_IMAGE=local-ai-backend:speaker-recognition \
+	BACKEND_TEST_MODEL_NAME=speechbrain/spkrec-ecapa-voxceleb \
+	BACKEND_TEST_OPTIONS=engine:speechbrain,source:speechbrain/spkrec-ecapa-voxceleb \
+	BACKEND_TEST_CAPS=health,load,voice_embed,voice_verify \
+	BACKEND_TEST_VOICE_AUDIO_1_URL=$(VOICE_AUDIO_1_URL) \
+	BACKEND_TEST_VOICE_AUDIO_2_URL=$(VOICE_AUDIO_2_URL) \
+	BACKEND_TEST_VOICE_AUDIO_3_URL=$(VOICE_AUDIO_3_URL) \
+	BACKEND_TEST_VOICE_VERIFY_DISTANCE_CEILING=0.4 \
+	$(MAKE) test-extra-backend
+
+## Aggregate — today there's only one voice config; the target exists
+## so the CI workflow matches the insightface-all naming convention and
+## can grow to include WeSpeaker / 3D-Speaker later.
+test-extra-backend-speaker-recognition-all: \
+	test-extra-backend-speaker-recognition-ecapa
+
 ## sglang mirrors the vllm setup: HuggingFace model id, same tiny Qwen,
 ## tool-call extraction via sglang's native qwen parser. CPU builds use
 ## sglang's upstream pyproject_cpu.toml recipe (see backend/python/sglang/install.sh).
@@ -859,6 +892,7 @@ BACKEND_FASTER_WHISPER = faster-whisper|python|.|false|true
 BACKEND_COQUI = coqui|python|.|false|true
 BACKEND_RFDETR = rfdetr|python|.|false|true
 BACKEND_INSIGHTFACE = insightface|python|.|false|true
+BACKEND_SPEAKER_RECOGNITION = speaker-recognition|python|.|false|true
 BACKEND_KITTEN_TTS = kitten-tts|python|.|false|true
 BACKEND_NEUTTS = neutts|python|.|false|true
 BACKEND_KOKORO = kokoro|python|.|false|true
@@ -931,6 +965,7 @@ $(eval $(call generate-docker-build-target,$(BACKEND_FASTER_WHISPER)))
 $(eval $(call generate-docker-build-target,$(BACKEND_COQUI)))
 $(eval $(call generate-docker-build-target,$(BACKEND_RFDETR)))
 $(eval $(call generate-docker-build-target,$(BACKEND_INSIGHTFACE)))
+$(eval $(call generate-docker-build-target,$(BACKEND_SPEAKER_RECOGNITION)))
 $(eval $(call generate-docker-build-target,$(BACKEND_KITTEN_TTS)))
 $(eval $(call generate-docker-build-target,$(BACKEND_NEUTTS)))
 $(eval $(call generate-docker-build-target,$(BACKEND_KOKORO)))
@@ -965,7 +1000,7 @@ $(eval $(call generate-docker-build-target,$(BACKEND_SAM3_CPP)))
 docker-save-%: backend-images
 	docker save local-ai-backend:$* -o backend-images/$*.tar
 
-docker-build-backends: docker-build-llama-cpp docker-build-ik-llama-cpp docker-build-turboquant docker-build-rerankers docker-build-vllm docker-build-vllm-omni docker-build-sglang docker-build-transformers docker-build-outetts docker-build-diffusers docker-build-kokoro docker-build-faster-whisper docker-build-coqui docker-build-chatterbox docker-build-vibevoice docker-build-moonshine docker-build-pocket-tts docker-build-qwen-tts docker-build-fish-speech docker-build-faster-qwen3-tts docker-build-qwen-asr docker-build-nemo docker-build-voxcpm docker-build-whisperx docker-build-ace-step docker-build-acestep-cpp docker-build-voxtral docker-build-mlx-distributed docker-build-trl docker-build-llama-cpp-quantization docker-build-tinygrad docker-build-kokoros docker-build-sam3-cpp docker-build-qwen3-tts-cpp docker-build-insightface
+docker-build-backends: docker-build-llama-cpp docker-build-ik-llama-cpp docker-build-turboquant docker-build-rerankers docker-build-vllm docker-build-vllm-omni docker-build-sglang docker-build-transformers docker-build-outetts docker-build-diffusers docker-build-kokoro docker-build-faster-whisper docker-build-coqui docker-build-chatterbox docker-build-vibevoice docker-build-moonshine docker-build-pocket-tts docker-build-qwen-tts docker-build-fish-speech docker-build-faster-qwen3-tts docker-build-qwen-asr docker-build-nemo docker-build-voxcpm docker-build-whisperx docker-build-ace-step docker-build-acestep-cpp docker-build-voxtral docker-build-mlx-distributed docker-build-trl docker-build-llama-cpp-quantization docker-build-tinygrad docker-build-kokoros docker-build-sam3-cpp docker-build-qwen3-tts-cpp docker-build-insightface docker-build-speaker-recognition
 
 ########################################################
 ### Mock Backend for E2E Tests
