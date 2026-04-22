@@ -53,102 +53,122 @@ class FaceEngine(Protocol):
 # ─── InsightFaceEngine ────────────────────────────────────────────────
 
 class InsightFaceEngine:
-    # Default root where install.sh bakes the insightface model packs.
-    # The `root` option can override it (e.g. for local dev with
-    # pre-existing ~/.insightface downloads).
-    DEFAULT_ROOT = "/models/insightface"
+    """Drives insightface's model_zoo directly — no FaceAnalysis wrapper.
+
+    FaceAnalysis is a thin 50-line orchestration (glob for ONNX files
+    in `<root>/models/<name>/`, route each through `model_zoo.get_model`,
+    build a `{taskname: model}` dict, then loop per-face at inference).
+    We reimplement the same loop here so we can:
+
+      1. Load packs from whatever directory LocalAI's gallery extracted
+         them into — flat (buffalo_l/s/sc — ONNX at `<dir>/*.onnx`) or
+         nested (buffalo_m/antelopev2 — ONNX at `<dir>/<name>/*.onnx`)
+         without needing a specific layout on disk.
+      2. Skip insightface's built-in auto-download entirely: weight
+         delivery is LocalAI's gallery `files:` job now, checksum-
+         verified and cached alongside every other managed model.
+
+    The actual inference classes (RetinaFace, ArcFaceONNX, Attribute,
+    Landmark) stay in insightface — we only reimplement the ~50 lines
+    of glue around them.
+    """
 
     def __init__(self) -> None:
-        self.app: Any = None
+        self.models: dict[str, Any] = {}
+        self.det_model: Any = None
         self.model_pack: str = "buffalo_l"
         self.det_size: tuple[int, int] = (640, 640)
         self.det_thresh: float = 0.5
         self._providers: list[str] = ["CPUExecutionProvider"]
 
     def prepare(self, options: dict[str, str]) -> None:
+        import glob
         import os
 
-        from insightface.app import FaceAnalysis
+        from insightface.model_zoo import model_zoo
 
         self.model_pack = options.get("model_pack", "buffalo_l")
         self.det_size = _parse_det_size(options.get("det_size", "640x640"))
         self.det_thresh = float(options.get("det_thresh", "0.5"))
 
-        # Resolve the model root. Order:
-        #   1. explicit `root:` option wins;
-        #   2. LoadModel's `model_dir` (dirname of ModelOptions.ModelFile) —
-        #      this is the LocalAI models directory, matching how every
-        #      other gallery-managed model is stored. insightface's
-        #      FaceAnalysis will auto-download packs to <root>/models/<name>/
-        #      so they live alongside other LocalAI-managed models;
-        #   3. <script_dir>/models/insightface — dev fallback;
-        #   4. ~/.insightface — upstream's own default (last resort).
-        root = options.get("root")
-        if not root:
-            model_dir = options.get("_model_dir")
-            script_dir_root = os.path.join(
-                os.path.dirname(os.path.abspath(__file__)), "models", "insightface"
+        pack_dir = _locate_insightface_pack(options, self.model_pack)
+        if pack_dir is None:
+            raise ValueError(
+                f"no insightface pack '{self.model_pack}' found — install via "
+                f"`local-ai models install insightface-{self.model_pack.replace('_', '-')}`"
             )
-            for candidate in (model_dir, self.DEFAULT_ROOT, script_dir_root):
-                if candidate and os.path.isdir(candidate):
-                    root = candidate
-                    break
-            if not root:
-                root = model_dir or "~/.insightface"
+
+        onnx_files = sorted(glob.glob(os.path.join(pack_dir, "*.onnx")))
+        if not onnx_files:
+            raise ValueError(f"no ONNX files in pack directory: {pack_dir}")
 
         # CUDAExecutionProvider is picked automatically by onnxruntime-gpu
         # when available; falling back to CPU keeps the CPU-only image
-        # working.
+        # working. ctx_id=0 means "first GPU if any, else CPU".
         self._providers = ["CUDAExecutionProvider", "CPUExecutionProvider"]
 
-        # Trigger the pack download first via ensure_available (not
-        # FaceAnalysis) so we can normalize the extracted layout before
-        # the router enumerates it. Upstream is inconsistent: buffalo_l
-        # and buffalo_s zips expand flat (ONNX files at pack root);
-        # buffalo_m and antelopev2 wrap their ONNX files in a redundant
-        # <name>/ subdirectory, and insightface's own loader looks one
-        # level too shallow.
-        from insightface.utils import ensure_available
+        self.models = {}
+        for onnx_file in onnx_files:
+            m = model_zoo.get_model(onnx_file, providers=self._providers)
+            if m is None:
+                continue
+            # First occurrence of each taskname wins (matches FaceAnalysis).
+            if m.taskname not in self.models:
+                self.models[m.taskname] = m
 
-        expanded_root = os.path.expanduser(root)
-        ensure_available("models", self.model_pack, root=expanded_root)
-        _flatten_insightface_pack(expanded_root, self.model_pack)
+        if "detection" not in self.models:
+            raise ValueError(f"no detector (taskname='detection') found in {pack_dir}")
+        self.det_model = self.models["detection"]
 
-        self.app = FaceAnalysis(name=self.model_pack, root=root, providers=self._providers)
-        # ctx_id=0 selects the first available GPU; onnxruntime falls back to
-        # CPU automatically when CUDAExecutionProvider isn't present.
-        self.app.prepare(ctx_id=0, det_size=self.det_size, det_thresh=self.det_thresh)
+        self.det_model.prepare(0, input_size=self.det_size, det_thresh=self.det_thresh)
+        for name, m in self.models.items():
+            if name != "detection":
+                m.prepare(0)
+
+    def _faces(self, img: np.ndarray) -> list[Any]:
+        """Run detection + all non-detection models per face."""
+        if self.det_model is None:
+            return []
+        from insightface.app.common import Face
+
+        bboxes, kpss = self.det_model.detect(img, max_num=0)
+        if bboxes is None or bboxes.shape[0] == 0:
+            return []
+        faces: list[Any] = []
+        for i in range(bboxes.shape[0]):
+            bbox = bboxes[i, 0:4]
+            det_score = bboxes[i, 4]
+            kps = kpss[i] if kpss is not None else None
+            face = Face(bbox=bbox, kps=kps, det_score=det_score)
+            for name, m in self.models.items():
+                if name == "detection":
+                    continue
+                m.get(img, face)
+            faces.append(face)
+        return faces
 
     def detect(self, img: np.ndarray) -> list[FaceDetection]:
-        if self.app is None:
-            return []
-        faces = self.app.get(img)
         return [
             FaceDetection(
                 bbox=tuple(float(v) for v in f.bbox),
                 score=float(f.det_score),
                 landmarks=np.array(f.kps) if getattr(f, "kps", None) is not None else None,
             )
-            for f in faces
+            for f in self._faces(img)
         ]
 
     def embed(self, img: np.ndarray) -> np.ndarray | None:
-        if self.app is None:
-            return None
-        faces = self.app.get(img)
+        faces = self._faces(img)
         if not faces:
             return None
-        # Pick the highest-confidence face.
         best = max(faces, key=lambda f: float(f.det_score))
         if getattr(best, "normed_embedding", None) is None:
             return None
         return np.asarray(best.normed_embedding, dtype=np.float32)
 
     def analyze(self, img: np.ndarray) -> list[FaceAttributes]:
-        if self.app is None:
-            return []
         out: list[FaceAttributes] = []
-        for f in self.app.get(img):
+        for f in self._faces(img):
             x1, y1, x2, y2 = (float(v) for v in f.bbox)
             region = (x1, y1, x2 - x1, y2 - y1)
             attrs = FaceAttributes(region=region, face_confidence=float(f.det_score))
@@ -157,8 +177,8 @@ class InsightFaceEngine:
                 attrs.age = float(age)
             gender = getattr(f, "gender", None)
             if gender is not None:
-                # buffalo_l genderage head gives argmax, not probabilities —
-                # emit a one-hot dict to keep the API stable.
+                # genderage head emits argmax, not probabilities —
+                # one-hot dict keeps the API stable.
                 attrs.dominant_gender = "Man" if int(gender) == 1 else "Woman"
                 attrs.gender = {
                     "Man": 1.0 if int(gender) == 1 else 0.0,
@@ -278,46 +298,46 @@ def _parse_det_size(raw: str) -> tuple[int, int]:
     return (n, n)
 
 
-def _flatten_insightface_pack(root: str, name: str) -> None:
-    """Work around upstream's inconsistent zip packaging.
+def _locate_insightface_pack(options: dict[str, str], name: str) -> str | None:
+    """Find the directory holding the insightface pack's ONNX files.
 
-    Some insightface packs (buffalo_l, buffalo_s, buffalo_sc) ship with
-    ONNX files at the zip's top level, so extraction into
-    `<root>/models/<name>/` places them directly where FaceAnalysis
-    expects them. Others (buffalo_m, antelopev2) wrap their files in a
-    redundant `<name>/` directory inside the zip, leaving
-    `<root>/models/<name>/<name>/*.onnx` after extraction — which
-    FaceAnalysis then can't find.
+    LocalAI's gallery `files:` extracts the pack zip straight into the
+    models directory. Upstream packs are inconsistent:
 
-    Detect the nested layout and move the ONNX files up one level.
+      buffalo_l/s/sc  — flat zip, ONNX lands at `<models_dir>/*.onnx`
+      buffalo_m, antelopev2  — wrapped zip, ONNX lands at `<models_dir>/<name>/*.onnx`
+
+    We search, in order:
+      1. `<models_dir>/<name>/`  — wrapped-zip layout, or insightface's
+         own FaceAnalysis-style `<root>/models/<name>/` layout.
+      2. `<models_dir>/models/<name>/`  — insightface's FaceAnalysis
+         auto-download lands here (handy for dev environments that
+         still have old `~/.insightface` caches).
+      3. `<models_dir>/`  — flat-zip layout directly in models dir.
+
+    Returns the first directory whose contents include `*.onnx`.
     """
+    import glob
     import os
-    import shutil
 
-    pack_dir = os.path.join(root, "models", name)
-    if not os.path.isdir(pack_dir):
-        return
+    model_dir = options.get("_model_dir") or ""
+    explicit_root = options.get("root")
 
-    # If the pack dir already contains ONNX files, we're flat — done.
-    if any(fn.endswith(".onnx") for fn in os.listdir(pack_dir)):
-        return
+    candidates: list[str] = []
+    if model_dir:
+        candidates.append(os.path.join(model_dir, name))
+        candidates.append(os.path.join(model_dir, "models", name))
+        candidates.append(model_dir)
+    if explicit_root:
+        expanded = os.path.expanduser(explicit_root)
+        candidates.append(os.path.join(expanded, "models", name))
+        candidates.append(os.path.join(expanded, name))
+        candidates.append(expanded)
 
-    nested = os.path.join(pack_dir, name)
-    if not os.path.isdir(nested):
-        return
-    if not any(fn.endswith(".onnx") for fn in os.listdir(nested)):
-        return
-
-    for fn in os.listdir(nested):
-        src = os.path.join(nested, fn)
-        dst = os.path.join(pack_dir, fn)
-        if os.path.exists(dst):
-            continue
-        shutil.move(src, dst)
-    try:
-        os.rmdir(nested)
-    except OSError:
-        pass  # leave behind non-onnx leftovers if any
+    for c in candidates:
+        if os.path.isdir(c) and glob.glob(os.path.join(c, "*.onnx")):
+            return c
+    return None
 
 
 def _resolve_model_path(path: str, model_dir: str | None = None) -> str:

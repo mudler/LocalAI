@@ -3662,8 +3662,8 @@
     (SCRFD-10GF detector + ResNet50 ArcFace 512-d embedder + genderage head, ~326MB).
     Default choice, highest accuracy.
 
-    Downloaded on first use by insightface's own mechanism into the
-    LocalAI models directory (upstream distributes packs as zip archives).
+    Weights delivered via LocalAI's gallery mechanism (SHA-256 verified,
+    cached in the models directory like any other managed model).
     NON-COMMERCIAL RESEARCH USE ONLY. For commercial use see `insightface-opencv`.
   tags: [face-recognition, face-verification, face-embedding, research-only, gpu, cpu]
   urls: [https://github.com/deepinsight/insightface]
@@ -3672,6 +3672,10 @@
     parameters: {model: insightface-buffalo-l}
     options: ["engine:insightface", "model_pack:buffalo_l"]
     known_usecases: [face_recognition, detection, embeddings]
+  files:
+    - filename: buffalo_l.zip
+      sha256: 80ffe37d8a5940d59a7384c201a2a38d4741f2f3c51eef46ebb28218a7b0ca2f
+      uri: https://github.com/deepinsight/insightface/releases/download/v0.7/buffalo_l.zip
 - &insightface_buffalo_m
   name: "insightface-buffalo-m"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
@@ -3681,8 +3685,6 @@
     Mid-tier insightface pack (SCRFD-2.5GF detector + ResNet50 ArcFace +
     genderage, ~313MB). Same recognition accuracy as `buffalo_l` with a
     cheaper detector — good balance on mid-range hardware.
-    NOT pre-baked: auto-downloaded on first LoadModel from upstream's
-    GitHub release.
     NON-COMMERCIAL RESEARCH USE ONLY.
   tags: [face-recognition, face-verification, face-embedding, research-only, gpu, cpu]
   urls: [https://github.com/deepinsight/insightface]
@@ -3691,6 +3693,10 @@
     parameters: {model: insightface-buffalo-m}
     options: ["engine:insightface", "model_pack:buffalo_m"]
     known_usecases: [face_recognition, detection, embeddings]
+  files:
+    - filename: buffalo_m.zip
+      sha256: d98264bd8f2dc75cbc2ddce2a14e636e02bb857b3051c234b737bf3b614edca9
+      uri: https://github.com/deepinsight/insightface/releases/download/v0.7/buffalo_m.zip
 - &insightface_buffalo_s
   name: "insightface-buffalo-s"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
@@ -3699,7 +3705,6 @@
   description: |
     Small insightface pack (SCRFD-500MF detector + MBF 512-d embedder +
     genderage, ~159MB). Good fit for mid-range CPU deployments.
-    NOT pre-baked: auto-downloaded on first LoadModel.
     NON-COMMERCIAL RESEARCH USE ONLY.
   tags: [face-recognition, face-verification, face-embedding, research-only, edge, cpu]
   urls: [https://github.com/deepinsight/insightface]
@@ -3708,6 +3713,10 @@
     parameters: {model: insightface-buffalo-s}
     options: ["engine:insightface", "model_pack:buffalo_s"]
     known_usecases: [face_recognition, detection, embeddings]
+  files:
+    - filename: buffalo_s.zip
+      sha256: d85a87f503f691807cd8bb97128bdf7a0660326cd9cd02657127fa978bab8b5e
+      uri: https://github.com/deepinsight/insightface/releases/download/v0.7/buffalo_s.zip
 - &insightface_buffalo_sc
   name: "insightface-buffalo-sc"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
@@ -3718,8 +3727,6 @@
     NO landmarks, NO age/gender head — `/v1/face/analyze` returns empty
     attributes for this pack. Ideal for edge/embedded deployments where
     only verification and embedding are needed.
-
-    Downloaded on first use into the LocalAI models directory.
     NON-COMMERCIAL RESEARCH USE ONLY.
   tags: [face-recognition, face-verification, face-embedding, research-only, edge, cpu]
   urls: [https://github.com/deepinsight/insightface]
@@ -3728,6 +3735,10 @@
     parameters: {model: insightface-buffalo-sc}
     options: ["engine:insightface", "model_pack:buffalo_sc"]
     known_usecases: [face_recognition, detection, embeddings]
+  files:
+    - filename: buffalo_sc.zip
+      sha256: 57d31b56b6ffa911c8a73cfc1707c73cab76efe7f13b675a05223bf42de47c72
+      uri: https://github.com/deepinsight/insightface/releases/download/v0.7/buffalo_sc.zip
 - &insightface_antelopev2
   name: "insightface-antelopev2"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
@@ -3737,7 +3748,6 @@
     Largest insightface pack (SCRFD-10GF + ResNet100@Glint360K recognizer +
     genderage, ~407MB). Higher recognition accuracy than `buffalo_l` on
     harder benchmarks; pays for it in GPU memory.
-    NOT pre-baked: auto-downloaded on first LoadModel.
     NON-COMMERCIAL RESEARCH USE ONLY.
   tags: [face-recognition, face-verification, face-embedding, research-only, gpu]
   urls: [https://github.com/deepinsight/insightface]
@@ -3746,6 +3756,10 @@
     parameters: {model: insightface-antelopev2}
     options: ["engine:insightface", "model_pack:antelopev2"]
     known_usecases: [face_recognition, detection, embeddings]
+  files:
+    - filename: antelopev2.zip
+      sha256: 8e182f14fc6e80b3bfa375b33eb6cff7ee05d8ef7633e738d1c89021dcf0c5c5
+      uri: https://github.com/deepinsight/insightface/releases/download/v0.7/antelopev2.zip
 - &insightface_opencv
   name: "insightface-opencv"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
