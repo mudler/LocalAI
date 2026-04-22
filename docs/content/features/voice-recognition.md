@@ -132,18 +132,26 @@ speech:
 | `audio` | string | URL / base64 / data-URI |
 | `actions` | string[] | subset of `["age","gender","emotion"]`; empty = all supported |
 
-Age / gender / emotion are inferred from two separate open-licence
-HuggingFace checkpoints that load on the first analyze call:
+Emotion is inferred from the SUPERB emotion-recognition checkpoint
+(`superb/wav2vec2-base-superb-er`, Apache 2.0) — 4-way categorical
+neutral / happy / angry / sad. The model auto-downloads on the first
+analyze call.
 
-| Attribute | Default model | License |
-|---|---|---|
-| Age + gender (female / male / child) | `audeering/wav2vec2-large-robust-24-ft-age-gender` | Apache 2.0 |
-| Emotion (neutral / happy / angry / sad) | `superb/wav2vec2-base-superb-er` | Apache 2.0 |
+Age and gender are **opt-in**: no standard-transformers checkpoint
+with a clean classifier head is shipped as the default. The
+high-accuracy Audeering age/gender model uses a custom multi-task
+head that `AutoModelForAudioClassification` doesn't load safely
+(the age weights are silently dropped and the classifier is
+re-initialised with random values). To enable age/gender, set
+`age_gender_model:<repo>` in the model YAML's `options:` pointing at
+a checkpoint with a vanilla `Wav2Vec2ForSequenceClassification`
+head. Override the emotion default similarly via `emotion_model:`.
+Set either to an empty string to disable that head.
 
-Override either with the `age_gender_model` / `emotion_model` option
-in the model YAML, or set either to the empty string to disable that
-head. If loading fails (offline, disk full, `transformers` missing)
-the backend returns `501 Unimplemented` rather than a generic error.
+If a head fails to load (offline, disk full, `transformers`
+missing), the engine degrades gracefully: it still returns the
+attributes it could compute. When nothing can be computed the backend
+returns `501 Unimplemented`.
 
 Analyze is supported by both `speechbrain-ecapa-tdnn` and
 `wespeaker-resnet34` — the speaker recognizer and the analysis head

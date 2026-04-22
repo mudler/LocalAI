@@ -21,19 +21,17 @@ SpeechBrain engine.
 
 - `POST /v1/voice/verify` — 1:1 same-speaker check.
 - `POST /v1/voice/embed` — extract a speaker embedding vector.
-- `POST /v1/voice/analyze` — age / gender / emotion from voice,
-  powered by two open-licence HuggingFace checkpoints loaded on the
-  first analyze call:
-  - `audeering/wav2vec2-large-robust-24-ft-age-gender` (Apache-2.0) —
-    age regression + 3-way gender (female / male / child).
-  - `superb/wav2vec2-base-superb-er` (Apache-2.0) — 4-way categorical
-    emotion (neutral / happy / angry / sad).
+- `POST /v1/voice/analyze` — voice demographics, loaded lazily on
+  the first analyze call:
+  - **Emotion** (default, opt-out): `superb/wav2vec2-base-superb-er`
+    (Apache-2.0), 4-way categorical (neutral / happy / angry / sad).
+  - **Age + gender** (opt-in): no default — wire a checkpoint with a
+    standard `Wav2Vec2ForSequenceClassification` head via
+    `age_gender_model:<repo>` in options. The Audeering
+    age-gender model is *not* usable as a drop-in because its
+    multi-task head isn't loadable via `AutoModelForAudioClassification`.
 
-  Override either with the `age_gender_model` / `emotion_model` option,
-  or set either to the empty string to disable that head. Both are
-  optional: if loading fails (network, disk, missing `transformers`)
-  the engine raises NotImplemented cleanly so the gRPC layer returns a
-  501 rather than a 500.
+  Both heads are optional. When nothing loads, the engine returns 501.
 
 ## Audio input
 

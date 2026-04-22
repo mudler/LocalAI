@@ -67,7 +67,16 @@ class AnalysisHead:
     else. Set either to an empty string to disable that head.
     """
 
-    DEFAULT_AGE_GENDER_MODEL = "audeering/wav2vec2-large-robust-24-ft-age-gender"
+    # Age + gender is OFF by default: the high-accuracy Apache-2.0
+    # checkpoint (Audeering wav2vec2-large-robust-24-ft-age-gender) uses a
+    # custom multi-task head that AutoModelForAudioClassification silently
+    # mangles — it drops the age weights as UNEXPECTED and re-initialises
+    # the classifier head with random values, so the output is noise. Users
+    # who have a cleanly loadable age/gender classifier can opt in with
+    # `age_gender_model:<repo>` in options. The emotion default below
+    # (superb/wav2vec2-base-superb-er) loads via the standard audio-
+    # classification pipeline with no such caveat.
+    DEFAULT_AGE_GENDER_MODEL = ""
     DEFAULT_EMOTION_MODEL = "superb/wav2vec2-base-superb-er"
     AGE_GENDER_LABELS = ("female", "male", "child")
 
@@ -111,37 +120,61 @@ class AnalysisHead:
             return {}
         import numpy as np
 
-        inputs = self._age_gender_processor(
-            waveform_16k, sampling_rate=16000, return_tensors="pt"
-        )
-        with self._torch.no_grad():
-            outputs = self._age_gender(**inputs)
-        # The Audeering model returns a tuple: (age_logit, gender_logits).
-        # Newer transformers wraps that in a ModelOutput; read defensively.
-        hidden = getattr(outputs, "logits", outputs)
-        if isinstance(hidden, (tuple, list)) and len(hidden) >= 2:
-            age_raw, gender_logits = hidden[0], hidden[1]
-        else:
-            # Fall back to a single-tensor interpretation (e.g. if a
-            # user wired a different checkpoint via age_gender_model).
-            age_raw = hidden
+        try:
+            inputs = self._age_gender_processor(
+                waveform_16k, sampling_rate=16000, return_tensors="pt"
+            )
+            with self._torch.no_grad():
+                outputs = self._age_gender(**inputs)
+
+            # Audeering's checkpoint is published with a custom head: the
+            # official recipe exposes `(hidden_states, logits_age, logits_gender)`.
+            # AutoModelForAudioClassification flattens that into a single
+            # `logits` tensor of shape [batch, 4] — [age_regression, female, male, child].
+            # Fall back gracefully when the shape is different (e.g. a
+            # user-supplied age_gender_model checkpoint that returns a proper tuple).
+            hidden = getattr(outputs, "logits", outputs)
+            age_years = None
             gender_logits = None
-        age_years = float(age_raw.squeeze().item()) * 100.0
-        result: dict[str, Any] = {"age": age_years}
-        if gender_logits is not None:
-            probs = self._torch.softmax(gender_logits.squeeze(), dim=-1).cpu().numpy()
-            probs = np.asarray(probs).reshape(-1)
-            gender_map = {
-                label: float(probs[i])
-                for i, label in enumerate(self.AGE_GENDER_LABELS[: len(probs)])
-            }
-            result["gender"] = gender_map
-            if gender_map:
-                # Map to capitalised "Male"/"Female" to match the gRPC
-                # contract advertised by /v1/voice/analyze.
-                dom = max(gender_map.items(), key=lambda kv: kv[1])[0]
-                result["dominant_gender"] = {"female": "Female", "male": "Male", "child": "Child"}.get(dom, dom.capitalize())
-        return result
+            if isinstance(hidden, (tuple, list)) and len(hidden) >= 2:
+                age_years = float(hidden[0].squeeze().item()) * 100.0
+                gender_logits = hidden[1]
+            else:
+                flat = hidden.squeeze()
+                if flat.ndim == 1 and flat.numel() >= 4:
+                    age_years = float(flat[0].item()) * 100.0
+                    gender_logits = flat[1:4]
+                elif flat.ndim == 1 and flat.numel() == 1:
+                    age_years = float(flat.item()) * 100.0
+
+            if age_years is None and gender_logits is None:
+                return {}
+
+            result: dict[str, Any] = {}
+            if age_years is not None:
+                result["age"] = age_years
+            if gender_logits is not None:
+                probs = self._torch.softmax(gender_logits, dim=-1).cpu().numpy()
+                probs = np.asarray(probs).reshape(-1)
+                gender_map = {
+                    label: float(probs[i])
+                    for i, label in enumerate(self.AGE_GENDER_LABELS[: len(probs)])
+                }
+                result["gender"] = gender_map
+                if gender_map:
+                    dom = max(gender_map.items(), key=lambda kv: kv[1])[0]
+                    result["dominant_gender"] = {
+                        "female": "Female",
+                        "male": "Male",
+                        "child": "Child",
+                    }.get(dom, dom.capitalize())
+            return result
+        except Exception as exc:  # noqa: BLE001
+            # Analyze is a best-effort feature — never take down the
+            # whole analyze call because the age/gender head had a bad
+            # day. Mark the failure so the emotion branch still runs.
+            self._age_gender_error = f"runtime: {type(exc).__name__}: {exc}"
+            return {}
 
     # --- emotion ------------------------------------------------------
     def _ensure_emotion(self):
@@ -211,18 +244,29 @@ class SpeechBrainEngine:
         self._analysis = AnalysisHead(options)
 
     def _load_waveform(self, path: str):
-        # torchaudio is a SpeechBrain dep; keep it lazy so import works
-        # without it being preloaded when the test suite introspects
-        # this file.
-        import torchaudio  # type: ignore
+        # Use soundfile + torch directly — torchaudio.load in torchaudio
+        # 2.8+ requires the torchcodec package for decoding, which adds
+        # another heavy ffmpeg-linked dep. soundfile covers WAV/FLAC
+        # which is what we care about here.
+        import numpy as np
+        import soundfile as sf  # type: ignore
+        import torch  # type: ignore
 
-        waveform, sr = torchaudio.load(path)
-        # Model expects 16kHz mono.
+        audio, sr = sf.read(path, always_2d=False)
+        if audio.ndim > 1:
+            audio = audio.mean(axis=1)
+        audio = np.asarray(audio, dtype=np.float32)
         if sr != 16000:
-            waveform = torchaudio.functional.resample(waveform, sr, 16000)
-        if waveform.shape[0] > 1:
-            waveform = waveform.mean(dim=0, keepdim=True)
-        return waveform
+            # Simple linear resample — good enough for 16kHz downsampling
+            # from 44.1/48kHz, and we expect 16kHz inputs in practice.
+            ratio = 16000 / float(sr)
+            n = int(round(len(audio) * ratio))
+            audio = np.interp(
+                np.linspace(0, len(audio), n, endpoint=False),
+                np.arange(len(audio)),
+                audio,
+            ).astype(np.float32)
+        return torch.from_numpy(audio).unsqueeze(0)  # [1, T]
 
     def embed(self, audio_path: str) -> list[float]:
         waveform = self._load_waveform(audio_path)
