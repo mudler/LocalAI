@@ -765,7 +765,11 @@ var _ = Describe("Backend container", Ordered, func() {
 		Expect(res.GetSegments()).NotTo(BeEmpty(), "VoiceAnalyze returned no segments")
 		for _, s := range res.GetSegments() {
 			Expect(s.GetAge()).To(BeNumerically(">", 0), "age should be populated by analyze-capable engines")
-			Expect(s.GetDominantGender()).To(BeElementOf("Male", "Female"))
+			// Audeering's age-gender head outputs female / male / child;
+			// LocalAI capitalises those to Female / Male / Child. Custom
+			// checkpoints wired via the age_gender_model option may use
+			// different labels, so accept anything non-empty.
+			Expect(s.GetDominantGender()).NotTo(BeEmpty())
 		}
 		GinkgoWriter.Printf("voice_analyze: %d segments\n", len(res.GetSegments()))
 	})

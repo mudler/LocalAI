@@ -50,6 +50,151 @@ def _cosine_distance(a, b) -> float:
     return float(1.0 - np.dot(va, vb) / (na * nb))
 
 
+class AnalysisHead:
+    """Age / gender / emotion head, lazy-loaded on first analyze call.
+
+    Wraps two open-licence HuggingFace checkpoints:
+
+      * audeering/wav2vec2-large-robust-24-ft-age-gender — age
+        regression (0–100 years) + 3-way gender (female/male/child).
+        Apache 2.0.
+      * superb/wav2vec2-base-superb-er — 4-way emotion classification
+        (neutral / happy / angry / sad). Apache 2.0.
+
+    Either model is optional — the head degrades gracefully to only the
+    attributes it could load. Override the checkpoint with the
+    `age_gender_model` / `emotion_model` option if you want something
+    else. Set either to an empty string to disable that head.
+    """
+
+    DEFAULT_AGE_GENDER_MODEL = "audeering/wav2vec2-large-robust-24-ft-age-gender"
+    DEFAULT_EMOTION_MODEL = "superb/wav2vec2-base-superb-er"
+    AGE_GENDER_LABELS = ("female", "male", "child")
+
+    def __init__(self, options: dict[str, str]):
+        self._options = options
+        self._age_gender = None
+        self._age_gender_processor = None
+        self._age_gender_loaded = False
+        self._age_gender_error: str | None = None
+        self._emotion = None
+        self._emotion_loaded = False
+        self._emotion_error: str | None = None
+
+    # --- age / gender -------------------------------------------------
+    def _ensure_age_gender(self):
+        if self._age_gender_loaded:
+            return
+        self._age_gender_loaded = True
+        model_id = self._options.get(
+            "age_gender_model", self.DEFAULT_AGE_GENDER_MODEL
+        )
+        if not model_id:
+            self._age_gender_error = "disabled"
+            return
+        try:
+            # Late imports — torch / transformers are heavy and only
+            # pulled in when the analyze head actually runs.
+            import torch  # type: ignore
+            from transformers import AutoFeatureExtractor, AutoModelForAudioClassification  # type: ignore
+
+            self._torch = torch
+            self._age_gender_processor = AutoFeatureExtractor.from_pretrained(model_id)
+            self._age_gender = AutoModelForAudioClassification.from_pretrained(model_id)
+            self._age_gender.eval()
+        except Exception as exc:  # noqa: BLE001
+            self._age_gender_error = f"{type(exc).__name__}: {exc}"
+
+    def _infer_age_gender(self, waveform_16k) -> dict[str, Any]:
+        self._ensure_age_gender()
+        if self._age_gender is None:
+            return {}
+        import numpy as np
+
+        inputs = self._age_gender_processor(
+            waveform_16k, sampling_rate=16000, return_tensors="pt"
+        )
+        with self._torch.no_grad():
+            outputs = self._age_gender(**inputs)
+        # The Audeering model returns a tuple: (age_logit, gender_logits).
+        # Newer transformers wraps that in a ModelOutput; read defensively.
+        hidden = getattr(outputs, "logits", outputs)
+        if isinstance(hidden, (tuple, list)) and len(hidden) >= 2:
+            age_raw, gender_logits = hidden[0], hidden[1]
+        else:
+            # Fall back to a single-tensor interpretation (e.g. if a
+            # user wired a different checkpoint via age_gender_model).
+            age_raw = hidden
+            gender_logits = None
+        age_years = float(age_raw.squeeze().item()) * 100.0
+        result: dict[str, Any] = {"age": age_years}
+        if gender_logits is not None:
+            probs = self._torch.softmax(gender_logits.squeeze(), dim=-1).cpu().numpy()
+            probs = np.asarray(probs).reshape(-1)
+            gender_map = {
+                label: float(probs[i])
+                for i, label in enumerate(self.AGE_GENDER_LABELS[: len(probs)])
+            }
+            result["gender"] = gender_map
+            if gender_map:
+                # Map to capitalised "Male"/"Female" to match the gRPC
+                # contract advertised by /v1/voice/analyze.
+                dom = max(gender_map.items(), key=lambda kv: kv[1])[0]
+                result["dominant_gender"] = {"female": "Female", "male": "Male", "child": "Child"}.get(dom, dom.capitalize())
+        return result
+
+    # --- emotion ------------------------------------------------------
+    def _ensure_emotion(self):
+        if self._emotion_loaded:
+            return
+        self._emotion_loaded = True
+        model_id = self._options.get("emotion_model", self.DEFAULT_EMOTION_MODEL)
+        if not model_id:
+            self._emotion_error = "disabled"
+            return
+        try:
+            from transformers import pipeline  # type: ignore
+
+            self._emotion = pipeline("audio-classification", model=model_id)
+        except Exception as exc:  # noqa: BLE001
+            self._emotion_error = f"{type(exc).__name__}: {exc}"
+
+    def _infer_emotion(self, audio_path: str) -> dict[str, Any]:
+        self._ensure_emotion()
+        if self._emotion is None:
+            return {}
+        try:
+            raw = self._emotion(audio_path, top_k=8)
+        except Exception as exc:  # noqa: BLE001
+            # Second-line defense: don't fail the whole analyze call
+            # over a runtime inference hiccup.
+            self._emotion_error = f"runtime: {type(exc).__name__}: {exc}"
+            return {}
+        emotion_map = {row["label"].lower(): float(row["score"]) for row in raw}
+        if not emotion_map:
+            return {}
+        dom = max(emotion_map.items(), key=lambda kv: kv[1])[0]
+        return {"emotion": emotion_map, "dominant_emotion": dom}
+
+    # --- orchestrator -------------------------------------------------
+    def analyze(self, audio_path: str, waveform_16k, actions: Iterable[str]) -> dict[str, Any]:
+        wanted = {a.strip().lower() for a in actions} if actions else {"age", "gender", "emotion"}
+        result: dict[str, Any] = {}
+        if "age" in wanted or "gender" in wanted:
+            ag = self._infer_age_gender(waveform_16k)
+            if "age" in wanted and "age" in ag:
+                result["age"] = ag["age"]
+            if "gender" in wanted:
+                if "gender" in ag:
+                    result["gender"] = ag["gender"]
+                if "dominant_gender" in ag:
+                    result["dominant_gender"] = ag["dominant_gender"]
+        if "emotion" in wanted:
+            em = self._infer_emotion(audio_path)
+            result.update(em)
+        return result
+
+
 class SpeechBrainEngine:
     """ECAPA-TDNN via SpeechBrain. Auto-downloads on first use."""
 
@@ -63,6 +208,7 @@ class SpeechBrainEngine:
         source = options.get("source") or model_name or "speechbrain/spkrec-ecapa-voxceleb"
         savedir = options.get("_model_path") or os.environ.get("HF_HOME") or "./pretrained_models"
         self._model = EncoderClassifier.from_hparams(source=source, savedir=savedir)
+        self._analysis = AnalysisHead(options)
 
     def _load_waveform(self, path: str):
         # torchaudio is a SpeechBrain dep; keep it lazy so import works
@@ -87,10 +233,19 @@ class SpeechBrainEngine:
         return _cosine_distance(self.embed(audio1), self.embed(audio2))
 
     def analyze(self, audio_path: str, actions):
-        # Optional age/gender/emotion head isn't part of ECAPA-TDNN.
-        # Return UNIMPLEMENTED so the servicer maps it to a clean gRPC
-        # status rather than a generic INTERNAL error.
-        raise NotImplementedError("SpeechBrainEngine does not implement analyze")
+        # Age / gender / emotion aren't produced by ECAPA-TDNN itself;
+        # delegate to AnalysisHead which wraps separate Apache-2.0
+        # checkpoints. Returns a single segment spanning the clip —
+        # segmentation / diarisation is a future enhancement.
+        waveform = self._load_waveform(audio_path)
+        mono = waveform.squeeze().detach().cpu().numpy()
+        attrs = self._analysis.analyze(audio_path, mono, actions)
+        if not attrs:
+            raise NotImplementedError(
+                "analyze head failed to load — install transformers + torch or pass age_gender_model/emotion_model options"
+            )
+        duration = float(mono.shape[-1]) / 16000.0 if mono.size else 0.0
+        return [dict(start=0.0, end=duration, **attrs)]
 
 
 class OnnxDirectEngine:
@@ -120,6 +275,7 @@ class OnnxDirectEngine:
         self._session = ort.InferenceSession(onnx_path, providers=provider_list)
         self._input_name = self._session.get_inputs()[0].name
         self._expected_sr = int(options.get("sample_rate", "16000"))
+        self._analysis = AnalysisHead(options)
 
     def _load_waveform(self, path: str):
         import numpy as np
@@ -153,7 +309,27 @@ class OnnxDirectEngine:
         return _cosine_distance(self.embed(audio1), self.embed(audio2))
 
     def analyze(self, audio_path: str, actions):
-        raise NotImplementedError("OnnxDirectEngine does not implement analyze")
+        # AnalysisHead expects 16kHz mono; _load_waveform already
+        # resamples to self._expected_sr. If the user configured a
+        # non-16k expected rate, resample one more time for analyze.
+        audio = self._load_waveform(audio_path)
+        if self._expected_sr != 16000:
+            import numpy as np
+
+            ratio = 16000 / float(self._expected_sr)
+            n = int(round(len(audio) * ratio))
+            audio = np.interp(
+                np.linspace(0, len(audio), n, endpoint=False),
+                np.arange(len(audio)),
+                audio,
+            ).astype("float32")
+        attrs = self._analysis.analyze(audio_path, audio, actions)
+        if not attrs:
+            raise NotImplementedError(
+                "analyze head failed to load — install transformers + torch or pass age_gender_model/emotion_model options"
+            )
+        duration = float(len(audio)) / 16000.0 if len(audio) else 0.0
+        return [dict(start=0.0, end=duration, **attrs)]
 
 
 def build_engine(model_name: str, options: dict[str, str]) -> tuple[SpeakerEngine, str]:

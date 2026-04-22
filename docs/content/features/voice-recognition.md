@@ -132,10 +132,22 @@ speech:
 | `audio` | string | URL / base64 / data-URI |
 | `actions` | string[] | subset of `["age","gender","emotion"]`; empty = all supported |
 
-The default engines (SpeechBrain ECAPA-TDNN, WeSpeaker ResNet) have
-no demographic head, so `/v1/voice/analyze` currently returns
-`501 Unimplemented` on those packs. A `wav2vec2-xlsr-age-gender`
-pack plugs into the analyze slot as a follow-up.
+Age / gender / emotion are inferred from two separate open-licence
+HuggingFace checkpoints that load on the first analyze call:
+
+| Attribute | Default model | License |
+|---|---|---|
+| Age + gender (female / male / child) | `audeering/wav2vec2-large-robust-24-ft-age-gender` | Apache 2.0 |
+| Emotion (neutral / happy / angry / sad) | `superb/wav2vec2-base-superb-er` | Apache 2.0 |
+
+Override either with the `age_gender_model` / `emotion_model` option
+in the model YAML, or set either to the empty string to disable that
+head. If loading fails (offline, disk full, `transformers` missing)
+the backend returns `501 Unimplemented` rather than a generic error.
+
+Analyze is supported by both `speechbrain-ecapa-tdnn` and
+`wespeaker-resnet34` — the speaker recognizer and the analysis head
+are independent.
 
 ### `POST /v1/voice/register` (1:N enrollment)
 
