@@ -34,5 +34,6 @@ LocalAI follows the Linux kernel project's [guidelines for AI coding assistants]
 - **Go style**: Prefer `any` over `interface{}`
 - **Comments**: Explain *why*, not *what*
 - **Docs**: Update `docs/content/` when adding features or changing config
+- **New API endpoints**: LocalAI advertises its capability surface in several independent places — swagger `@Tags`, `/api/instructions` registry, auth `RouteFeatureRegistry`, React UI `capabilities.js`, docs. Read [.agents/api-endpoints-and-auth.md](.agents/api-endpoints-and-auth.md) and follow its checklist — missing any surface means clients, admins, and the UI won't know the endpoint exists.
 - **Build**: Inspect `Makefile` and `.github/workflows/` — ask the user before running long builds
 - **UI**: The active UI is the React app in `core/http/react-ui/`. The older Alpine.js/HTML UI in `core/http/static/` is pending deprecation — all new UI work goes in the React UI
