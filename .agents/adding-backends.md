@@ -8,6 +8,7 @@ Create the backend directory under the appropriate location:
 - **Python backends**: `backend/python/<backend-name>/`
 - **Go backends**: `backend/go/<backend-name>/`
 - **C++ backends**: `backend/cpp/<backend-name>/`
+- **Rust backends**: `backend/rust/<backend-name>/`
 
 For Python backends, you'll typically need:
 - `backend.py` - Main gRPC server implementation
@@ -18,9 +19,22 @@ For Python backends, you'll typically need:
 - `run.sh` - Runtime script
 - `test.py` / `test.sh` - Test files
 
+For Rust backends, you'll typically need (see `backend/rust/kokoros/` as a reference):
+- `Cargo.toml` - Crate manifest; depend on the upstream project as a submodule under `sources/`
+- `build.rs` - Invokes `tonic_build` to generate gRPC stubs from `backend/backend.proto` (use the `BACKEND_PROTO_PATH` env var so the Makefile can inject the canonical copy)
+- `src/` - The gRPC server implementation (implement `Backend` via `tonic`)
+- `Makefile` - Copies `backend.proto` into the crate, runs `cargo build --release`, then `package.sh`
+- `package.sh` - Uses `ldd` to bundle the binary's dynamic deps and `ld.so` into `package/lib/`
+- `run.sh` - Sets `LD_LIBRARY_PATH`/`SSL_CERT_DIR` and execs the binary via the bundled `lib/ld.so`
+- `sources/<UpstreamProject>/` - Git submodule with the upstream Rust crate
+
 ## 2. Add Build Configurations to `.github/workflows/backend.yml`
 
-Add build matrix entries for each platform/GPU type you want to support. Look at similar backends (e.g., `chatterbox`, `faster-whisper`) for reference.
+Add build matrix entries for each platform/GPU type you want to support. Look at similar backends for reference — `chatterbox`/`faster-whisper` for Python, `piper`/`silero-vad` for Go, `kokoros` for Rust.
+
+**Without an entry here no image is ever built or pushed, and the gallery entry in `backend/index.yaml` will point at a tag that does not exist.** The `dockerfile:` field must point at `./backend/Dockerfile.<lang>` matching the language bucket from step 1 (e.g. `Dockerfile.python`, `Dockerfile.golang`, `Dockerfile.rust`). The `tag-suffix` must match the `uri:` in the corresponding `backend/index.yaml` image entry exactly.
+
+If you add a new language bucket, `scripts/changed-backends.js` also needs a branch in `inferBackendPath` so PR change-detection routes file edits correctly.
 
 **Placement in file:**
 - CPU builds: Add after other CPU builds (e.g., after `cpu-chatterbox`)
@@ -56,23 +70,27 @@ Add `backends/<backend-name>` to the `.NOTPARALLEL` line (around line 2) to prev
 
 **Step 4b: Add to `prepare-test-extra`**
 
-Add the backend to the `prepare-test-extra` target (around line 312) to prepare it for testing:
+Add the backend to the `prepare-test-extra` target to prepare it for testing. Use the path matching your language bucket (`backend/python/`, `backend/go/`, `backend/rust/`, …):
 
 ```makefile
 prepare-test-extra: protogen-python
 	...
-	$(MAKE) -C backend/python/<backend-name>
+	$(MAKE) -C backend/<lang>/<backend-name>
 ```
+
+For Rust backends the target is usually the crate build target itself (e.g. `$(MAKE) -C backend/rust/<backend-name> <backend-name>-grpc`) so the binary is in place before `test` runs.
 
 **Step 4c: Add to `test-extra`**
 
-Add the backend to the `test-extra` target (around line 319) to run its tests:
+Add the backend to the `test-extra` target to run its tests — applies to Go and Rust backends too, not only Python:
 
 ```makefile
 test-extra: prepare-test-extra
 	...
-	$(MAKE) -C backend/python/<backend-name> test
+	$(MAKE) -C backend/<lang>/<backend-name> test
 ```
+
+Each backend's own `Makefile` should define a `test` target so this line works regardless of language. Integration tests that need large model downloads should be gated behind an env var (see `backend/rust/kokoros/`'s `KOKOROS_MODEL_PATH` pattern) so CI only runs unit tests.
 
 **Step 4d: Add Backend Definition**
 
@@ -92,6 +110,13 @@ BACKEND_<BACKEND_NAME> = <backend-name>|python|./backend|false|true
 ```makefile
 BACKEND_<BACKEND_NAME> = <backend-name>|golang|.|false|true
 ```
+
+**For Rust backends**:
+```makefile
+BACKEND_<BACKEND_NAME> = <backend-name>|rust|.|false|true
+```
+
+The language field (`python`/`golang`/`rust`/…) must match a `backend/Dockerfile.<lang>` file.
 
 **Step 4e: Generate Docker Build Target**
 
