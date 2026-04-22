@@ -635,6 +635,15 @@ INSIGHTFACE_OPENCV_SFACE_URL := https://github.com/opencv/opencv_zoo/raw/main/mo
 INSIGHTFACE_OPENCV_YUNET_SHA := 8f2383e4dd3cfbb4553ea8718107fc0423210dc964f9f4280604804ed2552fa4
 INSIGHTFACE_OPENCV_SFACE_SHA := 0ba9fbfa01b5270c96627c4ef784da859931e02f04419c829e83484087c34e79
 
+## buffalo_sc (insightface) — pack zip + SHA-256 mirrors the gallery
+## entry so the e2e target matches exactly what `local-ai models install
+## insightface-buffalo-sc` would have fetched. Smallest insightface pack
+## (~16MB) — keeps CI fast while still covering the insightface engine
+## code path end-to-end.
+INSIGHTFACE_BUFFALO_SC_DIR := /tmp/localai-insightface-buffalo-sc-cache
+INSIGHTFACE_BUFFALO_SC_URL := https://github.com/deepinsight/insightface/releases/download/v0.7/buffalo_sc.zip
+INSIGHTFACE_BUFFALO_SC_SHA := 57d31b56b6ffa911c8a73cfc1707c73cab76efe7f13b675a05223bf42de47c72
+
 .PHONY: insightface-opencv-models
 insightface-opencv-models:
 	@mkdir -p $(INSIGHTFACE_OPENCV_DIR)
@@ -649,19 +658,37 @@ insightface-opencv-models:
 		echo "$(INSIGHTFACE_OPENCV_SFACE_SHA)  $(INSIGHTFACE_OPENCV_DIR)/sface.onnx" | sha256sum -c; \
 	fi
 
-## buffalo_l — insightface's default pack, non-commercial research use.
-## The pack is auto-downloaded by insightface.FaceAnalysis on first
-## LoadModel from upstream's GitHub release (URL stable, ~326MB). Full
-## face-recognition capability matrix including face_analyze.
-test-extra-backend-insightface-buffalo-l: docker-build-insightface
+.PHONY: insightface-buffalo-sc-models
+insightface-buffalo-sc-models:
+	@mkdir -p $(INSIGHTFACE_BUFFALO_SC_DIR)
+	@if [ "$$(sha256sum $(INSIGHTFACE_BUFFALO_SC_DIR)/buffalo_sc.zip 2>/dev/null | awk '{print $$1}')" != "$(INSIGHTFACE_BUFFALO_SC_SHA)" ]; then \
+		echo "Fetching buffalo_sc..."; \
+		curl -fsSL -o $(INSIGHTFACE_BUFFALO_SC_DIR)/buffalo_sc.zip $(INSIGHTFACE_BUFFALO_SC_URL); \
+		echo "$(INSIGHTFACE_BUFFALO_SC_SHA)  $(INSIGHTFACE_BUFFALO_SC_DIR)/buffalo_sc.zip" | sha256sum -c; \
+		rm -f $(INSIGHTFACE_BUFFALO_SC_DIR)/*.onnx; \
+	fi
+	@if [ ! -f "$(INSIGHTFACE_BUFFALO_SC_DIR)/det_500m.onnx" ]; then \
+		echo "Extracting buffalo_sc..."; \
+		unzip -o -q $(INSIGHTFACE_BUFFALO_SC_DIR)/buffalo_sc.zip -d $(INSIGHTFACE_BUFFALO_SC_DIR); \
+	fi
+
+## buffalo_sc — smallest insightface pack (SCRFD-500MF detector + MBF
+## recognizer, ~16MB). Exercises the insightface engine code path
+## (model_zoo-backed inference) without the ~326MB buffalo_l download.
+## No age/gender/landmark heads — face_analyze is dropped from caps.
+## The pack is pre-fetched on the host and passed as `root:<dir>` since
+## the e2e suite drives LoadModel directly without going through
+## LocalAI's gallery flow (which is what would normally populate
+## ModelPath and in turn the engine's `_model_dir` option).
+test-extra-backend-insightface-buffalo-sc: docker-build-insightface insightface-buffalo-sc-models
 	BACKEND_IMAGE=local-ai-backend:insightface \
-	BACKEND_TEST_MODEL_NAME=insightface-buffalo-l \
-	BACKEND_TEST_OPTIONS=engine:insightface,model_pack:buffalo_l \
-	BACKEND_TEST_CAPS=health,load,face_detect,face_embed,face_verify,face_analyze \
+	BACKEND_TEST_MODEL_NAME=insightface-buffalo-sc \
+	BACKEND_TEST_OPTIONS=engine:insightface,model_pack:buffalo_sc,root:$(INSIGHTFACE_BUFFALO_SC_DIR) \
+	BACKEND_TEST_CAPS=health,load,face_detect,face_embed,face_verify \
 	BACKEND_TEST_FACE_IMAGE_1_URL=$(FACE_IMAGE_1_URL) \
 	BACKEND_TEST_FACE_IMAGE_2_URL=$(FACE_IMAGE_2_URL) \
 	BACKEND_TEST_FACE_IMAGE_3_URL=$(FACE_IMAGE_3_URL) \
-	BACKEND_TEST_VERIFY_DISTANCE_CEILING=0.6 \
+	BACKEND_TEST_VERIFY_DISTANCE_CEILING=0.55 \
 	$(MAKE) test-extra-backend
 
 ## OpenCV Zoo YuNet + SFace — Apache 2.0, commercial-safe. face_analyze
@@ -683,7 +710,7 @@ test-extra-backend-insightface-opencv: docker-build-insightface insightface-open
 ## Aggregate — runs both face-recognition model configurations so CI
 ## catches regressions across engines together.
 test-extra-backend-insightface-all: \
-	test-extra-backend-insightface-buffalo-l \
+	test-extra-backend-insightface-buffalo-sc \
 	test-extra-backend-insightface-opencv
 
 ## sglang mirrors the vllm setup: HuggingFace model id, same tiny Qwen,
