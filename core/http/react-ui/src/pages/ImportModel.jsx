@@ -158,7 +158,7 @@ function PowerTabs({ value, onChange }) {
     <div
       className="segmented"
       role="tablist"
-      aria-label="Power mode tab"
+      aria-label="Advanced mode tab"
       data-testid="power-tabs"
       style={{ marginBottom: 'var(--spacing-md)' }}
     >
@@ -577,6 +577,7 @@ export default function ImportModel() {
         <p style={hintStyle}>Enter the URI or path to the model file you want to import</p>
 
         <button
+          type="button"
           onClick={() => setShowGuide(!showGuide)}
           style={{ marginTop: 'var(--spacing-sm)', background: 'none', border: 'none', color: 'var(--color-text-secondary)', cursor: 'pointer', fontSize: '0.8125rem', display: 'flex', alignItems: 'center', gap: '6px', padding: 0 }}
         >

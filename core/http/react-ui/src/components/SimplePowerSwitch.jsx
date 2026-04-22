@@ -40,10 +40,10 @@ export default function SimplePowerSwitch({ value, onChange, disabled = false })
         onClick={() => pick('power')}
         disabled={disabled}
         data-testid="mode-power"
-        title="Power mode — full preferences + YAML editor"
+        title="Advanced mode — full preferences + YAML editor"
       >
         <i className="fas fa-sliders" aria-hidden="true" />
-        Power
+        Advanced
       </button>
     </div>
   )
