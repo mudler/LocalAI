@@ -51,6 +51,7 @@ const (
 	FeatureTokenize           = "tokenize"
 	FeatureMCP                = "mcp"
 	FeatureStores             = "stores"
+	FeatureFaceRecognition    = "face_recognition"
 )
 
 // AgentFeatures lists agent-related features (default OFF).
@@ -64,6 +65,7 @@ var APIFeatures = []string{
 	FeatureChat, FeatureImages, FeatureAudioSpeech, FeatureAudioTranscription,
 	FeatureVAD, FeatureDetection, FeatureVideo, FeatureEmbeddings, FeatureSound,
 	FeatureRealtime, FeatureRerank, FeatureTokenize, FeatureMCP, FeatureStores,
+	FeatureFaceRecognition,
 }
 
 // AllFeatures lists all known features (used by UI and validation).

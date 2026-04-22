@@ -73,6 +73,12 @@ var instructionDefs = []instructionDef{
 		Description: "Video generation from text prompts",
 		Tags:        []string{"video"},
 	},
+	{
+		Name:        "face-recognition",
+		Description: "Face verification (1:1), identification (1:N), embedding, and demographic analysis",
+		Tags:        []string{"face-recognition"},
+		Intro:       "The /v1/face/register, /identify, and /forget endpoints build on a vector store — registrations are in-memory by default and lost on restart. Use /v1/face/embed for a raw embedding; /v1/embeddings is OpenAI-compatible and text-only.",
+	},
 }
 
 // swaggerState holds parsed swagger spec data, initialised once.
