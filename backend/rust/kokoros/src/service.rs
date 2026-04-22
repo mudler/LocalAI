@@ -372,6 +372,20 @@ impl Backend for KokorosService {
         Err(Status::unimplemented("Not supported"))
     }
 
+    async fn face_verify(
+        &self,
+        _: Request<backend::FaceVerifyRequest>,
+    ) -> Result<Response<backend::FaceVerifyResponse>, Status> {
+        Err(Status::unimplemented("Not supported"))
+    }
+
+    async fn face_analyze(
+        &self,
+        _: Request<backend::FaceAnalyzeRequest>,
+    ) -> Result<Response<backend::FaceAnalyzeResponse>, Status> {
+        Err(Status::unimplemented("Not supported"))
+    }
+
     async fn stores_set(
         &self,
         _: Request<backend::StoresSetOptions>,
