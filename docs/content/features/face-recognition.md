@@ -175,12 +175,26 @@ Returns a list of matches sorted by ascending distance, each with `id`,
 Returns `204 No Content` on success, `404 Not Found` if the ID is
 unknown.
 
-### Reused OpenAI-compatible endpoints
+### `POST /v1/face/embed`
 
-The insightface backend also responds on existing endpoints:
+Returns the L2-normalized face embedding vector for the detected face.
 
-- `POST /v1/embeddings` — send a face image via `input` to get the
-  raw 512-d embedding (or 128-d for SFace). L2-normalized.
+| field | type | description |
+|---|---|---|
+| `model` | string | face model |
+| `img` | string | URL / base64 / data-URI |
+
+Returns `{embedding: float[], dim: int, model: string}`. Dimension is
+512 for the insightface ArcFace/MBF recognizers and 128 for OpenCV's
+SFace.
+
+> **Note:** the OpenAI-compatible `/v1/embeddings` endpoint is
+> intentionally text-only by contract (`input` is a string or list of
+> strings of TEXT to embed) — passing an image data-URI there does
+> nothing useful. Use `/v1/face/embed` for image inputs.
+
+### Reused endpoint
+
 - `POST /v1/detection` — returns face bounding boxes with
   `class_name: "face"`; works for both engines.
 

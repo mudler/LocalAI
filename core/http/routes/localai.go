@@ -107,6 +107,9 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 	router.POST("/v1/face/analyze",
 		localai.FaceAnalyzeEndpoint(cl, ml, appConfig),
 		append(faceMw, requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.FaceAnalyzeRequest) }))...)
+	router.POST("/v1/face/embed",
+		localai.FaceEmbedEndpoint(cl, ml, appConfig),
+		append(faceMw, requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.FaceEmbedRequest) }))...)
 	router.POST("/v1/face/register",
 		localai.FaceRegisterEndpoint(cl, ml, appConfig, app.FaceRegistry()),
 		append(faceMw, requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.FaceRegisterRequest) }))...)

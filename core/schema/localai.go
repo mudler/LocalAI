@@ -231,6 +231,20 @@ type FaceAnalysis struct {
 	AntispoofScore  float32            `json:"antispoof_score,omitempty"`
 }
 
+// FaceEmbedRequest extracts a face embedding from an image. Distinct
+// from /v1/embeddings (which is OpenAI-compatible and text-only); this
+// endpoint accepts URL / base64 / data-URI image inputs.
+type FaceEmbedRequest struct {
+	BasicModelRequest
+	Img string `json:"img"`
+}
+
+type FaceEmbedResponse struct {
+	Embedding []float32 `json:"embedding"`
+	Dim       int       `json:"dim"`
+	Model     string    `json:"model,omitempty"`
+}
+
 // FaceRegisterRequest enrolls a face into the 1:N recognition store.
 type FaceRegisterRequest struct {
 	BasicModelRequest
