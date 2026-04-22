@@ -622,9 +622,37 @@ FACE_IMAGE_1_URL ?= https://github.com/deepinsight/insightface/raw/master/python
 FACE_IMAGE_2_URL ?= https://github.com/deepinsight/insightface/raw/master/python-package/insightface/data/images/t1.jpg
 FACE_IMAGE_3_URL ?= https://github.com/deepinsight/insightface/raw/master/python-package/insightface/data/images/mask_white.jpg
 
-## buffalo_l — insightface default, non-commercial research use only.
-## Pre-baked in the image. Full face-recognition capability matrix
-## including face_analyze (buffalo_l ships a genderage head).
+## Host-side cache for the OpenCV Zoo face ONNX files used by the
+## opencv e2e target. The backend image no longer bakes model weights —
+## gallery installs bring them via `files:` — but the e2e suite drives
+## LoadModel over gRPC directly without going through the gallery. We
+## pre-download the ONNX files to a stable host path and pass absolute
+## paths in BACKEND_TEST_OPTIONS; `make` skips the downloads when the
+## SHA-256 already matches.
+INSIGHTFACE_OPENCV_DIR := /tmp/localai-insightface-opencv-cache
+INSIGHTFACE_OPENCV_YUNET_URL := https://github.com/opencv/opencv_zoo/raw/main/models/face_detection_yunet/face_detection_yunet_2023mar.onnx
+INSIGHTFACE_OPENCV_SFACE_URL := https://github.com/opencv/opencv_zoo/raw/main/models/face_recognition_sface/face_recognition_sface_2021dec.onnx
+INSIGHTFACE_OPENCV_YUNET_SHA := 8f2383e4dd3cfbb4553ea8718107fc0423210dc964f9f4280604804ed2552fa4
+INSIGHTFACE_OPENCV_SFACE_SHA := 0ba9fbfa01b5270c96627c4ef784da859931e02f04419c829e83484087c34e79
+
+.PHONY: insightface-opencv-models
+insightface-opencv-models:
+	@mkdir -p $(INSIGHTFACE_OPENCV_DIR)
+	@if [ "$$(sha256sum $(INSIGHTFACE_OPENCV_DIR)/yunet.onnx 2>/dev/null | awk '{print $$1}')" != "$(INSIGHTFACE_OPENCV_YUNET_SHA)" ]; then \
+		echo "Fetching YuNet..."; \
+		curl -fsSL -o $(INSIGHTFACE_OPENCV_DIR)/yunet.onnx $(INSIGHTFACE_OPENCV_YUNET_URL); \
+		echo "$(INSIGHTFACE_OPENCV_YUNET_SHA)  $(INSIGHTFACE_OPENCV_DIR)/yunet.onnx" | sha256sum -c; \
+	fi
+	@if [ "$$(sha256sum $(INSIGHTFACE_OPENCV_DIR)/sface.onnx 2>/dev/null | awk '{print $$1}')" != "$(INSIGHTFACE_OPENCV_SFACE_SHA)" ]; then \
+		echo "Fetching SFace..."; \
+		curl -fsSL -o $(INSIGHTFACE_OPENCV_DIR)/sface.onnx $(INSIGHTFACE_OPENCV_SFACE_URL); \
+		echo "$(INSIGHTFACE_OPENCV_SFACE_SHA)  $(INSIGHTFACE_OPENCV_DIR)/sface.onnx" | sha256sum -c; \
+	fi
+
+## buffalo_l — insightface's default pack, non-commercial research use.
+## The pack is auto-downloaded by insightface.FaceAnalysis on first
+## LoadModel from upstream's GitHub release (URL stable, ~326MB). Full
+## face-recognition capability matrix including face_analyze.
 test-extra-backend-insightface-buffalo-l: docker-build-insightface
 	BACKEND_IMAGE=local-ai-backend:insightface \
 	BACKEND_TEST_MODEL_NAME=insightface-buffalo-l \
@@ -636,14 +664,15 @@ test-extra-backend-insightface-buffalo-l: docker-build-insightface
 	BACKEND_TEST_VERIFY_DISTANCE_CEILING=0.6 \
 	$(MAKE) test-extra-backend
 
-## OpenCV Zoo YuNet + SFace — Apache 2.0, commercial-safe. Pre-baked
-## at /opt/face-models/opencv/*.onnx. face_analyze cap is dropped
-## (SFace has no demographic head). Distance distribution is wider
-## than ArcFace so the verify ceiling is looser.
-test-extra-backend-insightface-opencv: docker-build-insightface
+## OpenCV Zoo YuNet + SFace — Apache 2.0, commercial-safe. face_analyze
+## cap is dropped (SFace has no demographic head). The ONNX files are
+## pre-fetched on the host via the insightface-opencv-models target and
+## passed as absolute paths, since the e2e suite drives LoadModel
+## directly without going through LocalAI's gallery flow.
+test-extra-backend-insightface-opencv: docker-build-insightface insightface-opencv-models
 	BACKEND_IMAGE=local-ai-backend:insightface \
 	BACKEND_TEST_MODEL_NAME=insightface-opencv \
-	BACKEND_TEST_OPTIONS=engine:onnx_direct,detector_onnx:models/opencv/yunet.onnx,recognizer_onnx:models/opencv/sface.onnx \
+	BACKEND_TEST_OPTIONS=engine:onnx_direct,detector_onnx:$(INSIGHTFACE_OPENCV_DIR)/yunet.onnx,recognizer_onnx:$(INSIGHTFACE_OPENCV_DIR)/sface.onnx \
 	BACKEND_TEST_CAPS=health,load,face_detect,face_embed,face_verify \
 	BACKEND_TEST_FACE_IMAGE_1_URL=$(FACE_IMAGE_1_URL) \
 	BACKEND_TEST_FACE_IMAGE_2_URL=$(FACE_IMAGE_2_URL) \
