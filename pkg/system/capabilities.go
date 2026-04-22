@@ -72,8 +72,21 @@ func (s *SystemState) Capability(capMap map[string]string) string {
 		return reportedCapability
 	}
 
+	// Fall back to the explicit "default" catch-all, then to "cpu". The cpu
+	// fallback matters for meta backends that only enumerate GPU variants +
+	// cpu (e.g. vllm maps nvidia/amd/intel/cpu but not default): on a
+	// no-GPU host the reported capability is "default", so without this
+	// we'd filter the meta out and break auto-install by name.
+	if _, exists := capMap[defaultCapability]; exists {
+		xlog.Debug("Capability not in map, falling back to default", "reportedCapability", reportedCapability, "capMap", capMap)
+		return defaultCapability
+	}
+	if _, exists := capMap["cpu"]; exists {
+		xlog.Debug("Capability not in map, falling back to cpu", "reportedCapability", reportedCapability, "capMap", capMap)
+		return "cpu"
+	}
+
 	xlog.Debug("The requested capability was not found, using default capability", "reportedCapability", reportedCapability, "capMap", capMap)
-	// Otherwise, return the default capability (catch-all)
 	return defaultCapability
 }
 
