@@ -212,6 +212,9 @@ var _ = BeforeSuite(func() {
 
 	// Import model configs from an external directory (e.g. real model YAMLs
 	// and weights mounted into a container). Symlinks avoid copying large files.
+	// Both files and directories are symlinked — multi-file backends like
+	// sherpa-onnx TTS expect their tokens.txt / lexicon.txt sidecars in the
+	// same directory as the .onnx, so we need whole-directory imports.
 	if rtModels := os.Getenv("REALTIME_MODELS_PATH"); rtModels != "" {
 		entries, err := os.ReadDir(rtModels)
 		Expect(err).ToNot(HaveOccurred())
@@ -220,9 +223,6 @@ var _ = BeforeSuite(func() {
 			dst := filepath.Join(modelsPath, entry.Name())
 			if _, err := os.Stat(dst); err == nil {
 				continue // don't overwrite mock configs
-			}
-			if entry.IsDir() {
-				continue
 			}
 			Expect(os.Symlink(src, dst)).To(Succeed())
 		}

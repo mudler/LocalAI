@@ -195,7 +195,7 @@ jobs:
         run: go version
       - name: Dependencies
         run: |
-          brew install protobuf grpc make protoc-gen-go protoc-gen-go-grpc libomp llvm opus
+          brew install protobuf grpc make protoc-gen-go protoc-gen-go-grpc libomp llvm opus ffmpeg
           pip install --user --no-cache-dir grpcio-tools grpcio
       - name: Setup Node.js
         uses: actions/setup-node@v6

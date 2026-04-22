@@ -767,7 +767,7 @@ func (c *ModelConfig) GuessUsecases(u ModelConfigUsecase) bool {
 	}
 
 	if (u & FLAG_VAD) == FLAG_VAD {
-		if c.Backend != "silero-vad" && !(c.Backend == "whisper" && slices.Contains(c.Options, "vad_only")) {
+		if c.Backend != "silero-vad" && c.Backend != "sherpa-onnx" && !(c.Backend == "whisper" && slices.Contains(c.Options, "vad_only")) {
 			return false
 		}
 	}

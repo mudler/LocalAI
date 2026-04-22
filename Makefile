@@ -1,5 +1,5 @@
 # Disable parallel execution for backend builds
-.NOTPARALLEL: backends/diffusers backends/llama-cpp backends/turboquant backends/outetts backends/piper backends/stablediffusion-ggml backends/whisper backends/faster-whisper backends/silero-vad backends/local-store backends/huggingface backends/rfdetr backends/insightface backends/speaker-recognition backends/kitten-tts backends/kokoro backends/chatterbox backends/llama-cpp-darwin backends/neutts build-darwin-python-backend build-darwin-go-backend backends/mlx backends/diffuser-darwin backends/mlx-vlm backends/mlx-audio backends/mlx-distributed backends/stablediffusion-ggml-darwin backends/vllm backends/vllm-omni backends/sglang backends/moonshine backends/pocket-tts backends/qwen-tts backends/faster-qwen3-tts backends/qwen-asr backends/nemo backends/voxcpm backends/whisperx backends/ace-step backends/acestep-cpp backends/fish-speech backends/voxtral backends/opus backends/trl backends/llama-cpp-quantization backends/kokoros backends/sam3-cpp backends/qwen3-tts-cpp backends/tinygrad
+.NOTPARALLEL: backends/diffusers backends/llama-cpp backends/turboquant backends/outetts backends/piper backends/stablediffusion-ggml backends/whisper backends/faster-whisper backends/silero-vad backends/local-store backends/huggingface backends/rfdetr backends/insightface backends/speaker-recognition backends/kitten-tts backends/kokoro backends/chatterbox backends/llama-cpp-darwin backends/neutts build-darwin-python-backend build-darwin-go-backend backends/mlx backends/diffuser-darwin backends/mlx-vlm backends/mlx-audio backends/mlx-distributed backends/stablediffusion-ggml-darwin backends/vllm backends/vllm-omni backends/sglang backends/moonshine backends/pocket-tts backends/qwen-tts backends/faster-qwen3-tts backends/qwen-asr backends/nemo backends/voxcpm backends/whisperx backends/ace-step backends/acestep-cpp backends/fish-speech backends/voxtral backends/opus backends/trl backends/llama-cpp-quantization backends/kokoros backends/sam3-cpp backends/qwen3-tts-cpp backends/tinygrad backends/sherpa-onnx
 
 GOCMD=go
 GOTEST=$(GOCMD) test
@@ -750,6 +750,44 @@ test-extra-backend-speaker-recognition-ecapa: docker-build-speaker-recognition
 test-extra-backend-speaker-recognition-all: \
 	test-extra-backend-speaker-recognition-ecapa
 
+## Realtime e2e with sherpa-onnx driving VAD + STT + TTS against a mocked
+## LLM. Extracts the sherpa-onnx Docker image rootfs, downloads the three
+## gallery-referenced model bundles (silero-vad, omnilingual-asr, vits-ljs),
+## writes the corresponding model config YAMLs, and runs the realtime
+## websocket spec in tests/e2e with REALTIME_* env vars wiring the sherpa
+## slots into the pipeline. The LLM slot stays on the in-repo mock-backend
+## registered unconditionally by tests/e2e/e2e_suite_test.go. See
+## tests/e2e/run-realtime-sherpa.sh for the full orchestration.
+test-extra-e2e-realtime-sherpa: build-mock-backend docker-build-sherpa-onnx protogen-go react-ui
+	bash tests/e2e/run-realtime-sherpa.sh
+
+## Streaming ASR via the sherpa-onnx online recognizer. Uses the streaming
+## zipformer English model (encoder/decoder/joiner int8 + tokens) from the
+## sherpa-onnx gallery entry. Drives both AudioTranscription and
+## AudioTranscriptionStream via the e2e-backends gRPC harness; streaming
+## emits real partial deltas during decode. Each file is renamed on download
+## to the shape sherpa-onnx's online loader expects (encoder.int8.onnx etc.).
+test-extra-backend-sherpa-onnx-transcription: docker-build-sherpa-onnx
+	BACKEND_IMAGE=local-ai-backend:sherpa-onnx \
+	BACKEND_TEST_MODEL_URL='https://huggingface.co/csukuangfj/sherpa-onnx-streaming-zipformer-en-2023-06-26/resolve/main/encoder-epoch-99-avg-1-chunk-16-left-128.int8.onnx#encoder.int8.onnx' \
+	BACKEND_TEST_EXTRA_FILES='https://huggingface.co/csukuangfj/sherpa-onnx-streaming-zipformer-en-2023-06-26/resolve/main/decoder-epoch-99-avg-1-chunk-16-left-128.int8.onnx#decoder.int8.onnx|https://huggingface.co/csukuangfj/sherpa-onnx-streaming-zipformer-en-2023-06-26/resolve/main/joiner-epoch-99-avg-1-chunk-16-left-128.int8.onnx#joiner.int8.onnx|https://huggingface.co/csukuangfj/sherpa-onnx-streaming-zipformer-en-2023-06-26/resolve/main/tokens.txt' \
+	BACKEND_TEST_AUDIO_URL=https://github.com/ggml-org/whisper.cpp/raw/master/samples/jfk.wav \
+	BACKEND_TEST_CAPS=health,load,transcription \
+	BACKEND_TEST_OPTIONS=subtype=online \
+	$(MAKE) test-extra-backend
+
+## VITS TTS via the sherpa-onnx backend. Pulls the individual files from
+## HuggingFace (the vits-ljs release tarball lives on the k2-fsa github
+## but is also mirrored as discrete files on HF). Exercises both
+## TTS (write-to-file) and TTSStream (PCM chunks + WAV header) via the
+## e2e-backends gRPC harness.
+test-extra-backend-sherpa-onnx-tts: docker-build-sherpa-onnx
+	BACKEND_IMAGE=local-ai-backend:sherpa-onnx \
+	BACKEND_TEST_MODEL_URL='https://huggingface.co/csukuangfj/vits-ljs/resolve/main/vits-ljs.onnx#vits-ljs.onnx' \
+	BACKEND_TEST_EXTRA_FILES='https://huggingface.co/csukuangfj/vits-ljs/resolve/main/tokens.txt|https://huggingface.co/csukuangfj/vits-ljs/resolve/main/lexicon.txt' \
+	BACKEND_TEST_CAPS=health,load,tts \
+	$(MAKE) test-extra-backend
+
 ## sglang mirrors the vllm setup: HuggingFace model id, same tiny Qwen,
 ## tool-call extraction via sglang's native qwen parser. CPU builds use
 ## sglang's upstream pyproject_cpu.toml recipe (see backend/python/sglang/install.sh).
@@ -887,6 +925,7 @@ BACKEND_VOXTRAL = voxtral|golang|.|false|true
 BACKEND_ACESTEP_CPP = acestep-cpp|golang|.|false|true
 BACKEND_QWEN3_TTS_CPP = qwen3-tts-cpp|golang|.|false|true
 BACKEND_OPUS = opus|golang|.|false|true
+BACKEND_SHERPA_ONNX = sherpa-onnx|golang|.|false|true
 
 # Python backends with root context
 BACKEND_RERANKERS = rerankers|python|.|false|true
@@ -999,12 +1038,13 @@ $(eval $(call generate-docker-build-target,$(BACKEND_LLAMA_CPP_QUANTIZATION)))
 $(eval $(call generate-docker-build-target,$(BACKEND_TINYGRAD)))
 $(eval $(call generate-docker-build-target,$(BACKEND_KOKOROS)))
 $(eval $(call generate-docker-build-target,$(BACKEND_SAM3_CPP)))
+$(eval $(call generate-docker-build-target,$(BACKEND_SHERPA_ONNX)))
 
 # Pattern rule for docker-save targets
 docker-save-%: backend-images
 	docker save local-ai-backend:$* -o backend-images/$*.tar
 
-docker-build-backends: docker-build-llama-cpp docker-build-ik-llama-cpp docker-build-turboquant docker-build-rerankers docker-build-vllm docker-build-vllm-omni docker-build-sglang docker-build-transformers docker-build-outetts docker-build-diffusers docker-build-kokoro docker-build-faster-whisper docker-build-coqui docker-build-chatterbox docker-build-vibevoice docker-build-moonshine docker-build-pocket-tts docker-build-qwen-tts docker-build-fish-speech docker-build-faster-qwen3-tts docker-build-qwen-asr docker-build-nemo docker-build-voxcpm docker-build-whisperx docker-build-ace-step docker-build-acestep-cpp docker-build-voxtral docker-build-mlx-distributed docker-build-trl docker-build-llama-cpp-quantization docker-build-tinygrad docker-build-kokoros docker-build-sam3-cpp docker-build-qwen3-tts-cpp docker-build-insightface docker-build-speaker-recognition
+docker-build-backends: docker-build-llama-cpp docker-build-ik-llama-cpp docker-build-turboquant docker-build-rerankers docker-build-vllm docker-build-vllm-omni docker-build-sglang docker-build-transformers docker-build-outetts docker-build-diffusers docker-build-kokoro docker-build-faster-whisper docker-build-coqui docker-build-chatterbox docker-build-vibevoice docker-build-moonshine docker-build-pocket-tts docker-build-qwen-tts docker-build-fish-speech docker-build-faster-qwen3-tts docker-build-qwen-asr docker-build-nemo docker-build-voxcpm docker-build-whisperx docker-build-ace-step docker-build-acestep-cpp docker-build-voxtral docker-build-mlx-distributed docker-build-trl docker-build-llama-cpp-quantization docker-build-tinygrad docker-build-kokoros docker-build-sam3-cpp docker-build-qwen3-tts-cpp docker-build-insightface docker-build-speaker-recognition docker-build-sherpa-onnx
 
 ########################################################
 ### Mock Backend for E2E Tests

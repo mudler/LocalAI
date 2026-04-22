@@ -40,6 +40,7 @@ jobs:
       kokoros: ${{ steps.detect.outputs.kokoros }}
       insightface: ${{ steps.detect.outputs.insightface }}
       speaker-recognition: ${{ steps.detect.outputs.speaker-recognition }}
+      sherpa-onnx: ${{ steps.detect.outputs.sherpa-onnx }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -506,6 +507,72 @@ jobs:
       - name: Build llama-cpp backend image and run audio transcription gRPC e2e tests
         run: |
           make test-extra-backend-llama-cpp-transcription
+  # Realtime e2e with sherpa-onnx driving VAD + STT + TTS against a mocked LLM.
+  # Builds the sherpa-onnx Docker image, extracts the rootfs so the e2e suite
+  # can discover the backend binary + shared libs, downloads the three model
+  # bundles (silero-vad, omnilingual-asr, vits-ljs) and drives the realtime
+  # websocket spec end-to-end.
+  tests-sherpa-onnx-realtime:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.sherpa-onnx == 'true' || needs.detect-changes.outputs.run-all == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Clone
+        uses: actions/checkout@v6
+        with:
+          submodules: true
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.4'
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+      - name: Build sherpa-onnx backend image and run realtime e2e tests
+        run: |
+          make test-extra-e2e-realtime-sherpa
+  # Streaming ASR via the sherpa-onnx online recognizer (zipformer
+  # transducer). Exercises both AudioTranscription (buffered) and
+  # AudioTranscriptionStream (real-time deltas) on the e2e-backends
+  # harness.
+  tests-sherpa-onnx-grpc-transcription:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.sherpa-onnx == 'true' || needs.detect-changes.outputs.run-all == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Clone
+        uses: actions/checkout@v6
+        with:
+          submodules: true
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.4'
+      - name: Build sherpa-onnx backend image and run streaming ASR gRPC e2e tests
+        run: |
+          make test-extra-backend-sherpa-onnx-transcription
+  # VITS TTS via the sherpa-onnx backend. Drives both TTS (file write) and
+  # TTSStream (PCM chunks) on the e2e-backends harness.
+  tests-sherpa-onnx-grpc-tts:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.sherpa-onnx == 'true' || needs.detect-changes.outputs.run-all == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Clone
+        uses: actions/checkout@v6
+        with:
+          submodules: true
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.4'
+      - name: Build sherpa-onnx backend image and run TTS gRPC e2e tests
+        run: |
+          make test-extra-backend-sherpa-onnx-tts
   tests-ik-llama-cpp-grpc:
     needs: detect-changes
     if: needs.detect-changes.outputs.ik-llama-cpp == 'true' || needs.detect-changes.outputs.run-all == 'true'

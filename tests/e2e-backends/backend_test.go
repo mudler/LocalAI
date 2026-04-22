@@ -40,6 +40,12 @@ import (
 //	                         to download alongside the main model — required for
 //	                         multimodal models like Qwen3-ASR-0.6B-GGUF.
 //	BACKEND_TEST_MMPROJ_FILE Path to an already-available mmproj file.
+//	BACKEND_TEST_EXTRA_FILES Pipe-separated list of companion files to download
+//	                         next to the main model. Each entry is "<url>" or
+//	                         "<url>#<local-name>" (the optional suffix renames
+//	                         the file on disk — useful for sherpa-onnx models
+//	                         whose loader expects specific names like
+//	                         encoder.int8.onnx).
 //	BACKEND_TEST_AUDIO_URL   HTTP(S) URL of a sample audio file used by the
 //	                         transcription specs.
 //	BACKEND_TEST_AUDIO_FILE  Path to an already-available sample audio file.
@@ -71,6 +77,9 @@ import (
 //	                         (default: "What's the weather like in Paris, France?").
 //	BACKEND_TEST_TOOL_NAME   Override the function name expected in the tool call
 //	                         (default: "get_weather").
+//	BACKEND_TEST_TTS_TEXT    Override the text synthesized by the tts/ttsstream
+//	                         specs (default: "The quick brown fox jumps over the
+//	                         lazy dog.").
 //
 // The suite is intentionally model-format-agnostic: it only ever passes the
 // file path to LoadModel, so GGUF, ONNX, safetensors, .bin etc. all work so
@@ -83,6 +92,7 @@ const (
 	capEmbeddings    = "embeddings"
 	capTools         = "tools"
 	capTranscription = "transcription"
+	capTTS           = "tts"
 	capImage         = "image"
 	capFaceDetect    = "face_detect"
 	capFaceEmbed     = "face_embed"
@@ -99,6 +109,7 @@ const (
 	defaultImagePrompt        = "a photograph of an astronaut riding a horse"
 	defaultImageSteps         = 4
 	defaultVerifyDistanceCeil = float32(0.6) // upper bound for same-person; SFace runs closer to 0.5 ArcFace to 0.35.
+	defaultTTSText            = "The quick brown fox jumps over the lazy dog."
 )
 
 func defaultCaps() map[string]bool {
@@ -108,6 +119,17 @@ func defaultCaps() map[string]bool {
 		capPredict: true,
 		capStream:  true,
 	}
+}
+
+// splitURLAndName parses a "<url>#<local-name>" entry. The #name suffix is
+// optional — if absent, defaultName is returned. Used by the main-model
+// and extras download paths so a test can rename downloaded files to the
+// shape the backend's loader expects.
+func splitURLAndName(entry, defaultName string) (url, name string) {
+	if hash := strings.Index(entry, "#"); hash >= 0 {
+		return entry[:hash], entry[hash+1:]
+	}
+	return entry, defaultName
 }
 
 // parseCaps reads BACKEND_TEST_CAPS and returns the enabled capability set.
@@ -199,9 +221,33 @@ var _ = Describe("Backend container", Ordered, func() {
 		Expect(filepath.Join(binaryDir, "run.sh")).To(BeAnExistingFile())
 
 		// Download the model once if not provided and no HF name given.
+		// BACKEND_TEST_MODEL_URL accepts an optional "#<local-name>" suffix
+		// for cases where the backend expects the model file to have a
+		// specific name (e.g. sherpa-onnx's online recognizer finds
+		// encoder/decoder/joiner by filename substring).
 		if modelFile == "" && modelName == "" {
-			modelFile = filepath.Join(workDir, "model.bin")
-			downloadFile(modelURL, modelFile)
+			url, name := splitURLAndName(modelURL, "model.bin")
+			modelFile = filepath.Join(workDir, name)
+			downloadFile(url, modelFile)
+		}
+
+		// Multi-file models (sherpa-onnx streaming zipformer, sherpa-onnx
+		// Omnilingual, any split encoder/decoder/joiner bundle) need
+		// companion files next to the main model. BACKEND_TEST_EXTRA_FILES
+		// is a pipe-separated list of "<url>[#<local-name>]" entries; each
+		// is downloaded into the same directory as modelFile. The optional
+		// <local-name> renames the saved file (useful when upstream URLs
+		// have stamp/version suffixes the loader doesn't recognise).
+		if extraSpec := strings.TrimSpace(os.Getenv("BACKEND_TEST_EXTRA_FILES")); extraSpec != "" && modelFile != "" {
+			modelDir := filepath.Dir(modelFile)
+			for _, entry := range strings.Split(extraSpec, "|") {
+				entry = strings.TrimSpace(entry)
+				if entry == "" {
+					continue
+				}
+				url, name := splitURLAndName(entry, filepath.Base(entry))
+				downloadFile(url, filepath.Join(modelDir, name))
+			}
 		}
 
 		// Multimodal projector (mmproj): required by audio/vision-capable
@@ -787,6 +833,62 @@ var _ = Describe("Backend container", Ordered, func() {
 		}
 		GinkgoWriter.Printf("voice_analyze: %d segments\n", len(res.GetSegments()))
 	})
+
+	It("synthesizes speech via TTS", func() {
+		if !caps[capTTS] {
+			Skip("tts capability not enabled")
+		}
+		text := os.Getenv("BACKEND_TEST_TTS_TEXT")
+		if text == "" {
+			text = defaultTTSText
+		}
+		dst := filepath.Join(workDir, "tts.wav")
+
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		defer cancel()
+		_, err := client.TTS(ctx, &pb.TTSRequest{Text: text, Dst: dst})
+		Expect(err).NotTo(HaveOccurred())
+
+		info, err := os.Stat(dst)
+		Expect(err).NotTo(HaveOccurred(), "TTS did not write a file at %s", dst)
+		Expect(info.Size()).To(BeNumerically(">", int64(1024)),
+			"TTS output too small: %d bytes", info.Size())
+		GinkgoWriter.Printf("TTS: wrote %s (%d bytes)\n", dst, info.Size())
+	})
+
+	It("streams PCM via TTSStream", func() {
+		if !caps[capTTS] {
+			Skip("tts capability not enabled")
+		}
+		text := os.Getenv("BACKEND_TEST_TTS_TEXT")
+		if text == "" {
+			text = defaultTTSText
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		defer cancel()
+		stream, err := client.TTSStream(ctx, &pb.TTSRequest{Text: text})
+		Expect(err).NotTo(HaveOccurred())
+
+		var chunks, totalBytes int
+		for {
+			reply, err := stream.Recv()
+			if err == io.EOF {
+				break
+			}
+			Expect(err).NotTo(HaveOccurred())
+			if audio := reply.GetAudio(); len(audio) > 0 {
+				chunks++
+				totalBytes += len(audio)
+			}
+		}
+		// Header + at least one PCM chunk proves real streaming (not emit-once).
+		Expect(chunks).To(BeNumerically(">=", 2),
+			"expected >=2 chunks (header + PCM), got %d (bytes=%d)", chunks, totalBytes)
+		Expect(totalBytes).To(BeNumerically(">", 1024),
+			"streamed audio too short: %d bytes", totalBytes)
+		GinkgoWriter.Printf("TTSStream: %d chunks, %d bytes\n", chunks, totalBytes)
+	})
 })
 
 // extractImage runs `docker create` + `docker export` to materialise the image
@@ -819,9 +921,17 @@ func extractImage(image, dest string) {
 
 // downloadFile fetches url into dest using curl -L. Used for CI convenience;
 // local runs can use BACKEND_TEST_MODEL_FILE to skip downloading.
+// Retry flags guard against transient CI network hiccups (github.com in
+// particular has been flaky from GHA runners, timing out TCP connects).
 func downloadFile(url, dest string) {
 	GinkgoHelper()
-	cmd := exec.Command("curl", "-sSfL", "-o", dest, url)
+	cmd := exec.Command("curl", "-sSfL",
+		"--connect-timeout", "30",
+		"--max-time", "600",
+		"--retry", "5",
+		"--retry-delay", "5",
+		"--retry-all-errors",
+		"-o", dest, url)
 	cmd.Stdout = GinkgoWriter
 	cmd.Stderr = GinkgoWriter
 	Expect(cmd.Run()).To(Succeed(), "failed to download %s", url)
