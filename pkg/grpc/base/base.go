@@ -89,6 +89,18 @@ func (llm *Base) FaceAnalyze(*pb.FaceAnalyzeRequest) (pb.FaceAnalyzeResponse, er
 	return pb.FaceAnalyzeResponse{}, fmt.Errorf("unimplemented")
 }
 
+func (llm *Base) VoiceVerify(*pb.VoiceVerifyRequest) (pb.VoiceVerifyResponse, error) {
+	return pb.VoiceVerifyResponse{}, fmt.Errorf("unimplemented")
+}
+
+func (llm *Base) VoiceAnalyze(*pb.VoiceAnalyzeRequest) (pb.VoiceAnalyzeResponse, error) {
+	return pb.VoiceAnalyzeResponse{}, fmt.Errorf("unimplemented")
+}
+
+func (llm *Base) VoiceEmbed(*pb.VoiceEmbedRequest) (pb.VoiceEmbedResponse, error) {
+	return pb.VoiceEmbedResponse{}, fmt.Errorf("unimplemented")
+}
+
 func (llm *Base) TokenizeString(opts *pb.PredictOptions) (pb.TokenizationResponse, error) {
 	return pb.TokenizationResponse{}, fmt.Errorf("unimplemented")
 }

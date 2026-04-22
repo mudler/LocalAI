@@ -290,6 +290,65 @@ type FaceForgetRequest struct {
 	Store string `json:"store,omitempty"`
 }
 
+// ─── Voice (speaker) recognition ───────────────────────────────────
+//
+// VoiceVerifyRequest compares two audio clips and reports whether they
+// were spoken by the same speaker. Audio1/Audio2 accept URL, base64,
+// or data-URI (the HTTP layer materialises the bytes to a temp file
+// before calling the gRPC backend).
+type VoiceVerifyRequest struct {
+	BasicModelRequest
+	Audio1       string  `json:"audio1"`
+	Audio2       string  `json:"audio2"`
+	Threshold    float32 `json:"threshold,omitempty"`
+	AntiSpoofing bool    `json:"anti_spoofing,omitempty"`
+}
+
+type VoiceVerifyResponse struct {
+	Verified         bool    `json:"verified"`
+	Distance         float32 `json:"distance"`
+	Threshold        float32 `json:"threshold"`
+	Confidence       float32 `json:"confidence"`
+	Model            string  `json:"model"`
+	ProcessingTimeMs float32 `json:"processing_time_ms,omitempty"`
+}
+
+// VoiceAnalyzeRequest asks the backend for demographic attributes
+// (age, gender, emotion) inferred from the audio clip.
+type VoiceAnalyzeRequest struct {
+	BasicModelRequest
+	Audio   string   `json:"audio"`
+	Actions []string `json:"actions,omitempty"` // subset of {"age","gender","emotion"}
+}
+
+type VoiceAnalyzeResponse struct {
+	Segments []VoiceAnalysis `json:"segments"`
+}
+
+type VoiceAnalysis struct {
+	Start           float32            `json:"start"`
+	End             float32            `json:"end"`
+	Age             float32            `json:"age,omitempty"`
+	DominantGender  string             `json:"dominant_gender,omitempty"`
+	Gender          map[string]float32 `json:"gender,omitempty"`
+	DominantEmotion string             `json:"dominant_emotion,omitempty"`
+	Emotion         map[string]float32 `json:"emotion,omitempty"`
+}
+
+// VoiceEmbedRequest extracts a speaker embedding from an audio clip.
+// Distinct from /v1/embeddings (OpenAI-compatible, text-only) — this
+// endpoint accepts URL / base64 / data-URI audio inputs.
+type VoiceEmbedRequest struct {
+	BasicModelRequest
+	Audio string `json:"audio"`
+}
+
+type VoiceEmbedResponse struct {
+	Embedding []float32 `json:"embedding"`
+	Dim       int       `json:"dim"`
+	Model     string    `json:"model,omitempty"`
+}
+
 type ImportModelRequest struct {
 	URI         string          `json:"uri"`
 	Preferences json.RawMessage `json:"preferences,omitempty"`

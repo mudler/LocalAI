@@ -1038,6 +1038,25 @@ definitions:
         description: '"reasoning", "tool_call", "tool_result", "status"'
         type: string
     type: object
+  schema.KnownBackend:
+    properties:
+      auto_detect:
+        type: boolean
+      description:
+        type: string
+      installed:
+        description: |-
+          Installed is true when the backend is currently present on disk — i.e. it
+          appears in gallery.ListSystemBackends(systemState). Importer-registered or
+          curated pref-only backends default to false unless they also show up on
+          disk. The import form uses this to warn users that submitting an import
+          may trigger an automatic backend download.
+        type: boolean
+      modality:
+        type: string
+      name:
+        type: string
+    type: object
   schema.LogprobContent:
     properties:
       bytes:
@@ -1901,6 +1920,94 @@ definitions:
         description: output width in pixels
         type: integer
     type: object
+  schema.VoiceAnalysis:
+    properties:
+      age:
+        type: number
+      dominant_emotion:
+        type: string
+      dominant_gender:
+        type: string
+      emotion:
+        additionalProperties:
+          format: float32
+          type: number
+        type: object
+      end:
+        type: number
+      gender:
+        additionalProperties:
+          format: float32
+          type: number
+        type: object
+      start:
+        type: number
+    type: object
+  schema.VoiceAnalyzeRequest:
+    properties:
+      actions:
+        description: subset of {"age","gender","emotion"}
+        items:
+          type: string
+        type: array
+      audio:
+        type: string
+      model:
+        type: string
+    type: object
+  schema.VoiceAnalyzeResponse:
+    properties:
+      segments:
+        items:
+          $ref: '#/definitions/schema.VoiceAnalysis'
+        type: array
+    type: object
+  schema.VoiceEmbedRequest:
+    properties:
+      audio:
+        type: string
+      model:
+        type: string
+    type: object
+  schema.VoiceEmbedResponse:
+    properties:
+      dim:
+        type: integer
+      embedding:
+        items:
+          type: number
+        type: array
+      model:
+        type: string
+    type: object
+  schema.VoiceVerifyRequest:
+    properties:
+      anti_spoofing:
+        type: boolean
+      audio1:
+        type: string
+      audio2:
+        type: string
+      model:
+        type: string
+      threshold:
+        type: number
+    type: object
+  schema.VoiceVerifyResponse:
+    properties:
+      confidence:
+        type: number
+      distance:
+        type: number
+      model:
+        type: string
+      processing_time_ms:
+        type: number
+      threshold:
+        type: number
+      verified:
+        type: boolean
+    type: object
   schema.WebhookConfig:
     properties:
       headers:
@@ -2688,6 +2795,18 @@ paths:
       summary: Returns the job status
       tags:
       - backends
+  /backends/known:
+    get:
+      responses:
+        "200":
+          description: Response
+          schema:
+            items:
+              $ref: '#/definitions/schema.KnownBackend'
+            type: array
+      summary: List all known Backends (importer registry + curated pref-only + installed-on-disk)
+      tags:
+      - backends
   /backends/upgrade/{name}:
     post:
       parameters:
@@ -3392,6 +3511,58 @@ paths:
       summary: Tokenize the input.
       tags:
       - tokenize
+  /v1/voice/analyze:
+    post:
+      parameters:
+      - description: query params
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.VoiceAnalyzeRequest'
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/schema.VoiceAnalyzeResponse'
+      summary: Analyze demographic attributes (age, gender, emotion) from a voice
+        clip.
+      tags:
+      - voice-recognition
+  /v1/voice/embed:
+    post:
+      parameters:
+      - description: query params
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.VoiceEmbedRequest'
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/schema.VoiceEmbedResponse'
+      summary: Extract a speaker embedding from an audio clip.
+      tags:
+      - voice-recognition
+  /v1/voice/verify:
+    post:
+      parameters:
+      - description: query params
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.VoiceVerifyRequest'
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/schema.VoiceVerifyResponse'
+      summary: Verify that two audio clips were spoken by the same person.
+      tags:
+      - voice-recognition
   /vad:
     post:
       consumes:

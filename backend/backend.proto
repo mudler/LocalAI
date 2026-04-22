@@ -26,6 +26,9 @@ service Backend {
   rpc Detect(DetectOptions) returns (DetectResponse) {}
   rpc FaceVerify(FaceVerifyRequest) returns (FaceVerifyResponse) {}
   rpc FaceAnalyze(FaceAnalyzeRequest) returns (FaceAnalyzeResponse) {}
+  rpc VoiceVerify(VoiceVerifyRequest) returns (VoiceVerifyResponse) {}
+  rpc VoiceAnalyze(VoiceAnalyzeRequest) returns (VoiceAnalyzeResponse) {}
+  rpc VoiceEmbed(VoiceEmbedRequest) returns (VoiceEmbedResponse) {}
 
   rpc StoresSet(StoresSetOptions) returns (Result) {}
   rpc StoresDelete(StoresDeleteOptions) returns (Result) {}
@@ -526,6 +529,57 @@ message FaceAnalysis {
 
 message FaceAnalyzeResponse {
   repeated FaceAnalysis faces = 1;
+}
+
+// --- Voice (speaker) recognition messages ---
+//
+// Analogous to the Face* messages above, but for speaker biometrics.
+// Audio fields accept a filesystem path (same convention as
+// TranscriptRequest.dst). The HTTP layer materialises base64 / URL /
+// data-URI inputs to a temp file before calling the gRPC backend.
+
+message VoiceVerifyRequest {
+  string audio1 = 1;            // path to first audio clip
+  string audio2 = 2;            // path to second audio clip
+  float  threshold = 3;         // cosine-distance threshold; 0 = use backend default
+  bool   anti_spoofing = 4;     // reserved for future AASIST bolt-on
+}
+
+message VoiceVerifyResponse {
+  bool   verified = 1;
+  float  distance = 2;          // 1 - cosine_similarity
+  float  threshold = 3;
+  float  confidence = 4;        // 0-100
+  string model = 5;             // e.g. "speechbrain/spkrec-ecapa-voxceleb"
+  float  processing_time_ms = 6;
+}
+
+message VoiceAnalyzeRequest {
+  string          audio = 1;        // path to audio clip
+  repeated string actions = 2;      // subset of ["age","gender","emotion"]; empty = all-supported
+}
+
+message VoiceAnalysis {
+  float              start = 1;          // segment start time in seconds (0 if single-utterance)
+  float              end = 2;            // segment end time in seconds
+  float              age = 3;
+  string             dominant_gender = 4;
+  map<string, float> gender = 5;
+  string             dominant_emotion = 6;
+  map<string, float> emotion = 7;
+}
+
+message VoiceAnalyzeResponse {
+  repeated VoiceAnalysis segments = 1;
+}
+
+message VoiceEmbedRequest {
+  string audio = 1;              // path to audio clip
+}
+
+message VoiceEmbedResponse {
+  repeated float embedding = 1;
+  string         model = 2;
 }
 
 message ToolFormatMarkers {

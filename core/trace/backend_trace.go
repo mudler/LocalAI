@@ -26,6 +26,9 @@ const (
 	BackendTraceDetection       BackendTraceType = "detection"
 	BackendTraceFaceVerify      BackendTraceType = "face_verify"
 	BackendTraceFaceAnalyze     BackendTraceType = "face_analyze"
+	BackendTraceVoiceVerify     BackendTraceType = "voice_verify"
+	BackendTraceVoiceAnalyze    BackendTraceType = "voice_analyze"
+	BackendTraceVoiceEmbed      BackendTraceType = "voice_embed"
 	BackendTraceModelLoad       BackendTraceType = "model_load"
 )
 
