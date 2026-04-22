@@ -3979,12 +3979,8 @@
       - "sample_rate:16000"
     known_usecases: [speaker_recognition]
   files:
-    # TODO: fill the real SHA-256 on first install — the value below is a
-    # placeholder so `local-ai models install` fails fast with a clear
-    # checksum error rather than silently accepting whatever upstream
-    # serves. Compute with: curl -L <uri> | sha256sum
     - filename: wespeaker_voxceleb_resnet34.onnx
-      sha256: 0000000000000000000000000000000000000000000000000000000000000000
+      sha256: 7bb2f06e9df17cdf1ef14ee8a15ab08ed28e8d0ef5054ee135741560df2ec068
       uri: https://huggingface.co/Wespeaker/wespeaker-voxceleb-resnet34-LM/resolve/main/voxceleb_resnet34_LM.onnx
 - &rfdetr
   name: "rfdetr-base"
