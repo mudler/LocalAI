@@ -10,6 +10,14 @@
 #include "server-task.cpp"
 #include "server-queue.cpp"
 #include "server-common.cpp"
+// server-chat.cpp exists only in llama.cpp after the upstream refactor that
+// split OAI/Anthropic/Responses/transcription conversion helpers out of
+// server-common.cpp. When present, server-context.cpp and server-task.cpp
+// above call into it, so we must pull its definitions into this TU or the
+// link fails. __has_include keeps the source compatible with older pins.
+#if __has_include("server-chat.cpp")
+#include "server-chat.cpp"
+#endif
 #include "server-context.cpp"
 
 // LocalAI
