@@ -686,7 +686,16 @@ struct llama_server_context
         slot->sparams.mirostat_eta      = json_value(data, "mirostat_eta",      default_sparams.mirostat_eta);
         slot->params.n_keep             = json_value(data, "n_keep",            slot->params.n_keep);
         slot->sparams.seed               = json_value(data, "seed",              default_sparams.seed);
-        slot->sparams.grammar           = json_value(data, "grammar",           default_sparams.grammar);
+        {
+            // upstream changed common_params_sampling::grammar from std::string to
+            // the common_grammar struct (type + grammar). The incoming JSON still
+            // carries a plain string, so build the user-provided grammar here and
+            // fall back to the server default when the request omits it.
+            std::string grammar_str = json_value(data, "grammar", std::string());
+            slot->sparams.grammar = grammar_str.empty()
+                ? default_sparams.grammar
+                : common_grammar{COMMON_GRAMMAR_TYPE_USER, std::move(grammar_str)};
+        }
         slot->sparams.n_probs           = json_value(data, "n_probs",           default_sparams.n_probs);
         slot->sparams.min_keep          = json_value(data, "min_keep",          default_sparams.min_keep);
         slot->sparams.grammar_triggers = grammar_triggers;
@@ -1232,7 +1241,7 @@ struct llama_server_context
              //      {"logit_bias",        slot.sparams.logit_bias},
             {"n_probs",           slot.sparams.n_probs},
             {"min_keep",          slot.sparams.min_keep},
-            {"grammar",           slot.sparams.grammar},
+            {"grammar",           slot.sparams.grammar.grammar},
             {"samplers",          samplers}
         };
     }
