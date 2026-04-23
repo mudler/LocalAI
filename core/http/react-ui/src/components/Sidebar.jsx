@@ -25,6 +25,18 @@ const sections = [
     ],
   },
   {
+    id: 'biometrics',
+    title: 'Biometrics',
+    featureMap: {
+      '/app/face': 'face_recognition',
+      '/app/voice': 'voice_recognition',
+    },
+    items: [
+      { path: '/app/face', icon: 'fas fa-face-smile', label: 'Face Recognition', feature: 'face_recognition' },
+      { path: '/app/voice', icon: 'fas fa-microphone-lines', label: 'Voice Recognition', feature: 'voice_recognition' },
+    ],
+  },
+  {
     id: 'agents',
     title: 'Agents',
     featureMap: {

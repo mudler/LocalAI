@@ -4806,6 +4806,1266 @@ select.input {
   justify-content: center;
 }
 
+/* ──────────────────── Biometrics (face + voice recognition) ──────────────────── */
+
+.biometrics-page {
+  padding: var(--spacing-xl);
+  max-width: 1320px;
+  margin: 0 auto;
+  width: 100%;
+  animation: fadeIn var(--duration-normal) var(--ease-default);
+}
+
+.biometrics-page__header {
+  display: grid;
+  grid-template-columns: 1fr minmax(240px, 320px);
+  gap: var(--spacing-lg);
+  align-items: end;
+  margin-bottom: var(--spacing-lg);
+  padding-bottom: var(--spacing-md);
+  border-bottom: 1px solid var(--color-border-divider);
+}
+
+.biometrics-page__header .page-title i {
+  color: var(--color-accent);
+}
+
+.biometrics-page__model {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+
+.biometrics-page__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-lg);
+  min-width: 0;
+}
+
+@media (max-width: 720px) {
+  .biometrics-page__header {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+}
+
+/* Tabs — flat, underlined, inherit page tone */
+.biometrics-tabs {
+  display: flex;
+  gap: var(--spacing-xs);
+  border-bottom: 1px solid var(--color-border-subtle);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.biometrics-tabs::-webkit-scrollbar { display: none; }
+
+.biometrics-tab {
+  background: transparent;
+  border: 0;
+  padding: var(--spacing-sm) var(--spacing-md);
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  border-bottom: 2px solid transparent;
+  min-height: 44px;
+  transition: color var(--duration-fast), border-color var(--duration-fast);
+  white-space: nowrap;
+}
+.biometrics-tab:hover { color: var(--color-text-primary); }
+.biometrics-tab.active {
+  color: var(--color-text-primary);
+  border-bottom-color: var(--color-accent);
+}
+.biometrics-tab i { color: var(--color-accent); font-size: 0.9em; }
+
+/* Two-column workflow layout */
+.biometrics-twocol {
+  display: grid;
+  grid-template-columns: minmax(300px, 380px) 1fr;
+  gap: var(--spacing-lg);
+  align-items: start;
+  min-width: 0;
+}
+@media (max-width: 980px) {
+  .biometrics-twocol { grid-template-columns: 1fr; }
+}
+
+.biometrics-panel {
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
+  box-shadow: var(--shadow-subtle), var(--shadow-inset-top);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.biometrics-panel__title {
+  font-size: var(--text-lg);
+  font-weight: var(--font-weight-semibold);
+  margin: 0;
+  color: var(--color-text-primary);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+.biometrics-panel__title i { color: var(--color-accent); }
+.biometrics-panel__note {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  line-height: var(--leading-normal);
+}
+
+.biometrics-results {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.biometrics-empty {
+  background: var(--color-bg-secondary);
+  border: 1px dashed var(--color-border-default);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-2xl) var(--spacing-lg);
+  text-align: center;
+  min-height: 300px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-sm);
+  color: var(--color-text-secondary);
+}
+.biometrics-empty > i {
+  font-size: 2.5rem;
+  color: var(--color-accent);
+  opacity: 0.6;
+}
+.biometrics-empty h3 {
+  margin: 0;
+  font-size: var(--text-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+.biometrics-empty p {
+  margin: 0;
+  max-width: 48ch;
+  line-height: var(--leading-normal);
+  font-size: var(--text-sm);
+}
+
+/* Media input — file / webcam / record switcher */
+.biometrics-mediainput {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+.biometrics-mediainput__tabs {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  background: var(--color-bg-tertiary);
+  border-radius: var(--radius-md);
+  align-self: flex-start;
+}
+.biometrics-mediainput__tab {
+  background: transparent;
+  border: 0;
+  font: inherit;
+  color: var(--color-text-secondary);
+  padding: 6px 12px;
+  min-height: 32px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-medium);
+  transition: background var(--duration-fast), color var(--duration-fast);
+}
+.biometrics-mediainput__tab:hover:not(:disabled) { color: var(--color-text-primary); }
+.biometrics-mediainput__tab.active {
+  background: var(--color-surface-raised);
+  color: var(--color-text-primary);
+  box-shadow: var(--shadow-subtle);
+}
+.biometrics-mediainput__tab:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.biometrics-mediainput__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.biometrics-mediainput__live {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+.biometrics-mediainput__video {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border-radius: var(--radius-md);
+  background: var(--color-surface-sunken);
+  object-fit: cover;
+}
+.biometrics-mediainput__controls {
+  display: flex;
+  gap: var(--spacing-xs);
+}
+.biometrics-mediainput__controls .btn { flex: 1; min-height: 40px; }
+
+.biometrics-mediainput__meter {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-secondary);
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}
+.biometrics-mediainput__meter i { color: var(--color-text-muted); }
+.biometrics-mediainput__meter.recording {
+  border-color: var(--color-error-border);
+  color: var(--color-text-primary);
+}
+.biometrics-mediainput__meter.recording i {
+  color: var(--color-error);
+  animation: biometrics-pulse 1.2s ease-in-out infinite;
+}
+@keyframes biometrics-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+.biometrics-mediainput__error {
+  margin: 0;
+  color: var(--color-error);
+  font-size: var(--text-sm);
+}
+
+.biometrics-mediainput__notice {
+  display: flex;
+  gap: var(--spacing-sm);
+  align-items: flex-start;
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--color-warning-light);
+  border: 1px solid var(--color-warning-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+}
+.biometrics-mediainput__notice > i {
+  color: var(--color-warning);
+  margin-top: 3px;
+  flex-shrink: 0;
+}
+.biometrics-mediainput__notice strong {
+  display: block;
+  margin-bottom: 2px;
+}
+.biometrics-mediainput__notice p {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--text-xs);
+}
+.biometrics-mediainput__notice code {
+  background: var(--color-bg-tertiary);
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  font-size: 0.95em;
+}
+
+.biometrics-mediainput__preview {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-sm);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+}
+.biometrics-mediainput__preview img {
+  width: 100%;
+  max-height: 220px;
+  object-fit: contain;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-sunken);
+}
+.biometrics-mediainput__preview audio { width: 100%; }
+
+.biometrics-mediainput__preview-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-xs);
+}
+.biometrics-mediainput__source-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.biometrics-mediainput__clear {
+  background: transparent;
+  border: 0;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  min-width: 32px;
+  min-height: 32px;
+  border-radius: var(--radius-sm);
+  transition: color var(--duration-fast), background var(--duration-fast);
+}
+.biometrics-mediainput__clear:hover {
+  color: var(--color-error);
+  background: var(--color-error-light);
+}
+
+/* Fieldsets + chip toggles (attribute actions) */
+.biometrics-fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+.biometrics-fieldset legend {
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 0;
+  margin: 0;
+}
+.biometrics-chipset {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-xs);
+}
+.biometrics-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  text-transform: capitalize;
+  transition: border-color var(--duration-fast), color var(--duration-fast), background var(--duration-fast);
+  min-height: 32px;
+}
+.biometrics-chip input { position: absolute; opacity: 0; pointer-events: none; }
+.biometrics-chip:hover { color: var(--color-text-primary); }
+.biometrics-chip.active {
+  border-color: var(--color-accent-border);
+  background: var(--color-accent-light);
+  color: var(--color-text-primary);
+}
+
+/* Toggle switch */
+.biometrics-switch {
+  display: inline-block;
+  position: relative;
+  width: 40px;
+  height: 22px;
+  flex-shrink: 0;
+}
+.biometrics-switch input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.biometrics-switch > span {
+  position: absolute;
+  inset: 0;
+  background: var(--color-toggle-off);
+  border-radius: var(--radius-full);
+  transition: background var(--duration-fast);
+  cursor: pointer;
+}
+.biometrics-switch > span::after {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform var(--duration-fast);
+  box-shadow: var(--shadow-subtle);
+}
+.biometrics-switch input:checked + span { background: var(--color-accent); }
+.biometrics-switch input:checked + span::after { transform: translateX(18px); }
+.biometrics-switch input:focus-visible + span {
+  outline: 2px solid var(--color-border-focus);
+  outline-offset: 2px;
+}
+
+/* Split view for analyze (image + summary side) */
+.biometrics-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(280px, 1fr);
+  gap: var(--spacing-md);
+  align-items: start;
+}
+@media (max-width: 980px) {
+  .biometrics-split { grid-template-columns: 1fr; }
+}
+.biometrics-split__media {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+.biometrics-split__aside {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+  min-width: 0;
+}
+
+/* Bounding box overlay */
+.biometrics-bbox {
+  position: relative;
+  display: inline-block;
+  width: 100%;
+  max-width: 100%;
+  border-radius: var(--radius-md);
+  background: var(--color-surface-sunken);
+  overflow: hidden;
+  line-height: 0;
+}
+.biometrics-bbox img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+.biometrics-bbox__box {
+  position: absolute;
+  border: 2px solid var(--color-accent);
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.25), 0 0 12px rgba(232, 168, 124, 0.35);
+  pointer-events: none;
+  transition: border-color var(--duration-fast);
+}
+.biometrics-bbox__box.tone-default { border-color: var(--color-border-strong); box-shadow: none; }
+.biometrics-bbox__box.tone-success { border-color: var(--color-success); }
+.biometrics-bbox__box.tone-error   { border-color: var(--color-error); }
+.biometrics-bbox__box.tone-warning { border-color: var(--color-warning); }
+.biometrics-bbox__tag {
+  position: absolute;
+  left: -2px;
+  top: -2px;
+  transform: translateY(-100%);
+  background: var(--color-bg-overlay);
+  border: 1px solid var(--color-border-subtle);
+  border-bottom: 0;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  padding: 2px 8px;
+  font-size: var(--text-xs);
+  color: var(--color-text-primary);
+  display: inline-flex;
+  gap: 6px;
+  white-space: nowrap;
+  line-height: var(--leading-snug);
+}
+.biometrics-bbox__tag strong { font-weight: var(--font-weight-semibold); }
+.biometrics-bbox__tag span { color: var(--color-text-secondary); }
+
+.biometrics-facepicker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-xs);
+}
+.biometrics-facepicker__chip {
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-subtle);
+  color: var(--color-text-secondary);
+  padding: 4px 12px;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  font-size: var(--text-xs);
+  font: inherit;
+  font-size: var(--text-xs);
+  min-height: 32px;
+  transition: border-color var(--duration-fast), color var(--duration-fast), background var(--duration-fast);
+}
+.biometrics-facepicker__chip:hover { color: var(--color-text-primary); }
+.biometrics-facepicker__chip.active {
+  border-color: var(--color-accent-border);
+  background: var(--color-accent-light);
+  color: var(--color-text-primary);
+}
+.biometrics-facepicker__chip small { margin-left: 4px; color: var(--color-text-muted); }
+
+/* Summary card (dominant attributes) */
+.biometrics-summary {
+  padding: var(--spacing-md);
+}
+.biometrics-summary__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-sm);
+}
+.biometrics-summary__head h3 {
+  font-size: var(--text-base);
+  margin: 0;
+  font-weight: var(--font-weight-semibold);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+}
+.biometrics-summary__head h3 i { color: var(--color-accent); }
+.biometrics-summary__head h3 small {
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-regular);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}
+.biometrics-summary__grid {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  column-gap: var(--spacing-md);
+  row-gap: 6px;
+  margin: 0;
+}
+.biometrics-summary__grid dt {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  align-self: center;
+}
+.biometrics-summary__grid dd {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-medium);
+}
+
+/* Distribution bars */
+.biometrics-dist {
+  padding: var(--spacing-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+.biometrics-dist__head {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+}
+.biometrics-dist__head h3 {
+  font-size: var(--text-sm);
+  margin: 0;
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: -0.005em;
+}
+.biometrics-dist__head i { color: var(--color-accent); }
+.biometrics-dist__dominant {
+  margin-left: auto;
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  text-transform: capitalize;
+}
+.biometrics-dist__rows {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.biometrics-dist__row {
+  display: grid;
+  grid-template-columns: minmax(80px, 110px) 1fr max-content;
+  align-items: center;
+  gap: var(--spacing-sm);
+  font-size: var(--text-xs);
+}
+.biometrics-dist__label {
+  color: var(--color-text-secondary);
+  text-transform: capitalize;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.biometrics-dist__bar-wrap {
+  height: 6px;
+  background: var(--color-bg-tertiary);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+.biometrics-dist__bar {
+  height: 100%;
+  background: var(--color-text-muted);
+  border-radius: var(--radius-full);
+  transition: width var(--duration-normal) var(--ease-default);
+}
+.biometrics-dist__row.dominant .biometrics-dist__label { color: var(--color-text-primary); }
+.biometrics-dist__row.dominant .biometrics-dist__bar { background: var(--color-accent); }
+.biometrics-dist__value {
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+}
+.biometrics-dist__row.dominant .biometrics-dist__value { color: var(--color-text-primary); }
+
+/* Pill chips (liveness) */
+.biometrics-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-medium);
+  border: 1px solid var(--color-border-subtle);
+  background: var(--color-bg-secondary);
+  color: var(--color-text-secondary);
+}
+.biometrics-pill small {
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.biometrics-pill.good {
+  background: var(--color-success-light);
+  border-color: var(--color-success-border);
+  color: var(--color-success);
+}
+.biometrics-pill.bad {
+  background: var(--color-error-light);
+  border-color: var(--color-error-border);
+  color: var(--color-error);
+}
+.biometrics-pill.muted { color: var(--color-text-muted); }
+
+/* Compare view */
+.biometrics-compare {
+  display: grid;
+  grid-template-columns: 1fr minmax(280px, 360px) 1fr;
+  gap: var(--spacing-md);
+  align-items: stretch;
+}
+@media (max-width: 1080px) {
+  .biometrics-compare { grid-template-columns: 1fr; }
+}
+.biometrics-compare__panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+.biometrics-compare__label {
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-muted);
+}
+.biometrics-compare__center {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+  justify-content: center;
+}
+.biometrics-compare__threshold {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-sm) var(--spacing-md);
+}
+.biometrics-compare__threshold label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-medium);
+}
+.biometrics-compare__threshold code {
+  color: var(--color-accent);
+  font-variant-numeric: tabular-nums;
+}
+.biometrics-compare__threshold input[type="range"] {
+  width: 100%;
+  accent-color: var(--color-accent);
+}
+.biometrics-compare__hint {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+}
+.biometrics-compare__hint code { color: var(--color-text-secondary); }
+
+/* Match gauge */
+.biometrics-gauge {
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  box-shadow: var(--shadow-subtle), var(--shadow-inset-top);
+}
+.biometrics-gauge__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-sm);
+}
+.biometrics-gauge__verdict {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--text-lg);
+  font-weight: var(--font-weight-semibold);
+}
+.biometrics-gauge.tone-success .biometrics-gauge__verdict { color: var(--color-success); }
+.biometrics-gauge.tone-error .biometrics-gauge__verdict { color: var(--color-error); }
+.biometrics-gauge__confidence {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  line-height: var(--leading-tight);
+}
+.biometrics-gauge__confidence strong {
+  display: block;
+  font-size: var(--text-xl);
+  color: var(--color-text-primary);
+}
+.biometrics-gauge__confidence span {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.biometrics-gauge__track {
+  position: relative;
+  height: 18px;
+  background: var(--color-bg-tertiary);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+.biometrics-gauge__zone {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  transition: width var(--duration-normal) var(--ease-default);
+}
+.biometrics-gauge__zone--match {
+  left: 0;
+  background: var(--color-success-light);
+  border-right: 1px dashed var(--color-success-border);
+}
+.biometrics-gauge__zone--miss {
+  background: var(--color-error-light);
+}
+.biometrics-gauge__threshold {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--color-border-strong);
+  transform: translateX(-1px);
+}
+.biometrics-gauge__threshold span {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 9px;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  letter-spacing: 0.08em;
+  padding: 1px 4px;
+  white-space: nowrap;
+}
+.biometrics-gauge__marker {
+  position: absolute;
+  top: -4px;
+  bottom: -4px;
+  width: 12px;
+  transform: translateX(-6px);
+  background: var(--color-text-primary);
+  border-radius: 2px;
+  border: 2px solid var(--color-surface-raised);
+  transition: left var(--duration-normal) var(--ease-default);
+  box-shadow: var(--shadow-sm);
+}
+.biometrics-gauge__marker span {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 9px;
+  text-transform: uppercase;
+  color: var(--color-text-primary);
+  letter-spacing: 0.08em;
+  padding-top: 4px;
+  white-space: nowrap;
+}
+.biometrics-gauge__footer {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--spacing-md);
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+.biometrics-gauge__footer em {
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-style: normal;
+  margin-right: 4px;
+}
+.biometrics-gauge__footer code {
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-secondary);
+}
+
+/* Waveform */
+.biometrics-waveform {
+  --biometrics-wave: var(--color-accent);
+  position: relative;
+  width: 100%;
+  background: var(--color-surface-sunken);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+.biometrics-waveform--error {
+  padding: var(--spacing-md);
+  color: var(--color-error);
+  font-size: var(--text-sm);
+}
+.biometrics-waveform__segment {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: rgba(232, 168, 124, 0.16);
+  border-left: 1px dashed var(--color-accent-border);
+  border-right: 1px dashed var(--color-accent-border);
+  pointer-events: none;
+}
+.biometrics-waveform__segment.tone-info    { background: var(--color-info-light);    border-color: var(--color-info-border); }
+.biometrics-waveform__segment.tone-success { background: var(--color-success-light); border-color: var(--color-success-border); }
+.biometrics-waveform__segment.tone-warning { background: var(--color-warning-light); border-color: var(--color-warning-border); }
+.biometrics-waveform__segment.tone-accent  { background: var(--color-accent-light);  border-color: var(--color-accent-border); }
+.biometrics-waveform__seglabel {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  font-size: var(--text-xs);
+  color: var(--color-text-primary);
+  background: var(--color-bg-overlay);
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  max-width: calc(100% - 8px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.biometrics-waveform__duration {
+  position: absolute;
+  right: 8px;
+  bottom: 6px;
+  font-size: 11px;
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+  background: var(--color-bg-overlay);
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+}
+.biometrics-waveform__loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+/* Enrollment layout (register + identify + list) */
+.biometrics-enrollgrid {
+  display: grid;
+  grid-template-columns: minmax(300px, 1fr) minmax(300px, 1fr);
+  grid-template-areas:
+    "register identify"
+    "list     list";
+  gap: var(--spacing-lg);
+}
+.biometrics-enrollgrid__register { grid-area: register; }
+.biometrics-enrollgrid__identify { grid-area: identify; }
+.biometrics-enrollgrid__list     { grid-area: list; min-width: 0; }
+@media (max-width: 980px) {
+  .biometrics-enrollgrid {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "register"
+      "identify"
+      "list";
+  }
+}
+.biometrics-enrollgrid__register form,
+.biometrics-enrollgrid__identify form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+.biometrics-enrollgrid__err {
+  margin-top: var(--spacing-sm);
+}
+
+.biometrics-enroll__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--spacing-md);
+}
+.biometrics-enroll__count {
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-secondary);
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-medium);
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  margin-left: var(--spacing-xs);
+}
+
+.biometrics-enroll__grid {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--spacing-md);
+}
+.biometrics-enroll__card {
+  position: relative;
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  transition: border-color var(--duration-fast), transform var(--duration-fast);
+}
+.biometrics-enroll__card:hover {
+  border-color: var(--color-border-default);
+  transform: translateY(-1px);
+}
+.biometrics-enroll__card.highlight {
+  border-color: var(--color-accent-border);
+  box-shadow: 0 0 0 1px var(--color-accent-border);
+  animation: biometrics-highlight 1.4s ease-out;
+}
+@keyframes biometrics-highlight {
+  0% { box-shadow: 0 0 0 4px var(--color-accent-light); }
+  100% { box-shadow: 0 0 0 1px var(--color-accent-border); }
+}
+
+.biometrics-enroll__media {
+  aspect-ratio: 1 / 1;
+  background: var(--color-surface-sunken);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.biometrics-enroll__media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.biometrics-enroll__media audio {
+  width: 90%;
+}
+.biometrics-enroll__initials {
+  font-size: 2rem;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-muted);
+  letter-spacing: 0.04em;
+}
+.biometrics-enroll__body { display: flex; flex-direction: column; gap: 4px; }
+.biometrics-enroll__name {
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--text-sm);
+  color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.biometrics-enroll__labels {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.biometrics-enroll__labels li {
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+  background: var(--color-bg-secondary);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+}
+.biometrics-enroll__labels li span {
+  color: var(--color-text-muted);
+  margin-right: 4px;
+}
+.biometrics-enroll__meta {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.biometrics-enroll__delete {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: var(--color-bg-overlay);
+  border: 1px solid var(--color-border-subtle);
+  color: var(--color-text-muted);
+  border-radius: var(--radius-sm);
+  width: 28px;
+  height: 28px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity var(--duration-fast), color var(--duration-fast), background var(--duration-fast);
+}
+.biometrics-enroll__card:hover .biometrics-enroll__delete,
+.biometrics-enroll__card:focus-within .biometrics-enroll__delete { opacity: 1; }
+.biometrics-enroll__delete:hover {
+  color: var(--color-error);
+  background: var(--color-error-light);
+  border-color: var(--color-error-border);
+}
+.biometrics-enroll__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-xl);
+  border: 1px dashed var(--color-border-default);
+  border-radius: var(--radius-lg);
+  text-align: center;
+  color: var(--color-text-secondary);
+  background: var(--color-bg-secondary);
+}
+.biometrics-enroll__empty > i {
+  font-size: 2rem;
+  color: var(--color-accent);
+  opacity: 0.6;
+}
+.biometrics-enroll__empty p {
+  margin: 0;
+  max-width: 44ch;
+  line-height: var(--leading-normal);
+  font-size: var(--text-sm);
+}
+
+/* Matches list (identify results) */
+.biometrics-matches {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+.biometrics-matches__empty {
+  padding: var(--spacing-md);
+  border: 1px dashed var(--color-border-default);
+  border-radius: var(--radius-md);
+  color: var(--color-text-muted);
+  text-align: center;
+  font-size: var(--text-sm);
+}
+.biometrics-matches__row {
+  display: grid;
+  grid-template-columns: 32px 56px 1fr;
+  gap: var(--spacing-sm);
+  align-items: center;
+  padding: var(--spacing-sm);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+}
+.biometrics-matches__row.match { border-color: var(--color-success-border); }
+.biometrics-matches__rank {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-semibold);
+  text-align: center;
+}
+.biometrics-matches__avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--color-surface-sunken);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--text-sm);
+}
+.biometrics-matches__avatar img { width: 100%; height: 100%; object-fit: cover; }
+.biometrics-matches__body { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.biometrics-matches__name {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  font-size: var(--text-sm);
+  min-width: 0;
+}
+.biometrics-matches__name strong {
+  font-weight: var(--font-weight-semibold);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.biometrics-matches__badge {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.biometrics-matches__badge.match {
+  background: var(--color-success-light);
+  color: var(--color-success);
+}
+.biometrics-matches__meter {
+  height: 4px;
+  background: var(--color-bg-tertiary);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+.biometrics-matches__fill {
+  height: 100%;
+  background: var(--color-accent);
+  transition: width var(--duration-normal) var(--ease-default);
+}
+.biometrics-matches__row.match .biometrics-matches__fill { background: var(--color-success); }
+.biometrics-matches__meta {
+  display: flex;
+  gap: var(--spacing-md);
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+.biometrics-matches__meta code {
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+.biometrics-matches__preview { width: 100%; }
+
+/* Embedding inspector */
+.biometrics-embed {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-md);
+}
+.biometrics-embed__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--spacing-sm);
+}
+.biometrics-embed__title {
+  font-size: var(--text-base);
+  font-weight: var(--font-weight-semibold);
+}
+.biometrics-embed__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-md);
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  margin-top: 4px;
+}
+.biometrics-embed__meta strong { color: var(--color-text-primary); font-variant-numeric: tabular-nums; font-weight: var(--font-weight-semibold); }
+.biometrics-embed__meta code { color: var(--color-text-secondary); }
+
+/* Response details pane */
+.biometrics-response {
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+.biometrics-response summary {
+  padding: var(--spacing-sm) var(--spacing-md);
+  cursor: pointer;
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  list-style: none;
+  user-select: none;
+  min-height: 40px;
+}
+.biometrics-response summary::-webkit-details-marker { display: none; }
+.biometrics-response summary i { transition: transform var(--duration-fast); }
+.biometrics-response[open] summary i { transform: rotate(90deg); }
+.biometrics-response pre {
+  margin: 0;
+  padding: var(--spacing-md);
+  background: var(--color-surface-sunken);
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+  overflow-x: auto;
+  max-height: 360px;
+  line-height: var(--leading-snug);
+}
+
+.form-label__hint {
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-regular);
+  margin-left: 4px;
+}
+
 /* Reduced motion accessibility */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

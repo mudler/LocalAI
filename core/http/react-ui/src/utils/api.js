@@ -259,6 +259,26 @@ export const audioApi = {
   },
 }
 
+// Face biometrics — backend spec: core/http/endpoints/localai/face_*.go
+export const faceApi = {
+  verify: (body) => postJSON(API_CONFIG.endpoints.faceVerify, body),
+  analyze: (body) => postJSON(API_CONFIG.endpoints.faceAnalyze, body),
+  embed: (body) => postJSON(API_CONFIG.endpoints.faceEmbed, body),
+  register: (body) => postJSON(API_CONFIG.endpoints.faceRegister, body),
+  identify: (body) => postJSON(API_CONFIG.endpoints.faceIdentify, body),
+  forget: (body) => postJSON(API_CONFIG.endpoints.faceForget, body),
+}
+
+// Voice biometrics — backend spec: core/http/endpoints/localai/voice_*.go
+export const voiceApi = {
+  verify: (body) => postJSON(API_CONFIG.endpoints.voiceVerify, body),
+  analyze: (body) => postJSON(API_CONFIG.endpoints.voiceAnalyze, body),
+  embed: (body) => postJSON(API_CONFIG.endpoints.voiceEmbed, body),
+  register: (body) => postJSON(API_CONFIG.endpoints.voiceRegister, body),
+  identify: (body) => postJSON(API_CONFIG.endpoints.voiceIdentify, body),
+  forget: (body) => postJSON(API_CONFIG.endpoints.voiceForget, body),
+}
+
 // Realtime / WebRTC
 export const realtimeApi = {
   call: (body) => postJSON(API_CONFIG.endpoints.realtimeCalls, body),

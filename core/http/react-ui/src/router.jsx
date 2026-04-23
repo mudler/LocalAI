@@ -34,6 +34,8 @@ import Login from './pages/Login'
 import FineTune from './pages/FineTune'
 import Quantize from './pages/Quantize'
 import Studio from './pages/Studio'
+import FaceRecognition from './pages/FaceRecognition'
+import VoiceRecognition from './pages/VoiceRecognition'
 import Nodes from './pages/Nodes'
 import NodeBackendLogs from './pages/NodeBackendLogs'
 import NotFound from './pages/NotFound'
@@ -73,6 +75,10 @@ const appChildren = [
   { path: 'sound/:model', element: <Sound /> },
   { path: 'studio', element: <Studio /> },
   { path: 'talk', element: <Talk /> },
+  { path: 'face', element: <Feature feature="face_recognition"><FaceRecognition /></Feature> },
+  { path: 'face/:model', element: <Feature feature="face_recognition"><FaceRecognition /></Feature> },
+  { path: 'voice', element: <Feature feature="voice_recognition"><VoiceRecognition /></Feature> },
+  { path: 'voice/:model', element: <Feature feature="voice_recognition"><VoiceRecognition /></Feature> },
   { path: 'usage', element: <Usage /> },
   { path: 'account', element: <Account /> },
   { path: 'users', element: <Admin><Users /></Admin> },

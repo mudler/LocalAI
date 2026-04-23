@@ -73,6 +73,23 @@ export const API_CONFIG = {
     audioTranscriptions: '/v1/audio/transcriptions',
     soundGeneration: '/v1/sound-generation',
     embeddings: '/v1/embeddings',
+
+    // Face biometrics
+    faceVerify: '/v1/face/verify',
+    faceAnalyze: '/v1/face/analyze',
+    faceEmbed: '/v1/face/embed',
+    faceRegister: '/v1/face/register',
+    faceIdentify: '/v1/face/identify',
+    faceForget: '/v1/face/forget',
+
+    // Voice biometrics
+    voiceVerify: '/v1/voice/verify',
+    voiceAnalyze: '/v1/voice/analyze',
+    voiceEmbed: '/v1/voice/embed',
+    voiceRegister: '/v1/voice/register',
+    voiceIdentify: '/v1/voice/identify',
+    voiceForget: '/v1/voice/forget',
+
     modelsList: '/v1/models',
     modelsCapabilities: '/api/models/capabilities',
 
