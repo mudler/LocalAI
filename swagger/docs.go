@@ -3442,6 +3442,7 @@ const docTemplate = `{
                     }
                 },
                 "is_real": {
+                    "description": "Liveness fields — see FaceVerifyResponse for why these are pointers.",
                     "type": "boolean"
                 },
                 "race": {
@@ -3656,11 +3657,24 @@ const docTemplate = `{
                 "distance": {
                     "type": "number"
                 },
+                "img1_antispoof_score": {
+                    "type": "number"
+                },
                 "img1_area": {
                     "$ref": "#/definitions/schema.FacialArea"
                 },
+                "img1_is_real": {
+                    "description": "Liveness fields are only populated when the request set\nanti_spoofing=true. Pointers keep them fully absent from the\nJSON response otherwise, so callers can tell \"not checked\"\napart from \"checked and fake\" (which would collapse to zero\nvalues with plain bool+omitempty).",
+                    "type": "boolean"
+                },
+                "img2_antispoof_score": {
+                    "type": "number"
+                },
                 "img2_area": {
                     "$ref": "#/definitions/schema.FacialArea"
+                },
+                "img2_is_real": {
+                    "type": "boolean"
                 },
                 "model": {
                     "type": "string"

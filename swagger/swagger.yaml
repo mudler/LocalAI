@@ -640,6 +640,7 @@ definitions:
           type: number
         type: object
       is_real:
+        description: Liveness fields — see FaceVerifyResponse for why these are pointers.
         type: boolean
       race:
         additionalProperties:
@@ -780,10 +781,24 @@ definitions:
         type: number
       distance:
         type: number
+      img1_antispoof_score:
+        type: number
       img1_area:
         $ref: '#/definitions/schema.FacialArea'
+      img1_is_real:
+        description: |-
+          Liveness fields are only populated when the request set
+          anti_spoofing=true. Pointers keep them fully absent from the
+          JSON response otherwise, so callers can tell "not checked"
+          apart from "checked and fake" (which would collapse to zero
+          values with plain bool+omitempty).
+        type: boolean
+      img2_antispoof_score:
+        type: number
       img2_area:
         $ref: '#/definitions/schema.FacialArea'
+      img2_is_real:
+        type: boolean
       model:
         type: string
       processing_time_ms:
