@@ -4,7 +4,6 @@ package main
 // It is meant to be used by the main executable that is the server for the specific backend type (falcon, gpt3, etc)
 import (
 	"container/heap"
-	"errors"
 	"fmt"
 	"math"
 	"slices"
@@ -100,9 +99,16 @@ func sortIntoKeySlicese(keys []*pb.StoresKey) [][]float32 {
 }
 
 func (s *Store) Load(opts *pb.ModelOptions) error {
-	if opts.Model != "" {
-		return errors.New("not implemented")
-	}
+	// local-store is an in-memory vector store with no on-disk artefact to
+	// load — opts.Model is just a namespace identifier. The old `!= ""` guard
+	// rejected any non-empty model name with "not implemented", which broke
+	// callers that pass a namespace to isolate embedding spaces (face vs.
+	// voice biometrics both go through local-store but need distinct stores
+	// so ArcFace 512-D and ECAPA-TDNN 192-D don't collide). Namespace
+	// isolation is already handled upstream: ModelLoader spawns a fresh
+	// local-store process per (backend, model) tuple, so each namespace is
+	// its own Store{} instance. Nothing to do here beyond accepting the load.
+	_ = opts
 	return nil
 }
 

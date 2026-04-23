@@ -81,18 +81,30 @@ func newApplication(appConfig *config.ApplicationConfig) *Application {
 	// The resolver closes over the ModelLoader so the Registry stays
 	// decoupled from loader plumbing; swapping in a postgres-backed
 	// implementation later is a single construction change here.
+	//
+	// `faceStoreName` is the default namespace passed to StoreBackend when
+	// the request doesn't override it. Face and voice MUST use distinct
+	// namespaces — the local-store gRPC surface rejects mixed dimensions
+	// inside one namespace ("Try to add key with length N when existing
+	// length is M"). ArcFace buffalo_l produces 512-dim embeddings while
+	// ECAPA-TDNN produces 192-dim; enrolling one after the other into a
+	// shared namespace is exactly how we hit that error.
+	const (
+		faceStoreName  = "localai-face-biometrics"
+		voiceStoreName = "localai-voice-biometrics"
+	)
 	faceStoreResolver := func(_ context.Context, storeName string) (pkggrpc.Backend, error) {
 		return corebackend.StoreBackend(ml, appConfig, storeName, "")
 	}
-	app.faceRegistry = facerecognition.NewStoreRegistry(faceStoreResolver, "", faceEmbeddingDim)
+	app.faceRegistry = facerecognition.NewStoreRegistry(faceStoreResolver, faceStoreName, faceEmbeddingDim)
 
 	// Voice (speaker) recognition registry — same plumbing, separate
-	// registry so embedding spaces stay isolated (a face vector and a
-	// speaker vector are not comparable).
+	// namespace so embedding spaces stay isolated (a face vector and a
+	// speaker vector are not comparable and differ in dimensionality).
 	voiceStoreResolver := func(_ context.Context, storeName string) (pkggrpc.Backend, error) {
 		return corebackend.StoreBackend(ml, appConfig, storeName, "")
 	}
-	app.voiceRegistry = voicerecognition.NewStoreRegistry(voiceStoreResolver, "", voiceEmbeddingDim)
+	app.voiceRegistry = voicerecognition.NewStoreRegistry(voiceStoreResolver, voiceStoreName, voiceEmbeddingDim)
 
 	return app
 }
