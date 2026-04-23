@@ -375,9 +375,20 @@ func (uri URI) DownloadFileWithContext(ctx context.Context, filePath, sha string
 	if uri.LooksLikeOCI() {
 
 		// Only Ollama wants to download to the file, for the rest, we want to download to the directory
-		// so we check if filepath has any extension, otherwise we assume it's a directory
-		if filepath.Ext(filePath) != "" && !strings.HasPrefix(url, OllamaPrefix) {
-			filePath = filepath.Dir(filePath)
+		// so we check if filepath has any extension, otherwise we assume it's a directory.
+		// Caveat: `filepath.Ext` treats any dot-suffix as an extension, so paths like
+		// `backends/local-store.upgrade-tmp` (the tmp dir created by gallery.UpgradeBackend)
+		// look like a "file" to this heuristic and get rewritten to their parent — which
+		// then unpacks the image at `backends/` top level and clobbers the real install
+		// with a flat-layout file. Guard against that by short-circuiting when the caller
+		// has already created the target as a directory: OCI destinations are always dirs
+		// in that case, regardless of what their suffix looks like.
+		if !strings.HasPrefix(url, OllamaPrefix) {
+			if fi, statErr := os.Stat(filePath); statErr == nil && fi.IsDir() {
+				// Existing directory — use as-is.
+			} else if filepath.Ext(filePath) != "" {
+				filePath = filepath.Dir(filePath)
+			}
 		}
 
 		progressStatus := func(desc ocispec.Descriptor) io.Writer {

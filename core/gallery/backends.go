@@ -194,6 +194,20 @@ func InstallBackend(ctx context.Context, systemState *system.SystemState, modelL
 
 	name := config.Name
 	backendPath := filepath.Join(systemState.Backend.BackendsPath, name)
+	// Clean up legacy flat-layout artefacts: earlier dev builds of the
+	// golang backends dropped the compiled binary directly at
+	// `<backendsPath>/<name>` (a plain file) instead of
+	// `<backendsPath>/<name>/<name>` (the nested layout the current code
+	// expects). MkdirAll below returns ENOTDIR when such a stale file
+	// exists, permanently blocking any reinstall or upgrade. Remove the
+	// file first so the install can proceed; the new install will write
+	// the correct nested layout, including metadata.json + run.sh.
+	if fi, statErr := os.Lstat(backendPath); statErr == nil && !fi.IsDir() {
+		xlog.Warn("removing stale non-directory backend artefact to make room for fresh install", "path", backendPath)
+		if rmErr := os.Remove(backendPath); rmErr != nil {
+			return fmt.Errorf("failed to remove stale backend artefact at %s: %w", backendPath, rmErr)
+		}
+	}
 	err = os.MkdirAll(backendPath, 0750)
 	if err != nil {
 		return fmt.Errorf("failed to create base path: %v", err)
