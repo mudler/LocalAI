@@ -717,12 +717,16 @@ test-extra-backend-insightface-all: \
 
 ## speaker-recognition — voice (speaker) biometrics.
 ##
-## Audio fixtures default to VCTK samples via HuggingFace (two clips of
-## p225 for same-speaker, one clip of p226 for cross-speaker). Override
-## with BACKEND_TEST_VOICE_AUDIO_{1,2,3}_FILE for offline runs.
-VOICE_AUDIO_1_URL ?= https://huggingface.co/datasets/CSTR-Edinburgh/vctk/resolve/main/wav48_silence_trimmed/p225/p225_001_mic1.flac
-VOICE_AUDIO_2_URL ?= https://huggingface.co/datasets/CSTR-Edinburgh/vctk/resolve/main/wav48_silence_trimmed/p225/p225_002_mic1.flac
-VOICE_AUDIO_3_URL ?= https://huggingface.co/datasets/CSTR-Edinburgh/vctk/resolve/main/wav48_silence_trimmed/p226/p226_001_mic1.flac
+## Audio fixtures default to the speechbrain test samples served
+## straight from their GitHub repo — public, no auth needed, and they
+## ship as 16kHz mono WAV/FLAC which is exactly what the engine wants.
+## example{1,2,5} are three different speakers; the suite treats
+## example1 as the "same-image twin" probe (verify(clip, clip) must
+## return distance≈0) and the other two as cross-speaker ceilings.
+## Override with BACKEND_TEST_VOICE_AUDIO_{1,2,3}_FILE for offline runs.
+VOICE_AUDIO_1_URL ?= https://github.com/speechbrain/speechbrain/raw/develop/tests/samples/single-mic/example1.wav
+VOICE_AUDIO_2_URL ?= https://github.com/speechbrain/speechbrain/raw/develop/tests/samples/single-mic/example2.flac
+VOICE_AUDIO_3_URL ?= https://github.com/speechbrain/speechbrain/raw/develop/tests/samples/single-mic/example5.wav
 
 ## ECAPA-TDNN via SpeechBrain — default CI configuration. Auto-downloads
 ## the checkpoint from HuggingFace on first LoadModel (bundled in the
