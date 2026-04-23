@@ -108,6 +108,8 @@ jobs:
 
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          submodules: true
 
       - name: Release space from worker
         if: inputs.runs-on == 'ubuntu-latest'
