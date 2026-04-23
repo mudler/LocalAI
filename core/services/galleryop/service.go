@@ -28,6 +28,13 @@ type GalleryService struct {
 	// Distributed mode (nil when not in distributed mode)
 	natsClient   messaging.Publisher
 	galleryStore *distributed.GalleryStore
+
+	// OnBackendOpCompleted is fired after every successful install/upgrade/delete
+	// on the backend channel. The Application wires this to UpgradeChecker.TriggerCheck
+	// so `/api/backends/upgrades` stops surfacing a backend as upgradeable the moment
+	// the worker finishes — previously the cache only refreshed on the 6-hour tick,
+	// making manual upgrades look like they failed even when they hadn't.
+	OnBackendOpCompleted func()
 }
 
 func NewGalleryService(appConfig *config.ApplicationConfig, ml *model.ModelLoader) *GalleryService {
@@ -245,6 +252,11 @@ func (g *GalleryService) Start(c context.Context, cl *config.ModelConfigLoader, 
 				err := g.backendHandler(&op, systemState)
 				if err != nil {
 					updateError(op.ID, err)
+				} else if g.OnBackendOpCompleted != nil {
+					// Let listeners (e.g. UpgradeChecker) refresh their view of
+					// installed state. Run off the worker goroutine so a slow
+					// callback doesn't stall the next queued operation.
+					go g.OnBackendOpCompleted()
 				}
 				g.removeCancellation(op.ID)
 

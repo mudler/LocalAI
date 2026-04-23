@@ -242,6 +242,12 @@ func New(opts ...config.AppOption) (*Application, error) {
 		bmFn := func() galleryop.BackendManager { return application.GalleryService().BackendManager() }
 		uc := NewUpgradeChecker(options, application.ModelLoader(), application.distributedDB(), bmFn)
 		application.upgradeChecker = uc
+		// Refresh the upgrade cache the moment a backend op finishes — otherwise
+		// the UI keeps showing a just-upgraded backend as upgradeable until the
+		// next 6-hour tick. TriggerCheck is non-blocking.
+		if gs := application.GalleryService(); gs != nil {
+			gs.OnBackendOpCompleted = uc.TriggerCheck
+		}
 		go uc.Run(options.Context)
 	}
 
