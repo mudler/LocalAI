@@ -623,6 +623,11 @@ test-extra-backend-tinygrad-all: \
 FACE_IMAGE_1_URL ?= https://github.com/deepinsight/insightface/raw/master/python-package/insightface/data/images/t1.jpg
 FACE_IMAGE_2_URL ?= https://github.com/deepinsight/insightface/raw/master/python-package/insightface/data/images/t1.jpg
 FACE_IMAGE_3_URL ?= https://github.com/deepinsight/insightface/raw/master/python-package/insightface/data/images/mask_white.jpg
+## Known spoof fixture used by the face_antispoof e2e cap. This is
+## upstream's own `image_F2.jpg` (Silent-Face repo, via yakhyo mirror)
+## — verified to classify as is_real=false with score < 0.05 on the
+## MiniFASNetV2 + MiniFASNetV1SE ensemble.
+FACE_SPOOF_IMAGE_URL ?= https://github.com/yakhyo/face-anti-spoofing/raw/main/assets/image_F2.jpg
 
 ## Host-side cache for the OpenCV Zoo face ONNX files used by the
 ## opencv e2e target. The backend image no longer bakes model weights —
@@ -646,6 +651,15 @@ INSIGHTFACE_BUFFALO_SC_DIR := /tmp/localai-insightface-buffalo-sc-cache
 INSIGHTFACE_BUFFALO_SC_URL := https://github.com/deepinsight/insightface/releases/download/v0.7/buffalo_sc.zip
 INSIGHTFACE_BUFFALO_SC_SHA := 57d31b56b6ffa911c8a73cfc1707c73cab76efe7f13b675a05223bf42de47c72
 
+## Silent-Face antispoofing (MiniFASNetV2 + MiniFASNetV1SE) — shared
+## between the buffalo_sc and opencv e2e targets. Both ONNX files are
+## ~1.7MB, Apache 2.0. URLs + SHAs mirror the gallery entries.
+INSIGHTFACE_ANTISPOOF_DIR := /tmp/localai-insightface-antispoof-cache
+INSIGHTFACE_ANTISPOOF_V2_URL := https://github.com/yakhyo/face-anti-spoofing/releases/download/weights/MiniFASNetV2.onnx
+INSIGHTFACE_ANTISPOOF_V2_SHA := b32929adc2d9c34b9486f8c4c7bc97c1b69bc0ea9befefc380e4faae4e463907
+INSIGHTFACE_ANTISPOOF_V1SE_URL := https://github.com/yakhyo/face-anti-spoofing/releases/download/weights/MiniFASNetV1SE.onnx
+INSIGHTFACE_ANTISPOOF_V1SE_SHA := ebab7f90c7833fbccd46d3a555410e78d969db5438e169b6524be444862b3676
+
 .PHONY: insightface-opencv-models
 insightface-opencv-models:
 	@mkdir -p $(INSIGHTFACE_OPENCV_DIR)
@@ -658,6 +672,20 @@ insightface-opencv-models:
 		echo "Fetching SFace..."; \
 		curl -fsSL -o $(INSIGHTFACE_OPENCV_DIR)/sface.onnx $(INSIGHTFACE_OPENCV_SFACE_URL); \
 		echo "$(INSIGHTFACE_OPENCV_SFACE_SHA)  $(INSIGHTFACE_OPENCV_DIR)/sface.onnx" | sha256sum -c; \
+	fi
+
+.PHONY: insightface-antispoof-models
+insightface-antispoof-models:
+	@mkdir -p $(INSIGHTFACE_ANTISPOOF_DIR)
+	@if [ "$$(sha256sum $(INSIGHTFACE_ANTISPOOF_DIR)/MiniFASNetV2.onnx 2>/dev/null | awk '{print $$1}')" != "$(INSIGHTFACE_ANTISPOOF_V2_SHA)" ]; then \
+		echo "Fetching MiniFASNetV2..."; \
+		curl -fsSL -o $(INSIGHTFACE_ANTISPOOF_DIR)/MiniFASNetV2.onnx $(INSIGHTFACE_ANTISPOOF_V2_URL); \
+		echo "$(INSIGHTFACE_ANTISPOOF_V2_SHA)  $(INSIGHTFACE_ANTISPOOF_DIR)/MiniFASNetV2.onnx" | sha256sum -c; \
+	fi
+	@if [ "$$(sha256sum $(INSIGHTFACE_ANTISPOOF_DIR)/MiniFASNetV1SE.onnx 2>/dev/null | awk '{print $$1}')" != "$(INSIGHTFACE_ANTISPOOF_V1SE_SHA)" ]; then \
+		echo "Fetching MiniFASNetV1SE..."; \
+		curl -fsSL -o $(INSIGHTFACE_ANTISPOOF_DIR)/MiniFASNetV1SE.onnx $(INSIGHTFACE_ANTISPOOF_V1SE_URL); \
+		echo "$(INSIGHTFACE_ANTISPOOF_V1SE_SHA)  $(INSIGHTFACE_ANTISPOOF_DIR)/MiniFASNetV1SE.onnx" | sha256sum -c; \
 	fi
 
 .PHONY: insightface-buffalo-sc-models
@@ -682,14 +710,15 @@ insightface-buffalo-sc-models:
 ## the e2e suite drives LoadModel directly without going through
 ## LocalAI's gallery flow (which is what would normally populate
 ## ModelPath and in turn the engine's `_model_dir` option).
-test-extra-backend-insightface-buffalo-sc: docker-build-insightface insightface-buffalo-sc-models
+test-extra-backend-insightface-buffalo-sc: docker-build-insightface insightface-buffalo-sc-models insightface-antispoof-models
 	BACKEND_IMAGE=local-ai-backend:insightface \
 	BACKEND_TEST_MODEL_NAME=insightface-buffalo-sc \
-	BACKEND_TEST_OPTIONS=engine:insightface,model_pack:buffalo_sc,root:$(INSIGHTFACE_BUFFALO_SC_DIR) \
-	BACKEND_TEST_CAPS=health,load,face_detect,face_embed,face_verify \
+	BACKEND_TEST_OPTIONS=engine:insightface,model_pack:buffalo_sc,root:$(INSIGHTFACE_BUFFALO_SC_DIR),antispoof_v2_onnx:$(INSIGHTFACE_ANTISPOOF_DIR)/MiniFASNetV2.onnx,antispoof_v1se_onnx:$(INSIGHTFACE_ANTISPOOF_DIR)/MiniFASNetV1SE.onnx \
+	BACKEND_TEST_CAPS=health,load,face_detect,face_embed,face_verify,face_antispoof \
 	BACKEND_TEST_FACE_IMAGE_1_URL=$(FACE_IMAGE_1_URL) \
 	BACKEND_TEST_FACE_IMAGE_2_URL=$(FACE_IMAGE_2_URL) \
 	BACKEND_TEST_FACE_IMAGE_3_URL=$(FACE_IMAGE_3_URL) \
+	BACKEND_TEST_FACE_SPOOF_IMAGE_URL=$(FACE_SPOOF_IMAGE_URL) \
 	BACKEND_TEST_VERIFY_DISTANCE_CEILING=0.55 \
 	$(MAKE) test-extra-backend
 
@@ -698,14 +727,15 @@ test-extra-backend-insightface-buffalo-sc: docker-build-insightface insightface-
 ## pre-fetched on the host via the insightface-opencv-models target and
 ## passed as absolute paths, since the e2e suite drives LoadModel
 ## directly without going through LocalAI's gallery flow.
-test-extra-backend-insightface-opencv: docker-build-insightface insightface-opencv-models
+test-extra-backend-insightface-opencv: docker-build-insightface insightface-opencv-models insightface-antispoof-models
 	BACKEND_IMAGE=local-ai-backend:insightface \
 	BACKEND_TEST_MODEL_NAME=insightface-opencv \
-	BACKEND_TEST_OPTIONS=engine:onnx_direct,detector_onnx:$(INSIGHTFACE_OPENCV_DIR)/yunet.onnx,recognizer_onnx:$(INSIGHTFACE_OPENCV_DIR)/sface.onnx \
-	BACKEND_TEST_CAPS=health,load,face_detect,face_embed,face_verify \
+	BACKEND_TEST_OPTIONS=engine:onnx_direct,detector_onnx:$(INSIGHTFACE_OPENCV_DIR)/yunet.onnx,recognizer_onnx:$(INSIGHTFACE_OPENCV_DIR)/sface.onnx,antispoof_v2_onnx:$(INSIGHTFACE_ANTISPOOF_DIR)/MiniFASNetV2.onnx,antispoof_v1se_onnx:$(INSIGHTFACE_ANTISPOOF_DIR)/MiniFASNetV1SE.onnx \
+	BACKEND_TEST_CAPS=health,load,face_detect,face_embed,face_verify,face_antispoof \
 	BACKEND_TEST_FACE_IMAGE_1_URL=$(FACE_IMAGE_1_URL) \
 	BACKEND_TEST_FACE_IMAGE_2_URL=$(FACE_IMAGE_2_URL) \
 	BACKEND_TEST_FACE_IMAGE_3_URL=$(FACE_IMAGE_3_URL) \
+	BACKEND_TEST_FACE_SPOOF_IMAGE_URL=$(FACE_SPOOF_IMAGE_URL) \
 	BACKEND_TEST_VERIFY_DISTANCE_CEILING=0.55 \
 	$(MAKE) test-extra-backend
 

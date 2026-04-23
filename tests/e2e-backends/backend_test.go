@@ -88,6 +88,7 @@ const (
 	capFaceEmbed     = "face_embed"
 	capFaceVerify    = "face_verify"
 	capFaceAnalyze   = "face_analyze"
+	capFaceAntispoof = "face_antispoof"
 	capVoiceEmbed    = "voice_embed"
 	capVoiceVerify   = "voice_verify"
 	capVoiceAnalyze  = "voice_analyze"
@@ -140,6 +141,11 @@ var _ = Describe("Backend container", Ordered, func() {
 		faceFile1 string
 		faceFile2 string
 		faceFile3 string
+		// Spoof fixture: a photo that the antispoofing model should
+		// classify as fake (e.g. printed photo / screen replay). Only
+		// exercised when capFaceAntispoof is enabled and the env var
+		// is set.
+		faceSpoofFile string
 		// Voice fixtures: two clips of the same speaker + one different speaker.
 		voiceFile1 string
 		voiceFile2 string
@@ -227,6 +233,7 @@ var _ = Describe("Backend container", Ordered, func() {
 		faceFile1 = resolveFaceFixture(workDir, "BACKEND_TEST_FACE_IMAGE_1", "face_a_1.jpg")
 		faceFile2 = resolveFaceFixture(workDir, "BACKEND_TEST_FACE_IMAGE_2", "face_a_2.jpg")
 		faceFile3 = resolveFaceFixture(workDir, "BACKEND_TEST_FACE_IMAGE_3", "face_b.jpg")
+		faceSpoofFile = resolveFaceFixture(workDir, "BACKEND_TEST_FACE_SPOOF_IMAGE", "face_spoof.jpg")
 		verifyCeiling = envFloat32("BACKEND_TEST_VERIFY_DISTANCE_CEILING", defaultVerifyDistanceCeil)
 
 		// Voice fixtures for the voice-recognition specs. Same resolver
@@ -666,6 +673,45 @@ var _ = Describe("Backend container", Ordered, func() {
 				GinkgoWriter.Printf("face_verify(same-person): dist=%.3f verified=%v\n", sp.GetDistance(), sp.GetVerified())
 			}
 		}
+
+		// Liveness: exercise BOTH real and spoof paths when the cap is
+		// enabled. Gated on capFaceAntispoof so model configs without
+		// MiniFASNet weights (which would correctly surface
+		// FAILED_PRECONDITION) can still run the rest of the verify
+		// spec.
+		if caps[capFaceAntispoof] {
+			// (a) Real-face path: same image twice → both is_real=true,
+			// verified stays true, scores populated.
+			asReal, err := client.FaceVerify(ctx, &pb.FaceVerifyRequest{
+				Img1: b1, Img2: b1, Threshold: verifyCeiling, AntiSpoofing: true,
+			})
+			Expect(err).NotTo(HaveOccurred(), "FaceVerify(anti_spoofing=true, real) failed")
+			Expect(asReal.GetImg1IsReal()).To(BeTrue(), "real face should be is_real=true (score=%.3f)", asReal.GetImg1AntispoofScore())
+			Expect(asReal.GetImg2IsReal()).To(BeTrue(), "real face should be is_real=true (score=%.3f)", asReal.GetImg2AntispoofScore())
+			Expect(asReal.GetImg1AntispoofScore()).To(BeNumerically(">", 0), "img1_antispoof_score must be populated")
+			Expect(asReal.GetImg2AntispoofScore()).To(BeNumerically(">", 0), "img2_antispoof_score must be populated")
+			Expect(asReal.GetVerified()).To(BeTrue(), "same image + real face should still verify with liveness on")
+			GinkgoWriter.Printf("face_antispoof(verify,real): img1_score=%.3f img2_score=%.3f\n",
+				asReal.GetImg1AntispoofScore(), asReal.GetImg2AntispoofScore())
+
+			// (b) Spoof path: img2 is a known-spoof fixture → img2
+			// classified as fake, liveness veto forces verified=false
+			// even though img1 vs img2 similarity isn't tested (could
+			// match or not). Skipped if no spoof fixture was provided,
+			// since a synthetic spoof is not a reliable assertion.
+			if faceSpoofFile != "" {
+				bSpoof := base64File(faceSpoofFile)
+				asFake, err := client.FaceVerify(ctx, &pb.FaceVerifyRequest{
+					Img1: b1, Img2: bSpoof, Threshold: verifyCeiling, AntiSpoofing: true,
+				})
+				Expect(err).NotTo(HaveOccurred(), "FaceVerify(anti_spoofing=true, spoof img2) failed")
+				Expect(asFake.GetImg1IsReal()).To(BeTrue(), "img1 (real) should still be is_real=true")
+				Expect(asFake.GetImg2IsReal()).To(BeFalse(), "spoof fixture must classify as is_real=false (score=%.3f)", asFake.GetImg2AntispoofScore())
+				Expect(asFake.GetVerified()).To(BeFalse(), "failed liveness on img2 must force verified=false regardless of similarity")
+				GinkgoWriter.Printf("face_antispoof(verify,spoof): img1_score=%.3f img2_score=%.3f verified=%v\n",
+					asFake.GetImg1AntispoofScore(), asFake.GetImg2AntispoofScore(), asFake.GetVerified())
+			}
+		}
 	})
 
 	It("analyzes faces via FaceAnalyze", func() {
@@ -685,6 +731,42 @@ var _ = Describe("Backend container", Ordered, func() {
 			Expect(f.GetDominantGender()).To(BeElementOf("Man", "Woman"))
 		}
 		GinkgoWriter.Printf("face_analyze: %d faces\n", len(res.GetFaces()))
+
+		// Liveness: exercise BOTH real and spoof paths. Gated on
+		// capFaceAntispoof.
+		if caps[capFaceAntispoof] {
+			// (a) Real: every face on the real-face fixture must
+			// classify as is_real=true with a non-zero score.
+			asReal, err := client.FaceAnalyze(ctx, &pb.FaceAnalyzeRequest{
+				Img: base64File(faceFile1), AntiSpoofing: true,
+			})
+			Expect(err).NotTo(HaveOccurred(), "FaceAnalyze(anti_spoofing=true, real) failed")
+			Expect(asReal.GetFaces()).NotTo(BeEmpty())
+			for _, f := range asReal.GetFaces() {
+				Expect(f.GetIsReal()).To(BeTrue(), "real-face fixture must classify as is_real=true (score=%.3f)", f.GetAntispoofScore())
+				Expect(f.GetAntispoofScore()).To(BeNumerically(">", 0), "antispoof_score must be populated")
+			}
+			GinkgoWriter.Printf("face_antispoof(analyze,real): %d faces\n", len(asReal.GetFaces()))
+
+			// (b) Spoof: at least one detected face on the spoof
+			// fixture must classify as is_real=false. Skipped if no
+			// spoof fixture was provided.
+			if faceSpoofFile != "" {
+				asFake, err := client.FaceAnalyze(ctx, &pb.FaceAnalyzeRequest{
+					Img: base64File(faceSpoofFile), AntiSpoofing: true,
+				})
+				Expect(err).NotTo(HaveOccurred(), "FaceAnalyze(anti_spoofing=true, spoof) failed")
+				Expect(asFake.GetFaces()).NotTo(BeEmpty(), "detector must find a face in the spoof fixture")
+				sawFake := false
+				for _, f := range asFake.GetFaces() {
+					if !f.GetIsReal() {
+						sawFake = true
+					}
+					GinkgoWriter.Printf("face_antispoof(analyze,spoof): is_real=%v score=%.3f\n", f.GetIsReal(), f.GetAntispoofScore())
+				}
+				Expect(sawFake).To(BeTrue(), "known spoof fixture must produce at least one is_real=false face")
+			}
+		}
 	})
 
 	// ─── voice (speaker) recognition specs ──────────────────────────────
