@@ -1303,21 +1303,39 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			})
 		}
 
-		uid, err := uuid.NewUUID()
+		id, err := uuid.NewUUID()
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]any{"error": err.Error()})
 		}
 
-		galleryService.BackendGalleryChannel <- galleryop.ManagementOp[gallery.GalleryBackend, any]{
-			ID:                 uid.String(),
+		uid := id.String()
+
+		// Register in opcache so the operation shows up in /api/operations
+		// and the Backends UI can reflect progress on the affected row.
+		opcache.SetBackend(backendName, uid)
+
+		ctx, cancelFunc := context.WithCancel(context.Background())
+		op := galleryop.ManagementOp[gallery.GalleryBackend, any]{
+			ID:                 uid,
 			GalleryElementName: backendName,
 			Galleries:          appConfig.BackendGalleries,
 			Upgrade:            true,
+			Context:            ctx,
+			CancelFunc:         cancelFunc,
 		}
+		// Store cancellation function immediately so queued operations can be cancelled
+		galleryService.StoreCancellation(uid, cancelFunc)
+		// Non-blocking send — BackendGalleryChannel is unbuffered and a direct
+		// send would hang the HTTP handler whenever the worker is busy.
+		go func() {
+			galleryService.BackendGalleryChannel <- op
+		}()
 
 		return c.JSON(200, map[string]any{
-			"uuid":      uid.String(),
-			"statusUrl": fmt.Sprintf("/api/backends/job/%s", uid.String()),
+			"jobID":     uid,
+			"uuid":      uid,
+			"statusUrl": fmt.Sprintf("/api/backends/job/%s", uid),
+			"message":   "Backend upgrade started",
 		})
 	}, adminMiddleware)
 
