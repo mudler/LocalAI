@@ -11,3 +11,6 @@ protogen-clean:
 .PHONY: clean
 clean: protogen-clean
 	rm -rf venv __pycache__
+
+test: install
+	bash test.sh
