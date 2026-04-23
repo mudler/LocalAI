@@ -6,6 +6,9 @@ import (
 	"io"
 	"net/http"
 	"path/filepath"
+	"regexp"
+	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -409,13 +412,111 @@ func FilterFilesByQuantization(files []ModelFile, quantization string) []ModelFi
 	return filtered
 }
 
-// FindPreferredModelFile finds the preferred model file based on quantization preferences
+// shardSuffixRegex matches the `-NNNNN-of-MMMMM.gguf` suffix that llama.cpp
+// uses to split large GGUF models across multiple files. Widths of 1–6 digits
+// are accepted because shard counts seen in the wild range from single digits
+// (unusual) to the common 5-digit zero-padded form (e.g. `-00001-of-00014`).
+var shardSuffixRegex = regexp.MustCompile(`(?i)-(\d{1,6})-of-(\d{1,6})\.gguf$`)
+
+// SplitShardSuffix detects llama.cpp-style sharded GGUF filenames. When the
+// filename ends with `-NNNNN-of-MMMMM.gguf` it returns the base filename
+// (with `.gguf` re-appended), the 1-based shard index, the total shard
+// count, and ok=true. Non-sharded filenames return zero values and ok=false.
+func SplitShardSuffix(fileName string) (base string, index, total int, ok bool) {
+	loc := shardSuffixRegex.FindStringSubmatchIndex(fileName)
+	if loc == nil {
+		return "", 0, 0, false
+	}
+	idx, err := strconv.Atoi(fileName[loc[2]:loc[3]])
+	if err != nil {
+		return "", 0, 0, false
+	}
+	tot, err := strconv.Atoi(fileName[loc[4]:loc[5]])
+	if err != nil {
+		return "", 0, 0, false
+	}
+	return fileName[:loc[0]] + ".gguf", idx, tot, true
+}
+
+// ShardGroup bundles every file that belongs to the same logical GGUF model.
+// Single-file models produce a one-entry group; multi-part shard sets produce
+// one group holding every part in shard-index order.
+type ShardGroup struct {
+	// Base is the logical filename: for sharded groups this is the common
+	// prefix with `.gguf` re-appended; for single-file groups it equals the
+	// sole entry's basename.
+	Base string
+	// Sharded is true when the group represents a multi-part shard set.
+	Sharded bool
+	// Total is the declared shard count (0 when Sharded is false).
+	Total int
+	// Files are the group's entries; sharded groups are sorted by index.
+	Files []ModelFile
+}
+
+// GroupShards buckets ModelFile entries by their shard base. Files that do
+// not match the sharded-filename pattern become one-entry groups. Group
+// order follows the first appearance of each group in the input (so the
+// historical "last-seen wins" fallback logic in the llama-cpp importer
+// keeps producing the same group); shards within a group are sorted by
+// their 1-based index so downstream consumers can rely on Files[0] being
+// shard 1.
+func GroupShards(files []ModelFile) []ShardGroup {
+	groupIdx := make(map[string]int)
+	var groups []ShardGroup
+
+	for _, file := range files {
+		name := filepath.Base(file.Path)
+		base, _, total, isShard := SplitShardSuffix(name)
+		if !isShard {
+			groups = append(groups, ShardGroup{
+				Base:  name,
+				Files: []ModelFile{file},
+			})
+			continue
+		}
+		if idx, ok := groupIdx[base]; ok {
+			groups[idx].Files = append(groups[idx].Files, file)
+			if total > groups[idx].Total {
+				groups[idx].Total = total
+			}
+			continue
+		}
+		groupIdx[base] = len(groups)
+		groups = append(groups, ShardGroup{
+			Base:    base,
+			Sharded: true,
+			Total:   total,
+			Files:   []ModelFile{file},
+		})
+	}
+
+	for i := range groups {
+		if !groups[i].Sharded {
+			continue
+		}
+		sort.SliceStable(groups[i].Files, func(a, b int) bool {
+			_, ai, _, _ := SplitShardSuffix(filepath.Base(groups[i].Files[a].Path))
+			_, bi, _, _ := SplitShardSuffix(filepath.Base(groups[i].Files[b].Path))
+			return ai < bi
+		})
+	}
+	return groups
+}
+
+// FindPreferredModelFile returns shard #1 of the first group whose base
+// filename contains any of the quantization preferences, checking each
+// preference in priority order. For single-file models this collapses to
+// "the first file whose name contains the preference", preserving the
+// historical behaviour while correctly pointing at shard 1 for multi-part
+// GGUF models — llama.cpp's split loader needs shard 1 to walk the set.
 func FindPreferredModelFile(files []ModelFile, preferences []string) *ModelFile {
+	groups := GroupShards(files)
 	for _, preference := range preferences {
-		for i := range files {
-			fileName := filepath.Base(files[i].Path)
-			if strings.Contains(strings.ToLower(fileName), strings.ToLower(preference)) {
-				return &files[i]
+		lowerPref := strings.ToLower(preference)
+		for i := range groups {
+			if strings.Contains(strings.ToLower(groups[i].Base), lowerPref) {
+				return &groups[i].Files[0]
 			}
 		}
 	}
