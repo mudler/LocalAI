@@ -493,7 +493,7 @@ message FaceVerifyRequest {
   string img1 = 1;              // base64-encoded image
   string img2 = 2;              // base64-encoded image
   float  threshold = 3;         // cosine-distance threshold; 0 = use backend default
-  bool   anti_spoofing = 4;     // reserved for future MiniFASNet bolt-on
+  bool   anti_spoofing = 4;     // run MiniFASNet liveness on each image; failed liveness forces verified=false
 }
 
 message FaceVerifyResponse {
@@ -505,6 +505,10 @@ message FaceVerifyResponse {
   FacialArea img1_area = 6;
   FacialArea img2_area = 7;
   float      processing_time_ms = 8;
+  bool       img1_is_real = 9;          // anti-spoofing result when enabled
+  float      img1_antispoof_score = 10;
+  bool       img2_is_real = 11;
+  float      img2_antispoof_score = 12;
 }
 
 message FaceAnalyzeRequest {

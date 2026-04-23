@@ -44,7 +44,7 @@ func FaceVerifyEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, app
 			return mapBackendError(err)
 		}
 
-		return c.JSON(http.StatusOK, schema.FaceVerifyResponse{
+		out := schema.FaceVerifyResponse{
 			Verified:   res.GetVerified(),
 			Distance:   res.GetDistance(),
 			Threshold:  res.GetThreshold(),
@@ -63,6 +63,17 @@ func FaceVerifyEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, app
 				H: res.GetImg2Area().GetH(),
 			},
 			ProcessingTimeMs: res.GetProcessingTimeMs(),
-		})
+		}
+		if input.AntiSpoofing {
+			img1IsReal := res.GetImg1IsReal()
+			img1Score := res.GetImg1AntispoofScore()
+			img2IsReal := res.GetImg2IsReal()
+			img2Score := res.GetImg2AntispoofScore()
+			out.Img1IsReal = &img1IsReal
+			out.Img1AntispoofScore = &img1Score
+			out.Img2IsReal = &img2IsReal
+			out.Img2AntispoofScore = &img2Score
+		}
+		return c.JSON(http.StatusOK, out)
 	}
 }

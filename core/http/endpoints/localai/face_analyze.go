@@ -59,8 +59,12 @@ func FaceAnalyzeEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, ap
 				Emotion:         f.GetEmotion(),
 				DominantRace:    f.GetDominantRace(),
 				Race:            f.GetRace(),
-				IsReal:          f.GetIsReal(),
-				AntispoofScore:  f.GetAntispoofScore(),
+			}
+			if input.AntiSpoofing {
+				isReal := f.GetIsReal()
+				score := f.GetAntispoofScore()
+				response.Faces[i].IsReal = &isReal
+				response.Faces[i].AntispoofScore = &score
 			}
 		}
 

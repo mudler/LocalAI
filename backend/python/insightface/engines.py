@@ -41,6 +41,12 @@ class FaceAttributes:
     gender: dict[str, float] = field(default_factory=dict)
 
 
+@dataclass
+class SpoofResult:
+    is_real: bool
+    score: float  # averaged probability of the "real" class, 0.0-1.0
+
+
 class FaceEngine(Protocol):
     """Minimal interface every engine must implement."""
 
@@ -48,6 +54,121 @@ class FaceEngine(Protocol):
     def detect(self, img: np.ndarray) -> list[FaceDetection]: ...
     def embed(self, img: np.ndarray) -> np.ndarray | None: ...
     def analyze(self, img: np.ndarray) -> list[FaceAttributes]: ...
+    # Optional: returns None when no antispoof model is loaded.
+    def antispoof(self, img: np.ndarray, bbox: tuple[float, float, float, float]) -> SpoofResult | None: ...
+
+
+# ─── Antispoofer (Silent-Face MiniFASNet) ──────────────────────────────
+
+class Antispoofer:
+    """Liveness detector using the Silent-Face MiniFASNet ensemble.
+
+    Loads up to two ONNX exports (MiniFASNetV2 at scale 2.7 and
+    MiniFASNetV1SE at scale 4.0). Both are 80x80 BGR-float32-input
+    classifiers with 3 output logits where index 1 = "real". When both
+    are loaded, softmax outputs are averaged before argmax — the same
+    ensembling the upstream `test.py` does.
+
+    Preprocessing matches yakhyo/face-anti-spoofing's reference impl:
+    each model gets its own scale-expanded crop centered on the face
+    bbox, resized to 80x80, fed straight as float32 BGR (no /255, no
+    mean/std). See `_crop_face` for the bbox math.
+
+    A single model also works (the missing one is simply skipped).
+    """
+
+    INPUT_SIZE = (80, 80)  # h, w
+    REAL_CLASS_IDX = 1
+
+    def __init__(self) -> None:
+        self._sessions: list[tuple[Any, float, str, str]] = []  # (session, scale, input_name, output_name)
+        self.threshold: float = 0.5
+
+    def load(self, model_paths: list[tuple[str, float]], threshold: float = 0.5) -> None:
+        """Load one or more (path, scale) pairs."""
+        import onnxruntime as ort
+
+        providers = ["CUDAExecutionProvider", "CPUExecutionProvider"]
+        for path, scale in model_paths:
+            session = ort.InferenceSession(path, providers=providers)
+            input_name = session.get_inputs()[0].name
+            output_name = session.get_outputs()[0].name
+            self._sessions.append((session, float(scale), input_name, output_name))
+        self.threshold = float(threshold)
+
+    @property
+    def loaded(self) -> bool:
+        return bool(self._sessions)
+
+    def _crop_face(self, img: np.ndarray, bbox: tuple[float, float, float, float], scale: float) -> np.ndarray:
+        # bbox is (x1, y1, x2, y2) in source-image coordinates.
+        src_h, src_w = img.shape[:2]
+        x1, y1, x2, y2 = bbox
+        box_w = max(1.0, x2 - x1)
+        box_h = max(1.0, y2 - y1)
+
+        # Clamp scale so the expanded crop fits inside the source image.
+        scale = min((src_h - 1) / box_h, (src_w - 1) / box_w, scale)
+        new_w = box_w * scale
+        new_h = box_h * scale
+
+        cx = x1 + box_w / 2.0
+        cy = y1 + box_h / 2.0
+
+        cx1 = max(0, int(cx - new_w / 2.0))
+        cy1 = max(0, int(cy - new_h / 2.0))
+        cx2 = min(src_w - 1, int(cx + new_w / 2.0))
+        cy2 = min(src_h - 1, int(cy + new_h / 2.0))
+
+        cropped = img[cy1 : cy2 + 1, cx1 : cx2 + 1]
+        if cropped.size == 0:
+            cropped = img
+        out_h, out_w = self.INPUT_SIZE
+        return cv2.resize(cropped, (out_w, out_h))
+
+    @staticmethod
+    def _softmax(x: np.ndarray) -> np.ndarray:
+        e = np.exp(x - np.max(x, axis=1, keepdims=True))
+        return e / e.sum(axis=1, keepdims=True)
+
+    def predict(self, img: np.ndarray, bbox: tuple[float, float, float, float]) -> SpoofResult:
+        if not self._sessions:
+            raise RuntimeError("Antispoofer.predict called with no models loaded")
+        accum = np.zeros((1, 3), dtype=np.float32)
+        for session, scale, input_name, output_name in self._sessions:
+            face = self._crop_face(img, bbox, scale).astype(np.float32)
+            tensor = np.transpose(face, (2, 0, 1))[np.newaxis, ...]
+            logits = session.run([output_name], {input_name: tensor})[0]
+            accum += self._softmax(logits)
+        accum /= float(len(self._sessions))
+        real_prob = float(accum[0, self.REAL_CLASS_IDX])
+        is_real = int(np.argmax(accum)) == self.REAL_CLASS_IDX and real_prob >= self.threshold
+        return SpoofResult(is_real=is_real, score=real_prob)
+
+
+def _build_antispoofer(options: dict[str, str], model_dir: str | None) -> Antispoofer | None:
+    """Instantiate an Antispoofer from option keys, or return None.
+
+    Recognised options:
+        antispoof_v2_onnx     — path/filename of MiniFASNetV2 (scale 2.7)
+        antispoof_v1se_onnx   — path/filename of MiniFASNetV1SE (scale 4.0)
+        antispoof_threshold   — real-class probability threshold, default 0.5
+
+    Either or both can be provided. Returns None when neither is set.
+    """
+    pairs: list[tuple[str, float]] = []
+    v2 = options.get("antispoof_v2_onnx", "")
+    if v2:
+        pairs.append((_resolve_model_path(v2, model_dir=model_dir), 2.7))
+    v1se = options.get("antispoof_v1se_onnx", "")
+    if v1se:
+        pairs.append((_resolve_model_path(v1se, model_dir=model_dir), 4.0))
+    if not pairs:
+        return None
+    threshold = float(options.get("antispoof_threshold", "0.5"))
+    spoofer = Antispoofer()
+    spoofer.load(pairs, threshold=threshold)
+    return spoofer
 
 
 # ─── InsightFaceEngine ────────────────────────────────────────────────
@@ -80,6 +201,7 @@ class InsightFaceEngine:
         self.det_size: tuple[int, int] = (640, 640)
         self.det_thresh: float = 0.5
         self._providers: list[str] = ["CPUExecutionProvider"]
+        self._antispoofer: Antispoofer | None = None
 
     def prepare(self, options: dict[str, str]) -> None:
         import glob
@@ -90,6 +212,7 @@ class InsightFaceEngine:
         self.model_pack = options.get("model_pack", "buffalo_l")
         self.det_size = _parse_det_size(options.get("det_size", "640x640"))
         self.det_thresh = float(options.get("det_thresh", "0.5"))
+        self._antispoofer = _build_antispoofer(options, options.get("_model_dir"))
 
         pack_dir = _locate_insightface_pack(options, self.model_pack)
         if pack_dir is None:
@@ -187,6 +310,11 @@ class InsightFaceEngine:
             out.append(attrs)
         return out
 
+    def antispoof(self, img: np.ndarray, bbox: tuple[float, float, float, float]) -> SpoofResult | None:
+        if self._antispoofer is None or not self._antispoofer.loaded:
+            return None
+        return self._antispoofer.predict(img, bbox)
+
 
 # ─── OnnxDirectEngine ─────────────────────────────────────────────────
 
@@ -206,6 +334,7 @@ class OnnxDirectEngine:
         self.det_thresh: float = 0.5
         self._detector: Any = None
         self._recognizer: Any = None
+        self._antispoofer: Antispoofer | None = None
 
     def prepare(self, options: dict[str, str]) -> None:
         raw_det = options.get("detector_onnx", "")
@@ -219,6 +348,7 @@ class OnnxDirectEngine:
         self.recognizer_path = _resolve_model_path(raw_rec, model_dir=model_dir)
         self.input_size = _parse_det_size(options.get("det_size", "320x320"))
         self.det_thresh = float(options.get("det_thresh", "0.5"))
+        self._antispoofer = _build_antispoofer(options, model_dir)
 
         # YuNet is a fixed-size detector; size is reset per detect() call to
         # match the input frame.
@@ -285,6 +415,11 @@ class OnnxDirectEngine:
             )
             for d in self.detect(img)
         ]
+
+    def antispoof(self, img: np.ndarray, bbox: tuple[float, float, float, float]) -> SpoofResult | None:
+        if self._antispoofer is None or not self._antispoofer.loaded:
+            return None
+        return self._antispoofer.predict(img, bbox)
 
 
 # ─── helpers ──────────────────────────────────────────────────────────

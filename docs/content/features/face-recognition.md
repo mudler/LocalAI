@@ -7,8 +7,8 @@ url = "/features/face-recognition/"
 
 LocalAI supports face recognition through the `insightface` backend:
 face verification (1:1), face identification (1:N) against a built-in
-vector store, face embedding, face detection, and demographic analysis
-(age / gender).
+vector store, face embedding, face detection, demographic analysis
+(age / gender), and antispoofing / liveness detection.
 
 The backend ships **two interchangeable engines** under one image, each
 paired with a distinct gallery entry so users can pick by license and
@@ -119,10 +119,14 @@ format.
 | `model` | string | gallery entry name (e.g. `insightface-buffalo-l`) |
 | `img1`, `img2` | string | URL, base64, or data-URI |
 | `threshold` | float, optional | cosine-distance cutoff; default depends on engine |
-| `anti_spoofing` | bool, optional | reserved — unused in the current release |
+| `anti_spoofing` | bool, optional | also run MiniFASNet liveness on each image — see [Antispoofing](#antispoofing-liveness-detection) |
 
 Returns `verified`, `distance`, `threshold`, `confidence`, `model`,
-`img1_area`, `img2_area`, and `processing_time_ms`.
+`img1_area`, `img2_area`, and `processing_time_ms`. When
+`anti_spoofing` is set, the response also carries per-image liveness
+fields: `img1_is_real`, `img1_antispoof_score`, `img2_is_real`,
+`img2_antispoof_score`. A failed liveness check on either image forces
+`verified=false` regardless of similarity.
 
 ### `POST /v1/face/analyze`
 
@@ -197,6 +201,68 @@ SFace.
 
 - `POST /v1/detection` — returns face bounding boxes with
   `class_name: "face"`; works for both engines.
+
+## Antispoofing (liveness detection)
+
+All gallery entries ship the [Silent-Face-Anti-Spoofing](https://github.com/minivision-ai/Silent-Face-Anti-Spoofing)
+MiniFASNetV2 + MiniFASNetV1SE ensemble (Apache 2.0, ~4 MB total, CPU-only)
+alongside the face recognition weights. Set `anti_spoofing: true` on
+`/v1/face/verify` or `/v1/face/analyze` to run liveness on each detected
+face. The two models look at different crop scales and their softmax
+outputs are averaged before argmax — the upstream-recommended setup.
+
+`/v1/face/verify` with liveness gating:
+
+```bash
+curl -sX POST http://localhost:8080/v1/face/verify \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "insightface-opencv",
+    "img1": "https://example.com/alice_selfie.jpg",
+    "img2": "https://example.com/alice_id_scan.jpg",
+    "anti_spoofing": true
+  }'
+```
+
+Response (fields added when `anti_spoofing` is enabled):
+
+```json
+{
+  "verified": true,
+  "distance": 0.27,
+  "threshold": 0.5,
+  "confidence": 46.0,
+  "model": "insightface-opencv",
+  "img1_area": { "x": 120, "y": 82, "w": 198, "h": 260 },
+  "img2_area": { "x": 110, "y": 95, "w": 205, "h": 268 },
+  "img1_is_real": true,
+  "img1_antispoof_score": 0.82,
+  "img2_is_real": true,
+  "img2_antispoof_score": 0.74,
+  "processing_time_ms": 431.0
+}
+```
+
+If either image fails liveness (`is_real=false`), `verified` is forced
+to `false` — similarity alone is not enough.
+
+`/v1/face/analyze` reports per-face `is_real` and `antispoof_score`
+when the flag is set.
+
+**Fail-loud semantics.** If `anti_spoofing: true` is sent against a
+model installed without the MiniFASNet files (e.g. a custom entry that
+only listed the face recognition weights), the request returns a gRPC
+`FAILED_PRECONDITION` error — the endpoint will never silently return
+`is_real=false`. Re-install the gallery entry or point the backend at a
+model that bundles the MiniFASNet ONNX files.
+
+{{% alert icon="ℹ" color="info" %}}
+The MiniFASNet score is best at catching **printed photos and screen
+replays**. Deepfake videos and high-quality prosthetics are out of
+scope — liveness here is a low-cost first line of defence, not a
+guarantee. For higher assurance, combine with challenge-response (e.g.
+ask the user to turn their head).
+{{% /alert %}}
 
 ## Choosing an engine
 

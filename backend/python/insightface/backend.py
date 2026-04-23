@@ -180,13 +180,43 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         verified = distance < threshold
         confidence = max(0.0, min(100.0, (1.0 - distance / threshold) * 100.0)) if threshold > 0 else 0.0
 
-        def _region(img) -> backend_pb2.FacialArea:
+        # Detect once per image — region is needed for the response and
+        # potentially for the antispoof crop. Returns the highest-score face.
+        def _best_detection(img):
             dets = self.engine.detect(img)
             if not dets:
+                return None
+            return max(dets, key=lambda d: d.score)
+
+        def _region(det) -> backend_pb2.FacialArea:
+            if det is None:
                 return backend_pb2.FacialArea()
-            best = max(dets, key=lambda d: d.score)
-            x1, y1, x2, y2 = best.bbox
+            x1, y1, x2, y2 = det.bbox
             return backend_pb2.FacialArea(x=x1, y=y1, w=x2 - x1, h=y2 - y1)
+
+        det1 = _best_detection(img1)
+        det2 = _best_detection(img2)
+
+        img1_is_real = False
+        img1_score = 0.0
+        img2_is_real = False
+        img2_score = 0.0
+        if request.anti_spoofing:
+            spoof1 = self.engine.antispoof(img1, det1.bbox) if det1 is not None else None
+            spoof2 = self.engine.antispoof(img2, det2.bbox) if det2 is not None else None
+            if spoof1 is None or spoof2 is None:
+                context.set_code(grpc.StatusCode.FAILED_PRECONDITION)
+                context.set_details(
+                    "anti_spoofing requested but no antispoof model is loaded — "
+                    "install `silent-face-antispoofing` or pick a gallery entry "
+                    "that bundles MiniFASNet weights"
+                )
+                return backend_pb2.FaceVerifyResponse()
+            img1_is_real, img1_score = spoof1.is_real, spoof1.score
+            img2_is_real, img2_score = spoof2.is_real, spoof2.score
+            # Failed liveness vetoes verification regardless of similarity.
+            if not (img1_is_real and img2_is_real):
+                verified = False
 
         return backend_pb2.FaceVerifyResponse(
             verified=verified,
@@ -194,9 +224,13 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             threshold=float(threshold),
             confidence=float(confidence),
             model=self.model_name or self.engine_name,
-            img1_area=_region(img1),
-            img2_area=_region(img2),
+            img1_area=_region(det1),
+            img2_area=_region(det2),
             processing_time_ms=float((time.time() - start) * 1000.0),
+            img1_is_real=img1_is_real,
+            img1_antispoof_score=float(img1_score),
+            img2_is_real=img2_is_real,
+            img2_antispoof_score=float(img2_score),
         )
 
     def FaceAnalyze(self, request, context):
@@ -223,6 +257,19 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 fa.dominant_gender = attrs.dominant_gender
             for k, v in attrs.gender.items():
                 fa.gender[k] = float(v)
+            if request.anti_spoofing:
+                bbox = (float(x), float(y), float(x + w), float(y + h))
+                spoof = self.engine.antispoof(img, bbox)
+                if spoof is None:
+                    context.set_code(grpc.StatusCode.FAILED_PRECONDITION)
+                    context.set_details(
+                        "anti_spoofing requested but no antispoof model is loaded — "
+                        "install `silent-face-antispoofing` or pick a gallery entry "
+                        "that bundles MiniFASNet weights"
+                    )
+                    return backend_pb2.FaceAnalyzeResponse()
+                fa.is_real = spoof.is_real
+                fa.antispoof_score = float(spoof.score)
             faces.append(fa)
         return backend_pb2.FaceAnalyzeResponse(faces=faces)
 

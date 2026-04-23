@@ -194,14 +194,23 @@ type FaceVerifyRequest struct {
 }
 
 type FaceVerifyResponse struct {
-	Verified         bool       `json:"verified"`
-	Distance         float32    `json:"distance"`
-	Threshold        float32    `json:"threshold"`
-	Confidence       float32    `json:"confidence"`
-	Model            string     `json:"model"`
-	Img1Area         FacialArea `json:"img1_area"`
-	Img2Area         FacialArea `json:"img2_area"`
-	ProcessingTimeMs float32    `json:"processing_time_ms,omitempty"`
+	Verified           bool       `json:"verified"`
+	Distance           float32    `json:"distance"`
+	Threshold          float32    `json:"threshold"`
+	Confidence         float32    `json:"confidence"`
+	Model              string     `json:"model"`
+	Img1Area           FacialArea `json:"img1_area"`
+	Img2Area           FacialArea `json:"img2_area"`
+	ProcessingTimeMs   float32    `json:"processing_time_ms,omitempty"`
+	// Liveness fields are only populated when the request set
+	// anti_spoofing=true. Pointers keep them fully absent from the
+	// JSON response otherwise, so callers can tell "not checked"
+	// apart from "checked and fake" (which would collapse to zero
+	// values with plain bool+omitempty).
+	Img1IsReal         *bool    `json:"img1_is_real,omitempty"`
+	Img1AntispoofScore *float32 `json:"img1_antispoof_score,omitempty"`
+	Img2IsReal         *bool    `json:"img2_is_real,omitempty"`
+	Img2AntispoofScore *float32 `json:"img2_antispoof_score,omitempty"`
 }
 
 // FaceAnalyzeRequest asks the backend for demographic attributes on
@@ -227,8 +236,9 @@ type FaceAnalysis struct {
 	Emotion         map[string]float32 `json:"emotion,omitempty"`
 	DominantRace    string             `json:"dominant_race,omitempty"`
 	Race            map[string]float32 `json:"race,omitempty"`
-	IsReal          bool               `json:"is_real,omitempty"`
-	AntispoofScore  float32            `json:"antispoof_score,omitempty"`
+	// Liveness fields — see FaceVerifyResponse for why these are pointers.
+	IsReal         *bool    `json:"is_real,omitempty"`
+	AntispoofScore *float32 `json:"antispoof_score,omitempty"`
 }
 
 // FaceEmbedRequest extracts a face embedding from an image. Distinct

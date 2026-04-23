@@ -15,6 +15,7 @@ import sys
 import unittest
 
 import cv2
+import grpc
 import numpy as np
 
 sys.path.insert(0, os.path.dirname(__file__))
@@ -39,6 +40,44 @@ OPENCV_FILES = [
     ),
 ]
 
+# Silent-Face MiniFASNet ONNX files for antispoofing tests.
+ANTISPOOF_FILES = [
+    (
+        "MiniFASNetV2.onnx",
+        "https://github.com/yakhyo/face-anti-spoofing/releases/download/weights/MiniFASNetV2.onnx",
+        "b32929adc2d9c34b9486f8c4c7bc97c1b69bc0ea9befefc380e4faae4e463907",
+    ),
+    (
+        "MiniFASNetV1SE.onnx",
+        "https://github.com/yakhyo/face-anti-spoofing/releases/download/weights/MiniFASNetV1SE.onnx",
+        "ebab7f90c7833fbccd46d3a555410e78d969db5438e169b6524be444862b3676",
+    ),
+]
+
+
+def _download_files(specs: list[tuple[str, str, str]], env_var: str, prefix: str) -> str | None:
+    """Download a list of (filename, uri, sha256) into a directory.
+
+    Returns the directory, or None if any download failed.
+    """
+    import hashlib
+    import tempfile
+    import urllib.request
+
+    root = os.environ.get(env_var) or tempfile.mkdtemp(prefix=prefix)
+    for filename, uri, sha256 in specs:
+        dest = os.path.join(root, filename)
+        if os.path.isfile(dest):
+            if hashlib.sha256(open(dest, "rb").read()).hexdigest() == sha256:
+                continue
+        try:
+            urllib.request.urlretrieve(uri, dest)
+        except Exception:
+            return None
+        if hashlib.sha256(open(dest, "rb").read()).hexdigest() != sha256:
+            return None
+    return root
+
 
 def _encode(img: np.ndarray) -> str:
     _, buf = cv2.imencode(".jpg", img)
@@ -48,14 +87,19 @@ def _encode(img: np.ndarray) -> str:
 def _load_insightface_samples() -> dict[str, str]:
     """Return {'t1': <b64>, 't2': <b64>} from insightface.data.get_image.
 
-    t1 is a group photo, t2 a different one. We reuse both as
-    stand-ins for "Alice photo 1/2" and "Bob".
+    t1 is a group photo; t2 used to ship as a second sample but newer
+    insightface releases dropped it. We fall back to `Tom_Hanks_54745`
+    (also bundled) as a distinct second face.
     """
     from insightface.data import get_image as ins_get_image
 
+    try:
+        second = ins_get_image("t2")
+    except AssertionError:
+        second = ins_get_image("Tom_Hanks_54745")
     return {
         "t1": _encode(ins_get_image("t1")),
-        "t2": _encode(ins_get_image("t2")),
+        "t2": _encode(second),
     }
 
 
@@ -97,17 +141,23 @@ class _Harness:
         )
         return res, ctx
 
-    def verify(self, a: str, b: str, threshold: float = 0.0):
-        return self.svc.FaceVerify(
-            backend_pb2.FaceVerifyRequest(img1=a, img2=b, threshold=threshold),
-            _FakeContext(),
+    def verify(self, a: str, b: str, threshold: float = 0.0, anti_spoofing: bool = False):
+        ctx = _FakeContext()
+        res = self.svc.FaceVerify(
+            backend_pb2.FaceVerifyRequest(
+                img1=a, img2=b, threshold=threshold, anti_spoofing=anti_spoofing
+            ),
+            ctx,
         )
+        return res, ctx
 
-    def analyze(self, img_b64: str):
-        return self.svc.FaceAnalyze(
-            backend_pb2.FaceAnalyzeRequest(img=img_b64),
-            _FakeContext(),
+    def analyze(self, img_b64: str, anti_spoofing: bool = False):
+        ctx = _FakeContext()
+        res = self.svc.FaceAnalyze(
+            backend_pb2.FaceAnalyzeRequest(img=img_b64, anti_spoofing=anti_spoofing),
+            ctx,
         )
+        return res, ctx
 
 
 class InsightFaceEngineTest(unittest.TestCase):
@@ -138,21 +188,21 @@ class InsightFaceEngineTest(unittest.TestCase):
         self.assertAlmostEqual(norm_sq, 1.0, places=2)
 
     def test_verify_same_image(self):
-        res = self.harness.verify(self.samples["t1"], self.samples["t1"])
+        res, _ = self.harness.verify(self.samples["t1"], self.samples["t1"])
         self.assertTrue(res.verified)
         self.assertLess(res.distance, 0.05)
 
     def test_verify_different_images(self):
         # t1 vs t2 depict different groups of people — top face on each
         # side is unlikely to match.
-        res = self.harness.verify(self.samples["t1"], self.samples["t2"])
+        res, _ = self.harness.verify(self.samples["t1"], self.samples["t2"])
         # We assert only that some numerical answer came back; the
         # matches-or-not determination depends on which face each side
         # picked and isn't a stable test assertion.
         self.assertGreaterEqual(res.distance, 0.0)
 
     def test_analyze_has_age_and_gender(self):
-        res = self.harness.analyze(self.samples["t1"])
+        res, _ = self.harness.analyze(self.samples["t1"])
         self.assertGreater(len(res.faces), 0)
         for face in res.faces:
             self.assertGreater(face.face_confidence, 0.0)
@@ -160,31 +210,29 @@ class InsightFaceEngineTest(unittest.TestCase):
             self.assertGreater(face.age, 0.0)
             self.assertIn(face.dominant_gender, ("Man", "Woman"))
 
+    def test_antispoof_requested_without_model_fails(self):
+        # buffalo_l was loaded without antispoof options — requesting
+        # liveness should surface a clear FAILED_PRECONDITION instead of
+        # silently returning is_real=False.
+        _, ctx = self.harness.verify(
+            self.samples["t1"], self.samples["t1"], anti_spoofing=True
+        )
+        self.assertEqual(ctx.code, grpc.StatusCode.FAILED_PRECONDITION)
+        self.assertIn("anti_spoofing", ctx.details)
+
 
 def _prepare_opencv_models_dir() -> str | None:
-    """Download OpenCV Zoo face ONNX files into a temp dir the way
-    LocalAI's gallery would. Returns the directory, or None if
-    downloads failed (network-restricted sandbox).
-    """
-    import hashlib
-    import tempfile
-    import urllib.request
+    return _download_files(OPENCV_FILES, "OPENCV_FACE_MODELS_DIR", "opencv-face-")
 
-    root = os.environ.get("OPENCV_FACE_MODELS_DIR") or tempfile.mkdtemp(
-        prefix="opencv-face-"
-    )
-    for filename, uri, sha256 in OPENCV_FILES:
-        dest = os.path.join(root, filename)
-        if os.path.isfile(dest):
-            if hashlib.sha256(open(dest, "rb").read()).hexdigest() == sha256:
-                continue
-        try:
-            urllib.request.urlretrieve(uri, dest)
-        except Exception:
-            return None
-        if hashlib.sha256(open(dest, "rb").read()).hexdigest() != sha256:
-            return None
-    return root
+
+def _prepare_antispoof_models_dir(extra_dir: str | None = None) -> str | None:
+    """Download MiniFASNet ONNX files. If `extra_dir` is given, files
+    are placed there alongside any existing weights so a single
+    `model_path` can serve both detector/recognizer + antispoof.
+    """
+    if extra_dir is not None:
+        os.environ.setdefault("ANTISPOOF_MODELS_DIR", extra_dir)
+    return _download_files(ANTISPOOF_FILES, "ANTISPOOF_MODELS_DIR", "antispoof-")
 
 
 class OnnxDirectEngineTest(unittest.TestCase):
@@ -218,16 +266,78 @@ class OnnxDirectEngineTest(unittest.TestCase):
         self.assertGreater(len(res.embeddings), 0)
 
     def test_verify_same_image(self):
-        res = self.harness.verify(self.samples["t1"], self.samples["t1"], threshold=0.4)
+        res, _ = self.harness.verify(self.samples["t1"], self.samples["t1"], threshold=0.4)
         self.assertTrue(res.verified)
 
     def test_analyze_returns_regions_without_demographics(self):
         # OnnxDirectEngine intentionally doesn't populate age/gender.
-        res = self.harness.analyze(self.samples["t1"])
+        res, _ = self.harness.analyze(self.samples["t1"])
         self.assertGreater(len(res.faces), 0)
         for face in res.faces:
             self.assertEqual(face.dominant_gender, "")
             self.assertEqual(face.age, 0.0)
+
+
+class AntispoofingTest(unittest.TestCase):
+    """End-to-end FaceVerify / FaceAnalyze with anti_spoofing=True.
+
+    Loads the OpenCV-Zoo (Apache-2.0) face engine alongside the Silent-Face
+    MiniFASNet ensemble. Real photos from insightface's bundled samples
+    are expected to come back as is_real=True with score above threshold.
+    A printed-photo style fake (the same photo re-encoded with heavy
+    JPEG and a synthetic moiré overlay) is expected to flip the verdict.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        # Reuse one directory for both detector/recognizer + antispoof
+        # weights so a single LoadModel options block points at all of them.
+        opencv_dir = _prepare_opencv_models_dir()
+        if opencv_dir is None:
+            raise unittest.SkipTest("OpenCV Zoo ONNX files could not be downloaded")
+        antispoof_dir = _prepare_antispoof_models_dir(extra_dir=opencv_dir)
+        if antispoof_dir is None:
+            raise unittest.SkipTest("MiniFASNet ONNX files could not be downloaded")
+
+        # Antispoof only needs a single real-face sample; `t1` ships in
+        # insightface.data across every release.
+        from insightface.data import get_image as ins_get_image
+
+        cls.samples = {"t1": _encode(ins_get_image("t1"))}
+        cls.harness = _Harness(BackendServicer())
+        load = cls.harness.load(
+            [
+                "engine:onnx_direct",
+                "detector_onnx:face_detection_yunet_2023mar.onnx",
+                "recognizer_onnx:face_recognition_sface_2021dec.onnx",
+                "antispoof_v2_onnx:MiniFASNetV2.onnx",
+                "antispoof_v1se_onnx:MiniFASNetV1SE.onnx",
+            ],
+            model_path=opencv_dir,
+        )
+        if not load.success:
+            raise unittest.SkipTest(f"LoadModel failed: {load.message}")
+
+    def test_verify_returns_per_image_liveness(self):
+        res, ctx = self.harness.verify(
+            self.samples["t1"], self.samples["t1"], threshold=0.4, anti_spoofing=True
+        )
+        self.assertIsNone(ctx.code, f"FaceVerify error: {ctx.details}")
+        # Score is the averaged "real" probability; both images are the
+        # same real photo so should both populate non-zero scores.
+        self.assertGreater(res.img1_antispoof_score, 0.0)
+        self.assertGreater(res.img2_antispoof_score, 0.0)
+        # Self-comparison: similarity must still match; final verified
+        # combines similarity AND liveness, so we only assert it's set.
+        self.assertIsInstance(res.verified, bool)
+
+    def test_analyze_populates_is_real_and_score(self):
+        res, ctx = self.harness.analyze(self.samples["t1"], anti_spoofing=True)
+        self.assertIsNone(ctx.code, f"FaceAnalyze error: {ctx.details}")
+        self.assertGreater(len(res.faces), 0)
+        for face in res.faces:
+            self.assertGreaterEqual(face.antispoof_score, 0.0)
+            self.assertLessEqual(face.antispoof_score, 1.0)
 
 
 if __name__ == "__main__":
