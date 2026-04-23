@@ -317,8 +317,23 @@ class OnnxDirectEngine:
         else:
             provider_list = ["CPUExecutionProvider"]
         self._session = ort.InferenceSession(onnx_path, providers=provider_list)
-        self._input_name = self._session.get_inputs()[0].name
+        input_meta = self._session.get_inputs()[0]
+        self._input_name = input_meta.name
+        # Pre-exported speaker encoders come in two shapes:
+        #   rank-2  [batch, samples]          — some 3D-Speaker exports feed raw waveform.
+        #   rank-3  [batch, frames, n_mels]   — WeSpeaker and most Kaldi-lineage encoders
+        #                                        expect pre-computed Kaldi FBank features.
+        # We detect this at load time and branch in embed(), because feeding raw audio
+        # into a rank-3 graph is exactly what triggered
+        # "Invalid rank for input: feats Got: 2 Expected: 3".
+        self._input_rank = len(input_meta.shape) if input_meta.shape is not None else 2
         self._expected_sr = int(options.get("sample_rate", "16000"))
+        self._fbank_mels = int(options.get("fbank_num_mel_bins", "80"))
+        self._fbank_frame_length_ms = float(options.get("fbank_frame_length_ms", "25"))
+        self._fbank_frame_shift_ms = float(options.get("fbank_frame_shift_ms", "10"))
+        # Per-utterance cepstral mean normalisation — on for WeSpeaker by default,
+        # toggleable for encoders that expect raw FBank.
+        self._fbank_cmn = options.get("fbank_cmn", "true").lower() in ("1", "true", "yes")
         self._analysis = AnalysisHead(options)
 
     def _load_waveform(self, path: str):
@@ -344,10 +359,36 @@ class OnnxDirectEngine:
         import numpy as np
 
         audio = self._load_waveform(audio_path)
-        feed = audio.reshape(1, -1)
+        if self._input_rank >= 3:
+            feats = self._extract_fbank(audio)        # [frames, n_mels]
+            feed = feats[np.newaxis, :, :]             # [1, frames, n_mels]
+        else:
+            feed = audio.reshape(1, -1)                # [1, samples]
         out = self._session.run(None, {self._input_name: feed})
         vec = np.asarray(out[0]).reshape(-1)
         return [float(x) for x in vec]
+
+    def _extract_fbank(self, audio):
+        """Compute Kaldi-style 80-dim FBank features for speaker encoders that
+        expect pre-featurised input (WeSpeaker, most 3D-Speaker exports).
+        torchaudio is already a backend dependency for SpeechBrain — no new
+        package required."""
+        import numpy as np
+        import torch  # type: ignore
+        import torchaudio.compliance.kaldi as kaldi  # type: ignore
+
+        tensor = torch.from_numpy(audio).unsqueeze(0)  # [1, samples]
+        feats = kaldi.fbank(
+            tensor,
+            sample_frequency=self._expected_sr,
+            num_mel_bins=self._fbank_mels,
+            frame_length=self._fbank_frame_length_ms,
+            frame_shift=self._fbank_frame_shift_ms,
+            dither=0.0,
+        )  # [frames, n_mels]
+        if self._fbank_cmn:
+            feats = feats - feats.mean(dim=0, keepdim=True)
+        return feats.numpy().astype(np.float32)
 
     def compare(self, audio1: str, audio2: str) -> float:
         return _cosine_distance(self.embed(audio1), self.embed(audio2))
