@@ -16,7 +16,13 @@ var base64DownloadClient http.Client = http.Client{
 	Timeout: 30 * time.Second,
 }
 
-var dataURIPattern = regexp.MustCompile(`^data:([^;]+);base64,`)
+// Match `data:<mime>[;param=value...];base64,` — browser-produced data URIs
+// often carry codec/charset params between the mime type and `;base64,`
+// (e.g. MediaRecorder's `data:audio/webm;codecs=opus;base64,...`). The old
+// `([^;]+)` form only tolerated exactly one segment, so anything with
+// extra params failed the strip and tripped the downstream base64 decoder
+// on the `data:` literal.
+var dataURIPattern = regexp.MustCompile(`^data:[^,]+?;base64,`)
 
 // GetContentURIAsBase64 checks if the string is an URL, if it's an URL downloads the content in memory encodes it in base64 and returns the base64 string, otherwise returns the string by stripping base64 data headers
 func GetContentURIAsBase64(s string) (string, error) {

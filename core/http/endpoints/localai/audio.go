@@ -14,7 +14,13 @@ import (
 	"github.com/mudler/LocalAI/pkg/utils"
 )
 
-var audioDataURIPattern = regexp.MustCompile(`^data:([^;]+);base64,`)
+// Match `data:<mime>[;param=value...];base64,` — MediaRecorder in the browser
+// produces data URIs like `data:audio/webm;codecs=opus;base64,...`, so the
+// pre-`;base64,` section can contain zero or more parameter segments. The
+// old `([^;]+)` form only matched exactly one segment and left recordings
+// from the React UI's live-capture tab unparsed, which then failed base64
+// decoding on the leading `data:` bytes.
+var audioDataURIPattern = regexp.MustCompile(`^data:[^,]+?;base64,`)
 
 var audioDownloadClient = http.Client{Timeout: 30 * time.Second}
 
