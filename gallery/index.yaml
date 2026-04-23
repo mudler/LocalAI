@@ -3,40 +3,7 @@
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
     - https://huggingface.co/KyleHessling1/Qwopus-GLM-18B-Merged-GGUF
-  description: |
-    # 🪐 Qwen3.5-9B-GLM5.1-Distill-v1
-
-    ## 📌 Model Overview
-
-    **Model Name:** `Jackrong/Qwen3.5-9B-GLM5.1-Distill-v1`
-    **Base Model:** Qwen3.5-9B
-    **Training Type:** Supervised Fine-Tuning (SFT, Distillation)
-    **Parameter Scale:** 9B
-    **Training Framework:** Unsloth
-
-    This model is a distilled variant of **Qwen3.5-9B**, trained on high-quality reasoning data derived from **GLM-5.1**.
-
-    The primary goals are to:
-
-      - Improve **structured reasoning ability**
-      - Enhance **instruction-following consistency**
-      - Activate **latent knowledge via better reasoning structure**
-
-    ## 📊 Training Data
-
-    ### Main Dataset
-
-      - `Jackrong/GLM-5.1-Reasoning-1M-Cleaned`
-      - Cleaned from the original `Kassadin88/GLM-5.1-1000000x` dataset.
-      - Generated from a **GLM-5.1 teacher model**
-      - Approximately **700x** the scale of `Qwen3.5-reasoning-700x`
-      - Training used a **filtered subset**, not the full source dataset.
-
-    ### Auxiliary Dataset
-
-      - `Jackrong/Qwen3.5-reasoning-700x`
-
-    ...
+  description: "# \U0001FA90 Qwen3.5-9B-GLM5.1-Distill-v1\n\n## \U0001F4CC Model Overview\n\n**Model Name:** `Jackrong/Qwen3.5-9B-GLM5.1-Distill-v1`\n**Base Model:** Qwen3.5-9B\n**Training Type:** Supervised Fine-Tuning (SFT, Distillation)\n**Parameter Scale:** 9B\n**Training Framework:** Unsloth\n\nThis model is a distilled variant of **Qwen3.5-9B**, trained on high-quality reasoning data derived from **GLM-5.1**.\n\nThe primary goals are to:\n\n  - Improve **structured reasoning ability**\n  - Enhance **instruction-following consistency**\n  - Activate **latent knowledge via better reasoning structure**\n\n## \U0001F4CA Training Data\n\n### Main Dataset\n\n  - `Jackrong/GLM-5.1-Reasoning-1M-Cleaned`\n  - Cleaned from the original `Kassadin88/GLM-5.1-1000000x` dataset.\n  - Generated from a **GLM-5.1 teacher model**\n  - Approximately **700x** the scale of `Qwen3.5-reasoning-700x`\n  - Training used a **filtered subset**, not the full source dataset.\n\n### Auxiliary Dataset\n\n  - `Jackrong/Qwen3.5-reasoning-700x`\n\n...\n"
   license: "apache-2.0"
   tags:
     - llm
@@ -127,26 +94,7 @@
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
     - https://huggingface.co/hesamation/Qwen3.6-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-GGUF
-  description: |
-    # 🔥 Qwen3.6-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled
-
-    A reasoning SFT fine-tune of `Qwen/Qwen3.6-35B-A3B` on chain-of-thought (CoT) distillation mostly sourced from Claude Opus 4.6. The goal is to preserve Qwen3.6's strong agentic coding and reasoning base while nudging the model toward structured Claude Opus-style reasoning traces and more stable long-form problem solving.
-
-    The training path is text-only. The Qwen3.6 base architecture includes a vision encoder, but this fine-tuning run did not train on image or video examples.
-
-      - **Developed by:** @hesamation
-      - **Base model:** `Qwen/Qwen3.6-35B-A3B`
-      - **License:** apache-2.0
-
-    This fine-tuning run is inspired by Jackrong/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled, including the notebook/training workflow style and Claude Opus reasoning-distillation direction.
-
-    [](https://x.com/Hesamation) [](https://discord.gg/vtJykN3t)
-
-    ## Benchmark Results
-
-    The MMLU-Pro pass used 70 total questions per model: `--limit 5` across 14 MMLU-Pro subjects. Treat this as a smoke/comparative check, not a release-quality full benchmark.
-
-    ...
+  description: "# \U0001F525 Qwen3.6-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled\n\nA reasoning SFT fine-tune of `Qwen/Qwen3.6-35B-A3B` on chain-of-thought (CoT) distillation mostly sourced from Claude Opus 4.6. The goal is to preserve Qwen3.6's strong agentic coding and reasoning base while nudging the model toward structured Claude Opus-style reasoning traces and more stable long-form problem solving.\n\nThe training path is text-only. The Qwen3.6 base architecture includes a vision encoder, but this fine-tuning run did not train on image or video examples.\n\n  - **Developed by:** @hesamation\n  - **Base model:** `Qwen/Qwen3.6-35B-A3B`\n  - **License:** apache-2.0\n\nThis fine-tuning run is inspired by Jackrong/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled, including the notebook/training workflow style and Claude Opus reasoning-distillation direction.\n\n[](https://x.com/Hesamation) [](https://discord.gg/vtJykN3t)\n\n## Benchmark Results\n\nThe MMLU-Pro pass used 70 total questions per model: `--limit 5` across 14 MMLU-Pro subjects. Treat this as a smoke/comparative check, not a release-quality full benchmark.\n\n...\n"
   license: "apache-2.0"
   tags:
     - llm
@@ -182,40 +130,7 @@
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
     - https://huggingface.co/Jackrong/Qwen3.5-9B-GLM5.1-Distill-v1-GGUF
-  description: |
-    # 🪐 Qwen3.5-9B-GLM5.1-Distill-v1
-
-    ## 📌 Model Overview
-
-    **Model Name:** `Jackrong/Qwen3.5-9B-GLM5.1-Distill-v1`
-    **Base Model:** Qwen3.5-9B
-    **Training Type:** Supervised Fine-Tuning (SFT, Distillation)
-    **Parameter Scale:** 9B
-    **Training Framework:** Unsloth
-
-    This model is a distilled variant of **Qwen3.5-9B**, trained on high-quality reasoning data derived from **GLM-5.1**.
-
-    The primary goals are to:
-
-      - Improve **structured reasoning ability**
-      - Enhance **instruction-following consistency**
-      - Activate **latent knowledge via better reasoning structure**
-
-    ## 📊 Training Data
-
-    ### Main Dataset
-
-      - `Jackrong/GLM-5.1-Reasoning-1M-Cleaned`
-      - Cleaned from the original `Kassadin88/GLM-5.1-1000000x` dataset.
-      - Generated from a **GLM-5.1 teacher model**
-      - Approximately **700x** the scale of `Qwen3.5-reasoning-700x`
-      - Training used a **filtered subset**, not the full source dataset.
-
-    ### Auxiliary Dataset
-
-      - `Jackrong/Qwen3.5-reasoning-700x`
-
-    ...
+  description: "# \U0001FA90 Qwen3.5-9B-GLM5.1-Distill-v1\n\n## \U0001F4CC Model Overview\n\n**Model Name:** `Jackrong/Qwen3.5-9B-GLM5.1-Distill-v1`\n**Base Model:** Qwen3.5-9B\n**Training Type:** Supervised Fine-Tuning (SFT, Distillation)\n**Parameter Scale:** 9B\n**Training Framework:** Unsloth\n\nThis model is a distilled variant of **Qwen3.5-9B**, trained on high-quality reasoning data derived from **GLM-5.1**.\n\nThe primary goals are to:\n\n  - Improve **structured reasoning ability**\n  - Enhance **instruction-following consistency**\n  - Activate **latent knowledge via better reasoning structure**\n\n## \U0001F4CA Training Data\n\n### Main Dataset\n\n  - `Jackrong/GLM-5.1-Reasoning-1M-Cleaned`\n  - Cleaned from the original `Kassadin88/GLM-5.1-1000000x` dataset.\n  - Generated from a **GLM-5.1 teacher model**\n  - Approximately **700x** the scale of `Qwen3.5-reasoning-700x`\n  - Training used a **filtered subset**, not the full source dataset.\n\n### Auxiliary Dataset\n\n  - `Jackrong/Qwen3.5-reasoning-700x`\n\n...\n"
   license: "apache-2.0"
   tags:
     - llm
@@ -3845,7 +3760,7 @@
     cached in the models directory like any other managed model).
     NON-COMMERCIAL RESEARCH USE ONLY. For commercial use see `insightface-opencv`.
   tags: [face-recognition, face-verification, face-embedding, research-only, gpu, cpu]
-  urls: [https://github.com/deepinsight/insightface]
+  urls: ['https://github.com/deepinsight/insightface']
   overrides:
     backend: insightface
     parameters: {model: insightface-buffalo-l}
@@ -3876,7 +3791,7 @@
     cheaper detector — good balance on mid-range hardware.
     NON-COMMERCIAL RESEARCH USE ONLY.
   tags: [face-recognition, face-verification, face-embedding, research-only, gpu, cpu]
-  urls: [https://github.com/deepinsight/insightface]
+  urls: ['https://github.com/deepinsight/insightface']
   overrides:
     backend: insightface
     parameters: {model: insightface-buffalo-m}
@@ -3906,7 +3821,7 @@
     genderage, ~159MB). Good fit for mid-range CPU deployments.
     NON-COMMERCIAL RESEARCH USE ONLY.
   tags: [face-recognition, face-verification, face-embedding, research-only, edge, cpu]
-  urls: [https://github.com/deepinsight/insightface]
+  urls: ['https://github.com/deepinsight/insightface']
   overrides:
     backend: insightface
     parameters: {model: insightface-buffalo-s}
@@ -3938,7 +3853,7 @@
     only verification and embedding are needed.
     NON-COMMERCIAL RESEARCH USE ONLY.
   tags: [face-recognition, face-verification, face-embedding, research-only, edge, cpu]
-  urls: [https://github.com/deepinsight/insightface]
+  urls: ['https://github.com/deepinsight/insightface']
   overrides:
     backend: insightface
     parameters: {model: insightface-buffalo-sc}
@@ -3969,7 +3884,7 @@
     harder benchmarks; pays for it in GPU memory.
     NON-COMMERCIAL RESEARCH USE ONLY.
   tags: [face-recognition, face-verification, face-embedding, research-only, gpu]
-  urls: [https://github.com/deepinsight/insightface]
+  urls: ['https://github.com/deepinsight/insightface']
   overrides:
     backend: insightface
     parameters: {model: insightface-antelopev2}
@@ -4001,7 +3916,7 @@
     Weights are downloaded on install via LocalAI's gallery mechanism
     (~40MB).
   tags: [face-recognition, face-verification, face-embedding, commercial-ok, gpu, cpu]
-  urls: [https://github.com/opencv/opencv_zoo]
+  urls: ['https://github.com/opencv/opencv_zoo']
   overrides:
     backend: insightface
     parameters: {model: face_detection_yunet_2023mar.onnx}
@@ -4035,7 +3950,7 @@
     at comparable accuracy for face tasks. APACHE 2.0 — commercial-safe.
     Weights are downloaded on install via LocalAI's gallery mechanism.
   tags: [face-recognition, face-verification, face-embedding, commercial-ok, edge, cpu]
-  urls: [https://github.com/opencv/opencv_zoo]
+  urls: ['https://github.com/opencv/opencv_zoo']
   overrides:
     backend: insightface
     parameters: {model: face_detection_yunet_2023mar_int8.onnx}
@@ -15923,6 +15838,7 @@
       uri: "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/vae/wan_2.1_vae.safetensors"
     - filename: "umt5-xxl-encoder-Q8_0.gguf"
       uri: "huggingface://city96/umt5-xxl-encoder-gguf/umt5-xxl-encoder-Q8_0.gguf"
+      sha256: 2521d4de0bf9e1cc6549866463ceae85e4ec3239bc6063f7488810be39033bbc
     - filename: "clip_vision_h.safetensors"
       uri: "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/clip_vision/clip_vision_h.safetensors"
 - name: sd-1.5-ggml
