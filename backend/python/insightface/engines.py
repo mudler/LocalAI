@@ -173,6 +173,30 @@ def _build_antispoofer(options: dict[str, str], model_dir: str | None) -> Antisp
 
 # ─── InsightFaceEngine ────────────────────────────────────────────────
 
+# Canonical ONNX manifest for each upstream insightface pack (v0.7 release
+# at github.com/deepinsight/insightface/releases). LocalAI's gallery extracts
+# these zips flat into the models directory, so when multiple packs or other
+# backends drop their own ONNX files alongside, the glob-the-directory
+# approach picks up foreign files and insightface's model_zoo.get_model()
+# raises IndexError trying to index `input_shape[2]` on a tensor that isn't
+# shaped like a face model. The manifest lets us pre-filter to only the
+# files that actually belong to the requested pack — deterministic, correct
+# pack choice, no crashes on neighbour ONNX files.
+_KNOWN_PACK_MANIFESTS: dict[str, frozenset[str]] = {
+    "buffalo_l": frozenset({
+        "det_10g.onnx",
+        "w600k_r50.onnx",
+        "genderage.onnx",
+        "2d106det.onnx",
+        "1k3d68.onnx",
+    }),
+    "buffalo_sc": frozenset({
+        "det_500m.onnx",
+        "w600k_mbf.onnx",
+    }),
+}
+
+
 class InsightFaceEngine:
     """Drives insightface's model_zoo directly — no FaceAnalysis wrapper.
 
@@ -222,6 +246,21 @@ class InsightFaceEngine:
             )
 
         onnx_files = sorted(glob.glob(os.path.join(pack_dir, "*.onnx")))
+        # When the pack extracts flat into a shared models directory it
+        # mixes with ONNX files from other backends (opencv face engine,
+        # MiniFASNet antispoof, WeSpeaker voice embedding, other buffalo
+        # packs installed earlier). Feeding those into model_zoo.get_model()
+        # blows up inside insightface's router — it assumes a 4-D NCHW
+        # input and indexes `input_shape[2]` on tensors that aren't shaped
+        # like a face model, raising IndexError. For the upstream packs we
+        # know the exact ONNX manifest; scoping to it makes the load
+        # deterministic (without it, det_10g.onnx from buffalo_l sorts
+        # before det_500m.onnx from buffalo_sc and silently wins).
+        manifest = _KNOWN_PACK_MANIFESTS.get(self.model_pack)
+        if manifest is not None:
+            scoped = [f for f in onnx_files if os.path.basename(f) in manifest]
+            if scoped:
+                onnx_files = scoped
         if not onnx_files:
             raise ValueError(f"no ONNX files in pack directory: {pack_dir}")
 
@@ -231,13 +270,30 @@ class InsightFaceEngine:
         self._providers = ["CUDAExecutionProvider", "CPUExecutionProvider"]
 
         self.models = {}
+        skipped: list[tuple[str, str]] = []
         for onnx_file in onnx_files:
-            m = model_zoo.get_model(onnx_file, providers=self._providers)
+            try:
+                m = model_zoo.get_model(onnx_file, providers=self._providers)
+            except Exception as err:
+                # Foreign ONNX (wrong rank/shape, non-insightface model) —
+                # older insightface versions raise IndexError / ValueError
+                # instead of returning None. Keep loading the rest.
+                skipped.append((os.path.basename(onnx_file), str(err)))
+                continue
             if m is None:
+                skipped.append((os.path.basename(onnx_file), "unknown taskname"))
                 continue
             # First occurrence of each taskname wins (matches FaceAnalysis).
             if m.taskname not in self.models:
                 self.models[m.taskname] = m
+
+        if skipped:
+            import sys
+            print(
+                f"[insightface] skipped {len(skipped)} non-pack ONNX file(s) in {pack_dir}: "
+                + ", ".join(f"{n} ({why})" for n, why in skipped),
+                file=sys.stderr,
+            )
 
         if "detection" not in self.models:
             raise ValueError(f"no detector (taskname='detection') found in {pack_dir}")
