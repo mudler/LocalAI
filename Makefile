@@ -394,7 +394,13 @@ protoc:
 .PHONY: protogen-go
 protogen-go: protoc install-go-tools
 	mkdir -p pkg/grpc/proto
-	./protoc --experimental_allow_proto3_optional -Ibackend/ --go_out=pkg/grpc/proto/ --go_opt=paths=source_relative --go-grpc_out=pkg/grpc/proto/ --go-grpc_opt=paths=source_relative \
+	# install-go-tools writes protoc-gen-go and protoc-gen-go-grpc into
+	# $(shell go env GOPATH)/bin, which isn't on every dev's PATH. protoc
+	# resolves its code-gen plugins via PATH, so without this prefix the
+	# generate step fails with "protoc-gen-go: program not found". Prepend
+	# GOPATH/bin so the freshly-installed plugins win without requiring a
+	# shell-profile change.
+	PATH="$$(go env GOPATH)/bin:$$PATH" ./protoc --experimental_allow_proto3_optional -Ibackend/ --go_out=pkg/grpc/proto/ --go_opt=paths=source_relative --go-grpc_out=pkg/grpc/proto/ --go-grpc_opt=paths=source_relative \
     backend/backend.proto
 
 core/config/inference_defaults.json: ## Fetch inference defaults from unsloth (only if missing)
