@@ -1,4 +1,56 @@
 ---
+- name: "kimi-k2.6"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/unsloth/Kimi-K2.6-GGUF
+  description: |
+    🤗&nbsp;&nbsp;huggingchat
+    &nbsp;|&nbsp;
+    📰&nbsp;&nbsp;Tech Blog
+
+    ## 1. Model Introduction
+
+    Kimi K2.6 is an open-source, native multimodal agentic model that advances practical capabilities in long-horizon coding, coding-driven design, proactive autonomous execution, and swarm-based task orchestration.
+
+    ### Key Features
+      - **Long-Horizon Coding**: K2.6 achieves significant improvements on complex, end-to-end coding tasks, generalizing robustly across programming languages (Rust, Go, Python) and domains spanning front-end, DevOps, and performance optimization.
+      - **Coding-Driven Design**: K2.6 is capable of transforming simple prompts and visual inputs into production-ready interfaces and lightweight full-stack workflows, generating structured layouts, interactive elements, and rich animations with deliberate aesthetic precision.
+      - **Elevated Agent Swarm**: Scaling horizontally to 300 sub-agents executing 4,000 coordinated steps, K2.6 can dynamically decompose tasks into parallel, domain-specialized subtasks, delivering end-to-end outputs from documents to websites to spreadsheets in a single autonomous run.
+      - **Proactive & Open Orchestration**: For autonomous tasks, K2.6 demonstra
+
+    ...
+  license: "other"
+  tags:
+    - llm
+    - gguf
+  icon: https://huggingface.co/moonshotai/Kimi-K2.6/resolve/main/figures/kimi-logo.png
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/Kimi-K2.6-GGUF/mmproj-F32.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      min_p: 0.01
+      model: llama-cpp/models/Kimi-K2.6-GGUF/Kimi-K2.6-UD-Q8_K_XL-00014-of-00014.gguf
+      repeat_penalty: 1
+      temperature: 0.6
+      top_k: -1
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/mmproj/Kimi-K2.6-GGUF/mmproj-F32.gguf
+      sha256: 9e721737d6beccf80b68b2307ed967ddac9e44e7d6b83b7297eacdec34efad24
+      uri: https://huggingface.co/unsloth/Kimi-K2.6-GGUF/resolve/main/mmproj-F32.gguf
+    - filename: llama-cpp/models/Kimi-K2.6-GGUF/Kimi-K2.6-UD-Q8_K_XL-00014-of-00014.gguf
+      sha256: cd1f1fe7ea0a6bba0fd4780e8b286b6baa97e00e4844ced0c6a86d0ff0e8de48
+      uri: https://huggingface.co/unsloth/Kimi-K2.6-GGUF/resolve/main/UD-Q8_K_XL/Kimi-K2.6-UD-Q8_K_XL-00014-of-00014.gguf
 - name: "qwopus-glm-18b-merged"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
