@@ -125,18 +125,25 @@ func DetectThinkingSupportFromBackend(ctx context.Context, cfg *ModelConfig, bac
 			return
 		}
 
-		cfg.ReasoningConfig.DisableReasoning = ptr.To(!metadata.SupportsThinking)
+		// Only derive reasoning flags from metadata when the user hasn't set
+		// them explicitly. The probe can fire for unrelated reasons (e.g.
+		// first-load media-marker capture in core/backend/llm.go) — without
+		// these guards, a saved `reasoning.disable: true` gets silently
+		// flipped back to the GGUF-derived value on the next model load.
+		if cfg.ReasoningConfig.DisableReasoning == nil {
+			cfg.ReasoningConfig.DisableReasoning = ptr.To(!metadata.SupportsThinking)
+		}
 
-		// Use the rendered template to detect if thinking token is at the end
-		// This reuses the existing DetectThinkingStartToken function
-		if metadata.RenderedTemplate != "" {
-			thinkingStartToken := reasoning.DetectThinkingStartToken(metadata.RenderedTemplate, &cfg.ReasoningConfig)
-			thinkingForcedOpen := thinkingStartToken != ""
-			cfg.ReasoningConfig.DisableReasoningTagPrefill = ptr.To(!thinkingForcedOpen)
-			xlog.Debug("[gguf] DetectThinkingSupportFromBackend: thinking support detected", "supports_thinking", metadata.SupportsThinking, "thinking_forced_open", thinkingForcedOpen, "thinking_start_token", thinkingStartToken)
-		} else {
-			cfg.ReasoningConfig.DisableReasoningTagPrefill = ptr.To(true)
-			xlog.Debug("[gguf] DetectThinkingSupportFromBackend: thinking support detected", "supports_thinking", metadata.SupportsThinking, "thinking_forced_open", false)
+		if cfg.ReasoningConfig.DisableReasoningTagPrefill == nil {
+			if metadata.RenderedTemplate != "" {
+				thinkingStartToken := reasoning.DetectThinkingStartToken(metadata.RenderedTemplate, &cfg.ReasoningConfig)
+				thinkingForcedOpen := thinkingStartToken != ""
+				cfg.ReasoningConfig.DisableReasoningTagPrefill = ptr.To(!thinkingForcedOpen)
+				xlog.Debug("[gguf] DetectThinkingSupportFromBackend: thinking support detected", "supports_thinking", metadata.SupportsThinking, "thinking_forced_open", thinkingForcedOpen, "thinking_start_token", thinkingStartToken)
+			} else {
+				cfg.ReasoningConfig.DisableReasoningTagPrefill = ptr.To(true)
+				xlog.Debug("[gguf] DetectThinkingSupportFromBackend: thinking support detected", "supports_thinking", metadata.SupportsThinking, "thinking_forced_open", false)
+			}
 		}
 
 		// Extract tool format markers from autoparser analysis
