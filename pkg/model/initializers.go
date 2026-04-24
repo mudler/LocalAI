@@ -159,6 +159,15 @@ func (ml *ModelLoader) grpcModel(backend string, o *Options) func(string, string
 			return nil, fmt.Errorf("could not load model (no success): %s", res.Message)
 		}
 
+		// Register the model's on-disk size for size-aware eviction.
+		// This allows the watchdog to prefer evicting larger models first when
+		// memory pressure requires freeing space for a new model.
+		if ml.wd != nil {
+			if fi, statErr := os.Stat(modelFile); statErr == nil {
+				ml.wd.RegisterModelSize(modelID, fi.Size())
+			}
+		}
+
 		return client, nil
 	}
 }
