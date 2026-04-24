@@ -172,7 +172,7 @@
 
 .user-email {
   font-size: 0.8125rem;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
 }
 
 /* ─── Table cells ─── */
@@ -201,7 +201,7 @@
 
 /* ─── Monospace / code text ─── */
 .mono-text {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   color: var(--color-text-secondary);
 }
 
@@ -350,7 +350,7 @@
 }
 
 .invite-link-text {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -493,7 +493,7 @@
 .apikey-details {
   font-size: 0.6875rem;
   color: var(--color-text-muted);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
 }
 
 .apikey-revoke-btn {
@@ -535,7 +535,7 @@
   padding: var(--spacing-xs) var(--spacing-sm);
   background: var(--color-bg-primary);
   border-radius: var(--radius-sm);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 0.75rem;
   word-break: break-all;
   color: var(--color-text-primary);
@@ -558,19 +558,20 @@
   justify-content: center;
   background: var(--color-modal-backdrop);
   backdrop-filter: blur(4px);
-  animation: fadeIn 150ms ease;
+  animation: fadeIn var(--duration-normal) var(--ease-spring);
 }
 
 .modal-panel {
   background: var(--color-bg-secondary);
-  border: 1px solid var(--color-border-subtle);
+  border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-lg);
   width: 90%;
   max-height: 80vh;
   display: flex;
   flex-direction: column;
   overflow: auto;
-  animation: slideUp 150ms ease;
+  box-shadow: var(--shadow-md);
+  animation: popIn var(--duration-slow) var(--ease-spring);
 }
 
 /* ─── Model list in permissions modal ─── */
@@ -613,7 +614,7 @@
 }
 
 .model-item-name {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 0.75rem;
 }
 
@@ -748,6 +749,6 @@
   font-size: 0.6875rem;
   color: var(--color-text-secondary);
   white-space: nowrap;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   flex-shrink: 0;
 }
