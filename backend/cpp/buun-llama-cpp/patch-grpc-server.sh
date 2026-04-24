@@ -125,19 +125,25 @@ else
     echo "==> DFlash option-handler patch OK"
 fi
 
-if grep -q 'ctx_server\.get_meta()\.logit_bias_eog' "$SRC"; then
-    echo "==> patching $SRC to source logit_bias_eog from params_base.sampling (buun predates server_context_meta::logit_bias_eog accessor)"
-    # Upstream llama.cpp exposes logit_bias_eog through server_context_meta
-    # after buun's 2026-04-05 fork-point. Buun still carries the underlying
-    # data on common_params_sampling::logit_bias_eog (the struct field the
-    # meta accessor eventually returns). Rewriting the call site to read
-    # params_base.sampling.logit_bias_eog works against both trees — upstream
-    # still populates that same vector the newer accessor returns.
-    sed 's/ctx_server\.get_meta()\.logit_bias_eog/params_base.sampling.logit_bias_eog/g' "$SRC" > "$SRC.tmp"
+if grep -qE 'ctx_server\.get_meta\(\)\.logit_bias_eog|params_base\.sampling\.logit_bias_eog,' "$SRC"; then
+    echo "==> patching $SRC to drop the logit_bias_eog arg from params_from_json_cmpl() callsites (buun still uses the pre-refactor 4-arg signature)"
+    # Upstream llama.cpp refactored params_from_json_cmpl to take a precomputed
+    # logit_bias_eog vector after buun's 2026-04-05 fork-point — simultaneously
+    # adding server_context_meta::logit_bias_eog as the supplier. Buun carries
+    # neither change: its params_from_json_cmpl is still 4-arg, and internally
+    # derives logit_bias_eog from the common_params it's passed. So we just
+    # delete the argument line entirely — the remaining 4 args match buun's
+    # signature and the resulting behavior matches upstream bit-for-bit
+    # (upstream's 5th arg is the same data buun derives internally).
+    #
+    # Guard is broad so this works whether the line has been run through this
+    # block before (leaving params_base.sampling.logit_bias_eog,) or not
+    # (leaving the original ctx_server.get_meta().logit_bias_eog,).
+    sed -E '/^[[:space:]]+(ctx_server\.get_meta\(\)\.logit_bias_eog|params_base\.sampling\.logit_bias_eog),$/d' "$SRC" > "$SRC.tmp"
     mv "$SRC.tmp" "$SRC"
-    echo "==> logit_bias_eog substitution OK"
+    echo "==> logit_bias_eog arg drop OK"
 else
-    echo "==> $SRC has no ctx_server.get_meta().logit_bias_eog call, skipping logit_bias_eog patch"
+    echo "==> $SRC has no logit_bias_eog arg line, skipping"
 fi
 
 if grep -q 'get_media_marker()' "$SRC"; then
