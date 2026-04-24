@@ -1,0 +1,36 @@
+Subject: [PATCH] ggml-cuda/fattn: pass WARP_SIZE to fwht128 __shfl_xor_sync calls
+
+Same issue as the argmax top-K fix: two __shfl_xor_sync call sites in
+the FWHT-128 butterfly kernels (ggml_cuda_fwht128 and fwht128_store_half)
+use the 3-arg CUDA form and omit the `width` argument that the HIP
+function-like macro in vendors/hip.h:33 requires. Hipcc fails with:
+
+    fattn.cu:512: too few arguments provided to function-like macro
+      invocation
+    note: macro '__shfl_xor_sync' defined here:
+      #define __shfl_xor_sync(mask, var, laneMask, width) \
+              __shfl_xor(var, laneMask, width)
+
+Add WARP_SIZE to both calls. CUDA codegen is unchanged (warpSize is the
+default); HIP now matches the macro arity.
+
+--- a/ggml/src/ggml-cuda/fattn.cu
++++ b/ggml/src/ggml-cuda/fattn.cu
+@@ -509,7 +509,7 @@
+     // Intra-warp passes: shuffle xor with stride h, no smem, no sync.
+     #pragma unroll
+     for (int h = 1; h <= 16; h *= 2) {
+-        const float other = __shfl_xor_sync(0xFFFFFFFF, val, h);
++        const float other = __shfl_xor_sync(0xFFFFFFFF, val, h, WARP_SIZE);
+         val = (tid & h) ? (other - val) : (val + other);
+     }
+
+@@ -533,7 +533,7 @@
+ static __device__ __forceinline__ void fwht128_store_half(
+         float val, half * dst_base) {
+     const int tid = threadIdx.x;
+-    const float neighbor = __shfl_xor_sync(0xFFFFFFFF, val, 1);
++    const float neighbor = __shfl_xor_sync(0xFFFFFFFF, val, 1, WARP_SIZE);
+     if ((tid & 1) == 0) {
+         const half2 packed = __floats2half2_rn(val, neighbor);
+         *((half2 *)(dst_base + tid)) = packed;
