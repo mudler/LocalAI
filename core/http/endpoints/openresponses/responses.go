@@ -773,7 +773,7 @@ func convertORToolsToFunctions(input *schema.OpenResponsesRequest, cfg *config.M
 		case map[string]any:
 			if tcType, ok := tc["type"].(string); ok && tcType == "function" {
 				if name, ok := tc["name"].(string); ok {
-					cfg.SetFunctionCallString(name)
+					cfg.SetFunctionCallNameString(name)
 				}
 			}
 		}
