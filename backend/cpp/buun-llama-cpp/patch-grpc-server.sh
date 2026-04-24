@@ -125,6 +125,21 @@ else
     echo "==> DFlash option-handler patch OK"
 fi
 
+if grep -q 'ctx_server\.get_meta()\.logit_bias_eog' "$SRC"; then
+    echo "==> patching $SRC to source logit_bias_eog from params_base.sampling (buun predates server_context_meta::logit_bias_eog accessor)"
+    # Upstream llama.cpp exposes logit_bias_eog through server_context_meta
+    # after buun's 2026-04-05 fork-point. Buun still carries the underlying
+    # data on common_params_sampling::logit_bias_eog (the struct field the
+    # meta accessor eventually returns). Rewriting the call site to read
+    # params_base.sampling.logit_bias_eog works against both trees — upstream
+    # still populates that same vector the newer accessor returns.
+    sed 's/ctx_server\.get_meta()\.logit_bias_eog/params_base.sampling.logit_bias_eog/g' "$SRC" > "$SRC.tmp"
+    mv "$SRC.tmp" "$SRC"
+    echo "==> logit_bias_eog substitution OK"
+else
+    echo "==> $SRC has no ctx_server.get_meta().logit_bias_eog call, skipping logit_bias_eog patch"
+fi
+
 if grep -q 'get_media_marker()' "$SRC"; then
     echo "==> patching $SRC to replace get_media_marker() with legacy \"<__media__>\" literal"
     # Only one call site today (ModelMetadata), but replace all occurrences to
