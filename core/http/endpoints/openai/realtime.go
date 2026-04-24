@@ -1315,12 +1315,34 @@ func triggerResponse(ctx context.Context, session *Session, conv *Conversation, 
 	}
 	thinkingStartToken := reasoning.DetectThinkingStartToken(template, &config.ReasoningConfig)
 
-	reasoningText, responseWithoutReasoning := reasoning.ExtractReasoningWithConfig(rawResponse, thinkingStartToken, config.ReasoningConfig)
+	// When the C++ autoparser emitted ChatDeltas with actionable data,
+	// prefer them — the backend clears Reply.Message in that path and
+	// delivers parsed content/reasoning/tool-calls via the delta stream
+	// (see pkg/functions/chat_deltas.go, mirrored from chat.go's non-SSE
+	// handling). Without this, Response is empty and realtime would
+	// synthesize silence for replies that actually produced tokens.
+	var reasoningText, responseWithoutReasoning, textContent, cleanedResponse string
+	var toolCalls []functions.FuncCallResults
+	deltaToolCalls := functions.ToolCallsFromChatDeltas(pred.ChatDeltas)
+	deltaContent := functions.ContentFromChatDeltas(pred.ChatDeltas)
+	deltaReasoning := functions.ReasoningFromChatDeltas(pred.ChatDeltas)
+	if len(deltaToolCalls) > 0 || deltaContent != "" {
+		xlog.Debug("[ChatDeltas] realtime: using C++ autoparser deltas",
+			"tool_calls", len(deltaToolCalls),
+			"content_len", len(deltaContent),
+			"reasoning_len", len(deltaReasoning))
+		reasoningText = deltaReasoning
+		responseWithoutReasoning = deltaContent
+		textContent = deltaContent
+		cleanedResponse = deltaContent
+		toolCalls = deltaToolCalls
+	} else {
+		reasoningText, responseWithoutReasoning = reasoning.ExtractReasoningWithConfig(rawResponse, thinkingStartToken, config.ReasoningConfig)
+		textContent = functions.ParseTextContent(responseWithoutReasoning, config.FunctionsConfig)
+		cleanedResponse = functions.CleanupLLMResult(responseWithoutReasoning, config.FunctionsConfig)
+		toolCalls = functions.ParseFunctionCall(cleanedResponse, config.FunctionsConfig)
+	}
 	xlog.Debug("LLM Response", "reasoning", reasoningText, "response_without_reasoning", responseWithoutReasoning)
-
-	textContent := functions.ParseTextContent(responseWithoutReasoning, config.FunctionsConfig)
-	cleanedResponse := functions.CleanupLLMResult(responseWithoutReasoning, config.FunctionsConfig)
-	toolCalls := functions.ParseFunctionCall(cleanedResponse, config.FunctionsConfig)
 
 	xlog.Debug("Function call parsing", "textContent", textContent, "cleanedResponse", cleanedResponse, "toolCallsCount", len(toolCalls))
 
