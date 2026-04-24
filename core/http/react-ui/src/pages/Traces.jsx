@@ -102,7 +102,7 @@ function AudioSnippet({ data }) {
           {metrics.map(m => (
             <div key={m.label} style={{ background: 'var(--color-bg-secondary)', borderRadius: 'var(--radius-sm)', padding: 'var(--spacing-xs)' }}>
               <div style={{ color: 'var(--color-text-secondary)' }}>{m.label}</div>
-              <div style={{ fontFamily: 'monospace' }}>{m.value}</div>
+              <div style={{ fontFamily: 'var(--font-mono)' }}>{m.value}</div>
             </div>
           ))}
         </div>
@@ -155,9 +155,9 @@ function DataFields({ data, nested }) {
                 ) : (
                   <span style={{ width: 12, flexShrink: 0 }} />
                 )}
-                <span style={{ fontFamily: 'monospace', color: 'var(--color-primary)', flexShrink: 0 }}>{key}</span>
+                <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--color-primary)', flexShrink: 0 }}>{key}</span>
                 {objValue && !expanded && <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>{fieldSummary(value)}</span>}
-                {!objValue && !large && <span style={{ fontFamily: 'monospace', fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>{formatValue(value)}</span>}
+                {!objValue && !large && <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>{formatValue(value)}</span>}
                 {!objValue && large && !expanded && <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{truncateValue(value, 120)}</span>}
               </div>
               {expanded && objValue && (
@@ -170,7 +170,7 @@ function DataFields({ data, nested }) {
                   <pre style={{
                     background: 'var(--color-bg-primary)', border: '1px solid var(--color-border)',
                     borderRadius: 'var(--radius-sm)', padding: 'var(--spacing-sm)',
-                    fontSize: '0.75rem', fontFamily: 'monospace', whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+                    fontSize: '0.75rem', fontFamily: 'var(--font-mono)', whiteSpace: 'pre-wrap', wordBreak: 'break-word',
                     overflow: 'auto', maxHeight: '50vh', margin: 0,
                   }}>
                     {formatLargeValue(value)}
@@ -250,7 +250,7 @@ function ApiTraceDetail({ trace }) {
           display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)',
         }}>
           <i className="fas fa-exclamation-triangle" style={{ color: 'var(--color-error)' }} />
-          <span style={{ color: 'var(--color-error)', fontSize: '0.8125rem', fontFamily: 'monospace', wordBreak: 'break-all' }}>{trace.error}</span>
+          <span style={{ color: 'var(--color-error)', fontSize: '0.8125rem', fontFamily: 'var(--font-mono)', wordBreak: 'break-all' }}>{trace.error}</span>
         </div>
       )}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)' }}>
@@ -259,7 +259,7 @@ function ApiTraceDetail({ trace }) {
           <pre style={{
             background: 'var(--color-bg-primary)', border: '1px solid var(--color-border)',
             borderRadius: 'var(--radius-sm)', padding: 'var(--spacing-sm)',
-            fontSize: '0.75rem', fontFamily: 'monospace', whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+            fontSize: '0.75rem', fontFamily: 'var(--font-mono)', whiteSpace: 'pre-wrap', wordBreak: 'break-word',
             overflow: 'auto', maxHeight: '50vh', margin: 0,
           }}>
             {decodeTraceBody(trace.request?.body)}
@@ -270,7 +270,7 @@ function ApiTraceDetail({ trace }) {
           <pre style={{
             background: 'var(--color-bg-primary)', border: '1px solid var(--color-border)',
             borderRadius: 'var(--radius-sm)', padding: 'var(--spacing-sm)',
-            fontSize: '0.75rem', fontFamily: 'monospace', whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+            fontSize: '0.75rem', fontFamily: 'var(--font-mono)', whiteSpace: 'pre-wrap', wordBreak: 'break-word',
             overflow: 'auto', maxHeight: '50vh', margin: 0,
           }}>
             {decodeTraceBody(trace.response?.body)}
@@ -511,7 +511,7 @@ export default function Traces() {
                   <tr onClick={() => setExpandedRow(expandedRow === i ? null : i)} style={{ cursor: 'pointer' }}>
                     <td><i className={`fas fa-chevron-${expandedRow === i ? 'down' : 'right'}`} style={{ fontSize: '0.7rem' }} /></td>
                     <td><span className="badge badge-info">{trace.request?.method || '-'}</span></td>
-                    <td style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.8125rem' }}>{trace.request?.path || '-'}</td>
+                    <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem' }}>{trace.request?.path || '-'}</td>
                     <td><span className={`badge ${(trace.response?.status || 0) < 400 ? 'badge-success' : 'badge-error'}`}>{trace.response?.status || '-'}</span></td>
                     <td style={{ textAlign: 'center' }}>
                       {trace.error
@@ -552,7 +552,7 @@ export default function Traces() {
                     <td><i className={`fas fa-chevron-${expandedRow === i ? 'down' : 'right'}`} style={{ fontSize: '0.7rem' }} /></td>
                     <td><span style={typeBadgeStyle(trace.type)}>{trace.type || '-'}</span></td>
                     <td style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)' }}>{formatTimestamp(trace.timestamp)}</td>
-                    <td style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.8125rem' }}>{trace.model_name || '-'}</td>
+                    <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem' }}>{trace.model_name || '-'}</td>
                     <td style={{ maxWidth: '300px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {trace.summary || '-'}
                     </td>

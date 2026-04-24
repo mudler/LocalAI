@@ -41,7 +41,7 @@ function GalleryLoader() {
       minHeight: '280px', gap: 'var(--spacing-lg)',
     }}>
       {/* Animated dots */}
-      <div style={{ display: 'flex', gap: '8px' }}>
+      <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
         {[0, 1, 2, 3, 4].map(i => (
           <div key={i} style={{
             width: 10, height: 10, borderRadius: '50%',
@@ -444,7 +444,7 @@ export default function Models() {
                                 )}
                               </span>
                               {fit !== null && (
-                                <span style={{ fontSize: '0.6875rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                <span style={{ fontSize: '0.6875rem', display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)' }}>
                                   <i className="fas fa-microchip" style={{ color: fit ? 'var(--color-success)' : 'var(--color-error)' }} />
                                   <span style={{ color: fit ? 'var(--color-success)' : 'var(--color-error)' }}>
                                     {fit ? 'Fits' : 'May not fit'}
@@ -595,7 +595,7 @@ function ModelDetail({ model, fit, expandedFiles, setExpandedFiles }) {
           </DetailRow>
           <DetailRow label="VRAM">
             {model.estimated_vram_display && model.estimated_vram_display !== '0 B' ? (
-              <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
                 {model.estimated_vram_display}
                 {fit !== null && (
                   <span style={{ fontSize: '0.75rem', color: fit ? 'var(--color-success)' : 'var(--color-error)' }}>
@@ -610,7 +610,7 @@ function ModelDetail({ model, fit, expandedFiles, setExpandedFiles }) {
           </DetailRow>
           <DetailRow label="Tags">
             {model.tags?.length > 0 && (
-              <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: 'var(--spacing-xs)', flexWrap: 'wrap' }}>
                 {model.tags.map(tag => (
                   <span key={tag} className="badge badge-info" style={{ fontSize: '0.6875rem' }}>{tag}</span>
                 ))}
@@ -651,17 +651,17 @@ function ModelDetail({ model, fit, expandedFiles, setExpandedFiles }) {
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.75rem' }}>
                       <thead>
                         <tr style={{ background: 'var(--color-bg-tertiary)' }}>
-                          <th style={{ padding: '4px 8px', textAlign: 'left', fontWeight: 500 }}>Filename</th>
-                          <th style={{ padding: '4px 8px', textAlign: 'left', fontWeight: 500 }}>URI</th>
-                          <th style={{ padding: '4px 8px', textAlign: 'left', fontWeight: 500 }}>SHA256</th>
+                          <th style={{ padding: 'var(--spacing-xs) var(--spacing-sm)', textAlign: 'left', fontWeight: 500 }}>Filename</th>
+                          <th style={{ padding: 'var(--spacing-xs) var(--spacing-sm)', textAlign: 'left', fontWeight: 500 }}>URI</th>
+                          <th style={{ padding: 'var(--spacing-xs) var(--spacing-sm)', textAlign: 'left', fontWeight: 500 }}>SHA256</th>
                         </tr>
                       </thead>
                       <tbody>
                         {files.map((f, i) => (
                           <tr key={i} style={{ borderTop: '1px solid var(--color-border-subtle)' }}>
-                            <td style={{ padding: '4px 8px', fontFamily: 'monospace' }}>{f.filename || '—'}</td>
-                            <td style={{ padding: '4px 8px', wordBreak: 'break-all', maxWidth: 300 }}>{f.uri || '—'}</td>
-                            <td style={{ padding: '4px 8px', fontFamily: 'monospace', fontSize: '0.6875rem', color: 'var(--color-text-muted)' }}>
+                            <td style={{ padding: 'var(--spacing-xs) var(--spacing-sm)', fontFamily: 'var(--font-mono)' }}>{f.filename || '—'}</td>
+                            <td style={{ padding: 'var(--spacing-xs) var(--spacing-sm)', wordBreak: 'break-all', maxWidth: 300 }}>{f.uri || '—'}</td>
+                            <td style={{ padding: 'var(--spacing-xs) var(--spacing-sm)', fontFamily: 'var(--font-mono)', fontSize: '0.6875rem', color: 'var(--color-text-muted)' }}>
                               {f.sha256 ? f.sha256.substring(0, 16) + '...' : '—'}
                             </td>
                           </tr>

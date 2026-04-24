@@ -92,7 +92,7 @@ function CommandBlock({ command, addToast }) {
       <pre style={{
         background: 'var(--color-bg-primary)', padding: 'var(--spacing-md)',
         paddingRight: 'var(--spacing-xl)', borderRadius: 'var(--radius-md)',
-        fontSize: '0.8125rem', fontFamily: "'JetBrains Mono', monospace",
+        fontSize: '0.8125rem', fontFamily: 'var(--font-mono)',
         whiteSpace: 'pre-wrap', wordBreak: 'break-all',
         color: 'var(--color-warning)', overflow: 'auto',
         border: '1px solid var(--color-border-subtle)',
@@ -104,7 +104,7 @@ function CommandBlock({ command, addToast }) {
         style={{
           position: 'absolute', top: 8, right: 8,
           background: 'var(--color-bg-secondary)', border: '1px solid var(--color-border-subtle)',
-          borderRadius: 'var(--radius-sm)', padding: '4px 8px', cursor: 'pointer',
+          borderRadius: 'var(--radius-sm)', padding: 'var(--spacing-xs) var(--spacing-sm)', cursor: 'pointer',
           color: 'var(--color-text-secondary)', fontSize: '0.75rem',
         }}
         title="Copy"
@@ -686,7 +686,7 @@ export default function Nodes() {
                               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3, marginTop: 3 }}>
                                 {Object.entries(node.labels).slice(0, 5).map(([k, v]) => (
                                   <span key={k} className="cell-mono" style={{
-                                    padding: '1px 5px', borderRadius: 3,
+                                    padding: '1px 5px', borderRadius: "var(--radius-sm)",
                                     background: 'var(--color-bg-tertiary)',
                                     border: '1px solid var(--color-border-subtle)',
                                   }}>{k}={v}</span>
@@ -709,7 +709,7 @@ export default function Nodes() {
                       </td>
                       <td>
                         {hasGPU && totalVRAMStr ? (
-                          <div style={{ fontSize: '0.8125rem', fontFamily: "'JetBrains Mono', monospace" }}>
+                          <div style={{ fontSize: '0.8125rem', fontFamily: 'var(--font-mono)' }}>
                             {vendorLabel && (
                               <span style={{ color: 'var(--color-text-secondary)', marginRight: 4 }}>{vendorLabel}</span>
                             )}
@@ -718,7 +718,7 @@ export default function Nodes() {
                             </span>
                           </div>
                         ) : totalRAMStr ? (
-                          <div style={{ fontSize: '0.8125rem', fontFamily: "'JetBrains Mono', monospace" }}>
+                          <div style={{ fontSize: '0.8125rem', fontFamily: 'var(--font-mono)' }}>
                             <span style={{ color: 'var(--color-text-secondary)', marginRight: 4 }}>CPU</span>
                             <span style={{ color: 'var(--color-text-muted)' }}>
                               {usedRAMStr || '0'} / {totalRAMStr} RAM
@@ -729,7 +729,7 @@ export default function Nodes() {
                         )}
                       </td>
                       <td>
-                        <span style={{ fontSize: '0.8125rem', fontFamily: "'JetBrains Mono', monospace", color: 'var(--color-text-secondary)' }}>
+                        <span style={{ fontSize: '0.8125rem', fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)' }}>
                           {timeAgo(node.last_heartbeat)}
                         </span>
                       </td>
@@ -802,7 +802,7 @@ export default function Nodes() {
                                     const stCfg = modelStateConfig[m.state] || modelStateConfig.idle
                                     return (
                                       <tr key={m.id || m.model_name}>
-                                        <td style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.8125rem' }}>
+                                        <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem' }}>
                                           {m.model_name}
                                         </td>
                                         <td>
@@ -814,7 +814,7 @@ export default function Nodes() {
                                             {m.state}
                                           </span>
                                         </td>
-                                        <td style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.8125rem' }}>
+                                        <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem' }}>
                                           {m.in_flight ?? 0}
                                         </td>
                                         <td>
@@ -878,7 +878,7 @@ export default function Nodes() {
                                 <tbody>
                                   {backends.map(b => (
                                     <tr key={b.name}>
-                                      <td style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.8125rem' }}>
+                                      <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem' }}>
                                         {b.name}
                                       </td>
                                       <td>
@@ -922,9 +922,9 @@ export default function Nodes() {
                                 {node.labels && Object.entries(node.labels).map(([k, v]) => (
                                   <span key={k} style={{
                                     display: 'inline-flex', alignItems: 'center', gap: 4,
-                                    fontSize: '0.75rem', padding: '2px 8px', borderRadius: 4,
+                                    fontSize: '0.75rem', padding: '2px 8px', borderRadius: "var(--radius-sm)",
                                     background: 'var(--color-bg-tertiary)', border: '1px solid var(--color-border-subtle)',
-                                    fontFamily: "'JetBrains Mono', monospace",
+                                    fontFamily: 'var(--font-mono)',
                                   }}>
                                     {k}={v}
                                     <button
@@ -1021,7 +1021,7 @@ export default function Nodes() {
                       <td style={{ fontWeight: 600, fontSize: '0.875rem' }}>{cfg.model_name}</td>
                       <td>
                         <span style={{
-                          display: 'inline-block', fontSize: '0.75rem', padding: '2px 8px', borderRadius: 3,
+                          display: 'inline-block', fontSize: '0.75rem', padding: '2px 8px', borderRadius: "var(--radius-sm)",
                           background: 'var(--color-bg-tertiary)', border: `1px solid ${modeColor}`,
                           color: modeColor, fontWeight: 600,
                         }}>{modeLabel}</span>
@@ -1032,18 +1032,18 @@ export default function Nodes() {
                             const sel = typeof cfg.node_selector === 'string' ? JSON.parse(cfg.node_selector) : cfg.node_selector
                             return Object.entries(sel).map(([k,v]) => (
                               <span key={k} style={{
-                                display: 'inline-block', fontSize: '0.75rem', padding: '2px 6px', borderRadius: 3,
+                                display: 'inline-block', fontSize: '0.75rem', padding: '2px 6px', borderRadius: "var(--radius-sm)",
                                 background: 'var(--color-bg-tertiary)', border: '1px solid var(--color-border-subtle)',
-                                fontFamily: "'JetBrains Mono', monospace", marginRight: 4,
+                                fontFamily: 'var(--font-mono)', marginRight: 4,
                               }}>{k}={v}</span>
                             ))
                           } catch { return <span style={{ color: 'var(--color-text-muted)', fontSize: '0.8125rem' }}>{cfg.node_selector}</span> }
                         })() : <span style={{ color: 'var(--color-text-muted)', fontSize: '0.8125rem' }}>Any node</span>}
                       </td>
-                      <td style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                      <td style={{ fontFamily: 'var(--font-mono)' }}>
                         {isAutoScaling ? cfg.min_replicas : '-'}
                       </td>
-                      <td style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                      <td style={{ fontFamily: 'var(--font-mono)' }}>
                         {isAutoScaling ? (cfg.max_replicas || 'no limit') : '-'}
                       </td>
                       <td style={{ textAlign: 'right' }}>

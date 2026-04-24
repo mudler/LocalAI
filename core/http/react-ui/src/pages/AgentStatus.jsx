@@ -294,7 +294,7 @@ export default function AgentStatus() {
         .as-id {
           font-size: 0.6875rem;
           color: var(--color-text-muted);
-          font-family: 'JetBrains Mono', monospace;
+          font-family: var(--font-mono);
         }
         .as-summary-item {
           display: flex; align-items: center; gap: 6px;
@@ -303,7 +303,7 @@ export default function AgentStatus() {
         }
         .as-summary-item i { font-size: 0.625rem; flex-shrink: 0; }
         .as-summary-creation i { color: var(--color-primary); }
-        .as-summary-tool-call i { color: #f59e0b; }
+        .as-summary-tool-call i { color: var(--color-warning); }
         .as-summary-completion i { color: var(--color-success); }
         .as-summary-error i { color: var(--color-error); }
         .as-card-body {
@@ -327,13 +327,13 @@ export default function AgentStatus() {
           background: var(--color-bg-tertiary); color: var(--color-text-muted);
           margin-right: 4px; vertical-align: middle;
         }
-        .as-tag-error { background: var(--color-error); color: #fff; }
+        .as-tag-error { background: var(--color-error); color: var(--color-text-inverse); }
         .as-error-text { color: var(--color-error); }
         .as-raw { margin-top: var(--spacing-sm); }
         .as-raw summary { font-size: 0.75rem; color: var(--color-text-muted); cursor: pointer; }
         .as-json {
           background: var(--color-bg-tertiary); border-radius: var(--radius-sm);
-          padding: var(--spacing-sm); font-family: 'JetBrains Mono', monospace;
+          padding: var(--spacing-sm); font-family: var(--font-mono);
           font-size: 0.75rem; overflow-x: auto; white-space: pre-wrap;
           word-break: break-word; max-height: 300px; overflow-y: auto;
         }

@@ -198,7 +198,7 @@ export default function AgentTaskDetails() {
             {task.cron && (
               <div>
                 <span className="form-label">Cron Schedule</span>
-                <p style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.8125rem' }}>{task.cron}</p>
+                <p style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem' }}>{task.cron}</p>
               </div>
             )}
           </div>
@@ -229,13 +229,13 @@ export default function AgentTaskDetails() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
             <div>
               <span className="form-label">Execute by name</span>
-              <pre style={{ background: 'var(--color-bg-primary)', padding: 'var(--spacing-sm)', borderRadius: 'var(--radius-md)', fontSize: '0.75rem', fontFamily: "'JetBrains Mono', monospace", whiteSpace: 'pre-wrap', overflow: 'auto' }}>
+              <pre style={{ background: 'var(--color-bg-primary)', padding: 'var(--spacing-sm)', borderRadius: 'var(--radius-md)', fontSize: '0.75rem', fontFamily: 'var(--font-mono)', whiteSpace: 'pre-wrap', overflow: 'auto' }}>
 {`curl -X POST ${window.location.origin}${basePath}/api/agent/tasks/${encodeURIComponent(task.name)}/execute`}
               </pre>
             </div>
             <div>
               <span className="form-label">Execute with multimedia</span>
-              <pre style={{ background: 'var(--color-bg-primary)', padding: 'var(--spacing-sm)', borderRadius: 'var(--radius-md)', fontSize: '0.75rem', fontFamily: "'JetBrains Mono', monospace", whiteSpace: 'pre-wrap', overflow: 'auto' }}>
+              <pre style={{ background: 'var(--color-bg-primary)', padding: 'var(--spacing-sm)', borderRadius: 'var(--radius-md)', fontSize: '0.75rem', fontFamily: 'var(--font-mono)', whiteSpace: 'pre-wrap', overflow: 'auto' }}>
 {`curl -X POST ${window.location.origin}${basePath}/api/agent/tasks/${encodeURIComponent(task.name)}/execute \\
   -H "Content-Type: application/json" \\
   -d '{"multimedia": {"images": [{"url": "https://example.com/image.jpg"}]}}'`}
@@ -243,7 +243,7 @@ export default function AgentTaskDetails() {
             </div>
             <div>
               <span className="form-label">Check job status</span>
-              <pre style={{ background: 'var(--color-bg-primary)', padding: 'var(--spacing-sm)', borderRadius: 'var(--radius-md)', fontSize: '0.75rem', fontFamily: "'JetBrains Mono', monospace", whiteSpace: 'pre-wrap', overflow: 'auto' }}>
+              <pre style={{ background: 'var(--color-bg-primary)', padding: 'var(--spacing-sm)', borderRadius: 'var(--radius-md)', fontSize: '0.75rem', fontFamily: 'var(--font-mono)', whiteSpace: 'pre-wrap', overflow: 'auto' }}>
 {`curl ${window.location.origin}${basePath}/api/agent/jobs/<job-id>`}
               </pre>
             </div>
@@ -261,7 +261,7 @@ export default function AgentTaskDetails() {
               <div key={i} style={{ background: 'var(--color-bg-primary)', borderRadius: 'var(--radius-md)', padding: 'var(--spacing-sm)', marginBottom: 'var(--spacing-sm)' }}>
                 <div style={{ display: 'flex', gap: 'var(--spacing-sm)', fontSize: '0.8125rem' }}>
                   <span className="badge badge-info">{wh.method || 'POST'}</span>
-                  <span style={{ fontFamily: "'JetBrains Mono', monospace" }}>{wh.url}</span>
+                  <span style={{ fontFamily: 'var(--font-mono)' }}>{wh.url}</span>
                 </div>
               </div>
             ))}
@@ -283,7 +283,7 @@ export default function AgentTaskDetails() {
                 <tbody>
                   {jobHistory.map(job => (
                     <tr key={job.id}>
-                      <td style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.8125rem' }}>
+                      <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem' }}>
                         {job.id?.slice(0, 12)}...
                       </td>
                       <td>{statusBadge(job.status)}</td>
@@ -351,7 +351,7 @@ export default function AgentTaskDetails() {
               onChange={(e) => updateField('prompt', e.target.value)}
               rows={8}
               placeholder={`Write a summary about {{.topic}} in {{.format}} format.`}
-              style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.8125rem' }}
+              style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem' }}
             />
             <p style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: 'var(--spacing-xs)' }}>
               Use {'{{.parameter_name}}'} for dynamic parameters. Parameters are provided when executing the task.
@@ -376,7 +376,7 @@ export default function AgentTaskDetails() {
               value={task.cron}
               onChange={(e) => { updateField('cron', e.target.value); validateCron(e.target.value) }}
               placeholder="0 */6 * * *"
-              style={{ fontFamily: "'JetBrains Mono', monospace" }}
+              style={{ fontFamily: 'var(--font-mono)' }}
             />
             {cronError && <p style={{ color: 'var(--color-error)', fontSize: '0.75rem', marginTop: 4 }}>{cronError}</p>}
             <p style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: 'var(--spacing-xs)' }}>
@@ -392,7 +392,7 @@ export default function AgentTaskDetails() {
                 onChange={(e) => updateField('cron_parameters', e.target.value)}
                 rows={3}
                 placeholder={`topic=daily news\nformat=bullet points`}
-                style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.8125rem' }}
+                style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem' }}
               />
               <p style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: 'var(--spacing-xs)' }}>
                 Default parameters used when the cron triggers the task.
@@ -437,7 +437,7 @@ export default function AgentTaskDetails() {
                 </div>
                 <div className="form-group" style={{ marginTop: 'var(--spacing-xs)' }}>
                   <label className="form-label">Headers (JSON)</label>
-                  <input className="input" value={ms.headers} onChange={(e) => updateMultimediaSource(i, 'headers', e.target.value)} placeholder='{"Authorization": "Bearer ..."}' style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.8125rem' }} />
+                  <input className="input" value={ms.headers} onChange={(e) => updateMultimediaSource(i, 'headers', e.target.value)} placeholder='{"Authorization": "Bearer ..."}' style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem' }} />
                 </div>
               </div>
             ))
@@ -479,7 +479,7 @@ export default function AgentTaskDetails() {
                 </div>
                 <div className="form-group" style={{ marginTop: 'var(--spacing-xs)' }}>
                   <label className="form-label">Headers (JSON)</label>
-                  <input className="input" value={wh.headers} onChange={(e) => updateWebhook(i, 'headers', e.target.value)} placeholder='{"Content-Type": "application/json"}' style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.8125rem' }} />
+                  <input className="input" value={wh.headers} onChange={(e) => updateWebhook(i, 'headers', e.target.value)} placeholder='{"Content-Type": "application/json"}' style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem' }} />
                 </div>
                 <div className="form-group" style={{ marginTop: 'var(--spacing-xs)' }}>
                   <label className="form-label">Payload Template (Go template syntax)</label>
@@ -489,7 +489,7 @@ export default function AgentTaskDetails() {
                     onChange={(e) => updateWebhook(i, 'payload_template', e.target.value)}
                     rows={3}
                     placeholder={`{"text": "Job {{.Status}}: {{if .Error}}Error: {{.Error}}{{else}}{{.Result}}{{end}}"}`}
-                    style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.8125rem' }}
+                    style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem' }}
                   />
                   <p style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: 2 }}>
                     Available: {'{{.Job}}'} {'{{.Task}}'} {'{{.Result}}'} {'{{.Error}}'} {'{{.Status}}'}

@@ -158,7 +158,7 @@ export default function FieldBrowser({ fields, activeFieldPaths, onAddField }) {
                       {field.description}
                     </div>
                   )}
-                  <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)', marginTop: 1, fontFamily: 'monospace' }}>
+                  <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)', marginTop: 1, fontFamily: 'var(--font-mono)' }}>
                     {field.path}
                   </div>
                 </div>

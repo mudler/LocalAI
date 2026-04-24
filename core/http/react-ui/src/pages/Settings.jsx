@@ -217,8 +217,8 @@ export default function Settings() {
                     return (
                       <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)', marginBottom: i < resources.gpus.length - 1 ? 4 : 0 }}>
                         <span style={{ color: 'var(--color-text-muted)', minWidth: 60 }}>GPU {i}</span>
-                        <div style={{ flex: 1, height: 6, background: 'var(--color-bg-primary)', borderRadius: 3, overflow: 'hidden' }}>
-                          <div style={{ width: `${usedPct}%`, height: '100%', background: percentColor(usedPct), borderRadius: 3 }} />
+                        <div style={{ flex: 1, height: 6, background: 'var(--color-bg-primary)', borderRadius: "var(--radius-sm)", overflow: 'hidden' }}>
+                          <div style={{ width: `${usedPct}%`, height: '100%', background: percentColor(usedPct), borderRadius: "var(--radius-sm)" }} />
                         </div>
                         <span style={{ color: percentColor(usedPct), minWidth: 40, textAlign: 'right' }}>{usedPct}%</span>
                         <span style={{ color: 'var(--color-text-muted)' }}>{formatBytes(gpu.used)} / {formatBytes(gpu.total)}</span>
@@ -231,8 +231,8 @@ export default function Settings() {
                         const usedPct = resources.ram.total > 0 ? Math.round((resources.ram.used / resources.ram.total) * 100) : 0
                         return (
                           <>
-                            <div style={{ flex: 1, height: 6, background: 'var(--color-bg-primary)', borderRadius: 3, overflow: 'hidden' }}>
-                              <div style={{ width: `${usedPct}%`, height: '100%', background: percentColor(usedPct), borderRadius: 3 }} />
+                            <div style={{ flex: 1, height: 6, background: 'var(--color-bg-primary)', borderRadius: "var(--radius-sm)", overflow: 'hidden' }}>
+                              <div style={{ width: `${usedPct}%`, height: '100%', background: percentColor(usedPct), borderRadius: "var(--radius-sm)" }} />
                             </div>
                             <span style={{ color: percentColor(usedPct), minWidth: 40, textAlign: 'right' }}>{usedPct}%</span>
                             <span style={{ color: 'var(--color-text-muted)' }}>{formatBytes(resources.ram.used)} / {formatBytes(resources.ram.total)}</span>
@@ -380,7 +380,7 @@ export default function Settings() {
                   onChange={(e) => update('galleries_json', e.target.value)}
                   rows={4}
                   placeholder={'[\n  { "url": "https://...", "name": "my-gallery" }\n]'}
-                  style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.8125rem' }}
+                  style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem' }}
                 />
               </div>
               <div style={{ marginTop: 'var(--spacing-sm)' }}>
@@ -391,7 +391,7 @@ export default function Settings() {
                   onChange={(e) => update('backend_galleries_json', e.target.value)}
                   rows={4}
                   placeholder={'[\n  { "url": "https://...", "name": "my-backends" }\n]'}
-                  style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.8125rem' }}
+                  style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem' }}
                 />
               </div>
             </div>
@@ -413,7 +413,7 @@ export default function Settings() {
                 onChange={(e) => update('api_keys_text', e.target.value)}
                 rows={4}
                 placeholder="sk-key-1&#10;sk-key-2"
-                style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.8125rem' }}
+                style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem' }}
               />
             </div>
           </div>

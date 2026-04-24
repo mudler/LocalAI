@@ -443,7 +443,7 @@ export default function ModelEditor() {
                     setTab(t)
                   }}
                   style={{
-                    padding: '8px 16px', border: 'none',
+                    padding: 'var(--spacing-sm) var(--spacing-md)', border: 'none',
                     cursor: blocked ? 'not-allowed' : 'pointer',
                     background: 'transparent', fontSize: '0.875rem',
                     fontWeight: active ? 600 : 400,
@@ -525,7 +525,7 @@ export default function ModelEditor() {
                   placeholder="my-model-name"
                   style={{ maxWidth: 400 }}
                 />
-                <p style={{ marginTop: '4px', fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+                <p style={{ marginTop: 'var(--spacing-xs)', fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
                   Use letters, numbers, hyphens, underscores, and dots only.
                 </p>
               </div>

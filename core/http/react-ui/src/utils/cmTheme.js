@@ -2,126 +2,126 @@ import { EditorView } from '@codemirror/view'
 import { HighlightStyle, syntaxHighlighting } from '@codemirror/language'
 import { tags } from '@lezer/highlight'
 
-// Dark theme — vibrant palette on deep indigo background
+// Dark theme — Nord polar-night surfaces with aurora syntax highlighting
 const darkEditorTheme = EditorView.theme({
   '&': {
-    backgroundColor: '#1a1a2e',
-    color: '#e2e8f0',
-    fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+    backgroundColor: '#13171f',
+    color: '#eceff4',
+    fontFamily: 'var(--font-mono)',
     fontSize: '0.8125rem',
     lineHeight: '1.5',
   },
   '.cm-content': {
-    caretColor: '#a78bfa',
+    caretColor: '#88c0d0',
     padding: '0',
   },
-  '.cm-cursor, .cm-dropCursor': { borderLeftColor: '#a78bfa', borderLeftWidth: '2px' },
+  '.cm-cursor, .cm-dropCursor': { borderLeftColor: '#88c0d0', borderLeftWidth: '2px' },
   '&.cm-focused .cm-selectionBackground, .cm-selectionBackground, .cm-content ::selection': {
-    backgroundColor: 'rgba(139, 92, 246, 0.3)',
+    backgroundColor: 'rgba(136, 192, 208, 0.25)',
   },
   '.cm-gutters': {
-    backgroundColor: '#16162a',
-    color: '#4c5772',
-    borderRight: '1px solid #2d2b55',
+    backgroundColor: '#1a1f2a',
+    color: '#6e7a8c',
+    borderRight: '1px solid #2f3644',
   },
-  '.cm-activeLineGutter': { backgroundColor: 'rgba(139, 92, 246, 0.12)', color: '#8b8db5' },
-  '.cm-activeLine': { backgroundColor: 'rgba(139, 92, 246, 0.06)' },
-  '.cm-foldPlaceholder': { backgroundColor: '#2d2b55', border: 'none', color: '#8b8db5' },
-  '.cm-matchingBracket': { backgroundColor: 'rgba(139, 92, 246, 0.25)', outline: '1px solid rgba(139, 92, 246, 0.5)' },
+  '.cm-activeLineGutter': { backgroundColor: 'rgba(136, 192, 208, 0.1)', color: '#a1acb9' },
+  '.cm-activeLine': { backgroundColor: 'rgba(136, 192, 208, 0.06)' },
+  '.cm-foldPlaceholder': { backgroundColor: '#2f3644', border: 'none', color: '#a1acb9' },
+  '.cm-matchingBracket': { backgroundColor: 'rgba(136, 192, 208, 0.22)', outline: '1px solid rgba(136, 192, 208, 0.5)' },
   '.cm-tooltip': {
-    backgroundColor: '#1e1e3a',
-    border: '1px solid #2d2b55',
-    borderRadius: '6px',
+    backgroundColor: '#1a1f2a',
+    border: '1px solid #2f3644',
+    borderRadius: 'var(--radius-md)',
     boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
   },
   '.cm-tooltip-autocomplete': {
-    '& > ul': { fontFamily: "'JetBrains Mono', 'Fira Code', monospace", fontSize: '0.8125rem' },
-    '& > ul > li': { padding: '4px 8px' },
-    '& > ul > li[aria-selected]': { backgroundColor: 'rgba(139, 92, 246, 0.3)', color: '#f1f5f9' },
+    '& > ul': { fontFamily: 'var(--font-mono)', fontSize: '0.8125rem' },
+    '& > ul > li': { padding: 'var(--spacing-xs) var(--spacing-sm)' },
+    '& > ul > li[aria-selected]': { backgroundColor: 'rgba(136, 192, 208, 0.22)', color: '#eceff4' },
   },
-  '.cm-tooltip.cm-completionInfo': { padding: '8px 10px', maxWidth: '300px' },
-  '.cm-completionDetail': { color: '#8b8db5', fontStyle: 'italic', marginLeft: '0.5em' },
-  '.cm-panels': { backgroundColor: '#16162a', color: '#e2e8f0' },
-  '.cm-panels.cm-panels-top': { borderBottom: '1px solid #2d2b55' },
-  '.cm-panels.cm-panels-bottom': { borderTop: '1px solid #2d2b55' },
-  '.cm-searchMatch': { backgroundColor: 'rgba(250, 204, 21, 0.2)', outline: '1px solid rgba(250, 204, 21, 0.4)' },
-  '.cm-searchMatch.cm-searchMatch-selected': { backgroundColor: 'rgba(250, 204, 21, 0.4)' },
-  '.cm-selectionMatch': { backgroundColor: 'rgba(139, 92, 246, 0.15)' },
+  '.cm-tooltip.cm-completionInfo': { padding: 'var(--spacing-sm)', maxWidth: '300px' },
+  '.cm-completionDetail': { color: '#a1acb9', fontStyle: 'italic', marginLeft: '0.5em' },
+  '.cm-panels': { backgroundColor: '#1a1f2a', color: '#eceff4' },
+  '.cm-panels.cm-panels-top': { borderBottom: '1px solid #2f3644' },
+  '.cm-panels.cm-panels-bottom': { borderTop: '1px solid #2f3644' },
+  '.cm-searchMatch': { backgroundColor: 'rgba(235, 203, 139, 0.2)', outline: '1px solid rgba(235, 203, 139, 0.45)' },
+  '.cm-searchMatch.cm-searchMatch-selected': { backgroundColor: 'rgba(235, 203, 139, 0.42)' },
+  '.cm-selectionMatch': { backgroundColor: 'rgba(136, 192, 208, 0.12)' },
 }, { dark: true })
 
 const darkHighlightStyle = HighlightStyle.define([
-  { tag: tags.propertyName, color: '#79c0ff', fontWeight: '500' }, // YAML keys — bright blue
-  { tag: tags.string, color: '#7ee787' },              // strings — vivid green
-  { tag: tags.number, color: '#ffa657' },               // numbers — warm orange
-  { tag: tags.bool, color: '#ff7eb6' },                 // booleans — hot pink
-  { tag: tags.null, color: '#ff7eb6' },                 // null — hot pink
-  { tag: tags.keyword, color: '#d2a8ff' },              // keywords — bright purple
-  { tag: tags.comment, color: '#5c6a82', fontStyle: 'italic' }, // comments — subtle
-  { tag: tags.meta, color: '#a5b4cf' },                 // directives
-  { tag: tags.punctuation, color: '#8b949e' },          // colons, dashes
-  { tag: tags.atom, color: '#ff7eb6' },                 // special values
-  { tag: tags.labelName, color: '#79c0ff', fontWeight: '500' }, // anchors/aliases
+  { tag: tags.propertyName, color: '#88c0d0', fontWeight: '500' }, // YAML keys — frost cyan
+  { tag: tags.string, color: '#a3be8c' },               // strings — aurora green
+  { tag: tags.number, color: '#d08770' },               // numbers — aurora orange
+  { tag: tags.bool, color: '#b48ead' },                 // booleans — aurora purple
+  { tag: tags.null, color: '#b48ead' },                 // null — aurora purple
+  { tag: tags.keyword, color: '#81a1c1' },              // keywords — frost blue
+  { tag: tags.comment, color: '#6e7a8c', fontStyle: 'italic' }, // comments — muted
+  { tag: tags.meta, color: '#d8dee9' },                 // directives — snow storm
+  { tag: tags.punctuation, color: '#8fbcbb' },          // colons, dashes — frost teal
+  { tag: tags.atom, color: '#bf616a' },                 // special values — aurora red
+  { tag: tags.labelName, color: '#88c0d0', fontWeight: '500' }, // anchors/aliases
 ])
 
-// Light theme — rich saturated colors on warm paper background
+// Light theme — Nord snow-storm surfaces with darkened aurora highlighting
 const lightEditorTheme = EditorView.theme({
   '&': {
-    backgroundColor: '#fafaf9',
-    color: '#1c1917',
-    fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+    backgroundColor: '#ffffff',
+    color: '#2e3440',
+    fontFamily: 'var(--font-mono)',
     fontSize: '0.8125rem',
     lineHeight: '1.5',
   },
   '.cm-content': {
-    caretColor: '#7c3aed',
+    caretColor: '#5e81ac',
     padding: '0',
   },
-  '.cm-cursor, .cm-dropCursor': { borderLeftColor: '#7c3aed', borderLeftWidth: '2px' },
+  '.cm-cursor, .cm-dropCursor': { borderLeftColor: '#5e81ac', borderLeftWidth: '2px' },
   '&.cm-focused .cm-selectionBackground, .cm-selectionBackground, .cm-content ::selection': {
-    backgroundColor: 'rgba(124, 58, 237, 0.15)',
+    backgroundColor: 'rgba(94, 129, 172, 0.18)',
   },
   '.cm-gutters': {
-    backgroundColor: '#f5f5f4',
-    color: '#a8a29e',
-    borderRight: '1px solid #e7e5e4',
+    backgroundColor: '#e5e9f0',
+    color: '#6e7a8c',
+    borderRight: '1px solid #d8dee9',
   },
-  '.cm-activeLineGutter': { backgroundColor: 'rgba(124, 58, 237, 0.06)', color: '#78716c' },
-  '.cm-activeLine': { backgroundColor: 'rgba(124, 58, 237, 0.03)' },
-  '.cm-foldPlaceholder': { backgroundColor: '#e7e5e4', border: 'none', color: '#78716c' },
-  '.cm-matchingBracket': { backgroundColor: 'rgba(124, 58, 237, 0.15)', outline: '1px solid rgba(124, 58, 237, 0.3)' },
+  '.cm-activeLineGutter': { backgroundColor: 'rgba(94, 129, 172, 0.1)', color: '#3b4252' },
+  '.cm-activeLine': { backgroundColor: 'rgba(94, 129, 172, 0.05)' },
+  '.cm-foldPlaceholder': { backgroundColor: '#d8dee9', border: 'none', color: '#4c566a' },
+  '.cm-matchingBracket': { backgroundColor: 'rgba(94, 129, 172, 0.18)', outline: '1px solid rgba(94, 129, 172, 0.35)' },
   '.cm-tooltip': {
     backgroundColor: '#ffffff',
-    border: '1px solid #e7e5e4',
-    borderRadius: '6px',
-    boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
+    border: '1px solid #d8dee9',
+    borderRadius: 'var(--radius-md)',
+    boxShadow: '0 4px 16px rgba(46, 52, 64, 0.12)',
   },
   '.cm-tooltip-autocomplete': {
-    '& > ul': { fontFamily: "'JetBrains Mono', 'Fira Code', monospace", fontSize: '0.8125rem' },
-    '& > ul > li': { padding: '4px 8px' },
-    '& > ul > li[aria-selected]': { backgroundColor: 'rgba(124, 58, 237, 0.1)', color: '#1c1917' },
+    '& > ul': { fontFamily: 'var(--font-mono)', fontSize: '0.8125rem' },
+    '& > ul > li': { padding: 'var(--spacing-xs) var(--spacing-sm)' },
+    '& > ul > li[aria-selected]': { backgroundColor: 'rgba(94, 129, 172, 0.14)', color: '#2e3440' },
   },
-  '.cm-tooltip.cm-completionInfo': { padding: '8px 10px', maxWidth: '300px' },
-  '.cm-completionDetail': { color: '#78716c', fontStyle: 'italic', marginLeft: '0.5em' },
-  '.cm-panels': { backgroundColor: '#f5f5f4', color: '#1c1917' },
-  '.cm-panels.cm-panels-top': { borderBottom: '1px solid #e7e5e4' },
-  '.cm-panels.cm-panels-bottom': { borderTop: '1px solid #e7e5e4' },
-  '.cm-searchMatch': { backgroundColor: 'rgba(234, 179, 8, 0.25)', outline: '1px solid rgba(234, 179, 8, 0.5)' },
-  '.cm-searchMatch.cm-searchMatch-selected': { backgroundColor: 'rgba(234, 179, 8, 0.45)' },
-  '.cm-selectionMatch': { backgroundColor: 'rgba(124, 58, 237, 0.08)' },
+  '.cm-tooltip.cm-completionInfo': { padding: 'var(--spacing-sm)', maxWidth: '300px' },
+  '.cm-completionDetail': { color: '#6e7a8c', fontStyle: 'italic', marginLeft: '0.5em' },
+  '.cm-panels': { backgroundColor: '#e5e9f0', color: '#2e3440' },
+  '.cm-panels.cm-panels-top': { borderBottom: '1px solid #d8dee9' },
+  '.cm-panels.cm-panels-bottom': { borderTop: '1px solid #d8dee9' },
+  '.cm-searchMatch': { backgroundColor: 'rgba(176, 131, 52, 0.22)', outline: '1px solid rgba(176, 131, 52, 0.45)' },
+  '.cm-searchMatch.cm-searchMatch-selected': { backgroundColor: 'rgba(176, 131, 52, 0.4)' },
+  '.cm-selectionMatch': { backgroundColor: 'rgba(94, 129, 172, 0.1)' },
 })
 
 const lightHighlightStyle = HighlightStyle.define([
-  { tag: tags.propertyName, color: '#0550ae', fontWeight: '500' }, // YAML keys — deep blue
-  { tag: tags.string, color: '#116329' },               // strings — forest green
-  { tag: tags.number, color: '#cf5500' },                // numbers — burnt orange
-  { tag: tags.bool, color: '#cf222e' },                  // booleans — crimson
-  { tag: tags.null, color: '#cf222e' },                  // null — crimson
-  { tag: tags.keyword, color: '#8250df' },               // keywords — vivid purple
-  { tag: tags.comment, color: '#a3a3a3', fontStyle: 'italic' }, // comments — soft gray
-  { tag: tags.meta, color: '#57606a' },                  // directives
-  { tag: tags.punctuation, color: '#6e7781' },           // colons, dashes
-  { tag: tags.atom, color: '#cf222e' },                  // special values
-  { tag: tags.labelName, color: '#0550ae', fontWeight: '500' }, // anchors/aliases
+  { tag: tags.propertyName, color: '#5e81ac', fontWeight: '500' }, // YAML keys — frost blue
+  { tag: tags.string, color: '#4c6b3a' },                // strings — deep aurora green
+  { tag: tags.number, color: '#b8684f' },                // numbers — warm orange
+  { tag: tags.bool, color: '#8b5a92' },                  // booleans — muted purple
+  { tag: tags.null, color: '#8b5a92' },                  // null — muted purple
+  { tag: tags.keyword, color: '#4c6d92' },               // keywords — deeper frost
+  { tag: tags.comment, color: '#7a8598', fontStyle: 'italic' }, // comments — cool gray
+  { tag: tags.meta, color: '#3b4252' },                  // directives
+  { tag: tags.punctuation, color: '#5a8080' },           // colons, dashes — muted teal
+  { tag: tags.atom, color: '#a13e47' },                  // special values — deep aurora red
+  { tag: tags.labelName, color: '#5e81ac', fontWeight: '500' }, // anchors/aliases
 ])
 
 export const darkTheme = [darkEditorTheme, syntaxHighlighting(darkHighlightStyle)]

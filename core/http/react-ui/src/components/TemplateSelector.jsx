@@ -24,7 +24,7 @@ export default function TemplateSelector({ onSelect }) {
             <p style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)', lineHeight: 1.5, margin: 0 }}>
               {t.description}
             </p>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: 'var(--spacing-xs)' }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--spacing-xs)', marginTop: 'var(--spacing-xs)' }}>
               {Object.keys(t.fields).filter(k => k !== 'name').map(k => (
                 <span key={k} className="badge" style={{
                   fontSize: '0.6875rem', background: 'var(--color-bg-tertiary)',

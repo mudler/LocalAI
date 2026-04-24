@@ -525,7 +525,7 @@ export default function Talk() {
                   padding: 'var(--spacing-xs)', border: '1px solid var(--color-border)',
                 }}>
                   <div style={{ color: 'var(--color-text-secondary)', marginBottom: 2 }}>{item.label}</div>
-                  <div style={{ fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.value}</div>
+                  <div style={{ fontFamily: 'var(--font-mono)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.value}</div>
                 </div>
               ))}
             </div>
@@ -623,7 +623,7 @@ export default function Talk() {
               ) : (
                 <>
                   <button className="btn" onClick={sendTestTone}
-                    style={{ background: 'var(--color-accent)', color: '#fff', border: 'none' }}>
+                    style={{ background: 'var(--color-accent)', color: 'var(--color-primary-text)', border: 'none' }}>
                     <i className="fas fa-wave-square" style={{ marginRight: 'var(--spacing-xs)' }} /> Test Tone
                   </button>
                   <button className="btn btn-secondary" onClick={toggleDiagnostics}>
@@ -634,7 +634,7 @@ export default function Talk() {
             </div>
             {isConnected && (
               <button className="btn" onClick={disconnect}
-                style={{ background: 'var(--color-error)', color: '#fff', border: 'none' }}>
+                style={{ background: 'var(--color-error)', color: 'var(--color-text-inverse)', border: 'none' }}>
                 <i className="fas fa-plug-circle-xmark" style={{ marginRight: 'var(--spacing-xs)' }} /> Disconnect
               </button>
             )}
@@ -660,12 +660,12 @@ export default function Talk() {
                 <div>
                   <p style={{ fontSize: '0.6875rem', color: 'var(--color-text-secondary)', marginBottom: 2 }}>Waveform</p>
                   <canvas ref={waveCanvasRef} width={400} height={120}
-                    style={{ width: '100%', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', background: '#000' }} />
+                    style={{ width: '100%', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', background: 'var(--color-surface-sunken)' }} />
                 </div>
                 <div>
                   <p style={{ fontSize: '0.6875rem', color: 'var(--color-text-secondary)', marginBottom: 2 }}>Spectrum (FFT)</p>
                   <canvas ref={specCanvasRef} width={400} height={120}
-                    style={{ width: '100%', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', background: '#000' }} />
+                    style={{ width: '100%', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', background: 'var(--color-surface-sunken)' }} />
                 </div>
               </div>
 
@@ -684,7 +684,7 @@ export default function Talk() {
                     background: 'var(--color-bg-secondary)', borderRadius: 'var(--radius-sm)', padding: 'var(--spacing-xs)',
                   }}>
                     <div style={{ color: 'var(--color-text-secondary)', fontSize: '0.6875rem' }}>{item.label}</div>
-                    <div style={{ fontFamily: 'monospace' }}>{item.value}</div>
+                    <div style={{ fontFamily: 'var(--font-mono)' }}>{item.value}</div>
                   </div>
                 ))}
               </div>
@@ -693,7 +693,7 @@ export default function Talk() {
                 fontSize: '0.6875rem', color: 'var(--color-text-secondary)',
                 background: 'var(--color-bg-secondary)', borderRadius: 'var(--radius-sm)',
                 padding: 'var(--spacing-xs)', maxHeight: '8rem', overflowY: 'auto',
-                fontFamily: 'monospace', whiteSpace: 'pre-wrap', margin: 0,
+                fontFamily: 'var(--font-mono)', whiteSpace: 'pre-wrap', margin: 0,
               }}>
                 {diagStats.raw || 'Waiting for stats...'}
               </pre>

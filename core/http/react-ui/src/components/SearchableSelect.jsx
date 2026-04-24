@@ -116,7 +116,7 @@ export default function SearchableSelect({
         aria-expanded={open}
         onClick={() => { if (!disabled) { setOpen(!open); setQuery(''); setFocusIndex(-1) } }}
         style={{
-          width: '100%', padding: '4px 8px', fontSize: '0.8125rem',
+          width: '100%', padding: 'var(--spacing-xs) var(--spacing-sm)', fontSize: '0.8125rem',
           cursor: disabled ? 'not-allowed' : 'pointer',
           display: 'flex', alignItems: 'center', gap: '6px',
           background: 'var(--color-bg-primary)', border: '1px solid var(--color-border)',
@@ -145,7 +145,7 @@ export default function SearchableSelect({
               value={query}
               onChange={(e) => { setQuery(e.target.value); setFocusIndex(-1) }}
               onKeyDown={handleKeyDown}
-              style={{ width: '100%', padding: '4px 8px', fontSize: '0.8125rem' }}
+              style={{ width: '100%', padding: 'var(--spacing-xs) var(--spacing-sm)', fontSize: '0.8125rem' }}
             />
           </div>
           <div ref={listRef} role="listbox" style={{ overflowY: 'auto', maxHeight: 'min(200px, 50vh)' }}>

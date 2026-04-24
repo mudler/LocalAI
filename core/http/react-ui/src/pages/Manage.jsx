@@ -502,7 +502,7 @@ export default function Manage() {
                     </td>
                     {/* Use Cases */}
                     <td>
-                      <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                      <div style={{ display: 'flex', gap: 'var(--spacing-xs)', flexWrap: 'wrap' }}>
                         <a href="#" onClick={(e) => { e.preventDefault(); navigate(`/app/chat/${encodeURIComponent(model.id)}`) }} className="badge badge-info" style={{ textDecoration: 'none', cursor: 'pointer' }}>Chat</a>
                       </div>
                     </td>

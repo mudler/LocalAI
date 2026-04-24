@@ -128,7 +128,7 @@ const ADVANCED_PREF_KEYS = [
   'pipeline_type', 'scheduler_type', 'enable_parameters', 'cuda',
 ]
 
-const hintStyle = { marginTop: '4px', fontSize: '0.75rem', color: 'var(--color-text-muted)' }
+const hintStyle = { marginTop: 'var(--spacing-xs)', fontSize: '0.75rem', color: 'var(--color-text-muted)' }
 
 // hasCustomPrefs returns true when the user has set any preference beyond
 // backend/name/description, added a custom key-value pref with a non-empty
@@ -557,13 +557,13 @@ export default function ImportModel() {
       )}
 
       <div className="form-group">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-xs)' }}>
           <label className="form-label" style={{ marginBottom: 0 }}>
             Model URI
           </label>
           <a href="https://huggingface.co/models?sort=trending" target="_blank" rel="noreferrer"
             className="btn btn-secondary" style={{ fontSize: '0.7rem', padding: '3px 8px' }}>
-            Browse models on HF <i className="fas fa-external-link-alt" aria-hidden="true" style={{ marginLeft: '4px' }} />
+            Browse models on HF <i className="fas fa-external-link-alt" aria-hidden="true" style={{ marginLeft: 'var(--spacing-xs)' }} />
           </a>
         </div>
         <input
@@ -593,9 +593,9 @@ export default function ImportModel() {
                   <i className={fmt.icon} aria-hidden="true" style={{ color: fmt.color }} />
                   {fmt.title}
                 </h4>
-                <div style={{ paddingLeft: '20px', fontSize: '0.75rem', fontFamily: 'monospace' }}>
+                <div style={{ paddingLeft: '20px', fontSize: '0.75rem', fontFamily: 'var(--font-mono)' }}>
                   {fmt.examples.map((ex, j) => (
-                    <div key={j} style={{ marginBottom: '4px' }}>
+                    <div key={j} style={{ marginBottom: 'var(--spacing-xs)' }}>
                       <code style={{ color: 'var(--color-success)' }}>{ex.prefix}</code>
                       <span style={{ color: 'var(--color-text-secondary)' }}>{ex.suffix}</span>
                       <p style={{ color: 'var(--color-text-muted)', marginTop: '1px', fontFamily: 'inherit' }}>{ex.desc}</p>
@@ -706,7 +706,7 @@ export default function ImportModel() {
           )}
 
           <div>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', cursor: 'pointer' }}>
               <input type="checkbox" checked={prefs.embeddings} onChange={e => updatePref('embeddings', e.target.checked)} disabled={isSubmitting} />
               <span style={{ fontSize: '0.875rem', fontWeight: 500, color: 'var(--color-text-secondary)' }}>
                 Embeddings
@@ -741,7 +741,7 @@ export default function ImportModel() {
                 <p style={hintStyle}>Enabled parameters for diffusers backend (comma-separated).</p>
               </div>
               <div>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', cursor: 'pointer' }}>
                   <input type="checkbox" checked={prefs.cuda} onChange={e => updatePref('cuda', e.target.checked)} disabled={isSubmitting} />
                   <span style={{ fontSize: '0.875rem', fontWeight: 500, color: 'var(--color-text-secondary)' }}>
                     CUDA
@@ -831,10 +831,10 @@ export default function ImportModel() {
             <i className="fas fa-memory" aria-hidden="true" style={{ color: 'var(--color-primary)' }} />
             <strong>Estimated requirements</strong>
             {estimate.sizeDisplay && estimate.sizeDisplay !== '0 B' && (
-              <span><i className="fas fa-download" aria-hidden="true" style={{ color: 'var(--color-primary)', marginRight: '4px' }} />Download: {estimate.sizeDisplay}</span>
+              <span><i className="fas fa-download" aria-hidden="true" style={{ color: 'var(--color-primary)', marginRight: 'var(--spacing-xs)' }} />Download: {estimate.sizeDisplay}</span>
             )}
             {estimate.vramDisplay && estimate.vramDisplay !== '0 B' && (
-              <span><i className="fas fa-microchip" aria-hidden="true" style={{ color: 'var(--color-primary)', marginRight: '4px' }} />VRAM: {estimate.vramDisplay}</span>
+              <span><i className="fas fa-microchip" aria-hidden="true" style={{ color: 'var(--color-primary)', marginRight: 'var(--spacing-xs)' }} />VRAM: {estimate.vramDisplay}</span>
             )}
           </div>
         </div>
@@ -939,7 +939,7 @@ export default function ImportModel() {
                 <PowerTabs value={powerTab} onChange={setPowerTab} />
               </div>
               <div style={{ padding: 'var(--spacing-md)', borderTop: '1px solid var(--color-border-default)', borderBottom: '1px solid var(--color-border-default)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h2 style={{ fontSize: '1.125rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <h2 style={{ fontSize: '1.125rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
                   <i className="fas fa-code" aria-hidden="true" style={{ color: 'var(--color-data-3)' }} />
                   YAML Configuration Editor
                 </h2>

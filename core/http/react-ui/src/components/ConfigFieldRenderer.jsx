@@ -135,7 +135,7 @@ function JsonEditor({ value, onChange }) {
         className="input"
         value={text}
         onChange={e => handleChange(e.target.value)}
-        style={{ width: '100%', minHeight: 80, fontFamily: 'monospace', fontSize: '0.8125rem', resize: 'vertical' }}
+        style={{ width: '100%', minHeight: 80, fontFamily: 'var(--font-mono)', fontSize: '0.8125rem', resize: 'vertical' }}
       />
       {parseError && <div style={{ color: 'var(--color-error)', fontSize: '0.75rem', marginTop: 2 }}>{parseError}</div>}
     </div>

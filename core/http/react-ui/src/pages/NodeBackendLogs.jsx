@@ -222,7 +222,7 @@ export default function NodeBackendLogs() {
             borderRadius: 'var(--radius-md)',
             overflow: 'auto',
             maxHeight: 'calc(100vh - 280px)',
-            fontFamily: 'JetBrains Mono, Consolas, monospace',
+            fontFamily: 'var(--font-mono)',
             fontSize: '0.75rem',
             lineHeight: '1.5',
           }}

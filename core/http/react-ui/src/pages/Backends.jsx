@@ -591,7 +591,7 @@ function BackendDetail({ backend }) {
           </BackendDetailRow>
           <BackendDetailRow label="Tags">
             {backend.tags?.length > 0 && (
-              <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: 'var(--spacing-xs)', flexWrap: 'wrap' }}>
                 {backend.tags.map(tag => (
                   <span key={tag} className="badge badge-info" style={{ fontSize: '0.6875rem' }}>{tag}</span>
                 ))}

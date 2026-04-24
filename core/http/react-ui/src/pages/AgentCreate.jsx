@@ -97,7 +97,7 @@ function FormField({ field, value, onChange, disabled }) {
             rows={5}
             disabled={disabled}
             style={field.name.includes('prompt') || field.name.includes('template') || field.name.includes('script')
-              ? { fontFamily: "'JetBrains Mono', monospace", fontSize: '0.8125rem' } : undefined}
+              ? { fontFamily: 'var(--font-mono)', fontSize: '0.8125rem' } : undefined}
           />
         </div>
       )
@@ -624,7 +624,7 @@ export default function AgentCreate() {
                   value={mcpRawJson}
                   onChange={(e) => setMcpRawJson(e.target.value)}
                   rows={16}
-                  style={{ fontFamily: 'monospace', fontSize: '0.85rem', whiteSpace: 'pre' }}
+                  style={{ fontFamily: 'var(--font-mono)', fontSize: '0.85rem', whiteSpace: 'pre' }}
                   placeholder={'{\n  "mcpServers": {\n    "my-server": {\n      "command": "npx",\n      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"],\n      "env": {}\n    }\n  }\n}'}
                 />
               </div>

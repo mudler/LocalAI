@@ -24,7 +24,7 @@ function NodeCard({ node, label, iconColor, iconBg }) {
           </div>
           <div>
             <h4 style={{ fontSize: '0.875rem', fontWeight: 600 }}>{label}</h4>
-            <p style={{ fontSize: '0.75rem', fontFamily: "'JetBrains Mono', monospace", color: 'var(--color-text-secondary)', wordBreak: 'break-all' }}>
+            <p style={{ fontSize: '0.75rem', fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)', wordBreak: 'break-all' }}>
               {node.id}
             </p>
           </div>
@@ -68,7 +68,7 @@ function CommandBlock({ command, addToast }) {
       <pre style={{
         background: 'var(--color-bg-primary)', padding: 'var(--spacing-md)',
         paddingRight: 'var(--spacing-xl)', borderRadius: 'var(--radius-md)',
-        fontSize: '0.8125rem', fontFamily: "'JetBrains Mono', monospace",
+        fontSize: '0.8125rem', fontFamily: 'var(--font-mono)',
         whiteSpace: 'pre-wrap', wordBreak: 'break-all',
         color: 'var(--color-warning)', overflow: 'auto',
         border: '1px solid var(--color-border-subtle)',
@@ -80,7 +80,7 @@ function CommandBlock({ command, addToast }) {
         style={{
           position: 'absolute', top: 8, right: 8,
           background: 'var(--color-bg-secondary)', border: '1px solid var(--color-border-subtle)',
-          borderRadius: 'var(--radius-sm)', padding: '4px 8px', cursor: 'pointer',
+          borderRadius: 'var(--radius-sm)', padding: 'var(--spacing-xs) var(--spacing-sm)', cursor: 'pointer',
           color: 'var(--color-text-secondary)', fontSize: '0.75rem',
         }}
         title="Copy"
@@ -327,7 +327,7 @@ export default function P2P() {
             padding: 'var(--spacing-md)', borderRadius: 'var(--radius-md)',
             wordBreak: 'break-all', whiteSpace: 'pre-wrap',
             border: '1px solid var(--color-border-subtle)', cursor: 'pointer',
-            fontFamily: "'JetBrains Mono', monospace", fontSize: '0.8125rem',
+            fontFamily: 'var(--font-mono)', fontSize: '0.8125rem',
           }}
         >
           {token || 'Loading...'}
@@ -459,7 +459,7 @@ export default function P2P() {
                 </div>
                 <i className="fas fa-arrow-right" style={{ color: 'var(--color-text-muted)', fontSize: '1rem' }} />
                 <div style={{ textAlign: 'center' }}>
-                  <div style={{ display: 'flex', gap: '4px', marginBottom: 'var(--spacing-xs)' }}>
+                  <div style={{ display: 'flex', gap: 'var(--spacing-xs)', marginBottom: 'var(--spacing-xs)' }}>
                     {[1, 2, 3].map(n => (
                       <div key={n} style={{
                         width: 36, height: 36, borderRadius: 'var(--radius-sm)',
@@ -607,7 +607,7 @@ export default function P2P() {
                   <span style={{ fontSize: '0.625rem', color: 'var(--color-text-muted)' }}>RPC</span>
                 </div>
                 <div style={{ textAlign: 'center' }}>
-                  <div style={{ display: 'flex', gap: '4px', marginBottom: 'var(--spacing-xs)' }}>
+                  <div style={{ display: 'flex', gap: 'var(--spacing-xs)', marginBottom: 'var(--spacing-xs)' }}>
                     {['Layer 1-10', 'Layer 11-20', 'Layer 21-30'].map((label, i) => (
                       <div key={i} style={{ textAlign: 'center' }}>
                         <div style={{
@@ -687,7 +687,7 @@ export default function P2P() {
                   <span style={{ fontSize: '0.625rem', color: 'var(--color-text-muted)' }}>Ring / JACCL</span>
                 </div>
                 <div style={{ textAlign: 'center' }}>
-                  <div style={{ display: 'flex', gap: '4px', marginBottom: 'var(--spacing-xs)' }}>
+                  <div style={{ display: 'flex', gap: 'var(--spacing-xs)', marginBottom: 'var(--spacing-xs)' }}>
                     {['Layers 1-16', 'Layers 17-32'].map((label, i) => (
                       <div key={i} style={{ textAlign: 'center' }}>
                         <div style={{
