@@ -168,7 +168,7 @@ func (m *wrappedModel) Predict(ctx context.Context, messages schema.Messages, im
 			}
 		} else if toolChoice.Function != nil {
 			// Specific function specified
-			m.LLMConfig.SetFunctionCallString(toolChoice.Function.Name)
+			m.LLMConfig.SetFunctionCallNameString(toolChoice.Function.Name)
 		}
 	}
 
