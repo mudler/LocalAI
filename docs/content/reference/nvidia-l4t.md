@@ -78,3 +78,25 @@ docker run -e DEBUG=true -p 8080:8080 -v /data/models:/models -ti --restart=alwa
 ```
 
 Note: `/data/models` is the directory containing the models. You can replace it with the directory containing your models.
+
+## GPU reporting in distributed mode
+
+If you run a worker on a Jetson, DGX Spark (GB10), or Thor and the Nodes
+page in the frontend shows the node as fully used, check two things:
+
+1. `NVIDIA_DRIVER_CAPABILITIES` must include `utility` so `nvidia-smi` /
+   NVML work inside the container. With `--gpus all` alone (or
+   `--runtime nvidia` without extra flags) only `compute` is wired in on
+   some driver versions. Add `-e NVIDIA_DRIVER_CAPABILITIES=compute,utility`
+   to your `docker run`, or `capabilities: [gpu, utility]` in compose /
+   Kubernetes device reservations.
+2. Pass `--init` to `docker run` (or `init: true` in compose) so the
+   container has a proper PID 1 reaper — otherwise short-lived child
+   processes like `nvidia-smi` can intermittently fail with
+   `waitid: no child processes`.
+
+On unified-memory devices LocalAI auto-detects the SoC via
+`/sys/devices/soc0/{family,soc_id}` and reports system RAM as VRAM, so
+`nvidia-smi` is not strictly required for VRAM metrics. See
+[Distributed Mode → NVIDIA GPU support]({{% relref "/features/distributed-mode#nvidia-gpu-support" %}})
+for full context.

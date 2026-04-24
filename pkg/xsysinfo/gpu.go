@@ -186,9 +186,10 @@ func DetectGPUVendor() (string, error) {
 		return VendorIntel, nil
 	}
 
-	// Check for NVIDIA Tegra/Jetson (no nvidia-smi on these devices)
-	if isTegraDevice() {
-		xlog.Debug("GPU vendor detected via Tegra SoC", "vendor", VendorNVIDIA)
+	// Check for NVIDIA integrated GPU (Tegra / DGX Spark / Thor) —
+	// nvidia-smi may be absent or unreliable on these unified-memory SoCs.
+	if isNVIDIAIntegratedGPU() {
+		xlog.Debug("GPU vendor detected via NVIDIA SoC", "vendor", VendorNVIDIA)
 		return VendorNVIDIA, nil
 	}
 
@@ -254,10 +255,12 @@ func GetGPUMemoryUsage() []GPUMemoryInfo {
 		gpus = append(gpus, intelGPUs...)
 	}
 
-	// Try NVIDIA Tegra/Jetson (unified memory iGPU, no nvidia-smi)
+	// Try NVIDIA integrated GPUs (Tegra Jetson, DGX Spark, Thor — unified memory).
+	// These either lack nvidia-smi or have it behave unreliably, so we detect
+	// them via SoC sysfs and report system RAM figures.
 	if len(gpus) == 0 {
-		tegraGPUs := getTegraGPUMemory()
-		gpus = append(gpus, tegraGPUs...)
+		integratedGPUs := getNVIDIAIntegratedGPUMemory()
+		gpus = append(gpus, integratedGPUs...)
 	}
 
 	// Try Vulkan as fallback for device detection (limited real-time data)
@@ -365,12 +368,13 @@ func getNVIDIAGPUMemory() []GPUMemoryInfo {
 				usagePercent = float64(usedBytes) / float64(totalBytes) * 100
 			}
 		} else if isNA {
-			// Check if this is a Tegra/Jetson device — if so, it uses unified memory
-			if isTegraDevice() {
-				xlog.Debug("nvidia-smi returned N/A on Tegra device, using system RAM", "device", name)
+			// Check if this is an NVIDIA integrated / unified-memory SoC — if so,
+			// fall back to system RAM (covers Jetson, DGX Spark/GB10, Thor).
+			if isNVIDIAIntegratedGPU() {
+				xlog.Debug("nvidia-smi returned N/A on NVIDIA integrated GPU, using system RAM", "device", name)
 				sysInfo, err := GetSystemRAMInfo()
 				if err != nil {
-					xlog.Debug("failed to get system RAM for Tegra device", "error", err, "device", name)
+					xlog.Debug("failed to get system RAM for NVIDIA integrated GPU", "error", err, "device", name)
 					gpus = append(gpus, GPUMemoryInfo{
 						Index:        idx,
 						Name:         name,
@@ -651,35 +655,73 @@ func getIntelGPUTop() []GPUMemoryInfo {
 	return nil
 }
 
-// isTegraDevice checks if the system is an NVIDIA Tegra/Jetson device.
-// This works both on the host and inside Docker containers.
-func isTegraDevice() bool {
-	data, err := os.ReadFile("/sys/devices/soc0/family")
-	if err == nil && strings.TrimSpace(string(data)) == "Tegra" {
-		return true
+// isNVIDIAIntegratedGPU reports whether the host is an NVIDIA SoC with an
+// integrated GPU that shares system RAM (unified memory). Covers the Jetson
+// Tegra family (Orin, Xavier, Nano, AGX Thor) and SBSA-style NVIDIA SoCs such
+// as the DGX Spark (GB10). nvidia-smi may be absent or unreliable on these
+// hosts (notably when running under docker without NVML capability), so we
+// detect via sysfs. Works both on the host and inside containers that mount
+// /sys normally.
+func isNVIDIAIntegratedGPU() bool {
+	if data, err := os.ReadFile("/sys/devices/soc0/family"); err == nil {
+		if strings.TrimSpace(string(data)) == "Tegra" {
+			return true
+		}
+	}
+	if data, err := os.ReadFile("/sys/devices/soc0/soc_id"); err == nil {
+		// JEDEC manufacturer 0x0426 = NVIDIA ("jep106:0426[:<soc>]").
+		if strings.HasPrefix(strings.TrimSpace(string(data)), "jep106:0426") {
+			return true
+		}
 	}
 	return false
 }
 
-// getTegraGPUMemory detects NVIDIA Tegra/Jetson iGPU.
-// Jetson devices (Orin, Xavier, etc.) have an integrated GPU that shares
-// system RAM (unified memory). They don't have nvidia-smi, so the normal
-// NVIDIA detection path fails. We detect via /sys/devices/soc0/family.
-func getTegraGPUMemory() []GPUMemoryInfo {
-	if !isTegraDevice() {
+// nvidiaIntegratedGPUName derives a human-readable device name for an NVIDIA
+// unified-memory SoC without relying on nvidia-smi. Priority: device-tree
+// model (populated on Jetson) → soc0/machine (some Jetson devkits) → soc_id
+// lookup (SBSA SoCs expose JEDEC IDs) → generic fallbacks.
+func nvidiaIntegratedGPUName() string {
+	if data, err := os.ReadFile("/proc/device-tree/model"); err == nil {
+		if s := strings.TrimRight(string(data), "\x00 \n"); s != "" {
+			return s
+		}
+	}
+	if data, err := os.ReadFile("/sys/devices/soc0/machine"); err == nil {
+		if s := strings.TrimSpace(string(data)); s != "" {
+			return s
+		}
+	}
+	if data, err := os.ReadFile("/sys/devices/soc0/soc_id"); err == nil {
+		s := strings.TrimSpace(string(data))
+		switch {
+		case strings.HasPrefix(s, "jep106:0426:8901"):
+			return "NVIDIA GB10"
+		case strings.HasPrefix(s, "jep106:0426"):
+			return "NVIDIA iGPU"
+		}
+	}
+	if data, err := os.ReadFile("/sys/devices/soc0/family"); err == nil {
+		if strings.TrimSpace(string(data)) == "Tegra" {
+			return "NVIDIA Jetson"
+		}
+	}
+	return "NVIDIA iGPU"
+}
+
+// getNVIDIAIntegratedGPUMemory detects NVIDIA unified-memory integrated GPUs
+// (Jetson, DGX Spark/GB10, Thor) and reports system RAM figures as VRAM.
+// Used as a fallback when nvidia-smi is missing or failing.
+func getNVIDIAIntegratedGPUMemory() []GPUMemoryInfo {
+	if !isNVIDIAIntegratedGPU() {
 		return nil
 	}
 
-	// Get device name from device tree
-	name := "NVIDIA Jetson"
-	if data, err := os.ReadFile("/proc/device-tree/model"); err == nil {
-		name = strings.TrimRight(string(data), "\x00 \n")
-	}
+	name := nvidiaIntegratedGPUName()
 
-	// Unified memory - use system RAM
 	ramInfo, err := GetSystemRAMInfo()
 	if err != nil {
-		xlog.Debug("Tegra detected but failed to get system RAM", "error", err)
+		xlog.Debug("NVIDIA integrated GPU detected but failed to get system RAM", "error", err, "device", name)
 		return []GPUMemoryInfo{{
 			Index:  0,
 			Name:   name,
@@ -692,7 +734,7 @@ func getTegraGPUMemory() []GPUMemoryInfo {
 		usagePercent = float64(ramInfo.Used) / float64(ramInfo.Total) * 100
 	}
 
-	xlog.Debug("Tegra iGPU detected (unified memory)", "device", name, "total_ram", ramInfo.Total)
+	xlog.Debug("NVIDIA integrated GPU detected (unified memory)", "device", name, "total_ram", ramInfo.Total)
 	return []GPUMemoryInfo{{
 		Index:        0,
 		Name:         name,

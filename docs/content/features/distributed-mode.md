@@ -160,6 +160,29 @@ For advanced networking scenarios (NAT, load balancers, separate gRPC/HTTP ports
 | `LOCALAI_ADVERTISE_ADDR` | Public gRPC address (if different from `LOCALAI_ADDR`) | Derived from `LOCALAI_ADDR` |
 | `LOCALAI_ADVERTISE_HTTP_ADDR` | Public HTTP address (if different from gRPC host) | Derived from advertise host + HTTP port |
 
+### NVIDIA GPU support
+
+When running workers in a container, two runtime settings affect how VRAM
+usage is reported back to the frontend:
+
+- **`NVIDIA_DRIVER_CAPABILITIES` must include `utility`.** Without it, the
+  NVML library (and therefore `nvidia-smi`) is not available inside the
+  container. CUDA compute still works, but the worker cannot query free VRAM
+  and the Nodes page will show the node as fully used. Set
+  `NVIDIA_DRIVER_CAPABILITIES=compute,utility` (or, with the NVIDIA CDI
+  runtime, list `capabilities: [gpu, utility]` on the device reservation).
+
+- **Run the container with `init: true` (or `docker run --init`).** The
+  worker process becomes PID 1 in the container and cannot reap zombies on
+  its own. Without an init, `nvidia-smi` calls can fail intermittently with
+  `waitid: no child processes`, which briefly clears free-VRAM metrics.
+
+**Unified memory devices (Jetson, DGX Spark / GB10, Thor):** these SoCs
+share one physical RAM between CPU and GPU. LocalAI detects them via
+`/sys/devices/soc0/family` and `/sys/devices/soc0/soc_id` (no `nvidia-smi`
+required) and reports system-RAM figures as VRAM. Free VRAM therefore tracks
+`MemAvailable` in `/proc/meminfo`.
+
 ### Node Labels
 
 Workers can declare labels at startup for scheduling constraints:

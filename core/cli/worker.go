@@ -924,21 +924,21 @@ func (cmd *WorkerCMD) registrationBody() map[string]any {
 }
 
 // heartbeatBody returns the current VRAM/RAM stats for heartbeat payloads.
+//
+// When aggregate VRAM usage is unknown (no GPU, or temporary detection
+// failure), we deliberately OMIT available_vram so the frontend keeps its
+// last good value — overwriting with 0 makes the UI show the node as "fully
+// used", while reporting total-as-available lies to the scheduler about
+// free capacity.
 func (cmd *WorkerCMD) heartbeatBody() map[string]any {
-	var availVRAM uint64
+	body := map[string]any{}
 	aggregate := xsysinfo.GetGPUAggregateInfo()
 	if aggregate.TotalVRAM > 0 {
-		availVRAM = aggregate.FreeVRAM
-	} else {
-		// Fallback: report total as available (no usage tracking possible)
-		availVRAM, _ = xsysinfo.TotalAvailableVRAM()
+		body["available_vram"] = aggregate.FreeVRAM
 	}
 
-	body := map[string]any{
-		"available_vram": availVRAM,
-	}
-
-	// If no GPU, report system RAM usage instead
+	// CPU-only workers (or workers that lost GPU visibility momentarily):
+	// report system RAM so the scheduler still has capacity info.
 	if aggregate.TotalVRAM == 0 {
 		if ramInfo, err := xsysinfo.GetSystemRAMInfo(); err == nil {
 			body["available_ram"] = ramInfo.Available

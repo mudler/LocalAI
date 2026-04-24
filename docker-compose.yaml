@@ -40,23 +40,32 @@ services:
     # - https://gist.githubusercontent.com/mudler/ad601a0488b497b69ec549150d9edd18/raw/a8a8869ef1bb7e3830bf5c0bae29a0cce991ff8d/phi-2.yaml
     - phi-2
     # For NVIDIA GPU support with CDI (recommended for NVIDIA Container Toolkit 1.14+):
-    # Uncomment the following deploy section and use driver: nvidia.com/gpu
+    # Uncomment the following deploy section and use driver: nvidia.com/gpu.
+    # Include `utility` in capabilities so nvidia-smi / NVML are available —
+    # without it, free-VRAM reporting on discrete GPUs is unavailable and the
+    # Nodes UI will misreport memory usage.
+    # environment:
+    #   NVIDIA_DRIVER_CAPABILITIES: "compute,utility"
+    # init: true   # avoids zombie-reap races that can make nvidia-smi flaky
     # deploy:
     #   resources:
     #     reservations:
     #       devices:
     #         - driver: nvidia.com/gpu
     #           count: all
-    #           capabilities: [gpu]
+    #           capabilities: [gpu, utility]
     #
     # For legacy NVIDIA driver (for older NVIDIA Container Toolkit):
+    # environment:
+    #   NVIDIA_DRIVER_CAPABILITIES: "compute,utility"
+    # init: true
     # deploy:
     #   resources:
     #     reservations:
     #       devices:
     #         - driver: nvidia
     #           count: 1
-    #           capabilities: [gpu]
+    #           capabilities: [gpu, utility]
 
   ## Uncomment for PostgreSQL-backed knowledge base (see Agents docs)
   # postgres:

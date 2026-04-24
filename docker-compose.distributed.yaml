@@ -110,15 +110,23 @@ services:
 
     # --- GPU Support (NVIDIA) ---
     # Uncomment the following and change the image to a CUDA variant
-    # (e.g., localai/localai:latest-gpu-nvidia-cuda-12) to enable GPU:
+    # (e.g., localai/localai:latest-gpu-nvidia-cuda-12) to enable GPU.
     #
+    # NVIDIA_DRIVER_CAPABILITIES must include `utility` so nvidia-smi / NVML
+    # are available inside the container; without it the worker cannot report
+    # free VRAM and the Nodes page will show 0 free / total used.
+    # `init: true` avoids zombie-reap races that make nvidia-smi flaky.
+    #
+    # init: true
+    # environment:
+    #   NVIDIA_DRIVER_CAPABILITIES: "compute,utility"
     # deploy:
     #   resources:
     #     reservations:
     #       devices:
     #         - driver: nvidia.com/gpu
     #           count: all
-    #           capabilities: [gpu]
+    #           capabilities: [gpu, utility]
 
   # --- Shared Volume Mode (optional) ---
   # If all services run on the same Docker host, you can skip gRPC file transfer
