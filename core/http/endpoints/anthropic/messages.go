@@ -880,7 +880,7 @@ func convertAnthropicTools(input *schema.AnthropicRequest, cfg *config.ModelConf
 			if tcType, ok := tc["type"].(string); ok && tcType == "tool" {
 				if name, ok := tc["name"].(string); ok {
 					// Force specific tool
-					cfg.SetFunctionCallString(name)
+					cfg.SetFunctionCallNameString(name)
 				}
 			}
 		}
