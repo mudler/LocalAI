@@ -14,7 +14,6 @@ import (
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/templates"
-	"github.com/mudler/LocalAI/pkg/functions"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/utils"
 	"github.com/mudler/xlog"
@@ -320,17 +319,51 @@ func mergeOpenAIRequestAndModelConfig(config *config.ModelConfig, input *schema.
 	}
 
 	if input.ToolsChoice != nil {
-		var toolChoice functions.Tool
-
+		// OpenAI tool_choice has three valid shapes:
+		//
+		//   1. string mode:   "auto" | "none" | "required"
+		//   2. specific tool: {"type":"function", "function":{"name":"..."}}   (current spec)
+		//   3. legacy:        {"type":"function", "name":"..."}                 (older / Anthropic-compat)
+		//
+		// The previous code unmarshalled all three into functions.Tool via
+		// json.Unmarshal and then unconditionally set input.FunctionCall =
+		// {"name": toolChoice.Function.Name}. That had two consequences:
+		//
+		//   - For string modes, json.Unmarshal([]byte("required"), &Tool{}) fails;
+		//     the error was silently discarded, name was "", and downstream
+		//     SetFunctionCallNameString("") meant the requested mode never applied.
+		//   - For the OpenAI-spec map shape, the json keys did not match
+		//     functions.Tool's field tags, so name was "" again.
+		//
+		// Mirror the parsing pattern from MergeOpenResponsesConfig (#9509) and
+		// route results through the existing input.FunctionCall string/map
+		// dispatch downstream (see the switch on input.FunctionCall in this
+		// same function). Tracked in #9508; sibling fix in #9526.
 		switch content := input.ToolsChoice.(type) {
 		case string:
-			_ = json.Unmarshal([]byte(content), &toolChoice)
+			// "auto" is the default and needs no override; "none" is handled
+			// at the endpoint layer by skipping tool wiring. "required" must
+			// reach SetFunctionCallString to engage the mode field.
+			if content != "" && content != "auto" {
+				input.FunctionCall = content
+			}
 		case map[string]any:
-			dat, _ := json.Marshal(content)
-			_ = json.Unmarshal(dat, &toolChoice)
-		}
-		input.FunctionCall = map[string]any{
-			"name": toolChoice.Function.Name,
+			if tcType, ok := content["type"].(string); ok && tcType == "function" {
+				var name string
+				if fn, ok := content["function"].(map[string]any); ok {
+					if n, ok := fn["name"].(string); ok {
+						name = n
+					}
+				}
+				if name == "" {
+					if n, ok := content["name"].(string); ok {
+						name = n
+					}
+				}
+				if name != "" {
+					input.FunctionCall = map[string]any{"name": name}
+				}
+			}
 		}
 	}
 
