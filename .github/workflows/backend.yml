@@ -141,7 +141,7 @@ jobs:
           - build-type: ''
             cuda-major-version: ""
             cuda-minor-version: ""
-            platforms: 'linux/amd64'
+            platforms: 'linux/amd64,linux/arm64'
             tag-latest: 'auto'
             tag-suffix: '-cpu-whisperx'
             runs-on: 'ubuntu-latest'
@@ -154,7 +154,7 @@ jobs:
           - build-type: ''
             cuda-major-version: ""
             cuda-minor-version: ""
-            platforms: 'linux/amd64'
+            platforms: 'linux/amd64,linux/arm64'
             tag-latest: 'auto'
             tag-suffix: '-cpu-faster-whisper'
             runs-on: 'ubuntu-latest'
