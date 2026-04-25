@@ -310,6 +310,11 @@ message ModelOptions {
   bool Reranking = 71;
 
   repeated string Overrides = 72;
+
+  // EngineArgs carries a JSON-encoded map of backend-native engine arguments
+  // applied verbatim to the backend's engine constructor (e.g. vLLM AsyncEngineArgs).
+  // Unknown keys produce an error at LoadModel time.
+  string EngineArgs = 73;
 }
 
 message Result {

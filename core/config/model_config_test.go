@@ -230,4 +230,38 @@ mcp:
 		Expect(err).To(BeNil())
 		Expect(valid).To(BeTrue())
 	})
+	It("Test Validate rejects unmarshalable engine_args", func() {
+		// chan values cannot be JSON-marshalled. A valid YAML config could
+		// not produce one, but a Go caller stuffing a bad value would, and
+		// silently dropping it would change runtime behaviour.
+		cfg := &ModelConfig{
+			Backend: "vllm",
+			LLMConfig: LLMConfig{
+				EngineArgs: map[string]any{
+					"speculative_config": make(chan int),
+				},
+			},
+		}
+		valid, err := cfg.Validate()
+		Expect(valid).To(BeFalse())
+		Expect(err).ToNot(BeNil())
+		Expect(err.Error()).To(ContainSubstring("engine_args is not JSON-serialisable"))
+	})
+	It("Test Validate accepts well-formed engine_args", func() {
+		cfg := &ModelConfig{
+			Backend: "vllm",
+			LLMConfig: LLMConfig{
+				EngineArgs: map[string]any{
+					"data_parallel_size": 8,
+					"speculative_config": map[string]any{
+						"method":                 "ngram",
+						"num_speculative_tokens": 4,
+					},
+				},
+			},
+		}
+		valid, err := cfg.Validate()
+		Expect(err).To(BeNil())
+		Expect(valid).To(BeTrue())
+	})
 })

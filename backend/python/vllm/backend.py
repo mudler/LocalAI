@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 import asyncio
+import dataclasses
+import difflib
 from concurrent import futures
 import argparse
 import signal
@@ -101,6 +103,36 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             opts[key.strip()] = value.strip()
         return opts
 
+    def _apply_engine_args(self, engine_args, engine_args_json):
+        """Apply user-supplied engine_args (JSON object) onto an AsyncEngineArgs.
+
+        Returns a new AsyncEngineArgs with the typed fields preserved and the
+        user's overrides layered on top. Uses ``dataclasses.replace`` so vLLM's
+        ``__post_init__`` re-runs and auto-converts dict-valued fields like
+        ``compilation_config`` / ``attention_config`` into their dataclass form.
+        ``speculative_config`` and ``kv_transfer_config`` are accepted as dicts
+        directly (vLLM converts them at engine init).
+
+        Unknown keys raise ValueError with the closest valid field as a hint.
+        """
+        if not engine_args_json:
+            return engine_args
+        try:
+            extra = json.loads(engine_args_json)
+        except json.JSONDecodeError as e:
+            raise ValueError(f"engine_args is not valid JSON: {e}") from e
+        if not isinstance(extra, dict):
+            raise ValueError(
+                f"engine_args must be a JSON object, got {type(extra).__name__}"
+            )
+        valid = {f.name for f in dataclasses.fields(type(engine_args))}
+        for key in extra:
+            if key not in valid:
+                suggestion = difflib.get_close_matches(key, valid, n=1)
+                hint = f" did you mean {suggestion[0]!r}?" if suggestion else ""
+                raise ValueError(f"unknown engine_args key {key!r}.{hint}")
+        return dataclasses.replace(engine_args, **extra)
+
     def _messages_to_dicts(self, messages):
         """Convert proto Messages to list of dicts suitable for apply_chat_template()."""
         result = []
@@ -175,6 +207,15 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 "video": max(request.LimitVideoPerPrompt, 1),
                 "audio": max(request.LimitAudioPerPrompt, 1)
             }
+
+        # engine_args from YAML overrides typed fields above so operators can
+        # tune anything the AsyncEngineArgs dataclass exposes without waiting
+        # on protobuf changes.
+        try:
+            engine_args = self._apply_engine_args(engine_args, request.EngineArgs)
+        except ValueError as err:
+            print(f"engine_args error: {err}", file=sys.stderr)
+            return backend_pb2.Result(success=False, message=str(err))
 
         try:
             self.llm = AsyncLLMEngine.from_engine_args(engine_args)

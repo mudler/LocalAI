@@ -1,6 +1,7 @@
 package config
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"regexp"
@@ -241,7 +242,13 @@ type LLMConfig struct {
 	DisableLogStatus     bool             `yaml:"disable_log_stats,omitempty" json:"disable_log_stats,omitempty"`           // vLLM
 	DType                string           `yaml:"dtype,omitempty" json:"dtype,omitempty"`                                   // vLLM
 	LimitMMPerPrompt     LimitMMPerPrompt `yaml:"limit_mm_per_prompt,omitempty" json:"limit_mm_per_prompt,omitempty"`       // vLLM
-	MMProj               string           `yaml:"mmproj,omitempty" json:"mmproj,omitempty"`
+	// EngineArgs is a backend-native passthrough applied to the engine constructor
+	// (e.g. vLLM AsyncEngineArgs). Values may be primitives or nested maps; nested
+	// maps materialise into the backend's nested config dataclasses (e.g.
+	// SpeculativeConfig, KVTransferConfig, CompilationConfig). Unknown keys cause
+	// the backend to fail LoadModel with a list of valid names.
+	EngineArgs map[string]any `yaml:"engine_args,omitempty" json:"engine_args,omitempty"`
+	MMProj     string         `yaml:"mmproj,omitempty" json:"mmproj,omitempty"`
 
 	FlashAttention *string `yaml:"flash_attention,omitempty" json:"flash_attention,omitempty"`
 	NoKVOffloading bool    `yaml:"no_kv_offloading,omitempty" json:"no_kv_offloading,omitempty"`
@@ -542,6 +549,15 @@ func (c *ModelConfig) Validate() (bool, error) {
 	if c.MCP.Servers != "" || c.MCP.Stdio != "" {
 		if _, _, err := c.MCP.MCPConfigFromYAML(); err != nil {
 			return false, fmt.Errorf("invalid MCP configuration: %w", err)
+		}
+	}
+
+	// engine_args crosses the gRPC boundary as a JSON-encoded string. Reject
+	// unmarshalable values here so a config that would silently lose user-set
+	// options at load time is rejected at parse time instead.
+	if len(c.EngineArgs) > 0 {
+		if _, err := json.Marshal(c.EngineArgs); err != nil {
+			return false, fmt.Errorf("engine_args is not JSON-serialisable: %w", err)
 		}
 	}
 

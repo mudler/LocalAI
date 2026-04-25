@@ -168,6 +168,58 @@ class TestBackendServicer(unittest.TestCase):
         self.assertEqual(opts["key_with_colons"], "a:b:c")
         self.assertNotIn("invalid_no_colon", opts)
 
+    def test_apply_engine_args_known_keys(self):
+        """
+        Tests _apply_engine_args overlays user-supplied JSON onto AsyncEngineArgs.
+        """
+        import sys, os, json as _json
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        from backend import BackendServicer
+        from vllm.engine.arg_utils import AsyncEngineArgs
+
+        servicer = BackendServicer()
+        base = AsyncEngineArgs(model="facebook/opt-125m")
+        extras = _json.dumps({
+            "trust_remote_code": True,
+            "max_num_seqs": 32,
+        })
+        out = servicer._apply_engine_args(base, extras)
+        self.assertTrue(out.trust_remote_code)
+        self.assertEqual(out.max_num_seqs, 32)
+        # untouched fields preserved
+        self.assertEqual(out.model, "facebook/opt-125m")
+
+    def test_apply_engine_args_unknown_key_raises(self):
+        """
+        Tests _apply_engine_args rejects unknown keys with a helpful suggestion.
+        """
+        import sys, os, json as _json
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        from backend import BackendServicer
+        from vllm.engine.arg_utils import AsyncEngineArgs
+
+        servicer = BackendServicer()
+        base = AsyncEngineArgs(model="facebook/opt-125m")
+        with self.assertRaises(ValueError) as ctx:
+            servicer._apply_engine_args(base, _json.dumps({"trustremotecode": True}))
+        self.assertIn("trustremotecode", str(ctx.exception))
+        # close-match hint for the typo
+        self.assertIn("trust_remote_code", str(ctx.exception))
+
+    def test_apply_engine_args_empty_passthrough(self):
+        """
+        Tests that empty engine_args returns the base unchanged.
+        """
+        import sys, os
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        from backend import BackendServicer
+        from vllm.engine.arg_utils import AsyncEngineArgs
+
+        servicer = BackendServicer()
+        base = AsyncEngineArgs(model="facebook/opt-125m")
+        self.assertIs(servicer._apply_engine_args(base, ""), base)
+        self.assertIs(servicer._apply_engine_args(base, None), base)
+
     def test_tokenize_string(self):
         """
         Tests the TokenizeString RPC returns valid tokens.

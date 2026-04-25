@@ -1,6 +1,8 @@
 package backend
 
 import (
+	"encoding/json"
+	"fmt"
 	"math/rand/v2"
 	"os"
 	"path/filepath"
@@ -159,6 +161,19 @@ func grpcModelOpts(c config.ModelConfig, modelPath string) *pb.ModelOptions {
 		})
 	}
 
+	engineArgsJSON := ""
+	if len(c.EngineArgs) > 0 {
+		buf, err := json.Marshal(c.EngineArgs)
+		if err != nil {
+			// ModelConfig.Validate() rejects unmarshalable engine_args at
+			// config load, so reaching here means the validator was bypassed.
+			// Silently dropping user-set options would change runtime behaviour
+			// without warning — fail loud instead.
+			panic(fmt.Sprintf("engine_args marshal failed for model %q: %v (Validate() should have caught this)", c.Model, err))
+		}
+		engineArgsJSON = string(buf)
+	}
+
 	opts := &pb.ModelOptions{
 		CUDA:                 c.CUDA || c.Diffusers.CUDA,
 		SchedulerType:        c.Diffusers.SchedulerType,
@@ -176,6 +191,7 @@ func grpcModelOpts(c config.ModelConfig, modelPath string) *pb.ModelOptions {
 		CLIPSubfolder:        c.Diffusers.ClipSubFolder,
 		Options:              c.Options,
 		Overrides:            c.Overrides,
+		EngineArgs:           engineArgsJSON,
 		CLIPSkip:             int32(c.Diffusers.ClipSkip),
 		ControlNet:           c.Diffusers.ControlNet,
 		ContextSize:          int32(ctxSize),

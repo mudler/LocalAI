@@ -110,5 +110,30 @@ var _ = Describe("Backend hooks and parser defaults", func() {
 			}
 			Expect(count).To(Equal(1))
 		})
+
+		It("seeds production engine_args defaults", func() {
+			cfg := &ModelConfig{Backend: "vllm"}
+			cfg.SetDefaults()
+
+			Expect(cfg.EngineArgs).NotTo(BeNil())
+			Expect(cfg.EngineArgs["enable_prefix_caching"]).To(Equal(true))
+			Expect(cfg.EngineArgs["enable_chunked_prefill"]).To(Equal(true))
+		})
+
+		It("does not override user-set engine_args", func() {
+			cfg := &ModelConfig{
+				Backend: "vllm",
+				LLMConfig: LLMConfig{
+					EngineArgs: map[string]any{
+						"enable_prefix_caching": false,
+					},
+				},
+			}
+			cfg.SetDefaults()
+
+			Expect(cfg.EngineArgs["enable_prefix_caching"]).To(Equal(false))
+			// chunked_prefill is still seeded since user didn't set it
+			Expect(cfg.EngineArgs["enable_chunked_prefill"]).To(Equal(true))
+		})
 	})
 })
