@@ -34,7 +34,10 @@ fi
 
 # JetPack 7 / L4T arm64 wheels (torch, vllm, flash-attn) live on
 # pypi.jetson-ai-lab.io and are built for cp312, so bump the venv Python
-# accordingly. JetPack 6 keeps cp310 + USE_PIP=true.
+# accordingly. JetPack 6 keeps cp310 + USE_PIP=true. unsafe-best-match
+# is required because the jetson-ai-lab index lists transitive deps at
+# limited versions — without it uv pins to the first matching index and
+# fails to resolve a compatible wheel from PyPI.
 if [ "x${BUILD_PROFILE}" == "xl4t12" ]; then
     USE_PIP=true
 fi
@@ -42,6 +45,7 @@ if [ "x${BUILD_PROFILE}" == "xl4t13" ]; then
     PYTHON_VERSION="3.12"
     PYTHON_PATCH="12"
     PY_STANDALONE_TAG="20251120"
+    EXTRA_PIP_INSTALL_FLAGS+=" --index-strategy=unsafe-best-match"
 fi
 
 # FROM_SOURCE=true on a CPU build skips the prebuilt vllm wheel in
