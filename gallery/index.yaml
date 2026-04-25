@@ -743,7 +743,6 @@
     - https://huggingface.co/mradermacher/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-heretic-i1-GGUF
   tags:
     - default
-    - default
   overrides:
     parameters:
       model: llama-cpp/models/Qwen3.-27B-Claude-4.6-Opus-Reasoning-Distilled-heretic.i1-Q4_K_M.gguf
@@ -1915,7 +1914,7 @@
     Qwen3-TTS is a high-quality text-to-speech model supporting custom voice, voice design, and voice cloning.
   tags:
     - text-to-speech
-    - TTS
+    - tts
   license: apache-2.0
   icon: https://cdn-avatars.huggingface.co/v1/production/uploads/620760a26e3b7210c2ff1943/-s1gyJfvbE1RgO5iBeNOi.png
   name: "qwen3-tts-1.7b-custom-voice"
@@ -1947,7 +1946,7 @@
     Fish Speech S2-Pro is a high-quality text-to-speech model supporting voice cloning via reference audio. Uses a two-stage pipeline: text to semantic tokens (LLaMA-based) then semantic to audio (DAC decoder).
   tags:
     - text-to-speech
-    - TTS
+    - tts
     - voice-cloning
   license: apache-2.0
   icon: https://huggingface.co/fishaudio/s2-pro/resolve/main/overview.png
@@ -1966,7 +1965,7 @@
     Qwen3-ASR is an automatic speech recognition model supporting multiple languages and batch inference.
   tags:
     - speech-recognition
-    - ASR
+    - asr
   license: apache-2.0
   icon: https://cdn-avatars.huggingface.co/v1/production/uploads/620760a26e3b7210c2ff1943/-s1gyJfvbE1RgO5iBeNOi.png
   name: "qwen3-asr-1.7b"
@@ -2575,7 +2574,7 @@
   license: mit
   tags:
     - text-to-speech
-    - TTS
+    - tts
   name: "vibevoice"
   urls:
     - https://github.com/microsoft/VibeVoice
@@ -2609,7 +2608,7 @@
   license: mit
   tags:
     - text-to-speech
-    - TTS
+    - tts
   name: "pocket-tts"
   urls:
     - https://github.com/kyutai-labs/pocket-tts
@@ -3057,8 +3056,8 @@
   license: apache-2.0
   tags:
     - gguf
-    - GPU
-    - CPU
+    - gpu
+    - cpu
     - text-to-text
     - jamba
     - mamba
@@ -3082,8 +3081,8 @@
   icon: https://cdn-avatars.huggingface.co/v1/production/uploads/639bcaa2445b133a4e942436/CEW-OjXkRkDNmTxSu8Egh.png
   tags:
     - gguf
-    - GPU
-    - CPU
+    - gpu
+    - cpu
     - text-to-text
   urls:
     - https://huggingface.co/ibm-granite/granite-4.0-h-small
@@ -3145,8 +3144,8 @@
   license: apache-2.0
   tags:
     - gguf
-    - GPU
-    - CPU
+    - gpu
+    - cpu
     - text-to-text
   icon: https://cdn-avatars.huggingface.co/v1/production/uploads/64f187a2cc1c03340ac30498/TYYUxK8xD1AxExFMWqbZD.png
   urls:
@@ -3169,8 +3168,8 @@
   license: mit
   tags:
     - gguf
-    - GPU
-    - CPU
+    - gpu
+    - cpu
     - text-to-text
   icon: https://cdn-uploads.huggingface.co/production/uploads/634262af8d8089ebaefd410e/9Bnn2AnIjfQFWBGkhDNmI.png
   name: "aurore-reveil_koto-small-7b-it"
@@ -3197,8 +3196,8 @@
   tags:
     - multimodal
     - gguf
-    - GPU
-    - Cpu
+    - gpu
+    - cpu
     - image-to-text
     - text-to-text
   description: |
@@ -3819,7 +3818,6 @@
     - gguf
     - gpu
     - cpu
-    - gguf
     - openai
   icon: https://raw.githubusercontent.com/openai/gpt-oss/main/docs/gpt-oss-20b.svg
   urls:
@@ -4004,7 +4002,6 @@
     - https://huggingface.co/bartowski/arcee-ai_AFM-4.5B-GGUF
   tags:
     - gguf
-    - gpu
     - gpu
     - text-generation
   description: |
@@ -9112,7 +9109,7 @@
   description: |
     Granite-Embedding-107M-Multilingual is a 107M parameter dense biencoder embedding model from the Granite Embeddings suite that can be used to generate high quality text embeddings. This model produces embedding vectors of size 384 and is trained using a combination of open source relevance-pair datasets with permissive, enterprise-friendly license, and IBM collected and generated datasets. This model is developed using contrastive finetuning, knowledge distillation and model merging for improved performance.
   tags:
-    - embeddings
+    - embedding
   overrides:
     backend: llama-cpp
     embeddings: true
@@ -9130,7 +9127,7 @@
   description: |
     Granite-Embedding-125m-English is a 125M parameter dense biencoder embedding model from the Granite Embeddings suite that can be used to generate high quality text embeddings. This model produces embedding vectors of size 768. Compared to most other open-source models, this model was only trained using open-source relevance-pair datasets with permissive, enterprise-friendly license, plus IBM collected and generated datasets. While maintaining competitive scores on academic benchmarks such as BEIR, this model also performs well on many enterprise use cases. This model is developed using retrieval oriented pretraining, contrastive finetuning and knowledge distillation.
   tags:
-    - embeddings
+    - embedding
   overrides:
     embeddings: true
     parameters:
@@ -9147,7 +9144,7 @@
   description: |
     EmbeddingGemma 300M is a lightweight, high-quality embedding model from Google, based on the Gemma architecture. It produces 1024-dimensional embeddings optimized for retrieval and semantic similarity tasks. This GGUF version uses QAT (Quantization-Aware Training) Q8_0 quantization for efficient inference.
   tags:
-    - embeddings
+    - embedding
   overrides:
     backend: llama-cpp
     embeddings: true
@@ -15923,7 +15920,7 @@
   tags:
     - gpu
     - cpu
-    - embeddings
+    - embedding
     - python
   name: "all-MiniLM-L6-v2"
   url: "github:mudler/LocalAI/gallery/sentencetransformers.yaml@master"
@@ -16776,7 +16773,7 @@
   description: |
     llama3.2 embeddings model. Using as drop-in replacement for bert-embeddings
   tags:
-    - embeddings
+    - embedding
   overrides:
     embeddings: true
     parameters:
@@ -18499,7 +18496,7 @@
   description: |
     Resizable Production Embeddings with Matryoshka Representation Learning
   tags:
-    - embeddings
+    - embedding
   overrides:
     embeddings: true
     parameters:
