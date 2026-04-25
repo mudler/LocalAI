@@ -1,4 +1,58 @@
 ---
+- name: "ltx-2.3"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/unsloth/LTX-2.3-GGUF
+  description: |
+    # LTX-2.3 Model Card
+
+    This model card focuses on the LTX-2.3 model, which is a significant update to the LTX-2 model with improved audio and visual quality as well as enhanced prompt adherence.
+    LTX-2 was presented in the paper LTX-2: Efficient Joint Audio-Visual Foundation Model.
+
+    💻💻 **If you want to dive in right to the code - it is available here.** 💾💾
+
+    LTX-2.3 is a DiT-based audio-video foundation model designed to generate synchronized video and audio within a single model. It brings together the core building blocks of modern video generation, with open weights and a focus on practical, local execution.
+
+    [](https://youtu.be/o-7us-BR_gQ)
+
+    # Model Checkpoints
+
+    ## Model Details
+      - **Developed by:** Lightricks
+      - **Model type:** Diffusion-based audio-video foundation model
+      - **Language(s):** English
+
+    # Online demo
+    LTX-2.3 is accessible right away via the API Playground.
+
+    # Run locally
+
+    ## Direct use license
+    You can use the models - full, distilled, upscalers and any derivatives of the models - for purposes under the license.
+
+    ...
+  license: "other"
+  tags:
+    - llm
+    - gguf
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/LTX-2.3-GGUF/ltx-2.3-22b-distilled-1.1-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/LTX-2.3-GGUF/ltx-2.3-22b-distilled-1.1-Q4_K_M.gguf
+      sha256: 5d09efdc0b8ec2054c44a05366cd7c6634ffa333b379b1f8baf018a78974b73d
+      uri: https://huggingface.co/unsloth/LTX-2.3-GGUF/resolve/main/distilled-1.1/ltx-2.3-22b-distilled-1.1-Q4_K_M.gguf
 - name: "qwopus-glm-18b-merged"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
