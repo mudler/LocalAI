@@ -1660,7 +1660,6 @@ public:
                         ctx_server.impl->vocab,
                         params_base,
                         ctx_server.get_meta().slot_n_ctx,
-                        ctx_server.get_meta().logit_bias_eog,
                         data);
                 task.id_slot = json_value(data, "id_slot", -1);
 
@@ -2444,7 +2443,6 @@ public:
                         ctx_server.impl->vocab,
                         params_base,
                         ctx_server.get_meta().slot_n_ctx,
-                        ctx_server.get_meta().logit_bias_eog,
                         data);
                 task.id_slot = json_value(data, "id_slot", -1);
 
@@ -2841,7 +2839,7 @@ public:
         // same string when rendering prompts outside the tokenizer-template path.
         // Only meaningful when an mtmd context was initialized (vision/audio models).
         if (ctx_server.impl->mctx != nullptr) {
-            response->set_media_marker(get_media_marker());
+            response->set_media_marker(mtmd_default_marker());
         }
 
         // Check if chat templates are initialized
