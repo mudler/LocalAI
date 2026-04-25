@@ -642,6 +642,21 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
             } else if (optval_str == "false" || optval_str == "0" || optval_str == "no" || optval_str == "off" || optval_str == "disabled") {
                 params.no_op_offload = false;
             }
+        } else if (!strcmp(optname, "split_mode") || !strcmp(optname, "sm")) {
+            // Accepts: none | layer | row | tensor (the latter requires a llama.cpp build
+            // that includes ggml-org/llama.cpp#19378, FlashAttention enabled, and KV-cache
+            // quantization disabled).
+            if (optval != NULL) {
+                if (optval_str == "none") {
+                    params.split_mode = LLAMA_SPLIT_MODE_NONE;
+                } else if (optval_str == "layer") {
+                    params.split_mode = LLAMA_SPLIT_MODE_LAYER;
+                } else if (optval_str == "row") {
+                    params.split_mode = LLAMA_SPLIT_MODE_ROW;
+                } else if (optval_str == "tensor") {
+                    params.split_mode = LLAMA_SPLIT_MODE_TENSOR;
+                }
+            }
         } else if (!strcmp(optname, "kv_unified") || !strcmp(optname, "unified_kv")) {
             if (optval_str == "true" || optval_str == "1" || optval_str == "yes" || optval_str == "on" || optval_str == "enabled") {
                 params.kv_unified = true;
