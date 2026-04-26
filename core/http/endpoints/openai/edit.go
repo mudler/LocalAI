@@ -20,6 +20,7 @@ import (
 
 // EditEndpoint is the OpenAI edit API endpoint
 // @Summary OpenAI edit endpoint
+// @Tags inference
 // @Param request body schema.OpenAIRequest true "query params"
 // @Success 200 {object} schema.OpenAIResponse "Response"
 // @Router /v1/edits [post]

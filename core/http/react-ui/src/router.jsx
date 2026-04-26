@@ -26,7 +26,7 @@ import AgentJobs from './pages/AgentJobs'
 import AgentTaskDetails from './pages/AgentTaskDetails'
 import AgentJobDetails from './pages/AgentJobDetails'
 import ModelEditor from './pages/ModelEditor'
-import PipelineEditor from './pages/PipelineEditor'
+// PipelineEditor removed — the Model Editor with templates handles all model types
 import ImportModel from './pages/ImportModel'
 import BackendLogs from './pages/BackendLogs'
 import Explorer from './pages/Explorer'
@@ -34,6 +34,10 @@ import Login from './pages/Login'
 import FineTune from './pages/FineTune'
 import Quantize from './pages/Quantize'
 import Studio from './pages/Studio'
+import FaceRecognition from './pages/FaceRecognition'
+import VoiceRecognition from './pages/VoiceRecognition'
+import Nodes from './pages/Nodes'
+import NodeBackendLogs from './pages/NodeBackendLogs'
 import NotFound from './pages/NotFound'
 import Usage from './pages/Usage'
 import Users from './pages/Users'
@@ -71,6 +75,10 @@ const appChildren = [
   { path: 'sound/:model', element: <Sound /> },
   { path: 'studio', element: <Studio /> },
   { path: 'talk', element: <Talk /> },
+  { path: 'face', element: <Feature feature="face_recognition"><FaceRecognition /></Feature> },
+  { path: 'face/:model', element: <Feature feature="face_recognition"><FaceRecognition /></Feature> },
+  { path: 'voice', element: <Feature feature="voice_recognition"><VoiceRecognition /></Feature> },
+  { path: 'voice/:model', element: <Feature feature="voice_recognition"><VoiceRecognition /></Feature> },
   { path: 'usage', element: <Usage /> },
   { path: 'account', element: <Account /> },
   { path: 'users', element: <Admin><Users /></Admin> },
@@ -80,6 +88,8 @@ const appChildren = [
   { path: 'traces', element: <Admin><Traces /></Admin> },
   { path: 'backend-logs/:modelId', element: <Admin><BackendLogs /></Admin> },
   { path: 'p2p', element: <Admin><P2P /></Admin> },
+  { path: 'nodes', element: <Admin><Nodes /></Admin> },
+  { path: 'node-backend-logs/:nodeId/:modelId', element: <Admin><NodeBackendLogs /></Admin> },
   { path: 'agents', element: <Feature feature="agents"><Agents /></Feature> },
   { path: 'agents/new', element: <Feature feature="agents"><AgentCreate /></Feature> },
   { path: 'agents/:name/edit', element: <Feature feature="agents"><AgentCreate /></Feature> },
@@ -97,9 +107,8 @@ const appChildren = [
   { path: 'agent-jobs/jobs/:id', element: <Feature feature="mcp_jobs"><AgentJobDetails /></Feature> },
   { path: 'fine-tune', element: <Feature feature="fine_tuning"><FineTune /></Feature> },
   { path: 'quantize', element: <Feature feature="quantization"><Quantize /></Feature> },
+  { path: 'model-editor', element: <Admin><ModelEditor /></Admin> },
   { path: 'model-editor/:name', element: <Admin><ModelEditor /></Admin> },
-  { path: 'pipeline-editor', element: <Admin><PipelineEditor /></Admin> },
-  { path: 'pipeline-editor/:name', element: <Admin><PipelineEditor /></Admin> },
   { path: 'import-model', element: <Admin><ImportModel /></Admin> },
   { path: '*', element: <NotFound /> },
 ]

@@ -3,7 +3,6 @@ package cli
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"strings"
 
@@ -12,7 +11,6 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/schema"
-	"github.com/mudler/LocalAI/pkg/format"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/mudler/xlog"
@@ -61,7 +59,7 @@ func (t *TranscriptCMD) Run(ctx *cliContext.Context) error {
 
 	c, exists := cl.GetModelConfig(t.Model)
 	if !exists {
-		return errors.New("model not found")
+		return fmt.Errorf("model %q not found. Run 'local-ai models list' to see available models, or install one with 'local-ai models install <model>'. See https://localai.io/models/ for more information", t.Model)
 	}
 
 	c.Threads = &t.Threads
@@ -80,7 +78,7 @@ func (t *TranscriptCMD) Run(ctx *cliContext.Context) error {
 
 	switch t.ResponseFormat {
 	case schema.TranscriptionResponseFormatLrc, schema.TranscriptionResponseFormatSrt, schema.TranscriptionResponseFormatVtt, schema.TranscriptionResponseFormatText:
-		fmt.Println(format.TranscriptionResponse(tr, t.ResponseFormat))
+		fmt.Println(schema.TranscriptionResponse(tr, t.ResponseFormat))
 	case schema.TranscriptionResponseFormatJson:
 		tr.Segments = nil
 		fallthrough

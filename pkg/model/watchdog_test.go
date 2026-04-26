@@ -320,7 +320,7 @@ var _ = Describe("WatchDog", func() {
 		})
 
 		It("should handle rapid model switches", func() {
-			for i := 0; i < 5; i++ {
+			for range 5 {
 				wd.AddAddressModelMap("addr", "model")
 				wd.Mark("addr")
 				wd.UnMark("addr") // Unmark to make it idle
@@ -555,6 +555,114 @@ var _ = Describe("WatchDog", func() {
 			result := wd.EnforceLRULimit(0)
 			Expect(result.EvictedCount).To(Equal(2))
 			Expect(result.NeedMore).To(BeFalse()) // We evicted enough (2 models)
+		})
+	})
+
+	Context("Pinned Models", func() {
+		It("should set and get pinned models", func() {
+			wd = model.NewWatchDog(
+				model.WithProcessManager(pm),
+			)
+			Expect(wd.IsModelPinned("model1")).To(BeFalse())
+
+			wd.SetPinnedModels([]string{"model1", "model2"})
+			Expect(wd.IsModelPinned("model1")).To(BeTrue())
+			Expect(wd.IsModelPinned("model2")).To(BeTrue())
+			Expect(wd.IsModelPinned("model3")).To(BeFalse())
+		})
+
+		It("should replace pinned models on subsequent calls", func() {
+			wd = model.NewWatchDog(
+				model.WithProcessManager(pm),
+			)
+			wd.SetPinnedModels([]string{"model1"})
+			Expect(wd.IsModelPinned("model1")).To(BeTrue())
+
+			wd.SetPinnedModels([]string{"model2"})
+			Expect(wd.IsModelPinned("model1")).To(BeFalse())
+			Expect(wd.IsModelPinned("model2")).To(BeTrue())
+		})
+
+		It("should skip pinned models during LRU eviction", func() {
+			wd = model.NewWatchDog(
+				model.WithProcessManager(pm),
+				model.WithLRULimit(2),
+				model.WithForceEvictionWhenBusy(true),
+			)
+
+			// Add two models, pin the older one
+			wd.AddAddressModelMap("addr1", "model1")
+			wd.Mark("addr1")
+			wd.UnMark("addr1")
+			time.Sleep(10 * time.Millisecond)
+
+			wd.AddAddressModelMap("addr2", "model2")
+			wd.Mark("addr2")
+			wd.UnMark("addr2")
+
+			wd.SetPinnedModels([]string{"model1"})
+
+			// Enforce LRU - model1 is oldest but pinned, model2 should be evicted
+			result := wd.EnforceLRULimit(0)
+			Expect(result.EvictedCount).To(Equal(1))
+			Expect(pm.getShutdownCalls()).To(ContainElement("model2"))
+			Expect(pm.getShutdownCalls()).ToNot(ContainElement("model1"))
+		})
+
+		It("should not evict any model when all are pinned and LRU limit reached", func() {
+			wd = model.NewWatchDog(
+				model.WithProcessManager(pm),
+				model.WithLRULimit(1),
+				model.WithForceEvictionWhenBusy(true),
+			)
+
+			wd.AddAddressModelMap("addr1", "model1")
+			wd.Mark("addr1")
+			wd.UnMark("addr1")
+			time.Sleep(10 * time.Millisecond)
+
+			wd.AddAddressModelMap("addr2", "model2")
+			wd.Mark("addr2")
+			wd.UnMark("addr2")
+
+			wd.SetPinnedModels([]string{"model1", "model2"})
+
+			result := wd.EnforceLRULimit(0)
+			Expect(result.EvictedCount).To(Equal(0))
+			Expect(pm.getShutdownCalls()).To(BeEmpty())
+		})
+
+		It("should skip pinned models during idle check", func() {
+			wd = model.NewWatchDog(
+				model.WithProcessManager(pm),
+				model.WithIdleTimeout(10*time.Millisecond),
+				model.WithIdleCheck(true),
+				model.WithWatchdogInterval(50*time.Millisecond),
+			)
+
+			// Add two models and make them idle
+			wd.AddAddressModelMap("addr1", "model1")
+			wd.Mark("addr1")
+			wd.UnMark("addr1")
+
+			wd.AddAddressModelMap("addr2", "model2")
+			wd.Mark("addr2")
+			wd.UnMark("addr2")
+
+			// Pin model1
+			wd.SetPinnedModels([]string{"model1"})
+
+			// Start watchdog and wait for idle check
+			go wd.Run()
+			defer wd.Shutdown()
+
+			// Wait for the idle timeout + watchdog interval to pass
+			time.Sleep(200 * time.Millisecond)
+
+			// Only model2 should be shut down
+			shutdowns := pm.getShutdownCalls()
+			Expect(shutdowns).To(ContainElement("model2"))
+			Expect(shutdowns).ToNot(ContainElement("model1"))
 		})
 	})
 

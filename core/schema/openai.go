@@ -2,6 +2,7 @@ package schema
 
 import (
 	"context"
+	"encoding/json"
 
 	functions "github.com/mudler/LocalAI/pkg/functions"
 )
@@ -37,13 +38,40 @@ type OpenAIUsage struct {
 }
 
 type Item struct {
-	Embedding []float32 `json:"embedding"`
-	Index     int       `json:"index"`
-	Object    string    `json:"object,omitempty"`
+	Embedding       []float32 `json:"-"`
+	EmbeddingBase64 string    `json:"-"`
+	Index           int       `json:"index"`
+	Object          string    `json:"object,omitempty"`
 
 	// Images
 	URL     string `json:"url,omitempty"`
 	B64JSON string `json:"b64_json,omitempty"`
+}
+
+// MarshalJSON serialises Item so that the "embedding" field is either a float array
+// or a base64 string depending on which field is populated.  This satisfies the
+// OpenAI API encoding_format contract: the Node.js SDK (v4+) sends
+// encoding_format=base64 by default and expects a base64 string back.
+func (item Item) MarshalJSON() ([]byte, error) {
+	type itemFields struct {
+		Embedding any    `json:"embedding,omitempty"`
+		Index     int    `json:"index"`
+		Object    string `json:"object,omitempty"`
+		URL       string `json:"url,omitempty"`
+		B64JSON   string `json:"b64_json,omitempty"`
+	}
+	f := itemFields{
+		Index:   item.Index,
+		Object:  item.Object,
+		URL:     item.URL,
+		B64JSON: item.B64JSON,
+	}
+	if item.EmbeddingBase64 != "" {
+		f.Embedding = item.EmbeddingBase64
+	} else {
+		f.Embedding = item.Embedding
+	}
+	return json.Marshal(f)
 }
 
 type OpenAIResponse struct {
@@ -146,27 +174,27 @@ type OpenAIRequest struct {
 	// Reference images for models that support them (e.g., Flux Kontext)
 	RefImages []string `json:"ref_images,omitempty"`
 	//whisper/image
-	ResponseFormat interface{} `json:"response_format,omitempty"`
+	ResponseFormat any `json:"response_format,omitempty"`
 	// image
 	Size string `json:"size"`
 	// Prompt is read only by completion/image API calls
-	Prompt interface{} `json:"prompt" yaml:"prompt"`
+	Prompt any `json:"prompt" yaml:"prompt"`
 
 	// Edit endpoint
-	Instruction string      `json:"instruction" yaml:"instruction"`
-	Input       interface{} `json:"input" yaml:"input"`
+	Instruction string `json:"instruction" yaml:"instruction"`
+	Input       any    `json:"input" yaml:"input"`
 
-	Stop interface{} `json:"stop" yaml:"stop"`
+	Stop any `json:"stop" yaml:"stop"`
 
 	// Messages is read only by chat/completion API calls
 	Messages []Message `json:"messages" yaml:"messages"`
 
 	// A list of available functions to call
 	Functions    functions.Functions `json:"functions" yaml:"functions"`
-	FunctionCall interface{}         `json:"function_call" yaml:"function_call"` // might be a string or an object
+	FunctionCall any                 `json:"function_call" yaml:"function_call"` // might be a string or an object
 
 	Tools       []functions.Tool `json:"tools,omitempty" yaml:"tools"`
-	ToolsChoice interface{}      `json:"tool_choice,omitempty" yaml:"tool_choice"`
+	ToolsChoice any              `json:"tool_choice,omitempty" yaml:"tool_choice"`
 
 	Stream bool `json:"stream"`
 

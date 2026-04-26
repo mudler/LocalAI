@@ -17,12 +17,18 @@ service Backend {
   rpc GenerateImage(GenerateImageRequest) returns (Result) {}
   rpc GenerateVideo(GenerateVideoRequest) returns (Result) {}
   rpc AudioTranscription(TranscriptRequest) returns (TranscriptResult) {}
+  rpc AudioTranscriptionStream(TranscriptRequest) returns (stream TranscriptStreamResponse) {}
   rpc TTS(TTSRequest) returns (Result) {}
   rpc TTSStream(TTSRequest) returns (stream Reply) {}
   rpc SoundGeneration(SoundGenerationRequest) returns (Result) {}
   rpc TokenizeString(PredictOptions) returns (TokenizationResponse) {}
   rpc Status(HealthMessage) returns (StatusResponse) {}
   rpc Detect(DetectOptions) returns (DetectResponse) {}
+  rpc FaceVerify(FaceVerifyRequest) returns (FaceVerifyResponse) {}
+  rpc FaceAnalyze(FaceAnalyzeRequest) returns (FaceAnalyzeResponse) {}
+  rpc VoiceVerify(VoiceVerifyRequest) returns (VoiceVerifyResponse) {}
+  rpc VoiceAnalyze(VoiceAnalyzeRequest) returns (VoiceAnalyzeResponse) {}
+  rpc VoiceEmbed(VoiceEmbedRequest) returns (VoiceEmbedResponse) {}
 
   rpc StoresSet(StoresSetOptions) returns (Result) {}
   rpc StoresDelete(StoresDeleteOptions) returns (Result) {}
@@ -51,6 +57,7 @@ service Backend {
   rpc StartQuantization(QuantizationRequest) returns (QuantizationJobResult) {}
   rpc QuantizationProgress(QuantizationProgressRequest) returns (stream QuantizationProgressUpdate) {}
   rpc StopQuantization(QuantizationStopRequest) returns (Result) {}
+
 }
 
 // Define the empty request
@@ -321,11 +328,21 @@ message TranscriptRequest {
   bool translate = 5;
   bool diarize = 6;
   string prompt = 7;
+  float temperature = 8;
+  repeated string timestamp_granularities = 9;
+  bool stream = 10;
 }
 
 message TranscriptResult {
   repeated TranscriptSegment segments = 1;
   string text = 2;
+  string language = 3;
+  float duration = 4;
+}
+
+message TranscriptStreamResponse {
+  string delta = 1;
+  TranscriptResult final_result = 2;
 }
 
 message TranscriptSegment {
@@ -443,6 +460,10 @@ message Message {
 
 message DetectOptions {
   string src = 1;
+  string prompt = 2;           // Text prompt (for SAM 3 PCS mode)
+  repeated float points = 3;   // Point coordinates as [x1, y1, label1, x2, y2, label2, ...] (label: 1=pos, 0=neg)
+  repeated float boxes = 4;    // Box coordinates as [x1, y1, x2, y2, ...]
+  float threshold = 5;         // Detection confidence threshold
 }
 
 message Detection {
@@ -452,10 +473,117 @@ message Detection {
   float height = 4;
   float confidence = 5;
   string class_name = 6;
+  bytes mask = 7;              // PNG-encoded binary segmentation mask
 }
 
 message DetectResponse {
   repeated Detection Detections = 1;
+}
+
+// --- Face recognition messages ---
+
+message FacialArea {
+  float x = 1;
+  float y = 2;
+  float w = 3;
+  float h = 4;
+}
+
+message FaceVerifyRequest {
+  string img1 = 1;              // base64-encoded image
+  string img2 = 2;              // base64-encoded image
+  float  threshold = 3;         // cosine-distance threshold; 0 = use backend default
+  bool   anti_spoofing = 4;     // run MiniFASNet liveness on each image; failed liveness forces verified=false
+}
+
+message FaceVerifyResponse {
+  bool       verified = 1;
+  float      distance = 2;      // 1 - cosine_similarity
+  float      threshold = 3;
+  float      confidence = 4;    // 0-100
+  string     model = 5;         // e.g. "buffalo_l"
+  FacialArea img1_area = 6;
+  FacialArea img2_area = 7;
+  float      processing_time_ms = 8;
+  bool       img1_is_real = 9;          // anti-spoofing result when enabled
+  float      img1_antispoof_score = 10;
+  bool       img2_is_real = 11;
+  float      img2_antispoof_score = 12;
+}
+
+message FaceAnalyzeRequest {
+  string          img = 1;          // base64-encoded image
+  repeated string actions = 2;      // subset of ["age","gender","emotion","race"]; empty = all-supported
+  bool            anti_spoofing = 3;
+}
+
+message FaceAnalysis {
+  FacialArea         region = 1;
+  float              face_confidence = 2;
+  float              age = 3;
+  string             dominant_gender = 4;   // "Man" | "Woman"
+  map<string, float> gender = 5;
+  string             dominant_emotion = 6;  // reserved; empty in MVP
+  map<string, float> emotion = 7;
+  string             dominant_race = 8;     // not populated
+  map<string, float> race = 9;
+  bool               is_real = 10;          // anti-spoofing result when enabled
+  float              antispoof_score = 11;
+}
+
+message FaceAnalyzeResponse {
+  repeated FaceAnalysis faces = 1;
+}
+
+// --- Voice (speaker) recognition messages ---
+//
+// Analogous to the Face* messages above, but for speaker biometrics.
+// Audio fields accept a filesystem path (same convention as
+// TranscriptRequest.dst). The HTTP layer materialises base64 / URL /
+// data-URI inputs to a temp file before calling the gRPC backend.
+
+message VoiceVerifyRequest {
+  string audio1 = 1;            // path to first audio clip
+  string audio2 = 2;            // path to second audio clip
+  float  threshold = 3;         // cosine-distance threshold; 0 = use backend default
+  bool   anti_spoofing = 4;     // reserved for future AASIST bolt-on
+}
+
+message VoiceVerifyResponse {
+  bool   verified = 1;
+  float  distance = 2;          // 1 - cosine_similarity
+  float  threshold = 3;
+  float  confidence = 4;        // 0-100
+  string model = 5;             // e.g. "speechbrain/spkrec-ecapa-voxceleb"
+  float  processing_time_ms = 6;
+}
+
+message VoiceAnalyzeRequest {
+  string          audio = 1;        // path to audio clip
+  repeated string actions = 2;      // subset of ["age","gender","emotion"]; empty = all-supported
+}
+
+message VoiceAnalysis {
+  float              start = 1;          // segment start time in seconds (0 if single-utterance)
+  float              end = 2;            // segment end time in seconds
+  float              age = 3;
+  string             dominant_gender = 4;
+  map<string, float> gender = 5;
+  string             dominant_emotion = 6;
+  map<string, float> emotion = 7;
+}
+
+message VoiceAnalyzeResponse {
+  repeated VoiceAnalysis segments = 1;
+}
+
+message VoiceEmbedRequest {
+  string audio = 1;              // path to audio clip
+}
+
+message VoiceEmbedResponse {
+  repeated float embedding = 1;
+  string         model = 2;
 }
 
 message ToolFormatMarkers {
@@ -540,6 +668,7 @@ message ModelMetadataResponse {
   bool supports_thinking = 1;
   string rendered_template = 2;  // The rendered chat template with enable_thinking=true (empty if not applicable)
   ToolFormatMarkers tool_format = 3;  // Auto-detected tool format markers from differential template analysis
+  string media_marker = 4;  // Marker the backend expects in the prompt for each multimodal input (images/audio/video). Empty when the backend does not use a marker.
 }
 
 // Fine-tuning messages
@@ -676,3 +805,4 @@ message QuantizationProgressUpdate {
 message QuantizationStopRequest {
   string job_id = 1;
 }
+

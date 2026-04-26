@@ -3,12 +3,12 @@ package integration_test
 import (
 	"context"
 	"math"
-	"math/rand"
+	"math/rand/v2"
 	"os"
 
+	"github.com/mudler/xlog"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/mudler/xlog"
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/pkg/grpc"
@@ -313,7 +313,7 @@ var _ = Describe("Integration tests for the stores backend(s) and internal APIs"
 		})
 
 		It("It obeys the triangle inequality", func() {
-			rnd := rand.New(rand.NewSource(151))
+			rnd := rand.New(rand.NewPCG(151, 0))
 			keys := make([][]float32, 20)
 			vals := make([][]byte, 20)
 

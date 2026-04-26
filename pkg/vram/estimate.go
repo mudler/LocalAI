@@ -7,18 +7,19 @@ import (
 	"strings"
 
 	"github.com/mudler/LocalAI/pkg/downloader"
+	"github.com/mudler/xlog"
 )
 
 var weightExts = map[string]bool{
 	".gguf": true, ".safetensors": true, ".bin": true, ".pt": true,
 }
 
-func isWeightFile(nameOrURI string) bool {
+func IsWeightFile(nameOrURI string) bool {
 	ext := strings.ToLower(path.Ext(path.Base(nameOrURI)))
 	return weightExts[ext]
 }
 
-func isGGUF(nameOrURI string) bool {
+func IsGGUF(nameOrURI string) bool {
 	return strings.ToLower(path.Ext(path.Base(nameOrURI))) == ".gguf"
 }
 
@@ -35,7 +36,7 @@ func Estimate(ctx context.Context, files []FileInput, opts EstimateOptions, size
 	var firstGGUFURI string
 	for i := range files {
 		f := &files[i]
-		if !isWeightFile(f.URI) {
+		if !IsWeightFile(f.URI) {
 			continue
 		}
 		sz := f.Size
@@ -47,7 +48,7 @@ func Estimate(ctx context.Context, files []FileInput, opts EstimateOptions, size
 			}
 		}
 		sizeBytes += uint64(sz)
-		if isGGUF(f.URI) {
+		if IsGGUF(f.URI) {
 			ggufSize += uint64(sz)
 			if firstGGUFURI == "" {
 				firstGGUFURI = f.URI
@@ -212,4 +213,59 @@ func DefaultSizeResolver() SizeResolver {
 
 func DefaultGGUFReader() GGUFMetadataReader {
 	return defaultGGUFReader{}
+}
+
+// ModelEstimateInput describes the inputs for a unified VRAM/size estimation.
+// The estimator cascades through available data: files → size string → HF repo → zero.
+type ModelEstimateInput struct {
+	Files   []FileInput     // weight files with optional pre-known sizes
+	Size    string          // gallery hardcoded size (e.g. "14.5GB")
+	HFRepo  string          // HF repo ID or URL
+	Options EstimateOptions // context length, GPU layers, KV quant bits
+}
+
+// EstimateModel provides a unified VRAM estimation entry point.
+// It tries (in order):
+//  1. Direct file-based estimation (GGUF metadata or file size heuristic)
+//  2. ParseSizeString from Size field
+//  3. EstimateFromHFRepo
+//  4. Zero result
+func EstimateModel(ctx context.Context, input ModelEstimateInput) (EstimateResult, error) {
+	// 1. Try direct file estimation
+	if len(input.Files) > 0 {
+		result, err := Estimate(ctx, input.Files, input.Options, DefaultCachedSizeResolver(), DefaultCachedGGUFReader())
+		if err != nil {
+			xlog.Debug("VRAM estimation from files failed", "error", err)
+		}
+		if err == nil && result.SizeBytes > 0 {
+			return result, nil
+		}
+	}
+
+	// 2. Try size string
+	if input.Size != "" {
+		if sizeBytes, err := ParseSizeString(input.Size); err != nil {
+			xlog.Debug("VRAM estimation from size string failed", "error", err, "size", input.Size)
+		} else if sizeBytes > 0 {
+			return EstimateFromSize(sizeBytes), nil
+		}
+	}
+
+	// 3. Try HF repo
+	hfRepo := input.HFRepo
+	if repoID, ok := ExtractHFRepoID(hfRepo); ok {
+		hfRepo = repoID
+	}
+	if hfRepo != "" {
+		result, err := EstimateFromHFRepo(ctx, hfRepo)
+		if err != nil {
+			xlog.Debug("VRAM estimation from HF repo failed", "error", err, "repo", hfRepo)
+		}
+		if err == nil && result.SizeBytes > 0 {
+			return result, nil
+		}
+	}
+
+	// 4. No estimation possible
+	return EstimateResult{}, nil
 }

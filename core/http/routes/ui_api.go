@@ -3,13 +3,14 @@ package routes
 import "os"
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"math"
 	"net/http"
 	"net/url"
 	"path"
-	"sort"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -22,9 +23,8 @@ import (
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/http/endpoints/localai"
-	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/p2p"
-	"github.com/mudler/LocalAI/core/services"
+	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/vram"
 	"github.com/mudler/LocalAI/pkg/xsysinfo"
@@ -59,13 +59,13 @@ func getDirectorySize(path string) (int64, error) {
 }
 
 // RegisterUIAPIRoutes registers JSON API routes for the web UI
-func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig, galleryService *services.GalleryService, opcache *services.OpCache, applicationInstance *application.Application, adminMiddleware echo.MiddlewareFunc) {
+func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig, galleryService *galleryop.GalleryService, opcache *galleryop.OpCache, applicationInstance *application.Application, adminMiddleware echo.MiddlewareFunc) {
 
 	// Operations API - Get all current operations (models + backends)
 	app.GET("/api/operations", func(c echo.Context) error {
 		processingData, taskTypes := opcache.GetStatus()
 
-		operations := []map[string]interface{}{}
+		operations := []map[string]any{}
 		for galleryID, jobID := range processingData {
 			taskType := "installation"
 			if tt, ok := taskTypes[galleryID]; ok {
@@ -132,7 +132,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 				}
 			}
 
-			opData := map[string]interface{}{
+			opData := map[string]any{
 				"id":          galleryID,
 				"name":        displayName,
 				"fullName":    galleryID,
@@ -152,21 +152,42 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			operations = append(operations, opData)
 		}
 
+		// Append active file staging operations (distributed mode only)
+		if d := applicationInstance.Distributed(); d != nil && d.Router != nil {
+			for modelID, status := range d.Router.StagingTracker().GetAll() {
+				operations = append(operations, map[string]any{
+					"id":          "staging:" + modelID,
+					"name":        modelID,
+					"fullName":    modelID,
+					"jobID":       "staging:" + modelID,
+					"progress":    int(status.Progress),
+					"taskType":    "staging",
+					"isDeletion":  false,
+					"isBackend":   false,
+					"isQueued":    false,
+					"isCancelled": false,
+					"cancellable": false,
+					"message":     status.Message,
+					"nodeName":    status.NodeName,
+				})
+			}
+		}
+
 		// Sort operations by progress (ascending), then by ID for stable display order
-		sort.Slice(operations, func(i, j int) bool {
-			progressI := operations[i]["progress"].(int)
-			progressJ := operations[j]["progress"].(int)
+		slices.SortFunc(operations, func(a, b map[string]any) int {
+			progressA := a["progress"].(int)
+			progressB := b["progress"].(int)
 
 			// Primary sort by progress
-			if progressI != progressJ {
-				return progressI < progressJ
+			if progressA != progressB {
+				return cmp.Compare(progressA, progressB)
 			}
 
 			// Secondary sort by ID for stability when progress is the same
-			return operations[i]["id"].(string) < operations[j]["id"].(string)
+			return cmp.Compare(a["id"].(string), b["id"].(string))
 		})
 
-		return c.JSON(200, map[string]interface{}{
+		return c.JSON(200, map[string]any{
 			"operations": operations,
 		})
 	}, adminMiddleware)
@@ -179,7 +200,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		err := galleryService.CancelOperation(jobID)
 		if err != nil {
 			xlog.Error("Failed to cancel operation", "error", err, "jobID", jobID)
-			return c.JSON(http.StatusBadRequest, map[string]interface{}{
+			return c.JSON(http.StatusBadRequest, map[string]any{
 				"error": err.Error(),
 			})
 		}
@@ -187,7 +208,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		// Clean up opcache for cancelled operation
 		opcache.DeleteUUID(jobID)
 
-		return c.JSON(200, map[string]interface{}{
+		return c.JSON(200, map[string]any{
 			"success": true,
 			"message": "Operation cancelled",
 		})
@@ -201,7 +222,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		// Remove the operation from the opcache so it no longer appears
 		opcache.DeleteUUID(jobID)
 
-		return c.JSON(200, map[string]interface{}{
+		return c.JSON(200, map[string]any{
 			"success": true,
 			"message": "Operation dismissed",
 		})
@@ -223,7 +244,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		models, err := gallery.AvailableGalleryModels(appConfig.Galleries, appConfig.SystemState)
 		if err != nil {
 			xlog.Error("could not list models from galleries", "error", err)
-			return c.JSON(http.StatusInternalServerError, map[string]interface{}{
+			return c.JSON(http.StatusInternalServerError, map[string]any{
 				"error": err.Error(),
 			})
 		}
@@ -239,7 +260,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		for t := range allTags {
 			tags = append(tags, t)
 		}
-		sort.Strings(tags)
+		slices.Sort(tags)
 
 		// Get all available backends (before filtering so dropdown always shows all)
 		allBackendsMap := map[string]struct{}{}
@@ -252,7 +273,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		for b := range allBackendsMap {
 			backendNames = append(backendNames, b)
 		}
-		sort.Strings(backendNames)
+		slices.Sort(backendNames)
 
 		if tag != "" {
 			models = gallery.GalleryElements[*gallery.GalleryModel](models).FilterByTag(tag)
@@ -312,14 +333,14 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		}
 
 		// Convert models to JSON-friendly format and deduplicate by ID
-		modelsJSON := make([]map[string]interface{}, 0, len(models))
+		modelsJSON := make([]map[string]any, 0, len(models))
 		seenIDs := make(map[string]bool)
 
 		weightExts := map[string]bool{".gguf": true, ".safetensors": true, ".bin": true, ".pt": true}
-		extractHFRepo := func(overrides map[string]interface{}, urls []string) string {
+		extractHFRepo := func(overrides map[string]any, urls []string) string {
 			// Try overrides.parameters.model first
 			if overrides != nil {
-				if params, ok := overrides["parameters"].(map[string]interface{}); ok {
+				if params, ok := overrides["parameters"].(map[string]any); ok {
 					if modelRef, ok := params["model"].(string); ok {
 						if repoID, ok := vram.ExtractHFRepoID(modelRef); ok {
 							return repoID
@@ -345,7 +366,6 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			return false
 		}
 
-		const estimateTimeout = 3 * time.Second
 		const hfEstimateTimeout = 10 * time.Second
 		const estimateConcurrency = 3
 		sem := make(chan struct{}, estimateConcurrency)
@@ -374,7 +394,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 
 			_, trustRemoteCodeExists := m.Overrides["trust_remote_code"]
 
-			obj := map[string]interface{}{
+			obj := map[string]any{
 				"id":              modelID,
 				"name":            m.Name,
 				"description":     m.Description,
@@ -392,67 +412,56 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 				"backend":         m.Backend,
 			}
 
+			// Build EstimateModel input from available metadata
+			var estimateInput vram.ModelEstimateInput
+			estimateInput.Options = vram.EstimateOptions{ContextLength: 8192}
+			estimateInput.Size = m.Size
+			if hfRepoID := extractHFRepo(m.Overrides, m.URLs); hfRepoID != "" {
+				estimateInput.HFRepo = hfRepoID
+			}
+
 			if hasWeightFiles(m.AdditionalFiles) {
 				files := make([]gallery.File, len(m.AdditionalFiles))
 				copy(files, m.AdditionalFiles)
-				wg.Add(1)
-				go func(files []gallery.File, out map[string]interface{}) {
-					defer wg.Done()
-					sem <- struct{}{}
-					defer func() { <-sem }()
-					inputs := make([]vram.FileInput, 0, len(files))
-					for _, f := range files {
-						ext := strings.ToLower(path.Ext(path.Base(f.URI)))
-						if weightExts[ext] {
-							inputs = append(inputs, vram.FileInput{URI: f.URI, Size: 0})
-						}
+				for _, f := range files {
+					ext := strings.ToLower(path.Ext(path.Base(f.URI)))
+					if weightExts[ext] {
+						estimateInput.Files = append(estimateInput.Files, vram.FileInput{URI: f.URI, Size: 0})
 					}
-					if len(inputs) == 0 {
-						return
-					}
-					ctx, cancel := context.WithTimeout(context.Background(), estimateTimeout)
-					defer cancel()
-					opts := vram.EstimateOptions{ContextLength: 8192}
-					result, err := vram.Estimate(ctx, inputs, opts, vram.DefaultCachedSizeResolver(), vram.DefaultCachedGGUFReader())
-					if err == nil {
-						if result.SizeBytes > 0 {
-							out["estimated_size_bytes"] = result.SizeBytes
-							out["estimated_size_display"] = result.SizeDisplay
-						}
-						if result.VRAMBytes > 0 {
-							out["estimated_vram_bytes"] = result.VRAMBytes
-							out["estimated_vram_display"] = result.VRAMDisplay
-						}
-					}
-				}(files, obj)
-			} else if m.Size != "" {
-				if sizeBytes, err := vram.ParseSizeString(m.Size); err == nil && sizeBytes > 0 {
-					result := vram.EstimateFromSize(sizeBytes)
-					obj["estimated_size_bytes"] = result.SizeBytes
-					obj["estimated_size_display"] = result.SizeDisplay
-					obj["estimated_vram_bytes"] = result.VRAMBytes
-					obj["estimated_vram_display"] = result.VRAMDisplay
 				}
-			} else if hfRepoID := extractHFRepo(m.Overrides, m.URLs); hfRepoID != "" {
-				wg.Add(1)
-				go func(repoID string, out map[string]interface{}) {
-					defer wg.Done()
+			}
+
+			// Run estimation (async for file-based and HF repo, sync for size string only)
+			needsAsync := len(estimateInput.Files) > 0 || estimateInput.HFRepo != ""
+			if needsAsync {
+				input := estimateInput
+				wg.Go(func() {
 					sem <- struct{}{}
 					defer func() { <-sem }()
 					ctx, cancel := context.WithTimeout(context.Background(), hfEstimateTimeout)
 					defer cancel()
-					result, err := vram.EstimateFromHFRepo(ctx, repoID)
+					result, err := vram.EstimateModel(ctx, input)
 					if err == nil {
 						if result.SizeBytes > 0 {
-							out["estimated_size_bytes"] = result.SizeBytes
-							out["estimated_size_display"] = result.SizeDisplay
+							obj["estimated_size_bytes"] = result.SizeBytes
+							obj["estimated_size_display"] = result.SizeDisplay
 						}
 						if result.VRAMBytes > 0 {
-							out["estimated_vram_bytes"] = result.VRAMBytes
-							out["estimated_vram_display"] = result.VRAMDisplay
+							obj["estimated_vram_bytes"] = result.VRAMBytes
+							obj["estimated_vram_display"] = result.VRAMDisplay
 						}
 					}
-				}(hfRepoID, obj)
+				})
+			} else if estimateInput.Size != "" {
+				result, _ := vram.EstimateModel(context.Background(), estimateInput)
+				if result.SizeBytes > 0 {
+					obj["estimated_size_bytes"] = result.SizeBytes
+					obj["estimated_size_display"] = result.SizeDisplay
+				}
+				if result.VRAMBytes > 0 {
+					obj["estimated_vram_bytes"] = result.VRAMBytes
+					obj["estimated_vram_display"] = result.VRAMDisplay
+				}
 			}
 
 			modelsJSON = append(modelsJSON, obj)
@@ -471,16 +480,16 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 
 		// Calculate installed models count (models with configs + models without configs)
 		modelConfigs := cl.GetAllModelsConfigs()
-		modelsWithoutConfig, _ := services.ListModels(cl, ml, config.NoFilterFn, services.LOOSE_ONLY)
+		modelsWithoutConfig, _ := galleryop.ListModels(cl, ml, config.NoFilterFn, galleryop.LOOSE_ONLY)
 		installedModelsCount := len(modelConfigs) + len(modelsWithoutConfig)
 
 		ramInfo, _ := xsysinfo.GetSystemRAMInfo()
 
-		return c.JSON(200, map[string]interface{}{
+		return c.JSON(200, map[string]any{
 			"models":           modelsJSON,
 			"repositories":     appConfig.Galleries,
 			"allTags":          tags,
-			"allBackends":     backendNames,
+			"allBackends":      backendNames,
 			"processingModels": processingModelsData,
 			"taskTypes":        taskTypes,
 			"availableModels":  totalModels,
@@ -498,26 +507,91 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 	// Returns installed models with their capability flags for UI filtering
 	app.GET("/api/models/capabilities", func(c echo.Context) error {
 		modelConfigs := cl.GetAllModelsConfigs()
-		modelsWithoutConfig, _ := services.ListModels(cl, ml, config.NoFilterFn, services.LOOSE_ONLY)
+		modelsWithoutConfig, _ := galleryop.ListModels(cl, ml, config.NoFilterFn, galleryop.LOOSE_ONLY)
 
+		type loadedOn struct {
+			NodeID     string `json:"node_id"`
+			NodeName   string `json:"node_name"`
+			State      string `json:"state"`
+			NodeStatus string `json:"node_status"`
+		}
 		type modelCapability struct {
-			ID           string   `json:"id"`
-			Capabilities []string `json:"capabilities"`
-			Backend      string   `json:"backend"`
+			ID           string     `json:"id"`
+			Capabilities []string   `json:"capabilities"`
+			Backend      string     `json:"backend"`
+			Disabled     bool       `json:"disabled"`
+			Pinned       bool       `json:"pinned"`
+			// LoadedOn is populated only when the node registry is active
+			// (distributed mode). Lets the UI show "loaded on worker-1" without
+			// the operator having to expand every node manually. An empty slice
+			// with nil reports "no loaded replicas" vs. nil reports "not in
+			// cluster mode" — the frontend treats both as "no distribution info".
+			LoadedOn []loadedOn `json:"loaded_on,omitempty"`
+			// Source="registry-only" marks models adopted from the cluster that
+			// have no local config yet (ghosts that the reconciler discovered).
+			Source string `json:"source,omitempty"`
+		}
+
+		// Join with the node registry when we have one (distributed mode). A
+		// single registry fetch + map join beats per-model queries for the
+		// 100-model case.
+		var loadedByModel map[string][]loadedOn
+		if ds := applicationInstance.Distributed(); ds != nil && ds.Registry != nil {
+			nodeModels, err := ds.Registry.ListAllLoadedModels(c.Request().Context())
+			if err == nil {
+				allNodes, _ := ds.Registry.List(c.Request().Context())
+				nameByID := make(map[string]string, len(allNodes))
+				statusByID := make(map[string]string, len(allNodes))
+				for _, n := range allNodes {
+					nameByID[n.ID] = n.Name
+					statusByID[n.ID] = n.Status
+				}
+				loadedByModel = make(map[string][]loadedOn)
+				for _, nm := range nodeModels {
+					loadedByModel[nm.ModelName] = append(loadedByModel[nm.ModelName], loadedOn{
+						NodeID:     nm.NodeID,
+						NodeName:   nameByID[nm.NodeID],
+						State:      nm.State,
+						NodeStatus: statusByID[nm.NodeID],
+					})
+				}
+			}
 		}
 
 		result := make([]modelCapability, 0, len(modelConfigs)+len(modelsWithoutConfig))
+		seen := make(map[string]bool, len(modelConfigs)+len(modelsWithoutConfig))
 		for _, cfg := range modelConfigs {
+			seen[cfg.Name] = true
 			result = append(result, modelCapability{
 				ID:           cfg.Name,
 				Capabilities: cfg.KnownUsecaseStrings,
 				Backend:      cfg.Backend,
+				Disabled:     cfg.IsDisabled(),
+				Pinned:       cfg.IsPinned(),
+				LoadedOn:     loadedByModel[cfg.Name],
 			})
 		}
 		for _, name := range modelsWithoutConfig {
+			seen[name] = true
 			result = append(result, modelCapability{
 				ID:           name,
 				Capabilities: []string{},
+				LoadedOn:     loadedByModel[name],
+			})
+		}
+		// Emit entries for cluster models that have no local config — these
+		// are the actual ghosts. Without this the operator would have no way
+		// to see a model the cluster is running if its config file wasn't
+		// synced to this frontend's filesystem.
+		for name, loc := range loadedByModel {
+			if seen[name] {
+				continue
+			}
+			result = append(result, modelCapability{
+				ID:           name,
+				Capabilities: []string{},
+				LoadedOn:     loc,
+				Source:       "registry-only",
 			})
 		}
 
@@ -551,7 +625,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		// URL decode the gallery ID (e.g., "localai%40model" -> "localai@model")
 		galleryID, err := url.QueryUnescape(galleryID)
 		if err != nil {
-			return c.JSON(http.StatusBadRequest, map[string]interface{}{
+			return c.JSON(http.StatusBadRequest, map[string]any{
 				"error": "invalid model ID",
 			})
 		}
@@ -559,7 +633,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 
 		id, err := uuid.NewUUID()
 		if err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]interface{}{
+			return c.JSON(http.StatusInternalServerError, map[string]any{
 				"error": err.Error(),
 			})
 		}
@@ -568,7 +642,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		opcache.Set(galleryID, uid)
 
 		ctx, cancelFunc := context.WithCancel(context.Background())
-		op := services.GalleryOp[gallery.GalleryModel, gallery.ModelConfig]{
+		op := galleryop.ManagementOp[gallery.GalleryModel, gallery.ModelConfig]{
 			ID:                 uid,
 			GalleryElementName: galleryID,
 			Galleries:          appConfig.Galleries,
@@ -582,7 +656,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			galleryService.ModelGalleryChannel <- op
 		}()
 
-		return c.JSON(200, map[string]interface{}{
+		return c.JSON(200, map[string]any{
 			"jobID":   uid,
 			"message": "Installation started",
 		})
@@ -593,7 +667,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		// URL decode the gallery ID
 		galleryID, err := url.QueryUnescape(galleryID)
 		if err != nil {
-			return c.JSON(http.StatusBadRequest, map[string]interface{}{
+			return c.JSON(http.StatusBadRequest, map[string]any{
 				"error": "invalid model ID",
 			})
 		}
@@ -606,7 +680,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 
 		id, err := uuid.NewUUID()
 		if err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]interface{}{
+			return c.JSON(http.StatusInternalServerError, map[string]any{
 				"error": err.Error(),
 			})
 		}
@@ -616,7 +690,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		opcache.Set(galleryID, uid)
 
 		ctx, cancelFunc := context.WithCancel(context.Background())
-		op := services.GalleryOp[gallery.GalleryModel, gallery.ModelConfig]{
+		op := galleryop.ManagementOp[gallery.GalleryModel, gallery.ModelConfig]{
 			ID:                 uid,
 			Delete:             true,
 			GalleryElementName: galleryName,
@@ -632,7 +706,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			cl.RemoveModelConfig(galleryName)
 		}()
 
-		return c.JSON(200, map[string]interface{}{
+		return c.JSON(200, map[string]any{
 			"jobID":   uid,
 			"message": "Deletion started",
 		})
@@ -643,7 +717,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		// URL decode the gallery ID
 		galleryID, err := url.QueryUnescape(galleryID)
 		if err != nil {
-			return c.JSON(http.StatusBadRequest, map[string]interface{}{
+			return c.JSON(http.StatusBadRequest, map[string]any{
 				"error": "invalid model ID",
 			})
 		}
@@ -651,33 +725,33 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 
 		models, err := gallery.AvailableGalleryModels(appConfig.Galleries, appConfig.SystemState)
 		if err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]interface{}{
+			return c.JSON(http.StatusInternalServerError, map[string]any{
 				"error": err.Error(),
 			})
 		}
 
 		model := gallery.FindGalleryElement(models, galleryID)
 		if model == nil {
-			return c.JSON(http.StatusNotFound, map[string]interface{}{
+			return c.JSON(http.StatusNotFound, map[string]any{
 				"error": "model not found",
 			})
 		}
 
 		config, err := gallery.GetGalleryConfigFromURL[gallery.ModelConfig](model.URL, appConfig.SystemState.Model.ModelsPath)
 		if err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]interface{}{
+			return c.JSON(http.StatusInternalServerError, map[string]any{
 				"error": err.Error(),
 			})
 		}
 
 		_, err = gallery.InstallModel(context.Background(), appConfig.SystemState, model.Name, &config, model.Overrides, nil, false)
 		if err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]interface{}{
+			return c.JSON(http.StatusInternalServerError, map[string]any{
 				"error": err.Error(),
 			})
 		}
 
-		return c.JSON(200, map[string]interface{}{
+		return c.JSON(200, map[string]any{
 			"message": "Configuration file saved",
 		})
 	}, adminMiddleware)
@@ -686,20 +760,32 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 	app.GET("/api/models/config-json/:name", func(c echo.Context) error {
 		modelName := c.Param("name")
 		if modelName == "" {
-			return c.JSON(http.StatusBadRequest, map[string]interface{}{
+			return c.JSON(http.StatusBadRequest, map[string]any{
 				"error": "model name is required",
 			})
 		}
 
 		modelConfig, exists := cl.GetModelConfig(modelName)
 		if !exists {
-			return c.JSON(http.StatusNotFound, map[string]interface{}{
+			return c.JSON(http.StatusNotFound, map[string]any{
 				"error": "model configuration not found",
 			})
 		}
 
 		return c.JSON(http.StatusOK, modelConfig)
 	}, adminMiddleware)
+
+	// Config metadata API - returns field metadata for all ~170 config fields
+	app.GET("/api/models/config-metadata", localai.ConfigMetadataEndpoint(), adminMiddleware)
+
+	// Autocomplete providers for config fields (dynamic values only)
+	app.GET("/api/models/config-metadata/autocomplete/:provider", localai.AutocompleteEndpoint(cl, ml, appConfig), adminMiddleware)
+
+	// PATCH config endpoint - partial update using nested JSON merge
+	app.PATCH("/api/models/config-json/:name", localai.PatchConfigEndpoint(cl, ml, appConfig), adminMiddleware)
+
+	// VRAM estimation endpoint
+	app.POST("/api/models/vram-estimate", localai.VRAMEstimateEndpoint(cl, appConfig), adminMiddleware)
 
 	// Get installed model YAML config for the React model editor
 	app.GET("/api/models/edit/:name", func(c echo.Context) error {
@@ -708,33 +794,33 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			modelName = decoded
 		}
 		if modelName == "" {
-			return c.JSON(http.StatusBadRequest, map[string]interface{}{
+			return c.JSON(http.StatusBadRequest, map[string]any{
 				"error": "model name is required",
 			})
 		}
 
 		modelConfig, exists := cl.GetModelConfig(modelName)
 		if !exists {
-			return c.JSON(http.StatusNotFound, map[string]interface{}{
+			return c.JSON(http.StatusNotFound, map[string]any{
 				"error": "model configuration not found",
 			})
 		}
 
 		modelConfigFile := modelConfig.GetModelConfigFile()
 		if modelConfigFile == "" {
-			return c.JSON(http.StatusNotFound, map[string]interface{}{
+			return c.JSON(http.StatusNotFound, map[string]any{
 				"error": "model configuration file not found",
 			})
 		}
 
 		configData, err := os.ReadFile(modelConfigFile)
 		if err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]interface{}{
+			return c.JSON(http.StatusInternalServerError, map[string]any{
 				"error": "failed to read configuration file: " + err.Error(),
 			})
 		}
 
-		return c.JSON(http.StatusOK, map[string]interface{}{
+		return c.JSON(http.StatusOK, map[string]any{
 			"config": string(configData),
 			"name":   modelName,
 		})
@@ -746,7 +832,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		status := galleryService.GetStatus(jobUID)
 		if status == nil {
 			// Job is queued but hasn't started processing yet
-			return c.JSON(200, map[string]interface{}{
+			return c.JSON(200, map[string]any{
 				"progress":           0,
 				"message":            "Operation queued",
 				"galleryElementName": "",
@@ -756,7 +842,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			})
 		}
 
-		response := map[string]interface{}{
+		response := map[string]any{
 			"progress":           status.Progress,
 			"message":            status.Message,
 			"galleryElementName": status.GalleryElementName,
@@ -790,12 +876,37 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			items = "9"
 		}
 
-		backends, err := gallery.AvailableBackends(appConfig.BackendGalleries, appConfig.SystemState)
+		backends, err := gallery.AvailableBackendsUnfiltered(appConfig.BackendGalleries, appConfig.SystemState)
 		if err != nil {
 			xlog.Error("could not list backends from galleries", "error", err)
-			return c.JSON(http.StatusInternalServerError, map[string]interface{}{
+			return c.JSON(http.StatusInternalServerError, map[string]any{
 				"error": err.Error(),
 			})
+		}
+
+		// Collect concrete backend names that are referenced by any meta backend's
+		// CapabilitiesMap. These are the per-capability variants the UI hides by
+		// default behind "Show all" (the meta backend is the preferred entry).
+		aliasedByMeta := make(map[string]bool)
+		for _, b := range backends {
+			if !b.IsMeta() {
+				continue
+			}
+			for _, concreteName := range b.CapabilitiesMap {
+				aliasedByMeta[concreteName] = true
+			}
+		}
+
+		// Use the BackendManager's list to determine installed status.
+		// In standalone mode this checks the local filesystem; in distributed
+		// mode it aggregates from all healthy worker nodes.
+		installedBackends, listErr := galleryService.ListBackends()
+		if listErr == nil {
+			for i, b := range backends {
+				if installedBackends.Exists(b.GetName()) {
+					backends[i].Installed = true
+				}
+			}
 		}
 
 		// Get all available tags
@@ -809,7 +920,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		for t := range allTags {
 			tags = append(tags, t)
 		}
-		sort.Strings(tags)
+		slices.Sort(tags)
 
 		if tag != "" {
 			backends = gallery.GalleryElements[*gallery.GalleryBackend](backends).FilterByTag(tag)
@@ -856,8 +967,14 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			backends = backends.Paginate(pageNum, itemsNum)
 		}
 
+		// Get dev suffix from SystemState for development backend detection
+		devSuffix := ""
+		if appConfig.SystemState != nil {
+			devSuffix = appConfig.SystemState.BackendDevSuffix
+		}
+
 		// Convert backends to JSON-friendly format and deduplicate by ID
-		backendsJSON := make([]map[string]interface{}, 0, len(backends))
+		backendsJSON := make([]map[string]any, 0, len(backends))
 		seenBackendIDs := make(map[string]bool)
 
 		for _, b := range backends {
@@ -881,19 +998,23 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 				}
 			}
 
-			backendsJSON = append(backendsJSON, map[string]interface{}{
-				"id":          backendID,
-				"name":        b.Name,
-				"description": b.Description,
-				"icon":        b.Icon,
-				"license":     b.License,
-				"urls":        b.URLs,
-				"tags":        b.Tags,
-				"gallery":     b.Gallery.Name,
-				"installed":   b.Installed,
-				"processing":  currentlyProcessing,
-				"jobID":       jobID,
-				"isDeletion":  isDeletionOp,
+			backendsJSON = append(backendsJSON, map[string]any{
+				"id":            backendID,
+				"name":          b.Name,
+				"description":   b.Description,
+				"icon":          b.Icon,
+				"license":       b.License,
+				"urls":          b.URLs,
+				"tags":          b.Tags,
+				"gallery":       b.Gallery.Name,
+				"installed":     b.Installed,
+				"version":       b.Version,
+				"processing":    currentlyProcessing,
+				"jobID":         jobID,
+				"isDeletion":    isDeletionOp,
+				"isMeta":        b.IsMeta(),
+				"isAlias":       aliasedByMeta[b.Name],
+				"isDevelopment": b.IsDevelopment(devSuffix),
 			})
 		}
 
@@ -906,11 +1027,15 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			nextPage = totalPages
 		}
 
-		// Calculate installed backends count
-		installedBackends, err := gallery.ListSystemBackends(appConfig.SystemState)
+		// Calculate installed backends count (reuse the already-fetched data)
 		installedBackendsCount := 0
-		if err == nil {
+		if listErr == nil {
 			installedBackendsCount = len(installedBackends)
+		} else {
+			// Fallback to local listing if manager listing failed
+			if localBackends, localErr := gallery.ListSystemBackends(appConfig.SystemState); localErr == nil {
+				installedBackendsCount = len(localBackends)
+			}
 		}
 
 		// Get the detected system capability
@@ -919,7 +1044,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			detectedCapability = appConfig.SystemState.DetectedCapability()
 		}
 
-		return c.JSON(200, map[string]interface{}{
+		return c.JSON(200, map[string]any{
 			"backends":           backendsJSON,
 			"repositories":       appConfig.BackendGalleries,
 			"allTags":            tags,
@@ -931,7 +1056,8 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			"totalPages":         totalPages,
 			"prevPage":           prevPage,
 			"nextPage":           nextPage,
-			"systemCapability":   detectedCapability,
+			"systemCapability":          detectedCapability,
+			"preferDevelopmentBackends": appConfig.PreferDevelopmentBackends,
 		})
 	}, adminMiddleware)
 
@@ -940,7 +1066,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		// URL decode the backend ID
 		backendID, err := url.QueryUnescape(backendID)
 		if err != nil {
-			return c.JSON(http.StatusBadRequest, map[string]interface{}{
+			return c.JSON(http.StatusBadRequest, map[string]any{
 				"error": "invalid backend ID",
 			})
 		}
@@ -948,7 +1074,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 
 		id, err := uuid.NewUUID()
 		if err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]interface{}{
+			return c.JSON(http.StatusInternalServerError, map[string]any{
 				"error": err.Error(),
 			})
 		}
@@ -957,7 +1083,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		opcache.SetBackend(backendID, uid)
 
 		ctx, cancelFunc := context.WithCancel(context.Background())
-		op := services.GalleryOp[gallery.GalleryBackend, any]{
+		op := galleryop.ManagementOp[gallery.GalleryBackend, any]{
 			ID:                 uid,
 			GalleryElementName: backendID,
 			Galleries:          appConfig.BackendGalleries,
@@ -970,7 +1096,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			galleryService.BackendGalleryChannel <- op
 		}()
 
-		return c.JSON(200, map[string]interface{}{
+		return c.JSON(200, map[string]any{
 			"jobID":   uid,
 			"message": "Backend installation started",
 		})
@@ -987,14 +1113,14 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 
 		var req ExternalBackendRequest
 		if err := c.Bind(&req); err != nil {
-			return c.JSON(http.StatusBadRequest, map[string]interface{}{
+			return c.JSON(http.StatusBadRequest, map[string]any{
 				"error": "invalid request body",
 			})
 		}
 
 		// Validate required fields
 		if req.URI == "" {
-			return c.JSON(http.StatusBadRequest, map[string]interface{}{
+			return c.JSON(http.StatusBadRequest, map[string]any{
 				"error": "uri is required",
 			})
 		}
@@ -1003,7 +1129,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 
 		id, err := uuid.NewUUID()
 		if err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]interface{}{
+			return c.JSON(http.StatusInternalServerError, map[string]any{
 				"error": err.Error(),
 			})
 		}
@@ -1018,7 +1144,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		opcache.SetBackend(cacheKey, uid)
 
 		ctx, cancelFunc := context.WithCancel(context.Background())
-		op := services.GalleryOp[gallery.GalleryBackend, any]{
+		op := galleryop.ManagementOp[gallery.GalleryBackend, any]{
 			ID:                 uid,
 			GalleryElementName: req.Name, // May be empty, will be derived during installation
 			Galleries:          appConfig.BackendGalleries,
@@ -1034,7 +1160,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			galleryService.BackendGalleryChannel <- op
 		}()
 
-		return c.JSON(200, map[string]interface{}{
+		return c.JSON(200, map[string]any{
 			"jobID":   uid,
 			"message": "External backend installation started",
 		})
@@ -1045,7 +1171,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		// URL decode the backend ID
 		backendID, err := url.QueryUnescape(backendID)
 		if err != nil {
-			return c.JSON(http.StatusBadRequest, map[string]interface{}{
+			return c.JSON(http.StatusBadRequest, map[string]any{
 				"error": "invalid backend ID",
 			})
 		}
@@ -1058,7 +1184,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 
 		id, err := uuid.NewUUID()
 		if err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]interface{}{
+			return c.JSON(http.StatusInternalServerError, map[string]any{
 				"error": err.Error(),
 			})
 		}
@@ -1068,7 +1194,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		opcache.SetBackend(backendID, uid)
 
 		ctx, cancelFunc := context.WithCancel(context.Background())
-		op := services.GalleryOp[gallery.GalleryBackend, any]{
+		op := galleryop.ManagementOp[gallery.GalleryBackend, any]{
 			ID:                 uid,
 			Delete:             true,
 			GalleryElementName: backendName,
@@ -1082,7 +1208,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			galleryService.BackendGalleryChannel <- op
 		}()
 
-		return c.JSON(200, map[string]interface{}{
+		return c.JSON(200, map[string]any{
 			"jobID":   uid,
 			"message": "Backend deletion started",
 		})
@@ -1094,7 +1220,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		status := galleryService.GetStatus(jobUID)
 		if status == nil {
 			// Job is queued but hasn't started processing yet
-			return c.JSON(200, map[string]interface{}{
+			return c.JSON(200, map[string]any{
 				"progress":           0,
 				"message":            "Operation queued",
 				"galleryElementName": "",
@@ -1104,7 +1230,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			})
 		}
 
-		response := map[string]interface{}{
+		response := map[string]any{
 			"progress":           status.Progress,
 			"message":            status.Message,
 			"galleryElementName": status.GalleryElementName,
@@ -1131,23 +1257,85 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		// URL decode the backend name
 		backendName, err := url.QueryUnescape(backendName)
 		if err != nil {
-			return c.JSON(http.StatusBadRequest, map[string]interface{}{
+			return c.JSON(http.StatusBadRequest, map[string]any{
 				"error": "invalid backend name",
 			})
 		}
 		xlog.Debug("API request to delete system backend", "backendName", backendName)
 
-		// Use the gallery package to delete the backend
-		if err := gallery.DeleteBackendFromSystem(appConfig.SystemState, backendName); err != nil {
+		// Use the gallery service's backend manager, which in distributed mode
+		// fans out deletion to worker nodes via NATS.
+		if err := galleryService.DeleteBackend(backendName); err != nil {
 			xlog.Error("Failed to delete backend", "error", err, "backendName", backendName)
-			return c.JSON(http.StatusInternalServerError, map[string]interface{}{
+			return c.JSON(http.StatusInternalServerError, map[string]any{
 				"error": err.Error(),
 			})
 		}
 
-		return c.JSON(200, map[string]interface{}{
+		return c.JSON(200, map[string]any{
 			"success": true,
 			"message": "Backend deleted successfully",
+		})
+	}, adminMiddleware)
+
+	// Backend upgrade APIs
+	app.GET("/api/backends/upgrades", func(c echo.Context) error {
+		if applicationInstance == nil || applicationInstance.UpgradeChecker() == nil {
+			return c.JSON(200, map[string]any{})
+		}
+		return c.JSON(200, applicationInstance.UpgradeChecker().GetAvailableUpgrades())
+	}, adminMiddleware)
+
+	app.POST("/api/backends/upgrades/check", func(c echo.Context) error {
+		if applicationInstance == nil || applicationInstance.UpgradeChecker() == nil {
+			return c.JSON(200, map[string]any{})
+		}
+		applicationInstance.UpgradeChecker().TriggerCheck()
+		return c.JSON(200, applicationInstance.UpgradeChecker().GetAvailableUpgrades())
+	}, adminMiddleware)
+
+	app.POST("/api/backends/upgrade/:name", func(c echo.Context) error {
+		backendName := c.Param("name")
+		backendName, err := url.QueryUnescape(backendName)
+		if err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]any{
+				"error": "invalid backend name",
+			})
+		}
+
+		id, err := uuid.NewUUID()
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]any{"error": err.Error()})
+		}
+
+		uid := id.String()
+
+		// Register in opcache so the operation shows up in /api/operations
+		// and the Backends UI can reflect progress on the affected row.
+		opcache.SetBackend(backendName, uid)
+
+		ctx, cancelFunc := context.WithCancel(context.Background())
+		op := galleryop.ManagementOp[gallery.GalleryBackend, any]{
+			ID:                 uid,
+			GalleryElementName: backendName,
+			Galleries:          appConfig.BackendGalleries,
+			Upgrade:            true,
+			Context:            ctx,
+			CancelFunc:         cancelFunc,
+		}
+		// Store cancellation function immediately so queued operations can be cancelled
+		galleryService.StoreCancellation(uid, cancelFunc)
+		// Non-blocking send — BackendGalleryChannel is unbuffered and a direct
+		// send would hang the HTTP handler whenever the worker is busy.
+		go func() {
+			galleryService.BackendGalleryChannel <- op
+		}()
+
+		return c.JSON(200, map[string]any{
+			"jobID":     uid,
+			"uuid":      uid,
+			"statusUrl": fmt.Sprintf("/api/backends/job/%s", uid),
+			"message":   "Backend upgrade started",
 		})
 	}, adminMiddleware)
 
@@ -1195,9 +1383,9 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 	app.GET("/api/p2p/federation", func(c echo.Context) error {
 		nodes := p2p.GetAvailableNodes(p2p.NetworkID(appConfig.P2PNetworkID, p2p.FederatedID))
 
-		nodesJSON := make([]map[string]interface{}, 0, len(nodes))
+		nodesJSON := make([]map[string]any, 0, len(nodes))
 		for _, n := range nodes {
-			nodesJSON = append(nodesJSON, map[string]interface{}{
+			nodesJSON = append(nodesJSON, map[string]any{
 				"name":          n.Name,
 				"id":            n.ID,
 				"tunnelAddress": n.TunnelAddress,
@@ -1207,7 +1395,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			})
 		}
 
-		return c.JSON(200, map[string]interface{}{
+		return c.JSON(200, map[string]any{
 			"nodes": nodesJSON,
 		})
 	}, adminMiddleware)
@@ -1266,7 +1454,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 
 		storageSize, _ := getDirectorySize(appConfig.SystemState.Model.ModelsPath)
 
-		response := map[string]interface{}{
+		response := map[string]any{
 			"type":                resourceInfo.Type, // "gpu" or "ram"
 			"available":           resourceInfo.Available,
 			"gpus":                resourceInfo.GPUs,
@@ -1287,23 +1475,5 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		app.POST("/api/settings", localai.UpdateSettingsEndpoint(applicationInstance), adminMiddleware)
 	}
 
-	// Logs API (admin only)
-	app.GET("/api/traces", func(c echo.Context) error {
-		if !appConfig.EnableTracing {
-			return c.JSON(503, map[string]any{
-				"error": "Tracing disabled",
-			})
-		}
-		traces := middleware.GetTraces()
-		return c.JSON(200, map[string]interface{}{
-			"traces": traces,
-		})
-	}, adminMiddleware)
-
-	app.POST("/api/traces/clear", func(c echo.Context) error {
-		middleware.ClearTraces()
-		return c.JSON(200, map[string]interface{}{
-			"message": "Traces cleared",
-		})
-	}, adminMiddleware)
 }
+

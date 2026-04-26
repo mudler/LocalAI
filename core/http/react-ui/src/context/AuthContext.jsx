@@ -7,6 +7,7 @@ export function AuthProvider({ children }) {
   const [state, setState] = useState({
     loading: true,
     authEnabled: false,
+    staticApiKeyRequired: false,
     user: null,
     permissions: {},
   })
@@ -20,12 +21,13 @@ export function AuthProvider({ children }) {
         setState({
           loading: false,
           authEnabled: data.authEnabled || false,
+          staticApiKeyRequired: data.staticApiKeyRequired || false,
           user,
           permissions,
         })
       })
       .catch(() => {
-        setState({ loading: false, authEnabled: false, user: null, permissions: {} })
+        setState({ loading: false, authEnabled: false, staticApiKeyRequired: false, user: null, permissions: {} })
       })
   }
 
@@ -45,17 +47,20 @@ export function AuthProvider({ children }) {
 
   const refresh = () => fetchStatus()
 
+  const noAuthRequired = !state.authEnabled && !state.staticApiKeyRequired
+
   const hasFeature = (name) => {
-    if (state.user?.role === 'admin' || !state.authEnabled) return true
+    if (state.user?.role === 'admin' || noAuthRequired) return true
     return !!state.permissions[name]
   }
 
   const value = {
     loading: state.loading,
     authEnabled: state.authEnabled,
+    staticApiKeyRequired: state.staticApiKeyRequired,
     user: state.user,
     permissions: state.permissions,
-    isAdmin: state.user?.role === 'admin' || !state.authEnabled,
+    isAdmin: state.user?.role === 'admin' || noAuthRequired,
     hasFeature,
     logout,
     refresh,

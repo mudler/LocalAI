@@ -1,0 +1,8 @@
+--extra-index-url https://pypi.jetson-ai-lab.io/sbsa/cu130
+accelerate
+torch
+torchvision
+torchaudio
+transformers
+bitsandbytes
+flash-attn

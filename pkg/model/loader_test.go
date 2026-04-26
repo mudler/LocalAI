@@ -75,6 +75,7 @@ var _ = Describe("ModelLoader", func() {
 	Context("LoadModel", func() {
 		It("should load a model and keep it in memory", func() {
 			mockModel = model.NewModel("foo", "test.model", nil)
+			mockModel.MarkHealthy() // skip gRPC health check (no real server)
 
 			mockLoader := func(modelID, modelName, modelFile string) (*model.Model, error) {
 				return mockModel, nil
@@ -94,6 +95,40 @@ var _ = Describe("ModelLoader", func() {
 			model, err := modelLoader.LoadModel("foo", "test.model", mockLoader)
 			Expect(err).To(HaveOccurred())
 			Expect(model).To(BeNil())
+		})
+	})
+
+	Context("Remote model eviction", func() {
+		It("should evict unreachable remote models from cache on health check", func() {
+			// Create a remote model (process=nil) with an unreachable address
+			remoteModel := model.NewModel("remote-test", "127.0.0.1:1", nil)
+
+			mockLoader := func(modelID, modelName, modelFile string) (*model.Model, error) {
+				return remoteModel, nil
+			}
+
+			_, err := modelLoader.LoadModel("remote-test", "test.model", mockLoader)
+			Expect(err).To(BeNil())
+
+			// CheckIsLoaded should detect the connection error and evict
+			result := modelLoader.CheckIsLoaded("remote-test")
+			Expect(result).To(BeNil(), "unreachable remote model should be evicted from cache")
+		})
+
+		It("should keep recently-healthy remote models in cache", func() {
+			remoteModel := model.NewModel("healthy-remote", "127.0.0.1:1", nil)
+			remoteModel.MarkHealthy() // simulate a recent successful health check
+
+			mockLoader := func(modelID, modelName, modelFile string) (*model.Model, error) {
+				return remoteModel, nil
+			}
+
+			loaded, err := modelLoader.LoadModel("healthy-remote", "test.model", mockLoader)
+			Expect(err).To(BeNil())
+
+			// Within TTL, should return the model without health check
+			result := modelLoader.CheckIsLoaded("healthy-remote")
+			Expect(result).To(Equal(loaded), "recently-healthy model should be returned from cache")
 		})
 	})
 
@@ -118,7 +153,9 @@ var _ = Describe("ModelLoader", func() {
 			mockLoader := func(modelID, modelName, modelFile string) (*model.Model, error) {
 				atomic.AddInt32(&loadCount, 1)
 				time.Sleep(100 * time.Millisecond) // Simulate loading time
-				return model.NewModel(modelID, modelName, nil), nil
+				m := model.NewModel(modelID, modelName, nil)
+				m.MarkHealthy() // skip gRPC health check (no real server)
+				return m, nil
 			}
 
 			var wg sync.WaitGroup
@@ -126,18 +163,16 @@ var _ = Describe("ModelLoader", func() {
 			errs := make([]error, 5)
 
 			// Start 5 concurrent requests for the same model
-			for i := 0; i < 5; i++ {
-				wg.Add(1)
-				go func(idx int) {
-					defer wg.Done()
-					results[idx], errs[idx] = modelLoader.LoadModel("concurrent-model", "test.model", mockLoader)
-				}(i)
+			for i := range 5 {
+				wg.Go(func() {
+					results[i], errs[i] = modelLoader.LoadModel("concurrent-model", "test.model", mockLoader)
+				})
 			}
 
 			wg.Wait()
 
 			// All requests should succeed
-			for i := 0; i < 5; i++ {
+			for i := range 5 {
 				Expect(errs[i]).To(BeNil())
 				Expect(results[i]).ToNot(BeNil())
 			}
@@ -156,21 +191,21 @@ var _ = Describe("ModelLoader", func() {
 			mockLoader := func(modelID, modelName, modelFile string) (*model.Model, error) {
 				atomic.AddInt32(&loadCount, 1)
 				time.Sleep(50 * time.Millisecond) // Simulate loading time
-				return model.NewModel(modelID, modelName, nil), nil
+				m := model.NewModel(modelID, modelName, nil)
+				m.MarkHealthy() // skip gRPC health check (no real server)
+				return m, nil
 			}
 
 			var wg sync.WaitGroup
 			modelCount := 3
 
 			// Start concurrent requests for different models
-			for i := 0; i < modelCount; i++ {
-				wg.Add(1)
-				go func(idx int) {
-					defer wg.Done()
-					modelID := "model-" + string(rune('A'+idx))
+			for i := range modelCount {
+				wg.Go(func() {
+					modelID := "model-" + string(rune('A'+i))
 					_, err := modelLoader.LoadModel(modelID, "test.model", mockLoader)
 					Expect(err).To(BeNil())
-				}(i)
+				})
 			}
 
 			wg.Wait()
@@ -227,23 +262,20 @@ var _ = Describe("ModelLoader", func() {
 
 			// First goroutine will fail
 			var wg sync.WaitGroup
-			wg.Add(2)
 
 			var err1, err2 error
 			var m1, m2 *model.Model
 
-			go func() {
-				defer wg.Done()
+			wg.Go(func() {
 				m1, err1 = modelLoader.LoadModel("retry-model", "test.model", mockLoader)
-			}()
+			})
 
 			// Give first goroutine a head start
 			time.Sleep(10 * time.Millisecond)
 
-			go func() {
-				defer wg.Done()
+			wg.Go(func() {
 				m2, err2 = modelLoader.LoadModel("retry-model", "test.model", mockLoader)
-			}()
+			})
 
 			wg.Wait()
 

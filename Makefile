@@ -1,5 +1,5 @@
 # Disable parallel execution for backend builds
-.NOTPARALLEL: backends/diffusers backends/llama-cpp backends/outetts backends/piper backends/stablediffusion-ggml backends/whisper backends/faster-whisper backends/silero-vad backends/local-store backends/huggingface backends/avian backends/rfdetr backends/kitten-tts backends/kokoro backends/chatterbox backends/llama-cpp-darwin backends/neutts build-darwin-python-backend build-darwin-go-backend backends/mlx backends/diffuser-darwin backends/mlx-vlm backends/mlx-audio backends/mlx-distributed backends/stablediffusion-ggml-darwin backends/vllm backends/vllm-omni backends/moonshine backends/pocket-tts backends/qwen-tts backends/faster-qwen3-tts backends/qwen-asr backends/nemo backends/voxcpm backends/whisperx backends/ace-step backends/acestep-cpp backends/fish-speech backends/voxtral backends/opus backends/trl backends/llama-cpp-quantization
+.NOTPARALLEL: backends/diffusers backends/llama-cpp backends/turboquant backends/outetts backends/piper backends/stablediffusion-ggml backends/whisper backends/faster-whisper backends/silero-vad backends/local-store backends/huggingface backends/avian backends/rfdetr backends/insightface backends/speaker-recognition backends/kitten-tts backends/kokoro backends/chatterbox backends/llama-cpp-darwin backends/neutts build-darwin-python-backend build-darwin-go-backend backends/mlx backends/diffuser-darwin backends/mlx-vlm backends/mlx-audio backends/mlx-distributed backends/stablediffusion-ggml-darwin backends/vllm backends/vllm-omni backends/sglang backends/moonshine backends/pocket-tts backends/qwen-tts backends/faster-qwen3-tts backends/qwen-asr backends/nemo backends/voxcpm backends/whisperx backends/ace-step backends/acestep-cpp backends/fish-speech backends/voxtral backends/opus backends/trl backends/llama-cpp-quantization backends/kokoros backends/sam3-cpp backends/qwen3-tts-cpp backends/tinygrad backends/sherpa-onnx
 
 GOCMD=go
 GOTEST=$(GOCMD) test
@@ -148,7 +148,6 @@ test-models/testmodel.ggml:
 	mkdir -p test-dir
 	wget -q https://huggingface.co/mradermacher/gpt2-alpaca-gpt4-GGUF/resolve/main/gpt2-alpaca-gpt4.Q4_K_M.gguf -O test-models/testmodel.ggml
 	wget -q https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin -O test-models/whisper-en
-	wget -q https://huggingface.co/mudler/all-MiniLM-L6-v2/resolve/main/ggml-model-q4_0.bin -O test-models/bert
 	wget -q https://cdn.openai.com/whisper/draft-20220913a/micro-machines.wav -O test-dir/audio.wav
 	cp tests/models_fixtures/* test-models
 
@@ -395,7 +394,13 @@ protoc:
 .PHONY: protogen-go
 protogen-go: protoc install-go-tools
 	mkdir -p pkg/grpc/proto
-	./protoc --experimental_allow_proto3_optional -Ibackend/ --go_out=pkg/grpc/proto/ --go_opt=paths=source_relative --go-grpc_out=pkg/grpc/proto/ --go-grpc_opt=paths=source_relative \
+	# install-go-tools writes protoc-gen-go and protoc-gen-go-grpc into
+	# $(shell go env GOPATH)/bin, which isn't on every dev's PATH. protoc
+	# resolves its code-gen plugins via PATH, so without this prefix the
+	# generate step fails with "protoc-gen-go: program not found". Prepend
+	# GOPATH/bin so the freshly-installed plugins win without requiring a
+	# shell-profile change.
+	PATH="$$(go env GOPATH)/bin:$$PATH" ./protoc --experimental_allow_proto3_optional -Ibackend/ --go_out=pkg/grpc/proto/ --go_opt=paths=source_relative --go-grpc_out=pkg/grpc/proto/ --go-grpc_opt=paths=source_relative \
     backend/backend.proto
 
 core/config/inference_defaults.json: ## Fetch inference defaults from unsloth (only if missing)
@@ -420,6 +425,7 @@ prepare-test-extra: protogen-python
 	$(MAKE) -C backend/python/chatterbox
 	$(MAKE) -C backend/python/vllm
 	$(MAKE) -C backend/python/vllm-omni
+	$(MAKE) -C backend/python/sglang
 	$(MAKE) -C backend/python/vibevoice
 	$(MAKE) -C backend/python/moonshine
 	$(MAKE) -C backend/python/pocket-tts
@@ -429,9 +435,14 @@ prepare-test-extra: protogen-python
 	$(MAKE) -C backend/python/qwen-asr
 	$(MAKE) -C backend/python/nemo
 	$(MAKE) -C backend/python/voxcpm
+	$(MAKE) -C backend/python/faster-whisper
 	$(MAKE) -C backend/python/whisperx
 	$(MAKE) -C backend/python/ace-step
 	$(MAKE) -C backend/python/trl
+	$(MAKE) -C backend/python/tinygrad
+	$(MAKE) -C backend/python/insightface
+	$(MAKE) -C backend/python/speaker-recognition
+	$(MAKE) -C backend/rust/kokoros kokoros-grpc
 
 test-extra: prepare-test-extra
 	$(MAKE) -C backend/python/transformers test
@@ -449,9 +460,396 @@ test-extra: prepare-test-extra
 	$(MAKE) -C backend/python/qwen-asr test
 	$(MAKE) -C backend/python/nemo test
 	$(MAKE) -C backend/python/voxcpm test
+	$(MAKE) -C backend/python/faster-whisper test
 	$(MAKE) -C backend/python/whisperx test
 	$(MAKE) -C backend/python/ace-step test
 	$(MAKE) -C backend/python/trl test
+	$(MAKE) -C backend/python/tinygrad test
+	$(MAKE) -C backend/python/insightface test
+	$(MAKE) -C backend/python/speaker-recognition test
+	$(MAKE) -C backend/rust/kokoros test
+
+##
+## End-to-end gRPC tests that exercise a built backend container image.
+##
+## The test suite in tests/e2e-backends is backend-agnostic. You drive it via env
+## vars (see tests/e2e-backends/backend_test.go for the full list) and the
+## capability-driven harness picks which gRPC RPCs to exercise:
+##
+##   BACKEND_IMAGE            Required. Docker image to test, e.g. local-ai-backend:llama-cpp.
+##   BACKEND_TEST_MODEL_URL   URL of a model file to download and load.
+##   BACKEND_TEST_MODEL_FILE  Path to an already-downloaded model (skips download).
+##   BACKEND_TEST_MODEL_NAME  HuggingFace repo id (e.g. Qwen/Qwen2.5-0.5B-Instruct).
+##                            Use this instead of MODEL_URL for backends that
+##                            resolve HF model ids natively (vllm, vllm-omni).
+##   BACKEND_TEST_CAPS        Comma-separated capabilities, default "health,load,predict,stream".
+##                            Adds "tools" to exercise ChatDelta tool call extraction.
+##   BACKEND_TEST_PROMPT      Override the prompt used in predict/stream specs.
+##   BACKEND_TEST_OPTIONS     Comma-separated Options[] entries forwarded to LoadModel,
+##                            e.g. "tool_parser:hermes,reasoning_parser:qwen3".
+##
+## Direct usage (image already built, no docker-build-* dependency):
+##
+##   make test-extra-backend BACKEND_IMAGE=local-ai-backend:llama-cpp \
+##       BACKEND_TEST_MODEL_URL=https://.../model.gguf
+##
+## Convenience wrappers below build a specific backend image first, then run the
+## suite against it.
+##
+BACKEND_TEST_MODEL_URL?=https://huggingface.co/Qwen/Qwen3-0.6B-GGUF/resolve/main/Qwen3-0.6B-Q8_0.gguf
+
+## Generic target — runs the suite against whatever BACKEND_IMAGE points at.
+## Depends on protogen-go so pkg/grpc/proto is generated before `go test`.
+test-extra-backend: protogen-go
+	@test -n "$$BACKEND_IMAGE" || { echo "BACKEND_IMAGE must be set" >&2; exit 1; }
+	BACKEND_IMAGE="$$BACKEND_IMAGE" \
+	BACKEND_TEST_MODEL_URL="$${BACKEND_TEST_MODEL_URL:-$(BACKEND_TEST_MODEL_URL)}" \
+	BACKEND_TEST_MODEL_FILE="$$BACKEND_TEST_MODEL_FILE" \
+	BACKEND_TEST_MODEL_NAME="$$BACKEND_TEST_MODEL_NAME" \
+	BACKEND_TEST_MMPROJ_URL="$$BACKEND_TEST_MMPROJ_URL" \
+	BACKEND_TEST_MMPROJ_FILE="$$BACKEND_TEST_MMPROJ_FILE" \
+	BACKEND_TEST_AUDIO_URL="$$BACKEND_TEST_AUDIO_URL" \
+	BACKEND_TEST_AUDIO_FILE="$$BACKEND_TEST_AUDIO_FILE" \
+	BACKEND_TEST_CAPS="$$BACKEND_TEST_CAPS" \
+	BACKEND_TEST_PROMPT="$$BACKEND_TEST_PROMPT" \
+	BACKEND_TEST_OPTIONS="$$BACKEND_TEST_OPTIONS" \
+	BACKEND_TEST_TOOL_PROMPT="$$BACKEND_TEST_TOOL_PROMPT" \
+	BACKEND_TEST_TOOL_NAME="$$BACKEND_TEST_TOOL_NAME" \
+	BACKEND_TEST_CACHE_TYPE_K="$$BACKEND_TEST_CACHE_TYPE_K" \
+	BACKEND_TEST_CACHE_TYPE_V="$$BACKEND_TEST_CACHE_TYPE_V" \
+	BACKEND_TEST_FACE_IMAGE_1_URL="$$BACKEND_TEST_FACE_IMAGE_1_URL" \
+	BACKEND_TEST_FACE_IMAGE_1_FILE="$$BACKEND_TEST_FACE_IMAGE_1_FILE" \
+	BACKEND_TEST_FACE_IMAGE_2_URL="$$BACKEND_TEST_FACE_IMAGE_2_URL" \
+	BACKEND_TEST_FACE_IMAGE_2_FILE="$$BACKEND_TEST_FACE_IMAGE_2_FILE" \
+	BACKEND_TEST_FACE_IMAGE_3_URL="$$BACKEND_TEST_FACE_IMAGE_3_URL" \
+	BACKEND_TEST_FACE_IMAGE_3_FILE="$$BACKEND_TEST_FACE_IMAGE_3_FILE" \
+	BACKEND_TEST_VERIFY_DISTANCE_CEILING="$$BACKEND_TEST_VERIFY_DISTANCE_CEILING" \
+	go test -v -timeout 30m ./tests/e2e-backends/...
+
+## Convenience wrappers: build the image, then exercise it.
+test-extra-backend-llama-cpp: docker-build-llama-cpp
+	BACKEND_IMAGE=local-ai-backend:llama-cpp $(MAKE) test-extra-backend
+
+test-extra-backend-ik-llama-cpp: docker-build-ik-llama-cpp
+	BACKEND_IMAGE=local-ai-backend:ik-llama-cpp $(MAKE) test-extra-backend
+
+## turboquant: exercises the llama.cpp-fork backend with the fork's
+## *TurboQuant-specific* KV-cache types (turbo3 for both K and V). turbo3
+## is what makes this backend distinct from stock llama-cpp — picking q8_0
+## here would only test the standard llama.cpp code path that the upstream
+## llama-cpp backend already covers. The fork auto-enables flash_attention
+## when turbo3/turbo4 are active, so we don't need to set it explicitly.
+test-extra-backend-turboquant: docker-build-turboquant
+	BACKEND_IMAGE=local-ai-backend:turboquant \
+	BACKEND_TEST_CACHE_TYPE_K=q8_0 \
+	BACKEND_TEST_CACHE_TYPE_V=turbo3 \
+	$(MAKE) test-extra-backend
+
+## Audio transcription wrapper for the llama-cpp backend.
+## Drives the new AudioTranscription / AudioTranscriptionStream RPCs against
+## ggml-org/Qwen3-ASR-0.6B-GGUF (a small ASR model that requires its mmproj
+## audio encoder companion). The audio fixture is a short public-domain
+## "jfk.wav" clip ggml-org bundles with whisper.cpp's CI assets.
+test-extra-backend-llama-cpp-transcription: docker-build-llama-cpp
+	BACKEND_IMAGE=local-ai-backend:llama-cpp \
+	BACKEND_TEST_MODEL_URL=https://huggingface.co/ggml-org/Qwen3-ASR-0.6B-GGUF/resolve/main/Qwen3-ASR-0.6B-Q8_0.gguf \
+	BACKEND_TEST_MMPROJ_URL=https://huggingface.co/ggml-org/Qwen3-ASR-0.6B-GGUF/resolve/main/mmproj-Qwen3-ASR-0.6B-Q8_0.gguf \
+	BACKEND_TEST_AUDIO_URL=https://github.com/ggml-org/whisper.cpp/raw/master/samples/jfk.wav \
+	BACKEND_TEST_CAPS=health,load,transcription \
+	$(MAKE) test-extra-backend
+
+## vllm is resolved from a HuggingFace model id (no file download) and
+## exercises Predict + streaming + tool-call extraction via the hermes parser.
+## Requires a host CPU with the SIMD instructions the prebuilt vllm CPU
+## wheel was compiled against (AVX-512 VNNI/BF16); older CPUs will SIGILL
+## on import — on CI this means using the bigger-runner label.
+test-extra-backend-vllm: docker-build-vllm
+	BACKEND_IMAGE=local-ai-backend:vllm \
+	BACKEND_TEST_MODEL_NAME=Qwen/Qwen2.5-0.5B-Instruct \
+	BACKEND_TEST_CAPS=health,load,predict,stream,tools \
+	BACKEND_TEST_OPTIONS=tool_parser:hermes \
+	$(MAKE) test-extra-backend
+
+## tinygrad mirrors the vllm target (same model, same caps, same parser) so
+## the two backends are directly comparable. The LLM path covers Predict,
+## streaming and native tool-call extraction. Companion targets below cover
+## embeddings, Stable Diffusion and Whisper — run them individually or via
+## the `test-extra-backend-tinygrad-all` aggregate.
+test-extra-backend-tinygrad: docker-build-tinygrad
+	BACKEND_IMAGE=local-ai-backend:tinygrad \
+	BACKEND_TEST_MODEL_NAME=Qwen/Qwen3-0.6B \
+	BACKEND_TEST_CAPS=health,load,predict,stream,tools \
+	BACKEND_TEST_OPTIONS=tool_parser:hermes \
+	$(MAKE) test-extra-backend
+
+## tinygrad — embeddings via LLM last-hidden-state pooling. Reuses the same
+## Qwen3-0.6B as the chat target so we don't need a separate BERT vendor;
+## the Embedding RPC mean-pools and L2-normalizes the last-layer hidden
+## state.
+test-extra-backend-tinygrad-embeddings: docker-build-tinygrad
+	BACKEND_IMAGE=local-ai-backend:tinygrad \
+	BACKEND_TEST_MODEL_NAME=Qwen/Qwen3-0.6B \
+	BACKEND_TEST_CAPS=health,load,embeddings \
+	$(MAKE) test-extra-backend
+
+## tinygrad — Stable Diffusion 1.5. The original CompVis/runwayml repos have
+## been gated, so we use the community-maintained mirror at
+## stable-diffusion-v1-5/stable-diffusion-v1-5 with the EMA-only pruned
+## checkpoint (~4.3GB). Step count is kept low (4) so a CPU-only run finishes
+## in a few minutes; bump BACKEND_TEST_IMAGE_STEPS for higher quality.
+test-extra-backend-tinygrad-sd: docker-build-tinygrad
+	BACKEND_IMAGE=local-ai-backend:tinygrad \
+	BACKEND_TEST_MODEL_NAME=stable-diffusion-v1-5/stable-diffusion-v1-5 \
+	BACKEND_TEST_CAPS=health,load,image \
+	$(MAKE) test-extra-backend
+
+## tinygrad — Whisper. Loads OpenAI's tiny.en checkpoint (smallest at ~75MB)
+## from the original azure CDN through tinygrad's `fetch` helper, and
+## transcribes the canonical jfk.wav fixture from whisper.cpp's CI samples.
+## Exercises both AudioTranscription and AudioTranscriptionStream.
+test-extra-backend-tinygrad-whisper: docker-build-tinygrad
+	BACKEND_IMAGE=local-ai-backend:tinygrad \
+	BACKEND_TEST_MODEL_NAME=openai/whisper-tiny.en \
+	BACKEND_TEST_AUDIO_URL=https://github.com/ggml-org/whisper.cpp/raw/master/samples/jfk.wav \
+	BACKEND_TEST_CAPS=health,load,transcription \
+	$(MAKE) test-extra-backend
+
+test-extra-backend-tinygrad-all: \
+	test-extra-backend-tinygrad \
+	test-extra-backend-tinygrad-embeddings \
+	test-extra-backend-tinygrad-sd \
+	test-extra-backend-tinygrad-whisper
+
+## insightface — face recognition.
+##
+## Face fixtures default to the sample images shipped in the
+## deepinsight/insightface repository (MIT-licensed). For offline/local
+## runs override with BACKEND_TEST_FACE_IMAGE_{1,2,3}_FILE pointing at
+## local paths.
+FACE_IMAGE_1_URL ?= https://github.com/deepinsight/insightface/raw/master/python-package/insightface/data/images/t1.jpg
+FACE_IMAGE_2_URL ?= https://github.com/deepinsight/insightface/raw/master/python-package/insightface/data/images/t1.jpg
+FACE_IMAGE_3_URL ?= https://github.com/deepinsight/insightface/raw/master/python-package/insightface/data/images/mask_white.jpg
+## Known spoof fixture used by the face_antispoof e2e cap. This is
+## upstream's own `image_F2.jpg` (Silent-Face repo, via yakhyo mirror)
+## — verified to classify as is_real=false with score < 0.05 on the
+## MiniFASNetV2 + MiniFASNetV1SE ensemble.
+FACE_SPOOF_IMAGE_URL ?= https://github.com/yakhyo/face-anti-spoofing/raw/main/assets/image_F2.jpg
+
+## Host-side cache for the OpenCV Zoo face ONNX files used by the
+## opencv e2e target. The backend image no longer bakes model weights —
+## gallery installs bring them via `files:` — but the e2e suite drives
+## LoadModel over gRPC directly without going through the gallery. We
+## pre-download the ONNX files to a stable host path and pass absolute
+## paths in BACKEND_TEST_OPTIONS; `make` skips the downloads when the
+## SHA-256 already matches.
+INSIGHTFACE_OPENCV_DIR := /tmp/localai-insightface-opencv-cache
+INSIGHTFACE_OPENCV_YUNET_URL := https://github.com/opencv/opencv_zoo/raw/main/models/face_detection_yunet/face_detection_yunet_2023mar.onnx
+INSIGHTFACE_OPENCV_SFACE_URL := https://github.com/opencv/opencv_zoo/raw/main/models/face_recognition_sface/face_recognition_sface_2021dec.onnx
+INSIGHTFACE_OPENCV_YUNET_SHA := 8f2383e4dd3cfbb4553ea8718107fc0423210dc964f9f4280604804ed2552fa4
+INSIGHTFACE_OPENCV_SFACE_SHA := 0ba9fbfa01b5270c96627c4ef784da859931e02f04419c829e83484087c34e79
+
+## buffalo_sc (insightface) — pack zip + SHA-256 mirrors the gallery
+## entry so the e2e target matches exactly what `local-ai models install
+## insightface-buffalo-sc` would have fetched. Smallest insightface pack
+## (~16MB) — keeps CI fast while still covering the insightface engine
+## code path end-to-end.
+INSIGHTFACE_BUFFALO_SC_DIR := /tmp/localai-insightface-buffalo-sc-cache
+INSIGHTFACE_BUFFALO_SC_URL := https://github.com/deepinsight/insightface/releases/download/v0.7/buffalo_sc.zip
+INSIGHTFACE_BUFFALO_SC_SHA := 57d31b56b6ffa911c8a73cfc1707c73cab76efe7f13b675a05223bf42de47c72
+
+## Silent-Face antispoofing (MiniFASNetV2 + MiniFASNetV1SE) — shared
+## between the buffalo_sc and opencv e2e targets. Both ONNX files are
+## ~1.7MB, Apache 2.0. URLs + SHAs mirror the gallery entries.
+INSIGHTFACE_ANTISPOOF_DIR := /tmp/localai-insightface-antispoof-cache
+INSIGHTFACE_ANTISPOOF_V2_URL := https://github.com/yakhyo/face-anti-spoofing/releases/download/weights/MiniFASNetV2.onnx
+INSIGHTFACE_ANTISPOOF_V2_SHA := b32929adc2d9c34b9486f8c4c7bc97c1b69bc0ea9befefc380e4faae4e463907
+INSIGHTFACE_ANTISPOOF_V1SE_URL := https://github.com/yakhyo/face-anti-spoofing/releases/download/weights/MiniFASNetV1SE.onnx
+INSIGHTFACE_ANTISPOOF_V1SE_SHA := ebab7f90c7833fbccd46d3a555410e78d969db5438e169b6524be444862b3676
+
+.PHONY: insightface-opencv-models
+insightface-opencv-models:
+	@mkdir -p $(INSIGHTFACE_OPENCV_DIR)
+	@if [ "$$(sha256sum $(INSIGHTFACE_OPENCV_DIR)/yunet.onnx 2>/dev/null | awk '{print $$1}')" != "$(INSIGHTFACE_OPENCV_YUNET_SHA)" ]; then \
+		echo "Fetching YuNet..."; \
+		curl -fsSL -o $(INSIGHTFACE_OPENCV_DIR)/yunet.onnx $(INSIGHTFACE_OPENCV_YUNET_URL); \
+		echo "$(INSIGHTFACE_OPENCV_YUNET_SHA)  $(INSIGHTFACE_OPENCV_DIR)/yunet.onnx" | sha256sum -c; \
+	fi
+	@if [ "$$(sha256sum $(INSIGHTFACE_OPENCV_DIR)/sface.onnx 2>/dev/null | awk '{print $$1}')" != "$(INSIGHTFACE_OPENCV_SFACE_SHA)" ]; then \
+		echo "Fetching SFace..."; \
+		curl -fsSL -o $(INSIGHTFACE_OPENCV_DIR)/sface.onnx $(INSIGHTFACE_OPENCV_SFACE_URL); \
+		echo "$(INSIGHTFACE_OPENCV_SFACE_SHA)  $(INSIGHTFACE_OPENCV_DIR)/sface.onnx" | sha256sum -c; \
+	fi
+
+.PHONY: insightface-antispoof-models
+insightface-antispoof-models:
+	@mkdir -p $(INSIGHTFACE_ANTISPOOF_DIR)
+	@if [ "$$(sha256sum $(INSIGHTFACE_ANTISPOOF_DIR)/MiniFASNetV2.onnx 2>/dev/null | awk '{print $$1}')" != "$(INSIGHTFACE_ANTISPOOF_V2_SHA)" ]; then \
+		echo "Fetching MiniFASNetV2..."; \
+		curl -fsSL -o $(INSIGHTFACE_ANTISPOOF_DIR)/MiniFASNetV2.onnx $(INSIGHTFACE_ANTISPOOF_V2_URL); \
+		echo "$(INSIGHTFACE_ANTISPOOF_V2_SHA)  $(INSIGHTFACE_ANTISPOOF_DIR)/MiniFASNetV2.onnx" | sha256sum -c; \
+	fi
+	@if [ "$$(sha256sum $(INSIGHTFACE_ANTISPOOF_DIR)/MiniFASNetV1SE.onnx 2>/dev/null | awk '{print $$1}')" != "$(INSIGHTFACE_ANTISPOOF_V1SE_SHA)" ]; then \
+		echo "Fetching MiniFASNetV1SE..."; \
+		curl -fsSL -o $(INSIGHTFACE_ANTISPOOF_DIR)/MiniFASNetV1SE.onnx $(INSIGHTFACE_ANTISPOOF_V1SE_URL); \
+		echo "$(INSIGHTFACE_ANTISPOOF_V1SE_SHA)  $(INSIGHTFACE_ANTISPOOF_DIR)/MiniFASNetV1SE.onnx" | sha256sum -c; \
+	fi
+
+.PHONY: insightface-buffalo-sc-models
+insightface-buffalo-sc-models:
+	@mkdir -p $(INSIGHTFACE_BUFFALO_SC_DIR)
+	@if [ "$$(sha256sum $(INSIGHTFACE_BUFFALO_SC_DIR)/buffalo_sc.zip 2>/dev/null | awk '{print $$1}')" != "$(INSIGHTFACE_BUFFALO_SC_SHA)" ]; then \
+		echo "Fetching buffalo_sc..."; \
+		curl -fsSL -o $(INSIGHTFACE_BUFFALO_SC_DIR)/buffalo_sc.zip $(INSIGHTFACE_BUFFALO_SC_URL); \
+		echo "$(INSIGHTFACE_BUFFALO_SC_SHA)  $(INSIGHTFACE_BUFFALO_SC_DIR)/buffalo_sc.zip" | sha256sum -c; \
+		rm -f $(INSIGHTFACE_BUFFALO_SC_DIR)/*.onnx; \
+	fi
+	@if [ ! -f "$(INSIGHTFACE_BUFFALO_SC_DIR)/det_500m.onnx" ]; then \
+		echo "Extracting buffalo_sc..."; \
+		unzip -o -q $(INSIGHTFACE_BUFFALO_SC_DIR)/buffalo_sc.zip -d $(INSIGHTFACE_BUFFALO_SC_DIR); \
+	fi
+
+## buffalo_sc — smallest insightface pack (SCRFD-500MF detector + MBF
+## recognizer, ~16MB). Exercises the insightface engine code path
+## (model_zoo-backed inference) without the ~326MB buffalo_l download.
+## No age/gender/landmark heads — face_analyze is dropped from caps.
+## The pack is pre-fetched on the host and passed as `root:<dir>` since
+## the e2e suite drives LoadModel directly without going through
+## LocalAI's gallery flow (which is what would normally populate
+## ModelPath and in turn the engine's `_model_dir` option).
+test-extra-backend-insightface-buffalo-sc: docker-build-insightface insightface-buffalo-sc-models insightface-antispoof-models
+	BACKEND_IMAGE=local-ai-backend:insightface \
+	BACKEND_TEST_MODEL_NAME=insightface-buffalo-sc \
+	BACKEND_TEST_OPTIONS=engine:insightface,model_pack:buffalo_sc,root:$(INSIGHTFACE_BUFFALO_SC_DIR),antispoof_v2_onnx:$(INSIGHTFACE_ANTISPOOF_DIR)/MiniFASNetV2.onnx,antispoof_v1se_onnx:$(INSIGHTFACE_ANTISPOOF_DIR)/MiniFASNetV1SE.onnx \
+	BACKEND_TEST_CAPS=health,load,face_detect,face_embed,face_verify,face_antispoof \
+	BACKEND_TEST_FACE_IMAGE_1_URL=$(FACE_IMAGE_1_URL) \
+	BACKEND_TEST_FACE_IMAGE_2_URL=$(FACE_IMAGE_2_URL) \
+	BACKEND_TEST_FACE_IMAGE_3_URL=$(FACE_IMAGE_3_URL) \
+	BACKEND_TEST_FACE_SPOOF_IMAGE_URL=$(FACE_SPOOF_IMAGE_URL) \
+	BACKEND_TEST_VERIFY_DISTANCE_CEILING=0.55 \
+	$(MAKE) test-extra-backend
+
+## OpenCV Zoo YuNet + SFace — Apache 2.0, commercial-safe. face_analyze
+## cap is dropped (SFace has no demographic head). The ONNX files are
+## pre-fetched on the host via the insightface-opencv-models target and
+## passed as absolute paths, since the e2e suite drives LoadModel
+## directly without going through LocalAI's gallery flow.
+test-extra-backend-insightface-opencv: docker-build-insightface insightface-opencv-models insightface-antispoof-models
+	BACKEND_IMAGE=local-ai-backend:insightface \
+	BACKEND_TEST_MODEL_NAME=insightface-opencv \
+	BACKEND_TEST_OPTIONS=engine:onnx_direct,detector_onnx:$(INSIGHTFACE_OPENCV_DIR)/yunet.onnx,recognizer_onnx:$(INSIGHTFACE_OPENCV_DIR)/sface.onnx,antispoof_v2_onnx:$(INSIGHTFACE_ANTISPOOF_DIR)/MiniFASNetV2.onnx,antispoof_v1se_onnx:$(INSIGHTFACE_ANTISPOOF_DIR)/MiniFASNetV1SE.onnx \
+	BACKEND_TEST_CAPS=health,load,face_detect,face_embed,face_verify,face_antispoof \
+	BACKEND_TEST_FACE_IMAGE_1_URL=$(FACE_IMAGE_1_URL) \
+	BACKEND_TEST_FACE_IMAGE_2_URL=$(FACE_IMAGE_2_URL) \
+	BACKEND_TEST_FACE_IMAGE_3_URL=$(FACE_IMAGE_3_URL) \
+	BACKEND_TEST_FACE_SPOOF_IMAGE_URL=$(FACE_SPOOF_IMAGE_URL) \
+	BACKEND_TEST_VERIFY_DISTANCE_CEILING=0.55 \
+	$(MAKE) test-extra-backend
+
+## Aggregate — runs both face-recognition model configurations so CI
+## catches regressions across engines together.
+test-extra-backend-insightface-all: \
+	test-extra-backend-insightface-buffalo-sc \
+	test-extra-backend-insightface-opencv
+
+## speaker-recognition — voice (speaker) biometrics.
+##
+## Audio fixtures default to the speechbrain test samples served
+## straight from their GitHub repo — public, no auth needed, and they
+## ship as 16kHz mono WAV/FLAC which is exactly what the engine wants.
+## example{1,2,5} are three different speakers; the suite treats
+## example1 as the "same-image twin" probe (verify(clip, clip) must
+## return distance≈0) and the other two as cross-speaker ceilings.
+## Override with BACKEND_TEST_VOICE_AUDIO_{1,2,3}_FILE for offline runs.
+VOICE_AUDIO_1_URL ?= https://github.com/speechbrain/speechbrain/raw/develop/tests/samples/single-mic/example1.wav
+VOICE_AUDIO_2_URL ?= https://github.com/speechbrain/speechbrain/raw/develop/tests/samples/single-mic/example2.flac
+VOICE_AUDIO_3_URL ?= https://github.com/speechbrain/speechbrain/raw/develop/tests/samples/single-mic/example5.wav
+
+## ECAPA-TDNN via SpeechBrain — default CI configuration. Auto-downloads
+## the checkpoint from HuggingFace on first LoadModel (bundled in the
+## backend image pip install). 192-d embeddings, cosine-distance based.
+## The e2e suite drives LoadModel directly so we don't rely on LocalAI's
+## gallery flow here.
+test-extra-backend-speaker-recognition-ecapa: docker-build-speaker-recognition
+	BACKEND_IMAGE=local-ai-backend:speaker-recognition \
+	BACKEND_TEST_MODEL_NAME=speechbrain/spkrec-ecapa-voxceleb \
+	BACKEND_TEST_OPTIONS=engine:speechbrain,source:speechbrain/spkrec-ecapa-voxceleb \
+	BACKEND_TEST_CAPS=health,load,voice_embed,voice_verify \
+	BACKEND_TEST_VOICE_AUDIO_1_URL=$(VOICE_AUDIO_1_URL) \
+	BACKEND_TEST_VOICE_AUDIO_2_URL=$(VOICE_AUDIO_2_URL) \
+	BACKEND_TEST_VOICE_AUDIO_3_URL=$(VOICE_AUDIO_3_URL) \
+	BACKEND_TEST_VOICE_VERIFY_DISTANCE_CEILING=0.4 \
+	$(MAKE) test-extra-backend
+
+## Aggregate — today there's only one voice config; the target exists
+## so the CI workflow matches the insightface-all naming convention and
+## can grow to include WeSpeaker / 3D-Speaker later.
+test-extra-backend-speaker-recognition-all: \
+	test-extra-backend-speaker-recognition-ecapa
+
+## Realtime e2e with sherpa-onnx driving VAD + STT + TTS against a mocked
+## LLM. Extracts the sherpa-onnx Docker image rootfs, downloads the three
+## gallery-referenced model bundles (silero-vad, omnilingual-asr, vits-ljs),
+## writes the corresponding model config YAMLs, and runs the realtime
+## websocket spec in tests/e2e with REALTIME_* env vars wiring the sherpa
+## slots into the pipeline. The LLM slot stays on the in-repo mock-backend
+## registered unconditionally by tests/e2e/e2e_suite_test.go. See
+## tests/e2e/run-realtime-sherpa.sh for the full orchestration.
+test-extra-e2e-realtime-sherpa: build-mock-backend docker-build-sherpa-onnx protogen-go react-ui
+	bash tests/e2e/run-realtime-sherpa.sh
+
+## Streaming ASR via the sherpa-onnx online recognizer. Uses the streaming
+## zipformer English model (encoder/decoder/joiner int8 + tokens) from the
+## sherpa-onnx gallery entry. Drives both AudioTranscription and
+## AudioTranscriptionStream via the e2e-backends gRPC harness; streaming
+## emits real partial deltas during decode. Each file is renamed on download
+## to the shape sherpa-onnx's online loader expects (encoder.int8.onnx etc.).
+test-extra-backend-sherpa-onnx-transcription: docker-build-sherpa-onnx
+	BACKEND_IMAGE=local-ai-backend:sherpa-onnx \
+	BACKEND_TEST_MODEL_URL='https://huggingface.co/csukuangfj/sherpa-onnx-streaming-zipformer-en-2023-06-26/resolve/main/encoder-epoch-99-avg-1-chunk-16-left-128.int8.onnx#encoder.int8.onnx' \
+	BACKEND_TEST_EXTRA_FILES='https://huggingface.co/csukuangfj/sherpa-onnx-streaming-zipformer-en-2023-06-26/resolve/main/decoder-epoch-99-avg-1-chunk-16-left-128.int8.onnx#decoder.int8.onnx|https://huggingface.co/csukuangfj/sherpa-onnx-streaming-zipformer-en-2023-06-26/resolve/main/joiner-epoch-99-avg-1-chunk-16-left-128.int8.onnx#joiner.int8.onnx|https://huggingface.co/csukuangfj/sherpa-onnx-streaming-zipformer-en-2023-06-26/resolve/main/tokens.txt' \
+	BACKEND_TEST_AUDIO_URL=https://github.com/ggml-org/whisper.cpp/raw/master/samples/jfk.wav \
+	BACKEND_TEST_CAPS=health,load,transcription \
+	BACKEND_TEST_OPTIONS=subtype=online \
+	$(MAKE) test-extra-backend
+
+## VITS TTS via the sherpa-onnx backend. Pulls the individual files from
+## HuggingFace (the vits-ljs release tarball lives on the k2-fsa github
+## but is also mirrored as discrete files on HF). Exercises both
+## TTS (write-to-file) and TTSStream (PCM chunks + WAV header) via the
+## e2e-backends gRPC harness.
+test-extra-backend-sherpa-onnx-tts: docker-build-sherpa-onnx
+	BACKEND_IMAGE=local-ai-backend:sherpa-onnx \
+	BACKEND_TEST_MODEL_URL='https://huggingface.co/csukuangfj/vits-ljs/resolve/main/vits-ljs.onnx#vits-ljs.onnx' \
+	BACKEND_TEST_EXTRA_FILES='https://huggingface.co/csukuangfj/vits-ljs/resolve/main/tokens.txt|https://huggingface.co/csukuangfj/vits-ljs/resolve/main/lexicon.txt' \
+	BACKEND_TEST_CAPS=health,load,tts \
+	$(MAKE) test-extra-backend
+
+## sglang mirrors the vllm setup: HuggingFace model id, same tiny Qwen,
+## tool-call extraction via sglang's native qwen parser. CPU builds use
+## sglang's upstream pyproject_cpu.toml recipe (see backend/python/sglang/install.sh).
+test-extra-backend-sglang: docker-build-sglang
+	BACKEND_IMAGE=local-ai-backend:sglang \
+	BACKEND_TEST_MODEL_NAME=Qwen/Qwen2.5-0.5B-Instruct \
+	BACKEND_TEST_CAPS=health,load,predict,stream,tools \
+	BACKEND_TEST_OPTIONS=tool_parser:qwen \
+	$(MAKE) test-extra-backend
+
+
+## mlx is Apple-Silicon-first — the MLX backend auto-detects the right tool
+## parser from the chat template, so no tool_parser: option is needed (it
+## would be ignored at runtime). Run this on macOS / arm64 with Metal; the
+## Linux/CPU mlx variant is untested in CI.
+test-extra-backend-mlx: docker-build-mlx
+	BACKEND_IMAGE=local-ai-backend:mlx \
+	BACKEND_TEST_MODEL_NAME=mlx-community/Qwen2.5-0.5B-Instruct-4bit \
+	BACKEND_TEST_CAPS=health,load,predict,stream,tools \
+	$(MAKE) test-extra-backend
+
+test-extra-backend-mlx-vlm: docker-build-mlx-vlm
+	BACKEND_IMAGE=local-ai-backend:mlx-vlm \
+	BACKEND_TEST_MODEL_NAME=mlx-community/Qwen2.5-0.5B-Instruct-4bit \
+	BACKEND_TEST_CAPS=health,load,predict,stream,tools \
+	$(MAKE) test-extra-backend
 
 DOCKER_IMAGE?=local-ai
 IMAGE_TYPE?=core
@@ -485,7 +883,7 @@ docker-cuda12:
 
 docker-image-intel:
 	docker build \
-		--build-arg BASE_IMAGE=intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04 \
+		--build-arg BASE_IMAGE=intel/oneapi-basekit:2025.3.2-0-devel-ubuntu24.04 \
 		--build-arg IMAGE_TYPE=$(IMAGE_TYPE) \
 		--build-arg GO_TAGS="$(GO_TAGS)" \
 		--build-arg MAKEFLAGS="$(DOCKER_MAKEFLAGS)" \
@@ -546,6 +944,11 @@ backend-images:
 # Backend metadata: BACKEND_NAME | DOCKERFILE_TYPE | BUILD_CONTEXT | PROGRESS_FLAG | NEEDS_BACKEND_ARG
 # llama-cpp is special - uses llama-cpp Dockerfile and doesn't need BACKEND arg
 BACKEND_LLAMA_CPP = llama-cpp|llama-cpp|.|false|false
+# ik-llama-cpp is a fork of llama.cpp with superior CPU performance
+BACKEND_IK_LLAMA_CPP = ik-llama-cpp|ik-llama-cpp|.|false|false
+# turboquant is a llama.cpp fork with TurboQuant KV-cache quantization.
+# Reuses backend/cpp/llama-cpp grpc-server sources via a thin wrapper Makefile.
+BACKEND_TURBOQUANT = turboquant|turboquant|.|false|false
 
 # Golang backends
 BACKEND_PIPER = piper|golang|.|false|true
@@ -557,7 +960,9 @@ BACKEND_STABLEDIFFUSION_GGML = stablediffusion-ggml|golang|.|--progress=plain|tr
 BACKEND_WHISPER = whisper|golang|.|false|true
 BACKEND_VOXTRAL = voxtral|golang|.|false|true
 BACKEND_ACESTEP_CPP = acestep-cpp|golang|.|false|true
+BACKEND_QWEN3_TTS_CPP = qwen3-tts-cpp|golang|.|false|true
 BACKEND_OPUS = opus|golang|.|false|true
+BACKEND_SHERPA_ONNX = sherpa-onnx|golang|.|false|true
 
 # Python backends with root context
 BACKEND_RERANKERS = rerankers|python|.|false|true
@@ -566,11 +971,14 @@ BACKEND_OUTETTS = outetts|python|.|false|true
 BACKEND_FASTER_WHISPER = faster-whisper|python|.|false|true
 BACKEND_COQUI = coqui|python|.|false|true
 BACKEND_RFDETR = rfdetr|python|.|false|true
+BACKEND_INSIGHTFACE = insightface|python|.|false|true
+BACKEND_SPEAKER_RECOGNITION = speaker-recognition|python|.|false|true
 BACKEND_KITTEN_TTS = kitten-tts|python|.|false|true
 BACKEND_NEUTTS = neutts|python|.|false|true
 BACKEND_KOKORO = kokoro|python|.|false|true
 BACKEND_VLLM = vllm|python|.|false|true
 BACKEND_VLLM_OMNI = vllm-omni|python|.|false|true
+BACKEND_SGLANG = sglang|python|.|false|true
 BACKEND_DIFFUSERS = diffusers|python|.|--progress=plain|true
 BACKEND_CHATTERBOX = chatterbox|python|.|false|true
 BACKEND_VIBEVOICE = vibevoice|python|.|--progress=plain|true
@@ -584,9 +992,18 @@ BACKEND_NEMO = nemo|python|.|false|true
 BACKEND_VOXCPM = voxcpm|python|.|false|true
 BACKEND_WHISPERX = whisperx|python|.|false|true
 BACKEND_ACE_STEP = ace-step|python|.|false|true
+BACKEND_MLX = mlx|python|.|false|true
+BACKEND_MLX_VLM = mlx-vlm|python|.|false|true
 BACKEND_MLX_DISTRIBUTED = mlx-distributed|python|./|false|true
 BACKEND_TRL = trl|python|.|false|true
 BACKEND_LLAMA_CPP_QUANTIZATION = llama-cpp-quantization|python|.|false|true
+BACKEND_TINYGRAD = tinygrad|python|.|false|true
+
+# Rust backends
+BACKEND_KOKOROS = kokoros|rust|.|false|true
+
+# C++ backends (Go wrapper with purego)
+BACKEND_SAM3_CPP = sam3-cpp|golang|.|false|true
 
 # Helper function to build docker image for a backend
 # Usage: $(call docker-build-backend,BACKEND_NAME,DOCKERFILE_TYPE,BUILD_CONTEXT,PROGRESS_FLAG,NEEDS_BACKEND_ARG)
@@ -598,6 +1015,7 @@ define docker-build-backend
 		--build-arg CUDA_MINOR_VERSION=$(CUDA_MINOR_VERSION) \
 		--build-arg UBUNTU_VERSION=$(UBUNTU_VERSION) \
 		--build-arg UBUNTU_CODENAME=$(UBUNTU_CODENAME) \
+		$(if $(FROM_SOURCE),--build-arg FROM_SOURCE=$(FROM_SOURCE)) \
 		$(if $(filter true,$(5)),--build-arg BACKEND=$(1)) \
 		-t local-ai-backend:$(1) -f backend/Dockerfile.$(2) $(3)
 endef
@@ -610,6 +1028,8 @@ endef
 
 # Generate all docker-build targets
 $(eval $(call generate-docker-build-target,$(BACKEND_LLAMA_CPP)))
+$(eval $(call generate-docker-build-target,$(BACKEND_IK_LLAMA_CPP)))
+$(eval $(call generate-docker-build-target,$(BACKEND_TURBOQUANT)))
 $(eval $(call generate-docker-build-target,$(BACKEND_PIPER)))
 $(eval $(call generate-docker-build-target,$(BACKEND_LOCAL_STORE)))
 $(eval $(call generate-docker-build-target,$(BACKEND_HUGGINGFACE)))
@@ -625,11 +1045,14 @@ $(eval $(call generate-docker-build-target,$(BACKEND_OUTETTS)))
 $(eval $(call generate-docker-build-target,$(BACKEND_FASTER_WHISPER)))
 $(eval $(call generate-docker-build-target,$(BACKEND_COQUI)))
 $(eval $(call generate-docker-build-target,$(BACKEND_RFDETR)))
+$(eval $(call generate-docker-build-target,$(BACKEND_INSIGHTFACE)))
+$(eval $(call generate-docker-build-target,$(BACKEND_SPEAKER_RECOGNITION)))
 $(eval $(call generate-docker-build-target,$(BACKEND_KITTEN_TTS)))
 $(eval $(call generate-docker-build-target,$(BACKEND_NEUTTS)))
 $(eval $(call generate-docker-build-target,$(BACKEND_KOKORO)))
 $(eval $(call generate-docker-build-target,$(BACKEND_VLLM)))
 $(eval $(call generate-docker-build-target,$(BACKEND_VLLM_OMNI)))
+$(eval $(call generate-docker-build-target,$(BACKEND_SGLANG)))
 $(eval $(call generate-docker-build-target,$(BACKEND_DIFFUSERS)))
 $(eval $(call generate-docker-build-target,$(BACKEND_CHATTERBOX)))
 $(eval $(call generate-docker-build-target,$(BACKEND_VIBEVOICE)))
@@ -644,15 +1067,22 @@ $(eval $(call generate-docker-build-target,$(BACKEND_VOXCPM)))
 $(eval $(call generate-docker-build-target,$(BACKEND_WHISPERX)))
 $(eval $(call generate-docker-build-target,$(BACKEND_ACE_STEP)))
 $(eval $(call generate-docker-build-target,$(BACKEND_ACESTEP_CPP)))
+$(eval $(call generate-docker-build-target,$(BACKEND_QWEN3_TTS_CPP)))
+$(eval $(call generate-docker-build-target,$(BACKEND_MLX)))
+$(eval $(call generate-docker-build-target,$(BACKEND_MLX_VLM)))
 $(eval $(call generate-docker-build-target,$(BACKEND_MLX_DISTRIBUTED)))
 $(eval $(call generate-docker-build-target,$(BACKEND_TRL)))
 $(eval $(call generate-docker-build-target,$(BACKEND_LLAMA_CPP_QUANTIZATION)))
+$(eval $(call generate-docker-build-target,$(BACKEND_TINYGRAD)))
+$(eval $(call generate-docker-build-target,$(BACKEND_KOKOROS)))
+$(eval $(call generate-docker-build-target,$(BACKEND_SAM3_CPP)))
+$(eval $(call generate-docker-build-target,$(BACKEND_SHERPA_ONNX)))
 
 # Pattern rule for docker-save targets
 docker-save-%: backend-images
 	docker save local-ai-backend:$* -o backend-images/$*.tar
 
-docker-build-backends: docker-build-llama-cpp docker-build-rerankers docker-build-vllm docker-build-vllm-omni docker-build-transformers docker-build-outetts docker-build-diffusers docker-build-kokoro docker-build-faster-whisper docker-build-coqui docker-build-chatterbox docker-build-vibevoice docker-build-moonshine docker-build-pocket-tts docker-build-qwen-tts docker-build-fish-speech docker-build-faster-qwen3-tts docker-build-qwen-asr docker-build-nemo docker-build-voxcpm docker-build-whisperx docker-build-ace-step docker-build-acestep-cpp docker-build-voxtral docker-build-mlx-distributed docker-build-trl docker-build-llama-cpp-quantization docker-build-avian
+docker-build-backends: docker-build-llama-cpp docker-build-ik-llama-cpp docker-build-turboquant docker-build-rerankers docker-build-vllm docker-build-vllm-omni docker-build-sglang docker-build-transformers docker-build-outetts docker-build-diffusers docker-build-kokoro docker-build-faster-whisper docker-build-coqui docker-build-chatterbox docker-build-vibevoice docker-build-moonshine docker-build-pocket-tts docker-build-qwen-tts docker-build-fish-speech docker-build-faster-qwen3-tts docker-build-qwen-asr docker-build-nemo docker-build-voxcpm docker-build-whisperx docker-build-ace-step docker-build-acestep-cpp docker-build-voxtral docker-build-mlx-distributed docker-build-trl docker-build-llama-cpp-quantization docker-build-tinygrad docker-build-kokoros docker-build-sam3-cpp docker-build-qwen3-tts-cpp docker-build-insightface docker-build-speaker-recognition docker-build-sherpa-onnx docker-build-avian
 
 ########################################################
 ### Mock Backend for E2E Tests

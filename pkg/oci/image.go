@@ -188,6 +188,56 @@ func GetImage(targetImage, targetPlatform string, auth *registrytypes.AuthConfig
 	return image, err
 }
 
+// GetImageDigest returns the OCI image digest for the given image reference without downloading it.
+// It uses remote.Head to fetch only the descriptor, which is much cheaper than pulling the full image.
+func GetImageDigest(targetImage, targetPlatform string, auth *registrytypes.AuthConfig, t http.RoundTripper) (string, error) {
+	var platform *v1.Platform
+	var err error
+
+	if targetPlatform != "" {
+		platform, err = v1.ParsePlatform(targetPlatform)
+		if err != nil {
+			return "", err
+		}
+	} else {
+		platform, err = v1.ParsePlatform(fmt.Sprintf("%s/%s", runtime.GOOS, runtime.GOARCH))
+		if err != nil {
+			return "", err
+		}
+	}
+
+	ref, err := name.ParseReference(targetImage)
+	if err != nil {
+		return "", err
+	}
+
+	if t == nil {
+		t = http.DefaultTransport
+	}
+
+	tr := transport.NewRetry(t,
+		transport.WithRetryBackoff(defaultRetryBackoff),
+		transport.WithRetryPredicate(defaultRetryPredicate),
+	)
+
+	opts := []remote.Option{
+		remote.WithTransport(tr),
+		remote.WithPlatform(*platform),
+	}
+	if auth != nil {
+		opts = append(opts, remote.WithAuth(staticAuth{auth}))
+	} else {
+		opts = append(opts, remote.WithAuthFromKeychain(authn.DefaultKeychain))
+	}
+
+	desc, err := remote.Head(ref, opts...)
+	if err != nil {
+		return "", err
+	}
+
+	return desc.Digest.String(), nil
+}
+
 func GetOCIImageSize(targetImage, targetPlatform string, auth *registrytypes.AuthConfig, t http.RoundTripper) (int64, error) {
 	var size int64
 	var img v1.Image

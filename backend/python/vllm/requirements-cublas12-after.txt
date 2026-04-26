@@ -1,1 +1,9 @@
-https://github.com/Dao-AILab/flash-attention/releases/download/v2.8.3/flash_attn-2.8.3+cu12torch2.7cxx11abiTRUE-cp310-cp310-linux_x86_64.whl
+# flash-attn wheels are ABI-tied to a specific torch version. vllm forces
+# torch==2.10.0 as a hard dep, but flash-attn 2.8.3 (latest) only ships
+# prebuilt wheels up to torch 2.8 — any wheel we pin here gets silently
+# broken when vllm upgrades torch during install, producing an undefined
+# libc10_cuda symbol at import time. FlashInfer (required by vllm) covers
+# attention, and rotary_embedding/common.py guards the flash_attn import
+# with find_spec(), so skipping flash-attn is safe and the only stable
+# choice until upstream ships a torch-2.10 wheel.
+vllm

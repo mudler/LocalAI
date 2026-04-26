@@ -1,0 +1,17 @@
+---
+name: "sherpa-onnx-vad"
+
+config_file: |
+  backend: sherpa-onnx
+  type: vad
+  options:
+    # Silero VAD. Defaults mirror upstream sherpa-onnx. Override for
+    # faster turn-taking (lower min_silence) or different sample rate
+    # derivatives (8 kHz Silero variants).
+    - vad.threshold=0.5
+    - vad.min_silence=0.5
+    - vad.min_speech=0.25
+    - vad.window_size=512
+    - vad.max_speech=20.0
+    - vad.sample_rate=16000
+    - vad.buffer_size=60.0

@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/docker/go-connections/nat"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/openai/openai-go/v3"
@@ -124,8 +123,8 @@ func startDockerImage() {
 			},
 		},
 		WaitingFor: wait.ForAll(
-			wait.ForListeningPort(nat.Port(defaultApiPort)).WithStartupTimeout(10*time.Minute),
-			wait.ForHTTP("/v1/models").WithPort(nat.Port(defaultApiPort)).WithStartupTimeout(10*time.Minute),
+			wait.ForListeningPort(defaultApiPort).WithStartupTimeout(10*time.Minute),
+			wait.ForHTTP("/v1/models").WithPort(defaultApiPort).WithStartupTimeout(10*time.Minute),
 		),
 	}
 

@@ -1,7 +1,7 @@
 package model
 
 import (
-	"sort"
+	"slices"
 	"sync"
 	"time"
 
@@ -45,6 +45,9 @@ type WatchDog struct {
 
 	// Eviction settings
 	forceEvictionWhenBusy bool // Force eviction even when models have active API calls (default: false for safety)
+
+	// Pinned models are excluded from idle, LRU, and memory-pressure eviction
+	pinnedModels map[string]bool
 }
 
 type ProcessManager interface {
@@ -78,6 +81,7 @@ func NewWatchDog(opts ...WatchDogOption) *WatchDog {
 		idleCheck:                o.idleCheck,
 		lruLimit:                 o.lruLimit,
 		addressModelMap:          make(map[string]string),
+		pinnedModels:             make(map[string]bool),
 		stop:                     make(chan bool, 1),
 		done:                     make(chan bool, 1),
 		memoryReclaimerEnabled:   o.memoryReclaimerEnabled,
@@ -121,6 +125,24 @@ func (wd *WatchDog) SetForceEvictionWhenBusy(force bool) {
 	wd.Lock()
 	defer wd.Unlock()
 	wd.forceEvictionWhenBusy = force
+}
+
+// SetPinnedModels replaces the set of pinned model names.
+// Pinned models are excluded from idle, LRU, and memory-pressure eviction.
+func (wd *WatchDog) SetPinnedModels(models []string) {
+	wd.Lock()
+	defer wd.Unlock()
+	wd.pinnedModels = make(map[string]bool, len(models))
+	for _, m := range models {
+		wd.pinnedModels[m] = true
+	}
+}
+
+// IsModelPinned returns true if the given model name is pinned
+func (wd *WatchDog) IsModelPinned(modelName string) bool {
+	wd.Lock()
+	defer wd.Unlock()
+	return wd.pinnedModels[modelName]
 }
 
 func (wd *WatchDog) Shutdown() {
@@ -300,8 +322,8 @@ func (wd *WatchDog) EnforceLRULimit(pendingLoads int) EnforceLRULimitResult {
 	}
 
 	// Sort by lastUsed time (oldest first)
-	sort.Slice(models, func(i, j int) bool {
-		return models[i].lastUsed.Before(models[j].lastUsed)
+	slices.SortFunc(models, func(a, b modelUsageInfo) int {
+		return a.lastUsed.Compare(b.lastUsed)
 	})
 
 	// Collect models to evict (the oldest ones)
@@ -310,6 +332,11 @@ func (wd *WatchDog) EnforceLRULimit(pendingLoads int) EnforceLRULimitResult {
 	skippedBusyCount := 0
 	for i := 0; evictedCount < modelsToEvict && i < len(models); i++ {
 		m := models[i]
+		// Skip pinned models
+		if wd.pinnedModels[m.model] {
+			xlog.Debug("[WatchDog] Skipping LRU eviction for pinned model", "model", m.model)
+			continue
+		}
 		// Check if model is busy
 		_, isBusy := wd.busyTime[m.address]
 		if isBusy && !forceEvictionWhenBusy {
@@ -389,9 +416,13 @@ func (wd *WatchDog) checkIdle() {
 	for address, t := range wd.idleTime {
 		xlog.Debug("[WatchDog] idle connection", "address", address)
 		if time.Since(t) > wd.idletimeout {
-			xlog.Warn("[WatchDog] Address is idle for too long, killing it", "address", address)
 			model, ok := wd.addressModelMap[address]
 			if ok {
+				if wd.pinnedModels[model] {
+					xlog.Debug("[WatchDog] Skipping idle eviction for pinned model", "model", model)
+					continue
+				}
+				xlog.Warn("[WatchDog] Address is idle for too long, killing it", "address", address)
 				modelsToShutdown = append(modelsToShutdown, model)
 			} else {
 				xlog.Warn("[WatchDog] Address unresolvable", "address", address)
@@ -510,14 +541,18 @@ func (wd *WatchDog) evictLRUModel() {
 	}
 
 	// Sort by lastUsed time (oldest first)
-	sort.Slice(models, func(i, j int) bool {
-		return models[i].lastUsed.Before(models[j].lastUsed)
+	slices.SortFunc(models, func(a, b modelUsageInfo) int {
+		return a.lastUsed.Compare(b.lastUsed)
 	})
 
-	// Find the first non-busy model (or first model if forceEvictionWhenBusy is true)
+	// Find the first non-busy, non-pinned model (or first non-pinned model if forceEvictionWhenBusy is true)
 	var lruModel *modelUsageInfo
-	for i := 0; i < len(models); i++ {
+	for i := range len(models) {
 		m := models[i]
+		if wd.pinnedModels[m.model] {
+			xlog.Debug("[WatchDog] Skipping memory reclaimer eviction for pinned model", "model", m.model)
+			continue
+		}
 		_, isBusy := wd.busyTime[m.address]
 		if isBusy && !forceEvictionWhenBusy {
 			// Skip busy models when forceEvictionWhenBusy is false

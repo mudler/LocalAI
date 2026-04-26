@@ -1,0 +1,14 @@
+---
+name: "sherpa-onnx-tts"
+
+config_file: |
+  backend: sherpa-onnx
+  options:
+    # VITS inference knobs. Matches upstream sherpa-onnx defaults.
+    - tts.noise_scale=0.667
+    - tts.noise_scale_w=0.8
+    - tts.length_scale=1.0
+    - tts.max_num_sentences=1
+    # Speech rate multiplier. Applied at every TTS / TTSStream call
+    # since the TTSRequest proto has no speed field.
+    - tts.speed=1.0

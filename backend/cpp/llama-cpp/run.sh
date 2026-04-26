@@ -46,6 +46,10 @@ if [ "$(uname)" == "Darwin" ]; then
 	#export DYLD_FALLBACK_LIBRARY_PATH=$CURDIR/lib:$DYLD_FALLBACK_LIBRARY_PATH
 else
 	export LD_LIBRARY_PATH=$CURDIR/lib:$LD_LIBRARY_PATH
+	# Tell rocBLAS where to find TensileLibrary data (GPU kernel tuning files)
+	if [ -d "$CURDIR/lib/rocblas/library" ]; then
+		export ROCBLAS_TENSILE_LIBPATH=$CURDIR/lib/rocblas/library
+	fi
 fi
 
 # If there is a lib/ld.so, use it

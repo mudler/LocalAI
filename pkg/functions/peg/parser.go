@@ -1,6 +1,5 @@
 package peg
 
-
 // Parser is the interface all parser types implement.
 type Parser interface {
 	parse(arena *Arena, ctx *ParseContext, start int) ParseResult
@@ -40,7 +39,7 @@ type LiteralParser struct {
 
 func (p *LiteralParser) parse(_ *Arena, ctx *ParseContext, start int) ParseResult {
 	pos := start
-	for i := 0; i < len(p.Literal); i++ {
+	for i := range len(p.Literal) {
 		if pos >= len(ctx.Input) {
 			if !ctx.IsPartial {
 				return NewParseResult(Fail, start)
@@ -385,7 +384,7 @@ func handleEscapeSequence(ctx *ParseContext, start int, pos int) ParseResult {
 
 func handleUnicodeEscape(ctx *ParseContext, start int, pos int) ParseResult {
 	pos++ // consume 'u'
-	for i := 0; i < 4; i++ {
+	for range 4 {
 		if pos >= len(ctx.Input) {
 			if !ctx.IsPartial {
 				return NewParseResult(Fail, start)
@@ -557,7 +556,7 @@ func isWhitespace(c byte) bool {
 }
 
 func parseLiteralAt(ctx *ParseContext, start, pos int, lit string) ParseResult {
-	for i := 0; i < len(lit); i++ {
+	for i := range len(lit) {
 		if pos+i >= len(ctx.Input) {
 			if ctx.IsPartial {
 				return NewParseResultRange(NeedMoreInput, start, pos+i)
@@ -591,7 +590,7 @@ func parseJSONString(ctx *ParseContext, start, pos int) ParseResult {
 				pos++
 			case 'u':
 				pos++
-				for i := 0; i < 4; i++ {
+				for range 4 {
 					if pos >= len(ctx.Input) {
 						if ctx.IsPartial {
 							return NewParseResultRange(NeedMoreInput, start, pos)

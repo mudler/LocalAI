@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"math/rand"
+	"math/rand/v2"
 	"regexp"
 	"strings"
 	"unicode"
@@ -63,7 +63,7 @@ func NewChatMsgParser(input string, isPartial bool) *ChatMsgParser {
 // generateHealingMarker generates a unique marker that doesn't appear in the input
 func generateHealingMarker(input string) string {
 	for {
-		id := fmt.Sprintf("%d", rand.Int63())
+		id := fmt.Sprintf("%d", rand.Int64())
 		if !strings.Contains(input, id) {
 			return id
 		}

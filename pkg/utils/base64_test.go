@@ -21,6 +21,15 @@ var _ = Describe("utils/base64 tests", func() {
 		Expect(err).To(BeNil())
 		Expect(b64).To(Equal("BAR"))
 	})
+	It("GetContentURIAsBase64 strips data URI prefixes with codec/charset params", func() {
+		// Browser MediaRecorder produces data URIs like
+		// `data:audio/webm;codecs=opus;base64,...` — the regex must accept
+		// any number of MIME parameters between the type and `;base64,`.
+		input := "data:audio/webm;codecs=opus;base64,PAYLOAD"
+		b64, err := GetContentURIAsBase64(input)
+		Expect(err).To(BeNil())
+		Expect(b64).To(Equal("PAYLOAD"))
+	})
 	It("GetImageURLAsBase64 returns an error for bogus data", func() {
 		input := "FOO"
 		b64, err := GetContentURIAsBase64(input)

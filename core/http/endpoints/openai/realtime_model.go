@@ -130,9 +130,9 @@ func (m *wrappedModel) Predict(ctx context.Context, messages schema.Messages, im
 			noActionGrammar := functions.Function{
 				Name:        noActionName,
 				Description: noActionDescription,
-				Parameters: map[string]interface{}{
-					"properties": map[string]interface{}{
-						"message": map[string]interface{}{
+				Parameters: map[string]any{
+					"properties": map[string]any{
+						"message": map[string]any{
 							"type":        "string",
 							"description": "The message to reply the user with",
 						},
@@ -168,7 +168,7 @@ func (m *wrappedModel) Predict(ctx context.Context, messages schema.Messages, im
 			}
 		} else if toolChoice.Function != nil {
 			// Specific function specified
-			m.LLMConfig.SetFunctionCallString(toolChoice.Function.Name)
+			m.LLMConfig.SetFunctionCallNameString(toolChoice.Function.Name)
 		}
 	}
 
@@ -199,16 +199,16 @@ func (m *wrappedModel) Predict(ctx context.Context, messages schema.Messages, im
 		var chatTools []functions.Tool
 		for _, t := range tools {
 			if t.Function != nil {
-				var params map[string]interface{}
+				var params map[string]any
 				switch p := t.Function.Parameters.(type) {
-				case map[string]interface{}:
+				case map[string]any:
 					params = p
 				case string:
 					if err := json.Unmarshal([]byte(p), &params); err != nil {
 						xlog.Warn("Failed to parse parameters JSON string", "error", err, "function", t.Function.Name)
 					}
 				case nil:
-					params = map[string]interface{}{}
+					params = map[string]any{}
 				default:
 					// Try to marshal/unmarshal to get map
 					b, err := json.Marshal(p)

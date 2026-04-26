@@ -4,7 +4,9 @@ import ModelSelector from '../components/ModelSelector'
 import { CAP_IMAGE } from '../utils/capabilities'
 import LoadingSpinner from '../components/LoadingSpinner'
 import ErrorWithTraceLink from '../components/ErrorWithTraceLink'
+import MediaHistory from '../components/MediaHistory'
 import { imageApi, fileToBase64 } from '../utils/api'
+import { useMediaHistory } from '../hooks/useMediaHistory'
 
 const SIZES = ['256x256', '512x512', '768x768', '1024x1024']
 
@@ -27,6 +29,7 @@ export default function ImageGen() {
   const [refImages, setRefImages] = useState([])
   const sourceRef = useRef(null)
   const refRef = useRef(null)
+  const { addEntry, selectEntry, selectedEntry, historyProps } = useMediaHistory('image')
 
   const handleGenerate = async (e) => {
     e.preventDefault()
@@ -48,8 +51,17 @@ export default function ImageGen() {
 
     try {
       const data = await imageApi.generate(body)
-      setImages(data?.data || [])
-      if (!data?.data?.length) addToast('No images generated', 'warning')
+      const results = data?.data || []
+      setImages(results)
+      if (!results.length) {
+        addToast('No images generated', 'warning')
+      } else {
+        const urlResults = results.filter(r => r.url && !r.url.startsWith('data:')).map(r => ({ url: r.url }))
+        if (urlResults.length) {
+          addEntry({ prompt: prompt.trim(), model, params: { size, count, steps, seed, negativePrompt: negativePrompt.trim() || undefined }, results: urlResults })
+        }
+        selectEntry(null)
+      }
     } catch (err) {
       setError(err.message)
     } finally {
@@ -71,7 +83,7 @@ export default function ImageGen() {
     <div className="media-layout">
       <div className="media-controls">
         <div className="page-header">
-          <h1 className="page-title"><i className="fas fa-image" style={{ marginRight: 8, color: 'var(--color-accent)' }} />Image Generation</h1>
+          <h1 className="page-title"><i className="fas fa-image" /> Image Generation</h1>
         </div>
 
         <form onSubmit={handleGenerate}>
@@ -88,10 +100,10 @@ export default function ImageGen() {
             <textarea className="textarea" value={negativePrompt} onChange={(e) => setNegativePrompt(e.target.value)} placeholder="What to avoid..." rows={2} />
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-sm)' }}>
+          <div className="form-grid-2col">
             <div className="form-group">
               <label className="form-label">Size</label>
-              <select className="model-selector" value={size} onChange={(e) => setSize(e.target.value)} style={{ width: '100%' }}>
+              <select className="input btn-full" value={size} onChange={(e) => setSize(e.target.value)}>
                 {SIZES.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
             </div>
@@ -105,7 +117,7 @@ export default function ImageGen() {
             <i className="fas fa-chevron-right" /> Advanced Settings
           </div>
           {showAdvanced && (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-md)' }}>
+            <div className="form-grid-2col">
               <div className="form-group"><label className="form-label">Steps</label><input className="input" type="number" value={steps} onChange={(e) => setSteps(e.target.value)} placeholder="20" /></div>
               <div className="form-group"><label className="form-label">Seed</label><input className="input" type="number" value={seed} onChange={(e) => setSeed(e.target.value)} placeholder="Random" /></div>
             </div>
@@ -115,20 +127,21 @@ export default function ImageGen() {
             <i className="fas fa-chevron-right" /> Image Inputs
           </div>
           {showImageInputs && (
-            <div style={{ marginBottom: 'var(--spacing-md)' }}>
+            <>
               <div className="form-group"><label className="form-label">Source Image (img2img)</label><input ref={sourceRef} type="file" accept="image/*" onChange={handleSourceImage} className="input" /></div>
               <div className="form-group">
                 <label className="form-label">Reference Images</label>
                 <input ref={refRef} type="file" accept="image/*" multiple onChange={handleRefImages} className="input" />
-                {refImages.length > 0 && <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>{refImages.length} image(s) added</span>}
+                {refImages.length > 0 && <span className="form-field__hint">{refImages.length} image(s) added</span>}
               </div>
-            </div>
+            </>
           )}
 
-          <button type="submit" className="btn btn-primary" disabled={loading} style={{ width: '100%' }}>
+          <button type="submit" className="btn btn-primary btn-full" disabled={loading}>
             {loading ? <><LoadingSpinner size="sm" /> Generating...</> : <><i className="fas fa-wand-magic-sparkles" /> Generate</>}
           </button>
         </form>
+        <MediaHistory {...historyProps} />
       </div>
 
       <div className="media-preview">
@@ -137,6 +150,14 @@ export default function ImageGen() {
             <LoadingSpinner size="lg" />
           ) : error ? (
             <ErrorWithTraceLink message={error} />
+          ) : selectedEntry ? (
+            <div className="media-result-grid">
+              {selectedEntry.results.map((r, i) => (
+                <div key={i}>
+                  <img src={r.url} alt={selectedEntry.prompt} style={{ width: '100%', borderRadius: 'var(--radius-md)' }} />
+                </div>
+              ))}
+            </div>
           ) : images.length > 0 ? (
             <div className="media-result-grid">
               {images.map((img, i) => (

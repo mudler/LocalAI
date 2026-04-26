@@ -2,6 +2,7 @@ package localai
 
 import (
 	"fmt"
+	"net/http"
 
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/config"
@@ -11,7 +12,7 @@ import (
 
 // MCPServersEndpoint returns the list of MCP servers and their tools for a given model.
 // GET /v1/mcp/servers/:model
-func MCPServersEndpoint(cl *config.ModelConfigLoader, appConfig *config.ApplicationConfig) echo.HandlerFunc {
+func MCPServersEndpoint(cl *config.ModelConfigLoader, appConfig *config.ApplicationConfig, natsClient mcpTools.MCPNATSClient) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		modelName := c.Param("model")
 		if modelName == "" {
@@ -20,7 +21,11 @@ func MCPServersEndpoint(cl *config.ModelConfigLoader, appConfig *config.Applicat
 
 		cfg, exists := cl.GetModelConfig(modelName)
 		if !exists {
-			return fmt.Errorf("model %q not found", modelName)
+			return c.JSON(http.StatusNotFound, map[string]any{
+				"model":   modelName,
+				"servers": []any{},
+				"error":   fmt.Sprintf("model %q not found", modelName),
+			})
 		}
 
 		if cfg.MCP.Servers == "" && cfg.MCP.Stdio == "" {
@@ -33,6 +38,19 @@ func MCPServersEndpoint(cl *config.ModelConfigLoader, appConfig *config.Applicat
 		remote, stdio, err := cfg.MCP.MCPConfigFromYAML()
 		if err != nil {
 			return fmt.Errorf("failed to parse MCP config: %w", err)
+		}
+
+		// In distributed mode, route discovery through NATS to an agent worker
+		// that can actually connect to the MCP servers.
+		if natsClient != nil {
+			resp, err := mcpTools.DiscoverMCPToolsRemote(c.Request().Context(), natsClient, cfg.Name, remote, stdio)
+			if err != nil {
+				return fmt.Errorf("remote MCP discovery failed: %w", err)
+			}
+			return c.JSON(200, map[string]any{
+				"model":   modelName,
+				"servers": resp.Servers,
+			})
 		}
 
 		namedSessions, err := mcpTools.NamedSessionsFromMCPConfig(cfg.Name, remote, stdio, nil)
@@ -54,7 +72,7 @@ func MCPServersEndpoint(cl *config.ModelConfigLoader, appConfig *config.Applicat
 
 // MCPServersEndpointFromMiddleware is a version that uses the middleware-resolved model config.
 // This allows it to use the same middleware chain as other endpoints.
-func MCPServersEndpointFromMiddleware() echo.HandlerFunc {
+func MCPServersEndpointFromMiddleware(natsClient mcpTools.MCPNATSClient) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		cfg, ok := c.Get(middleware.CONTEXT_LOCALS_KEY_MODEL_CONFIG).(*config.ModelConfig)
 		if !ok || cfg == nil {
@@ -71,6 +89,18 @@ func MCPServersEndpointFromMiddleware() echo.HandlerFunc {
 		remote, stdio, err := cfg.MCP.MCPConfigFromYAML()
 		if err != nil {
 			return fmt.Errorf("failed to parse MCP config: %w", err)
+		}
+
+		// In distributed mode, route discovery through NATS to an agent worker.
+		if natsClient != nil {
+			resp, err := mcpTools.DiscoverMCPToolsRemote(c.Request().Context(), natsClient, cfg.Name, remote, stdio)
+			if err != nil {
+				return fmt.Errorf("remote MCP discovery failed: %w", err)
+			}
+			return c.JSON(200, map[string]any{
+				"model":   cfg.Name,
+				"servers": resp.Servers,
+			})
 		}
 
 		namedSessions, err := mcpTools.NamedSessionsFromMCPConfig(cfg.Name, remote, stdio, nil)

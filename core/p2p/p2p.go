@@ -76,7 +76,7 @@ func nodeAnnounce(ctx context.Context, node *node.Node) {
 		ctx,
 		10*time.Second,
 		func() {
-			updatedMap := map[string]interface{}{}
+			updatedMap := map[string]any{}
 			updatedMap[node.Host().ID().String()] = &types.User{
 				PeerID:    node.Host().ID().String(),
 				Timestamp: time.Now().String(),
@@ -346,7 +346,7 @@ func ExposeService(ctx context.Context, host, port, token, servicesID string) (*
 		ctx,
 		20*time.Second,
 		func() {
-			updatedMap := map[string]interface{}{}
+			updatedMap := map[string]any{}
 			updatedMap[name] = &schema.NodeData{
 				Name:     name,
 				LastSeen: time.Now(),

@@ -1,6 +1,6 @@
 +++
 disableToc = false
-title = "⚡ GPU acceleration"
+title = "GPU Acceleration"
 weight = 9
 url = "/features/gpu-acceleration/"
 +++
@@ -151,15 +151,15 @@ llama_init_from_file: kv self size  =  512.00 MB
 
 ## ROCM(AMD) acceleration
 
-There are a limited number of tested configurations for ROCm systems however most newer deditated GPU consumer grade devices seem to be supported under the current ROCm6 implementation.
+There are a limited number of tested configurations for ROCm systems however most newer dedicated GPU consumer grade devices seem to be supported under the current ROCm 7 implementation.
 
 Due to the nature of ROCm it is best to run all implementations in containers as this limits the number of packages required for installation on host system, compatibility and package versions for dependencies across all variations of OS must be tested independently if desired, please refer to the [build]({{%relref "installation/build#Acceleration" %}}) documentation.
 
 ### Requirements
 
-- `ROCm 6.x.x` compatible GPU/accelerator
-- OS: `Ubuntu` (22.04, 20.04), `RHEL` (9.3, 9.2, 8.9, 8.8), `SLES` (15.5, 15.4)
-- Installed to host: `amdgpu-dkms` and `rocm` >=6.0.0 as per ROCm documentation.
+- `ROCm 7.x.x` compatible GPU/accelerator
+- OS: `Ubuntu` (24.04, 22.04), `RHEL` (9.x), `SLES` (15.x)
+- Installed to host: `amdgpu-dkms` and `rocm` >=7.0.0 as per ROCm documentation.
 
 ### Recommendations
 
@@ -171,24 +171,23 @@ Due to the nature of ROCm it is best to run all implementations in containers as
 Ongoing verification testing of ROCm compatibility with integrated backends.
 Please note the following list of verified backends and devices.
 
-LocalAI hipblas images are built against the following targets: gfx900,gfx906,gfx908,gfx940,gfx941,gfx942,gfx90a,gfx1030,gfx1031,gfx1100,gfx1101
+LocalAI hipblas images are built against the following targets: gfx908, gfx90a, gfx942, gfx950, gfx1030, gfx1100, gfx1101, gfx1102, gfx1200, gfx1201
 
-If your device is not one of these you must specify the corresponding `GPU_TARGETS` and specify `REBUILD=true`. Otherwise you don't need to specify these in the commands below.
+**Note:** Starting with ROCm 6.4, AMD removed rocBLAS kernel support for older architectures (gfx803, gfx900, gfx906). Since llama.cpp and other backends depend on rocBLAS for matrix operations, these GPUs (e.g. Radeon VII) are no longer supported in pre-built images.
+
+If your device is not one of the above targets, you must specify the corresponding `GPU_TARGETS` and specify `REBUILD=true`. However, rebuilding will not help for architectures that lack rocBLAS kernel support in your ROCm version.
 
 ### Verified
 
-The devices in the following list have been tested with `hipblas` images running `ROCm 6.0.0`
+The devices in the following list have been tested with `hipblas` images.
 
 | Backend | Verified | Devices |
 | ---- | ---- | ---- |
-| llama.cpp | yes | Radeon VII (gfx906) |
-| diffusers | yes | Radeon VII (gfx906) |
-| piper | yes | Radeon VII (gfx906) |
+| llama.cpp | yes | MI100 (gfx908), MI210/250 (gfx90a) |
+| diffusers | yes | MI100 (gfx908), MI210/250 (gfx90a) |
 | whisper | no | none |
 | coqui | no | none |
 | transformers | no | none |
-| sentencetransformers | no | none |
-| transformers-musicgen | no | none |
 | vllm | no | none |
 
 **You can help by expanding this list.**
@@ -196,8 +195,8 @@ The devices in the following list have been tested with `hipblas` images running
 ### System Prep
 
 1. Check your GPU LLVM target is compatible with the version of ROCm. This can be found in the [LLVM Docs](https://llvm.org/docs/AMDGPUUsage.html).
-2. Check which ROCm version is compatible with your LLVM target and your chosen OS (pay special attention to supported kernel versions). See the following for compatibility for ([ROCm 6.0.0](https://rocm.docs.amd.com/projects/install-on-linux/en/docs-6.0.0/reference/system-requirements.html)) or ([ROCm 6.0.2](https://rocm.docs.amd.com/projects/install-on-linux/en/latest/reference/system-requirements.html))
-3. Install you chosen version of the `dkms` and `rocm` (it is recommended that the native package manager be used for this process for any OS as version changes are executed more easily via this method if updates are required). Take care to restart after installing `amdgpu-dkms` and before installing `rocm`, for details regarding this see the installation documentation for your chosen OS ([6.0.2](https://rocm.docs.amd.com/projects/install-on-linux/en/latest/how-to/native-install/index.html) or [6.0.0](https://rocm.docs.amd.com/projects/install-on-linux/en/docs-6.0.0/how-to/native-install/index.html))
+2. Check which ROCm version is compatible with your LLVM target and your chosen OS (pay special attention to supported kernel versions). See the [ROCm compatibility matrix](https://rocm.docs.amd.com/en/latest/compatibility/compatibility-matrix.html).
+3. Install your chosen version of the `dkms` and `rocm` (it is recommended that the native package manager be used for this process for any OS as version changes are executed more easily via this method if updates are required). Take care to restart after installing `amdgpu-dkms` and before installing `rocm`, for details regarding this see the [ROCm installation documentation](https://rocm.docs.amd.com/projects/install-on-linux/en/latest/how-to/native-install/index.html).
 4. Deploy. Yes it's that easy.
 
 #### Setup Example (Docker/containerd)
@@ -212,7 +211,7 @@ The following are examples of the ROCm specific configuration elements required.
       # If your gpu is not already included in the current list of default targets the following build details are required.
       - REBUILD=true
       - BUILD_TYPE=hipblas
-      - GPU_TARGETS=gfx906 # Example for Radeon VII
+      - GPU_TARGETS=gfx1100 # Example for RX 7900 XTX
     devices:
       # AMD GPU only require the following devices be passed through to the container for offloading to occur.
       - /dev/dri
@@ -226,7 +225,7 @@ docker run \
  -e DEBUG=true \
  -e REBUILD=true \
  -e BUILD_TYPE=hipblas \
- -e GPU_TARGETS=gfx906 \
+ -e GPU_TARGETS=gfx1100 \
  --device /dev/dri \
  --device /dev/kfd \
  quay.io/go-skynet/local-ai:master-gpu-hipblas

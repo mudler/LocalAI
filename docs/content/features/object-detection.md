@@ -1,11 +1,16 @@
 +++
 disableToc = false
-title = "🔍 Object detection"
+title = "Object Detection"
 weight = 13
 url = "/features/object-detection/"
 +++
 
-LocalAI supports object detection through various backends. This feature allows you to identify and locate objects within images with high accuracy and real-time performance. Currently, [RF-DETR](https://github.com/roboflow/rf-detr) is available as an implementation.
+LocalAI supports object detection and image segmentation through various backends. This feature allows you to identify and locate objects within images with high accuracy and real-time performance. Available backends include [RF-DETR](https://github.com/roboflow/rf-detr) for object detection and [sam3.cpp](https://github.com/PABannier/sam3.cpp) for image segmentation (SAM 3/2/EdgeTAM).
+
+For detecting **faces** specifically, see the dedicated
+[Face Recognition](/features/face-recognition/) feature — its
+`/v1/detection` support is tuned for face bounding boxes and ships
+with commercially-safe model options.
 
 ## Overview
 
@@ -14,6 +19,8 @@ Object detection in LocalAI is implemented through dedicated backends that can i
 **Key Features:**
 - Real-time object detection
 - High accuracy detection with bounding boxes
+- Image segmentation with binary masks (SAM backends)
+- Text-prompted, point-prompted, and box-prompted segmentation
 - Support for multiple hardware accelerators (CPU, NVIDIA GPU, Intel GPU, AMD GPU)
 - Structured detection results with confidence scores
 - Easy integration through the `/v1/detection` endpoint
@@ -45,6 +52,10 @@ The request body should contain:
 - `image`: The image to analyze, which can be:
   - A URL to an image
   - A base64-encoded image
+- `prompt` (optional): Text prompt for text-prompted segmentation (SAM 3 only)
+- `points` (optional): Point coordinates as `[x, y, label, ...]` triples (label: 1=positive, 0=negative)
+- `boxes` (optional): Box coordinates as `[x1, y1, x2, y2, ...]` quads
+- `threshold` (optional): Detection confidence threshold (default: 0.5)
 
 ### Response Format
 
@@ -78,6 +89,7 @@ Each detection includes:
 - `width`, `height`: Dimensions of the bounding box
 - `confidence`: Detection confidence score (0.0 to 1.0)
 - `class_name`: The detected object class
+- `mask` (optional): Base64-encoded PNG binary segmentation mask (SAM backends only)
 
 ## Backends
 
@@ -122,6 +134,76 @@ Currently, the following model is available in the [Model Gallery]({{%relref "fe
 - **rfdetr-base**: Base model with balanced performance and accuracy
 
 You can browse and install this model through the LocalAI web interface or using the command line.
+
+### SAM3 Backend (sam3-cpp)
+
+The sam3-cpp backend provides image segmentation using [sam3.cpp](https://github.com/PABannier/sam3.cpp), a portable C++ implementation of Meta's Segment Anything Model. It supports multiple model architectures:
+
+- **SAM 3**: Full model with text encoder for text-prompted detection and segmentation
+- **SAM 2 / SAM 2.1**: Hiera backbone models in multiple sizes
+- **SAM 3 Visual-Only**: Point/box segmentation without text encoder
+- **EdgeTAM**: Ultra-efficient mobile variant (~15MB quantized)
+
+#### Setup
+
+1. **Manual Configuration**
+
+   Create a model configuration file in your `models` directory:
+
+   ```yaml
+   name: sam3
+   backend: sam3-cpp
+   parameters:
+     model: edgetam_q4_0.ggml
+     threads: 4
+   known_usecases:
+     - detection
+   ```
+
+   Download the model from [Hugging Face](https://huggingface.co/PABannier/sam3.cpp).
+
+#### Segmentation Modes
+
+**Point-prompted segmentation** (all models):
+
+```bash
+curl -X POST http://localhost:8080/v1/detection \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "sam3",
+    "image": "data:image/jpeg;base64,...",
+    "points": [256.0, 256.0, 1.0],
+    "threshold": 0.5
+  }'
+```
+
+**Box-prompted segmentation** (all models):
+
+```bash
+curl -X POST http://localhost:8080/v1/detection \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "sam3",
+    "image": "data:image/jpeg;base64,...",
+    "boxes": [100.0, 100.0, 400.0, 400.0],
+    "threshold": 0.5
+  }'
+```
+
+**Text-prompted segmentation** (SAM 3 full model only):
+
+```bash
+curl -X POST http://localhost:8080/v1/detection \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "sam3",
+    "image": "data:image/jpeg;base64,...",
+    "prompt": "cat",
+    "threshold": 0.5
+  }'
+```
+
+The response includes segmentation masks as base64-encoded PNGs in the `mask` field of each detection.
 
 ## Examples
 
@@ -180,6 +262,7 @@ local-ai run --debug rfdetr-base
 LocalAI includes a dedicated **object-detection** category for models and backends that specialize in identifying and locating objects within images. This category currently includes:
 
 - **RF-DETR**: Real-time transformer-based object detection
+- **sam3-cpp**: SAM 3/2/EdgeTAM image segmentation
 
 Additional object detection models and backends will be added to this category in the future. You can filter models by the `object-detection` tag in the model gallery to find all available object detection models.
 

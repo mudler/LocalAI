@@ -16,12 +16,17 @@ import (
 
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/http/endpoints/localai"
+
 	httpMiddleware "github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/http/routes"
 
 	"github.com/mudler/LocalAI/core/application"
 	"github.com/mudler/LocalAI/core/schema"
-	"github.com/mudler/LocalAI/core/services"
+	"github.com/mudler/LocalAI/core/services/finetune"
+	"github.com/mudler/LocalAI/core/services/galleryop"
+	"github.com/mudler/LocalAI/core/services/monitoring"
+	"github.com/mudler/LocalAI/core/services/nodes"
+	"github.com/mudler/LocalAI/core/services/quantization"
 
 	"github.com/mudler/xlog"
 )
@@ -47,9 +52,42 @@ var quietPaths = []string{"/api/operations", "/api/resources", "/healthz", "/rea
 // @license.name MIT
 // @license.url https://raw.githubusercontent.com/mudler/LocalAI/master/LICENSE
 // @BasePath /
+// @schemes http https
 // @securityDefinitions.apikey BearerAuth
 // @in header
 // @name Authorization
+// @tag.name inference
+// @tag.description Chat completions, text completions, edits, and responses (OpenAI-compatible)
+// @tag.name embeddings
+// @tag.description Vector embeddings (OpenAI-compatible)
+// @tag.name audio
+// @tag.description Text-to-speech, transcription, voice activity detection, sound generation
+// @tag.name images
+// @tag.description Image generation and inpainting
+// @tag.name video
+// @tag.description Video generation from prompts
+// @tag.name detection
+// @tag.description Object detection in images
+// @tag.name tokenize
+// @tag.description Tokenization and token metrics
+// @tag.name models
+// @tag.description Model gallery browsing, installation, deletion, and listing
+// @tag.name backends
+// @tag.description Backend gallery browsing, installation, deletion, and listing
+// @tag.name config
+// @tag.description Model configuration metadata, autocomplete, PATCH updates, VRAM estimation
+// @tag.name monitoring
+// @tag.description Prometheus metrics, backend status, system information
+// @tag.name mcp
+// @tag.description Model Context Protocol — tool-augmented chat with MCP servers
+// @tag.name agent-jobs
+// @tag.description Agent task and job management
+// @tag.name p2p
+// @tag.description Peer-to-peer networking nodes and tokens
+// @tag.name rerank
+// @tag.description Document reranking
+// @tag.name instructions
+// @tag.description API instruction discovery — browse instruction areas and get endpoint guides
 
 func API(application *application.Application) (*echo.Echo, error) {
 	e := echo.New()
@@ -155,7 +193,7 @@ func API(application *application.Application) (*echo.Echo, error) {
 
 	// Metrics middleware
 	if !application.ApplicationConfig().DisableMetrics {
-		metricsService, err := services.NewLocalAIMetricsService()
+		metricsService, err := monitoring.NewLocalAIMetricsService()
 		if err != nil {
 			return nil, err
 		}
@@ -295,9 +333,9 @@ func API(application *application.Application) (*echo.Echo, error) {
 	routes.RegisterElevenLabsRoutes(e, requestExtractor, application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig())
 
 	// Create opcache for tracking UI operations (used by both UI and LocalAI routes)
-	var opcache *services.OpCache
+	var opcache *galleryop.OpCache
 	if !application.ApplicationConfig().DisableWebUI {
-		opcache = services.NewOpCache(application.GalleryService())
+		opcache = galleryop.NewOpCache(application.GalleryService())
 	}
 
 	mcpMw := auth.RequireFeature(application.AuthDB(), auth.FeatureMCP)
@@ -305,28 +343,61 @@ func API(application *application.Application) (*echo.Echo, error) {
 	routes.RegisterAgentPoolRoutes(e, application, agentsMw, skillsMw, collectionsMw)
 	// Fine-tuning routes
 	fineTuningMw := auth.RequireFeature(application.AuthDB(), auth.FeatureFineTuning)
-	ftService := services.NewFineTuneService(
+	ftService := finetune.NewFineTuneService(
 		application.ApplicationConfig(),
 		application.ModelLoader(),
 		application.ModelConfigLoader(),
 	)
+	if d := application.Distributed(); d != nil {
+		ftService.SetNATSClient(d.Nats)
+		if d.DistStores != nil && d.DistStores.FineTune != nil {
+			ftService.SetFineTuneStore(d.DistStores.FineTune)
+		}
+	}
 	routes.RegisterFineTuningRoutes(e, ftService, application.ApplicationConfig(), fineTuningMw)
 
 	// Quantization routes
 	quantizationMw := auth.RequireFeature(application.AuthDB(), auth.FeatureQuantization)
-	qService := services.NewQuantizationService(
+	qService := quantization.NewQuantizationService(
 		application.ApplicationConfig(),
 		application.ModelLoader(),
 		application.ModelConfigLoader(),
 	)
 	routes.RegisterQuantizationRoutes(e, qService, application.ApplicationConfig(), quantizationMw)
 
+	// Node management routes (distributed mode)
+	distCfg := application.ApplicationConfig().Distributed
+	var registry *nodes.NodeRegistry
+	var remoteUnloader nodes.NodeCommandSender
+	if d := application.Distributed(); d != nil {
+		registry = d.Registry
+		if d.Router != nil {
+			remoteUnloader = d.Router.Unloader()
+		}
+	}
+	routes.RegisterNodeSelfServiceRoutes(e, registry, distCfg.RegistrationToken, distCfg.AutoApproveNodes, application.AuthDB(), application.ApplicationConfig().Auth.APIKeyHMACSecret)
+	routes.RegisterNodeAdminRoutes(e, registry, remoteUnloader, adminMiddleware, application.AuthDB(), application.ApplicationConfig().Auth.APIKeyHMACSecret, application.ApplicationConfig().Distributed.RegistrationToken)
+
+	// Distributed SSE routes (job progress + agent events via NATS)
+	if d := application.Distributed(); d != nil {
+		if d.Dispatcher != nil {
+			e.GET("/api/agent/jobs/:id/progress", d.Dispatcher.SSEHandler(), mcpJobsMw)
+		}
+		if d.AgentBridge != nil {
+			e.GET("/api/agents/:name/sse/distributed", d.AgentBridge.SSEHandler(), agentsMw)
+		}
+	}
+
 	routes.RegisterOpenAIRoutes(e, requestExtractor, application)
 	routes.RegisterAnthropicRoutes(e, requestExtractor, application)
 	routes.RegisterOpenResponsesRoutes(e, requestExtractor, application)
+	routes.RegisterOllamaRoutes(e, requestExtractor, application)
+	if application.ApplicationConfig().OllamaAPIRootEndpoint {
+		routes.RegisterOllamaRootEndpoint(e)
+	}
 	if !application.ApplicationConfig().DisableWebUI {
 		routes.RegisterUIAPIRoutes(e, application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig(), application.GalleryService(), opcache, application, adminMiddleware)
-		routes.RegisterUIRoutes(e, application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig(), application.GalleryService(), adminMiddleware)
+		routes.RegisterUIRoutes(e, application.ModelConfigLoader(), application.ApplicationConfig(), application.GalleryService(), adminMiddleware)
 
 		// Serve React SPA from / with SPA fallback via 404 handler
 		reactFS, fsErr := fs.Sub(reactUI, "react-ui/dist")

@@ -10,7 +10,7 @@ import (
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/schema"
-	"github.com/mudler/LocalAI/core/services"
+	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/mudler/xlog"
 )
@@ -19,7 +19,7 @@ type ModelGalleryEndpointService struct {
 	galleries        []config.Gallery
 	backendGalleries []config.Gallery
 	modelPath        string
-	galleryApplier   *services.GalleryService
+	galleryApplier   *galleryop.GalleryService
 	configLoader     *config.ModelConfigLoader
 }
 
@@ -28,7 +28,7 @@ type GalleryModel struct {
 	gallery.GalleryModel
 }
 
-func CreateModelGalleryEndpointService(galleries []config.Gallery, backendGalleries []config.Gallery, systemState *system.SystemState, galleryApplier *services.GalleryService, configLoader *config.ModelConfigLoader) ModelGalleryEndpointService {
+func CreateModelGalleryEndpointService(galleries []config.Gallery, backendGalleries []config.Gallery, systemState *system.SystemState, galleryApplier *galleryop.GalleryService, configLoader *config.ModelConfigLoader) ModelGalleryEndpointService {
 	return ModelGalleryEndpointService{
 		galleries:        galleries,
 		backendGalleries: backendGalleries,
@@ -40,7 +40,8 @@ func CreateModelGalleryEndpointService(galleries []config.Gallery, backendGaller
 
 // GetOpStatusEndpoint returns the job status
 // @Summary Returns the job status
-// @Success 200 {object} services.GalleryOpStatus "Response"
+// @Tags models
+// @Success 200 {object} galleryop.OpStatus "Response"
 // @Router /models/jobs/{uuid} [get]
 func (mgs *ModelGalleryEndpointService) GetOpStatusEndpoint() echo.HandlerFunc {
 	return func(c echo.Context) error {
@@ -54,7 +55,8 @@ func (mgs *ModelGalleryEndpointService) GetOpStatusEndpoint() echo.HandlerFunc {
 
 // GetAllStatusEndpoint returns all the jobs status progress
 // @Summary Returns all the jobs status progress
-// @Success 200 {object} map[string]services.GalleryOpStatus "Response"
+// @Tags models
+// @Success 200 {object} map[string]galleryop.OpStatus "Response"
 // @Router /models/jobs [get]
 func (mgs *ModelGalleryEndpointService) GetAllStatusEndpoint() echo.HandlerFunc {
 	return func(c echo.Context) error {
@@ -64,6 +66,7 @@ func (mgs *ModelGalleryEndpointService) GetAllStatusEndpoint() echo.HandlerFunc 
 
 // ApplyModelGalleryEndpoint installs a new model to a LocalAI instance from the model gallery
 // @Summary Install models to LocalAI.
+// @Tags models
 // @Param request body GalleryModel true "query params"
 // @Success 200 {object} schema.GalleryResponse "Response"
 // @Router /models/apply [post]
@@ -79,7 +82,7 @@ func (mgs *ModelGalleryEndpointService) ApplyModelGalleryEndpoint() echo.Handler
 		if err != nil {
 			return err
 		}
-		mgs.galleryApplier.ModelGalleryChannel <- services.GalleryOp[gallery.GalleryModel, gallery.ModelConfig]{
+		mgs.galleryApplier.ModelGalleryChannel <- galleryop.ManagementOp[gallery.GalleryModel, gallery.ModelConfig]{
 			Req:                input.GalleryModel,
 			ID:                 uuid.String(),
 			GalleryElementName: input.ID,
@@ -93,6 +96,7 @@ func (mgs *ModelGalleryEndpointService) ApplyModelGalleryEndpoint() echo.Handler
 
 // DeleteModelGalleryEndpoint lets delete models from a LocalAI instance
 // @Summary delete models to LocalAI.
+// @Tags models
 // @Param name	path string	true	"Model name"
 // @Success 200 {object} schema.GalleryResponse "Response"
 // @Router /models/delete/{name} [post]
@@ -100,7 +104,7 @@ func (mgs *ModelGalleryEndpointService) DeleteModelGalleryEndpoint() echo.Handle
 	return func(c echo.Context) error {
 		modelName := c.Param("name")
 
-		mgs.galleryApplier.ModelGalleryChannel <- services.GalleryOp[gallery.GalleryModel, gallery.ModelConfig]{
+		mgs.galleryApplier.ModelGalleryChannel <- galleryop.ManagementOp[gallery.GalleryModel, gallery.ModelConfig]{
 			Delete:             true,
 			GalleryElementName: modelName,
 		}
@@ -118,7 +122,8 @@ func (mgs *ModelGalleryEndpointService) DeleteModelGalleryEndpoint() echo.Handle
 
 // ListModelFromGalleryEndpoint list the available models for installation from the active galleries
 // @Summary List installable models.
-// @Success 200 {object} []gallery.GalleryModel "Response"
+// @Tags models
+// @Success 200 {object} []gallery.Metadata "Response"
 // @Router /models/available [get]
 func (mgs *ModelGalleryEndpointService) ListModelFromGalleryEndpoint(systemState *system.SystemState) echo.HandlerFunc {
 	return func(c echo.Context) error {
@@ -149,6 +154,7 @@ func (mgs *ModelGalleryEndpointService) ListModelFromGalleryEndpoint(systemState
 
 // ListModelGalleriesEndpoint list the available galleries configured in LocalAI
 // @Summary List all Galleries
+// @Tags models
 // @Success 200 {object} []config.Gallery "Response"
 // @Router /models/galleries [get]
 // NOTE: This is different (and much simpler!) than above! This JUST lists the model galleries that have been loaded, not their contents!

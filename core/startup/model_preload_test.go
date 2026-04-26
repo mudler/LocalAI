@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/mudler/LocalAI/core/config"
-	"github.com/mudler/LocalAI/core/services"
+	"github.com/mudler/LocalAI/core/services/galleryop"
 	. "github.com/mudler/LocalAI/core/startup"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/system"
@@ -42,7 +42,7 @@ var _ = Describe("Preload test", func() {
 			url := "https://raw.githubusercontent.com/mudler/LocalAI-examples/main/configurations/phi-2.yaml"
 			fileName := fmt.Sprintf("%s.yaml", "phi-2")
 
-			galleryService := services.NewGalleryService(&config.ApplicationConfig{
+			galleryService := galleryop.NewGalleryService(&config.ApplicationConfig{
 				SystemState: systemState,
 			}, ml)
 			galleryService.Start(ctx, config.NewModelConfigLoader(tmpdir), systemState)
@@ -62,7 +62,7 @@ var _ = Describe("Preload test", func() {
 			url := "huggingface://TheBloke/TinyLlama-1.1B-Chat-v0.3-GGUF/tinyllama-1.1b-chat-v0.3.Q2_K.gguf"
 			fileName := fmt.Sprintf("%s.gguf", "tinyllama-1.1b-chat-v0.3.Q2_K")
 
-			galleryService := services.NewGalleryService(&config.ApplicationConfig{
+			galleryService := galleryop.NewGalleryService(&config.ApplicationConfig{
 				SystemState: systemState,
 			}, ml)
 			galleryService.Start(ctx, config.NewModelConfigLoader(tmpdir), systemState)

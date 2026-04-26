@@ -26,108 +26,12 @@
 #include "stb_image_resize.h"
 #include <stdlib.h>
 #include <regex>
+#include <errno.h>
+#include <signal.h>
+#include <unistd.h>
+#include <sys/wait.h>
 
-// Names of the sampler method, same order as enum sample_method in stable-diffusion.h
-const char* sample_method_str[] = {
-    "euler",
-    "euler_a",
-    "heun",
-    "dpm2",
-    "dpm++2s_a",
-    "dpm++2m",
-    "dpm++2mv2",
-    "ipndm",
-    "ipndm_v",
-    "lcm",
-    "ddim_trailing",
-    "tcd",
-    "res_multistep",
-    "res_2s",
-};
 
-static_assert(std::size(sample_method_str) == SAMPLE_METHOD_COUNT, "sample method mismatch");
-
-// Names of the sigma schedule overrides, same order as sample_schedule in stable-diffusion.h
-const char* schedulers[] = {
-    "discrete",
-    "karras",
-    "exponential",
-    "ays",
-    "gits",
-    "sgm_uniform",
-    "simple",
-    "smoothstep",
-    "kl_optimal",
-    "lcm",
-    "bong_tangent",
-};
-
-static_assert(std::size(schedulers) == SCHEDULER_COUNT, "schedulers mismatch");
-
-// New enum string arrays
-const char* rng_type_str[] = {
-    "std_default",
-    "cuda",
-    "cpu",
-};
-static_assert(std::size(rng_type_str) == RNG_TYPE_COUNT, "rng type mismatch");
-
-const char* prediction_str[] = {
-    "epsilon",
-    "v",
-    "edm_v",
-    "flow",
-    "flux_flow",
-    "flux2_flow",
-};
-static_assert(std::size(prediction_str) == PREDICTION_COUNT, "prediction mismatch");
-
-const char* lora_apply_mode_str[] = {
-    "auto",
-    "immediately",
-    "at_runtime",
-};
-static_assert(std::size(lora_apply_mode_str) == LORA_APPLY_MODE_COUNT, "lora apply mode mismatch");
-
-constexpr const char* sd_type_str[] = {
-    "f32",      // 0
-    "f16",      // 1
-    "q4_0",     // 2
-    "q4_1",     // 3
-    nullptr,    // 4
-    nullptr,    // 5
-    "q5_0",     // 6
-    "q5_1",     // 7
-    "q8_0",     // 8
-    "q8_1",     // 9
-    "q2_k",     // 10
-    "q3_k",     // 11
-    "q4_k",     // 12
-    "q5_k",     // 13
-    "q6_k",     // 14
-    "q8_k",     // 15
-    "iq2_xxs",  // 16
-    "iq2_xs",   // 17
-    "iq3_xxs",  // 18
-    "iq1_s",    // 19
-    "iq4_nl",   // 20
-    "iq3_s",    // 21
-    "iq2_s",    // 22
-    "iq4_xs",   // 23
-    "i8",       // 24
-    "i16",      // 25
-    "i32",      // 26
-    "i64",      // 27
-    "f64",      // 28
-    "iq1_m",    // 29
-    "bf16",     // 30
-    nullptr, nullptr, nullptr,  // 31-33
-    "tq1_0",    // 34
-    "tq2_0",    // 35
-    nullptr, nullptr, nullptr,  // 36-38
-    "mxfp4"     // 39
-};
-static_assert(std::size(sd_type_str) == SD_TYPE_COUNT, "sd type mismatch");
 
 sd_ctx_params_t ctx_params;
 sd_ctx_t* sd_c;
@@ -596,75 +500,45 @@ int load_model(const char *model, char *model_path, char* options[], int threads
         if (!strcmp(optname, "flow_shift")) flow_shift = atof(optval);
 
         if (!strcmp(optname, "rng_type")) {
-            int found = -1;
-            for (int m = 0; m < RNG_TYPE_COUNT; m++) {
-                if (!strcmp(optval, rng_type_str[m])) {
-                    found = m;
-                    break;
-                }
-            }
-            if (found != -1) {
-                rng_type = (rng_type_t)found;
+            rng_type_t parsed = str_to_rng_type(optval);
+            if (parsed != RNG_TYPE_COUNT) {
+                rng_type = parsed;
                 fprintf(stderr, "Found rng_type: %s\n", optval);
             } else {
                 fprintf(stderr, "Invalid rng_type: %s, using default\n", optval);
             }
         }
         if (!strcmp(optname, "sampler_rng_type")) {
-            int found = -1;
-            for (int m = 0; m < RNG_TYPE_COUNT; m++) {
-                if (!strcmp(optval, rng_type_str[m])) {
-                    found = m;
-                    break;
-                }
-            }
-            if (found != -1) {
-                sampler_rng_type = (rng_type_t)found;
+            rng_type_t parsed = str_to_rng_type(optval);
+            if (parsed != RNG_TYPE_COUNT) {
+                sampler_rng_type = parsed;
                 fprintf(stderr, "Found sampler_rng_type: %s\n", optval);
             } else {
                 fprintf(stderr, "Invalid sampler_rng_type: %s, using default\n", optval);
             }
         }
         if (!strcmp(optname, "prediction")) {
-            int found = -1;
-            for (int m = 0; m < PREDICTION_COUNT; m++) {
-                if (!strcmp(optval, prediction_str[m])) {
-                    found = m;
-                    break;
-                }
-            }
-            if (found != -1) {
-                prediction = (prediction_t)found;
+            prediction_t parsed = str_to_prediction(optval);
+            if (parsed != PREDICTION_COUNT) {
+                prediction = parsed;
                 fprintf(stderr, "Found prediction: %s\n", optval);
             } else {
                 fprintf(stderr, "Invalid prediction: %s, using default\n", optval);
             }
         }
         if (!strcmp(optname, "lora_apply_mode")) {
-            int found = -1;
-            for (int m = 0; m < LORA_APPLY_MODE_COUNT; m++) {
-                if (!strcmp(optval, lora_apply_mode_str[m])) {
-                    found = m;
-                    break;
-                }
-            }
-            if (found != -1) {
-                lora_apply_mode = (lora_apply_mode_t)found;
+            lora_apply_mode_t parsed = str_to_lora_apply_mode(optval);
+            if (parsed != LORA_APPLY_MODE_COUNT) {
+                lora_apply_mode = parsed;
                 fprintf(stderr, "Found lora_apply_mode: %s\n", optval);
             } else {
                 fprintf(stderr, "Invalid lora_apply_mode: %s, using default\n", optval);
             }
         }
         if (!strcmp(optname, "wtype")) {
-            int found = -1;
-            for (int m = 0; m < SD_TYPE_COUNT; m++) {
-                if (sd_type_str[m] && !strcmp(optval, sd_type_str[m])) {
-                    found = m;
-                    break;
-                }
-            }
-            if (found != -1) {
-                wtype = (sd_type_t)found;
+            sd_type_t parsed = str_to_sd_type(optval);
+            if (parsed != SD_TYPE_COUNT) {
+                wtype = parsed;
                 fprintf(stderr, "Found wtype: %s\n", optval);
             } else {
                 fprintf(stderr, "Invalid wtype: %s, using default\n", optval);
@@ -735,27 +609,25 @@ int load_model(const char *model, char *model_path, char* options[], int threads
     fprintf (stderr, "Created context: OK\n");
 
     int sample_method_found = -1;
-    for (int m = 0; m < SAMPLE_METHOD_COUNT; m++) {
-        if (!strcmp(sampler, sample_method_str[m])) {
-            sample_method_found = m;
-            fprintf(stderr, "Found sampler: %s\n", sampler);
-        }
+    sample_method_t sm = str_to_sample_method(sampler);
+    if (sm != SAMPLE_METHOD_COUNT) {
+        sample_method_found = (int)sm;
+        fprintf(stderr, "Found sampler: %s\n", sampler);
     }
     if (sample_method_found == -1) {
         sample_method_found = sd_get_default_sample_method(sd_ctx);
-        fprintf(stderr, "Invalid sample method, using default: %s\n", sample_method_str[sample_method_found]);
+        fprintf(stderr, "Invalid sample method, using default: %s\n", sd_sample_method_name((sample_method_t)sample_method_found));
     }
     sample_method = (sample_method_t)sample_method_found;
 
-    for (int d = 0; d < SCHEDULER_COUNT; d++) {
-        if (!strcmp(scheduler_str, schedulers[d])) {
-            scheduler = (scheduler_t)d;
-            fprintf (stderr, "Found scheduler: %s\n", scheduler_str);
-        }
+    scheduler_t sched = str_to_scheduler(scheduler_str);
+    if (sched != SCHEDULER_COUNT) {
+        scheduler = sched;
+        fprintf(stderr, "Found scheduler: %s\n", scheduler_str);
     }
     if (scheduler == SCHEDULER_COUNT) {
-      scheduler = sd_get_default_scheduler(sd_ctx, sample_method);
-      fprintf(stderr, "Invalid scheduler, using default: %s\n", schedulers[scheduler]);
+        scheduler = sd_get_default_scheduler(sd_ctx, sample_method);
+        fprintf(stderr, "Invalid scheduler, using default: %s\n", sd_scheduler_name(scheduler));
     }
 
     sd_c = sd_ctx;
@@ -1110,6 +982,256 @@ int gen_image(sd_img_gen_params_t *p, int steps, char *dst, float cfg_scale, cha
     fflush(stderr);
 
     return !ret;
+}
+
+// ---------------- Video generation ----------------
+
+sd_vid_gen_params_t* sd_vid_gen_params_new(void) {
+    sd_vid_gen_params_t *params = (sd_vid_gen_params_t *)std::malloc(sizeof(sd_vid_gen_params_t));
+    sd_vid_gen_params_init(params);
+    sd_sample_params_init(&params->sample_params);
+    sd_sample_params_init(&params->high_noise_sample_params);
+    sd_cache_params_init(&params->cache);
+    return params;
+}
+
+// Persistent storage for cleaned video prompts (kept alive for the duration of generation)
+static std::string cleaned_vid_prompt_storage;
+static std::string cleaned_vid_negative_prompt_storage;
+
+void sd_vid_gen_params_set_prompts(sd_vid_gen_params_t *params, const char *prompt, const char *negative_prompt) {
+    lora_vec.clear();
+    lora_strings.clear();
+
+    std::string prompt_str = prompt ? prompt : "";
+    std::string negative_prompt_str = negative_prompt ? negative_prompt : "";
+
+    const char* lora_dir_to_use = lora_dir_path.empty() ? nullptr : lora_dir_path.c_str();
+
+    auto [loras, cleaned_prompt] = parse_loras_from_prompt(prompt_str, lora_dir_to_use);
+    lora_vec = loras;
+    cleaned_vid_prompt_storage = cleaned_prompt;
+
+    auto [neg_loras, cleaned_negative] = parse_loras_from_prompt(negative_prompt_str, lora_dir_to_use);
+    cleaned_vid_negative_prompt_storage = cleaned_negative;
+
+    params->prompt          = cleaned_vid_prompt_storage.c_str();
+    params->negative_prompt = cleaned_vid_negative_prompt_storage.c_str();
+    params->loras           = lora_vec.empty() ? nullptr : lora_vec.data();
+    params->lora_count      = static_cast<uint32_t>(lora_vec.size());
+}
+
+void sd_vid_gen_params_set_dimensions(sd_vid_gen_params_t *params, int width, int height) {
+    params->width = width;
+    params->height = height;
+}
+
+void sd_vid_gen_params_set_seed(sd_vid_gen_params_t *params, int64_t seed) {
+    params->seed = seed;
+}
+
+void sd_vid_gen_params_set_video_frames(sd_vid_gen_params_t *params, int n) {
+    params->video_frames = n;
+}
+
+// Load an image file into an sd_image_t, resizing to target dims if needed.
+// Returns a heap-allocated buffer the caller must free (or nullptr on failure).
+static uint8_t* load_and_resize_image(const char* path, int target_width, int target_height, sd_image_t* out) {
+    if (!path || strlen(path) == 0) {
+        *out = {0, 0, 0, nullptr};
+        return nullptr;
+    }
+    int c = 0, img_w = 0, img_h = 0;
+    uint8_t* buf = stbi_load(path, &img_w, &img_h, &c, 3);
+    if (!buf) {
+        fprintf(stderr, "Failed to load image from '%s'\n", path);
+        *out = {0, 0, 0, nullptr};
+        return nullptr;
+    }
+    if (img_w != target_width || img_h != target_height) {
+        fprintf(stderr, "Resizing image from %dx%d to %dx%d\n", img_w, img_h, target_width, target_height);
+        uint8_t* resized = (uint8_t*)malloc((size_t)target_width * target_height * 3);
+        if (!resized) { free(buf); *out = {0, 0, 0, nullptr}; return nullptr; }
+        stbir_resize(buf, img_w, img_h, 0,
+                     resized, target_width, target_height, 0, STBIR_TYPE_UINT8,
+                     3, STBIR_ALPHA_CHANNEL_NONE, 0,
+                     STBIR_EDGE_CLAMP, STBIR_EDGE_CLAMP,
+                     STBIR_FILTER_BOX, STBIR_FILTER_BOX,
+                     STBIR_COLORSPACE_SRGB, nullptr);
+        free(buf);
+        buf = resized;
+    }
+    *out = {(uint32_t)target_width, (uint32_t)target_height, 3, buf};
+    return buf;
+}
+
+// Pipe raw RGB/RGBA frames to ffmpeg stdin and let it produce an MP4 at dst.
+// Uses fork+execvp to avoid shell interpretation of dst.
+static int ffmpeg_mux_raw_to_mp4(sd_image_t* frames, int num_frames, int fps, const char* dst) {
+    if (num_frames <= 0 || !frames || !frames[0].data) {
+        fprintf(stderr, "ffmpeg_mux: empty frames\n");
+        return 1;
+    }
+    int width = (int)frames[0].width;
+    int height = (int)frames[0].height;
+    int channels = (int)frames[0].channel;
+    const char* pix_fmt_in = (channels == 4) ? "rgba" : "rgb24";
+
+    char size_str[32];
+    char fps_str[32];
+    snprintf(size_str, sizeof(size_str), "%dx%d", width, height);
+    snprintf(fps_str, sizeof(fps_str), "%d", fps);
+
+    int pipefd[2];
+    if (pipe(pipefd) != 0) { perror("pipe"); return 1; }
+
+    pid_t pid = fork();
+    if (pid < 0) { perror("fork"); close(pipefd[0]); close(pipefd[1]); return 1; }
+
+    if (pid == 0) {
+        // child
+        close(pipefd[1]);
+        if (dup2(pipefd[0], STDIN_FILENO) < 0) { perror("dup2"); _exit(127); }
+        close(pipefd[0]);
+        std::vector<char*> argv = {
+            const_cast<char*>("ffmpeg"),
+            const_cast<char*>("-y"),
+            const_cast<char*>("-hide_banner"),
+            const_cast<char*>("-loglevel"), const_cast<char*>("warning"),
+            const_cast<char*>("-f"), const_cast<char*>("rawvideo"),
+            const_cast<char*>("-pix_fmt"), const_cast<char*>(pix_fmt_in),
+            const_cast<char*>("-s"), size_str,
+            const_cast<char*>("-framerate"), fps_str,
+            const_cast<char*>("-i"), const_cast<char*>("-"),
+            const_cast<char*>("-c:v"), const_cast<char*>("libx264"),
+            const_cast<char*>("-pix_fmt"), const_cast<char*>("yuv420p"),
+            const_cast<char*>("-movflags"), const_cast<char*>("+faststart"),
+            // Force MP4 container. Distributed LocalAI hands us a staging
+            // path (e.g. /staging/localai-output-NNN.tmp) with a non-standard
+            // extension; relying on filename suffix makes ffmpeg bail with
+            // "Unable to choose an output format".
+            const_cast<char*>("-f"), const_cast<char*>("mp4"),
+            const_cast<char*>(dst),
+            nullptr
+        };
+        execvp(argv[0], argv.data());
+        perror("execvp ffmpeg");
+        _exit(127);
+    }
+
+    // parent
+    close(pipefd[0]);
+
+    // Ignore SIGPIPE so a dying ffmpeg surfaces via write() errno instead of killing us.
+    signal(SIGPIPE, SIG_IGN);
+
+    for (int i = 0; i < num_frames; i++) {
+        if (!frames[i].data) continue;
+        size_t frame_bytes = (size_t)frames[i].width * frames[i].height * frames[i].channel;
+        const uint8_t* p = frames[i].data;
+        size_t remaining = frame_bytes;
+        while (remaining > 0) {
+            ssize_t n = write(pipefd[1], p, remaining);
+            if (n < 0) {
+                if (errno == EINTR) continue;
+                perror("write frame to ffmpeg");
+                close(pipefd[1]);
+                int status;
+                waitpid(pid, &status, 0);
+                return 1;
+            }
+            p += n;
+            remaining -= (size_t)n;
+        }
+    }
+    close(pipefd[1]);
+
+    int status = 0;
+    while (waitpid(pid, &status, 0) < 0) {
+        if (errno != EINTR) { perror("waitpid"); return 1; }
+    }
+    if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
+        fprintf(stderr, "ffmpeg exited with status %d\n", status);
+        return 1;
+    }
+    return 0;
+}
+
+int gen_video(sd_vid_gen_params_t *p, int steps, char *dst, float cfg_scale, int fps, char *init_image, char *end_image) {
+    if (!p) return 1;
+    if (!dst || strlen(dst) == 0) {
+        fprintf(stderr, "gen_video: dst is empty\n");
+        std::free(p);
+        return 1;
+    }
+
+    std::vector<int> skip_layers = {7, 8, 9};
+
+    fprintf(stderr, "Generating video: %dx%d, frames=%d, fps=%d, steps=%d, cfg=%.2f\n",
+            p->width, p->height, p->video_frames, fps, steps, cfg_scale);
+
+    // Sample params (shared by both low and high-noise passes — MoE models use the high-noise
+    // set during the first phase; single-model Wan2.1 ignores it. Same defaults for both is fine.)
+    p->sample_params.guidance.txt_cfg        = cfg_scale;
+    p->sample_params.guidance.slg.layers     = skip_layers.data();
+    p->sample_params.guidance.slg.layer_count = skip_layers.size();
+    p->sample_params.sample_method           = sample_method;
+    p->sample_params.sample_steps            = steps;
+    p->sample_params.scheduler               = scheduler;
+    p->sample_params.flow_shift              = flow_shift;
+
+    p->high_noise_sample_params.guidance.txt_cfg         = cfg_scale;
+    p->high_noise_sample_params.guidance.slg.layers      = skip_layers.data();
+    p->high_noise_sample_params.guidance.slg.layer_count = skip_layers.size();
+    p->high_noise_sample_params.sample_method            = sample_method;
+    p->high_noise_sample_params.sample_steps             = steps;
+    p->high_noise_sample_params.scheduler                = scheduler;
+    p->high_noise_sample_params.flow_shift               = flow_shift;
+
+    // Load init/end reference images if provided (resized to output dims).
+    uint8_t* init_buf = nullptr;
+    uint8_t* end_buf  = nullptr;
+    sd_image_t init_img = {0, 0, 0, nullptr};
+    sd_image_t end_img  = {0, 0, 0, nullptr};
+    if (init_image && strlen(init_image) > 0) {
+        init_buf = load_and_resize_image(init_image, p->width, p->height, &init_img);
+        if (!init_buf) { std::free(p); return 1; }
+    }
+    if (end_image && strlen(end_image) > 0) {
+        end_buf = load_and_resize_image(end_image, p->width, p->height, &end_img);
+        if (!end_buf) { if (init_buf) free(init_buf); std::free(p); return 1; }
+    }
+    p->init_image = init_img;
+    p->end_image  = end_img;
+
+    // Generate
+    int num_frames_out = 0;
+    sd_image_t* frames = generate_video(sd_c, p, &num_frames_out);
+    std::free(p);
+
+    if (!frames || num_frames_out == 0) {
+        fprintf(stderr, "generate_video produced no frames\n");
+        if (init_buf) free(init_buf);
+        if (end_buf) free(end_buf);
+        return 1;
+    }
+
+    fprintf(stderr, "Generated %d frames, muxing to %s via ffmpeg\n", num_frames_out, dst);
+
+    int rc = ffmpeg_mux_raw_to_mp4(frames, num_frames_out, fps, dst);
+
+    for (int i = 0; i < num_frames_out; i++) {
+        if (frames[i].data) free(frames[i].data);
+    }
+    free(frames);
+    if (init_buf) free(init_buf);
+    if (end_buf) free(end_buf);
+
+    if (rc == 0) {
+        fprintf(stderr, "gen_video done: %s\n", dst);
+    }
+    fflush(stderr);
+    return rc;
 }
 
 int unload() {

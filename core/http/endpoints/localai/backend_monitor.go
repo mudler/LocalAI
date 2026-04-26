@@ -3,24 +3,32 @@ package localai
 import (
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/schema"
-	"github.com/mudler/LocalAI/core/services"
+	"github.com/mudler/LocalAI/core/services/monitoring"
 )
 
 // BackendMonitorEndpoint returns the status of the specified backend
 // @Summary Backend monitor endpoint
-// @Param request body schema.BackendMonitorRequest true "Backend statistics request"
+// @Tags monitoring
+// @Param model query string true "Name of the model to monitor"
 // @Success 200 {object} proto.StatusResponse "Response"
 // @Router /backend/monitor [get]
-func BackendMonitorEndpoint(bm *services.BackendMonitorService) echo.HandlerFunc {
+func BackendMonitorEndpoint(bm *monitoring.BackendMonitorService) echo.HandlerFunc {
 	return func(c echo.Context) error {
-
-		input := new(schema.BackendMonitorRequest)
-		// Get input data from the request body
-		if err := c.Bind(input); err != nil {
-			return err
+		model := c.QueryParam("model")
+		// Fall back to binding the request body so pre-existing clients that
+		// sent `{"model": "..."}` with GET keep working.
+		if model == "" {
+			input := new(schema.BackendMonitorRequest)
+			if err := c.Bind(input); err != nil {
+				return err
+			}
+			model = input.Model
+		}
+		if model == "" {
+			return echo.NewHTTPError(400, "model query parameter is required")
 		}
 
-		resp, err := bm.CheckAndSample(input.Model)
+		resp, err := bm.CheckAndSample(model)
 		if err != nil {
 			return err
 		}
@@ -29,10 +37,11 @@ func BackendMonitorEndpoint(bm *services.BackendMonitorService) echo.HandlerFunc
 }
 
 // BackendShutdownEndpoint shuts down the specified backend
-// @Summary Backend monitor endpoint
+// @Summary Backend shutdown endpoint
+// @Tags monitoring
 // @Param request body schema.BackendMonitorRequest true "Backend statistics request"
 // @Router /backend/shutdown [post]
-func BackendShutdownEndpoint(bm *services.BackendMonitorService) echo.HandlerFunc {
+func BackendShutdownEndpoint(bm *monitoring.BackendMonitorService) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		input := new(schema.BackendMonitorRequest)
 		// Get input data from the request body

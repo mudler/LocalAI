@@ -26,9 +26,9 @@ type ORWebSocketMessage struct {
 // https://www.openresponses.org/specification
 type OpenResponsesRequest struct {
 	Model              string            `json:"model"`
-	Input              interface{}       `json:"input"` // string or []ORItemParam
+	Input              any               `json:"input"` // string or []ORItemParam
 	Tools              []ORFunctionTool  `json:"tools,omitempty"`
-	ToolChoice         interface{}       `json:"tool_choice,omitempty"` // "auto"|"required"|"none"|{type:"function",name:"..."}
+	ToolChoice         any               `json:"tool_choice,omitempty"` // "auto"|"required"|"none"|{type:"function",name:"..."}
 	Stream             bool              `json:"stream,omitempty"`
 	MaxOutputTokens    *int              `json:"max_output_tokens,omitempty"`
 	Temperature        *float64          `json:"temperature,omitempty"`
@@ -40,17 +40,17 @@ type OpenResponsesRequest struct {
 	PreviousResponseID string            `json:"previous_response_id,omitempty"`
 
 	// Additional parameters from spec
-	TextFormat        interface{} `json:"text_format,omitempty"`         // TextResponseFormat or JsonSchemaResponseFormatParam
-	ServiceTier       string      `json:"service_tier,omitempty"`        // "auto"|"default"|priority hint
-	AllowedTools      []string    `json:"allowed_tools,omitempty"`       // Restrict which tools can be invoked
-	Store             *bool       `json:"store,omitempty"`               // Whether to store the response
-	Include           []string    `json:"include,omitempty"`             // What to include in response
-	ParallelToolCalls *bool       `json:"parallel_tool_calls,omitempty"` // Allow parallel tool calls
-	PresencePenalty   *float64    `json:"presence_penalty,omitempty"`    // Presence penalty (-2.0 to 2.0)
-	FrequencyPenalty  *float64    `json:"frequency_penalty,omitempty"`   // Frequency penalty (-2.0 to 2.0)
-	TopLogprobs       *int        `json:"top_logprobs,omitempty"`        // Number of top logprobs to return
-	Background        *bool       `json:"background,omitempty"`          // Run request in background
-	MaxToolCalls      *int        `json:"max_tool_calls,omitempty"`      // Maximum number of tool calls
+	TextFormat        any      `json:"text_format,omitempty"`         // TextResponseFormat or JsonSchemaResponseFormatParam
+	ServiceTier       string   `json:"service_tier,omitempty"`        // "auto"|"default"|priority hint
+	AllowedTools      []string `json:"allowed_tools,omitempty"`       // Restrict which tools can be invoked
+	Store             *bool    `json:"store,omitempty"`               // Whether to store the response
+	Include           []string `json:"include,omitempty"`             // What to include in response
+	ParallelToolCalls *bool    `json:"parallel_tool_calls,omitempty"` // Allow parallel tool calls
+	PresencePenalty   *float64 `json:"presence_penalty,omitempty"`    // Presence penalty (-2.0 to 2.0)
+	FrequencyPenalty  *float64 `json:"frequency_penalty,omitempty"`   // Frequency penalty (-2.0 to 2.0)
+	TopLogprobs       *int     `json:"top_logprobs,omitempty"`        // Number of top logprobs to return
+	Background        *bool    `json:"background,omitempty"`          // Run request in background
+	MaxToolCalls      *int     `json:"max_tool_calls,omitempty"`      // Maximum number of tool calls
 
 	// OpenAI-compatible extensions (not in Open Responses spec)
 	LogitBias map[string]float64 `json:"logit_bias,omitempty"` // Map of token IDs to bias values (-100 to 100)
@@ -70,11 +70,11 @@ func (r *OpenResponsesRequest) ModelName(s *string) string {
 
 // ORFunctionTool represents a function tool definition
 type ORFunctionTool struct {
-	Type        string                 `json:"type"` // always "function"
-	Name        string                 `json:"name"`
-	Description string                 `json:"description,omitempty"`
-	Parameters  map[string]interface{} `json:"parameters,omitempty"`
-	Strict      bool                   `json:"strict"` // Always include in response
+	Type        string         `json:"type"` // always "function"
+	Name        string         `json:"name"`
+	Description string         `json:"description,omitempty"`
+	Parameters  map[string]any `json:"parameters,omitempty"`
+	Strict      bool           `json:"strict"` // Always include in response
 }
 
 // ORReasoningParam represents reasoning configuration
@@ -90,8 +90,8 @@ type ORItemParam struct {
 	Status string `json:"status,omitempty"` // in_progress|completed|incomplete
 
 	// Message fields
-	Role    string      `json:"role,omitempty"`    // user|assistant|system|developer
-	Content interface{} `json:"content,omitempty"` // string or []ORContentPart for messages
+	Role    string `json:"role,omitempty"`    // user|assistant|system|developer
+	Content any    `json:"content,omitempty"` // string or []ORContentPart for messages
 
 	// Function call fields
 	CallID    string `json:"call_id,omitempty"`
@@ -99,7 +99,7 @@ type ORItemParam struct {
 	Arguments string `json:"arguments"`
 
 	// Function call output fields
-	Output interface{} `json:"output,omitempty"` // string or []ORContentPart
+	Output any `json:"output,omitempty"` // string or []ORContentPart
 
 	// Reasoning fields (for type == "reasoning")
 	Summary          []ORContentPart `json:"summary"`                     // Array of summary parts
@@ -146,7 +146,7 @@ type ORResponseResource struct {
 
 	// Tool-related fields
 	Tools             []ORFunctionTool `json:"tools"` // Always present, empty array if no tools
-	ToolChoice        interface{}      `json:"tool_choice"`
+	ToolChoice        any              `json:"tool_choice"`
 	ParallelToolCalls bool             `json:"parallel_tool_calls"`
 	MaxToolCalls      *int             `json:"max_tool_calls"` // nullable
 

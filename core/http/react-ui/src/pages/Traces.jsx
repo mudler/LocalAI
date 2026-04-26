@@ -61,17 +61,17 @@ function truncateValue(value, maxLen) {
 }
 
 const TYPE_COLORS = {
-  llm: { bg: 'rgba(59,130,246,0.15)', color: '#60a5fa' },
-  embedding: { bg: 'rgba(168,85,247,0.15)', color: '#c084fc' },
-  transcription: { bg: 'rgba(234,179,8,0.15)', color: '#facc15' },
-  image_generation: { bg: 'rgba(34,197,94,0.15)', color: '#4ade80' },
-  video_generation: { bg: 'rgba(236,72,153,0.15)', color: '#f472b6' },
-  tts: { bg: 'rgba(249,115,22,0.15)', color: '#fb923c' },
-  sound_generation: { bg: 'rgba(20,184,166,0.15)', color: '#2dd4bf' },
-  rerank: { bg: 'rgba(99,102,241,0.15)', color: '#818cf8' },
-  tokenize: { bg: 'rgba(107,114,128,0.15)', color: '#9ca3af' },
-  detection: { bg: 'rgba(14,165,233,0.15)', color: '#38bdf8' },
-  model_load: { bg: 'rgba(239,68,68,0.15)', color: '#f87171' },
+  llm: { bg: 'var(--color-primary-light)', color: 'var(--color-data-1)' },
+  embedding: { bg: 'var(--color-accent-light)', color: 'var(--color-data-3)' },
+  transcription: { bg: 'var(--color-warning-light)', color: 'var(--color-data-4)' },
+  image_generation: { bg: 'var(--color-success-light)', color: 'var(--color-data-5)' },
+  video_generation: { bg: 'var(--color-accent-light)', color: 'var(--color-data-7)' },
+  tts: { bg: 'var(--color-warning-light)', color: 'var(--color-data-6)' },
+  sound_generation: { bg: 'var(--color-info-light)', color: 'var(--color-data-8)' },
+  rerank: { bg: 'var(--color-primary-light)', color: 'var(--color-data-1)' },
+  tokenize: { bg: 'var(--color-secondary-light)', color: 'var(--color-text-muted)' },
+  detection: { bg: 'var(--color-info-light)', color: 'var(--color-data-8)' },
+  model_load: { bg: 'var(--color-error-light)', color: 'var(--color-data-2)' },
 }
 
 function typeBadgeStyle(type) {
@@ -102,7 +102,7 @@ function AudioSnippet({ data }) {
           {metrics.map(m => (
             <div key={m.label} style={{ background: 'var(--color-bg-secondary)', borderRadius: 'var(--radius-sm)', padding: 'var(--spacing-xs)' }}>
               <div style={{ color: 'var(--color-text-secondary)' }}>{m.label}</div>
-              <div style={{ fontFamily: 'monospace' }}>{m.value}</div>
+              <div style={{ fontFamily: 'var(--font-mono)' }}>{m.value}</div>
             </div>
           ))}
         </div>
@@ -155,9 +155,9 @@ function DataFields({ data, nested }) {
                 ) : (
                   <span style={{ width: 12, flexShrink: 0 }} />
                 )}
-                <span style={{ fontFamily: 'monospace', color: 'var(--color-primary)', flexShrink: 0 }}>{key}</span>
+                <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--color-primary)', flexShrink: 0 }}>{key}</span>
                 {objValue && !expanded && <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>{fieldSummary(value)}</span>}
-                {!objValue && !large && <span style={{ fontFamily: 'monospace', fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>{formatValue(value)}</span>}
+                {!objValue && !large && <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>{formatValue(value)}</span>}
                 {!objValue && large && !expanded && <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{truncateValue(value, 120)}</span>}
               </div>
               {expanded && objValue && (
@@ -170,7 +170,7 @@ function DataFields({ data, nested }) {
                   <pre style={{
                     background: 'var(--color-bg-primary)', border: '1px solid var(--color-border)',
                     borderRadius: 'var(--radius-sm)', padding: 'var(--spacing-sm)',
-                    fontSize: '0.75rem', fontFamily: 'monospace', whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+                    fontSize: '0.75rem', fontFamily: 'var(--font-mono)', whiteSpace: 'pre-wrap', wordBreak: 'break-word',
                     overflow: 'auto', maxHeight: '50vh', margin: 0,
                   }}>
                     {formatLargeValue(value)}
@@ -250,7 +250,7 @@ function ApiTraceDetail({ trace }) {
           display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)',
         }}>
           <i className="fas fa-exclamation-triangle" style={{ color: 'var(--color-error)' }} />
-          <span style={{ color: 'var(--color-error)', fontSize: '0.8125rem', fontFamily: 'monospace', wordBreak: 'break-all' }}>{trace.error}</span>
+          <span style={{ color: 'var(--color-error)', fontSize: '0.8125rem', fontFamily: 'var(--font-mono)', wordBreak: 'break-all' }}>{trace.error}</span>
         </div>
       )}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)' }}>
@@ -259,7 +259,7 @@ function ApiTraceDetail({ trace }) {
           <pre style={{
             background: 'var(--color-bg-primary)', border: '1px solid var(--color-border)',
             borderRadius: 'var(--radius-sm)', padding: 'var(--spacing-sm)',
-            fontSize: '0.75rem', fontFamily: 'monospace', whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+            fontSize: '0.75rem', fontFamily: 'var(--font-mono)', whiteSpace: 'pre-wrap', wordBreak: 'break-word',
             overflow: 'auto', maxHeight: '50vh', margin: 0,
           }}>
             {decodeTraceBody(trace.request?.body)}
@@ -270,7 +270,7 @@ function ApiTraceDetail({ trace }) {
           <pre style={{
             background: 'var(--color-bg-primary)', border: '1px solid var(--color-border)',
             borderRadius: 'var(--radius-sm)', padding: 'var(--spacing-sm)',
-            fontSize: '0.75rem', fontFamily: 'monospace', whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+            fontSize: '0.75rem', fontFamily: 'var(--font-mono)', whiteSpace: 'pre-wrap', wordBreak: 'break-word',
             overflow: 'auto', maxHeight: '50vh', margin: 0,
           }}>
             {decodeTraceBody(trace.response?.body)}
@@ -335,7 +335,11 @@ export default function Traces() {
       setBackendCount(backend.length)
       setTraces(activeTab === 'api' ? api : backend)
     } catch (err) {
-      addToast(`Failed to load traces: ${err.message}`, 'error')
+      // Tracing disabled is the default state, not an error — the in-page banner covers it.
+      const disabled = /disabled|not enabled|404|not found/i.test(err?.message || '')
+      if (!disabled) {
+        addToast(`Failed to load traces: ${err.message}`, 'error')
+      }
     } finally {
       setLoading(false)
     }
@@ -395,10 +399,11 @@ export default function Traces() {
         </button>
       </div>
 
-      <div style={{ display: 'flex', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-md)' }}>
+      <div style={{ display: 'flex', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-md)', alignItems: 'center' }}>
         <button className="btn btn-secondary btn-sm" onClick={fetchTraces}><i className="fas fa-rotate" /> Refresh</button>
-        <button className="btn btn-danger btn-sm" onClick={handleClear}><i className="fas fa-trash" /> Clear</button>
         <button className="btn btn-secondary btn-sm" onClick={handleExport} disabled={traces.length === 0}><i className="fas fa-download" /> Export</button>
+        <div style={{ flex: 1 }} />
+        <button className="btn btn-danger btn-sm" onClick={handleClear} disabled={traces.length === 0}><i className="fas fa-trash" /> Clear</button>
       </div>
 
       {settings && (() => {
@@ -457,7 +462,7 @@ export default function Traces() {
                   onChange={(v) => setSettings(prev => ({ ...prev, enable_backend_logging: v }))}
                 />
               </SettingRow>
-              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 'var(--spacing-sm)' }}>
+              <div className="form-group__actions" style={{ justifyContent: 'flex-end' }}>
                 <button className="btn btn-primary btn-sm" onClick={handleSaveSettings} disabled={saving}>
                   {saving ? <><LoadingSpinner size="sm" /> Saving...</> : <><i className="fas fa-save" /> Save</>}
                 </button>
@@ -473,8 +478,20 @@ export default function Traces() {
       ) : traces.length === 0 ? (
         <div className="empty-state">
           <div className="empty-state-icon"><i className="fas fa-wave-square" /></div>
-          <h2 className="empty-state-title">No traces</h2>
-          <p className="empty-state-text">Traces will appear here as requests are made.</p>
+          <h2 className="empty-state-title">
+            {activeTab === 'api'
+              ? (tracingEnabled ? 'No API traces yet' : 'API tracing is off')
+              : (backendLoggingEnabled ? 'No backend traces yet' : 'Backend logging is off')}
+          </h2>
+          <p className="empty-state-text">
+            {activeTab === 'api'
+              ? (tracingEnabled
+                  ? 'Traces will appear here as API requests are made.'
+                  : 'Enable Tracing above to start recording API requests, responses, and backend operations.')
+              : (backendLoggingEnabled
+                  ? 'Backend operations will appear here as models run.'
+                  : 'Enable Backend Logging above to capture per-model process output.')}
+          </p>
         </div>
       ) : activeTab === 'api' ? (
         <div className="table-container">
@@ -494,7 +511,7 @@ export default function Traces() {
                   <tr onClick={() => setExpandedRow(expandedRow === i ? null : i)} style={{ cursor: 'pointer' }}>
                     <td><i className={`fas fa-chevron-${expandedRow === i ? 'down' : 'right'}`} style={{ fontSize: '0.7rem' }} /></td>
                     <td><span className="badge badge-info">{trace.request?.method || '-'}</span></td>
-                    <td style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.8125rem' }}>{trace.request?.path || '-'}</td>
+                    <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem' }}>{trace.request?.path || '-'}</td>
                     <td><span className={`badge ${(trace.response?.status || 0) < 400 ? 'badge-success' : 'badge-error'}`}>{trace.response?.status || '-'}</span></td>
                     <td style={{ textAlign: 'center' }}>
                       {trace.error
@@ -535,7 +552,7 @@ export default function Traces() {
                     <td><i className={`fas fa-chevron-${expandedRow === i ? 'down' : 'right'}`} style={{ fontSize: '0.7rem' }} /></td>
                     <td><span style={typeBadgeStyle(trace.type)}>{trace.type || '-'}</span></td>
                     <td style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)' }}>{formatTimestamp(trace.timestamp)}</td>
-                    <td style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.8125rem' }}>{trace.model_name || '-'}</td>
+                    <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem' }}>{trace.model_name || '-'}</td>
                     <td style={{ maxWidth: '300px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {trace.summary || '-'}
                     </td>

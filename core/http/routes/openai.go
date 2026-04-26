@@ -5,6 +5,7 @@ import (
 	"github.com/mudler/LocalAI/core/application"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/endpoints/localai"
+	mcpTools "github.com/mudler/LocalAI/core/http/endpoints/mcp"
 	"github.com/mudler/LocalAI/core/http/endpoints/openai"
 	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/schema"
@@ -24,8 +25,14 @@ func RegisterOpenAIRoutes(app *echo.Echo,
 	app.POST("/v1/realtime/transcription_session", openai.RealtimeTranscriptionSession(application), traceMiddleware)
 	app.POST("/v1/realtime/calls", openai.RealtimeCalls(application), traceMiddleware)
 
+	// NATS client for distributed MCP tool routing (nil when not in distributed mode)
+	var natsClient mcpTools.MCPNATSClient
+	if d := application.Distributed(); d != nil {
+		natsClient = d.Nats
+	}
+
 	// chat
-	chatHandler := openai.ChatEndpoint(application.ModelConfigLoader(), application.ModelLoader(), application.TemplatesEvaluator(), application.ApplicationConfig())
+	chatHandler := openai.ChatEndpoint(application.ModelConfigLoader(), application.ModelLoader(), application.TemplatesEvaluator(), application.ApplicationConfig(), natsClient)
 	chatMiddleware := []echo.MiddlewareFunc{
 		usageMiddleware,
 		traceMiddleware,

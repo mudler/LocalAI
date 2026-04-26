@@ -11,6 +11,7 @@ import (
 
 // TokenizeEndpoint exposes a REST API to tokenize the content
 // @Summary Tokenize the input.
+// @Tags tokenize
 // @Param request body schema.TokenizeRequest true "Request"
 // @Success 200 {object} schema.TokenizeResponse "Response"
 // @Router /v1/tokenize [post]

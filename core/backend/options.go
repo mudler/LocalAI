@@ -1,7 +1,7 @@
 package backend
 
 import (
-	"math/rand"
+	"math/rand/v2"
 	"os"
 	"path/filepath"
 	"strings"
@@ -59,9 +59,7 @@ func ModelOptions(c config.ModelConfig, so *config.ApplicationConfig, opts ...mo
 	grpcOpts := grpcModelOpts(c, so.SystemState.Model.ModelsPath)
 	defOpts = append(defOpts, model.WithLoadGRPCLoadModelOpts(grpcOpts))
 
-	if so.ParallelBackendRequests {
-		defOpts = append(defOpts, model.EnableParallelRequests)
-	}
+	defOpts = append(defOpts, model.EnableParallelRequests)
 
 	if c.GRPC.Attempts != 0 {
 		defOpts = append(defOpts, model.WithGRPCAttempts(c.GRPC.Attempts))
@@ -86,7 +84,7 @@ func getSeed(c config.ModelConfig) int32 {
 	}
 
 	if seed == config.RAND_SEED {
-		seed = rand.Int31()
+		seed = rand.Int32()
 	}
 
 	return seed

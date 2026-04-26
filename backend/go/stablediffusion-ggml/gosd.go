@@ -23,6 +23,7 @@ type SDGGML struct {
 var (
 	LoadModel func(model, model_apth string, options []uintptr, threads int32, diff int) int
 	GenImage  func(params uintptr, steps int, dst string, cfgScale float32, srcImage string, strength float32, maskImage string, refImages []uintptr, refImagesCount int) int
+	GenVideo  func(params uintptr, steps int, dst string, cfgScale float32, fps int, initImage string, endImage string) int
 
 	TilingParamsSetEnabled       func(params uintptr, enabled bool)
 	TilingParamsSetTileSizes     func(params uintptr, tileSizeX int, tileSizeY int)
@@ -34,6 +35,12 @@ var (
 	ImgGenParamsSetDimensions      func(params uintptr, width int, height int)
 	ImgGenParamsSetSeed            func(params uintptr, seed int64)
 	ImgGenParamsGetVaeTilingParams func(params uintptr) uintptr
+
+	VidGenParamsNew            func() uintptr
+	VidGenParamsSetPrompts     func(params uintptr, prompt string, negativePrompt string)
+	VidGenParamsSetDimensions  func(params uintptr, width int, height int)
+	VidGenParamsSetSeed        func(params uintptr, seed int64)
+	VidGenParamsSetVideoFrames func(params uintptr, n int)
 )
 
 // Copied from Purego internal/strings
@@ -151,5 +158,60 @@ func (sd *SDGGML) GenerateImage(opts *pb.GenerateImageRequest) error {
 		return fmt.Errorf("inference failed")
 	}
 
+	return nil
+}
+
+func (sd *SDGGML) GenerateVideo(opts *pb.GenerateVideoRequest) error {
+	dst := opts.Dst
+	if dst == "" {
+		return fmt.Errorf("dst is empty")
+	}
+
+	width := int(opts.Width)
+	height := int(opts.Height)
+	if width == 0 {
+		width = 512
+	}
+	if height == 0 {
+		height = 512
+	}
+
+	numFrames := int(opts.NumFrames)
+	if numFrames <= 0 {
+		numFrames = 16
+	}
+
+	fps := int(opts.Fps)
+	if fps <= 0 {
+		fps = 16
+	}
+
+	steps := int(opts.Step)
+	if steps <= 0 {
+		steps = 20
+	}
+
+	cfg := opts.CfgScale
+	if cfg == 0 {
+		cfg = sd.cfgScale
+	}
+	if cfg == 0 {
+		cfg = 5.0
+	}
+
+	// sd_vid_gen_params_new allocates; gen_video frees it after the generation call.
+	p := VidGenParamsNew()
+	VidGenParamsSetPrompts(p, opts.Prompt, opts.NegativePrompt)
+	VidGenParamsSetDimensions(p, width, height)
+	VidGenParamsSetSeed(p, int64(opts.Seed))
+	VidGenParamsSetVideoFrames(p, numFrames)
+
+	fmt.Fprintf(os.Stderr, "GenerateVideo: dst=%s size=%dx%d frames=%d fps=%d steps=%d cfg=%.2f\n",
+		dst, width, height, numFrames, fps, steps, cfg)
+
+	ret := GenVideo(p, steps, dst, cfg, fps, opts.StartImage, opts.EndImage)
+	if ret != 0 {
+		return fmt.Errorf("video inference failed (code %d)", ret)
+	}
 	return nil
 }

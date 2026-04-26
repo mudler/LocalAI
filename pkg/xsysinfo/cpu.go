@@ -1,6 +1,8 @@
 package xsysinfo
 
 import (
+	"maps"
+	"slices"
 	"sort"
 
 	"github.com/jaypipes/ghw"
@@ -23,10 +25,7 @@ func CPUCapabilities() ([]string, error) {
 
 	}
 
-	ret := []string{}
-	for c := range caps {
-		ret = append(ret, c)
-	}
+	ret := slices.Collect(maps.Keys(caps))
 
 	// order
 	sort.Strings(ret)

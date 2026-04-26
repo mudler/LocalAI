@@ -1,18 +1,20 @@
 package localai
 
 import (
+	"encoding/base64"
+
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/pkg/model"
-	"github.com/mudler/LocalAI/pkg/utils"
 	"github.com/mudler/xlog"
 )
 
 // DetectionEndpoint is the LocalAI Detection endpoint https://localai.io/docs/api-reference/detection
 // @Summary Detects objects in the input image.
+// @Tags detection
 // @Param request body schema.DetectionRequest true "query params"
 // @Success 200 {object} schema.DetectionResponse "Response"
 // @Router /v1/detection [post]
@@ -31,26 +33,32 @@ func DetectionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appC
 
 		xlog.Debug("Detection", "image", input.Image, "modelFile", "modelFile", "backend", cfg.Backend)
 
-		image, err := utils.GetContentURIAsBase64(input.Image)
+		image, err := decodeImageInput(input.Image)
 		if err != nil {
 			return err
 		}
 
-		res, err := backend.Detection(image, ml, appConfig, *cfg)
+		res, err := backend.Detection(image, input.Prompt, input.Points, input.Boxes, input.Threshold, ml, appConfig, *cfg)
 		if err != nil {
-			return err
+			return mapBackendError(err)
 		}
 
 		response := schema.DetectionResponse{
 			Detections: make([]schema.Detection, len(res.Detections)),
 		}
 		for i, detection := range res.Detections {
+			var mask string
+			if len(detection.Mask) > 0 {
+				mask = base64.StdEncoding.EncodeToString(detection.Mask)
+			}
 			response.Detections[i] = schema.Detection{
-				X:         detection.X,
-				Y:         detection.Y,
-				Width:     detection.Width,
-				Height:    detection.Height,
-				ClassName: detection.ClassName,
+				X:          detection.X,
+				Y:          detection.Y,
+				Width:      detection.Width,
+				Height:     detection.Height,
+				ClassName:  detection.ClassName,
+				Confidence: detection.Confidence,
+				Mask:       mask,
 			}
 		}
 

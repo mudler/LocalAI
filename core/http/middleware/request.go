@@ -12,7 +12,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/schema"
-	"github.com/mudler/LocalAI/core/services"
+	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/templates"
 	"github.com/mudler/LocalAI/pkg/functions"
 	"github.com/mudler/LocalAI/pkg/model"
@@ -65,7 +65,7 @@ func (re *RequestExtractor) setModelNameFromRequest(c echo.Context) {
 		auth := c.Request().Header.Get("Authorization")
 		bearer := strings.TrimPrefix(auth, "Bearer ")
 		if bearer != "" && bearer != auth {
-			exists, err := services.CheckIfModelExists(re.modelConfigLoader, re.modelLoader, bearer, services.ALWAYS_INCLUDE)
+			exists, err := galleryop.CheckIfModelExists(re.modelConfigLoader, re.modelLoader, bearer, galleryop.ALWAYS_INCLUDE)
 			if err == nil && exists {
 				model = bearer
 			}
@@ -98,7 +98,7 @@ func (re *RequestExtractor) BuildFilteredFirstAvailableDefaultModel(filterFn con
 				return next(c)
 			}
 
-			modelNames, err := services.ListModels(re.modelConfigLoader, re.modelLoader, filterFn, services.SKIP_IF_CONFIGURED)
+			modelNames, err := galleryop.ListModels(re.modelConfigLoader, re.modelLoader, filterFn, galleryop.SKIP_IF_CONFIGURED)
 			if err != nil {
 				xlog.Error("non-fatal error calling ListModels during SetDefaultModelNameToFirstAvailable()", "error", err)
 				return next(c)
@@ -140,13 +140,42 @@ func (re *RequestExtractor) SetModelAndConfig(initializer func() schema.LocalAIR
 				}
 			}
 
-			cfg, err := re.modelConfigLoader.LoadModelConfigFileByNameDefaultOptions(input.ModelName(nil), re.applicationConfig)
+			modelName := input.ModelName(nil)
+			cfg, err := re.modelConfigLoader.LoadModelConfigFileByNameDefaultOptions(modelName, re.applicationConfig)
 
 			if err != nil {
-				xlog.Warn("Model Configuration File not found", "model", input.ModelName(nil), "error", err)
-			} else if cfg.Model == "" && input.ModelName(nil) != "" {
-				xlog.Debug("config does not include model, using input", "input.ModelName", input.ModelName(nil))
-				cfg.Model = input.ModelName(nil)
+				xlog.Warn("Model Configuration File not found", "model", modelName, "error", err)
+			} else if cfg.Model == "" && modelName != "" {
+				xlog.Debug("config does not include model, using input", "input.ModelName", modelName)
+				cfg.Model = modelName
+			}
+
+			// If a model name was specified, verify it actually exists before proceeding.
+			// Check both configured models and loose model files in the model path.
+			// Skip the check for HuggingFace model IDs (contain "/") since backends
+			// like diffusers may download these on the fly.
+			if modelName != "" && !strings.Contains(modelName, "/") {
+				exists, existsErr := galleryop.CheckIfModelExists(re.modelConfigLoader, re.modelLoader, modelName, galleryop.ALWAYS_INCLUDE)
+				if existsErr == nil && !exists {
+					return c.JSON(http.StatusNotFound, schema.ErrorResponse{
+						Error: &schema.APIError{
+							Message: fmt.Sprintf("model %q not found. To see available models, call GET /v1/models", modelName),
+							Code:    http.StatusNotFound,
+							Type:    "invalid_request_error",
+						},
+					})
+				}
+			}
+
+			// Check if the model is disabled
+			if cfg != nil && cfg.IsDisabled() {
+				return c.JSON(http.StatusForbidden, schema.ErrorResponse{
+					Error: &schema.APIError{
+						Message: fmt.Sprintf("model %q is disabled and cannot be loaded. Enable it via the System page or API to use it.", modelName),
+						Code:    http.StatusForbidden,
+						Type:    "model_disabled",
+					},
+				})
 			}
 
 			c.Set(CONTEXT_LOCALS_KEY_LOCALAI_REQUEST, input)
@@ -266,7 +295,7 @@ func mergeOpenAIRequestAndModelConfig(config *config.ModelConfig, input *schema.
 		switch responseFormat := input.ResponseFormat.(type) {
 		case string:
 			config.ResponseFormat = responseFormat
-		case map[string]interface{}:
+		case map[string]any:
 			config.ResponseFormatMap = responseFormat
 		}
 	}
@@ -276,7 +305,7 @@ func mergeOpenAIRequestAndModelConfig(config *config.ModelConfig, input *schema.
 		if stop != "" {
 			config.StopWords = append(config.StopWords, stop)
 		}
-	case []interface{}:
+	case []any:
 		for _, pp := range stop {
 			if s, ok := pp.(string); ok {
 				config.StopWords = append(config.StopWords, s)
@@ -296,11 +325,11 @@ func mergeOpenAIRequestAndModelConfig(config *config.ModelConfig, input *schema.
 		switch content := input.ToolsChoice.(type) {
 		case string:
 			_ = json.Unmarshal([]byte(content), &toolChoice)
-		case map[string]interface{}:
+		case map[string]any:
 			dat, _ := json.Marshal(content)
 			_ = json.Unmarshal(dat, &toolChoice)
 		}
-		input.FunctionCall = map[string]interface{}{
+		input.FunctionCall = map[string]any{
 			"name": toolChoice.Function.Name,
 		}
 	}
@@ -315,7 +344,7 @@ func mergeOpenAIRequestAndModelConfig(config *config.ModelConfig, input *schema.
 		switch content := m.Content.(type) {
 		case string:
 			input.Messages[i].StringContent = content
-		case []interface{}:
+		case []any:
 			dat, _ := json.Marshal(content)
 			c := []schema.Content{}
 			json.Unmarshal(dat, &c)
@@ -369,14 +398,23 @@ func mergeOpenAIRequestAndModelConfig(config *config.ModelConfig, input *schema.
 				}
 			}
 
-			input.Messages[i].StringContent, _ = templates.TemplateMultiModal(config.TemplateConfig.Multimodal, templates.MultiModalOptions{
-				TotalImages:     imgIndex,
-				TotalVideos:     vidIndex,
-				TotalAudios:     audioIndex,
-				ImagesInMessage: nrOfImgsInMessage,
-				VideosInMessage: nrOfVideosInMessage,
-				AudiosInMessage: nrOfAudiosInMessage,
-			}, textContent)
+			// When the backend handles templating itself (UseTokenizerTemplate),
+			// it also injects media markers server-side (see
+			// oaicompat_chat_params_parse in llama.cpp). Emitting our own markers
+			// here would double-mark them and downstream consumers ignore
+			// StringContent in that path anyway, so just pass through plain text.
+			if config.TemplateConfig.UseTokenizerTemplate {
+				input.Messages[i].StringContent = textContent
+			} else {
+				input.Messages[i].StringContent, _ = templates.TemplateMultiModal(config.TemplateConfig.Multimodal, templates.MultiModalOptions{
+					TotalImages:     imgIndex,
+					TotalVideos:     vidIndex,
+					TotalAudios:     audioIndex,
+					ImagesInMessage: nrOfImgsInMessage,
+					VideosInMessage: nrOfVideosInMessage,
+					AudiosInMessage: nrOfAudiosInMessage,
+				}, textContent)
+			}
 		}
 	}
 
@@ -451,7 +489,7 @@ func mergeOpenAIRequestAndModelConfig(config *config.ModelConfig, input *schema.
 		if fnc != "" {
 			config.SetFunctionCallString(fnc)
 		}
-	case map[string]interface{}:
+	case map[string]any:
 		var name string
 		n, exists := fnc["name"]
 		if exists {
@@ -466,7 +504,7 @@ func mergeOpenAIRequestAndModelConfig(config *config.ModelConfig, input *schema.
 	switch p := input.Prompt.(type) {
 	case string:
 		config.PromptStrings = append(config.PromptStrings, p)
-	case []interface{}:
+	case []any:
 		for _, pp := range p {
 			if s, ok := pp.(string); ok {
 				config.PromptStrings = append(config.PromptStrings, s)
@@ -575,11 +613,32 @@ func MergeOpenResponsesConfig(config *config.ModelConfig, input *schema.OpenResp
 				// Don't use tools - handled in endpoint
 			}
 			// "auto" is default - let model decide
-		case map[string]interface{}:
-			// Specific tool: {type:"function", name:"..."}
+		case map[string]any:
+			// Specific tool. OpenAI spec nests the function name under "function":
+			//   {"type":"function", "function":{"name":"..."}}
+			// Legacy/Anthropic-compat form puts it at the top level:
+			//   {"type":"function", "name":"..."}
+			// The old code only handled the legacy shape AND used the wrong
+			// setter (SetFunctionCallString writes the mode field; the
+			// specific-function name lives in a separate field read by
+			// ShouldCallSpecificFunction / FunctionToCall). Net effect: a
+			// correctly-formed OpenAI tool_choice never engaged grammar-based
+			// forcing, the model got the tools but no selection hint, and
+			// streamed raw JSON as delta.content instead of delta.tool_calls.
 			if tcType, ok := tc["type"].(string); ok && tcType == "function" {
-				if name, ok := tc["name"].(string); ok {
-					config.SetFunctionCallString(name)
+				var name string
+				if fn, ok := tc["function"].(map[string]any); ok {
+					if n, ok := fn["name"].(string); ok {
+						name = n
+					}
+				}
+				if name == "" {
+					if n, ok := tc["name"].(string); ok {
+						name = n
+					}
+				}
+				if name != "" {
+					config.SetFunctionCallNameString(name)
 				}
 			}
 		}

@@ -3,9 +3,10 @@ package grammars
 // a golang port of https://github.com/ggerganov/llama.cpp/pull/1887
 
 import (
+	"cmp"
 	"encoding/json"
 	"fmt"
-	"sort"
+	"slices"
 	"strings"
 )
 
@@ -30,7 +31,7 @@ func NewJSONSchemaConverter(propOrder string) *JSONSchemaConverter {
 	}
 }
 
-func (sc *JSONSchemaConverter) formatLiteral(literal interface{}) (string, error) {
+func (sc *JSONSchemaConverter) formatLiteral(literal any) (string, error) {
 	jLiteral, err := jsonString(literal)
 	if err != nil {
 		return "", err
@@ -58,7 +59,7 @@ func (sc *JSONSchemaConverter) addRule(name, rule string) string {
 	return key
 }
 
-func (sc *JSONSchemaConverter) visit(schema map[string]interface{}, name string, rootSchema map[string]interface{}) (string, error) {
+func (sc *JSONSchemaConverter) visit(schema map[string]any, name string, rootSchema map[string]any) (string, error) {
 	st, existType := schema["type"]
 	var schemaType string
 	var schemaTypes []string
@@ -69,7 +70,7 @@ func (sc *JSONSchemaConverter) visit(schema map[string]interface{}, name string,
 			// Single type: "type": "string"
 			schemaType = v
 			schemaTypes = []string{v}
-		case []interface{}:
+		case []any:
 			// Multiple types: "type": ["string", "null"]
 			for _, item := range v {
 				if typeStr, ok := item.(string); ok {
@@ -90,12 +91,12 @@ func (sc *JSONSchemaConverter) visit(schema map[string]interface{}, name string,
 	_, anyOfExists := schema["anyOf"]
 	if oneOfExists || anyOfExists {
 		var alternatives []string
-		oneOfSchemas, oneOfExists := schema["oneOf"].([]interface{})
-		anyOfSchemas, anyOfExists := schema["anyOf"].([]interface{})
+		oneOfSchemas, oneOfExists := schema["oneOf"].([]any)
+		anyOfSchemas, anyOfExists := schema["anyOf"].([]any)
 
 		if oneOfExists {
 			for i, altSchema := range oneOfSchemas {
-				alternative, err := sc.visit(altSchema.(map[string]interface{}), fmt.Sprintf("%s-%d", ruleName, i), rootSchema)
+				alternative, err := sc.visit(altSchema.(map[string]any), fmt.Sprintf("%s-%d", ruleName, i), rootSchema)
 				if err != nil {
 					return "", err
 				}
@@ -103,7 +104,7 @@ func (sc *JSONSchemaConverter) visit(schema map[string]interface{}, name string,
 			}
 		} else if anyOfExists {
 			for i, altSchema := range anyOfSchemas {
-				alternative, err := sc.visit(altSchema.(map[string]interface{}), fmt.Sprintf("%s-%d", ruleName, i), rootSchema)
+				alternative, err := sc.visit(altSchema.(map[string]any), fmt.Sprintf("%s-%d", ruleName, i), rootSchema)
 				if err != nil {
 					return "", err
 				}
@@ -125,7 +126,7 @@ func (sc *JSONSchemaConverter) visit(schema map[string]interface{}, name string,
 			return "", err
 		}
 		return sc.addRule(ruleName, literal), nil
-	} else if enumVals, exists := schema["enum"].([]interface{}); exists {
+	} else if enumVals, exists := schema["enum"].([]any); exists {
 		var enumRules []string
 		for _, enumVal := range enumVals {
 			enumRule, err := sc.formatLiteral(enumVal)
@@ -136,27 +137,30 @@ func (sc *JSONSchemaConverter) visit(schema map[string]interface{}, name string,
 		}
 		rule := strings.Join(enumRules, " | ")
 		return sc.addRule(ruleName, rule), nil
-	} else if properties, exists := schema["properties"].(map[string]interface{}); schemaType == "object" && exists {
+	} else if properties, exists := schema["properties"].(map[string]any); schemaType == "object" && exists {
 		propOrder := sc.propOrder
 		var propPairs []struct {
 			propName   string
-			propSchema map[string]interface{}
+			propSchema map[string]any
 		}
 
 		for propName, propSchema := range properties {
 			propPairs = append(propPairs, struct {
 				propName   string
-				propSchema map[string]interface{}
-			}{propName: propName, propSchema: propSchema.(map[string]interface{})})
+				propSchema map[string]any
+			}{propName: propName, propSchema: propSchema.(map[string]any)})
 		}
 
-		sort.Slice(propPairs, func(i, j int) bool {
-			iOrder := propOrder[propPairs[i].propName]
-			jOrder := propOrder[propPairs[j].propName]
-			if iOrder != 0 && jOrder != 0 {
-				return iOrder < jOrder
+		slices.SortFunc(propPairs, func(a, b struct {
+			propName   string
+			propSchema map[string]any
+		}) int {
+			aOrder := propOrder[a.propName]
+			bOrder := propOrder[b.propName]
+			if aOrder != 0 && bOrder != 0 {
+				return cmp.Compare(aOrder, bOrder)
 			}
-			return propPairs[i].propName < propPairs[j].propName
+			return cmp.Compare(a.propName, b.propName)
 		})
 
 		var rule strings.Builder
@@ -182,14 +186,14 @@ func (sc *JSONSchemaConverter) visit(schema map[string]interface{}, name string,
 
 		rule.WriteString(` "}" space`)
 		return sc.addRule(ruleName, rule.String()), nil
-	} else if items, exists := schema["items"].(map[string]interface{}); schemaType == "array" && exists {
+	} else if items, exists := schema["items"].(map[string]any); schemaType == "array" && exists {
 		itemRuleName, err := sc.visit(items, fmt.Sprintf("%s-item", ruleName), rootSchema)
 		if err != nil {
 			return "", err
 		}
 		rule := fmt.Sprintf(`"[" space (%s ("," space %s)*)? "]" space`, itemRuleName, itemRuleName)
 		return sc.addRule(ruleName, rule), nil
-	} else if properties, _ := schema["properties"].(map[string]interface{}); (schemaType == "object" || schemaType == "") && len(properties) == 0 {
+	} else if properties, _ := schema["properties"].(map[string]any); (schemaType == "object" || schemaType == "") && len(properties) == 0 {
 		// Handle empty object schema (no properties)
 		rule := `"{" space "}" space`
 		return sc.addRule(ruleName, rule), nil
@@ -220,18 +224,18 @@ func (sc *JSONSchemaConverter) visit(schema map[string]interface{}, name string,
 		}
 	}
 }
-func (sc *JSONSchemaConverter) resolveReference(ref string, rootSchema map[string]interface{}) (map[string]interface{}, error) {
+func (sc *JSONSchemaConverter) resolveReference(ref string, rootSchema map[string]any) (map[string]any, error) {
 	if !strings.HasPrefix(ref, "#/$defs/") {
 		return nil, fmt.Errorf("invalid reference format: %s", ref)
 	}
 
 	defKey := strings.TrimPrefix(ref, "#/$defs/")
-	definitions, exists := rootSchema["$defs"].(map[string]interface{})
+	definitions, exists := rootSchema["$defs"].(map[string]any)
 	if !exists {
 		return nil, fmt.Errorf("no definitions found in the schema: %s", rootSchema)
 	}
 
-	def, exists := definitions[defKey].(map[string]interface{})
+	def, exists := definitions[defKey].(map[string]any)
 	if !exists {
 		return nil, fmt.Errorf("definition not found: %s %+v", defKey, definitions)
 	}
@@ -239,7 +243,7 @@ func (sc *JSONSchemaConverter) resolveReference(ref string, rootSchema map[strin
 	return def, nil
 }
 
-func (sc *JSONSchemaConverter) Grammar(schema map[string]interface{}, options ...func(*GrammarOption)) (string, error) {
+func (sc *JSONSchemaConverter) Grammar(schema map[string]any, options ...func(*GrammarOption)) (string, error) {
 	sc.addRule("freestring", PRIMITIVE_RULES["freestring"])
 	_, err := sc.visit(schema, "", schema)
 	if err != nil {
@@ -249,7 +253,7 @@ func (sc *JSONSchemaConverter) Grammar(schema map[string]interface{}, options ..
 }
 
 func (sc *JSONSchemaConverter) GrammarFromBytes(b []byte, options ...func(*GrammarOption)) (string, error) {
-	var schema map[string]interface{}
+	var schema map[string]any
 	err := json.Unmarshal(b, &schema)
 	if err != nil {
 		return "", err

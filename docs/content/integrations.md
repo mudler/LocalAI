@@ -72,9 +72,10 @@ Feel free to open up a Pull request (by clicking at the "Edit page" below) to ge
 
 ### Home Automation
 
-- [hass-openai-custom-conversation](https://github.com/drndos/hass-openai-custom-conversation) — Home Assistant integration
-- [ha-llmvision](https://github.com/valentinfrlch/ha-llmvision) — Home Assistant LLM Vision
-- [HA-LocalAI-Monitor](https://github.com/loryanstrant/HA-LocalAI-Monitor) — Home Assistant monitoring
+- [Extended OpenAI Conversation](https://github.com/jekalmin/extended_openai_conversation) — Conversation agent for Home Assistant that supports a custom OpenAI endpoint
+- [LLM Vision](https://github.com/valentinfrlch/ha-llmvision) — Image & video feed analysis for Home Assistant
+- [OpenAI TTS Speech Service](https://github.com/sfortis/openai_tts) - OpenAI TTS custom component for Home Assistant
+- [LocalAI Monitor](https://github.com/loryanstrant/HA-LocalAI-Monitor) — Monitor & control of LocalAI from Home Assistant
 - Nextcloud [integration plugin](https://apps.nextcloud.com/apps/integration_openai) and [AI assistant](https://apps.nextcloud.com/apps/assistant)
 
 ### Automation & DevOps
@@ -164,6 +165,67 @@ This section provides step-by-step instructions for configuring specific softwar
 
    After saving the configuration file, restart OpenCode for the changes to take effect.
 
+
+### Claude Code
+
+[Claude Code](https://docs.anthropic.com/en/docs/claude-code) is Anthropic's official CLI tool for coding with Claude. LocalAI implements the Anthropic Messages API (`/v1/messages`), so Claude Code can be pointed directly at a LocalAI instance.
+
+#### Prerequisites
+
+- LocalAI must be running and accessible (either locally or on a network)
+- You need to know your LocalAI server's IP address/hostname and port (default is `8080`)
+- An API key configured in your LocalAI instance
+
+#### Running Claude Code with LocalAI
+
+Set the `ANTHROPIC_BASE_URL` and `ANTHROPIC_API_KEY` environment variables to point Claude Code at your LocalAI server:
+
+```bash
+ANTHROPIC_BASE_URL=http://127.0.0.1:8080 \
+ANTHROPIC_API_KEY=your-localai-api-key \
+claude --model your-model-name
+```
+
+For example, if you have a Gemma model loaded:
+
+```bash
+ANTHROPIC_BASE_URL=http://127.0.0.1:8080 \
+ANTHROPIC_API_KEY=your-localai-api-key \
+claude --model gemma-4-12B-it-GGUF
+```
+
+You can also run a single prompt non-interactively:
+
+```bash
+ANTHROPIC_BASE_URL=http://127.0.0.1:8080 \
+ANTHROPIC_API_KEY=your-localai-api-key \
+claude -p "list the files in /tmp" --model your-model-name
+```
+
+#### Configuration
+
+To avoid setting environment variables every time, you can add them to your shell profile (e.g., `~/.bashrc` or `~/.zshrc`):
+
+```bash
+export ANTHROPIC_BASE_URL=http://127.0.0.1:8080
+export ANTHROPIC_API_KEY=your-localai-api-key
+```
+
+#### Verify available models
+
+Check which models are available in your LocalAI instance:
+
+```bash
+curl http://127.0.0.1:8080/v1/models
+```
+
+Use one of the listed model IDs as the `--model` argument.
+
+#### Notes
+
+- Models with tool calling support (e.g., Gemma 4, Qwen 3) work best, as Claude Code relies heavily on tool use for file operations and code editing.
+- Larger models generally produce better results for complex coding tasks.
+- The Anthropic Messages API endpoint supports both streaming and non-streaming modes.
 
 ### Charm Crush
 

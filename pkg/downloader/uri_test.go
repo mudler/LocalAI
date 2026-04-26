@@ -49,6 +49,42 @@ var _ = Describe("Gallery API tests", func() {
 			).ToNot(HaveOccurred())
 		})
 	})
+
+	Context("HuggingFace mirror", func() {
+		var originalEndpoint string
+
+		BeforeEach(func() {
+			originalEndpoint = HF_ENDPOINT
+		})
+
+		AfterEach(func() {
+			HF_ENDPOINT = originalEndpoint
+		})
+
+		It("rewrites direct https://huggingface.co URLs when mirror is set", func() {
+			HF_ENDPOINT = "https://hf-mirror.com"
+			uri := URI("https://huggingface.co/TheBloke/model-GGUF/resolve/main/model.Q4_K_M.gguf")
+			Expect(uri.ResolveURL()).To(Equal("https://hf-mirror.com/TheBloke/model-GGUF/resolve/main/model.Q4_K_M.gguf"))
+		})
+
+		It("does not rewrite direct https://huggingface.co URLs when no mirror is set", func() {
+			HF_ENDPOINT = "https://huggingface.co"
+			uri := URI("https://huggingface.co/TheBloke/model-GGUF/resolve/main/model.Q4_K_M.gguf")
+			Expect(uri.ResolveURL()).To(Equal("https://huggingface.co/TheBloke/model-GGUF/resolve/main/model.Q4_K_M.gguf"))
+		})
+
+		It("rewrites hf:// URIs when mirror is set", func() {
+			HF_ENDPOINT = "https://hf-mirror.com"
+			uri := URI("hf://TheBloke/model-GGUF/model.Q4_K_M.gguf")
+			Expect(uri.ResolveURL()).To(Equal("https://hf-mirror.com/TheBloke/model-GGUF/resolve/main/model.Q4_K_M.gguf"))
+		})
+
+		It("does not rewrite non-huggingface URLs", func() {
+			HF_ENDPOINT = "https://hf-mirror.com"
+			uri := URI("https://example.com/some/file.gguf")
+			Expect(uri.ResolveURL()).To(Equal("https://example.com/some/file.gguf"))
+		})
+	})
 })
 
 var _ = Describe("ContentLength", func() {

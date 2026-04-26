@@ -17,6 +17,8 @@ import time
 import os
 import base64
 import io
+import json
+import gc
 
 from PIL import Image
 import torch
@@ -27,6 +29,11 @@ import backend_pb2
 import backend_pb2_grpc
 
 import grpc
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'common'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'common'))
+from grpc_auth import get_auth_interceptors
+from vllm_utils import parse_options, messages_to_dicts, setup_parsers
+
 
 from vllm_omni.entrypoints.omni import Omni
 from vllm_omni.outputs import OmniRequestOutput
@@ -144,23 +151,20 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
 
     def LoadModel(self, request, context):
         try:
+            # CPU detection: if no CUDA, default vLLM target device to CPU.
+            try:
+                if not torch.cuda.is_available():
+                    os.environ.setdefault("VLLM_TARGET_DEVICE", "cpu")
+                    os.environ.setdefault("VLLM_CPU_KVCACHE_SPACE", "4")
+            except Exception:
+                pass
+
             print(f"Loading model {request.Model}...", file=sys.stderr)
             print(f"Request {request}", file=sys.stderr)
 
-            # Parse options from request.Options (key:value pairs)
-            self.options = {}
-            for opt in request.Options:
-                if ":" not in opt:
-                    continue
-                key, value = opt.split(":", 1)
-                # Convert value to appropriate type
-                if is_float(value):
-                    value = float(value)
-                elif is_int(value):
-                    value = int(value)
-                elif value.lower() in ["true", "false"]:
-                    value = value.lower() == "true"
-                self.options[key] = value
+            # Parse options from request.Options using shared helper
+            self.options = parse_options(request.Options)
+            opts = self.options
 
             print(f"Options: {self.options}", file=sys.stderr)
 
@@ -240,6 +244,24 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                     omni_kwargs["max_model_len"] = request.MaxModelLen
 
             self.omni = Omni(**omni_kwargs)
+
+            # Load tokenizer for LLM/TTS so chat templates work
+            if self.model_type in ("llm", "tts"):
+                try:
+                    from vllm.transformers_utils.tokenizer import get_tokenizer
+                    self.tokenizer = get_tokenizer(
+                        request.Model,
+                        trust_remote_code=opts.get("trust_remote_code", False),
+                    )
+                except Exception as e:
+                    print(f"Failed to load tokenizer: {e}", file=sys.stderr)
+                    self.tokenizer = None
+            else:
+                self.tokenizer = None
+
+            # Setup optional tool / reasoning parsers
+            self.tool_parser_cls, self.reasoning_parser_cls = setup_parsers(opts)
+
             print("Model loaded successfully", file=sys.stderr)
             return backend_pb2.Result(message="Model loaded successfully", success=True)
 
@@ -462,14 +484,32 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             # Extract prompt
             if request.Prompt:
                 prompt = request.Prompt
-            elif request.Messages and request.UseTokenizerTemplate:
-                # Build prompt from messages (simplified - would need tokenizer for full template)
-                prompt = ""
-                for msg in request.Messages:
-                    role = msg.role
-                    content = msg.content
-                    prompt += f"<|im_start|>{role}\n{content}<|im_end|>\n"
-                prompt += "<|im_start|>assistant\n"
+            elif request.Messages:
+                if getattr(self, "tokenizer", None) is not None:
+                    messages_dicts = messages_to_dicts(request.Messages)
+                    template_kwargs = {"tokenize": False, "add_generation_prompt": True}
+                    if request.Tools:
+                        try:
+                            template_kwargs["tools"] = json.loads(request.Tools)
+                        except json.JSONDecodeError:
+                            pass
+                    try:
+                        if request.Metadata.get("enable_thinking", "").lower() == "true":
+                            template_kwargs["enable_thinking"] = True
+                    except Exception:
+                        pass
+                    try:
+                        prompt = self.tokenizer.apply_chat_template(messages_dicts, **template_kwargs)
+                    except TypeError:
+                        prompt = self.tokenizer.apply_chat_template(
+                            messages_dicts, tokenize=False, add_generation_prompt=True
+                        )
+                else:
+                    # Fallback: basic template
+                    prompt = ""
+                    for msg in request.Messages:
+                        prompt += f"<|im_start|>{msg.role}\n{msg.content}<|im_end|>\n"
+                    prompt += "<|im_start|>assistant\n"
             else:
                 yield backend_pb2.Reply(message=bytes("", 'utf-8'))
                 return
@@ -535,20 +575,79 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             # Call omni.generate() (returns generator for LLM mode)
             omni_generator = self.omni.generate([inputs], sampling_params_list)
 
-            # Extract text from outputs
+            # Extract text from outputs and track token usage
             generated_text = ""
+            prompt_tokens = 0
+            completion_tokens = 0
             for stage_outputs in omni_generator:
                 if stage_outputs.final_output_type == "text":
                     for output in stage_outputs.request_output:
-                        text_output = output.outputs[0].text
+                        completion = output.outputs[0]
+                        text_output = completion.text
+                        # Track tokens when available
+                        try:
+                            if getattr(output, "prompt_token_ids", None) is not None:
+                                prompt_tokens = len(output.prompt_token_ids)
+                            if getattr(completion, "token_ids", None) is not None:
+                                completion_tokens = len(completion.token_ids)
+                        except Exception:
+                            pass
                         if streaming:
                             # Remove already sent text (vllm concatenates)
                             delta_text = text_output.removeprefix(generated_text)
-                            yield backend_pb2.Reply(message=bytes(delta_text, encoding='utf-8'))
+                            yield backend_pb2.Reply(
+                                message=bytes(delta_text, encoding='utf-8'),
+                                tokens=completion_tokens,
+                                prompt_tokens=prompt_tokens,
+                            )
                         generated_text = text_output
 
             if not streaming:
-                yield backend_pb2.Reply(message=bytes(generated_text, encoding='utf-8'))
+                # Build optional ChatDelta with parsed reasoning / tool calls
+                chat_deltas = []
+                content_text = generated_text
+                reasoning_text = ""
+                tool_call_deltas = []
+
+                if self.reasoning_parser_cls is not None:
+                    try:
+                        parser = self.reasoning_parser_cls(self.tokenizer) if self.tokenizer else self.reasoning_parser_cls()
+                        reasoning_text, content_text = parser.extract_reasoning_content(content_text, request=None)
+                        reasoning_text = reasoning_text or ""
+                        content_text = content_text or ""
+                    except Exception as e:
+                        print(f"reasoning_parser failed: {e}", file=sys.stderr)
+
+                if self.tool_parser_cls is not None:
+                    try:
+                        parser = self.tool_parser_cls(self.tokenizer) if self.tokenizer else self.tool_parser_cls()
+                        tool_info = parser.extract_tool_calls(content_text, request=None)
+                        if getattr(tool_info, "tools_called", False):
+                            content_text = tool_info.content or ""
+                            for tc in tool_info.tool_calls or []:
+                                fn = getattr(tc, "function", None)
+                                tool_call_deltas.append(backend_pb2.ToolCallDelta(
+                                    index=getattr(tc, "index", 0) or 0,
+                                    id=getattr(tc, "id", "") or "",
+                                    name=getattr(fn, "name", "") if fn else "",
+                                    arguments=getattr(fn, "arguments", "") if fn else "",
+                                ))
+                    except Exception as e:
+                        print(f"tool_parser failed: {e}", file=sys.stderr)
+
+                if self.tool_parser_cls is not None or self.reasoning_parser_cls is not None:
+                    chat_deltas.append(backend_pb2.ChatDelta(
+                        content=content_text,
+                        reasoning_content=reasoning_text,
+                        tool_calls=tool_call_deltas,
+                    ))
+
+                yield backend_pb2.Reply(
+                    message=bytes(generated_text, encoding='utf-8'),
+                    tokens=completion_tokens,
+                    prompt_tokens=prompt_tokens,
+                    chat_deltas=chat_deltas,
+                )
 
         except Exception as err:
             print(f"Error in Predict: {err}", file=sys.stderr)
@@ -643,6 +742,37 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             traceback.print_exc()
             return backend_pb2.Result(success=False, message=f"Error generating TTS: {err}")
 
+    def TokenizeString(self, request, context):
+        if not hasattr(self, 'tokenizer') or self.tokenizer is None:
+            context.set_code(grpc.StatusCode.FAILED_PRECONDITION)
+            context.set_details("Model/tokenizer not loaded")
+            return backend_pb2.TokenizationResponse()
+        try:
+            tokens = self.tokenizer.encode(request.Prompt)
+            return backend_pb2.TokenizationResponse(length=len(tokens), tokens=tokens)
+        except Exception as e:
+            context.set_code(grpc.StatusCode.INTERNAL)
+            context.set_details(str(e))
+            return backend_pb2.TokenizationResponse()
+
+    def Free(self, request, context):
+        try:
+            if hasattr(self, 'omni'):
+                del self.omni
+            if hasattr(self, 'tokenizer'):
+                del self.tokenizer
+            self.tool_parser_cls = None
+            self.reasoning_parser_cls = None
+            gc.collect()
+            try:
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+            except Exception:
+                pass
+            return backend_pb2.Result(success=True, message="Model freed")
+        except Exception as e:
+            return backend_pb2.Result(success=False, message=str(e))
+
 
 def serve(address):
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=MAX_WORKERS),
@@ -650,7 +780,9 @@ def serve(address):
             ('grpc.max_message_length', 50 * 1024 * 1024),  # 50MB
             ('grpc.max_send_message_length', 50 * 1024 * 1024),
             ('grpc.max_receive_message_length', 50 * 1024 * 1024),
-        ])
+        ],
+        interceptors=get_auth_interceptors(),
+    )
     backend_pb2_grpc.add_BackendServicer_to_server(BackendServicer(), server)
     server.add_insecure_port(address)
     server.start()

@@ -110,6 +110,27 @@ func UpdateSettingsEndpoint(app *application.Application) echo.HandlerFunc {
 			})
 		}
 
+		// The UI reads ApiKeys from GET /api/settings, which already returns the
+		// merged env+runtime list. When the user clicks Save, the same merged
+		// list comes back in the POST body. Strip the env-supplied keys from
+		// the incoming list before we persist or re-merge, otherwise each save
+		// duplicates the env keys on top of the previous merge (#9071).
+		if settings.ApiKeys != nil {
+			envKeys := startupConfig.ApiKeys
+			envSet := make(map[string]struct{}, len(envKeys))
+			for _, k := range envKeys {
+				envSet[k] = struct{}{}
+			}
+			runtimeOnly := make([]string, 0, len(*settings.ApiKeys))
+			for _, k := range *settings.ApiKeys {
+				if _, fromEnv := envSet[k]; fromEnv {
+					continue
+				}
+				runtimeOnly = append(runtimeOnly, k)
+			}
+			settings.ApiKeys = &runtimeOnly
+		}
+
 		settingsFile := filepath.Join(appConfig.DynamicConfigsDir, "runtime_settings.json")
 		settingsJSON, err := json.MarshalIndent(settings, "", "  ")
 		if err != nil {

@@ -15,7 +15,7 @@ import (
 
 // modelConfigCacheEntry holds a cached parsed config_file map from a URL-referenced model config.
 type modelConfigCacheEntry struct {
-	configMap   map[string]interface{}
+	configMap   map[string]any
 	lastUpdated time.Time
 }
 
@@ -57,7 +57,7 @@ func resolveBackend(m *GalleryModel, basePath string) string {
 // fetchModelConfigMap fetches a model config URL, parses the config_file YAML string
 // inside it, and returns the result as a map. Results are cached for 1 hour.
 // Local file:// URLs skip the cache so edits are picked up immediately.
-func fetchModelConfigMap(modelURL, basePath string) map[string]interface{} {
+func fetchModelConfigMap(modelURL, basePath string) map[string]any {
 	// Check cache (skip for file:// URLs so local edits are picked up immediately)
 	isLocal := strings.HasPrefix(modelURL, downloader.LocalPrefix)
 	if !isLocal && modelConfigCache.Exists(modelURL) {
@@ -75,15 +75,15 @@ func fetchModelConfigMap(modelURL, basePath string) map[string]interface{} {
 		// Cache the failure for remote URLs to avoid repeated fetch attempts
 		if !isLocal {
 			modelConfigCache.Set(modelURL, modelConfigCacheEntry{
-				configMap:   map[string]interface{}{},
+				configMap:   map[string]any{},
 				lastUpdated: time.Now(),
 			})
 		}
-		return map[string]interface{}{}
+		return map[string]any{}
 	}
 
 	// Parse the config_file YAML string into a map
-	configMap := make(map[string]interface{})
+	configMap := make(map[string]any)
 	if modelConfig.ConfigFile != "" {
 		if err := yaml.Unmarshal([]byte(modelConfig.ConfigFile), &configMap); err != nil {
 			xlog.Debug("Failed to parse config_file for backend resolution", "url", modelURL, "error", err)
@@ -108,13 +108,11 @@ func prefetchModelConfigs(urls []string, basePath string) {
 	sem := make(chan struct{}, maxConcurrency)
 	var wg sync.WaitGroup
 	for _, url := range urls {
-		wg.Add(1)
-		go func(u string) {
-			defer wg.Done()
+		wg.Go(func() {
 			sem <- struct{}{}
 			defer func() { <-sem }()
-			fetchModelConfigMap(u, basePath)
-		}(url)
+			fetchModelConfigMap(url, basePath)
+		})
 	}
 	wg.Wait()
 }

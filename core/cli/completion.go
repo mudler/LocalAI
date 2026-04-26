@@ -186,9 +186,9 @@ _local_ai_completions()
 		}
 		subcmds := []string{}
 		for _, sub := range cmds {
-			parts := strings.SplitN(sub.fullName, " ", 2)
-			if len(parts) == 2 && parts[0] == cmd.name && !strings.Contains(parts[1], " ") {
-				subcmds = append(subcmds, parts[1])
+			parent, child, found := strings.Cut(sub.fullName, " ")
+			if found && parent == cmd.name && !strings.Contains(child, " ") {
+				subcmds = append(subcmds, child)
 			}
 		}
 		if len(subcmds) > 0 {
@@ -279,8 +279,8 @@ _local_ai() {
 		// Check for subcommands
 		subcmds := []commandInfo{}
 		for _, sub := range cmds {
-			parts := strings.SplitN(sub.fullName, " ", 2)
-			if len(parts) == 2 && parts[0] == cmd.name && !strings.Contains(parts[1], " ") {
+			parent, child, found := strings.Cut(sub.fullName, " ")
+			if found && parent == cmd.name && !strings.Contains(child, " ") {
 				subcmds = append(subcmds, sub)
 			}
 		}
@@ -289,11 +289,11 @@ _local_ai() {
 			sb.WriteString("                    local -a subcmds\n")
 			sb.WriteString("                    subcmds=(\n")
 			for _, sub := range subcmds {
-				parts := strings.SplitN(sub.fullName, " ", 2)
+				_, child, _ := strings.Cut(sub.fullName, " ")
 				help := strings.ReplaceAll(sub.help, "'", "'\\''")
 				help = strings.ReplaceAll(help, "[", "\\[")
 				help = strings.ReplaceAll(help, "]", "\\]")
-				sb.WriteString(fmt.Sprintf("                        '%s:%s'\n", parts[1], help))
+				sb.WriteString(fmt.Sprintf("                        '%s:%s'\n", child, help))
 			}
 			sb.WriteString("                    )\n")
 			sb.WriteString("                    _describe -t commands 'subcommands' subcmds\n")
@@ -372,10 +372,10 @@ func generateFishCompletion(app *kong.Application) string {
 
 		// Subcommands
 		for _, sub := range cmds {
-			parts := strings.SplitN(sub.fullName, " ", 2)
-			if len(parts) == 2 && parts[0] == cmd.name && !strings.Contains(parts[1], " ") {
+			parent, child, found := strings.Cut(sub.fullName, " ")
+			if found && parent == cmd.name && !strings.Contains(child, " ") {
 				help := strings.ReplaceAll(sub.help, "'", "\\'")
-				sb.WriteString(fmt.Sprintf("complete -c local-ai -n '__fish_seen_subcommand_from %s' -a %s -d '%s'\n", cmd.name, parts[1], help))
+				sb.WriteString(fmt.Sprintf("complete -c local-ai -n '__fish_seen_subcommand_from %s' -a %s -d '%s'\n", cmd.name, child, help))
 			}
 		}
 

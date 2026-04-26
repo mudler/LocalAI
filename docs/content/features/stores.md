@@ -1,13 +1,21 @@
 
 +++
 disableToc = false
-title = "💾 Stores"
+title = "Stores"
 weight = 18
 url = '/stores'
 +++
 
 Stores are an experimental feature to help with querying data using similarity search. It is
 a low level API that consists of only `get`, `set`, `delete` and `find`.
+
+{{% notice tip %}}
+**Face recognition uses this store.** The 1:N face identification flow
+(`/v1/face/register`, `/v1/face/identify`, `/v1/face/forget`) is built
+on top of the generic store — see
+[Face Recognition](/features/face-recognition/) for the face-oriented
+API.
+{{% /notice %}}
 
 For example if you have an embedding of some text and want to find text with similar embeddings.
 You can create embeddings for chunks of all your text then compare them against the embedding of the text you

@@ -1,8 +1,10 @@
 package localai
 
 import (
+	"context"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -13,8 +15,31 @@ import (
 	"github.com/mudler/xlog"
 )
 
-var corsProxyClient = &http.Client{
-	Timeout: 10 * time.Minute,
+var privateNetworks []*net.IPNet
+
+func init() {
+	for _, cidr := range []string{
+		"10.0.0.0/8",
+		"172.16.0.0/12",
+		"192.168.0.0/16",
+		"127.0.0.0/8",
+		"169.254.0.0/16",
+		"::1/128",
+		"fc00::/7",
+		"fe80::/10",
+	} {
+		_, network, _ := net.ParseCIDR(cidr)
+		privateNetworks = append(privateNetworks, network)
+	}
+}
+
+func isPrivateIP(ip net.IP) bool {
+	for _, network := range privateNetworks {
+		if network.Contains(ip) {
+			return true
+		}
+	}
+	return false
 }
 
 // CORSProxyEndpoint proxies HTTP requests to external MCP servers,
@@ -36,6 +61,35 @@ func CORSProxyEndpoint(appConfig *config.ApplicationConfig) echo.HandlerFunc {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": "only http and https schemes are supported"})
 		}
 
+		ips, err := net.LookupIP(parsed.Hostname())
+		if err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "cannot resolve hostname"})
+		}
+		for _, ip := range ips {
+			if isPrivateIP(ip) {
+				return c.JSON(http.StatusForbidden, map[string]string{"error": "requests to private networks are not allowed"})
+			}
+		}
+
+		// Pin the connection to the validated IP to prevent DNS rebinding (TOCTOU)
+		validIP := ips[0]
+		port := parsed.Port()
+		if port == "" {
+			if parsed.Scheme == "https" {
+				port = "443"
+			} else {
+				port = "80"
+			}
+		}
+		transport := &http.Transport{
+			DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+				return (&net.Dialer{Timeout: 10 * time.Second}).DialContext(
+					ctx, network, net.JoinHostPort(validIP.String(), port),
+				)
+			},
+		}
+		client := &http.Client{Transport: transport, Timeout: 10 * time.Minute}
+
 		xlog.Debug("CORS proxy request", "method", c.Request().Method, "target", targetURL)
 
 		proxyReq, err := http.NewRequestWithContext(
@@ -52,7 +106,9 @@ func CORSProxyEndpoint(appConfig *config.ApplicationConfig) echo.HandlerFunc {
 		skipHeaders := map[string]bool{
 			"Host": true, "Connection": true, "Keep-Alive": true,
 			"Transfer-Encoding": true, "Upgrade": true, "Origin": true,
-			"Referer": true,
+			"Referer":       true,
+			"Authorization": true, "Cookie": true,
+			"X-Api-Key": true, "Proxy-Authorization": true,
 		}
 		for key, values := range c.Request().Header {
 			if skipHeaders[key] {
@@ -63,7 +119,7 @@ func CORSProxyEndpoint(appConfig *config.ApplicationConfig) echo.HandlerFunc {
 			}
 		}
 
-		resp, err := corsProxyClient.Do(proxyReq)
+		resp, err := client.Do(proxyReq)
 		if err != nil {
 			xlog.Error("CORS proxy request failed", "error", err, "target", targetURL)
 			return c.JSON(http.StatusBadGateway, map[string]string{"error": "proxy request failed: " + err.Error()})
@@ -90,8 +146,9 @@ func CORSProxyEndpoint(appConfig *config.ApplicationConfig) echo.HandlerFunc {
 
 		c.Response().WriteHeader(resp.StatusCode)
 
-		// Stream the response body
-		_, err = io.Copy(c.Response().Writer, resp.Body)
+		// Stream the response body with a size limit
+		const maxProxyResponseSize = 100 << 20 // 100 MB
+		_, err = io.Copy(c.Response().Writer, io.LimitReader(resp.Body, maxProxyResponseSize))
 		return err
 	}
 }

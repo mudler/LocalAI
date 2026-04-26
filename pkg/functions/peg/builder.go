@@ -393,7 +393,7 @@ func parseHexEscape(s string, pos, count int) (rune, int) {
 		return 0, 0
 	}
 	var value rune
-	for i := 0; i < count; i++ {
+	for i := range count {
 		c := s[pos+i]
 		value <<= 4
 		switch {

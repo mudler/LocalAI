@@ -56,5 +56,6 @@ func (v *Voxtral) AudioTranscription(opts *pb.TranscriptRequest) (pb.TranscriptR
 	return pb.TranscriptResult{
 		Segments: segments,
 		Text:     text,
+		Language: opts.Language,
 	}, nil
 }

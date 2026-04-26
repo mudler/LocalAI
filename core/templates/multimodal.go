@@ -21,8 +21,21 @@ type MultimodalContent struct {
 	ID int
 }
 
-// https://github.com/ggml-org/llama.cpp/blob/be1d4a13db26750fac702ceb3af88ae4f39dc9f4/tools/mtmd/mtmd.h#L42
-// from <__image__> to <__media__> https://github.com/ggml-org/llama.cpp/blob/79c137f77677b3c8ee3c60a7da033721b938399a/tools/mtmd/mtmd.cpp#L83
+// DefaultMultiMediaMarker is the sentinel marker LocalAI emits in the rendered
+// prompt for each image/audio item. It matches llama.cpp's historical
+// mtmd_default_marker() ("<__media__>"). llama.cpp's server now picks a random
+// per-server marker (see PR #21962) and reports it via ModelMetadataResponse.media_marker;
+// callers substitute this sentinel with the backend-reported marker right before
+// the gRPC call (core/backend/llm.go).
+const DefaultMultiMediaMarker = "<__media__>"
+
+// DefaultMultiModalTemplate renders a per-message media-marker prefix followed
+// by the text content. The sentinel marker is substituted late, so this
+// template does not need to know the backend-specific marker.
+//
+// References:
+//   - https://github.com/ggml-org/llama.cpp/blob/79c137f77677b3c8ee3c60a7da033721b938399a/tools/mtmd/mtmd.cpp#L83
+//   - https://github.com/ggml-org/llama.cpp/pull/21962
 const DefaultMultiModalTemplate = "{{ range .Audio }}<__media__>{{end}}{{ range .Images }}<__media__>{{end}}{{ range .Video }}[vid-{{.ID}}]{{end}}{{.Text}}"
 
 func TemplateMultiModal(templateString string, opts MultiModalOptions, text string) (string, error) {
@@ -37,17 +50,17 @@ func TemplateMultiModal(templateString string, opts MultiModalOptions, text stri
 	}
 
 	videos := []MultimodalContent{}
-	for i := 0; i < opts.VideosInMessage; i++ {
+	for i := range opts.VideosInMessage {
 		videos = append(videos, MultimodalContent{ID: i + (opts.TotalVideos - opts.VideosInMessage)})
 	}
 
 	audios := []MultimodalContent{}
-	for i := 0; i < opts.AudiosInMessage; i++ {
+	for i := range opts.AudiosInMessage {
 		audios = append(audios, MultimodalContent{ID: i + (opts.TotalAudios - opts.AudiosInMessage)})
 	}
 
 	images := []MultimodalContent{}
-	for i := 0; i < opts.ImagesInMessage; i++ {
+	for i := range opts.ImagesInMessage {
 		images = append(images, MultimodalContent{ID: i + (opts.TotalImages - opts.ImagesInMessage)})
 	}
 

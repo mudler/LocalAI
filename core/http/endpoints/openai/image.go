@@ -68,6 +68,7 @@ func downloadFile(url string) (string, error) {
 */
 // ImageEndpoint is the OpenAI Image generation API endpoint https://platform.openai.com/docs/api-reference/images/create
 // @Summary Creates an image given a prompt.
+// @Tags images
 // @Param request body schema.OpenAIRequest true "query params"
 // @Success 200 {object} schema.OpenAIResponse "Response"
 // @Router /v1/images/generations [post]
@@ -154,7 +155,7 @@ func ImageEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfi
 			if input.N == 0 {
 				n = 1
 			}
-			for j := 0; j < n; j++ {
+			for range n {
 				prompts := strings.Split(i, "|")
 				positive_prompt := prompts[0]
 				negative_prompt := ""

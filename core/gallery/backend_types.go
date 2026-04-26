@@ -2,6 +2,7 @@ package gallery
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/pkg/system"
@@ -20,12 +21,19 @@ type BackendMetadata struct {
 	GalleryURL string `json:"gallery_url,omitempty"`
 	// InstalledAt is the timestamp when the backend was installed
 	InstalledAt string `json:"installed_at,omitempty"`
+	// Version is the version of the backend at install time
+	Version string `json:"version,omitempty"`
+	// URI is the original URI used to install the backend
+	URI string `json:"uri,omitempty"`
+	// Digest is the OCI image digest at install time (for upgrade detection)
+	Digest string `json:"digest,omitempty"`
 }
 
 type GalleryBackend struct {
 	Metadata        `json:",inline" yaml:",inline"`
 	Alias           string            `json:"alias,omitempty" yaml:"alias,omitempty"`
 	URI             string            `json:"uri,omitempty" yaml:"uri,omitempty"`
+	Version         string            `json:"version,omitempty" yaml:"version,omitempty"`
 	Mirrors         []string          `json:"mirrors,omitempty" yaml:"mirrors,omitempty"`
 	CapabilitiesMap map[string]string `json:"capabilities,omitempty" yaml:"capabilities,omitempty"`
 }
@@ -63,11 +71,22 @@ func (m *GalleryBackend) IsMeta() bool {
 	return len(m.CapabilitiesMap) > 0 && m.URI == ""
 }
 
+func (m *GalleryBackend) IsDevelopment(devSuffix string) bool {
+	if devSuffix == "" {
+		devSuffix = defaultDevSuffix
+	}
+	return strings.HasSuffix(m.Name, "-"+devSuffix)
+}
+
 // IsCompatibleWith checks if the backend is compatible with the current system capability.
 // For meta backends, it checks if any of the capabilities in the map match the system capability.
 // For concrete backends, it delegates to SystemState.IsBackendCompatible.
 func (m *GalleryBackend) IsCompatibleWith(systemState *system.SystemState) bool {
 	if systemState == nil {
+		return true
+	}
+
+	if systemState.CapabilityFilterDisabled() {
 		return true
 	}
 

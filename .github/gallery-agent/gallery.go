@@ -7,8 +7,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/ghodss/yaml"
 	"github.com/mudler/LocalAI/core/gallery/importers"
+	"sigs.k8s.io/yaml"
 )
 
 func formatTextContent(text string) string {
@@ -79,7 +79,20 @@ func generateYAMLEntry(model ProcessedModel, quantization string) string {
 	description = cleanTextContent(description)
 	formattedDescription := formatTextContent(description)
 
-	configFile := formatTextContent(modelConfig.ConfigFile)
+	// Strip name and description from config file since they are
+	// already present at the gallery entry level and should not
+	// appear under overrides.
+	configFileContent := modelConfig.ConfigFile
+	var cfgMap map[string]any
+	if err := yaml.Unmarshal([]byte(configFileContent), &cfgMap); err == nil {
+		delete(cfgMap, "name")
+		delete(cfgMap, "description")
+		if cleaned, err := yaml.Marshal(cfgMap); err == nil {
+			configFileContent = string(cleaned)
+		}
+	}
+
+	configFile := formatTextContent(configFileContent)
 
 	filesYAML, _ := yaml.Marshal(modelConfig.Files)
 

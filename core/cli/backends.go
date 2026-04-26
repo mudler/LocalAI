@@ -8,7 +8,7 @@ import (
 	cliContext "github.com/mudler/LocalAI/core/cli/context"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
-	"github.com/mudler/LocalAI/core/services"
+	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/system"
 
@@ -40,10 +40,17 @@ type BackendsUninstall struct {
 	BackendsCMDFlags `embed:""`
 }
 
+type BackendsUpgrade struct {
+	BackendArgs []string `arg:"" optional:"" name:"backends" help:"Backend names to upgrade (empty = upgrade all)"`
+
+	BackendsCMDFlags `embed:""`
+}
+
 type BackendsCMD struct {
 	List      BackendsList      `cmd:"" help:"List the backends available in your galleries" default:"withargs"`
 	Install   BackendsInstall   `cmd:"" help:"Install a backend from the gallery"`
 	Uninstall BackendsUninstall `cmd:"" help:"Uninstall a backend"`
+	Upgrade   BackendsUpgrade   `cmd:"" help:"Upgrade backends to latest versions"`
 }
 
 func (bl *BackendsList) Run(ctx *cliContext.Context) error {
@@ -64,11 +71,27 @@ func (bl *BackendsList) Run(ctx *cliContext.Context) error {
 	if err != nil {
 		return err
 	}
+
+	// Check for upgrades
+	upgrades, _ := gallery.CheckBackendUpgrades(context.Background(), galleries, systemState)
+
 	for _, backend := range backends {
+		versionStr := ""
+		if backend.Version != "" {
+			versionStr = " v" + backend.Version
+		}
 		if backend.Installed {
-			fmt.Printf(" * %s@%s (installed)\n", backend.Gallery.Name, backend.Name)
+			if info, ok := upgrades[backend.Name]; ok {
+				upgradeStr := info.AvailableVersion
+				if upgradeStr == "" {
+					upgradeStr = "new build"
+				}
+				fmt.Printf(" * %s@%s%s (installed, upgrade available: %s)\n", backend.Gallery.Name, backend.Name, versionStr, upgradeStr)
+			} else {
+				fmt.Printf(" * %s@%s%s (installed)\n", backend.Gallery.Name, backend.Name, versionStr)
+			}
 		} else {
-			fmt.Printf(" - %s@%s\n", backend.Gallery.Name, backend.Name)
+			fmt.Printf(" - %s@%s%s\n", backend.Gallery.Name, backend.Name, versionStr)
 		}
 	}
 	return nil
@@ -103,9 +126,82 @@ func (bi *BackendsInstall) Run(ctx *cliContext.Context) error {
 	}
 
 	modelLoader := model.NewModelLoader(systemState)
-	err = services.InstallExternalBackend(context.Background(), galleries, systemState, modelLoader, progressCallback, bi.BackendArgs, bi.Name, bi.Alias)
+	err = galleryop.InstallExternalBackend(context.Background(), galleries, systemState, modelLoader, progressCallback, bi.BackendArgs, bi.Name, bi.Alias)
 	if err != nil {
 		return err
+	}
+
+	return nil
+}
+
+func (bu *BackendsUpgrade) Run(ctx *cliContext.Context) error {
+	var galleries []config.Gallery
+	if err := json.Unmarshal([]byte(bu.BackendGalleries), &galleries); err != nil {
+		xlog.Error("unable to load galleries", "error", err)
+	}
+
+	systemState, err := system.GetSystemState(
+		system.WithBackendSystemPath(bu.BackendsSystemPath),
+		system.WithBackendPath(bu.BackendsPath),
+	)
+	if err != nil {
+		return err
+	}
+
+	upgrades, err := gallery.CheckBackendUpgrades(context.Background(), galleries, systemState)
+	if err != nil {
+		return fmt.Errorf("failed to check for upgrades: %w", err)
+	}
+
+	if len(upgrades) == 0 {
+		fmt.Println("All backends are up to date.")
+		return nil
+	}
+
+	// Filter to specified backends if args given
+	toUpgrade := upgrades
+	if len(bu.BackendArgs) > 0 {
+		toUpgrade = make(map[string]gallery.UpgradeInfo)
+		for _, name := range bu.BackendArgs {
+			if info, ok := upgrades[name]; ok {
+				toUpgrade[name] = info
+			} else {
+				fmt.Printf("Backend %s: no upgrade available\n", name)
+			}
+		}
+	}
+
+	if len(toUpgrade) == 0 {
+		fmt.Println("No upgrades to apply.")
+		return nil
+	}
+
+	modelLoader := model.NewModelLoader(systemState)
+	for name, info := range toUpgrade {
+		versionStr := ""
+		if info.AvailableVersion != "" {
+			versionStr = " to v" + info.AvailableVersion
+		}
+		fmt.Printf("Upgrading %s%s...\n", name, versionStr)
+
+		progressBar := progressbar.NewOptions(
+			1000,
+			progressbar.OptionSetDescription(fmt.Sprintf("downloading %s", name)),
+			progressbar.OptionShowBytes(false),
+			progressbar.OptionClearOnFinish(),
+		)
+		progressCallback := func(fileName string, current string, total string, percentage float64) {
+			v := int(percentage * 10)
+			if err := progressBar.Set(v); err != nil {
+				xlog.Error("error updating progress bar", "error", err)
+			}
+		}
+
+		if err := gallery.UpgradeBackend(context.Background(), systemState, modelLoader, galleries, name, progressCallback); err != nil {
+			fmt.Printf("Failed to upgrade %s: %v\n", name, err)
+		} else {
+			fmt.Printf("Backend %s upgraded successfully\n", name)
+		}
 	}
 
 	return nil

@@ -55,6 +55,75 @@ func (m *MockBackend) Predict(ctx context.Context, in *pb.PredictOptions) (*pb.R
 	if strings.Contains(in.Prompt, "MOCK_ERROR") {
 		return nil, fmt.Errorf("mock backend predict error: simulated failure")
 	}
+
+	// Simulate C++ autoparser: tool call via ChatDeltas, empty message
+	if strings.Contains(in.Prompt, "AUTOPARSER_TOOL_CALL") {
+		toolName := mockToolNameFromRequest(in)
+		if toolName == "" {
+			toolName = "search_collections"
+		}
+		return &pb.Reply{
+			Message:      []byte{},
+			Tokens:       10,
+			PromptTokens: 5,
+			ChatDeltas: []*pb.ChatDelta{
+				{ReasoningContent: "I need to search for information."},
+				{
+					ToolCalls: []*pb.ToolCallDelta{
+						{
+							Index:     0,
+							Id:        "call_mock_123",
+							Name:      toolName,
+							Arguments: `{"query":"localai"}`,
+						},
+					},
+				},
+			},
+		}, nil
+	}
+
+	// Simulate C++ autoparser: content via ChatDeltas, empty message
+	if strings.Contains(in.Prompt, "AUTOPARSER_CONTENT") {
+		return &pb.Reply{
+			Message:      []byte{},
+			Tokens:       10,
+			PromptTokens: 5,
+			ChatDeltas: []*pb.ChatDelta{
+				{ReasoningContent: "Let me compose a response."},
+				{Content: "LocalAI is an open-source AI platform."},
+			},
+		}, nil
+	}
+
+	// Simulate Gemma 4 / thinking model with C++ autoparser:
+	// - Message contains the clean content (autoparser extracts it from OAI choices[0].message.content)
+	// - ChatDeltas contain both reasoning and content separately
+	// This reproduces the bug where Go-side PrependThinkingTokenIfNeeded
+	// incorrectly prepends a thinking start token to the clean content,
+	// causing the entire response to be classified as unclosed reasoning.
+	if strings.Contains(in.Prompt, "AUTOPARSER_THINKING_CONTENT") {
+		return &pb.Reply{
+			Message:      []byte("I am a helpful AI assistant designed to assist you with a wide range of tasks."),
+			Tokens:       20,
+			PromptTokens: 50,
+			ChatDeltas: []*pb.ChatDelta{
+				{
+					ReasoningContent: "The user is asking a simple introductory question. I should respond directly.",
+					Content:          "I am a helpful AI assistant designed to assist you with a wide range of tasks.",
+				},
+			},
+		}, nil
+	}
+
+	// Simulate multiple tool calls in a single response (Go-side JSON parser path).
+	if strings.Contains(in.Prompt, "MULTI_TOOL_CALL") {
+		return &pb.Reply{
+			Message:      []byte(`{"name": "get_weather", "arguments": {"location": "Rome"}}
+{"name": "get_weather", "arguments": {"location": "Paris"}}`),
+			Tokens:       30,
+			PromptTokens: 10,
+		}, nil
+	}
 	var response string
 	toolName := mockToolNameFromRequest(in)
 	if toolName != "" && !promptHasToolResults(in.Prompt) {
@@ -67,11 +136,11 @@ func (m *MockBackend) Predict(ctx context.Context, in *pb.PredictOptions) (*pb.R
 		response = "This is a mocked response."
 	}
 	return &pb.Reply{
-		Message:                 []byte(response),
-		Tokens:                  10,
-		PromptTokens:            5,
-		TimingPromptProcessing:  0.1,
-		TimingTokenGeneration:   0.2,
+		Message:                []byte(response),
+		Tokens:                 10,
+		PromptTokens:           5,
+		TimingPromptProcessing: 0.1,
+		TimingTokenGeneration:  0.2,
 	}, nil
 }
 
@@ -88,6 +157,109 @@ func (m *MockBackend) PredictStream(in *pb.PredictOptions, stream pb.Backend_Pre
 		}
 		return fmt.Errorf("mock backend stream error: simulated mid-stream failure")
 	}
+
+	// Simulate C++ autoparser behavior: tool calls delivered via ChatDeltas
+	// with empty message (autoparser clears raw message during parsing).
+	if strings.Contains(in.Prompt, "AUTOPARSER_TOOL_CALL") {
+		toolName := mockToolNameFromRequest(in)
+		if toolName == "" {
+			toolName = "search_collections"
+		}
+		// Phase 1: Stream reasoning tokens with empty message (autoparser active)
+		reasoning := "I need to search for information."
+		for _, r := range reasoning {
+			if err := stream.Send(&pb.Reply{
+				Message: []byte{}, // autoparser clears raw message
+				ChatDeltas: []*pb.ChatDelta{
+					{ReasoningContent: string(r)},
+				},
+			}); err != nil {
+				return err
+			}
+		}
+		// Phase 2: Emit tool call via ChatDeltas (no raw message)
+		if err := stream.Send(&pb.Reply{
+			Message: []byte{}, // autoparser clears raw message
+			ChatDeltas: []*pb.ChatDelta{
+				{
+					ToolCalls: []*pb.ToolCallDelta{
+						{
+							Index:     0,
+							Id:        "call_mock_123",
+							Name:      toolName,
+							Arguments: `{"query":"localai"}`,
+						},
+					},
+				},
+			},
+		}); err != nil {
+			return err
+		}
+		return nil
+	}
+
+	// Simulate C++ autoparser behavior: content delivered via ChatDeltas
+	// with empty message (autoparser clears raw message during parsing).
+	if strings.Contains(in.Prompt, "AUTOPARSER_CONTENT") {
+		// Phase 1: Stream reasoning via ChatDeltas
+		reasoning := "Let me compose a response."
+		for _, r := range reasoning {
+			if err := stream.Send(&pb.Reply{
+				Message: []byte{},
+				ChatDeltas: []*pb.ChatDelta{
+					{ReasoningContent: string(r)},
+				},
+			}); err != nil {
+				return err
+			}
+		}
+		// Phase 2: Stream content via ChatDeltas (no raw message)
+		content := "LocalAI is an open-source AI platform."
+		for _, r := range content {
+			if err := stream.Send(&pb.Reply{
+				Message: []byte{},
+				ChatDeltas: []*pb.ChatDelta{
+					{Content: string(r)},
+				},
+			}); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+
+	// Simulate tool calls streamed as whole JSON objects (Go-side parser path).
+	// Each object is sent as a complete chunk so the incremental parser can
+	// detect tool calls mid-stream (unlike char-by-char which only parses after
+	// streaming completes).
+	if strings.Contains(in.Prompt, "MULTI_TOOL_CALL") {
+		chunks := []string{
+			`{"name": "get_weather", "arguments": {"location": "Rome"}}`,
+			"\n",
+			`{"name": "get_weather", "arguments": {"location": "Paris"}}`,
+		}
+		for i, chunk := range chunks {
+			if err := stream.Send(&pb.Reply{
+				Message: []byte(chunk),
+				Tokens:  int32(i + 1),
+			}); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+
+	// Simulate single tool call streamed as whole JSON (Go-side parser path).
+	if strings.Contains(in.Prompt, "SINGLE_TOOL_CALL") {
+		if err := stream.Send(&pb.Reply{
+			Message: []byte(`{"name": "get_weather", "arguments": {"location": "San Francisco"}}`),
+			Tokens:  1,
+		}); err != nil {
+			return err
+		}
+		return nil
+	}
+
 	var toStream string
 	toolName := mockToolNameFromRequest(in)
 	if toolName != "" && !promptHasToolResults(in.Prompt) {
@@ -297,10 +469,10 @@ func (m *MockBackend) AudioTranscription(ctx context.Context, in *pb.TranscriptR
 		Text: text,
 		Segments: []*pb.TranscriptSegment{
 			{
-				Id:    0,
-				Start: 0,
-				End:   3000,
-				Text:  text,
+				Id:     0,
+				Start:  0,
+				End:    3000,
+				Text:   text,
 				Tokens: []int32{1, 2, 3, 4, 5, 6},
 			},
 		},
@@ -313,7 +485,7 @@ func (m *MockBackend) TokenizeString(ctx context.Context, in *pb.PredictOptions)
 	tokens := []int32{101, 2023, 2003, 1037, 3231, 1012}
 	return &pb.TokenizationResponse{
 		Length: int32(len(tokens)),
-		Tokens:  tokens,
+		Tokens: tokens,
 	}, nil
 }
 
@@ -335,12 +507,12 @@ func (m *MockBackend) Detect(ctx context.Context, in *pb.DetectOptions) (*pb.Det
 	return &pb.DetectResponse{
 		Detections: []*pb.Detection{
 			{
-				X:         10.0,
-				Y:         20.0,
-				Width:     100.0,
-				Height:    200.0,
+				X:          10.0,
+				Y:          20.0,
+				Width:      100.0,
+				Height:     200.0,
 				Confidence: 0.95,
-				ClassName: "mocked_object",
+				ClassName:  "mocked_object",
 			},
 		},
 	}, nil
@@ -392,8 +564,8 @@ func (m *MockBackend) StoresFind(ctx context.Context, in *pb.StoresFindOptions) 
 	}
 	similarities := []float32{0.95, 0.85}
 	return &pb.StoresFindResult{
-		Keys:        keys,
-		Values:      values,
+		Keys:         keys,
+		Values:       values,
 		Similarities: similarities,
 	}, nil
 }
@@ -421,10 +593,10 @@ func (m *MockBackend) Rerank(ctx context.Context, in *pb.RerankRequest) (*pb.Rer
 func (m *MockBackend) GetMetrics(ctx context.Context, in *pb.MetricsRequest) (*pb.MetricsResponse, error) {
 	xlog.Debug("GetMetrics called")
 	return &pb.MetricsResponse{
-		SlotId:              0,
-		PromptJsonForSlot:   `{"prompt":"mocked"}`,
-		TokensPerSecond:     10.0,
-		TokensGenerated:     100,
+		SlotId:                0,
+		PromptJsonForSlot:     `{"prompt":"mocked"}`,
+		TokensPerSecond:       10.0,
+		TokensGenerated:       100,
 		PromptTokensProcessed: 50,
 	}, nil
 }

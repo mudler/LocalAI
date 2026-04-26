@@ -1,0 +1,10 @@
+--- a/ggml/src/iqk/iqk_common.h
++++ b/ggml/src/iqk/iqk_common.h
+@@ -9,6 +9,7 @@
+ #pragma once
+
+ #include "iqk_config.h"
++#include <cstdint>
+
+ #if defined IQK_IMPLEMENT
+

@@ -19,11 +19,12 @@ LocalAI will attempt to automatically load models which are not explicitly confi
 | Backend | Description | Capability | Embeddings | Streaming | Acceleration |
 |---------|-------------|------------|------------|-----------|-------------|
 | [llama.cpp](https://github.com/ggerganov/llama.cpp) | LLM inference in C/C++. Supports LLaMA, Mamba, RWKV, Falcon, Starcoder, GPT-2, [and many others](https://github.com/ggerganov/llama.cpp?tab=readme-ov-file#description) | GPT, Functions | yes | yes | CPU, CUDA 12/13, ROCm, Intel SYCL, Vulkan, Metal, Jetson L4T |
-| [vLLM](https://github.com/vllm-project/vllm) | Fast LLM serving with PagedAttention | GPT | no | no | CUDA 12, ROCm, Intel |
-| [vLLM Omni](https://github.com/vllm-project/vllm) | Unified multimodal generation (text, image, video, audio) | Multimodal GPT | no | no | CUDA 12, ROCm |
+| [ik_llama.cpp](https://github.com/ikawrakow/ik_llama.cpp) | Hard fork of llama.cpp optimized for CPU/hybrid CPU+GPU with IQK quants, custom quant mixes, and MLA for DeepSeek | GPT | yes | yes | CPU (AVX2+) |
+| [vLLM](https://github.com/vllm-project/vllm) | Fast LLM serving with PagedAttention | GPT, Functions | no | yes | CPU, CUDA 12, ROCm, Intel |
+| [vLLM Omni](https://github.com/vllm-project/vllm) | Unified multimodal generation (text, image, video, audio) | Multimodal GPT, Functions | no | yes | CUDA 12, ROCm |
 | [transformers](https://github.com/huggingface/transformers) | HuggingFace Transformers framework | GPT, Embeddings, Multimodal | yes | yes* | CPU, CUDA 12/13, ROCm, Intel, Metal |
-| [MLX](https://github.com/ml-explore/mlx-lm) | Apple Silicon LLM inference | GPT | no | no | Metal |
-| [MLX-VLM](https://github.com/Blaizzy/mlx-vlm) | Vision-Language Models on Apple Silicon | Multimodal GPT | no | no | Metal |
+| [MLX](https://github.com/ml-explore/mlx-lm) | Apple Silicon LLM inference | GPT, Functions | no | yes | Metal, CPU, CUDA 12/13, Jetson L4T |
+| [MLX-VLM](https://github.com/Blaizzy/mlx-vlm) | Vision-Language Models on Apple Silicon | Multimodal GPT, Functions | no | yes | Metal, CPU, CUDA 12/13, Jetson L4T |
 | [MLX Distributed](https://github.com/ml-explore/mlx-lm) | Distributed LLM inference across multiple Apple Silicon Macs | GPT | no | no | Metal |
 
 ## Speech-to-Text
@@ -32,7 +33,7 @@ LocalAI will attempt to automatically load models which are not explicitly confi
 |---------|-------------|-------------|
 | [whisper.cpp](https://github.com/ggml-org/whisper.cpp) | OpenAI Whisper in C/C++ | CPU, CUDA 12/13, ROCm, Intel SYCL, Vulkan, Metal, Jetson L4T |
 | [faster-whisper](https://github.com/SYSTRAN/faster-whisper) | Fast Whisper with CTranslate2 | CUDA 12/13, ROCm, Intel, Metal |
-| [WhisperX](https://github.com/m-bain/whisperX) | Word-level timestamps and speaker diarization | CPU, CUDA 12/13, ROCm, Metal |
+| [WhisperX](https://github.com/m-bain/whisperX) | Word-level timestamps and speaker diarization | CPU, CUDA 12/13, Metal |
 | [moonshine](https://github.com/moonshine-ai/moonshine) | Ultra-fast transcription for low-end devices | CPU, CUDA 12/13, Metal |
 | [voxtral](https://github.com/mudler/voxtral.c) | Voxtral Realtime 4B speech-to-text in C | CPU, Metal |
 | [Qwen3-ASR](https://github.com/QwenLM/Qwen3-ASR) | Qwen3 automatic speech recognition | CPU, CUDA 12/13, ROCm, Intel, Metal, Jetson L4T |

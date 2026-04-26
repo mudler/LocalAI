@@ -18,7 +18,8 @@ const (
 	Intel  = "intel"
 
 	// Private constants - only used within this package
-	defaultCapability = "default"
+	defaultCapability  = "default"
+	disableCapability  = "disable"
 	nvidiaL4T         = "nvidia-l4t"
 	darwinX86         = "darwin-x86"
 	metal             = "metal"
@@ -56,6 +57,12 @@ func init() {
 	cuda12DirExists = err == nil
 }
 
+// CapabilityFilterDisabled returns true when capability-based backend filtering
+// is disabled via LOCALAI_FORCE_META_BACKEND_CAPABILITY=disable.
+func (s *SystemState) CapabilityFilterDisabled() bool {
+	return s.getSystemCapabilities() == disableCapability
+}
+
 func (s *SystemState) Capability(capMap map[string]string) string {
 	reportedCapability := s.getSystemCapabilities()
 
@@ -65,8 +72,21 @@ func (s *SystemState) Capability(capMap map[string]string) string {
 		return reportedCapability
 	}
 
+	// Fall back to the explicit "default" catch-all, then to "cpu". The cpu
+	// fallback matters for meta backends that only enumerate GPU variants +
+	// cpu (e.g. vllm maps nvidia/amd/intel/cpu but not default): on a
+	// no-GPU host the reported capability is "default", so without this
+	// we'd filter the meta out and break auto-install by name.
+	if _, exists := capMap[defaultCapability]; exists {
+		xlog.Debug("Capability not in map, falling back to default", "reportedCapability", reportedCapability, "capMap", capMap)
+		return defaultCapability
+	}
+	if _, exists := capMap["cpu"]; exists {
+		xlog.Debug("Capability not in map, falling back to cpu", "reportedCapability", reportedCapability, "capMap", capMap)
+		return "cpu"
+	}
+
 	xlog.Debug("The requested capability was not found, using default capability", "reportedCapability", reportedCapability, "capMap", capMap)
-	// Otherwise, return the default capability (catch-all)
 	return defaultCapability
 }
 
@@ -196,6 +216,10 @@ func (s *SystemState) DetectedCapability() string {
 // with the current system capability. This function uses getSystemCapabilities to ensure
 // consistency with capability detection (including VRAM checks, environment overrides, etc.).
 func (s *SystemState) IsBackendCompatible(name, uri string) bool {
+	if s.CapabilityFilterDisabled() {
+		return true
+	}
+
 	combined := strings.ToLower(name + " " + uri)
 	capability := s.getSystemCapabilities()
 

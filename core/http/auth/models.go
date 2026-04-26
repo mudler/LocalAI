@@ -9,24 +9,25 @@ import (
 
 // Auth provider constants.
 const (
-	ProviderLocal  = "local"
-	ProviderGitHub = "github"
-	ProviderOIDC   = "oidc"
+	ProviderLocal       = "local"
+	ProviderGitHub      = "github"
+	ProviderOIDC        = "oidc"
+	ProviderAgentWorker = "agent-worker"
 )
 
 // User represents an authenticated user.
 type User struct {
-	ID        string `gorm:"primaryKey;size:36"`
-	Email     string `gorm:"size:255;index"`
-	Name      string `gorm:"size:255"`
-	AvatarURL string `gorm:"size:512"`
-	Provider  string `gorm:"size:50"`  // ProviderLocal, ProviderGitHub, ProviderOIDC
-	Subject   string `gorm:"size:255"` // provider-specific user ID
-	PasswordHash string `json:"-"`                       // bcrypt hash, empty for OAuth-only users
+	ID           string `gorm:"primaryKey;size:36"`
+	Email        string `gorm:"size:255;index"`
+	Name         string `gorm:"size:255"`
+	AvatarURL    string `gorm:"size:512"`
+	Provider     string `gorm:"size:50"`  // ProviderLocal, ProviderGitHub, ProviderOIDC
+	Subject      string `gorm:"size:255"` // provider-specific user ID
+	PasswordHash string `json:"-"`        // bcrypt hash, empty for OAuth-only users
 	Role         string `gorm:"size:20;default:user"`
 	Status       string `gorm:"size:20;default:active"` // "active", "pending"
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
 }
 
 // Session represents a user login session.
@@ -90,16 +91,16 @@ func (p *PermissionMap) Scan(value any) error {
 
 // InviteCode represents an admin-generated invitation for user registration.
 type InviteCode struct {
-	ID         string     `gorm:"primaryKey;size:36"`
-	Code       string     `gorm:"uniqueIndex;not null;size:64"` // HMAC-SHA256 hash of invite code
-	CodePrefix string     `gorm:"size:12"`                      // first 8 chars for admin display
-	CreatedBy  string     `gorm:"size:36;not null"`
-	UsedBy    *string    `gorm:"size:36"`
-	UsedAt    *time.Time
-	ExpiresAt time.Time  `gorm:"not null;index"`
-	CreatedAt time.Time
-	Creator   User       `gorm:"foreignKey:CreatedBy"`
-	Consumer  *User      `gorm:"foreignKey:UsedBy"`
+	ID         string  `gorm:"primaryKey;size:36"`
+	Code       string  `gorm:"uniqueIndex;not null;size:64"` // HMAC-SHA256 hash of invite code
+	CodePrefix string  `gorm:"size:12"`                      // first 8 chars for admin display
+	CreatedBy  string  `gorm:"size:36;not null"`
+	UsedBy     *string `gorm:"size:36"`
+	UsedAt     *time.Time
+	ExpiresAt  time.Time `gorm:"not null;index"`
+	CreatedAt  time.Time
+	Creator    User  `gorm:"foreignKey:CreatedBy"`
+	Consumer   *User `gorm:"foreignKey:UsedBy"`
 }
 
 // ModelAllowlist controls which models a user can access.

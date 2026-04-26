@@ -27,6 +27,11 @@ export default function OperationsBar() {
                     ({op.error})
                   </span>
                 </>
+              ) : op.taskType === 'staging' ? (
+                <>
+                  <i className="fas fa-cloud-arrow-up" style={{ marginRight: 'var(--spacing-xs)' }} />
+                  Staging model: {op.name}{op.nodeName ? ` → ${op.nodeName}` : ''}
+                </>
               ) : (
                 <>
                   {op.isDeletion ? 'Removing' : 'Installing'}{' '}

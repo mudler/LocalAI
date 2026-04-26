@@ -7,7 +7,7 @@ export default function Explorer() {
   return (
     <div style={{ minHeight: '100vh', background: 'var(--color-bg-primary)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 'var(--spacing-xl)' }}>
       <h1 style={{ fontSize: '2rem', fontWeight: 700, marginBottom: 'var(--spacing-md)' }}>
-        <span className="text-gradient">LocalAI Explorer</span>
+        <span style={{ color: 'var(--color-primary)' }}>LocalAI Explorer</span>
       </h1>
       <p style={{ color: 'var(--color-text-secondary)', marginBottom: 'var(--spacing-xl)', textAlign: 'center' }}>
         Network visualization and node explorer

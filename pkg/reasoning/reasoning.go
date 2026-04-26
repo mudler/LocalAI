@@ -15,6 +15,7 @@ import (
 // - <|inner_prefix|>        (Apertus models)
 // - <seed:think>            (Seed models)
 // - <think>    (DeepSeek, Granite, ExaOne models)
+// - <|channel>thought        (Gemma 4 models)
 // - <|think|>               (Solar Open models)
 // - <thinking>              (General thinking tag)
 // - [THINK]                 (Magistral models)
@@ -24,6 +25,7 @@ func DetectThinkingStartToken(prompt string, config *Config) string {
 	// Based on llama.cpp's chat-parser.cpp implementations
 	defaultTokens := []string{
 		"<|START_THINKING|>", // Command-R models
+		"<|channel>thought",  // Gemma 4 models (before <|think|> — Gemma 4 templates contain both)
 		"<|inner_prefix|>",   // Apertus models
 		"<seed:think>",       // Seed models
 		"<think>",            // DeepSeek, Granite, ExaOne models
@@ -100,8 +102,15 @@ func PrependThinkingTokenIfNeeded(content string, startToken string) string {
 		return r == ' ' || r == '\t' || r == '\n' || r == '\r'
 	})
 
-	// If content already starts with the token, don't prepend
+	// If content already contains the token, don't prepend
 	if strings.Contains(trimmed, startToken) {
+		return content
+	}
+
+	// If content is a non-empty prefix of the start token (e.g. "<|channel>"
+	// accumulating toward "<|channel>thought"), don't prepend — we're still
+	// receiving the tag token-by-token during streaming.
+	if trimmed != "" && strings.HasPrefix(startToken, trimmed) {
 		return content
 	}
 
@@ -146,6 +155,7 @@ func ExtractReasoning(content string, config *Config) (reasoning string, cleaned
 		{"<seed:think>", "</seed:think>"},                     // Seed models
 		{"<think>", "</think>"},                               // DeepSeek, Granite, ExaOne models
 		{"<|think|>", "<|end|><|begin|>assistant<|content|>"}, // Solar Open models (complex end)
+		{"<|channel>thought", "<channel|>"},                    // Gemma 4 models
 		{"<thinking>", "</thinking>"},                         // General thinking tag
 		{"[THINK]", "[/THINK]"},                               // Magistral models
 	}

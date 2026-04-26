@@ -4,10 +4,10 @@ package gallery
 
 import (
 	"context"
-	"os"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -15,10 +15,14 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/pkg/downloader"
 	"github.com/mudler/LocalAI/pkg/model"
+	"github.com/mudler/LocalAI/pkg/oci"
 	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/mudler/xlog"
 	cp "github.com/otiai10/copy"
 )
+
+// ErrBackendNotFound is returned when a backend is not found in the system.
+var ErrBackendNotFound = errors.New("backend not found")
 
 const (
 	metadataFile = "metadata.json"
@@ -106,7 +110,13 @@ func InstallBackendFromGallery(ctx context.Context, galleries []config.Gallery, 
 		if err != nil {
 			return err
 		}
-		if backends.Exists(name) {
+		// Only short-circuit if the install is *actually usable*. An orphaned
+		// meta entry whose concrete was removed still shows up in
+		// ListSystemBackends with a RunFile pointing at a path that no longer
+		// exists; returning early there leaves the caller with a broken
+		// alias and the worker fails with "backend not found after install
+		// attempt" on every retry. Re-install in that case.
+		if existing, ok := backends.Get(name); ok && isBackendRunnable(existing) {
 			return nil
 		}
 	}
@@ -155,6 +165,7 @@ func InstallBackendFromGallery(ctx context.Context, galleries []config.Gallery, 
 			Name:           name,
 			GalleryURL:     backend.Gallery.URL,
 			InstalledAt:    time.Now().Format(time.RFC3339),
+			Version:        bestBackend.Version,
 		}
 
 		if err := writeBackendMetadata(metaBackendPath, metaMetadata); err != nil {
@@ -183,6 +194,20 @@ func InstallBackend(ctx context.Context, systemState *system.SystemState, modelL
 
 	name := config.Name
 	backendPath := filepath.Join(systemState.Backend.BackendsPath, name)
+	// Clean up legacy flat-layout artefacts: earlier dev builds of the
+	// golang backends dropped the compiled binary directly at
+	// `<backendsPath>/<name>` (a plain file) instead of
+	// `<backendsPath>/<name>/<name>` (the nested layout the current code
+	// expects). MkdirAll below returns ENOTDIR when such a stale file
+	// exists, permanently blocking any reinstall or upgrade. Remove the
+	// file first so the install can proceed; the new install will write
+	// the correct nested layout, including metadata.json + run.sh.
+	if fi, statErr := os.Lstat(backendPath); statErr == nil && !fi.IsDir() {
+		xlog.Warn("removing stale non-directory backend artefact to make room for fresh install", "path", backendPath)
+		if rmErr := os.Remove(backendPath); rmErr != nil {
+			return fmt.Errorf("failed to remove stale backend artefact at %s: %w", backendPath, rmErr)
+		}
+	}
 	err = os.MkdirAll(backendPath, 0750)
 	if err != nil {
 		return fmt.Errorf("failed to create base path: %v", err)
@@ -198,8 +223,15 @@ func InstallBackend(ctx context.Context, systemState *system.SystemState, modelL
 	} else {
 		xlog.Debug("Downloading backend", "uri", config.URI, "backendPath", backendPath)
 		if err := uri.DownloadFileWithContext(ctx, backendPath, "", 1, 1, downloadStatus); err != nil {
-			// Don't remove backendPath here — fallback OCI extractions need the directory to exist
 			xlog.Debug("Backend download failed, trying fallback", "backendPath", backendPath, "error", err)
+
+			// resetBackendPath cleans up partial state from a failed OCI extraction
+			// so the next download attempt starts fresh. The directory is re-created
+			// because OCI image extractors need it to exist for writing files into.
+			resetBackendPath := func() {
+				os.RemoveAll(backendPath)
+				os.MkdirAll(backendPath, 0750)
+			}
 
 			success := false
 			// Try to download from mirrors
@@ -210,6 +242,7 @@ func InstallBackend(ctx context.Context, systemState *system.SystemState, modelL
 					return ctx.Err()
 				default:
 				}
+				resetBackendPath()
 				if err := downloader.URI(mirror).DownloadFileWithContext(ctx, backendPath, "", 1, 1, downloadStatus); err == nil {
 					success = true
 					xlog.Debug("Downloaded backend from mirror", "uri", config.URI, "backendPath", backendPath)
@@ -221,28 +254,22 @@ func InstallBackend(ctx context.Context, systemState *system.SystemState, modelL
 				// Try fallback: replace latestTag + "-" with masterTag + "-" in the URI
 				fallbackURI := strings.Replace(string(config.URI), latestTag+"-", masterTag+"-", 1)
 				if fallbackURI != string(config.URI) {
-					xlog.Debug("Trying fallback URI", "original", config.URI, "fallback", fallbackURI)
+					resetBackendPath()
+					xlog.Info("Trying fallback URI", "original", config.URI, "fallback", fallbackURI)
 					if err := downloader.URI(fallbackURI).DownloadFileWithContext(ctx, backendPath, "", 1, 1, downloadStatus); err == nil {
 						xlog.Info("Downloaded backend using fallback URI", "uri", fallbackURI, "backendPath", backendPath)
 						success = true
 					} else {
-						// Try another fallback: add "-" + devSuffix suffix to the backend name
-						// For example: master-gpu-nvidia-cuda-13-ace-step -> master-gpu-nvidia-cuda-13-ace-step-development
+						xlog.Info("Fallback URI failed", "fallback", fallbackURI, "error", err)
 						if !strings.Contains(fallbackURI, "-"+devSuffix) {
-							// Extract backend name from URI and add -development
-							parts := strings.Split(fallbackURI, "-")
-							if len(parts) >= 2 {
-								// Find where the backend name ends (usually the last part before the tag)
-								// Pattern: quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-ace-step
-								lastDash := strings.LastIndex(fallbackURI, "-")
-								if lastDash > 0 {
-									devFallbackURI := fallbackURI[:lastDash] + "-" + devSuffix
-									xlog.Debug("Trying development fallback URI", "fallback", devFallbackURI)
-									if err := downloader.URI(devFallbackURI).DownloadFileWithContext(ctx, backendPath, "", 1, 1, downloadStatus); err == nil {
-										xlog.Info("Downloaded backend using development fallback URI", "uri", devFallbackURI, "backendPath", backendPath)
-										success = true
-									}
-								}
+							resetBackendPath()
+							devFallbackURI := fallbackURI + "-" + devSuffix
+							xlog.Info("Trying development fallback URI", "fallback", devFallbackURI)
+							if err := downloader.URI(devFallbackURI).DownloadFileWithContext(ctx, backendPath, "", 1, 1, downloadStatus); err == nil {
+								xlog.Info("Downloaded backend using development fallback URI", "uri", devFallbackURI, "backendPath", backendPath)
+								success = true
+							} else {
+								xlog.Info("Development fallback URI failed", "fallback", devFallbackURI, "error", err)
 							}
 						}
 					}
@@ -274,6 +301,18 @@ func InstallBackend(ctx context.Context, systemState *system.SystemState, modelL
 		Name:        name,
 		GalleryURL:  config.Gallery.URL,
 		InstalledAt: time.Now().Format(time.RFC3339),
+		Version:     config.Version,
+		URI:         string(uri),
+	}
+
+	// Record the OCI digest for upgrade detection (non-fatal on failure)
+	if uri.LooksLikeOCI() {
+		digest, digestErr := oci.GetImageDigest(string(uri), "", nil, nil)
+		if digestErr != nil {
+			xlog.Warn("Failed to get OCI image digest for backend", "uri", string(uri), "error", digestErr)
+		} else {
+			metadata.Digest = digest
+		}
 	}
 
 	if config.Alias != "" {
@@ -295,14 +334,29 @@ func DeleteBackendFromSystem(systemState *system.SystemState, name string) error
 
 	backend, ok := backends.Get(name)
 	if !ok {
-		return fmt.Errorf("backend %q not found", name)
+		// Not found by direct key — try matching by gallery name (metadata.Name)
+		// The UI may send gallery-style names like "localai@llama-cpp" which
+		// don't match the directory-based keys used in the backends map.
+		for _, b := range backends {
+			if b.Metadata != nil && b.Metadata.Name == name && !b.IsMeta {
+				backend = b
+				ok = true
+				break
+			}
+		}
+		if !ok {
+			return fmt.Errorf("backend %q: %w", name, ErrBackendNotFound)
+		}
 	}
 
 	if backend.IsSystem {
 		return fmt.Errorf("system backend %q cannot be deleted", name)
 	}
 
-	backendDirectory := filepath.Join(systemState.Backend.BackendsPath, name)
+	// Use the backend's actual Name (directory key) for path resolution,
+	// not the caller-supplied name which may be a gallery-style name.
+	dirName := backend.Name
+	backendDirectory := filepath.Join(systemState.Backend.BackendsPath, dirName)
 
 	// check if the backend dir exists
 	if _, err := os.Stat(backendDirectory); os.IsNotExist(err) {
@@ -320,7 +374,7 @@ func DeleteBackendFromSystem(systemState *system.SystemState, name string) error
 				if err != nil {
 					return err
 				}
-				if metadata != nil && metadata.Alias == name {
+				if metadata != nil && (metadata.Alias == name || metadata.Alias == dirName) {
 					backendDirectory = filepath.Join(systemState.Backend.BackendsPath, backend.Name())
 					foundBackend = true
 					break
@@ -341,23 +395,69 @@ func DeleteBackendFromSystem(systemState *system.SystemState, name string) error
 	}
 
 	if metadata != nil && metadata.MetaBackendFor != "" {
-		metaBackendDirectory := filepath.Join(systemState.Backend.BackendsPath, metadata.MetaBackendFor)
-		xlog.Debug("Deleting meta backend", "backendDirectory", metaBackendDirectory)
-		if _, err := os.Stat(metaBackendDirectory); os.IsNotExist(err) {
-			return fmt.Errorf("meta backend %q not found", metadata.MetaBackendFor)
+		concreteDirectory := filepath.Join(systemState.Backend.BackendsPath, metadata.MetaBackendFor)
+		xlog.Debug("Deleting concrete backend referenced by meta", "concreteDirectory", concreteDirectory)
+		// If the concrete the meta points to is already gone (earlier delete,
+		// partial install, or manual cleanup), keep going and remove the
+		// orphaned meta dir. Previously we returned an error here, which made
+		// the orphaned meta impossible to uninstall from the UI — the delete
+		// kept failing and every subsequent install short-circuited because
+		// the stale meta metadata made ListSystemBackends.Exists(name) true.
+		if _, statErr := os.Stat(concreteDirectory); statErr == nil {
+			os.RemoveAll(concreteDirectory)
+		} else if os.IsNotExist(statErr) {
+			xlog.Warn("Concrete backend referenced by meta not found — removing orphaned meta only",
+				"meta", name, "concrete", metadata.MetaBackendFor)
+		} else {
+			return statErr
 		}
-		os.RemoveAll(metaBackendDirectory)
 	}
 
 	return os.RemoveAll(backendDirectory)
 }
 
+// isBackendRunnable reports whether the given backend entry can actually be
+// invoked. A meta backend is runnable only if its concrete's run.sh still
+// exists on disk; concrete backends are considered runnable as long as their
+// RunFile is set (ListSystemBackends only emits them when the runfile is
+// present). Used to guard the "already installed" short-circuit so an
+// orphaned meta pointing at a missing concrete triggers a real reinstall
+// rather than being silently skipped.
+func isBackendRunnable(b SystemBackend) bool {
+	if b.RunFile == "" {
+		return false
+	}
+	if fi, err := os.Stat(b.RunFile); err != nil || fi.IsDir() {
+		return false
+	}
+	return true
+}
+
 type SystemBackend struct {
-	Name     string
-	RunFile  string
-	IsMeta   bool
-	IsSystem bool
-	Metadata *BackendMetadata
+	Name             string
+	RunFile          string
+	IsMeta           bool
+	IsSystem         bool
+	Metadata         *BackendMetadata
+	UpgradeAvailable bool   `json:"upgrade_available,omitempty"`
+	AvailableVersion string `json:"available_version,omitempty"`
+	// Nodes holds per-node attribution in distributed mode. Empty in single-node.
+	// Each entry describes a node that has this backend installed, with the
+	// version/digest it reports. Lets the UI surface drift and per-node status.
+	Nodes []NodeBackendRef `json:"nodes,omitempty"`
+}
+
+// NodeBackendRef describes one node's view of an installed backend. Used both
+// for per-node attribution in the UI and for drift detection during upgrade
+// checks (a cluster with mismatched versions/digests is flagged upgradeable).
+type NodeBackendRef struct {
+	NodeID      string `json:"node_id"`
+	NodeName    string `json:"node_name"`
+	NodeStatus  string `json:"node_status"` // healthy | unhealthy | offline | draining | pending
+	Version     string `json:"version,omitempty"`
+	Digest      string `json:"digest,omitempty"`
+	URI         string `json:"uri,omitempty"`
+	InstalledAt string `json:"installed_at,omitempty"`
 }
 
 type SystemBackends map[string]SystemBackend

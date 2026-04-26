@@ -4,8 +4,8 @@ import (
 	"context"
 	"strings"
 
-	"github.com/mudler/LocalAI/pkg/downloader"
 	gguf "github.com/gpustack/gguf-parser-go"
+	"github.com/mudler/LocalAI/pkg/downloader"
 )
 
 type defaultGGUFReader struct{}
@@ -34,10 +34,11 @@ func (defaultGGUFReader) ReadMetadata(ctx context.Context, uri string) (*GGUFMet
 func ggufFileToMeta(f *gguf.GGUFFile) *GGUFMeta {
 	arch := f.Architecture()
 	meta := &GGUFMeta{
-		BlockCount:       uint32(arch.BlockCount),
-		EmbeddingLength:  uint32(arch.EmbeddingLength),
-		HeadCount:        uint32(arch.AttentionHeadCount),
-		HeadCountKV:      uint32(arch.AttentionHeadCountKV),
+		BlockCount:           uint32(arch.BlockCount),
+		EmbeddingLength:      uint32(arch.EmbeddingLength),
+		HeadCount:            uint32(arch.AttentionHeadCount),
+		HeadCountKV:          uint32(arch.AttentionHeadCountKV),
+		MaximumContextLength: arch.MaximumContextLength,
 	}
 	if meta.HeadCountKV == 0 {
 		meta.HeadCountKV = meta.HeadCount

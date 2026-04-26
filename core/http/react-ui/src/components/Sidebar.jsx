@@ -25,6 +25,18 @@ const sections = [
     ],
   },
   {
+    id: 'biometrics',
+    title: 'Biometrics',
+    featureMap: {
+      '/app/face': 'face_recognition',
+      '/app/voice': 'voice_recognition',
+    },
+    items: [
+      { path: '/app/face', icon: 'fas fa-face-smile', label: 'Face Recognition', feature: 'face_recognition' },
+      { path: '/app/voice', icon: 'fas fa-microphone-lines', label: 'Voice Recognition', feature: 'voice_recognition' },
+    ],
+  },
+  {
     id: 'agents',
     title: 'Agents',
     featureMap: {
@@ -48,6 +60,7 @@ const sections = [
       { path: '/app/users', icon: 'fas fa-users', label: 'Users', adminOnly: true, authOnly: true },
       { path: '/app/backends', icon: 'fas fa-server', label: 'Backends', adminOnly: true },
       { path: '/app/traces', icon: 'fas fa-chart-line', label: 'Traces', adminOnly: true },
+      { path: '/app/nodes', icon: 'fas fa-network-wired', label: 'Nodes', adminOnly: true, feature: 'distributed' },
       { path: '/app/p2p', icon: 'fas fa-circle-nodes', label: 'Swarm', adminOnly: true },
       { path: '/app/manage', icon: 'fas fa-desktop', label: 'System', adminOnly: true },
       { path: '/app/settings', icon: 'fas fa-cog', label: 'Settings', adminOnly: true },

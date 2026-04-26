@@ -33,24 +33,26 @@ const (
 	FeatureMCPJobs     = "mcp_jobs"
 
 	// General features (default OFF for new users)
-	FeatureFineTuning    = "fine_tuning"
-	FeatureQuantization  = "quantization"
+	FeatureFineTuning   = "fine_tuning"
+	FeatureQuantization = "quantization"
 
 	// API features (default ON for new users)
-	FeatureChat              = "chat"
-	FeatureImages            = "images"
-	FeatureAudioSpeech       = "audio_speech"
+	FeatureChat               = "chat"
+	FeatureImages             = "images"
+	FeatureAudioSpeech        = "audio_speech"
 	FeatureAudioTranscription = "audio_transcription"
-	FeatureVAD               = "vad"
-	FeatureDetection         = "detection"
-	FeatureVideo             = "video"
-	FeatureEmbeddings        = "embeddings"
-	FeatureSound             = "sound"
-	FeatureRealtime          = "realtime"
-	FeatureRerank            = "rerank"
-	FeatureTokenize          = "tokenize"
-	FeatureMCP               = "mcp"
-	FeatureStores            = "stores"
+	FeatureVAD                = "vad"
+	FeatureDetection          = "detection"
+	FeatureVideo              = "video"
+	FeatureEmbeddings         = "embeddings"
+	FeatureSound              = "sound"
+	FeatureRealtime           = "realtime"
+	FeatureRerank             = "rerank"
+	FeatureTokenize           = "tokenize"
+	FeatureMCP                = "mcp"
+	FeatureStores             = "stores"
+	FeatureFaceRecognition    = "face_recognition"
+	FeatureVoiceRecognition   = "voice_recognition"
 )
 
 // AgentFeatures lists agent-related features (default OFF).
@@ -64,6 +66,7 @@ var APIFeatures = []string{
 	FeatureChat, FeatureImages, FeatureAudioSpeech, FeatureAudioTranscription,
 	FeatureVAD, FeatureDetection, FeatureVideo, FeatureEmbeddings, FeatureSound,
 	FeatureRealtime, FeatureRerank, FeatureTokenize, FeatureMCP, FeatureStores,
+	FeatureFaceRecognition, FeatureVoiceRecognition,
 }
 
 // AllFeatures lists all known features (used by UI and validation).

@@ -157,29 +157,18 @@ export default function AgentJobs() {
     if (!executeModal) return
     setExecuting(true)
     try {
-      const body = { name: executeModal.name || executeModal.id }
-
-      // Parse parameters
+      // Parse parameters from key=value lines into a flat map
+      const params = {}
       if (executeParams.trim()) {
-        const params = {}
         executeParams.split('\n').forEach(line => {
           const [key, ...rest] = line.split('=')
           if (key?.trim() && rest.length > 0) {
             params[key.trim()] = rest.join('=').trim()
           }
         })
-        body.parameters = params
       }
 
-      // Add multimedia
-      const mm = {}
-      if (executeMultimedia.images.length > 0) mm.images = executeMultimedia.images
-      if (executeMultimedia.videos.length > 0) mm.videos = executeMultimedia.videos
-      if (executeMultimedia.audios.length > 0) mm.audios = executeMultimedia.audios
-      if (executeMultimedia.files.length > 0) mm.files = executeMultimedia.files
-      if (Object.keys(mm).length > 0) body.multimedia = mm
-
-      await agentJobsApi.executeTask(executeModal.name || executeModal.id)
+      await agentJobsApi.executeTask(executeModal.name || executeModal.id, params)
       addToast(`Task "${executeModal.name}" started`, 'success')
       setExecuteModal(null)
       fetchData()
@@ -264,7 +253,7 @@ export default function AgentJobs() {
           </p>
           <div style={{ background: 'var(--color-bg-primary)', borderRadius: 'var(--radius-md)', padding: 'var(--spacing-md)', maxWidth: 500, margin: '0 auto var(--spacing-md)', textAlign: 'left' }}>
             <p style={{ fontSize: '0.8125rem', fontWeight: 600, marginBottom: 'var(--spacing-xs)' }}>Example MCP configuration (YAML):</p>
-            <pre style={{ fontSize: '0.75rem', fontFamily: "'JetBrains Mono', monospace", color: 'var(--color-text-secondary)', whiteSpace: 'pre-wrap' }}>{`mcp:
+            <pre style={{ fontSize: '0.75rem', fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)', whiteSpace: 'pre-wrap' }}>{`mcp:
   stdio:
     - name: my-tool
       command: /path/to/tool
@@ -356,7 +345,7 @@ export default function AgentJobs() {
                       </td>
                       <td>
                         {task.cron ? (
-                          <span className="badge badge-info" style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.6875rem' }}>
+                          <span className="badge badge-info" style={{ fontFamily: 'var(--font-mono)', fontSize: '0.6875rem' }}>
                             {task.cron}
                           </span>
                         ) : '-'}
@@ -437,7 +426,7 @@ export default function AgentJobs() {
                   {filteredJobs.map(job => (
                     <tr key={job.id}>
                       <td>
-                        <a onClick={() => navigate(`/app/agent-jobs/jobs/${job.id}`)} style={{ cursor: 'pointer', color: 'var(--color-primary)', fontFamily: "'JetBrains Mono', monospace", fontSize: '0.8125rem' }}>
+                        <a onClick={() => navigate(`/app/agent-jobs/jobs/${job.id}`)} style={{ cursor: 'pointer', color: 'var(--color-primary)', fontFamily: 'var(--font-mono)', fontSize: '0.8125rem' }}>
                           {job.id?.slice(0, 12)}...
                         </a>
                       </td>
@@ -521,7 +510,7 @@ export default function AgentJobs() {
                 <tbody>
                   {(items || []).map(job => (
                     <tr key={job.id}>
-                      <td style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.8125rem' }}>{job.id?.slice(0, 12)}...</td>
+                      <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem' }}>{job.id?.slice(0, 12)}...</td>
                       <td>{job.task_id || '-'}</td>
                       <td>{statusBadge(job.status)}</td>
                       <td style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)' }}>{formatDate(job.created_at)}</td>
@@ -577,7 +566,7 @@ export default function AgentJobs() {
                   onChange={(e) => setExecuteParams(e.target.value)}
                   rows={5}
                   placeholder={`topic=AI trends\nformat=markdown`}
-                  style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.8125rem' }}
+                  style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem' }}
                 />
                 <p style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: 'var(--spacing-xs)' }}>
                   These will be available as {'{{.parameter_name}}'} in the prompt template.
@@ -601,7 +590,7 @@ export default function AgentJobs() {
                         {executeMultimedia[type].map((item, i) => (
                           <div key={i} style={{
                             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                            background: 'var(--color-bg-primary)', borderRadius: 'var(--radius-sm)', padding: '4px 8px', fontSize: '0.75rem',
+                            background: 'var(--color-bg-primary)', borderRadius: 'var(--radius-sm)', padding: 'var(--spacing-xs) var(--spacing-sm)', fontSize: '0.75rem',
                           }}>
                             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name || item.url?.slice(0, 40)}</span>
                             <button onClick={() => removeMultimedia(type, i)} style={{ background: 'none', border: 'none', color: 'var(--color-error)', cursor: 'pointer', padding: '2px 4px' }}>

@@ -1,6 +1,6 @@
---extra-index-url https://download.pytorch.org/whl/rocm6.4
-torch==2.8.0+rocm6.4
-torchvision==0.23.0+rocm6.4
+--extra-index-url https://download.pytorch.org/whl/rocm7.0
+torch==2.10.0+rocm7.0
+torchvision==0.25.0+rocm7.0
 git+https://github.com/huggingface/diffusers
 opencv-python
 transformers

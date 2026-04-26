@@ -22,8 +22,896 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/api/agent/jobs": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "agent-jobs"
+                ],
+                "summary": "List agent jobs",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Filter by task ID",
+                        "name": "task_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by status (pending, running, completed, failed, cancelled)",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Max number of jobs to return",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Set to 'true' for admin cross-user listing",
+                        "name": "all_users",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "jobs",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/schema.Job"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/agent/jobs/execute": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "agent-jobs"
+                ],
+                "summary": "Execute an agent job",
+                "parameters": [
+                    {
+                        "description": "Job execution request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.JobExecutionRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "job created",
+                        "schema": {
+                            "$ref": "#/definitions/schema.JobExecutionResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/agent/jobs/{id}": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "agent-jobs"
+                ],
+                "summary": "Get an agent job",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Job ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "job",
+                        "schema": {
+                            "$ref": "#/definitions/schema.Job"
+                        }
+                    },
+                    "404": {
+                        "description": "error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "agent-jobs"
+                ],
+                "summary": "Delete an agent job",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Job ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "message",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/agent/jobs/{id}/cancel": {
+            "post": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "agent-jobs"
+                ],
+                "summary": "Cancel an agent job",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Job ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "message",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/agent/tasks": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "agent-jobs"
+                ],
+                "summary": "List agent tasks",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Set to 'true' for admin cross-user listing",
+                        "name": "all_users",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "tasks",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/schema.Task"
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "agent-jobs"
+                ],
+                "summary": "Create a new agent task",
+                "parameters": [
+                    {
+                        "description": "Task definition",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.Task"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "id",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/agent/tasks/{id}": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "agent-jobs"
+                ],
+                "summary": "Get an agent task",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Task ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "task",
+                        "schema": {
+                            "$ref": "#/definitions/schema.Task"
+                        }
+                    },
+                    "404": {
+                        "description": "error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "put": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "agent-jobs"
+                ],
+                "summary": "Update an agent task",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Task ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Updated task definition",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.Task"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "message",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "agent-jobs"
+                ],
+                "summary": "Delete an agent task",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Task ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "message",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/agent/tasks/{name}/execute": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "agent-jobs"
+                ],
+                "summary": "Execute an agent task by name",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Task name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Optional template parameters",
+                        "name": "parameters",
+                        "in": "body",
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "job created",
+                        "schema": {
+                            "$ref": "#/definitions/schema.JobExecutionResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/backend-logs": {
+            "get": {
+                "description": "Returns a sorted list of model IDs that have captured backend process output",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "monitoring"
+                ],
+                "summary": "List models with backend logs",
+                "responses": {
+                    "200": {
+                        "description": "Model IDs with logs",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/backend-logs/{modelId}": {
+            "get": {
+                "description": "Returns all captured log lines (stdout/stderr) for the specified model's backend process",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "monitoring"
+                ],
+                "summary": "Get backend logs for a model",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Model ID",
+                        "name": "modelId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Log lines",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/model.BackendLogLine"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/backend-logs/{modelId}/clear": {
+            "post": {
+                "description": "Removes all captured log lines for the specified model's backend process",
+                "tags": [
+                    "monitoring"
+                ],
+                "summary": "Clear backend logs for a model",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Model ID",
+                        "name": "modelId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Logs cleared"
+                    }
+                }
+            }
+        },
+        "/api/backend-traces": {
+            "get": {
+                "description": "Returns captured backend traces (LLM calls, embeddings, TTS, etc.) in reverse chronological order",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "monitoring"
+                ],
+                "summary": "List backend operation traces",
+                "responses": {
+                    "200": {
+                        "description": "Backend operation traces",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/backend-traces/clear": {
+            "post": {
+                "description": "Removes all captured backend operation traces from the buffer",
+                "tags": [
+                    "monitoring"
+                ],
+                "summary": "Clear backend traces",
+                "responses": {
+                    "204": {
+                        "description": "Traces cleared"
+                    }
+                }
+            }
+        },
+        "/api/instructions": {
+            "get": {
+                "description": "Returns a compact list of instruction areas with descriptions and URLs for detailed guides",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "instructions"
+                ],
+                "summary": "List available API instruction areas",
+                "responses": {
+                    "200": {
+                        "description": "instructions list with hint",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/instructions/{name}": {
+            "get": {
+                "description": "Returns a markdown guide (default) or filtered OpenAPI fragment (format=json) for a named instruction",
+                "produces": [
+                    "application/json",
+                    "text/markdown"
+                ],
+                "tags": [
+                    "instructions"
+                ],
+                "summary": "Get an instruction's API guide or OpenAPI fragment",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Instruction name (e.g. chat-inference, config-management)",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Response format: json for OpenAPI fragment, omit for markdown",
+                        "name": "format",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "instruction documentation",
+                        "schema": {
+                            "$ref": "#/definitions/localai.APIInstructionResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "instruction not found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/models/config-json/{name}": {
+            "patch": {
+                "description": "Deep-merges the JSON patch body into the existing model config",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "config"
+                ],
+                "summary": "Partially update a model configuration",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Model name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "success message",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/models/config-metadata": {
+            "get": {
+                "description": "Returns config field metadata. Use ?section=\u003cid\u003e to filter by section, or omit for a section index.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "config"
+                ],
+                "summary": "List model configuration field metadata",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Section ID to filter (e.g. 'general', 'llm', 'parameters') or 'all' for everything",
+                        "name": "section",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Section index or filtered field metadata",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/models/config-metadata/autocomplete/{provider}": {
+            "get": {
+                "description": "Returns runtime-resolved values for dynamic providers (backends, models)",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "config"
+                ],
+                "summary": "Get dynamic autocomplete values for a config field",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Provider name (backends, models, models:chat, models:tts, models:transcript, models:vad)",
+                        "name": "provider",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "values array",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/models/toggle-pinned/{name}/{action}": {
+            "put": {
+                "description": "Pin or unpin a model. Pinned models stay loaded and are excluded from automatic eviction.",
+                "tags": [
+                    "config"
+                ],
+                "summary": "Toggle model pinned status",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Model name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Action: 'pin' or 'unpin'",
+                        "name": "action",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/localai.ModelResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/localai.ModelResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/localai.ModelResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/localai.ModelResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/models/vram-estimate": {
+            "post": {
+                "description": "Estimates VRAM based on model weight files, context size, and GPU layers",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "config"
+                ],
+                "summary": "Estimate VRAM usage for a model",
+                "parameters": [
+                    {
+                        "description": "VRAM estimation parameters",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/localai.vramEstimateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "VRAM estimate",
+                        "schema": {
+                            "$ref": "#/definitions/localai.vramEstimateResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/models/{name}/{action}": {
+            "put": {
+                "description": "Enable or disable a model from being loaded on demand. Disabled models remain installed but cannot be loaded.",
+                "tags": [
+                    "config"
+                ],
+                "summary": "Toggle model enabled/disabled status",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Model name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Action: 'enable' or 'disable'",
+                        "name": "action",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/localai.ModelResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/localai.ModelResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/localai.ModelResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/localai.ModelResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/p2p": {
             "get": {
+                "tags": [
+                    "p2p"
+                ],
                 "summary": "Returns available P2P nodes",
                 "responses": {
                     "200": {
@@ -40,6 +928,9 @@ const docTemplate = `{
         },
         "/api/p2p/token": {
             "get": {
+                "tags": [
+                    "p2p"
+                ],
                 "summary": "Show the P2P token",
                 "responses": {
                     "200": {
@@ -51,18 +942,54 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/traces": {
+            "get": {
+                "description": "Returns captured API exchange traces (request/response pairs) in reverse chronological order",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "monitoring"
+                ],
+                "summary": "List API request/response traces",
+                "responses": {
+                    "200": {
+                        "description": "Traced API exchanges",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/traces/clear": {
+            "post": {
+                "description": "Removes all captured API request/response traces from the buffer",
+                "tags": [
+                    "monitoring"
+                ],
+                "summary": "Clear API traces",
+                "responses": {
+                    "204": {
+                        "description": "Traces cleared"
+                    }
+                }
+            }
+        },
         "/backend/monitor": {
             "get": {
+                "tags": [
+                    "monitoring"
+                ],
                 "summary": "Backend monitor endpoint",
                 "parameters": [
                     {
-                        "description": "Backend statistics request",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/schema.BackendMonitorRequest"
-                        }
+                        "type": "string",
+                        "description": "Name of the model to monitor",
+                        "name": "model",
+                        "in": "query",
+                        "required": true
                     }
                 ],
                 "responses": {
@@ -77,7 +1004,10 @@ const docTemplate = `{
         },
         "/backend/shutdown": {
             "post": {
-                "summary": "Backend monitor endpoint",
+                "tags": [
+                    "monitoring"
+                ],
+                "summary": "Backend shutdown endpoint",
                 "parameters": [
                     {
                         "description": "Backend statistics request",
@@ -94,6 +1024,9 @@ const docTemplate = `{
         },
         "/backends": {
             "get": {
+                "tags": [
+                    "backends"
+                ],
                 "summary": "List all Backends",
                 "responses": {
                     "200": {
@@ -110,6 +1043,9 @@ const docTemplate = `{
         },
         "/backends/apply": {
             "post": {
+                "tags": [
+                    "backends"
+                ],
                 "summary": "Install backends to LocalAI.",
                 "parameters": [
                     {
@@ -134,6 +1070,9 @@ const docTemplate = `{
         },
         "/backends/available": {
             "get": {
+                "tags": [
+                    "backends"
+                ],
                 "summary": "List all available Backends",
                 "responses": {
                     "200": {
@@ -150,6 +1089,9 @@ const docTemplate = `{
         },
         "/backends/delete/{name}": {
             "post": {
+                "tags": [
+                    "backends"
+                ],
                 "summary": "delete backends from LocalAI.",
                 "parameters": [
                     {
@@ -172,6 +1114,9 @@ const docTemplate = `{
         },
         "/backends/galleries": {
             "get": {
+                "tags": [
+                    "backends"
+                ],
                 "summary": "List all Galleries",
                 "responses": {
                     "200": {
@@ -188,6 +1133,9 @@ const docTemplate = `{
         },
         "/backends/jobs": {
             "get": {
+                "tags": [
+                    "backends"
+                ],
                 "summary": "Returns all the jobs status progress",
                 "responses": {
                     "200": {
@@ -195,7 +1143,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
-                                "$ref": "#/definitions/services.GalleryOpStatus"
+                                "$ref": "#/definitions/galleryop.OpStatus"
                             }
                         }
                     }
@@ -204,12 +1152,97 @@ const docTemplate = `{
         },
         "/backends/jobs/{uuid}": {
             "get": {
+                "tags": [
+                    "backends"
+                ],
                 "summary": "Returns the job status",
                 "responses": {
                     "200": {
                         "description": "Response",
                         "schema": {
-                            "$ref": "#/definitions/services.GalleryOpStatus"
+                            "$ref": "#/definitions/galleryop.OpStatus"
+                        }
+                    }
+                }
+            }
+        },
+        "/backends/known": {
+            "get": {
+                "tags": [
+                    "backends"
+                ],
+                "summary": "List all known Backends (importer registry + curated pref-only + installed-on-disk)",
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/schema.KnownBackend"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/backends/upgrade/{name}": {
+            "post": {
+                "tags": [
+                    "backends"
+                ],
+                "summary": "Upgrade a backend",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Backend name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "$ref": "#/definitions/schema.BackendResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/backends/upgrades": {
+            "get": {
+                "tags": [
+                    "backends"
+                ],
+                "summary": "Get available backend upgrades",
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "$ref": "#/definitions/gallery.UpgradeInfo"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/backends/upgrades/check": {
+            "post": {
+                "tags": [
+                    "backends"
+                ],
+                "summary": "Force backend upgrade check",
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "$ref": "#/definitions/gallery.UpgradeInfo"
+                            }
                         }
                     }
                 }
@@ -217,23 +1250,28 @@ const docTemplate = `{
         },
         "/metrics": {
             "get": {
+                "produces": [
+                    "text/plain"
+                ],
+                "tags": [
+                    "monitoring"
+                ],
                 "summary": "Prometheus metrics endpoint",
-                "parameters": [
-                    {
-                        "description": "Gallery details",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
+                "responses": {
+                    "200": {
+                        "description": "Prometheus metrics",
                         "schema": {
-                            "$ref": "#/definitions/config.Gallery"
+                            "type": "string"
                         }
                     }
-                ],
-                "responses": {}
+                }
             }
         },
         "/models/apply": {
             "post": {
+                "tags": [
+                    "models"
+                ],
                 "summary": "Install models to LocalAI.",
                 "parameters": [
                     {
@@ -258,6 +1296,9 @@ const docTemplate = `{
         },
         "/models/available": {
             "get": {
+                "tags": [
+                    "models"
+                ],
                 "summary": "List installable models.",
                 "responses": {
                     "200": {
@@ -265,7 +1306,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/gallery.GalleryModel"
+                                "$ref": "#/definitions/gallery.Metadata"
                             }
                         }
                     }
@@ -274,6 +1315,9 @@ const docTemplate = `{
         },
         "/models/delete/{name}": {
             "post": {
+                "tags": [
+                    "models"
+                ],
                 "summary": "delete models to LocalAI.",
                 "parameters": [
                     {
@@ -296,6 +1340,9 @@ const docTemplate = `{
         },
         "/models/galleries": {
             "get": {
+                "tags": [
+                    "models"
+                ],
                 "summary": "List all Galleries",
                 "responses": {
                     "200": {
@@ -312,6 +1359,9 @@ const docTemplate = `{
         },
         "/models/jobs": {
             "get": {
+                "tags": [
+                    "models"
+                ],
                 "summary": "Returns all the jobs status progress",
                 "responses": {
                     "200": {
@@ -319,7 +1369,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
-                                "$ref": "#/definitions/services.GalleryOpStatus"
+                                "$ref": "#/definitions/galleryop.OpStatus"
                             }
                         }
                     }
@@ -328,12 +1378,15 @@ const docTemplate = `{
         },
         "/models/jobs/{uuid}": {
             "get": {
+                "tags": [
+                    "models"
+                ],
                 "summary": "Returns the job status",
                 "responses": {
                     "200": {
                         "description": "Response",
                         "schema": {
-                            "$ref": "#/definitions/services.GalleryOpStatus"
+                            "$ref": "#/definitions/galleryop.OpStatus"
                         }
                     }
                 }
@@ -341,6 +1394,9 @@ const docTemplate = `{
         },
         "/system": {
             "get": {
+                "tags": [
+                    "monitoring"
+                ],
                 "summary": "Show the LocalAI instance information",
                 "responses": {
                     "200": {
@@ -360,6 +1416,9 @@ const docTemplate = `{
                 "produces": [
                     "audio/x-wav"
                 ],
+                "tags": [
+                    "tokenize"
+                ],
                 "summary": "Get TokenMetrics for Active Slot.",
                 "responses": {
                     "200": {
@@ -378,6 +1437,9 @@ const docTemplate = `{
                 ],
                 "produces": [
                     "audio/x-wav"
+                ],
+                "tags": [
+                    "audio"
                 ],
                 "summary": "Generates audio from the input text.",
                 "parameters": [
@@ -409,6 +1471,9 @@ const docTemplate = `{
                 "produces": [
                     "audio/x-wav"
                 ],
+                "tags": [
+                    "audio"
+                ],
                 "summary": "Generates audio from the input text.",
                 "parameters": [
                     {
@@ -436,6 +1501,9 @@ const docTemplate = `{
                 "consumes": [
                     "multipart/form-data"
                 ],
+                "tags": [
+                    "audio"
+                ],
                 "summary": "Transcribes audio into the input language.",
                 "parameters": [
                     {
@@ -451,6 +1519,28 @@ const docTemplate = `{
                         "name": "file",
                         "in": "formData",
                         "required": true
+                    },
+                    {
+                        "type": "number",
+                        "description": "sampling temperature",
+                        "name": "temperature",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "collectionFormat": "csv",
+                        "description": "timestamp granularities (word, segment)",
+                        "name": "timestamp_granularities",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "stream partial results as SSE",
+                        "name": "stream",
+                        "in": "formData"
                     }
                 ],
                 "responses": {
@@ -468,6 +1558,9 @@ const docTemplate = `{
         },
         "/v1/chat/completions": {
             "post": {
+                "tags": [
+                    "inference"
+                ],
                 "summary": "Generate a chat completions for a given prompt and model.",
                 "parameters": [
                     {
@@ -492,6 +1585,9 @@ const docTemplate = `{
         },
         "/v1/completions": {
             "post": {
+                "tags": [
+                    "inference"
+                ],
                 "summary": "Generate completions for a given prompt and model.",
                 "parameters": [
                     {
@@ -516,6 +1612,9 @@ const docTemplate = `{
         },
         "/v1/detection": {
             "post": {
+                "tags": [
+                    "detection"
+                ],
                 "summary": "Detects objects in the input image.",
                 "parameters": [
                     {
@@ -540,6 +1639,9 @@ const docTemplate = `{
         },
         "/v1/edits": {
             "post": {
+                "tags": [
+                    "inference"
+                ],
                 "summary": "OpenAI edit endpoint",
                 "parameters": [
                     {
@@ -564,6 +1666,9 @@ const docTemplate = `{
         },
         "/v1/embeddings": {
             "post": {
+                "tags": [
+                    "embeddings"
+                ],
                 "summary": "Get a vector representation of a given input that can be easily consumed by machine learning models and algorithms.",
                 "parameters": [
                     {
@@ -586,8 +1691,170 @@ const docTemplate = `{
                 }
             }
         },
+        "/v1/face/analyze": {
+            "post": {
+                "tags": [
+                    "face-recognition"
+                ],
+                "summary": "Analyze demographic attributes (age, gender, ...) of faces.",
+                "parameters": [
+                    {
+                        "description": "query params",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.FaceAnalyzeRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "$ref": "#/definitions/schema.FaceAnalyzeResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/face/embed": {
+            "post": {
+                "tags": [
+                    "face-recognition"
+                ],
+                "summary": "Extract a face embedding from an image.",
+                "parameters": [
+                    {
+                        "description": "query params",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.FaceEmbedRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "$ref": "#/definitions/schema.FaceEmbedResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/face/forget": {
+            "post": {
+                "tags": [
+                    "face-recognition"
+                ],
+                "summary": "Remove a previously-registered face by ID.",
+                "parameters": [
+                    {
+                        "description": "query params",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.FaceForgetRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    }
+                }
+            }
+        },
+        "/v1/face/identify": {
+            "post": {
+                "tags": [
+                    "face-recognition"
+                ],
+                "summary": "Identify a face against the registered database (1:N recognition).",
+                "parameters": [
+                    {
+                        "description": "query params",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.FaceIdentifyRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "$ref": "#/definitions/schema.FaceIdentifyResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/face/register": {
+            "post": {
+                "tags": [
+                    "face-recognition"
+                ],
+                "summary": "Register a face for 1:N identification.",
+                "parameters": [
+                    {
+                        "description": "query params",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.FaceRegisterRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "$ref": "#/definitions/schema.FaceRegisterResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/face/verify": {
+            "post": {
+                "tags": [
+                    "face-recognition"
+                ],
+                "summary": "Verify that two images depict the same person.",
+                "parameters": [
+                    {
+                        "description": "query params",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.FaceVerifyRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "$ref": "#/definitions/schema.FaceVerifyResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/v1/images/generations": {
             "post": {
+                "tags": [
+                    "images"
+                ],
                 "summary": "Creates an image given a prompt.",
                 "parameters": [
                     {
@@ -689,6 +1956,9 @@ const docTemplate = `{
         },
         "/v1/mcp/chat/completions": {
             "post": {
+                "tags": [
+                    "mcp"
+                ],
                 "summary": "MCP chat completions with automatic tool execution",
                 "parameters": [
                     {
@@ -713,6 +1983,9 @@ const docTemplate = `{
         },
         "/v1/messages": {
             "post": {
+                "tags": [
+                    "inference"
+                ],
                 "summary": "Generate a message response for the given messages and model.",
                 "parameters": [
                     {
@@ -737,6 +2010,9 @@ const docTemplate = `{
         },
         "/v1/models": {
             "get": {
+                "tags": [
+                    "models"
+                ],
                 "summary": "List and describe the various models available in the API.",
                 "responses": {
                     "200": {
@@ -750,6 +2026,9 @@ const docTemplate = `{
         },
         "/v1/rerank": {
             "post": {
+                "tags": [
+                    "rerank"
+                ],
                 "summary": "Reranks a list of phrases by relevance to a given text query.",
                 "parameters": [
                     {
@@ -774,6 +2053,9 @@ const docTemplate = `{
         },
         "/v1/responses": {
             "post": {
+                "tags": [
+                    "inference"
+                ],
                 "summary": "Create a response using the Open Responses API",
                 "parameters": [
                     {
@@ -799,6 +2081,9 @@ const docTemplate = `{
         "/v1/responses/{id}": {
             "get": {
                 "description": "Retrieve a response by ID. Can be used for polling background responses or resuming streaming responses.",
+                "tags": [
+                    "inference"
+                ],
                 "summary": "Get a response by ID",
                 "parameters": [
                     {
@@ -848,6 +2133,9 @@ const docTemplate = `{
         "/v1/responses/{id}/cancel": {
             "post": {
                 "description": "Cancel a background response if it's still in progress",
+                "tags": [
+                    "inference"
+                ],
                 "summary": "Cancel a response",
                 "parameters": [
                     {
@@ -884,6 +2172,9 @@ const docTemplate = `{
         },
         "/v1/sound-generation": {
             "post": {
+                "tags": [
+                    "audio"
+                ],
                 "summary": "Generates audio from the input text.",
                 "parameters": [
                     {
@@ -908,6 +2199,9 @@ const docTemplate = `{
         },
         "/v1/text-to-speech/{voice-id}": {
             "post": {
+                "tags": [
+                    "audio"
+                ],
                 "summary": "Generates audio from the input text.",
                 "parameters": [
                     {
@@ -945,6 +2239,9 @@ const docTemplate = `{
                 "produces": [
                     "audio/x-wav"
                 ],
+                "tags": [
+                    "tokenize"
+                ],
                 "summary": "Get TokenMetrics for Active Slot.",
                 "responses": {
                     "200": {
@@ -958,6 +2255,9 @@ const docTemplate = `{
         },
         "/v1/tokenize": {
             "post": {
+                "tags": [
+                    "tokenize"
+                ],
                 "summary": "Tokenize the input.",
                 "parameters": [
                     {
@@ -980,10 +2280,172 @@ const docTemplate = `{
                 }
             }
         },
+        "/v1/voice/analyze": {
+            "post": {
+                "tags": [
+                    "voice-recognition"
+                ],
+                "summary": "Analyze demographic attributes (age, gender, emotion) from a voice clip.",
+                "parameters": [
+                    {
+                        "description": "query params",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.VoiceAnalyzeRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "$ref": "#/definitions/schema.VoiceAnalyzeResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/voice/embed": {
+            "post": {
+                "tags": [
+                    "voice-recognition"
+                ],
+                "summary": "Extract a speaker embedding from an audio clip.",
+                "parameters": [
+                    {
+                        "description": "query params",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.VoiceEmbedRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "$ref": "#/definitions/schema.VoiceEmbedResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/voice/forget": {
+            "post": {
+                "tags": [
+                    "voice-recognition"
+                ],
+                "summary": "Remove a previously-registered speaker by ID.",
+                "parameters": [
+                    {
+                        "description": "query params",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.VoiceForgetRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    }
+                }
+            }
+        },
+        "/v1/voice/identify": {
+            "post": {
+                "tags": [
+                    "voice-recognition"
+                ],
+                "summary": "Identify a speaker against the registered database (1:N recognition).",
+                "parameters": [
+                    {
+                        "description": "query params",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.VoiceIdentifyRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "$ref": "#/definitions/schema.VoiceIdentifyResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/voice/register": {
+            "post": {
+                "tags": [
+                    "voice-recognition"
+                ],
+                "summary": "Register a speaker for 1:N identification.",
+                "parameters": [
+                    {
+                        "description": "query params",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.VoiceRegisterRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "$ref": "#/definitions/schema.VoiceRegisterResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/voice/verify": {
+            "post": {
+                "tags": [
+                    "voice-recognition"
+                ],
+                "summary": "Verify that two audio clips were spoken by the same person.",
+                "parameters": [
+                    {
+                        "description": "query params",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.VoiceVerifyRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "$ref": "#/definitions/schema.VoiceVerifyResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/vad": {
             "post": {
                 "consumes": [
                     "application/json"
+                ],
+                "tags": [
+                    "audio"
                 ],
                 "summary": "Detect voice fragments in an audio stream",
                 "parameters": [
@@ -1009,6 +2471,9 @@ const docTemplate = `{
         },
         "/video": {
             "post": {
+                "tags": [
+                    "video"
+                ],
                 "summary": "Creates a video given a prompt.",
                 "parameters": [
                     {
@@ -1029,6 +2494,25 @@ const docTemplate = `{
                         }
                     }
                 }
+            }
+        },
+        "/ws/backend-logs/{modelId}": {
+            "get": {
+                "description": "Opens a WebSocket connection for real-time backend log streaming. Sends an initial batch of existing lines (type \"initial\"), then streams new lines as they appear (type \"line\"). Supports ping/pong keepalive.",
+                "tags": [
+                    "monitoring"
+                ],
+                "summary": "Stream backend logs via WebSocket",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Model ID",
+                        "name": "modelId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {}
             }
         }
     },
@@ -1055,7 +2539,7 @@ const docTemplate = `{
                 },
                 "parameters": {
                     "type": "object",
-                    "additionalProperties": true
+                    "additionalProperties": {}
                 },
                 "strict": {
                     "type": "boolean"
@@ -1067,7 +2551,7 @@ const docTemplate = `{
             "properties": {
                 "properties": {
                     "type": "object",
-                    "additionalProperties": true
+                    "additionalProperties": {}
                 },
                 "type": {
                     "type": "string"
@@ -1079,7 +2563,7 @@ const docTemplate = `{
             "properties": {
                 "$defs": {
                     "type": "object",
-                    "additionalProperties": true
+                    "additionalProperties": {}
                 },
                 "anyOf": {
                     "type": "array",
@@ -1194,20 +2678,18 @@ const docTemplate = `{
                     "items": {
                         "type": "string"
                     }
+                },
+                "version": {
+                    "type": "string"
                 }
             }
         },
-        "gallery.GalleryModel": {
+        "gallery.Metadata": {
             "type": "object",
             "properties": {
                 "backend": {
                     "description": "Backend is the resolved backend engine for this model (e.g. \"llama-cpp\").\nPopulated at load time from overrides, inline config, or the URL-referenced config file.",
                     "type": "string"
-                },
-                "config_file": {
-                    "description": "config_file is read in the situation where URL is blank - and therefore this is a base config.",
-                    "type": "object",
-                    "additionalProperties": true
                 },
                 "description": {
                     "type": "string"
@@ -1240,11 +2722,6 @@ const docTemplate = `{
                 "name": {
                     "type": "string"
                 },
-                "overrides": {
-                    "description": "Overrides are used to override the configuration of the model located at URL",
-                    "type": "object",
-                    "additionalProperties": true
-                },
                 "size": {
                     "description": "Size is an optional hardcoded model size string (e.g. \"500MB\", \"14.5GB\").\nUsed when the size cannot be estimated automatically.",
                     "type": "string"
@@ -1259,6 +2736,110 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "urls": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "gallery.NodeDriftInfo": {
+            "type": "object",
+            "properties": {
+                "digest": {
+                    "type": "string"
+                },
+                "node_id": {
+                    "type": "string"
+                },
+                "node_name": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "string"
+                }
+            }
+        },
+        "gallery.UpgradeInfo": {
+            "type": "object",
+            "properties": {
+                "available_digest": {
+                    "type": "string"
+                },
+                "available_version": {
+                    "type": "string"
+                },
+                "backend_name": {
+                    "type": "string"
+                },
+                "installed_digest": {
+                    "type": "string"
+                },
+                "installed_version": {
+                    "type": "string"
+                },
+                "node_drift": {
+                    "description": "NodeDrift lists nodes whose installed version or digest differs from\nthe cluster majority. Non-empty means the cluster has diverged and an\nupgrade will realign it. Empty in single-node mode.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/gallery.NodeDriftInfo"
+                    }
+                }
+            }
+        },
+        "galleryop.OpStatus": {
+            "type": "object",
+            "properties": {
+                "cancellable": {
+                    "description": "Cancellable is true if the operation can be cancelled",
+                    "type": "boolean"
+                },
+                "cancelled": {
+                    "description": "Cancelled is true if the operation was cancelled",
+                    "type": "boolean"
+                },
+                "deletion": {
+                    "description": "Deletion is true if the operation is a deletion",
+                    "type": "boolean"
+                },
+                "downloaded_size": {
+                    "type": "string"
+                },
+                "error": {},
+                "file_name": {
+                    "type": "string"
+                },
+                "file_size": {
+                    "type": "string"
+                },
+                "gallery_element_name": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "processed": {
+                    "type": "boolean"
+                },
+                "progress": {
+                    "type": "number"
+                }
+            }
+        },
+        "localai.APIInstructionResponse": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "swagger_fragment": {
+                    "type": "object",
+                    "additionalProperties": {}
+                },
+                "tags": {
                     "type": "array",
                     "items": {
                         "type": "string"
@@ -1284,7 +2865,7 @@ const docTemplate = `{
                 "config_file": {
                     "description": "config_file is read in the situation where URL is blank - and therefore this is a base config.",
                     "type": "object",
-                    "additionalProperties": true
+                    "additionalProperties": {}
                 },
                 "description": {
                     "type": "string"
@@ -1323,7 +2904,7 @@ const docTemplate = `{
                 "overrides": {
                     "description": "Overrides are used to override the configuration of the model located at URL",
                     "type": "object",
-                    "additionalProperties": true
+                    "additionalProperties": {}
                 },
                 "size": {
                     "description": "Size is an optional hardcoded model size string (e.g. \"500MB\", \"14.5GB\").\nUsed when the size cannot be estimated automatically.",
@@ -1343,6 +2924,95 @@ const docTemplate = `{
                     "items": {
                         "type": "string"
                     }
+                }
+            }
+        },
+        "localai.ModelResponse": {
+            "type": "object",
+            "properties": {
+                "config": {},
+                "details": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "error": {
+                    "type": "string"
+                },
+                "filename": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "success": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "localai.vramEstimateRequest": {
+            "type": "object",
+            "properties": {
+                "context_size": {
+                    "description": "context length to estimate for (default 8192)",
+                    "type": "integer"
+                },
+                "gpu_layers": {
+                    "description": "number of layers to offload to GPU (0 = all)",
+                    "type": "integer"
+                },
+                "kv_quant_bits": {
+                    "description": "KV cache quantization bits (0 = fp16)",
+                    "type": "integer"
+                },
+                "model": {
+                    "description": "model name (must be installed)",
+                    "type": "string"
+                }
+            }
+        },
+        "localai.vramEstimateResponse": {
+            "type": "object",
+            "properties": {
+                "context_note": {
+                    "description": "note when context_size was defaulted",
+                    "type": "string"
+                },
+                "model_max_context": {
+                    "description": "model's trained maximum context length",
+                    "type": "integer"
+                },
+                "sizeBytes": {
+                    "description": "total model weight size in bytes",
+                    "type": "integer"
+                },
+                "sizeDisplay": {
+                    "description": "human-readable size (e.g. \"4.2 GB\")",
+                    "type": "string"
+                },
+                "vramBytes": {
+                    "description": "estimated VRAM usage in bytes",
+                    "type": "integer"
+                },
+                "vramDisplay": {
+                    "description": "human-readable VRAM (e.g. \"6.1 GB\")",
+                    "type": "string"
+                }
+            }
+        },
+        "model.BackendLogLine": {
+            "type": "object",
+            "properties": {
+                "stream": {
+                    "description": "\"stdout\" or \"stderr\"",
+                    "type": "string"
+                },
+                "text": {
+                    "type": "string"
+                },
+                "timestamp": {
+                    "type": "string"
                 }
             }
         },
@@ -1419,7 +3089,7 @@ const docTemplate = `{
                 },
                 "input": {
                     "type": "object",
-                    "additionalProperties": true
+                    "additionalProperties": {}
                 },
                 "is_error": {
                     "type": "boolean"
@@ -1555,7 +3225,7 @@ const docTemplate = `{
                 },
                 "input_schema": {
                     "type": "object",
-                    "additionalProperties": true
+                    "additionalProperties": {}
                 },
                 "name": {
                     "type": "string"
@@ -1621,8 +3291,15 @@ const docTemplate = `{
                 "class_name": {
                     "type": "string"
                 },
+                "confidence": {
+                    "type": "number"
+                },
                 "height": {
                     "type": "number"
+                },
+                "mask": {
+                    "description": "base64-encoded PNG segmentation mask",
+                    "type": "string"
                 },
                 "width": {
                     "type": "number"
@@ -1638,11 +3315,34 @@ const docTemplate = `{
         "schema.DetectionRequest": {
             "type": "object",
             "properties": {
+                "boxes": {
+                    "description": "Box coordinates as [x1,y1,x2,y2,...] quads",
+                    "type": "array",
+                    "items": {
+                        "type": "number"
+                    }
+                },
                 "image": {
+                    "description": "URL or base64-encoded image to analyze",
                     "type": "string"
                 },
                 "model": {
                     "type": "string"
+                },
+                "points": {
+                    "description": "Point coordinates as [x,y,label,...] triples (label: 1=pos, 0=neg)",
+                    "type": "array",
+                    "items": {
+                        "type": "number"
+                    }
+                },
+                "prompt": {
+                    "description": "Text prompt (for SAM 3 PCS mode)",
+                    "type": "string"
+                },
+                "threshold": {
+                    "description": "Detection confidence threshold",
+                    "type": "number"
                 }
             }
         },
@@ -1706,6 +3406,307 @@ const docTemplate = `{
                 }
             }
         },
+        "schema.FaceAnalysis": {
+            "type": "object",
+            "properties": {
+                "age": {
+                    "type": "number"
+                },
+                "antispoof_score": {
+                    "type": "number"
+                },
+                "dominant_emotion": {
+                    "type": "string"
+                },
+                "dominant_gender": {
+                    "type": "string"
+                },
+                "dominant_race": {
+                    "type": "string"
+                },
+                "emotion": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "number",
+                        "format": "float32"
+                    }
+                },
+                "face_confidence": {
+                    "type": "number"
+                },
+                "gender": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "number",
+                        "format": "float32"
+                    }
+                },
+                "is_real": {
+                    "description": "Liveness fields — see FaceVerifyResponse for why these are pointers.",
+                    "type": "boolean"
+                },
+                "race": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "number",
+                        "format": "float32"
+                    }
+                },
+                "region": {
+                    "$ref": "#/definitions/schema.FacialArea"
+                }
+            }
+        },
+        "schema.FaceAnalyzeRequest": {
+            "type": "object",
+            "properties": {
+                "actions": {
+                    "description": "subset of {\"age\",\"gender\",\"emotion\",\"race\"}",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "anti_spoofing": {
+                    "type": "boolean"
+                },
+                "img": {
+                    "type": "string"
+                },
+                "model": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.FaceAnalyzeResponse": {
+            "type": "object",
+            "properties": {
+                "faces": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.FaceAnalysis"
+                    }
+                }
+            }
+        },
+        "schema.FaceEmbedRequest": {
+            "type": "object",
+            "properties": {
+                "img": {
+                    "type": "string"
+                },
+                "model": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.FaceEmbedResponse": {
+            "type": "object",
+            "properties": {
+                "dim": {
+                    "type": "integer"
+                },
+                "embedding": {
+                    "type": "array",
+                    "items": {
+                        "type": "number"
+                    }
+                },
+                "model": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.FaceForgetRequest": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "model": {
+                    "type": "string"
+                },
+                "store": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.FaceIdentifyMatch": {
+            "type": "object",
+            "properties": {
+                "confidence": {
+                    "type": "number"
+                },
+                "distance": {
+                    "type": "number"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "labels": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "match": {
+                    "description": "true when distance \u003c= threshold",
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.FaceIdentifyRequest": {
+            "type": "object",
+            "properties": {
+                "img": {
+                    "type": "string"
+                },
+                "model": {
+                    "type": "string"
+                },
+                "store": {
+                    "type": "string"
+                },
+                "threshold": {
+                    "description": "optional cutoff on distance",
+                    "type": "number"
+                },
+                "top_k": {
+                    "type": "integer"
+                }
+            }
+        },
+        "schema.FaceIdentifyResponse": {
+            "type": "object",
+            "properties": {
+                "matches": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.FaceIdentifyMatch"
+                    }
+                }
+            }
+        },
+        "schema.FaceRegisterRequest": {
+            "type": "object",
+            "properties": {
+                "img": {
+                    "type": "string"
+                },
+                "labels": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "model": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "store": {
+                    "description": "vector store model; empty = local-store default",
+                    "type": "string"
+                }
+            }
+        },
+        "schema.FaceRegisterResponse": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "registered_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.FaceVerifyRequest": {
+            "type": "object",
+            "properties": {
+                "anti_spoofing": {
+                    "type": "boolean"
+                },
+                "img1": {
+                    "type": "string"
+                },
+                "img2": {
+                    "type": "string"
+                },
+                "model": {
+                    "type": "string"
+                },
+                "threshold": {
+                    "type": "number"
+                }
+            }
+        },
+        "schema.FaceVerifyResponse": {
+            "type": "object",
+            "properties": {
+                "confidence": {
+                    "type": "number"
+                },
+                "distance": {
+                    "type": "number"
+                },
+                "img1_antispoof_score": {
+                    "type": "number"
+                },
+                "img1_area": {
+                    "$ref": "#/definitions/schema.FacialArea"
+                },
+                "img1_is_real": {
+                    "description": "Liveness fields are only populated when the request set\nanti_spoofing=true. Pointers keep them fully absent from the\nJSON response otherwise, so callers can tell \"not checked\"\napart from \"checked and fake\" (which would collapse to zero\nvalues with plain bool+omitempty).",
+                    "type": "boolean"
+                },
+                "img2_antispoof_score": {
+                    "type": "number"
+                },
+                "img2_area": {
+                    "$ref": "#/definitions/schema.FacialArea"
+                },
+                "img2_is_real": {
+                    "type": "boolean"
+                },
+                "model": {
+                    "type": "string"
+                },
+                "processing_time_ms": {
+                    "type": "number"
+                },
+                "threshold": {
+                    "type": "number"
+                },
+                "verified": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "schema.FacialArea": {
+            "type": "object",
+            "properties": {
+                "h": {
+                    "type": "number"
+                },
+                "w": {
+                    "type": "number"
+                },
+                "x": {
+                    "type": "number"
+                },
+                "y": {
+                    "type": "number"
+                }
+            }
+        },
         "schema.FunctionCall": {
             "type": "object",
             "properties": {
@@ -1756,12 +3757,6 @@ const docTemplate = `{
             "properties": {
                 "b64_json": {
                     "type": "string"
-                },
-                "embedding": {
-                    "type": "array",
-                    "items": {
-                        "type": "number"
-                    }
                 },
                 "index": {
                     "type": "integer"
@@ -1845,6 +3840,226 @@ const docTemplate = `{
                 },
                 "total_tokens": {
                     "type": "integer"
+                }
+            }
+        },
+        "schema.Job": {
+            "type": "object",
+            "properties": {
+                "audios": {
+                    "description": "List of audio URLs or base64 strings",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "completed_at": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "error": {
+                    "description": "Error message if failed",
+                    "type": "string"
+                },
+                "files": {
+                    "description": "List of file URLs or base64 strings",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "id": {
+                    "description": "UUID",
+                    "type": "string"
+                },
+                "images": {
+                    "description": "Multimedia content (for manual execution)\nCan contain URLs or base64-encoded data URIs",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "parameters": {
+                    "description": "Template parameters",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "result": {
+                    "description": "Agent response",
+                    "type": "string"
+                },
+                "started_at": {
+                    "type": "string"
+                },
+                "status": {
+                    "description": "pending, running, completed, failed, cancelled",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.JobStatus"
+                        }
+                    ]
+                },
+                "task_id": {
+                    "description": "Reference to Task",
+                    "type": "string"
+                },
+                "traces": {
+                    "description": "Execution traces (reasoning, tool calls, tool results)",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.JobTrace"
+                    }
+                },
+                "triggered_by": {
+                    "description": "\"manual\", \"cron\", \"api\"",
+                    "type": "string"
+                },
+                "videos": {
+                    "description": "List of video URLs or base64 strings",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "webhook_error": {
+                    "description": "Error if webhook failed",
+                    "type": "string"
+                },
+                "webhook_sent": {
+                    "description": "Webhook delivery tracking",
+                    "type": "boolean"
+                },
+                "webhook_sent_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.JobExecutionRequest": {
+            "type": "object",
+            "properties": {
+                "audios": {
+                    "description": "List of audio URLs or base64 strings",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "files": {
+                    "description": "List of file URLs or base64 strings",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "images": {
+                    "description": "Multimedia content (optional, for manual execution)\nCan contain URLs or base64-encoded data URIs",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "parameters": {
+                    "description": "Optional, for templating",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "task_id": {
+                    "description": "Required",
+                    "type": "string"
+                },
+                "videos": {
+                    "description": "List of video URLs or base64 strings",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "schema.JobExecutionResponse": {
+            "type": "object",
+            "properties": {
+                "job_id": {
+                    "description": "unique job identifier",
+                    "type": "string"
+                },
+                "status": {
+                    "description": "initial status (pending)",
+                    "type": "string"
+                },
+                "url": {
+                    "description": "URL to poll for job status",
+                    "type": "string"
+                }
+            }
+        },
+        "schema.JobStatus": {
+            "type": "string",
+            "enum": [
+                "pending",
+                "running",
+                "completed",
+                "failed",
+                "cancelled"
+            ],
+            "x-enum-varnames": [
+                "JobStatusPending",
+                "JobStatusRunning",
+                "JobStatusCompleted",
+                "JobStatusFailed",
+                "JobStatusCancelled"
+            ]
+        },
+        "schema.JobTrace": {
+            "type": "object",
+            "properties": {
+                "arguments": {
+                    "description": "Tool arguments or result data",
+                    "type": "object",
+                    "additionalProperties": {}
+                },
+                "content": {
+                    "description": "The actual trace content",
+                    "type": "string"
+                },
+                "timestamp": {
+                    "description": "When this trace occurred",
+                    "type": "string"
+                },
+                "tool_name": {
+                    "description": "Tool name (for tool_call/tool_result)",
+                    "type": "string"
+                },
+                "type": {
+                    "description": "\"reasoning\", \"tool_call\", \"tool_result\", \"status\"",
+                    "type": "string"
+                }
+            }
+        },
+        "schema.KnownBackend": {
+            "type": "object",
+            "properties": {
+                "auto_detect": {
+                    "type": "boolean"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "installed": {
+                    "description": "Installed is true when the backend is currently present on disk — i.e. it\nappears in gallery.ListSystemBackends(systemState). Importer-registered or\ncurated pref-only backends default to false unless they also show up on\ndisk. The import form uses this to warn users that submitting an import\nmay trigger an automatic backend download.",
+                    "type": "boolean"
+                },
+                "modality": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
                 }
             }
         },
@@ -1957,6 +4172,26 @@ const docTemplate = `{
                     }
                 },
                 "object": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.MultimediaSourceConfig": {
+            "type": "object",
+            "properties": {
+                "headers": {
+                    "description": "Custom headers for HTTP request (e.g., Authorization)",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "type": {
+                    "description": "\"image\", \"video\", \"audio\", \"file\"",
+                    "type": "string"
+                },
+                "url": {
+                    "description": "URL to fetch from",
                     "type": "string"
                 }
             }
@@ -2077,7 +4312,7 @@ const docTemplate = `{
                 },
                 "parameters": {
                     "type": "object",
-                    "additionalProperties": true
+                    "additionalProperties": {}
                 },
                 "strict": {
                     "description": "Always include in response",
@@ -2445,6 +4680,10 @@ const docTemplate = `{
                 },
                 "echo": {
                     "type": "boolean"
+                },
+                "encoding_format": {
+                    "description": "Embedding encoding format: \"float\" (default) or \"base64\" (OpenAI Node.js SDK default)",
+                    "type": "string"
                 },
                 "file": {
                     "description": "whisper",
@@ -2835,12 +5074,14 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "backends": {
+                    "description": "available backend engines",
                     "type": "array",
                     "items": {
                         "type": "string"
                     }
                 },
                 "loaded_models": {
+                    "description": "currently loaded models",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/schema.SysInfoModel"
@@ -2853,6 +5094,7 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "backend": {
+                    "description": "backend engine override",
                     "type": "string"
                 },
                 "input": {
@@ -2884,10 +5126,71 @@ const docTemplate = `{
                 }
             }
         },
+        "schema.Task": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "cron": {
+                    "description": "Optional cron expression",
+                    "type": "string"
+                },
+                "cron_parameters": {
+                    "description": "Parameters to use when executing cron jobs",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "description": {
+                    "description": "Optional description",
+                    "type": "string"
+                },
+                "enabled": {
+                    "description": "Can be disabled without deletion",
+                    "type": "boolean"
+                },
+                "id": {
+                    "description": "UUID",
+                    "type": "string"
+                },
+                "model": {
+                    "description": "Model name (must have MCP config)",
+                    "type": "string"
+                },
+                "multimedia_sources": {
+                    "description": "Multimedia sources (for cron jobs)\nURLs to fetch multimedia content from when cron job executes\nEach source can have custom headers for authentication/authorization",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.MultimediaSourceConfig"
+                    }
+                },
+                "name": {
+                    "description": "User-friendly name",
+                    "type": "string"
+                },
+                "prompt": {
+                    "description": "Template prompt (supports Go template .param syntax)",
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "webhooks": {
+                    "description": "Webhook configuration (for notifications).\nSupports multiple webhook endpoints.\nWebhooks can handle both success and failure cases using template variables:\n.Job (Job object), .Task (Task object), .Result (if successful),\n.Error (if failed), .Status (job status string).",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.WebhookConfig"
+                    }
+                }
+            }
+        },
         "schema.TokenizeRequest": {
             "type": "object",
             "properties": {
                 "content": {
+                    "description": "text to tokenize",
                     "type": "string"
                 },
                 "model": {
@@ -2899,6 +5202,7 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "tokens": {
+                    "description": "token IDs",
                     "type": "array",
                     "items": {
                         "type": "integer"
@@ -2928,7 +5232,7 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "audio": {
-                    "description": "model name or full path",
+                    "description": "raw audio samples as float32 PCM",
                     "type": "array",
                     "items": {
                         "type": "number"
@@ -2943,91 +5247,333 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "cfg_scale": {
+                    "description": "classifier-free guidance scale",
                     "type": "number"
                 },
                 "end_image": {
+                    "description": "URL or base64 of the last frame",
                     "type": "string"
                 },
                 "fps": {
+                    "description": "frames per second",
                     "type": "integer"
                 },
                 "height": {
+                    "description": "output height in pixels",
                     "type": "integer"
                 },
                 "input_reference": {
+                    "description": "reference image or video URL",
                     "type": "string"
                 },
                 "model": {
                     "type": "string"
                 },
                 "negative_prompt": {
+                    "description": "things to avoid in the output",
                     "type": "string"
                 },
                 "num_frames": {
+                    "description": "total number of frames to generate",
                     "type": "integer"
                 },
                 "prompt": {
+                    "description": "text description of the video to generate",
                     "type": "string"
                 },
                 "response_format": {
+                    "description": "output format (url or b64_json)",
                     "type": "string"
                 },
                 "seconds": {
+                    "description": "duration in seconds (alternative to num_frames)",
                     "type": "string"
                 },
                 "seed": {
+                    "description": "random seed for reproducibility",
                     "type": "integer"
                 },
                 "size": {
+                    "description": "WxH shorthand (e.g. \"512x512\")",
                     "type": "string"
                 },
                 "start_image": {
+                    "description": "URL or base64 of the first frame",
                     "type": "string"
                 },
                 "step": {
+                    "description": "number of diffusion steps",
                     "type": "integer"
                 },
                 "width": {
+                    "description": "output width in pixels",
                     "type": "integer"
                 }
             }
         },
-        "services.GalleryOpStatus": {
+        "schema.VoiceAnalysis": {
             "type": "object",
             "properties": {
-                "cancellable": {
-                    "description": "Cancellable is true if the operation can be cancelled",
-                    "type": "boolean"
-                },
-                "cancelled": {
-                    "description": "Cancelled is true if the operation was cancelled",
-                    "type": "boolean"
-                },
-                "deletion": {
-                    "description": "Deletion is true if the operation is a deletion",
-                    "type": "boolean"
-                },
-                "downloaded_size": {
-                    "type": "string"
-                },
-                "error": {},
-                "file_name": {
-                    "type": "string"
-                },
-                "file_size": {
-                    "type": "string"
-                },
-                "gallery_element_name": {
-                    "type": "string"
-                },
-                "message": {
-                    "type": "string"
-                },
-                "processed": {
-                    "type": "boolean"
-                },
-                "progress": {
+                "age": {
                     "type": "number"
+                },
+                "dominant_emotion": {
+                    "type": "string"
+                },
+                "dominant_gender": {
+                    "type": "string"
+                },
+                "emotion": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "number",
+                        "format": "float32"
+                    }
+                },
+                "end": {
+                    "type": "number"
+                },
+                "gender": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "number",
+                        "format": "float32"
+                    }
+                },
+                "start": {
+                    "type": "number"
+                }
+            }
+        },
+        "schema.VoiceAnalyzeRequest": {
+            "type": "object",
+            "properties": {
+                "actions": {
+                    "description": "subset of {\"age\",\"gender\",\"emotion\"}",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "audio": {
+                    "type": "string"
+                },
+                "model": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.VoiceAnalyzeResponse": {
+            "type": "object",
+            "properties": {
+                "segments": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.VoiceAnalysis"
+                    }
+                }
+            }
+        },
+        "schema.VoiceEmbedRequest": {
+            "type": "object",
+            "properties": {
+                "audio": {
+                    "type": "string"
+                },
+                "model": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.VoiceEmbedResponse": {
+            "type": "object",
+            "properties": {
+                "dim": {
+                    "type": "integer"
+                },
+                "embedding": {
+                    "type": "array",
+                    "items": {
+                        "type": "number"
+                    }
+                },
+                "model": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.VoiceForgetRequest": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "model": {
+                    "type": "string"
+                },
+                "store": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.VoiceIdentifyMatch": {
+            "type": "object",
+            "properties": {
+                "confidence": {
+                    "type": "number"
+                },
+                "distance": {
+                    "type": "number"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "labels": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "match": {
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.VoiceIdentifyRequest": {
+            "type": "object",
+            "properties": {
+                "audio": {
+                    "type": "string"
+                },
+                "model": {
+                    "type": "string"
+                },
+                "store": {
+                    "type": "string"
+                },
+                "threshold": {
+                    "type": "number"
+                },
+                "top_k": {
+                    "type": "integer"
+                }
+            }
+        },
+        "schema.VoiceIdentifyResponse": {
+            "type": "object",
+            "properties": {
+                "matches": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.VoiceIdentifyMatch"
+                    }
+                }
+            }
+        },
+        "schema.VoiceRegisterRequest": {
+            "type": "object",
+            "properties": {
+                "audio": {
+                    "type": "string"
+                },
+                "labels": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "model": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "store": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.VoiceRegisterResponse": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "registered_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.VoiceVerifyRequest": {
+            "type": "object",
+            "properties": {
+                "anti_spoofing": {
+                    "type": "boolean"
+                },
+                "audio1": {
+                    "type": "string"
+                },
+                "audio2": {
+                    "type": "string"
+                },
+                "model": {
+                    "type": "string"
+                },
+                "threshold": {
+                    "type": "number"
+                }
+            }
+        },
+        "schema.VoiceVerifyResponse": {
+            "type": "object",
+            "properties": {
+                "confidence": {
+                    "type": "number"
+                },
+                "distance": {
+                    "type": "number"
+                },
+                "model": {
+                    "type": "string"
+                },
+                "processing_time_ms": {
+                    "type": "number"
+                },
+                "threshold": {
+                    "type": "number"
+                },
+                "verified": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "schema.WebhookConfig": {
+            "type": "object",
+            "properties": {
+                "headers": {
+                    "description": "Custom headers (e.g., Authorization)",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "method": {
+                    "description": "HTTP method (POST, PUT, PATCH) - default: POST",
+                    "type": "string"
+                },
+                "payload_template": {
+                    "description": "Optional template for payload",
+                    "type": "string"
+                },
+                "url": {
+                    "description": "Webhook endpoint URL",
+                    "type": "string"
                 }
             }
         }
@@ -3046,7 +5592,7 @@ var SwaggerInfo = &swag.Spec{
 	Version:          "2.0.0",
 	Host:             "",
 	BasePath:         "/",
-	Schemes:          []string{},
+	Schemes:          []string{"http", "https"},
 	Title:            "LocalAI API",
 	Description:      "The LocalAI Rest API.",
 	InfoInstanceName: "swagger",

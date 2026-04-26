@@ -317,6 +317,29 @@ var _ = Describe("ExtractReasoning", func() {
 			Expect(cleaned).To(Equal("Before "))
 		})
 	})
+
+	Context("when content has <|channel>thought tags (Gemma 4)", func() {
+		It("should extract reasoning from channel thought block", func() {
+			content := "<|channel>thought\nThis is my reasoning\n<channel|>Hello! How can I help?"
+			reasoning, cleaned := ExtractReasoning(content, nil)
+			Expect(reasoning).To(Equal("This is my reasoning"))
+			Expect(cleaned).To(Equal("Hello! How can I help?"))
+		})
+
+		It("should handle unclosed channel thought block", func() {
+			content := "<|channel>thought\nIncomplete reasoning"
+			reasoning, cleaned := ExtractReasoning(content, nil)
+			Expect(reasoning).To(Equal("Incomplete reasoning"))
+			Expect(cleaned).To(Equal(""))
+		})
+
+		It("should handle content before and after channel thought block", func() {
+			content := "Before <|channel>thought\nGemma 4 reasoning\n<channel|> After"
+			reasoning, cleaned := ExtractReasoning(content, nil)
+			Expect(reasoning).To(Equal("Gemma 4 reasoning"))
+			Expect(cleaned).To(Equal("Before  After"))
+		})
+	})
 })
 
 var _ = Describe("DetectThinkingStartToken", func() {
@@ -337,6 +360,12 @@ var _ = Describe("DetectThinkingStartToken", func() {
 			prompt := "Some text <thinking>"
 			token := DetectThinkingStartToken(prompt, nil)
 			Expect(token).To(Equal("<thinking>"))
+		})
+
+		It("should detect <|channel>thought at the end (Gemma 4)", func() {
+			prompt := "Prompt text <|channel>thought"
+			token := DetectThinkingStartToken(prompt, nil)
+			Expect(token).To(Equal("<|channel>thought"))
 		})
 
 		It("should detect <|inner_prefix|> at the end", func() {
@@ -815,6 +844,14 @@ var _ = Describe("ExtractReasoningWithConfig", func() {
 			reasoning, cleaned := ExtractReasoningWithConfig(content, "[THINK]", config)
 			Expect(reasoning).To(BeEmpty())
 			Expect(cleaned).To(Equal("Text  More"))
+		})
+
+		It("should strip reasoning from Gemma 4 channel tags when StripReasoningOnly is true", func() {
+			content := "<|channel>thought\nGemma 4 reasoning\n<channel|>Response text"
+			config := Config{StripReasoningOnly: boolPtr(true)}
+			reasoning, cleaned := ExtractReasoningWithConfig(content, "<|channel>thought", config)
+			Expect(reasoning).To(BeEmpty())
+			Expect(cleaned).To(Equal("Response text"))
 		})
 
 		It("should strip reasoning with multiline content when StripReasoningOnly is true", func() {

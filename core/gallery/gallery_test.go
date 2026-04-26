@@ -27,7 +27,7 @@ var _ = Describe("Gallery", func() {
 
 	Describe("ReadConfigFile", func() {
 		It("should read and unmarshal a valid YAML file", func() {
-			testConfig := map[string]interface{}{
+			testConfig := map[string]any{
 				"name":        "test-model",
 				"description": "A test model",
 				"license":     "MIT",
@@ -39,8 +39,8 @@ var _ = Describe("Gallery", func() {
 			err = os.WriteFile(filePath, yamlData, 0644)
 			Expect(err).NotTo(HaveOccurred())
 
-			var result map[string]interface{}
-			config, err := ReadConfigFile[map[string]interface{}](filePath)
+			var result map[string]any
+			config, err := ReadConfigFile[map[string]any](filePath)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(config).NotTo(BeNil())
 			result = *config
@@ -50,7 +50,7 @@ var _ = Describe("Gallery", func() {
 		})
 
 		It("should return error when file does not exist", func() {
-			_, err := ReadConfigFile[map[string]interface{}]("nonexistent.yaml")
+			_, err := ReadConfigFile[map[string]any]("nonexistent.yaml")
 			Expect(err).To(HaveOccurred())
 		})
 
@@ -59,7 +59,7 @@ var _ = Describe("Gallery", func() {
 			err := os.WriteFile(filePath, []byte("invalid: yaml: content: [unclosed"), 0644)
 			Expect(err).NotTo(HaveOccurred())
 
-			_, err = ReadConfigFile[map[string]interface{}](filePath)
+			_, err = ReadConfigFile[map[string]any](filePath)
 			Expect(err).To(HaveOccurred())
 		})
 	})
@@ -552,32 +552,32 @@ var _ = Describe("Gallery", func() {
 			// Verify first model
 			Expect(models[0].Name).To(Equal("nanbeige4.1-3b-q8"))
 			Expect(models[0].Overrides).NotTo(BeNil())
-			Expect(models[0].Overrides["parameters"]).To(BeAssignableToTypeOf(map[string]interface{}{}))
-			params := models[0].Overrides["parameters"].(map[string]interface{})
+			Expect(models[0].Overrides["parameters"]).To(BeAssignableToTypeOf(map[string]any{}))
+			params := models[0].Overrides["parameters"].(map[string]any)
 			Expect(params["model"]).To(Equal("nanbeige4.1-3b-q8_0.gguf"))
 
 			// Verify second model (merged)
 			Expect(models[1].Name).To(Equal("nanbeige4.1-3b-q4"))
 			Expect(models[1].Overrides).NotTo(BeNil())
-			Expect(models[1].Overrides["parameters"]).To(BeAssignableToTypeOf(map[string]interface{}{}))
-			params = models[1].Overrides["parameters"].(map[string]interface{})
+			Expect(models[1].Overrides["parameters"]).To(BeAssignableToTypeOf(map[string]any{}))
+			params = models[1].Overrides["parameters"].(map[string]any)
 			Expect(params["model"]).To(Equal("nanbeige4.1-3b-q4_k_m.gguf"))
 
 			// Simulate the mergo.Merge call that was failing in models.go:251
 			// This should not panic with yaml.v3
-			configMap := make(map[string]interface{})
+			configMap := make(map[string]any)
 			configMap["name"] = "test"
 			configMap["backend"] = "llama-cpp"
-			configMap["parameters"] = map[string]interface{}{
+			configMap["parameters"] = map[string]any{
 				"model": "original.gguf",
 			}
 
 			err = mergo.Merge(&configMap, models[1].Overrides, mergo.WithOverride)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(configMap["parameters"]).NotTo(BeNil())
-			
+
 			// Verify the merge worked correctly
-			mergedParams := configMap["parameters"].(map[string]interface{})
+			mergedParams := configMap["parameters"].(map[string]any)
 			Expect(mergedParams["model"]).To(Equal("nanbeige4.1-3b-q4_k_m.gguf"))
 		})
 	})

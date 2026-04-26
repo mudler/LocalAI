@@ -103,7 +103,7 @@ func ComputeChoices(
 
 	const maxRetries = 5
 
-	for i := 0; i < n; i++ {
+	for range n {
 		var prediction backend.LLMResponse
 
 		for attempt := 0; attempt <= maxRetries; attempt++ {
@@ -113,11 +113,23 @@ func ComputeChoices(
 			}
 			prediction = p
 
-			// Built-in: retry on truly empty response (no tokens at all)
+			// Built-in: retry on truly empty response (no tokens at all).
+			// However, when the C++ autoparser is active, it clears the raw
+			// message and delivers content via ChatDeltas instead. Do NOT
+			// retry if ChatDeltas contain tool calls or content.
 			if strings.TrimSpace(prediction.Response) == "" && attempt < maxRetries {
-				xlog.Warn("Backend returned empty response, retrying",
-					"attempt", attempt+1, "maxRetries", maxRetries)
-				continue
+				hasChatDeltaData := false
+				for _, d := range prediction.ChatDeltas {
+					if d.Content != "" || len(d.ToolCalls) > 0 {
+						hasChatDeltaData = true
+						break
+					}
+				}
+				if !hasChatDeltaData {
+					xlog.Warn("Backend returned empty response, retrying",
+						"attempt", attempt+1, "maxRetries", maxRetries)
+					continue
+				}
 			}
 
 			tokenUsage.Prompt = prediction.Usage.Prompt
@@ -130,8 +142,24 @@ func ComputeChoices(
 			finetunedResponse := backend.Finetune(*config, predInput, prediction.Response)
 			cb(finetunedResponse, &result)
 
-			// Caller-driven retry (tool parsing, reasoning-only, etc.)
-			if shouldRetryFn != nil && shouldRetryFn(attempt) && attempt < maxRetries {
+			// Caller-driven retry (tool parsing, reasoning-only, etc.).
+			// When the C++ autoparser is active, it may deliver parsed data
+			// via ChatDeltas while also keeping the raw response. If ChatDeltas
+			// contain actionable data (content or tool calls), skip the caller
+			// retry — the autoparser already parsed the response successfully.
+			// Note: we check ChatDeltas regardless of whether Response is empty,
+			// because thinking models (e.g. Gemma 4) produce a non-empty Response
+			// that the Go-side reasoning extraction can misclassify as reasoning-only.
+			skipCallerRetry := false
+			if len(prediction.ChatDeltas) > 0 {
+				for _, d := range prediction.ChatDeltas {
+					if d.Content != "" || len(d.ToolCalls) > 0 {
+						skipCallerRetry = true
+						break
+					}
+				}
+			}
+			if shouldRetryFn != nil && !skipCallerRetry && shouldRetryFn(attempt) && attempt < maxRetries {
 				// Caller has already reset its state inside shouldRetry
 				result = result[:0]
 				allChatDeltas = nil

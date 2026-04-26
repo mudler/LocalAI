@@ -36,7 +36,7 @@ var _ = Describe("Usage", func() {
 			db := testDB()
 
 			// Insert records for two users
-			for i := 0; i < 3; i++ {
+			for range 3 {
 				err := auth.RecordUsage(db, &auth.UsageRecord{
 					UserID:       "user-a",
 					UserName:     "Alice",

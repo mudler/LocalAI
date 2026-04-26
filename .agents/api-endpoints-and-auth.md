@@ -2,6 +2,8 @@
 
 This guide covers how to add new API endpoints and properly integrate them with the auth/permissions system.
 
+> **Before you ship a new endpoint or capability surface**, re-read the [checklist at the bottom of this file](#checklist). LocalAI advertises its feature surface in several independent places — miss any one of them and clients/admins/UI won't know the endpoint exists.
+
 ## Architecture overview
 
 Authentication and authorization flow through three layers:
@@ -234,6 +236,66 @@ Use these HTTP status codes:
 
 If your endpoint should be tracked for usage (token counts, request counts), add the `usageMiddleware` to its middleware chain. See `core/http/middleware/usage.go` and how it's applied in `routes/openai.go`.
 
+## Advertising surfaces — where to register a new capability
+
+Beyond routing and auth, LocalAI publishes its capability surface in **four independent places**. When you add an endpoint — especially one introducing a net-new capability like a new media type or a new auth-gated feature — you must update every relevant surface. These aren't optional: missing them means the endpoint works but is invisible to clients, admins, and the UI.
+
+### 1. Swagger `@Tags` annotation (mandatory)
+
+Every handler needs a swagger block so the endpoint appears in `/swagger/index.html` and in the `/api/instructions` output. The `@Tags` value is what groups the endpoint into a capability area:
+
+```go
+// MyEndpoint does X.
+// @Summary Do X.
+// @Tags my-capability
+// @Param request body schema.MyRequest true "payload"
+// @Success 200 {object} schema.MyResponse "Response"
+// @Router /v1/my-endpoint [post]
+func MyEndpoint(...) echo.HandlerFunc { ... }
+```
+
+Use an existing tag when the endpoint extends an existing area (e.g. `audio`, `images`, `face-recognition`). Create a new tag only when the endpoint introduces a genuinely new capability surface — and in that case, also register it in step 2.
+
+After adding endpoints, regenerate the embedded spec so the runtime serves it:
+
+```bash
+make protogen-go         # ensures gRPC codegen is fresh first
+make swagger             # regenerates swagger/swagger.json
+```
+
+### 2. `/api/instructions` registry (for new capability areas)
+
+`core/http/endpoints/localai/api_instructions.go` defines `instructionDefs` — a lightweight, machine-readable index of capability areas that groups swagger endpoints by tag. It's the primary discovery surface for agents and SDKs ("what can this server do?").
+
+**When to update:** only when adding a new capability area (a new swagger tag). Existing-tag additions automatically surface without any change here.
+
+Add an entry to `instructionDefs`:
+
+```go
+{
+    Name:        "my-capability",             // URL segment at /api/instructions/my-capability
+    Description: "Short sentence describing the capability",
+    Tags:        []string{"my-capability"},   // must match swagger @Tags
+    Intro:       "Optional gotcha/context that isn't in the swagger descriptions (caveats, defaults, cross-references to other endpoints).",
+},
+```
+
+Also bump the expected-length count in `api_instructions_test.go` and add the name to the `ContainElements` assertion.
+
+### 3. `capabilities.js` symbol (for new model-config FLAG_* flags)
+
+If your feature needs a new `FLAG_*` usecase flag in `core/config/model_config.go` (so users can filter gallery models by it, and so `/v1/models` surfaces it), also declare the matching symbol in `core/http/react-ui/src/utils/capabilities.js`:
+
+```js
+export const CAP_MY_CAPABILITY = 'FLAG_MY_CAPABILITY'
+```
+
+React pages that want to filter the ModelSelector by capability import this symbol. Declare it even if you're not building the UI page yet — the declaration keeps the Go/JS vocabularies in sync.
+
+### 4. `docs/content/` (user-facing documentation)
+
+A new capability deserves its own page under `docs/content/features/`, plus cross-links from related features and an entry in `docs/content/whats-new.md`. See the pattern used by `face-recognition.md` / `object-detection.md`.
+
 ## Path protection rules
 
 The global auth middleware classifies paths as API paths or non-API paths:
@@ -248,12 +310,23 @@ If you add endpoints under a new top-level path prefix, add it to `isAPIPath()` 
 
 When adding a new endpoint:
 
+**Routing & auth**
 - [ ] Handler in `core/http/endpoints/`
 - [ ] Route registered in appropriate `core/http/routes/` file
 - [ ] Auth level chosen: public / standard / admin / feature-gated
-- [ ] If feature-gated: constant in `permissions.go`, metadata in `features.go`, middleware in `app.go`
+- [ ] Entry added to `RouteFeatureRegistry` in `core/http/auth/features.go` (one row per route/method — all /v1/* routes gate through this, not per-route middleware)
+- [ ] If new feature: constant in `permissions.go`, added to the right slice (`APIFeatures` default-ON / `AgentFeatures` default-OFF), metadata in `features.go` `*FeatureMetas()`
+- [ ] If feature uses group middleware: wired in `core/http/app.go` and passed to the route registration function
 - [ ] If new path prefix: added to `isAPIPath()` in `middleware.go`
-- [ ] If OpenAI-compatible: entry in `RouteFeatureRegistry`
 - [ ] If token-counting: `usageMiddleware` added to middleware chain
-- [ ] Error responses use `schema.ErrorResponse` format
+
+**Advertising surfaces (easy to miss — see the [Advertising surfaces](#advertising-surfaces--where-to-register-a-new-capability) section)**
+- [ ] Swagger block on the handler: `@Summary`, `@Tags`, `@Param`, `@Success`, `@Router`
+- [ ] If new capability area (new swagger tag): entry in `instructionDefs` in `core/http/endpoints/localai/api_instructions.go` + test count bumped in `api_instructions_test.go`
+- [ ] If new `FLAG_*` usecase flag: matching `CAP_*` symbol exported from `core/http/react-ui/src/utils/capabilities.js`
+- [ ] `docs/content/features/<feature>.md` created; cross-links from related feature pages; entry in `docs/content/whats-new.md`
+
+**Quality**
+- [ ] Error responses use `schema.ErrorResponse` format (or `echo.NewHTTPError` with a mapped gRPC status — see the `mapBackendError` helper in `core/http/endpoints/localai/images.go`)
 - [ ] Tests cover both authenticated and unauthenticated access
+- [ ] Swagger regenerated (`make swagger`) if you changed any `@Router`/`@Tags`/`@Param` annotation

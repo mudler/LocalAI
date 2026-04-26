@@ -199,7 +199,6 @@ func readRuntimeSettingsJson(startupAppConfig config.ApplicationConfig) fileHand
 		envWatchdogBusyTimeout := appConfig.WatchDogBusyTimeout == startupAppConfig.WatchDogBusyTimeout
 		envSingleBackend := appConfig.SingleBackend == startupAppConfig.SingleBackend
 		envMaxActiveBackends := appConfig.MaxActiveBackends == startupAppConfig.MaxActiveBackends
-		envParallelRequests := appConfig.ParallelBackendRequests == startupAppConfig.ParallelBackendRequests
 		envMemoryReclaimerEnabled := appConfig.MemoryReclaimerEnabled == startupAppConfig.MemoryReclaimerEnabled
 		envMemoryReclaimerThreshold := appConfig.MemoryReclaimerThreshold == startupAppConfig.MemoryReclaimerThreshold
 		envThreads := appConfig.Threads == startupAppConfig.Threads
@@ -271,9 +270,6 @@ func readRuntimeSettingsJson(startupAppConfig config.ApplicationConfig) fileHand
 					appConfig.MaxActiveBackends = 0
 				}
 			}
-			if settings.ParallelBackendRequests != nil && !envParallelRequests {
-				appConfig.ParallelBackendRequests = *settings.ParallelBackendRequests
-			}
 			if settings.MemoryReclaimerEnabled != nil && !envMemoryReclaimerEnabled {
 				appConfig.MemoryReclaimerEnabled = *settings.MemoryReclaimerEnabled
 				if appConfig.MemoryReclaimerEnabled {
@@ -338,6 +334,12 @@ func readRuntimeSettingsJson(startupAppConfig config.ApplicationConfig) fileHand
 			}
 			if settings.AutoloadBackendGalleries != nil && !envAutoloadBackendGalleries {
 				appConfig.AutoloadBackendGalleries = *settings.AutoloadBackendGalleries
+			}
+			if settings.AutoUpgradeBackends != nil {
+				appConfig.AutoUpgradeBackends = *settings.AutoUpgradeBackends
+			}
+			if settings.PreferDevelopmentBackends != nil {
+				appConfig.PreferDevelopmentBackends = *settings.PreferDevelopmentBackends
 			}
 			if settings.ApiKeys != nil {
 				// API keys from env vars (startup) should be kept, runtime settings keys replace all runtime keys

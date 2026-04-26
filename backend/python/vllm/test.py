@@ -122,6 +122,89 @@ class TestBackendServicer(unittest.TestCase):
             self.tearDown()
 
 
+    def test_messages_to_dicts(self):
+        """
+        Tests _messages_to_dicts conversion of proto Messages to dicts.
+        """
+        import sys, os
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        from backend import BackendServicer
+        servicer = BackendServicer()
+        msgs = [
+            backend_pb2.Message(role="user", content="hello"),
+            backend_pb2.Message(
+                role="assistant",
+                content="",
+                tool_calls='[{"id":"call_1","type":"function","function":{"name":"foo","arguments":"{}"}}]',
+                reasoning_content="thinking...",
+            ),
+            backend_pb2.Message(role="tool", content="result", name="foo", tool_call_id="call_1"),
+        ]
+        result = servicer._messages_to_dicts(msgs)
+        self.assertEqual(len(result), 3)
+        self.assertEqual(result[0], {"role": "user", "content": "hello"})
+        self.assertEqual(result[1]["reasoning_content"], "thinking...")
+        self.assertIsInstance(result[1]["tool_calls"], list)
+        self.assertEqual(result[1]["tool_calls"][0]["id"], "call_1")
+        self.assertEqual(result[2]["tool_call_id"], "call_1")
+        self.assertEqual(result[2]["name"], "foo")
+
+    def test_parse_options(self):
+        """
+        Tests _parse_options correctly parses key:value strings.
+        """
+        import sys, os
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        from backend import BackendServicer
+        servicer = BackendServicer()
+        opts = servicer._parse_options([
+            "tool_parser:hermes",
+            "reasoning_parser:deepseek_r1",
+            "invalid_no_colon",
+            "key_with_colons:a:b:c",
+        ])
+        self.assertEqual(opts["tool_parser"], "hermes")
+        self.assertEqual(opts["reasoning_parser"], "deepseek_r1")
+        self.assertEqual(opts["key_with_colons"], "a:b:c")
+        self.assertNotIn("invalid_no_colon", opts)
+
+    def test_tokenize_string(self):
+        """
+        Tests the TokenizeString RPC returns valid tokens.
+        """
+        try:
+            self.setUp()
+            with grpc.insecure_channel("localhost:50051") as channel:
+                stub = backend_pb2_grpc.BackendStub(channel)
+                response = stub.LoadModel(backend_pb2.ModelOptions(Model="facebook/opt-125m"))
+                self.assertTrue(response.success)
+                resp = stub.TokenizeString(backend_pb2.PredictOptions(Prompt="Hello world"))
+                self.assertGreater(resp.length, 0)
+                self.assertEqual(len(resp.tokens), resp.length)
+        except Exception as err:
+            print(err)
+            self.fail("TokenizeString service failed")
+        finally:
+            self.tearDown()
+
+    def test_free(self):
+        """
+        Tests the Free RPC doesn't crash.
+        """
+        try:
+            self.setUp()
+            with grpc.insecure_channel("localhost:50051") as channel:
+                stub = backend_pb2_grpc.BackendStub(channel)
+                response = stub.LoadModel(backend_pb2.ModelOptions(Model="facebook/opt-125m"))
+                self.assertTrue(response.success)
+                free_resp = stub.Free(backend_pb2.HealthMessage())
+                self.assertTrue(free_resp.success)
+        except Exception as err:
+            print(err)
+            self.fail("Free service failed")
+        finally:
+            self.tearDown()
+
     def test_embedding(self):
         """
         This method tests if the embeddings are generated successfully

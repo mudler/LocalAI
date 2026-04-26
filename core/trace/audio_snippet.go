@@ -74,7 +74,7 @@ func AudioSnippetFromPCM(pcm []byte, sampleRate int, totalPCMBytes int) map[stri
 	}
 	peakDBFS := -math.Inf(1)
 	if peak > 0 {
-		peakDBFS = 20 * math.Log10(float64(peak) / 32768.0)
+		peakDBFS = 20 * math.Log10(float64(peak)/32768.0)
 	}
 	dcOffset := float64(dcSum) / float64(len(samples)) / 32768.0
 

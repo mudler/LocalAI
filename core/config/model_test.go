@@ -2,6 +2,7 @@ package config
 
 import (
 	"os"
+	"path/filepath"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -108,6 +109,51 @@ options:
 			Expect(testModel.Description).To(Equal("test model"))
 			Expect(testModel.Options).To(ContainElements("foo", "bar", "baz"))
 
+		})
+
+		It("Only loads files ending with yaml or yml", func() {
+			tmpdir, err := os.MkdirTemp("", "model-config-loader")
+			Expect(err).ToNot(HaveOccurred())
+			defer os.RemoveAll(tmpdir)
+
+			err = os.WriteFile(filepath.Join(tmpdir, "foo.yaml"), []byte(
+				`name: "foo-model"
+description: "formal config"
+backend: "llama-cpp"
+parameters:
+  model: "foo.gguf"
+`), 0644)
+			Expect(err).ToNot(HaveOccurred())
+
+			err = os.WriteFile(filepath.Join(tmpdir, "foo.yaml.bak"), []byte(
+				`name: "foo-model"
+description: "backup config"
+backend: "llama-cpp"
+parameters:
+  model: "foo-backup.gguf"
+`), 0644)
+			Expect(err).ToNot(HaveOccurred())
+
+			err = os.WriteFile(filepath.Join(tmpdir, "foo.yaml.bak.123"), []byte(
+				`name: "foo-backup-only"
+description: "timestamped backup config"
+backend: "llama-cpp"
+parameters:
+  model: "foo-timestamped.gguf"
+`), 0644)
+			Expect(err).ToNot(HaveOccurred())
+
+			bcl := NewModelConfigLoader(tmpdir)
+			err = bcl.LoadModelConfigsFromPath(tmpdir)
+			Expect(err).ToNot(HaveOccurred())
+
+			configs := bcl.GetAllModelsConfigs()
+			Expect(configs).To(HaveLen(1))
+			Expect(configs[0].Name).To(Equal("foo-model"))
+			Expect(configs[0].Description).To(Equal("formal config"))
+
+			_, exists := bcl.GetModelConfig("foo-backup-only")
+			Expect(exists).To(BeFalse())
 		})
 	})
 })

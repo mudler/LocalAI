@@ -14,8 +14,8 @@ func TestGrammar(t *testing.T) {
 	RunSpecs(t, "Grammar test suite")
 }
 
-func createFunction(field1 string, field2 string, name string, properties map[string]interface{}) map[string]interface{} {
-	property := map[string]interface{}{}
+func createFunction(field1 string, field2 string, name string, properties map[string]any) map[string]any {
+	property := map[string]any{}
 	property[field1] = FunctionName{Const: name}
 	property[field2] = Argument{
 		Type:       "object",

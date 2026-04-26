@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"strconv"
-	"strings"
 	"time"
 
 	hfapi "github.com/mudler/LocalAI/pkg/huggingface-api"
@@ -39,16 +38,6 @@ type ProcessedModel struct {
 	Icon                    string               `json:"icon,omitempty"`
 }
 
-// SearchResult represents the complete result of searching and processing models
-type SearchResult struct {
-	SearchTerm       string           `json:"search_term"`
-	Limit            int              `json:"limit"`
-	Quantization     string           `json:"quantization"`
-	TotalModelsFound int              `json:"total_models_found"`
-	Models           []ProcessedModel `json:"models"`
-	FormattedOutput  string           `json:"formatted_output"`
-}
-
 // AddedModelSummary represents a summary of models added to the gallery
 type AddedModelSummary struct {
 	SearchTerm     string   `json:"search_term"`
@@ -63,19 +52,16 @@ type AddedModelSummary struct {
 func main() {
 	startTime := time.Now()
 
-	// Check for synthetic mode
-	syntheticMode := os.Getenv("SYNTHETIC_MODE")
-	if syntheticMode == "true" || syntheticMode == "1" {
+	// Synthetic mode for local testing
+	if sm := os.Getenv("SYNTHETIC_MODE"); sm == "true" || sm == "1" {
 		fmt.Println("Running in SYNTHETIC MODE - generating random test data")
-		err := runSyntheticMode()
-		if err != nil {
+		if err := runSyntheticMode(); err != nil {
 			fmt.Fprintf(os.Stderr, "Error in synthetic mode: %v\n", err)
 			os.Exit(1)
 		}
 		return
 	}
 
-	// Get configuration from environment variables
 	searchTerm := os.Getenv("SEARCH_TERM")
 	if searchTerm == "" {
 		searchTerm = "GGUF"
@@ -83,7 +69,7 @@ func main() {
 
 	limitStr := os.Getenv("LIMIT")
 	if limitStr == "" {
-		limitStr = "5"
+		limitStr = "15"
 	}
 	limit, err := strconv.Atoi(limitStr)
 	if err != nil {
@@ -92,287 +78,197 @@ func main() {
 	}
 
 	quantization := os.Getenv("QUANTIZATION")
-
-	maxModels := os.Getenv("MAX_MODELS")
-	if maxModels == "" {
-		maxModels = "1"
+	if quantization == "" {
+		quantization = "Q4_K_M"
 	}
-	maxModelsInt, err := strconv.Atoi(maxModels)
+
+	maxModelsStr := os.Getenv("MAX_MODELS")
+	if maxModelsStr == "" {
+		maxModelsStr = "1"
+	}
+	maxModels, err := strconv.Atoi(maxModelsStr)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error parsing MAX_MODELS: %v\n", err)
 		os.Exit(1)
 	}
 
-	// Print configuration
 	fmt.Printf("Gallery Agent Configuration:\n")
 	fmt.Printf("  Search Term: %s\n", searchTerm)
 	fmt.Printf("  Limit: %d\n", limit)
 	fmt.Printf("  Quantization: %s\n", quantization)
-	fmt.Printf("  Max Models to Add: %d\n", maxModelsInt)
-	fmt.Printf("  Gallery Index Path: %s\n", os.Getenv("GALLERY_INDEX_PATH"))
+	fmt.Printf("  Max Models to Add: %d\n", maxModels)
+	fmt.Printf("  Gallery Index Path: %s\n", getGalleryIndexPath())
 	fmt.Println()
 
-	result, err := searchAndProcessModels(searchTerm, limit, quantization)
+	// Phase 1: load current gallery and query HuggingFace.
+	gallerySet, err := loadGalleryURLSet()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Error loading gallery index: %v\n", err)
 		os.Exit(1)
 	}
+	fmt.Printf("Loaded %d existing gallery entries\n", len(gallerySet))
 
-	fmt.Println(result.FormattedOutput)
-	var models []ProcessedModel
-
-	if len(result.Models) > 1 {
-		fmt.Println("More than one model found (", len(result.Models), "), using AI agent to select the most interesting models")
-		for _, model := range result.Models {
-			fmt.Println("Model: ", model.ModelID)
-		}
-		// Use AI agent to select the most interesting models
-		fmt.Println("Using AI agent to select the most interesting models...")
-		models, err = selectMostInterestingModels(context.Background(), result)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error in model selection: %v\n", err)
-			// Continue with original result if selection fails
-			models = result.Models
-		}
-	} else if len(result.Models) == 1 {
-		models = result.Models
-		fmt.Println("Only one model found, using it directly")
-	}
-
-	fmt.Print(models)
-
-	// Filter out models that already exist in the gallery
-	fmt.Println("Filtering out existing models...")
-	models, err = filterExistingModels(models)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error filtering existing models: %v\n", err)
-		os.Exit(1)
-	}
-
-	// Limit to maxModelsInt after filtering
-	if len(models) > maxModelsInt {
-		models = models[:maxModelsInt]
-	}
-
-	// Track added models for summary
-	var addedModelIDs []string
-	var addedModelURLs []string
-
-	// Generate YAML entries and append to gallery/index.yaml
-	if len(models) > 0 {
-		for _, model := range models {
-			addedModelIDs = append(addedModelIDs, model.ModelID)
-			// Generate Hugging Face URL for the model
-			modelURL := fmt.Sprintf("https://huggingface.co/%s", model.ModelID)
-			addedModelURLs = append(addedModelURLs, modelURL)
-		}
-		fmt.Println("Generating YAML entries for selected models...")
-		err = generateYAMLForModels(context.Background(), models, quantization)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error generating YAML entries: %v\n", err)
-			os.Exit(1)
-		}
-	} else {
-		fmt.Println("No new models to add to the gallery.")
-	}
-
-	// Create and write summary
-	processingTime := time.Since(startTime).String()
-	summary := AddedModelSummary{
-		SearchTerm:     searchTerm,
-		TotalFound:     result.TotalModelsFound,
-		ModelsAdded:    len(addedModelIDs),
-		AddedModelIDs:  addedModelIDs,
-		AddedModelURLs: addedModelURLs,
-		Quantization:   quantization,
-		ProcessingTime: processingTime,
-	}
-
-	// Write summary to file
-	summaryData, err := json.MarshalIndent(summary, "", "  ")
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error marshaling summary: %v\n", err)
-	} else {
-		err = os.WriteFile("gallery-agent-summary.json", summaryData, 0644)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error writing summary file: %v\n", err)
-		} else {
-			fmt.Printf("Summary written to gallery-agent-summary.json\n")
-		}
-	}
-}
-
-func searchAndProcessModels(searchTerm string, limit int, quantization string) (*SearchResult, error) {
 	client := hfapi.NewClient()
-	var outputBuilder strings.Builder
 
-	fmt.Println("Searching for models...")
-	// Initialize the result struct
-	result := &SearchResult{
-		SearchTerm:   searchTerm,
-		Limit:        limit,
-		Quantization: quantization,
-		Models:       []ProcessedModel{},
-	}
-
-	models, err := client.GetLatest(searchTerm, limit)
+	fmt.Println("Searching for trending models on HuggingFace...")
+	rawModels, err := client.GetTrending(searchTerm, limit)
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch models: %w", err)
+		fmt.Fprintf(os.Stderr, "Error fetching models: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Printf("Found %d trending models matching %q\n", len(rawModels), searchTerm)
+	totalFound := len(rawModels)
+
+	// Phase 2: drop anything already in the gallery *before* any expensive
+	// per-model work (GetModelDetails, README fetches, icon lookups).
+	fresh := rawModels[:0]
+	for _, m := range rawModels {
+		if modelAlreadyInGallery(gallerySet, m.ModelID) {
+			fmt.Printf("Skipping existing model: %s\n", m.ModelID)
+			continue
+		}
+		fresh = append(fresh, m)
+	}
+	fmt.Printf("%d candidates after gallery dedup\n", len(fresh))
+
+	// Phase 3: HuggingFace already returned these in trendingScore order —
+	// just cap to MAX_MODELS.
+	if len(fresh) > maxModels {
+		fresh = fresh[:maxModels]
+	}
+	if len(fresh) == 0 {
+		fmt.Println("No new models to add to the gallery.")
+		writeSummary(AddedModelSummary{
+			SearchTerm:     searchTerm,
+			TotalFound:     totalFound,
+			ModelsAdded:    0,
+			Quantization:   quantization,
+			ProcessingTime: time.Since(startTime).String(),
+		})
+		return
 	}
 
-	fmt.Println("Models found:", len(models))
-	result.TotalModelsFound = len(models)
+	// Phase 4: fetch details and build ProcessedModel entries for survivors.
+	var processed []ProcessedModel
+	quantPrefs := []string{quantization, "Q4_K_M", "Q4_K_S", "Q3_K_M", "Q2_K", "Q8_0"}
+	for _, m := range fresh {
+		fmt.Printf("Processing model: %s (downloads=%d)\n", m.ModelID, m.Downloads)
 
-	if len(models) == 0 {
-		outputBuilder.WriteString("No models found.\n")
-		result.FormattedOutput = outputBuilder.String()
-		return result, nil
-	}
-
-	outputBuilder.WriteString(fmt.Sprintf("Found %d models matching '%s':\n\n", len(models), searchTerm))
-
-	// Process each model
-	for i, model := range models {
-		outputBuilder.WriteString(fmt.Sprintf("%d. Processing Model: %s\n", i+1, model.ModelID))
-		outputBuilder.WriteString(fmt.Sprintf("   Author: %s\n", model.Author))
-		outputBuilder.WriteString(fmt.Sprintf("   Downloads: %d\n", model.Downloads))
-		outputBuilder.WriteString(fmt.Sprintf("   Last Modified: %s\n", model.LastModified))
-
-		// Initialize processed model struct
-		processedModel := ProcessedModel{
-			ModelID:                 model.ModelID,
-			Author:                  model.Author,
-			Downloads:               model.Downloads,
-			LastModified:            model.LastModified,
-			QuantizationPreferences: []string{quantization, "Q4_K_M", "Q4_K_S", "Q3_K_M", "Q2_K"},
+		pm := ProcessedModel{
+			ModelID:                 m.ModelID,
+			Author:                  m.Author,
+			Downloads:               m.Downloads,
+			LastModified:            m.LastModified,
+			QuantizationPreferences: quantPrefs,
 		}
 
-		// Get detailed model information
-		details, err := client.GetModelDetails(model.ModelID)
+		details, err := client.GetModelDetails(m.ModelID)
 		if err != nil {
-			errorMsg := fmt.Sprintf("   Error getting model details: %v\n", err)
-			outputBuilder.WriteString(errorMsg)
-			processedModel.ProcessingError = err.Error()
-			result.Models = append(result.Models, processedModel)
+			fmt.Printf("  Error getting model details: %v (skipping)\n", err)
 			continue
 		}
 
-		// Define quantization preferences (in order of preference)
-		quantizationPreferences := []string{quantization, "Q4_K_M", "Q4_K_S", "Q3_K_M", "Q2_K"}
+		preferred := hfapi.FindPreferredModelFile(details.Files, quantPrefs)
+		if preferred == nil {
+			fmt.Printf("  No GGUF file matching %v — skipping\n", quantPrefs)
+			continue
+		}
 
-		// Find preferred model file
-		preferredModelFile := hfapi.FindPreferredModelFile(details.Files, quantizationPreferences)
-
-		// Process files
-		processedFiles := make([]ProcessedModelFile, len(details.Files))
-		for j, file := range details.Files {
+		pm.Files = make([]ProcessedModelFile, len(details.Files))
+		for j, f := range details.Files {
 			fileType := "other"
-			if file.IsReadme {
+			if f.IsReadme {
 				fileType = "readme"
-			} else if preferredModelFile != nil && file.Path == preferredModelFile.Path {
+			} else if f.Path == preferred.Path {
 				fileType = "model"
 			}
-
-			processedFiles[j] = ProcessedModelFile{
-				Path:     file.Path,
-				Size:     file.Size,
-				SHA256:   file.SHA256,
-				IsReadme: file.IsReadme,
+			pm.Files[j] = ProcessedModelFile{
+				Path:     f.Path,
+				Size:     f.Size,
+				SHA256:   f.SHA256,
+				IsReadme: f.IsReadme,
 				FileType: fileType,
 			}
-		}
-
-		processedModel.Files = processedFiles
-
-		// Set preferred model file
-		if preferredModelFile != nil {
-			for _, file := range processedFiles {
-				if file.Path == preferredModelFile.Path {
-					processedModel.PreferredModelFile = &file
-					break
-				}
+			if f.Path == preferred.Path {
+				copyFile := pm.Files[j]
+				pm.PreferredModelFile = &copyFile
+			}
+			if f.IsReadme {
+				copyFile := pm.Files[j]
+				pm.ReadmeFile = &copyFile
 			}
 		}
 
-		// Print file information
-		outputBuilder.WriteString(fmt.Sprintf("   Files found: %d\n", len(details.Files)))
+		// Deterministic README resolution: follow base_model tag if set.
+		// Keep the raw (HTML-bearing) README around while we extract the
+		// icon, then strip it down to a plain-text description for the
+		// `description:` YAML field.
+		readme, err := resolveReadme(client, m.ModelID, m.Tags)
+		if err != nil {
+			fmt.Printf("  Warning: failed to fetch README: %v\n", err)
+		}
+		pm.ReadmeContent = readme
 
-		if preferredModelFile != nil {
-			outputBuilder.WriteString(fmt.Sprintf("   Preferred Model File: %s (SHA256: %s)\n",
-				preferredModelFile.Path,
-				preferredModelFile.SHA256))
-		} else {
-			outputBuilder.WriteString(fmt.Sprintf("   No model file found with quantization preferences: %v\n", quantizationPreferences))
+		pm.License = licenseFromTags(m.Tags)
+		pm.Tags = curatedTags(m.Tags)
+		pm.Icon = extractModelIcon(pm)
+
+		if pm.ReadmeContent != "" {
+			pm.ReadmeContent = extractDescription(pm.ReadmeContent)
+			pm.ReadmeContentPreview = truncateString(pm.ReadmeContent, 200)
 		}
 
-		if details.ReadmeFile != nil {
-			outputBuilder.WriteString(fmt.Sprintf("   README File: %s\n", details.ReadmeFile.Path))
-
-			// Find and set readme file
-			for _, file := range processedFiles {
-				if file.IsReadme {
-					processedModel.ReadmeFile = &file
-					break
-				}
-			}
-
-			fmt.Println("Getting real readme for", model.ModelID, "waiting...")
-			// Use agent to get the real readme and prepare the model description
-			readmeContent, err := getRealReadme(context.Background(), model.ModelID)
-			if err == nil {
-				processedModel.ReadmeContent = readmeContent
-				processedModel.ReadmeContentPreview = truncateString(readmeContent, 200)
-				outputBuilder.WriteString(fmt.Sprintf("   README Content Preview: %s\n",
-					processedModel.ReadmeContentPreview))
-			} else {
-				fmt.Printf("   Warning: Failed to get real readme: %v\n", err)
-			}
-			fmt.Println("Real readme got", readmeContent)
-
-			// Extract metadata (tags, license) from README using LLM
-			fmt.Println("Extracting metadata for", model.ModelID, "waiting...")
-			tags, license, err := extractModelMetadata(context.Background(), processedModel)
-			if err == nil {
-				processedModel.Tags = tags
-				processedModel.License = license
-				outputBuilder.WriteString(fmt.Sprintf("   Tags: %v\n", tags))
-				outputBuilder.WriteString(fmt.Sprintf("   License: %s\n", license))
-			} else {
-				fmt.Printf("   Warning: Failed to extract metadata: %v\n", err)
-			}
-
-			// Extract icon from README or use HuggingFace avatar
-			icon := extractModelIcon(processedModel)
-			if icon != "" {
-				processedModel.Icon = icon
-				outputBuilder.WriteString(fmt.Sprintf("   Icon: %s\n", icon))
-			}
-			// Get README content
-			// readmeContent, err := client.GetReadmeContent(model.ModelID, details.ReadmeFile.Path)
-			// if err == nil {
-			// 	processedModel.ReadmeContent = readmeContent
-			// 	processedModel.ReadmeContentPreview = truncateString(readmeContent, 200)
-			// 	outputBuilder.WriteString(fmt.Sprintf("   README Content Preview: %s\n",
-			// 		processedModel.ReadmeContentPreview))
-			// }
-		}
-
-		// Print all files with their checksums
-		outputBuilder.WriteString("   All Files:\n")
-		for _, file := range processedFiles {
-			outputBuilder.WriteString(fmt.Sprintf("     - %s (%s, %d bytes", file.Path, file.FileType, file.Size))
-			if file.SHA256 != "" {
-				outputBuilder.WriteString(fmt.Sprintf(", SHA256: %s", file.SHA256))
-			}
-			outputBuilder.WriteString(")\n")
-		}
-
-		outputBuilder.WriteString("\n")
-		result.Models = append(result.Models, processedModel)
+		fmt.Printf("  License: %s, Tags: %v, Icon: %s\n", pm.License, pm.Tags, pm.Icon)
+		processed = append(processed, pm)
 	}
 
-	result.FormattedOutput = outputBuilder.String()
-	return result, nil
+	if len(processed) == 0 {
+		fmt.Println("No processable models after detail fetch.")
+		writeSummary(AddedModelSummary{
+			SearchTerm:     searchTerm,
+			TotalFound:     totalFound,
+			ModelsAdded:    0,
+			Quantization:   quantization,
+			ProcessingTime: time.Since(startTime).String(),
+		})
+		return
+	}
+
+	// Phase 5: write YAML entries.
+	var addedIDs, addedURLs []string
+	for _, pm := range processed {
+		addedIDs = append(addedIDs, pm.ModelID)
+		addedURLs = append(addedURLs, "https://huggingface.co/"+pm.ModelID)
+	}
+
+	fmt.Println("Generating YAML entries for selected models...")
+	if err := generateYAMLForModels(context.Background(), processed, quantization); err != nil {
+		fmt.Fprintf(os.Stderr, "Error generating YAML entries: %v\n", err)
+		os.Exit(1)
+	}
+
+	writeSummary(AddedModelSummary{
+		SearchTerm:     searchTerm,
+		TotalFound:     totalFound,
+		ModelsAdded:    len(addedIDs),
+		AddedModelIDs:  addedIDs,
+		AddedModelURLs: addedURLs,
+		Quantization:   quantization,
+		ProcessingTime: time.Since(startTime).String(),
+	})
+}
+
+func writeSummary(summary AddedModelSummary) {
+	data, err := json.MarshalIndent(summary, "", "  ")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error marshaling summary: %v\n", err)
+		return
+	}
+	if err := os.WriteFile("gallery-agent-summary.json", data, 0644); err != nil {
+		fmt.Fprintf(os.Stderr, "Error writing summary file: %v\n", err)
+		return
+	}
+	fmt.Println("Summary written to gallery-agent-summary.json")
 }
 
 func truncateString(s string, maxLen int) string {
@@ -381,3 +277,4 @@ func truncateString(s string, maxLen int) string {
 	}
 	return s[:maxLen] + "..."
 }
+

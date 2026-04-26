@@ -104,7 +104,7 @@ var _ = Describe("E2E test", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(len(resp.Choices)).To(Equal(1), fmt.Sprint(resp))
 
-				var i map[string]interface{}
+				var i map[string]any
 				err = json.Unmarshal([]byte(resp.Choices[0].Message.Content), &i)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(i).To(HaveKey("name"))

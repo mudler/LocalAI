@@ -670,6 +670,137 @@ var _ = Describe("HuggingFace API Client", func() {
 
 			Expect(preferred).To(BeNil())
 		})
+
+		It("should return shard 1 when the preferred quant is multi-part", func() {
+			// Regression coverage for PR #9510: an unsloth-style sharded
+			// GGUF repo listed shards in mixed order — the old implementation
+			// returned whichever shard happened to come first in the slice.
+			// We now always return shard 1 so llama.cpp can discover the set.
+			files := []hfapi.ModelFile{
+				{Path: "Kimi-K2.6-UD-Q8_K_XL-00003-of-00014.gguf"},
+				{Path: "Kimi-K2.6-UD-Q8_K_XL-00001-of-00014.gguf"},
+				{Path: "Kimi-K2.6-UD-Q8_K_XL-00002-of-00014.gguf"},
+				{Path: "README.md", IsReadme: true},
+			}
+
+			preferred := hfapi.FindPreferredModelFile(files, []string{"Q8_K_XL"})
+
+			Expect(preferred).ToNot(BeNil())
+			Expect(preferred.Path).To(Equal("Kimi-K2.6-UD-Q8_K_XL-00001-of-00014.gguf"))
+		})
+
+		It("should honour priority order for sharded repos", func() {
+			// Two shard sets live in the repo (Q4_K_M and Q8_0). Callers
+			// pass a priority list; the first preference that has a matching
+			// group wins, and its shard 1 is returned.
+			files := []hfapi.ModelFile{
+				{Path: "model-Q8_0-00001-of-00002.gguf"},
+				{Path: "model-Q8_0-00002-of-00002.gguf"},
+				{Path: "model-Q4_K_M-00001-of-00002.gguf"},
+				{Path: "model-Q4_K_M-00002-of-00002.gguf"},
+			}
+
+			preferred := hfapi.FindPreferredModelFile(files, []string{"Q4_K_M", "Q8_0"})
+
+			Expect(preferred).ToNot(BeNil())
+			Expect(preferred.Path).To(Equal("model-Q4_K_M-00001-of-00002.gguf"))
+		})
+	})
+
+	Context("shard grouping", func() {
+		DescribeTable("SplitShardSuffix",
+			func(name, expectedBase string, expectedIdx, expectedTotal int, expectedOK bool) {
+				base, idx, total, ok := hfapi.SplitShardSuffix(name)
+				Expect(ok).To(Equal(expectedOK))
+				Expect(base).To(Equal(expectedBase))
+				Expect(idx).To(Equal(expectedIdx))
+				Expect(total).To(Equal(expectedTotal))
+			},
+			Entry("5-digit zero-padded (canonical)",
+				"Kimi-K2.6-UD-Q8_K_XL-00001-of-00014.gguf",
+				"Kimi-K2.6-UD-Q8_K_XL.gguf", 1, 14, true),
+			Entry("5-digit, last shard",
+				"Kimi-K2.6-UD-Q8_K_XL-00014-of-00014.gguf",
+				"Kimi-K2.6-UD-Q8_K_XL.gguf", 14, 14, true),
+			Entry("2-digit width",
+				"model-01-of-03.gguf",
+				"model.gguf", 1, 3, true),
+			Entry("mixed-case extension",
+				"model-00001-of-00002.GGUF",
+				"model.gguf", 1, 2, true),
+			Entry("single-file model returns ok=false",
+				"model-Q4_K_M.gguf", "", 0, 0, false),
+			Entry("mmproj is not a shard",
+				"mmproj-F16.gguf", "", 0, 0, false),
+			Entry("non-gguf extension is not a shard",
+				"model-00001-of-00002.bin", "", 0, 0, false),
+			Entry("naked suffix without leading dash is not matched",
+				"00001-of-00002.gguf", "", 0, 0, false),
+			// Guard against over-greedy matching: the pattern looks only at
+			// the suffix, so numbers earlier in the name must be ignored.
+			Entry("digits earlier in the name don't confuse the match",
+				"model-v2-Q4_K_M-00003-of-00005.gguf",
+				"model-v2-Q4_K_M.gguf", 3, 5, true),
+		)
+
+		It("groups sharded GGUF files by base and sorts by shard index", func() {
+			// Feed shards in unsorted order and interleaved with other
+			// files to exercise both the grouping and the sort.
+			files := []hfapi.ModelFile{
+				{Path: "Kimi-K2.6-UD-Q8_K_XL-00014-of-00014.gguf"},
+				{Path: "mmproj-F32.gguf"},
+				{Path: "Kimi-K2.6-UD-Q8_K_XL-00001-of-00014.gguf"},
+				{Path: "Kimi-K2.6-UD-Q8_K_XL-00002-of-00014.gguf"},
+			}
+
+			groups := hfapi.GroupShards(files)
+			Expect(groups).To(HaveLen(2))
+
+			// First group: the sharded Kimi set — first appearance was the
+			// 14-of-14 shard, so this group leads.
+			Expect(groups[0].Sharded).To(BeTrue())
+			Expect(groups[0].Base).To(Equal("Kimi-K2.6-UD-Q8_K_XL.gguf"))
+			Expect(groups[0].Total).To(Equal(14))
+			Expect(groups[0].Files).To(HaveLen(3))
+			Expect(groups[0].Files[0].Path).To(Equal("Kimi-K2.6-UD-Q8_K_XL-00001-of-00014.gguf"))
+			Expect(groups[0].Files[1].Path).To(Equal("Kimi-K2.6-UD-Q8_K_XL-00002-of-00014.gguf"))
+			Expect(groups[0].Files[2].Path).To(Equal("Kimi-K2.6-UD-Q8_K_XL-00014-of-00014.gguf"))
+
+			// Second group: the mmproj singleton.
+			Expect(groups[1].Sharded).To(BeFalse())
+			Expect(groups[1].Base).To(Equal("mmproj-F32.gguf"))
+			Expect(groups[1].Files).To(HaveLen(1))
+		})
+
+		It("preserves non-shard files as one-entry groups", func() {
+			files := []hfapi.ModelFile{
+				{Path: "model-Q4_K_M.gguf"},
+				{Path: "model-Q3_K_M.gguf"},
+			}
+			groups := hfapi.GroupShards(files)
+
+			Expect(groups).To(HaveLen(2))
+			Expect(groups[0].Sharded).To(BeFalse())
+			Expect(groups[0].Files[0].Path).To(Equal("model-Q4_K_M.gguf"))
+			Expect(groups[1].Sharded).To(BeFalse())
+			Expect(groups[1].Files[0].Path).To(Equal("model-Q3_K_M.gguf"))
+		})
+
+		It("groups files that live in subfolders by their basename", func() {
+			// HuggingFace repos often place shards in a per-quant subfolder
+			// (bartowski/* is a common example). The Path includes the
+			// folder but we must still group by basename.
+			files := []hfapi.ModelFile{
+				{Path: "Q4_K_M/model-Q4_K_M-00001-of-00002.gguf"},
+				{Path: "Q4_K_M/model-Q4_K_M-00002-of-00002.gguf"},
+			}
+			groups := hfapi.GroupShards(files)
+
+			Expect(groups).To(HaveLen(1))
+			Expect(groups[0].Sharded).To(BeTrue())
+			Expect(groups[0].Total).To(Equal(2))
+			Expect(groups[0].Files).To(HaveLen(2))
+		})
 	})
 
 	Context("integration test with real HuggingFace API", func() {
@@ -739,6 +870,78 @@ var _ = Describe("HuggingFace API Client", func() {
 					Expect(file.Oid).ToNot(BeEmpty(), "file should have an OID if no LFS")
 				}
 			}
+		})
+
+		It("should populate PipelineTag and LibraryName on ModelDetails", func() {
+			// Sentence-transformers/all-MiniLM-L6-v2 is a public, stable repo:
+			// pipeline_tag: sentence-similarity, library_name: sentence-transformers.
+			// This exercises the /api/models/{repo} metadata fetch layered on top
+			// of ListFiles in GetModelDetails.
+			realClient := hfapi.NewClient()
+			details, err := realClient.GetModelDetails("sentence-transformers/all-MiniLM-L6-v2")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(details).ToNot(BeNil())
+			Expect(details.PipelineTag).To(Equal("sentence-similarity"))
+			Expect(details.LibraryName).To(Equal("sentence-transformers"))
+		})
+	})
+
+	Context("when model metadata endpoint returns fields", func() {
+		It("should populate PipelineTag and LibraryName from /api/models/{repo}", func() {
+			// Serve both the tree listing and the single-model metadata endpoint.
+			mockFilesResponse := `[
+				{"type": "file", "path": "config.json", "size": 100, "oid": "cfg1"}
+			]`
+			mockModelResponse := `{
+				"modelId": "fake/model",
+				"pipeline_tag": "text-to-speech",
+				"library_name": "transformers"
+			}`
+			server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				switch {
+				case strings.Contains(r.URL.Path, "/tree/main"):
+					w.WriteHeader(http.StatusOK)
+					w.Write([]byte(mockFilesResponse))
+				case strings.HasSuffix(r.URL.Path, "/api/models/fake/model"):
+					w.WriteHeader(http.StatusOK)
+					w.Write([]byte(mockModelResponse))
+				default:
+					w.WriteHeader(http.StatusNotFound)
+				}
+			}))
+			client.SetBaseURL(server.URL + "/api/models")
+
+			details, err := client.GetModelDetails("fake/model")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(details).ToNot(BeNil())
+			Expect(details.PipelineTag).To(Equal("text-to-speech"))
+			Expect(details.LibraryName).To(Equal("transformers"))
+		})
+
+		It("should tolerate a failing metadata endpoint and still return file details", func() {
+			mockFilesResponse := `[
+				{"type": "file", "path": "config.json", "size": 100, "oid": "cfg1"}
+			]`
+			server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				switch {
+				case strings.Contains(r.URL.Path, "/tree/main"):
+					w.WriteHeader(http.StatusOK)
+					w.Write([]byte(mockFilesResponse))
+				default:
+					// Simulate metadata endpoint outage.
+					w.WriteHeader(http.StatusInternalServerError)
+				}
+			}))
+			client.SetBaseURL(server.URL + "/api/models")
+
+			details, err := client.GetModelDetails("fake/model")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(details).ToNot(BeNil())
+			Expect(details.Files).To(HaveLen(1))
+			Expect(details.PipelineTag).To(BeEmpty())
+			Expect(details.LibraryName).To(BeEmpty())
 		})
 	})
 })

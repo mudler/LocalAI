@@ -1,4 +1,3 @@
-
 package functions_test
 
 import (
@@ -13,12 +12,12 @@ var _ = Describe("LocalAI grammar functions", func() {
 			var functions Functions = []Function{
 				{
 					Name: "create_event",
-					Parameters: map[string]interface{}{
-						"properties": map[string]interface{}{
-							"event_name": map[string]interface{}{
+					Parameters: map[string]any{
+						"properties": map[string]any{
+							"event_name": map[string]any{
 								"type": "string",
 							},
-							"event_date": map[string]interface{}{
+							"event_date": map[string]any{
 								"type": "string",
 							},
 						},
@@ -26,9 +25,9 @@ var _ = Describe("LocalAI grammar functions", func() {
 				},
 				{
 					Name: "search",
-					Parameters: map[string]interface{}{
-						"properties": map[string]interface{}{
-							"query": map[string]interface{}{
+					Parameters: map[string]any{
+						"properties": map[string]any{
+							"query": map[string]any{
 								"type": "string",
 							},
 						},
@@ -41,13 +40,13 @@ var _ = Describe("LocalAI grammar functions", func() {
 			fnName := js.OneOf[0].Properties["function"].(FunctionName)
 			fnArgs := js.OneOf[0].Properties["arguments"].(Argument)
 			Expect(fnName.Const).To(Equal("create_event"))
-			Expect(fnArgs.Properties["event_name"].(map[string]interface{})["type"]).To(Equal("string"))
-			Expect(fnArgs.Properties["event_date"].(map[string]interface{})["type"]).To(Equal("string"))
+			Expect(fnArgs.Properties["event_name"].(map[string]any)["type"]).To(Equal("string"))
+			Expect(fnArgs.Properties["event_date"].(map[string]any)["type"]).To(Equal("string"))
 
 			fnName = js.OneOf[1].Properties["function"].(FunctionName)
 			fnArgs = js.OneOf[1].Properties["arguments"].(Argument)
 			Expect(fnName.Const).To(Equal("search"))
-			Expect(fnArgs.Properties["query"].(map[string]interface{})["type"]).To(Equal("string"))
+			Expect(fnArgs.Properties["query"].(map[string]any)["type"]).To(Equal("string"))
 
 			// Test with custom keys
 			jsN := functions.ToJSONStructure("name", "arguments")
@@ -57,14 +56,14 @@ var _ = Describe("LocalAI grammar functions", func() {
 			fnArgs = jsN.OneOf[0].Properties["arguments"].(Argument)
 
 			Expect(fnName.Const).To(Equal("create_event"))
-			Expect(fnArgs.Properties["event_name"].(map[string]interface{})["type"]).To(Equal("string"))
-			Expect(fnArgs.Properties["event_date"].(map[string]interface{})["type"]).To(Equal("string"))
+			Expect(fnArgs.Properties["event_name"].(map[string]any)["type"]).To(Equal("string"))
+			Expect(fnArgs.Properties["event_date"].(map[string]any)["type"]).To(Equal("string"))
 
 			fnName = jsN.OneOf[1].Properties["name"].(FunctionName)
 			fnArgs = jsN.OneOf[1].Properties["arguments"].(Argument)
 
 			Expect(fnName.Const).To(Equal("search"))
-			Expect(fnArgs.Properties["query"].(map[string]interface{})["type"]).To(Equal("string"))
+			Expect(fnArgs.Properties["query"].(map[string]any)["type"]).To(Equal("string"))
 		})
 	})
 	Context("Select()", func() {

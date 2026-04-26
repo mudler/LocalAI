@@ -1,12 +1,13 @@
 package config
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
-	"sort"
+	"slices"
 	"strings"
 	"sync"
 
@@ -192,9 +193,9 @@ func (bcl *ModelConfigLoader) ReadModelConfig(file string, opts ...ConfigLoaderO
 		bcl.configs[c.Name] = *c
 	} else {
 		if err != nil {
-			return fmt.Errorf("config is not valid: %w", err)
+			return fmt.Errorf("model config %q is not valid: %w. Ensure the YAML file has a valid 'name' field and correct syntax. See https://localai.io/docs/getting-started/customize-model/ for config reference", file, err)
 		}
-		return fmt.Errorf("config is not valid")
+		return fmt.Errorf("model config %q is not valid. Ensure the YAML file has a valid 'name' field and correct syntax. See https://localai.io/docs/getting-started/customize-model/ for config reference", file)
 	}
 
 	return nil
@@ -215,8 +216,8 @@ func (bcl *ModelConfigLoader) GetAllModelsConfigs() []ModelConfig {
 		res = append(res, v)
 	}
 
-	sort.SliceStable(res, func(i, j int) bool {
-		return res[i].Name < res[j].Name
+	slices.SortStableFunc(res, func(a, b ModelConfig) int {
+		return cmp.Compare(a.Name, b.Name)
 	})
 
 	return res
@@ -372,9 +373,9 @@ func (bcl *ModelConfigLoader) LoadModelConfigsFromPath(path string, opts ...Conf
 		files = append(files, info)
 	}
 	for _, file := range files {
-		// Skip templates, YAML and .keep files
-		if !strings.Contains(file.Name(), ".yaml") && !strings.Contains(file.Name(), ".yml") ||
-			strings.HasPrefix(file.Name(), ".") {
+		// Only load real YAML config files and ignore dotfiles or backup variants
+		ext := strings.ToLower(filepath.Ext(file.Name()))
+		if (ext != ".yaml" && ext != ".yml") || strings.HasPrefix(file.Name(), ".") {
 			continue
 		}
 

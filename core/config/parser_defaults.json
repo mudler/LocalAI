@@ -1,0 +1,33 @@
+{
+  "families": {
+    "qwen3.5":       {"tool_parser": "qwen3_xml", "reasoning_parser": "qwen3"},
+    "qwen3-coder":   {"tool_parser": "qwen3_xml", "reasoning_parser": "qwen3"},
+    "qwen3":         {"tool_parser": "hermes",     "reasoning_parser": "qwen3"},
+    "qwen2.5":       {"tool_parser": "hermes"},
+    "qwq":           {"reasoning_parser": "deepseek_r1"},
+    "llama-4":       {"tool_parser": "llama4_pythonic"},
+    "llama-3.3":     {"tool_parser": "llama3_json"},
+    "llama-3.2":     {"tool_parser": "llama3_json"},
+    "llama-3.1":     {"tool_parser": "llama3_json"},
+    "mistral-nemo":  {"tool_parser": "mistral", "reasoning_parser": "mistral"},
+    "mistral-small": {"tool_parser": "mistral", "reasoning_parser": "mistral"},
+    "mistral-large": {"tool_parser": "mistral", "reasoning_parser": "mistral"},
+    "magistral":     {"tool_parser": "mistral", "reasoning_parser": "mistral"},
+    "deepseek-r1":   {"tool_parser": "deepseek_v3", "reasoning_parser": "deepseek_r1"},
+    "deepseek-v3":   {"tool_parser": "deepseek_v3", "reasoning_parser": "deepseek_v3"},
+    "glm-5":         {"tool_parser": "glm47"},
+    "glm-4":         {"tool_parser": "glm45", "reasoning_parser": "glm45"},
+    "gemma-4":       {"tool_parser": "gemma4", "reasoning_parser": "gemma4"},
+    "granite-4":     {"tool_parser": "granite4", "reasoning_parser": "granite"},
+    "minimax-m2.5":  {"tool_parser": "minimax_m2", "reasoning_parser": "minimax_m2"},
+    "minimax":       {"tool_parser": "minimax_m2", "reasoning_parser": "minimax_m2"},
+    "kimi-k2":       {"tool_parser": "kimi_k2", "reasoning_parser": "kimi_k2"},
+    "nemotron":      {"reasoning_parser": "nemotron_v3"},
+    "olmo":          {"tool_parser": "olmo3", "reasoning_parser": "olmo3"},
+    "ernie":         {"tool_parser": "ernie45", "reasoning_parser": "ernie45"},
+    "phi-4":         {"tool_parser": "phi4_mini_json"},
+    "gpt-oss":       {"tool_parser": "openai", "reasoning_parser": "openai_gptoss"},
+    "hermes":        {"tool_parser": "hermes"}
+  },
+  "patterns": ["qwen3.5","qwen3-coder","qwen3","qwen2.5","qwq","llama-4","llama-3.3","llama-3.2","llama-3.1","mistral-nemo","mistral-small","mistral-large","magistral","deepseek-r1","deepseek-v3","glm-5","glm-4","gemma-4","granite-4","minimax-m2.5","minimax","kimi-k2","nemotron","olmo","ernie","phi-4","gpt-oss","hermes"]
+}

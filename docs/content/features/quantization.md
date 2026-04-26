@@ -7,9 +7,9 @@ url = '/features/quantization/'
 
 LocalAI supports model quantization directly through the API and Web UI. Quantization converts HuggingFace models to GGUF format and compresses them to smaller sizes for efficient inference with llama.cpp.
 
-{{% alert note %}}
+{{% notice note %}}
 This feature is **experimental** and may change in future releases.
-{{% /alert %}}
+{{% /notice %}}
 
 ## Supported Backends
 

@@ -40,6 +40,7 @@ type ApplicationConfig struct {
 	Federated                     bool
 
 	DisableWebUI                       bool
+	OllamaAPIRootEndpoint              bool
 	EnforcePredownloadScans            bool
 	OpaqueErrors                       bool
 	UseSubtleKeyComparison             bool
@@ -56,11 +57,11 @@ type ApplicationConfig struct {
 	ExternalGRPCBackends map[string]string
 
 	AutoloadGalleries, AutoloadBackendGalleries bool
+	AutoUpgradeBackends                         bool
+	PreferDevelopmentBackends                   bool
 
 	SingleBackend           bool // Deprecated: use MaxActiveBackends = 1 instead
 	MaxActiveBackends       int  // Maximum number of active backends (0 = unlimited, 1 = single backend mode)
-	ParallelBackendRequests bool
-
 	WatchDogIdle bool
 	WatchDogBusy bool
 	WatchDog     bool
@@ -83,8 +84,8 @@ type ApplicationConfig struct {
 
 	APIAddress string
 
-	LlamaCPPTunnelCallback    func(tunnels []string)
-	MLXTunnelCallback func(tunnels []string)
+	LlamaCPPTunnelCallback func(tunnels []string)
+	MLXTunnelCallback      func(tunnels []string)
 
 	DisableRuntimeSettings bool
 
@@ -99,47 +100,50 @@ type ApplicationConfig struct {
 
 	// Authentication & Authorization
 	Auth AuthConfig
+
+	// Distributed / Horizontal Scaling
+	Distributed DistributedConfig
 }
 
 // AuthConfig holds configuration for user authentication and authorization.
 type AuthConfig struct {
-	Enabled            bool
-	DatabaseURL        string // "postgres://..." or file path for SQLite
-	GitHubClientID     string
-	GitHubClientSecret string
-	OIDCIssuer         string // OIDC issuer URL for auto-discovery (e.g. https://accounts.google.com)
-	OIDCClientID       string
-	OIDCClientSecret   string
-	BaseURL            string // for OAuth callback URLs (e.g. "http://localhost:8080")
-	AdminEmail         string // auto-promote to admin on login
-	RegistrationMode   string // "open", "approval" (default when empty), "invite"
-	DisableLocalAuth   bool   // disable local email/password registration and login
-	APIKeyHMACSecret   string // HMAC secret for API key hashing; auto-generated if empty
+	Enabled             bool
+	DatabaseURL         string // "postgres://..." or file path for SQLite
+	GitHubClientID      string
+	GitHubClientSecret  string
+	OIDCIssuer          string // OIDC issuer URL for auto-discovery (e.g. https://accounts.google.com)
+	OIDCClientID        string
+	OIDCClientSecret    string
+	BaseURL             string // for OAuth callback URLs (e.g. "http://localhost:8080")
+	AdminEmail          string // auto-promote to admin on login
+	RegistrationMode    string // "open", "approval" (default when empty), "invite"
+	DisableLocalAuth    bool   // disable local email/password registration and login
+	APIKeyHMACSecret    string // HMAC secret for API key hashing; auto-generated if empty
 	DefaultAPIKeyExpiry string // default expiry duration for API keys (e.g. "90d"); empty = no expiry
 }
 
 // AgentPoolConfig holds configuration for the LocalAGI agent pool integration.
 type AgentPoolConfig struct {
-	Enabled                bool   // default: true (disabled by LOCALAI_DISABLE_AGENTS=true)
-	StateDir               string // default: DynamicConfigsDir (LocalAI configuration folder)
-	APIURL                 string // default: self-referencing LocalAI (http://127.0.0.1:<port>)
-	APIKey                 string // default: first API key from LocalAI config
-	DefaultModel           string
-	MultimodalModel        string
-	TranscriptionModel     string
-	TranscriptionLanguage  string
-	TTSModel               string
-	Timeout                string // default: "5m"
-	EnableSkills     bool
-	EnableLogs       bool
-	CustomActionsDir string
-	CollectionDBPath string
-	VectorEngine     string // default: "chromem"
-	EmbeddingModel   string // default: "granite-embedding-107m-multilingual"
-	MaxChunkingSize  int    // default: 400
-	ChunkOverlap     int    // default: 0
-	DatabaseURL      string
-	AgentHubURL      string // default: "https://agenthub.localai.io"
+	Enabled               bool   // default: true (disabled by LOCALAI_DISABLE_AGENTS=true)
+	StateDir              string // default: DynamicConfigsDir (LocalAI configuration folder)
+	APIURL                string // default: self-referencing LocalAI (http://127.0.0.1:<port>)
+	APIKey                string // default: first API key from LocalAI config
+	DefaultModel          string
+	MultimodalModel       string
+	TranscriptionModel    string
+	TranscriptionLanguage string
+	TTSModel              string
+	Timeout               string // default: "5m"
+	EnableSkills          bool
+	EnableLogs            bool
+	CustomActionsDir      string
+	CollectionDBPath      string
+	VectorEngine          string // default: "chromem"
+	EmbeddingModel        string // default: "granite-embedding-107m-multilingual"
+	MaxChunkingSize       int    // default: 400
+	ChunkOverlap          int    // default: 0
+	DatabaseURL           string
+	AgentHubURL           string // default: "https://agenthub.localai.io"
 }
 
 type AppOption func(*ApplicationConfig)
@@ -155,12 +159,12 @@ func NewApplicationConfig(o ...AppOption) *ApplicationConfig {
 		WatchDogInterval:         500 * time.Millisecond, // Default: 500ms
 		TracingMaxItems:          1024,
 		AgentPool: AgentPoolConfig{
-			Enabled:        true,
-			Timeout:        "5m",
-			VectorEngine:   "chromem",
-			EmbeddingModel: "granite-embedding-107m-multilingual",
+			Enabled:         true,
+			Timeout:         "5m",
+			VectorEngine:    "chromem",
+			EmbeddingModel:  "granite-embedding-107m-multilingual",
 			MaxChunkingSize: 400,
-			AgentHubURL:    "https://agenthub.localai.io",
+			AgentHubURL:     "https://agenthub.localai.io",
 		},
 		PathWithoutAuth: []string{
 			"/static/",
@@ -260,6 +264,10 @@ var EnableWatchDogBusyCheck = func(o *ApplicationConfig) {
 
 var DisableWebUI = func(o *ApplicationConfig) {
 	o.DisableWebUI = true
+}
+
+var EnableOllamaAPIRootEndpoint = func(o *ApplicationConfig) {
+	o.OllamaAPIRootEndpoint = true
 }
 
 var DisableRuntimeSettings = func(o *ApplicationConfig) {
@@ -376,16 +384,20 @@ func WithLRUEvictionRetryInterval(interval time.Duration) AppOption {
 	}
 }
 
-var EnableParallelBackendRequests = func(o *ApplicationConfig) {
-	o.ParallelBackendRequests = true
-}
-
 var EnableGalleriesAutoload = func(o *ApplicationConfig) {
 	o.AutoloadGalleries = true
 }
 
 var EnableBackendGalleriesAutoload = func(o *ApplicationConfig) {
 	o.AutoloadBackendGalleries = true
+}
+
+func WithAutoUpgradeBackends(v bool) AppOption {
+	return func(o *ApplicationConfig) { o.AutoUpgradeBackends = v }
+}
+
+func WithPreferDevelopmentBackends(v bool) AppOption {
+	return func(o *ApplicationConfig) { o.PreferDevelopmentBackends = v }
 }
 
 var EnableFederated = func(o *ApplicationConfig) {
@@ -839,7 +851,6 @@ func (o *ApplicationConfig) ToRuntimeSettings() RuntimeSettings {
 	watchdogBusy := o.WatchDogBusy
 	singleBackend := o.SingleBackend
 	maxActiveBackends := o.MaxActiveBackends
-	parallelBackendRequests := o.ParallelBackendRequests
 	memoryReclaimerEnabled := o.MemoryReclaimerEnabled
 	memoryReclaimerThreshold := o.MemoryReclaimerThreshold
 	forceEvictionWhenBusy := o.ForceEvictionWhenBusy
@@ -861,6 +872,8 @@ func (o *ApplicationConfig) ToRuntimeSettings() RuntimeSettings {
 	backendGalleries := o.BackendGalleries
 	autoloadGalleries := o.AutoloadGalleries
 	autoloadBackendGalleries := o.AutoloadBackendGalleries
+	autoUpgradeBackends := o.AutoUpgradeBackends
+	preferDevelopmentBackends := o.PreferDevelopmentBackends
 	apiKeys := o.ApiKeys
 	agentJobRetentionDays := o.AgentJobRetentionDays
 
@@ -904,40 +917,41 @@ func (o *ApplicationConfig) ToRuntimeSettings() RuntimeSettings {
 	agentPoolCollectionDBPath := o.AgentPool.CollectionDBPath
 
 	return RuntimeSettings{
-		WatchdogEnabled:          &watchdogEnabled,
-		WatchdogIdleEnabled:      &watchdogIdle,
-		WatchdogBusyEnabled:      &watchdogBusy,
-		WatchdogIdleTimeout:      &idleTimeout,
-		WatchdogBusyTimeout:      &busyTimeout,
-		WatchdogInterval:         &watchdogInterval,
-		SingleBackend:            &singleBackend,
-		MaxActiveBackends:        &maxActiveBackends,
-		ParallelBackendRequests:  &parallelBackendRequests,
-		MemoryReclaimerEnabled:   &memoryReclaimerEnabled,
-		MemoryReclaimerThreshold: &memoryReclaimerThreshold,
-		ForceEvictionWhenBusy:    &forceEvictionWhenBusy,
-		LRUEvictionMaxRetries:    &lruEvictionMaxRetries,
-		LRUEvictionRetryInterval: &lruEvictionRetryInterval,
-		Threads:                  &threads,
-		ContextSize:              &contextSize,
-		F16:                      &f16,
-		Debug:                    &debug,
-		TracingMaxItems:          &tracingMaxItems,
-		EnableTracing:            &enableTracing,
-		EnableBackendLogging:     &enableBackendLogging,
-		CORS:                     &cors,
-		CSRF:                     &csrf,
-		CORSAllowOrigins:         &corsAllowOrigins,
-		P2PToken:                 &p2pToken,
-		P2PNetworkID:             &p2pNetworkID,
-		Federated:                &federated,
-		Galleries:                &galleries,
-		BackendGalleries:         &backendGalleries,
-		AutoloadGalleries:        &autoloadGalleries,
-		AutoloadBackendGalleries: &autoloadBackendGalleries,
-		ApiKeys:                  &apiKeys,
-		AgentJobRetentionDays:    &agentJobRetentionDays,
-		OpenResponsesStoreTTL:    &openResponsesStoreTTL,
+		WatchdogEnabled:           &watchdogEnabled,
+		WatchdogIdleEnabled:       &watchdogIdle,
+		WatchdogBusyEnabled:       &watchdogBusy,
+		WatchdogIdleTimeout:       &idleTimeout,
+		WatchdogBusyTimeout:       &busyTimeout,
+		WatchdogInterval:          &watchdogInterval,
+		SingleBackend:             &singleBackend,
+		MaxActiveBackends:         &maxActiveBackends,
+		MemoryReclaimerEnabled:    &memoryReclaimerEnabled,
+		MemoryReclaimerThreshold:  &memoryReclaimerThreshold,
+		ForceEvictionWhenBusy:     &forceEvictionWhenBusy,
+		LRUEvictionMaxRetries:     &lruEvictionMaxRetries,
+		LRUEvictionRetryInterval:  &lruEvictionRetryInterval,
+		Threads:                   &threads,
+		ContextSize:               &contextSize,
+		F16:                       &f16,
+		Debug:                     &debug,
+		TracingMaxItems:           &tracingMaxItems,
+		EnableTracing:             &enableTracing,
+		EnableBackendLogging:      &enableBackendLogging,
+		CORS:                      &cors,
+		CSRF:                      &csrf,
+		CORSAllowOrigins:          &corsAllowOrigins,
+		P2PToken:                  &p2pToken,
+		P2PNetworkID:              &p2pNetworkID,
+		Federated:                 &federated,
+		Galleries:                 &galleries,
+		BackendGalleries:          &backendGalleries,
+		AutoloadGalleries:         &autoloadGalleries,
+		AutoloadBackendGalleries:  &autoloadBackendGalleries,
+		AutoUpgradeBackends:       &autoUpgradeBackends,
+		PreferDevelopmentBackends: &preferDevelopmentBackends,
+		ApiKeys:                   &apiKeys,
+		AgentJobRetentionDays:     &agentJobRetentionDays,
+		OpenResponsesStoreTTL:     &openResponsesStoreTTL,
 		AgentPoolEnabled:          &agentPoolEnabled,
 		AgentPoolDefaultModel:     &agentPoolDefaultModel,
 		AgentPoolEmbeddingModel:   &agentPoolEmbeddingModel,
@@ -1004,9 +1018,6 @@ func (o *ApplicationConfig) ApplyRuntimeSettings(settings *RuntimeSettings) (req
 			o.MaxActiveBackends = 0
 		}
 		requireRestart = true
-	}
-	if settings.ParallelBackendRequests != nil {
-		o.ParallelBackendRequests = *settings.ParallelBackendRequests
 	}
 	if settings.MemoryReclaimerEnabled != nil {
 		o.MemoryReclaimerEnabled = *settings.MemoryReclaimerEnabled
@@ -1085,6 +1096,12 @@ func (o *ApplicationConfig) ApplyRuntimeSettings(settings *RuntimeSettings) (req
 	}
 	if settings.AutoloadBackendGalleries != nil {
 		o.AutoloadBackendGalleries = *settings.AutoloadBackendGalleries
+	}
+	if settings.AutoUpgradeBackends != nil {
+		o.AutoUpgradeBackends = *settings.AutoUpgradeBackends
+	}
+	if settings.PreferDevelopmentBackends != nil {
+		o.PreferDevelopmentBackends = *settings.PreferDevelopmentBackends
 	}
 	if settings.AgentJobRetentionDays != nil {
 		o.AgentJobRetentionDays = *settings.AgentJobRetentionDays

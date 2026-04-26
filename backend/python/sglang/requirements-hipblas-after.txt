@@ -1,0 +1,2 @@
+# sglang's ROCm build is installed from source per docker/rocm.Dockerfile
+# upstream; install.sh handles the source build when BUILD_TYPE=hipblas.

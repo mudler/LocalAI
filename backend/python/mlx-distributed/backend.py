@@ -15,14 +15,22 @@ Two startup modes:
 import asyncio
 from concurrent import futures
 import argparse
+import gc
 import json
 import os
 import signal
 import sys
 import tempfile
+import types
 from typing import List
 
 import grpc
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'common'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'common'))
+from grpc_auth import get_auth_interceptors
+from python_utils import messages_to_dicts, parse_options as _shared_parse_options
+from mlx_utils import parse_tool_calls, split_reasoning
+
 
 import backend_pb2
 import backend_pb2_grpc
@@ -58,37 +66,10 @@ def mlx_distributed_init(rank, hostfile, backend="ring", coordinator=None):
         raise ValueError(f"Unknown backend: {backend}")
 
 
-def is_float(s):
-    try:
-        float(s)
-        return True
-    except ValueError:
-        return False
-
-
-def is_int(s):
-    try:
-        int(s)
-        return True
-    except ValueError:
-        return False
-
-
-def parse_options(options):
-    """Parse key:value option strings into a dict."""
-    result = {}
-    for opt in options:
-        if ":" not in opt:
-            continue
-        key, value = opt.split(":", 1)
-        if is_float(value):
-            value = float(value)
-        elif is_int(value):
-            value = int(value)
-        elif value.lower() in ["true", "false"]:
-            value = value.lower() == "true"
-        result[key] = value
-    return result
+# Re-export the shared helper under the local name for back-compat with
+# any callers (and the existing distributed worker tests) that imported
+# parse_options directly from this module.
+parse_options = _shared_parse_options
 
 
 class BackendServicer(backend_pb2_grpc.BackendServicer):
@@ -184,6 +165,20 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 )
                 print("[Rank 0] Model loaded (single-node with prompt cache)", file=sys.stderr)
 
+            # Log auto-detected TokenizerWrapper capabilities. Same shape
+            # as the mlx backend: has_tool_calling / has_thinking from
+            # mlx_lm.tokenizer_utils + the start/end markers it sniffed
+            # from the chat template / vocab.
+            has_tools = bool(getattr(self.tokenizer, "has_tool_calling", False))
+            has_thinking = bool(getattr(self.tokenizer, "has_thinking", False))
+            tcs = getattr(self.tokenizer, "tool_call_start", None)
+            tce = getattr(self.tokenizer, "tool_call_end", None)
+            print(
+                f"[Rank 0] Tokenizer capabilities: has_tool_calling={has_tools} "
+                f"has_thinking={has_thinking} tool_call_start={tcs!r} tool_call_end={tce!r}",
+                file=sys.stderr,
+            )
+
         except Exception as err:
             print(f"[Rank 0] Error loading model: {err}", file=sys.stderr)
             return backend_pb2.Result(success=False, message=f"Error loading model: {err}")
@@ -197,7 +192,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         try:
             import mlx.core as mx
             from mlx_lm import stream_generate
-            from mlx_lm.sample_utils import make_sampler
+            from mlx_lm.sample_utils import make_logits_processors, make_sampler
 
             prompt_text = self._prepare_prompt(request)
             tokens = self._get_tokens_from_prompt(prompt_text)
@@ -207,7 +202,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 self.coordinator.broadcast_command(CMD_GENERATE, len(tokens))
                 self.coordinator.broadcast_tokens(tokens)
 
-            max_tokens, sampler_params = self._build_generation_params(request)
+            max_tokens, sampler_params, logits_params, stop_words = self._build_generation_params(request)
 
             if self.coordinator:
                 gen_params = self.coordinator.broadcast_generation_params(
@@ -218,6 +213,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 max_tokens = gen_params["max_tokens"]
 
             sampler = make_sampler(**sampler_params)
+            logits_processors = make_logits_processors(**logits_params) if logits_params else None
 
             # Use prompt cache in single-node mode
             gen_kwargs = {}
@@ -234,22 +230,44 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 tokens = remaining_tokens if remaining_tokens else cache_key
 
             generated = []
+            last_response = None
             for response in stream_generate(
                 self.model,
                 self.tokenizer,
                 prompt=tokens,
                 max_tokens=max_tokens,
                 sampler=sampler,
+                logits_processors=logits_processors,
                 **gen_kwargs,
             ):
                 generated.append(response.text)
+                last_response = response
                 if cache_key is not None:
                     cache_key.append(response.token)
+                if stop_words and any(s in "".join(generated) for s in stop_words):
+                    break
 
             if self.lru_cache is not None and cache_key is not None:
                 self.lru_cache.insert_cache(self.model_key, cache_key, prompt_cache)
 
-            return backend_pb2.Reply(message=bytes(''.join(generated), encoding='utf-8'))
+            full_text = self._truncate_at_stop("".join(generated), stop_words)
+            content, reasoning_content, tool_calls_proto, prompt_tokens, completion_tokens, logprobs_bytes = (
+                self._finalize_output(request, full_text, last_response)
+            )
+
+            return backend_pb2.Reply(
+                message=bytes(content, encoding='utf-8'),
+                prompt_tokens=prompt_tokens,
+                tokens=completion_tokens,
+                logprobs=logprobs_bytes,
+                chat_deltas=[
+                    backend_pb2.ChatDelta(
+                        content=content,
+                        reasoning_content=reasoning_content,
+                        tool_calls=tool_calls_proto,
+                    )
+                ],
+            )
 
         except Exception as e:
             print(f"[Rank 0] Error in Predict: {e}", file=sys.stderr)
@@ -264,7 +282,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         try:
             import mlx.core as mx
             from mlx_lm import stream_generate
-            from mlx_lm.sample_utils import make_sampler
+            from mlx_lm.sample_utils import make_logits_processors, make_sampler
 
             prompt_text = self._prepare_prompt(request)
             tokens = self._get_tokens_from_prompt(prompt_text)
@@ -274,7 +292,9 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 self.coordinator.broadcast_command(CMD_GENERATE, len(tokens))
                 self.coordinator.broadcast_tokens(tokens)
 
-            max_tokens, sampler_params = self._build_generation_params(request, default_max_tokens=512)
+            max_tokens, sampler_params, logits_params, stop_words = self._build_generation_params(
+                request, default_max_tokens=512
+            )
 
             if self.coordinator:
                 gen_params = self.coordinator.broadcast_generation_params(
@@ -285,6 +305,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 max_tokens = gen_params["max_tokens"]
 
             sampler = make_sampler(**sampler_params)
+            logits_processors = make_logits_processors(**logits_params) if logits_params else None
 
             # Use prompt cache in single-node mode
             gen_kwargs = {}
@@ -300,17 +321,45 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 gen_kwargs['prompt_cache'] = prompt_cache
                 tokens = remaining_tokens if remaining_tokens else cache_key
 
+            accumulated = []
+            last_response = None
             for response in stream_generate(
                 self.model,
                 self.tokenizer,
                 prompt=tokens,
                 max_tokens=max_tokens,
                 sampler=sampler,
+                logits_processors=logits_processors,
                 **gen_kwargs,
             ):
                 if cache_key is not None:
                     cache_key.append(response.token)
-                yield backend_pb2.Reply(message=bytes(response.text, encoding='utf-8'))
+                accumulated.append(response.text)
+                last_response = response
+                yield backend_pb2.Reply(
+                    message=bytes(response.text, encoding='utf-8'),
+                    chat_deltas=[backend_pb2.ChatDelta(content=response.text)],
+                )
+                if stop_words and any(s in "".join(accumulated) for s in stop_words):
+                    break
+
+            full_text = self._truncate_at_stop("".join(accumulated), stop_words)
+            content, reasoning_content, tool_calls_proto, prompt_tokens, completion_tokens, logprobs_bytes = (
+                self._finalize_output(request, full_text, last_response)
+            )
+            yield backend_pb2.Reply(
+                message=b"",
+                prompt_tokens=prompt_tokens,
+                tokens=completion_tokens,
+                logprobs=logprobs_bytes,
+                chat_deltas=[
+                    backend_pb2.ChatDelta(
+                        content="",
+                        reasoning_content=reasoning_content,
+                        tool_calls=tool_calls_proto,
+                    )
+                ],
+            )
 
         except Exception as e:
             print(f"[Rank 0] Error in PredictStream: {e}", file=sys.stderr)
@@ -331,12 +380,74 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         context.set_details("Embeddings are not supported in the MLX distributed backend.")
         return backend_pb2.EmbeddingResult()
 
+    async def TokenizeString(self, request, context):
+        if not hasattr(self, "tokenizer") or self.tokenizer is None:
+            context.set_code(grpc.StatusCode.FAILED_PRECONDITION)
+            context.set_details("tokenizer not loaded")
+            return backend_pb2.TokenizationResponse()
+        try:
+            tokens = self.tokenizer.encode(request.Prompt)
+            if hasattr(tokens, "tolist"):
+                tokens = tokens.tolist()
+            tokens = list(tokens)
+            return backend_pb2.TokenizationResponse(length=len(tokens), tokens=tokens)
+        except Exception as e:
+            context.set_code(grpc.StatusCode.INTERNAL)
+            context.set_details(str(e))
+            return backend_pb2.TokenizationResponse()
+
+    async def Free(self, request, context):
+        try:
+            # If we're rank 0 of a distributed run, tell workers to shut
+            # down their per-request loops first so they release the model.
+            if self.coordinator is not None:
+                try:
+                    from coordinator import CMD_SHUTDOWN
+                    self.coordinator.broadcast_command(CMD_SHUTDOWN)
+                except Exception as e:
+                    print(f"[Rank 0] failed to broadcast shutdown: {e}", file=sys.stderr)
+            if hasattr(self, "model"):
+                del self.model
+            if hasattr(self, "tokenizer"):
+                del self.tokenizer
+            if self.lru_cache is not None:
+                try:
+                    self.lru_cache.clear()
+                except Exception:
+                    pass
+                self.lru_cache = None
+            self.coordinator = None
+            self.group = None
+            gc.collect()
+            try:
+                import mlx.core as mx  # type: ignore
+                if hasattr(mx, "clear_cache"):
+                    mx.clear_cache()
+                elif hasattr(mx, "metal") and hasattr(mx.metal, "clear_cache"):
+                    mx.metal.clear_cache()
+            except Exception:
+                pass
+            return backend_pb2.Result(success=True, message="MLX distributed model freed")
+        except Exception as e:
+            return backend_pb2.Result(success=False, message=str(e))
+
     def _prepare_prompt(self, request):
         if not request.Prompt and request.UseTokenizerTemplate and request.Messages:
-            messages = [{"role": msg.role, "content": msg.content} for msg in request.Messages]
-            return self.tokenizer.apply_chat_template(
-                messages, tokenize=False, add_generation_prompt=True
-            )
+            messages = messages_to_dicts(request.Messages)
+            kwargs = {"tokenize": False, "add_generation_prompt": True}
+            if request.Tools:
+                try:
+                    kwargs["tools"] = json.loads(request.Tools)
+                except json.JSONDecodeError:
+                    pass
+            if request.Metadata.get("enable_thinking", "").lower() == "true":
+                kwargs["enable_thinking"] = True
+            try:
+                return self.tokenizer.apply_chat_template(messages, **kwargs)
+            except TypeError:
+                return self.tokenizer.apply_chat_template(
+                    messages, tokenize=False, add_generation_prompt=True
+                )
         return request.Prompt
 
     def _get_tokens_from_prompt(self, prompt_text: str) -> List[int]:
@@ -344,6 +455,82 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         if hasattr(tokens, 'tolist'):
             return tokens.tolist()
         return list(tokens)
+
+    def _tool_module_from_tokenizer(self):
+        """Same shim as the mlx backend: fall back to json.loads when the
+        installed mlx-lm doesn't expose a tool_parser callable on the
+        wrapper (true on 0.29.x — only HEAD ships parsers)."""
+        start = getattr(self.tokenizer, "tool_call_start", None)
+        end = getattr(self.tokenizer, "tool_call_end", None)
+        if not start:
+            return None
+        parse_fn = getattr(self.tokenizer, "tool_parser", None)
+        if parse_fn is None:
+            def parse_fn(body, tools):  # noqa: E306
+                return json.loads(body.strip())
+        return types.SimpleNamespace(
+            tool_call_start=start,
+            tool_call_end=end or "",
+            parse_tool_call=parse_fn,
+        )
+
+    def _truncate_at_stop(self, text, stop_words):
+        if not stop_words:
+            return text
+        earliest = len(text)
+        for stop in stop_words:
+            if not stop:
+                continue
+            idx = text.find(stop)
+            if idx >= 0 and idx < earliest:
+                earliest = idx
+        return text[:earliest] if earliest < len(text) else text
+
+    def _finalize_output(self, request, generated_text, last_response):
+        content = generated_text
+        reasoning_content = ""
+        if getattr(self.tokenizer, "has_thinking", False):
+            think_start = getattr(self.tokenizer, "think_start", "") or ""
+            think_end = getattr(self.tokenizer, "think_end", "") or ""
+            reasoning_content, content = split_reasoning(content, think_start, think_end)
+
+        tool_calls_proto: List[backend_pb2.ToolCallDelta] = []
+        tool_module = None
+        if getattr(self.tokenizer, "has_tool_calling", False):
+            tool_module = self._tool_module_from_tokenizer()
+        if tool_module is not None:
+            parsed_tools = None
+            if request.Tools:
+                try:
+                    parsed_tools = json.loads(request.Tools)
+                except json.JSONDecodeError:
+                    parsed_tools = None
+            calls, content = parse_tool_calls(content, tool_module, parsed_tools)
+            for c in calls:
+                tool_calls_proto.append(
+                    backend_pb2.ToolCallDelta(
+                        index=c["index"], id=c["id"], name=c["name"], arguments=c["arguments"],
+                    )
+                )
+
+        prompt_token_count = int(getattr(last_response, "prompt_tokens", 0) or 0) if last_response else 0
+        completion_token_count = int(getattr(last_response, "generation_tokens", 0) or 0) if last_response else 0
+
+        logprobs_bytes = b""
+        if last_response is not None and int(getattr(request, "Logprobs", 0) or 0) > 0:
+            try:
+                lp = getattr(last_response, "logprobs", None)
+                if lp is not None:
+                    token_id = int(getattr(last_response, "token", 0) or 0)
+                    token_text = self.tokenizer.decode([token_id]) if token_id else ""
+                    top_logprob = float(lp[token_id]) if hasattr(lp, "__getitem__") else 0.0
+                    logprobs_bytes = json.dumps(
+                        {"content": [{"token": token_text, "logprob": top_logprob}]}
+                    ).encode("utf-8")
+            except Exception as e:
+                print(f"[Rank 0] Logprobs extraction failed: {e}", file=sys.stderr)
+
+        return content, reasoning_content, tool_calls_proto, prompt_token_count, completion_token_count, logprobs_bytes
 
     def _build_generation_params(self, request, default_max_tokens=200):
         import mlx.core as mx
@@ -369,6 +556,22 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             'xtc_probability': 0.0,
         }
 
+        # Logits processor parameters — pulled from the request and
+        # forwarded to make_logits_processors. Rank 0 is the only rank
+        # running the sampler so we don't need to broadcast these to
+        # workers (workers participate in the pipeline-parallel forward
+        # pass only).
+        logits_params = {}
+        repetition_penalty = getattr(request, 'RepetitionPenalty', 0.0) or 0.0
+        if repetition_penalty and repetition_penalty != 1.0:
+            logits_params['repetition_penalty'] = repetition_penalty
+        presence_penalty = getattr(request, 'PresencePenalty', 0.0) or 0.0
+        if presence_penalty:
+            logits_params['presence_penalty'] = presence_penalty
+        frequency_penalty = getattr(request, 'FrequencyPenalty', 0.0) or 0.0
+        if frequency_penalty:
+            logits_params['frequency_penalty'] = frequency_penalty
+
         seed = getattr(request, 'Seed', 0)
         if seed != 0:
             mx.random.seed(seed)
@@ -388,8 +591,14 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             for opt_key, param_key in option_mapping.items():
                 if opt_key in self.options:
                     sampler_params[param_key] = self.options[opt_key]
+            for opt_key in ('repetition_penalty', 'presence_penalty', 'frequency_penalty'):
+                if opt_key in self.options:
+                    logits_params[opt_key] = self.options[opt_key]
             if 'seed' in self.options:
                 mx.random.seed(self.options['seed'])
+
+        stop_words = list(getattr(request, 'StopPrompts', []) or [])
+        return max_tokens, sampler_params, logits_params, stop_words
 
         # XTC special tokens
         xtc_special_tokens = []
@@ -468,6 +677,8 @@ async def serve(address):
             ('grpc.max_send_message_length', 50 * 1024 * 1024),
             ('grpc.max_receive_message_length', 50 * 1024 * 1024),
         ],
+    
+        interceptors=get_auth_interceptors(aio=True),
     )
     backend_pb2_grpc.add_BackendServicer_to_server(BackendServicer(), server)
     server.add_insecure_port(address)

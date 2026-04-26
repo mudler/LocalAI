@@ -10,21 +10,18 @@ type Task struct {
 	Name           string            `json:"name"`        // User-friendly name
 	Description    string            `json:"description"` // Optional description
 	Model          string            `json:"model"`       // Model name (must have MCP config)
-	Prompt         string            `json:"prompt"`      // Template prompt (supports {{.param}} syntax)
+	Prompt         string            `json:"prompt"`      // Template prompt (supports Go template .param syntax)
 	CreatedAt      time.Time         `json:"created_at"`
 	UpdatedAt      time.Time         `json:"updated_at"`
 	Enabled        bool              `json:"enabled"`                   // Can be disabled without deletion
 	Cron           string            `json:"cron,omitempty"`            // Optional cron expression
 	CronParameters map[string]string `json:"cron_parameters,omitempty"` // Parameters to use when executing cron jobs
 
-	// Webhook configuration (for notifications)
-	// Support multiple webhook endpoints
+	// Webhook configuration (for notifications).
+	// Supports multiple webhook endpoints.
 	// Webhooks can handle both success and failure cases using template variables:
-	// - {{.Job}} - Job object with all fields
-	// - {{.Task}} - Task object
-	// - {{.Result}} - Job result (if successful)
-	// - {{.Error}} - Error message (if failed, empty string if successful)
-	// - {{.Status}} - Job status string
+	// .Job (Job object), .Task (Task object), .Result (if successful),
+	// .Error (if failed), .Status (job status string).
 	Webhooks []WebhookConfig `json:"webhooks,omitempty"` // Webhook configs for job completion notifications
 
 	// Multimedia sources (for cron jobs)
@@ -39,13 +36,8 @@ type WebhookConfig struct {
 	Method          string            `json:"method"`                     // HTTP method (POST, PUT, PATCH) - default: POST
 	Headers         map[string]string `json:"headers,omitempty"`          // Custom headers (e.g., Authorization)
 	PayloadTemplate string            `json:"payload_template,omitempty"` // Optional template for payload
-	// If PayloadTemplate is empty, uses default JSON structure
-	// Available template variables:
-	// - {{.Job}} - Job object with all fields
-	// - {{.Task}} - Task object
-	// - {{.Result}} - Job result (if successful)
-	// - {{.Error}} - Error message (if failed, empty string if successful)
-	// - {{.Status}} - Job status string
+	// If PayloadTemplate is empty, uses default JSON structure.
+	// Available template variables: .Job, .Task, .Result, .Error, .Status.
 }
 
 // MultimediaSourceConfig represents configuration for fetching multimedia content
@@ -105,11 +97,11 @@ type Job struct {
 
 // JobTrace represents a single execution trace entry
 type JobTrace struct {
-	Type      string                 `json:"type"`                // "reasoning", "tool_call", "tool_result", "status"
-	Content   string                 `json:"content"`             // The actual trace content
-	Timestamp time.Time              `json:"timestamp"`           // When this trace occurred
-	ToolName  string                 `json:"tool_name,omitempty"` // Tool name (for tool_call/tool_result)
-	Arguments map[string]interface{} `json:"arguments,omitempty"` // Tool arguments or result data
+	Type      string         `json:"type"`                // "reasoning", "tool_call", "tool_result", "status"
+	Content   string         `json:"content"`             // The actual trace content
+	Timestamp time.Time      `json:"timestamp"`           // When this trace occurred
+	ToolName  string         `json:"tool_name,omitempty"` // Tool name (for tool_call/tool_result)
+	Arguments map[string]any `json:"arguments,omitempty"` // Tool arguments or result data
 }
 
 // JobExecutionRequest represents a request to execute a job
@@ -126,9 +118,9 @@ type JobExecutionRequest struct {
 
 // JobExecutionResponse represents the response after creating a job
 type JobExecutionResponse struct {
-	JobID  string `json:"job_id"`
-	Status string `json:"status"`
-	URL    string `json:"url"` // URL to check job status
+	JobID  string `json:"job_id"` // unique job identifier
+	Status string `json:"status"` // initial status (pending)
+	URL    string `json:"url"`    // URL to poll for job status
 }
 
 // TasksFile represents the structure of agent_tasks.json

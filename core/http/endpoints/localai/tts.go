@@ -17,6 +17,7 @@ import (
 // TTSEndpoint is the OpenAI Speech API endpoint https://platform.openai.com/docs/api-reference/audio/createSpeech
 //
 //		@Summary	Generates audio from the input text.
+//		@Tags		audio
 //	 	@Accept json
 //	 	@Produce audio/x-wav
 //		@Param		request	body		schema.TTSRequest	true	"query params"

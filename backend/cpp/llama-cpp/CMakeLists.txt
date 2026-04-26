@@ -62,7 +62,18 @@ add_executable(${TARGET} grpc-server.cpp json.hpp httplib.h)
 target_include_directories(${TARGET} PRIVATE ../llava)
 target_include_directories(${TARGET} PRIVATE ${CMAKE_SOURCE_DIR})
 
-target_link_libraries(${TARGET} PRIVATE common llama mtmd ${CMAKE_THREAD_LIBS_INIT} absl::flags hw_grpc_proto
+# Upstream llama.cpp renamed the `common` helpers library to `llama-common`.
+# Forks that branched before the rename (e.g. llama-cpp-turboquant) still
+# expose it as `common`. Detect which one is present so the same CMakeLists
+# drives both builds — otherwise an unresolved name silently degrades to a
+# plain `-l` flag and the PUBLIC include dir (where common.h lives) is lost.
+if (TARGET llama-common)
+    set(_LLAMA_COMMON_TARGET llama-common)
+else()
+    set(_LLAMA_COMMON_TARGET common)
+endif()
+
+target_link_libraries(${TARGET} PRIVATE ${_LLAMA_COMMON_TARGET} llama mtmd ${CMAKE_THREAD_LIBS_INIT} absl::flags hw_grpc_proto
   absl::flags_parse
   gRPC::${_REFLECTION}
   gRPC::${_GRPC_GRPCPP}

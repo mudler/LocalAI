@@ -1,7 +1,7 @@
 
 +++
 disableToc = false
-title = "🎨 Image generation"
+title = "Image Generation"
 weight = 12
 url = "/features/image-generation/"
 +++

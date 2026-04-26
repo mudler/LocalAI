@@ -1,4 +1,709 @@
 ---
+- name: "kimi-k2.6"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/unsloth/Kimi-K2.6-GGUF
+  description: |
+    🤗&nbsp;&nbsp;huggingchat
+    &nbsp;|&nbsp;
+    📰&nbsp;&nbsp;Tech Blog
+
+    ## 1. Model Introduction
+
+    Kimi K2.6 is an open-source, native multimodal agentic model that advances practical capabilities in long-horizon coding, coding-driven design, proactive autonomous execution, and swarm-based task orchestration.
+
+    ### Key Features
+      - **Long-Horizon Coding**: K2.6 achieves significant improvements on complex, end-to-end coding tasks, generalizing robustly across programming languages (Rust, Go, Python) and domains spanning front-end, DevOps, and performance optimization.
+      - **Coding-Driven Design**: K2.6 is capable of transforming simple prompts and visual inputs into production-ready interfaces and lightweight full-stack workflows, generating structured layouts, interactive elements, and rich animations with deliberate aesthetic precision.
+      - **Elevated Agent Swarm**: Scaling horizontally to 300 sub-agents executing 4,000 coordinated steps, K2.6 can dynamically decompose tasks into parallel, domain-specialized subtasks, delivering end-to-end outputs from documents to websites to spreadsheets in a single autonomous run.
+      - **Proactive & Open Orchestration**: For autonomous tasks, K2.6 demonstra
+
+    ...
+  license: "other"
+  tags:
+    - llm
+    - gguf
+  icon: https://huggingface.co/moonshotai/Kimi-K2.6/resolve/main/figures/kimi-logo.png
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/Kimi-K2.6-GGUF/mmproj-F32.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      min_p: 0.01
+      model: llama-cpp/models/Kimi-K2.6-GGUF/Kimi-K2.6-UD-Q8_K_XL-00001-of-00014.gguf
+      repeat_penalty: 1
+      temperature: 0.6
+      top_k: -1
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Kimi-K2.6-GGUF/Kimi-K2.6-UD-Q8_K_XL-00001-of-00014.gguf
+      sha256: 38ae3099572fccba0e8864f7119d20ba0d87d8314a4cec49b145505e340571ce
+      uri: https://huggingface.co/unsloth/Kimi-K2.6-GGUF/resolve/main/UD-Q8_K_XL/Kimi-K2.6-UD-Q8_K_XL-00001-of-00014.gguf
+    - filename: llama-cpp/models/Kimi-K2.6-GGUF/Kimi-K2.6-UD-Q8_K_XL-00002-of-00014.gguf
+      sha256: 766267c7798df6db531c87e3a8f4835e528e54c67ec4ed7bbae30df6ef7e70a3
+      uri: https://huggingface.co/unsloth/Kimi-K2.6-GGUF/resolve/main/UD-Q8_K_XL/Kimi-K2.6-UD-Q8_K_XL-00002-of-00014.gguf
+    - filename: llama-cpp/models/Kimi-K2.6-GGUF/Kimi-K2.6-UD-Q8_K_XL-00003-of-00014.gguf
+      sha256: a88b1c24c8ce763e336b2c6a4da76ac0300ac6d903cdb14f04fb13ccec20457f
+      uri: https://huggingface.co/unsloth/Kimi-K2.6-GGUF/resolve/main/UD-Q8_K_XL/Kimi-K2.6-UD-Q8_K_XL-00003-of-00014.gguf
+    - filename: llama-cpp/models/Kimi-K2.6-GGUF/Kimi-K2.6-UD-Q8_K_XL-00004-of-00014.gguf
+      sha256: 8af9f903781a45007fd479656f8c1db1eb4d1b10ff6ee0ef1f4cda745e19ce23
+      uri: https://huggingface.co/unsloth/Kimi-K2.6-GGUF/resolve/main/UD-Q8_K_XL/Kimi-K2.6-UD-Q8_K_XL-00004-of-00014.gguf
+    - filename: llama-cpp/models/Kimi-K2.6-GGUF/Kimi-K2.6-UD-Q8_K_XL-00005-of-00014.gguf
+      sha256: 017e4aaf9bfe026b7e48891b656604dc8a652464e5d724bc3eb065d340545ffa
+      uri: https://huggingface.co/unsloth/Kimi-K2.6-GGUF/resolve/main/UD-Q8_K_XL/Kimi-K2.6-UD-Q8_K_XL-00005-of-00014.gguf
+    - filename: llama-cpp/models/Kimi-K2.6-GGUF/Kimi-K2.6-UD-Q8_K_XL-00006-of-00014.gguf
+      sha256: 452b515593db45f454d9b3afefee794a183487e55d8358980133c52b6542b4a4
+      uri: https://huggingface.co/unsloth/Kimi-K2.6-GGUF/resolve/main/UD-Q8_K_XL/Kimi-K2.6-UD-Q8_K_XL-00006-of-00014.gguf
+    - filename: llama-cpp/models/Kimi-K2.6-GGUF/Kimi-K2.6-UD-Q8_K_XL-00007-of-00014.gguf
+      sha256: defc50da805a7a7497c7785977c389666dfc1d25c667696e2007012ec790bff3
+      uri: https://huggingface.co/unsloth/Kimi-K2.6-GGUF/resolve/main/UD-Q8_K_XL/Kimi-K2.6-UD-Q8_K_XL-00007-of-00014.gguf
+    - filename: llama-cpp/models/Kimi-K2.6-GGUF/Kimi-K2.6-UD-Q8_K_XL-00008-of-00014.gguf
+      sha256: ffbee54e6c7bc1f9f3cb29dcc467ebe9a71de56f6f528057d4c86bf309da386b
+      uri: https://huggingface.co/unsloth/Kimi-K2.6-GGUF/resolve/main/UD-Q8_K_XL/Kimi-K2.6-UD-Q8_K_XL-00008-of-00014.gguf
+    - filename: llama-cpp/models/Kimi-K2.6-GGUF/Kimi-K2.6-UD-Q8_K_XL-00009-of-00014.gguf
+      sha256: a60aa52e9d1d3d9703ca86043c0b0f3876ef9456229e798b0f9a825dd9bec06f
+      uri: https://huggingface.co/unsloth/Kimi-K2.6-GGUF/resolve/main/UD-Q8_K_XL/Kimi-K2.6-UD-Q8_K_XL-00009-of-00014.gguf
+    - filename: llama-cpp/models/Kimi-K2.6-GGUF/Kimi-K2.6-UD-Q8_K_XL-00010-of-00014.gguf
+      sha256: 40d6527c5076ce8a5d9d4a2cd8dff6ee51d0c656e6fb1243c864ab37c5aef4a5
+      uri: https://huggingface.co/unsloth/Kimi-K2.6-GGUF/resolve/main/UD-Q8_K_XL/Kimi-K2.6-UD-Q8_K_XL-00010-of-00014.gguf
+    - filename: llama-cpp/models/Kimi-K2.6-GGUF/Kimi-K2.6-UD-Q8_K_XL-00011-of-00014.gguf
+      sha256: 561f178b027e7f3e5078716039867bac9c8446a393c430f20af471f91ff9dd70
+      uri: https://huggingface.co/unsloth/Kimi-K2.6-GGUF/resolve/main/UD-Q8_K_XL/Kimi-K2.6-UD-Q8_K_XL-00011-of-00014.gguf
+    - filename: llama-cpp/models/Kimi-K2.6-GGUF/Kimi-K2.6-UD-Q8_K_XL-00012-of-00014.gguf
+      sha256: d4470123eeeff2cc01d5319122a96a53278a6448e7030500f7878117dfac0c1a
+      uri: https://huggingface.co/unsloth/Kimi-K2.6-GGUF/resolve/main/UD-Q8_K_XL/Kimi-K2.6-UD-Q8_K_XL-00012-of-00014.gguf
+    - filename: llama-cpp/models/Kimi-K2.6-GGUF/Kimi-K2.6-UD-Q8_K_XL-00013-of-00014.gguf
+      sha256: 72ce8c04dbb57a0677f6d44e4b1b35299a8820870a1e38ebf6a1e2e651d5b164
+      uri: https://huggingface.co/unsloth/Kimi-K2.6-GGUF/resolve/main/UD-Q8_K_XL/Kimi-K2.6-UD-Q8_K_XL-00013-of-00014.gguf
+    - filename: llama-cpp/models/Kimi-K2.6-GGUF/Kimi-K2.6-UD-Q8_K_XL-00014-of-00014.gguf
+      sha256: cd1f1fe7ea0a6bba0fd4780e8b286b6baa97e00e4844ced0c6a86d0ff0e8de48
+      uri: https://huggingface.co/unsloth/Kimi-K2.6-GGUF/resolve/main/UD-Q8_K_XL/Kimi-K2.6-UD-Q8_K_XL-00014-of-00014.gguf
+    - filename: llama-cpp/mmproj/Kimi-K2.6-GGUF/mmproj-F32.gguf
+      sha256: 9e721737d6beccf80b68b2307ed967ddac9e44e7d6b83b7297eacdec34efad24
+      uri: https://huggingface.co/unsloth/Kimi-K2.6-GGUF/resolve/main/mmproj-F32.gguf
+- name: "qwopus3.6-27b-v1-preview"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/Jackrong/Qwopus3.6-27B-v1-preview-GGUF
+  description: |
+    # Qwen3.6-27B
+
+    [](https://chat.qwen.ai)
+
+    > [!Note]
+    > This repository contains model weights and configuration files for the post-trained model in the Hugging Face Transformers format.
+    >
+    > These artifacts are compatible with Hugging Face Transformers, vLLM, SGLang, KTransformers, etc.
+
+    Following the February release of the Qwen3.5 series, we're pleased to share the first open-weight variant of Qwen3.6. Built on direct feedback from the community, Qwen3.6 prioritizes stability and real-world utility, offering developers a more intuitive, responsive, and genuinely productive coding experience.
+
+    ## Qwen3.6 Highlights
+
+    This release delivers substantial upgrades, particularly in
+
+      - **Agentic Coding:** the model now handles frontend workflows and repository-level reasoning with greater fluency and precision.
+      - **Thinking Preservation:** we've introduced a new option to retain reasoning context from historical messages, streamlining iterative development and reducing overhead.
+
+    For more details, please refer to our blog post Qwen3.6-27B.
+
+    ## Model Overview
+
+    ...
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - qwen
+    - multimodal
+    - reasoning
+  icon: https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen3.6/Figures/qwen3.6_27b_score.png
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/Qwopus3.6-27B-v1-preview-GGUF/mmproj.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/Qwopus3.6-27B-v1-preview-GGUF/Qwopus3.6-27B-v1-preview-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Qwopus3.6-27B-v1-preview-GGUF/Qwopus3.6-27B-v1-preview-Q4_K_M.gguf
+      sha256: 5966748c91ce5f53a4ca5162c12060196a55abec8234bf055bdd6984f8ec59a3
+      uri: https://huggingface.co/Jackrong/Qwopus3.6-27B-v1-preview-GGUF/resolve/main/Qwopus3.6-27B-v1-preview-Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/Qwopus3.6-27B-v1-preview-GGUF/mmproj.gguf
+      sha256: 8085a1d3fb851749ea84b72bf560842a2d05fbb2676c05714eca196c8f3580dc
+      uri: https://huggingface.co/Jackrong/Qwopus3.6-27B-v1-preview-GGUF/resolve/main/mmproj.gguf
+- name: "qwopus-glm-18b-merged"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/KyleHessling1/Qwopus-GLM-18B-Merged-GGUF
+  description: "# \U0001FA90 Qwen3.5-9B-GLM5.1-Distill-v1\n\n## \U0001F4CC Model Overview\n\n**Model Name:** `Jackrong/Qwen3.5-9B-GLM5.1-Distill-v1`\n**Base Model:** Qwen3.5-9B\n**Training Type:** Supervised Fine-Tuning (SFT, Distillation)\n**Parameter Scale:** 9B\n**Training Framework:** Unsloth\n\nThis model is a distilled variant of **Qwen3.5-9B**, trained on high-quality reasoning data derived from **GLM-5.1**.\n\nThe primary goals are to:\n\n  - Improve **structured reasoning ability**\n  - Enhance **instruction-following consistency**\n  - Activate **latent knowledge via better reasoning structure**\n\n## \U0001F4CA Training Data\n\n### Main Dataset\n\n  - `Jackrong/GLM-5.1-Reasoning-1M-Cleaned`\n  - Cleaned from the original `Kassadin88/GLM-5.1-1000000x` dataset.\n  - Generated from a **GLM-5.1 teacher model**\n  - Approximately **700x** the scale of `Qwen3.5-reasoning-700x`\n  - Training used a **filtered subset**, not the full source dataset.\n\n### Auxiliary Dataset\n\n  - `Jackrong/Qwen3.5-reasoning-700x`\n\n...\n"
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - reasoning
+  icon: https://cdn-uploads.huggingface.co/production/uploads/66309bd090589b7c65950665/BnSg_x99v9bG9T5-8sKa1.png
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/Qwopus-GLM-18B-Merged-GGUF/Qwopus-GLM-18B-Healed-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Qwopus-GLM-18B-Merged-GGUF/Qwopus-GLM-18B-Healed-Q4_K_M.gguf
+      sha256: 13bd039f95c9ea46ef1d75905faa7be6ca4e47a5af9d4cf62e298a738a5b195f
+      uri: https://huggingface.co/KyleHessling1/Qwopus-GLM-18B-Merged-GGUF/resolve/main/Qwopus-GLM-18B-Healed-Q4_K_M.gguf
+- name: "qwen3.6-27b"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/unsloth/Qwen3.6-27B-GGUF
+  description: |
+    # Qwen3.6-27B
+
+    [](https://chat.qwen.ai)
+
+    > [!Note]
+    > This repository contains model weights and configuration files for the post-trained model in the Hugging Face Transformers format.
+    >
+    > These artifacts are compatible with Hugging Face Transformers, vLLM, SGLang, KTransformers, etc.
+
+    Following the February release of the Qwen3.5 series, we're pleased to share the first open-weight variant of Qwen3.6. Built on direct feedback from the community, Qwen3.6 prioritizes stability and real-world utility, offering developers a more intuitive, responsive, and genuinely productive coding experience.
+
+    ## Qwen3.6 Highlights
+
+    This release delivers substantial upgrades, particularly in
+
+      - **Agentic Coding:** the model now handles frontend workflows and repository-level reasoning with greater fluency and precision.
+      - **Thinking Preservation:** we've introduced a new option to retain reasoning context from historical messages, streamlining iterative development and reducing overhead.
+
+    For more details, please refer to our blog post Qwen3.6-27B.
+
+    ## Model Overview
+
+    ...
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - qwen
+  icon: https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen3.6/Figures/qwen3.6_27b_score.png
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/Qwen3.6-27B-GGUF/mmproj-F32.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/Qwen3.6-27B-GGUF/Qwen3.6-27B-Q4_K_M.gguf
+      presence_penalty: 1.5
+      repeat_penalty: 1
+      temperature: 0.7
+      top_k: 20
+      top_p: 0.8
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Qwen3.6-27B-GGUF/Qwen3.6-27B-Q4_K_M.gguf
+      sha256: 5ed60d0af4650a854b1755bd392f9aef4872643dc25a254bc68043fa638392a0
+      uri: https://huggingface.co/unsloth/Qwen3.6-27B-GGUF/resolve/main/Qwen3.6-27B-Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/Qwen3.6-27B-GGUF/mmproj-F32.gguf
+      sha256: fdc443e974cad1f61c45af1cfd5580855855ddce0d6c14cc500a5714c486ac1d
+      uri: https://huggingface.co/unsloth/Qwen3.6-27B-GGUF/resolve/main/mmproj-F32.gguf
+- name: "qwen3.6-35b-a3b-claude-4.6-opus-reasoning-distilled"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/hesamation/Qwen3.6-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-GGUF
+  description: "# \U0001F525 Qwen3.6-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled\n\nA reasoning SFT fine-tune of `Qwen/Qwen3.6-35B-A3B` on chain-of-thought (CoT) distillation mostly sourced from Claude Opus 4.6. The goal is to preserve Qwen3.6's strong agentic coding and reasoning base while nudging the model toward structured Claude Opus-style reasoning traces and more stable long-form problem solving.\n\nThe training path is text-only. The Qwen3.6 base architecture includes a vision encoder, but this fine-tuning run did not train on image or video examples.\n\n  - **Developed by:** @hesamation\n  - **Base model:** `Qwen/Qwen3.6-35B-A3B`\n  - **License:** apache-2.0\n\nThis fine-tuning run is inspired by Jackrong/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled, including the notebook/training workflow style and Claude Opus reasoning-distillation direction.\n\n[](https://x.com/Hesamation) [](https://discord.gg/vtJykN3t)\n\n## Benchmark Results\n\nThe MMLU-Pro pass used 70 total questions per model: `--limit 5` across 14 MMLU-Pro subjects. Treat this as a smoke/comparative check, not a release-quality full benchmark.\n\n...\n"
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - qwen
+    - reasoning
+  icon: https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen3.6/Figures/qwen3.6_35b_a3b_score.png
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/Qwen3.6-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-GGUF/Qwen3.6-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled.Q4_K_M.gguf
+      presence_penalty: 1.5
+      repeat_penalty: 1
+      temperature: 0.7
+      top_k: 20
+      top_p: 0.8
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Qwen3.6-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-GGUF/Qwen3.6-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled.Q4_K_M.gguf
+      sha256: fd3bf7586354890a2710d69357c30fb221a31eecf9f3cd9418257d9289e02765
+      uri: https://huggingface.co/hesamation/Qwen3.6-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-GGUF/resolve/main/Qwen3.6-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled.Q4_K_M.gguf
+- name: "qwen3.5-9b-glm5.1-distill-v1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/Jackrong/Qwen3.5-9B-GLM5.1-Distill-v1-GGUF
+  description: "# \U0001FA90 Qwen3.5-9B-GLM5.1-Distill-v1\n\n## \U0001F4CC Model Overview\n\n**Model Name:** `Jackrong/Qwen3.5-9B-GLM5.1-Distill-v1`\n**Base Model:** Qwen3.5-9B\n**Training Type:** Supervised Fine-Tuning (SFT, Distillation)\n**Parameter Scale:** 9B\n**Training Framework:** Unsloth\n\nThis model is a distilled variant of **Qwen3.5-9B**, trained on high-quality reasoning data derived from **GLM-5.1**.\n\nThe primary goals are to:\n\n  - Improve **structured reasoning ability**\n  - Enhance **instruction-following consistency**\n  - Activate **latent knowledge via better reasoning structure**\n\n## \U0001F4CA Training Data\n\n### Main Dataset\n\n  - `Jackrong/GLM-5.1-Reasoning-1M-Cleaned`\n  - Cleaned from the original `Kassadin88/GLM-5.1-1000000x` dataset.\n  - Generated from a **GLM-5.1 teacher model**\n  - Approximately **700x** the scale of `Qwen3.5-reasoning-700x`\n  - Training used a **filtered subset**, not the full source dataset.\n\n### Auxiliary Dataset\n\n  - `Jackrong/Qwen3.5-reasoning-700x`\n\n...\n"
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - qwen
+    - instruction-tuned
+    - reasoning
+  icon: https://cdn-uploads.huggingface.co/production/uploads/66309bd090589b7c65950665/BnSg_x99v9bG9T5-8sKa1.png
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/Qwen3.5-9B-GLM5.1-Distill-v1-GGUF/mmproj.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/Qwen3.5-9B-GLM5.1-Distill-v1-GGUF/Qwen3.5-9B-GLM5.1-Distill-v1-Q4_K_M.gguf
+      presence_penalty: 1.5
+      repeat_penalty: 1
+      temperature: 0.7
+      top_k: 20
+      top_p: 0.8
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Qwen3.5-9B-GLM5.1-Distill-v1-GGUF/Qwen3.5-9B-GLM5.1-Distill-v1-Q4_K_M.gguf
+      sha256: f6f1d2b8efb2339ce9d4dd0f0329d2f2e4cf765eda49aa3f6df8f629f871a151
+      uri: https://huggingface.co/Jackrong/Qwen3.5-9B-GLM5.1-Distill-v1-GGUF/resolve/main/Qwen3.5-9B-GLM5.1-Distill-v1-Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/Qwen3.5-9B-GLM5.1-Distill-v1-GGUF/mmproj.gguf
+      sha256: e42c1c2ed0eaf6ea88a6ba10b26b4adf00a96a8c3d1803534a4c41060ad9e86b
+      uri: https://huggingface.co/Jackrong/Qwen3.5-9B-GLM5.1-Distill-v1-GGUF/resolve/main/mmproj.gguf
+- name: "supergemma4-26b-uncensored-v2"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/Jiunsong/supergemma4-26b-uncensored-gguf-v2
+  description: |
+    Hugging Face |
+    GitHub |
+    Launch Blog |
+    Documentation
+
+    License: Apache 2.0 | Authors: Google DeepMind
+
+    Gemma is a family of open models built by Google DeepMind. Gemma 4 models are multimodal, handling text and image input (with audio supported on small models) and generating text output. This release includes open-weights models in both pre-trained and instruction-tuned variants. Gemma 4 features a context window of up to 256K tokens and maintains multilingual support in over 140 languages.
+
+    Featuring both Dense and Mixture-of-Experts (MoE) architectures, Gemma 4 is well-suited for tasks like text generation, coding, and reasoning. The models are available in four distinct sizes: **E2B**, **E4B**, **26B A4B**, and **31B**. Their diverse sizes make them deployable in environments ranging from high-end phones to laptops and servers, democratizing access to state-of-the-art AI.
+
+    Gemma 4 introduces key **capability and architectural advancements**:
+
+    * **Reasoning** – All models in the family are designed as highly capable reasoners, with configurable thinking modes.
+
+    ...
+  license: "gemma"
+  tags:
+    - llm
+    - gguf
+  icon: https://ai.google.dev/gemma/images/gemma4_banner.png
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/supergemma4-26b-uncensored-gguf-v2/supergemma4-26b-uncensored-fast-v2-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/supergemma4-26b-uncensored-gguf-v2/supergemma4-26b-uncensored-fast-v2-Q4_K_M.gguf
+      sha256: e773b0a209d48524f9d485bca0818247f75d7ddde7cce951367a7e441fb59137
+      uri: https://huggingface.co/Jiunsong/supergemma4-26b-uncensored-gguf-v2/resolve/main/supergemma4-26b-uncensored-fast-v2-Q4_K_M.gguf
+- name: "qwopus-glm-18b-merged"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/Jackrong/Qwopus-GLM-18B-Merged-GGUF
+  description: "# \U0001FA90 Qwen3.5-9B-GLM5.1-Distill-v1\n\n## \U0001F4CC Model Overview\n\n**Model Name:** `Jackrong/Qwen3.5-9B-GLM5.1-Distill-v1`\n**Base Model:** Qwen3.5-9B\n**Training Type:** Supervised Fine-Tuning (SFT, Distillation)\n**Parameter Scale:** 9B\n**Training Framework:** Unsloth\n\nThis model is a distilled variant of **Qwen3.5-9B**, trained on high-quality reasoning data derived from **GLM-5.1**.\n\nThe primary goals are to:\n\n  - Improve **structured reasoning ability**\n  - Enhance **instruction-following consistency**\n  - Activate **latent knowledge via better reasoning structure**\n\n## \U0001F4CA Training Data\n\n### Main Dataset\n\n  - `Jackrong/GLM-5.1-Reasoning-1M-Cleaned`\n  - Cleaned from the original `Kassadin88/GLM-5.1-1000000x` dataset.\n  - Generated from a **GLM-5.1 teacher model**\n  - Approximately **700x** the scale of `Qwen3.5-reasoning-700x`\n  - Training used a **filtered subset**, not the full source dataset.\n\n### Auxiliary Dataset\n\n  - `Jackrong/Qwen3.5-reasoning-700x`\n\n...\n"
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - reasoning
+  icon: https://cdn-uploads.huggingface.co/production/uploads/66309bd090589b7c65950665/BnSg_x99v9bG9T5-8sKa1.png
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/Qwopus-GLM-18B-Merged-GGUF/Qwopus-GLM-18B-Healed-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Qwopus-GLM-18B-Merged-GGUF/Qwopus-GLM-18B-Healed-Q4_K_M.gguf
+      sha256: 13bd039f95c9ea46ef1d75905faa7be6ca4e47a5af9d4cf62e298a738a5b195f
+      uri: https://huggingface.co/Jackrong/Qwopus-GLM-18B-Merged-GGUF/resolve/main/Qwopus-GLM-18B-Healed-Q4_K_M.gguf
+- name: "qwen3.6-35b-a3b-apex"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mudler/Qwen3.6-35B-A3B-APEX-GGUF
+  description: |
+    # Qwen3.6-35B-A3B
+
+    [](https://chat.qwen.ai)
+
+    > [!Note]
+    > This repository contains model weights and configuration files for the post-trained model in the Hugging Face Transformers format.
+    >
+    > These artifacts are compatible with Hugging Face Transformers, vLLM, SGLang, KTransformers, etc.
+
+    Following the February release of the Qwen3.5 series, we're pleased to share the first open-weight variant of Qwen3.6. Built on direct feedback from the community, Qwen3.6 prioritizes stability and real-world utility, offering developers a more intuitive, responsive, and genuinely productive coding experience.
+
+    ## Qwen3.6 Highlights
+
+    This release delivers substantial upgrades, particularly in
+
+      - **Agentic Coding:** the model now handles frontend workflows and repository-level reasoning with greater fluency and precision.
+      - **Thinking Preservation:** we've introduced a new option to retain reasoning context from historical messages, streamlining iterative development and reducing overhead.
+
+    For more details, please refer to our blog post Qwen3.6-35B-A3B.
+
+    ## Model Overview
+
+    ...
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - qwen3
+    - vision
+  icon: https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen3.6/Figures/qwen3.6_35b_a3b_score.png
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/Qwen3.6-35B-A3B-APEX-GGUF/mmproj.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/Qwen3.6-35B-A3B-APEX-GGUF/Qwen3.6-35B-A3B-APEX-Quality.gguf
+      presence_penalty: 1.5
+      repeat_penalty: 1
+      temperature: 0.7
+      top_k: 20
+      top_p: 0.8
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/mmproj/Qwen3.6-35B-A3B-APEX-GGUF/mmproj.gguf
+      sha256: 356dfaa3111376a4f7165e32e8749713378d1700b37cf52e0c50d9f23322334d
+      uri: https://huggingface.co/mudler/Qwen3.6-35B-A3B-APEX-GGUF/resolve/main/mmproj.gguf
+    - filename: llama-cpp/models/Qwen3.6-35B-A3B-APEX-GGUF/Qwen3.6-35B-A3B-APEX-Quality.gguf
+      sha256: b5aa0676be588bf6ef3bbdb89905d7d239b2a809637f0766a6ce23aed6c6b5b4
+      uri: https://huggingface.co/mudler/Qwen3.6-35B-A3B-APEX-GGUF/resolve/main/Qwen3.6-35B-A3B-APEX-Quality.gguf
+- name: "qwen3.6-35b-a3b"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/unsloth/Qwen3.6-35B-A3B-GGUF
+  description: |
+    # Qwen3.6-35B-A3B
+
+    [](https://chat.qwen.ai)
+
+    > [!Note]
+    > This repository contains model weights and configuration files for the post-trained model in the Hugging Face Transformers format.
+    >
+    > These artifacts are compatible with Hugging Face Transformers, vLLM, SGLang, KTransformers, etc.
+
+    Following the February release of the Qwen3.5 series, we're pleased to share the first open-weight variant of Qwen3.6. Built on direct feedback from the community, Qwen3.6 prioritizes stability and real-world utility, offering developers a more intuitive, responsive, and genuinely productive coding experience.
+
+    ## Qwen3.6 Highlights
+
+    This release delivers substantial upgrades, particularly in
+
+      - **Agentic Coding:** the model now handles frontend workflows and repository-level reasoning with greater fluency and precision.
+      - **Thinking Preservation:** we've introduced a new option to retain reasoning context from historical messages, streamlining iterative development and reducing overhead.
+
+    For more details, please refer to our blog post Qwen3.6-35B-A3B.
+
+    ## Model Overview
+
+    ...
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - qwen
+  icon: https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen3.6/Figures/qwen3.6_35b_a3b_score.png
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/Qwen3.6-35B-A3B-GGUF/mmproj-F32.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/Qwen3.6-35B-A3B-GGUF/Qwen3.6-35B-A3B-UD-Q4_K_M.gguf
+      presence_penalty: 1.5
+      repeat_penalty: 1
+      temperature: 0.7
+      top_k: 20
+      top_p: 0.8
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Qwen3.6-35B-A3B-GGUF/Qwen3.6-35B-A3B-UD-Q4_K_M.gguf
+      sha256: ac0e2c1189e055faa36eff361580e79c5bd6f8e76bffb4ce547f167d53e31a61
+      uri: https://huggingface.co/unsloth/Qwen3.6-35B-A3B-GGUF/resolve/main/Qwen3.6-35B-A3B-UD-Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/Qwen3.6-35B-A3B-GGUF/mmproj-F32.gguf
+      sha256: 0a1c1cd2772ae6de5e87e023cea454720924675f11fe2b0e7bb7648e48debdc0
+      uri: https://huggingface.co/unsloth/Qwen3.6-35B-A3B-GGUF/resolve/main/mmproj-F32.gguf
+- name: "gemma-4-26b-a4b-it-apex"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mudler/gemma-4-26B-A4B-it-APEX-GGUF
+  description: |
+    AI model: gemma-4-26b-a4b-it-apex
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/gemma-4-26B-A4B-it-APEX-GGUF/mmproj-F16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/gemma-4-26B-A4B-it-APEX-GGUF/gemma-4-26B-A4B-APEX-Quality.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/mmproj/gemma-4-26B-A4B-it-APEX-GGUF/mmproj-F16.gguf
+      sha256: cfc8dc4e41ab1d0c4846ed63ba4a62186846b04eb25fb38e1f2555ce2d00cb26
+      uri: https://huggingface.co/mudler/gemma-4-26B-A4B-it-APEX-GGUF/resolve/main/mmproj-F16.gguf
+    - filename: llama-cpp/models/gemma-4-26B-A4B-it-APEX-GGUF/gemma-4-26B-A4B-APEX-Quality.gguf
+      uri: https://huggingface.co/mudler/gemma-4-26B-A4B-it-APEX-GGUF/resolve/main/gemma-4-26B-A4B-APEX-Quality.gguf
+      sha256: e246e7a584333d96191edab22cd39191a2fd7749412105ab79ce74fed906d897
+- &gemma4
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  name: "gemma-4-26b-a4b-it"
+  icon: https://ai.google.dev/static/gemma/images/gemma3.png
+  license: gemma
+  urls:
+    - https://huggingface.co/google/gemma-4-26B-A4B-it
+    - https://huggingface.co/ggml-org/gemma-4-26B-A4B-it-GGUF
+  description: |
+    Google Gemma 4 26B-A4B-IT is an open-source multimodal Mixture-of-Experts model with 26B total parameters and 4B active parameters. It handles text and image input, generating text output, with a 256K context window and support for 140+ languages. The MoE architecture provides strong performance with efficient inference. Well-suited for question answering, summarization, reasoning, and image understanding tasks.
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - cpu
+    - gemma
+    - gemma4
+    - gemma-4
+    - multimodal
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: mmproj-gemma-4-26B-A4B-it-bf16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: gemma-4-26B-A4B-it-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: gemma-4-26B-A4B-it-Q4_K_M.gguf
+      uri: huggingface://ggml-org/gemma-4-26B-A4B-it-GGUF/gemma-4-26B-A4B-it-Q4_K_M.gguf
+      sha256: 88f4a13b0bb95f031a7fad973e10854122fb67ebc34d214d39a2f65053046abc
+    - filename: mmproj-gemma-4-26B-A4B-it-bf16.gguf
+      sha256: 2aa99ffb47033ead4a3f1584fec5283905302c1c16fed59c99e0eec131c6dc53
+      uri: huggingface://ggml-org/gemma-4-26B-A4B-it-GGUF/mmproj-gemma-4-26B-A4B-it-bf16.gguf
+- !!merge <<: *gemma4
+  name: "gemma-4-e2b-it"
+  urls:
+    - https://huggingface.co/google/gemma-4-E2B-it
+    - https://huggingface.co/ggml-org/gemma-4-E2B-it-GGUF
+  description: |
+    Google Gemma 4 E2B-IT is a lightweight open-source multimodal model with 5B total parameters and 2B effective parameters using selective parameter activation. It handles text and image input, generating text output, with a 256K context window and support for 140+ languages. Optimized for efficient execution on low-resource devices including mobile and laptops.
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: mmproj-gemma-4-E2B-it-bf16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: gemma-4-E2B-it-Q8_0.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: gemma-4-E2B-it-Q8_0.gguf
+      sha256: e049411c01fb7a81161768c52e38828970e55a64e22738957adcbe51d20f1c8e
+      uri: huggingface://ggml-org/gemma-4-E2B-it-GGUF/gemma-4-E2B-it-Q8_0.gguf
+    - filename: mmproj-gemma-4-E2B-it-bf16.gguf
+      sha256: e42083b71a9e31e0f722171d551f6d92b101544001c4dde040306a8f2160fe8c
+      uri: huggingface://ggml-org/gemma-4-E2B-it-GGUF/mmproj-gemma-4-E2B-it-bf16.gguf
+- !!merge <<: *gemma4
+  name: "gemma-4-e4b-it"
+  urls:
+    - https://huggingface.co/google/gemma-4-E4B-it
+    - https://huggingface.co/ggml-org/gemma-4-E4B-it-GGUF
+  description: |
+    Google Gemma 4 E4B-IT is an open-source multimodal model with 8B total parameters and 4B effective parameters using selective parameter activation. It handles text and image input, generating text output, with a 256K context window and support for 140+ languages. Offers a good balance of performance and efficiency for deployment on consumer hardware.
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: mmproj-gemma-4-E4B-it-bf16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: gemma-4-E4B-it-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: gemma-4-E4B-it-Q4_K_M.gguf
+      sha256: 90ce98129eb3e8cc57e62433d500c97c624b1e3af1fcc85dd3b55ad7e0313e9f
+      uri: huggingface://ggml-org/gemma-4-E4B-it-GGUF/gemma-4-E4B-it-Q4_K_M.gguf
+    - filename: mmproj-gemma-4-E4B-it-bf16.gguf
+      sha256: 4c199e460410ba219a8c63930a7121154e1c70cdf66044858f767966332e5a54
+      uri: huggingface://ggml-org/gemma-4-E4B-it-GGUF/mmproj-gemma-4-E4B-it-bf16.gguf
+- !!merge <<: *gemma4
+  name: "gemma-4-31b-it"
+  urls:
+    - https://huggingface.co/google/gemma-4-31B-it
+    - https://huggingface.co/unsloth/gemma-4-31B-it-GGUF
+  description: |
+    Google Gemma 4 31B-IT is the largest dense model in the Gemma 4 family with 31B parameters. It handles text and image input, generating text output, with a 256K context window and support for 140+ languages. Provides the highest quality outputs in the Gemma 4 lineup, well-suited for complex reasoning, summarization, and image understanding tasks.
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: mmproj-F16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: gemma-4-31B-it-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: gemma-4-31B-it-Q4_K_M.gguf
+      uri: huggingface://unsloth/gemma-4-31B-it-GGUF/gemma-4-31B-it-Q4_K_M.gguf
+      sha256: 3bf13fff7c0d4deff809b7ab168428f54855f3ef0279339dda278a81ea853474
+    - filename: mmproj-F16.gguf
+      sha256: 1be2a32013e0d29c6c746513b5f5e7d38f47b694351e74a69c7172acdbbb11a6
+      uri: https://huggingface.co/unsloth/gemma-4-31B-it-GGUF/resolve/main/mmproj-F16.gguf
+- name: "qwen3.5-35b-a3b-apex"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mudler/Qwen3.5-35B-A3B-APEX-GGUF
+  description: |
+    Describe the model in a clear and concise way that can be shared in a model gallery.
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/Qwen3.5-35B-A3B-APEX-GGUF/mmproj-F16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/Qwen3.5-35B-A3B-APEX-GGUF/Qwen3.5-35B-A3B-APEX-Quality.gguf
+      presence_penalty: 1.5
+      repeat_penalty: 1
+      temperature: 0.7
+      top_k: 20
+      top_p: 0.8
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/mmproj/Qwen3.5-35B-A3B-APEX-GGUF/mmproj-F16.gguf
+      sha256: a516ab92e8240da4734d68352bdfba84c16e830ee40010b8fac80d69c77272ff
+      uri: https://huggingface.co/mudler/Qwen3.5-35B-A3B-APEX-GGUF/resolve/main/mmproj-F16.gguf
+    - filename: llama-cpp/models/Qwen3.5-35B-A3B-APEX-GGUF/Qwen3.5-35B-A3B-APEX-Quality.gguf
+      sha256: 50887b60c77ee5c95bc3657814ae993abcab7b2d71868b9af1e84d6badd09a57
+      uri: https://huggingface.co/mudler/Qwen3.5-35B-A3B-APEX-GGUF/resolve/main/Qwen3.5-35B-A3B-APEX-Quality.gguf
 - name: "qwen_qwen3.5-35b-a3b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
@@ -38,7 +743,6 @@
     - https://huggingface.co/mradermacher/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-heretic-i1-GGUF
   tags:
     - default
-    - default
   overrides:
     parameters:
       model: llama-cpp/models/Qwen3.-27B-Claude-4.6-Opus-Reasoning-Distilled-heretic.i1-Q4_K_M.gguf
@@ -50,6 +754,7 @@
     function:
       grammar:
         disable: true
+    mmproj: llama-cpp/mmproj/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-heretic.mmproj-f16.gguf
     description: Imported from https://huggingface.co/mradermacher/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-heretic-i1-GGUF
     options:
       - use_jinja:true
@@ -57,6 +762,9 @@
     - filename: llama-cpp/models/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-heretic.i1-Q4_K_M.gguf
       sha256: af6c2ceae20d019624cd6ec48cfffb646b0309b0a7a82d9719754297394168e1
       uri: https://huggingface.co/mradermacher/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-heretic-i1-GGUF/resolve/main/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-heretic.i1-Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-heretic.mmproj-f16.gguf
+      sha256: 4068f60ebe62c4e191ce0a2bc184c608c4ab5f8ff0fcbf3978179aa1d74725cf
+      uri: https://huggingface.co/mradermacher/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-heretic-GGUF/resolve/main/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-heretic.mmproj-f16.gguf
 - name: "qwen_qwen3.5-0.8b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
@@ -175,6 +883,7 @@
     function:
       grammar:
         disable: true
+    mmproj: llama-cpp/mmproj/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled.mmproj-f16.gguf
     description: Imported from https://huggingface.co/mradermacher/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-i1-GGUF
     options:
       - use_jinja:true
@@ -182,6 +891,9 @@
     - filename: llama-cpp/models/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled.i1-Q4_K_M.gguf
       sha256: 34b9bcd8021b95d86dee8e8aaa165f28c441c08dee85dbed297f0489bfa8b899
       uri: https://huggingface.co/mradermacher/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-i1-GGUF/resolve/main/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled.i1-Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled.mmproj-f16.gguf
+      sha256: adcc3bac7505c7e2b513cbbbe986626ac8a874ed20bfd0c1008eeedfcb9e85de
+      uri: https://huggingface.co/mradermacher/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-GGUF/resolve/main/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled.mmproj-f16.gguf
 - name: "qwen3.5-4b-claude-4.6-opus-reasoning-distilled"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
@@ -217,7 +929,7 @@
       uri: https://huggingface.co/Jackrong/Qwen3.5-4B-Claude-4.6-Opus-Reasoning-Distilled-GGUF/resolve/main/Qwen3.5-4B.Q4_K_M.gguf
     - filename: llama-cpp/mmproj/Qwen3.5-4B.BF16-mmproj.gguf
       sha256: 5ce63ce0113f4bb7b87dc19d076fe0f951c94d4e593154c7a84f605b2f57d423
-      uri: https://huggingface.co/Jackrong/Qwen3.5-4B-Claude-4.6-Opus-Reasoning-Distilled-GGUF/resolve/main/Qwen3.5-4B.BF16-mmproj.gguf
+      uri: https://huggingface.co/Jackrong/Qwen3.5-4B-Claude-4.6-Opus-Reasoning-Distilled-GGUF/resolve/main/mmproj-BF16.gguf
 - name: "q3.5-bluestar-27b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
@@ -529,6 +1241,134 @@
       - transcript
     parameters:
       model: tiny
+- name: omnilingual-0.3b-ctc-q8-sherpa
+  license: apache-2.0
+  url: "github:mudler/LocalAI/gallery/sherpa-onnx-asr.yaml@master"
+  description: |
+    Omnilingual ASR CTC 300M (int8) is a multilingual automatic speech recognition model supporting 1,600+ languages. Based on Meta's omniASR_CTC_300M architecture (Wav2Vec2 with CTC head), quantized to int8 for efficient inference. Uses the sherpa-onnx backend with ONNX Runtime.
+  urls:
+    - https://huggingface.co/csukuangfj/sherpa-onnx-omnilingual-asr-1600-languages-300M-ctc-int8-2025-11-12
+    - https://k2-fsa.github.io/sherpa/onnx/omnilingual-asr/models.html
+  icon: https://avatars.githubusercontent.com/u/75781706
+  tags:
+    - stt
+    - speech-to-text
+    - asr
+    - audio-transcription
+    - multilingual
+    - omnilingual
+    - sherpa-onnx
+    - cpu
+    - gpu
+  overrides:
+    known_usecases:
+      - transcript
+    parameters:
+      model: omnilingual-asr/model.int8.onnx
+  files:
+    - filename: omnilingual-asr/model.int8.onnx
+      sha256: e7c4e54ee4c4c47829cc6667d5d00ed8ea7bef1dcfeef0fce766f77752a2726c
+      uri: https://huggingface.co/csukuangfj/sherpa-onnx-omnilingual-asr-1600-languages-300M-ctc-int8-2025-11-12/resolve/main/model.int8.onnx
+    - filename: omnilingual-asr/tokens.txt
+      sha256: a7a044c52cb29cbe8b0dc1953e92cefd4ca16b0ed968177b6beab21f9a7d0b31
+      uri: https://huggingface.co/csukuangfj/sherpa-onnx-omnilingual-asr-1600-languages-300M-ctc-int8-2025-11-12/resolve/main/tokens.txt
+- name: streaming-zipformer-en-sherpa
+  license: apache-2.0
+  url: "github:mudler/LocalAI/gallery/sherpa-onnx-asr.yaml@master"
+  description: |
+    Streaming English ASR: sherpa-onnx zipformer transducer (int8, chunk-16 left-128). Low-latency real-time transcription with endpoint detection via sherpa-onnx's online recognizer. English-only; for multilingual offline ASR see omnilingual-0.3b-ctc-q8-sherpa.
+  urls:
+    - https://huggingface.co/csukuangfj/sherpa-onnx-streaming-zipformer-en-2023-06-26
+    - https://k2-fsa.github.io/sherpa/onnx/pretrained_models/online-transducer/zipformer-transducer-models.html
+  icon: https://avatars.githubusercontent.com/u/75781706
+  tags:
+    - stt
+    - speech-to-text
+    - asr
+    - audio-transcription
+    - streaming
+    - real-time
+    - english
+    - zipformer
+    - sherpa-onnx
+    - cpu
+    - gpu
+  overrides:
+    known_usecases:
+      - transcript
+    parameters:
+      model: streaming-zipformer-en/encoder.int8.onnx
+    options:
+      - subtype=online
+  files:
+    - filename: streaming-zipformer-en/encoder.int8.onnx
+      sha256: 563fde436d16cf7607cf408cd6b30909819d03162652ef389c2450ced3f45ac1
+      uri: https://huggingface.co/csukuangfj/sherpa-onnx-streaming-zipformer-en-2023-06-26/resolve/main/encoder-epoch-99-avg-1-chunk-16-left-128.int8.onnx
+    - filename: streaming-zipformer-en/decoder.int8.onnx
+      sha256: 98da299f471e38bb4e1a8df579b8cc9122d6039576a77e357b3c60f17dd83b02
+      uri: https://huggingface.co/csukuangfj/sherpa-onnx-streaming-zipformer-en-2023-06-26/resolve/main/decoder-epoch-99-avg-1-chunk-16-left-128.int8.onnx
+    - filename: streaming-zipformer-en/joiner.int8.onnx
+      sha256: d944208d660d67c8d72cd2acaeac971fa5ceb8c80e76c1968148846fedd6e297
+      uri: https://huggingface.co/csukuangfj/sherpa-onnx-streaming-zipformer-en-2023-06-26/resolve/main/joiner-epoch-99-avg-1-chunk-16-left-128.int8.onnx
+    - filename: streaming-zipformer-en/tokens.txt
+      sha256: 49e3c2646595fd907228b3c6787069658f67b17377c60aeb8619c4551b2316fb
+      uri: https://huggingface.co/csukuangfj/sherpa-onnx-streaming-zipformer-en-2023-06-26/resolve/main/tokens.txt
+- name: silero-vad-sherpa
+  license: mit
+  url: "github:mudler/LocalAI/gallery/sherpa-onnx-vad.yaml@master"
+  description: |
+    Silero VAD served through the sherpa-onnx backend. Uses the same ONNX weights as the dedicated silero-vad backend, loaded through sherpa-onnx's C VAD API. Pairs with the sherpa-onnx ASR entries for round-trip audio pipelines.
+  urls:
+    - https://github.com/snakers4/silero-vad
+    - https://huggingface.co/onnx-community/silero-vad
+  icon: https://github.com/snakers4/silero-models/raw/master/files/silero_logo.jpg
+  tags:
+    - vad
+    - voice-activity-detection
+    - sherpa-onnx
+    - cpu
+    - gpu
+  overrides:
+    known_usecases:
+      - vad
+    parameters:
+      model: silero-vad/silero-vad.onnx
+  files:
+    - filename: silero-vad/silero-vad.onnx
+      sha256: a4a068cd6cf1ea8355b84327595838ca748ec29a25bc91fc82e6c299ccdc5808
+      uri: https://huggingface.co/onnx-community/silero-vad/resolve/main/onnx/model.onnx
+- name: vits-ljs-sherpa
+  license: mit
+  url: "github:mudler/LocalAI/gallery/sherpa-onnx-tts.yaml@master"
+  description: |
+    VITS-LJS English single-speaker TTS served through the sherpa-onnx backend. Trained on the LJSpeech corpus at 22.05 kHz. Pairs with the sherpa-onnx ASR entries for round-trip audio pipelines.
+  urls:
+    - https://github.com/k2-fsa/sherpa-onnx
+    - https://huggingface.co/csukuangfj/vits-ljs
+  icon: https://avatars.githubusercontent.com/u/75781706
+  tags:
+    - tts
+    - text-to-speech
+    - english
+    - vits
+    - sherpa-onnx
+    - cpu
+    - gpu
+  overrides:
+    known_usecases:
+      - tts
+    parameters:
+      model: vits-ljs/vits-ljs.onnx
+  files:
+    - filename: vits-ljs/vits-ljs.onnx
+      sha256: 5bbd273797a9ecf8d94bd6ec02ad16cb41cbb85f055ad98d528ced3e44c9b31a
+      uri: https://huggingface.co/csukuangfj/vits-ljs/resolve/main/vits-ljs.onnx
+    - filename: vits-ljs/tokens.txt
+      sha256: 5fee2c6b238d712287f2ecb08f34a8a8b413bcb7390862ef6fb6fd6f0f8d3a17
+      uri: https://huggingface.co/csukuangfj/vits-ljs/resolve/main/tokens.txt
+    - filename: vits-ljs/lexicon.txt
+      sha256: bdccfc6da71c45c48e2e0056fcf0aab760577c5f959f6c1b5eb3e3e916fd5a0e
+      uri: https://huggingface.co/csukuangfj/vits-ljs/resolve/main/lexicon.txt
 - name: voxcpm-1.5
   license: apache-2.0
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
@@ -564,6 +1404,8 @@
     - gpu
   overrides:
     backend: neutts
+    parameters:
+      model: neuphonic/neutts-air
     known_usecases:
       - tts
 - name: vllm-omni-z-image-turbo
@@ -796,6 +1638,67 @@
     - filename: acestep-cpp/vae-BF16.gguf
       uri: huggingface://Serveurperso/ACE-Step-1.5-GGUF/vae-BF16.gguf
       sha256: 0599862ac5d15cd308e1d2e368373aea6c02e25ebd1737ad4a4562a0901b0ef8
+- name: "qwen3-tts-cpp"
+  license: apache-2.0
+  tags:
+    - tts
+    - text-to-speech
+    - qwen3-tts
+    - qwen3-tts-cpp
+    - gguf
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/endo5501/qwen3-tts.cpp
+    - https://github.com/predict-woo/qwen3-tts.cpp
+  description: |
+    Qwen3-TTS 0.6B (C++ / GGML) — native C++ text-to-speech from text input.
+    Generates 24kHz mono audio. Supports 10 languages (en, zh, ja, ko, de, fr, es, it, pt, ru).
+    Uses F16 GGUF models (~2 GB total).
+  overrides:
+    name: qwen3-tts-cpp
+    backend: qwen3-tts-cpp
+    parameters:
+      model: qwen3-tts-cpp
+    known_usecases:
+      - tts
+  files:
+    - filename: qwen3-tts-cpp/qwen3-tts-0.6b-f16.gguf
+      uri: huggingface://endo5501/qwen3-tts.cpp/qwen3-tts-0.6b-f16.gguf
+      sha256: 0b89770118463af8f2467d824a8de57d96df6a09f927a9769a3f7b7fffa7087d
+    - filename: qwen3-tts-cpp/qwen3-tts-tokenizer-f16.gguf
+      uri: huggingface://endo5501/qwen3-tts.cpp/qwen3-tts-tokenizer-f16.gguf
+      sha256: d1ad9660bd99343f4851d5a4b17e31f65648feb3559f6ea062ae6575e5cd9d90
+- name: "qwen3-tts-cpp-customvoice"
+  license: apache-2.0
+  tags:
+    - tts
+    - text-to-speech
+    - voice-cloning
+    - qwen3-tts
+    - qwen3-tts-cpp
+    - gguf
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/endo5501/qwen3-tts.cpp
+    - https://github.com/predict-woo/qwen3-tts.cpp
+  description: |
+    Qwen3-TTS 0.6B Custom Voice (C++ / GGML) — text-to-speech with voice cloning support.
+    Generates 24kHz mono audio with optional reference audio for voice cloning via ECAPA-TDNN speaker embeddings.
+    Supports 10 languages (en, zh, ja, ko, de, fr, es, it, pt, ru).
+  overrides:
+    name: qwen3-tts-cpp-customvoice
+    backend: qwen3-tts-cpp
+    parameters:
+      model: qwen3-tts-cpp-customvoice
+    known_usecases:
+      - tts
+  files:
+    - filename: qwen3-tts-cpp-customvoice/qwen3-tts-0.6b-customvoice-f16.gguf
+      uri: huggingface://endo5501/qwen3-tts.cpp/qwen3-tts-0.6b-customvoice-f16.gguf
+      sha256: 40b985b71be0970d41eb042488766db556cf17290aa1cff631cabfa0bd3b0431
+    - filename: qwen3-tts-cpp-customvoice/qwen3-tts-tokenizer-f16.gguf
+      uri: huggingface://endo5501/qwen3-tts.cpp/qwen3-tts-tokenizer-f16.gguf
+      sha256: d1ad9660bd99343f4851d5a4b17e31f65648feb3559f6ea062ae6575e5cd9d90
 - name: "qwen3-coder-next-mxfp4_moe"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
@@ -1011,7 +1914,7 @@
     Qwen3-TTS is a high-quality text-to-speech model supporting custom voice, voice design, and voice cloning.
   tags:
     - text-to-speech
-    - TTS
+    - tts
   license: apache-2.0
   icon: https://cdn-avatars.huggingface.co/v1/production/uploads/620760a26e3b7210c2ff1943/-s1gyJfvbE1RgO5iBeNOi.png
   name: "qwen3-tts-1.7b-custom-voice"
@@ -1043,7 +1946,7 @@
     Fish Speech S2-Pro is a high-quality text-to-speech model supporting voice cloning via reference audio. Uses a two-stage pipeline: text to semantic tokens (LLaMA-based) then semantic to audio (DAC decoder).
   tags:
     - text-to-speech
-    - TTS
+    - tts
     - voice-cloning
   license: apache-2.0
   icon: https://huggingface.co/fishaudio/s2-pro/resolve/main/overview.png
@@ -1062,7 +1965,7 @@
     Qwen3-ASR is an automatic speech recognition model supporting multiple languages and batch inference.
   tags:
     - speech-recognition
-    - ASR
+    - asr
   license: apache-2.0
   icon: https://cdn-avatars.huggingface.co/v1/production/uploads/620760a26e3b7210c2ff1943/-s1gyJfvbE1RgO5iBeNOi.png
   name: "qwen3-asr-1.7b"
@@ -1218,6 +2121,59 @@
     - filename: llama-cpp/mmproj/Qwen3-VL-Reranker-8B.mmproj-f16.gguf
       sha256: 15cd9bd4882dae771344f0ac204fce07de91b47c1438ada3861dfc817403c31e
       uri: https://huggingface.co/mradermacher/Qwen3-VL-Reranker-8B-GGUF/resolve/main/Qwen3-VL-Reranker-8B.mmproj-f16.gguf
+- name: "qwen3-vl-reranker-2b-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Qwen3-VL-Reranker-2B-i1-GGUF
+  description: |
+    **Model Name:** Qwen3-VL-Reranker-2B-i1
+    **Base Model:** Qwen/Qwen3-VL-Reranker-2B
+
+    **Description:**
+    A high-performance multimodal reranking model for state-of-the-art cross-modal search. It supports 30+ languages and handles text, images, screenshots, videos, and mixed modalities. With 8B parameters and a 32K context length, it refines retrieval results by combining embedding vectors with precise relevance scores. Optimized for efficiency, it supports quantized versions (e.g., Q8_0, Q4_K_M) and is ideal for applications requiring accurate multimodal content matching.
+
+    **Key Features:**
+      - **Multimodal**: Text, images, videos, and mixed content.
+      - **Language Support**: 30+ languages.
+      - **Quantization**: Available in Q8_0 (best quality), Q4_K_M (fast, recommended), and lower-precision options.
+      - **Performance**: Outperforms base models in retrieval tasks (e.g., JinaVDR, ViDoRe v3).
+      - **Use Case**: Enhances search pipelines by refining embeddings with precise relevance scores.
+
+    **Downloads:**
+      - [GGUF Files](https://huggingface.co/mradermacher/Qwen3-VL-Reranker-2B-i1-GGUF) (e.g., `Qwen3-VL-Reranker-2B.i1-Q4_K_M.gguf`).
+
+    **Usage:**
+      - Requires `transformers`, `qwen-vl-utils`, and `torch`.
+      - Example: `from scripts.qwen3_vl_reranker import Qwen3VLReranker; model = Qwen3VLReranker(...)`
+
+    **Citation:**
+    @article{qwen3vlembedding, ...}
+
+    This description emphasizes its capabilities, efficiency, and versatility for multimodal search tasks.
+  overrides:
+    reranking: true
+    parameters:
+      model: llama-cpp/models/Qwen3-VL-Reranker-2B.i1-Q4_K_M.gguf
+    name: Qwen3-VL-Reranker-2B-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    mmproj: llama-cpp/mmproj/Qwen3-VL-Reranker-2B.mmproj-f16.gguf
+    description: Imported from https://huggingface.co/mradermacher/Qwen3-VL-Reranker-2B-GGUF/
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Qwen3-VL-Reranker-2B.i1-Q4_K_M.gguf
+      sha256: f19dfbceeef9f6ee1f7d0ff536d66e9b1b90424a4b8aa1d1777db43d20afdbc5
+      uri: https://huggingface.co/mradermacher/Qwen3-VL-Reranker-2B-i1-GGUF/resolve/main/Qwen3-VL-Reranker-2B.i1-Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/Qwen3-VL-Reranker-8B.mmproj-f16.gguf
+      sha256: d38b7ae347fc3e51726bfb9cba1b04885f1f005a4087d8070933e46509db5a6e
+      uri: https://huggingface.co/mradermacher/Qwen3-VL-Reranker-2B-GGUF/resolve/main/Qwen3-VL-Reranker-2B.mmproj-f16.gguf
 - name: "liquidai.lfm2-2.6b-transcript"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
@@ -1618,7 +2574,7 @@
   license: mit
   tags:
     - text-to-speech
-    - TTS
+    - tts
   name: "vibevoice"
   urls:
     - https://github.com/microsoft/VibeVoice
@@ -1652,7 +2608,7 @@
   license: mit
   tags:
     - text-to-speech
-    - TTS
+    - tts
   name: "pocket-tts"
   urls:
     - https://github.com/kyutai-labs/pocket-tts
@@ -1888,6 +2844,211 @@
     - filename: mmproj/mmproj-Qwen3-VL-8B-Thinking-F16.gguf
       sha256: 64d5be3f16fb91cfb451155fe4745266e2169ccbe1f29f57bfab27fb7fec389e
       uri: huggingface://unsloth/Qwen3-VL-8B-Thinking-GGUF/mmproj-F16.gguf
+- &ggmlorg-llamacpp
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/620760a26e3b7210c2ff1943/-s1gyJfvbE1RgO5iBeNOi.png
+  license: apache-2.0
+  name: "qwen3-omni-30b-a3b-instruct"
+  urls:
+    - https://huggingface.co/Qwen/Qwen3-Omni-30B-A3B-Instruct
+    - https://huggingface.co/ggml-org/Qwen3-Omni-30B-A3B-Instruct-GGUF
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - image-to-text
+    - audio-to-text
+    - multimodal
+    - cpu
+    - qwen
+    - qwen3
+    - omni
+  description: |
+    Qwen3-Omni is the natively end-to-end multilingual omni-modal foundation model. It processes text, images, audio, and video, and delivers real-time streaming responses in both text and natural speech. This GGUF build runs on llama.cpp with the bundled mmproj for multimodal inputs.
+  overrides:
+    backend: llama-cpp
+    mmproj: mmproj-Qwen3-Omni-30B-A3B-Instruct-Q8_0.gguf
+    parameters:
+      model: Qwen3-Omni-30B-A3B-Instruct-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+    options:
+      - use_jinja:true
+  files:
+    - filename: Qwen3-Omni-30B-A3B-Instruct-Q4_K_M.gguf
+      sha256: d9e2876556e7873e02c0359f832432ee2d67ab7dd0cee3efe0f77fd7a1f4dd85
+      uri: huggingface://ggml-org/Qwen3-Omni-30B-A3B-Instruct-GGUF/Qwen3-Omni-30B-A3B-Instruct-Q4_K_M.gguf
+    - filename: mmproj-Qwen3-Omni-30B-A3B-Instruct-Q8_0.gguf
+      sha256: 1104376db833f1e89c84834144ac3863340c2cd1ddaeddb39cb0247fb5c20c8d
+      uri: huggingface://ggml-org/Qwen3-Omni-30B-A3B-Instruct-GGUF/mmproj-Qwen3-Omni-30B-A3B-Instruct-Q8_0.gguf
+- !!merge <<: *ggmlorg-llamacpp
+  name: "qwen3-omni-30b-a3b-thinking"
+  urls:
+    - https://huggingface.co/Qwen/Qwen3-Omni-30B-A3B-Thinking
+    - https://huggingface.co/ggml-org/Qwen3-Omni-30B-A3B-Thinking-GGUF
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - image-to-text
+    - audio-to-text
+    - multimodal
+    - cpu
+    - qwen
+    - qwen3
+    - omni
+    - thinking
+    - reasoning
+  description: |
+    Qwen3-Omni-30B-A3B-Thinking is the reasoning-enhanced variant of Qwen3-Omni, a natively end-to-end multilingual omni-modal foundation model. It processes text, images, and audio and produces chain-of-thought reasoning before the final answer. This GGUF build runs on llama.cpp with the bundled mmproj.
+  overrides:
+    backend: llama-cpp
+    mmproj: mmproj-Qwen3-Omni-30B-A3B-Thinking-Q8_0.gguf
+    parameters:
+      model: Qwen3-Omni-30B-A3B-Thinking-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+    options:
+      - use_jinja:true
+  files:
+    - filename: Qwen3-Omni-30B-A3B-Thinking-Q4_K_M.gguf
+      sha256: afdaeff6f23c740429aadb3fa180f9d53b78278fe0d331b594b0b71bd9bf4835
+      uri: huggingface://ggml-org/Qwen3-Omni-30B-A3B-Thinking-GGUF/Qwen3-Omni-30B-A3B-Thinking-Q4_K_M.gguf
+    - filename: mmproj-Qwen3-Omni-30B-A3B-Thinking-Q8_0.gguf
+      sha256: 2bd5459571f8230a0c251d3d0dd36267753f0800ed145449a34f220a31f93898
+      uri: huggingface://ggml-org/Qwen3-Omni-30B-A3B-Thinking-GGUF/mmproj-Qwen3-Omni-30B-A3B-Thinking-Q8_0.gguf
+- !!merge <<: *ggmlorg-llamacpp
+  name: "qwen3-asr-0.6b"
+  urls:
+    - https://huggingface.co/Qwen/Qwen3-ASR
+    - https://huggingface.co/ggml-org/Qwen3-ASR-0.6B-GGUF
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - audio-to-text
+    - asr
+    - cpu
+    - qwen
+    - qwen3
+  description: |
+    Qwen3-ASR 0.6B is a compact automatic speech recognition model from the Qwen3 family, distributed as a GGUF for llama.cpp. It accepts audio input through the paired mmproj and transcribes it to text, supporting multilingual speech.
+  overrides:
+    backend: llama-cpp
+    mmproj: mmproj-Qwen3-ASR-0.6B-Q8_0.gguf
+    parameters:
+      model: Qwen3-ASR-0.6B-Q8_0.gguf
+    template:
+      use_tokenizer_template: true
+    options:
+      - use_jinja:true
+  files:
+    - filename: Qwen3-ASR-0.6B-Q8_0.gguf
+      sha256: bca259818b50ca7c4c05e9bdb35a5dc04fa039653a6d6f3f0f331f96f6aa1971
+      uri: huggingface://ggml-org/Qwen3-ASR-0.6B-GGUF/Qwen3-ASR-0.6B-Q8_0.gguf
+    - filename: mmproj-Qwen3-ASR-0.6B-Q8_0.gguf
+      sha256: 41a342b5e4c514e968cb756de6cd1b7be39eff43c44c57a2ef5fc6522e36603d
+      uri: huggingface://ggml-org/Qwen3-ASR-0.6B-GGUF/mmproj-Qwen3-ASR-0.6B-Q8_0.gguf
+- !!merge <<: *ggmlorg-llamacpp
+  name: "qwen3-asr-1.7b"
+  urls:
+    - https://huggingface.co/Qwen/Qwen3-ASR
+    - https://huggingface.co/ggml-org/Qwen3-ASR-1.7B-GGUF
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - audio-to-text
+    - asr
+    - cpu
+    - qwen
+    - qwen3
+  description: |
+    Qwen3-ASR 1.7B is the larger automatic speech recognition model from the Qwen3 family, distributed as a GGUF for llama.cpp. It accepts audio input through the paired mmproj and produces higher-quality multilingual transcriptions than the 0.6B variant.
+  overrides:
+    backend: llama-cpp
+    mmproj: mmproj-Qwen3-ASR-1.7B-Q8_0.gguf
+    parameters:
+      model: Qwen3-ASR-1.7B-Q8_0.gguf
+    template:
+      use_tokenizer_template: true
+    options:
+      - use_jinja:true
+  files:
+    - filename: Qwen3-ASR-1.7B-Q8_0.gguf
+      sha256: 58e22d0532d4eacaf034cfac17a6fed159f37c41390c710186783be439d1fc57
+      uri: huggingface://ggml-org/Qwen3-ASR-1.7B-GGUF/Qwen3-ASR-1.7B-Q8_0.gguf
+    - filename: mmproj-Qwen3-ASR-1.7B-Q8_0.gguf
+      sha256: 46c1d533af3f354ceb37ce855dbceff7da7fa7cf1e6a523df3b13440bd164c0d
+      uri: huggingface://ggml-org/Qwen3-ASR-1.7B-GGUF/mmproj-Qwen3-ASR-1.7B-Q8_0.gguf
+- !!merge <<: *ggmlorg-llamacpp
+  name: "glm-ocr"
+  icon: https://huggingface.co/zai-org.png
+  license: mit
+  urls:
+    - https://huggingface.co/zai-org/GLM-4.1V-9B-Thinking
+    - https://huggingface.co/ggml-org/GLM-OCR-GGUF
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - image-to-text
+    - ocr
+    - multimodal
+    - cpu
+    - glm
+  description: |
+    GLM-OCR is a vision-language model specialized for optical character recognition and document understanding, built on the GLM architecture. This GGUF build runs on llama.cpp with the bundled mmproj.
+  overrides:
+    backend: llama-cpp
+    mmproj: mmproj-GLM-OCR-Q8_0.gguf
+    parameters:
+      model: GLM-OCR-Q8_0.gguf
+    template:
+      use_tokenizer_template: true
+    options:
+      - use_jinja:true
+  files:
+    - filename: GLM-OCR-Q8_0.gguf
+      sha256: 45bc244a6446aff850521dc41f18bc8d7105ad5f0c2c8c28af04e7cc4f4d50b1
+      uri: huggingface://ggml-org/GLM-OCR-GGUF/GLM-OCR-Q8_0.gguf
+    - filename: mmproj-GLM-OCR-Q8_0.gguf
+      sha256: 9c4b58e33e316ed142eb5dcb41abec3844d3e6e5dc361ffb782c3fa9d175141f
+      uri: huggingface://ggml-org/GLM-OCR-GGUF/mmproj-GLM-OCR-Q8_0.gguf
+- !!merge <<: *ggmlorg-llamacpp
+  name: "deepseek-ocr"
+  icon: https://huggingface.co/deepseek-ai.png
+  license: mit
+  urls:
+    - https://huggingface.co/deepseek-ai/DeepSeek-OCR
+    - https://huggingface.co/ggml-org/DeepSeek-OCR-GGUF
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - image-to-text
+    - ocr
+    - multimodal
+    - cpu
+    - deepseek
+  description: |
+    DeepSeek-OCR is a vision-language model from DeepSeek AI specialized for optical character recognition and document understanding. This GGUF build runs on llama.cpp with the bundled mmproj.
+  overrides:
+    backend: llama-cpp
+    mmproj: mmproj-DeepSeek-OCR-Q8_0.gguf
+    parameters:
+      model: DeepSeek-OCR-Q8_0.gguf
+    template:
+      use_tokenizer_template: true
+    options:
+      - use_jinja:true
+  files:
+    - filename: DeepSeek-OCR-Q8_0.gguf
+      sha256: 81ede3e256230707dccf7fa052570c3a939d57db99de655f43cbb1a830d14d92
+      uri: huggingface://ggml-org/DeepSeek-OCR-GGUF/DeepSeek-OCR-Q8_0.gguf
+    - filename: mmproj-DeepSeek-OCR-Q8_0.gguf
+      sha256: 786c9b5159898de3d1d94a102836df559fed0bcf09f41a32f62c3219b0e278e0
+      uri: huggingface://ggml-org/DeepSeek-OCR-GGUF/mmproj-DeepSeek-OCR-Q8_0.gguf
 - &jamba
   icon: https://cdn-avatars.huggingface.co/v1/production/uploads/65e60c0ed5313c06372446ff/QwehUHgP2HtVAMW5MzJ2j.png
   name: "ai21labs_ai21-jamba-reasoning-3b"
@@ -1895,8 +3056,8 @@
   license: apache-2.0
   tags:
     - gguf
-    - GPU
-    - CPU
+    - gpu
+    - cpu
     - text-to-text
     - jamba
     - mamba
@@ -1920,8 +3081,8 @@
   icon: https://cdn-avatars.huggingface.co/v1/production/uploads/639bcaa2445b133a4e942436/CEW-OjXkRkDNmTxSu8Egh.png
   tags:
     - gguf
-    - GPU
-    - CPU
+    - gpu
+    - cpu
     - text-to-text
   urls:
     - https://huggingface.co/ibm-granite/granite-4.0-h-small
@@ -1983,8 +3144,8 @@
   license: apache-2.0
   tags:
     - gguf
-    - GPU
-    - CPU
+    - gpu
+    - cpu
     - text-to-text
   icon: https://cdn-avatars.huggingface.co/v1/production/uploads/64f187a2cc1c03340ac30498/TYYUxK8xD1AxExFMWqbZD.png
   urls:
@@ -2007,8 +3168,8 @@
   license: mit
   tags:
     - gguf
-    - GPU
-    - CPU
+    - gpu
+    - cpu
     - text-to-text
   icon: https://cdn-uploads.huggingface.co/production/uploads/634262af8d8089ebaefd410e/9Bnn2AnIjfQFWBGkhDNmI.png
   name: "aurore-reveil_koto-small-7b-it"
@@ -2035,8 +3196,8 @@
   tags:
     - multimodal
     - gguf
-    - GPU
-    - Cpu
+    - gpu
+    - cpu
     - image-to-text
     - text-to-text
   description: |
@@ -2391,6 +3552,132 @@
       - lang_code:a
     known_usecases:
       - tts
+- name: "kokoros"
+  url: "github:mudler/LocalAI/gallery/kokoros.yaml@master"
+  size: "327MB"
+  urls:
+    - https://github.com/lucasjinreal/Kokoros
+  license: apache-2.0
+  tags:
+    - tts
+    - kokoros
+    - cpu
+    - text-to-speech
+    - rust
+  description: |
+    Kokoros is a pure Rust TTS backend using the Kokoro v1.0 ONNX model (82M parameters).
+    Fast, streaming TTS with high quality. American English with af_heart voice.
+  overrides:
+    backend: "kokoros"
+    name: "kokoros"
+    description: "Kokoros Rust TTS - American English"
+    parameters:
+      model: "kokoro-v1.0.onnx"
+      voice: "af_heart"
+    options:
+      - lang_code:en-us
+    known_usecases:
+      - tts
+  files:
+    - filename: "kokoro-v1.0.onnx"
+      sha256: 7d5df8ecf7d4b1878015a32686053fd0eebe2bc377234608764cc0ef3636a6c5
+      uri: "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/kokoro-v1.0.onnx"
+    - filename: "voices-v1.0.bin"
+      sha256: bca610b8308e8d99f32e6fe4197e7ec01679264efed0cac9140fe9c29f1fbf7d
+      uri: "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/voices-v1.0.bin"
+- name: "kokoros-ja"
+  url: "github:mudler/LocalAI/gallery/kokoros.yaml@master"
+  size: "327MB"
+  urls:
+    - https://github.com/lucasjinreal/Kokoros
+  license: apache-2.0
+  tags:
+    - tts
+    - kokoros
+    - japanese
+    - text-to-speech
+  description: |
+    Kokoros Rust TTS - Japanese. Uses the Kokoro v1.0 ONNX model with Japanese phonemization.
+  overrides:
+    backend: "kokoros"
+    name: "kokoros-ja"
+    description: "Kokoros Rust TTS - Japanese"
+    parameters:
+      model: "kokoro-v1.0.onnx"
+      voice: "jf_alpha"
+    options:
+      - lang_code:ja
+    known_usecases:
+      - tts
+  files:
+    - filename: "kokoro-v1.0.onnx"
+      sha256: 7d5df8ecf7d4b1878015a32686053fd0eebe2bc377234608764cc0ef3636a6c5
+      uri: "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/kokoro-v1.0.onnx"
+    - filename: "voices-v1.0.bin"
+      sha256: bca610b8308e8d99f32e6fe4197e7ec01679264efed0cac9140fe9c29f1fbf7d
+      uri: "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/voices-v1.0.bin"
+- name: "kokoros-cmn"
+  url: "github:mudler/LocalAI/gallery/kokoros.yaml@master"
+  size: "327MB"
+  urls:
+    - https://github.com/lucasjinreal/Kokoros
+  license: apache-2.0
+  tags:
+    - tts
+    - kokoros
+    - chinese
+    - text-to-speech
+  description: |
+    Kokoros Rust TTS - Mandarin Chinese.
+  overrides:
+    backend: "kokoros"
+    name: "kokoros-cmn"
+    description: "Kokoros Rust TTS - Mandarin Chinese"
+    parameters:
+      model: "kokoro-v1.0.onnx"
+      voice: "zf_xiaobei"
+    options:
+      - lang_code:cmn
+    known_usecases:
+      - tts
+  files:
+    - filename: "kokoro-v1.0.onnx"
+      sha256: 7d5df8ecf7d4b1878015a32686053fd0eebe2bc377234608764cc0ef3636a6c5
+      uri: "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/kokoro-v1.0.onnx"
+    - filename: "voices-v1.0.bin"
+      sha256: bca610b8308e8d99f32e6fe4197e7ec01679264efed0cac9140fe9c29f1fbf7d
+      uri: "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/voices-v1.0.bin"
+- name: "kokoros-de"
+  url: "github:mudler/LocalAI/gallery/kokoros.yaml@master"
+  size: "327MB"
+  urls:
+    - https://github.com/lucasjinreal/Kokoros
+  license: apache-2.0
+  tags:
+    - tts
+    - kokoros
+    - german
+    - text-to-speech
+  description: |
+    Kokoros Rust TTS - German.
+  overrides:
+    backend: "kokoros"
+    name: "kokoros-de"
+    description: "Kokoros Rust TTS - German"
+    parameters:
+      model: "kokoro-v1.0.onnx"
+      voice: "df_greta"
+    options:
+      - lang_code:de
+    known_usecases:
+      - tts
+  files:
+    - filename: "kokoro-v1.0.onnx"
+      sha256: 7d5df8ecf7d4b1878015a32686053fd0eebe2bc377234608764cc0ef3636a6c5
+      uri: "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/kokoro-v1.0.onnx"
+    - filename: "voices-v1.0.bin"
+      sha256: bca610b8308e8d99f32e6fe4197e7ec01679264efed0cac9140fe9c29f1fbf7d
+      uri: "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/voices-v1.0.bin"
 - name: "kitten-tts"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
@@ -2531,7 +3818,6 @@
     - gguf
     - gpu
     - cpu
-    - gguf
     - openai
   icon: https://raw.githubusercontent.com/openai/gpt-oss/main/docs/gpt-oss-20b.svg
   urls:
@@ -2717,7 +4003,6 @@
   tags:
     - gguf
     - gpu
-    - gpu
     - text-generation
   description: |
     AFM-4.5B is a 4.5 billion parameter instruction-tuned model developed by Arcee.ai, designed for enterprise-grade performance across diverse deployment environments from cloud to edge. The base model was trained on a dataset of 8 trillion tokens, comprising 6.5 trillion tokens of general pretraining data followed by 1.5 trillion tokens of midtraining data with enhanced focus on mathematical reasoning and code generation. Following pretraining, the model underwent supervised fine-tuning on high-quality instruction datasets. The instruction-tuned model was further refined through reinforcement learning on verifiable rewards as well as for human preference. We use a modified version of TorchTitan for pretraining, Axolotl for supervised fine-tuning, and a modified version of Verifiers for reinforcement learning.
@@ -2734,6 +4019,286 @@
     - filename: arcee-ai_AFM-4.5B-Q4_K_M.gguf
       sha256: f05516b323f581bebae1af2cbf900d83a2569b0a60c54366daf4a9c15ae30d4f
       uri: huggingface://bartowski/arcee-ai_AFM-4.5B-GGUF/arcee-ai_AFM-4.5B-Q4_K_M.gguf
+- &insightface_buffalo_l
+  name: "insightface-buffalo-l"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  icon: https://avatars.githubusercontent.com/u/53104118?s=200&v=4
+  # insightface library is MIT; pretrained packs are NON-COMMERCIAL.
+  license: "insightface-non-commercial"
+  description: |
+    Face recognition using insightface's `buffalo_l` pack
+    (SCRFD-10GF detector + ResNet50 ArcFace 512-d embedder + genderage head, ~326MB).
+    Default choice, highest accuracy.
+
+    Weights delivered via LocalAI's gallery mechanism (SHA-256 verified,
+    cached in the models directory like any other managed model).
+    NON-COMMERCIAL RESEARCH USE ONLY. For commercial use see `insightface-opencv`.
+  tags: [face-recognition, face-verification, face-embedding, research-only, gpu, cpu]
+  urls: ['https://github.com/deepinsight/insightface']
+  overrides:
+    backend: insightface
+    parameters: {model: insightface-buffalo-l}
+    options:
+      - "engine:insightface"
+      - "model_pack:buffalo_l"
+      - "antispoof_v2_onnx:MiniFASNetV2.onnx"
+      - "antispoof_v1se_onnx:MiniFASNetV1SE.onnx"
+    known_usecases: [face_recognition, detection, embeddings]
+  files:
+    - filename: buffalo_l.zip
+      sha256: 80ffe37d8a5940d59a7384c201a2a38d4741f2f3c51eef46ebb28218a7b0ca2f
+      uri: https://github.com/deepinsight/insightface/releases/download/v0.7/buffalo_l.zip
+    - filename: MiniFASNetV2.onnx
+      sha256: b32929adc2d9c34b9486f8c4c7bc97c1b69bc0ea9befefc380e4faae4e463907
+      uri: https://github.com/yakhyo/face-anti-spoofing/releases/download/weights/MiniFASNetV2.onnx
+    - filename: MiniFASNetV1SE.onnx
+      sha256: ebab7f90c7833fbccd46d3a555410e78d969db5438e169b6524be444862b3676
+      uri: https://github.com/yakhyo/face-anti-spoofing/releases/download/weights/MiniFASNetV1SE.onnx
+- &insightface_buffalo_m
+  name: "insightface-buffalo-m"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  icon: https://avatars.githubusercontent.com/u/53104118?s=200&v=4
+  license: "insightface-non-commercial"
+  description: |
+    Mid-tier insightface pack (SCRFD-2.5GF detector + ResNet50 ArcFace +
+    genderage, ~313MB). Same recognition accuracy as `buffalo_l` with a
+    cheaper detector — good balance on mid-range hardware.
+    NON-COMMERCIAL RESEARCH USE ONLY.
+  tags: [face-recognition, face-verification, face-embedding, research-only, gpu, cpu]
+  urls: ['https://github.com/deepinsight/insightface']
+  overrides:
+    backend: insightface
+    parameters: {model: insightface-buffalo-m}
+    options:
+      - "engine:insightface"
+      - "model_pack:buffalo_m"
+      - "antispoof_v2_onnx:MiniFASNetV2.onnx"
+      - "antispoof_v1se_onnx:MiniFASNetV1SE.onnx"
+    known_usecases: [face_recognition, detection, embeddings]
+  files:
+    - filename: buffalo_m.zip
+      sha256: d98264bd8f2dc75cbc2ddce2a14e636e02bb857b3051c234b737bf3b614edca9
+      uri: https://github.com/deepinsight/insightface/releases/download/v0.7/buffalo_m.zip
+    - filename: MiniFASNetV2.onnx
+      sha256: b32929adc2d9c34b9486f8c4c7bc97c1b69bc0ea9befefc380e4faae4e463907
+      uri: https://github.com/yakhyo/face-anti-spoofing/releases/download/weights/MiniFASNetV2.onnx
+    - filename: MiniFASNetV1SE.onnx
+      sha256: ebab7f90c7833fbccd46d3a555410e78d969db5438e169b6524be444862b3676
+      uri: https://github.com/yakhyo/face-anti-spoofing/releases/download/weights/MiniFASNetV1SE.onnx
+- &insightface_buffalo_s
+  name: "insightface-buffalo-s"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  icon: https://avatars.githubusercontent.com/u/53104118?s=200&v=4
+  license: "insightface-non-commercial"
+  description: |
+    Small insightface pack (SCRFD-500MF detector + MBF 512-d embedder +
+    genderage, ~159MB). Good fit for mid-range CPU deployments.
+    NON-COMMERCIAL RESEARCH USE ONLY.
+  tags: [face-recognition, face-verification, face-embedding, research-only, edge, cpu]
+  urls: ['https://github.com/deepinsight/insightface']
+  overrides:
+    backend: insightface
+    parameters: {model: insightface-buffalo-s}
+    options:
+      - "engine:insightface"
+      - "model_pack:buffalo_s"
+      - "antispoof_v2_onnx:MiniFASNetV2.onnx"
+      - "antispoof_v1se_onnx:MiniFASNetV1SE.onnx"
+    known_usecases: [face_recognition, detection, embeddings]
+  files:
+    - filename: buffalo_s.zip
+      sha256: d85a87f503f691807cd8bb97128bdf7a0660326cd9cd02657127fa978bab8b5e
+      uri: https://github.com/deepinsight/insightface/releases/download/v0.7/buffalo_s.zip
+    - filename: MiniFASNetV2.onnx
+      sha256: b32929adc2d9c34b9486f8c4c7bc97c1b69bc0ea9befefc380e4faae4e463907
+      uri: https://github.com/yakhyo/face-anti-spoofing/releases/download/weights/MiniFASNetV2.onnx
+    - filename: MiniFASNetV1SE.onnx
+      sha256: ebab7f90c7833fbccd46d3a555410e78d969db5438e169b6524be444862b3676
+      uri: https://github.com/yakhyo/face-anti-spoofing/releases/download/weights/MiniFASNetV1SE.onnx
+- &insightface_buffalo_sc
+  name: "insightface-buffalo-sc"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  icon: https://avatars.githubusercontent.com/u/53104118?s=200&v=4
+  license: "insightface-non-commercial"
+  description: |
+    Ultra-small insightface pack (SCRFD-500MF + MBF recognition only, ~16MB).
+    NO landmarks, NO age/gender head — `/v1/face/analyze` returns empty
+    attributes for this pack. Ideal for edge/embedded deployments where
+    only verification and embedding are needed.
+    NON-COMMERCIAL RESEARCH USE ONLY.
+  tags: [face-recognition, face-verification, face-embedding, research-only, edge, cpu]
+  urls: ['https://github.com/deepinsight/insightface']
+  overrides:
+    backend: insightface
+    parameters: {model: insightface-buffalo-sc}
+    options:
+      - "engine:insightface"
+      - "model_pack:buffalo_sc"
+      - "antispoof_v2_onnx:MiniFASNetV2.onnx"
+      - "antispoof_v1se_onnx:MiniFASNetV1SE.onnx"
+    known_usecases: [face_recognition, detection, embeddings]
+  files:
+    - filename: buffalo_sc.zip
+      sha256: 57d31b56b6ffa911c8a73cfc1707c73cab76efe7f13b675a05223bf42de47c72
+      uri: https://github.com/deepinsight/insightface/releases/download/v0.7/buffalo_sc.zip
+    - filename: MiniFASNetV2.onnx
+      sha256: b32929adc2d9c34b9486f8c4c7bc97c1b69bc0ea9befefc380e4faae4e463907
+      uri: https://github.com/yakhyo/face-anti-spoofing/releases/download/weights/MiniFASNetV2.onnx
+    - filename: MiniFASNetV1SE.onnx
+      sha256: ebab7f90c7833fbccd46d3a555410e78d969db5438e169b6524be444862b3676
+      uri: https://github.com/yakhyo/face-anti-spoofing/releases/download/weights/MiniFASNetV1SE.onnx
+- &insightface_antelopev2
+  name: "insightface-antelopev2"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  icon: https://avatars.githubusercontent.com/u/53104118?s=200&v=4
+  license: "insightface-non-commercial"
+  description: |
+    Largest insightface pack (SCRFD-10GF + ResNet100@Glint360K recognizer +
+    genderage, ~407MB). Higher recognition accuracy than `buffalo_l` on
+    harder benchmarks; pays for it in GPU memory.
+    NON-COMMERCIAL RESEARCH USE ONLY.
+  tags: [face-recognition, face-verification, face-embedding, research-only, gpu]
+  urls: ['https://github.com/deepinsight/insightface']
+  overrides:
+    backend: insightface
+    parameters: {model: insightface-antelopev2}
+    options:
+      - "engine:insightface"
+      - "model_pack:antelopev2"
+      - "antispoof_v2_onnx:MiniFASNetV2.onnx"
+      - "antispoof_v1se_onnx:MiniFASNetV1SE.onnx"
+    known_usecases: [face_recognition, detection, embeddings]
+  files:
+    - filename: antelopev2.zip
+      sha256: 8e182f14fc6e80b3bfa375b33eb6cff7ee05d8ef7633e738d1c89021dcf0c5c5
+      uri: https://github.com/deepinsight/insightface/releases/download/v0.7/antelopev2.zip
+    - filename: MiniFASNetV2.onnx
+      sha256: b32929adc2d9c34b9486f8c4c7bc97c1b69bc0ea9befefc380e4faae4e463907
+      uri: https://github.com/yakhyo/face-anti-spoofing/releases/download/weights/MiniFASNetV2.onnx
+    - filename: MiniFASNetV1SE.onnx
+      sha256: ebab7f90c7833fbccd46d3a555410e78d969db5438e169b6524be444862b3676
+      uri: https://github.com/yakhyo/face-anti-spoofing/releases/download/weights/MiniFASNetV1SE.onnx
+- &insightface_opencv
+  name: "insightface-opencv"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  license: apache-2.0
+  description: |
+    Face recognition using OpenCV Zoo weights: YuNet detector + SFace
+    128-d recognizer (fp32). APACHE 2.0 — safe for commercial use.
+    Lower accuracy than insightface packs, no demographic head
+    (`/v1/face/analyze` returns detection regions only).
+    Weights are downloaded on install via LocalAI's gallery mechanism
+    (~40MB).
+  tags: [face-recognition, face-verification, face-embedding, commercial-ok, gpu, cpu]
+  urls: ['https://github.com/opencv/opencv_zoo']
+  overrides:
+    backend: insightface
+    parameters: {model: face_detection_yunet_2023mar.onnx}
+    options:
+      - "engine:onnx_direct"
+      - "detector_onnx:face_detection_yunet_2023mar.onnx"
+      - "recognizer_onnx:face_recognition_sface_2021dec.onnx"
+      - "antispoof_v2_onnx:MiniFASNetV2.onnx"
+      - "antispoof_v1se_onnx:MiniFASNetV1SE.onnx"
+    known_usecases: [face_recognition, detection, embeddings]
+  files:
+    - filename: face_detection_yunet_2023mar.onnx
+      sha256: 8f2383e4dd3cfbb4553ea8718107fc0423210dc964f9f4280604804ed2552fa4
+      uri: https://github.com/opencv/opencv_zoo/raw/main/models/face_detection_yunet/face_detection_yunet_2023mar.onnx
+    - filename: face_recognition_sface_2021dec.onnx
+      sha256: 0ba9fbfa01b5270c96627c4ef784da859931e02f04419c829e83484087c34e79
+      uri: https://github.com/opencv/opencv_zoo/raw/main/models/face_recognition_sface/face_recognition_sface_2021dec.onnx
+    - filename: MiniFASNetV2.onnx
+      sha256: b32929adc2d9c34b9486f8c4c7bc97c1b69bc0ea9befefc380e4faae4e463907
+      uri: https://github.com/yakhyo/face-anti-spoofing/releases/download/weights/MiniFASNetV2.onnx
+    - filename: MiniFASNetV1SE.onnx
+      sha256: ebab7f90c7833fbccd46d3a555410e78d969db5438e169b6524be444862b3676
+      uri: https://github.com/yakhyo/face-anti-spoofing/releases/download/weights/MiniFASNetV1SE.onnx
+- &insightface_opencv_int8
+  name: "insightface-opencv-int8"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  license: apache-2.0
+  description: |
+    Int8-quantized OpenCV Zoo face pair (YuNet int8 + SFace int8, ~12MB).
+    Roughly 3x smaller and noticeably faster on CPU than the fp32 variant
+    at comparable accuracy for face tasks. APACHE 2.0 — commercial-safe.
+    Weights are downloaded on install via LocalAI's gallery mechanism.
+  tags: [face-recognition, face-verification, face-embedding, commercial-ok, edge, cpu]
+  urls: ['https://github.com/opencv/opencv_zoo']
+  overrides:
+    backend: insightface
+    parameters: {model: face_detection_yunet_2023mar_int8.onnx}
+    options:
+      - "engine:onnx_direct"
+      - "detector_onnx:face_detection_yunet_2023mar_int8.onnx"
+      - "recognizer_onnx:face_recognition_sface_2021dec_int8.onnx"
+      - "antispoof_v2_onnx:MiniFASNetV2.onnx"
+      - "antispoof_v1se_onnx:MiniFASNetV1SE.onnx"
+    known_usecases: [face_recognition, detection, embeddings]
+  files:
+    - filename: face_detection_yunet_2023mar_int8.onnx
+      sha256: 321aa5a6afabf7ecc46a3d06bfab2b579dc96eb5c3be7edd365fa04502ad9294
+      uri: https://github.com/opencv/opencv_zoo/raw/main/models/face_detection_yunet/face_detection_yunet_2023mar_int8.onnx
+    - filename: face_recognition_sface_2021dec_int8.onnx
+      sha256: 2b0e941e6f16cc048c20aee0c8e31f569118f65d702914540f7bfdc14048d78a
+      uri: https://github.com/opencv/opencv_zoo/raw/main/models/face_recognition_sface/face_recognition_sface_2021dec_int8.onnx
+    - filename: MiniFASNetV2.onnx
+      sha256: b32929adc2d9c34b9486f8c4c7bc97c1b69bc0ea9befefc380e4faae4e463907
+      uri: https://github.com/yakhyo/face-anti-spoofing/releases/download/weights/MiniFASNetV2.onnx
+    - filename: MiniFASNetV1SE.onnx
+      sha256: ebab7f90c7833fbccd46d3a555410e78d969db5438e169b6524be444862b3676
+      uri: https://github.com/yakhyo/face-anti-spoofing/releases/download/weights/MiniFASNetV1SE.onnx
+- &speechbrain_ecapa_tdnn
+  name: "speechbrain-ecapa-tdnn"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  license: apache-2.0
+  description: |
+    Speaker (voice) recognition with SpeechBrain's ECAPA-TDNN trained
+    on VoxCeleb. 192-d L2-normalised embeddings, ~1.9% Equal Error
+    Rate on VoxCeleb1-O. APACHE 2.0 — commercial-safe.
+
+    The checkpoint is auto-downloaded from HuggingFace on first
+    LoadModel (no separate weight file in gallery `files:`). Points at
+    the upstream SpeechBrain HF repo directly — same bytes every
+    deployment.
+  tags: [voice-recognition, speaker-verification, speaker-embedding, commercial-ok, cpu, gpu]
+  urls:
+    - https://speechbrain.github.io/
+    - https://huggingface.co/speechbrain/spkrec-ecapa-voxceleb
+  overrides:
+    backend: speaker-recognition
+    parameters: {model: speechbrain/spkrec-ecapa-voxceleb}
+    options:
+      - "engine:speechbrain"
+      - "source:speechbrain/spkrec-ecapa-voxceleb"
+    known_usecases: [speaker_recognition]
+- &wespeaker_resnet34
+  name: "wespeaker-resnet34"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  license: apache-2.0
+  description: |
+    Speaker recognition with WeSpeaker's ResNet34 trained on VoxCeleb,
+    exported to ONNX. 256-d embeddings, CPU-friendly — avoids the
+    PyTorch runtime entirely (onnxruntime only). APACHE 2.0.
+
+    Pair with the `speaker-recognition` backend's OnnxDirectEngine.
+    Use when ECAPA-TDNN's torch dependency is undesirable (small
+    images, edge deployments).
+  tags: [voice-recognition, speaker-verification, speaker-embedding, commercial-ok, edge, cpu]
+  urls:
+    - https://github.com/wenet-e2e/wespeaker
+  overrides:
+    backend: speaker-recognition
+    parameters: {model: wespeaker_voxceleb_resnet34.onnx}
+    options:
+      - "engine:onnx"
+      - "model_path:wespeaker_voxceleb_resnet34.onnx"
+      - "sample_rate:16000"
+    known_usecases: [speaker_recognition]
+  files:
+    - filename: wespeaker_voxceleb_resnet34.onnx
+      sha256: 7bb2f06e9df17cdf1ef14ee8a15ab08ed28e8d0ef5054ee135741560df2ec068
+      uri: https://huggingface.co/Wespeaker/wespeaker-voxceleb-resnet34-LM/resolve/main/voxceleb_resnet34_LM.onnx
 - &rfdetr
   name: "rfdetr-base"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
@@ -2757,6 +4322,37 @@
       model: rfdetr-base
     known_usecases:
       - detection
+- &sam3cpp
+  name: "edgetam"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  size: "16MB"
+  license: apache-2.0
+  description: |
+    EdgeTAM is an ultra-efficient variant of the Segment Anything Model (SAM) for image segmentation.
+    It uses a RepViT backbone and is only ~16MB quantized (Q4_0), making it ideal for edge deployment.
+    Supports point-prompted and box-prompted image segmentation via the /v1/detection endpoint.
+    Powered by sam3.cpp (C/C++ with GGML).
+  tags:
+    - image-segmentation
+    - object-detection
+    - sam3
+    - edgetam
+    - cpu
+    - gpu
+  urls:
+    - https://github.com/PABannier/sam3.cpp
+    - https://huggingface.co/PABannier/sam3.cpp
+  overrides:
+    backend: sam3-cpp
+    parameters:
+      model: edgetam_q4_0.ggml
+      threads: 4
+    known_usecases:
+      - detection
+  files:
+    - filename: edgetam_q4_0.ggml
+      sha256: a8a35e35fb9a1b6f099c3f35e3024548b0fc979c2a4184642562804192496e09
+      uri: huggingface://PABannier/sam3.cpp/edgetam_q4_0.ggml
 - name: "dream-org_dream-v0-instruct-7b"
   # chatml
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
@@ -3025,6 +4621,35 @@
     - filename: Qwen_Qwen3-30B-A3B-Q4_K_M.gguf
       sha256: a015794bfb1d69cb03dbb86b185fb2b9b339f757df5f8f9dd9ebdab8f6ed5d32
       uri: huggingface://bartowski/Qwen_Qwen3-30B-A3B-GGUF/Qwen_Qwen3-30B-A3B-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "qwen3-reranker-0.6b"
+  tags:
+    - qwen3
+    - reranker
+    - gguf
+    - gpu
+    - cpu
+  urls:
+    - https://huggingface.co/Qwen/Qwen3-Reranker-0.6B
+  description: |
+    The Qwen3 Embedding model series is the latest proprietary model of the Qwen family, specifically designed for text embedding and ranking tasks. Building upon the dense foundational models of the Qwen3 series, it provides a comprehensive range of text embeddings and reranking models in various sizes (0.6B, 4B, and 8B). This series inherits the exceptional multilingual capabilities, long-text understanding, and reasoning skills of its foundational model. The Qwen3 Embedding series represents significant advancements in multiple text embedding and ranking tasks, including text retrieval, code retrieval, text classification, text clustering, and bitext mining.
+    **Exceptional Versatility**: The embedding model has achieved state-of-the-art performance across a wide range of downstream application evaluations. The 8B size embedding model ranks No.1 in the MTEB multilingual leaderboard (as of June 5, 2025, score 70.58), while the reranking model excels in various text retrieval scenarios.
+    **Comprehensive Flexibility**: The Qwen3 Embedding series offers a full spectrum of sizes (from 0.6B to 8B) for both embedding and reranking models, catering to diverse use cases that prioritize efficiency and effectiveness. Developers can seamlessly combine these two modules. Additionally, the embedding model allows for flexible vector definitions across all dimensions, and both embedding and reranking models support user-defined instructions to enhance performance for specific tasks, languages, or scenarios.
+    **Multilingual Capability**: The Qwen3 Embedding series offer support for over 100 languages, thanks to the multilingual capabilites of Qwen3 models. This includes various programming languages, and provides robust multilingual, cross-lingual, and code retrieval capabilities.
+    **Qwen3-Reranker-0.6B** has the following features:
+    - Model Type: Text Reranking
+    - Supported Languages: 100+ Languages
+    - Number of Paramaters: 0.6B
+    - Context Length: 32k
+    - Quantization: q4_K_M, q5_0, q5_K_M, q6_K, q8_0, f16
+  overrides:
+    reranking: true
+    parameters:
+      model: Qwen3-Reranker-0.6B.Q8_0.gguf
+  files:
+    - filename: Qwen3-Reranker-0.6B.Q8_0.gguf
+      uri: huggingface://mradermacher/Qwen3-Reranker-0.6B-GGUF/Qwen3-Reranker-0.6B.Q8_0.gguf
+      sha256: c525a7449243f690a7062e6377d6cf5adbb289354bd4316312367cd20e187ab7
 - !!merge <<: *qwen3
   name: "qwen3-235b-a22b-instruct-2507"
   icon: https://cdn-avatars.huggingface.co/v1/production/uploads/620760a26e3b7210c2ff1943/-s1gyJfvbE1RgO5iBeNOi.png
@@ -7484,7 +9109,7 @@
   description: |
     Granite-Embedding-107M-Multilingual is a 107M parameter dense biencoder embedding model from the Granite Embeddings suite that can be used to generate high quality text embeddings. This model produces embedding vectors of size 384 and is trained using a combination of open source relevance-pair datasets with permissive, enterprise-friendly license, and IBM collected and generated datasets. This model is developed using contrastive finetuning, knowledge distillation and model merging for improved performance.
   tags:
-    - embeddings
+    - embedding
   overrides:
     backend: llama-cpp
     embeddings: true
@@ -7502,7 +9127,7 @@
   description: |
     Granite-Embedding-125m-English is a 125M parameter dense biencoder embedding model from the Granite Embeddings suite that can be used to generate high quality text embeddings. This model produces embedding vectors of size 768. Compared to most other open-source models, this model was only trained using open-source relevance-pair datasets with permissive, enterprise-friendly license, plus IBM collected and generated datasets. While maintaining competitive scores on academic benchmarks such as BEIR, this model also performs well on many enterprise use cases. This model is developed using retrieval oriented pretraining, contrastive finetuning and knowledge distillation.
   tags:
-    - embeddings
+    - embedding
   overrides:
     embeddings: true
     parameters:
@@ -7511,6 +9136,24 @@
     - filename: granite-embedding-125m-english-f16.gguf
       uri: huggingface://bartowski/granite-embedding-125m-english-GGUF/granite-embedding-125m-english-f16.gguf
       sha256: e2950cf0228514e0e81c6f0701a62a9e4763990ce660b4a3c0329cd6a4acd4b9
+- name: "embeddinggemma-300m"
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/google/embeddinggemma-300m
+    - https://huggingface.co/ggml-org/embeddinggemma-300m-qat-q8_0-GGUF
+  description: |
+    EmbeddingGemma 300M is a lightweight, high-quality embedding model from Google, based on the Gemma architecture. It produces 1024-dimensional embeddings optimized for retrieval and semantic similarity tasks. This GGUF version uses QAT (Quantization-Aware Training) Q8_0 quantization for efficient inference.
+  tags:
+    - embedding
+  overrides:
+    backend: llama-cpp
+    embeddings: true
+    parameters:
+      model: embeddinggemma-300m-qat-Q8_0.gguf
+  files:
+    - filename: embeddinggemma-300m-qat-Q8_0.gguf
+      uri: huggingface://ggml-org/embeddinggemma-300m-qat-q8_0-GGUF/embeddinggemma-300m-qat-Q8_0.gguf
+      sha256: 6fa0c02a9c302be6f977521d399b4de3a46310a4f2621ee0063747881b673f67
 - name: "moe-girl-1ba-7bt-i1"
   icon: https://cdn-uploads.huggingface.co/production/uploads/634262af8d8089ebaefd410e/kTXXSSSqpb21rfyOX7FUa.jpeg
   # chatml
@@ -14277,7 +15920,7 @@
   tags:
     - gpu
     - cpu
-    - embeddings
+    - embedding
     - python
   name: "all-MiniLM-L6-v2"
   url: "github:mudler/LocalAI/gallery/sentencetransformers.yaml@master"
@@ -14321,6 +15964,157 @@
     - sd-3
     - gpu
   url: "github:mudler/LocalAI/gallery/stablediffusion3.yaml@master"
+- name: wan-2.1-t2v-1.3b-ggml
+  license: apache-2.0
+  url: "github:mudler/LocalAI/gallery/wan-ggml.yaml@master"
+  description: |
+    Wan 2.1 T2V 1.3B — text-to-video diffusion model, GGUF-quantized for the
+    stable-diffusion.cpp backend. Generates short (33-frame) 832x480 clips
+    from a text prompt. Cheapest Wan variant, suitable for CPU-offloaded
+    inference with ~10 GB of usable RAM.
+  urls:
+    - https://huggingface.co/calcuis/wan-gguf
+    - https://huggingface.co/city96/umt5-xxl-encoder-gguf
+  tags:
+    - text-to-video
+    - wan
+    - video-generation
+    - cpu
+    - gpu
+  overrides:
+    parameters:
+      model: wan2.1_t2v_1.3b-q8_0.gguf
+  files:
+    - filename: "wan2.1_t2v_1.3b-q8_0.gguf"
+      sha256: "8f10260cc26498fee303851ee1c2047918934125731b9b78d4babfce4ec27458"
+      uri: "huggingface://calcuis/wan-gguf/wan2.1_t2v_1.3b-q8_0.gguf"
+    - filename: "wan_2.1_vae.safetensors"
+      uri: "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/vae/wan_2.1_vae.safetensors"
+    - filename: "umt5-xxl-encoder-Q8_0.gguf"
+      uri: "huggingface://city96/umt5-xxl-encoder-gguf/umt5-xxl-encoder-Q8_0.gguf"
+      sha256: 2521d4de0bf9e1cc6549866463ceae85e4ec3239bc6063f7488810be39033bbc
+- name: wan-2.1-i2v-14b-480p-ggml
+  license: apache-2.0
+  url: "github:mudler/LocalAI/gallery/wan-ggml.yaml@master"
+  description: |
+    Wan 2.1 I2V 14B 480P — image-to-video diffusion, GGUF Q4 quantization.
+    Animates a reference image into a 33-frame 480p clip. Requires more
+    RAM than the 1.3B T2V variant; CPU offload enabled by default.
+  urls:
+    - https://huggingface.co/city96/Wan2.1-I2V-14B-480P-gguf
+  tags:
+    - image-to-video
+    - wan
+    - video-generation
+    - cpu
+    - gpu
+  overrides:
+    parameters:
+      model: wan2.1-i2v-14b-480p-Q4_K_M.gguf
+    options:
+      - "clip_vision_path:clip_vision_h.safetensors"
+      - "diffusion_model"
+      - "vae_decode_only:false"
+      - "sampler:euler"
+      - "flow_shift:3.0"
+      - "t5xxl_path:umt5-xxl-encoder-Q8_0.gguf"
+      - "vae_path:wan_2.1_vae.safetensors"
+  files:
+    - filename: "wan2.1-i2v-14b-480p-Q4_K_M.gguf"
+      sha256: "d91f7139acadb42ea05cdf97b311e5099f714f11fbe4d90916500e2f53cbba82"
+      uri: "huggingface://city96/Wan2.1-I2V-14B-480P-gguf/wan2.1-i2v-14b-480p-Q4_K_M.gguf"
+    - filename: "wan_2.1_vae.safetensors"
+      uri: "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/vae/wan_2.1_vae.safetensors"
+    - filename: "umt5-xxl-encoder-Q8_0.gguf"
+      uri: "huggingface://city96/umt5-xxl-encoder-gguf/umt5-xxl-encoder-Q8_0.gguf"
+      sha256: 2521d4de0bf9e1cc6549866463ceae85e4ec3239bc6063f7488810be39033bbc
+    - filename: "clip_vision_h.safetensors"
+      uri: "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/clip_vision/clip_vision_h.safetensors"
+- name: wan-2.1-flf2v-14b-720p-ggml
+  license: apache-2.0
+  url: "github:mudler/LocalAI/gallery/wan-ggml.yaml@master"
+  description: |
+    Wan 2.1 FLF2V 14B 720P — first-last-frame-to-video diffusion, GGUF Q4_K_M.
+    Takes a start and end reference image and interpolates a 33-frame clip
+    between them. Unlike the plain I2V variant this model feeds the end
+    frame through clip_vision as well, so it conditions semantically (not
+    just in pixel-space) on both endpoints. That makes it the right choice
+    for seamless loops (start_image == end_image) and clean narrative cuts.
+    Native 720p but accepts 480p resolutions; shares the same VAE, t5xxl
+    text encoder, and clip_vision_h as I2V 14B.
+  urls:
+    - https://huggingface.co/city96/Wan2.1-FLF2V-14B-720P-gguf
+  tags:
+    - image-to-video
+    - first-last-frame-to-video
+    - wan
+    - video-generation
+    - cpu
+    - gpu
+  overrides:
+    parameters:
+      model: wan2.1-flf2v-14b-720p-Q4_K_M.gguf
+    options:
+      - "clip_vision_path:clip_vision_h.safetensors"
+      - "diffusion_model"
+      - "vae_decode_only:false"
+      - "sampler:euler"
+      - "flow_shift:3.0"
+      - "t5xxl_path:umt5-xxl-encoder-Q8_0.gguf"
+      - "vae_path:wan_2.1_vae.safetensors"
+  files:
+    - filename: "wan2.1-flf2v-14b-720p-Q4_K_M.gguf"
+      sha256: "7652d7d8b0795009ff21ed83d806af762aae8a8faa8640dd07b3a67e4dfab445"
+      uri: "huggingface://city96/Wan2.1-FLF2V-14B-720P-gguf/wan2.1-flf2v-14b-720p-Q4_K_M.gguf"
+    - filename: "wan_2.1_vae.safetensors"
+      uri: "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/vae/wan_2.1_vae.safetensors"
+    - filename: "umt5-xxl-encoder-Q8_0.gguf"
+      uri: "huggingface://city96/umt5-xxl-encoder-gguf/umt5-xxl-encoder-Q8_0.gguf"
+      sha256: 2521d4de0bf9e1cc6549866463ceae85e4ec3239bc6063f7488810be39033bbc
+    - filename: "clip_vision_h.safetensors"
+      uri: "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/clip_vision/clip_vision_h.safetensors"
+- name: wan-2.1-i2v-14b-720p-ggml
+  license: apache-2.0
+  url: "github:mudler/LocalAI/gallery/wan-ggml.yaml@master"
+  description: |
+    Wan 2.1 I2V 14B 720P — image-to-video diffusion, GGUF Q4_K_M.
+    Native 720p sibling of the 480p I2V model: animates a single
+    reference image into a 33-frame clip at up to 1280x720. Trained
+    purely as image-to-video (no first-last-frame interpolation path),
+    so motion is freer and better-suited to single-anchor animation
+    than repurposing the FLF2V 720P variant for i2v. Shares the same
+    VAE, umt5_xxl text encoder, and clip_vision_h as the I2V 14B 480P
+    and FLF2V 14B 720P entries.
+  urls:
+    - https://huggingface.co/city96/Wan2.1-I2V-14B-720P-gguf
+  tags:
+    - image-to-video
+    - wan
+    - video-generation
+    - cpu
+    - gpu
+  overrides:
+    parameters:
+      model: wan2.1-i2v-14b-720p-Q4_K_M.gguf
+    options:
+      - "clip_vision_path:clip_vision_h.safetensors"
+      - "diffusion_model"
+      - "vae_decode_only:false"
+      - "sampler:euler"
+      - "flow_shift:3.0"
+      - "t5xxl_path:umt5-xxl-encoder-Q8_0.gguf"
+      - "vae_path:wan_2.1_vae.safetensors"
+  files:
+    - filename: "wan2.1-i2v-14b-720p-Q4_K_M.gguf"
+      sha256: "ffecd91e4b636d8e3e43f3fa388218158ba447109547bde777c6d67ef4fe42a4"
+      uri: "huggingface://city96/Wan2.1-I2V-14B-720P-gguf/wan2.1-i2v-14b-720p-Q4_K_M.gguf"
+    - filename: "wan_2.1_vae.safetensors"
+      uri: "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/vae/wan_2.1_vae.safetensors"
+    - filename: "umt5-xxl-encoder-Q8_0.gguf"
+      uri: "huggingface://city96/umt5-xxl-encoder-gguf/umt5-xxl-encoder-Q8_0.gguf"
+      sha256: 2521d4de0bf9e1cc6549866463ceae85e4ec3239bc6063f7488810be39033bbc
+    - filename: "clip_vision_h.safetensors"
+      uri: "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/clip_vision/clip_vision_h.safetensors"
 - name: sd-1.5-ggml
   icon: https://avatars.githubusercontent.com/u/37351293
   license: creativeml-openrail-m
@@ -14519,6 +16313,13 @@
     - gpu
     - cpu
   overrides:
+    options:
+      - diffusion_model
+      - clip_l_path:clip_l.safetensors
+      - t5xxl_path:t5xxl_fp16.safetensors
+      - vae_path:ae.safetensors
+      - sampler:euler
+      - vae_decode_only:false
     parameters:
       model: flux1-kontext-dev-Q8_0.gguf
   files:
@@ -14972,7 +16773,7 @@
   description: |
     llama3.2 embeddings model. Using as drop-in replacement for bert-embeddings
   tags:
-    - embeddings
+    - embedding
   overrides:
     embeddings: true
     parameters:
@@ -16695,7 +18496,7 @@
   description: |
     Resizable Production Embeddings with Matryoshka Representation Learning
   tags:
-    - embeddings
+    - embedding
   overrides:
     embeddings: true
     parameters:

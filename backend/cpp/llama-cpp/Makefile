@@ -1,5 +1,5 @@
 
-LLAMA_VERSION?=990e4d96980d0b016a2b07049cc9031642fb9903
+LLAMA_VERSION?=dcad77cc3b0865153f486327064fb0320a57a476
 LLAMA_REPO?=https://github.com/ggerganov/llama.cpp
 
 CMAKE_ARGS?=
@@ -33,7 +33,7 @@ else ifeq ($(BUILD_TYPE),hipblas)
 	ROCM_PATH ?= /opt/rocm
 	export CXX=$(ROCM_HOME)/llvm/bin/clang++
 	export CC=$(ROCM_HOME)/llvm/bin/clang
-	AMDGPU_TARGETS?=gfx803,gfx900,gfx906,gfx908,gfx90a,gfx942,gfx1010,gfx1030,gfx1032,gfx1100,gfx1101,gfx1102,gfx1200,gfx1201
+	AMDGPU_TARGETS?=gfx908,gfx90a,gfx942,gfx950,gfx1030,gfx1100,gfx1101,gfx1102,gfx1151,gfx1200,gfx1201
 	CMAKE_ARGS+=-DGGML_HIP=ON -DAMDGPU_TARGETS=$(AMDGPU_TARGETS)
 else ifeq ($(BUILD_TYPE),vulkan)
 	CMAKE_ARGS+=-DGGML_VULKAN=1
@@ -132,7 +132,7 @@ llama.cpp:
 	cd llama.cpp && \
 	git init && \
 	git remote add origin $(LLAMA_REPO)  && \
-	git fetch origin && \
+	git fetch --all --tags && \
 	git checkout -b build $(LLAMA_VERSION) && \
 	git submodule update --init --recursive --depth 1 --single-branch
 

@@ -16,9 +16,9 @@ type sizeCacheEntry struct {
 
 type cachedSizeResolver struct {
 	underlying SizeResolver
-	ttl       time.Duration
-	mu        sync.Mutex
-	cache     map[string]sizeCacheEntry
+	ttl        time.Duration
+	mu         sync.Mutex
+	cache      map[string]sizeCacheEntry
 }
 
 func (c *cachedSizeResolver) ContentLength(ctx context.Context, uri string) (int64, error) {
@@ -46,9 +46,9 @@ type ggufCacheEntry struct {
 
 type cachedGGUFReader struct {
 	underlying GGUFMetadataReader
-	ttl       time.Duration
-	mu        sync.Mutex
-	cache     map[string]ggufCacheEntry
+	ttl        time.Duration
+	mu         sync.Mutex
+	cache      map[string]ggufCacheEntry
 }
 
 func (c *cachedGGUFReader) ReadMetadata(ctx context.Context, uri string) (*GGUFMeta, error) {

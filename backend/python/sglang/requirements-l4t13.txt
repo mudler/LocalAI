@@ -1,0 +1,12 @@
+--extra-index-url https://pypi.jetson-ai-lab.io/sbsa/cu130
+accelerate
+torch
+torchvision
+torchaudio
+transformers
+# Drop the [all] extra: it pulls outlines/decord, and decord has no
+# aarch64 cp312 wheel anywhere (PyPI nor the jetson-ai-lab index ships
+# only legacy cp35-cp37). With [all] uv backtracks through versions
+# trying to satisfy decord and lands on sglang==0.1.16. Floor at 0.5.0
+# so uv can't silently downgrade if a future resolution misfires.
+sglang>=0.5.0

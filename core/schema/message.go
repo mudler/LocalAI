@@ -16,7 +16,7 @@ type Message struct {
 	Name string `json:"name,omitempty" yaml:"name"`
 
 	// The message content
-	Content interface{} `json:"content" yaml:"content"`
+	Content any `json:"content" yaml:"content"`
 
 	StringContent string   `json:"string_content,omitempty" yaml:"string_content,omitempty"`
 	StringImages  []string `json:"string_images,omitempty" yaml:"string_images,omitempty"`
@@ -24,7 +24,7 @@ type Message struct {
 	StringAudios  []string `json:"string_audios,omitempty" yaml:"string_audios,omitempty"`
 
 	// A result of a function call
-	FunctionCall interface{} `json:"function_call,omitempty" yaml:"function_call,omitempty"`
+	FunctionCall any `json:"function_call,omitempty" yaml:"function_call,omitempty"`
 
 	ToolCalls []ToolCall `json:"tool_calls,omitempty" yaml:"tool_call,omitempty"`
 
@@ -61,7 +61,7 @@ func (messages Messages) ToProto() []*proto.Message {
 		switch ct := message.Content.(type) {
 		case string:
 			protoMessages[i].Content = ct
-		case []interface{}:
+		case []any:
 			// If using the tokenizer template, in case of multimodal we want to keep the multimodal content as and return only strings here
 			data, _ := json.Marshal(ct)
 			resultData := []struct {
@@ -83,8 +83,12 @@ func (messages Messages) ToProto() []*proto.Message {
 			}
 		}
 
-		// Note: tool_call_id is not in schema.Message yet
-		// Reasoning field is now available in schema.Message but not yet in proto.Message
+		if message.ToolCallID != "" {
+			protoMessages[i].ToolCallId = message.ToolCallID
+		}
+		if message.Reasoning != nil {
+			protoMessages[i].ReasoningContent = *message.Reasoning
+		}
 	}
 	return protoMessages
 }

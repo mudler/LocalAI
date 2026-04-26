@@ -2,7 +2,7 @@ name: Gallery Agent
 on:
 
   schedule:
-    - cron: '0 */3 * * *'  # Run every 4 hours
+    - cron: '0 */12 * * *'  # Run every 4 hours
   workflow_dispatch:
     inputs:
       search_term:
@@ -48,21 +48,88 @@ jobs:
           go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2
           go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@1958fcbe2ca8bd93af633f11e97d44e567e945af
           PATH="$PATH:$HOME/go/bin" make protogen-go
-      - uses: mudler/localai-github-action@v1.1
-        with:
-          model: 'https://huggingface.co/unsloth/Qwen3.5-2B-GGUF'
+      - name: Process gallery-agent PR commands
+        env:
+          GH_TOKEN: ${{ secrets.UPDATE_BOT_TOKEN }}
+          REPO: ${{ github.repository }}
+          SEARCH: 'gallery agent in:title'
+        run: |
+          # Walk gallery-agent PRs and act on maintainer comments:
+          #   /gallery-agent blacklist → label `gallery-agent/blacklisted` + close (never repropose)
+          #   /gallery-agent recreate  → close without label (next run may repropose)
+          # Only comments from OWNER / MEMBER / COLLABORATOR are honored so
+          # random users can't drive the bot.
+          #
+          # We scan both open PRs AND recently-closed PRs that don't already
+          # carry the blacklist label. This covers the common flow where a
+          # maintainer writes /gallery-agent blacklist and immediately clicks
+          # Close — without this, the next scheduled run wouldn't see the
+          # command (PR is already closed) and would repropose the model.
+          gh label create gallery-agent/blacklisted \
+            --repo "$REPO" --color ededed \
+            --description "gallery-agent must not repropose this model" 2>/dev/null || true
+
+          prs_open=$(gh pr list --repo "$REPO" --state open --search "$SEARCH" \
+            --json number --jq '.[].number')
+          # Closed PRs from the last 14 days that don't yet have the blacklist label.
+          # Bounded window keeps the scan cheap while covering late-applied commands.
+          since=$(date -u -d '14 days ago' +%Y-%m-%d)
+          prs_closed=$(gh pr list --repo "$REPO" --state closed \
+            --search "$SEARCH closed:>=$since -label:gallery-agent/blacklisted" \
+            --json number --jq '.[].number')
+          prs=$(printf '%s\n%s\n' "$prs_open" "$prs_closed" | sort -u | sed '/^$/d')
+          for pr in $prs; do
+            state=$(gh pr view "$pr" --repo "$REPO" --json state --jq '.state')
+            cmds=$(gh pr view "$pr" --repo "$REPO" --json comments \
+              --jq '.comments[] | select(.authorAssociation=="OWNER" or .authorAssociation=="MEMBER" or .authorAssociation=="COLLABORATOR") | .body')
+            if echo "$cmds" | grep -qE '(^|[[:space:]])/gallery-agent[[:space:]]+blacklist([[:space:]]|$)'; then
+              echo "PR #$pr: blacklist command found (state=$state)"
+              gh pr edit "$pr" --repo "$REPO" --add-label gallery-agent/blacklisted || true
+              if [ "$state" = "OPEN" ]; then
+                gh pr close "$pr" --repo "$REPO" --comment "Blacklisted via \`/gallery-agent blacklist\`. This model will not be reproposed." || true
+              fi
+            elif [ "$state" = "OPEN" ] && echo "$cmds" | grep -qE '(^|[[:space:]])/gallery-agent[[:space:]]+recreate([[:space:]]|$)'; then
+              echo "PR #$pr: recreate command found"
+              gh pr close "$pr" --repo "$REPO" --comment "Closed via \`/gallery-agent recreate\`. The next scheduled run will propose this model again." || true
+            fi
+          done
+
+      - name: Collect skip URLs for the gallery agent
+        id: open_prs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          SEARCH: 'gallery agent in:title'
+        run: |
+          # Skip set =
+          #   URLs from any open gallery-agent PR (avoid duplicate PRs for the same model while one is pending)
+          # + URLs from closed PRs carrying the `gallery-agent/blacklisted` label (hard blacklist)
+          # Plain-closed PRs without the label are ignored — closing a PR is
+          # not by itself a "never propose again" signal; maintainers must
+          # opt in via the /gallery-agent blacklist comment command.
+          urls_open=$(gh pr list --repo "$REPO" --state open --search "$SEARCH" \
+            --json body --jq '[.[].body] | join("\n")' \
+            | grep -oE 'https://huggingface\.co/[^ )]+' || true)
+          urls_blacklist=$(gh pr list --repo "$REPO" --state closed --search "$SEARCH" \
+            --label gallery-agent/blacklisted \
+            --json body --jq '[.[].body] | join("\n")' \
+            | grep -oE 'https://huggingface\.co/[^ )]+' || true)
+          urls=$(printf '%s\n%s\n' "$urls_open" "$urls_blacklist" | sort -u | sed '/^$/d')
+          echo "Skip URLs:"
+          echo "$urls"
+          {
+            echo "urls<<EOF"
+            echo "$urls"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Run gallery agent
         env:
-          #OPENAI_MODEL: ${{ secrets.OPENAI_MODEL }}
-          OPENAI_MODE: Qwen3.5-2B-GGUF
-          OPENAI_BASE_URL: "http://localhost:8080"
-          OPENAI_KEY: ${{ secrets.OPENAI_KEY }}
-          #OPENAI_BASE_URL: ${{ secrets.OPENAI_BASE_URL }}
           SEARCH_TERM: ${{ github.event.inputs.search_term || 'GGUF' }}
           LIMIT: ${{ github.event.inputs.limit || '15' }}
           QUANTIZATION: ${{ github.event.inputs.quantization || 'Q4_K_M' }}
           MAX_MODELS: ${{ github.event.inputs.max_models || '1' }}
+          EXTRA_SKIP_URLS: ${{ steps.open_prs.outputs.urls }}
         run: |
           export GALLERY_INDEX_PATH=$PWD/gallery/index.yaml
           go run ./.github/gallery-agent
@@ -124,7 +191,21 @@ jobs:
             
             **Added Models:**
             ${{ steps.read_summary.outputs.added_models || '- No models added' }}
-            
+
+            ### Bot commands
+
+            Maintainers (owner / member / collaborator) can control this PR
+            by leaving a comment with one of:
+
+            - `/gallery-agent recreate` — close this PR; the next scheduled
+              run will propose this model again (useful if the entry needs
+              to be regenerated with fresh metadata).
+            - `/gallery-agent blacklist` — close this PR and permanently
+              prevent the gallery agent from ever reproposing this model.
+
+            Plain "Close" (without a command) is treated as a no-op: the
+            model may be reproposed by a future run.
+
             **Workflow Details:**
             - Triggered by: `${{ github.event_name }}`
             - Run ID: `${{ github.run_id }}`

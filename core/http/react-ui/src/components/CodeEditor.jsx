@@ -1,111 +1,99 @@
-import { useRef, useEffect, useCallback } from 'react'
-import hljs from 'highlight.js/lib/core'
-import yaml from 'highlight.js/lib/languages/yaml'
+import { useRef, useMemo } from 'react'
+import { keymap, lineNumbers, highlightActiveLineGutter, highlightActiveLine, drawSelection } from '@codemirror/view'
+import { EditorView } from '@codemirror/view'
+import { EditorState } from '@codemirror/state'
+import { yaml } from '@codemirror/lang-yaml'
+import { autocompletion } from '@codemirror/autocomplete'
+import { linter, lintGutter } from '@codemirror/lint'
+import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands'
+import { searchKeymap, highlightSelectionMatches } from '@codemirror/search'
+import { indentOnInput, indentUnit, bracketMatching, foldGutter, foldKeymap } from '@codemirror/language'
+import YAML from 'yaml'
+import { useCodeMirror } from '../hooks/useCodeMirror'
+import { useTheme } from '../contexts/ThemeContext'
+import { getThemeExtension } from '../utils/cmTheme'
+import { createYamlCompletionSource } from '../utils/cmYamlComplete'
 
-hljs.registerLanguage('yaml', yaml)
-
-export default function CodeEditor({ value, onChange, disabled, minHeight = '500px' }) {
-  const codeRef = useRef(null)
-  const textareaRef = useRef(null)
-  const preRef = useRef(null)
-
-  const highlight = useCallback(() => {
-    if (!codeRef.current) return
-    const result = hljs.highlight(value + '\n', { language: 'yaml', ignoreIllegals: true })
-    codeRef.current.innerHTML = result.value
-  }, [value])
-
-  useEffect(() => {
-    highlight()
-  }, [highlight])
-
-  const handleScroll = () => {
-    if (preRef.current && textareaRef.current) {
-      preRef.current.scrollTop = textareaRef.current.scrollTop
-      preRef.current.scrollLeft = textareaRef.current.scrollLeft
+function yamlIssueToDiagnostic(issue, cmDoc, severity) {
+  const len = cmDoc.length
+  if (issue.linePos && issue.linePos[0]) {
+    const startLine = Math.min(issue.linePos[0].line, cmDoc.lines)
+    const from = cmDoc.line(startLine).from + issue.linePos[0].col - 1
+    let to = from + 1
+    if (issue.linePos[1]) {
+      const endLine = Math.min(issue.linePos[1].line, cmDoc.lines)
+      to = cmDoc.line(endLine).from + issue.linePos[1].col - 1
     }
+    return { from: Math.min(from, len), to: Math.min(Math.max(to, from + 1), len), severity, message: issue.message.split('\n')[0] }
   }
+  return { from: 0, to: Math.min(1, len), severity, message: issue.message.split('\n')[0] }
+}
 
-  const handleKeyDown = (e) => {
-    if (e.key === 'Tab') {
-      e.preventDefault()
-      const ta = e.target
-      const start = ta.selectionStart
-      const end = ta.selectionEnd
-      const newValue = value.substring(0, start) + '  ' + value.substring(end)
-      onChange(newValue)
-      requestAnimationFrame(() => {
-        ta.selectionStart = ta.selectionEnd = start + 2
-      })
+const yamlLinter = linter(view => {
+  const text = view.state.doc.toString()
+  if (!text.trim()) return []
+  const parsed = YAML.parseDocument(text, { strict: true, prettyErrors: true })
+  const diagnostics = []
+  for (const err of parsed.errors) {
+    diagnostics.push(yamlIssueToDiagnostic(err, view.state.doc, 'error'))
+  }
+  for (const warn of parsed.warnings) {
+    diagnostics.push(yamlIssueToDiagnostic(warn, view.state.doc, 'warning'))
+  }
+  return diagnostics
+})
+
+export default function CodeEditor({ value, onChange, disabled, minHeight = '500px', fields }) {
+  const containerRef = useRef(null)
+  const { theme } = useTheme()
+
+  // Static extensions — only recreate when fields change
+  const extensions = useMemo(() => {
+    const exts = [
+      yaml(),
+      lineNumbers(),
+      highlightActiveLineGutter(),
+      highlightActiveLine(),
+      drawSelection(),
+      foldGutter(),
+      indentOnInput(),
+      bracketMatching(),
+      highlightSelectionMatches(),
+      yamlLinter,
+      lintGutter(),
+      history(),
+      indentUnit.of('  '),
+      EditorState.tabSize.of(2),
+      keymap.of([
+        indentWithTab,
+        ...defaultKeymap,
+        ...historyKeymap,
+        ...searchKeymap,
+        ...foldKeymap,
+      ]),
+      EditorView.theme({
+        '&': { minHeight },
+        '.cm-scroller': { overflow: 'auto' },
+      }),
+    ]
+
+    if (fields && fields.length > 0) {
+      exts.push(autocompletion({
+        override: [createYamlCompletionSource(fields)],
+        activateOnTyping: true,
+      }))
     }
-  }
 
-  return (
-    <div className="code-editor-wrapper" style={{ position: 'relative', minHeight, fontSize: '0.8125rem' }}>
-      <pre
-        ref={preRef}
-        className="code-editor-highlight"
-        aria-hidden="true"
-        style={{
-          position: 'absolute',
-          top: 0, left: 0, right: 0, bottom: 0,
-          margin: 0,
-          padding: 'var(--spacing-sm)',
-          overflow: 'auto',
-          pointerEvents: 'none',
-          fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
-          fontSize: 'inherit',
-          lineHeight: 1.5,
-          tabSize: 2,
-          whiteSpace: 'pre-wrap',
-          wordWrap: 'break-word',
-          background: 'var(--color-bg-tertiary)',
-          borderRadius: 'var(--radius-md)',
-          border: '1px solid var(--color-border-default)',
-        }}
-      >
-        <code
-          ref={codeRef}
-          className="language-yaml"
-          style={{
-            fontFamily: 'inherit',
-            fontSize: 'inherit',
-            lineHeight: 'inherit',
-            padding: 0,
-            background: 'transparent',
-          }}
-        />
-      </pre>
-      <textarea
-        ref={textareaRef}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        onScroll={handleScroll}
-        onKeyDown={handleKeyDown}
-        disabled={disabled}
-        spellCheck={false}
-        style={{
-          position: 'relative',
-          width: '100%',
-          minHeight,
-          margin: 0,
-          padding: 'var(--spacing-sm)',
-          fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
-          fontSize: 'inherit',
-          lineHeight: 1.5,
-          tabSize: 2,
-          whiteSpace: 'pre-wrap',
-          wordWrap: 'break-word',
-          color: 'transparent',
-          caretColor: 'var(--color-text-primary)',
-          background: 'transparent',
-          border: '1px solid var(--color-border-default)',
-          borderRadius: 'var(--radius-md)',
-          outline: 'none',
-          resize: 'vertical',
-          overflow: 'auto',
-        }}
-      />
-    </div>
-  )
+    return exts
+  }, [minHeight, fields])
+
+  // Dynamic extensions — reconfigured via Compartments (preserves undo/cursor/scroll)
+  const dynamicExtensions = useMemo(() => ({
+    theme: getThemeExtension(theme),
+    readOnly: [EditorState.readOnly.of(!!disabled), EditorView.editable.of(!disabled)],
+  }), [theme, disabled])
+
+  useCodeMirror({ containerRef, value, onChange, extensions, dynamicExtensions })
+
+  return <div ref={containerRef} className="code-editor-cm" />
 }

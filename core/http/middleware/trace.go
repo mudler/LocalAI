@@ -3,8 +3,9 @@ package middleware
 import (
 	"bytes"
 	"io"
+	"mime"
 	"net/http"
-	"sort"
+	"slices"
 	"sync"
 	"time"
 
@@ -41,7 +42,27 @@ type APIExchange struct {
 var traceBuffer *circularbuffer.Queue[APIExchange]
 var mu sync.Mutex
 var logChan = make(chan APIExchange, 100)
-var initOnce sync.Once
+var tracingMaxItems int
+
+var doInitializeTracing = sync.OnceFunc(func() {
+	maxItems := tracingMaxItems
+	if maxItems <= 0 {
+		maxItems = 100
+	}
+	mu.Lock()
+	traceBuffer = circularbuffer.New[APIExchange](maxItems)
+	mu.Unlock()
+
+	go func() {
+		for exchange := range logChan {
+			mu.Lock()
+			if traceBuffer != nil {
+				traceBuffer.Enqueue(exchange)
+			}
+			mu.Unlock()
+		}
+	}()
+})
 
 type bodyWriter struct {
 	http.ResponseWriter
@@ -60,24 +81,8 @@ func (w *bodyWriter) Flush() {
 }
 
 func initializeTracing(maxItems int) {
-	initOnce.Do(func() {
-		if maxItems <= 0 {
-			maxItems = 100
-		}
-		mu.Lock()
-		traceBuffer = circularbuffer.New[APIExchange](maxItems)
-		mu.Unlock()
-
-		go func() {
-			for exchange := range logChan {
-				mu.Lock()
-				if traceBuffer != nil {
-					traceBuffer.Enqueue(exchange)
-				}
-				mu.Unlock()
-			}
-		}()
-	})
+	tracingMaxItems = maxItems
+	doInitializeTracing()
 }
 
 // TraceMiddleware intercepts and logs JSON API requests and responses
@@ -90,7 +95,8 @@ func TraceMiddleware(app *application.Application) echo.MiddlewareFunc {
 
 			initializeTracing(app.ApplicationConfig().TracingMaxItems)
 
-			if c.Request().Header.Get("Content-Type") != "application/json" {
+			ct, _, _ := mime.ParseMediaType(c.Request().Header.Get("Content-Type"))
+			if ct != "application/json" {
 				return next(c)
 			}
 
@@ -176,8 +182,8 @@ func GetTraces() []APIExchange {
 	traces := traceBuffer.Values()
 	mu.Unlock()
 
-	sort.Slice(traces, func(i, j int) bool {
-		return traces[i].Timestamp.After(traces[j].Timestamp)
+	slices.SortFunc(traces, func(a, b APIExchange) int {
+		return b.Timestamp.Compare(a.Timestamp)
 	})
 
 	return traces

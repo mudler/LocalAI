@@ -15,6 +15,7 @@ import (
 
 // SoundGenerationEndpoint is the ElevenLabs SoundGeneration endpoint https://elevenlabs.io/docs/api-reference/sound-generation
 // @Summary Generates audio from the input text.
+// @Tags audio
 // @Param request body schema.ElevenLabsSoundGenerationRequest true "query params"
 // @Success 200 {string} binary	 "Response"
 // @Router /v1/sound-generation [post]

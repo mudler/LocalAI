@@ -35,7 +35,7 @@ var _ = Describe("Model test", func() {
 				system.WithModelPath(tempdir),
 			)
 			Expect(err).ToNot(HaveOccurred())
-			_, err = InstallModel(context.TODO(), systemState, "", c, map[string]interface{}{}, func(string, string, string, float64) {}, true)
+			_, err = InstallModel(context.TODO(), systemState, "", c, map[string]any{}, func(string, string, string, float64) {}, true)
 			Expect(err).ToNot(HaveOccurred())
 
 			for _, f := range []string{"cerebras", "cerebras-completion.tmpl", "cerebras-chat.tmpl", "cerebras.yaml"} {
@@ -43,7 +43,7 @@ var _ = Describe("Model test", func() {
 				Expect(err).ToNot(HaveOccurred())
 			}
 
-			content := map[string]interface{}{}
+			content := map[string]any{}
 
 			dat, err := os.ReadFile(filepath.Join(tempdir, "cerebras.yaml"))
 			Expect(err).ToNot(HaveOccurred())
@@ -95,7 +95,7 @@ var _ = Describe("Model test", func() {
 			dat, err := os.ReadFile(filepath.Join(tempdir, "bert.yaml"))
 			Expect(err).ToNot(HaveOccurred())
 
-			content := map[string]interface{}{}
+			content := map[string]any{}
 			err = yaml.Unmarshal(dat, &content)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(content["usage"]).To(ContainSubstring("You can test this model with curl like this"))
@@ -130,7 +130,7 @@ var _ = Describe("Model test", func() {
 				system.WithModelPath(tempdir),
 			)
 			Expect(err).ToNot(HaveOccurred())
-			_, err = InstallModel(context.TODO(), systemState, "foo", c, map[string]interface{}{}, func(string, string, string, float64) {}, true)
+			_, err = InstallModel(context.TODO(), systemState, "foo", c, map[string]any{}, func(string, string, string, float64) {}, true)
 			Expect(err).ToNot(HaveOccurred())
 
 			for _, f := range []string{"cerebras", "cerebras-completion.tmpl", "cerebras-chat.tmpl", "foo.yaml"} {
@@ -150,7 +150,7 @@ var _ = Describe("Model test", func() {
 				system.WithModelPath(tempdir),
 			)
 			Expect(err).ToNot(HaveOccurred())
-			_, err = InstallModel(context.TODO(), systemState, "foo", c, map[string]interface{}{"backend": "foo"}, func(string, string, string, float64) {}, true)
+			_, err = InstallModel(context.TODO(), systemState, "foo", c, map[string]any{"backend": "foo"}, func(string, string, string, float64) {}, true)
 			Expect(err).ToNot(HaveOccurred())
 
 			for _, f := range []string{"cerebras", "cerebras-completion.tmpl", "cerebras-chat.tmpl", "foo.yaml"} {
@@ -158,7 +158,7 @@ var _ = Describe("Model test", func() {
 				Expect(err).ToNot(HaveOccurred())
 			}
 
-			content := map[string]interface{}{}
+			content := map[string]any{}
 
 			dat, err := os.ReadFile(filepath.Join(tempdir, "foo.yaml"))
 			Expect(err).ToNot(HaveOccurred())
@@ -180,7 +180,7 @@ var _ = Describe("Model test", func() {
 				system.WithModelPath(tempdir),
 			)
 			Expect(err).ToNot(HaveOccurred())
-			_, err = InstallModel(context.TODO(), systemState, "../../../foo", c, map[string]interface{}{}, func(string, string, string, float64) {}, true)
+			_, err = InstallModel(context.TODO(), systemState, "../../../foo", c, map[string]any{}, func(string, string, string, float64) {}, true)
 			Expect(err).To(HaveOccurred())
 		})
 

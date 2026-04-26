@@ -1,7 +1,7 @@
 
 +++
 disableToc = false
-title = "📖 Text generation (GPT)"
+title = "Text Generation (GPT)"
 weight = 10
 url = "/features/text-generation/"
 +++
@@ -514,6 +514,7 @@ The `llama.cpp` backend supports additional configuration options that can be sp
 | `no_op_offload` | boolean | Disable offloading host tensor operations to device. Default: `false`. | `no_op_offload:true` |
 | `kv_unified` or `unified_kv` | boolean | Enable unified KV cache. Default: `false`. | `kv_unified:true` |
 | `n_ctx_checkpoints` or `ctx_checkpoints` | integer | Maximum number of context checkpoints per slot. Default: `8`. | `ctx_checkpoints:4` |
+| `split_mode` or `sm` | string | How to split the model across multiple GPUs: `none` (single GPU only), `layer` (default — split layers and KV across GPUs), `row` (split rows across GPUs), `tensor` (experimental tensor parallelism — requires `flash_attention: true`, no KV-cache quantization, manually set `context_size`, and a llama.cpp build that includes [#19378](https://github.com/ggml-org/llama.cpp/pull/19378)). | `split_mode:tensor` |
 
 **Example configuration with options:**
 
@@ -537,6 +538,98 @@ options:
 #### Reference
 
 - [llama](https://github.com/ggerganov/llama.cpp)
+
+
+### ik_llama.cpp
+
+[ik_llama.cpp](https://github.com/ikawrakow/ik_llama.cpp) is a hard fork of `llama.cpp` by Iwan Kawrakow that focuses on superior CPU and hybrid GPU/CPU performance. It ships additional quantization types (IQK quants), custom quantization mixes, Multi-head Latent Attention (MLA) for DeepSeek models, and fine-grained tensor offload controls — particularly useful for running very large models on commodity CPU hardware.
+
+{{% notice note %}}
+
+The `ik-llama-cpp` backend requires a CPU with **AVX2** support. The IQK kernels are not compatible with older CPUs.
+
+{{% /notice %}}
+
+#### Features
+
+The `ik-llama-cpp` backend supports the following features:
+- [📖 Text generation (GPT)]({{%relref "features/text-generation" %}})
+- [🧠 Embeddings]({{%relref "features/embeddings" %}})
+- IQK quantization types for better CPU inference performance
+- Multimodal models (via clip/llava)
+
+#### Setup
+
+The backend is distributed as a separate container image and can be installed from the LocalAI backend gallery, or specified directly in a model configuration. GGUF models loaded with this backend benefit from ik_llama.cpp's optimized CPU kernels — especially useful for MoE models and large quantized models that would otherwise be GPU-bound.
+
+#### YAML configuration
+
+To use the `ik-llama-cpp` backend, specify it as the backend in the YAML file:
+
+```yaml
+name: my-model
+backend: ik-llama-cpp
+parameters:
+  # Relative to the models path
+  model: file.gguf
+```
+
+The aliases `ik-llama` and `ik_llama` are also accepted.
+
+#### Reference
+
+- [ik_llama.cpp](https://github.com/ikawrakow/ik_llama.cpp)
+
+
+### turboquant (llama.cpp fork with TurboQuant KV-cache)
+
+[llama-cpp-turboquant](https://github.com/TheTom/llama-cpp-turboquant) is a `llama.cpp` fork that adds the **TurboQuant KV-cache** quantization scheme. It reuses the upstream `llama.cpp` codebase and ships as a drop-in alternative backend inside LocalAI, sharing the same gRPC server sources as the stock `llama-cpp` backend — so any GGUF model that runs on `llama-cpp` also runs on `turboquant`.
+
+You would pick `turboquant` when you want **smaller KV-cache memory pressure** (longer contexts on the same VRAM) or to experiment with the fork's quantized KV representations on top of the standard `cache_type_k` / `cache_type_v` knobs already supported by upstream `llama.cpp`.
+
+#### Features
+
+- Drop-in GGUF compatibility with upstream `llama.cpp`.
+- TurboQuant KV-cache quantization (see fork README for the current set of accepted `cache_type_k` / `cache_type_v` values).
+- Same feature surface as the `llama-cpp` backend: text generation, embeddings, tool calls, multimodal via mmproj.
+- Available on CPU (AVX/AVX2/AVX512/fallback), NVIDIA CUDA 12/13, AMD ROCm/HIP, Intel SYCL f32/f16, Vulkan, and NVIDIA L4T.
+
+#### Setup
+
+`turboquant` ships as a separate container image in the LocalAI backend gallery. Install it like any other backend:
+
+```bash
+local-ai backends install turboquant
+```
+
+Or pick a specific flavor for your hardware (example tags: `cpu-turboquant`, `cuda12-turboquant`, `cuda13-turboquant`, `rocm-turboquant`, `intel-sycl-f16-turboquant`, `vulkan-turboquant`).
+
+#### YAML configuration
+
+To run a model with `turboquant`, set the backend in your model YAML and optionally pick quantized KV-cache types:
+
+```yaml
+name: my-model
+backend: turboquant
+parameters:
+  # Relative to the models path
+  model: file.gguf
+# Use TurboQuant's own KV-cache quantization schemes. The fork accepts
+# the standard llama.cpp types (f16, f32, q8_0, q4_0, q4_1, q5_0, q5_1)
+# and adds three TurboQuant-specific ones: turbo2, turbo3, turbo4.
+# turbo3 / turbo4 auto-enable flash_attention (required for turbo K/V)
+# and offer progressively more aggressive compression.
+cache_type_k: turbo3
+cache_type_v: turbo3
+context_size: 8192
+```
+
+The `cache_type_k` / `cache_type_v` fields map to llama.cpp's `-ctk` / `-ctv` flags. The stock `llama-cpp` backend only accepts the standard llama.cpp types — to use `turbo2` / `turbo3` / `turbo4` you need this `turboquant` backend, which is where the fork's TurboQuant code paths actually take effect. Pick `q8_0` here and you're just running stock llama.cpp KV quantization; pick `turbo*` and you're running TurboQuant.
+
+#### Reference
+
+- [llama-cpp-turboquant](https://github.com/TheTom/llama-cpp-turboquant)
+- [Tracked branch: `feature/turboquant-kv-cache`](https://github.com/TheTom/llama-cpp-turboquant/tree/feature/turboquant-kv-cache)
 
 
 ### vLLM

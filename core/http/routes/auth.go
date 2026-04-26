@@ -16,7 +16,7 @@ import (
 	"github.com/mudler/LocalAI/core/application"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/auth"
-	"github.com/mudler/LocalAI/core/services"
+	"github.com/mudler/LocalAI/core/services/galleryop"
 	"gorm.io/gorm"
 )
 
@@ -156,17 +156,18 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 			}
 		}
 
-		resp := map[string]interface{}{
-			"authEnabled":      authEnabled,
-			"providers":        providers,
-			"hasUsers":         hasUsers,
-			"registrationMode": registrationMode,
+		resp := map[string]any{
+			"authEnabled":          authEnabled,
+			"staticApiKeyRequired": !authEnabled && len(appConfig.ApiKeys) > 0,
+			"providers":            providers,
+			"hasUsers":             hasUsers,
+			"registrationMode":     registrationMode,
 		}
 
 		// Include current user if authenticated
 		user := auth.GetUser(c)
 		if user != nil {
-			userResp := map[string]interface{}{
+			userResp := map[string]any{
 				"id":        user.ID,
 				"email":     user.Email,
 				"name":      user.Name,
@@ -185,7 +186,73 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 		return c.JSON(http.StatusOK, resp)
 	})
 
-	// OAuth routes - only registered when auth is enabled
+	// Rate limiter for auth endpoints: 5 attempts per minute per IP
+	authRL := newRateLimiter(1*time.Minute, 5)
+	authRateLimitMw := rateLimitMiddleware(authRL)
+
+	// Start background goroutine to periodically prune stale IP entries
+	go func() {
+		ticker := time.NewTicker(10 * time.Minute)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-appConfig.Context.Done():
+				return
+			case <-ticker.C:
+				authRL.cleanup()
+			}
+		}
+	}()
+
+	// POST /api/auth/token-login - authenticate with API key/token.
+	// Registered when auth DB or legacy API keys are configured.
+	if db != nil || len(appConfig.ApiKeys) > 0 {
+		e.POST("/api/auth/token-login", func(c echo.Context) error {
+			var body struct {
+				Token string `json:"token"`
+			}
+			if err := c.Bind(&body); err != nil || strings.TrimSpace(body.Token) == "" {
+				return c.JSON(http.StatusBadRequest, map[string]string{"error": "token is required"})
+			}
+
+			token := strings.TrimSpace(body.Token)
+
+			// Try as user API key (only when auth DB is available)
+			if db != nil {
+				if apiKey, err := auth.ValidateAPIKey(db, token, appConfig.Auth.APIKeyHMACSecret); err == nil {
+					sessionID, err := auth.CreateSession(db, apiKey.User.ID, appConfig.Auth.APIKeyHMACSecret)
+					if err != nil {
+						return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to create session"})
+					}
+					auth.SetSessionCookie(c, sessionID)
+					return c.JSON(http.StatusOK, map[string]any{
+						"user": map[string]any{
+							"id":    apiKey.User.ID,
+							"email": apiKey.User.Email,
+							"name":  apiKey.User.Name,
+							"role":  apiKey.User.Role,
+						},
+					})
+				}
+			}
+
+			// Try as legacy API key
+			if len(appConfig.ApiKeys) > 0 && isValidLegacyKey(token, appConfig) {
+				auth.SetTokenCookie(c, token)
+				return c.JSON(http.StatusOK, map[string]any{
+					"user": map[string]any{
+						"id":   "legacy-api-key",
+						"name": "API Key User",
+						"role": auth.RoleAdmin,
+					},
+				})
+			}
+
+			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "invalid token"})
+		}, authRateLimitMw)
+	}
+
+	// Remaining routes require auth DB
 	if db == nil {
 		return
 	}
@@ -217,24 +284,6 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 			}
 		}
 	}
-
-	// Rate limiter for auth endpoints: 5 attempts per minute per IP
-	authRL := newRateLimiter(1*time.Minute, 5)
-	authRateLimitMw := rateLimitMiddleware(authRL)
-
-	// Start background goroutine to periodically prune stale IP entries (#12)
-	go func() {
-		ticker := time.NewTicker(10 * time.Minute)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-appConfig.Context.Done():
-				return
-			case <-ticker.C:
-				authRL.cleanup()
-			}
-		}
-	}()
 
 	// POST /api/auth/register - public, email/password registration
 	e.POST("/api/auth/register", func(c echo.Context) error {
@@ -346,13 +395,13 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 
 		// user == nil means duplicate email — return generic success (#6)
 		if user == nil {
-			return c.JSON(http.StatusCreated, map[string]interface{}{
+			return c.JSON(http.StatusCreated, map[string]any{
 				"message": "registration processed",
 			})
 		}
 
 		if status == auth.StatusPending {
-			return c.JSON(http.StatusOK, map[string]interface{}{
+			return c.JSON(http.StatusOK, map[string]any{
 				"message": "registration successful, awaiting admin approval",
 				"pending": true,
 			})
@@ -364,8 +413,8 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 		}
 		auth.SetSessionCookie(c, sessionID)
 
-		return c.JSON(http.StatusCreated, map[string]interface{}{
-			"user": map[string]interface{}{
+		return c.JSON(http.StatusCreated, map[string]any{
+			"user": map[string]any{
 				"id":    user.ID,
 				"email": user.Email,
 				"name":  user.Name,
@@ -416,61 +465,14 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 		}
 		auth.SetSessionCookie(c, sessionID)
 
-		return c.JSON(http.StatusOK, map[string]interface{}{
-			"user": map[string]interface{}{
+		return c.JSON(http.StatusOK, map[string]any{
+			"user": map[string]any{
 				"id":    user.ID,
 				"email": user.Email,
 				"name":  user.Name,
 				"role":  user.Role,
 			},
 		})
-	}, authRateLimitMw)
-
-	// POST /api/auth/token-login - public, authenticate with API key/token (#3)
-	e.POST("/api/auth/token-login", func(c echo.Context) error {
-		var body struct {
-			Token string `json:"token"`
-		}
-		if err := c.Bind(&body); err != nil || strings.TrimSpace(body.Token) == "" {
-			return c.JSON(http.StatusBadRequest, map[string]string{"error": "token is required"})
-		}
-
-		token := strings.TrimSpace(body.Token)
-		hmacSecret := appConfig.Auth.APIKeyHMACSecret
-
-		// Try as user API key
-		if apiKey, err := auth.ValidateAPIKey(db, token, hmacSecret); err == nil {
-			sessionID, err := auth.CreateSession(db, apiKey.User.ID, appConfig.Auth.APIKeyHMACSecret)
-			if err != nil {
-				return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to create session"})
-			}
-			auth.SetSessionCookie(c, sessionID)
-
-			return c.JSON(http.StatusOK, map[string]interface{}{
-				"user": map[string]interface{}{
-					"id":    apiKey.User.ID,
-					"email": apiKey.User.Email,
-					"name":  apiKey.User.Name,
-					"role":  apiKey.User.Role,
-				},
-			})
-		}
-
-		// Try as legacy API key
-		if len(appConfig.ApiKeys) > 0 && isValidLegacyKey(token, appConfig) {
-			// Create a synthetic session cookie with the token for legacy mode
-			auth.SetTokenCookie(c, token)
-
-			return c.JSON(http.StatusOK, map[string]interface{}{
-				"user": map[string]interface{}{
-					"id":   "legacy-api-key",
-					"name": "API Key User",
-					"role": auth.RoleAdmin,
-				},
-			})
-		}
-
-		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "invalid token"})
 	}, authRateLimitMw)
 
 	// POST /api/auth/logout - requires auth
@@ -496,7 +498,7 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "not authenticated"})
 		}
 
-		resp := map[string]interface{}{
+		resp := map[string]any{
 			"id":          user.ID,
 			"email":       user.Email,
 			"name":        user.Name,
@@ -521,7 +523,7 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to get quota status"})
 		}
-		return c.JSON(http.StatusOK, map[string]interface{}{"quotas": quotas})
+		return c.JSON(http.StatusOK, map[string]any{"quotas": quotas})
 	})
 
 	// PUT /api/auth/profile - update user profile (name, avatar_url)
@@ -549,7 +551,7 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": "avatar URL must be at most 512 characters"})
 		}
 
-		updates := map[string]interface{}{
+		updates := map[string]any{
 			"name":       name,
 			"avatar_url": avatarURL,
 		}
@@ -558,7 +560,7 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to update profile"})
 		}
 
-		return c.JSON(http.StatusOK, map[string]interface{}{
+		return c.JSON(http.StatusOK, map[string]any{
 			"message":   "profile updated",
 			"name":      name,
 			"avatarUrl": avatarURL,
@@ -684,7 +686,7 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to create API key"})
 		}
 
-		resp := map[string]interface{}{
+		resp := map[string]any{
 			"key":       plaintext, // shown once
 			"id":        record.ID,
 			"name":      record.Name,
@@ -711,9 +713,9 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to list API keys"})
 		}
 
-		result := make([]map[string]interface{}, 0, len(keys))
+		result := make([]map[string]any, 0, len(keys))
 		for _, k := range keys {
-			entry := map[string]interface{}{
+			entry := map[string]any{
 				"id":        k.ID,
 				"name":      k.Name,
 				"keyPrefix": k.KeyPrefix,
@@ -727,7 +729,7 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 			result = append(result, entry)
 		}
 
-		return c.JSON(http.StatusOK, map[string]interface{}{"keys": result})
+		return c.JSON(http.StatusOK, map[string]any{"keys": result})
 	})
 
 	// DELETE /api/auth/api-keys/:id - revoke API key
@@ -785,15 +787,15 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 		// Get available models
 		modelNames := []string{}
 		if app.ModelConfigLoader() != nil && app.ModelLoader() != nil {
-			names, err := services.ListModels(
-				app.ModelConfigLoader(), app.ModelLoader(), nil, services.SKIP_IF_CONFIGURED,
+			names, err := galleryop.ListModels(
+				app.ModelConfigLoader(), app.ModelLoader(), nil, galleryop.SKIP_IF_CONFIGURED,
 			)
 			if err == nil {
 				modelNames = names
 			}
 		}
 
-		return c.JSON(http.StatusOK, map[string]interface{}{
+		return c.JSON(http.StatusOK, map[string]any{
 			"agent_features":   auth.AgentFeatureMetas(),
 			"general_features": auth.GeneralFeatureMetas(),
 			"api_features":     auth.APIFeatureMetas(),
@@ -808,9 +810,9 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to list users"})
 		}
 
-		result := make([]map[string]interface{}, 0, len(users))
+		result := make([]map[string]any, 0, len(users))
 		for _, u := range users {
-			entry := map[string]interface{}{
+			entry := map[string]any{
 				"id":        u.ID,
 				"email":     u.Email,
 				"name":      u.Name,
@@ -828,7 +830,7 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 			result = append(result, entry)
 		}
 
-		return c.JSON(http.StatusOK, map[string]interface{}{"users": result})
+		return c.JSON(http.StatusOK, map[string]any{"users": result})
 	}, adminMw)
 
 	// PUT /api/auth/admin/users/:id/role - change user role
@@ -951,7 +953,7 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": "user not found"})
 		}
 		perms := auth.GetPermissionMapForUser(db, &target)
-		return c.JSON(http.StatusOK, map[string]interface{}{
+		return c.JSON(http.StatusOK, map[string]any{
 			"user_id":     targetID,
 			"permissions": perms,
 		})
@@ -974,7 +976,7 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to update permissions"})
 		}
 
-		return c.JSON(http.StatusOK, map[string]interface{}{
+		return c.JSON(http.StatusOK, map[string]any{
 			"message":     "permissions updated",
 			"user_id":     targetID,
 			"permissions": perms,
@@ -998,7 +1000,7 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to update model allowlist"})
 		}
 
-		return c.JSON(http.StatusOK, map[string]interface{}{
+		return c.JSON(http.StatusOK, map[string]any{
 			"message":        "model allowlist updated",
 			"user_id":        targetID,
 			"allowed_models": allowlist,
@@ -1016,7 +1018,7 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to get quotas"})
 		}
-		return c.JSON(http.StatusOK, map[string]interface{}{"quotas": quotas})
+		return c.JSON(http.StatusOK, map[string]any{"quotas": quotas})
 	}, adminMw)
 
 	// PUT /api/auth/admin/users/:id/quotas - upsert quota rule (by user+model)
@@ -1050,7 +1052,7 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to save quota rule"})
 		}
 
-		return c.JSON(http.StatusOK, map[string]interface{}{
+		return c.JSON(http.StatusOK, map[string]any{
 			"message": "quota rule saved",
 			"quota":   rule,
 		})
@@ -1128,7 +1130,7 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to create invite"})
 		}
 
-		return c.JSON(http.StatusCreated, map[string]interface{}{
+		return c.JSON(http.StatusCreated, map[string]any{
 			"id":        invite.ID,
 			"code":      plaintext,
 			"expiresAt": invite.ExpiresAt,
@@ -1143,21 +1145,21 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to list invites"})
 		}
 
-		result := make([]map[string]interface{}, 0, len(invites))
+		result := make([]map[string]any, 0, len(invites))
 		for _, inv := range invites {
-			entry := map[string]interface{}{
+			entry := map[string]any{
 				"id":         inv.ID,
 				"codePrefix": inv.CodePrefix,
 				"expiresAt":  inv.ExpiresAt,
-				"createdAt": inv.CreatedAt,
-				"usedAt":    inv.UsedAt,
-				"createdBy": map[string]interface{}{
+				"createdAt":  inv.CreatedAt,
+				"usedAt":     inv.UsedAt,
+				"createdBy": map[string]any{
 					"id":   inv.Creator.ID,
 					"name": inv.Creator.Name,
 				},
 			}
 			if inv.UsedBy != nil && inv.Consumer != nil {
-				entry["usedBy"] = map[string]interface{}{
+				entry["usedBy"] = map[string]any{
 					"id":   inv.Consumer.ID,
 					"name": inv.Consumer.Name,
 				}
@@ -1167,7 +1169,7 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 			result = append(result, entry)
 		}
 
-		return c.JSON(http.StatusOK, map[string]interface{}{"invites": result})
+		return c.JSON(http.StatusOK, map[string]any{"invites": result})
 	}, adminMw)
 
 	// DELETE /api/auth/admin/invites/:id - revoke unused invite (admin only)

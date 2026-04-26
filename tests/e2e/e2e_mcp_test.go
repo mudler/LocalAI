@@ -154,8 +154,8 @@ var _ = Describe("MCP Tool Integration E2E Tests", Label("MCP"), func() {
 		Context("Non-streaming", func() {
 			It("should inject and execute MCP tools when mcp_servers is set", func() {
 				body := map[string]any{
-					"model":       "mock-model-mcp",
-					"messages":    []map[string]string{{"role": "user", "content": "What is the weather in San Francisco?"}},
+					"model":    "mock-model-mcp",
+					"messages": []map[string]string{{"role": "user", "content": "What is the weather in San Francisco?"}},
 					"metadata": map[string]string{"mcp_servers": "weather-api"},
 				}
 				resp, err := httpPost(apiURL+"/chat/completions", body)
@@ -195,10 +195,10 @@ var _ = Describe("MCP Tool Integration E2E Tests", Label("MCP"), func() {
 		Context("Streaming", func() {
 			It("should work with MCP tools in streaming mode", func() {
 				body := map[string]any{
-					"model":       "mock-model-mcp",
-					"messages":    []map[string]string{{"role": "user", "content": "What is the weather?"}},
+					"model":    "mock-model-mcp",
+					"messages": []map[string]string{{"role": "user", "content": "What is the weather?"}},
 					"metadata": map[string]string{"mcp_servers": "weather-api"},
-					"stream":      true,
+					"stream":   true,
 				}
 				resp, err := httpPost(apiURL+"/chat/completions", body)
 				Expect(err).ToNot(HaveOccurred())
@@ -217,10 +217,10 @@ var _ = Describe("MCP Tool Integration E2E Tests", Label("MCP"), func() {
 		Context("Non-streaming", func() {
 			It("should inject and execute MCP tools when mcp_servers is set", func() {
 				body := map[string]any{
-					"model":       "mock-model-mcp",
-					"max_tokens":  1024,
-					"messages":    []map[string]string{{"role": "user", "content": "What is the weather?"}},
-					"metadata": map[string]string{"mcp_servers": "weather-api"},
+					"model":      "mock-model-mcp",
+					"max_tokens": 1024,
+					"messages":   []map[string]string{{"role": "user", "content": "What is the weather?"}},
+					"metadata":   map[string]string{"mcp_servers": "weather-api"},
 				}
 				resp, err := httpPost(fmt.Sprintf("http://127.0.0.1:%d/v1/messages", apiPort), body)
 				Expect(err).ToNot(HaveOccurred())
@@ -263,11 +263,11 @@ var _ = Describe("MCP Tool Integration E2E Tests", Label("MCP"), func() {
 		Context("Streaming", func() {
 			It("should work with MCP tools in streaming mode", func() {
 				body := map[string]any{
-					"model":       "mock-model-mcp",
-					"max_tokens":  1024,
-					"messages":    []map[string]string{{"role": "user", "content": "What is the weather?"}},
-					"metadata": map[string]string{"mcp_servers": "weather-api"},
-					"stream":      true,
+					"model":      "mock-model-mcp",
+					"max_tokens": 1024,
+					"messages":   []map[string]string{{"role": "user", "content": "What is the weather?"}},
+					"metadata":   map[string]string{"mcp_servers": "weather-api"},
+					"stream":     true,
 				}
 				resp, err := httpPost(fmt.Sprintf("http://127.0.0.1:%d/v1/messages", apiPort), body)
 				Expect(err).ToNot(HaveOccurred())
@@ -285,8 +285,8 @@ var _ = Describe("MCP Tool Integration E2E Tests", Label("MCP"), func() {
 		Context("Non-streaming", func() {
 			It("should inject and execute MCP tools when mcp_servers is set", func() {
 				body := map[string]any{
-					"model":       "mock-model-mcp",
-					"input":       "What is the weather in San Francisco?",
+					"model":    "mock-model-mcp",
+					"input":    "What is the weather in San Francisco?",
 					"metadata": map[string]string{"mcp_servers": "weather-api"},
 				}
 				resp, err := httpPost(fmt.Sprintf("http://127.0.0.1:%d/v1/responses", apiPort), body)
@@ -327,10 +327,10 @@ var _ = Describe("MCP Tool Integration E2E Tests", Label("MCP"), func() {
 		Context("Streaming", func() {
 			It("should work with MCP tools in streaming mode", func() {
 				body := map[string]any{
-					"model":       "mock-model-mcp",
-					"input":       "What is the weather?",
+					"model":    "mock-model-mcp",
+					"input":    "What is the weather?",
 					"metadata": map[string]string{"mcp_servers": "weather-api"},
-					"stream":      true,
+					"stream":   true,
 				}
 				resp, err := httpPost(fmt.Sprintf("http://127.0.0.1:%d/v1/responses", apiPort), body)
 				Expect(err).ToNot(HaveOccurred())
@@ -415,8 +415,8 @@ var _ = Describe("MCP Tool Integration E2E Tests", Label("MCP"), func() {
 	Describe("MCP with invalid server name", func() {
 		It("should work without MCP tools when specifying non-existent server", func() {
 			body := map[string]any{
-				"model":       "mock-model-mcp",
-				"messages":    []map[string]string{{"role": "user", "content": "Hello"}},
+				"model":    "mock-model-mcp",
+				"messages": []map[string]string{{"role": "user", "content": "Hello"}},
 				"metadata": map[string]string{"mcp_servers": "non-existent-server"},
 			}
 			resp, err := httpPost(apiURL+"/chat/completions", body)

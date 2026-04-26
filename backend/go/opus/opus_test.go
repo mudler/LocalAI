@@ -701,7 +701,7 @@ var _ = Describe("Opus", func() {
 			// to one-shot (only difference is resampler batch boundaries).
 			var maxDiff float64
 			var sumDiffSq float64
-			for i := 0; i < minLen; i++ {
+			for i := range minLen {
 				diff := math.Abs(float64(oneShotTail[i]) - float64(batchedTail[i]))
 				if diff > maxDiff {
 					maxDiff = diff
@@ -774,7 +774,7 @@ var _ = Describe("Opus", func() {
 			minLen := min(len(refTail), min(len(persistentTail), len(freshTail)))
 
 			var persistentMaxDiff, freshMaxDiff float64
-			for i := 0; i < minLen; i++ {
+			for i := range minLen {
 				pd := math.Abs(float64(refTail[i]) - float64(persistentTail[i]))
 				fd := math.Abs(float64(refTail[i]) - float64(freshTail[i]))
 				if pd > persistentMaxDiff {
@@ -932,7 +932,7 @@ var _ = Describe("Opus", func() {
 			GinkgoWriter.Printf("Zero-crossing intervals: mean=%.2f stddev=%.2f CV=%.3f (expected period ~%.1f)\n",
 				mean, stddev, stddev/mean, 16000.0/440.0/2.0)
 
-			Expect(stddev / mean).To(BeNumerically("<", 0.15),
+			Expect(stddev/mean).To(BeNumerically("<", 0.15),
 				fmt.Sprintf("irregular zero crossings suggest discontinuity: CV=%.3f", stddev/mean))
 
 			// Also check frequency is correct
@@ -978,7 +978,7 @@ var _ = Describe("Opus", func() {
 
 			// Every sample must be identical — the resampler is deterministic
 			var maxDiff float64
-			for i := 0; i < len(oneShot); i++ {
+			for i := range len(oneShot) {
 				diff := math.Abs(float64(oneShot[i]) - float64(batched[i]))
 				if diff > maxDiff {
 					maxDiff = diff
@@ -1037,13 +1037,13 @@ var _ = Describe("Opus", func() {
 				binary.LittleEndian.PutUint32(hdr[4:8], uint32(36+dataLen))
 				copy(hdr[8:12], "WAVE")
 				copy(hdr[12:16], "fmt ")
-				binary.LittleEndian.PutUint32(hdr[16:20], 16)                     // chunk size
-				binary.LittleEndian.PutUint16(hdr[20:22], 1)                      // PCM
-				binary.LittleEndian.PutUint16(hdr[22:24], 1)                      // mono
-				binary.LittleEndian.PutUint32(hdr[24:28], uint32(sampleRate))      // sample rate
-				binary.LittleEndian.PutUint32(hdr[28:32], uint32(sampleRate*2))    // byte rate
-				binary.LittleEndian.PutUint16(hdr[32:34], 2)                      // block align
-				binary.LittleEndian.PutUint16(hdr[34:36], 16)                     // bits per sample
+				binary.LittleEndian.PutUint32(hdr[16:20], 16)                   // chunk size
+				binary.LittleEndian.PutUint16(hdr[20:22], 1)                    // PCM
+				binary.LittleEndian.PutUint16(hdr[22:24], 1)                    // mono
+				binary.LittleEndian.PutUint32(hdr[24:28], uint32(sampleRate))   // sample rate
+				binary.LittleEndian.PutUint32(hdr[28:32], uint32(sampleRate*2)) // byte rate
+				binary.LittleEndian.PutUint16(hdr[32:34], 2)                    // block align
+				binary.LittleEndian.PutUint16(hdr[34:36], 16)                   // bits per sample
 				copy(hdr[36:40], "data")
 				binary.LittleEndian.PutUint32(hdr[40:44], uint32(dataLen))
 
@@ -1126,7 +1126,7 @@ var _ = Describe("Opus", func() {
 		)
 
 		pcm := make([]byte, toneNumSamples*2)
-		for i := 0; i < toneNumSamples; i++ {
+		for i := range toneNumSamples {
 			sample := int16(toneAmplitude * math.Sin(2*math.Pi*toneFreq*float64(i)/float64(toneSampleRate)))
 			binary.LittleEndian.PutUint16(pcm[i*2:], uint16(sample))
 		}

@@ -14,4 +14,6 @@ type TranscriptionSegment struct {
 type TranscriptionResult struct {
 	Segments []TranscriptionSegment `json:"segments,omitempty"`
 	Text     string                 `json:"text"`
+	Language string                 `json:"language,omitempty"`
+	Duration float64                `json:"duration,omitempty"`
 }

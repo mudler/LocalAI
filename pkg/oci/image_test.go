@@ -5,6 +5,7 @@ import (
 	"os"
 	"runtime"
 
+	"github.com/mudler/LocalAI/pkg/oci"
 	. "github.com/mudler/LocalAI/pkg/oci" // Update with your module path
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -34,5 +35,12 @@ var _ = Describe("OCI", func() {
 			err = ExtractOCIImage(context.TODO(), img, imageName, dir, nil)
 			Expect(err).NotTo(HaveOccurred())
 		})
+	})
+})
+
+var _ = Describe("GetImageDigest", func() {
+	It("returns an error for an invalid image reference", func() {
+		_, err := oci.GetImageDigest("!!!invalid-ref!!!", "", nil, nil)
+		Expect(err).To(HaveOccurred())
 	})
 })

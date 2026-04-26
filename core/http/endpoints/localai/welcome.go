@@ -7,13 +7,13 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/http/middleware"
-	"github.com/mudler/LocalAI/core/services"
+	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/internal"
 	"github.com/mudler/LocalAI/pkg/model"
 )
 
 func WelcomeEndpoint(appConfig *config.ApplicationConfig,
-	cl *config.ModelConfigLoader, ml *model.ModelLoader, opcache *services.OpCache) echo.HandlerFunc {
+	cl *config.ModelConfigLoader, ml *model.ModelLoader, opcache *galleryop.OpCache) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		modelConfigs := cl.GetAllModelsConfigs()
 		galleryConfigs := map[string]*gallery.ModelConfig{}
@@ -37,12 +37,12 @@ func WelcomeEndpoint(appConfig *config.ApplicationConfig,
 			loadedModelsMap[m.ID] = true
 		}
 
-		modelsWithoutConfig, _ := services.ListModels(cl, ml, config.NoFilterFn, services.LOOSE_ONLY)
+		modelsWithoutConfig, _ := galleryop.ListModels(cl, ml, config.NoFilterFn, galleryop.LOOSE_ONLY)
 
 		// Get model statuses to display in the UI the operation in progress
 		processingModels, taskTypes := opcache.GetStatus()
 
-		summary := map[string]interface{}{
+		summary := map[string]any{
 			"Title":                  "LocalAI API - " + internal.PrintableVersion(),
 			"Version":                internal.PrintableVersion(),
 			"BaseURL":                middleware.BaseURL(c),

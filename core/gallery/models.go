@@ -158,7 +158,7 @@ func InstallModelFromGallery(
 	return applyModel(model)
 }
 
-func InstallModel(ctx context.Context, systemState *system.SystemState, nameOverride string, config *ModelConfig, configOverrides map[string]interface{}, downloadStatus func(string, string, string, float64), enforceScan bool) (*lconfig.ModelConfig, error) {
+func InstallModel(ctx context.Context, systemState *system.SystemState, nameOverride string, config *ModelConfig, configOverrides map[string]any, downloadStatus func(string, string, string, float64), enforceScan bool) (*lconfig.ModelConfig, error) {
 	basePath := systemState.Model.ModelsPath
 	// Create base path if it doesn't exist
 	err := os.MkdirAll(basePath, 0750)
@@ -239,7 +239,7 @@ func InstallModel(ctx context.Context, systemState *system.SystemState, nameOver
 		configFilePath := filepath.Join(basePath, name+".yaml")
 
 		// Read and update config file as map[string]interface{}
-		configMap := make(map[string]interface{})
+		configMap := make(map[string]any)
 		err = yaml.Unmarshal([]byte(config.ConfigFile), &configMap)
 		if err != nil {
 			return nil, fmt.Errorf("failed to unmarshal config YAML: %v", err)
@@ -333,6 +333,12 @@ func InstallModel(ctx context.Context, systemState *system.SystemState, nameOver
 
 func galleryFileName(name string) string {
 	return "._gallery_" + name + ".yaml"
+}
+
+// GalleryFileName returns the on-disk filename of the gallery metadata file
+// for a given installed model name (e.g. "._gallery_<name>.yaml").
+func GalleryFileName(name string) string {
+	return galleryFileName(name)
 }
 
 func GetLocalModelConfiguration(basePath string, name string) (*ModelConfig, error) {

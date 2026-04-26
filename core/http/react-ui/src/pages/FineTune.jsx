@@ -241,7 +241,7 @@ function SingleMetricChart({ data, valueKey, label, color, formatValue, events }
   return (
     <div>
       <div style={{ fontSize: '0.8125rem', fontWeight: 600, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
-        <span style={{ display: 'inline-block', width: 12, height: 3, background: color, borderRadius: 2 }} />
+        <span style={{ display: 'inline-block', width: 12, height: 3, background: color, borderRadius: "var(--radius-sm)" }} />
         {label}
       </div>
       <svg
@@ -308,9 +308,9 @@ function ChartsGrid({ events }) {
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)', marginBottom: 'var(--spacing-md)' }}>
-      <SingleMetricChart data={lossData} valueKey="loss" label="Training Loss" color="#3b82f6" events={events} />
+      <SingleMetricChart data={lossData} valueKey="loss" label="Training Loss" color="var(--color-data-7)" events={events} />
       {evalData.length >= 1 ? (
-        <SingleMetricChart data={evalData} valueKey="eval_loss" label="Eval Loss" color="#ef4444" events={events} />
+        <SingleMetricChart data={evalData} valueKey="eval_loss" label="Eval Loss" color="var(--color-data-2)" events={events} />
       ) : (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--color-bg-secondary)', borderRadius: 'var(--radius-sm)', minHeight: 120 }}>
           <span style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)' }}>
@@ -319,8 +319,8 @@ function ChartsGrid({ events }) {
           </span>
         </div>
       )}
-      <SingleMetricChart data={lrData} valueKey="learning_rate" label="Learning Rate" color="#8b5cf6" formatValue={fmtExp} events={events} />
-      <SingleMetricChart data={gradNormData} valueKey="grad_norm" label="Gradient Norm" color="#f97316" events={events} />
+      <SingleMetricChart data={lrData} valueKey="learning_rate" label="Learning Rate" color="var(--color-data-3)" formatValue={fmtExp} events={events} />
+      <SingleMetricChart data={gradNormData} valueKey="grad_norm" label="Gradient Norm" color="var(--color-data-6)" events={events} />
     </div>
   )
 }
@@ -483,26 +483,26 @@ function CheckpointsPanel({ job, onResume, onExportCheckpoint }) {
         <table style={{ width: '100%', fontSize: '0.8125rem', borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ borderBottom: '1px solid var(--color-border-subtle)', textAlign: 'left' }}>
-              <th style={{ padding: '4px 8px' }}>Step</th>
-              <th style={{ padding: '4px 8px' }}>Epoch</th>
-              <th style={{ padding: '4px 8px' }}>Loss</th>
-              <th style={{ padding: '4px 8px' }}>Created</th>
-              <th style={{ padding: '4px 8px' }}>Path</th>
-              <th style={{ padding: '4px 8px' }}>Actions</th>
+              <th style={{ padding: 'var(--spacing-xs) var(--spacing-sm)' }}>Step</th>
+              <th style={{ padding: 'var(--spacing-xs) var(--spacing-sm)' }}>Epoch</th>
+              <th style={{ padding: 'var(--spacing-xs) var(--spacing-sm)' }}>Loss</th>
+              <th style={{ padding: 'var(--spacing-xs) var(--spacing-sm)' }}>Created</th>
+              <th style={{ padding: 'var(--spacing-xs) var(--spacing-sm)' }}>Path</th>
+              <th style={{ padding: 'var(--spacing-xs) var(--spacing-sm)' }}>Actions</th>
             </tr>
           </thead>
           <tbody>
             {checkpoints.map(cp => (
               <tr key={cp.path} style={{ borderBottom: '1px solid var(--color-border-subtle)' }}>
-                <td style={{ padding: '4px 8px' }}>{cp.step}</td>
-                <td style={{ padding: '4px 8px' }}>{cp.epoch?.toFixed(2)}</td>
-                <td style={{ padding: '4px 8px' }}>{cp.loss?.toFixed(4)}</td>
-                <td style={{ padding: '4px 8px' }}>{cp.created_at}</td>
-                <td style={{ padding: '4px 8px', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={cp.path}>
+                <td style={{ padding: 'var(--spacing-xs) var(--spacing-sm)' }}>{cp.step}</td>
+                <td style={{ padding: 'var(--spacing-xs) var(--spacing-sm)' }}>{cp.epoch?.toFixed(2)}</td>
+                <td style={{ padding: 'var(--spacing-xs) var(--spacing-sm)' }}>{cp.loss?.toFixed(4)}</td>
+                <td style={{ padding: 'var(--spacing-xs) var(--spacing-sm)' }}>{cp.created_at}</td>
+                <td style={{ padding: 'var(--spacing-xs) var(--spacing-sm)', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={cp.path}>
                   {cp.path} <CopyButton text={cp.path} />
                 </td>
-                <td style={{ padding: '4px 8px', whiteSpace: 'nowrap' }}>
-                  <button className="btn" style={{ fontSize: '0.7rem', padding: '2px 6px', marginRight: '4px' }}
+                <td style={{ padding: 'var(--spacing-xs) var(--spacing-sm)', whiteSpace: 'nowrap' }}>
+                  <button className="btn" style={{ fontSize: '0.7rem', padding: '2px 6px', marginRight: 'var(--spacing-xs)' }}
                     onClick={() => onResume(cp)} title="Resume training from this checkpoint">
                     <i className="fas fa-play" /> Resume
                   </button>
@@ -1269,7 +1269,7 @@ export default function FineTune() {
                       onChange={e => setCustomRewardCode(e.target.value)}
                       placeholder={"return [1.0 if '<think>' in c else 0.0 for c in completions]"}
                       rows={4}
-                      style={{ fontFamily: 'monospace', fontSize: '0.8125rem' }}
+                      style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem' }}
                     />
                   </div>
                   <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
@@ -1404,7 +1404,7 @@ export default function FineTune() {
                     <div
                       onClick={() => setEvalEnabled(!evalEnabled)}
                       style={{
-                        width: 36, height: 20, borderRadius: 10, position: 'relative',
+                        width: 36, height: 20, borderRadius: "var(--radius-xl)", position: 'relative',
                         background: evalEnabled ? 'var(--color-primary)' : 'var(--color-border)',
                         transition: 'background 0.2s', cursor: 'pointer', flexShrink: 0,
                       }}

@@ -77,7 +77,7 @@ func (a *Arena) ParseAnywhere(ctx *ParseContext) ParseResult {
 	if len(ctx.Input) == 0 {
 		return a.ParseAt(a.root, ctx, 0)
 	}
-	for i := 0; i < len(ctx.Input); i++ {
+	for i := range len(ctx.Input) {
 		result := a.ParseAt(a.root, ctx, i)
 		if result.Type == Success || i == len(ctx.Input)-1 {
 			return result

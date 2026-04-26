@@ -11,6 +11,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/mudler/LocalAI/pkg/utils"
 
@@ -24,16 +25,32 @@ import (
 // The model name is passed as the argument.
 type ModelUnloadHook func(modelName string)
 
+// RemoteModelUnloader handles unloading models from remote backend nodes.
+// In distributed mode, this is implemented by the SmartRouter.
+// When ShutdownModel is called for a model with no local process,
+// RemoteModelUnloader.UnloadRemoteModel is called to tell the remote node to free it.
+type RemoteModelUnloader interface {
+	UnloadRemoteModel(modelName string) error
+}
+
+// ModelRouter is a callback that routes model loading to a remote node
+// instead of starting a local process. When set on the ModelLoader,
+// grpcModel() will delegate to this function before attempting local loading.
+type ModelRouter func(ctx context.Context, backend, modelID, modelName, modelFile string,
+	opts *pb.ModelOptions, parallel bool) (*Model, error)
+
 type ModelLoader struct {
 	ModelPath                string
 	mu                       sync.Mutex
-	models                   map[string]*Model
+	store                    ModelStore
 	loading                  map[string]chan struct{} // tracks models currently being loaded
 	wd                       *WatchDog
 	externalBackends         map[string]string
 	lruEvictionMaxRetries    int           // Maximum number of retries when waiting for busy models
 	lruEvictionRetryInterval time.Duration // Interval between retries when waiting for busy models
 	onUnloadHooks            []ModelUnloadHook
+	remoteUnloader           RemoteModelUnloader
+	modelRouter              ModelRouter // distributed mode: route to remote node
 	backendLogs              *BackendLogStore
 	backendLoggingEnabled    atomic.Bool
 }
@@ -43,7 +60,7 @@ type ModelLoader struct {
 func NewModelLoader(system *system.SystemState) *ModelLoader {
 	nml := &ModelLoader{
 		ModelPath:                system.Model.ModelsPath,
-		models:                   make(map[string]*Model),
+		store:                    NewInMemoryModelStore(),
 		loading:                  make(map[string]chan struct{}),
 		externalBackends:         make(map[string]string),
 		lruEvictionMaxRetries:    30,              // Default: 30 retries
@@ -69,7 +86,33 @@ func (ml *ModelLoader) OnModelUnload(hook ModelUnloadHook) {
 }
 
 func (ml *ModelLoader) SetWatchDog(wd *WatchDog) {
+	ml.mu.Lock()
+	defer ml.mu.Unlock()
 	ml.wd = wd
+}
+
+// SetRemoteUnloader sets the handler for unloading models on remote nodes.
+// In distributed mode, this should be set to the SmartRouter adapter.
+func (ml *ModelLoader) SetRemoteUnloader(u RemoteModelUnloader) {
+	ml.mu.Lock()
+	defer ml.mu.Unlock()
+	ml.remoteUnloader = u
+}
+
+// SetModelRouter sets the distributed model router callback.
+// When set, grpcModel() will delegate to this function before attempting local loading.
+func (ml *ModelLoader) SetModelRouter(r ModelRouter) {
+	ml.mu.Lock()
+	defer ml.mu.Unlock()
+	ml.modelRouter = r
+}
+
+// SetModelStore replaces the default in-memory model store.
+// In distributed mode this is called with a DistributedModelStore.
+func (ml *ModelLoader) SetModelStore(s ModelStore) {
+	ml.mu.Lock()
+	defer ml.mu.Unlock()
+	ml.store = s
 }
 
 func (ml *ModelLoader) GetWatchDog() *WatchDog {
@@ -195,9 +238,10 @@ func (ml *ModelLoader) ListLoadedModels() []*Model {
 	defer ml.mu.Unlock()
 
 	models := []*Model{}
-	for _, model := range ml.models {
-		models = append(models, model)
-	}
+	ml.store.Range(func(_ string, m *Model) bool {
+		models = append(models, m)
+		return true
+	})
 
 	return models
 }
@@ -256,7 +300,7 @@ func (ml *ModelLoader) LoadModel(modelID, modelName string, loader func(string, 
 
 	// Add to models map
 	ml.mu.Lock()
-	ml.models[modelID] = model
+	ml.store.Set(modelID, model)
 	ml.mu.Unlock()
 
 	return model, nil
@@ -276,12 +320,21 @@ func (ml *ModelLoader) CheckIsLoaded(s string) *Model {
 }
 
 func (ml *ModelLoader) checkIsLoaded(s string) *Model {
-	m, ok := ml.models[s]
+	m, ok := ml.store.Get(s)
 	if !ok {
 		return nil
 	}
 
 	xlog.Debug("Model already loaded in memory", "model", s)
+
+	// Skip the gRPC health check if the model was recently verified.
+	// This avoids serializing concurrent requests behind ml.mu while each
+	// one does a network round-trip (especially costly in distributed mode).
+	if m.IsRecentlyHealthy() {
+		xlog.Debug("Model health check cached, skipping gRPC probe", "model", s)
+		return m
+	}
+
 	client := m.GRPC(false, ml.wd)
 
 	xlog.Debug("Checking model availability", "model", s)
@@ -294,7 +347,17 @@ func (ml *ModelLoader) checkIsLoaded(s string) *Model {
 		xlog.Warn("Deleting the process in order to recreate it")
 		process := m.Process()
 		if process == nil {
-			xlog.Error("Process not found and the model is not responding anymore", "model", s)
+			// Remote/distributed model — no local process to check.
+			// Only evict on definitive connection errors (node is down).
+			// Timeouts may mean the node is busy, so keep the model cached.
+			if isConnectionError(err) {
+				xlog.Warn("Remote model unreachable (connection error), removing from cache", "model", s, "error", err)
+				if delErr := ml.deleteProcess(s); delErr != nil {
+					xlog.Error("error cleaning up remote model", "error", delErr, "model", s)
+				}
+				return nil
+			}
+			xlog.Warn("Remote model health check failed (possible timeout), keeping cached", "model", s, "error", err)
 			return m
 		}
 		if !process.IsAlive() {
@@ -308,5 +371,6 @@ func (ml *ModelLoader) checkIsLoaded(s string) *Model {
 		}
 	}
 
+	m.MarkHealthy()
 	return m
 }

@@ -62,6 +62,7 @@ func downloadFile(url string) (string, error) {
 */
 // VideoEndpoint
 // @Summary Creates a video given a prompt.
+// @Tags video
 // @Param request body schema.VideoRequest true "query params"
 // @Success 200 {object} schema.OpenAIResponse "Response"
 // @Router /video [post]
@@ -79,49 +80,63 @@ func VideoEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfi
 			return echo.ErrBadRequest
 		}
 
-		src := ""
-		if input.StartImage != "" {
-
+		// Stage a base64- or URL-provided image into a temp file so the
+		// backend can read it as a path. Used for both start_image and
+		// (optional) end_image. Returns the temp file path, or "" if the
+		// input is empty. Caller is responsible for the defer-cleanup.
+		stageImage := func(ref string) (string, error) {
+			if ref == "" {
+				return "", nil
+			}
 			var fileData []byte
 			var err error
-			// check if input.File is an URL, if so download it and save it
-			// to a temporary file
-			if strings.HasPrefix(input.StartImage, "http://") || strings.HasPrefix(input.StartImage, "https://") {
-				out, err := downloadFile(input.StartImage)
-				if err != nil {
-					return fmt.Errorf("failed downloading file:%w", err)
+			if strings.HasPrefix(ref, "http://") || strings.HasPrefix(ref, "https://") {
+				out, derr := downloadFile(ref)
+				if derr != nil {
+					return "", fmt.Errorf("failed downloading file: %w", derr)
 				}
 				defer os.RemoveAll(out)
-
 				fileData, err = os.ReadFile(out)
 				if err != nil {
-					return fmt.Errorf("failed reading file:%w", err)
+					return "", fmt.Errorf("failed reading file: %w", err)
 				}
-
 			} else {
-				// base 64 decode the file and write it somewhere
-				// that we will cleanup
-				fileData, err = base64.StdEncoding.DecodeString(input.StartImage)
+				fileData, err = base64.StdEncoding.DecodeString(ref)
 				if err != nil {
-					return err
+					return "", err
 				}
 			}
-
-			// Create a temporary file
 			outputFile, err := os.CreateTemp(appConfig.GeneratedContentDir, "b64")
 			if err != nil {
-				return err
+				return "", err
 			}
-			// write the base64 result
 			writer := bufio.NewWriter(outputFile)
-			_, err = writer.Write(fileData)
-			if err != nil {
+			if _, err := writer.Write(fileData); err != nil {
 				outputFile.Close()
-				return err
+				return "", err
+			}
+			if err := writer.Flush(); err != nil {
+				outputFile.Close()
+				return "", err
 			}
 			outputFile.Close()
-			src = outputFile.Name()
+			return outputFile.Name(), nil
+		}
+
+		src, err := stageImage(input.StartImage)
+		if err != nil {
+			return err
+		}
+		if src != "" {
 			defer os.RemoveAll(src)
+		}
+
+		endSrc, err := stageImage(input.EndImage)
+		if err != nil {
+			return err
+		}
+		if endSrc != "" {
+			defer os.RemoveAll(endSrc)
 		}
 
 		xlog.Debug("Parameter Config", "config", config)
@@ -183,7 +198,7 @@ func VideoEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfi
 			input.Prompt,
 			input.NegativePrompt,
 			src,
-			input.EndImage,
+			endSrc,
 			output,
 			input.NumFrames,
 			input.FPS,

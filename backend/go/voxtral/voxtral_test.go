@@ -138,7 +138,7 @@ func TestAudioTranscription(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(tmpDir)
+	t.Cleanup(func() { os.RemoveAll(tmpDir) })
 
 	// Download sample audio — JFK "ask not what your country can do for you" clip
 	audioFile := filepath.Join(tmpDir, "sample.wav")

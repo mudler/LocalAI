@@ -130,6 +130,19 @@ Reference for system information commands and diagnostics.
 
 ---
 
+### 🤖 [AI Coding Assistants](ai-coding-assistants.md)
+Policy for AI-assisted contributions — licensing, DCO, and attribution.
+
+**Key topics:**
+- Aligned with the Linux kernel's AI assistants policy
+- Signed-off-by and DCO rules
+- `Assisted-by` commit trailer format
+- Scope and responsibility of the human submitter
+
+**Recommended for:** Contributors using AI coding assistants (Claude, Copilot, Cursor, Codex, etc.)
+
+---
+
 ## Quick Links
 
 | Task | Documentation |
@@ -138,6 +151,7 @@ Reference for system information commands and diagnostics.
 | CLI commands | [CLI Reference](cli-reference.md) |
 | Check compatibility | [Compatibility Table](compatibility-table.md) |
 | System diagnostics | [System Info](system-info.md) |
+| Contribute with AI assistance | [AI Coding Assistants](ai-coding-assistants.md) |
 
 ---
 

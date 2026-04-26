@@ -12,9 +12,9 @@ import (
 type GalleryModel struct {
 	Metadata `json:",inline" yaml:",inline"`
 	// config_file is read in the situation where URL is blank - and therefore this is a base config.
-	ConfigFile map[string]interface{} `json:"config_file,omitempty" yaml:"config_file,omitempty"`
+	ConfigFile map[string]any `json:"config_file,omitempty" yaml:"config_file,omitempty"`
 	// Overrides are used to override the configuration of the model located at URL
-	Overrides map[string]interface{} `json:"overrides,omitempty" yaml:"overrides,omitempty"`
+	Overrides map[string]any `json:"overrides,omitempty" yaml:"overrides,omitempty"`
 }
 
 func (m *GalleryModel) GetInstalled() bool {

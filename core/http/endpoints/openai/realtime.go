@@ -75,7 +75,7 @@ type Session struct {
 	DefaultConversationID   string
 	ModelInterface          Model
 	// The pipeline model config or the config for an any-to-any model
-	ModelConfig     *config.ModelConfig
+	ModelConfig      *config.ModelConfig
 	InputSampleRate  int
 	OutputSampleRate int
 	MaxOutputTokens  types.IntOrInf
@@ -336,12 +336,10 @@ func runRealtimeSession(application *application.Application, t Transport, model
 		if session.TurnDetection != nil && session.TurnDetection.ServerVad != nil && !vadServerStarted {
 			xlog.Debug("Starting VAD goroutine...")
 			done = make(chan struct{})
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
+			wg.Go(func() {
 				conversation := session.Conversations[session.DefaultConversationID]
 				handleVAD(session, conversation, t, done)
-			}()
+			})
 			vadServerStarted = true
 		} else if (session.TurnDetection == nil || session.TurnDetection.ServerVad == nil) && vadServerStarted {
 			xlog.Debug("Stopping VAD goroutine...")
@@ -684,7 +682,7 @@ func sendTestTone(t Transport) {
 	)
 
 	pcm := make([]byte, numSamples*2) // 16-bit samples = 2 bytes each
-	for i := 0; i < numSamples; i++ {
+	for i := range numSamples {
 		sample := int16(amplitude * math.Sin(2*math.Pi*freq*float64(i)/sampleRate))
 		binary.LittleEndian.PutUint16(pcm[i*2:], uint16(sample))
 	}
@@ -1181,7 +1179,7 @@ func triggerResponse(ctx context.Context, session *Session, conv *Conversation, 
 					nrOfImgsInMessage++
 				}
 			}
-			if nrOfImgsInMessage > 0 {
+			if nrOfImgsInMessage > 0 && !config.TemplateConfig.UseTokenizerTemplate {
 				templated, err := templates.TemplateMultiModal(config.TemplateConfig.Multimodal, templates.MultiModalOptions{
 					TotalImages:     imgIndex,
 					ImagesInMessage: nrOfImgsInMessage,
@@ -1317,12 +1315,34 @@ func triggerResponse(ctx context.Context, session *Session, conv *Conversation, 
 	}
 	thinkingStartToken := reasoning.DetectThinkingStartToken(template, &config.ReasoningConfig)
 
-	reasoningText, responseWithoutReasoning := reasoning.ExtractReasoningWithConfig(rawResponse, thinkingStartToken, config.ReasoningConfig)
+	// When the C++ autoparser emitted ChatDeltas with actionable data,
+	// prefer them — the backend clears Reply.Message in that path and
+	// delivers parsed content/reasoning/tool-calls via the delta stream
+	// (see pkg/functions/chat_deltas.go, mirrored from chat.go's non-SSE
+	// handling). Without this, Response is empty and realtime would
+	// synthesize silence for replies that actually produced tokens.
+	var reasoningText, responseWithoutReasoning, textContent, cleanedResponse string
+	var toolCalls []functions.FuncCallResults
+	deltaToolCalls := functions.ToolCallsFromChatDeltas(pred.ChatDeltas)
+	deltaContent := functions.ContentFromChatDeltas(pred.ChatDeltas)
+	deltaReasoning := functions.ReasoningFromChatDeltas(pred.ChatDeltas)
+	if len(deltaToolCalls) > 0 || deltaContent != "" {
+		xlog.Debug("[ChatDeltas] realtime: using C++ autoparser deltas",
+			"tool_calls", len(deltaToolCalls),
+			"content_len", len(deltaContent),
+			"reasoning_len", len(deltaReasoning))
+		reasoningText = deltaReasoning
+		responseWithoutReasoning = deltaContent
+		textContent = deltaContent
+		cleanedResponse = deltaContent
+		toolCalls = deltaToolCalls
+	} else {
+		reasoningText, responseWithoutReasoning = reasoning.ExtractReasoningWithConfig(rawResponse, thinkingStartToken, config.ReasoningConfig)
+		textContent = functions.ParseTextContent(responseWithoutReasoning, config.FunctionsConfig)
+		cleanedResponse = functions.CleanupLLMResult(responseWithoutReasoning, config.FunctionsConfig)
+		toolCalls = functions.ParseFunctionCall(cleanedResponse, config.FunctionsConfig)
+	}
 	xlog.Debug("LLM Response", "reasoning", reasoningText, "response_without_reasoning", responseWithoutReasoning)
-
-	textContent := functions.ParseTextContent(responseWithoutReasoning, config.FunctionsConfig)
-	cleanedResponse := functions.CleanupLLMResult(responseWithoutReasoning, config.FunctionsConfig)
-	toolCalls := functions.ParseFunctionCall(cleanedResponse, config.FunctionsConfig)
 
 	xlog.Debug("Function call parsing", "textContent", textContent, "cleanedResponse", cleanedResponse, "toolCallsCount", len(toolCalls))
 
@@ -1337,7 +1357,7 @@ func triggerResponse(ctx context.Context, session *Session, conv *Conversation, 
 
 	if isNoAction {
 		arg := toolCalls[0].Arguments
-		arguments := map[string]interface{}{}
+		arguments := map[string]any{}
 		if err := json.Unmarshal([]byte(arg), &arguments); err == nil {
 			if m, exists := arguments["message"]; exists {
 				if message, ok := m.(string); ok {

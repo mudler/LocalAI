@@ -48,12 +48,12 @@ var _ = Describe("LLM tests", func() {
 			messages := Messages{
 				{
 					Role: "user",
-					Content: []interface{}{
-						map[string]interface{}{
+					Content: []any{
+						map[string]any{
 							"type": "text",
 							"text": "Hello",
 						},
-						map[string]interface{}{
+						map[string]any{
 							"type": "text",
 							"text": " World",
 						},
@@ -237,16 +237,34 @@ var _ = Describe("LLM tests", func() {
 			Expect(protoMessages[0].Content).To(Equal(""))
 		})
 
+		It("should serialize ToolCallID and Reasoning fields", func() {
+			reasoning := "thinking..."
+			messages := Messages{
+				{
+					Role:       "tool",
+					Content:    "result",
+					ToolCallID: "call_123",
+					Reasoning:  &reasoning,
+				},
+			}
+
+			protoMessages := messages.ToProto()
+
+			Expect(protoMessages).To(HaveLen(1))
+			Expect(protoMessages[0].ToolCallId).To(Equal("call_123"))
+			Expect(protoMessages[0].ReasoningContent).To(Equal("thinking..."))
+		})
+
 		It("should handle message with array content containing non-text parts", func() {
 			messages := Messages{
 				{
 					Role: "user",
-					Content: []interface{}{
-						map[string]interface{}{
+					Content: []any{
+						map[string]any{
 							"type": "text",
 							"text": "Hello",
 						},
-						map[string]interface{}{
+						map[string]any{
 							"type": "image",
 							"url":  "https://example.com/image.jpg",
 						},

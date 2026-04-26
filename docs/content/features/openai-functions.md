@@ -1,26 +1,75 @@
 
 +++
 disableToc = false
-title = "🔥 OpenAI functions and tools"
+title = "OpenAI Functions and Tools"
 weight = 17
 url = "/features/openai-functions/"
 +++
 
-LocalAI supports running OpenAI [functions and tools API](https://platform.openai.com/docs/api-reference/chat/create#chat-create-tools) with `llama.cpp` compatible models.
+LocalAI supports running the OpenAI [functions and tools API](https://platform.openai.com/docs/api-reference/chat/create#chat-create-tools) across multiple backends. The OpenAI request shape is the same regardless of which backend runs your model — LocalAI is responsible for extracting structured tool calls from the model's output before returning the response.
 
 ![localai-functions-1](https://github.com/ggerganov/llama.cpp/assets/2420543/5bd15da2-78c1-4625-be90-1e938e6823f1)
 
 To learn more about OpenAI functions, see also the [OpenAI API blog post](https://openai.com/blog/function-calling-and-other-api-updates).
 
-LocalAI is also supporting [JSON mode](https://platform.openai.com/docs/guides/text-generation/json-mode) out of the box with llama.cpp-compatible models.
+LocalAI also supports [JSON mode](https://platform.openai.com/docs/guides/text-generation/json-mode) out of the box on llama.cpp-compatible models.
 
-💡 Check out also [LocalAGI](https://github.com/mudler/LocalAGI) for an example on how to use LocalAI functions.
+💡 Check out [LocalAGI](https://github.com/mudler/LocalAGI) for an example on how to use LocalAI functions.
+
+## Supported backends
+
+| Backend | How tool calls are extracted |
+|---------|------------------------------|
+| `llama.cpp` | C++ incremental parser; any `ggml`/`gguf` model works out of the box, no configuration needed |
+| `vllm` | vLLM's native `ToolParserManager` — select a parser with `tool_parser:<name>` in the model `options`. Auto-set by the gallery importer for known families |
+| `vllm-omni` | Same as vLLM |
+| `mlx` | `mlx_lm.tool_parsers` — **auto-detected from the chat template**, no configuration needed |
+| `mlx-vlm` | `mlx_vlm.tool_parsers` (with fallback to mlx-lm parsers) — **auto-detected from the chat template**, no configuration needed |
+
+Reasoning content (`<think>...</think>` blocks from DeepSeek R1, Qwen3, Gemma 4, etc.) is returned in the OpenAI `reasoning_content` field on the same backends.
 
 ## Setup
 
-OpenAI functions are available only with `ggml` or `gguf` models compatible with `llama.cpp`.
+### llama.cpp
 
-You don't need to do anything specific - just use `ggml` or `gguf` models.
+No configuration required — the autoparser detects the tool call format for any `ggml`/`gguf` model that was trained with tool support.
+
+### vLLM / vLLM Omni
+
+The parser must be specified explicitly because vLLM itself doesn't auto-detect one. Pass it via the model `options`:
+
+```yaml
+name: qwen3-8b
+backend: vllm
+parameters:
+  model: Qwen/Qwen3-8B
+options:
+  - tool_parser:hermes
+  - reasoning_parser:qwen3
+template:
+  use_tokenizer_template: true
+```
+
+When you import a vLLM model through the LocalAI gallery, the importer looks up the model family and pre-fills `tool_parser:` and `reasoning_parser:` for you — you only need to override them for non-standard model names.
+
+Available tool parsers include `hermes`, `llama3_json`, `llama4_pythonic`, `mistral`, `qwen3_xml`, `deepseek_v3`, `granite4`, `kimi_k2`, `glm45`, and more. Available reasoning parsers include `deepseek_r1`, `qwen3`, `mistral`, `gemma4`, `granite`. See the upstream vLLM documentation for the full list.
+
+### MLX / MLX-VLM
+
+MLX backends **auto-detect** the right tool parser by inspecting the model's chat template — you don't need to set anything. Just load an MLX-quantized model that was trained with tool support:
+
+```yaml
+name: qwen2.5-0.5b-mlx
+backend: mlx
+parameters:
+  model: mlx-community/Qwen2.5-0.5B-Instruct-4bit
+template:
+  use_tokenizer_template: true
+```
+
+The gallery importer will still append `tool_parser:` and `reasoning_parser:` entries to the YAML for visibility and consistency with the other backends, but those are informational — the runtime auto-detection in the MLX backend ignores them and uses the parser matched to the chat template.
+
+Supported parser families: `hermes`/`json_tools`, `mistral`, `gemma4`, `glm47`, `kimi_k2`, `longcat`, `minimax_m2`, `pythonic`, `qwen3_coder`, `function_gemma`.
 
 
 ## Usage example

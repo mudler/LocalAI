@@ -2,7 +2,10 @@
 name: "qwen3"
 
 config_file: |
-  mmap: true
+  parameters:
+    context_size: 8192
+    f16: true
+    mmap: true
   backend: "llama-cpp"
   template:
     chat_message: |
@@ -36,8 +39,6 @@ config_file: |
       <|im_start|>assistant
     completion: |
       {{.Input}}
-  context_size: 8192
-  f16: true
   stopwords:
   - '<|im_end|>'
   - '<dummy32000>'

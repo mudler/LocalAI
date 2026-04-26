@@ -8,6 +8,10 @@ icon: download
 
 LocalAI can be installed in multiple ways depending on your platform and preferences.
 
+## Video Walkthrough
+
+[![Installation Video](https://img.youtube.com/vi/cMVNnlqwfw4/maxresdefault.jpg)](https://www.youtube.com/watch?v=cMVNnlqwfw4)
+
 ## Installation Methods
 
 Choose the installation method that best suits your needs:

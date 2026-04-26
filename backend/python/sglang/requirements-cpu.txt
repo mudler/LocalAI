@@ -1,0 +1,7 @@
+--extra-index-url https://download.pytorch.org/whl/cpu
+accelerate
+torch==2.9.0
+torchvision
+torchaudio
+transformers
+intel-openmp; platform_machine == 'x86_64'

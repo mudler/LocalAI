@@ -1,6 +1,6 @@
 +++
 disableToc = false
-title = "🔈 Audio to text"
+title = "Audio to Text"
 weight = 16
 url = "/features/audio-to-text/"
 +++
@@ -11,6 +11,8 @@ The transcription endpoint allows to convert audio files to text. The endpoint s
 - **[whisper.cpp](https://github.com/ggerganov/whisper.cpp)**: A C++ library for audio transcription (default)
 - **moonshine**: Ultra-fast transcription engine optimized for low-end devices
 - **faster-whisper**: Fast Whisper implementation with CTranslate2
+- **llama-cpp**: Route transcription to any multimodal-audio GGUF model served by the `llama-cpp` backend (e.g. [Qwen3-ASR](https://huggingface.co/ggml-org/Qwen3-ASR-0.6B-GGUF), Voxtral, Qwen2-Audio). Under the hood the request is converted into a chat completion with the audio attached via the model's audio encoder — the same path the upstream llama.cpp server uses. Set `backend: llama-cpp` in the model YAML and point `mmproj` at the matching audio encoder.
+- **voxtral**: Voxtral-family models served by a dedicated backend
 
 The endpoint input supports all the audio formats supported by `ffmpeg`.
 
@@ -88,4 +90,67 @@ The Columbia's lost.
 6
 00:00:27,200 --> 00:00:29,920
 There are no survivors.
+```
+
+## Supported request parameters
+
+In addition to `file` and `model`, the endpoint accepts the following multipart form fields, matching the [OpenAI audio transcription API](https://platform.openai.com/docs/api-reference/audio/createTranscription):
+
+| Field | Description |
+|---|---|
+| `language` | ISO-639-1 language hint (e.g. `en`). Passed through to the backend. |
+| `prompt` | Optional context hint to bias the decoder. |
+| `temperature` | Sampling temperature (float). Honored by backends that support it. |
+| `timestamp_granularities[]` | Multi-value form field: `word` and/or `segment`. Honored when the backend produces the requested granularity. |
+| `response_format` | One of `json` (default for backwards-compat), `verbose_json`, `text`, `srt`, `vtt`, `lrc`. |
+| `stream` | When `true`, the endpoint emits an SSE stream of `transcript.text.delta` events followed by a final `transcript.text.done` event. |
+| `diarize` | LocalAI extension — speaker diarization (whisper.cpp only). |
+
+The response body for `verbose_json` includes `text`, `language`, `duration`, and `segments[]` (with `speaker` populated when diarization is enabled).
+
+## Streaming transcriptions
+
+Set `-F stream=true` to receive token-by-token SSE events as the backend produces them. The event shape matches the OpenAI streaming transcription format:
+
+```bash
+curl -N http://localhost:8080/v1/audio/transcriptions \
+  -H "Content-Type: multipart/form-data" \
+  -F file="@sample.wav" \
+  -F model="whisper-1" \
+  -F stream=true
+```
+
+```text
+data: {"type":"transcript.text.delta","delta":"And so, my"}
+
+data: {"type":"transcript.text.delta","delta":" fellow Americans..."}
+
+data: {"type":"transcript.text.done","text":"And so, my fellow Americans..."}
+
+data: [DONE]
+```
+
+Backends that do not natively stream tokens fall back to emitting one delta plus a done event with the full text — the SSE contract is identical either way.
+
+## Using the llama-cpp backend with an audio-capable model
+
+Any GGUF model whose `mmproj` contains an audio encoder can be used for transcription via the `llama-cpp` backend. This reuses the model's own audio front-end rather than shelling out to whisper.cpp, which is useful when you want a single backend serving both chat-with-audio and transcription.
+
+Example using [`ggml-org/Qwen3-ASR-0.6B-GGUF`](https://huggingface.co/ggml-org/Qwen3-ASR-0.6B-GGUF):
+
+```yaml
+name: qwen3-asr
+backend: llama-cpp
+parameters:
+  model: Qwen3-ASR-0.6B-Q8_0.gguf
+mmproj: mmproj-Qwen3-ASR-0.6B-Q8_0.gguf
+```
+
+Then call `/v1/audio/transcriptions` as usual:
+
+```bash
+curl http://localhost:8080/v1/audio/transcriptions \
+  -H "Content-Type: multipart/form-data" \
+  -F file="@jfk.wav" \
+  -F model="qwen3-asr"
 ```

@@ -24,14 +24,14 @@ type QuotaRule struct {
 
 // QuotaStatus is returned to clients with current usage included.
 type QuotaStatus struct {
-	ID              string  `json:"id"`
-	Model           string  `json:"model"`
-	MaxRequests     *int64  `json:"max_requests"`
-	MaxTotalTokens  *int64  `json:"max_total_tokens"`
-	Window          string  `json:"window"`
-	CurrentRequests int64   `json:"current_requests"`
-	CurrentTokens   int64   `json:"current_total_tokens"`
-	ResetsAt        string  `json:"resets_at,omitempty"`
+	ID              string `json:"id"`
+	Model           string `json:"model"`
+	MaxRequests     *int64 `json:"max_requests"`
+	MaxTotalTokens  *int64 `json:"max_total_tokens"`
+	Window          string `json:"window"`
+	CurrentRequests int64  `json:"current_requests"`
+	CurrentTokens   int64  `json:"current_total_tokens"`
+	ResetsAt        string `json:"resets_at,omitempty"`
 }
 
 // ── CRUD ──
@@ -209,9 +209,9 @@ func QuotaExceeded(db *gorm.DB, userID, model string) (bool, int64, string) {
 var quotaCache = newQuotaCacheStore()
 
 type quotaCacheStore struct {
-	mu       sync.RWMutex
-	rules    map[string]cachedRules          // userID -> rules
-	usage    map[string]cachedUsage          // "userID|model|windowStart" -> counts
+	mu    sync.RWMutex
+	rules map[string]cachedRules // userID -> rules
+	usage map[string]cachedUsage // "userID|model|windowStart" -> counts
 }
 
 type cachedRules struct {

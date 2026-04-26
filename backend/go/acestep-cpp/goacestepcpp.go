@@ -11,7 +11,7 @@ import (
 )
 
 var (
-	CppLoadModel    func(lmModelPath, textEncoderPath, ditModelPath, vaeModelPath string) int
+	CppLoadModel     func(lmModelPath, textEncoderPath, ditModelPath, vaeModelPath string) int
 	CppGenerateMusic func(caption, lyrics string, bpm int, keyscale, timesignature string, duration, temperature float32, instrumental bool, seed int, dst string, threads int) int
 )
 
@@ -29,18 +29,18 @@ func (a *AceStepCpp) Load(opts *pb.ModelOptions) error {
 	var textEncoderModel, ditModel, vaeModel string
 
 	for _, oo := range opts.Options {
-		parts := strings.SplitN(oo, ":", 2)
-		if len(parts) != 2 {
+		key, value, found := strings.Cut(oo, ":")
+		if !found {
 			fmt.Fprintf(os.Stderr, "Unrecognized option: %v\n", oo)
 			continue
 		}
-		switch parts[0] {
+		switch key {
 		case "text_encoder_model":
-			textEncoderModel = parts[1]
+			textEncoderModel = value
 		case "dit_model":
-			ditModel = parts[1]
+			ditModel = value
 		case "vae_model":
-			vaeModel = parts[1]
+			vaeModel = value
 		default:
 			fmt.Fprintf(os.Stderr, "Unrecognized option: %v\n", oo)
 		}

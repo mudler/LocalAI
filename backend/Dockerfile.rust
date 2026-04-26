@@ -1,0 +1,39 @@
+ARG BASE_IMAGE=ubuntu:24.04
+
+FROM ${BASE_IMAGE} AS builder
+ARG BACKEND=kokoros
+ENV DEBIAN_FRONTEND=noninteractive
+ARG TARGETARCH
+ARG TARGETVARIANT
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        build-essential \
+        git ccache \
+        ca-certificates \
+        make cmake wget \
+        curl unzip \
+        clang \
+        pkg-config \
+        libssl-dev \
+        espeak-ng libespeak-ng-dev \
+        libsonic-dev libpcaudio-dev \
+        libopus-dev \
+        protobuf-compiler && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Install Rust
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+ENV PATH="/root/.cargo/bin:${PATH}"
+
+COPY . /LocalAI
+
+RUN git config --global --add safe.directory /LocalAI
+
+RUN make -C /LocalAI/backend/rust/${BACKEND} build
+
+FROM scratch
+ARG BACKEND=kokoros
+
+COPY --from=builder /LocalAI/backend/rust/${BACKEND}/package/. ./

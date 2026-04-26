@@ -44,15 +44,16 @@ func newTestAuthApp(db *gorm.DB, appConfig *config.ApplicationConfig) *echo.Echo
 			}
 		}
 
-		resp := map[string]interface{}{
-			"authEnabled": authEnabled,
-			"providers":   providers,
-			"hasUsers":    hasUsers,
+		resp := map[string]any{
+			"authEnabled":          authEnabled,
+			"staticApiKeyRequired": !authEnabled && len(appConfig.ApiKeys) > 0,
+			"providers":            providers,
+			"hasUsers":             hasUsers,
 		}
 
 		user := auth.GetUser(c)
 		if user != nil {
-			resp["user"] = map[string]interface{}{
+			resp["user"] = map[string]any{
 				"id":   user.ID,
 				"role": user.Role,
 			}
@@ -106,15 +107,15 @@ func newTestAuthApp(db *gorm.DB, appConfig *config.ApplicationConfig) *echo.Echo
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to create user"})
 		}
 		if status == auth.StatusPending {
-			return c.JSON(http.StatusOK, map[string]interface{}{"message": "registration successful, awaiting admin approval", "pending": true})
+			return c.JSON(http.StatusOK, map[string]any{"message": "registration successful, awaiting admin approval", "pending": true})
 		}
 		sessionID, err := auth.CreateSession(db, user.ID, "")
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to create session"})
 		}
 		auth.SetSessionCookie(c, sessionID)
-		return c.JSON(http.StatusCreated, map[string]interface{}{
-			"user": map[string]interface{}{"id": user.ID, "email": user.Email, "name": user.Name, "role": user.Role},
+		return c.JSON(http.StatusCreated, map[string]any{
+			"user": map[string]any{"id": user.ID, "email": user.Email, "name": user.Name, "role": user.Role},
 		})
 	})
 
@@ -147,8 +148,8 @@ func newTestAuthApp(db *gorm.DB, appConfig *config.ApplicationConfig) *echo.Echo
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to create session"})
 		}
 		auth.SetSessionCookie(c, sessionID)
-		return c.JSON(http.StatusOK, map[string]interface{}{
-			"user": map[string]interface{}{"id": user.ID, "email": user.Email, "name": user.Name, "role": user.Role},
+		return c.JSON(http.StatusOK, map[string]any{
+			"user": map[string]any{"id": user.ID, "email": user.Email, "name": user.Name, "role": user.Role},
 		})
 	})
 
@@ -171,7 +172,7 @@ func newTestAuthApp(db *gorm.DB, appConfig *config.ApplicationConfig) *echo.Echo
 		if user == nil {
 			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "not authenticated"})
 		}
-		return c.JSON(http.StatusOK, map[string]interface{}{
+		return c.JSON(http.StatusOK, map[string]any{
 			"id":    user.ID,
 			"email": user.Email,
 			"role":  user.Role,
@@ -194,7 +195,7 @@ func newTestAuthApp(db *gorm.DB, appConfig *config.ApplicationConfig) *echo.Echo
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to create API key"})
 		}
-		return c.JSON(http.StatusCreated, map[string]interface{}{
+		return c.JSON(http.StatusCreated, map[string]any{
 			"key":       plaintext,
 			"id":        record.ID,
 			"name":      record.Name,
@@ -212,15 +213,15 @@ func newTestAuthApp(db *gorm.DB, appConfig *config.ApplicationConfig) *echo.Echo
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to list API keys"})
 		}
-		result := make([]map[string]interface{}, 0, len(keys))
+		result := make([]map[string]any, 0, len(keys))
 		for _, k := range keys {
-			result = append(result, map[string]interface{}{
+			result = append(result, map[string]any{
 				"id":        k.ID,
 				"name":      k.Name,
 				"keyPrefix": k.KeyPrefix,
 			})
 		}
-		return c.JSON(http.StatusOK, map[string]interface{}{"keys": result})
+		return c.JSON(http.StatusOK, map[string]any{"keys": result})
 	})
 
 	// DELETE /api/auth/api-keys/:id
@@ -241,11 +242,11 @@ func newTestAuthApp(db *gorm.DB, appConfig *config.ApplicationConfig) *echo.Echo
 	e.GET("/api/auth/admin/users", func(c echo.Context) error {
 		var users []auth.User
 		db.Order("created_at ASC").Find(&users)
-		result := make([]map[string]interface{}, 0, len(users))
+		result := make([]map[string]any, 0, len(users))
 		for _, u := range users {
-			result = append(result, map[string]interface{}{"id": u.ID, "role": u.Role, "email": u.Email})
+			result = append(result, map[string]any{"id": u.ID, "role": u.Role, "email": u.Email})
 		}
-		return c.JSON(http.StatusOK, map[string]interface{}{"users": result})
+		return c.JSON(http.StatusOK, map[string]any{"users": result})
 	}, adminMw)
 
 	// Admin: PUT /api/auth/admin/users/:id/role
@@ -359,10 +360,10 @@ var _ = Describe("Auth Routes", Label("auth"), func() {
 			rec := doAuthRequest(app, "GET", "/api/auth/status", nil)
 			Expect(rec.Code).To(Equal(http.StatusOK))
 
-			var resp map[string]interface{}
+			var resp map[string]any
 			json.Unmarshal(rec.Body.Bytes(), &resp)
 			Expect(resp["authEnabled"]).To(BeTrue())
-			providers := resp["providers"].([]interface{})
+			providers := resp["providers"].([]any)
 			Expect(providers).To(ContainElement(auth.ProviderGitHub))
 		})
 
@@ -371,7 +372,7 @@ var _ = Describe("Auth Routes", Label("auth"), func() {
 			rec := doAuthRequest(app, "GET", "/api/auth/status", nil)
 			Expect(rec.Code).To(Equal(http.StatusOK))
 
-			var resp map[string]interface{}
+			var resp map[string]any
 			json.Unmarshal(rec.Body.Bytes(), &resp)
 			Expect(resp["authEnabled"]).To(BeFalse())
 		})
@@ -384,7 +385,7 @@ var _ = Describe("Auth Routes", Label("auth"), func() {
 			rec := doAuthRequest(app, "GET", "/api/auth/status", nil, withSession(sessionID))
 			Expect(rec.Code).To(Equal(http.StatusOK))
 
-			var resp map[string]interface{}
+			var resp map[string]any
 			json.Unmarshal(rec.Body.Bytes(), &resp)
 			Expect(resp["user"]).ToNot(BeNil())
 		})
@@ -394,7 +395,7 @@ var _ = Describe("Auth Routes", Label("auth"), func() {
 			rec := doAuthRequest(app, "GET", "/api/auth/status", nil)
 			Expect(rec.Code).To(Equal(http.StatusOK))
 
-			var resp map[string]interface{}
+			var resp map[string]any
 			json.Unmarshal(rec.Body.Bytes(), &resp)
 			Expect(resp["user"]).To(BeNil())
 		})
@@ -403,9 +404,32 @@ var _ = Describe("Auth Routes", Label("auth"), func() {
 			app := newTestAuthApp(db, appConfig)
 			rec := doAuthRequest(app, "GET", "/api/auth/status", nil)
 
-			var resp map[string]interface{}
+			var resp map[string]any
 			json.Unmarshal(rec.Body.Bytes(), &resp)
 			Expect(resp["hasUsers"]).To(BeFalse())
+		})
+
+		It("returns staticApiKeyRequired=true when no DB but API keys configured", func() {
+			cfg := config.NewApplicationConfig()
+			config.WithApiKeys([]string{"test-key-123"})(cfg)
+			app := newTestAuthApp(nil, cfg)
+			rec := doAuthRequest(app, "GET", "/api/auth/status", nil)
+			Expect(rec.Code).To(Equal(http.StatusOK))
+
+			var resp map[string]any
+			json.Unmarshal(rec.Body.Bytes(), &resp)
+			Expect(resp["authEnabled"]).To(BeFalse())
+			Expect(resp["staticApiKeyRequired"]).To(BeTrue())
+		})
+
+		It("returns staticApiKeyRequired=false when no DB and no API keys", func() {
+			app := newTestAuthApp(nil, config.NewApplicationConfig())
+			rec := doAuthRequest(app, "GET", "/api/auth/status", nil)
+			Expect(rec.Code).To(Equal(http.StatusOK))
+
+			var resp map[string]any
+			json.Unmarshal(rec.Body.Bytes(), &resp)
+			Expect(resp["staticApiKeyRequired"]).To(BeFalse())
 		})
 	})
 
@@ -439,7 +463,7 @@ var _ = Describe("Auth Routes", Label("auth"), func() {
 			rec := doAuthRequest(app, "GET", "/api/auth/me", nil, withSession(sessionID))
 			Expect(rec.Code).To(Equal(http.StatusOK))
 
-			var resp map[string]interface{}
+			var resp map[string]any
 			json.Unmarshal(rec.Body.Bytes(), &resp)
 			Expect(resp["email"]).To(Equal("me@test.com"))
 			Expect(resp["role"]).To(Equal("admin"))
@@ -462,7 +486,7 @@ var _ = Describe("Auth Routes", Label("auth"), func() {
 			rec := doAuthRequest(app, "POST", "/api/auth/api-keys", body, withSession(sessionID))
 			Expect(rec.Code).To(Equal(http.StatusCreated))
 
-			var resp map[string]interface{}
+			var resp map[string]any
 			json.Unmarshal(rec.Body.Bytes(), &resp)
 			Expect(resp["key"]).To(HavePrefix("lai-"))
 			Expect(resp["name"]).To(Equal("my key"))
@@ -477,7 +501,7 @@ var _ = Describe("Auth Routes", Label("auth"), func() {
 			rec := doAuthRequest(app, "POST", "/api/auth/api-keys", body, withSession(sessionID))
 			Expect(rec.Code).To(Equal(http.StatusCreated))
 
-			var resp map[string]interface{}
+			var resp map[string]any
 			json.Unmarshal(rec.Body.Bytes(), &resp)
 			apiKey := resp["key"].(string)
 
@@ -505,9 +529,9 @@ var _ = Describe("Auth Routes", Label("auth"), func() {
 			rec := doAuthRequest(app, "GET", "/api/auth/api-keys", nil, withSession(sessionID))
 			Expect(rec.Code).To(Equal(http.StatusOK))
 
-			var resp map[string]interface{}
+			var resp map[string]any
 			json.Unmarshal(rec.Body.Bytes(), &resp)
-			keys := resp["keys"].([]interface{})
+			keys := resp["keys"].([]any)
 			Expect(keys).To(HaveLen(2))
 		})
 
@@ -520,9 +544,9 @@ var _ = Describe("Auth Routes", Label("auth"), func() {
 			app := newTestAuthApp(db, appConfig)
 
 			rec := doAuthRequest(app, "GET", "/api/auth/api-keys", nil, withSession(sessionID))
-			var resp map[string]interface{}
+			var resp map[string]any
 			json.Unmarshal(rec.Body.Bytes(), &resp)
-			keys := resp["keys"].([]interface{})
+			keys := resp["keys"].([]any)
 			Expect(keys).To(HaveLen(1))
 		})
 	})
@@ -565,9 +589,9 @@ var _ = Describe("Auth Routes", Label("auth"), func() {
 			rec := doAuthRequest(app, "GET", "/api/auth/admin/users", nil, withSession(sessionID))
 			Expect(rec.Code).To(Equal(http.StatusOK))
 
-			var resp map[string]interface{}
+			var resp map[string]any
 			json.Unmarshal(rec.Body.Bytes(), &resp)
-			users := resp["users"].([]interface{})
+			users := resp["users"].([]any)
 			Expect(users).To(HaveLen(2))
 		})
 
@@ -671,9 +695,9 @@ var _ = Describe("Auth Routes", Label("auth"), func() {
 			rec := doAuthRequest(app, "POST", "/api/auth/register", body)
 			Expect(rec.Code).To(Equal(http.StatusCreated))
 
-			var resp map[string]interface{}
+			var resp map[string]any
 			json.Unmarshal(rec.Body.Bytes(), &resp)
-			user := resp["user"].(map[string]interface{})
+			user := resp["user"].(map[string]any)
 			Expect(user["role"]).To(Equal("admin"))
 			Expect(user["email"]).To(Equal("first@test.com"))
 
@@ -695,9 +719,9 @@ var _ = Describe("Auth Routes", Label("auth"), func() {
 			rec := doAuthRequest(app, "POST", "/api/auth/register", body)
 			Expect(rec.Code).To(Equal(http.StatusCreated))
 
-			var resp map[string]interface{}
+			var resp map[string]any
 			json.Unmarshal(rec.Body.Bytes(), &resp)
-			user := resp["user"].(map[string]interface{})
+			user := resp["user"].(map[string]any)
 			Expect(user["role"]).To(Equal("user"))
 		})
 
@@ -735,7 +759,7 @@ var _ = Describe("Auth Routes", Label("auth"), func() {
 			rec := doAuthRequest(app, "POST", "/api/auth/register", body)
 			Expect(rec.Code).To(Equal(http.StatusOK))
 
-			var resp map[string]interface{}
+			var resp map[string]any
 			json.Unmarshal(rec.Body.Bytes(), &resp)
 			Expect(resp["pending"]).To(BeTrue())
 		})
@@ -753,9 +777,9 @@ var _ = Describe("Auth Routes", Label("auth"), func() {
 			rec := doAuthRequest(app, "POST", "/api/auth/login", body)
 			Expect(rec.Code).To(Equal(http.StatusOK))
 
-			var resp map[string]interface{}
+			var resp map[string]any
 			json.Unmarshal(rec.Body.Bytes(), &resp)
-			user := resp["user"].(map[string]interface{})
+			user := resp["user"].(map[string]any)
 			Expect(user["email"]).To(Equal("login@test.com"))
 		})
 
@@ -798,9 +822,9 @@ var _ = Describe("Auth Routes", Label("auth"), func() {
 			rec := doAuthRequest(app, "GET", "/api/auth/status", nil)
 			Expect(rec.Code).To(Equal(http.StatusOK))
 
-			var resp map[string]interface{}
+			var resp map[string]any
 			json.Unmarshal(rec.Body.Bytes(), &resp)
-			providers := resp["providers"].([]interface{})
+			providers := resp["providers"].([]any)
 			Expect(providers).To(ContainElement(auth.ProviderLocal))
 			Expect(providers).To(ContainElement(auth.ProviderGitHub))
 		})

@@ -1,0 +1,5 @@
+torch
+torchaudio
+speechbrain
+transformers
+onnxruntime-gpu

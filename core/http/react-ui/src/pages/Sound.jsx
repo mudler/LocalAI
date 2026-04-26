@@ -4,7 +4,9 @@ import ModelSelector from '../components/ModelSelector'
 import { CAP_SOUND_GENERATION } from '../utils/capabilities'
 import LoadingSpinner from '../components/LoadingSpinner'
 import ErrorWithTraceLink from '../components/ErrorWithTraceLink'
+import MediaHistory from '../components/MediaHistory'
 import { soundApi } from '../utils/api'
+import { useMediaHistory } from '../hooks/useMediaHistory'
 
 export default function Sound() {
   const { model: urlModel } = useParams()
@@ -26,6 +28,7 @@ export default function Sound() {
   const [error, setError] = useState(null)
   const [audioUrl, setAudioUrl] = useState(null)
   const audioRef = useRef(null)
+  const { addEntry, selectEntry, selectedEntry, historyProps } = useMediaHistory('sound')
 
   const handleGenerate = async (e) => {
     e.preventDefault()
@@ -55,10 +58,15 @@ export default function Sound() {
     setError(null)
 
     try {
-      const blob = await soundApi.generate(body)
+      const { blob, serverUrl } = await soundApi.generate(body)
       const url = URL.createObjectURL(blob)
       setAudioUrl(url)
       addToast('Sound generated', 'success')
+      const promptText = mode === 'simple' ? text.trim() : (caption.trim() || lyrics.trim())
+      if (serverUrl) {
+        addEntry({ prompt: promptText, model, params: { mode }, results: [{ url: serverUrl }] })
+      }
+      selectEntry(null)
       setTimeout(() => audioRef.current?.play().catch(() => {}), 100)
     } catch (err) {
       setError(err.message)
@@ -71,7 +79,7 @@ export default function Sound() {
     <div className="media-layout">
       <div className="media-controls">
         <div className="page-header">
-          <h1 className="page-title"><i className="fas fa-music" style={{ marginRight: 8, color: 'var(--color-accent)' }} />Sound Generation</h1>
+          <h1 className="page-title"><i className="fas fa-music" /> Sound Generation</h1>
         </div>
 
         <form onSubmit={handleGenerate}>
@@ -81,11 +89,9 @@ export default function Sound() {
           </div>
 
           {/* Mode toggle */}
-          <div className="form-group">
-            <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
-              <button type="button" className={`filter-btn ${mode === 'simple' ? 'active' : ''}`} onClick={() => setMode('simple')}>Simple</button>
-              <button type="button" className={`filter-btn ${mode === 'advanced' ? 'active' : ''}`} onClick={() => setMode('advanced')}>Advanced</button>
-            </div>
+          <div className="segmented">
+            <button type="button" className={`segmented__item${mode === 'simple' ? ' is-active' : ''}`} onClick={() => setMode('simple')}>Simple</button>
+            <button type="button" className={`segmented__item${mode === 'advanced' ? ' is-active' : ''}`} onClick={() => setMode('advanced')}>Advanced</button>
           </div>
 
           {mode === 'simple' ? (
@@ -94,12 +100,14 @@ export default function Sound() {
                 <label className="form-label">Description</label>
                 <textarea className="textarea" value={text} onChange={(e) => setText(e.target.value)} placeholder="Describe the sound..." rows={3} />
               </div>
-              <div style={{ display: 'flex', gap: 'var(--spacing-md)', alignItems: 'center', marginBottom: 'var(--spacing-md)' }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.875rem', color: 'var(--color-text-secondary)' }}>
-                  <input type="checkbox" checked={instrumental} onChange={(e) => setInstrumental(e.target.checked)} /> Instrumental
+              <div className="form-grid-2col">
+                <label className="checkbox-row">
+                  <input type="checkbox" checked={instrumental} onChange={(e) => setInstrumental(e.target.checked)} />
+                  <span>Instrumental</span>
                 </label>
-                <div className="form-group" style={{ flex: 1, margin: 0 }}>
-                  <input className="input" value={vocalLanguage} onChange={(e) => setVocalLanguage(e.target.value)} placeholder="Vocal language" />
+                <div className="form-group">
+                  <label className="form-label">Vocal language</label>
+                  <input className="input" value={vocalLanguage} onChange={(e) => setVocalLanguage(e.target.value)} placeholder="e.g. English" />
                 </div>
               </div>
             </>
@@ -113,23 +121,25 @@ export default function Sound() {
                 <label className="form-label">Lyrics</label>
                 <textarea className="textarea" value={lyrics} onChange={(e) => setLyrics(e.target.value)} rows={3} />
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-sm)' }}>
+              <div className="form-grid-2col">
                 <div className="form-group"><label className="form-label">BPM</label><input className="input" type="number" value={bpm} onChange={(e) => setBpm(e.target.value)} /></div>
                 <div className="form-group"><label className="form-label">Duration (s)</label><input className="input" type="number" step="0.1" value={duration} onChange={(e) => setDuration(e.target.value)} /></div>
                 <div className="form-group"><label className="form-label">Key/Scale</label><input className="input" value={keyscale} onChange={(e) => setKeyscale(e.target.value)} /></div>
                 <div className="form-group"><label className="form-label">Language</label><input className="input" value={language} onChange={(e) => setLanguage(e.target.value)} /></div>
                 <div className="form-group"><label className="form-label">Time Signature</label><input className="input" value={timesignature} onChange={(e) => setTimesignature(e.target.value)} /></div>
               </div>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.875rem', color: 'var(--color-text-secondary)', marginBottom: 'var(--spacing-md)' }}>
-                <input type="checkbox" checked={think} onChange={(e) => setThink(e.target.checked)} /> Think mode
+              <label className="checkbox-row">
+                <input type="checkbox" checked={think} onChange={(e) => setThink(e.target.checked)} />
+                <span>Think mode</span>
               </label>
             </>
           )}
 
-          <button type="submit" className="btn btn-primary" disabled={loading} style={{ width: '100%' }}>
+          <button type="submit" className="btn btn-primary btn-full" disabled={loading}>
             {loading ? <><LoadingSpinner size="sm" /> Generating...</> : <><i className="fas fa-music" /> Generate Sound</>}
           </button>
         </form>
+        <MediaHistory {...historyProps} />
       </div>
 
       <div className="media-preview">
@@ -138,16 +148,21 @@ export default function Sound() {
             <LoadingSpinner size="lg" />
           ) : error ? (
             <ErrorWithTraceLink message={error} />
+          ) : selectedEntry ? (
+            <div className="audio-result">
+              <audio controls src={selectedEntry.results[0]?.url} className="audio-result__player" data-testid="history-audio" />
+              <div className="result-quote">"{selectedEntry.prompt}"</div>
+            </div>
           ) : audioUrl ? (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--spacing-md)', width: '100%' }}>
-              <audio ref={audioRef} controls src={audioUrl} style={{ width: '100%', maxWidth: '400px' }} />
+            <div className="audio-result">
+              <audio ref={audioRef} controls src={audioUrl} className="audio-result__player" />
               <a href={audioUrl} download={`sound-${new Date().toISOString().slice(0, 10)}.wav`} className="btn btn-primary btn-sm">
-                <i className="fas fa-download" /> Download
+                <i className="fas fa-download" /> <span>Download</span>
               </a>
             </div>
           ) : (
-            <div style={{ textAlign: 'center', color: 'var(--color-text-muted)' }}>
-              <i className="fas fa-music" style={{ fontSize: '3rem', marginBottom: 'var(--spacing-md)', opacity: 0.4 }} />
+            <div className="media-empty">
+              <i className="fas fa-music media-empty__icon" />
               <p>Generated sound will appear here</p>
             </div>
           )}

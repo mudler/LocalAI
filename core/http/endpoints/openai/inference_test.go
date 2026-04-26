@@ -242,11 +242,13 @@ var _ = Describe("ComputeChoices", func() {
 	})
 
 	Context("chat deltas from latest attempt", func() {
-		It("should return chat deltas from the last attempt only", func() {
+		It("should return chat deltas from the last attempt when retry is allowed", func() {
+			// When the first attempt has only reasoning (no content/tool calls),
+			// the caller-driven retry proceeds and we get deltas from the last attempt.
 			mockInference([]backend.LLMResponse{
 				{
 					Response:   "retry-me",
-					ChatDeltas: []*pb.ChatDelta{{Content: "old"}},
+					ChatDeltas: []*pb.ChatDelta{{ReasoningContent: "thinking..."}},
 				},
 				{
 					Response:   "final",
@@ -266,6 +268,40 @@ var _ = Describe("ComputeChoices", func() {
 			Expect(deltas).To(HaveLen(1))
 			Expect(deltas[0].Content).To(Equal("new"))
 		})
+
+		It("should keep first attempt deltas when ChatDeltas have content (skip retry)", func() {
+			// When the first attempt has content in ChatDeltas, skipCallerRetry
+			// prevents the retry — the autoparser already parsed successfully.
+			mockInference([]backend.LLMResponse{
+				{
+					Response:   "autoparser-content",
+					ChatDeltas: []*pb.ChatDelta{{Content: "first-content"}},
+				},
+				{
+					Response:   "should-not-reach",
+					ChatDeltas: []*pb.ChatDelta{{Content: "second-content"}},
+				},
+			})
+
+			retryRequested := false
+			_, _, deltas, err := ComputeChoices(
+				makeReq(), "test", cfg, nil, appCfg, nil,
+				func(s string, c *[]schema.Choice) {
+					*c = append(*c, schema.Choice{Text: s})
+				},
+				nil,
+				func(attempt int) bool {
+					retryRequested = true
+					return true
+				},
+			)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(retryRequested).To(BeFalse(),
+				"shouldRetry should not be called when ChatDeltas have content")
+			Expect(deltas).To(HaveLen(1))
+			Expect(deltas[0].Content).To(Equal("first-content"))
+		})
+
 	})
 
 	Context("result choices cleared on retry", func() {
@@ -397,6 +433,125 @@ var _ = Describe("ComputeChoices", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(choices).To(HaveLen(1))
 			Expect(streamedTokens).To(Equal([]string{"Hello", " world"}))
+		})
+
+		It("should pass chat deltas through TokenUsage during streaming", func() {
+			var receivedDeltas [][]*pb.ChatDelta
+			backend.ModelInferenceFunc = func(
+				ctx context.Context, s string, messages schema.Messages,
+				images, videos, audios []string,
+				loader *model.ModelLoader, c *config.ModelConfig, cl *config.ModelConfigLoader,
+				o *config.ApplicationConfig,
+				tokenCallback func(string, backend.TokenUsage) bool,
+				tools, toolChoice string,
+				logprobs, topLogprobs *int,
+				logitBias map[string]float64,
+				metadata map[string]string,
+			) (func() (backend.LLMResponse, error), error) {
+				predFunc := func() (backend.LLMResponse, error) {
+					if tokenCallback != nil {
+						// Simulate C++ autoparser sending reasoning in chat deltas
+						tokenCallback("<|channel>thought\nthinking\n<channel|>", backend.TokenUsage{
+							Prompt: 5,
+							ChatDeltas: []*pb.ChatDelta{
+								{ReasoningContent: "thinking"},
+							},
+						})
+						tokenCallback("Hello!", backend.TokenUsage{
+							Prompt: 5, Completion: 3,
+							ChatDeltas: []*pb.ChatDelta{
+								{Content: "Hello!"},
+							},
+						})
+					}
+					return backend.LLMResponse{
+						Response: "<|channel>thought\nthinking\n<channel|>Hello!",
+						Usage:    backend.TokenUsage{Prompt: 5, Completion: 3},
+						ChatDeltas: []*pb.ChatDelta{
+							{ReasoningContent: "thinking"},
+							{Content: "Hello!"},
+						},
+					}, nil
+				}
+				return predFunc, nil
+			}
+
+			choices, _, deltas, err := ComputeChoices(
+				makeReq(), "test", cfg, nil, appCfg, nil,
+				func(s string, c *[]schema.Choice) {
+					*c = append(*c, schema.Choice{Text: s})
+				},
+				func(s string, usage backend.TokenUsage) bool {
+					// Capture chat deltas received per-chunk
+					if len(usage.ChatDeltas) > 0 {
+						receivedDeltas = append(receivedDeltas, usage.ChatDeltas)
+					}
+					return true
+				},
+			)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(choices).To(HaveLen(1))
+
+			// Verify per-chunk deltas were received during streaming
+			Expect(receivedDeltas).To(HaveLen(2))
+			Expect(receivedDeltas[0][0].ReasoningContent).To(Equal("thinking"))
+			Expect(receivedDeltas[1][0].Content).To(Equal("Hello!"))
+
+			// Verify final accumulated deltas are also returned
+			Expect(deltas).To(HaveLen(2))
+			Expect(deltas[0].ReasoningContent).To(Equal("thinking"))
+			Expect(deltas[1].Content).To(Equal("Hello!"))
+		})
+
+		It("should prefer chat deltas over raw text when HasChatDeltaContent is true", func() {
+			// Verify that the callback can distinguish between
+			// chunks with and without chat deltas
+			var withDeltas, withoutDeltas int
+			backend.ModelInferenceFunc = func(
+				ctx context.Context, s string, messages schema.Messages,
+				images, videos, audios []string,
+				loader *model.ModelLoader, c *config.ModelConfig, cl *config.ModelConfigLoader,
+				o *config.ApplicationConfig,
+				tokenCallback func(string, backend.TokenUsage) bool,
+				tools, toolChoice string,
+				logprobs, topLogprobs *int,
+				logitBias map[string]float64,
+				metadata map[string]string,
+			) (func() (backend.LLMResponse, error), error) {
+				predFunc := func() (backend.LLMResponse, error) {
+					if tokenCallback != nil {
+						// Chunk with chat deltas (C++ autoparser active)
+						tokenCallback("raw-text", backend.TokenUsage{
+							ChatDeltas: []*pb.ChatDelta{{Content: "parsed-content"}},
+						})
+						// Chunk without chat deltas (fallback)
+						tokenCallback("fallback-text", backend.TokenUsage{})
+					}
+					return backend.LLMResponse{Response: "raw-textfallback-text"}, nil
+				}
+				return predFunc, nil
+			}
+
+			_, _, _, err := ComputeChoices(
+				makeReq(), "test", cfg, nil, appCfg, nil,
+				func(s string, c *[]schema.Choice) {
+					*c = append(*c, schema.Choice{Text: s})
+				},
+				func(s string, usage backend.TokenUsage) bool {
+					if usage.HasChatDeltaContent() {
+						withDeltas++
+						r, c := usage.ChatDeltaReasoningAndContent()
+						Expect(c).To(Equal("parsed-content"))
+						Expect(r).To(BeEmpty())
+					} else {
+						withoutDeltas++
+					}
+					return true
+				},
+			)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(withDeltas).To(Equal(1))
+			Expect(withoutDeltas).To(Equal(1))
 		})
 	})
 })

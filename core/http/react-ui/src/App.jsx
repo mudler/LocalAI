@@ -65,7 +65,7 @@ export default function App() {
             <div className="app-footer-inner">
               {version && (
                 <span className="app-footer-version">
-                  LocalAI <span style={{ color: 'var(--color-primary)', fontWeight: 500 }}>{version}</span>
+                  LocalAI <span style={{ fontWeight: 500 }}>{version}</span>
                 </span>
               )}
               <div className="app-footer-links">

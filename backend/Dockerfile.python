@@ -29,6 +29,7 @@ RUN apt-get update && \
         curl python3-pip \
         python-is-python3 \
         python3-dev llvm \
+        libnuma1 libgomp1 \
         python3-venv make cmake && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
@@ -161,6 +162,7 @@ RUN if [ "${BUILD_TYPE}" = "hipblas" ] && [ "${SKIP_DRIVERS}" = "false" ]; then 
         apt-get update && \
         apt-get install -y --no-install-recommends \
             hipblas-dev \
+            hipblaslt-dev \
             rocblas-dev && \
         apt-get clean && \
         rm -rf /var/lib/apt/lists/* && \
@@ -194,6 +196,12 @@ COPY backend/python/${BACKEND} /${BACKEND}
 COPY backend/backend.proto /${BACKEND}/backend.proto
 COPY backend/python/common/ /${BACKEND}/common
 COPY scripts/build/package-gpu-libs.sh /package-gpu-libs.sh
+
+# Optional per-backend source build toggle (e.g. vllm on CPU can set
+# FROM_SOURCE=true to compile against the build host SIMD instead of
+# pulling a prebuilt wheel). Default empty — most backends ignore it.
+ARG FROM_SOURCE=""
+ENV FROM_SOURCE=${FROM_SOURCE}
 
 RUN cd /${BACKEND} && PORTABLE_PYTHON=true make
 

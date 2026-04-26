@@ -49,7 +49,7 @@ const (
   )? "]"`
 )
 
-func jsonString(v interface{}) (string, error) {
+func jsonString(v any) (string, error) {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return "", err

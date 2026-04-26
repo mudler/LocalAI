@@ -18,7 +18,6 @@ type LLM struct {
 	draftModel *llama.LLama
 }
 
-
 // Free releases GPU resources and frees the llama model
 // This should be called when the model is being unloaded to properly release VRAM
 func (llm *LLM) Free() error {

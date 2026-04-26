@@ -51,7 +51,7 @@ export default function ResourceMonitor() {
                   <div className="resource-bar-container" style={{ flex: 1 }}>
                     <div className="resource-bar" style={{ width: `${pct}%`, background: color }} />
                   </div>
-                  <span style={{ fontSize: '0.8125rem', fontWeight: 600, fontFamily: "'JetBrains Mono', monospace", color, minWidth: '3em', textAlign: 'right' }}>
+                  <span style={{ fontSize: '0.8125rem', fontWeight: 600, fontFamily: 'var(--font-mono)', color, minWidth: '3em', textAlign: 'right' }}>
                     {pct.toFixed(0)}%
                   </span>
                 </div>
@@ -76,7 +76,7 @@ export default function ResourceMonitor() {
             <div className="resource-bar-container" style={{ flex: 1 }}>
               <div className="resource-bar" style={{ width: `${ram.usage_percent || 0}%`, background: percentColor(ram.usage_percent || 0) }} />
             </div>
-            <span style={{ fontSize: '0.8125rem', fontWeight: 600, fontFamily: "'JetBrains Mono', monospace", color: percentColor(ram.usage_percent || 0), minWidth: '3em', textAlign: 'right' }}>
+            <span style={{ fontSize: '0.8125rem', fontWeight: 600, fontFamily: 'var(--font-mono)', color: percentColor(ram.usage_percent || 0), minWidth: '3em', textAlign: 'right' }}>
               {(ram.usage_percent || 0).toFixed(0)}%
             </span>
           </div>
@@ -91,7 +91,7 @@ export default function ResourceMonitor() {
       {isGpu && aggregate.gpu_count > 1 && (
         <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', marginTop: 'var(--spacing-sm)', display: 'flex', justifyContent: 'space-between' }}>
           <span>Total VRAM</span>
-          <span style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+          <span style={{ fontFamily: 'var(--font-mono)' }}>
             {formatBytes(aggregate.used_memory)} / {formatBytes(aggregate.total_memory)} ({aggregate.usage_percent?.toFixed(1)}%)
           </span>
         </div>
@@ -101,7 +101,7 @@ export default function ResourceMonitor() {
       {resources.storage_size != null && (
         <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', marginTop: 'var(--spacing-sm)', display: 'flex', justifyContent: 'space-between' }}>
           <span>Models storage</span>
-          <span style={{ fontFamily: "'JetBrains Mono', monospace", color: 'var(--color-text-primary)' }}>
+          <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--color-text-primary)' }}>
             {formatBytes(resources.storage_size)}
           </span>
         </div>

@@ -3,6 +3,7 @@ package localai
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -18,7 +19,7 @@ import (
 	"github.com/mudler/LocalAI/core/gallery/importers"
 	httpUtils "github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/schema"
-	"github.com/mudler/LocalAI/core/services"
+	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/pkg/utils"
 	"github.com/mudler/LocalAI/pkg/vram"
 
@@ -26,7 +27,7 @@ import (
 )
 
 // ImportModelURIEndpoint handles creating new model configurations from a URI
-func ImportModelURIEndpoint(cl *config.ModelConfigLoader, appConfig *config.ApplicationConfig, galleryService *services.GalleryService, opcache *services.OpCache) echo.HandlerFunc {
+func ImportModelURIEndpoint(cl *config.ModelConfigLoader, appConfig *config.ApplicationConfig, galleryService *galleryop.GalleryService, opcache *galleryop.OpCache) echo.HandlerFunc {
 	return func(c echo.Context) error {
 
 		input := new(schema.ImportModelRequest)
@@ -37,6 +38,31 @@ func ImportModelURIEndpoint(cl *config.ModelConfigLoader, appConfig *config.Appl
 
 		modelConfig, err := importers.DiscoverModelConfig(input.URI, input.Preferences)
 		if err != nil {
+			var amb *importers.AmbiguousImportError
+			if errors.As(err, &amb) {
+				// Fall back to empty slice so JSON always renders an array,
+				// not null — keeps the UI code a bit simpler.
+				candidates := amb.Candidates
+				if candidates == nil {
+					candidates = []string{}
+				}
+				return c.JSON(http.StatusBadRequest, map[string]any{
+					"error":      "ambiguous import",
+					"detail":     amb.Error(),
+					"modality":   amb.Modality,
+					"candidates": candidates,
+					"hint":       "Pass preferences.backend to pick one of the candidates.",
+				})
+			}
+			if errors.Is(err, importers.ErrAmbiguousImport) {
+				return c.JSON(http.StatusBadRequest, map[string]any{
+					"error":      "ambiguous import",
+					"detail":     err.Error(),
+					"modality":   "",
+					"candidates": []string{},
+					"hint":       "Pass preferences.backend to pick one of the candidates.",
+				})
+			}
 			return fmt.Errorf("failed to discover model config: %w", err)
 		}
 
@@ -51,8 +77,10 @@ func ImportModelURIEndpoint(cl *config.ModelConfigLoader, appConfig *config.Appl
 			}
 			estCtx, cancel := context.WithTimeout(c.Request().Context(), 5*time.Second)
 			defer cancel()
-			opts := vram.EstimateOptions{ContextLength: 8192}
-			result, err := vram.Estimate(estCtx, files, opts, vram.DefaultCachedSizeResolver(), vram.DefaultCachedGGUFReader())
+			result, err := vram.EstimateModel(estCtx, vram.ModelEstimateInput{
+				Files:   files,
+				Options: vram.EstimateOptions{ContextLength: 8192},
+			})
 			if err == nil {
 				if result.SizeBytes > 0 {
 					resp.EstimatedSizeBytes = result.SizeBytes
@@ -81,9 +109,9 @@ func ImportModelURIEndpoint(cl *config.ModelConfigLoader, appConfig *config.Appl
 			opcache.Set(galleryID, uuid.String())
 		}
 
-		galleryService.ModelGalleryChannel <- services.GalleryOp[gallery.GalleryModel, gallery.ModelConfig]{
+		galleryService.ModelGalleryChannel <- galleryop.ManagementOp[gallery.GalleryModel, gallery.ModelConfig]{
 			Req: gallery.GalleryModel{
-				Overrides: map[string]interface{}{},
+				Overrides: map[string]any{},
 			},
 			ID:                 uuid.String(),
 			GalleryElementName: galleryID,
@@ -117,48 +145,20 @@ func ImportModelEndpoint(cl *config.ModelConfigLoader, appConfig *config.Applica
 			return c.JSON(http.StatusBadRequest, response)
 		}
 
-		// Check content type to determine how to parse
+		// Detect format once and reuse for both typed and map parsing
 		contentType := c.Request().Header.Get("Content-Type")
-		var modelConfig config.ModelConfig
+		trimmed := strings.TrimSpace(string(body))
+		isJSON := strings.Contains(contentType, "application/json") ||
+			(!strings.Contains(contentType, "yaml") && len(trimmed) > 0 && trimmed[0] == '{')
 
-		if strings.Contains(contentType, "application/json") {
-			// Parse JSON
+		var modelConfig config.ModelConfig
+		if isJSON {
 			if err := json.Unmarshal(body, &modelConfig); err != nil {
-				response := ModelResponse{
-					Success: false,
-					Error:   "Failed to parse JSON: " + err.Error(),
-				}
-				return c.JSON(http.StatusBadRequest, response)
-			}
-		} else if strings.Contains(contentType, "application/x-yaml") || strings.Contains(contentType, "text/yaml") {
-			// Parse YAML
-			if err := yaml.Unmarshal(body, &modelConfig); err != nil {
-				response := ModelResponse{
-					Success: false,
-					Error:   "Failed to parse YAML: " + err.Error(),
-				}
-				return c.JSON(http.StatusBadRequest, response)
+				return c.JSON(http.StatusBadRequest, ModelResponse{Success: false, Error: "Failed to parse JSON: " + err.Error()})
 			}
 		} else {
-			// Try to auto-detect format
-			if len(body) > 0 && strings.TrimSpace(string(body))[0] == '{' {
-				// Looks like JSON
-				if err := json.Unmarshal(body, &modelConfig); err != nil {
-					response := ModelResponse{
-						Success: false,
-						Error:   "Failed to parse JSON: " + err.Error(),
-					}
-					return c.JSON(http.StatusBadRequest, response)
-				}
-			} else {
-				// Assume YAML
-				if err := yaml.Unmarshal(body, &modelConfig); err != nil {
-					response := ModelResponse{
-						Success: false,
-						Error:   "Failed to parse YAML: " + err.Error(),
-					}
-					return c.JSON(http.StatusBadRequest, response)
-				}
+			if err := yaml.Unmarshal(body, &modelConfig); err != nil {
+				return c.JSON(http.StatusBadRequest, ModelResponse{Success: false, Error: "Failed to parse YAML: " + err.Error()})
 			}
 		}
 
@@ -171,10 +171,9 @@ func ImportModelEndpoint(cl *config.ModelConfigLoader, appConfig *config.Applica
 			return c.JSON(http.StatusBadRequest, response)
 		}
 
-		// Set defaults
-		modelConfig.SetDefaults(appConfig.ToConfigLoaderOptions()...)
-
-		// Validate the configuration
+		// Validate without calling SetDefaults() — runtime defaults should not
+		// be persisted to disk. SetDefaults() is called when loading configs
+		// for inference via LoadModelConfigsFromPath().
 		if valid, _ := modelConfig.Validate(); !valid {
 			response := ModelResponse{
 				Success: false,
@@ -193,8 +192,21 @@ func ImportModelEndpoint(cl *config.ModelConfigLoader, appConfig *config.Applica
 			return c.JSON(http.StatusBadRequest, response)
 		}
 
-		// Marshal to YAML for storage
-		yamlData, err := yaml.Marshal(&modelConfig)
+		// Write only the user-provided fields to disk by parsing the original
+		// body into a map (not the typed struct, which includes Go zero values).
+		var bodyMap map[string]any
+		if isJSON {
+			_ = json.Unmarshal(body, &bodyMap)
+		} else {
+			_ = yaml.Unmarshal(body, &bodyMap)
+		}
+
+		var yamlData []byte
+		if bodyMap != nil {
+			yamlData, err = yaml.Marshal(bodyMap)
+		} else {
+			yamlData, err = yaml.Marshal(&modelConfig)
+		}
 		if err != nil {
 			response := ModelResponse{
 				Success: false,

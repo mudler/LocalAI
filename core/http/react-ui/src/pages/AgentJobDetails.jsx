@@ -43,7 +43,7 @@ function TraceCard({ trace, index }) {
             {trace.type || 'unknown'}
           </span>
           {trace.tool_name && (
-            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>
               {trace.tool_name}
             </span>
           )}
@@ -60,7 +60,7 @@ function TraceCard({ trace, index }) {
           {trace.content && (
             <pre style={{
               whiteSpace: 'pre-wrap', wordBreak: 'break-word', margin: 0,
-              fontFamily: "'JetBrains Mono', monospace", fontSize: '0.75rem',
+              fontFamily: 'var(--font-mono)', fontSize: '0.75rem',
               color: 'var(--color-text-secondary)', lineHeight: 1.6,
             }}>
               {trace.content}
@@ -71,7 +71,7 @@ function TraceCard({ trace, index }) {
               <span style={{ fontSize: '0.6875rem', fontWeight: 600, color: 'var(--color-text-muted)' }}>Arguments:</span>
               <pre style={{
                 whiteSpace: 'pre-wrap', wordBreak: 'break-word', margin: '4px 0 0',
-                fontFamily: "'JetBrains Mono', monospace", fontSize: '0.75rem',
+                fontFamily: 'var(--font-mono)', fontSize: '0.75rem',
                 color: 'var(--color-text-secondary)', lineHeight: 1.5,
               }}>
                 {typeof trace.arguments === 'string' ? trace.arguments : JSON.stringify(trace.arguments, null, 2)}
@@ -207,7 +207,7 @@ export default function AgentJobDetails() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--spacing-md)' }}>
           <div>
             <span className="form-label">Job ID</span>
-            <p style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.8125rem', wordBreak: 'break-all' }}>{job.id}</p>
+            <p style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem', wordBreak: 'break-all' }}>{job.id}</p>
           </div>
           <div>
             <span className="form-label">Task</span>
@@ -264,7 +264,7 @@ export default function AgentJobDetails() {
           </h3>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--spacing-xs)' }}>
             {Object.entries(job.cron_parameters).map(([k, v]) => (
-              <span key={k} className="badge badge-info" style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.75rem' }}>
+              <span key={k} className="badge badge-info" style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem' }}>
                 {k}={v}
               </span>
             ))}
@@ -281,7 +281,7 @@ export default function AgentJobDetails() {
           </h3>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--spacing-xs)' }}>
             {Object.entries(job.parameters).map(([k, v]) => (
-              <span key={k} className="badge badge-info" style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.75rem' }}>
+              <span key={k} className="badge badge-info" style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem' }}>
                 {k}={v}
               </span>
             ))}

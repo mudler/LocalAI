@@ -20,11 +20,14 @@ const statusBadgeClass = {
 
 function FormSection({ icon, title, children }) {
   return (
-    <div style={{ marginBottom: 'var(--spacing-md)' }}>
-      <h4 style={{ marginBottom: 'var(--spacing-sm)', display: 'flex', alignItems: 'center', gap: '0.5em' }}>
-        {icon && <i className={icon} />} {title}
-      </h4>
-      {children}
+    <div className="form-group">
+      <div className="form-group__title">
+        {icon && <i className={icon} />}
+        <span>{title}</span>
+      </div>
+      <div className="form-group__body">
+        {children}
+      </div>
     </div>
   )
 }
@@ -62,43 +65,37 @@ function ProgressMonitor({ job, onClose }) {
   const message = latestEvent?.message ?? job.message ?? ''
 
   return (
-    <div className="card" style={{ marginBottom: 'var(--spacing-md)' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-sm)' }}>
-        <h4 style={{ margin: 0 }}>
-          <i className="fas fa-chart-line" style={{ marginRight: '0.5em' }} />
-          Progress: {job.model}
+    <div className="card quantize-progress-card">
+      <div className="quantize-progress-card__header">
+        <h4 className="quantize-progress-card__title">
+          <i className="fas fa-chart-line" />
+          <span>Progress: {job.model}</span>
         </h4>
-        <button className="btn btn-sm" onClick={onClose}><i className="fas fa-times" /></button>
+        <button type="button" className="btn btn-ghost btn-sm" onClick={onClose} title="Close">
+          <i className="fas fa-times" />
+        </button>
       </div>
 
-      <div style={{ marginBottom: 'var(--spacing-sm)' }}>
+      <div className="quantize-progress-card__status">
         <span className={`badge ${statusBadgeClass[status] || ''}`}>{status}</span>
-        <span style={{ marginLeft: '1em', fontSize: '0.9em', color: 'var(--color-text-secondary)' }}>{message}</span>
+        {message && <span className="quantize-progress-card__message">{message}</span>}
       </div>
 
-      <div style={{
-        width: '100%', height: '24px', borderRadius: '12px',
-        background: 'var(--color-bg-tertiary)', overflow: 'hidden', marginBottom: 'var(--spacing-sm)',
-      }}>
-        <div style={{
-          width: `${Math.min(progress, 100)}%`, height: '100%',
-          background: status === 'failed' ? 'var(--color-error)' : 'var(--color-primary)',
-          transition: 'width 0.3s ease', borderRadius: '12px',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: '0.75em', fontWeight: 'bold', color: '#fff',
-        }}>
+      <div className="progress-bar">
+        <div
+          className={`progress-bar__fill${status === 'failed' ? ' progress-bar__fill--error' : ''}`}
+          style={{ width: `${Math.min(progress, 100)}%` }}
+        >
           {progress > 8 ? `${progress.toFixed(1)}%` : ''}
         </div>
       </div>
 
-      {/* Log tail */}
-      <div style={{
-        maxHeight: '150px', overflow: 'auto', fontSize: '0.8em',
-        background: 'var(--color-bg-secondary)', borderRadius: '6px', padding: '0.5em',
-        fontFamily: 'monospace',
-      }}>
+      <div className="log-tail">
         {events.slice(-20).map((ev, i) => (
-          <div key={i} style={{ color: ev.status === 'failed' ? 'var(--color-error)' : 'var(--color-text-secondary)' }}>
+          <div
+            key={i}
+            className={`log-tail__line${ev.status === 'failed' ? ' log-tail__line--error' : ''}`}
+          >
             [{ev.status}] {ev.message}
           </div>
         ))}
@@ -140,59 +137,52 @@ function ImportPanel({ job, onRefresh }) {
   }
 
   return (
-    <div className="card" style={{ marginBottom: 'var(--spacing-md)' }}>
-      <h4 style={{ marginBottom: 'var(--spacing-sm)' }}>
-        <i className="fas fa-file-export" style={{ marginRight: '0.5em' }} />
-        Output
+    <div className="card quantize-import-card">
+      <h4 className="quantize-import-card__title">
+        <i className="fas fa-file-export" />
+        <span>Output</span>
       </h4>
 
-      {error && (
-        <div className="alert alert-error" style={{ marginBottom: 'var(--spacing-sm)' }}>{error}</div>
-      )}
+      {error && <div className="alert alert-error">{error}</div>}
 
-      <div style={{ display: 'flex', gap: 'var(--spacing-sm)', flexWrap: 'wrap', alignItems: 'flex-end' }}>
-        {/* Download */}
+      <div className="quantize-import-card__row">
         <a
           href={quantizationApi.downloadUrl(job.id)}
           className="btn btn-secondary"
           download
         >
-          <i className="fas fa-download" style={{ marginRight: '0.4em' }} />
-          Download GGUF
+          <i className="fas fa-download" />
+          <span>Download GGUF</span>
         </a>
 
-        {/* Import */}
         {job.import_status === 'completed' ? (
-          <a href={`/app/chat/${encodeURIComponent(job.import_model_name)}`} className="btn btn-success">
-            <i className="fas fa-comments" style={{ marginRight: '0.4em' }} />
-            Chat with {job.import_model_name}
+          <a href={`/app/chat/${encodeURIComponent(job.import_model_name)}`} className="btn btn-primary">
+            <i className="fas fa-comments" />
+            <span>Chat with {job.import_model_name}</span>
           </a>
         ) : job.import_status === 'importing' ? (
-          <button className="btn" disabled>
-            <i className="fas fa-spinner fa-spin" style={{ marginRight: '0.4em' }} />
-            Importing... {job.import_message}
+          <button type="button" className="btn btn-secondary" disabled>
+            <i className="fas fa-spinner fa-spin" />
+            <span>Importing... {job.import_message}</span>
           </button>
         ) : (
           <>
             <input
-              className="input"
+              className="input quantize-import-card__name"
               placeholder="Model name (auto-generated if empty)"
               value={modelName}
               onChange={e => setModelName(e.target.value)}
-              style={{ maxWidth: '280px' }}
             />
-            <button className="btn btn-primary" onClick={handleImport} disabled={importing}>
-              <i className="fas fa-file-import" style={{ marginRight: '0.4em' }} />
-              Import to LocalAI
+            <button type="button" className="btn btn-primary" onClick={handleImport} disabled={importing}>
+              <i className="fas fa-file-import" />
+              <span>Import to LocalAI</span>
             </button>
           </>
         )}
       </div>
 
       {job.import_status === 'failed' && (
-        <div className="alert alert-error" style={{ marginTop: 'var(--spacing-sm)' }}>
-          Import failed: {job.import_message}
-        </div>
+        <div className="alert alert-error">Import failed: {job.import_message}</div>
       )}
     </div>
   )
@@ -293,37 +283,38 @@ export default function Quantize() {
   const effectiveQuantType = useCustomQuant ? customQuantType : quantType
 
   return (
-    <div style={{ maxWidth: '900px', margin: '0 auto', padding: 'var(--spacing-md)' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-md)' }}>
-        <h2 style={{ margin: 0 }}>
-          <i className="fas fa-compress" style={{ marginRight: '0.4em' }} />
-          Model Quantization
-        </h2>
-        <span className="badge badge-warning" style={{ fontSize: '0.7em' }}>Experimental</span>
+    <div className="page quantize-page">
+      <div className="page-header quantize-page__header">
+        <div>
+          <h1 className="page-title">
+            <i className="fas fa-compress" /> Model Quantization
+          </h1>
+          <p className="page-subtitle">Quantize and import GGUF models directly into LocalAI</p>
+        </div>
+        <span className="badge badge-warning">Experimental</span>
       </div>
 
       {error && (
-        <div className="card" style={{ borderColor: 'var(--color-error)', marginBottom: 'var(--spacing-md)' }}>
-          <div style={{ color: 'var(--color-error)' }}><i className="fas fa-exclamation-triangle" /> {error}</div>
+        <div className="alert alert-error">
+          <i className="fas fa-exclamation-triangle" /> {error}
         </div>
       )}
 
       {/* ── New Job Form ── */}
-      <form onSubmit={handleSubmit}>
-        <div className="card" style={{ marginBottom: 'var(--spacing-md)' }}>
-          <FormSection icon="fas fa-cube" title="Model">
-            <input
-              className="input"
-              placeholder="HuggingFace model name (e.g. meta-llama/Llama-3.2-1B) or local path"
-              value={model}
-              onChange={e => setModel(e.target.value)}
-              required
-              style={{ width: '100%' }}
-            />
-          </FormSection>
+      <form onSubmit={handleSubmit} className="card quantize-form">
+        <FormSection icon="fas fa-cube" title="Model">
+          <input
+            className="input btn-full"
+            placeholder="HuggingFace model name (e.g. meta-llama/Llama-3.2-1B) or local path"
+            value={model}
+            onChange={e => setModel(e.target.value)}
+            required
+          />
+        </FormSection>
 
+        <div className="form-grid-2col">
           <FormSection icon="fas fa-sliders-h" title="Quantization Type">
-            <div style={{ display: 'flex', gap: 'var(--spacing-sm)', alignItems: 'center', flexWrap: 'wrap' }}>
+            <div className="quantize-form__quant-row">
               <select
                 className="input"
                 value={useCustomQuant ? '__custom__' : quantType}
@@ -335,7 +326,6 @@ export default function Quantize() {
                     setQuantType(e.target.value)
                   }
                 }}
-                style={{ maxWidth: '200px' }}
               >
                 {QUANT_PRESETS.map(q => (
                   <option key={q} value={q}>{q}</option>
@@ -345,11 +335,10 @@ export default function Quantize() {
               {useCustomQuant && (
                 <input
                   className="input"
-                  placeholder="Enter custom quantization type"
+                  placeholder="Custom quantization type"
                   value={customQuantType}
                   onChange={e => setCustomQuantType(e.target.value)}
                   required
-                  style={{ maxWidth: '220px' }}
                 />
               )}
             </div>
@@ -357,37 +346,37 @@ export default function Quantize() {
 
           <FormSection icon="fas fa-server" title="Backend">
             <select
-              className="input"
+              className="input btn-full"
               value={backend}
               onChange={e => setBackend(e.target.value)}
-              style={{ maxWidth: '280px' }}
             >
               {backends.map(b => (
                 <option key={b.name || b} value={b.name || b}>{b.name || b}</option>
               ))}
             </select>
           </FormSection>
+        </div>
 
-          <FormSection icon="fas fa-key" title="HuggingFace Token (optional)">
-            <input
-              className="input"
-              type="password"
-              placeholder="hf_... (required for gated models)"
-              value={hfToken}
-              onChange={e => setHfToken(e.target.value)}
-              style={{ maxWidth: '400px' }}
-            />
-          </FormSection>
+        <FormSection icon="fas fa-key" title="HuggingFace Token (optional)">
+          <input
+            className="input btn-full"
+            type="password"
+            placeholder="hf_... (required for gated models)"
+            value={hfToken}
+            onChange={e => setHfToken(e.target.value)}
+          />
+        </FormSection>
 
+        <div className="form-group__actions">
           <button
             className="btn btn-primary"
             type="submit"
             disabled={submitting || !model || (useCustomQuant && !customQuantType)}
           >
             {submitting ? (
-              <><i className="fas fa-spinner fa-spin" style={{ marginRight: '0.4em' }} /> Starting...</>
+              <><i className="fas fa-spinner fa-spin" /> <span>Starting...</span></>
             ) : (
-              <><i className="fas fa-play" style={{ marginRight: '0.4em' }} /> Quantize ({effectiveQuantType})</>
+              <><i className="fas fa-play" /> <span>Quantize ({effectiveQuantType})</span></>
             )}
           </button>
         </div>
@@ -413,20 +402,20 @@ export default function Quantize() {
 
       {/* ── Jobs List ── */}
       {jobs.length > 0 && (
-        <div className="card">
-          <h4 style={{ marginBottom: 'var(--spacing-sm)' }}>
-            <i className="fas fa-list" style={{ marginRight: '0.5em' }} />
-            Jobs
+        <div className="card quantize-jobs">
+          <h4 className="quantize-jobs__title">
+            <i className="fas fa-list" />
+            <span>Jobs</span>
           </h4>
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9em' }}>
+          <div className="quantize-jobs__scroll">
+            <table className="data-table">
               <thead>
-                <tr style={{ borderBottom: '1px solid var(--color-border)' }}>
-                  <th style={{ textAlign: 'left', padding: '0.5em' }}>Model</th>
-                  <th style={{ textAlign: 'left', padding: '0.5em' }}>Quant</th>
-                  <th style={{ textAlign: 'left', padding: '0.5em' }}>Status</th>
-                  <th style={{ textAlign: 'left', padding: '0.5em' }}>Created</th>
-                  <th style={{ textAlign: 'right', padding: '0.5em' }}>Actions</th>
+                <tr>
+                  <th>Model</th>
+                  <th>Quant</th>
+                  <th>Status</th>
+                  <th>Created</th>
+                  <th style={{ textAlign: 'right' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -436,37 +425,29 @@ export default function Quantize() {
                   return (
                     <tr
                       key={job.id}
-                      style={{
-                        borderBottom: '1px solid var(--color-border)',
-                        background: isSelected ? 'var(--color-bg-secondary)' : undefined,
-                        cursor: 'pointer',
-                      }}
+                      className={isSelected ? 'is-selected' : ''}
                       onClick={() => setSelectedJob(job)}
+                      style={{ cursor: 'pointer' }}
                     >
-                      <td style={{ padding: '0.5em', maxWidth: '250px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {job.model}
-                      </td>
-                      <td style={{ padding: '0.5em' }}>
-                        <code>{job.quantization_type}</code>
-                      </td>
-                      <td style={{ padding: '0.5em' }}>
+                      <td className="data-table__truncate">{job.model}</td>
+                      <td><code>{job.quantization_type}</code></td>
+                      <td>
                         <span className={`badge ${statusBadgeClass[job.status] || ''}`}>{job.status}</span>
                         {job.import_status === 'completed' && (
-                          <span className="badge badge-success" style={{ marginLeft: '0.3em' }}>imported</span>
+                          <span className="badge badge-success" style={{ marginLeft: 'var(--spacing-xs)' }}>imported</span>
                         )}
                       </td>
-                      <td style={{ padding: '0.5em', fontSize: '0.85em', color: 'var(--color-text-secondary)' }}>
+                      <td style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-secondary)' }}>
                         {new Date(job.created_at).toLocaleString()}
                       </td>
-                      <td style={{ padding: '0.5em', textAlign: 'right' }}>
-                        <div style={{ display: 'flex', gap: '0.3em', justifyContent: 'flex-end' }} onClick={e => e.stopPropagation()}>
-                          {isActive && (
-                            <button className="btn btn-sm btn-error" onClick={() => handleStop(job.id)} title="Stop">
+                      <td>
+                        <div className="data-table__actions" onClick={e => e.stopPropagation()}>
+                          {isActive ? (
+                            <button type="button" className="btn btn-sm btn-danger" onClick={() => handleStop(job.id)} title="Stop">
                               <i className="fas fa-stop" />
                             </button>
-                          )}
-                          {!isActive && (
-                            <button className="btn btn-sm" onClick={() => handleDelete(job.id)} title="Delete">
+                          ) : (
+                            <button type="button" className="btn btn-sm btn-ghost" onClick={() => handleDelete(job.id)} title="Delete">
                               <i className="fas fa-trash" />
                             </button>
                           )}

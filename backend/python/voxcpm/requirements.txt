@@ -5,4 +5,3 @@ certifi
 packaging==24.1
 soundfile
 numpy
-voxcpm

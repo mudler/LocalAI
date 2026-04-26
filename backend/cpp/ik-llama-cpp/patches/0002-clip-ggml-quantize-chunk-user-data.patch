@@ -1,0 +1,11 @@
+--- a/examples/llava/clip.cpp
++++ b/examples/llava/clip.cpp
+@@ -2494,7 +2494,7 @@
+             }
+             new_data = work.data();
+
+-            new_size = ggml_quantize_chunk(new_type, f32_data, new_data, 0, n_elms/cur->ne[0], cur->ne[0], nullptr);
++            new_size = ggml_quantize_chunk(new_type, f32_data, new_data, 0, n_elms/cur->ne[0], cur->ne[0], nullptr, nullptr);
+         } else {
+             new_type = cur->type;
+             new_data = cur->data;

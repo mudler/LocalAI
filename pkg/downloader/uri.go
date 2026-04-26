@@ -261,6 +261,13 @@ func (s URI) ResolveURL() string {
 		return fmt.Sprintf("%s/%s/%s/resolve/%s/%s", HF_ENDPOINT, owner, repo, branch, filepath)
 	}
 
+	// If a HuggingFace mirror is configured, rewrite direct https://huggingface.co/ URLs
+	// to use the mirror. This ensures gallery entries with hardcoded URLs also benefit
+	// from the mirror setting.
+	if HF_ENDPOINT != "https://huggingface.co" && strings.HasPrefix(string(s), "https://huggingface.co/") {
+		return HF_ENDPOINT + strings.TrimPrefix(string(s), "https://huggingface.co")
+	}
+
 	return string(s)
 }
 
@@ -368,9 +375,20 @@ func (uri URI) DownloadFileWithContext(ctx context.Context, filePath, sha string
 	if uri.LooksLikeOCI() {
 
 		// Only Ollama wants to download to the file, for the rest, we want to download to the directory
-		// so we check if filepath has any extension, otherwise we assume it's a directory
-		if filepath.Ext(filePath) != "" && !strings.HasPrefix(url, OllamaPrefix) {
-			filePath = filepath.Dir(filePath)
+		// so we check if filepath has any extension, otherwise we assume it's a directory.
+		// Caveat: `filepath.Ext` treats any dot-suffix as an extension, so paths like
+		// `backends/local-store.upgrade-tmp` (the tmp dir created by gallery.UpgradeBackend)
+		// look like a "file" to this heuristic and get rewritten to their parent — which
+		// then unpacks the image at `backends/` top level and clobbers the real install
+		// with a flat-layout file. Guard against that by short-circuiting when the caller
+		// has already created the target as a directory: OCI destinations are always dirs
+		// in that case, regardless of what their suffix looks like.
+		if !strings.HasPrefix(url, OllamaPrefix) {
+			if fi, statErr := os.Stat(filePath); statErr == nil && fi.IsDir() {
+				// Existing directory — use as-is.
+			} else if filepath.Ext(filePath) != "" {
+				filePath = filepath.Dir(filePath)
+			}
 		}
 
 		progressStatus := func(desc ocispec.Descriptor) io.Writer {
@@ -415,32 +433,37 @@ func (uri URI) DownloadFileWithContext(ctx context.Context, filePath, sha string
 	}
 
 	// Check if the file already exists
-	_, err := os.Stat(filePath)
+	fi, err := os.Stat(filePath)
 	if err == nil {
-		xlog.Debug("[downloader] File already exists", "filePath", filePath)
-		// File exists, check SHA
-		if sha != "" {
-			// Verify SHA
-			calculatedSHA, err := calculateSHA(filePath)
-			if err != nil {
-				return fmt.Errorf("failed to calculate SHA for file %q: %v", filePath, err)
-			}
-			if calculatedSHA == sha {
-				// SHA matches, skip downloading
-				xlog.Debug("File already exists and matches the SHA. Skipping download", "file", filePath)
+		// Directories don't count as cached downloads (e.g. empty dirs left
+		// by failed OCI extractions). Only skip for regular files.
+		if fi.IsDir() {
+			xlog.Debug("[downloader] Path is a directory, not treating as cached download", "filePath", filePath)
+		} else {
+			xlog.Debug("[downloader] File already exists", "filePath", filePath)
+			// File exists, check SHA
+			if sha != "" {
+				// Verify SHA
+				calculatedSHA, err := CalculateSHA(filePath)
+				if err != nil {
+					return fmt.Errorf("failed to calculate SHA for file %q: %v", filePath, err)
+				}
+				if calculatedSHA == sha {
+					// SHA matches, skip downloading
+					xlog.Debug("File already exists and matches the SHA. Skipping download", "file", filePath)
+					return nil
+				}
+				// SHA doesn't match, delete the file and download again
+				err = os.Remove(filePath)
+				if err != nil {
+					return fmt.Errorf("failed to remove existing file %q: %v", filePath, err)
+				}
+				xlog.Debug("Removed file (SHA doesn't match)", "file", filePath)
+			} else {
+				// SHA is missing, skip downloading
+				xlog.Debug("File already exists. Skipping download", "file", filePath)
 				return nil
 			}
-			// SHA doesn't match, delete the file and download again
-			err = os.Remove(filePath)
-			if err != nil {
-				return fmt.Errorf("failed to remove existing file %q: %v", filePath, err)
-			}
-			xlog.Debug("Removed file (SHA doesn't match)", "file", filePath)
-
-		} else {
-			// SHA is missing, skip downloading
-			xlog.Debug("File already exists. Skipping download", "file", filePath)
-			return nil
 		}
 	} else if !os.IsNotExist(err) || !URI(url).LooksLikeHTTPURL() {
 		// Error occurred while checking file existence
@@ -597,7 +620,7 @@ func formatBytes(bytes int64) string {
 	return fmt.Sprintf("%.1f %ciB", float64(bytes)/float64(div), "KMGTPE"[exp])
 }
 
-func calculateSHA(filePath string) (string, error) {
+func CalculateSHA(filePath string) (string, error) {
 	file, err := os.Open(filePath)
 	if err != nil {
 		return "", err

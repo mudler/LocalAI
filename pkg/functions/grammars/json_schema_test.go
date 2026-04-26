@@ -16,7 +16,7 @@ var testFunctions = []Item{
 			"function",
 			"arguments",
 			"create_event",
-			map[string]interface{}{
+			map[string]any{
 				"title": map[string]string{"type": "string"},
 				"date":  map[string]string{"type": "string"},
 				"time":  map[string]string{"type": "string"},
@@ -29,7 +29,7 @@ var testFunctions = []Item{
 			"function",
 			"arguments",
 			"search",
-			map[string]interface{}{
+			map[string]any{
 				"query": map[string]string{"type": "string"},
 			}),
 	},
@@ -42,7 +42,7 @@ var testFunctionsName = []Item{
 			"name",
 			"arguments",
 			"create_event",
-			map[string]interface{}{
+			map[string]any{
 				"title": map[string]string{"type": "string"},
 				"date":  map[string]string{"type": "string"},
 				"time":  map[string]string{"type": "string"},
@@ -55,7 +55,7 @@ var testFunctionsName = []Item{
 			"name",
 			"arguments",
 			"search",
-			map[string]interface{}{
+			map[string]any{
 				"query": map[string]string{"type": "string"},
 			}),
 	},

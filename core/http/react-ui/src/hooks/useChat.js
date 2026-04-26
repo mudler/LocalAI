@@ -1,10 +1,11 @@
-import { useState, useCallback, useRef, useEffect } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { API_CONFIG } from '../utils/config'
 import { apiUrl } from '../utils/basePath'
+import { useDebouncedEffect } from './useDebounce'
 
-const thinkingTagRegex = /<thinking>([\s\S]*?)<\/thinking>|<think>([\s\S]*?)<\/think>/g
-const openThinkTagRegex = /<thinking>|<think>/
-const closeThinkTagRegex = /<\/thinking>|<\/think>/
+const thinkingTagRegex = /<thinking>([\s\S]*?)<\/thinking>|<think>([\s\S]*?)<\/think>|<\|channel>thought([\s\S]*?)<channel\|>/g
+const openThinkTagRegex = /<thinking>|<think>|<\|channel>thought/
+const closeThinkTagRegex = /<\/thinking>|<\/think>|<channel\|>/
 
 async function extractHttpError(response) {
   let errorMsg = `HTTP ${response.status}`
@@ -23,19 +24,16 @@ function extractThinking(text) {
   thinkingTagRegex.lastIndex = 0
   while ((match = thinkingTagRegex.exec(text)) !== null) {
     regularContent += text.slice(lastIdx, match.index)
-    thinkingContent += match[1] || match[2] || ''
+    thinkingContent += match[1] || match[2] || match[3] || ''
     lastIdx = match.index + match[0].length
   }
   regularContent += text.slice(lastIdx)
   return { regularContent, thinkingContent }
 }
 
-const CHATS_STORAGE_KEY = 'localai_chats_data'
-const SAVE_DEBOUNCE_MS = 500
+import { generateId } from '../utils/format'
 
-function generateId() {
-  return Date.now().toString(36) + Math.random().toString(36).slice(2)
-}
+const CHATS_STORAGE_KEY = 'localai_chats_data'
 
 function loadChats() {
   try {
@@ -125,24 +123,13 @@ export function useChat(initialModel = '') {
   const [tokensPerSecond, setTokensPerSecond] = useState(null)
   const [maxTokensPerSecond, setMaxTokensPerSecond] = useState(null)
   const abortControllerRef = useRef(null)
-  const saveTimerRef = useRef(null)
   const startTimeRef = useRef(null)
   const tokenCountRef = useRef(0)
   const maxTpsRef = useRef(0)
 
   const activeChat = chats.find(c => c.id === activeChatId) || chats[0]
 
-  // Debounced save
-  const debouncedSave = useCallback(() => {
-    if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
-    saveTimerRef.current = setTimeout(() => {
-      saveChats(chats, activeChatId)
-    }, SAVE_DEBOUNCE_MS)
-  }, [chats, activeChatId])
-
-  useEffect(() => {
-    debouncedSave()
-  }, [chats, activeChatId, debouncedSave])
+  useDebouncedEffect(() => saveChats(chats, activeChatId), [chats, activeChatId])
 
   const addChat = useCallback((model = '', systemPrompt = '', mcpMode = false) => {
     const chat = createNewChat(model, systemPrompt, mcpMode)
@@ -580,9 +567,9 @@ export function useChat(initialModel = '') {
                     }
 
                     if (insideThinkTag) {
-                      const lastOpen = Math.max(rawContent.lastIndexOf('<thinking>'), rawContent.lastIndexOf('<think>'))
+                      const lastOpen = Math.max(rawContent.lastIndexOf('<thinking>'), rawContent.lastIndexOf('<think>'), rawContent.lastIndexOf('<|channel>thought'))
                       if (lastOpen >= 0) {
-                        const partial = rawContent.slice(lastOpen).replace(/<thinking>|<think>/, '')
+                        const partial = rawContent.slice(lastOpen).replace(/<thinking>|<think>|<\|channel>thought/, '')
                         setStreamingReasoning(partial)
                         const beforeThink = rawContent.slice(0, lastOpen)
                         const { regularContent: contentBeforeThink } = extractThinking(beforeThink)

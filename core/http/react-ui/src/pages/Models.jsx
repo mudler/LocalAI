@@ -1,6 +1,7 @@
-import { useState, useCallback, useEffect, useRef } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useNavigate, useOutletContext } from 'react-router-dom'
 import { modelsApi } from '../utils/api'
+import { useDebouncedCallback } from '../hooks/useDebounce'
 import { useOperations } from '../hooks/useOperations'
 import { useResources } from '../hooks/useResources'
 import SearchableSelect from '../components/SearchableSelect'
@@ -40,7 +41,7 @@ function GalleryLoader() {
       minHeight: '280px', gap: 'var(--spacing-lg)',
     }}>
       {/* Animated dots */}
-      <div style={{ display: 'flex', gap: '8px' }}>
+      <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
         {[0, 1, 2, 3, 4].map(i => (
           <div key={i} style={{
             width: 10, height: 10, borderRadius: '50%',
@@ -111,13 +112,12 @@ export default function Models() {
   const [filter, setFilter] = useState('')
   const [sort, setSort] = useState('')
   const [order, setOrder] = useState('asc')
-  const [installing, setInstalling] = useState(new Set())
+  const [installing, setInstalling] = useState(new Map())
   const [expandedRow, setExpandedRow] = useState(null)
   const [expandedFiles, setExpandedFiles] = useState(false)
   const [stats, setStats] = useState({ total: 0, installed: 0, repositories: 0 })
   const [backendFilter, setBackendFilter] = useState('')
   const [allBackends, setAllBackends] = useState([])
-  const debounceRef = useRef(null)
   const [confirmDialog, setConfirmDialog] = useState(null)
 
   // Total GPU memory for "fits" check
@@ -165,13 +165,14 @@ export default function Models() {
     if (!loading) fetchModels()
   }, [operations.length])
 
+  const debouncedFetch = useDebouncedCallback((value) => {
+    setPage(1)
+    fetchModels({ search: value, page: 1 })
+  })
+
   const handleSearch = (value) => {
     setSearch(value)
-    if (debounceRef.current) clearTimeout(debounceRef.current)
-    debounceRef.current = setTimeout(() => {
-      setPage(1)
-      fetchModels({ search: value, page: 1 })
-    }, 500)
+    debouncedFetch(value)
   }
 
   const handleSort = (col) => {
@@ -185,7 +186,7 @@ export default function Models() {
 
   const handleInstall = async (modelId) => {
     try {
-      setInstalling(prev => new Set(prev).add(modelId))
+      setInstalling(prev => new Map(prev).set(modelId, Date.now()))
       await modelsApi.install(modelId)
     } catch (err) {
       addToast(`Failed to install: ${err.message}`, 'error')
@@ -216,13 +217,18 @@ export default function Models() {
   useEffect(() => {
     if (installing.size === 0) return
     setInstalling(prev => {
-      const next = new Set(prev)
+      const next = new Map(prev)
       let changed = false
-      for (const modelId of prev) {
+      for (const [modelId, timestamp] of prev) {
         const hasActiveOp = operations.some(op =>
           op.name === modelId && !op.completed && !op.error
         )
-        if (!hasActiveOp) {
+        const hasCompletedOp = operations.some(op =>
+          op.name === modelId && (op.completed || op.error)
+        )
+        const elapsed = Date.now() - timestamp
+        // Remove if operation completed, or if >5s passed with no operation ever appearing
+        if (hasCompletedOp || (!hasActiveOp && elapsed > 5000)) {
           next.delete(modelId)
           changed = true
         }
@@ -251,8 +257,8 @@ export default function Models() {
     <div className="page">
       <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div>
-          <h1 className="page-title">Model Gallery</h1>
-          <p className="page-subtitle">Discover and install AI models for your workflows</p>
+          <h1 className="page-title">Install Models</h1>
+          <p className="page-subtitle">Browse and install AI models from the gallery</p>
         </div>
         <div style={{ display: 'flex', gap: 'var(--spacing-md)', alignItems: 'center' }}>
           <div style={{ display: 'flex', gap: 'var(--spacing-md)', fontSize: '0.8125rem' }}>
@@ -267,6 +273,9 @@ export default function Models() {
               </a>
             </div>
           </div>
+          <button className="btn btn-primary btn-sm" onClick={() => navigate('/app/model-editor')}>
+            <i className="fas fa-plus" /> Add Model
+          </button>
           <button className="btn btn-secondary btn-sm" onClick={() => navigate('/app/import-model')}>
             <i className="fas fa-upload" /> Import Model
           </button>
@@ -435,7 +444,7 @@ export default function Models() {
                                 )}
                               </span>
                               {fit !== null && (
-                                <span style={{ fontSize: '0.6875rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                <span style={{ fontSize: '0.6875rem', display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)' }}>
                                   <i className="fas fa-microchip" style={{ color: fit ? 'var(--color-success)' : 'var(--color-error)' }} />
                                   <span style={{ color: fit ? 'var(--color-success)' : 'var(--color-error)' }}>
                                     {fit ? 'Fits' : 'May not fit'}
@@ -452,15 +461,14 @@ export default function Models() {
                       {/* Status */}
                       <td>
                         {installing ? (
-                          <div>
-                            <span style={{ fontSize: '0.75rem', color: 'var(--color-primary)' }}>
-                              <i className="fas fa-spinner fa-spin" /> Installing...
-                            </span>
+                          <div className="inline-install">
+                            <div className="inline-install__row">
+                              <div className="operation-spinner" />
+                              <span className="inline-install__label">Installing{progress > 0 ? ` · ${Math.round(progress)}%` : '...'}</span>
+                            </div>
                             {progress > 0 && (
-                              <div style={{ marginTop: '4px', width: '100%', maxWidth: '120px' }}>
-                                <div style={{ height: 3, background: 'var(--color-bg-tertiary)', borderRadius: 2, overflow: 'hidden' }}>
-                                  <div style={{ height: '100%', width: `${progress}%`, background: 'var(--color-primary)', borderRadius: 2, transition: 'width 300ms' }} />
-                                </div>
+                              <div className="operation-bar-container" style={{ flex: 'none', width: '120px', marginTop: 4 }}>
+                                <div className="operation-bar" style={{ width: `${progress}%` }} />
                               </div>
                             )}
                           </div>
@@ -469,7 +477,7 @@ export default function Models() {
                             <i className="fas fa-check-circle" /> Installed
                           </span>
                         ) : (
-                          <span className="badge" style={{ background: 'var(--color-bg-tertiary)', color: 'var(--color-text-muted)' }}>
+                          <span className="badge" style={{ background: 'var(--color-surface-sunken)', color: 'var(--color-text-muted)', border: '1px solid var(--color-border-default)' }}>
                             <i className="fas fa-circle" /> Not Installed
                           </span>
                         )}
@@ -587,7 +595,7 @@ function ModelDetail({ model, fit, expandedFiles, setExpandedFiles }) {
           </DetailRow>
           <DetailRow label="VRAM">
             {model.estimated_vram_display && model.estimated_vram_display !== '0 B' ? (
-              <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
                 {model.estimated_vram_display}
                 {fit !== null && (
                   <span style={{ fontSize: '0.75rem', color: fit ? 'var(--color-success)' : 'var(--color-error)' }}>
@@ -602,7 +610,7 @@ function ModelDetail({ model, fit, expandedFiles, setExpandedFiles }) {
           </DetailRow>
           <DetailRow label="Tags">
             {model.tags?.length > 0 && (
-              <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: 'var(--spacing-xs)', flexWrap: 'wrap' }}>
                 {model.tags.map(tag => (
                   <span key={tag} className="badge badge-info" style={{ fontSize: '0.6875rem' }}>{tag}</span>
                 ))}
@@ -643,17 +651,17 @@ function ModelDetail({ model, fit, expandedFiles, setExpandedFiles }) {
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.75rem' }}>
                       <thead>
                         <tr style={{ background: 'var(--color-bg-tertiary)' }}>
-                          <th style={{ padding: '4px 8px', textAlign: 'left', fontWeight: 500 }}>Filename</th>
-                          <th style={{ padding: '4px 8px', textAlign: 'left', fontWeight: 500 }}>URI</th>
-                          <th style={{ padding: '4px 8px', textAlign: 'left', fontWeight: 500 }}>SHA256</th>
+                          <th style={{ padding: 'var(--spacing-xs) var(--spacing-sm)', textAlign: 'left', fontWeight: 500 }}>Filename</th>
+                          <th style={{ padding: 'var(--spacing-xs) var(--spacing-sm)', textAlign: 'left', fontWeight: 500 }}>URI</th>
+                          <th style={{ padding: 'var(--spacing-xs) var(--spacing-sm)', textAlign: 'left', fontWeight: 500 }}>SHA256</th>
                         </tr>
                       </thead>
                       <tbody>
                         {files.map((f, i) => (
                           <tr key={i} style={{ borderTop: '1px solid var(--color-border-subtle)' }}>
-                            <td style={{ padding: '4px 8px', fontFamily: 'monospace' }}>{f.filename || '—'}</td>
-                            <td style={{ padding: '4px 8px', wordBreak: 'break-all', maxWidth: 300 }}>{f.uri || '—'}</td>
-                            <td style={{ padding: '4px 8px', fontFamily: 'monospace', fontSize: '0.6875rem', color: 'var(--color-text-muted)' }}>
+                            <td style={{ padding: 'var(--spacing-xs) var(--spacing-sm)', fontFamily: 'var(--font-mono)' }}>{f.filename || '—'}</td>
+                            <td style={{ padding: 'var(--spacing-xs) var(--spacing-sm)', wordBreak: 'break-all', maxWidth: 300 }}>{f.uri || '—'}</td>
+                            <td style={{ padding: 'var(--spacing-xs) var(--spacing-sm)', fontFamily: 'var(--font-mono)', fontSize: '0.6875rem', color: 'var(--color-text-muted)' }}>
                               {f.sha256 ? f.sha256.substring(0, 16) + '...' : '—'}
                             </td>
                           </tr>

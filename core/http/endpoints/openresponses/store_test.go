@@ -375,7 +375,7 @@ var _ = Describe("ResponseStore", func() {
 		It("should handle concurrent stores and gets", func() {
 			// This is a basic concurrency test
 			done := make(chan bool, 10)
-			for i := 0; i < 10; i++ {
+			for i := range 10 {
 				go func(id int) {
 					responseID := fmt.Sprintf("resp_concurrent_%d", id)
 					request := &schema.OpenResponsesRequest{Model: "test"}
@@ -397,7 +397,7 @@ var _ = Describe("ResponseStore", func() {
 			}
 
 			// Wait for all goroutines
-			for i := 0; i < 10; i++ {
+			for range 10 {
 				<-done
 			}
 

@@ -80,7 +80,7 @@ func (tc *templateCache) loadTemplateIfExists(templateType TemplateType, templat
 	return nil
 }
 
-func (tc *templateCache) evaluateTemplate(templateType TemplateType, templateNameOrContent string, in interface{}) (string, error) {
+func (tc *templateCache) evaluateTemplate(templateType TemplateType, templateNameOrContent string, in any) (string, error) {
 	tc.mu.Lock()
 	defer tc.mu.Unlock()
 

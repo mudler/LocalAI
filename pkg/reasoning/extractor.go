@@ -21,6 +21,12 @@ type ReasoningExtractor struct {
 	lastReasoning      string
 	lastCleaned        string
 	suppressReasoning  bool
+
+	// ChatDelta reasoning accumulator — used by ProcessChatDeltaReasoning
+	// to strip reasoning tags (e.g. <|channel>thought, <channel|>) that
+	// the C++ autoparser includes in reasoning_content deltas.
+	cdReasoningAccum        string
+	cdLastStrippedReasoning string
 }
 
 // NewReasoningExtractor creates a new extractor for the given thinking token and config.
@@ -64,6 +70,61 @@ func (e *ReasoningExtractor) ProcessToken(token string) (reasoningDelta, content
 	return reasoningDelta, contentDelta
 }
 
+// ProcessChatDeltaReasoning accumulates raw reasoning text from C++ autoparser
+// ChatDeltas, strips any embedded reasoning tags (e.g. <|channel>thought …
+// <channel|> for Gemma 4), and returns only the new stripped delta.
+// This prevents tag tokens from leaking into the reasoning field of SSE chunks.
+//
+// When the C++ autoparser already strips tags (e.g. <think> models), the text
+// passes through unchanged — ExtractReasoning finds no tags so we use the raw text.
+func (e *ReasoningExtractor) ProcessChatDeltaReasoning(rawDelta string) string {
+	if rawDelta == "" {
+		return ""
+	}
+	e.cdReasoningAccum += rawDelta
+
+	// Try to strip reasoning tags from accumulated ChatDelta reasoning.
+	stripped, cleaned := ExtractReasoning(e.cdReasoningAccum, &e.config)
+
+	if stripped == "" {
+		// ExtractReasoning found no reasoning content. This happens when:
+		// a) A complete start tag was found but has no content after it yet
+		//    (cleaned == "" because everything is inside the unclosed tag)
+		//    → keep buffering
+		// b) We're accumulating a partial multi-token start tag
+		//    (e.g. "<|channel>" before "thought" arrives)
+		//    → keep buffering
+		// c) No tags at all — C++ already stripped them
+		//    → pass through the raw text as-is
+		if cleaned == "" && strings.TrimSpace(e.cdReasoningAccum) != "" {
+			// Case (a): tag found, unclosed, no content yet
+			stripped = ""
+		} else if e.thinkingStartToken != "" &&
+			len(strings.TrimSpace(e.cdReasoningAccum)) < len(e.thinkingStartToken) &&
+			strings.HasPrefix(e.thinkingStartToken, strings.TrimSpace(e.cdReasoningAccum)) {
+			// Case (b): partial start tag prefix
+			stripped = ""
+		} else {
+			// Case (c): no tags found — text is already clean from C++
+			stripped = e.cdReasoningAccum
+		}
+	}
+
+	// Compute delta from stripped reasoning
+	var delta string
+	if len(stripped) > len(e.cdLastStrippedReasoning) && strings.HasPrefix(stripped, e.cdLastStrippedReasoning) {
+		delta = stripped[len(e.cdLastStrippedReasoning):]
+	} else if stripped != e.cdLastStrippedReasoning && stripped != "" {
+		delta = stripped
+	}
+	e.cdLastStrippedReasoning = stripped
+
+	if e.suppressReasoning {
+		return ""
+	}
+	return delta
+}
+
 // Reasoning returns the total accumulated reasoning after streaming.
 func (e *ReasoningExtractor) Reasoning() string {
 	return e.lastReasoning
@@ -84,6 +145,8 @@ func (e *ReasoningExtractor) Reset() {
 	e.accumulated = ""
 	e.lastReasoning = ""
 	e.lastCleaned = ""
+	e.cdReasoningAccum = ""
+	e.cdLastStrippedReasoning = ""
 }
 
 // ResetAndSuppressReasoning clears state and suppresses future reasoning deltas.
@@ -95,6 +158,8 @@ func (e *ReasoningExtractor) ResetAndSuppressReasoning() {
 	e.accumulated = ""
 	e.lastReasoning = ""
 	e.lastCleaned = ""
+	e.cdReasoningAccum = ""
+	e.cdLastStrippedReasoning = ""
 	e.suppressReasoning = true
 }
 

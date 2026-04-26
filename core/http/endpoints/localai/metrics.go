@@ -4,13 +4,15 @@ import (
 	"time"
 
 	"github.com/labstack/echo/v4"
-	"github.com/mudler/LocalAI/core/services"
+	"github.com/mudler/LocalAI/core/services/monitoring"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 // LocalAIMetricsEndpoint returns the metrics endpoint for LocalAI
 // @Summary Prometheus metrics endpoint
-// @Param request body config.Gallery true "Gallery details"
+// @Tags monitoring
+// @Produce text/plain
+// @Success 200 {string} string "Prometheus metrics"
 // @Router /metrics [get]
 func LocalAIMetricsEndpoint() echo.HandlerFunc {
 	return echo.WrapHandler(promhttp.Handler())
@@ -18,10 +20,10 @@ func LocalAIMetricsEndpoint() echo.HandlerFunc {
 
 type apiMiddlewareConfig struct {
 	Filter         func(c echo.Context) bool
-	metricsService *services.LocalAIMetricsService
+	metricsService *monitoring.LocalAIMetricsService
 }
 
-func LocalAIMetricsAPIMiddleware(metrics *services.LocalAIMetricsService) echo.MiddlewareFunc {
+func LocalAIMetricsAPIMiddleware(metrics *monitoring.LocalAIMetricsService) echo.MiddlewareFunc {
 	cfg := apiMiddlewareConfig{
 		metricsService: metrics,
 		Filter: func(c echo.Context) bool {

@@ -191,7 +191,7 @@ function ResourcesSection({ skillName, addToast }) {
                   value={editor.content}
                   onChange={(e) => setEditor((x) => ({ ...x, content: e.target.value }))}
                   rows={14}
-                  style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.875rem', marginBottom: 'var(--spacing-md)', width: '100%' }}
+                  style={{ fontFamily: 'var(--font-mono)', fontSize: '0.875rem', marginBottom: 'var(--spacing-md)', width: '100%' }}
                 />
                 <div style={{ display: 'flex', gap: 'var(--spacing-sm)', justifyContent: 'flex-end' }}>
                   <button className="btn btn-secondary" onClick={() => setEditor((e) => ({ ...e, open: false }))}>Cancel</button>
@@ -594,7 +594,7 @@ export default function SkillEdit() {
                     value={form.content}
                     onChange={(e) => setForm((f) => ({ ...f, content: e.target.value }))}
                     rows={14}
-                    style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.875rem' }}
+                    style={{ fontFamily: 'var(--font-mono)', fontSize: '0.875rem' }}
                   />
                 </div>
               </div>

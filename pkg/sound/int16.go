@@ -47,7 +47,7 @@ func ResampleInt16(input []int16, inputRate, outputRate int) []int16 {
 	output := make([]int16, outputLength)
 
 	// Perform linear interpolation for resampling
-	for i := 0; i < outputLength; i++ {
+	for i := range outputLength {
 		// Calculate the corresponding position in the input
 		pos := float64(i) * ratio
 
@@ -83,7 +83,7 @@ func BytesToInt16sLE(bytes []byte) []int16 {
 	}
 
 	int16s := make([]int16, len(bytes)/2)
-	for i := 0; i < len(int16s); i++ {
+	for i := range len(int16s) {
 		int16s[i] = int16(bytes[2*i]) | int16(bytes[2*i+1])<<8
 	}
 	return int16s

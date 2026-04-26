@@ -18,7 +18,6 @@ var _ = Describe("ApplicationConfig RuntimeSettings Conversion", func() {
 				WatchDogBusyTimeout:      10 * time.Minute,
 				SingleBackend:            false,
 				MaxActiveBackends:        5,
-				ParallelBackendRequests:  true,
 				MemoryReclaimerEnabled:   true,
 				MemoryReclaimerThreshold: 0.85,
 				Threads:                  8,
@@ -26,7 +25,7 @@ var _ = Describe("ApplicationConfig RuntimeSettings Conversion", func() {
 				F16:                      true,
 				Debug:                    true,
 				CORS:                     true,
-				DisableCSRF:                     true,
+				DisableCSRF:              true,
 				CORSAllowOrigins:         "https://example.com",
 				P2PToken:                 "test-token",
 				P2PNetworkID:             "test-network",
@@ -61,9 +60,6 @@ var _ = Describe("ApplicationConfig RuntimeSettings Conversion", func() {
 
 			Expect(rs.MaxActiveBackends).ToNot(BeNil())
 			Expect(*rs.MaxActiveBackends).To(Equal(5))
-
-			Expect(rs.ParallelBackendRequests).ToNot(BeNil())
-			Expect(*rs.ParallelBackendRequests).To(BeTrue())
 
 			Expect(rs.MemoryReclaimerEnabled).ToNot(BeNil())
 			Expect(*rs.MemoryReclaimerEnabled).To(BeTrue())
@@ -121,6 +117,13 @@ var _ = Describe("ApplicationConfig RuntimeSettings Conversion", func() {
 
 			Expect(rs.AgentJobRetentionDays).ToNot(BeNil())
 			Expect(*rs.AgentJobRetentionDays).To(Equal(30))
+		})
+
+		It("should include auto_upgrade_backends", func() {
+			appConfig := &ApplicationConfig{AutoUpgradeBackends: true}
+			rs := appConfig.ToRuntimeSettings()
+			Expect(rs.AutoUpgradeBackends).ToNot(BeNil())
+			Expect(*rs.AutoUpgradeBackends).To(BeTrue())
 		})
 
 		It("should use default timeouts when not set", func() {
@@ -430,6 +433,14 @@ var _ = Describe("ApplicationConfig RuntimeSettings Conversion", func() {
 			Expect(appConfig.AutoloadBackendGalleries).To(BeTrue())
 		})
 
+		It("should apply auto_upgrade_backends setting", func() {
+			appConfig := &ApplicationConfig{}
+			v := true
+			rs := &RuntimeSettings{AutoUpgradeBackends: &v}
+			appConfig.ApplyRuntimeSettings(rs)
+			Expect(appConfig.AutoUpgradeBackends).To(BeTrue())
+		})
+
 		It("should apply agent settings", func() {
 			appConfig := &ApplicationConfig{}
 
@@ -455,7 +466,6 @@ var _ = Describe("ApplicationConfig RuntimeSettings Conversion", func() {
 				WatchDogBusyTimeout:      12 * time.Minute,
 				SingleBackend:            false,
 				MaxActiveBackends:        3,
-				ParallelBackendRequests:  true,
 				MemoryReclaimerEnabled:   true,
 				MemoryReclaimerThreshold: 0.92,
 				Threads:                  12,
@@ -463,13 +473,14 @@ var _ = Describe("ApplicationConfig RuntimeSettings Conversion", func() {
 				F16:                      true,
 				Debug:                    false,
 				CORS:                     true,
-				DisableCSRF:                     false,
+				DisableCSRF:              false,
 				CORSAllowOrigins:         "https://test.com",
 				P2PToken:                 "round-trip-token",
 				P2PNetworkID:             "round-trip-network",
 				Federated:                true,
 				AutoloadGalleries:        true,
 				AutoloadBackendGalleries: false,
+				AutoUpgradeBackends:      true,
 				AgentJobRetentionDays:    60,
 			}
 
@@ -487,7 +498,6 @@ var _ = Describe("ApplicationConfig RuntimeSettings Conversion", func() {
 			Expect(target.WatchDogIdleTimeout).To(Equal(original.WatchDogIdleTimeout))
 			Expect(target.WatchDogBusyTimeout).To(Equal(original.WatchDogBusyTimeout))
 			Expect(target.MaxActiveBackends).To(Equal(original.MaxActiveBackends))
-			Expect(target.ParallelBackendRequests).To(Equal(original.ParallelBackendRequests))
 			Expect(target.MemoryReclaimerEnabled).To(Equal(original.MemoryReclaimerEnabled))
 			Expect(target.MemoryReclaimerThreshold).To(Equal(original.MemoryReclaimerThreshold))
 			Expect(target.Threads).To(Equal(original.Threads))
@@ -502,6 +512,7 @@ var _ = Describe("ApplicationConfig RuntimeSettings Conversion", func() {
 			Expect(target.Federated).To(Equal(original.Federated))
 			Expect(target.AutoloadGalleries).To(Equal(original.AutoloadGalleries))
 			Expect(target.AutoloadBackendGalleries).To(Equal(original.AutoloadBackendGalleries))
+			Expect(target.AutoUpgradeBackends).To(Equal(original.AutoUpgradeBackends))
 			Expect(target.AgentJobRetentionDays).To(Equal(original.AgentJobRetentionDays))
 		})
 
