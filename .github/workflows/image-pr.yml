@@ -67,7 +67,7 @@
             - build-type: 'sycl'
               platforms: 'linux/amd64'
               tag-latest: 'false'
-              base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
+              base-image: "intel/oneapi-basekit:2025.3.2-0-devel-ubuntu24.04"
               grpc-base-image: "ubuntu:24.04"
               tag-suffix: 'sycl'
               runs-on: 'ubuntu-latest'

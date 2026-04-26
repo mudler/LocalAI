@@ -1736,7 +1736,7 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-intel-rerankers'
             runs-on: 'ubuntu-latest'
-            base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
+            base-image: "intel/oneapi-basekit:2025.3.2-0-devel-ubuntu24.04"
             skip-drivers: 'false'
             backend: "rerankers"
             dockerfile: "./backend/Dockerfile.python"
@@ -1749,7 +1749,7 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-intel-sycl-f32-llama-cpp'
             runs-on: 'ubuntu-latest'
-            base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
+            base-image: "intel/oneapi-basekit:2025.3.2-0-devel-ubuntu24.04"
             skip-drivers: 'false'
             backend: "llama-cpp"
             dockerfile: "./backend/Dockerfile.llama-cpp"

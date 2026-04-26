@@ -121,7 +121,7 @@
             - build-type: 'intel'
               platforms: 'linux/amd64'
               tag-latest: 'auto'
-              base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
+              base-image: "intel/oneapi-basekit:2025.3.2-0-devel-ubuntu24.04"
               grpc-base-image: "ubuntu:24.04"
               tag-suffix: '-gpu-intel'
               runs-on: 'ubuntu-latest'
