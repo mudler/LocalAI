@@ -4,6 +4,7 @@ import { nodesApi } from '../utils/api'
 import { useModels } from '../hooks/useModels'
 import LoadingSpinner from '../components/LoadingSpinner'
 import ConfirmDialog from '../components/ConfirmDialog'
+import ActionMenu from '../components/ActionMenu'
 import ImageSelector, { useImageSelector, dockerImage, dockerFlags } from '../components/ImageSelector'
 import StatCard from '../components/StatCard'
 
@@ -213,14 +214,9 @@ function CapacityEditor({ node, loadedModelCounts, onUpdate, confirmShrink, addT
           id={`capacity-hint-${node.id}`}
           style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: 4, lineHeight: 1.4 }}
         >
-          {isOverride ? (
-            <>This value is an admin override and persists across worker restarts.
-              Click <strong>Reset</strong> to hand control back to the worker's
-              {' '}<code>--max-replicas-per-model</code> CLI flag.</>
-          ) : (
-            <>Sourced from the worker's <code>--max-replicas-per-model</code> flag.
-              Changing it here makes it a sticky admin override that survives worker restarts.</>
-          )}
+          {isOverride
+            ? <>Set from here. <strong>Reset</strong> to use the worker's default.</>
+            : <>Saved values stick across worker restarts.</>}
         </div>
       </div>
     </div>
@@ -978,6 +974,10 @@ export default function Nodes() {
                       </td>
                       <td style={{ textAlign: 'right' }}>
                         <div className="row-actions" onClick={e => e.stopPropagation()}>
+                          {/* Approve stays as a prominent primary button — it's
+                              a stateful admission gate, not a routine action,
+                              and matches how /manage surfaces install-time
+                              decisions outside the kebab menu. */}
                           {node.status === 'pending' && (
                             <button
                               className="btn btn-primary btn-sm"
@@ -986,31 +986,21 @@ export default function Nodes() {
                               <i className="fas fa-check" /> Approve
                             </button>
                           )}
-                          {node.status === 'draining' && (
-                            <button
-                              className="btn btn-secondary btn-sm"
-                              onClick={() => handleResume(node.id)}
-                              title="Resume accepting requests"
-                            >
-                              <i className="fas fa-play" /> Resume
-                            </button>
-                          )}
-                          {node.status !== 'draining' && node.status !== 'pending' && (
-                            <button
-                              className="btn btn-secondary btn-sm"
-                              onClick={() => handleDrain(node.id)}
-                              title="Stop sending new requests to this node"
-                            >
-                              <i className="fas fa-pause" /> Drain
-                            </button>
-                          )}
-                          <button
-                            className="btn btn-danger-ghost btn-sm"
-                            onClick={() => setConfirmDelete(node)}
-                            title="Remove node from cluster"
-                          >
-                            <i className="fas fa-trash" />
-                          </button>
+                          <ActionMenu
+                            ariaLabel={`Actions for ${node.name}`}
+                            triggerLabel={`Actions for ${node.name}`}
+                            items={[
+                              { key: 'resume', icon: 'fa-play', label: 'Resume',
+                                onClick: () => handleResume(node.id),
+                                hidden: node.status !== 'draining' },
+                              { key: 'drain', icon: 'fa-pause', label: 'Drain',
+                                onClick: () => handleDrain(node.id),
+                                hidden: node.status === 'draining' || node.status === 'pending' },
+                              { divider: true, hidden: node.status === 'pending' },
+                              { key: 'remove', icon: 'fa-trash', label: 'Remove from cluster',
+                                onClick: () => setConfirmDelete(node), danger: true },
+                            ]}
+                          />
                         </div>
                       </td>
                     </tr>
@@ -1207,7 +1197,12 @@ export default function Nodes() {
                                 Labels
                               </h4>
                               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--spacing-xs)', marginBottom: 'var(--spacing-sm)' }}>
-                                {node.labels && Object.entries(node.labels).map(([k, v]) => (
+                                {node.labels && Object.entries(node.labels)
+                                  // node.replica-slots is owned by the Capacity editor above —
+                                  // showing it as an editable label invites confusion (the
+                                  // Capacity save would clobber any direct edit).
+                                  .filter(([k]) => k !== 'node.replica-slots')
+                                  .map(([k, v]) => (
                                   <span key={k} style={{
                                     display: 'inline-flex', alignItems: 'center', gap: 4,
                                     fontSize: '0.75rem', padding: '2px 8px', borderRadius: "var(--radius-sm)",
