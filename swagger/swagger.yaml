@@ -306,6 +306,13 @@ definitions:
       success:
         type: boolean
     type: object
+  localai.UpdateMaxReplicasPerModelRequest:
+    properties:
+      value:
+        description: Value is the new per-model replica cap on this node. Must be
+          >= 1.
+        type: integer
+    type: object
   localai.vramEstimateRequest:
     properties:
       context_size:
@@ -2714,6 +2721,62 @@ paths:
       summary: Estimate VRAM usage for a model
       tags:
       - config
+  /api/nodes/{id}/max-replicas-per-model:
+    delete:
+      parameters:
+      - description: Node ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: boolean
+            type: object
+        "404":
+          description: node not found
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Reset a node's max replicas per model to the worker default
+      tags:
+      - Nodes
+    put:
+      parameters:
+      - description: Node ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: New value
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/localai.UpdateMaxReplicasPerModelRequest'
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: integer
+            type: object
+        "400":
+          description: value must be >= 1
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: node not found
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Update a node's max replicas per model
+      tags:
+      - Nodes
   /api/p2p:
     get:
       responses:

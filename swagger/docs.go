@@ -907,6 +907,90 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/nodes/{id}/max-replicas-per-model": {
+            "put": {
+                "tags": [
+                    "Nodes"
+                ],
+                "summary": "Update a node's max replicas per model",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Node ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "New value",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/localai.UpdateMaxReplicasPerModelRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "integer"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "value must be \u003e= 1",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "node not found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "tags": [
+                    "Nodes"
+                ],
+                "summary": "Reset a node's max replicas per model to the worker default",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Node ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "boolean"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "node not found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/api/p2p": {
             "get": {
                 "tags": [
@@ -2948,6 +3032,15 @@ const docTemplate = `{
                 },
                 "success": {
                     "type": "boolean"
+                }
+            }
+        },
+        "localai.UpdateMaxReplicasPerModelRequest": {
+            "type": "object",
+            "properties": {
+                "value": {
+                    "description": "Value is the new per-model replica cap on this node. Must be \u003e= 1.",
+                    "type": "integer"
                 }
             }
         },
