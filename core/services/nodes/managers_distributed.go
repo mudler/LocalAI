@@ -328,7 +328,10 @@ func (d *DistributedBackendManager) InstallBackend(ctx context.Context, op *gall
 	backendName := op.GalleryElementName
 
 	result, err := d.enqueueAndDrainBackendOp(ctx, OpBackendInstall, backendName, galleriesJSON, func(node BackendNode) error {
-		reply, err := d.adapter.InstallBackend(node.ID, backendName, "", string(galleriesJSON), op.ExternalURI, op.ExternalName, op.ExternalAlias)
+		// Admin-driven backend install: not tied to a specific replica slot.
+		// Pass replica 0 — the worker's processKey is "backend#0" when no
+		// modelID is supplied, matching pre-PR4 behavior.
+		reply, err := d.adapter.InstallBackend(node.ID, backendName, "", string(galleriesJSON), op.ExternalURI, op.ExternalName, op.ExternalAlias, 0)
 		if err != nil {
 			return err
 		}
@@ -349,7 +352,7 @@ func (d *DistributedBackendManager) UpgradeBackend(ctx context.Context, name str
 	galleriesJSON, _ := json.Marshal(d.backendGalleries)
 
 	result, err := d.enqueueAndDrainBackendOp(ctx, OpBackendUpgrade, name, galleriesJSON, func(node BackendNode) error {
-		reply, err := d.adapter.InstallBackend(node.ID, name, "", string(galleriesJSON), "", "", "")
+		reply, err := d.adapter.InstallBackend(node.ID, name, "", string(galleriesJSON), "", "", "", 0)
 		if err != nil {
 			return err
 		}

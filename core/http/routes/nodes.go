@@ -95,6 +95,12 @@ func RegisterNodeAdminRoutes(e *echo.Echo, registry *nodes.NodeRegistry, unloade
 	admin.PATCH("/:id/labels", localai.MergeNodeLabelsEndpoint(registry))
 	admin.DELETE("/:id/labels/:key", localai.DeleteNodeLabelEndpoint(registry))
 
+	// Per-node replica capacity. PUT sets a sticky admin override that
+	// survives worker restarts. DELETE clears the override so the worker's
+	// CLI flag takes over again at the next re-registration.
+	admin.PUT("/:id/max-replicas-per-model", localai.UpdateMaxReplicasPerModelEndpoint(registry))
+	admin.DELETE("/:id/max-replicas-per-model", localai.ResetMaxReplicasPerModelEndpoint(registry))
+
 	// WebSocket proxy for real-time log streaming from workers
 	e.GET("/ws/nodes/:id/backend-logs/:modelId", localai.NodeBackendLogsWSEndpoint(registry, registrationToken), readyMw, adminMw)
 }

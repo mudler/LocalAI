@@ -2,6 +2,7 @@ package nodes
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -122,8 +123,8 @@ func (f *fakeNodeHealthStore) FindStaleNodes(_ context.Context, _ time.Duration)
 	return nil, nil
 }
 
-func (f *fakeNodeHealthStore) RemoveNodeModel(_ context.Context, nodeID, modelName string) error {
-	f.record("RemoveNodeModel:" + nodeID + ":" + modelName)
+func (f *fakeNodeHealthStore) RemoveNodeModel(_ context.Context, nodeID, modelName string, replicaIndex int) error {
+	f.record(fmt.Sprintf("RemoveNodeModel:%s:%s:%d", nodeID, modelName, replicaIndex))
 	return nil
 }
 

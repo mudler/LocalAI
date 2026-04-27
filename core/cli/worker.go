@@ -90,6 +90,14 @@ type WorkerCMD struct {
 	RegistrationToken string `env:"LOCALAI_REGISTRATION_TOKEN" help:"Token for authenticating with the frontend" group:"registration"`
 	HeartbeatInterval string `env:"LOCALAI_HEARTBEAT_INTERVAL" default:"10s" help:"Interval between heartbeats" group:"registration"`
 	NodeLabels        string `env:"LOCALAI_NODE_LABELS" help:"Comma-separated key=value labels for this node (e.g. tier=fast,gpu=a100)" group:"registration"`
+	// MaxReplicasPerModel caps how many replicas of any one model can run on
+	// this worker concurrently. Default 1 = historical single-replica
+	// behavior. Set higher when a node has enough VRAM to host multiple
+	// copies of the same model (e.g. a fat 128 GiB box running 4× of a
+	// 24 GiB model for throughput). The auto-label `node.replica-slots=N`
+	// is published so model schedulers can target high-capacity nodes via
+	// the existing label selector.
+	MaxReplicasPerModel int `env:"LOCALAI_MAX_REPLICAS_PER_MODEL" default:"1" help:"Max replicas of any single model on this worker. Default 1 preserves single-replica behavior; set higher to allow stacking replicas on a fat node." group:"registration"`
 
 	// NATS (required)
 	NatsURL string `env:"LOCALAI_NATS_URL" required:"" help:"NATS server URL" group:"distributed"`
@@ -567,22 +575,35 @@ func (s *backendSupervisor) getAddr(backend string) string {
 	return ""
 }
 
+// buildProcessKey is the supervisor's stable identifier for a backend gRPC
+// process. It includes the replica index so the same model can run multiple
+// processes on a worker simultaneously without colliding on the same map slot
+// or port. The "#N" suffix is purely internal — the controller never reads it.
+func buildProcessKey(modelID, backend string, replicaIndex int) string {
+	base := modelID
+	if base == "" {
+		base = backend
+	}
+	return fmt.Sprintf("%s#%d", base, replicaIndex)
+}
+
 // installBackend handles the backend.install flow:
-// 1. If already running for this model, return existing address
+// 1. If already running for this (model, replica) slot, return existing address
 // 2. Install backend from gallery (if not already installed)
 // 3. Find backend binary
 // 4. Start gRPC process on a new port
 // Returns the gRPC address of the backend process.
+//
+// ProcessKey includes the replica index so a worker with MaxReplicasPerModel>1
+// can host multiple processes for the same model on distinct ports. Old
+// controllers (no replica_index in the request) implicitly target replica 0,
+// which preserves single-replica behavior.
 func (s *backendSupervisor) installBackend(req messaging.BackendInstallRequest) (string, error) {
-	// Process key: use ModelID if provided (per-model process), else backend name
-	processKey := req.ModelID
-	if processKey == "" {
-		processKey = req.Backend
-	}
+	processKey := buildProcessKey(req.ModelID, req.Backend, int(req.ReplicaIndex))
 
-	// If already running for this model, return its address
+	// If already running for this model+replica, return its address
 	if addr := s.getAddr(processKey); addr != "" {
-		xlog.Info("Backend already running for model", "backend", req.Backend, "model", req.ModelID, "addr", addr)
+		xlog.Info("Backend already running for model replica", "backend", req.Backend, "model", req.ModelID, "replica", req.ReplicaIndex, "addr", addr)
 		return addr, nil
 	}
 
@@ -886,13 +907,18 @@ func (cmd *WorkerCMD) registrationBody() map[string]any {
 	totalVRAM, _ := xsysinfo.TotalAvailableVRAM()
 	gpuVendor, _ := xsysinfo.DetectGPUVendor()
 
+	maxReplicas := cmd.MaxReplicasPerModel
+	if maxReplicas < 1 {
+		maxReplicas = 1
+	}
 	body := map[string]any{
-		"name":           nodeName,
-		"address":        cmd.advertiseAddr(),
-		"http_address":   cmd.advertiseHTTPAddr(),
-		"total_vram":     totalVRAM,
-		"available_vram": totalVRAM, // initially all VRAM is available
-		"gpu_vendor":     gpuVendor,
+		"name":                   nodeName,
+		"address":                cmd.advertiseAddr(),
+		"http_address":           cmd.advertiseHTTPAddr(),
+		"total_vram":             totalVRAM,
+		"available_vram":         totalVRAM, // initially all VRAM is available
+		"gpu_vendor":             gpuVendor,
+		"max_replicas_per_model": maxReplicas,
 	}
 
 	// If no GPU detected, report system RAM so the scheduler/UI has capacity info
@@ -906,19 +932,20 @@ func (cmd *WorkerCMD) registrationBody() map[string]any {
 		body["token"] = cmd.RegistrationToken
 	}
 
-	// Parse and add static node labels
+	// Parse and add static node labels. Always include the auto-label
+	// `node.replica-slots=N` so AND-selectors in ModelSchedulingConfig can
+	// target high-capacity nodes (e.g. {"node.replica-slots":"4"}).
+	labels := make(map[string]string)
 	if cmd.NodeLabels != "" {
-		labels := make(map[string]string)
 		for _, pair := range strings.Split(cmd.NodeLabels, ",") {
 			pair = strings.TrimSpace(pair)
 			if k, v, ok := strings.Cut(pair, "="); ok {
 				labels[strings.TrimSpace(k)] = strings.TrimSpace(v)
 			}
 		}
-		if len(labels) > 0 {
-			body["labels"] = labels
-		}
 	}
+	labels["node.replica-slots"] = strconv.Itoa(maxReplicas)
+	body["labels"] = labels
 
 	return body
 }

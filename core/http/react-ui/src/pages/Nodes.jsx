@@ -26,6 +26,207 @@ function formatVRAM(bytes) {
   return gb >= 1 ? `${gb.toFixed(1)} GB` : `${(bytes / (1024 * 1024)).toFixed(0)} MB`
 }
 
+/**
+ * Inline editor for a node's per-model replica capacity.
+ *
+ * UX intent: discoverable affordance (pencil icon) that opens an inline
+ * input — never a modal for a single field. Source-of-truth note is shown
+ * inline so operators understand a worker re-registration will overwrite
+ * their override; surfacing this in a tooltip would hide too important a
+ * caveat.
+ *
+ * `confirmShrink` is a hook the parent provides so the page can render its
+ * own confirm dialog (it has access to all nodes and can phrase the message
+ * with full context).
+ */
+function CapacityEditor({ node, loadedModelCounts, onUpdate, confirmShrink, addToast }) {
+  const current = node.max_replicas_per_model || 1
+  const isOverride = !!node.max_replicas_per_model_manually_set
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(String(current))
+  const [saving, setSaving] = useState(false)
+  const [resetting, setResetting] = useState(false)
+
+  // Reset draft when current value changes (server response, etc.)
+  useEffect(() => {
+    if (!editing) setDraft(String(current))
+  }, [current, editing])
+
+  const cancel = useCallback(() => {
+    setEditing(false)
+    setDraft(String(current))
+  }, [current])
+
+  const save = useCallback(async () => {
+    const value = parseInt(draft, 10)
+    if (!Number.isFinite(value) || value < 1) {
+      addToast('Replica capacity must be 1 or higher', 'error')
+      return
+    }
+    if (value === current) {
+      setEditing(false)
+      return
+    }
+    // Reducing the cap below current loaded replicas: confirm so the operator
+    // sees the consequence (running replicas keep going until idle eviction).
+    const maxLoadedAcrossModels = Math.max(0, ...Object.values(loadedModelCounts || {}))
+    if (value < maxLoadedAcrossModels) {
+      const proceed = await confirmShrink({ node, newValue: value, currentLoaded: maxLoadedAcrossModels })
+      if (!proceed) return
+    }
+    setSaving(true)
+    try {
+      await nodesApi.updateMaxReplicasPerModel(node.id, value)
+      addToast(`Replica capacity set to ${value} on ${node.name}`, 'success')
+      setEditing(false)
+      onUpdate?.(value)
+    } catch (err) {
+      addToast(`Could not change replica capacity: ${err.message || err}`, 'error')
+    } finally {
+      setSaving(false)
+    }
+  }, [draft, current, node, loadedModelCounts, confirmShrink, onUpdate, addToast])
+
+  const onKeyDown = (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); save() }
+    else if (e.key === 'Escape') { e.preventDefault(); cancel() }
+  }
+
+  const reset = useCallback(async () => {
+    setResetting(true)
+    try {
+      await nodesApi.resetMaxReplicasPerModel(node.id)
+      addToast(`Override cleared on ${node.name}; worker flag will apply on next re-registration`, 'success')
+      onUpdate?.(null)
+    } catch (err) {
+      addToast(`Could not reset override: ${err.message || err}`, 'error')
+    } finally {
+      setResetting(false)
+    }
+  }, [node, onUpdate, addToast])
+
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'flex-start', gap: 'var(--spacing-md)',
+      padding: 'var(--spacing-sm) var(--spacing-md)', marginBottom: 'var(--spacing-md)',
+      background: 'var(--color-bg-tertiary)', borderRadius: 'var(--radius-sm)',
+      border: '1px solid var(--color-border-subtle)',
+    }}>
+      <i className="fas fa-layer-group" style={{ color: 'var(--color-text-muted)', marginTop: 3 }} aria-hidden="true" />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', flexWrap: 'wrap' }}>
+          <label
+            htmlFor={`capacity-${node.id}`}
+            style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--color-text-primary)' }}
+          >
+            Max replicas per model
+          </label>
+          {editing ? (
+            <>
+              <input
+                id={`capacity-${node.id}`}
+                type="number"
+                min={1}
+                value={draft}
+                disabled={saving}
+                onChange={(e) => setDraft(e.target.value)}
+                onKeyDown={onKeyDown}
+                autoFocus
+                aria-describedby={`capacity-hint-${node.id}`}
+                style={{
+                  width: 72, padding: '4px 8px', borderRadius: 'var(--radius-sm)',
+                  border: '1px solid var(--color-border)', background: 'var(--color-bg-primary)',
+                  fontFamily: 'var(--font-mono)', fontSize: '0.8125rem',
+                  color: 'var(--color-text-primary)',
+                }}
+              />
+              <button
+                className="btn btn-primary btn-sm"
+                onClick={save}
+                disabled={saving}
+                style={{ minHeight: 32 }}
+                aria-label="Save replica capacity"
+              >
+                {saving ? <LoadingSpinner size="xs" /> : <><i className="fas fa-check" /> Save</>}
+              </button>
+              <button
+                className="btn btn-secondary btn-sm"
+                onClick={cancel}
+                disabled={saving}
+                style={{ minHeight: 32 }}
+                aria-label="Cancel"
+              >
+                Cancel
+              </button>
+            </>
+          ) : (
+            <>
+              <span
+                className="cell-mono"
+                style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)' }}
+              >
+                {current}
+              </span>
+              {isOverride && (
+                <span
+                  title="This value was set from the UI. It will persist across worker restarts until you click Reset."
+                  style={{
+                    display: 'inline-block', fontSize: '0.6875rem', padding: '1px 6px',
+                    borderRadius: 'var(--radius-sm)', fontWeight: 500,
+                    background: 'var(--color-bg-primary)',
+                    border: '1px solid var(--color-warning, #d97706)',
+                    color: 'var(--color-warning, #d97706)',
+                  }}
+                >
+                  override
+                </span>
+              )}
+              <button
+                onClick={() => setEditing(true)}
+                aria-label={`Edit replica capacity (currently ${current})`}
+                title="Change replica capacity for this node"
+                style={{
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                  minWidth: 32, minHeight: 32, padding: 4, borderRadius: 'var(--radius-sm)',
+                  border: '1px solid var(--color-border-subtle)',
+                  background: 'transparent', color: 'var(--color-text-muted)', cursor: 'pointer',
+                }}
+              >
+                <i className="fas fa-pencil-alt" />
+              </button>
+              {isOverride && (
+                <button
+                  onClick={reset}
+                  disabled={resetting}
+                  aria-label="Clear admin override and let the worker flag apply"
+                  title="Clear override; the worker's --max-replicas-per-model flag will apply on the next re-registration"
+                  className="btn btn-secondary btn-sm"
+                  style={{ minHeight: 32 }}
+                >
+                  {resetting ? <LoadingSpinner size="xs" /> : <><i className="fas fa-undo" /> Reset</>}
+                </button>
+              )}
+            </>
+          )}
+        </div>
+        <div
+          id={`capacity-hint-${node.id}`}
+          style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: 4, lineHeight: 1.4 }}
+        >
+          {isOverride ? (
+            <>This value is an admin override and persists across worker restarts.
+              Click <strong>Reset</strong> to hand control back to the worker's
+              {' '}<code>--max-replicas-per-model</code> CLI flag.</>
+          ) : (
+            <>Sourced from the worker's <code>--max-replicas-per-model</code> flag.
+              Changing it here makes it a sticky admin override that survives worker restarts.</>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function gpuVendorLabel(vendor) {
   const labels = {
     nvidia: 'NVIDIA',
@@ -250,6 +451,15 @@ export default function Nodes() {
   const [confirmDelete, setConfirmDelete] = useState(null)
   const [confirmUnload, setConfirmUnload] = useState(null)
   const [confirmDeleteBackend, setConfirmDeleteBackend] = useState(null)
+  // Capacity-shrink confirm uses a Promise resolver so the editor can `await`
+  // the user's choice. Pattern matches the rest of the page where confirms
+  // open a ConfirmDialog and the action proceeds in onConfirm.
+  const [confirmShrinkState, setConfirmShrinkState] = useState(null)
+  const confirmShrink = useCallback(({ node, newValue, currentLoaded }) => {
+    return new Promise((resolve) => {
+      setConfirmShrinkState({ node, newValue, currentLoaded, resolve })
+    })
+  }, [])
   const [showTips, setShowTips] = useState(false)
   const [activeTab, setActiveTab] = useState('backend') // 'backend', 'agent', or 'scheduling'
   const [schedulingConfigs, setSchedulingConfigs] = useState([])
@@ -669,26 +879,59 @@ export default function Nodes() {
                           )}
                           <i className="fas fa-server" style={{ color: 'var(--color-text-muted)', fontSize: 'var(--text-sm)' }} />
                           <div>
-                            <div style={{ fontWeight: 600, fontSize: 'var(--text-sm)' }}>{node.name}</div>
+                            <div style={{ fontWeight: 600, fontSize: 'var(--text-sm)' }}>
+                              {node.name}
+                              {(() => {
+                                // Always render the slot badge so operators discover the field
+                                // exists. Muted (border-only) at the default of 1; accented
+                                // when > 1 so fat nodes stand out at a glance.
+                                const slots = node.max_replicas_per_model || 1
+                                const isMulti = slots > 1
+                                return (
+                                  <span
+                                    className="cell-mono"
+                                    title={isMulti
+                                      ? `Up to ${slots} replicas of any one model can run on this node`
+                                      : 'Single replica per model (default). Click the row to expand and change.'}
+                                    style={{
+                                      marginLeft: 8, padding: '1px 6px', borderRadius: 'var(--radius-sm)',
+                                      background: isMulti ? 'var(--color-bg-tertiary)' : 'transparent',
+                                      border: `1px solid ${isMulti ? 'var(--color-border)' : 'var(--color-border-subtle)'}`,
+                                      fontSize: '0.6875rem', fontWeight: 500,
+                                      color: isMulti ? 'var(--color-text-secondary)' : 'var(--color-text-muted)',
+                                    }}
+                                  >
+                                    <i className="fas fa-layer-group" style={{ marginRight: 4 }} />
+                                    {slots}× slots
+                                  </span>
+                                )
+                              })()}
+                            </div>
                             <div className="cell-mono cell-muted">
                               {node.address}
                             </div>
-                            {node.labels && Object.keys(node.labels).length > 0 && (
+                            {node.labels && Object.keys(node.labels).length > 0 && (() => {
+                              // node.replica-slots is already shown structurally by the
+                              // slot badge above; surfacing it again as a label is noise.
+                              const visible = Object.entries(node.labels).filter(([k]) => k !== 'node.replica-slots')
+                              if (visible.length === 0) return null
+                              return (
                               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3, marginTop: 3 }}>
-                                {Object.entries(node.labels).slice(0, 5).map(([k, v]) => (
+                                {visible.slice(0, 5).map(([k, v]) => (
                                   <span key={k} className="cell-mono" style={{
                                     padding: '1px 5px', borderRadius: "var(--radius-sm)",
                                     background: 'var(--color-bg-tertiary)',
                                     border: '1px solid var(--color-border-subtle)',
                                   }}>{k}={v}</span>
                                 ))}
-                                {Object.keys(node.labels).length > 5 && (
+                                {visible.length > 5 && (
                                   <span className="cell-muted">
-                                    +{Object.keys(node.labels).length - 5} more
+                                    +{visible.length - 5} more
                                   </span>
                                 )}
                               </div>
-                            )}
+                              )
+                            })()}
                           </div>
                         </div>
                       </td>
@@ -707,6 +950,15 @@ export default function Nodes() {
                             <span style={{ color: 'var(--color-text-muted)' }}>
                               {usedVRAMStr || '0'} / {totalVRAMStr}
                             </span>
+                            {/* In-tick soft reservation: deducted at scheduling time, reset by the worker's next heartbeat. */}
+                            {node.reserved_vram > 0 && (
+                              <span
+                                title={`${formatVRAM(node.reserved_vram)} reserved by in-flight scheduling decisions; resets on next heartbeat`}
+                                style={{ color: 'var(--color-warning, #d97706)', marginLeft: 6 }}
+                              >
+                                +{formatVRAM(node.reserved_vram)} reserved
+                              </span>
+                            )}
                           </div>
                         ) : totalRAMStr ? (
                           <div style={{ fontSize: '0.8125rem', fontFamily: 'var(--font-mono)' }}>
@@ -766,6 +1018,22 @@ export default function Nodes() {
                       <tr>
                         <td colSpan={5} style={{ padding: 0, background: 'var(--color-bg-secondary)' }}>
                           <div style={{ padding: 'var(--spacing-md) var(--spacing-lg)' }}>
+                            <CapacityEditor
+                              node={node}
+                              loadedModelCounts={(() => {
+                                // Build {modelName: replicaCount} from the loaded-models list so the
+                                // confirm-shrink dialog can warn meaningfully if reducing the cap below
+                                // the actual count of any single model.
+                                const counts = {}
+                                ;(models || []).forEach(m => {
+                                  if (m.state === 'loaded') counts[m.model_name] = (counts[m.model_name] || 0) + 1
+                                })
+                                return counts
+                              })()}
+                              confirmShrink={confirmShrink}
+                              addToast={addToast}
+                              onUpdate={() => fetchNodes()}
+                            />
                             <h4 style={{ fontSize: '0.8125rem', fontWeight: 600, marginBottom: 'var(--spacing-sm)', color: 'var(--color-text-secondary)' }}>
                               <i className="fas fa-cube" style={{ marginRight: 6 }} />
                               Loaded Models
@@ -1028,6 +1296,7 @@ export default function Nodes() {
                   <th>Node Selector</th>
                   <th>Min Replicas</th>
                   <th>Max Replicas</th>
+                  <th>Status</th>
                   <th style={{ textAlign: 'right' }}>Actions</th>
                 </tr></thead>
                 <tbody>
@@ -1036,6 +1305,11 @@ export default function Nodes() {
                     const hasSelector = !!cfg.node_selector
                     const modeLabel = isAutoScaling ? 'Auto-scaling' : hasSelector ? 'Placement' : 'Inactive'
                     const modeColor = isAutoScaling ? 'var(--color-success)' : hasSelector ? 'var(--color-primary)' : 'var(--color-text-muted)'
+                    // Cooldown: reconciler tripped the circuit breaker because cluster
+                    // capacity is exhausted. Surface so the operator sees it instead
+                    // of the model silently failing to scale.
+                    const unsatisfiableUntil = cfg.unsatisfiable_until ? new Date(cfg.unsatisfiable_until) : null
+                    const isUnsatisfiable = unsatisfiableUntil && unsatisfiableUntil.getTime() > Date.now()
                     return (
                     <tr key={cfg.id || cfg.model_name}>
                       <td style={{ fontWeight: 600, fontSize: '0.875rem' }}>{cfg.model_name}</td>
@@ -1065,6 +1339,25 @@ export default function Nodes() {
                       </td>
                       <td style={{ fontFamily: 'var(--font-mono)' }}>
                         {isAutoScaling ? (cfg.max_replicas || 'no limit') : '-'}
+                      </td>
+                      <td>
+                        {isUnsatisfiable ? (
+                          <span
+                            title={`Reconciler couldn't satisfy this rule (capacity exhausted). Will retry by ${unsatisfiableUntil.toLocaleString()}, or sooner on a node lifecycle change.`}
+                            style={{
+                              display: 'inline-block', fontSize: '0.75rem', padding: '2px 8px',
+                              borderRadius: 'var(--radius-sm)', fontWeight: 600,
+                              background: 'var(--color-bg-tertiary)',
+                              border: '1px solid var(--color-warning, #d97706)',
+                              color: 'var(--color-warning, #d97706)',
+                            }}
+                          >
+                            <i className="fas fa-exclamation-triangle" style={{ marginRight: 4 }} />
+                            Unsatisfiable until {unsatisfiableUntil.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        ) : (
+                          <span style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)' }}>OK</span>
+                        )}
                       </td>
                       <td style={{ textAlign: 'right' }}>
                         <button className="btn btn-danger btn-sm" onClick={async () => {
@@ -1131,6 +1424,25 @@ export default function Nodes() {
           setConfirmUnload(null)
         }}
         onCancel={() => setConfirmUnload(null)}
+      />
+
+      <ConfirmDialog
+        open={!!confirmShrinkState}
+        title="Reduce replica capacity"
+        message={
+          confirmShrinkState
+            ? `${confirmShrinkState.node.name} currently has ${confirmShrinkState.currentLoaded} replica(s) of at least one model loaded. Reducing the cap to ${confirmShrinkState.newValue} won't evict anything immediately — running replicas keep going, but the reconciler will trim down on the next idle window. Continue?`
+            : ''
+        }
+        confirmLabel="Reduce"
+        onConfirm={() => {
+          confirmShrinkState?.resolve(true)
+          setConfirmShrinkState(null)
+        }}
+        onCancel={() => {
+          confirmShrinkState?.resolve(false)
+          setConfirmShrinkState(null)
+        }}
       />
     </div>
   )

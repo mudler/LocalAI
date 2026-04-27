@@ -33,28 +33,37 @@ func (f *fakeModelRouterForSmartRouter) FindAndLockNodeWithModel(_ context.Conte
 	return f.node, f.nodeModel, f.findErr
 }
 
-func (f *fakeModelRouterForSmartRouter) DecrementInFlight(_ context.Context, nodeID, modelName string) error {
+func (f *fakeModelRouterForSmartRouter) DecrementInFlight(_ context.Context, nodeID, modelName string, _ int) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.decrementCalled[nodeID+":"+modelName]++
 	return nil
 }
 
-func (f *fakeModelRouterForSmartRouter) IncrementInFlight(_ context.Context, _, _ string) error {
+func (f *fakeModelRouterForSmartRouter) IncrementInFlight(_ context.Context, _, _ string, _ int) error {
 	return nil
 }
-func (f *fakeModelRouterForSmartRouter) RemoveNodeModel(_ context.Context, _, _ string) error {
+func (f *fakeModelRouterForSmartRouter) RemoveNodeModel(_ context.Context, _, _ string, _ int) error {
 	return nil
 }
-func (f *fakeModelRouterForSmartRouter) TouchNodeModel(_ context.Context, _, _ string) {}
-func (f *fakeModelRouterForSmartRouter) SetNodeModel(_ context.Context, _, _, _, _ string, _ int) error {
+func (f *fakeModelRouterForSmartRouter) RemoveAllNodeModelReplicas(_ context.Context, _, _ string) error {
 	return nil
 }
-func (f *fakeModelRouterForSmartRouter) SetNodeModelLoadInfo(_ context.Context, _, _, _ string, _ []byte) error {
+func (f *fakeModelRouterForSmartRouter) TouchNodeModel(_ context.Context, _, _ string, _ int) {}
+func (f *fakeModelRouterForSmartRouter) SetNodeModel(_ context.Context, _, _ string, _ int, _, _ string, _ int) error {
+	return nil
+}
+func (f *fakeModelRouterForSmartRouter) SetNodeModelLoadInfo(_ context.Context, _, _ string, _ int, _ string, _ []byte) error {
 	return nil
 }
 func (f *fakeModelRouterForSmartRouter) GetModelLoadInfo(_ context.Context, _ string) (string, []byte, error) {
 	return "", nil, fmt.Errorf("not found")
+}
+func (f *fakeModelRouterForSmartRouter) NextFreeReplicaIndex(_ context.Context, _, _ string, _ int) (int, error) {
+	return 0, nil
+}
+func (f *fakeModelRouterForSmartRouter) CountReplicasOnNode(_ context.Context, _, _ string) (int, error) {
+	return 0, nil
 }
 func (f *fakeModelRouterForSmartRouter) FindNodeWithVRAM(_ context.Context, _ uint64) (*BackendNode, error) {
 	return nil, nil
@@ -84,6 +93,15 @@ func (f *fakeModelRouterForSmartRouter) GetModelScheduling(_ context.Context, _ 
 }
 func (f *fakeModelRouterForSmartRouter) FindNodesBySelector(_ context.Context, _ map[string]string) ([]BackendNode, error) {
 	return nil, nil
+}
+func (f *fakeModelRouterForSmartRouter) FindNodesWithFreeSlot(_ context.Context, _ string, _ []string) ([]BackendNode, error) {
+	return nil, nil
+}
+func (f *fakeModelRouterForSmartRouter) ReserveVRAM(_ context.Context, _ string, _ uint64) error {
+	return nil
+}
+func (f *fakeModelRouterForSmartRouter) ReleaseVRAM(_ context.Context, _ string, _ uint64) error {
+	return nil
 }
 func (f *fakeModelRouterForSmartRouter) FindNodeWithVRAMFromSet(_ context.Context, _ uint64, _ []string) (*BackendNode, error) {
 	return nil, nil

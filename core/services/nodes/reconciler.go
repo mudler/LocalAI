@@ -188,7 +188,9 @@ func (rc *ReplicaReconciler) drainPendingBackendOps(ctx context.Context) {
 		case OpBackendDelete:
 			_, applyErr = rc.adapter.DeleteBackend(op.NodeID, op.Backend)
 		case OpBackendInstall, OpBackendUpgrade:
-			reply, err := rc.adapter.InstallBackend(op.NodeID, op.Backend, "", string(op.Galleries), "", "", "")
+			// Pending-op drain for admin install/upgrade — not a per-replica
+			// load. Replica 0 is the conventional admin slot.
+			reply, err := rc.adapter.InstallBackend(op.NodeID, op.Backend, "", string(op.Galleries), "", "", "", 0)
 			if err != nil {
 				applyErr = err
 			} else if !reply.Success {
@@ -276,12 +278,12 @@ func (rc *ReplicaReconciler) probeLoadedModels(ctx context.Context) {
 				Where("id = ?", m.ID).Update("updated_at", time.Now()).Error
 			continue
 		}
-		if err := rc.registry.RemoveNodeModel(ctx, m.NodeID, m.ModelName); err != nil {
-			xlog.Warn("Reconciler: failed to remove unreachable model", "node", m.NodeID, "model", m.ModelName, "error", err)
+		if err := rc.registry.RemoveNodeModel(ctx, m.NodeID, m.ModelName, m.ReplicaIndex); err != nil {
+			xlog.Warn("Reconciler: failed to remove unreachable model", "node", m.NodeID, "model", m.ModelName, "replica", m.ReplicaIndex, "error", err)
 			continue
 		}
 		xlog.Warn("Reconciler: model unreachable, removed from registry",
-			"node", m.NodeID, "model", m.ModelName, "address", m.Address)
+			"node", m.NodeID, "model", m.ModelName, "replica", m.ReplicaIndex, "address", m.Address)
 	}
 }
 
@@ -300,25 +302,112 @@ func (rc *ReplicaReconciler) reconcile(ctx context.Context) {
 	}
 }
 
+// unsatisfiableTickThreshold is how many consecutive ticks of "capacity == 0
+// && need > 0" must elapse before the reconciler stops trying. Three ticks at
+// the default 30s interval gives ~90s of grace before logging a warning and
+// entering cooldown — enough to ride out a transient race between Register
+// and the next tick, but short enough that a misconfig (MinReplicas above
+// cluster capacity) doesn't churn the worker forever like it did pre-PR4.
+const unsatisfiableTickThreshold = 3
+
+// unsatisfiableCooldown is the duration the reconciler waits before retrying
+// after the threshold trips. ClearAllUnsatisfiable on cluster events shortens
+// this in practice — the cooldown is the worst-case, not the steady-state.
+const unsatisfiableCooldown = 5 * time.Minute
+
+// candidateNodeIDsForSelector resolves the model's NodeSelector to a slice
+// of node IDs, or returns nil if no selector is configured (meaning "any
+// healthy node" — registry helpers interpret nil as no candidate filter).
+// Returns ok=false if a non-empty selector matched zero nodes, in which case
+// the caller should skip — there's nothing to schedule on.
+func (rc *ReplicaReconciler) candidateNodeIDsForSelector(ctx context.Context, cfg ModelSchedulingConfig) (ids []string, ok bool) {
+	if cfg.NodeSelector == "" {
+		return nil, true
+	}
+	sel := parseSelector(cfg.NodeSelector)
+	if len(sel) == 0 {
+		return nil, true
+	}
+	nodes, err := rc.registry.FindNodesBySelector(ctx, sel)
+	if err != nil || len(nodes) == 0 {
+		return nil, false
+	}
+	ids = make([]string, len(nodes))
+	for i, n := range nodes {
+		ids[i] = n.ID
+	}
+	return ids, true
+}
+
 func (rc *ReplicaReconciler) reconcileModel(ctx context.Context, cfg ModelSchedulingConfig) {
+	// Cooldown gate: if we previously decided this config is unsatisfiable,
+	// don't even bother checking until the cooldown expires. ClearAllUnsatisfiable
+	// (fired by node lifecycle events) bypasses this by zeroing the column.
+	if cfg.UnsatisfiableUntil != nil && cfg.UnsatisfiableUntil.After(time.Now()) {
+		return
+	}
+
 	current, err := rc.registry.CountLoadedReplicas(ctx, cfg.ModelName)
 	if err != nil {
 		xlog.Warn("Reconciler: failed to count replicas", "model", cfg.ModelName, "error", err)
 		return
 	}
 
-	// 1. Ensure minimum replicas
+	// 1. Ensure minimum replicas, but only up to what the cluster can host.
+	//    Without this cap, a MinReplicas above cluster capacity would loop
+	//    forever (the original flap: every tick "scaling up", but the registry
+	//    never grows because all nodes are full).
 	if cfg.MinReplicas > 0 && int(current) < cfg.MinReplicas {
+		candidateNodeIDs, selectorMatched := rc.candidateNodeIDsForSelector(ctx, cfg)
+		if !selectorMatched {
+			xlog.Warn("Reconciler: no nodes match selector", "model", cfg.ModelName, "selector", cfg.NodeSelector)
+			rc.markCapacityProblem(ctx, cfg.ModelName, "no nodes match selector")
+			return
+		}
+
+		capacity, capErr := rc.registry.ClusterCapacityForModel(ctx, cfg.ModelName, candidateNodeIDs)
+		if capErr != nil {
+			xlog.Warn("Reconciler: failed to compute cluster capacity", "model", cfg.ModelName, "error", capErr)
+			return
+		}
+
 		needed := cfg.MinReplicas - int(current)
+		if capacity == 0 {
+			// No capacity right now. Bump hysteresis; trip cooldown if it
+			// crosses the threshold. ClearAllUnsatisfiable resets this on
+			// any plausible capacity-changing event.
+			rc.markCapacityProblem(ctx, cfg.ModelName, "cluster capacity exhausted")
+			return
+		}
+		// Cap to actual capacity so we don't try harder than possible.
+		if needed > capacity {
+			xlog.Info("Reconciler: capping scale-up at cluster capacity", "model", cfg.ModelName,
+				"need", needed, "capacity", capacity)
+			needed = capacity
+		}
 		xlog.Info("Reconciler: scaling up to meet minimum", "model", cfg.ModelName,
 			"current", current, "min", cfg.MinReplicas, "adding", needed)
 		rc.scaleUp(ctx, cfg, needed)
+		// Successful (or partial) scale-up clears the hysteresis so a future
+		// dip starts fresh.
+		_ = rc.registry.ClearUnsatisfiable(ctx, cfg.ModelName)
 		return
 	}
 
 	// 2. Auto-scale up if all replicas are busy
 	if current > 0 && (cfg.MaxReplicas == 0 || int(current) < cfg.MaxReplicas) {
 		if rc.allReplicasBusy(ctx, cfg.ModelName) {
+			candidateNodeIDs, selectorMatched := rc.candidateNodeIDsForSelector(ctx, cfg)
+			if !selectorMatched {
+				return
+			}
+			capacity, capErr := rc.registry.ClusterCapacityForModel(ctx, cfg.ModelName, candidateNodeIDs)
+			if capErr != nil || capacity == 0 {
+				// All busy AND no slot available — burst load above capacity.
+				// Don't enter cooldown for this case (it's transient demand,
+				// not a misconfig); the next tick will retry naturally.
+				return
+			}
 			xlog.Info("Reconciler: all replicas busy, scaling up", "model", cfg.ModelName,
 				"current", current)
 			rc.scaleUp(ctx, cfg, 1)
@@ -335,29 +424,42 @@ func (rc *ReplicaReconciler) reconcileModel(ctx context.Context, cfg ModelSchedu
 	}
 }
 
-// scaleUp schedules additional replicas of the model.
+// markCapacityProblem advances the hysteresis counter and sets the cooldown
+// timestamp once it crosses the threshold. Centralized so the two scale-up
+// paths (MinReplicas and busy-burst) report capacity exhaustion the same way.
+func (rc *ReplicaReconciler) markCapacityProblem(ctx context.Context, modelName, reason string) {
+	ticks, err := rc.registry.BumpUnsatisfiableTicks(ctx, modelName)
+	if err != nil {
+		xlog.Warn("Reconciler: failed to bump unsatisfiable counter", "model", modelName, "error", err)
+		return
+	}
+	if ticks >= unsatisfiableTickThreshold {
+		until := time.Now().Add(unsatisfiableCooldown)
+		if err := rc.registry.MarkUnsatisfiable(ctx, modelName, until); err != nil {
+			xlog.Warn("Reconciler: failed to mark unsatisfiable", "model", modelName, "error", err)
+			return
+		}
+		xlog.Warn("Reconciler: scheduling unsatisfiable, entering cooldown",
+			"model", modelName, "reason", reason,
+			"cooldown", unsatisfiableCooldown, "retry_after", until.Format(time.RFC3339))
+	}
+}
+
+// scaleUp schedules additional replicas of the model. Callers in
+// reconcileModel are expected to have already capped `count` against
+// ClusterCapacityForModel so this function never tries to overshoot.
 func (rc *ReplicaReconciler) scaleUp(ctx context.Context, cfg ModelSchedulingConfig, count int) {
 	if rc.scheduler == nil {
 		xlog.Warn("Reconciler: no scheduler available, cannot scale up")
 		return
 	}
 
-	// Determine candidate nodes from selector
-	var candidateNodeIDs []string
-	if cfg.NodeSelector != "" {
-		selector := parseSelector(cfg.NodeSelector)
-		if len(selector) > 0 {
-			candidates, err := rc.registry.FindNodesBySelector(ctx, selector)
-			if err != nil || len(candidates) == 0 {
-				xlog.Warn("Reconciler: no nodes match selector", "model", cfg.ModelName,
-					"selector", cfg.NodeSelector)
-				return
-			}
-			candidateNodeIDs = make([]string, len(candidates))
-			for i, n := range candidates {
-				candidateNodeIDs[i] = n.ID
-			}
-		}
+	// Resolve selector → candidate node IDs (nil when no selector → "any
+	// healthy node"). The selector mismatch case is handled upstream in
+	// reconcileModel, but defensively short-circuit here too.
+	candidateNodeIDs, ok := rc.candidateNodeIDsForSelector(ctx, cfg)
+	if !ok {
+		return
 	}
 
 	for i := 0; i < count; i++ {
@@ -377,13 +479,17 @@ func (rc *ReplicaReconciler) scaleDownIdle(ctx context.Context, cfg ModelSchedul
 		return
 	}
 
-	// Find idle replicas that have been unused for longer than scaleDownDelay
+	// Find idle replicas that have been unused for longer than scaleDownDelay.
+	// Order by replica_index DESC first, then last_used ASC: trim the
+	// highest-indexed replicas first so subsequent scale-ups can reuse the
+	// low indexes via NextFreeReplicaIndex, keeping slot allocation compact
+	// and matching the worker supervisor's port-recycling behavior.
 	cutoff := time.Now().Add(-rc.scaleDownDelay)
 	var idleModels []NodeModel
 	rc.registry.db.WithContext(ctx).
 		Where("model_name = ? AND state = ? AND in_flight = 0 AND last_used < ?",
 			cfg.ModelName, "loaded", cutoff).
-		Order("last_used ASC").
+		Order("replica_index DESC, last_used ASC").
 		Find(&idleModels)
 
 	toRemove := current - floor
@@ -392,16 +498,17 @@ func (rc *ReplicaReconciler) scaleDownIdle(ctx context.Context, cfg ModelSchedul
 		if removed >= toRemove {
 			break
 		}
-		// Remove from registry
-		if err := rc.registry.RemoveNodeModel(ctx, nm.NodeID, nm.ModelName); err != nil {
-			xlog.Warn("Reconciler: failed to remove model record", "error", err)
+		// Remove this specific replica row from registry (sibling replicas of
+		// the same model on the same node, if any, are unaffected).
+		if err := rc.registry.RemoveNodeModel(ctx, nm.NodeID, nm.ModelName, nm.ReplicaIndex); err != nil {
+			xlog.Warn("Reconciler: failed to remove model record", "node", nm.NodeID, "model", nm.ModelName, "replica", nm.ReplicaIndex, "error", err)
 			continue
 		}
 		// Unload from worker
 		if err := rc.unloader.UnloadModelOnNode(nm.NodeID, nm.ModelName); err != nil {
 			xlog.Warn("Reconciler: unload failed (model already removed from registry)", "error", err)
 		}
-		xlog.Info("Reconciler: scaled down idle replica", "model", cfg.ModelName, "node", nm.NodeID)
+		xlog.Info("Reconciler: scaled down idle replica", "model", cfg.ModelName, "node", nm.NodeID, "replica", nm.ReplicaIndex)
 		removed++
 	}
 }

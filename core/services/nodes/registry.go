@@ -26,14 +26,30 @@ type BackendNode struct {
 	TokenHash     string    `gorm:"size:64" json:"-"`                            // SHA-256 of registration token
 	TotalVRAM     uint64    `gorm:"column:total_vram" json:"total_vram"`         // Total GPU VRAM in bytes
 	AvailableVRAM uint64    `gorm:"column:available_vram" json:"available_vram"` // Available GPU VRAM in bytes
-	TotalRAM      uint64    `gorm:"column:total_ram" json:"total_ram"`           // Total system RAM in bytes (fallback when no GPU)
-	AvailableRAM  uint64    `gorm:"column:available_ram" json:"available_ram"`   // Available system RAM in bytes
-	GPUVendor     string    `gorm:"column:gpu_vendor;size:32" json:"gpu_vendor"` // nvidia, amd, intel, vulkan, unknown
-	APIKeyID      string    `gorm:"size:36" json:"-"`                            // auto-provisioned API key ID (for cleanup)
-	AuthUserID    string    `gorm:"size:36" json:"-"`                            // auto-provisioned user ID (for cleanup)
-	LastHeartbeat time.Time `gorm:"column:last_heartbeat" json:"last_heartbeat"`
-	CreatedAt     time.Time `json:"created_at"`
-	UpdatedAt     time.Time `json:"updated_at"`
+	// ReservedVRAM is a soft, in-tick reservation deducted by the scheduler when
+	// it picks this node to load a model. Workers reset it back to 0 on each
+	// heartbeat (the worker is the source of truth for actual free VRAM); the
+	// reservation is only here to keep two scheduling decisions within the
+	// same heartbeat window from over-committing the same node.
+	ReservedVRAM        uint64    `gorm:"column:reserved_vram;default:0" json:"reserved_vram"`
+	TotalRAM            uint64    `gorm:"column:total_ram" json:"total_ram"`         // Total system RAM in bytes (fallback when no GPU)
+	AvailableRAM        uint64    `gorm:"column:available_ram" json:"available_ram"` // Available system RAM in bytes
+	GPUVendor           string    `gorm:"column:gpu_vendor;size:32" json:"gpu_vendor"` // nvidia, amd, intel, vulkan, unknown
+	// MaxReplicasPerModel caps how many replicas of any one model can run on
+	// this node concurrently. Default 1 preserves the historical "one
+	// (node, model)" assumption; set higher (via worker --max-replicas-per-model)
+	// to allow stacking replicas on a fat node.
+	MaxReplicasPerModel int `gorm:"column:max_replicas_per_model;default:1" json:"max_replicas_per_model"`
+	// MaxReplicasPerModelManuallySet flags the value above as a UI-set
+	// admin override. When true, the worker's CLI value is ignored on
+	// re-registration so the override survives worker restarts. Cleared
+	// by an explicit "reset to worker default" action.
+	MaxReplicasPerModelManuallySet bool `gorm:"column:max_replicas_per_model_manually_set;default:false" json:"max_replicas_per_model_manually_set"`
+	APIKeyID            string    `gorm:"size:36" json:"-"` // auto-provisioned API key ID (for cleanup)
+	AuthUserID          string    `gorm:"size:36" json:"-"` // auto-provisioned user ID (for cleanup)
+	LastHeartbeat       time.Time `gorm:"column:last_heartbeat" json:"last_heartbeat"`
+	CreatedAt           time.Time `json:"created_at"`
+	UpdatedAt           time.Time `json:"updated_at"`
 }
 
 const (
@@ -47,23 +63,31 @@ const (
 	StatusUnhealthy = "unhealthy"
 
 	// Column names (must match gorm:"column:" tags on BackendNode)
-	ColAvailableVRAM = "available_vram"
-	ColTotalVRAM     = "total_vram"
-	ColAvailableRAM  = "available_ram"
-	ColGPUVendor     = "gpu_vendor"
-	ColLastHeartbeat = "last_heartbeat"
+	ColAvailableVRAM       = "available_vram"
+	ColTotalVRAM           = "total_vram"
+	ColReservedVRAM        = "reserved_vram"
+	ColAvailableRAM        = "available_ram"
+	ColGPUVendor           = "gpu_vendor"
+	ColLastHeartbeat       = "last_heartbeat"
+	ColMaxReplicasPerModel = "max_replicas_per_model"
 )
 
 // NodeModel tracks which models are loaded on which nodes.
+//
+// Multiple replicas of the same model on the same node are allowed; each
+// replica has its own ReplicaIndex (0..MaxReplicasPerModel-1), its own
+// gRPC Address (each replica is a separate worker process on its own port),
+// and its own InFlight counter.
 type NodeModel struct {
-	ID            string    `gorm:"primaryKey;size:36" json:"id"`
-	NodeID        string    `gorm:"index;size:36" json:"node_id"`
-	ModelName     string    `gorm:"index;size:255" json:"model_name"`
-	Address       string    `gorm:"size:255" json:"address"`           // gRPC address for this model's backend process
-	State         string    `gorm:"size:32;default:idle" json:"state"` // loading, loaded, unloading, idle
-	InFlight      int       `json:"in_flight"`                         // number of active requests
-	LastUsed      time.Time `json:"last_used"`
-	LoadingBy     string    `gorm:"size:36" json:"loading_by,omitempty"` // frontend ID that triggered loading
+	ID           string `gorm:"primaryKey;size:36" json:"id"`
+	NodeID       string `gorm:"index;size:36" json:"node_id"`
+	ModelName    string `gorm:"index;size:255" json:"model_name"`
+	ReplicaIndex int    `gorm:"column:replica_index;default:0;index" json:"replica_index"`
+	Address      string `gorm:"size:255" json:"address"`           // gRPC address for this replica's backend process
+	State        string `gorm:"size:32;default:idle" json:"state"` // loading, loaded, unloading, idle
+	InFlight     int    `json:"in_flight"`                         // number of active requests on this replica
+	LastUsed     time.Time `json:"last_used"`
+	LoadingBy     string    `gorm:"size:36" json:"loading_by,omitempty"`     // frontend ID that triggered loading
 	BackendType   string    `gorm:"size:128" json:"backend_type,omitempty"`  // e.g. "llama-cpp"; used by reconciler to replicate loads
 	ModelOptsBlob []byte    `gorm:"type:bytea" json:"-"`                     // serialized pb.ModelOptions for replica scale-ups
 	CreatedAt     time.Time `json:"created_at"`
@@ -87,13 +111,23 @@ type NodeLabel struct {
 //
 // Auto-scaling is enabled when MinReplicas > 0 or MaxReplicas > 0.
 type ModelSchedulingConfig struct {
-	ID           string    `gorm:"primaryKey;size:36" json:"id"`
-	ModelName    string    `gorm:"uniqueIndex;size:255" json:"model_name"`
-	NodeSelector string    `gorm:"type:text" json:"node_selector,omitempty"` // JSON {"key":"value",...}
-	MinReplicas  int       `gorm:"default:0" json:"min_replicas"`
-	MaxReplicas  int       `gorm:"default:0" json:"max_replicas"`
-	CreatedAt    time.Time `json:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at"`
+	ID           string `gorm:"primaryKey;size:36" json:"id"`
+	ModelName    string `gorm:"uniqueIndex;size:255" json:"model_name"`
+	NodeSelector string `gorm:"type:text" json:"node_selector,omitempty"` // JSON {"key":"value",...}
+	MinReplicas  int    `gorm:"default:0" json:"min_replicas"`
+	MaxReplicas  int    `gorm:"default:0" json:"max_replicas"`
+	// UnsatisfiableUntil is set by the reconciler when no candidate node has
+	// free capacity for this model; while in the future, the reconciler skips
+	// scale-up attempts for this model. Cleared on cluster events that could
+	// change capacity (new node registers, node approved, labels change,
+	// max-replicas-per-model changes) or when the cooldown expires.
+	UnsatisfiableUntil *time.Time `gorm:"column:unsatisfiable_until" json:"unsatisfiable_until,omitempty"`
+	// UnsatisfiableTicks is hysteresis: incremented each tick capacity==0,
+	// promoted to UnsatisfiableUntil once it crosses a small threshold to
+	// avoid one-tick flaps. Reset on any successful scale-up.
+	UnsatisfiableTicks int       `gorm:"column:unsatisfiable_ticks;default:0" json:"unsatisfiable_ticks"`
+	CreatedAt          time.Time `json:"created_at"`
+	UpdatedAt          time.Time `json:"updated_at"`
 }
 
 // NodeWithExtras extends BackendNode with computed fields for list views.
@@ -196,7 +230,19 @@ func (r *NodeRegistry) Register(ctx context.Context, node *BackendNode, autoAppr
 			// Node was never approved — keep pending
 			node.Status = StatusPending
 		}
-		if err := r.db.WithContext(ctx).Model(&existing).Updates(node).Error; err != nil {
+		// Preserve admin overrides from re-registration. Without this,
+		// every worker restart silently reverts the UI-set value back to
+		// the worker's CLI flag (default 1) — a footgun for operators who
+		// configure capacity from the UI without touching the worker flag.
+		updateDB := r.db.WithContext(ctx).Model(&existing)
+		if existing.MaxReplicasPerModelManuallySet {
+			updateDB = updateDB.Omit("max_replicas_per_model", "max_replicas_per_model_manually_set")
+			// Reflect the persisted value back so the caller sees what the
+			// scheduler will actually use.
+			node.MaxReplicasPerModel = existing.MaxReplicasPerModel
+			node.MaxReplicasPerModelManuallySet = true
+		}
+		if err := updateDB.Updates(node).Error; err != nil {
 			return fmt.Errorf("updating node %s: %w", node.Name, err)
 		}
 		// Preserve auth references from existing record.
@@ -231,6 +277,13 @@ func (r *NodeRegistry) Register(ctx context.Context, node *BackendNode, autoAppr
 	}
 
 	xlog.Info("Node registered", "name", node.Name, "address", node.Address, "status", node.Status)
+	// Cluster capacity may have changed: a new healthy node, a returning
+	// node, or one with different MaxReplicasPerModel. Wake any configs the
+	// reconciler put in cooldown — the next tick will re-flag if still
+	// unsatisfiable. Best-effort; logged but non-fatal.
+	if err := r.ClearAllUnsatisfiable(ctx); err != nil {
+		xlog.Warn("Failed to clear unsatisfiable scheduling flags on register", "error", err)
+	}
 	return nil
 }
 
@@ -252,6 +305,11 @@ func (r *NodeRegistry) ApproveNode(ctx context.Context, nodeID string) error {
 	}
 	if result.RowsAffected == 0 {
 		return fmt.Errorf("node %s not found or not in pending status", nodeID)
+	}
+	// pending → healthy adds cluster capacity; clear any cooldown flags so
+	// the next reconciler tick can use the new node.
+	if err := r.ClearAllUnsatisfiable(ctx); err != nil {
+		xlog.Warn("Failed to clear unsatisfiable scheduling flags on approve", "error", err)
 	}
 	return nil
 }
@@ -283,8 +341,11 @@ func (r *NodeRegistry) MarkOffline(ctx context.Context, nodeID string) error {
 	return nil
 }
 
-// FindNodeWithVRAM returns healthy nodes with at least minBytes available VRAM,
-// ordered idle-first then least-loaded.
+// FindNodeWithVRAM returns healthy nodes with at least minBytes effectively-
+// available VRAM (available_vram - reserved_vram), ordered idle-first then
+// least-loaded. The reserved_vram subtraction is the in-tick soft reservation
+// that prevents two scheduling decisions in the same heartbeat window from
+// over-committing the same node.
 func (r *NodeRegistry) FindNodeWithVRAM(ctx context.Context, minBytes uint64) (*BackendNode, error) {
 	db := r.db.WithContext(ctx)
 
@@ -297,24 +358,80 @@ func (r *NodeRegistry) FindNodeWithVRAM(ctx context.Context, minBytes uint64) (*
 		Select("node_id, COALESCE(SUM(in_flight), 0) as total_inflight").
 		Group("node_id")
 
-	// Try idle nodes with enough VRAM first, prefer the one with most free VRAM
+	// Try idle nodes with enough effectively-free VRAM first, prefer the one
+	// with most free VRAM (after deducting the in-tick reservation).
 	var node BackendNode
-	err := db.Where("status = ? AND node_type = ? AND available_vram >= ? AND id NOT IN (?)", StatusHealthy, NodeTypeBackend, minBytes, loadedModels).
-		Order("available_vram DESC").
+	err := db.Where("status = ? AND node_type = ? AND (available_vram - reserved_vram) >= ? AND id NOT IN (?)",
+		StatusHealthy, NodeTypeBackend, minBytes, loadedModels).
+		Order("(available_vram - reserved_vram) DESC").
 		First(&node).Error
 	if err == nil {
 		return &node, nil
 	}
 
-	// Fall back to least-loaded nodes with enough VRAM, prefer most free VRAM as tiebreaker
-	err = db.Where("status = ? AND node_type = ? AND available_vram >= ?", StatusHealthy, NodeTypeBackend, minBytes).
+	// Fall back to least-loaded nodes with enough effectively-free VRAM
+	err = db.Where("status = ? AND node_type = ? AND (available_vram - reserved_vram) >= ?",
+		StatusHealthy, NodeTypeBackend, minBytes).
 		Joins("LEFT JOIN (?) AS load ON load.node_id = backend_nodes.id", subquery).
-		Order("COALESCE(load.total_inflight, 0) ASC, backend_nodes.available_vram DESC").
+		Order("COALESCE(load.total_inflight, 0) ASC, (backend_nodes.available_vram - backend_nodes.reserved_vram) DESC").
 		First(&node).Error
 	if err != nil {
 		return nil, fmt.Errorf("no healthy nodes with %d bytes available VRAM: %w", minBytes, err)
 	}
 	return &node, nil
+}
+
+// ErrInsufficientVRAM signals that ReserveVRAM could not deduct the requested
+// amount because the node's effectively-free VRAM has dropped below it
+// (raced with another scheduler tick or with a heartbeat reset).
+var ErrInsufficientVRAM = errors.New("insufficient effectively-free VRAM on node")
+
+// ReserveVRAM atomically deducts `bytes` from the node's effectively-free
+// VRAM (available_vram - reserved_vram). The UPDATE's WHERE clause does the
+// admission check inside the database so two concurrent scheduling ticks
+// can't both succeed when only one fits — whichever lands first reserves
+// the slot, the other gets ErrInsufficientVRAM and falls through to the
+// next candidate node.
+//
+// `bytes` may be 0 (e.g. when the model size estimator declines), in which
+// case ReserveVRAM is a no-op — leaving accounting alone is preferable to
+// reserving 0 (which would still bump no rows but is conceptually wrong).
+//
+// Worker heartbeats reset reserved_vram to 0 because the worker is the
+// authoritative source for actual free VRAM. This is what makes the
+// "soft" in soft-reservation: it's only honored within one heartbeat
+// window; longer-term accounting comes from the worker's own readings.
+func (r *NodeRegistry) ReserveVRAM(ctx context.Context, nodeID string, bytes uint64) error {
+	if bytes == 0 {
+		return nil
+	}
+	res := r.db.WithContext(ctx).Model(&BackendNode{}).
+		Where("id = ? AND (available_vram - reserved_vram) >= ?", nodeID, bytes).
+		UpdateColumn(ColReservedVRAM, gorm.Expr("reserved_vram + ?", bytes))
+	if res.Error != nil {
+		return fmt.Errorf("reserving %d bytes on node %s: %w", bytes, nodeID, res.Error)
+	}
+	if res.RowsAffected == 0 {
+		return ErrInsufficientVRAM
+	}
+	return nil
+}
+
+// ReleaseVRAM returns previously-reserved bytes to the pool. Called from the
+// scheduler's deferred rollback path when LoadModel fails after a successful
+// reservation, so the failed in-flight reservation doesn't linger until the
+// next heartbeat.
+//
+// Guarded by `reserved_vram >= bytes` so a duplicate Release can't underflow
+// past zero (the column is uint64 — wrap-around would be catastrophic for
+// scheduler decisions).
+func (r *NodeRegistry) ReleaseVRAM(ctx context.Context, nodeID string, bytes uint64) error {
+	if bytes == 0 {
+		return nil
+	}
+	return r.db.WithContext(ctx).Model(&BackendNode{}).
+		Where("id = ? AND reserved_vram >= ?", nodeID, bytes).
+		UpdateColumn(ColReservedVRAM, gorm.Expr("reserved_vram - ?", bytes)).Error
 }
 
 // Deregister removes a backend node, its model associations, and any auto-provisioned auth credentials.
@@ -365,6 +482,10 @@ func (r *NodeRegistry) Heartbeat(ctx context.Context, nodeID string, update *Hea
 	if update != nil {
 		if update.AvailableVRAM != nil {
 			updates[ColAvailableVRAM] = *update.AvailableVRAM
+			// The worker is the source of truth for actual free VRAM.
+			// Whenever it sends us a fresh reading, the in-tick soft
+			// reservation is no longer needed — clear it. (See ReserveVRAM.)
+			updates[ColReservedVRAM] = uint64(0)
 		}
 		if update.TotalVRAM != nil {
 			updates[ColTotalVRAM] = *update.TotalVRAM
@@ -455,16 +576,18 @@ func (r *NodeRegistry) FindStaleNodes(ctx context.Context, threshold time.Durati
 
 // --- NodeModel operations ---
 
-// SetNodeModel records that a model is loaded on a node.
-func (r *NodeRegistry) SetNodeModel(ctx context.Context, nodeID, modelName, state, address string, initialInFlight int) error {
+// SetNodeModel records that a replica of a model is loaded on a node.
+// replicaIndex identifies which slot on the node this replica occupies
+// (0..MaxReplicasPerModel-1). Pass 0 for single-replica scheduling.
+func (r *NodeRegistry) SetNodeModel(ctx context.Context, nodeID, modelName string, replicaIndex int, state, address string, initialInFlight int) error {
 	now := time.Now()
 	// Use Attrs for creation-only fields (ID) and Assign for update-only fields.
 	// Attrs is applied only when creating a new record. Assign is applied on
 	// both create and update. This prevents overwriting the primary key on
-	// subsequent calls for the same node+model.
+	// subsequent calls for the same (node, model, replica_index).
 	var nm NodeModel
-	result := r.db.WithContext(ctx).Where("node_id = ? AND model_name = ?", nodeID, modelName).
-		Attrs(NodeModel{ID: uuid.New().String(), NodeID: nodeID, ModelName: modelName}).
+	result := r.db.WithContext(ctx).Where("node_id = ? AND model_name = ? AND replica_index = ?", nodeID, modelName, replicaIndex).
+		Attrs(NodeModel{ID: uuid.New().String(), NodeID: nodeID, ModelName: modelName, ReplicaIndex: replicaIndex}).
 		Assign(map[string]any{"address": address, "state": state, "last_used": now, "in_flight": initialInFlight}).
 		FirstOrCreate(&nm)
 	return result.Error
@@ -473,9 +596,9 @@ func (r *NodeRegistry) SetNodeModel(ctx context.Context, nodeID, modelName, stat
 // SetNodeModelLoadInfo stores the backend type and serialized model options on
 // an existing NodeModel record. This metadata is used by the reconciler to
 // replicate model loads during scale-up.
-func (r *NodeRegistry) SetNodeModelLoadInfo(ctx context.Context, nodeID, modelName, backendType string, optsBlob []byte) error {
+func (r *NodeRegistry) SetNodeModelLoadInfo(ctx context.Context, nodeID, modelName string, replicaIndex int, backendType string, optsBlob []byte) error {
 	return r.db.WithContext(ctx).Model(&NodeModel{}).
-		Where("node_id = ? AND model_name = ?", nodeID, modelName).
+		Where("node_id = ? AND model_name = ? AND replica_index = ?", nodeID, modelName, replicaIndex).
 		Updates(map[string]any{"backend_type": backendType, "model_opts_blob": optsBlob}).Error
 }
 
@@ -493,8 +616,21 @@ func (r *NodeRegistry) GetModelLoadInfo(ctx context.Context, modelName string) (
 	return nm.BackendType, nm.ModelOptsBlob, nil
 }
 
-// RemoveNodeModel removes a model association from a node.
-func (r *NodeRegistry) RemoveNodeModel(ctx context.Context, nodeID, modelName string) error {
+// RemoveNodeModel removes a single replica of a model from a node.
+// replicaIndex must match the row to delete; passing 0 for single-replica
+// scheduling preserves historical behavior. Removing siblings requires
+// separate calls per index — there is no "remove all replicas" shortcut here
+// to keep the contract explicit (probeLoadedModels and scaleDownIdle iterate
+// per-row and must not orphan healthy siblings).
+func (r *NodeRegistry) RemoveNodeModel(ctx context.Context, nodeID, modelName string, replicaIndex int) error {
+	return r.db.WithContext(ctx).Where("node_id = ? AND model_name = ? AND replica_index = ?", nodeID, modelName, replicaIndex).
+		Delete(&NodeModel{}).Error
+}
+
+// RemoveAllNodeModelReplicas removes every replica of modelName on nodeID.
+// Used by callers (e.g. node deregistration, full backend stop) that genuinely
+// want to clear all replicas, not just one.
+func (r *NodeRegistry) RemoveAllNodeModelReplicas(ctx context.Context, nodeID, modelName string) error {
 	return r.db.WithContext(ctx).Where("node_id = ? AND model_name = ?", nodeID, modelName).
 		Delete(&NodeModel{}).Error
 }
@@ -552,20 +688,70 @@ func (r *NodeRegistry) FindAndLockNodeWithModel(ctx context.Context, modelName s
 	return &node, &nm, nil
 }
 
-// TouchNodeModel updates the last_used timestamp for LRU tracking.
-func (r *NodeRegistry) TouchNodeModel(ctx context.Context, nodeID, modelName string) {
-	r.db.WithContext(ctx).Model(&NodeModel{}).Where("node_id = ? AND model_name = ?", nodeID, modelName).
+// TouchNodeModel updates the last_used timestamp for LRU tracking on a single
+// replica row.
+func (r *NodeRegistry) TouchNodeModel(ctx context.Context, nodeID, modelName string, replicaIndex int) {
+	r.db.WithContext(ctx).Model(&NodeModel{}).
+		Where("node_id = ? AND model_name = ? AND replica_index = ?", nodeID, modelName, replicaIndex).
 		Update("last_used", time.Now())
 }
 
-// GetNodeModel returns the NodeModel record for a specific node+model combination.
-func (r *NodeRegistry) GetNodeModel(ctx context.Context, nodeID, modelName string) (*NodeModel, error) {
+// GetNodeModel returns the NodeModel record for a specific (node, model, replica_index) combination.
+func (r *NodeRegistry) GetNodeModel(ctx context.Context, nodeID, modelName string, replicaIndex int) (*NodeModel, error) {
 	var nm NodeModel
-	err := r.db.WithContext(ctx).Where("node_id = ? AND model_name = ?", nodeID, modelName).First(&nm).Error
+	err := r.db.WithContext(ctx).
+		Where("node_id = ? AND model_name = ? AND replica_index = ?", nodeID, modelName, replicaIndex).
+		First(&nm).Error
 	if err != nil {
 		return nil, err
 	}
 	return &nm, nil
+}
+
+// CountReplicasOnNode returns how many replicas of modelName are currently
+// recorded for nodeID (across all states). Used by NextFreeReplicaIndex and
+// by capacity checks.
+func (r *NodeRegistry) CountReplicasOnNode(ctx context.Context, nodeID, modelName string) (int, error) {
+	var count int64
+	if err := r.db.WithContext(ctx).Model(&NodeModel{}).
+		Where("node_id = ? AND model_name = ?", nodeID, modelName).
+		Count(&count).Error; err != nil {
+		return 0, err
+	}
+	return int(count), nil
+}
+
+// ErrNoFreeSlot is returned by NextFreeReplicaIndex when the node already has
+// MaxReplicasPerModel replicas of this model and cannot host another.
+var ErrNoFreeSlot = errors.New("no free replica slot on node")
+
+// NextFreeReplicaIndex returns the lowest replica_index in [0, maxSlots) that
+// is not currently occupied by a row for (nodeID, modelName). Returns
+// ErrNoFreeSlot if every index is taken.
+//
+// Allocating the lowest free index (rather than always appending) keeps slot
+// numbers compact across scale-down/scale-up cycles, which matches the worker
+// supervisor's port-recycling behavior in core/cli/worker.go (freePorts).
+func (r *NodeRegistry) NextFreeReplicaIndex(ctx context.Context, nodeID, modelName string, maxSlots int) (int, error) {
+	if maxSlots <= 0 {
+		return 0, ErrNoFreeSlot
+	}
+	var taken []int
+	if err := r.db.WithContext(ctx).Model(&NodeModel{}).
+		Where("node_id = ? AND model_name = ?", nodeID, modelName).
+		Pluck("replica_index", &taken).Error; err != nil {
+		return 0, err
+	}
+	occupied := make(map[int]struct{}, len(taken))
+	for _, idx := range taken {
+		occupied[idx] = struct{}{}
+	}
+	for idx := 0; idx < maxSlots; idx++ {
+		if _, ok := occupied[idx]; !ok {
+			return idx, nil
+		}
+	}
+	return 0, ErrNoFreeSlot
 }
 
 // FindLeastLoadedNode returns the healthy node with the fewest in-flight requests.
@@ -607,10 +793,10 @@ func (r *NodeRegistry) FindIdleNode(ctx context.Context) (*BackendNode, error) {
 	return &node, nil
 }
 
-// IncrementInFlight atomically increments the in-flight counter for a model on a node.
-func (r *NodeRegistry) IncrementInFlight(ctx context.Context, nodeID, modelName string) error {
+// IncrementInFlight atomically increments the in-flight counter on a single replica row.
+func (r *NodeRegistry) IncrementInFlight(ctx context.Context, nodeID, modelName string, replicaIndex int) error {
 	result := r.db.WithContext(ctx).Model(&NodeModel{}).
-		Where("node_id = ? AND model_name = ?", nodeID, modelName).
+		Where("node_id = ? AND model_name = ? AND replica_index = ?", nodeID, modelName, replicaIndex).
 		Updates(map[string]any{
 			"in_flight": gorm.Expr("in_flight + 1"),
 			"last_used": time.Now(),
@@ -619,21 +805,22 @@ func (r *NodeRegistry) IncrementInFlight(ctx context.Context, nodeID, modelName 
 		return result.Error
 	}
 	if result.RowsAffected == 0 {
-		return fmt.Errorf("node model %s/%s not found", nodeID, modelName)
+		return fmt.Errorf("node model %s/%s replica %d not found", nodeID, modelName, replicaIndex)
 	}
 	return nil
 }
 
-// DecrementInFlight atomically decrements the in-flight counter for a model on a node.
-func (r *NodeRegistry) DecrementInFlight(ctx context.Context, nodeID, modelName string) error {
+// DecrementInFlight atomically decrements the in-flight counter on a single replica row.
+// Guarded by `in_flight > 0` so that double-decrements don't go negative.
+func (r *NodeRegistry) DecrementInFlight(ctx context.Context, nodeID, modelName string, replicaIndex int) error {
 	result := r.db.WithContext(ctx).Model(&NodeModel{}).
-		Where("node_id = ? AND model_name = ? AND in_flight > 0", nodeID, modelName).
+		Where("node_id = ? AND model_name = ? AND replica_index = ? AND in_flight > 0", nodeID, modelName, replicaIndex).
 		UpdateColumn("in_flight", gorm.Expr("in_flight - 1"))
 	if result.Error != nil {
 		return result.Error
 	}
 	if result.RowsAffected == 0 {
-		xlog.Warn("DecrementInFlight: no matching row or already zero", "node", nodeID, "model", modelName)
+		xlog.Warn("DecrementInFlight: no matching row or already zero", "node", nodeID, "model", modelName, "replica", replicaIndex)
 	}
 	return nil
 }
@@ -700,6 +887,10 @@ func (r *NodeRegistry) FindGlobalLRUModelWithZeroInFlight(ctx context.Context) (
 // --- NodeLabel operations ---
 
 // SetNodeLabel upserts a single label on a node.
+//
+// A label change can change which models match a NodeSelector, so any
+// scheduling cooldown flag is cleared as a side effect — the next reconciler
+// tick will re-flag if the new label set still doesn't satisfy capacity.
 func (r *NodeRegistry) SetNodeLabel(ctx context.Context, nodeID, key, value string) error {
 	label := NodeLabel{
 		ID:     uuid.New().String(),
@@ -707,17 +898,23 @@ func (r *NodeRegistry) SetNodeLabel(ctx context.Context, nodeID, key, value stri
 		Key:    key,
 		Value:  value,
 	}
-	return r.db.WithContext(ctx).
+	if err := r.db.WithContext(ctx).
 		Clauses(clause.OnConflict{
 			Columns:   []clause.Column{{Name: "node_id"}, {Name: "key"}},
 			DoUpdates: clause.AssignmentColumns([]string{"value"}),
 		}).
-		Create(&label).Error
+		Create(&label).Error; err != nil {
+		return err
+	}
+	if err := r.ClearAllUnsatisfiable(ctx); err != nil {
+		xlog.Warn("Failed to clear unsatisfiable scheduling flags on SetNodeLabel", "error", err)
+	}
+	return nil
 }
 
 // SetNodeLabels replaces all labels for a node with the given map.
 func (r *NodeRegistry) SetNodeLabels(ctx context.Context, nodeID string, labels map[string]string) error {
-	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	if err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Where("node_id = ?", nodeID).Delete(&NodeLabel{}).Error; err != nil {
 			return err
 		}
@@ -728,12 +925,24 @@ func (r *NodeRegistry) SetNodeLabels(ctx context.Context, nodeID string, labels 
 			}
 		}
 		return nil
-	})
+	}); err != nil {
+		return err
+	}
+	if err := r.ClearAllUnsatisfiable(ctx); err != nil {
+		xlog.Warn("Failed to clear unsatisfiable scheduling flags on SetNodeLabels", "error", err)
+	}
+	return nil
 }
 
 // RemoveNodeLabel removes a single label from a node.
 func (r *NodeRegistry) RemoveNodeLabel(ctx context.Context, nodeID, key string) error {
-	return r.db.WithContext(ctx).Where("node_id = ? AND key = ?", nodeID, key).Delete(&NodeLabel{}).Error
+	if err := r.db.WithContext(ctx).Where("node_id = ? AND key = ?", nodeID, key).Delete(&NodeLabel{}).Error; err != nil {
+		return err
+	}
+	if err := r.ClearAllUnsatisfiable(ctx); err != nil {
+		xlog.Warn("Failed to clear unsatisfiable scheduling flags on RemoveNodeLabel", "error", err)
+	}
+	return nil
 }
 
 // GetNodeLabels returns all labels for a node.
@@ -793,19 +1002,21 @@ func (r *NodeRegistry) FindNodeWithVRAMFromSet(ctx context.Context, minBytes uin
 		Select("node_id, COALESCE(SUM(in_flight), 0) as total_inflight").
 		Group("node_id")
 
-	// Try idle nodes with enough VRAM first, prefer the one with most free VRAM
+	// Try idle nodes with enough effectively-free VRAM first.
 	var node BackendNode
-	err := db.Where("status = ? AND node_type = ? AND available_vram >= ? AND id NOT IN (?) AND id IN ?", StatusHealthy, NodeTypeBackend, minBytes, loadedModels, nodeIDs).
-		Order("available_vram DESC").
+	err := db.Where("status = ? AND node_type = ? AND (available_vram - reserved_vram) >= ? AND id NOT IN (?) AND id IN ?",
+		StatusHealthy, NodeTypeBackend, minBytes, loadedModels, nodeIDs).
+		Order("(available_vram - reserved_vram) DESC").
 		First(&node).Error
 	if err == nil {
 		return &node, nil
 	}
 
-	// Fall back to least-loaded nodes with enough VRAM, prefer most free VRAM as tiebreaker
-	err = db.Where("status = ? AND node_type = ? AND available_vram >= ? AND backend_nodes.id IN ?", StatusHealthy, NodeTypeBackend, minBytes, nodeIDs).
+	// Fall back to least-loaded nodes with enough effectively-free VRAM
+	err = db.Where("status = ? AND node_type = ? AND (available_vram - reserved_vram) >= ? AND backend_nodes.id IN ?",
+		StatusHealthy, NodeTypeBackend, minBytes, nodeIDs).
 		Joins("LEFT JOIN (?) AS load ON load.node_id = backend_nodes.id", subquery).
-		Order("COALESCE(load.total_inflight, 0) ASC, backend_nodes.available_vram DESC").
+		Order("COALESCE(load.total_inflight, 0) ASC, (backend_nodes.available_vram - backend_nodes.reserved_vram) DESC").
 		First(&node).Error
 	if err != nil {
 		return nil, fmt.Errorf("no healthy nodes in set with %d bytes available VRAM: %w", minBytes, err)
@@ -905,6 +1116,184 @@ func (r *NodeRegistry) CountLoadedReplicas(ctx context.Context, modelName string
 	return count, err
 }
 
+// FindNodesWithFreeSlot returns healthy backend nodes that have at least one
+// free replica slot for modelName (i.e. count(node_models.*) for this model
+// is strictly less than the node's MaxReplicasPerModel cap). When
+// candidateNodeIDs is non-empty, only those nodes are considered.
+//
+// This is the candidate-pool used by SmartRouter.scheduleNewModel — without
+// it, the scheduler would happily pick the same node for replica #2 even
+// when that node already hosts replica #1, re-creating the original flap.
+func (r *NodeRegistry) FindNodesWithFreeSlot(ctx context.Context, modelName string, candidateNodeIDs []string) ([]BackendNode, error) {
+	q := r.db.WithContext(ctx).Model(&BackendNode{}).
+		Where("status = ? AND node_type = ?", StatusHealthy, NodeTypeBackend)
+	if len(candidateNodeIDs) > 0 {
+		q = q.Where("id IN ?", candidateNodeIDs)
+	}
+	// Subquery: per-node count of loaded+loading replicas of this model.
+	// We count any non-removed row (state != deleted) so a load in progress
+	// counts against the cap and a second concurrent scale-up can't overshoot.
+	subq := r.db.Model(&NodeModel{}).
+		Select("node_id, COUNT(*) as cnt").
+		Where("model_name = ?", modelName).
+		Group("node_id")
+
+	var out []BackendNode
+	err := q.Joins("LEFT JOIN (?) AS rc ON rc.node_id = backend_nodes.id", subq).
+		Where("COALESCE(rc.cnt, 0) < backend_nodes.max_replicas_per_model").
+		Find(&out).Error
+	if err != nil {
+		return nil, fmt.Errorf("finding nodes with free slot for %s: %w", modelName, err)
+	}
+	return out, nil
+}
+
+// ClusterCapacityForModel returns the total free replica capacity for
+// modelName across the candidate node set: Σ (max_replicas_per_model −
+// current_replicas[n,m]). When candidateNodeIDs is empty all healthy backend
+// nodes are considered.
+//
+// The reconciler uses this to bound MinReplicas at what the cluster can
+// actually host, preventing the "scale-up forever" loop from #9XXX where a
+// MinReplicas=2 with one worker × one slot churned the model every 30s.
+func (r *NodeRegistry) ClusterCapacityForModel(ctx context.Context, modelName string, candidateNodeIDs []string) (int, error) {
+	q := r.db.WithContext(ctx).Model(&BackendNode{}).
+		Where("status = ? AND node_type = ?", StatusHealthy, NodeTypeBackend)
+	if len(candidateNodeIDs) > 0 {
+		q = q.Where("id IN ?", candidateNodeIDs)
+	}
+	subq := r.db.Model(&NodeModel{}).
+		Select("node_id, COUNT(*) as cnt").
+		Where("model_name = ?", modelName).
+		Group("node_id")
+
+	var nodes []struct {
+		MaxReplicasPerModel int
+		Loaded              int
+	}
+	err := q.Select("backend_nodes.max_replicas_per_model AS max_replicas_per_model, COALESCE(rc.cnt, 0) AS loaded").
+		Joins("LEFT JOIN (?) AS rc ON rc.node_id = backend_nodes.id", subq).
+		Scan(&nodes).Error
+	if err != nil {
+		return 0, fmt.Errorf("computing cluster capacity for %s: %w", modelName, err)
+	}
+	total := 0
+	for _, n := range nodes {
+		free := n.MaxReplicasPerModel - n.Loaded
+		if free > 0 {
+			total += free
+		}
+	}
+	return total, nil
+}
+
+// BumpUnsatisfiableTicks increments the per-config hysteresis counter when
+// the reconciler tries to scale up but cluster capacity is exhausted.
+// Returns the new value.
+func (r *NodeRegistry) BumpUnsatisfiableTicks(ctx context.Context, modelName string) (int, error) {
+	res := r.db.WithContext(ctx).Model(&ModelSchedulingConfig{}).
+		Where("model_name = ?", modelName).
+		UpdateColumn("unsatisfiable_ticks", gorm.Expr("unsatisfiable_ticks + 1"))
+	if res.Error != nil {
+		return 0, res.Error
+	}
+	var cfg ModelSchedulingConfig
+	if err := r.db.WithContext(ctx).Where("model_name = ?", modelName).First(&cfg).Error; err != nil {
+		return 0, err
+	}
+	return cfg.UnsatisfiableTicks, nil
+}
+
+// MarkUnsatisfiable sets UnsatisfiableUntil to a future time, so the
+// reconciler skips scale-up attempts for this model until the cooldown
+// expires (or a cluster event clears the flag — see ClearAllUnsatisfiable).
+func (r *NodeRegistry) MarkUnsatisfiable(ctx context.Context, modelName string, until time.Time) error {
+	return r.db.WithContext(ctx).Model(&ModelSchedulingConfig{}).
+		Where("model_name = ?", modelName).
+		Update("unsatisfiable_until", until).Error
+}
+
+// ClearUnsatisfiable resets both the cooldown timestamp and the hysteresis
+// counter for a single model. Called on a successful scale-up so the next
+// transient capacity dip starts the hysteresis from zero.
+func (r *NodeRegistry) ClearUnsatisfiable(ctx context.Context, modelName string) error {
+	return r.db.WithContext(ctx).Model(&ModelSchedulingConfig{}).
+		Where("model_name = ?", modelName).
+		Updates(map[string]any{
+			"unsatisfiable_until": gorm.Expr("NULL"),
+			"unsatisfiable_ticks": 0,
+		}).Error
+}
+
+// UpdateMaxReplicasPerModel sets a node's per-model replica cap as an admin
+// override (sticky across worker restarts) and refreshes the mirrored
+// `node.replica-slots` auto-label so selectors reflect the new value.
+// Capacity may have just changed, so cooldown flags are cleared too — the
+// next reconciler tick will re-flag if still unsatisfiable.
+//
+// The override is preserved on worker re-registration (see Register). To
+// hand control back to the worker flag, call ResetMaxReplicasPerModel.
+func (r *NodeRegistry) UpdateMaxReplicasPerModel(ctx context.Context, nodeID string, n int) error {
+	if n < 1 {
+		return fmt.Errorf("max_replicas_per_model must be >= 1, got %d", n)
+	}
+	res := r.db.WithContext(ctx).Model(&BackendNode{}).
+		Where("id = ?", nodeID).
+		Updates(map[string]any{
+			ColMaxReplicasPerModel:    n,
+			"max_replicas_per_model_manually_set": true,
+		})
+	if res.Error != nil {
+		return fmt.Errorf("updating max_replicas_per_model on %s: %w", nodeID, res.Error)
+	}
+	if res.RowsAffected == 0 {
+		return fmt.Errorf("node %s not found", nodeID)
+	}
+	// Keep the auto-label in sync so existing AND-selectors keep matching.
+	if err := r.SetNodeLabel(ctx, nodeID, "node.replica-slots", fmt.Sprintf("%d", n)); err != nil {
+		xlog.Warn("Failed to refresh node.replica-slots label", "node", nodeID, "error", err)
+	}
+	if err := r.ClearAllUnsatisfiable(ctx); err != nil {
+		xlog.Warn("Failed to clear unsatisfiable scheduling flags after capacity update", "error", err)
+	}
+	return nil
+}
+
+// ResetMaxReplicasPerModel clears the admin override flag so the next worker
+// re-registration is allowed to update the value again. The current value is
+// left in place — the worker will overwrite it on its next register call.
+//
+// This is the "Reset to worker default" affordance in the UI: it doesn't
+// require knowing what the worker flag is set to (the worker tells us on
+// re-register), it just hands ownership back.
+func (r *NodeRegistry) ResetMaxReplicasPerModel(ctx context.Context, nodeID string) error {
+	res := r.db.WithContext(ctx).Model(&BackendNode{}).
+		Where("id = ?", nodeID).
+		Update("max_replicas_per_model_manually_set", false)
+	if res.Error != nil {
+		return fmt.Errorf("clearing max_replicas_per_model override on %s: %w", nodeID, res.Error)
+	}
+	if res.RowsAffected == 0 {
+		return fmt.Errorf("node %s not found", nodeID)
+	}
+	return nil
+}
+
+// ClearAllUnsatisfiable clears the cooldown flag on every scheduling config.
+// Called from cluster-events that could plausibly increase capacity (new
+// node registers, node approves pending→healthy, node labels change,
+// MaxReplicasPerModel changes). The reconciler's own loop will re-flag any
+// config whose target is still unsatisfiable, so over-clearing is cheap and
+// correct.
+func (r *NodeRegistry) ClearAllUnsatisfiable(ctx context.Context) error {
+	return r.db.WithContext(ctx).Model(&ModelSchedulingConfig{}).
+		Where("unsatisfiable_until IS NOT NULL OR unsatisfiable_ticks > 0").
+		Updates(map[string]any{
+			"unsatisfiable_until": gorm.Expr("NULL"),
+			"unsatisfiable_ticks": 0,
+		}).Error
+}
+
 // --- Composite queries ---
 
 // ListWithExtras returns all nodes with model counts and labels.
@@ -999,6 +1388,15 @@ func (r *NodeRegistry) ApplyAutoLabels(ctx context.Context, nodeID string, node 
 	if node.Name != "" {
 		_ = r.SetNodeLabel(ctx, nodeID, "node.name", node.Name)
 	}
+	// Mirror the typed MaxReplicasPerModel field as a label so the existing
+	// AND-selector machinery in ModelSchedulingConfig can target high-capacity
+	// nodes (e.g. {"node.replica-slots": "4"}). Always set it (default 1) so
+	// selectors don't have to special-case missing labels.
+	slots := node.MaxReplicasPerModel
+	if slots < 1 {
+		slots = 1
+	}
+	_ = r.SetNodeLabel(ctx, nodeID, "node.replica-slots", fmt.Sprintf("%d", slots))
 }
 
 // UpsertPendingBackendOp records or refreshes a pending backend operation for

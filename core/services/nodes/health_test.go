@@ -270,9 +270,9 @@ var _ = Describe("HealthMonitor (mock-based)", func() {
 
 			hm.doCheckAll(context.Background())
 
-			// Node should remain healthy — only the model record is removed
+			// Node should remain healthy — only the specific replica record is removed.
 			Expect(store.getNode("node-model").Status).To(Equal(StatusHealthy))
-			Expect(store.getCalls()).To(ContainElement("RemoveNodeModel:node-model:piper-model"))
+			Expect(store.getCalls()).To(ContainElement("RemoveNodeModel:node-model:piper-model:0"))
 			Expect(store.getCalls()).NotTo(ContainElement(ContainSubstring("MarkUnhealthy")))
 		})
 	})

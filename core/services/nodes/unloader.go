@@ -17,7 +17,7 @@ type backendStopRequest struct {
 // NodeCommandSender abstracts NATS-based commands to worker nodes.
 // Used by HTTP endpoint handlers to avoid coupling to the concrete RemoteUnloaderAdapter.
 type NodeCommandSender interface {
-	InstallBackend(nodeID, backendType, modelID, galleriesJSON, uri, name, alias string) (*messaging.BackendInstallReply, error)
+	InstallBackend(nodeID, backendType, modelID, galleriesJSON, uri, name, alias string, replicaIndex int) (*messaging.BackendInstallReply, error)
 	DeleteBackend(nodeID, backendName string) (*messaging.BackendDeleteReply, error)
 	ListBackends(nodeID string) (*messaging.BackendListReply, error)
 	StopBackend(nodeID, backend string) error
@@ -61,8 +61,9 @@ func (a *RemoteUnloaderAdapter) UnloadRemoteModel(modelName string) error {
 			xlog.Warn("Failed to send backend.stop", "node", node.Name, "error", err)
 			continue
 		}
-		// Remove model from registry — the node will handle the actual cleanup
-		a.registry.RemoveNodeModel(ctx, node.ID, modelName)
+		// Remove every replica of this model on the node — the worker will
+		// handle the actual process cleanup.
+		a.registry.RemoveAllNodeModelReplicas(ctx, node.ID, modelName)
 	}
 
 	return nil
@@ -71,10 +72,15 @@ func (a *RemoteUnloaderAdapter) UnloadRemoteModel(modelName string) error {
 // InstallBackend sends a backend.install request-reply to a worker node.
 // The worker installs the backend from gallery (if not already installed),
 // starts the gRPC process, and replies when ready.
+//
+// replicaIndex selects which replica slot the worker should use as its
+// process key — distinct slots run on distinct ports so multiple replicas of
+// the same model can coexist on a fat node. Pass 0 for single-replica.
+//
 // Timeout: 5 minutes (gallery install can take a while).
-func (a *RemoteUnloaderAdapter) InstallBackend(nodeID, backendType, modelID, galleriesJSON, uri, name, alias string) (*messaging.BackendInstallReply, error) {
+func (a *RemoteUnloaderAdapter) InstallBackend(nodeID, backendType, modelID, galleriesJSON, uri, name, alias string, replicaIndex int) (*messaging.BackendInstallReply, error) {
 	subject := messaging.SubjectNodeBackendInstall(nodeID)
-	xlog.Info("Sending NATS backend.install", "nodeID", nodeID, "backend", backendType, "modelID", modelID)
+	xlog.Info("Sending NATS backend.install", "nodeID", nodeID, "backend", backendType, "modelID", modelID, "replica", replicaIndex)
 
 	return messaging.RequestJSON[messaging.BackendInstallRequest, messaging.BackendInstallReply](a.nats, subject, messaging.BackendInstallRequest{
 		Backend:          backendType,
@@ -83,6 +89,7 @@ func (a *RemoteUnloaderAdapter) InstallBackend(nodeID, backendType, modelID, gal
 		URI:              uri,
 		Name:             name,
 		Alias:            alias,
+		ReplicaIndex:     int32(replicaIndex),
 	}, 5*time.Minute)
 }
 

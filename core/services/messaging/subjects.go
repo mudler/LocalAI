@@ -131,6 +131,12 @@ type BackendInstallRequest struct {
 	URI   string `json:"uri,omitempty"`
 	Name  string `json:"name,omitempty"`
 	Alias string `json:"alias,omitempty"`
+	// ReplicaIndex selects which slot on the worker this load occupies, so two
+	// concurrent backend.install requests for the same model land on distinct
+	// gRPC processes and ports. Workers older than this field treat it as 0
+	// (single-replica behavior — no collision because the controller never
+	// asks for replica > 0 on a node whose MaxReplicasPerModel is 1).
+	ReplicaIndex int32 `json:"replica_index,omitempty"`
 }
 
 // BackendInstallReply is the response from a backend.install NATS request.

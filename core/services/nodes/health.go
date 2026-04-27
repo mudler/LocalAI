@@ -159,8 +159,8 @@ func (hm *HealthMonitor) doCheckAll(ctx context.Context) {
 				mCheckCtx, mCancel := context.WithTimeout(ctx, 5*time.Second)
 				if ok, _ := mClient.HealthCheck(mCheckCtx); !ok {
 					xlog.Warn("Model backend unhealthy, removing from registry",
-						"node", node.ID, "model", m.ModelName, "address", m.Address)
-					hm.registry.RemoveNodeModel(ctx, node.ID, m.ModelName)
+						"node", node.ID, "model", m.ModelName, "replica", m.ReplicaIndex, "address", m.Address)
+					hm.registry.RemoveNodeModel(ctx, node.ID, m.ModelName, m.ReplicaIndex)
 				}
 				mCancel()
 				if closer, ok := mClient.(io.Closer); ok {

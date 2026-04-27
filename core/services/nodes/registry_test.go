@@ -125,7 +125,7 @@ var _ = Describe("NodeRegistry", func() {
 			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
 
 			// Load a model on the node
-			Expect(registry.SetNodeModel(context.Background(), node.ID, "llama-7b", "loaded", "10.0.0.7:50052", 0)).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), node.ID, "llama-7b", 0, "loaded", "10.0.0.7:50052", 0)).To(Succeed())
 			models, err := registry.GetNodeModels(context.Background(), node.ID)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(models).To(HaveLen(1))
@@ -155,13 +155,13 @@ var _ = Describe("NodeRegistry", func() {
 			node := makeNode("stable-id-node", "10.0.0.99:50051", 8_000_000_000)
 			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
 
-			Expect(registry.SetNodeModel(context.Background(), node.ID, "my-model", "loaded", "10.0.0.99:50052", 0)).To(Succeed())
-			nm1, err := registry.GetNodeModel(context.Background(), node.ID, "my-model")
+			Expect(registry.SetNodeModel(context.Background(), node.ID, "my-model", 0, "loaded", "10.0.0.99:50052", 0)).To(Succeed())
+			nm1, err := registry.GetNodeModel(context.Background(), node.ID, "my-model", 0)
 			Expect(err).ToNot(HaveOccurred())
 
 			// Call again with different state/address
-			Expect(registry.SetNodeModel(context.Background(), node.ID, "my-model", "loaded", "10.0.0.99:50053", 0)).To(Succeed())
-			nm2, err := registry.GetNodeModel(context.Background(), node.ID, "my-model")
+			Expect(registry.SetNodeModel(context.Background(), node.ID, "my-model", 0, "loaded", "10.0.0.99:50053", 0)).To(Succeed())
+			nm2, err := registry.GetNodeModel(context.Background(), node.ID, "my-model", 0)
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(nm2.ID).To(Equal(nm1.ID), "ID should remain stable across SetNodeModel calls")
@@ -199,7 +199,7 @@ var _ = Describe("NodeRegistry", func() {
 			Expect(registry.Register(context.Background(), idle, true)).To(Succeed())
 
 			// Load a model on the busy node
-			Expect(registry.SetNodeModel(context.Background(), busy.ID, "model-a", "loaded", "", 0)).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), busy.ID, "model-a", 0, "loaded", "", 0)).To(Succeed())
 
 			found, err := registry.FindIdleNode(context.Background())
 			Expect(err).ToNot(HaveOccurred())
@@ -209,7 +209,7 @@ var _ = Describe("NodeRegistry", func() {
 		It("returns error when all nodes have models loaded", func() {
 			n := makeNode("all-busy", "10.0.0.22:50051", 8_000_000_000)
 			Expect(registry.Register(context.Background(), n, true)).To(Succeed())
-			Expect(registry.SetNodeModel(context.Background(), n.ID, "model-x", "loaded", "", 0)).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), n.ID, "model-x", 0, "loaded", "", 0)).To(Succeed())
 
 			_, err := registry.FindIdleNode(context.Background())
 			Expect(err).To(HaveOccurred())
@@ -224,13 +224,13 @@ var _ = Describe("NodeRegistry", func() {
 			Expect(registry.Register(context.Background(), light, true)).To(Succeed())
 
 			// Set up models with different in-flight counts
-			Expect(registry.SetNodeModel(context.Background(), heavy.ID, "model-a", "loaded", "", 0)).To(Succeed())
-			Expect(registry.IncrementInFlight(context.Background(), heavy.ID, "model-a")).To(Succeed())
-			Expect(registry.IncrementInFlight(context.Background(), heavy.ID, "model-a")).To(Succeed())
-			Expect(registry.IncrementInFlight(context.Background(), heavy.ID, "model-a")).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), heavy.ID, "model-a", 0, "loaded", "", 0)).To(Succeed())
+			Expect(registry.IncrementInFlight(context.Background(), heavy.ID, "model-a", 0)).To(Succeed())
+			Expect(registry.IncrementInFlight(context.Background(), heavy.ID, "model-a", 0)).To(Succeed())
+			Expect(registry.IncrementInFlight(context.Background(), heavy.ID, "model-a", 0)).To(Succeed())
 
-			Expect(registry.SetNodeModel(context.Background(), light.ID, "model-b", "loaded", "", 0)).To(Succeed())
-			Expect(registry.IncrementInFlight(context.Background(), light.ID, "model-b")).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), light.ID, "model-b", 0, "loaded", "", 0)).To(Succeed())
+			Expect(registry.IncrementInFlight(context.Background(), light.ID, "model-b", 0)).To(Succeed())
 
 			found, err := registry.FindLeastLoadedNode(context.Background())
 			Expect(err).ToNot(HaveOccurred())
@@ -242,7 +242,7 @@ var _ = Describe("NodeRegistry", func() {
 		It("returns the correct node and increments in-flight", func() {
 			node := makeNode("lock-node", "10.0.0.40:50051", 8_000_000_000)
 			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
-			Expect(registry.SetNodeModel(context.Background(), node.ID, "my-model", "loaded", "10.0.0.40:50052", 0)).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), node.ID, "my-model", 0, "loaded", "10.0.0.40:50052", 0)).To(Succeed())
 
 			foundNode, foundNM, err := registry.FindAndLockNodeWithModel(context.Background(), "my-model")
 			Expect(err).ToNot(HaveOccurred())
@@ -250,7 +250,7 @@ var _ = Describe("NodeRegistry", func() {
 			Expect(foundNM.ModelName).To(Equal("my-model"))
 
 			// Verify in-flight was incremented
-			nm, err := registry.GetNodeModel(context.Background(), node.ID, "my-model")
+			nm, err := registry.GetNodeModel(context.Background(), node.ID, "my-model", 0)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(nm.InFlight).To(Equal(1))
 		})
@@ -266,12 +266,12 @@ var _ = Describe("NodeRegistry", func() {
 			Expect(registry.Register(context.Background(), n1, true)).To(Succeed())
 			Expect(registry.Register(context.Background(), n2, true)).To(Succeed())
 
-			Expect(registry.SetNodeModel(context.Background(), n1.ID, "shared-model", "loaded", "", 0)).To(Succeed())
-			Expect(registry.SetNodeModel(context.Background(), n2.ID, "shared-model", "loaded", "", 0)).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), n1.ID, "shared-model", 0, "loaded", "", 0)).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), n2.ID, "shared-model", 0, "loaded", "", 0)).To(Succeed())
 
 			// Add in-flight to n1
-			Expect(registry.IncrementInFlight(context.Background(), n1.ID, "shared-model")).To(Succeed())
-			Expect(registry.IncrementInFlight(context.Background(), n1.ID, "shared-model")).To(Succeed())
+			Expect(registry.IncrementInFlight(context.Background(), n1.ID, "shared-model", 0)).To(Succeed())
+			Expect(registry.IncrementInFlight(context.Background(), n1.ID, "shared-model", 0)).To(Succeed())
 
 			foundNode, _, err := registry.FindAndLockNodeWithModel(context.Background(), "shared-model")
 			Expect(err).ToNot(HaveOccurred())
@@ -528,8 +528,8 @@ var _ = Describe("NodeRegistry", func() {
 			Expect(registry.Register(context.Background(), n1, true)).To(Succeed())
 			Expect(registry.Register(context.Background(), n2, true)).To(Succeed())
 
-			Expect(registry.SetNodeModel(context.Background(), n1.ID, "counted-model", "loaded", "", 0)).To(Succeed())
-			Expect(registry.SetNodeModel(context.Background(), n2.ID, "counted-model", "loaded", "", 0)).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), n1.ID, "counted-model", 0, "loaded", "", 0)).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), n2.ID, "counted-model", 0, "loaded", "", 0)).To(Succeed())
 
 			count, err := registry.CountLoadedReplicas(context.Background(), "counted-model")
 			Expect(err).ToNot(HaveOccurred())
@@ -542,8 +542,8 @@ var _ = Describe("NodeRegistry", func() {
 			Expect(registry.Register(context.Background(), n1, true)).To(Succeed())
 			Expect(registry.Register(context.Background(), n2, true)).To(Succeed())
 
-			Expect(registry.SetNodeModel(context.Background(), n1.ID, "state-model", "loaded", "", 0)).To(Succeed())
-			Expect(registry.SetNodeModel(context.Background(), n2.ID, "state-model", "loading", "", 0)).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), n1.ID, "state-model", 0, "loaded", "", 0)).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), n2.ID, "state-model", 0, "loading", "", 0)).To(Succeed())
 
 			count, err := registry.CountLoadedReplicas(context.Background(), "state-model")
 			Expect(err).ToNot(HaveOccurred())
@@ -555,12 +555,12 @@ var _ = Describe("NodeRegistry", func() {
 		It("does not go below zero", func() {
 			node := makeNode("dec-node", "10.0.0.50:50051", 4_000_000_000)
 			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
-			Expect(registry.SetNodeModel(context.Background(), node.ID, "dec-model", "loaded", "", 0)).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), node.ID, "dec-model", 0, "loaded", "", 0)).To(Succeed())
 
 			// in_flight starts at 0 — decrement should be a no-op
-			Expect(registry.DecrementInFlight(context.Background(), node.ID, "dec-model")).To(Succeed())
+			Expect(registry.DecrementInFlight(context.Background(), node.ID, "dec-model", 0)).To(Succeed())
 
-			nm, err := registry.GetNodeModel(context.Background(), node.ID, "dec-model")
+			nm, err := registry.GetNodeModel(context.Background(), node.ID, "dec-model", 0)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(nm.InFlight).To(Equal(0))
 		})
@@ -568,20 +568,382 @@ var _ = Describe("NodeRegistry", func() {
 		It("decrements correctly from a positive value", func() {
 			node := makeNode("dec-node-2", "10.0.0.51:50051", 4_000_000_000)
 			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
-			Expect(registry.SetNodeModel(context.Background(), node.ID, "dec-model-2", "loaded", "", 0)).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), node.ID, "dec-model-2", 0, "loaded", "", 0)).To(Succeed())
 
-			Expect(registry.IncrementInFlight(context.Background(), node.ID, "dec-model-2")).To(Succeed())
-			Expect(registry.IncrementInFlight(context.Background(), node.ID, "dec-model-2")).To(Succeed())
+			Expect(registry.IncrementInFlight(context.Background(), node.ID, "dec-model-2", 0)).To(Succeed())
+			Expect(registry.IncrementInFlight(context.Background(), node.ID, "dec-model-2", 0)).To(Succeed())
 
-			nm, err := registry.GetNodeModel(context.Background(), node.ID, "dec-model-2")
+			nm, err := registry.GetNodeModel(context.Background(), node.ID, "dec-model-2", 0)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(nm.InFlight).To(Equal(2))
 
-			Expect(registry.DecrementInFlight(context.Background(), node.ID, "dec-model-2")).To(Succeed())
+			Expect(registry.DecrementInFlight(context.Background(), node.ID, "dec-model-2", 0)).To(Succeed())
 
-			nm, err = registry.GetNodeModel(context.Background(), node.ID, "dec-model-2")
+			nm, err = registry.GetNodeModel(context.Background(), node.ID, "dec-model-2", 0)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(nm.InFlight).To(Equal(1))
+		})
+	})
+
+	Describe("Schema defaults", func() {
+		// These tests pin the GORM defaults that the multi-replica refactor
+		// relies on. If a future migration changes a default, the
+		// reconciler/router will silently misbehave (e.g. capacity 0 instead
+		// of 1) — these assertions catch that at the migration boundary.
+		It("BackendNode.MaxReplicasPerModel defaults to 1", func() {
+			node := makeNode("schema-default-mrpm", "10.0.0.200:50051", 4_000_000_000)
+			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
+
+			fetched, err := registry.Get(context.Background(), node.ID)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(fetched.MaxReplicasPerModel).To(Equal(1),
+				"old workers don't send the field; default must preserve single-replica behavior")
+		})
+
+		It("BackendNode.ReservedVRAM defaults to 0", func() {
+			node := makeNode("schema-default-reserved", "10.0.0.201:50051", 4_000_000_000)
+			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
+
+			fetched, err := registry.Get(context.Background(), node.ID)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(fetched.ReservedVRAM).To(Equal(uint64(0)))
+		})
+
+		It("NodeModel.ReplicaIndex defaults to 0", func() {
+			node := makeNode("schema-default-replica", "10.0.0.202:50051", 4_000_000_000)
+			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), node.ID, "default-replica-model", 0, "loaded", "127.0.0.1:50100", 0)).To(Succeed())
+
+			nm, err := registry.GetNodeModel(context.Background(), node.ID, "default-replica-model", 0)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(nm).ToNot(BeNil())
+			Expect(nm.ReplicaIndex).To(Equal(0))
+		})
+
+		It("ModelSchedulingConfig.UnsatisfiableUntil is nullable and defaults to nil", func() {
+			cfg := &ModelSchedulingConfig{
+				ModelName:   "schema-default-unsat",
+				MinReplicas: 1,
+			}
+			Expect(registry.SetModelScheduling(context.Background(), cfg)).To(Succeed())
+
+			fetched, err := registry.GetModelScheduling(context.Background(), "schema-default-unsat")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(fetched).ToNot(BeNil())
+			Expect(fetched.UnsatisfiableUntil).To(BeNil())
+			Expect(fetched.UnsatisfiableTicks).To(Equal(0))
+		})
+	})
+
+	Describe("Multi-replica registry", func() {
+		// PR2 tests: SetNodeModel with distinct replica indexes creates distinct
+		// rows; per-row mutations (Remove, Increment, Decrement, Touch) target
+		// only their indexed row so siblings are not orphaned.
+		It("SetNodeModel(replicaIndex=0) then SetNodeModel(replicaIndex=1) creates two distinct rows", func() {
+			node := makeNode("multi-1", "10.0.0.210:50051", 16_000_000_000)
+			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
+
+			Expect(registry.SetNodeModel(context.Background(), node.ID, "multi-model", 0, "loaded", "127.0.0.1:50100", 0)).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), node.ID, "multi-model", 1, "loaded", "127.0.0.1:50101", 0)).To(Succeed())
+
+			models, err := registry.GetNodeModels(context.Background(), node.ID)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(models).To(HaveLen(2))
+
+			byIdx := map[int]NodeModel{}
+			for _, m := range models {
+				byIdx[m.ReplicaIndex] = m
+			}
+			Expect(byIdx[0].Address).To(Equal("127.0.0.1:50100"))
+			Expect(byIdx[1].Address).To(Equal("127.0.0.1:50101"))
+			Expect(byIdx[0].ID).ToNot(Equal(byIdx[1].ID))
+		})
+
+		It("RemoveNodeModel(replicaIndex=0) leaves replica 1 intact", func() {
+			node := makeNode("multi-2", "10.0.0.211:50051", 16_000_000_000)
+			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), node.ID, "kept-model", 0, "loaded", "127.0.0.1:50110", 0)).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), node.ID, "kept-model", 1, "loaded", "127.0.0.1:50111", 0)).To(Succeed())
+
+			Expect(registry.RemoveNodeModel(context.Background(), node.ID, "kept-model", 0)).To(Succeed())
+
+			// Sibling replica must still exist — this was the latent bug pre-PR2:
+			// the WHERE clause matched both rows and orphaned the healthy sibling.
+			survivor, err := registry.GetNodeModel(context.Background(), node.ID, "kept-model", 1)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(survivor).ToNot(BeNil())
+			Expect(survivor.Address).To(Equal("127.0.0.1:50111"))
+
+			// Replica 0 is gone
+			_, err = registry.GetNodeModel(context.Background(), node.ID, "kept-model", 0)
+			Expect(err).To(HaveOccurred())
+		})
+
+		It("RemoveAllNodeModelReplicas deletes every replica of the model on the node", func() {
+			node := makeNode("multi-3", "10.0.0.212:50051", 16_000_000_000)
+			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), node.ID, "purge-model", 0, "loaded", "a", 0)).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), node.ID, "purge-model", 1, "loaded", "b", 0)).To(Succeed())
+
+			Expect(registry.RemoveAllNodeModelReplicas(context.Background(), node.ID, "purge-model")).To(Succeed())
+
+			models, err := registry.GetNodeModels(context.Background(), node.ID)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(models).To(BeEmpty())
+		})
+
+		It("IncrementInFlight only updates the targeted replica row", func() {
+			node := makeNode("multi-4", "10.0.0.213:50051", 16_000_000_000)
+			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), node.ID, "infl-model", 0, "loaded", "a", 0)).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), node.ID, "infl-model", 1, "loaded", "b", 0)).To(Succeed())
+
+			Expect(registry.IncrementInFlight(context.Background(), node.ID, "infl-model", 1)).To(Succeed())
+			Expect(registry.IncrementInFlight(context.Background(), node.ID, "infl-model", 1)).To(Succeed())
+
+			r0, err := registry.GetNodeModel(context.Background(), node.ID, "infl-model", 0)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(r0.InFlight).To(Equal(0), "replica 0 must not have been incremented")
+
+			r1, err := registry.GetNodeModel(context.Background(), node.ID, "infl-model", 1)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(r1.InFlight).To(Equal(2))
+		})
+
+		It("CountReplicasOnNode returns the per-(node, model) row count", func() {
+			node := makeNode("multi-5", "10.0.0.214:50051", 16_000_000_000)
+			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), node.ID, "count-model", 0, "loaded", "a", 0)).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), node.ID, "count-model", 1, "loaded", "b", 0)).To(Succeed())
+
+			n, err := registry.CountReplicasOnNode(context.Background(), node.ID, "count-model")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(n).To(Equal(2))
+		})
+
+		It("NextFreeReplicaIndex returns the lowest unused index < maxSlots", func() {
+			node := makeNode("multi-6", "10.0.0.215:50051", 16_000_000_000)
+			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
+
+			// Slot 0 free initially
+			idx, err := registry.NextFreeReplicaIndex(context.Background(), node.ID, "slot-model", 4)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(idx).To(Equal(0))
+
+			// Occupy 0 and 2 — next free is 1 (lowest gap)
+			Expect(registry.SetNodeModel(context.Background(), node.ID, "slot-model", 0, "loaded", "a", 0)).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), node.ID, "slot-model", 2, "loaded", "c", 0)).To(Succeed())
+			idx, err = registry.NextFreeReplicaIndex(context.Background(), node.ID, "slot-model", 4)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(idx).To(Equal(1), "must allocate the lowest free index for compactness")
+
+			// Fill all 4 — must return ErrNoFreeSlot
+			Expect(registry.SetNodeModel(context.Background(), node.ID, "slot-model", 1, "loaded", "b", 0)).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), node.ID, "slot-model", 3, "loaded", "d", 0)).To(Succeed())
+			_, err = registry.NextFreeReplicaIndex(context.Background(), node.ID, "slot-model", 4)
+			Expect(err).To(MatchError(ErrNoFreeSlot))
+
+			// maxSlots=0 always returns ErrNoFreeSlot
+			_, err = registry.NextFreeReplicaIndex(context.Background(), node.ID, "no-slots-model", 0)
+			Expect(err).To(MatchError(ErrNoFreeSlot))
+		})
+	})
+
+	Describe("ApplyAutoLabels", func() {
+		It("mirrors MaxReplicasPerModel as the node.replica-slots label", func() {
+			node := makeNode("auto-label-replicas", "10.0.0.220:50051", 16_000_000_000)
+			node.MaxReplicasPerModel = 4
+			node.GPUVendor = "nvidia"
+			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
+
+			registry.ApplyAutoLabels(context.Background(), node.ID, node)
+
+			labels, err := registry.GetNodeLabels(context.Background(), node.ID)
+			Expect(err).ToNot(HaveOccurred())
+			byKey := map[string]string{}
+			for _, l := range labels {
+				byKey[l.Key] = l.Value
+			}
+			Expect(byKey).To(HaveKeyWithValue("node.replica-slots", "4"),
+				"selectors targeting fat nodes need this auto-label")
+			Expect(byKey).To(HaveKeyWithValue("gpu.vendor", "nvidia"))
+		})
+
+		It("defaults node.replica-slots to 1 when MaxReplicasPerModel is unset", func() {
+			node := makeNode("auto-label-default", "10.0.0.221:50051", 4_000_000_000)
+			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
+
+			// Fetch back; default should be 1 (PR1 schema test)
+			fetched, _ := registry.Get(context.Background(), node.ID)
+			Expect(fetched.MaxReplicasPerModel).To(Equal(1))
+
+			registry.ApplyAutoLabels(context.Background(), node.ID, fetched)
+
+			labels, _ := registry.GetNodeLabels(context.Background(), node.ID)
+			byKey := map[string]string{}
+			for _, l := range labels {
+				byKey[l.Key] = l.Value
+			}
+			Expect(byKey).To(HaveKeyWithValue("node.replica-slots", "1"))
+		})
+	})
+
+	Describe("VRAM soft-reservation (PR5)", func() {
+		// These tests pin the soft-reservation contract: ReserveVRAM is the
+		// admission gate that prevents two concurrent scheduling decisions
+		// from over-committing the same node within one heartbeat window.
+		It("ReserveVRAM atomically deducts from effectively-free VRAM", func() {
+			node := makeNode("reserve-1", "10.0.0.230:50051", 10_000_000_000)
+			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
+
+			Expect(registry.ReserveVRAM(context.Background(), node.ID, 3_000_000_000)).To(Succeed())
+
+			fetched, _ := registry.Get(context.Background(), node.ID)
+			Expect(fetched.ReservedVRAM).To(Equal(uint64(3_000_000_000)))
+		})
+
+		It("ReserveVRAM rejects when effectively-free VRAM is insufficient", func() {
+			node := makeNode("reserve-2", "10.0.0.231:50051", 5_000_000_000)
+			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
+
+			// First reservation fits.
+			Expect(registry.ReserveVRAM(context.Background(), node.ID, 4_000_000_000)).To(Succeed())
+			// Second is too big — only 1 GB effectively free.
+			err := registry.ReserveVRAM(context.Background(), node.ID, 2_000_000_000)
+			Expect(err).To(MatchError(ErrInsufficientVRAM))
+
+			fetched, _ := registry.Get(context.Background(), node.ID)
+			Expect(fetched.ReservedVRAM).To(Equal(uint64(4_000_000_000)),
+				"failed reservation must not bump the column")
+		})
+
+		It("ReserveVRAM with bytes=0 is a no-op", func() {
+			node := makeNode("reserve-3", "10.0.0.232:50051", 1_000_000)
+			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
+			Expect(registry.ReserveVRAM(context.Background(), node.ID, 0)).To(Succeed())
+
+			fetched, _ := registry.Get(context.Background(), node.ID)
+			Expect(fetched.ReservedVRAM).To(Equal(uint64(0)))
+		})
+
+		It("ReleaseVRAM returns reserved bytes to the pool", func() {
+			node := makeNode("release-1", "10.0.0.233:50051", 10_000_000_000)
+			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
+			Expect(registry.ReserveVRAM(context.Background(), node.ID, 4_000_000_000)).To(Succeed())
+
+			Expect(registry.ReleaseVRAM(context.Background(), node.ID, 1_000_000_000)).To(Succeed())
+
+			fetched, _ := registry.Get(context.Background(), node.ID)
+			Expect(fetched.ReservedVRAM).To(Equal(uint64(3_000_000_000)))
+		})
+
+		It("ReleaseVRAM cannot underflow past zero", func() {
+			node := makeNode("release-underflow", "10.0.0.234:50051", 1_000_000_000)
+			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
+
+			// No reservation; release is a guarded no-op rather than wrapping
+			// uint64 to a huge positive number.
+			Expect(registry.ReleaseVRAM(context.Background(), node.ID, 5_000_000_000)).To(Succeed())
+
+			fetched, _ := registry.Get(context.Background(), node.ID)
+			Expect(fetched.ReservedVRAM).To(Equal(uint64(0)))
+		})
+
+		It("Heartbeat with available_vram resets reserved_vram to 0", func() {
+			node := makeNode("heartbeat-reset", "10.0.0.235:50051", 10_000_000_000)
+			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
+			Expect(registry.ReserveVRAM(context.Background(), node.ID, 5_000_000_000)).To(Succeed())
+
+			fresh := uint64(8_000_000_000)
+			Expect(registry.Heartbeat(context.Background(), node.ID, &HeartbeatUpdate{AvailableVRAM: &fresh})).To(Succeed())
+
+			fetched, _ := registry.Get(context.Background(), node.ID)
+			Expect(fetched.AvailableVRAM).To(Equal(fresh),
+				"heartbeat must overwrite available_vram with the worker's reading")
+			Expect(fetched.ReservedVRAM).To(Equal(uint64(0)),
+				"heartbeat must clear the soft reservation — worker is the source of truth")
+		})
+
+		It("UpdateMaxReplicasPerModel marks the value as a sticky override", func() {
+			// The original UX bug: workers default the flag to 1, so every
+			// re-registration silently reverted the admin's UI value. This
+			// test pins the fix.
+			node := &BackendNode{
+				Name:                "override-survives",
+				NodeType:            NodeTypeBackend,
+				Address:             "10.0.0.240:50051",
+				MaxReplicasPerModel: 1,
+			}
+			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
+
+			// Admin sets capacity to 4 via the UI.
+			Expect(registry.UpdateMaxReplicasPerModel(context.Background(), node.ID, 4)).To(Succeed())
+
+			fetched, _ := registry.Get(context.Background(), node.ID)
+			Expect(fetched.MaxReplicasPerModel).To(Equal(4))
+			Expect(fetched.MaxReplicasPerModelManuallySet).To(BeTrue())
+
+			// Worker re-registers with its default of 1 (operator never set the flag).
+			restart := &BackendNode{
+				Name:                "override-survives",
+				NodeType:            NodeTypeBackend,
+				Address:             "10.0.0.240:50051",
+				MaxReplicasPerModel: 1,
+			}
+			Expect(registry.Register(context.Background(), restart, true)).To(Succeed())
+
+			// Override must have survived.
+			fetched, _ = registry.Get(context.Background(), node.ID)
+			Expect(fetched.MaxReplicasPerModel).To(Equal(4),
+				"admin override must not be overwritten by worker re-registration")
+			Expect(fetched.MaxReplicasPerModelManuallySet).To(BeTrue())
+		})
+
+		It("ResetMaxReplicasPerModel hands control back to the worker", func() {
+			node := &BackendNode{
+				Name:                "override-reset",
+				NodeType:            NodeTypeBackend,
+				Address:             "10.0.0.241:50051",
+				MaxReplicasPerModel: 1,
+			}
+			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
+			Expect(registry.UpdateMaxReplicasPerModel(context.Background(), node.ID, 4)).To(Succeed())
+
+			Expect(registry.ResetMaxReplicasPerModel(context.Background(), node.ID)).To(Succeed())
+
+			// Reset only flips the flag; the value stays until the worker
+			// re-registers (we don't presume to know what the worker wants).
+			fetched, _ := registry.Get(context.Background(), node.ID)
+			Expect(fetched.MaxReplicasPerModelManuallySet).To(BeFalse())
+
+			// Now worker re-registers with 8.
+			restart := &BackendNode{
+				Name:                "override-reset",
+				NodeType:            NodeTypeBackend,
+				Address:             "10.0.0.241:50051",
+				MaxReplicasPerModel: 8,
+			}
+			Expect(registry.Register(context.Background(), restart, true)).To(Succeed())
+
+			fetched, _ = registry.Get(context.Background(), node.ID)
+			Expect(fetched.MaxReplicasPerModel).To(Equal(8),
+				"after reset, the worker's value should apply")
+		})
+
+		It("FindNodeWithVRAM honors the reservation", func() {
+			small := makeNode("find-vram-small", "10.0.0.236:50051", 5_000_000_000)
+			big := makeNode("find-vram-big", "10.0.0.237:50051", 20_000_000_000)
+			Expect(registry.Register(context.Background(), small, true)).To(Succeed())
+			Expect(registry.Register(context.Background(), big, true)).To(Succeed())
+
+			// Reserve almost all of the big node so its effective free
+			// drops below the request — small isn't big enough either —
+			// the call must return an error.
+			Expect(registry.ReserveVRAM(context.Background(), big.ID, 18_000_000_000)).To(Succeed())
+
+			_, err := registry.FindNodeWithVRAM(context.Background(), 8_000_000_000)
+			Expect(err).To(HaveOccurred(),
+				"reserved capacity must remove a node from VRAM-aware candidates")
 		})
 	})
 })

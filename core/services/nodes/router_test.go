@@ -118,36 +118,52 @@ func (f *fakeModelRouter) FindAndLockNodeWithModel(_ context.Context, modelName 
 	return f.findAndLockNode, f.findAndLockNM, f.findAndLockErr
 }
 
-func (f *fakeModelRouter) DecrementInFlight(_ context.Context, nodeID, modelName string) error {
+func (f *fakeModelRouter) DecrementInFlight(_ context.Context, nodeID, modelName string, _ int) error {
 	f.decrementCalls = append(f.decrementCalls, nodeID+":"+modelName)
 	return nil
 }
 
-func (f *fakeModelRouter) IncrementInFlight(_ context.Context, nodeID, modelName string) error {
+func (f *fakeModelRouter) IncrementInFlight(_ context.Context, nodeID, modelName string, _ int) error {
 	f.incrementCalls = append(f.incrementCalls, nodeID+":"+modelName)
 	return nil
 }
 
-func (f *fakeModelRouter) RemoveNodeModel(_ context.Context, nodeID, modelName string) error {
+func (f *fakeModelRouter) RemoveNodeModel(_ context.Context, nodeID, modelName string, _ int) error {
 	f.removeCalls = append(f.removeCalls, nodeID+":"+modelName)
 	return nil
 }
 
-func (f *fakeModelRouter) TouchNodeModel(_ context.Context, nodeID, modelName string) {
+func (f *fakeModelRouter) RemoveAllNodeModelReplicas(_ context.Context, nodeID, modelName string) error {
+	// Same recorded key as RemoveNodeModel so existing tests that assert "the
+	// model was removed" don't need to know whether the production code used
+	// the per-replica or all-replicas variant.
+	f.removeCalls = append(f.removeCalls, nodeID+":"+modelName)
+	return nil
+}
+
+func (f *fakeModelRouter) TouchNodeModel(_ context.Context, nodeID, modelName string, _ int) {
 	f.touchCalls = append(f.touchCalls, nodeID+":"+modelName)
 }
 
-func (f *fakeModelRouter) SetNodeModel(_ context.Context, nodeID, modelName, state, address string, _ int) error {
+func (f *fakeModelRouter) SetNodeModel(_ context.Context, nodeID, modelName string, _ int, state, address string, _ int) error {
 	f.setCalls = append(f.setCalls, fmt.Sprintf("%s:%s:%s:%s", nodeID, modelName, state, address))
 	return nil
 }
 
-func (f *fakeModelRouter) SetNodeModelLoadInfo(_ context.Context, _, _, _ string, _ []byte) error {
+func (f *fakeModelRouter) SetNodeModelLoadInfo(_ context.Context, _, _ string, _ int, _ string, _ []byte) error {
 	return nil
 }
 
 func (f *fakeModelRouter) GetModelLoadInfo(_ context.Context, _ string) (string, []byte, error) {
 	return "", nil, fmt.Errorf("not found")
+}
+
+func (f *fakeModelRouter) NextFreeReplicaIndex(_ context.Context, _, _ string, _ int) (int, error) {
+	return 0, nil
+}
+
+func (f *fakeModelRouter) CountReplicasOnNode(_ context.Context, _, _ string) (int, error) {
+	return 0, nil
 }
 
 func (f *fakeModelRouter) FindNodeWithVRAM(_ context.Context, _ uint64) (*BackendNode, error) {
@@ -180,6 +196,20 @@ func (f *fakeModelRouter) GetModelScheduling(_ context.Context, _ string) (*Mode
 
 func (f *fakeModelRouter) FindNodesBySelector(_ context.Context, _ map[string]string) ([]BackendNode, error) {
 	return f.findBySelectorNodes, f.findBySelectorErr
+}
+
+func (f *fakeModelRouter) FindNodesWithFreeSlot(_ context.Context, _ string, _ []string) ([]BackendNode, error) {
+	// Default: same answer as FindNodesBySelector. Tests that need a
+	// specific filter can override by reusing findBySelectorNodes.
+	return f.findBySelectorNodes, f.findBySelectorErr
+}
+
+func (f *fakeModelRouter) ReserveVRAM(_ context.Context, _ string, _ uint64) error {
+	return nil
+}
+
+func (f *fakeModelRouter) ReleaseVRAM(_ context.Context, _ string, _ uint64) error {
+	return nil
 }
 
 func (f *fakeModelRouter) FindNodeWithVRAMFromSet(_ context.Context, _ uint64, _ []string) (*BackendNode, error) {
@@ -244,7 +274,7 @@ type fakeUnloader struct {
 	unloadErr    error
 }
 
-func (f *fakeUnloader) InstallBackend(_, _, _, _, _, _, _ string) (*messaging.BackendInstallReply, error) {
+func (f *fakeUnloader) InstallBackend(_, _, _, _, _, _, _ string, _ int) (*messaging.BackendInstallReply, error) {
 	return f.installReply, f.installErr
 }
 
@@ -690,8 +720,8 @@ var _ = Describe("SmartRouter", func() {
 			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
 
 			// Load a model and give it in-flight requests so it cannot be evicted
-			Expect(registry.SetNodeModel(context.Background(), node.ID, "busy-model", "loaded", "", 0)).To(Succeed())
-			Expect(registry.IncrementInFlight(context.Background(), node.ID, "busy-model")).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), node.ID, "busy-model", 0, "loaded", "", 0)).To(Succeed())
+			Expect(registry.IncrementInFlight(context.Background(), node.ID, "busy-model", 0)).To(Succeed())
 
 			router := NewSmartRouter(registry, SmartRouterOptions{DB: db})
 
@@ -711,8 +741,8 @@ var _ = Describe("SmartRouter", func() {
 				Address:  "10.0.0.101:50051",
 			}
 			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
-			Expect(registry.SetNodeModel(context.Background(), node.ID, "cancel-model", "loaded", "", 0)).To(Succeed())
-			Expect(registry.IncrementInFlight(context.Background(), node.ID, "cancel-model")).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), node.ID, "cancel-model", 0, "loaded", "", 0)).To(Succeed())
+			Expect(registry.IncrementInFlight(context.Background(), node.ID, "cancel-model", 0)).To(Succeed())
 
 			router := NewSmartRouter(registry, SmartRouterOptions{DB: db})
 

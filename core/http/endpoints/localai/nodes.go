@@ -73,6 +73,10 @@ type RegisterNodeRequest struct {
 	AvailableRAM  uint64 `json:"available_ram,omitempty"`
 	GPUVendor     string            `json:"gpu_vendor,omitempty"`
 	Labels        map[string]string `json:"labels,omitempty"`
+	// MaxReplicasPerModel is the per-node cap on replicas of any single model.
+	// Workers older than this field omit it; we coerce 0 → 1 below to preserve
+	// historical single-replica behavior.
+	MaxReplicasPerModel int `json:"max_replicas_per_model,omitempty"`
 }
 
 // RegisterNodeEndpoint registers a new backend node.
@@ -131,17 +135,26 @@ func RegisterNodeEndpoint(registry *nodes.NodeRegistry, expectedToken string, au
 			tokenHash = hex.EncodeToString(h[:])
 		}
 
+		// Coerce 0 → 1 for backward compat with workers that don't send the field.
+		// GORM's `default:1` only fires for a missing column; once Go zero-values
+		// reach the struct field they're written as 0 unless explicitly set here.
+		maxReplicasPerModel := req.MaxReplicasPerModel
+		if maxReplicasPerModel < 1 {
+			maxReplicasPerModel = 1
+		}
+
 		node := &nodes.BackendNode{
-			Name:          req.Name,
-			NodeType:      nodeType,
-			Address:       req.Address,
-			HTTPAddress:   req.HTTPAddress,
-			TokenHash:     tokenHash,
-			TotalVRAM:     req.TotalVRAM,
-			AvailableVRAM: req.AvailableVRAM,
-			TotalRAM:      req.TotalRAM,
-			AvailableRAM:  req.AvailableRAM,
-			GPUVendor:     req.GPUVendor,
+			Name:                req.Name,
+			NodeType:            nodeType,
+			Address:             req.Address,
+			HTTPAddress:         req.HTTPAddress,
+			TokenHash:           tokenHash,
+			TotalVRAM:           req.TotalVRAM,
+			AvailableVRAM:       req.AvailableVRAM,
+			TotalRAM:            req.TotalRAM,
+			AvailableRAM:        req.AvailableRAM,
+			GPUVendor:           req.GPUVendor,
+			MaxReplicasPerModel: maxReplicasPerModel,
 		}
 
 		ctx := c.Request().Context()
@@ -386,7 +399,10 @@ func InstallBackendOnNodeEndpoint(unloader nodes.NodeCommandSender) echo.Handler
 		if req.Backend == "" && req.URI == "" {
 			return c.JSON(http.StatusBadRequest, nodeError(http.StatusBadRequest, "backend name or uri required"))
 		}
-		reply, err := unloader.InstallBackend(nodeID, req.Backend, "", req.BackendGalleries, req.URI, req.Name, req.Alias)
+		// Admin-driven backend install: not tied to a specific replica slot
+		// (no model is being loaded). Pass replica 0 to match the worker's
+		// admin process-key convention (`backend#0`).
+		reply, err := unloader.InstallBackend(nodeID, req.Backend, "", req.BackendGalleries, req.URI, req.Name, req.Alias, 0)
 		if err != nil {
 			xlog.Error("Failed to install backend on node", "node", nodeID, "backend", req.Backend, "uri", req.URI, "error", err)
 			return c.JSON(http.StatusInternalServerError, nodeError(http.StatusInternalServerError, "failed to install backend on node"))
@@ -467,8 +483,8 @@ func UnloadModelOnNodeEndpoint(unloader nodes.NodeCommandSender, registry *nodes
 			xlog.Error("Failed to stop backend after model unload", "node", nodeID, "model", req.ModelName, "error", err)
 			return c.JSON(http.StatusInternalServerError, nodeError(http.StatusInternalServerError, "model unloaded but backend stop failed"))
 		}
-		// Remove from registry
-		registry.RemoveNodeModel(c.Request().Context(), nodeID, req.ModelName)
+		// Remove every replica of this model on the node from the registry.
+		registry.RemoveAllNodeModelReplicas(c.Request().Context(), nodeID, req.ModelName)
 		return c.JSON(http.StatusOK, map[string]string{"message": "model unloaded"})
 	}
 }
@@ -494,7 +510,7 @@ func DeleteModelOnNodeEndpoint(unloader nodes.NodeCommandSender, registry *nodes
 			// Non-fatal — backend process may not be running
 			xlog.Warn("StopBackend failed during model deletion (non-fatal)", "node", nodeID, "model", req.ModelName, "error", err)
 		}
-		registry.RemoveNodeModel(c.Request().Context(), nodeID, req.ModelName)
+		registry.RemoveAllNodeModelReplicas(c.Request().Context(), nodeID, req.ModelName)
 		return c.JSON(http.StatusOK, map[string]string{"message": "model deleted from node"})
 	}
 }
@@ -666,6 +682,78 @@ func GetNodeLabelsEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
 			result[l.Key] = l.Value
 		}
 		return c.JSON(http.StatusOK, result)
+	}
+}
+
+// UpdateMaxReplicasPerModelRequest is the body for the per-node replica cap endpoint.
+type UpdateMaxReplicasPerModelRequest struct {
+	// Value is the new per-model replica cap on this node. Must be >= 1.
+	Value int `json:"value"`
+}
+
+// UpdateMaxReplicasPerModelEndpoint sets the per-node cap on how many replicas
+// of any one model can be loaded concurrently. The corresponding
+// `node.replica-slots` auto-label is refreshed so existing AND-selectors keep
+// matching, and any unsatisfiable scheduling cooldowns are cleared so the
+// reconciler retries on the next tick.
+//
+// This is a transient admin override — a worker re-registration restores the
+// value the worker was started with (--max-replicas-per-model). For permanent
+// fleet changes, change the worker flag.
+//
+// @Summary Update a node's max replicas per model
+// @Tags Nodes
+// @Param id path string true "Node ID"
+// @Param request body UpdateMaxReplicasPerModelRequest true "New value"
+// @Success 200 {object} map[string]int
+// @Failure 400 {object} map[string]any "value must be >= 1"
+// @Failure 404 {object} map[string]any "node not found"
+// @Router /api/nodes/{id}/max-replicas-per-model [put]
+func UpdateMaxReplicasPerModelEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		ctx := c.Request().Context()
+		nodeID := c.Param("id")
+		if _, err := registry.Get(ctx, nodeID); err != nil {
+			return c.JSON(http.StatusNotFound, nodeError(http.StatusNotFound, "node not found"))
+		}
+		var req UpdateMaxReplicasPerModelRequest
+		if err := c.Bind(&req); err != nil {
+			return c.JSON(http.StatusBadRequest, nodeError(http.StatusBadRequest, "invalid request body"))
+		}
+		if req.Value < 1 {
+			return c.JSON(http.StatusBadRequest, nodeError(http.StatusBadRequest, "value must be >= 1"))
+		}
+		if err := registry.UpdateMaxReplicasPerModel(ctx, nodeID, req.Value); err != nil {
+			xlog.Error("Failed to update max_replicas_per_model", "node", nodeID, "value", req.Value, "error", err)
+			return c.JSON(http.StatusInternalServerError, nodeError(http.StatusInternalServerError, "failed to update max replicas per model"))
+		}
+		return c.JSON(http.StatusOK, map[string]int{"max_replicas_per_model": req.Value})
+	}
+}
+
+// ResetMaxReplicasPerModelEndpoint clears the admin override on a node, so
+// the next worker re-registration is allowed to update the value from its
+// CLI flag again. The current value is left in place until the worker calls
+// register.
+//
+// @Summary Reset a node's max replicas per model to the worker default
+// @Tags Nodes
+// @Param id path string true "Node ID"
+// @Success 200 {object} map[string]bool
+// @Failure 404 {object} map[string]any "node not found"
+// @Router /api/nodes/{id}/max-replicas-per-model [delete]
+func ResetMaxReplicasPerModelEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		ctx := c.Request().Context()
+		nodeID := c.Param("id")
+		if _, err := registry.Get(ctx, nodeID); err != nil {
+			return c.JSON(http.StatusNotFound, nodeError(http.StatusNotFound, "node not found"))
+		}
+		if err := registry.ResetMaxReplicasPerModel(ctx, nodeID); err != nil {
+			xlog.Error("Failed to reset max_replicas_per_model override", "node", nodeID, "error", err)
+			return c.JSON(http.StatusInternalServerError, nodeError(http.StatusInternalServerError, "failed to reset override"))
+		}
+		return c.JSON(http.StatusOK, map[string]bool{"reset": true})
 	}
 }
 

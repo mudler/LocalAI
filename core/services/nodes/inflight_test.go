@@ -22,14 +22,14 @@ type fakeInFlightTracker struct {
 	incrementErr error
 }
 
-func (f *fakeInFlightTracker) IncrementInFlight(_ context.Context, _, _ string) error {
+func (f *fakeInFlightTracker) IncrementInFlight(_ context.Context, _, _ string, _ int) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.increments++
 	return f.incrementErr
 }
 
-func (f *fakeInFlightTracker) DecrementInFlight(_ context.Context, _, _ string) error {
+func (f *fakeInFlightTracker) DecrementInFlight(_ context.Context, _, _ string, _ int) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.decrements++
@@ -218,7 +218,7 @@ var _ = Describe("InFlightTrackingClient", func() {
 			predictReply:  &pb.Reply{Message: []byte("hello")},
 			streamReplies: []*pb.Reply{{Message: []byte("chunk")}},
 		}
-		client = NewInFlightTrackingClient(backend, tracker, "node-1", "llama")
+		client = NewInFlightTrackingClient(backend, tracker, "node-1", "llama", 0)
 	})
 
 	Describe("track", func() {

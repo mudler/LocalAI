@@ -481,6 +481,17 @@ export const nodesApi = {
   getLabels: (id) => fetchJSON(API_CONFIG.endpoints.nodeLabels(id)),
   mergeLabels: (id, labels) => fetchJSON(API_CONFIG.endpoints.nodeLabels(id), { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(labels) }),
   deleteLabel: (id, key) => fetchJSON(API_CONFIG.endpoints.nodeLabelKey(id, key), { method: 'DELETE' }),
+  // Set a sticky admin override for the per-node replica cap. The override
+  // is preserved across worker restarts; call resetMaxReplicasPerModel to
+  // hand control back to the worker's CLI flag.
+  updateMaxReplicasPerModel: (id, value) => fetchJSON(API_CONFIG.endpoints.nodeMaxReplicasPerModel(id), {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ value }),
+  }),
+  resetMaxReplicasPerModel: (id) => fetchJSON(API_CONFIG.endpoints.nodeMaxReplicasPerModel(id), {
+    method: 'DELETE',
+  }),
   listScheduling: () => fetchJSON(API_CONFIG.endpoints.nodesScheduling),
   setScheduling: (config) => postJSON(API_CONFIG.endpoints.nodesScheduling, config),
   deleteScheduling: (model) => fetchJSON(API_CONFIG.endpoints.nodesSchedulingModel(model), { method: 'DELETE' }),

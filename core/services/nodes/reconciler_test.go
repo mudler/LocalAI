@@ -48,12 +48,18 @@ var _ = Describe("ReplicaReconciler", func() {
 		Expect(err).ToNot(HaveOccurred())
 	})
 
-	// Helper to register a healthy node.
+	// Helper to register a healthy node with enough replica capacity for
+	// most tests. Pre-PR4 the reconciler ignored capacity, so existing
+	// fixtures didn't bother setting MaxReplicasPerModel — bumping the
+	// default here keeps the test intent ("scale up enough") working under
+	// the new capacity-aware logic. Tests that specifically exercise the
+	// circuit breaker should register nodes with a tighter cap.
 	registerNode := func(name, address string) *BackendNode {
 		node := &BackendNode{
-			Name:     name,
-			NodeType: NodeTypeBackend,
-			Address:  address,
+			Name:                name,
+			NodeType:            NodeTypeBackend,
+			Address:             address,
+			MaxReplicasPerModel: 4,
 		}
 		Expect(registry.Register(context.Background(), node, true)).To(Succeed())
 		return node
@@ -99,12 +105,12 @@ var _ = Describe("ReplicaReconciler", func() {
 			setSchedulingConfig("model-b", 1, 4, "")
 
 			// Load 2 replicas, both busy (in_flight > 0)
-			Expect(registry.SetNodeModel(context.Background(), node.ID, "model-b", "loaded", "addr1", 0)).To(Succeed())
-			Expect(registry.IncrementInFlight(context.Background(), node.ID, "model-b")).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), node.ID, "model-b", 0, "loaded", "addr1", 0)).To(Succeed())
+			Expect(registry.IncrementInFlight(context.Background(), node.ID, "model-b", 0)).To(Succeed())
 
 			node2 := registerNode("node-busy-2", "10.0.0.3:50051")
-			Expect(registry.SetNodeModel(context.Background(), node2.ID, "model-b", "loaded", "addr2", 0)).To(Succeed())
-			Expect(registry.IncrementInFlight(context.Background(), node2.ID, "model-b")).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), node2.ID, "model-b", 0, "loaded", "addr2", 0)).To(Succeed())
+			Expect(registry.IncrementInFlight(context.Background(), node2.ID, "model-b", 0)).To(Succeed())
 
 			scheduler := &fakeScheduler{
 				scheduleNode: node,
@@ -128,12 +134,12 @@ var _ = Describe("ReplicaReconciler", func() {
 			setSchedulingConfig("model-c", 1, 2, "")
 
 			// Load 2 replicas (at max), both busy
-			Expect(registry.SetNodeModel(context.Background(), node.ID, "model-c", "loaded", "addr1", 0)).To(Succeed())
-			Expect(registry.IncrementInFlight(context.Background(), node.ID, "model-c")).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), node.ID, "model-c", 0, "loaded", "addr1", 0)).To(Succeed())
+			Expect(registry.IncrementInFlight(context.Background(), node.ID, "model-c", 0)).To(Succeed())
 
 			node2 := registerNode("node-max-2", "10.0.0.5:50051")
-			Expect(registry.SetNodeModel(context.Background(), node2.ID, "model-c", "loaded", "addr2", 0)).To(Succeed())
-			Expect(registry.IncrementInFlight(context.Background(), node2.ID, "model-c")).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), node2.ID, "model-c", 0, "loaded", "addr2", 0)).To(Succeed())
+			Expect(registry.IncrementInFlight(context.Background(), node2.ID, "model-c", 0)).To(Succeed())
 
 			scheduler := &fakeScheduler{
 				scheduleNode: node,
@@ -160,7 +166,7 @@ var _ = Describe("ReplicaReconciler", func() {
 			// Load 3 replicas, all idle with last_used in the past
 			pastTime := time.Now().Add(-10 * time.Minute)
 			for _, n := range []*BackendNode{node1, node2, node3} {
-				Expect(registry.SetNodeModel(context.Background(), n.ID, "model-d", "loaded", "", 0)).To(Succeed())
+				Expect(registry.SetNodeModel(context.Background(), n.ID, "model-d", 0, "loaded", "", 0)).To(Succeed())
 				// Set last_used to past time to trigger scale-down
 				db.Model(&NodeModel{}).Where("node_id = ? AND model_name = ?", n.ID, "model-d").
 					Update("last_used", pastTime)
@@ -190,7 +196,7 @@ var _ = Describe("ReplicaReconciler", func() {
 			// Load exactly 2 replicas (at min), both idle with past last_used
 			pastTime := time.Now().Add(-10 * time.Minute)
 			for _, n := range []*BackendNode{node1, node2} {
-				Expect(registry.SetNodeModel(context.Background(), n.ID, "model-e", "loaded", "", 0)).To(Succeed())
+				Expect(registry.SetNodeModel(context.Background(), n.ID, "model-e", 0, "loaded", "", 0)).To(Succeed())
 				db.Model(&NodeModel{}).Where("node_id = ? AND model_name = ?", n.ID, "model-e").
 					Update("last_used", pastTime)
 			}
@@ -236,6 +242,185 @@ var _ = Describe("ReplicaReconciler", func() {
 			Expect(scheduler.scheduleCalls[0].modelName).To(Equal("model-f"))
 			Expect(scheduler.scheduleCalls[0].candidateIDs).To(ContainElement(node1.ID))
 			Expect(scheduler.scheduleCalls[0].candidateIDs).ToNot(ContainElement(node2.ID))
+		})
+	})
+
+	Describe("Capacity gating + circuit breaker (PR4)", func() {
+		// Helper: register a node with an explicit per-model replica cap.
+		// Tests in this Describe block want to exercise both "fits" and
+		// "doesn't fit" capacity scenarios precisely.
+		registerCappedNode := func(name, address string, cap int) *BackendNode {
+			node := &BackendNode{
+				Name:                name,
+				NodeType:            NodeTypeBackend,
+				Address:             address,
+				MaxReplicasPerModel: cap,
+			}
+			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
+			return node
+		}
+
+		It("caps scale-up at cluster capacity instead of looping forever", func() {
+			// 1 node × 1 slot = capacity 1, but MinReplicas=2.
+			// Pre-PR4 this looped: every 30s "scaling up to meet minimum"
+			// because the registry never grew to 2. Post-PR4 the reconciler
+			// does the math up front and only schedules 1 (the achievable
+			// target), then flags unsatisfiable on the next ticks.
+			node := registerCappedNode("cap-1-slot", "10.0.0.40:50051", 1)
+			Expect(registry.SetModelScheduling(context.Background(), &ModelSchedulingConfig{
+				ModelName:   "tight-model",
+				MinReplicas: 2,
+			})).To(Succeed())
+
+			scheduler := &fakeScheduler{scheduleNode: node}
+			reconciler := NewReplicaReconciler(ReplicaReconcilerOptions{
+				Registry:  registry,
+				Scheduler: scheduler,
+				DB:        db,
+			})
+
+			reconciler.reconcile(context.Background())
+
+			Expect(scheduler.scheduleCalls).To(HaveLen(1),
+				"only 1 schedule call: capacity is 1, not the requested 2 — must not loop")
+		})
+
+		It("flags unsatisfiable after threshold consecutive ticks at capacity 0", func() {
+			// 1 node × 1 slot, already loaded. Capacity=0, but MinReplicas=2.
+			// Each tick increments UnsatisfiableTicks; once we cross the
+			// threshold the cooldown timestamp is set and further ticks
+			// short-circuit (the scheduler is no longer called).
+			node := registerCappedNode("cb-node", "10.0.0.41:50051", 1)
+			Expect(registry.SetNodeModel(context.Background(), node.ID, "cb-model", 0, "loaded", "addr1", 0)).To(Succeed())
+			Expect(registry.SetModelScheduling(context.Background(), &ModelSchedulingConfig{
+				ModelName:   "cb-model",
+				MinReplicas: 2,
+			})).To(Succeed())
+
+			scheduler := &fakeScheduler{scheduleNode: node}
+			reconciler := NewReplicaReconciler(ReplicaReconcilerOptions{
+				Registry:  registry,
+				Scheduler: scheduler,
+				DB:        db,
+			})
+
+			// Drive enough ticks to cross the threshold, plus a couple more
+			// to confirm the cooldown holds.
+			for i := 0; i < unsatisfiableTickThreshold+2; i++ {
+				reconciler.reconcile(context.Background())
+			}
+
+			cfg, err := registry.GetModelScheduling(context.Background(), "cb-model")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(cfg.UnsatisfiableUntil).ToNot(BeNil(),
+				"reconciler must flag the config after threshold ticks of capacity exhaustion")
+			Expect(cfg.UnsatisfiableUntil.After(time.Now())).To(BeTrue(),
+				"cooldown must point to the future")
+			// Capacity 0 + cooldown active means the scheduler shouldn't have
+			// been invoked at all — capacity was 0 from the first tick.
+			Expect(scheduler.scheduleCalls).To(BeEmpty(),
+				"capacity was always 0 — no schedule attempts should have been made")
+		})
+
+		It("clears unsatisfiable on a successful scale-up", func() {
+			// Pre-flag the config (simulate a prior unsatisfiable run), then
+			// register enough capacity and tick — the reconciler must clear
+			// the flag and proceed.
+			node := registerCappedNode("clear-node", "10.0.0.42:50051", 4)
+			until := time.Now().Add(-1 * time.Second) // already-expired cooldown
+			Expect(registry.SetModelScheduling(context.Background(), &ModelSchedulingConfig{
+				ModelName:          "clear-model",
+				MinReplicas:        1,
+				UnsatisfiableTicks: 5,
+				UnsatisfiableUntil: &until,
+			})).To(Succeed())
+
+			scheduler := &fakeScheduler{scheduleNode: node}
+			reconciler := NewReplicaReconciler(ReplicaReconcilerOptions{
+				Registry:  registry,
+				Scheduler: scheduler,
+				DB:        db,
+			})
+
+			reconciler.reconcile(context.Background())
+
+			Expect(scheduler.scheduleCalls).To(HaveLen(1),
+				"expired cooldown should not block scheduling")
+
+			cfg, err := registry.GetModelScheduling(context.Background(), "clear-model")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(cfg.UnsatisfiableUntil).To(BeNil(), "successful scale-up must clear the cooldown")
+			Expect(cfg.UnsatisfiableTicks).To(Equal(0), "successful scale-up must reset the counter")
+		})
+
+		It("recovers when a new node joins (ClearAllUnsatisfiable on Register)", func() {
+			// One full node, then config flagged unsatisfiable. Adding a
+			// second node simulates the user's recovery question: capacity
+			// returns, cooldown clears, the next tick schedules.
+			node1 := registerCappedNode("rec-node-1", "10.0.0.43:50051", 1)
+			Expect(registry.SetNodeModel(context.Background(), node1.ID, "rec-model", 0, "loaded", "addr1", 0)).To(Succeed())
+
+			until := time.Now().Add(unsatisfiableCooldown)
+			Expect(registry.SetModelScheduling(context.Background(), &ModelSchedulingConfig{
+				ModelName:          "rec-model",
+				MinReplicas:        2,
+				UnsatisfiableTicks: unsatisfiableTickThreshold,
+				UnsatisfiableUntil: &until,
+			})).To(Succeed())
+
+			// New node registers — this is the recovery event.
+			registerCappedNode("rec-node-2", "10.0.0.44:50051", 1)
+
+			cfg, err := registry.GetModelScheduling(context.Background(), "rec-model")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(cfg.UnsatisfiableUntil).To(BeNil(),
+				"Register must clear unsatisfiable flags so the reconciler retries")
+			Expect(cfg.UnsatisfiableTicks).To(Equal(0))
+		})
+
+		It("recovers when node labels change (ClearAllUnsatisfiable on label ops)", func() {
+			node := registerCappedNode("lbl-node", "10.0.0.45:50051", 1)
+			until := time.Now().Add(unsatisfiableCooldown)
+			Expect(registry.SetModelScheduling(context.Background(), &ModelSchedulingConfig{
+				ModelName:          "lbl-model",
+				MinReplicas:        2,
+				UnsatisfiableTicks: unsatisfiableTickThreshold,
+				UnsatisfiableUntil: &until,
+			})).To(Succeed())
+
+			// Adding a label could change which models the node matches via
+			// a NodeSelector, so capacity for some config may have just
+			// changed. ClearAllUnsatisfiable lets the reconciler re-check.
+			Expect(registry.SetNodeLabel(context.Background(), node.ID, "tier", "fast")).To(Succeed())
+
+			cfg, err := registry.GetModelScheduling(context.Background(), "lbl-model")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(cfg.UnsatisfiableUntil).To(BeNil())
+		})
+	})
+
+	Describe("ClusterCapacityForModel", func() {
+		It("sums (max_replicas_per_model - replicas[node, model]) over candidates", func() {
+			// Three nodes with caps 4, 2, 1. Loaded counts: 1, 0, 1 → free
+			// slots: 3, 2, 0 → total capacity 5.
+			a := &BackendNode{Name: "cap-a", NodeType: NodeTypeBackend, Address: "10.0.0.50:50051", MaxReplicasPerModel: 4}
+			b := &BackendNode{Name: "cap-b", NodeType: NodeTypeBackend, Address: "10.0.0.51:50051", MaxReplicasPerModel: 2}
+			c := &BackendNode{Name: "cap-c", NodeType: NodeTypeBackend, Address: "10.0.0.52:50051", MaxReplicasPerModel: 1}
+			Expect(registry.Register(context.Background(), a, true)).To(Succeed())
+			Expect(registry.Register(context.Background(), b, true)).To(Succeed())
+			Expect(registry.Register(context.Background(), c, true)).To(Succeed())
+
+			Expect(registry.SetNodeModel(context.Background(), a.ID, "cap-model", 0, "loaded", "x", 0)).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), c.ID, "cap-model", 0, "loaded", "y", 0)).To(Succeed())
+
+			cap, err := registry.ClusterCapacityForModel(context.Background(), "cap-model", nil)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(cap).To(Equal(5))
+
+			// Restricting to {b, c}: b free=2, c free=0 → capacity 2.
+			cap, err = registry.ClusterCapacityForModel(context.Background(), "cap-model", []string{b.ID, c.ID})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(cap).To(Equal(2))
 		})
 	})
 })

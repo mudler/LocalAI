@@ -138,6 +138,7 @@ export const API_CONFIG = {
     nodeModelsUnload: (id) => `/api/nodes/${id}/models/unload`,
     nodeLabels: (id) => `/api/nodes/${id}/labels`,
     nodeLabelKey: (id, key) => `/api/nodes/${id}/labels/${key}`,
+    nodeMaxReplicasPerModel: (id) => `/api/nodes/${id}/max-replicas-per-model`,
     nodesScheduling: '/api/nodes/scheduling',
     nodesSchedulingModel: (model) => `/api/nodes/scheduling/${encodeURIComponent(model)}`,
   },
