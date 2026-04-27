@@ -1977,6 +1977,41 @@ select.input {
   opacity: 0.8;
 }
 
+/* Small caps eyebrow inside the drawer's "Manage" disclosure. Replaces the
+   h4 sub-headings that used to stack inside the drawer — at this depth, an
+   eyebrow keeps the typographic hierarchy from feeling parallel to the
+   page-level h1/h2 stack. */
+.drawer-eyebrow {
+  font-size: 0.6875rem;
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  margin-bottom: var(--spacing-xs);
+}
+
+/* "Manage" disclosure inside the node drawer. The chevron rotates with the
+   open state so the affordance reads as an accordion, not a link. */
+.node-manage > summary {
+  user-select: none;
+  outline: none;
+}
+.node-manage > summary::-webkit-details-marker {
+  display: none;
+}
+.node-manage > summary:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+.node-manage__chevron {
+  font-size: 0.625rem;
+  transition: transform var(--duration-fast) ease-out;
+}
+.node-manage[open] > summary .node-manage__chevron {
+  transform: rotate(90deg);
+}
+
 /* Node-status indicator — replaces the tiny bullet with a proper LED-style
    dot next to a bold status label. Colors are applied inline from statusConfig
    so one primitive handles healthy/unhealthy/draining/pending in one shape. */

@@ -109,9 +109,6 @@ function CapacityEditor({ node, loadedModelCounts, onUpdate, confirmShrink, addT
   return (
     <div style={{
       display: 'flex', alignItems: 'flex-start', gap: 'var(--spacing-md)',
-      padding: 'var(--spacing-sm) var(--spacing-md)', marginBottom: 'var(--spacing-md)',
-      background: 'var(--color-bg-tertiary)', borderRadius: 'var(--radius-sm)',
-      border: '1px solid var(--color-border-subtle)',
     }}>
       <i className="fas fa-layer-group" style={{ color: 'var(--color-text-muted)', marginTop: 3 }} aria-hidden="true" />
       <div style={{ flex: 1, minWidth: 0 }}>
@@ -379,57 +376,86 @@ function SchedulingForm({ onSave, onCancel }) {
     })
   }
 
-  const modeBtn = (value, label) => (
-    <button
-      className={`btn btn-sm ${mode === value ? 'btn-primary' : 'btn-secondary'}`}
-      onClick={() => setMode(value)}
-      style={{ flex: 1 }}
-    >{label}</button>
-  )
-
   return (
-    <div className="card" style={{ padding: 'var(--spacing-md)', marginBottom: 'var(--spacing-md)' }}>
-      <div style={{ display: 'flex', gap: 'var(--spacing-xs)', marginBottom: 'var(--spacing-sm)' }}>
-        {modeBtn('placement', 'Node Placement')}
-        {modeBtn('autoscaling', 'Auto-Scaling')}
+    <div className="card" style={{ padding: 'var(--spacing-lg)', marginBottom: 'var(--spacing-md)' }}>
+      {/* Mode selector \u2014 uses the project's segmented control instead of two
+          50%-width filled buttons that competed visually with the actual
+          primary action (Save). */}
+      <div role="radiogroup" aria-label="Scheduling mode" className="segmented" style={{ marginBottom: 'var(--spacing-xs)' }}>
+        <button
+          type="button" role="radio" aria-checked={mode === 'placement'}
+          className={`segmented__item${mode === 'placement' ? ' is-active' : ''}`}
+          onClick={() => setMode('placement')}
+        >
+          <i className="fas fa-thumbtack" aria-hidden="true" /> Pin to nodes
+        </button>
+        <button
+          type="button" role="radio" aria-checked={mode === 'autoscaling'}
+          className={`segmented__item${mode === 'autoscaling' ? ' is-active' : ''}`}
+          onClick={() => setMode('autoscaling')}
+        >
+          <i className="fas fa-arrows-up-down" aria-hidden="true" /> Auto-scale
+        </button>
       </div>
-      <p style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', margin: '0 0 var(--spacing-sm) 0' }}>
+      <p style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', margin: '0 0 var(--spacing-lg) 0' }}>
         {mode === 'placement'
-          ? 'Constrain which nodes this model can run on. Model loads on-demand and can be evicted when idle.'
-          : 'Automatically maintain replica counts across nodes. Models with min \u2265 1 are protected from eviction.'}
+          ? 'Restrict this model to specific nodes. Loaded on demand, evictable when idle.'
+          : 'Maintain a target replica count across the cluster. Min \u2265 1 protects from eviction.'}
       </p>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-sm)' }}>
+
+      {/* Linear vertical flow \u2014 model picker is the visual focus, then the
+          mode-specific fields below. No 2-column grid (the mismatched widths
+          made the form look raw). */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
         <div>
-          <label className="form-label">Model</label>
-          <select className="input" value={modelName} onChange={e => setModelName(e.target.value)}>
+          <label className="form-label" htmlFor="sched-model">Model</label>
+          <select id="sched-model" className="input" value={modelName} onChange={e => setModelName(e.target.value)}>
             <option value="">Select a model...</option>
             {models.map(m => <option key={m.id} value={m.id}>{m.id}</option>)}
           </select>
         </div>
+
         <div>
-          <label className="form-label">Node Selector{mode === 'placement' ? '' : ' (optional)'}</label>
-          <input className="input" type="text" value={selectorText} onChange={e => setSelectorText(e.target.value)}
-            placeholder="e.g. gpu.vendor=nvidia,tier=fast" />
-          {mode === 'autoscaling' && !selectorText.trim() && (
-            <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>Empty = all nodes</span>
-          )}
+          <label className="form-label" htmlFor="sched-selector">
+            Node selector{mode === 'placement' ? '' : ' (optional)'}
+          </label>
+          <input id="sched-selector" className="input" type="text"
+            value={selectorText} onChange={e => setSelectorText(e.target.value)}
+            placeholder="gpu.vendor=nvidia, tier=fast" />
+          <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', display: 'block', marginTop: 4 }}>
+            {mode === 'placement'
+              ? 'Comma-separated key=value pairs. Models load only on nodes matching all pairs.'
+              : (selectorText.trim() ? 'Replicas land only on matching nodes.' : 'Empty = any healthy node.')}
+          </span>
         </div>
-        {mode === 'autoscaling' && <>
-          <div>
-            <label className="form-label">Min Replicas</label>
-            <input className="input" type="number" min={0} value={minReplicas}
-              onChange={e => setMinReplicas(parseInt(e.target.value) || 0)} />
+
+        {mode === 'autoscaling' && (
+          <div style={{ display: 'flex', gap: 'var(--spacing-md)' }}>
+            <div style={{ flex: 1 }}>
+              <label className="form-label" htmlFor="sched-min">Min replicas</label>
+              <input id="sched-min" className="input" type="number" min={0} value={minReplicas}
+                onChange={e => setMinReplicas(parseInt(e.target.value) || 0)} />
+            </div>
+            <div style={{ flex: 1 }}>
+              <label className="form-label" htmlFor="sched-max">Max replicas</label>
+              <input id="sched-max" className="input" type="number" min={0} value={maxReplicas}
+                onChange={e => setMaxReplicas(parseInt(e.target.value) || 0)} />
+              <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', display: 'block', marginTop: 4 }}>
+                0 = no upper limit
+              </span>
+            </div>
           </div>
-          <div>
-            <label className="form-label">Max Replicas (0 = no limit)</label>
-            <input className="input" type="number" min={0} value={maxReplicas}
-              onChange={e => setMaxReplicas(parseInt(e.target.value) || 0)} />
-          </div>
-        </>}
+        )}
       </div>
-      <div style={{ display: 'flex', gap: 'var(--spacing-sm)', marginTop: 'var(--spacing-sm)', justifyContent: 'flex-end' }}>
+
+      {/* Hairline divider above the actions, matching the project's form pattern. */}
+      <div style={{
+        display: 'flex', gap: 'var(--spacing-sm)', justifyContent: 'flex-end',
+        marginTop: 'var(--spacing-lg)', paddingTop: 'var(--spacing-md)',
+        borderTop: '1px solid var(--color-border-subtle)',
+      }}>
         <button className="btn btn-secondary btn-sm" onClick={onCancel}>Cancel</button>
-        <button className="btn btn-primary btn-sm" onClick={handleSubmit} disabled={!isValid()}>Save</button>
+        <button className="btn btn-primary btn-sm" onClick={handleSubmit} disabled={!isValid()}>Save rule</button>
       </div>
     </div>
   )
@@ -1009,33 +1035,18 @@ export default function Nodes() {
                       <tr>
                         <td colSpan={5} style={{ padding: 0, background: 'var(--color-bg-secondary)' }}>
                           <div style={{ padding: 'var(--spacing-md) var(--spacing-lg)' }}>
-                            <CapacityEditor
-                              node={node}
-                              loadedModelCounts={(() => {
-                                // Build {modelName: replicaCount} from the loaded-models list so the
-                                // confirm-shrink dialog can warn meaningfully if reducing the cap below
-                                // the actual count of any single model.
-                                const counts = {}
-                                ;(models || []).forEach(m => {
-                                  if (m.state === 'loaded') counts[m.model_name] = (counts[m.model_name] || 0) + 1
-                                })
-                                return counts
-                              })()}
-                              confirmShrink={confirmShrink}
-                              addToast={addToast}
-                              onUpdate={() => fetchNodes()}
-                            />
-                            <h4 style={{ fontSize: '0.8125rem', fontWeight: 600, marginBottom: 'var(--spacing-sm)', color: 'var(--color-text-secondary)' }}>
-                              <i className="fas fa-cube" style={{ marginRight: 6 }} />
-                              Loaded Models
-                            </h4>
+                            {/* The at-a-glance: what's running here? Empty
+                                state is a single thin line so an empty node
+                                doesn't render a giant placeholder box; the
+                                row's slot badge already conveys the
+                                node-level state. */}
                             {!models ? (
                               <LoadingSpinner size="sm" />
                             ) : models.length === 0 ? (
-                              <div className="drawer-empty">
-                                <i className="fas fa-cube" />
-                                <span>No models loaded on this node yet.</span>
-                              </div>
+                              <p style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', margin: '0 0 var(--spacing-md) 0' }}>
+                                <i className="fas fa-cube" style={{ marginRight: 6, opacity: 0.6 }} aria-hidden="true" />
+                                No models loaded yet — they'll appear here when scheduled to this node.
+                              </p>
                             ) : (
                               <table className="table" style={{ margin: 0 }}>
                                 <thead>
@@ -1104,151 +1115,194 @@ export default function Nodes() {
                               </table>
                             )}
 
-                            <div style={{
-                              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                              marginTop: 'var(--spacing-md)', marginBottom: 'var(--spacing-sm)',
-                            }}>
-                              <h4 style={{ fontSize: '0.8125rem', fontWeight: 600, margin: 0, color: 'var(--color-text-secondary)' }}>
-                                <i className="fas fa-cogs" style={{ marginRight: 6 }} />
-                                Installed Backends
-                              </h4>
-                              <button
-                                type="button"
-                                className="btn btn-secondary btn-sm"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  // Hand off to the gallery in target-node mode.
-                                  // The Backends page reads ?target=<id> and
-                                  // scopes its install action to this node —
-                                  // one gallery, two scopes, no duplicate UI.
-                                  navigate(`/app/backends?target=${encodeURIComponent(node.id)}`)
-                                }}
-                                title={`Install a backend on ${node.name}`}
-                              >
-                                <i className="fas fa-plus" /> Add backend
-                              </button>
-                            </div>
-                            {!backends ? (
-                              <LoadingSpinner size="sm" />
-                            ) : backends.length === 0 ? (
-                              <div className="drawer-empty">
-                                <i className="fas fa-cogs" />
-                                <span>No backends installed on this node. Install one from the gallery to schedule models here.</span>
-                              </div>
-                            ) : (
-                              <table className="table" style={{ margin: 0 }}>
-                                <thead>
-                                  <tr>
-                                    <th>Name</th>
-                                    <th>Type</th>
-                                    <th>Installed At</th>
-                                    <th style={{ textAlign: 'right' }}>Actions</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {backends.map(b => (
-                                    <tr key={b.name}>
-                                      <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem' }}>
-                                        {b.name}
-                                      </td>
-                                      <td>
-                                        <span style={{
-                                          display: 'inline-block', padding: '2px 8px', borderRadius: 'var(--radius-sm)',
-                                          fontSize: '0.75rem', fontWeight: 500,
-                                          background: b.is_system ? 'var(--color-bg-tertiary)' : 'var(--color-primary-light)',
-                                          color: b.is_system ? 'var(--color-text-muted)' : 'var(--color-primary)',
-                                          border: `1px solid ${b.is_system ? 'var(--color-border-subtle)' : 'var(--color-primary-border)'}`,
-                                        }}>
-                                          {b.is_system ? 'system' : 'gallery'}
-                                        </span>
-                                      </td>
-                                      <td style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)' }}>
-                                        {b.installed_at ? timeAgo(b.installed_at) : '-'}
-                                      </td>
-                                      <td style={{ textAlign: 'right' }}>
-                                        {!b.is_system && (
-                                          <div style={{ display: 'inline-flex', gap: 'var(--spacing-xs)' }}>
-                                            <button
-                                              className="btn btn-secondary btn-sm"
-                                              onClick={() => handleUpgradeBackend(node.id, b.name)}
-                                              title="Upgrade backend on this node"
-                                            >
-                                              <i className="fas fa-arrow-up" />
-                                            </button>
-                                            <button
-                                              className="btn btn-danger-ghost btn-sm"
-                                              onClick={() => setConfirmDeleteBackend({ nodeId: node.id, nodeName: node.name, backend: b.name })}
-                                              title="Delete backend from this node"
-                                            >
-                                              <i className="fas fa-trash" />
-                                            </button>
-                                          </div>
-                                        )}
-                                      </td>
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                            )}
+                            {/* Manage drawer: collapses three rarely-touched
+                                config zones (capacity, backends, labels)
+                                behind one disclosure so routine inspections
+                                stay focused on what's loaded above. Each
+                                zone gets a small eyebrow label instead of an
+                                h4 to avoid creating parallel hierarchies
+                                inside the disclosed area. */}
+                            <details className="node-manage" style={{ marginTop: 'var(--spacing-md)' }} onClick={e => e.stopPropagation()}>
+                              <summary style={{
+                                cursor: 'pointer', listStyle: 'none',
+                                fontSize: '0.8125rem', fontWeight: 600,
+                                color: 'var(--color-text-secondary)',
+                                padding: 'var(--spacing-xs) 0',
+                                display: 'inline-flex', alignItems: 'center', gap: 'var(--spacing-xs)',
+                              }}>
+                                <i className="fas fa-chevron-right node-manage__chevron" aria-hidden="true" />
+                                <i className="fas fa-sliders" aria-hidden="true" />
+                                Manage
+                              </summary>
+                              <div style={{ paddingTop: 'var(--spacing-md)', display: 'flex', flexDirection: 'column', gap: 'var(--spacing-lg)' }}>
+                                {/* Capacity */}
+                                <div>
+                                  <div className="drawer-eyebrow">Capacity</div>
+                                  <CapacityEditor
+                                    node={node}
+                                    loadedModelCounts={(() => {
+                                      // {modelName: replicaCount} so confirm-shrink
+                                      // can warn if reducing the cap below the actual
+                                      // count of any single model on this node.
+                                      const counts = {}
+                                      ;(models || []).forEach(m => {
+                                        if (m.state === 'loaded') counts[m.model_name] = (counts[m.model_name] || 0) + 1
+                                      })
+                                      return counts
+                                    })()}
+                                    confirmShrink={confirmShrink}
+                                    addToast={addToast}
+                                    onUpdate={() => fetchNodes()}
+                                  />
+                                </div>
 
-                            {/* Labels */}
-                            <div style={{ marginTop: 'var(--spacing-md)' }}>
-                              <h4 style={{ fontSize: '0.8125rem', fontWeight: 600, marginBottom: 'var(--spacing-sm)', color: 'var(--color-text-secondary)' }}>
-                                <i className="fas fa-tags" style={{ marginRight: 6 }} />
-                                Labels
-                              </h4>
-                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--spacing-xs)', marginBottom: 'var(--spacing-sm)' }}>
-                                {node.labels && Object.entries(node.labels)
-                                  // node.replica-slots is owned by the Capacity editor above —
-                                  // showing it as an editable label invites confusion (the
-                                  // Capacity save would clobber any direct edit).
-                                  .filter(([k]) => k !== 'node.replica-slots')
-                                  .map(([k, v]) => (
-                                  <span key={k} style={{
-                                    display: 'inline-flex', alignItems: 'center', gap: 4,
-                                    fontSize: '0.75rem', padding: '2px 8px', borderRadius: "var(--radius-sm)",
-                                    background: 'var(--color-bg-tertiary)', border: '1px solid var(--color-border-subtle)',
-                                    fontFamily: 'var(--font-mono)',
+                                {/* Backends */}
+                                <div>
+                                  <div style={{
+                                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                    marginBottom: 'var(--spacing-sm)',
                                   }}>
-                                    {k}={v}
+                                    <div className="drawer-eyebrow" style={{ margin: 0 }}>Backends</div>
                                     <button
-                                      onClick={(e) => { e.stopPropagation(); handleDeleteLabel(node.id, k) }}
-                                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)', fontSize: '0.625rem', padding: 0 }}
-                                      title="Remove label"
+                                      type="button"
+                                      className="btn btn-secondary btn-sm"
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        // Hand off to the gallery in target-node mode.
+                                        // The Backends page reads ?target=<id> and
+                                        // scopes its install action to this node —
+                                        // one gallery, two scopes, no duplicate UI.
+                                        navigate(`/app/backends?target=${encodeURIComponent(node.id)}`)
+                                      }}
+                                      title={`Install a backend on ${node.name}`}
                                     >
-                                      <i className="fas fa-times" />
+                                      <i className="fas fa-plus" /> Add backend
                                     </button>
-                                  </span>
-                                ))}
+                                  </div>
+                                  {!backends ? (
+                                    <LoadingSpinner size="sm" />
+                                  ) : backends.length === 0 ? (
+                                    <p style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', margin: 0 }}>
+                                      None installed. <a href="#" style={{ color: 'var(--color-primary)' }} onClick={(e) => { e.preventDefault(); e.stopPropagation(); navigate(`/app/backends?target=${encodeURIComponent(node.id)}`) }}>Install one from the gallery</a> to schedule models here.
+                                    </p>
+                                  ) : (
+                                    <table className="table" style={{ margin: 0 }}>
+                                      <thead>
+                                        <tr>
+                                          <th>Name</th>
+                                          <th>Type</th>
+                                          <th>Installed At</th>
+                                          <th style={{ textAlign: 'right' }}>Actions</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        {backends.map(b => (
+                                          <tr key={b.name}>
+                                            <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem' }}>
+                                              {b.name}
+                                            </td>
+                                            <td>
+                                              <span style={{
+                                                display: 'inline-block', padding: '2px 8px', borderRadius: 'var(--radius-sm)',
+                                                fontSize: '0.75rem', fontWeight: 500,
+                                                background: b.is_system ? 'var(--color-bg-tertiary)' : 'var(--color-primary-light)',
+                                                color: b.is_system ? 'var(--color-text-muted)' : 'var(--color-primary)',
+                                                border: `1px solid ${b.is_system ? 'var(--color-border-subtle)' : 'var(--color-primary-border)'}`,
+                                              }}>
+                                                {b.is_system ? 'system' : 'gallery'}
+                                              </span>
+                                            </td>
+                                            <td style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)' }}>
+                                              {b.installed_at ? timeAgo(b.installed_at) : '-'}
+                                            </td>
+                                            <td style={{ textAlign: 'right' }}>
+                                              {!b.is_system && (
+                                                <div style={{ display: 'inline-flex', gap: 'var(--spacing-xs)' }}>
+                                                  <button
+                                                    className="btn btn-secondary btn-sm"
+                                                    onClick={() => handleUpgradeBackend(node.id, b.name)}
+                                                    title="Upgrade backend on this node"
+                                                  >
+                                                    <i className="fas fa-arrow-up" />
+                                                  </button>
+                                                  <button
+                                                    className="btn btn-danger-ghost btn-sm"
+                                                    onClick={() => setConfirmDeleteBackend({ nodeId: node.id, nodeName: node.name, backend: b.name })}
+                                                    title="Delete backend from this node"
+                                                  >
+                                                    <i className="fas fa-trash" />
+                                                  </button>
+                                                </div>
+                                              )}
+                                            </td>
+                                          </tr>
+                                        ))}
+                                      </tbody>
+                                    </table>
+                                  )}
+                                </div>
+
+                                {/* Labels */}
+                                <div>
+                                  <div className="drawer-eyebrow">Labels</div>
+                                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--spacing-xs)', marginBottom: 'var(--spacing-sm)' }}>
+                                    {(() => {
+                                      // node.replica-slots is owned by the Capacity editor above —
+                                      // showing it as an editable label invites confusion (the
+                                      // Capacity save would clobber any direct edit).
+                                      const visible = node.labels ? Object.entries(node.labels).filter(([k]) => k !== 'node.replica-slots') : []
+                                      if (visible.length === 0) {
+                                        return <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>None set.</span>
+                                      }
+                                      return visible.map(([k, v]) => (
+                                        <span key={k} style={{
+                                          display: 'inline-flex', alignItems: 'center', gap: 4,
+                                          fontSize: '0.75rem', padding: '2px 8px', borderRadius: "var(--radius-sm)",
+                                          background: 'var(--color-bg-tertiary)', border: '1px solid var(--color-border-subtle)',
+                                          fontFamily: 'var(--font-mono)',
+                                        }}>
+                                          {k}={v}
+                                          <button
+                                            onClick={(e) => { e.stopPropagation(); handleDeleteLabel(node.id, k) }}
+                                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)', fontSize: '0.625rem', padding: 0 }}
+                                            title="Remove label"
+                                          >
+                                            <i className="fas fa-times" />
+                                          </button>
+                                        </span>
+                                      ))
+                                    })()}
+                                  </div>
+                                  {/* Add label form */}
+                                  <div style={{ display: 'flex', gap: 'var(--spacing-xs)', alignItems: 'center' }}>
+                                    <input
+                                      className="input"
+                                      type="text"
+                                      placeholder="key"
+                                      style={{ width: '8rem' }}
+                                      value={(labelInputs[node.id] || {}).key || ''}
+                                      onChange={e => setLabelInput(node.id, 'key', e.target.value)}
+                                    />
+                                    <input
+                                      className="input"
+                                      type="text"
+                                      placeholder="value"
+                                      style={{ width: '8rem' }}
+                                      value={(labelInputs[node.id] || {}).value || ''}
+                                      onChange={e => setLabelInput(node.id, 'value', e.target.value)}
+                                    />
+                                    <button className="btn btn-secondary btn-sm" onClick={async (e) => {
+                                      e.stopPropagation()
+                                      const { key = '', value: val = '' } = labelInputs[node.id] || {}
+                                      if (key.trim()) {
+                                        await handleAddLabel(node.id, key.trim(), val.trim())
+                                        setLabelInputs(prev => ({ ...prev, [node.id]: { key: '', value: '' } }))
+                                      }
+                                    }}>Add</button>
+                                  </div>
+                                </div>
                               </div>
-                              {/* Add label form */}
-                              <div style={{ display: 'flex', gap: 'var(--spacing-xs)', alignItems: 'center' }}>
-                                <input
-                                  className="input"
-                                  type="text"
-                                  placeholder="key"
-                                  style={{ width: '8rem' }}
-                                  value={(labelInputs[node.id] || {}).key || ''}
-                                  onChange={e => setLabelInput(node.id, 'key', e.target.value)}
-                                />
-                                <input
-                                  className="input"
-                                  type="text"
-                                  placeholder="value"
-                                  style={{ width: '8rem' }}
-                                  value={(labelInputs[node.id] || {}).value || ''}
-                                  onChange={e => setLabelInput(node.id, 'value', e.target.value)}
-                                />
-                                <button className="btn btn-secondary btn-sm" onClick={async (e) => {
-                                  e.stopPropagation()
-                                  const { key = '', value: val = '' } = labelInputs[node.id] || {}
-                                  if (key.trim()) {
-                                    await handleAddLabel(node.id, key.trim(), val.trim())
-                                    setLabelInputs(prev => ({ ...prev, [node.id]: { key: '', value: '' } }))
-                                  }
-                                }}>Add</button>
-                              </div>
-                            </div>
+                            </details>
                           </div>
                         </td>
                       </tr>
