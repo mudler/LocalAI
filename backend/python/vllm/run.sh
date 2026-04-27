@@ -1,4 +1,5 @@
 #!/bin/bash
+set -x
 
 backend_dir=$(dirname $0)
 

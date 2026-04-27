@@ -705,6 +705,14 @@ specific target models; pick the one that matches your target. The
 drafter loads in its native precision regardless of the target's
 `quantization:` setting.
 
+Another example — picking a non-default attention backend (e.g. on
+hardware where the default cutlass kernels aren't supported):
+
+```yaml
+engine_args:
+  attention_backend: TRITON_ATTN
+```
+
 ### Transformers
 
 [Transformers](https://huggingface.co/docs/transformers/index) is a State-of-the-art Machine Learning library for PyTorch, TensorFlow, and JAX.
