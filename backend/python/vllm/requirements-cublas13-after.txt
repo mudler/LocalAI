@@ -1,2 +1,7 @@
 --extra-index-url https://download.pytorch.org/whl/cu130
-vllm
+# vLLM's PyPI wheel is built against CUDA 12 (libcudart.so.12) and won't load
+# on a cu130 host. Pull the cu130-flavoured wheel from vLLM's per-tag index
+# instead — the cublas13 case in install.sh adds --index-strategy=unsafe-best-match
+# so uv consults this index alongside PyPI.
+--extra-index-url https://wheels.vllm.ai/0.20.0/cu130
+vllm==0.20.0

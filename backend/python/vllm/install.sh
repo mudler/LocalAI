@@ -32,6 +32,14 @@ if [ "x${BUILD_PROFILE}" == "xcpu" ]; then
     EXTRA_PIP_INSTALL_FLAGS+=" --index-strategy=unsafe-best-match"
 fi
 
+# cublas13 pulls the vLLM wheel from a per-tag cu130 index (PyPI's vllm wheel
+# is built against CUDA 12 and won't load on cu130). uv's default per-package
+# first-match strategy would still pick the PyPI wheel, so allow it to consult
+# every configured index when resolving.
+if [ "x${BUILD_PROFILE}" == "xcublas13" ]; then
+    EXTRA_PIP_INSTALL_FLAGS+=" --index-strategy=unsafe-best-match"
+fi
+
 # JetPack 7 / L4T arm64 wheels (torch, vllm, flash-attn) live on
 # pypi.jetson-ai-lab.io and are built for cp312, so bump the venv Python
 # accordingly. JetPack 6 keeps cp310 + USE_PIP=true. unsafe-best-match
