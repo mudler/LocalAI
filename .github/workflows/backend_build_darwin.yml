@@ -82,7 +82,7 @@ jobs:
       # as the Linux registry cache.
       - name: Restore Homebrew cache
         id: brew-cache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: |
             ~/Library/Caches/Homebrew/downloads
@@ -104,7 +104,7 @@ jobs:
 
       - name: Save Homebrew cache
         if: github.event_name != 'pull_request' && steps.brew-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v5
         with:
           path: |
             ~/Library/Caches/Homebrew/downloads
@@ -133,7 +133,7 @@ jobs:
       - name: Restore ccache
         if: inputs.backend == 'llama-cpp'
         id: ccache-cache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: ~/Library/Caches/ccache
           key: ccache-llama-${{ runner.arch }}-${{ steps.llama-version.outputs.version }}-${{ github.run_id }}
@@ -166,7 +166,7 @@ jobs:
       - name: Restore Python wheel cache
         if: inputs.lang == 'python'
         id: pyenv-cache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: |
             ~/Library/Caches/pip
@@ -186,14 +186,14 @@ jobs:
 
       - name: Save ccache
         if: inputs.backend == 'llama-cpp' && github.event_name != 'pull_request'
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v5
         with:
           path: ~/Library/Caches/ccache
           key: ccache-llama-${{ runner.arch }}-${{ steps.llama-version.outputs.version }}-${{ github.run_id }}
 
       - name: Save Python wheel cache
         if: inputs.lang == 'python' && github.event_name != 'pull_request' && steps.pyenv-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v5
         with:
           path: |
             ~/Library/Caches/pip
