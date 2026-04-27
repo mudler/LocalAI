@@ -877,10 +877,11 @@ export default function Nodes() {
                           <div>
                             <div style={{ fontWeight: 600, fontSize: 'var(--text-sm)' }}>
                               {node.name}
-                              {(() => {
-                                // Always render the slot badge so operators discover the field
-                                // exists. Muted (border-only) at the default of 1; accented
-                                // when > 1 so fat nodes stand out at a glance.
+                              {node.node_type !== 'agent' && (() => {
+                                // Slot count only applies to backend workers — agents don't
+                                // load models. Always render for backend nodes so operators
+                                // discover the field; muted (border-only) at the default of 1,
+                                // accented when > 1 so fat nodes stand out at a glance.
                                 const slots = node.max_replicas_per_model || 1
                                 const isMulti = slots > 1
                                 return (
