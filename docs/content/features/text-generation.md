@@ -665,6 +665,46 @@ curl http://localhost:8080/v1/completions -H "Content-Type: application/json" -d
  }'
 ```
 
+#### Passing arbitrary vLLM options with `engine_args`
+
+A subset of `AsyncEngineArgs` is exposed as typed YAML fields
+(`tensor_parallel_size`, `gpu_memory_utilization`, `quantization`,
+`max_model_len`, `dtype`, `trust_remote_code`, `enforce_eager`, …).
+Anything else can be passed through the generic `engine_args:` map.
+Keys are forwarded verbatim to vLLM's engine; unknown keys fail at load
+time with the closest valid name as a hint. Nested maps materialise
+into vLLM's nested config dataclasses (`SpeculativeConfig`,
+`KVTransferConfig`, `CompilationConfig`, …).
+
+Speculative decoding (DFlash, ngram, eagle, deepseek_mtp, …) is
+configured this way:
+
+```yaml
+name: qwen3.5-4b-dflash
+backend: vllm
+parameters:
+  model: Qwen/Qwen3.5-4B
+context_size: 8192
+max_model_len: 8192
+trust_remote_code: true
+quantization: fp8
+template:
+  use_tokenizer_template: true
+engine_args:
+  speculative_config:
+    method: dflash
+    model: z-lab/Qwen3.5-4B-DFlash
+    num_speculative_tokens: 15
+```
+
+The shape of `speculative_config` follows vLLM's
+[`SpeculativeConfig`](https://docs.vllm.ai/en/latest/api/vllm/config/speculative.html)
+— `method` picks the algorithm, the remaining keys are method-specific.
+Drafters from [z-lab](https://huggingface.co/z-lab) are paired with
+specific target models; pick the one that matches your target. The
+drafter loads in its native precision regardless of the target's
+`quantization:` setting.
+
 ### Transformers
 
 [Transformers](https://huggingface.co/docs/transformers/index) is a State-of-the-art Machine Learning library for PyTorch, TensorFlow, and JAX.
