@@ -80,5 +80,37 @@ jobs:
           body: ${{ steps.bump.outputs.message }}
           signoff: true
 
-
-
+  bump-vllm-wheel:
+    # vLLM's cu130 wheel comes from a per-tag index URL (no /latest/ alias),
+    # so the cublas13 requirements file pins both a URL segment and a version
+    # constraint. bump_deps.sh handles git-sha-in-Makefile only — this job
+    # rewrites both values atomically when a new vLLM stable tag ships.
+    if: github.repository == 'mudler/LocalAI'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Bump vLLM cu130 wheel pin 🔧
+        id: bump
+        run: |
+          bash .github/bump_vllm_wheel.sh vllm-project/vllm backend/python/vllm/requirements-cublas13-after.txt VLLM_VERSION
+          {
+            echo 'message<<EOF'
+            cat "VLLM_VERSION_message.txt"
+            echo EOF
+          } >> "$GITHUB_OUTPUT"
+          {
+            echo 'commit<<EOF'
+            cat "VLLM_VERSION_commit.txt"
+            echo EOF
+          } >> "$GITHUB_OUTPUT"
+          rm -rfv VLLM_VERSION_message.txt VLLM_VERSION_commit.txt
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v8
+        with:
+          token: ${{ secrets.UPDATE_BOT_TOKEN }}
+          push-to-fork: ci-forks/LocalAI
+          commit-message: ':arrow_up: Update vllm-project/vllm cu130 wheel'
+          title: 'chore: :arrow_up: Update vllm-project/vllm cu130 wheel to `${{ steps.bump.outputs.commit }}`'
+          branch: "update/VLLM_VERSION"
+          body: ${{ steps.bump.outputs.message }}
+          signoff: true
