@@ -53,9 +53,9 @@ var _ = Describe("Model Routing", Label("Distributed"), func() {
 				Name: "gpu-1", Address: "h1:50051",
 			}
 			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
-			Expect(registry.SetNodeModel(context.Background(), node.ID, "llama3", "loaded", "", 0)).To(Succeed())
-			Expect(registry.IncrementInFlight(context.Background(), node.ID, "llama3")).To(Succeed())
-			Expect(registry.IncrementInFlight(context.Background(), node.ID, "llama3")).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), node.ID, "llama3", 0, "loaded", "", 0)).To(Succeed())
+			Expect(registry.IncrementInFlight(context.Background(), node.ID, "llama3", 0)).To(Succeed())
+			Expect(registry.IncrementInFlight(context.Background(), node.ID, "llama3", 0)).To(Succeed())
 
 			// Verify in-flight count
 			models, err := registry.GetNodeModels(context.Background(), node.ID)
@@ -75,7 +75,7 @@ var _ = Describe("Model Routing", Label("Distributed"), func() {
 			Expect(models[0].InFlight).To(Equal(3))
 
 			// Simulate decrement (what Release does)
-			Expect(registry.DecrementInFlight(context.Background(), node.ID, "llama3")).To(Succeed())
+			Expect(registry.DecrementInFlight(context.Background(), node.ID, "llama3", 0)).To(Succeed())
 			models, _ = registry.GetNodeModels(context.Background(), node.ID)
 			Expect(models[0].InFlight).To(Equal(2))
 
@@ -99,7 +99,7 @@ var _ = Describe("Model Routing", Label("Distributed"), func() {
 			Expect(registry.Register(context.Background(), node2, true)).To(Succeed())
 
 			// Load model on node1
-			Expect(registry.SetNodeModel(context.Background(), node1.ID, "llama3", "loaded", "", 0)).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), node1.ID, "llama3", 0, "loaded", "", 0)).To(Succeed())
 
 			// Verify routing can find the model
 			nodesWithModel, err := registry.FindNodesWithModel(context.Background(), "llama3")

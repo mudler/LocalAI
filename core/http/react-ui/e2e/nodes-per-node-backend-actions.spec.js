@@ -85,6 +85,12 @@ async function expandNodeAndWaitForBackends(page) {
   // Click the row to expand it. The chevron toggle and the row both work,
   // but clicking the name cell is the most user-like.
   await page.getByText(NODE_NAME).first().click()
+  // Backends, Capacity and Labels live behind a "Manage" <details>
+  // disclosure (the drawer was distilled to keep at-a-glance content
+  // lean — see distill refactor in the multi-replica branch). Open it
+  // by clicking the summary inside the .node-manage scope so the
+  // per-node backend table is in the DOM before assertions run.
+  await page.locator('.node-manage > summary').first().click()
   await expect(page.getByRole('cell', { name: BACKEND_NAME, exact: true })).toBeVisible({ timeout: 10_000 })
 }
 

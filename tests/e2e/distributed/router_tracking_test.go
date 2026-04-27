@@ -150,7 +150,7 @@ var _ = Describe("SmartRouter trackingKey", Label("Distributed"), func() {
 		}
 
 		// Manually increment in-flight (simulates what InFlightTrackingClient.track() does during inference)
-		Expect(registry.IncrementInFlight(context.Background(), nodeID, "release-model")).To(Succeed())
+		Expect(registry.IncrementInFlight(context.Background(), nodeID, "release-model", 0)).To(Succeed())
 
 		// Check in-flight increased
 		models, err = registry.GetNodeModels(context.Background(), nodeID)
@@ -164,7 +164,7 @@ var _ = Describe("SmartRouter trackingKey", Label("Distributed"), func() {
 		Expect(inflight).To(Equal(baseline + 1))
 
 		// Decrement and check in-flight goes back to baseline
-		Expect(registry.DecrementInFlight(context.Background(), nodeID, "release-model")).To(Succeed())
+		Expect(registry.DecrementInFlight(context.Background(), nodeID, "release-model", 0)).To(Succeed())
 
 		models, err = registry.GetNodeModels(context.Background(), nodeID)
 		Expect(err).ToNot(HaveOccurred())
