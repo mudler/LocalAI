@@ -745,7 +745,7 @@
     - default
   overrides:
     parameters:
-      model: llama-cpp/models/Qwen3.-27B-Claude-4.6-Opus-Reasoning-Distilled-heretic.i1-Q4_K_M.gguf
+      model: llama-cpp/models/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-heretic.i1-Q4_K_M.gguf
     backend: llama-cpp
     template:
       use_tokenizer_template: true
