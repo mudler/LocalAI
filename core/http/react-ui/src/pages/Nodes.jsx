@@ -342,34 +342,169 @@ function WorkerHintCard({ addToast, activeTab, hasWorkers }) {
   )
 }
 
+// Numeric input with quick-pick preset chips. Picked over a slider because
+// replica counts are exact specs (operator math), not fuzzy estimates. The
+// chips give one-click access to common values without the slider's
+// precision/special-value problems (e.g. MaxReplicas=0 = "no limit").
+function ReplicaInput({ id, label, value, onChange, presets }) {
+  return (
+    <div style={{ flex: 1 }}>
+      <label className="form-label" htmlFor={id}>{label}</label>
+      <input
+        id={id}
+        className="input"
+        type="number"
+        min={0}
+        value={value}
+        onChange={e => onChange(parseInt(e.target.value) || 0)}
+      />
+      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 6 }}>
+        {presets.map(({ v, l }) => {
+          const active = value === v
+          return (
+            <button
+              key={v}
+              type="button"
+              onClick={() => onChange(v)}
+              aria-pressed={active}
+              className="cell-mono"
+              style={{
+                padding: '2px 8px',
+                borderRadius: 'var(--radius-sm)',
+                fontSize: '0.6875rem',
+                fontWeight: 500,
+                cursor: 'pointer',
+                background: active ? 'var(--color-primary-light)' : 'transparent',
+                border: `1px solid ${active ? 'var(--color-primary-border)' : 'var(--color-border-subtle)'}`,
+                color: active ? 'var(--color-primary)' : 'var(--color-text-muted)',
+              }}
+            >{l || v}</button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Controlled chip-builder for { key: value } maps. Replaces the prior
+ * comma-separated-string Node Selector input AND the bespoke Labels editor
+ * in the node drawer — both were rendering the same chip pattern with
+ * subtly different markup.
+ *
+ * Fully controlled: parent owns the map and decides what onAdd/onRemove
+ * does (form state for the scheduling form; API calls for the live
+ * labels editor). The component just renders chips and a key/value input
+ * row.
+ *
+ * Props:
+ *   pairs       — current map of key → value
+ *   onAdd(k,v)  — called when the user adds a pair (parent handles dedup
+ *                 and persistence side effects)
+ *   onRemove(k) — called when a chip's × is clicked
+ *   placeholderKey, placeholderValue — input hints
+ *   ariaLabel   — accessible name for the section
+ */
+function KeyValueChips({ pairs, onAdd, onRemove, placeholderKey = 'key', placeholderValue = 'value', ariaLabel }) {
+  const [k, setK] = useState('')
+  const [v, setV] = useState('')
+
+  const add = () => {
+    const key = k.trim()
+    if (!key) return
+    onAdd(key, v.trim())
+    setK(''); setV('')
+  }
+  const onKeyDown = (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); add() }
+  }
+
+  const entries = pairs ? Object.entries(pairs) : []
+  return (
+    <div aria-label={ariaLabel}>
+      {entries.length > 0 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 'var(--spacing-xs)' }}>
+          {entries.map(([key, val]) => (
+            <span key={key} style={{
+              display: 'inline-flex', alignItems: 'center', gap: 4,
+              fontSize: '0.75rem', padding: '2px 8px',
+              borderRadius: 'var(--radius-sm)',
+              background: 'var(--color-bg-tertiary)',
+              border: '1px solid var(--color-border-subtle)',
+              fontFamily: 'var(--font-mono)',
+            }}>
+              {key}={val}
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); onRemove(key) }}
+                aria-label={`Remove ${key}`}
+                title="Remove"
+                style={{
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  color: 'var(--color-text-muted)', fontSize: '0.625rem', padding: 0,
+                }}
+              >
+                <i className="fas fa-times" />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+      <div style={{ display: 'flex', gap: 'var(--spacing-xs)', alignItems: 'stretch' }}>
+        <input
+          className="input"
+          type="text"
+          placeholder={placeholderKey}
+          value={k}
+          onChange={e => setK(e.target.value)}
+          onKeyDown={onKeyDown}
+          style={{ flex: 1 }}
+        />
+        <input
+          className="input"
+          type="text"
+          placeholder={placeholderValue}
+          value={v}
+          onChange={e => setV(e.target.value)}
+          onKeyDown={onKeyDown}
+          style={{ flex: 1 }}
+        />
+        <button
+          type="button"
+          className="btn btn-secondary btn-sm"
+          onClick={add}
+          disabled={!k.trim()}
+          style={{ minHeight: 36 }}
+        >
+          <i className="fas fa-plus" /> Add
+        </button>
+      </div>
+    </div>
+  )
+}
+
 function SchedulingForm({ onSave, onCancel }) {
   const [mode, setMode] = useState('placement')
   const [modelName, setModelName] = useState('')
-  const [selectorText, setSelectorText] = useState('')
+  // Selector is now a chip-builder map instead of a comma-separated string.
+  // Operators were copying syntax from docs and missing commas; the chip UI
+  // makes the key=value structure self-documenting.
+  const [selector, setSelector] = useState({})
   const [minReplicas, setMinReplicas] = useState(1)
   const [maxReplicas, setMaxReplicas] = useState(0)
 
-  const parseSelector = () => {
-    if (!selectorText.trim()) return null
-    const pairs = {}
-    selectorText.split(',').forEach(p => {
-      const [k, v] = p.split('=').map(s => s.trim())
-      if (k) pairs[k] = v || ''
-    })
-    return Object.keys(pairs).length > 0 ? pairs : null
-  }
+  const hasSelector = Object.keys(selector).length > 0
 
   const isValid = () => {
     if (!modelName) return false
-    if (mode === 'placement') return !!parseSelector()
+    if (mode === 'placement') return hasSelector
     return minReplicas > 0 || maxReplicas > 0
   }
 
   const handleSubmit = () => {
-    const nodeSelector = parseSelector()
     onSave({
       model_name: modelName,
-      node_selector: nodeSelector || undefined,
+      node_selector: hasSelector ? selector : undefined,
       min_replicas: mode === 'placement' ? 0 : minReplicas,
       max_replicas: mode === 'placement' ? 0 : maxReplicas,
     })
@@ -421,34 +556,40 @@ function SchedulingForm({ onSave, onCancel }) {
         </div>
 
         <div>
-          <label className="form-label" htmlFor="sched-selector">
+          <label className="form-label">
             Node selector{mode === 'placement' ? '' : ' (optional)'}
           </label>
-          <input id="sched-selector" className="input" type="text"
-            value={selectorText} onChange={e => setSelectorText(e.target.value)}
-            placeholder="gpu.vendor=nvidia, tier=fast" />
-          <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', display: 'block', marginTop: 4 }}>
+          <KeyValueChips
+            pairs={selector}
+            onAdd={(k, v) => setSelector(prev => ({ ...prev, [k]: v }))}
+            onRemove={(k) => setSelector(prev => { const n = { ...prev }; delete n[k]; return n })}
+            placeholderKey="key (e.g. gpu.vendor)"
+            placeholderValue="value (e.g. nvidia)"
+            ariaLabel="Node selector"
+          />
+          <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', display: 'block', marginTop: 6 }}>
             {mode === 'placement'
-              ? 'Comma-separated key=value pairs. Models load only on nodes matching all pairs.'
-              : (selectorText.trim() ? 'Replicas land only on matching nodes.' : 'Empty = any healthy node.')}
+              ? 'Models will load only on nodes that match all listed labels.'
+              : (hasSelector ? 'Replicas land only on matching nodes.' : 'Empty = any healthy node.')}
           </span>
         </div>
 
         {mode === 'autoscaling' && (
           <div style={{ display: 'flex', gap: 'var(--spacing-md)' }}>
-            <div style={{ flex: 1 }}>
-              <label className="form-label" htmlFor="sched-min">Min replicas</label>
-              <input id="sched-min" className="input" type="number" min={0} value={minReplicas}
-                onChange={e => setMinReplicas(parseInt(e.target.value) || 0)} />
-            </div>
-            <div style={{ flex: 1 }}>
-              <label className="form-label" htmlFor="sched-max">Max replicas</label>
-              <input id="sched-max" className="input" type="number" min={0} value={maxReplicas}
-                onChange={e => setMaxReplicas(parseInt(e.target.value) || 0)} />
-              <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', display: 'block', marginTop: 4 }}>
-                0 = no upper limit
-              </span>
-            </div>
+            <ReplicaInput
+              id="sched-min"
+              label="Min replicas"
+              value={minReplicas}
+              onChange={setMinReplicas}
+              presets={[{ v: 1 }, { v: 2 }, { v: 3 }, { v: 4 }]}
+            />
+            <ReplicaInput
+              id="sched-max"
+              label="Max replicas"
+              value={maxReplicas}
+              onChange={setMaxReplicas}
+              presets={[{ v: 0, l: 'no limit' }, { v: 2 }, { v: 4 }, { v: 8 }]}
+            />
           </div>
         )}
       </div>
@@ -491,13 +632,6 @@ export default function Nodes() {
   const [activeTab, setActiveTab] = useState('backend') // 'backend', 'agent', or 'scheduling'
   const [schedulingConfigs, setSchedulingConfigs] = useState([])
   const [showSchedulingForm, setShowSchedulingForm] = useState(false)
-  const [labelInputs, setLabelInputs] = useState({})
-
-  const setLabelInput = (nodeId, field, val) =>
-    setLabelInputs(prev => ({
-      ...prev,
-      [nodeId]: { ...(prev[nodeId] || { key: '', value: '' }), [field]: val }
-    }))
 
   const fetchNodes = useCallback(async () => {
     try {
@@ -1247,64 +1381,21 @@ export default function Nodes() {
                                   )}
                                 </div>
 
-                                {/* Labels */}
+                                {/* Labels — same chip-builder as the scheduling
+                                    form, but onAdd/onRemove fire API calls
+                                    instead of mutating form state. node.replica-slots
+                                    is filtered out so the Capacity editor stays
+                                    the single source of truth for that label. */}
                                 <div>
                                   <div className="drawer-eyebrow">Labels</div>
-                                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--spacing-xs)', marginBottom: 'var(--spacing-sm)' }}>
-                                    {(() => {
-                                      // node.replica-slots is owned by the Capacity editor above —
-                                      // showing it as an editable label invites confusion (the
-                                      // Capacity save would clobber any direct edit).
-                                      const visible = node.labels ? Object.entries(node.labels).filter(([k]) => k !== 'node.replica-slots') : []
-                                      if (visible.length === 0) {
-                                        return <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>None set.</span>
-                                      }
-                                      return visible.map(([k, v]) => (
-                                        <span key={k} style={{
-                                          display: 'inline-flex', alignItems: 'center', gap: 4,
-                                          fontSize: '0.75rem', padding: '2px 8px', borderRadius: "var(--radius-sm)",
-                                          background: 'var(--color-bg-tertiary)', border: '1px solid var(--color-border-subtle)',
-                                          fontFamily: 'var(--font-mono)',
-                                        }}>
-                                          {k}={v}
-                                          <button
-                                            onClick={(e) => { e.stopPropagation(); handleDeleteLabel(node.id, k) }}
-                                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)', fontSize: '0.625rem', padding: 0 }}
-                                            title="Remove label"
-                                          >
-                                            <i className="fas fa-times" />
-                                          </button>
-                                        </span>
-                                      ))
-                                    })()}
-                                  </div>
-                                  {/* Add label form */}
-                                  <div style={{ display: 'flex', gap: 'var(--spacing-xs)', alignItems: 'center' }}>
-                                    <input
-                                      className="input"
-                                      type="text"
-                                      placeholder="key"
-                                      style={{ width: '8rem' }}
-                                      value={(labelInputs[node.id] || {}).key || ''}
-                                      onChange={e => setLabelInput(node.id, 'key', e.target.value)}
-                                    />
-                                    <input
-                                      className="input"
-                                      type="text"
-                                      placeholder="value"
-                                      style={{ width: '8rem' }}
-                                      value={(labelInputs[node.id] || {}).value || ''}
-                                      onChange={e => setLabelInput(node.id, 'value', e.target.value)}
-                                    />
-                                    <button className="btn btn-secondary btn-sm" onClick={async (e) => {
-                                      e.stopPropagation()
-                                      const { key = '', value: val = '' } = labelInputs[node.id] || {}
-                                      if (key.trim()) {
-                                        await handleAddLabel(node.id, key.trim(), val.trim())
-                                        setLabelInputs(prev => ({ ...prev, [node.id]: { key: '', value: '' } }))
-                                      }
-                                    }}>Add</button>
-                                  </div>
+                                  <KeyValueChips
+                                    pairs={node.labels ? Object.fromEntries(Object.entries(node.labels).filter(([k]) => k !== 'node.replica-slots')) : {}}
+                                    onAdd={(k, v) => handleAddLabel(node.id, k, v)}
+                                    onRemove={(k) => handleDeleteLabel(node.id, k)}
+                                    placeholderKey="key"
+                                    placeholderValue="value"
+                                    ariaLabel={`Labels for ${node.name}`}
+                                  />
                                 </div>
                               </div>
                             </details>
