@@ -43,7 +43,7 @@ require (
 	github.com/mudler/xlog v0.0.6
 	github.com/nats-io/nats.go v1.50.0
 	github.com/ollama/ollama v0.20.4
-	github.com/onsi/ginkgo/v2 v2.28.1
+	github.com/onsi/ginkgo/v2 v2.28.2
 	github.com/onsi/gomega v1.39.1
 	github.com/openai/openai-go/v3 v3.26.0
 	github.com/otiai10/copy v1.14.1
