@@ -38,7 +38,7 @@ require (
 	github.com/modelcontextprotocol/go-sdk v1.5.0
 	github.com/mudler/cogito v0.9.5-0.20260315222927-63abdec7189b
 	github.com/mudler/edgevpn v0.31.1
-	github.com/mudler/go-processmanager v0.1.0
+	github.com/mudler/go-processmanager v0.1.1
 	github.com/mudler/memory v0.0.0-20260406210934-424c1ecf2cf8
 	github.com/mudler/xlog v0.0.6
 	github.com/nats-io/nats.go v1.50.0

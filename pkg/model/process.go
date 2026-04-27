@@ -204,5 +204,30 @@ func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string
 		}
 	}()
 
+	// Surface backend exits in the log. Without this, a crash (SIGSEGV
+	// from a missing shared library, a Python ImportError, etc.) is
+	// invisible at every log level — the only signal is a delayed
+	// "connection refused" from the gRPC dial, which doesn't say
+	// whether the child is alive.
+	go func() {
+		<-grpcControlProcess.Done()
+		fields := []any{
+			"id", id,
+			"address", serverAddress,
+			"process", filepath.Base(grpcProcess),
+		}
+		code, codeErr := grpcControlProcess.ExitCode()
+		if codeErr == nil {
+			fields = append(fields, "exitCode", code)
+		}
+		// 143 = 128 + SIGTERM, the signal sent during graceful stop / model unload.
+		// Treat that and a clean 0 as expected; everything else is a likely crash.
+		if codeErr == nil && (code == "0" || code == "143") {
+			xlog.Info("Backend process exited", fields...)
+		} else {
+			xlog.Warn("Backend process exited unexpectedly", fields...)
+		}
+	}()
+
 	return grpcControlProcess, nil
 }
