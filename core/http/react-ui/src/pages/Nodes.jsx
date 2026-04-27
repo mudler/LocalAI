@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback, Fragment } from 'react'
 import { useOutletContext, useNavigate } from 'react-router-dom'
 import { nodesApi } from '../utils/api'
-import { useModels } from '../hooks/useModels'
 import LoadingSpinner from '../components/LoadingSpinner'
 import ConfirmDialog from '../components/ConfirmDialog'
 import ActionMenu from '../components/ActionMenu'
+import SearchableModelSelect from '../components/SearchableModelSelect'
 import ImageSelector, { useImageSelector, dockerImage, dockerFlags } from '../components/ImageSelector'
 import StatCard from '../components/StatCard'
 
@@ -348,7 +348,6 @@ function SchedulingForm({ onSave, onCancel }) {
   const [selectorText, setSelectorText] = useState('')
   const [minReplicas, setMinReplicas] = useState(1)
   const [maxReplicas, setMaxReplicas] = useState(0)
-  const { models } = useModels()
 
   const parseSelector = () => {
     if (!selectorText.trim()) return null
@@ -409,10 +408,16 @@ function SchedulingForm({ onSave, onCancel }) {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
         <div>
           <label className="form-label" htmlFor="sched-model">Model</label>
-          <select id="sched-model" className="input" value={modelName} onChange={e => setModelName(e.target.value)}>
-            <option value="">Select a model...</option>
-            {models.map(m => <option key={m.id} value={m.id}>{m.id}</option>)}
-          </select>
+          {/* Searchable combobox so a long gallery doesn't force the operator
+              to scroll through hundreds of entries. Free-text is allowed —
+              you can pre-create a rule for a model that hasn't been
+              installed yet, which is a real workflow when standing up a new
+              node and pre-staging its scheduling policy. */}
+          <SearchableModelSelect
+            value={modelName}
+            onChange={setModelName}
+            placeholder="Type to search models, or paste a name..."
+          />
         </div>
 
         <div>
