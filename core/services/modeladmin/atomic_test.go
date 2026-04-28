@@ -4,57 +4,45 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
-func TestWriteFileAtomic_HappyPath(t *testing.T) {
-	dir := t.TempDir()
-	path := filepath.Join(dir, "model.yaml")
-	if err := writeFileAtomic(path, []byte("name: x\n"), 0644); err != nil {
-		t.Fatalf("write: %v", err)
-	}
-	got, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read: %v", err)
-	}
-	if string(got) != "name: x\n" {
-		t.Errorf("content = %q, want %q", got, "name: x\n")
-	}
-	// And no temp leftovers.
-	entries, _ := os.ReadDir(dir)
-	if len(entries) != 1 {
-		t.Errorf("dir has %d entries, want 1: %+v", len(entries), entries)
-	}
-}
+var _ = Describe("writeFileAtomic", func() {
+	It("writes the file with the requested content and leaves no temp leftovers", func() {
+		dir := GinkgoT().TempDir()
+		path := filepath.Join(dir, "model.yaml")
+		Expect(writeFileAtomic(path, []byte("name: x\n"), 0644)).To(Succeed())
 
-func TestWriteFileAtomic_PreservesOriginalOnRenameFailure(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("chmod-based read-only directory trick is POSIX-specific")
-	}
-	dir := t.TempDir()
-	path := filepath.Join(dir, "model.yaml")
-	if err := os.WriteFile(path, []byte("original\n"), 0644); err != nil {
-		t.Fatalf("seed: %v", err)
-	}
-	// Make the directory read-only so os.CreateTemp fails — easiest way to
-	// force a write error mid-helper without invasive mocking.
-	if err := os.Chmod(dir, 0o500); err != nil {
-		t.Fatalf("chmod: %v", err)
-	}
-	t.Cleanup(func() { _ = os.Chmod(dir, 0o700) })
+		got, err := os.ReadFile(path)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(string(got)).To(Equal("name: x\n"))
 
-	err := writeFileAtomic(path, []byte("new\n"), 0644)
-	if err == nil {
-		t.Fatalf("expected error from read-only dir, got nil")
-	}
+		entries, err := os.ReadDir(dir)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(entries).To(HaveLen(1), "directory should contain only the destination file")
+	})
 
-	// Restore for the read-back below.
-	_ = os.Chmod(dir, 0o700)
-	got, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read original: %v", err)
-	}
-	if string(got) != "original\n" {
-		t.Errorf("original was clobbered: got %q", got)
-	}
-}
+	It("preserves the original file when the rename fails", func() {
+		if runtime.GOOS == "windows" {
+			Skip("chmod-based read-only directory trick is POSIX-specific")
+		}
+		dir := GinkgoT().TempDir()
+		path := filepath.Join(dir, "model.yaml")
+		Expect(os.WriteFile(path, []byte("original\n"), 0644)).To(Succeed())
+
+		// Make the directory read-only so os.CreateTemp fails — easiest way to
+		// force a write error mid-helper without invasive mocking.
+		Expect(os.Chmod(dir, 0o500)).To(Succeed())
+		DeferCleanup(func() { _ = os.Chmod(dir, 0o700) })
+
+		Expect(writeFileAtomic(path, []byte("new\n"), 0644)).ToNot(Succeed())
+
+		// Restore for the read-back below.
+		Expect(os.Chmod(dir, 0o700)).To(Succeed())
+		got, err := os.ReadFile(path)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(string(got)).To(Equal("original\n"), "original file must not be clobbered")
+	})
+})

@@ -3,7 +3,9 @@ package mcp
 import (
 	"context"
 	"sync"
-	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 
 	"github.com/mudler/LocalAI/core/services/modeladmin"
 	localaitools "github.com/mudler/LocalAI/pkg/mcp/localaitools"
@@ -63,67 +65,51 @@ func (stubClient) VRAMEstimate(_ context.Context, _ localaitools.VRAMEstimateReq
 func (stubClient) ToggleModelState(_ context.Context, _ string, _ modeladmin.Action) error  { return nil }
 func (stubClient) ToggleModelPinned(_ context.Context, _ string, _ modeladmin.Action) error { return nil }
 
-func TestLocalAIAssistantHolder_HappyPath(t *testing.T) {
-	h := NewLocalAIAssistantHolder()
-	ctx := context.Background()
+var _ = Describe("LocalAIAssistantHolder", func() {
+	var ctx context.Context
 
-	if err := h.Initialize(ctx, stubClient{}, localaitools.Options{}); err != nil {
-		t.Fatalf("initialize: %v", err)
-	}
-	if !h.HasTools() {
-		t.Fatalf("HasTools() = false after init")
-	}
-	if h.SystemPrompt() == "" {
-		t.Errorf("SystemPrompt() empty")
-	}
+	BeforeEach(func() {
+		ctx = context.Background()
+	})
 
-	exec := h.Executor()
-	if !exec.HasTools() {
-		t.Fatalf("executor reports no tools")
-	}
+	It("Initialize wires the in-memory server, exposes tools, and dispatches", func() {
+		h := NewLocalAIAssistantHolder()
+		Expect(h.Initialize(ctx, stubClient{}, localaitools.Options{})).To(Succeed())
+		Expect(h.HasTools()).To(BeTrue())
+		Expect(h.SystemPrompt()).ToNot(BeEmpty())
 
-	out, err := exec.ExecuteTool(ctx, "list_installed_models", `{"capability":"chat"}`)
-	if err != nil {
-		t.Fatalf("ExecuteTool: %v", err)
-	}
-	if out == "" {
-		t.Errorf("expected non-empty result")
-	}
-}
+		exec := h.Executor()
+		Expect(exec.HasTools()).To(BeTrue())
 
-func TestLocalAIAssistantHolder_InitializeIsOnce(t *testing.T) {
-	h := NewLocalAIAssistantHolder()
-	ctx := context.Background()
+		out, err := exec.ExecuteTool(ctx, "list_installed_models", `{"capability":"chat"}`)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(out).ToNot(BeEmpty())
+	})
 
-	// Concurrent Initialize calls — only one should actually wire the server.
-	var wg sync.WaitGroup
-	for i := 0; i < 8; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			_ = h.Initialize(ctx, stubClient{}, localaitools.Options{})
-		}()
-	}
-	wg.Wait()
+	It("Initialize is exactly-once even under concurrent callers", func() {
+		h := NewLocalAIAssistantHolder()
 
-	if !h.HasTools() {
-		t.Fatalf("HasTools() = false after concurrent init")
-	}
-}
+		// Concurrent Initialize calls — only one should actually wire the server.
+		var wg sync.WaitGroup
+		for i := 0; i < 8; i++ {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				_ = h.Initialize(ctx, stubClient{}, localaitools.Options{})
+			}()
+		}
+		wg.Wait()
 
-func TestLocalAIAssistantHolder_NilSafe(t *testing.T) {
-	var h *LocalAIAssistantHolder // nil
-	if h.HasTools() {
-		t.Errorf("nil holder should report HasTools() = false")
-	}
-	if h.SystemPrompt() != "" {
-		t.Errorf("nil holder should report empty SystemPrompt()")
-	}
-	if !isEmptyExecutor(h.Executor()) {
-		t.Errorf("nil holder should produce empty executor")
-	}
-}
+		Expect(h.HasTools()).To(BeTrue())
+	})
 
-func isEmptyExecutor(e ToolExecutor) bool {
-	return e == nil || !e.HasTools()
-}
+	It("methods are nil-safe on a nil holder", func() {
+		var h *LocalAIAssistantHolder
+		Expect(h.HasTools()).To(BeFalse())
+		Expect(h.SystemPrompt()).To(BeEmpty())
+		exec := h.Executor()
+		// Nil-receiver Executor returns an empty LocalToolExecutor.
+		Expect(exec).ToNot(BeNil())
+		Expect(exec.HasTools()).To(BeFalse())
+	})
+})

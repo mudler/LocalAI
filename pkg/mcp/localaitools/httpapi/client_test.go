@@ -6,19 +6,19 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
-	"strings"
-	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 
 	localaitools "github.com/mudler/LocalAI/pkg/mcp/localaitools"
 )
 
 // fakeLocalAI is a minimal HTTP server that mimics the relevant LocalAI
 // admin endpoints. Only the routes the httpapi.Client touches need to exist.
-func fakeLocalAI(t *testing.T) *httptest.Server {
-	t.Helper()
+func fakeLocalAI() *httptest.Server {
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("/models/available", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/models/available", func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode([]map[string]any{
 			{
 				"name":        "qwen2.5-7b-instruct",
@@ -36,7 +36,7 @@ func fakeLocalAI(t *testing.T) *httptest.Server {
 		})
 	})
 
-	mux.HandleFunc("/models/galleries", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/models/galleries", func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode([]map[string]any{
 			{"name": "official", "url": "http://gallery"},
 		})
@@ -53,17 +53,17 @@ func fakeLocalAI(t *testing.T) *httptest.Server {
 		})
 	})
 
-	mux.HandleFunc("/models/jobs/job-123", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/models/jobs/job-123", func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"processed": true, "progress": 100.0, "message": "done",
 		})
 	})
 
-	mux.HandleFunc("/models/jobs/missing", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/models/jobs/missing", func(w http.ResponseWriter, _ *http.Request) {
 		http.Error(w, "could not find any status for ID", http.StatusInternalServerError)
 	})
 
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/", func(w http.ResponseWriter, _ *http.Request) {
 		// LocalAI's welcome JSON.
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"Version":      "v0.0.0-test",
@@ -78,174 +78,146 @@ func fakeLocalAI(t *testing.T) *httptest.Server {
 		})
 	})
 
-	mux.HandleFunc("/backends", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/backends", func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode([]map[string]any{
 			{"name": "llama-cpp", "installed": true, "tags": []string{"chat"}},
 		})
 	})
 
-	srv := httptest.NewServer(mux)
-	t.Cleanup(srv.Close)
-	return srv
+	return httptest.NewServer(mux)
 }
 
-func TestGallerySearchFiltersAndLimits(t *testing.T) {
-	srv := fakeLocalAI(t)
-	c := New(srv.URL, "")
-	hits, err := c.GallerySearch(context.Background(), localaitools.GallerySearchQuery{
-		Query: "qwen",
-		Tag:   "chat",
-		Limit: 5,
+var _ = Describe("httpapi.Client against the LocalAI admin REST surface", func() {
+	var (
+		srv *httptest.Server
+		c   *Client
+		ctx context.Context
+	)
+
+	BeforeEach(func() {
+		srv = fakeLocalAI()
+		c = New(srv.URL, "")
+		ctx = context.Background()
 	})
-	if err != nil {
-		t.Fatalf("search: %v", err)
-	}
-	if len(hits) != 1 || hits[0].Name != "qwen2.5-7b-instruct" {
-		t.Errorf("expected 1 qwen result; got %+v", hits)
-	}
-	if !containsTagExact(hits[0].Tags, "chat") {
-		t.Errorf("expected chat tag preserved")
-	}
-}
 
-func TestListGalleries(t *testing.T) {
-	srv := fakeLocalAI(t)
-	c := New(srv.URL, "")
-	out, err := c.ListGalleries(context.Background())
-	if err != nil {
-		t.Fatalf("list: %v", err)
-	}
-	if len(out) != 1 || out[0].Name != "official" {
-		t.Errorf("unexpected: %+v", out)
-	}
-}
+	AfterEach(func() {
+		srv.Close()
+	})
 
-func TestInstallModelReturnsJobID(t *testing.T) {
-	srv := fakeLocalAI(t)
-	c := New(srv.URL, "")
-	id, err := c.InstallModel(context.Background(), localaitools.InstallModelRequest{ModelName: "qwen2.5-7b-instruct"})
-	if err != nil {
-		t.Fatalf("install: %v", err)
-	}
-	if id != "job-123" {
-		t.Errorf("expected job-123, got %q", id)
-	}
-}
+	Describe("GallerySearch", func() {
+		It("filters by tag, applies limit, and preserves tags on the result", func() {
+			hits, err := c.GallerySearch(ctx, localaitools.GallerySearchQuery{Query: "qwen", Tag: "chat", Limit: 5})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(hits).To(HaveLen(1))
+			Expect(hits[0].Name).To(Equal("qwen2.5-7b-instruct"))
+			Expect(containsTagExact(hits[0].Tags, "chat")).To(BeTrue())
+		})
+	})
 
-func TestGetJobStatusHappyPath(t *testing.T) {
-	srv := fakeLocalAI(t)
-	c := New(srv.URL, "")
-	st, err := c.GetJobStatus(context.Background(), "job-123")
-	if err != nil {
-		t.Fatalf("status: %v", err)
-	}
-	if !st.Processed || st.Progress != 100.0 {
-		t.Errorf("unexpected: %+v", st)
-	}
-}
+	Describe("ListGalleries", func() {
+		It("returns the configured galleries", func() {
+			out, err := c.ListGalleries(ctx)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(out).To(HaveLen(1))
+			Expect(out[0].Name).To(Equal("official"))
+		})
+	})
 
-func TestGetJobStatusMissingReturnsNil(t *testing.T) {
-	srv := fakeLocalAI(t)
-	c := New(srv.URL, "")
-	st, err := c.GetJobStatus(context.Background(), "missing")
-	if err != nil {
-		// We accept either a sentinel "not found" treatment or a typed error;
-		// the contract is that the LLM gets something actionable. Today we
-		// translate the localai 500-with-"could not find" body into nil, nil.
-		if !strings.Contains(err.Error(), "could not find") {
-			t.Fatalf("expected 'not found' style error, got %v", err)
-		}
-	}
-	_ = st
-}
+	Describe("InstallModel", func() {
+		It("returns the job id parsed from the apply response", func() {
+			id, err := c.InstallModel(ctx, localaitools.InstallModelRequest{ModelName: "qwen2.5-7b-instruct"})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(id).To(Equal("job-123"))
+		})
+	})
 
-func TestSystemInfoExtractsBackends(t *testing.T) {
-	srv := fakeLocalAI(t)
-	c := New(srv.URL, "")
-	info, err := c.SystemInfo(context.Background())
-	if err != nil {
-		t.Fatalf("system: %v", err)
-	}
-	if info.Version != "v0.0.0-test" {
-		t.Errorf("version=%q", info.Version)
-	}
-	if len(info.InstalledBackends) != 2 {
-		t.Errorf("backends=%v", info.InstalledBackends)
-	}
-}
+	Describe("GetJobStatus", func() {
+		It("decodes the happy-path response", func() {
+			st, err := c.GetJobStatus(ctx, "job-123")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(st.Processed).To(BeTrue())
+			Expect(st.Progress).To(Equal(100.0))
+		})
 
-func TestListBackends(t *testing.T) {
-	srv := fakeLocalAI(t)
-	c := New(srv.URL, "")
-	bs, err := c.ListBackends(context.Background())
-	if err != nil {
-		t.Fatalf("list backends: %v", err)
-	}
-	if len(bs) != 1 || bs[0].Name != "llama-cpp" || !bs[0].Installed {
-		t.Errorf("unexpected: %+v", bs)
-	}
-}
+		It("translates the legacy 500-with-could-not-find as nil status, nil err", func() {
+			st, err := c.GetJobStatus(ctx, "missing")
+			Expect(err).ToNot(HaveOccurred(), "legacy 500 should not surface as a real error")
+			Expect(st).To(BeNil())
+		})
+	})
 
-func TestErrHTTPNotFound_404Status(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		http.Error(w, "nope", http.StatusNotFound)
-	}))
-	t.Cleanup(srv.Close)
-	c := New(srv.URL, "")
-	st, err := c.GetJobStatus(context.Background(), "missing")
-	if err != nil {
-		t.Fatalf("expected nil err on 404 (translated), got %v", err)
-	}
-	if st != nil {
-		t.Errorf("expected nil status, got %+v", st)
-	}
-}
+	Describe("SystemInfo", func() {
+		It("extracts version and installed-backend names from the welcome JSON", func() {
+			info, err := c.SystemInfo(ctx)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(info.Version).To(Equal("v0.0.0-test"))
+			Expect(info.InstalledBackends).To(HaveLen(2))
+		})
+	})
 
-func TestErrHTTPNotFound_LegacyFiveHundredCouldNotFind(t *testing.T) {
-	// The /models/jobs/:uuid endpoint today returns 500 with body
-	// "could not find any status for ID" instead of a proper 404.
-	// Until that's fixed, the typed Is() honours that fallback.
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		http.Error(w, "could not find any status for ID", http.StatusInternalServerError)
-	}))
-	t.Cleanup(srv.Close)
-	c := New(srv.URL, "")
-	st, err := c.GetJobStatus(context.Background(), "missing")
-	if err != nil {
-		t.Fatalf("expected nil err on legacy 500-could-not-find, got %v", err)
-	}
-	if st != nil {
-		t.Errorf("expected nil status, got %+v", st)
-	}
-}
+	Describe("ListBackends", func() {
+		It("returns each installed backend with its installed flag", func() {
+			bs, err := c.ListBackends(ctx)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(bs).To(HaveLen(1))
+			Expect(bs[0].Name).To(Equal("llama-cpp"))
+			Expect(bs[0].Installed).To(BeTrue())
+		})
+	})
+})
 
-func TestErrHTTPNotFound_ErrorsIsExposed(t *testing.T) {
-	// External callers can use errors.Is on the typed error.
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		http.Error(w, "nope", http.StatusNotFound)
-	}))
-	t.Cleanup(srv.Close)
-	c := New(srv.URL, "")
-	// ListGalleries doesn't translate 404 internally — the raw error must be
-	// detectable via errors.Is so other call sites can do their own thing.
-	_, err := c.ListGalleries(context.Background())
-	if !errors.Is(err, ErrHTTPNotFound) {
-		t.Fatalf("errors.Is(err, ErrHTTPNotFound) = false; err = %v", err)
-	}
-}
+var _ = Describe("ErrHTTPNotFound", func() {
+	Context("on a clean 404 status", func() {
+		var (
+			srv *httptest.Server
+			c   *Client
+		)
+		BeforeEach(func() {
+			srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				http.Error(w, "nope", http.StatusNotFound)
+			}))
+			c = New(srv.URL, "")
+		})
+		AfterEach(func() { srv.Close() })
 
-func TestBearerTokenForwarded(t *testing.T) {
-	var sawAuth string
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		sawAuth = r.Header.Get("Authorization")
-		_ = json.NewEncoder(w).Encode([]map[string]any{})
-	}))
-	t.Cleanup(srv.Close)
-	c := New(srv.URL, "secret-key")
-	if _, err := c.ListGalleries(context.Background()); err != nil {
-		t.Fatal(err)
-	}
-	if sawAuth != "Bearer secret-key" {
-		t.Errorf("Authorization header = %q, want %q", sawAuth, "Bearer secret-key")
-	}
-}
+		It("translates a 404 on /models/jobs/:id into nil status, nil err", func() {
+			st, err := c.GetJobStatus(context.Background(), "missing")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(st).To(BeNil())
+		})
+
+		It("is detectable via errors.Is when callers don't translate", func() {
+			_, err := c.ListGalleries(context.Background())
+			Expect(errors.Is(err, ErrHTTPNotFound)).To(BeTrue(), "got: %v", err)
+		})
+	})
+
+	Context("on the legacy 500-with-could-not-find body", func() {
+		It("treats it as not-found until LocalAI returns a proper 404", func() {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				http.Error(w, "could not find any status for ID", http.StatusInternalServerError)
+			}))
+			DeferCleanup(srv.Close)
+			c := New(srv.URL, "")
+			st, err := c.GetJobStatus(context.Background(), "missing")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(st).To(BeNil())
+		})
+	})
+})
+
+var _ = Describe("Bearer token", func() {
+	It("forwards the configured API key on every request", func() {
+		var sawAuth string
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			sawAuth = r.Header.Get("Authorization")
+			_ = json.NewEncoder(w).Encode([]map[string]any{})
+		}))
+		DeferCleanup(srv.Close)
+
+		c := New(srv.URL, "secret-key")
+		_, err := c.ListGalleries(context.Background())
+		Expect(err).ToNot(HaveOccurred())
+		Expect(sawAuth).To(Equal("Bearer secret-key"))
+	})
+})

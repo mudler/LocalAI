@@ -2,55 +2,56 @@ package modeladmin
 
 import (
 	"context"
-	"errors"
 	"path/filepath"
-	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
-func TestTogglePinned_Pin(t *testing.T) {
-	svc, dir := newTestService(t)
-	writeModelYAML(t, svc, dir, "qwen", map[string]any{"backend": "llama-cpp"})
+var _ = Describe("ConfigService.TogglePinned", func() {
+	var (
+		svc *ConfigService
+		dir string
+		ctx context.Context
+	)
 
-	if _, err := svc.TogglePinned(context.Background(), "qwen", ActionPin, nil); err != nil {
-		t.Fatalf("toggle: %v", err)
-	}
-	got := readMap(t, filepath.Join(dir, "qwen.yaml"))
-	if got["pinned"] != true {
-		t.Errorf("pinned = %v, want true", got["pinned"])
-	}
-}
+	BeforeEach(func() {
+		svc, dir = newTestService()
+		ctx = context.Background()
+	})
 
-func TestTogglePinned_Unpin_RemovesField(t *testing.T) {
-	svc, dir := newTestService(t)
-	writeModelYAML(t, svc, dir, "qwen", map[string]any{"backend": "llama-cpp", "pinned": true})
+	It("pins a model by writing pinned: true", func() {
+		writeModelYAML(svc, dir, "qwen", map[string]any{"backend": "llama-cpp"})
 
-	if _, err := svc.TogglePinned(context.Background(), "qwen", ActionUnpin, nil); err != nil {
-		t.Fatalf("toggle: %v", err)
-	}
-	got := readMap(t, filepath.Join(dir, "qwen.yaml"))
-	if _, present := got["pinned"]; present {
-		t.Errorf("pinned key should be removed on unpin, got %v", got["pinned"])
-	}
-}
+		_, err := svc.TogglePinned(ctx, "qwen", ActionPin, nil)
+		Expect(err).ToNot(HaveOccurred())
 
-func TestTogglePinned_BadAction(t *testing.T) {
-	svc, dir := newTestService(t)
-	writeModelYAML(t, svc, dir, "qwen", map[string]any{"backend": "llama-cpp"})
-	_, err := svc.TogglePinned(context.Background(), "qwen", Action("stick"), nil)
-	if !errors.Is(err, ErrBadAction) {
-		t.Errorf("err = %v, want ErrBadAction", err)
-	}
-}
+		got := readMap(filepath.Join(dir, "qwen.yaml"))
+		Expect(got).To(HaveKeyWithValue("pinned", true))
+	})
 
-func TestTogglePinned_SyncCallback(t *testing.T) {
-	svc, dir := newTestService(t)
-	writeModelYAML(t, svc, dir, "qwen", map[string]any{"backend": "llama-cpp"})
+	It("unpins by removing the pinned key entirely", func() {
+		writeModelYAML(svc, dir, "qwen", map[string]any{"backend": "llama-cpp", "pinned": true})
 
-	called := false
-	if _, err := svc.TogglePinned(context.Background(), "qwen", ActionPin, func() { called = true }); err != nil {
-		t.Fatalf("toggle: %v", err)
-	}
-	if !called {
-		t.Errorf("syncPinned callback not invoked")
-	}
-}
+		_, err := svc.TogglePinned(ctx, "qwen", ActionUnpin, nil)
+		Expect(err).ToNot(HaveOccurred())
+
+		got := readMap(filepath.Join(dir, "qwen.yaml"))
+		Expect(got).ToNot(HaveKey("pinned"))
+	})
+
+	It("rejects unknown actions with ErrBadAction", func() {
+		writeModelYAML(svc, dir, "qwen", map[string]any{"backend": "llama-cpp"})
+		_, err := svc.TogglePinned(ctx, "qwen", Action("stick"), nil)
+		Expect(err).To(MatchError(ErrBadAction))
+	})
+
+	It("invokes the syncPinned callback after a successful toggle", func() {
+		writeModelYAML(svc, dir, "qwen", map[string]any{"backend": "llama-cpp"})
+
+		called := false
+		_, err := svc.TogglePinned(ctx, "qwen", ActionPin, func() { called = true })
+		Expect(err).ToNot(HaveOccurred())
+		Expect(called).To(BeTrue(), "syncPinned callback should be invoked")
+	})
+})

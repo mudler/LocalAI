@@ -2,67 +2,64 @@ package modeladmin
 
 import (
 	"context"
-	"errors"
 	"os"
 	"path/filepath"
-	"testing"
 
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 	"gopkg.in/yaml.v3"
 )
 
-func TestToggleState_Disable(t *testing.T) {
-	svc, dir := newTestService(t)
-	writeModelYAML(t, svc, dir, "qwen", map[string]any{"backend": "llama-cpp"})
-
-	if _, err := svc.ToggleState(context.Background(), "qwen", ActionDisable, nil); err != nil {
-		t.Fatalf("toggle: %v", err)
-	}
-	got := readMap(t, filepath.Join(dir, "qwen.yaml"))
-	if got["disabled"] != true {
-		t.Errorf("disabled = %v, want true", got["disabled"])
-	}
-}
-
-func TestToggleState_Enable_RemovesField(t *testing.T) {
-	svc, dir := newTestService(t)
-	writeModelYAML(t, svc, dir, "qwen", map[string]any{"backend": "llama-cpp", "disabled": true})
-
-	if _, err := svc.ToggleState(context.Background(), "qwen", ActionEnable, nil); err != nil {
-		t.Fatalf("toggle: %v", err)
-	}
-	got := readMap(t, filepath.Join(dir, "qwen.yaml"))
-	if _, present := got["disabled"]; present {
-		t.Errorf("disabled key should be removed when enabling, got %v", got["disabled"])
-	}
-}
-
-func TestToggleState_BadAction(t *testing.T) {
-	svc, dir := newTestService(t)
-	writeModelYAML(t, svc, dir, "qwen", map[string]any{"backend": "llama-cpp"})
-	_, err := svc.ToggleState(context.Background(), "qwen", Action("noop"), nil)
-	if !errors.Is(err, ErrBadAction) {
-		t.Errorf("err = %v, want ErrBadAction", err)
-	}
-}
-
-func TestToggleState_UnknownModel(t *testing.T) {
-	svc, _ := newTestService(t)
-	_, err := svc.ToggleState(context.Background(), "ghost", ActionDisable, nil)
-	if !errors.Is(err, ErrNotFound) {
-		t.Errorf("err = %v, want ErrNotFound", err)
-	}
-}
-
-// readMap is a tiny helper: read the YAML file as a map[string]any.
-func readMap(t *testing.T, path string) map[string]any {
-	t.Helper()
+// readMap reads the YAML file at path as a map[string]any. Used by both
+// state and pinned specs to assert on the on-disk shape.
+func readMap(path string) map[string]any {
 	raw, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read: %v", err)
-	}
+	Expect(err).ToNot(HaveOccurred())
 	var m map[string]any
-	if err := yaml.Unmarshal(raw, &m); err != nil {
-		t.Fatalf("unmarshal: %v", err)
-	}
+	Expect(yaml.Unmarshal(raw, &m)).To(Succeed())
 	return m
 }
+
+var _ = Describe("ConfigService.ToggleState", func() {
+	var (
+		svc *ConfigService
+		dir string
+		ctx context.Context
+	)
+
+	BeforeEach(func() {
+		svc, dir = newTestService()
+		ctx = context.Background()
+	})
+
+	It("disables a model by writing disabled: true", func() {
+		writeModelYAML(svc, dir, "qwen", map[string]any{"backend": "llama-cpp"})
+
+		_, err := svc.ToggleState(ctx, "qwen", ActionDisable, nil)
+		Expect(err).ToNot(HaveOccurred())
+
+		got := readMap(filepath.Join(dir, "qwen.yaml"))
+		Expect(got).To(HaveKeyWithValue("disabled", true))
+	})
+
+	It("enables a model by removing the disabled key entirely", func() {
+		writeModelYAML(svc, dir, "qwen", map[string]any{"backend": "llama-cpp", "disabled": true})
+
+		_, err := svc.ToggleState(ctx, "qwen", ActionEnable, nil)
+		Expect(err).ToNot(HaveOccurred())
+
+		got := readMap(filepath.Join(dir, "qwen.yaml"))
+		Expect(got).ToNot(HaveKey("disabled"))
+	})
+
+	It("rejects unknown actions with ErrBadAction", func() {
+		writeModelYAML(svc, dir, "qwen", map[string]any{"backend": "llama-cpp"})
+		_, err := svc.ToggleState(ctx, "qwen", Action("noop"), nil)
+		Expect(err).To(MatchError(ErrBadAction))
+	})
+
+	It("returns ErrNotFound for an unknown model", func() {
+		_, err := svc.ToggleState(ctx, "ghost", ActionDisable, nil)
+		Expect(err).To(MatchError(ErrNotFound))
+	})
+})

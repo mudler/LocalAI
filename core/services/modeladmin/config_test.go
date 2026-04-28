@@ -2,11 +2,11 @@ package modeladmin
 
 import (
 	"context"
-	"errors"
 	"os"
 	"path/filepath"
-	"testing"
 
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 	"gopkg.in/yaml.v3"
 
 	"github.com/mudler/LocalAI/core/config"
@@ -16,9 +16,8 @@ import (
 // newTestService stands up a ConfigService backed by a tmp dir so the file IO
 // is real but isolated. The model loader is loaded against the same tmp path
 // so GetModelConfig works.
-func newTestService(t *testing.T) (*ConfigService, string) {
-	t.Helper()
-	dir := t.TempDir()
+func newTestService() (*ConfigService, string) {
+	dir := GinkgoT().TempDir()
 	loader := config.NewModelConfigLoader(dir)
 	appConfig := &config.ApplicationConfig{
 		SystemState: &system.SystemState{Model: system.Model{ModelsPath: dir}},
@@ -28,172 +27,131 @@ func newTestService(t *testing.T) (*ConfigService, string) {
 
 // writeModelYAML creates a model YAML on disk and reloads the loader so the
 // new entry is visible.
-func writeModelYAML(t *testing.T, svc *ConfigService, dir, name string, body map[string]any) {
-	t.Helper()
+func writeModelYAML(svc *ConfigService, dir, name string, body map[string]any) {
 	body["name"] = name
 	data, err := yaml.Marshal(body)
-	if err != nil {
-		t.Fatalf("marshal: %v", err)
-	}
+	Expect(err).ToNot(HaveOccurred())
 	path := filepath.Join(dir, name+".yaml")
-	if err := os.WriteFile(path, data, 0644); err != nil {
-		t.Fatalf("write: %v", err)
-	}
-	if err := svc.Loader.LoadModelConfigsFromPath(dir, svc.AppConfig.ToConfigLoaderOptions()...); err != nil {
-		t.Fatalf("loader: %v", err)
-	}
+	Expect(os.WriteFile(path, data, 0644)).To(Succeed())
+	Expect(svc.Loader.LoadModelConfigsFromPath(dir, svc.AppConfig.ToConfigLoaderOptions()...)).To(Succeed())
 }
 
-func TestGetConfig_RoundTrip(t *testing.T) {
-	svc, dir := newTestService(t)
-	writeModelYAML(t, svc, dir, "qwen", map[string]any{"backend": "llama-cpp", "context_size": 4096})
+var _ = Describe("ConfigService", func() {
+	var (
+		svc *ConfigService
+		dir string
+		ctx context.Context
+	)
 
-	view, err := svc.GetConfig(context.Background(), "qwen")
-	if err != nil {
-		t.Fatalf("get: %v", err)
-	}
-	if view.Name != "qwen" {
-		t.Errorf("name = %q", view.Name)
-	}
-	if view.JSON["backend"] != "llama-cpp" {
-		t.Errorf("backend = %v", view.JSON["backend"])
-	}
-}
-
-func TestGetConfig_UnknownModel(t *testing.T) {
-	svc, _ := newTestService(t)
-	_, err := svc.GetConfig(context.Background(), "missing")
-	if !errors.Is(err, ErrNotFound) {
-		t.Errorf("err = %v, want ErrNotFound", err)
-	}
-}
-
-func TestGetConfig_EmptyName(t *testing.T) {
-	svc, _ := newTestService(t)
-	_, err := svc.GetConfig(context.Background(), "")
-	if !errors.Is(err, ErrNameRequired) {
-		t.Errorf("err = %v, want ErrNameRequired", err)
-	}
-}
-
-func TestPatchConfig_DeepMerge(t *testing.T) {
-	svc, dir := newTestService(t)
-	writeModelYAML(t, svc, dir, "qwen", map[string]any{
-		"backend":      "llama-cpp",
-		"context_size": 4096,
-		"parameters":   map[string]any{"temperature": 0.7, "top_p": 0.9},
+	BeforeEach(func() {
+		svc, dir = newTestService()
+		ctx = context.Background()
 	})
 
-	updated, err := svc.PatchConfig(context.Background(), "qwen", map[string]any{
-		"context_size": 8192,
-		"parameters":   map[string]any{"temperature": 0.5},
+	Describe("GetConfig", func() {
+		It("round-trips YAML from disk and exposes the parsed JSON", func() {
+			writeModelYAML(svc, dir, "qwen", map[string]any{"backend": "llama-cpp", "context_size": 4096})
+
+			view, err := svc.GetConfig(ctx, "qwen")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(view.Name).To(Equal("qwen"))
+			Expect(view.JSON).To(HaveKeyWithValue("backend", "llama-cpp"))
+		})
+
+		It("returns ErrNotFound for an unknown model", func() {
+			_, err := svc.GetConfig(ctx, "missing")
+			Expect(err).To(MatchError(ErrNotFound))
+		})
+
+		It("returns ErrNameRequired when name is empty", func() {
+			_, err := svc.GetConfig(ctx, "")
+			Expect(err).To(MatchError(ErrNameRequired))
+		})
 	})
-	if err != nil {
-		t.Fatalf("patch: %v", err)
-	}
-	if updated.Name != "qwen" {
-		t.Errorf("name = %q", updated.Name)
-	}
 
-	// Verify on disk
-	raw, err := os.ReadFile(filepath.Join(dir, "qwen.yaml"))
-	if err != nil {
-		t.Fatalf("read: %v", err)
-	}
-	var got map[string]any
-	if err := yaml.Unmarshal(raw, &got); err != nil {
-		t.Fatalf("unmarshal: %v", err)
-	}
-	if got["context_size"] != 8192 {
-		t.Errorf("context_size = %v, want 8192", got["context_size"])
-	}
-	// Deep-merge preserves untouched siblings.
-	params, ok := got["parameters"].(map[string]any)
-	if !ok {
-		t.Fatalf("parameters not a map: %T", got["parameters"])
-	}
-	if params["temperature"] != 0.5 {
-		t.Errorf("temperature = %v, want 0.5", params["temperature"])
-	}
-	if params["top_p"] != 0.9 {
-		t.Errorf("top_p was clobbered: %v", params["top_p"])
-	}
-}
+	Describe("PatchConfig", func() {
+		It("deep-merges the patch and preserves untouched siblings", func() {
+			writeModelYAML(svc, dir, "qwen", map[string]any{
+				"backend":      "llama-cpp",
+				"context_size": 4096,
+				"parameters":   map[string]any{"temperature": 0.7, "top_p": 0.9},
+			})
 
-func TestPatchConfig_UnknownModel(t *testing.T) {
-	svc, _ := newTestService(t)
-	_, err := svc.PatchConfig(context.Background(), "ghost", map[string]any{"x": 1})
-	if !errors.Is(err, ErrNotFound) {
-		t.Errorf("err = %v, want ErrNotFound", err)
-	}
-}
+			updated, err := svc.PatchConfig(ctx, "qwen", map[string]any{
+				"context_size": 8192,
+				"parameters":   map[string]any{"temperature": 0.5},
+			})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(updated.Name).To(Equal("qwen"))
 
-func TestPatchConfig_EmptyPatch(t *testing.T) {
-	svc, dir := newTestService(t)
-	writeModelYAML(t, svc, dir, "qwen", map[string]any{"backend": "llama-cpp"})
-	_, err := svc.PatchConfig(context.Background(), "qwen", map[string]any{})
-	if !errors.Is(err, ErrEmptyBody) {
-		t.Errorf("err = %v, want ErrEmptyBody", err)
-	}
-}
+			raw, err := os.ReadFile(filepath.Join(dir, "qwen.yaml"))
+			Expect(err).ToNot(HaveOccurred())
+			var got map[string]any
+			Expect(yaml.Unmarshal(raw, &got)).To(Succeed())
+			Expect(got).To(HaveKeyWithValue("context_size", 8192))
 
-func TestEditYAML_Rename(t *testing.T) {
-	svc, dir := newTestService(t)
-	writeModelYAML(t, svc, dir, "old-name", map[string]any{"backend": "llama-cpp"})
+			params, ok := got["parameters"].(map[string]any)
+			Expect(ok).To(BeTrue())
+			Expect(params).To(HaveKeyWithValue("temperature", 0.5))
+			// top_p must still be there: deep-merge should NOT clobber siblings.
+			Expect(params).To(HaveKeyWithValue("top_p", 0.9))
+		})
 
-	body := []byte("name: new-name\nbackend: llama-cpp\n")
-	result, err := svc.EditYAML(context.Background(), "old-name", body, nil)
-	if err != nil {
-		t.Fatalf("edit: %v", err)
-	}
-	if !result.Renamed || result.OldName != "old-name" || result.NewName != "new-name" {
-		t.Errorf("rename mismatch: %+v", result)
-	}
-	// Old file must be gone.
-	if _, err := os.Stat(filepath.Join(dir, "old-name.yaml")); !os.IsNotExist(err) {
-		t.Errorf("old YAML still present: err=%v", err)
-	}
-	// New file must exist.
-	if _, err := os.Stat(filepath.Join(dir, "new-name.yaml")); err != nil {
-		t.Errorf("new YAML missing: %v", err)
-	}
-	// Loader index reflects the new name.
-	if _, ok := svc.Loader.GetModelConfig("new-name"); !ok {
-		t.Errorf("loader missing renamed model")
-	}
-	if _, ok := svc.Loader.GetModelConfig("old-name"); ok {
-		t.Errorf("loader still has old name")
-	}
-}
+		It("returns ErrNotFound for an unknown model", func() {
+			_, err := svc.PatchConfig(ctx, "ghost", map[string]any{"x": 1})
+			Expect(err).To(MatchError(ErrNotFound))
+		})
 
-func TestEditYAML_RenameConflict(t *testing.T) {
-	svc, dir := newTestService(t)
-	writeModelYAML(t, svc, dir, "alpha", map[string]any{"backend": "llama-cpp"})
-	writeModelYAML(t, svc, dir, "beta", map[string]any{"backend": "llama-cpp"})
+		It("rejects an empty patch with ErrEmptyBody", func() {
+			writeModelYAML(svc, dir, "qwen", map[string]any{"backend": "llama-cpp"})
+			_, err := svc.PatchConfig(ctx, "qwen", map[string]any{})
+			Expect(err).To(MatchError(ErrEmptyBody))
+		})
+	})
 
-	body := []byte("name: beta\nbackend: llama-cpp\n")
-	_, err := svc.EditYAML(context.Background(), "alpha", body, nil)
-	if !errors.Is(err, ErrConflict) {
-		t.Errorf("err = %v, want ErrConflict", err)
-	}
-}
+	Describe("EditYAML", func() {
+		It("renames the on-disk file and reindexes the loader", func() {
+			writeModelYAML(svc, dir, "old-name", map[string]any{"backend": "llama-cpp"})
 
-func TestEditYAML_PathSeparator(t *testing.T) {
-	svc, dir := newTestService(t)
-	writeModelYAML(t, svc, dir, "alpha", map[string]any{"backend": "llama-cpp"})
+			body := []byte("name: new-name\nbackend: llama-cpp\n")
+			result, err := svc.EditYAML(ctx, "old-name", body, nil)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(result.Renamed).To(BeTrue())
+			Expect(result.OldName).To(Equal("old-name"))
+			Expect(result.NewName).To(Equal("new-name"))
 
-	body := []byte("name: ../escape\nbackend: llama-cpp\n")
-	_, err := svc.EditYAML(context.Background(), "alpha", body, nil)
-	if !errors.Is(err, ErrPathSeparator) {
-		t.Errorf("err = %v, want ErrPathSeparator", err)
-	}
-}
+			_, err = os.Stat(filepath.Join(dir, "old-name.yaml"))
+			Expect(os.IsNotExist(err)).To(BeTrue(), "old YAML should be removed")
+			_, err = os.Stat(filepath.Join(dir, "new-name.yaml"))
+			Expect(err).ToNot(HaveOccurred(), "new YAML should exist")
 
-func TestEditYAML_EmptyBody(t *testing.T) {
-	svc, dir := newTestService(t)
-	writeModelYAML(t, svc, dir, "alpha", map[string]any{"backend": "llama-cpp"})
-	_, err := svc.EditYAML(context.Background(), "alpha", nil, nil)
-	if !errors.Is(err, ErrEmptyBody) {
-		t.Errorf("err = %v, want ErrEmptyBody", err)
-	}
-}
+			_, ok := svc.Loader.GetModelConfig("new-name")
+			Expect(ok).To(BeTrue(), "loader should have the renamed model")
+			_, ok = svc.Loader.GetModelConfig("old-name")
+			Expect(ok).To(BeFalse(), "loader should not retain the old name")
+		})
+
+		It("refuses a rename that would clobber an existing model", func() {
+			writeModelYAML(svc, dir, "alpha", map[string]any{"backend": "llama-cpp"})
+			writeModelYAML(svc, dir, "beta", map[string]any{"backend": "llama-cpp"})
+
+			body := []byte("name: beta\nbackend: llama-cpp\n")
+			_, err := svc.EditYAML(ctx, "alpha", body, nil)
+			Expect(err).To(MatchError(ErrConflict))
+		})
+
+		It("rejects path-separator characters in the new name", func() {
+			writeModelYAML(svc, dir, "alpha", map[string]any{"backend": "llama-cpp"})
+
+			body := []byte("name: ../escape\nbackend: llama-cpp\n")
+			_, err := svc.EditYAML(ctx, "alpha", body, nil)
+			Expect(err).To(MatchError(ErrPathSeparator))
+		})
+
+		It("returns ErrEmptyBody when the body is nil", func() {
+			writeModelYAML(svc, dir, "alpha", map[string]any{"backend": "llama-cpp"})
+			_, err := svc.EditYAML(ctx, "alpha", nil, nil)
+			Expect(err).To(MatchError(ErrEmptyBody))
+		})
+	})
+})

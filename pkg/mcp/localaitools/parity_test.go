@@ -6,29 +6,33 @@ package localaitools_test
 // for the methods httpapi.Client touches; the inproc client is exercised
 // through the same fake by way of a stand-in that wraps the same data.
 //
-// Why this is "parity" not "behavioural equivalence": full inproc parity
-// would need a real GalleryService + ModelConfigLoader spun up against tmp
-// dirs (covered in core/services/modeladmin/*_test.go). This test focuses
-// on the *DTO translation layer* — i.e. the shape of what the LLM sees —
-// which is the divergence we want to prevent.
+// This file also hosts the single RunSpecs entrypoint for the localaitools
+// suite — Ginkgo aggregates Describes from both the internal `localaitools`
+// package and the external `localaitools_test` package into one run.
 
 import (
 	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"reflect"
 	"sort"
 	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 
 	localaitools "github.com/mudler/LocalAI/pkg/mcp/localaitools"
 	"github.com/mudler/LocalAI/pkg/mcp/localaitools/httpapi"
 )
 
-// fakeBackend is the canned JSON our httptest server returns. Keep responses
-// deterministic so we can compare byte-by-byte.
-func fakeBackend(t *testing.T) *httptest.Server {
-	t.Helper()
+func TestLocalAITools(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "localaitools test suite")
+}
+
+// fakeBackend is the canned JSON the httptest server returns. Keep
+// responses deterministic so we can compare byte-by-byte.
+func fakeBackend() *httptest.Server {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/models/galleries", func(w http.ResponseWriter, _ *http.Request) {
@@ -58,9 +62,9 @@ func fakeBackend(t *testing.T) *httptest.Server {
 		})
 	})
 	mux.HandleFunc("/models/import-uri", func(w http.ResponseWriter, _ *http.Request) {
-		// Simulate an ambiguous-backend response on first call so we can
-		// verify the httpapi.Client translates 400 + "ambiguous import"
-		// into the same AmbiguousBackend shape the inproc client uses.
+		// Simulate an ambiguous-backend response so we can verify the
+		// httpapi.Client translates 400 + "ambiguous import" into the same
+		// AmbiguousBackend shape the inproc client uses.
 		w.WriteHeader(http.StatusBadRequest)
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"error":      "ambiguous import",
@@ -71,27 +75,14 @@ func fakeBackend(t *testing.T) *httptest.Server {
 		})
 	})
 
-	srv := httptest.NewServer(mux)
-	t.Cleanup(srv.Close)
-	return srv
+	return httptest.NewServer(mux)
 }
 
-// inprocLikeFromHTTP builds a fakeAdaptor that the inproc *style* of access
-// would see: same backend data, but exposed as if the inproc client called
-// the underlying services directly. We achieve that by reusing httpapi.Client
-// for both sides — what matters is that the resulting DTOs match against the
-// same input, byte-equivalent. A real inproc-vs-http parity rig would need
-// to wire the full service layer; that lives in the modeladmin tests.
-//
-// This intentionally narrows the parity check to "the JSON the LLM observes
-// is the same regardless of which client produced it". Concretely we run
-// each method through *one* shared codepath (httpapi → fake server) and
-// snapshot the result, then assert the snapshot is stable across calls.
-//
-// When the inproc client gains its own integration test rig in a follow-up,
-// we'll widen this to a true two-client comparison.
-func inprocLikeFromHTTP(t *testing.T, target string) localaitools.LocalAIClient {
-	t.Helper()
+// inprocLikeFromHTTP narrows the parity check to "the JSON the LLM
+// observes is the same regardless of which client produced it". A real
+// inproc-vs-http parity rig would need to wire the full service layer;
+// that lives in the modeladmin tests.
+func inprocLikeFromHTTP(target string) localaitools.LocalAIClient {
 	return httpapi.New(target, "")
 }
 
@@ -101,82 +92,63 @@ func sortGalleries(in []localaitools.Gallery) []localaitools.Gallery {
 	return out
 }
 
-func TestParity_ListGalleries(t *testing.T) {
-	srv := fakeBackend(t)
-	a := httpapi.New(srv.URL, "")
-	b := inprocLikeFromHTTP(t, srv.URL)
+var _ = Describe("LocalAIClient parity", func() {
+	var (
+		srv *httptest.Server
+		ctx context.Context
+		a   localaitools.LocalAIClient
+		b   localaitools.LocalAIClient
+	)
 
-	left, err := a.ListGalleries(context.Background())
-	if err != nil {
-		t.Fatalf("a: %v", err)
-	}
-	right, err := b.ListGalleries(context.Background())
-	if err != nil {
-		t.Fatalf("b: %v", err)
-	}
-	if !reflect.DeepEqual(sortGalleries(left), sortGalleries(right)) {
-		t.Errorf("ListGalleries diverged:\n  a=%+v\n  b=%+v", left, right)
-	}
-}
+	BeforeEach(func() {
+		srv = fakeBackend()
+		ctx = context.Background()
+		a = httpapi.New(srv.URL, "")
+		b = inprocLikeFromHTTP(srv.URL)
+	})
 
-func TestParity_GallerySearch(t *testing.T) {
-	srv := fakeBackend(t)
-	a := httpapi.New(srv.URL, "")
-	b := inprocLikeFromHTTP(t, srv.URL)
+	AfterEach(func() {
+		srv.Close()
+	})
 
-	q := localaitools.GallerySearchQuery{Query: "qwen", Tag: "chat", Limit: 5}
-	left, err := a.GallerySearch(context.Background(), q)
-	if err != nil {
-		t.Fatalf("a: %v", err)
-	}
-	right, err := b.GallerySearch(context.Background(), q)
-	if err != nil {
-		t.Fatalf("b: %v", err)
-	}
-	if !reflect.DeepEqual(left, right) {
-		t.Errorf("GallerySearch diverged:\n  a=%+v\n  b=%+v", left, right)
-	}
-}
+	It("ListGalleries produces identical output", func() {
+		left, err := a.ListGalleries(ctx)
+		Expect(err).ToNot(HaveOccurred())
+		right, err := b.ListGalleries(ctx)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(sortGalleries(left)).To(Equal(sortGalleries(right)))
+	})
 
-func TestParity_ImportModelURI_Ambiguity(t *testing.T) {
-	srv := fakeBackend(t)
-	a := httpapi.New(srv.URL, "")
-	b := inprocLikeFromHTTP(t, srv.URL)
+	It("GallerySearch produces identical output", func() {
+		q := localaitools.GallerySearchQuery{Query: "qwen", Tag: "chat", Limit: 5}
+		left, err := a.GallerySearch(ctx, q)
+		Expect(err).ToNot(HaveOccurred())
+		right, err := b.GallerySearch(ctx, q)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(left).To(Equal(right))
+	})
 
-	req := localaitools.ImportModelURIRequest{URI: "Qwen/Qwen3-4B-GGUF"}
-	left, err := a.ImportModelURI(context.Background(), req)
-	if err != nil {
-		t.Fatalf("a: %v", err)
-	}
-	right, err := b.ImportModelURI(context.Background(), req)
-	if err != nil {
-		t.Fatalf("b: %v", err)
-	}
-	if !left.AmbiguousBackend || !right.AmbiguousBackend {
-		t.Fatalf("expected ambiguity from both, got a=%+v b=%+v", left, right)
-	}
-	if !reflect.DeepEqual(left.BackendCandidates, right.BackendCandidates) {
-		t.Errorf("candidates diverged: a=%v b=%v", left.BackendCandidates, right.BackendCandidates)
-	}
-}
+	It("ImportModelURI surfaces AmbiguousBackend equivalently", func() {
+		req := localaitools.ImportModelURIRequest{URI: "Qwen/Qwen3-4B-GGUF"}
+		left, err := a.ImportModelURI(ctx, req)
+		Expect(err).ToNot(HaveOccurred())
+		right, err := b.ImportModelURI(ctx, req)
+		Expect(err).ToNot(HaveOccurred())
 
-func TestParity_SystemInfo(t *testing.T) {
-	srv := fakeBackend(t)
-	a := httpapi.New(srv.URL, "")
-	b := inprocLikeFromHTTP(t, srv.URL)
+		Expect(left.AmbiguousBackend).To(BeTrue(), "left side ambiguity")
+		Expect(right.AmbiguousBackend).To(BeTrue(), "right side ambiguity")
+		Expect(left.BackendCandidates).To(Equal(right.BackendCandidates))
+	})
 
-	left, err := a.SystemInfo(context.Background())
-	if err != nil {
-		t.Fatalf("a: %v", err)
-	}
-	right, err := b.SystemInfo(context.Background())
-	if err != nil {
-		t.Fatalf("b: %v", err)
-	}
-	// Backends slice ordering is map-iteration-sensitive; sort before compare.
-	sort.Strings(left.InstalledBackends)
-	sort.Strings(right.InstalledBackends)
-	if !reflect.DeepEqual(left, right) {
-		t.Errorf("SystemInfo diverged:\n  a=%+v\n  b=%+v", left, right)
-	}
-}
+	It("SystemInfo produces identical output (sorted)", func() {
+		left, err := a.SystemInfo(ctx)
+		Expect(err).ToNot(HaveOccurred())
+		right, err := b.SystemInfo(ctx)
+		Expect(err).ToNot(HaveOccurred())
+
+		// Backends slice ordering is map-iteration-sensitive; sort first.
+		sort.Strings(left.InstalledBackends)
+		sort.Strings(right.InstalledBackends)
+		Expect(left).To(Equal(right))
+	})
+})

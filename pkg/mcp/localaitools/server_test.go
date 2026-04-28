@@ -6,31 +6,27 @@ import (
 	"sort"
 	"strings"
 	"sync"
-	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// connectInMemory wires an MCP server (built via NewServer) to a client over a
-// paired in-memory transport (net.Pipe). Returns the client session and a
-// teardown closure that cleans up server + client.
-func connectInMemory(t *testing.T, client LocalAIClient, opts Options) (context.Context, *mcp.ClientSession, func()) {
-	t.Helper()
-
+// connectInMemory wires an MCP server (built via NewServer) to a client over
+// a paired in-memory transport (net.Pipe). Returns the client session along
+// with a teardown closure suitable for DeferCleanup.
+func connectInMemory(client LocalAIClient, opts Options) (context.Context, *mcp.ClientSession, func()) {
 	ctx, cancel := context.WithCancel(context.Background())
 	srv := NewServer(client, opts)
 	t1, t2 := mcp.NewInMemoryTransports()
 
 	serverSession, err := srv.Connect(ctx, t1, nil)
-	if err != nil {
-		t.Fatalf("server connect: %v", err)
-	}
+	Expect(err).ToNot(HaveOccurred(), "server connect")
 
 	c := mcp.NewClient(&mcp.Implementation{Name: "test-client", Version: "v0"}, nil)
 	clientSession, err := c.Connect(ctx, t2, nil)
-	if err != nil {
-		t.Fatalf("client connect: %v", err)
-	}
+	Expect(err).ToNot(HaveOccurred(), "client connect")
 
 	return ctx, clientSession, func() {
 		_ = clientSession.Close()
@@ -40,12 +36,9 @@ func connectInMemory(t *testing.T, client LocalAIClient, opts Options) (context.
 }
 
 // listToolNames returns the sorted list of tool names exposed by the server.
-func listToolNames(t *testing.T, ctx context.Context, sess *mcp.ClientSession) []string {
-	t.Helper()
+func listToolNames(ctx context.Context, sess *mcp.ClientSession) []string {
 	res, err := sess.ListTools(ctx, nil)
-	if err != nil {
-		t.Fatalf("list tools: %v", err)
-	}
+	Expect(err).ToNot(HaveOccurred(), "list tools")
 	names := make([]string, 0, len(res.Tools))
 	for _, tl := range res.Tools {
 		names = append(names, tl.Name)
@@ -54,17 +47,13 @@ func listToolNames(t *testing.T, ctx context.Context, sess *mcp.ClientSession) [
 	return names
 }
 
-// callTool is a small wrapper to reduce boilerplate.
-// CallToolParams.Arguments is declared as `any` and the SDK marshals it for the
-// wire — passing a pre-marshalled []byte (or json.RawMessage) here would be
-// double-encoded as a base64 string.
-func callTool(t *testing.T, ctx context.Context, sess *mcp.ClientSession, name string, args any) *mcp.CallToolResult {
-	t.Helper()
-	params := &mcp.CallToolParams{Name: name, Arguments: args}
-	res, err := sess.CallTool(ctx, params)
-	if err != nil {
-		t.Fatalf("call tool %s: %v", name, err)
-	}
+// callTool is a small wrapper to reduce boilerplate. CallToolParams.Arguments
+// is declared as `any` and the SDK marshals it for the wire — passing a
+// pre-marshalled []byte (or json.RawMessage) here would be double-encoded as
+// a base64 string.
+func callTool(ctx context.Context, sess *mcp.ClientSession, name string, args any) *mcp.CallToolResult {
+	res, err := sess.CallTool(ctx, &mcp.CallToolParams{Name: name, Arguments: args})
+	Expect(err).ToNot(HaveOccurred(), "call tool %s", name)
 	return res
 }
 
@@ -123,33 +112,30 @@ func sortedStrings(in ...string) []string {
 	return out
 }
 
-func TestServerRegistersExpectedToolCatalog(t *testing.T) {
-	ctx, sess, done := connectInMemory(t, &fakeClient{}, Options{})
-	defer done()
+var _ = Describe("Server tool catalog", func() {
+	It("registers the full catalog when mutating tools are enabled", func() {
+		ctx, sess, done := connectInMemory(&fakeClient{}, Options{})
+		DeferCleanup(done)
 
-	got := listToolNames(t, ctx, sess)
-	if !sliceEqual(got, expectedFullCatalog) {
-		t.Errorf("tool catalog mismatch.\n got: %v\nwant: %v", got, expectedFullCatalog)
-	}
-}
+		Expect(listToolNames(ctx, sess)).To(Equal(expectedFullCatalog))
+	})
 
-func TestDisableMutatingSkipsMutators(t *testing.T) {
-	ctx, sess, done := connectInMemory(t, &fakeClient{}, Options{DisableMutating: true})
-	defer done()
+	It("skips mutating tools when DisableMutating is set", func() {
+		ctx, sess, done := connectInMemory(&fakeClient{}, Options{DisableMutating: true})
+		DeferCleanup(done)
 
-	got := listToolNames(t, ctx, sess)
-	if !sliceEqual(got, expectedReadOnlyCatalog) {
-		t.Errorf("read-only catalog mismatch.\n got: %v\nwant: %v", got, expectedReadOnlyCatalog)
-	}
-}
+		Expect(listToolNames(ctx, sess)).To(Equal(expectedReadOnlyCatalog))
+	})
+})
 
-func TestEachToolDispatchesToClient(t *testing.T) {
-	type tc struct {
+var _ = Describe("Tool dispatch", func() {
+	type dispatchCase struct {
 		tool       string
 		args       any
 		wantMethod string
 	}
-	cases := []tc{
+
+	cases := []dispatchCase{
 		{ToolGallerySearch, GallerySearchQuery{Query: "qwen"}, "GallerySearch"},
 		{ToolListInstalledModels, map[string]any{"capability": "chat"}, "ListInstalledModels"},
 		{ToolListGalleries, struct{}{}, "ListGalleries"},
@@ -169,108 +155,88 @@ func TestEachToolDispatchesToClient(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		t.Run(c.tool, func(t *testing.T) {
+		c := c
+		It("routes "+c.tool+" to "+c.wantMethod, func() {
 			fc := &fakeClient{
 				installModel:   func(InstallModelRequest) (string, error) { return "job-1", nil },
 				installBackend: func(InstallBackendRequest) (string, error) { return "job-2", nil },
 				upgradeBackend: func(string) (string, error) { return "job-3", nil },
 			}
-			ctx, sess, done := connectInMemory(t, fc, Options{})
-			defer done()
+			ctx, sess, done := connectInMemory(fc, Options{})
+			DeferCleanup(done)
 
-			res := callTool(t, ctx, sess, c.tool, c.args)
-			if res.IsError {
-				t.Fatalf("tool %s returned error: %s", c.tool, resultText(res))
-			}
+			res := callTool(ctx, sess, c.tool, c.args)
+			Expect(res.IsError).To(BeFalse(), "tool %s returned error: %s", c.tool, resultText(res))
 
 			calls := fc.recorded()
-			if len(calls) == 0 {
-				t.Fatalf("tool %s did not call the client", c.tool)
-			}
-			if calls[len(calls)-1].method != c.wantMethod {
-				t.Errorf("tool %s called %s, want %s", c.tool, calls[len(calls)-1].method, c.wantMethod)
-			}
+			Expect(calls).ToNot(BeEmpty(), "tool %s did not call the client", c.tool)
+			Expect(calls[len(calls)-1].method).To(Equal(c.wantMethod))
 		})
 	}
-}
+})
 
-func TestToolErrorIsSurfacedAsToolError(t *testing.T) {
-	fc := &fakeClient{
-		gallerySearch: func(GallerySearchQuery) ([]GalleryModelHit, error) {
-			return nil, errors.New("backend on fire")
-		},
-	}
-	ctx, sess, done := connectInMemory(t, fc, Options{})
-	defer done()
+var _ = Describe("Tool error surfacing", func() {
+	It("propagates client errors verbatim via IsError + TextContent", func() {
+		fc := &fakeClient{
+			gallerySearch: func(GallerySearchQuery) ([]GalleryModelHit, error) {
+				return nil, errors.New("backend on fire")
+			},
+		}
+		ctx, sess, done := connectInMemory(fc, Options{})
+		DeferCleanup(done)
 
-	res := callTool(t, ctx, sess, "gallery_search", GallerySearchQuery{Query: "x"})
-	if !res.IsError {
-		t.Fatalf("expected IsError, got success: %s", resultText(res))
-	}
-	if !strings.Contains(resultText(res), "backend on fire") {
-		t.Errorf("error text missing original message: %s", resultText(res))
-	}
-}
+		res := callTool(ctx, sess, ToolGallerySearch, GallerySearchQuery{Query: "x"})
+		Expect(res.IsError).To(BeTrue(), "expected IsError, got: %s", resultText(res))
+		Expect(resultText(res)).To(ContainSubstring("backend on fire"))
+	})
+})
 
-func TestArgValidation(t *testing.T) {
-	ctx, sess, done := connectInMemory(t, &fakeClient{}, Options{})
-	defer done()
-
-	cases := []struct {
-		name string
+var _ = Describe("Argument validation", func() {
+	type validationCase struct {
+		desc string
 		tool string
 		args any
 		want string
-	}{
-		{"install_model_missing_name", ToolInstallModel, InstallModelRequest{}, "model_name is required"},
-		// Required-field misses are caught by the SDK schema validator (the
-		// generated input schema marks name as required), not our handler.
-		{"delete_model_missing_name", ToolDeleteModel, map[string]any{}, "missing properties"},
-		{"toggle_model_state_bad_action", ToolToggleModelState, map[string]any{"name": "foo", "action": "noop"}, "action must be one of"},
-		{"edit_model_config_empty_patch", ToolEditModelConfig, map[string]any{"name": "foo", "patch": map[string]any{}}, "patch is required"},
 	}
+
+	// Required-field misses go through the SDK schema validator (the
+	// generated input schema marks name as required), not our handler.
+	cases := []validationCase{
+		{"install_model rejects empty model_name", ToolInstallModel, InstallModelRequest{}, "model_name is required"},
+		{"delete_model rejects missing name (schema)", ToolDeleteModel, map[string]any{}, "missing properties"},
+		{"toggle_model_state rejects unknown action", ToolToggleModelState, map[string]any{"name": "foo", "action": "noop"}, "action must be one of"},
+		{"edit_model_config rejects empty patch", ToolEditModelConfig, map[string]any{"name": "foo", "patch": map[string]any{}}, "patch is required"},
+	}
+
 	for _, c := range cases {
-		t.Run(c.name, func(t *testing.T) {
-			res := callTool(t, ctx, sess, c.tool, c.args)
-			if !res.IsError {
-				t.Fatalf("expected validation error for %s; got %s", c.tool, resultText(res))
-			}
-			if !strings.Contains(resultText(res), c.want) {
-				t.Errorf("error text missing %q: %s", c.want, resultText(res))
-			}
+		c := c
+		It(c.desc, func() {
+			ctx, sess, done := connectInMemory(&fakeClient{}, Options{})
+			DeferCleanup(done)
+
+			res := callTool(ctx, sess, c.tool, c.args)
+			Expect(res.IsError).To(BeTrue(), "expected validation error; got %s", resultText(res))
+			Expect(resultText(res)).To(ContainSubstring(c.want))
 		})
 	}
-}
+})
 
-func TestHolderConcurrentSafe(t *testing.T) {
-	// Smoke test: many concurrent CallTool requests against the same session.
-	fc := &fakeClient{}
-	ctx, sess, done := connectInMemory(t, fc, Options{})
-	defer done()
+var _ = Describe("Concurrent tool calls", func() {
+	It("handles 20 parallel CallTool requests against one session without a race", func() {
+		fc := &fakeClient{}
+		ctx, sess, done := connectInMemory(fc, Options{})
+		DeferCleanup(done)
 
-	var wg sync.WaitGroup
-	for i := 0; i < 20; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			callTool(t, ctx, sess, "list_galleries", struct{}{})
-		}()
-	}
-	wg.Wait()
-
-	if got := len(fc.recorded()); got != 20 {
-		t.Errorf("recorded %d calls, want 20", got)
-	}
-}
-
-func sliceEqual(a, b []string) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if a[i] != b[i] {
-			return false
+		var wg sync.WaitGroup
+		for i := 0; i < 20; i++ {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				callTool(ctx, sess, ToolListGalleries, struct{}{})
+			}()
 		}
-	}
-	return true
-}
+		wg.Wait()
+
+		Expect(fc.recorded()).To(HaveLen(20))
+	})
+})
