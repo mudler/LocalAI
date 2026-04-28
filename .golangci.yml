@@ -6,7 +6,9 @@ version: "2"
 # to the full linter set. Locally, `make lint-all` overrides this and reports
 # every issue.
 issues:
-  new-from-merge-base: master
+  # origin/master because in shallow CI checkouts only the remote-tracking
+  # branch exists; a bare 'master' ref isn't reachable locally.
+  new-from-merge-base: origin/master
 
 linters:
   default: standard
