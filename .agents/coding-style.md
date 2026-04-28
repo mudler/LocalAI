@@ -48,6 +48,8 @@ All Go tests — including backend tests — must use [Ginkgo](https://onsi.gith
 
 Do not mix styles within a package. If you are extending tests in a package that already uses Ginkgo, keep using Ginkgo. If you find stdlib-style Go tests in the tree, treat them as tech debt to be migrated rather than as a pattern to follow.
 
+This is enforced by `golangci-lint` via the `forbidigo` linter (see `.golangci.yml`); calls like `t.Errorf` / `t.Fatalf` / `t.Run` / `t.Skip` / `t.Logf` are flagged. Run `make lint` locally before submitting; the same check runs in CI (`.github/workflows/lint.yml`).
+
 ## Documentation
 
 The project documentation is located in `docs/content`. When adding new features or changing existing functionality, it is crucial to update the documentation to reflect these changes. This helps users understand how to use the new capabilities and ensures the documentation stays relevant.

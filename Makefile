@@ -65,7 +65,7 @@ endif
 TEST_PATHS?=./api/... ./pkg/... ./core/...
 
 
-.PHONY: all test build vendor
+.PHONY: all test build vendor lint lint-all
 
 all: help
 
@@ -162,6 +162,38 @@ test: prepare-test
 	export GO_TAGS="debug"
 	OPUS_SHIM_LIBRARY=$(abspath ./pkg/opus/shim/libopusshim.so) \
 	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --flake-attempts $(TEST_FLAKES) --fail-fast -v -r $(TEST_PATHS)
+
+########################################################
+## Lint
+########################################################
+## Runs golangci-lint with config from .golangci.yml. Includes the standard
+## linter set plus forbidigo, which enforces the Ginkgo/Gomega-only test
+## convention documented in .agents/coding-style.md.
+##
+## LINT_EXCLUDE_DIRS_RE matches directories whose Go packages can't typecheck
+## without C/C++ headers we don't install in the lint runner (cgo wrappers
+## around llama.cpp, piper/spdlog, silero-vad/onnxruntime, and Fyne/OpenGL for
+## the launcher). Their compile-time correctness is enforced by their own
+## build pipelines. Keep this as a deny list — `go list ./...` discovers
+## everything else automatically, so new packages are scanned by default.
+LINT_EXCLUDE_DIRS_RE=/(backend/go/(piper|silero-vad|llm)|cmd/launcher)(/|$$)
+
+lint:
+	@command -v golangci-lint >/dev/null 2>&1 || { \
+		echo 'golangci-lint not installed. Install: go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest'; \
+		exit 1; \
+	}
+	golangci-lint run $$(go list -e -f '{{.Dir}}' ./... | grep -vE '$(LINT_EXCLUDE_DIRS_RE)')
+
+## Like `lint` but reports every issue, including the pre-existing baseline
+## that `lint` ignores via .golangci.yml's new-from-merge-base. Use this to
+## see what's available to clean up.
+lint-all:
+	@command -v golangci-lint >/dev/null 2>&1 || { \
+		echo 'golangci-lint not installed. Install: go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest'; \
+		exit 1; \
+	}
+	golangci-lint run --new=false --new-from-merge-base= --new-from-rev= $$(go list -e -f '{{.Dir}}' ./... | grep -vE '$(LINT_EXCLUDE_DIRS_RE)')
 
 ########################################################
 ## E2E AIO tests (uses standard image with pre-configured models)
