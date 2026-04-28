@@ -1638,6 +1638,83 @@
     - filename: acestep-cpp/vae-BF16.gguf
       uri: huggingface://Serveurperso/ACE-Step-1.5-GGUF/vae-BF16.gguf
       sha256: 0599862ac5d15cd308e1d2e368373aea6c02e25ebd1737ad4a4562a0901b0ef8
+- name: "vibevoice-cpp"
+  license: mit
+  icon: https://github.com/microsoft/VibeVoice/raw/main/Figures/VibeVoice_logo_white.png
+  tags:
+    - tts
+    - text-to-speech
+    - voice-cloning
+    - vibevoice
+    - vibevoice-cpp
+    - gguf
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mudler/vibevoice.cpp-models
+    - https://github.com/mudler/vibevoice.cpp
+    - https://github.com/microsoft/VibeVoice
+  description: |
+    VibeVoice Realtime 0.5B (C++ / GGML, Q8_0) - native C++ port of Microsoft VibeVoice
+    via the vibevoice-cpp backend. 24kHz mono TTS with voice cloning from a single
+    reference voice prompt. Default voice prompt: en-Carter_man.
+  overrides:
+    name: vibevoice-cpp
+    backend: vibevoice-cpp
+    parameters:
+      model: vibevoice-cpp/vibevoice-realtime-0.5B-q8_0.gguf
+    options:
+      - tokenizer=vibevoice-cpp/tokenizer.gguf
+      - voice=vibevoice-cpp/voice-en-Carter_man.gguf
+    known_usecases:
+      - tts
+  files:
+    - filename: vibevoice-cpp/vibevoice-realtime-0.5B-q8_0.gguf
+      uri: huggingface://mudler/vibevoice.cpp-models/vibevoice-realtime-0.5B-q8_0.gguf
+      sha256: 5251e3f0386d1056a90c61b6c7359a4775da44dd19402499bef1989c4b5c653a
+    - filename: vibevoice-cpp/tokenizer.gguf
+      uri: huggingface://mudler/vibevoice.cpp-models/tokenizer.gguf
+      sha256: 37dc3b722d5677e37e29a57df55aa05c485116eeb5459e57ff8dde616b4986f6
+    - filename: vibevoice-cpp/voice-en-Carter_man.gguf
+      uri: huggingface://mudler/vibevoice.cpp-models/voice-en-Carter_man.gguf
+      sha256: b15cd8b9cae6ee2c3d20b0ee6e7bfe93f13489f8b63b6834e9bbf0dfabf6505a
+- name: "vibevoice-cpp-asr"
+  license: mit
+  icon: https://github.com/microsoft/VibeVoice/raw/main/Figures/VibeVoice_logo_white.png
+  tags:
+    - stt
+    - speech-to-text
+    - asr
+    - audio-transcription
+    - diarization
+    - vibevoice
+    - vibevoice-cpp
+    - gguf
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mudler/vibevoice.cpp-models
+    - https://github.com/mudler/vibevoice.cpp
+    - https://github.com/microsoft/VibeVoice
+  description: |
+    VibeVoice ASR 7B (C++ / GGML, Q8_0) - long-form speech-to-text with speaker
+    diarization. Returns per-speaker JSON segments with start/end timestamps.
+    English-only.
+  overrides:
+    name: vibevoice-cpp-asr
+    backend: vibevoice-cpp
+    parameters:
+      model: vibevoice-cpp-asr/vibevoice-asr-q8_0.gguf
+    options:
+      - type=asr
+      - tokenizer=vibevoice-cpp-asr/tokenizer.gguf
+    known_usecases:
+      - transcript
+  files:
+    - filename: vibevoice-cpp-asr/vibevoice-asr-q8_0.gguf
+      uri: huggingface://mudler/vibevoice.cpp-models/vibevoice-asr-q8_0.gguf
+      sha256: 39ddded77a094a1fad9031fbaaee04943d7906d314d51161976bf393cca343d6
+    - filename: vibevoice-cpp-asr/tokenizer.gguf
+      uri: huggingface://mudler/vibevoice.cpp-models/tokenizer.gguf
+      sha256: 37dc3b722d5677e37e29a57df55aa05c485116eeb5459e57ff8dde616b4986f6
 - name: "qwen3-tts-cpp"
   license: apache-2.0
   tags:

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 
 	"github.com/mudler/LocalAI/pkg/grpc/base"
@@ -29,119 +28,102 @@ type VibevoiceCpp struct {
 	base.SingleThread
 	threads int
 
-	modelDir  string
+	// modelRoot is the directory we use to resolve relative paths
+	// from Options[] and per-call overrides (TTSRequest.Voice).
+	// Source of truth: opts.ModelPath; falls back to the dir of
+	// the primary ModelFile when ModelPath is empty.
+	modelRoot string
+
 	ttsModel  string
 	asrModel  string
 	tokenizer string
 	voice     string
 }
 
-// firstMatch returns the first regular file in dir whose name matches
-// any of the given glob patterns (relative to dir). Empty string if
-// nothing matched.
-func firstMatch(dir string, patterns ...string) string {
-	for _, p := range patterns {
-		matches, _ := filepath.Glob(filepath.Join(dir, p))
-		sort.Strings(matches)
-		for _, m := range matches {
-			if info, err := os.Stat(m); err == nil && !info.IsDir() {
-				return m
-			}
-		}
-	}
-	return ""
-}
-
-// resolveOption returns absPath if it's already absolute or names an
-// existing file; otherwise treats it as a name relative to modelDir.
-func (v *VibevoiceCpp) resolveOption(p string) string {
-	if p == "" {
-		return ""
-	}
-	if filepath.IsAbs(p) {
+// resolvePath turns a relative path into an absolute one using
+// `relTo` as the search root - mirrors how sherpa-onnx resolves
+// supplementary files via filepath.Dir(opts.ModelFile).
+func resolvePath(p, relTo string) string {
+	if p == "" || filepath.IsAbs(p) {
 		return p
 	}
 	if _, err := os.Stat(p); err == nil {
 		abs, _ := filepath.Abs(p)
 		return abs
 	}
-	if v.modelDir != "" {
-		return filepath.Join(v.modelDir, p)
+	if relTo != "" {
+		return filepath.Join(relTo, p)
 	}
 	return p
 }
 
-// applyOptionOverrides walks opts.Options[] and lets users override
-// individual file paths at load time. Mirrors how other LocalAI
-// backends consume `vibevoice.<key>=<value>` (e.g. sherpa-onnx).
-func (v *VibevoiceCpp) applyOptionOverrides(opts []string) {
+// parseOptions reads opts.Options[] and pulls out the per-role
+// overrides documented in the gallery entries. Accepts both "key=value"
+// (gallery YAML style) and "key:value" (Make-target / env-var style).
+func (v *VibevoiceCpp) parseOptions(opts []string, relTo string) string {
+	role := ""
 	for _, raw := range opts {
 		k, val, ok := strings.Cut(raw, "=")
 		if !ok {
-			continue
+			k, val, ok = strings.Cut(raw, ":")
+			if !ok {
+				continue
+			}
 		}
 		key := strings.TrimSpace(k)
 		val = strings.TrimSpace(val)
 		switch key {
-		case "vibevoice.tts_model", "tts_model":
-			v.ttsModel = v.resolveOption(val)
-		case "vibevoice.asr_model", "asr_model":
-			v.asrModel = v.resolveOption(val)
-		case "vibevoice.tokenizer", "tokenizer":
-			v.tokenizer = v.resolveOption(val)
-		case "vibevoice.voice", "voice":
-			v.voice = v.resolveOption(val)
+		case "type":
+			role = strings.ToLower(val)
+		case "tokenizer":
+			v.tokenizer = resolvePath(val, relTo)
+		case "voice":
+			v.voice = resolvePath(val, relTo)
+		case "tts_model":
+			v.ttsModel = resolvePath(val, relTo)
+		case "asr_model":
+			v.asrModel = resolvePath(val, relTo)
 		}
 	}
+	return role
 }
 
 func (v *VibevoiceCpp) Load(opts *pb.ModelOptions) error {
-	modelDir := opts.ModelFile
-	if modelDir == "" {
-		modelDir = opts.ModelPath
+	if opts.ModelFile == "" {
+		return fmt.Errorf("vibevoice-cpp: ModelFile is required")
 	}
-	if !filepath.IsAbs(modelDir) && opts.ModelPath != "" {
-		modelDir = filepath.Join(opts.ModelPath, modelDir)
-	}
-	if modelDir == "" {
-		return fmt.Errorf("vibevoice-cpp: ModelFile must point at a directory containing the GGUFs")
+	modelFile := opts.ModelFile
+	if !filepath.IsAbs(modelFile) && opts.ModelPath != "" {
+		modelFile = filepath.Join(opts.ModelPath, modelFile)
 	}
 
-	info, err := os.Stat(modelDir)
-	if err != nil {
-		return fmt.Errorf("vibevoice-cpp: cannot stat ModelFile %q: %w", modelDir, err)
+	// ModelPath is the LocalAI core's models root, propagated over
+	// gRPC. Use it as the resolution base for Options[] (and later
+	// for TTSRequest.Voice) so gallery entries can reference paths
+	// like "tokenizer=tokenizer.gguf" and have them resolved
+	// against the same root the core used to drop the files.
+	v.modelRoot = opts.ModelPath
+	if v.modelRoot == "" {
+		v.modelRoot = filepath.Dir(modelFile)
 	}
+	role := v.parseOptions(opts.Options, v.modelRoot)
 
-	if info.IsDir() {
-		v.modelDir = modelDir
-		// Conventional names published in mudler/vibevoice.cpp-models.
-		v.ttsModel = firstMatch(modelDir,
-			"vibevoice-realtime-*-q8_0.gguf",
-			"vibevoice-realtime-*-q4_k.gguf",
-			"vibevoice-realtime-*.gguf")
-		v.asrModel = firstMatch(modelDir,
-			"vibevoice-asr-q4_k.gguf",
-			"vibevoice-asr-q8_0.gguf",
-			"vibevoice-asr-*.gguf")
-		v.tokenizer = firstMatch(modelDir, "tokenizer.gguf", "*tokenizer*.gguf")
-		v.voice = firstMatch(modelDir, "voice-en-*.gguf", "voice-*.gguf", "*.voice.gguf")
-	} else {
-		// A single file - assume it's the TTS model and look for
-		// neighbours in its parent dir.
-		v.modelDir = filepath.Dir(modelDir)
-		v.ttsModel = modelDir
-		v.asrModel = firstMatch(v.modelDir, "vibevoice-asr-*.gguf")
-		v.tokenizer = firstMatch(v.modelDir, "tokenizer.gguf", "*tokenizer*.gguf")
-		v.voice = firstMatch(v.modelDir, "voice-*.gguf")
+	// If neither tts_model nor asr_model was set explicitly via Options,
+	// `type=tts|asr` decides which slot ModelFile fills. Default = tts.
+	if v.ttsModel == "" && v.asrModel == "" {
+		switch role {
+		case "asr", "transcript", "stt", "speech-to-text":
+			v.asrModel = modelFile
+		default:
+			v.ttsModel = modelFile
+		}
 	}
-
-	v.applyOptionOverrides(opts.Options)
 
 	if v.ttsModel == "" && v.asrModel == "" {
-		return fmt.Errorf("vibevoice-cpp: no TTS or ASR gguf found in %s", v.modelDir)
+		return fmt.Errorf("vibevoice-cpp: no TTS or ASR model resolved from ModelFile=%q + options", opts.ModelFile)
 	}
 	if v.tokenizer == "" {
-		return fmt.Errorf("vibevoice-cpp: tokenizer.gguf not found in %s", v.modelDir)
+		return fmt.Errorf("vibevoice-cpp: tokenizer is required - pass options: [tokenizer=<path>]")
 	}
 
 	threads := int(opts.Threads)
@@ -170,11 +152,14 @@ func (v *VibevoiceCpp) TTS(req *pb.TTSRequest) error {
 		return fmt.Errorf("vibevoice-cpp: TTS requires both text and dst")
 	}
 
-	voice := v.resolveOption(req.Voice)
+	// req.Voice may be a bare filename (e.g. "voice-en-Emma.gguf") or an
+	// absolute path. Resolve via the same modelRoot Load() used for
+	// Options[] so a swap-voice request mirrors the gallery's layout.
+	voice := resolvePath(req.Voice, v.modelRoot)
 
 	if req.Language != nil && *req.Language != "" {
 		fmt.Fprintf(os.Stderr,
-			"[vibevoice-cpp] note: TTSRequest.language=%q ignored — vibevoice picks language from the voice prompt\n",
+			"[vibevoice-cpp] note: TTSRequest.language=%q ignored - vibevoice picks language from the voice prompt\n",
 			*req.Language)
 	}
 
@@ -241,8 +226,6 @@ func (v *VibevoiceCpp) AudioTranscription(req *pb.TranscriptRequest) (pb.Transcr
 
 	var segs []asrSegment
 	if err := json.Unmarshal([]byte(out), &segs); err != nil {
-		// Some builds may emit a bare string instead of JSON. Treat it
-		// as a single segment so the caller still sees the transcript.
 		fmt.Fprintf(os.Stderr,
 			"[vibevoice-cpp] WARNING: vv_capi_asr returned non-JSON, falling back to single segment: %v\n", err)
 		return pb.TranscriptResult{

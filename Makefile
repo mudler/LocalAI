@@ -833,27 +833,27 @@ test-extra-backend-sherpa-onnx-tts: docker-build-sherpa-onnx
 	BACKEND_TEST_CAPS=health,load,tts \
 	$(MAKE) test-extra-backend
 
-## VibeVoice TTS via the vibevoice-cpp backend. Pulls the realtime 0.5B
-## Q8_0 GGUF + tokenizer + Carter voice prompt from the published
-## mudler/vibevoice.cpp-models bundle. ModelFile is the directory the
-## harness drops the files into; the backend auto-detects each role
-## from the conventional filenames. CAPS=health,load,tts.
+## VibeVoice TTS via the vibevoice-cpp backend. ModelFile is the
+## realtime gguf; the supplementary tokenizer + voice prompt land
+## alongside it under the harness's models dir and are wired through
+## via the standard Options[] convention (tokenizer=, voice=).
 test-extra-backend-vibevoice-cpp-tts: docker-build-vibevoice-cpp
 	BACKEND_IMAGE=local-ai-backend:vibevoice-cpp \
 	BACKEND_TEST_MODEL_URL='https://huggingface.co/mudler/vibevoice.cpp-models/resolve/main/vibevoice-realtime-0.5B-q8_0.gguf#vibevoice-realtime-0.5B-q8_0.gguf' \
 	BACKEND_TEST_EXTRA_FILES='https://huggingface.co/mudler/vibevoice.cpp-models/resolve/main/tokenizer.gguf#tokenizer.gguf|https://huggingface.co/mudler/vibevoice.cpp-models/resolve/main/voice-en-Carter_man.gguf#voice-en-Carter_man.gguf' \
+	BACKEND_TEST_OPTIONS=tokenizer:tokenizer.gguf,voice:voice-en-Carter_man.gguf \
 	BACKEND_TEST_CAPS=health,load,tts \
 	$(MAKE) test-extra-backend
 
-## VibeVoice ASR (long-form, with diarization) via the vibevoice-cpp backend.
-## Uses a short reference WAV from the whisper.cpp samples set; the
-## backend's AudioTranscription emits per-speaker JSON segments which
-## the harness asserts non-empty Text on. CAPS=health,load,transcription.
+## VibeVoice ASR (long-form, with diarization). type=asr tells the
+## backend's Load() to slot ModelFile into the asr_model role; the
+## tokenizer is supplied via Options[].
 test-extra-backend-vibevoice-cpp-transcription: docker-build-vibevoice-cpp
 	BACKEND_IMAGE=local-ai-backend:vibevoice-cpp \
-	BACKEND_TEST_MODEL_URL='https://huggingface.co/mudler/vibevoice.cpp-models/resolve/main/vibevoice-asr-q4_k.gguf#vibevoice-asr-q4_k.gguf' \
+	BACKEND_TEST_MODEL_URL='https://huggingface.co/mudler/vibevoice.cpp-models/resolve/main/vibevoice-asr-q8_0.gguf#vibevoice-asr-q8_0.gguf' \
 	BACKEND_TEST_EXTRA_FILES='https://huggingface.co/mudler/vibevoice.cpp-models/resolve/main/tokenizer.gguf#tokenizer.gguf' \
 	BACKEND_TEST_AUDIO_URL=https://github.com/ggml-org/whisper.cpp/raw/master/samples/jfk.wav \
+	BACKEND_TEST_OPTIONS=type:asr,tokenizer:tokenizer.gguf \
 	BACKEND_TEST_CAPS=health,load,transcription \
 	$(MAKE) test-extra-backend
 

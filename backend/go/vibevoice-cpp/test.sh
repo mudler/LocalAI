@@ -27,7 +27,7 @@ if [ -z "$VIBEVOICE_MODEL_DIR" ]; then
 
         FILES=(
             "vibevoice-realtime-0.5B-q8_0.gguf"
-            "vibevoice-asr-q4_k.gguf"
+            "vibevoice-asr-q8_0.gguf"
             "tokenizer.gguf"
             "voice-en-Carter_man.gguf"
         )

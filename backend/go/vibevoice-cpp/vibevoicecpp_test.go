@@ -109,9 +109,15 @@ func TestLoadModel(t *testing.T) {
 	defer conn.Close()
 
 	client := pb.NewBackendClient(conn)
+	tok := filepath.Join(modelDir, "tokenizer.gguf")
+	tts, _ := filepath.Glob(filepath.Join(modelDir, "vibevoice-realtime-*.gguf"))
+	if len(tts) == 0 {
+		t.Skip("realtime TTS gguf required")
+	}
 	resp, err := client.LoadModel(context.Background(), &pb.ModelOptions{
-		ModelFile: modelDir,
+		ModelFile: tts[0],
 		Threads:   4,
+		Options:   []string{"tokenizer=" + tok},
 	})
 	if err != nil {
 		t.Fatalf("LoadModel failed: %v", err)
@@ -146,9 +152,29 @@ func TestClosedLoop(t *testing.T) {
 	defer conn.Close()
 	client := pb.NewBackendClient(conn)
 
-	if loadResp, err := client.LoadModel(context.Background(), &pb.ModelOptions{
-		ModelFile: modelDir, Threads: 4,
-	}); err != nil || !loadResp.Success {
+	// Closed-loop needs the engine loaded with both TTS and ASR roles, so
+	// we pass the realtime gguf as ModelFile (default role=tts) and add
+	// asr_model + tokenizer + voice as explicit Options.
+	tts := hasTTS[0]
+	asr := hasASR[0]
+	tok := filepath.Join(modelDir, "tokenizer.gguf")
+	voiceMatches, _ := filepath.Glob(filepath.Join(modelDir, "voice-*.gguf"))
+	voice := ""
+	if len(voiceMatches) > 0 {
+		voice = voiceMatches[0]
+	}
+	loadOpts := &pb.ModelOptions{
+		ModelFile: tts,
+		Threads:   4,
+		Options: []string{
+			"asr_model=" + asr,
+			"tokenizer=" + tok,
+		},
+	}
+	if voice != "" {
+		loadOpts.Options = append(loadOpts.Options, "voice="+voice)
+	}
+	if loadResp, err := client.LoadModel(context.Background(), loadOpts); err != nil || !loadResp.Success {
 		t.Fatalf("LoadModel: err=%v success=%v msg=%s", err, loadResp.Success, loadResp.Message)
 	}
 
