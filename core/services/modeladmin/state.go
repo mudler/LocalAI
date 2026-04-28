@@ -78,7 +78,7 @@ func mutateYAMLBoolFlag(path, key string, set bool) error {
 	if err != nil {
 		return fmt.Errorf("marshal config: %w", err)
 	}
-	if err := os.WriteFile(path, out, 0644); err != nil {
+	if err := writeFileAtomic(path, out, 0644); err != nil {
 		return fmt.Errorf("write config: %w", err)
 	}
 	return nil

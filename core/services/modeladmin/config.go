@@ -131,7 +131,7 @@ func (s *ConfigService) PatchConfig(_ context.Context, name string, patch map[st
 		}
 		return nil, ErrInvalidConfig
 	}
-	if err := os.WriteFile(configPath, yamlData, 0644); err != nil {
+	if err := writeFileAtomic(configPath, yamlData, 0644); err != nil {
 		return nil, fmt.Errorf("write config file: %w", err)
 	}
 	if err := s.Loader.LoadModelConfigsFromPath(s.modelsPath(), s.AppConfig.ToConfigLoaderOptions()...); err != nil {
@@ -191,7 +191,7 @@ func (s *ConfigService) EditYAML(_ context.Context, name string, body []byte, ml
 		} else if !errors.Is(err, os.ErrNotExist) {
 			return nil, fmt.Errorf("stat new config: %w", err)
 		}
-		if err := os.WriteFile(newConfigPath, body, 0644); err != nil {
+		if err := writeFileAtomic(newConfigPath, body, 0644); err != nil {
 			return nil, fmt.Errorf("write new config: %w", err)
 		}
 		if configPath != newConfigPath {
@@ -209,7 +209,7 @@ func (s *ConfigService) EditYAML(_ context.Context, name string, body []byte, ml
 		s.Loader.RemoveModelConfig(name)
 		configPath = newConfigPath
 	} else {
-		if err := os.WriteFile(configPath, body, 0644); err != nil {
+		if err := writeFileAtomic(configPath, body, 0644); err != nil {
 			return nil, fmt.Errorf("write config: %w", err)
 		}
 	}
