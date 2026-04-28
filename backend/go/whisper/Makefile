@@ -111,7 +111,7 @@ libgowhisper-fallback.so: sources/whisper.cpp
 	SO_TARGET=libgowhisper-fallback.so CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=off -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off -DGGML_BMI2=off" $(MAKE) libgowhisper-custom
 	rm -rfv build*
 
-libgowhisper-custom: CMakeLists.txt gowhisper.cpp gowhisper.h
+libgowhisper-custom: CMakeLists.txt cpp/gowhisper.cpp cpp/gowhisper.h
 	mkdir -p build-$(SO_TARGET) && \
 	cd build-$(SO_TARGET) && \
 	cmake .. $(CMAKE_ARGS) && \

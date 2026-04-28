@@ -119,7 +119,7 @@ libgosd-fallback.so: sources/stablediffusion-ggml.cpp
 	SO_TARGET=libgosd-fallback.so CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=off -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off -DGGML_BMI2=off" $(MAKE) libgosd-custom
 	rm -rfv build*
 
-libgosd-custom: CMakeLists.txt gosd.cpp gosd.h
+libgosd-custom: CMakeLists.txt cpp/gosd.cpp cpp/gosd.h
 	mkdir -p build-$(SO_TARGET) && \
 	cd build-$(SO_TARGET) && \
 	cmake .. $(CMAKE_ARGS) && \

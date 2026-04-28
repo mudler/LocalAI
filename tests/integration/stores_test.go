@@ -39,8 +39,6 @@ var _ = Describe("Integration tests for the stores backend(s) and internal APIs"
 		BeforeEach(func() {
 			var err error
 
-			zerolog.SetGlobalLevel(zerolog.DebugLevel)
-
 			tmpdir, err = os.MkdirTemp("", "")
 			Expect(err).ToNot(HaveOccurred())
 

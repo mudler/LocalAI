@@ -1,0 +1,53 @@
+version: "2"
+
+# Only issues introduced relative to master are reported. Pre-existing issues
+# in the codebase do not fail the lint job; they're treated as a baseline that
+# can be cleaned up incrementally. New code (added lines on a branch) is held
+# to the full linter set. Locally, `make lint-all` overrides this and reports
+# every issue.
+issues:
+  # origin/master because in shallow CI checkouts only the remote-tracking
+  # branch exists; a bare 'master' ref isn't reachable locally.
+  new-from-merge-base: origin/master
+
+linters:
+  default: standard
+  # staticcheck is noisy on this codebase (mostly QF style suggestions like
+  # "could use tagged switch" or "unnecessary fmt.Sprintf"). Re-enable
+  # selectively if a high-signal subset is identified.
+  disable:
+    - staticcheck
+  enable:
+    - forbidigo
+  settings:
+    forbidigo:
+      forbid:
+        - pattern: '^t\.Errorf$'
+          msg: 'LocalAI tests must use Ginkgo/Gomega; use Expect(...).To(...) instead of t.Errorf. See .agents/coding-style.md.'
+        - pattern: '^t\.Error$'
+          msg: 'LocalAI tests must use Ginkgo/Gomega; use Expect(...).To(...) instead of t.Error. See .agents/coding-style.md.'
+        - pattern: '^t\.Fatalf$'
+          msg: 'LocalAI tests must use Ginkgo/Gomega; use Expect(...).To(Succeed()) / Fail(...) instead of t.Fatalf. See .agents/coding-style.md.'
+        - pattern: '^t\.Fatal$'
+          msg: 'LocalAI tests must use Ginkgo/Gomega; use Expect(...).To(Succeed()) / Fail(...) instead of t.Fatal. See .agents/coding-style.md.'
+        - pattern: '^t\.Run$'
+          msg: 'LocalAI tests must use Ginkgo/Gomega; use Describe/Context/It instead of t.Run. See .agents/coding-style.md.'
+        - pattern: '^t\.Skip$'
+          msg: 'LocalAI tests must use Ginkgo/Gomega; use Skip(...) instead of t.Skip. See .agents/coding-style.md.'
+        - pattern: '^t\.Skipf$'
+          msg: 'LocalAI tests must use Ginkgo/Gomega; use Skip(...) instead of t.Skipf. See .agents/coding-style.md.'
+        - pattern: '^t\.SkipNow$'
+          msg: 'LocalAI tests must use Ginkgo/Gomega; use Skip(...) instead of t.SkipNow. See .agents/coding-style.md.'
+        - pattern: '^t\.Logf$'
+          msg: 'LocalAI tests must use Ginkgo/Gomega; use GinkgoWriter / fmt.Fprintf(GinkgoWriter, ...) instead of t.Logf. See .agents/coding-style.md.'
+        - pattern: '^t\.Log$'
+          msg: 'LocalAI tests must use Ginkgo/Gomega; use GinkgoWriter / fmt.Fprintln(GinkgoWriter, ...) instead of t.Log. See .agents/coding-style.md.'
+        - pattern: '^t\.Fail$'
+          msg: 'LocalAI tests must use Ginkgo/Gomega; use Fail(...) instead of t.Fail. See .agents/coding-style.md.'
+        - pattern: '^t\.FailNow$'
+          msg: 'LocalAI tests must use Ginkgo/Gomega; use Fail(...) instead of t.FailNow. See .agents/coding-style.md.'
+  exclusions:
+    paths:
+      # Upstream whisper.cpp source tree fetched by the whisper backend Makefile.
+      - 'backend/go/whisper/sources'
+      - 'docs/'

@@ -1,7 +1,6 @@
 package integration_test
 
 import (
-	"os"
 	"testing"
 
 	"github.com/mudler/xlog"

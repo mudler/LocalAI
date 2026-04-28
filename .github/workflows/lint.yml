@@ -1,0 +1,48 @@
+---
+name: 'lint'
+
+on:
+  pull_request:
+    paths-ignore:
+      - 'docs/**'
+      - 'examples/**'
+      - 'README.md'
+      - '**/*.md'
+  push:
+    branches:
+      - master
+
+concurrency:
+  group: ci-lint-${{ github.head_ref || github.ref }}-${{ github.repository }}
+  cancel-in-progress: true
+
+jobs:
+  golangci-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Full history so golangci-lint's new-from-merge-base can reach
+          # origin/master and compute the diff against it.
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.x'
+          cache: false
+      - name: install golangci-lint
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh \
+            | sh -s -- -b "$(go env GOPATH)/bin" v2.11.4
+      - name: generate grpc proto sources
+        # pkg/grpc/proto/*.go is generated, not checked in. Several packages
+        # import it, so without this step typecheck fails project-wide.
+        run: make protogen-go
+      - name: stub react-ui dist for go:embed
+        # core/http/app.go has //go:embed react-ui/dist/*; the glob needs at
+        # least one non-hidden entry to satisfy typecheck. We don't run
+        # `make react-ui` here because lint doesn't need the real bundle.
+        run: |
+          mkdir -p core/http/react-ui/dist
+          touch core/http/react-ui/dist/index.html
+      - name: lint
+        run: make lint
