@@ -11,33 +11,25 @@ The same MCP server is published as a Go package and can also be served over **s
 
 ## Enabling the assistant in chat
 
-Open the chat UI as an **admin** user, then flip the **Admin** toggle in the chat header. A small `Admin mode` badge appears next to the chat title. Starter chips ("What is installed?", "Install a chat model", "Show system status", "Update a backend") help you get going.
+Open the chat UI as an **admin** user and pick a chat-capable model in the model selector. The header shows a **Manage** toggle — flip it on, and a `Manage mode` badge appears next to the chat title. Starter chips ("What is installed?", "Install a chat model", "Show system status", "Update a backend") help you get going.
 
-If you have at least one chat-capable model installed, that's it — start chatting. Try:
+The home page also exposes a **Manage by chat** CTA that opens a fresh chat already in Manage mode.
+
+Once on, try:
 
 > Install Qwen 3 chat
 
-The assistant will search the gallery, list candidates, ask you to pick, summarise the install, and wait for your confirmation before calling `install_model`. While the install runs, it polls progress and reports the outcome.
-
-## Bootstrap when no chat model is installed
-
-If the deployment has no chat-capable model when you open the assistant, the assistant offers to install a configured default. Set it via env var or CLI flag:
-
-```bash
-LOCALAI_ASSISTANT_BOOTSTRAP_MODEL=qwen2.5-7b-instruct local-ai run
-# or
-local-ai run --localai-assistant-bootstrap-model qwen2.5-7b-instruct
-```
-
-When unset, the assistant tells you so and asks you to set it or pick a model from the gallery.
+The assistant searches the gallery, lists candidates, asks you to pick, summarises the install, and waits for your confirmation before calling `install_model`. While the install runs, it polls progress and reports the outcome.
 
 ## Disabling the feature
+
+Either toggle it off in **Settings → LocalAI Assistant** (takes effect without restart), or hard-disable at startup:
 
 ```bash
 LOCALAI_DISABLE_ASSISTANT=true local-ai run
 ```
 
-The chat-handler branch then refuses requests with `metadata.localai_assistant=true` and returns 503.
+When disabled, the chat handler refuses requests with `metadata.localai_assistant=true` and returns 503. The Manage toggle is hidden in the UI.
 
 ## Security model
 
@@ -58,11 +50,11 @@ local-ai mcp-server --target http://remote.localai:8080 --read-only
 
 Useful for hooking LocalAI admin into Claude Desktop, Cursor, or any MCP host. The tool catalog is identical to the in-process variant.
 
-## Tool catalog (initial)
+## Tool catalog
 
 **Read-only**: `gallery_search`, `list_installed_models`, `list_galleries`, `list_backends`, `list_known_backends`, `get_job_status`, `get_model_config`, `vram_estimate`, `system_info`, `list_nodes`.
 
-**Mutating** (require user confirmation per the assistant's safety prompt): `install_model`, `delete_model`, `install_backend`, `upgrade_backend`, `edit_model_config`, `reload_models`, `toggle_model_state`, `toggle_model_pinned`, `bootstrap_default_model`.
+**Mutating** (require user confirmation per the assistant's safety prompt): `install_model`, `import_model_uri`, `delete_model`, `install_backend`, `upgrade_backend`, `edit_model_config`, `reload_models`, `toggle_model_state`, `toggle_model_pinned`.
 
 ## Adding new tools or skills
 
