@@ -37,5 +37,12 @@ jobs:
         # pkg/grpc/proto/*.go is generated, not checked in. Several packages
         # import it, so without this step typecheck fails project-wide.
         run: make protogen-go
+      - name: stub react-ui dist for go:embed
+        # core/http/app.go has //go:embed react-ui/dist/*; the glob needs at
+        # least one non-hidden entry to satisfy typecheck. We don't run
+        # `make react-ui` here because lint doesn't need the real bundle.
+        run: |
+          mkdir -p core/http/react-ui/dist
+          touch core/http/react-ui/dist/index.html
       - name: lint
         run: make lint
