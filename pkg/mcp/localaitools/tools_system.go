@@ -8,7 +8,7 @@ import (
 
 func registerSystemTools(s *mcp.Server, client LocalAIClient, _ Options) {
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "system_info",
+		Name:        ToolSystemInfo,
 		Description: "Report LocalAI version, paths, distributed flag, currently loaded models, and installed backends.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, any, error) {
 		info, err := client.SystemInfo(ctx)
@@ -19,7 +19,7 @@ func registerSystemTools(s *mcp.Server, client LocalAIClient, _ Options) {
 	})
 
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "list_nodes",
+		Name:        ToolListNodes,
 		Description: "List federated worker nodes (only meaningful in distributed mode; returns an empty list otherwise).",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, any, error) {
 		nodes, err := client.ListNodes(ctx)

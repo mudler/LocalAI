@@ -8,7 +8,7 @@ import (
 
 func registerBackendTools(s *mcp.Server, client LocalAIClient, opts Options) {
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "list_backends",
+		Name:        ToolListBackends,
 		Description: "List installed backends.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, any, error) {
 		backends, err := client.ListBackends(ctx)
@@ -19,7 +19,7 @@ func registerBackendTools(s *mcp.Server, client LocalAIClient, opts Options) {
 	})
 
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "list_known_backends",
+		Name:        ToolListKnownBackends,
 		Description: "List backends available to install from configured backend galleries.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, any, error) {
 		backends, err := client.ListKnownBackends(ctx)
@@ -34,7 +34,7 @@ func registerBackendTools(s *mcp.Server, client LocalAIClient, opts Options) {
 	}
 
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "install_backend",
+		Name:        ToolInstallBackend,
 		Description: "Install a backend from a backend gallery. Requires user confirmation per safety rule 1.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args InstallBackendRequest) (*mcp.CallToolResult, any, error) {
 		if args.BackendName == "" {
@@ -48,7 +48,7 @@ func registerBackendTools(s *mcp.Server, client LocalAIClient, opts Options) {
 	})
 
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "upgrade_backend",
+		Name:        ToolUpgradeBackend,
 		Description: "Upgrade an installed backend by name. Requires user confirmation per safety rule 1.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args struct {
 		Name string `json:"name" jsonschema:"The installed backend name."`

@@ -8,7 +8,7 @@ import (
 
 func registerModelTools(s *mcp.Server, client LocalAIClient, opts Options) {
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "gallery_search",
+		Name:        ToolGallerySearch,
 		Description: "Search configured galleries for installable models. Returns name, gallery, description, license and tags. Always run this before install_model.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args GallerySearchQuery) (*mcp.CallToolResult, any, error) {
 		hits, err := client.GallerySearch(ctx, args)
@@ -19,10 +19,10 @@ func registerModelTools(s *mcp.Server, client LocalAIClient, opts Options) {
 	})
 
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "list_installed_models",
-		Description: "List models currently installed on this LocalAI. Optional capability filter (e.g. chat, embed, image).",
+		Name:        ToolListInstalledModels,
+		Description: "List models currently installed on this LocalAI. Optional capability filter (chat, completion, embeddings, image, tts, transcript, rerank, vad).",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args struct {
-		Capability string `json:"capability,omitempty" jsonschema:"Filter to models with this capability (chat, embed, image, tts, transcript, vad)."`
+		Capability Capability `json:"capability,omitempty" jsonschema:"Filter to models advertising this capability. One of: chat, completion, embeddings, image, tts, transcript, rerank, vad. Empty value = no filter."`
 	}) (*mcp.CallToolResult, any, error) {
 		models, err := client.ListInstalledModels(ctx, args.Capability)
 		if err != nil {
@@ -32,7 +32,7 @@ func registerModelTools(s *mcp.Server, client LocalAIClient, opts Options) {
 	})
 
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "list_galleries",
+		Name:        ToolListGalleries,
 		Description: "List configured model galleries.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, any, error) {
 		galleries, err := client.ListGalleries(ctx)
@@ -43,7 +43,7 @@ func registerModelTools(s *mcp.Server, client LocalAIClient, opts Options) {
 	})
 
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "get_job_status",
+		Name:        ToolGetJobStatus,
 		Description: "Poll the status of an install/delete/upgrade job by id. Returns processed, progress, message, and error fields.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args struct {
 		JobID string `json:"job_id" jsonschema:"The job id returned by install_model / install_backend / upgrade_backend / delete_model."`
@@ -66,7 +66,7 @@ func registerModelTools(s *mcp.Server, client LocalAIClient, opts Options) {
 	}
 
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "install_model",
+		Name:        ToolInstallModel,
 		Description: "Install a model from a gallery. Requires explicit user confirmation per safety rule 1. Returns a job id; poll with get_job_status.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args InstallModelRequest) (*mcp.CallToolResult, any, error) {
 		if args.ModelName == "" {
@@ -80,7 +80,7 @@ func registerModelTools(s *mcp.Server, client LocalAIClient, opts Options) {
 	})
 
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "import_model_uri",
+		Name:        ToolImportModelURI,
 		Description: "Import a model from a URI (HuggingFace link, OCI image, file path, or HTTP URL). The importer auto-detects the backend; when multiple backends could handle the source, the response sets ambiguous_backend=true and lists candidates. Surface them to the user, then call again with backend_preference set. Requires user confirmation per safety rule 1.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args ImportModelURIRequest) (*mcp.CallToolResult, any, error) {
 		if args.URI == "" {
@@ -94,7 +94,7 @@ func registerModelTools(s *mcp.Server, client LocalAIClient, opts Options) {
 	})
 
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "delete_model",
+		Name:        ToolDeleteModel,
 		Description: "Delete an installed model by name. Requires explicit user confirmation per safety rule 1.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args struct {
 		Name string `json:"name" jsonschema:"The installed model name."`

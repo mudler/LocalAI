@@ -80,40 +80,47 @@ func resultText(res *mcp.CallToolResult) string {
 }
 
 // expectedFullCatalog is the tool set when DisableMutating=false. Sorted.
-var expectedFullCatalog = []string{
-	"delete_model",
-	"edit_model_config",
-	"gallery_search",
-	"get_job_status",
-	"get_model_config",
-	"import_model_uri",
-	"install_backend",
-	"install_model",
-	"list_backends",
-	"list_galleries",
-	"list_installed_models",
-	"list_known_backends",
-	"list_nodes",
-	"reload_models",
-	"system_info",
-	"toggle_model_pinned",
-	"toggle_model_state",
-	"upgrade_backend",
-	"vram_estimate",
-}
+// References the Tool* constants so a rename can't drift code from tests.
+var expectedFullCatalog = sortedStrings(
+	ToolDeleteModel,
+	ToolEditModelConfig,
+	ToolGallerySearch,
+	ToolGetJobStatus,
+	ToolGetModelConfig,
+	ToolImportModelURI,
+	ToolInstallBackend,
+	ToolInstallModel,
+	ToolListBackends,
+	ToolListGalleries,
+	ToolListInstalledModels,
+	ToolListKnownBackends,
+	ToolListNodes,
+	ToolReloadModels,
+	ToolSystemInfo,
+	ToolToggleModelPinned,
+	ToolToggleModelState,
+	ToolUpgradeBackend,
+	ToolVRAMEstimate,
+)
 
 // expectedReadOnlyCatalog is the tool set when DisableMutating=true. Sorted.
-var expectedReadOnlyCatalog = []string{
-	"gallery_search",
-	"get_job_status",
-	"get_model_config",
-	"list_backends",
-	"list_galleries",
-	"list_installed_models",
-	"list_known_backends",
-	"list_nodes",
-	"system_info",
-	"vram_estimate",
+var expectedReadOnlyCatalog = sortedStrings(
+	ToolGallerySearch,
+	ToolGetJobStatus,
+	ToolGetModelConfig,
+	ToolListBackends,
+	ToolListGalleries,
+	ToolListInstalledModels,
+	ToolListKnownBackends,
+	ToolListNodes,
+	ToolSystemInfo,
+	ToolVRAMEstimate,
+)
+
+func sortedStrings(in ...string) []string {
+	out := append([]string(nil), in...)
+	sort.Strings(out)
+	return out
 }
 
 func TestServerRegistersExpectedToolCatalog(t *testing.T) {
@@ -143,22 +150,22 @@ func TestEachToolDispatchesToClient(t *testing.T) {
 		wantMethod string
 	}
 	cases := []tc{
-		{"gallery_search", GallerySearchQuery{Query: "qwen"}, "GallerySearch"},
-		{"list_installed_models", map[string]any{"capability": "chat"}, "ListInstalledModels"},
-		{"list_galleries", struct{}{}, "ListGalleries"},
-		{"list_backends", struct{}{}, "ListBackends"},
-		{"list_known_backends", struct{}{}, "ListKnownBackends"},
-		{"system_info", struct{}{}, "SystemInfo"},
-		{"list_nodes", struct{}{}, "ListNodes"},
-		{"install_model", InstallModelRequest{ModelName: "test/foo"}, "InstallModel"},
-		{"import_model_uri", ImportModelURIRequest{URI: "Qwen/Qwen3-4B-GGUF"}, "ImportModelURI"},
-		{"delete_model", map[string]any{"name": "foo"}, "DeleteModel"},
-		{"install_backend", InstallBackendRequest{BackendName: "llama-cpp"}, "InstallBackend"},
-		{"upgrade_backend", map[string]any{"name": "llama-cpp"}, "UpgradeBackend"},
-		{"edit_model_config", map[string]any{"name": "foo", "patch": map[string]any{"context_size": 4096}}, "EditModelConfig"},
-		{"reload_models", struct{}{}, "ReloadModels"},
-		{"toggle_model_state", map[string]any{"name": "foo", "action": "enable"}, "ToggleModelState"},
-		{"toggle_model_pinned", map[string]any{"name": "foo", "action": "pin"}, "ToggleModelPinned"},
+		{ToolGallerySearch, GallerySearchQuery{Query: "qwen"}, "GallerySearch"},
+		{ToolListInstalledModels, map[string]any{"capability": "chat"}, "ListInstalledModels"},
+		{ToolListGalleries, struct{}{}, "ListGalleries"},
+		{ToolListBackends, struct{}{}, "ListBackends"},
+		{ToolListKnownBackends, struct{}{}, "ListKnownBackends"},
+		{ToolSystemInfo, struct{}{}, "SystemInfo"},
+		{ToolListNodes, struct{}{}, "ListNodes"},
+		{ToolInstallModel, InstallModelRequest{ModelName: "test/foo"}, "InstallModel"},
+		{ToolImportModelURI, ImportModelURIRequest{URI: "Qwen/Qwen3-4B-GGUF"}, "ImportModelURI"},
+		{ToolDeleteModel, map[string]any{"name": "foo"}, "DeleteModel"},
+		{ToolInstallBackend, InstallBackendRequest{BackendName: "llama-cpp"}, "InstallBackend"},
+		{ToolUpgradeBackend, map[string]any{"name": "llama-cpp"}, "UpgradeBackend"},
+		{ToolEditModelConfig, map[string]any{"name": "foo", "patch": map[string]any{"context_size": 4096}}, "EditModelConfig"},
+		{ToolReloadModels, struct{}{}, "ReloadModels"},
+		{ToolToggleModelState, map[string]any{"name": "foo", "action": "enable"}, "ToggleModelState"},
+		{ToolToggleModelPinned, map[string]any{"name": "foo", "action": "pin"}, "ToggleModelPinned"},
 	}
 
 	for _, c := range cases {
@@ -215,12 +222,12 @@ func TestArgValidation(t *testing.T) {
 		args any
 		want string
 	}{
-		{"install_model_missing_name", "install_model", InstallModelRequest{}, "model_name is required"},
+		{"install_model_missing_name", ToolInstallModel, InstallModelRequest{}, "model_name is required"},
 		// Required-field misses are caught by the SDK schema validator (the
 		// generated input schema marks name as required), not our handler.
-		{"delete_model_missing_name", "delete_model", map[string]any{}, "missing properties"},
-		{"toggle_model_state_bad_action", "toggle_model_state", map[string]any{"name": "foo", "action": "noop"}, "action must be one of"},
-		{"edit_model_config_empty_patch", "edit_model_config", map[string]any{"name": "foo", "patch": map[string]any{}}, "patch is required"},
+		{"delete_model_missing_name", ToolDeleteModel, map[string]any{}, "missing properties"},
+		{"toggle_model_state_bad_action", ToolToggleModelState, map[string]any{"name": "foo", "action": "noop"}, "action must be one of"},
+		{"edit_model_config_empty_patch", ToolEditModelConfig, map[string]any{"name": "foo", "patch": map[string]any{}}, "patch is required"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

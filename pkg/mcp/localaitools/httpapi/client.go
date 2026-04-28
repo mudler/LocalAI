@@ -134,7 +134,8 @@ func (c *Client) GallerySearch(ctx context.Context, q localaitools.GallerySearch
 	return out, nil
 }
 
-func (c *Client) ListInstalledModels(ctx context.Context, capability string) ([]localaitools.InstalledModel, error) {
+func (c *Client) ListInstalledModels(ctx context.Context, capability localaitools.Capability) ([]localaitools.InstalledModel, error) {
+	_ = capability // Capability filtering is unavailable over the welcome HTTP shape today; see TODO below.
 	// /v1/models is the OpenAI-compat shape; we use the LocalAI welcome JSON
 	// for richer info.
 	var welcome struct {

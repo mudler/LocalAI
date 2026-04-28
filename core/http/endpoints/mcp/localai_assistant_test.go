@@ -15,7 +15,7 @@ type stubClient struct{}
 func (stubClient) GallerySearch(_ context.Context, _ localaitools.GallerySearchQuery) ([]localaitools.GalleryModelHit, error) {
 	return []localaitools.GalleryModelHit{{Name: "stub", Gallery: "stub-gallery"}}, nil
 }
-func (stubClient) ListInstalledModels(_ context.Context, _ string) ([]localaitools.InstalledModel, error) {
+func (stubClient) ListInstalledModels(_ context.Context, _ localaitools.Capability) ([]localaitools.InstalledModel, error) {
 	return []localaitools.InstalledModel{{Name: "stub"}}, nil
 }
 func (stubClient) ListGalleries(_ context.Context) ([]localaitools.Gallery, error) {

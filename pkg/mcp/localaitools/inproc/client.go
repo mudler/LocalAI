@@ -54,6 +54,9 @@ func New(appConfig *config.ApplicationConfig, systemState *system.SystemState, c
 // Compile-time assertion that *Client satisfies localaitools.LocalAIClient.
 var _ localaitools.LocalAIClient = (*Client)(nil)
 
+// bytesPerMiB scales raw byte counts to mebibytes — used by VRAMEstimate.
+const bytesPerMiB uint64 = 1 << 20
+
 // errNotImplemented is returned by tools that need follow-up work to be
 // fully wired. The tool surfaces it verbatim and the LLM is instructed to
 // pass it back to the user.
@@ -101,7 +104,7 @@ func (c *Client) GallerySearch(_ context.Context, q localaitools.GallerySearchQu
 	return out, nil
 }
 
-func (c *Client) ListInstalledModels(_ context.Context, capability string) ([]localaitools.InstalledModel, error) {
+func (c *Client) ListInstalledModels(_ context.Context, capability localaitools.Capability) ([]localaitools.InstalledModel, error) {
 	wantFlag, hasFlag := capabilityToFlag(capability)
 	configs := c.ConfigLoader.GetModelConfigsByFilter(func(_ string, m *config.ModelConfig) bool {
 		if !hasFlag {
@@ -390,8 +393,8 @@ func (c *Client) VRAMEstimate(ctx context.Context, req localaitools.VRAMEstimate
 	}
 	return &localaitools.VRAMEstimate{
 		ModelName:       req.ModelName,
-		EstimatedVRAMMB: resp.VRAMBytes / (1024 * 1024),
-		WeightsMB:       resp.SizeBytes / (1024 * 1024),
+		EstimatedVRAMMB: resp.VRAMBytes / bytesPerMiB,
+		WeightsMB:       resp.SizeBytes / bytesPerMiB,
 	}, nil
 }
 
@@ -421,27 +424,27 @@ func filterGalleries(galleries []config.Gallery, name string) []config.Gallery {
 	return nil
 }
 
-// capabilityToFlag maps the human-friendly capability tag the LLM uses to the
-// usecase bitflag the loader filters on. The empty string selects all models.
-func capabilityToFlag(capability string) (config.ModelConfigUsecase, bool) {
+// capabilityToFlag maps the public Capability constants to the loader's
+// usecase bitflag. CapabilityAny (the empty value) selects all models.
+func capabilityToFlag(capability localaitools.Capability) (config.ModelConfigUsecase, bool) {
 	switch capability {
-	case "":
+	case localaitools.CapabilityAny:
 		return 0, false
-	case "chat":
+	case localaitools.CapabilityChat:
 		return config.FLAG_CHAT, true
-	case "completion":
+	case localaitools.CapabilityCompletion:
 		return config.FLAG_COMPLETION, true
-	case "embed", "embedding", "embeddings":
+	case localaitools.CapabilityEmbeddings:
 		return config.FLAG_EMBEDDINGS, true
-	case "image":
+	case localaitools.CapabilityImage:
 		return config.FLAG_IMAGE, true
-	case "tts":
+	case localaitools.CapabilityTTS:
 		return config.FLAG_TTS, true
-	case "transcript":
+	case localaitools.CapabilityTranscript:
 		return config.FLAG_TRANSCRIPT, true
-	case "rerank":
+	case localaitools.CapabilityRerank:
 		return config.FLAG_RERANK, true
-	case "vad":
+	case localaitools.CapabilityVAD:
 		return config.FLAG_VAD, true
 	}
 	return 0, false

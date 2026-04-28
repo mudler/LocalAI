@@ -8,7 +8,7 @@ import (
 
 func registerConfigTools(s *mcp.Server, client LocalAIClient, opts Options) {
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "get_model_config",
+		Name:        ToolGetModelConfig,
 		Description: "Read the YAML/JSON config of an installed model. Use this before edit_model_config to show the user a diff.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args struct {
 		Name string `json:"name" jsonschema:"The installed model name."`
@@ -24,7 +24,7 @@ func registerConfigTools(s *mcp.Server, client LocalAIClient, opts Options) {
 	})
 
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "vram_estimate",
+		Name:        ToolVRAMEstimate,
 		Description: "Estimate VRAM usage for an installed model under a given config (context size, GPU layers, KV cache quantization).",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args VRAMEstimateRequest) (*mcp.CallToolResult, any, error) {
 		if args.ModelName == "" {
@@ -42,7 +42,7 @@ func registerConfigTools(s *mcp.Server, client LocalAIClient, opts Options) {
 	}
 
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "edit_model_config",
+		Name:        ToolEditModelConfig,
 		Description: "Patch (deep-merge) JSON into an installed model's config. Requires user confirmation per safety rule 1; show a diff first.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args struct {
 		Name  string         `json:"name"  jsonschema:"The installed model name."`
@@ -61,7 +61,7 @@ func registerConfigTools(s *mcp.Server, client LocalAIClient, opts Options) {
 	})
 
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "reload_models",
+		Name:        ToolReloadModels,
 		Description: "Reload all model configs from disk so changes (e.g. from edit_model_config) take effect. Requires user confirmation per safety rule 1.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, any, error) {
 		if err := client.ReloadModels(ctx); err != nil {

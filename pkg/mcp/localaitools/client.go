@@ -12,7 +12,7 @@ import "context"
 type LocalAIClient interface {
 	// ---- Models / gallery (read) ----
 	GallerySearch(ctx context.Context, q GallerySearchQuery) ([]GalleryModelHit, error)
-	ListInstalledModels(ctx context.Context, capability string) ([]InstalledModel, error)
+	ListInstalledModels(ctx context.Context, capability Capability) ([]InstalledModel, error)
 	ListGalleries(ctx context.Context) ([]Gallery, error)
 	GetJobStatus(ctx context.Context, jobID string) (*JobStatus, error)
 	GetModelConfig(ctx context.Context, name string) (*ModelConfigView, error)

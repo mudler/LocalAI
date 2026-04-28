@@ -13,7 +13,7 @@ func registerStateTools(s *mcp.Server, client LocalAIClient, opts Options) {
 	}
 
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "toggle_model_state",
+		Name:        ToolToggleModelState,
 		Description: "Enable or disable an installed model. action must be 'enable' or 'disable'. Requires user confirmation per safety rule 1.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args struct {
 		Name   string `json:"name"   jsonschema:"The installed model name."`
@@ -29,7 +29,7 @@ func registerStateTools(s *mcp.Server, client LocalAIClient, opts Options) {
 	})
 
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "toggle_model_pinned",
+		Name:        ToolToggleModelPinned,
 		Description: "Pin or unpin an installed model. action must be 'pin' or 'unpin'. Requires user confirmation per safety rule 1.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args struct {
 		Name   string `json:"name"   jsonschema:"The installed model name."`

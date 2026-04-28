@@ -19,7 +19,7 @@ type fakeClient struct {
 
 	// Per-method overrides. Tests set these.
 	gallerySearch       func(GallerySearchQuery) ([]GalleryModelHit, error)
-	listInstalledModels func(string) ([]InstalledModel, error)
+	listInstalledModels func(Capability) ([]InstalledModel, error)
 	listGalleries       func() ([]Gallery, error)
 	getJobStatus        func(string) (*JobStatus, error)
 	getModelConfig      func(string) (*ModelConfigView, error)
@@ -68,7 +68,7 @@ func (f *fakeClient) GallerySearch(_ context.Context, q GallerySearchQuery) ([]G
 	return nil, nil
 }
 
-func (f *fakeClient) ListInstalledModels(_ context.Context, capability string) ([]InstalledModel, error) {
+func (f *fakeClient) ListInstalledModels(_ context.Context, capability Capability) ([]InstalledModel, error) {
 	f.record("ListInstalledModels", capability)
 	if f.listInstalledModels != nil {
 		return f.listInstalledModels(capability)

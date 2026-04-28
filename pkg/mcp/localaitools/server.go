@@ -28,7 +28,7 @@ type Options struct {
 func NewServer(client LocalAIClient, opts Options) *mcp.Server {
 	name := opts.ServerName
 	if name == "" {
-		name = "localai-admin"
+		name = DefaultServerName
 	}
 	version := opts.ServerVersion
 	if version == "" {
