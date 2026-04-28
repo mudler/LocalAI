@@ -3,6 +3,7 @@ package httpapi
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -182,6 +183,54 @@ func TestListBackends(t *testing.T) {
 	}
 	if len(bs) != 1 || bs[0].Name != "llama-cpp" || !bs[0].Installed {
 		t.Errorf("unexpected: %+v", bs)
+	}
+}
+
+func TestErrHTTPNotFound_404Status(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.Error(w, "nope", http.StatusNotFound)
+	}))
+	t.Cleanup(srv.Close)
+	c := New(srv.URL, "")
+	st, err := c.GetJobStatus(context.Background(), "missing")
+	if err != nil {
+		t.Fatalf("expected nil err on 404 (translated), got %v", err)
+	}
+	if st != nil {
+		t.Errorf("expected nil status, got %+v", st)
+	}
+}
+
+func TestErrHTTPNotFound_LegacyFiveHundredCouldNotFind(t *testing.T) {
+	// The /models/jobs/:uuid endpoint today returns 500 with body
+	// "could not find any status for ID" instead of a proper 404.
+	// Until that's fixed, the typed Is() honours that fallback.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.Error(w, "could not find any status for ID", http.StatusInternalServerError)
+	}))
+	t.Cleanup(srv.Close)
+	c := New(srv.URL, "")
+	st, err := c.GetJobStatus(context.Background(), "missing")
+	if err != nil {
+		t.Fatalf("expected nil err on legacy 500-could-not-find, got %v", err)
+	}
+	if st != nil {
+		t.Errorf("expected nil status, got %+v", st)
+	}
+}
+
+func TestErrHTTPNotFound_ErrorsIsExposed(t *testing.T) {
+	// External callers can use errors.Is on the typed error.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.Error(w, "nope", http.StatusNotFound)
+	}))
+	t.Cleanup(srv.Close)
+	c := New(srv.URL, "")
+	// ListGalleries doesn't translate 404 internally — the raw error must be
+	// detectable via errors.Is so other call sites can do their own thing.
+	_, err := c.ListGalleries(context.Background())
+	if !errors.Is(err, ErrHTTPNotFound) {
+		t.Fatalf("errors.Is(err, ErrHTTPNotFound) = false; err = %v", err)
 	}
 }
 

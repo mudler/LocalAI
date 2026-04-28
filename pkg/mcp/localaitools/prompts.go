@@ -2,6 +2,7 @@ package localaitools
 
 import (
 	"embed"
+	"fmt"
 	"io/fs"
 	"path"
 	"sort"
@@ -13,9 +14,15 @@ var promptsFS embed.FS
 
 // SystemPrompt assembles the assistant system prompt from the embedded
 // markdown files. The walk is deterministic (lexicographic).
+//
+// Panics if the embedded FS walk fails: the only realistic cause is a
+// build-time misconfiguration of the //go:embed directive, and serving
+// a silently-empty prompt to the LLM is far worse than crashing the
+// init path. The TestSystemPromptIncludesAllEmbeddedFiles test catches
+// regressions in CI before they ship.
 func SystemPrompt(_ Options) string {
 	var paths []string
-	_ = fs.WalkDir(promptsFS, "prompts", func(p string, d fs.DirEntry, err error) error {
+	if err := fs.WalkDir(promptsFS, "prompts", func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -24,7 +31,9 @@ func SystemPrompt(_ Options) string {
 		}
 		paths = append(paths, p)
 		return nil
-	})
+	}); err != nil {
+		panic(fmt.Errorf("localaitools: walk embedded prompts: %w", err))
+	}
 	sort.Strings(paths)
 
 	var b strings.Builder

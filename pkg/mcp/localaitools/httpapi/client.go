@@ -44,6 +44,38 @@ func New(baseURL, apiKey string) *Client {
 // Compile-time assertion.
 var _ localaitools.LocalAIClient = (*Client)(nil)
 
+// HTTPError is returned by do() for non-2xx responses. Callers should use
+// errors.Is(err, ErrHTTPNotFound) instead of substring-matching on
+// err.Error() — the latter is brittle to status-code formatting changes.
+type HTTPError struct {
+	Method     string
+	Path       string
+	StatusCode int
+	Body       string
+}
+
+func (e *HTTPError) Error() string {
+	return fmt.Sprintf("%s %s: %d %s: %s", e.Method, e.Path, e.StatusCode, http.StatusText(e.StatusCode), strings.TrimSpace(e.Body))
+}
+
+// ErrHTTPNotFound is the sentinel for "the resource you asked for doesn't
+// exist". Match it via errors.Is on an *HTTPError.
+var ErrHTTPNotFound = errors.New("httpapi: not found")
+
+// Is supports errors.Is(*HTTPError, ErrHTTPNotFound). The 500-with-text
+// branch is a transitional fallback for /models/jobs/:uuid which today
+// returns a 500 carrying "could not find any status for ID" instead of a
+// proper 404. Drop the branch when the server is fixed.
+func (e *HTTPError) Is(target error) bool {
+	if target != ErrHTTPNotFound {
+		return false
+	}
+	if e.StatusCode == http.StatusNotFound {
+		return true
+	}
+	return e.StatusCode == http.StatusInternalServerError && strings.Contains(e.Body, "could not find")
+}
+
 // ---- HTTP helpers ----
 
 func (c *Client) do(ctx context.Context, method, path string, body any, out any) error {
@@ -76,7 +108,7 @@ func (c *Client) do(ctx context.Context, method, path string, body any, out any)
 
 	respBody, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("%s %s: %d %s: %s", method, path, resp.StatusCode, http.StatusText(resp.StatusCode), strings.TrimSpace(string(respBody)))
+		return &HTTPError{Method: method, Path: path, StatusCode: resp.StatusCode, Body: string(respBody)}
 	}
 	if out == nil {
 		return nil
@@ -188,9 +220,9 @@ func (c *Client) GetJobStatus(ctx context.Context, jobID string) (*localaitools.
 		GalleryElementName string  `json:"gallery_element_name"`
 	}
 	if err := c.do(ctx, http.MethodGet, "/models/jobs/"+url.PathEscape(jobID), nil, &raw); err != nil {
-		// 404-style errors mean "no such job" — surface as nil, nil so
-		// callers can distinguish from real failures.
-		if strings.Contains(err.Error(), "404") || strings.Contains(err.Error(), "could not find") {
+		// "no such job" is not a real failure — surface (nil, nil) so the
+		// LLM can stop polling without treating the response as an error.
+		if errors.Is(err, ErrHTTPNotFound) {
 			return nil, nil
 		}
 		return nil, err
@@ -393,7 +425,7 @@ func (c *Client) ListNodes(ctx context.Context) ([]localaitools.Node, error) {
 	}
 	if err := c.do(ctx, http.MethodGet, "/api/nodes", nil, &raw); err != nil {
 		// Treat 404/disabled as "no nodes" to keep parity with single-process.
-		if strings.Contains(err.Error(), "404") {
+		if errors.Is(err, ErrHTTPNotFound) {
 			return []localaitools.Node{}, nil
 		}
 		return nil, err
