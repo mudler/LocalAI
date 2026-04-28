@@ -165,7 +165,7 @@ func (c *Client) GetModelConfig(ctx context.Context, name string) (*localaitools
 
 // ---- Models / gallery (write) ----
 
-func (c *Client) InstallModel(_ context.Context, req localaitools.InstallModelRequest) (string, error) {
+func (c *Client) InstallModel(ctx context.Context, req localaitools.InstallModelRequest) (string, error) {
 	if req.ModelName == "" {
 		return "", errors.New("model_name is required")
 	}
@@ -177,7 +177,7 @@ func (c *Client) InstallModel(_ context.Context, req localaitools.InstallModelRe
 	if req.GalleryName != "" {
 		galleries = filterGalleries(galleries, req.GalleryName)
 	}
-	c.Gallery.ModelGalleryChannel <- galleryop.ManagementOp[gallery.GalleryModel, gallery.ModelConfig]{
+	op := galleryop.ManagementOp[gallery.GalleryModel, gallery.ModelConfig]{
 		ID:                 id.String(),
 		GalleryElementName: req.ModelName,
 		Req: gallery.GalleryModel{
@@ -186,10 +186,13 @@ func (c *Client) InstallModel(_ context.Context, req localaitools.InstallModelRe
 		Galleries:        galleries,
 		BackendGalleries: c.AppConfig.BackendGalleries,
 	}
+	if err := sendModelOp(ctx, c.Gallery.ModelGalleryChannel, op); err != nil {
+		return "", err
+	}
 	return id.String(), nil
 }
 
-func (c *Client) ImportModelURI(_ context.Context, req localaitools.ImportModelURIRequest) (*localaitools.ImportModelURIResponse, error) {
+func (c *Client) ImportModelURI(ctx context.Context, req localaitools.ImportModelURIRequest) (*localaitools.ImportModelURIResponse, error) {
 	if req.URI == "" {
 		return nil, errors.New("uri is required")
 	}
@@ -242,12 +245,15 @@ func (c *Client) ImportModelURI(_ context.Context, req localaitools.ImportModelU
 	if overrides == nil {
 		overrides = map[string]any{}
 	}
-	c.Gallery.ModelGalleryChannel <- galleryop.ManagementOp[gallery.GalleryModel, gallery.ModelConfig]{
+	op := galleryop.ManagementOp[gallery.GalleryModel, gallery.ModelConfig]{
 		Req:                gallery.GalleryModel{Overrides: overrides},
 		ID:                 id.String(),
 		GalleryElementName: galleryID,
 		GalleryElement:     &modelConfig,
 		BackendGalleries:   c.AppConfig.BackendGalleries,
+	}
+	if err := sendModelOp(ctx, c.Gallery.ModelGalleryChannel, op); err != nil {
+		return nil, err
 	}
 	return &localaitools.ImportModelURIResponse{
 		JobID:               id.String(),
@@ -255,13 +261,16 @@ func (c *Client) ImportModelURI(_ context.Context, req localaitools.ImportModelU
 	}, nil
 }
 
-func (c *Client) DeleteModel(_ context.Context, name string) error {
+func (c *Client) DeleteModel(ctx context.Context, name string) error {
 	if name == "" {
 		return errors.New("name is required")
 	}
-	c.Gallery.ModelGalleryChannel <- galleryop.ManagementOp[gallery.GalleryModel, gallery.ModelConfig]{
+	op := galleryop.ManagementOp[gallery.GalleryModel, gallery.ModelConfig]{
 		Delete:             true,
 		GalleryElementName: name,
+	}
+	if err := sendModelOp(ctx, c.Gallery.ModelGalleryChannel, op); err != nil {
+		return err
 	}
 	c.ConfigLoader.RemoveModelConfig(name)
 	return nil
@@ -311,7 +320,7 @@ func (c *Client) ListKnownBackends(_ context.Context) ([]localaitools.Backend, e
 	return out, nil
 }
 
-func (c *Client) InstallBackend(_ context.Context, req localaitools.InstallBackendRequest) (string, error) {
+func (c *Client) InstallBackend(ctx context.Context, req localaitools.InstallBackendRequest) (string, error) {
 	if req.BackendName == "" {
 		return "", errors.New("backend_name is required")
 	}
@@ -323,15 +332,18 @@ func (c *Client) InstallBackend(_ context.Context, req localaitools.InstallBacke
 	if req.GalleryName != "" {
 		galleries = filterGalleries(galleries, req.GalleryName)
 	}
-	c.Gallery.BackendGalleryChannel <- galleryop.ManagementOp[gallery.GalleryBackend, any]{
+	op := galleryop.ManagementOp[gallery.GalleryBackend, any]{
 		ID:                 id.String(),
 		GalleryElementName: req.BackendName,
 		Galleries:          galleries,
 	}
+	if err := sendBackendOp(ctx, c.Gallery.BackendGalleryChannel, op); err != nil {
+		return "", err
+	}
 	return id.String(), nil
 }
 
-func (c *Client) UpgradeBackend(_ context.Context, name string) (string, error) {
+func (c *Client) UpgradeBackend(ctx context.Context, name string) (string, error) {
 	if name == "" {
 		return "", errors.New("name is required")
 	}
@@ -339,11 +351,14 @@ func (c *Client) UpgradeBackend(_ context.Context, name string) (string, error) 
 	if err != nil {
 		return "", fmt.Errorf("generate job id: %w", err)
 	}
-	c.Gallery.BackendGalleryChannel <- galleryop.ManagementOp[gallery.GalleryBackend, any]{
+	op := galleryop.ManagementOp[gallery.GalleryBackend, any]{
 		ID:                 id.String(),
 		GalleryElementName: name,
 		Galleries:          c.AppConfig.BackendGalleries,
 		Upgrade:            true,
+	}
+	if err := sendBackendOp(ctx, c.Gallery.BackendGalleryChannel, op); err != nil {
+		return "", err
 	}
 	return id.String(), nil
 }
@@ -414,6 +429,31 @@ func (c *Client) ToggleModelPinned(ctx context.Context, name string, action mode
 }
 
 // ---- helpers ----
+
+// sendModelOp pushes op onto ch but bails if ctx is cancelled before the
+// gallery worker is ready to receive. Without the select the chat handler
+// goroutine would block forever when the worker is paused or the buffer is
+// full — the LLM keeps polling and the request goroutine leaks. When the
+// caller cancels we surface ctx.Err() so the LLM stops polling.
+func sendModelOp(ctx context.Context, ch chan galleryop.ManagementOp[gallery.GalleryModel, gallery.ModelConfig], op galleryop.ManagementOp[gallery.GalleryModel, gallery.ModelConfig]) error {
+	select {
+	case ch <- op:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+// sendBackendOp is the BackendGalleryChannel sibling of sendModelOp. Same
+// rationale — see that comment.
+func sendBackendOp(ctx context.Context, ch chan galleryop.ManagementOp[gallery.GalleryBackend, any], op galleryop.ManagementOp[gallery.GalleryBackend, any]) error {
+	select {
+	case ch <- op:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
 
 func filterGalleries(galleries []config.Gallery, name string) []config.Gallery {
 	for _, g := range galleries {
