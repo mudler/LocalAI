@@ -532,8 +532,16 @@ export default function Chat() {
       try {
         const data = JSON.parse(stored)
         localStorage.removeItem('localai_index_chat_data')
-        if (data.message) {
-          // Create a new chat when coming from home
+
+        // Two entry shapes from Home:
+        //   - "compose-and-send": data.message present → open new chat,
+        //     prefill the composer, click submit.
+        //   - "open-assistant": no message, just data.localaiAssistant → open
+        //     a fresh chat already in admin mode so the wizard can fire.
+        const hasMessage = !!data.message
+        const wantsAssistant = !!data.localaiAssistant
+
+        if (hasMessage || wantsAssistant) {
           let targetChat = activeChat
           if (data.newChat) {
             targetChat = addChat(data.model || '', '', data.mcpMode || false)
@@ -551,12 +559,17 @@ export default function Chat() {
           if (data.clientMCPServers?.length > 0 && targetChat) {
             updateChatSettings(targetChat.id, { clientMCPServers: data.clientMCPServers })
           }
-          setInput(data.message)
-          if (data.files) setFiles(data.files)
-          setTimeout(() => {
-            const submitBtn = document.getElementById('chat-submit-btn')
-            submitBtn?.click()
-          }, 100)
+          if (wantsAssistant && targetChat) {
+            updateChatSettings(targetChat.id, { localaiAssistant: true })
+          }
+          if (hasMessage) {
+            setInput(data.message)
+            if (data.files) setFiles(data.files)
+            setTimeout(() => {
+              const submitBtn = document.getElementById('chat-submit-btn')
+              submitBtn?.click()
+            }, 100)
+          }
         }
       } catch (_e) { /* ignore */ }
     }
@@ -887,6 +900,11 @@ export default function Chat() {
             <i className={`fas fa-${sidebarOpen ? 'angles-left' : 'angles-right'}`} />
           </button>
           <span className="chat-header-title">{activeChat.name}</span>
+          {activeChat.localaiAssistant && (
+            <span className="badge badge-accent" title="This chat can install models, edit configs and manage backends by talking to LocalAI.">
+              <i className="fas fa-user-shield" /> Manage mode
+            </span>
+          )}
           <UnifiedMCPDropdown
             serverMCPAvailable={mcpAvailable}
             mcpServerList={mcpServerList}
@@ -962,6 +980,23 @@ export default function Chat() {
                 <span className="toggle-slider" />
               </span>
             </label>
+            {isAdmin && (
+              <label
+                className="canvas-mode-toggle"
+                title="Manage LocalAI by chatting — install models, switch backends, and edit configs through the chat. Admin only."
+              >
+                <i className="fas fa-user-shield" />
+                <span className="canvas-mode-label">Manage</span>
+                <span className="toggle">
+                  <input
+                    type="checkbox"
+                    checked={!!activeChat.localaiAssistant}
+                    onChange={(e) => updateChatSettings(activeChat.id, { localaiAssistant: e.target.checked })}
+                  />
+                  <span className="toggle-slider" />
+                </span>
+              </label>
+            )}
             {canvasMode && artifacts.length > 0 && !canvasOpen && (
               <button
                 className="btn btn-secondary btn-sm"
@@ -1108,10 +1143,17 @@ export default function Chat() {
               <div className="chat-empty-icon">
                 <i className="fas fa-comments" />
               </div>
-              <h2 className="chat-empty-title">Start a conversation</h2>
-              <p className="chat-empty-text">{activeChat.model ? `Ready to chat with ${activeChat.model}` : 'Select a model above to get started'}</p>
+              <h2 className="chat-empty-title">{activeChat.localaiAssistant ? 'Manage LocalAI by chatting' : 'Start a conversation'}</h2>
+              <p className="chat-empty-text">
+                {activeChat.localaiAssistant
+                  ? 'Ask to install models, switch backends, edit configs, or check status. The assistant will summarise actions and wait for your confirmation before changing anything.'
+                  : (activeChat.model ? `Ready to chat with ${activeChat.model}` : 'Select a model above to get started')}
+              </p>
               <div className="chat-empty-suggestions">
-                {['Explain how this works', 'Help me write code', 'Summarize a document', 'Brainstorm ideas'].map((prompt) => (
+                {(activeChat.localaiAssistant
+                  ? ['What is installed?', 'Install a chat model', 'Show system status', 'Update a backend']
+                  : ['Explain how this works', 'Help me write code', 'Summarize a document', 'Brainstorm ideas']
+                ).map((prompt) => (
                   <button
                     key={prompt}
                     className="chat-empty-suggestion"

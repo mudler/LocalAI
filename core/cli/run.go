@@ -101,6 +101,9 @@ type RunCMD struct {
 	AgentJobRetentionDays              int      `env:"LOCALAI_AGENT_JOB_RETENTION_DAYS,AGENT_JOB_RETENTION_DAYS" default:"30" help:"Number of days to keep agent job history (default: 30)" group:"api"`
 	OpenResponsesStoreTTL              string   `env:"LOCALAI_OPEN_RESPONSES_STORE_TTL,OPEN_RESPONSES_STORE_TTL" default:"0" help:"TTL for Open Responses store (e.g., 1h, 30m, 0 = no expiration)" group:"api"`
 
+	// LocalAI Assistant chat modality (in-process admin MCP server)
+	DisableLocalAIAssistant bool `env:"LOCALAI_DISABLE_ASSISTANT" default:"false" help:"Disable the LocalAI Assistant chat modality (in-process admin MCP server)" group:"assistant"`
+
 	// Agent Pool (LocalAGI)
 	DisableAgents                  bool   `env:"LOCALAI_DISABLE_AGENTS" default:"false" help:"Disable the agent pool feature" group:"agents"`
 	AgentPoolAPIURL                string `env:"LOCALAI_AGENT_POOL_API_URL" help:"Default API URL for agents (defaults to self-referencing LocalAI)" group:"agents"`
@@ -322,6 +325,9 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 	}
 	if r.AgentPoolDefaultModel != "" {
 		opts = append(opts, config.WithAgentPoolDefaultModel(r.AgentPoolDefaultModel))
+	}
+	if r.DisableLocalAIAssistant {
+		opts = append(opts, config.WithDisableLocalAIAssistant(true))
 	}
 	if r.AgentPoolMultimodalModel != "" {
 		opts = append(opts, config.WithAgentPoolMultimodalModel(r.AgentPoolMultimodalModel))

@@ -139,6 +139,7 @@ func AgentFeatureMetas() []FeatureMeta {
 		{FeatureSkills, "Skills", false},
 		{FeatureCollections, "Collections", false},
 		{FeatureMCPJobs, "MCP CI Jobs", false},
+		{FeatureLocalAIAssistant, "LocalAI Assistant", false},
 	}
 }
 

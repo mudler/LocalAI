@@ -98,6 +98,23 @@ type MCPNATSClient interface {
 	Request(subject string, data []byte, timeout time.Duration) ([]byte, error)
 }
 
+// LocalAIAssistantFromMetadata reports whether the request opted into the
+// "LocalAI Assistant" chat modality (admin in-process MCP tool surface).
+// The "localai_assistant" key is consumed so it doesn't leak to the backend.
+// Truthy values: "1", "true", "yes" (case-insensitive).
+func LocalAIAssistantFromMetadata(metadata map[string]string) bool {
+	raw, ok := metadata["localai_assistant"]
+	if !ok {
+		return false
+	}
+	delete(metadata, "localai_assistant")
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "1", "true", "yes":
+		return true
+	}
+	return false
+}
+
 // MCPServersFromMetadata extracts the MCP server list from the metadata map
 // and returns the list. The "mcp_servers" key is consumed (deleted from the map)
 // so it doesn't leak to the backend.

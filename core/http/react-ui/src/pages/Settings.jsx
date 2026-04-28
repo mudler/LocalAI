@@ -20,6 +20,7 @@ const SECTIONS = [
   { id: 'apikeys', icon: 'fa-key', color: 'var(--color-error)', label: 'API Keys' },
   { id: 'agents', icon: 'fa-tasks', color: 'var(--color-primary)', label: 'Agent Jobs' },
   { id: 'agentpool', icon: 'fa-robot', color: 'var(--color-primary)', label: 'Agent Pool' },
+  { id: 'assistant', icon: 'fa-user-shield', color: 'var(--color-accent)', label: 'LocalAI Assistant' },
   { id: 'responses', icon: 'fa-database', color: 'var(--color-accent)', label: 'Responses' },
 ]
 
@@ -456,6 +457,18 @@ export default function Settings() {
               </SettingRow>
               <SettingRow label="Collection DB Path" description="Database path for agent collections">
                 <input className="input" style={{ width: 280 }} value={settings.agent_pool_collection_db_path || ''} onChange={(e) => update('agent_pool_collection_db_path', e.target.value)} placeholder="Leave empty for default" />
+              </SettingRow>
+            </div>
+          </div>
+
+          {/* LocalAI Assistant */}
+          <div ref={el => sectionRefs.current.assistant = el} style={{ marginBottom: 'var(--spacing-xl)' }}>
+            <h3 style={{ fontSize: '1rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-md)' }}>
+              <i className="fas fa-user-shield" style={{ color: 'var(--color-accent)' }} /> LocalAI Assistant
+            </h3>
+            <div className="card">
+              <SettingRow label="Enabled" description="Allow admins to opt chat sessions into the in-process admin tool surface. Disabling refuses new requests with the localai_assistant flag; takes effect without restart.">
+                <Toggle checked={settings.localai_assistant_enabled ?? true} onChange={(v) => update('localai_assistant_enabled', v)} />
               </SettingRow>
             </div>
           </div>

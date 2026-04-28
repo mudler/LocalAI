@@ -330,3 +330,7 @@ When adding a new endpoint:
 - [ ] Error responses use `schema.ErrorResponse` format (or `echo.NewHTTPError` with a mapped gRPC status — see the `mapBackendError` helper in `core/http/endpoints/localai/images.go`)
 - [ ] Tests cover both authenticated and unauthenticated access
 - [ ] Swagger regenerated (`make swagger`) if you changed any `@Router`/`@Tags`/`@Param` annotation
+
+## Companion: MCP admin tool surface
+
+If your new endpoint is admin-only and conversational management of it would be useful (install something, list status, edit config), add a matching MCP tool and skill prompt so the LocalAI Assistant chat modality picks it up. See [.agents/localai-assistant-mcp.md](localai-assistant-mcp.md) for the full checklist (`LocalAIClient` interface method, `inproc` + `httpapi` impls, tool registration, skill markdown).

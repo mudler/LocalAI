@@ -32,7 +32,7 @@ func RegisterOpenAIRoutes(app *echo.Echo,
 	}
 
 	// chat
-	chatHandler := openai.ChatEndpoint(application.ModelConfigLoader(), application.ModelLoader(), application.TemplatesEvaluator(), application.ApplicationConfig(), natsClient)
+	chatHandler := openai.ChatEndpoint(application.ModelConfigLoader(), application.ModelLoader(), application.TemplatesEvaluator(), application.ApplicationConfig(), natsClient, application.LocalAIAssistant())
 	chatMiddleware := []echo.MiddlewareFunc{
 		usageMiddleware,
 		traceMiddleware,

@@ -37,6 +37,14 @@ export default function Home() {
   const [mcpServerCache, setMcpServerCache] = useState({})
   const [mcpSelectedServers, setMcpSelectedServers] = useState([])
   const [clientMCPSelectedIds, setClientMCPSelectedIds] = useState([])
+  const [assistantAvailable, setAssistantAvailable] = useState(false)
+  // Progressive disclosure: the big "Manage by chatting" CTA card is a
+  // first-run affordance. Once the admin has clicked it, we collapse to
+  // a small entry in the quick-links row so the home page doesn't keep
+  // shouting at them about a feature they already know.
+  const [assistantUsed, setAssistantUsed] = useState(() => {
+    try { return localStorage.getItem('localai_assistant_used') === '1' } catch { return false }
+  })
   const [confirmDialog, setConfirmDialog] = useState(null)
   const [distributedMode, setDistributedMode] = useState(false)
   const [clusterData, setClusterData] = useState(null)
@@ -44,11 +52,14 @@ export default function Home() {
   const audioInputRef = useRef(null)
   const fileInputRef = useRef(null)
 
-  // Detect distributed mode
+  // Detect distributed mode + assistant feature availability in one fetch.
   useEffect(() => {
     fetch(apiUrl('/api/features'))
       .then(r => r.json())
-      .then(data => setDistributedMode(!!data.distributed))
+      .then(data => {
+        setDistributedMode(!!data.distributed)
+        setAssistantAvailable(!!data.localai_assistant)
+      })
       .catch(() => {})
   }, [])
 
@@ -204,6 +215,22 @@ export default function Home() {
     navigate(`/app/chat/${encodeURIComponent(selectedModel)}`)
   }, [message, allFiles, selectedModel, mcpMode, mcpSelectedServers, clientMCPSelectedIds, addToast, navigate])
 
+  // Quick-launch: open a fresh chat already in assistant mode without
+  // requiring an initial message or model selection. Useful when an admin
+  // wants to start the assistant from a cold home page.
+  const openAssistantChat = useCallback(() => {
+    const chatData = {
+      model: selectedModel || '',
+      mcpMode: false,
+      localaiAssistant: true,
+      newChat: true,
+    }
+    localStorage.setItem('localai_index_chat_data', JSON.stringify(chatData))
+    try { localStorage.setItem('localai_assistant_used', '1') } catch { /* ignore */ }
+    setAssistantUsed(true)
+    navigate('/app/chat')
+  }, [navigate, selectedModel])
+
   const handleSubmit = (e) => {
     if (e) e.preventDefault()
     doSubmit()
@@ -308,6 +335,28 @@ export default function Home() {
             </div>
           ) : null}
 
+          {/* LocalAI Assistant — prominent CTA on first run. Once the
+              admin has used it, the big card collapses to a small entry in
+              the quick-links row below. */}
+          {isAdmin && assistantAvailable && !assistantUsed && (
+            <button
+              type="button"
+              onClick={openAssistantChat}
+              className="home-assistant-card"
+            >
+              <span className="home-assistant-icon"><i className="fas fa-user-shield" /></span>
+              <span className="home-assistant-text">
+                <span className="home-assistant-title">Manage LocalAI by chatting</span>
+                <span className="home-assistant-desc">
+                  Install models, switch backends, edit configs and check status by talking to LocalAI.
+                </span>
+              </span>
+              <span className="home-assistant-cta">
+                Open assistant <i className="fas fa-arrow-right" />
+              </span>
+            </button>
+          )}
+
           {/* Chat input form */}
           <div className="home-chat-card">
             <form onSubmit={handleSubmit}>
@@ -398,6 +447,15 @@ export default function Home() {
           <div className="home-quick-links">
             {isAdmin && (
               <>
+                {assistantAvailable && assistantUsed && (
+                  <button
+                    className="home-link-btn"
+                    onClick={openAssistantChat}
+                    title="Manage LocalAI by chatting"
+                  >
+                    <i className="fas fa-user-shield" /> Manage by chat
+                  </button>
+                )}
                 <button className="home-link-btn" onClick={() => navigate('/app/manage')}>
                   <i className="fas fa-desktop" /> Installed Models
                 </button>

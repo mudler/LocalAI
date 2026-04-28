@@ -17,6 +17,8 @@ import (
 	"github.com/mudler/LocalAI/core/services/voicerecognition"
 	"github.com/mudler/LocalAI/core/templates"
 	pkggrpc "github.com/mudler/LocalAI/pkg/grpc"
+	localaitools "github.com/mudler/LocalAI/pkg/mcp/localaitools"
+	localaiInproc "github.com/mudler/LocalAI/pkg/mcp/localaitools/inproc"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/xlog"
 	"gorm.io/gorm"
@@ -60,6 +62,10 @@ type Application struct {
 
 	// Upgrade checker (background service for detecting backend upgrades)
 	upgradeChecker *UpgradeChecker
+
+	// LocalAI Assistant in-process MCP server. nil when DisableLocalAIAssistant
+	// is set; otherwise initialised in start() after galleryService.
+	localAIAssistant *mcpTools.LocalAIAssistantHolder
 }
 
 func newApplication(appConfig *config.ApplicationConfig) *Application {
@@ -135,6 +141,13 @@ func (a *Application) AgentJobService() *agentpool.AgentJobService {
 
 func (a *Application) UpgradeChecker() *UpgradeChecker {
 	return a.upgradeChecker
+}
+
+// LocalAIAssistant returns the in-process MCP holder used by the chat handler
+// when an admin opts into the assistant modality. Returns nil when the feature
+// is disabled at startup.
+func (a *Application) LocalAIAssistant() *mcpTools.LocalAIAssistantHolder {
+	return a.localAIAssistant
 }
 
 // distributedDB returns the PostgreSQL database for distributed coordination,
@@ -229,6 +242,26 @@ func (a *Application) start() error {
 	}
 
 	a.galleryService = galleryService
+
+	// LocalAI Assistant: in-process MCP server exposing admin tools. Initialised
+	// once at startup and reused across chat sessions that opt in via metadata.
+	if !a.applicationConfig.DisableLocalAIAssistant {
+		holder := mcpTools.NewLocalAIAssistantHolder()
+		assistantClient := localaiInproc.New(
+			a.applicationConfig,
+			a.applicationConfig.SystemState,
+			a.backendLoader,
+			a.modelLoader,
+			a.galleryService,
+		)
+		if err := holder.Initialize(a.applicationConfig.Context, assistantClient, localaitools.Options{}); err != nil {
+			// Why log+continue instead of fail: the assistant is an optional
+			// feature; a failure here must not take down the whole server.
+			xlog.Warn("LocalAI Assistant initialisation failed; feature unavailable", "error", err)
+		} else {
+			a.localAIAssistant = holder
+		}
+	}
 
 	// Initialize agent job service (Start() is deferred to after distributed wiring)
 	agentJobService := agentpool.NewAgentJobService(

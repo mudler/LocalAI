@@ -27,10 +27,11 @@ func GetCachedUserPermissions(c echo.Context, db *gorm.DB, userID string) (*User
 // Feature name constants — all code must use these, never bare strings.
 const (
 	// Agent features (default OFF for new users)
-	FeatureAgents      = "agents"
-	FeatureSkills      = "skills"
-	FeatureCollections = "collections"
-	FeatureMCPJobs     = "mcp_jobs"
+	FeatureAgents           = "agents"
+	FeatureSkills           = "skills"
+	FeatureCollections      = "collections"
+	FeatureMCPJobs          = "mcp_jobs"
+	FeatureLocalAIAssistant = "localai_assistant"
 
 	// General features (default OFF for new users)
 	FeatureFineTuning   = "fine_tuning"
@@ -56,7 +57,7 @@ const (
 )
 
 // AgentFeatures lists agent-related features (default OFF).
-var AgentFeatures = []string{FeatureAgents, FeatureSkills, FeatureCollections, FeatureMCPJobs}
+var AgentFeatures = []string{FeatureAgents, FeatureSkills, FeatureCollections, FeatureMCPJobs, FeatureLocalAIAssistant}
 
 // GeneralFeatures lists general features (default OFF).
 var GeneralFeatures = []string{FeatureFineTuning, FeatureQuantization}

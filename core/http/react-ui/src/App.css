@@ -4869,6 +4869,81 @@ select.input {
   display: inline-block;
 }
 
+/* Home assistant CTA — a self-explanatory entry point for the in-process
+   admin tool surface. Distinct from the chat composer below it; uses the
+   accent token + a subtle gradient so it reads as a primary action without
+   looking AI-slop generative. */
+.home-assistant-card {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  width: 100%;
+  margin-bottom: var(--spacing-md);
+  padding: var(--spacing-md) var(--spacing-lg);
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-xl);
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: var(--color-text);
+  transition: background-color 120ms ease, transform 120ms ease, box-shadow 120ms ease;
+}
+.home-assistant-card:hover {
+  background: var(--color-accent-light, var(--color-surface-hover));
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+.home-assistant-card:active {
+  transform: translateY(0);
+}
+.home-assistant-icon {
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--color-accent);
+  color: var(--color-on-accent, #ffffff);
+  font-size: 1.1rem;
+}
+.home-assistant-text {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.home-assistant-title {
+  font-weight: 600;
+  font-size: 1rem;
+}
+.home-assistant-desc {
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+}
+.home-assistant-cta {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--color-accent);
+  white-space: nowrap;
+}
+@media (max-width: 600px) {
+  .home-assistant-card {
+    flex-wrap: wrap;
+  }
+  .home-assistant-cta {
+    flex-basis: 100%;
+    justify-content: flex-end;
+  }
+}
+
 /* Home chat card */
 .home-chat-card {
   width: 100%;

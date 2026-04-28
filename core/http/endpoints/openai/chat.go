@@ -3,12 +3,14 @@ package openai
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/http/auth"
 	mcpTools "github.com/mudler/LocalAI/core/http/endpoints/mcp"
 	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/schema"
@@ -21,6 +23,18 @@ import (
 
 	"github.com/mudler/xlog"
 )
+
+// hasSystemMessage reports whether the message slice already contains a
+// system-role message — used to avoid clobbering a caller-supplied system
+// prompt when the LocalAI Assistant modality is on.
+func hasSystemMessage(messages []schema.Message) bool {
+	for _, m := range messages {
+		if m.Role == "system" {
+			return true
+		}
+	}
+	return false
+}
 
 // mergeToolCallDeltas merges streaming tool call deltas into complete tool calls.
 // In SSE streaming, a single tool call arrives as multiple chunks sharing the same Index:
@@ -59,7 +73,7 @@ func mergeToolCallDeltas(existing []schema.ToolCall, deltas []schema.ToolCall) [
 // @Param request body schema.OpenAIRequest true "query params"
 // @Success 200 {object} schema.OpenAIResponse "Response"
 // @Router /v1/chat/completions [post]
-func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator *templates.Evaluator, startupOptions *config.ApplicationConfig, natsClient mcpTools.MCPNATSClient) echo.HandlerFunc {
+func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator *templates.Evaluator, startupOptions *config.ApplicationConfig, natsClient mcpTools.MCPNATSClient, assistantHolder *mcpTools.LocalAIAssistantHolder) echo.HandlerFunc {
 	process := func(s string, req *schema.OpenAIRequest, config *config.ModelConfig, loader *model.ModelLoader, responses chan schema.OpenAIResponse, extraUsage bool, id string, created int) error {
 		initialMessage := schema.OpenAIResponse{
 			ID:      id,
@@ -442,6 +456,54 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 		// MCP tool injection: when mcp_servers is set in metadata and model has MCP config
 		var mcpExecutor mcpTools.ToolExecutor
 		mcpServers := mcpTools.MCPServersFromMetadata(input.Metadata)
+
+		// LocalAI Assistant modality: an admin opted into the in-process MCP
+		// admin tool surface. Runs *before* the regular MCP block — when both
+		// are set, the assistant tools win (the admin cannot mix them with
+		// per-model MCP servers in the same chat session by design).
+		assistantMode := mcpTools.LocalAIAssistantFromMetadata(input.Metadata)
+		if assistantMode {
+			// Defense-in-depth admin gate: the chat route is feature-gated
+			// (FeatureChat), but the assistant tools mutate server state, so
+			// re-check role here even when the deployment chose to skip
+			// FeatureLocalAIAssistant on the route.
+			if startupOptions.Auth.Enabled {
+				user := auth.GetUser(c)
+				if user == nil || user.Role != auth.RoleAdmin {
+					return echo.NewHTTPError(http.StatusForbidden, "localai_assistant requires admin")
+				}
+			}
+			// Read the disable flag live: an admin can flip it via /api/settings
+			// and the next request must see the change without a restart.
+			if startupOptions.DisableLocalAIAssistant {
+				return echo.NewHTTPError(http.StatusServiceUnavailable, "LocalAI Assistant is disabled on this server")
+			}
+			if assistantHolder == nil || !assistantHolder.HasTools() {
+				return echo.NewHTTPError(http.StatusServiceUnavailable, "LocalAI Assistant is not available on this server")
+			}
+			mcpExecutor = assistantHolder.Executor()
+			mcpFuncs, discErr := mcpExecutor.DiscoverTools(c.Request().Context())
+			if discErr != nil {
+				xlog.Error("Failed to discover LocalAI Assistant tools", "error", discErr)
+				return echo.NewHTTPError(http.StatusInternalServerError, "discover assistant tools: "+discErr.Error())
+			}
+			for _, fn := range mcpFuncs {
+				funcs = append(funcs, fn)
+				input.Tools = append(input.Tools, functions.Tool{Type: "function", Function: fn})
+			}
+			shouldUseFn = len(funcs) > 0 && config.ShouldUseFunctions()
+
+			// Prepend the embedded system prompt unless the caller supplied
+			// their own system message. Why: the prompt is what teaches the
+			// model the safety rules and recipes. If a caller already has a
+			// system message they're responsible for keeping the assistant
+			// safe, so we leave it alone.
+			if !hasSystemMessage(input.Messages) {
+				input.Messages = append([]schema.Message{{Role: "system", StringContent: assistantHolder.SystemPrompt()}}, input.Messages...)
+			}
+
+			xlog.Debug("LocalAI Assistant tools injected", "count", len(mcpFuncs))
+		}
 
 		// MCP prompt and resource injection (extracted before tool injection)
 		mcpPromptName, mcpPromptArgs := mcpTools.MCPPromptFromMetadata(input.Metadata)

@@ -1,0 +1,463 @@
+// Package httpapi provides a LocalAIClient that talks to a remote LocalAI
+// instance over its REST API. Used by the standalone "local-ai mcp-server"
+// subcommand to control a remote deployment over stdio.
+package httpapi
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"net/http"
+	"net/url"
+	"strings"
+	"time"
+
+	"github.com/mudler/LocalAI/core/gallery"
+	localaitools "github.com/mudler/LocalAI/pkg/mcp/localaitools"
+)
+
+// Client is a thin REST wrapper. It maps each LocalAIClient method to the
+// matching admin endpoint. Errors from non-2xx responses include the body for
+// the MCP layer to surface verbatim to the LLM.
+type Client struct {
+	BaseURL string
+	APIKey  string
+
+	HTTPClient *http.Client
+}
+
+// New returns a Client targeting baseURL with an optional bearer token.
+func New(baseURL, apiKey string) *Client {
+	return &Client{
+		BaseURL: strings.TrimRight(baseURL, "/"),
+		APIKey:  apiKey,
+		HTTPClient: &http.Client{
+			Timeout: 60 * time.Second,
+		},
+	}
+}
+
+// Compile-time assertion.
+var _ localaitools.LocalAIClient = (*Client)(nil)
+
+// ---- HTTP helpers ----
+
+func (c *Client) do(ctx context.Context, method, path string, body any, out any) error {
+	var rdr io.Reader
+	if body != nil {
+		raw, err := json.Marshal(body)
+		if err != nil {
+			return fmt.Errorf("marshal body: %w", err)
+		}
+		rdr = bytes.NewReader(raw)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, method, c.BaseURL+path, rdr)
+	if err != nil {
+		return err
+	}
+	if body != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
+	req.Header.Set("Accept", "application/json")
+	if c.APIKey != "" {
+		req.Header.Set("Authorization", "Bearer "+c.APIKey)
+	}
+
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	respBody, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return fmt.Errorf("%s %s: %d %s: %s", method, path, resp.StatusCode, http.StatusText(resp.StatusCode), strings.TrimSpace(string(respBody)))
+	}
+	if out == nil {
+		return nil
+	}
+	if err := json.Unmarshal(respBody, out); err != nil {
+		return fmt.Errorf("decode %s %s response: %w (body=%q)", method, path, err, truncate(string(respBody), 200))
+	}
+	return nil
+}
+
+func truncate(s string, n int) string {
+	if len(s) <= n {
+		return s
+	}
+	return s[:n] + "..."
+}
+
+// ---- Models / gallery (read) ----
+
+func (c *Client) GallerySearch(ctx context.Context, q localaitools.GallerySearchQuery) ([]localaitools.GalleryModelHit, error) {
+	// /models/available returns []gallery.Metadata; we filter client-side.
+	var metas []gallery.Metadata
+	if err := c.do(ctx, http.MethodGet, "/models/available", nil, &metas); err != nil {
+		return nil, err
+	}
+	limit := q.Limit
+	if limit <= 0 {
+		limit = 20
+	}
+	out := make([]localaitools.GalleryModelHit, 0, limit)
+	needle := strings.ToLower(q.Query)
+	tag := strings.ToLower(q.Tag)
+	for _, m := range metas {
+		if q.Gallery != "" && m.Gallery.Name != q.Gallery {
+			continue
+		}
+		if needle != "" && !contains(m.Name, needle) && !contains(m.Description, needle) && !containsTagsAny(m.Tags, needle) {
+			continue
+		}
+		if tag != "" && !containsTagExact(m.Tags, tag) {
+			continue
+		}
+		out = append(out, localaitools.GalleryModelHit{
+			Name:        m.Name,
+			Gallery:     m.Gallery.Name,
+			URL:         m.URL,
+			Description: m.Description,
+			License:     m.License,
+			Tags:        m.Tags,
+			Installed:   m.Installed,
+		})
+		if len(out) >= limit {
+			break
+		}
+	}
+	return out, nil
+}
+
+func (c *Client) ListInstalledModels(ctx context.Context, capability string) ([]localaitools.InstalledModel, error) {
+	// /v1/models is the OpenAI-compat shape; we use the LocalAI welcome JSON
+	// for richer info.
+	var welcome struct {
+		ModelsConfig []struct {
+			Name    string `json:"name"`
+			Backend string `json:"backend"`
+		} `json:"ModelsConfig"`
+	}
+	if err := c.do(ctx, http.MethodGet, "/", nil, &welcome); err != nil {
+		return nil, err
+	}
+	// Capability filtering is unavailable over HTTP without a dedicated endpoint
+	// — for now we return everything and let the LLM filter from the names. A
+	// follow-up should add a /api/models?capability=chat endpoint.
+	out := make([]localaitools.InstalledModel, 0, len(welcome.ModelsConfig))
+	for _, m := range welcome.ModelsConfig {
+		out = append(out, localaitools.InstalledModel{Name: m.Name, Backend: m.Backend})
+	}
+	return out, nil
+}
+
+func (c *Client) ListGalleries(ctx context.Context) ([]localaitools.Gallery, error) {
+	var raw []struct {
+		Name string `json:"name"`
+		URL  string `json:"url"`
+	}
+	if err := c.do(ctx, http.MethodGet, "/models/galleries", nil, &raw); err != nil {
+		return nil, err
+	}
+	out := make([]localaitools.Gallery, 0, len(raw))
+	for _, g := range raw {
+		out = append(out, localaitools.Gallery{Name: g.Name, URL: g.URL})
+	}
+	return out, nil
+}
+
+func (c *Client) GetJobStatus(ctx context.Context, jobID string) (*localaitools.JobStatus, error) {
+	if jobID == "" {
+		return nil, errors.New("job id is required")
+	}
+	var raw struct {
+		Processed          bool    `json:"processed"`
+		Cancelled          bool    `json:"cancelled"`
+		Progress           float64 `json:"progress"`
+		Message            string  `json:"message"`
+		FileSize           string  `json:"file_size"`
+		DownloadedSize     string  `json:"downloaded_size"`
+		Error              string  `json:"error,omitempty"`
+		GalleryElementName string  `json:"gallery_element_name"`
+	}
+	if err := c.do(ctx, http.MethodGet, "/models/jobs/"+url.PathEscape(jobID), nil, &raw); err != nil {
+		// 404-style errors mean "no such job" — surface as nil, nil so
+		// callers can distinguish from real failures.
+		if strings.Contains(err.Error(), "404") || strings.Contains(err.Error(), "could not find") {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &localaitools.JobStatus{
+		ID:                 jobID,
+		Processed:          raw.Processed,
+		Cancelled:          raw.Cancelled,
+		Progress:           raw.Progress,
+		TotalFileSize:      raw.FileSize,
+		DownloadedFileSize: raw.DownloadedSize,
+		Message:            raw.Message,
+		ErrorMessage:       raw.Error,
+	}, nil
+}
+
+func (c *Client) GetModelConfig(_ context.Context, _ string) (*localaitools.ModelConfigView, error) {
+	return nil, errors.New("get_model_config over HTTP not yet supported by this client; use the in-process inproc client or REST /models/edit/{name}")
+}
+
+// ---- Models / gallery (write) ----
+
+func (c *Client) InstallModel(ctx context.Context, req localaitools.InstallModelRequest) (string, error) {
+	body := map[string]any{"id": req.ModelName}
+	if req.GalleryName != "" {
+		body["id"] = req.GalleryName + "@" + req.ModelName
+	}
+	body["name"] = req.ModelName
+	if len(req.Overrides) > 0 {
+		body["overrides"] = req.Overrides
+	}
+	var resp struct {
+		ID        string `json:"uuid"`
+		StatusURL string `json:"status"`
+	}
+	if err := c.do(ctx, http.MethodPost, "/models/apply", body, &resp); err != nil {
+		return "", err
+	}
+	return resp.ID, nil
+}
+
+func (c *Client) ImportModelURI(ctx context.Context, req localaitools.ImportModelURIRequest) (*localaitools.ImportModelURIResponse, error) {
+	if req.URI == "" {
+		return nil, errors.New("uri is required")
+	}
+	body := map[string]any{"uri": req.URI}
+	if req.BackendPreference != "" {
+		// Server expects preferences as a JSON object; wrap the backend
+		// preference accordingly.
+		body["preferences"] = map[string]string{"backend": req.BackendPreference}
+	}
+
+	rawReq, err := json.Marshal(body)
+	if err != nil {
+		return nil, fmt.Errorf("marshal body: %w", err)
+	}
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, c.BaseURL+"/models/import-uri", bytes.NewReader(rawReq))
+	if err != nil {
+		return nil, err
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("Accept", "application/json")
+	if c.APIKey != "" {
+		httpReq.Header.Set("Authorization", "Bearer "+c.APIKey)
+	}
+	resp, err := c.HTTPClient.Do(httpReq)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	respBody, _ := io.ReadAll(resp.Body)
+
+	// 400 with `error: "ambiguous import"` is not a transport error — it's the
+	// disambiguation signal. Translate it back into AmbiguousBackend so the
+	// MCP layer surface stays identical regardless of in-process vs HTTP.
+	if resp.StatusCode == http.StatusBadRequest {
+		var amb struct {
+			Error      string   `json:"error"`
+			Detail     string   `json:"detail"`
+			Modality   string   `json:"modality"`
+			Candidates []string `json:"candidates"`
+			Hint       string   `json:"hint"`
+		}
+		if json.Unmarshal(respBody, &amb) == nil && amb.Error == "ambiguous import" {
+			return &localaitools.ImportModelURIResponse{
+				AmbiguousBackend:  true,
+				Modality:          amb.Modality,
+				BackendCandidates: amb.Candidates,
+				Hint:              amb.Hint,
+			}, nil
+		}
+	}
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("POST /models/import-uri: %d %s: %s", resp.StatusCode, http.StatusText(resp.StatusCode), strings.TrimSpace(string(respBody)))
+	}
+
+	var raw struct {
+		ID string `json:"uuid"`
+	}
+	if err := json.Unmarshal(respBody, &raw); err != nil {
+		return nil, fmt.Errorf("decode import response: %w", err)
+	}
+	return &localaitools.ImportModelURIResponse{JobID: raw.ID}, nil
+}
+
+func (c *Client) DeleteModel(ctx context.Context, name string) error {
+	return c.do(ctx, http.MethodPost, "/models/delete/"+url.PathEscape(name), nil, nil)
+}
+
+func (c *Client) EditModelConfig(ctx context.Context, name string, patch map[string]any) error {
+	return c.do(ctx, http.MethodPatch, "/api/models/config-json/"+url.PathEscape(name), patch, nil)
+}
+
+func (c *Client) ReloadModels(ctx context.Context) error {
+	return c.do(ctx, http.MethodPost, "/models/reload", nil, nil)
+}
+
+// ---- Backends ----
+
+func (c *Client) ListBackends(ctx context.Context) ([]localaitools.Backend, error) {
+	var raw []struct {
+		Name      string   `json:"name"`
+		Installed bool     `json:"installed"`
+		Tags      []string `json:"tags"`
+	}
+	if err := c.do(ctx, http.MethodGet, "/backends", nil, &raw); err != nil {
+		return nil, err
+	}
+	out := make([]localaitools.Backend, 0, len(raw))
+	for _, b := range raw {
+		out = append(out, localaitools.Backend{Name: b.Name, Installed: b.Installed, Tags: b.Tags})
+	}
+	return out, nil
+}
+
+func (c *Client) ListKnownBackends(ctx context.Context) ([]localaitools.Backend, error) {
+	var raw []struct {
+		Name string `json:"name"`
+	}
+	if err := c.do(ctx, http.MethodGet, "/backends/known", nil, &raw); err != nil {
+		return nil, err
+	}
+	out := make([]localaitools.Backend, 0, len(raw))
+	for _, b := range raw {
+		out = append(out, localaitools.Backend{Name: b.Name})
+	}
+	return out, nil
+}
+
+func (c *Client) InstallBackend(ctx context.Context, req localaitools.InstallBackendRequest) (string, error) {
+	body := map[string]any{"id": req.BackendName}
+	if req.GalleryName != "" {
+		body["id"] = req.GalleryName + "@" + req.BackendName
+	}
+	body["name"] = req.BackendName
+	var resp struct {
+		ID string `json:"uuid"`
+	}
+	if err := c.do(ctx, http.MethodPost, "/backends/apply", body, &resp); err != nil {
+		return "", err
+	}
+	return resp.ID, nil
+}
+
+func (c *Client) UpgradeBackend(ctx context.Context, name string) (string, error) {
+	var resp struct {
+		ID string `json:"uuid"`
+	}
+	if err := c.do(ctx, http.MethodPost, "/backends/upgrade/"+url.PathEscape(name), nil, &resp); err != nil {
+		return "", err
+	}
+	return resp.ID, nil
+}
+
+// ---- System ----
+
+func (c *Client) SystemInfo(ctx context.Context) (*localaitools.SystemInfo, error) {
+	var welcome struct {
+		Version           string   `json:"Version"`
+		LoadedModels      []any    `json:"LoadedModels"`
+		InstalledBackends map[string]bool `json:"InstalledBackends"`
+	}
+	if err := c.do(ctx, http.MethodGet, "/", nil, &welcome); err != nil {
+		return nil, err
+	}
+	info := &localaitools.SystemInfo{Version: welcome.Version}
+	for name := range welcome.InstalledBackends {
+		info.InstalledBackends = append(info.InstalledBackends, name)
+	}
+	// LoadedModels shape varies; we don't attempt to decode it client-side.
+	return info, nil
+}
+
+func (c *Client) ListNodes(ctx context.Context) ([]localaitools.Node, error) {
+	var raw []struct {
+		ID          string `json:"id"`
+		Address     string `json:"address"`
+		HTTPAddress string `json:"http_address"`
+		Status      string `json:"status"`
+	}
+	if err := c.do(ctx, http.MethodGet, "/api/nodes", nil, &raw); err != nil {
+		// Treat 404/disabled as "no nodes" to keep parity with single-process.
+		if strings.Contains(err.Error(), "404") {
+			return []localaitools.Node{}, nil
+		}
+		return nil, err
+	}
+	out := make([]localaitools.Node, 0, len(raw))
+	for _, n := range raw {
+		out = append(out, localaitools.Node{
+			ID:          n.ID,
+			Address:     n.Address,
+			HTTPAddress: n.HTTPAddress,
+			Healthy:     n.Status == "healthy",
+		})
+	}
+	return out, nil
+}
+
+func (c *Client) VRAMEstimate(ctx context.Context, req localaitools.VRAMEstimateRequest) (*localaitools.VRAMEstimate, error) {
+	body := map[string]any{"model": req.ModelName}
+	if req.ContextSize > 0 {
+		body["context_size"] = req.ContextSize
+	}
+	if req.GPULayers != 0 {
+		body["gpu_layers"] = req.GPULayers
+	}
+	if req.KVQuantBits > 0 {
+		body["kv_quant_bits"] = req.KVQuantBits
+	}
+	var raw struct {
+		EstimatedVRAMMB uint64 `json:"estimated_vram_mb"`
+	}
+	if err := c.do(ctx, http.MethodPost, "/api/models/vram-estimate", body, &raw); err != nil {
+		return nil, err
+	}
+	return &localaitools.VRAMEstimate{ModelName: req.ModelName, EstimatedVRAMMB: raw.EstimatedVRAMMB}, nil
+}
+
+// ---- State ----
+
+func (c *Client) ToggleModelState(ctx context.Context, name, action string) error {
+	return c.do(ctx, http.MethodPut, fmt.Sprintf("/models/toggle-state/%s/%s", url.PathEscape(name), url.PathEscape(action)), nil, nil)
+}
+
+func (c *Client) ToggleModelPinned(ctx context.Context, name, action string) error {
+	return c.do(ctx, http.MethodPut, fmt.Sprintf("/models/toggle-pinned/%s/%s", url.PathEscape(name), url.PathEscape(action)), nil, nil)
+}
+
+// ---- helpers ----
+
+func contains(haystack, lowerNeedle string) bool {
+	return strings.Contains(strings.ToLower(haystack), lowerNeedle)
+}
+
+func containsTagsAny(tags []string, lowerNeedle string) bool {
+	for _, t := range tags {
+		if strings.Contains(strings.ToLower(t), lowerNeedle) {
+			return true
+		}
+	}
+	return false
+}
+
+func containsTagExact(tags []string, lowerNeedle string) bool {
+	for _, t := range tags {
+		if strings.EqualFold(t, lowerNeedle) {
+			return true
+		}
+	}
+	return false
+}
