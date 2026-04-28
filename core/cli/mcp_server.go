@@ -3,6 +3,9 @@ package cli
 import (
 	"context"
 	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
@@ -34,5 +37,11 @@ func (m *MCPServerCMD) Run(_ *cliContext.Context) error {
 	// Stdio: the host (e.g. Claude Desktop, Cursor, mcphost) talks JSON-RPC
 	// over our stdin/stdout. There's nothing else this process should print —
 	// every other goroutine logging to stderr is fine, but stdout is sacred.
-	return srv.Run(context.Background(), &mcp.StdioTransport{})
+	//
+	// Honour SIGINT/SIGTERM so a Ctrl-C from the host or `kill -TERM` from
+	// process supervision gives srv.Run a chance to drain in-flight calls
+	// before exiting.
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	return srv.Run(ctx, &mcp.StdioTransport{})
 }

@@ -20,6 +20,7 @@ import (
 	localaitools "github.com/mudler/LocalAI/pkg/mcp/localaitools"
 	localaiInproc "github.com/mudler/LocalAI/pkg/mcp/localaitools/inproc"
 	"github.com/mudler/LocalAI/pkg/model"
+	"github.com/mudler/LocalAI/pkg/signals"
 	"github.com/mudler/xlog"
 	"gorm.io/gorm"
 )
@@ -260,6 +261,12 @@ func (a *Application) start() error {
 			xlog.Warn("LocalAI Assistant initialisation failed; feature unavailable", "error", err)
 		} else {
 			a.localAIAssistant = holder
+			// Tear the in-memory transport pair down on SIGINT/SIGTERM so the
+			// goroutine ends cleanly. Mirrors how core/http/endpoints/mcp/tools.go
+			// closes its per-model MCP sessions on graceful termination.
+			signals.RegisterGracefulTerminationHandler(func() {
+				_ = holder.Close()
+			})
 		}
 	}
 
