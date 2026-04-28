@@ -842,7 +842,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/localai.vramEstimateRequest"
+                            "$ref": "#/definitions/modeladmin.VRAMRequest"
                         }
                     }
                 ],
@@ -850,7 +850,7 @@ const docTemplate = `{
                     "200": {
                         "description": "VRAM estimate",
                         "schema": {
-                            "$ref": "#/definitions/localai.vramEstimateResponse"
+                            "$ref": "#/definitions/modeladmin.VRAMResponse"
                         }
                     }
                 }
@@ -3044,36 +3044,45 @@ const docTemplate = `{
                 }
             }
         },
-        "localai.vramEstimateRequest": {
+        "model.BackendLogLine": {
             "type": "object",
             "properties": {
-                "context_size": {
-                    "description": "context length to estimate for (default 8192)",
-                    "type": "integer"
+                "stream": {
+                    "description": "\"stdout\" or \"stderr\"",
+                    "type": "string"
                 },
-                "gpu_layers": {
-                    "description": "number of layers to offload to GPU (0 = all)",
-                    "type": "integer"
+                "text": {
+                    "type": "string"
                 },
-                "kv_quant_bits": {
-                    "description": "KV cache quantization bits (0 = fp16)",
-                    "type": "integer"
-                },
-                "model": {
-                    "description": "model name (must be installed)",
+                "timestamp": {
                     "type": "string"
                 }
             }
         },
-        "localai.vramEstimateResponse": {
+        "modeladmin.VRAMRequest": {
+            "type": "object",
+            "properties": {
+                "context_size": {
+                    "type": "integer"
+                },
+                "gpu_layers": {
+                    "type": "integer"
+                },
+                "kv_quant_bits": {
+                    "type": "integer"
+                },
+                "model": {
+                    "type": "string"
+                }
+            }
+        },
+        "modeladmin.VRAMResponse": {
             "type": "object",
             "properties": {
                 "context_note": {
-                    "description": "note when context_size was defaulted",
                     "type": "string"
                 },
                 "model_max_context": {
-                    "description": "model's trained maximum context length",
                     "type": "integer"
                 },
                 "sizeBytes": {
@@ -3090,21 +3099,6 @@ const docTemplate = `{
                 },
                 "vramDisplay": {
                     "description": "human-readable VRAM (e.g. \"6.1 GB\")",
-                    "type": "string"
-                }
-            }
-        },
-        "model.BackendLogLine": {
-            "type": "object",
-            "properties": {
-                "stream": {
-                    "description": "\"stdout\" or \"stderr\"",
-                    "type": "string"
-                },
-                "text": {
-                    "type": "string"
-                },
-                "timestamp": {
                     "type": "string"
                 }
             }
