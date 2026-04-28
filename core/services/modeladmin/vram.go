@@ -12,21 +12,22 @@ import (
 	"github.com/mudler/LocalAI/pkg/vram"
 )
 
-// VRAMRequest is the input for EstimateVRAM. Mirrors vramEstimateRequest in
-// the HTTP handler, kept here so callers don't depend on a private struct.
+// VRAMRequest is the input for EstimateVRAM. JSON tags let the HTTP
+// handler bind directly into this type instead of carrying a parallel
+// private struct.
 type VRAMRequest struct {
-	Model       string
-	ContextSize uint32
-	GPULayers   int
-	KVQuantBits int
+	Model       string `json:"model"`
+	ContextSize uint32 `json:"context_size,omitempty"`
+	GPULayers   int    `json:"gpu_layers,omitempty"`
+	KVQuantBits int    `json:"kv_quant_bits,omitempty"`
 }
 
-// VRAMResponse mirrors vramEstimateResponse — same shape, kept independent
-// of HTTP types for the same reason as VRAMRequest.
+// VRAMResponse embeds vram.EstimateResult and adds the context-defaulted
+// note fields the HTTP endpoint surfaces.
 type VRAMResponse struct {
 	vram.EstimateResult
-	ContextNote     string
-	ModelMaxContext uint64
+	ContextNote     string `json:"context_note,omitempty"`
+	ModelMaxContext uint64 `json:"model_max_context,omitempty"`
 }
 
 // EstimateVRAM computes a VRAM estimate for an installed model. It mirrors

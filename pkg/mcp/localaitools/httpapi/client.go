@@ -15,9 +15,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
+	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/modeladmin"
 	localaitools "github.com/mudler/LocalAI/pkg/mcp/localaitools"
+	"github.com/mudler/LocalAI/pkg/vram"
 )
 
 // Client is a thin REST wrapper. It maps each LocalAIClient method to the
@@ -128,8 +131,9 @@ func truncate(s string, n int) string {
 
 // ---- Models / gallery (read) ----
 
-func (c *Client) GallerySearch(ctx context.Context, q localaitools.GallerySearchQuery) ([]localaitools.GalleryModelHit, error) {
-	// /models/available returns []gallery.Metadata; we filter client-side.
+func (c *Client) GallerySearch(ctx context.Context, q localaitools.GallerySearchQuery) ([]gallery.Metadata, error) {
+	// /models/available already returns []gallery.Metadata — pass it
+	// through after applying the LLM-supplied filters client-side.
 	var metas []gallery.Metadata
 	if err := c.do(ctx, http.MethodGet, "/models/available", nil, &metas); err != nil {
 		return nil, err
@@ -138,7 +142,7 @@ func (c *Client) GallerySearch(ctx context.Context, q localaitools.GallerySearch
 	if limit <= 0 {
 		limit = 20
 	}
-	out := make([]localaitools.GalleryModelHit, 0, limit)
+	out := make([]gallery.Metadata, 0, limit)
 	needle := strings.ToLower(q.Query)
 	tag := strings.ToLower(q.Tag)
 	for _, m := range metas {
@@ -151,15 +155,7 @@ func (c *Client) GallerySearch(ctx context.Context, q localaitools.GallerySearch
 		if tag != "" && !containsTagExact(m.Tags, tag) {
 			continue
 		}
-		out = append(out, localaitools.GalleryModelHit{
-			Name:        m.Name,
-			Gallery:     m.Gallery.Name,
-			URL:         m.URL,
-			Description: m.Description,
-			License:     m.License,
-			Tags:        m.Tags,
-			Installed:   m.Installed,
-		})
+		out = append(out, m)
 		if len(out) >= limit {
 			break
 		}
@@ -190,17 +186,11 @@ func (c *Client) ListInstalledModels(ctx context.Context, capability localaitool
 	return out, nil
 }
 
-func (c *Client) ListGalleries(ctx context.Context) ([]localaitools.Gallery, error) {
-	var raw []struct {
-		Name string `json:"name"`
-		URL  string `json:"url"`
-	}
-	if err := c.do(ctx, http.MethodGet, "/models/galleries", nil, &raw); err != nil {
+func (c *Client) ListGalleries(ctx context.Context) ([]config.Gallery, error) {
+	// /models/galleries returns []config.Gallery directly.
+	var out []config.Gallery
+	if err := c.do(ctx, http.MethodGet, "/models/galleries", nil, &out); err != nil {
 		return nil, err
-	}
-	out := make([]localaitools.Gallery, 0, len(raw))
-	for _, g := range raw {
-		out = append(out, localaitools.Gallery{Name: g.Name, URL: g.URL})
 	}
 	return out, nil
 }
@@ -353,30 +343,24 @@ func (c *Client) ReloadModels(ctx context.Context) error {
 
 func (c *Client) ListBackends(ctx context.Context) ([]localaitools.Backend, error) {
 	var raw []struct {
-		Name      string   `json:"name"`
-		Installed bool     `json:"installed"`
-		Tags      []string `json:"tags"`
+		Name      string `json:"name"`
+		Installed bool   `json:"installed"`
 	}
 	if err := c.do(ctx, http.MethodGet, "/backends", nil, &raw); err != nil {
 		return nil, err
 	}
 	out := make([]localaitools.Backend, 0, len(raw))
 	for _, b := range raw {
-		out = append(out, localaitools.Backend{Name: b.Name, Installed: b.Installed, Tags: b.Tags})
+		out = append(out, localaitools.Backend{Name: b.Name, Installed: b.Installed})
 	}
 	return out, nil
 }
 
-func (c *Client) ListKnownBackends(ctx context.Context) ([]localaitools.Backend, error) {
-	var raw []struct {
-		Name string `json:"name"`
-	}
-	if err := c.do(ctx, http.MethodGet, "/backends/known", nil, &raw); err != nil {
+func (c *Client) ListKnownBackends(ctx context.Context) ([]schema.KnownBackend, error) {
+	// /backends/known emits []schema.KnownBackend directly — pass through.
+	var out []schema.KnownBackend
+	if err := c.do(ctx, http.MethodGet, "/backends/known", nil, &out); err != nil {
 		return nil, err
-	}
-	out := make([]localaitools.Backend, 0, len(raw))
-	for _, b := range raw {
-		out = append(out, localaitools.Backend{Name: b.Name})
 	}
 	return out, nil
 }
@@ -451,7 +435,7 @@ func (c *Client) ListNodes(ctx context.Context) ([]localaitools.Node, error) {
 	return out, nil
 }
 
-func (c *Client) VRAMEstimate(ctx context.Context, req localaitools.VRAMEstimateRequest) (*localaitools.VRAMEstimate, error) {
+func (c *Client) VRAMEstimate(ctx context.Context, req localaitools.VRAMEstimateRequest) (*vram.EstimateResult, error) {
 	body := map[string]any{"model": req.ModelName}
 	if req.ContextSize > 0 {
 		body["context_size"] = req.ContextSize
@@ -462,13 +446,15 @@ func (c *Client) VRAMEstimate(ctx context.Context, req localaitools.VRAMEstimate
 	if req.KVQuantBits > 0 {
 		body["kv_quant_bits"] = req.KVQuantBits
 	}
-	var raw struct {
-		EstimatedVRAMMB uint64 `json:"estimated_vram_mb"`
-	}
-	if err := c.do(ctx, http.MethodPost, "/api/models/vram-estimate", body, &raw); err != nil {
+	// /api/models/vram-estimate returns a wrapper carrying vram.EstimateResult
+	// (size_bytes/size_display/vram_bytes/vram_display) plus context-note
+	// fields. Decode directly into EstimateResult — the LLM gets the
+	// pre-formatted display strings, identical to REST.
+	var out vram.EstimateResult
+	if err := c.do(ctx, http.MethodPost, "/api/models/vram-estimate", body, &out); err != nil {
 		return nil, err
 	}
-	return &localaitools.VRAMEstimate{ModelName: req.ModelName, EstimatedVRAMMB: raw.EstimatedVRAMMB}, nil
+	return &out, nil
 }
 
 // ---- State ----

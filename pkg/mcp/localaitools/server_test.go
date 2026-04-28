@@ -11,6 +11,8 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+
+	"github.com/mudler/LocalAI/core/gallery"
 )
 
 // connectInMemory wires an MCP server (built via NewServer) to a client over
@@ -178,7 +180,7 @@ var _ = Describe("Tool dispatch", func() {
 var _ = Describe("Tool error surfacing", func() {
 	It("propagates client errors verbatim via IsError + TextContent", func() {
 		fc := &fakeClient{
-			gallerySearch: func(GallerySearchQuery) ([]GalleryModelHit, error) {
+			gallerySearch: func(GallerySearchQuery) ([]gallery.Metadata, error) {
 				return nil, errors.New("backend on fire")
 			},
 		}

@@ -7,22 +7,26 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/gallery"
+	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/modeladmin"
 	localaitools "github.com/mudler/LocalAI/pkg/mcp/localaitools"
+	"github.com/mudler/LocalAI/pkg/vram"
 )
 
 // stubClient is the minimum LocalAIClient impl needed to exercise the holder.
 // It returns deterministic, non-zero values so we can assert tool dispatch.
 type stubClient struct{}
 
-func (stubClient) GallerySearch(_ context.Context, _ localaitools.GallerySearchQuery) ([]localaitools.GalleryModelHit, error) {
-	return []localaitools.GalleryModelHit{{Name: "stub", Gallery: "stub-gallery"}}, nil
+func (stubClient) GallerySearch(_ context.Context, _ localaitools.GallerySearchQuery) ([]gallery.Metadata, error) {
+	return []gallery.Metadata{{Name: "stub", Gallery: config.Gallery{Name: "stub-gallery"}}}, nil
 }
 func (stubClient) ListInstalledModels(_ context.Context, _ localaitools.Capability) ([]localaitools.InstalledModel, error) {
 	return []localaitools.InstalledModel{{Name: "stub"}}, nil
 }
-func (stubClient) ListGalleries(_ context.Context) ([]localaitools.Gallery, error) {
-	return []localaitools.Gallery{{Name: "stub-gallery", URL: "http://example"}}, nil
+func (stubClient) ListGalleries(_ context.Context) ([]config.Gallery, error) {
+	return []config.Gallery{{Name: "stub-gallery", URL: "http://example"}}, nil
 }
 func (stubClient) GetJobStatus(_ context.Context, _ string) (*localaitools.JobStatus, error) {
 	return &localaitools.JobStatus{ID: "stub", Processed: true}, nil
@@ -44,8 +48,8 @@ func (stubClient) ReloadModels(_ context.Context) error { return nil }
 func (stubClient) ListBackends(_ context.Context) ([]localaitools.Backend, error) {
 	return []localaitools.Backend{{Name: "stub-backend", Installed: true}}, nil
 }
-func (stubClient) ListKnownBackends(_ context.Context) ([]localaitools.Backend, error) {
-	return []localaitools.Backend{}, nil
+func (stubClient) ListKnownBackends(_ context.Context) ([]schema.KnownBackend, error) {
+	return []schema.KnownBackend{}, nil
 }
 func (stubClient) InstallBackend(_ context.Context, _ localaitools.InstallBackendRequest) (string, error) {
 	return "stub-backend-job", nil
@@ -59,8 +63,8 @@ func (stubClient) SystemInfo(_ context.Context) (*localaitools.SystemInfo, error
 func (stubClient) ListNodes(_ context.Context) ([]localaitools.Node, error) {
 	return []localaitools.Node{}, nil
 }
-func (stubClient) VRAMEstimate(_ context.Context, _ localaitools.VRAMEstimateRequest) (*localaitools.VRAMEstimate, error) {
-	return &localaitools.VRAMEstimate{ModelName: "stub"}, nil
+func (stubClient) VRAMEstimate(_ context.Context, _ localaitools.VRAMEstimateRequest) (*vram.EstimateResult, error) {
+	return &vram.EstimateResult{SizeDisplay: "stub"}, nil
 }
 func (stubClient) ToggleModelState(_ context.Context, _ string, _ modeladmin.Action) error  { return nil }
 func (stubClient) ToggleModelPinned(_ context.Context, _ string, _ modeladmin.Action) error { return nil }

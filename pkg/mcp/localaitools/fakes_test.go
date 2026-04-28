@@ -6,7 +6,11 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/gallery"
+	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/modeladmin"
+	"github.com/mudler/LocalAI/pkg/vram"
 )
 
 // fakeClient is a recording, configurable LocalAIClient for unit tests.
@@ -20,9 +24,9 @@ type fakeClient struct {
 	calls []fakeCall
 
 	// Per-method overrides. Tests set these.
-	gallerySearch       func(GallerySearchQuery) ([]GalleryModelHit, error)
+	gallerySearch       func(GallerySearchQuery) ([]gallery.Metadata, error)
 	listInstalledModels func(Capability) ([]InstalledModel, error)
-	listGalleries       func() ([]Gallery, error)
+	listGalleries       func() ([]config.Gallery, error)
 	getJobStatus        func(string) (*JobStatus, error)
 	getModelConfig      func(string) (*ModelConfigView, error)
 	installModel        func(InstallModelRequest) (string, error)
@@ -31,12 +35,12 @@ type fakeClient struct {
 	editModelConfig     func(string, map[string]any) error
 	reloadModels        func() error
 	listBackends        func() ([]Backend, error)
-	listKnownBackends   func() ([]Backend, error)
+	listKnownBackends   func() ([]schema.KnownBackend, error)
 	installBackend      func(InstallBackendRequest) (string, error)
 	upgradeBackend      func(string) (string, error)
 	systemInfo          func() (*SystemInfo, error)
 	listNodes           func() ([]Node, error)
-	vramEstimate        func(VRAMEstimateRequest) (*VRAMEstimate, error)
+	vramEstimate        func(VRAMEstimateRequest) (*vram.EstimateResult, error)
 	toggleModelState    func(string, modeladmin.Action) error
 	toggleModelPinned   func(string, modeladmin.Action) error
 }
@@ -62,7 +66,7 @@ func (f *fakeClient) recorded() []fakeCall {
 
 var errNotConfigured = errors.New("fakeClient method not configured")
 
-func (f *fakeClient) GallerySearch(_ context.Context, q GallerySearchQuery) ([]GalleryModelHit, error) {
+func (f *fakeClient) GallerySearch(_ context.Context, q GallerySearchQuery) ([]gallery.Metadata, error) {
 	f.record("GallerySearch", q)
 	if f.gallerySearch != nil {
 		return f.gallerySearch(q)
@@ -78,7 +82,7 @@ func (f *fakeClient) ListInstalledModels(_ context.Context, capability Capabilit
 	return nil, nil
 }
 
-func (f *fakeClient) ListGalleries(_ context.Context) ([]Gallery, error) {
+func (f *fakeClient) ListGalleries(_ context.Context) ([]config.Gallery, error) {
 	f.record("ListGalleries", nil)
 	if f.listGalleries != nil {
 		return f.listGalleries()
@@ -150,7 +154,7 @@ func (f *fakeClient) ListBackends(_ context.Context) ([]Backend, error) {
 	return nil, nil
 }
 
-func (f *fakeClient) ListKnownBackends(_ context.Context) ([]Backend, error) {
+func (f *fakeClient) ListKnownBackends(_ context.Context) ([]schema.KnownBackend, error) {
 	f.record("ListKnownBackends", nil)
 	if f.listKnownBackends != nil {
 		return f.listKnownBackends()
@@ -190,7 +194,7 @@ func (f *fakeClient) ListNodes(_ context.Context) ([]Node, error) {
 	return nil, nil
 }
 
-func (f *fakeClient) VRAMEstimate(_ context.Context, req VRAMEstimateRequest) (*VRAMEstimate, error) {
+func (f *fakeClient) VRAMEstimate(_ context.Context, req VRAMEstimateRequest) (*vram.EstimateResult, error) {
 	f.record("VRAMEstimate", req)
 	if f.vramEstimate != nil {
 		return f.vramEstimate(req)

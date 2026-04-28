@@ -1,29 +1,25 @@
 package localaitools
 
-// DTOs for the LocalAIClient interface. These are stripped, JSON-friendly
-// representations of LocalAI's internal types — never the raw service types,
-// so that inproc and httpapi clients serialize the same payloads.
+// DTOs for the LocalAIClient interface. Where the same shape already exists
+// elsewhere (config.Gallery, gallery.Metadata, schema.KnownBackend,
+// vram.EstimateResult) we surface that type directly via the interface
+// instead of maintaining a parallel DTO. The remaining types in this file
+// are LLM-shaped views of internal state where the source struct carries
+// fields the LLM shouldn't see (auth tokens, filesystem paths) or
+// non-JSON-friendly fields (e.g. galleryop.OpStatus.Error which marshals
+// to "{}" because it's an interface).
 
 // GallerySearchQuery is the input for gallery_search.
 type GallerySearchQuery struct {
-	Query    string `json:"query"           jsonschema:"Free-text query matched against model name, gallery and tags. Empty returns the first Limit models."`
-	Limit    int    `json:"limit,omitempty" jsonschema:"Maximum number of results to return. Defaults to 20 when zero or negative."`
-	Tag      string `json:"tag,omitempty"   jsonschema:"Optional tag filter (e.g. chat, embed, image)."`
-	Gallery  string `json:"gallery,omitempty" jsonschema:"Restrict results to a specific gallery name."`
+	Query   string `json:"query"             jsonschema:"Free-text query matched against model name, gallery and tags. Empty returns the first Limit models."`
+	Limit   int    `json:"limit,omitempty"   jsonschema:"Maximum number of results to return. Defaults to 20 when zero or negative."`
+	Tag     string `json:"tag,omitempty"     jsonschema:"Optional tag filter (e.g. chat, embed, image)."`
+	Gallery string `json:"gallery,omitempty" jsonschema:"Restrict results to a specific gallery name."`
 }
 
-// GalleryModelHit is a single result from gallery_search.
-type GalleryModelHit struct {
-	Name        string   `json:"name"`
-	Gallery     string   `json:"gallery"`
-	URL         string   `json:"url,omitempty"`
-	Description string   `json:"description,omitempty"`
-	License     string   `json:"license,omitempty"`
-	Tags        []string `json:"tags,omitempty"`
-	Installed   bool     `json:"installed"`
-}
-
-// InstalledModel is one entry in list_installed_models.
+// InstalledModel is one entry in list_installed_models. Distinct from
+// config.ModelConfig (which is the full on-disk YAML — far too large to
+// serialise per request); this is a summary the LLM can scan cheaply.
 type InstalledModel struct {
 	Name         string   `json:"name"`
 	Backend      string   `json:"backend,omitempty"`
@@ -32,14 +28,12 @@ type InstalledModel struct {
 	Disabled     bool     `json:"disabled,omitempty"`
 }
 
-// Gallery is one entry in list_galleries.
-type Gallery struct {
-	Name string `json:"name"`
-	URL  string `json:"url"`
-}
-
-// JobStatus mirrors core/services/galleryop.OpStatus, with only the fields the
-// LLM actually needs to drive its loop.
+// JobStatus is a JSON-friendly mirror of galleryop.OpStatus. We don't surface
+// OpStatus directly because its `Error error` field marshals to `{}` (the
+// json.Marshal default for an error interface), and the underlying status
+// map keys jobs by UUID rather than carrying the ID on the value, so we
+// add the ID here too. Keep field names aligned with OpStatus where they
+// overlap so callers comparing the two don't have to translate.
 type JobStatus struct {
 	ID                 string  `json:"id"`
 	Processed          bool    `json:"processed"`
@@ -71,13 +65,14 @@ type InstallBackendRequest struct {
 	BackendName string `json:"backend_name"           jsonschema:"Backend identifier (e.g. llama-cpp)."`
 }
 
-// Backend is one entry in list_backends / list_known_backends.
+// Backend is the LLM-facing summary returned by list_backends. We don't
+// expose gallery.SystemBackend directly because it carries filesystem
+// paths (RunFile, IsSystem, IsMeta, the full Metadata) the LLM doesn't
+// need and the tokens add up. ListKnownBackends returns schema.KnownBackend
+// directly — that one is already the canonical wire shape.
 type Backend struct {
-	Name        string   `json:"name"`
-	Gallery     string   `json:"gallery,omitempty"`
-	Installed   bool     `json:"installed"`
-	Description string   `json:"description,omitempty"`
-	Tags        []string `json:"tags,omitempty"`
+	Name      string `json:"name"`
+	Installed bool   `json:"installed"`
 }
 
 // SystemInfo summarises the LocalAI deployment.
@@ -123,19 +118,13 @@ type ImportModelURIResponse struct {
 	Hint                string   `json:"hint,omitempty"`
 }
 
-// VRAMEstimateRequest is the input for vram_estimate.
+// VRAMEstimateRequest is the input for vram_estimate. The output type is
+// pkg/vram.EstimateResult — used directly via the LocalAIClient interface
+// so the LLM sees the same shape (size_bytes/size_display/vram_bytes/
+// vram_display) that the REST endpoint returns.
 type VRAMEstimateRequest struct {
-	ModelName    string `json:"model_name"             jsonschema:"Installed model name."`
-	ContextSize  int    `json:"context_size,omitempty" jsonschema:"Context size in tokens."`
-	GPULayers    int    `json:"gpu_layers,omitempty"   jsonschema:"Number of layers to offload to GPU. -1 for all."`
-	KVQuantBits  int    `json:"kv_quant_bits,omitempty" jsonschema:"KV cache quantization bits (e.g. 4, 8, 16)."`
-}
-
-// VRAMEstimate is the output of vram_estimate.
-type VRAMEstimate struct {
-	ModelName       string `json:"model_name"`
-	EstimatedVRAMMB uint64 `json:"estimated_vram_mb"`
-	WeightsMB       uint64 `json:"weights_mb,omitempty"`
-	KVCacheMB       uint64 `json:"kv_cache_mb,omitempty"`
-	OverheadMB      uint64 `json:"overhead_mb,omitempty"`
+	ModelName   string `json:"model_name"              jsonschema:"Installed model name."`
+	ContextSize int    `json:"context_size,omitempty"  jsonschema:"Context size in tokens."`
+	GPULayers   int    `json:"gpu_layers,omitempty"    jsonschema:"Number of layers to offload to GPU. -1 for all."`
+	KVQuantBits int    `json:"kv_quant_bits,omitempty" jsonschema:"KV cache quantization bits (e.g. 4, 8, 16)."`
 }

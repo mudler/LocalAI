@@ -14,12 +14,14 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/gallery/importers"
+	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/modeladmin"
 	"github.com/mudler/LocalAI/internal"
 	localaitools "github.com/mudler/LocalAI/pkg/mcp/localaitools"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/system"
+	"github.com/mudler/LocalAI/pkg/vram"
 )
 
 // Client implements localaitools.LocalAIClient by calling LocalAI services
@@ -54,12 +56,9 @@ func New(appConfig *config.ApplicationConfig, systemState *system.SystemState, c
 // Compile-time assertion that *Client satisfies localaitools.LocalAIClient.
 var _ localaitools.LocalAIClient = (*Client)(nil)
 
-// bytesPerMiB scales raw byte counts to mebibytes — used by VRAMEstimate.
-const bytesPerMiB uint64 = 1 << 20
-
 // ---- Models / gallery (read) ----
 
-func (c *Client) GallerySearch(_ context.Context, q localaitools.GallerySearchQuery) ([]localaitools.GalleryModelHit, error) {
+func (c *Client) GallerySearch(_ context.Context, q localaitools.GallerySearchQuery) ([]gallery.Metadata, error) {
 	galleries := c.AppConfig.Galleries
 	if q.Gallery != "" {
 		galleries = filterGalleries(galleries, q.Gallery)
@@ -81,20 +80,14 @@ func (c *Client) GallerySearch(_ context.Context, q localaitools.GallerySearchQu
 		limit = 20
 	}
 
-	out := make([]localaitools.GalleryModelHit, 0, min(len(models), limit))
+	// Surface gallery.Metadata directly — same wire shape as gallery.AvailableGalleryModels
+	// returns and the same shape REST /models/available emits, so REST and MCP stay aligned.
+	out := make([]gallery.Metadata, 0, min(len(models), limit))
 	for i, m := range models {
 		if i >= limit {
 			break
 		}
-		out = append(out, localaitools.GalleryModelHit{
-			Name:        m.GetName(),
-			Gallery:     m.GetGallery().Name,
-			URL:         m.URL,
-			Description: m.GetDescription(),
-			License:     m.GetLicense(),
-			Tags:        m.GetTags(),
-			Installed:   m.GetInstalled(),
-		})
+		out = append(out, m.Metadata)
 	}
 	return out, nil
 }
@@ -119,12 +112,10 @@ func (c *Client) ListInstalledModels(_ context.Context, capability localaitools.
 	return out, nil
 }
 
-func (c *Client) ListGalleries(_ context.Context) ([]localaitools.Gallery, error) {
-	out := make([]localaitools.Gallery, 0, len(c.AppConfig.Galleries))
-	for _, g := range c.AppConfig.Galleries {
-		out = append(out, localaitools.Gallery{Name: g.Name, URL: g.URL})
-	}
-	return out, nil
+func (c *Client) ListGalleries(_ context.Context) ([]config.Gallery, error) {
+	// AppConfig.Galleries is already []config.Gallery; the JSON shape
+	// matches what REST /models/galleries emits.
+	return c.AppConfig.Galleries, nil
 }
 
 func (c *Client) GetJobStatus(_ context.Context, jobID string) (*localaitools.JobStatus, error) {
@@ -297,18 +288,18 @@ func (c *Client) ListBackends(_ context.Context) ([]localaitools.Backend, error)
 	return out, nil
 }
 
-func (c *Client) ListKnownBackends(_ context.Context) ([]localaitools.Backend, error) {
+func (c *Client) ListKnownBackends(_ context.Context) ([]schema.KnownBackend, error) {
 	available, err := gallery.AvailableBackends(c.AppConfig.BackendGalleries, c.SystemState)
 	if err != nil {
 		return nil, fmt.Errorf("list known backends: %w", err)
 	}
-	out := make([]localaitools.Backend, 0, len(available))
+	// Match the wire shape of REST /backends/known so the tool output is
+	// identical regardless of which client served it.
+	out := make([]schema.KnownBackend, 0, len(available))
 	for _, b := range available {
-		out = append(out, localaitools.Backend{
+		out = append(out, schema.KnownBackend{
 			Name:        b.GetName(),
-			Gallery:     b.GetGallery().Name,
 			Description: b.GetDescription(),
-			Tags:        b.GetTags(),
 			Installed:   b.GetInstalled(),
 		})
 	}
@@ -391,7 +382,7 @@ func (c *Client) ListNodes(_ context.Context) ([]localaitools.Node, error) {
 	return []localaitools.Node{}, nil
 }
 
-func (c *Client) VRAMEstimate(ctx context.Context, req localaitools.VRAMEstimateRequest) (*localaitools.VRAMEstimate, error) {
+func (c *Client) VRAMEstimate(ctx context.Context, req localaitools.VRAMEstimateRequest) (*vram.EstimateResult, error) {
 	resp, err := modeladmin.EstimateVRAM(ctx, modeladmin.VRAMRequest{
 		Model:       req.ModelName,
 		ContextSize: uint32(req.ContextSize),
@@ -401,11 +392,10 @@ func (c *Client) VRAMEstimate(ctx context.Context, req localaitools.VRAMEstimate
 	if err != nil {
 		return nil, err
 	}
-	return &localaitools.VRAMEstimate{
-		ModelName:       req.ModelName,
-		EstimatedVRAMMB: resp.VRAMBytes / bytesPerMiB,
-		WeightsMB:       resp.SizeBytes / bytesPerMiB,
-	}, nil
+	// Forward vram.EstimateResult unchanged so the LLM sees the same
+	// shape (size_bytes / size_display / vram_bytes / vram_display) that
+	// REST /api/models/vram-estimate returns.
+	return &resp.EstimateResult, nil
 }
 
 // ---- State ----

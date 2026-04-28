@@ -21,6 +21,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"github.com/mudler/LocalAI/core/config"
 	localaitools "github.com/mudler/LocalAI/pkg/mcp/localaitools"
 	"github.com/mudler/LocalAI/pkg/mcp/localaitools/httpapi"
 )
@@ -86,8 +87,8 @@ func inprocLikeFromHTTP(target string) localaitools.LocalAIClient {
 	return httpapi.New(target, "")
 }
 
-func sortGalleries(in []localaitools.Gallery) []localaitools.Gallery {
-	out := append([]localaitools.Gallery(nil), in...)
+func sortGalleries(in []config.Gallery) []config.Gallery {
+	out := append([]config.Gallery(nil), in...)
 	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
 	return out
 }
