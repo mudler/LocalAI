@@ -43,7 +43,7 @@ require (
 	github.com/mudler/xlog v0.0.6
 	github.com/nats-io/nats.go v1.50.0
 	github.com/ollama/ollama v0.20.4
-	github.com/onsi/ginkgo/v2 v2.28.1
+	github.com/onsi/ginkgo/v2 v2.28.2
 	github.com/onsi/gomega v1.39.1
 	github.com/openai/openai-go/v3 v3.26.0
 	github.com/otiai10/copy v1.14.1
@@ -60,7 +60,7 @@ require (
 	github.com/swaggo/swag v1.16.6
 	github.com/testcontainers/testcontainers-go v0.42.0
 	github.com/testcontainers/testcontainers-go/modules/nats v0.42.0
-	github.com/testcontainers/testcontainers-go/modules/postgres v0.41.0
+	github.com/testcontainers/testcontainers-go/modules/postgres v0.42.0
 	go.opentelemetry.io/otel v1.43.0
 	go.opentelemetry.io/otel/exporters/prometheus v0.65.0
 	go.opentelemetry.io/otel/metric v1.43.0
