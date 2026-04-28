@@ -330,3 +330,16 @@ When adding a new endpoint:
 - [ ] Error responses use `schema.ErrorResponse` format (or `echo.NewHTTPError` with a mapped gRPC status — see the `mapBackendError` helper in `core/http/endpoints/localai/images.go`)
 - [ ] Tests cover both authenticated and unauthenticated access
 - [ ] Swagger regenerated (`make swagger`) if you changed any `@Router`/`@Tags`/`@Param` annotation
+
+## Companion: MCP admin tool surface
+
+**Required for admin endpoints.** Every new admin endpoint MUST be considered for the MCP admin tool surface — the REST API and the MCP tool catalog can drift silently otherwise, and both the LocalAI Assistant chat modality and the standalone `local-ai mcp-server` rely on `pkg/mcp/localaitools/` to mirror REST.
+
+Two outcomes are acceptable; one is not:
+
+- **Tool added.** The new endpoint is something an admin would manage conversationally (install, list, edit, toggle, upgrade). Follow the full checklist in [.agents/localai-assistant-mcp.md](localai-assistant-mcp.md): add a `LocalAIClient` interface method, implement it in both `inproc` and `httpapi`, register the tool with a `Tool*` constant, update the skill prompts, **and add the route to `toolToHTTPRoute` in `pkg/mcp/localaitools/coverage_test.go`**.
+- **Tool deliberately skipped.** The endpoint is internal/diagnostic and adding a chat path would be misleading. Document the decision in the PR description; no code action.
+- **Forgot.** This breaks the contract. The `TestToolHTTPRouteMappingComplete` test in `pkg/mcp/localaitools` is a partial guard (it checks every `Tool*` has a route mapping), but it does NOT detect new REST endpoints without a tool — that's still a process check on the PR author.
+
+**Add to the bottom of the checklist below**:
+- [ ] If admin: decided whether MCP coverage is needed; if yes, tool registered + map updated; if no, skip-reason in PR description.

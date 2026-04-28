@@ -6,21 +6,17 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"os"
 	"reflect"
 	"sort"
 	"strings"
 
-	"dario.cat/mergo"
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/config/meta"
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/services/galleryop"
+	"github.com/mudler/LocalAI/core/services/modeladmin"
 	"github.com/mudler/LocalAI/pkg/model"
-	"github.com/mudler/LocalAI/pkg/utils"
-	"github.com/mudler/xlog"
-	"gopkg.in/yaml.v3"
 )
 
 // ConfigMetadataEndpoint returns field metadata for config fields.
@@ -156,86 +152,23 @@ func AutocompleteEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, a
 // @Success 200 {object} map[string]any "success message"
 // @Router /api/models/config-json/{name} [patch]
 func PatchConfigEndpoint(cl *config.ModelConfigLoader, _ *model.ModelLoader, appConfig *config.ApplicationConfig) echo.HandlerFunc {
+	svc := modeladmin.NewConfigService(cl, appConfig)
 	return func(c echo.Context) error {
 		modelName := c.Param("name")
 		if decoded, err := url.PathUnescape(modelName); err == nil {
 			modelName = decoded
 		}
-		if modelName == "" {
-			return c.JSON(http.StatusBadRequest, map[string]any{"error": "model name is required"})
-		}
-
-		modelConfig, exists := cl.GetModelConfig(modelName)
-		if !exists {
-			return c.JSON(http.StatusNotFound, map[string]any{"error": "model configuration not found"})
-		}
-
 		patchBody, err := io.ReadAll(c.Request().Body)
 		if err != nil || len(patchBody) == 0 {
 			return c.JSON(http.StatusBadRequest, map[string]any{"error": "request body is empty or unreadable"})
 		}
-
 		var patchMap map[string]any
 		if err := json.Unmarshal(patchBody, &patchMap); err != nil {
 			return c.JSON(http.StatusBadRequest, map[string]any{"error": "invalid JSON: " + err.Error()})
 		}
-
-		// Read the raw YAML from disk rather than serializing the in-memory config.
-		// The in-memory config has SetDefaults() applied, which would persist
-		// runtime-only defaults (top_p, temperature, mirostat, etc.) to the file.
-		configPath := modelConfig.GetModelConfigFile()
-		if err := utils.VerifyPath(configPath, appConfig.SystemState.Model.ModelsPath); err != nil {
-			return c.JSON(http.StatusForbidden, map[string]any{"error": "config path not trusted: " + err.Error()})
+		if _, err := svc.PatchConfig(c.Request().Context(), modelName, patchMap); err != nil {
+			return c.JSON(httpStatusForModelAdminError(err), map[string]any{"error": err.Error()})
 		}
-
-		diskYAML, err := os.ReadFile(configPath)
-		if err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]any{"error": "failed to read config file: " + err.Error()})
-		}
-
-		var existingMap map[string]any
-		if err := yaml.Unmarshal(diskYAML, &existingMap); err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]any{"error": "failed to parse existing config: " + err.Error()})
-		}
-		if existingMap == nil {
-			existingMap = map[string]any{}
-		}
-
-		if err := mergo.Merge(&existingMap, patchMap, mergo.WithOverride); err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]any{"error": "failed to merge configs: " + err.Error()})
-		}
-
-		// Marshal once and reuse for both validation and writing
-		yamlData, err := yaml.Marshal(existingMap)
-		if err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]any{"error": "failed to marshal YAML"})
-		}
-
-		var updatedConfig config.ModelConfig
-		if err := yaml.Unmarshal(yamlData, &updatedConfig); err != nil {
-			return c.JSON(http.StatusBadRequest, map[string]any{"error": "merged config is invalid: " + err.Error()})
-		}
-
-		if valid, err := updatedConfig.Validate(); !valid {
-			errMsg := "validation failed"
-			if err != nil {
-				errMsg = err.Error()
-			}
-			return c.JSON(http.StatusBadRequest, map[string]any{"error": errMsg})
-		}
-
-		if err := os.WriteFile(configPath, yamlData, 0644); err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]any{"error": "failed to write config file"})
-		}
-
-		if err := cl.LoadModelConfigsFromPath(appConfig.SystemState.Model.ModelsPath, appConfig.ToConfigLoaderOptions()...); err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]any{"error": "failed to reload configs: " + err.Error()})
-		}
-
-		if err := cl.Preload(appConfig.SystemState.Model.ModelsPath); err != nil {
-			xlog.Warn("Failed to preload after PATCH", "error", err)
-		}
-
 		return c.JSON(http.StatusOK, map[string]any{
 			"success": true,
 			"message": fmt.Sprintf("Model '%s' updated successfully", modelName),

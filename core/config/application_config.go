@@ -103,6 +103,10 @@ type ApplicationConfig struct {
 
 	// Distributed / Horizontal Scaling
 	Distributed DistributedConfig
+
+	// LocalAI Assistant chat modality. Hard-disable the in-process admin MCP
+	// server with this flag; runtime-toggleable via /api/settings.
+	DisableLocalAIAssistant bool
 }
 
 // AuthConfig holds configuration for user authentication and authorization.
@@ -825,6 +829,15 @@ func WithAuthDefaultAPIKeyExpiry(expiry string) AppOption {
 	}
 }
 
+// WithDisableLocalAIAssistant hard-disables the in-process admin MCP server.
+// When set, the chat-handler branch for metadata.localai_assistant=true
+// returns a "feature unavailable" error.
+func WithDisableLocalAIAssistant(disabled bool) AppOption {
+	return func(o *ApplicationConfig) {
+		o.DisableLocalAIAssistant = disabled
+	}
+}
+
 // ToConfigLoaderOptions returns a slice of ConfigLoader Option.
 // Some options defined at the application level are going to be passed as defaults for
 // all the configuration for the models.
@@ -916,6 +929,9 @@ func (o *ApplicationConfig) ToRuntimeSettings() RuntimeSettings {
 	agentPoolEnableLogs := o.AgentPool.EnableLogs
 	agentPoolCollectionDBPath := o.AgentPool.CollectionDBPath
 
+	// LocalAI Assistant settings
+	localAIAssistantEnabled := !o.DisableLocalAIAssistant
+
 	return RuntimeSettings{
 		WatchdogEnabled:           &watchdogEnabled,
 		WatchdogIdleEnabled:       &watchdogIdle,
@@ -959,6 +975,7 @@ func (o *ApplicationConfig) ToRuntimeSettings() RuntimeSettings {
 		AgentPoolChunkOverlap:     &agentPoolChunkOverlap,
 		AgentPoolEnableLogs:       &agentPoolEnableLogs,
 		AgentPoolCollectionDBPath: &agentPoolCollectionDBPath,
+		LocalAIAssistantEnabled:   &localAIAssistantEnabled,
 	}
 }
 
@@ -1142,6 +1159,13 @@ func (o *ApplicationConfig) ApplyRuntimeSettings(settings *RuntimeSettings) (req
 	if settings.AgentPoolCollectionDBPath != nil {
 		o.AgentPool.CollectionDBPath = *settings.AgentPoolCollectionDBPath
 		requireRestart = true
+	}
+
+	// LocalAI Assistant: read live at request entry by the chat handler, so
+	// flipping the disable flag takes effect on the next request without a
+	// restart.
+	if settings.LocalAIAssistantEnabled != nil {
+		o.DisableLocalAIAssistant = !*settings.LocalAIAssistantEnabled
 	}
 
 	// Note: ApiKeys requires special handling (merging with startup keys) - handled in caller

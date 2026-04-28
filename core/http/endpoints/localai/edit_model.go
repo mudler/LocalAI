@@ -6,63 +6,31 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"os"
-	"path/filepath"
-	"strings"
 
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/config"
-	"github.com/mudler/LocalAI/core/gallery"
 	httpUtils "github.com/mudler/LocalAI/core/http/middleware"
+	"github.com/mudler/LocalAI/core/services/modeladmin"
 	"github.com/mudler/LocalAI/internal"
 	"github.com/mudler/LocalAI/pkg/model"
-	"github.com/mudler/LocalAI/pkg/utils"
-
-	"gopkg.in/yaml.v3"
 )
 
 // GetEditModelPage renders the edit model page with current configuration
 func GetEditModelPage(cl *config.ModelConfigLoader, appConfig *config.ApplicationConfig) echo.HandlerFunc {
+	svc := modeladmin.NewConfigService(cl, appConfig)
 	return func(c echo.Context) error {
 		modelName := c.Param("name")
 		if decoded, err := url.PathUnescape(modelName); err == nil {
 			modelName = decoded
 		}
-		if modelName == "" {
-			response := ModelResponse{
-				Success: false,
-				Error:   "Model name is required",
-			}
-			return c.JSON(http.StatusBadRequest, response)
-		}
-
-		modelConfig, exists := cl.GetModelConfig(modelName)
-		if !exists {
-			response := ModelResponse{
-				Success: false,
-				Error:   "Model configuration not found",
-			}
-			return c.JSON(http.StatusNotFound, response)
-		}
-
-		modelConfigFile := modelConfig.GetModelConfigFile()
-		if modelConfigFile == "" {
-			response := ModelResponse{
-				Success: false,
-				Error:   "Model configuration file not found",
-			}
-			return c.JSON(http.StatusNotFound, response)
-		}
-		configData, err := os.ReadFile(modelConfigFile)
+		view, err := svc.GetConfig(c.Request().Context(), modelName)
 		if err != nil {
-			response := ModelResponse{
-				Success: false,
-				Error:   "Failed to read configuration file: " + err.Error(),
-			}
-			return c.JSON(http.StatusInternalServerError, response)
+			return c.JSON(httpStatusForModelAdminError(err), ModelResponse{Success: false, Error: err.Error()})
 		}
-
-		// Render the edit page with the current configuration
+		// Render the edit page with the current configuration. Re-fetch the
+		// in-memory config from the loader for the template — the on-disk YAML
+		// view from svc doesn't carry the loader's parsed struct fields.
+		modelConfig, _ := cl.GetModelConfig(modelName)
 		templateData := struct {
 			Title                  string
 			ModelName              string
@@ -76,7 +44,7 @@ func GetEditModelPage(cl *config.ModelConfigLoader, appConfig *config.Applicatio
 			Title:                  "LocalAI - Edit Model " + modelName,
 			ModelName:              modelName,
 			Config:                 &modelConfig,
-			ConfigYAML:             string(configData),
+			ConfigYAML:             view.YAML,
 			BaseURL:                httpUtils.BaseURL(c),
 			Version:                internal.PrintableVersion(),
 			DisableRuntimeSettings: appConfig.DisableRuntimeSettings,
@@ -88,208 +56,53 @@ func GetEditModelPage(cl *config.ModelConfigLoader, appConfig *config.Applicatio
 
 // EditModelEndpoint handles updating existing model configurations
 func EditModelEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) echo.HandlerFunc {
+	svc := modeladmin.NewConfigService(cl, appConfig)
 	return func(c echo.Context) error {
 		modelName := c.Param("name")
 		if decoded, err := url.PathUnescape(modelName); err == nil {
 			modelName = decoded
 		}
-		if modelName == "" {
-			response := ModelResponse{
-				Success: false,
-				Error:   "Model name is required",
-			}
-			return c.JSON(http.StatusBadRequest, response)
-		}
-
-		modelConfig, exists := cl.GetModelConfig(modelName)
-		if !exists {
-			response := ModelResponse{
-				Success: false,
-				Error:   "Existing model configuration not found",
-			}
-			return c.JSON(http.StatusNotFound, response)
-		}
-
-		// Get the raw body
 		body, err := io.ReadAll(c.Request().Body)
 		if err != nil {
-			response := ModelResponse{
-				Success: false,
-				Error:   "Failed to read request body: " + err.Error(),
-			}
-			return c.JSON(http.StatusBadRequest, response)
+			return c.JSON(http.StatusBadRequest, ModelResponse{Success: false, Error: "Failed to read request body: " + err.Error()})
 		}
-		if len(body) == 0 {
-			response := ModelResponse{
-				Success: false,
-				Error:   "Request body is empty",
-			}
-			return c.JSON(http.StatusBadRequest, response)
+		result, err := svc.EditYAML(c.Request().Context(), modelName, body, ml)
+		if err != nil {
+			return c.JSON(httpStatusForModelAdminError(err), ModelResponse{Success: false, Error: err.Error()})
 		}
-
-		// Check content to see if it's a valid model config
-		var req config.ModelConfig
-
-		// Parse YAML
-		if err := yaml.Unmarshal(body, &req); err != nil {
-			response := ModelResponse{
-				Success: false,
-				Error:   "Failed to parse YAML: " + err.Error(),
-			}
-			return c.JSON(http.StatusBadRequest, response)
+		msg := fmt.Sprintf("Model '%s' updated successfully. Model has been reloaded with new configuration.", result.NewName)
+		if result.Renamed {
+			msg = fmt.Sprintf("Model '%s' renamed to '%s' and updated successfully.", result.OldName, result.NewName)
 		}
-
-		// Validate required fields
-		if req.Name == "" {
-			response := ModelResponse{
-				Success: false,
-				Error:   "Name is required",
-			}
-			return c.JSON(http.StatusBadRequest, response)
-		}
-
-		// Validate the configuration
-		if valid, _ := req.Validate(); !valid {
-			response := ModelResponse{
-				Success: false,
-				Error:   "Validation failed",
-				Details: []string{"Configuration validation failed. Please check your YAML syntax and required fields."},
-			}
-			return c.JSON(http.StatusBadRequest, response)
-		}
-
-		// Load the existing configuration
-		configPath := modelConfig.GetModelConfigFile()
-		modelsPath := appConfig.SystemState.Model.ModelsPath
-		if err := utils.VerifyPath(configPath, modelsPath); err != nil {
-			response := ModelResponse{
-				Success: false,
-				Error:   "Model configuration not trusted: " + err.Error(),
-			}
-			return c.JSON(http.StatusNotFound, response)
-		}
-
-		// Detect a rename: the URL param (old name) differs from the name field
-		// in the posted YAML. When that happens we must rename the on-disk file
-		// so that <name>.yaml stays in sync with the internal name field —
-		// otherwise a subsequent config reload indexes the file under the new
-		// name while the old key lingers in memory, producing duplicates in the UI.
-		renamed := req.Name != modelName
-		if renamed {
-			if strings.ContainsRune(req.Name, os.PathSeparator) || strings.Contains(req.Name, "/") || strings.Contains(req.Name, "\\") {
-				response := ModelResponse{
-					Success: false,
-					Error:   "Model name must not contain path separators",
-				}
-				return c.JSON(http.StatusBadRequest, response)
-			}
-			if _, exists := cl.GetModelConfig(req.Name); exists {
-				response := ModelResponse{
-					Success: false,
-					Error:   fmt.Sprintf("A model named %q already exists", req.Name),
-				}
-				return c.JSON(http.StatusConflict, response)
-			}
-			newConfigPath := filepath.Join(modelsPath, req.Name+".yaml")
-			if err := utils.VerifyPath(newConfigPath, modelsPath); err != nil {
-				response := ModelResponse{
-					Success: false,
-					Error:   "New model configuration path not trusted: " + err.Error(),
-				}
-				return c.JSON(http.StatusBadRequest, response)
-			}
-			if _, err := os.Stat(newConfigPath); err == nil {
-				response := ModelResponse{
-					Success: false,
-					Error:   fmt.Sprintf("A configuration file for %q already exists on disk", req.Name),
-				}
-				return c.JSON(http.StatusConflict, response)
-			} else if !errors.Is(err, os.ErrNotExist) {
-				response := ModelResponse{
-					Success: false,
-					Error:   "Failed to check for existing configuration: " + err.Error(),
-				}
-				return c.JSON(http.StatusInternalServerError, response)
-			}
-
-			if err := os.WriteFile(newConfigPath, body, 0644); err != nil {
-				response := ModelResponse{
-					Success: false,
-					Error:   "Failed to write configuration file: " + err.Error(),
-				}
-				return c.JSON(http.StatusInternalServerError, response)
-			}
-			if configPath != newConfigPath {
-				if err := os.Remove(configPath); err != nil && !errors.Is(err, os.ErrNotExist) {
-					fmt.Printf("Warning: Failed to remove old configuration file %q: %v\n", configPath, err)
-				}
-			}
-
-			// Rename the gallery metadata file if one exists, so the delete
-			// flow (which looks up ._gallery_<name>.yaml) can still find it.
-			oldGalleryPath := filepath.Join(modelsPath, gallery.GalleryFileName(modelName))
-			newGalleryPath := filepath.Join(modelsPath, gallery.GalleryFileName(req.Name))
-			if _, err := os.Stat(oldGalleryPath); err == nil {
-				if err := os.Rename(oldGalleryPath, newGalleryPath); err != nil {
-					fmt.Printf("Warning: Failed to rename gallery metadata from %q to %q: %v\n", oldGalleryPath, newGalleryPath, err)
-				}
-			}
-
-			// Drop the stale in-memory entry before the reload so we don't
-			// surface both names to callers between the reload scan steps.
-			cl.RemoveModelConfig(modelName)
-			configPath = newConfigPath
-		} else {
-			// Write new content to file
-			if err := os.WriteFile(configPath, body, 0644); err != nil {
-				response := ModelResponse{
-					Success: false,
-					Error:   "Failed to write configuration file: " + err.Error(),
-				}
-				return c.JSON(http.StatusInternalServerError, response)
-			}
-		}
-
-		// Reload configurations
-		if err := cl.LoadModelConfigsFromPath(modelsPath, appConfig.ToConfigLoaderOptions()...); err != nil {
-			response := ModelResponse{
-				Success: false,
-				Error:   "Failed to reload configurations: " + err.Error(),
-			}
-			return c.JSON(http.StatusInternalServerError, response)
-		}
-
-		// Shutdown the running model to apply new configuration (e.g., context_size)
-		// The model will be reloaded on the next inference request.
-		// Shutdown uses the old name because that's what the running instance
-		// (if any) was started with.
-		if err := ml.ShutdownModel(modelName); err != nil {
-			// Log the error but don't fail the request - the config was saved successfully
-			// The model can still be manually reloaded or restarted
-			fmt.Printf("Warning: Failed to shutdown model '%s': %v\n", modelName, err)
-		}
-
-		// Preload the model
-		if err := cl.Preload(modelsPath); err != nil {
-			response := ModelResponse{
-				Success: false,
-				Error:   "Failed to preload model: " + err.Error(),
-			}
-			return c.JSON(http.StatusInternalServerError, response)
-		}
-
-		// Return success response
-		msg := fmt.Sprintf("Model '%s' updated successfully. Model has been reloaded with new configuration.", req.Name)
-		if renamed {
-			msg = fmt.Sprintf("Model '%s' renamed to '%s' and updated successfully.", modelName, req.Name)
-		}
-		response := ModelResponse{
+		return c.JSON(http.StatusOK, ModelResponse{
 			Success:  true,
 			Message:  msg,
-			Filename: configPath,
-			Config:   req,
-		}
-		return c.JSON(200, response)
+			Filename: result.Filename,
+			Config:   result.Config,
+		})
+	}
+}
+
+// httpStatusForModelAdminError maps the typed errors from modeladmin to
+// the HTTP status codes the existing endpoints used to return — keeps the
+// REST contract identical after the refactor.
+func httpStatusForModelAdminError(err error) int {
+	switch {
+	case errors.Is(err, modeladmin.ErrNameRequired),
+		errors.Is(err, modeladmin.ErrEmptyBody),
+		errors.Is(err, modeladmin.ErrPathSeparator),
+		errors.Is(err, modeladmin.ErrBadAction),
+		errors.Is(err, modeladmin.ErrInvalidConfig):
+		return http.StatusBadRequest
+	case errors.Is(err, modeladmin.ErrNotFound),
+		errors.Is(err, modeladmin.ErrConfigFileMissing):
+		return http.StatusNotFound
+	case errors.Is(err, modeladmin.ErrPathNotTrusted):
+		return http.StatusForbidden
+	case errors.Is(err, modeladmin.ErrConflict):
+		return http.StatusConflict
+	default:
+		return http.StatusInternalServerError
 	}
 }
 

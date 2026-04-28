@@ -92,6 +92,9 @@ function createNewChat(model = '', systemPrompt = '', mcpMode = false) {
     mcpServers: [],
     mcpResources: [],
     clientMCPServers: [],
+    // localaiAssistant wires the chat to the in-process admin MCP server
+    // exposed by /v1/chat/completions when an admin opts in.
+    localaiAssistant: false,
     temperature: null,
     topP: null,
     topK: null,
@@ -270,6 +273,14 @@ export function useChat(initialModel = '') {
     if (hasMcpResources) {
       if (!requestBody.metadata) requestBody.metadata = {}
       requestBody.metadata.mcp_resources = activeChat.mcpResources.join(',')
+    }
+
+    // LocalAI Assistant: opt this chat session into the in-process admin
+    // MCP server. The backend gates on admin role; the toggle is hidden
+    // for non-admins, but defense-in-depth still applies on the server.
+    if (activeChat.localaiAssistant) {
+      if (!requestBody.metadata) requestBody.metadata = {}
+      requestBody.metadata.localai_assistant = 'true'
     }
 
     // Client-side MCP: inject tools into request body
