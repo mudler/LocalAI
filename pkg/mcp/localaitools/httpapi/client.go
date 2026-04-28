@@ -239,6 +239,15 @@ func (c *Client) GetJobStatus(ctx context.Context, jobID string) (*localaitools.
 	}, nil
 }
 
+// GetModelConfig is intentionally a stub for the HTTP client: LocalAI's
+// /models/edit/:name endpoint returns rendered HTML, not JSON, so the
+// standalone CLI's `get_model_config` tool surfaces a clear error to the
+// LLM. Tracked under the localai-assistant follow-ups (see
+// .agents/localai-assistant-mcp.md) — once a JSON-only
+// GET /api/models/config-yaml/:name endpoint lands on the server, this
+// method calls it and the stub goes away.
+//
+// FIXME(localai-assistant): wire to a JSON read-back endpoint.
 func (c *Client) GetModelConfig(_ context.Context, _ string) (*localaitools.ModelConfigView, error) {
 	return nil, errors.New("get_model_config over HTTP not yet supported by this client; use the in-process inproc client or REST /models/edit/{name}")
 }

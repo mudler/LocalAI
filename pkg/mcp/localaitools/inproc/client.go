@@ -57,11 +57,6 @@ var _ localaitools.LocalAIClient = (*Client)(nil)
 // bytesPerMiB scales raw byte counts to mebibytes — used by VRAMEstimate.
 const bytesPerMiB uint64 = 1 << 20
 
-// errNotImplemented is returned by tools that need follow-up work to be
-// fully wired. The tool surfaces it verbatim and the LLM is instructed to
-// pass it back to the user.
-var errNotImplemented = errors.New("not yet implemented in this build — please use the matching REST endpoint")
-
 // ---- Models / gallery (read) ----
 
 func (c *Client) GallerySearch(_ context.Context, q localaitools.GallerySearchQuery) ([]localaitools.GalleryModelHit, error) {

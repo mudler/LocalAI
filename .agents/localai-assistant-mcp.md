@@ -45,7 +45,18 @@ Conventions:
 - First line: `# Skill: <Title Case description>`.
 - Number the steps. Reference exact tool names in backticks.
 - If the skill mutates state, remind the LLM to confirm with the user.
-- Use `{{.BootstrapModel}}` for the configured default-model name where appropriate. It is substituted at startup from `LOCALAI_ASSISTANT_BOOTSTRAP_MODEL` (empty → `(unset)`).
+
+## Code conventions
+
+These rules guard against the magic-literal drift that surfaced in the first audit. Do not re-introduce bare strings.
+
+- **Tool names** always come from the `Tool*` constants in `pkg/mcp/localaitools/tools.go`. Tool registrations, the test catalog (`server_test.go`'s `expectedFullCatalog` / `expectedReadOnlyCatalog`), and dispatch tables reference the constants. The embedded skill prompts under `prompts/` keep bare strings — that's the one allowed exception, and `TestPromptsContainSafetyAnchors` enforces alignment.
+- **Toggle/pin actions** use the `modeladmin.Action` type (`pkg/mcp/localaitools` and `core/services/modeladmin`). Use `ActionEnable`/`ActionDisable`/`ActionPin`/`ActionUnpin`; never bare `"enable"`/`"pin"` strings.
+- **Capability tags** for `list_installed_models` use the `localaitools.Capability` type (`capability.go`). The `LocalAIClient.ListInstalledModels` interface takes a typed `Capability`, and the `inproc` switch only accepts canonical values (`"embed"`/`"embedding"` are not aliases — only `CapabilityEmbeddings`).
+- **HTTP error checks** in `httpapi.Client` use `errors.Is(err, ErrHTTPNotFound)`, not substring matches on `err.Error()`. The typed `*HTTPError` carries `StatusCode` and `Body`; add new sentinel errors as needed rather than re-introducing string matching.
+- **Channel sends** to `GalleryService.ModelGalleryChannel` / `BackendGalleryChannel` from inproc clients MUST select on `ctx.Done()` so a cancelled chat completion releases the goroutine. See `inproc.sendModelOp` / `sendBackendOp`.
+- **Disk writes** of model config YAML go through `modeladmin.writeFileAtomic` (temp file + `os.Rename`). `os.WriteFile` truncates on crash and corrupts the model.
+- **MCP server lifecycle**: every initialised holder MUST register `Close()` with `signals.RegisterGracefulTerminationHandler`. The standalone `mcp-server` CLI uses `signal.NotifyContext` to honour SIGINT/SIGTERM.
 
 ## File map (where to look)
 
@@ -54,12 +65,13 @@ pkg/mcp/localaitools/
   client.go              # LocalAIClient interface + DTO registry
   dto.go                 # JSON-tagged DTOs shared by both client impls
   server.go              # NewServer(client, opts) — registers tools
-  tools_models.go        # gallery_search, install_model, ...
+  tools.go               # Tool* name constants (single source of truth)
+  capability.go          # Capability type + constants
+  tools_models.go        # gallery_search, install_model, import_model_uri, ...
   tools_backends.go
   tools_config.go
   tools_system.go
   tools_state.go
-  tools_bootstrap.go
   prompts.go             # //go:embed loader + SystemPrompt(opts)
   prompts/00_role.md
   prompts/10_safety.md   # SAFETY RULES — change with care

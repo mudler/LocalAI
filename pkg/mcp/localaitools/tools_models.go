@@ -69,6 +69,9 @@ func registerModelTools(s *mcp.Server, client LocalAIClient, opts Options) {
 		Name:        ToolInstallModel,
 		Description: "Install a model from a gallery. Requires explicit user confirmation per safety rule 1. Returns a job id; poll with get_job_status.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args InstallModelRequest) (*mcp.CallToolResult, any, error) {
+		// Empty-string check at the tool layer: the SDK schema validator
+		// only enforces presence, not non-empty, and we want a consistent
+		// error regardless of which LocalAIClient backs the tool.
 		if args.ModelName == "" {
 			return errorResultf("model_name is required"), nil, nil
 		}
