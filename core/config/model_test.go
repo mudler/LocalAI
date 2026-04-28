@@ -8,14 +8,108 @@ import (
 	. "github.com/onsi/gomega"
 )
 
+// fixtures inlines what used to live under tests/models_fixtures/. Owning the
+// YAMLs here keeps the test self-contained: no env-var plumbing, no shared
+// directory the rest of the repo can stomp on.
+var fixtures = map[string]string{
+	"config.yaml": `- name: list1
+  parameters:
+    model: testmodel.ggml
+    top_p: 80
+    top_k: 0.9
+    temperature: 0.1
+  context_size: 200
+  stopwords:
+  - "HUMAN:"
+  - "### Response:"
+  roles:
+    user: "HUMAN:"
+    system: "GPT:"
+  template:
+    completion: completion
+    chat: ggml-gpt4all-j
+- name: list2
+  parameters:
+    top_p: 80
+    top_k: 0.9
+    temperature: 0.1
+    model: testmodel.ggml
+  context_size: 200
+  stopwords:
+  - "HUMAN:"
+  - "### Response:"
+  roles:
+    user: "HUMAN:"
+    system: "GPT:"
+  template:
+    completion: completion
+    chat: ggml-gpt4all-j
+`,
+	"embeddings.yaml": `name: text-embedding-ada-002
+embeddings: true
+parameters:
+  model: huggingface://hugging-quants/Llama-3.2-1B-Instruct-Q4_K_M-GGUF/llama-3.2-1b-instruct-q4_k_m.gguf
+`,
+	"grpc.yaml": `name: code-search-ada-code-001
+backend: sentencetransformers
+embeddings: true
+parameters:
+  model: all-MiniLM-L6-v2
+`,
+	"rwkv.yaml": `name: rwkv_test
+parameters:
+  model: huggingface://bartowski/rwkv-6-world-7b-GGUF/rwkv-6-world-7b-Q4_K_M.gguf
+  top_k: 80
+  temperature: 0.9
+  max_tokens: 4098
+  top_p: 0.8
+context_size: 4098
+
+roles:
+  user: "User: "
+  system: "System: "
+  assistant: "Assistant: "
+
+stopwords:
+- 'Assistant:'
+- '<s>'
+
+template:
+  chat: |
+    {{.Input}}
+    Assistant:
+  completion: |
+    {{.Input}}
+`,
+	"whisper.yaml": `name: whisper-1
+backend: whisper
+parameters:
+  model: whisper-en
+`,
+}
+
 var _ = Describe("Test cases for config related functions", func() {
 
 	var (
+		modelsPath string
 		configFile string
 	)
 
 	Context("Test Read configuration functions", func() {
-		configFile = os.Getenv("CONFIG_FILE")
+		BeforeEach(func() {
+			tmp, err := os.MkdirTemp("", "model-config-fixtures-")
+			Expect(err).ToNot(HaveOccurred())
+			modelsPath = tmp
+			for name, body := range fixtures {
+				Expect(os.WriteFile(filepath.Join(modelsPath, name), []byte(body), 0644)).To(Succeed())
+			}
+			configFile = filepath.Join(modelsPath, "config.yaml")
+		})
+
+		AfterEach(func() {
+			Expect(os.RemoveAll(modelsPath)).To(Succeed())
+		})
+
 		It("Test readConfigFile", func() {
 			config, err := readModelConfigsFromFile(configFile)
 			Expect(err).To(BeNil())
@@ -27,8 +121,8 @@ var _ = Describe("Test cases for config related functions", func() {
 
 		It("Test LoadConfigs", func() {
 
-			bcl := NewModelConfigLoader(os.Getenv("MODELS_PATH"))
-			err := bcl.LoadModelConfigsFromPath(os.Getenv("MODELS_PATH"))
+			bcl := NewModelConfigLoader(modelsPath)
+			err := bcl.LoadModelConfigsFromPath(modelsPath)
 
 			Expect(err).To(BeNil())
 			configs := bcl.GetAllModelsConfigs()
@@ -52,8 +146,8 @@ var _ = Describe("Test cases for config related functions", func() {
 
 		It("Test new loadconfig", func() {
 
-			bcl := NewModelConfigLoader(os.Getenv("MODELS_PATH"))
-			err := bcl.LoadModelConfigsFromPath(os.Getenv("MODELS_PATH"))
+			bcl := NewModelConfigLoader(modelsPath)
+			err := bcl.LoadModelConfigsFromPath(modelsPath)
 			Expect(err).To(BeNil())
 			configs := bcl.GetAllModelsConfigs()
 			loadedModelNames := []string{}
