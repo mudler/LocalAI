@@ -178,7 +178,7 @@ Tested on: Geekom A9 Mega (AMD Ryzen AI MAX+ 395, ROCm 7.11.0, Ubuntu 24.04, ker
 iommu=pt amdgpu.gttsize=126976 ttm.pages_limit=32505856
 ```
 
-**Required environment variables** for gfx1151 (set automatically in the ROCm 7.x image):
+**Required environment variables** for gfx1151 (set automatically in the ROCm/hipblas image):
 
 | Variable | Value | Purpose |
 |----------|-------|---------|
@@ -191,9 +191,9 @@ iommu=pt amdgpu.gttsize=126976 ttm.pages_limit=32505856
 > `getenv(...) != nullptr`, so even `=0` activates `hipMallocManaged` (allocates from
 > system RAM instead of the 96 GB VRAM pool).
 
-**Running LocalAI on gfx1151** (using the ROCm 7.x image, tag suffix `-gpu-hipblas-rocm7`):
+**Running LocalAI on gfx1151** (use the standard ROCm/hipblas image — there is only one ROCm image, and it ships with ROCm 7.x by default):
 ```yaml
-    image: quay.io/go-skynet/local-ai:master-gpu-hipblas-rocm7
+    image: quay.io/go-skynet/local-ai:master-gpu-hipblas
     environment:
       - HSA_OVERRIDE_GFX_VERSION=11.5.1
       - ROCBLAS_USE_HIPBLASLT=1
