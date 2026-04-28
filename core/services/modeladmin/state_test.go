@@ -14,7 +14,7 @@ func TestToggleState_Disable(t *testing.T) {
 	svc, dir := newTestService(t)
 	writeModelYAML(t, svc, dir, "qwen", map[string]any{"backend": "llama-cpp"})
 
-	if _, err := svc.ToggleState(context.Background(), "qwen", "disable", nil); err != nil {
+	if _, err := svc.ToggleState(context.Background(), "qwen", ActionDisable, nil); err != nil {
 		t.Fatalf("toggle: %v", err)
 	}
 	got := readMap(t, filepath.Join(dir, "qwen.yaml"))
@@ -27,7 +27,7 @@ func TestToggleState_Enable_RemovesField(t *testing.T) {
 	svc, dir := newTestService(t)
 	writeModelYAML(t, svc, dir, "qwen", map[string]any{"backend": "llama-cpp", "disabled": true})
 
-	if _, err := svc.ToggleState(context.Background(), "qwen", "enable", nil); err != nil {
+	if _, err := svc.ToggleState(context.Background(), "qwen", ActionEnable, nil); err != nil {
 		t.Fatalf("toggle: %v", err)
 	}
 	got := readMap(t, filepath.Join(dir, "qwen.yaml"))
@@ -39,7 +39,7 @@ func TestToggleState_Enable_RemovesField(t *testing.T) {
 func TestToggleState_BadAction(t *testing.T) {
 	svc, dir := newTestService(t)
 	writeModelYAML(t, svc, dir, "qwen", map[string]any{"backend": "llama-cpp"})
-	_, err := svc.ToggleState(context.Background(), "qwen", "noop", nil)
+	_, err := svc.ToggleState(context.Background(), "qwen", Action("noop"), nil)
 	if !errors.Is(err, ErrBadAction) {
 		t.Errorf("err = %v, want ErrBadAction", err)
 	}
@@ -47,7 +47,7 @@ func TestToggleState_BadAction(t *testing.T) {
 
 func TestToggleState_UnknownModel(t *testing.T) {
 	svc, _ := newTestService(t)
-	_, err := svc.ToggleState(context.Background(), "ghost", "disable", nil)
+	_, err := svc.ToggleState(context.Background(), "ghost", ActionDisable, nil)
 	if !errors.Is(err, ErrNotFound) {
 		t.Errorf("err = %v, want ErrNotFound", err)
 	}

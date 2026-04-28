@@ -1,6 +1,10 @@
 package localaitools
 
-import "context"
+import (
+	"context"
+
+	"github.com/mudler/LocalAI/core/services/modeladmin"
+)
 
 // LocalAIClient is the surface tools depend on. It has two implementations:
 //
@@ -36,6 +40,8 @@ type LocalAIClient interface {
 	VRAMEstimate(ctx context.Context, req VRAMEstimateRequest) (*VRAMEstimate, error)
 
 	// ---- State ----
-	ToggleModelState(ctx context.Context, name, action string) error  // action: enable|disable
-	ToggleModelPinned(ctx context.Context, name, action string) error // action: pin|unpin
+	// ToggleModelState accepts modeladmin.ActionEnable / ActionDisable.
+	ToggleModelState(ctx context.Context, name string, action modeladmin.Action) error
+	// ToggleModelPinned accepts modeladmin.ActionPin / ActionUnpin.
+	ToggleModelPinned(ctx context.Context, name string, action modeladmin.Action) error
 }

@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/mudler/LocalAI/core/gallery"
+	"github.com/mudler/LocalAI/core/services/modeladmin"
 	localaitools "github.com/mudler/LocalAI/pkg/mcp/localaitools"
 )
 
@@ -431,12 +432,12 @@ func (c *Client) VRAMEstimate(ctx context.Context, req localaitools.VRAMEstimate
 
 // ---- State ----
 
-func (c *Client) ToggleModelState(ctx context.Context, name, action string) error {
-	return c.do(ctx, http.MethodPut, fmt.Sprintf("/models/toggle-state/%s/%s", url.PathEscape(name), url.PathEscape(action)), nil, nil)
+func (c *Client) ToggleModelState(ctx context.Context, name string, action modeladmin.Action) error {
+	return c.do(ctx, http.MethodPut, fmt.Sprintf("/models/toggle-state/%s/%s", url.PathEscape(name), url.PathEscape(string(action))), nil, nil)
 }
 
-func (c *Client) ToggleModelPinned(ctx context.Context, name, action string) error {
-	return c.do(ctx, http.MethodPut, fmt.Sprintf("/models/toggle-pinned/%s/%s", url.PathEscape(name), url.PathEscape(action)), nil, nil)
+func (c *Client) ToggleModelPinned(ctx context.Context, name string, action modeladmin.Action) error {
+	return c.do(ctx, http.MethodPut, fmt.Sprintf("/models/toggle-pinned/%s/%s", url.PathEscape(name), url.PathEscape(string(action))), nil, nil)
 }
 
 // ---- helpers ----

@@ -31,13 +31,13 @@ func ToggleStateModelEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoade
 		if decoded, err := url.PathUnescape(modelName); err == nil {
 			modelName = decoded
 		}
-		action := c.Param("action")
+		action := modeladmin.Action(c.Param("action"))
 		result, err := svc.ToggleState(c.Request().Context(), modelName, action, ml)
 		if err != nil {
 			return c.JSON(httpStatusForModelAdminError(err), ModelResponse{Success: false, Error: err.Error()})
 		}
 		msg := fmt.Sprintf("Model '%s' has been %sd successfully.", modelName, action)
-		if action == "disable" {
+		if action == modeladmin.ActionDisable {
 			msg += " The model will not be loaded on demand until re-enabled."
 		}
 		return c.JSON(http.StatusOK, ModelResponse{Success: true, Message: msg, Filename: result.Filename})

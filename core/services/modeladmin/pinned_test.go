@@ -11,7 +11,7 @@ func TestTogglePinned_Pin(t *testing.T) {
 	svc, dir := newTestService(t)
 	writeModelYAML(t, svc, dir, "qwen", map[string]any{"backend": "llama-cpp"})
 
-	if _, err := svc.TogglePinned(context.Background(), "qwen", "pin", nil); err != nil {
+	if _, err := svc.TogglePinned(context.Background(), "qwen", ActionPin, nil); err != nil {
 		t.Fatalf("toggle: %v", err)
 	}
 	got := readMap(t, filepath.Join(dir, "qwen.yaml"))
@@ -24,7 +24,7 @@ func TestTogglePinned_Unpin_RemovesField(t *testing.T) {
 	svc, dir := newTestService(t)
 	writeModelYAML(t, svc, dir, "qwen", map[string]any{"backend": "llama-cpp", "pinned": true})
 
-	if _, err := svc.TogglePinned(context.Background(), "qwen", "unpin", nil); err != nil {
+	if _, err := svc.TogglePinned(context.Background(), "qwen", ActionUnpin, nil); err != nil {
 		t.Fatalf("toggle: %v", err)
 	}
 	got := readMap(t, filepath.Join(dir, "qwen.yaml"))
@@ -36,7 +36,7 @@ func TestTogglePinned_Unpin_RemovesField(t *testing.T) {
 func TestTogglePinned_BadAction(t *testing.T) {
 	svc, dir := newTestService(t)
 	writeModelYAML(t, svc, dir, "qwen", map[string]any{"backend": "llama-cpp"})
-	_, err := svc.TogglePinned(context.Background(), "qwen", "stick", nil)
+	_, err := svc.TogglePinned(context.Background(), "qwen", Action("stick"), nil)
 	if !errors.Is(err, ErrBadAction) {
 		t.Errorf("err = %v, want ErrBadAction", err)
 	}
@@ -47,7 +47,7 @@ func TestTogglePinned_SyncCallback(t *testing.T) {
 	writeModelYAML(t, svc, dir, "qwen", map[string]any{"backend": "llama-cpp"})
 
 	called := false
-	if _, err := svc.TogglePinned(context.Background(), "qwen", "pin", func() { called = true }); err != nil {
+	if _, err := svc.TogglePinned(context.Background(), "qwen", ActionPin, func() { called = true }); err != nil {
 		t.Fatalf("toggle: %v", err)
 	}
 	if !called {

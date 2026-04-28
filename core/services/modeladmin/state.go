@@ -14,21 +14,21 @@ import (
 // ToggleResult is shared by ToggleState and TogglePinned.
 type ToggleResult struct {
 	Filename string
-	Action   string
+	Action   Action
 }
 
 // ToggleState enables or disables an installed model. action must be
-// "enable" or "disable". When ml is non-nil and the action disables the
-// model, ToggleState calls ml.ShutdownModel — best-effort.
+// ActionEnable or ActionDisable. When ml is non-nil and the action is
+// ActionDisable, ToggleState calls ml.ShutdownModel — best-effort.
 //
 // The on-disk YAML is mutated as a generic map so unrelated fields are
 // preserved verbatim; we only set or remove the `disabled` key.
-func (s *ConfigService) ToggleState(_ context.Context, name, action string, ml *model.ModelLoader) (*ToggleResult, error) {
+func (s *ConfigService) ToggleState(_ context.Context, name string, action Action, ml *model.ModelLoader) (*ToggleResult, error) {
 	if name == "" {
 		return nil, ErrNameRequired
 	}
-	if action != "enable" && action != "disable" {
-		return nil, fmt.Errorf("%w: must be 'enable' or 'disable', got %q", ErrBadAction, action)
+	if !action.Valid(ActionEnable, ActionDisable) {
+		return nil, fmt.Errorf("%w: must be %q or %q, got %q", ErrBadAction, ActionEnable, ActionDisable, action)
 	}
 	cfg, exists := s.Loader.GetModelConfig(name)
 	if !exists {
@@ -41,13 +41,13 @@ func (s *ConfigService) ToggleState(_ context.Context, name, action string, ml *
 	if err := utils.VerifyPath(configPath, s.modelsPath()); err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrPathNotTrusted, err)
 	}
-	if err := mutateYAMLBoolFlag(configPath, "disabled", action == "disable"); err != nil {
+	if err := mutateYAMLBoolFlag(configPath, "disabled", action == ActionDisable); err != nil {
 		return nil, err
 	}
 	if err := s.Loader.LoadModelConfigsFromPath(s.modelsPath(), s.AppConfig.ToConfigLoaderOptions()...); err != nil {
 		return nil, fmt.Errorf("reload configs: %w", err)
 	}
-	if action == "disable" && ml != nil {
+	if action == ActionDisable && ml != nil {
 		// Best-effort: the YAML is saved; shutdown is a courtesy.
 		_ = ml.ShutdownModel(name)
 	}

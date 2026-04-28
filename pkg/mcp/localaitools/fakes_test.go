@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+
+	"github.com/mudler/LocalAI/core/services/modeladmin"
 )
 
 // fakeClient is a recording, configurable LocalAIClient for unit tests.
@@ -35,8 +37,8 @@ type fakeClient struct {
 	systemInfo          func() (*SystemInfo, error)
 	listNodes           func() ([]Node, error)
 	vramEstimate        func(VRAMEstimateRequest) (*VRAMEstimate, error)
-	toggleModelState    func(string, string) error
-	toggleModelPinned   func(string, string) error
+	toggleModelState    func(string, modeladmin.Action) error
+	toggleModelPinned   func(string, modeladmin.Action) error
 }
 
 type fakeCall struct {
@@ -196,16 +198,16 @@ func (f *fakeClient) VRAMEstimate(_ context.Context, req VRAMEstimateRequest) (*
 	return nil, errNotConfigured
 }
 
-func (f *fakeClient) ToggleModelState(_ context.Context, name, action string) error {
-	f.record("ToggleModelState", []string{name, action})
+func (f *fakeClient) ToggleModelState(_ context.Context, name string, action modeladmin.Action) error {
+	f.record("ToggleModelState", []any{name, action})
 	if f.toggleModelState != nil {
 		return f.toggleModelState(name, action)
 	}
 	return nil
 }
 
-func (f *fakeClient) ToggleModelPinned(_ context.Context, name, action string) error {
-	f.record("ToggleModelPinned", []string{name, action})
+func (f *fakeClient) ToggleModelPinned(_ context.Context, name string, action modeladmin.Action) error {
+	f.record("ToggleModelPinned", []any{name, action})
 	if f.toggleModelPinned != nil {
 		return f.toggleModelPinned(name, action)
 	}

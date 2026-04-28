@@ -30,13 +30,13 @@ func TogglePinnedModelEndpoint(cl *config.ModelConfigLoader, appConfig *config.A
 		if decoded, err := url.PathUnescape(modelName); err == nil {
 			modelName = decoded
 		}
-		action := c.Param("action")
+		action := modeladmin.Action(c.Param("action"))
 		result, err := svc.TogglePinned(c.Request().Context(), modelName, action, syncPinnedFn)
 		if err != nil {
 			return c.JSON(httpStatusForModelAdminError(err), ModelResponse{Success: false, Error: err.Error()})
 		}
 		msg := fmt.Sprintf("Model '%s' has been %sned successfully.", modelName, action)
-		if action == "pin" {
+		if action == modeladmin.ActionPin {
 			msg += " The model will be excluded from automatic eviction."
 		}
 		return c.JSON(http.StatusOK, ModelResponse{Success: true, Message: msg, Filename: result.Filename})

@@ -5,6 +5,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/mudler/LocalAI/core/services/modeladmin"
 	localaitools "github.com/mudler/LocalAI/pkg/mcp/localaitools"
 )
 
@@ -59,8 +60,8 @@ func (stubClient) ListNodes(_ context.Context) ([]localaitools.Node, error) {
 func (stubClient) VRAMEstimate(_ context.Context, _ localaitools.VRAMEstimateRequest) (*localaitools.VRAMEstimate, error) {
 	return &localaitools.VRAMEstimate{ModelName: "stub"}, nil
 }
-func (stubClient) ToggleModelState(_ context.Context, _, _ string) error  { return nil }
-func (stubClient) ToggleModelPinned(_ context.Context, _, _ string) error { return nil }
+func (stubClient) ToggleModelState(_ context.Context, _ string, _ modeladmin.Action) error  { return nil }
+func (stubClient) ToggleModelPinned(_ context.Context, _ string, _ modeladmin.Action) error { return nil }
 
 func TestLocalAIAssistantHolder_HappyPath(t *testing.T) {
 	h := NewLocalAIAssistantHolder()

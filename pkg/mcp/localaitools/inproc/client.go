@@ -400,12 +400,12 @@ func (c *Client) VRAMEstimate(ctx context.Context, req localaitools.VRAMEstimate
 
 // ---- State ----
 
-func (c *Client) ToggleModelState(ctx context.Context, name, action string) error {
+func (c *Client) ToggleModelState(ctx context.Context, name string, action modeladmin.Action) error {
 	_, err := c.modelAdmin.ToggleState(ctx, name, action, c.ModelLoader)
 	return err
 }
 
-func (c *Client) ToggleModelPinned(ctx context.Context, name, action string) error {
+func (c *Client) ToggleModelPinned(ctx context.Context, name string, action modeladmin.Action) error {
 	// No syncPinned callback wired here; the watchdog refresh callback is
 	// owned by the HTTP handler today. The MCP-driven path skips it; the
 	// next idle tick or manual reload picks the new pinned set up.
