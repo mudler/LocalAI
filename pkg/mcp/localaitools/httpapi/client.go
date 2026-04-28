@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 	"strings"
 	"time"
 
@@ -135,7 +134,7 @@ func (c *Client) GallerySearch(ctx context.Context, q localaitools.GallerySearch
 	// /models/available already returns []gallery.Metadata — pass it
 	// through after applying the LLM-supplied filters client-side.
 	var metas []gallery.Metadata
-	if err := c.do(ctx, http.MethodGet, "/models/available", nil, &metas); err != nil {
+	if err := c.do(ctx, http.MethodGet, routeModelsAvail, nil, &metas); err != nil {
 		return nil, err
 	}
 	limit := q.Limit
@@ -173,7 +172,7 @@ func (c *Client) ListInstalledModels(ctx context.Context, capability localaitool
 			Backend string `json:"backend"`
 		} `json:"ModelsConfig"`
 	}
-	if err := c.do(ctx, http.MethodGet, "/", nil, &welcome); err != nil {
+	if err := c.do(ctx, http.MethodGet, routeWelcome, nil, &welcome); err != nil {
 		return nil, err
 	}
 	// Capability filtering is unavailable over HTTP without a dedicated endpoint
@@ -189,7 +188,7 @@ func (c *Client) ListInstalledModels(ctx context.Context, capability localaitool
 func (c *Client) ListGalleries(ctx context.Context) ([]config.Gallery, error) {
 	// /models/galleries returns []config.Gallery directly.
 	var out []config.Gallery
-	if err := c.do(ctx, http.MethodGet, "/models/galleries", nil, &out); err != nil {
+	if err := c.do(ctx, http.MethodGet, routeModelsGall, nil, &out); err != nil {
 		return nil, err
 	}
 	return out, nil
@@ -209,7 +208,7 @@ func (c *Client) GetJobStatus(ctx context.Context, jobID string) (*localaitools.
 		Error              string  `json:"error,omitempty"`
 		GalleryElementName string  `json:"gallery_element_name"`
 	}
-	if err := c.do(ctx, http.MethodGet, "/models/jobs/"+url.PathEscape(jobID), nil, &raw); err != nil {
+	if err := c.do(ctx, http.MethodGet, routeJobStatus(jobID), nil, &raw); err != nil {
 		// "no such job" is not a real failure — surface (nil, nil) so the
 		// LLM can stop polling without treating the response as an error.
 		if errors.Is(err, ErrHTTPNotFound) {
@@ -257,7 +256,7 @@ func (c *Client) InstallModel(ctx context.Context, req localaitools.InstallModel
 		ID        string `json:"uuid"`
 		StatusURL string `json:"status"`
 	}
-	if err := c.do(ctx, http.MethodPost, "/models/apply", body, &resp); err != nil {
+	if err := c.do(ctx, http.MethodPost, routeModelsApply, body, &resp); err != nil {
 		return "", err
 	}
 	return resp.ID, nil
@@ -278,7 +277,7 @@ func (c *Client) ImportModelURI(ctx context.Context, req localaitools.ImportMode
 	if err != nil {
 		return nil, fmt.Errorf("marshal body: %w", err)
 	}
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, c.BaseURL+"/models/import-uri", bytes.NewReader(rawReq))
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, c.BaseURL+routeModelsImport, bytes.NewReader(rawReq))
 	if err != nil {
 		return nil, err
 	}
@@ -315,7 +314,7 @@ func (c *Client) ImportModelURI(ctx context.Context, req localaitools.ImportMode
 		}
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, fmt.Errorf("POST /models/import-uri: %d %s: %s", resp.StatusCode, http.StatusText(resp.StatusCode), strings.TrimSpace(string(respBody)))
+		return nil, fmt.Errorf("POST %s: %d %s: %s", routeModelsImport, resp.StatusCode, http.StatusText(resp.StatusCode), strings.TrimSpace(string(respBody)))
 	}
 
 	var raw struct {
@@ -328,15 +327,15 @@ func (c *Client) ImportModelURI(ctx context.Context, req localaitools.ImportMode
 }
 
 func (c *Client) DeleteModel(ctx context.Context, name string) error {
-	return c.do(ctx, http.MethodPost, "/models/delete/"+url.PathEscape(name), nil, nil)
+	return c.do(ctx, http.MethodPost, routeModelDelete(name), nil, nil)
 }
 
 func (c *Client) EditModelConfig(ctx context.Context, name string, patch map[string]any) error {
-	return c.do(ctx, http.MethodPatch, "/api/models/config-json/"+url.PathEscape(name), patch, nil)
+	return c.do(ctx, http.MethodPatch, routeModelConfigJSON(name), patch, nil)
 }
 
 func (c *Client) ReloadModels(ctx context.Context) error {
-	return c.do(ctx, http.MethodPost, "/models/reload", nil, nil)
+	return c.do(ctx, http.MethodPost, routeModelsReload, nil, nil)
 }
 
 // ---- Backends ----
@@ -346,7 +345,7 @@ func (c *Client) ListBackends(ctx context.Context) ([]localaitools.Backend, erro
 		Name      string `json:"name"`
 		Installed bool   `json:"installed"`
 	}
-	if err := c.do(ctx, http.MethodGet, "/backends", nil, &raw); err != nil {
+	if err := c.do(ctx, http.MethodGet, routeBackends, nil, &raw); err != nil {
 		return nil, err
 	}
 	out := make([]localaitools.Backend, 0, len(raw))
@@ -359,7 +358,7 @@ func (c *Client) ListBackends(ctx context.Context) ([]localaitools.Backend, erro
 func (c *Client) ListKnownBackends(ctx context.Context) ([]schema.KnownBackend, error) {
 	// /backends/known emits []schema.KnownBackend directly — pass through.
 	var out []schema.KnownBackend
-	if err := c.do(ctx, http.MethodGet, "/backends/known", nil, &out); err != nil {
+	if err := c.do(ctx, http.MethodGet, routeBackendsKnown, nil, &out); err != nil {
 		return nil, err
 	}
 	return out, nil
@@ -374,7 +373,7 @@ func (c *Client) InstallBackend(ctx context.Context, req localaitools.InstallBac
 	var resp struct {
 		ID string `json:"uuid"`
 	}
-	if err := c.do(ctx, http.MethodPost, "/backends/apply", body, &resp); err != nil {
+	if err := c.do(ctx, http.MethodPost, routeBackendsApply, body, &resp); err != nil {
 		return "", err
 	}
 	return resp.ID, nil
@@ -384,7 +383,7 @@ func (c *Client) UpgradeBackend(ctx context.Context, name string) (string, error
 	var resp struct {
 		ID string `json:"uuid"`
 	}
-	if err := c.do(ctx, http.MethodPost, "/backends/upgrade/"+url.PathEscape(name), nil, &resp); err != nil {
+	if err := c.do(ctx, http.MethodPost, routeBackendUpgrade(name), nil, &resp); err != nil {
 		return "", err
 	}
 	return resp.ID, nil
@@ -398,7 +397,7 @@ func (c *Client) SystemInfo(ctx context.Context) (*localaitools.SystemInfo, erro
 		LoadedModels      []any    `json:"LoadedModels"`
 		InstalledBackends map[string]bool `json:"InstalledBackends"`
 	}
-	if err := c.do(ctx, http.MethodGet, "/", nil, &welcome); err != nil {
+	if err := c.do(ctx, http.MethodGet, routeWelcome, nil, &welcome); err != nil {
 		return nil, err
 	}
 	info := &localaitools.SystemInfo{Version: welcome.Version}
@@ -416,7 +415,7 @@ func (c *Client) ListNodes(ctx context.Context) ([]localaitools.Node, error) {
 		HTTPAddress string `json:"http_address"`
 		Status      string `json:"status"`
 	}
-	if err := c.do(ctx, http.MethodGet, "/api/nodes", nil, &raw); err != nil {
+	if err := c.do(ctx, http.MethodGet, routeNodes, nil, &raw); err != nil {
 		// Treat 404/disabled as "no nodes" to keep parity with single-process.
 		if errors.Is(err, ErrHTTPNotFound) {
 			return []localaitools.Node{}, nil
@@ -451,7 +450,7 @@ func (c *Client) VRAMEstimate(ctx context.Context, req localaitools.VRAMEstimate
 	// fields. Decode directly into EstimateResult — the LLM gets the
 	// pre-formatted display strings, identical to REST.
 	var out vram.EstimateResult
-	if err := c.do(ctx, http.MethodPost, "/api/models/vram-estimate", body, &out); err != nil {
+	if err := c.do(ctx, http.MethodPost, routeVRAMEstimate, body, &out); err != nil {
 		return nil, err
 	}
 	return &out, nil
@@ -460,11 +459,11 @@ func (c *Client) VRAMEstimate(ctx context.Context, req localaitools.VRAMEstimate
 // ---- State ----
 
 func (c *Client) ToggleModelState(ctx context.Context, name string, action modeladmin.Action) error {
-	return c.do(ctx, http.MethodPut, fmt.Sprintf("/models/toggle-state/%s/%s", url.PathEscape(name), url.PathEscape(string(action))), nil, nil)
+	return c.do(ctx, http.MethodPut, routeToggleModelState(name, string(action)), nil, nil)
 }
 
 func (c *Client) ToggleModelPinned(ctx context.Context, name string, action modeladmin.Action) error {
-	return c.do(ctx, http.MethodPut, fmt.Sprintf("/models/toggle-pinned/%s/%s", url.PathEscape(name), url.PathEscape(string(action))), nil, nil)
+	return c.do(ctx, http.MethodPut, routeToggleModelPinned(name, string(action)), nil, nil)
 }
 
 // ---- helpers ----
