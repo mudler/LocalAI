@@ -21,7 +21,20 @@ set(VIBEVOICE_BUILD_SERVER   OFF CACHE BOOL "" FORCE)
 add_subdirectory(${VIBEVOICE_DIR} vibevoice EXCLUDE_FROM_ALL)
 
 add_library(govibevoicecpp MODULE cpp/govibevoicecpp.cpp)
-target_link_libraries(govibevoicecpp PRIVATE vibevoice)
+
+# libvibevoice is STATIC; without --whole-archive the linker GCs the
+# vv_capi_* symbols (purego dlopens them by name, nothing in our
+# translation unit references them). Force the static archive's
+# entire contents into the MODULE so dlsym finds vv_capi_load etc.
+if(APPLE)
+    target_link_libraries(govibevoicecpp PRIVATE -Wl,-force_load $<TARGET_FILE:vibevoice>)
+elseif(MSVC)
+    target_link_libraries(govibevoicecpp PRIVATE vibevoice)
+    set_property(TARGET govibevoicecpp APPEND PROPERTY LINK_FLAGS "/WHOLEARCHIVE:vibevoice")
+else()
+    target_link_libraries(govibevoicecpp PRIVATE
+        -Wl,--whole-archive vibevoice -Wl,--no-whole-archive)
+endif()
 
 target_include_directories(govibevoicecpp PRIVATE ${VIBEVOICE_DIR}/include)
 target_include_directories(govibevoicecpp SYSTEM PRIVATE ${VIBEVOICE_DIR}/third_party/ggml/include)
