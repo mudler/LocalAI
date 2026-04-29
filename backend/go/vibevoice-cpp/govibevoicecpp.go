@@ -7,9 +7,15 @@ import (
 	"path/filepath"
 	"strings"
 
+	laudio "github.com/mudler/LocalAI/pkg/audio"
 	"github.com/mudler/LocalAI/pkg/grpc/base"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 )
+
+// vibevoice.cpp synthesizes 24 kHz mono 16-bit PCM. Hardcoded - the
+// model itself is fixed-rate; if the upstream ever changes this we'll
+// pick it up via vv_capi_version().
+const vibevoiceSampleRate = uint32(24000)
 
 // purego-bound entry points from libgovibevoicecpp.
 var (
@@ -208,6 +214,83 @@ func (v *VibevoiceCpp) callASR(srcWav string, maxNewTokens int32) (string, error
 	return string(buf[:rc]), nil
 }
 
+// TTSStream is the streaming counterpart to TTS. vibevoice's C ABI is
+// file-only (vv_capi_tts writes a complete WAV), so we synthesize to
+// a tempfile, then emit a streaming-WAV header followed by the PCM
+// body in chunks. The main reason this exists at all is the gRPC
+// server wrapper (pkg/grpc/server.go:TTSStream) blocks on a channel
+// that only this method can close - if we leave the default Base
+// stub in place, every TTSStream call hangs until the client
+// deadline.
+func (v *VibevoiceCpp) TTSStream(req *pb.TTSRequest, results chan []byte) error {
+	defer close(results)
+	if v.ttsModel == "" {
+		return fmt.Errorf("vibevoice-cpp: TTSStream requested but no realtime model was loaded")
+	}
+	if req.Text == "" {
+		return fmt.Errorf("vibevoice-cpp: TTSStream requires text")
+	}
+
+	tmp, err := os.CreateTemp("", "vibevoice-cpp-stream-*.wav")
+	if err != nil {
+		return fmt.Errorf("vibevoice-cpp: tempfile: %w", err)
+	}
+	dst := tmp.Name()
+	tmp.Close()
+	defer os.Remove(dst)
+
+	if err := v.TTS(&pb.TTSRequest{
+		Text:     req.Text,
+		Voice:    req.Voice,
+		Dst:      dst,
+		Language: req.Language,
+	}); err != nil {
+		return err
+	}
+
+	wav, err := os.ReadFile(dst)
+	if err != nil {
+		return fmt.Errorf("vibevoice-cpp: read tempfile: %w", err)
+	}
+
+	// Streaming WAV header: declare 0xFFFFFFFF for chunk sizes so HTTP
+	// clients can start playback before they see the full PCM.
+	const streamingSize = 0xFFFFFFFF
+	hdr := laudio.NewWAVHeaderWithRate(streamingSize, vibevoiceSampleRate)
+	hdr.ChunkSize = streamingSize
+	hdrBuf := make([]byte, 0, laudio.WAVHeaderSize)
+	w := newByteWriter(&hdrBuf)
+	if err := hdr.Write(w); err != nil {
+		return fmt.Errorf("vibevoice-cpp: write WAV header: %w", err)
+	}
+	results <- hdrBuf
+
+	// PCM body: send in ~64 KB slices so the client gets multiple
+	// reply chunks (e2e harness asserts >=2 frames).
+	pcm := laudio.StripWAVHeader(wav)
+	const chunkBytes = 64 * 1024
+	for off := 0; off < len(pcm); off += chunkBytes {
+		end := off + chunkBytes
+		if end > len(pcm) {
+			end = len(pcm)
+		}
+		chunk := make([]byte, end-off)
+		copy(chunk, pcm[off:end])
+		results <- chunk
+	}
+	return nil
+}
+
+// byteWriter adapts a *[]byte to io.Writer so we can hand it to
+// laudio.WAVHeader.Write without allocating a bytes.Buffer.
+type byteWriter struct{ buf *[]byte }
+
+func newByteWriter(b *[]byte) *byteWriter { return &byteWriter{buf: b} }
+func (w *byteWriter) Write(p []byte) (int, error) {
+	*w.buf = append(*w.buf, p...)
+	return len(p), nil
+}
+
 func (v *VibevoiceCpp) AudioTranscription(req *pb.TranscriptRequest) (pb.TranscriptResult, error) {
 	if v.asrModel == "" {
 		return pb.TranscriptResult{}, fmt.Errorf("vibevoice-cpp: AudioTranscription requested but no ASR model was loaded")
@@ -258,4 +341,44 @@ func (v *VibevoiceCpp) AudioTranscription(req *pb.TranscriptRequest) (pb.Transcr
 		Text:     strings.TrimSpace(strings.Join(parts, " ")),
 		Duration: duration,
 	}, nil
+}
+
+// AudioTranscriptionStream wraps AudioTranscription so the streaming
+// gRPC endpoint (server.go:AudioTranscriptionStream) sees its channel
+// close and the client doesn't sit waiting until deadline. vibevoice's
+// ASR doesn't expose token-level streaming - vv_capi_asr decodes the
+// whole audio and returns a JSON segment list - so we run the offline
+// transcription, emit each segment's content as a delta, then close
+// with a final_result whose Text equals the concatenated deltas (the
+// e2e harness asserts those match).
+func (v *VibevoiceCpp) AudioTranscriptionStream(req *pb.TranscriptRequest, results chan *pb.TranscriptStreamResponse) error {
+	defer close(results)
+	res, err := v.AudioTranscription(req)
+	if err != nil {
+		return err
+	}
+	var assembled strings.Builder
+	for _, seg := range res.Segments {
+		if seg == nil {
+			continue
+		}
+		txt := strings.TrimSpace(seg.Text)
+		if txt == "" {
+			continue
+		}
+		delta := txt
+		if assembled.Len() > 0 {
+			delta = " " + txt
+		}
+		results <- &pb.TranscriptStreamResponse{Delta: delta}
+		assembled.WriteString(delta)
+	}
+	final := pb.TranscriptResult{
+		Segments: res.Segments,
+		Duration: res.Duration,
+		Language: res.Language,
+		Text:     assembled.String(),
+	}
+	results <- &pb.TranscriptStreamResponse{FinalResult: &final}
+	return nil
 }

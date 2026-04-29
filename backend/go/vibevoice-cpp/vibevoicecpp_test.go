@@ -112,6 +112,29 @@ var _ = Describe("VibeVoice-cpp", func() {
 			})
 			Expect(err).To(HaveOccurred())
 		})
+
+		It("closes the channel and errors on TTSStream without a loaded model", func() {
+			ch := make(chan []byte, 4)
+			err := (&VibevoiceCpp{}).TTSStream(&pb.TTSRequest{
+				Text: "no model loaded",
+				Dst:  "/tmp/should-not-be-written.wav",
+			}, ch)
+			Expect(err).To(HaveOccurred())
+			// Server hangs forever if the channel stays open; this guard
+			// is what regresses the e2e DeadlineExceeded we're fixing.
+			_, ok := <-ch
+			Expect(ok).To(BeFalse(), "TTSStream must close results channel even on error")
+		})
+
+		It("closes the channel and errors on AudioTranscriptionStream without a loaded model", func() {
+			ch := make(chan *pb.TranscriptStreamResponse, 4)
+			err := (&VibevoiceCpp{}).AudioTranscriptionStream(&pb.TranscriptRequest{
+				Dst: "/tmp/some.wav",
+			}, ch)
+			Expect(err).To(HaveOccurred())
+			_, ok := <-ch
+			Expect(ok).To(BeFalse(), "AudioTranscriptionStream must close results channel even on error")
+		})
 	})
 
 	Context("gRPC server lifecycle", func() {
