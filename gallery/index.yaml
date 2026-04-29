@@ -1,4 +1,47 @@
 ---
+- name: "carnice-v2-27b"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/kai-os/Carnice-V2-27b-GGUF
+  description: |
+    # Carnice-V2-27B for Hermes Agent
+
+    Carnice-V2-27B is a full merged BF16 SFT of `Qwen/Qwen3.6-27B` for Hermes-style agent traces. This repository contains the standalone merged model weights, not only a LoRA adapter.
+
+    ## BF16 Transformers Loading Fix
+
+    The BF16 safetensors were republished with corrected `Qwen3_5ForConditionalGeneration` tensor prefixes. The original merge artifact accidentally serialized an extra Unsloth wrapper prefix, which caused direct HF Transformers loads to report the real weights as unexpected keys and initialize expected layers randomly. GGUF files were not affected because the GGUF conversion path normalized those prefixes.
+
+    ## Benchmarks
+
+    The benchmark artifact bundle is included under `benchmarks/`. It contains the rendered graph, extracted `metrics.json`, benchmark scripts, and raw result files used to make the chart.
+
+    Scope note: the IFEval run is a short `limit=20` A/B smoke benchmark, not an official full leaderboard score. Held-out loss/perplexity is the exact assistant-only training-format validation metric from the SFT script. The raw BFCL two-case smoke files are included for auditability, but they are too small to use as a model-quality claim.
+
+    ...
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - qwen
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/Carnice-V2-27b-GGUF/carnice-v2-27b-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Carnice-V2-27b-GGUF/carnice-v2-27b-Q4_K_M.gguf
+      sha256: 85b7f41f22b80fce910286c2457022a067d45b91a2629046adcec0b6942ea359
+      uri: https://huggingface.co/kai-os/Carnice-V2-27b-GGUF/resolve/main/carnice-v2-27b-Q4_K_M.gguf
 - name: "kimi-k2.6"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
