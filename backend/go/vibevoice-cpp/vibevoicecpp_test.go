@@ -293,10 +293,14 @@ var _ = Describe("VibeVoice-cpp", func() {
 			conn := dialGRPC()
 			defer func() { _ = conn.Close() }()
 
+			// Mirror the gallery contract: ModelFile is whatever LocalAI
+			// core hands us; ModelPath is the models root; Options[]
+			// carry paths relative to ModelPath.
 			resp, err := pb.NewBackendClient(conn).LoadModel(context.Background(), &pb.ModelOptions{
-				ModelFile: tts[0],
+				ModelFile: filepath.Base(tts[0]),
+				ModelPath: dir,
 				Threads:   4,
-				Options:   []string{"tokenizer=" + filepath.Join(dir, "tokenizer.gguf")},
+				Options:   []string{"tokenizer=tokenizer.gguf"},
 			})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(resp.Success).To(BeTrue(), "LoadModel msg=%q", resp.Message)
@@ -320,18 +324,20 @@ var _ = Describe("VibeVoice-cpp", func() {
 			defer func() { _ = conn.Close() }()
 			client := pb.NewBackendClient(conn)
 
-			tok := filepath.Join(dir, "tokenizer.gguf")
+			// Gallery convention: ModelPath is the models root, every
+			// path inside Options[] is relative to it.
 			voiceMatches, _ := filepath.Glob(filepath.Join(dir, "voice-*.gguf"))
 			loadOpts := &pb.ModelOptions{
-				ModelFile: tts[0],
+				ModelFile: filepath.Base(tts[0]),
+				ModelPath: dir,
 				Threads:   4,
 				Options: []string{
-					"asr_model=" + asr[0],
-					"tokenizer=" + tok,
+					"asr_model=" + filepath.Base(asr[0]),
+					"tokenizer=tokenizer.gguf",
 				},
 			}
 			if len(voiceMatches) > 0 {
-				loadOpts.Options = append(loadOpts.Options, "voice="+voiceMatches[0])
+				loadOpts.Options = append(loadOpts.Options, "voice="+filepath.Base(voiceMatches[0]))
 			}
 			loadResp, err := client.LoadModel(context.Background(), loadOpts)
 			Expect(err).ToNot(HaveOccurred())
