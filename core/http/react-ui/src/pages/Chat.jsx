@@ -12,6 +12,8 @@ import MCPAppFrame from '../components/MCPAppFrame'
 import UnifiedMCPDropdown from '../components/UnifiedMCPDropdown'
 import { loadClientMCPServers } from '../utils/mcpClientStorage'
 import ConfirmDialog from '../components/ConfirmDialog'
+import ChatsMenu from '../components/ChatsMenu'
+import ChatHeaderOverflow from '../components/ChatHeaderOverflow'
 import { useAuth } from '../context/AuthContext'
 import { useOperations } from '../hooks/useOperations'
 import { relativeTime } from '../utils/format'
@@ -295,8 +297,6 @@ export default function Chat() {
   const [input, setInput] = useState('')
   const [files, setFiles] = useState([])
   const [showSettings, setShowSettings] = useState(false)
-  const [editingName, setEditingName] = useState(null)
-  const [editName, setEditName] = useState('')
   const [mcpAvailable, setMcpAvailable] = useState(false)
   const [mcpServerList, setMcpServerList] = useState([])
   const [mcpServersLoading, setMcpServersLoading] = useState(false)
@@ -307,10 +307,8 @@ export default function Chat() {
   const [mcpPromptArgsValues, setMcpPromptArgsValues] = useState({})
   const [mcpResourceList, setMcpResourceList] = useState([])
   const [mcpResourcesLoading, setMcpResourcesLoading] = useState(false)
-  const [chatSearch, setChatSearch] = useState('')
   const [modelInfo, setModelInfo] = useState(null)
   const [showModelInfo, setShowModelInfo] = useState(false)
-  const [sidebarOpen, setSidebarOpen] = useState(true)
   const [canvasMode, setCanvasMode] = useState(false)
   const [canvasOpen, setCanvasOpen] = useState(false)
   const [selectedArtifactId, setSelectedArtifactId] = useState(null)
@@ -328,6 +326,17 @@ export default function Chat() {
   const messagesRef = useRef(null)
   const textareaRef = useRef(null)
   const stickToBottomRef = useRef(true)
+  const chatsMenuRef = useRef(null)
+
+  // Focus mode: once a conversation has at least one message we slim the
+  // surrounding chrome (collapse the global app rail, fade non-essential
+  // header items). Esc gives the user back the full chrome for the rest of
+  // this session.
+  const isInConversation = (activeChat?.history?.length || 0) > 0
+  const [focusOverride, setFocusOverride] = useState(false)
+  const focusActive = isInConversation && !focusOverride
+  const prevAppCollapseRef = useRef(null)
+  const focusHintShownRef = useRef(false)
 
   const artifacts = useMemo(
     () => canvasMode ? extractCodeArtifacts(activeChat?.history, 'role', 'assistant') : [],
@@ -594,11 +603,60 @@ export default function Chat() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [activeChat?.history, streamingContent, streamingReasoning, streamingToolCalls])
 
-  // When switching chats, snap to bottom and re-pin.
+  // When switching chats, snap to bottom and re-pin. Also reset the
+  // user's focus-mode override — each chat starts fresh.
   useEffect(() => {
     stickToBottomRef.current = true
     messagesEndRef.current?.scrollIntoView({ behavior: 'auto' })
+    setFocusOverride(false)
   }, [activeChat?.id])
+
+  // Auto-collapse the global app rail when a conversation begins, and
+  // restore the previous collapsed state when the user goes back to an
+  // empty chat (or overrides focus with Esc). We feed into the existing
+  // sidebar-collapse event bus so App.jsx needs no awareness of focus mode.
+  useEffect(() => {
+    if (focusActive) {
+      if (prevAppCollapseRef.current === null) {
+        try {
+          prevAppCollapseRef.current = localStorage.getItem('localai_sidebar_collapsed') === 'true'
+        } catch (_) { prevAppCollapseRef.current = false }
+      }
+      window.dispatchEvent(new CustomEvent('sidebar-collapse', { detail: { collapsed: true } }))
+      if (!focusHintShownRef.current) {
+        focusHintShownRef.current = true
+        try {
+          if (!localStorage.getItem('localai_chat_focus_hint_shown')) {
+            addToast('Focus mode — press Esc to show controls', 'info', 3500)
+            localStorage.setItem('localai_chat_focus_hint_shown', '1')
+          }
+        } catch (_) { /* ignore quota errors */ }
+      }
+    } else if (prevAppCollapseRef.current !== null) {
+      window.dispatchEvent(new CustomEvent('sidebar-collapse', { detail: { collapsed: prevAppCollapseRef.current } }))
+      prevAppCollapseRef.current = null
+    }
+  }, [focusActive, addToast])
+
+  // Global keybindings: Cmd/Ctrl+K opens the chats menu; Esc exits focus
+  // mode while it is engaged (without closing any open dialogs first).
+  useEffect(() => {
+    const onKey = (e) => {
+      const isMod = e.metaKey || e.ctrlKey
+      if (isMod && (e.key === 'k' || e.key === 'K')) {
+        e.preventDefault()
+        chatsMenuRef.current?.toggle()
+        return
+      }
+      if (e.key === 'Escape' && focusActive) {
+        // Don't fight the chats menu / settings drawer / dialogs — they
+        // each handle their own Esc and stop propagation when open.
+        setFocusOverride(true)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [focusActive])
 
   // Highlight code blocks
   useEffect(() => {
@@ -747,199 +805,62 @@ export default function Chat() {
     }
   }
 
-  const startRename = (chatId, currentName) => {
-    setEditingName(chatId)
-    setEditName(currentName)
-  }
-
-  const finishRename = () => {
-    if (editingName && editName.trim()) {
-      renameChat(editingName, editName.trim())
-    }
-    setEditingName(null)
-  }
-
   const copyMessage = (content) => {
     const text = typeof content === 'string' ? content : content?.[0]?.text || ''
     navigator.clipboard.writeText(text)
     addToast('Copied to clipboard', 'success', 2000)
   }
 
-  // Filter chats by search
-  const filteredChats = chatSearch.trim()
-    ? chats.filter(c => {
-      const q = chatSearch.toLowerCase()
-      if ((c.name || '').toLowerCase().includes(q)) return true
-      return c.history?.some(m => {
-        const t = typeof m.content === 'string' ? m.content : m.content?.[0]?.text || ''
-        return t.toLowerCase().includes(q)
-      })
-    })
-    : chats
-
   const contextPercent = getContextUsagePercent()
+
+  // Recent chats for the empty state — exclude the current chat and any
+  // empty placeholders, keep the four most recently updated.
+  const recentChats = chats
+    .filter(c => c.id !== activeChatId && (c.history?.length || 0) > 0)
+    .slice(0, 4)
+
+  const promptDeleteAll = () => setConfirmDialog({
+    title: 'Delete All Chats',
+    message: 'Delete all chats? This cannot be undone.',
+    confirmLabel: 'Delete all',
+    danger: true,
+    onConfirm: () => { setConfirmDialog(null); deleteAllChats() },
+  })
 
   if (!activeChat) return null
 
+  const layoutClasses = [
+    'chat-layout',
+    isInConversation ? 'chat--has-messages' : '',
+    focusActive ? 'chat--focus' : '',
+  ].filter(Boolean).join(' ')
+
   return (
-    <div className={`chat-layout${sidebarOpen ? '' : ' chat-sidebar-collapsed'}`}>
-      {/* Chat sidebar */}
-      <div className={`chat-sidebar${sidebarOpen ? '' : ' hidden'}`}>
-        <div className="chat-sidebar-header">
-          <button className="btn btn-primary btn-sm" style={{ flex: 1 }} onClick={() => addChat(activeChat.model)}>
-            <i className="fas fa-plus" /> New Chat
-          </button>
-          <button
-            className="btn btn-secondary btn-sm"
-            onClick={() => setConfirmDialog({
-              title: 'Delete All Chats',
-              message: 'Delete all chats? This cannot be undone.',
-              confirmLabel: 'Delete all',
-              danger: true,
-              onConfirm: () => { setConfirmDialog(null); deleteAllChats() },
-            })}
-            title="Delete all chats"
-            style={{ padding: '6px 8px' }}
-          >
-            <i className="fas fa-trash" />
-          </button>
-        </div>
-
-        {/* Chat search */}
-        <div style={{ padding: '0 var(--spacing-sm)' }}>
-          <div className="chat-search-wrapper">
-            <i className="fas fa-search chat-search-icon" />
-            <input
-              className="chat-search-input"
-              type="text"
-              value={chatSearch}
-              onChange={(e) => setChatSearch(e.target.value)}
-              placeholder="Search conversations..."
-            />
-            {chatSearch && (
-              <button className="chat-search-clear" onClick={() => setChatSearch('')}>
-                <i className="fas fa-times" />
-              </button>
-            )}
-          </div>
-        </div>
-
-        <div className="chat-list">
-          {filteredChats.map(chat => (
-            <div
-              key={chat.id}
-              className={`chat-list-item ${chat.id === activeChatId ? 'active' : ''}`}
-              onClick={() => switchChat(chat.id)}
-            >
-              <i className="fas fa-message" style={{ fontSize: '0.7rem', flexShrink: 0, marginTop: '2px' }} />
-              {editingName === chat.id ? (
-                <input
-                  className="input"
-                  value={editName}
-                  onChange={(e) => setEditName(e.target.value)}
-                  onBlur={finishRename}
-                  onKeyDown={(e) => e.key === 'Enter' && finishRename()}
-                  autoFocus
-                  onClick={(e) => e.stopPropagation()}
-                  style={{ padding: '2px 4px', fontSize: '0.8125rem' }}
-                />
-              ) : (
-                <div className="chat-list-item-info">
-                  <div className="chat-list-item-top">
-                    <span
-                      className="chat-list-item-name"
-                      onDoubleClick={() => startRename(chat.id, chat.name)}
-                    >
-                      {streamingChatId === chat.id && <i className="fas fa-circle-notch fa-spin" style={{ marginRight: '6px', fontSize: '0.7rem', opacity: 0.7 }} />}
-                      {chat.name}
-                    </span>
-                    <span className="chat-list-item-time">{relativeTime(chat.updatedAt)}</span>
-                  </div>
-                  <span className="chat-list-item-preview">
-                    {getLastMessagePreview(chat) || 'No messages yet'}
-                  </span>
-                </div>
-              )}
-              <div className="chat-list-item-actions">
-                <button
-                  onClick={(e) => { e.stopPropagation(); startRename(chat.id, chat.name) }}
-                  title="Rename"
-                >
-                  <i className="fas fa-edit" />
-                </button>
-                {chats.length > 1 && (
-                  <button
-                    className="chat-list-item-delete"
-                    onClick={(e) => { e.stopPropagation(); deleteChat(chat.id) }}
-                    title="Delete chat"
-                  >
-                    <i className="fas fa-trash" />
-                  </button>
-                )}
-              </div>
-            </div>
-          ))}
-          {filteredChats.length === 0 && chatSearch && (
-            <div style={{ padding: 'var(--spacing-sm)', textAlign: 'center', color: 'var(--color-text-muted)', fontSize: '0.8rem' }}>
-              No conversations match your search
-            </div>
-          )}
-        </div>
-      </div>
-
+    <div className={layoutClasses}>
       {/* Chat main area */}
       <div className="chat-main">
         {/* Header */}
         <div className="chat-header">
-          <button
-            className="btn btn-secondary btn-sm"
-            onClick={() => setSidebarOpen(prev => !prev)}
-            title={sidebarOpen ? 'Hide chat list' : 'Show chat list'}
-            style={{ flexShrink: 0 }}
-          >
-            <i className={`fas fa-${sidebarOpen ? 'angles-left' : 'angles-right'}`} />
-          </button>
-          <span className="chat-header-title">{activeChat.name}</span>
+          <ChatsMenu
+            ref={chatsMenuRef}
+            chats={chats}
+            activeChatId={activeChatId}
+            streamingChatId={streamingChatId}
+            onSelect={switchChat}
+            onNew={() => addChat(activeChat.model)}
+            onDelete={deleteChat}
+            onDeleteAll={promptDeleteAll}
+            onRename={renameChat}
+          />
           {activeChat.localaiAssistant && (
-            <span className="badge badge-accent" title="This chat can install models, edit configs and manage backends by talking to LocalAI.">
-              <i className="fas fa-user-shield" /> Manage mode
+            <span
+              className="chat-header-shield"
+              title="This chat can install models, edit configs and manage backends by talking to LocalAI."
+            >
+              <i className="fas fa-user-shield" />
             </span>
           )}
-          <UnifiedMCPDropdown
-            serverMCPAvailable={mcpAvailable}
-            mcpServerList={mcpServerList}
-            mcpServersLoading={mcpServersLoading}
-            selectedServers={activeChat.mcpServers || []}
-            onToggleServer={toggleMcpServer}
-            onSelectAllServers={() => {
-              const allNames = mcpServerList.map(s => s.name)
-              const allSelected = allNames.every(n => (activeChat.mcpServers || []).includes(n))
-              updateChatSettings(activeChat.id, { mcpServers: allSelected ? [] : allNames })
-            }}
-            onFetchServers={fetchMcpServers}
-            clientMCPActiveIds={activeChat.clientMCPServers || []}
-            onClientToggle={handleClientMCPToggle}
-            onClientAdded={handleClientMCPServerAdded}
-            onClientRemoved={handleClientMCPServerRemoved}
-            connectionStatuses={connectionStatuses}
-            getConnectedTools={getConnectedTools}
-            promptsAvailable={mcpAvailable}
-            mcpPromptList={mcpPromptList}
-            mcpPromptsLoading={mcpPromptsLoading}
-            onFetchPrompts={fetchMcpPrompts}
-            onSelectPrompt={handleSelectPrompt}
-            promptArgsDialog={mcpPromptArgsDialog}
-            promptArgsValues={mcpPromptArgsValues}
-            onPromptArgsChange={(name, value) => setMcpPromptArgsValues(prev => ({ ...prev, [name]: value }))}
-            onPromptArgsSubmit={handleExpandPromptWithArgs}
-            onPromptArgsCancel={() => setMcpPromptArgsDialog(null)}
-            resourcesAvailable={mcpAvailable}
-            mcpResourceList={mcpResourceList}
-            mcpResourcesLoading={mcpResourcesLoading}
-            onFetchResources={fetchMcpResources}
-            selectedResources={activeChat.mcpResources || []}
-            onToggleResource={toggleMcpResource}
-          />
+          <span className="chat-header-title" title={activeChat.name}>{activeChat.name}</span>
           <ModelSelector
             value={activeChat.model}
             onChange={(model) => updateChatSettings(activeChat.id, { model })}
@@ -947,83 +868,22 @@ export default function Chat() {
             style={{ flex: '1 1 0', minWidth: 120 }}
           />
           <div className="chat-header-actions">
-            {activeChat.model && isAdmin && (
-              <>
-                <button
-                  className="btn btn-secondary btn-sm"
-                  onClick={() => setShowModelInfo(!showModelInfo)}
-                  title="Model info"
-                >
-                  <i className="fas fa-info-circle" />
-                </button>
-                <button
-                  className="btn btn-secondary btn-sm"
-                  onClick={() => navigate(`/app/model-editor/${encodeURIComponent(activeChat.model)}`)}
-                  title="Edit model config"
-                >
-                  <i className="fas fa-edit" />
-                </button>
-              </>
-            )}
-            <label className="canvas-mode-toggle" title="Extract code blocks and media into a side panel for preview, copy, and download">
-              <i className="fas fa-columns" />
-              <span className="canvas-mode-label">Canvas</span>
-              <span className="toggle">
-                <input
-                  type="checkbox"
-                  checked={canvasMode}
-                  onChange={(e) => {
-                    setCanvasMode(e.target.checked)
-                    if (!e.target.checked) setCanvasOpen(false)
-                  }}
-                />
-                <span className="toggle-slider" />
-              </span>
-            </label>
-            {isAdmin && (
-              <label
-                className="canvas-mode-toggle"
-                title="Manage LocalAI by chatting — install models, switch backends, and edit configs through the chat. Admin only."
-              >
-                <i className="fas fa-user-shield" />
-                <span className="canvas-mode-label">Manage</span>
-                <span className="toggle">
-                  <input
-                    type="checkbox"
-                    checked={!!activeChat.localaiAssistant}
-                    onChange={(e) => updateChatSettings(activeChat.id, { localaiAssistant: e.target.checked })}
-                  />
-                  <span className="toggle-slider" />
-                </span>
-              </label>
-            )}
-            {canvasMode && artifacts.length > 0 && !canvasOpen && (
-              <button
-                className="btn btn-secondary btn-sm"
-                onClick={() => { setSelectedArtifactId(artifacts[0]?.id); setCanvasOpen(true) }}
-                title="Open canvas panel"
-              >
-                <i className="fas fa-layer-group" /> {artifacts.length}
-              </button>
-            )}
+            <ChatHeaderOverflow
+              isAdmin={isAdmin}
+              hasModel={!!activeChat.model}
+              manageMode={!!activeChat.localaiAssistant}
+              onToggleManage={(checked) => updateChatSettings(activeChat.id, { localaiAssistant: checked })}
+              onShowModelInfo={() => setShowModelInfo(prev => !prev)}
+              onEditModel={() => navigate(`/app/model-editor/${encodeURIComponent(activeChat.model)}`)}
+              onExport={() => exportChatAsMarkdown(activeChat)}
+              onClearHistory={() => clearHistory(activeChat.id)}
+            />
             <button
-              className="btn btn-secondary btn-sm"
-              onClick={() => exportChatAsMarkdown(activeChat)}
-              title="Export chat as Markdown"
-            >
-              <i className="fas fa-download" />
-            </button>
-            <button
-              className="btn btn-secondary btn-sm"
-              onClick={() => clearHistory(activeChat.id)}
-              title="Clear chat history"
-            >
-              <i className="fas fa-eraser" />
-            </button>
-            <button
+              type="button"
               className={`btn btn-secondary btn-sm${showSettings ? ' active' : ''}`}
               onClick={() => setShowSettings(!showSettings)}
               title="Settings"
+              aria-pressed={showSettings}
             >
               <i className="fas fa-sliders-h" />
             </button>
@@ -1140,9 +1000,6 @@ export default function Chat() {
         <div className="chat-messages" ref={messagesRef}>
           {activeChat.history.length === 0 && !isStreaming && (
             <div className="chat-empty-state">
-              <div className="chat-empty-icon">
-                <i className="fas fa-comments" />
-              </div>
               <h2 className="chat-empty-title">{activeChat.localaiAssistant ? 'Manage LocalAI by chatting' : 'Start a conversation'}</h2>
               <p className="chat-empty-text">
                 {activeChat.localaiAssistant
@@ -1163,6 +1020,30 @@ export default function Chat() {
                   </button>
                 ))}
               </div>
+              {recentChats.length > 0 && (
+                <div className="chat-recent-strip">
+                  <div className="chat-recent-strip-label">
+                    Recent <kbd className="chat-recent-strip-kbd">⌘K</kbd>
+                  </div>
+                  <div className="chat-recent-strip-list">
+                    {recentChats.map(chat => (
+                      <button
+                        key={chat.id}
+                        type="button"
+                        className="chat-recent-strip-item"
+                        onClick={() => switchChat(chat.id)}
+                        title={chat.name}
+                      >
+                        <span className="chat-recent-strip-item-name">{chat.name}</span>
+                        <span className="chat-recent-strip-item-preview">
+                          {getLastMessagePreview(chat) || 'No messages yet'}
+                        </span>
+                        <span className="chat-recent-strip-item-time">{relativeTime(chat.updatedAt)}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
               <div className="chat-empty-hints">
                 <span><i className="fas fa-keyboard" /> Enter to send</span>
                 <span><i className="fas fa-level-down-alt" /> Shift+Enter for newline</span>
@@ -1332,6 +1213,80 @@ export default function Chat() {
         {/* Input area */}
         <div className="chat-input-area">
           <div className="chat-input-wrapper">
+            <div className="chat-input-modes">
+              <button
+                type="button"
+                className={`chat-mode-chip${canvasMode ? ' chat-mode-chip-on' : ''}`}
+                onClick={() => {
+                  const next = !canvasMode
+                  setCanvasMode(next)
+                  if (!next) setCanvasOpen(false)
+                }}
+                aria-pressed={canvasMode}
+                title="Canvas — extract code blocks and media into a side panel for preview, copy, and download"
+              >
+                <i className="fas fa-columns" />
+                <span className="chat-mode-chip-label">Canvas</span>
+                {canvasMode && artifacts.length > 0 && !canvasOpen && (
+                  <span
+                    role="button"
+                    tabIndex={0}
+                    className="chat-mode-chip-count"
+                    title="Open canvas panel"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setSelectedArtifactId(artifacts[0]?.id)
+                      setCanvasOpen(true)
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        setSelectedArtifactId(artifacts[0]?.id)
+                        setCanvasOpen(true)
+                      }
+                    }}
+                  >
+                    {artifacts.length}
+                  </span>
+                )}
+              </button>
+              <UnifiedMCPDropdown
+                serverMCPAvailable={mcpAvailable}
+                mcpServerList={mcpServerList}
+                mcpServersLoading={mcpServersLoading}
+                selectedServers={activeChat.mcpServers || []}
+                onToggleServer={toggleMcpServer}
+                onSelectAllServers={() => {
+                  const allNames = mcpServerList.map(s => s.name)
+                  const allSelected = allNames.every(n => (activeChat.mcpServers || []).includes(n))
+                  updateChatSettings(activeChat.id, { mcpServers: allSelected ? [] : allNames })
+                }}
+                onFetchServers={fetchMcpServers}
+                clientMCPActiveIds={activeChat.clientMCPServers || []}
+                onClientToggle={handleClientMCPToggle}
+                onClientAdded={handleClientMCPServerAdded}
+                onClientRemoved={handleClientMCPServerRemoved}
+                connectionStatuses={connectionStatuses}
+                getConnectedTools={getConnectedTools}
+                promptsAvailable={mcpAvailable}
+                mcpPromptList={mcpPromptList}
+                mcpPromptsLoading={mcpPromptsLoading}
+                onFetchPrompts={fetchMcpPrompts}
+                onSelectPrompt={handleSelectPrompt}
+                promptArgsDialog={mcpPromptArgsDialog}
+                promptArgsValues={mcpPromptArgsValues}
+                onPromptArgsChange={(name, value) => setMcpPromptArgsValues(prev => ({ ...prev, [name]: value }))}
+                onPromptArgsSubmit={handleExpandPromptWithArgs}
+                onPromptArgsCancel={() => setMcpPromptArgsDialog(null)}
+                resourcesAvailable={mcpAvailable}
+                mcpResourceList={mcpResourceList}
+                mcpResourcesLoading={mcpResourcesLoading}
+                onFetchResources={fetchMcpResources}
+                selectedResources={activeChat.mcpResources || []}
+                onToggleResource={toggleMcpResource}
+              />
+            </div>
             <button
               type="button"
               className="btn btn-secondary btn-sm chat-attach-btn"

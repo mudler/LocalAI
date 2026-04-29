@@ -2785,12 +2785,13 @@ select.input {
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: var(--spacing-lg) var(--spacing-xl);
+  padding: var(--spacing-md) var(--spacing-lg);
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-md);
+  gap: var(--spacing-sm);
   scrollbar-width: thin;
   scrollbar-color: var(--color-border-subtle) transparent;
+  transition: padding-top var(--duration-normal) var(--ease-default);
 }
 .chat-messages::-webkit-scrollbar { width: 6px; }
 .chat-messages::-webkit-scrollbar-track { background: transparent; }
@@ -2805,7 +2806,7 @@ select.input {
 .chat-message {
   display: flex;
   gap: var(--spacing-sm);
-  max-width: 80%;
+  max-width: 88%;
   min-width: 0;
   animation: messageSlideIn 250ms ease-out;
 }
@@ -2820,13 +2821,13 @@ select.input {
 }
 
 .chat-message-avatar {
-  width: 32px;
-  height: 32px;
-  border-radius: var(--radius-md);
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   flex-shrink: 0;
 }
 
@@ -2835,9 +2836,10 @@ select.input {
   color: var(--color-primary-text);
 }
 
+/* Assistant gets the left-border accent on the bubble; the avatar is
+   visual noise once that accent is in place. */
 .chat-message-assistant .chat-message-avatar {
-  background: var(--color-accent-light);
-  color: var(--color-accent);
+  display: none;
 }
 
 .chat-message-bubble {
@@ -2853,7 +2855,7 @@ select.input {
   font-weight: 500;
   color: var(--color-text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.14em;
   padding-left: 2px;
 }
 
@@ -2862,7 +2864,7 @@ select.input {
   border: none;
   border-left: 2px solid var(--color-border-strong);
   border-radius: 0;
-  padding: 2px var(--spacing-md);
+  padding: 0 var(--spacing-md);
   font-size: var(--text-base);
   line-height: var(--leading-normal);
   word-break: break-word;
@@ -2874,8 +2876,8 @@ select.input {
   color: var(--color-text-primary);
   border: 1px solid var(--color-primary-border);
   border-radius: 16px 4px 16px 16px;
-  padding: var(--spacing-md) var(--spacing-lg);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
+  padding: var(--spacing-sm) var(--spacing-md);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 }
 
 .chat-message-content pre {
@@ -2974,23 +2976,147 @@ select.input {
 }
 
 .chat-input-area {
-  padding: var(--spacing-sm) var(--spacing-lg);
+  padding: var(--spacing-xs) var(--spacing-md) var(--spacing-sm);
   background: var(--color-bg-secondary);
   border-top: 1px solid var(--color-border-subtle);
 }
 
 .chat-input-wrapper {
   display: flex;
-  gap: var(--spacing-sm);
-  align-items: flex-end;
+  gap: var(--spacing-xs);
+  align-items: flex-start;
+  flex-wrap: wrap;
   background: var(--color-surface-raised);
   border: 1px solid var(--color-border-default);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   padding: var(--spacing-xs);
   transition: border-color var(--duration-fast), box-shadow var(--duration-fast);
 }
+
+/* Mode chips (Canvas, MCP) — render at the start of the input wrapper so
+   the user sees what's armed for the next message. Compact, low-noise
+   when off; subtly highlighted when on. The MCP trigger inherits the
+   same look via the nested-selector overrides below. */
+.chat-input-modes {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  flex-shrink: 0;
+}
+.chat-mode-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 10px;
+  background: transparent;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 999px;
+  color: var(--color-text-muted);
+  font-family: inherit;
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background var(--duration-fast), border-color var(--duration-fast), color var(--duration-fast);
+}
+.chat-mode-chip:hover {
+  background: var(--color-bg-hover);
+  border-color: var(--color-border-default);
+  color: var(--color-text-secondary);
+}
+.chat-mode-chip:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+.chat-mode-chip-on,
+.chat-mode-chip-on:hover {
+  background: var(--color-primary-light);
+  border-color: var(--color-primary-border);
+  color: var(--color-primary);
+}
+.chat-mode-chip i {
+  font-size: 0.7rem;
+}
+.chat-mode-chip-label {
+  line-height: 1;
+}
+.chat-mode-chip-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 16px;
+  padding: 0 5px;
+  margin-left: 2px;
+  border-radius: 999px;
+  background: var(--color-primary);
+  color: var(--color-primary-text);
+  font-size: 0.65rem;
+  font-weight: 600;
+  cursor: pointer;
+  line-height: 1;
+}
+.chat-mode-chip-count:hover {
+  filter: brightness(1.1);
+}
+
+/* MCP popover sits above the chip when it's anchored to the input row
+   (otherwise it would drop off-screen). */
+.chat-input-modes .chat-mcp-dropdown-menu {
+  top: auto;
+  bottom: calc(100% + 4px);
+}
+
+/* When the MCP dropdown lives inside the modes row, make its trigger
+   match the chip aesthetic without altering the component itself. */
+.chat-input-modes .chat-mcp-dropdown > .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 10px;
+  background: transparent;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 999px;
+  color: var(--color-text-muted);
+  font-family: inherit;
+  font-size: 0.75rem;
+  font-weight: 500;
+  box-shadow: none;
+  text-transform: none;
+  letter-spacing: 0;
+  transition: background var(--duration-fast), border-color var(--duration-fast), color var(--duration-fast);
+}
+.chat-input-modes .chat-mcp-dropdown > .btn:hover {
+  background: var(--color-bg-hover);
+  border-color: var(--color-border-default);
+  color: var(--color-text-secondary);
+}
+.chat-input-modes .chat-mcp-dropdown > .btn .chat-mcp-badge {
+  background: var(--color-primary);
+  color: var(--color-primary-text);
+}
+/* Active state when at least one MCP source is selected — UnifiedMCPDropdown
+   exposes its count via .chat-mcp-badge, so we use :has() to lift the
+   chip into the "on" look. Falls back to the neutral chip look on browsers
+   without :has(). */
+.chat-input-modes .chat-mcp-dropdown > .btn:has(.chat-mcp-badge),
+.chat-input-modes .chat-mcp-dropdown > .btn:has(.chat-mcp-badge):hover {
+  background: var(--color-primary-light);
+  border-color: var(--color-primary-border);
+  color: var(--color-primary);
+}
+
+@media (max-width: 480px) {
+  .chat-mode-chip-label { display: none; }
+  .chat-mode-chip,
+  .chat-input-modes .chat-mcp-dropdown > .btn {
+    padding: 0 8px;
+  }
+}
 .chat-input-wrapper:focus-within {
   border-color: var(--color-primary);
+  box-shadow: 0 0 0 1px var(--color-primary-border);
 }
 
 .chat-attach-btn {
@@ -3009,15 +3135,17 @@ select.input {
   background: transparent;
   color: var(--color-text-primary);
   border: none;
-  padding: var(--spacing-xs) var(--spacing-sm);
+  padding: 6px var(--spacing-sm);
   font-size: 0.875rem;
   font-family: inherit;
   outline: none;
   resize: none;
-  min-height: 36px;
+  min-height: 32px;
   max-height: 200px;
   line-height: 1.5;
   overflow-y: auto;
+  /* Modern auto-grow — JS auto-grow stays as a fallback for older engines. */
+  field-sizing: content;
 }
 
 .chat-input::placeholder {
@@ -3034,9 +3162,10 @@ select.input {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   flex-shrink: 0;
+  align-self: flex-start;
   transition: background var(--duration-fast), transform var(--duration-fast);
 }
 
@@ -3062,9 +3191,10 @@ select.input {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   flex-shrink: 0;
+  align-self: flex-start;
   transition: background var(--duration-fast);
 }
 .chat-stop-btn:hover {
@@ -3201,10 +3331,12 @@ select.input {
   align-items: center;
   justify-content: center;
   flex: 1;
-  padding: var(--spacing-xl);
+  padding: var(--spacing-lg) var(--spacing-md);
   text-align: center;
-  min-height: 300px;
+  min-height: 240px;
+  gap: var(--spacing-md);
 }
+.chat-empty-state > * { margin-top: 0; margin-bottom: 0; }
 .chat-empty-icon {
   font-size: 3rem;
   color: var(--color-border-default);
@@ -3270,6 +3402,383 @@ select.input {
 }
 .chat-empty-hints i {
   font-size: 0.625rem;
+}
+
+/* Recent strip on the empty state — replaces the old persistent
+   conversation sidebar. Visible only while messages.length === 0. */
+.chat-recent-strip {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  width: 100%;
+  max-width: 720px;
+  margin-top: var(--spacing-sm);
+}
+.chat-recent-strip-label {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-text-muted);
+  text-align: left;
+}
+.chat-recent-strip-kbd {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  padding: 1px 5px;
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border-subtle);
+  text-transform: none;
+  letter-spacing: 0;
+}
+.chat-recent-strip-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--spacing-sm);
+}
+.chat-recent-strip-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color var(--duration-fast), background var(--duration-fast), transform var(--duration-fast);
+}
+.chat-recent-strip-item:hover {
+  border-color: var(--color-primary-border);
+  background: var(--color-surface-raised);
+  transform: translateY(-1px);
+}
+.chat-recent-strip-item-name {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chat-recent-strip-item-preview {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chat-recent-strip-item-time {
+  font-size: 0.6875rem;
+  color: var(--color-text-tertiary);
+  margin-top: 2px;
+}
+
+/* ChatsMenu — popover replacing the old persistent history sidebar. */
+.chats-menu {
+  position: relative;
+  display: inline-block;
+  flex-shrink: 0;
+}
+.chats-menu-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+}
+.chats-menu-trigger.active {
+  background: var(--color-primary-light);
+  border-color: var(--color-primary-border);
+  color: var(--color-primary);
+}
+.chats-menu-trigger-label {
+  font-weight: 500;
+}
+.chats-menu-trigger-kbd {
+  display: none;
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  padding: 1px 5px;
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-muted);
+  border: 1px solid var(--color-border-subtle);
+}
+@media (min-width: 640px) {
+  .chats-menu-trigger-kbd { display: inline-block; }
+}
+.chats-menu-popover {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 100;
+  width: 320px;
+  max-width: calc(100vw - var(--spacing-md) * 2);
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+  max-height: min(70vh, 520px);
+  animation: dropdownIn 120ms ease-out;
+}
+.chats-menu-search {
+  position: relative;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-bottom: 1px solid var(--color-border-divider);
+}
+.chats-menu-search-icon {
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+  pointer-events: none;
+}
+.chats-menu-search-input {
+  width: 100%;
+  padding: 6px 26px 6px 28px;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  font-size: 0.8125rem;
+  color: var(--color-text-primary);
+  outline: none;
+  transition: border-color var(--duration-fast);
+}
+.chats-menu-search-input:focus {
+  border-color: var(--color-primary-border);
+}
+.chats-menu-search-clear {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  font-size: 0.75rem;
+  padding: 2px;
+}
+.chats-menu-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--spacing-xs);
+  scrollbar-width: thin;
+}
+.chats-menu-empty {
+  padding: var(--spacing-md);
+  text-align: center;
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+}
+.chats-menu-item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  border-left: 2px solid transparent;
+  transition: background var(--duration-fast), color var(--duration-fast), border-color var(--duration-fast);
+}
+.chats-menu-item.highlighted {
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
+}
+.chats-menu-item.active {
+  color: var(--color-primary);
+  border-left-color: var(--color-primary);
+  background: var(--color-primary-light);
+}
+.chats-menu-item-icon {
+  font-size: 0.7rem;
+  margin-top: 4px;
+  color: var(--color-text-tertiary);
+  flex-shrink: 0;
+}
+.chats-menu-item-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.chats-menu-item-top {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+}
+.chats-menu-item-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+  font-size: 0.8125rem;
+}
+.chats-menu-item-spin {
+  margin-right: 6px;
+  font-size: 0.7rem;
+  opacity: 0.7;
+}
+.chats-menu-item-time {
+  font-size: 0.65rem;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.chats-menu-item-preview {
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.3;
+}
+.chats-menu-item-rename {
+  flex: 1;
+  font-size: 0.8125rem;
+  padding: 2px 4px;
+}
+.chats-menu-item-actions {
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity var(--duration-fast);
+  flex-shrink: 0;
+}
+.chats-menu-item:hover .chats-menu-item-actions,
+.chats-menu-item.highlighted .chats-menu-item-actions {
+  opacity: 1;
+}
+.chats-menu-item-actions button {
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  padding: 2px 4px;
+  font-size: 0.7rem;
+  border-radius: var(--radius-sm);
+}
+.chats-menu-item-actions button:hover {
+  color: var(--color-text-primary);
+  background: var(--color-bg-tertiary);
+}
+.chats-menu-item-actions .chats-menu-item-delete:hover {
+  color: var(--color-error);
+}
+.chats-menu-footer {
+  display: flex;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-xs);
+  border-top: 1px solid var(--color-border-divider);
+}
+.chats-menu-new {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-xs);
+}
+
+/* Mobile: popover becomes a full-width drawer anchored under the header. */
+@media (max-width: 639px) {
+  .chats-menu-popover {
+    position: fixed;
+    top: 56px;
+    left: 0;
+    right: 0;
+    width: 100%;
+    max-width: 100%;
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+    max-height: calc(100dvh - 56px);
+  }
+}
+
+/* Chat header overflow menu */
+.chat-overflow-menu {
+  position: relative;
+  display: inline-block;
+}
+.chat-overflow-trigger.active {
+  background: var(--color-primary-light);
+  border-color: var(--color-primary-border);
+  color: var(--color-primary);
+}
+.chat-overflow-popover {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 100;
+  min-width: 220px;
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  padding: var(--spacing-xs);
+  animation: dropdownIn 120ms ease-out;
+}
+.chat-overflow-item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  width: 100%;
+  padding: 6px var(--spacing-sm);
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  font: inherit;
+  font-size: 0.8125rem;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  text-align: left;
+  transition: background var(--duration-fast), color var(--duration-fast);
+}
+.chat-overflow-item:hover,
+.chat-overflow-item:focus-visible {
+  background: var(--color-bg-hover);
+  outline: none;
+}
+.chat-overflow-item-danger {
+  color: var(--color-error);
+}
+.chat-overflow-item-danger:hover {
+  background: rgba(220, 38, 38, 0.08);
+}
+.chat-overflow-icon {
+  font-size: 0.8rem;
+  width: 16px;
+  text-align: center;
+  flex-shrink: 0;
+  color: var(--color-text-secondary);
+}
+.chat-overflow-item-danger .chat-overflow-icon { color: var(--color-error); }
+.chat-overflow-label {
+  flex: 1;
+  min-width: 0;
+}
+.chat-overflow-check {
+  width: 16px;
+  flex-shrink: 0;
+  font-size: 0.75rem;
+  color: var(--color-primary);
+}
+.chat-overflow-sep {
+  height: 1px;
+  background: var(--color-border-divider);
+  margin: 4px 0;
 }
 
 /* Activity group (thinking + tools collapsed into one line) */
@@ -3485,33 +3994,72 @@ select.input {
 
 /* Chat header */
 .chat-header {
-  padding: var(--spacing-sm) var(--spacing-md);
+  padding: var(--spacing-xs) var(--spacing-md);
   border-bottom: 1px solid var(--color-border-subtle);
   display: flex;
   align-items: center;
-  gap: var(--spacing-sm);
+  gap: var(--spacing-xs);
   background: var(--color-bg-secondary);
   flex-shrink: 0;
+  min-height: 40px;
 }
 .chat-header-title {
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   font-weight: 600;
   color: var(--color-text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 200px;
+  flex: 0 1 auto;
+  min-width: 0;
+}
+.chat-header-shield {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+  color: var(--color-accent);
+  background: var(--color-accent-light);
+  flex-shrink: 0;
 }
 .chat-header-actions {
   margin-left: auto;
   display: flex;
   align-items: center;
   gap: var(--spacing-xs);
+  flex-shrink: 0;
 }
 .chat-header-actions .btn-secondary.active {
   background: var(--color-primary-light);
   border-color: var(--color-primary-border);
   color: var(--color-primary);
+}
+
+/* Focus mode: once a conversation is underway, fade non-essential
+   header chrome and pull the messages padding tighter. Hover or focus
+   on the header brings everything back; Esc removes focus mode for the
+   rest of the session. */
+.chat--focus .chat-header-title,
+.chat--focus .chat-header-shield {
+  opacity: 0.45;
+  transition: opacity var(--duration-normal) var(--ease-default);
+}
+.chat--focus .chat-header:hover .chat-header-title,
+.chat--focus .chat-header:hover .chat-header-shield,
+.chat--focus .chat-header:focus-within .chat-header-title,
+.chat--focus .chat-header:focus-within .chat-header-shield {
+  opacity: 1;
+}
+.chat--focus .chat-messages {
+  padding-top: var(--spacing-sm);
+}
+@media (prefers-reduced-motion: reduce) {
+  .chat--focus .chat-header-title,
+  .chat--focus .chat-header-shield,
+  .chat-messages { transition: none; }
 }
 /* Chat MCP dropdown */
 .chat-mcp-dropdown {
