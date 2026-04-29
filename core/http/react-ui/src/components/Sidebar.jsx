@@ -113,6 +113,19 @@ export default function Sidebar({ isOpen, onClose }) {
     fetch(apiUrl('/api/features')).then(r => r.json()).then(setFeatures).catch(() => {})
   }, [])
 
+  // Stay in sync with external collapse dispatches (e.g. the chat
+  // page's focus mode). The collapse-toggle button still owns the
+  // localStorage write — listeners only mirror state, otherwise an
+  // outside dispatch would silently overwrite the user's preference.
+  useEffect(() => {
+    const handler = (e) => {
+      const next = !!e.detail?.collapsed
+      setCollapsed(prev => (prev === next ? prev : next))
+    }
+    window.addEventListener('sidebar-collapse', handler)
+    return () => window.removeEventListener('sidebar-collapse', handler)
+  }, [])
+
   // Move focus into the drawer when opened on mobile/tablet so keyboard
   // and screen-reader users land inside the dialog. Targeting the close
   // button avoids hijacking the visual focus to a nav item the user may

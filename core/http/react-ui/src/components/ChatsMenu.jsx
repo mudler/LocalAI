@@ -22,6 +22,7 @@ const ChatsMenu = forwardRef(function ChatsMenu({
   onDelete,
   onDeleteAll,
   onRename,
+  onExport,
 }, ref) {
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
@@ -227,6 +228,15 @@ const ChatsMenu = forwardRef(function ChatsMenu({
                   >
                     <i className="fas fa-pen" />
                   </button>
+                  {(chat.history?.length || 0) > 0 && onExport && (
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); onExport(chat) }}
+                      title="Export as Markdown"
+                    >
+                      <i className="fas fa-download" />
+                    </button>
+                  )}
                   {chats.length > 1 && (
                     <button
                       type="button"

@@ -3707,78 +3707,66 @@ select.input {
   }
 }
 
-/* Chat header overflow menu */
-.chat-overflow-menu {
-  position: relative;
-  display: inline-block;
-}
-.chat-overflow-trigger.active {
-  background: var(--color-primary-light);
-  border-color: var(--color-primary-border);
-  color: var(--color-primary);
-}
-.chat-overflow-popover {
-  position: absolute;
-  top: calc(100% + 4px);
-  right: 0;
-  z-index: 100;
-  min-width: 220px;
-  background: var(--color-bg-primary);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-lg);
-  padding: var(--spacing-xs);
-  animation: dropdownIn 120ms ease-out;
-}
-.chat-overflow-item {
+/* Settings drawer — Manage mode toggle row at the top */
+.chat-settings-toggle-row {
   display: flex;
-  align-items: center;
-  gap: var(--spacing-sm);
-  width: 100%;
-  padding: 6px var(--spacing-sm);
-  background: none;
-  border: none;
-  border-radius: var(--radius-sm);
-  font: inherit;
-  font-size: 0.8125rem;
-  color: var(--color-text-primary);
-  cursor: pointer;
-  text-align: left;
-  transition: background var(--duration-fast), color var(--duration-fast);
+  align-items: flex-start;
+  gap: var(--spacing-md);
+  padding: var(--spacing-sm) 0;
+  border-bottom: 1px solid var(--color-border-divider);
+  margin-bottom: var(--spacing-sm);
 }
-.chat-overflow-item:hover,
-.chat-overflow-item:focus-visible {
-  background: var(--color-bg-hover);
-  outline: none;
-}
-.chat-overflow-item-danger {
-  color: var(--color-error);
-}
-.chat-overflow-item-danger:hover {
-  background: rgba(220, 38, 38, 0.08);
-}
-.chat-overflow-icon {
-  font-size: 0.8rem;
-  width: 16px;
-  text-align: center;
-  flex-shrink: 0;
-  color: var(--color-text-secondary);
-}
-.chat-overflow-item-danger .chat-overflow-icon { color: var(--color-error); }
-.chat-overflow-label {
+.chat-settings-toggle-text {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
-.chat-overflow-check {
-  width: 16px;
-  flex-shrink: 0;
+.chat-settings-toggle-title {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+}
+.chat-settings-toggle-title i {
+  color: var(--color-accent);
+  font-size: 0.8rem;
+}
+.chat-settings-toggle-desc {
   font-size: 0.75rem;
-  color: var(--color-primary);
+  color: var(--color-text-muted);
+  line-height: 1.4;
 }
-.chat-overflow-sep {
-  height: 1px;
-  background: var(--color-border-divider);
-  margin: 4px 0;
+
+/* Settings drawer — destructive action area at the bottom */
+.chat-settings-danger-zone {
+  margin-top: var(--spacing-md);
+  padding-top: var(--spacing-md);
+  border-top: 1px solid var(--color-border-divider);
+}
+.chat-settings-danger-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  width: 100%;
+  justify-content: center;
+  padding: 8px var(--spacing-md);
+  background: transparent;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  color: var(--color-error);
+  font-family: inherit;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background var(--duration-fast), border-color var(--duration-fast);
+}
+.chat-settings-danger-btn:hover {
+  background: rgba(220, 38, 38, 0.08);
+  border-color: var(--color-error);
 }
 
 /* Activity group (thinking + tools collapsed into one line) */

@@ -13,7 +13,6 @@ import UnifiedMCPDropdown from '../components/UnifiedMCPDropdown'
 import { loadClientMCPServers } from '../utils/mcpClientStorage'
 import ConfirmDialog from '../components/ConfirmDialog'
 import ChatsMenu from '../components/ChatsMenu'
-import ChatHeaderOverflow from '../components/ChatHeaderOverflow'
 import { useAuth } from '../context/AuthContext'
 import { useOperations } from '../hooks/useOperations'
 import { relativeTime } from '../utils/format'
@@ -336,7 +335,6 @@ export default function Chat() {
   const [focusOverride, setFocusOverride] = useState(false)
   const focusActive = isInConversation && !focusOverride
   const prevAppCollapseRef = useRef(null)
-  const focusHintShownRef = useRef(false)
 
   const artifacts = useMemo(
     () => canvasMode ? extractCodeArtifacts(activeChat?.history, 'role', 'assistant') : [],
@@ -623,20 +621,11 @@ export default function Chat() {
         } catch (_) { prevAppCollapseRef.current = false }
       }
       window.dispatchEvent(new CustomEvent('sidebar-collapse', { detail: { collapsed: true } }))
-      if (!focusHintShownRef.current) {
-        focusHintShownRef.current = true
-        try {
-          if (!localStorage.getItem('localai_chat_focus_hint_shown')) {
-            addToast('Focus mode — press Esc to show controls', 'info', 3500)
-            localStorage.setItem('localai_chat_focus_hint_shown', '1')
-          }
-        } catch (_) { /* ignore quota errors */ }
-      }
     } else if (prevAppCollapseRef.current !== null) {
       window.dispatchEvent(new CustomEvent('sidebar-collapse', { detail: { collapsed: prevAppCollapseRef.current } }))
       prevAppCollapseRef.current = null
     }
-  }, [focusActive, addToast])
+  }, [focusActive])
 
   // Global keybindings: Cmd/Ctrl+K opens the chats menu; Esc exits focus
   // mode while it is engaged (without closing any open dialogs first).
@@ -851,6 +840,7 @@ export default function Chat() {
             onDelete={deleteChat}
             onDeleteAll={promptDeleteAll}
             onRename={renameChat}
+            onExport={(chat) => exportChatAsMarkdown(chat)}
           />
           {activeChat.localaiAssistant && (
             <span
@@ -868,21 +858,23 @@ export default function Chat() {
             style={{ flex: '1 1 0', minWidth: 120 }}
           />
           <div className="chat-header-actions">
-            <ChatHeaderOverflow
-              isAdmin={isAdmin}
-              hasModel={!!activeChat.model}
-              manageMode={!!activeChat.localaiAssistant}
-              onToggleManage={(checked) => updateChatSettings(activeChat.id, { localaiAssistant: checked })}
-              onShowModelInfo={() => setShowModelInfo(prev => !prev)}
-              onEditModel={() => navigate(`/app/model-editor/${encodeURIComponent(activeChat.model)}`)}
-              onExport={() => exportChatAsMarkdown(activeChat)}
-              onClearHistory={() => clearHistory(activeChat.id)}
-            />
+            {activeChat.model && isAdmin && (
+              <button
+                type="button"
+                className={`btn btn-secondary btn-sm${showModelInfo ? ' active' : ''}`}
+                onClick={() => setShowModelInfo(prev => !prev)}
+                title="Model info"
+                aria-pressed={showModelInfo}
+                aria-controls="chat-model-info-panel"
+              >
+                <i className="fas fa-circle-info" />
+              </button>
+            )}
             <button
               type="button"
               className={`btn btn-secondary btn-sm${showSettings ? ' active' : ''}`}
               onClick={() => setShowSettings(!showSettings)}
-              title="Settings"
+              title="Chat settings"
               aria-pressed={showSettings}
             >
               <i className="fas fa-sliders-h" />
@@ -892,12 +884,24 @@ export default function Chat() {
 
         {/* Model info panel */}
         {showModelInfo && modelInfo && (
-          <div className="chat-model-info-panel">
+          <div id="chat-model-info-panel" className="chat-model-info-panel">
             <div className="chat-model-info-header">
               <span>Model Info: {activeChat.model}</span>
-              <button className="btn btn-secondary btn-sm" onClick={() => setShowModelInfo(false)}>
-                <i className="fas fa-times" />
-              </button>
+              <div style={{ display: 'flex', gap: 'var(--spacing-xs)' }}>
+                {isAdmin && activeChat.model && (
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => navigate(`/app/model-editor/${encodeURIComponent(activeChat.model)}`)}
+                    title="Edit model config"
+                  >
+                    <i className="fas fa-pen-to-square" /> Edit config
+                  </button>
+                )}
+                <button className="btn btn-secondary btn-sm" onClick={() => setShowModelInfo(false)} title="Close">
+                  <i className="fas fa-times" />
+                </button>
+              </div>
             </div>
             <div className="chat-model-info-body">
               {modelInfo.backend && <div className="chat-model-info-row"><span>Backend</span><span>{modelInfo.backend}</span></div>}
@@ -937,6 +941,26 @@ export default function Chat() {
             </button>
           </div>
           <div className="chat-settings-drawer-body">
+            {isAdmin && (
+              <div className="form-group chat-settings-toggle-row">
+                <div className="chat-settings-toggle-text">
+                  <span className="chat-settings-toggle-title">
+                    <i className="fas fa-user-shield" /> Manage mode
+                  </span>
+                  <span className="chat-settings-toggle-desc">
+                    Let this chat install models, switch backends, and edit configs by talking to LocalAI.
+                  </span>
+                </div>
+                <label className="toggle">
+                  <input
+                    type="checkbox"
+                    checked={!!activeChat.localaiAssistant}
+                    onChange={(e) => updateChatSettings(activeChat.id, { localaiAssistant: e.target.checked })}
+                  />
+                  <span className="toggle-slider" />
+                </label>
+              </div>
+            )}
             <div className="form-group">
               <label className="form-label">System Prompt</label>
               <textarea
@@ -992,6 +1016,16 @@ export default function Chat() {
                 onChange={(e) => updateChatSettings(activeChat.id, { contextSize: parseInt(e.target.value) || null })}
                 placeholder="2048"
               />
+            </div>
+            <div className="chat-settings-danger-zone">
+              <button
+                type="button"
+                className="chat-settings-danger-btn"
+                onClick={() => clearHistory(activeChat.id)}
+                title="Clear chat history"
+              >
+                <i className="fas fa-eraser" /> Clear chat history
+              </button>
             </div>
           </div>
         </div>
