@@ -126,6 +126,133 @@ var _ = Describe("VibeVoice-cpp", func() {
 			Expect(ok).To(BeFalse(), "TTSStream must close results channel even on error")
 		})
 
+		// parseOptions + slot fill is the source of the closed-loop CI
+		// regression where ModelFile=tts.gguf + Options[asr_model=...]
+		// resulted in a load with empty tts slot. These specs assert
+		// the slot resolution before we ever call into purego.
+		Describe("ModelFile slot resolution", func() {
+			It("fills tts slot from ModelFile when only asr_model is in Options", func() {
+				v := &VibevoiceCpp{}
+				v.modelRoot = "/abs/root"
+				role := v.parseOptions([]string{"asr_model=/abs/root/asr.gguf", "tokenizer=/abs/root/tokenizer.gguf"}, v.modelRoot)
+				Expect(v.asrModel).To(Equal("/abs/root/asr.gguf"))
+				Expect(v.ttsModel).To(BeEmpty())
+				Expect(role).To(BeEmpty())
+				// Mirror the Load() default-fill block:
+				if v.ttsModel == "" {
+					v.ttsModel = "/abs/root/tts.gguf"
+				}
+				Expect(v.ttsModel).To(Equal("/abs/root/tts.gguf"))
+				Expect(v.asrModel).To(Equal("/abs/root/asr.gguf"))
+			})
+
+			It("fills asr slot from ModelFile when type=asr is set", func() {
+				v := &VibevoiceCpp{}
+				v.modelRoot = "/abs/root"
+				role := v.parseOptions([]string{"type=asr", "tokenizer=/abs/root/tokenizer.gguf"}, v.modelRoot)
+				Expect(role).To(Equal("asr"))
+				Expect(v.asrModel).To(BeEmpty())
+				Expect(v.ttsModel).To(BeEmpty())
+			})
+
+			It("respects explicit tts_model override over ModelFile", func() {
+				v := &VibevoiceCpp{}
+				v.modelRoot = "/abs/root"
+				_ = v.parseOptions([]string{"tts_model=/abs/root/alt.gguf"}, v.modelRoot)
+				Expect(v.ttsModel).To(Equal("/abs/root/alt.gguf"))
+			})
+
+			It("accepts colon-separated options too", func() {
+				v := &VibevoiceCpp{}
+				v.modelRoot = "/abs/root"
+				role := v.parseOptions([]string{"type:asr", "tokenizer:/abs/root/tokenizer.gguf"}, v.modelRoot)
+				Expect(role).To(Equal("asr"))
+				Expect(v.tokenizer).To(Equal("/abs/root/tokenizer.gguf"))
+			})
+		})
+
+		// The gallery flow puts everything under <models_dir>/<entry>/,
+		// and parameters/options carry paths *relative* to <models_dir>.
+		// LocalAI core fills opts.ModelPath = <models_dir>; the backend
+		// must resolve every relative path against that root, never CWD.
+		Describe("resolvePath (relative-to-modelRoot)", func() {
+			It("joins relative path onto relTo", func() {
+				Expect(resolvePath("vibevoice-cpp/tokenizer.gguf", "/data/models")).
+					To(Equal("/data/models/vibevoice-cpp/tokenizer.gguf"))
+			})
+
+			It("passes absolute paths through unchanged", func() {
+				Expect(resolvePath("/abs/somewhere/tokenizer.gguf", "/data/models")).
+					To(Equal("/abs/somewhere/tokenizer.gguf"))
+			})
+
+			It("returns input unchanged when relTo is empty", func() {
+				Expect(resolvePath("vibevoice-cpp/tokenizer.gguf", "")).
+					To(Equal("vibevoice-cpp/tokenizer.gguf"))
+			})
+
+			It("returns empty input unchanged", func() {
+				Expect(resolvePath("", "/data/models")).To(BeEmpty())
+			})
+
+			It("does not consult CWD - bare filenames stay relative to modelRoot", func() {
+				// Even if the test runs in a directory containing a
+				// file with this name, the lookup must not fall back
+				// to CWD. This is the trap the production gallery flow
+				// would otherwise hit when LocalAI is launched from a
+				// directory that happens to contain a same-named file.
+				prev, _ := os.Getwd()
+				DeferCleanup(func() { _ = os.Chdir(prev) })
+				tmpCWD, err := os.MkdirTemp("", "vv-cwd-*")
+				Expect(err).ToNot(HaveOccurred())
+				DeferCleanup(func() { _ = os.RemoveAll(tmpCWD) })
+				Expect(os.WriteFile(filepath.Join(tmpCWD, "tokenizer.gguf"),
+					[]byte("not the real one"), 0o644)).To(Succeed())
+				Expect(os.Chdir(tmpCWD)).To(Succeed())
+
+				got := resolvePath("tokenizer.gguf", "/data/models")
+				Expect(got).To(Equal("/data/models/tokenizer.gguf"))
+			})
+		})
+
+		// Round-trip the gallery layout: relative paths in Options +
+		// an absolute ModelFile (as LocalAI core delivers them) end
+		// up resolved correctly inside the backend struct.
+		It("Load resolves relative Options paths against opts.ModelPath", func() {
+			tmpDir, err := os.MkdirTemp("", "vv-relpath-*")
+			Expect(err).ToNot(HaveOccurred())
+			DeferCleanup(func() { _ = os.RemoveAll(tmpDir) })
+
+			// Lay out the bundle exactly as the gallery would after install:
+			//   <modelpath>/vibevoice-cpp/{tts,tokenizer,voice}.gguf
+			subDir := filepath.Join(tmpDir, "vibevoice-cpp")
+			Expect(os.MkdirAll(subDir, 0o755)).To(Succeed())
+			tts := filepath.Join(subDir, "vibevoice-realtime-stub.gguf")
+			tok := filepath.Join(subDir, "tokenizer.gguf")
+			voice := filepath.Join(subDir, "voice.gguf")
+			for _, p := range []string{tts, tok, voice} {
+				Expect(os.WriteFile(p, []byte("stub"), 0o644)).To(Succeed())
+			}
+
+			// Mirror Load()'s pre-purego prefix: parse + slot fill.
+			v := &VibevoiceCpp{}
+			modelFile := tts // core delivers this as an abspath already
+			v.modelRoot = tmpDir
+			role := v.parseOptions([]string{
+				"tokenizer=vibevoice-cpp/tokenizer.gguf",
+				"voice=vibevoice-cpp/voice.gguf",
+			}, v.modelRoot)
+			Expect(role).To(BeEmpty())
+			if v.ttsModel == "" {
+				v.ttsModel = modelFile
+			}
+
+			Expect(v.ttsModel).To(Equal(tts))
+			Expect(v.tokenizer).To(Equal(tok))
+			Expect(v.voice).To(Equal(voice))
+			Expect(v.asrModel).To(BeEmpty())
+		})
+
 		It("closes the channel and errors on AudioTranscriptionStream without a loaded model", func() {
 			ch := make(chan *pb.TranscriptStreamResponse, 4)
 			err := (&VibevoiceCpp{}).AudioTranscriptionStream(&pb.TranscriptRequest{

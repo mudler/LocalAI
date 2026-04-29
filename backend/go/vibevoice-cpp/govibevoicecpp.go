@@ -46,21 +46,16 @@ type VibevoiceCpp struct {
 	voice     string
 }
 
-// resolvePath turns a relative path into an absolute one using
-// `relTo` as the search root - mirrors how sherpa-onnx resolves
-// supplementary files via filepath.Dir(opts.ModelFile).
+// resolvePath joins a relative path onto `relTo`. The gallery
+// convention is that Options[] carry paths relative to the LocalAI
+// models dir (opts.ModelPath), so anything not absolute is treated
+// as a sibling of the primary ModelFile - never CWD. Empty / already-
+// absolute / no-relTo inputs pass through unchanged.
 func resolvePath(p, relTo string) string {
-	if p == "" || filepath.IsAbs(p) {
+	if p == "" || filepath.IsAbs(p) || relTo == "" {
 		return p
 	}
-	if _, err := os.Stat(p); err == nil {
-		abs, _ := filepath.Abs(p)
-		return abs
-	}
-	if relTo != "" {
-		return filepath.Join(relTo, p)
-	}
-	return p
+	return filepath.Join(relTo, p)
 }
 
 // parseOptions reads opts.Options[] and pulls out the per-role
@@ -114,15 +109,23 @@ func (v *VibevoiceCpp) Load(opts *pb.ModelOptions) error {
 	}
 	role := v.parseOptions(opts.Options, v.modelRoot)
 
-	// If neither tts_model nor asr_model was set explicitly via Options,
-	// `type=tts|asr` decides which slot ModelFile fills. Default = tts.
-	if v.ttsModel == "" && v.asrModel == "" {
-		switch role {
-		case "asr", "transcript", "stt", "speech-to-text":
+	// ModelFile fills the "primary" role-slot determined by `type=`
+	// in Options (defaults to tts). The other slot stays exactly as
+	// Options set it - so a closed-loop config with ModelFile=tts.gguf
+	// + Options[asr_model=asr.gguf] resolves correctly to both slots,
+	// and an explicit `tts_model=` / `asr_model=` always wins over
+	// ModelFile for its own slot.
+	primaryIsASR := false
+	switch role {
+	case "asr", "transcript", "stt", "speech-to-text":
+		primaryIsASR = true
+	}
+	if primaryIsASR {
+		if v.asrModel == "" {
 			v.asrModel = modelFile
-		default:
-			v.ttsModel = modelFile
 		}
+	} else if v.ttsModel == "" {
+		v.ttsModel = modelFile
 	}
 
 	if v.ttsModel == "" && v.asrModel == "" {
