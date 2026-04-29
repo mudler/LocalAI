@@ -446,6 +446,25 @@ var _ = Describe("API test", func() {
 				Expect(sc).To(Equal(200), "status code")
 				Expect(string(body)).To(ContainSubstring(`<base href="https://example.org/myprefix/" />`), "body")
 			})
+
+			// Caddy's `handle_path` (and similar directives) strip the matched
+			// prefix before forwarding upstream, so LocalAI receives the
+			// already-stripped path together with X-Forwarded-Prefix. The base
+			// href and asset URLs must still include the prefix so the browser
+			// requests them through the proxy.
+			It("Should support reverse-proxy when prefix is stripped by the proxy", func() {
+
+				err, sc, body := getRequest("http://127.0.0.1:9090/app", http.Header{
+					"X-Forwarded-Proto":  {"https"},
+					"X-Forwarded-Host":   {"example.org"},
+					"X-Forwarded-Prefix": {"/myprefix"},
+				})
+				Expect(err).To(BeNil(), "error")
+				Expect(sc).To(Equal(200), "status code")
+				Expect(string(body)).To(ContainSubstring(`<base href="https://example.org/myprefix/" />`), "body")
+				Expect(string(body)).ToNot(ContainSubstring(`="/assets/`), "asset URLs must include the prefix")
+				Expect(string(body)).ToNot(ContainSubstring(`="/favicon.svg"`), "favicon URL must include the prefix")
+			})
 		})
 
 		Context("Applying models", func() {

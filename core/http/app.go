@@ -443,6 +443,17 @@ func API(application *application.Application) (*echo.Echo, error) {
 					baseTag := `<base href="` + httpMiddleware.SecureBaseHref(baseURL) + `" />`
 					indexHTML = []byte(strings.Replace(string(indexHTML), "<head>", "<head>\n  "+baseTag, 1))
 				}
+				// <base href> only changes how relative URLs resolve; path-absolute
+				// URLs (those starting with `/`) still resolve against the origin
+				// and would bypass the reverse-proxy prefix. Rewrite the internal
+				// path-absolute references emitted by the build so the browser
+				// requests them through the proxy under the prefix.
+				if prefix := httpMiddleware.BasePathPrefix(c); prefix != "/" {
+					html := string(indexHTML)
+					html = strings.ReplaceAll(html, `="/assets/`, `="`+prefix+`assets/`)
+					html = strings.ReplaceAll(html, `="/favicon.svg"`, `="`+prefix+`favicon.svg"`)
+					indexHTML = []byte(html)
+				}
 				return c.HTMLBlob(http.StatusOK, indexHTML)
 			}
 
