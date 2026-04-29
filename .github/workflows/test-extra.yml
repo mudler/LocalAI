@@ -849,16 +849,36 @@ jobs:
       - name: Build vibevoice-cpp backend image and run TTS gRPC e2e tests
         run: |
           make test-extra-backend-vibevoice-cpp-tts
-  # NOTE: there is no separate tests-vibevoice-cpp-grpc-transcription
-  # job. The vibevoice ASR model is 7B params and Q4_K weights are
-  # ~10 GB on disk; running an end-to-end transcription against a 30 s
-  # WAV on a free 4-core ubuntu-latest runner blows past the 30 min
-  # `go test -timeout` and the runner's free disk budget. The
-  # per-backend `tests-vibevoice-cpp` job above already exercises the
-  # AudioTranscription path via the closed-loop TTS->ASR Ginkgo spec
-  # (in-process gRPC), which is the same wire surface but a single
-  # process. The Make target test-extra-backend-vibevoice-cpp-transcription
-  # is kept for local invocation on workstations that can afford it.
+  # End-to-end transcription via the e2e-backends gRPC harness. The
+  # vibevoice ASR is a 7B-param model (Q4_K weights ~10 GB on disk)
+  # and the JFK 30 s decode is too heavy for a free 4-core
+  # ubuntu-latest pool runner - two CI attempts got SIGTERM'd during
+  # LoadModel, before the test could even progress. Use the
+  # self-hosted 'bigger-runner' label (same one the GPU image builds
+  # in backend.yml use) and the documented dotnet/ghc/android cache
+  # purge to clear ~10-20 GB of headroom for the model + Docker
+  # image + working dir.
+  tests-vibevoice-cpp-grpc-transcription:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.vibevoice-cpp == 'true' || needs.detect-changes.outputs.run-all == 'true'
+    runs-on: bigger-runner
+    timeout-minutes: 150
+    steps:
+      - name: Clone
+        uses: actions/checkout@v6
+        with:
+          submodules: true
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.4'
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android /opt/hostedtoolcache/CodeQL || true
+          df -h
+      - name: Build vibevoice-cpp backend image and run ASR gRPC e2e tests
+        run: |
+          make test-extra-backend-vibevoice-cpp-transcription
   tests-voxtral:
     needs: detect-changes
     if: needs.detect-changes.outputs.voxtral == 'true' || needs.detect-changes.outputs.run-all == 'true'
