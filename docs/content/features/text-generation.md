@@ -713,6 +713,14 @@ engine_args:
   attention_backend: TRITON_ATTN
 ```
 
+#### Multi-node data parallelism
+
+`engine_args.data_parallel_size > 1` combined with the
+`local-ai p2p-worker vllm` follower lets a single model span multiple
+GPU nodes. See [vLLM Multi-Node (Data-Parallel)]({{% relref
+"/docs/features/distributed-mode#vllm-multi-node-data-parallel" %}})
+for the head/follower configuration and a worked Kimi-K2.6 example.
+
 ### Transformers
 
 [Transformers](https://huggingface.co/docs/transformers/index) is a State-of-the-art Machine Learning library for PyTorch, TensorFlow, and JAX.

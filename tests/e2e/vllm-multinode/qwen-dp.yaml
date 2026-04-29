@@ -1,0 +1,14 @@
+name: qwen-dp
+backend: vllm
+parameters:
+  model: Qwen/Qwen2.5-0.5B-Instruct
+context_size: 4096
+trust_remote_code: true
+template:
+  use_tokenizer_template: true
+engine_args:
+  data_parallel_size: 2
+  data_parallel_size_local: 1
+  data_parallel_address: localai-head
+  data_parallel_rpc_port: 32100
+  enforce_eager: true

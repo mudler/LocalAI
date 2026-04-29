@@ -594,6 +594,14 @@ test-extra-backend-vllm: docker-build-vllm
 	BACKEND_TEST_OPTIONS=tool_parser:hermes \
 	$(MAKE) test-extra-backend
 
+## vllm multi-node data-parallel smoke test. Runs LocalAI head + a
+## `local-ai p2p-worker vllm` follower in docker compose against
+## Qwen2.5-0.5B with data_parallel_size=2. Requires 2 NVIDIA GPUs and
+## nvidia-container-runtime on the host — vLLM v1's DP coordinator is
+## not viable on CPU so this cannot run in CI without GPU.
+test-extra-backend-vllm-multinode:
+	./tests/e2e/vllm-multinode/smoke.sh
+
 ## tinygrad mirrors the vllm target (same model, same caps, same parser) so
 ## the two backends are directly comparable. The LLM path covers Predict,
 ## streaming and native tool-call extraction. Companion targets below cover
