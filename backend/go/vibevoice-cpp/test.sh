@@ -25,9 +25,13 @@ if [ -z "$VIBEVOICE_MODEL_DIR" ]; then
         REPO_ID="mudler/vibevoice.cpp-models"
         echo "Repository: ${REPO_ID}"
 
+        # Q4_K instead of Q8_0 for the ASR model: smaller download
+        # (10 GB vs 14 GB), fits on ubuntu-latest's free disk after the
+        # runner image is loaded. The unit/closed-loop test only needs
+        # decode quality, not Q8_0 precision.
         FILES=(
             "vibevoice-realtime-0.5B-q8_0.gguf"
-            "vibevoice-asr-q8_0.gguf"
+            "vibevoice-asr-q4_k.gguf"
             "tokenizer.gguf"
             "voice-en-Carter_man.gguf"
         )

@@ -1695,23 +1695,23 @@
     - https://github.com/mudler/vibevoice.cpp
     - https://github.com/microsoft/VibeVoice
   description: |
-    VibeVoice ASR 7B (C++ / GGML, Q8_0) - long-form speech-to-text with speaker
+    VibeVoice ASR 7B (C++ / GGML, Q4_K) - long-form speech-to-text with speaker
     diarization. Returns per-speaker JSON segments with start/end timestamps.
-    English-only.
+    English-only. ~10 GB download.
   overrides:
     name: vibevoice-cpp-asr
     backend: vibevoice-cpp
     parameters:
-      model: vibevoice-cpp-asr/vibevoice-asr-q8_0.gguf
+      model: vibevoice-cpp-asr/vibevoice-asr-q4_k.gguf
     options:
       - type=asr
       - tokenizer=vibevoice-cpp-asr/tokenizer.gguf
     known_usecases:
       - transcript
   files:
-    - filename: vibevoice-cpp-asr/vibevoice-asr-q8_0.gguf
-      uri: huggingface://mudler/vibevoice.cpp-models/vibevoice-asr-q8_0.gguf
-      sha256: 39ddded77a094a1fad9031fbaaee04943d7906d314d51161976bf393cca343d6
+    - filename: vibevoice-cpp-asr/vibevoice-asr-q4_k.gguf
+      uri: huggingface://mudler/vibevoice.cpp-models/vibevoice-asr-q4_k.gguf
+      sha256: 4eee48b9d0d42f71b773b804aa6728c99971c38d54f3c86cf1fd0fc1fc49a9ad
     - filename: vibevoice-cpp-asr/tokenizer.gguf
       uri: huggingface://mudler/vibevoice.cpp-models/tokenizer.gguf
       sha256: 37dc3b722d5677e37e29a57df55aa05c485116eeb5459e57ff8dde616b4986f6

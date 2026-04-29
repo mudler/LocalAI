@@ -847,10 +847,12 @@ test-extra-backend-vibevoice-cpp-tts: docker-build-vibevoice-cpp
 
 ## VibeVoice ASR (long-form, with diarization). type=asr tells the
 ## backend's Load() to slot ModelFile into the asr_model role; the
-## tokenizer is supplied via Options[].
+## tokenizer is supplied via Options[]. Uses the Q4_K quant (~10 GB)
+## rather than Q8_0 (~14 GB) so the bundle fits inside ubuntu-latest's
+## post-image disk budget.
 test-extra-backend-vibevoice-cpp-transcription: docker-build-vibevoice-cpp
 	BACKEND_IMAGE=local-ai-backend:vibevoice-cpp \
-	BACKEND_TEST_MODEL_URL='https://huggingface.co/mudler/vibevoice.cpp-models/resolve/main/vibevoice-asr-q8_0.gguf#vibevoice-asr-q8_0.gguf' \
+	BACKEND_TEST_MODEL_URL='https://huggingface.co/mudler/vibevoice.cpp-models/resolve/main/vibevoice-asr-q4_k.gguf#vibevoice-asr-q4_k.gguf' \
 	BACKEND_TEST_EXTRA_FILES='https://huggingface.co/mudler/vibevoice.cpp-models/resolve/main/tokenizer.gguf#tokenizer.gguf' \
 	BACKEND_TEST_AUDIO_URL=https://github.com/ggml-org/whisper.cpp/raw/master/samples/jfk.wav \
 	BACKEND_TEST_OPTIONS=type:asr,tokenizer:tokenizer.gguf \

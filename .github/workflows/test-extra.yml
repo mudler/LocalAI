@@ -851,12 +851,14 @@ jobs:
           make test-extra-backend-vibevoice-cpp-tts
   # End-to-end transcription via the e2e-backends gRPC harness. Builds
   # the vibevoice-cpp Docker image and drives Backend/AudioTranscription
-  # against it with the JFK reference WAV.
+  # against it with the JFK reference WAV. ASR is the heaviest spec
+  # (10 GB Q4_K download + CPU decode of 30 s of audio), so a 90 min
+  # timeout was too tight on free runners - bump to 150 min.
   tests-vibevoice-cpp-grpc-transcription:
     needs: detect-changes
     if: needs.detect-changes.outputs.vibevoice-cpp == 'true' || needs.detect-changes.outputs.run-all == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 150
     steps:
       - name: Clone
         uses: actions/checkout@v6
