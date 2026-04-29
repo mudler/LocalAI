@@ -181,6 +181,23 @@ var _ = Describe("LlamaCPPImporter", func() {
 			Expect(modelConfig.Files[0].Filename).To(Equal("my-model.gguf"))
 		})
 
+		It("swaps the emitted backend to buun-llama-cpp when preferred", func() {
+			preferences := json.RawMessage(`{"backend": "buun-llama-cpp"}`)
+			details := Details{
+				URI:         "https://example.com/my-model.gguf",
+				Preferences: preferences,
+			}
+
+			modelConfig, err := importer.Import(details)
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(modelConfig.ConfigFile).To(ContainSubstring("backend: buun-llama-cpp"), fmt.Sprintf("Model config: %+v", modelConfig))
+			Expect(modelConfig.ConfigFile).NotTo(ContainSubstring("backend: llama-cpp\n"), fmt.Sprintf("Model config: %+v", modelConfig))
+			Expect(modelConfig.ConfigFile).To(ContainSubstring("model: my-model.gguf"), fmt.Sprintf("Model config: %+v", modelConfig))
+			Expect(len(modelConfig.Files)).To(Equal(1))
+			Expect(modelConfig.Files[0].Filename).To(Equal("my-model.gguf"))
+		})
+
 		It("keeps backend: llama-cpp for unknown backend preferences", func() {
 			// Unknown backend values must not leak into the emitted YAML —
 			// we only honour the two curated drop-in replacements.
@@ -375,7 +392,7 @@ var _ = Describe("LlamaCPPImporter", func() {
 	})
 
 	Context("AdditionalBackends", func() {
-		It("advertises ik-llama-cpp and turboquant as drop-in replacements", func() {
+		It("advertises ik-llama-cpp, turboquant, and buun-llama-cpp as drop-in replacements", func() {
 			entries := importer.AdditionalBackends()
 
 			names := make([]string, 0, len(entries))
@@ -384,7 +401,7 @@ var _ = Describe("LlamaCPPImporter", func() {
 				names = append(names, e.Name)
 				byName[e.Name] = e
 			}
-			Expect(names).To(ConsistOf("ik-llama-cpp", "turboquant"))
+			Expect(names).To(ConsistOf("ik-llama-cpp", "turboquant", "buun-llama-cpp"))
 
 			ik := byName["ik-llama-cpp"]
 			Expect(ik.Modality).To(Equal("text"))
@@ -393,6 +410,10 @@ var _ = Describe("LlamaCPPImporter", func() {
 			tq := byName["turboquant"]
 			Expect(tq.Modality).To(Equal("text"))
 			Expect(tq.Description).NotTo(BeEmpty())
+
+			bn := byName["buun-llama-cpp"]
+			Expect(bn.Modality).To(Equal("text"))
+			Expect(bn.Description).NotTo(BeEmpty())
 		})
 	})
 })

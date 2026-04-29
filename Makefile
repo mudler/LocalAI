@@ -1,5 +1,5 @@
 # Disable parallel execution for backend builds
-.NOTPARALLEL: backends/diffusers backends/llama-cpp backends/turboquant backends/outetts backends/piper backends/stablediffusion-ggml backends/whisper backends/faster-whisper backends/silero-vad backends/local-store backends/huggingface backends/rfdetr backends/insightface backends/speaker-recognition backends/kitten-tts backends/kokoro backends/chatterbox backends/llama-cpp-darwin backends/neutts build-darwin-python-backend build-darwin-go-backend backends/mlx backends/diffuser-darwin backends/mlx-vlm backends/mlx-audio backends/mlx-distributed backends/stablediffusion-ggml-darwin backends/vllm backends/vllm-omni backends/sglang backends/moonshine backends/pocket-tts backends/qwen-tts backends/faster-qwen3-tts backends/qwen-asr backends/nemo backends/voxcpm backends/whisperx backends/ace-step backends/acestep-cpp backends/fish-speech backends/voxtral backends/opus backends/trl backends/llama-cpp-quantization backends/kokoros backends/sam3-cpp backends/qwen3-tts-cpp backends/tinygrad backends/sherpa-onnx
+.NOTPARALLEL: backends/diffusers backends/llama-cpp backends/turboquant backends/buun-llama-cpp backends/outetts backends/piper backends/stablediffusion-ggml backends/whisper backends/faster-whisper backends/silero-vad backends/local-store backends/huggingface backends/rfdetr backends/insightface backends/speaker-recognition backends/kitten-tts backends/kokoro backends/chatterbox backends/llama-cpp-darwin backends/neutts build-darwin-python-backend build-darwin-go-backend backends/mlx backends/diffuser-darwin backends/mlx-vlm backends/mlx-audio backends/mlx-distributed backends/stablediffusion-ggml-darwin backends/vllm backends/vllm-omni backends/sglang backends/moonshine backends/pocket-tts backends/qwen-tts backends/faster-qwen3-tts backends/qwen-asr backends/nemo backends/voxcpm backends/whisperx backends/ace-step backends/acestep-cpp backends/fish-speech backends/voxtral backends/opus backends/trl backends/llama-cpp-quantization backends/kokoros backends/sam3-cpp backends/qwen3-tts-cpp backends/tinygrad backends/sherpa-onnx
 
 GOCMD=go
 GOTEST=$(GOCMD) test
@@ -554,6 +554,19 @@ test-extra-backend-turboquant: docker-build-turboquant
 	BACKEND_TEST_CACHE_TYPE_V=turbo3 \
 	$(MAKE) test-extra-backend
 
+## buun-llama-cpp: exercises the fork-of-a-fork backend (spiritbuun/buun-llama-cpp)
+## with the *TurboQuant/TCQ-specific* KV-cache types (turbo3 for V). Same rationale
+## as turboquant above: picking a standard llama.cpp type would only re-test the
+## shared code path. buun inherits turboquant's turbo2/turbo3/turbo4 and adds
+## turbo2_tcq / turbo3_tcq on top. DFlash speculative decoding is not exercised
+## here because no small DFlash drafter model exists (the known public pair is
+## Qwen3.5-27B, ~54 GB).
+test-extra-backend-buun-llama-cpp: docker-build-buun-llama-cpp
+	BACKEND_IMAGE=local-ai-backend:buun-llama-cpp \
+	BACKEND_TEST_CACHE_TYPE_K=q8_0 \
+	BACKEND_TEST_CACHE_TYPE_V=turbo3 \
+	$(MAKE) test-extra-backend
+
 ## Audio transcription wrapper for the llama-cpp backend.
 ## Drives the new AudioTranscription / AudioTranscriptionStream RPCs against
 ## ggml-org/Qwen3-ASR-0.6B-GGUF (a small ASR model that requires its mmproj
@@ -958,6 +971,11 @@ BACKEND_IK_LLAMA_CPP = ik-llama-cpp|ik-llama-cpp|.|false|false
 # turboquant is a llama.cpp fork with TurboQuant KV-cache quantization.
 # Reuses backend/cpp/llama-cpp grpc-server sources via a thin wrapper Makefile.
 BACKEND_TURBOQUANT = turboquant|turboquant|.|false|false
+# buun-llama-cpp is a fork-of-a-fork (spiritbuun/buun-llama-cpp forks
+# TheTom/llama-cpp-turboquant) that adds DFlash block-diffusion speculative
+# decoding and extra TCQ KV-cache variants on top of TurboQuant. Same thin
+# wrapper pattern as turboquant — reuses backend/cpp/llama-cpp grpc-server.
+BACKEND_BUUN_LLAMA_CPP = buun-llama-cpp|buun-llama-cpp|.|false|false
 
 # Golang backends
 BACKEND_PIPER = piper|golang|.|false|true
@@ -1038,6 +1056,7 @@ endef
 $(eval $(call generate-docker-build-target,$(BACKEND_LLAMA_CPP)))
 $(eval $(call generate-docker-build-target,$(BACKEND_IK_LLAMA_CPP)))
 $(eval $(call generate-docker-build-target,$(BACKEND_TURBOQUANT)))
+$(eval $(call generate-docker-build-target,$(BACKEND_BUUN_LLAMA_CPP)))
 $(eval $(call generate-docker-build-target,$(BACKEND_PIPER)))
 $(eval $(call generate-docker-build-target,$(BACKEND_LOCAL_STORE)))
 $(eval $(call generate-docker-build-target,$(BACKEND_HUGGINGFACE)))
@@ -1089,7 +1108,7 @@ $(eval $(call generate-docker-build-target,$(BACKEND_SHERPA_ONNX)))
 docker-save-%: backend-images
 	docker save local-ai-backend:$* -o backend-images/$*.tar
 
-docker-build-backends: docker-build-llama-cpp docker-build-ik-llama-cpp docker-build-turboquant docker-build-rerankers docker-build-vllm docker-build-vllm-omni docker-build-sglang docker-build-transformers docker-build-outetts docker-build-diffusers docker-build-kokoro docker-build-faster-whisper docker-build-coqui docker-build-chatterbox docker-build-vibevoice docker-build-moonshine docker-build-pocket-tts docker-build-qwen-tts docker-build-fish-speech docker-build-faster-qwen3-tts docker-build-qwen-asr docker-build-nemo docker-build-voxcpm docker-build-whisperx docker-build-ace-step docker-build-acestep-cpp docker-build-voxtral docker-build-mlx-distributed docker-build-trl docker-build-llama-cpp-quantization docker-build-tinygrad docker-build-kokoros docker-build-sam3-cpp docker-build-qwen3-tts-cpp docker-build-insightface docker-build-speaker-recognition docker-build-sherpa-onnx
+docker-build-backends: docker-build-llama-cpp docker-build-ik-llama-cpp docker-build-turboquant docker-build-buun-llama-cpp docker-build-rerankers docker-build-vllm docker-build-vllm-omni docker-build-sglang docker-build-transformers docker-build-outetts docker-build-diffusers docker-build-kokoro docker-build-faster-whisper docker-build-coqui docker-build-chatterbox docker-build-vibevoice docker-build-moonshine docker-build-pocket-tts docker-build-qwen-tts docker-build-fish-speech docker-build-faster-qwen3-tts docker-build-qwen-asr docker-build-nemo docker-build-voxcpm docker-build-whisperx docker-build-ace-step docker-build-acestep-cpp docker-build-voxtral docker-build-mlx-distributed docker-build-trl docker-build-llama-cpp-quantization docker-build-tinygrad docker-build-kokoros docker-build-sam3-cpp docker-build-qwen3-tts-cpp docker-build-insightface docker-build-speaker-recognition docker-build-sherpa-onnx
 
 ########################################################
 ### Mock Backend for E2E Tests

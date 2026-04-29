@@ -37,6 +37,14 @@ var CacheTypeOptions = []FieldOption{
 	{Value: "q4_1", Label: "Q4_1"},
 	{Value: "q5_0", Label: "Q5_0"},
 	{Value: "q5_1", Label: "Q5_1"},
+	// TurboQuant KV-cache types — accepted by the turboquant and
+	// buun-llama-cpp fork backends; stock llama-cpp will reject them at load.
+	{Value: "turbo2", Label: "Turbo2 (TurboQuant)"},
+	{Value: "turbo3", Label: "Turbo3 (TurboQuant)"},
+	{Value: "turbo4", Label: "Turbo4 (TurboQuant)"},
+	// Trellis-Coded Quantization variants — buun-llama-cpp only.
+	{Value: "turbo2_tcq", Label: "Turbo2 TCQ (buun-llama-cpp)"},
+	{Value: "turbo3_tcq", Label: "Turbo3 TCQ (buun-llama-cpp)"},
 }
 
 var DiffusersPipelineOptions = []FieldOption{

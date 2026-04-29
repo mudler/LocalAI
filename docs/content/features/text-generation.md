@@ -632,6 +632,83 @@ The `cache_type_k` / `cache_type_v` fields map to llama.cpp's `-ctk` / `-ctv` fl
 - [Tracked branch: `feature/turboquant-kv-cache`](https://github.com/TheTom/llama-cpp-turboquant/tree/feature/turboquant-kv-cache)
 
 
+### buun-llama-cpp (DFlash speculative decoding + TurboQuant/TCQ KV-cache)
+
+[buun-llama-cpp](https://github.com/spiritbuun/buun-llama-cpp) is a fork-of-a-fork: spiritbuun forked `TheTom/llama-cpp-turboquant` (the `turboquant` backend above) and added two independent features on top:
+
+1. **DFlash** — a block-diffusion speculative decoding scheme that uses a dedicated drafter model (new `DFlashDraftModel` GGUF architecture). On a target/drafter pair it emits a block of tokens per speculation step and can be combined with tree-structured verification ("DDTree") for multi-branch draft expansion.
+2. **TCQ (Trellis-Coded Quantization)** — two additional KV-cache types (`turbo2_tcq`, `turbo3_tcq`) on top of the TurboQuant `turbo2` / `turbo3` / `turbo4` already shipped by the parent fork, delivering 10–44% KL reduction over scalar quantization at 2–3 bits per value.
+
+Like `turboquant`, this backend shares LocalAI's stock `llama-cpp` gRPC server sources — so any GGUF model that runs on `llama-cpp` also runs on `buun-llama-cpp`. Pick it over `turboquant` specifically when you want DFlash speculative decoding or the newer TCQ KV-cache variants.
+
+#### Features
+
+- Drop-in GGUF compatibility with upstream `llama.cpp`.
+- DFlash block-diffusion speculative decoding (CUDA/Metal; no CPU fallback).
+- TurboQuant KV-cache types (`turbo2`, `turbo3`, `turbo4`) inherited from the parent `turboquant` fork, plus buun-exclusive `turbo2_tcq` and `turbo3_tcq` variants.
+- Same feature surface as `llama-cpp`: text generation, embeddings, tool calls, multimodal via mmproj.
+- Available on CPU (AVX/AVX2/AVX512/fallback), NVIDIA CUDA 12/13, AMD ROCm/HIP, Intel SYCL f32/f16, Vulkan, and NVIDIA L4T — but note that DFlash and `turbo*` KV types have no CPU fallback and error at model-load on CPU-only builds.
+
+#### Setup
+
+`buun-llama-cpp` ships as a separate container image in the LocalAI backend gallery. Install it like any other backend:
+
+```bash
+local-ai backends install buun-llama-cpp
+```
+
+Or pick a specific flavor for your hardware (example tags: `cpu-buun-llama-cpp`, `cuda12-buun-llama-cpp`, `cuda13-buun-llama-cpp`, `rocm-buun-llama-cpp`, `intel-sycl-f16-buun-llama-cpp`, `vulkan-buun-llama-cpp`).
+
+#### YAML configuration — TCQ KV-cache
+
+To run a model with TurboQuant/TCQ quantized KV-cache, set the backend and pick a `turbo*` cache type:
+
+```yaml
+name: my-model
+backend: buun-llama-cpp
+parameters:
+  model: file.gguf
+# Accepted values for the two fork-aware backends include the stock llama.cpp
+# types (f16, f32, q8_0, q4_0, q4_1, q5_0, q5_1), the TurboQuant types
+# (turbo2, turbo3, turbo4), and the buun-only TCQ variants (turbo2_tcq,
+# turbo3_tcq). turbo3 / turbo4 / turbo*_tcq auto-enable flash_attention.
+cache_type_k: turbo3
+cache_type_v: turbo3_tcq
+context_size: 8192
+```
+
+#### YAML configuration — DFlash speculative decoding
+
+DFlash requires a **dedicated drafter model** in the new `DFlashDraftModel` GGUF architecture. At time of writing the only known public target/drafter pair is [`z-lab/Qwen3.5-27B`](https://huggingface.co/z-lab/Qwen3.5-27B) + [`z-lab/Qwen3.5-27B-DFlash`](https://huggingface.co/z-lab/Qwen3.5-27B-DFlash).
+
+```yaml
+name: qwen3-dflash
+backend: buun-llama-cpp
+parameters:
+  # Target model (quantized as usual)
+  model: Qwen3.5-27B-Q4_K_M.gguf
+# Drafter model produced by buun's convert_hf_to_gguf.py from the
+# DFlashDraftModel checkpoint. Resolved relative to the models path.
+draft_model: Qwen3.5-27B-DFlash.gguf
+options:
+  # Switches the speculative pipeline from the default draft-model mode to
+  # DFlash (block-diffusion). Required to activate the DFlash code path.
+  - spec_type:dflash
+  # Optional tuning:
+  # - tree_budget:0      # 0 = flat DFlash; >0 = DDTree verification budget
+  # - draft_topk:1       # drafter top-K per position (1 = argmax)
+  # - spec_n_max:16      # cap on draft tokens per speculation step
+```
+
+Under the hood LocalAI wires `draft_model` through to the grpc-server's `params.speculative.mparams_dft.path`, and `spec_type:dflash` is forwarded through the options passthrough to buun's `common_speculative_type_from_name("dflash")`. The `tree_budget` and `draft_topk` options are buun-exclusive; they reference struct fields that only exist in buun's fork, so they're surfaced on this backend only (passing them to stock `llama-cpp` is a no-op).
+
+#### Reference
+
+- [spiritbuun/buun-llama-cpp](https://github.com/spiritbuun/buun-llama-cpp)
+- [TCQ paper / dataset](https://huggingface.co/datasets/spiritbuun/turboquant-tcq-kv-cache) — *"Closing the Gap: Trellis-Coded Quantization for KV Cache at 2-3 Bits"*
+- DFlash target/drafter pair: [`z-lab/Qwen3.5-27B`](https://huggingface.co/z-lab/Qwen3.5-27B) + [`z-lab/Qwen3.5-27B-DFlash`](https://huggingface.co/z-lab/Qwen3.5-27B-DFlash)
+
+
 ### vLLM
 
 [vLLM](https://github.com/vllm-project/vllm) is a fast and easy-to-use library for LLM inference.

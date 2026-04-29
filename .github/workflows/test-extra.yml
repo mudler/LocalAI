@@ -32,6 +32,7 @@ jobs:
       llama-cpp: ${{ steps.detect.outputs.llama-cpp }}
       ik-llama-cpp: ${{ steps.detect.outputs.ik-llama-cpp }}
       turboquant: ${{ steps.detect.outputs.turboquant }}
+      buun-llama-cpp: ${{ steps.detect.outputs['buun-llama-cpp'] }}
       vllm: ${{ steps.detect.outputs.vllm }}
       sglang: ${{ steps.detect.outputs.sglang }}
       acestep-cpp: ${{ steps.detect.outputs.acestep-cpp }}
@@ -640,6 +641,30 @@ jobs:
       - name: Build turboquant backend image and run gRPC e2e tests
         run: |
           make test-extra-backend-turboquant
+  tests-buun-llama-cpp-grpc:
+    needs: detect-changes
+    if: needs.detect-changes.outputs['buun-llama-cpp'] == 'true' || needs.detect-changes.outputs.run-all == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Clone
+        uses: actions/checkout@v6
+        with:
+          submodules: true
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.4'
+      # Exercises the buun-llama-cpp (fork-of-a-fork) backend with the
+      # fork-specific TurboQuant/TCQ KV-cache types. BACKEND_TEST_CACHE_TYPE_V
+      # is set to turbo3 so the test round-trips through the fork's KV
+      # allow-list — picking a stock llama.cpp type would only re-test the
+      # shared code path. DFlash speculative decoding is not exercised here
+      # because the one known public target/drafter pair (Qwen3.5-27B) is too
+      # large for CI.
+      - name: Build buun-llama-cpp backend image and run gRPC e2e tests
+        run: |
+          make test-extra-backend-buun-llama-cpp
   # tests-vllm-grpc is currently disabled in CI.
   #
   # The prebuilt vllm CPU wheel is compiled with AVX-512 VNNI/BF16

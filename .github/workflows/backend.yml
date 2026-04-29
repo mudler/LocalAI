@@ -404,6 +404,19 @@ jobs:
             cuda-minor-version: "8"
             platforms: 'linux/amd64'
             tag-latest: 'auto'
+            tag-suffix: '-gpu-nvidia-cuda-12-buun-llama-cpp'
+            runs-on: 'bigger-runner'
+            base-image: "ubuntu:24.04"
+            skip-drivers: 'false'
+            backend: "buun-llama-cpp"
+            dockerfile: "./backend/Dockerfile.buun-llama-cpp"
+            context: "./"
+            ubuntu-version: '2404'
+          - build-type: 'cublas'
+            cuda-major-version: "12"
+            cuda-minor-version: "8"
+            platforms: 'linux/amd64'
+            tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-vllm'
             runs-on: 'arc-runner-set'
             base-image: "ubuntu:24.04"
@@ -897,6 +910,19 @@ jobs:
           - build-type: 'cublas'
             cuda-major-version: "13"
             cuda-minor-version: "0"
+            platforms: 'linux/amd64'
+            tag-latest: 'auto'
+            tag-suffix: '-gpu-nvidia-cuda-13-buun-llama-cpp'
+            runs-on: 'ubuntu-latest'
+            base-image: "ubuntu:24.04"
+            skip-drivers: 'false'
+            backend: "buun-llama-cpp"
+            dockerfile: "./backend/Dockerfile.buun-llama-cpp"
+            context: "./"
+            ubuntu-version: '2404'
+          - build-type: 'cublas'
+            cuda-major-version: "13"
+            cuda-minor-version: "0"
             platforms: 'linux/arm64'
             skip-drivers: 'false'
             tag-latest: 'auto'
@@ -919,6 +945,19 @@ jobs:
             ubuntu-version: '2404'
             backend: "turboquant"
             dockerfile: "./backend/Dockerfile.turboquant"
+            context: "./"
+          - build-type: 'cublas'
+            cuda-major-version: "13"
+            cuda-minor-version: "0"
+            platforms: 'linux/arm64'
+            skip-drivers: 'false'
+            tag-latest: 'auto'
+            tag-suffix: '-nvidia-l4t-cuda-13-arm64-buun-llama-cpp'
+            base-image: "ubuntu:24.04"
+            runs-on: 'ubuntu-24.04-arm'
+            ubuntu-version: '2404'
+            backend: "buun-llama-cpp"
+            dockerfile: "./backend/Dockerfile.buun-llama-cpp"
             context: "./"
           - build-type: 'cublas'
             cuda-major-version: "13"
@@ -1524,6 +1563,19 @@ jobs:
             cuda-minor-version: ""
             platforms: 'linux/amd64'
             tag-latest: 'auto'
+            tag-suffix: '-gpu-rocm-hipblas-buun-llama-cpp'
+            runs-on: 'ubuntu-latest'
+            base-image: "rocm/dev-ubuntu-24.04:7.2.1"
+            skip-drivers: 'false'
+            backend: "buun-llama-cpp"
+            dockerfile: "./backend/Dockerfile.buun-llama-cpp"
+            context: "./"
+            ubuntu-version: '2404'
+          - build-type: 'hipblas'
+            cuda-major-version: ""
+            cuda-minor-version: ""
+            platforms: 'linux/amd64'
+            tag-latest: 'auto'
             tag-suffix: '-gpu-rocm-hipblas-vllm'
             runs-on: 'arc-runner-set'
             base-image: "rocm/dev-ubuntu-24.04:7.2.1"
@@ -1768,6 +1820,19 @@ jobs:
             dockerfile: "./backend/Dockerfile.turboquant"
             context: "./"
             ubuntu-version: '2404'
+          - build-type: 'sycl_f32'
+            cuda-major-version: ""
+            cuda-minor-version: ""
+            platforms: 'linux/amd64'
+            tag-latest: 'auto'
+            tag-suffix: '-gpu-intel-sycl-f32-buun-llama-cpp'
+            runs-on: 'ubuntu-latest'
+            base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
+            skip-drivers: 'false'
+            backend: "buun-llama-cpp"
+            dockerfile: "./backend/Dockerfile.buun-llama-cpp"
+            context: "./"
+            ubuntu-version: '2404'
           - build-type: 'sycl_f16'
             cuda-major-version: ""
             cuda-minor-version: ""
@@ -1792,6 +1857,19 @@ jobs:
             skip-drivers: 'false'
             backend: "turboquant"
             dockerfile: "./backend/Dockerfile.turboquant"
+            context: "./"
+            ubuntu-version: '2404'
+          - build-type: 'sycl_f16'
+            cuda-major-version: ""
+            cuda-minor-version: ""
+            platforms: 'linux/amd64'
+            tag-latest: 'auto'
+            tag-suffix: '-gpu-intel-sycl-f16-buun-llama-cpp'
+            runs-on: 'ubuntu-latest'
+            base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
+            skip-drivers: 'false'
+            backend: "buun-llama-cpp"
+            dockerfile: "./backend/Dockerfile.buun-llama-cpp"
             context: "./"
             ubuntu-version: '2404'
           - build-type: 'intel'
@@ -2202,6 +2280,19 @@ jobs:
           - build-type: ''
             cuda-major-version: ""
             cuda-minor-version: ""
+            platforms: 'linux/amd64,linux/arm64'
+            tag-latest: 'auto'
+            tag-suffix: '-cpu-buun-llama-cpp'
+            runs-on: 'bigger-runner'
+            base-image: "ubuntu:24.04"
+            skip-drivers: 'false'
+            backend: "buun-llama-cpp"
+            dockerfile: "./backend/Dockerfile.buun-llama-cpp"
+            context: "./"
+            ubuntu-version: '2404'
+          - build-type: ''
+            cuda-major-version: ""
+            cuda-minor-version: ""
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-cpu-ik-llama-cpp'
@@ -2238,6 +2329,19 @@ jobs:
             dockerfile: "./backend/Dockerfile.turboquant"
             context: "./"
             ubuntu-version: '2204'
+          - build-type: 'cublas'
+            cuda-major-version: "12"
+            cuda-minor-version: "0"
+            platforms: 'linux/arm64'
+            skip-drivers: 'false'
+            tag-latest: 'auto'
+            tag-suffix: '-nvidia-l4t-arm64-buun-llama-cpp'
+            base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
+            runs-on: 'ubuntu-24.04-arm'
+            backend: "buun-llama-cpp"
+            dockerfile: "./backend/Dockerfile.buun-llama-cpp"
+            context: "./"
+            ubuntu-version: '2204'
           - build-type: 'vulkan'
             cuda-major-version: ""
             cuda-minor-version: ""
@@ -2262,6 +2366,19 @@ jobs:
             skip-drivers: 'false'
             backend: "turboquant"
             dockerfile: "./backend/Dockerfile.turboquant"
+            context: "./"
+            ubuntu-version: '2404'
+          - build-type: 'vulkan'
+            cuda-major-version: ""
+            cuda-minor-version: ""
+            platforms: 'linux/amd64,linux/arm64'
+            tag-latest: 'auto'
+            tag-suffix: '-gpu-vulkan-buun-llama-cpp'
+            runs-on: 'bigger-runner'
+            base-image: "ubuntu:24.04"
+            skip-drivers: 'false'
+            backend: "buun-llama-cpp"
+            dockerfile: "./backend/Dockerfile.buun-llama-cpp"
             context: "./"
             ubuntu-version: '2404'
           # Stablediffusion-ggml
