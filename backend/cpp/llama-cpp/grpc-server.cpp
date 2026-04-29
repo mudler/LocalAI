@@ -442,7 +442,7 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
 
     // Draft model for speculative decoding
     if (!request->draftmodel().empty()) {
-        params.speculative.mparams_dft.path = request->draftmodel();
+        params.speculative.draft.mparams.path = request->draftmodel();
         // Default to draft type if a draft model is set but no explicit type
         if (params.speculative.type == COMMON_SPECULATIVE_TYPE_NONE) {
             params.speculative.type = COMMON_SPECULATIVE_TYPE_DRAFT;
@@ -679,39 +679,39 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
             }
         } else if (!strcmp(optname, "spec_n_max") || !strcmp(optname, "draft_max")) {
             if (optval != NULL) {
-                try { params.speculative.n_max = std::stoi(optval_str); } catch (...) {}
+                try { params.speculative.draft.n_max = std::stoi(optval_str); } catch (...) {}
             }
         } else if (!strcmp(optname, "spec_n_min") || !strcmp(optname, "draft_min")) {
             if (optval != NULL) {
-                try { params.speculative.n_min = std::stoi(optval_str); } catch (...) {}
+                try { params.speculative.draft.n_min = std::stoi(optval_str); } catch (...) {}
             }
         } else if (!strcmp(optname, "spec_p_min") || !strcmp(optname, "draft_p_min")) {
             if (optval != NULL) {
-                try { params.speculative.p_min = std::stof(optval_str); } catch (...) {}
+                try { params.speculative.draft.p_min = std::stof(optval_str); } catch (...) {}
             }
         } else if (!strcmp(optname, "spec_p_split")) {
             if (optval != NULL) {
-                try { params.speculative.p_split = std::stof(optval_str); } catch (...) {}
+                try { params.speculative.draft.p_split = std::stof(optval_str); } catch (...) {}
             }
         } else if (!strcmp(optname, "spec_ngram_size_n") || !strcmp(optname, "ngram_size_n")) {
             if (optval != NULL) {
-                try { params.speculative.ngram_size_n = (uint16_t)std::stoi(optval_str); } catch (...) {}
+                try { params.speculative.ngram_simple.size_n = (uint16_t)std::stoi(optval_str); } catch (...) {}
             }
         } else if (!strcmp(optname, "spec_ngram_size_m") || !strcmp(optname, "ngram_size_m")) {
             if (optval != NULL) {
-                try { params.speculative.ngram_size_m = (uint16_t)std::stoi(optval_str); } catch (...) {}
+                try { params.speculative.ngram_simple.size_m = (uint16_t)std::stoi(optval_str); } catch (...) {}
             }
         } else if (!strcmp(optname, "spec_ngram_min_hits") || !strcmp(optname, "ngram_min_hits")) {
             if (optval != NULL) {
-                try { params.speculative.ngram_min_hits = (uint16_t)std::stoi(optval_str); } catch (...) {}
+                try { params.speculative.ngram_simple.min_hits = (uint16_t)std::stoi(optval_str); } catch (...) {}
             }
         } else if (!strcmp(optname, "draft_gpu_layers")) {
             if (optval != NULL) {
-                try { params.speculative.n_gpu_layers = std::stoi(optval_str); } catch (...) {}
+                try { params.speculative.draft.n_gpu_layers = std::stoi(optval_str); } catch (...) {}
             }
         } else if (!strcmp(optname, "draft_ctx_size")) {
             if (optval != NULL) {
-                try { params.speculative.n_ctx = std::stoi(optval_str); } catch (...) {}
+                try { params.speculative.draft.n_ctx = std::stoi(optval_str); } catch (...) {}
             }
         }
     }
@@ -933,8 +933,8 @@ public:
             if (!params.mmproj.path.empty()) {
                 error_msg += " (with mmproj: " + params.mmproj.path + ")";
             }
-            if (params.speculative.has_dft() && !params.speculative.mparams_dft.path.empty()) {
-                error_msg += " (with draft model: " + params.speculative.mparams_dft.path + ")";
+            if (params.speculative.has_dft() && !params.speculative.draft.mparams.path.empty()) {
+                error_msg += " (with draft model: " + params.speculative.draft.mparams.path + ")";
             }
             
             // Add captured error details if available
