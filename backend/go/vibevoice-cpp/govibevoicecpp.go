@@ -236,8 +236,8 @@ func (v *VibevoiceCpp) TTSStream(req *pb.TTSRequest, results chan []byte) error 
 		return fmt.Errorf("vibevoice-cpp: tempfile: %w", err)
 	}
 	dst := tmp.Name()
-	tmp.Close()
-	defer os.Remove(dst)
+	_ = tmp.Close()
+	defer func() { _ = os.Remove(dst) }()
 
 	if err := v.TTS(&pb.TTSRequest{
 		Text:     req.Text,

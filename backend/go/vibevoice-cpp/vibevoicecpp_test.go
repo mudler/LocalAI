@@ -148,7 +148,7 @@ var _ = Describe("VibeVoice-cpp", func() {
 		It("answers Health checks", func() {
 			cmd = startServer()
 			conn := dialGRPC()
-			defer conn.Close()
+			defer func() { _ = conn.Close() }()
 
 			resp, err := pb.NewBackendClient(conn).Health(context.Background(), &pb.HealthMessage{})
 			Expect(err).ToNot(HaveOccurred())
@@ -164,7 +164,7 @@ var _ = Describe("VibeVoice-cpp", func() {
 
 			cmd = startServer()
 			conn := dialGRPC()
-			defer conn.Close()
+			defer func() { _ = conn.Close() }()
 
 			resp, err := pb.NewBackendClient(conn).LoadModel(context.Background(), &pb.ModelOptions{
 				ModelFile: tts[0],
@@ -185,12 +185,12 @@ var _ = Describe("VibeVoice-cpp", func() {
 
 			tmpDir, err := os.MkdirTemp("", "vibevoice-cpp-closedloop-*")
 			Expect(err).ToNot(HaveOccurred())
-			DeferCleanup(func() { os.RemoveAll(tmpDir) })
+			DeferCleanup(func() { _ = os.RemoveAll(tmpDir) })
 			wav := filepath.Join(tmpDir, "say.wav")
 
 			cmd = startServer()
 			conn := dialGRPC()
-			defer conn.Close()
+			defer func() { _ = conn.Close() }()
 			client := pb.NewBackendClient(conn)
 
 			tok := filepath.Join(dir, "tokenizer.gguf")
