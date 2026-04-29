@@ -1,4 +1,4 @@
-package vllmmultinode_test
+package distributed_test
 
 import (
 	"bytes"
@@ -20,6 +20,26 @@ import (
 	"github.com/testcontainers/testcontainers-go/wait"
 )
 
+// vLLM data-parallel deployment config served by the head. KV cache is
+// trimmed because the CPU smoke runs two engines on one box and the
+// prebuilt wheel auto-sizes KV to fill RAM otherwise.
+const qwenDPYAML = `name: qwen-dp
+backend: vllm
+parameters:
+  model: Qwen/Qwen2.5-0.5B-Instruct
+context_size: 512
+trust_remote_code: true
+template:
+  use_tokenizer_template: true
+engine_args:
+  data_parallel_size: 2
+  data_parallel_size_local: 1
+  data_parallel_address: localai-head
+  data_parallel_rpc_port: 32100
+  enforce_eager: true
+  max_model_len: 512
+`
+
 // End-to-end smoke for `local-ai p2p-worker vllm`. Two containers from
 // the locally-built `local-ai:tests` image — head + headless follower
 // — share a docker network and a backend bind-mount (so the cpu-vllm
@@ -33,18 +53,14 @@ import (
 //   - `local-ai:tests` image built (docker-build-e2e)
 //   - `local-backends/vllm/` populated (extract-backend-vllm)
 //   - LOCALAI_VLLM_BACKEND_DIR env var pointing at the extracted dir
-var _ = Describe("vLLM multi-node DP on CPU", Ordered, Label("VLLMMultinode"), func() {
-	var (
-		head     testcontainers.Container
-		follower testcontainers.Container
-		baseURL  string
-	)
+var _ = Describe("vLLM multi-node DP on CPU", Ordered, Label("Distributed", "VLLMMultinode"), func() {
+	var baseURL string
 
 	BeforeAll(func() {
 		ctx := context.Background()
 
-		image := envOrDefault("LOCALAI_IMAGE", "local-ai")
-		tag := envOrDefault("LOCALAI_IMAGE_TAG", "tests")
+		image := vllmEnvOrDefault("LOCALAI_IMAGE", "local-ai")
+		tag := vllmEnvOrDefault("LOCALAI_IMAGE_TAG", "tests")
 		imageRef := fmt.Sprintf("%s:%s", image, tag)
 
 		// LOCALAI_VLLM_BACKEND_DIR is set by the dedicated
@@ -65,9 +81,9 @@ var _ = Describe("vLLM multi-node DP on CPU", Ordered, Label("VLLMMultinode"), f
 		// here. Stable gitignored path under local-backends/ so the
 		// container's root-owned writes don't trip Ginkgo's TempDir
 		// cleanup, and successive runs reuse the ~1 GB download.
-		configDir := filepath.Join(testdataDir(), "..", "..", "..", "local-backends", "vllm-multinode-state")
+		configDir := filepath.Join(thisFileDir(), "..", "..", "..", "local-backends", "vllm-multinode-state")
 		Expect(os.MkdirAll(configDir, 0o755)).To(Succeed())
-		stageFile(filepath.Join(testdataDir(), "qwen-dp.yaml"), filepath.Join(configDir, "qwen-dp.yaml"))
+		Expect(os.WriteFile(filepath.Join(configDir, "qwen-dp.yaml"), []byte(qwenDPYAML), 0o644)).To(Succeed())
 
 		net, err := network.New(ctx)
 		Expect(err).ToNot(HaveOccurred())
@@ -85,7 +101,7 @@ var _ = Describe("vLLM multi-node DP on CPU", Ordered, Label("VLLMMultinode"), f
 		// Head: rank 0, serves the OpenAI API. We wait briefly for the
 		// HTTP port to bind (so MappedPort returns), then poll /readyz
 		// with a long budget for the model load + DP handshake.
-		head, err = testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
+		head, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 			ContainerRequest: testcontainers.ContainerRequest{
 				Image:        imageRef,
 				ExposedPorts: []string{"8080/tcp"},
@@ -97,10 +113,11 @@ var _ = Describe("vLLM multi-node DP on CPU", Ordered, Label("VLLMMultinode"), f
 					// available RAM otherwise and OOM-kills with two
 					// ranks sharing a 32 GB box.
 					"VLLM_CPU_KVCACHE_SPACE": "1",
-					// vllm-cpu's warmup calls torch._inductor which
-					// JITs a probe via g++; the LocalAI runtime image
-					// has no compiler. Force eager fall-back.
-					"TORCH_COMPILE_DISABLE": "1",
+					// The backend dir is bind-mounted from the host;
+					// without this, Python writes .pyc files into
+					// __pycache__ as root and `rm -rf local-backends/`
+					// fails on the next `make extract-backend-vllm`.
+					"PYTHONDONTWRITEBYTECODE": "1",
 				},
 				Networks:       []string{net.Name},
 				NetworkAliases: map[string][]string{net.Name: {"localai-head"}},
@@ -114,7 +131,7 @@ var _ = Describe("vLLM multi-node DP on CPU", Ordered, Label("VLLMMultinode"), f
 						Target: "/models",
 					}),
 				LogConsumerCfg: &testcontainers.LogConsumerConfig{
-					Consumers: []testcontainers.LogConsumer{&prefixedLogConsumer{prefix: "head"}},
+					Consumers: []testcontainers.LogConsumer{&vllmLogConsumer{prefix: "head"}},
 				},
 				WaitingFor: wait.ForListeningPort("8080/tcp").WithStartupTimeout(2 * time.Minute),
 			},
@@ -127,7 +144,7 @@ var _ = Describe("vLLM multi-node DP on CPU", Ordered, Label("VLLMMultinode"), f
 
 		// Follower: rank 1, headless. Speaks ZMQ directly to the head
 		// rank — no LocalAI gRPC; `p2p-worker vllm` exec's vllm serve.
-		follower, err = testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
+		follower, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 			ContainerRequest: testcontainers.ContainerRequest{
 				Image: imageRef,
 				Cmd: []string{
@@ -142,13 +159,13 @@ var _ = Describe("vLLM multi-node DP on CPU", Ordered, Label("VLLMMultinode"), f
 					"--vllm-arg=--max-model-len=512",
 				},
 				Env: map[string]string{
-					"VLLM_CPU_KVCACHE_SPACE": "1",
-					"TORCH_COMPILE_DISABLE":  "1",
+					"VLLM_CPU_KVCACHE_SPACE":  "1",
+					"PYTHONDONTWRITEBYTECODE": "1",
 				},
 				Networks: []string{net.Name},
 				Mounts:   commonMounts,
 				LogConsumerCfg: &testcontainers.LogConsumerConfig{
-					Consumers: []testcontainers.LogConsumer{&prefixedLogConsumer{prefix: "follower"}},
+					Consumers: []testcontainers.LogConsumer{&vllmLogConsumer{prefix: "follower"}},
 				},
 			},
 			Started: true,
@@ -204,39 +221,25 @@ var _ = Describe("vLLM multi-node DP on CPU", Ordered, Label("VLLMMultinode"), f
 	})
 })
 
-type prefixedLogConsumer struct {
+type vllmLogConsumer struct {
 	prefix string
 }
 
-func (l *prefixedLogConsumer) Accept(log testcontainers.Log) {
+func (l *vllmLogConsumer) Accept(log testcontainers.Log) {
 	_, _ = GinkgoWriter.Write([]byte("[" + l.prefix + "] " + string(log.Content)))
 }
 
-func envOrDefault(key, def string) string {
+func vllmEnvOrDefault(key, def string) string {
 	if v := os.Getenv(key); v != "" {
 		return v
 	}
 	return def
 }
 
-// testdataDir returns the directory of this test file so the test can
+// thisFileDir returns the directory of this test file so the test can
 // be run from any working directory (`go test ./...` from the repo
 // root is the common case).
-func testdataDir() string {
+func thisFileDir() string {
 	_, file, _, _ := runtime.Caller(0)
 	return filepath.Dir(file)
-}
-
-func stageFile(src, dst string) {
-	GinkgoHelper()
-	in, err := os.Open(src)
-	Expect(err).ToNot(HaveOccurred())
-	defer in.Close()
-
-	out, err := os.Create(dst)
-	Expect(err).ToNot(HaveOccurred())
-	defer out.Close()
-
-	_, err = io.Copy(out, in)
-	Expect(err).ToNot(HaveOccurred())
 }

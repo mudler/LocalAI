@@ -236,13 +236,15 @@ run-e2e-aio: protogen-go
 # cpu-vllm backend from the current working tree, then drives a
 # head + headless follower via testcontainers-go and asserts a chat
 # completion. BuildKit caches both images, so re-runs only rebuild
-# what changed.
+# what changed. The test lives under tests/e2e/distributed and is
+# selected by the VLLMMultinode label so it doesn't run alongside
+# the other distributed-suite tests by default.
 test-e2e-vllm-multinode: docker-build-e2e extract-backend-vllm protogen-go
 	@echo 'Running e2e vLLM multi-node DP test'
 	LOCALAI_IMAGE=local-ai \
 	LOCALAI_IMAGE_TAG=tests \
 	LOCALAI_VLLM_BACKEND_DIR=$(abspath ./local-backends/vllm) \
-	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter='VLLMMultinode' -v -r ./tests/e2e/vllm-multinode
+	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter='VLLMMultinode' -v -r ./tests/e2e/distributed
 
 ########################################################
 ## E2E tests
