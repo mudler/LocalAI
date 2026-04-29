@@ -1,8 +1,10 @@
 package model
 
 import (
+	"fmt"
 	"reflect"
 	"sort"
+	"sync"
 	"testing"
 	"time"
 )
@@ -137,4 +139,71 @@ func TestSubscribe_PerReplicaFilter(t *testing.T) {
 		t.Fatalf("replica-scoped sub leaked line from replica 1: %q", line.Text)
 	case <-time.After(50 * time.Millisecond):
 	}
+}
+
+// TestSubscribe_NoRaceOnUnsubscribe pins the panic CI hit:
+// the aggregated fan-in goroutine sending on the merged channel
+// raced with unsubscribe closing it. Hammer AppendLine concurrently
+// with Subscribe + unsubscribe + Remove to make sure neither
+// "send on closed channel" nor "close of closed channel" panics
+// can resurface. The race detector should catch any regression.
+func TestSubscribe_NoRaceOnUnsubscribe(t *testing.T) {
+	s := NewBackendLogStore(100)
+
+	// Pre-create replica buffers so Subscribe finds them.
+	for r := 0; r < 3; r++ {
+		s.AppendLine(fmt.Sprintf("model-x#%d", r), "stderr", "preload")
+	}
+
+	stop := make(chan struct{})
+	var wg sync.WaitGroup
+
+	// Writers — keep the per-buffer channels under constant pressure.
+	for r := 0; r < 3; r++ {
+		wg.Add(1)
+		go func(r int) {
+			defer wg.Done()
+			id := fmt.Sprintf("model-x#%d", r)
+			for {
+				select {
+				case <-stop:
+					return
+				default:
+					s.AppendLine(id, "stderr", "burst")
+				}
+			}
+		}(r)
+	}
+
+	// Subscribers — repeatedly Subscribe and unsubscribe while writers run.
+	for w := 0; w < 4; w++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for i := 0; i < 200; i++ {
+				ch, unsubscribe := s.Subscribe("model-x")
+				// Drain a couple of lines, then unsubscribe.
+				select {
+				case <-ch:
+				case <-time.After(2 * time.Millisecond):
+				}
+				unsubscribe()
+			}
+		}()
+	}
+
+	// Buffer reaper — exercises the Remove path while subscribers are live.
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for i := 0; i < 50; i++ {
+			s.Remove("model-x#0")
+			s.AppendLine("model-x#0", "stderr", "respawn")
+			time.Sleep(time.Millisecond)
+		}
+	}()
+
+	time.Sleep(150 * time.Millisecond)
+	close(stop)
+	wg.Wait()
 }
