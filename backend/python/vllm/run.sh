@@ -22,7 +22,14 @@ if [ "${1:-}" = "serve" ]; then
     if [ -d "${EDIR}/lib" ]; then
         export LD_LIBRARY_PATH="${EDIR}/lib:${LD_LIBRARY_PATH:-}"
     fi
-    exec "${EDIR}/venv/bin/vllm" "$@"
+    # Run the vllm console script through the venv python rather than
+    # exec-ing it directly. uv bakes an absolute shebang at install time
+    # (e.g. `#!/vllm/venv/bin/python3` from the build image) which
+    # doesn't exist once the backend is relocated to BackendsPath, and
+    # _makeVenvPortable's shebang rewriter only matches paths that
+    # already point at ${EDIR}. Invoking python with the script as an
+    # argument bypasses the shebang entirely.
+    exec "${EDIR}/venv/bin/python" "${EDIR}/venv/bin/vllm" "$@"
 fi
 
 startBackend $@

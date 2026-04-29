@@ -2,7 +2,7 @@ name: qwen-dp
 backend: vllm
 parameters:
   model: Qwen/Qwen2.5-0.5B-Instruct
-context_size: 4096
+context_size: 512
 trust_remote_code: true
 template:
   use_tokenizer_template: true
@@ -12,3 +12,8 @@ engine_args:
   data_parallel_address: localai-head
   data_parallel_rpc_port: 32100
   enforce_eager: true
+  # Trims the KV cache footprint per rank — the CPU smoke test runs
+  # two engines on one host and the prebuilt wheel auto-sizes KV
+  # cache to fill RAM otherwise. Plenty for "say pong" prompts; bump
+  # for any real workload.
+  max_model_len: 512
