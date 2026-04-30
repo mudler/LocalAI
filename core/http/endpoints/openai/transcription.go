@@ -138,9 +138,43 @@ func TranscriptEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, app
 			return c.String(http.StatusOK, schema.TranscriptionResponse(tr, responseFormat))
 		case schema.TranscriptionResponseFormatJson:
 			tr.Segments = nil
+			tr.Words = nil
 			fallthrough
 		case schema.TranscriptionResponseFormatJsonVerbose, "": // maintain backwards compatibility
-			return c.JSON(http.StatusOK, tr)
+			trs := schema.TranscriptionResultSeconds{
+				Text:     tr.Text,
+				Language: tr.Language,
+				Duration: tr.Duration,
+				Words:    []schema.TranscriptionWordSeconds{},
+				Segments: []schema.TranscriptionSegmentSeconds{},
+			}
+			for _, word := range(tr.Words) {
+				trs.Words = append(trs.Words, schema.TranscriptionWordSeconds{
+					Start: word.Start.Seconds(),
+					End:   word.End.Seconds(),
+					Text:  word.Text,
+				})
+			}
+			for _, seg := range(tr.Segments) {
+				segWords := []schema.TranscriptionWordSeconds{}
+				for _, word := range(seg.Words) {
+					segWords = append(segWords, schema.TranscriptionWordSeconds{
+						Start: word.Start.Seconds(),
+						End:   word.End.Seconds(),
+						Text:  word.Text,
+					})
+				}
+				trs.Segments = append(trs.Segments, schema.TranscriptionSegmentSeconds{
+				  Id:      seg.Id,
+					Start:   seg.Start.Seconds(),
+					End:     seg.End.Seconds(),
+					Text:    seg.Text,
+					Tokens:  seg.Tokens,
+					Speaker: seg.Speaker,
+					Words:   segWords,
+				})
+			}
+			return c.JSON(http.StatusOK, trs)
 		default:
 			return errors.New("invalid response_format")
 		}

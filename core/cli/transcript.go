@@ -81,14 +81,48 @@ func (t *TranscriptCMD) Run(ctx *cliContext.Context) error {
 		fmt.Println(schema.TranscriptionResponse(tr, t.ResponseFormat))
 	case schema.TranscriptionResponseFormatJson:
 		tr.Segments = nil
+		tr.Words = nil
 		fallthrough
 	case schema.TranscriptionResponseFormatJsonVerbose:
+		trs := schema.TranscriptionResultSeconds{
+			Text:     tr.Text,
+			Language: tr.Language,
+			Duration: tr.Duration,
+			Words:    []schema.TranscriptionWordSeconds{},
+			Segments: []schema.TranscriptionSegmentSeconds{},
+		}
+		for _, word := range(tr.Words) {
+			trs.Words = append(trs.Words, schema.TranscriptionWordSeconds{
+				Start: word.Start.Seconds(),
+				End:   word.End.Seconds(),
+				Text:  word.Text,
+			})
+		}
+		for _, seg := range(tr.Segments) {
+			segWords := []schema.TranscriptionWordSeconds{}
+			for _, word := range(seg.Words) {
+				segWords = append(segWords, schema.TranscriptionWordSeconds{
+					Start: word.Start.Seconds(),
+					End:   word.End.Seconds(),
+					Text:  word.Text,
+				})
+			}
+			trs.Segments = append(trs.Segments, schema.TranscriptionSegmentSeconds{
+			  Id:      seg.Id,
+				Start:   seg.Start.Seconds(),
+				End:     seg.End.Seconds(),
+				Text:    seg.Text,
+				Tokens:  seg.Tokens,
+				Speaker: seg.Speaker,
+				Words:   segWords,
+			})
+		}
 		var mtr []byte
 		var err error
 		if t.PrettyPrint {
-			mtr, err = json.MarshalIndent(tr, "", "    ")
+			mtr, err = json.MarshalIndent(trs, "", "    ")
 		} else {
-			mtr, err = json.Marshal(tr)
+			mtr, err = json.Marshal(trs)
 		}
 		if err != nil {
 			return err

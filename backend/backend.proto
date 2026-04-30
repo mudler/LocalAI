@@ -350,6 +350,12 @@ message TranscriptStreamResponse {
   TranscriptResult final_result = 2;
 }
 
+message TranscriptWord {
+  int64 start = 1;
+  int64 end = 2;
+  string text = 3;
+}
+
 message TranscriptSegment {
   int32 id = 1;
   int64 start = 2;
@@ -357,6 +363,7 @@ message TranscriptSegment {
   string text = 4;
   repeated int32 tokens = 5;
   string speaker = 6;
+  repeated TranscriptWord words = 7;
 }
 
 message GenerateImageRequest {

@@ -179,10 +179,21 @@ func transcriptResultFromProto(r *proto.TranscriptResult) *schema.TranscriptionR
 		Language: r.Language,
 		Duration: float64(r.Duration),
 	}
+
 	for _, s := range r.Segments {
 		var tks []int
 		for _, t := range s.Tokens {
 			tks = append(tks, int(t))
+		}
+		var words []schema.TranscriptionWord
+		for _, w := range s.Words {
+			var word = schema.TranscriptionWord {
+				Start: time.Duration(w.Start),
+				End:   time.Duration(w.End),
+				Text:  w.Text,
+			}
+			words    = append(words, word)
+			tr.Words = append(tr.Words, word)
 		}
 		tr.Segments = append(tr.Segments,
 			schema.TranscriptionSegment{
@@ -192,6 +203,7 @@ func transcriptResultFromProto(r *proto.TranscriptResult) *schema.TranscriptionR
 				End:     time.Duration(s.End),
 				Tokens:  tks,
 				Speaker: s.Speaker,
+				Words:   words,
 			})
 	}
 	return tr
