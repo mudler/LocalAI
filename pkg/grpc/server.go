@@ -354,6 +354,18 @@ func (s *server) TokenizeString(ctx context.Context, in *pb.PredictOptions) (*pb
 	}, err
 }
 
+func (s *server) Detokenize(ctx context.Context, in *pb.DetokenizeRequest) (*pb.DetokenizeResponse, error) {
+	if s.llm.Locking() {
+		s.llm.Lock()
+		defer s.llm.Unlock()
+	}
+	res, err := s.llm.Detokenize(in)
+	if err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
 func (s *server) Status(ctx context.Context, in *pb.HealthMessage) (*pb.StatusResponse, error) {
 	res, err := s.llm.Status()
 	if err != nil {

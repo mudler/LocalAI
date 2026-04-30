@@ -136,6 +136,10 @@ func (f *fakeGRPCBackend) TokenizeString(_ context.Context, _ *pb.PredictOptions
 	return &pb.TokenizationResponse{}, nil
 }
 
+func (f *fakeGRPCBackend) Detokenize(_ context.Context, _ *pb.DetokenizeRequest, _ ...ggrpc.CallOption) (*pb.DetokenizeResponse, error) {
+	return &pb.DetokenizeResponse{}, nil
+}
+
 func (f *fakeGRPCBackend) Status(_ context.Context) (*pb.StatusResponse, error) {
 	return &pb.StatusResponse{}, nil
 }

@@ -196,6 +196,9 @@ func (c *fakeBackendClient) AudioTranscriptionStream(_ context.Context, _ *pb.Tr
 func (c *fakeBackendClient) TokenizeString(_ context.Context, _ *pb.PredictOptions, _ ...ggrpc.CallOption) (*pb.TokenizationResponse, error) {
 	return nil, nil
 }
+func (c *fakeBackendClient) Detokenize(_ context.Context, _ *pb.DetokenizeRequest, _ ...ggrpc.CallOption) (*pb.DetokenizeResponse, error) {
+	return nil, nil
+}
 func (c *fakeBackendClient) Status(_ context.Context) (*pb.StatusResponse, error) {
 	return nil, nil
 }

@@ -31,6 +31,7 @@ type AIModel interface {
 	TTSStream(*pb.TTSRequest, chan []byte) error
 	SoundGeneration(*pb.SoundGenerationRequest) error
 	TokenizeString(*pb.PredictOptions) (pb.TokenizationResponse, error)
+	Detokenize(*pb.DetokenizeRequest) (pb.DetokenizeResponse, error)
 	Status() (pb.StatusResponse, error)
 
 	StoresSet(*pb.StoresSetOptions) error
