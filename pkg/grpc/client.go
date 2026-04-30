@@ -420,6 +420,29 @@ func (c *Client) TokenizeString(ctx context.Context, in *pb.PredictOptions, opts
 	return res, nil
 }
 
+func (c *Client) Detokenize(ctx context.Context, in *pb.DetokenizeRequest, opts ...grpc.CallOption) (*pb.DetokenizeResponse, error) {
+	if !c.parallel {
+		c.opMutex.Lock()
+		defer c.opMutex.Unlock()
+	}
+	c.setBusy(true)
+	defer c.setBusy(false)
+	c.wdMark()
+	defer c.wdUnMark()
+	conn, err := c.dial()
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+	client := pb.NewBackendClient(conn)
+
+	res, err := client.Detokenize(ctx, in, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return res, nil
+}
+
 func (c *Client) Status(ctx context.Context) (*pb.StatusResponse, error) {
 	if !c.parallel {
 		c.opMutex.Lock()
