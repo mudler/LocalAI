@@ -34,6 +34,9 @@ else ifeq ($(BUILD_TYPE),hipblas)
 	export CXX=$(ROCM_HOME)/llvm/bin/clang++
 	export CC=$(ROCM_HOME)/llvm/bin/clang
 	AMDGPU_TARGETS?=gfx908,gfx90a,gfx942,gfx950,gfx1030,gfx1100,gfx1101,gfx1102,gfx1151,gfx1200,gfx1201
+ifeq ($(strip $(AMDGPU_TARGETS)),)
+$(error AMDGPU_TARGETS is empty — set it to a comma-separated list of gfx targets e.g. gfx1100,gfx1101)
+endif
 	CMAKE_ARGS+=-DGGML_HIP=ON -DAMDGPU_TARGETS=$(AMDGPU_TARGETS)
 else ifeq ($(BUILD_TYPE),vulkan)
 	CMAKE_ARGS+=-DGGML_VULKAN=1
