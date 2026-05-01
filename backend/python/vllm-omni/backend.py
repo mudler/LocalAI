@@ -19,6 +19,7 @@ import base64
 import io
 import json
 import gc
+import tempfile
 
 from PIL import Image
 import torch
@@ -117,7 +118,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         # Try base64 decode
         try:
             timestamp = str(int(time.time() * 1000))
-            p = f"/tmp/vl-{timestamp}.data"
+            p = os.path.join(tempfile.gettempdir(), f"vl-{timestamp}.data")
             with open(p, "wb") as f:
                 f.write(base64.b64decode(video_path))
             video = VideoAsset(name=p).np_ndarrays
@@ -137,7 +138,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             audio_data = base64.b64decode(audio_path)
             # Save to temp file and load
             timestamp = str(int(time.time() * 1000))
-            p = f"/tmp/audio-{timestamp}.wav"
+            p = os.path.join(tempfile.gettempdir(), f"audio-{timestamp}.wav")
             with open(p, "wb") as f:
                 f.write(audio_data)
             audio_signal, sr = librosa.load(p, sr=16000)

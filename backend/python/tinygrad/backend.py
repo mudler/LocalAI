@@ -33,6 +33,7 @@ import json
 import os
 import signal
 import sys
+import tempfile
 import time
 from concurrent import futures
 from pathlib import Path
@@ -668,7 +669,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             )
             arr = img_tensor.numpy()
             image = Image.fromarray(arr)
-            dst = request.dst or "/tmp/tinygrad_image.png"
+            dst = request.dst or os.path.join(tempfile.gettempdir(), "tinygrad_image.png")
             image.save(dst)
             return backend_pb2.Result(success=True, message=dst)
         except Exception as exc:
