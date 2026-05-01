@@ -2240,7 +2240,7 @@
     - https://huggingface.co/VesNFF/Qwen3-VL-Embedding-8B-GGUF
     - https://huggingface.co/Qwen/Qwen3-VL-Embedding-8B
   tags:
-    - reranker
+    - embedding
   icon: https://cdn-avatars.huggingface.co/v1/production/uploads/620760a26e3b7210c2ff1943/-s1gyJfvbE1RgO5iBeNOi.png
   description: |
     **Model Name:** Qwen3-VL-Embedding-8B
@@ -2269,7 +2269,7 @@
 
     This description emphasizes its capabilities, efficiency, and versatility for multimodal search tasks.
   overrides:
-    reranking: true
+    embeddings: true
     parameters:
       model: llama-cpp/models/Qwen3-VL-Embedding-8B-Q6_K.gguf
     name: Qwen3-VL-Embedding-8B-GGUF
@@ -2298,7 +2298,7 @@
     - https://huggingface.co/DevQuasar/Qwen.Qwen3-VL-Embedding-2B-GGUF
     - https://huggingface.co/Qwen/Qwen3-VL-Embedding-2B
   tags:
-    - reranker
+    - embedding
   icon: https://cdn-avatars.huggingface.co/v1/production/uploads/620760a26e3b7210c2ff1943/-s1gyJfvbE1RgO5iBeNOi.png
   description: |
     **Model Name:** Qwen3-VL-Embedding-2B
@@ -2327,7 +2327,7 @@
 
     This description emphasizes its capabilities, efficiency, and versatility for multimodal search tasks.
   overrides:
-    reranking: true
+    embeddings: true
     parameters:
       model: llama-cpp/models/Qwen3-VL-Embedding-2B.Q8_0.gguf
     name: Qwen3-VL-Embedding-2B-GGUF
