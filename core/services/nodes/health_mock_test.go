@@ -223,6 +223,12 @@ func (c *fakeBackendClient) AudioEncode(_ context.Context, _ *pb.AudioEncodeRequ
 func (c *fakeBackendClient) AudioDecode(_ context.Context, _ *pb.AudioDecodeRequest, _ ...ggrpc.CallOption) (*pb.AudioDecodeResult, error) {
 	return nil, nil
 }
+func (c *fakeBackendClient) AudioTransform(_ context.Context, _ *pb.AudioTransformRequest, _ ...ggrpc.CallOption) (*pb.AudioTransformResult, error) {
+	return nil, nil
+}
+func (c *fakeBackendClient) AudioTransformStream(_ context.Context, _ ...ggrpc.CallOption) (grpc.AudioTransformStreamClient, error) {
+	return nil, nil
+}
 func (c *fakeBackendClient) ModelMetadata(_ context.Context, _ *pb.ModelOptions, _ ...ggrpc.CallOption) (*pb.ModelMetadataResponse, error) {
 	return nil, nil
 }

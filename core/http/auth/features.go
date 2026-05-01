@@ -73,6 +73,11 @@ var RouteFeatureRegistry = []RouteFeature{
 	{"POST", "/v1/voice/identify", FeatureVoiceRecognition},
 	{"POST", "/v1/voice/forget", FeatureVoiceRecognition},
 
+	// Audio transform (echo cancellation, noise suppression, voice conversion, etc.)
+	{"POST", "/audio/transformations", FeatureAudioTransform},
+	{"POST", "/audio/transform", FeatureAudioTransform},
+	{"GET", "/audio/transformations/stream", FeatureAudioTransform},
+
 	// Video
 	{"POST", "/video", FeatureVideo},
 
@@ -170,5 +175,6 @@ func APIFeatureMetas() []FeatureMeta {
 		{FeatureStores, "Stores", true},
 		{FeatureFaceRecognition, "Face Recognition", true},
 		{FeatureVoiceRecognition, "Voice Recognition", true},
+		{FeatureAudioTransform, "Audio Transform", true},
 	}
 }

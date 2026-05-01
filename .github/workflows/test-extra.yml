@@ -37,6 +37,7 @@ jobs:
       acestep-cpp: ${{ steps.detect.outputs.acestep-cpp }}
       qwen3-tts-cpp: ${{ steps.detect.outputs.qwen3-tts-cpp }}
       vibevoice-cpp: ${{ steps.detect.outputs.vibevoice-cpp }}
+      localvqe: ${{ steps.detect.outputs.localvqe }}
       voxtral: ${{ steps.detect.outputs.voxtral }}
       kokoros: ${{ steps.detect.outputs.kokoros }}
       insightface: ${{ steps.detect.outputs.insightface }}
@@ -884,6 +885,26 @@ jobs:
       - name: Build vibevoice-cpp backend image and run ASR gRPC e2e tests
         run: |
           make test-extra-backend-vibevoice-cpp-transcription
+  # End-to-end audio transform via the e2e-backends gRPC harness. The
+  # LocalVQE GGUF is small (~5 MB) and the model is real-time on CPU, so
+  # the default ubuntu-latest pool is plenty.
+  tests-localvqe-grpc-transform:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.localvqe == 'true' || needs.detect-changes.outputs.run-all == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Clone
+        uses: actions/checkout@v6
+        with:
+          submodules: true
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.4'
+      - name: Build localvqe backend image and run audio_transform gRPC e2e tests
+        run: |
+          make test-extra-backend-localvqe-transform
   tests-voxtral:
     needs: detect-changes
     if: needs.detect-changes.outputs.voxtral == 'true' || needs.detect-changes.outputs.run-all == 'true'

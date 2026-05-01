@@ -148,6 +148,22 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 		requestExtractor.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_TTS)),
 		requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.TTSRequest) }))
 
+	// audio transform (echo cancellation, noise suppression, voice conversion, etc.)
+	audioTransformHandler := localai.AudioTransformEndpoint(cl, ml, appConfig)
+	audioTransformMiddleware := []echo.MiddlewareFunc{
+		middleware.TraceMiddleware(app),
+		requestExtractor.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_AUDIO_TRANSFORM)),
+		requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.AudioTransformRequest) }),
+	}
+	router.POST("/audio/transformations", audioTransformHandler, audioTransformMiddleware...)
+	router.POST("/audio/transform", audioTransformHandler, audioTransformMiddleware...)
+
+	// audio transform streaming WS (sits before the request-extractor pipeline —
+	// the upgrade is handled by the endpoint itself).
+	router.GET("/audio/transformations/stream",
+		localai.AudioTransformStreamEndpoint(app),
+		middleware.TraceMiddleware(app))
+
 	vadHandler := localai.VADEndpoint(cl, ml, appConfig)
 	router.POST("/vad",
 		vadHandler,

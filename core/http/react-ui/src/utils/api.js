@@ -237,12 +237,14 @@ export const videoApi = {
   generate: (body) => postJSON(API_CONFIG.endpoints.video, body),
 }
 
-async function postAudioBlob(endpoint, body) {
-  const response = await fetch(apiUrl(endpoint), {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  })
+// parseAudioBlobResponse — shared response handling for audio-blob endpoints.
+// Throws on non-2xx (with the API error message when present); returns the
+// blob plus the parsed Content-Disposition filename mapped to the server's
+// /generated-audio/ path so the UI can persist it in history. The audio
+// transform endpoint also surfaces the persisted *input* paths via
+// X-Audio-Input-Url / X-Audio-Reference-Url headers so the UI can replay
+// past (input, reference, output) triples from history.
+async function parseAudioBlobResponse(response) {
   if (!response.ok) {
     const data = await response.json().catch(() => ({}))
     throw new Error(data?.error?.message || `HTTP ${response.status}`)
@@ -253,8 +255,24 @@ async function postAudioBlob(endpoint, body) {
     const match = disposition.match(/filename[^;=\n]*=["']?([^"';\n]*)["']?/)
     if (match && match[1]) serverUrl = '/generated-audio/' + match[1]
   }
+  const inputUrl = response.headers.get('x-audio-input-url') || null
+  const referenceUrl = response.headers.get('x-audio-reference-url') || null
   const blob = await response.blob()
-  return { blob, serverUrl }
+  return { blob, serverUrl, inputUrl, referenceUrl }
+}
+
+async function postAudioBlob(endpoint, body) {
+  const response = await fetch(apiUrl(endpoint), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  return parseAudioBlobResponse(response)
+}
+
+async function postMultipartAudioBlob(endpoint, formData) {
+  const response = await fetch(apiUrl(endpoint), { method: 'POST', body: formData })
+  return parseAudioBlobResponse(response)
 }
 
 // TTS
@@ -266,6 +284,26 @@ export const ttsApi = {
 // Sound generation
 export const soundApi = {
   generate: (body) => postAudioBlob(API_CONFIG.endpoints.soundGeneration, body),
+}
+
+// Audio transform (echo cancellation, noise suppression, voice conversion, etc.)
+export const audioTransformApi = {
+  process: ({ model, audioFile, referenceFile, format, sampleRate, params }) => {
+    const fd = new FormData()
+    fd.append('model', model)
+    fd.append('audio', audioFile, audioFile?.name || 'audio.wav')
+    if (referenceFile) fd.append('reference', referenceFile, referenceFile.name || 'reference.wav')
+    if (format) fd.append('response_format', format)
+    if (sampleRate) fd.append('sample_rate', String(sampleRate))
+    if (params) {
+      for (const [k, v] of Object.entries(params)) {
+        if (v == null || v === '') continue
+        fd.append(`params[${k}]`, String(v))
+      }
+    }
+    return postMultipartAudioBlob(API_CONFIG.endpoints.audioTransformations, fd)
+  },
+  streamUrl: () => apiUrl(API_CONFIG.endpoints.audioTransformStream).replace(/^http/, 'ws'),
 }
 
 // Audio transcription

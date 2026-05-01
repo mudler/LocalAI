@@ -14,6 +14,7 @@
   "accountFor": "Account: {{name}}",
   "sections": {
     "tools": "Tools",
+    "enhance": "Enhance",
     "biometrics": "Biometrics",
     "agents": "Agents",
     "system": "System"
@@ -26,6 +27,7 @@
     "talk": "Talk",
     "fineTune": "Fine-Tune (Experimental)",
     "quantize": "Quantize (Experimental)",
+    "audioTransform": "Audio Transform",
     "faceRecognition": "Face Recognition",
     "voiceRecognition": "Voice Recognition",
     "agents": "Agents",

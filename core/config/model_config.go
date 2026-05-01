@@ -606,6 +606,7 @@ const (
 	FLAG_DETECTION        ModelConfigUsecase = 0b1000000000000
 	FLAG_FACE_RECOGNITION    ModelConfigUsecase = 0b10000000000000
 	FLAG_SPEAKER_RECOGNITION ModelConfigUsecase = 0b100000000000000
+	FLAG_AUDIO_TRANSFORM     ModelConfigUsecase = 0b1000000000000000
 
 	// Common Subsets
 	FLAG_LLM ModelConfigUsecase = FLAG_CHAT | FLAG_COMPLETION | FLAG_EDIT
@@ -631,6 +632,7 @@ func GetAllModelConfigUsecases() map[string]ModelConfigUsecase {
 		"FLAG_DETECTION":        FLAG_DETECTION,
 		"FLAG_FACE_RECOGNITION":    FLAG_FACE_RECOGNITION,
 		"FLAG_SPEAKER_RECOGNITION": FLAG_SPEAKER_RECOGNITION,
+		"FLAG_AUDIO_TRANSFORM":     FLAG_AUDIO_TRANSFORM,
 	}
 }
 
@@ -764,6 +766,13 @@ func (c *ModelConfig) GuessUsecases(u ModelConfigUsecase) bool {
 	if (u & FLAG_SPEAKER_RECOGNITION) == FLAG_SPEAKER_RECOGNITION {
 		speakerBackends := []string{"speaker-recognition"}
 		if !slices.Contains(speakerBackends, c.Backend) {
+			return false
+		}
+	}
+
+	if (u & FLAG_AUDIO_TRANSFORM) == FLAG_AUDIO_TRANSFORM {
+		audioTransformBackends := []string{"localvqe"}
+		if !slices.Contains(audioTransformBackends, c.Backend) {
 			return false
 		}
 	}

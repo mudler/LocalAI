@@ -706,6 +706,87 @@ func (c *Client) AudioDecode(ctx context.Context, in *pb.AudioDecodeRequest, opt
 	return client.AudioDecode(ctx, in, opts...)
 }
 
+func (c *Client) AudioTransform(ctx context.Context, in *pb.AudioTransformRequest, opts ...grpc.CallOption) (*pb.AudioTransformResult, error) {
+	if !c.parallel {
+		c.opMutex.Lock()
+		defer c.opMutex.Unlock()
+	}
+	c.setBusy(true)
+	defer c.setBusy(false)
+	c.wdMark()
+	defer c.wdUnMark()
+	conn, err := c.dial()
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = conn.Close() }()
+	client := pb.NewBackendClient(conn)
+	return client.AudioTransform(ctx, in, opts...)
+}
+
+// AudioTransformStreamClient is the duplex interface returned by
+// (*Client).AudioTransformStream. Wraps the generated bidi client without
+// leaking the proto package across the public boundary.
+type AudioTransformStreamClient interface {
+	Send(*pb.AudioTransformFrameRequest) error
+	Recv() (*pb.AudioTransformFrameResponse, error)
+	CloseSend() error
+	Context() context.Context
+}
+
+// audioTransformStreamClient is the concrete wrapper. It also owns the
+// underlying gRPC connection so it can be closed when the caller is done.
+type audioTransformStreamClient struct {
+	pb.Backend_AudioTransformStreamClient
+	conn   *grpc.ClientConn
+	closer func()
+}
+
+func (s *audioTransformStreamClient) CloseSend() error {
+	err := s.Backend_AudioTransformStreamClient.CloseSend()
+	if s.closer != nil {
+		s.closer()
+	}
+	return err
+}
+
+func (c *Client) AudioTransformStream(ctx context.Context, opts ...grpc.CallOption) (AudioTransformStreamClient, error) {
+	if !c.parallel {
+		c.opMutex.Lock()
+	}
+	c.setBusy(true)
+	c.wdMark()
+
+	cleanup := func() {
+		c.wdUnMark()
+		c.setBusy(false)
+		if !c.parallel {
+			c.opMutex.Unlock()
+		}
+	}
+
+	conn, err := c.dial()
+	if err != nil {
+		cleanup()
+		return nil, err
+	}
+	client := pb.NewBackendClient(conn)
+	stream, err := client.AudioTransformStream(ctx, opts...)
+	if err != nil {
+		_ = conn.Close()
+		cleanup()
+		return nil, err
+	}
+	return &audioTransformStreamClient{
+		Backend_AudioTransformStreamClient: stream,
+		conn:                               conn,
+		closer: func() {
+			_ = conn.Close()
+			cleanup()
+		},
+	}, nil
+}
+
 func (c *Client) StartFineTune(ctx context.Context, in *pb.FineTuneRequest, opts ...grpc.CallOption) (*pb.FineTuneJobResult, error) {
 	if !c.parallel {
 		c.opMutex.Lock()

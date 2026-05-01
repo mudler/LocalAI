@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState } from 'react'
 import { useParams, useOutletContext } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import ModelSelector from '../components/ModelSelector'
@@ -6,6 +6,7 @@ import { CAP_TTS } from '../utils/capabilities'
 import LoadingSpinner from '../components/LoadingSpinner'
 import ErrorWithTraceLink from '../components/ErrorWithTraceLink'
 import MediaHistory from '../components/MediaHistory'
+import WaveformPlayer from '../components/audio/WaveformPlayer'
 import { ttsApi } from '../utils/api'
 import { useMediaHistory } from '../hooks/useMediaHistory'
 
@@ -18,7 +19,6 @@ export default function TTS() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [audioUrl, setAudioUrl] = useState(null)
-  const audioRef = useRef(null)
   const { addEntry, selectEntry, selectedEntry, historyProps } = useMediaHistory('tts')
 
   const handleGenerate = async (e) => {
@@ -39,7 +39,6 @@ export default function TTS() {
         addEntry({ prompt: text.trim(), model, params: {}, results: [{ url: serverUrl }] })
       }
       selectEntry(null)
-      setTimeout(() => audioRef.current?.play(), 100)
     } catch (err) {
       setError(err.message)
     } finally {
@@ -84,20 +83,16 @@ export default function TTS() {
             <ErrorWithTraceLink message={error} />
           ) : selectedEntry ? (
             <div className="audio-result">
-              <audio controls src={selectedEntry.results[0]?.url} className="audio-result__player" data-testid="history-audio" />
+              <WaveformPlayer src={selectedEntry.results[0]?.url} height={96} audioTestId="history-audio" />
               <div className="result-quote">"{selectedEntry.prompt}"</div>
             </div>
           ) : audioUrl ? (
             <div className="audio-result">
-              <audio ref={audioRef} controls src={audioUrl} className="audio-result__player" />
-              <div className="audio-result__actions">
-                <a href={audioUrl} download={`tts-${model}-${new Date().toISOString().slice(0, 10)}.mp3`} className="btn btn-primary btn-sm">
-                  <i className="fas fa-download" /> <span>Download</span>
-                </a>
-                <button type="button" className="btn btn-secondary btn-sm" onClick={() => audioRef.current?.play()}>
-                  <i className="fas fa-rotate-right" /> <span>Replay</span>
-                </button>
-              </div>
+              <WaveformPlayer
+                src={audioUrl}
+                height={96}
+                download={`tts-${model}-${new Date().toISOString().slice(0, 10)}.mp3`}
+              />
               <div className="result-quote">"{text}"</div>
             </div>
           ) : (

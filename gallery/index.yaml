@@ -18836,6 +18836,35 @@
     - filename: silero-vad.onnx
       uri: https://huggingface.co/onnx-community/silero-vad/resolve/main/onnx/model.onnx
       sha256: a4a068cd6cf1ea8355b84327595838ca748ec29a25bc91fc82e6c299ccdc5808
+- name: "localvqe-v1.1-1.3m"
+  icon: https://avatars.githubusercontent.com/u/260893928
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://github.com/localai-org/LocalVQE
+    - https://huggingface.co/LocalAI-io/LocalVQE
+  license: apache-2.0
+  description: |
+    LocalVQE v1.1 (1.3 M parameters, F32) — joint acoustic echo cancellation,
+    noise suppression, and dereverberation for 16 kHz mono speech.
+    DeepVQE-style architecture with an S4D bottleneck and an in-graph
+    DCT-II filterbank. ~9.6× realtime on a desktop CPU; 16 ms algorithmic
+    latency. ~5 MB on disk. v1.1 ships the v16 echoaware checkpoint with
+    improved double-talk and near-end single-talk AECMOS scores.
+  tags:
+    - audio-transform
+    - aec
+    - acoustic-echo-cancellation
+    - noise-suppression
+    - dereverberation
+    - cpu
+  overrides:
+    backend: localvqe
+    parameters:
+      model: localvqe-v1.1-1.3M-f32.gguf
+  files:
+    - filename: localvqe-v1.1-1.3M-f32.gguf
+      uri: huggingface://LocalAI-io/LocalVQE/localvqe-v1.1-1.3M-f32.gguf
+      sha256: c118227c6b433d6aa36d9e4b993e0f31aa60787ea38d301d04db917a4a2b0a84
 - !!merge <<: *silero
   name: "silero-vad-ggml"
   urls:

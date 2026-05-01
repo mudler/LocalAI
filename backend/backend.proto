@@ -44,6 +44,9 @@ service Backend {
   rpc AudioEncode(AudioEncodeRequest) returns (AudioEncodeResult) {}
   rpc AudioDecode(AudioDecodeRequest) returns (AudioDecodeResult) {}
 
+  rpc AudioTransform(AudioTransformRequest) returns (AudioTransformResult) {}
+  rpc AudioTransformStream(stream AudioTransformFrameRequest) returns (stream AudioTransformFrameResponse) {}
+
   rpc ModelMetadata(ModelOptions) returns (ModelMetadataResponse) {}
 
   // Fine-tuning RPCs
@@ -667,6 +670,56 @@ message AudioDecodeResult {
   bytes pcm_data = 1;
   int32 sample_rate = 2;
   int32 samples_per_frame = 3;
+}
+
+// Generic audio transform: an audio-in, audio-out operation, optionally
+// conditioned on a second reference signal. Concrete transforms include
+// AEC + noise suppression + dereverberation (LocalVQE), voice conversion
+// (reference = target speaker), pitch shifting, etc.
+message AudioTransformRequest {
+  string audio_path = 1;             // required, primary input file path
+  string reference_path = 2;         // optional auxiliary; empty => zero-fill
+  string dst = 3;                    // required, output file path
+  map<string, string> params = 4;    // backend-specific tuning
+}
+
+message AudioTransformResult {
+  string dst = 1;
+  int32  sample_rate = 2;
+  int32  samples = 3;
+  bool   reference_provided = 4;
+}
+
+// Bidirectional streaming audio transform. The first message MUST carry a
+// Config; subsequent messages carry Frames. A second Config mid-stream
+// resets streaming state before the next frame.
+message AudioTransformFrameRequest {
+  oneof payload {
+    AudioTransformStreamConfig config = 1;
+    AudioTransformFrame        frame  = 2;
+  }
+}
+
+message AudioTransformStreamConfig {
+  enum SampleFormat {
+    F32_LE = 0;
+    S16_LE = 1;
+  }
+  SampleFormat sample_format = 1;
+  int32 sample_rate = 2;             // 0 => backend default
+  int32 frame_samples = 3;           // 0 => backend default
+  map<string, string> params = 4;
+  bool reset = 5;                    // reset streaming state before next frame
+}
+
+message AudioTransformFrame {
+  bytes audio_pcm = 1;               // frame_samples samples in stream's format
+  bytes reference_pcm = 2;           // empty => zero-fill (silent reference)
+}
+
+message AudioTransformFrameResponse {
+  bytes pcm = 1;
+  int64 frame_index = 2;
 }
 
 message ModelMetadataResponse {

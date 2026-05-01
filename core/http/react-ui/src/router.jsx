@@ -9,6 +9,7 @@ import ImageGen from './pages/ImageGen'
 import VideoGen from './pages/VideoGen'
 import TTS from './pages/TTS'
 import Sound from './pages/Sound'
+import AudioTransform from './pages/AudioTransform'
 import Talk from './pages/Talk'
 import Backends from './pages/Backends'
 import Settings from './pages/Settings'
@@ -73,6 +74,8 @@ const appChildren = [
   { path: 'tts/:model', element: <TTS /> },
   { path: 'sound', element: <Sound /> },
   { path: 'sound/:model', element: <Sound /> },
+  { path: 'transform', element: <Feature feature="audio_transform"><AudioTransform /></Feature> },
+  { path: 'transform/:model', element: <Feature feature="audio_transform"><AudioTransform /></Feature> },
   { path: 'studio', element: <Studio /> },
   { path: 'talk', element: <Talk /> },
   { path: 'face', element: <Feature feature="face_recognition"><FaceRecognition /></Feature> },

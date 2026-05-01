@@ -1,5 +1,5 @@
 # Disable parallel execution for backend builds
-.NOTPARALLEL: backends/diffusers backends/llama-cpp backends/turboquant backends/outetts backends/piper backends/stablediffusion-ggml backends/whisper backends/faster-whisper backends/silero-vad backends/local-store backends/huggingface backends/rfdetr backends/insightface backends/speaker-recognition backends/kitten-tts backends/kokoro backends/chatterbox backends/llama-cpp-darwin backends/neutts build-darwin-python-backend build-darwin-go-backend backends/mlx backends/diffuser-darwin backends/mlx-vlm backends/mlx-audio backends/mlx-distributed backends/stablediffusion-ggml-darwin backends/vllm backends/vllm-omni backends/sglang backends/moonshine backends/pocket-tts backends/qwen-tts backends/faster-qwen3-tts backends/qwen-asr backends/nemo backends/voxcpm backends/whisperx backends/ace-step backends/acestep-cpp backends/fish-speech backends/voxtral backends/opus backends/trl backends/llama-cpp-quantization backends/kokoros backends/sam3-cpp backends/qwen3-tts-cpp backends/vibevoice-cpp backends/tinygrad backends/sherpa-onnx
+.NOTPARALLEL: backends/diffusers backends/llama-cpp backends/turboquant backends/outetts backends/piper backends/stablediffusion-ggml backends/whisper backends/faster-whisper backends/silero-vad backends/local-store backends/huggingface backends/rfdetr backends/insightface backends/speaker-recognition backends/kitten-tts backends/kokoro backends/chatterbox backends/llama-cpp-darwin backends/neutts build-darwin-python-backend build-darwin-go-backend backends/mlx backends/diffuser-darwin backends/mlx-vlm backends/mlx-audio backends/mlx-distributed backends/stablediffusion-ggml-darwin backends/vllm backends/vllm-omni backends/sglang backends/moonshine backends/pocket-tts backends/qwen-tts backends/faster-qwen3-tts backends/qwen-asr backends/nemo backends/voxcpm backends/whisperx backends/ace-step backends/acestep-cpp backends/fish-speech backends/voxtral backends/opus backends/trl backends/llama-cpp-quantization backends/kokoros backends/sam3-cpp backends/qwen3-tts-cpp backends/vibevoice-cpp backends/localvqe backends/tinygrad backends/sherpa-onnx
 
 GOCMD=go
 GOTEST=$(GOCMD) test
@@ -874,6 +874,16 @@ test-extra-backend-vibevoice-cpp-transcription: docker-build-vibevoice-cpp
 	BACKEND_TEST_CAPS=health,load,transcription \
 	$(MAKE) test-extra-backend
 
+## LocalVQE audio transform (joint AEC + noise suppression + dereverb).
+## Exercises the audio_transform capability end-to-end: batch transform
+## of a real WAV fixture and bidi streaming of synthetic silent frames.
+test-extra-backend-localvqe-transform: docker-build-localvqe
+	BACKEND_IMAGE=local-ai-backend:localvqe \
+	BACKEND_TEST_MODEL_URL='https://huggingface.co/LocalAI-io/LocalVQE/resolve/main/localvqe-v1-1.3M-f32.gguf#localvqe-v1-1.3M-f32.gguf' \
+	BACKEND_TEST_AUDIO_URL=https://github.com/ggml-org/whisper.cpp/raw/master/samples/jfk.wav \
+	BACKEND_TEST_CAPS=health,load,audio_transform \
+	$(MAKE) test-extra-backend
+
 ## sglang mirrors the vllm setup: HuggingFace model id, same tiny Qwen,
 ## tool-call extraction via sglang's native qwen parser. CPU builds use
 ## sglang's upstream pyproject_cpu.toml recipe (see backend/python/sglang/install.sh).
@@ -1017,6 +1027,7 @@ BACKEND_VOXTRAL = voxtral|golang|.|false|true
 BACKEND_ACESTEP_CPP = acestep-cpp|golang|.|false|true
 BACKEND_QWEN3_TTS_CPP = qwen3-tts-cpp|golang|.|false|true
 BACKEND_VIBEVOICE_CPP = vibevoice-cpp|golang|.|false|true
+BACKEND_LOCALVQE = localvqe|golang|.|false|true
 BACKEND_OPUS = opus|golang|.|false|true
 BACKEND_SHERPA_ONNX = sherpa-onnx|golang|.|false|true
 
@@ -1127,6 +1138,7 @@ $(eval $(call generate-docker-build-target,$(BACKEND_ACE_STEP)))
 $(eval $(call generate-docker-build-target,$(BACKEND_ACESTEP_CPP)))
 $(eval $(call generate-docker-build-target,$(BACKEND_QWEN3_TTS_CPP)))
 $(eval $(call generate-docker-build-target,$(BACKEND_VIBEVOICE_CPP)))
+$(eval $(call generate-docker-build-target,$(BACKEND_LOCALVQE)))
 $(eval $(call generate-docker-build-target,$(BACKEND_MLX)))
 $(eval $(call generate-docker-build-target,$(BACKEND_MLX_VLM)))
 $(eval $(call generate-docker-build-target,$(BACKEND_MLX_DISTRIBUTED)))
@@ -1141,7 +1153,7 @@ $(eval $(call generate-docker-build-target,$(BACKEND_SHERPA_ONNX)))
 docker-save-%: backend-images
 	docker save local-ai-backend:$* -o backend-images/$*.tar
 
-docker-build-backends: docker-build-llama-cpp docker-build-ik-llama-cpp docker-build-turboquant docker-build-rerankers docker-build-vllm docker-build-vllm-omni docker-build-sglang docker-build-transformers docker-build-outetts docker-build-diffusers docker-build-kokoro docker-build-faster-whisper docker-build-coqui docker-build-chatterbox docker-build-vibevoice docker-build-moonshine docker-build-pocket-tts docker-build-qwen-tts docker-build-fish-speech docker-build-faster-qwen3-tts docker-build-qwen-asr docker-build-nemo docker-build-voxcpm docker-build-whisperx docker-build-ace-step docker-build-acestep-cpp docker-build-voxtral docker-build-mlx-distributed docker-build-trl docker-build-llama-cpp-quantization docker-build-tinygrad docker-build-kokoros docker-build-sam3-cpp docker-build-qwen3-tts-cpp docker-build-vibevoice-cpp docker-build-insightface docker-build-speaker-recognition docker-build-sherpa-onnx
+docker-build-backends: docker-build-llama-cpp docker-build-ik-llama-cpp docker-build-turboquant docker-build-rerankers docker-build-vllm docker-build-vllm-omni docker-build-sglang docker-build-transformers docker-build-outetts docker-build-diffusers docker-build-kokoro docker-build-faster-whisper docker-build-coqui docker-build-chatterbox docker-build-vibevoice docker-build-moonshine docker-build-pocket-tts docker-build-qwen-tts docker-build-fish-speech docker-build-faster-qwen3-tts docker-build-qwen-asr docker-build-nemo docker-build-voxcpm docker-build-whisperx docker-build-ace-step docker-build-acestep-cpp docker-build-voxtral docker-build-mlx-distributed docker-build-trl docker-build-llama-cpp-quantization docker-build-tinygrad docker-build-kokoros docker-build-sam3-cpp docker-build-qwen3-tts-cpp docker-build-vibevoice-cpp docker-build-localvqe docker-build-insightface docker-build-speaker-recognition docker-build-sherpa-onnx
 
 ########################################################
 ### Mock Backend for E2E Tests

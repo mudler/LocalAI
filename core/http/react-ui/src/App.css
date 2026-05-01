@@ -6771,6 +6771,219 @@ select.input {
   font-size: var(--text-sm);
 }
 
+/* Reusable waveform-and-playback component (audio transform / TTS / sound / traces) */
+.audio-waveform-player {
+  --audio-wave: var(--color-primary);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  width: 100%;
+}
+.audio-waveform-player--dimmed .audio-waveform-player__canvas-wrap {
+  opacity: 0.7;
+}
+.audio-waveform-player__label {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+}
+.audio-waveform-player__canvas-wrap {
+  position: relative;
+  width: 100%;
+  background: var(--color-surface-sunken);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+.audio-waveform-player__error {
+  padding: var(--spacing-md);
+  color: var(--color-error);
+  font-size: var(--text-sm);
+}
+.audio-waveform-player__segment {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: rgba(136, 192, 208, 0.16);
+  border-left: 1px dashed var(--color-primary);
+  border-right: 1px dashed var(--color-primary);
+  pointer-events: none;
+}
+.audio-waveform-player__seglabel {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  font-size: var(--text-xs);
+  color: var(--color-text-primary);
+  background: var(--color-bg-overlay);
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  max-width: calc(100% - 8px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.audio-waveform-player__duration {
+  position: absolute;
+  right: 8px;
+  bottom: 6px;
+  font-size: 11px;
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+  background: var(--color-bg-overlay);
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+}
+.audio-waveform-player__loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+.audio-waveform-player__playhead {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1.5px;
+  background: var(--color-primary);
+  opacity: 0.85;
+  pointer-events: none;
+  transform: translateX(-0.75px);
+}
+.audio-waveform-player__player {
+  width: 100%;
+}
+.audio-waveform-player__download {
+  align-self: flex-end;
+  font-size: var(--text-sm);
+  color: var(--color-primary);
+}
+
+/* Audio Transform Studio tab */
+.audio-transform-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+  width: 100%;
+}
+.audio-transform-drop {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-md);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-sunken);
+  color: var(--color-text-secondary);
+  cursor: default;
+  transition: border-color var(--duration-normal, 180ms) var(--ease-default, ease);
+}
+.audio-transform-drop--hover {
+  border-color: var(--color-primary);
+  background: var(--color-primary-light);
+}
+.audio-transform-drop__file {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  flex: 1;
+  font-family: var(--font-mono);
+  word-break: break-all;
+}
+.audio-transform-drop__pick {
+  cursor: pointer;
+  color: var(--color-primary);
+  text-decoration: underline;
+  margin-left: 4px;
+}
+.audio-transform-input {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+.audio-transform-input__tabs {
+  display: inline-flex;
+  gap: 2px;
+  background: var(--color-surface-sunken);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  padding: 2px;
+  align-self: flex-start;
+}
+.audio-transform-input__tab {
+  border: 0;
+  background: transparent;
+  padding: 4px 10px;
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.audio-transform-input__tab.active {
+  background: var(--color-primary-light);
+  color: var(--color-text-primary);
+}
+.audio-transform-rec {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  align-items: flex-start;
+  padding: var(--spacing-md);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-sunken);
+}
+.audio-transform-rec__notice {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  display: flex;
+  gap: var(--spacing-xs);
+  align-items: center;
+}
+.audio-transform-rec__notice--error {
+  color: var(--color-error);
+}
+.audio-transform-rec__pending {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+.audio-transform-echo {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-md);
+}
+.audio-transform-echo__row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+.audio-transform-echo__notice {
+  display: flex;
+  gap: var(--spacing-sm);
+  align-items: flex-start;
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--color-info-light);
+  color: var(--color-text-primary);
+  border-left: 3px solid var(--color-info);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  margin: 0;
+}
+.audio-transform-echo__notice > i {
+  color: var(--color-info);
+  margin-top: 2px;
+}
+.audio-transform-echo__elapsed {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
 /* Enrollment layout (register + identify + list) */
 .biometrics-enrollgrid {
   display: grid;

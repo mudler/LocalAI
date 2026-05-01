@@ -36,6 +36,8 @@ var knownPrefOnlyBackends = []schema.KnownBackend{
 	{Name: "faster-qwen3-tts", Modality: "tts", AutoDetect: false, Description: "Faster Qwen3 TTS (preference-only)"},
 	// Detection
 	{Name: "sam3-cpp", Modality: "detection", AutoDetect: false, Description: "SAM3 C++ object detection (preference-only)"},
+	// Audio transform (audio-in / audio-out, optional reference signal)
+	{Name: "localvqe", Modality: "audio-transform", AutoDetect: false, Description: "LocalVQE C++ joint AEC + noise suppression + dereverberation (preference-only)"},
 }
 
 // UpgradeInfoProvider is an interface for querying cached backend upgrade information.

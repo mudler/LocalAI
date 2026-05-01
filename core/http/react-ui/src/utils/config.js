@@ -71,6 +71,8 @@ export const API_CONFIG = {
     imageGenerations: '/v1/images/generations',
     audioSpeech: '/v1/audio/speech',
     audioTranscriptions: '/v1/audio/transcriptions',
+    audioTransformations: '/audio/transformations',
+    audioTransformStream: '/audio/transformations/stream',
     soundGeneration: '/v1/sound-generation',
     embeddings: '/v1/embeddings',
 

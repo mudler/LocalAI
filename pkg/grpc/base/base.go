@@ -144,6 +144,15 @@ func (llm *Base) AudioDecode(*pb.AudioDecodeRequest) (*pb.AudioDecodeResult, err
 	return nil, fmt.Errorf("unimplemented")
 }
 
+func (llm *Base) AudioTransform(*pb.AudioTransformRequest) (*pb.AudioTransformResult, error) {
+	return nil, fmt.Errorf("unimplemented")
+}
+
+func (llm *Base) AudioTransformStream(in <-chan *pb.AudioTransformFrameRequest, out chan<- *pb.AudioTransformFrameResponse) error {
+	close(out)
+	return fmt.Errorf("unimplemented")
+}
+
 func (llm *Base) StartFineTune(*pb.FineTuneRequest) (*pb.FineTuneJobResult, error) {
 	return nil, fmt.Errorf("unimplemented")
 }

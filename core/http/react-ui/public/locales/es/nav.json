@@ -14,6 +14,7 @@
   "accountFor": "Cuenta: {{name}}",
   "sections": {
     "tools": "Herramientas",
+    "enhance": "Mejorar",
     "biometrics": "Biometría",
     "agents": "Agentes",
     "system": "Sistema"
@@ -26,6 +27,7 @@
     "talk": "Hablar",
     "fineTune": "Ajuste fino (Experimental)",
     "quantize": "Cuantización (Experimental)",
+    "audioTransform": "Transformar audio",
     "faceRecognition": "Reconocimiento facial",
     "voiceRecognition": "Reconocimiento de voz",
     "agents": "Agentes",

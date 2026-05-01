@@ -6,6 +6,7 @@ const STORAGE_KEYS = {
   video: 'localai_video_history',
   tts: 'localai_tts_history',
   sound: 'localai_sound_history',
+  'audio-transform': 'localai_audio_transform_history',
 }
 
 const SAVE_DEBOUNCE_MS = 500

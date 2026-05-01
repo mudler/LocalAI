@@ -40,6 +40,9 @@ type AIModel interface {
 	AudioEncode(*pb.AudioEncodeRequest) (*pb.AudioEncodeResult, error)
 	AudioDecode(*pb.AudioDecodeRequest) (*pb.AudioDecodeResult, error)
 
+	AudioTransform(*pb.AudioTransformRequest) (*pb.AudioTransformResult, error)
+	AudioTransformStream(in <-chan *pb.AudioTransformFrameRequest, out chan<- *pb.AudioTransformFrameResponse) error
+
 	ModelMetadata(*pb.ModelOptions) (*pb.ModelMetadataResponse, error)
 
 	// Fine-tuning

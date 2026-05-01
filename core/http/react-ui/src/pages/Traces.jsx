@@ -6,6 +6,7 @@ import { formatTimestamp } from '../utils/format'
 import LoadingSpinner from '../components/LoadingSpinner'
 import Toggle from '../components/Toggle'
 import SettingRow from '../components/SettingRow'
+import WaveformPlayer from '../components/audio/WaveformPlayer'
 
 const AUDIO_DATA_KEYS = new Set([
   'audio_wav_base64', 'audio_duration_s', 'audio_snippet_s',
@@ -98,8 +99,8 @@ function AudioSnippet({ data }) {
         <i className="fas fa-headphones" style={{ color: 'var(--color-primary)' }} /> Audio Snippet
       </h4>
       <div style={{ background: 'var(--color-bg-primary)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', padding: 'var(--spacing-sm)' }}>
-        <audio controls style={{ width: '100%', marginBottom: 'var(--spacing-sm)' }} src={`data:audio/wav;base64,${data.audio_wav_base64}`} />
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: 'var(--spacing-xs)', fontSize: '0.75rem' }}>
+        <WaveformPlayer src={`data:audio/wav;base64,${data.audio_wav_base64}`} height={64} />
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: 'var(--spacing-xs)', fontSize: '0.75rem', marginTop: 'var(--spacing-sm)' }}>
           {metrics.map(m => (
             <div key={m.label} style={{ background: 'var(--color-bg-secondary)', borderRadius: 'var(--radius-sm)', padding: 'var(--spacing-xs)' }}>
               <div style={{ color: 'var(--color-text-secondary)' }}>{m.label}</div>

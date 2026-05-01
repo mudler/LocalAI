@@ -28,6 +28,16 @@ const sections = [
     ],
   },
   {
+    id: 'enhance',
+    titleKey: 'sections.enhance',
+    featureMap: {
+      '/app/transform': 'audio_transform',
+    },
+    items: [
+      { path: '/app/transform', icon: 'fas fa-wave-square', labelKey: 'items.audioTransform', feature: 'audio_transform' },
+    ],
+  },
+  {
     id: 'biometrics',
     titleKey: 'sections.biometrics',
     featureMap: {
