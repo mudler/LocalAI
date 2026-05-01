@@ -2233,6 +2233,123 @@
     - filename: llama-cpp/models/GLM-4.7-Flash-Q4_K_M.gguf
       uri: https://huggingface.co/unsloth/GLM-4.7-Flash-GGUF/resolve/main/GLM-4.7-Flash-Q4_K_M.gguf
       sha256: 29837ed2c0fc5f51981adf8ac8083fcf80743c598381f13e9f06cbad0498b174
+
+- name: "qwen3-vl-embedding-8b"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/VesNFF/Qwen3-VL-Embedding-8B-GGUF
+    - https://huggingface.co/Qwen/Qwen3-VL-Embedding-8B
+  tags:
+    - reranker
+  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/620760a26e3b7210c2ff1943/-s1gyJfvbE1RgO5iBeNOi.png
+  description: |
+    **Model Name:** Qwen3-VL-Embedding-8B
+    **Base Model:** Qwen/Qwen3-VL-8B-Instruct
+
+    **Description:**
+    The **Qwen3-VL-Embedding** and **Qwen3-VL-Reranker** model series are the latest additions to the Qwen family, built upon the recently open-sourced and powerful Qwen3-VL foundation model. Specifically designed for multimodal information retrieval and cross-modal understanding, this suite accepts diverse inputs including text, images, screenshots, and videos, as well as inputs containing a mixture of these modalities.
+
+    **Key Features:**
+      - Model Type: MultiModal Embedding
+      - Supported Languages: 30+ Languages
+      - Supported Input Modalities: Text, images, screenshots, videos, and arbitrary multimodal combinations (e.g., text + image, text + video)
+      - Number of Parameters: 8B
+      - Context Length: 32k
+      - Embedding Dimension: Up to 4096, supports user-defined output dimensions ranging from 64 to 4096
+
+    **Downloads:**
+      - [GGUF Files](https://huggingface.co/Qwen/Qwen3-VL-Embedding-8B) (e.g., `Qwen3-VL-Embedding-8B-Q8_0.gguf`).
+
+    **Usage:**
+      - Requires `transformers`, `qwen-vl-utils`, and `torch`.
+      - Example: `from scripts.qwen3_vl_embedding import Qwen3VLEmbedder model = Qwen3VLEmbedder(...)`
+
+    **Citation:**
+    @article{qwen3vlembedding, ...}
+
+    This description emphasizes its capabilities, efficiency, and versatility for multimodal search tasks.
+  overrides:
+    reranking: true
+    parameters:
+      model: llama-cpp/models/Qwen3-VL-Embedding-8B-Q6_K.gguf
+    name: Qwen3-VL-Embedding-8B-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    mmproj: llama-cpp/mmproj/mmproj-Qwen3-VL-Embedding-8B-f16.gguf
+    description: Imported from https://huggingface.co/VesNFF/Qwen3-VL-Embedding-8B-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Qwen3-VL-Embedding-8B-Q6_K.gguf
+      sha256: 10ee47c017d73f5df31e41669d9600abdfe80c701c77630504108d56f79b48d7
+      uri: https://huggingface.co/VesNFF/Qwen3-VL-Embedding-8B-GGUF/resolve/main/Qwen3-VL-Embedding-8B-Q6_K.gguf
+    - filename: llama-cpp/mmproj/mmproj-Qwen3-VL-Embedding-8B-f16.gguf
+      sha256: 6f104e4299dfd0738ef1b44f4eecdde9dc049d10a73ce69472e0bfbbd687a034
+      uri: https://huggingface.co/VesNFF/Qwen3-VL-Embedding-8B-GGUF/resolve/main/mmproj-Qwen3-VL-Embedding-8B-f16.gguf
+- name: "qwen3-vl-embedding-2b"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/DevQuasar/Qwen.Qwen3-VL-Embedding-2B-GGUF
+    - https://huggingface.co/Qwen/Qwen3-VL-Embedding-2B
+  tags:
+    - reranker
+  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/620760a26e3b7210c2ff1943/-s1gyJfvbE1RgO5iBeNOi.png
+  description: |
+    **Model Name:** Qwen3-VL-Embedding-2B
+    **Base Model:** Qwen/Qwen3-VL-2B-Instruct
+
+    **Description:**
+    The **Qwen3-VL-Embedding** and **Qwen3-VL-Reranker** model series are the latest additions to the Qwen family, built upon the recently open-sourced and powerful Qwen3-VL foundation model. Specifically designed for multimodal information retrieval and cross-modal understanding, this suite accepts diverse inputs including text, images, screenshots, and videos, as well as inputs containing a mixture of these modalities.
+
+    **Key Features:**
+      - Model Type: MultiModal Embedding
+      - Supported Languages: 30+ Languages
+      - Supported Input Modalities: Text, images, screenshots, videos, and arbitrary multimodal combinations (e.g., text + image, text + video)
+      - Number of Parameters: 2B
+      - Context Length: 32k
+      - Embedding Dimension: Up to 2048, supports user-defined output dimensions ranging from 64 to 2048
+
+    **Downloads:**
+      - [GGUF Files](https://huggingface.co/Qwen/Qwen3-VL-Embedding-2B) (e.g., `Qwen3-VL-Embedding-2B-Q8_0.gguf`).
+
+    **Usage:**
+      - Requires `transformers`, `qwen-vl-utils`, and `torch`.
+      - Example: `from scripts.qwen3_vl_embedding import Qwen3VLEmbedder model = Qwen3VLEmbedder(...)`
+
+    **Citation:**
+    @article{qwen3vlembedding, ...}
+
+    This description emphasizes its capabilities, efficiency, and versatility for multimodal search tasks.
+  overrides:
+    reranking: true
+    parameters:
+      model: llama-cpp/models/Qwen3-VL-Embedding-2B.Q8_0.gguf
+    name: Qwen3-VL-Embedding-2B-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    mmproj: llama-cpp/mmproj/mmproj-Qwen3-VL-Embedding-2B.f16.gguf
+    description: Imported from https://huggingface.co/DevQuasar/Qwen.Qwen3-VL-Embedding-2B-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Qwen3-VL-Embedding-2B.Q8_0.gguf
+      sha256: 7552c2f699c546ce46abd6b66b2aa16ae667c88c830efbd352b12224d4613492
+      uri: https://huggingface.co/DevQuasar/Qwen.Qwen3-VL-Embedding-2B-GGUF/resolve/main/Qwen.Qwen3-VL-Embedding-2B.Q8_0.gguf
+    - filename: llama-cpp/mmproj/mmproj-Qwen3-VL-Embedding-2B.f16.gguf
+      sha256: 3f89a7768ffa6606935319f71bf56bb71871249ba549bf1080a0caea7a088613
+      uri: https://huggingface.co/DevQuasar/Qwen.Qwen3-VL-Embedding-2B-GGUF/resolve/main/mmproj-Qwen.Qwen3-VL-Embedding-2B.f16.gguf
 - name: "qwen3-vl-reranker-8b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
