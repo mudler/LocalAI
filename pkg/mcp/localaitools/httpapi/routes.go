@@ -22,6 +22,8 @@ const (
 	routeBackendsApply = "/backends/apply"
 	routeNodes         = "/api/nodes"
 	routeVRAMEstimate  = "/api/models/vram-estimate"
+	routeBranding      = "/api/branding"
+	routeSettings      = "/api/settings"
 )
 
 func routeJobStatus(jobID string) string {

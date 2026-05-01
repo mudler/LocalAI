@@ -18,6 +18,7 @@ const (
 	ToolSystemInfo          = "system_info"
 	ToolListNodes           = "list_nodes"
 	ToolVRAMEstimate        = "vram_estimate"
+	ToolGetBranding         = "get_branding"
 
 	// Mutating tools — guarded by Options.DisableMutating and the
 	// LLM-side safety prompt (see prompts/10_safety.md).
@@ -30,6 +31,7 @@ const (
 	ToolUpgradeBackend    = "upgrade_backend"
 	ToolToggleModelState  = "toggle_model_state"
 	ToolToggleModelPinned = "toggle_model_pinned"
+	ToolSetBranding       = "set_branding"
 )
 
 // DefaultServerName is the MCP Implementation.Name surfaced when

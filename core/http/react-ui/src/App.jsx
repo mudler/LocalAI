@@ -5,6 +5,7 @@ import OperationsBar from './components/OperationsBar'
 import { ToastContainer, useToast } from './components/Toast'
 import { systemApi } from './utils/api'
 import { useTheme } from './contexts/ThemeContext'
+import { useBranding } from './contexts/BrandingContext'
 import { useAuth } from './context/AuthContext'
 
 const COLLAPSED_KEY = 'localai_sidebar_collapsed'
@@ -20,6 +21,7 @@ export default function App() {
   const navigate = useNavigate()
   const { theme, toggleTheme } = useTheme()
   const { authEnabled, user } = useAuth()
+  const branding = useBranding()
   const hamburgerRef = useRef(null)
   const isChatRoute = location.pathname.match(/\/chat(\/|$)/) || location.pathname.match(/\/agents\/[^/]+\/chat/)
 
@@ -87,7 +89,7 @@ export default function App() {
           >
             <i className="fas fa-bars" aria-hidden="true" />
           </button>
-          <span className="mobile-title">LocalAI</span>
+          <span className="mobile-title">{branding.instanceName}</span>
           <div className="mobile-header-actions">
             <button
               type="button"
@@ -125,7 +127,7 @@ export default function App() {
             <div className="app-footer-inner">
               {version && (
                 <span className="app-footer-version">
-                  LocalAI <span style={{ fontWeight: 500 }}>{version}</span>
+                  {branding.instanceName} <span style={{ fontWeight: 500 }}>{version}</span>
                 </span>
               )}
               <div className="app-footer-links">

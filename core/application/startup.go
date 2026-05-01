@@ -548,6 +548,109 @@ func loadRuntimeSettingsFromFile(options *config.ApplicationConfig) {
 		}
 	}
 
+	// Branding / whitelabeling. There are no env vars for these — the file is
+	// the only source — so apply unconditionally. Without this block a server
+	// restart silently drops the configured instance name, tagline, and asset
+	// filenames.
+	if settings.InstanceName != nil {
+		options.Branding.InstanceName = *settings.InstanceName
+	}
+	if settings.InstanceTagline != nil {
+		options.Branding.InstanceTagline = *settings.InstanceTagline
+	}
+	if settings.LogoFile != nil {
+		options.Branding.LogoFile = *settings.LogoFile
+	}
+	if settings.LogoHorizontalFile != nil {
+		options.Branding.LogoHorizontalFile = *settings.LogoHorizontalFile
+	}
+	if settings.FaviconFile != nil {
+		options.Branding.FaviconFile = *settings.FaviconFile
+	}
+
+	// Backend upgrade flags
+	if settings.AutoUpgradeBackends != nil {
+		if !options.AutoUpgradeBackends {
+			options.AutoUpgradeBackends = *settings.AutoUpgradeBackends
+		}
+	}
+	if settings.PreferDevelopmentBackends != nil {
+		if !options.PreferDevelopmentBackends {
+			options.PreferDevelopmentBackends = *settings.PreferDevelopmentBackends
+		}
+	}
+
+	// LocalAI Assistant — file-stored as the negation (LocalAIAssistantEnabled).
+	// Default is enabled (DisableLocalAIAssistant=false). Apply the file value
+	// unless env explicitly disabled the assistant (DisableLocalAIAssistant=true).
+	if settings.LocalAIAssistantEnabled != nil {
+		if !options.DisableLocalAIAssistant {
+			options.DisableLocalAIAssistant = !*settings.LocalAIAssistantEnabled
+		}
+	}
+
+	// Open Responses TTL. Default is 0 (no expiration). Treat the on-disk
+	// "0"/empty as "no expiration" — a no-op since options is already 0 —
+	// and parse anything else as a duration.
+	if settings.OpenResponsesStoreTTL != nil && options.OpenResponsesStoreTTL == 0 {
+		v := *settings.OpenResponsesStoreTTL
+		if v != "0" && v != "" {
+			if dur, err := time.ParseDuration(v); err == nil {
+				options.OpenResponsesStoreTTL = dur
+			} else {
+				xlog.Warn("invalid open_responses_store_ttl in runtime_settings.json", "error", err, "ttl", v)
+			}
+		}
+	}
+
+	// Agent Pool. NewApplicationConfig seeds non-zero defaults for some of
+	// these fields (Enabled=true, EmbeddingModel="granite-embedding-107m-
+	// multilingual", MaxChunkingSize=400). The "if at default, apply file"
+	// gate uses each field's actual default literal so file values can
+	// override the bootstrap default while still letting an env-set value
+	// (e.g. WithAgentPoolEmbeddingModel from a flag) win.
+	if settings.AgentPoolEnabled != nil && options.AgentPool.Enabled {
+		options.AgentPool.Enabled = *settings.AgentPoolEnabled
+	}
+	if settings.AgentPoolDefaultModel != nil && options.AgentPool.DefaultModel == "" {
+		options.AgentPool.DefaultModel = *settings.AgentPoolDefaultModel
+	}
+	if settings.AgentPoolEmbeddingModel != nil {
+		if options.AgentPool.EmbeddingModel == "" || options.AgentPool.EmbeddingModel == "granite-embedding-107m-multilingual" {
+			options.AgentPool.EmbeddingModel = *settings.AgentPoolEmbeddingModel
+		}
+	}
+	if settings.AgentPoolMaxChunkingSize != nil {
+		if options.AgentPool.MaxChunkingSize == 0 || options.AgentPool.MaxChunkingSize == 400 {
+			options.AgentPool.MaxChunkingSize = *settings.AgentPoolMaxChunkingSize
+		}
+	}
+	if settings.AgentPoolChunkOverlap != nil && options.AgentPool.ChunkOverlap == 0 {
+		options.AgentPool.ChunkOverlap = *settings.AgentPoolChunkOverlap
+	}
+	if settings.AgentPoolEnableLogs != nil && !options.AgentPool.EnableLogs {
+		options.AgentPool.EnableLogs = *settings.AgentPoolEnableLogs
+	}
+	if settings.AgentPoolCollectionDBPath != nil && options.AgentPool.CollectionDBPath == "" {
+		options.AgentPool.CollectionDBPath = *settings.AgentPoolCollectionDBPath
+	}
+	if settings.AgentPoolVectorEngine != nil {
+		// Default is "chromem"; treat both that and empty as "not env-set".
+		if options.AgentPool.VectorEngine == "" || options.AgentPool.VectorEngine == "chromem" {
+			options.AgentPool.VectorEngine = *settings.AgentPoolVectorEngine
+		}
+	}
+	if settings.AgentPoolDatabaseURL != nil && options.AgentPool.DatabaseURL == "" {
+		options.AgentPool.DatabaseURL = *settings.AgentPoolDatabaseURL
+	}
+	if settings.AgentPoolAgentHubURL != nil {
+		// Default is "https://agenthub.localai.io"; treat both that and empty
+		// as "not env-set".
+		if options.AgentPool.AgentHubURL == "" || options.AgentPool.AgentHubURL == "https://agenthub.localai.io" {
+			options.AgentPool.AgentHubURL = *settings.AgentPoolAgentHubURL
+		}
+	}
+
 	xlog.Debug("Runtime settings loaded from runtime_settings.json")
 }
 

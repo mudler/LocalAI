@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate, useOutletContext } from 'react-router-dom'
 import { apiUrl } from '../utils/basePath'
 import { useAuth } from '../context/AuthContext'
+import { useBranding } from '../contexts/BrandingContext'
 import ModelSelector from '../components/ModelSelector'
 import { CAP_CHAT } from '../utils/capabilities'
 import UnifiedMCPDropdown from '../components/UnifiedMCPDropdown'
@@ -20,6 +21,7 @@ export default function Home() {
   const navigate = useNavigate()
   const { addToast } = useOutletContext()
   const { isAdmin } = useAuth()
+  const branding = useBranding()
   const { resources } = useResources()
   const [configuredModels, setConfiguredModels] = useState(null)
   const configuredModelsRef = useRef(configuredModels)
@@ -293,7 +295,7 @@ export default function Home() {
         <>
           {/* Hero with logo */}
           <div className="home-hero">
-            <img src={apiUrl('/static/logo.png')} alt="LocalAI" className="home-logo" />
+            <img src={apiUrl(branding.logoUrl)} alt={branding.instanceName} className="home-logo" />
           </div>
 
           {/* Resource monitor - prominent placement */}
@@ -499,8 +501,8 @@ export default function Home() {
         /* No models installed - compact getting started */
         <div className="home-wizard">
           <div className="home-wizard-hero">
-            <img src={apiUrl('/static/logo.png')} alt="LocalAI" className="home-logo" />
-            <h1>Get started with LocalAI</h1>
+            <img src={apiUrl(branding.logoUrl)} alt={branding.instanceName} className="home-logo" />
+            <h1>Get started with {branding.instanceName}</h1>
             <p>Install your first model to begin. Browse the gallery or import your own.</p>
           </div>
 
@@ -544,7 +546,7 @@ export default function Home() {
         /* No models available (non-admin) */
         <div className="home-wizard">
           <div className="home-wizard-hero">
-            <img src={apiUrl('/static/logo.png')} alt="LocalAI" className="home-logo" />
+            <img src={apiUrl(branding.logoUrl)} alt={branding.instanceName} className="home-logo" />
             <h1>No Models Available</h1>
             <p>There are no models installed yet. Ask your administrator to set up models so you can start chatting.</p>
           </div>

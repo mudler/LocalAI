@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { useBranding } from '../contexts/BrandingContext'
 import { apiUrl } from '../utils/basePath'
 import './auth.css'
 
@@ -9,6 +10,7 @@ export default function Login() {
   const { code: urlInviteCode } = useParams()
   const [searchParams] = useSearchParams()
   const { authEnabled, staticApiKeyRequired, user, loading: authLoading, refresh } = useAuth()
+  const branding = useBranding()
   const [providers, setProviders] = useState([])
   const [hasUsers, setHasUsers] = useState(true)
   const [registrationMode, setRegistrationMode] = useState('open')
@@ -182,7 +184,9 @@ export default function Login() {
       <div className="login-page">
         <div className="card login-card">
           <div className="login-header">
-            <img src={apiUrl('/static/logo.png')} alt="LocalAI" className="login-logo" />
+            <img src={apiUrl(branding.logoUrl)} alt={branding.instanceName} className="login-logo" />
+            <h1 className="login-title">{branding.instanceName}</h1>
+            {branding.instanceTagline && <p className="login-tagline">{branding.instanceTagline}</p>}
             <p className="login-subtitle">Enter your API key to continue</p>
           </div>
 
@@ -230,7 +234,9 @@ export default function Login() {
     <div className="login-page">
       <div className="card login-card">
         <div className="login-header">
-          <img src={apiUrl('/static/logo.png')} alt="LocalAI" className="login-logo" />
+          <img src={apiUrl(branding.logoUrl)} alt={branding.instanceName} className="login-logo" />
+          <h1 className="login-title">{branding.instanceName}</h1>
+          {branding.instanceTagline && <p className="login-tagline">{branding.instanceTagline}</p>}
           <p className="login-subtitle">
             {!hasUsers ? 'Create your admin account' : mode === 'register' ? 'Create an account' : 'Sign in to continue'}
           </p>

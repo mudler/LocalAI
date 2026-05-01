@@ -36,6 +36,7 @@ var toolToHTTPRoute = map[string]string{
 	ToolSystemInfo:          "GET / (welcome JSON)",
 	ToolListNodes:           "GET /api/nodes",
 	ToolVRAMEstimate:        "POST /api/models/vram-estimate",
+	ToolGetBranding:         "GET /api/branding",
 
 	// Mutating tools.
 	ToolInstallModel:      "POST /models/apply",
@@ -47,6 +48,7 @@ var toolToHTTPRoute = map[string]string{
 	ToolUpgradeBackend:    "POST /backends/upgrade/:name",
 	ToolToggleModelState:  "PUT /models/toggle-state/:name/:action",
 	ToolToggleModelPinned: "PUT /models/toggle-pinned/:name/:action",
+	ToolSetBranding:       "POST /api/settings (instance_name, instance_tagline)",
 }
 
 // allKnownTools is the union of expectedFullCatalog (defined in

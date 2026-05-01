@@ -166,6 +166,26 @@ export const settingsApi = {
   save: (body) => postJSON(API_CONFIG.endpoints.settings, body),
 }
 
+// Branding / whitelabeling
+// /api/branding is public (no auth) — the login page reads it before the
+// user signs in. Asset uploads/deletes still require admin privileges.
+export const brandingApi = {
+  get: () => fetchJSON('/api/branding'),
+  uploadAsset: (kind, file) => {
+    const fd = new FormData()
+    fd.append('file', file)
+    return fetch(apiUrl(`/api/branding/asset/${enc(kind)}`), {
+      method: 'POST',
+      body: fd,
+      credentials: 'include',
+    }).then(handleResponse)
+  },
+  deleteAsset: (kind) => fetch(apiUrl(`/api/branding/asset/${enc(kind)}`), {
+    method: 'DELETE',
+    credentials: 'include',
+  }).then(handleResponse),
+}
+
 // Backend Logs API
 export const backendLogsApi = {
   listModels: () => fetchJSON(API_CONFIG.endpoints.backendLogs),

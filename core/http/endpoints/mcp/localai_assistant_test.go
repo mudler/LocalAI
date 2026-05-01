@@ -68,6 +68,12 @@ func (stubClient) VRAMEstimate(_ context.Context, _ localaitools.VRAMEstimateReq
 }
 func (stubClient) ToggleModelState(_ context.Context, _ string, _ modeladmin.Action) error  { return nil }
 func (stubClient) ToggleModelPinned(_ context.Context, _ string, _ modeladmin.Action) error { return nil }
+func (stubClient) GetBranding(_ context.Context) (*localaitools.Branding, error) {
+	return &localaitools.Branding{InstanceName: "LocalAI"}, nil
+}
+func (stubClient) SetBranding(_ context.Context, _ localaitools.SetBrandingRequest) (*localaitools.Branding, error) {
+	return &localaitools.Branding{InstanceName: "LocalAI"}, nil
+}
 
 var _ = Describe("LocalAIAssistantHolder", func() {
 	var ctx context.Context

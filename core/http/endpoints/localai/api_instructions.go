@@ -85,6 +85,12 @@ var instructionDefs = []instructionDef{
 		Tags:        []string{"voice-recognition"},
 		Intro:       "Voice (speaker) recognition — the audio analog to /v1/face/*. Use /v1/voice/verify for 1:1 speaker comparison, /v1/voice/identify for 1:N match against the registered store, /v1/voice/{register,forget} to manage that store, /v1/voice/embed for a raw speaker-encoder vector, and /v1/voice/analyze for age / gender / emotion inferred from speech. Registrations are in-memory by default and lost on restart. Audio inputs accept URL, base64, or data-URI; /v1/embeddings remains text-only.",
 	},
+	{
+		Name:        "branding",
+		Description: "Whitelabel the instance: configure name, tagline, logo, and favicon",
+		Tags:        []string{"branding"},
+		Intro:       "GET /api/branding is public so the login screen can render the configured logo before authentication. Text fields are saved through POST /api/settings; binary assets (logo, horizontal logo, favicon) use multipart upload at /api/branding/asset/{kind} and are served back from /branding/asset/{kind}.",
+	},
 }
 
 // swaggerState holds parsed swagger spec data, initialised once.

@@ -1508,5 +1508,14 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		app.POST("/api/settings", localai.UpdateSettingsEndpoint(applicationInstance), adminMiddleware)
 	}
 
+	// Branding / whitelabeling. The read endpoint and the asset server are
+	// public so the login screen can render the configured logo and instance
+	// name before authentication. Mutations are admin-only. See app.go where
+	// "/api/branding" and "/branding/" are added to PathWithoutAuth.
+	app.GET("/api/branding", localai.GetBrandingEndpoint(appConfig))
+	app.GET("/branding/asset/:kind", localai.ServeBrandingAssetEndpoint(appConfig))
+	app.POST("/api/branding/asset/:kind", localai.UploadBrandingAssetEndpoint(appConfig), adminMiddleware)
+	app.DELETE("/api/branding/asset/:kind", localai.DeleteBrandingAssetEndpoint(appConfig), adminMiddleware)
+
 }
 

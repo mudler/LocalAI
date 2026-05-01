@@ -2430,6 +2430,12 @@ select.input {
   color: var(--color-text-primary);
 }
 
+.login-tagline {
+  color: var(--color-text-secondary);
+  font-size: 0.9375rem;
+  margin-bottom: var(--spacing-sm);
+}
+
 .login-subtitle {
   color: var(--color-text-secondary);
   font-size: 0.875rem;

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import ThemeToggle from './ThemeToggle'
 import { useAuth } from '../context/AuthContext'
+import { useBranding } from '../contexts/BrandingContext'
 import { apiUrl } from '../utils/basePath'
 
 const COLLAPSED_KEY = 'localai_sidebar_collapsed'
@@ -105,6 +106,7 @@ export default function Sidebar({ isOpen, onClose }) {
   })
   const [openSections, setOpenSections] = useState(loadSectionState)
   const { isAdmin, authEnabled, user, logout, hasFeature } = useAuth()
+  const branding = useBranding()
   const navigate = useNavigate()
   const location = useLocation()
   const closeBtnRef = useRef(null)
@@ -200,10 +202,10 @@ export default function Sidebar({ isOpen, onClose }) {
         {/* Logo */}
         <div className="sidebar-header">
           <a href="./" className="sidebar-logo-link">
-            <img src={apiUrl('/static/logo_horizontal.png')} alt="LocalAI" className="sidebar-logo-img" />
+            <img src={apiUrl(branding.logoHorizontalUrl)} alt={branding.instanceName} className="sidebar-logo-img" />
           </a>
-          <a href="./" className="sidebar-logo-icon" title="LocalAI">
-            <img src={apiUrl('/static/logo.png')} alt="LocalAI" className="sidebar-logo-icon-img" />
+          <a href="./" className="sidebar-logo-icon" title={branding.instanceName}>
+            <img src={apiUrl(branding.logoUrl)} alt={branding.instanceName} className="sidebar-logo-icon-img" />
           </a>
           <button
             ref={closeBtnRef}

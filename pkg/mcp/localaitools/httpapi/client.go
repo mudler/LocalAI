@@ -466,6 +466,46 @@ func (c *Client) ToggleModelPinned(ctx context.Context, name string, action mode
 	return c.do(ctx, http.MethodPut, routeToggleModelPinned(name, string(action)), nil, nil)
 }
 
+// ---- Branding ----
+
+// brandingResponse mirrors the JSON shape emitted by GET /api/branding.
+// We don't import the server-side type here so the MCP HTTP client stays
+// independent of the localai endpoint package.
+type brandingResponse struct {
+	InstanceName      string `json:"instance_name"`
+	InstanceTagline   string `json:"instance_tagline"`
+	LogoURL           string `json:"logo_url"`
+	LogoHorizontalURL string `json:"logo_horizontal_url"`
+	FaviconURL        string `json:"favicon_url"`
+}
+
+func (c *Client) GetBranding(ctx context.Context) (*localaitools.Branding, error) {
+	var raw brandingResponse
+	if err := c.do(ctx, http.MethodGet, routeBranding, nil, &raw); err != nil {
+		return nil, err
+	}
+	return (*localaitools.Branding)(&raw), nil
+}
+
+func (c *Client) SetBranding(ctx context.Context, req localaitools.SetBrandingRequest) (*localaitools.Branding, error) {
+	// Text fields ride the existing /api/settings POST, which maps the
+	// pointer fields onto RuntimeSettings.InstanceName / InstanceTagline.
+	body := map[string]any{}
+	if req.InstanceName != nil {
+		body["instance_name"] = *req.InstanceName
+	}
+	if req.InstanceTagline != nil {
+		body["instance_tagline"] = *req.InstanceTagline
+	}
+	if len(body) == 0 {
+		return c.GetBranding(ctx)
+	}
+	if err := c.do(ctx, http.MethodPost, routeSettings, body, nil); err != nil {
+		return nil, err
+	}
+	return c.GetBranding(ctx)
+}
+
 // ---- helpers ----
 
 func contains(haystack, lowerNeedle string) bool {
