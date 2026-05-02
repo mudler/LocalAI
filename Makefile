@@ -1051,6 +1051,7 @@ define docker-build-backend
 		--build-arg UBUNTU_VERSION=$(UBUNTU_VERSION) \
 		--build-arg UBUNTU_CODENAME=$(UBUNTU_CODENAME) \
 		$(if $(FROM_SOURCE),--build-arg FROM_SOURCE=$(FROM_SOURCE)) \
+		$(if $(AMDGPU_TARGETS),--build-arg AMDGPU_TARGETS=$(AMDGPU_TARGETS)) \
 		$(if $(filter true,$(5)),--build-arg BACKEND=$(1)) \
 		-t local-ai-backend:$(1) -f backend/Dockerfile.$(2) $(3)
 endef
