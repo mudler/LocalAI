@@ -613,6 +613,101 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/branding": {
+            "get": {
+                "description": "Returns the configured instance name, tagline, and asset URLs. Public — no authentication required.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "branding"
+                ],
+                "summary": "Get instance branding",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/localai.BrandingResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/branding/asset/{kind}": {
+            "post": {
+                "description": "Upload a custom logo, horizontal logo, or favicon. The file replaces any previous override for that kind.",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "branding"
+                ],
+                "summary": "Upload a branding asset",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Asset kind: logo, logo_horizontal, or favicon",
+                        "name": "kind",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "Image file (png, jpeg, svg, webp, ico — up to 5MiB)",
+                        "name": "file",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/localai.BrandingResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Remove a custom branding asset; the UI falls back to the bundled LocalAI default.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "branding"
+                ],
+                "summary": "Reset a branding asset to default",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Asset kind: logo, logo_horizontal, or favicon",
+                        "name": "kind",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/localai.BrandingResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/instructions": {
             "get": {
                 "description": "Returns a compact list of instruction areas with descriptions and URLs for detailed guides",
@@ -1328,6 +1423,35 @@ const docTemplate = `{
                                 "$ref": "#/definitions/gallery.UpgradeInfo"
                             }
                         }
+                    }
+                }
+            }
+        },
+        "/branding/asset/{kind}": {
+            "get": {
+                "description": "Serves the admin-uploaded logo, horizontal logo, or favicon. 404 when no override is set.",
+                "produces": [
+                    "image/*"
+                ],
+                "tags": [
+                    "branding"
+                ],
+                "summary": "Serve a custom branding asset",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Asset kind: logo, logo_horizontal, or favicon",
+                        "name": "kind",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "404": {
+                        "description": "Not Found"
                     }
                 }
             }
@@ -2928,6 +3052,26 @@ const docTemplate = `{
                     "items": {
                         "type": "string"
                     }
+                }
+            }
+        },
+        "localai.BrandingResponse": {
+            "type": "object",
+            "properties": {
+                "favicon_url": {
+                    "type": "string"
+                },
+                "instance_name": {
+                    "type": "string"
+                },
+                "instance_tagline": {
+                    "type": "string"
+                },
+                "logo_horizontal_url": {
+                    "type": "string"
+                },
+                "logo_url": {
+                    "type": "string"
                 }
             }
         },

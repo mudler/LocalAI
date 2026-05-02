@@ -230,6 +230,19 @@ definitions:
           type: string
         type: array
     type: object
+  localai.BrandingResponse:
+    properties:
+      favicon_url:
+        type: string
+      instance_name:
+        type: string
+      instance_tagline:
+        type: string
+      logo_horizontal_url:
+        type: string
+      logo_url:
+        type: string
+    type: object
   localai.GalleryBackend:
     properties:
       id:
@@ -2511,6 +2524,72 @@ paths:
       summary: Clear backend traces
       tags:
       - monitoring
+  /api/branding:
+    get:
+      description: Returns the configured instance name, tagline, and asset URLs.
+        Public — no authentication required.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/localai.BrandingResponse'
+      summary: Get instance branding
+      tags:
+      - branding
+  /api/branding/asset/{kind}:
+    delete:
+      description: Remove a custom branding asset; the UI falls back to the bundled
+        LocalAI default.
+      parameters:
+      - description: 'Asset kind: logo, logo_horizontal, or favicon'
+        in: path
+        name: kind
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/localai.BrandingResponse'
+      summary: Reset a branding asset to default
+      tags:
+      - branding
+    post:
+      consumes:
+      - multipart/form-data
+      description: Upload a custom logo, horizontal logo, or favicon. The file replaces
+        any previous override for that kind.
+      parameters:
+      - description: 'Asset kind: logo, logo_horizontal, or favicon'
+        in: path
+        name: kind
+        required: true
+        type: string
+      - description: Image file (png, jpeg, svg, webp, ico — up to 5MiB)
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/localai.BrandingResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Upload a branding asset
+      tags:
+      - branding
   /api/instructions:
     get:
       description: Returns a compact list of instruction areas with descriptions and
@@ -2989,6 +3068,26 @@ paths:
       summary: Force backend upgrade check
       tags:
       - backends
+  /branding/asset/{kind}:
+    get:
+      description: Serves the admin-uploaded logo, horizontal logo, or favicon. 404
+        when no override is set.
+      parameters:
+      - description: 'Asset kind: logo, logo_horizontal, or favicon'
+        in: path
+        name: kind
+        required: true
+        type: string
+      produces:
+      - image/*
+      responses:
+        "200":
+          description: OK
+        "404":
+          description: Not Found
+      summary: Serve a custom branding asset
+      tags:
+      - branding
   /metrics:
     get:
       produces:
