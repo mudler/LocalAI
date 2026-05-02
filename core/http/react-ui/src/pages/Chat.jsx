@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useParams, useOutletContext, useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useChat } from '../hooks/useChat'
 import ModelSelector from '../components/ModelSelector'
 import { renderMarkdown, highlightAll } from '../utils/markdown'
@@ -89,6 +90,7 @@ function ToolParams({ entries, fallback }) {
 }
 
 function ActivityGroup({ items, updateChatSettings, activeChat, getClientForTool }) {
+  const { t } = useTranslation('chat')
   const [expanded, setExpanded] = useState(false)
   const contentRef = useRef(null)
 
@@ -103,12 +105,12 @@ function ActivityGroup({ items, updateChatSettings, activeChat, getClientForTool
   const regularItems = items.filter(item => !(item.role === 'tool_result' && item.appUI))
 
   const labels = regularItems.map(item => {
-    if (item.role === 'thinking' || item.role === 'reasoning') return 'Thought'
+    if (item.role === 'thinking' || item.role === 'reasoning') return t('activity.thought')
     if (item.role === 'tool_call') {
-      try { return JSON.parse(item.content)?.name || 'Tool' } catch (_e) { return 'Tool' }
+      try { return JSON.parse(item.content)?.name || t('activity.tool') } catch (_e) { return t('activity.tool') }
     }
     if (item.role === 'tool_result') {
-      try { return `${JSON.parse(item.content)?.name || 'Tool'} result` } catch (_e) { return 'Result' }
+      try { return t('activity.toolResult', { name: JSON.parse(item.content)?.name || t('activity.tool') }) } catch (_e) { return t('activity.result') }
     }
     return item.role
   })
@@ -132,7 +134,7 @@ function ActivityGroup({ items, updateChatSettings, activeChat, getClientForTool
                   if (item.role === 'thinking' || item.role === 'reasoning') {
                     return (
                       <div key={idx} className="chat-activity-item chat-activity-thinking">
-                        <span className="chat-activity-item-label">Thought</span>
+                        <span className="chat-activity-item-label">{t('activity.thought')}</span>
                         <div className="chat-activity-item-content"
                           dangerouslySetInnerHTML={{ __html: renderMarkdown(item.content || '') }} />
                       </div>
@@ -176,6 +178,7 @@ function ActivityGroup({ items, updateChatSettings, activeChat, getClientForTool
 }
 
 function StreamingActivity({ reasoning, toolCalls, hasResponse }) {
+  const { t } = useTranslation('chat')
   const hasContent = reasoning || (toolCalls && toolCalls.length > 0)
   if (!hasContent) return null
 
@@ -200,9 +203,9 @@ function StreamingActivity({ reasoning, toolCalls, hasResponse }) {
 
   const lastTool = toolCalls && toolCalls.length > 0 ? toolCalls[toolCalls.length - 1] : null
   const label = reasoning
-    ? 'Thinking...'
+    ? t('activity.thinking')
     : lastTool
-      ? (lastTool.type === 'tool_call' ? lastTool.name : `${lastTool.name} result`)
+      ? (lastTool.type === 'tool_call' ? lastTool.name : t('activity.toolResult', { name: lastTool.name }))
       : ''
 
   return (
@@ -231,7 +234,7 @@ function StreamingActivity({ reasoning, toolCalls, hasResponse }) {
               if (tc.type === 'tool_result') {
                 return (
                   <div key={idx} className="chat-activity-item chat-activity-tool-result">
-                    <span className="chat-activity-item-label">{tc.name} result</span>
+                    <span className="chat-activity-item-label">{t('activity.toolResult', { name: tc.name })}</span>
                     <div className="chat-activity-item-content"
                       dangerouslySetInnerHTML={{ __html: renderMarkdown(tc.result || '') }} />
                   </div>
@@ -278,6 +281,7 @@ export default function Chat() {
   const { model: urlModel } = useParams()
   const { addToast } = useOutletContext()
   const navigate = useNavigate()
+  const { t } = useTranslation('chat')
   const { isAdmin } = useAuth()
   const { operations } = useOperations()
   const {
@@ -719,7 +723,7 @@ export default function Chat() {
     const msg = input.trim()
     if (!msg && files.length === 0) return
     if (!activeChat?.model) {
-      addToast('Please select a model', 'warning')
+      addToast(t('toasts.selectModel'), 'warning')
       return
     }
     setInput('')
@@ -797,7 +801,7 @@ export default function Chat() {
   const copyMessage = (content) => {
     const text = typeof content === 'string' ? content : content?.[0]?.text || ''
     navigator.clipboard.writeText(text)
-    addToast('Copied to clipboard', 'success', 2000)
+    addToast(t('toasts.copied'), 'success', 2000)
   }
 
   const contextPercent = getContextUsagePercent()
@@ -809,9 +813,9 @@ export default function Chat() {
     .slice(0, 4)
 
   const promptDeleteAll = () => setConfirmDialog({
-    title: 'Delete All Chats',
-    message: 'Delete all chats? This cannot be undone.',
-    confirmLabel: 'Delete all',
+    title: t('deleteAllDialog.title'),
+    message: t('deleteAllDialog.message'),
+    confirmLabel: t('deleteAllDialog.confirm'),
     danger: true,
     onConfirm: () => { setConfirmDialog(null); deleteAllChats() },
   })
@@ -845,7 +849,7 @@ export default function Chat() {
           {activeChat.localaiAssistant && (
             <span
               className="chat-header-shield"
-              title="This chat can install models, edit configs and manage backends by talking to LocalAI."
+              title={t('header.manageModeTooltip')}
             >
               <i className="fas fa-user-shield" />
             </span>
@@ -863,7 +867,7 @@ export default function Chat() {
                 type="button"
                 className={`btn btn-secondary btn-sm${showModelInfo ? ' active' : ''}`}
                 onClick={() => setShowModelInfo(prev => !prev)}
-                title="Model info"
+                title={t('header.modelInfo')}
                 aria-pressed={showModelInfo}
                 aria-controls="chat-model-info-panel"
               >
@@ -874,7 +878,7 @@ export default function Chat() {
               type="button"
               className={`btn btn-secondary btn-sm${showSettings ? ' active' : ''}`}
               onClick={() => setShowSettings(!showSettings)}
-              title="Chat settings"
+              title={t('header.chatSettings')}
               aria-pressed={showSettings}
             >
               <i className="fas fa-sliders-h" />
@@ -886,31 +890,31 @@ export default function Chat() {
         {showModelInfo && modelInfo && (
           <div id="chat-model-info-panel" className="chat-model-info-panel">
             <div className="chat-model-info-header">
-              <span>Model Info: {activeChat.model}</span>
+              <span>{t('header.modelInfoTitle', { model: activeChat.model })}</span>
               <div style={{ display: 'flex', gap: 'var(--spacing-xs)' }}>
                 {isAdmin && activeChat.model && (
                   <button
                     type="button"
                     className="btn btn-secondary btn-sm"
                     onClick={() => navigate(`/app/model-editor/${encodeURIComponent(activeChat.model)}`)}
-                    title="Edit model config"
+                    title={t('header.editConfig')}
                   >
-                    <i className="fas fa-pen-to-square" /> Edit config
+                    <i className="fas fa-pen-to-square" /> {t('header.editConfig')}
                   </button>
                 )}
-                <button className="btn btn-secondary btn-sm" onClick={() => setShowModelInfo(false)} title="Close">
+                <button className="btn btn-secondary btn-sm" onClick={() => setShowModelInfo(false)} title={t('header.close')}>
                   <i className="fas fa-times" />
                 </button>
               </div>
             </div>
             <div className="chat-model-info-body">
-              {modelInfo.backend && <div className="chat-model-info-row"><span>Backend</span><span>{modelInfo.backend}</span></div>}
-              {modelInfo.parameters?.model && <div className="chat-model-info-row"><span>Model file</span><span>{modelInfo.parameters.model}</span></div>}
-              {modelInfo.context_size > 0 && <div className="chat-model-info-row"><span>Context size</span><span>{modelInfo.context_size}</span></div>}
-              {modelInfo.threads > 0 && <div className="chat-model-info-row"><span>Threads</span><span>{modelInfo.threads}</span></div>}
-              {(modelInfo.mcp?.remote || modelInfo.mcp?.stdio) && <div className="chat-model-info-row"><span>MCP</span><span className="badge badge-success">Configured</span></div>}
-              {modelInfo.template?.chat_message && <div className="chat-model-info-row"><span>Chat template</span><span>Yes</span></div>}
-              {modelInfo.gpu_layers > 0 && <div className="chat-model-info-row"><span>GPU layers</span><span>{modelInfo.gpu_layers}</span></div>}
+              {modelInfo.backend && <div className="chat-model-info-row"><span>{t('modelInfo.backend')}</span><span>{modelInfo.backend}</span></div>}
+              {modelInfo.parameters?.model && <div className="chat-model-info-row"><span>{t('modelInfo.modelFile')}</span><span>{modelInfo.parameters.model}</span></div>}
+              {modelInfo.context_size > 0 && <div className="chat-model-info-row"><span>{t('modelInfo.contextSize')}</span><span>{modelInfo.context_size}</span></div>}
+              {modelInfo.threads > 0 && <div className="chat-model-info-row"><span>{t('modelInfo.threads')}</span><span>{modelInfo.threads}</span></div>}
+              {(modelInfo.mcp?.remote || modelInfo.mcp?.stdio) && <div className="chat-model-info-row"><span>{t('modelInfo.mcp')}</span><span className="badge badge-success">{t('modelInfo.configured')}</span></div>}
+              {modelInfo.template?.chat_message && <div className="chat-model-info-row"><span>{t('modelInfo.chatTemplate')}</span><span>{t('modelInfo.yes')}</span></div>}
+              {modelInfo.gpu_layers > 0 && <div className="chat-model-info-row"><span>{t('modelInfo.gpuLayers')}</span><span>{modelInfo.gpu_layers}</span></div>}
             </div>
           </div>
         )}
@@ -925,8 +929,9 @@ export default function Chat() {
               }}
             />
             <span className="chat-context-label">
-              Context: {Math.round(contextPercent)}%
-              {activeChat.tokenUsage.total > 0 && ` (${activeChat.tokenUsage.total} tokens)`}
+              {activeChat.tokenUsage.total > 0
+                ? t('context.labelWithTokens', { percent: Math.round(contextPercent), tokens: activeChat.tokenUsage.total })
+                : t('context.label', { percent: Math.round(contextPercent) })}
             </span>
           </div>
         )}
@@ -935,7 +940,7 @@ export default function Chat() {
         <div className={`chat-settings-overlay${showSettings ? ' open' : ''}`} onClick={() => setShowSettings(false)} />
         <div className={`chat-settings-drawer${showSettings ? ' open' : ''}`}>
           <div className="chat-settings-drawer-header">
-            <span>Chat Settings</span>
+            <span>{t('settings.title')}</span>
             <button className="btn btn-secondary btn-sm" onClick={() => setShowSettings(false)}>
               <i className="fas fa-times" />
             </button>
@@ -945,10 +950,10 @@ export default function Chat() {
               <div className="form-group chat-settings-toggle-row">
                 <div className="chat-settings-toggle-text">
                   <span className="chat-settings-toggle-title">
-                    <i className="fas fa-user-shield" /> Manage mode
+                    <i className="fas fa-user-shield" /> {t('settings.manageMode')}
                   </span>
                   <span className="chat-settings-toggle-desc">
-                    Let this chat install models, switch backends, and edit configs by talking to LocalAI.
+                    {t('settings.manageModeDesc')}
                   </span>
                 </div>
                 <label className="toggle">
@@ -962,18 +967,18 @@ export default function Chat() {
               </div>
             )}
             <div className="form-group">
-              <label className="form-label">System Prompt</label>
+              <label className="form-label">{t('settings.systemPrompt')}</label>
               <textarea
                 className="textarea"
                 value={activeChat.systemPrompt || ''}
                 onChange={(e) => updateChatSettings(activeChat.id, { systemPrompt: e.target.value })}
                 rows={3}
-                placeholder="You are a helpful assistant..."
+                placeholder={t('settings.systemPromptPlaceholder')}
               />
             </div>
             <div className="form-group">
               <label className="form-label">
-                Temperature {activeChat.temperature !== null ? `(${activeChat.temperature})` : ''}
+                {t('settings.temperature')} {activeChat.temperature !== null ? `(${activeChat.temperature})` : ''}
               </label>
               <input
                 type="range" min="0" max="2" step="0.1"
@@ -985,7 +990,7 @@ export default function Chat() {
             </div>
             <div className="form-group">
               <label className="form-label">
-                Top P {activeChat.topP !== null ? `(${activeChat.topP})` : ''}
+                {t('settings.topP')} {activeChat.topP !== null ? `(${activeChat.topP})` : ''}
               </label>
               <input
                 type="range" min="0" max="1" step="0.05"
@@ -997,7 +1002,7 @@ export default function Chat() {
             </div>
             <div className="form-group">
               <label className="form-label">
-                Top K {activeChat.topK !== null ? `(${activeChat.topK})` : ''}
+                {t('settings.topK')} {activeChat.topK !== null ? `(${activeChat.topK})` : ''}
               </label>
               <input
                 type="range" min="1" max="100" step="1"
@@ -1008,13 +1013,13 @@ export default function Chat() {
               <div className="chat-slider-labels"><span>1</span><span>100</span></div>
             </div>
             <div className="form-group">
-              <label className="form-label">Context Size</label>
+              <label className="form-label">{t('settings.contextSize')}</label>
               <input
                 type="number"
                 className="input"
                 value={activeChat.contextSize || ''}
                 onChange={(e) => updateChatSettings(activeChat.id, { contextSize: parseInt(e.target.value) || null })}
-                placeholder="2048"
+                placeholder={t('settings.contextSizePlaceholder')}
               />
             </div>
             <div className="chat-settings-danger-zone">
@@ -1022,9 +1027,9 @@ export default function Chat() {
                 type="button"
                 className="chat-settings-danger-btn"
                 onClick={() => clearHistory(activeChat.id)}
-                title="Clear chat history"
+                title={t('settings.clearHistory')}
               >
-                <i className="fas fa-eraser" /> Clear chat history
+                <i className="fas fa-eraser" /> {t('settings.clearHistory')}
               </button>
             </div>
           </div>
@@ -1034,16 +1039,16 @@ export default function Chat() {
         <div className="chat-messages" ref={messagesRef}>
           {activeChat.history.length === 0 && !isStreaming && (
             <div className="chat-empty-state">
-              <h2 className="chat-empty-title">{activeChat.localaiAssistant ? 'Manage LocalAI by chatting' : 'Start a conversation'}</h2>
+              <h2 className="chat-empty-title">{activeChat.localaiAssistant ? t('empty.manageTitle') : t('empty.startTitle')}</h2>
               <p className="chat-empty-text">
                 {activeChat.localaiAssistant
-                  ? 'Ask to install models, switch backends, edit configs, or check status. The assistant will summarise actions and wait for your confirmation before changing anything.'
-                  : (activeChat.model ? `Ready to chat with ${activeChat.model}` : 'Select a model above to get started')}
+                  ? t('empty.manageText')
+                  : (activeChat.model ? t('empty.readyText', { model: activeChat.model }) : t('empty.selectModelText'))}
               </p>
               <div className="chat-empty-suggestions">
                 {(activeChat.localaiAssistant
-                  ? ['What is installed?', 'Install a chat model', 'Show system status', 'Update a backend']
-                  : ['Explain how this works', 'Help me write code', 'Summarize a document', 'Brainstorm ideas']
+                  ? t('empty.suggestionsManage', { returnObjects: true })
+                  : t('empty.suggestionsChat', { returnObjects: true })
                 ).map((prompt) => (
                   <button
                     key={prompt}
@@ -1057,7 +1062,7 @@ export default function Chat() {
               {recentChats.length > 0 && (
                 <div className="chat-recent-strip">
                   <div className="chat-recent-strip-label">
-                    Recent <kbd className="chat-recent-strip-kbd">⌘K</kbd>
+                    {t('empty.recent')} <kbd className="chat-recent-strip-kbd">⌘K</kbd>
                   </div>
                   <div className="chat-recent-strip-list">
                     {recentChats.map(chat => (
@@ -1070,7 +1075,7 @@ export default function Chat() {
                       >
                         <span className="chat-recent-strip-item-name">{chat.name}</span>
                         <span className="chat-recent-strip-item-preview">
-                          {getLastMessagePreview(chat) || 'No messages yet'}
+                          {getLastMessagePreview(chat) || t('empty.noMessages')}
                         </span>
                         <span className="chat-recent-strip-item-time">{relativeTime(chat.updatedAt)}</span>
                       </button>
@@ -1079,9 +1084,9 @@ export default function Chat() {
                 </div>
               )}
               <div className="chat-empty-hints">
-                <span><i className="fas fa-keyboard" /> Enter to send</span>
-                <span><i className="fas fa-level-down-alt" /> Shift+Enter for newline</span>
-                <span><i className="fas fa-paperclip" /> Attach files</span>
+                <span><i className="fas fa-keyboard" /> {t('empty.hintEnter')}</span>
+                <span><i className="fas fa-level-down-alt" /> {t('empty.hintShiftEnter')}</span>
+                <span><i className="fas fa-paperclip" /> {t('empty.hintAttach')}</span>
               </div>
             </div>
           )}
@@ -1128,15 +1133,15 @@ export default function Chat() {
                     </div>
                     {msg.role === 'assistant' && typeof msg.content === 'string' && msg.content.includes('Error:') && (
                       <a href="/app/traces?tab=backend" className="chat-error-trace-link">
-                        <i className="fas fa-wave-square" /> View traces for details
+                        <i className="fas fa-wave-square" /> {t('errors.viewTraces')}
                       </a>
                     )}
                     <div className="chat-message-actions">
-                      <button onClick={() => copyMessage(msg.content)} title="Copy">
+                      <button onClick={() => copyMessage(msg.content)} title={t('actions.copy')}>
                         <i className="fas fa-copy" />
                       </button>
                       {msg.role === 'assistant' && i === activeChat.history.length - 1 && !isStreaming && (
-                        <button onClick={handleRegenerate} title="Regenerate">
+                        <button onClick={handleRegenerate} title={t('actions.regenerate')}>
                           <i className="fas fa-rotate" />
                         </button>
                       )}
@@ -1170,7 +1175,7 @@ export default function Chat() {
                 </div>
                 {tokensPerSecond !== null && (
                   <div className="chat-streaming-speed">
-                    <i className="fas fa-tachometer-alt" /> {tokensPerSecond} tok/s
+                    <i className="fas fa-tachometer-alt" /> {t('tokens.perSec', { count: tokensPerSecond })}
                   </div>
                 )}
               </div>
@@ -1186,7 +1191,7 @@ export default function Chat() {
                   {stagingOp ? (
                     <div className="chat-staging-progress">
                       <div className="chat-staging-label">
-                        <i className="fas fa-cloud-arrow-up" /> Transferring model{stagingOp.nodeName ? ` to ${stagingOp.nodeName}` : ''}...
+                        <i className="fas fa-cloud-arrow-up" /> {stagingOp.nodeName ? t('streaming.transferringTo', { node: stagingOp.nodeName }) : t('streaming.transferring')}
                       </div>
                       {stagingOp.progress > 0 && (
                         <div className="chat-staging-detail">
@@ -1215,15 +1220,15 @@ export default function Chat() {
         {/* Token info bar */}
         {(tokensPerSecond || maxTokensPerSecond || activeChat.tokenUsage?.total > 0) && (
           <div className="chat-token-info">
-            {tokensPerSecond !== null && <span><i className="fas fa-tachometer-alt" /> {tokensPerSecond} tok/s</span>}
+            {tokensPerSecond !== null && <span><i className="fas fa-tachometer-alt" /> {t('tokens.perSec', { count: tokensPerSecond })}</span>}
             {maxTokensPerSecond !== null && !isStreaming && (
               <span className="chat-max-tps-badge">
-                <i className="fas fa-bolt" /> Peak: {maxTokensPerSecond} tok/s
+                <i className="fas fa-bolt" /> {t('tokens.peak', { count: maxTokensPerSecond })}
               </span>
             )}
             {activeChat.tokenUsage?.total > 0 && (
               <span>
-                <i className="fas fa-coins" /> {activeChat.tokenUsage.prompt}p + {activeChat.tokenUsage.completion}c = {activeChat.tokenUsage.total}
+                <i className="fas fa-coins" /> {t('tokens.usage', { prompt: activeChat.tokenUsage.prompt, completion: activeChat.tokenUsage.completion, total: activeChat.tokenUsage.total })}
               </span>
             )}
           </div>
@@ -1257,16 +1262,16 @@ export default function Chat() {
                   if (!next) setCanvasOpen(false)
                 }}
                 aria-pressed={canvasMode}
-                title="Canvas — extract code blocks and media into a side panel for preview, copy, and download"
+                title={t('input.canvasTitle')}
               >
                 <i className="fas fa-columns" />
-                <span className="chat-mode-chip-label">Canvas</span>
+                <span className="chat-mode-chip-label">{t('input.canvasLabel')}</span>
                 {canvasMode && artifacts.length > 0 && !canvasOpen && (
                   <span
                     role="button"
                     tabIndex={0}
                     className="chat-mode-chip-count"
-                    title="Open canvas panel"
+                    title={t('input.openCanvas')}
                     onClick={(e) => {
                       e.stopPropagation()
                       setSelectedArtifactId(artifacts[0]?.id)
@@ -1325,7 +1330,7 @@ export default function Chat() {
               type="button"
               className="btn btn-secondary btn-sm chat-attach-btn"
               onClick={() => fileInputRef.current?.click()}
-              title="Attach file"
+              title={t('input.attachFile')}
             >
               <i className="fas fa-paperclip" />
             </button>
@@ -1343,12 +1348,12 @@ export default function Chat() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Message..."
+              placeholder={t('input.placeholder')}
               rows={1}
               disabled={isStreaming}
             />
             {isStreaming ? (
-              <button className="chat-stop-btn" onClick={stopGeneration} title="Stop generating">
+              <button className="chat-stop-btn" onClick={stopGeneration} title={t('input.stopGenerating')}>
                 <i className="fas fa-stop" />
               </button>
             ) : (

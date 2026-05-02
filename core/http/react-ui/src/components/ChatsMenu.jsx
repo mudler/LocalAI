@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useImperativeHandle, forwardRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import { relativeTime } from '../utils/format'
 
 function getLastMessagePreview(chat) {
@@ -24,6 +25,7 @@ const ChatsMenu = forwardRef(function ChatsMenu({
   onRename,
   onExport,
 }, ref) {
+  const { t } = useTranslation('chat')
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
   const [editingId, setEditingId] = useState(null)
@@ -139,11 +141,11 @@ const ChatsMenu = forwardRef(function ChatsMenu({
         className={`btn btn-secondary btn-sm chats-menu-trigger${open ? ' active' : ''}`}
         aria-haspopup="menu"
         aria-expanded={open}
-        title="Conversations (Ctrl/Cmd+K)"
+        title={t('menu.triggerTitle')}
         onClick={() => setOpen(prev => !prev)}
       >
         <i className="fas fa-comments" />
-        <span className="chats-menu-trigger-label">Chats</span>
+        <span className="chats-menu-trigger-label">{t('menu.trigger')}</span>
         <kbd className="chats-menu-trigger-kbd">⌘K</kbd>
       </button>
 
@@ -157,14 +159,14 @@ const ChatsMenu = forwardRef(function ChatsMenu({
               type="text"
               value={search}
               onChange={(e) => { setSearch(e.target.value); setActiveIdx(0) }}
-              placeholder="Search conversations..."
+              placeholder={t('menu.search')}
             />
             {search && (
               <button
                 type="button"
                 className="chats-menu-search-clear"
                 onClick={() => setSearch('')}
-                aria-label="Clear search"
+                aria-label={t('menu.clearSearch')}
               >
                 <i className="fas fa-times" />
               </button>
@@ -174,7 +176,7 @@ const ChatsMenu = forwardRef(function ChatsMenu({
           <div className="chats-menu-list" ref={listRef}>
             {filtered.length === 0 && (
               <div className="chats-menu-empty">
-                {search ? 'No conversations match your search' : 'No conversations yet'}
+                {search ? t('menu.noMatch') : t('menu.noConversations')}
               </div>
             )}
             {filtered.map((chat, idx) => (
@@ -216,7 +218,7 @@ const ChatsMenu = forwardRef(function ChatsMenu({
                       <span className="chats-menu-item-time">{relativeTime(chat.updatedAt)}</span>
                     </div>
                     <span className="chats-menu-item-preview">
-                      {getLastMessagePreview(chat) || 'No messages yet'}
+                      {getLastMessagePreview(chat) || t('empty.noMessages')}
                     </span>
                   </div>
                 )}
@@ -224,7 +226,7 @@ const ChatsMenu = forwardRef(function ChatsMenu({
                   <button
                     type="button"
                     onClick={(e) => { e.stopPropagation(); startRename(chat.id, chat.name) }}
-                    title="Rename"
+                    title={t('menu.rename')}
                   >
                     <i className="fas fa-pen" />
                   </button>
@@ -232,7 +234,7 @@ const ChatsMenu = forwardRef(function ChatsMenu({
                     <button
                       type="button"
                       onClick={(e) => { e.stopPropagation(); onExport(chat) }}
-                      title="Export as Markdown"
+                      title={t('menu.exportMarkdown')}
                     >
                       <i className="fas fa-download" />
                     </button>
@@ -242,7 +244,7 @@ const ChatsMenu = forwardRef(function ChatsMenu({
                       type="button"
                       className="chats-menu-item-delete"
                       onClick={(e) => { e.stopPropagation(); onDelete?.(chat.id) }}
-                      title="Delete chat"
+                      title={t('menu.deleteChat')}
                     >
                       <i className="fas fa-trash" />
                     </button>
@@ -254,16 +256,16 @@ const ChatsMenu = forwardRef(function ChatsMenu({
 
           <div className="chats-menu-footer">
             <button type="button" className="btn btn-primary btn-sm chats-menu-new" onClick={handleNew}>
-              <i className="fas fa-plus" /> New chat
+              <i className="fas fa-plus" /> {t('menu.newChat')}
             </button>
             {chats.length > 1 && (
               <button
                 type="button"
                 className="btn btn-secondary btn-sm chats-menu-clear-all"
                 onClick={() => { onDeleteAll?.(); setOpen(false) }}
-                title="Delete all conversations"
+                title={t('menu.deleteAllTitle')}
               >
-                <i className="fas fa-trash" /> Clear all
+                <i className="fas fa-trash" /> {t('menu.clearAll')}
               </button>
             )}
           </div>

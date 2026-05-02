@@ -1,0 +1,43 @@
+{
+  "title": "知识库",
+  "subtitle": "为智能体的 RAG 管理文档集合",
+  "newPlaceholder": "新集合名称...",
+  "actions": {
+    "create": "创建",
+    "creating": "创建中...",
+    "details": "详情",
+    "reset": "重置",
+    "delete": "删除",
+    "viewDetails": "查看详情",
+    "resetCollection": "重置集合",
+    "deleteCollection": "删除集合"
+  },
+  "sections": {
+    "yourCollections": "您的集合",
+    "otherUsersCollections": "其他用户的集合"
+  },
+  "empty": {
+    "title": "暂无集合",
+    "text": "集合让您可以将文档组织成知识库，智能体可以通过 RAG（检索增强生成）进行搜索。在上方创建一个集合以开始。",
+    "noPersonal": "您还没有任何集合。"
+  },
+  "deleteDialog": {
+    "title": "删除集合",
+    "message": "删除集合 \"{{name}}\"？这将删除所有条目，且无法撤销。",
+    "confirm": "删除"
+  },
+  "resetDialog": {
+    "title": "重置集合",
+    "message": "重置集合 \"{{name}}\"？这将删除所有条目但保留集合。",
+    "confirm": "重置"
+  },
+  "toasts": {
+    "loadFailed": "加载集合失败：{{message}}",
+    "created": "集合 \"{{name}}\" 已创建",
+    "createFailed": "创建集合失败：{{message}}",
+    "deleted": "集合 \"{{name}}\" 已删除",
+    "deleteFailed": "删除集合失败：{{message}}",
+    "reset": "集合 \"{{name}}\" 已重置",
+    "resetFailed": "重置集合失败：{{message}}"
+  }
+}

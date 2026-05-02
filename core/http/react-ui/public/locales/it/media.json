@@ -1,0 +1,154 @@
+{
+  "studio": {
+    "tabs": {
+      "images": "Immagini",
+      "video": "Video",
+      "tts": "TTS",
+      "sound": "Audio"
+    }
+  },
+  "image": {
+    "title": "Generazione immagini",
+    "labels": {
+      "model": "Modello",
+      "prompt": "Prompt",
+      "promptPlaceholder": "Descrivi l'immagine che vuoi generare...",
+      "negativePrompt": "Prompt negativo",
+      "negativePromptPlaceholder": "Cosa evitare...",
+      "size": "Dimensione",
+      "count": "Quantità (1-4)",
+      "advanced": "Impostazioni avanzate",
+      "imageInputs": "Input immagini",
+      "steps": "Passi",
+      "stepsPlaceholder": "20",
+      "seed": "Seed",
+      "seedPlaceholder": "Casuale",
+      "sourceImage": "Immagine sorgente (img2img)",
+      "refImages": "Immagini di riferimento",
+      "refImagesAdded_one": "{{count}} immagine aggiunta",
+      "refImagesAdded_other": "{{count}} immagini aggiunte"
+    },
+    "actions": {
+      "generate": "Genera",
+      "generating": "Generazione..."
+    },
+    "empty": "Le immagini generate appariranno qui",
+    "toasts": {
+      "noPrompt": "Inserisci un prompt",
+      "noModel": "Seleziona un modello",
+      "noResults": "Nessuna immagine generata"
+    }
+  },
+  "video": {
+    "title": "Generazione video",
+    "labels": {
+      "model": "Modello",
+      "prompt": "Prompt",
+      "promptPlaceholder": "Descrivi il video che vuoi generare...",
+      "duration": "Durata (s)",
+      "fps": "FPS",
+      "size": "Dimensione",
+      "advanced": "Impostazioni avanzate",
+      "seed": "Seed",
+      "seedPlaceholder": "Casuale"
+    },
+    "actions": {
+      "generate": "Genera video",
+      "generating": "Generazione..."
+    },
+    "empty": "I video generati appariranno qui",
+    "toasts": {
+      "noPrompt": "Inserisci un prompt",
+      "noModel": "Seleziona un modello",
+      "noResults": "Nessun video generato"
+    }
+  },
+  "tts": {
+    "title": "Text to Speech",
+    "labels": {
+      "model": "Modello",
+      "voice": "Voce",
+      "voicePlaceholder": "ID voce opzionale",
+      "input": "Testo",
+      "inputPlaceholder": "Inserisci il testo da convertire in voce..."
+    },
+    "actions": {
+      "generate": "Genera audio",
+      "generating": "Generazione..."
+    },
+    "empty": "L'audio generato apparirà qui",
+    "toasts": {
+      "noText": "Inserisci del testo",
+      "noModel": "Seleziona un modello",
+      "generateFailed": "Generazione fallita"
+    }
+  },
+  "sound": {
+    "title": "Generazione audio",
+    "labels": {
+      "model": "Modello",
+      "prompt": "Prompt",
+      "promptPlaceholder": "Descrivi il suono che vuoi generare...",
+      "duration": "Durata (s)",
+      "language": "Lingua",
+      "vocalLanguage": "Lingua vocale",
+      "lyrics": "Testi (opzionale)",
+      "lyricsPlaceholder": "Testi per la generazione vocale",
+      "advanced": "Impostazioni avanzate",
+      "seed": "Seed",
+      "seedPlaceholder": "Casuale"
+    },
+    "actions": {
+      "generate": "Genera",
+      "generating": "Generazione..."
+    },
+    "empty": "L'audio generato apparirà qui",
+    "toasts": {
+      "noPrompt": "Inserisci un prompt",
+      "noModel": "Seleziona un modello",
+      "generateFailed": "Generazione fallita"
+    }
+  },
+  "talk": {
+    "title": "Conversazione",
+    "subtitle": "Conversazione vocale in tempo reale",
+    "actions": {
+      "start": "Avvia sessione",
+      "stop": "Termina sessione",
+      "connecting": "Connessione...",
+      "muted": "Muto",
+      "mute": "Disattiva microfono",
+      "unmute": "Riattiva microfono"
+    },
+    "labels": {
+      "model": "Modello",
+      "voice": "Voce",
+      "voicePlaceholder": "alloy",
+      "language": "Lingua",
+      "languagePlaceholder": "it",
+      "instructions": "Istruzioni",
+      "instructionsPlaceholder": "Imposta la personalità dell'assistente..."
+    },
+    "status": {
+      "idle": "Inattivo",
+      "connecting": "Connessione...",
+      "listening": "In ascolto...",
+      "speaking": "Sta parlando...",
+      "ended": "Sessione terminata"
+    },
+    "toasts": {
+      "noModel": "Seleziona prima un modello",
+      "connectFailed": "Connessione fallita: {{message}}"
+    }
+  },
+  "history": {
+    "title": "Cronologia",
+    "empty": "Nessuna cronologia",
+    "deleteEntry": "Elimina voce",
+    "clear": "Cancella cronologia",
+    "clearTitle": "Cancella tutta la cronologia",
+    "clearMessage": "Rimuovere tutte le voci della cronologia? Questa azione non può essere annullata.",
+    "clearConfirm": "Cancella",
+    "cleared": "Cronologia cancellata"
+  }
+}

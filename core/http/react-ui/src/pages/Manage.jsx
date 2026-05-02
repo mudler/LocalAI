@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate, useOutletContext, useSearchParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import ResourceMonitor from '../components/ResourceMonitor'
 import ConfirmDialog from '../components/ConfirmDialog'
 import NodeDistributionChip from '../components/NodeDistributionChip'
@@ -109,9 +110,10 @@ function formatBackendVersion(metadata) {
 export default function Manage() {
   const { addToast } = useOutletContext()
   const navigate = useNavigate()
+  const { t } = useTranslation('admin')
   const [searchParams, setSearchParams] = useSearchParams()
   const initialTab = searchParams.get('tab') || localStorage.getItem('manage-tab') || 'models'
-  const [activeTab, setActiveTab] = useState(TABS.some(t => t.key === initialTab) ? initialTab : 'models')
+  const [activeTab, setActiveTab] = useState(TABS.some(tab => tab.key === initialTab) ? initialTab : 'models')
   const { models, loading: modelsLoading, refetch: refetchModels } = useModels()
   const { enrichModel, enrichBackend } = useGalleryEnrichment()
   const [loadedModelIds, setLoadedModelIds] = useState(new Set())
@@ -428,8 +430,8 @@ export default function Manage() {
   return (
     <div className="page page--wide">
       <div className="page-header">
-        <h1 className="page-title">System</h1>
-        <p className="page-subtitle">Manage installed models and backends</p>
+        <h1 className="page-title">{t('manage.title')}</h1>
+        <p className="page-subtitle">{t('manage.subtitle')}</p>
       </div>
 
       {/* Resource Monitor */}

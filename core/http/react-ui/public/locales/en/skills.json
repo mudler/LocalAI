@@ -1,0 +1,79 @@
+{
+  "title": "Skills",
+  "subtitle": "Manage agent skills (reusable instructions and resources)",
+  "unavailable": {
+    "subtitle": "Skills service is not available or the index is rebuilding. Try again in a moment.",
+    "retry": "Retry"
+  },
+  "actions": {
+    "newSkill": "New skill",
+    "createSkill": "Create skill",
+    "import": "Import",
+    "importing": "Importing...",
+    "gitRepos": "Git Repos",
+    "edit": "Edit",
+    "delete": "Delete",
+    "export": "Export",
+    "sync": "Sync",
+    "addRepo": "Add repo",
+    "adding": "Adding...",
+    "remove": "Remove",
+    "enable": "Enable",
+    "disable": "Disable"
+  },
+  "search": {
+    "placeholder": "Search skills..."
+  },
+  "git": {
+    "title": "Git repositories",
+    "description": "Add Git repositories to pull skills from. Skills will appear in the list after sync.",
+    "urlPlaceholder": "https://github.com/user/repo or git@github.com:user/repo.git",
+    "noRepos": "No Git repos configured. Add one above.",
+    "disabled": "Disabled",
+    "removeRepo": "Remove repo"
+  },
+  "card": {
+    "noDescription": "No description",
+    "readOnly": "Read-only",
+    "editTitle": "Edit skill",
+    "deleteTitle": "Delete skill",
+    "exportTitle": "Export as .tar.gz"
+  },
+  "empty": {
+    "title": "No skills found",
+    "text": "Create a skill or import one to get started.",
+    "noPersonal": "You have no skills yet."
+  },
+  "sections": {
+    "yourSkills": "Your Skills",
+    "otherUsersSkills": "Other Users' Skills"
+  },
+  "deleteDialog": {
+    "title": "Delete Skill",
+    "message": "Delete skill \"{{name}}\"? This action cannot be undone.",
+    "confirm": "Delete"
+  },
+  "removeRepoDialog": {
+    "title": "Remove Git Repository",
+    "message": "Remove this Git repository? Skills from it will no longer be available.",
+    "confirm": "Remove"
+  },
+  "toasts": {
+    "loadFailed": "Failed to load skills",
+    "deleted": "Skill \"{{name}}\" deleted",
+    "deleteFailed": "Failed to delete skill",
+    "exported": "Skill \"{{name}}\" exported",
+    "exportFailed": "Export failed",
+    "imported": "Skill imported from \"{{file}}\"",
+    "importFailed": "Import failed",
+    "loadReposFailed": "Failed to load Git repos",
+    "repoAdded": "Git repo added and syncing",
+    "addRepoFailed": "Failed to add repo",
+    "synced": "Repo synced",
+    "syncFailed": "Sync failed",
+    "toggled": "Repo toggled",
+    "toggleFailed": "Toggle failed",
+    "removed": "Repo removed",
+    "removeFailed": "Remove failed"
+  }
+}

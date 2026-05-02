@@ -1,0 +1,43 @@
+{
+  "title": "Wissensdatenbank",
+  "subtitle": "Verwalten Sie Dokumentensammlungen für RAG der Agenten",
+  "newPlaceholder": "Name der neuen Sammlung...",
+  "actions": {
+    "create": "Erstellen",
+    "creating": "Wird erstellt...",
+    "details": "Details",
+    "reset": "Zurücksetzen",
+    "delete": "Löschen",
+    "viewDetails": "Details anzeigen",
+    "resetCollection": "Sammlung zurücksetzen",
+    "deleteCollection": "Sammlung löschen"
+  },
+  "sections": {
+    "yourCollections": "Ihre Sammlungen",
+    "otherUsersCollections": "Sammlungen anderer Benutzer"
+  },
+  "empty": {
+    "title": "Noch keine Sammlungen",
+    "text": "Mit Sammlungen organisieren Sie Dokumente in Wissensdatenbanken, die Agenten mit RAG (Retrieval-Augmented Generation) durchsuchen können. Erstellen Sie oben eine Sammlung, um zu beginnen.",
+    "noPersonal": "Sie haben noch keine Sammlungen."
+  },
+  "deleteDialog": {
+    "title": "Sammlung löschen",
+    "message": "Sammlung \"{{name}}\" löschen? Dies entfernt alle Einträge und kann nicht rückgängig gemacht werden.",
+    "confirm": "Löschen"
+  },
+  "resetDialog": {
+    "title": "Sammlung zurücksetzen",
+    "message": "Sammlung \"{{name}}\" zurücksetzen? Dies entfernt alle Einträge, behält aber die Sammlung.",
+    "confirm": "Zurücksetzen"
+  },
+  "toasts": {
+    "loadFailed": "Laden der Sammlungen fehlgeschlagen: {{message}}",
+    "created": "Sammlung \"{{name}}\" erstellt",
+    "createFailed": "Erstellen der Sammlung fehlgeschlagen: {{message}}",
+    "deleted": "Sammlung \"{{name}}\" gelöscht",
+    "deleteFailed": "Löschen der Sammlung fehlgeschlagen: {{message}}",
+    "reset": "Sammlung \"{{name}}\" zurückgesetzt",
+    "resetFailed": "Zurücksetzen der Sammlung fehlgeschlagen: {{message}}"
+  }
+}

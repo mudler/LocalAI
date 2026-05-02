@@ -1,0 +1,85 @@
+{
+  "title": "安装模型",
+  "subtitle": "从模型库浏览和安装 AI 模型",
+  "stats": {
+    "available": "可用",
+    "installed": "已安装"
+  },
+  "actions": {
+    "addModel": "添加模型",
+    "importModel": "导入模型",
+    "install": "安装",
+    "reinstall": "重新安装",
+    "delete": "删除"
+  },
+  "filters": {
+    "all": "全部",
+    "llm": "LLM",
+    "image": "图像",
+    "multimodal": "多模态",
+    "vision": "视觉",
+    "tts": "TTS",
+    "stt": "STT",
+    "embedding": "嵌入",
+    "rerank": "重排",
+    "allBackends": "所有后端",
+    "searchBackends": "搜索后端..."
+  },
+  "search": {
+    "placeholder": "搜索模型...",
+    "clearFilters": "清除筛选"
+  },
+  "table": {
+    "modelName": "模型名称",
+    "description": "描述",
+    "backend": "后端",
+    "sizeVram": "大小 / VRAM",
+    "status": "状态",
+    "actions": "操作",
+    "size": "大小：{{size}}",
+    "vram": "VRAM：{{vram}}",
+    "fits": "适合",
+    "mayNotFit": "可能不适合",
+    "trustRemoteCode": "Trust Remote Code",
+    "installing": "正在安装",
+    "installingPct": "正在安装 · {{percent}}%",
+    "installed": "已安装",
+    "notInstalled": "未安装"
+  },
+  "detail": {
+    "description": "描述",
+    "gallery": "模型库",
+    "backend": "后端",
+    "size": "大小",
+    "vram": "VRAM",
+    "license": "许可证",
+    "tags": "标签",
+    "links": "链接",
+    "warning": "警告",
+    "files": "文件",
+    "fitsGpu": "适合 GPU",
+    "mayNotFitGpu": "可能不适合 GPU",
+    "requiresTrustRemoteCode": "需要 Trust Remote Code",
+    "fileCount_one": "{{count}} 个文件",
+    "fileCount_other": "{{count}} 个文件",
+    "filename": "文件名",
+    "uri": "URI",
+    "sha256": "SHA256"
+  },
+  "empty": {
+    "title": "未找到模型",
+    "withFilters": "没有模型与当前搜索或筛选条件匹配。",
+    "noFilters": "模型库为空。"
+  },
+  "deleteDialog": {
+    "title": "删除模型",
+    "message": "删除模型 {{model}}？",
+    "confirm": "删除 {{model}}",
+    "deletingToast": "正在删除 {{model}}..."
+  },
+  "errors": {
+    "loadFailed": "加载模型失败：{{message}}",
+    "installFailed": "安装失败：{{message}}",
+    "deleteFailed": "删除失败：{{message}}"
+  }
+}

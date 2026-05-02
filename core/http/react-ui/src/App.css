@@ -536,6 +536,100 @@
   border-color: var(--color-primary-border);
 }
 
+/* Language switcher */
+.language-switcher {
+  position: relative;
+  display: inline-flex;
+}
+.language-switcher-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.language-switcher-code {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+.sidebar.collapsed .language-switcher-code {
+  display: none;
+}
+.language-switcher-menu {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  min-width: 160px;
+  background: var(--color-bg-elevated, var(--color-bg-secondary));
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg, 0 8px 24px rgba(0, 0, 0, 0.18));
+  list-style: none;
+  margin: 0;
+  padding: 4px;
+  z-index: 1000;
+}
+.sidebar.collapsed .language-switcher-menu {
+  left: calc(100% + 8px);
+  bottom: 0;
+}
+.language-switcher-menu li {
+  margin: 0;
+}
+.language-switcher-option {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  border: 0;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  font-size: 0.875rem;
+  text-align: left;
+}
+.language-switcher-option:hover {
+  background: var(--color-bg-tertiary, rgba(255, 255, 255, 0.04));
+  color: var(--color-text-primary);
+}
+.language-switcher-option.active {
+  color: var(--color-primary);
+}
+.language-switcher-flag {
+  font-weight: 600;
+  font-size: 0.7rem;
+  width: 22px;
+  letter-spacing: 0.04em;
+}
+.language-switcher-name {
+  flex: 1;
+}
+.language-switcher-check {
+  font-size: 0.75rem;
+}
+
+/* App boot fallback (rendered while initial i18n namespaces load) */
+.app-boot-spinner {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-bg-primary, #111);
+}
+.app-boot-spinner-dot {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 3px solid var(--color-border-subtle, rgba(255, 255, 255, 0.15));
+  border-top-color: var(--color-primary, #4f8cff);
+  animation: app-boot-spin 0.8s linear infinite;
+}
+@keyframes app-boot-spin {
+  to { transform: rotate(360deg); }
+}
+
 /* Operations bar */
 .operations-bar {
   background: var(--color-bg-secondary);

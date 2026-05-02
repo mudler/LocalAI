@@ -1,0 +1,43 @@
+{
+  "title": "Knowledge Base",
+  "subtitle": "Manage document collections for agent RAG",
+  "newPlaceholder": "New collection name...",
+  "actions": {
+    "create": "Create",
+    "creating": "Creating...",
+    "details": "Details",
+    "reset": "Reset",
+    "delete": "Delete",
+    "viewDetails": "View details",
+    "resetCollection": "Reset collection",
+    "deleteCollection": "Delete collection"
+  },
+  "sections": {
+    "yourCollections": "Your Collections",
+    "otherUsersCollections": "Other Users' Collections"
+  },
+  "empty": {
+    "title": "No collections yet",
+    "text": "Collections let you organize documents into knowledge bases that agents can search using RAG (Retrieval-Augmented Generation). Create a collection above to get started.",
+    "noPersonal": "You have no collections yet."
+  },
+  "deleteDialog": {
+    "title": "Delete Collection",
+    "message": "Delete collection \"{{name}}\"? This will remove all entries and cannot be undone.",
+    "confirm": "Delete"
+  },
+  "resetDialog": {
+    "title": "Reset Collection",
+    "message": "Reset collection \"{{name}}\"? This will remove all entries but keep the collection.",
+    "confirm": "Reset"
+  },
+  "toasts": {
+    "loadFailed": "Failed to load collections: {{message}}",
+    "created": "Collection \"{{name}}\" created",
+    "createFailed": "Failed to create collection: {{message}}",
+    "deleted": "Collection \"{{name}}\" deleted",
+    "deleteFailed": "Failed to delete collection: {{message}}",
+    "reset": "Collection \"{{name}}\" reset",
+    "resetFailed": "Failed to reset collection: {{message}}"
+  }
+}

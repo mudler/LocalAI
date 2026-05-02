@@ -1,0 +1,154 @@
+{
+  "studio": {
+    "tabs": {
+      "images": "Images",
+      "video": "Video",
+      "tts": "TTS",
+      "sound": "Sound"
+    }
+  },
+  "image": {
+    "title": "Image Generation",
+    "labels": {
+      "model": "Model",
+      "prompt": "Prompt",
+      "promptPlaceholder": "Describe the image you want to generate...",
+      "negativePrompt": "Negative Prompt",
+      "negativePromptPlaceholder": "What to avoid...",
+      "size": "Size",
+      "count": "Count (1-4)",
+      "advanced": "Advanced Settings",
+      "imageInputs": "Image Inputs",
+      "steps": "Steps",
+      "stepsPlaceholder": "20",
+      "seed": "Seed",
+      "seedPlaceholder": "Random",
+      "sourceImage": "Source Image (img2img)",
+      "refImages": "Reference Images",
+      "refImagesAdded_one": "{{count}} image added",
+      "refImagesAdded_other": "{{count}} images added"
+    },
+    "actions": {
+      "generate": "Generate",
+      "generating": "Generating..."
+    },
+    "empty": "Generated images will appear here",
+    "toasts": {
+      "noPrompt": "Please enter a prompt",
+      "noModel": "Please select a model",
+      "noResults": "No images generated"
+    }
+  },
+  "video": {
+    "title": "Video Generation",
+    "labels": {
+      "model": "Model",
+      "prompt": "Prompt",
+      "promptPlaceholder": "Describe the video you want to generate...",
+      "duration": "Duration (seconds)",
+      "fps": "FPS",
+      "size": "Size",
+      "advanced": "Advanced Settings",
+      "seed": "Seed",
+      "seedPlaceholder": "Random"
+    },
+    "actions": {
+      "generate": "Generate",
+      "generating": "Generating..."
+    },
+    "empty": "Generated video will appear here",
+    "toasts": {
+      "noPrompt": "Please enter a prompt",
+      "noModel": "Please select a model",
+      "noResults": "No video generated"
+    }
+  },
+  "tts": {
+    "title": "Text to Speech",
+    "labels": {
+      "model": "Model",
+      "voice": "Voice",
+      "voicePlaceholder": "Optional voice ID",
+      "input": "Text",
+      "inputPlaceholder": "Enter text to synthesize..."
+    },
+    "actions": {
+      "generate": "Generate",
+      "generating": "Generating..."
+    },
+    "empty": "Generated audio will appear here",
+    "toasts": {
+      "noText": "Please enter text",
+      "noModel": "Please select a model",
+      "generateFailed": "Generation failed"
+    }
+  },
+  "sound": {
+    "title": "Sound Generation",
+    "labels": {
+      "model": "Model",
+      "prompt": "Prompt",
+      "promptPlaceholder": "Describe the sound you want to generate...",
+      "duration": "Duration (seconds)",
+      "language": "Language",
+      "vocalLanguage": "Vocal language",
+      "lyrics": "Lyrics (optional)",
+      "lyricsPlaceholder": "Lyrics for vocal generation",
+      "advanced": "Advanced Settings",
+      "seed": "Seed",
+      "seedPlaceholder": "Random"
+    },
+    "actions": {
+      "generate": "Generate",
+      "generating": "Generating..."
+    },
+    "empty": "Generated audio will appear here",
+    "toasts": {
+      "noPrompt": "Please enter a prompt",
+      "noModel": "Please select a model",
+      "generateFailed": "Generation failed"
+    }
+  },
+  "talk": {
+    "title": "Talk",
+    "subtitle": "Realtime voice conversation",
+    "actions": {
+      "start": "Start session",
+      "stop": "End session",
+      "connecting": "Connecting...",
+      "muted": "Muted",
+      "mute": "Mute",
+      "unmute": "Unmute"
+    },
+    "labels": {
+      "model": "Model",
+      "voice": "Voice",
+      "voicePlaceholder": "alloy",
+      "language": "Language",
+      "languagePlaceholder": "en",
+      "instructions": "Instructions",
+      "instructionsPlaceholder": "Set the assistant's persona..."
+    },
+    "status": {
+      "idle": "Idle",
+      "connecting": "Connecting...",
+      "listening": "Listening...",
+      "speaking": "Speaking...",
+      "ended": "Session ended"
+    },
+    "toasts": {
+      "noModel": "Select a model first",
+      "connectFailed": "Failed to connect: {{message}}"
+    }
+  },
+  "history": {
+    "title": "History",
+    "empty": "No history yet",
+    "deleteEntry": "Delete entry",
+    "clear": "Clear history",
+    "clearTitle": "Clear all history",
+    "clearMessage": "Remove all history entries? This cannot be undone.",
+    "clearConfirm": "Clear",
+    "cleared": "History cleared"
+  }
+}

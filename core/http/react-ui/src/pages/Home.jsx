@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate, useOutletContext } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { apiUrl } from '../utils/basePath'
 import { useAuth } from '../context/AuthContext'
 import { useBranding } from '../contexts/BrandingContext'
@@ -20,6 +21,7 @@ function formatBytes(bytes) {
 export default function Home() {
   const navigate = useNavigate()
   const { addToast } = useOutletContext()
+  const { t } = useTranslation('home')
   const { isAdmin } = useAuth()
   const branding = useBranding()
   const { resources } = useResources()
@@ -200,7 +202,7 @@ export default function Home() {
     const text = message.trim()
     if (!text && allFiles.length === 0) return
     if (!selectedModel) {
-      addToast('Please select a model first', 'warning')
+      addToast(t('input.selectModelToast'), 'warning')
       return
     }
 
@@ -240,18 +242,18 @@ export default function Home() {
 
   const handleStopModel = async (modelName) => {
     setConfirmDialog({
-      title: 'Stop Model',
-      message: `Stop model ${modelName}?`,
-      confirmLabel: `Stop ${modelName}`,
+      title: t('stopDialog.title'),
+      message: t('stopDialog.message', { model: modelName }),
+      confirmLabel: t('stopDialog.confirm', { model: modelName }),
       danger: true,
       onConfirm: async () => {
         setConfirmDialog(null)
         try {
           await backendControlApi.shutdown({ model: modelName })
-          addToast(`Stopped ${modelName}`, 'success')
+          addToast(t('stopDialog.stoppedToast', { model: modelName }), 'success')
           setTimeout(fetchSystemInfo, 500)
         } catch (err) {
-          addToast(`Failed to stop: ${err.message}`, 'error')
+          addToast(t('stopDialog.stopFailed', { message: err.message }), 'error')
         }
       },
     })
@@ -259,18 +261,18 @@ export default function Home() {
 
   const handleStopAll = async () => {
     setConfirmDialog({
-      title: 'Stop All Models',
-      message: `Stop all ${loadedModels.length} loaded models?`,
-      confirmLabel: 'Stop all',
+      title: t('stopDialog.stopAllTitle'),
+      message: t('stopDialog.stopAllMessage', { count: loadedModels.length }),
+      confirmLabel: t('stopDialog.stopAllConfirm'),
       danger: true,
       onConfirm: async () => {
         setConfirmDialog(null)
         try {
           await Promise.all(loadedModels.map(m => backendControlApi.shutdown({ model: m.id })))
-          addToast('All models stopped', 'success')
+          addToast(t('stopDialog.allStoppedToast'), 'success')
           setTimeout(fetchSystemInfo, 1000)
         } catch (err) {
-          addToast(`Failed to stop: ${err.message}`, 'error')
+          addToast(t('stopDialog.stopFailed', { message: err.message }), 'error')
         }
       },
     })
@@ -303,7 +305,7 @@ export default function Home() {
             <div className="home-resource-bar">
               <div className="home-resource-bar-header">
                 <i className={`fas ${clusterData.isGPU ? 'fa-microchip' : 'fa-memory'}`} />
-                <span className="home-resource-label">Cluster {clusterData.isGPU ? 'VRAM' : 'RAM'}</span>
+                <span className="home-resource-label">{clusterData.isGPU ? t('cluster.vram') : t('cluster.ram')}</span>
                 <span className="home-resource-pct" style={{ color: clusterPctColor }}>
                   {formatBytes(clusterData.usedMem)} / {formatBytes(clusterData.totalMem)}
                 </span>
@@ -316,14 +318,14 @@ export default function Home() {
               </div>
               <div className="home-cluster-status">
                 <span className="home-cluster-dot" style={clusterData.healthyCount === 0 ? { background: 'var(--color-error)' } : undefined} />
-                <span>{clusterData.healthyCount}/{clusterData.totalCount} nodes online</span>
+                <span>{t('cluster.nodesOnline', { healthy: clusterData.healthyCount, total: clusterData.totalCount })}</span>
               </div>
             </div>
           ) : !distributedMode && resources ? (
             <div className="home-resource-bar">
               <div className="home-resource-bar-header">
                 <i className={`fas ${resType === 'gpu' ? 'fa-microchip' : 'fa-memory'}`} />
-                <span className="home-resource-label">{resType === 'gpu' ? 'GPU' : 'RAM'}</span>
+                <span className="home-resource-label">{resType === 'gpu' ? t('resourceGpu') : t('resourceRam')}</span>
                 <span className="home-resource-pct" style={{ color: pctColor }}>
                   {usagePct.toFixed(0)}%
                 </span>
@@ -348,13 +350,11 @@ export default function Home() {
             >
               <span className="home-assistant-icon"><i className="fas fa-user-shield" /></span>
               <span className="home-assistant-text">
-                <span className="home-assistant-title">Manage LocalAI by chatting</span>
-                <span className="home-assistant-desc">
-                  Install models, switch backends, edit configs and check status by talking to LocalAI.
-                </span>
+                <span className="home-assistant-title">{t('assistant.title')}</span>
+                <span className="home-assistant-desc">{t('assistant.description')}</span>
               </span>
               <span className="home-assistant-cta">
-                Open assistant <i className="fas fa-arrow-right" />
+                {t('assistant.open')} <i className="fas fa-arrow-right" />
               </span>
             </button>
           )}
@@ -407,7 +407,7 @@ export default function Home() {
                   className="home-textarea"
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
-                  placeholder="Message..."
+                  placeholder={t('input.placeholder')}
                   rows={3}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && !e.shiftKey) {
@@ -418,22 +418,22 @@ export default function Home() {
                 />
                 <div className="home-input-footer">
                   <div className="home-attach-buttons">
-                    <button type="button" className="home-attach-btn" onClick={() => imageInputRef.current?.click()} title="Attach image">
+                    <button type="button" className="home-attach-btn" onClick={() => imageInputRef.current?.click()} title={t('input.attachImage')}>
                       <i className="fas fa-image" />
                     </button>
-                    <button type="button" className="home-attach-btn" onClick={() => audioInputRef.current?.click()} title="Attach audio">
+                    <button type="button" className="home-attach-btn" onClick={() => audioInputRef.current?.click()} title={t('input.attachAudio')}>
                       <i className="fas fa-microphone" />
                     </button>
-                    <button type="button" className="home-attach-btn" onClick={() => fileInputRef.current?.click()} title="Attach file">
+                    <button type="button" className="home-attach-btn" onClick={() => fileInputRef.current?.click()} title={t('input.attachFile')}>
                       <i className="fas fa-file" />
                     </button>
                   </div>
-                  <span className="home-input-hint">Enter to send</span>
+                  <span className="home-input-hint">{t('input.enterToSend')}</span>
                   <button
                     type="submit"
                     className="home-send-btn"
                     disabled={!selectedModel}
-                    title={!selectedModel ? 'Select a model first' : 'Send message'}
+                    title={!selectedModel ? t('input.selectModelFirst') : t('input.sendMessage')}
                   >
                     <i className="fas fa-arrow-up" />
                   </button>
@@ -453,24 +453,24 @@ export default function Home() {
                   <button
                     className="home-link-btn"
                     onClick={openAssistantChat}
-                    title="Manage LocalAI by chatting"
+                    title={t('assistant.tooltip')}
                   >
-                    <i className="fas fa-user-shield" /> Manage by chat
+                    <i className="fas fa-user-shield" /> {t('quickLinks.manageByChat')}
                   </button>
                 )}
                 <button className="home-link-btn" onClick={() => navigate('/app/manage')}>
-                  <i className="fas fa-desktop" /> Installed Models
+                  <i className="fas fa-desktop" /> {t('quickLinks.installedModels')}
                 </button>
                 <button className="home-link-btn" onClick={() => navigate('/app/models')}>
-                  <i className="fas fa-download" /> Browse Gallery
+                  <i className="fas fa-download" /> {t('quickLinks.browseGallery')}
                 </button>
                 <button className="home-link-btn" onClick={() => navigate('/app/import-model')}>
-                  <i className="fas fa-upload" /> Import Model
+                  <i className="fas fa-upload" /> {t('quickLinks.importModel')}
                 </button>
               </>
             )}
             <a className="home-link-btn" href="https://localai.io" target="_blank" rel="noopener noreferrer">
-              <i className="fas fa-book" /> Documentation
+              <i className="fas fa-book" /> {t('quickLinks.documentation')}
             </a>
           </div>
 
@@ -478,12 +478,12 @@ export default function Home() {
           {loadedCount > 0 && (
             <div className="home-loaded-models">
               <span className="home-loaded-dot" />
-              <span className="home-loaded-text">{loadedCount} model{loadedCount !== 1 ? 's' : ''} loaded</span>
+              <span className="home-loaded-text">{t('loadedModels.count', { count: loadedCount })}</span>
               <div className="home-loaded-list">
                 {[...loadedModels].sort((a, b) => a.id.localeCompare(b.id)).map(m => (
                   <span key={m.id} className="home-loaded-item">
                     {m.id}
-                    <button onClick={() => handleStopModel(m.id)} title="Stop model">
+                    <button onClick={() => handleStopModel(m.id)} title={t('loadedModels.stop')}>
                       <i className="fas fa-times" />
                     </button>
                   </span>
@@ -491,7 +491,7 @@ export default function Home() {
               </div>
               {loadedCount > 1 && (
                 <button className="home-stop-all" onClick={handleStopAll}>
-                  Stop all
+                  {t('loadedModels.stopAll')}
                 </button>
               )}
             </div>
@@ -502,43 +502,43 @@ export default function Home() {
         <div className="home-wizard">
           <div className="home-wizard-hero">
             <img src={apiUrl(branding.logoUrl)} alt={branding.instanceName} className="home-logo" />
-            <h1>Get started with {branding.instanceName}</h1>
-            <p>Install your first model to begin. Browse the gallery or import your own.</p>
+            <h1>{t('wizard.getStarted', { name: branding.instanceName })}</h1>
+            <p>{t('wizard.intro')}</p>
           </div>
 
           <div className="home-wizard-steps card">
             <div className="home-wizard-step">
               <div className="home-wizard-step-num">1</div>
               <div>
-                <strong>Browse the Model Gallery</strong>
-                <p>Find the right model for your needs from our curated collection.</p>
+                <strong>{t('wizard.steps.step1Title')}</strong>
+                <p>{t('wizard.steps.step1Body')}</p>
               </div>
             </div>
             <div className="home-wizard-step">
               <div className="home-wizard-step-num">2</div>
               <div>
-                <strong>Install a Model</strong>
-                <p>Click install to download and configure it automatically.</p>
+                <strong>{t('wizard.steps.step2Title')}</strong>
+                <p>{t('wizard.steps.step2Body')}</p>
               </div>
             </div>
             <div className="home-wizard-step">
               <div className="home-wizard-step-num">3</div>
               <div>
-                <strong>Start Chatting</strong>
-                <p>Chat with your model right from the browser or use the API.</p>
+                <strong>{t('wizard.steps.step3Title')}</strong>
+                <p>{t('wizard.steps.step3Body')}</p>
               </div>
             </div>
           </div>
 
           <div className="home-wizard-actions">
             <button className="btn btn-primary" onClick={() => navigate('/app/models')}>
-              <i className="fas fa-store" /> Browse Model Gallery
+              <i className="fas fa-store" /> {t('wizard.browseGallery')}
             </button>
             <button className="btn btn-secondary" onClick={() => navigate('/app/import-model')}>
-              <i className="fas fa-upload" /> Import Model
+              <i className="fas fa-upload" /> {t('wizard.importModel')}
             </button>
             <a className="btn btn-secondary" href="https://localai.io/docs/getting-started" target="_blank" rel="noopener noreferrer">
-              <i className="fas fa-book" /> Docs
+              <i className="fas fa-book" /> {t('wizard.docs')}
             </a>
           </div>
         </div>
@@ -547,12 +547,12 @@ export default function Home() {
         <div className="home-wizard">
           <div className="home-wizard-hero">
             <img src={apiUrl(branding.logoUrl)} alt={branding.instanceName} className="home-logo" />
-            <h1>No Models Available</h1>
-            <p>There are no models installed yet. Ask your administrator to set up models so you can start chatting.</p>
+            <h1>{t('wizard.noModelsTitle')}</h1>
+            <p>{t('wizard.noModelsBody')}</p>
           </div>
           <div className="home-wizard-actions">
             <a className="btn btn-secondary" href="https://localai.io" target="_blank" rel="noopener noreferrer">
-              <i className="fas fa-book" /> Documentation
+              <i className="fas fa-book" /> {t('quickLinks.documentation')}
             </a>
           </div>
         </div>

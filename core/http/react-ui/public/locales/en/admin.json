@@ -1,0 +1,62 @@
+{
+  "manage": {
+    "title": "System",
+    "subtitle": "Manage installed models and backends"
+  },
+  "settings": {
+    "title": "Settings",
+    "subtitle": "Configure LocalAI runtime settings",
+    "saved": "Settings saved successfully",
+    "saveFailed": "Save failed: {{message}}",
+    "loadFailed": "Failed to load settings: {{message}}",
+    "sections": {
+      "branding": "Branding",
+      "watchdog": "Watchdog",
+      "memory": "Memory",
+      "backends": "Backends",
+      "performance": "Performance",
+      "tracing": "Tracing",
+      "api": "API & CORS",
+      "p2p": "P2P",
+      "galleries": "Galleries",
+      "apikeys": "API Keys",
+      "agents": "Agent Jobs",
+      "agentpool": "Agent Pool",
+      "assistant": "LocalAI Assistant",
+      "responses": "Responses"
+    }
+  },
+  "backends": {
+    "title": "Backend Management",
+    "subtitle": "Discover and install AI backends to power your models"
+  },
+  "backendLogs": {
+    "title": "Backend Logs",
+    "subtitle": "View logs from running backends",
+    "empty": "No logs available"
+  },
+  "traces": {
+    "title": "Traces",
+    "subtitle": "View logged API requests, responses, and backend operations"
+  },
+  "nodes": {
+    "title": "Distributed Nodes",
+    "subtitle": "Manage backend and agent worker nodes"
+  },
+  "p2p": {
+    "title": "Distributed AI Computing",
+    "subtitle": "Scale your AI workloads across multiple devices with peer-to-peer distribution"
+  },
+  "users": {
+    "title": "Users",
+    "subtitle": "Manage registered users, roles, and invites"
+  },
+  "usage": {
+    "title": "Usage",
+    "subtitle": "API token usage statistics"
+  },
+  "explorer": {
+    "title": "Explorer",
+    "subtitle": "Browse files and configuration"
+  }
+}

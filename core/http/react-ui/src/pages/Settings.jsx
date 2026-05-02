@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useOutletContext } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { settingsApi, resourcesApi, brandingApi } from '../utils/api'
 import { useBranding } from '../contexts/BrandingContext'
 import LoadingSpinner from '../components/LoadingSpinner'
@@ -10,20 +11,20 @@ import SettingRow from '../components/SettingRow'
 import { formatBytes, percentColor } from '../utils/format'
 
 const SECTIONS = [
-  { id: 'branding', icon: 'fa-palette', color: 'var(--color-primary)', label: 'Branding' },
-  { id: 'watchdog', icon: 'fa-shield-halved', color: 'var(--color-primary)', label: 'Watchdog' },
-  { id: 'memory', icon: 'fa-memory', color: 'var(--color-accent)', label: 'Memory' },
-  { id: 'backends', icon: 'fa-cogs', color: 'var(--color-accent)', label: 'Backends' },
-  { id: 'performance', icon: 'fa-gauge-high', color: 'var(--color-success)', label: 'Performance' },
-  { id: 'tracing', icon: 'fa-bug', color: 'var(--color-warning)', label: 'Tracing' },
-  { id: 'api', icon: 'fa-globe', color: 'var(--color-warning)', label: 'API & CORS' },
-  { id: 'p2p', icon: 'fa-network-wired', color: 'var(--color-accent)', label: 'P2P' },
-  { id: 'galleries', icon: 'fa-images', color: 'var(--color-accent)', label: 'Galleries' },
-  { id: 'apikeys', icon: 'fa-key', color: 'var(--color-error)', label: 'API Keys' },
-  { id: 'agents', icon: 'fa-tasks', color: 'var(--color-primary)', label: 'Agent Jobs' },
-  { id: 'agentpool', icon: 'fa-robot', color: 'var(--color-primary)', label: 'Agent Pool' },
-  { id: 'assistant', icon: 'fa-user-shield', color: 'var(--color-accent)', label: 'LocalAI Assistant' },
-  { id: 'responses', icon: 'fa-database', color: 'var(--color-accent)', label: 'Responses' },
+  { id: 'branding', icon: 'fa-palette', color: 'var(--color-primary)' },
+  { id: 'watchdog', icon: 'fa-shield-halved', color: 'var(--color-primary)' },
+  { id: 'memory', icon: 'fa-memory', color: 'var(--color-accent)' },
+  { id: 'backends', icon: 'fa-cogs', color: 'var(--color-accent)' },
+  { id: 'performance', icon: 'fa-gauge-high', color: 'var(--color-success)' },
+  { id: 'tracing', icon: 'fa-bug', color: 'var(--color-warning)' },
+  { id: 'api', icon: 'fa-globe', color: 'var(--color-warning)' },
+  { id: 'p2p', icon: 'fa-network-wired', color: 'var(--color-accent)' },
+  { id: 'galleries', icon: 'fa-images', color: 'var(--color-accent)' },
+  { id: 'apikeys', icon: 'fa-key', color: 'var(--color-error)' },
+  { id: 'agents', icon: 'fa-tasks', color: 'var(--color-primary)' },
+  { id: 'agentpool', icon: 'fa-robot', color: 'var(--color-primary)' },
+  { id: 'assistant', icon: 'fa-user-shield', color: 'var(--color-accent)' },
+  { id: 'responses', icon: 'fa-database', color: 'var(--color-accent)' },
 ]
 
 const BRANDING_ASSETS = [
@@ -34,6 +35,7 @@ const BRANDING_ASSETS = [
 
 export default function Settings() {
   const { addToast } = useOutletContext()
+  const { t } = useTranslation('admin')
   const [settings, setSettings] = useState(null)
   const [initialSettings, setInitialSettings] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -162,8 +164,8 @@ export default function Settings() {
         padding: 'var(--spacing-lg) var(--spacing-lg) var(--spacing-md)',
       }}>
         <div>
-          <h1 className="page-title">Settings</h1>
-          <p className="page-subtitle">Configure LocalAI runtime settings</p>
+          <h1 className="page-title">{t('settings.title')}</h1>
+          <p className="page-subtitle">{t('settings.subtitle')}</p>
         </div>
         <button className={`btn ${isDirty ? 'btn-primary' : 'btn-secondary'}`} onClick={handleSave} disabled={saving || !isDirty}>
           {saving ? <><LoadingSpinner size="sm" /> Saving...</> : <><i className="fas fa-save" /> {isDirty ? 'Save Changes' : 'Saved'}</>}
@@ -197,7 +199,7 @@ export default function Settings() {
                 width: 16, textAlign: 'center', fontSize: '0.75rem',
                 color: activeSection === s.id ? s.color : 'var(--color-text-muted)',
               }} />
-              {s.label}
+              {t(`settings.sections.${s.id}`)}
             </button>
           ))}
         </nav>

@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react'
 import { useParams, useOutletContext } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import ModelSelector from '../components/ModelSelector'
 import { CAP_IMAGE } from '../utils/capabilities'
 import LoadingSpinner from '../components/LoadingSpinner'
@@ -13,6 +14,7 @@ const SIZES = ['256x256', '512x512', '768x768', '1024x1024']
 export default function ImageGen() {
   const { model: urlModel } = useParams()
   const { addToast } = useOutletContext()
+  const { t } = useTranslation('media')
   const [model, setModel] = useState(urlModel || '')
   const [prompt, setPrompt] = useState('')
   const [negativePrompt, setNegativePrompt] = useState('')
@@ -33,8 +35,8 @@ export default function ImageGen() {
 
   const handleGenerate = async (e) => {
     e.preventDefault()
-    if (!prompt.trim()) { addToast('Please enter a prompt', 'warning'); return }
-    if (!model) { addToast('Please select a model', 'warning'); return }
+    if (!prompt.trim()) { addToast(t('image.toasts.noPrompt'), 'warning'); return }
+    if (!model) { addToast(t('image.toasts.noModel'), 'warning'); return }
 
     setLoading(true)
     setImages([])
@@ -54,7 +56,7 @@ export default function ImageGen() {
       const results = data?.data || []
       setImages(results)
       if (!results.length) {
-        addToast('No images generated', 'warning')
+        addToast(t('image.toasts.noResults'), 'warning')
       } else {
         const urlResults = results.filter(r => r.url && !r.url.startsWith('data:')).map(r => ({ url: r.url }))
         if (urlResults.length) {
@@ -83,62 +85,62 @@ export default function ImageGen() {
     <div className="media-layout">
       <div className="media-controls">
         <div className="page-header">
-          <h1 className="page-title"><i className="fas fa-image" /> Image Generation</h1>
+          <h1 className="page-title"><i className="fas fa-image" /> {t('image.title')}</h1>
         </div>
 
         <form onSubmit={handleGenerate}>
           <div className="form-group">
-            <label className="form-label">Model</label>
+            <label className="form-label">{t('image.labels.model')}</label>
             <ModelSelector value={model} onChange={setModel} capability={CAP_IMAGE} />
           </div>
           <div className="form-group">
-            <label className="form-label">Prompt</label>
-            <textarea className="textarea" value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="Describe the image you want to generate..." rows={3} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleGenerate(e) } }} />
+            <label className="form-label">{t('image.labels.prompt')}</label>
+            <textarea className="textarea" value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder={t('image.labels.promptPlaceholder')} rows={3} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleGenerate(e) } }} />
           </div>
           <div className="form-group">
-            <label className="form-label">Negative Prompt</label>
-            <textarea className="textarea" value={negativePrompt} onChange={(e) => setNegativePrompt(e.target.value)} placeholder="What to avoid..." rows={2} />
+            <label className="form-label">{t('image.labels.negativePrompt')}</label>
+            <textarea className="textarea" value={negativePrompt} onChange={(e) => setNegativePrompt(e.target.value)} placeholder={t('image.labels.negativePromptPlaceholder')} rows={2} />
           </div>
 
           <div className="form-grid-2col">
             <div className="form-group">
-              <label className="form-label">Size</label>
+              <label className="form-label">{t('image.labels.size')}</label>
               <select className="input btn-full" value={size} onChange={(e) => setSize(e.target.value)}>
                 {SIZES.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
             </div>
             <div className="form-group">
-              <label className="form-label">Count (1-4)</label>
+              <label className="form-label">{t('image.labels.count')}</label>
               <input className="input" type="number" min="1" max="4" value={count} onChange={(e) => setCount(parseInt(e.target.value) || 1)} />
             </div>
           </div>
 
           <div className={`collapsible-header ${showAdvanced ? 'open' : ''}`} onClick={() => setShowAdvanced(!showAdvanced)}>
-            <i className="fas fa-chevron-right" /> Advanced Settings
+            <i className="fas fa-chevron-right" /> {t('image.labels.advanced')}
           </div>
           {showAdvanced && (
             <div className="form-grid-2col">
-              <div className="form-group"><label className="form-label">Steps</label><input className="input" type="number" value={steps} onChange={(e) => setSteps(e.target.value)} placeholder="20" /></div>
-              <div className="form-group"><label className="form-label">Seed</label><input className="input" type="number" value={seed} onChange={(e) => setSeed(e.target.value)} placeholder="Random" /></div>
+              <div className="form-group"><label className="form-label">{t('image.labels.steps')}</label><input className="input" type="number" value={steps} onChange={(e) => setSteps(e.target.value)} placeholder={t('image.labels.stepsPlaceholder')} /></div>
+              <div className="form-group"><label className="form-label">{t('image.labels.seed')}</label><input className="input" type="number" value={seed} onChange={(e) => setSeed(e.target.value)} placeholder={t('image.labels.seedPlaceholder')} /></div>
             </div>
           )}
 
           <div className={`collapsible-header ${showImageInputs ? 'open' : ''}`} onClick={() => setShowImageInputs(!showImageInputs)}>
-            <i className="fas fa-chevron-right" /> Image Inputs
+            <i className="fas fa-chevron-right" /> {t('image.labels.imageInputs')}
           </div>
           {showImageInputs && (
             <>
-              <div className="form-group"><label className="form-label">Source Image (img2img)</label><input ref={sourceRef} type="file" accept="image/*" onChange={handleSourceImage} className="input" /></div>
+              <div className="form-group"><label className="form-label">{t('image.labels.sourceImage')}</label><input ref={sourceRef} type="file" accept="image/*" onChange={handleSourceImage} className="input" /></div>
               <div className="form-group">
-                <label className="form-label">Reference Images</label>
+                <label className="form-label">{t('image.labels.refImages')}</label>
                 <input ref={refRef} type="file" accept="image/*" multiple onChange={handleRefImages} className="input" />
-                {refImages.length > 0 && <span className="form-field__hint">{refImages.length} image(s) added</span>}
+                {refImages.length > 0 && <span className="form-field__hint">{t('image.labels.refImagesAdded', { count: refImages.length })}</span>}
               </div>
             </>
           )}
 
           <button type="submit" className="btn btn-primary btn-full" disabled={loading}>
-            {loading ? <><LoadingSpinner size="sm" /> Generating...</> : <><i className="fas fa-wand-magic-sparkles" /> Generate</>}
+            {loading ? <><LoadingSpinner size="sm" /> {t('image.actions.generating')}</> : <><i className="fas fa-wand-magic-sparkles" /> {t('image.actions.generate')}</>}
           </button>
         </form>
         <MediaHistory {...historyProps} />
@@ -169,7 +171,7 @@ export default function ImageGen() {
           ) : (
             <div style={{ textAlign: 'center', color: 'var(--color-text-muted)' }}>
               <i className="fas fa-image" style={{ fontSize: '3rem', marginBottom: 'var(--spacing-md)', opacity: 0.4 }} />
-              <p>Generated images will appear here</p>
+              <p>{t('image.empty')}</p>
             </div>
           )}
         </div>

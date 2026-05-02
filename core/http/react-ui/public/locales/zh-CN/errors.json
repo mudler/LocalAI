@@ -1,0 +1,17 @@
+{
+  "generic": "出错了",
+  "network": "网络错误。请检查您的连接并重试。",
+  "unauthorized": "您无权执行此操作。",
+  "forbidden": "访问被拒绝。",
+  "notFound": "未找到请求的资源。",
+  "serverError": "服务器错误。请稍后再试。",
+  "loadFailed": "加载失败：{{message}}",
+  "saveFailed": "保存失败：{{message}}",
+  "deleteFailed": "删除失败：{{message}}",
+  "updateFailed": "更新失败：{{message}}",
+  "createFailed": "创建失败：{{message}}",
+  "operationFailed": "操作失败：{{message}}",
+  "invalidInput": "输入无效。请检查表单后重试。",
+  "tryAgain": "请重试。",
+  "contactAdmin": "如果问题仍然存在，请联系您的管理员。"
+}

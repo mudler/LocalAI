@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate, useOutletContext, useSearchParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { backendsApi, nodesApi } from '../utils/api'
 import { useDebouncedCallback } from '../hooks/useDebounce'
 import React from 'react'
@@ -16,6 +17,7 @@ import Popover from '../components/Popover'
 export default function Backends() {
   const { addToast } = useOutletContext()
   const navigate = useNavigate()
+  const { t } = useTranslation('admin')
   const [searchParams, setSearchParams] = useSearchParams()
   const { operations } = useOperations()
   const { enabled: distributedEnabled, nodes: clusterNodes, refetch: refetchNodes } = useDistributedMode()
@@ -344,8 +346,8 @@ export default function Backends() {
       {/* Header */}
       <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div>
-          <h1 className="page-title">Backend Management</h1>
-          <p className="page-subtitle">Discover and install AI backends to power your models</p>
+          <h1 className="page-title">{t('backends.title')}</h1>
+          <p className="page-subtitle">{t('backends.subtitle')}</p>
         </div>
         <div style={{ display: 'flex', gap: 'var(--spacing-md)', alignItems: 'center' }}>
           <div style={{ display: 'flex', gap: 'var(--spacing-md)', fontSize: '0.8125rem' }}>

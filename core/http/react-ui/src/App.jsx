@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import Sidebar from './components/Sidebar'
 import OperationsBar from './components/OperationsBar'
 import { ToastContainer, useToast } from './components/Toast'
@@ -22,6 +23,7 @@ export default function App() {
   const { theme, toggleTheme } = useTheme()
   const { authEnabled, user } = useAuth()
   const branding = useBranding()
+  const { t } = useTranslation('nav')
   const hamburgerRef = useRef(null)
   const isChatRoute = location.pathname.match(/\/chat(\/|$)/) || location.pathname.match(/\/agents\/[^/]+\/chat/)
 
@@ -67,7 +69,8 @@ export default function App() {
   ].filter(Boolean).join(' ')
 
   const showAvatar = authEnabled && user
-  const accountLabel = user?.name || user?.email || 'Account'
+  const accountLabel = user?.name || user?.email || t('account')
+  const themeToggleLabel = theme === 'dark' ? t('switchToLightMode') : t('switchToDarkMode')
 
   return (
     <div className={layoutClasses}>
@@ -83,7 +86,7 @@ export default function App() {
             ref={hamburgerRef}
             className="hamburger-btn"
             onClick={() => setSidebarOpen(true)}
-            aria-label="Open menu"
+            aria-label={t('openMenu')}
             aria-expanded={sidebarOpen}
             aria-controls="app-sidebar"
           >
@@ -95,8 +98,8 @@ export default function App() {
               type="button"
               className="mobile-header-btn"
               onClick={toggleTheme}
-              aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
-              title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+              aria-label={themeToggleLabel}
+              title={themeToggleLabel}
             >
               <i className={`fas ${theme === 'dark' ? 'fa-sun' : 'fa-moon'}`} aria-hidden="true" />
             </button>
@@ -105,7 +108,7 @@ export default function App() {
                 type="button"
                 className="mobile-header-btn mobile-header-avatar"
                 onClick={() => navigate('/app/account')}
-                aria-label={`Account: ${accountLabel}`}
+                aria-label={t('accountFor', { name: accountLabel })}
                 title={accountLabel}
               >
                 {user.avatarUrl ? (
@@ -132,13 +135,13 @@ export default function App() {
               )}
               <div className="app-footer-links">
                 <a href="https://github.com/mudler/LocalAI" target="_blank" rel="noopener noreferrer">
-                  <i className="fab fa-github" /> GitHub
+                  <i className="fab fa-github" /> {t('footer.github')}
                 </a>
                 <a href="https://localai.io" target="_blank" rel="noopener noreferrer">
-                  <i className="fas fa-book" /> Documentation
+                  <i className="fas fa-book" /> {t('footer.documentation')}
                 </a>
                 <a href="https://mudler.pm" target="_blank" rel="noopener noreferrer">
-                  <i className="fas fa-user" /> Author
+                  <i className="fas fa-user" /> {t('footer.author')}
                 </a>
               </div>
               <span className="app-footer-copyright">

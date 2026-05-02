@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useOutletContext, useSearchParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { tracesApi, settingsApi } from '../utils/api'
 import { formatTimestamp } from '../utils/format'
 import LoadingSpinner from '../components/LoadingSpinner'
@@ -283,6 +284,7 @@ function ApiTraceDetail({ trace }) {
 
 export default function Traces() {
   const { addToast } = useOutletContext()
+  const { t } = useTranslation('admin')
   const [searchParams] = useSearchParams()
   const [activeTab, setActiveTab] = useState(() => searchParams.get('tab') === 'backend' ? 'backend' : 'api')
   const [traces, setTraces] = useState([])
@@ -382,8 +384,8 @@ export default function Traces() {
   return (
     <div className="page page--wide">
       <div className="page-header">
-        <h1 className="page-title">Traces</h1>
-        <p className="page-subtitle">View logged API requests, responses, and backend operations</p>
+        <h1 className="page-title">{t('traces.title')}</h1>
+        <p className="page-subtitle">{t('traces.subtitle')}</p>
       </div>
 
       <div className="tabs">
