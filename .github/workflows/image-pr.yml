@@ -22,6 +22,8 @@
         base-image: ${{ matrix.base-image }}
         makeflags: ${{ matrix.makeflags }}
         ubuntu-version: ${{ matrix.ubuntu-version }}
+        apt-mirror: ${{ vars.APT_MIRROR }}
+        apt-ports-mirror: ${{ vars.APT_PORTS_MIRROR }}
       secrets:
         dockerUsername: ${{ secrets.DOCKERHUB_USERNAME }}
         dockerPassword: ${{ secrets.DOCKERHUB_PASSWORD }}

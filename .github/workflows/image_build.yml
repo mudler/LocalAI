@@ -56,6 +56,16 @@ on:
         required: false
         default: 'noble'
         type: string
+      apt-mirror:
+        description: 'Replacement URL for archive.ubuntu.com / security.ubuntu.com (empty = use upstream)'
+        required: false
+        default: ''
+        type: string
+      apt-ports-mirror:
+        description: 'Replacement URL for ports.ubuntu.com (arm64 etc., empty = use upstream)'
+        required: false
+        default: ''
+        type: string
     secrets:
       dockerUsername:
         required: true
@@ -69,6 +79,24 @@ jobs:
   reusable_image-build:
     runs-on: ${{ inputs.runs-on }}
     steps:
+
+      - name: Configure apt mirror on runner
+        if: ${{ inputs.apt-mirror != '' || inputs.apt-ports-mirror != '' }}
+        env:
+          APT_MIRROR: ${{ inputs.apt-mirror }}
+          APT_PORTS_MIRROR: ${{ inputs.apt-ports-mirror }}
+        run: |
+          set -e
+          for f in /etc/apt/sources.list.d/ubuntu.sources /etc/apt/sources.list; do
+            sudo test -f "$f" || continue
+            if [ -n "${APT_MIRROR}" ]; then
+              sudo sed -i -E "s,https?://(archive\.ubuntu\.com|security\.ubuntu\.com),${APT_MIRROR},g" "$f"
+            fi
+            if [ -n "${APT_PORTS_MIRROR}" ]; then
+              sudo sed -i -E "s,https?://ports\.ubuntu\.com,${APT_PORTS_MIRROR},g" "$f"
+            fi
+          done
+          echo "Runner apt mirror configured (APT_MIRROR='${APT_MIRROR}', APT_PORTS_MIRROR='${APT_PORTS_MIRROR}')"
 
       - name: Free Disk Space (Ubuntu)
         if: inputs.runs-on == 'ubuntu-latest'
@@ -205,6 +233,8 @@ jobs:
             SKIP_DRIVERS=${{ inputs.skip-drivers }}
             UBUNTU_VERSION=${{ inputs.ubuntu-version }}
             UBUNTU_CODENAME=${{ inputs.ubuntu-codename }}
+            APT_MIRROR=${{ inputs.apt-mirror }}
+            APT_PORTS_MIRROR=${{ inputs.apt-ports-mirror }}
           context: .
           file: ./Dockerfile
           cache-from: type=registry,ref=quay.io/go-skynet/ci-cache:cache-localai${{ inputs.tag-suffix }}
@@ -228,6 +258,8 @@ jobs:
             SKIP_DRIVERS=${{ inputs.skip-drivers }}
             UBUNTU_VERSION=${{ inputs.ubuntu-version }}
             UBUNTU_CODENAME=${{ inputs.ubuntu-codename }}
+            APT_MIRROR=${{ inputs.apt-mirror }}
+            APT_PORTS_MIRROR=${{ inputs.apt-ports-mirror }}
           context: .
           file: ./Dockerfile
           cache-from: type=registry,ref=quay.io/go-skynet/ci-cache:cache-localai${{ inputs.tag-suffix }}

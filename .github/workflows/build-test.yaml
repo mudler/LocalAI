@@ -46,6 +46,22 @@ jobs:
   launcher-build-linux:
     runs-on: ubuntu-latest
     steps:
+      - name: Configure apt mirror on runner
+        if: ${{ vars.APT_MIRROR != '' || vars.APT_PORTS_MIRROR != '' }}
+        env:
+          APT_MIRROR: ${{ vars.APT_MIRROR }}
+          APT_PORTS_MIRROR: ${{ vars.APT_PORTS_MIRROR }}
+        run: |
+          set -e
+          for f in /etc/apt/sources.list.d/ubuntu.sources /etc/apt/sources.list; do
+            sudo test -f "$f" || continue
+            if [ -n "${APT_MIRROR}" ]; then
+              sudo sed -i -E "s,https?://(archive\.ubuntu\.com|security\.ubuntu\.com),${APT_MIRROR},g" "$f"
+            fi
+            if [ -n "${APT_PORTS_MIRROR}" ]; then
+              sudo sed -i -E "s,https?://ports\.ubuntu\.com,${APT_PORTS_MIRROR},g" "$f"
+            fi
+          done
       - name: Checkout
         uses: actions/checkout@v6
         with:

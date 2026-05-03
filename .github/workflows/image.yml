@@ -28,6 +28,8 @@
         makeflags: ${{ matrix.makeflags }}
         ubuntu-version: ${{ matrix.ubuntu-version }}
         ubuntu-codename: ${{ matrix.ubuntu-codename }}
+        apt-mirror: ${{ vars.APT_MIRROR }}
+        apt-ports-mirror: ${{ vars.APT_PORTS_MIRROR }}
       secrets:
         dockerUsername: ${{ secrets.DOCKERHUB_USERNAME }}
         dockerPassword: ${{ secrets.DOCKERHUB_PASSWORD }}
@@ -62,6 +64,8 @@
         skip-drivers: ${{ matrix.skip-drivers }}
         ubuntu-version: ${{ matrix.ubuntu-version }}
         ubuntu-codename: ${{ matrix.ubuntu-codename }}
+        apt-mirror: ${{ vars.APT_MIRROR }}
+        apt-ports-mirror: ${{ vars.APT_PORTS_MIRROR }}
       secrets:
         dockerUsername: ${{ secrets.DOCKERHUB_USERNAME }}
         dockerPassword: ${{ secrets.DOCKERHUB_PASSWORD }}
@@ -141,6 +145,8 @@
         skip-drivers: ${{ matrix.skip-drivers }}
         ubuntu-version: ${{ matrix.ubuntu-version }}
         ubuntu-codename: ${{ matrix.ubuntu-codename }}
+        apt-mirror: ${{ vars.APT_MIRROR }}
+        apt-ports-mirror: ${{ vars.APT_PORTS_MIRROR }}
       secrets:
         dockerUsername: ${{ secrets.DOCKERHUB_USERNAME }}
         dockerPassword: ${{ secrets.DOCKERHUB_PASSWORD }}

@@ -63,6 +63,16 @@ on:
         required: false
         default: ''
         type: string
+      apt-mirror:
+        description: 'Replacement URL for archive.ubuntu.com / security.ubuntu.com (empty = use upstream)'
+        required: false
+        default: ''
+        type: string
+      apt-ports-mirror:
+        description: 'Replacement URL for ports.ubuntu.com (arm64 etc., empty = use upstream)'
+        required: false
+        default: ''
+        type: string
     secrets:
       dockerUsername:
         required: false
@@ -80,6 +90,23 @@ jobs:
         quay_username: ${{ secrets.quayUsername }}
     steps:
 
+      - name: Configure apt mirror on runner
+        if: ${{ inputs.apt-mirror != '' || inputs.apt-ports-mirror != '' }}
+        env:
+          APT_MIRROR: ${{ inputs.apt-mirror }}
+          APT_PORTS_MIRROR: ${{ inputs.apt-ports-mirror }}
+        run: |
+          set -e
+          for f in /etc/apt/sources.list.d/ubuntu.sources /etc/apt/sources.list; do
+            sudo test -f "$f" || continue
+            if [ -n "${APT_MIRROR}" ]; then
+              sudo sed -i -E "s,https?://(archive\.ubuntu\.com|security\.ubuntu\.com),${APT_MIRROR},g" "$f"
+            fi
+            if [ -n "${APT_PORTS_MIRROR}" ]; then
+              sudo sed -i -E "s,https?://ports\.ubuntu\.com,${APT_PORTS_MIRROR},g" "$f"
+            fi
+          done
+          echo "Runner apt mirror configured (APT_MIRROR='${APT_MIRROR}', APT_PORTS_MIRROR='${APT_PORTS_MIRROR}')"
 
       - name: Free Disk Space (Ubuntu)
         if: inputs.runs-on == 'ubuntu-latest'
@@ -231,6 +258,8 @@ jobs:
             BACKEND=${{ inputs.backend }}
             UBUNTU_VERSION=${{ inputs.ubuntu-version }}
             AMDGPU_TARGETS=${{ inputs.amdgpu-targets }}
+            APT_MIRROR=${{ inputs.apt-mirror }}
+            APT_PORTS_MIRROR=${{ inputs.apt-ports-mirror }}
             DEPS_REFRESH=${{ steps.deps_refresh.outputs.key }}
           context: ${{ inputs.context }}
           file: ${{ inputs.dockerfile }}
@@ -255,6 +284,8 @@ jobs:
             BACKEND=${{ inputs.backend }}
             UBUNTU_VERSION=${{ inputs.ubuntu-version }}
             AMDGPU_TARGETS=${{ inputs.amdgpu-targets }}
+            APT_MIRROR=${{ inputs.apt-mirror }}
+            APT_PORTS_MIRROR=${{ inputs.apt-ports-mirror }}
             DEPS_REFRESH=${{ steps.deps_refresh.outputs.key }}
           context: ${{ inputs.context }}
           file: ${{ inputs.dockerfile }}

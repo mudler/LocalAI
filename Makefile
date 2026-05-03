@@ -10,6 +10,13 @@ LAUNCHER_BINARY_NAME=local-ai-launcher
 UBUNTU_VERSION?=2404
 UBUNTU_CODENAME?=noble
 
+# Optional Ubuntu apt mirror overrides forwarded to docker builds.
+# Empty = use upstream archive.ubuntu.com / security.ubuntu.com / ports.ubuntu.com.
+# Set e.g. APT_MIRROR=http://azure.archive.ubuntu.com to route apt traffic
+# during outages of the default Ubuntu pool.
+APT_MIRROR?=
+APT_PORTS_MIRROR?=
+
 GORELEASER?=
 
 export BUILD_TYPE?=
@@ -209,6 +216,8 @@ docker-build-e2e:
 		--build-arg CUDA_MINOR_VERSION=$(CUDA_MINOR_VERSION) \
 		--build-arg UBUNTU_VERSION=$(UBUNTU_VERSION) \
 		--build-arg UBUNTU_CODENAME=$(UBUNTU_CODENAME) \
+		--build-arg APT_MIRROR=$(APT_MIRROR) \
+		--build-arg APT_PORTS_MIRROR=$(APT_PORTS_MIRROR) \
 		--build-arg GO_TAGS="$(GO_TAGS)" \
 		-t local-ai:tests -f Dockerfile .
 
@@ -236,6 +245,8 @@ prepare-e2e:
 		--build-arg CUDA_MINOR_VERSION=$(CUDA_MINOR_VERSION) \
 		--build-arg UBUNTU_VERSION=$(UBUNTU_VERSION) \
 		--build-arg UBUNTU_CODENAME=$(UBUNTU_CODENAME) \
+		--build-arg APT_MIRROR=$(APT_MIRROR) \
+		--build-arg APT_PORTS_MIRROR=$(APT_PORTS_MIRROR) \
 		--build-arg GO_TAGS="$(GO_TAGS)" \
 		--build-arg MAKEFLAGS="$(DOCKER_MAKEFLAGS)" \
 		-t localai-tests .
@@ -277,6 +288,8 @@ test-opus-docker:
 	docker build --target builder \
 	  --build-arg BUILD_TYPE=$(or $(BUILD_TYPE),) \
 	  --build-arg BASE_IMAGE=$(or $(BASE_IMAGE),ubuntu:24.04) \
+	  --build-arg APT_MIRROR=$(APT_MIRROR) \
+	  --build-arg APT_PORTS_MIRROR=$(APT_PORTS_MIRROR) \
 	  --build-arg BACKEND=opus \
 	  -t localai-opus-test -f backend/Dockerfile.golang .
 	docker run --rm localai-opus-test \
@@ -318,6 +331,8 @@ test-realtime-models-docker: build-mock-backend
 	  --build-arg BUILD_TYPE=$(or $(BUILD_TYPE),cublas) \
 	  --build-arg CUDA_MAJOR_VERSION=$(or $(CUDA_MAJOR_VERSION),13) \
 	  --build-arg CUDA_MINOR_VERSION=$(or $(CUDA_MINOR_VERSION),0) \
+	  --build-arg APT_MIRROR=$(APT_MIRROR) \
+	  --build-arg APT_PORTS_MIRROR=$(APT_PORTS_MIRROR) \
 	  -t localai-test-runner .
 	docker run --rm \
 	  $(REALTIME_DOCKER_FLAGS) \
@@ -901,6 +916,8 @@ docker:
 		--build-arg CUDA_MINOR_VERSION=$(CUDA_MINOR_VERSION) \
 		--build-arg UBUNTU_VERSION=$(UBUNTU_VERSION) \
 		--build-arg UBUNTU_CODENAME=$(UBUNTU_CODENAME) \
+		--build-arg APT_MIRROR=$(APT_MIRROR) \
+		--build-arg APT_PORTS_MIRROR=$(APT_PORTS_MIRROR) \
 		-t $(DOCKER_IMAGE) .
 
 docker-cuda12:
@@ -914,6 +931,8 @@ docker-cuda12:
 		--build-arg BUILD_TYPE=$(BUILD_TYPE) \
 		--build-arg UBUNTU_VERSION=$(UBUNTU_VERSION) \
 		--build-arg UBUNTU_CODENAME=$(UBUNTU_CODENAME) \
+		--build-arg APT_MIRROR=$(APT_MIRROR) \
+		--build-arg APT_PORTS_MIRROR=$(APT_PORTS_MIRROR) \
 		-t $(DOCKER_IMAGE)-cuda-12 .
 
 docker-image-intel:
@@ -927,6 +946,8 @@ docker-image-intel:
 		--build-arg CUDA_MINOR_VERSION=$(CUDA_MINOR_VERSION) \
 		--build-arg UBUNTU_VERSION=$(UBUNTU_VERSION) \
 		--build-arg UBUNTU_CODENAME=$(UBUNTU_CODENAME) \
+		--build-arg APT_MIRROR=$(APT_MIRROR) \
+		--build-arg APT_PORTS_MIRROR=$(APT_PORTS_MIRROR) \
 		-t $(DOCKER_IMAGE) .
 
 ########################################################
@@ -1050,6 +1071,8 @@ define docker-build-backend
 		--build-arg CUDA_MINOR_VERSION=$(CUDA_MINOR_VERSION) \
 		--build-arg UBUNTU_VERSION=$(UBUNTU_VERSION) \
 		--build-arg UBUNTU_CODENAME=$(UBUNTU_CODENAME) \
+		--build-arg APT_MIRROR=$(APT_MIRROR) \
+		--build-arg APT_PORTS_MIRROR=$(APT_PORTS_MIRROR) \
 		$(if $(FROM_SOURCE),--build-arg FROM_SOURCE=$(FROM_SOURCE)) \
 		$(if $(AMDGPU_TARGETS),--build-arg AMDGPU_TARGETS=$(AMDGPU_TARGETS)) \
 		$(if $(filter true,$(5)),--build-arg BACKEND=$(1)) \
