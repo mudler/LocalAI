@@ -13,6 +13,7 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/trace"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
+	"github.com/mudler/LocalAI/pkg/downloader"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/vram"
 	"github.com/mudler/xlog"
@@ -35,15 +36,14 @@ func recordModelLoadFailure(appConfig *config.ApplicationConfig, modelName, back
 	})
 }
 
-// estimateModelSizeBytes uses the existing vram estimation scaffolding to
-// compute the total weight-file size for a model config.  It resolves all
-// weight files listed in DownloadFiles, Model, and MMProj — so it works for
-// multi-file models and non-GGUF formats, not just single GGUF files.
-// Results are cached by the shared DefaultCachedSizeResolver (15 min TTL) to
-// avoid redundant stat/HEAD calls on repeated loads of the same model.
+// estimateModelSizeBytes uses the unified EstimateModel entry point to compute
+// the total weight-file size for a model config.  It collects all weight files
+// from DownloadFiles, Model, and MMProj, and also extracts the HuggingFace
+// repo ID so EstimateModel can fall back to the HF API when local file
+// metadata is unavailable (e.g. not-yet-downloaded models).
 func estimateModelSizeBytes(c config.ModelConfig, modelsPath string) int64 {
 	seen := make(map[string]bool)
-	var files []vram.FileInput
+	input := vram.ModelEstimateInput{}
 
 	addFile := func(uri string) {
 		if !vram.IsWeightFile(uri) {
@@ -57,25 +57,40 @@ func estimateModelSizeBytes(c config.ModelConfig, modelsPath string) int64 {
 			return
 		}
 		seen[resolved] = true
-		files = append(files, vram.FileInput{URI: resolved})
+		input.Files = append(input.Files, vram.FileInput{URI: resolved})
+	}
+
+	// tryHFRepo resolves any huggingface:// or hf:// URI to an HTTPS URL and
+	// then extracts the org/model repo ID for use as the HF fallback path.
+	tryHFRepo := func(uri string) {
+		if input.HFRepo != "" {
+			return
+		}
+		resolved := downloader.URI(uri).ResolveURL()
+		if repoID, ok := vram.ExtractHFRepoID(resolved); ok {
+			input.HFRepo = repoID
+		}
 	}
 
 	for _, f := range c.DownloadFiles {
-		addFile(string(f.URI))
+		uriStr := string(f.URI)
+		addFile(uriStr)
+		tryHFRepo(uriStr)
 	}
 	addFile(c.Model)
+	tryHFRepo(c.Model)
 	if c.MMProj != "" {
 		addFile(c.MMProj)
 	}
 
-	if len(files) == 0 {
+	if len(input.Files) == 0 && input.HFRepo == "" {
 		return 0
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	result, err := vram.Estimate(ctx, files, vram.EstimateOptions{}, vram.DefaultCachedSizeResolver(), nil)
+	result, err := vram.EstimateModel(ctx, input)
 	if err != nil || result.SizeBytes == 0 {
 		return 0
 	}
