@@ -1,0 +1,49 @@
+name: 'Configure apt mirror'
+description: |
+  Reconfigure the GitHub Actions runner's Ubuntu apt sources to use an
+  alternate mirror. Defaults to the Azure-hosted Ubuntu mirror, which lives
+  on the same network as the runners and is independent of the canonical
+  Ubuntu pool — useful as a fallback when archive.ubuntu.com /
+  security.ubuntu.com / ports.ubuntu.com are degraded.
+
+  Pass mirror: '' (empty string) to skip the rewrite and keep upstream.
+
+inputs:
+  mirror:
+    description: 'Replacement URL for archive.ubuntu.com / security.ubuntu.com (empty = keep upstream)'
+    required: false
+    default: 'http://azure.archive.ubuntu.com'
+  ports-mirror:
+    description: 'Replacement URL for ports.ubuntu.com on arm64 (empty = keep upstream)'
+    required: false
+    default: 'http://azure.ports.ubuntu.com'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Rewrite apt sources
+      shell: bash
+      env:
+        APT_MIRROR: ${{ inputs.mirror }}
+        APT_PORTS_MIRROR: ${{ inputs.ports-mirror }}
+      run: |
+        set -e
+        if [ -z "${APT_MIRROR}" ] && [ -z "${APT_PORTS_MIRROR}" ]; then
+          echo "configure-apt-mirror: both inputs empty, leaving upstream sources untouched"
+          exit 0
+        fi
+        # Ubuntu 24.04 (noble) ships DEB822 sources at
+        # /etc/apt/sources.list.d/ubuntu.sources; older releases use
+        # /etc/apt/sources.list. Rewrite whichever exists.
+        for f in /etc/apt/sources.list.d/ubuntu.sources /etc/apt/sources.list; do
+          sudo test -f "$f" || continue
+          if [ -n "${APT_MIRROR}" ]; then
+            # Comma delimiter so the alternation pipe in the regex is not
+            # interpreted as the s/// separator.
+            sudo sed -i -E "s,https?://(archive\.ubuntu\.com|security\.ubuntu\.com),${APT_MIRROR},g" "$f"
+          fi
+          if [ -n "${APT_PORTS_MIRROR}" ]; then
+            sudo sed -i -E "s,https?://ports\.ubuntu\.com,${APT_PORTS_MIRROR},g" "$f"
+          fi
+        done
+        echo "configure-apt-mirror: APT_MIRROR='${APT_MIRROR}' APT_PORTS_MIRROR='${APT_PORTS_MIRROR}'"

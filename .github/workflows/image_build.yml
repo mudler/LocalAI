@@ -59,12 +59,12 @@ on:
       apt-mirror:
         description: 'Replacement URL for archive.ubuntu.com / security.ubuntu.com (empty = use upstream)'
         required: false
-        default: ''
+        default: 'http://azure.archive.ubuntu.com'
         type: string
       apt-ports-mirror:
         description: 'Replacement URL for ports.ubuntu.com (arm64 etc., empty = use upstream)'
         required: false
-        default: ''
+        default: 'http://azure.ports.ubuntu.com'
         type: string
     secrets:
       dockerUsername:
@@ -80,6 +80,9 @@ jobs:
     runs-on: ${{ inputs.runs-on }}
     steps:
 
+      # Inline rewrite (rather than the ./.github/actions/configure-apt-mirror
+      # composite action) because "Force Install GIT latest" must run before
+      # the checkout step, so the composite action isn't loadable yet.
       - name: Configure apt mirror on runner
         if: ${{ inputs.apt-mirror != '' || inputs.apt-ports-mirror != '' }}
         env:

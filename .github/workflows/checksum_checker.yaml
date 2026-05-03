@@ -8,22 +8,21 @@ jobs:
     if: github.repository == 'mudler/LocalAI'
     runs-on: ubuntu-latest
     steps:
+      # Inline rewrite (rather than the ./.github/actions/configure-apt-mirror
+      # composite action) because "Force Install GIT latest" must run before
+      # the checkout step, so the composite action isn't loadable yet.
       - name: Configure apt mirror on runner
-        if: ${{ vars.APT_MIRROR != '' || vars.APT_PORTS_MIRROR != '' }}
         env:
-          APT_MIRROR: ${{ vars.APT_MIRROR }}
-          APT_PORTS_MIRROR: ${{ vars.APT_PORTS_MIRROR }}
+          APT_MIRROR: 'http://azure.archive.ubuntu.com'
+          APT_PORTS_MIRROR: 'http://azure.ports.ubuntu.com'
         run: |
           set -e
           for f in /etc/apt/sources.list.d/ubuntu.sources /etc/apt/sources.list; do
             sudo test -f "$f" || continue
-            if [ -n "${APT_MIRROR}" ]; then
-              sudo sed -i -E "s,https?://(archive\.ubuntu\.com|security\.ubuntu\.com),${APT_MIRROR},g" "$f"
-            fi
-            if [ -n "${APT_PORTS_MIRROR}" ]; then
-              sudo sed -i -E "s,https?://ports\.ubuntu\.com,${APT_PORTS_MIRROR},g" "$f"
-            fi
+            sudo sed -i -E "s,https?://(archive\.ubuntu\.com|security\.ubuntu\.com),${APT_MIRROR},g" "$f"
+            sudo sed -i -E "s,https?://ports\.ubuntu\.com,${APT_PORTS_MIRROR},g" "$f"
           done
+          echo "Runner apt mirror configured (APT_MIRROR='${APT_MIRROR}', APT_PORTS_MIRROR='${APT_PORTS_MIRROR}')"
       - name: Force Install GIT latest
         run: |
           sudo apt-get update \
