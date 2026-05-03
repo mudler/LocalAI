@@ -1,4 +1,28 @@
 ---
+- name: "chroma1-hd"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  license: apache-2.0
+  tags:
+    - chroma
+    - text-to-image
+    - image-generation
+    - diffusers
+  urls:
+    - https://huggingface.co/lodestones/Chroma1-HD
+  description: |
+    Chroma1-HD is an 8.9B-parameter text-to-image foundation model derived from FLUX.1-schnell with reduced parameter count via architectural optimizations. Designed as a base for creators, researchers, and downstream fine-tuning. Recommended inference: 40 steps, CFG 3.0, bfloat16.
+  overrides:
+    cfg_scale: 3.0
+    parameters:
+      model: lodestones/Chroma1-HD
+    backend: diffusers
+    known_usecases:
+      - FLAG_IMAGE
+    diffusers:
+      pipeline_type: ChromaPipeline
+    step: 40
+    options:
+      - torch_dtype:bf16
 - name: "nemotron-3-nano-omni-30b-a3b-reasoning-apex"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
