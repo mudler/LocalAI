@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -11,6 +12,54 @@ import (
 	"github.com/mudler/LocalAI/pkg/grpc/base"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 )
+
+// vv_capi_asr loads audio with load_wav_24k_mono — a 24 kHz mono s16le
+// WAV is the format the model was trained on. Generic utils.AudioToWav
+// targets 16 kHz, which would cause silent quality degradation, so we
+// shell out to ffmpeg directly here.
+const vibevoiceASRSampleRate = 24000
+
+// prepareWavInput accepts any audio format ffmpeg can decode and produces
+// a 24 kHz mono s16le WAV file in a fresh temp dir. Returns the resolved
+// WAV path plus a cleanup func — both must be honoured by the caller.
+// vibevoice.cpp's vv_capi_asr expects WAV input only; feeding it MP3/OGG/
+// FLAC fails at load_wav, so without conversion the endpoint only worked
+// when the user happened to upload a WAV.
+func prepareWavInput(src string) (string, func(), error) {
+	if src == "" {
+		return "", func() {}, fmt.Errorf("empty audio path")
+	}
+	dir, err := os.MkdirTemp("", "vibevoice-asr")
+	if err != nil {
+		return "", func() {}, fmt.Errorf("mkdtemp: %w", err)
+	}
+	cleanup := func() { _ = os.RemoveAll(dir) }
+	wavPath := filepath.Join(dir, "input.wav")
+
+	// -y: overwrite, -ar 24000: target sample rate, -ac 1: mono,
+	// -acodec pcm_s16le: signed 16-bit little-endian PCM (load_wav_24k_mono
+	// only accepts s16le).
+	cmd := exec.Command("ffmpeg",
+		"-y", "-i", src,
+		"-ar", fmt.Sprintf("%d", vibevoiceASRSampleRate),
+		"-ac", "1",
+		"-acodec", "pcm_s16le",
+		wavPath,
+	)
+	cmd.Env = []string{}
+	if out, err := cmd.CombinedOutput(); err != nil {
+		cleanup()
+		return "", func() {}, fmt.Errorf("ffmpeg convert to 24k mono wav: %w (output: %s)", err, string(out))
+	}
+	return wavPath, cleanup, nil
+}
+
+// asrMaxNewTokens caps the ASR generation budget. The C ABI defaults to
+// 256 when 0 is passed — far too small for anything past ~10s of speech.
+// Vibevoice generates ~30 tokens per second of audio, so 16 384 covers
+// roughly 9 minutes of dialogue, well past any normal /v1/audio/diarization
+// upload. Going higher costs little since generation stops at EOS.
+const asrMaxNewTokens = 16384
 
 // vibevoice.cpp synthesizes 24 kHz mono 16-bit PCM. Hardcoded - the
 // model itself is fixed-rate; if the upstream ever changes this we'll
@@ -302,7 +351,13 @@ func (v *VibevoiceCpp) AudioTranscription(req *pb.TranscriptRequest) (pb.Transcr
 		return pb.TranscriptResult{}, fmt.Errorf("vibevoice-cpp: TranscriptRequest.dst (audio path) is required")
 	}
 
-	out, err := v.callASR(req.Dst, 0)
+	wavPath, cleanup, err := prepareWavInput(req.Dst)
+	if err != nil {
+		return pb.TranscriptResult{}, fmt.Errorf("vibevoice-cpp: %w", err)
+	}
+	defer cleanup()
+
+	out, err := v.callASR(wavPath, asrMaxNewTokens)
 	if err != nil {
 		return pb.TranscriptResult{}, err
 	}
@@ -363,7 +418,13 @@ func (v *VibevoiceCpp) Diarize(req *pb.DiarizeRequest) (pb.DiarizeResponse, erro
 		return pb.DiarizeResponse{}, fmt.Errorf("vibevoice-cpp: DiarizeRequest.dst (audio path) is required")
 	}
 
-	out, err := v.callASR(req.Dst, 0)
+	wavPath, cleanup, err := prepareWavInput(req.Dst)
+	if err != nil {
+		return pb.DiarizeResponse{}, fmt.Errorf("vibevoice-cpp: %w", err)
+	}
+	defer cleanup()
+
+	out, err := v.callASR(wavPath, asrMaxNewTokens)
 	if err != nil {
 		return pb.DiarizeResponse{}, err
 	}
@@ -373,7 +434,22 @@ func (v *VibevoiceCpp) Diarize(req *pb.DiarizeRequest) (pb.DiarizeResponse, erro
 
 	var segs []asrSegment
 	if err := json.Unmarshal([]byte(out), &segs); err != nil {
-		return pb.DiarizeResponse{}, fmt.Errorf("vibevoice-cpp: vv_capi_asr returned non-JSON for diarization: %w", err)
+		// Mirror AudioTranscription's fallback: vibevoice's ASR sometimes
+		// emits free-form text instead of JSON for short or unusual audio.
+		// Surface a single unknown-speaker segment carrying the full text
+		// (when include_text is set) so the caller still gets coverage of
+		// the whole clip rather than a hard failure.
+		fmt.Fprintf(os.Stderr,
+			"[vibevoice-cpp] WARNING: vv_capi_asr returned non-JSON for diarization, falling back to single segment: %v\n", err)
+		text := strings.TrimSpace(out)
+		seg := &pb.DiarizeSegment{Id: 0, Speaker: "0"}
+		if req.IncludeText {
+			seg.Text = text
+		}
+		return pb.DiarizeResponse{
+			Segments:    []*pb.DiarizeSegment{seg},
+			NumSpeakers: 1,
+		}, nil
 	}
 
 	speakers := make(map[int]struct{})
