@@ -607,6 +607,7 @@ const (
 	FLAG_FACE_RECOGNITION    ModelConfigUsecase = 0b10000000000000
 	FLAG_SPEAKER_RECOGNITION ModelConfigUsecase = 0b100000000000000
 	FLAG_AUDIO_TRANSFORM     ModelConfigUsecase = 0b1000000000000000
+	FLAG_DIARIZATION         ModelConfigUsecase = 0b10000000000000000
 
 	// Common Subsets
 	FLAG_LLM ModelConfigUsecase = FLAG_CHAT | FLAG_COMPLETION | FLAG_EDIT
@@ -633,6 +634,7 @@ func GetAllModelConfigUsecases() map[string]ModelConfigUsecase {
 		"FLAG_FACE_RECOGNITION":    FLAG_FACE_RECOGNITION,
 		"FLAG_SPEAKER_RECOGNITION": FLAG_SPEAKER_RECOGNITION,
 		"FLAG_AUDIO_TRANSFORM":     FLAG_AUDIO_TRANSFORM,
+		"FLAG_DIARIZATION":         FLAG_DIARIZATION,
 	}
 }
 
@@ -793,6 +795,16 @@ func (c *ModelConfig) GuessUsecases(u ModelConfigUsecase) bool {
 
 	if (u & FLAG_VAD) == FLAG_VAD {
 		if c.Backend != "silero-vad" && c.Backend != "sherpa-onnx" && !(c.Backend == "whisper" && slices.Contains(c.Options, "vad_only")) {
+			return false
+		}
+	}
+
+	if (u & FLAG_DIARIZATION) == FLAG_DIARIZATION {
+		// vibevoice-cpp emits speaker-labelled segments natively from its
+		// ASR pass; sherpa-onnx pipes pyannote segmentation + speaker
+		// embeddings + clustering. Both surface as a Diarize gRPC.
+		diarizationBackends := []string{"vibevoice-cpp", "sherpa-onnx"}
+		if !slices.Contains(diarizationBackends, c.Backend) {
 			return false
 		}
 	}

@@ -595,6 +595,51 @@ definitions:
           $ref: '#/definitions/schema.Detection'
         type: array
     type: object
+  schema.DiarizationResult:
+    properties:
+      duration:
+        type: number
+      language:
+        type: string
+      num_speakers:
+        type: integer
+      segments:
+        items:
+          $ref: '#/definitions/schema.DiarizationSegment'
+        type: array
+      speakers:
+        items:
+          $ref: '#/definitions/schema.DiarizationSpeaker'
+        type: array
+      task:
+        type: string
+    type: object
+  schema.DiarizationSegment:
+    properties:
+      end:
+        type: number
+      id:
+        type: integer
+      label:
+        type: string
+      speaker:
+        type: string
+      start:
+        type: number
+      text:
+        type: string
+    type: object
+  schema.DiarizationSpeaker:
+    properties:
+      id:
+        type: string
+      label:
+        type: string
+      segment_count:
+        type: integer
+      total_speech_duration:
+        type: number
+    type: object
   schema.ElevenLabsSoundGenerationRequest:
     properties:
       bpm:
@@ -3222,6 +3267,66 @@ paths:
           schema:
             type: string
       summary: Generates audio from the input text.
+      tags:
+      - audio
+  /v1/audio/diarization:
+    post:
+      consumes:
+      - multipart/form-data
+      parameters:
+      - description: model
+        in: formData
+        name: model
+        required: true
+        type: string
+      - description: audio file
+        in: formData
+        name: file
+        required: true
+        type: file
+      - description: exact speaker count (>0 forces; 0 = auto)
+        in: formData
+        name: num_speakers
+        type: integer
+      - description: lower bound when auto-detecting
+        in: formData
+        name: min_speakers
+        type: integer
+      - description: upper bound when auto-detecting
+        in: formData
+        name: max_speakers
+        type: integer
+      - description: clustering distance threshold when num_speakers is unknown
+        in: formData
+        name: clustering_threshold
+        type: number
+      - description: discard segments shorter than this (seconds)
+        in: formData
+        name: min_duration_on
+        type: number
+      - description: merge gaps shorter than this (seconds)
+        in: formData
+        name: min_duration_off
+        type: number
+      - description: audio language hint (only meaningful for backends that bundle
+          ASR)
+        in: formData
+        name: language
+        type: string
+      - description: include per-segment transcript when the backend supports it
+        in: formData
+        name: include_text
+        type: boolean
+      - description: json (default), verbose_json, or rttm
+        in: formData
+        name: response_format
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/schema.DiarizationResult'
+      summary: Identify speakers in audio (who spoke when).
       tags:
       - audio
   /v1/audio/speech:

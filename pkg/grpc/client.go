@@ -562,6 +562,24 @@ func (c *Client) VAD(ctx context.Context, in *pb.VADRequest, opts ...grpc.CallOp
 	return client.VAD(ctx, in, opts...)
 }
 
+func (c *Client) Diarize(ctx context.Context, in *pb.DiarizeRequest, opts ...grpc.CallOption) (*pb.DiarizeResponse, error) {
+	if !c.parallel {
+		c.opMutex.Lock()
+		defer c.opMutex.Unlock()
+	}
+	c.setBusy(true)
+	defer c.setBusy(false)
+	c.wdMark()
+	defer c.wdUnMark()
+	conn, err := c.dial()
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+	client := pb.NewBackendClient(conn)
+	return client.Diarize(ctx, in, opts...)
+}
+
 func (c *Client) Detect(ctx context.Context, in *pb.DetectOptions, opts ...grpc.CallOption) (*pb.DetectResponse, error) {
 	if !c.parallel {
 		c.opMutex.Lock()

@@ -631,6 +631,36 @@ func (m *MockBackend) VAD(ctx context.Context, in *pb.VADRequest) (*pb.VADRespon
 	}, nil
 }
 
+// Diarize returns a deterministic two-speaker layout that exercises the
+// HTTP layer's normalisation: raw labels "5" and "2" should become
+// SPEAKER_00 and SPEAKER_01 in first-seen order, the SPEAKER_00 totals
+// should reflect two segments (1.0s + 1.5s = 2.5s), and IncludeText must
+// gate the per-segment Text field.
+func (m *MockBackend) Diarize(ctx context.Context, in *pb.DiarizeRequest) (*pb.DiarizeResponse, error) {
+	xlog.Debug("Diarize called",
+		"dst", in.Dst,
+		"num_speakers", in.NumSpeakers,
+		"include_text", in.IncludeText)
+
+	seg := func(start, end float32, speaker, text string) *pb.DiarizeSegment {
+		out := &pb.DiarizeSegment{Start: start, End: end, Speaker: speaker}
+		if in.IncludeText {
+			out.Text = text
+		}
+		return out
+	}
+	return &pb.DiarizeResponse{
+		Segments: []*pb.DiarizeSegment{
+			seg(0.0, 1.0, "5", "hello there"),
+			seg(1.0, 2.0, "2", "general kenobi"),
+			seg(2.0, 3.5, "5", "you are a bold one"),
+		},
+		NumSpeakers: 2,
+		Duration:    3.5,
+		Language:    in.Language,
+	}, nil
+}
+
 func (m *MockBackend) AudioEncode(ctx context.Context, in *pb.AudioEncodeRequest) (*pb.AudioEncodeResult, error) {
 	xlog.Debug("AudioEncode called", "pcm_len", len(in.PcmData), "sample_rate", in.SampleRate)
 	// Return a single mock Opus frame per 960-sample chunk (20ms at 48kHz).

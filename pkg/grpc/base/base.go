@@ -101,6 +101,10 @@ func (llm *Base) VoiceEmbed(*pb.VoiceEmbedRequest) (pb.VoiceEmbedResponse, error
 	return pb.VoiceEmbedResponse{}, fmt.Errorf("unimplemented")
 }
 
+func (llm *Base) Diarize(*pb.DiarizeRequest) (pb.DiarizeResponse, error) {
+	return pb.DiarizeResponse{}, fmt.Errorf("unimplemented")
+}
+
 func (llm *Base) TokenizeString(opts *pb.PredictOptions) (pb.TokenizationResponse, error) {
 	return pb.TokenizationResponse{}, fmt.Errorf("unimplemented")
 }

@@ -42,6 +42,7 @@ const (
 	FeatureImages             = "images"
 	FeatureAudioSpeech        = "audio_speech"
 	FeatureAudioTranscription = "audio_transcription"
+	FeatureAudioDiarization   = "audio_diarization"
 	FeatureVAD                = "vad"
 	FeatureDetection          = "detection"
 	FeatureVideo              = "video"
@@ -66,6 +67,7 @@ var GeneralFeatures = []string{FeatureFineTuning, FeatureQuantization}
 // APIFeatures lists API endpoint features (default ON).
 var APIFeatures = []string{
 	FeatureChat, FeatureImages, FeatureAudioSpeech, FeatureAudioTranscription,
+	FeatureAudioDiarization,
 	FeatureVAD, FeatureDetection, FeatureVideo, FeatureEmbeddings, FeatureSound,
 	FeatureRealtime, FeatureRerank, FeatureTokenize, FeatureMCP, FeatureStores,
 	FeatureFaceRecognition, FeatureVoiceRecognition, FeatureAudioTransform,

@@ -346,6 +346,62 @@ func (v *VibevoiceCpp) AudioTranscription(req *pb.TranscriptRequest) (pb.Transcr
 	}, nil
 }
 
+// Diarize runs vibevoice's ASR and projects the speaker-labelled segment
+// list it returns natively. vibevoice.cpp's ASR prompt asks the model to
+// emit `[{"Start":..,"End":..,"Speaker":..,"Content":..}]`, so diarization
+// is a by-product of the same pass — we reuse callASR and re-shape.
+//
+// Speaker hints (num_speakers/min/max/threshold) and min_duration_on/off are
+// not actionable here: vibevoice's model picks the speaker count itself and
+// has no clustering knob. The HTTP layer documents this; we accept the
+// fields for API symmetry and ignore them.
+func (v *VibevoiceCpp) Diarize(req *pb.DiarizeRequest) (pb.DiarizeResponse, error) {
+	if v.asrModel == "" {
+		return pb.DiarizeResponse{}, fmt.Errorf("vibevoice-cpp: Diarize requires an ASR model (load options: type=asr)")
+	}
+	if req.Dst == "" {
+		return pb.DiarizeResponse{}, fmt.Errorf("vibevoice-cpp: DiarizeRequest.dst (audio path) is required")
+	}
+
+	out, err := v.callASR(req.Dst, 0)
+	if err != nil {
+		return pb.DiarizeResponse{}, err
+	}
+	if out == "" {
+		return pb.DiarizeResponse{}, nil
+	}
+
+	var segs []asrSegment
+	if err := json.Unmarshal([]byte(out), &segs); err != nil {
+		return pb.DiarizeResponse{}, fmt.Errorf("vibevoice-cpp: vv_capi_asr returned non-JSON for diarization: %w", err)
+	}
+
+	speakers := make(map[int]struct{})
+	segments := make([]*pb.DiarizeSegment, 0, len(segs))
+	var duration float32
+	for i, s := range segs {
+		ds := &pb.DiarizeSegment{
+			Id:      int32(i),
+			Start:   float32(s.Start),
+			End:     float32(s.End),
+			Speaker: fmt.Sprintf("%d", s.Speaker),
+		}
+		if req.IncludeText {
+			ds.Text = strings.TrimSpace(s.Content)
+		}
+		segments = append(segments, ds)
+		speakers[s.Speaker] = struct{}{}
+		if float32(s.End) > duration {
+			duration = float32(s.End)
+		}
+	}
+	return pb.DiarizeResponse{
+		Segments:    segments,
+		NumSpeakers: int32(len(speakers)),
+		Duration:    duration,
+	}, nil
+}
+
 // AudioTranscriptionStream wraps AudioTranscription so the streaming
 // gRPC endpoint (server.go:AudioTranscriptionStream) sees its channel
 // close and the client doesn't sit waiting until deadline. vibevoice's

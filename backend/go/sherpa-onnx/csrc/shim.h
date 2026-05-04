@@ -109,6 +109,41 @@ const float *sherpa_shim_generated_audio_samples(const void *audio);
 int32_t sherpa_shim_speech_segment_start(const void *seg);
 int32_t sherpa_shim_speech_segment_n(const void *seg);
 
+// --- Offline speaker diarization config -----------------------------
+// Pyannote segmentation + speaker-embedding extractor + fast clustering.
+// The upstream config is a struct of nested structs; purego can't read or
+// build those across dlopen, so we expose a calloc'd opaque holder plus
+// flat setters, then hand it to sherpa via the create wrapper.
+void *sherpa_shim_diarize_config_new(void);
+void  sherpa_shim_diarize_config_free(void *cfg);
+void  sherpa_shim_diarize_config_set_segmentation_model(void *cfg, const char *path);
+void  sherpa_shim_diarize_config_set_segmentation_num_threads(void *cfg, int32_t v);
+void  sherpa_shim_diarize_config_set_segmentation_provider(void *cfg, const char *v);
+void  sherpa_shim_diarize_config_set_segmentation_debug(void *cfg, int32_t v);
+void  sherpa_shim_diarize_config_set_embedding_model(void *cfg, const char *path);
+void  sherpa_shim_diarize_config_set_embedding_num_threads(void *cfg, int32_t v);
+void  sherpa_shim_diarize_config_set_embedding_provider(void *cfg, const char *v);
+void  sherpa_shim_diarize_config_set_embedding_debug(void *cfg, int32_t v);
+void  sherpa_shim_diarize_config_set_clustering_num_clusters(void *cfg, int32_t v);
+void  sherpa_shim_diarize_config_set_clustering_threshold(void *cfg, float v);
+void  sherpa_shim_diarize_config_set_min_duration_on(void *cfg, float v);
+void  sherpa_shim_diarize_config_set_min_duration_off(void *cfg, float v);
+void *sherpa_shim_create_offline_speaker_diarization(void *cfg);
+
+// Apply just the clustering knobs onto a loaded diarizer (sherpa
+// supports re-clustering after Create), so per-call overrides like
+// num_speakers don't require re-loading the heavy ONNX models.
+void  sherpa_shim_diarize_set_clustering(void *sd, int32_t num_clusters, float threshold);
+
+// Sherpa's ResultSortByStartTime returns a sherpa-allocated array of
+// SherpaOnnxOfflineSpeakerDiarizationSegment structs (free with
+// SherpaOnnxOfflineSpeakerDiarizationDestroySegment). Purego can't read
+// fields out of an array of C structs, so this getter copies one
+// segment's fields into the caller-supplied float/int32 cells.
+void  sherpa_shim_diarize_segment_at(const void *segs, int32_t i,
+                                     float *out_start, float *out_end,
+                                     int32_t *out_speaker);
+
 // --- TTS streaming callback trampoline -----------------------------
 // Replaces the //export sherpaTtsGoCallback + callbacks.c bridge pattern.
 // `callback_ptr` is the C-callable function pointer returned by

@@ -14,6 +14,7 @@ You can see the release notes [here](https://github.com/mudler/LocalAI/releases)
 
 - **April 2026**: [Audio Transform](/features/audio-transform/) — generic audio-in / audio-out endpoint with optional reference signal. First implementation: [LocalVQE](https://github.com/localai-org/LocalVQE) C++ backend (joint AEC + noise suppression + dereverberation, DeepVQE-style). Both batch (`POST /audio/transformations`) and bidirectional WebSocket streaming (`/audio/transformations/stream`). Studio "Transform" tab with synchronized waveform players for input / reference / output.
 - **April 2026**: [Face recognition backend](/features/face-recognition/) — `insightface`-powered 1:1 verification, 1:N identification, face embedding, face detection, and demographic analysis. Ships both a non-commercial `buffalo_l` model and an Apache 2.0 OpenCV Zoo alternative.
+- **May 2026**: [Speaker diarization](/features/audio-diarization/) — new `/v1/audio/diarization` endpoint returning "who spoke when" segments. Backed by `sherpa-onnx` (pyannote-3.0 + speaker embeddings + clustering) for pure diarization, and `vibevoice-cpp` for diarization bundled with long-form ASR. Supports `json` / `verbose_json` / `rttm` response formats.
 
 ## 2024 Highlights
 

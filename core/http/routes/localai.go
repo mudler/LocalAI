@@ -272,6 +272,7 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 					"completions":      "/v1/completions",
 					"embeddings":       "/v1/embeddings",
 					"transcription":    "/v1/audio/transcriptions",
+					"diarization":      "/v1/audio/diarization",
 					"image_generation": "/v1/images/generations",
 				},
 				"config_management": map[string]string{

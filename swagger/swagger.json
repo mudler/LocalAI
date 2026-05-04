@@ -1668,6 +1668,95 @@
                 }
             }
         },
+        "/v1/audio/diarization": {
+            "post": {
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "tags": [
+                    "audio"
+                ],
+                "summary": "Identify speakers in audio (who spoke when).",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "model",
+                        "name": "model",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "audio file",
+                        "name": "file",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "exact speaker count (\u003e0 forces; 0 = auto)",
+                        "name": "num_speakers",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "lower bound when auto-detecting",
+                        "name": "min_speakers",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "upper bound when auto-detecting",
+                        "name": "max_speakers",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "number",
+                        "description": "clustering distance threshold when num_speakers is unknown",
+                        "name": "clustering_threshold",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "number",
+                        "description": "discard segments shorter than this (seconds)",
+                        "name": "min_duration_on",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "number",
+                        "description": "merge gaps shorter than this (seconds)",
+                        "name": "min_duration_off",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "audio language hint (only meaningful for backends that bundle ASR)",
+                        "name": "language",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "include per-segment transcript when the backend supports it",
+                        "name": "include_text",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "json (default), verbose_json, or rttm",
+                        "name": "response_format",
+                        "in": "formData"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/schema.DiarizationResult"
+                        }
+                    }
+                }
+            }
+        },
         "/v1/audio/speech": {
             "post": {
                 "consumes": [
@@ -3582,6 +3671,75 @@
                     "items": {
                         "$ref": "#/definitions/schema.Detection"
                     }
+                }
+            }
+        },
+        "schema.DiarizationResult": {
+            "type": "object",
+            "properties": {
+                "duration": {
+                    "type": "number"
+                },
+                "language": {
+                    "type": "string"
+                },
+                "num_speakers": {
+                    "type": "integer"
+                },
+                "segments": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.DiarizationSegment"
+                    }
+                },
+                "speakers": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.DiarizationSpeaker"
+                    }
+                },
+                "task": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.DiarizationSegment": {
+            "type": "object",
+            "properties": {
+                "end": {
+                    "type": "number"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "speaker": {
+                    "type": "string"
+                },
+                "start": {
+                    "type": "number"
+                },
+                "text": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.DiarizationSpeaker": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "segment_count": {
+                    "type": "integer"
+                },
+                "total_speech_duration": {
+                    "type": "number"
                 }
             }
         },

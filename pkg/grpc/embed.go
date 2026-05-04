@@ -136,6 +136,10 @@ func (e *embedBackend) VAD(ctx context.Context, in *pb.VADRequest, opts ...grpc.
 	return e.s.VAD(ctx, in)
 }
 
+func (e *embedBackend) Diarize(ctx context.Context, in *pb.DiarizeRequest, opts ...grpc.CallOption) (*pb.DiarizeResponse, error) {
+	return e.s.Diarize(ctx, in)
+}
+
 func (e *embedBackend) AudioEncode(ctx context.Context, in *pb.AudioEncodeRequest, opts ...grpc.CallOption) (*pb.AudioEncodeResult, error) {
 	return e.s.AudioEncode(ctx, in)
 }

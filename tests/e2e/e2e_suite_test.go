@@ -169,6 +169,21 @@ var _ = BeforeSuite(func() {
 		Expect(os.WriteFile(filepath.Join(modelsPath, name+".yaml"), data, 0644)).To(Succeed())
 	}
 
+	// Diarization model — known_usecases bypasses the FLAG_DIARIZATION
+	// backend-name guard so the /v1/audio/diarization route can dispatch
+	// to the mock backend.
+	diarizeCfg := map[string]any{
+		"name":           "mock-diarize",
+		"backend":        "mock-backend",
+		"known_usecases": []string{"FLAG_DIARIZATION"},
+		"parameters": map[string]any{
+			"model": "mock-diarize.bin",
+		},
+	}
+	diarizeData, err := yaml.Marshal(diarizeCfg)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(os.WriteFile(filepath.Join(modelsPath, "mock-diarize.yaml"), diarizeData, 0644)).To(Succeed())
+
 	// Pipeline model that wires the component models together.
 	pipelineCfg := map[string]any{
 		"name": "realtime-pipeline",

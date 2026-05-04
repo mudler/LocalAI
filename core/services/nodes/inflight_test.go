@@ -156,6 +156,10 @@ func (f *fakeGRPCBackend) VAD(_ context.Context, _ *pb.VADRequest, _ ...ggrpc.Ca
 	return &pb.VADResponse{}, nil
 }
 
+func (f *fakeGRPCBackend) Diarize(_ context.Context, _ *pb.DiarizeRequest, _ ...ggrpc.CallOption) (*pb.DiarizeResponse, error) {
+	return &pb.DiarizeResponse{}, nil
+}
+
 func (f *fakeGRPCBackend) AudioEncode(_ context.Context, _ *pb.AudioEncodeRequest, _ ...ggrpc.CallOption) (*pb.AudioEncodeResult, error) {
 	return &pb.AudioEncodeResult{}, nil
 }

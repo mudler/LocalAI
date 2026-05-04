@@ -32,8 +32,9 @@ var instructionDefs = []instructionDef{
 	},
 	{
 		Name:        "audio",
-		Description: "Text-to-speech, voice activity detection, transcription, and sound generation",
+		Description: "Text-to-speech, voice activity detection, transcription, speaker diarization, and sound generation",
 		Tags:        []string{"audio"},
+		Intro:       "Diarization (/v1/audio/diarization) returns speaker-labelled time segments. Backends with native ASR-diarization (vibevoice-cpp) can also emit per-segment text via include_text=true; backends with a dedicated pipeline (sherpa-onnx + pyannote) emit segmentation only. Response formats: json (default), verbose_json (adds speakers summary + text), rttm (NIST format).",
 	},
 	{
 		Name:        "images",

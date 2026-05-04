@@ -130,6 +130,23 @@ func RegisterOpenAIRoutes(app *echo.Echo,
 	app.POST("/v1/audio/transcriptions", audioHandler, audioMiddleware...)
 	app.POST("/audio/transcriptions", audioHandler, audioMiddleware...)
 
+	diarizationHandler := openai.DiarizationEndpoint(application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig())
+	diarizationMiddleware := []echo.MiddlewareFunc{
+		traceMiddleware,
+		re.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_DIARIZATION)),
+		re.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.OpenAIRequest) }),
+		func(next echo.HandlerFunc) echo.HandlerFunc {
+			return func(c echo.Context) error {
+				if err := re.SetOpenAIRequest(c); err != nil {
+					return err
+				}
+				return next(c)
+			}
+		},
+	}
+	app.POST("/v1/audio/diarization", diarizationHandler, diarizationMiddleware...)
+	app.POST("/audio/diarization", diarizationHandler, diarizationMiddleware...)
+
 	audioSpeechHandler := localai.TTSEndpoint(application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig())
 	audioSpeechMiddleware := []echo.MiddlewareFunc{
 		traceMiddleware,

@@ -377,6 +377,18 @@ func (s *server) VAD(ctx context.Context, in *pb.VADRequest) (*pb.VADResponse, e
 	return &res, nil
 }
 
+func (s *server) Diarize(ctx context.Context, in *pb.DiarizeRequest) (*pb.DiarizeResponse, error) {
+	if s.llm.Locking() {
+		s.llm.Lock()
+		defer s.llm.Unlock()
+	}
+	res, err := s.llm.Diarize(in)
+	if err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
 func (s *server) AudioEncode(ctx context.Context, in *pb.AudioEncodeRequest) (*pb.AudioEncodeResult, error) {
 	if s.llm.Locking() {
 		s.llm.Lock()

@@ -41,6 +41,8 @@ service Backend {
 
   rpc VAD(VADRequest) returns (VADResponse) {}
 
+  rpc Diarize(DiarizeRequest) returns (DiarizeResponse) {}
+
   rpc AudioEncode(AudioEncodeRequest) returns (AudioEncodeResult) {}
   rpc AudioDecode(AudioDecodeRequest) returns (AudioDecodeResult) {}
 
@@ -414,6 +416,43 @@ message VADSegment {
 
 message VADResponse {
   repeated VADSegment segments = 1;
+}
+
+// --- Speaker diarization messages ---
+//
+// Pure speaker diarization: "who spoke when". Returns time-stamped segments
+// labelled with cluster IDs (the same string for the same speaker across
+// segments). Some backends (e.g. vibevoice.cpp) produce diarization as a
+// by-product of ASR and may also fill in `text` per segment; backends with a
+// dedicated diarization pipeline (e.g. sherpa-onnx pyannote) leave `text`
+// empty and emit only the segmentation.
+
+message DiarizeRequest {
+  string dst = 1;                      // path to audio file (HTTP layer materialises uploads to a temp file)
+  uint32 threads = 2;
+  string language = 3;                 // optional; only meaningful for transcription-bundling backends
+  int32  num_speakers = 4;             // exact speaker count if known (>0 forces); 0 = auto
+  int32  min_speakers = 5;             // hint when auto-detecting; 0 = unset
+  int32  max_speakers = 6;             // hint when auto-detecting; 0 = unset
+  float  clustering_threshold = 7;     // distance threshold when num_speakers unknown; 0 = backend default
+  float  min_duration_on = 8;          // discard segments shorter than this (seconds); 0 = backend default
+  float  min_duration_off = 9;         // merge gaps shorter than this (seconds); 0 = backend default
+  bool   include_text = 10;            // when the backend can emit per-segment transcript for free, ask it to populate `text`
+}
+
+message DiarizeSegment {
+  int32  id = 1;
+  float  start = 2;                    // seconds
+  float  end = 3;                      // seconds
+  string speaker = 4;                  // backend-emitted speaker label (e.g. "0", "SPEAKER_00")
+  string text = 5;                     // optional per-segment transcript (empty unless include_text and supported)
+}
+
+message DiarizeResponse {
+  repeated DiarizeSegment segments = 1;
+  int32  num_speakers = 2;             // count of distinct speaker labels in `segments`
+  float  duration = 3;                 // total audio duration in seconds (0 if unknown)
+  string language = 4;                 // optional, when the backend bundles transcription
 }
 
 message SoundGenerationRequest {

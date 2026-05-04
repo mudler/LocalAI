@@ -217,6 +217,9 @@ func (c *fakeBackendClient) GetTokenMetrics(_ context.Context, _ *pb.MetricsRequ
 func (c *fakeBackendClient) VAD(_ context.Context, _ *pb.VADRequest, _ ...ggrpc.CallOption) (*pb.VADResponse, error) {
 	return nil, nil
 }
+func (c *fakeBackendClient) Diarize(_ context.Context, _ *pb.DiarizeRequest, _ ...ggrpc.CallOption) (*pb.DiarizeResponse, error) {
+	return nil, nil
+}
 func (c *fakeBackendClient) AudioEncode(_ context.Context, _ *pb.AudioEncodeRequest, _ ...ggrpc.CallOption) (*pb.AudioEncodeResult, error) {
 	return nil, nil
 }
