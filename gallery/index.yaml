@@ -1,4 +1,64 @@
 ---
+- name: "qwen3.5-9b-deepseek-v4-flash"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/Jackrong/Qwen3.5-9B-DeepSeek-V4-Flash-GGUF
+  description: |
+    # Qwen3.5-9B
+
+    [](https://chat.qwen.ai)
+
+    > [!Note]
+    > This repository contains model weights and configuration files for the post-trained model in the Hugging Face Transformers format.
+    >
+    > These artifacts are compatible with Hugging Face Transformers, vLLM, SGLang, KTransformers, etc.
+
+    Over recent months, we have intensified our focus on developing foundation models that deliver exceptional utility and performance. Qwen3.5 represents a significant leap forward, integrating breakthroughs in multimodal learning, architectural efficiency, reinforcement learning scale, and global accessibility to empower developers and enterprises with unprecedented capability and efficiency.
+
+    ## Qwen3.5 Highlights
+
+    Qwen3.5 features the following enhancement:
+
+      - **Unified Vision-Language Foundation**: Early fusion training on multimodal tokens achieves cross-generational parity with Qwen3 and outperforms Qwen3-VL models across reasoning, coding, agents, and visual understanding benchmarks.
+
+      - **Efficient Hybrid Architecture**: Gated Delta Networks combined with sparse Mixture-of-Experts deliver high-throughput inference with minimal latency and cost overhead.
+
+    ...
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - deepseek
+    - reasoning
+  icon: https://qianwen-res.oss-accelerate-overseas.aliyuncs.com/Qwen3.5/Figures/qwen3.5_small_size_score.png
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/Qwen3.5-9B-DeepSeek-V4-Flash-GGUF/mmproj.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/Qwen3.5-9B-DeepSeek-V4-Flash-GGUF/Qwen3.5-9B-DeepSeek-V4-Flash-Q4_K_M.gguf
+      presence_penalty: 1.5
+      repeat_penalty: 1
+      temperature: 0.7
+      top_k: 20
+      top_p: 0.8
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Qwen3.5-9B-DeepSeek-V4-Flash-GGUF/Qwen3.5-9B-DeepSeek-V4-Flash-Q4_K_M.gguf
+      sha256: 9be227448d319e6a7acca8056b71bf7d9a2c6b2811986e6658a9dedc208d0ada
+      uri: https://huggingface.co/Jackrong/Qwen3.5-9B-DeepSeek-V4-Flash-GGUF/resolve/main/Qwen3.5-9B-DeepSeek-V4-Flash-Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/Qwen3.5-9B-DeepSeek-V4-Flash-GGUF/mmproj.gguf
+      sha256: d589acfddbed3ba291e429330360ded8e67b0910dd415aec2fe7c32b0665f859
+      uri: https://huggingface.co/Jackrong/Qwen3.5-9B-DeepSeek-V4-Flash-GGUF/resolve/main/mmproj.gguf
 - name: "chroma1-hd"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   license: apache-2.0
