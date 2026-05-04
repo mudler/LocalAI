@@ -1,0 +1,61 @@
+# L4T arm64 (JetPack 7 / sbsa cu130) install spec for the vllm backend.
+#
+# Why this file exists, and why only the l4t13 BUILD_PROFILE consumes it:
+#
+# pypi.jetson-ai-lab.io hosts the L4T-specific torch / vllm / flash-attn
+# wheels we need on aarch64 + cuda13, but it ALSO transparently proxies the
+# rest of PyPI through `/+f/<sha>/<filename>` URLs that 503 frequently. With
+# `--extra-index-url` + `--index-strategy=unsafe-best-match` (the historical
+# fix in install.sh) uv would pick those proxy URLs for ordinary PyPI
+# packages — `anthropic`, `openai`, `propcache`, `annotated-types` — and
+# trip on the 503s. See e.g. CI run 25212201349 (anthropic-0.97.0).
+#
+# `explicit = true` on the index makes uv consult the L4T mirror ONLY for
+# packages mapped under [tool.uv.sources]. Everything else goes to PyPI.
+# This breaks the historical 503 path without losing access to the L4T
+# wheels we actually need from there.
+#
+# `uv pip install -r requirements.txt` does NOT honor [tool.uv.sources]
+# (sources are project-mode only, not pip-compat mode), so install.sh's
+# l4t13 branch invokes `uv pip install --requirement pyproject.toml`
+# directly. Other BUILD_PROFILEs continue to use the requirements-*.txt
+# pipeline through libbackend.sh's installRequirements and never read
+# this file.
+[project]
+name = "localai-vllm-l4t13"
+version = "0.0.0"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    # Mirror of requirements.txt — kept in sync manually for now since the
+    # l4t13 path bypasses installRequirements (see install.sh).
+    "grpcio==1.80.0",
+    "protobuf",
+    "certifi",
+    "setuptools",
+    "pillow",
+    "charset-normalizer>=3.4.0",
+    "chardet",
+    # L4T-specific accelerator stack (sourced from jetson-ai-lab below).
+    "torch",
+    "torchvision",
+    "torchaudio",
+    "flash-attn",
+    "vllm",
+    # PyPI-resolvable packages that complete the runtime — accelerate,
+    # transformers, bitsandbytes carry their own wheels for aarch64.
+    "accelerate",
+    "transformers",
+    "bitsandbytes",
+]
+
+[[tool.uv.index]]
+name = "jetson-ai-lab"
+url = "https://pypi.jetson-ai-lab.io/sbsa/cu130"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "jetson-ai-lab" }
+torchvision = { index = "jetson-ai-lab" }
+torchaudio = { index = "jetson-ai-lab" }
+flash-attn = { index = "jetson-ai-lab" }
+vllm = { index = "jetson-ai-lab" }

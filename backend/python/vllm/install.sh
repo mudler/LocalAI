@@ -45,10 +45,12 @@ fi
 
 # JetPack 7 / L4T arm64 wheels (torch, vllm, flash-attn) live on
 # pypi.jetson-ai-lab.io and are built for cp312, so bump the venv Python
-# accordingly. JetPack 6 keeps cp310 + USE_PIP=true. unsafe-best-match
-# is required because the jetson-ai-lab index lists transitive deps at
-# limited versions — without it uv pins to the first matching index and
-# fails to resolve a compatible wheel from PyPI.
+# accordingly. JetPack 6 keeps cp310 + USE_PIP=true.
+#
+# l4t13 uses pyproject.toml (see the elif branch below) to pin only the
+# L4T-specific wheels to the jetson-ai-lab index via [tool.uv.sources].
+# That keeps PyPI as the resolution path for transitive deps like
+# anthropic/openai/propcache, which the L4T mirror's proxy 503s on.
 if [ "x${BUILD_PROFILE}" == "xl4t12" ]; then
     USE_PIP=true
 fi
@@ -56,7 +58,6 @@ if [ "x${BUILD_PROFILE}" == "xl4t13" ]; then
     PYTHON_VERSION="3.12"
     PYTHON_PATCH="12"
     PY_STANDALONE_TAG="20251120"
-    EXTRA_PIP_INSTALL_FLAGS+=" --index-strategy=unsafe-best-match"
 fi
 
 # Intel XPU has no upstream-published vllm wheels, so we always build vllm
@@ -102,6 +103,25 @@ if [ "x${BUILD_TYPE}" == "xintel" ]; then
         export CMAKE_PREFIX_PATH="$(python -c 'import site; print(site.getsitepackages()[0])'):${CMAKE_PREFIX_PATH:-}"
         VLLM_TARGET_DEVICE=xpu uv pip install ${EXTRA_PIP_INSTALL_FLAGS:-} --no-deps .
     popd
+# L4T arm64 (JetPack 7): drive the install through pyproject.toml so that
+# [tool.uv.sources] can pin torch/vllm/flash-attn/torchvision/torchaudio
+# to the jetson-ai-lab index, while everything else (transitive deps and
+# PyPI-resolvable packages like transformers) comes from PyPI. Bypasses
+# installRequirements because uv pip install -r requirements.txt does not
+# honor sources — see backend/python/vllm/pyproject.toml for the rationale.
+elif [ "x${BUILD_PROFILE}" == "xl4t13" ]; then
+    ensureVenv
+    if [ "x${PORTABLE_PYTHON}" == "xtrue" ]; then
+        export C_INCLUDE_PATH="${C_INCLUDE_PATH:-}:$(_portable_dir)/include/python${PYTHON_VERSION}"
+    fi
+    pushd "${backend_dir}"
+        # Build deps first (matches installRequirements' requirements-install.txt
+        # pass — fastsafetensors and friends need pybind11 in the venv before
+        # their sdists can build under --no-build-isolation).
+        uv pip install ${EXTRA_PIP_INSTALL_FLAGS:-} -r requirements-install.txt
+        uv pip install ${EXTRA_PIP_INSTALL_FLAGS:-} --requirement pyproject.toml
+    popd
+    runProtogen
 # FROM_SOURCE=true on a CPU build skips the prebuilt vllm wheel in
 # requirements-cpu-after.txt and compiles vllm locally against the host's
 # actual CPU. Not used by default because it takes ~30-40 minutes, but
