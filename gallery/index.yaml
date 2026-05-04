@@ -126,8 +126,7 @@
       top_p: 1
     template:
       use_tokenizer_template: true
-  files:
-    null
+  files: null
 - name: "carnice-v2-27b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
@@ -175,22 +174,7 @@
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
     - https://huggingface.co/unsloth/Kimi-K2.6-GGUF
-  description: |
-    🤗&nbsp;&nbsp;huggingchat
-    &nbsp;|&nbsp;
-    📰&nbsp;&nbsp;Tech Blog
-
-    ## 1. Model Introduction
-
-    Kimi K2.6 is an open-source, native multimodal agentic model that advances practical capabilities in long-horizon coding, coding-driven design, proactive autonomous execution, and swarm-based task orchestration.
-
-    ### Key Features
-      - **Long-Horizon Coding**: K2.6 achieves significant improvements on complex, end-to-end coding tasks, generalizing robustly across programming languages (Rust, Go, Python) and domains spanning front-end, DevOps, and performance optimization.
-      - **Coding-Driven Design**: K2.6 is capable of transforming simple prompts and visual inputs into production-ready interfaces and lightweight full-stack workflows, generating structured layouts, interactive elements, and rich animations with deliberate aesthetic precision.
-      - **Elevated Agent Swarm**: Scaling horizontally to 300 sub-agents executing 4,000 coordinated steps, K2.6 can dynamically decompose tasks into parallel, domain-specialized subtasks, delivering end-to-end outputs from documents to websites to spreadsheets in a single autonomous run.
-      - **Proactive & Open Orchestration**: For autonomous tasks, K2.6 demonstra
-
-    ...
+  description: "\U0001F917&nbsp;&nbsp;huggingchat\n&nbsp;|&nbsp;\n\U0001F4F0&nbsp;&nbsp;Tech Blog\n\n## 1. Model Introduction\n\nKimi K2.6 is an open-source, native multimodal agentic model that advances practical capabilities in long-horizon coding, coding-driven design, proactive autonomous execution, and swarm-based task orchestration.\n\n### Key Features\n  - **Long-Horizon Coding**: K2.6 achieves significant improvements on complex, end-to-end coding tasks, generalizing robustly across programming languages (Rust, Go, Python) and domains spanning front-end, DevOps, and performance optimization.\n  - **Coding-Driven Design**: K2.6 is capable of transforming simple prompts and visual inputs into production-ready interfaces and lightweight full-stack workflows, generating structured layouts, interactive elements, and rich animations with deliberate aesthetic precision.\n  - **Elevated Agent Swarm**: Scaling horizontally to 300 sub-agents executing 4,000 coordinated steps, K2.6 can dynamically decompose tasks into parallel, domain-specialized subtasks, delivering end-to-end outputs from documents to websites to spreadsheets in a single autonomous run.\n  - **Proactive & Open Orchestration**: For autonomous tasks, K2.6 demonstra\n\n...\n"
   license: "other"
   tags:
     - llm
@@ -713,7 +697,7 @@
       uri: https://huggingface.co/mudler/gemma-4-26B-A4B-it-APEX-GGUF/resolve/main/mmproj-F16.gguf
     - filename: llama-cpp/models/gemma-4-26B-A4B-it-APEX-GGUF/gemma-4-26B-A4B-APEX-Quality.gguf
       uri: https://huggingface.co/mudler/gemma-4-26B-A4B-it-APEX-GGUF/resolve/main/gemma-4-26B-A4B-APEX-Quality.gguf
-      sha256: e246e7a584333d96191edab22cd39191a2fd7749412105ab79ce74fed906d897
+      sha256: e92ab30c10422ff1863f0d57cf2c206ec3ae47b4903e70c672589dcb7cbec2c6
 - &gemma4
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   name: "gemma-4-26b-a4b-it"
@@ -838,10 +822,10 @@
   files:
     - filename: gemma-4-31B-it-Q4_K_M.gguf
       uri: huggingface://unsloth/gemma-4-31B-it-GGUF/gemma-4-31B-it-Q4_K_M.gguf
-      sha256: 3bf13fff7c0d4deff809b7ab168428f54855f3ef0279339dda278a81ea853474
+      sha256: 9fdf3dc8b0384830b4402d151388c140bd8eb2abf8d60588d8224231198254a1
     - filename: mmproj-F16.gguf
-      sha256: 1be2a32013e0d29c6c746513b5f5e7d38f47b694351e74a69c7172acdbbb11a6
       uri: https://huggingface.co/unsloth/gemma-4-31B-it-GGUF/resolve/main/mmproj-F16.gguf
+      sha256: 6edcca228213c28d3567a35d22f849eea52d8360875093851959adf5d2f270eb
 - name: "qwen3.5-35b-a3b-apex"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
@@ -2317,7 +2301,6 @@
     - filename: llama-cpp/models/GLM-4.7-Flash-Q4_K_M.gguf
       uri: https://huggingface.co/unsloth/GLM-4.7-Flash-GGUF/resolve/main/GLM-4.7-Flash-Q4_K_M.gguf
       sha256: 29837ed2c0fc5f51981adf8ac8083fcf80743c598381f13e9f06cbad0498b174
-
 - name: "qwen3-vl-embedding-8b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
