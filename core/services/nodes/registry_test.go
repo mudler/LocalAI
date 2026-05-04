@@ -244,7 +244,7 @@ var _ = Describe("NodeRegistry", func() {
 			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
 			Expect(registry.SetNodeModel(context.Background(), node.ID, "my-model", 0, "loaded", "10.0.0.40:50052", 0)).To(Succeed())
 
-			foundNode, foundNM, err := registry.FindAndLockNodeWithModel(context.Background(), "my-model")
+			foundNode, foundNM, err := registry.FindAndLockNodeWithModel(context.Background(), "my-model", nil)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(foundNode.ID).To(Equal(node.ID))
 			Expect(foundNM.ModelName).To(Equal("my-model"))
@@ -256,7 +256,7 @@ var _ = Describe("NodeRegistry", func() {
 		})
 
 		It("returns error when model is not loaded anywhere", func() {
-			_, _, err := registry.FindAndLockNodeWithModel(context.Background(), "nonexistent-model")
+			_, _, err := registry.FindAndLockNodeWithModel(context.Background(), "nonexistent-model", nil)
 			Expect(err).To(HaveOccurred())
 		})
 
@@ -273,7 +273,7 @@ var _ = Describe("NodeRegistry", func() {
 			Expect(registry.IncrementInFlight(context.Background(), n1.ID, "shared-model", 0)).To(Succeed())
 			Expect(registry.IncrementInFlight(context.Background(), n1.ID, "shared-model", 0)).To(Succeed())
 
-			foundNode, _, err := registry.FindAndLockNodeWithModel(context.Background(), "shared-model")
+			foundNode, _, err := registry.FindAndLockNodeWithModel(context.Background(), "shared-model", nil)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(foundNode.Name).To(Equal("lock-light"))
 		})

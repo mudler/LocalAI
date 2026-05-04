@@ -9,7 +9,7 @@ import (
 
 // ModelRouter is used by SmartRouter for routing decisions and model lifecycle.
 type ModelRouter interface {
-	FindAndLockNodeWithModel(ctx context.Context, modelName string) (*BackendNode, *NodeModel, error)
+	FindAndLockNodeWithModel(ctx context.Context, modelName string, candidateNodeIDs []string) (*BackendNode, *NodeModel, error)
 	DecrementInFlight(ctx context.Context, nodeID, modelName string, replicaIndex int) error
 	IncrementInFlight(ctx context.Context, nodeID, modelName string, replicaIndex int) error
 	RemoveNodeModel(ctx context.Context, nodeID, modelName string, replicaIndex int) error

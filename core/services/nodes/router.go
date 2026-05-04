@@ -150,12 +150,13 @@ func (r *SmartRouter) ScheduleAndLoadModel(ctx context.Context, modelName string
 	// Get load info from an existing replica (stored when Route() first loaded the model)
 	backendType, optsBlob, err := r.registry.GetModelLoadInfo(ctx, modelName)
 	if err != nil {
-		// No existing replica with stored opts — fall back to install-only.
-		// This happens on the very first load (before Route() has stored opts).
-		xlog.Warn("No stored model load info for reconciler scale-up, falling back to backend install only",
-			"model", modelName, "error", err)
-		node, _, _, schedErr := r.scheduleNewModel(ctx, "", modelName, nil)
-		return node, schedErr
+		// No replica has ever been loaded for this model, so we have no
+		// backend type or model options to replicate. The previous fallback
+		// fired backend.install with backend="" every reconciler tick, which
+		// the worker rejected ("backend name is empty"). Skip cleanly: the
+		// model needs to be served at least once via Route() so its load
+		// info is stored — then the reconciler can replicate it.
+		return nil, fmt.Errorf("no load info for model %s: serve at least one request for it before the reconciler can replicate (cause: %w)", modelName, err)
 	}
 
 	// Deserialize the stored model options
@@ -198,8 +199,18 @@ func (r *SmartRouter) Route(ctx context.Context, modelID, modelName, backendType
 		trackingKey = modelName
 	}
 
+	// Resolve the model's NodeSelector once so cached-replica lookup and the
+	// new-load scheduler agree on the candidate set. Without this, a cached
+	// replica on a node the selector now excludes was picked over a matching
+	// replica elsewhere, and the fall-through then tried to load on the
+	// matching node where the model was already at capacity (eviction-busy).
+	candidateNodeIDs, err := r.resolveSelectorCandidates(ctx, trackingKey)
+	if err != nil {
+		return nil, err
+	}
+
 	// Step 1: Find and atomically lock a node with this model loaded
-	node, nm, err := r.registry.FindAndLockNodeWithModel(ctx, trackingKey)
+	node, nm, err := r.registry.FindAndLockNodeWithModel(ctx, trackingKey, candidateNodeIDs)
 	if err == nil && node != nil {
 		modelAddr := node.Address
 		if nm.Address != "" {
@@ -246,7 +257,7 @@ func (r *SmartRouter) Route(ctx context.Context, modelID, modelName, backendType
 	// Step 2: Model not loaded — schedule loading with distributed lock to prevent duplicates
 	loadModel := func() (*RouteResult, error) {
 		// Re-check after acquiring lock — another request may have loaded it
-		node, nm, err := r.registry.FindAndLockNodeWithModel(ctx, trackingKey)
+		node, nm, err := r.registry.FindAndLockNodeWithModel(ctx, trackingKey, candidateNodeIDs)
 		if err == nil && node != nil {
 			modelAddr := node.Address
 			if nm.Address != "" {
@@ -347,6 +358,30 @@ func extractNodeIDs(nodes []BackendNode) []string {
 	return ids
 }
 
+// resolveSelectorCandidates returns the node IDs that match the model's
+// NodeSelector. Returns nil when no selector is configured ("any healthy node"
+// — registry helpers treat nil as no filter). Returns an error when a
+// non-empty selector matches zero healthy nodes, since there is nothing to
+// route or schedule on.
+func (r *SmartRouter) resolveSelectorCandidates(ctx context.Context, modelID string) ([]string, error) {
+	sched, _ := r.registry.GetModelScheduling(ctx, modelID)
+	if sched == nil || sched.NodeSelector == "" {
+		return nil, nil
+	}
+	selector := parseSelectorJSON(sched.NodeSelector)
+	if len(selector) == 0 {
+		return nil, nil
+	}
+	candidates, err := r.registry.FindNodesBySelector(ctx, selector)
+	if err != nil {
+		return nil, fmt.Errorf("looking up nodes for selector %s: %w", sched.NodeSelector, err)
+	}
+	if len(candidates) == 0 {
+		return nil, fmt.Errorf("no healthy nodes match selector for model %s: %s", modelID, sched.NodeSelector)
+	}
+	return extractNodeIDs(candidates), nil
+}
+
 // nodeMatchesScheduling checks if a node satisfies the scheduling constraints for a model.
 // Returns true if no constraints exist or the node matches all selector labels.
 func (r *SmartRouter) nodeMatchesScheduling(ctx context.Context, node *BackendNode, modelName string) bool {
@@ -398,18 +433,9 @@ func (r *SmartRouter) scheduleNewModel(ctx context.Context, backendType, modelID
 	// Check for scheduling constraints (node selector). If a selector is set,
 	// we restrict the candidate pool to matching nodes; otherwise nil means
 	// "any healthy node".
-	sched, _ := r.registry.GetModelScheduling(ctx, modelID)
-	var candidateNodeIDs []string
-
-	if sched != nil && sched.NodeSelector != "" {
-		selector := parseSelectorJSON(sched.NodeSelector)
-		if len(selector) > 0 {
-			candidates, err := r.registry.FindNodesBySelector(ctx, selector)
-			if err != nil || len(candidates) == 0 {
-				return nil, "", 0, fmt.Errorf("no healthy nodes match selector for model %s: %v", modelID, sched.NodeSelector)
-			}
-			candidateNodeIDs = extractNodeIDs(candidates)
-		}
+	candidateNodeIDs, err := r.resolveSelectorCandidates(ctx, modelID)
+	if err != nil {
+		return nil, "", 0, err
 	}
 
 	// Narrow candidates to nodes that still have a free replica slot for this

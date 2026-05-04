@@ -183,8 +183,12 @@ func (ml *ModelLoader) backendLoader(opts ...Option) (client grpc.Backend, err e
 
 	model, err := ml.LoadModel(o.modelID, o.model, ml.grpcModel(backend, o))
 	if err != nil {
+		// Defensive cleanup: the model usually wasn't registered yet (LoadModel
+		// failed before that), so StopGRPC reporting "model not found" is the
+		// expected case, not an error. The outer Failed-to-load log below
+		// carries the real reason.
 		if stopErr := ml.StopGRPC(only(o.modelID)); stopErr != nil {
-			xlog.Error("error stopping model", "error", stopErr, "model", o.modelID)
+			xlog.Debug("cleanup stop after failed load", "error", stopErr, "model", o.modelID)
 		}
 		xlog.Error("Failed to load model", "modelID", o.modelID, "error", err, "backend", o.backendString)
 		return nil, err
