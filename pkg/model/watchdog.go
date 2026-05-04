@@ -48,6 +48,11 @@ type WatchDog struct {
 
 	// Pinned models are excluded from idle, LRU, and memory-pressure eviction
 	pinnedModels map[string]bool
+
+	// modelGroups maps a model name to its declared concurrency groups.
+	// Two loaded models that share at least one group cannot coexist on this
+	// node — see EnforceGroupExclusivity.
+	modelGroups map[string][]string
 }
 
 type ProcessManager interface {
@@ -82,6 +87,7 @@ func NewWatchDog(opts ...WatchDogOption) *WatchDog {
 		lruLimit:                 o.lruLimit,
 		addressModelMap:          make(map[string]string),
 		pinnedModels:             make(map[string]bool),
+		modelGroups:              make(map[string][]string),
 		stop:                     make(chan bool, 1),
 		done:                     make(chan bool, 1),
 		memoryReclaimerEnabled:   o.memoryReclaimerEnabled,
@@ -143,6 +149,34 @@ func (wd *WatchDog) IsModelPinned(modelName string) bool {
 	wd.Lock()
 	defer wd.Unlock()
 	return wd.pinnedModels[modelName]
+}
+
+// ReplaceModelGroups replaces the per-model concurrency-group registry. The
+// supplied map is copied; callers may mutate it after the call. Passing an
+// empty or nil map clears all entries.
+func (wd *WatchDog) ReplaceModelGroups(groups map[string][]string) {
+	wd.Lock()
+	defer wd.Unlock()
+	wd.modelGroups = make(map[string][]string, len(groups))
+	for name, gs := range groups {
+		if len(gs) == 0 {
+			continue
+		}
+		wd.modelGroups[name] = slices.Clone(gs)
+	}
+}
+
+// GetModelGroups returns a copy of the concurrency groups configured for
+// the given model, or nil if the model has no groups. The result may be
+// freely mutated by the caller.
+func (wd *WatchDog) GetModelGroups(modelName string) []string {
+	wd.Lock()
+	defer wd.Unlock()
+	gs, ok := wd.modelGroups[modelName]
+	if !ok || len(gs) == 0 {
+		return nil
+	}
+	return slices.Clone(gs)
 }
 
 func (wd *WatchDog) Shutdown() {
@@ -327,31 +361,8 @@ func (wd *WatchDog) EnforceLRULimit(pendingLoads int) EnforceLRULimitResult {
 	})
 
 	// Collect models to evict (the oldest ones)
-	var modelsToShutdown []string
-	evictedCount := 0
-	skippedBusyCount := 0
-	for i := 0; evictedCount < modelsToEvict && i < len(models); i++ {
-		m := models[i]
-		// Skip pinned models
-		if wd.pinnedModels[m.model] {
-			xlog.Debug("[WatchDog] Skipping LRU eviction for pinned model", "model", m.model)
-			continue
-		}
-		// Check if model is busy
-		_, isBusy := wd.busyTime[m.address]
-		if isBusy && !forceEvictionWhenBusy {
-			// Skip eviction for busy models when forceEvictionWhenBusy is false
-			xlog.Warn("[WatchDog] Skipping LRU eviction for busy model", "model", m.model, "reason", "model has active API calls")
-			skippedBusyCount++
-			continue
-		}
-		xlog.Info("[WatchDog] LRU evicting model", "model", m.model, "lastUsed", m.lastUsed, "busy", isBusy)
-		modelsToShutdown = append(modelsToShutdown, m.model)
-		// Clean up the maps while we have the lock
-		wd.untrack(m.address)
-		evictedCount++
-	}
-	needMore := evictedCount < modelsToEvict && skippedBusyCount > 0
+	modelsToShutdown, skippedBusyCount := wd.collectEvictionsLocked(models, modelsToEvict, forceEvictionWhenBusy)
+	needMore := len(modelsToShutdown) < modelsToEvict && skippedBusyCount > 0
 	wd.Unlock()
 
 	// Now shutdown models without holding the watchdog lock to prevent deadlock
@@ -363,13 +374,117 @@ func (wd *WatchDog) EnforceLRULimit(pendingLoads int) EnforceLRULimitResult {
 	}
 
 	if needMore {
-		xlog.Warn("[WatchDog] LRU eviction incomplete", "evicted", evictedCount, "needed", modelsToEvict, "skippedBusy", skippedBusyCount, "reason", "some models are busy with active API calls")
+		xlog.Warn("[WatchDog] LRU eviction incomplete", "evicted", len(modelsToShutdown), "needed", modelsToEvict, "skippedBusy", skippedBusyCount, "reason", "some models are busy with active API calls")
 	}
 
 	return EnforceLRULimitResult{
 		EvictedCount: len(modelsToShutdown),
 		NeedMore:     needMore,
 	}
+}
+
+// collectEvictionsLocked walks `candidates` (already in eviction order) and
+// untracks up to `maxToEvict` models that are eligible for eviction. Pinned
+// models are always skipped; busy models are skipped unless `force` is true.
+// Returns the names of evicted models and the number skipped because they
+// were busy. Must be called with wd.Lock() held.
+func (wd *WatchDog) collectEvictionsLocked(candidates []modelUsageInfo, maxToEvict int, force bool) (evicted []string, skippedBusy int) {
+	for i := 0; len(evicted) < maxToEvict && i < len(candidates); i++ {
+		m := candidates[i]
+		if wd.pinnedModels[m.model] {
+			xlog.Debug("[WatchDog] Skipping eviction for pinned model", "model", m.model)
+			continue
+		}
+		_, isBusy := wd.busyTime[m.address]
+		if isBusy && !force {
+			xlog.Warn("[WatchDog] Skipping eviction for busy model", "model", m.model, "reason", "model has active API calls")
+			skippedBusy++
+			continue
+		}
+		xlog.Info("[WatchDog] evicting model", "model", m.model, "busy", isBusy)
+		evicted = append(evicted, m.model)
+		wd.untrack(m.address)
+	}
+	return evicted, skippedBusy
+}
+
+// EnforceGroupExclusivity evicts every loaded model that shares at least one
+// concurrency group with the requested model. The pinned/busy/retry semantics
+// match EnforceLRULimit so the loader's retry loop can stay generic.
+func (wd *WatchDog) EnforceGroupExclusivity(requestedModel string) EnforceLRULimitResult {
+	wd.Lock()
+
+	requestedGroups := wd.modelGroups[requestedModel]
+	if len(requestedGroups) == 0 {
+		wd.Unlock()
+		return EnforceLRULimitResult{}
+	}
+
+	forceEvictionWhenBusy := wd.forceEvictionWhenBusy
+
+	// Build the conflict candidate list: every loaded model whose groups
+	// overlap with requestedGroups. Order doesn't affect correctness, but
+	// sort by lastUsed (oldest first) so logs and behaviour are deterministic.
+	var conflicts []modelUsageInfo
+	for address, name := range wd.addressModelMap {
+		if name == requestedModel {
+			continue
+		}
+		if !groupsOverlap(requestedGroups, wd.modelGroups[name]) {
+			continue
+		}
+		conflicts = append(conflicts, modelUsageInfo{
+			address:  address,
+			model:    name,
+			lastUsed: wd.lastUsed[address],
+		})
+	}
+	if len(conflicts) == 0 {
+		wd.Unlock()
+		return EnforceLRULimitResult{}
+	}
+	slices.SortFunc(conflicts, func(a, b modelUsageInfo) int {
+		return a.lastUsed.Compare(b.lastUsed)
+	})
+
+	xlog.Debug("[WatchDog] Group exclusivity triggered", "requested", requestedModel, "groups", requestedGroups, "conflicts", len(conflicts))
+
+	modelsToShutdown, skippedBusyCount := wd.collectEvictionsLocked(conflicts, len(conflicts), forceEvictionWhenBusy)
+	// For groups any unresolved conflict matters — busy *or* pinned. The loader
+	// retries on NeedMore; pinned cases will eventually time out and the load
+	// proceeds with a visible warning, which is the right signal for what is a
+	// configuration mismatch.
+	needMore := len(modelsToShutdown) < len(conflicts)
+	wd.Unlock()
+
+	for _, m := range modelsToShutdown {
+		if err := wd.pm.ShutdownModel(m); err != nil {
+			xlog.Error("[WatchDog] error shutting down model during group eviction", "error", err, "model", m)
+		}
+		xlog.Debug("[WatchDog] Group eviction complete", "model", m)
+	}
+
+	if needMore {
+		xlog.Warn("[WatchDog] Group eviction incomplete", "requested", requestedModel, "evicted", len(modelsToShutdown), "needed", len(conflicts), "skippedBusy", skippedBusyCount, "reason", "some conflicts are busy or pinned")
+	}
+
+	return EnforceLRULimitResult{
+		EvictedCount: len(modelsToShutdown),
+		NeedMore:     needMore,
+	}
+}
+
+// groupsOverlap reports whether the two group lists share any name.
+func groupsOverlap(a, b []string) bool {
+	if len(a) == 0 || len(b) == 0 {
+		return false
+	}
+	for _, x := range a {
+		if slices.Contains(b, x) {
+			return true
+		}
+	}
+	return false
 }
 
 func (wd *WatchDog) Run() {

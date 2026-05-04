@@ -37,18 +37,24 @@ type SmartRouterOptions struct {
 	AuthToken     string
 	ClientFactory BackendClientFactory // optional; defaults to tokenClientFactory
 	DB            *gorm.DB             // for advisory locks during routing
+	// ConflictResolver, when set, lets the scheduler narrow placement
+	// candidates by per-model concurrency_groups (#9659). When nil, group
+	// anti-affinity is disabled at the scheduler layer; the per-node
+	// watchdog still enforces the rule on arrival.
+	ConflictResolver ConcurrencyConflictResolver
 }
 
 // SmartRouter routes inference requests to the best available backend node.
 // It uses the ModelRouter interface (backed by NodeRegistry in production) for routing decisions.
 type SmartRouter struct {
-	registry       ModelRouter
-	unloader       NodeCommandSender    // optional, for NATS-driven load/unload
-	fileStager     FileStager           // optional, for distributed file transfer
-	galleriesJSON  string               // backend gallery config for dynamic installation
-	clientFactory  BackendClientFactory // creates gRPC backend clients
-	db             *gorm.DB             // for advisory locks during routing
-	stagingTracker *StagingTracker      // tracks file staging progress for UI visibility
+	registry         ModelRouter
+	unloader         NodeCommandSender    // optional, for NATS-driven load/unload
+	fileStager       FileStager           // optional, for distributed file transfer
+	galleriesJSON    string               // backend gallery config for dynamic installation
+	clientFactory    BackendClientFactory // creates gRPC backend clients
+	db               *gorm.DB             // for advisory locks during routing
+	stagingTracker   *StagingTracker      // tracks file staging progress for UI visibility
+	conflictResolver ConcurrencyConflictResolver
 }
 
 // NewSmartRouter creates a new SmartRouter backed by the given ModelRouter.
@@ -59,13 +65,14 @@ func NewSmartRouter(registry ModelRouter, opts SmartRouterOptions) *SmartRouter 
 		factory = &tokenClientFactory{token: opts.AuthToken}
 	}
 	return &SmartRouter{
-		registry:       registry,
-		unloader:       opts.Unloader,
-		fileStager:     opts.FileStager,
-		galleriesJSON:  opts.GalleriesJSON,
-		clientFactory:  factory,
-		db:             opts.DB,
-		stagingTracker: NewStagingTracker(),
+		registry:         registry,
+		unloader:         opts.Unloader,
+		fileStager:       opts.FileStager,
+		galleriesJSON:    opts.GalleriesJSON,
+		clientFactory:    factory,
+		db:               opts.DB,
+		stagingTracker:   NewStagingTracker(),
+		conflictResolver: opts.ConflictResolver,
 	}
 }
 
@@ -382,6 +389,60 @@ func (r *SmartRouter) resolveSelectorCandidates(ctx context.Context, modelID str
 	return extractNodeIDs(candidates), nil
 }
 
+// narrowByGroupAntiAffinity removes candidate nodes that already host a model
+// declared as concurrent-conflicting with modelID via concurrency_groups
+// (#9659). This is a soft filter: when *every* candidate would be excluded,
+// the original set is returned and the per-node watchdog evicts on arrival.
+//
+// candidates may be nil ("any healthy node" — registry helpers treat nil as
+// no filter). nil is returned unchanged: hard-narrowing the implicit "all
+// nodes" set would silently exclude every node we know nothing about.
+func (r *SmartRouter) narrowByGroupAntiAffinity(ctx context.Context, modelID string, candidates []string) ([]string, error) {
+	if r.conflictResolver == nil || candidates == nil {
+		return candidates, nil
+	}
+	conflicts := r.conflictResolver.GetModelsConflictingWith(modelID)
+	if len(conflicts) == 0 {
+		return candidates, nil
+	}
+
+	excluded := make(map[string]struct{})
+	for _, name := range conflicts {
+		nodes, err := r.registry.FindNodesWithModel(ctx, name)
+		if err != nil {
+			// Best-effort: a single lookup failure shouldn't fail placement.
+			// Log and move on — the watchdog still enforces the rule on arrival.
+			xlog.Warn("Group anti-affinity: lookup failed, skipping", "model", name, "error", err)
+			continue
+		}
+		for _, n := range nodes {
+			excluded[n.ID] = struct{}{}
+		}
+	}
+	if len(excluded) == 0 {
+		return candidates, nil
+	}
+
+	narrowed := candidates[:0:0]
+	for _, id := range candidates {
+		if _, bad := excluded[id]; bad {
+			continue
+		}
+		narrowed = append(narrowed, id)
+	}
+	if len(narrowed) == 0 {
+		// Soft fallback: every candidate has a conflict. Return the original
+		// set and let the per-node watchdog evict on arrival rather than
+		// failing the request.
+		xlog.Debug("Group anti-affinity: all candidates conflict, falling back to original set",
+			"model", modelID, "conflicts", conflicts)
+		return candidates, nil
+	}
+	xlog.Debug("Group anti-affinity narrowed candidates",
+		"model", modelID, "before", len(candidates), "after", len(narrowed))
+	return narrowed, nil
+}
+
 // nodeMatchesScheduling checks if a node satisfies the scheduling constraints for a model.
 // Returns true if no constraints exist or the node matches all selector labels.
 func (r *SmartRouter) nodeMatchesScheduling(ctx context.Context, node *BackendNode, modelName string) bool {
@@ -434,6 +495,15 @@ func (r *SmartRouter) scheduleNewModel(ctx context.Context, backendType, modelID
 	// we restrict the candidate pool to matching nodes; otherwise nil means
 	// "any healthy node".
 	candidateNodeIDs, err := r.resolveSelectorCandidates(ctx, modelID)
+	if err != nil {
+		return nil, "", 0, err
+	}
+
+	// Apply concurrency-group anti-affinity (#9659): prefer nodes that don't
+	// already host a model declared exclusive with this one. Soft filter — if
+	// every candidate has a conflict, the original set is returned and the
+	// per-node watchdog evicts on arrival.
+	candidateNodeIDs, err = r.narrowByGroupAntiAffinity(ctx, modelID, candidateNodeIDs)
 	if err != nil {
 		return nil, "", 0, err
 	}

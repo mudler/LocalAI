@@ -71,7 +71,9 @@ func (ds *DistributedServices) Shutdown() {
 // initDistributed validates distributed mode prerequisites and initializes
 // NATS, object storage, node registry, and instance identity.
 // Returns nil if distributed mode is not enabled.
-func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB) (*DistributedServices, error) {
+// configLoader is used by the SmartRouter to compute concurrency-group
+// anti-affinity at placement time (#9659); it may be nil in tests.
+func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoader *config.ModelConfigLoader) (*DistributedServices, error) {
 	if !cfg.Distributed.Enabled {
 		return nil, nil
 	}
@@ -234,12 +236,17 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB) (*Distribut
 	remoteUnloader := nodes.NewRemoteUnloaderAdapter(registry, natsClient)
 
 	// All dependencies ready — build SmartRouter with all options at once
+	var conflictResolver nodes.ConcurrencyConflictResolver
+	if configLoader != nil {
+		conflictResolver = configLoader
+	}
 	router := nodes.NewSmartRouter(registry, nodes.SmartRouterOptions{
-		Unloader:      remoteUnloader,
-		FileStager:    fileStager,
-		GalleriesJSON: routerGalleriesJSON,
-		AuthToken:     routerAuthToken,
-		DB:            authDB,
+		Unloader:         remoteUnloader,
+		FileStager:       fileStager,
+		GalleriesJSON:    routerGalleriesJSON,
+		AuthToken:        routerAuthToken,
+		DB:               authDB,
+		ConflictResolver: conflictResolver,
 	})
 
 	// Create ReplicaReconciler for auto-scaling model replicas. Adapter +

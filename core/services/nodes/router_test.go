@@ -106,6 +106,10 @@ type fakeModelRouter struct {
 	getNodeLabels    []NodeLabel
 	getNodeLabelsErr error
 
+	// FindNodesWithModel returns (keyed by model name)
+	findNodesWithModelByName map[string][]BackendNode
+	findNodesWithModelErr    error
+
 	// Track calls for assertions
 	decrementCalls []string // "nodeID:modelName"
 	incrementCalls []string
@@ -226,6 +230,25 @@ func (f *fakeModelRouter) FindLeastLoadedNodeFromSet(_ context.Context, _ []stri
 
 func (f *fakeModelRouter) GetNodeLabels(_ context.Context, _ string) ([]NodeLabel, error) {
 	return f.getNodeLabels, f.getNodeLabelsErr
+}
+
+func (f *fakeModelRouter) FindNodesWithModel(_ context.Context, modelName string) ([]BackendNode, error) {
+	if f.findNodesWithModelErr != nil {
+		return nil, f.findNodesWithModelErr
+	}
+	return f.findNodesWithModelByName[modelName], nil
+}
+
+// fakeConflictResolver implements ConcurrencyConflictResolver from a static map.
+type fakeConflictResolver struct {
+	conflicts map[string][]string
+}
+
+func (f *fakeConflictResolver) GetModelsConflictingWith(name string) []string {
+	if f == nil {
+		return nil
+	}
+	return f.conflicts[name]
 }
 
 // ---------------------------------------------------------------------------
@@ -845,6 +868,86 @@ var _ = Describe("SmartRouter", func() {
 			Expect(original.Model).To(Equal(origModel))
 			Expect(original.ModelFile).To(Equal(origModelFile))
 			Expect(original.MMProj).To(Equal(origMMProj))
+		})
+	})
+
+	// -----------------------------------------------------------------------
+	// narrowByGroupAntiAffinity
+	// -----------------------------------------------------------------------
+	Describe("narrowByGroupAntiAffinity", func() {
+		var (
+			reg      *fakeModelRouter
+			resolver *fakeConflictResolver
+			router   *SmartRouter
+			ctx      context.Context
+		)
+
+		BeforeEach(func() {
+			reg = &fakeModelRouter{}
+			resolver = &fakeConflictResolver{conflicts: map[string][]string{}}
+			router = NewSmartRouter(reg, SmartRouterOptions{
+				ConflictResolver: resolver,
+			})
+			ctx = context.Background()
+		})
+
+		It("returns the input set unchanged when the model has no conflicts", func() {
+			candidates := []string{"n1", "n2", "n3"}
+			out, err := router.narrowByGroupAntiAffinity(ctx, "lonely", candidates)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(out).To(Equal(candidates))
+		})
+
+		It("removes nodes that already host a conflicting model", func() {
+			resolver.conflicts["b"] = []string{"a"}
+			reg.findNodesWithModelByName = map[string][]BackendNode{
+				"a": {{ID: "n1"}},
+			}
+			out, err := router.narrowByGroupAntiAffinity(ctx, "b", []string{"n1", "n2"})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(out).To(ConsistOf("n2"))
+		})
+
+		It("returns the original set unchanged when every candidate has a conflict (soft fallback)", func() {
+			resolver.conflicts["b"] = []string{"a"}
+			reg.findNodesWithModelByName = map[string][]BackendNode{
+				"a": {{ID: "n1"}, {ID: "n2"}},
+			}
+			candidates := []string{"n1", "n2"}
+			out, err := router.narrowByGroupAntiAffinity(ctx, "b", candidates)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(out).To(Equal(candidates))
+		})
+
+		It("removes nodes hosting any of multiple conflicting models", func() {
+			resolver.conflicts["c"] = []string{"a", "b"}
+			reg.findNodesWithModelByName = map[string][]BackendNode{
+				"a": {{ID: "n1"}},
+				"b": {{ID: "n2"}},
+			}
+			out, err := router.narrowByGroupAntiAffinity(ctx, "c", []string{"n1", "n2", "n3"})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(out).To(ConsistOf("n3"))
+		})
+
+		It("treats a nil candidate set (\"any healthy node\") by returning nil unchanged when narrowing yields nothing", func() {
+			resolver.conflicts["b"] = []string{"a"}
+			reg.findNodesWithModelByName = map[string][]BackendNode{
+				"a": {{ID: "n1"}, {ID: "n2"}},
+			}
+			out, err := router.narrowByGroupAntiAffinity(ctx, "b", nil)
+			Expect(err).ToNot(HaveOccurred())
+			// nil in → nil out: caller's "any healthy node" semantics preserved.
+			// Hard-narrowing nil would silently exclude every other node.
+			Expect(out).To(BeNil())
+		})
+
+		It("is a no-op when no resolver is configured", func() {
+			plain := NewSmartRouter(reg, SmartRouterOptions{})
+			candidates := []string{"n1", "n2"}
+			out, err := plain.narrowByGroupAntiAffinity(ctx, "b", candidates)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(out).To(Equal(candidates))
 		})
 	})
 })

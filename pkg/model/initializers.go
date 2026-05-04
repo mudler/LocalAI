@@ -197,6 +197,35 @@ func (ml *ModelLoader) backendLoader(opts ...Option) (client grpc.Backend, err e
 	return model.GRPC(o.parallelRequests, ml.wd), nil
 }
 
+// retryEnforce repeatedly invokes fn until it returns NeedMore=false or the
+// retry budget is exhausted. It sleeps `retryInterval` between attempts and
+// logs progress under `label`. Used by both LRU and group-exclusivity
+// enforcement so the busy-model wait behaviour is identical.
+func retryEnforce(fn func() EnforceLRULimitResult, maxRetries int, retryInterval time.Duration, label string) {
+	for attempt := range maxRetries {
+		result := fn()
+		if !result.NeedMore {
+			if result.EvictedCount > 0 {
+				xlog.Info("[ModelLoader] "+label+" enforcement complete", "evicted", result.EvictedCount)
+			}
+			return
+		}
+		if attempt < maxRetries-1 {
+			xlog.Info("[ModelLoader] Waiting for busy models to become idle before eviction",
+				"label", label,
+				"evicted", result.EvictedCount,
+				"attempt", attempt+1,
+				"maxRetries", maxRetries,
+				"retryIn", retryInterval)
+			time.Sleep(retryInterval)
+		} else {
+			xlog.Warn("[ModelLoader] "+label+" enforcement incomplete after max retries",
+				"evicted", result.EvictedCount,
+				"reason", "conflicts are still busy or pinned")
+		}
+	}
+}
+
 // enforceLRULimit enforces the LRU limit before loading a new model.
 // This is called before loading a model to ensure we don't exceed the limit.
 // It accounts for models that are currently being loaded by other goroutines.
@@ -206,41 +235,34 @@ func (ml *ModelLoader) enforceLRULimit() {
 		return
 	}
 
-	// Get the count of models currently being loaded to account for concurrent requests
 	pendingLoads := ml.GetLoadingCount()
 
-	// Get retry settings from ModelLoader
 	ml.mu.Lock()
 	maxRetries := ml.lruEvictionMaxRetries
 	retryInterval := ml.lruEvictionRetryInterval
 	ml.mu.Unlock()
 
-	for attempt := range maxRetries {
-		result := ml.wd.EnforceLRULimit(pendingLoads)
+	retryEnforce(func() EnforceLRULimitResult {
+		return ml.wd.EnforceLRULimit(pendingLoads)
+	}, maxRetries, retryInterval, "LRU")
+}
 
-		if !result.NeedMore {
-			// Successfully evicted enough models (or no eviction needed)
-			if result.EvictedCount > 0 {
-				xlog.Info("[ModelLoader] LRU enforcement complete", "evicted", result.EvictedCount)
-			}
-			return
-		}
-
-		// Need more evictions but models are busy - wait and retry
-		if attempt < maxRetries-1 {
-			xlog.Info("[ModelLoader] Waiting for busy models to become idle before eviction",
-				"evicted", result.EvictedCount,
-				"attempt", attempt+1,
-				"maxRetries", maxRetries,
-				"retryIn", retryInterval)
-			time.Sleep(retryInterval)
-		} else {
-			// Last attempt - log warning but proceed (might fail to load, but at least we tried)
-			xlog.Warn("[ModelLoader] LRU enforcement incomplete after max retries",
-				"evicted", result.EvictedCount,
-				"reason", "models are still busy with active API calls")
-		}
+// enforceGroupExclusivity evicts every loaded model that shares a concurrency
+// group with modelID before loading proceeds. Reuses the LRU retry settings so
+// busy conflicts wait for the same window as a busy LRU eviction.
+func (ml *ModelLoader) enforceGroupExclusivity(modelID string) {
+	if ml.wd == nil {
+		return
 	}
+
+	ml.mu.Lock()
+	maxRetries := ml.lruEvictionMaxRetries
+	retryInterval := ml.lruEvictionRetryInterval
+	ml.mu.Unlock()
+
+	retryEnforce(func() EnforceLRULimitResult {
+		return ml.wd.EnforceGroupExclusivity(modelID)
+	}, maxRetries, retryInterval, "group-exclusivity")
 }
 
 // updateModelLastUsed updates the last used time for a model (for LRU tracking)
@@ -269,6 +291,12 @@ func (ml *ModelLoader) Load(opts ...Option) (grpc.Backend, error) {
 		}
 		return client, nil
 	}
+
+	// Evict any loaded model that shares a concurrency group with the
+	// requested one before applying the global LRU cap — group eviction may
+	// already make room, and otherwise LRU might evict an unrelated model
+	// only for the group check to immediately evict another.
+	ml.enforceGroupExclusivity(o.modelID)
 
 	// Enforce LRU limit before loading a new model
 	ml.enforceLRULimit()

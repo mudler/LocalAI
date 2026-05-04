@@ -87,6 +87,11 @@ type ModelConfig struct {
 	Disabled    *bool  `yaml:"disabled,omitempty" json:"disabled,omitempty"`
 	Pinned      *bool  `yaml:"pinned,omitempty" json:"pinned,omitempty"`
 
+	// ConcurrencyGroups declares per-node mutual-exclusion groups: the model
+	// cannot be loaded alongside another model that shares any group name.
+	// See docs/content/advanced/vram-management.md for usage.
+	ConcurrencyGroups []string `yaml:"concurrency_groups,omitempty" json:"concurrency_groups,omitempty"`
+
 	Options   []string `yaml:"options,omitempty" json:"options,omitempty"`
 	Overrides []string `yaml:"overrides,omitempty" json:"overrides,omitempty"`
 
@@ -585,6 +590,28 @@ func (c *ModelConfig) IsDisabled() bool {
 // IsPinned returns true if the model is pinned (excluded from idle unloading and eviction)
 func (c *ModelConfig) IsPinned() bool {
 	return c.Pinned != nil && *c.Pinned
+}
+
+// GetConcurrencyGroups returns the model's concurrency groups, normalized:
+// trimmed of whitespace, empty entries dropped, deduped. Returns nil when no
+// effective groups remain. The result is a fresh slice; the caller may
+// mutate it without affecting the config.
+func (c *ModelConfig) GetConcurrencyGroups() []string {
+	if len(c.ConcurrencyGroups) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(c.ConcurrencyGroups))
+	for _, g := range c.ConcurrencyGroups {
+		g = strings.TrimSpace(g)
+		if g == "" || slices.Contains(out, g) {
+			continue
+		}
+		out = append(out, g)
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 type ModelConfigUsecase int

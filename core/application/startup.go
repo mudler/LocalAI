@@ -139,7 +139,7 @@ func New(opts ...config.AppOption) (*Application, error) {
 	}
 
 	// Initialize distributed mode services (NATS, object storage, node registry)
-	distSvc, err := initDistributed(options, application.authDB)
+	distSvc, err := initDistributed(options, application.authDB, application.ModelConfigLoader())
 	if err != nil {
 		return nil, fmt.Errorf("distributed mode initialization failed: %w", err)
 	}
