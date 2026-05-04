@@ -167,8 +167,8 @@ require (
 	github.com/kevinburke/ssh_config v1.2.0 // indirect
 	github.com/labstack/gommon v0.4.2 // indirect
 	github.com/mschoch/smat v0.2.0 // indirect
-	github.com/mudler/LocalAGI v0.0.0-20260415165142-3369136c7380
-	github.com/mudler/localrecall v0.5.9-0.20260415164846-8ad831f840fc // indirect
+	github.com/mudler/LocalAGI v0.0.0-20260504165100-e83bf515d010
+	github.com/mudler/localrecall v0.5.10-0.20260504162944-6138c1f535ab // indirect
 	github.com/mudler/skillserver v0.0.6
 	github.com/olekukonko/tablewriter v0.0.5 // indirect
 	github.com/oxffaa/gopher-parse-sitemap v0.0.0-20191021113419-005d2eb1def4 // indirect
