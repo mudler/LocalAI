@@ -397,7 +397,7 @@ func loadSherpaLibsOnce() error {
 		{&sherpaOfflineSpeakerDiarizationResultGetNumSpeakers, "SherpaOnnxOfflineSpeakerDiarizationResultGetNumSpeakers"},
 		{&sherpaOfflineSpeakerDiarizationResultSortByStartTime, "SherpaOnnxOfflineSpeakerDiarizationResultSortByStartTime"},
 		{&sherpaOfflineSpeakerDiarizationDestroySegment, "SherpaOnnxOfflineSpeakerDiarizationDestroySegment"},
-		{&sherpaDestroyOfflineSpeakerDiarizationResult, "SherpaOnnxDestroyOfflineSpeakerDiarizationResult"},
+		{&sherpaDestroyOfflineSpeakerDiarizationResult, "SherpaOnnxOfflineSpeakerDiarizationDestroyResult"},
 	} {
 		purego.RegisterLibFunc(r.ptr, capi, r.name)
 	}
@@ -1438,7 +1438,7 @@ func (s *SherpaBackend) Diarize(req *pb.DiarizeRequest) (pb.DiarizeResponse, err
 	if err != nil {
 		return pb.DiarizeResponse{}, fmt.Errorf("failed to create temp dir: %w", err)
 	}
-	defer os.RemoveAll(dir)
+	defer func() { _ = os.RemoveAll(dir) }()
 
 	wavPath := filepath.Join(dir, "input.wav")
 	if err := utils.AudioToWav(req.Dst, wavPath); err != nil {
@@ -1487,13 +1487,13 @@ func (s *SherpaBackend) Diarize(req *pb.DiarizeRequest) (pb.DiarizeResponse, err
 	defer sherpaOfflineSpeakerDiarizationDestroySegment(segs)
 
 	out := make([]*pb.DiarizeSegment, 0, numSegments)
-	for i := int32(0); i < numSegments; i++ {
+	for i := range int(numSegments) {
 		var start, end float32
 		var spk int32
-		shimDiarizeSegmentAt(segs, i,
+		shimDiarizeSegmentAt(segs, int32(i),
 			unsafe.Pointer(&start), unsafe.Pointer(&end), unsafe.Pointer(&spk))
 		out = append(out, &pb.DiarizeSegment{
-			Id:      i,
+			Id:      int32(i),
 			Start:   start,
 			End:     end,
 			Speaker: strconv.FormatInt(int64(spk), 10),

@@ -84,13 +84,13 @@ func DiarizationEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, ap
 		if err != nil {
 			return err
 		}
-		defer f.Close()
+		defer func() { _ = f.Close() }()
 
 		dir, err := os.MkdirTemp("", "diarize")
 		if err != nil {
 			return err
 		}
-		defer os.RemoveAll(dir)
+		defer func() { _ = os.RemoveAll(dir) }()
 
 		dst := filepath.Join(dir, path.Base(file.Filename))
 		dstFile, err := os.Create(dst)

@@ -254,7 +254,7 @@ var _ = Describe("Mock Backend E2E Tests", Label("MockBackend"), func() {
 			httpClient := &http.Client{Timeout: 30 * time.Second}
 			resp, err := httpClient.Do(req)
 			Expect(err).ToNot(HaveOccurred())
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 			data, err := io.ReadAll(resp.Body)
 			Expect(err).ToNot(HaveOccurred())
 			return resp, data

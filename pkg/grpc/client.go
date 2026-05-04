@@ -575,7 +575,7 @@ func (c *Client) Diarize(ctx context.Context, in *pb.DiarizeRequest, opts ...grp
 	if err != nil {
 		return nil, err
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 	client := pb.NewBackendClient(conn)
 	return client.Diarize(ctx, in, opts...)
 }
