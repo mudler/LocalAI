@@ -268,13 +268,26 @@ func (f *stubClientFactory) NewClient(_ string, _ bool) grpc.Backend {
 type fakeUnloader struct {
 	installReply *messaging.BackendInstallReply
 	installErr   error
-	stopCalls    []string // "nodeID:model"
+	installCalls []installCall // every InstallBackend invocation, in order
+	stopCalls    []string      // "nodeID:model"
 	stopErr      error
 	unloadCalls  []string
 	unloadErr    error
 }
 
-func (f *fakeUnloader) InstallBackend(_, _, _, _, _, _, _ string, _ int) (*messaging.BackendInstallReply, error) {
+// installCall captures the args we care about when asserting that the
+// reconciler / router did or did not fire a NATS install. The fake records
+// every call so tests can verify both presence and shape (e.g. that backend
+// is non-empty).
+type installCall struct {
+	nodeID  string
+	backend string
+	modelID string
+	replica int
+}
+
+func (f *fakeUnloader) InstallBackend(nodeID, backend, modelID, _, _, _, _ string, replica int) (*messaging.BackendInstallReply, error) {
+	f.installCalls = append(f.installCalls, installCall{nodeID, backend, modelID, replica})
 	return f.installReply, f.installErr
 }
 
@@ -689,6 +702,28 @@ var _ = Describe("SmartRouter", func() {
 			Expect(result.Node.ID).To(Equal("n-new"))
 			// Old node should have had its in-flight decremented
 			Expect(reg.decrementCalls).To(ContainElement("n-old:sel-model"))
+		})
+	})
+
+	Describe("ScheduleAndLoadModel (mock-based)", func() {
+		It("returns an error and does not fire a NATS install when no load info is stored", func() {
+			// Reproduces the reconciler scale-up bug: when GetModelLoadInfo
+			// returns ErrRecordNotFound (no replica has ever been loaded),
+			// the previous fallback called scheduleNewModel with an empty
+			// backend type, which the worker rejected on every reconciler
+			// tick. The fix bails out cleanly with an explanatory error and
+			// never sends backend.install.
+			unloader := &fakeUnloader{}
+			reg := &fakeModelRouter{}
+			router := NewSmartRouter(reg, SmartRouterOptions{Unloader: unloader})
+
+			node, err := router.ScheduleAndLoadModel(context.Background(), "never-loaded", nil)
+
+			Expect(err).To(HaveOccurred())
+			Expect(node).To(BeNil())
+			Expect(err.Error()).To(ContainSubstring("never-loaded"))
+			Expect(unloader.installCalls).To(BeEmpty(),
+				"reconciler must not fire backend.install when there is no load info to replicate")
 		})
 	})
 
