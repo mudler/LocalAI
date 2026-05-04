@@ -295,7 +295,7 @@ mcp:
 		It("parses concurrency_groups from YAML", func() {
 			tmp, err := os.CreateTemp("", "concgroups.yaml")
 			Expect(err).To(BeNil())
-			defer os.Remove(tmp.Name())
+			defer func() { _ = os.Remove(tmp.Name()) }()
 			_, err = tmp.WriteString(
 				`name: heavy-a
 backend: llama-cpp
