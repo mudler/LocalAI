@@ -1156,6 +1156,130 @@ const docTemplate = `{
                 }
             }
         },
+        "/audio/transform": {
+            "post": {
+                "description": "Runs an audio-in / audio-out transform conditioned on an optional auxiliary reference signal. Concrete transforms include AEC + noise suppression + dereverberation (LocalVQE), voice conversion (reference = target speaker), and pitch shifting. The backend determines the operation; pass model-specific tuning via repeated ` + "`" + `params[\u003ckey\u003e]=\u003cvalue\u003e` + "`" + ` form fields.",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "audio/x-wav"
+                ],
+                "tags": [
+                    "audio"
+                ],
+                "summary": "Transform audio (echo cancellation, noise suppression, voice conversion, etc.)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "model",
+                        "name": "model",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "primary input audio file",
+                        "name": "audio",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "auxiliary reference audio (loopback for AEC, target voice for conversion, etc.)",
+                        "name": "reference",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "wav | mp3 | ogg | flac",
+                        "name": "response_format",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "desired output sample rate",
+                        "name": "sample_rate",
+                        "in": "formData"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "transformed audio file",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/audio/transformations": {
+            "post": {
+                "description": "Runs an audio-in / audio-out transform conditioned on an optional auxiliary reference signal. Concrete transforms include AEC + noise suppression + dereverberation (LocalVQE), voice conversion (reference = target speaker), and pitch shifting. The backend determines the operation; pass model-specific tuning via repeated ` + "`" + `params[\u003ckey\u003e]=\u003cvalue\u003e` + "`" + ` form fields.",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "audio/x-wav"
+                ],
+                "tags": [
+                    "audio"
+                ],
+                "summary": "Transform audio (echo cancellation, noise suppression, voice conversion, etc.)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "model",
+                        "name": "model",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "primary input audio file",
+                        "name": "audio",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "auxiliary reference audio (loopback for AEC, target voice for conversion, etc.)",
+                        "name": "reference",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "wav | mp3 | ogg | flac",
+                        "name": "response_format",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "desired output sample rate",
+                        "name": "sample_rate",
+                        "in": "formData"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "transformed audio file",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/audio/transformations/stream": {
+            "get": {
+                "description": "Streams binary PCM frames in (interleaved stereo: ch0=audio, ch1=reference) and out (mono). The first message must be a JSON ` + "`" + `session.update` + "`" + ` envelope describing model + sample format + frame size + backend params. Server emits binary PCM on the same cadence.",
+                "tags": [
+                    "audio"
+                ],
+                "summary": "Bidirectional realtime audio transform over WebSocket.",
+                "responses": {}
+            }
+        },
         "/backend/monitor": {
             "get": {
                 "tags": [

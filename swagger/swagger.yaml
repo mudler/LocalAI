@@ -2896,6 +2896,104 @@ paths:
       summary: Clear API traces
       tags:
       - monitoring
+  /audio/transform:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Runs an audio-in / audio-out transform conditioned on an optional
+        auxiliary reference signal. Concrete transforms include AEC + noise suppression
+        + dereverberation (LocalVQE), voice conversion (reference = target speaker),
+        and pitch shifting. The backend determines the operation; pass model-specific
+        tuning via repeated `params[<key>]=<value>` form fields.
+      parameters:
+      - description: model
+        in: formData
+        name: model
+        required: true
+        type: string
+      - description: primary input audio file
+        in: formData
+        name: audio
+        required: true
+        type: file
+      - description: auxiliary reference audio (loopback for AEC, target voice for
+          conversion, etc.)
+        in: formData
+        name: reference
+        type: file
+      - description: wav | mp3 | ogg | flac
+        in: formData
+        name: response_format
+        type: string
+      - description: desired output sample rate
+        in: formData
+        name: sample_rate
+        type: integer
+      produces:
+      - audio/x-wav
+      responses:
+        "200":
+          description: transformed audio file
+          schema:
+            type: string
+      summary: Transform audio (echo cancellation, noise suppression, voice conversion,
+        etc.)
+      tags:
+      - audio
+  /audio/transformations:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Runs an audio-in / audio-out transform conditioned on an optional
+        auxiliary reference signal. Concrete transforms include AEC + noise suppression
+        + dereverberation (LocalVQE), voice conversion (reference = target speaker),
+        and pitch shifting. The backend determines the operation; pass model-specific
+        tuning via repeated `params[<key>]=<value>` form fields.
+      parameters:
+      - description: model
+        in: formData
+        name: model
+        required: true
+        type: string
+      - description: primary input audio file
+        in: formData
+        name: audio
+        required: true
+        type: file
+      - description: auxiliary reference audio (loopback for AEC, target voice for
+          conversion, etc.)
+        in: formData
+        name: reference
+        type: file
+      - description: wav | mp3 | ogg | flac
+        in: formData
+        name: response_format
+        type: string
+      - description: desired output sample rate
+        in: formData
+        name: sample_rate
+        type: integer
+      produces:
+      - audio/x-wav
+      responses:
+        "200":
+          description: transformed audio file
+          schema:
+            type: string
+      summary: Transform audio (echo cancellation, noise suppression, voice conversion,
+        etc.)
+      tags:
+      - audio
+  /audio/transformations/stream:
+    get:
+      description: 'Streams binary PCM frames in (interleaved stereo: ch0=audio, ch1=reference)
+        and out (mono). The first message must be a JSON `session.update` envelope
+        describing model + sample format + frame size + backend params. Server emits
+        binary PCM on the same cadence.'
+      responses: {}
+      summary: Bidirectional realtime audio transform over WebSocket.
+      tags:
+      - audio
   /backend/monitor:
     get:
       parameters:
