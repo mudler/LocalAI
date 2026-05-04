@@ -680,6 +680,12 @@ func initializeWatchdog(application *Application, options *config.ApplicationCon
 			options.LRUEvictionRetryInterval,
 		)
 
+		// Sync per-model state from configs to the watchdog. Without this,
+		// `pinned: true` and `concurrency_groups:` are only honored after a
+		// settings-driven RestartWatchdog and never at boot.
+		application.SyncPinnedModelsToWatchdog()
+		application.SyncModelGroupsToWatchdog()
+
 		// Start watchdog goroutine if any periodic checks are enabled
 		// LRU eviction doesn't need the Run() loop - it's triggered on model load
 		// But memory reclaimer needs the Run() loop for periodic checking
