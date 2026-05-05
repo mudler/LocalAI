@@ -47,16 +47,28 @@ const langsWithBase = new Set(
 
 // Files that, when changed in a PR, should fan out to canary backend
 // matrix entries for the affected lang. Keeps PR validation honest when a
-// PR only touches base scaffolding.
+// PR only touches base scaffolding. Per-lang recipe paths
+// (.docker/bases/Dockerfile.<lang>) trigger only their own lang; the
+// shared scaffolding entries trigger every lang.
 const baseTriggerFiles = new Set([
   ".docker/bases/Dockerfile.python",
+  ".docker/bases/Dockerfile.golang",
+  ".docker/bases/Dockerfile.cpp",
+  ".docker/bases/Dockerfile.rust",
   ".docker/apt-mirror.sh",
   ".github/workflows/base_images.yml",
   ".github/actions/configure-apt-mirror/action.yml",
   "scripts/changed-backends.js",
 ]);
+// Maps a base lang back to the consumer Dockerfiles that build on top of
+// it. The cpp base is shared by the llama-cpp / ik-llama-cpp / turboquant
+// trio; everything else is 1:1 with the file suffix.
 const langTriggerSelector = {
   python: (item) => item.dockerfile && item.dockerfile.endsWith("python"),
+  golang: (item) => item.dockerfile && item.dockerfile.endsWith("golang"),
+  rust: (item) => item.dockerfile && item.dockerfile.endsWith("rust"),
+  cpp: (item) =>
+    !!item.dockerfile && /Dockerfile\.(llama-cpp|ik-llama-cpp|turboquant)$/.test(item.dockerfile),
 };
 
 // ---------- helpers ----------
@@ -65,7 +77,13 @@ function langOf(item) {
   if (!item.dockerfile) return null;
   // dockerfile is like "./backend/Dockerfile.python"
   const m = item.dockerfile.match(/Dockerfile\.([\w-]+)$/);
-  return m ? m[1] : null;
+  if (!m) return null;
+  // The C++ trio (llama-cpp, ik-llama-cpp, turboquant) consume a shared
+  // cpp base image — they only differ in their per-backend make targets.
+  if (m[1] === "llama-cpp" || m[1] === "ik-llama-cpp" || m[1] === "turboquant") {
+    return "cpp";
+  }
+  return m[1];
 }
 
 function inferBackendPath(item) {

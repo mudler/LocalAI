@@ -1094,7 +1094,7 @@ BACKEND_KOKOROS = kokoros|rust|.|false|true
 # C++ backends (Go wrapper with purego)
 BACKEND_SAM3_CPP = sam3-cpp|golang|.|false|true
 
-# Tag stem for the local prebuilt base image. Mirrors tagStem() in
+# Tag stem for the local prebuilt base images. Mirrors tagStem() in
 # scripts/changed-backends.js and the inline expression in
 # .github/workflows/backend.yml, so a `make docker-build-X` produces the
 # same FROM ref shape that CI uses.
@@ -1102,10 +1102,15 @@ LOCAL_BASE_BUILD_TYPE := $(or $(BUILD_TYPE),cpu)
 LOCAL_BASE_UBUNTU_VERSION := $(or $(UBUNTU_VERSION),2404)
 LOCAL_BASE_CUDA_SUFFIX := $(if $(filter cublas l4t,$(BUILD_TYPE)),-cuda$(CUDA_MAJOR_VERSION).$(CUDA_MINOR_VERSION))
 LOCAL_BASE_PYTHON_TAG := localai-base:python-$(LOCAL_BASE_BUILD_TYPE)-$(LOCAL_BASE_UBUNTU_VERSION)$(LOCAL_BASE_CUDA_SUFFIX)
+LOCAL_BASE_GOLANG_TAG := localai-base:golang-$(LOCAL_BASE_BUILD_TYPE)-$(LOCAL_BASE_UBUNTU_VERSION)$(LOCAL_BASE_CUDA_SUFFIX)
+LOCAL_BASE_CPP_TAG := localai-base:cpp-$(LOCAL_BASE_BUILD_TYPE)-$(LOCAL_BASE_UBUNTU_VERSION)$(LOCAL_BASE_CUDA_SUFFIX)
+LOCAL_BASE_RUST_TAG := localai-base:rust-$(LOCAL_BASE_BUILD_TYPE)-$(LOCAL_BASE_UBUNTU_VERSION)
 
-# Build the Python+accelerator base image locally. Backend builds depend on
-# this; PHONY so docker handles its own layer caching.
-.PHONY: docker-build-python-base
+# Per-(lang) base image build targets. Each backend's docker-build-X target
+# depends on the matching base via generate-docker-build-target below.
+# PHONY so docker handles its own layer caching.
+.PHONY: docker-build-python-base docker-build-golang-base docker-build-cpp-base docker-build-rust-base
+
 docker-build-python-base:
 	docker build \
 		--build-arg BUILD_TYPE=$(BUILD_TYPE) \
@@ -1120,6 +1125,59 @@ docker-build-python-base:
 		-f .docker/bases/Dockerfile.python \
 		.
 
+docker-build-golang-base:
+	docker build \
+		--build-arg BUILD_TYPE=$(BUILD_TYPE) \
+		--build-arg BASE_IMAGE=$(or $(BASE_IMAGE),ubuntu:24.04) \
+		--build-arg CUDA_MAJOR_VERSION=$(CUDA_MAJOR_VERSION) \
+		--build-arg CUDA_MINOR_VERSION=$(CUDA_MINOR_VERSION) \
+		--build-arg UBUNTU_VERSION=$(LOCAL_BASE_UBUNTU_VERSION) \
+		--build-arg APT_MIRROR=$(APT_MIRROR) \
+		--build-arg APT_PORTS_MIRROR=$(APT_PORTS_MIRROR) \
+		$(if $(SKIP_DRIVERS),--build-arg SKIP_DRIVERS=$(SKIP_DRIVERS)) \
+		-t $(LOCAL_BASE_GOLANG_TAG) \
+		-f .docker/bases/Dockerfile.golang \
+		.
+
+docker-build-cpp-base:
+	docker build \
+		--build-arg BUILD_TYPE=$(BUILD_TYPE) \
+		--build-arg BASE_IMAGE=$(or $(BASE_IMAGE),ubuntu:24.04) \
+		--build-arg CUDA_MAJOR_VERSION=$(CUDA_MAJOR_VERSION) \
+		--build-arg CUDA_MINOR_VERSION=$(CUDA_MINOR_VERSION) \
+		--build-arg UBUNTU_VERSION=$(LOCAL_BASE_UBUNTU_VERSION) \
+		--build-arg APT_MIRROR=$(APT_MIRROR) \
+		--build-arg APT_PORTS_MIRROR=$(APT_PORTS_MIRROR) \
+		$(if $(SKIP_DRIVERS),--build-arg SKIP_DRIVERS=$(SKIP_DRIVERS)) \
+		-t $(LOCAL_BASE_CPP_TAG) \
+		-f .docker/bases/Dockerfile.cpp \
+		.
+
+docker-build-rust-base:
+	docker build \
+		--build-arg BASE_IMAGE=$(or $(BASE_IMAGE),ubuntu:24.04) \
+		--build-arg UBUNTU_VERSION=$(LOCAL_BASE_UBUNTU_VERSION) \
+		--build-arg APT_MIRROR=$(APT_MIRROR) \
+		--build-arg APT_PORTS_MIRROR=$(APT_PORTS_MIRROR) \
+		-t $(LOCAL_BASE_RUST_TAG) \
+		-f .docker/bases/Dockerfile.rust \
+		.
+
+# Map a consumer dockerfile-type to the base-image tag it should consume.
+# Mirrors langOf() in scripts/changed-backends.js: the C++ trio
+# (llama-cpp/ik-llama-cpp/turboquant) all consume the shared cpp base.
+local-base-tag = $(strip \
+	$(if $(filter python,$(1)),$(LOCAL_BASE_PYTHON_TAG), \
+	$(if $(filter golang,$(1)),$(LOCAL_BASE_GOLANG_TAG), \
+	$(if $(filter llama-cpp ik-llama-cpp turboquant,$(1)),$(LOCAL_BASE_CPP_TAG), \
+	$(if $(filter rust,$(1)),$(LOCAL_BASE_RUST_TAG))))))
+
+local-base-target = $(strip \
+	$(if $(filter python,$(1)),docker-build-python-base, \
+	$(if $(filter golang,$(1)),docker-build-golang-base, \
+	$(if $(filter llama-cpp ik-llama-cpp turboquant,$(1)),docker-build-cpp-base, \
+	$(if $(filter rust,$(1)),docker-build-rust-base)))))
+
 # Helper function to build docker image for a backend
 # Usage: $(call docker-build-backend,BACKEND_NAME,DOCKERFILE_TYPE,BUILD_CONTEXT,PROGRESS_FLAG,NEEDS_BACKEND_ARG)
 define docker-build-backend
@@ -1132,19 +1190,18 @@ define docker-build-backend
 		--build-arg UBUNTU_CODENAME=$(UBUNTU_CODENAME) \
 		--build-arg APT_MIRROR=$(APT_MIRROR) \
 		--build-arg APT_PORTS_MIRROR=$(APT_PORTS_MIRROR) \
-		$(if $(filter python,$(2)),--build-arg BASE_IMAGE_PREBUILT=$(LOCAL_BASE_PYTHON_TAG)) \
+		$(if $(call local-base-tag,$(2)),--build-arg BASE_IMAGE_PREBUILT=$(call local-base-tag,$(2))) \
 		$(if $(FROM_SOURCE),--build-arg FROM_SOURCE=$(FROM_SOURCE)) \
 		$(if $(AMDGPU_TARGETS),--build-arg AMDGPU_TARGETS=$(AMDGPU_TARGETS)) \
 		$(if $(filter true,$(5)),--build-arg BACKEND=$(1)) \
 		-t local-ai-backend:$(1) -f backend/Dockerfile.$(2) $(3)
 endef
 
-# Generate docker-build targets from backend definitions. Python backends
-# get docker-build-python-base as a prerequisite so the layered base is
-# always present locally. Other dockerfile types still build their own
-# inline bootstrap from their respective Dockerfile.<lang>.
+# Generate docker-build targets from backend definitions. Each consumer
+# gets the matching layered base as a prerequisite so the FROM in the
+# slimmed Dockerfile resolves locally. The map lives in local-base-target.
 define generate-docker-build-target
-docker-build-$(word 1,$(subst |, ,$(1))): $(if $(filter python,$(word 2,$(subst |, ,$(1)))),docker-build-python-base)
+docker-build-$(word 1,$(subst |, ,$(1))): $(call local-base-target,$(word 2,$(subst |, ,$(1))))
 	$$(call docker-build-backend,$(word 1,$(subst |, ,$(1))),$(word 2,$(subst |, ,$(1))),$(word 3,$(subst |, ,$(1))),$(word 4,$(subst |, ,$(1))),$(word 5,$(subst |, ,$(1))))
 endef
 

@@ -1,0 +1,47 @@
+# Shared Rust base image for the kokoros backend.
+#
+# Built once per (ubuntu-version) by .github/workflows/base_images.yml and
+# pushed to quay.io/go-skynet/localai-base:<tag-stem>[-pr<N>]. The current
+# rust matrix is CPU-only, so this base skips the GPU SDK stanzas; if a
+# future rust backend needs cublas/rocm/etc., promote this recipe to mirror
+# Dockerfile.python's GPU stack. See .agents/ci-caching.md.
+
+ARG BASE_IMAGE=ubuntu:24.04
+ARG APT_MIRROR=""
+ARG APT_PORTS_MIRROR=""
+
+FROM ${BASE_IMAGE}
+
+ENV DEBIAN_FRONTEND=noninteractive
+ARG TARGETARCH
+ARG TARGETVARIANT
+ARG UBUNTU_VERSION=2404
+ARG APT_MIRROR
+ARG APT_PORTS_MIRROR
+
+LABEL org.opencontainers.image.source="https://github.com/mudler/LocalAI"
+LABEL org.opencontainers.image.description="LocalAI Rust base image"
+LABEL org.localai.base.lang="rust"
+
+RUN --mount=type=bind,source=.docker/apt-mirror.sh,target=/usr/local/sbin/apt-mirror \
+    APT_MIRROR="${APT_MIRROR}" APT_PORTS_MIRROR="${APT_PORTS_MIRROR}" sh /usr/local/sbin/apt-mirror && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends \
+        build-essential \
+        git ccache \
+        ca-certificates \
+        make cmake wget \
+        curl unzip \
+        clang \
+        pkg-config \
+        libssl-dev \
+        espeak-ng libespeak-ng-dev \
+        libsonic-dev libpcaudio-dev \
+        libopus-dev \
+        protobuf-compiler && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Install Rust
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+ENV PATH="/root/.cargo/bin:${PATH}"

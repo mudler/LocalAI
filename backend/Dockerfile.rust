@@ -1,37 +1,15 @@
-ARG BASE_IMAGE=ubuntu:24.04
-ARG APT_MIRROR=""
-ARG APT_PORTS_MIRROR=""
+# Builds a single Rust backend on top of the shared
+# .docker/bases/Dockerfile.rust base. The base bakes in apt + Rust +
+# protobuf-compiler + audio dev libs (espeak/sonic/pcaudio/opus), so this
+# stage only carries the per-backend COPY + `make build`.
+#
+# CI orchestration (.github/workflows/backend.yml + backend_pr.yml) passes
+# BASE_IMAGE_PREBUILT. See .agents/ci-caching.md.
 
-FROM ${BASE_IMAGE} AS builder
+ARG BASE_IMAGE_PREBUILT
+
+FROM ${BASE_IMAGE_PREBUILT} AS builder
 ARG BACKEND=kokoros
-ENV DEBIAN_FRONTEND=noninteractive
-ARG TARGETARCH
-ARG TARGETVARIANT
-ARG APT_MIRROR
-ARG APT_PORTS_MIRROR
-
-RUN --mount=type=bind,source=.docker/apt-mirror.sh,target=/usr/local/sbin/apt-mirror \
-    APT_MIRROR="${APT_MIRROR}" APT_PORTS_MIRROR="${APT_PORTS_MIRROR}" sh /usr/local/sbin/apt-mirror && \
-    apt-get update && \
-    apt-get install -y --no-install-recommends \
-        build-essential \
-        git ccache \
-        ca-certificates \
-        make cmake wget \
-        curl unzip \
-        clang \
-        pkg-config \
-        libssl-dev \
-        espeak-ng libespeak-ng-dev \
-        libsonic-dev libpcaudio-dev \
-        libopus-dev \
-        protobuf-compiler && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
-
-# Install Rust
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-ENV PATH="/root/.cargo/bin:${PATH}"
 
 COPY . /LocalAI
 

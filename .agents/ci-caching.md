@@ -186,6 +186,22 @@ source touched), `changed-backends.js` adds one canary backend matrix
 entry per (lang × build-type × arch × cuda × ubuntu) tuple to the filtered
 matrix so each base flavour gets exercised.
 
+### Existing language tiers
+
+| Tier (lang) | Recipe | Consumer Dockerfile(s) | Distinct stems |
+|---|---|---|---|
+| `python` | `.docker/bases/Dockerfile.python` | `backend/Dockerfile.python` | 9 |
+| `golang` | `.docker/bases/Dockerfile.golang` | `backend/Dockerfile.golang` | 8 |
+| `cpp` | `.docker/bases/Dockerfile.cpp` (apt + GPU + protoc + cmake + GRPC) | `backend/Dockerfile.{llama-cpp,ik-llama-cpp,turboquant}` | 8 |
+| `rust` | `.docker/bases/Dockerfile.rust` | `backend/Dockerfile.rust` | 1 |
+
+The C++ trio share a single `cpp` base because they only differ in their
+per-backend `make` targets. `langOf()` in `scripts/changed-backends.js`
+remaps `Dockerfile.{llama-cpp,ik-llama-cpp,turboquant}` → `cpp` so dedup
+works across the trio. If a future C++ consumer needs a *different* base
+(e.g. without GRPC, or with a different protoc version), give it its own
+`Dockerfile.<newlang>` recipe and remove it from the cpp remap.
+
 ### Adding a new (accel × arch × cuda × lang) flavour
 
 Just add the matrix entry to `.github/backend-matrix.yaml` for the new
@@ -193,17 +209,24 @@ flavour. The bases matrix and the per-entry `base-image-prebuilt` are
 derived automatically by `scripts/changed-backends.js`. Nothing else to
 change.
 
-### Adding a new language tier (e.g. golang)
+### Adding a new language tier
 
-1. Create `.docker/bases/Dockerfile.<lang>` mirroring `Dockerfile.python`
+1. Create `.docker/bases/Dockerfile.<lang>` mirroring an existing tier
    (apt + accel install + lang-specific toolchain).
 2. Slim `backend/Dockerfile.<lang>` to `FROM ${BASE_IMAGE_PREBUILT}` plus
    the per-backend source COPY + build (no inline accel install).
+3. Add the new recipe to `baseTriggerFiles` in
+   `scripts/changed-backends.js` so PRs touching it fan out to canaries.
+4. Add `<lang>: (item) => item.dockerfile.endsWith("<lang>")` to
+   `langTriggerSelector` in the same file.
+5. Add a `LOCAL_BASE_<LANG>_TAG`, a `docker-build-<lang>-base` target,
+   and a clause in `local-base-tag` / `local-base-target` in `Makefile`.
 
 The `langsWithBase` set in `scripts/changed-backends.js` is auto-detected
 from the `.docker/bases/` directory at script startup, so step 1 alone is
 enough for the script to start emitting bases (and annotating matrix
-entries with `base-image-prebuilt`) for that lang.
+entries with `base-image-prebuilt`) for that lang. Steps 3–5 plug it
+into the canary fan-out and the local-build path.
 
 ### Why not just rely on `mode=max` cache?
 
@@ -216,18 +239,22 @@ it — that's the actual cross-matrix dedup.
 
 ### Local builds
 
-`backend/Dockerfile.python` requires `BASE_IMAGE_PREBUILT` (no inline
-fallback). For local development:
+All `backend/Dockerfile.{python,golang,cpp,rust}` consumers require
+`BASE_IMAGE_PREBUILT` (no inline fallback). The Makefile wires the right
+`docker-build-<lang>-base` as a prerequisite for each backend's
+`docker-build-<backend>` target, so:
 
 ```bash
-# Build a base flavour locally
-make backend-image-base BUILD_TYPE=cublas CUDA_MAJOR_VERSION=12 CUDA_MINOR_VERSION=9
-
-# Build a backend on top of it
-make backend-image BACKEND=mlx-vlm BUILD_TYPE=cublas CUDA_MAJOR_VERSION=12 CUDA_MINOR_VERSION=9
+# Build any backend; the matching base is built first if needed.
+make docker-build-vllm BUILD_TYPE=cublas CUDA_MAJOR_VERSION=12 CUDA_MINOR_VERSION=8
+make docker-build-llama-cpp BUILD_TYPE=cublas CUDA_MAJOR_VERSION=13 CUDA_MINOR_VERSION=0
+make docker-build-rerankers   # golang
+make docker-build-kokoros     # rust
 ```
 
-Or pull a pre-built base from quay if it exists for your target tuple.
+Or build a base directly: `make docker-build-{python,golang,cpp,rust}-base
+BUILD_TYPE=...`. Or pull a pre-built one from quay if it exists for your
+target tuple.
 
 ## Touching the cache pipeline
 

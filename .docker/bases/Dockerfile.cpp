@@ -1,0 +1,259 @@
+# Shared C++ + accelerator base image for the llama-cpp / ik-llama-cpp /
+# turboquant trio. They differ only in their Makefile targets at build
+# time; the apt + GPU SDK + protoc + cmake + GRPC install is identical.
+#
+# Built once per (build-type, arch, ubuntu-version, cuda-version) combination
+# by .github/workflows/base_images.yml and pushed to
+# quay.io/go-skynet/localai-base:<tag-stem>[-pr<N>]. Consumed by
+# backend/Dockerfile.{llama-cpp,ik-llama-cpp,turboquant} via the
+# BASE_IMAGE_PREBUILT build-arg. See .agents/ci-caching.md.
+
+ARG BASE_IMAGE=ubuntu:24.04
+ARG APT_MIRROR=""
+ARG APT_PORTS_MIRROR=""
+
+FROM ${BASE_IMAGE} AS grpc
+
+ARG GRPC_MAKEFLAGS="-j4 -Otarget"
+ARG GRPC_VERSION=v1.65.0
+ARG CMAKE_FROM_SOURCE=false
+# CUDA Toolkit 13.x compatibility: CMake 3.31.9+ fixes toolchain detection/arch table issues
+ARG CMAKE_VERSION=3.31.10
+ARG APT_MIRROR
+ARG APT_PORTS_MIRROR
+
+ENV MAKEFLAGS=${GRPC_MAKEFLAGS}
+
+WORKDIR /build
+
+RUN --mount=type=bind,source=.docker/apt-mirror.sh,target=/usr/local/sbin/apt-mirror \
+    APT_MIRROR="${APT_MIRROR}" APT_PORTS_MIRROR="${APT_PORTS_MIRROR}" sh /usr/local/sbin/apt-mirror && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends \
+        ca-certificates \
+        build-essential curl libssl-dev \
+        git wget && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN <<EOT bash
+    if [ "${CMAKE_FROM_SOURCE}" = "true" ]; then
+        curl -L -s https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/cmake-${CMAKE_VERSION}.tar.gz -o cmake.tar.gz && tar xvf cmake.tar.gz && cd cmake-${CMAKE_VERSION} && ./configure && make && make install
+    else
+        apt-get update && \
+        apt-get install -y \
+            cmake && \
+        apt-get clean && \
+        rm -rf /var/lib/apt/lists/*
+    fi
+EOT
+
+# Build GRPC into /opt/grpc so we can copy it into the final base without
+# pulling in the full source tree. Mirrors the original two-stage layout in
+# Dockerfile.llama-cpp; absorbing it here means consumers no longer pay the
+# GRPC compile cost.
+RUN git clone --recurse-submodules --jobs 4 -b ${GRPC_VERSION} --depth 1 --shallow-submodules https://github.com/grpc/grpc && \
+    mkdir -p /build/grpc/cmake/build && \
+    cd /build/grpc/cmake/build && \
+    sed -i "216i\  TESTONLY" "../../third_party/abseil-cpp/absl/container/CMakeLists.txt" && \
+    cmake -DgRPC_INSTALL=ON -DgRPC_BUILD_TESTS=OFF -DCMAKE_INSTALL_PREFIX:PATH=/opt/grpc ../.. && \
+    make && \
+    make install && \
+    rm -rf /build
+
+
+FROM ${BASE_IMAGE}
+
+ARG CMAKE_FROM_SOURCE=false
+ARG CMAKE_VERSION=3.31.10
+ARG BUILD_TYPE
+ENV BUILD_TYPE=${BUILD_TYPE}
+ARG CUDA_MAJOR_VERSION
+ARG CUDA_MINOR_VERSION
+ARG SKIP_DRIVERS=false
+ENV CUDA_MAJOR_VERSION=${CUDA_MAJOR_VERSION}
+ENV CUDA_MINOR_VERSION=${CUDA_MINOR_VERSION}
+ENV DEBIAN_FRONTEND=noninteractive
+ARG TARGETARCH
+ARG TARGETVARIANT
+ARG UBUNTU_VERSION=2404
+ARG APT_MIRROR
+ARG APT_PORTS_MIRROR
+
+LABEL org.opencontainers.image.source="https://github.com/mudler/LocalAI"
+LABEL org.opencontainers.image.description="LocalAI C++ (llama-cpp/ik-llama-cpp/turboquant) base image"
+LABEL org.localai.base.lang="cpp"
+
+RUN --mount=type=bind,source=.docker/apt-mirror.sh,target=/usr/local/sbin/apt-mirror \
+    APT_MIRROR="${APT_MIRROR}" APT_PORTS_MIRROR="${APT_PORTS_MIRROR}" sh /usr/local/sbin/apt-mirror && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends \
+        build-essential \
+        ccache git \
+        ca-certificates \
+        make \
+        pkg-config libcurl4-openssl-dev \
+        curl unzip \
+        libssl-dev wget && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Cuda
+ENV PATH=/usr/local/cuda/bin:${PATH}
+
+# HipBLAS requirements
+ENV PATH=/opt/rocm/bin:${PATH}
+
+
+# Vulkan requirements
+RUN <<EOT bash
+    if [ "${BUILD_TYPE}" = "vulkan" ] && [ "${SKIP_DRIVERS}" = "false" ]; then
+        apt-get update && \
+        apt-get install -y  --no-install-recommends \
+            software-properties-common pciutils wget gpg-agent && \
+        apt-get install -y libglm-dev cmake libxcb-dri3-0 libxcb-present0 libpciaccess0 \
+            libpng-dev libxcb-keysyms1-dev libxcb-dri3-dev libx11-dev g++ gcc \
+            libwayland-dev libxrandr-dev libxcb-randr0-dev libxcb-ewmh-dev \
+            git python-is-python3 bison libx11-xcb-dev liblz4-dev libzstd-dev \
+            ocaml-core ninja-build pkg-config libxml2-dev wayland-protocols python3-jsonschema \
+            clang-format qtbase5-dev qt6-base-dev libxcb-glx0-dev sudo xz-utils
+        if [ "amd64" = "$TARGETARCH" ]; then
+            wget "https://sdk.lunarg.com/sdk/download/1.4.335.0/linux/vulkansdk-linux-x86_64-1.4.335.0.tar.xz" && \
+            tar -xf vulkansdk-linux-x86_64-1.4.335.0.tar.xz && \
+            rm vulkansdk-linux-x86_64-1.4.335.0.tar.xz && \
+            mkdir -p /opt/vulkan-sdk && \
+            mv 1.4.335.0 /opt/vulkan-sdk/ && \
+            cd /opt/vulkan-sdk/1.4.335.0 && \
+            ./vulkansdk --no-deps --maxjobs \
+                vulkan-loader \
+                vulkan-validationlayers \
+                vulkan-extensionlayer \
+                vulkan-tools \
+                shaderc && \
+            cp -rfv /opt/vulkan-sdk/1.4.335.0/x86_64/bin/* /usr/bin/ && \
+            cp -rfv /opt/vulkan-sdk/1.4.335.0/x86_64/lib/* /usr/lib/x86_64-linux-gnu/ && \
+            cp -rfv /opt/vulkan-sdk/1.4.335.0/x86_64/include/* /usr/include/ && \
+            cp -rfv /opt/vulkan-sdk/1.4.335.0/x86_64/share/* /usr/share/ && \
+            rm -rf /opt/vulkan-sdk
+        fi
+        if [ "arm64" = "$TARGETARCH" ]; then
+            mkdir vulkan && cd vulkan && \
+            curl -L -o vulkan-sdk.tar.xz https://github.com/mudler/vulkan-sdk-arm/releases/download/1.4.335.0/vulkansdk-ubuntu-24.04-arm-1.4.335.0.tar.xz && \
+            tar -xvf vulkan-sdk.tar.xz && \
+            rm vulkan-sdk.tar.xz && \
+            cd 1.4.335.0 && \
+            cp -rfv aarch64/bin/* /usr/bin/ && \
+            cp -rfv aarch64/lib/* /usr/lib/aarch64-linux-gnu/ && \
+            cp -rfv aarch64/include/* /usr/include/ && \
+            cp -rfv aarch64/share/* /usr/share/ && \
+            cd ../.. && \
+            rm -rf vulkan
+        fi
+        ldconfig && \
+        apt-get clean && \
+        rm -rf /var/lib/apt/lists/*
+    fi
+EOT
+
+# CuBLAS requirements
+RUN <<EOT bash
+    if ( [ "${BUILD_TYPE}" = "cublas" ] || [ "${BUILD_TYPE}" = "l4t" ] ) && [ "${SKIP_DRIVERS}" = "false" ]; then
+        apt-get update && \
+        apt-get install -y  --no-install-recommends \
+            software-properties-common pciutils
+        if [ "amd64" = "$TARGETARCH" ]; then
+            curl -O https://developer.download.nvidia.com/compute/cuda/repos/ubuntu${UBUNTU_VERSION}/x86_64/cuda-keyring_1.1-1_all.deb
+        fi
+        if [ "arm64" = "$TARGETARCH" ]; then
+            if [ "${CUDA_MAJOR_VERSION}" = "13" ]; then
+                curl -O https://developer.download.nvidia.com/compute/cuda/repos/ubuntu${UBUNTU_VERSION}/sbsa/cuda-keyring_1.1-1_all.deb
+            else
+                curl -O https://developer.download.nvidia.com/compute/cuda/repos/ubuntu${UBUNTU_VERSION}/arm64/cuda-keyring_1.1-1_all.deb
+            fi
+        fi
+        dpkg -i cuda-keyring_1.1-1_all.deb && \
+        rm -f cuda-keyring_1.1-1_all.deb && \
+        apt-get update && \
+        apt-get install -y --no-install-recommends \
+            cuda-nvcc-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} \
+            libcufft-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} \
+            libcurand-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} \
+            libcublas-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} \
+            libcusparse-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} \
+            libcusolver-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION}
+        if [ "${CUDA_MAJOR_VERSION}" = "13" ] && [ "arm64" = "$TARGETARCH" ]; then
+            apt-get install -y --no-install-recommends \
+            libcufile-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} libcudnn9-cuda-${CUDA_MAJOR_VERSION} cuda-cupti-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} libnvjitlink-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION}
+        fi
+        apt-get clean && \
+        rm -rf /var/lib/apt/lists/*
+    fi
+EOT
+
+
+# https://github.com/NVIDIA/Isaac-GR00T/issues/343
+RUN <<EOT bash
+    if [ "${BUILD_TYPE}" = "cublas" ] && [ "${TARGETARCH}" = "arm64" ]; then
+        wget https://developer.download.nvidia.com/compute/cudss/0.6.0/local_installers/cudss-local-tegra-repo-ubuntu${UBUNTU_VERSION}-0.6.0_0.6.0-1_arm64.deb && \
+        dpkg -i cudss-local-tegra-repo-ubuntu${UBUNTU_VERSION}-0.6.0_0.6.0-1_arm64.deb && \
+        cp /var/cudss-local-tegra-repo-ubuntu${UBUNTU_VERSION}-0.6.0/cudss-*-keyring.gpg /usr/share/keyrings/ && \
+        apt-get update && apt-get -y install cudss cudss-cuda-${CUDA_MAJOR_VERSION} && \
+        wget https://developer.download.nvidia.com/compute/nvpl/25.5/local_installers/nvpl-local-repo-ubuntu${UBUNTU_VERSION}-25.5_1.0-1_arm64.deb && \
+        dpkg -i nvpl-local-repo-ubuntu${UBUNTU_VERSION}-25.5_1.0-1_arm64.deb && \
+        cp /var/nvpl-local-repo-ubuntu${UBUNTU_VERSION}-25.5/nvpl-*-keyring.gpg /usr/share/keyrings/ && \
+        apt-get update && apt-get install -y nvpl
+    fi
+EOT
+
+# If we are building with clblas support, we need the libraries for the builds
+RUN if [ "${BUILD_TYPE}" = "clblas" ] && [ "${SKIP_DRIVERS}" = "false" ]; then \
+        apt-get update && \
+        apt-get install -y --no-install-recommends \
+            libclblast-dev && \
+        apt-get clean && \
+        rm -rf /var/lib/apt/lists/* \
+    ; fi
+
+RUN if [ "${BUILD_TYPE}" = "hipblas" ] && [ "${SKIP_DRIVERS}" = "false" ]; then \
+        apt-get update && \
+        apt-get install -y --no-install-recommends \
+            hipblas-dev \
+            hipblaslt-dev \
+            rocblas-dev && \
+        apt-get clean && \
+        rm -rf /var/lib/apt/lists/* && \
+        ldconfig && \
+        echo "rocBLAS library data architectures:" && \
+        (ls /opt/rocm*/lib/rocblas/library/Kernels* 2>/dev/null || ls /opt/rocm*/lib64/rocblas/library/Kernels* 2>/dev/null) | grep -oP 'gfx[0-9a-z+-]+' | sort -u || \
+        echo "WARNING: No rocBLAS kernel data found" \
+    ; fi
+
+# Install protoc (the version in 22.04 is too old, and grpc's bundled protoc
+# would pull in a newer absl that breaks stablediffusion).
+RUN <<EOT bash
+    if [ "amd64" = "$TARGETARCH" ]; then
+        curl -L -s https://github.com/protocolbuffers/protobuf/releases/download/v27.1/protoc-27.1-linux-x86_64.zip -o protoc.zip && \
+        unzip -j -d /usr/local/bin protoc.zip bin/protoc && \
+        rm protoc.zip
+    fi
+    if [ "arm64" = "$TARGETARCH" ]; then
+        curl -L -s https://github.com/protocolbuffers/protobuf/releases/download/v27.1/protoc-27.1-linux-aarch_64.zip -o protoc.zip && \
+        unzip -j -d /usr/local/bin protoc.zip bin/protoc && \
+        rm protoc.zip
+    fi
+EOT
+
+# Install CMake (the version in 22.04 is too old)
+RUN <<EOT bash
+    if [ "${CMAKE_FROM_SOURCE}" = "true" ]; then
+        curl -L -s https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/cmake-${CMAKE_VERSION}.tar.gz -o cmake.tar.gz && tar xvf cmake.tar.gz && cd cmake-${CMAKE_VERSION} && ./configure && make && make install
+    else
+        apt-get update && \
+        apt-get install -y \
+            cmake && \
+        apt-get clean && \
+        rm -rf /var/lib/apt/lists/*
+    fi
+EOT
+
+COPY --from=grpc /opt/grpc /usr/local
