@@ -36,6 +36,8 @@ jobs:
       sglang: ${{ steps.detect.outputs.sglang }}
       acestep-cpp: ${{ steps.detect.outputs.acestep-cpp }}
       qwen3-tts-cpp: ${{ steps.detect.outputs.qwen3-tts-cpp }}
+      vibevoice-cpp: ${{ steps.detect.outputs.vibevoice-cpp }}
+      localvqe: ${{ steps.detect.outputs.localvqe }}
       voxtral: ${{ steps.detect.outputs.voxtral }}
       kokoros: ${{ steps.detect.outputs.kokoros }}
       insightface: ${{ steps.detect.outputs.insightface }}
@@ -792,6 +794,117 @@ jobs:
       - name: Test qwen3-tts-cpp
         run: |
           make --jobs=5 --output-sync=target -C backend/go/qwen3-tts-cpp test
+  # Per-backend smoke for vibevoice-cpp: builds the .so + Go binary and
+  # runs `make -C backend/go/vibevoice-cpp test`. test.sh auto-downloads
+  # the published mudler/vibevoice.cpp-models bundle (TTS Q8_0 + ASR Q4_K
+  # + tokenizer + voice) and runs the closed-loop TTS → ASR Go test.
+  tests-vibevoice-cpp:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.vibevoice-cpp == 'true' || needs.detect-changes.outputs.run-all == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Clone
+        uses: actions/checkout@v6
+        with:
+          submodules: true
+      - name: Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake curl libopenblas-dev ffmpeg
+      - name: Setup Go
+        uses: actions/setup-go@v5
+      - name: Display Go version
+        run: go version
+      - name: Proto Dependencies
+        run: |
+          curl -L -s https://github.com/protocolbuffers/protobuf/releases/download/v26.1/protoc-26.1-linux-x86_64.zip -o protoc.zip && \
+          unzip -j -d /usr/local/bin protoc.zip bin/protoc && \
+          rm protoc.zip
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@1958fcbe2ca8bd93af633f11e97d44e567e945af
+          PATH="$PATH:$HOME/go/bin" make protogen-go
+      - name: Build vibevoice-cpp
+        run: |
+          make --jobs=5 --output-sync=target -C backend/go/vibevoice-cpp
+      - name: Test vibevoice-cpp
+        run: |
+          make --jobs=5 --output-sync=target -C backend/go/vibevoice-cpp test
+  # End-to-end TTS via the e2e-backends gRPC harness. Builds the
+  # vibevoice-cpp Docker image and drives Backend/TTS against it with a
+  # real LocalAI gRPC client.
+  tests-vibevoice-cpp-grpc-tts:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.vibevoice-cpp == 'true' || needs.detect-changes.outputs.run-all == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Clone
+        uses: actions/checkout@v6
+        with:
+          submodules: true
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.4'
+      - name: Build vibevoice-cpp backend image and run TTS gRPC e2e tests
+        run: |
+          make test-extra-backend-vibevoice-cpp-tts
+  # End-to-end transcription via the e2e-backends gRPC harness. The
+  # vibevoice ASR is a 7B-param model (Q4_K weights ~10 GB on disk)
+  # and the JFK 30 s decode is too heavy for a free 4-core
+  # ubuntu-latest pool runner - two CI attempts got SIGTERM'd during
+  # LoadModel, before the test could even progress. Use the
+  # self-hosted 'bigger-runner' label (same one the GPU image builds
+  # in backend.yml use) and the documented dotnet/ghc/android cache
+  # purge to clear ~10-20 GB of headroom for the model + Docker
+  # image + working dir.
+  tests-vibevoice-cpp-grpc-transcription:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.vibevoice-cpp == 'true' || needs.detect-changes.outputs.run-all == 'true'
+    runs-on: bigger-runner
+    timeout-minutes: 150
+    steps:
+      - name: Clone
+        uses: actions/checkout@v6
+        with:
+          submodules: true
+      - name: Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+              make build-essential curl unzip ca-certificates git tar
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.4'
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android /opt/hostedtoolcache/CodeQL || true
+          df -h
+      - name: Build vibevoice-cpp backend image and run ASR gRPC e2e tests
+        run: |
+          make test-extra-backend-vibevoice-cpp-transcription
+  # End-to-end audio transform via the e2e-backends gRPC harness. The
+  # LocalVQE GGUF is small (~5 MB) and the model is real-time on CPU, so
+  # the default ubuntu-latest pool is plenty.
+  tests-localvqe-grpc-transform:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.localvqe == 'true' || needs.detect-changes.outputs.run-all == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Clone
+        uses: actions/checkout@v6
+        with:
+          submodules: true
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.4'
+      - name: Build localvqe backend image and run audio_transform gRPC e2e tests
+        run: |
+          make test-extra-backend-localvqe-transform
   tests-voxtral:
     needs: detect-changes
     if: needs.detect-changes.outputs.voxtral == 'true' || needs.detect-changes.outputs.run-all == 'true'

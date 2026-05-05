@@ -27,7 +27,7 @@ func newFakeModelRouterForSmartRouter() *fakeModelRouterForSmartRouter {
 	}
 }
 
-func (f *fakeModelRouterForSmartRouter) FindAndLockNodeWithModel(_ context.Context, _ string) (*BackendNode, *NodeModel, error) {
+func (f *fakeModelRouterForSmartRouter) FindAndLockNodeWithModel(_ context.Context, _ string, _ []string) (*BackendNode, *NodeModel, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return f.node, f.nodeModel, f.findErr
@@ -113,6 +113,9 @@ func (f *fakeModelRouterForSmartRouter) FindLeastLoadedNodeFromSet(_ context.Con
 	return nil, nil
 }
 func (f *fakeModelRouterForSmartRouter) GetNodeLabels(_ context.Context, _ string) ([]NodeLabel, error) {
+	return nil, nil
+}
+func (f *fakeModelRouterForSmartRouter) FindNodesWithModel(_ context.Context, _ string) ([]BackendNode, error) {
 	return nil, nil
 }
 

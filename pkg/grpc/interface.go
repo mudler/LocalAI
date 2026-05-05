@@ -36,9 +36,13 @@ type AIModel interface {
 	StoresFind(*pb.StoresFindOptions) (pb.StoresFindResult, error)
 
 	VAD(*pb.VADRequest) (pb.VADResponse, error)
+	Diarize(*pb.DiarizeRequest) (pb.DiarizeResponse, error)
 
 	AudioEncode(*pb.AudioEncodeRequest) (*pb.AudioEncodeResult, error)
 	AudioDecode(*pb.AudioDecodeRequest) (*pb.AudioDecodeResult, error)
+
+	AudioTransform(*pb.AudioTransformRequest) (*pb.AudioTransformResult, error)
+	AudioTransformStream(in <-chan *pb.AudioTransformFrameRequest, out chan<- *pb.AudioTransformFrameResponse) error
 
 	ModelMetadata(*pb.ModelOptions) (*pb.ModelMetadataResponse, error)
 

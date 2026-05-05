@@ -1,9 +1,11 @@
 package e2e_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"strings"
 	"time"
@@ -222,6 +224,124 @@ var _ = Describe("Mock Backend E2E Tests", Label("MockBackend"), func() {
 				defer resp.Body.Close()
 				Expect(resp.StatusCode).To(BeNumerically("<", 500))
 			}
+		})
+	})
+
+	Describe("Audio Diarization API", func() {
+		// Helper: build a multipart/form-data request to /v1/audio/diarization
+		// with a tiny stub WAV. The backend ignores the audio payload
+		// (it returns a deterministic three-segment layout), so a 4-byte
+		// stub is enough to exercise the HTTP layer.
+		postDiarize := func(extraFields map[string]string) (*http.Response, []byte) {
+			body := &bytes.Buffer{}
+			mw := multipart.NewWriter(body)
+
+			Expect(mw.WriteField("model", "mock-diarize")).To(Succeed())
+			for k, v := range extraFields {
+				Expect(mw.WriteField(k, v)).To(Succeed())
+			}
+
+			part, err := mw.CreateFormFile("file", "stub.wav")
+			Expect(err).ToNot(HaveOccurred())
+			_, err = part.Write([]byte{0, 0, 0, 0})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(mw.Close()).To(Succeed())
+
+			req, err := http.NewRequest("POST", apiURL+"/audio/diarization", body)
+			Expect(err).ToNot(HaveOccurred())
+			req.Header.Set("Content-Type", mw.FormDataContentType())
+
+			httpClient := &http.Client{Timeout: 30 * time.Second}
+			resp, err := httpClient.Do(req)
+			Expect(err).ToNot(HaveOccurred())
+			defer func() { _ = resp.Body.Close() }()
+			data, err := io.ReadAll(resp.Body)
+			Expect(err).ToNot(HaveOccurred())
+			return resp, data
+		}
+
+		It("normalizes raw backend speaker labels to SPEAKER_NN in first-seen order", func() {
+			resp, data := postDiarize(nil)
+			Expect(resp.StatusCode).To(Equal(http.StatusOK))
+
+			var got map[string]any
+			Expect(json.Unmarshal(data, &got)).To(Succeed())
+
+			Expect(got["task"]).To(Equal("diarize"))
+			Expect(got["num_speakers"]).To(BeEquivalentTo(2))
+			// json (default) drops the heavy speakers summary
+			Expect(got).ToNot(HaveKey("speakers"))
+
+			segs, ok := got["segments"].([]any)
+			Expect(ok).To(BeTrue())
+			Expect(segs).To(HaveLen(3))
+
+			// Mock emits raw labels "5", "2", "5" — first-seen order maps:
+			// 5 → SPEAKER_00, 2 → SPEAKER_01.
+			seg0 := segs[0].(map[string]any)
+			seg1 := segs[1].(map[string]any)
+			seg2 := segs[2].(map[string]any)
+			Expect(seg0["speaker"]).To(Equal("SPEAKER_00"))
+			Expect(seg0["label"]).To(Equal("5"))
+			Expect(seg1["speaker"]).To(Equal("SPEAKER_01"))
+			Expect(seg2["speaker"]).To(Equal("SPEAKER_00"))
+
+			// json default suppresses per-segment text even when the backend
+			// happened to emit some (here, IncludeText was not set so the
+			// backend already stripped — but the HTTP layer also gates).
+			_, hasText := seg0["text"].(string)
+			if hasText {
+				Expect(seg0["text"]).To(Equal(""))
+			}
+		})
+
+		It("verbose_json emits speakers summary and per-segment transcripts when include_text is set", func() {
+			resp, data := postDiarize(map[string]string{
+				"response_format": "verbose_json",
+				"include_text":    "true",
+			})
+			Expect(resp.StatusCode).To(Equal(http.StatusOK))
+
+			var got map[string]any
+			Expect(json.Unmarshal(data, &got)).To(Succeed())
+
+			speakers, ok := got["speakers"].([]any)
+			Expect(ok).To(BeTrue(), "verbose_json must include speakers summary")
+			Expect(speakers).To(HaveLen(2))
+
+			// SPEAKER_00 should reflect both 1.0s segments (1.0 + 1.5 = 2.5s, 2 segments)
+			byID := map[string]map[string]any{}
+			for _, sp := range speakers {
+				m := sp.(map[string]any)
+				byID[m["id"].(string)] = m
+			}
+			Expect(byID).To(HaveKey("SPEAKER_00"))
+			Expect(byID["SPEAKER_00"]["total_speech_duration"]).To(BeNumerically("~", 2.5, 0.001))
+			Expect(byID["SPEAKER_00"]["segment_count"]).To(BeEquivalentTo(2))
+
+			segs := got["segments"].([]any)
+			Expect(segs[0].(map[string]any)["text"]).To(Equal("hello there"))
+			Expect(segs[1].(map[string]any)["text"]).To(Equal("general kenobi"))
+		})
+
+		It("rttm response_format returns NIST RTTM rows", func() {
+			resp, data := postDiarize(map[string]string{"response_format": "rttm"})
+			Expect(resp.StatusCode).To(Equal(http.StatusOK))
+			Expect(resp.Header.Get("Content-Type")).To(HavePrefix("text/plain"))
+
+			body := string(data)
+			lines := strings.Split(strings.TrimSpace(body), "\n")
+			Expect(lines).To(HaveLen(3))
+			// "SPEAKER stub 1 0.000 1.000 <NA> <NA> SPEAKER_00 <NA> <NA>"
+			Expect(lines[0]).To(HavePrefix("SPEAKER stub 1 "))
+			Expect(lines[0]).To(ContainSubstring(" SPEAKER_00 "))
+			Expect(lines[1]).To(ContainSubstring(" SPEAKER_01 "))
+			Expect(lines[2]).To(ContainSubstring(" SPEAKER_00 "))
+		})
+
+		It("rejects unknown response_format with 4xx/5xx", func() {
+			resp, _ := postDiarize(map[string]string{"response_format": "csv"})
+			Expect(resp.StatusCode).To(BeNumerically(">=", 400))
 		})
 	})
 

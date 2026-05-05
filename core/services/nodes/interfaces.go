@@ -9,7 +9,7 @@ import (
 
 // ModelRouter is used by SmartRouter for routing decisions and model lifecycle.
 type ModelRouter interface {
-	FindAndLockNodeWithModel(ctx context.Context, modelName string) (*BackendNode, *NodeModel, error)
+	FindAndLockNodeWithModel(ctx context.Context, modelName string, candidateNodeIDs []string) (*BackendNode, *NodeModel, error)
 	DecrementInFlight(ctx context.Context, nodeID, modelName string, replicaIndex int) error
 	IncrementInFlight(ctx context.Context, nodeID, modelName string, replicaIndex int) error
 	RemoveNodeModel(ctx context.Context, nodeID, modelName string, replicaIndex int) error
@@ -35,6 +35,15 @@ type ModelRouter interface {
 	FindIdleNodeFromSet(ctx context.Context, nodeIDs []string) (*BackendNode, error)
 	FindLeastLoadedNodeFromSet(ctx context.Context, nodeIDs []string) (*BackendNode, error)
 	GetNodeLabels(ctx context.Context, nodeID string) ([]NodeLabel, error)
+	FindNodesWithModel(ctx context.Context, modelName string) ([]BackendNode, error)
+}
+
+// ConcurrencyConflictResolver returns the names of configured models that
+// share at least one concurrency group with the given model. It is satisfied
+// by *config.ModelConfigLoader and lets the SmartRouter make group-aware
+// placement decisions without importing the config package's full surface.
+type ConcurrencyConflictResolver interface {
+	GetModelsConflictingWith(modelName string) []string
 }
 
 // NodeHealthStore is used by HealthMonitor for node status management.

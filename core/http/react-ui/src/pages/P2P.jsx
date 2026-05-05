@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useOutletContext } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { p2pApi } from '../utils/api'
 import LoadingSpinner from '../components/LoadingSpinner'
 import ImageSelector, { useImageSelector, dockerImage, dockerFlags } from '../components/ImageSelector'
@@ -103,6 +104,7 @@ function StepNumber({ n, bg, color }) {
 
 export default function P2P() {
   const { addToast } = useOutletContext()
+  const { t } = useTranslation('admin')
   const [workers, setWorkers] = useState([])
   const [mlxWorkers, setMlxWorkers] = useState([])
   const [federation, setFederation] = useState([])
@@ -296,10 +298,10 @@ export default function P2P() {
       <div className="page-header">
         <h1 className="page-title">
           <i className="fas fa-circle-nodes" style={{ marginRight: 'var(--spacing-sm)' }} />
-          Distributed AI Computing
+          {t('p2p.title')}
         </h1>
         <p className="page-subtitle">
-          Scale your AI workloads across multiple devices with peer-to-peer distribution
+          {t('p2p.subtitle')}
           {' '}
           <a href="https://localai.io/features/distribute/" target="_blank" rel="noopener noreferrer"
             style={{ color: 'var(--color-primary)' }}>

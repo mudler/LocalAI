@@ -244,7 +244,7 @@ var _ = Describe("NodeRegistry", func() {
 			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
 			Expect(registry.SetNodeModel(context.Background(), node.ID, "my-model", 0, "loaded", "10.0.0.40:50052", 0)).To(Succeed())
 
-			foundNode, foundNM, err := registry.FindAndLockNodeWithModel(context.Background(), "my-model")
+			foundNode, foundNM, err := registry.FindAndLockNodeWithModel(context.Background(), "my-model", nil)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(foundNode.ID).To(Equal(node.ID))
 			Expect(foundNM.ModelName).To(Equal("my-model"))
@@ -256,7 +256,7 @@ var _ = Describe("NodeRegistry", func() {
 		})
 
 		It("returns error when model is not loaded anywhere", func() {
-			_, _, err := registry.FindAndLockNodeWithModel(context.Background(), "nonexistent-model")
+			_, _, err := registry.FindAndLockNodeWithModel(context.Background(), "nonexistent-model", nil)
 			Expect(err).To(HaveOccurred())
 		})
 
@@ -273,9 +273,51 @@ var _ = Describe("NodeRegistry", func() {
 			Expect(registry.IncrementInFlight(context.Background(), n1.ID, "shared-model", 0)).To(Succeed())
 			Expect(registry.IncrementInFlight(context.Background(), n1.ID, "shared-model", 0)).To(Succeed())
 
-			foundNode, _, err := registry.FindAndLockNodeWithModel(context.Background(), "shared-model")
+			foundNode, _, err := registry.FindAndLockNodeWithModel(context.Background(), "shared-model", nil)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(foundNode.Name).To(Equal("lock-light"))
+		})
+
+		It("filters by candidateNodeIDs even when an excluded node has lower in_flight", func() {
+			// Reproduces the selector-mismatch loop: a model loaded on a node
+			// the selector now excludes (excluded) and on a node it includes
+			// (included). Without the filter the excluded node wins on
+			// in_flight ASC; with the filter the included node is returned
+			// directly so Route() can serve from its existing replica.
+			excluded := makeNode("excluded-node", "10.0.0.43:50051", 8_000_000_000)
+			included := makeNode("included-node", "10.0.0.44:50051", 8_000_000_000)
+			Expect(registry.Register(context.Background(), excluded, true)).To(Succeed())
+			Expect(registry.Register(context.Background(), included, true)).To(Succeed())
+
+			Expect(registry.SetNodeModel(context.Background(), excluded.ID, "filtered-model", 0, "loaded", "", 0)).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), included.ID, "filtered-model", 0, "loaded", "", 0)).To(Succeed())
+
+			// Make `included` strictly busier than `excluded` so the unfiltered
+			// query would prefer the excluded one — proving the filter is
+			// what's steering the result, not the in_flight ordering.
+			Expect(registry.IncrementInFlight(context.Background(), included.ID, "filtered-model", 0)).To(Succeed())
+			Expect(registry.IncrementInFlight(context.Background(), included.ID, "filtered-model", 0)).To(Succeed())
+
+			foundNode, foundNM, err := registry.FindAndLockNodeWithModel(context.Background(), "filtered-model", []string{included.ID})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(foundNode.ID).To(Equal(included.ID))
+			Expect(foundNM.NodeID).To(Equal(included.ID))
+		})
+
+		It("returns not-found when the model is loaded only on excluded nodes", func() {
+			loadedExcluded := makeNode("excl-only-node", "10.0.0.45:50051", 8_000_000_000)
+			emptyIncluded := makeNode("empty-included-node", "10.0.0.46:50051", 8_000_000_000)
+			Expect(registry.Register(context.Background(), loadedExcluded, true)).To(Succeed())
+			Expect(registry.Register(context.Background(), emptyIncluded, true)).To(Succeed())
+
+			Expect(registry.SetNodeModel(context.Background(), loadedExcluded.ID, "no-match-model", 0, "loaded", "", 0)).To(Succeed())
+
+			// Filter restricts to a node that does not have the model — the
+			// query must return an error so Route() falls through to schedule
+			// a fresh load on a matching node instead of reusing the excluded
+			// replica.
+			_, _, err := registry.FindAndLockNodeWithModel(context.Background(), "no-match-model", []string{emptyIncluded.ID})
+			Expect(err).To(HaveOccurred())
 		})
 	})
 

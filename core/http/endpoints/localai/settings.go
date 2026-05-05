@@ -110,6 +110,20 @@ func UpdateSettingsEndpoint(app *application.Application) echo.HandlerFunc {
 			})
 		}
 
+		// Branding asset filenames are owned exclusively by
+		// /api/branding/asset/{kind} (upload/delete). The Settings page also
+		// round-trips them via GET /api/settings, but its local state is stale
+		// once an asset has been uploaded — clicking Save would otherwise
+		// clobber the uploaded basename with the empty string the UI loaded
+		// at page open. Replace whatever the body sent for these three fields
+		// with the values currently on disk so /api/settings can never
+		// regress them.
+		if existing, err := appConfig.ReadPersistedSettings(); err == nil {
+			settings.LogoFile = existing.LogoFile
+			settings.LogoHorizontalFile = existing.LogoHorizontalFile
+			settings.FaviconFile = existing.FaviconFile
+		}
+
 		// The UI reads ApiKeys from GET /api/settings, which already returns the
 		// merged env+runtime list. When the user clicks Save, the same merged
 		// list comes back in the POST body. Strip the env-supplied keys from

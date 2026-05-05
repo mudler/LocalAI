@@ -32,8 +32,9 @@ var instructionDefs = []instructionDef{
 	},
 	{
 		Name:        "audio",
-		Description: "Text-to-speech, voice activity detection, transcription, and sound generation",
+		Description: "Text-to-speech, voice activity detection, transcription, speaker diarization, and sound generation",
 		Tags:        []string{"audio"},
+		Intro:       "Diarization (/v1/audio/diarization) returns speaker-labelled time segments. Backends with native ASR-diarization (vibevoice-cpp) can also emit per-segment text via include_text=true; backends with a dedicated pipeline (sherpa-onnx + pyannote) emit segmentation only. Response formats: json (default), verbose_json (adds speakers summary + text), rttm (NIST format).",
 	},
 	{
 		Name:        "images",
@@ -84,6 +85,12 @@ var instructionDefs = []instructionDef{
 		Description: "Speaker verification (1:1), embedding, and demographic analysis from voice",
 		Tags:        []string{"voice-recognition"},
 		Intro:       "Voice (speaker) recognition — the audio analog to /v1/face/*. Use /v1/voice/verify for 1:1 speaker comparison, /v1/voice/identify for 1:N match against the registered store, /v1/voice/{register,forget} to manage that store, /v1/voice/embed for a raw speaker-encoder vector, and /v1/voice/analyze for age / gender / emotion inferred from speech. Registrations are in-memory by default and lost on restart. Audio inputs accept URL, base64, or data-URI; /v1/embeddings remains text-only.",
+	},
+	{
+		Name:        "branding",
+		Description: "Whitelabel the instance: configure name, tagline, logo, and favicon",
+		Tags:        []string{"branding"},
+		Intro:       "GET /api/branding is public so the login screen can render the configured logo before authentication. Text fields are saved through POST /api/settings; binary assets (logo, horizontal logo, favicon) use multipart upload at /api/branding/asset/{kind} and are served back from /branding/asset/{kind}.",
 	},
 }
 

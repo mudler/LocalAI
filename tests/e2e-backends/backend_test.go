@@ -102,6 +102,7 @@ const (
 	capVoiceEmbed    = "voice_embed"
 	capVoiceVerify   = "voice_verify"
 	capVoiceAnalyze  = "voice_analyze"
+	capAudioTransform = "audio_transform"
 	capLogprobs      = "logprobs"
 	capLogitBias     = "logit_bias"
 
@@ -1032,6 +1033,96 @@ var _ = Describe("Backend container", Ordered, func() {
 		Expect(totalBytes).To(BeNumerically(">", 1024),
 			"streamed audio too short: %d bytes", totalBytes)
 		GinkgoWriter.Printf("TTSStream: %d chunks, %d bytes\n", chunks, totalBytes)
+	})
+
+	It("transforms audio via AudioTransform (batch)", func() {
+		if !caps[capAudioTransform] {
+			Skip("audio_transform capability not enabled")
+		}
+		// Need an audio fixture — reuse the transcription audio knob.
+		Expect(audioFile).NotTo(BeEmpty(),
+			"BACKEND_TEST_AUDIO_FILE or BACKEND_TEST_AUDIO_URL must be set when audio_transform cap is enabled")
+
+		dst := filepath.Join(workDir, "transformed.wav")
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		defer cancel()
+		res, err := client.AudioTransform(ctx, &pb.AudioTransformRequest{
+			AudioPath: audioFile,
+			Dst:       dst,
+		})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(res).NotTo(BeNil())
+		Expect(res.SampleRate).To(BeNumerically(">", int32(0)),
+			"AudioTransform did not report a sample rate")
+		Expect(res.Samples).To(BeNumerically(">", int32(0)),
+			"AudioTransform did not report any output samples")
+		Expect(res.ReferenceProvided).To(BeFalse())
+
+		info, err := os.Stat(dst)
+		Expect(err).NotTo(HaveOccurred(), "AudioTransform did not write a file at %s", dst)
+		Expect(info.Size()).To(BeNumerically(">", int64(1024)),
+			"AudioTransform output too small: %d bytes", info.Size())
+		GinkgoWriter.Printf("AudioTransform: wrote %s (%d bytes, sr=%d, samples=%d)\n",
+			dst, info.Size(), res.SampleRate, res.Samples)
+	})
+
+	It("streams audio via AudioTransformStream (bidi)", func() {
+		if !caps[capAudioTransform] {
+			Skip("audio_transform capability not enabled")
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		defer cancel()
+		stream, err := client.AudioTransformStream(ctx)
+		Expect(err).NotTo(HaveOccurred())
+
+		// First message: Config. Pick the most permissive defaults so the
+		// test works against any audio-transform backend (LocalVQE wants
+		// 16 kHz / 256-sample / s16; other backends may default differently).
+		err = stream.Send(&pb.AudioTransformFrameRequest{
+			Payload: &pb.AudioTransformFrameRequest_Config{
+				Config: &pb.AudioTransformStreamConfig{
+					SampleFormat: pb.AudioTransformStreamConfig_S16_LE,
+				},
+			},
+		})
+		Expect(err).NotTo(HaveOccurred())
+
+		// Send a handful of synthetic silent frames — 256 mono s16 samples
+		// each — and assert the backend echoes a frame back per input.
+		const (
+			frameSamples = 256
+			sampleSize   = 2 // s16
+			nFrames      = 5
+		)
+		silentFrame := make([]byte, frameSamples*sampleSize)
+		for i := 0; i < nFrames; i++ {
+			err = stream.Send(&pb.AudioTransformFrameRequest{
+				Payload: &pb.AudioTransformFrameRequest_Frame{
+					Frame: &pb.AudioTransformFrame{AudioPcm: silentFrame},
+				},
+			})
+			Expect(err).NotTo(HaveOccurred(),
+				"sending frame %d failed", i)
+		}
+		Expect(stream.CloseSend()).To(Succeed())
+
+		var rxFrames int
+		var rxBytes int
+		for {
+			resp, err := stream.Recv()
+			if err == io.EOF {
+				break
+			}
+			Expect(err).NotTo(HaveOccurred())
+			if pcm := resp.GetPcm(); len(pcm) > 0 {
+				rxFrames++
+				rxBytes += len(pcm)
+			}
+		}
+		Expect(rxFrames).To(BeNumerically(">=", nFrames),
+			"AudioTransformStream returned %d frames for %d sent", rxFrames, nFrames)
+		GinkgoWriter.Printf("AudioTransformStream: rx %d frames, %d bytes\n", rxFrames, rxBytes)
 	})
 })
 

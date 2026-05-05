@@ -652,16 +652,26 @@ func (r *NodeRegistry) FindNodesWithModel(ctx context.Context, modelName string)
 // model loaded and increments its in-flight counter within a single transaction.
 // The SELECT FOR UPDATE row lock prevents concurrent eviction from removing the
 // NodeModel row between the find and increment operations.
-func (r *NodeRegistry) FindAndLockNodeWithModel(ctx context.Context, modelName string) (*BackendNode, *NodeModel, error) {
+//
+// When candidateNodeIDs is non-empty, only nodes in that set are considered.
+// Pass nil (or empty) to consider any node. This lets callers pre-filter by
+// NodeSelector so a cached replica on a now-excluded node isn't picked over a
+// matching replica elsewhere — the selector-mismatch fall-through path used to
+// trigger an eviction-busy loop when both sides had the model loaded.
+func (r *NodeRegistry) FindAndLockNodeWithModel(ctx context.Context, modelName string, candidateNodeIDs []string) (*BackendNode, *NodeModel, error) {
 	var nm NodeModel
 	var node BackendNode
 
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		// Order by in_flight ASC (least busy replica), then by available_vram DESC
 		// (prefer nodes with more free VRAM to spread load across the cluster).
-		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+		q := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
 			Joins("JOIN backend_nodes ON backend_nodes.id = node_models.node_id").
-			Where("node_models.model_name = ? AND node_models.state = ?", modelName, "loaded").
+			Where("node_models.model_name = ? AND node_models.state = ?", modelName, "loaded")
+		if len(candidateNodeIDs) > 0 {
+			q = q.Where("node_models.node_id IN ?", candidateNodeIDs)
+		}
+		if err := q.
 			Order("node_models.in_flight ASC, backend_nodes.available_vram DESC").
 			First(&nm).Error; err != nil {
 			return err

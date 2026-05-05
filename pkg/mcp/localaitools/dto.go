@@ -118,6 +118,25 @@ type ImportModelURIResponse struct {
 	Hint                string   `json:"hint,omitempty"`
 }
 
+// Branding is the LLM-facing view of the instance's whitelabel settings.
+// Only the configurable text fields and the resolved asset URLs are
+// surfaced — the backing filenames on disk stay an implementation detail.
+type Branding struct {
+	InstanceName      string `json:"instance_name"`
+	InstanceTagline   string `json:"instance_tagline"`
+	LogoURL           string `json:"logo_url"`
+	LogoHorizontalURL string `json:"logo_horizontal_url"`
+	FaviconURL        string `json:"favicon_url"`
+}
+
+// SetBrandingRequest is the input for set_branding. Both fields are
+// optional; nil leaves the existing value untouched. Asset uploads are
+// deliberately excluded from MCP — admins use the Settings UI for that.
+type SetBrandingRequest struct {
+	InstanceName    *string `json:"instance_name,omitempty"    jsonschema:"New instance display name (replaces \"LocalAI\" in headers, footers, and the browser tab). Pass an empty string to reset to default."`
+	InstanceTagline *string `json:"instance_tagline,omitempty" jsonschema:"Optional short subtitle shown beneath the instance name. Pass an empty string to clear."`
+}
+
 // VRAMEstimateRequest is the input for vram_estimate. The output type is
 // pkg/vram.EstimateResult — used directly via the LocalAIClient interface
 // so the LLM sees the same shape (size_bytes/size_display/vram_bytes/

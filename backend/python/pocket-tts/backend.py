@@ -8,6 +8,7 @@ import argparse
 import signal
 import sys
 import os
+import tempfile
 import traceback
 import scipy.io.wavfile
 import backend_pb2
@@ -204,7 +205,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             # Save audio to file
             output_path = request.dst
             if not output_path:
-                output_path = "/tmp/pocket-tts-output.wav"
+                output_path = os.path.join(tempfile.gettempdir(), "pocket-tts-output.wav")
 
             # Ensure output directory exists
             output_dir = os.path.dirname(output_path)

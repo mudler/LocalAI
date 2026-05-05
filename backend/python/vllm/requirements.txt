@@ -2,3 +2,6 @@ grpcio==1.80.0
 protobuf
 certifi
 setuptools
+pillow
+charset-normalizer>=3.4.0
+chardet

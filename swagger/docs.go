@@ -613,6 +613,101 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/branding": {
+            "get": {
+                "description": "Returns the configured instance name, tagline, and asset URLs. Public — no authentication required.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "branding"
+                ],
+                "summary": "Get instance branding",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/localai.BrandingResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/branding/asset/{kind}": {
+            "post": {
+                "description": "Upload a custom logo, horizontal logo, or favicon. The file replaces any previous override for that kind.",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "branding"
+                ],
+                "summary": "Upload a branding asset",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Asset kind: logo, logo_horizontal, or favicon",
+                        "name": "kind",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "Image file (png, jpeg, svg, webp, ico — up to 5MiB)",
+                        "name": "file",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/localai.BrandingResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Remove a custom branding asset; the UI falls back to the bundled LocalAI default.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "branding"
+                ],
+                "summary": "Reset a branding asset to default",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Asset kind: logo, logo_horizontal, or favicon",
+                        "name": "kind",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/localai.BrandingResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/instructions": {
             "get": {
                 "description": "Returns a compact list of instruction areas with descriptions and URLs for detailed guides",
@@ -1061,6 +1156,130 @@ const docTemplate = `{
                 }
             }
         },
+        "/audio/transform": {
+            "post": {
+                "description": "Runs an audio-in / audio-out transform conditioned on an optional auxiliary reference signal. Concrete transforms include AEC + noise suppression + dereverberation (LocalVQE), voice conversion (reference = target speaker), and pitch shifting. The backend determines the operation; pass model-specific tuning via repeated ` + "`" + `params[\u003ckey\u003e]=\u003cvalue\u003e` + "`" + ` form fields.",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "audio/x-wav"
+                ],
+                "tags": [
+                    "audio"
+                ],
+                "summary": "Transform audio (echo cancellation, noise suppression, voice conversion, etc.)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "model",
+                        "name": "model",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "primary input audio file",
+                        "name": "audio",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "auxiliary reference audio (loopback for AEC, target voice for conversion, etc.)",
+                        "name": "reference",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "wav | mp3 | ogg | flac",
+                        "name": "response_format",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "desired output sample rate",
+                        "name": "sample_rate",
+                        "in": "formData"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "transformed audio file",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/audio/transformations": {
+            "post": {
+                "description": "Runs an audio-in / audio-out transform conditioned on an optional auxiliary reference signal. Concrete transforms include AEC + noise suppression + dereverberation (LocalVQE), voice conversion (reference = target speaker), and pitch shifting. The backend determines the operation; pass model-specific tuning via repeated ` + "`" + `params[\u003ckey\u003e]=\u003cvalue\u003e` + "`" + ` form fields.",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "audio/x-wav"
+                ],
+                "tags": [
+                    "audio"
+                ],
+                "summary": "Transform audio (echo cancellation, noise suppression, voice conversion, etc.)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "model",
+                        "name": "model",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "primary input audio file",
+                        "name": "audio",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "auxiliary reference audio (loopback for AEC, target voice for conversion, etc.)",
+                        "name": "reference",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "wav | mp3 | ogg | flac",
+                        "name": "response_format",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "desired output sample rate",
+                        "name": "sample_rate",
+                        "in": "formData"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "transformed audio file",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/audio/transformations/stream": {
+            "get": {
+                "description": "Streams binary PCM frames in (interleaved stereo: ch0=audio, ch1=reference) and out (mono). The first message must be a JSON ` + "`" + `session.update` + "`" + ` envelope describing model + sample format + frame size + backend params. Server emits binary PCM on the same cadence.",
+                "tags": [
+                    "audio"
+                ],
+                "summary": "Bidirectional realtime audio transform over WebSocket.",
+                "responses": {}
+            }
+        },
         "/backend/monitor": {
             "get": {
                 "tags": [
@@ -1332,6 +1551,35 @@ const docTemplate = `{
                 }
             }
         },
+        "/branding/asset/{kind}": {
+            "get": {
+                "description": "Serves the admin-uploaded logo, horizontal logo, or favicon. 404 when no override is set.",
+                "produces": [
+                    "image/*"
+                ],
+                "tags": [
+                    "branding"
+                ],
+                "summary": "Serve a custom branding asset",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Asset kind: logo, logo_horizontal, or favicon",
+                        "name": "kind",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "404": {
+                        "description": "Not Found"
+                    }
+                }
+            }
+        },
         "/metrics": {
             "get": {
                 "produces": [
@@ -1542,6 +1790,95 @@ const docTemplate = `{
                         "description": "generated audio/wav file",
                         "schema": {
                             "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/audio/diarization": {
+            "post": {
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "tags": [
+                    "audio"
+                ],
+                "summary": "Identify speakers in audio (who spoke when).",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "model",
+                        "name": "model",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "audio file",
+                        "name": "file",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "exact speaker count (\u003e0 forces; 0 = auto)",
+                        "name": "num_speakers",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "lower bound when auto-detecting",
+                        "name": "min_speakers",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "upper bound when auto-detecting",
+                        "name": "max_speakers",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "number",
+                        "description": "clustering distance threshold when num_speakers is unknown",
+                        "name": "clustering_threshold",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "number",
+                        "description": "discard segments shorter than this (seconds)",
+                        "name": "min_duration_on",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "number",
+                        "description": "merge gaps shorter than this (seconds)",
+                        "name": "min_duration_off",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "audio language hint (only meaningful for backends that bundle ASR)",
+                        "name": "language",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "include per-segment transcript when the backend supports it",
+                        "name": "include_text",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "json (default), verbose_json, or rttm",
+                        "name": "response_format",
+                        "in": "formData"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/schema.DiarizationResult"
                         }
                     }
                 }
@@ -2931,6 +3268,26 @@ const docTemplate = `{
                 }
             }
         },
+        "localai.BrandingResponse": {
+            "type": "object",
+            "properties": {
+                "favicon_url": {
+                    "type": "string"
+                },
+                "instance_name": {
+                    "type": "string"
+                },
+                "instance_tagline": {
+                    "type": "string"
+                },
+                "logo_horizontal_url": {
+                    "type": "string"
+                },
+                "logo_url": {
+                    "type": "string"
+                }
+            }
+        },
         "localai.GalleryBackend": {
             "type": "object",
             "properties": {
@@ -3441,6 +3798,75 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/schema.Detection"
                     }
+                }
+            }
+        },
+        "schema.DiarizationResult": {
+            "type": "object",
+            "properties": {
+                "duration": {
+                    "type": "number"
+                },
+                "language": {
+                    "type": "string"
+                },
+                "num_speakers": {
+                    "type": "integer"
+                },
+                "segments": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.DiarizationSegment"
+                    }
+                },
+                "speakers": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.DiarizationSpeaker"
+                    }
+                },
+                "task": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.DiarizationSegment": {
+            "type": "object",
+            "properties": {
+                "end": {
+                    "type": "number"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "speaker": {
+                    "type": "string"
+                },
+                "start": {
+                    "type": "number"
+                },
+                "text": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.DiarizationSpeaker": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "segment_count": {
+                    "type": "integer"
+                },
+                "total_speech_duration": {
+                    "type": "number"
                 }
             }
         },

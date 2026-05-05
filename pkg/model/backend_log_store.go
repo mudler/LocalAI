@@ -190,8 +190,9 @@ func (s *BackendLogStore) Remove(modelID string) {
 	s.mu.Lock()
 	if buf, ok := s.buffers[modelID]; ok {
 		buf.mu.Lock()
-		for _, ch := range buf.subscribers {
+		for id, ch := range buf.subscribers {
 			close(ch)
+			delete(buf.subscribers, id)
 		}
 		buf.mu.Unlock()
 		delete(s.buffers, modelID)
@@ -278,7 +279,6 @@ func (s *BackendLogStore) Subscribe(modelID string) (chan BackendLogLine, func()
 	}
 
 	var fanWG sync.WaitGroup
-	closeOnce := sync.OnceFunc(func() { close(ch) })
 	for _, r := range refs {
 		fanWG.Add(1)
 		go func(c chan BackendLogLine) {
@@ -291,7 +291,11 @@ func (s *BackendLogStore) Subscribe(modelID string) (chan BackendLogLine, func()
 			}
 		}(r.ch)
 	}
-	go func() { fanWG.Wait(); closeOnce() }()
+	// `ch` is closed by exactly one goroutine — the one that observes all
+	// fan-in goroutines finish. unsubscribe() closes the per-buffer source
+	// channels which causes the fan-in loops to exit; the waiter then
+	// closes `ch`. Closing `ch` from anywhere else races with `ch <- line`.
+	go func() { fanWG.Wait(); close(ch) }()
 
 	unsubscribe := func() {
 		for _, r := range refs {
@@ -302,7 +306,6 @@ func (s *BackendLogStore) Subscribe(modelID string) (chan BackendLogLine, func()
 			}
 			r.buf.mu.Unlock()
 		}
-		closeOnce()
 	}
 
 	return ch, unsubscribe

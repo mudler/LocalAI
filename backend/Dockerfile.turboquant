@@ -1,5 +1,7 @@
 ARG BASE_IMAGE=ubuntu:24.04
 ARG GRPC_BASE_IMAGE=${BASE_IMAGE}
+ARG APT_MIRROR=""
+ARG APT_PORTS_MIRROR=""
 
 
 # The grpc target does one thing, it builds and installs GRPC.  This is in it's own layer so that it can be effectively cached by CI.
@@ -12,12 +14,16 @@ ARG GRPC_VERSION=v1.65.0
 ARG CMAKE_FROM_SOURCE=false
 # CUDA Toolkit 13.x compatibility: CMake 3.31.9+ fixes toolchain detection/arch table issues
 ARG CMAKE_VERSION=3.31.10
+ARG APT_MIRROR
+ARG APT_PORTS_MIRROR
 
 ENV MAKEFLAGS=${GRPC_MAKEFLAGS}
 
 WORKDIR /build
 
-RUN apt-get update && \
+RUN --mount=type=bind,source=.docker/apt-mirror.sh,target=/usr/local/sbin/apt-mirror \
+    APT_MIRROR="${APT_MIRROR}" APT_PORTS_MIRROR="${APT_PORTS_MIRROR}" sh /usr/local/sbin/apt-mirror && \
+    apt-get update && \
     apt-get install -y --no-install-recommends \
         ca-certificates \
         build-essential curl libssl-dev \
@@ -71,8 +77,12 @@ ARG TARGETARCH
 ARG TARGETVARIANT
 ARG GO_VERSION=1.25.4
 ARG UBUNTU_VERSION=2404
+ARG APT_MIRROR
+ARG APT_PORTS_MIRROR
 
-RUN apt-get update && \
+RUN --mount=type=bind,source=.docker/apt-mirror.sh,target=/usr/local/sbin/apt-mirror \
+    APT_MIRROR="${APT_MIRROR}" APT_PORTS_MIRROR="${APT_PORTS_MIRROR}" sh /usr/local/sbin/apt-mirror && \
+    apt-get update && \
     apt-get install -y --no-install-recommends \
         build-essential \
         ccache git \

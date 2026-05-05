@@ -3,7 +3,6 @@ torch
 git+https://github.com/huggingface/diffusers
 transformers
 accelerate
-compel
 peft
 optimum-quanto
 numpy<2
@@ -11,3 +10,9 @@ sentencepiece
 torchvision
 ftfy
 chardet
+# TODO: re-add compel once it supports transformers >= 5.
+# Tracking: https://github.com/damian0815/compel/pull/129
+#           https://github.com/damian0815/compel/issues/128
+# compel currently pins transformers~=4.25, which forced pip into multi-hour
+# resolver backtracking storms in CI. backend.py imports it lazily and gates
+# the COMPEL=1 env var on the import succeeding, so dropping it here is safe.

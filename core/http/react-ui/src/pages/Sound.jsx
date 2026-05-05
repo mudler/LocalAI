@@ -1,10 +1,11 @@
-import { useState, useRef } from 'react'
+import { useState } from 'react'
 import { useParams, useOutletContext } from 'react-router-dom'
 import ModelSelector from '../components/ModelSelector'
 import { CAP_SOUND_GENERATION } from '../utils/capabilities'
 import LoadingSpinner from '../components/LoadingSpinner'
 import ErrorWithTraceLink from '../components/ErrorWithTraceLink'
 import MediaHistory from '../components/MediaHistory'
+import WaveformPlayer from '../components/audio/WaveformPlayer'
 import { soundApi } from '../utils/api'
 import { useMediaHistory } from '../hooks/useMediaHistory'
 
@@ -27,7 +28,6 @@ export default function Sound() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [audioUrl, setAudioUrl] = useState(null)
-  const audioRef = useRef(null)
   const { addEntry, selectEntry, selectedEntry, historyProps } = useMediaHistory('sound')
 
   const handleGenerate = async (e) => {
@@ -67,7 +67,6 @@ export default function Sound() {
         addEntry({ prompt: promptText, model, params: { mode }, results: [{ url: serverUrl }] })
       }
       selectEntry(null)
-      setTimeout(() => audioRef.current?.play().catch(() => {}), 100)
     } catch (err) {
       setError(err.message)
     } finally {
@@ -150,15 +149,16 @@ export default function Sound() {
             <ErrorWithTraceLink message={error} />
           ) : selectedEntry ? (
             <div className="audio-result">
-              <audio controls src={selectedEntry.results[0]?.url} className="audio-result__player" data-testid="history-audio" />
+              <WaveformPlayer src={selectedEntry.results[0]?.url} height={96} />
               <div className="result-quote">"{selectedEntry.prompt}"</div>
             </div>
           ) : audioUrl ? (
             <div className="audio-result">
-              <audio ref={audioRef} controls src={audioUrl} className="audio-result__player" />
-              <a href={audioUrl} download={`sound-${new Date().toISOString().slice(0, 10)}.wav`} className="btn btn-primary btn-sm">
-                <i className="fas fa-download" /> <span>Download</span>
-              </a>
+              <WaveformPlayer
+                src={audioUrl}
+                height={96}
+                download={`sound-${new Date().toISOString().slice(0, 10)}.wav`}
+              />
             </div>
           ) : (
             <div className="media-empty">

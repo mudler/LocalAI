@@ -59,4 +59,12 @@ type LocalAIClient interface {
 	ToggleModelState(ctx context.Context, name string, action modeladmin.Action) error
 	// ToggleModelPinned accepts modeladmin.ActionPin / ActionUnpin.
 	ToggleModelPinned(ctx context.Context, name string, action modeladmin.Action) error
+
+	// ---- Branding / whitelabeling ----
+	// GetBranding returns the configured instance branding (name, tagline,
+	// asset URLs).
+	GetBranding(ctx context.Context) (*Branding, error)
+	// SetBranding updates the text branding fields. Asset uploads are not
+	// exposed over MCP — admins use the Settings UI for binary files.
+	SetBranding(ctx context.Context, req SetBrandingRequest) (*Branding, error)
 }

@@ -1,0 +1,85 @@
+{
+  "title": "Modelle installieren",
+  "subtitle": "Durchsuchen und installieren Sie KI-Modelle aus der Galerie",
+  "stats": {
+    "available": "Verfügbar",
+    "installed": "Installiert"
+  },
+  "actions": {
+    "addModel": "Modell hinzufügen",
+    "importModel": "Modell importieren",
+    "install": "Installieren",
+    "reinstall": "Neu installieren",
+    "delete": "Löschen"
+  },
+  "filters": {
+    "all": "Alle",
+    "llm": "LLM",
+    "image": "Bild",
+    "multimodal": "Multimodal",
+    "vision": "Vision",
+    "tts": "TTS",
+    "stt": "STT",
+    "embedding": "Embedding",
+    "rerank": "Rerank",
+    "allBackends": "Alle Backends",
+    "searchBackends": "Backends suchen..."
+  },
+  "search": {
+    "placeholder": "Modelle suchen...",
+    "clearFilters": "Filter zurücksetzen"
+  },
+  "table": {
+    "modelName": "Modellname",
+    "description": "Beschreibung",
+    "backend": "Backend",
+    "sizeVram": "Größe / VRAM",
+    "status": "Status",
+    "actions": "Aktionen",
+    "size": "Größe: {{size}}",
+    "vram": "VRAM: {{vram}}",
+    "fits": "Passt",
+    "mayNotFit": "Passt möglicherweise nicht",
+    "trustRemoteCode": "Trust Remote Code",
+    "installing": "Installation",
+    "installingPct": "Installation · {{percent}}%",
+    "installed": "Installiert",
+    "notInstalled": "Nicht installiert"
+  },
+  "detail": {
+    "description": "Beschreibung",
+    "gallery": "Galerie",
+    "backend": "Backend",
+    "size": "Größe",
+    "vram": "VRAM",
+    "license": "Lizenz",
+    "tags": "Tags",
+    "links": "Links",
+    "warning": "Warnung",
+    "files": "Dateien",
+    "fitsGpu": "Passt in die GPU",
+    "mayNotFitGpu": "Passt möglicherweise nicht in die GPU",
+    "requiresTrustRemoteCode": "Erfordert Trust Remote Code",
+    "fileCount_one": "{{count}} Datei",
+    "fileCount_other": "{{count}} Dateien",
+    "filename": "Dateiname",
+    "uri": "URI",
+    "sha256": "SHA256"
+  },
+  "empty": {
+    "title": "Keine Modelle gefunden",
+    "withFilters": "Keine Modelle entsprechen den aktuellen Such- oder Filterkriterien.",
+    "noFilters": "Die Modellgalerie ist leer."
+  },
+  "deleteDialog": {
+    "title": "Modell löschen",
+    "message": "Modell {{model}} löschen?",
+    "confirm": "{{model}} löschen",
+    "deletingToast": "{{model}} wird gelöscht..."
+  },
+  "errors": {
+    "loadFailed": "Laden der Modelle fehlgeschlagen: {{message}}",
+    "installFailed": "Installation fehlgeschlagen: {{message}}",
+    "deleteFailed": "Löschen fehlgeschlagen: {{message}}"
+  }
+}

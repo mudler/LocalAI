@@ -447,24 +447,28 @@ func API(application *application.Application) (*echo.Echo, error) {
 				return prefixRedirect(c, "/app/"+p)
 			})
 
-			// Serve React static assets (JS, CSS, etc.)
-			serveReactAsset := func(c echo.Context) error {
-				p := "assets/" + c.Param("*")
-				f, err := reactFS.Open(p)
-				if err == nil {
-					defer f.Close()
-					stat, statErr := f.Stat()
-					if statErr == nil && !stat.IsDir() {
-						contentType := mime.TypeByExtension(filepath.Ext(p))
-						if contentType == "" {
-							contentType = echo.MIMEOctetStream
+			// Serve React static assets (JS, CSS, etc.) and i18n locale JSONs
+			// from the embedded React build.
+			serveReactSubdir := func(subdir string) echo.HandlerFunc {
+				return func(c echo.Context) error {
+					p := subdir + "/" + c.Param("*")
+					f, err := reactFS.Open(p)
+					if err == nil {
+						defer f.Close()
+						stat, statErr := f.Stat()
+						if statErr == nil && !stat.IsDir() {
+							contentType := mime.TypeByExtension(filepath.Ext(p))
+							if contentType == "" {
+								contentType = echo.MIMEOctetStream
+							}
+							return c.Stream(http.StatusOK, contentType, f)
 						}
-						return c.Stream(http.StatusOK, contentType, f)
 					}
+					return echo.NewHTTPError(http.StatusNotFound)
 				}
-				return echo.NewHTTPError(http.StatusNotFound)
 			}
-			e.GET("/assets/*", serveReactAsset)
+			e.GET("/assets/*", serveReactSubdir("assets"))
+			e.GET("/locales/*", serveReactSubdir("locales"))
 		}
 	}
 	routes.RegisterJINARoutes(e, requestExtractor, application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig())

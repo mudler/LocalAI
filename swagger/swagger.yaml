@@ -230,6 +230,19 @@ definitions:
           type: string
         type: array
     type: object
+  localai.BrandingResponse:
+    properties:
+      favicon_url:
+        type: string
+      instance_name:
+        type: string
+      instance_tagline:
+        type: string
+      logo_horizontal_url:
+        type: string
+      logo_url:
+        type: string
+    type: object
   localai.GalleryBackend:
     properties:
       id:
@@ -581,6 +594,51 @@ definitions:
         items:
           $ref: '#/definitions/schema.Detection'
         type: array
+    type: object
+  schema.DiarizationResult:
+    properties:
+      duration:
+        type: number
+      language:
+        type: string
+      num_speakers:
+        type: integer
+      segments:
+        items:
+          $ref: '#/definitions/schema.DiarizationSegment'
+        type: array
+      speakers:
+        items:
+          $ref: '#/definitions/schema.DiarizationSpeaker'
+        type: array
+      task:
+        type: string
+    type: object
+  schema.DiarizationSegment:
+    properties:
+      end:
+        type: number
+      id:
+        type: integer
+      label:
+        type: string
+      speaker:
+        type: string
+      start:
+        type: number
+      text:
+        type: string
+    type: object
+  schema.DiarizationSpeaker:
+    properties:
+      id:
+        type: string
+      label:
+        type: string
+      segment_count:
+        type: integer
+      total_speech_duration:
+        type: number
     type: object
   schema.ElevenLabsSoundGenerationRequest:
     properties:
@@ -2511,6 +2569,72 @@ paths:
       summary: Clear backend traces
       tags:
       - monitoring
+  /api/branding:
+    get:
+      description: Returns the configured instance name, tagline, and asset URLs.
+        Public — no authentication required.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/localai.BrandingResponse'
+      summary: Get instance branding
+      tags:
+      - branding
+  /api/branding/asset/{kind}:
+    delete:
+      description: Remove a custom branding asset; the UI falls back to the bundled
+        LocalAI default.
+      parameters:
+      - description: 'Asset kind: logo, logo_horizontal, or favicon'
+        in: path
+        name: kind
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/localai.BrandingResponse'
+      summary: Reset a branding asset to default
+      tags:
+      - branding
+    post:
+      consumes:
+      - multipart/form-data
+      description: Upload a custom logo, horizontal logo, or favicon. The file replaces
+        any previous override for that kind.
+      parameters:
+      - description: 'Asset kind: logo, logo_horizontal, or favicon'
+        in: path
+        name: kind
+        required: true
+        type: string
+      - description: Image file (png, jpeg, svg, webp, ico — up to 5MiB)
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/localai.BrandingResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Upload a branding asset
+      tags:
+      - branding
   /api/instructions:
     get:
       description: Returns a compact list of instruction areas with descriptions and
@@ -2817,6 +2941,104 @@ paths:
       summary: Clear API traces
       tags:
       - monitoring
+  /audio/transform:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Runs an audio-in / audio-out transform conditioned on an optional
+        auxiliary reference signal. Concrete transforms include AEC + noise suppression
+        + dereverberation (LocalVQE), voice conversion (reference = target speaker),
+        and pitch shifting. The backend determines the operation; pass model-specific
+        tuning via repeated `params[<key>]=<value>` form fields.
+      parameters:
+      - description: model
+        in: formData
+        name: model
+        required: true
+        type: string
+      - description: primary input audio file
+        in: formData
+        name: audio
+        required: true
+        type: file
+      - description: auxiliary reference audio (loopback for AEC, target voice for
+          conversion, etc.)
+        in: formData
+        name: reference
+        type: file
+      - description: wav | mp3 | ogg | flac
+        in: formData
+        name: response_format
+        type: string
+      - description: desired output sample rate
+        in: formData
+        name: sample_rate
+        type: integer
+      produces:
+      - audio/x-wav
+      responses:
+        "200":
+          description: transformed audio file
+          schema:
+            type: string
+      summary: Transform audio (echo cancellation, noise suppression, voice conversion,
+        etc.)
+      tags:
+      - audio
+  /audio/transformations:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Runs an audio-in / audio-out transform conditioned on an optional
+        auxiliary reference signal. Concrete transforms include AEC + noise suppression
+        + dereverberation (LocalVQE), voice conversion (reference = target speaker),
+        and pitch shifting. The backend determines the operation; pass model-specific
+        tuning via repeated `params[<key>]=<value>` form fields.
+      parameters:
+      - description: model
+        in: formData
+        name: model
+        required: true
+        type: string
+      - description: primary input audio file
+        in: formData
+        name: audio
+        required: true
+        type: file
+      - description: auxiliary reference audio (loopback for AEC, target voice for
+          conversion, etc.)
+        in: formData
+        name: reference
+        type: file
+      - description: wav | mp3 | ogg | flac
+        in: formData
+        name: response_format
+        type: string
+      - description: desired output sample rate
+        in: formData
+        name: sample_rate
+        type: integer
+      produces:
+      - audio/x-wav
+      responses:
+        "200":
+          description: transformed audio file
+          schema:
+            type: string
+      summary: Transform audio (echo cancellation, noise suppression, voice conversion,
+        etc.)
+      tags:
+      - audio
+  /audio/transformations/stream:
+    get:
+      description: 'Streams binary PCM frames in (interleaved stereo: ch0=audio, ch1=reference)
+        and out (mono). The first message must be a JSON `session.update` envelope
+        describing model + sample format + frame size + backend params. Server emits
+        binary PCM on the same cadence.'
+      responses: {}
+      summary: Bidirectional realtime audio transform over WebSocket.
+      tags:
+      - audio
   /backend/monitor:
     get:
       parameters:
@@ -2989,6 +3211,26 @@ paths:
       summary: Force backend upgrade check
       tags:
       - backends
+  /branding/asset/{kind}:
+    get:
+      description: Serves the admin-uploaded logo, horizontal logo, or favicon. 404
+        when no override is set.
+      parameters:
+      - description: 'Asset kind: logo, logo_horizontal, or favicon'
+        in: path
+        name: kind
+        required: true
+        type: string
+      produces:
+      - image/*
+      responses:
+        "200":
+          description: OK
+        "404":
+          description: Not Found
+      summary: Serve a custom branding asset
+      tags:
+      - branding
   /metrics:
     get:
       produces:
@@ -3123,6 +3365,66 @@ paths:
           schema:
             type: string
       summary: Generates audio from the input text.
+      tags:
+      - audio
+  /v1/audio/diarization:
+    post:
+      consumes:
+      - multipart/form-data
+      parameters:
+      - description: model
+        in: formData
+        name: model
+        required: true
+        type: string
+      - description: audio file
+        in: formData
+        name: file
+        required: true
+        type: file
+      - description: exact speaker count (>0 forces; 0 = auto)
+        in: formData
+        name: num_speakers
+        type: integer
+      - description: lower bound when auto-detecting
+        in: formData
+        name: min_speakers
+        type: integer
+      - description: upper bound when auto-detecting
+        in: formData
+        name: max_speakers
+        type: integer
+      - description: clustering distance threshold when num_speakers is unknown
+        in: formData
+        name: clustering_threshold
+        type: number
+      - description: discard segments shorter than this (seconds)
+        in: formData
+        name: min_duration_on
+        type: number
+      - description: merge gaps shorter than this (seconds)
+        in: formData
+        name: min_duration_off
+        type: number
+      - description: audio language hint (only meaningful for backends that bundle
+          ASR)
+        in: formData
+        name: language
+        type: string
+      - description: include per-segment transcript when the backend supports it
+        in: formData
+        name: include_text
+        type: boolean
+      - description: json (default), verbose_json, or rttm
+        in: formData
+        name: response_format
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/schema.DiarizationResult'
+      summary: Identify speakers in audio (who spoke when).
       tags:
       - audio
   /v1/audio/speech:

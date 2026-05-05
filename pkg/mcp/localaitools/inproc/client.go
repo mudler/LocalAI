@@ -413,6 +413,51 @@ func (c *Client) ToggleModelPinned(ctx context.Context, name string, action mode
 	return err
 }
 
+// ---- Branding ----
+
+// brandingAssetURL returns the same URL shape the public REST endpoint
+// would emit so MCP and HTTP clients see identical wire output.
+func brandingAssetURL(kind, file, defaultURL string) string {
+	if file != "" {
+		return "/branding/asset/" + kind
+	}
+	return defaultURL
+}
+
+func (c *Client) currentBranding() *localaitools.Branding {
+	b := c.AppConfig.Branding
+	return &localaitools.Branding{
+		InstanceName:      b.InstanceName,
+		InstanceTagline:   b.InstanceTagline,
+		LogoURL:           brandingAssetURL("logo", b.LogoFile, "/static/logo.png"),
+		LogoHorizontalURL: brandingAssetURL("logo_horizontal", b.LogoHorizontalFile, "/static/logo_horizontal.png"),
+		FaviconURL:        brandingAssetURL("favicon", b.FaviconFile, "/favicon.svg"),
+	}
+}
+
+func (c *Client) GetBranding(_ context.Context) (*localaitools.Branding, error) {
+	return c.currentBranding(), nil
+}
+
+func (c *Client) SetBranding(_ context.Context, req localaitools.SetBrandingRequest) (*localaitools.Branding, error) {
+	settings, err := c.AppConfig.ReadPersistedSettings()
+	if err != nil {
+		return nil, err
+	}
+	if req.InstanceName != nil {
+		c.AppConfig.Branding.InstanceName = *req.InstanceName
+		settings.InstanceName = req.InstanceName
+	}
+	if req.InstanceTagline != nil {
+		c.AppConfig.Branding.InstanceTagline = *req.InstanceTagline
+		settings.InstanceTagline = req.InstanceTagline
+	}
+	if err := c.AppConfig.WritePersistedSettings(settings); err != nil {
+		return nil, err
+	}
+	return c.currentBranding(), nil
+}
+
 // ---- helpers ----
 
 // sendModelOp pushes op onto ch but bails if ctx is cancelled before the

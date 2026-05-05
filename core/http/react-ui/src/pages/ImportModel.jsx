@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
 import { useNavigate, useOutletContext } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { modelsApi, backendsApi } from '../utils/api'
 import LoadingSpinner from '../components/LoadingSpinner'
 import CodeEditor from '../components/CodeEditor'
@@ -12,21 +13,9 @@ import ModalityChips from '../components/ModalityChips'
 // with auto-detect only rather than showing an empty dropdown.
 const BACKENDS_FALLBACK_EMPTY = []
 
-const MODALITY_LABELS = {
-  text: 'Text LLM',
-  asr: 'Speech recognition',
-  tts: 'Text-to-speech',
-  image: 'Image / Video',
-  embeddings: 'Embeddings',
-  reranker: 'Rerankers',
-  detection: 'Object detection',
-  vad: 'Voice activity detection',
-}
-
-// Tooltip shown on the "manual pick" badge so screen reader + hover users
-// understand what opting into a non-autodetectable backend means. Kept at
-// module scope so the Playwright locator can assert the exact copy.
-const MANUAL_PICK_TOOLTIP = "Auto-detect won't route to this backend. Pick it here if you know that's what you want."
+// Modality keys used as i18n keys under "modality.*" namespace; resolved
+// at render time inside `buildBackendOptions`.
+const MODALITY_KEYS = ['text', 'asr', 'tts', 'image', 'embeddings', 'reranker', 'detection', 'vad']
 
 // buildBackendOptions groups known backends by modality and tags
 // auto_detect=false entries with a muted "manual pick" badge so users
@@ -34,7 +23,7 @@ const MANUAL_PICK_TOOLTIP = "Auto-detect won't route to this backend. Pick it he
 // the list is narrowed before grouping so the dropdown shows only
 // backends the user asked about — grouping is preserved even if the
 // result ends up being a single section.
-function buildBackendOptions(list, modalityFilter = '') {
+function buildBackendOptions(list, modalityFilter, t) {
   if (!Array.isArray(list) || list.length === 0) return BACKENDS_FALLBACK_EMPTY
   const filtered = modalityFilter
     ? list.filter(b => b && b.modality === modalityFilter)
@@ -49,14 +38,14 @@ function buildBackendOptions(list, modalityFilter = '') {
   const keys = Array.from(groups.keys()).sort()
   const out = []
   for (const key of keys) {
-    const label = MODALITY_LABELS[key] || (key ? key : 'Other')
+    const label = MODALITY_KEYS.includes(key) ? t(`modality.${key}`) : (key ? t('modality.other') : t('modality.other'))
     out.push({ value: `__header_${key}`, label, isHeader: true })
     const sorted = groups.get(key).slice().sort((a, b) => a.name.localeCompare(b.name))
     for (const b of sorted) {
       const opt = { value: b.name, label: b.name }
       if (b.auto_detect === false) {
-        opt.badge = 'manual pick'
-        opt.badgeTooltip = MANUAL_PICK_TOOLTIP
+        opt.badge = t('form.manualPick')
+        opt.badgeTooltip = t('form.manualPickTooltip')
       }
       out.push(opt)
     }
@@ -64,46 +53,48 @@ function buildBackendOptions(list, modalityFilter = '') {
   return out
 }
 
+// URI_FORMATS describes the example list rendered in the format guide.
+// Title + description strings are i18n keys, resolved at render time.
 const URI_FORMATS = [
   {
-    icon: 'fab fa-hubspot', color: 'var(--color-accent)', title: 'HuggingFace',
+    icon: 'fab fa-hubspot', color: 'var(--color-accent)', titleKey: 'uriFormats.huggingface.title',
     examples: [
-      { prefix: 'huggingface://', suffix: 'TheBloke/Llama-2-7B-Chat-GGUF', desc: 'Standard HuggingFace format' },
-      { prefix: 'hf://', suffix: 'TheBloke/Llama-2-7B-Chat-GGUF', desc: 'Short HuggingFace format' },
-      { prefix: 'https://huggingface.co/', suffix: 'TheBloke/Llama-2-7B-Chat-GGUF', desc: 'Full HuggingFace URL' },
+      { prefix: 'huggingface://', suffix: 'TheBloke/Llama-2-7B-Chat-GGUF', descKey: 'uriFormats.huggingface.standard' },
+      { prefix: 'hf://', suffix: 'TheBloke/Llama-2-7B-Chat-GGUF', descKey: 'uriFormats.huggingface.short' },
+      { prefix: 'https://huggingface.co/', suffix: 'TheBloke/Llama-2-7B-Chat-GGUF', descKey: 'uriFormats.huggingface.fullUrl' },
     ],
   },
   {
-    icon: 'fas fa-globe', color: 'var(--color-primary)', title: 'HTTP/HTTPS URLs',
+    icon: 'fas fa-globe', color: 'var(--color-primary)', titleKey: 'uriFormats.http.title',
     examples: [
-      { prefix: 'https://', suffix: 'example.com/model.gguf', desc: 'Direct download from any HTTPS URL' },
+      { prefix: 'https://', suffix: 'example.com/model.gguf', descKey: 'uriFormats.http.direct' },
     ],
   },
   {
-    icon: 'fas fa-file', color: 'var(--color-warning)', title: 'Local Files',
+    icon: 'fas fa-file', color: 'var(--color-warning)', titleKey: 'uriFormats.local.title',
     examples: [
-      { prefix: 'file://', suffix: '/path/to/model.gguf', desc: 'Local file path (absolute)' },
-      { prefix: '', suffix: '/path/to/model.yaml', desc: 'Direct local YAML config file' },
+      { prefix: 'file://', suffix: '/path/to/model.gguf', descKey: 'uriFormats.local.filePath' },
+      { prefix: '', suffix: '/path/to/model.yaml', descKey: 'uriFormats.local.directYaml' },
     ],
   },
   {
-    icon: 'fas fa-box', color: 'var(--color-data-8)', title: 'OCI Registry',
+    icon: 'fas fa-box', color: 'var(--color-data-8)', titleKey: 'uriFormats.oci.title',
     examples: [
-      { prefix: 'oci://', suffix: 'registry.example.com/model:tag', desc: 'OCI container registry' },
-      { prefix: 'ocifile://', suffix: '/path/to/image.tar', desc: 'Local OCI tarball file' },
+      { prefix: 'oci://', suffix: 'registry.example.com/model:tag', descKey: 'uriFormats.oci.registry' },
+      { prefix: 'ocifile://', suffix: '/path/to/image.tar', descKey: 'uriFormats.oci.tarball' },
     ],
   },
   {
-    icon: 'fas fa-cube', color: 'var(--color-data-1)', title: 'Ollama',
+    icon: 'fas fa-cube', color: 'var(--color-data-1)', titleKey: 'uriFormats.ollama.title',
     examples: [
-      { prefix: 'ollama://', suffix: 'llama2:7b', desc: 'Ollama model format' },
+      { prefix: 'ollama://', suffix: 'llama2:7b', descKey: 'uriFormats.ollama.model' },
     ],
   },
   {
-    icon: 'fas fa-code', color: 'var(--color-data-7)', title: 'YAML Configuration Files',
+    icon: 'fas fa-code', color: 'var(--color-data-7)', titleKey: 'uriFormats.yaml.title',
     examples: [
-      { prefix: '', suffix: 'https://example.com/model.yaml', desc: 'Remote YAML config file' },
-      { prefix: 'file://', suffix: '/path/to/config.yaml', desc: 'Local YAML config file' },
+      { prefix: '', suffix: 'https://example.com/model.yaml', descKey: 'uriFormats.yaml.remote' },
+      { prefix: 'file://', suffix: '/path/to/config.yaml', descKey: 'uriFormats.yaml.local' },
     ],
   },
 ]
@@ -154,11 +145,12 @@ function hasCustomPrefs(prefs, customPrefs, yamlContent) {
 // (not a separate component) — the strip is tiny and lives inside the
 // Power-mode card so extracting it would just add indirection.
 function PowerTabs({ value, onChange }) {
+  const { t } = useTranslation('importModel')
   return (
     <div
       className="segmented"
       role="tablist"
-      aria-label="Advanced mode tab"
+      aria-label={t('powerTabs.ariaLabel')}
       data-testid="power-tabs"
       style={{ marginBottom: 'var(--spacing-md)' }}
     >
@@ -171,7 +163,7 @@ function PowerTabs({ value, onChange }) {
         data-testid="power-tab-preferences"
       >
         <i className="fas fa-sliders" aria-hidden="true" />
-        Preferences
+        {t('powerTabs.preferences')}
       </button>
       <button
         type="button"
@@ -182,7 +174,7 @@ function PowerTabs({ value, onChange }) {
         data-testid="power-tab-yaml"
       >
         <i className="fas fa-code" aria-hidden="true" />
-        YAML
+        {t('powerTabs.yaml')}
       </button>
     </div>
   )
@@ -193,6 +185,7 @@ function PowerTabs({ value, onChange }) {
 // component is 2-button (confirm/cancel); the UX here needs Keep / Discard
 // / Cancel with distinct semantics.
 function SwitchModeDialog({ onKeep, onDiscard, onCancel }) {
+  const { t } = useTranslation('importModel')
   const keepRef = useRef(null)
   useEffect(() => {
     keepRef.current?.focus()
@@ -216,10 +209,10 @@ function SwitchModeDialog({ onKeep, onDiscard, onCancel }) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="confirm-dialog-header">
-          <span id="switch-mode-title" className="confirm-dialog-title">Keep your custom preferences?</span>
+          <span id="switch-mode-title" className="confirm-dialog-title">{t('switchDialog.title')}</span>
         </div>
         <div id="switch-mode-body" className="confirm-dialog-body">
-          Switching to Simple mode hides preferences beyond backend, name, and description. They&rsquo;ll still be sent when you import.
+          {t('switchDialog.body')}
         </div>
         <div className="confirm-dialog-actions">
           <button
@@ -228,7 +221,7 @@ function SwitchModeDialog({ onKeep, onDiscard, onCancel }) {
             onClick={onCancel}
             data-testid="switch-mode-cancel"
           >
-            Cancel
+            {t('switchDialog.cancel')}
           </button>
           <button
             type="button"
@@ -236,7 +229,7 @@ function SwitchModeDialog({ onKeep, onDiscard, onCancel }) {
             onClick={onDiscard}
             data-testid="switch-mode-discard"
           >
-            Discard &amp; switch
+            {t('switchDialog.discard')}
           </button>
           <button
             ref={keepRef}
@@ -245,7 +238,7 @@ function SwitchModeDialog({ onKeep, onDiscard, onCancel }) {
             onClick={onKeep}
             data-testid="switch-mode-keep"
           >
-            Keep &amp; switch
+            {t('switchDialog.keep')}
           </button>
         </div>
       </div>
@@ -256,6 +249,7 @@ function SwitchModeDialog({ onKeep, onDiscard, onCancel }) {
 export default function ImportModel() {
   const navigate = useNavigate()
   const { addToast } = useOutletContext()
+  const { t } = useTranslation('importModel')
 
   // Mode + tab state. Persisted to localStorage so reloads keep the user
   // on the same surface they last picked. `showOptions` is Simple-mode
@@ -321,17 +315,17 @@ export default function ImportModel() {
         console.error('Failed to load /backends/known:', err)
         setBackendsError(true)
         setBackends([])
-        addToast('Could not load backend list — using auto-detect only', 'warning')
+        addToast(t('toasts.backendsLoadFailed'), 'warning')
       })
       .finally(() => {
         if (!cancelled) setBackendsLoading(false)
       })
     return () => { cancelled = true }
-  }, [addToast])
+  }, [addToast, t])
 
   const backendOptions = useMemo(
-    () => buildBackendOptions(backends, modalityFilter),
-    [backends, modalityFilter]
+    () => buildBackendOptions(backends, modalityFilter, t),
+    [backends, modalityFilter, t]
   )
 
   // Progressive disclosure — hide preference fields that don't apply to the
@@ -394,7 +388,7 @@ export default function ImportModel() {
           pollRef.current = null
           setIsSubmitting(false)
           setJobProgress(null)
-          addToast('Model imported successfully!', 'success')
+          addToast(t('toasts.imported'), 'success')
           navigate('/app/manage')
         } else if (data.error || (data.message && data.message.startsWith('error:'))) {
           clearInterval(pollRef.current)
@@ -406,16 +400,16 @@ export default function ImportModel() {
           else if (data.error?.message) msg = data.error.message
           else if (data.message) msg = data.message
           if (msg.startsWith('error: ')) msg = msg.substring(7)
-          addToast(`Import failed: ${msg}`, 'error')
+          addToast(t('toasts.importFailed', { message: msg }), 'error')
         }
       } catch (err) {
         console.error('Error polling job status:', err)
       }
     }, 1000)
-  }, [addToast, navigate])
+  }, [addToast, navigate, t])
 
   const handleSimpleImport = useCallback(async (overrideBackend) => {
-    if (!importUri.trim()) { addToast('Please enter a model URI', 'error'); return }
+    if (!importUri.trim()) { addToast(t('toasts.noUri'), 'error'); return }
     setIsSubmitting(true)
     setEstimate(null)
     try {
@@ -450,11 +444,12 @@ export default function ImportModel() {
       const jobId = result.uuid || result.ID
       if (!jobId) throw new Error('No job ID returned from server')
 
-      let msg = 'Import started! Tracking progress...'
       const parts = []
-      if (hasSize) parts.push(`Size: ${result.estimated_size_display}`)
-      if (hasVram) parts.push(`VRAM: ${result.estimated_vram_display}`)
-      if (parts.length) msg += ` (${parts.join(' \u00b7 ')})`
+      if (hasSize) parts.push(`${t('estimate.download', { size: result.estimated_size_display })}`)
+      if (hasVram) parts.push(`${t('estimate.vram', { vram: result.estimated_vram_display })}`)
+      const msg = parts.length
+        ? t('toasts.startedWithMeta', { meta: parts.join(' \u00b7 ') })
+        : t('toasts.started')
       addToast(msg, 'success')
       // Clear any prior ambiguity alert once the server accepts the import.
       setAmbiguity(null)
@@ -471,10 +466,10 @@ export default function ImportModel() {
         setIsSubmitting(false)
         return
       }
-      addToast(`Failed to start import: ${err.message}`, 'error')
+      addToast(t('toasts.startImportFailed', { message: err.message }), 'error')
       setIsSubmitting(false)
     }
-  }, [importUri, prefs, customPrefs, addToast, startJobPolling])
+  }, [importUri, prefs, customPrefs, addToast, startJobPolling, t])
 
   const pickAmbiguityCandidate = useCallback((backend) => {
     setPrefs(p => ({ ...p, backend }))
@@ -514,20 +509,20 @@ export default function ImportModel() {
     const selected = backends.find(b => b.name === prefs.backend)
     if (selected && selected.modality !== next) {
       setPrefs(p => ({ ...p, backend: '' }))
-      const label = (MODALITY_LABELS[next] || next)
-      addToast(`Cleared backend selection — it wasn't in the ${label} group.`, 'info')
+      const label = MODALITY_KEYS.includes(next) ? t(`modality.${next}`) : next
+      addToast(t('toasts.modalityClearedBackend', { label }), 'info')
     }
-  }, [backends, prefs.backend, addToast])
+  }, [backends, prefs.backend, addToast, t])
 
   const handleAdvancedImport = async () => {
-    if (!yamlContent.trim()) { addToast('Please enter YAML configuration', 'error'); return }
+    if (!yamlContent.trim()) { addToast(t('toasts.noYaml'), 'error'); return }
     setIsSubmitting(true)
     try {
       await modelsApi.importConfig(yamlContent, 'application/x-yaml')
-      addToast('Model configuration imported successfully!', 'success')
+      addToast(t('toasts.importedYaml'), 'success')
       navigate('/app/manage')
     } catch (err) {
-      addToast(`Import failed: ${err.message}`, 'error')
+      addToast(t('toasts.importFailed', { message: err.message }), 'error')
     } finally {
       setIsSubmitting(false)
     }
@@ -537,10 +532,8 @@ export default function ImportModel() {
   const isPowerYaml = mode === 'power' && powerTab === 'yaml'
 
   const subtitle = isSimple
-    ? 'Import a model from a URI — auto-detect picks the backend.'
-    : (powerTab === 'yaml'
-      ? 'Write the full model YAML configuration.'
-      : 'Fine-grained import preferences.')
+    ? t('subtitle.simple')
+    : (powerTab === 'yaml' ? t('subtitle.powerYaml') : t('subtitle.powerPrefs'))
 
   // The Ambiguity alert + URI input live at the top of both Simple and
   // Power/Preferences modes. Extracted so both branches stay readable.
@@ -559,11 +552,11 @@ export default function ImportModel() {
       <div className="form-group">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-xs)' }}>
           <label className="form-label" style={{ marginBottom: 0 }}>
-            Model URI
+            {t('form.modelUri')}
           </label>
           <a href="https://huggingface.co/models?sort=trending" target="_blank" rel="noreferrer"
             className="btn btn-secondary" style={{ fontSize: '0.7rem', padding: '3px 8px' }}>
-            Browse models on HF <i className="fas fa-external-link-alt" aria-hidden="true" style={{ marginLeft: 'var(--spacing-xs)' }} />
+            {t('actions.browseHF')} <i className="fas fa-external-link-alt" aria-hidden="true" style={{ marginLeft: 'var(--spacing-xs)' }} />
           </a>
         </div>
         <input
@@ -571,10 +564,10 @@ export default function ImportModel() {
           type="text"
           value={importUri}
           onChange={(e) => setImportUri(e.target.value)}
-          placeholder="huggingface://TheBloke/Llama-2-7B-Chat-GGUF or https://example.com/model.gguf"
+          placeholder={t('form.uriPlaceholder')}
           disabled={isSubmitting}
         />
-        <p style={hintStyle}>Enter the URI or path to the model file you want to import</p>
+        <p style={hintStyle}>{t('form.uriHint')}</p>
 
         <button
           type="button"
@@ -583,7 +576,7 @@ export default function ImportModel() {
         >
           <i className={`fas ${showGuide ? 'fa-chevron-down' : 'fa-chevron-right'}`} aria-hidden="true" />
           <i className="fas fa-info-circle" aria-hidden="true" />
-          Supported URI Formats
+          {t('form.supportedFormats')}
         </button>
         {showGuide && (
           <div style={{ marginTop: 'var(--spacing-sm)', padding: 'var(--spacing-md)', background: 'var(--color-bg-primary)', border: '1px solid var(--color-border-default)', borderRadius: 'var(--radius-md)' }}>
@@ -591,14 +584,14 @@ export default function ImportModel() {
               <div key={i} style={{ marginBottom: i < URI_FORMATS.length - 1 ? 'var(--spacing-md)' : 0 }}>
                 <h4 style={{ fontSize: '0.8125rem', fontWeight: 600, marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <i className={fmt.icon} aria-hidden="true" style={{ color: fmt.color }} />
-                  {fmt.title}
+                  {t(fmt.titleKey)}
                 </h4>
                 <div style={{ paddingLeft: '20px', fontSize: '0.75rem', fontFamily: 'var(--font-mono)' }}>
                   {fmt.examples.map((ex, j) => (
                     <div key={j} style={{ marginBottom: 'var(--spacing-xs)' }}>
                       <code style={{ color: 'var(--color-success)' }}>{ex.prefix}</code>
                       <span style={{ color: 'var(--color-text-secondary)' }}>{ex.suffix}</span>
-                      <p style={{ color: 'var(--color-text-muted)', marginTop: '1px', fontFamily: 'inherit' }}>{ex.desc}</p>
+                      <p style={{ color: 'var(--color-text-muted)', marginTop: '1px', fontFamily: 'inherit' }}>{t(ex.descKey)}</p>
                     </div>
                   ))}
                 </div>
@@ -614,21 +607,21 @@ export default function ImportModel() {
   // and Power/Preferences.
   const renderBackendField = () => (
     <div className="form-group" style={{ marginBottom: 0 }}>
-      <label className="form-label">Backend</label>
+      <label className="form-label">{t('form.backend')}</label>
       <SearchableSelect
         value={prefs.backend}
         onChange={(v) => updatePref('backend', v)}
         options={backendOptions}
-        allOption="Auto-detect (based on URI)"
-        placeholder={backendsLoading ? 'Loading backends…' : 'Auto-detect (based on URI)'}
-        searchPlaceholder="Search backends..."
+        allOption={t('form.backendAuto')}
+        placeholder={backendsLoading ? t('form.backendLoading') : t('form.backendAuto')}
+        searchPlaceholder={t('form.backendSearch')}
         disabled={isSubmitting || backendsLoading}
       />
       <p style={hintStyle}>
-        Force a specific backend. Leave empty to auto-detect from the URI. Items marked &ldquo;manual pick&rdquo; aren&rsquo;t auto-detectable &mdash; pick them yourself if you know what the model needs.
+        {t('form.backendHint')}
         {backendsError && (
           <span style={{ color: 'var(--color-warning)', marginLeft: '6px' }}>
-            Could not load backend list — auto-detect only.
+            {t('form.backendErrorHint')}
           </span>
         )}
       </p>
@@ -642,7 +635,7 @@ export default function ImportModel() {
             style={{ ...hintStyle, display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px' }}
           >
             <i className="fas fa-download" aria-hidden="true" />
-            This backend isn&rsquo;t installed yet. Submitting import will download it first.
+            {t('form.backendNotInstalled')}
           </p>
         )
       })()}
@@ -651,17 +644,17 @@ export default function ImportModel() {
 
   const renderNameField = () => (
     <div className="form-group" style={{ marginBottom: 0 }}>
-      <label className="form-label">Model Name</label>
-      <input className="input" type="text" value={prefs.name} onChange={e => updatePref('name', e.target.value)} placeholder="Leave empty to use filename" disabled={isSubmitting} />
-      <p style={hintStyle}>Custom name for the model. If empty, the filename will be used.</p>
+      <label className="form-label">{t('form.modelName')}</label>
+      <input className="input" type="text" value={prefs.name} onChange={e => updatePref('name', e.target.value)} placeholder={t('form.modelNamePlaceholder')} disabled={isSubmitting} />
+      <p style={hintStyle}>{t('form.modelNameHint')}</p>
     </div>
   )
 
   const renderDescriptionField = () => (
     <div className="form-group" style={{ marginBottom: 0 }}>
-      <label className="form-label">Description</label>
-      <textarea className="textarea" rows={2} value={prefs.description} onChange={e => updatePref('description', e.target.value)} placeholder="Leave empty to use default description" disabled={isSubmitting} />
-      <p style={hintStyle}>Custom description for the model.</p>
+      <label className="form-label">{t('form.description')}</label>
+      <textarea className="textarea" rows={2} value={prefs.description} onChange={e => updatePref('description', e.target.value)} placeholder={t('form.descriptionPlaceholder')} disabled={isSubmitting} />
+      <p style={hintStyle}>{t('form.descriptionHint')}</p>
     </div>
   )
 
@@ -669,7 +662,7 @@ export default function ImportModel() {
   const renderFullPreferences = () => (
     <div style={{ marginTop: 'var(--spacing-lg)' }}>
       <div style={{ fontSize: '0.875rem', fontWeight: 500, color: 'var(--color-text-secondary)', marginBottom: 'var(--spacing-sm)' }}>
-        <i className="fas fa-cog" aria-hidden="true" style={{ marginRight: '6px' }} />Preferences (Optional)
+        <i className="fas fa-cog" aria-hidden="true" style={{ marginRight: '6px' }} />{t('form.preferences')}
       </div>
 
       <ModalityChips
@@ -681,7 +674,7 @@ export default function ImportModel() {
       <div style={{ padding: 'var(--spacing-md)', background: 'var(--color-bg-primary)', border: '1px solid var(--color-border-default)', borderRadius: 'var(--radius-md)' }}>
         <h3 style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--color-text-secondary)', marginBottom: 'var(--spacing-md)', display: 'flex', alignItems: 'center', gap: '6px' }}>
           <i className="fas fa-sliders" style={{ color: 'var(--color-primary)' }} aria-hidden="true" />
-          Common Preferences
+          {t('form.commonPreferences')}
         </h3>
 
         <div style={{ display: 'grid', gap: 'var(--spacing-md)' }}>
@@ -691,17 +684,17 @@ export default function ImportModel() {
 
           {showQuantizations && (
             <div className="form-group" style={{ marginBottom: 0 }}>
-              <label className="form-label">Quantizations</label>
-              <input className="input" type="text" value={prefs.quantizations} onChange={e => updatePref('quantizations', e.target.value)} placeholder="q4_k_m,q4_k_s,q3_k_m (comma-separated)" disabled={isSubmitting} />
-              <p style={hintStyle}>Preferred quantizations (comma-separated). Leave empty for default (q4_k_m).</p>
+              <label className="form-label">{t('form.quantizations')}</label>
+              <input className="input" type="text" value={prefs.quantizations} onChange={e => updatePref('quantizations', e.target.value)} placeholder={t('form.quantizationsPlaceholder')} disabled={isSubmitting} />
+              <p style={hintStyle}>{t('form.quantizationsHint')}</p>
             </div>
           )}
 
           {showMmprojQuantizations && (
             <div className="form-group" style={{ marginBottom: 0 }}>
-              <label className="form-label">MMProj Quantizations</label>
-              <input className="input" type="text" value={prefs.mmproj_quantizations} onChange={e => updatePref('mmproj_quantizations', e.target.value)} placeholder="fp16,fp32 (comma-separated)" disabled={isSubmitting} />
-              <p style={hintStyle}>Preferred MMProj quantizations. Leave empty for default (fp16).</p>
+              <label className="form-label">{t('form.mmprojQuantizations')}</label>
+              <input className="input" type="text" value={prefs.mmproj_quantizations} onChange={e => updatePref('mmproj_quantizations', e.target.value)} placeholder={t('form.mmprojQuantizationsPlaceholder')} disabled={isSubmitting} />
+              <p style={hintStyle}>{t('form.mmprojQuantizationsHint')}</p>
             </div>
           )}
 
@@ -709,45 +702,45 @@ export default function ImportModel() {
             <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', cursor: 'pointer' }}>
               <input type="checkbox" checked={prefs.embeddings} onChange={e => updatePref('embeddings', e.target.checked)} disabled={isSubmitting} />
               <span style={{ fontSize: '0.875rem', fontWeight: 500, color: 'var(--color-text-secondary)' }}>
-                Embeddings
+                {t('form.embeddings')}
               </span>
             </label>
-            <p style={{ ...hintStyle, marginLeft: '28px' }}>Enable embeddings support for this model.</p>
+            <p style={{ ...hintStyle, marginLeft: '28px' }}>{t('form.embeddingsHint')}</p>
           </div>
 
           {showModelType && (
             <div className="form-group" style={{ marginBottom: 0 }}>
-              <label className="form-label">Model Type</label>
-              <input className="input" type="text" value={prefs.type} onChange={e => updatePref('type', e.target.value)} placeholder="AutoModelForCausalLM (for transformers backend)" disabled={isSubmitting} />
-              <p style={hintStyle}>Model type for transformers backend. Examples: AutoModelForCausalLM, SentenceTransformer, Mamba.</p>
+              <label className="form-label">{t('form.modelType')}</label>
+              <input className="input" type="text" value={prefs.type} onChange={e => updatePref('type', e.target.value)} placeholder={t('form.modelTypePlaceholder')} disabled={isSubmitting} />
+              <p style={hintStyle}>{t('form.modelTypeHint')}</p>
             </div>
           )}
 
           {prefs.backend === 'diffusers' && (
             <>
               <div className="form-group" style={{ marginBottom: 0 }}>
-                <label className="form-label">Pipeline Type</label>
+                <label className="form-label">{t('form.pipelineType')}</label>
                 <input className="input" type="text" value={prefs.pipeline_type} onChange={e => updatePref('pipeline_type', e.target.value)} placeholder="StableDiffusionPipeline" disabled={isSubmitting} />
-                <p style={hintStyle}>Pipeline type for diffusers backend.</p>
+                <p style={hintStyle}>{t('form.pipelineTypeHint')}</p>
               </div>
               <div className="form-group" style={{ marginBottom: 0 }}>
-                <label className="form-label">Scheduler Type</label>
-                <input className="input" type="text" value={prefs.scheduler_type} onChange={e => updatePref('scheduler_type', e.target.value)} placeholder="k_dpmpp_2m (optional)" disabled={isSubmitting} />
-                <p style={hintStyle}>Scheduler type for diffusers backend. Examples: k_dpmpp_2m, euler_a, ddim.</p>
+                <label className="form-label">{t('form.schedulerType')}</label>
+                <input className="input" type="text" value={prefs.scheduler_type} onChange={e => updatePref('scheduler_type', e.target.value)} placeholder={t('form.schedulerTypePlaceholder')} disabled={isSubmitting} />
+                <p style={hintStyle}>{t('form.schedulerTypeHint')}</p>
               </div>
               <div className="form-group" style={{ marginBottom: 0 }}>
-                <label className="form-label">Enable Parameters</label>
-                <input className="input" type="text" value={prefs.enable_parameters} onChange={e => updatePref('enable_parameters', e.target.value)} placeholder="negative_prompt,num_inference_steps (comma-separated)" disabled={isSubmitting} />
-                <p style={hintStyle}>Enabled parameters for diffusers backend (comma-separated).</p>
+                <label className="form-label">{t('form.enableParameters')}</label>
+                <input className="input" type="text" value={prefs.enable_parameters} onChange={e => updatePref('enable_parameters', e.target.value)} placeholder={t('form.enableParametersPlaceholder')} disabled={isSubmitting} />
+                <p style={hintStyle}>{t('form.enableParametersHint')}</p>
               </div>
               <div>
                 <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', cursor: 'pointer' }}>
                   <input type="checkbox" checked={prefs.cuda} onChange={e => updatePref('cuda', e.target.checked)} disabled={isSubmitting} />
                   <span style={{ fontSize: '0.875rem', fontWeight: 500, color: 'var(--color-text-secondary)' }}>
-                    CUDA
+                    {t('form.cuda')}
                   </span>
                 </label>
-                <p style={{ ...hintStyle, marginLeft: '28px' }}>Enable CUDA support for GPU acceleration.</p>
+                <p style={{ ...hintStyle, marginLeft: '28px' }}>{t('form.cudaHint')}</p>
               </div>
             </>
           )}
@@ -758,10 +751,10 @@ export default function ImportModel() {
       <div style={{ marginTop: 'var(--spacing-md)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-sm)' }}>
           <span style={{ fontSize: '0.875rem', fontWeight: 500, color: 'var(--color-text-secondary)' }}>
-            <i className="fas fa-plus-circle" style={{ marginRight: '6px' }} aria-hidden="true" />Custom Preferences
+            <i className="fas fa-plus-circle" style={{ marginRight: '6px' }} aria-hidden="true" />{t('form.customPreferences')}
           </span>
           <button className="btn btn-secondary" onClick={addCustomPref} disabled={isSubmitting} style={{ fontSize: '0.75rem' }}>
-            <i className="fas fa-plus" aria-hidden="true" /> Add Custom
+            <i className="fas fa-plus" aria-hidden="true" /> {t('actions.addCustom')}
           </button>
         </div>
         {customPrefs.map((cp, i) => (
@@ -771,8 +764,8 @@ export default function ImportModel() {
               type="text"
               value={cp.key}
               onChange={e => updateCustomPref(i, 'key', e.target.value)}
-              placeholder="Key"
-              aria-label={`Preference key for row ${i + 1}`}
+              placeholder={t('form.key')}
+              aria-label={t('form.preferenceKey', { index: i + 1 })}
               disabled={isSubmitting}
               style={{ flex: 1 }}
             />
@@ -782,8 +775,8 @@ export default function ImportModel() {
               type="text"
               value={cp.value}
               onChange={e => updateCustomPref(i, 'value', e.target.value)}
-              placeholder="Value"
-              aria-label={`Preference value for row ${i + 1}`}
+              placeholder={t('form.value')}
+              aria-label={t('form.preferenceValue', { index: i + 1 })}
               disabled={isSubmitting}
               style={{ flex: 1 }}
             />
@@ -791,14 +784,14 @@ export default function ImportModel() {
               className="btn btn-secondary"
               onClick={() => removeCustomPref(i)}
               disabled={isSubmitting}
-              aria-label="Remove this preference"
+              aria-label={t('form.removePref')}
               style={{ color: 'var(--color-error)' }}
             >
               <i className="fas fa-trash" aria-hidden="true" />
             </button>
           </div>
         ))}
-        <p style={hintStyle}>Add custom key-value pairs for advanced configuration.</p>
+        <p style={hintStyle}>{t('form.customKeyValueHint')}</p>
       </div>
     </div>
   )
@@ -807,18 +800,18 @@ export default function ImportModel() {
     <div className="page page--narrow">
       <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--spacing-sm)' }}>
         <div>
-          <h1 className="page-title">Import New Model</h1>
+          <h1 className="page-title">{t('title')}</h1>
           <p className="page-subtitle">{subtitle}</p>
         </div>
         <div style={{ display: 'flex', gap: 'var(--spacing-sm)', flexWrap: 'wrap', alignItems: 'center' }}>
           <SimplePowerSwitch value={mode} onChange={requestModeSwitch} disabled={isSubmitting} />
           {isPowerYaml ? (
             <button className="btn btn-primary" onClick={handleAdvancedImport} disabled={isSubmitting}>
-              {isSubmitting ? <><LoadingSpinner size="sm" /> Saving...</> : <><i className="fas fa-save" aria-hidden="true" /> Create</>}
+              {isSubmitting ? <><LoadingSpinner size="sm" /> {t('actions.saving')}</> : <><i className="fas fa-save" aria-hidden="true" /> {t('actions.create')}</>}
             </button>
           ) : (
             <button className="btn btn-primary" onClick={() => handleSimpleImport()} disabled={isSubmitting || !importUri.trim()}>
-              {isSubmitting ? <><LoadingSpinner size="sm" /> Importing...</> : <><i className="fas fa-upload" aria-hidden="true" /> Import Model</>}
+              {isSubmitting ? <><LoadingSpinner size="sm" /> {t('actions.importing')}</> : <><i className="fas fa-upload" aria-hidden="true" /> {t('actions.import')}</>}
             </button>
           )}
         </div>
@@ -829,12 +822,12 @@ export default function ImportModel() {
         <div className="card" style={{ marginBottom: 'var(--spacing-md)', padding: 'var(--spacing-md)', borderColor: 'var(--color-primary)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', fontSize: '0.875rem', flexWrap: 'wrap' }}>
             <i className="fas fa-memory" aria-hidden="true" style={{ color: 'var(--color-primary)' }} />
-            <strong>Estimated requirements</strong>
+            <strong>{t('estimate.title')}</strong>
             {estimate.sizeDisplay && estimate.sizeDisplay !== '0 B' && (
-              <span><i className="fas fa-download" aria-hidden="true" style={{ color: 'var(--color-primary)', marginRight: 'var(--spacing-xs)' }} />Download: {estimate.sizeDisplay}</span>
+              <span><i className="fas fa-download" aria-hidden="true" style={{ color: 'var(--color-primary)', marginRight: 'var(--spacing-xs)' }} />{t('estimate.download', { size: estimate.sizeDisplay })}</span>
             )}
             {estimate.vramDisplay && estimate.vramDisplay !== '0 B' && (
-              <span><i className="fas fa-microchip" aria-hidden="true" style={{ color: 'var(--color-primary)', marginRight: 'var(--spacing-xs)' }} />VRAM: {estimate.vramDisplay}</span>
+              <span><i className="fas fa-microchip" aria-hidden="true" style={{ color: 'var(--color-primary)', marginRight: 'var(--spacing-xs)' }} />{t('estimate.vram', { vram: estimate.vramDisplay })}</span>
             )}
           </div>
         </div>
@@ -885,7 +878,7 @@ export default function ImportModel() {
               >
                 <i className={`fas ${showOptions ? 'fa-chevron-down' : 'fa-chevron-right'}`} aria-hidden="true" />
                 <i className="fas fa-sliders" aria-hidden="true" />
-                Options
+                {t('form.options')}
               </button>
 
               {showOptions && (
@@ -941,10 +934,10 @@ export default function ImportModel() {
               <div style={{ padding: 'var(--spacing-md)', borderTop: '1px solid var(--color-border-default)', borderBottom: '1px solid var(--color-border-default)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <h2 style={{ fontSize: '1.125rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
                   <i className="fas fa-code" aria-hidden="true" style={{ color: 'var(--color-data-3)' }} />
-                  YAML Configuration Editor
+                  {t('form.yamlEditor')}
                 </h2>
-                <button className="btn btn-secondary" style={{ fontSize: '0.75rem' }} onClick={() => { navigator.clipboard.writeText(yamlContent); addToast('Copied to clipboard', 'success') }}>
-                  <i className="fas fa-copy" aria-hidden="true" /> Copy
+                <button className="btn btn-secondary" style={{ fontSize: '0.75rem' }} onClick={() => { navigator.clipboard.writeText(yamlContent); addToast(t('toasts.copied'), 'success') }}>
+                  <i className="fas fa-copy" aria-hidden="true" /> {t('actions.copy')}
                 </button>
               </div>
               <CodeEditor value={yamlContent} onChange={setYamlContent} disabled={isSubmitting} minHeight="calc(100vh - 400px)" />

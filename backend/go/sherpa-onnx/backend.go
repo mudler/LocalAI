@@ -29,6 +29,12 @@ type SherpaBackend struct {
 	vadWindowSize      int
 	ttsSpeed           float32
 	onlineChunkSamples int
+
+	// Speaker diarization (offline pyannote + embedding extractor + clustering).
+	// diarSampleRate is reported by sherpa at create time; we cache it so
+	// runDiarization can resample only when the input doesn't already match.
+	diarizer       uintptr
+	diarSampleRate int
 }
 
 var onnxProvider = "cpu"
@@ -128,6 +134,25 @@ var (
 
 	// TTS streaming callback trampoline
 	shimTtsGenerateWithCallback func(tts uintptr, text string, sid int32, speed float32, cb uintptr, ud uintptr) uintptr
+
+	// Diarization config + result accessors (see csrc/shim.h).
+	shimDiarizeConfigNew                       func() uintptr
+	shimDiarizeConfigFree                      func(uintptr)
+	shimDiarizeConfigSetSegmentationModel      func(uintptr, string)
+	shimDiarizeConfigSetSegmentationNumThreads func(uintptr, int32)
+	shimDiarizeConfigSetSegmentationProvider   func(uintptr, string)
+	shimDiarizeConfigSetSegmentationDebug      func(uintptr, int32)
+	shimDiarizeConfigSetEmbeddingModel         func(uintptr, string)
+	shimDiarizeConfigSetEmbeddingNumThreads    func(uintptr, int32)
+	shimDiarizeConfigSetEmbeddingProvider      func(uintptr, string)
+	shimDiarizeConfigSetEmbeddingDebug         func(uintptr, int32)
+	shimDiarizeConfigSetClusteringNumClusters  func(uintptr, int32)
+	shimDiarizeConfigSetClusteringThreshold    func(uintptr, float32)
+	shimDiarizeConfigSetMinDurationOn          func(uintptr, float32)
+	shimDiarizeConfigSetMinDurationOff         func(uintptr, float32)
+	shimCreateOfflineSpeakerDiarization        func(uintptr) uintptr
+	shimDiarizeSetClustering                   func(uintptr, int32, float32)
+	shimDiarizeSegmentAt                       func(segs uintptr, i int32, outStart unsafe.Pointer, outEnd unsafe.Pointer, outSpeaker unsafe.Pointer)
 )
 
 // libsherpa-onnx-c-api pass-throughs — called directly from Go via purego.
@@ -172,6 +197,18 @@ var (
 	sherpaOfflineTtsGenerate             func(tts uintptr, text string, sid int32, speed float32) uintptr
 	sherpaDestroyOfflineTtsGeneratedAudio func(audio uintptr)
 	sherpaOfflineTtsSampleRate           func(tts uintptr) int32
+
+	// Offline speaker diarization. Result handle owns the segment-array
+	// pointer returned by ResultSortByStartTime; destroy the segment
+	// array first, then the result, then (at backend Free()) the diarizer.
+	sherpaDestroyOfflineSpeakerDiarization                 func(sd uintptr)
+	sherpaOfflineSpeakerDiarizationGetSampleRate           func(sd uintptr) int32
+	sherpaOfflineSpeakerDiarizationProcess                 func(sd uintptr, samples unsafe.Pointer, n int32) uintptr
+	sherpaOfflineSpeakerDiarizationResultGetNumSegments    func(result uintptr) int32
+	sherpaOfflineSpeakerDiarizationResultGetNumSpeakers    func(result uintptr) int32
+	sherpaOfflineSpeakerDiarizationResultSortByStartTime   func(result uintptr) uintptr
+	sherpaOfflineSpeakerDiarizationDestroySegment          func(segs uintptr)
+	sherpaDestroyOfflineSpeakerDiarizationResult           func(result uintptr)
 )
 
 var (
@@ -292,6 +329,24 @@ func loadSherpaLibsOnce() error {
 		{&shimSpeechSegmentStart, "sherpa_shim_speech_segment_start"},
 		{&shimSpeechSegmentN, "sherpa_shim_speech_segment_n"},
 		{&shimTtsGenerateWithCallback, "sherpa_shim_tts_generate_with_callback"},
+
+		{&shimDiarizeConfigNew, "sherpa_shim_diarize_config_new"},
+		{&shimDiarizeConfigFree, "sherpa_shim_diarize_config_free"},
+		{&shimDiarizeConfigSetSegmentationModel, "sherpa_shim_diarize_config_set_segmentation_model"},
+		{&shimDiarizeConfigSetSegmentationNumThreads, "sherpa_shim_diarize_config_set_segmentation_num_threads"},
+		{&shimDiarizeConfigSetSegmentationProvider, "sherpa_shim_diarize_config_set_segmentation_provider"},
+		{&shimDiarizeConfigSetSegmentationDebug, "sherpa_shim_diarize_config_set_segmentation_debug"},
+		{&shimDiarizeConfigSetEmbeddingModel, "sherpa_shim_diarize_config_set_embedding_model"},
+		{&shimDiarizeConfigSetEmbeddingNumThreads, "sherpa_shim_diarize_config_set_embedding_num_threads"},
+		{&shimDiarizeConfigSetEmbeddingProvider, "sherpa_shim_diarize_config_set_embedding_provider"},
+		{&shimDiarizeConfigSetEmbeddingDebug, "sherpa_shim_diarize_config_set_embedding_debug"},
+		{&shimDiarizeConfigSetClusteringNumClusters, "sherpa_shim_diarize_config_set_clustering_num_clusters"},
+		{&shimDiarizeConfigSetClusteringThreshold, "sherpa_shim_diarize_config_set_clustering_threshold"},
+		{&shimDiarizeConfigSetMinDurationOn, "sherpa_shim_diarize_config_set_min_duration_on"},
+		{&shimDiarizeConfigSetMinDurationOff, "sherpa_shim_diarize_config_set_min_duration_off"},
+		{&shimCreateOfflineSpeakerDiarization, "sherpa_shim_create_offline_speaker_diarization"},
+		{&shimDiarizeSetClustering, "sherpa_shim_diarize_set_clustering"},
+		{&shimDiarizeSegmentAt, "sherpa_shim_diarize_segment_at"},
 	} {
 		purego.RegisterLibFunc(r.ptr, shim, r.name)
 	}
@@ -334,6 +389,15 @@ func loadSherpaLibsOnce() error {
 		{&sherpaOfflineTtsGenerate, "SherpaOnnxOfflineTtsGenerate"},
 		{&sherpaDestroyOfflineTtsGeneratedAudio, "SherpaOnnxDestroyOfflineTtsGeneratedAudio"},
 		{&sherpaOfflineTtsSampleRate, "SherpaOnnxOfflineTtsSampleRate"},
+
+		{&sherpaDestroyOfflineSpeakerDiarization, "SherpaOnnxDestroyOfflineSpeakerDiarization"},
+		{&sherpaOfflineSpeakerDiarizationGetSampleRate, "SherpaOnnxOfflineSpeakerDiarizationGetSampleRate"},
+		{&sherpaOfflineSpeakerDiarizationProcess, "SherpaOnnxOfflineSpeakerDiarizationProcess"},
+		{&sherpaOfflineSpeakerDiarizationResultGetNumSegments, "SherpaOnnxOfflineSpeakerDiarizationResultGetNumSegments"},
+		{&sherpaOfflineSpeakerDiarizationResultGetNumSpeakers, "SherpaOnnxOfflineSpeakerDiarizationResultGetNumSpeakers"},
+		{&sherpaOfflineSpeakerDiarizationResultSortByStartTime, "SherpaOnnxOfflineSpeakerDiarizationResultSortByStartTime"},
+		{&sherpaOfflineSpeakerDiarizationDestroySegment, "SherpaOnnxOfflineSpeakerDiarizationDestroySegment"},
+		{&sherpaDestroyOfflineSpeakerDiarizationResult, "SherpaOnnxOfflineSpeakerDiarizationDestroyResult"},
 	} {
 		purego.RegisterLibFunc(r.ptr, capi, r.name)
 	}
@@ -383,6 +447,11 @@ func isVADType(t string) bool {
 	return t == "vad"
 }
 
+func isDiarizationType(t string) bool {
+	t = strings.ToLower(t)
+	return t == "diarization" || t == "diarize" || t == "speaker-diarization"
+}
+
 // Model-options prefixes recognised by this backend. Kept as typed
 // constants so the asrFamily / loadWhisperASR / loadGenericASR paths
 // can all speak the same vocabulary.
@@ -423,6 +492,19 @@ const (
 	optionOnlineRule2          = "online.rule2_min_trailing_silence="
 	optionOnlineRule3          = "online.rule3_min_utterance_length="
 	optionOnlineChunkSamples   = "online.chunk_samples="
+
+	// Speaker diarization (offline pyannote + speaker-embedding extractor).
+	// `diarize.segmentation_model` overrides the auto-detected pyannote
+	// segmentation .onnx in modelDir; `diarize.embedding_model` does the
+	// same for the speaker-embedding extractor. `diarize.num_clusters`
+	// pins a known speaker count at load time; per-call DiarizeRequest
+	// fields take precedence at process time.
+	optionDiarizeSegmentationModel = "diarize.segmentation_model="
+	optionDiarizeEmbeddingModel    = "diarize.embedding_model="
+	optionDiarizeNumClusters       = "diarize.num_clusters="
+	optionDiarizeThreshold         = "diarize.threshold="
+	optionDiarizeMinDurationOn     = "diarize.min_duration_on="
+	optionDiarizeMinDurationOff    = "diarize.min_duration_off="
 )
 
 func hasOption(opts *pb.ModelOptions, prefix string) bool {
@@ -492,6 +574,9 @@ func findOptionBool(opts *pb.ModelOptions, prefix string, def int32) int32 {
 func (s *SherpaBackend) Load(opts *pb.ModelOptions) error {
 	if isVADType(opts.Type) {
 		return s.loadVAD(opts)
+	}
+	if isDiarizationType(opts.Type) {
+		return s.loadDiarization(opts)
 	}
 	// An explicit `subtype=...` option routes to ASR even when Type is
 	// unset — handy for the e2e-backends harness, which doesn't know
@@ -1246,4 +1331,177 @@ func (s *SherpaBackend) TTSStream(req *pb.TTSRequest, results chan []byte) error
 		sherpaDestroyOfflineTtsGeneratedAudio(audio)
 	}
 	return nil
+}
+
+// =============================================================
+// Speaker diarization (offline)
+// =============================================================
+//
+// Conventions:
+//   - opts.ModelFile is the pyannote segmentation .onnx (e.g. model.onnx
+//     under sherpa-onnx-pyannote-segmentation-3-0/). Override with
+//     `diarize.segmentation_model=` if the gallery layout differs.
+//   - The speaker-embedding extractor must be provided via
+//     `diarize.embedding_model=`. There's no reliable filename heuristic
+//     we can rely on (3dspeaker, NeMo, WeSpeaker all ship with
+//     model-specific names), so we require it to be explicit.
+//   - Both paths are resolved relative to opts.ModelPath if not absolute.
+
+func (s *SherpaBackend) loadDiarization(opts *pb.ModelOptions) error {
+	if s.diarizer != 0 {
+		return nil
+	}
+
+	modelDir := filepath.Dir(opts.ModelFile)
+	segModel := findOptionValue(opts, optionDiarizeSegmentationModel, opts.ModelFile)
+	if segModel != "" && !filepath.IsAbs(segModel) && opts.ModelPath != "" {
+		segModel = filepath.Join(opts.ModelPath, segModel)
+	}
+	if !fileExists(segModel) {
+		return fmt.Errorf("sherpa-onnx diarization: pyannote segmentation model not found at %q (set diarize.segmentation_model=...)", segModel)
+	}
+
+	embModel := findOptionValue(opts, optionDiarizeEmbeddingModel, "")
+	if embModel == "" {
+		return fmt.Errorf("sherpa-onnx diarization: speaker-embedding model is required — pass options: [diarize.embedding_model=<path>] (e.g. 3dspeaker_speech_campplus_sv_zh-cn_16k-common.onnx)")
+	}
+	if !filepath.IsAbs(embModel) {
+		base := opts.ModelPath
+		if base == "" {
+			base = modelDir
+		}
+		embModel = filepath.Join(base, embModel)
+	}
+	if !fileExists(embModel) {
+		return fmt.Errorf("sherpa-onnx diarization: speaker-embedding model not found at %q", embModel)
+	}
+
+	threads := int32(1)
+	if opts.Threads != 0 {
+		threads = opts.Threads
+	}
+
+	cfg := shimDiarizeConfigNew()
+	defer shimDiarizeConfigFree(cfg)
+
+	shimDiarizeConfigSetSegmentationModel(cfg, segModel)
+	shimDiarizeConfigSetSegmentationNumThreads(cfg, threads)
+	shimDiarizeConfigSetSegmentationProvider(cfg, onnxProvider)
+	shimDiarizeConfigSetSegmentationDebug(cfg, 0)
+
+	shimDiarizeConfigSetEmbeddingModel(cfg, embModel)
+	shimDiarizeConfigSetEmbeddingNumThreads(cfg, threads)
+	shimDiarizeConfigSetEmbeddingProvider(cfg, onnxProvider)
+	shimDiarizeConfigSetEmbeddingDebug(cfg, 0)
+
+	shimDiarizeConfigSetClusteringNumClusters(cfg, findOptionInt(opts, optionDiarizeNumClusters, -1))
+	shimDiarizeConfigSetClusteringThreshold(cfg, findOptionFloat(opts, optionDiarizeThreshold, 0.5))
+	shimDiarizeConfigSetMinDurationOn(cfg, findOptionFloat(opts, optionDiarizeMinDurationOn, 0.3))
+	shimDiarizeConfigSetMinDurationOff(cfg, findOptionFloat(opts, optionDiarizeMinDurationOff, 0.5))
+
+	sd := shimCreateOfflineSpeakerDiarization(cfg)
+	if sd == 0 {
+		return fmt.Errorf("sherpa-onnx diarization: failed to create diarizer (segmentation=%s embedding=%s)", segModel, embModel)
+	}
+	s.diarizer = sd
+	s.diarSampleRate = int(sherpaOfflineSpeakerDiarizationGetSampleRate(sd))
+	return nil
+}
+
+// applyDiarizeOverrides re-applies clustering knobs onto an existing
+// diarizer when per-call DiarizeRequest fields are set. Both -1/0 sentinels
+// follow sherpa's convention: num_clusters<=0 → use threshold-based
+// clustering, threshold<=0 → keep load-time default.
+func (s *SherpaBackend) applyDiarizeOverrides(req *pb.DiarizeRequest) {
+	num := int32(-1)
+	if req.NumSpeakers > 0 {
+		num = req.NumSpeakers
+	}
+	threshold := float32(0)
+	if req.ClusteringThreshold > 0 {
+		threshold = req.ClusteringThreshold
+	}
+	if num > 0 || threshold > 0 {
+		shimDiarizeSetClustering(s.diarizer, num, threshold)
+	}
+}
+
+func (s *SherpaBackend) Diarize(req *pb.DiarizeRequest) (pb.DiarizeResponse, error) {
+	if s.diarizer == 0 {
+		return pb.DiarizeResponse{}, fmt.Errorf("sherpa-onnx diarization not loaded (model must be loaded with type=diarization)")
+	}
+	if req.Dst == "" {
+		return pb.DiarizeResponse{}, fmt.Errorf("sherpa-onnx diarization: DiarizeRequest.dst (audio path) is required")
+	}
+
+	dir, err := os.MkdirTemp("", "sherpa-diarize")
+	if err != nil {
+		return pb.DiarizeResponse{}, fmt.Errorf("failed to create temp dir: %w", err)
+	}
+	defer func() { _ = os.RemoveAll(dir) }()
+
+	wavPath := filepath.Join(dir, "input.wav")
+	if err := utils.AudioToWav(req.Dst, wavPath); err != nil {
+		return pb.DiarizeResponse{}, fmt.Errorf("failed to convert audio to wav: %w", err)
+	}
+
+	wave := sherpaReadWave(wavPath)
+	if wave == 0 {
+		return pb.DiarizeResponse{}, fmt.Errorf("failed to read wav %s", wavPath)
+	}
+	defer sherpaFreeWave(wave)
+
+	sr := int(shimWaveSampleRate(wave))
+	nSamples := shimWaveNumSamples(wave)
+	samples := shimWaveSamples(wave)
+	duration := float32(nSamples) / float32(sr)
+	if sr != s.diarSampleRate {
+		// AudioToWav already targets 16 kHz; pyannote-3.0 also wants 16 kHz, so
+		// this branch should be unreachable. Fail loudly instead of silently
+		// passing mismatched audio to the model.
+		return pb.DiarizeResponse{}, fmt.Errorf("sherpa-onnx diarization: input sample rate %d Hz does not match model %d Hz", sr, s.diarSampleRate)
+	}
+
+	s.applyDiarizeOverrides(req)
+
+	result := sherpaOfflineSpeakerDiarizationProcess(s.diarizer, samples, nSamples)
+	if result == 0 {
+		return pb.DiarizeResponse{}, fmt.Errorf("sherpa-onnx diarization: process failed")
+	}
+	defer sherpaDestroyOfflineSpeakerDiarizationResult(result)
+
+	numSegments := sherpaOfflineSpeakerDiarizationResultGetNumSegments(result)
+	numSpeakers := sherpaOfflineSpeakerDiarizationResultGetNumSpeakers(result)
+	if numSegments <= 0 {
+		return pb.DiarizeResponse{
+			Segments:    []*pb.DiarizeSegment{},
+			NumSpeakers: numSpeakers,
+			Duration:    duration,
+		}, nil
+	}
+
+	segs := sherpaOfflineSpeakerDiarizationResultSortByStartTime(result)
+	if segs == 0 {
+		return pb.DiarizeResponse{}, fmt.Errorf("sherpa-onnx diarization: failed to retrieve segments")
+	}
+	defer sherpaOfflineSpeakerDiarizationDestroySegment(segs)
+
+	out := make([]*pb.DiarizeSegment, 0, numSegments)
+	for i := range int(numSegments) {
+		var start, end float32
+		var spk int32
+		shimDiarizeSegmentAt(segs, int32(i),
+			unsafe.Pointer(&start), unsafe.Pointer(&end), unsafe.Pointer(&spk))
+		out = append(out, &pb.DiarizeSegment{
+			Id:      int32(i),
+			Start:   start,
+			End:     end,
+			Speaker: strconv.FormatInt(int64(spk), 10),
+		})
+	}
+	return pb.DiarizeResponse{
+		Segments:    out,
+		NumSpeakers: numSpeakers,
+		Duration:    duration,
+	}, nil
 }

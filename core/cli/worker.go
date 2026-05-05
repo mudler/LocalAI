@@ -465,10 +465,20 @@ func (s *backendSupervisor) startBackend(backend, backendPath string) (string, e
 	bp := s.processes[backend]
 	s.mu.Unlock()
 
-	// Wait for the gRPC server to be ready
+	// Wait for the gRPC server to be ready before reporting success.
+	// Slow nodes (Jetson Orin doing first-boot CUDA init, large CGO libs)
+	// can take 10-15s before the gRPC port accepts connections; the previous
+	// 4s window made the worker reply Success on a not-yet-listening port,
+	// which manifested upstream as "connect: connection refused" on the
+	// frontend's first LoadModel dial.
 	client := grpc.NewClientWithToken(clientAddr, false, nil, false, s.cmd.RegistrationToken)
-	for range 20 {
-		time.Sleep(200 * time.Millisecond)
+	const (
+		readinessPollInterval = 200 * time.Millisecond
+		readinessTimeout      = 30 * time.Second
+	)
+	deadline := time.Now().Add(readinessTimeout)
+	for time.Now().Before(deadline) {
+		time.Sleep(readinessPollInterval)
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		if ok, _ := client.HealthCheck(ctx); ok {
 			cancel()
@@ -496,10 +506,23 @@ func (s *backendSupervisor) startBackend(backend, backendPath string) (string, e
 		}
 	}
 
-	// Log stderr to help diagnose why the backend isn't responding
+	// Readiness deadline exceeded. Returning success here would leave the
+	// frontend with an unbound address (it dials, gets ECONNREFUSED, and
+	// the operator sees a misleading "connection refused" instead of the
+	// real cause). Stop the half-started process, recycle the port, and
+	// surface the failure to the caller with the backend's stderr tail.
 	stderrTail := readLastLinesFromFile(proc.StderrPath(), 20)
-	xlog.Warn("Backend gRPC server not ready after waiting, proceeding anyway", "backend", backend, "addr", clientAddr, "stderr", stderrTail)
-	return clientAddr, nil
+	xlog.Error("Backend gRPC server not ready before deadline; aborting install", "backend", backend, "addr", clientAddr, "timeout", readinessTimeout, "stderr", stderrTail)
+	if killErr := proc.Stop(); killErr != nil {
+		xlog.Warn("Failed to stop unready backend process", "backend", backend, "error", killErr)
+	}
+	s.mu.Lock()
+	if cur, ok := s.processes[backend]; ok && cur == bp {
+		delete(s.processes, backend)
+		s.freePorts = append(s.freePorts, port)
+	}
+	s.mu.Unlock()
+	return "", fmt.Errorf("backend %s did not become ready within %s. Last stderr:\n%s", backend, readinessTimeout, stderrTail)
 }
 
 // resolveProcessKeys turns a caller-supplied identifier into the set of

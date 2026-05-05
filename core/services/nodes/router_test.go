@@ -106,6 +106,10 @@ type fakeModelRouter struct {
 	getNodeLabels    []NodeLabel
 	getNodeLabelsErr error
 
+	// FindNodesWithModel returns (keyed by model name)
+	findNodesWithModelByName map[string][]BackendNode
+	findNodesWithModelErr    error
+
 	// Track calls for assertions
 	decrementCalls []string // "nodeID:modelName"
 	incrementCalls []string
@@ -114,7 +118,7 @@ type fakeModelRouter struct {
 	touchCalls     []string
 }
 
-func (f *fakeModelRouter) FindAndLockNodeWithModel(_ context.Context, modelName string) (*BackendNode, *NodeModel, error) {
+func (f *fakeModelRouter) FindAndLockNodeWithModel(_ context.Context, modelName string, _ []string) (*BackendNode, *NodeModel, error) {
 	return f.findAndLockNode, f.findAndLockNM, f.findAndLockErr
 }
 
@@ -228,6 +232,25 @@ func (f *fakeModelRouter) GetNodeLabels(_ context.Context, _ string) ([]NodeLabe
 	return f.getNodeLabels, f.getNodeLabelsErr
 }
 
+func (f *fakeModelRouter) FindNodesWithModel(_ context.Context, modelName string) ([]BackendNode, error) {
+	if f.findNodesWithModelErr != nil {
+		return nil, f.findNodesWithModelErr
+	}
+	return f.findNodesWithModelByName[modelName], nil
+}
+
+// fakeConflictResolver implements ConcurrencyConflictResolver from a static map.
+type fakeConflictResolver struct {
+	conflicts map[string][]string
+}
+
+func (f *fakeConflictResolver) GetModelsConflictingWith(name string) []string {
+	if f == nil {
+		return nil
+	}
+	return f.conflicts[name]
+}
+
 // ---------------------------------------------------------------------------
 // Fake BackendClientFactory + Backend
 // ---------------------------------------------------------------------------
@@ -268,13 +291,26 @@ func (f *stubClientFactory) NewClient(_ string, _ bool) grpc.Backend {
 type fakeUnloader struct {
 	installReply *messaging.BackendInstallReply
 	installErr   error
-	stopCalls    []string // "nodeID:model"
+	installCalls []installCall // every InstallBackend invocation, in order
+	stopCalls    []string      // "nodeID:model"
 	stopErr      error
 	unloadCalls  []string
 	unloadErr    error
 }
 
-func (f *fakeUnloader) InstallBackend(_, _, _, _, _, _, _ string, _ int) (*messaging.BackendInstallReply, error) {
+// installCall captures the args we care about when asserting that the
+// reconciler / router did or did not fire a NATS install. The fake records
+// every call so tests can verify both presence and shape (e.g. that backend
+// is non-empty).
+type installCall struct {
+	nodeID  string
+	backend string
+	modelID string
+	replica int
+}
+
+func (f *fakeUnloader) InstallBackend(nodeID, backend, modelID, _, _, _, _ string, replica int) (*messaging.BackendInstallReply, error) {
+	f.installCalls = append(f.installCalls, installCall{nodeID, backend, modelID, replica})
 	return f.installReply, f.installErr
 }
 
@@ -692,6 +728,28 @@ var _ = Describe("SmartRouter", func() {
 		})
 	})
 
+	Describe("ScheduleAndLoadModel (mock-based)", func() {
+		It("returns an error and does not fire a NATS install when no load info is stored", func() {
+			// Reproduces the reconciler scale-up bug: when GetModelLoadInfo
+			// returns ErrRecordNotFound (no replica has ever been loaded),
+			// the previous fallback called scheduleNewModel with an empty
+			// backend type, which the worker rejected on every reconciler
+			// tick. The fix bails out cleanly with an explanatory error and
+			// never sends backend.install.
+			unloader := &fakeUnloader{}
+			reg := &fakeModelRouter{}
+			router := NewSmartRouter(reg, SmartRouterOptions{Unloader: unloader})
+
+			node, err := router.ScheduleAndLoadModel(context.Background(), "never-loaded", nil)
+
+			Expect(err).To(HaveOccurred())
+			Expect(node).To(BeNil())
+			Expect(err.Error()).To(ContainSubstring("never-loaded"))
+			Expect(unloader.installCalls).To(BeEmpty(),
+				"reconciler must not fire backend.install when there is no load info to replicate")
+		})
+	})
+
 	// -----------------------------------------------------------------------
 	// Integration tests using real PostgreSQL (existing)
 	// -----------------------------------------------------------------------
@@ -810,6 +868,86 @@ var _ = Describe("SmartRouter", func() {
 			Expect(original.Model).To(Equal(origModel))
 			Expect(original.ModelFile).To(Equal(origModelFile))
 			Expect(original.MMProj).To(Equal(origMMProj))
+		})
+	})
+
+	// -----------------------------------------------------------------------
+	// narrowByGroupAntiAffinity
+	// -----------------------------------------------------------------------
+	Describe("narrowByGroupAntiAffinity", func() {
+		var (
+			reg      *fakeModelRouter
+			resolver *fakeConflictResolver
+			router   *SmartRouter
+			ctx      context.Context
+		)
+
+		BeforeEach(func() {
+			reg = &fakeModelRouter{}
+			resolver = &fakeConflictResolver{conflicts: map[string][]string{}}
+			router = NewSmartRouter(reg, SmartRouterOptions{
+				ConflictResolver: resolver,
+			})
+			ctx = context.Background()
+		})
+
+		It("returns the input set unchanged when the model has no conflicts", func() {
+			candidates := []string{"n1", "n2", "n3"}
+			out, err := router.narrowByGroupAntiAffinity(ctx, "lonely", candidates)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(out).To(Equal(candidates))
+		})
+
+		It("removes nodes that already host a conflicting model", func() {
+			resolver.conflicts["b"] = []string{"a"}
+			reg.findNodesWithModelByName = map[string][]BackendNode{
+				"a": {{ID: "n1"}},
+			}
+			out, err := router.narrowByGroupAntiAffinity(ctx, "b", []string{"n1", "n2"})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(out).To(ConsistOf("n2"))
+		})
+
+		It("returns the original set unchanged when every candidate has a conflict (soft fallback)", func() {
+			resolver.conflicts["b"] = []string{"a"}
+			reg.findNodesWithModelByName = map[string][]BackendNode{
+				"a": {{ID: "n1"}, {ID: "n2"}},
+			}
+			candidates := []string{"n1", "n2"}
+			out, err := router.narrowByGroupAntiAffinity(ctx, "b", candidates)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(out).To(Equal(candidates))
+		})
+
+		It("removes nodes hosting any of multiple conflicting models", func() {
+			resolver.conflicts["c"] = []string{"a", "b"}
+			reg.findNodesWithModelByName = map[string][]BackendNode{
+				"a": {{ID: "n1"}},
+				"b": {{ID: "n2"}},
+			}
+			out, err := router.narrowByGroupAntiAffinity(ctx, "c", []string{"n1", "n2", "n3"})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(out).To(ConsistOf("n3"))
+		})
+
+		It("treats a nil candidate set (\"any healthy node\") by returning nil unchanged when narrowing yields nothing", func() {
+			resolver.conflicts["b"] = []string{"a"}
+			reg.findNodesWithModelByName = map[string][]BackendNode{
+				"a": {{ID: "n1"}, {ID: "n2"}},
+			}
+			out, err := router.narrowByGroupAntiAffinity(ctx, "b", nil)
+			Expect(err).ToNot(HaveOccurred())
+			// nil in → nil out: caller's "any healthy node" semantics preserved.
+			// Hard-narrowing nil would silently exclude every other node.
+			Expect(out).To(BeNil())
+		})
+
+		It("is a no-op when no resolver is configured", func() {
+			plain := NewSmartRouter(reg, SmartRouterOptions{})
+			candidates := []string{"n1", "n2"}
+			out, err := plain.narrowByGroupAntiAffinity(ctx, "b", candidates)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(out).To(Equal(candidates))
 		})
 	})
 })

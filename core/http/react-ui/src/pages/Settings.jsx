@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useOutletContext } from 'react-router-dom'
-import { settingsApi, resourcesApi } from '../utils/api'
+import { useTranslation } from 'react-i18next'
+import { settingsApi, resourcesApi, brandingApi } from '../utils/api'
+import { useBranding } from '../contexts/BrandingContext'
 import LoadingSpinner from '../components/LoadingSpinner'
 import SearchableModelSelect from '../components/SearchableModelSelect'
 import { CAP_CHAT } from '../utils/capabilities'
@@ -9,29 +11,39 @@ import SettingRow from '../components/SettingRow'
 import { formatBytes, percentColor } from '../utils/format'
 
 const SECTIONS = [
-  { id: 'watchdog', icon: 'fa-shield-halved', color: 'var(--color-primary)', label: 'Watchdog' },
-  { id: 'memory', icon: 'fa-memory', color: 'var(--color-accent)', label: 'Memory' },
-  { id: 'backends', icon: 'fa-cogs', color: 'var(--color-accent)', label: 'Backends' },
-  { id: 'performance', icon: 'fa-gauge-high', color: 'var(--color-success)', label: 'Performance' },
-  { id: 'tracing', icon: 'fa-bug', color: 'var(--color-warning)', label: 'Tracing' },
-  { id: 'api', icon: 'fa-globe', color: 'var(--color-warning)', label: 'API & CORS' },
-  { id: 'p2p', icon: 'fa-network-wired', color: 'var(--color-accent)', label: 'P2P' },
-  { id: 'galleries', icon: 'fa-images', color: 'var(--color-accent)', label: 'Galleries' },
-  { id: 'apikeys', icon: 'fa-key', color: 'var(--color-error)', label: 'API Keys' },
-  { id: 'agents', icon: 'fa-tasks', color: 'var(--color-primary)', label: 'Agent Jobs' },
-  { id: 'agentpool', icon: 'fa-robot', color: 'var(--color-primary)', label: 'Agent Pool' },
-  { id: 'assistant', icon: 'fa-user-shield', color: 'var(--color-accent)', label: 'LocalAI Assistant' },
-  { id: 'responses', icon: 'fa-database', color: 'var(--color-accent)', label: 'Responses' },
+  { id: 'branding', icon: 'fa-palette', color: 'var(--color-primary)' },
+  { id: 'watchdog', icon: 'fa-shield-halved', color: 'var(--color-primary)' },
+  { id: 'memory', icon: 'fa-memory', color: 'var(--color-accent)' },
+  { id: 'backends', icon: 'fa-cogs', color: 'var(--color-accent)' },
+  { id: 'performance', icon: 'fa-gauge-high', color: 'var(--color-success)' },
+  { id: 'tracing', icon: 'fa-bug', color: 'var(--color-warning)' },
+  { id: 'api', icon: 'fa-globe', color: 'var(--color-warning)' },
+  { id: 'p2p', icon: 'fa-network-wired', color: 'var(--color-accent)' },
+  { id: 'galleries', icon: 'fa-images', color: 'var(--color-accent)' },
+  { id: 'apikeys', icon: 'fa-key', color: 'var(--color-error)' },
+  { id: 'agents', icon: 'fa-tasks', color: 'var(--color-primary)' },
+  { id: 'agentpool', icon: 'fa-robot', color: 'var(--color-primary)' },
+  { id: 'assistant', icon: 'fa-user-shield', color: 'var(--color-accent)' },
+  { id: 'responses', icon: 'fa-database', color: 'var(--color-accent)' },
+]
+
+const BRANDING_ASSETS = [
+  { kind: 'logo', label: 'Square Logo', description: 'Used as the icon-sized logo in the sidebar and on small screens.' },
+  { kind: 'logo_horizontal', label: 'Horizontal Logo', description: 'Wide logo shown in the sidebar header on desktop.' },
+  { kind: 'favicon', label: 'Favicon', description: 'Browser tab icon. PNG, SVG, or ICO. Browsers cache the favicon — a hard reload may be needed.' },
 ]
 
 export default function Settings() {
   const { addToast } = useOutletContext()
+  const { t } = useTranslation('admin')
   const [settings, setSettings] = useState(null)
   const [initialSettings, setInitialSettings] = useState(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [resources, setResources] = useState(null)
-  const [activeSection, setActiveSection] = useState('watchdog')
+  const [activeSection, setActiveSection] = useState('branding')
+  const branding = useBranding()
+  const [brandingBusy, setBrandingBusy] = useState(null) // null | kind for asset ops in flight
   const contentRef = useRef(null)
   const sectionRefs = useRef({})
 
@@ -61,11 +73,50 @@ export default function Settings() {
     try {
       await settingsApi.save(settings)
       setInitialSettings(structuredClone(settings))
+      // Refresh branding context so name/tagline updates propagate to the
+      // sidebar, footer, and document title without a full reload.
+      branding.refresh()
       addToast('Settings saved successfully', 'success')
     } catch (err) {
       addToast(`Save failed: ${err.message}`, 'error')
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleBrandingUpload = async (kind, file) => {
+    if (!file) return
+    setBrandingBusy(kind)
+    try {
+      await brandingApi.uploadAsset(kind, file)
+      await branding.refresh()
+      addToast('Asset uploaded', 'success')
+    } catch (err) {
+      addToast(`Upload failed: ${err.message}`, 'error')
+    } finally {
+      setBrandingBusy(null)
+    }
+  }
+
+  const handleBrandingReset = async (kind) => {
+    setBrandingBusy(kind)
+    try {
+      await brandingApi.deleteAsset(kind)
+      await branding.refresh()
+      addToast('Reset to default', 'success')
+    } catch (err) {
+      addToast(`Reset failed: ${err.message}`, 'error')
+    } finally {
+      setBrandingBusy(null)
+    }
+  }
+
+  const brandingAssetUrl = (kind) => {
+    switch (kind) {
+      case 'logo': return branding.logoUrl
+      case 'logo_horizontal': return branding.logoHorizontalUrl
+      case 'favicon': return branding.faviconUrl
+      default: return ''
     }
   }
 
@@ -113,8 +164,8 @@ export default function Settings() {
         padding: 'var(--spacing-lg) var(--spacing-lg) var(--spacing-md)',
       }}>
         <div>
-          <h1 className="page-title">Settings</h1>
-          <p className="page-subtitle">Configure LocalAI runtime settings</p>
+          <h1 className="page-title">{t('settings.title')}</h1>
+          <p className="page-subtitle">{t('settings.subtitle')}</p>
         </div>
         <button className={`btn ${isDirty ? 'btn-primary' : 'btn-secondary'}`} onClick={handleSave} disabled={saving || !isDirty}>
           {saving ? <><LoadingSpinner size="sm" /> Saving...</> : <><i className="fas fa-save" /> {isDirty ? 'Save Changes' : 'Saved'}</>}
@@ -148,7 +199,7 @@ export default function Settings() {
                 width: 16, textAlign: 'center', fontSize: '0.75rem',
                 color: activeSection === s.id ? s.color : 'var(--color-text-muted)',
               }} />
-              {s.label}
+              {t(`settings.sections.${s.id}`)}
             </button>
           ))}
         </nav>
@@ -161,6 +212,81 @@ export default function Settings() {
             maxHeight: 'calc(100vh - 180px)',
           }}
         >
+          {/* Branding / Whitelabeling */}
+          <div ref={el => sectionRefs.current.branding = el} style={{ marginBottom: 'var(--spacing-xl)' }}>
+            <h3 style={{ fontSize: '1rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-md)' }}>
+              <i className="fas fa-palette" style={{ color: 'var(--color-primary)' }} /> Branding
+            </h3>
+            <div className="card">
+              <SettingRow label="Instance Name" description="Replaces &quot;LocalAI&quot; in the sidebar, footer, and browser tab. Visible on the login screen.">
+                <input
+                  className="input"
+                  style={{ width: 240 }}
+                  value={settings.instance_name || ''}
+                  onChange={(e) => update('instance_name', e.target.value)}
+                  placeholder="LocalAI"
+                />
+              </SettingRow>
+              <SettingRow label="Tagline" description="Optional short subtitle shown beneath the instance name.">
+                <input
+                  className="input"
+                  style={{ width: 240 }}
+                  value={settings.instance_tagline || ''}
+                  onChange={(e) => update('instance_tagline', e.target.value)}
+                  placeholder="(none)"
+                />
+              </SettingRow>
+              {BRANDING_ASSETS.map(asset => {
+                const url = brandingAssetUrl(asset.kind)
+                const isCustom = url && url.startsWith('/branding/asset/')
+                const busy = brandingBusy === asset.kind
+                return (
+                  <SettingRow key={asset.kind} label={asset.label} description={asset.description}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
+                      <div style={{
+                        width: 56, height: 56, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        background: 'var(--color-surface-elevated)',
+                        border: '1px solid var(--color-border)',
+                        borderRadius: 'var(--radius-md)', overflow: 'hidden',
+                      }}>
+                        {url ? (
+                          <img src={url} alt="" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+                        ) : (
+                          <i className="fas fa-image" style={{ color: 'var(--color-text-muted)' }} />
+                        )}
+                      </div>
+                      <label className="btn btn-secondary" style={{ cursor: busy ? 'wait' : 'pointer', margin: 0 }}>
+                        <i className="fas fa-upload" /> {busy ? 'Uploading…' : 'Upload'}
+                        <input
+                          type="file"
+                          accept="image/png,image/jpeg,image/svg+xml,image/webp,image/x-icon,.ico"
+                          style={{ display: 'none' }}
+                          disabled={busy}
+                          onChange={(e) => {
+                            const file = e.target.files?.[0]
+                            e.target.value = ''
+                            if (file) handleBrandingUpload(asset.kind, file)
+                          }}
+                        />
+                      </label>
+                      {isCustom && (
+                        <button
+                          type="button"
+                          className="btn btn-secondary"
+                          onClick={() => handleBrandingReset(asset.kind)}
+                          disabled={busy}
+                          title="Revert to bundled default"
+                        >
+                          <i className="fas fa-undo" /> Reset
+                        </button>
+                      )}
+                    </div>
+                  </SettingRow>
+                )
+              })}
+            </div>
+          </div>
+
           {/* Watchdog */}
           <div ref={el => sectionRefs.current.watchdog = el} style={{ marginBottom: 'var(--spacing-xl)' }}>
             <h3 style={{ fontSize: '1rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-md)' }}>
@@ -457,6 +583,36 @@ export default function Settings() {
               </SettingRow>
               <SettingRow label="Collection DB Path" description="Database path for agent collections">
                 <input className="input" style={{ width: 280 }} value={settings.agent_pool_collection_db_path || ''} onChange={(e) => update('agent_pool_collection_db_path', e.target.value)} placeholder="Leave empty for default" />
+              </SettingRow>
+              <SettingRow label="Vector Engine" description="Backend store for collection embeddings. chromem is in-memory; postgres uses pgvector and requires Database URL.">
+                <select
+                  className="input"
+                  style={{ width: 160 }}
+                  value={settings.agent_pool_vector_engine || 'chromem'}
+                  onChange={(e) => update('agent_pool_vector_engine', e.target.value)}
+                >
+                  <option value="chromem">chromem</option>
+                  <option value="postgres">postgres</option>
+                </select>
+              </SettingRow>
+              <SettingRow label="Database URL" description="PostgreSQL DSN used when Vector Engine is postgres (e.g. postgres://user:pass@host:5432/db).">
+                <input
+                  className="input"
+                  style={{ width: 320 }}
+                  value={settings.agent_pool_database_url || ''}
+                  onChange={(e) => update('agent_pool_database_url', e.target.value)}
+                  placeholder="postgres://..."
+                  disabled={(settings.agent_pool_vector_engine || 'chromem') !== 'postgres'}
+                />
+              </SettingRow>
+              <SettingRow label="Agent Hub URL" description="Override the default https://agenthub.localai.io endpoint (custom or self-hosted hub).">
+                <input
+                  className="input"
+                  style={{ width: 320 }}
+                  value={settings.agent_pool_agent_hub_url || ''}
+                  onChange={(e) => update('agent_pool_agent_hub_url', e.target.value)}
+                  placeholder="https://agenthub.localai.io"
+                />
               </SettingRow>
             </div>
           </div>

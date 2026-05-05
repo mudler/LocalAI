@@ -3,5 +3,5 @@
 # on a cu130 host. Pull the cu130-flavoured wheel from vLLM's per-tag index
 # instead — the cublas13 case in install.sh adds --index-strategy=unsafe-best-match
 # so uv consults this index alongside PyPI.
---extra-index-url https://wheels.vllm.ai/0.20.0/cu130
-vllm==0.20.0
+--extra-index-url https://wheels.vllm.ai/0.20.1/cu130
+vllm==0.20.1

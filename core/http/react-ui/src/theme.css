@@ -36,6 +36,7 @@
   --color-text-primary: #eceff4;         /* nord6 */
   --color-text-secondary: #d8dee9;       /* nord4 */
   --color-text-muted: #a1acb9;
+  --color-text-tertiary: #8a96a5;        /* slightly dimmer than muted, still WCAG AA on dark surfaces — used for metadata */
   --color-text-disabled: #6e7a8c;
   --color-text-inverse: #2e3440;
 
@@ -190,6 +191,7 @@
   --color-text-primary: #2e3440;         /* nord0 */
   --color-text-secondary: #3b4252;       /* nord1 */
   --color-text-muted: #6e7a8c;
+  --color-text-tertiary: #6e7a8c;        /* matches muted in light theme — going lighter would fail contrast on white */
   --color-text-disabled: #a1acb9;
   --color-text-inverse: #ffffff;
 

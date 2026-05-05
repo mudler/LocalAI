@@ -1,0 +1,85 @@
+{
+  "title": "Installa modelli",
+  "subtitle": "Sfoglia e installa modelli AI dalla galleria",
+  "stats": {
+    "available": "Disponibili",
+    "installed": "Installati"
+  },
+  "actions": {
+    "addModel": "Aggiungi modello",
+    "importModel": "Importa modello",
+    "install": "Installa",
+    "reinstall": "Reinstalla",
+    "delete": "Elimina"
+  },
+  "filters": {
+    "all": "Tutti",
+    "llm": "LLM",
+    "image": "Immagine",
+    "multimodal": "Multimodale",
+    "vision": "Visione",
+    "tts": "TTS",
+    "stt": "STT",
+    "embedding": "Embedding",
+    "rerank": "Rerank",
+    "allBackends": "Tutti i backend",
+    "searchBackends": "Cerca backend..."
+  },
+  "search": {
+    "placeholder": "Cerca modelli...",
+    "clearFilters": "Rimuovi filtri"
+  },
+  "table": {
+    "modelName": "Nome modello",
+    "description": "Descrizione",
+    "backend": "Backend",
+    "sizeVram": "Dimensione / VRAM",
+    "status": "Stato",
+    "actions": "Azioni",
+    "size": "Dimensione: {{size}}",
+    "vram": "VRAM: {{vram}}",
+    "fits": "Compatibile",
+    "mayNotFit": "Potrebbe non entrare",
+    "trustRemoteCode": "Trust Remote Code",
+    "installing": "Installazione",
+    "installingPct": "Installazione · {{percent}}%",
+    "installed": "Installato",
+    "notInstalled": "Non installato"
+  },
+  "detail": {
+    "description": "Descrizione",
+    "gallery": "Galleria",
+    "backend": "Backend",
+    "size": "Dimensione",
+    "vram": "VRAM",
+    "license": "Licenza",
+    "tags": "Tag",
+    "links": "Link",
+    "warning": "Attenzione",
+    "files": "File",
+    "fitsGpu": "Entra nella GPU",
+    "mayNotFitGpu": "Potrebbe non entrare nella GPU",
+    "requiresTrustRemoteCode": "Richiede Trust Remote Code",
+    "fileCount_one": "{{count}} file",
+    "fileCount_other": "{{count}} file",
+    "filename": "Nome file",
+    "uri": "URI",
+    "sha256": "SHA256"
+  },
+  "empty": {
+    "title": "Nessun modello trovato",
+    "withFilters": "Nessun modello corrisponde ai filtri attuali.",
+    "noFilters": "La galleria modelli è vuota."
+  },
+  "deleteDialog": {
+    "title": "Elimina modello",
+    "message": "Eliminare il modello {{model}}?",
+    "confirm": "Elimina {{model}}",
+    "deletingToast": "Eliminazione di {{model}} in corso..."
+  },
+  "errors": {
+    "loadFailed": "Caricamento modelli fallito: {{message}}",
+    "installFailed": "Installazione fallita: {{message}}",
+    "deleteFailed": "Eliminazione fallita: {{message}}"
+  }
+}

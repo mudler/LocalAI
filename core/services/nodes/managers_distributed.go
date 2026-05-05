@@ -114,7 +114,12 @@ func (r BackendOpResult) Err() error {
 // deletes the row and reports "success". For non-healthy nodes the status
 // is "queued" — no attempt is made right now, reconciler will pick it up
 // when the node returns.
-func (d *DistributedBackendManager) enqueueAndDrainBackendOp(ctx context.Context, op, backend string, galleriesJSON []byte, apply func(node BackendNode) error) (BackendOpResult, error) {
+// targetNodeIDs is an optional allowlist: when non-nil, only nodes whose ID is
+// in the set are visited. Used by UpgradeBackend to avoid asking nodes that
+// never had the backend installed to "upgrade" it — such requests fail at the
+// gallery (no platform variant) and would otherwise leave a forever-retrying
+// pending_backend_ops row. nil means "fan out to every node" (Install/Delete).
+func (d *DistributedBackendManager) enqueueAndDrainBackendOp(ctx context.Context, op, backend string, galleriesJSON []byte, targetNodeIDs map[string]bool, apply func(node BackendNode) error) (BackendOpResult, error) {
 	allNodes, err := d.registry.List(ctx)
 	if err != nil {
 		return BackendOpResult{}, err
@@ -131,6 +136,9 @@ func (d *DistributedBackendManager) enqueueAndDrainBackendOp(ctx context.Context
 		// enqueueing for them guarantees a forever-retrying row that the
 		// reconciler can never drain. Silently skip — they aren't consumers.
 		if node.NodeType != "" && node.NodeType != NodeTypeBackend {
+			continue
+		}
+		if targetNodeIDs != nil && !targetNodeIDs[node.ID] {
 			continue
 		}
 		if err := d.registry.UpsertPendingBackendOp(ctx, node.ID, backend, op, galleriesJSON); err != nil {
@@ -218,7 +226,7 @@ func (d *DistributedBackendManager) DeleteBackend(name string) error {
 	}
 
 	ctx := context.Background()
-	result, err := d.enqueueAndDrainBackendOp(ctx, OpBackendDelete, name, nil, func(node BackendNode) error {
+	result, err := d.enqueueAndDrainBackendOp(ctx, OpBackendDelete, name, nil, nil, func(node BackendNode) error {
 		reply, err := d.adapter.DeleteBackend(node.ID, name)
 		if err != nil {
 			return err
@@ -241,7 +249,7 @@ func (d *DistributedBackendManager) DeleteBackendDetailed(ctx context.Context, n
 	if err := d.local.DeleteBackend(name); err != nil && !errors.Is(err, gallery.ErrBackendNotFound) {
 		return BackendOpResult{}, err
 	}
-	return d.enqueueAndDrainBackendOp(ctx, OpBackendDelete, name, nil, func(node BackendNode) error {
+	return d.enqueueAndDrainBackendOp(ctx, OpBackendDelete, name, nil, nil, func(node BackendNode) error {
 		reply, err := d.adapter.DeleteBackend(node.ID, name)
 		if err != nil {
 			return err
@@ -327,7 +335,7 @@ func (d *DistributedBackendManager) InstallBackend(ctx context.Context, op *gall
 	galleriesJSON, _ := json.Marshal(op.Galleries)
 	backendName := op.GalleryElementName
 
-	result, err := d.enqueueAndDrainBackendOp(ctx, OpBackendInstall, backendName, galleriesJSON, func(node BackendNode) error {
+	result, err := d.enqueueAndDrainBackendOp(ctx, OpBackendInstall, backendName, galleriesJSON, nil, func(node BackendNode) error {
 		// Admin-driven backend install: not tied to a specific replica slot.
 		// Pass replica 0 — the worker's processKey is "backend#0" when no
 		// modelID is supplied, matching pre-PR4 behavior.
@@ -347,11 +355,28 @@ func (d *DistributedBackendManager) InstallBackend(ctx context.Context, op *gall
 }
 
 // UpgradeBackend reuses the install NATS subject (the worker re-downloads
-// from the gallery). Same queue semantics as Install/Delete.
+// from the gallery). Unlike Install/Delete, upgrade only targets the nodes
+// that already report this backend as installed — fanning out to every node
+// would ask workers to "upgrade" something they never had, which fails at
+// the gallery (e.g. a darwin/arm64 worker has no platform variant for a
+// linux-only backend) and leaves a forever-retrying pending_backend_ops row.
 func (d *DistributedBackendManager) UpgradeBackend(ctx context.Context, name string, progressCb galleryop.ProgressCallback) error {
 	galleriesJSON, _ := json.Marshal(d.backendGalleries)
 
-	result, err := d.enqueueAndDrainBackendOp(ctx, OpBackendUpgrade, name, galleriesJSON, func(node BackendNode) error {
+	installed, err := d.ListBackends()
+	if err != nil {
+		return fmt.Errorf("failed to list cluster backends: %w", err)
+	}
+	entry, ok := installed[name]
+	if !ok || len(entry.Nodes) == 0 {
+		return fmt.Errorf("backend %q is not installed on any node", name)
+	}
+	targetNodeIDs := make(map[string]bool, len(entry.Nodes))
+	for _, n := range entry.Nodes {
+		targetNodeIDs[n.NodeID] = true
+	}
+
+	result, err := d.enqueueAndDrainBackendOp(ctx, OpBackendUpgrade, name, galleriesJSON, targetNodeIDs, func(node BackendNode) error {
 		reply, err := d.adapter.InstallBackend(node.ID, name, "", string(galleriesJSON), "", "", "", 0)
 		if err != nil {
 			return err

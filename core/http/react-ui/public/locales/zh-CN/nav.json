@@ -1,0 +1,53 @@
+{
+  "appName": "LocalAI",
+  "openMenu": "打开菜单",
+  "closeMenu": "关闭菜单",
+  "primaryNavigation": "主导航",
+  "switchToLightMode": "切换到浅色模式",
+  "switchToDarkMode": "切换到深色模式",
+  "expandSidebar": "展开侧边栏",
+  "collapseSidebar": "收起侧边栏",
+  "changeLanguage": "更改语言",
+  "logout": "退出登录",
+  "accountSettings": "账户设置",
+  "account": "账户",
+  "accountFor": "账户：{{name}}",
+  "sections": {
+    "tools": "工具",
+    "enhance": "增强",
+    "biometrics": "生物识别",
+    "agents": "智能体",
+    "system": "系统"
+  },
+  "items": {
+    "home": "首页",
+    "installModels": "安装模型",
+    "chat": "聊天",
+    "studio": "工作室",
+    "talk": "通话",
+    "fineTune": "微调（实验性）",
+    "quantize": "量化（实验性）",
+    "audioTransform": "音频变换",
+    "faceRecognition": "人脸识别",
+    "voiceRecognition": "语音识别",
+    "agents": "智能体",
+    "skills": "技能",
+    "memory": "记忆库",
+    "mcpJobs": "MCP CI 任务",
+    "usage": "用量",
+    "users": "用户",
+    "backends": "后端",
+    "traces": "追踪",
+    "nodes": "节点",
+    "swarm": "Swarm",
+    "system": "系统",
+    "settings": "设置",
+    "api": "API"
+  },
+  "footer": {
+    "github": "GitHub",
+    "documentation": "文档",
+    "author": "作者",
+    "copyright": "© 2023-{{year}} {{author}}"
+  }
+}

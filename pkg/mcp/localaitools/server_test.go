@@ -76,6 +76,7 @@ var expectedFullCatalog = sortedStrings(
 	ToolDeleteModel,
 	ToolEditModelConfig,
 	ToolGallerySearch,
+	ToolGetBranding,
 	ToolGetJobStatus,
 	ToolGetModelConfig,
 	ToolImportModelURI,
@@ -87,6 +88,7 @@ var expectedFullCatalog = sortedStrings(
 	ToolListKnownBackends,
 	ToolListNodes,
 	ToolReloadModels,
+	ToolSetBranding,
 	ToolSystemInfo,
 	ToolToggleModelPinned,
 	ToolToggleModelState,
@@ -97,6 +99,7 @@ var expectedFullCatalog = sortedStrings(
 // expectedReadOnlyCatalog is the tool set when DisableMutating=true. Sorted.
 var expectedReadOnlyCatalog = sortedStrings(
 	ToolGallerySearch,
+	ToolGetBranding,
 	ToolGetJobStatus,
 	ToolGetModelConfig,
 	ToolListBackends,

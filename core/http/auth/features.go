@@ -44,6 +44,10 @@ var RouteFeatureRegistry = []RouteFeature{
 	{"POST", "/v1/audio/transcriptions", FeatureAudioTranscription},
 	{"POST", "/audio/transcriptions", FeatureAudioTranscription},
 
+	// Audio diarization (speaker turns)
+	{"POST", "/v1/audio/diarization", FeatureAudioDiarization},
+	{"POST", "/audio/diarization", FeatureAudioDiarization},
+
 	// Audio speech / TTS
 	{"POST", "/v1/audio/speech", FeatureAudioSpeech},
 	{"POST", "/audio/speech", FeatureAudioSpeech},
@@ -72,6 +76,11 @@ var RouteFeatureRegistry = []RouteFeature{
 	{"POST", "/v1/voice/register", FeatureVoiceRecognition},
 	{"POST", "/v1/voice/identify", FeatureVoiceRecognition},
 	{"POST", "/v1/voice/forget", FeatureVoiceRecognition},
+
+	// Audio transform (echo cancellation, noise suppression, voice conversion, etc.)
+	{"POST", "/audio/transformations", FeatureAudioTransform},
+	{"POST", "/audio/transform", FeatureAudioTransform},
+	{"GET", "/audio/transformations/stream", FeatureAudioTransform},
 
 	// Video
 	{"POST", "/video", FeatureVideo},
@@ -158,6 +167,7 @@ func APIFeatureMetas() []FeatureMeta {
 		{FeatureImages, "Image Generation", true},
 		{FeatureAudioSpeech, "Audio Speech / TTS", true},
 		{FeatureAudioTranscription, "Audio Transcription", true},
+		{FeatureAudioDiarization, "Audio Diarization", true},
 		{FeatureVAD, "Voice Activity Detection", true},
 		{FeatureDetection, "Detection", true},
 		{FeatureVideo, "Video Generation", true},
@@ -170,5 +180,6 @@ func APIFeatureMetas() []FeatureMeta {
 		{FeatureStores, "Stores", true},
 		{FeatureFaceRecognition, "Face Recognition", true},
 		{FeatureVoiceRecognition, "Voice Recognition", true},
+		{FeatureAudioTransform, "Audio Transform", true},
 	}
 }

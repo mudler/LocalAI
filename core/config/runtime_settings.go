@@ -73,8 +73,20 @@ type RuntimeSettings struct {
 	AgentPoolChunkOverlap     *int    `json:"agent_pool_chunk_overlap,omitempty"`
 	AgentPoolEnableLogs       *bool   `json:"agent_pool_enable_logs,omitempty"`
 	AgentPoolCollectionDBPath *string `json:"agent_pool_collection_db_path,omitempty"`
+	AgentPoolVectorEngine     *string `json:"agent_pool_vector_engine,omitempty"` // chromem | postgres
+	AgentPoolDatabaseURL      *string `json:"agent_pool_database_url,omitempty"`  // PostgreSQL DSN when vector engine is postgres
+	AgentPoolAgentHubURL      *string `json:"agent_pool_agent_hub_url,omitempty"` // override the agenthub.localai.io endpoint
 
 	// LocalAI Assistant settings — read live by the chat handler at request
 	// entry, so flipping the toggle takes effect on the next request.
 	LocalAIAssistantEnabled *bool `json:"localai_assistant_enabled,omitempty"` // negation of DisableLocalAIAssistant for UI clarity
+
+	// Branding / whitelabeling. Text fields are user-facing; *File fields hold
+	// just the basename of an uploaded asset under {DynamicConfigsDir}/branding/.
+	// All optional — empty values fall back to bundled LocalAI defaults.
+	InstanceName       *string `json:"instance_name,omitempty"`
+	InstanceTagline    *string `json:"instance_tagline,omitempty"`
+	LogoFile           *string `json:"logo_file,omitempty"`
+	LogoHorizontalFile *string `json:"logo_horizontal_file,omitempty"`
+	FaviconFile        *string `json:"favicon_file,omitempty"`
 }

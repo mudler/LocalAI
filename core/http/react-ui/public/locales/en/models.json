@@ -1,0 +1,85 @@
+{
+  "title": "Install Models",
+  "subtitle": "Browse and install AI models from the gallery",
+  "stats": {
+    "available": "Available",
+    "installed": "Installed"
+  },
+  "actions": {
+    "addModel": "Add Model",
+    "importModel": "Import Model",
+    "install": "Install",
+    "reinstall": "Reinstall",
+    "delete": "Delete"
+  },
+  "filters": {
+    "all": "All",
+    "llm": "LLM",
+    "image": "Image",
+    "multimodal": "Multimodal",
+    "vision": "Vision",
+    "tts": "TTS",
+    "stt": "STT",
+    "embedding": "Embedding",
+    "rerank": "Rerank",
+    "allBackends": "All Backends",
+    "searchBackends": "Search backends..."
+  },
+  "search": {
+    "placeholder": "Search models...",
+    "clearFilters": "Clear filters"
+  },
+  "table": {
+    "modelName": "Model Name",
+    "description": "Description",
+    "backend": "Backend",
+    "sizeVram": "Size / VRAM",
+    "status": "Status",
+    "actions": "Actions",
+    "size": "Size: {{size}}",
+    "vram": "VRAM: {{vram}}",
+    "fits": "Fits",
+    "mayNotFit": "May not fit",
+    "trustRemoteCode": "Trust Remote Code",
+    "installing": "Installing",
+    "installingPct": "Installing · {{percent}}%",
+    "installed": "Installed",
+    "notInstalled": "Not Installed"
+  },
+  "detail": {
+    "description": "Description",
+    "gallery": "Gallery",
+    "backend": "Backend",
+    "size": "Size",
+    "vram": "VRAM",
+    "license": "License",
+    "tags": "Tags",
+    "links": "Links",
+    "warning": "Warning",
+    "files": "Files",
+    "fitsGpu": "Fits in GPU",
+    "mayNotFitGpu": "May not fit in GPU",
+    "requiresTrustRemoteCode": "Requires Trust Remote Code",
+    "fileCount_one": "{{count}} file",
+    "fileCount_other": "{{count}} files",
+    "filename": "Filename",
+    "uri": "URI",
+    "sha256": "SHA256"
+  },
+  "empty": {
+    "title": "No models found",
+    "withFilters": "No models match your current search or filters.",
+    "noFilters": "The model gallery is empty."
+  },
+  "deleteDialog": {
+    "title": "Delete Model",
+    "message": "Delete model {{model}}?",
+    "confirm": "Delete {{model}}",
+    "deletingToast": "Deleting {{model}}..."
+  },
+  "errors": {
+    "loadFailed": "Failed to load models: {{message}}",
+    "installFailed": "Failed to install: {{message}}",
+    "deleteFailed": "Failed to delete: {{message}}"
+  }
+}

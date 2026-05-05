@@ -52,10 +52,10 @@ async function enterPowerPreferences(page) {
 }
 
 // Backend dropdown trigger — the SearchableSelect button has
-// `aria-haspopup="listbox"`. There's exactly one on the Power/Preferences
-// page so the first match is stable.
+// `aria-haspopup="listbox"`. The LanguageSwitcher in the sidebar uses the
+// same attribute, so scope to the <main> content area to skip it.
 function backendTrigger(page) {
-  return page.locator('button[aria-haspopup="listbox"]').first()
+  return page.locator('main button[aria-haspopup="listbox"]').first()
 }
 
 async function selectBackend(page, name) {

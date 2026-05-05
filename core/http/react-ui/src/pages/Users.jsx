@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useOutletContext } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '../context/AuthContext'
 import { adminUsersApi, adminInvitesApi } from '../utils/api'
 import LoadingSpinner from '../components/LoadingSpinner'
@@ -658,6 +659,7 @@ function InvitesTab({ addToast }) {
 export default function Users() {
   const { addToast } = useOutletContext()
   const { user: currentUser } = useAuth()
+  const { t } = useTranslation('admin')
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -796,8 +798,8 @@ export default function Users() {
   return (
     <div className="page page--wide">
       <div className="page-header">
-        <h1 className="page-title">Users</h1>
-        <p className="page-subtitle">Manage registered users, roles, and invites</p>
+        <h1 className="page-title">{t('users.title')}</h1>
+        <p className="page-subtitle">{t('users.subtitle')}</p>
       </div>
 
       {/* Tab bar */}

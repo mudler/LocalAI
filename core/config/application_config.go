@@ -107,6 +107,24 @@ type ApplicationConfig struct {
 	// LocalAI Assistant chat modality. Hard-disable the in-process admin MCP
 	// server with this flag; runtime-toggleable via /api/settings.
 	DisableLocalAIAssistant bool
+
+	// Branding / whitelabeling — runtime-mutable via /api/settings (text) and
+	// /api/branding/asset/:kind (binary uploads). All values optional; empty
+	// strings fall back to bundled LocalAI defaults.
+	Branding BrandingConfig
+}
+
+// BrandingConfig holds the whitelabel/branding configuration of the instance.
+// Text fields are exposed via the public GET /api/branding endpoint so the
+// login page can read them before authentication. Binary asset filenames
+// (logo, horizontal logo, favicon) are stored as basenames; the actual files
+// live under {DynamicConfigsDir}/branding/.
+type BrandingConfig struct {
+	InstanceName       string
+	InstanceTagline    string
+	LogoFile           string
+	LogoHorizontalFile string
+	FaviconFile        string
 }
 
 // AuthConfig holds configuration for user authentication and authorization.
@@ -180,6 +198,24 @@ func NewApplicationConfig(o ...AppOption) *ApplicationConfig {
 			"/healthz",
 			"/api/auth/",
 			"/assets/",
+			// Branding read endpoint + public asset server. The login
+			// screen renders before authentication completes, so it has
+			// to be able to GET /api/branding and the configured logo.
+			//
+			// IMPORTANT: PathWithoutAuth uses a prefix match (see
+			// auth.isExemptPath). The "/api/branding" entry therefore
+			// also exempts POST/DELETE /api/branding/asset/:kind from
+			// the *global* auth middleware. Those routes are still
+			// admin-gated because they are registered with the
+			// route-level adminMiddleware (auth.RequireAdmin) in
+			// core/http/routes/ui_api.go — that's what keeps anonymous
+			// uploads/deletes returning 401. Any new admin-only sub-route
+			// added under /api/branding/* MUST also carry adminMiddleware
+			// at the route registration site, otherwise it ships
+			// unauthenticated. The TestBrandingRoutes_AdminGatingHolds
+			// integration test in core/http/auth pins this contract.
+			"/api/branding",
+			"/branding/",
 		},
 	}
 	for _, oo := range o {
@@ -928,9 +964,19 @@ func (o *ApplicationConfig) ToRuntimeSettings() RuntimeSettings {
 	agentPoolChunkOverlap := o.AgentPool.ChunkOverlap
 	agentPoolEnableLogs := o.AgentPool.EnableLogs
 	agentPoolCollectionDBPath := o.AgentPool.CollectionDBPath
+	agentPoolVectorEngine := o.AgentPool.VectorEngine
+	agentPoolDatabaseURL := o.AgentPool.DatabaseURL
+	agentPoolAgentHubURL := o.AgentPool.AgentHubURL
 
 	// LocalAI Assistant settings
 	localAIAssistantEnabled := !o.DisableLocalAIAssistant
+
+	// Branding settings
+	instanceName := o.Branding.InstanceName
+	instanceTagline := o.Branding.InstanceTagline
+	logoFile := o.Branding.LogoFile
+	logoHorizontalFile := o.Branding.LogoHorizontalFile
+	faviconFile := o.Branding.FaviconFile
 
 	return RuntimeSettings{
 		WatchdogEnabled:           &watchdogEnabled,
@@ -975,7 +1021,15 @@ func (o *ApplicationConfig) ToRuntimeSettings() RuntimeSettings {
 		AgentPoolChunkOverlap:     &agentPoolChunkOverlap,
 		AgentPoolEnableLogs:       &agentPoolEnableLogs,
 		AgentPoolCollectionDBPath: &agentPoolCollectionDBPath,
+		AgentPoolVectorEngine:     &agentPoolVectorEngine,
+		AgentPoolDatabaseURL:      &agentPoolDatabaseURL,
+		AgentPoolAgentHubURL:      &agentPoolAgentHubURL,
 		LocalAIAssistantEnabled:   &localAIAssistantEnabled,
+		InstanceName:              &instanceName,
+		InstanceTagline:           &instanceTagline,
+		LogoFile:                  &logoFile,
+		LogoHorizontalFile:        &logoHorizontalFile,
+		FaviconFile:               &faviconFile,
 	}
 }
 
@@ -1160,12 +1214,42 @@ func (o *ApplicationConfig) ApplyRuntimeSettings(settings *RuntimeSettings) (req
 		o.AgentPool.CollectionDBPath = *settings.AgentPoolCollectionDBPath
 		requireRestart = true
 	}
+	if settings.AgentPoolVectorEngine != nil {
+		o.AgentPool.VectorEngine = *settings.AgentPoolVectorEngine
+		requireRestart = true
+	}
+	if settings.AgentPoolDatabaseURL != nil {
+		o.AgentPool.DatabaseURL = *settings.AgentPoolDatabaseURL
+		requireRestart = true
+	}
+	if settings.AgentPoolAgentHubURL != nil {
+		o.AgentPool.AgentHubURL = *settings.AgentPoolAgentHubURL
+		requireRestart = true
+	}
 
 	// LocalAI Assistant: read live at request entry by the chat handler, so
 	// flipping the disable flag takes effect on the next request without a
 	// restart.
 	if settings.LocalAIAssistantEnabled != nil {
 		o.DisableLocalAIAssistant = !*settings.LocalAIAssistantEnabled
+	}
+
+	// Branding: read live by the public /api/branding endpoint and asset
+	// server, so changes apply on the next request without a restart.
+	if settings.InstanceName != nil {
+		o.Branding.InstanceName = *settings.InstanceName
+	}
+	if settings.InstanceTagline != nil {
+		o.Branding.InstanceTagline = *settings.InstanceTagline
+	}
+	if settings.LogoFile != nil {
+		o.Branding.LogoFile = *settings.LogoFile
+	}
+	if settings.LogoHorizontalFile != nil {
+		o.Branding.LogoHorizontalFile = *settings.LogoHorizontalFile
+	}
+	if settings.FaviconFile != nil {
+		o.Branding.FaviconFile = *settings.FaviconFile
 	}
 
 	// Note: ApiKeys requires special handling (merging with startup keys) - handled in caller

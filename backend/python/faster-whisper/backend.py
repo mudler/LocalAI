@@ -60,7 +60,6 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             id = 0
             for segment in segments:
                 print("[%.2fs -> %.2fs] %s" % (segment.start, segment.end, segment.text))
-
                 words = []
                 if word_timestamps and hasattr(segment, 'words'):
                     for word in segment.words:

@@ -305,6 +305,97 @@ MCP servers configured in model configs work in distributed mode. The frontend r
 - **MCP tool execution** (during `/v1/chat/completions`): tool calls are routed to agent workers via NATS request-reply
 - **MCP CI jobs**: executed entirely on agent workers with access to docker for stdio-based MCP servers
 
+## vLLM Multi-Node (Data-Parallel)
+
+A single vLLM model can span multiple GPU nodes via data parallelism: the head node serves the OpenAI API and runs the local DP ranks, follower nodes run vanilla `vllm serve --headless` and speak ZMQ directly to the head. LocalAI's role is starting the follower processes and surfacing them in the admin UI; the cross-rank tensor traffic is vLLM's own.
+
+This mode is **operator-launched** — the head config and each follower's invocation must agree on the topology (`data_parallel_size`, `data_parallel_size_local`, `data_parallel_address`, `data_parallel_rpc_port`). The SmartRouter does not place follower ranks automatically.
+
+### Head node configuration
+
+The head runs the existing single-node vLLM gRPC backend. Set `engine_args` to publish the DP topology vLLM expects:
+
+```yaml
+backend: vllm
+parameters:
+  model: moonshotai/Kimi-K2.6-Instruct
+engine_args:
+  data_parallel_size: 4              # total ranks across all nodes
+  data_parallel_size_local: 2        # ranks on the head node
+  data_parallel_address: 10.0.0.1    # head's reachable IP
+  data_parallel_rpc_port: 32100      # any free port; followers connect here
+  enable_expert_parallel: true       # for MoE models
+```
+
+The head will start its 2 local ranks, listen on `10.0.0.1:32100`, and wait for the remaining 2 ranks to handshake.
+
+### Follower nodes
+
+Each follower runs `local-ai p2p-worker vllm` with matching topology, an explicit start rank, and the head's address:
+
+```bash
+local-ai p2p-worker vllm \
+  moonshotai/Kimi-K2.6-Instruct \
+  --data-parallel-size 4 \
+  --data-parallel-size-local 2 \
+  --start-rank 2 \
+  --master-addr 10.0.0.1 \
+  --master-port 32100 \
+  --register-to http://frontend:8080 \
+  --registration-token changeme
+```
+
+`--register-to` is optional but recommended — it makes the follower visible in the admin UI as an `agent`-type node tagged with `node.role=vllm-follower`. Without it the worker just runs vLLM and exits silently when vLLM does. The role label discourages SmartRouter from placing other models on the follower; pair it with model selectors like `{"!node.role":"vllm-follower"}` if you also run regular LocalAI models on the same fleet.
+
+### Worked example: 2-node Kimi-K2.6 deployment
+
+Two A100 nodes (`10.0.0.1`, `10.0.0.2`), 8 GPUs total, `data_parallel_size=8` with 4 ranks per node:
+
+```yaml
+# /models/kimi.yaml on the head (10.0.0.1)
+name: kimi-k2-6
+backend: vllm
+parameters:
+  model: moonshotai/Kimi-K2.6-Instruct
+engine_args:
+  data_parallel_size: 8
+  data_parallel_size_local: 4
+  data_parallel_address: 10.0.0.1
+  data_parallel_rpc_port: 32100
+  enable_expert_parallel: true
+  all2all_backend: deepep_high_throughput
+```
+
+```bash
+# On 10.0.0.2 (follower)
+local-ai p2p-worker vllm moonshotai/Kimi-K2.6-Instruct \
+  --data-parallel-size 8 --data-parallel-size-local 4 --start-rank 4 \
+  --master-addr 10.0.0.1 --master-port 32100 \
+  --register-to http://10.0.0.1:8080 --registration-token changeme
+```
+
+A `curl http://10.0.0.1:8080/v1/chat/completions ...` against the head will then dispatch across all 8 ranks.
+
+### Intel Arc / XPU notes
+
+vLLM XPU supports DP (`vllm/platforms/xpu.py:198` handles `world_size_across_dp > 1`; ranks bind to `xpu:{local_rank}` in `xpu_worker.py:62`, with xccl as the collective backend). Each rank still needs a distinct discrete GPU — the iGPU on a hybrid host is not a viable second device.
+
+Older XE-HPG GPUs (e.g. Arc A770) need to bypass the cutlass attention path:
+
+```yaml
+engine_args:
+  attention_backend: TRITON_ATTN
+```
+
+`docker-compose.vllm-multinode.intel.yaml` at the repo root is the Intel equivalent of `docker-compose.vllm-multinode.yaml` — uses `/dev/dri` passthrough, `ZE_AFFINITY_MASK` to pin each rank to one device, and `latest-gpu-intel` images. Run via `./tests/e2e/vllm-multinode/smoke.sh --intel`.
+
+### Caveats
+
+- **Tensor parallel within a node only.** vLLM v1 does not support TP across nodes; combine `tensor_parallel_size` (within a node, via `engine_args`) with `data_parallel_size` (across nodes).
+- **Followers don't host LocalAI gRPC.** The follower process is vanilla vLLM, so `/api/backend-logs/<modelId>` does not stream follower output. Use `journalctl` / `kubectl logs` / compose logs for the follower's stderr.
+- **Network reachability.** The head's `data_parallel_rpc_port` plus a range of ZMQ ports (typically `data_parallel_rpc_port..+N`) must be reachable from every follower. Open them in your firewall / security group.
+- **Topology must match exactly.** A mismatch in `--data-parallel-size` between head and any follower will hang the handshake. Check the head's vLLM logs for `waiting for N DP ranks` if startup stalls.
+
 ## Scaling
 
 **Adding worker capacity:** Start additional `worker` instances pointing to the same frontend. They self-register automatically:

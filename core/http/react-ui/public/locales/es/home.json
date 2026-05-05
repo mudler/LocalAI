@@ -1,0 +1,66 @@
+{
+  "cluster": {
+    "vram": "VRAM del clúster",
+    "ram": "RAM del clúster",
+    "nodesOnline": "{{healthy}}/{{total}} nodos en línea"
+  },
+  "resourceGpu": "GPU",
+  "resourceRam": "RAM",
+  "assistant": {
+    "title": "Administra LocalAI chateando",
+    "description": "Instala modelos, cambia backends, edita configuraciones y consulta el estado hablando con LocalAI.",
+    "open": "Abrir asistente",
+    "tooltip": "Administra LocalAI chateando"
+  },
+  "input": {
+    "placeholder": "Mensaje...",
+    "attachImage": "Adjuntar imagen",
+    "attachAudio": "Adjuntar audio",
+    "attachFile": "Adjuntar archivo",
+    "enterToSend": "Enter para enviar",
+    "selectModelFirst": "Selecciona un modelo primero",
+    "sendMessage": "Enviar mensaje",
+    "selectModelToast": "Por favor selecciona un modelo primero"
+  },
+  "quickLinks": {
+    "manageByChat": "Administrar por chat",
+    "installedModels": "Modelos instalados",
+    "browseGallery": "Explorar galería",
+    "importModel": "Importar modelo",
+    "documentation": "Documentación"
+  },
+  "loadedModels": {
+    "count_one": "{{count}} modelo cargado",
+    "count_other": "{{count}} modelos cargados",
+    "stop": "Detener modelo",
+    "stopAll": "Detener todos"
+  },
+  "stopDialog": {
+    "title": "Detener modelo",
+    "message": "¿Detener el modelo {{model}}?",
+    "confirm": "Detener {{model}}",
+    "stopAllTitle": "Detener todos los modelos",
+    "stopAllMessage": "¿Detener todos los {{count}} modelos cargados?",
+    "stopAllConfirm": "Detener todos",
+    "stoppedToast": "{{model}} detenido",
+    "allStoppedToast": "Todos los modelos detenidos",
+    "stopFailed": "Error al detener: {{message}}"
+  },
+  "wizard": {
+    "getStarted": "Empieza con {{name}}",
+    "intro": "Instala tu primer modelo para comenzar. Explora la galería o importa el tuyo.",
+    "steps": {
+      "step1Title": "Explora la galería de modelos",
+      "step1Body": "Encuentra el modelo adecuado para tus necesidades en nuestra colección.",
+      "step2Title": "Instala un modelo",
+      "step2Body": "Haz clic en instalar para descargarlo y configurarlo automáticamente.",
+      "step3Title": "Empieza a chatear",
+      "step3Body": "Chatea con tu modelo desde el navegador o usa la API."
+    },
+    "browseGallery": "Explorar galería de modelos",
+    "importModel": "Importar modelo",
+    "docs": "Documentación",
+    "noModelsTitle": "No hay modelos disponibles",
+    "noModelsBody": "No hay modelos instalados aún. Pídele a tu administrador que configure modelos para que puedas empezar a chatear."
+  }
+}

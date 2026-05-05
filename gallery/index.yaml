@@ -1,4 +1,132 @@
 ---
+- name: "qwen3.5-9b-deepseek-v4-flash"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/Jackrong/Qwen3.5-9B-DeepSeek-V4-Flash-GGUF
+  description: |
+    # Qwen3.5-9B
+
+    [](https://chat.qwen.ai)
+
+    > [!Note]
+    > This repository contains model weights and configuration files for the post-trained model in the Hugging Face Transformers format.
+    >
+    > These artifacts are compatible with Hugging Face Transformers, vLLM, SGLang, KTransformers, etc.
+
+    Over recent months, we have intensified our focus on developing foundation models that deliver exceptional utility and performance. Qwen3.5 represents a significant leap forward, integrating breakthroughs in multimodal learning, architectural efficiency, reinforcement learning scale, and global accessibility to empower developers and enterprises with unprecedented capability and efficiency.
+
+    ## Qwen3.5 Highlights
+
+    Qwen3.5 features the following enhancement:
+
+      - **Unified Vision-Language Foundation**: Early fusion training on multimodal tokens achieves cross-generational parity with Qwen3 and outperforms Qwen3-VL models across reasoning, coding, agents, and visual understanding benchmarks.
+
+      - **Efficient Hybrid Architecture**: Gated Delta Networks combined with sparse Mixture-of-Experts deliver high-throughput inference with minimal latency and cost overhead.
+
+    ...
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - deepseek
+    - reasoning
+  icon: https://qianwen-res.oss-accelerate-overseas.aliyuncs.com/Qwen3.5/Figures/qwen3.5_small_size_score.png
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/Qwen3.5-9B-DeepSeek-V4-Flash-GGUF/mmproj.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/Qwen3.5-9B-DeepSeek-V4-Flash-GGUF/Qwen3.5-9B-DeepSeek-V4-Flash-Q4_K_M.gguf
+      presence_penalty: 1.5
+      repeat_penalty: 1
+      temperature: 0.7
+      top_k: 20
+      top_p: 0.8
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Qwen3.5-9B-DeepSeek-V4-Flash-GGUF/Qwen3.5-9B-DeepSeek-V4-Flash-Q4_K_M.gguf
+      sha256: 9be227448d319e6a7acca8056b71bf7d9a2c6b2811986e6658a9dedc208d0ada
+      uri: https://huggingface.co/Jackrong/Qwen3.5-9B-DeepSeek-V4-Flash-GGUF/resolve/main/Qwen3.5-9B-DeepSeek-V4-Flash-Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/Qwen3.5-9B-DeepSeek-V4-Flash-GGUF/mmproj.gguf
+      sha256: d589acfddbed3ba291e429330360ded8e67b0910dd415aec2fe7c32b0665f859
+      uri: https://huggingface.co/Jackrong/Qwen3.5-9B-DeepSeek-V4-Flash-GGUF/resolve/main/mmproj.gguf
+- name: "chroma1-hd"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  license: apache-2.0
+  tags:
+    - chroma
+    - text-to-image
+    - image-generation
+    - diffusers
+  urls:
+    - https://huggingface.co/lodestones/Chroma1-HD
+  description: |
+    Chroma1-HD is an 8.9B-parameter text-to-image foundation model derived from FLUX.1-schnell with reduced parameter count via architectural optimizations. Designed as a base for creators, researchers, and downstream fine-tuning. Recommended inference: 40 steps, CFG 3.0, bfloat16.
+  overrides:
+    cfg_scale: 3.0
+    parameters:
+      model: lodestones/Chroma1-HD
+    backend: diffusers
+    known_usecases:
+      - FLAG_IMAGE
+    diffusers:
+      pipeline_type: ChromaPipeline
+    step: 40
+    options:
+      - torch_dtype:bf16
+- name: "nemotron-3-nano-omni-30b-a3b-reasoning-apex"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mudler/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-APEX-GGUF
+  description: |
+    # Model Overview
+
+    ### Description:
+    NVIDIA Nemotron 3 Nano Omni is a multimodal large language model that unifies video, audio, image, and text understanding to support enterprise-grade Q&A, summarization, transcription, and document intelligence workflows. It extends the Nemotron Nano family with integrated video+speech comprehension, Graphical User Interface (GUI), Optical Character Recognition (OCR), and speech transcription capabilities, enabling end-to-end processing of rich enterprise content such as meeting recordings, M&E assets, training videos, and complex business documents. NVIDIA Nemotron 3 Nano Omni was developed by NVIDIA as part of the Nemotron model family.
+
+    This model is available for commercial use.
+
+    This model was improved using Qwen3-VL-30B-A3B-Instruct, Qwen3.5-122B-A10B, Qwen3.5-397B-A17B, Qwen2.5-VL-72B-Instruct, and gpt-oss-120b. For more information, please see the Training Dataset section below.
+
+    ### License/Terms of Use
+
+    Governing Terms: Use of this model is governed by the  NVIDIA Open Model Agreement
+
+    ### Deployment Geography:
+    Global
+
+    ...
+  license: "other"
+  tags:
+    - llm
+    - gguf
+    - vision
+    - multimodal
+    - reasoning
+  overrides:
+    backend: vllm-omni
+    known_usecases:
+      - chat
+      - multimodal
+    parameters:
+      min_p: 0.01
+      model: mudler/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-APEX-GGUF
+      repeat_penalty: 1
+      temperature: 1
+      top_k: -1
+      top_p: 1
+    template:
+      use_tokenizer_template: true
+  files: null
 - name: "carnice-v2-27b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
@@ -46,22 +174,7 @@
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
     - https://huggingface.co/unsloth/Kimi-K2.6-GGUF
-  description: |
-    🤗&nbsp;&nbsp;huggingchat
-    &nbsp;|&nbsp;
-    📰&nbsp;&nbsp;Tech Blog
-
-    ## 1. Model Introduction
-
-    Kimi K2.6 is an open-source, native multimodal agentic model that advances practical capabilities in long-horizon coding, coding-driven design, proactive autonomous execution, and swarm-based task orchestration.
-
-    ### Key Features
-      - **Long-Horizon Coding**: K2.6 achieves significant improvements on complex, end-to-end coding tasks, generalizing robustly across programming languages (Rust, Go, Python) and domains spanning front-end, DevOps, and performance optimization.
-      - **Coding-Driven Design**: K2.6 is capable of transforming simple prompts and visual inputs into production-ready interfaces and lightweight full-stack workflows, generating structured layouts, interactive elements, and rich animations with deliberate aesthetic precision.
-      - **Elevated Agent Swarm**: Scaling horizontally to 300 sub-agents executing 4,000 coordinated steps, K2.6 can dynamically decompose tasks into parallel, domain-specialized subtasks, delivering end-to-end outputs from documents to websites to spreadsheets in a single autonomous run.
-      - **Proactive & Open Orchestration**: For autonomous tasks, K2.6 demonstra
-
-    ...
+  description: "\U0001F917&nbsp;&nbsp;huggingchat\n&nbsp;|&nbsp;\n\U0001F4F0&nbsp;&nbsp;Tech Blog\n\n## 1. Model Introduction\n\nKimi K2.6 is an open-source, native multimodal agentic model that advances practical capabilities in long-horizon coding, coding-driven design, proactive autonomous execution, and swarm-based task orchestration.\n\n### Key Features\n  - **Long-Horizon Coding**: K2.6 achieves significant improvements on complex, end-to-end coding tasks, generalizing robustly across programming languages (Rust, Go, Python) and domains spanning front-end, DevOps, and performance optimization.\n  - **Coding-Driven Design**: K2.6 is capable of transforming simple prompts and visual inputs into production-ready interfaces and lightweight full-stack workflows, generating structured layouts, interactive elements, and rich animations with deliberate aesthetic precision.\n  - **Elevated Agent Swarm**: Scaling horizontally to 300 sub-agents executing 4,000 coordinated steps, K2.6 can dynamically decompose tasks into parallel, domain-specialized subtasks, delivering end-to-end outputs from documents to websites to spreadsheets in a single autonomous run.\n  - **Proactive & Open Orchestration**: For autonomous tasks, K2.6 demonstra\n\n...\n"
   license: "other"
   tags:
     - llm
@@ -584,7 +697,7 @@
       uri: https://huggingface.co/mudler/gemma-4-26B-A4B-it-APEX-GGUF/resolve/main/mmproj-F16.gguf
     - filename: llama-cpp/models/gemma-4-26B-A4B-it-APEX-GGUF/gemma-4-26B-A4B-APEX-Quality.gguf
       uri: https://huggingface.co/mudler/gemma-4-26B-A4B-it-APEX-GGUF/resolve/main/gemma-4-26B-A4B-APEX-Quality.gguf
-      sha256: e246e7a584333d96191edab22cd39191a2fd7749412105ab79ce74fed906d897
+      sha256: e92ab30c10422ff1863f0d57cf2c206ec3ae47b4903e70c672589dcb7cbec2c6
 - &gemma4
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   name: "gemma-4-26b-a4b-it"
@@ -709,10 +822,10 @@
   files:
     - filename: gemma-4-31B-it-Q4_K_M.gguf
       uri: huggingface://unsloth/gemma-4-31B-it-GGUF/gemma-4-31B-it-Q4_K_M.gguf
-      sha256: 3bf13fff7c0d4deff809b7ab168428f54855f3ef0279339dda278a81ea853474
+      sha256: 9fdf3dc8b0384830b4402d151388c140bd8eb2abf8d60588d8224231198254a1
     - filename: mmproj-F16.gguf
-      sha256: 1be2a32013e0d29c6c746513b5f5e7d38f47b694351e74a69c7172acdbbb11a6
       uri: https://huggingface.co/unsloth/gemma-4-31B-it-GGUF/resolve/main/mmproj-F16.gguf
+      sha256: 6edcca228213c28d3567a35d22f849eea52d8360875093851959adf5d2f270eb
 - name: "qwen3.5-35b-a3b-apex"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
@@ -1681,6 +1794,83 @@
     - filename: acestep-cpp/vae-BF16.gguf
       uri: huggingface://Serveurperso/ACE-Step-1.5-GGUF/vae-BF16.gguf
       sha256: 0599862ac5d15cd308e1d2e368373aea6c02e25ebd1737ad4a4562a0901b0ef8
+- name: "vibevoice-cpp"
+  license: mit
+  icon: https://github.com/microsoft/VibeVoice/raw/main/Figures/VibeVoice_logo_white.png
+  tags:
+    - tts
+    - text-to-speech
+    - voice-cloning
+    - vibevoice
+    - vibevoice-cpp
+    - gguf
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mudler/vibevoice.cpp-models
+    - https://github.com/mudler/vibevoice.cpp
+    - https://github.com/microsoft/VibeVoice
+  description: |
+    VibeVoice Realtime 0.5B (C++ / GGML, Q8_0) - native C++ port of Microsoft VibeVoice
+    via the vibevoice-cpp backend. 24kHz mono TTS with voice cloning from a single
+    reference voice prompt. Default voice prompt: en-Carter_man.
+  overrides:
+    name: vibevoice-cpp
+    backend: vibevoice-cpp
+    parameters:
+      model: vibevoice-cpp/vibevoice-realtime-0.5B-q8_0.gguf
+    options:
+      - tokenizer=vibevoice-cpp/tokenizer.gguf
+      - voice=vibevoice-cpp/voice-en-Carter_man.gguf
+    known_usecases:
+      - tts
+  files:
+    - filename: vibevoice-cpp/vibevoice-realtime-0.5B-q8_0.gguf
+      uri: huggingface://mudler/vibevoice.cpp-models/vibevoice-realtime-0.5B-q8_0.gguf
+      sha256: 5251e3f0386d1056a90c61b6c7359a4775da44dd19402499bef1989c4b5c653a
+    - filename: vibevoice-cpp/tokenizer.gguf
+      uri: huggingface://mudler/vibevoice.cpp-models/tokenizer.gguf
+      sha256: 37dc3b722d5677e37e29a57df55aa05c485116eeb5459e57ff8dde616b4986f6
+    - filename: vibevoice-cpp/voice-en-Carter_man.gguf
+      uri: huggingface://mudler/vibevoice.cpp-models/voice-en-Carter_man.gguf
+      sha256: b15cd8b9cae6ee2c3d20b0ee6e7bfe93f13489f8b63b6834e9bbf0dfabf6505a
+- name: "vibevoice-cpp-asr"
+  license: mit
+  icon: https://github.com/microsoft/VibeVoice/raw/main/Figures/VibeVoice_logo_white.png
+  tags:
+    - stt
+    - speech-to-text
+    - asr
+    - audio-transcription
+    - diarization
+    - vibevoice
+    - vibevoice-cpp
+    - gguf
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mudler/vibevoice.cpp-models
+    - https://github.com/mudler/vibevoice.cpp
+    - https://github.com/microsoft/VibeVoice
+  description: |
+    VibeVoice ASR 7B (C++ / GGML, Q4_K) - long-form speech-to-text with speaker
+    diarization. Returns per-speaker JSON segments with start/end timestamps.
+    English-only. ~10 GB download.
+  overrides:
+    name: vibevoice-cpp-asr
+    backend: vibevoice-cpp
+    parameters:
+      model: vibevoice-cpp-asr/vibevoice-asr-q4_k.gguf
+    options:
+      - type=asr
+      - tokenizer=vibevoice-cpp-asr/tokenizer.gguf
+    known_usecases:
+      - transcript
+  files:
+    - filename: vibevoice-cpp-asr/vibevoice-asr-q4_k.gguf
+      uri: huggingface://mudler/vibevoice.cpp-models/vibevoice-asr-q4_k.gguf
+      sha256: 4eee48b9d0d42f71b773b804aa6728c99971c38d54f3c86cf1fd0fc1fc49a9ad
+    - filename: vibevoice-cpp-asr/tokenizer.gguf
+      uri: huggingface://mudler/vibevoice.cpp-models/tokenizer.gguf
+      sha256: 37dc3b722d5677e37e29a57df55aa05c485116eeb5459e57ff8dde616b4986f6
 - name: "qwen3-tts-cpp"
   license: apache-2.0
   tags:
@@ -2111,10 +2301,128 @@
     - filename: llama-cpp/models/GLM-4.7-Flash-Q4_K_M.gguf
       uri: https://huggingface.co/unsloth/GLM-4.7-Flash-GGUF/resolve/main/GLM-4.7-Flash-Q4_K_M.gguf
       sha256: 29837ed2c0fc5f51981adf8ac8083fcf80743c598381f13e9f06cbad0498b174
+- name: "qwen3-vl-embedding-8b"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/VesNFF/Qwen3-VL-Embedding-8B-GGUF
+    - https://huggingface.co/Qwen/Qwen3-VL-Embedding-8B
+  tags:
+    - embedding
+  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/620760a26e3b7210c2ff1943/-s1gyJfvbE1RgO5iBeNOi.png
+  description: |
+    **Model Name:** Qwen3-VL-Embedding-8B
+    **Base Model:** Qwen/Qwen3-VL-8B-Instruct
+
+    **Description:**
+    The **Qwen3-VL-Embedding** and **Qwen3-VL-Reranker** model series are the latest additions to the Qwen family, built upon the recently open-sourced and powerful Qwen3-VL foundation model. Specifically designed for multimodal information retrieval and cross-modal understanding, this suite accepts diverse inputs including text, images, screenshots, and videos, as well as inputs containing a mixture of these modalities.
+
+    **Key Features:**
+      - Model Type: MultiModal Embedding
+      - Supported Languages: 30+ Languages
+      - Supported Input Modalities: Text, images, screenshots, videos, and arbitrary multimodal combinations (e.g., text + image, text + video)
+      - Number of Parameters: 8B
+      - Context Length: 32k
+      - Embedding Dimension: Up to 4096, supports user-defined output dimensions ranging from 64 to 4096
+
+    **Downloads:**
+      - [GGUF Files](https://huggingface.co/Qwen/Qwen3-VL-Embedding-8B) (e.g., `Qwen3-VL-Embedding-8B-Q8_0.gguf`).
+
+    **Usage:**
+      - Requires `transformers`, `qwen-vl-utils`, and `torch`.
+      - Example: `from scripts.qwen3_vl_embedding import Qwen3VLEmbedder model = Qwen3VLEmbedder(...)`
+
+    **Citation:**
+    @article{qwen3vlembedding, ...}
+
+    This description emphasizes its capabilities, efficiency, and versatility for multimodal search tasks.
+  overrides:
+    embeddings: true
+    parameters:
+      model: llama-cpp/models/Qwen3-VL-Embedding-8B-Q6_K.gguf
+    name: Qwen3-VL-Embedding-8B-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    mmproj: llama-cpp/mmproj/mmproj-Qwen3-VL-Embedding-8B-f16.gguf
+    description: Imported from https://huggingface.co/VesNFF/Qwen3-VL-Embedding-8B-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Qwen3-VL-Embedding-8B-Q6_K.gguf
+      sha256: 10ee47c017d73f5df31e41669d9600abdfe80c701c77630504108d56f79b48d7
+      uri: https://huggingface.co/VesNFF/Qwen3-VL-Embedding-8B-GGUF/resolve/main/Qwen3-VL-Embedding-8B-Q6_K.gguf
+    - filename: llama-cpp/mmproj/mmproj-Qwen3-VL-Embedding-8B-f16.gguf
+      sha256: 6f104e4299dfd0738ef1b44f4eecdde9dc049d10a73ce69472e0bfbbd687a034
+      uri: https://huggingface.co/VesNFF/Qwen3-VL-Embedding-8B-GGUF/resolve/main/mmproj-Qwen3-VL-Embedding-8B-f16.gguf
+- name: "qwen3-vl-embedding-2b"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/DevQuasar/Qwen.Qwen3-VL-Embedding-2B-GGUF
+    - https://huggingface.co/Qwen/Qwen3-VL-Embedding-2B
+  tags:
+    - embedding
+  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/620760a26e3b7210c2ff1943/-s1gyJfvbE1RgO5iBeNOi.png
+  description: |
+    **Model Name:** Qwen3-VL-Embedding-2B
+    **Base Model:** Qwen/Qwen3-VL-2B-Instruct
+
+    **Description:**
+    The **Qwen3-VL-Embedding** and **Qwen3-VL-Reranker** model series are the latest additions to the Qwen family, built upon the recently open-sourced and powerful Qwen3-VL foundation model. Specifically designed for multimodal information retrieval and cross-modal understanding, this suite accepts diverse inputs including text, images, screenshots, and videos, as well as inputs containing a mixture of these modalities.
+
+    **Key Features:**
+      - Model Type: MultiModal Embedding
+      - Supported Languages: 30+ Languages
+      - Supported Input Modalities: Text, images, screenshots, videos, and arbitrary multimodal combinations (e.g., text + image, text + video)
+      - Number of Parameters: 2B
+      - Context Length: 32k
+      - Embedding Dimension: Up to 2048, supports user-defined output dimensions ranging from 64 to 2048
+
+    **Downloads:**
+      - [GGUF Files](https://huggingface.co/Qwen/Qwen3-VL-Embedding-2B) (e.g., `Qwen3-VL-Embedding-2B-Q8_0.gguf`).
+
+    **Usage:**
+      - Requires `transformers`, `qwen-vl-utils`, and `torch`.
+      - Example: `from scripts.qwen3_vl_embedding import Qwen3VLEmbedder model = Qwen3VLEmbedder(...)`
+
+    **Citation:**
+    @article{qwen3vlembedding, ...}
+
+    This description emphasizes its capabilities, efficiency, and versatility for multimodal search tasks.
+  overrides:
+    embeddings: true
+    parameters:
+      model: llama-cpp/models/Qwen3-VL-Embedding-2B.Q8_0.gguf
+    name: Qwen3-VL-Embedding-2B-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    mmproj: llama-cpp/mmproj/mmproj-Qwen3-VL-Embedding-2B.f16.gguf
+    description: Imported from https://huggingface.co/DevQuasar/Qwen.Qwen3-VL-Embedding-2B-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Qwen3-VL-Embedding-2B.Q8_0.gguf
+      sha256: 7552c2f699c546ce46abd6b66b2aa16ae667c88c830efbd352b12224d4613492
+      uri: https://huggingface.co/DevQuasar/Qwen.Qwen3-VL-Embedding-2B-GGUF/resolve/main/Qwen.Qwen3-VL-Embedding-2B.Q8_0.gguf
+    - filename: llama-cpp/mmproj/mmproj-Qwen3-VL-Embedding-2B.f16.gguf
+      sha256: 3f89a7768ffa6606935319f71bf56bb71871249ba549bf1080a0caea7a088613
+      uri: https://huggingface.co/DevQuasar/Qwen.Qwen3-VL-Embedding-2B-GGUF/resolve/main/mmproj-Qwen.Qwen3-VL-Embedding-2B.f16.gguf
 - name: "qwen3-vl-reranker-8b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
     - https://huggingface.co/mradermacher/Qwen3-VL-Reranker-8B-GGUF
+  tags:
+    - reranker
   description: |
     **Model Name:** Qwen3-VL-Reranker-8B
     **Base Model:** Qwen/Qwen3-VL-Reranker-8B
@@ -2168,6 +2476,8 @@
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
     - https://huggingface.co/mradermacher/Qwen3-VL-Reranker-2B-i1-GGUF
+  tags:
+    - reranker
   description: |
     **Model Name:** Qwen3-VL-Reranker-2B-i1
     **Base Model:** Qwen/Qwen3-VL-Reranker-2B
@@ -18569,6 +18879,35 @@
     - filename: silero-vad.onnx
       uri: https://huggingface.co/onnx-community/silero-vad/resolve/main/onnx/model.onnx
       sha256: a4a068cd6cf1ea8355b84327595838ca748ec29a25bc91fc82e6c299ccdc5808
+- name: "localvqe-v1.1-1.3m"
+  icon: https://avatars.githubusercontent.com/u/260893928
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://github.com/localai-org/LocalVQE
+    - https://huggingface.co/LocalAI-io/LocalVQE
+  license: apache-2.0
+  description: |
+    LocalVQE v1.1 (1.3 M parameters, F32) — joint acoustic echo cancellation,
+    noise suppression, and dereverberation for 16 kHz mono speech.
+    DeepVQE-style architecture with an S4D bottleneck and an in-graph
+    DCT-II filterbank. ~9.6× realtime on a desktop CPU; 16 ms algorithmic
+    latency. ~5 MB on disk. v1.1 ships the v16 echoaware checkpoint with
+    improved double-talk and near-end single-talk AECMOS scores.
+  tags:
+    - audio-transform
+    - aec
+    - acoustic-echo-cancellation
+    - noise-suppression
+    - dereverberation
+    - cpu
+  overrides:
+    backend: localvqe
+    parameters:
+      model: localvqe-v1.1-1.3M-f32.gguf
+  files:
+    - filename: localvqe-v1.1-1.3M-f32.gguf
+      uri: huggingface://LocalAI-io/LocalVQE/localvqe-v1.1-1.3M-f32.gguf
+      sha256: c118227c6b433d6aa36d9e4b993e0f31aa60787ea38d301d04db917a4a2b0a84
 - !!merge <<: *silero
   name: "silero-vad-ggml"
   urls:

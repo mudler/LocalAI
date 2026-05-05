@@ -87,6 +87,15 @@ Ready to dive in? Here are some recommended next steps:
 5. [Try out examples]({{% relref "getting-started/try-it-out" %}})
 6. [Join the community](https://discord.gg/uJAeKSAGDy)
 
+## Team
+
+LocalAI is created by [Ettore Di Giacinto](https://github.com/mudler) and maintained by the LocalAI team:
+
+- **[Ettore Di Giacinto](https://github.com/mudler)** — original author and project lead
+- **[Richard Palethorpe](https://github.com/richiejp)** — maintainer
+
+LocalAI is helped by the wider community of contributors. See the full [contributors list](https://github.com/mudler/LocalAI/graphs/contributors).
+
 ## License
 
-LocalAI is MIT licensed, created and maintained by [Ettore Di Giacinto](https://github.com/mudler).
+LocalAI is MIT licensed.

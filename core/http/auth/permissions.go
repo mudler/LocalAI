@@ -42,6 +42,7 @@ const (
 	FeatureImages             = "images"
 	FeatureAudioSpeech        = "audio_speech"
 	FeatureAudioTranscription = "audio_transcription"
+	FeatureAudioDiarization   = "audio_diarization"
 	FeatureVAD                = "vad"
 	FeatureDetection          = "detection"
 	FeatureVideo              = "video"
@@ -54,6 +55,7 @@ const (
 	FeatureStores             = "stores"
 	FeatureFaceRecognition    = "face_recognition"
 	FeatureVoiceRecognition   = "voice_recognition"
+	FeatureAudioTransform     = "audio_transform"
 )
 
 // AgentFeatures lists agent-related features (default OFF).
@@ -65,9 +67,10 @@ var GeneralFeatures = []string{FeatureFineTuning, FeatureQuantization}
 // APIFeatures lists API endpoint features (default ON).
 var APIFeatures = []string{
 	FeatureChat, FeatureImages, FeatureAudioSpeech, FeatureAudioTranscription,
+	FeatureAudioDiarization,
 	FeatureVAD, FeatureDetection, FeatureVideo, FeatureEmbeddings, FeatureSound,
 	FeatureRealtime, FeatureRerank, FeatureTokenize, FeatureMCP, FeatureStores,
-	FeatureFaceRecognition, FeatureVoiceRecognition,
+	FeatureFaceRecognition, FeatureVoiceRecognition, FeatureAudioTransform,
 }
 
 // AllFeatures lists all known features (used by UI and validation).

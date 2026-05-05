@@ -6,6 +6,7 @@ const ICONS = {
   video: 'fa-video',
   tts: 'fa-headphones',
   sound: 'fa-music',
+  'audio-transform': 'fa-wave-square',
 }
 
 export default memo(function MediaHistory({ entries, selectedId, onSelect, onDelete, onClearAll, mediaType }) {

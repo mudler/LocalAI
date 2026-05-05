@@ -8,15 +8,9 @@ jobs:
     if: github.repository == 'mudler/LocalAI'
     runs-on: ubuntu-latest
     steps:
-      - name: Force Install GIT latest
-        run: |
-          sudo apt-get update \
-          && sudo apt-get install -y software-properties-common \
-          && sudo apt-get update \
-          && sudo add-apt-repository -y ppa:git-core/ppa \
-          && sudo apt-get update \
-          && sudo apt-get install -y git
       - uses: actions/checkout@v6
+      - name: Configure apt mirror on runner
+        uses: ./.github/actions/configure-apt-mirror
       - name: Install dependencies
         run: |
           sudo apt-get update

@@ -240,11 +240,30 @@ var _ = Describe("DistributedBackendManager", func() {
 	})
 
 	Describe("UpgradeBackend", func() {
+		// scriptInstalled tells the worker(s) named in `nodeIDs` to claim
+		// `backend` is installed when DistributedBackendManager.ListBackends()
+		// fans out backend.list. Anything not scripted defaults to an empty
+		// reply, which means "this node has no backends installed" and so
+		// upgrade should skip it.
+		scriptInstalled := func(backend string, nodeIDs ...string) {
+			for _, id := range nodeIDs {
+				mc.scriptReply(messaging.SubjectNodeBackendList(id),
+					messaging.BackendListReply{Backends: []messaging.NodeBackendInfo{{Name: backend}}})
+			}
+		}
+		scriptNoBackends := func(nodeIDs ...string) {
+			for _, id := range nodeIDs {
+				mc.scriptReply(messaging.SubjectNodeBackendList(id),
+					messaging.BackendListReply{Backends: nil})
+			}
+		}
+
 		Context("when every node fails to upgrade", func() {
 			It("returns an aggregated error", func() {
 				n1 := registerHealthyBackend("worker-a", "10.0.0.1:50051")
 				n2 := registerHealthyBackend("worker-b", "10.0.0.2:50051")
 
+				scriptInstalled("vllm-development", n1.ID, n2.ID)
 				mc.scriptReply(messaging.SubjectNodeBackendInstall(n1.ID),
 					messaging.BackendInstallReply{Success: false, Error: "image manifest not found"})
 				mc.scriptReply(messaging.SubjectNodeBackendInstall(n2.ID),
@@ -262,9 +281,56 @@ var _ = Describe("DistributedBackendManager", func() {
 		Context("when every node succeeds", func() {
 			It("returns nil", func() {
 				n1 := registerHealthyBackend("worker-a", "10.0.0.1:50051")
+				scriptInstalled("vllm-development", n1.ID)
 				mc.scriptReply(messaging.SubjectNodeBackendInstall(n1.ID),
 					messaging.BackendInstallReply{Success: true})
 				Expect(mgr.UpgradeBackend(ctx, "vllm-development", nil)).To(Succeed())
+			})
+		})
+
+		// Smart fan-out: only nodes that actually report the backend installed
+		// receive the upgrade NATS request. Reproduces the bug where the
+		// "Upgrade All" UI button asked a darwin/arm64 worker to upgrade a
+		// linux-only backend it never had, producing a "no child with platform
+		// darwin/arm64 in index" error and a stuck pending_backend_ops row.
+		Context("when only one of two healthy nodes has the backend installed", func() {
+			It("upgrades only on that node and skips the other entirely", func() {
+				has := registerHealthyBackend("linux-amd64-worker", "10.0.0.1:50051")
+				lacks := registerHealthyBackend("mac-mini-m4", "10.0.0.2:50051")
+
+				scriptInstalled("cpu-insightface-development", has.ID)
+				scriptNoBackends(lacks.ID)
+				mc.scriptReply(messaging.SubjectNodeBackendInstall(has.ID),
+					messaging.BackendInstallReply{Success: true})
+				// Deliberately don't script SubjectNodeBackendInstall for `lacks`:
+				// if the manager attempts it, the scripted-client default returns
+				// fakeNoRespondersErr and the assertion below fails loudly.
+
+				Expect(mgr.UpgradeBackend(ctx, "cpu-insightface-development", nil)).To(Succeed())
+
+				mc.mu.Lock()
+				defer mc.mu.Unlock()
+				for _, call := range mc.calls {
+					Expect(call.Subject).ToNot(Equal(messaging.SubjectNodeBackendInstall(lacks.ID)),
+						"upgrade leaked to %s which does not have the backend installed", lacks.Name)
+				}
+			})
+		})
+
+		Context("when no node has the backend installed", func() {
+			It("returns a clear error and never attempts an install request", func() {
+				n1 := registerHealthyBackend("worker-a", "10.0.0.1:50051")
+				scriptNoBackends(n1.ID)
+
+				err := mgr.UpgradeBackend(ctx, "vllm-development", nil)
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("not installed on any node"))
+
+				mc.mu.Lock()
+				defer mc.mu.Unlock()
+				for _, call := range mc.calls {
+					Expect(call.Subject).ToNot(Equal(messaging.SubjectNodeBackendInstall(n1.ID)))
+				}
 			})
 		})
 	})

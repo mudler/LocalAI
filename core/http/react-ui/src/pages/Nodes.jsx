@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, Fragment } from 'react'
 import { useOutletContext, useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { nodesApi } from '../utils/api'
 import LoadingSpinner from '../components/LoadingSpinner'
 import ConfirmDialog from '../components/ConfirmDialog'
@@ -610,6 +611,7 @@ function SchedulingForm({ onSave, onCancel }) {
 export default function Nodes() {
   const { addToast } = useOutletContext()
   const navigate = useNavigate()
+  const { t } = useTranslation('admin')
   const [nodesList, setNodesList] = useState([])
   const [loading, setLoading] = useState(true)
   const [enabled, setEnabled] = useState(true)
@@ -904,10 +906,10 @@ export default function Nodes() {
       <div className="page-header">
         <h1 className="page-title">
           <i className="fas fa-network-wired" style={{ marginRight: 'var(--spacing-sm)' }} />
-          Distributed Nodes
+          {t('nodes.title')}
         </h1>
         <p className="page-subtitle">
-          Manage backend and agent worker nodes
+          {t('nodes.subtitle')}
         </p>
       </div>
 

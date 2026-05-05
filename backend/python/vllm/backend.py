@@ -10,6 +10,7 @@ import os
 import json
 import time
 import gc
+import tempfile
 from typing import List
 from PIL import Image
 
@@ -602,7 +603,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         """
         try:
             timestamp = str(int(time.time() * 1000))  # Generate timestamp
-            p = f"/tmp/vl-{timestamp}.data"  # Use timestamp in filename
+            p = os.path.join(tempfile.gettempdir(), f"vl-{timestamp}.data")
             with open(p, "wb") as f:
                 f.write(base64.b64decode(video_path))
             video = VideoAsset(name=p).np_ndarrays

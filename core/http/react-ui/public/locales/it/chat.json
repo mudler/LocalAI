@@ -1,0 +1,116 @@
+{
+  "activity": {
+    "thought": "Pensiero",
+    "tool": "Strumento",
+    "result": "Risultato",
+    "toolResult": "Risultato di {{name}}",
+    "thinking": "Sto pensando..."
+  },
+  "header": {
+    "manageModeTooltip": "Questa chat può installare modelli, modificare configurazioni e gestire i backend parlando con LocalAI.",
+    "modelInfo": "Info modello",
+    "chatSettings": "Impostazioni chat",
+    "modelInfoTitle": "Info modello: {{model}}",
+    "editConfig": "Modifica configurazione",
+    "close": "Chiudi"
+  },
+  "modelInfo": {
+    "backend": "Backend",
+    "modelFile": "File modello",
+    "contextSize": "Dimensione contesto",
+    "threads": "Thread",
+    "mcp": "MCP",
+    "configured": "Configurato",
+    "chatTemplate": "Template chat",
+    "yes": "Sì",
+    "gpuLayers": "Layer GPU"
+  },
+  "context": {
+    "label": "Contesto: {{percent}}%",
+    "labelWithTokens": "Contesto: {{percent}}% ({{tokens}} token)"
+  },
+  "settings": {
+    "title": "Impostazioni chat",
+    "manageMode": "Modalità gestione",
+    "manageModeDesc": "Permetti a questa chat di installare modelli, cambiare backend e modificare configurazioni parlando con LocalAI.",
+    "systemPrompt": "Prompt di sistema",
+    "systemPromptPlaceholder": "Sei un assistente utile...",
+    "temperature": "Temperatura",
+    "topP": "Top P",
+    "topK": "Top K",
+    "contextSize": "Dimensione contesto",
+    "contextSizePlaceholder": "2048",
+    "clearHistory": "Cancella cronologia chat"
+  },
+  "empty": {
+    "manageTitle": "Gestisci LocalAI chattando",
+    "manageText": "Chiedi di installare modelli, cambiare backend, modificare configurazioni o controllare lo stato. L'assistente riassumerà le azioni e attenderà la tua conferma prima di apportare qualsiasi modifica.",
+    "startTitle": "Inizia una conversazione",
+    "readyText": "Pronto a chattare con {{model}}",
+    "selectModelText": "Seleziona un modello sopra per iniziare",
+    "suggestionsManage": [
+      "Cosa è installato?",
+      "Installa un modello chat",
+      "Mostra lo stato del sistema",
+      "Aggiorna un backend"
+    ],
+    "suggestionsChat": [
+      "Spiega come funziona",
+      "Aiutami a scrivere codice",
+      "Riassumi un documento",
+      "Brainstorming di idee"
+    ],
+    "recent": "Recenti",
+    "noMessages": "Nessun messaggio ancora",
+    "hintEnter": "Invio per inviare",
+    "hintShiftEnter": "Shift+Invio per andare a capo",
+    "hintAttach": "Allega file"
+  },
+  "errors": {
+    "viewTraces": "Visualizza tracce per i dettagli"
+  },
+  "actions": {
+    "copy": "Copia",
+    "regenerate": "Rigenera"
+  },
+  "streaming": {
+    "transferring": "Trasferimento del modello...",
+    "transferringTo": "Trasferimento del modello a {{node}}..."
+  },
+  "tokens": {
+    "perSec": "{{count}} tok/s",
+    "peak": "Picco: {{count}} tok/s",
+    "usage": "{{prompt}}p + {{completion}}c = {{total}}"
+  },
+  "input": {
+    "placeholder": "Messaggio...",
+    "attachFile": "Allega file",
+    "stopGenerating": "Ferma generazione",
+    "canvasTitle": "Canvas — estrae blocchi di codice e media in un pannello laterale per anteprima, copia e download",
+    "canvasLabel": "Canvas",
+    "openCanvas": "Apri pannello canvas"
+  },
+  "deleteAllDialog": {
+    "title": "Elimina tutte le chat",
+    "message": "Eliminare tutte le chat? Questa azione non può essere annullata.",
+    "confirm": "Elimina tutto"
+  },
+  "toasts": {
+    "selectModel": "Seleziona un modello",
+    "copied": "Copiato negli appunti"
+  },
+  "menu": {
+    "trigger": "Chat",
+    "triggerTitle": "Conversazioni (Ctrl/Cmd+K)",
+    "search": "Cerca conversazioni...",
+    "clearSearch": "Cancella ricerca",
+    "noMatch": "Nessuna conversazione corrisponde alla ricerca",
+    "noConversations": "Nessuna conversazione",
+    "rename": "Rinomina",
+    "exportMarkdown": "Esporta come Markdown",
+    "deleteChat": "Elimina chat",
+    "newChat": "Nuova chat",
+    "clearAll": "Cancella tutto",
+    "deleteAllTitle": "Elimina tutte le conversazioni"
+  }
+}

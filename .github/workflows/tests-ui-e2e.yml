@@ -26,6 +26,8 @@ jobs:
         uses: actions/checkout@v6
         with:
           submodules: true
+      - name: Configure apt mirror on runner
+        uses: ./.github/actions/configure-apt-mirror
       - name: Setup Go ${{ matrix.go-version }}
         uses: actions/setup-go@v5
         with:

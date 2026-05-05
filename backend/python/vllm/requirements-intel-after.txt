@@ -1,1 +1,3 @@
-vllm
+# Intel XPU has no upstream-published vllm wheels — install.sh builds vllm
+# from source with VLLM_TARGET_DEVICE=xpu and hides this file during
+# installRequirements. Don't add a `vllm` line here.

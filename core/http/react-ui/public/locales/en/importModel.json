@@ -1,0 +1,142 @@
+{
+  "title": "Import New Model",
+  "subtitle": {
+    "simple": "Import a model from a URI — auto-detect picks the backend.",
+    "powerYaml": "Write the full model YAML configuration.",
+    "powerPrefs": "Fine-grained import preferences."
+  },
+  "actions": {
+    "import": "Import Model",
+    "importing": "Importing...",
+    "create": "Create",
+    "saving": "Saving...",
+    "browseHF": "Browse models on HF",
+    "addCustom": "Add Custom",
+    "copy": "Copy"
+  },
+  "form": {
+    "modelUri": "Model URI",
+    "uriPlaceholder": "huggingface://TheBloke/Llama-2-7B-Chat-GGUF or https://example.com/model.gguf",
+    "uriHint": "Enter the URI or path to the model file you want to import",
+    "supportedFormats": "Supported URI Formats",
+    "options": "Options",
+    "preferences": "Preferences (Optional)",
+    "commonPreferences": "Common Preferences",
+    "customPreferences": "Custom Preferences",
+    "customKeyValueHint": "Add custom key-value pairs for advanced configuration.",
+    "preferenceKey": "Preference key for row {{index}}",
+    "preferenceValue": "Preference value for row {{index}}",
+    "removePref": "Remove this preference",
+    "key": "Key",
+    "value": "Value",
+    "backend": "Backend",
+    "backendAuto": "Auto-detect (based on URI)",
+    "backendLoading": "Loading backends…",
+    "backendSearch": "Search backends...",
+    "backendHint": "Force a specific backend. Leave empty to auto-detect from the URI. Items marked \"manual pick\" aren't auto-detectable — pick them yourself if you know what the model needs.",
+    "backendErrorHint": "Could not load backend list — auto-detect only.",
+    "backendNotInstalled": "This backend isn't installed yet. Submitting import will download it first.",
+    "modelName": "Model Name",
+    "modelNamePlaceholder": "Leave empty to use filename",
+    "modelNameHint": "Custom name for the model. If empty, the filename will be used.",
+    "description": "Description",
+    "descriptionPlaceholder": "Leave empty to use default description",
+    "descriptionHint": "Custom description for the model.",
+    "quantizations": "Quantizations",
+    "quantizationsPlaceholder": "q4_k_m,q4_k_s,q3_k_m (comma-separated)",
+    "quantizationsHint": "Preferred quantizations (comma-separated). Leave empty for default (q4_k_m).",
+    "mmprojQuantizations": "MMProj Quantizations",
+    "mmprojQuantizationsPlaceholder": "fp16,fp32 (comma-separated)",
+    "mmprojQuantizationsHint": "Preferred MMProj quantizations. Leave empty for default (fp16).",
+    "embeddings": "Embeddings",
+    "embeddingsHint": "Enable embeddings support for this model.",
+    "modelType": "Model Type",
+    "modelTypePlaceholder": "AutoModelForCausalLM (for transformers backend)",
+    "modelTypeHint": "Model type for transformers backend. Examples: AutoModelForCausalLM, SentenceTransformer, Mamba.",
+    "pipelineType": "Pipeline Type",
+    "pipelineTypeHint": "Pipeline type for diffusers backend.",
+    "schedulerType": "Scheduler Type",
+    "schedulerTypePlaceholder": "k_dpmpp_2m (optional)",
+    "schedulerTypeHint": "Scheduler type for diffusers backend. Examples: k_dpmpp_2m, euler_a, ddim.",
+    "enableParameters": "Enable Parameters",
+    "enableParametersPlaceholder": "negative_prompt,num_inference_steps (comma-separated)",
+    "enableParametersHint": "Enabled parameters for diffusers backend (comma-separated).",
+    "cuda": "CUDA",
+    "cudaHint": "Enable CUDA support for GPU acceleration.",
+    "yamlEditor": "YAML Configuration Editor",
+    "manualPick": "manual pick",
+    "manualPickTooltip": "Auto-detect won't route to this backend. Pick it here if you know that's what you want."
+  },
+  "modality": {
+    "text": "Text LLM",
+    "asr": "Speech recognition",
+    "tts": "Text-to-speech",
+    "image": "Image / Video",
+    "embeddings": "Embeddings",
+    "reranker": "Rerankers",
+    "detection": "Object detection",
+    "vad": "Voice activity detection",
+    "other": "Other"
+  },
+  "powerTabs": {
+    "ariaLabel": "Advanced mode tab",
+    "preferences": "Preferences",
+    "yaml": "YAML"
+  },
+  "switchDialog": {
+    "title": "Keep your custom preferences?",
+    "body": "Switching to Simple mode hides preferences beyond backend, name, and description. They'll still be sent when you import.",
+    "cancel": "Cancel",
+    "discard": "Discard & switch",
+    "keep": "Keep & switch"
+  },
+  "estimate": {
+    "title": "Estimated requirements",
+    "download": "Download: {{size}}",
+    "vram": "VRAM: {{vram}}"
+  },
+  "toasts": {
+    "noUri": "Please enter a model URI",
+    "noYaml": "Please enter YAML configuration",
+    "started": "Import started! Tracking progress...",
+    "startedWithMeta": "Import started! Tracking progress... ({{meta}})",
+    "imported": "Model imported successfully!",
+    "importedYaml": "Model configuration imported successfully!",
+    "importFailed": "Import failed: {{message}}",
+    "startImportFailed": "Failed to start import: {{message}}",
+    "backendsLoadFailed": "Could not load backend list — using auto-detect only",
+    "modalityClearedBackend": "Cleared backend selection — it wasn't in the {{label}} group.",
+    "copied": "Copied to clipboard"
+  },
+  "uriFormats": {
+    "huggingface": {
+      "title": "HuggingFace",
+      "standard": "Standard HuggingFace format",
+      "short": "Short HuggingFace format",
+      "fullUrl": "Full HuggingFace URL"
+    },
+    "http": {
+      "title": "HTTP/HTTPS URLs",
+      "direct": "Direct download from any HTTPS URL"
+    },
+    "local": {
+      "title": "Local Files",
+      "filePath": "Local file path (absolute)",
+      "directYaml": "Direct local YAML config file"
+    },
+    "oci": {
+      "title": "OCI Registry",
+      "registry": "OCI container registry",
+      "tarball": "Local OCI tarball file"
+    },
+    "ollama": {
+      "title": "Ollama",
+      "model": "Ollama model format"
+    },
+    "yaml": {
+      "title": "YAML Configuration Files",
+      "remote": "Remote YAML config file",
+      "local": "Local YAML config file"
+    }
+  }
+}

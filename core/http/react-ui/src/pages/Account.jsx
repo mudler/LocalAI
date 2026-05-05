@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useOutletContext } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '../context/AuthContext'
 import { apiKeysApi, profileApi } from '../utils/api'
 import LoadingSpinner from '../components/LoadingSpinner'
@@ -13,12 +14,13 @@ function formatDate(d) {
 }
 
 const TABS = [
-  { id: 'profile', icon: 'fa-user', label: 'Profile' },
-  { id: 'security', icon: 'fa-lock', label: 'Security' },
-  { id: 'apikeys', icon: 'fa-key', label: 'API Keys' },
+  { id: 'profile', icon: 'fa-user', labelKey: 'account.tabs.profile' },
+  { id: 'security', icon: 'fa-lock', labelKey: 'account.tabs.security' },
+  { id: 'apikeys', icon: 'fa-key', labelKey: 'account.tabs.apiKeys' },
 ]
 
 function ProfileTab({ addToast }) {
+  const { t } = useTranslation('auth')
   const { user, refresh } = useAuth()
   const [name, setName] = useState(user?.name || '')
   const [avatarUrl, setAvatarUrl] = useState(user?.avatarUrl || '')
@@ -35,10 +37,10 @@ function ProfileTab({ addToast }) {
     setSaving(true)
     try {
       await profileApi.updateProfile(name.trim(), avatarUrl.trim())
-      addToast('Profile updated', 'success')
+      addToast(t('account.profile.updated'), 'success')
       refresh()
     } catch (err) {
-      addToast(`Failed to update profile: ${err.message}`, 'error')
+      addToast(t('account.profile.updateFailed', { message: err.message }), 'error')
     } finally {
       setSaving(false)
     }
@@ -71,7 +73,7 @@ function ProfileTab({ addToast }) {
       {/* Profile form */}
       <form onSubmit={handleSave}>
         <div className="card">
-          <SettingRow label="Display name" description="Your public display name">
+          <SettingRow label={t('account.profile.displayName')} description={t('account.profile.displayNameDescription')}>
             <input
               type="text"
               className="input account-input-sm"
@@ -81,7 +83,7 @@ function ProfileTab({ addToast }) {
               maxLength={100}
             />
           </SettingRow>
-          <SettingRow label="Avatar URL" description="URL to your profile picture">
+          <SettingRow label={t('account.profile.avatarUrl')} description={t('account.profile.avatarUrlDescription')}>
             <div className="account-input-row">
               <input
                 type="url"
@@ -90,7 +92,7 @@ function ProfileTab({ addToast }) {
                 onChange={(e) => setAvatarUrl(e.target.value)}
                 disabled={saving}
                 maxLength={512}
-                placeholder="https://example.com/avatar.png"
+                placeholder={t('account.profile.avatarUrlPlaceholder')}
               />
               {avatarUrl.trim() && (
                 <img
@@ -110,7 +112,9 @@ function ProfileTab({ addToast }) {
             className="btn btn-primary btn-sm"
             disabled={saving || !name.trim() || !hasChanges}
           >
-            {saving ? <><LoadingSpinner size="sm" /> Saving...</> : <><i className="fas fa-save" /> Save</>}
+            {saving
+              ? <><LoadingSpinner size="sm" /> {t('account.profile.saving')}</>
+              : <><i className="fas fa-save" /> {t('account.profile.save')}</>}
           </button>
         </div>
       </form>
@@ -119,6 +123,7 @@ function ProfileTab({ addToast }) {
 }
 
 function SecurityTab({ addToast }) {
+  const { t } = useTranslation('auth')
   const { user } = useAuth()
   const isLocal = user?.provider === 'local'
 
@@ -130,17 +135,17 @@ function SecurityTab({ addToast }) {
   const handleSubmit = async (e) => {
     e.preventDefault()
     if (newPw !== confirmPw) {
-      addToast('Passwords do not match', 'error')
+      addToast(t('account.security.passwordsDoNotMatch'), 'error')
       return
     }
     if (newPw.length < 8) {
-      addToast('New password must be at least 8 characters', 'error')
+      addToast(t('account.security.tooShort'), 'error')
       return
     }
     setSaving(true)
     try {
       await profileApi.changePassword(currentPw, newPw)
-      addToast('Password changed', 'success')
+      addToast(t('account.security.changed'), 'success')
       setCurrentPw('')
       setNewPw('')
       setConfirmPw('')
@@ -156,7 +161,7 @@ function SecurityTab({ addToast }) {
       <div className="card empty-icon-block">
         <i className="fas fa-shield-halved" />
         <div className="empty-icon-block-text">
-          Password management is not available for {user?.provider || 'OAuth'} accounts.
+          {t('account.security.oauthOnly', { provider: user?.provider || 'OAuth' })}
         </div>
       </div>
     )
@@ -165,36 +170,36 @@ function SecurityTab({ addToast }) {
   return (
     <form onSubmit={handleSubmit}>
       <div className="card">
-        <SettingRow label="Current password" description="Enter your existing password to verify your identity">
+        <SettingRow label={t('account.security.currentPassword')} description={t('account.security.currentPasswordDescription')}>
           <input
             type="password"
             className="input account-input-sm"
             value={currentPw}
             onChange={(e) => setCurrentPw(e.target.value)}
-            placeholder="Current password"
+            placeholder={t('account.security.currentPasswordPlaceholder')}
             disabled={saving}
             required
           />
         </SettingRow>
-        <SettingRow label="New password" description="Must be at least 8 characters">
+        <SettingRow label={t('account.security.newPassword')} description={t('account.security.newPasswordDescription')}>
           <input
             type="password"
             className="input account-input-sm"
             value={newPw}
             onChange={(e) => setNewPw(e.target.value)}
-            placeholder="New password"
+            placeholder={t('account.security.newPasswordPlaceholder')}
             minLength={8}
             disabled={saving}
             required
           />
         </SettingRow>
-        <SettingRow label="Confirm password" description="Re-enter your new password">
+        <SettingRow label={t('account.security.confirmPassword')} description={t('account.security.confirmPasswordDescription')}>
           <input
             type="password"
             className="input account-input-sm"
             value={confirmPw}
             onChange={(e) => setConfirmPw(e.target.value)}
-            placeholder="Confirm new password"
+            placeholder={t('account.security.confirmPasswordPlaceholder')}
             disabled={saving}
             required
           />
@@ -206,7 +211,9 @@ function SecurityTab({ addToast }) {
           className="btn btn-primary btn-sm"
           disabled={saving || !currentPw || !newPw || !confirmPw}
         >
-          {saving ? <><LoadingSpinner size="sm" /> Changing...</> : 'Change password'}
+          {saving
+            ? <><LoadingSpinner size="sm" /> {t('account.security.changing')}</>
+            : t('account.security.changePassword')}
         </button>
       </div>
     </form>
@@ -214,6 +221,7 @@ function SecurityTab({ addToast }) {
 }
 
 function ApiKeysTab({ addToast }) {
+  const { t } = useTranslation('auth')
   const [keys, setKeys] = useState([])
   const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false)
@@ -228,11 +236,11 @@ function ApiKeysTab({ addToast }) {
       const data = await apiKeysApi.list()
       setKeys(data.keys || [])
     } catch (err) {
-      addToast(`Failed to load API keys: ${err.message}`, 'error')
+      addToast(t('account.apiKeys.loadFailed', { message: err.message }), 'error')
     } finally {
       setLoading(false)
     }
-  }, [addToast])
+  }, [addToast, t])
 
   useEffect(() => { fetchKeys() }, [fetchKeys])
 
@@ -245,9 +253,9 @@ function ApiKeysTab({ addToast }) {
       setNewKeyPlaintext(data.key)
       setNewKeyName('')
       await fetchKeys()
-      addToast('API key created', 'success')
+      addToast(t('account.apiKeys.createdToast'), 'success')
     } catch (err) {
-      addToast(`Failed to create API key: ${err.message}`, 'error')
+      addToast(t('account.apiKeys.createFailed', { message: err.message }), 'error')
     } finally {
       setCreating(false)
     }
@@ -255,9 +263,9 @@ function ApiKeysTab({ addToast }) {
 
   const handleRevoke = async (id, name) => {
     setConfirmDialog({
-      title: 'Revoke API Key',
-      message: `Revoke API key "${name}"? This cannot be undone.`,
-      confirmLabel: 'Revoke',
+      title: t('account.apiKeys.revokeTitle'),
+      message: t('account.apiKeys.revokeMessage', { name }),
+      confirmLabel: t('account.apiKeys.revoke'),
       danger: true,
       onConfirm: async () => {
         setConfirmDialog(null)
@@ -265,9 +273,9 @@ function ApiKeysTab({ addToast }) {
         try {
           await apiKeysApi.revoke(id)
           setKeys(prev => prev.filter(k => k.id !== id))
-          addToast('API key revoked', 'success')
+          addToast(t('account.apiKeys.revoked'), 'success')
         } catch (err) {
-          addToast(`Failed to revoke API key: ${err.message}`, 'error')
+          addToast(t('account.apiKeys.revokeFailed', { message: err.message }), 'error')
         } finally {
           setRevokingId(null)
         }
@@ -278,7 +286,7 @@ function ApiKeysTab({ addToast }) {
   const copyToClipboard = (text) => {
     if (navigator.clipboard?.writeText) {
       navigator.clipboard.writeText(text).then(
-        () => addToast('Copied to clipboard', 'success'),
+        () => addToast(t('account.apiKeys.copiedToast'), 'success'),
         () => fallbackCopy(text),
       )
     } else {
@@ -295,9 +303,9 @@ function ApiKeysTab({ addToast }) {
     ta.select()
     try {
       document.execCommand('copy')
-      addToast('Copied to clipboard', 'success')
+      addToast(t('account.apiKeys.copiedToast'), 'success')
     } catch (_) {
-      addToast('Failed to copy', 'error')
+      addToast(t('account.apiKeys.copyFailed'), 'error')
     }
     document.body.removeChild(ta)
   }
@@ -307,19 +315,19 @@ function ApiKeysTab({ addToast }) {
       {/* Create key form */}
       <div className="card" style={{ marginBottom: 'var(--spacing-md)' }}>
         <form onSubmit={handleCreate}>
-          <SettingRow label="Create API key" description="Generate a key for programmatic access">
+          <SettingRow label={t('account.apiKeys.create')} description={t('account.apiKeys.createDescription')}>
             <div className="account-input-row">
               <input
                 type="text"
                 className="input account-input-xs"
-                placeholder="Key name (e.g. my-app)"
+                placeholder={t('account.apiKeys.namePlaceholder')}
                 value={newKeyName}
                 onChange={(e) => setNewKeyName(e.target.value)}
                 disabled={creating}
                 maxLength={64}
               />
               <button type="submit" className="btn btn-primary btn-sm" disabled={creating || !newKeyName.trim()}>
-                {creating ? <LoadingSpinner size="sm" /> : <><i className="fas fa-plus" /> Create</>}
+                {creating ? <LoadingSpinner size="sm" /> : <><i className="fas fa-plus" /> {t('account.apiKeys.createButton')}</>}
               </button>
             </div>
           </SettingRow>
@@ -331,7 +339,7 @@ function ApiKeysTab({ addToast }) {
         <div className="new-key-banner">
           <div className="new-key-banner-header">
             <i className="fas fa-triangle-exclamation" />
-            Copy now — this key won't be shown again
+            {t('account.apiKeys.copyNow')}
           </div>
           <div className="new-key-banner-body">
             <code className="new-key-value">
@@ -356,7 +364,7 @@ function ApiKeysTab({ addToast }) {
         <div className="card empty-icon-block">
           <i className="fas fa-key" />
           <div className="empty-icon-block-text">
-            No API keys yet. Create one above to get programmatic access.
+            {t('account.apiKeys.empty')}
           </div>
         </div>
       ) : (
@@ -368,14 +376,14 @@ function ApiKeysTab({ addToast }) {
                 <div className="apikey-name">{k.name}</div>
                 <div className="apikey-details">
                   {k.keyPrefix}... &middot; {formatDate(k.createdAt)}
-                  {k.lastUsed && <> &middot; last used {formatDate(k.lastUsed)}</>}
+                  {k.lastUsed && <> &middot; {t('account.apiKeys.lastUsed', { date: formatDate(k.lastUsed) })}</>}
                 </div>
               </div>
               <button
                 className="btn btn-sm apikey-revoke-btn"
                 onClick={() => handleRevoke(k.id, k.name)}
                 disabled={revokingId === k.id}
-                title="Revoke key"
+                title={t('account.apiKeys.revokeKey')}
               >
                 {revokingId === k.id ? <LoadingSpinner size="sm" /> : <i className="fas fa-trash" />}
               </button>
@@ -398,6 +406,7 @@ function ApiKeysTab({ addToast }) {
 
 export default function Account() {
   const { addToast } = useOutletContext()
+  const { t } = useTranslation('auth')
   const { authEnabled, user } = useAuth()
   const [activeTab, setActiveTab] = useState('profile')
 
@@ -406,8 +415,8 @@ export default function Account() {
       <div className="page page--narrow">
         <div className="empty-state">
           <div className="empty-state-icon"><i className="fas fa-user-gear" /></div>
-          <h2 className="empty-state-title">Account unavailable</h2>
-          <p className="empty-state-text">Authentication must be enabled to manage your account.</p>
+          <h2 className="empty-state-title">{t('account.unavailable')}</h2>
+          <p className="empty-state-text">{t('account.unavailableText')}</p>
         </div>
       </div>
     )
@@ -415,14 +424,14 @@ export default function Account() {
 
   // Filter tabs: hide security tab for OAuth-only users
   const isLocal = user?.provider === 'local'
-  const visibleTabs = isLocal ? TABS : TABS.filter(t => t.id !== 'security')
+  const visibleTabs = isLocal ? TABS : TABS.filter(tab => tab.id !== 'security')
 
   return (
     <div className="page page--narrow account-page">
       {/* Header */}
       <div className="page-header">
-        <h1 className="page-title">Account</h1>
-        <p className="page-subtitle">Profile, credentials, and API keys</p>
+        <h1 className="page-title">{t('account.title')}</h1>
+        <p className="page-subtitle">{t('account.subtitle')}</p>
       </div>
 
       {/* Tab bar */}
@@ -434,7 +443,7 @@ export default function Account() {
             className={`auth-tab ${activeTab === tab.id ? 'active' : ''}`}
           >
             <i className={`fas ${tab.icon} auth-tab-icon`} />
-            {tab.label}
+            {t(tab.labelKey)}
           </button>
         ))}
       </div>
