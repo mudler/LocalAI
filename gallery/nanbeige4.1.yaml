@@ -1,16 +1,15 @@
----
-name: nanbeige4.1
-
 config_file: |
-  backend: llama-cpp
-  function:
-      grammar:
-          disable: true
-  known_usecases:
-      - chat
-  options:
-      - use_jinja:true
-  parameters:
-      model: llama-cpp/models/nanbeige4.1-3b-q8_0.gguf
-  template:
-      use_tokenizer_template: true
+    backend: llama-cpp
+    function:
+        grammar:
+            disable: true
+    known_usecases:
+        - chat
+        - completion
+    options:
+        - use_jinja:true
+    parameters:
+        model: llama-cpp/models/nanbeige4.1-3b-q8_0.gguf
+    template:
+        use_tokenizer_template: true
+name: nanbeige4.1
