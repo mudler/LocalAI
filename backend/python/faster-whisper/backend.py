@@ -59,7 +59,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             id = 0
             for segment in segments:
                 print("[%.2fs -> %.2fs] %s" % (segment.start, segment.end, segment.text))
-                resultSegments.append(backend_pb2.TranscriptSegment(id=id, start=int(segment.start)*1e9, end=int(segment.end)*1e9, text=segment.text))
+                resultSegments.append(backend_pb2.TranscriptSegment(id=id, start=int(segment.start*1e9), end=int(segment.end*1e9), text=segment.text))
                 text += segment.text
                 id += 1
         except Exception as err:
