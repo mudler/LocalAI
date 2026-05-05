@@ -169,6 +169,22 @@ var _ = BeforeSuite(func() {
 		Expect(os.WriteFile(filepath.Join(modelsPath, name+".yaml"), data, 0644)).To(Succeed())
 	}
 
+	// Path-resolution model — declares relative draft_model / mmproj paths
+	// so the e2e test can confirm they arrive at the backend resolved
+	// against the models directory (regression guard for issue #9675).
+	pathResolutionCfg := map[string]any{
+		"name":    "mock-model-path-resolution",
+		"backend": "mock-backend",
+		"parameters": map[string]any{
+			"model": "subdir/mock-main.bin",
+		},
+		"draft_model": "subdir/mock-draft.bin",
+		"mmproj":      "subdir/mock-mmproj.bin",
+	}
+	pathResolutionData, err := yaml.Marshal(pathResolutionCfg)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(os.WriteFile(filepath.Join(modelsPath, "mock-model-path-resolution.yaml"), pathResolutionData, 0644)).To(Succeed())
+
 	// Diarization model — known_usecases bypasses the FLAG_DIARIZATION
 	// backend-name guard so the /v1/audio/diarization route can dispatch
 	// to the mock backend.
