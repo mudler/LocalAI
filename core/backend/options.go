@@ -246,10 +246,11 @@ func grpcModelOpts(c config.ModelConfig, modelPath string) *pb.ModelOptions {
 		opts.MMProj = filepath.Join(modelPath, c.MMProj)
 	}
 
-	// Resolve draft_model relative to the models directory, mirroring the
-	// resolution that happens for parameters.model and mmproj. Without this,
-	// llama.cpp opens the path from the backend's CWD and fails.
-	if c.DraftModel != "" && !filepath.IsAbs(c.DraftModel) {
+	// Resolve draft_model against the models directory, mirroring the
+	// handling of parameters.model and mmproj. Always joining (without an
+	// IsAbs shortcut) prevents user-supplied configs from pointing the
+	// backend at arbitrary host files via an absolute path.
+	if c.DraftModel != "" {
 		opts.DraftModel = filepath.Join(modelPath, c.DraftModel)
 	}
 

@@ -54,4 +54,30 @@ var _ = Describe("Backend Path Resolution", Label("MockBackend", "PathResolution
 		Expect(snapshot["draft_model"]).To(Equal(filepath.Join(modelsPath, "subdir", "mock-draft.bin")),
 			"draft_model should be resolved against the models directory (regression guard for #9675)")
 	})
+
+	// A user-supplied YAML must not be able to escape the models directory
+	// by setting draft_model to an absolute path like "/etc/passwd".
+	// filepath.Join strips the leading slash, so the resulting path stays
+	// rooted at modelsPath even for adversarial input.
+	It("clamps absolute draft_model paths to the models directory", func() {
+		resp, err := client.Chat.Completions.New(
+			context.TODO(),
+			openai.ChatCompletionNewParams{
+				Model: "mock-model-path-escape",
+				Messages: []openai.ChatCompletionMessageParamUnion{
+					openai.UserMessage("ECHO_LOAD_PARAMS"),
+				},
+			},
+		)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(resp.Choices).To(HaveLen(1))
+
+		var snapshot map[string]string
+		Expect(json.Unmarshal([]byte(resp.Choices[0].Message.Content), &snapshot)).To(Succeed())
+
+		Expect(snapshot["draft_model"]).To(Equal(filepath.Join(modelsPath, "etc", "passwd")),
+			"absolute draft_model paths must be clamped under the models directory")
+		Expect(snapshot["draft_model"]).ToNot(Equal("/etc/passwd"),
+			"a YAML config must not be able to point the backend at /etc/passwd")
+	})
 })

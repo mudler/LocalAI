@@ -185,6 +185,21 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 	Expect(os.WriteFile(filepath.Join(modelsPath, "mock-model-path-resolution.yaml"), pathResolutionData, 0644)).To(Succeed())
 
+	// Same but with an absolute draft_model — must not let a user-supplied
+	// config reach files outside the models directory. filepath.Join
+	// strips the leading slash, so /etc/passwd becomes <modelsPath>/etc/passwd.
+	pathEscapeCfg := map[string]any{
+		"name":    "mock-model-path-escape",
+		"backend": "mock-backend",
+		"parameters": map[string]any{
+			"model": "subdir/mock-main.bin",
+		},
+		"draft_model": "/etc/passwd",
+	}
+	pathEscapeData, err := yaml.Marshal(pathEscapeCfg)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(os.WriteFile(filepath.Join(modelsPath, "mock-model-path-escape.yaml"), pathEscapeData, 0644)).To(Succeed())
+
 	// Diarization model — known_usecases bypasses the FLAG_DIARIZATION
 	// backend-name guard so the /v1/audio/diarization route can dispatch
 	// to the mock backend.
