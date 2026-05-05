@@ -21,20 +21,28 @@ ENV AMDGPU_TARGETS=${AMDGPU_TARGETS}
 ARG APT_MIRROR
 ARG APT_PORTS_MIRROR
 
+# gcc-14 is the default on noble (ubuntu:24.04) but absent from jammy
+# (the L4T jetpack r36.4.0 base). LocalVQE specifically needs it; the
+# other Go backends compile fine with the default gcc shipped via
+# build-essential. So: try gcc-14 from the configured repos, fall back
+# gracefully when it's not available so jammy-based builds don't fail
+# at the apt step.
 RUN --mount=type=bind,source=.docker/apt-mirror.sh,target=/usr/local/sbin/apt-mirror \
     APT_MIRROR="${APT_MIRROR}" APT_PORTS_MIRROR="${APT_PORTS_MIRROR}" sh /usr/local/sbin/apt-mirror && \
     apt-get update && \
     apt-get install -y --no-install-recommends \
         build-essential \
-        gcc-14 g++-14 \
         git ccache \
         ca-certificates \
         make cmake wget libopenblas-dev \
         curl unzip \
         libssl-dev && \
-    update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-14 100 \
-        --slave /usr/bin/g++ g++ /usr/bin/g++-14 \
-        --slave /usr/bin/gcov gcov /usr/bin/gcov-14 && \
+    if apt-cache show gcc-14 >/dev/null 2>&1 && apt-cache show g++-14 >/dev/null 2>&1; then \
+        apt-get install -y --no-install-recommends gcc-14 g++-14 && \
+        update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-14 100 \
+            --slave /usr/bin/g++ g++ /usr/bin/g++-14 \
+            --slave /usr/bin/gcov gcov /usr/bin/gcov-14; \
+    fi && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
