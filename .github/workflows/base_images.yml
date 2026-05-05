@@ -1,0 +1,145 @@
+---
+name: 'build base image (reusable)'
+
+# Builds and pushes one (lang, accel, arch, ubuntu, cuda) base image flavour
+# to quay.io/go-skynet/localai-base. Consumed by backend builds via the
+# BASE_IMAGE_PREBUILT build-arg. PR builds tag with `-pr${PR_NUMBER}` so the
+# same PR's backend matrix can opt-in to the freshly-built base; master
+# builds overwrite the unsuffixed tag for downstream consumption. See
+# .agents/ci-caching.md for the full tagging scheme.
+
+on:
+  workflow_call:
+    inputs:
+      lang:
+        description: 'Language toolchain (matches .docker/bases/Dockerfile.<lang>)'
+        required: true
+        type: string
+      base-image:
+        description: 'Upstream base image (ubuntu:24.04, rocm/dev-ubuntu-24.04:..., etc.)'
+        required: true
+        type: string
+      build-type:
+        description: 'BUILD_TYPE: empty for CPU, cublas, hipblas, vulkan, l4t, ...'
+        default: ''
+        type: string
+      cuda-major-version:
+        description: 'CUDA major version (only meaningful for cublas/l4t)'
+        default: '12'
+        type: string
+      cuda-minor-version:
+        description: 'CUDA minor version'
+        default: '9'
+        type: string
+      ubuntu-version:
+        description: 'Ubuntu version code (2204, 2404)'
+        default: '2404'
+        type: string
+      platforms:
+        description: 'Single platform per call (linux/amd64 or linux/arm64)'
+        required: true
+        type: string
+      runs-on:
+        description: 'Runner label'
+        required: true
+        type: string
+      tag-stem:
+        description: 'Stable portion of the image tag (e.g. python-cpu-amd64-2404)'
+        required: true
+        type: string
+      skip-drivers:
+        description: 'Pass-through to the base Dockerfile'
+        default: 'false'
+        type: string
+    secrets:
+      quayUsername:
+        required: false
+      quayPassword:
+        required: false
+    outputs:
+      image-ref:
+        description: 'Full image reference of the built base'
+        value: ${{ jobs.base-build.outputs.image-ref }}
+
+jobs:
+  base-build:
+    runs-on: ${{ inputs.runs-on }}
+    env:
+      quay_username: ${{ secrets.quayUsername }}
+    outputs:
+      image-ref: ${{ steps.compute_ref.outputs.ref }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Configure apt mirror on runner
+        id: apt_mirror
+        uses: ./.github/actions/configure-apt-mirror
+
+      - name: Free Disk Space (Ubuntu)
+        if: inputs.runs-on == 'ubuntu-latest'
+        uses: jlumbroso/free-disk-space@main
+        with:
+          tool-cache: true
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: true
+
+      - name: Compute image ref
+        id: compute_ref
+        run: |
+          stem='${{ inputs.tag-stem }}'
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            tag="${stem}-pr${{ github.event.number }}"
+          else
+            tag="${stem}"
+          fi
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+          echo "ref=quay.io/go-skynet/localai-base:${tag}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@master
+        with:
+          platforms: all
+
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@master
+
+      - name: Login to Quay.io
+        if: ${{ env.quay_username != '' }}
+        uses: docker/login-action@v4
+        with:
+          registry: quay.io
+          username: ${{ secrets.quayUsername }}
+          password: ${{ secrets.quayPassword }}
+
+      - name: Build and push base image
+        uses: docker/build-push-action@v7
+        with:
+          builder: ${{ steps.buildx.outputs.name }}
+          context: .
+          file: ./.docker/bases/Dockerfile.${{ inputs.lang }}
+          build-args: |
+            BUILD_TYPE=${{ inputs.build-type }}
+            CUDA_MAJOR_VERSION=${{ inputs.cuda-major-version }}
+            CUDA_MINOR_VERSION=${{ inputs.cuda-minor-version }}
+            BASE_IMAGE=${{ inputs.base-image }}
+            UBUNTU_VERSION=${{ inputs.ubuntu-version }}
+            SKIP_DRIVERS=${{ inputs.skip-drivers }}
+            APT_MIRROR=${{ steps.apt_mirror.outputs.effective-mirror }}
+            APT_PORTS_MIRROR=${{ steps.apt_mirror.outputs.effective-ports-mirror }}
+          platforms: ${{ inputs.platforms }}
+          # Push on PRs as well (if creds present) so the PR's backend matrix
+          # can opt-in to the freshly-built base via -pr${N} tag.
+          push: ${{ env.quay_username != '' }}
+          tags: ${{ steps.compute_ref.outputs.ref }}
+          cache-from: type=registry,ref=quay.io/go-skynet/ci-cache:base-${{ inputs.tag-stem }}
+          cache-to: type=registry,ref=quay.io/go-skynet/ci-cache:base-${{ inputs.tag-stem }},mode=max,ignore-error=true
+
+      - name: job summary
+        run: |
+          echo "Built base image: ${{ steps.compute_ref.outputs.ref }}" >> "$GITHUB_STEP_SUMMARY"

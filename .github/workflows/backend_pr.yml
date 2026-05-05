@@ -13,8 +13,10 @@ jobs:
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
       matrix-darwin: ${{ steps.set-matrix.outputs.matrix-darwin }}
+      bases-matrix: ${{ steps.set-matrix.outputs.bases-matrix }}
       has-backends: ${{ steps.set-matrix.outputs.has-backends }}
       has-backends-darwin: ${{ steps.set-matrix.outputs.has-backends-darwin }}
+      has-bases: ${{ steps.set-matrix.outputs.has-bases }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -27,7 +29,8 @@ jobs:
           bun add js-yaml
           bun add @octokit/core
 
-      # filters the matrix in backend.yml
+      # Filters the matrix from backend.yml against this PR's changed files
+      # AND derives the deduplicated bases-matrix consumed by build-bases.
       - name: Filter matrix for changed backends
         id: set-matrix
         env:
@@ -35,10 +38,34 @@ jobs:
           GITHUB_EVENT_PATH: ${{ github.event_path }}
         run: bun run scripts/changed-backends.js
 
-  backend-jobs:
+  build-bases:
     needs: generate-matrix
+    if: needs.generate-matrix.outputs.has-bases == 'true'
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.generate-matrix.outputs.bases-matrix) }}
+    uses: ./.github/workflows/base_images.yml
+    with:
+      lang: ${{ matrix.lang }}
+      base-image: ${{ matrix.base-image }}
+      build-type: ${{ matrix.build-type }}
+      cuda-major-version: ${{ matrix.cuda-major-version }}
+      cuda-minor-version: ${{ matrix.cuda-minor-version }}
+      ubuntu-version: ${{ matrix.ubuntu-version }}
+      platforms: ${{ matrix.platforms }}
+      runs-on: ${{ matrix.runs-on }}
+      tag-stem: ${{ matrix.tag-stem }}
+      skip-drivers: ${{ matrix.skip-drivers }}
+    secrets:
+      quayUsername: ${{ secrets.LOCALAI_REGISTRY_USERNAME }}
+      quayPassword: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
+
+  backend-jobs:
+    needs: [generate-matrix, build-bases]
     uses: ./.github/workflows/backend_build.yml
-    if: needs.generate-matrix.outputs.has-backends == 'true'
+    if: |
+      always() && needs.generate-matrix.outputs.has-backends == 'true' &&
+      (needs.build-bases.result == 'success' || needs.build-bases.result == 'skipped')
     with:
       tag-latest: ${{ matrix.tag-latest }}
       tag-suffix: ${{ matrix.tag-suffix }}
@@ -54,12 +81,17 @@ jobs:
       context: ${{ matrix.context }}
       ubuntu-version: ${{ matrix.ubuntu-version }}
       amdgpu-targets: ${{ matrix.amdgpu-targets || 'gfx908,gfx90a,gfx942,gfx950,gfx1030,gfx1100,gfx1101,gfx1102,gfx1151,gfx1200,gfx1201' }}
+      # The script annotates each filtered Python entry with the prebuilt
+      # base ref it should consume; non-Python entries get '' and run their
+      # own inline bootstrap.
+      base-image-prebuilt: ${{ matrix.base-image-prebuilt || '' }}
     secrets:
       quayUsername: ${{ secrets.LOCALAI_REGISTRY_USERNAME }}
       quayPassword: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
     strategy:
       fail-fast: true
       matrix: ${{ fromJson(needs.generate-matrix.outputs.matrix) }}
+
   backend-jobs-darwin:
     needs: generate-matrix
     uses: ./.github/workflows/backend_build_darwin.yml

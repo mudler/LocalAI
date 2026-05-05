@@ -63,6 +63,16 @@ on:
         required: false
         default: ''
         type: string
+      base-image-prebuilt:
+        description: |
+          Optional reference to a prebuilt accel/lang base image
+          (quay.io/go-skynet/localai-base:<tag>). When set, the backend
+          Dockerfile FROMs this image instead of running the inline
+          bootstrap. See .github/workflows/base_images_python.yml and
+          .agents/ci-caching.md.
+        required: false
+        default: ''
+        type: string
     secrets:
       dockerUsername:
         required: false
@@ -228,6 +238,7 @@ jobs:
             APT_MIRROR=${{ steps.apt_mirror.outputs.effective-mirror }}
             APT_PORTS_MIRROR=${{ steps.apt_mirror.outputs.effective-ports-mirror }}
             DEPS_REFRESH=${{ steps.deps_refresh.outputs.key }}
+            BASE_IMAGE_PREBUILT=${{ inputs.base-image-prebuilt }}
           context: ${{ inputs.context }}
           file: ${{ inputs.dockerfile }}
           cache-from: type=registry,ref=quay.io/go-skynet/ci-cache:cache${{ inputs.tag-suffix }}
@@ -254,6 +265,7 @@ jobs:
             APT_MIRROR=${{ steps.apt_mirror.outputs.effective-mirror }}
             APT_PORTS_MIRROR=${{ steps.apt_mirror.outputs.effective-ports-mirror }}
             DEPS_REFRESH=${{ steps.deps_refresh.outputs.key }}
+            BASE_IMAGE_PREBUILT=${{ inputs.base-image-prebuilt }}
           context: ${{ inputs.context }}
           file: ${{ inputs.dockerfile }}
           cache-from: type=registry,ref=quay.io/go-skynet/ci-cache:cache${{ inputs.tag-suffix }}
