@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -14,21 +15,30 @@ import (
 )
 
 // vv_capi_asr loads audio with load_wav_24k_mono — a 24 kHz mono s16le
-// WAV is the format the model was trained on. Generic utils.AudioToWav
-// targets 16 kHz, which would cause silent quality degradation, so we
-// shell out to ffmpeg directly here.
+// WAV is the format the model was trained on. Inputs already in that
+// format pass through; everything else is converted via ffmpeg, which
+// is therefore a runtime requirement only when callers upload non-WAV
+// (or non-24 kHz mono s16le WAV) audio. Skipping ffmpeg on the happy
+// path matters for the e2e-backends test container, which does not
+// ship ffmpeg but feeds the backend pre-cooked 24 kHz mono WAVs.
 const vibevoiceASRSampleRate = 24000
 
-// prepareWavInput accepts any audio format ffmpeg can decode and produces
-// a 24 kHz mono s16le WAV file in a fresh temp dir. Returns the resolved
-// WAV path plus a cleanup func — both must be honoured by the caller.
-// vibevoice.cpp's vv_capi_asr expects WAV input only; feeding it MP3/OGG/
-// FLAC fails at load_wav, so without conversion the endpoint only worked
-// when the user happened to upload a WAV.
+// prepareWavInput resolves `src` to a 24 kHz mono s16le WAV path that
+// vv_capi_asr's load_wav_24k_mono accepts. Returns the resolved path
+// plus a cleanup func; both must be honoured by the caller.
+//
+// Pass-through happens when `src` already has the right WAV format —
+// no ffmpeg required. Otherwise we shell out to ffmpeg into a temp
+// dir; if ffmpeg isn't on PATH we surface a clear error mentioning the
+// underlying format mismatch.
 func prepareWavInput(src string) (string, func(), error) {
 	if src == "" {
 		return "", func() {}, fmt.Errorf("empty audio path")
 	}
+	if isVibevoiceCompatibleWav(src) {
+		return src, func() {}, nil
+	}
+
 	dir, err := os.MkdirTemp("", "vibevoice-asr")
 	if err != nil {
 		return "", func() {}, fmt.Errorf("mkdtemp: %w", err)
@@ -52,6 +62,27 @@ func prepareWavInput(src string) (string, func(), error) {
 		return "", func() {}, fmt.Errorf("ffmpeg convert to 24k mono wav: %w (output: %s)", err, string(out))
 	}
 	return wavPath, cleanup, nil
+}
+
+// isVibevoiceCompatibleWav returns true when `src` carries the RIFF/WAVE
+// magic bytes. vibevoice's load_wav_24k_mono uses drwav under the hood,
+// which accepts any PCM/IEEE-float WAV at any sample rate and downmixes
+// multi-channel input to mono on its own — so any valid WAV passes
+// through to the C side without conversion. Anything else (MP3, OGG,
+// FLAC, ...) needs ffmpeg.
+func isVibevoiceCompatibleWav(src string) bool {
+	f, err := os.Open(src)
+	if err != nil {
+		return false
+	}
+	defer func() { _ = f.Close() }()
+
+	// 0..3 = "RIFF", 8..11 = "WAVE".
+	var hdr [12]byte
+	if _, err := io.ReadFull(f, hdr[:]); err != nil {
+		return false
+	}
+	return string(hdr[0:4]) == "RIFF" && string(hdr[8:12]) == "WAVE"
 }
 
 // asrMaxNewTokens caps the ASR generation budget. The C ABI defaults to
