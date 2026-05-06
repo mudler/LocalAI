@@ -141,7 +141,7 @@ options:
 
 ## See also
 
-- [Text to Audio (TTS)]({{< relref "tts.md" >}})
+- [Text to Audio (TTS)]({{< relref "text-to-audio.md" >}})
 - [Audio to Text]({{< relref "audio-to-text.md" >}})
 - [LocalVQE upstream](https://github.com/localai-org/LocalVQE)
 - [DeepVQE paper (Indenbom et al., Interspeech 2023)](https://arxiv.org/abs/2306.03177)
