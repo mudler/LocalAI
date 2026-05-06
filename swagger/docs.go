@@ -919,7 +919,7 @@ const docTemplate = `{
         },
         "/api/models/vram-estimate": {
             "post": {
-                "description": "Estimates VRAM based on model weight files, context size, and GPU layers",
+                "description": "Estimates VRAM based on model weight files at multiple context sizes",
                 "consumes": [
                     "application/json"
                 ],
@@ -3436,26 +3436,25 @@ const docTemplate = `{
         "modeladmin.VRAMResponse": {
             "type": "object",
             "properties": {
+                "context_length": {
+                    "type": "integer"
+                },
                 "context_note": {
                     "type": "string"
                 },
                 "model_max_context": {
                     "type": "integer"
                 },
-                "sizeBytes": {
-                    "description": "total model weight size in bytes",
+                "size_bytes": {
                     "type": "integer"
                 },
-                "sizeDisplay": {
-                    "description": "human-readable size (e.g. \"4.2 GB\")",
+                "size_display": {
                     "type": "string"
                 },
-                "vramBytes": {
-                    "description": "estimated VRAM usage in bytes",
+                "vram_bytes": {
                     "type": "integer"
                 },
-                "vramDisplay": {
-                    "description": "human-readable VRAM (e.g. \"6.1 GB\")",
+                "vram_display": {
                     "type": "string"
                 }
             }
