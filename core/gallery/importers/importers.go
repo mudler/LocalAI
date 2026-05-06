@@ -125,6 +125,10 @@ var defaultImporters = []Importer{
 	&KittenTTSImporter{},
 	&NeuTTSImporter{},
 	&ChatterboxImporter{},
+	// VibeVoiceCppImporter must precede VibeVoiceImporter — the older
+	// Python-backend importer matches any repo name containing "vibevoice"
+	// and would otherwise swallow the C++ port's GGUF bundles.
+	&VibeVoiceCppImporter{},
 	&VibeVoiceImporter{},
 	&CoquiImporter{},
 	// Image/Video (Batch 3)
