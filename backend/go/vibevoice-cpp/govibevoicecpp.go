@@ -136,7 +136,9 @@ type VibevoiceCpp struct {
 	voice     string
 
 	// refAudio is the load-time default list of reference WAVs used by
-	// the 1.5B model (one per speaker). Per-call TTSRequest.Voice can
+	// the 1.5B model (one per speaker). Sourced from
+	// ModelOptions.AudioPath (config_file's `audio_path:`) — comma-
+	// separated for multi-speaker. Per-call TTSRequest.Voice can
 	// override it. Empty for the realtime-0.5B path, which conditions
 	// on a pre-baked voice gguf via `voice` instead.
 	refAudio []string
@@ -180,20 +182,28 @@ func (v *VibevoiceCpp) parseOptions(opts []string, relTo string) string {
 			v.ttsModel = resolvePath(val, relTo)
 		case "asr_model":
 			v.asrModel = resolvePath(val, relTo)
-		case "ref_audio":
-			// 1.5B voice-cloning: comma-separated WAVs, one per
-			// speaker. Allow the option to repeat (each entry is
-			// also comma-split) for gallery YAML readability.
-			for _, p := range strings.Split(val, ",") {
-				p = strings.TrimSpace(p)
-				if p == "" {
-					continue
-				}
-				v.refAudio = append(v.refAudio, resolvePath(p, relTo))
-			}
 		}
 	}
 	return role
+}
+
+// parseRefAudio splits a comma-separated audio_path value into a
+// resolved list of WAVs. The 1.5B model uses one WAV per speaker;
+// callers that only need a single reference set audio_path to a single
+// path. Empty / whitespace-only entries are skipped.
+func parseRefAudio(audioPath, relTo string) []string {
+	if audioPath == "" {
+		return nil
+	}
+	var out []string
+	for _, p := range strings.Split(audioPath, ",") {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+		out = append(out, resolvePath(p, relTo))
+	}
+	return out
 }
 
 func (v *VibevoiceCpp) Load(opts *pb.ModelOptions) error {
@@ -215,6 +225,12 @@ func (v *VibevoiceCpp) Load(opts *pb.ModelOptions) error {
 		v.modelRoot = filepath.Dir(modelFile)
 	}
 	role := v.parseOptions(opts.Options, v.modelRoot)
+
+	// 1.5B reference WAVs ride on ModelOptions.AudioPath (config_file's
+	// `audio_path:` key) — same convention other audio backends already
+	// follow. Single-speaker = single path; multi-speaker = comma list,
+	// one WAV per Speaker N: tag in TTSRequest.text.
+	v.refAudio = parseRefAudio(opts.AudioPath, v.modelRoot)
 
 	// ModelFile fills the "primary" role-slot determined by `type=`
 	// in Options (defaults to tts). The other slot stays exactly as
