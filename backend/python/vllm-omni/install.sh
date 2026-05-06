@@ -79,6 +79,14 @@ fi
 
 cd vllm-omni/
 
+# fa3-fwd ships no aarch64 wheels and there is no source distribution, so on
+# aarch64 (e.g. l4t13 / SBSA cu130) the upstream requirements/cuda.txt is
+# unsatisfiable. Drop it before resolving — vllm-omni does not hard-require
+# the fused FA3 kernel at import time on Jetson/SBSA targets.
+if [ "$(uname -m)" = "aarch64" ] && [ -f requirements/cuda.txt ]; then
+    sed -i '/^fa3-fwd[[:space:]]*==/d' requirements/cuda.txt
+fi
+
 if [ "x${USE_PIP}" == "xtrue" ]; then
     pip install ${EXTRA_PIP_INSTALL_FLAGS:-} -e .
 else
