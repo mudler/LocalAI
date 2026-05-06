@@ -467,7 +467,7 @@ func (uri URI) DownloadFileWithContext(ctx context.Context, filePath, sha string
 		}
 	} else if !os.IsNotExist(err) || !URI(url).LooksLikeHTTPURL() {
 		// Error occurred while checking file existence
-		return fmt.Errorf("file %s does not exist (%v) and %s does not look like an HTTP URL", filePath, err, url)
+		return fmt.Errorf("could not fetch %q: local file does not exist (%v) and %q is not a recognized downloadable URL (supported schemes: %s)", filePath, err, url, strings.Join([]string{HTTPPrefix, HTTPSPrefix, LocalPrefix, HuggingFacePrefix, HuggingFacePrefix1, OllamaPrefix, OCIPrefix, OCIFilePrefix, GithubURI2}, ", "))
 	}
 
 	xlog.Info("Downloading", "url", url)
