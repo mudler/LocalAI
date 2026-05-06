@@ -1,4 +1,78 @@
 ---
+- name: "qwen3.6-27b-heretic-uncensored-finetune-neo-code-di-imatrix-max"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/DavidAU/Qwen3.6-27B-Heretic-Uncensored-FINETUNE-NEO-CODE-Di-IMatrix-MAX-GGUF
+  description: |
+    Qwen3.6-27B-Heretic2-Uncensored-Finetune-Thinking
+
+    Yes... fully uncensored AND fine tuned lightly.
+
+    Freedom and brainpower.
+
+    Trained on different Heretic base, with different KLD/Refusals.
+
+    Model fine tune was used to finalize and "firm up" Heretic / uncensored changes.
+
+    The goal here was light, minor fixes rather than full / heavy fine tune.
+
+    That being said, the tuning still raised critical metrics.
+
+    This is Version 2, using "trohrbaugh" Heretic, which has a lower refusal rate, and tuning bumped up the metrics a bit more too.
+
+    This has also positively impacted "NEO-Coder Di-Matrix" (dual imatrix) GGUF quants as well (vs heretic/non heretic too).
+
+    https://huggingface.co/DavidAU/Qwen3.6-27B-Heretic-Uncensored-FINETUNE-NEO-CODE-Di-IMatrix-MAX-GGUF
+
+    ```
+    IN HOUSE BENCHMARKS [by Nightmedia]:
+
+    arc-c arc/e boolq hswag obkqa piqa  wino
+
+    Qwen3.6-27B-Heretic2-Uncensored-Finetune-Thinking
+    mxfp8    0.673,0.846,0.905... [instruct mode]
+
+    Qwen3.6-27B-Heretic-Uncensored-Finetune-Thinking
+    mxfp8    0.669,0.835,0.906,...   [instruct mode]
+
+    BASE UNTUNED MODEL:
+
+    Qwen3.6-27B HERETIC (by llmfan46) [instruct mode]
+    mxfp8    0.644,0.788,0.902,...
+
+    ...
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/Qwen3.6-27B-Heretic-Uncensored-FINETUNE-NEO-CODE-Di-IMatrix-MAX-GGUF/mmproj-F32.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/Qwen3.6-27B-Heretic-Uncensored-FINETUNE-NEO-CODE-Di-IMatrix-MAX-GGUF/Qwen3.6-27B-NEO-CODE-HERE-2T-OT-Q4_K_M.gguf
+      presence_penalty: 1.5
+      repeat_penalty: 1
+      temperature: 0.7
+      top_k: 20
+      top_p: 0.8
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Qwen3.6-27B-Heretic-Uncensored-FINETUNE-NEO-CODE-Di-IMatrix-MAX-GGUF/Qwen3.6-27B-NEO-CODE-HERE-2T-OT-Q4_K_M.gguf
+      sha256: 4b271d8bb53345513fcfc52eb2c38f91ecfd3c7d978e43481d335fca47a595a3
+      uri: https://huggingface.co/DavidAU/Qwen3.6-27B-Heretic-Uncensored-FINETUNE-NEO-CODE-Di-IMatrix-MAX-GGUF/resolve/main/Qwen3.6-27B-NEO-CODE-HERE-2T-OT-Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/Qwen3.6-27B-Heretic-Uncensored-FINETUNE-NEO-CODE-Di-IMatrix-MAX-GGUF/mmproj-F32.gguf
+      sha256: fdc443e974cad1f61c45af1cfd5580855855ddce0d6c14cc500a5714c486ac1d
+      uri: https://huggingface.co/DavidAU/Qwen3.6-27B-Heretic-Uncensored-FINETUNE-NEO-CODE-Di-IMatrix-MAX-GGUF/resolve/main/mmproj-F32.gguf
 - name: "qwen3.5-9b-deepseek-v4-flash"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
