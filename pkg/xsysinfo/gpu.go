@@ -1,8 +1,10 @@
 package xsysinfo
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
+	"io"
 	"os"
 	"os/exec"
 	"strconv"
@@ -820,7 +822,8 @@ func getVulkanGPUMemory() []GPUMemoryInfo {
 		return nil
 	}
 
-	return parseVulkanGPUMemoryText(stdout.String())
+	return parseVulkanGPUMemoryText(strings.NewReader(stdout.String()))
+
 }
 
 type vulkanGPUTextInfo struct {
@@ -830,7 +833,7 @@ type vulkanGPUTextInfo struct {
 	totalVRAM  uint64
 }
 
-func parseVulkanGPUMemoryText(output string) []GPUMemoryInfo {
+func parseVulkanGPUMemoryText(r io.Reader) []GPUMemoryInfo {
 	var gpus []GPUMemoryInfo
 	var current *vulkanGPUTextInfo
 
@@ -865,8 +868,9 @@ func parseVulkanGPUMemoryText(output string) []GPUMemoryInfo {
 		})
 	}
 
-	for _, line := range strings.Split(output, "\n") {
-		line = strings.TrimSpace(line)
+	scanner := bufio.NewScanner(r)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
 		if line == "" {
 			continue
 		}
