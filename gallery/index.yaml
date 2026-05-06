@@ -24108,6 +24108,73 @@
   overrides:
     parameters:
       model: NousResearch/Hermes-3-Llama-3.1-405B
+- &gemma4-sglang-mtp
+  name: "gemma-4-e2b-it:sglang-mtp"
+  url: "github:mudler/LocalAI/gallery/sglang-gemma-4-e2b-mtp.yaml@master"
+  icon: https://ai.google.dev/static/gemma/images/gemma3.png
+  license: gemma
+  urls:
+    - https://huggingface.co/google/gemma-4-E2B-it
+    - https://huggingface.co/google/gemma-4-E2B-it-assistant
+    - https://docs.sglang.io/cookbook/autoregressive/Google/Gemma4
+  description: |
+    Google Gemma 4 E2B-IT served by SGLang with Multi-Token Prediction
+    (MTP) speculative decoding. The companion drafter
+    google/gemma-4-E2B-it-assistant lets the target accept several
+    tokens per step. Flags are a 1:1 transcription of the SGLang
+    cookbook's MTP command (NEXTN algorithm, num_steps=5,
+    num_draft_tokens=6, eagle_topk=1, mem_fraction_static=0.85). The
+    E2B variant has 5B total / 2B effective parameters and targets the
+    smaller end of consumer GPUs.
+  tags:
+    - llm
+    - sglang
+    - gpu
+    - speculative-decoding
+    - mtp
+    - gemma
+    - gemma4
+    - gemma-4
+- !!merge <<: *gemma4-sglang-mtp
+  name: "gemma-4-e4b-it:sglang-mtp"
+  url: "github:mudler/LocalAI/gallery/sglang-gemma-4-e4b-mtp.yaml@master"
+  urls:
+    - https://huggingface.co/google/gemma-4-E4B-it
+    - https://huggingface.co/google/gemma-4-E4B-it-assistant
+    - https://docs.sglang.io/cookbook/autoregressive/Google/Gemma4
+  description: |
+    Google Gemma 4 E4B-IT served by SGLang with Multi-Token Prediction
+    (MTP) speculative decoding. The companion drafter
+    google/gemma-4-E4B-it-assistant lets the target accept several
+    tokens per step. Flags are a 1:1 transcription of the SGLang
+    cookbook's MTP command (NEXTN algorithm, num_steps=5,
+    num_draft_tokens=6, eagle_topk=1, mem_fraction_static=0.85). The
+    E4B variant has 8B total / 4B effective parameters — the natural
+    pick for consumer GPUs in the 16–24 GB range.
+- name: "mimo-7b-mtp:sglang"
+  url: "github:mudler/LocalAI/gallery/sglang-mimo-7b-mtp.yaml@master"
+  icon: https://github.com/XiaomiMiMo/MiMo/raw/main/figures/Xiaomi_MiMo.png
+  license: mit
+  urls:
+    - https://huggingface.co/XiaomiMiMo/MiMo-7B-RL
+    - https://github.com/XiaomiMiMo/MiMo
+  description: |
+    Xiaomi MiMo-7B-RL served by SGLang with built-in Multi-Token
+    Prediction (MTP) heads (no separate drafter needed) plus online fp8
+    weight quantization to fit on a 16 GB consumer GPU. ~90% acceptance
+    per the model card. Verified end-to-end at ~88 tok/s on an RTX 5070
+    Ti (16 GB). Note: mem_fraction_static is dropped to 0.7 (vs sglang's
+    0.85 default) because the MTP draft worker's vocab embedding is
+    loaded unquantised (~1.2 GiB) and OOMs the static reservation
+    otherwise.
+  tags:
+    - llm
+    - sglang
+    - gpu
+    - speculative-decoding
+    - mtp
+    - reasoning
+    - fp8
 - name: codellama-7b
   url: github:mudler/LocalAI/gallery/codellama.yaml@master
   urls:

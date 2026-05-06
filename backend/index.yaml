@@ -287,6 +287,7 @@
     amd: "rocm-sglang"
     intel: "intel-sglang"
     nvidia-cuda-12: "cuda12-sglang"
+    nvidia-cuda-13: "cuda13-sglang"
     nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-sglang"
     cpu: "cpu-sglang"
 - &vllm-omni
@@ -1965,6 +1966,7 @@
     amd: "rocm-sglang-development"
     intel: "intel-sglang-development"
     nvidia-cuda-12: "cuda12-sglang-development"
+    nvidia-cuda-13: "cuda13-sglang-development"
     nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-sglang-development"
     cpu: "cpu-sglang-development"
 - !!merge <<: *sglang
@@ -1972,6 +1974,11 @@
   uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-sglang"
   mirrors:
     - localai/localai-backends:latest-gpu-nvidia-cuda-12-sglang
+- !!merge <<: *sglang
+  name: "cuda13-sglang"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-13-sglang"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-13-sglang
 - !!merge <<: *sglang
   name: "cuda13-nvidia-l4t-arm64-sglang"
   uri: "quay.io/go-skynet/local-ai-backends:latest-nvidia-l4t-cuda-13-arm64-sglang"
@@ -1997,6 +2004,11 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-sglang"
   mirrors:
     - localai/localai-backends:master-gpu-nvidia-cuda-12-sglang
+- !!merge <<: *sglang
+  name: "cuda13-sglang-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-sglang"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-13-sglang
 - !!merge <<: *sglang
   name: "cuda13-nvidia-l4t-arm64-sglang-development"
   uri: "quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-cuda-13-arm64-sglang"

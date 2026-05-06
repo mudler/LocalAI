@@ -721,6 +721,121 @@ GPU nodes. See [vLLM Multi-Node (Data-Parallel)]({{% relref
 "features/distributed-mode#vllm-multi-node-data-parallel" %}})
 for the head/follower configuration and a worked Kimi-K2.6 example.
 
+### SGLang
+
+[SGLang](https://github.com/sgl-project/sglang) is a fast serving
+framework for LLMs and VLMs with a focus on prefix caching, speculative
+decoding, and multi-modal generation. LocalAI ships a gRPC backend that
+wraps SGLang's async `Engine`, including its native function-call and
+reasoning parsers.
+
+#### Setup
+
+```yaml
+name: sglang
+backend: sglang
+parameters:
+  model: "Qwen/Qwen3-4B"
+template:
+  use_tokenizer_template: true
+```
+
+The backend will pull the model from HuggingFace on first load.
+
+#### Passing arbitrary SGLang options with `engine_args`
+
+The same `engine_args:` map that the vLLM backend accepts is also
+honoured by the SGLang backend. Keys are validated against
+[`ServerArgs`](https://github.com/sgl-project/sglang/blob/main/python/sglang/srt/server_args.py)
+— SGLang's central configuration dataclass — and forwarded verbatim to
+`Engine(**kwargs)`. Unknown keys fail at load time with the closest
+valid name as a hint. Unlike vLLM, `ServerArgs` is flat: speculative
+decoding fields are top-level (`speculative_algorithm`,
+`speculative_draft_model_path`, etc.) rather than nested under a
+`speculative_config:` dict.
+
+The typed YAML fields shared with vLLM are mapped to their SGLang
+equivalents (`gpu_memory_utilization` → `mem_fraction_static`,
+`enforce_eager` → `disable_cuda_graph`, `tensor_parallel_size` →
+`tp_size`, `max_model_len` → `context_length`). Anything else,
+including all speculative-decoding flags, goes under `engine_args:`.
+
+##### Speculative decoding: Gemma 4 with Multi-Token Prediction
+
+Google publishes paired "assistant" drafters for every Gemma 4 size.
+The drafters use Multi-Token Prediction (MTP) to propose several
+candidate tokens per target step, which SGLang then verifies in
+parallel. Flags below are transcribed verbatim from the
+[SGLang Gemma 4 cookbook](https://docs.sglang.io/cookbook/autoregressive/Google/Gemma4#speculative-decoding-mtp-server-commands).
+
+For consumer GPUs in the 16–24 GB range, use **E4B** (8 B total /
+4 B effective parameters):
+
+```yaml
+name: gemma-4-e4b-mtp
+backend: sglang
+parameters:
+  model: google/gemma-4-E4B-it
+context_size: 4096
+template:
+  use_tokenizer_template: true
+options:
+  - tool_parser:gemma4
+  - reasoning_parser:gemma4
+engine_args:
+  mem_fraction_static: 0.85
+  speculative_algorithm: NEXTN
+  speculative_draft_model_path: google/gemma-4-E4B-it-assistant
+  speculative_num_steps: 5
+  speculative_num_draft_tokens: 6
+  speculative_eagle_topk: 1
+```
+
+For smaller cards (8–12 GB), drop to **E2B** (5 B total / 2 B effective)
+by swapping the model paths to `google/gemma-4-E2B-it` and
+`google/gemma-4-E2B-it-assistant`; the rest of the flags stay the same.
+
+`NEXTN` is normalised to `EAGLE` inside `ServerArgs.__post_init__`, so
+either value works — the cookbook uses `NEXTN`. `mem_fraction_static`
+is the share of GPU memory SGLang reserves for the model + KV pool;
+0.85 is the cookbook's default and adapts to whatever single GPU the
+backend is running on.
+
+The 31 B dense and 26 B-A4B MoE Gemma 4 variants exist in the same
+cookbook but require `--tp-size 2`, so they're not in the gallery as
+single-GPU recipes.
+
+> **SGLang version requirement.** Gemma 4 support landed in SGLang via
+> [PR #21952](https://github.com/sgl-project/sglang/pull/21952). The
+> LocalAI sglang backend pins a release that includes it; if you've
+> overridden the pin to an older version, this recipe will fail with a
+> "model architecture not recognised" error at load time.
+
+##### Other speculative algorithms
+
+`speculative_algorithm:` also accepts `EAGLE`/`EAGLE3` (paired with an
+EAGLE-style draft head), `DFLASH` (block-diffusion drafters from
+[z-lab](https://huggingface.co/z-lab) for the Qwen3 family), `STANDALONE`
+(a smaller draft LLM verifying a larger target), and `NGRAM` (no draft
+model — pure prefix-history speculation). See SGLang's
+[speculative-decoding docs](https://docs.sglang.io/advanced_features/speculative_decoding.html)
+for the full algorithm matrix.
+
+#### Tool calling and reasoning parsers
+
+SGLang's native parsers stream `tool_calls` and `reasoning_content`
+inside `ChatDelta` — the LocalAI Python backend wires them up
+per-request rather than via `engine_args:`. Pick a parser by name:
+
+```yaml
+options:
+  - tool_parser:hermes
+  - reasoning_parser:deepseek_r1
+```
+
+The full list of registered parsers lives in `sglang.srt.function_call`
+and `sglang.srt.parser.reasoning_parser`.
+
 ### Transformers
 
 [Transformers](https://huggingface.co/docs/transformers/index) is a State-of-the-art Machine Learning library for PyTorch, TensorFlow, and JAX.
