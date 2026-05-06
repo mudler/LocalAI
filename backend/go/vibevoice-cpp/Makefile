@@ -6,9 +6,12 @@ GOCMD?=go
 GO_TAGS?=
 JOBS?=$(shell nproc --ignore=1)
 
-# vibevoice.cpp version
+# vibevoice.cpp version. Pinned to a commit hash and auto-bumped by
+# .github/workflows/bump_deps.yaml (the matrix entry mirrors what we
+# already do for ik_llama.cpp / llama.cpp / whisper.cpp). Floating on
+# `master` led to silent ABI breaks reaching CI — pin it.
 VIBEVOICE_REPO?=https://github.com/mudler/vibevoice.cpp
-VIBEVOICE_CPP_VERSION?=master
+VIBEVOICE_CPP_VERSION?=ad856bda6b1311b7f3d7c4a667be43eeb8a8249a
 SO_TARGET?=libgovibevoicecpp.so
 
 CMAKE_ARGS+=-DBUILD_SHARED_LIBS=OFF

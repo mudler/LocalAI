@@ -50,6 +50,10 @@ jobs:
             variable: "QWEN3TTS_CPP_VERSION"
             branch: "main"
             file: "backend/go/qwen3-tts-cpp/Makefile"
+          - repository: "mudler/vibevoice.cpp"
+            variable: "VIBEVOICE_CPP_VERSION"
+            branch: "master"
+            file: "backend/go/vibevoice-cpp/Makefile"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
