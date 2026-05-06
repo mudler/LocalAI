@@ -2,11 +2,14 @@
 name: 'build base image (reusable)'
 
 # Builds and pushes one (lang, accel, arch, ubuntu, cuda) base image flavour
-# to quay.io/go-skynet/localai-base. Consumed by backend builds via the
-# BASE_IMAGE_PREBUILT build-arg. PR builds tag with `-pr${PR_NUMBER}` so the
-# same PR's backend matrix can opt-in to the freshly-built base; master
-# builds overwrite the unsuffixed tag for downstream consumption. See
-# .agents/ci-caching.md for the full tagging scheme.
+# to quay.io/go-skynet/ci-cache:base-image-<stem>[-pr<N>]. Consumed by
+# backend builds via the BASE_IMAGE_PREBUILT build-arg. PR builds tag with
+# `-pr${PR_NUMBER}` so the same PR's backend matrix can opt-in to the
+# freshly-built base; master builds overwrite the unsuffixed tag for
+# downstream consumption. The image lives in the same ci-cache repo as the
+# buildkit cache (under a `base-image-` prefix that doesn't collide with
+# the `base-<stem>` cache prefix), so no separate quay repo + grant is
+# needed. See .agents/ci-caching.md for the full tagging scheme.
 
 on:
   workflow_call:
@@ -98,7 +101,11 @@ jobs:
             tag="${stem}"
           fi
           echo "tag=${tag}" >> "$GITHUB_OUTPUT"
-          echo "ref=quay.io/go-skynet/localai-base:${tag}" >> "$GITHUB_OUTPUT"
+          # Published into the existing ci-cache repo (the CI robot already
+          # has write access there) under a distinct `base-image-` prefix so
+          # the OCI image tags coexist with the buildkit cache tags
+          # (`base-<stem>`, `cache<tag-suffix>`, `cache-localai<tag-suffix>`).
+          echo "ref=quay.io/go-skynet/ci-cache:base-image-${tag}" >> "$GITHUB_OUTPUT"
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@master

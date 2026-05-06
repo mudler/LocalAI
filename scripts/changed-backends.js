@@ -164,7 +164,11 @@ function tagStem(item) {
 function prebuiltRef(stem) {
   if (!stem) return "";
   const suffix = isPR ? `-pr${prNumber}` : "";
-  return `quay.io/go-skynet/localai-base:${stem}${suffix}`;
+  // Must match the ref computed in .github/workflows/base_images.yml.
+  // Bases live in the existing ci-cache repo under a distinct
+  // `base-image-` prefix so the CI robot's existing write access there
+  // covers the layered base flow without a new quay repo + grant.
+  return `quay.io/go-skynet/ci-cache:base-image-${stem}${suffix}`;
 }
 
 // Build-types that actually exercise the SKIP_DRIVERS branch in the base

@@ -1,13 +1,10 @@
 # Shared Python + accelerator base image.
 #
 # Built once per (build-type, arch, ubuntu-version, cuda-version) combination
-# by .github/workflows/base_images_python.yml and pushed to
-# quay.io/go-skynet/localai-base:<tag-stem>[-pr<N>]. Consumed by
+# by .github/workflows/base_images.yml and pushed to
+# quay.io/go-skynet/ci-cache:base-image-<tag-stem>[-pr<N>]. Consumed by
 # backend/Dockerfile.python via the BASE_IMAGE_PREBUILT build-arg.
-#
-# Keep the install steps below in lock-step with backend/Dockerfile.python's
-# accel-inline stage until the inline fallback is removed. See
-# .agents/ci-caching.md for the migration plan.
+# See .agents/ci-caching.md.
 
 ARG BASE_IMAGE=ubuntu:24.04
 ARG APT_MIRROR=""

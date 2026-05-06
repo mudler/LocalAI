@@ -5,12 +5,16 @@ Container builds — both the root LocalAI image (`Dockerfile`) and the per-back
 ## Cache layout
 
 - **Cache registry**: `quay.io/go-skynet/ci-cache`
-- **One tag per matrix entry**, derived from the existing `tag-suffix`:
-  - Backend builds (`backend_build.yml`): `cache<tag-suffix>`
+- **Tag prefixes**:
+  - Backend builds (`backend_build.yml`) buildkit cache: `cache<tag-suffix>`
     - e.g. `cache-gpu-nvidia-cuda-12-llama-cpp`, `cache-cpu-vllm`, `cache-nvidia-l4t-cuda-13-arm64-vllm`
-  - Root image builds (`image_build.yml`): `cache-localai<tag-suffix>`
+  - Root image builds (`image_build.yml`) buildkit cache: `cache-localai<tag-suffix>`
     - e.g. `cache-localai-gpu-nvidia-cuda-12`, `cache-localai-gpu-vulkan`
-- Each tag stores a multi-arch BuildKit cache manifest (`mode=max`), so every intermediate stage is re-usable, not just the final image.
+  - Layered base builds (`base_images.yml`) buildkit cache: `base-<stem>`
+    - e.g. `base-python-cpu-2404`, `base-cpp-cublas-2404-cuda13.0`
+  - Layered base **images** (the OCI manifests consumers FROM): `base-image-<stem>[-pr<N>]`
+    - e.g. `base-image-python-cpu-2404`, `base-image-cpp-cublas-2404-cuda13.0-pr9672`
+- The cache tags store multi-arch BuildKit cache manifests (`mode=max`); the `base-image-*` tags store ordinary OCI image manifests.
 
 ## Read/write semantics
 
@@ -101,13 +105,21 @@ For ccache, the workflow exports `CMAKE_ARGS=… -DCMAKE_C_COMPILER_LAUNCHER=cca
 
 GitHub Actions caches are limited to 10 GB per repo. Steady-state worst case: ~800 MB Go cache + ~2 GB brew Cellar + up to 2 GB ccache + ~1.5 GB × 5 python backends. If the cap is hit, prefer collapsing the per-backend Python keys into a shared `pyenv-darwin-shared-<week>` key (accepts more cross-backend churn for a smaller footprint) before reducing other caches.
 
-## Layered base images (`localai-base`)
+## Layered base images (`ci-cache:base-image-*`)
 
 The registry-backed BuildKit cache deduplicates **within** a matrix entry's
 cache tag, but each matrix entry has its own tag — so the same `apt-get`,
 GPU SDK install, and language toolchain bootstrap runs into N different
-cache tags across the backend matrix. The `localai-base` images factor that
+cache tags across the backend matrix. The layered base images factor that
 shared work out of the per-backend builds.
+
+They live in the same `quay.io/go-skynet/ci-cache` repo as the buildkit
+caches, under a distinct `base-image-` tag prefix so the OCI image
+manifests coexist with `base-<stem>` (the cache for building the base),
+`cache<tag-suffix>` (per-backend caches), and `cache-localai<tag-suffix>`
+(root image caches). Reusing `ci-cache` means no new quay repo or robot
+grant is needed — the same credentials that write the cache also write
+the image.
 
 ### How it fits together
 
@@ -128,12 +140,12 @@ backend.yml / backend_pr.yml
   ├── build-bases  (matrix: bases-matrix)
   │     uses base_images.yml
   │       FROM .docker/bases/Dockerfile.<lang>
-  │       pushes quay.io/go-skynet/localai-base:<stem>[-pr<N>]
+  │       pushes quay.io/go-skynet/ci-cache:base-image-<stem>[-pr<N>]
   │
   └── backend-jobs  (matrix: matrix; needs build-bases)
         uses backend_build.yml
           FROM ${BASE_IMAGE_PREBUILT}
-            i.e. quay.io/go-skynet/localai-base:<stem>[-pr<N>]
+            i.e. quay.io/go-skynet/ci-cache:base-image-<stem>[-pr<N>]
           only the backend source COPY + `make` remain.
 ```
 
@@ -160,14 +172,15 @@ The base-image slug is empty for the default `ubuntu:24.04` and a short
 parseable suffix otherwise (`jetpack-r36.4.0`, `rocm-7.2.1`,
 `oneapi-2025.3.2`, etc.).
 
-| Event | Pushed tag |
+| Event | Pushed tag (in `quay.io/go-skynet/ci-cache`) |
 |---|---|
-| `push` (master/tag) | `:<stem>` |
-| `pull_request` | `:<stem>-pr<PR_NUMBER>` |
+| `push` (master/tag) | `:base-image-<stem>` |
+| `pull_request` | `:base-image-<stem>-pr<PR_NUMBER>` |
 
-The cache for the base build itself lives at
+The buildkit cache for the base build itself lives at
 `quay.io/go-skynet/ci-cache:base-<stem>` (`mode=max,ignore-error=true`),
-parallel to the per-matrix-entry caches.
+parallel to the per-matrix-entry caches. The `base-` (cache) and
+`base-image-` (image) prefixes never collide.
 
 The script also runs a collision check across consumers of each stem: if
 two consumers map to the same stem but disagree on `base-image` or

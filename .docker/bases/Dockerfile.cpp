@@ -4,7 +4,7 @@
 #
 # Built once per (build-type, arch, ubuntu-version, cuda-version) combination
 # by .github/workflows/base_images.yml and pushed to
-# quay.io/go-skynet/localai-base:<tag-stem>[-pr<N>]. Consumed by
+# quay.io/go-skynet/ci-cache:base-image-<tag-stem>[-pr<N>]. Consumed by
 # backend/Dockerfile.{llama-cpp,ik-llama-cpp,turboquant} via the
 # BASE_IMAGE_PREBUILT build-arg. See .agents/ci-caching.md.
 

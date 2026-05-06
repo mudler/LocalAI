@@ -66,9 +66,9 @@ on:
       base-image-prebuilt:
         description: |
           Optional reference to a prebuilt accel/lang base image
-          (quay.io/go-skynet/localai-base:<tag>). When set, the backend
-          Dockerfile FROMs this image instead of running the inline
-          bootstrap. See .github/workflows/base_images_python.yml and
+          (quay.io/go-skynet/ci-cache:base-image-<stem>[-pr<N>]). When
+          set, the backend Dockerfile FROMs this image instead of running
+          an inline bootstrap. See .github/workflows/base_images.yml and
           .agents/ci-caching.md.
         required: false
         default: ''
