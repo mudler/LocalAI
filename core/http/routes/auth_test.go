@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
@@ -276,11 +277,11 @@ func newTestAuthApp(db *gorm.DB, appConfig *config.ApplicationConfig) *echo.Echo
 		if currentUser.ID == targetID {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": "cannot delete yourself"})
 		}
-		db.Where("user_id = ?", targetID).Delete(&auth.Session{})
-		db.Where("user_id = ?", targetID).Delete(&auth.UserAPIKey{})
-		result := db.Where("id = ?", targetID).Delete(&auth.User{})
-		if result.RowsAffected == 0 {
-			return c.JSON(http.StatusNotFound, map[string]string{"error": "user not found"})
+		if err := auth.DeleteUserCascade(db, targetID); err != nil {
+			if err == gorm.ErrRecordNotFound {
+				return c.JSON(http.StatusNotFound, map[string]string{"error": "user not found"})
+			}
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to delete user: " + err.Error()})
 		}
 		return c.JSON(http.StatusOK, map[string]string{"message": "user deleted"})
 	}, adminMw)
@@ -685,6 +686,107 @@ var _ = Describe("Auth Routes", Label("auth"), func() {
 
 			rec := doAuthRequest(app, "DELETE", "/api/auth/admin/users/"+target.ID, nil, withSession(sessionID))
 			Expect(rec.Code).To(Equal(http.StatusForbidden))
+		})
+
+		// Regression coverage for the production bug: in distributed mode the
+		// auth DB is PostgreSQL, which strictly enforces foreign keys. The old
+		// handler did not clean up invite_codes, user_permissions, quota_rules,
+		// or usage_records, which either caused FK violations (surfaced as a
+		// misleading 404 "user not found") or left orphan rows after delete.
+		It("removes invite codes the user authored", func() {
+			admin := createRouteTestUser(db, "admin-inv-author@test.com", auth.RoleAdmin)
+			target := createRouteTestUser(db, "deletes-author@test.com", auth.RoleAdmin)
+			Expect(db.Create(&auth.InviteCode{
+				ID: uuid.New().String(), Code: "code-authored", CodePrefix: "code-aut",
+				CreatedBy: target.ID, ExpiresAt: time.Now().Add(time.Hour),
+			}).Error).ToNot(HaveOccurred())
+			sessionID, _ := auth.CreateSession(db, admin.ID, "")
+			app := newTestAuthApp(db, appConfig)
+
+			rec := doAuthRequest(app, "DELETE", "/api/auth/admin/users/"+target.ID, nil, withSession(sessionID))
+			Expect(rec.Code).To(Equal(http.StatusOK))
+
+			var count int64
+			db.Model(&auth.InviteCode{}).Where("created_by = ?", target.ID).Count(&count)
+			Expect(count).To(Equal(int64(0)))
+		})
+
+		It("nulls used_by on invite codes the user consumed", func() {
+			admin := createRouteTestUser(db, "admin-inv-consumer@test.com", auth.RoleAdmin)
+			target := createRouteTestUser(db, "deletes-consumer@test.com", auth.RoleUser)
+			usedBy := target.ID
+			now := time.Now()
+			Expect(db.Create(&auth.InviteCode{
+				ID: uuid.New().String(), Code: "code-used", CodePrefix: "code-use",
+				CreatedBy: admin.ID, UsedBy: &usedBy, UsedAt: &now,
+				ExpiresAt: now.Add(time.Hour),
+			}).Error).ToNot(HaveOccurred())
+			sessionID, _ := auth.CreateSession(db, admin.ID, "")
+			app := newTestAuthApp(db, appConfig)
+
+			rec := doAuthRequest(app, "DELETE", "/api/auth/admin/users/"+target.ID, nil, withSession(sessionID))
+			Expect(rec.Code).To(Equal(http.StatusOK))
+
+			// Audit row stays, but no longer points to the deleted user.
+			var stale int64
+			db.Model(&auth.InviteCode{}).Where("used_by = ?", target.ID).Count(&stale)
+			Expect(stale).To(Equal(int64(0)))
+			var total int64
+			db.Model(&auth.InviteCode{}).Where("created_by = ?", admin.ID).Count(&total)
+			Expect(total).To(Equal(int64(1)))
+		})
+
+		It("wipes permissions, quotas, and usage metrics", func() {
+			admin := createRouteTestUser(db, "admin-clean@test.com", auth.RoleAdmin)
+			target := createRouteTestUser(db, "deletes-clean@test.com", auth.RoleUser)
+
+			Expect(auth.UpdateUserPermissions(db, target.ID, auth.PermissionMap{auth.FeatureChat: true})).ToNot(HaveOccurred())
+			max := int64(100)
+			_, err := auth.CreateOrUpdateQuotaRule(db, target.ID, "", &max, nil, 3600)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(auth.RecordUsage(db, &auth.UsageRecord{
+				UserID: target.ID, UserName: target.Name, Model: "test-model",
+				Endpoint: "/v1/chat/completions", PromptTokens: 5, CompletionTokens: 10, TotalTokens: 15,
+			})).ToNot(HaveOccurred())
+
+			sessionID, _ := auth.CreateSession(db, admin.ID, "")
+			app := newTestAuthApp(db, appConfig)
+
+			rec := doAuthRequest(app, "DELETE", "/api/auth/admin/users/"+target.ID, nil, withSession(sessionID))
+			Expect(rec.Code).To(Equal(http.StatusOK))
+
+			var perms, quotas, usage int64
+			db.Model(&auth.UserPermission{}).Where("user_id = ?", target.ID).Count(&perms)
+			db.Model(&auth.QuotaRule{}).Where("user_id = ?", target.ID).Count(&quotas)
+			db.Model(&auth.UsageRecord{}).Where("user_id = ?", target.ID).Count(&usage)
+			Expect(perms).To(Equal(int64(0)))
+			Expect(quotas).To(Equal(int64(0)))
+			Expect(usage).To(Equal(int64(0)))
+		})
+
+		It("returns 200 even when foreign keys are enforced and the user authored invites", func() {
+			// Mirror PostgreSQL's strict FK behavior on the SQLite test DB. This
+			// exercises exactly the production failure: without the cleanup,
+			// the user delete would be rejected by the engine and the handler
+			// would surface a misleading 404.
+			Expect(db.Exec("PRAGMA foreign_keys = ON").Error).ToNot(HaveOccurred())
+
+			admin := createRouteTestUser(db, "admin-fk@test.com", auth.RoleAdmin)
+			target := createRouteTestUser(db, "deletes-fk@test.com", auth.RoleAdmin)
+			Expect(db.Create(&auth.InviteCode{
+				ID: uuid.New().String(), Code: "code-fk", CodePrefix: "code-fk1",
+				CreatedBy: target.ID, ExpiresAt: time.Now().Add(time.Hour),
+			}).Error).ToNot(HaveOccurred())
+
+			sessionID, _ := auth.CreateSession(db, admin.ID, "")
+			app := newTestAuthApp(db, appConfig)
+
+			rec := doAuthRequest(app, "DELETE", "/api/auth/admin/users/"+target.ID, nil, withSession(sessionID))
+			Expect(rec.Code).To(Equal(http.StatusOK), "body=%s", rec.Body.String())
+
+			var users int64
+			db.Model(&auth.User{}).Where("id = ?", target.ID).Count(&users)
+			Expect(users).To(Equal(int64(0)))
 		})
 	})
 

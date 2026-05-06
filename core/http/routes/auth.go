@@ -933,13 +933,11 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": "cannot delete yourself"})
 		}
 
-		// Cascade: delete sessions and API keys
-		db.Where("user_id = ?", targetID).Delete(&auth.Session{})
-		db.Where("user_id = ?", targetID).Delete(&auth.UserAPIKey{})
-
-		result := db.Where("id = ?", targetID).Delete(&auth.User{})
-		if result.RowsAffected == 0 {
-			return c.JSON(http.StatusNotFound, map[string]string{"error": "user not found"})
+		if err := auth.DeleteUserCascade(db, targetID); err != nil {
+			if err == gorm.ErrRecordNotFound {
+				return c.JSON(http.StatusNotFound, map[string]string{"error": "user not found"})
+			}
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to delete user: " + err.Error()})
 		}
 
 		return c.JSON(http.StatusOK, map[string]string{"message": "user deleted"})
