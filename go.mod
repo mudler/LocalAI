@@ -94,9 +94,11 @@ require (
 	github.com/bahlo/generic-list-go v0.2.0 // indirect
 	github.com/buger/jsonparser v1.1.1 // indirect
 	github.com/dunglas/httpsfv v1.1.0 // indirect
+	github.com/gen2brain/go-fitz v1.24.15 // indirect
 	github.com/go-jose/go-jose/v4 v4.1.4 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
+	github.com/jupiterrider/ffi v0.5.0 // indirect
 	github.com/mattn/go-sqlite3 v1.14.24 // indirect
 	github.com/moby/moby/api v1.54.1 // indirect
 	github.com/moby/moby/client v0.4.0 // indirect
@@ -142,7 +144,6 @@ require (
 	github.com/bwmarrin/discordgo v0.29.0 // indirect
 	github.com/cloudflare/circl v1.6.1 // indirect
 	github.com/cyphar/filepath-securejoin v0.5.1 // indirect
-	github.com/dslipak/pdf v0.0.2 // indirect
 	github.com/emersion/go-imap/v2 v2.0.0-beta.5 // indirect
 	github.com/emersion/go-message v0.18.2 // indirect
 	github.com/emersion/go-sasl v0.0.0-20241020182733-b788ff22d5a6 // indirect
@@ -170,8 +171,8 @@ require (
 	github.com/kevinburke/ssh_config v1.2.0 // indirect
 	github.com/labstack/gommon v0.4.2 // indirect
 	github.com/mschoch/smat v0.2.0 // indirect
-	github.com/mudler/LocalAGI v0.0.0-20260504165100-e83bf515d010
-	github.com/mudler/localrecall v0.5.10-0.20260504162944-6138c1f535ab // indirect
+	github.com/mudler/LocalAGI v0.0.0-20260506230719-facd8881b135
+	github.com/mudler/localrecall v0.6.0 // indirect
 	github.com/mudler/skillserver v0.0.6
 	github.com/olekukonko/tablewriter v0.0.5 // indirect
 	github.com/oxffaa/gopher-parse-sitemap v0.0.0-20191021113419-005d2eb1def4 // indirect
@@ -254,7 +255,6 @@ require (
 	github.com/nicksnyder/go-i18n/v2 v2.5.1 // indirect
 	github.com/otiai10/mint v1.6.3 // indirect
 	github.com/pion/datachannel v1.6.0 // indirect
-	github.com/pion/dtls/v2 v2.2.12 // indirect
 	github.com/pion/dtls/v3 v3.1.2 // indirect
 	github.com/pion/ice/v4 v4.2.2 // indirect
 	github.com/pion/interceptor v0.1.44 // indirect
@@ -266,9 +266,7 @@ require (
 	github.com/pion/sctp v1.9.4 // indirect
 	github.com/pion/sdp/v3 v3.0.18 // indirect
 	github.com/pion/srtp/v3 v3.0.10 // indirect
-	github.com/pion/stun v0.6.1 // indirect
 	github.com/pion/stun/v3 v3.1.1 // indirect
-	github.com/pion/transport/v2 v2.2.10 // indirect
 	github.com/pion/turn/v4 v4.1.4 // indirect
 	github.com/pion/webrtc/v4 v4.2.11
 	github.com/prometheus/otlptranslator v1.0.0 // indirect
@@ -324,7 +322,6 @@ require (
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/dsnet/compress v0.0.2-0.20210315054119-f66993602bf5 // indirect
 	github.com/flynn/noise v1.1.0 // indirect
-	github.com/francoispqt/gojay v1.2.13 // indirect
 	github.com/go-audio/audio v1.0.0
 	github.com/go-audio/riff v1.0.0 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
