@@ -663,8 +663,16 @@ func (r *NodeRegistry) FindAndLockNodeWithModel(ctx context.Context, modelName s
 	var node BackendNode
 
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		// Order by in_flight ASC (least busy replica), then by available_vram DESC
-		// (prefer nodes with more free VRAM to spread load across the cluster).
+		// Order by in_flight ASC (least busy replica), then by last_used ASC
+		// (round-robin between equally-loaded replicas — oldest used wins, and
+		// every successful pick refreshes last_used below, so the "oldest" naturally
+		// rotates through the candidate set). available_vram DESC is the final
+		// tiebreaker for cold starts where last_used is identical.
+		//
+		// Without the last_used tier, a tie on in_flight (the common case at low
+		// to moderate concurrency where requests don't overlap) collapses to
+		// "biggest GPU wins every time" and one node ends up taking nearly all
+		// the load while replicas on other nodes sit idle.
 		q := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
 			Joins("JOIN backend_nodes ON backend_nodes.id = node_models.node_id").
 			Where("node_models.model_name = ? AND node_models.state = ?", modelName, "loaded")
@@ -672,7 +680,7 @@ func (r *NodeRegistry) FindAndLockNodeWithModel(ctx context.Context, modelName s
 			q = q.Where("node_models.node_id IN ?", candidateNodeIDs)
 		}
 		if err := q.
-			Order("node_models.in_flight ASC, backend_nodes.available_vram DESC").
+			Order("node_models.in_flight ASC, node_models.last_used ASC, backend_nodes.available_vram DESC").
 			First(&nm).Error; err != nil {
 			return err
 		}
