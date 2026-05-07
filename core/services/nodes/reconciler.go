@@ -189,8 +189,12 @@ func (rc *ReplicaReconciler) drainPendingBackendOps(ctx context.Context) {
 			_, applyErr = rc.adapter.DeleteBackend(op.NodeID, op.Backend)
 		case OpBackendInstall, OpBackendUpgrade:
 			// Pending-op drain for admin install/upgrade — not a per-replica
-			// load. Replica 0 is the conventional admin slot.
-			reply, err := rc.adapter.InstallBackend(op.NodeID, op.Backend, "", string(op.Galleries), "", "", "", 0)
+			// load. Replica 0 is the conventional admin slot. Upgrade ops set
+			// force=true so the worker reinstalls the artifact and restarts
+			// the live process; install ops keep the existing fast-path
+			// semantics for the case where the backend is already running.
+			force := op.Op == OpBackendUpgrade
+			reply, err := rc.adapter.InstallBackend(op.NodeID, op.Backend, "", string(op.Galleries), "", "", "", 0, force)
 			if err != nil {
 				applyErr = err
 			} else if !reply.Success {

@@ -137,6 +137,14 @@ type BackendInstallRequest struct {
 	// (single-replica behavior — no collision because the controller never
 	// asks for replica > 0 on a node whose MaxReplicasPerModel is 1).
 	ReplicaIndex int32 `json:"replica_index,omitempty"`
+	// Force skips the "already running" short-circuit and re-runs the gallery
+	// install. UpgradeBackend sets this so the worker actually re-downloads the
+	// artifact, stops the live process, and starts a fresh one — without it,
+	// the install handler's early return makes upgrades a silent no-op while
+	// the coordinator's drift detection keeps re-flagging the backend forever.
+	// Older workers that don't know this field treat it as false (current
+	// behavior preserved).
+	Force bool `json:"force,omitempty"`
 }
 
 // BackendInstallReply is the response from a backend.install NATS request.

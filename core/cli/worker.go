@@ -664,10 +664,19 @@ func buildProcessKey(modelID, backend string, replicaIndex int) string {
 }
 
 // installBackend handles the backend.install flow:
-// 1. If already running for this (model, replica) slot, return existing address
-// 2. Install backend from gallery (if not already installed)
-// 3. Find backend binary
-// 4. Start gRPC process on a new port
+//  1. If already running for this (model, replica) slot AND req.Force is false,
+//     return existing address (the fast path used by routine load events that
+//     just want to know which port a backend already serves on).
+//  2. If req.Force is true, stop any process(es) currently using this backend
+//     so the gallery install can replace the on-disk artifact and the freshly
+//     started process picks up the new binary. This is the upgrade path —
+//     without it, every backend.install we receive after the first hits the
+//     fast path and silently no-ops, leaving the cluster on a stale build.
+//  3. Install backend from gallery (force=req.Force so existing artifacts get
+//     overwritten on upgrade).
+//  4. Find backend binary
+//  5. Start gRPC process on a new port
+//
 // Returns the gRPC address of the backend process.
 //
 // ProcessKey includes the replica index so a worker with MaxReplicasPerModel>1
@@ -677,10 +686,40 @@ func buildProcessKey(modelID, backend string, replicaIndex int) string {
 func (s *backendSupervisor) installBackend(req messaging.BackendInstallRequest) (string, error) {
 	processKey := buildProcessKey(req.ModelID, req.Backend, int(req.ReplicaIndex))
 
-	// If already running for this model+replica, return its address
-	if addr := s.getAddr(processKey); addr != "" {
-		xlog.Info("Backend already running for model replica", "backend", req.Backend, "model", req.ModelID, "replica", req.ReplicaIndex, "addr", addr)
-		return addr, nil
+	if !req.Force {
+		// Fast path: already running for this model+replica → return existing
+		// address. Verify liveness before trusting the cached entry: a process
+		// that died without the supervisor noticing leaves a stale (key, addr)
+		// pair, and getAddr would otherwise hand the controller an address
+		// that immediately ECONNREFUSEDs. The reconciler then marks the
+		// replica failed, retries the install, the supervisor says "already
+		// running" again, and the cluster loops on a dead replica forever.
+		if addr := s.getAddr(processKey); addr != "" {
+			if s.isRunning(processKey) {
+				xlog.Info("Backend already running for model replica", "backend", req.Backend, "model", req.ModelID, "replica", req.ReplicaIndex, "addr", addr)
+				return addr, nil
+			}
+			xlog.Warn("Stale process entry for backend (dead process); cleaning up before reinstall",
+				"backend", req.Backend, "model", req.ModelID, "replica", req.ReplicaIndex, "addr", addr)
+			s.stopBackendExact(processKey)
+		}
+	} else {
+		// Upgrade path: stop every live process that shares this backend so the
+		// gallery install can overwrite the on-disk artifact and the restarted
+		// process picks up the new binary. resolveProcessKeys catches peer
+		// replicas of the same backend (whisper#0, whisper#1, ...) on workers
+		// configured with MaxReplicasPerModel>1. We also stop the exact
+		// processKey from the request tuple — keys created with an explicit
+		// modelID don't share the bare-name prefix the resolver matches, but
+		// they're still using the old binary and need to come down. Both calls
+		// are no-ops on missing keys.
+		toStop := s.resolveProcessKeys(req.Backend)
+		toStop = append(toStop, processKey)
+		for _, key := range toStop {
+			xlog.Info("Force install: stopping running backend before reinstall",
+				"backend", req.Backend, "processKey", key)
+			s.stopBackendExact(key)
+		}
 	}
 
 	// Parse galleries from request (override local config if provided)
@@ -692,20 +731,26 @@ func (s *backendSupervisor) installBackend(req messaging.BackendInstallRequest) 
 		}
 	}
 
-	// Try to find the backend binary
-	backendPath := s.findBackend(req.Backend)
+	// On upgrade, run the gallery install path even if the binary already
+	// exists on disk: findBackend would otherwise short-circuit and we'd
+	// restart the same stale binary. The force flag passed to
+	// InstallBackendFromGallery makes it overwrite the existing artifact.
+	backendPath := ""
+	if !req.Force {
+		backendPath = s.findBackend(req.Backend)
+	}
 	if backendPath == "" {
 		if req.URI != "" {
-			xlog.Info("Backend not found locally, attempting external install", "backend", req.Backend, "uri", req.URI)
+			xlog.Info("Installing backend from external URI", "backend", req.Backend, "uri", req.URI, "force", req.Force)
 			if err := galleryop.InstallExternalBackend(
 				context.Background(), galleries, s.systemState, s.ml, nil, req.URI, req.Name, req.Alias,
 			); err != nil {
 				return "", fmt.Errorf("installing backend from gallery: %w", err)
 			}
 		} else {
-			xlog.Info("Backend not found locally, attempting gallery install", "backend", req.Backend)
+			xlog.Info("Installing backend from gallery", "backend", req.Backend, "force", req.Force)
 			if err := gallery.InstallBackendFromGallery(
-				context.Background(), galleries, s.systemState, s.ml, req.Backend, nil, false,
+				context.Background(), galleries, s.systemState, s.ml, req.Backend, nil, req.Force,
 			); err != nil {
 				return "", fmt.Errorf("installing backend from gallery: %w", err)
 			}

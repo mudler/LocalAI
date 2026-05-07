@@ -307,10 +307,11 @@ type installCall struct {
 	backend string
 	modelID string
 	replica int
+	force   bool
 }
 
-func (f *fakeUnloader) InstallBackend(nodeID, backend, modelID, _, _, _, _ string, replica int) (*messaging.BackendInstallReply, error) {
-	f.installCalls = append(f.installCalls, installCall{nodeID, backend, modelID, replica})
+func (f *fakeUnloader) InstallBackend(nodeID, backend, modelID, _, _, _, _ string, replica int, force bool) (*messaging.BackendInstallReply, error) {
+	f.installCalls = append(f.installCalls, installCall{nodeID, backend, modelID, replica, force})
 	return f.installReply, f.installErr
 }
 

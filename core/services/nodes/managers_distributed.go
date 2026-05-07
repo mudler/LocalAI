@@ -339,7 +339,7 @@ func (d *DistributedBackendManager) InstallBackend(ctx context.Context, op *gall
 		// Admin-driven backend install: not tied to a specific replica slot.
 		// Pass replica 0 — the worker's processKey is "backend#0" when no
 		// modelID is supplied, matching pre-PR4 behavior.
-		reply, err := d.adapter.InstallBackend(node.ID, backendName, "", string(galleriesJSON), op.ExternalURI, op.ExternalName, op.ExternalAlias, 0)
+		reply, err := d.adapter.InstallBackend(node.ID, backendName, "", string(galleriesJSON), op.ExternalURI, op.ExternalName, op.ExternalAlias, 0, false)
 		if err != nil {
 			return err
 		}
@@ -360,6 +360,12 @@ func (d *DistributedBackendManager) InstallBackend(ctx context.Context, op *gall
 // would ask workers to "upgrade" something they never had, which fails at
 // the gallery (e.g. a darwin/arm64 worker has no platform variant for a
 // linux-only backend) and leaves a forever-retrying pending_backend_ops row.
+//
+// force=true on the install call is what distinguishes upgrade from install:
+// the worker stops the live process for this backend, overwrites the on-disk
+// artifact, and restarts. Without it, the worker's "already running" fast
+// path turns every backend.install into a no-op and the gallery's drift
+// detection never converges.
 func (d *DistributedBackendManager) UpgradeBackend(ctx context.Context, name string, progressCb galleryop.ProgressCallback) error {
 	galleriesJSON, _ := json.Marshal(d.backendGalleries)
 
@@ -377,7 +383,7 @@ func (d *DistributedBackendManager) UpgradeBackend(ctx context.Context, name str
 	}
 
 	result, err := d.enqueueAndDrainBackendOp(ctx, OpBackendUpgrade, name, galleriesJSON, targetNodeIDs, func(node BackendNode) error {
-		reply, err := d.adapter.InstallBackend(node.ID, name, "", string(galleriesJSON), "", "", "", 0)
+		reply, err := d.adapter.InstallBackend(node.ID, name, "", string(galleriesJSON), "", "", "", 0, true)
 		if err != nil {
 			return err
 		}
