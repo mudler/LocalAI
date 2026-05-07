@@ -128,6 +128,15 @@ func TranscriptEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, app
 
 		tr, err := backend.ModelTranscriptionWithOptions(req, ml, *config, appConfig)
 		if err != nil {
+			// Log before returning so the underlying error survives. Echo's
+			// error handler turns this into a 500 with a generic body, which
+			// otherwise leaves operators chasing a silent failure — see e.g.
+			// distributed transcription, where the gRPC error from a remote
+			// node is the only signal of what actually went wrong.
+			xlog.Error("Transcription failed",
+				"model", config.Name,
+				"audio", dst,
+				"error", err)
 			return err
 		}
 
