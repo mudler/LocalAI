@@ -40,6 +40,7 @@ type AudioTransformOutputs struct {
 // required; `referencePath` is optional (empty => backend zero-fills the
 // reference channel).
 func ModelAudioTransform(
+	ctx context.Context,
 	audioPath, referencePath string,
 	opts AudioTransformOptions,
 	loader *model.ModelLoader,
@@ -81,7 +82,7 @@ func ModelAudioTransform(
 		startTime = time.Now()
 	}
 
-	res, err := transformModel.AudioTransform(context.Background(), &proto.AudioTransformRequest{
+	res, err := transformModel.AudioTransform(ctx, &proto.AudioTransformRequest{
 		AudioPath:     audioPath,
 		ReferencePath: referencePath,
 		Dst:           dst,

@@ -109,7 +109,7 @@ func AudioTransformEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader,
 			}
 		}
 
-		out, _, err := backend.ModelAudioTransform(audioPath, referencePath, backend.AudioTransformOptions{
+		out, _, err := backend.ModelAudioTransform(c.Request().Context(), audioPath, referencePath, backend.AudioTransformOptions{
 			Params: params,
 		}, ml, appConfig, *cfg)
 		if err != nil {
