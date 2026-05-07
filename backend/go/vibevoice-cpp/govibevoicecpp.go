@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -480,7 +481,7 @@ func (w *byteWriter) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
-func (v *VibevoiceCpp) AudioTranscription(req *pb.TranscriptRequest) (pb.TranscriptResult, error) {
+func (v *VibevoiceCpp) AudioTranscription(_ context.Context, req *pb.TranscriptRequest) (pb.TranscriptResult, error) {
 	if v.asrModel == "" {
 		return pb.TranscriptResult{}, fmt.Errorf("vibevoice-cpp: AudioTranscription requested but no ASR model was loaded")
 	}
@@ -623,9 +624,9 @@ func (v *VibevoiceCpp) Diarize(req *pb.DiarizeRequest) (pb.DiarizeResponse, erro
 // transcription, emit each segment's content as a delta, then close
 // with a final_result whose Text equals the concatenated deltas (the
 // e2e harness asserts those match).
-func (v *VibevoiceCpp) AudioTranscriptionStream(req *pb.TranscriptRequest, results chan *pb.TranscriptStreamResponse) error {
+func (v *VibevoiceCpp) AudioTranscriptionStream(ctx context.Context, req *pb.TranscriptRequest, results chan *pb.TranscriptStreamResponse) error {
 	defer close(results)
-	res, err := v.AudioTranscription(req)
+	res, err := v.AudioTranscription(ctx, req)
 	if err != nil {
 		return err
 	}

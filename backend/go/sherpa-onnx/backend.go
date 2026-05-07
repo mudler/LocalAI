@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
 	"fmt"
 	"os"
@@ -998,7 +999,7 @@ func (s *SherpaBackend) loadOnlineASR(opts *pb.ModelOptions) error {
 // Transcription
 // =============================================================
 
-func (s *SherpaBackend) AudioTranscription(req *pb.TranscriptRequest) (pb.TranscriptResult, error) {
+func (s *SherpaBackend) AudioTranscription(_ context.Context, req *pb.TranscriptRequest) (pb.TranscriptResult, error) {
 	if s.onlineRecognizer != 0 {
 		return s.runOnlineASR(req, nil)
 	}
@@ -1056,6 +1057,7 @@ func (s *SherpaBackend) AudioTranscription(req *pb.TranscriptRequest) (pb.Transc
 // Closes `results` before returning so the server wrapper's reader
 // goroutine can exit.
 func (s *SherpaBackend) AudioTranscriptionStream(
+	_ context.Context,
 	req *pb.TranscriptRequest,
 	results chan *pb.TranscriptStreamResponse,
 ) error {

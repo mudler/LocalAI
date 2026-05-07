@@ -1,6 +1,8 @@
 package grpc
 
 import (
+	"context"
+
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 )
 
@@ -22,8 +24,8 @@ type AIModel interface {
 	VoiceVerify(*pb.VoiceVerifyRequest) (pb.VoiceVerifyResponse, error)
 	VoiceAnalyze(*pb.VoiceAnalyzeRequest) (pb.VoiceAnalyzeResponse, error)
 	VoiceEmbed(*pb.VoiceEmbedRequest) (pb.VoiceEmbedResponse, error)
-	AudioTranscription(*pb.TranscriptRequest) (pb.TranscriptResult, error)
-	AudioTranscriptionStream(*pb.TranscriptRequest, chan *pb.TranscriptStreamResponse) error
+	AudioTranscription(context.Context, *pb.TranscriptRequest) (pb.TranscriptResult, error)
+	AudioTranscriptionStream(context.Context, *pb.TranscriptRequest, chan *pb.TranscriptStreamResponse) error
 	TTS(*pb.TTSRequest) error
 	TTSStream(*pb.TTSRequest, chan []byte) error
 	SoundGeneration(*pb.SoundGenerationRequest) error

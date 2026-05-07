@@ -218,7 +218,7 @@ func (s *server) AudioTranscription(ctx context.Context, in *pb.TranscriptReques
 		s.llm.Lock()
 		defer s.llm.Unlock()
 	}
-	result, err := s.llm.AudioTranscription(in)
+	result, err := s.llm.AudioTranscription(ctx, in)
 	if err != nil {
 		return nil, err
 	}
@@ -260,7 +260,7 @@ func (s *server) AudioTranscriptionStream(in *pb.TranscriptRequest, stream pb.Ba
 		done <- true
 	}()
 
-	err := s.llm.AudioTranscriptionStream(in, resultChan)
+	err := s.llm.AudioTranscriptionStream(stream.Context(), in, resultChan)
 	<-done
 
 	return err

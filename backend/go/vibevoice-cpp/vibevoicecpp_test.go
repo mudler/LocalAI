@@ -107,7 +107,7 @@ var _ = Describe("VibeVoice-cpp", func() {
 		})
 
 		It("rejects AudioTranscription without a loaded ASR model", func() {
-			_, err := (&VibevoiceCpp{}).AudioTranscription(&pb.TranscriptRequest{
+			_, err := (&VibevoiceCpp{}).AudioTranscription(context.Background(), &pb.TranscriptRequest{
 				Dst: "/tmp/some.wav",
 			})
 			Expect(err).To(HaveOccurred())
@@ -255,7 +255,7 @@ var _ = Describe("VibeVoice-cpp", func() {
 
 		It("closes the channel and errors on AudioTranscriptionStream without a loaded model", func() {
 			ch := make(chan *pb.TranscriptStreamResponse, 4)
-			err := (&VibevoiceCpp{}).AudioTranscriptionStream(&pb.TranscriptRequest{
+			err := (&VibevoiceCpp{}).AudioTranscriptionStream(context.Background(), &pb.TranscriptRequest{
 				Dst: "/tmp/some.wav",
 			}, ch)
 			Expect(err).To(HaveOccurred())
