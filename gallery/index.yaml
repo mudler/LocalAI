@@ -1,4 +1,62 @@
 ---
+- name: "qwopus3.6-35b-a3b-v1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/Jackrong/Qwopus3.6-35B-A3B-v1-GGUF
+  description: |
+    # Qwen3.6-35B-A3B
+
+    [](https://chat.qwen.ai)
+
+    > [!Note]
+    > This repository contains model weights and configuration files for the post-trained model in the Hugging Face Transformers format.
+    >
+    > These artifacts are compatible with Hugging Face Transformers, vLLM, SGLang, KTransformers, etc.
+
+    Following the February release of the Qwen3.5 series, we're pleased to share the first open-weight variant of Qwen3.6. Built on direct feedback from the community, Qwen3.6 prioritizes stability and real-world utility, offering developers a more intuitive, responsive, and genuinely productive coding experience.
+
+    ## Qwen3.6 Highlights
+
+    This release delivers substantial upgrades, particularly in
+
+      - **Agentic Coding:** the model now handles frontend workflows and repository-level reasoning with greater fluency and precision.
+      - **Thinking Preservation:** we've introduced a new option to retain reasoning context from historical messages, streamlining iterative development and reducing overhead.
+
+    For more details, please refer to our blog post Qwen3.6-35B-A3B.
+
+    ## Model Overview
+
+    ...
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - vision
+    - multimodal
+    - reasoning
+  icon: https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen3.6/Figures/qwen3.6_35b_a3b_score.png
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/Qwopus3.6-35B-A3B-v1-GGUF/mmproj.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/Qwopus3.6-35B-A3B-v1-GGUF/Qwopus3.6-35B-A3B-v1-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Qwopus3.6-35B-A3B-v1-GGUF/Qwopus3.6-35B-A3B-v1-Q4_K_M.gguf
+      sha256: 90d2bad2b665bb80453ec4e2ca89cc05d484f08c97fb6f5783ac32cb33ce6c17
+      uri: https://huggingface.co/Jackrong/Qwopus3.6-35B-A3B-v1-GGUF/resolve/main/Qwopus3.6-35B-A3B-v1-Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/Qwopus3.6-35B-A3B-v1-GGUF/mmproj.gguf
+      sha256: 56c89f1ca1547a8a15066642f54b94e4911e3c86cccb3d88163d823e8b6b8799
+      uri: https://huggingface.co/Jackrong/Qwopus3.6-35B-A3B-v1-GGUF/resolve/main/mmproj.gguf
 - name: "qwen3.6-27b-heretic-uncensored-finetune-neo-code-di-imatrix-max"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
