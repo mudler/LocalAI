@@ -70,6 +70,7 @@ type RunCMD struct {
 	OpaqueErrors                       bool     `env:"LOCALAI_OPAQUE_ERRORS" default:"false" help:"If true, all error responses are replaced with blank 500 errors. This is intended only for hardening against information leaks and is normally not recommended." group:"hardening"`
 	UseSubtleKeyComparison             bool     `env:"LOCALAI_SUBTLE_KEY_COMPARISON" default:"false" help:"If true, API Key validation comparisons will be performed using constant-time comparisons rather than simple equality. This trades off performance on each request for resiliancy against timing attacks." group:"hardening"`
 	DisableApiKeyRequirementForHttpGet bool     `env:"LOCALAI_DISABLE_API_KEY_REQUIREMENT_FOR_HTTP_GET" default:"false" help:"If true, a valid API key is not required to issue GET requests to portions of the web ui. This should only be enabled in secure testing environments" group:"hardening"`
+	AllowInsecurePublicBind            bool     `env:"LOCALAI_ALLOW_INSECURE_PUBLIC_BIND" default:"false" help:"Allow binding the API to a public-internet address without any authentication configured. Without this flag the server refuses to start when the bind address is public (or a wildcard on a host with a public interface) and no auth backend or static API key is set. Loopback, RFC 1918 LAN, ULA, link-local, and CGNAT (Tailscale) ranges are accepted regardless." group:"hardening"`
 	DisableMetricsEndpoint             bool     `env:"LOCALAI_DISABLE_METRICS_ENDPOINT,DISABLE_METRICS_ENDPOINT" default:"false" help:"Disable the /metrics endpoint" group:"api"`
 	HttpGetExemptedEndpoints           []string `env:"LOCALAI_HTTP_GET_EXEMPTED_ENDPOINTS" default:"^/$,^/app(/.*)?$,^/browse(/.*)?$,^/login/?$,^/explorer/?$,^/assets/.*$,^/static/.*$,^/swagger.*$" help:"If LOCALAI_DISABLE_API_KEY_REQUIREMENT_FOR_HTTP_GET is overriden to true, this is the list of endpoints to exempt. Only adjust this in case of a security incident or as a result of a personal security posture review" group:"hardening"`
 	Peer2Peer                          bool     `env:"LOCALAI_P2P,P2P" name:"p2p" default:"false" help:"Enable P2P mode" group:"p2p"`
@@ -514,6 +515,17 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 	app, err := application.New(opts...)
 	if err != nil {
 		return fmt.Errorf("LocalAI failed to start: %w.\nTroubleshooting steps:\n  1. Check that your models directory exists and is accessible: %s\n  2. Verify model config files are valid YAML: 'local-ai util usecase-heuristic <config>'\n  3. Check available disk space and file permissions\n  4. Run with --log-level=debug for more details\nSee https://localai.io/basics/troubleshooting/ for more help", err, r.ModelsPath)
+	}
+
+	// Refuse to bind a public-internet address without authentication unless
+	// the operator has explicitly opted in. The auth middleware degrades to
+	// pass-through when there is no auth DB and no legacy keys; on a loopback,
+	// LAN, or VPN that's the historical "trusted network" deployment, but on
+	// a public IP it makes every model, gallery install, settings change, and
+	// admin endpoint reachable by anyone who can connect to the port.
+	authConfigured := app.AuthDB() != nil || len(r.APIKeys) > 0
+	if err := requireAuthOrTrustedBind(r.Address, authConfigured, r.AllowInsecurePublicBind); err != nil {
+		return err
 	}
 
 	appHTTP, err := http.API(app)
