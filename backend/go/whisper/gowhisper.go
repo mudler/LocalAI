@@ -98,6 +98,10 @@ func (w *Whisper) VAD(req *pb.VADRequest) (pb.VADResponse, error) {
 }
 
 func (w *Whisper) AudioTranscription(ctx context.Context, opts *pb.TranscriptRequest) (pb.TranscriptResult, error) {
+	if err := ctx.Err(); err != nil {
+		return pb.TranscriptResult{}, status.Error(codes.Canceled, "transcription cancelled")
+	}
+
 	dir, err := os.MkdirTemp("", "whisper")
 	if err != nil {
 		return pb.TranscriptResult{}, err
