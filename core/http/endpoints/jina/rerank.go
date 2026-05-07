@@ -52,7 +52,7 @@ func JINARerankEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, app
 			Documents: input.Documents,
 		}
 
-		results, err := backend.Rerank(request, ml, appConfig, *cfg)
+		results, err := backend.Rerank(c.Request().Context(), request, ml, appConfig, *cfg)
 		if err != nil {
 			return err
 		}

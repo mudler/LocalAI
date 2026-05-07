@@ -36,7 +36,7 @@ func VoiceAnalyzeEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, a
 		defer cleanup()
 
 		xlog.Debug("VoiceAnalyze", "model", cfg.Name, "backend", cfg.Backend, "actions", input.Actions)
-		res, err := backend.VoiceAnalyze(audio, input.Actions, ml, appConfig, *cfg)
+		res, err := backend.VoiceAnalyze(c.Request().Context(), audio, input.Actions, ml, appConfig, *cfg)
 		if err != nil {
 			return mapBackendError(err)
 		}

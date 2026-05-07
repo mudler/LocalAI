@@ -40,7 +40,7 @@ func VoiceRegisterEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, 
 		defer cleanup()
 
 		xlog.Debug("VoiceRegister", "model", cfg.Name, "name", input.Name)
-		res, err := backend.VoiceEmbed(audio, ml, appConfig, *cfg)
+		res, err := backend.VoiceEmbed(c.Request().Context(), audio, ml, appConfig, *cfg)
 		if err != nil {
 			return mapBackendError(err)
 		}

@@ -39,7 +39,7 @@ func FaceVerifyEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, app
 		}
 
 		xlog.Debug("FaceVerify", "model", cfg.Name, "backend", cfg.Backend)
-		res, err := backend.FaceVerify(img1, img2, input.Threshold, input.AntiSpoofing, ml, appConfig, *cfg)
+		res, err := backend.FaceVerify(c.Request().Context(), img1, img2, input.Threshold, input.AntiSpoofing, ml, appConfig, *cfg)
 		if err != nil {
 			return mapBackendError(err)
 		}

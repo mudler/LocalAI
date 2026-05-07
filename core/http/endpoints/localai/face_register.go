@@ -39,7 +39,7 @@ func FaceRegisterEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, a
 		}
 
 		xlog.Debug("FaceRegister", "model", cfg.Name, "name", input.Name)
-		embedding, err := backend.FaceEmbed(img, ml, appConfig, *cfg)
+		embedding, err := backend.FaceEmbed(c.Request().Context(), img, ml, appConfig, *cfg)
 		if err != nil {
 			return mapBackendError(err)
 		}

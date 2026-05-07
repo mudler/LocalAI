@@ -49,7 +49,7 @@ func TokenMetricsEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, a
 		}
 		xlog.Debug("Token Metrics for model", "model", modelFile)
 
-		response, err := backend.TokenMetrics(modelFile, ml, appConfig, *cfg)
+		response, err := backend.TokenMetrics(c.Request().Context(), modelFile, ml, appConfig, *cfg)
 		if err != nil {
 			return err
 		}

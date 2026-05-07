@@ -14,6 +14,7 @@ import (
 // backend picks the highest-confidence face and returns its
 // L2-normalized embedding.
 func FaceEmbed(
+	ctx context.Context,
 	imgBase64 string,
 	loader *model.ModelLoader,
 	appConfig *config.ApplicationConfig,
@@ -32,7 +33,7 @@ func FaceEmbed(
 	predictOpts := gRPCPredictOpts(modelConfig, loader.ModelPath)
 	predictOpts.Images = []string{imgBase64}
 
-	res, err := faceModel.Embeddings(context.Background(), predictOpts)
+	res, err := faceModel.Embeddings(ctx, predictOpts)
 	if err != nil {
 		return nil, err
 	}

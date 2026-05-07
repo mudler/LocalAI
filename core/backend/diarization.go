@@ -63,7 +63,7 @@ func loadDiarizationModel(ml *model.ModelLoader, modelConfig config.ModelConfig,
 
 // ModelDiarization runs the Diarize RPC against the configured backend
 // and returns a normalized schema.DiarizationResult.
-func ModelDiarization(req DiarizationRequest, ml *model.ModelLoader, modelConfig config.ModelConfig, appConfig *config.ApplicationConfig) (*schema.DiarizationResult, error) {
+func ModelDiarization(ctx context.Context, req DiarizationRequest, ml *model.ModelLoader, modelConfig config.ModelConfig, appConfig *config.ApplicationConfig) (*schema.DiarizationResult, error) {
 	m, err := loadDiarizationModel(ml, modelConfig, appConfig)
 	if err != nil {
 		return nil, err
@@ -74,7 +74,7 @@ func ModelDiarization(req DiarizationRequest, ml *model.ModelLoader, modelConfig
 		threads = uint32(*modelConfig.Threads)
 	}
 
-	r, err := m.Diarize(context.Background(), req.toProto(threads))
+	r, err := m.Diarize(ctx, req.toProto(threads))
 	if err != nil {
 		return nil, err
 	}

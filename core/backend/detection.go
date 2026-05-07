@@ -12,6 +12,7 @@ import (
 )
 
 func Detection(
+	ctx context.Context,
 	sourceFile string,
 	prompt string,
 	points []float32,
@@ -38,7 +39,7 @@ func Detection(
 		startTime = time.Now()
 	}
 
-	res, err := detectionModel.Detect(context.Background(), &proto.DetectOptions{
+	res, err := detectionModel.Detect(ctx, &proto.DetectOptions{
 		Src:       sourceFile,
 		Prompt:    prompt,
 		Points:    points,

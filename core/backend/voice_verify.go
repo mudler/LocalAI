@@ -12,6 +12,7 @@ import (
 )
 
 func VoiceVerify(
+	ctx context.Context,
 	audio1, audio2 string,
 	threshold float32,
 	antiSpoofing bool,
@@ -35,7 +36,7 @@ func VoiceVerify(
 		startTime = time.Now()
 	}
 
-	res, err := voiceModel.VoiceVerify(context.Background(), &proto.VoiceVerifyRequest{
+	res, err := voiceModel.VoiceVerify(ctx, &proto.VoiceVerifyRequest{
 		Audio1:       audio1,
 		Audio2:       audio2,
 		Threshold:    threshold,

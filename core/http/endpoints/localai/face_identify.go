@@ -45,7 +45,7 @@ func FaceIdentifyEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, a
 		threshold := cmp.Or(input.Threshold, defaultIdentifyThreshold)
 
 		xlog.Debug("FaceIdentify", "model", cfg.Name, "topK", topK, "threshold", threshold)
-		probe, err := backend.FaceEmbed(img, ml, appConfig, *cfg)
+		probe, err := backend.FaceEmbed(c.Request().Context(), img, ml, appConfig, *cfg)
 		if err != nil {
 			return mapBackendError(err)
 		}

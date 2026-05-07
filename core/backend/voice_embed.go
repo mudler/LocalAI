@@ -16,6 +16,7 @@ import (
 // OpenAI-compatible and text-only), this call takes an audio path and
 // returns the backend's speaker-encoder output.
 func VoiceEmbed(
+	ctx context.Context,
 	audioPath string,
 	loader *model.ModelLoader,
 	appConfig *config.ApplicationConfig,
@@ -37,7 +38,7 @@ func VoiceEmbed(
 		startTime = time.Now()
 	}
 
-	res, err := voiceModel.VoiceEmbed(context.Background(), &proto.VoiceEmbedRequest{
+	res, err := voiceModel.VoiceEmbed(ctx, &proto.VoiceEmbedRequest{
 		Audio: audioPath,
 	})
 

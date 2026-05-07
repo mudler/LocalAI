@@ -105,7 +105,7 @@ func DiarizationEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, ap
 		_ = dstFile.Close()
 		req.Audio = dst
 
-		result, err := backend.ModelDiarization(req, ml, *modelConfig, appConfig)
+		result, err := backend.ModelDiarization(c.Request().Context(), req, ml, *modelConfig, appConfig)
 		if err != nil {
 			return err
 		}
