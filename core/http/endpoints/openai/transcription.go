@@ -248,10 +248,36 @@ func streamTranscription(c echo.Context, req backend.TranscriptionRequest, ml *m
 			"delta": finalResult.Text,
 		})
 	}
-	_ = writeEvent(map[string]any{
+	// done carries the assembled text plus, when the backend produced them,
+	// per-segment timings, audio duration, and detected language. The OpenAI
+	// streaming spec only specifies `text`; the extra fields are an additive
+	// extension so streaming clients (e.g. notetaker) can build the same
+	// TranscriptionResultSeconds shape they get from the JSON response path
+	// without us forcing them off SSE just to recover segments. Spec-compliant
+	// clients ignore unknown fields.
+	doneEvent := map[string]any{
 		"type": "transcript.text.done",
 		"text": finalResult.Text,
-	})
+	}
+	if finalResult.Language != "" {
+		doneEvent["language"] = finalResult.Language
+	}
+	if finalResult.Duration > 0 {
+		doneEvent["duration"] = finalResult.Duration
+	}
+	if len(finalResult.Segments) > 0 {
+		segs := make([]map[string]any, 0, len(finalResult.Segments))
+		for _, seg := range finalResult.Segments {
+			segs = append(segs, map[string]any{
+				"id":    seg.Id,
+				"start": seg.Start.Seconds(),
+				"end":   seg.End.Seconds(),
+				"text":  seg.Text,
+			})
+		}
+		doneEvent["segments"] = segs
+	}
+	_ = writeEvent(doneEvent)
 	_, _ = fmt.Fprintf(c.Response().Writer, "data: [DONE]\n\n")
 	c.Response().Flush()
 	return nil
