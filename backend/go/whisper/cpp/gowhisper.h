@@ -15,4 +15,5 @@ int64_t get_segment_t1(int i);
 int n_tokens(int i);
 int32_t get_token_id(int i, int j);
 bool get_segment_speaker_turn_next(int i);
+void set_abort(int v);
 }

@@ -1,11 +1,22 @@
 #include "gowhisper.h"
 #include "ggml-backend.h"
 #include "whisper.h"
+#include <atomic>
 #include <vector>
 
 static struct whisper_vad_context *vctx;
 static struct whisper_context *ctx;
 static std::vector<float> flat_segs;
+
+static std::atomic<int> g_abort{0};
+
+static bool abort_cb(void * /*user_data*/) {
+    return g_abort.load(std::memory_order_relaxed) != 0;
+}
+
+extern "C" void set_abort(int v) {
+    g_abort.store(v, std::memory_order_relaxed);
+}
 
 static void ggml_log_cb(enum ggml_log_level level, const char *log,
                         void *data) {
@@ -124,10 +135,20 @@ int transcribe(uint32_t threads, char *lang, bool translate, bool tdrz,
   wparams.tdrz_enable = tdrz;
   wparams.initial_prompt = prompt;
 
+  // Reset stale abort flag from any prior cancelled call, then install the
+  // ggml abort hook so a subsequent set_abort(1) from Go aborts the next
+  // compute graph step.
+  g_abort.store(0, std::memory_order_relaxed);
+  wparams.abort_callback = abort_cb;
+  wparams.abort_callback_user_data = nullptr;
+
   fprintf(stderr, "info: Enable tdrz: %d\n", tdrz);
   fprintf(stderr, "info: Initial prompt: \"%s\"\n", prompt);
 
   if (whisper_full(ctx, wparams, pcmf32, pcmf32_len)) {
+    if (g_abort.load(std::memory_order_relaxed)) {
+      return 2;   // aborted by client
+    }
     fprintf(stderr, "error: transcription failed\n");
     return 1;
   }
