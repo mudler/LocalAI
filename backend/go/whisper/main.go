@@ -41,6 +41,7 @@ func main() {
 		{&CppNTokens, "n_tokens"},
 		{&CppGetTokenID, "get_token_id"},
 		{&CppGetSegmentSpeakerTurnNext, "get_segment_speaker_turn_next"},
+		{&CppSetAbort, "set_abort"},
 	}
 
 	for _, lf := range libFuncs {

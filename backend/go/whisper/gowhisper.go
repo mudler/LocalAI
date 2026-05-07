@@ -25,6 +25,7 @@ var (
 	CppNTokens                   func(i int) int
 	CppGetTokenID                func(i int, j int) int
 	CppGetSegmentSpeakerTurnNext func(i int) bool
+	CppSetAbort                  func(v int)
 )
 
 type Whisper struct {
