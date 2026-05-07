@@ -126,7 +126,7 @@ func TranscriptEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, app
 			return streamTranscription(c, req, ml, *config, appConfig)
 		}
 
-		tr, err := backend.ModelTranscriptionWithOptions(req, ml, *config, appConfig)
+		tr, err := backend.ModelTranscriptionWithOptions(c.Request().Context(), req, ml, *config, appConfig)
 		if err != nil {
 			// Log before returning so the underlying error survives. Echo's
 			// error handler turns this into a 500 with a generic body, which
@@ -157,16 +157,16 @@ func TranscriptEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, app
 				Words:    []schema.TranscriptionWordSeconds{},
 				Segments: []schema.TranscriptionSegmentSeconds{},
 			}
-			for _, word := range(tr.Words) {
+			for _, word := range tr.Words {
 				trs.Words = append(trs.Words, schema.TranscriptionWordSeconds{
 					Start: word.Start.Seconds(),
 					End:   word.End.Seconds(),
 					Text:  word.Text,
 				})
 			}
-			for _, seg := range(tr.Segments) {
+			for _, seg := range tr.Segments {
 				segWords := []schema.TranscriptionWordSeconds{}
-				for _, word := range(seg.Words) {
+				for _, word := range seg.Words {
 					segWords = append(segWords, schema.TranscriptionWordSeconds{
 						Start: word.Start.Seconds(),
 						End:   word.End.Seconds(),
@@ -174,7 +174,7 @@ func TranscriptEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, app
 					})
 				}
 				trs.Segments = append(trs.Segments, schema.TranscriptionSegmentSeconds{
-				  Id:      seg.Id,
+					Id:      seg.Id,
 					Start:   seg.Start.Seconds(),
 					End:     seg.End.Seconds(),
 					Text:    seg.Text,
@@ -216,7 +216,7 @@ func streamTranscription(c echo.Context, req backend.TranscriptionRequest, ml *m
 	var assembled strings.Builder
 	var finalResult *schema.TranscriptionResult
 
-	err := backend.ModelTranscriptionStream(req, ml, config, appConfig, func(chunk backend.TranscriptionStreamChunk) {
+	err := backend.ModelTranscriptionStream(c.Request().Context(), req, ml, config, appConfig, func(chunk backend.TranscriptionStreamChunk) {
 		if chunk.Delta != "" {
 			assembled.WriteString(chunk.Delta)
 			_ = writeEvent(map[string]any{
