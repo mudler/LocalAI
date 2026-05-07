@@ -10,7 +10,6 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
-	"github.com/mudler/LocalAI/core/http/auth"
 	mcpTools "github.com/mudler/LocalAI/core/http/endpoints/mcp"
 	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/schema"
@@ -463,15 +462,8 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 		// per-model MCP servers in the same chat session by design).
 		assistantMode := mcpTools.LocalAIAssistantFromMetadata(input.Metadata)
 		if assistantMode {
-			// Defense-in-depth admin gate: the chat route is feature-gated
-			// (FeatureChat), but the assistant tools mutate server state, so
-			// re-check role here even when the deployment chose to skip
-			// FeatureLocalAIAssistant on the route.
-			if startupOptions.Auth.Enabled {
-				user := auth.GetUser(c)
-				if user == nil || user.Role != auth.RoleAdmin {
-					return echo.NewHTTPError(http.StatusForbidden, "localai_assistant requires admin")
-				}
+			if err := requireAssistantAccess(c, startupOptions.Auth.Enabled); err != nil {
+				return err
 			}
 			// Read the disable flag live: an admin can flip it via /api/settings
 			// and the next request must see the change without a restart.
