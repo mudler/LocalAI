@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"unsafe"
 
 	"github.com/go-audio/wav"
@@ -129,18 +130,25 @@ func (w *Whisper) AudioTranscription(ctx context.Context, opts *pb.TranscriptReq
 	segsLen := uintptr(0xdeadbeef)
 	segsLenPtr := unsafe.Pointer(&segsLen)
 
-	// Watcher: flips the C-side abort flag when ctx is cancelled. Joined
-	// synchronously via close(done) so a stale watcher cannot poison the
-	// next call.
+	// Watcher: flips the C-side abort flag when ctx is cancelled. The
+	// goroutine is joined synchronously (close(done) signals it to exit,
+	// wg.Wait() blocks until it has) so a late CppSetAbort(1) cannot fire
+	// after the function returns and corrupt the next transcription call.
 	done := make(chan struct{})
+	var wg sync.WaitGroup
+	wg.Add(1)
 	go func() {
+		defer wg.Done()
 		select {
 		case <-ctx.Done():
 			CppSetAbort(1)
 		case <-done:
 		}
 	}()
-	defer close(done)
+	defer func() {
+		close(done)
+		wg.Wait()
+	}()
 
 	ret := CppTranscribe(opts.Threads, opts.Language, opts.Translate, opts.Diarize, data, uintptr(len(data)), segsLenPtr, opts.Prompt)
 	if ret == 2 {
