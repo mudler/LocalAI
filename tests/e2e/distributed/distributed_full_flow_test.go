@@ -93,7 +93,7 @@ func (t *testLLM) SoundGeneration(req *pb.SoundGenerationRequest) error {
 	return nil
 }
 
-func (t *testLLM) AudioTranscription(req *pb.TranscriptRequest) (pb.TranscriptResult, error) {
+func (t *testLLM) AudioTranscription(_ context.Context, req *pb.TranscriptRequest) (pb.TranscriptResult, error) {
 	t.lastAudioDst = req.Dst
 	return pb.TranscriptResult{Text: "transcribed text"}, nil
 }
