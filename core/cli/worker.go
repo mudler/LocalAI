@@ -417,6 +417,14 @@ type backendSupervisor struct {
 	processes map[string]*backendProcess // key: backend name
 	nextPort  int                        // next available port for new backends
 	freePorts []int                      // ports freed by stopBackend, reused before nextPort
+
+	// backendLocks serializes gallery operations against the same on-disk
+	// artifact. Two installs of different backends on the same worker run
+	// concurrently (their handlers are each in a goroutine); two operations
+	// on the same backend (install vs upgrade, or two parallel installs of
+	// the same not-yet-cached backend) are serialized here so the gallery
+	// download path doesn't race itself on the same directory.
+	backendLocks map[string]*sync.Mutex
 }
 
 // startBackend starts a gRPC backend process on a dynamically allocated port.
@@ -790,6 +798,24 @@ func (s *backendSupervisor) findBackend(backend string) string {
 		}
 	}
 	return ""
+}
+
+// lockBackend returns a release function for a per-backend mutex. Different
+// backend names lock independently. The first caller for a name allocates
+// the mutex under s.mu; subsequent callers for the same name reuse it.
+func (s *backendSupervisor) lockBackend(name string) func() {
+	s.mu.Lock()
+	if s.backendLocks == nil {
+		s.backendLocks = make(map[string]*sync.Mutex)
+	}
+	m, ok := s.backendLocks[name]
+	if !ok {
+		m = &sync.Mutex{}
+		s.backendLocks[name] = m
+	}
+	s.mu.Unlock()
+	m.Lock()
+	return m.Unlock
 }
 
 // subscribeLifecycleEvents subscribes to NATS backend lifecycle events.
