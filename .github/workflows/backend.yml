@@ -70,7 +70,7 @@ jobs:
       quayPassword: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
     strategy:
       fail-fast: false
-      #max-parallel: ${{ github.event_name != 'pull_request' && 6 || 4 }}
+      max-parallel: 8
       matrix: ${{ fromJson(needs.generate-matrix.outputs.matrix) }}
 
   backend-jobs-darwin:

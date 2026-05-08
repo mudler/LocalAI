@@ -59,6 +59,7 @@ jobs:
       quayPassword: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
     strategy:
       fail-fast: true
+      max-parallel: 8
       matrix: ${{ fromJson(needs.generate-matrix.outputs.matrix) }}
   backend-jobs-darwin:
     needs: generate-matrix
