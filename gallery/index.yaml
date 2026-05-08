@@ -1,4 +1,65 @@
 ---
+- name: "qwen3.6-40b-claude-4.6-opus-deckard-heretic-uncensored-thinking-neo-code-di-imatrix-max"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/DavidAU/Qwen3.6-40B-Claude-4.6-Opus-Deckard-Heretic-Uncensored-Thinking-NEO-CODE-Di-IMatrix-MAX-GGUF
+  description: |
+    The Qwen 3.5 version (also 40B) got 181 likes+ This version uses the new Qwen 3.6 27B arch (which exceeds even Qwen's own 398B model).
+
+    WARNING: This model has character and intelligence. It will take no prisoners. It will give no quarter. Uncensored,
+    Unfiltered and boldly confident. Not even remotely "SFW", if you ask it for NSFW content. And it is wickedly smart too - exceeding the base model in 6 out of 7 benchmarks.
+
+    Qwen3.6-40B-Claude-4.6-Opus-Deckard-Heretic-Uncensored-Thinking
+
+    40 billion parameters (dense, not moe) expanded from 27B Qwen 3.6, then trained on Claude 4.6 Opus High Reasoning dataset via Unsloth on local hardware... but there
+    is much more to the story - in comes DECKARD.
+
+    96 layers, 1275 Tensors. (50% more than base model of 27B)
+
+    Features variable length reasoning ; less complex = shorter, longer for more complex.
+
+    Model performance has increased dramatically. And it has character too.
+
+    A lot of character.
+
+    No censorship, no nanny. (via Heretic)
+
+    And it is very, very smart.
+
+    ...
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+  icon: https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen3.6/Figures/qwen3.6_27b_score.png
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/Qwen3.6-40B-Claude-4.6-Opus-Deckard-Heretic-Uncensored-Thinking-NEO-CODE-Di-IMatrix-MAX-GGUF/mmproj-F32.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/Qwen3.6-40B-Claude-4.6-Opus-Deckard-Heretic-Uncensored-Thinking-NEO-CODE-Di-IMatrix-MAX-GGUF/Qwen3.6-40B-Deck-Opus-NEO-CODE-HERE-2T-OT-Q4_K_M.gguf
+      presence_penalty: 1.5
+      repeat_penalty: 1
+      temperature: 0.7
+      top_k: 20
+      top_p: 0.8
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Qwen3.6-40B-Claude-4.6-Opus-Deckard-Heretic-Uncensored-Thinking-NEO-CODE-Di-IMatrix-MAX-GGUF/Qwen3.6-40B-Deck-Opus-NEO-CODE-HERE-2T-OT-Q4_K_M.gguf
+      sha256: 6533e19802f02af3524ae499a5f10b07667913c8ffa6bf4f055e83ea525a9fba
+      uri: https://huggingface.co/DavidAU/Qwen3.6-40B-Claude-4.6-Opus-Deckard-Heretic-Uncensored-Thinking-NEO-CODE-Di-IMatrix-MAX-GGUF/resolve/main/Qwen3.6-40B-Deck-Opus-NEO-CODE-HERE-2T-OT-Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/Qwen3.6-40B-Claude-4.6-Opus-Deckard-Heretic-Uncensored-Thinking-NEO-CODE-Di-IMatrix-MAX-GGUF/mmproj-F32.gguf
+      sha256: fdc443e974cad1f61c45af1cfd5580855855ddce0d6c14cc500a5714c486ac1d
+      uri: https://huggingface.co/DavidAU/Qwen3.6-40B-Claude-4.6-Opus-Deckard-Heretic-Uncensored-Thinking-NEO-CODE-Di-IMatrix-MAX-GGUF/resolve/main/mmproj-F32.gguf
 - name: "qwopus3.6-35b-a3b-v1"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
