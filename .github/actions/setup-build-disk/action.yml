@@ -34,6 +34,11 @@ runs:
         df -h / /mnt || true
         sudo systemctl stop docker docker.socket
         sudo mkdir -p /mnt/docker-data /mnt/docker-tmp
+        # buildx CLI runs as the unprivileged runner user and creates
+        # config dirs under TMPDIR before binding them into the buildkit
+        # container. /mnt is owned by root by default; mirror /tmp's
+        # 1777 (world-writable + sticky) so non-root processes can write.
+        sudo chmod 1777 /mnt/docker-tmp
         if [ -d /var/lib/docker ] && [ ! -L /var/lib/docker ]; then
           sudo rsync -a /var/lib/docker/ /mnt/docker-data/
           sudo rm -rf /var/lib/docker
