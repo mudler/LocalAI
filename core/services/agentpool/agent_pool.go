@@ -672,12 +672,18 @@ func (s *AgentPoolService) ensureCollectionForUser(userID, name string) error {
 }
 
 // UploadToCollectionForUser uploads to a collection for a specific user.
+// The filename arrives from a multipart upload; the vendored backend may or
+// may not sanitise it, so strip any directory components at the boundary.
 func (s *AgentPoolService) UploadToCollectionForUser(userID, collection, filename string, fileBody io.Reader) (string, error) {
 	backend, err := s.CollectionsBackendForUser(userID)
 	if err != nil {
 		return "", err
 	}
-	return backend.Upload(collection, filename, fileBody)
+	base := filepath.Base(filename)
+	if base == "." || base == ".." || base == "/" || base == "" {
+		return "", fmt.Errorf("invalid filename")
+	}
+	return backend.Upload(collection, base, fileBody)
 }
 
 // CollectionEntryExistsForUser checks if an entry exists in a user's collection.

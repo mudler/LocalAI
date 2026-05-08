@@ -731,13 +731,19 @@ func (s *FineTuneService) setExportFailed(job *schema.FineTuneJob, message strin
 }
 
 // UploadDataset handles dataset file upload and returns the local path.
+// The filename comes straight from a multipart upload, so strip directory
+// components — anything else risks a write under a sibling path.
 func (s *FineTuneService) UploadDataset(filename string, data []byte) (string, error) {
 	uploadDir := filepath.Join(s.fineTuneBaseDir(), "datasets")
 	if err := os.MkdirAll(uploadDir, 0750); err != nil {
 		return "", fmt.Errorf("failed to create dataset directory: %w", err)
 	}
 
-	filePath := filepath.Join(uploadDir, uuid.New().String()[:8]+"-"+filename)
+	base := filepath.Base(filename)
+	if base == "." || base == ".." || base == "/" || base == "" {
+		return "", fmt.Errorf("invalid filename")
+	}
+	filePath := filepath.Join(uploadDir, uuid.New().String()[:8]+"-"+base)
 	if err := os.WriteFile(filePath, data, 0640); err != nil {
 		return "", fmt.Errorf("failed to write dataset: %w", err)
 	}
