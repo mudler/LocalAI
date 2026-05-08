@@ -450,8 +450,10 @@ export const adminUsersApi = {
   deleteQuota: (id, quotaId) => fetchJSON(`/api/auth/admin/users/${encodeURIComponent(id)}/quotas/${encodeURIComponent(quotaId)}`, {
     method: 'DELETE',
   }),
-  resetPassword: (id, password) => fetchJSON(`/api/auth/admin/users/${encodeURIComponent(id)}/password`, {
-    method: 'PUT', body: JSON.stringify({ password }), headers: { 'Content-Type': 'application/json' },
+  resetPassword: (id, password, acknowledgeWeak = false) => fetchJSON(`/api/auth/admin/users/${encodeURIComponent(id)}/password`, {
+    method: 'PUT',
+    body: JSON.stringify({ password, acknowledge_weak_password: acknowledgeWeak }),
+    headers: { 'Content-Type': 'application/json' },
   }),
 }
 
@@ -464,8 +466,9 @@ export const profileApi = {
   updateProfile: (name, avatarUrl) => fetchJSON('/api/auth/profile', {
     method: 'PUT', body: JSON.stringify({ name, avatar_url: avatarUrl || '' }), headers: { 'Content-Type': 'application/json' },
   }),
-  changePassword: (currentPassword, newPassword) => fetchJSON('/api/auth/password', {
-    method: 'PUT', body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
+  changePassword: (currentPassword, newPassword, acknowledgeWeak = false) => fetchJSON('/api/auth/password', {
+    method: 'PUT',
+    body: JSON.stringify({ current_password: currentPassword, new_password: newPassword, acknowledge_weak_password: acknowledgeWeak }),
     headers: { 'Content-Type': 'application/json' },
   }),
 }

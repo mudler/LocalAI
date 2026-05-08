@@ -131,6 +131,8 @@ function SecurityTab({ addToast }) {
   const [newPw, setNewPw] = useState('')
   const [confirmPw, setConfirmPw] = useState('')
   const [saving, setSaving] = useState(false)
+  const [weakWarning, setWeakWarning] = useState('')
+  const [acknowledgeWeak, setAcknowledgeWeak] = useState(false)
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -138,19 +140,25 @@ function SecurityTab({ addToast }) {
       addToast(t('account.security.passwordsDoNotMatch'), 'error')
       return
     }
-    if (newPw.length < 8) {
+    if (newPw.length < 12) {
       addToast(t('account.security.tooShort'), 'error')
       return
     }
     setSaving(true)
     try {
-      await profileApi.changePassword(currentPw, newPw)
+      await profileApi.changePassword(currentPw, newPw, acknowledgeWeak)
       addToast(t('account.security.changed'), 'success')
       setCurrentPw('')
       setNewPw('')
       setConfirmPw('')
+      setWeakWarning('')
+      setAcknowledgeWeak(false)
     } catch (err) {
-      addToast(err.message, 'error')
+      if (err.body?.error_code === 'password_too_weak' && err.body?.overridable) {
+        setWeakWarning(err.body.error || err.message)
+      } else {
+        addToast(err.message, 'error')
+      }
     } finally {
       setSaving(false)
     }
@@ -186,9 +194,13 @@ function SecurityTab({ addToast }) {
             type="password"
             className="input account-input-sm"
             value={newPw}
-            onChange={(e) => setNewPw(e.target.value)}
+            onChange={(e) => {
+              setNewPw(e.target.value)
+              setWeakWarning('')
+              setAcknowledgeWeak(false)
+            }}
             placeholder={t('account.security.newPasswordPlaceholder')}
-            minLength={8}
+            minLength={12}
             disabled={saving}
             required
           />
@@ -204,6 +216,22 @@ function SecurityTab({ addToast }) {
             required
           />
         </SettingRow>
+        {weakWarning && (
+          <SettingRow label="" description="">
+            <div role="alert" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-xs)' }}>
+              <div className="login-warning">{weakWarning}</div>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)', fontSize: '0.875rem' }}>
+                <input
+                  type="checkbox"
+                  checked={acknowledgeWeak}
+                  onChange={(e) => setAcknowledgeWeak(e.target.checked)}
+                  disabled={saving}
+                />
+                Use this password anyway
+              </label>
+            </div>
+          </SettingRow>
+        )}
       </div>
       <div className="form-actions">
         <button

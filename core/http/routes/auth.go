@@ -300,10 +300,11 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 		}
 
 		var body struct {
-			Email      string `json:"email"`
-			Password   string `json:"password"`
-			Name       string `json:"name"`
-			InviteCode string `json:"inviteCode"`
+			Email                   string `json:"email"`
+			Password                string `json:"password"`
+			Name                    string `json:"name"`
+			InviteCode              string `json:"inviteCode"`
+			AcknowledgeWeakPassword bool   `json:"acknowledge_weak_password"`
 		}
 		if err := c.Bind(&body); err != nil {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request"})
@@ -319,8 +320,8 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 		if _, err := mail.ParseAddress(body.Email); err != nil {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid email address"})
 		}
-		if len(body.Password) < 8 {
-			return c.JSON(http.StatusBadRequest, map[string]string{"error": "password must be at least 8 characters"})
+		if err := auth.ValidatePasswordStrength(body.Password, auth.PasswordPolicy{AllowWeak: body.AcknowledgeWeakPassword}); err != nil {
+			return c.JSON(http.StatusBadRequest, auth.PasswordError(err))
 		}
 
 		hash, err := auth.HashPassword(body.Password)
@@ -587,8 +588,9 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 		}
 
 		var body struct {
-			CurrentPassword string `json:"current_password"`
-			NewPassword     string `json:"new_password"`
+			CurrentPassword         string `json:"current_password"`
+			NewPassword             string `json:"new_password"`
+			AcknowledgeWeakPassword bool   `json:"acknowledge_weak_password"`
 		}
 		if err := c.Bind(&body); err != nil {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request"})
@@ -598,8 +600,8 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": "current and new passwords are required"})
 		}
 
-		if len(body.NewPassword) < 8 {
-			return c.JSON(http.StatusBadRequest, map[string]string{"error": "new password must be at least 8 characters"})
+		if err := auth.ValidatePasswordStrength(body.NewPassword, auth.PasswordPolicy{AllowWeak: body.AcknowledgeWeakPassword}); err != nil {
+			return c.JSON(http.StatusBadRequest, auth.PasswordError(err))
 		}
 
 		// Verify current password
@@ -908,14 +910,15 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 		}
 
 		var body struct {
-			Password string `json:"password"`
+			Password                string `json:"password"`
+			AcknowledgeWeakPassword bool   `json:"acknowledge_weak_password"`
 		}
 		if err := c.Bind(&body); err != nil {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request"})
 		}
 
-		if len(body.Password) < 8 {
-			return c.JSON(http.StatusBadRequest, map[string]string{"error": "password must be at least 8 characters"})
+		if err := auth.ValidatePasswordStrength(body.Password, auth.PasswordPolicy{AllowWeak: body.AcknowledgeWeakPassword}); err != nil {
+			return c.JSON(http.StatusBadRequest, auth.PasswordError(err))
 		}
 
 		hash, err := auth.HashPassword(body.Password)

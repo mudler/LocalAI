@@ -28,6 +28,12 @@ export default function Login() {
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  // weakPasswordWarning is the server-side rejection message for an
+  // overridable weak-password failure. When set, the form shows an
+  // acknowledgement checkbox; ticking it sends acknowledge_weak_password
+  // on the next submit so the server skips the entropy check.
+  const [weakPasswordWarning, setWeakPasswordWarning] = useState('')
+  const [acknowledgeWeakPassword, setAcknowledgeWeakPassword] = useState(false)
   const [showTokenLogin, setShowTokenLogin] = useState(false)
   const [token, setToken] = useState('')
 
@@ -119,6 +125,9 @@ export default function Login() {
       if (inviteCode) {
         body.inviteCode = inviteCode
       }
+      if (acknowledgeWeakPassword) {
+        body.acknowledge_weak_password = true
+      }
 
       const res = await fetch(apiUrl('/api/auth/register'), {
         method: 'POST',
@@ -128,10 +137,18 @@ export default function Login() {
       const data = await res.json()
 
       if (!res.ok) {
-        setError(extractError(data, t('login.errors.registrationFailed')))
+        if (data && data.error_code === 'password_too_weak' && data.overridable) {
+          setWeakPasswordWarning(extractError(data, ''))
+          setError('')
+        } else {
+          setError(extractError(data, t('login.errors.registrationFailed')))
+          setWeakPasswordWarning('')
+          setAcknowledgeWeakPassword(false)
+        }
         setSubmitting(false)
         return
       }
+      setWeakPasswordWarning('')
 
       if (data.pending) {
         setMessage(data.message || t('login.messages.registrationPending'))
@@ -364,9 +381,14 @@ export default function Login() {
                 className="input"
                 type="password"
                 value={password}
-                onChange={(e) => { setPassword(e.target.value); setError('') }}
+                onChange={(e) => {
+                  setPassword(e.target.value)
+                  setError('')
+                  setWeakPasswordWarning('')
+                  setAcknowledgeWeakPassword(false)
+                }}
                 placeholder={t('login.newPasswordPlaceholder')}
-                minLength={8}
+                minLength={12}
                 required
               />
             </div>
@@ -381,6 +403,19 @@ export default function Login() {
                 required
               />
             </div>
+            {weakPasswordWarning && (
+              <div className="form-group" role="alert">
+                <div className="login-warning">{weakPasswordWarning}</div>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)', marginTop: 'var(--spacing-xs)', fontSize: '0.875rem' }}>
+                  <input
+                    type="checkbox"
+                    checked={acknowledgeWeakPassword}
+                    onChange={(e) => setAcknowledgeWeakPassword(e.target.checked)}
+                  />
+                  Use this password anyway
+                </label>
+              </div>
+            )}
             <button type="submit" className="btn btn-primary login-btn-full" disabled={submitting}>
               {submitting
                 ? t('login.creatingAccount')
