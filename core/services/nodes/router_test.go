@@ -292,10 +292,20 @@ type fakeUnloader struct {
 	installReply *messaging.BackendInstallReply
 	installErr   error
 	installCalls []installCall // every InstallBackend invocation, in order
-	stopCalls    []string      // "nodeID:model"
-	stopErr      error
-	unloadCalls  []string
-	unloadErr    error
+	// installHook, if non-nil, runs at the start of InstallBackend before
+	// the call is recorded. Used by concurrency tests as a deterministic
+	// "block here" seam — set installHook to a function that sleeps or
+	// blocks on a channel to overlap two callers.
+	installHook func()
+
+	upgradeReply *messaging.BackendUpgradeReply
+	upgradeErr   error
+	upgradeCalls []upgradeCall // every UpgradeBackend invocation, in order
+
+	stopCalls   []string // "nodeID:model"
+	stopErr     error
+	unloadCalls []string
+	unloadErr   error
 }
 
 // installCall captures the args we care about when asserting that the
@@ -307,12 +317,25 @@ type installCall struct {
 	backend string
 	modelID string
 	replica int
-	force   bool
 }
 
-func (f *fakeUnloader) InstallBackend(nodeID, backend, modelID, _, _, _, _ string, replica int, force bool) (*messaging.BackendInstallReply, error) {
-	f.installCalls = append(f.installCalls, installCall{nodeID, backend, modelID, replica, force})
+type upgradeCall struct {
+	nodeID  string
+	backend string
+	replica int
+}
+
+func (f *fakeUnloader) InstallBackend(nodeID, backend, modelID, _, _, _, _ string, replica int) (*messaging.BackendInstallReply, error) {
+	if f.installHook != nil {
+		f.installHook()
+	}
+	f.installCalls = append(f.installCalls, installCall{nodeID, backend, modelID, replica})
 	return f.installReply, f.installErr
+}
+
+func (f *fakeUnloader) UpgradeBackend(nodeID, backend, _, _, _, _ string, replica int) (*messaging.BackendUpgradeReply, error) {
+	f.upgradeCalls = append(f.upgradeCalls, upgradeCall{nodeID, backend, replica})
+	return f.upgradeReply, f.upgradeErr
 }
 
 func (f *fakeUnloader) DeleteBackend(_, _ string) (*messaging.BackendDeleteReply, error) {
