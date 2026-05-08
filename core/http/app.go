@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -480,6 +481,21 @@ func API(application *application.Application) (*echo.Echo, error) {
 	routes.RegisterJINARoutes(e, requestExtractor, application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig())
 
 	// Note: 404 handling is done via HTTPErrorHandler above, no need for catch-all route
+
+	// HTTP server timeouts.
+	//
+	//   - ReadHeaderTimeout: bounds the slow-headers Slowloris case. 30s is
+	//     enough for a real client on a poor connection but cuts off a
+	//     drip-feeding attacker.
+	//   - IdleTimeout: bounds idle keep-alive connections.
+	//
+	// We deliberately leave ReadTimeout and WriteTimeout at 0:
+	//   - Request bodies can be multi-GB model/dataset uploads.
+	//   - Chat-completion and SSE responses can stream for many minutes.
+	// Operators who need stricter limits should front the server with a
+	// reverse proxy that terminates slow clients per-request.
+	e.Server.ReadHeaderTimeout = 30 * time.Second
+	e.Server.IdleTimeout = 120 * time.Second
 
 	// Log startup message
 	e.Server.RegisterOnShutdown(func() {
