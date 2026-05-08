@@ -8,6 +8,7 @@ import { useOperations } from '../hooks/useOperations'
 import { useDistributedMode } from '../hooks/useDistributedMode'
 import LoadingSpinner from '../components/LoadingSpinner'
 import { renderMarkdown } from '../utils/markdown'
+import { safeHref } from '../utils/url'
 import ConfirmDialog from '../components/ConfirmDialog'
 import Toggle from '../components/Toggle'
 import NodeDistributionChip from '../components/NodeDistributionChip'
@@ -860,7 +861,7 @@ function BackendDetail({ backend }) {
             {backend.urls?.length > 0 && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                 {backend.urls.map((url, i) => (
-                  <a key={i} href={url} target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.8125rem', color: 'var(--color-primary)', wordBreak: 'break-all' }}>
+                  <a key={i} href={safeHref(url)} target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.8125rem', color: 'var(--color-primary)', wordBreak: 'break-all' }}>
                     <i className="fas fa-external-link-alt" style={{ marginRight: 4, fontSize: '0.6875rem' }} />{url}
                   </a>
                 ))}

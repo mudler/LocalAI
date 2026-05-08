@@ -340,6 +340,17 @@ func ServeBrandingAssetEndpoint(appConfig *config.ApplicationConfig) echo.Handle
 
 		path := filepath.Join(appConfig.DynamicConfigsDir, brandingDirName, file)
 		c.Response().Header().Set("Cache-Control", "public, max-age=300")
+		// SVG can carry <script> and event handlers that fire when the
+		// asset is loaded as a top-level document (direct navigation or
+		// <object>/<iframe> embed). Sandbox so a malicious SVG that slipped
+		// past upload validation cannot execute.
+		if strings.EqualFold(filepath.Ext(file), ".svg") {
+			c.Response().Header().Set(
+				"Content-Security-Policy",
+				"default-src 'none'; style-src 'unsafe-inline'; sandbox",
+			)
+			c.Response().Header().Set("Cross-Origin-Resource-Policy", "same-origin")
+		}
 		return c.File(path)
 	}
 }

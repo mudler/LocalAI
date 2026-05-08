@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { renderMarkdown } from '../utils/markdown'
 import { getArtifactIcon } from '../utils/artifacts'
+import { safeHref } from '../utils/url'
 import DOMPurify from 'dompurify'
 import hljs from 'highlight.js'
 
@@ -70,7 +71,7 @@ export default function CanvasPanel({ artifacts, selectedId, onSelect, onClose }
       return (
         <div className="canvas-url-card">
           <i className="fas fa-external-link-alt" />
-          <a href={current.url} target="_blank" rel="noopener noreferrer">{current.url}</a>
+          <a href={safeHref(current.url)} target="_blank" rel="noopener noreferrer">{current.url}</a>
         </div>
       )
     }
@@ -78,7 +79,7 @@ export default function CanvasPanel({ artifacts, selectedId, onSelect, onClose }
       return (
         <div className="canvas-url-card">
           <i className="fas fa-file" />
-          <a href={current.url} target="_blank" rel="noopener noreferrer" download={current.title}>{current.title}</a>
+          <a href={safeHref(current.url)} target="_blank" rel="noopener noreferrer" download={current.title}>{current.title}</a>
         </div>
       )
     }

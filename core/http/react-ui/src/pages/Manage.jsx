@@ -14,6 +14,7 @@ import { useModels } from '../hooks/useModels'
 import { useGalleryEnrichment } from '../hooks/useGalleryEnrichment'
 import { backendControlApi, modelsApi, backendsApi, systemApi, nodesApi } from '../utils/api'
 import { renderMarkdown } from '../utils/markdown'
+import { safeHref } from '../utils/url'
 import {
   CAP_CHAT, CAP_COMPLETION, CAP_IMAGE, CAP_VIDEO, CAP_TTS,
   CAP_TRANSCRIPT, CAP_SOUND_GENERATION, CAP_FACE_RECOGNITION,
@@ -1074,7 +1075,7 @@ function ModelDetail({ model, enriched, matchedCaps, distributedMode, onNavigate
           <dd>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               {urls.map((url, i) => (
-                <a key={i} href={url} target="_blank" rel="noopener noreferrer"
+                <a key={i} href={safeHref(url)} target="_blank" rel="noopener noreferrer"
                   style={{ color: 'var(--color-primary)', wordBreak: 'break-all', fontSize: 'var(--text-xs)' }}>
                   <i className="fas fa-external-link-alt" style={{ marginRight: 4, fontSize: '0.625rem' }} />{url}
                 </a>
@@ -1160,7 +1161,7 @@ function BackendDetail({ backend, enriched, upgradeInfo, nodes, distributedMode 
           <dd>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               {urls.map((url, i) => (
-                <a key={i} href={url} target="_blank" rel="noopener noreferrer"
+                <a key={i} href={safeHref(url)} target="_blank" rel="noopener noreferrer"
                   style={{ color: 'var(--color-primary)', wordBreak: 'break-all', fontSize: 'var(--text-xs)' }}>
                   <i className="fas fa-external-link-alt" style={{ marginRight: 4, fontSize: '0.625rem' }} />{url}
                 </a>

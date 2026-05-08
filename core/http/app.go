@@ -160,6 +160,11 @@ func API(application *application.Application) (*echo.Echo, error) {
 		})
 	}
 
+	// Security headers (CSP, X-Content-Type-Options, X-Frame-Options,
+	// Referrer-Policy). Set early so every response — including 404s and
+	// errors — picks them up.
+	e.Use(httpMiddleware.SecurityHeaders())
+
 	// Custom logger middleware using xlog
 	e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
@@ -409,10 +414,11 @@ func API(application *application.Application) (*echo.Echo, error) {
 				if err != nil {
 					return c.String(http.StatusNotFound, "React UI not built")
 				}
-				// Inject <base href> for reverse-proxy support
+				// Inject <base href> for reverse-proxy support; baseURL comes
+				// from attacker-controllable Host / X-Forwarded-Host headers.
 				baseURL := httpMiddleware.BaseURL(c)
 				if baseURL != "" {
-					baseTag := `<base href="` + baseURL + `" />`
+					baseTag := `<base href="` + httpMiddleware.SecureBaseHref(baseURL) + `" />`
 					indexHTML = []byte(strings.Replace(string(indexHTML), "<head>", "<head>\n  "+baseTag, 1))
 				}
 				return c.HTMLBlob(http.StatusOK, indexHTML)

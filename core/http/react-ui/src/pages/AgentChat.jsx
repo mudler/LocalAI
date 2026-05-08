@@ -59,8 +59,7 @@ function AgentActivityGroup({ items }) {
             {items.map((item, idx) => (
               <div key={idx} className="chat-activity-item">
                 <span className="chat-activity-item-label">{new Date(item.timestamp).toLocaleTimeString()}</span>
-                <div className="chat-activity-item-content"
-                  dangerouslySetInnerHTML={{ __html: item.content }} />
+                <div className="chat-activity-item-content" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{item.content}</div>
               </div>
             ))}
           </div>
@@ -619,7 +618,7 @@ export default function AgentChat() {
                 <div className="chat-message-bubble">
                   <div className="chat-message-content">
                     {role === 'user' ? (
-                      <div dangerouslySetInnerHTML={{ __html: msg.content.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>') }} />
+                      <div style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{msg.content}</div>
                     ) : (
                       <div dangerouslySetInnerHTML={{
                         __html: canvasMode

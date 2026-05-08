@@ -259,7 +259,7 @@ function UserMessageContent({ content, files }) {
   const text = typeof content === 'string' ? content : content?.[0]?.text || ''
   return (
     <>
-      <div dangerouslySetInnerHTML={{ __html: text.replace(/\n/g, '<br>') }} />
+      <div style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{text}</div>
       {files && files.length > 0 && (
         <div className="chat-message-files">
           {files.map((f, i) => (

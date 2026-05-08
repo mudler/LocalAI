@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect } from 'react'
 import { useNavigate, useOutletContext } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { modelsApi } from '../utils/api'
+import { safeHref } from '../utils/url'
 import { useDebouncedCallback } from '../hooks/useDebounce'
 import { useOperations } from '../hooks/useOperations'
 import { useResources } from '../hooks/useResources'
@@ -637,7 +638,7 @@ function ModelDetail({ model, fit, sizeDisplay, vramDisplay, expandedFiles, setE
             {model.urls?.length > 0 && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                 {model.urls.map((url, i) => (
-                  <a key={i} href={url} target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.8125rem', color: 'var(--color-primary)', wordBreak: 'break-all' }}>
+                  <a key={i} href={safeHref(url)} target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.8125rem', color: 'var(--color-primary)', wordBreak: 'break-all' }}>
                     <i className="fas fa-external-link-alt" style={{ marginRight: 4, fontSize: '0.6875rem' }} />{url}
                   </a>
                 ))}
