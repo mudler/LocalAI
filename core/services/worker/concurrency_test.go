@@ -1,4 +1,4 @@
-package cli
+package worker
 
 import (
 	"sync"

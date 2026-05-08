@@ -1,4 +1,4 @@
-package cli
+package worker
 
 import (
 	"os"
@@ -8,12 +8,12 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("WorkerCMD address resolution", func() {
+var _ = Describe("Worker address resolution", func() {
 	Describe("effectiveBasePort", func() {
 		DescribeTable("returns the correct port",
 			func(addr, serve string, want int) {
-				cmd := &WorkerCMD{Addr: addr, ServeAddr: serve}
-				Expect(cmd.effectiveBasePort()).To(Equal(want))
+				cfg := &Config{Addr: addr, ServeAddr: serve}
+				Expect(cfg.effectiveBasePort()).To(Equal(want))
 			},
 			Entry("Addr takes priority", "worker1.example.com:60000", "0.0.0.0:50051", 60000),
 			Entry("falls back to ServeAddr", "", "0.0.0.0:50051", 50051),
@@ -25,21 +25,21 @@ var _ = Describe("WorkerCMD address resolution", func() {
 
 	Describe("advertiseAddr", func() {
 		It("returns AdvertiseAddr when set", func() {
-			cmd := &WorkerCMD{
+			cfg := &Config{
 				AdvertiseAddr: "public.example.com:50051",
 				Addr:          "10.0.0.5:60000",
 			}
-			Expect(cmd.advertiseAddr()).To(Equal("public.example.com:50051"))
+			Expect(cfg.advertiseAddr()).To(Equal("public.example.com:50051"))
 		})
 
 		It("returns Addr when set", func() {
-			cmd := &WorkerCMD{Addr: "worker1.example.com:60000"}
-			Expect(cmd.advertiseAddr()).To(Equal("worker1.example.com:60000"))
+			cfg := &Config{Addr: "worker1.example.com:60000"}
+			Expect(cfg.advertiseAddr()).To(Equal("worker1.example.com:60000"))
 		})
 
 		It("falls back to hostname:basePort", func() {
-			cmd := &WorkerCMD{ServeAddr: "0.0.0.0:50051"}
-			got := cmd.advertiseAddr()
+			cfg := &Config{ServeAddr: "0.0.0.0:50051"}
+			got := cfg.advertiseAddr()
 			_, port, _ := strings.Cut(got, ":")
 			Expect(port).To(Equal("50051"))
 
@@ -54,8 +54,8 @@ var _ = Describe("WorkerCMD address resolution", func() {
 	Describe("resolveHTTPAddr", func() {
 		DescribeTable("returns the correct address",
 			func(httpAddr, addr, serve, want string) {
-				cmd := &WorkerCMD{HTTPAddr: httpAddr, Addr: addr, ServeAddr: serve}
-				Expect(cmd.resolveHTTPAddr()).To(Equal(want))
+				cfg := &Config{HTTPAddr: httpAddr, Addr: addr, ServeAddr: serve}
+				Expect(cfg.resolveHTTPAddr()).To(Equal(want))
 			},
 			Entry("HTTPAddr takes priority", "0.0.0.0:8080", "", "", "0.0.0.0:8080"),
 			Entry("derives from Addr port minus 1", "", "worker1:60000", "0.0.0.0:50051", "0.0.0.0:59999"),
@@ -67,13 +67,13 @@ var _ = Describe("WorkerCMD address resolution", func() {
 	Describe("advertiseHTTPAddr", func() {
 		DescribeTable("returns the correct address",
 			func(advertiseHTTP, advertise, addr, serve, want string) {
-				cmd := &WorkerCMD{
+				cfg := &Config{
 					AdvertiseHTTPAddr: advertiseHTTP,
 					AdvertiseAddr:     advertise,
 					Addr:              addr,
 					ServeAddr:         serve,
 				}
-				Expect(cmd.advertiseHTTPAddr()).To(Equal(want))
+				Expect(cfg.advertiseHTTPAddr()).To(Equal(want))
 			},
 			Entry("AdvertiseHTTPAddr takes priority", "public.example.com:8080", "", "", "", "public.example.com:8080"),
 			Entry("derives from advertiseAddr host + basePort-1", "", "", "worker1.example.com:60000", "", "worker1.example.com:59999"),
