@@ -21,6 +21,15 @@ type DiscoveryServer struct {
 	errorThreshold int
 }
 
+// redactToken obfuscates a distribution token for log output; tokens may be
+// retained beyond their lifetime via syslog/journald.
+func redactToken(t string) string {
+	if len(t) <= 8 {
+		return "[redacted]"
+	}
+	return t[:4] + "…" + t[len(t)-4:]
+}
+
 // NewDiscoveryServer creates a new DiscoveryServer with the given Database.
 // it keeps the db state in sync with the network state
 func NewDiscoveryServer(db *Database, dur time.Duration, failureThreshold int) *DiscoveryServer {
@@ -92,10 +101,10 @@ func (s *DiscoveryServer) runBackground() {
 			}
 		}
 
-		xlog.Debug("Network clusters", "network", token, "count", len(ledgerK))
+		xlog.Debug("Network clusters", "network", redactToken(token), "count", len(ledgerK))
 		if len(ledgerK) != 0 {
 			for _, k := range ledgerK {
-				xlog.Debug("Clusterdata", "network", token, "cluster", k)
+				xlog.Debug("Clusterdata", "network", redactToken(token), "cluster", k)
 			}
 		}
 
@@ -128,7 +137,7 @@ func (s *DiscoveryServer) deleteFailedConnections() {
 	for _, t := range s.database.TokenList() {
 		data, _ := s.database.Get(t)
 		if data.Failures > s.errorThreshold {
-			xlog.Info("Token has been removed from the database", "token", t)
+			xlog.Info("Token has been removed from the database", "token", redactToken(t))
 			s.database.Delete(t)
 		}
 	}
