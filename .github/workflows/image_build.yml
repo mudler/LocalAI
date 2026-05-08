@@ -82,6 +82,9 @@ jobs:
         with:
           mode: ${{ inputs.runs-on == 'ubuntu-latest' && 'hosted' || 'skip' }}
 
+      - name: Set up build disk
+        uses: ./.github/actions/setup-build-disk
+
       - name: Docker meta
         id: meta
         if: github.event_name != 'pull_request'
