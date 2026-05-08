@@ -1861,7 +1861,7 @@ include:
     platforms: 'linux/amd64'
     tag-latest: 'auto'
     tag-suffix: '-gpu-intel-vllm'
-    runs-on: 'arc-runner-set'
+    runs-on: 'ubuntu-latest'
     base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
     skip-drivers: 'false'
     backend: "vllm"
@@ -1874,7 +1874,7 @@ include:
     platforms: 'linux/amd64'
     tag-latest: 'auto'
     tag-suffix: '-gpu-intel-sglang'
-    runs-on: 'arc-runner-set'
+    runs-on: 'ubuntu-latest'
     base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
     skip-drivers: 'false'
     backend: "sglang"
@@ -2122,7 +2122,7 @@ include:
     platforms: 'linux/amd64'
     tag-latest: 'auto'
     tag-suffix: '-gpu-intel-vibevoice'
-    runs-on: 'arc-runner-set'
+    runs-on: 'ubuntu-latest'
     base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
     skip-drivers: 'false'
     backend: "vibevoice"
@@ -2135,7 +2135,7 @@ include:
     platforms: 'linux/amd64'
     tag-latest: 'auto'
     tag-suffix: '-gpu-intel-qwen-asr'
-    runs-on: 'arc-runner-set'
+    runs-on: 'ubuntu-latest'
     base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
     skip-drivers: 'false'
     backend: "qwen-asr"
@@ -2148,7 +2148,7 @@ include:
     platforms: 'linux/amd64'
     tag-latest: 'auto'
     tag-suffix: '-gpu-intel-nemo'
-    runs-on: 'arc-runner-set'
+    runs-on: 'ubuntu-latest'
     base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
     skip-drivers: 'false'
     backend: "nemo"
@@ -2161,7 +2161,7 @@ include:
     platforms: 'linux/amd64'
     tag-latest: 'auto'
     tag-suffix: '-gpu-intel-qwen-tts'
-    runs-on: 'arc-runner-set'
+    runs-on: 'ubuntu-latest'
     base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
     skip-drivers: 'false'
     backend: "qwen-tts"
@@ -2174,7 +2174,7 @@ include:
     platforms: 'linux/amd64'
     tag-latest: 'auto'
     tag-suffix: '-gpu-intel-fish-speech'
-    runs-on: 'arc-runner-set'
+    runs-on: 'ubuntu-latest'
     base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
     skip-drivers: 'false'
     backend: "fish-speech"
@@ -2187,7 +2187,7 @@ include:
     platforms: 'linux/amd64'
     tag-latest: 'auto'
     tag-suffix: '-gpu-intel-voxcpm'
-    runs-on: 'arc-runner-set'
+    runs-on: 'ubuntu-latest'
     base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
     skip-drivers: 'false'
     backend: "voxcpm"
@@ -2200,7 +2200,7 @@ include:
     platforms: 'linux/amd64'
     tag-latest: 'auto'
     tag-suffix: '-gpu-intel-pocket-tts'
-    runs-on: 'arc-runner-set'
+    runs-on: 'ubuntu-latest'
     base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
     skip-drivers: 'false'
     backend: "pocket-tts"
