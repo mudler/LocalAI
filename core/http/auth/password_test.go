@@ -1,112 +1,100 @@
-package auth
+package auth_test
 
 import (
 	"strings"
-	"testing"
+
+	"github.com/mudler/LocalAI/core/http/auth"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
-// Anything below MinPasswordScore is rejected. zxcvbn scores are subject to
-// the embedded dictionary; if the underlying dictionary changes we want the
-// test to break loudly so we can re-baseline rather than silently accept
-// weaker passwords.
-func TestValidatePasswordStrength_Rejects(t *testing.T) {
-	cases := []struct {
-		name string
-		pw   string
-	}{
-		{"too short", "Tr0ub4dor"},
-		{"empty", ""},
-		{"common: password", "password1234"},
-		{"common: 12345", "12345678901234"},
-		{"common: qwerty", "qwertyuiopas"},
-		{"keyboard run", "qwertyuiop12"},
-		{"app branding only", "localailocalai"},
-		{"repeated word", "passwordpassword"},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			if err := ValidatePasswordStrength(tc.pw); err == nil {
-				t.Fatalf("expected %q to be rejected", tc.pw)
-			}
+var _ = Describe("Password policy", func() {
+	Describe("ValidatePasswordStrength", func() {
+		// Anything below MinPasswordScore is rejected. zxcvbn scores are subject
+		// to the embedded dictionary; if the underlying dictionary changes we
+		// want the test to break loudly so we can re-baseline rather than
+		// silently accept weaker passwords.
+		DescribeTable("rejects weak inputs",
+			func(pw string) {
+				Expect(auth.ValidatePasswordStrength(pw)).ToNot(Succeed())
+			},
+			Entry("too short", "Tr0ub4dor"),
+			Entry("empty", ""),
+			Entry("common: password", "password1234"),
+			Entry("common: 12345", "12345678901234"),
+			Entry("common: qwerty", "qwertyuiopas"),
+			Entry("keyboard run", "qwertyuiop12"),
+			Entry("app branding only", "localailocalai"),
+			Entry("repeated word", "passwordpassword"),
+		)
+
+		DescribeTable("accepts strong inputs",
+			func(pw string) {
+				Expect(auth.ValidatePasswordStrength(pw)).To(Succeed())
+			},
+			Entry("diceware-style passphrase", "correct horse battery staple unicycle"),
+			Entry("random-ish 14-char with punctuation", "Th3-Quick~Br0wn-F0x.Jumps"),
+			Entry("random mixed", "q9V$mZ1pL7nB3w"),
+		)
+
+		Context("length boundaries", func() {
+			It("returns ErrPasswordEmpty for empty input", func() {
+				Expect(auth.ValidatePasswordStrength("")).To(MatchError(auth.ErrPasswordEmpty))
+			})
+			It("returns ErrPasswordTooShort just under the floor", func() {
+				short := strings.Repeat("a", auth.MinPasswordLength-1)
+				Expect(auth.ValidatePasswordStrength(short)).To(MatchError(auth.ErrPasswordTooShort))
+			})
+			It("returns ErrPasswordTooLong just over the ceiling", func() {
+				long := strings.Repeat("a", auth.MaxPasswordLength+1)
+				Expect(auth.ValidatePasswordStrength(long)).To(MatchError(auth.ErrPasswordTooLong))
+			})
 		})
-	}
-}
 
-func TestValidatePasswordStrength_Accepts(t *testing.T) {
-	cases := []string{
-		// Diceware-style passphrase, three uncommon words + a digit.
-		"correct horse battery staple unicycle",
-		// Random-ish 14-char with punctuation.
-		"Th3-Quick~Br0wn-F0x.Jumps",
-		// Random mixed.
-		"q9V$mZ1pL7nB3w",
-	}
-	for _, pw := range cases {
-		t.Run(pw, func(t *testing.T) {
-			if err := ValidatePasswordStrength(pw); err != nil {
-				t.Fatalf("expected %q to be accepted, got %v", pw, err)
-			}
+		It("rejects passwords containing NUL bytes", func() {
+			Expect(auth.ValidatePasswordStrength("abcdef\x00ghijklmnop")).To(MatchError(auth.ErrPasswordNullByte))
 		})
-	}
-}
 
-func TestValidatePasswordStrength_LengthBoundaries(t *testing.T) {
-	if err := ValidatePasswordStrength(strings.Repeat("a", MinPasswordLength-1)); err != ErrPasswordTooShort {
-		t.Fatalf("expected ErrPasswordTooShort, got %v", err)
-	}
-	if err := ValidatePasswordStrength(strings.Repeat("a", MaxPasswordLength+1)); err != ErrPasswordTooLong {
-		t.Fatalf("expected ErrPasswordTooLong, got %v", err)
-	}
-}
+		// AllowWeak skips the policy-level checks (length floor + entropy) but
+		// the technical invariants (empty / max-length / NUL byte) always apply.
+		Context("with AllowWeak override", func() {
+			weak := "password1234"
 
-func TestValidatePasswordStrength_NullByte(t *testing.T) {
-	pw := "abcdef\x00ghijklmnop"
-	if err := ValidatePasswordStrength(pw); err != ErrPasswordNullByte {
-		t.Fatalf("expected ErrPasswordNullByte, got %v", err)
-	}
-}
-
-// AllowWeak skips the entropy check but the hard rules still apply.
-func TestValidatePasswordStrength_AllowWeakSkipsEntropyOnly(t *testing.T) {
-	weak := "password1234"
-	if err := ValidatePasswordStrength(weak); err != ErrPasswordTooWeak {
-		t.Fatalf("baseline: expected ErrPasswordTooWeak, got %v", err)
-	}
-	if err := ValidatePasswordStrength(weak, PasswordPolicy{AllowWeak: true}); err != nil {
-		t.Fatalf("with AllowWeak: expected nil, got %v", err)
-	}
-	// Hard rules still bite even with AllowWeak.
-	if err := ValidatePasswordStrength("short", PasswordPolicy{AllowWeak: true}); err != ErrPasswordTooShort {
-		t.Fatalf("AllowWeak must not bypass length floor; got %v", err)
-	}
-	if err := ValidatePasswordStrength("ok\x00password1234", PasswordPolicy{AllowWeak: true}); err != ErrPasswordNullByte {
-		t.Fatalf("AllowWeak must not bypass NUL check; got %v", err)
-	}
-}
-
-func TestPasswordError_StructureAndOverridability(t *testing.T) {
-	cases := []struct {
-		err         error
-		code        string
-		overridable bool
-	}{
-		{ErrPasswordTooShort, "password_too_short", false},
-		{ErrPasswordTooLong, "password_too_long", false},
-		{ErrPasswordNullByte, "password_null_byte", false},
-		{ErrPasswordTooWeak, "password_too_weak", true},
-	}
-	for _, tc := range cases {
-		t.Run(tc.code, func(t *testing.T) {
-			r := PasswordError(tc.err)
-			if r.ErrorCode != tc.code {
-				t.Fatalf("ErrorCode: want %q, got %q", tc.code, r.ErrorCode)
-			}
-			if r.Overridable != tc.overridable {
-				t.Fatalf("Overridable: want %v, got %v", tc.overridable, r.Overridable)
-			}
-			if r.Error == "" {
-				t.Fatalf("Error must be populated")
-			}
+			It("rejects the weak password by default", func() {
+				Expect(auth.ValidatePasswordStrength(weak)).To(MatchError(auth.ErrPasswordTooWeak))
+			})
+			It("accepts the weak password when AllowWeak is set", func() {
+				Expect(auth.ValidatePasswordStrength(weak, auth.PasswordPolicy{AllowWeak: true})).To(Succeed())
+			})
+			It("bypasses the length floor", func() {
+				Expect(auth.ValidatePasswordStrength("short", auth.PasswordPolicy{AllowWeak: true})).To(Succeed())
+			})
+			It("does not bypass the empty-input check", func() {
+				Expect(auth.ValidatePasswordStrength("", auth.PasswordPolicy{AllowWeak: true})).To(MatchError(auth.ErrPasswordEmpty))
+			})
+			It("does not bypass the NUL-byte check", func() {
+				Expect(auth.ValidatePasswordStrength("ok\x00password1234", auth.PasswordPolicy{AllowWeak: true})).To(MatchError(auth.ErrPasswordNullByte))
+			})
+			It("does not bypass the max-length check", func() {
+				long := strings.Repeat("a", auth.MaxPasswordLength+1)
+				Expect(auth.ValidatePasswordStrength(long, auth.PasswordPolicy{AllowWeak: true})).To(MatchError(auth.ErrPasswordTooLong))
+			})
 		})
-	}
-}
+	})
+
+	Describe("PasswordError", func() {
+		DescribeTable("produces a structured response",
+			func(err error, code string, overridable bool) {
+				r := auth.PasswordError(err)
+				Expect(r.ErrorCode).To(Equal(code))
+				Expect(r.Overridable).To(Equal(overridable))
+				Expect(r.Error).ToNot(BeEmpty())
+			},
+			Entry("empty", auth.ErrPasswordEmpty, "password_empty", false),
+			Entry("too short", auth.ErrPasswordTooShort, "password_too_short", true),
+			Entry("too long", auth.ErrPasswordTooLong, "password_too_long", false),
+			Entry("null byte", auth.ErrPasswordNullByte, "password_null_byte", false),
+			Entry("too weak", auth.ErrPasswordTooWeak, "password_too_weak", true),
+		)
+	})
+})

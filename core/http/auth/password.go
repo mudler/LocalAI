@@ -28,38 +28,48 @@ const MinPasswordScore = 3
 // built from the application's own name or branding.
 var passwordContextHints = []string{"localai", "local-ai", "admin"}
 
-// ErrPasswordTooShort is returned when the password is below MinPasswordLength.
-var ErrPasswordTooShort = fmt.Errorf("password must be at least %d characters", MinPasswordLength)
+// ErrPasswordEmpty is returned for a zero-length password. Always rejected;
+// not overridable — bcrypt comparison on an empty string is its own hazard
+// and there's no realistic legitimate use.
+var ErrPasswordEmpty = errors.New("password must not be empty")
+
+// ErrPasswordTooShort is returned when the password is below
+// MinPasswordLength. Overridable — short is a policy choice, not a
+// technical constraint.
+var ErrPasswordTooShort = fmt.Errorf("password is shorter than %d characters; pick a longer one or acknowledge the weak password to use it anyway", MinPasswordLength)
 
 // ErrPasswordTooLong is returned when the password exceeds MaxPasswordLength.
+// Not overridable — bcrypt silently truncates at 72 bytes.
 var ErrPasswordTooLong = fmt.Errorf("password must be at most %d characters", MaxPasswordLength)
 
 // ErrPasswordNullByte is returned when the password contains a NUL byte —
 // some bcrypt callers truncate at the first NUL, which would let an
-// attacker register "abc\x00garbage" and authenticate as "abc".
+// attacker register "abc\x00garbage" and authenticate as "abc". Not
+// overridable.
 var ErrPasswordNullByte = errors.New("password must not contain null bytes")
 
 // ErrPasswordTooWeak is returned when zxcvbn scores the password below
-// MinPasswordScore. Unlike the other errors, this one is overridable via
-// PasswordPolicy.AllowWeak — operators sometimes need to set a known-weak
-// password (e.g. for a kiosk demo, a CI test rig, or to recover from a
-// false positive).
+// MinPasswordScore. Overridable — an operator may legitimately want a
+// known-weak password (kiosk demo, CI rig, false positive on zxcvbn).
 var ErrPasswordTooWeak = errors.New("password is too easy to guess; pick a longer or less common one, or acknowledge the weak password to use it anyway")
 
 // PasswordPolicy controls which checks ValidatePasswordStrength enforces.
-// The hard rules (length, NUL-byte) are always applied; AllowWeak skips
-// only the zxcvbn entropy check.
+// AllowWeak skips the policy-level checks (length floor, zxcvbn score) but
+// the technical invariants (non-empty, max length, no NUL bytes) always
+// apply.
 type PasswordPolicy struct {
 	AllowWeak bool
 }
 
 // ValidatePasswordStrength enforces the password policy. Callers should use
 // this for every register / change-password / admin-reset flow. Pass an
-// optional PasswordPolicy{AllowWeak: true} to skip the zxcvbn check while
-// still enforcing length and NUL-byte rules.
+// optional PasswordPolicy{AllowWeak: true} to skip the policy-level checks;
+// the technical invariants still apply.
 func ValidatePasswordStrength(password string, policy ...PasswordPolicy) error {
-	if len(password) < MinPasswordLength {
-		return ErrPasswordTooShort
+	// Hard rules — always enforced. These aren't policy, they're invariants
+	// the bcrypt layer below us depends on.
+	if len(password) == 0 {
+		return ErrPasswordEmpty
 	}
 	if len(password) > MaxPasswordLength {
 		return ErrPasswordTooLong
@@ -67,11 +77,20 @@ func ValidatePasswordStrength(password string, policy ...PasswordPolicy) error {
 	if strings.ContainsRune(password, 0) {
 		return ErrPasswordNullByte
 	}
+
 	allowWeak := false
 	if len(policy) > 0 {
 		allowWeak = policy[0].AllowWeak
 	}
-	if !allowWeak && zxcvbn.PasswordStrength(password, passwordContextHints).Score < MinPasswordScore {
+	if allowWeak {
+		return nil
+	}
+
+	// Policy-level checks — bypassable via AllowWeak.
+	if len(password) < MinPasswordLength {
+		return ErrPasswordTooShort
+	}
+	if zxcvbn.PasswordStrength(password, passwordContextHints).Score < MinPasswordScore {
 		return ErrPasswordTooWeak
 	}
 	return nil
@@ -102,8 +121,11 @@ type PasswordErrorResponse struct {
 func PasswordError(err error) PasswordErrorResponse {
 	r := PasswordErrorResponse{Error: err.Error()}
 	switch {
+	case errors.Is(err, ErrPasswordEmpty):
+		r.ErrorCode = "password_empty"
 	case errors.Is(err, ErrPasswordTooShort):
 		r.ErrorCode = "password_too_short"
+		r.Overridable = true
 	case errors.Is(err, ErrPasswordTooLong):
 		r.ErrorCode = "password_too_long"
 	case errors.Is(err, ErrPasswordNullByte):

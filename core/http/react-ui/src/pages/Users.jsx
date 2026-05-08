@@ -773,7 +773,7 @@ export default function Users() {
   }
 
   const confirmResetPassword = async () => {
-    if (!passwordResetUser || newPassword.length < 12) return
+    if (!passwordResetUser || newPassword.length === 0) return
     setResettingPassword(true)
     try {
       await adminUsersApi.resetPassword(passwordResetUser.id, newPassword, resetAcknowledgeWeak)
@@ -783,7 +783,7 @@ export default function Users() {
       setResetWeakWarning('')
       setResetAcknowledgeWeak(false)
     } catch (err) {
-      if (err.body?.error_code === 'password_too_weak' && err.body?.overridable) {
+      if (err.body?.overridable) {
         setResetWeakWarning(err.body.error || err.message)
       } else {
         addToast(`Failed to reset password: ${err.message}`, 'error')
@@ -982,7 +982,7 @@ export default function Users() {
                 setResetWeakWarning('')
                 setResetAcknowledgeWeak(false)
               }}
-              onKeyDown={e => { if (e.key === 'Enter' && newPassword.length >= 12) confirmResetPassword() }}
+              onKeyDown={e => { if (e.key === 'Enter' && newPassword.length > 0) confirmResetPassword() }}
               autoFocus
             />
             {resetWeakWarning && (
@@ -1003,7 +1003,7 @@ export default function Users() {
               <button
                 className="btn btn-primary"
                 onClick={confirmResetPassword}
-                disabled={resettingPassword || newPassword.length < 12}
+                disabled={resettingPassword || newPassword.length === 0}
               >
                 {resettingPassword ? 'Resetting...' : 'Reset Password'}
               </button>

@@ -140,10 +140,6 @@ function SecurityTab({ addToast }) {
       addToast(t('account.security.passwordsDoNotMatch'), 'error')
       return
     }
-    if (newPw.length < 12) {
-      addToast(t('account.security.tooShort'), 'error')
-      return
-    }
     setSaving(true)
     try {
       await profileApi.changePassword(currentPw, newPw, acknowledgeWeak)
@@ -154,7 +150,7 @@ function SecurityTab({ addToast }) {
       setWeakWarning('')
       setAcknowledgeWeak(false)
     } catch (err) {
-      if (err.body?.error_code === 'password_too_weak' && err.body?.overridable) {
+      if (err.body?.overridable) {
         setWeakWarning(err.body.error || err.message)
       } else {
         addToast(err.message, 'error')

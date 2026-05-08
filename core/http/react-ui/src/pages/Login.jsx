@@ -137,7 +137,7 @@ export default function Login() {
       const data = await res.json()
 
       if (!res.ok) {
-        if (data && data.error_code === 'password_too_weak' && data.overridable) {
+        if (data && data.overridable) {
           setWeakPasswordWarning(extractError(data, ''))
           setError('')
         } else {
