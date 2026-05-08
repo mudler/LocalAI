@@ -28,7 +28,7 @@ on:
 jobs:
   gallery-agent:
     if: github.repository == 'mudler/LocalAI'
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6

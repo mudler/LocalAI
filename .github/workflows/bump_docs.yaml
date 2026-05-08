@@ -11,7 +11,7 @@ jobs:
       matrix:
         include:
           - repository: "mudler/LocalAI"
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux]
     steps:
       - uses: actions/checkout@v6
       - name: Bump dependencies 🔧

@@ -8,7 +8,7 @@ jobs:
     if: github.repository == 'mudler/LocalAI'
     strategy:
       fail-fast: false
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux]
     steps:
       - uses: actions/checkout@v6
       - name: Configure apt mirror on runner

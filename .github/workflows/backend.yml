@@ -23,7 +23,7 @@ jobs:
       cuda-major-version: ${{ matrix.cuda-major-version }}
       cuda-minor-version: ${{ matrix.cuda-minor-version }}
       platforms: ${{ matrix.platforms }}
-      runs-on: ${{ matrix.runs-on }}
+      runs-on: ${{ fromJSON(matrix.runs-on) }}
       base-image: ${{ matrix.base-image }}
       backend: ${{ matrix.backend }}
       dockerfile: ${{ matrix.dockerfile }}
@@ -47,7 +47,7 @@ jobs:
             platforms: 'linux/arm64'
             tag-latest: 'auto'
             tag-suffix: '-nvidia-l4t-diffusers'
-            runs-on: 'ubuntu-24.04-arm'
+            runs-on: '["self-hosted", "Linux", "ARM64"]'
             base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
             skip-drivers: 'true'
             backend: "diffusers"
@@ -60,7 +60,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-cpu-vllm'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'true'
             backend: "vllm"
@@ -73,7 +73,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-cpu-sglang'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'true'
             backend: "sglang"
@@ -86,7 +86,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-cpu-diffusers'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'true'
             backend: "diffusers"
@@ -99,7 +99,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-cpu-chatterbox'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'true'
             backend: "chatterbox"
@@ -112,7 +112,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-cpu-moonshine'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'true'
             backend: "moonshine"
@@ -131,7 +131,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-tinygrad'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'true'
             backend: "tinygrad"
@@ -144,7 +144,7 @@ jobs:
             platforms: 'linux/amd64,linux/arm64'
             tag-latest: 'auto'
             tag-suffix: '-cpu-whisperx'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'true'
             backend: "whisperx"
@@ -157,7 +157,7 @@ jobs:
             platforms: 'linux/amd64,linux/arm64'
             tag-latest: 'auto'
             tag-suffix: '-cpu-faster-whisper'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'true'
             backend: "faster-whisper"
@@ -170,7 +170,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-cpu-ace-step'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'true'
             backend: "ace-step"
@@ -183,7 +183,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-cpu-trl'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'true'
             backend: "trl"
@@ -196,7 +196,7 @@ jobs:
             platforms: 'linux/amd64,linux/arm64'
             tag-latest: 'auto'
             tag-suffix: '-cpu-llama-cpp-quantization'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'true'
             backend: "llama-cpp-quantization"
@@ -209,7 +209,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-cpu-mlx'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'true'
             backend: "mlx"
@@ -222,7 +222,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-cpu-mlx-vlm'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'true'
             backend: "mlx-vlm"
@@ -235,7 +235,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-cpu-mlx-audio'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'true'
             backend: "mlx-audio"
@@ -248,7 +248,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-cpu-mlx-distributed'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'true'
             backend: "mlx-distributed"
@@ -262,7 +262,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-vibevoice'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "vibevoice"
@@ -275,7 +275,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-qwen-asr'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "qwen-asr"
@@ -288,7 +288,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-nemo'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "nemo"
@@ -301,7 +301,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-qwen-tts'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "qwen-tts"
@@ -314,7 +314,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-fish-speech'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "fish-speech"
@@ -327,7 +327,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-faster-qwen3-tts'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "faster-qwen3-tts"
@@ -340,7 +340,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-voxcpm'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "voxcpm"
@@ -353,7 +353,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-pocket-tts'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "pocket-tts"
@@ -366,7 +366,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-rerankers'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "rerankers"
@@ -379,7 +379,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-llama-cpp'
-            runs-on: 'bigger-runner'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "llama-cpp"
@@ -392,7 +392,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-turboquant'
-            runs-on: 'bigger-runner'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "turboquant"
@@ -405,7 +405,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-vllm'
-            runs-on: 'arc-runner-set'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "vllm"
@@ -418,7 +418,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-vllm-omni'
-            runs-on: 'arc-runner-set'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "vllm-omni"
@@ -431,7 +431,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-sglang'
-            runs-on: 'arc-runner-set'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "sglang"
@@ -444,7 +444,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-transformers'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "transformers"
@@ -457,7 +457,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-diffusers'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "diffusers"
@@ -470,7 +470,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-ace-step'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "ace-step"
@@ -483,7 +483,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-trl'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "trl"
@@ -496,7 +496,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-kokoro'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "kokoro"
@@ -509,7 +509,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-faster-whisper'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "faster-whisper"
@@ -522,7 +522,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-whisperx'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "whisperx"
@@ -535,7 +535,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-coqui'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "coqui"
@@ -548,7 +548,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-outetts'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "outetts"
@@ -561,7 +561,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-chatterbox'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "chatterbox"
@@ -574,7 +574,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-moonshine'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "moonshine"
@@ -587,7 +587,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-mlx'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "mlx"
@@ -600,7 +600,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-mlx-vlm'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "mlx-vlm"
@@ -613,7 +613,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-mlx-audio'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "mlx-audio"
@@ -626,7 +626,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-mlx-distributed'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "mlx-distributed"
@@ -639,7 +639,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-stablediffusion-ggml'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "stablediffusion-ggml"
@@ -652,7 +652,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-sam3-cpp'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "sam3-cpp"
@@ -665,7 +665,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-whisper'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "whisper"
@@ -678,7 +678,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-acestep-cpp'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "acestep-cpp"
@@ -691,7 +691,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-qwen3-tts-cpp'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "qwen3-tts-cpp"
@@ -704,7 +704,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-vibevoice-cpp'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "vibevoice-cpp"
@@ -717,7 +717,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-rfdetr'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "rfdetr"
@@ -730,7 +730,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-insightface'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "insightface"
@@ -743,7 +743,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-speaker-recognition'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "speaker-recognition"
@@ -756,7 +756,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-neutts'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "neutts"
@@ -770,7 +770,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-13-rerankers'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "rerankers"
@@ -783,7 +783,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-13-vibevoice'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "vibevoice"
@@ -796,7 +796,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-13-qwen-asr'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "qwen-asr"
@@ -809,7 +809,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-13-nemo'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "nemo"
@@ -822,7 +822,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-13-qwen-tts'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "qwen-tts"
@@ -835,7 +835,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-13-fish-speech'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "fish-speech"
@@ -848,7 +848,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-13-faster-qwen3-tts'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "faster-qwen3-tts"
@@ -861,7 +861,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-13-voxcpm'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "voxcpm"
@@ -874,7 +874,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-13-pocket-tts'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "pocket-tts"
@@ -887,7 +887,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-13-llama-cpp'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "llama-cpp"
@@ -900,7 +900,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-13-turboquant'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "turboquant"
@@ -915,7 +915,7 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-nvidia-l4t-cuda-13-arm64-llama-cpp'
             base-image: "ubuntu:24.04"
-            runs-on: 'ubuntu-24.04-arm'
+            runs-on: '["self-hosted", "Linux", "ARM64"]'
             ubuntu-version: '2404'
             backend: "llama-cpp"
             dockerfile: "./backend/Dockerfile.llama-cpp"
@@ -928,7 +928,7 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-nvidia-l4t-cuda-13-arm64-turboquant'
             base-image: "ubuntu:24.04"
-            runs-on: 'ubuntu-24.04-arm'
+            runs-on: '["self-hosted", "Linux", "ARM64"]'
             ubuntu-version: '2404'
             backend: "turboquant"
             dockerfile: "./backend/Dockerfile.turboquant"
@@ -939,7 +939,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-13-vllm'
-            runs-on: 'arc-runner-set'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "vllm"
@@ -952,7 +952,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-13-vllm-omni'
-            runs-on: 'arc-runner-set'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "vllm-omni"
@@ -965,7 +965,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-13-sglang'
-            runs-on: 'arc-runner-set'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "sglang"
@@ -978,7 +978,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-13-transformers'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "transformers"
@@ -991,7 +991,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-13-diffusers'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "diffusers"
@@ -1004,7 +1004,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-13-ace-step'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "ace-step"
@@ -1017,7 +1017,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-13-trl'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "trl"
@@ -1030,7 +1030,7 @@ jobs:
             platforms: 'linux/arm64'
             tag-latest: 'auto'
             tag-suffix: '-nvidia-l4t-cuda-13-arm64-vibevoice'
-            runs-on: 'ubuntu-24.04-arm'
+            runs-on: '["self-hosted", "Linux", "ARM64"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             ubuntu-version: '2404'
@@ -1043,7 +1043,7 @@ jobs:
             platforms: 'linux/arm64'
             tag-latest: 'auto'
             tag-suffix: '-nvidia-l4t-cuda-13-arm64-qwen-asr'
-            runs-on: 'ubuntu-24.04-arm'
+            runs-on: '["self-hosted", "Linux", "ARM64"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             ubuntu-version: '2404'
@@ -1056,7 +1056,7 @@ jobs:
             platforms: 'linux/arm64'
             tag-latest: 'auto'
             tag-suffix: '-nvidia-l4t-cuda-13-arm64-qwen-tts'
-            runs-on: 'ubuntu-24.04-arm'
+            runs-on: '["self-hosted", "Linux", "ARM64"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             ubuntu-version: '2404'
@@ -1069,7 +1069,7 @@ jobs:
             platforms: 'linux/arm64'
             tag-latest: 'auto'
             tag-suffix: '-nvidia-l4t-cuda-13-arm64-fish-speech'
-            runs-on: 'ubuntu-24.04-arm'
+            runs-on: '["self-hosted", "Linux", "ARM64"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             ubuntu-version: '2404'
@@ -1082,7 +1082,7 @@ jobs:
             platforms: 'linux/arm64'
             tag-latest: 'auto'
             tag-suffix: '-nvidia-l4t-cuda-13-arm64-faster-qwen3-tts'
-            runs-on: 'ubuntu-24.04-arm'
+            runs-on: '["self-hosted", "Linux", "ARM64"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             ubuntu-version: '2404'
@@ -1095,7 +1095,7 @@ jobs:
             platforms: 'linux/arm64'
             tag-latest: 'auto'
             tag-suffix: '-nvidia-l4t-cuda-13-arm64-pocket-tts'
-            runs-on: 'ubuntu-24.04-arm'
+            runs-on: '["self-hosted", "Linux", "ARM64"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             ubuntu-version: '2404'
@@ -1108,7 +1108,7 @@ jobs:
             platforms: 'linux/arm64'
             tag-latest: 'auto'
             tag-suffix: '-nvidia-l4t-cuda-13-arm64-chatterbox'
-            runs-on: 'ubuntu-24.04-arm'
+            runs-on: '["self-hosted", "Linux", "ARM64"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             ubuntu-version: '2404'
@@ -1121,7 +1121,7 @@ jobs:
             platforms: 'linux/arm64'
             tag-latest: 'auto'
             tag-suffix: '-nvidia-l4t-cuda-13-arm64-diffusers'
-            runs-on: 'ubuntu-24.04-arm'
+            runs-on: '["self-hosted", "Linux", "ARM64"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             ubuntu-version: '2404'
@@ -1134,7 +1134,7 @@ jobs:
             platforms: 'linux/arm64'
             tag-latest: 'auto'
             tag-suffix: '-nvidia-l4t-cuda-13-arm64-vllm'
-            runs-on: 'ubuntu-24.04-arm'
+            runs-on: '["self-hosted", "Linux", "ARM64"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             ubuntu-version: '2404'
@@ -1147,7 +1147,7 @@ jobs:
             platforms: 'linux/arm64'
             tag-latest: 'auto'
             tag-suffix: '-nvidia-l4t-cuda-13-arm64-vllm-omni'
-            runs-on: 'ubuntu-24.04-arm'
+            runs-on: '["self-hosted", "Linux", "ARM64"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             ubuntu-version: '2404'
@@ -1160,7 +1160,7 @@ jobs:
             platforms: 'linux/arm64'
             tag-latest: 'auto'
             tag-suffix: '-nvidia-l4t-cuda-13-arm64-sglang'
-            runs-on: 'ubuntu-24.04-arm'
+            runs-on: '["self-hosted", "Linux", "ARM64"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             ubuntu-version: '2404'
@@ -1173,7 +1173,7 @@ jobs:
             platforms: 'linux/arm64'
             tag-latest: 'auto'
             tag-suffix: '-nvidia-l4t-cuda-13-arm64-mlx'
-            runs-on: 'ubuntu-24.04-arm'
+            runs-on: '["self-hosted", "Linux", "ARM64"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             ubuntu-version: '2404'
@@ -1186,7 +1186,7 @@ jobs:
             platforms: 'linux/arm64'
             tag-latest: 'auto'
             tag-suffix: '-nvidia-l4t-cuda-13-arm64-mlx-vlm'
-            runs-on: 'ubuntu-24.04-arm'
+            runs-on: '["self-hosted", "Linux", "ARM64"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             ubuntu-version: '2404'
@@ -1199,7 +1199,7 @@ jobs:
             platforms: 'linux/arm64'
             tag-latest: 'auto'
             tag-suffix: '-nvidia-l4t-cuda-13-arm64-mlx-audio'
-            runs-on: 'ubuntu-24.04-arm'
+            runs-on: '["self-hosted", "Linux", "ARM64"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             ubuntu-version: '2404'
@@ -1212,7 +1212,7 @@ jobs:
             platforms: 'linux/arm64'
             tag-latest: 'auto'
             tag-suffix: '-nvidia-l4t-cuda-13-arm64-mlx-distributed'
-            runs-on: 'ubuntu-24.04-arm'
+            runs-on: '["self-hosted", "Linux", "ARM64"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             ubuntu-version: '2404'
@@ -1225,7 +1225,7 @@ jobs:
             platforms: 'linux/arm64'
             tag-latest: 'auto'
             tag-suffix: '-nvidia-l4t-cuda-13-arm64-whisperx'
-            runs-on: 'ubuntu-24.04-arm'
+            runs-on: '["self-hosted", "Linux", "ARM64"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             ubuntu-version: '2404'
@@ -1238,7 +1238,7 @@ jobs:
             platforms: 'linux/arm64'
             tag-latest: 'auto'
             tag-suffix: '-nvidia-l4t-cuda-13-arm64-faster-whisper'
-            runs-on: 'ubuntu-24.04-arm'
+            runs-on: '["self-hosted", "Linux", "ARM64"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             ubuntu-version: '2404'
@@ -1251,7 +1251,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-13-kokoro'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "kokoro"
@@ -1264,7 +1264,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-13-faster-whisper'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "faster-whisper"
@@ -1277,7 +1277,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-13-whisperx'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "whisperx"
@@ -1290,7 +1290,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-13-chatterbox'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "chatterbox"
@@ -1303,7 +1303,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-13-moonshine'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "moonshine"
@@ -1316,7 +1316,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-13-mlx'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "mlx"
@@ -1329,7 +1329,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-13-mlx-vlm'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "mlx-vlm"
@@ -1342,7 +1342,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-13-mlx-audio'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "mlx-audio"
@@ -1355,7 +1355,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-13-mlx-distributed'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "mlx-distributed"
@@ -1368,7 +1368,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-13-stablediffusion-ggml'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "stablediffusion-ggml"
@@ -1384,7 +1384,7 @@ jobs:
             tag-suffix: '-nvidia-l4t-cuda-13-arm64-stablediffusion-ggml'
             base-image: "ubuntu:24.04"
             ubuntu-version: '2404'
-            runs-on: 'ubuntu-24.04-arm'
+            runs-on: '["self-hosted", "Linux", "ARM64"]'
             backend: "stablediffusion-ggml"
             dockerfile: "./backend/Dockerfile.golang"
             context: "./"
@@ -1394,7 +1394,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-13-sam3-cpp'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "sam3-cpp"
@@ -1410,7 +1410,7 @@ jobs:
             tag-suffix: '-nvidia-l4t-cuda-13-arm64-sam3-cpp'
             base-image: "ubuntu:24.04"
             ubuntu-version: '2404'
-            runs-on: 'ubuntu-24.04-arm'
+            runs-on: '["self-hosted", "Linux", "ARM64"]'
             backend: "sam3-cpp"
             dockerfile: "./backend/Dockerfile.golang"
             context: "./"
@@ -1420,7 +1420,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-13-whisper'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "whisper"
@@ -1436,7 +1436,7 @@ jobs:
             tag-suffix: '-nvidia-l4t-cuda-13-arm64-whisper'
             base-image: "ubuntu:24.04"
             ubuntu-version: '2404'
-            runs-on: 'ubuntu-24.04-arm'
+            runs-on: '["self-hosted", "Linux", "ARM64"]'
             backend: "whisper"
             dockerfile: "./backend/Dockerfile.golang"
             context: "./"
@@ -1446,7 +1446,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-13-acestep-cpp'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "acestep-cpp"
@@ -1459,7 +1459,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-13-qwen3-tts-cpp'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "qwen3-tts-cpp"
@@ -1472,7 +1472,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-13-vibevoice-cpp'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "vibevoice-cpp"
@@ -1488,7 +1488,7 @@ jobs:
             tag-suffix: '-nvidia-l4t-cuda-13-arm64-acestep-cpp'
             base-image: "ubuntu:24.04"
             ubuntu-version: '2404'
-            runs-on: 'ubuntu-24.04-arm'
+            runs-on: '["self-hosted", "Linux", "ARM64"]'
             backend: "acestep-cpp"
             dockerfile: "./backend/Dockerfile.golang"
             context: "./"
@@ -1501,7 +1501,7 @@ jobs:
             tag-suffix: '-nvidia-l4t-cuda-13-arm64-qwen3-tts-cpp'
             base-image: "ubuntu:24.04"
             ubuntu-version: '2404'
-            runs-on: 'ubuntu-24.04-arm'
+            runs-on: '["self-hosted", "Linux", "ARM64"]'
             backend: "qwen3-tts-cpp"
             dockerfile: "./backend/Dockerfile.golang"
             context: "./"
@@ -1514,7 +1514,7 @@ jobs:
             tag-suffix: '-nvidia-l4t-cuda-13-arm64-vibevoice-cpp'
             base-image: "ubuntu:24.04"
             ubuntu-version: '2404'
-            runs-on: 'ubuntu-24.04-arm'
+            runs-on: '["self-hosted", "Linux", "ARM64"]'
             backend: "vibevoice-cpp"
             dockerfile: "./backend/Dockerfile.golang"
             context: "./"
@@ -1524,7 +1524,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-13-rfdetr'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "rfdetr"
@@ -1538,7 +1538,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-rocm-hipblas-rerankers'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "rocm/dev-ubuntu-24.04:7.2.1"
             skip-drivers: 'false'
             backend: "rerankers"
@@ -1551,7 +1551,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-rocm-hipblas-llama-cpp'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "rocm/dev-ubuntu-24.04:7.2.1"
             skip-drivers: 'false'
             backend: "llama-cpp"
@@ -1564,7 +1564,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-rocm-hipblas-turboquant'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "rocm/dev-ubuntu-24.04:7.2.1"
             skip-drivers: 'false'
             backend: "turboquant"
@@ -1577,7 +1577,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-rocm-hipblas-vllm'
-            runs-on: 'arc-runner-set'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "rocm/dev-ubuntu-24.04:7.2.1"
             skip-drivers: 'false'
             backend: "vllm"
@@ -1590,7 +1590,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-rocm-hipblas-vllm-omni'
-            runs-on: 'arc-runner-set'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "rocm/dev-ubuntu-24.04:7.2.1"
             skip-drivers: 'false'
             backend: "vllm-omni"
@@ -1603,7 +1603,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-rocm-hipblas-sglang'
-            runs-on: 'arc-runner-set'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "rocm/dev-ubuntu-24.04:7.2.1"
             skip-drivers: 'false'
             backend: "sglang"
@@ -1616,7 +1616,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-rocm-hipblas-transformers'
-            runs-on: 'arc-runner-set'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "rocm/dev-ubuntu-24.04:7.2.1"
             skip-drivers: 'false'
             backend: "transformers"
@@ -1629,7 +1629,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-rocm-hipblas-diffusers'
-            runs-on: 'arc-runner-set'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "rocm/dev-ubuntu-24.04:7.2.1"
             skip-drivers: 'false'
             backend: "diffusers"
@@ -1642,7 +1642,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-rocm-hipblas-ace-step'
-            runs-on: 'arc-runner-set'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "rocm/dev-ubuntu-24.04:7.2.1"
             skip-drivers: 'false'
             backend: "ace-step"
@@ -1656,7 +1656,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-rocm-hipblas-kokoro'
-            runs-on: 'arc-runner-set'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "rocm/dev-ubuntu-24.04:7.2.1"
             skip-drivers: 'false'
             backend: "kokoro"
@@ -1669,7 +1669,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-rocm-hipblas-vibevoice'
-            runs-on: 'arc-runner-set'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "rocm/dev-ubuntu-24.04:7.2.1"
             skip-drivers: 'false'
             backend: "vibevoice"
@@ -1682,7 +1682,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-rocm-hipblas-qwen-asr'
-            runs-on: 'arc-runner-set'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "rocm/dev-ubuntu-24.04:7.2.1"
             skip-drivers: 'false'
             backend: "qwen-asr"
@@ -1695,7 +1695,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-rocm-hipblas-nemo'
-            runs-on: 'arc-runner-set'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "rocm/dev-ubuntu-24.04:7.2.1"
             skip-drivers: 'false'
             backend: "nemo"
@@ -1708,7 +1708,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-rocm-hipblas-qwen-tts'
-            runs-on: 'arc-runner-set'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "rocm/dev-ubuntu-24.04:7.2.1"
             skip-drivers: 'false'
             backend: "qwen-tts"
@@ -1721,7 +1721,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-rocm-hipblas-fish-speech'
-            runs-on: 'arc-runner-set'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "rocm/dev-ubuntu-24.04:7.2.1"
             skip-drivers: 'false'
             backend: "fish-speech"
@@ -1734,7 +1734,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-rocm-hipblas-voxcpm'
-            runs-on: 'arc-runner-set'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "rocm/dev-ubuntu-24.04:7.2.1"
             skip-drivers: 'false'
             backend: "voxcpm"
@@ -1747,7 +1747,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-rocm-hipblas-pocket-tts'
-            runs-on: 'arc-runner-set'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "rocm/dev-ubuntu-24.04:7.2.1"
             skip-drivers: 'false'
             backend: "pocket-tts"
@@ -1760,7 +1760,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-rocm-hipblas-faster-whisper'
-            runs-on: 'bigger-runner'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "rocm/dev-ubuntu-24.04:7.2.1"
             skip-drivers: 'false'
             backend: "faster-whisper"
@@ -1773,7 +1773,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-rocm-hipblas-coqui'
-            runs-on: 'bigger-runner'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "rocm/dev-ubuntu-24.04:7.2.1"
             skip-drivers: 'false'
             backend: "coqui"
@@ -1787,7 +1787,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-intel-rerankers'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "intel/oneapi-basekit:2025.3.2-0-devel-ubuntu24.04"
             skip-drivers: 'false'
             backend: "rerankers"
@@ -1800,7 +1800,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-intel-sycl-f32-llama-cpp'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "intel/oneapi-basekit:2025.3.2-0-devel-ubuntu24.04"
             skip-drivers: 'false'
             backend: "llama-cpp"
@@ -1813,7 +1813,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-intel-sycl-f32-turboquant'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
             skip-drivers: 'false'
             backend: "turboquant"
@@ -1826,7 +1826,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-intel-sycl-f16-llama-cpp'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
             skip-drivers: 'false'
             backend: "llama-cpp"
@@ -1839,7 +1839,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-intel-sycl-f16-turboquant'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
             skip-drivers: 'false'
             backend: "turboquant"
@@ -1852,7 +1852,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-intel-vllm'
-            runs-on: 'arc-runner-set'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
             skip-drivers: 'false'
             backend: "vllm"
@@ -1865,7 +1865,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-intel-sglang'
-            runs-on: 'arc-runner-set'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
             skip-drivers: 'false'
             backend: "sglang"
@@ -1878,7 +1878,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-intel-transformers'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
             skip-drivers: 'false'
             backend: "transformers"
@@ -1891,7 +1891,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-intel-diffusers'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
             skip-drivers: 'false'
             backend: "diffusers"
@@ -1904,7 +1904,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-intel-ace-step'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
             skip-drivers: 'false'
             backend: "ace-step"
@@ -1917,7 +1917,7 @@ jobs:
             platforms: 'linux/arm64'
             tag-latest: 'auto'
             tag-suffix: '-nvidia-l4t-vibevoice'
-            runs-on: 'ubuntu-24.04-arm'
+            runs-on: '["self-hosted", "Linux", "ARM64"]'
             base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
             skip-drivers: 'true'
             backend: "vibevoice"
@@ -1930,7 +1930,7 @@ jobs:
             platforms: 'linux/arm64'
             tag-latest: 'auto'
             tag-suffix: '-nvidia-l4t-qwen-asr'
-            runs-on: 'ubuntu-24.04-arm'
+            runs-on: '["self-hosted", "Linux", "ARM64"]'
             base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
             skip-drivers: 'true'
             backend: "qwen-asr"
@@ -1943,7 +1943,7 @@ jobs:
             platforms: 'linux/arm64'
             tag-latest: 'auto'
             tag-suffix: '-nvidia-l4t-qwen-tts'
-            runs-on: 'ubuntu-24.04-arm'
+            runs-on: '["self-hosted", "Linux", "ARM64"]'
             base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
             skip-drivers: 'true'
             backend: "qwen-tts"
@@ -1956,7 +1956,7 @@ jobs:
             platforms: 'linux/arm64'
             tag-latest: 'auto'
             tag-suffix: '-nvidia-l4t-fish-speech'
-            runs-on: 'ubuntu-24.04-arm'
+            runs-on: '["self-hosted", "Linux", "ARM64"]'
             base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
             skip-drivers: 'true'
             backend: "fish-speech"
@@ -1969,7 +1969,7 @@ jobs:
             platforms: 'linux/arm64'
             tag-latest: 'auto'
             tag-suffix: '-nvidia-l4t-faster-qwen3-tts'
-            runs-on: 'ubuntu-24.04-arm'
+            runs-on: '["self-hosted", "Linux", "ARM64"]'
             base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
             skip-drivers: 'true'
             backend: "faster-qwen3-tts"
@@ -1982,7 +1982,7 @@ jobs:
             platforms: 'linux/arm64'
             tag-latest: 'auto'
             tag-suffix: '-nvidia-l4t-pocket-tts'
-            runs-on: 'ubuntu-24.04-arm'
+            runs-on: '["self-hosted", "Linux", "ARM64"]'
             base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
             skip-drivers: 'true'
             backend: "pocket-tts"
@@ -1995,7 +1995,7 @@ jobs:
             platforms: 'linux/arm64'
             tag-latest: 'auto'
             tag-suffix: '-nvidia-l4t-kokoro'
-            runs-on: 'ubuntu-24.04-arm'
+            runs-on: '["self-hosted", "Linux", "ARM64"]'
             base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
             skip-drivers: 'true'
             backend: "kokoro"
@@ -2008,7 +2008,7 @@ jobs:
             platforms: 'linux/arm64'
             tag-latest: 'auto'
             tag-suffix: '-nvidia-l4t-mlx'
-            runs-on: 'ubuntu-24.04-arm'
+            runs-on: '["self-hosted", "Linux", "ARM64"]'
             base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
             skip-drivers: 'true'
             backend: "mlx"
@@ -2021,7 +2021,7 @@ jobs:
             platforms: 'linux/arm64'
             tag-latest: 'auto'
             tag-suffix: '-nvidia-l4t-mlx-vlm'
-            runs-on: 'ubuntu-24.04-arm'
+            runs-on: '["self-hosted", "Linux", "ARM64"]'
             base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
             skip-drivers: 'true'
             backend: "mlx-vlm"
@@ -2034,7 +2034,7 @@ jobs:
             platforms: 'linux/arm64'
             tag-latest: 'auto'
             tag-suffix: '-nvidia-l4t-mlx-audio'
-            runs-on: 'ubuntu-24.04-arm'
+            runs-on: '["self-hosted", "Linux", "ARM64"]'
             base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
             skip-drivers: 'true'
             backend: "mlx-audio"
@@ -2047,7 +2047,7 @@ jobs:
             platforms: 'linux/arm64'
             tag-latest: 'auto'
             tag-suffix: '-nvidia-l4t-mlx-distributed'
-            runs-on: 'ubuntu-24.04-arm'
+            runs-on: '["self-hosted", "Linux", "ARM64"]'
             base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
             skip-drivers: 'true'
             backend: "mlx-distributed"
@@ -2060,7 +2060,7 @@ jobs:
             platforms: 'linux/arm64'
             tag-latest: 'auto'
             tag-suffix: '-nvidia-l4t-whisperx'
-            runs-on: 'ubuntu-24.04-arm'
+            runs-on: '["self-hosted", "Linux", "ARM64"]'
             base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
             skip-drivers: 'true'
             backend: "whisperx"
@@ -2073,7 +2073,7 @@ jobs:
             platforms: 'linux/arm64'
             tag-latest: 'auto'
             tag-suffix: '-nvidia-l4t-faster-whisper'
-            runs-on: 'ubuntu-24.04-arm'
+            runs-on: '["self-hosted", "Linux", "ARM64"]'
             base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
             skip-drivers: 'true'
             backend: "faster-whisper"
@@ -2087,7 +2087,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-intel-kokoro'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
             skip-drivers: 'false'
             backend: "kokoro"
@@ -2100,7 +2100,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-intel-faster-whisper'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
             skip-drivers: 'false'
             backend: "faster-whisper"
@@ -2113,7 +2113,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-intel-vibevoice'
-            runs-on: 'arc-runner-set'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
             skip-drivers: 'false'
             backend: "vibevoice"
@@ -2126,7 +2126,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-intel-qwen-asr'
-            runs-on: 'arc-runner-set'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
             skip-drivers: 'false'
             backend: "qwen-asr"
@@ -2139,7 +2139,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-intel-nemo'
-            runs-on: 'arc-runner-set'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
             skip-drivers: 'false'
             backend: "nemo"
@@ -2152,7 +2152,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-intel-qwen-tts'
-            runs-on: 'arc-runner-set'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
             skip-drivers: 'false'
             backend: "qwen-tts"
@@ -2165,7 +2165,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-intel-fish-speech'
-            runs-on: 'arc-runner-set'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
             skip-drivers: 'false'
             backend: "fish-speech"
@@ -2178,7 +2178,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-intel-voxcpm'
-            runs-on: 'arc-runner-set'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
             skip-drivers: 'false'
             backend: "voxcpm"
@@ -2191,7 +2191,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-intel-pocket-tts'
-            runs-on: 'arc-runner-set'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
             skip-drivers: 'false'
             backend: "pocket-tts"
@@ -2204,7 +2204,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-intel-coqui'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
             skip-drivers: 'false'
             backend: "coqui"
@@ -2218,7 +2218,7 @@ jobs:
             platforms: 'linux/amd64,linux/arm64'
             tag-latest: 'auto'
             tag-suffix: '-piper'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "piper"
@@ -2231,7 +2231,7 @@ jobs:
             platforms: 'linux/amd64,linux/arm64'
             tag-latest: 'auto'
             tag-suffix: '-cpu-llama-cpp'
-            runs-on: 'bigger-runner'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "llama-cpp"
@@ -2244,7 +2244,7 @@ jobs:
             platforms: 'linux/amd64,linux/arm64'
             tag-latest: 'auto'
             tag-suffix: '-cpu-turboquant'
-            runs-on: 'bigger-runner'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "turboquant"
@@ -2257,7 +2257,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-cpu-ik-llama-cpp'
-            runs-on: 'bigger-runner'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "ik-llama-cpp"
@@ -2272,7 +2272,7 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-nvidia-l4t-arm64-llama-cpp'
             base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
-            runs-on: 'ubuntu-24.04-arm'
+            runs-on: '["self-hosted", "Linux", "ARM64"]'
             backend: "llama-cpp"
             dockerfile: "./backend/Dockerfile.llama-cpp"
             context: "./"
@@ -2285,7 +2285,7 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-nvidia-l4t-arm64-turboquant'
             base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
-            runs-on: 'ubuntu-24.04-arm'
+            runs-on: '["self-hosted", "Linux", "ARM64"]'
             backend: "turboquant"
             dockerfile: "./backend/Dockerfile.turboquant"
             context: "./"
@@ -2296,7 +2296,7 @@ jobs:
             platforms: 'linux/amd64,linux/arm64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-vulkan-llama-cpp'
-            runs-on: 'bigger-runner'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "llama-cpp"
@@ -2309,7 +2309,7 @@ jobs:
             platforms: 'linux/amd64,linux/arm64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-vulkan-turboquant'
-            runs-on: 'bigger-runner'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "turboquant"
@@ -2323,7 +2323,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-cpu-stablediffusion-ggml'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "stablediffusion-ggml"
@@ -2337,7 +2337,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-cpu-sam3-cpp'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "sam3-cpp"
@@ -2350,7 +2350,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-intel-sycl-f32-sam3-cpp'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
             skip-drivers: 'false'
             backend: "sam3-cpp"
@@ -2363,7 +2363,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-intel-sycl-f16-sam3-cpp'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
             skip-drivers: 'false'
             backend: "sam3-cpp"
@@ -2376,7 +2376,7 @@ jobs:
             platforms: 'linux/amd64,linux/arm64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-vulkan-sam3-cpp'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "sam3-cpp"
@@ -2389,7 +2389,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-intel-sycl-f32-stablediffusion-ggml'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
             skip-drivers: 'false'
             backend: "stablediffusion-ggml"
@@ -2402,7 +2402,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-intel-sycl-f16-stablediffusion-ggml'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
             skip-drivers: 'false'
             backend: "stablediffusion-ggml"
@@ -2415,7 +2415,7 @@ jobs:
             platforms: 'linux/amd64,linux/arm64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-vulkan-stablediffusion-ggml'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "stablediffusion-ggml"
@@ -2430,7 +2430,7 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-nvidia-l4t-arm64-stablediffusion-ggml'
             base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
-            runs-on: 'ubuntu-24.04-arm'
+            runs-on: '["self-hosted", "Linux", "ARM64"]'
             backend: "stablediffusion-ggml"
             dockerfile: "./backend/Dockerfile.golang"
             context: "./"
@@ -2443,7 +2443,7 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-nvidia-l4t-arm64-sam3-cpp'
             base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
-            runs-on: 'ubuntu-24.04-arm'
+            runs-on: '["self-hosted", "Linux", "ARM64"]'
             backend: "sam3-cpp"
             dockerfile: "./backend/Dockerfile.golang"
             context: "./"
@@ -2455,7 +2455,7 @@ jobs:
             platforms: 'linux/amd64,linux/arm64'
             tag-latest: 'auto'
             tag-suffix: '-cpu-whisper'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "whisper"
@@ -2468,7 +2468,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-intel-sycl-f32-whisper'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
             skip-drivers: 'false'
             backend: "whisper"
@@ -2481,7 +2481,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-intel-sycl-f16-whisper'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
             skip-drivers: 'false'
             backend: "whisper"
@@ -2494,7 +2494,7 @@ jobs:
             platforms: 'linux/amd64,linux/arm64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-vulkan-whisper'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "whisper"
@@ -2509,7 +2509,7 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-nvidia-l4t-arm64-whisper'
             base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
-            runs-on: 'ubuntu-24.04-arm'
+            runs-on: '["self-hosted", "Linux", "ARM64"]'
             backend: "whisper"
             dockerfile: "./backend/Dockerfile.golang"
             context: "./"
@@ -2521,7 +2521,7 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-rocm-hipblas-whisper'
             base-image: "rocm/dev-ubuntu-24.04:7.2.1"
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             skip-drivers: 'false'
             backend: "whisper"
             dockerfile: "./backend/Dockerfile.golang"
@@ -2534,7 +2534,7 @@ jobs:
             platforms: 'linux/amd64,linux/arm64'
             tag-latest: 'auto'
             tag-suffix: '-cpu-acestep-cpp'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "acestep-cpp"
@@ -2547,7 +2547,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-intel-sycl-f32-acestep-cpp'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
             skip-drivers: 'false'
             backend: "acestep-cpp"
@@ -2560,7 +2560,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-intel-sycl-f16-acestep-cpp'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
             skip-drivers: 'false'
             backend: "acestep-cpp"
@@ -2573,7 +2573,7 @@ jobs:
             platforms: 'linux/amd64,linux/arm64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-vulkan-acestep-cpp'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "acestep-cpp"
@@ -2588,7 +2588,7 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-nvidia-l4t-arm64-acestep-cpp'
             base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
-            runs-on: 'ubuntu-24.04-arm'
+            runs-on: '["self-hosted", "Linux", "ARM64"]'
             backend: "acestep-cpp"
             dockerfile: "./backend/Dockerfile.golang"
             context: "./"
@@ -2600,7 +2600,7 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-rocm-hipblas-acestep-cpp'
             base-image: "rocm/dev-ubuntu-24.04:7.2.1"
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             skip-drivers: 'false'
             backend: "acestep-cpp"
             dockerfile: "./backend/Dockerfile.golang"
@@ -2613,7 +2613,7 @@ jobs:
             platforms: 'linux/amd64,linux/arm64'
             tag-latest: 'auto'
             tag-suffix: '-cpu-qwen3-tts-cpp'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "qwen3-tts-cpp"
@@ -2626,7 +2626,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-intel-sycl-f32-qwen3-tts-cpp'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
             skip-drivers: 'false'
             backend: "qwen3-tts-cpp"
@@ -2639,7 +2639,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-intel-sycl-f16-qwen3-tts-cpp'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
             skip-drivers: 'false'
             backend: "qwen3-tts-cpp"
@@ -2652,7 +2652,7 @@ jobs:
             platforms: 'linux/amd64,linux/arm64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-vulkan-qwen3-tts-cpp'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "qwen3-tts-cpp"
@@ -2667,7 +2667,7 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-nvidia-l4t-arm64-qwen3-tts-cpp'
             base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
-            runs-on: 'ubuntu-24.04-arm'
+            runs-on: '["self-hosted", "Linux", "ARM64"]'
             backend: "qwen3-tts-cpp"
             dockerfile: "./backend/Dockerfile.golang"
             context: "./"
@@ -2679,7 +2679,7 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-rocm-hipblas-qwen3-tts-cpp'
             base-image: "rocm/dev-ubuntu-24.04:6.4.4"
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             skip-drivers: 'false'
             backend: "qwen3-tts-cpp"
             dockerfile: "./backend/Dockerfile.golang"
@@ -2692,7 +2692,7 @@ jobs:
             platforms: 'linux/amd64,linux/arm64'
             tag-latest: 'auto'
             tag-suffix: '-cpu-vibevoice-cpp'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "vibevoice-cpp"
@@ -2705,7 +2705,7 @@ jobs:
             platforms: 'linux/amd64,linux/arm64'
             tag-latest: 'auto'
             tag-suffix: '-cpu-localvqe'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "localvqe"
@@ -2718,7 +2718,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-intel-sycl-f32-vibevoice-cpp'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
             skip-drivers: 'false'
             backend: "vibevoice-cpp"
@@ -2731,7 +2731,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-intel-sycl-f16-vibevoice-cpp'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
             skip-drivers: 'false'
             backend: "vibevoice-cpp"
@@ -2744,7 +2744,7 @@ jobs:
             platforms: 'linux/amd64,linux/arm64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-vulkan-vibevoice-cpp'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "vibevoice-cpp"
@@ -2757,7 +2757,7 @@ jobs:
             platforms: 'linux/amd64,linux/arm64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-vulkan-localvqe'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "localvqe"
@@ -2772,7 +2772,7 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-nvidia-l4t-arm64-vibevoice-cpp'
             base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
-            runs-on: 'ubuntu-24.04-arm'
+            runs-on: '["self-hosted", "Linux", "ARM64"]'
             backend: "vibevoice-cpp"
             dockerfile: "./backend/Dockerfile.golang"
             context: "./"
@@ -2784,7 +2784,7 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-rocm-hipblas-vibevoice-cpp'
             base-image: "rocm/dev-ubuntu-24.04:6.4.4"
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             skip-drivers: 'false'
             backend: "vibevoice-cpp"
             dockerfile: "./backend/Dockerfile.golang"
@@ -2797,7 +2797,7 @@ jobs:
             platforms: 'linux/amd64,linux/arm64'
             tag-latest: 'auto'
             tag-suffix: '-cpu-voxtral'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "voxtral"
@@ -2811,7 +2811,7 @@ jobs:
             platforms: 'linux/amd64,linux/arm64'
             tag-latest: 'auto'
             tag-suffix: '-cpu-opus'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "opus"
@@ -2825,7 +2825,7 @@ jobs:
             platforms: 'linux/amd64,linux/arm64'
             tag-latest: 'auto'
             tag-suffix: '-cpu-silero-vad'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "silero-vad"
@@ -2839,7 +2839,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-cpu-kokoros'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "kokoros"
@@ -2853,7 +2853,7 @@ jobs:
             platforms: 'linux/amd64,linux/arm64'
             tag-latest: 'auto'
             tag-suffix: '-cpu-local-store'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "local-store"
@@ -2867,7 +2867,7 @@ jobs:
             platforms: 'linux/amd64,linux/arm64'
             tag-latest: 'auto'
             tag-suffix: '-cpu-rfdetr'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "rfdetr"
@@ -2881,7 +2881,7 @@ jobs:
             platforms: 'linux/amd64,linux/arm64'
             tag-latest: 'auto'
             tag-suffix: '-cpu-insightface'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "insightface"
@@ -2895,7 +2895,7 @@ jobs:
             platforms: 'linux/amd64,linux/arm64'
             tag-latest: 'auto'
             tag-suffix: '-cpu-speaker-recognition'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "speaker-recognition"
@@ -2908,7 +2908,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-intel-rfdetr'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
             skip-drivers: 'false'
             backend: "rfdetr"
@@ -2923,7 +2923,7 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-nvidia-l4t-arm64-rfdetr'
             base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
-            runs-on: 'ubuntu-24.04-arm'
+            runs-on: '["self-hosted", "Linux", "ARM64"]'
             backend: "rfdetr"
             dockerfile: "./backend/Dockerfile.python"
             context: "./"
@@ -2936,7 +2936,7 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-nvidia-l4t-arm64-chatterbox'
             base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
-            runs-on: 'ubuntu-24.04-arm'
+            runs-on: '["self-hosted", "Linux", "ARM64"]'
             backend: "chatterbox"
             dockerfile: "./backend/Dockerfile.python"
             context: "./"
@@ -2949,7 +2949,7 @@ jobs:
           #   tag-latest: 'auto'
           #   tag-suffix: '-gpu-hipblas-rfdetr'
           #   base-image: "rocm/dev-ubuntu-24.04:7.2.1"
-          #   runs-on: 'ubuntu-latest'
+          #   runs-on: '["self-hosted", "Linux"]'
           #   skip-drivers: 'false'
           #   backend: "rfdetr"
           #   dockerfile: "./backend/Dockerfile.python"
@@ -2961,7 +2961,7 @@ jobs:
             platforms: 'linux/amd64,linux/arm64'
             tag-latest: 'auto'
             tag-suffix: '-kitten-tts'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "kitten-tts"
@@ -2975,7 +2975,7 @@ jobs:
             platforms: 'linux/amd64,linux/arm64'
             tag-latest: 'auto'
             tag-suffix: '-cpu-neutts'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "neutts"
@@ -2988,7 +2988,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-rocm-hipblas-neutts'
-            runs-on: 'arc-runner-set'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "rocm/dev-ubuntu-24.04:7.2.1"
             skip-drivers: 'false'
             backend: "neutts"
@@ -3001,7 +3001,7 @@ jobs:
             platforms: 'linux/amd64,linux/arm64'
             tag-latest: 'auto'
             tag-suffix: '-cpu-vibevoice'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "vibevoice"
@@ -3014,7 +3014,7 @@ jobs:
             platforms: 'linux/amd64,linux/arm64'
             tag-latest: 'auto'
             tag-suffix: '-cpu-qwen-asr'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "qwen-asr"
@@ -3027,7 +3027,7 @@ jobs:
             platforms: 'linux/amd64,linux/arm64'
             tag-latest: 'auto'
             tag-suffix: '-cpu-nemo'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "nemo"
@@ -3040,7 +3040,7 @@ jobs:
             platforms: 'linux/amd64,linux/arm64'
             tag-latest: 'auto'
             tag-suffix: '-cpu-qwen-tts'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "qwen-tts"
@@ -3053,7 +3053,7 @@ jobs:
             platforms: 'linux/amd64,linux/arm64'
             tag-latest: 'auto'
             tag-suffix: '-cpu-fish-speech'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "fish-speech"
@@ -3066,7 +3066,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-cpu-voxcpm'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "voxcpm"
@@ -3079,7 +3079,7 @@ jobs:
             platforms: 'linux/amd64,linux/arm64'
             tag-latest: 'auto'
             tag-suffix: '-cpu-pocket-tts'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "pocket-tts"
@@ -3092,7 +3092,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-cpu-outetts'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'true'
             backend: "outetts"
@@ -3106,7 +3106,7 @@ jobs:
             platforms: 'linux/amd64,linux/arm64'
             tag-latest: 'auto'
             tag-suffix: '-cpu-sherpa-onnx'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "sherpa-onnx"
@@ -3120,7 +3120,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-sherpa-onnx'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "sherpa-onnx"
@@ -3135,7 +3135,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-13-sherpa-onnx'
-            runs-on: 'ubuntu-latest'
+            runs-on: '["self-hosted", "Linux"]'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "sherpa-onnx"
@@ -3305,7 +3305,7 @@ jobs:
   llama-cpp-darwin-publish:
     needs: llama-cpp-darwin
     if: github.event_name != 'pull_request'
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux]
     steps:
       - name: Download llama-cpp.tar
         uses: actions/download-artifact@v8

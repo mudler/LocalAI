@@ -27,7 +27,7 @@ concurrency:
 
 jobs:
   tests-aio:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux]
     steps:
       - name: Release space from worker
         run: |

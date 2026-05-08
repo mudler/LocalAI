@@ -21,7 +21,7 @@ concurrency:
 
 jobs:
   tests-e2e-backend:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux]
     strategy:
       matrix:
         go-version: ['1.25.x']

@@ -13,7 +13,7 @@ concurrency:
 jobs:
   build-linux:
     if: github.repository == 'mudler/LocalAI'
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux]
     steps:
       - name: Clone
         uses: actions/checkout@v6

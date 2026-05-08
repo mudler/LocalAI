@@ -209,7 +209,7 @@ jobs:
   darwin-backend-publish:
     needs: darwin-backend-build
     if: github.event_name != 'pull_request'
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux]
     steps:
       - name: Download ${{ inputs.backend }}.tar
         uses: actions/download-artifact@v8

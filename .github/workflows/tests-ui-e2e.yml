@@ -17,7 +17,7 @@ concurrency:
 
 jobs:
   tests-ui-e2e:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux]
     strategy:
       matrix:
         go-version: ['1.26.x']

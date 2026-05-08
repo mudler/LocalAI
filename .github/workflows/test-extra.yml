@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   detect-changes:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux]
     outputs:
       run-all: ${{ steps.detect.outputs.run-all }}
       transformers: ${{ steps.detect.outputs.transformers }}
@@ -82,7 +82,7 @@ jobs:
   tests-transformers:
     needs: detect-changes
     if: needs.detect-changes.outputs.transformers == 'true' || needs.detect-changes.outputs.run-all == 'true'
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux]
     steps:
       - name: Clone
         uses: actions/checkout@v6
@@ -105,7 +105,7 @@ jobs:
   tests-rerankers:
     needs: detect-changes
     if: needs.detect-changes.outputs.rerankers == 'true' || needs.detect-changes.outputs.run-all == 'true'
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux]
     steps:
       - name: Clone
         uses: actions/checkout@v6
@@ -129,7 +129,7 @@ jobs:
   tests-diffusers:
     needs: detect-changes
     if: needs.detect-changes.outputs.diffusers == 'true' || needs.detect-changes.outputs.run-all == 'true'
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux]
     steps:
       - name: Clone
         uses: actions/checkout@v6
@@ -280,7 +280,7 @@ jobs:
   tests-coqui:
     needs: detect-changes
     if: needs.detect-changes.outputs.coqui == 'true' || needs.detect-changes.outputs.run-all == 'true'
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux]
     steps:
       - name: Clone
         uses: actions/checkout@v6
@@ -301,7 +301,7 @@ jobs:
   tests-moonshine:
     needs: detect-changes
     if: needs.detect-changes.outputs.moonshine == 'true' || needs.detect-changes.outputs.run-all == 'true'
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux]
     steps:
       - name: Clone
         uses: actions/checkout@v6
@@ -322,7 +322,7 @@ jobs:
   tests-pocket-tts:
     needs: detect-changes
     if: needs.detect-changes.outputs.pocket-tts == 'true' || needs.detect-changes.outputs.run-all == 'true'
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux]
     steps:
       - name: Clone
         uses: actions/checkout@v6
@@ -343,7 +343,7 @@ jobs:
   tests-qwen-tts:
     needs: detect-changes
     if: needs.detect-changes.outputs.qwen-tts == 'true' || needs.detect-changes.outputs.run-all == 'true'
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux]
     steps:
       - name: Clone
         uses: actions/checkout@v6
@@ -386,7 +386,7 @@ jobs:
   tests-qwen-asr:
     needs: detect-changes
     if: needs.detect-changes.outputs.qwen-asr == 'true' || needs.detect-changes.outputs.run-all == 'true'
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux]
     steps:
       - name: Clone
         uses: actions/checkout@v6
@@ -407,7 +407,7 @@ jobs:
   tests-nemo:
     needs: detect-changes
     if: needs.detect-changes.outputs.nemo == 'true' || needs.detect-changes.outputs.run-all == 'true'
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux]
     steps:
       - name: Clone
         uses: actions/checkout@v6
@@ -428,7 +428,7 @@ jobs:
   tests-voxcpm:
     needs: detect-changes
     if: needs.detect-changes.outputs.voxcpm == 'true' || needs.detect-changes.outputs.run-all == 'true'
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux]
     steps:
       - name: Clone
         uses: actions/checkout@v6
@@ -449,7 +449,7 @@ jobs:
   tests-llama-cpp-quantization:
     needs: detect-changes
     if: needs.detect-changes.outputs.llama-cpp-quantization == 'true' || needs.detect-changes.outputs.run-all == 'true'
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux]
     timeout-minutes: 30
     steps:
       - name: Clone
@@ -478,7 +478,7 @@ jobs:
   tests-llama-cpp-grpc:
     needs: detect-changes
     if: needs.detect-changes.outputs.llama-cpp == 'true' || needs.detect-changes.outputs.run-all == 'true'
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux]
     timeout-minutes: 90
     steps:
       - name: Clone
@@ -495,7 +495,7 @@ jobs:
   tests-llama-cpp-grpc-transcription:
     needs: detect-changes
     if: needs.detect-changes.outputs.llama-cpp == 'true' || needs.detect-changes.outputs.run-all == 'true'
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux]
     timeout-minutes: 90
     steps:
       - name: Clone
@@ -517,7 +517,7 @@ jobs:
   # core/http/app_test.go. Anything heavier or per-backend is gated to the
   # detect-changes path-filter above.
   tests-llama-cpp-smoke:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux]
     timeout-minutes: 20
     steps:
       - name: Clone
@@ -544,7 +544,7 @@ jobs:
   tests-sherpa-onnx-realtime:
     needs: detect-changes
     if: needs.detect-changes.outputs.sherpa-onnx == 'true' || needs.detect-changes.outputs.run-all == 'true'
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux]
     timeout-minutes: 90
     steps:
       - name: Clone
@@ -569,7 +569,7 @@ jobs:
   tests-sherpa-onnx-grpc-transcription:
     needs: detect-changes
     if: needs.detect-changes.outputs.sherpa-onnx == 'true' || needs.detect-changes.outputs.run-all == 'true'
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux]
     timeout-minutes: 90
     steps:
       - name: Clone
@@ -588,7 +588,7 @@ jobs:
   tests-sherpa-onnx-grpc-tts:
     needs: detect-changes
     if: needs.detect-changes.outputs.sherpa-onnx == 'true' || needs.detect-changes.outputs.run-all == 'true'
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux]
     timeout-minutes: 90
     steps:
       - name: Clone
@@ -605,7 +605,7 @@ jobs:
   tests-ik-llama-cpp-grpc:
     needs: detect-changes
     if: needs.detect-changes.outputs.ik-llama-cpp == 'true' || needs.detect-changes.outputs.run-all == 'true'
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux]
     timeout-minutes: 90
     steps:
       - name: Clone
@@ -622,7 +622,7 @@ jobs:
   tests-turboquant-grpc:
     needs: detect-changes
     if: needs.detect-changes.outputs.turboquant == 'true' || needs.detect-changes.outputs.run-all == 'true'
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux]
     timeout-minutes: 90
     steps:
       - name: Clone
@@ -733,7 +733,7 @@ jobs:
   tests-acestep-cpp:
     needs: detect-changes
     if: needs.detect-changes.outputs.acestep-cpp == 'true' || needs.detect-changes.outputs.run-all == 'true'
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux]
     steps:
       - name: Clone
         uses: actions/checkout@v6
@@ -765,7 +765,7 @@ jobs:
   tests-qwen3-tts-cpp:
     needs: detect-changes
     if: needs.detect-changes.outputs.qwen3-tts-cpp == 'true' || needs.detect-changes.outputs.run-all == 'true'
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux]
     steps:
       - name: Clone
         uses: actions/checkout@v6
@@ -801,7 +801,7 @@ jobs:
   tests-vibevoice-cpp:
     needs: detect-changes
     if: needs.detect-changes.outputs.vibevoice-cpp == 'true' || needs.detect-changes.outputs.run-all == 'true'
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux]
     timeout-minutes: 90
     steps:
       - name: Clone
@@ -836,7 +836,7 @@ jobs:
   tests-vibevoice-cpp-grpc-tts:
     needs: detect-changes
     if: needs.detect-changes.outputs.vibevoice-cpp == 'true' || needs.detect-changes.outputs.run-all == 'true'
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux]
     timeout-minutes: 90
     steps:
       - name: Clone
@@ -862,7 +862,7 @@ jobs:
   tests-vibevoice-cpp-grpc-transcription:
     needs: detect-changes
     if: needs.detect-changes.outputs.vibevoice-cpp == 'true' || needs.detect-changes.outputs.run-all == 'true'
-    runs-on: bigger-runner
+    runs-on: [self-hosted, Linux]
     timeout-minutes: 150
     steps:
       - name: Clone
@@ -891,7 +891,7 @@ jobs:
   tests-localvqe-grpc-transform:
     needs: detect-changes
     if: needs.detect-changes.outputs.localvqe == 'true' || needs.detect-changes.outputs.run-all == 'true'
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux]
     timeout-minutes: 60
     steps:
       - name: Clone
@@ -908,7 +908,7 @@ jobs:
   tests-voxtral:
     needs: detect-changes
     if: needs.detect-changes.outputs.voxtral == 'true' || needs.detect-changes.outputs.run-all == 'true'
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux]
     steps:
       - name: Clone
         uses: actions/checkout@v6
@@ -941,7 +941,7 @@ jobs:
   tests-kokoros:
     needs: detect-changes
     if: needs.detect-changes.outputs.kokoros == 'true' || needs.detect-changes.outputs.run-all == 'true'
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux]
     steps:
       - name: Clone
         uses: actions/checkout@v6
@@ -963,7 +963,7 @@ jobs:
   tests-insightface-grpc:
     needs: detect-changes
     if: needs.detect-changes.outputs.insightface == 'true' || needs.detect-changes.outputs.run-all == 'true'
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux]
     timeout-minutes: 90
     steps:
       - name: Clone
@@ -989,7 +989,7 @@ jobs:
   tests-speaker-recognition-grpc:
     needs: detect-changes
     if: needs.detect-changes.outputs.speaker-recognition == 'true' || needs.detect-changes.outputs.run-all == 'true'
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux]
     timeout-minutes: 90
     steps:
       - name: Clone

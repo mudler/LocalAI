@@ -23,7 +23,7 @@
         cuda-major-version: ${{ matrix.cuda-major-version }}
         cuda-minor-version: ${{ matrix.cuda-minor-version }}
         platforms: ${{ matrix.platforms }}
-        runs-on: ${{ matrix.runs-on }}
+        runs-on: ${{ fromJSON(matrix.runs-on) }}
         base-image: ${{ matrix.base-image }}
         makeflags: ${{ matrix.makeflags }}
         ubuntu-version: ${{ matrix.ubuntu-version }}
@@ -41,7 +41,7 @@
               tag-latest: 'auto'
               tag-suffix: '-gpu-hipblas'
               base-image: "rocm/dev-ubuntu-24.04:7.2.1"
-              runs-on: 'ubuntu-latest'
+              runs-on: '["self-hosted", "Linux"]'
               makeflags: "--jobs=3 --output-sync=target"
               ubuntu-version: '2404'
               ubuntu-codename: 'noble'
@@ -56,7 +56,7 @@
         cuda-major-version: ${{ matrix.cuda-major-version }}
         cuda-minor-version: ${{ matrix.cuda-minor-version }}
         platforms: ${{ matrix.platforms }}
-        runs-on: ${{ matrix.runs-on }}
+        runs-on: ${{ fromJSON(matrix.runs-on) }}
         base-image: ${{ matrix.base-image }}
         makeflags: ${{ matrix.makeflags }}
         skip-drivers: ${{ matrix.skip-drivers }}
@@ -76,7 +76,7 @@
               tag-latest: 'auto'
               tag-suffix: ''
               base-image: "ubuntu:24.04"
-              runs-on: 'ubuntu-latest'
+              runs-on: '["self-hosted", "Linux"]'
               makeflags: "--jobs=4 --output-sync=target"
               skip-drivers: 'false'
               ubuntu-version: '2404'
@@ -87,7 +87,7 @@
               platforms: 'linux/amd64'
               tag-latest: 'auto'
               tag-suffix: '-gpu-nvidia-cuda-12'
-              runs-on: 'ubuntu-latest'
+              runs-on: '["self-hosted", "Linux"]'
               base-image: "ubuntu:24.04"
               skip-drivers: 'false'
               makeflags: "--jobs=4 --output-sync=target"
@@ -99,7 +99,7 @@
               platforms: 'linux/amd64'
               tag-latest: 'auto'
               tag-suffix: '-gpu-nvidia-cuda-13'
-              runs-on: 'ubuntu-latest'
+              runs-on: '["self-hosted", "Linux"]'
               base-image: "ubuntu:22.04"
               skip-drivers: 'false'
               makeflags: "--jobs=4 --output-sync=target"
@@ -109,7 +109,7 @@
               platforms: 'linux/amd64,linux/arm64'
               tag-latest: 'auto'
               tag-suffix: '-gpu-vulkan'
-              runs-on: 'ubuntu-latest'
+              runs-on: '["self-hosted", "Linux"]'
               base-image: "ubuntu:24.04"
               skip-drivers: 'false'
               makeflags: "--jobs=4 --output-sync=target"
@@ -120,7 +120,7 @@
               tag-latest: 'auto'
               base-image: "intel/oneapi-basekit:2025.3.2-0-devel-ubuntu24.04"
               tag-suffix: '-gpu-intel'
-              runs-on: 'ubuntu-latest'
+              runs-on: '["self-hosted", "Linux"]'
               makeflags: "--jobs=3 --output-sync=target"
               ubuntu-version: '2404'
               ubuntu-codename: 'noble'
@@ -135,7 +135,7 @@
         cuda-major-version: ${{ matrix.cuda-major-version }}
         cuda-minor-version: ${{ matrix.cuda-minor-version }}
         platforms: ${{ matrix.platforms }}
-        runs-on: ${{ matrix.runs-on }}
+        runs-on: ${{ fromJSON(matrix.runs-on) }}
         base-image: ${{ matrix.base-image }}
         makeflags: ${{ matrix.makeflags }}
         skip-drivers: ${{ matrix.skip-drivers }}
@@ -156,7 +156,7 @@
               tag-latest: 'auto'
               tag-suffix: '-nvidia-l4t-arm64'
               base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
-              runs-on: 'ubuntu-24.04-arm'
+              runs-on: '["self-hosted", "Linux", "ARM64"]'
               makeflags: "--jobs=4 --output-sync=target"
               skip-drivers: 'true'
               ubuntu-version: "2204"
@@ -168,7 +168,7 @@
               tag-latest: 'auto'
               tag-suffix: '-nvidia-l4t-arm64-cuda-13'
               base-image: "ubuntu:24.04"
-              runs-on: 'ubuntu-24.04-arm'
+              runs-on: '["self-hosted", "Linux", "ARM64"]'
               makeflags: "--jobs=4 --output-sync=target"
               skip-drivers: 'false'
               ubuntu-version: '2404'

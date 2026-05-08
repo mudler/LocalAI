@@ -54,7 +54,7 @@ jobs:
             variable: "VIBEVOICE_CPP_VERSION"
             branch: "master"
             file: "backend/go/vibevoice-cpp/Makefile"
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux]
     steps:
       - uses: actions/checkout@v6
       - name: Bump dependencies 🔧
@@ -90,7 +90,7 @@ jobs:
     # constraint. bump_deps.sh handles git-sha-in-Makefile only — this job
     # rewrites both values atomically when a new vLLM stable tag ships.
     if: github.repository == 'mudler/LocalAI'
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux]
     steps:
       - uses: actions/checkout@v6
       - name: Bump vLLM cu130 wheel pin 🔧

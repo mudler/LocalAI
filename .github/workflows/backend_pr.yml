@@ -9,7 +9,7 @@ concurrency:
 
 jobs:
   generate-matrix:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux]
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
       matrix-darwin: ${{ steps.set-matrix.outputs.matrix-darwin }}
@@ -46,7 +46,7 @@ jobs:
       cuda-major-version: ${{ matrix.cuda-major-version }}
       cuda-minor-version: ${{ matrix.cuda-minor-version }}
       platforms: ${{ matrix.platforms }}
-      runs-on: ${{ matrix.runs-on }}
+      runs-on: ${{ fromJSON(matrix.runs-on) }}
       base-image: ${{ matrix.base-image }}
       backend: ${{ matrix.backend }}
       dockerfile: ${{ matrix.dockerfile }}
