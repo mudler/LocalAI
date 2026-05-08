@@ -24,6 +24,17 @@ on:
         description: 'Platforms'
         default: ''
         type: string
+      platform-tag:
+        description: |
+          Short tag identifying the platform leg, e.g. "amd64" or "arm64".
+          Used to scope the per-arch registry cache and the digest artifact name.
+          Required for split-and-merge multi-arch builds; pass "amd64" for
+          single-arch amd64 builds too. Optional (default '') during the
+          migration to per-arch matrix expansion; will be flipped to
+          required: true in Phase 6 once all callers pass an explicit value.
+        required: false
+        default: ''
+        type: string
       tag-latest:
         description: 'Tag latest'
         default: ''
@@ -158,7 +169,8 @@ jobs:
         id: deps_refresh
         run: echo "key=$(date -u +%Y-W%V)" >> "$GITHUB_OUTPUT"
 
-      - name: Build and push
+      - name: Build and push by digest
+        id: build
         uses: docker/build-push-action@v7
         if: github.event_name != 'pull_request'
         with:
@@ -177,14 +189,31 @@ jobs:
             DEPS_REFRESH=${{ steps.deps_refresh.outputs.key }}
           context: ${{ inputs.context }}
           file: ${{ inputs.dockerfile }}
-          cache-from: type=registry,ref=quay.io/go-skynet/ci-cache:cache${{ inputs.tag-suffix }}
-          cache-to: type=registry,ref=quay.io/go-skynet/ci-cache:cache${{ inputs.tag-suffix }},mode=max,ignore-error=true
+          cache-from: type=registry,ref=quay.io/go-skynet/ci-cache:cache${{ inputs.tag-suffix }}-${{ inputs.platform-tag }}
+          cache-to: type=registry,ref=quay.io/go-skynet/ci-cache:cache${{ inputs.tag-suffix }}-${{ inputs.platform-tag }},mode=max,ignore-error=true
           platforms: ${{ inputs.platforms }}
-          push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.meta.outputs.tags }}
+          outputs: |
+            type=image,name=quay.io/go-skynet/local-ai-backends,push-by-digest=true,name-canonical=true,push=true
+            type=image,name=localai/localai-backends,push-by-digest=true,name-canonical=true,push=true
           labels: ${{ steps.meta.outputs.labels }}
 
-      - name: Build and push (PR)
+      - name: Export digest
+        if: github.event_name != 'pull_request'
+        run: |
+          mkdir -p /tmp/digests
+          digest="${{ steps.build.outputs.digest }}"
+          touch "/tmp/digests/${digest#sha256:}"
+
+      - name: Upload digest artifact
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: digests${{ inputs.tag-suffix }}-${{ inputs.platform-tag }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Build (PR)
         uses: docker/build-push-action@v7
         if: github.event_name == 'pull_request'
         with:
@@ -203,7 +232,7 @@ jobs:
             DEPS_REFRESH=${{ steps.deps_refresh.outputs.key }}
           context: ${{ inputs.context }}
           file: ${{ inputs.dockerfile }}
-          cache-from: type=registry,ref=quay.io/go-skynet/ci-cache:cache${{ inputs.tag-suffix }}
+          cache-from: type=registry,ref=quay.io/go-skynet/ci-cache:cache${{ inputs.tag-suffix }}-${{ inputs.platform-tag }}
           platforms: ${{ inputs.platforms }}
           push: ${{ env.quay_username != '' }}
           tags: ${{ steps.meta_pull_request.outputs.tags }}
