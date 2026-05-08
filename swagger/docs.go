@@ -3078,6 +3078,10 @@ const docTemplate = `{
                 "name": {
                     "type": "string"
                 },
+                "sha256": {
+                    "description": "SHA256 is the expected sha256 of the backend tarball at URI / Mirrors.\nEmpty disables the integrity check; OCI URIs carry their own digest.",
+                    "type": "string"
+                },
                 "size": {
                     "description": "Size is an optional hardcoded model size string (e.g. \"500MB\", \"14.5GB\").\nUsed when the size cannot be estimated automatically.",
                     "type": "string"
