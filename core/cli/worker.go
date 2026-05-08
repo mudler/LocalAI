@@ -783,6 +783,51 @@ func (s *backendSupervisor) installBackend(req messaging.BackendInstallRequest, 
 	return s.startBackend(processKey, backendPath)
 }
 
+// upgradeBackend stops every running process for `backend`, force-reinstalls
+// from gallery (overwriting the on-disk artifact), and re-registers backends.
+// It does NOT start any new gRPC process — the next routine model load via
+// backend.install will spawn a fresh process picking up the new binary.
+//
+// The caller is responsible for holding s.lockBackend(req.Backend).
+func (s *backendSupervisor) upgradeBackend(req messaging.BackendUpgradeRequest) error {
+	// Stop every live process for this backend (peer replicas + the bare
+	// processKey). Same logic as the force branch in installBackend.
+	toStop := s.resolveProcessKeys(req.Backend)
+	toStop = append(toStop, buildProcessKey("", req.Backend, int(req.ReplicaIndex)))
+	for _, key := range toStop {
+		xlog.Info("Upgrade: stopping running backend before reinstall",
+			"backend", req.Backend, "processKey", key)
+		s.stopBackendExact(key)
+	}
+
+	galleries := s.galleries
+	if req.BackendGalleries != "" {
+		var reqGalleries []config.Gallery
+		if err := json.Unmarshal([]byte(req.BackendGalleries), &reqGalleries); err == nil {
+			galleries = reqGalleries
+		}
+	}
+
+	if req.URI != "" {
+		xlog.Info("Upgrading backend from external URI", "backend", req.Backend, "uri", req.URI)
+		if err := galleryop.InstallExternalBackend(
+			context.Background(), galleries, s.systemState, s.ml, nil, req.URI, req.Name, req.Alias,
+		); err != nil {
+			return fmt.Errorf("upgrading backend from external URI: %w", err)
+		}
+	} else {
+		xlog.Info("Upgrading backend from gallery", "backend", req.Backend)
+		if err := gallery.InstallBackendFromGallery(
+			context.Background(), galleries, s.systemState, s.ml, req.Backend, nil, true, /* force */
+		); err != nil {
+			return fmt.Errorf("upgrading backend from gallery: %w", err)
+		}
+	}
+
+	gallery.RegisterBackends(s.systemState, s.ml)
+	return nil
+}
+
 // findBackend looks for the backend binary in the backends path and system path.
 func (s *backendSupervisor) findBackend(backend string) string {
 	candidates := []string{
@@ -867,6 +912,31 @@ func (s *backendSupervisor) subscribeLifecycleEvents() {
 			}
 			resp := messaging.BackendInstallReply{Success: true, Address: advertiseAddr}
 			replyJSON(reply, resp)
+		}()
+	})
+
+	// backend.upgrade — force-reinstall a backend (request-reply).
+	// Lives on its own subscription so a multi-minute download here does
+	// NOT block the install fast-path subscription on the same worker.
+	s.nats.SubscribeReply(messaging.SubjectNodeBackendUpgrade(s.nodeID), func(data []byte, reply func([]byte)) {
+		go func() {
+			xlog.Info("Received NATS backend.upgrade event")
+			var req messaging.BackendUpgradeRequest
+			if err := json.Unmarshal(data, &req); err != nil {
+				resp := messaging.BackendUpgradeReply{Success: false, Error: fmt.Sprintf("invalid request: %v", err)}
+				replyJSON(reply, resp)
+				return
+			}
+
+			release := s.lockBackend(req.Backend)
+			defer release()
+
+			if err := s.upgradeBackend(req); err != nil {
+				xlog.Error("Failed to upgrade backend via NATS", "error", err)
+				replyJSON(reply, messaging.BackendUpgradeReply{Success: false, Error: err.Error()})
+				return
+			}
+			replyJSON(reply, messaging.BackendUpgradeReply{Success: true})
 		}()
 	})
 
