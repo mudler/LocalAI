@@ -7,6 +7,21 @@ on:
       - master
     tags:
       - '*'
+  schedule:
+    # Weekly full-matrix rebuild to pick up upstream Python wheel updates
+    # (torch, transformers, vllm, ...) which most backends pull unpinned.
+    # The DEPS_REFRESH build-arg in backend_build.yml busts the install
+    # layer cache on a new ISO week, but only fires when the build runs.
+    # Path filtering on commit-driven pushes (scripts/changed-backends.js)
+    # skips untouched backends, so without this cron those images would
+    # drift on stale wheels indefinitely. C++/Go backends with pinned
+    # deps cache-hit and finish fast.
+    #
+    # Schedule events have no event.ref / event.before, so the script's
+    # changedFiles==null fallback emits the full matrix automatically —
+    # no script changes needed.
+    - cron: '0 6 * * 0'  # Sundays 06:00 UTC
+  workflow_dispatch:
 
 concurrency:
   group: ci-backends-${{ github.head_ref || github.ref }}-${{ github.repository }}
