@@ -2,13 +2,13 @@ import fs from "fs";
 import yaml from "js-yaml";
 import { Octokit } from "@octokit/core";
 
-// Load backend.yml and parse matrix.include
-const backendYml = yaml.load(fs.readFileSync(".github/workflows/backend.yml", "utf8"));
-const jobs = backendYml.jobs;
-const backendJobs = jobs["backend-jobs"];
-const backendJobsDarwin = jobs["backend-jobs-darwin"];
-const includes = backendJobs.strategy.matrix.include;
-const includesDarwin = backendJobsDarwin.strategy.matrix.include;
+// Matrix data lives in a small data-only YAML so both backend.yml (master push)
+// and backend_pr.yml (pull_request) can use a dynamic `matrix: ${{ fromJson(...) }}`
+// for the live job, while this script remains the single source of truth for
+// "what backends does the project know about".
+const matrixYml = yaml.load(fs.readFileSync(".github/backend-matrix.yml", "utf8"));
+const includes = matrixYml.include;
+const includesDarwin = matrixYml.includeDarwin;
 
 const eventPath = process.env.GITHUB_EVENT_PATH;
 const event = JSON.parse(fs.readFileSync(eventPath, "utf8"));
@@ -66,28 +66,14 @@ function getAllBackendPaths() {
 
 const allBackendPaths = getAllBackendPaths();
 
-// Non-PR events: output run-all=true and all backends as true
-if (!event.pull_request) {
-  fs.appendFileSync(process.env.GITHUB_OUTPUT, `run-all=true\n`);
-  fs.appendFileSync(process.env.GITHUB_OUTPUT, `has-backends=true\n`);
-  fs.appendFileSync(process.env.GITHUB_OUTPUT, `has-backends-darwin=true\n`);
-  fs.appendFileSync(process.env.GITHUB_OUTPUT, `matrix=${JSON.stringify({ include: includes })}\n`);
-  fs.appendFileSync(process.env.GITHUB_OUTPUT, `matrix-darwin=${JSON.stringify({ include: includesDarwin })}\n`);
-  for (const backend of allBackendPaths.keys()) {
-    fs.appendFileSync(process.env.GITHUB_OUTPUT, `${backend}=true\n`);
-  }
-  process.exit(0);
-}
-
-// PR context
-const prNumber = event.pull_request.number;
-const repo = event.repository.name;
-const owner = event.repository.owner.login;
-
 const token = process.env.GITHUB_TOKEN;
 const octokit = new Octokit({ auth: token });
 
-async function getChangedFiles() {
+// PR file list — paginated.
+async function getChangedFilesForPR(event) {
+  const prNumber = event.pull_request.number;
+  const repo = event.repository.name;
+  const owner = event.repository.owner.login;
   let files = [];
   let page = 1;
   while (true) {
@@ -105,9 +91,49 @@ async function getChangedFiles() {
   return files;
 }
 
-(async () => {
-  const changedFiles = await getChangedFiles();
+// Branch-push file list — uses the Compare API so it works in shallow clones.
+// Returns null to signal "we cannot compute a reliable diff; run everything".
+async function getChangedFilesForPush(event) {
+  const before = event.before;
+  const after = event.after;
+  // First push to a branch carries an all-zero `before` SHA and there's no
+  // base to diff against. Run everything in that case.
+  if (!before || !after || /^0+$/.test(before)) return null;
+  const owner = event.repository.owner.login;
+  const repo = event.repository.name;
+  let res;
+  try {
+    res = await octokit.request('GET /repos/{owner}/{repo}/compare/{basehead}', {
+      owner,
+      repo,
+      basehead: `${before}...${after}`,
+    });
+  } catch (err) {
+    console.log("compare API failed, falling back to run-all:", err.message);
+    return null;
+  }
+  if (!res.data || !Array.isArray(res.data.files)) return null;
+  // The compare endpoint caps the file list at 300. If we hit the cap we may
+  // be missing changes — be conservative and run everything.
+  if (res.data.files.length >= 300) {
+    console.log("compare API returned 300+ files (truncated), falling back to run-all");
+    return null;
+  }
+  return res.data.files.map(f => f.filename);
+}
 
+function emitFullMatrix() {
+  fs.appendFileSync(process.env.GITHUB_OUTPUT, `run-all=true\n`);
+  fs.appendFileSync(process.env.GITHUB_OUTPUT, `has-backends=true\n`);
+  fs.appendFileSync(process.env.GITHUB_OUTPUT, `has-backends-darwin=true\n`);
+  fs.appendFileSync(process.env.GITHUB_OUTPUT, `matrix=${JSON.stringify({ include: includes })}\n`);
+  fs.appendFileSync(process.env.GITHUB_OUTPUT, `matrix-darwin=${JSON.stringify({ include: includesDarwin })}\n`);
+  for (const backend of allBackendPaths.keys()) {
+    fs.appendFileSync(process.env.GITHUB_OUTPUT, `${backend}=true\n`);
+  }
+}
+
+function emitFilteredMatrix(changedFiles) {
   console.log("Changed files:", changedFiles);
 
   const filtered = includes.filter(item => {
@@ -119,7 +145,7 @@ async function getChangedFiles() {
   const filteredDarwin = includesDarwin.filter(item => {
     const backendPath = inferBackendPathDarwin(item);
     return changedFiles.some(file => file.startsWith(backendPath));
-  })
+  });
 
   console.log("Filtered files:", filtered);
   console.log("Filtered files Darwin:", filteredDarwin);
@@ -145,4 +171,29 @@ async function getChangedFiles() {
     }
     fs.appendFileSync(process.env.GITHUB_OUTPUT, `${backend}=${changed ? 'true' : 'false'}\n`);
   }
+}
+
+(async () => {
+  // Tag pushes and an explicit FORCE_ALL escape hatch always rebuild everything.
+  // FORCE_ALL is set from backend.yml whenever github.ref starts with refs/tags/.
+  const forceAll = process.env.FORCE_ALL === 'true';
+  const isTagPush = typeof event.ref === 'string' && event.ref.startsWith('refs/tags/');
+  const isBranchPush = !!event.ref && !event.pull_request && !isTagPush;
+
+  let changedFiles = null;
+  if (event.pull_request) {
+    changedFiles = await getChangedFilesForPR(event);
+  } else if (isBranchPush && !forceAll) {
+    changedFiles = await getChangedFilesForPush(event);
+    // null -> fall through to the full matrix (e.g. first push, API truncated,
+    // network failure).
+  }
+  // All other event types (workflow_dispatch, schedule, tag pushes, FORCE_ALL)
+  // leave changedFiles === null and run everything.
+
+  if (changedFiles === null) {
+    emitFullMatrix();
+    return;
+  }
+  emitFilteredMatrix(changedFiles);
 })();
