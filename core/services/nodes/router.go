@@ -16,6 +16,7 @@ import (
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"github.com/mudler/LocalAI/pkg/vram"
 	"github.com/mudler/xlog"
+	"golang.org/x/sync/singleflight"
 	"google.golang.org/protobuf/proto"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -55,6 +56,11 @@ type SmartRouter struct {
 	db               *gorm.DB             // for advisory locks during routing
 	stagingTracker   *StagingTracker      // tracks file staging progress for UI visibility
 	conflictResolver ConcurrencyConflictResolver
+	// installFlight coalesces concurrent identical NATS install requests
+	// (same nodeID + backend + modelID + replica) so 6 simultaneous chat
+	// completions for one not-yet-loaded model produce ONE round-trip, not
+	// six. Avoids amplifying head-of-line blocking on the worker side.
+	installFlight singleflight.Group
 }
 
 // NewSmartRouter creates a new SmartRouter backed by the given ModelRouter.
@@ -664,31 +670,42 @@ func (r *SmartRouter) estimateModelVRAM(ctx context.Context, opts *pb.ModelOptio
 	return result.VRAMForContext(ctxSize)
 }
 
-// installBackendOnNode sends a NATS backend.install request-reply to the node.
-// The worker installs the backend from gallery (if not already installed),
-// starts the gRPC process, and replies when ready.
-// installBackendOnNode installs a backend on a node and returns the gRPC address.
+// installBackendOnNode sends a NATS backend.install request-reply to the node
+// and returns the gRPC address. Concurrent identical calls (same nodeID +
+// backend + modelID + replica) coalesce via singleflight: 6 chat completions
+// for the same not-yet-loaded model produce 1 NATS round-trip and 6 callers
+// share the result. This kills the load-amplification we saw in the live
+// cluster where 6× simultaneous BackendLoader logs sat behind one slow
+// install in the worker's NATS callback queue.
+//
+// Routine load: the worker's fast-path "already running → return current
+// address" is correct here. Upgrades go through
+// DistributedBackendManager.UpgradeBackend on the backend.upgrade subject.
 func (r *SmartRouter) installBackendOnNode(ctx context.Context, node *BackendNode, backendType, modelID string, replicaIndex int) (string, error) {
 	if r.unloader == nil {
 		return "", fmt.Errorf("no NATS connection for backend installation")
 	}
 
-	// Routine load: the worker's fast-path "already running → return current
-	// address" is correct here. Upgrades go through
-	// DistributedBackendManager.UpgradeBackend on the backend.upgrade subject.
-	reply, err := r.unloader.InstallBackend(node.ID, backendType, modelID, r.galleriesJSON, "", "", "", replicaIndex)
+	key := fmt.Sprintf("%s|%s|%s|%d", node.ID, backendType, modelID, replicaIndex)
+	v, err, _ := r.installFlight.Do(key, func() (any, error) {
+		reply, err := r.unloader.InstallBackend(node.ID, backendType, modelID, r.galleriesJSON, "", "", "", replicaIndex)
+		if err != nil {
+			return "", err
+		}
+		if !reply.Success {
+			return "", fmt.Errorf("worker replied with error: %s", reply.Error)
+		}
+		// Return the backend's gRPC address (per-replica port from worker)
+		addr := reply.Address
+		if addr == "" {
+			addr = node.Address // fallback to node base address
+		}
+		return addr, nil
+	})
 	if err != nil {
 		return "", err
 	}
-	if !reply.Success {
-		return "", fmt.Errorf("worker replied with error: %s", reply.Error)
-	}
-	// Return the backend's gRPC address (per-replica port from worker)
-	addr := reply.Address
-	if addr == "" {
-		addr = node.Address // fallback to node base address
-	}
-	return addr, nil
+	return v.(string), nil
 }
 
 func (r *SmartRouter) buildClientForAddr(node *BackendNode, addr string, parallel bool) grpc.Backend {
