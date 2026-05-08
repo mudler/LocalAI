@@ -272,15 +272,11 @@ func (s URI) ResolveURL() string {
 }
 
 func removePartialFile(tmpFilePath string) error {
-	_, err := os.Stat(tmpFilePath)
-	if err == nil {
-		xlog.Debug("Removing temporary file", "file", tmpFilePath)
-		err = os.Remove(tmpFilePath)
-		if err != nil {
-			err1 := fmt.Errorf("failed to remove temporary download file %s: %v", tmpFilePath, err)
-			xlog.Warn("failed to remove temporary download file", "error", err1)
-			return err1
-		}
+	xlog.Debug("Removing temporary file", "file", tmpFilePath)
+	if err := os.Remove(tmpFilePath); err != nil && !errors.Is(err, os.ErrNotExist) {
+		err1 := fmt.Errorf("failed to remove temporary download file %s: %v", tmpFilePath, err)
+		xlog.Warn("failed to remove temporary download file", "error", err1)
+		return err1
 	}
 	return nil
 }
