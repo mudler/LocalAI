@@ -21,6 +21,8 @@
     "@codemirror/search": "^6.5.10",
     "@codemirror/state": "^6.5.2",
     "@codemirror/view": "^6.36.8",
+    "@fontsource-variable/geist": "^5.2.8",
+    "@fontsource-variable/geist-mono": "^5.2.7",
     "@fortawesome/fontawesome-free": "^6.7.2",
     "@lezer/highlight": "^1.2.1",
     "@modelcontextprotocol/ext-apps": "^1.2.2",
