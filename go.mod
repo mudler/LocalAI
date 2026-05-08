@@ -93,8 +93,14 @@ require (
 	github.com/aws/smithy-go v1.25.0 // indirect
 	github.com/bahlo/generic-list-go v0.2.0 // indirect
 	github.com/buger/jsonparser v1.1.2 // indirect
+	github.com/chasefleming/elem-go v0.30.0 // indirect
+	github.com/dave-gray101/v2keyauth v0.0.0-20240624150259-c45d584d25e2 // indirect
 	github.com/dunglas/httpsfv v1.1.0 // indirect
 	github.com/go-jose/go-jose/v4 v4.1.4 // indirect
+	github.com/gofiber/template v1.8.3 // indirect
+	github.com/gofiber/template/html/v2 v2.1.3 // indirect
+	github.com/gofiber/utils v1.1.0 // indirect
+	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
 	github.com/jolestar/go-commons-pool/v2 v2.1.2 // indirect
@@ -104,6 +110,8 @@ require (
 	github.com/moby/moby/client v0.4.0 // indirect
 	github.com/nats-io/nkeys v0.4.15 // indirect
 	github.com/nats-io/nuid v1.0.1 // indirect
+	github.com/spf13/cobra v1.10.2 // indirect
+	github.com/spf13/pflag v1.0.10 // indirect
 	github.com/stretchr/testify v1.11.1 // indirect
 	github.com/sv-tools/openapi v0.2.1 // indirect
 	github.com/swaggo/swag/v2 v2.0.0-rc4 // indirect
@@ -172,7 +180,7 @@ require (
 	github.com/kevinburke/ssh_config v1.2.0 // indirect
 	github.com/labstack/gommon v0.4.2 // indirect
 	github.com/mschoch/smat v0.2.0 // indirect
-	github.com/mudler/LocalAGI v0.0.0-20260507074708-c1a12317930d
+	github.com/mudler/LocalAGI v0.0.0-20260508125235-37810d918a87
 	github.com/mudler/localrecall v0.6.1-0.20260507074622-a7724fef6f81 // indirect
 	github.com/mudler/skillserver v0.0.6
 	github.com/olekukonko/tablewriter v0.0.5 // indirect
