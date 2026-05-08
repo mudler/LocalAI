@@ -56,6 +56,7 @@
         cuda-major-version: ${{ matrix.cuda-major-version }}
         cuda-minor-version: ${{ matrix.cuda-minor-version }}
         platforms: ${{ matrix.platforms }}
+        platform-tag: ${{ matrix.platform-tag || '' }}
         runs-on: ${{ matrix.runs-on }}
         base-image: ${{ matrix.base-image }}
         makeflags: ${{ matrix.makeflags }}
@@ -72,11 +73,23 @@
         matrix:
           include:
             - build-type: ''
-              platforms: 'linux/amd64,linux/arm64'
+              platforms: 'linux/amd64'
+              platform-tag: 'amd64'
               tag-latest: 'auto'
               tag-suffix: ''
               base-image: "ubuntu:24.04"
               runs-on: 'ubuntu-latest'
+              makeflags: "--jobs=4 --output-sync=target"
+              skip-drivers: 'false'
+              ubuntu-version: '2404'
+              ubuntu-codename: 'noble'
+            - build-type: ''
+              platforms: 'linux/arm64'
+              platform-tag: 'arm64'
+              tag-latest: 'auto'
+              tag-suffix: ''
+              base-image: "ubuntu:24.04"
+              runs-on: 'ubuntu-24.04-arm'
               makeflags: "--jobs=4 --output-sync=target"
               skip-drivers: 'false'
               ubuntu-version: '2404'
@@ -106,10 +119,22 @@
               ubuntu-version: '2404'
               ubuntu-codename: 'noble'
             - build-type: 'vulkan'
-              platforms: 'linux/amd64,linux/arm64'
+              platforms: 'linux/amd64'
+              platform-tag: 'amd64'
               tag-latest: 'auto'
               tag-suffix: '-gpu-vulkan'
               runs-on: 'ubuntu-latest'
+              base-image: "ubuntu:24.04"
+              skip-drivers: 'false'
+              makeflags: "--jobs=4 --output-sync=target"
+              ubuntu-version: '2404'
+              ubuntu-codename: 'noble'
+            - build-type: 'vulkan'
+              platforms: 'linux/arm64'
+              platform-tag: 'arm64'
+              tag-latest: 'auto'
+              tag-suffix: '-gpu-vulkan'
+              runs-on: 'ubuntu-24.04-arm'
               base-image: "ubuntu:24.04"
               skip-drivers: 'false'
               makeflags: "--jobs=4 --output-sync=target"
@@ -124,6 +149,32 @@
               makeflags: "--jobs=3 --output-sync=target"
               ubuntu-version: '2404'
               ubuntu-codename: 'noble'
+
+    core-image-merge:
+      if: github.repository == 'mudler/LocalAI'
+      needs: core-image-build
+      uses: ./.github/workflows/image_merge.yml
+      with:
+        tag-latest: 'auto'
+        tag-suffix: ''
+      secrets:
+        dockerUsername: ${{ secrets.DOCKERHUB_USERNAME }}
+        dockerPassword: ${{ secrets.DOCKERHUB_PASSWORD }}
+        quayUsername: ${{ secrets.LOCALAI_REGISTRY_USERNAME }}
+        quayPassword: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
+
+    gpu-vulkan-image-merge:
+      if: github.repository == 'mudler/LocalAI'
+      needs: core-image-build
+      uses: ./.github/workflows/image_merge.yml
+      with:
+        tag-latest: 'auto'
+        tag-suffix: '-gpu-vulkan'
+      secrets:
+        dockerUsername: ${{ secrets.DOCKERHUB_USERNAME }}
+        dockerPassword: ${{ secrets.DOCKERHUB_PASSWORD }}
+        quayUsername: ${{ secrets.LOCALAI_REGISTRY_USERNAME }}
+        quayPassword: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
   
     gh-runner:
       if: github.repository == 'mudler/LocalAI'

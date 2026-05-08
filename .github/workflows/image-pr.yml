@@ -18,6 +18,7 @@
         cuda-major-version: ${{ matrix.cuda-major-version }}
         cuda-minor-version: ${{ matrix.cuda-minor-version }}
         platforms: ${{ matrix.platforms }}
+        platform-tag: ${{ matrix.platform-tag || '' }}
         runs-on: ${{ matrix.runs-on }}
         base-image: ${{ matrix.base-image }}
         makeflags: ${{ matrix.makeflags }}
@@ -71,10 +72,20 @@
               makeflags: "--jobs=3 --output-sync=target"
               ubuntu-version: '2404'
             - build-type: 'vulkan'
-              platforms: 'linux/amd64,linux/arm64'
+              platforms: 'linux/amd64'
+              platform-tag: 'amd64'
               tag-latest: 'false'
               tag-suffix: '-vulkan-core'
               runs-on: 'ubuntu-latest'
+              base-image: "ubuntu:24.04"
+              makeflags: "--jobs=4 --output-sync=target"
+              ubuntu-version: '2404'
+            - build-type: 'vulkan'
+              platforms: 'linux/arm64'
+              platform-tag: 'arm64'
+              tag-latest: 'false'
+              tag-suffix: '-vulkan-core'
+              runs-on: 'ubuntu-24.04-arm'
               base-image: "ubuntu:24.04"
               makeflags: "--jobs=4 --output-sync=target"
               ubuntu-version: '2404'
