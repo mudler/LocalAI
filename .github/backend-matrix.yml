@@ -414,7 +414,7 @@ include:
     platforms: 'linux/amd64'
     tag-latest: 'auto'
     tag-suffix: '-gpu-nvidia-cuda-12-vllm'
-    runs-on: 'arc-runner-set'
+    runs-on: 'ubuntu-latest'
     base-image: "ubuntu:24.04"
     skip-drivers: 'false'
     backend: "vllm"
@@ -427,7 +427,7 @@ include:
     platforms: 'linux/amd64'
     tag-latest: 'auto'
     tag-suffix: '-gpu-nvidia-cuda-12-vllm-omni'
-    runs-on: 'arc-runner-set'
+    runs-on: 'ubuntu-latest'
     base-image: "ubuntu:24.04"
     skip-drivers: 'false'
     backend: "vllm-omni"
@@ -440,7 +440,7 @@ include:
     platforms: 'linux/amd64'
     tag-latest: 'auto'
     tag-suffix: '-gpu-nvidia-cuda-12-sglang'
-    runs-on: 'arc-runner-set'
+    runs-on: 'ubuntu-latest'
     base-image: "ubuntu:24.04"
     skip-drivers: 'false'
     backend: "sglang"
@@ -948,7 +948,7 @@ include:
     platforms: 'linux/amd64'
     tag-latest: 'auto'
     tag-suffix: '-gpu-nvidia-cuda-13-vllm'
-    runs-on: 'arc-runner-set'
+    runs-on: 'ubuntu-latest'
     base-image: "ubuntu:24.04"
     skip-drivers: 'false'
     backend: "vllm"
@@ -961,7 +961,7 @@ include:
     platforms: 'linux/amd64'
     tag-latest: 'auto'
     tag-suffix: '-gpu-nvidia-cuda-13-vllm-omni'
-    runs-on: 'arc-runner-set'
+    runs-on: 'ubuntu-latest'
     base-image: "ubuntu:24.04"
     skip-drivers: 'false'
     backend: "vllm-omni"
@@ -974,7 +974,7 @@ include:
     platforms: 'linux/amd64'
     tag-latest: 'auto'
     tag-suffix: '-gpu-nvidia-cuda-13-sglang'
-    runs-on: 'arc-runner-set'
+    runs-on: 'ubuntu-latest'
     base-image: "ubuntu:24.04"
     skip-drivers: 'false'
     backend: "sglang"
