@@ -673,10 +673,10 @@ func (r *SmartRouter) installBackendOnNode(ctx context.Context, node *BackendNod
 		return "", fmt.Errorf("no NATS connection for backend installation")
 	}
 
-	// force=false: routine load, the worker's fast-path "already running →
-	// return current address" is correct here. Upgrades go through
-	// DistributedBackendManager.UpgradeBackend which sets force=true.
-	reply, err := r.unloader.InstallBackend(node.ID, backendType, modelID, r.galleriesJSON, "", "", "", replicaIndex, false)
+	// Routine load: the worker's fast-path "already running → return current
+	// address" is correct here. Upgrades go through
+	// DistributedBackendManager.UpgradeBackend on the backend.upgrade subject.
+	reply, err := r.unloader.InstallBackend(node.ID, backendType, modelID, r.galleriesJSON, "", "", "", replicaIndex)
 	if err != nil {
 		return "", err
 	}

@@ -339,7 +339,7 @@ func (d *DistributedBackendManager) InstallBackend(ctx context.Context, op *gall
 		// Admin-driven backend install: not tied to a specific replica slot.
 		// Pass replica 0 — the worker's processKey is "backend#0" when no
 		// modelID is supplied, matching pre-PR4 behavior.
-		reply, err := d.adapter.InstallBackend(node.ID, backendName, "", string(galleriesJSON), op.ExternalURI, op.ExternalName, op.ExternalAlias, 0, false)
+		reply, err := d.adapter.InstallBackend(node.ID, backendName, "", string(galleriesJSON), op.ExternalURI, op.ExternalName, op.ExternalAlias, 0)
 		if err != nil {
 			return err
 		}
@@ -354,18 +354,18 @@ func (d *DistributedBackendManager) InstallBackend(ctx context.Context, op *gall
 	return result.Err()
 }
 
-// UpgradeBackend reuses the install NATS subject (the worker re-downloads
-// from the gallery). Unlike Install/Delete, upgrade only targets the nodes
-// that already report this backend as installed — fanning out to every node
-// would ask workers to "upgrade" something they never had, which fails at
-// the gallery (e.g. a darwin/arm64 worker has no platform variant for a
-// linux-only backend) and leaves a forever-retrying pending_backend_ops row.
+// UpgradeBackend uses a separate NATS subject (backend.upgrade) so the slow
+// force-reinstall path doesn't head-of-line-block routine model loads on
+// the same worker. Only nodes that already report this backend as installed
+// are targeted — fanning out to every node would ask workers to "upgrade"
+// something they never had, which fails at the gallery (e.g. a darwin/arm64
+// worker has no platform variant for a linux-only backend) and leaves a
+// forever-retrying pending_backend_ops row.
 //
-// force=true on the install call is what distinguishes upgrade from install:
-// the worker stops the live process for this backend, overwrites the on-disk
-// artifact, and restarts. Without it, the worker's "already running" fast
-// path turns every backend.install into a no-op and the gallery's drift
-// detection never converges.
+// Rolling-update fallback: when a worker returns nats.ErrNoResponders on
+// backend.upgrade, we try the legacy backend.install Force=true path so a
+// new master + old worker still converges. Drop the fallback once every
+// worker in the fleet is on 2026-05-08 or newer.
 func (d *DistributedBackendManager) UpgradeBackend(ctx context.Context, name string, progressCb galleryop.ProgressCallback) error {
 	galleriesJSON, _ := json.Marshal(d.backendGalleries)
 
@@ -383,8 +383,20 @@ func (d *DistributedBackendManager) UpgradeBackend(ctx context.Context, name str
 	}
 
 	result, err := d.enqueueAndDrainBackendOp(ctx, OpBackendUpgrade, name, galleriesJSON, targetNodeIDs, func(node BackendNode) error {
-		reply, err := d.adapter.InstallBackend(node.ID, name, "", string(galleriesJSON), "", "", "", 0, true)
+		reply, err := d.adapter.UpgradeBackend(node.ID, name, string(galleriesJSON), "", "", "", 0)
 		if err != nil {
+			// Rolling-update fallback: an older worker doesn't know
+			// backend.upgrade. Try the legacy install-with-force path.
+			if errors.Is(err, nats.ErrNoResponders) {
+				instReply, instErr := d.adapter.installWithForceFallback(node.ID, name, string(galleriesJSON), "", "", "", 0)
+				if instErr != nil {
+					return instErr
+				}
+				if !instReply.Success {
+					return fmt.Errorf("upgrade (legacy fallback) failed: %s", instReply.Error)
+				}
+				return nil
+			}
 			return err
 		}
 		if !reply.Success {

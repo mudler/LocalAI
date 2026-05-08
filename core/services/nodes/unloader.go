@@ -17,12 +17,19 @@ type backendStopRequest struct {
 // NodeCommandSender abstracts NATS-based commands to worker nodes.
 // Used by HTTP endpoint handlers to avoid coupling to the concrete RemoteUnloaderAdapter.
 //
-// The `force` parameter on InstallBackend is set by the upgrade path to make
-// the worker re-run the gallery install (overwriting the on-disk artifact) and
-// restart any live process for that backend. Routine installs and load events
-// pass force=false so an already-running process short-circuits as before.
+// InstallBackend is idempotent: the worker short-circuits if the backend is
+// already running for the requested (modelID, replica) slot. Routine model
+// loads and admin installs both call this.
+//
+// UpgradeBackend is the destructive force-reinstall path: the worker stops
+// every live process for the backend, re-pulls the gallery artifact, and
+// replies. Caller (DistributedBackendManager.UpgradeBackend) handles
+// rolling-update fallback to the legacy install Force=true path on
+// nats.ErrNoResponders for old workers that don't subscribe to the new
+// backend.upgrade subject.
 type NodeCommandSender interface {
-	InstallBackend(nodeID, backendType, modelID, galleriesJSON, uri, name, alias string, replicaIndex int, force bool) (*messaging.BackendInstallReply, error)
+	InstallBackend(nodeID, backendType, modelID, galleriesJSON, uri, name, alias string, replicaIndex int) (*messaging.BackendInstallReply, error)
+	UpgradeBackend(nodeID, backendType, galleriesJSON, uri, name, alias string, replicaIndex int) (*messaging.BackendUpgradeReply, error)
 	DeleteBackend(nodeID, backendName string) (*messaging.BackendDeleteReply, error)
 	ListBackends(nodeID string) (*messaging.BackendListReply, error)
 	StopBackend(nodeID, backend string) error
@@ -75,22 +82,21 @@ func (a *RemoteUnloaderAdapter) UnloadRemoteModel(modelName string) error {
 }
 
 // InstallBackend sends a backend.install request-reply to a worker node.
-// The worker installs the backend from gallery (if not already installed),
-// starts the gRPC process, and replies when ready.
+// Idempotent on the worker: if the (modelID, replica) process is already
+// running, the worker short-circuits and returns its address; if the binary
+// is on disk, the worker just spawns a process; only a missing binary
+// triggers a full gallery pull.
 //
-// replicaIndex selects which replica slot the worker should use as its
-// process key — distinct slots run on distinct ports so multiple replicas of
-// the same model can coexist on a fat node. Pass 0 for single-replica.
+// Timeout: 3 minutes. Most calls return in under 2 seconds (process already
+// running). The 3-minute ceiling covers the cold-binary spawn-after-download
+// case while still failing fast enough to surface real worker hangs.
 //
-// force=true is the upgrade path: the worker stops any live process for this
-// backend, overwrites the on-disk artifact via gallery install, and restarts.
-// Routine installs and load events pass force=false to keep the existing
-// "already running → return current address" fast path.
-//
-// Timeout: 5 minutes (gallery install can take a while).
-func (a *RemoteUnloaderAdapter) InstallBackend(nodeID, backendType, modelID, galleriesJSON, uri, name, alias string, replicaIndex int, force bool) (*messaging.BackendInstallReply, error) {
+// For force-reinstall (admin-driven Upgrade), use UpgradeBackend instead —
+// it lives on a different NATS subject so it cannot head-of-line-block
+// routine load traffic on the same worker.
+func (a *RemoteUnloaderAdapter) InstallBackend(nodeID, backendType, modelID, galleriesJSON, uri, name, alias string, replicaIndex int) (*messaging.BackendInstallReply, error) {
 	subject := messaging.SubjectNodeBackendInstall(nodeID)
-	xlog.Info("Sending NATS backend.install", "nodeID", nodeID, "backend", backendType, "modelID", modelID, "replica", replicaIndex, "force", force)
+	xlog.Info("Sending NATS backend.install", "nodeID", nodeID, "backend", backendType, "modelID", modelID, "replica", replicaIndex)
 
 	return messaging.RequestJSON[messaging.BackendInstallRequest, messaging.BackendInstallReply](a.nats, subject, messaging.BackendInstallRequest{
 		Backend:          backendType,
@@ -100,8 +106,50 @@ func (a *RemoteUnloaderAdapter) InstallBackend(nodeID, backendType, modelID, gal
 		Name:             name,
 		Alias:            alias,
 		ReplicaIndex:     int32(replicaIndex),
-		Force:            force,
-	}, 5*time.Minute)
+	}, 3*time.Minute)
+}
+
+// UpgradeBackend sends a backend.upgrade request-reply to a worker node.
+// The worker stops every live process for this backend, force-reinstalls
+// from the gallery (overwriting the on-disk artifact), and replies. The
+// next routine InstallBackend call spawns a fresh process with the new
+// binary — upgrade itself does not start a process.
+//
+// Timeout: 15 minutes. Real-world worst case observed: 8–10 minutes for
+// large CUDA-l4t backend images on Jetson over WiFi.
+func (a *RemoteUnloaderAdapter) UpgradeBackend(nodeID, backendType, galleriesJSON, uri, name, alias string, replicaIndex int) (*messaging.BackendUpgradeReply, error) {
+	subject := messaging.SubjectNodeBackendUpgrade(nodeID)
+	xlog.Info("Sending NATS backend.upgrade", "nodeID", nodeID, "backend", backendType, "replica", replicaIndex)
+
+	return messaging.RequestJSON[messaging.BackendUpgradeRequest, messaging.BackendUpgradeReply](a.nats, subject, messaging.BackendUpgradeRequest{
+		Backend:          backendType,
+		BackendGalleries: galleriesJSON,
+		URI:              uri,
+		Name:             name,
+		Alias:            alias,
+		ReplicaIndex:     int32(replicaIndex),
+	}, 15*time.Minute)
+}
+
+// installWithForceFallback is the rolling-update fallback used by
+// DistributedBackendManager.UpgradeBackend when backend.upgrade returns
+// nats.ErrNoResponders (the worker is on a pre-2026-05-08 build that
+// doesn't subscribe to the new subject). It re-fires the legacy
+// backend.install with Force=true. Drop this once every worker is on
+// 2026-05-08 or newer.
+func (a *RemoteUnloaderAdapter) installWithForceFallback(nodeID, backendType, galleriesJSON, uri, name, alias string, replicaIndex int) (*messaging.BackendInstallReply, error) {
+	subject := messaging.SubjectNodeBackendInstall(nodeID)
+	xlog.Warn("Falling back to legacy backend.install Force=true (old worker)", "nodeID", nodeID, "backend", backendType)
+
+	return messaging.RequestJSON[messaging.BackendInstallRequest, messaging.BackendInstallReply](a.nats, subject, messaging.BackendInstallRequest{
+		Backend:          backendType,
+		BackendGalleries: galleriesJSON,
+		URI:              uri,
+		Name:             name,
+		Alias:            alias,
+		ReplicaIndex:     int32(replicaIndex),
+		Force:            true,
+	}, 15*time.Minute)
 }
 
 // ListBackends queries a worker node for its installed backends via NATS request-reply.
