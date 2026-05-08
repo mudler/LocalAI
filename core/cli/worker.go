@@ -671,17 +671,22 @@ func buildProcessKey(modelID, backend string, replicaIndex int) string {
 	return fmt.Sprintf("%s#%d", base, replicaIndex)
 }
 
-// installBackend handles the backend.install flow:
-//  1. If already running for this (model, replica) slot AND req.Force is false,
+// installBackend handles the backend.install flow. force=true is the
+// upgrade path; force=false is the routine load path.
+//
+// The caller is responsible for holding s.lockBackend(req.Backend) for
+// the duration of the call so the gallery directory isn't raced.
+//
+//  1. If already running for this (model, replica) slot AND force is false,
 //     return existing address (the fast path used by routine load events that
 //     just want to know which port a backend already serves on).
-//  2. If req.Force is true, stop any process(es) currently using this backend
+//  2. If force is true, stop any process(es) currently using this backend
 //     so the gallery install can replace the on-disk artifact and the freshly
 //     started process picks up the new binary. This is the upgrade path —
 //     without it, every backend.install we receive after the first hits the
 //     fast path and silently no-ops, leaving the cluster on a stale build.
-//  3. Install backend from gallery (force=req.Force so existing artifacts get
-//     overwritten on upgrade).
+//  3. Install backend from gallery (force passed through so existing artifacts
+//     get overwritten on upgrade).
 //  4. Find backend binary
 //  5. Start gRPC process on a new port
 //
@@ -691,10 +696,10 @@ func buildProcessKey(modelID, backend string, replicaIndex int) string {
 // can host multiple processes for the same model on distinct ports. Old
 // controllers (no replica_index in the request) implicitly target replica 0,
 // which preserves single-replica behavior.
-func (s *backendSupervisor) installBackend(req messaging.BackendInstallRequest) (string, error) {
+func (s *backendSupervisor) installBackend(req messaging.BackendInstallRequest, force bool) (string, error) {
 	processKey := buildProcessKey(req.ModelID, req.Backend, int(req.ReplicaIndex))
 
-	if !req.Force {
+	if !force {
 		// Fast path: already running for this model+replica → return existing
 		// address. Verify liveness before trusting the cached entry: a process
 		// that died without the supervisor noticing leaves a stale (key, addr)
@@ -744,21 +749,21 @@ func (s *backendSupervisor) installBackend(req messaging.BackendInstallRequest) 
 	// restart the same stale binary. The force flag passed to
 	// InstallBackendFromGallery makes it overwrite the existing artifact.
 	backendPath := ""
-	if !req.Force {
+	if !force {
 		backendPath = s.findBackend(req.Backend)
 	}
 	if backendPath == "" {
 		if req.URI != "" {
-			xlog.Info("Installing backend from external URI", "backend", req.Backend, "uri", req.URI, "force", req.Force)
+			xlog.Info("Installing backend from external URI", "backend", req.Backend, "uri", req.URI, "force", force)
 			if err := galleryop.InstallExternalBackend(
 				context.Background(), galleries, s.systemState, s.ml, nil, req.URI, req.Name, req.Alias,
 			); err != nil {
 				return "", fmt.Errorf("installing backend from gallery: %w", err)
 			}
 		} else {
-			xlog.Info("Installing backend from gallery", "backend", req.Backend, "force", req.Force)
+			xlog.Info("Installing backend from gallery", "backend", req.Backend, "force", force)
 			if err := gallery.InstallBackendFromGallery(
-				context.Background(), galleries, s.systemState, s.ml, req.Backend, nil, req.Force,
+				context.Background(), galleries, s.systemState, s.ml, req.Backend, nil, force,
 			); err != nil {
 				return "", fmt.Errorf("installing backend from gallery: %w", err)
 			}
@@ -820,34 +825,49 @@ func (s *backendSupervisor) lockBackend(name string) func() {
 
 // subscribeLifecycleEvents subscribes to NATS backend lifecycle events.
 func (s *backendSupervisor) subscribeLifecycleEvents() {
-	// backend.install — install backend + start gRPC process (request-reply)
+	// backend.install — install backend (idempotent: skips download if binary
+	// exists on disk) + start gRPC process (request-reply).
+	//
+	// Each request runs in its own goroutine so that a slow install on one
+	// backend does NOT head-of-line-block install requests for unrelated
+	// backends arriving on the same subscription. Per-backend serialization
+	// is provided by lockBackend so two requests targeting the same on-disk
+	// artifact don't race the gallery directory.
 	s.nats.SubscribeReply(messaging.SubjectNodeBackendInstall(s.nodeID), func(data []byte, reply func([]byte)) {
-		xlog.Info("Received NATS backend.install event")
-		var req messaging.BackendInstallRequest
-		if err := json.Unmarshal(data, &req); err != nil {
-			resp := messaging.BackendInstallReply{Success: false, Error: fmt.Sprintf("invalid request: %v", err)}
-			replyJSON(reply, resp)
-			return
-		}
+		go func() {
+			xlog.Info("Received NATS backend.install event")
+			var req messaging.BackendInstallRequest
+			if err := json.Unmarshal(data, &req); err != nil {
+				resp := messaging.BackendInstallReply{Success: false, Error: fmt.Sprintf("invalid request: %v", err)}
+				replyJSON(reply, resp)
+				return
+			}
 
-		addr, err := s.installBackend(req)
-		if err != nil {
-			xlog.Error("Failed to install backend via NATS", "error", err)
-			resp := messaging.BackendInstallReply{Success: false, Error: err.Error()}
-			replyJSON(reply, resp)
-			return
-		}
+			release := s.lockBackend(req.Backend)
+			defer release()
 
-		// Return the gRPC address so the router knows which port to use
-		advertiseAddr := addr
-		advAddr := s.cmd.advertiseAddr()
-		if advAddr != addr { // only remap if advertise differs from bind
-			_, port, _ := net.SplitHostPort(addr)
-			advertiseHost, _, _ := net.SplitHostPort(advAddr)
-			advertiseAddr = net.JoinHostPort(advertiseHost, port)
-		}
-		resp := messaging.BackendInstallReply{Success: true, Address: advertiseAddr}
-		replyJSON(reply, resp)
+			// req.Force=true is the legacy path used by pre-2026-05-08 masters
+			// that don't know about backend.upgrade. Honor it so a rolling
+			// update with new worker + old master keeps working; new masters
+			// send to backend.upgrade instead.
+			addr, err := s.installBackend(req, req.Force)
+			if err != nil {
+				xlog.Error("Failed to install backend via NATS", "error", err)
+				resp := messaging.BackendInstallReply{Success: false, Error: err.Error()}
+				replyJSON(reply, resp)
+				return
+			}
+
+			advertiseAddr := addr
+			advAddr := s.cmd.advertiseAddr()
+			if advAddr != addr {
+				_, port, _ := net.SplitHostPort(addr)
+				advertiseHost, _, _ := net.SplitHostPort(advAddr)
+				advertiseAddr = net.JoinHostPort(advertiseHost, port)
+			}
+			resp := messaging.BackendInstallReply{Success: true, Address: advertiseAddr}
+			replyJSON(reply, resp)
+		}()
 	})
 
 	// backend.stop — stop a specific backend process
