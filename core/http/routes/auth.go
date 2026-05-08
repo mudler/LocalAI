@@ -190,6 +190,13 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 	authRL := newRateLimiter(1*time.Minute, 5)
 	authRateLimitMw := rateLimitMiddleware(authRL)
 
+	// Separate, more permissive limiter for OAuth/OIDC callbacks. Corporate
+	// SSO often funnels many real users through one outbound IP, so the 5/min
+	// password-style cap is too tight here; 60/min still bounds a flood that
+	// would otherwise pin token-exchange traffic to the IdP.
+	oauthRL := newRateLimiter(1*time.Minute, 60)
+	oauthRateLimitMw := rateLimitMiddleware(oauthRL)
+
 	// Start background goroutine to periodically prune stale IP entries
 	go func() {
 		ticker := time.NewTicker(10 * time.Minute)
@@ -200,6 +207,7 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 				return
 			case <-ticker.C:
 				authRL.cleanup()
+				oauthRL.cleanup()
 			}
 		}
 	}()
@@ -274,13 +282,13 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 				e.GET("/api/auth/github/login", oauthMgr.LoginHandler(auth.ProviderGitHub))
 				e.GET("/api/auth/github/callback", oauthMgr.CallbackHandler(
 					auth.ProviderGitHub, db, appConfig.Auth.AdminEmail, appConfig.Auth.RegistrationMode, appConfig.Auth.APIKeyHMACSecret,
-				))
+				), oauthRateLimitMw)
 			}
 			if appConfig.Auth.OIDCClientID != "" {
 				e.GET("/api/auth/oidc/login", oauthMgr.LoginHandler(auth.ProviderOIDC))
 				e.GET("/api/auth/oidc/callback", oauthMgr.CallbackHandler(
 					auth.ProviderOIDC, db, appConfig.Auth.AdminEmail, appConfig.Auth.RegistrationMode, appConfig.Auth.APIKeyHMACSecret,
-				))
+				), oauthRateLimitMw)
 			}
 		}
 	}
