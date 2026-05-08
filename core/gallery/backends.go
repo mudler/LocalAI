@@ -222,7 +222,7 @@ func InstallBackend(ctx context.Context, systemState *system.SystemState, modelL
 		}
 	} else {
 		xlog.Debug("Downloading backend", "uri", config.URI, "backendPath", backendPath)
-		if err := uri.DownloadFileWithContext(ctx, backendPath, "", 1, 1, downloadStatus); err != nil {
+		if err := uri.DownloadFileWithContext(ctx, backendPath, config.SHA256, 1, 1, downloadStatus); err != nil {
 			xlog.Debug("Backend download failed, trying fallback", "backendPath", backendPath, "error", err)
 
 			// resetBackendPath cleans up partial state from a failed OCI extraction
@@ -243,7 +243,7 @@ func InstallBackend(ctx context.Context, systemState *system.SystemState, modelL
 				default:
 				}
 				resetBackendPath()
-				if err := downloader.URI(mirror).DownloadFileWithContext(ctx, backendPath, "", 1, 1, downloadStatus); err == nil {
+				if err := downloader.URI(mirror).DownloadFileWithContext(ctx, backendPath, config.SHA256, 1, 1, downloadStatus); err == nil {
 					success = true
 					xlog.Debug("Downloaded backend from mirror", "uri", config.URI, "backendPath", backendPath)
 					break
@@ -256,7 +256,7 @@ func InstallBackend(ctx context.Context, systemState *system.SystemState, modelL
 				if fallbackURI != string(config.URI) {
 					resetBackendPath()
 					xlog.Info("Trying fallback URI", "original", config.URI, "fallback", fallbackURI)
-					if err := downloader.URI(fallbackURI).DownloadFileWithContext(ctx, backendPath, "", 1, 1, downloadStatus); err == nil {
+					if err := downloader.URI(fallbackURI).DownloadFileWithContext(ctx, backendPath, config.SHA256, 1, 1, downloadStatus); err == nil {
 						xlog.Info("Downloaded backend using fallback URI", "uri", fallbackURI, "backendPath", backendPath)
 						success = true
 					} else {
@@ -265,7 +265,7 @@ func InstallBackend(ctx context.Context, systemState *system.SystemState, modelL
 							resetBackendPath()
 							devFallbackURI := fallbackURI + "-" + devSuffix
 							xlog.Info("Trying development fallback URI", "fallback", devFallbackURI)
-							if err := downloader.URI(devFallbackURI).DownloadFileWithContext(ctx, backendPath, "", 1, 1, downloadStatus); err == nil {
+							if err := downloader.URI(devFallbackURI).DownloadFileWithContext(ctx, backendPath, config.SHA256, 1, 1, downloadStatus); err == nil {
 								xlog.Info("Downloaded backend using development fallback URI", "uri", devFallbackURI, "backendPath", backendPath)
 								success = true
 							} else {
