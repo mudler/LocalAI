@@ -268,13 +268,19 @@ func API(application *application.Application) (*echo.Echo, error) {
 		e.Use(auth.RequireQuota(application.AuthDB()))
 	}
 
-	// CORS middleware
+	// CORS middleware. When CORS=true the operator must also specify the
+	// allowed origins; an empty allowlist would otherwise let Echo fall back
+	// to AllowOrigins=["*"], which is almost never what someone enabling
+	// "strict CORS" intended.
 	if application.ApplicationConfig().CORS {
-		corsConfig := middleware.CORSConfig{}
-		if application.ApplicationConfig().CORSAllowOrigins != "" {
-			corsConfig.AllowOrigins = strings.Split(application.ApplicationConfig().CORSAllowOrigins, ",")
+		if application.ApplicationConfig().CORSAllowOrigins == "" {
+			xlog.Warn("LOCALAI_CORS=true but LOCALAI_CORS_ALLOW_ORIGINS is empty; refusing to register a wildcard CORS policy. Set the allowlist or unset LOCALAI_CORS.")
+		} else {
+			corsConfig := middleware.CORSConfig{
+				AllowOrigins: strings.Split(application.ApplicationConfig().CORSAllowOrigins, ","),
+			}
+			e.Use(middleware.CORSWithConfig(corsConfig))
 		}
-		e.Use(middleware.CORSWithConfig(corsConfig))
 	} else {
 		e.Use(middleware.CORS())
 	}
