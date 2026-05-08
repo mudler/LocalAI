@@ -432,9 +432,11 @@ func API(application *application.Application) (*echo.Echo, error) {
 			e.GET("/app", serveIndex)
 			e.GET("/app/*", serveIndex)
 
-			// prefixRedirect performs a redirect that preserves X-Forwarded-Prefix for reverse-proxy support.
+			// prefixRedirect performs a redirect that preserves X-Forwarded-Prefix
+			// for reverse-proxy support. The prefix is forgeable on misconfigured
+			// proxy chains, so reject anything that isn't a same-origin path.
 			prefixRedirect := func(c echo.Context, target string) error {
-				if prefix := c.Request().Header.Get("X-Forwarded-Prefix"); prefix != "" {
+				if prefix, ok := httpMiddleware.SafeForwardedPrefix(c.Request().Header.Get("X-Forwarded-Prefix")); ok {
 					target = strings.TrimSuffix(prefix, "/") + target
 				}
 				return c.Redirect(http.StatusMovedPermanently, target)
