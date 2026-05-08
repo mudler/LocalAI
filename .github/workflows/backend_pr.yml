@@ -13,8 +13,10 @@ jobs:
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
       matrix-darwin: ${{ steps.set-matrix.outputs.matrix-darwin }}
+      merge-matrix: ${{ steps.set-matrix.outputs['merge-matrix'] }}
       has-backends: ${{ steps.set-matrix.outputs.has-backends }}
       has-backends-darwin: ${{ steps.set-matrix.outputs.has-backends-darwin }}
+      has-merges: ${{ steps.set-matrix.outputs['has-merges'] }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -46,6 +48,7 @@ jobs:
       cuda-major-version: ${{ matrix.cuda-major-version }}
       cuda-minor-version: ${{ matrix.cuda-minor-version }}
       platforms: ${{ matrix.platforms }}
+      platform-tag: ${{ matrix.platform-tag || '' }}
       runs-on: ${{ matrix.runs-on }}
       base-image: ${{ matrix.base-image }}
       backend: ${{ matrix.backend }}
@@ -61,6 +64,22 @@ jobs:
       fail-fast: true
       max-parallel: 8
       matrix: ${{ fromJson(needs.generate-matrix.outputs.matrix) }}
+  backend-merge-jobs:
+    needs: [generate-matrix, backend-jobs]
+    # backend_merge.yml's push-side steps are all gated on
+    # github.event_name != 'pull_request', so on a PR the merge job would
+    # do nothing. Skip it entirely to avoid spinning up an empty runner.
+    if: github.event_name != 'pull_request' && needs.generate-matrix.outputs.has-merges == 'true'
+    uses: ./.github/workflows/backend_merge.yml
+    with:
+      tag-latest: ${{ matrix.tag-latest }}
+      tag-suffix: ${{ matrix.tag-suffix }}
+    secrets:
+      quayUsername: ${{ secrets.LOCALAI_REGISTRY_USERNAME }}
+      quayPassword: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.generate-matrix.outputs['merge-matrix']) }}
   backend-jobs-darwin:
     needs: generate-matrix
     uses: ./.github/workflows/backend_build_darwin.yml

@@ -122,12 +122,51 @@ async function getChangedFilesForPush(event) {
   return res.data.files.map(f => f.filename);
 }
 
+// Group filtered linux matrix entries by tag-suffix and emit a merge-matrix
+// entry for any tag-suffix that appears 2+ times. That's the trigger for
+// "this backend has multiple per-arch legs and we need a manifest list".
+// Singletons aren't merged — single-arch backends push by digest and don't
+// need a manifest list assembled across legs.
+function computeMergeMatrix(entries) {
+  const groups = new Map();
+  for (const item of entries) {
+    if (!item['tag-suffix']) continue;
+    const key = item['tag-suffix'];
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(item);
+  }
+  const include = [];
+  for (const [tagSuffix, group] of groups) {
+    if (group.length < 2) continue;
+    // tag-latest must agree across legs — they're going to publish under
+    // the same final tag, so disagreeing on whether it's also the :latest
+    // tag is an authoring bug. Warn loudly so a Task 2.5 fan-out typo is
+    // visible in CI logs instead of silently shipping the leg-0 value.
+    const first = group[0]['tag-latest'] || '';
+    for (const m of group) {
+      if ((m['tag-latest'] || '') !== first) {
+        console.warn(`tag-latest mismatch in group ${tagSuffix}: legs disagree (using ${first})`);
+        break;
+      }
+    }
+    include.push({
+      'tag-suffix': tagSuffix,
+      'tag-latest': first,
+    });
+  }
+  return { include };
+}
+
 function emitFullMatrix() {
+  const mergeMatrix = computeMergeMatrix(includes);
+  const hasMerges = mergeMatrix.include.length > 0 ? 'true' : 'false';
   fs.appendFileSync(process.env.GITHUB_OUTPUT, `run-all=true\n`);
   fs.appendFileSync(process.env.GITHUB_OUTPUT, `has-backends=true\n`);
   fs.appendFileSync(process.env.GITHUB_OUTPUT, `has-backends-darwin=true\n`);
+  fs.appendFileSync(process.env.GITHUB_OUTPUT, `has-merges=${hasMerges}\n`);
   fs.appendFileSync(process.env.GITHUB_OUTPUT, `matrix=${JSON.stringify({ include: includes })}\n`);
   fs.appendFileSync(process.env.GITHUB_OUTPUT, `matrix-darwin=${JSON.stringify({ include: includesDarwin })}\n`);
+  fs.appendFileSync(process.env.GITHUB_OUTPUT, `merge-matrix=${JSON.stringify(mergeMatrix)}\n`);
   for (const backend of allBackendPaths.keys()) {
     fs.appendFileSync(process.env.GITHUB_OUTPUT, `${backend}=true\n`);
   }
@@ -155,11 +194,16 @@ function emitFilteredMatrix(changedFiles) {
   console.log("Has backends?:", hasBackends);
   console.log("Has Darwin backends?:", hasBackendsDarwin);
 
+  const mergeMatrix = computeMergeMatrix(filtered);
+  const hasMerges = mergeMatrix.include.length > 0 ? 'true' : 'false';
+
   fs.appendFileSync(process.env.GITHUB_OUTPUT, `run-all=false\n`);
   fs.appendFileSync(process.env.GITHUB_OUTPUT, `has-backends=${hasBackends}\n`);
   fs.appendFileSync(process.env.GITHUB_OUTPUT, `has-backends-darwin=${hasBackendsDarwin}\n`);
+  fs.appendFileSync(process.env.GITHUB_OUTPUT, `has-merges=${hasMerges}\n`);
   fs.appendFileSync(process.env.GITHUB_OUTPUT, `matrix=${JSON.stringify({ include: filtered })}\n`);
   fs.appendFileSync(process.env.GITHUB_OUTPUT, `matrix-darwin=${JSON.stringify({ include: filteredDarwin })}\n`);
+  fs.appendFileSync(process.env.GITHUB_OUTPUT, `merge-matrix=${JSON.stringify(mergeMatrix)}\n`);
 
   // Per-backend boolean outputs
   for (const [backend, pathPrefix] of allBackendPaths) {
