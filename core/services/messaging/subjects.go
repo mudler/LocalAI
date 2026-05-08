@@ -137,13 +137,12 @@ type BackendInstallRequest struct {
 	// (single-replica behavior — no collision because the controller never
 	// asks for replica > 0 on a node whose MaxReplicasPerModel is 1).
 	ReplicaIndex int32 `json:"replica_index,omitempty"`
-	// Force skips the "already running" short-circuit and re-runs the gallery
-	// install. UpgradeBackend sets this so the worker actually re-downloads the
-	// artifact, stops the live process, and starts a fresh one — without it,
-	// the install handler's early return makes upgrades a silent no-op while
-	// the coordinator's drift detection keeps re-flagging the backend forever.
-	// Older workers that don't know this field treat it as false (current
-	// behavior preserved).
+	// Force is retained on the wire only for backward compatibility with
+	// pre-2026-05-08 masters that did not know about backend.upgrade. New
+	// callers MUST send to SubjectNodeBackendUpgrade instead. Workers continue
+	// to honor Force=true here so a rolling update with new master + old
+	// worker still works (the master's install fallback path also uses this
+	// when backend.upgrade returns nats.ErrNoResponders).
 	Force bool `json:"force,omitempty"`
 }
 
@@ -151,6 +150,41 @@ type BackendInstallRequest struct {
 type BackendInstallReply struct {
 	Success bool   `json:"success"`
 	Address string `json:"address,omitempty"` // gRPC address of the backend process (host:port)
+	Error   string `json:"error,omitempty"`
+}
+
+// SubjectNodeBackendUpgrade tells a worker node to force-reinstall a backend
+// from the gallery, stop every running process for that backend, and restart.
+// Uses NATS request-reply with a long deadline (gallery image pulls can take
+// many minutes on slow links). Routine model loads use SubjectNodeBackendInstall
+// instead — this subject exists so the slow path doesn't head-of-line-block
+// the fast one through a shared subscription goroutine.
+func SubjectNodeBackendUpgrade(nodeID string) string {
+	return subjectNodePrefix + sanitizeSubjectToken(nodeID) + ".backend.upgrade"
+}
+
+// BackendUpgradeRequest is the payload for a backend.upgrade NATS request.
+// It is intentionally a strict subset of BackendInstallRequest — there is no
+// Force field because the upgrade subject IS the force semantics; no ModelID
+// because upgrade is backend-scoped (it stops every replica using the binary
+// before re-installing). Per-replica restart happens on the next routine load.
+type BackendUpgradeRequest struct {
+	Backend          string `json:"backend"`
+	BackendGalleries string `json:"backend_galleries,omitempty"`
+	URI              string `json:"uri,omitempty"`
+	Name             string `json:"name,omitempty"`
+	Alias            string `json:"alias,omitempty"`
+	// ReplicaIndex is informational — upgrade stops all replicas regardless,
+	// but the field lets future per-replica metadata (e.g. progress reporting
+	// scoped to a slot) ride the same wire without a v3 type.
+	ReplicaIndex int32 `json:"replica_index,omitempty"`
+}
+
+// BackendUpgradeReply mirrors BackendInstallReply minus Address — upgrade does
+// not start a process, so there is no port to advertise. The subsequent
+// routine load will re-bind via backend.install and learn the new address.
+type BackendUpgradeReply struct {
+	Success bool   `json:"success"`
 	Error   string `json:"error,omitempty"`
 }
 
