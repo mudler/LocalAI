@@ -388,7 +388,7 @@ include:
     platforms: 'linux/amd64'
     tag-latest: 'auto'
     tag-suffix: '-gpu-nvidia-cuda-12-llama-cpp'
-    runs-on: 'bigger-runner'
+    runs-on: 'ubuntu-latest'
     base-image: "ubuntu:24.04"
     skip-drivers: 'false'
     backend: "llama-cpp"
@@ -401,7 +401,7 @@ include:
     platforms: 'linux/amd64'
     tag-latest: 'auto'
     tag-suffix: '-gpu-nvidia-cuda-12-turboquant'
-    runs-on: 'bigger-runner'
+    runs-on: 'ubuntu-latest'
     base-image: "ubuntu:24.04"
     skip-drivers: 'false'
     backend: "turboquant"
@@ -1769,7 +1769,7 @@ include:
     platforms: 'linux/amd64'
     tag-latest: 'auto'
     tag-suffix: '-gpu-rocm-hipblas-faster-whisper'
-    runs-on: 'bigger-runner'
+    runs-on: 'ubuntu-latest'
     base-image: "rocm/dev-ubuntu-24.04:7.2.1"
     skip-drivers: 'false'
     backend: "faster-whisper"
@@ -1782,7 +1782,7 @@ include:
     platforms: 'linux/amd64'
     tag-latest: 'auto'
     tag-suffix: '-gpu-rocm-hipblas-coqui'
-    runs-on: 'bigger-runner'
+    runs-on: 'ubuntu-latest'
     base-image: "rocm/dev-ubuntu-24.04:7.2.1"
     skip-drivers: 'false'
     backend: "coqui"
@@ -2311,7 +2311,7 @@ include:
     platforms: 'linux/amd64'
     tag-latest: 'auto'
     tag-suffix: '-cpu-ik-llama-cpp'
-    runs-on: 'bigger-runner'
+    runs-on: 'ubuntu-latest'
     base-image: "ubuntu:24.04"
     skip-drivers: 'false'
     backend: "ik-llama-cpp"
