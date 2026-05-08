@@ -388,7 +388,6 @@ export default function Login() {
                   setAcknowledgeWeakPassword(false)
                 }}
                 placeholder={t('login.newPasswordPlaceholder')}
-                minLength={12}
                 required
               />
             </div>

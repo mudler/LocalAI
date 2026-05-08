@@ -200,7 +200,6 @@ function SecurityTab({ addToast }) {
               setAcknowledgeWeak(false)
             }}
             placeholder={t('account.security.newPasswordPlaceholder')}
-            minLength={12}
             disabled={saving}
             required
           />
