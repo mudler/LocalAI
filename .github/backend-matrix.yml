@@ -1586,7 +1586,7 @@ include:
     platforms: 'linux/amd64'
     tag-latest: 'auto'
     tag-suffix: '-gpu-rocm-hipblas-vllm'
-    runs-on: 'arc-runner-set'
+    runs-on: 'ubuntu-latest'
     base-image: "rocm/dev-ubuntu-24.04:7.2.1"
     skip-drivers: 'false'
     backend: "vllm"
@@ -1599,7 +1599,7 @@ include:
     platforms: 'linux/amd64'
     tag-latest: 'auto'
     tag-suffix: '-gpu-rocm-hipblas-vllm-omni'
-    runs-on: 'arc-runner-set'
+    runs-on: 'ubuntu-latest'
     base-image: "rocm/dev-ubuntu-24.04:7.2.1"
     skip-drivers: 'false'
     backend: "vllm-omni"
@@ -1612,7 +1612,7 @@ include:
     platforms: 'linux/amd64'
     tag-latest: 'auto'
     tag-suffix: '-gpu-rocm-hipblas-sglang'
-    runs-on: 'arc-runner-set'
+    runs-on: 'ubuntu-latest'
     base-image: "rocm/dev-ubuntu-24.04:7.2.1"
     skip-drivers: 'false'
     backend: "sglang"
@@ -1625,7 +1625,7 @@ include:
     platforms: 'linux/amd64'
     tag-latest: 'auto'
     tag-suffix: '-gpu-rocm-hipblas-transformers'
-    runs-on: 'arc-runner-set'
+    runs-on: 'ubuntu-latest'
     base-image: "rocm/dev-ubuntu-24.04:7.2.1"
     skip-drivers: 'false'
     backend: "transformers"
@@ -1638,7 +1638,7 @@ include:
     platforms: 'linux/amd64'
     tag-latest: 'auto'
     tag-suffix: '-gpu-rocm-hipblas-diffusers'
-    runs-on: 'arc-runner-set'
+    runs-on: 'ubuntu-latest'
     base-image: "rocm/dev-ubuntu-24.04:7.2.1"
     skip-drivers: 'false'
     backend: "diffusers"
@@ -1651,7 +1651,7 @@ include:
     platforms: 'linux/amd64'
     tag-latest: 'auto'
     tag-suffix: '-gpu-rocm-hipblas-ace-step'
-    runs-on: 'arc-runner-set'
+    runs-on: 'ubuntu-latest'
     base-image: "rocm/dev-ubuntu-24.04:7.2.1"
     skip-drivers: 'false'
     backend: "ace-step"
@@ -1665,7 +1665,7 @@ include:
     platforms: 'linux/amd64'
     tag-latest: 'auto'
     tag-suffix: '-gpu-rocm-hipblas-kokoro'
-    runs-on: 'arc-runner-set'
+    runs-on: 'ubuntu-latest'
     base-image: "rocm/dev-ubuntu-24.04:7.2.1"
     skip-drivers: 'false'
     backend: "kokoro"
@@ -1678,7 +1678,7 @@ include:
     platforms: 'linux/amd64'
     tag-latest: 'auto'
     tag-suffix: '-gpu-rocm-hipblas-vibevoice'
-    runs-on: 'arc-runner-set'
+    runs-on: 'ubuntu-latest'
     base-image: "rocm/dev-ubuntu-24.04:7.2.1"
     skip-drivers: 'false'
     backend: "vibevoice"
@@ -1691,7 +1691,7 @@ include:
     platforms: 'linux/amd64'
     tag-latest: 'auto'
     tag-suffix: '-gpu-rocm-hipblas-qwen-asr'
-    runs-on: 'arc-runner-set'
+    runs-on: 'ubuntu-latest'
     base-image: "rocm/dev-ubuntu-24.04:7.2.1"
     skip-drivers: 'false'
     backend: "qwen-asr"
@@ -1704,7 +1704,7 @@ include:
     platforms: 'linux/amd64'
     tag-latest: 'auto'
     tag-suffix: '-gpu-rocm-hipblas-nemo'
-    runs-on: 'arc-runner-set'
+    runs-on: 'ubuntu-latest'
     base-image: "rocm/dev-ubuntu-24.04:7.2.1"
     skip-drivers: 'false'
     backend: "nemo"
@@ -1717,7 +1717,7 @@ include:
     platforms: 'linux/amd64'
     tag-latest: 'auto'
     tag-suffix: '-gpu-rocm-hipblas-qwen-tts'
-    runs-on: 'arc-runner-set'
+    runs-on: 'ubuntu-latest'
     base-image: "rocm/dev-ubuntu-24.04:7.2.1"
     skip-drivers: 'false'
     backend: "qwen-tts"
@@ -1730,7 +1730,7 @@ include:
     platforms: 'linux/amd64'
     tag-latest: 'auto'
     tag-suffix: '-gpu-rocm-hipblas-fish-speech'
-    runs-on: 'arc-runner-set'
+    runs-on: 'ubuntu-latest'
     base-image: "rocm/dev-ubuntu-24.04:7.2.1"
     skip-drivers: 'false'
     backend: "fish-speech"
@@ -1743,7 +1743,7 @@ include:
     platforms: 'linux/amd64'
     tag-latest: 'auto'
     tag-suffix: '-gpu-rocm-hipblas-voxcpm'
-    runs-on: 'arc-runner-set'
+    runs-on: 'ubuntu-latest'
     base-image: "rocm/dev-ubuntu-24.04:7.2.1"
     skip-drivers: 'false'
     backend: "voxcpm"
@@ -1756,7 +1756,7 @@ include:
     platforms: 'linux/amd64'
     tag-latest: 'auto'
     tag-suffix: '-gpu-rocm-hipblas-pocket-tts'
-    runs-on: 'arc-runner-set'
+    runs-on: 'ubuntu-latest'
     base-image: "rocm/dev-ubuntu-24.04:7.2.1"
     skip-drivers: 'false'
     backend: "pocket-tts"
@@ -3395,7 +3395,7 @@ include:
     platforms: 'linux/amd64'
     tag-latest: 'auto'
     tag-suffix: '-gpu-rocm-hipblas-neutts'
-    runs-on: 'arc-runner-set'
+    runs-on: 'ubuntu-latest'
     base-image: "rocm/dev-ubuntu-24.04:7.2.1"
     skip-drivers: 'false'
     backend: "neutts"
