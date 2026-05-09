@@ -104,6 +104,18 @@ jobs:
             cuda-major-version: ''
             cuda-minor-version: ''
             ubuntu-version: '2404'
+          # Legacy JetPack r36.4.0 base for older Jetson devices (CUDA 12).
+          # Distinct from base-grpc-cuda-13-arm64 (Ubuntu 24.04 + CUDA 13 sbsa)
+          # which targets newer Jetsons. Some matrix entries
+          # (-nvidia-l4t-arm64-llama-cpp / -turboquant) still build against
+          # the JetPack image, so we need a matching base.
+          - tag: 'base-grpc-l4t-cuda-12-arm64'
+            runs-on: 'ubuntu-24.04-arm'
+            base-image: 'nvcr.io/nvidia/l4t-jetpack:r36.4.0'
+            build-type: 'l4t'
+            cuda-major-version: '12'
+            cuda-minor-version: '0'
+            ubuntu-version: '2204'
     steps:
       - uses: actions/checkout@v6
         with:
