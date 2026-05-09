@@ -388,6 +388,7 @@ include:
     platforms: 'linux/amd64'
     tag-latest: 'auto'
     tag-suffix: '-gpu-nvidia-cuda-12-llama-cpp'
+    builder-base-image: 'quay.io/go-skynet/ci-cache:base-grpc-cuda-12-amd64'
     runs-on: 'ubuntu-latest'
     base-image: "ubuntu:24.04"
     skip-drivers: 'false'
@@ -401,6 +402,7 @@ include:
     platforms: 'linux/amd64'
     tag-latest: 'auto'
     tag-suffix: '-gpu-nvidia-cuda-12-turboquant'
+    builder-base-image: 'quay.io/go-skynet/ci-cache:base-grpc-cuda-12-amd64'
     runs-on: 'ubuntu-latest'
     base-image: "ubuntu:24.04"
     skip-drivers: 'false'
@@ -896,6 +898,7 @@ include:
     platforms: 'linux/amd64'
     tag-latest: 'auto'
     tag-suffix: '-gpu-nvidia-cuda-13-llama-cpp'
+    builder-base-image: 'quay.io/go-skynet/ci-cache:base-grpc-cuda-13-amd64'
     runs-on: 'ubuntu-latest'
     base-image: "ubuntu:24.04"
     skip-drivers: 'false'
@@ -909,6 +912,7 @@ include:
     platforms: 'linux/amd64'
     tag-latest: 'auto'
     tag-suffix: '-gpu-nvidia-cuda-13-turboquant'
+    builder-base-image: 'quay.io/go-skynet/ci-cache:base-grpc-cuda-13-amd64'
     runs-on: 'ubuntu-latest'
     base-image: "ubuntu:24.04"
     skip-drivers: 'false'
@@ -923,6 +927,7 @@ include:
     skip-drivers: 'false'
     tag-latest: 'auto'
     tag-suffix: '-nvidia-l4t-cuda-13-arm64-llama-cpp'
+    builder-base-image: 'quay.io/go-skynet/ci-cache:base-grpc-cuda-13-arm64'
     base-image: "ubuntu:24.04"
     runs-on: 'ubuntu-24.04-arm'
     ubuntu-version: '2404'
@@ -936,6 +941,7 @@ include:
     skip-drivers: 'false'
     tag-latest: 'auto'
     tag-suffix: '-nvidia-l4t-cuda-13-arm64-turboquant'
+    builder-base-image: 'quay.io/go-skynet/ci-cache:base-grpc-cuda-13-arm64'
     base-image: "ubuntu:24.04"
     runs-on: 'ubuntu-24.04-arm'
     ubuntu-version: '2404'
@@ -1560,6 +1566,7 @@ include:
     platforms: 'linux/amd64'
     tag-latest: 'auto'
     tag-suffix: '-gpu-rocm-hipblas-llama-cpp'
+    builder-base-image: 'quay.io/go-skynet/ci-cache:base-grpc-rocm-amd64'
     runs-on: 'ubuntu-latest'
     base-image: "rocm/dev-ubuntu-24.04:7.2.1"
     skip-drivers: 'false'
@@ -1573,6 +1580,7 @@ include:
     platforms: 'linux/amd64'
     tag-latest: 'auto'
     tag-suffix: '-gpu-rocm-hipblas-turboquant'
+    builder-base-image: 'quay.io/go-skynet/ci-cache:base-grpc-rocm-amd64'
     runs-on: 'ubuntu-latest'
     base-image: "rocm/dev-ubuntu-24.04:7.2.1"
     skip-drivers: 'false'
@@ -1809,6 +1817,7 @@ include:
     platforms: 'linux/amd64'
     tag-latest: 'auto'
     tag-suffix: '-gpu-intel-sycl-f32-llama-cpp'
+    builder-base-image: 'quay.io/go-skynet/ci-cache:base-grpc-intel-amd64'
     runs-on: 'ubuntu-latest'
     base-image: "intel/oneapi-basekit:2025.3.2-0-devel-ubuntu24.04"
     skip-drivers: 'false'
@@ -1822,6 +1831,7 @@ include:
     platforms: 'linux/amd64'
     tag-latest: 'auto'
     tag-suffix: '-gpu-intel-sycl-f32-turboquant'
+    builder-base-image: 'quay.io/go-skynet/ci-cache:base-grpc-intel-amd64'
     runs-on: 'ubuntu-latest'
     base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
     skip-drivers: 'false'
@@ -1835,6 +1845,7 @@ include:
     platforms: 'linux/amd64'
     tag-latest: 'auto'
     tag-suffix: '-gpu-intel-sycl-f16-llama-cpp'
+    builder-base-image: 'quay.io/go-skynet/ci-cache:base-grpc-intel-amd64'
     runs-on: 'ubuntu-latest'
     base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
     skip-drivers: 'false'
@@ -1848,6 +1859,7 @@ include:
     platforms: 'linux/amd64'
     tag-latest: 'auto'
     tag-suffix: '-gpu-intel-sycl-f16-turboquant'
+    builder-base-image: 'quay.io/go-skynet/ci-cache:base-grpc-intel-amd64'
     runs-on: 'ubuntu-latest'
     base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
     skip-drivers: 'false'
@@ -2256,6 +2268,7 @@ include:
     platform-tag: 'amd64'
     tag-latest: 'auto'
     tag-suffix: '-cpu-llama-cpp'
+    builder-base-image: 'quay.io/go-skynet/ci-cache:base-grpc-amd64'
     runs-on: 'ubuntu-latest'
     base-image: "ubuntu:24.04"
     skip-drivers: 'false'
@@ -2270,6 +2283,7 @@ include:
     platform-tag: 'arm64'
     tag-latest: 'auto'
     tag-suffix: '-cpu-llama-cpp'
+    builder-base-image: 'quay.io/go-skynet/ci-cache:base-grpc-arm64'
     runs-on: 'ubuntu-24.04-arm'
     base-image: "ubuntu:24.04"
     skip-drivers: 'false'
@@ -2284,6 +2298,7 @@ include:
     platform-tag: 'amd64'
     tag-latest: 'auto'
     tag-suffix: '-cpu-turboquant'
+    builder-base-image: 'quay.io/go-skynet/ci-cache:base-grpc-amd64'
     runs-on: 'ubuntu-latest'
     base-image: "ubuntu:24.04"
     skip-drivers: 'false'
@@ -2298,6 +2313,7 @@ include:
     platform-tag: 'arm64'
     tag-latest: 'auto'
     tag-suffix: '-cpu-turboquant'
+    builder-base-image: 'quay.io/go-skynet/ci-cache:base-grpc-arm64'
     runs-on: 'ubuntu-24.04-arm'
     base-image: "ubuntu:24.04"
     skip-drivers: 'false'
@@ -2311,6 +2327,7 @@ include:
     platforms: 'linux/amd64'
     tag-latest: 'auto'
     tag-suffix: '-cpu-ik-llama-cpp'
+    builder-base-image: 'quay.io/go-skynet/ci-cache:base-grpc-amd64'
     runs-on: 'ubuntu-latest'
     base-image: "ubuntu:24.04"
     skip-drivers: 'false'
@@ -2325,6 +2342,7 @@ include:
     skip-drivers: 'false'
     tag-latest: 'auto'
     tag-suffix: '-nvidia-l4t-arm64-llama-cpp'
+    builder-base-image: 'quay.io/go-skynet/ci-cache:base-grpc-l4t-cuda-12-arm64'
     base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
     runs-on: 'ubuntu-24.04-arm'
     backend: "llama-cpp"
@@ -2338,6 +2356,7 @@ include:
     skip-drivers: 'false'
     tag-latest: 'auto'
     tag-suffix: '-nvidia-l4t-arm64-turboquant'
+    builder-base-image: 'quay.io/go-skynet/ci-cache:base-grpc-l4t-cuda-12-arm64'
     base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
     runs-on: 'ubuntu-24.04-arm'
     backend: "turboquant"
@@ -2351,6 +2370,7 @@ include:
     platform-tag: 'amd64'
     tag-latest: 'auto'
     tag-suffix: '-gpu-vulkan-llama-cpp'
+    builder-base-image: 'quay.io/go-skynet/ci-cache:base-grpc-vulkan-amd64'
     runs-on: 'ubuntu-latest'
     base-image: "ubuntu:24.04"
     skip-drivers: 'false'
@@ -2365,6 +2385,7 @@ include:
     platform-tag: 'arm64'
     tag-latest: 'auto'
     tag-suffix: '-gpu-vulkan-llama-cpp'
+    builder-base-image: 'quay.io/go-skynet/ci-cache:base-grpc-vulkan-arm64'
     runs-on: 'ubuntu-24.04-arm'
     base-image: "ubuntu:24.04"
     skip-drivers: 'false'
@@ -2379,6 +2400,7 @@ include:
     platform-tag: 'amd64'
     tag-latest: 'auto'
     tag-suffix: '-gpu-vulkan-turboquant'
+    builder-base-image: 'quay.io/go-skynet/ci-cache:base-grpc-vulkan-amd64'
     runs-on: 'ubuntu-latest'
     base-image: "ubuntu:24.04"
     skip-drivers: 'false'
@@ -2394,6 +2416,7 @@ include:
     platform-tag: 'arm64'
     tag-latest: 'auto'
     tag-suffix: '-gpu-vulkan-turboquant'
+    builder-base-image: 'quay.io/go-skynet/ci-cache:base-grpc-vulkan-arm64'
     runs-on: 'ubuntu-24.04-arm'
     base-image: "ubuntu:24.04"
     skip-drivers: 'false'
