@@ -101,6 +101,12 @@ jobs:
           # the brew cache content stays stable across every backend in the
           # matrix — they all share one cache key.
           brew install protobuf grpc make protoc-gen-go protoc-gen-go-grpc libomp llvm ccache
+          # The brew cache restores the Cellar dirs but NOT the bin symlinks
+          # at /opt/homebrew/bin/*. brew install above sees the Cellar present
+          # and decides "already installed" without re-linking, so on a cache-
+          # hit run the formulas aren't on PATH. Force-link them; --overwrite
+          # tolerates pre-existing symlinks from earlier installs.
+          brew link --overwrite protobuf grpc make protoc-gen-go protoc-gen-go-grpc libomp llvm ccache 2>/dev/null || true
 
       - name: Save Homebrew cache
         if: github.event_name != 'pull_request' && steps.brew-cache.outputs.cache-hit != 'true'
