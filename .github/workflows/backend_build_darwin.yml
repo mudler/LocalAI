@@ -175,7 +175,18 @@ jobs:
           restore-keys: |
             pyenv-darwin-${{ inputs.backend }}-
 
+      # llama-cpp on Darwin uses a bespoke build script (scripts/build/llama-cpp-darwin.sh)
+      # that compiles three CMake variants from backend/cpp/llama-cpp and bundles dylibs
+      # via otool — it doesn't fit the build-darwin-go-backend / build-darwin-python-backend
+      # mold. Drive it via its dedicated `backends/llama-cpp-darwin` make target instead.
+      - name: Build ${{ inputs.backend }}-darwin (llama-cpp)
+        if: inputs.backend == 'llama-cpp'
+        run: |
+          make protogen-go
+          make backends/llama-cpp-darwin
+
       - name: Build ${{ inputs.backend }}-darwin
+        if: inputs.backend != 'llama-cpp'
         run: |
           make protogen-go
           BACKEND=${{ inputs.backend }} BUILD_TYPE=${{ inputs.build-type }} USE_PIP=${{ inputs.use-pip }} make build-darwin-${{ inputs.lang }}-backend

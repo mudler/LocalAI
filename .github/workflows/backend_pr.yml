@@ -87,7 +87,7 @@ jobs:
     with:
       backend: ${{ matrix.backend }}
       build-type: ${{ matrix.build-type }}
-      go-version: "1.24.x"
+      go-version: "1.25.x"
       tag-suffix: ${{ matrix.tag-suffix }}
       lang: ${{ matrix.lang || 'python' }}
       use-pip: ${{ matrix.backend == 'diffusers' }}

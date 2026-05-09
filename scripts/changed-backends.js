@@ -39,6 +39,12 @@ function inferBackendPath(item) {
 }
 
 function inferBackendPathDarwin(item) {
+  // llama-cpp on Darwin builds from the C++ sources, not a backend/go/llama-cpp
+  // tree (which doesn't exist). The Darwin job is matrix-driven with lang=go
+  // for runner/toolchain selection, but the source path is C++.
+  if (item.backend === "llama-cpp") {
+    return `backend/cpp/llama-cpp/`;
+  }
   if (!item.lang) {
     return `backend/python/${item.backend}/`;
   }
