@@ -28,9 +28,9 @@ For Rust backends, you'll typically need (see `backend/rust/kokoros/` as a refer
 - `run.sh` - Sets `LD_LIBRARY_PATH`/`SSL_CERT_DIR` and execs the binary via the bundled `lib/ld.so`
 - `sources/<UpstreamProject>/` - Git submodule with the upstream Rust crate
 
-## 2. Add Build Configurations to `.github/workflows/backend.yml`
+## 2. Add Build Configurations to `.github/backend-matrix.yml`
 
-Add build matrix entries for each platform/GPU type you want to support. Look at similar backends for reference — `chatterbox`/`faster-whisper` for Python, `piper`/`silero-vad` for Go, `kokoros` for Rust.
+The build matrix is data-only YAML at `.github/backend-matrix.yml` (not inside `backend.yml` itself). `backend.yml` (master push) and `backend_pr.yml` (PR) load it via `scripts/changed-backends.js`, which also handles per-file path filtering so only touched backends rebuild on PRs and master pushes alike. Add build matrix entries to `.github/backend-matrix.yml` for each platform/GPU type you want to support. Look at similar backends for reference — `chatterbox`/`faster-whisper` for Python, `piper`/`silero-vad` for Go, `kokoros` for Rust.
 
 **Without an entry here no image is ever built or pushed, and the gallery entry in `backend/index.yaml` will point at a tag that does not exist.** The `dockerfile:` field must point at `./backend/Dockerfile.<lang>` matching the language bucket from step 1 (e.g. `Dockerfile.python`, `Dockerfile.golang`, `Dockerfile.rust`). The `tag-suffix` must match the `uri:` in the corresponding `backend/index.yaml` image entry exactly.
 
@@ -45,6 +45,14 @@ If you add a new language bucket, `scripts/changed-backends.js` also needs a bra
 - ROCm/HIP: Use `build-type: 'hipblas'` with `base-image: "rocm/dev-ubuntu-24.04:7.2.1"`
 - Intel/SYCL: Use `build-type: 'intel'` or `build-type: 'sycl_f16'`/`sycl_f32` with `base-image: "intel/oneapi-basekit:2025.3.2-0-devel-ubuntu24.04"`
 - L4T (ARM): Use `build-type: 'l4t'` with `platforms: 'linux/arm64'` and `runs-on: 'ubuntu-24.04-arm'`
+
+**Per-arch native builds (`linux/amd64` + `linux/arm64`):**
+
+Multi-arch backends are NOT a single matrix entry with `platforms: 'linux/amd64,linux/arm64'`. Instead, add **two** entries — one with `platforms: 'linux/amd64'` + `platform-tag: 'amd64'` + `runs-on: 'ubuntu-latest'`, one with `platforms: 'linux/arm64'` + `platform-tag: 'arm64'` + `runs-on: 'ubuntu-24.04-arm'` — both sharing the same `tag-suffix`. The script detects the shared `tag-suffix` and emits a `merge-matrix` entry, so `backend-merge-jobs` (in `backend.yml`/`backend_pr.yml`) automatically assembles the manifest list from per-arch digest artifacts. See `-cpu-faster-whisper` in `.github/backend-matrix.yml` for a reference shape.
+
+**llama-cpp / ik-llama-cpp / turboquant variants only — `builder-base-image`:**
+
+Entries whose `dockerfile` is `./backend/Dockerfile.{llama-cpp,ik-llama-cpp,turboquant}` must also set a `builder-base-image` field pointing at a prebuilt base from `quay.io/go-skynet/ci-cache:base-grpc-*` (CI builds these via `.github/workflows/base-images.yml`). The mapping is by `(build-type, platforms)` — see existing entries for the pattern. CI uses these prebuilt bases to skip the gRPC compile (~25–35 min cold). Local `make backends/<name>` ignores `builder-base-image` and uses the from-source path inside the Dockerfile, so you don't need quay access for local builds.
 
 ## 3. Add Backend Metadata to `backend/index.yaml`
 
@@ -145,7 +153,7 @@ docker-build-backends: ... docker-build-<backend-name>
 After adding a new backend, verify:
 
 - [ ] Backend directory structure is complete with all necessary files
-- [ ] Build configurations added to `.github/workflows/backend.yml` for all desired platforms
+- [ ] Build configurations added to `.github/backend-matrix.yml` for all desired platforms (per-arch entries with `platform-tag` for multi-arch; `builder-base-image` for llama-cpp / ik-llama-cpp / turboquant)
 - [ ] Meta definition added to `backend/index.yaml` in the `## metas` section
 - [ ] Image entries added to `backend/index.yaml` for all build variants (latest + development)
 - [ ] Tag suffixes match between workflow file and index.yaml
