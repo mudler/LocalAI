@@ -923,14 +923,14 @@
 .resource-bar-container {
   height: 4px;
   background: var(--color-bg-primary);
-  border-radius: 2px;
+  border-radius: 0;
   overflow: hidden;
 }
 
 .resource-bar {
   height: 100%;
   background: var(--color-primary);
-  border-radius: 2px;
+  border-radius: 0;
   transition: width 500ms ease;
 }
 
@@ -2789,7 +2789,7 @@ select.input {
 .chat-list::-webkit-scrollbar-track { background: transparent; }
 .chat-list::-webkit-scrollbar-thumb {
   background: var(--color-border-subtle);
-  border-radius: 2px;
+  border-radius: 0;
 }
 
 .chat-list-item {
@@ -2897,7 +2897,7 @@ select.input {
 .chat-messages::-webkit-scrollbar-track { background: transparent; }
 .chat-messages::-webkit-scrollbar-thumb {
   background: var(--color-border-subtle);
-  border-radius: 3px;
+  border-radius: 0;
 }
 .chat-messages::-webkit-scrollbar-thumb:hover {
   background: var(--color-border-default);
@@ -3111,7 +3111,7 @@ select.input {
   padding: 0 10px;
   background: transparent;
   border: 1px solid var(--color-border-subtle);
-  border-radius: 999px;
+  border-radius: 0;
   color: var(--color-text-muted);
   font-family: inherit;
   font-size: 0.75rem;
@@ -3148,7 +3148,7 @@ select.input {
   height: 16px;
   padding: 0 5px;
   margin-left: 2px;
-  border-radius: 999px;
+  border-radius: 0;
   background: var(--color-primary);
   color: var(--color-primary-text);
   font-size: 0.65rem;
@@ -3177,7 +3177,7 @@ select.input {
   padding: 0 10px;
   background: transparent;
   border: 1px solid var(--color-border-subtle);
-  border-radius: 999px;
+  border-radius: 0;
   color: var(--color-text-muted);
   font-family: inherit;
   font-size: 0.75rem;
@@ -3385,13 +3385,13 @@ select.input {
   flex: 1;
   height: 4px;
   background: var(--color-bg-tertiary);
-  border-radius: 2px;
+  border-radius: 0;
   overflow: hidden;
 }
 .chat-staging-bar {
   height: 100%;
   background: var(--color-primary);
-  border-radius: 2px;
+  border-radius: 0;
   transition: width 300ms ease;
 }
 .chat-staging-pct {
@@ -3919,7 +3919,7 @@ select.input {
   display: inline-block;
   margin-left: 6px;
   padding: 0 5px;
-  border-radius: 999px;
+  border-radius: 0;
   background: var(--color-bg-tertiary);
   font-size: 0.6rem;
   color: var(--color-text-muted);
@@ -4166,7 +4166,7 @@ select.input {
   min-width: 18px;
   height: 18px;
   padding: 0 5px;
-  border-radius: 9px;
+  border-radius: 0;
   background: rgba(255,255,255,0.25);
   font-size: 0.7rem;
   font-weight: 600;
@@ -4458,7 +4458,7 @@ select.input {
   appearance: none;
   -webkit-appearance: none;
   background: var(--color-border-default);
-  border-radius: 2px;
+  border-radius: 0;
   outline: none;
 }
 .chat-slider::-webkit-slider-thumb {
@@ -5059,7 +5059,7 @@ select.input {
   align-items: center;
   gap: 4px;
   padding: 4px 10px;
-  border-radius: 999px;
+  border-radius: 0;
   border: 1px solid var(--color-border-subtle);
   background: transparent;
   color: var(--color-text-secondary);
@@ -6326,7 +6326,7 @@ select.input {
 .biometrics-bbox__box {
   position: absolute;
   border: 2px solid var(--color-accent);
-  border-radius: 2px;
+  border-radius: 0;
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.25), 0 0 12px rgba(232, 168, 124, 0.35);
   pointer-events: none;
   transition: border-color var(--duration-fast);
@@ -6673,7 +6673,7 @@ select.input {
   width: 12px;
   transform: translateX(-6px);
   background: var(--color-text-primary);
-  border-radius: 2px;
+  border-radius: 0;
   border: 2px solid var(--color-surface-raised);
   transition: left var(--duration-normal) var(--ease-default);
   box-shadow: var(--shadow-sm);

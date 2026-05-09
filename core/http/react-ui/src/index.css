@@ -1,3 +1,27 @@
+/* Font face declarations — RezusCloud Design System */
+@font-face {
+  font-family: "Silkscreen";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/Silkscreen-Regular.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Silkscreen";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/Silkscreen-Bold.woff2") format("woff2");
+}
+@font-face {
+  font-family: "VT323";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/VT323-Regular.woff2") format("woff2");
+  unicode-range: U+0020-007F, U+2713;
+}
+
 /* Reset */
 *, *::before, *::after {
   box-sizing: border-box;
@@ -16,8 +40,6 @@ body {
   font-size: var(--text-base);
   font-weight: var(--font-weight-regular);
   line-height: var(--leading-normal);
-  font-feature-settings: "ss01", "ss03", "cv11";
-  letter-spacing: -0.005em;
   min-height: 100%;
   background-color: var(--color-bg-primary);
   color: var(--color-text-primary);
@@ -30,36 +52,32 @@ body {
   min-height: 100dvh;
 }
 
-/* Global selection + focus */
 ::selection {
   background: var(--color-primary-light);
   color: var(--color-text-primary);
 }
 
-/* Scrollbar — slightly wider, warmer thumb */
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
   background: var(--color-border-default);
-  border-radius: var(--radius-sm);
   border: 2px solid var(--color-bg-primary);
 }
 ::-webkit-scrollbar-thumb:hover { background: var(--color-border-strong); }
 * { scrollbar-width: thin; scrollbar-color: var(--color-border-default) transparent; }
 
-/* Typography — editorial hierarchy */
 h1, h2, h3, h4, h5, h6 {
-  font-family: var(--font-sans);
+  font-family: var(--font-display);
   color: var(--color-text-primary);
   line-height: var(--leading-tight);
 }
-h1 { font-size: var(--text-3xl); font-weight: var(--font-weight-medium); letter-spacing: -0.02em; }
-h2 { font-size: var(--text-2xl); font-weight: var(--font-weight-medium); letter-spacing: -0.015em; }
-h3 { font-size: var(--text-xl);  font-weight: var(--font-weight-medium); letter-spacing: -0.01em; }
-h4 { font-size: var(--text-lg);  font-weight: var(--font-weight-medium); letter-spacing: -0.005em; }
-h5 { font-size: var(--text-base);font-weight: var(--font-weight-semibold); }
+h1 { font-size: var(--text-3xl); font-weight: var(--font-weight-bold); }
+h2 { font-size: var(--text-2xl); font-weight: var(--font-weight-bold); }
+h3 { font-size: var(--text-xl);  font-weight: var(--font-weight-bold); }
+h4 { font-size: var(--text-lg);  font-weight: var(--font-weight-bold); }
+h5 { font-size: var(--text-base);font-weight: var(--font-weight-bold); }
 h6 {
-  font-size: var(--text-xs); font-weight: var(--font-weight-semibold);
+  font-size: var(--text-xs); font-weight: var(--font-weight-bold);
   text-transform: uppercase; letter-spacing: 0.12em;
   color: var(--color-text-muted);
 }
@@ -75,7 +93,6 @@ kbd {
   font-weight: var(--font-weight-medium);
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border-default);
-  border-radius: var(--radius-sm);
   color: var(--color-text-secondary);
   line-height: 1.4;
 }
@@ -89,7 +106,6 @@ a:hover {
   color: var(--color-primary-hover);
 }
 
-/* Honor prefers-reduced-motion globally */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
@@ -98,5 +114,3 @@ a:hover {
     scroll-behavior: auto !important;
   }
 }
-
-/* Utility classes */

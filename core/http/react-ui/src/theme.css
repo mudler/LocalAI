@@ -1,104 +1,106 @@
-/* LocalAI Theme — Nord palette (polar night + frost + aurora).
-   Adapted from claudemaster's Nord preset. Variable names preserved. */
+/* RezusCloud Design System — Dual-era theme for LocalAI.
+   Mac System 1 (light) / NeXTSTEP (dark).
+   Source: github.com/rezuscloud/design-system */
+
 :root,
 [data-theme="dark"] {
-  /* Surfaces — deep blue-black, beyond polar night */
-  --color-bg-primary: #13171f;          /* page — very dark, cool */
-  --color-bg-secondary: #1a1f2a;        /* sidebar, headers, cards */
-  --color-bg-tertiary: #242a36;         /* wells / sunken rows */
-  --color-bg-overlay: rgba(19, 23, 31, 0.92);
-  --color-bg-hover: #242a36;
+  /* Surfaces — NeXT Inc. palette, cool grayscale */
+  --color-bg-primary: oklch(6% 0.005 270);
+  --color-bg-secondary: oklch(20% 0.006 270);
+  --color-bg-tertiary: oklch(34% 0.006 270);
+  --color-bg-overlay: oklch(6% 0.005 270 / 0.92);
+  --color-bg-hover: oklch(34% 0.006 270);
 
-  --color-surface-raised: #1a1f2a;
-  --color-surface-sunken: #0e1117;
-  --color-surface-hover: #242a36;
-  --color-surface-elevated: #2f3644;
+  --color-surface-raised: oklch(20% 0.006 270);
+  --color-surface-sunken: oklch(2% 0.004 270);
+  --color-surface-hover: oklch(34% 0.006 270);
+  --color-surface-elevated: oklch(40% 0.006 270);
 
-  /* Primary — frost cyan (nord8) */
-  --color-primary: #88c0d0;
-  --color-primary-hover: #9ccbd9;
-  --color-primary-active: #7ab4c4;
-  --color-primary-text: #2e3440;
-  --color-primary-light: rgba(136, 192, 208, 0.14);
-  --color-primary-border: rgba(136, 192, 208, 0.34);
+  /* Primary — NeXT teal */
+  --color-primary: oklch(60% 0.08 170);
+  --color-primary-hover: oklch(65% 0.075 170);
+  --color-primary-active: oklch(55% 0.08 170);
+  --color-primary-text: oklch(6% 0.005 270);
+  --color-primary-light: oklch(60% 0.08 170 / 0.14);
+  --color-primary-border: oklch(60% 0.08 170 / 0.45);
 
-  --color-secondary: #81a1c1;            /* nord9 */
-  --color-secondary-hover: #8faed0;
-  --color-secondary-light: rgba(129, 161, 193, 0.12);
+  --color-secondary: oklch(58% 0.006 270);
+  --color-secondary-hover: oklch(65% 0.006 270);
+  --color-secondary-light: oklch(58% 0.006 270 / 0.12);
 
-  /* Accent alias — frost cyan remains the brand accent */
-  --color-accent: #88c0d0;
-  --color-accent-hover: #9ccbd9;
-  --color-accent-light: rgba(136, 192, 208, 0.14);
-  --color-accent-border: rgba(136, 192, 208, 0.34);
+  /* Accent — NeXT teal hi for backgrounds */
+  --color-accent: oklch(70% 0.07 170);
+  --color-accent-hover: oklch(75% 0.06 170);
+  --color-accent-light: oklch(70% 0.07 170 / 0.14);
+  --color-accent-border: oklch(70% 0.07 170 / 0.45);
 
-  /* Text — snow storm scale */
-  --color-text-primary: #eceff4;         /* nord6 */
-  --color-text-secondary: #d8dee9;       /* nord4 */
-  --color-text-muted: #a1acb9;
-  --color-text-tertiary: #8a96a5;        /* slightly dimmer than muted, still WCAG AA on dark surfaces — used for metadata */
-  --color-text-disabled: #6e7a8c;
-  --color-text-inverse: #2e3440;
+  /* Text — cool white + warm beige */
+  --color-text-primary: oklch(88% 0.004 270);
+  --color-text-secondary: oklch(72% 0.012 85);
+  --color-text-muted: oklch(58% 0.006 270);
+  --color-text-tertiary: oklch(48% 0.006 270);
+  --color-text-disabled: oklch(40% 0.006 270);
+  --color-text-inverse: oklch(6% 0.005 270);
 
-  /* Borders — cool blue-gray */
-  --color-border-subtle: rgba(216, 222, 233, 0.06);
-  --color-border-default: rgba(216, 222, 233, 0.12);
-  --color-border-strong: rgba(216, 222, 233, 0.24);
-  --color-border-divider: rgba(216, 222, 233, 0.05);
-  --color-border-primary: rgba(136, 192, 208, 0.45);
-  --color-border-focus: rgba(136, 192, 208, 0.45);
+  /* Borders — bevel vocabulary */
+  --color-border-subtle: oklch(55% 0.006 270 / 0.15);
+  --color-border-default: oklch(55% 0.006 270 / 0.25);
+  --color-border-strong: oklch(55% 0.006 270 / 0.4);
+  --color-border-divider: oklch(55% 0.006 270 / 0.1);
+  --color-border-primary: oklch(60% 0.08 170 / 0.45);
+  --color-border-focus: oklch(58% 0.006 270);
 
-  /* Status — aurora */
-  --color-success: #a3be8c;              /* nord14 */
-  --color-success-light: rgba(163, 190, 140, 0.14);
-  --color-success-border: rgba(163, 190, 140, 0.32);
-  --color-warning: #ebcb8b;              /* nord13 */
-  --color-warning-light: rgba(235, 203, 139, 0.14);
-  --color-warning-border: rgba(235, 203, 139, 0.32);
-  --color-error: #bf616a;                /* nord11 */
-  --color-error-light: rgba(191, 97, 106, 0.14);
-  --color-error-border: rgba(191, 97, 106, 0.32);
-  --color-info: #81a1c1;                 /* nord9 */
-  --color-info-light: rgba(129, 161, 193, 0.14);
-  --color-info-border: rgba(129, 161, 193, 0.32);
+  /* Status — semantic */
+  --color-success: oklch(75% 0.14 150);
+  --color-success-light: oklch(75% 0.14 150 / 0.14);
+  --color-success-border: oklch(75% 0.14 150 / 0.32);
+  --color-warning: oklch(78% 0.14 85);
+  --color-warning-light: oklch(78% 0.14 85 / 0.14);
+  --color-warning-border: oklch(78% 0.14 85 / 0.32);
+  --color-error: oklch(65% 0.14 25);
+  --color-error-light: oklch(65% 0.14 25 / 0.14);
+  --color-error-border: oklch(65% 0.14 25 / 0.32);
+  --color-info: oklch(60% 0.08 170);
+  --color-info-light: oklch(60% 0.08 170 / 0.14);
+  --color-info-border: oklch(60% 0.08 170 / 0.32);
 
-  --color-modal-backdrop: rgba(8, 11, 17, 0.68);
+  --color-modal-backdrop: oklch(2% 0.004 270 / 0.7);
 
-  --color-focus-ring: rgba(136, 192, 208, 0.34);
+  --color-focus-ring: oklch(60% 0.08 170 / 0.5);
 
-  /* Data viz — full aurora + frost palette */
-  --color-data-1: #88c0d0;   /* frost cyan */
-  --color-data-2: #bf616a;   /* red */
-  --color-data-3: #b48ead;   /* purple */
-  --color-data-4: #ebcb8b;   /* yellow */
-  --color-data-5: #a3be8c;   /* green */
-  --color-data-6: #d08770;   /* orange */
-  --color-data-7: #81a1c1;   /* blue */
-  --color-data-8: #8fbcbb;   /* teal */
+  /* Data viz — teal-anchored with warm contrast */
+  --color-data-1: oklch(60% 0.08 170);
+  --color-data-2: oklch(65% 0.14 25);
+  --color-data-3: oklch(55% 0.12 300);
+  --color-data-4: oklch(78% 0.14 85);
+  --color-data-5: oklch(75% 0.14 150);
+  --color-data-6: oklch(65% 0.12 45);
+  --color-data-7: oklch(58% 0.006 270);
+  --color-data-8: oklch(50% 0.08 170);
 
-  /* Log streams — tuned to Nord aurora */
-  --color-log-stdout: #d8dee9;
-  --color-log-stderr: #bf616a;
-  --color-log-info: #88c0d0;
-  --color-log-warn: #ebcb8b;
+  /* Log streams */
+  --color-log-stdout: oklch(72% 0.012 85);
+  --color-log-stderr: oklch(65% 0.14 25);
+  --color-log-info: oklch(60% 0.08 170);
+  --color-log-warn: oklch(78% 0.14 85);
 
-  /* Shadows — cool, deeper */
-  --shadow-subtle: 0 1px 2px rgba(0, 0, 0, 0.5);
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5), 0 4px 14px rgba(0, 0, 0, 0.45);
-  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.55), 0 20px 48px rgba(0, 0, 0, 0.65);
-  --shadow-lg: 0 2px 8px rgba(0, 0, 0, 0.6), 0 28px 64px rgba(0, 0, 0, 0.7);
-  --shadow-glow: var(--shadow-md);
-  --shadow-sidebar: 1px 0 0 rgba(216, 222, 233, 0.06);
+  /* Shadows — NeXT bevel-style */
+  --shadow-subtle: none;
+  --shadow-sm: none;
+  --shadow-md: none;
+  --shadow-lg: none;
+  --shadow-glow: none;
+  --shadow-sidebar: 1px 0 0 oklch(55% 0.006 270 / 0.2);
 
-  --shadow-inset-top: inset 0 1px 0 rgba(255, 255, 255, 0.05);
-  --shadow-inset-hi:  inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  --shadow-inset-top: inset 0 1px 0 oklch(55% 0.006 270);
+  --shadow-inset-hi:  inset 0 1px 0 oklch(55% 0.006 270);
 
   /* Motion */
   --duration-fast: 120ms;
-  --duration-normal: 180ms;
+  --duration-normal: 150ms;
   --duration-slow: 260ms;
-  --ease-default: cubic-bezier(0.22, 1, 0.36, 1);
-  --ease-spring:  cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-default: cubic-bezier(0.25, 1, 0.5, 1);
+  --ease-spring:  cubic-bezier(0.25, 1, 0.5, 1);
 
   /* Spacing */
   --spacing-xs: 0.25rem;
@@ -109,16 +111,17 @@
   --spacing-2xl: 3rem;
   --spacing-3xl: 4rem;
 
-  /* Radii — sharp, editorial */
-  --radius-sm: 3px;
-  --radius-md: 5px;
-  --radius-lg: 8px;
-  --radius-xl: 10px;
-  --radius-full: 9999px;
+  /* Radii — ZERO. Every corner is a right angle. */
+  --radius-sm: 0;
+  --radius-md: 0;
+  --radius-lg: 0;
+  --radius-xl: 0;
+  --radius-full: 0;
 
-  /* Typography — Geist Variable + Geist Mono Variable */
-  --font-sans: "Geist", "Geist Variable", -apple-system, BlinkMacSystemFont, "Segoe UI", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "Geist Mono", "Geist Mono Variable", ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+  /* Typography — Silkscreen for display, system-ui for body, VT323 for mono */
+  --font-display: "Silkscreen", system-ui, sans-serif;
+  --font-sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "VT323", "Courier New", monospace;
 
   --text-xs: 0.6875rem;
   --text-sm: 0.8125rem;
@@ -141,114 +144,110 @@
 
   --sidebar-width: 200px;
   --sidebar-width-collapsed: 52px;
-  --color-toggle-off: #2f3644;
-  --color-toggle-on: var(--color-primary);
+  --color-toggle-off: oklch(34% 0.006 270);
+  --color-toggle-on: oklch(70% 0.07 170);
 
-  /* Page-width archetypes — applied via .page / .page--narrow /
-     .page--medium / .page--wide. Default is wide-enough for ops/data
-     tables; medium suits two-column app pages (sticky nav + form);
-     narrow caps reading width. */
   --page-max-narrow: 760px;
   --page-max-medium: 1080px;
   --page-max-default: 1600px;
   --page-max-wide: none;
 
-  /* Responsive breakpoints — kept here so JS can read them via getComputedStyle. */
   --bp-mobile: 640px;
   --bp-tablet: 1024px;
 }
 
 [data-theme="light"] {
-  /* Snow storm */
-  --color-bg-primary: #eceff4;           /* nord6 */
-  --color-bg-secondary: #ffffff;
-  --color-bg-tertiary: #e5e9f0;          /* nord5 */
-  --color-bg-overlay: rgba(236, 239, 244, 0.92);
-  --color-bg-hover: #e5e9f0;
+  /* Mac System 1 — warm paper */
+  --color-bg-primary: oklch(99.5% 0.004 85);
+  --color-bg-secondary: oklch(95.5% 0.004 85);
+  --color-bg-tertiary: oklch(88.5% 0.006 85);
+  --color-bg-overlay: oklch(99.5% 0.004 85 / 0.92);
+  --color-bg-hover: oklch(88.5% 0.006 85);
 
-  --color-surface-raised: #ffffff;
-  --color-surface-sunken: #e5e9f0;
-  --color-surface-hover: #d8dee9;
-  --color-surface-elevated: #d8dee9;     /* nord4 */
+  --color-surface-raised: oklch(95.5% 0.004 85);
+  --color-surface-sunken: oklch(88.5% 0.006 85);
+  --color-surface-hover: oklch(88.5% 0.006 85);
+  --color-surface-elevated: oklch(72% 0.005 85);
 
-  /* Primary — deeper frost for WCAG on snow storm */
-  --color-primary: #5e81ac;              /* nord10 */
-  --color-primary-hover: #4c6d92;
-  --color-primary-active: #3e5b7c;
-  --color-primary-text: #eceff4;
-  --color-primary-light: rgba(94, 129, 172, 0.12);
-  --color-primary-border: rgba(94, 129, 172, 0.34);
+  /* Primary — amber gold */
+  --color-primary: oklch(65% 0.14 75);
+  --color-primary-hover: oklch(72% 0.15 75);
+  --color-primary-active: oklch(58% 0.13 75);
+  --color-primary-text: oklch(99.5% 0.004 85);
+  --color-primary-light: oklch(78% 0.16 75 / 0.14);
+  --color-primary-border: oklch(78% 0.16 75 / 0.4);
 
-  --color-secondary: #4c566a;            /* nord3 */
-  --color-secondary-hover: #3b4252;
-  --color-secondary-light: rgba(76, 86, 106, 0.1);
+  --color-secondary: oklch(30% 0.008 65);
+  --color-secondary-hover: oklch(20% 0.008 65);
+  --color-secondary-light: oklch(30% 0.008 65 / 0.08);
 
-  --color-accent: #5e81ac;
-  --color-accent-hover: #4c6d92;
-  --color-accent-light: rgba(94, 129, 172, 0.12);
-  --color-accent-border: rgba(94, 129, 172, 0.32);
+  --color-accent: oklch(78% 0.16 75);
+  --color-accent-hover: oklch(82% 0.14 75);
+  --color-accent-light: oklch(78% 0.16 75 / 0.14);
+  --color-accent-border: oklch(78% 0.16 75 / 0.4);
 
-  --color-text-primary: #2e3440;         /* nord0 */
-  --color-text-secondary: #3b4252;       /* nord1 */
-  --color-text-muted: #6e7a8c;
-  --color-text-tertiary: #6e7a8c;        /* matches muted in light theme — going lighter would fail contrast on white */
-  --color-text-disabled: #a1acb9;
-  --color-text-inverse: #ffffff;
+  /* Text — warm black + brown */
+  --color-text-primary: oklch(14% 0.008 65);
+  --color-text-secondary: oklch(30% 0.008 65);
+  --color-text-muted: oklch(50% 0.008 65);
+  --color-text-tertiary: oklch(60% 0.006 65);
+  --color-text-disabled: oklch(72% 0.005 85);
+  --color-text-inverse: oklch(99.5% 0.004 85);
 
-  --color-border-subtle: rgba(46, 52, 64, 0.08);
-  --color-border-default: rgba(46, 52, 64, 0.14);
-  --color-border-strong: rgba(46, 52, 64, 0.28);
-  --color-border-divider: rgba(46, 52, 64, 0.06);
-  --color-border-primary: rgba(94, 129, 172, 0.45);
-  --color-border-focus: rgba(94, 129, 172, 0.45);
+  /* Borders — warm gray */
+  --color-border-subtle: oklch(72% 0.005 85 / 0.3);
+  --color-border-default: oklch(72% 0.005 85 / 0.5);
+  --color-border-strong: oklch(14% 0.008 65 / 0.3);
+  --color-border-divider: oklch(72% 0.005 85 / 0.2);
+  --color-border-primary: oklch(78% 0.16 75 / 0.5);
+  --color-border-focus: oklch(78% 0.16 75);
 
-  /* Status — darker aurora for light mode contrast */
-  --color-success: #6b8a5a;
-  --color-success-light: rgba(107, 138, 90, 0.12);
-  --color-success-border: rgba(107, 138, 90, 0.3);
-  --color-warning: #b08334;
-  --color-warning-light: rgba(176, 131, 52, 0.12);
-  --color-warning-border: rgba(176, 131, 52, 0.3);
-  --color-error: #a13e47;
-  --color-error-light: rgba(161, 62, 71, 0.1);
-  --color-error-border: rgba(161, 62, 71, 0.3);
-  --color-info: #4c6d92;
-  --color-info-light: rgba(76, 109, 146, 0.12);
-  --color-info-border: rgba(76, 109, 146, 0.3);
+  /* Status */
+  --color-success: oklch(55% 0.12 150);
+  --color-success-light: oklch(55% 0.12 150 / 0.12);
+  --color-success-border: oklch(55% 0.12 150 / 0.3);
+  --color-warning: oklch(65% 0.14 75);
+  --color-warning-light: oklch(65% 0.14 75 / 0.12);
+  --color-warning-border: oklch(65% 0.14 75 / 0.3);
+  --color-error: oklch(50% 0.12 25);
+  --color-error-light: oklch(50% 0.12 25 / 0.1);
+  --color-error-border: oklch(50% 0.12 25 / 0.3);
+  --color-info: oklch(40% 0.08 240);
+  --color-info-light: oklch(40% 0.08 240 / 0.12);
+  --color-info-border: oklch(40% 0.08 240 / 0.3);
 
-  --color-modal-backdrop: rgba(46, 52, 64, 0.38);
+  --color-modal-backdrop: oklch(14% 0.008 65 / 0.35);
 
-  --color-focus-ring: rgba(94, 129, 172, 0.34);
+  --color-focus-ring: oklch(78% 0.16 75);
 
-  /* Data viz — muted aurora for light mode */
-  --color-data-1: #5e81ac;
-  --color-data-2: #a13e47;
-  --color-data-3: #8b5a92;
-  --color-data-4: #b08334;
-  --color-data-5: #6b8a5a;
-  --color-data-6: #b8684f;
-  --color-data-7: #4c6d92;
-  --color-data-8: #5a9090;
+  /* Data viz — gold-anchored with cool contrast */
+  --color-data-1: oklch(78% 0.16 75);
+  --color-data-2: oklch(50% 0.12 25);
+  --color-data-3: oklch(45% 0.1 300);
+  --color-data-4: oklch(65% 0.14 75);
+  --color-data-5: oklch(55% 0.12 150);
+  --color-data-6: oklch(55% 0.12 45);
+  --color-data-7: oklch(40% 0.08 240);
+  --color-data-8: oklch(45% 0.08 170);
 
-  --color-log-stdout: #2e3440;
-  --color-log-stderr: #a13e47;
-  --color-log-info: #4c6d92;
-  --color-log-warn: #b08334;
+  --color-log-stdout: oklch(14% 0.008 65);
+  --color-log-stderr: oklch(50% 0.12 25);
+  --color-log-info: oklch(40% 0.08 240);
+  --color-log-warn: oklch(65% 0.14 75);
 
-  /* Soft cool shadows */
-  --shadow-subtle: 0 1px 2px rgba(46, 52, 64, 0.05);
-  --shadow-sm: 0 1px 2px rgba(46, 52, 64, 0.07), 0 4px 14px rgba(46, 52, 64, 0.07);
-  --shadow-md: 0 2px 8px rgba(46, 52, 64, 0.1), 0 20px 48px rgba(46, 52, 64, 0.12);
-  --shadow-lg: 0 4px 12px rgba(46, 52, 64, 0.14), 0 28px 64px rgba(46, 52, 64, 0.16);
-  --shadow-sidebar: 1px 0 0 rgba(46, 52, 64, 0.06);
+  /* Shadows — Mac flat: no shadows, 1px borders */
+  --shadow-subtle: none;
+  --shadow-sm: none;
+  --shadow-md: none;
+  --shadow-lg: none;
+  --shadow-sidebar: 1px 0 0 oklch(72% 0.005 85);
 
-  --shadow-inset-top: inset 0 1px 0 rgba(255, 255, 255, 0.7);
-  --shadow-inset-hi:  inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  --shadow-inset-top: inset 0 1px 0 oklch(100% 0.004 85);
+  --shadow-inset-hi:  inset 0 1px 0 oklch(100% 0.004 85);
 
-  --color-toggle-off: #c3cad6;
-  --color-toggle-on: var(--color-primary);
+  --color-toggle-off: oklch(72% 0.005 85);
+  --color-toggle-on: oklch(78% 0.16 75);
 
-  /* Page-width archetypes — see :root block for usage. */
   --page-max-narrow: 760px;
   --page-max-medium: 1080px;
   --page-max-default: 1600px;
