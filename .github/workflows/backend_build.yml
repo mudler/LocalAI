@@ -198,6 +198,16 @@ jobs:
           outputs: |
             type=image,name=quay.io/go-skynet/local-ai-backends,push-by-digest=true,name-canonical=true,push=true
             type=image,name=localai/localai-backends,push-by-digest=true,name-canonical=true,push=true
+          # Disable provenance: with mode=max (the default for push:true)
+          # buildx bundles a per-registry attestation manifest into each
+          # registry's manifest list, which makes the resulting list digest
+          # diverge across registries. steps.build.outputs.digest then
+          # only matches one of them, and the merge job's
+          # `imagetools create <reg>@sha256:<digest>` lookup fails on the
+          # other. Disabling provenance keeps the digest content-only and
+          # identical across both registries — required for digest-based
+          # cross-registry merge.
+          provenance: false
           labels: ${{ steps.meta.outputs.labels }}
 
       - name: Export digest

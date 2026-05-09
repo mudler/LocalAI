@@ -172,6 +172,10 @@ jobs:
           outputs: |
             type=image,name=quay.io/go-skynet/local-ai,push-by-digest=true,name-canonical=true,push=true
             type=image,name=localai/localai,push-by-digest=true,name-canonical=true,push=true
+          # See backend_build.yml for the rationale — provenance=mode=max
+          # diverges the manifest-list digest per registry, breaking the
+          # downstream imagetools create lookup.
+          provenance: false
           labels: ${{ steps.meta.outputs.labels }}
 
       - name: Export digest
