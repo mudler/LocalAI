@@ -74,6 +74,7 @@ jobs:
       platforms: ${{ matrix.platforms }}
       platform-tag: ${{ matrix.platform-tag || '' }}
       runs-on: ${{ matrix.runs-on }}
+      builder-base-image: ${{ matrix.builder-base-image || '' }}
       base-image: ${{ matrix.base-image }}
       backend: ${{ matrix.backend }}
       dockerfile: ${{ matrix.dockerfile }}
