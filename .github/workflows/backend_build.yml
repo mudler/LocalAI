@@ -74,6 +74,15 @@ on:
         required: false
         default: ''
         type: string
+      builder-base-image:
+        description: |
+          Pre-built builder base image (e.g. quay.io/go-skynet/ci-cache:base-grpc-cuda-13-amd64).
+          When set, the variant Dockerfile uses its `builder-prebuilt` stage which FROMs this
+          image directly instead of running its own gRPC stage + apt installs. Empty for
+          backends whose Dockerfile doesn't support a prebuilt base.
+        required: false
+        default: ''
+        type: string
     secrets:
       dockerUsername:
         required: false
@@ -190,6 +199,8 @@ jobs:
             APT_MIRROR=${{ steps.apt_mirror.outputs.effective-mirror }}
             APT_PORTS_MIRROR=${{ steps.apt_mirror.outputs.effective-ports-mirror }}
             DEPS_REFRESH=${{ steps.deps_refresh.outputs.key }}
+            BUILDER_BASE_IMAGE=${{ inputs.builder-base-image }}
+            BUILDER_TARGET=${{ inputs.builder-base-image != '' && 'builder-prebuilt' || 'builder-fromsource' }}
           context: ${{ inputs.context }}
           file: ${{ inputs.dockerfile }}
           cache-from: type=registry,ref=quay.io/go-skynet/ci-cache:cache${{ inputs.tag-suffix }}-${{ inputs.platform-tag }}
@@ -243,6 +254,8 @@ jobs:
             APT_MIRROR=${{ steps.apt_mirror.outputs.effective-mirror }}
             APT_PORTS_MIRROR=${{ steps.apt_mirror.outputs.effective-ports-mirror }}
             DEPS_REFRESH=${{ steps.deps_refresh.outputs.key }}
+            BUILDER_BASE_IMAGE=${{ inputs.builder-base-image }}
+            BUILDER_TARGET=${{ inputs.builder-base-image != '' && 'builder-prebuilt' || 'builder-fromsource' }}
           context: ${{ inputs.context }}
           file: ${{ inputs.dockerfile }}
           cache-from: type=registry,ref=quay.io/go-skynet/ci-cache:cache${{ inputs.tag-suffix }}-${{ inputs.platform-tag }}
