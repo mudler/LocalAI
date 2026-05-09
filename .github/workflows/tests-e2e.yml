@@ -16,8 +16,8 @@ on:
       - '*'
 
 concurrency:
-  group: ci-tests-e2e-backend-${{ github.head_ref || github.ref }}-${{ github.repository }}
-  cancel-in-progress: true
+  group: ci-tests-e2e-backend-${{ github.event.pull_request.number || github.sha }}-${{ github.repository }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   tests-e2e-backend:

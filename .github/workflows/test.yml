@@ -16,8 +16,8 @@ on:
       - '*'
 
 concurrency:
-  group: ci-tests-${{ github.head_ref || github.ref }}-${{ github.repository }}
-  cancel-in-progress: true
+  group: ci-tests-${{ github.event.pull_request.number || github.sha }}-${{ github.repository }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   tests-linux:

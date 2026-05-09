@@ -12,8 +12,8 @@ on:
       - master
 
 concurrency:
-  group: ci-tests-ui-e2e-${{ github.head_ref || github.ref }}-${{ github.repository }}
-  cancel-in-progress: true
+  group: ci-tests-ui-e2e-${{ github.event.pull_request.number || github.sha }}-${{ github.repository }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   tests-ui-e2e:

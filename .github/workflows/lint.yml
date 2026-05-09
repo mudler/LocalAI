@@ -13,8 +13,8 @@ on:
       - master
 
 concurrency:
-  group: ci-lint-${{ github.head_ref || github.ref }}-${{ github.repository }}
-  cancel-in-progress: true
+  group: ci-lint-${{ github.event.pull_request.number || github.sha }}-${{ github.repository }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   golangci-lint:

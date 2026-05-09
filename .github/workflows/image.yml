@@ -9,8 +9,8 @@
         - '*'
   
   concurrency:
-    group: ci-${{ github.head_ref || github.ref }}-${{ github.repository }}
-    cancel-in-progress: true
+    group: ci-${{ github.event.pull_request.number || github.sha }}-${{ github.repository }}
+    cancel-in-progress: ${{ github.event_name == 'pull_request' }}
   
   jobs:
     hipblas-jobs:

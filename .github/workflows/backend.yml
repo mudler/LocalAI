@@ -24,8 +24,8 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: ci-backends-${{ github.head_ref || github.ref }}-${{ github.repository }}
-  cancel-in-progress: true
+  group: ci-backends-${{ github.event.pull_request.number || github.sha }}-${{ github.repository }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   generate-matrix:
