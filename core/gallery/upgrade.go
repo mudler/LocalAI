@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/mudler/LocalAI/core/config"
@@ -64,13 +65,51 @@ func CheckUpgradesAgainst(ctx context.Context, galleries []config.Gallery, syste
 
 	result := make(map[string]UpgradeInfo)
 
+	// Build a set of installed metadata names so we can suppress non-dev
+	// candidates whose `-development` counterpart is already installed —
+	// dev variants share an alias with the stable one and are explicit
+	// drop-in replacements, so auto-upgrade must never reintroduce the
+	// non-dev alongside them.
+	_, _, devSuffix := getFallbackTagValues(systemState)
+	devTag := "-" + devSuffix
+	installedNames := make(map[string]struct{}, len(installedBackends))
 	for _, installed := range installedBackends {
+		if installed.Metadata == nil || installed.Metadata.Name == "" {
+			continue
+		}
+		installedNames[installed.Metadata.Name] = struct{}{}
+	}
+
+	for key, installed := range installedBackends {
 		// Skip system backends — they are managed outside the gallery
 		if installed.IsSystem {
 			continue
 		}
 		if installed.Metadata == nil {
 			continue
+		}
+
+		// Skip synthetic alias rows: ListSystemBackends emits an extra
+		// entry keyed by the alias name that re-uses the chosen concrete's
+		// metadata pointer. Iterating it just duplicates the concrete's
+		// gallery lookup, and in distributed mode the wire-reconstructed
+		// version of that row carries a forged Metadata.Name = alias which
+		// can match an unrelated gallery entry.
+		if key != installed.Metadata.Name {
+			continue
+		}
+
+		// Drop-in replacement guard: skip non-dev `X` if `X-<devSuffix>`
+		// is installed. Without this, any upgrade flagged on the non-dev
+		// row (e.g. surfaced via a synthetic-alias path on older workers,
+		// or because both variants happen to be present on disk via stale
+		// state) would tell auto-upgrade to install the stable variant on
+		// top of the user's explicit dev pick.
+		name := installed.Metadata.Name
+		if !strings.HasSuffix(name, devTag) {
+			if _, devInstalled := installedNames[name+devTag]; devInstalled {
+				continue
+			}
 		}
 
 		// Find matching gallery entry by metadata name

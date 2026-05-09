@@ -161,6 +161,18 @@ func (s *backendSupervisor) handleBackendList(data []byte, reply func([]byte)) {
 
 	var infos []messaging.NodeBackendInfo
 	for name, b := range backends {
+		// Drop synthetic alias rows: ListSystemBackends emits an entry
+		// keyed by the alias name that re-uses the chosen concrete's
+		// metadata. The frontend can't reconstruct that aliasing
+		// faithfully from a flat NodeBackendInfo, and for upgrade
+		// detection it would surface as a phantom `<alias>` install
+		// pointing at the dev concrete's URI/digest — tricking the
+		// upgrade check into flagging the non-dev gallery entry of the
+		// same alias. Concrete and meta entries always have
+		// `name == b.Metadata.Name`, so this drops aliases only.
+		if b.Metadata != nil && b.Metadata.Name != "" && name != b.Metadata.Name {
+			continue
+		}
 		info := messaging.NodeBackendInfo{
 			Name:     name,
 			IsSystem: b.IsSystem,
