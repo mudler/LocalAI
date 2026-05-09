@@ -116,6 +116,11 @@ jobs:
             cuda-major-version: '12'
             cuda-minor-version: '0'
             ubuntu-version: '2204'
+            # JetPack r36.4.0 already ships CUDA preinstalled at /usr/local/cuda;
+            # apt-installing cuda-nvcc-12-0 from the public repos fails because
+            # those packages aren't published for the JetPack apt feed. Match
+            # the original l4t matrix entry which set skip-drivers: 'true'.
+            skip-drivers: 'true'
     steps:
       - uses: actions/checkout@v6
         with:
@@ -143,6 +148,7 @@ jobs:
             CUDA_MAJOR_VERSION=${{ matrix.cuda-major-version }}
             CUDA_MINOR_VERSION=${{ matrix.cuda-minor-version }}
             UBUNTU_VERSION=${{ matrix.ubuntu-version }}
+            SKIP_DRIVERS=${{ matrix.skip-drivers || 'false' }}
           cache-from: type=registry,ref=quay.io/go-skynet/ci-cache:cache-${{ matrix.tag }}
           cache-to: type=registry,ref=quay.io/go-skynet/ci-cache:cache-${{ matrix.tag }},mode=max,ignore-error=true
           provenance: false
