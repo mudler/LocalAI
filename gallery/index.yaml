@@ -1,4 +1,67 @@
 ---
+- name: "qwen3.6-27b-mtp"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/froggeric/Qwen3.6-27B-MTP-GGUF
+  description: |
+    # Qwen3.6-27B
+
+    [](https://chat.qwen.ai)
+
+    > [!Note]
+    > This repository contains model weights and configuration files for the post-trained model in the Hugging Face Transformers format.
+    >
+    > These artifacts are compatible with Hugging Face Transformers, vLLM, SGLang, KTransformers, etc.
+
+    Following the February release of the Qwen3.5 series, we're pleased to share the first open-weight variant of Qwen3.6. Built on direct feedback from the community, Qwen3.6 prioritizes stability and real-world utility, offering developers a more intuitive, responsive, and genuinely productive coding experience.
+
+    ## Qwen3.6 Highlights
+
+    This release delivers substantial upgrades, particularly in
+
+      - **Agentic Coding:** the model now handles frontend workflows and repository-level reasoning with greater fluency and precision.
+      - **Thinking Preservation:** we've introduced a new option to retain reasoning context from historical messages, streamlining iterative development and reducing overhead.
+
+    For more details, please refer to our blog post Qwen3.6-27B.
+
+    ## Model Overview
+
+    ...
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - vision
+    - multimodal
+  icon: https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen3.6/Figures/qwen3.6_27b_score.png
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/Qwen3.6-27B-MTP-GGUF/mmproj-Qwen3.6-27B-f16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/Qwen3.6-27B-MTP-GGUF/Qwen3.6-27B-Q4_K_M-mtp.gguf
+      presence_penalty: 1.5
+      repeat_penalty: 1
+      temperature: 0.7
+      top_k: 20
+      top_p: 0.8
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Qwen3.6-27B-MTP-GGUF/Qwen3.6-27B-Q4_K_M-mtp.gguf
+      sha256: c2275978182b91ec0f0a2e334e37e4fbfc8385eb9b3cdb6d5d4f7e23fce3b557
+      uri: https://huggingface.co/froggeric/Qwen3.6-27B-MTP-GGUF/resolve/main/Qwen3.6-27B-Q4_K_M-mtp.gguf
+    - filename: llama-cpp/mmproj/Qwen3.6-27B-MTP-GGUF/mmproj-Qwen3.6-27B-f16.gguf
+      sha256: 26b00d800d2853627d09f0caabde10e79a1a6e5e5dc589fa62deeb1b14f3c673
+      uri: https://huggingface.co/froggeric/Qwen3.6-27B-MTP-GGUF/resolve/main/mmproj-Qwen3.6-27B-f16.gguf
 - name: "qwen3.6-40b-claude-4.6-opus-deckard-heretic-uncensored-thinking-neo-code-di-imatrix-max"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
