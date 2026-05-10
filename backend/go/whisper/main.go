@@ -42,11 +42,17 @@ func main() {
 		{&CppGetTokenID, "get_token_id"},
 		{&CppGetSegmentSpeakerTurnNext, "get_segment_speaker_turn_next"},
 		{&CppSetAbort, "set_abort"},
+		{&CppSetNewSegmentCallback, "set_new_segment_callback"},
 	}
 
 	for _, lf := range libFuncs {
 		purego.RegisterLibFunc(lf.FuncPtr, gosd, lf.Name)
 	}
+
+	// Build a stable C-callable function pointer from the Go callback. The
+	// pointer lives for the lifetime of the process; per-call dispatch is
+	// keyed by user_data through streamCallStates.
+	goNewSegmentCb = purego.NewCallback(onNewSegment)
 
 	flag.Parse()
 
