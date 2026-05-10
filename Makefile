@@ -897,6 +897,18 @@ test-extra-backend-vibevoice-cpp-transcription: docker-build-vibevoice-cpp
 	BACKEND_TEST_CAPS=health,load,transcription \
 	$(MAKE) test-extra-backend
 
+## Audio transcription wrapper for the whisper.cpp backend.
+## Drives the AudioTranscription / AudioTranscriptionStream RPCs against
+## ggml-base.en (~145 MB) using the JFK 11s clip. The streaming spec
+## asserts len(deltas) >= 1 and concat(deltas) == final.Text - whisper-
+## specific multi-segment assertions live in backend/go/whisper/gowhisper_test.go.
+test-extra-backend-whisper-transcription: docker-build-whisper
+	BACKEND_IMAGE=local-ai-backend:whisper \
+	BACKEND_TEST_MODEL_URL=https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin \
+	BACKEND_TEST_AUDIO_URL=https://github.com/ggml-org/whisper.cpp/raw/master/samples/jfk.wav \
+	BACKEND_TEST_CAPS=health,load,transcription \
+	$(MAKE) test-extra-backend
+
 ## LocalVQE audio transform (joint AEC + noise suppression + dereverb).
 ## Exercises the audio_transform capability end-to-end: batch transform
 ## of a real WAV fixture and bidi streaming of synthetic silent frames.
