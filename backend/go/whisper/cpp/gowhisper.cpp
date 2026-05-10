@@ -10,12 +10,36 @@ static std::vector<float> flat_segs;
 
 static std::atomic<int> g_abort{0};
 
+static std::atomic<uintptr_t> g_go_new_segment_cb{0};
+static std::atomic<uintptr_t> g_go_new_segment_user_data{0};
+
 static bool abort_cb(void * /*user_data*/) {
     return g_abort.load(std::memory_order_relaxed) != 0;
 }
 
+static void new_segment_cb(struct whisper_context *cb_ctx,
+                           struct whisper_state * /*state*/, int n_new,
+                           void * /*user_data*/) {
+    uintptr_t go_cb = g_go_new_segment_cb.load(std::memory_order_relaxed);
+    if (go_cb == 0) {
+        return;
+    }
+    int total = whisper_full_n_segments(cb_ctx);
+    int idx_first = total - n_new;
+    if (idx_first < 0) {
+        idx_first = 0;
+    }
+    uintptr_t ud = g_go_new_segment_user_data.load(std::memory_order_relaxed);
+    reinterpret_cast<go_new_segment_cb>(go_cb)(idx_first, n_new, ud);
+}
+
 extern "C" void set_abort(int v) {
     g_abort.store(v, std::memory_order_relaxed);
+}
+
+extern "C" void set_new_segment_callback(uintptr_t cb_ptr, uintptr_t user_data) {
+    g_go_new_segment_cb.store(cb_ptr, std::memory_order_relaxed);
+    g_go_new_segment_user_data.store(user_data, std::memory_order_relaxed);
 }
 
 static void ggml_log_cb(enum ggml_log_level level, const char *log,
@@ -139,6 +163,14 @@ int transcribe(uint32_t threads, char *lang, bool translate, bool tdrz,
   // ggml abort hook so a subsequent set_abort(1) from Go aborts the next
   // compute graph step.
   g_abort.store(0, std::memory_order_relaxed);
+  // Only install the new-segment callback when streaming is requested
+  // (Go side calls set_new_segment_callback before transcribe()). Leaving
+  // it always-on is harmless but adds a function-pointer dispatch per
+  // segment for the offline path.
+  if (g_go_new_segment_cb.load(std::memory_order_relaxed) != 0) {
+      wparams.new_segment_callback = new_segment_cb;
+      wparams.new_segment_callback_user_data = nullptr;
+  }
   wparams.abort_callback = abort_cb;
   wparams.abort_callback_user_data = nullptr;
 
