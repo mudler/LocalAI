@@ -11,11 +11,13 @@ jobs:
   generate-matrix:
     runs-on: ubuntu-latest
     outputs:
-      matrix: ${{ steps.set-matrix.outputs.matrix }}
-      matrix-darwin: ${{ steps.set-matrix.outputs.matrix-darwin }}
+      matrix-singlearch: ${{ steps.set-matrix.outputs['matrix-singlearch'] }}
+      matrix-multiarch: ${{ steps.set-matrix.outputs['matrix-multiarch'] }}
+      matrix-darwin: ${{ steps.set-matrix.outputs['matrix-darwin'] }}
       merge-matrix: ${{ steps.set-matrix.outputs['merge-matrix'] }}
-      has-backends: ${{ steps.set-matrix.outputs.has-backends }}
-      has-backends-darwin: ${{ steps.set-matrix.outputs.has-backends-darwin }}
+      has-backends-singlearch: ${{ steps.set-matrix.outputs['has-backends-singlearch'] }}
+      has-backends-multiarch: ${{ steps.set-matrix.outputs['has-backends-multiarch'] }}
+      has-backends-darwin: ${{ steps.set-matrix.outputs['has-backends-darwin'] }}
       has-merges: ${{ steps.set-matrix.outputs['has-merges'] }}
     steps:
       - name: Checkout repository
@@ -29,7 +31,9 @@ jobs:
           bun add js-yaml
           bun add @octokit/core
 
-      # filters the matrix in backend.yml
+      # filters the matrix in backend.yml; splits into single-arch and
+      # multi-arch groups so backend-merge-jobs can `needs:` only the latter
+      # (matches backend.yml's structure).
       - name: Filter matrix for changed backends
         id: set-matrix
         env:
@@ -37,10 +41,10 @@ jobs:
           GITHUB_EVENT_PATH: ${{ github.event_path }}
         run: bun run scripts/changed-backends.js
 
-  backend-jobs:
+  backend-jobs-multiarch:
     needs: generate-matrix
     uses: ./.github/workflows/backend_build.yml
-    if: needs.generate-matrix.outputs.has-backends == 'true'
+    if: needs.generate-matrix.outputs['has-backends-multiarch'] == 'true'
     with:
       tag-latest: ${{ matrix.tag-latest }}
       tag-suffix: ${{ matrix.tag-suffix }}
@@ -64,13 +68,41 @@ jobs:
     strategy:
       fail-fast: true
       max-parallel: 8
-      matrix: ${{ fromJson(needs.generate-matrix.outputs.matrix) }}
+      matrix: ${{ fromJson(needs.generate-matrix.outputs['matrix-multiarch']) }}
+  backend-jobs-singlearch:
+    needs: generate-matrix
+    uses: ./.github/workflows/backend_build.yml
+    if: needs.generate-matrix.outputs['has-backends-singlearch'] == 'true'
+    with:
+      tag-latest: ${{ matrix.tag-latest }}
+      tag-suffix: ${{ matrix.tag-suffix }}
+      build-type: ${{ matrix.build-type }}
+      cuda-major-version: ${{ matrix.cuda-major-version }}
+      cuda-minor-version: ${{ matrix.cuda-minor-version }}
+      platforms: ${{ matrix.platforms }}
+      platform-tag: ${{ matrix.platform-tag || '' }}
+      runs-on: ${{ matrix.runs-on }}
+      builder-base-image: ${{ matrix.builder-base-image || '' }}
+      base-image: ${{ matrix.base-image }}
+      backend: ${{ matrix.backend }}
+      dockerfile: ${{ matrix.dockerfile }}
+      skip-drivers: ${{ matrix.skip-drivers }}
+      context: ${{ matrix.context }}
+      ubuntu-version: ${{ matrix.ubuntu-version }}
+      amdgpu-targets: ${{ matrix.amdgpu-targets || 'gfx908,gfx90a,gfx942,gfx950,gfx1030,gfx1100,gfx1101,gfx1102,gfx1151,gfx1200,gfx1201' }}
+    secrets:
+      quayUsername: ${{ secrets.LOCALAI_REGISTRY_USERNAME }}
+      quayPassword: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
+    strategy:
+      fail-fast: true
+      max-parallel: 8
+      matrix: ${{ fromJson(needs.generate-matrix.outputs['matrix-singlearch']) }}
   backend-merge-jobs:
-    needs: [generate-matrix, backend-jobs]
+    needs: [generate-matrix, backend-jobs-multiarch]
     # backend_merge.yml's push-side steps are all gated on
     # github.event_name != 'pull_request', so on a PR the merge job would
     # do nothing. Skip it entirely to avoid spinning up an empty runner.
-    if: github.event_name != 'pull_request' && needs.generate-matrix.outputs.has-merges == 'true'
+    if: github.event_name != 'pull_request' && needs.generate-matrix.outputs['has-merges'] == 'true'
     uses: ./.github/workflows/backend_merge.yml
     with:
       tag-latest: ${{ matrix.tag-latest }}

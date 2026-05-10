@@ -163,14 +163,29 @@ function computeMergeMatrix(entries) {
   return { include };
 }
 
+// Split a list of linux matrix entries into single-arch (no platform-tag) and
+// multi-arch (platform-tag set, paired with a sibling entry sharing the same
+// tag-suffix). The two are run as separate matrix jobs so backend-merge-jobs
+// can `needs:` only the multi-arch one — slow single-arch builds (CUDA, ROCm,
+// vLLM, etc.) don't block manifest assembly while their per-arch counterparts'
+// untagged digests sit on quay long enough to be GC'd.
+function splitByArch(entries) {
+  const multiarch = entries.filter(e => e['platform-tag']);
+  const singlearch = entries.filter(e => !e['platform-tag']);
+  return { multiarch, singlearch };
+}
+
 function emitFullMatrix() {
+  const { multiarch, singlearch } = splitByArch(includes);
   const mergeMatrix = computeMergeMatrix(includes);
   const hasMerges = mergeMatrix.include.length > 0 ? 'true' : 'false';
   fs.appendFileSync(process.env.GITHUB_OUTPUT, `run-all=true\n`);
-  fs.appendFileSync(process.env.GITHUB_OUTPUT, `has-backends=true\n`);
+  fs.appendFileSync(process.env.GITHUB_OUTPUT, `has-backends-singlearch=${singlearch.length > 0 ? 'true' : 'false'}\n`);
+  fs.appendFileSync(process.env.GITHUB_OUTPUT, `has-backends-multiarch=${multiarch.length > 0 ? 'true' : 'false'}\n`);
   fs.appendFileSync(process.env.GITHUB_OUTPUT, `has-backends-darwin=true\n`);
   fs.appendFileSync(process.env.GITHUB_OUTPUT, `has-merges=${hasMerges}\n`);
-  fs.appendFileSync(process.env.GITHUB_OUTPUT, `matrix=${JSON.stringify({ include: includes })}\n`);
+  fs.appendFileSync(process.env.GITHUB_OUTPUT, `matrix-singlearch=${JSON.stringify({ include: singlearch })}\n`);
+  fs.appendFileSync(process.env.GITHUB_OUTPUT, `matrix-multiarch=${JSON.stringify({ include: multiarch })}\n`);
   fs.appendFileSync(process.env.GITHUB_OUTPUT, `matrix-darwin=${JSON.stringify({ include: includesDarwin })}\n`);
   fs.appendFileSync(process.env.GITHUB_OUTPUT, `merge-matrix=${JSON.stringify(mergeMatrix)}\n`);
   for (const backend of allBackendPaths.keys()) {
@@ -195,19 +210,24 @@ function emitFilteredMatrix(changedFiles) {
   console.log("Filtered files:", filtered);
   console.log("Filtered files Darwin:", filteredDarwin);
 
-  const hasBackends = filtered.length > 0 ? 'true' : 'false';
+  const { multiarch, singlearch } = splitByArch(filtered);
+  const hasBackendsSinglearch = singlearch.length > 0 ? 'true' : 'false';
+  const hasBackendsMultiarch = multiarch.length > 0 ? 'true' : 'false';
   const hasBackendsDarwin = filteredDarwin.length > 0 ? 'true' : 'false';
-  console.log("Has backends?:", hasBackends);
+  console.log("Has single-arch backends?:", hasBackendsSinglearch);
+  console.log("Has multi-arch backends?:", hasBackendsMultiarch);
   console.log("Has Darwin backends?:", hasBackendsDarwin);
 
   const mergeMatrix = computeMergeMatrix(filtered);
   const hasMerges = mergeMatrix.include.length > 0 ? 'true' : 'false';
 
   fs.appendFileSync(process.env.GITHUB_OUTPUT, `run-all=false\n`);
-  fs.appendFileSync(process.env.GITHUB_OUTPUT, `has-backends=${hasBackends}\n`);
+  fs.appendFileSync(process.env.GITHUB_OUTPUT, `has-backends-singlearch=${hasBackendsSinglearch}\n`);
+  fs.appendFileSync(process.env.GITHUB_OUTPUT, `has-backends-multiarch=${hasBackendsMultiarch}\n`);
   fs.appendFileSync(process.env.GITHUB_OUTPUT, `has-backends-darwin=${hasBackendsDarwin}\n`);
   fs.appendFileSync(process.env.GITHUB_OUTPUT, `has-merges=${hasMerges}\n`);
-  fs.appendFileSync(process.env.GITHUB_OUTPUT, `matrix=${JSON.stringify({ include: filtered })}\n`);
+  fs.appendFileSync(process.env.GITHUB_OUTPUT, `matrix-singlearch=${JSON.stringify({ include: singlearch })}\n`);
+  fs.appendFileSync(process.env.GITHUB_OUTPUT, `matrix-multiarch=${JSON.stringify({ include: multiarch })}\n`);
   fs.appendFileSync(process.env.GITHUB_OUTPUT, `matrix-darwin=${JSON.stringify({ include: filteredDarwin })}\n`);
   fs.appendFileSync(process.env.GITHUB_OUTPUT, `merge-matrix=${JSON.stringify(mergeMatrix)}\n`);
 

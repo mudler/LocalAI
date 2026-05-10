@@ -32,11 +32,13 @@ jobs:
     if: github.repository == 'mudler/LocalAI'
     runs-on: ubuntu-latest
     outputs:
-      matrix: ${{ steps.set-matrix.outputs.matrix }}
-      matrix-darwin: ${{ steps.set-matrix.outputs.matrix-darwin }}
+      matrix-singlearch: ${{ steps.set-matrix.outputs['matrix-singlearch'] }}
+      matrix-multiarch: ${{ steps.set-matrix.outputs['matrix-multiarch'] }}
+      matrix-darwin: ${{ steps.set-matrix.outputs['matrix-darwin'] }}
       merge-matrix: ${{ steps.set-matrix.outputs['merge-matrix'] }}
-      has-backends: ${{ steps.set-matrix.outputs.has-backends }}
-      has-backends-darwin: ${{ steps.set-matrix.outputs.has-backends-darwin }}
+      has-backends-singlearch: ${{ steps.set-matrix.outputs['has-backends-singlearch'] }}
+      has-backends-multiarch: ${{ steps.set-matrix.outputs['has-backends-multiarch'] }}
+      has-backends-darwin: ${{ steps.set-matrix.outputs['has-backends-darwin'] }}
       has-merges: ${{ steps.set-matrix.outputs['has-merges'] }}
     steps:
       - name: Checkout repository
@@ -53,6 +55,9 @@ jobs:
       # Filter the backend matrix from .github/backend-matrix.yml against the
       # files changed by this push. Tag pushes set FORCE_ALL=true so the script
       # falls through to the full matrix (releases must rebuild everything).
+      # The script splits the linux matrix into single-arch and multi-arch
+      # groups so backend-merge-jobs can `needs:` only the multi-arch one —
+      # see the comment block above the merge job for context.
       - name: Filter matrix for changed backends
         id: set-matrix
         env:
@@ -61,9 +66,14 @@ jobs:
           FORCE_ALL: ${{ startsWith(github.ref, 'refs/tags/') && 'true' || 'false' }}
         run: bun run scripts/changed-backends.js
 
-  backend-jobs:
+  # Multi-arch backends — entries with a `platform-tag` set, paired with a
+  # sibling entry sharing the same `tag-suffix` (one amd64 leg, one arm64
+  # leg). Their digests are the inputs to backend-merge-jobs, so they're in
+  # their own matrix to bound how long the merge waits before quay GCs the
+  # untagged digests.
+  backend-jobs-multiarch:
     needs: generate-matrix
-    if: needs.generate-matrix.outputs.has-backends == 'true'
+    if: needs.generate-matrix.outputs['has-backends-multiarch'] == 'true'
     uses: ./.github/workflows/backend_build.yml
     with:
       tag-latest: ${{ matrix.tag-latest }}
@@ -90,11 +100,53 @@ jobs:
     strategy:
       fail-fast: false
       max-parallel: 8
-      matrix: ${{ fromJson(needs.generate-matrix.outputs.matrix) }}
+      matrix: ${{ fromJson(needs.generate-matrix.outputs['matrix-multiarch']) }}
 
+  # Single-arch backends — no `platform-tag`. Heavy ones (CUDA, ROCm, Intel
+  # oneAPI, vLLM/sglang) live here. Independent of the merge job: they can
+  # take their full ~6h cold without blocking manifest assembly for the
+  # multi-arch backends whose per-arch digests would otherwise sit untagged
+  # on quay long enough to be GC'd.
+  backend-jobs-singlearch:
+    needs: generate-matrix
+    if: needs.generate-matrix.outputs['has-backends-singlearch'] == 'true'
+    uses: ./.github/workflows/backend_build.yml
+    with:
+      tag-latest: ${{ matrix.tag-latest }}
+      tag-suffix: ${{ matrix.tag-suffix }}
+      build-type: ${{ matrix.build-type }}
+      cuda-major-version: ${{ matrix.cuda-major-version }}
+      cuda-minor-version: ${{ matrix.cuda-minor-version }}
+      platforms: ${{ matrix.platforms }}
+      platform-tag: ${{ matrix.platform-tag || '' }}
+      runs-on: ${{ matrix.runs-on }}
+      builder-base-image: ${{ matrix.builder-base-image || '' }}
+      base-image: ${{ matrix.base-image }}
+      backend: ${{ matrix.backend }}
+      dockerfile: ${{ matrix.dockerfile }}
+      skip-drivers: ${{ matrix.skip-drivers }}
+      context: ${{ matrix.context }}
+      ubuntu-version: ${{ matrix.ubuntu-version }}
+      amdgpu-targets: ${{ matrix.amdgpu-targets || 'gfx908,gfx90a,gfx942,gfx950,gfx1030,gfx1100,gfx1101,gfx1102,gfx1151,gfx1200,gfx1201' }}
+    secrets:
+      dockerUsername: ${{ secrets.DOCKERHUB_USERNAME }}
+      dockerPassword: ${{ secrets.DOCKERHUB_PASSWORD }}
+      quayUsername: ${{ secrets.LOCALAI_REGISTRY_USERNAME }}
+      quayPassword: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
+    strategy:
+      fail-fast: false
+      max-parallel: 8
+      matrix: ${{ fromJson(needs.generate-matrix.outputs['matrix-singlearch']) }}
+
+  # Merge per-arch digests into manifest lists. Depends ONLY on
+  # backend-jobs-multiarch — single-arch builds are independent and slow.
+  # Without this split, a 6h CUDA-12 single-arch job would gate the merge,
+  # leaving multi-arch digests untagged on quay long enough for quay's
+  # garbage collector to reap them and the merge step to fail with
+  # "manifest not found".
   backend-merge-jobs:
-    needs: [generate-matrix, backend-jobs]
-    if: needs.generate-matrix.outputs.has-merges == 'true'
+    needs: [generate-matrix, backend-jobs-multiarch]
+    if: needs.generate-matrix.outputs['has-merges'] == 'true'
     uses: ./.github/workflows/backend_merge.yml
     with:
       tag-latest: ${{ matrix.tag-latest }}
